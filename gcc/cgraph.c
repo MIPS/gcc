@@ -1049,8 +1049,8 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "updating call of %s/%i -> %s/%i: ",
-	       xstrdup (cgraph_node_name (e->caller)), e->caller->uid,
-	       xstrdup (cgraph_node_name (e->callee)), e->callee->uid);
+	       xstrdup (cgraph_node_name (e->caller)), e->caller->symbol.order,
+	       xstrdup (cgraph_node_name (e->callee)), e->callee->symbol.order);
       print_gimple_stmt (cgraph_dump_file, e->call_stmt, 0, dump_flags);
       if (e->callee->clone.combined_args_to_skip)
 	{
@@ -1068,6 +1068,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	= gimple_call_copy_skip_args (e->call_stmt,
 				      e->callee->clone.combined_args_to_skip);
       gimple_call_set_fndecl (new_stmt, e->callee->symbol.decl);
+      gimple_call_set_fntype (new_stmt, gimple_call_fntype (e->call_stmt));
 
       if (gimple_vdef (new_stmt)
 	  && TREE_CODE (gimple_vdef (new_stmt)) == SSA_NAME)
@@ -1409,7 +1410,14 @@ cgraph_remove_node (struct cgraph_node *node)
 void
 cgraph_mark_address_taken_node (struct cgraph_node *node)
 {
-  gcc_assert (!node->global.inlined_to);
+  /* Indirect inlining can figure out that all uses of the address are
+     inlined.  */
+  if (node->global.inlined_to)
+    {
+      gcc_assert (cfun->after_inlining);
+      gcc_assert (node->callers->indirect_inlining_edge);
+      return;
+    }
   /* FIXME: address_taken flag is used both as a shortcut for testing whether
      IPA_REF_ADDR reference exists (and thus it should be set on node
      representing alias we take address of) and as a test whether address
@@ -1551,7 +1559,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       (int)node->thunk.virtual_value,
 	       (int)node->thunk.virtual_offset_p);
     }
-  if (node->alias && node->thunk.alias)
+  if (node->alias && node->thunk.alias && DECL_P (node->thunk.alias))
     {
       fprintf (f, "  Alias of %s",
 	       lang_hooks.decl_printable_name (node->thunk.alias, 2));
@@ -2637,11 +2645,12 @@ cgraph_get_create_real_symbol_node (tree decl)
       if (dump_file)
 	fprintf (dump_file, "Introduced new external node "
 		 "(%s/%i) and turned into root of the clone tree.\n",
-		 xstrdup (cgraph_node_name (node)), node->uid);
+		 xstrdup (cgraph_node_name (node)), node->symbol.order);
     }
   else if (dump_file)
     fprintf (dump_file, "Introduced new external node "
-	     "(%s/%i).\n", xstrdup (cgraph_node_name (node)), node->uid);
+	     "(%s/%i).\n", xstrdup (cgraph_node_name (node)),
+	     node->symbol.order);
   return node;
 }
 #include "gt-cgraph.h"

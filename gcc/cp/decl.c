@@ -1024,6 +1024,7 @@ decls_match (tree newdecl, tree olddecl)
 	  else
 	    types_match =
 	      compparms (p1, p2)
+	      && type_memfn_rqual (f1) == type_memfn_rqual (f2)
 	      && (TYPE_ATTRIBUTES (TREE_TYPE (newdecl)) == NULL_TREE
 	          || comp_type_attributes (TREE_TYPE (newdecl),
 					   TREE_TYPE (olddecl)) != 0);
@@ -5064,7 +5065,7 @@ reshape_init_array_1 (tree elt_type, tree max_index, reshape_iter *d,
 		      tsubst_flags_t complain)
 {
   tree new_init;
-  bool sized_array_p = (max_index != NULL_TREE);
+  bool sized_array_p = (max_index && TREE_CONSTANT (max_index));
   unsigned HOST_WIDE_INT max_index_cst = 0;
   unsigned HOST_WIDE_INT index;
 
@@ -5199,6 +5200,9 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
       /* Handle designated initializers, as an extension.  */
       if (d->cur->index)
 	{
+	  if (d->cur->index == error_mark_node)
+	    return error_mark_node;
+
 	  if (TREE_CODE (d->cur->index) == INTEGER_CST)
 	    {
 	      if (complain & tf_error)
@@ -5514,15 +5518,12 @@ check_array_initializer (tree decl, tree type, tree init)
 	error ("elements of array %q#T have incomplete type", type);
       return true;
     }
-  /* It is not valid to initialize a VLA.  */
-  if (init
+  /* A compound literal can't have variable size.  */
+  if (init && !decl
       && ((COMPLETE_TYPE_P (type) && !TREE_CONSTANT (TYPE_SIZE (type)))
 	  || !TREE_CONSTANT (TYPE_SIZE (element_type))))
     {
-      if (decl)
-	error ("variable-sized object %qD may not be initialized", decl);
-      else
-	error ("variable-sized compound literal");
+      error ("variable-sized compound literal");
       return true;
     }
   return false;
@@ -6404,6 +6405,21 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
   else if (TREE_CODE (decl) == FIELD_DECL
 	   && TYPE_FOR_JAVA (type) && MAYBE_CLASS_TYPE_P (type))
     error ("non-static data member %qD has Java class type", decl);
+
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+    {
+      /* If the VLA bound is larger than half the address space, or less
+	 than zero, throw std::bad_array_length.  */
+      tree max = convert (ssizetype, TYPE_MAX_VALUE (TYPE_DOMAIN (type)));
+      /* C++1y says we should throw for length <= 0, but we have
+	 historically supported zero-length arrays.  Let's treat that as an
+	 extension to be disabled by -std=c++NN.  */
+      int lower = flag_iso ? 0 : -1;
+      tree comp = build2 (LT_EXPR, boolean_type_node, max, ssize_int (lower));
+      comp = build3 (COND_EXPR, void_type_node, comp,
+		     throw_bad_array_length (), void_zero_node);
+      finish_expr_stmt (comp);
+    }
 
   /* Add this declaration to the statement-tree.  This needs to happen
      after the call to check_initializer so that the DECL_EXPR for a
@@ -8289,7 +8305,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	error ("size of array is not an integral constant-expression");
       size = integer_one_node;
     }
-  else if (pedantic && warn_vla != 0)
+  else if (cxx_dialect < cxx1y && pedantic && warn_vla != 0)
     {
       if (name)
 	pedwarn (input_location, OPT_Wvla, "ISO C++ forbids variable length array %qD", name);
@@ -8466,6 +8482,9 @@ create_array_type_for_decl (tree name, tree type, tree size)
 
       return error_mark_node;
     }
+
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+    pedwarn (input_location, OPT_Wvla, "array of array of runtime bound");
 
   /* Figure out the index type for the array.  */
   if (size)
@@ -9563,6 +9582,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 		if (rqual)
 		  {
+		    maybe_warn_cpp0x (CPP0X_REF_QUALIFIER);
 		    error ((flags == DTOR_FLAG)
 			   ? "destructors may not be ref-qualified"
 			   : "constructors may not be ref-qualified");
@@ -9706,6 +9726,12 @@ grokdeclarator (const cp_declarator *declarator,
                    ? G_("cannot declare reference to qualified function type %qT")
                    : G_("cannot declare pointer to qualified function type %qT"),
 		   type);
+
+	  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+	    pedwarn (input_location, OPT_Wvla,
+		     declarator->kind == cdk_reference
+		     ? G_("reference to array of runtime bound")
+		     : G_("pointer to array of runtime bound"));
 
 	  /* When the pointed-to type involves components of variable size,
 	     care must be taken to ensure that the size evaluation code is
@@ -10061,6 +10087,10 @@ grokdeclarator (const cp_declarator *declarator,
 	  type = error_mark_node;
 	}
 
+      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+	pedwarn (input_location, OPT_Wvla,
+		 "typedef naming array of runtime bound");
+
       if (decl_context == FIELD)
 	decl = build_lang_decl (TYPE_DECL, unqualified_id, type);
       else
@@ -10257,7 +10287,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      type = void_type_node;
 	    }
 	}
-      else if (memfn_quals)
+      else if (memfn_quals || rqual)
 	{
 	  if (ctype == NULL_TREE
 	      && TREE_CODE (type) == METHOD_TYPE)
@@ -10265,8 +10295,10 @@ grokdeclarator (const cp_declarator *declarator,
 
 	  if (ctype)
 	    type = build_memfn_type (type, ctype, memfn_quals, rqual);
-	  /* Core issue #547: need to allow this in template type args.  */
-	  else if (template_type_arg && TREE_CODE (type) == FUNCTION_TYPE)
+	  /* Core issue #547: need to allow this in template type args.
+	     Allow it in general in C++11 for alias-declarations.  */
+	  else if ((template_type_arg || cxx_dialect >= cxx11)
+		   && TREE_CODE (type) == FUNCTION_TYPE)
 	    type = apply_memfn_quals (type, memfn_quals, rqual);
 	  else
 	    error ("invalid qualifiers on non-member function type");
@@ -14385,10 +14417,15 @@ fndecl_declared_return_type (tree fn)
 {
   fn = STRIP_TEMPLATE (fn);
   if (FNDECL_USED_AUTO (fn))
-    return (DECL_STRUCT_FUNCTION (fn)->language
-	    ->x_auto_return_pattern);
-  else
-    return TREE_TYPE (TREE_TYPE (fn));
+    {
+      struct language_function *f = NULL;
+      if (DECL_STRUCT_FUNCTION (fn))
+	f = DECL_STRUCT_FUNCTION (fn)->language;
+      if (f == NULL)
+	f = DECL_SAVED_FUNCTION_DATA (fn);
+      return f->x_auto_return_pattern;
+    }
+  return TREE_TYPE (TREE_TYPE (fn));
 }
 
 /* Returns true iff DECL was declared with an auto return type and it has

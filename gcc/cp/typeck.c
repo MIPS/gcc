@@ -851,6 +851,7 @@ merge_types (tree t1, tree t2)
 	tree raises = merge_exception_specifiers (TYPE_RAISES_EXCEPTIONS (t1),
 						  TYPE_RAISES_EXCEPTIONS (t2),
 						  NULL_TREE);
+	cp_ref_qualifier rqual = type_memfn_rqual (t1);
 	tree t3;
 
 	/* If this was a member function type, get back to the
@@ -864,6 +865,7 @@ merge_types (tree t1, tree t2)
 	t3 = build_method_type_directly (basetype, TREE_TYPE (t3),
 					 TYPE_ARG_TYPES (t3));
 	t1 = build_exception_variant (t3, raises);
+	t1 = build_ref_qualified_type (t1, rqual);
 	break;
       }
 
@@ -1545,6 +1547,15 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
       value = build_min (op, size_type_node, type);
       TREE_READONLY (value) = 1;
       return value;
+    }
+
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+    {
+      if (complain & tf_warning_or_error)
+	pedwarn (input_location, OPT_Wvla,
+		 "taking sizeof array of runtime bound");
+      else
+	return error_mark_node;
     }
 
   return c_sizeof_or_alignof_type (input_location, complete_type (type),
@@ -2788,6 +2799,19 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
   return expr;
 }
 
+/* Build a COMPONENT_REF of OBJECT and MEMBER with the appropriate
+   type.  */
+
+tree
+build_simple_component_ref (tree object, tree member)
+{
+  tree type = cp_build_qualified_type (TREE_TYPE (member),
+				       cp_type_quals (TREE_TYPE (object)));
+  return fold_build3_loc (input_location,
+			  COMPONENT_REF, type,
+			  object, member, NULL_TREE);
+}
+
 /* Return an expression for the MEMBER_NAME field in the internal
    representation of PTRMEM, a pointer-to-member function.  (Each
    pointer-to-member function type gets its own RECORD_TYPE so it is
@@ -2800,7 +2824,6 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
 {
   tree ptrmem_type;
   tree member;
-  tree member_type;
 
   /* This code is a stripped down version of
      build_class_member_access_expr.  It does not work to use that
@@ -2810,11 +2833,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
   gcc_assert (TYPE_PTRMEMFUNC_P (ptrmem_type));
   member = lookup_member (ptrmem_type, member_name, /*protect=*/0,
 			  /*want_type=*/false, tf_warning_or_error);
-  member_type = cp_build_qualified_type (TREE_TYPE (member),
-					 cp_type_quals (ptrmem_type));
-  return fold_build3_loc (input_location,
-		      COMPONENT_REF, member_type,
-		      ptrmem, member, NULL_TREE);
+  return build_simple_component_ref (ptrmem, member);
 }
 
 /* Given an expression PTR for a pointer, return an expression
@@ -5308,7 +5327,17 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
     }
 
   if (argtype != error_mark_node)
-    argtype = build_pointer_type (argtype);
+    {
+      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (argtype))
+	{
+	  if (complain & tf_warning_or_error)
+	    pedwarn (input_location, OPT_Wvla,
+		     "taking address of array of runtime bound");
+	  else
+	    return error_mark_node;
+	}
+      argtype = build_pointer_type (argtype);
+    }
 
   /* In a template, we are processing a non-dependent expression
      so we can just form an ADDR_EXPR with the correct type.  */
@@ -8113,6 +8142,7 @@ maybe_warn_about_returning_address_of_local (tree retval)
   if (DECL_P (whats_returned)
       && DECL_NAME (whats_returned)
       && DECL_FUNCTION_SCOPE_P (whats_returned)
+      && !is_capture_proxy (whats_returned)
       && !(TREE_STATIC (whats_returned)
 	   || TREE_PUBLIC (whats_returned)))
     {
@@ -8339,7 +8369,7 @@ check_return_expr (tree retval, bool *no_warning)
      && DECL_CONTEXT (retval) == current_function_decl
      && ! TREE_STATIC (retval)
      && ! DECL_ANON_UNION_VAR_P (retval)
-     && (DECL_ALIGN (retval) >= DECL_ALIGN (result))
+     && (DECL_ALIGN (retval) <= DECL_ALIGN (result))
      /* The cv-unqualified type of the returned value must be the
         same as the cv-unqualified return type of the
         function.  */

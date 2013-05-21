@@ -3045,33 +3045,7 @@ a:
 	tls_first_major=0
 	tls_first_minor=0
 	;;
-  powerpc-*-*)
-    conftest_s='
-	.section ".tdata","awT",@progbits
-	.align 2
-ld0:	.space 4
-ld1:	.space 4
-x1:	.space 4
-x2:	.space 4
-x3:	.space 4
-	.text
-	addi 3,31,ld0@got@tlsgd
-	bl __tls_get_addr
-	addi 3,31,x1@got@tlsld
-	bl __tls_get_addr
-	addi 9,3,x1@dtprel
-	addis 9,3,x2@dtprel@ha
-	addi 9,9,x2@dtprel@l
-	lwz 9,x3@got@tprel(31)
-	add 9,9,x@tls
-	addi 9,2,x1@tprel
-	addis 9,2,x2@tprel@ha
-	addi 9,9,x2@tprel@l'
-	tls_first_major=2
-	tls_first_minor=14
-	tls_as_opt="-a32 --fatal-warnings"
-	;;
-  powerpc64-*-*)
+  powerpc64*-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
 	.align 3
@@ -3104,6 +3078,32 @@ x3:	.space 8
 	tls_first_major=2
 	tls_first_minor=14
 	tls_as_opt="-a64 --fatal-warnings"
+	;;
+  powerpc*-*-*)
+    conftest_s='
+	.section ".tdata","awT",@progbits
+	.align 2
+ld0:	.space 4
+ld1:	.space 4
+x1:	.space 4
+x2:	.space 4
+x3:	.space 4
+	.text
+	addi 3,31,ld0@got@tlsgd
+	bl __tls_get_addr
+	addi 3,31,x1@got@tlsld
+	bl __tls_get_addr
+	addi 9,3,x1@dtprel
+	addis 9,3,x2@dtprel@ha
+	addi 9,9,x2@dtprel@l
+	lwz 9,x3@got@tprel(31)
+	add 9,9,x@tls
+	addi 9,2,x1@tprel
+	addis 9,2,x2@tprel@ha
+	addi 9,9,x2@tprel@l'
+	tls_first_major=2
+	tls_first_minor=14
+	tls_as_opt="-a32 --fatal-warnings"
 	;;
   s390-*-*)
     conftest_s='
@@ -4560,6 +4560,23 @@ elif test x$gcc_cv_ld != x; then
 	  esac
 	fi
 fi
+# --as-needed/-z ignore can only be used if libgcc_s.so.1 uses
+# dl_iterate_phdr, i.e. since Solaris 11.
+case "$target" in
+  *-*-solaris2.1[[1-9]]*)
+    case "$target" in
+    i?86-*-* | x86_64-*-*)
+      if echo "$ld_ver" | grep GNU > /dev/null; then
+        # Doesn't work with gld on Solaris/x86 due to PR ld/12320.
+        gcc_cv_ld_as_needed=no
+      fi
+      ;;
+    esac
+    ;;
+  *-*-solaris2*)
+    gcc_cv_ld_as_needed=no
+    ;;
+esac
 ])
 if test x"$gcc_cv_ld_as_needed" = xyes; then
 	AC_DEFINE(HAVE_LD_AS_NEEDED, 1,
@@ -4680,7 +4697,7 @@ EOF
     ])
     if test x"$gcc_cv_ld_large_toc" = xyes; then
       AC_DEFINE(HAVE_LD_LARGE_TOC, 1,
-    [Define if your AIX linker supports a large TOC.])
+    [Define if your PowerPC64 linker supports a large TOC.])
     fi
     ;;
 esac
@@ -4940,6 +4957,24 @@ else
   MAINT='#'
 fi
 AC_SUBST(MAINT)dnl
+
+dnl Whether to prevent multiple front-ends from linking at the same time
+
+AC_MSG_CHECKING([whether to avoid linking multiple front-ends at once])
+  AC_ARG_ENABLE(link-mutex,
+[AS_HELP_STRING([--enable-link-mutex],
+		[avoid linking multiple front-ends at once to avoid thrashing
+		 on the build machine])],
+      do_link_mutex=$enableval,
+      do_link_mutex=no)
+AC_MSG_RESULT($do_link_mutex)
+
+if test "$do_link_mutex" = "yes"; then
+   DO_LINK_MUTEX=true
+else
+   DO_LINK_MUTEX=false
+fi
+AC_SUBST(DO_LINK_MUTEX)
 
 # --------------
 # Language hooks

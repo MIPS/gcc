@@ -829,10 +829,12 @@ build_cplus_array_type (tree elt_type, tree index_type)
 
       if (TYPE_MAIN_VARIANT (t) != m)
 	{
-	  if (COMPLETE_TYPE_P (t) && !COMPLETE_TYPE_P (m))
+	  if (COMPLETE_TYPE_P (TREE_TYPE (t)) && !COMPLETE_TYPE_P (m))
 	    {
 	      /* m was built before the element type was complete, so we
-		 also need to copy the layout info from t.  */
+		 also need to copy the layout info from t.  We might
+	         end up doing this multiple times if t is an array of
+	         unknown bound.  */
 	      tree size = TYPE_SIZE (t);
 	      tree size_unit = TYPE_SIZE_UNIT (t);
 	      unsigned int align = TYPE_ALIGN (t);
@@ -869,6 +871,21 @@ tree
 build_array_of_n_type (tree elt, int n)
 {
   return build_cplus_array_type (elt, build_index_type (size_int (n - 1)));
+}
+
+/* True iff T is a C++1y array of runtime bound (VLA).  */
+
+bool
+array_of_runtime_bound_p (tree t)
+{
+  if (!t || TREE_CODE (t) != ARRAY_TYPE)
+    return false;
+  tree dom = TYPE_DOMAIN (t);
+  if (!dom)
+    return false;
+  tree max = TYPE_MAX_VALUE (dom);
+  return (!value_dependent_expression_p (max)
+	  && !TREE_CONSTANT (max));
 }
 
 /* Return a reference type node referring to TO_TYPE.  If RVAL is

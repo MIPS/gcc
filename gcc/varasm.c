@@ -402,12 +402,16 @@ get_named_section (tree decl, const char *name, int reloc)
 {
   unsigned int flags;
 
-  gcc_assert (!decl || DECL_P (decl));
   if (name == NULL)
-    name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+    {
+      gcc_assert (decl && DECL_P (decl) && DECL_SECTION_NAME (decl));
+      name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+    }
 
   flags = targetm.section_type_flags (decl, name, reloc);
 
+  if (decl && !DECL_P (decl))
+    decl = NULL_TREE;
   return get_section (name, flags, decl);
 }
 
@@ -5990,7 +5994,7 @@ default_section_type_flags (tree decl, const char *name, int reloc)
 	flags |= SECTION_RELRO;
     }
 
-  if (decl && DECL_ONE_ONLY (decl))
+  if (decl && DECL_P (decl) && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
   if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))
@@ -6349,8 +6353,6 @@ default_elf_select_section (tree decl, int reloc,
       gcc_unreachable ();
     }
 
-  if (!DECL_P (decl))
-    decl = NULL_TREE;
   return get_named_section (decl, sname, reloc);
 }
 
@@ -6578,9 +6580,9 @@ default_use_anchors_for_symbol_p (const_rtx symbol)
   decl = SYMBOL_REF_DECL (symbol);
   if (decl && DECL_P (decl))
     {
-      /* Don't use section anchors for decls that might be defined by
-	 other modules.  */
-      if (!targetm.binds_local_p (decl))
+      /* Don't use section anchors for decls that might be defined or
+	 usurped by other modules.  */
+      if (TREE_PUBLIC (decl) && !decl_binds_to_current_def_p (decl))
 	return false;
 
       /* Don't use section anchors for decls that will be placed in a

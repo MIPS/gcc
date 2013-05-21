@@ -1,3 +1,209 @@
+2013-05-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57016
+	* pt.c (instantiation_dependent_r) [TRAIT_EXPR]: Only check type2
+	if there is one.
+
+	PR c++/57102
+	* decl.c (fndecl_declared_return_type): Also look in
+	DECL_SAVED_FUNCTION_DATA.
+
+2013-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/12288
+	* parser.c (cp_parser_parameter_declaration): Check return value
+	of cp_parser_parse_and_diagnose_invalid_type_name.
+
+2013-05-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57319
+	* class.c (vbase_has_user_provided_move_assign): New.
+	* method.c (synthesized_method_walk): Check it.
+	* cp-tree.h: Declare it.
+
+	PR c++/57325
+	* tree.c (build_cplus_array_type): Copy layout info if element
+	type is complete.
+
+2013-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/23608
+	* call.c (build_new_op_1): Propagate loc to cp_build_binary_op.
+
+2013-05-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57317
+	* decl2.c (determine_visibility): Use PRIMARY_TEMPLATE_P to decide
+	whether a template has its own args.
+
+2013-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57327
+	* pt.c (unify_no_common_base): Swap arg and parm arguments to inform.
+
+2013-05-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/10207
+	* parser.c (cp_parser_postfix_expression): Use cp_parser_braced_list
+	instead of cp_parser_initializer_list for compound-literals.
+
+2013-05-20  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/57175
+	* typeck.c (check_return_expr): Reverse the alignment comparison.
+
+2013-05-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/18126
+	* parser.c (cp_parser_sizeof_operand): As a GNU Extension, parse
+	correctly sizeof compound-literal; update comments.
+
+2013-05-16  Marc Glisse  <marc.glisse@inria.fr>
+
+	* call.c (build_conditional_expr_1): Use cp_build_binary_op
+	instead of directly calling fold_build2.
+
+2013-05-16  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (cc1plus$(exeext)): Use link mutex.
+
+	PR c++/57279
+	* decl.c (grokdeclarator): Allow member function qualifiers in
+	TYPENAME context in C++11 mode.
+
+2013-05-16  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/56782 - Regression with empty pack expansions
+	* pt.c (use_pack_expansion_extra_args_p): When at least a
+	parameter pack has an empty argument pack, and another parameter
+	pack has no argument pack at all, use the PACK_EXPANSION_EXTRA
+	mechanism.
+
+2013-05-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* name-lookup.c (pushdecl_maybe_friend_1): Replace pairs of
+	warning_at and permerror with warning_at/inform and permerror/
+	inform, respectively.
+
+2013-05-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/31952
+	* name-lookup.c (pushdecl_maybe_friend_1): Diagnose illegal
+	redeclarations.
+
+2013-05-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57243
+	* parser.c (cp_parser_range_for): Call complete_type.
+
+	PR c++/57041
+	* pt.c (tsubst_copy_and_build): Don't recur into a designator.
+
+2013-05-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53903
+	* method.c (defaulted_late_check): Check for compatible exception
+	specification out of class explicitly defaulted functions too.
+
+2013-05-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56998
+	* semantics.c (potential_constant_expression_1): Make sure the
+	called function is potentially constant.
+	* call.c (null_ptr_cst_p): Revert earlier change.
+
+2013-05-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56998
+	* call.c (null_ptr_cst_p): An expression with side-effects can't
+	be a C++03 null pointer constant.
+
+	PR c++/57041
+	* decl.c (reshape_init_class): Handle error_mark_node.
+
+	PR c++/57254
+	* typeck.c (merge_types): Propagate ref-qualifier
+	in METHOD_TYPE case.
+
+	PR c++/57253
+	* decl.c (grokdeclarator): Apply ref-qualifier
+	in the TYPENAME case.
+
+	PR c++/57252
+	* decl.c (decls_match): Compare ref-qualifiers.
+
+2013-05-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57196
+	* pt.c (convert_template_argument): Use dependent_template_arg_p,
+	not uses_template_parms.
+
+	PR c++/57047
+	* semantics.c (cxx_fold_indirect_ref): Fix thinko.
+
+	PR c++/55149
+	* semantics.c (add_capture): Error rather than abort on copy
+	capture of VLA.
+	* typeck.c (maybe_warn_about_returning_address_of_local): Don't
+	warn about capture proxy.
+
+2013-05-09  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (cp_finish_decl): Only check VLA bound in C++1y mode.
+
+	PR c++/57222
+	* pt.c (lookup_template_class_1): Handle getting a template
+	template parameter as D1.
+
+	N3639 C++1y VLA diagnostics
+	* decl.c (grokdeclarator): Complain about reference, pointer, or
+	typedef to VLA.
+	(create_array_type_for_decl): Complain about array of VLA.
+	* pt.c (tsubst): Likewise.
+	* rtti.c (get_tinfo_decl): Talk about "array of runtime bound".
+	* semantics.c (finish_decltype_type): Complain about decltype of VLA.
+	* typeck.c (cp_build_addr_expr_1): Complain about VLA.
+	(cxx_sizeof_or_alignof_type): Likewise.
+
+	N3639 C++1y VLA support
+	* decl.c (compute_array_index_type): Allow VLAs in C++1y mode.
+	(check_array_initializer): Allow VLA init.
+	(reshape_init_array_1): Adjust.
+	(cp_finish_decl): Check for invalid VLA length.
+	* typeck2.c (process_init_constructor_array): Adjust.
+	(store_init_value): Use build_vec_init for VLAs.
+	* semantics.c (add_capture): Capture VLA as ptr+len.
+	(vla_capture_type): New.
+	(build_capture_proxy): Rebuild the VLA.
+	* typeck.c (build_simple_component_ref): Split out from...
+	(build_ptrmemfunc_access_expr): ...here.
+	* tree.c (array_of_runtime_bound_p): New.
+	* init.c (throw_bad_array_length): New.
+	(build_vec_init): Use it.
+	* parser.c (cp_convert_range_for): When iterating over a VLA,
+	use it directly rather than bind a reference.
+	* cp-tree.h: Declare new functions.
+
+2013-05-08  Jason Merrill  <jason@redhat.com>
+
+	* except.c (is_admissible_throw_operand_or_catch_parameter): Check
+	variably_modified_type_p.
+	(expand_start_catch_block): Mark the typeinfo used here.
+	* semantics.c (finish_handler_parms): Not here.
+
+	* error.c (dump_type_suffix): Try harder on VLA length.
+
+	Core 624/N2932
+	* init.c (throw_bad_array_new_length): New.
+	(build_new_1): Use it.  Don't warn about braced-init-list.
+	(build_vec_init): Use it.
+	* call.c (build_operator_new_call): Use it.
+
+	PR c++/57068
+	* decl.c (grokdeclarator): Warn about ref-qualifiers here.
+	* parser.c (cp_parser_ref_qualifier_seq_opt): Not here.
+	* error.c (maybe_warn_cpp0x): s/0x/11/.
+
 2013-05-08  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51226
