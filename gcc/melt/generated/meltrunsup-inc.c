@@ -3034,11 +3034,6 @@ melthookproc_HOOK_NAMED_SYMBOL (const char *meltin_NAM_p0,
   melt_assertmsg ("check predefhook name HOOK_NAMED_SYMBOL",
 		  !strncmp (melthkp->hookname,
 			    "HOOK_NAMED_SYMBOL", MELT_HOOKNAME_LEN - 1));
-  /* check hook data HOOK_NAMED_SYMBOL */
-  melt_assertmsg
-    ("good predefhook data hash HOOK_NAMED_SYMBOL or bootstrapping",
-     melt_flag_bootstrapping != 0
-     || melt_obj_hash (melthkp->hookdata) == 454033420);
   return (*melthookptr_HOOK_NAMED_SYMBOL) ((melt_ptr_t) melthkp,
 					   meltin_NAM_p0, meltin_CREATE_p1);
 #endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */

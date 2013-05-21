@@ -1,5 +1,13 @@
 
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt
+	(generate_runtypesupport_predefined_hooks) Remove the emission of
+	the check of the data hash.
+
+	* melt/generated/meltrunsup-inc.c
+	(melthookproc_HOOK_NAMED_SYMBOL): Manually remove that check.
+
+2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (meltgc_named_symbol): Remove declaration.
 

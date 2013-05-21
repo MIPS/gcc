@@ -3826,15 +3826,6 @@ melt_scanning (melt_ptr_t p)
 					   "$HKNAME", MELT_HOOKNAME_LEN-1));}#
 		  )
                  (add2sbuf_indentnl outcodebuf 1)
-                 (add2out
-                  outcodebuf
-		  ##{ /* check hook data $HKNAME */
-                  melt_assertmsg("good predefhook data hash $HKNAME or bootstrapping", melt_flag_bootstrapping != 0
-				 || melt_obj_hash (melthkp->hookdata) == }#)
-		  
-                 (add2out outcodebuf (obj_hash hkdata))
-		 (add2out outcodebuf ");")
-                 (add2sbuf_indentnl outcodebuf 1)
                   (add2out
                   outcodebuf ##{return (*melthookptr_$HKNAME) ((melt_ptr_t)melthkp}#
                                                             )
