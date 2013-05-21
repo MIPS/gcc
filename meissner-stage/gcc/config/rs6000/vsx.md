@@ -1132,28 +1132,45 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 
-;; Logical operations Do not support TImode logical instructions on 32-bit at
-;; present, because the compiler will see that we have a TImode and when it
-;; wanted DImode, and convert the DImode to TImode, store it on the stack, and
-;; load it in a VSX register.  When we are splitting the operations to GPRs, we
-;; use three alternatives, two where the first/second inputs and output are in
-;; the same register, and the third where the output specifies an early
-;; clobber so that we don't have to worry about overlapping registers.
+;; Logical operations.  If we have quad memory, we allow doing these operations
+;; in GPRs to allow for the use of the quad word atomic load/store operations.
+;; Do not support TImode logical instructions on 32-bit at present, because the
+;; compiler will see that we have a TImode and when it wanted DImode, and
+;; convert the DImode to TImode, store it on the stack, and load it in a VSX
+;; register.
 
-(define_insn_and_split "vsx_and<mode>3"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,&?wr")
+;; When we are splitting the operations to GPRs, we use three alternatives, two
+;; where the first/second inputs and output are in the same register, and the
+;; third where the output specifies an early clobber so that we don't have to
+;; worry about overlapping registers.
+
+(define_insn "*vsx_and<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
+        (and:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "%wa")
+		   (match_operand:VSX_L 2 "vlogical_operand" "wa")))
+   (clobber (match_scratch:CC 3 "X"))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxland %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_and<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,?wr,&?wr")
         (and:VSX_L
-	 (match_operand:VSX_L 1 "register_operand" "%wa,0,wr,wr")
-	 (match_operand:VSX_L 2 "register_operand" "wa,wr,0,wr")))
+	 (match_operand:VSX_L 1 "vlogical_operand" "%wa,0,wr,wr")
+	 (match_operand:VSX_L 2 "vlogical_operand" "wa,wr,0,wr")))
    (clobber (match_scratch:CC 3 "X,X,X,X"))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
    xxland %x0,%x1,%x2
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(parallel [(set (match_dup 4) (and:DI (match_dup 5) (match_dup 6)))
 	      (clobber (match_dup 3))])
    (parallel [(set (match_dup 7) (and:DI (match_dup 8) (match_dup 9)))
@@ -1169,12 +1186,22 @@
   [(set_attr "type" "vecsimple,two,two,two")
    (set_attr "length" "4,8,8,8")])
 
-(define_insn_and_split "*vsx_ior<mode>3"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,&?wr,?wr,&?wr")
+(define_insn "*vsx_ior<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
+        (ior:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "%wa")
+		   (match_operand:VSX_L 2 "vlogical_operand" "wa")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxlor %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_ior<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,?wr,&?wr,?wr,&?wr")
         (ior:VSX_L
-	 (match_operand:VSX_L 1 "register_operand" "%wa,0,wr,wr,0,wr")
+	 (match_operand:VSX_L 1 "vlogical_operand" "%wa,0,wr,wr,0,wr")
 	 (match_operand:VSX_L 2 "vsx_reg_or_cint_operand" "wa,wr,0,wr,n,n")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
    xxlor %x0,%x1,%x2
@@ -1183,7 +1210,9 @@
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(const_int 0)]
 {
   operands[3] = simplify_subreg (DImode, operands[0], <MODE>mode, 0);
@@ -1219,12 +1248,22 @@
   [(set_attr "type" "vecsimple,two,two,two,three,three")
    (set_attr "length" "4,8,8,8,16,16")])
 
-(define_insn_and_split "*vsx_xor<mode>3"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,&?wr,?wr,&?wr")
+(define_insn "*vsx_xor<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
+        (xor:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "%wa")
+		   (match_operand:VSX_L 2 "vlogical_operand" "wa")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxlxor %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_xor<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,?wr,&?wr,?wr,&?wr")
         (xor:VSX_L
-	 (match_operand:VSX_L 1 "register_operand" "%wa,0,wr,wr,0,wr")
+	 (match_operand:VSX_L 1 "vlogical_operand" "%wa,0,wr,wr,0,wr")
 	 (match_operand:VSX_L 2 "vsx_reg_or_cint_operand" "wa,wr,0,wr,n,n")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
    xxlxor %x0,%x1,%x2
@@ -1233,7 +1272,9 @@
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (xor:DI (match_dup 4) (match_dup 5)))
    (set (match_dup 6) (xor:DI (match_dup 7) (match_dup 8)))]
 {
@@ -1247,17 +1288,28 @@
   [(set_attr "type" "vecsimple,two,two,two,three,three")
    (set_attr "length" "4,8,8,8,16,16")])
 
+(define_insn "*vsx_one_cmpl<mode>2"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
+        (not:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "wa")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxlnor %x0,%x1,%x1"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
 (define_insn_and_split "*vsx_one_cmpl<mode>2"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,&?wr")
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,&?wr")
         (not:VSX_L
-	 (match_operand:VSX_L 1 "register_operand" "wa,0,wr")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+	 (match_operand:VSX_L 1 "vlogical_operand" "wa,0,wr")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
    xxlnor %x0,%x1,%x1
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 2) (not:DI (match_dup 3)))
    (set (match_dup 4) (not:DI (match_dup 5)))]
 {
@@ -1269,19 +1321,33 @@
   [(set_attr "type" "vecsimple,two,two")
    (set_attr "length" "4,8,8")])
   
-(define_insn_and_split "*vsx_nor<mode>3"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,&?wr")
+(define_insn "*vsx_nor<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
+        (not:VSX_L
+	 (ior:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "%wa")
+		    (match_operand:VSX_L 2 "vlogical_operand" "wa"))))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxlnor %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_nor<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,?wr,&?wr")
         (not:VSX_L
 	 (ior:VSX_L
-	  (match_operand:VSX_L 1 "register_operand" "wa,0,wr,wr")
-	  (match_operand:VSX_L 2 "register_operand" "wa,wr,0,wr"))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+	  (match_operand:VSX_L 1 "vlogical_operand" "wa,0,wr,wr")
+	  (match_operand:VSX_L 2 "vlogical_operand" "wa,wr,0,wr"))))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "@xxlnor %x0,%x1,%x2
+  "@
+   xxlnor %x0,%x1,%x2
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (not:DI (ior:DI (match_dup 4) (match_dup 5))))
    (set (match_dup 6) (not:DI (ior:DI (match_dup 7) (match_dup 8))))]
 {
@@ -1295,20 +1361,34 @@
   [(set_attr "type" "vecsimple,two,two,two")
    (set_attr "length" "4,8,8,8")])
 
-(define_insn_and_split "*vsx_andc<mode>3"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,?wr")
+(define_insn "*vsx_andc<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
         (and:VSX_L
 	 (not:VSX_L
-	  (match_operand:VSX_L 2 "register_operand" "wa,0,wr,wr"))
-	 (match_operand:VSX_L 1 "register_operand" "wa,wr,0,wr")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
+	  (match_operand:VSX_L 2 "vlogical_operand" "wa"))
+	 (match_operand:VSX_L 1 "vlogical_operand" "wa")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxlandc %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_andc<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,?wr,?wr")
+        (and:VSX_L
+	 (not:VSX_L
+	  (match_operand:VSX_L 2 "vlogical_operand" "wa,0,wr,wr"))
+	 (match_operand:VSX_L 1 "vlogical_operand" "wa,wr,0,wr")))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
    xxlandc %x0,%x1,%x2
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (and:DI (not:DI (match_dup 4)) (match_dup 5)))
    (set (match_dup 6) (and:DI (not:DI (match_dup 7)) (match_dup 8)))]
 {
@@ -1324,19 +1404,32 @@
 
 ;; Power8 vector logical instructions.  We only generate the VSX form of the
 ;; instruction (xxl<xxx> vs. v<xxx>).
-(define_insn_and_split "*vsx_eqv<mode>3"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,?wr")
+(define_insn "*vsx_eqv<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
 	(not:VSX_L
-	 (xor:VSX_L (match_operand:VSX_L 1 "register_operand" "wa,0,wr,wr")
-		    (match_operand:VSX_L 2 "register_operand" "wa,wr,0,wr"))))]
-  "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode)
+	 (xor:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "wa")
+		    (match_operand:VSX_L 2 "vlogical_operand" "wa"))))]
+  "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxleqv %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_eqv<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,?wr,?wr")
+	(not:VSX_L
+	 (xor:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "wa,0,wr,wr")
+		    (match_operand:VSX_L 2 "vlogical_operand" "wa,wr,0,wr"))))]
+  "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
    xxleqv %x0,%x1,%x2
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (not:DI (xor:DI (match_dup 4) (match_dup 5))))
    (set (match_dup 6) (not:DI (xor:DI (match_dup 7) (match_dup 8))))]
 {
@@ -1351,19 +1444,32 @@
    (set_attr "length" "4,8,8,8")])
 
 ;; Rewrite nand into canonical form
-(define_insn_and_split "*vsx_nand<mode>3"
+(define_insn "*vsx_nand<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
+	(ior:VSX_L
+	 (not:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "wa"))
+	 (not:VSX_L (match_operand:VSX_L 2 "vlogical_operand" "wa"))))]
+  "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxlnand %x0,%x1,%x2"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_nand<mode>3"
   [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,?wr")
 	(ior:VSX_L
 	 (not:VSX_L (match_operand:VSX_L 1 "register_operand" "wa,0,wr,wr"))
 	 (not:VSX_L (match_operand:VSX_L 2 "register_operand" "wa,wr,0,wr"))))]
-  "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode)
+  "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
    xxlnand %x0,%x1,%x2
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (ior:DI (not:DI (match_dup 4)) (not:DI (match_dup 5))))
    (set (match_dup 6) (ior:DI (not:DI (match_dup 7)) (not:DI (match_dup 8))))]
 {
@@ -1379,11 +1485,22 @@
 
 ;; The canonical form is to have the negated elment first, so we need to
 ;; reverse arguments.
-(define_insn_and_split "*vsx_orc<mode>3"
-  [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,?wr")
+(define_insn "*vsx_orc<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa")
 	(ior:VSX_L
-	 (not:VSX_L (match_operand:VSX_L 1 "register_operand" "wa,0,wr,wr"))
-	 (match_operand:VSX_L 2 "register_operand" "wa,wr,0,wr")))]
+	 (not:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "wa"))
+	 (match_operand:VSX_L 2 "vlogical_operand" "wa")))]
+  "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode) && !TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)"
+  "xxlorc %x0,%x2,%x1"
+  [(set_attr "type" "vecsimple")
+   (set_attr "length" "4")])
+
+(define_insn_and_split "*vsx_or_gpr_orc<mode>3"
+  [(set (match_operand:VSX_L 0 "vlogical_operand" "=wa,?wr,?wr,?wr")
+	(ior:VSX_L
+	 (not:VSX_L (match_operand:VSX_L 1 "vlogical_operand" "wa,0,wr,wr"))
+	 (match_operand:VSX_L 2 "vlogical_operand" "wa,wr,0,wr")))]
   "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode)
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "@
@@ -1391,7 +1508,9 @@
    #
    #
    #"
-  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
+  "reload_completed && VECTOR_MEM_VSX_P (<MODE>mode) && TARGET_QUAD_MEMORY
+   && (<MODE>mode != TImode || TARGET_POWERPC64)
+   && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (ior:DI (not:DI (match_dup 4)) (match_dup 5)))
    (set (match_dup 6) (ior:DI (not:DI (match_dup 7)) (match_dup 8)))]
 {

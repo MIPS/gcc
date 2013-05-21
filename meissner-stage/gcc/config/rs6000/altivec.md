@@ -2404,7 +2404,7 @@
 ;; Power8 vector instructions encoded as Altivec instructions
 
 ;; Vector count leading zeros
-(define_insn "clz<mode>2"
+(define_insn "*p8v_clz<mode>2"
   [(set (match_operand:VI2 0 "register_operand" "=v")
 	(clz:VI2 (match_operand:VI2 1 "register_operand" "v")))]
   "TARGET_P8_VECTOR"
@@ -2413,7 +2413,7 @@
    (set_attr "type" "vecsimple")])
 
 ;; Vector population count
-(define_insn "popcount<mode>2"
+(define_insn "*p8v_popcount<mode>2"
   [(set (match_operand:VI2 0 "register_operand" "=v")
         (popcount:VI2 (match_operand:VI2 1 "register_operand" "v")))]
   "TARGET_P8_VECTOR"
