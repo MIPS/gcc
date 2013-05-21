@@ -34317,6 +34317,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V80*/ meltfptr[79])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol IS_RECURSIVELY_CONSTRUCTIBLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_IS_RECURSIVELY_CONSTRUCTIBLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("IS_RECURSIVELY_CONSTRUCTIBLE",
@@ -34335,6 +34338,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V82*/ meltfptr[81])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SELECTOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SELECTOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SELECTOR", (long) MELT_GET);
@@ -34351,6 +34357,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V84*/ meltfptr[83])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol RECV without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_RECV =
 	melthookproc_HOOK_NAMED_SYMBOL ("RECV", (long) MELT_GET);
@@ -34366,6 +34375,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V90*/ meltfptr[89])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_GENERATOR_DEVICE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_GENERATOR_DEVICE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_GENERATOR_DEVICE",
@@ -34384,6 +34396,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V92*/ meltfptr[91])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE", (long) MELT_GET);
@@ -34400,6 +34415,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V102*/ meltfptr[101])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SRCGEN_DEFIN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SRCGEN_DEFIN =
 	melthookproc_HOOK_NAMED_SYMBOL ("SRCGEN_DEFIN", (long) MELT_GET);
@@ -34416,6 +34434,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V104*/ meltfptr[103])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SRCGEN_REPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SRCGEN_REPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SRCGEN_REPR", (long) MELT_GET);
@@ -34432,6 +34453,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V106*/ meltfptr[105])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LAZY_MACRO_EXPANSION without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LAZY_MACRO_EXPANSION =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LAZY_MACRO_EXPANSION",
@@ -34450,6 +34474,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V116*/ meltfptr[115])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLAZYMACRO_FUN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLAZYMACRO_FUN =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLAZYMACRO_FUN", (long) MELT_GET);
@@ -34466,6 +34493,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V118*/ meltfptr[117])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLAZYMACRO_OPER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLAZYMACRO_OPER =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLAZYMACRO_OPER", (long) MELT_GET);
@@ -34483,6 +34513,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V120*/ meltfptr[119])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_ARGUMENTED_OPERATOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_ARGUMENTED_OPERATOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_ARGUMENTED_OPERATOR",
@@ -34501,6 +34534,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V128*/ meltfptr[127])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SARGOP_ARGS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SARGOP_ARGS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SARGOP_ARGS", (long) MELT_GET);
@@ -34517,6 +34553,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V130*/ meltfptr[129])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_APPLY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_APPLY =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_APPLY",
@@ -34535,6 +34574,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V138*/ meltfptr[137])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SAPP_FUN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SAPP_FUN =
 	melthookproc_HOOK_NAMED_SYMBOL ("SAPP_FUN", (long) MELT_GET);
@@ -34550,6 +34592,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V140*/ meltfptr[139])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_MSEND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_MSEND =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MSEND",
@@ -34568,6 +34613,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V150*/ meltfptr[149])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MSEND_SELSYMB without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MSEND_SELSYMB =
 	melthookproc_HOOK_NAMED_SYMBOL ("MSEND_SELSYMB", (long) MELT_GET);
@@ -34584,6 +34632,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V152*/ meltfptr[151])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MSEND_RECV without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MSEND_RECV =
 	melthookproc_HOOK_NAMED_SYMBOL ("MSEND_RECV", (long) MELT_GET);
@@ -34600,6 +34651,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V154*/ meltfptr[153])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PRIMITIVE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PRIMITIVE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PRIMITIVE",
@@ -34618,6 +34672,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V162*/ meltfptr[161])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPRIM_OPER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPRIM_OPER =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPRIM_OPER", (long) MELT_GET);
@@ -34634,6 +34691,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V164*/ meltfptr[163])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_CITERATION without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_CITERATION =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_CITERATION",
@@ -34652,6 +34712,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V176*/ meltfptr[175])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCITER_OPER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCITER_OPER =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCITER_OPER", (long) MELT_GET);
@@ -34668,6 +34731,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V178*/ meltfptr[177])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCITER_VARBIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCITER_VARBIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCITER_VARBIND", (long) MELT_GET);
@@ -34684,6 +34750,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V180*/ meltfptr[179])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCITER_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCITER_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCITER_BODY", (long) MELT_GET);
@@ -34700,6 +34769,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V182*/ meltfptr[181])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_CMATCHEXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_CMATCHEXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_CMATCHEXPR",
@@ -34718,6 +34790,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V190*/ meltfptr[189])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCMATX_CMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCMATX_CMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCMATX_CMATCHER", (long) MELT_GET);
@@ -34735,6 +34810,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V192*/ meltfptr[191])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_FUNMATCHEXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_FUNMATCHEXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_FUNMATCHEXPR",
@@ -34753,6 +34831,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V202*/ meltfptr[201])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFMATX_FMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFMATX_FMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFMATX_FMATCHER", (long) MELT_GET);
@@ -34770,6 +34851,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V204*/ meltfptr[203])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFMATX_FMATBIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFMATX_FMATBIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFMATX_FMATBIND", (long) MELT_GET);
@@ -34787,6 +34871,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V206*/ meltfptr[205])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_TUPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_TUPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_TUPLE",
@@ -34805,6 +34892,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V212*/ meltfptr[211])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LIST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LIST =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LIST", (long) MELT_GET);
@@ -34822,6 +34912,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V218*/ meltfptr[217])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PROGN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PROGN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PROGN",
@@ -34840,6 +34933,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V226*/ meltfptr[225])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPROGN_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPROGN_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPROGN_BODY", (long) MELT_GET);
@@ -34856,6 +34952,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V228*/ meltfptr[227])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_RETURN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_RETURN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_RETURN",
@@ -34874,6 +34973,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V234*/ meltfptr[233])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_SETQ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_SETQ =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_SETQ", (long) MELT_GET);
@@ -34891,6 +34993,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V244*/ meltfptr[243])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SSTQ_VAR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SSTQ_VAR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SSTQ_VAR", (long) MELT_GET);
@@ -34906,6 +35011,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V246*/ meltfptr[245])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SSTQ_EXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SSTQ_EXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SSTQ_EXPR", (long) MELT_GET);
@@ -34922,6 +35030,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V248*/ meltfptr[247])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_COMMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_COMMENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_COMMENT",
@@ -34940,6 +35051,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V256*/ meltfptr[255])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCOMM_STR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCOMM_STR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCOMM_STR", (long) MELT_GET);
@@ -34956,6 +35070,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V258*/ meltfptr[257])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_CHEADER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_CHEADER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_CHEADER",
@@ -34974,6 +35091,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V266*/ meltfptr[265])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCHEADER_CODESTRING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCHEADER_CODESTRING =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCHEADER_CODESTRING",
@@ -34992,6 +35112,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V268*/ meltfptr[267])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_USE_PACKAGE_FROM_PKG_CONFIG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_USE_PACKAGE_FROM_PKG_CONFIG =
 	melthookproc_HOOK_NAMED_SYMBOL
@@ -35011,6 +35134,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V276*/ meltfptr[275])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUSEPACKAGE_PKGTUPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUSEPACKAGE_PKGTUPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUSEPACKAGE_PKGTUPLE",
@@ -35029,6 +35155,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V278*/ meltfptr[277])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_QUOTE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_QUOTE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_QUOTE",
@@ -35047,6 +35176,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V286*/ meltfptr[285])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SQUOTED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SQUOTED =
 	melthookproc_HOOK_NAMED_SYMBOL ("SQUOTED", (long) MELT_GET);
@@ -35062,6 +35194,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V288*/ meltfptr[287])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_QUASI_BOX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_QUASI_BOX =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_QUASI_BOX",
@@ -35080,6 +35215,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V296*/ meltfptr[295])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SBOXED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SBOXED =
 	melthookproc_HOOK_NAMED_SYMBOL ("SBOXED", (long) MELT_GET);
@@ -35095,6 +35233,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V298*/ meltfptr[297])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_BOX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_BOX =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_BOX", (long) MELT_GET);
@@ -35112,6 +35253,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V304*/ meltfptr[303])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_CONSTANT_BOX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_CONSTANT_BOX =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_CONSTANT_BOX",
@@ -35130,6 +35274,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V310*/ meltfptr[309])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_UNBOX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_UNBOX =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_UNBOX",
@@ -35148,6 +35295,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V320*/ meltfptr[319])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUNBOX_CTYPE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUNBOX_CTYPE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUNBOX_CTYPE", (long) MELT_GET);
@@ -35164,6 +35314,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V322*/ meltfptr[321])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUNBOX_EXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUNBOX_EXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUNBOX_EXPR", (long) MELT_GET);
@@ -35180,6 +35333,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V324*/ meltfptr[323])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXPORTCOMMON without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXPORTCOMMON =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXPORTCOMMON",
@@ -35198,6 +35354,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V332*/ meltfptr[331])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPORT_NAMES without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPORT_NAMES =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPORT_NAMES", (long) MELT_GET);
@@ -35214,6 +35373,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V334*/ meltfptr[333])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXPORT_VALUES without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXPORT_VALUES =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXPORT_VALUES",
@@ -35232,6 +35394,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V340*/ meltfptr[339])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXPORT_CLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXPORT_CLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXPORT_CLASS",
@@ -35250,6 +35415,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V346*/ meltfptr[345])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXPORT_MACRO without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXPORT_MACRO =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXPORT_MACRO",
@@ -35268,6 +35436,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V358*/ meltfptr[357])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPMAC_MNAME without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPMAC_MNAME =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPMAC_MNAME", (long) MELT_GET);
@@ -35284,6 +35455,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V360*/ meltfptr[359])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPMAC_MVAL without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPMAC_MVAL =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPMAC_MVAL", (long) MELT_GET);
@@ -35300,6 +35474,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V362*/ meltfptr[361])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPMAC_DOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPMAC_DOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPMAC_DOC", (long) MELT_GET);
@@ -35316,6 +35493,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V364*/ meltfptr[363])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXPORT_PATMACRO without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXPORT_PATMACRO =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXPORT_PATMACRO",
@@ -35334,6 +35514,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V372*/ meltfptr[371])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPPAT_PVAL without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPPAT_PVAL =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPPAT_PVAL", (long) MELT_GET);
@@ -35350,6 +35533,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V374*/ meltfptr[373])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXPORT_SYNONYM without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXPORT_SYNONYM =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXPORT_SYNONYM",
@@ -35368,6 +35554,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V386*/ meltfptr[385])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPSYN_NEWNAME without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPSYN_NEWNAME =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPSYN_NEWNAME", (long) MELT_GET);
@@ -35385,6 +35574,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V388*/ meltfptr[387])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPSYN_OLDNAME without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPSYN_OLDNAME =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPSYN_OLDNAME", (long) MELT_GET);
@@ -35402,6 +35594,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V390*/ meltfptr[389])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXPSYN_DOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXPSYN_DOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXPSYN_DOC", (long) MELT_GET);
@@ -35418,6 +35613,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V392*/ meltfptr[391])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFINITION without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFINITION =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFINITION",
@@ -35436,6 +35634,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V402*/ meltfptr[401])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SDEF_NAME without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SDEF_NAME =
 	melthookproc_HOOK_NAMED_SYMBOL ("SDEF_NAME", (long) MELT_GET);
@@ -35452,6 +35653,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V404*/ meltfptr[403])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SDEF_DOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SDEF_DOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SDEF_DOC", (long) MELT_GET);
@@ -35467,6 +35671,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V406*/ meltfptr[405])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFINE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFINE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFINE",
@@ -35485,6 +35692,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V414*/ meltfptr[413])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SDEFINE_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SDEFINE_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SDEFINE_BODY", (long) MELT_GET);
@@ -35501,6 +35711,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V416*/ meltfptr[415])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFINITION_FORMAL without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFINITION_FORMAL =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFINITION_FORMAL",
@@ -35519,6 +35732,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V424*/ meltfptr[423])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFORMAL_ARGS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFORMAL_ARGS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFORMAL_ARGS", (long) MELT_GET);
@@ -35535,6 +35751,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V426*/ meltfptr[425])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFUN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFUN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFUN",
@@ -35553,6 +35772,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V434*/ meltfptr[433])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFUN_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFUN_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFUN_BODY", (long) MELT_GET);
@@ -35569,6 +35791,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V436*/ meltfptr[435])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFPRIMITIVE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFPRIMITIVE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFPRIMITIVE",
@@ -35587,6 +35812,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V448*/ meltfptr[447])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPRIM_TYPE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPRIM_TYPE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPRIM_TYPE", (long) MELT_GET);
@@ -35603,6 +35831,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V450*/ meltfptr[449])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPRIM_EXPANSION without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPRIM_EXPANSION =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPRIM_EXPANSION", (long) MELT_GET);
@@ -35620,6 +35851,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V452*/ meltfptr[451])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPRIM_EXPLOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPRIM_EXPLOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPRIM_EXPLOC", (long) MELT_GET);
@@ -35636,6 +35870,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V454*/ meltfptr[453])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFHOOK without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFHOOK =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFHOOK",
@@ -35654,6 +35891,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V468*/ meltfptr[467])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SHOOK_OUT_FORMALS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SHOOK_OUT_FORMALS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SHOOK_OUT_FORMALS", (long) MELT_GET);
@@ -35671,6 +35911,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V470*/ meltfptr[469])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SHOOK_CTYPE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SHOOK_CTYPE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SHOOK_CTYPE", (long) MELT_GET);
@@ -35687,6 +35930,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V472*/ meltfptr[471])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SHOOK_PREDEF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SHOOK_PREDEF =
 	melthookproc_HOOK_NAMED_SYMBOL ("SHOOK_PREDEF", (long) MELT_GET);
@@ -35703,6 +35949,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V474*/ meltfptr[473])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SHOOK_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SHOOK_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SHOOK_BODY", (long) MELT_GET);
@@ -35719,6 +35968,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V476*/ meltfptr[475])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFCITERATOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFCITERATOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFCITERATOR",
@@ -35737,6 +35989,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V488*/ meltfptr[487])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCITERDEF_CITERATOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCITERDEF_CITERATOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCITERDEF_CITERATOR",
@@ -35755,6 +36010,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V490*/ meltfptr[489])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCITERDEF_BEFORELOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCITERDEF_BEFORELOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCITERDEF_BEFORELOC",
@@ -35773,6 +36031,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V492*/ meltfptr[491])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCITERDEF_AFTERLOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCITERDEF_AFTERLOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCITERDEF_AFTERLOC",
@@ -35791,6 +36052,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V494*/ meltfptr[493])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFCMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFCMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFCMATCHER",
@@ -35809,6 +36073,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V508*/ meltfptr[507])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCMATDEF_CMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCMATDEF_CMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCMATDEF_CMATCHER", (long) MELT_GET);
@@ -35826,6 +36093,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V510*/ meltfptr[509])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCMATDEF_TESTLOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCMATDEF_TESTLOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCMATDEF_TESTLOC", (long) MELT_GET);
@@ -35843,6 +36113,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V512*/ meltfptr[511])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCMATDEF_FILLLOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCMATDEF_FILLLOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCMATDEF_FILLLOC", (long) MELT_GET);
@@ -35860,6 +36133,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V514*/ meltfptr[513])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCMATDEF_OPERLOC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCMATDEF_OPERLOC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCMATDEF_OPERLOC", (long) MELT_GET);
@@ -35877,6 +36153,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V516*/ meltfptr[515])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFUNMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFUNMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFUNMATCHER",
@@ -35895,6 +36174,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V532*/ meltfptr[531])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFUMATDEF_INS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFUMATDEF_INS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFUMATDEF_INS", (long) MELT_GET);
@@ -35911,6 +36193,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V534*/ meltfptr[533])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFUMATDEF_OUTS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFUMATDEF_OUTS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFUMATDEF_OUTS", (long) MELT_GET);
@@ -35927,6 +36212,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V536*/ meltfptr[535])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFUMATDEF_MATCHF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFUMATDEF_MATCHF =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFUMATDEF_MATCHF", (long) MELT_GET);
@@ -35944,6 +36232,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V538*/ meltfptr[537])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFUMATDEF_APPLYF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFUMATDEF_APPLYF =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFUMATDEF_APPLYF", (long) MELT_GET);
@@ -35961,6 +36252,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V540*/ meltfptr[539])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFUMATDEF_DATA without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFUMATDEF_DATA =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFUMATDEF_DATA", (long) MELT_GET);
@@ -35977,6 +36271,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V542*/ meltfptr[541])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFOBJCOMMON without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFOBJCOMMON =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFOBJCOMMON",
@@ -35995,6 +36292,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V550*/ meltfptr[549])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SOBJ_PREDEF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SOBJ_PREDEF =
 	melthookproc_HOOK_NAMED_SYMBOL ("SOBJ_PREDEF", (long) MELT_GET);
@@ -36011,6 +36311,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V552*/ meltfptr[551])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFCLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFCLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFCLASS",
@@ -36029,6 +36332,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V564*/ meltfptr[563])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCLASS_CLABIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCLASS_CLABIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCLASS_CLABIND", (long) MELT_GET);
@@ -36045,6 +36351,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V566*/ meltfptr[565])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCLASS_SUPERBIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCLASS_SUPERBIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCLASS_SUPERBIND", (long) MELT_GET);
@@ -36062,6 +36371,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V568*/ meltfptr[567])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCLASS_FLDBINDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCLASS_FLDBINDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCLASS_FLDBINDS", (long) MELT_GET);
@@ -36079,6 +36391,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V570*/ meltfptr[569])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFINSTANCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFINSTANCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFINSTANCE",
@@ -36097,6 +36412,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V584*/ meltfptr[583])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SINST_CLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SINST_CLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SINST_CLASS", (long) MELT_GET);
@@ -36113,6 +36431,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V586*/ meltfptr[585])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SINST_CLABIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SINST_CLABIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SINST_CLABIND", (long) MELT_GET);
@@ -36129,6 +36450,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V588*/ meltfptr[587])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SINST_OBJNUM without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SINST_OBJNUM =
 	melthookproc_HOOK_NAMED_SYMBOL ("SINST_OBJNUM", (long) MELT_GET);
@@ -36145,6 +36469,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V590*/ meltfptr[589])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SINST_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SINST_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SINST_FIELDS", (long) MELT_GET);
@@ -36161,6 +36488,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V592*/ meltfptr[591])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_DEFSELECTOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_DEFSELECTOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_DEFSELECTOR",
@@ -36179,6 +36509,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V600*/ meltfptr[599])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SDEFSEL_FORMALS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SDEFSEL_FORMALS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SDEFSEL_FORMALS", (long) MELT_GET);
@@ -36196,6 +36529,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V602*/ meltfptr[601])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_FIELDASSIGN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_FIELDASSIGN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_FIELDASSIGN",
@@ -36214,6 +36550,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V612*/ meltfptr[611])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFLA_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFLA_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFLA_FIELD", (long) MELT_GET);
@@ -36230,6 +36569,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V614*/ meltfptr[613])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFLA_EXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFLA_EXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFLA_EXPR", (long) MELT_GET);
@@ -36246,6 +36588,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V616*/ meltfptr[615])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_INSTANCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_INSTANCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_INSTANCE",
@@ -36264,6 +36609,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V628*/ meltfptr[627])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMINS_CLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMINS_CLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMINS_CLASS", (long) MELT_GET);
@@ -36280,6 +36628,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V630*/ meltfptr[629])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMINS_CLABIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMINS_CLABIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMINS_CLABIND", (long) MELT_GET);
@@ -36296,6 +36647,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V632*/ meltfptr[631])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMINS_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMINS_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMINS_FIELDS", (long) MELT_GET);
@@ -36312,6 +36666,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V634*/ meltfptr[633])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_GET_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_GET_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_GET_FIELD",
@@ -36330,6 +36687,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V644*/ meltfptr[643])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUGET_OBJ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUGET_OBJ =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUGET_OBJ", (long) MELT_GET);
@@ -36346,6 +36706,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V646*/ meltfptr[645])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUGET_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUGET_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUGET_FIELD", (long) MELT_GET);
@@ -36362,6 +36725,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V648*/ meltfptr[647])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_UNSAFE_GET_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_UNSAFE_GET_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_UNSAFE_GET_FIELD",
@@ -36380,6 +36746,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V654*/ meltfptr[653])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PUT_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PUT_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PUT_FIELDS",
@@ -36398,6 +36767,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V664*/ meltfptr[663])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUPUT_OBJ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUPUT_OBJ =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUPUT_OBJ", (long) MELT_GET);
@@ -36414,6 +36786,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V666*/ meltfptr[665])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUPUT_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUPUT_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUPUT_FIELDS", (long) MELT_GET);
@@ -36430,6 +36805,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V668*/ meltfptr[667])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_UNSAFE_PUT_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_UNSAFE_PUT_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_UNSAFE_PUT_FIELDS",
@@ -36448,6 +36826,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V674*/ meltfptr[673])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_IF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_IF =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_IF", (long) MELT_GET);
@@ -36465,6 +36846,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V684*/ meltfptr[683])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIF_TEST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIF_TEST =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIF_TEST", (long) MELT_GET);
@@ -36480,6 +36864,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V686*/ meltfptr[685])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIF_THEN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIF_THEN =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIF_THEN", (long) MELT_GET);
@@ -36495,6 +36882,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V688*/ meltfptr[687])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_IFELSE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_IFELSE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_IFELSE",
@@ -36513,6 +36903,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V696*/ meltfptr[695])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIF_ELSE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIF_ELSE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIF_ELSE", (long) MELT_GET);
@@ -36528,6 +36921,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V698*/ meltfptr[697])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_OR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_OR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_OR", (long) MELT_GET);
@@ -36545,6 +36941,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V706*/ meltfptr[705])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SOR_DISJ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SOR_DISJ =
 	melthookproc_HOOK_NAMED_SYMBOL ("SOR_DISJ", (long) MELT_GET);
@@ -36560,6 +36959,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V708*/ meltfptr[707])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_CPPIF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_CPPIF =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_CPPIF",
@@ -36578,6 +36980,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V720*/ meltfptr[719])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIFP_COND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIFP_COND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIFP_COND", (long) MELT_GET);
@@ -36594,6 +36999,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V722*/ meltfptr[721])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIFP_THEN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIFP_THEN =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIFP_THEN", (long) MELT_GET);
@@ -36610,6 +37018,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V724*/ meltfptr[723])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIFP_ELSE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIFP_ELSE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIFP_ELSE", (long) MELT_GET);
@@ -36626,6 +37037,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V726*/ meltfptr[725])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_MATCH without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_MATCH =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MATCH",
@@ -36644,6 +37058,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V736*/ meltfptr[735])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMAT_MATCHEDX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMAT_MATCHEDX =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMAT_MATCHEDX", (long) MELT_GET);
@@ -36660,6 +37077,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V738*/ meltfptr[737])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMAT_CASES without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMAT_CASES =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMAT_CASES", (long) MELT_GET);
@@ -36676,6 +37096,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V740*/ meltfptr[739])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_MATCHALT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_MATCHALT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MATCHALT",
@@ -36694,6 +37117,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V746*/ meltfptr[745])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_MATCH_CASE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_MATCH_CASE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MATCH_CASE",
@@ -36712,6 +37138,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V756*/ meltfptr[755])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCAM_PATT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCAM_PATT =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCAM_PATT", (long) MELT_GET);
@@ -36728,6 +37157,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V758*/ meltfptr[757])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCAM_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCAM_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCAM_BODY", (long) MELT_GET);
@@ -36744,6 +37176,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V760*/ meltfptr[759])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LET_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LET_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LET_BINDING",
@@ -36762,6 +37197,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V772*/ meltfptr[771])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLETB_TYPE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLETB_TYPE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLETB_TYPE", (long) MELT_GET);
@@ -36778,6 +37216,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V774*/ meltfptr[773])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLETB_BINDER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLETB_BINDER =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLETB_BINDER", (long) MELT_GET);
@@ -36794,6 +37235,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V776*/ meltfptr[775])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLETB_EXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLETB_EXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLETB_EXPR", (long) MELT_GET);
@@ -36810,6 +37254,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V778*/ meltfptr[777])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LETREC_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LETREC_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LETREC_BINDING",
@@ -36828,6 +37275,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V784*/ meltfptr[783])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LET without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LET =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LET", (long) MELT_GET);
@@ -36845,6 +37295,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V794*/ meltfptr[793])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLET_BINDINGS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLET_BINDINGS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLET_BINDINGS", (long) MELT_GET);
@@ -36861,6 +37314,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V796*/ meltfptr[795])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLET_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLET_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLET_BODY", (long) MELT_GET);
@@ -36877,6 +37333,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V798*/ meltfptr[797])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LETREC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LETREC =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LETREC",
@@ -36895,6 +37354,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V804*/ meltfptr[803])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LAMBDA without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LAMBDA =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LAMBDA",
@@ -36913,6 +37375,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V814*/ meltfptr[813])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLAM_ARGBIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLAM_ARGBIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLAM_ARGBIND", (long) MELT_GET);
@@ -36929,6 +37394,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V816*/ meltfptr[815])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLAM_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLAM_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLAM_BODY", (long) MELT_GET);
@@ -36945,6 +37413,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V818*/ meltfptr[817])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_IFVARIADIC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_IFVARIADIC =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_IFVARIADIC",
@@ -36963,6 +37434,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V830*/ meltfptr[829])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIFVARIADIC_ARGBIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIFVARIADIC_ARGBIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIFVARIADIC_ARGBIND",
@@ -36981,6 +37455,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V832*/ meltfptr[831])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIFVARIADIC_THEN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIFVARIADIC_THEN =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIFVARIADIC_THEN", (long) MELT_GET);
@@ -36998,6 +37475,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V834*/ meltfptr[833])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SIFVARIADIC_ELSE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SIFVARIADIC_ELSE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SIFVARIADIC_ELSE", (long) MELT_GET);
@@ -37015,6 +37495,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V836*/ meltfptr[835])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_MULTICALL without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_MULTICALL =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_MULTICALL",
@@ -37033,6 +37516,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V848*/ meltfptr[847])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMULC_RESBIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMULC_RESBIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMULC_RESBIND", (long) MELT_GET);
@@ -37049,6 +37535,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V850*/ meltfptr[849])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMULC_CALL without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMULC_CALL =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMULC_CALL", (long) MELT_GET);
@@ -37065,6 +37554,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V852*/ meltfptr[851])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SMULC_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SMULC_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SMULC_BODY", (long) MELT_GET);
@@ -37081,6 +37573,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V854*/ meltfptr[853])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_LABELLED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_LABELLED =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_LABELLED",
@@ -37099,6 +37594,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V862*/ meltfptr[861])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SLABEL_BIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SLABEL_BIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SLABEL_BIND", (long) MELT_GET);
@@ -37115,6 +37613,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V864*/ meltfptr[863])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_FOREVER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_FOREVER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_FOREVER",
@@ -37133,6 +37634,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V872*/ meltfptr[871])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFRV_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFRV_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFRV_BODY", (long) MELT_GET);
@@ -37149,6 +37653,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V874*/ meltfptr[873])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_AGAIN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_AGAIN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_AGAIN",
@@ -37167,6 +37674,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V880*/ meltfptr[879])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXIT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXIT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXIT", (long) MELT_GET);
@@ -37184,6 +37694,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V888*/ meltfptr[887])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SEXI_BODY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SEXI_BODY =
 	melthookproc_HOOK_NAMED_SYMBOL ("SEXI_BODY", (long) MELT_GET);
@@ -37200,6 +37713,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V890*/ meltfptr[889])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_COMPILEWARNING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_COMPILEWARNING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_COMPILEWARNING",
@@ -37218,6 +37734,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V900*/ meltfptr[899])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCWARN_MSG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCWARN_MSG =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCWARN_MSG", (long) MELT_GET);
@@ -37234,6 +37753,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V902*/ meltfptr[901])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCWARN_EXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCWARN_EXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCWARN_EXPR", (long) MELT_GET);
@@ -37250,6 +37772,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V904*/ meltfptr[903])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_CONTAINER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_CONTAINER =
 	melthookproc_HOOK_NAMED_SYMBOL
@@ -37270,6 +37795,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V912*/ meltfptr[911])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CMEC_COMMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CMEC_COMMENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CMEC_COMMENT", (long) MELT_GET);
@@ -37286,6 +37814,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V914*/ meltfptr[913])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PARENT_MODULE_ENVIRONMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PARENT_MODULE_ENVIRONMENT =
 	melthookproc_HOOK_NAMED_SYMBOL
@@ -37305,6 +37836,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V920*/ meltfptr[919])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t
 	meltsy_CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER =
@@ -37329,6 +37863,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V928*/ meltfptr[927])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SUCME_COMMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SUCME_COMMENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("SUCME_COMMENT", (long) MELT_GET);
@@ -37345,6 +37882,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V930*/ meltfptr[929])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_FETCH_PREDEFINED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_FETCH_PREDEFINED =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_FETCH_PREDEFINED",
@@ -37363,6 +37903,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V938*/ meltfptr[937])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SFEPD_PREDEF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SFEPD_PREDEF =
 	melthookproc_HOOK_NAMED_SYMBOL ("SFEPD_PREDEF", (long) MELT_GET);
@@ -37379,6 +37922,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V940*/ meltfptr[939])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_STORE_PREDEFINED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_STORE_PREDEFINED =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_STORE_PREDEFINED",
@@ -37397,6 +37943,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V950*/ meltfptr[949])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SSTPD_PREDEF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SSTPD_PREDEF =
 	melthookproc_HOOK_NAMED_SYMBOL ("SSTPD_PREDEF", (long) MELT_GET);
@@ -37413,6 +37962,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V952*/ meltfptr[951])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SSTPD_VALUE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SSTPD_VALUE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SSTPD_VALUE", (long) MELT_GET);
@@ -37429,6 +37981,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V954*/ meltfptr[953])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PROTOCHUNK without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PROTOCHUNK =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PROTOCHUNK",
@@ -37447,6 +38002,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V964*/ meltfptr[963])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCH_GENSYM without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCH_GENSYM =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCH_GENSYM", (long) MELT_GET);
@@ -37463,6 +38021,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V966*/ meltfptr[965])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SCH_CHUNKS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SCH_CHUNKS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SCH_CHUNKS", (long) MELT_GET);
@@ -37479,6 +38040,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V968*/ meltfptr[967])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_CODECHUNK without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_CODECHUNK =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_CODECHUNK",
@@ -37497,6 +38061,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V974*/ meltfptr[973])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_EXPRCHUNK without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_EXPRCHUNK =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_EXPRCHUNK",
@@ -37515,6 +38082,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V982*/ meltfptr[981])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SXCH_CTYPE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SXCH_CTYPE =
 	melthookproc_HOOK_NAMED_SYMBOL ("SXCH_CTYPE", (long) MELT_GET);
@@ -37531,6 +38101,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V984*/ meltfptr[983])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN",
@@ -37549,6 +38122,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V992*/ meltfptr[991])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PAT_WEIGHT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PAT_WEIGHT =
 	melthookproc_HOOK_NAMED_SYMBOL ("PAT_WEIGHT", (long) MELT_GET);
@@ -37565,6 +38141,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V994*/ meltfptr[993])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_OR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_OR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_OR",
@@ -37583,6 +38162,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1002*/ meltfptr[1001])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol ORPAT_DISJ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_ORPAT_DISJ =
 	melthookproc_HOOK_NAMED_SYMBOL ("ORPAT_DISJ", (long) MELT_GET);
@@ -37599,6 +38181,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1004*/ meltfptr[1003])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_AND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_AND =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_AND",
@@ -37617,6 +38202,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1012*/ meltfptr[1011])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol ANDPAT_CONJ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_ANDPAT_CONJ =
 	melthookproc_HOOK_NAMED_SYMBOL ("ANDPAT_CONJ", (long) MELT_GET);
@@ -37633,6 +38221,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1014*/ meltfptr[1013])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_WHEN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_WHEN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_WHEN",
@@ -37651,6 +38242,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1024*/ meltfptr[1023])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol WHENPAT_SUBPAT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_WHENPAT_SUBPAT =
 	melthookproc_HOOK_NAMED_SYMBOL ("WHENPAT_SUBPAT", (long) MELT_GET);
@@ -37668,6 +38262,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1026*/ meltfptr[1025])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol WHENPAT_COND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_WHENPAT_COND =
 	melthookproc_HOOK_NAMED_SYMBOL ("WHENPAT_COND", (long) MELT_GET);
@@ -37684,6 +38281,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1028*/ meltfptr[1027])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_VARIABLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_VARIABLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_VARIABLE",
@@ -37702,6 +38302,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1038*/ meltfptr[1037])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPATVAR_SYMB without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPATVAR_SYMB =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPATVAR_SYMB", (long) MELT_GET);
@@ -37718,6 +38321,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1040*/ meltfptr[1039])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPATVAR_NBOCC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPATVAR_NBOCC =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPATVAR_NBOCC", (long) MELT_GET);
@@ -37735,6 +38341,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1042*/ meltfptr[1041])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAT_VAR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAT_VAR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAT_VAR", (long) MELT_GET);
@@ -37750,6 +38359,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1044*/ meltfptr[1043])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_JOKER_VARIABLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_JOKER_VARIABLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_JOKER_VARIABLE",
@@ -37768,6 +38380,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1050*/ meltfptr[1049])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_CONSTANT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_CONSTANT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_CONSTANT",
@@ -37786,6 +38401,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1058*/ meltfptr[1057])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAT_CONSTX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAT_CONSTX =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAT_CONSTX", (long) MELT_GET);
@@ -37802,6 +38420,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1060*/ meltfptr[1059])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_CONSTRUCT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_CONSTRUCT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_CONSTRUCT",
@@ -37820,6 +38441,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1068*/ meltfptr[1067])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CTPAT_SUBPA without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CTPAT_SUBPA =
 	melthookproc_HOOK_NAMED_SYMBOL ("CTPAT_SUBPA", (long) MELT_GET);
@@ -37836,6 +38460,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1070*/ meltfptr[1069])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_TUPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_TUPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_TUPLE",
@@ -37854,6 +38481,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1076*/ meltfptr[1075])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_LIST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_LIST =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_LIST",
@@ -37872,6 +38502,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1082*/ meltfptr[1081])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_OBJECT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_OBJECT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_OBJECT",
@@ -37890,6 +38523,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1092*/ meltfptr[1091])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAT_CLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAT_CLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAT_CLASS", (long) MELT_GET);
@@ -37906,6 +38542,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1094*/ meltfptr[1093])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAT_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAT_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAT_FIELDS", (long) MELT_GET);
@@ -37922,6 +38561,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1096*/ meltfptr[1095])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_INSTANCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_INSTANCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_INSTANCE",
@@ -37940,6 +38582,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1102*/ meltfptr[1101])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_FIELD_PATTERN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_FIELD_PATTERN =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_FIELD_PATTERN",
@@ -37958,6 +38603,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1112*/ meltfptr[1111])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAF_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAF_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAF_FIELD", (long) MELT_GET);
@@ -37974,6 +38622,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1114*/ meltfptr[1113])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAF_PATTERN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAF_PATTERN =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAF_PATTERN", (long) MELT_GET);
@@ -37990,6 +38641,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1116*/ meltfptr[1115])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_COMPOSITE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_COMPOSITE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_COMPOSITE",
@@ -38008,6 +38662,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1130*/ meltfptr[1129])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAC_OPERATOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAC_OPERATOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAC_OPERATOR", (long) MELT_GET);
@@ -38025,6 +38682,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1132*/ meltfptr[1131])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAC_OPERBIND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAC_OPERBIND =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAC_OPERBIND", (long) MELT_GET);
@@ -38042,6 +38702,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1134*/ meltfptr[1133])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAC_INARGS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAC_INARGS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAC_INARGS", (long) MELT_GET);
@@ -38058,6 +38721,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1136*/ meltfptr[1135])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SPAC_OUTARGS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SPAC_OUTARGS =
 	melthookproc_HOOK_NAMED_SYMBOL ("SPAC_OUTARGS", (long) MELT_GET);
@@ -38074,6 +38740,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1138*/ meltfptr[1137])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_MATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_MATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_MATCHER",
@@ -38092,6 +38761,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1144*/ meltfptr[1143])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_C_MATCH without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_C_MATCH =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_C_MATCH",
@@ -38110,6 +38782,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1150*/ meltfptr[1149])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SOURCE_PATTERN_FUN_MATCH without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SOURCE_PATTERN_FUN_MATCH =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SOURCE_PATTERN_FUN_MATCH",
@@ -38128,6 +38803,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1161*/ meltfptr[1160])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SEXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SEXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SEXPR", (long) MELT_GET);
@@ -38153,6 +38831,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1163*/ meltfptr[1162])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_CONSTANT_INTEGER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_CONSTANT_INTEGER =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_CONSTANT_INTEGER",
@@ -38171,6 +38852,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1167*/ meltfptr[1166])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_ENVIRONMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_ENVIRONMENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ENVIRONMENT", (long) MELT_GET);
@@ -38188,6 +38872,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1171*/ meltfptr[1170])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LIST_TO_MULTIPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LIST_TO_MULTIPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("LIST_TO_MULTIPLE", (long) MELT_GET);
@@ -38205,6 +38892,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1173*/ meltfptr[1172])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_MULTIPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_MULTIPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_MULTIPLE", (long) MELT_GET);
@@ -38222,6 +38912,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1181*/ meltfptr[1180])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MELT_DEBUG_FUN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MELT_DEBUG_FUN =
 	melthookproc_HOOK_NAMED_SYMBOL ("MELT_DEBUG_FUN", (long) MELT_GET);
@@ -38239,6 +38932,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1183*/ meltfptr[1182])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_MODULE_CONTEXT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_MODULE_CONTEXT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MODULE_CONTEXT",
@@ -38257,6 +38953,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1185*/ meltfptr[1184])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_LOCATED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_LOCATED =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_LOCATED", (long) MELT_GET);
@@ -38274,6 +38973,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1212*/ meltfptr[1211])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SYMBOL without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SYMBOL =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SYMBOL", (long) MELT_GET);
@@ -38290,6 +38992,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1214*/ meltfptr[1213])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FIELD", (long) MELT_GET);
@@ -38306,6 +39011,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1216*/ meltfptr[1215])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_KEYWORD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_KEYWORD =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_KEYWORD", (long) MELT_GET);
@@ -38323,6 +39031,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1218*/ meltfptr[1217])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_NAMED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_NAMED =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_NAMED", (long) MELT_GET);
@@ -38339,6 +39050,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1220*/ meltfptr[1219])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_CITERATOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_CITERATOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CITERATOR", (long) MELT_GET);
@@ -38356,6 +39070,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1222*/ meltfptr[1221])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol FRESH_ENV without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_FRESH_ENV =
 	melthookproc_HOOK_NAMED_SYMBOL ("FRESH_ENV", (long) MELT_GET);
@@ -38372,6 +39089,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1224*/ meltfptr[1223])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PUT_ENV without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PUT_ENV =
 	melthookproc_HOOK_NAMED_SYMBOL ("PUT_ENV", (long) MELT_GET);
@@ -38387,6 +39107,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1226*/ meltfptr[1225])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_CMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_CMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CMATCHER", (long) MELT_GET);
@@ -38404,6 +39127,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1228*/ meltfptr[1227])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_ANY_MATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_ANY_MATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ANY_MATCHER", (long) MELT_GET);
@@ -38421,6 +39147,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1230*/ meltfptr[1229])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_FUNMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_FUNMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FUNMATCHER", (long) MELT_GET);
@@ -38438,6 +39167,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1232*/ meltfptr[1231])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol FIND_ENV without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_FIND_ENV =
 	melthookproc_HOOK_NAMED_SYMBOL ("FIND_ENV", (long) MELT_GET);
@@ -38453,6 +39185,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1234*/ meltfptr[1233])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_MACRO_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_MACRO_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_MACRO_BINDING",
@@ -38471,6 +39206,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1236*/ meltfptr[1235])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SELECTOR_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SELECTOR_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SELECTOR_BINDING",
@@ -38489,6 +39227,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1238*/ meltfptr[1237])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_PRIMITIVE_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_PRIMITIVE_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_PRIMITIVE_BINDING",
@@ -38507,6 +39248,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1240*/ meltfptr[1239])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_CITERATOR_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_CITERATOR_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CITERATOR_BINDING",
@@ -38525,6 +39269,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1242*/ meltfptr[1241])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_CMATCHER_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_CMATCHER_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CMATCHER_BINDING",
@@ -38543,6 +39290,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1244*/ meltfptr[1243])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_FUNMATCHER_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_FUNMATCHER_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FUNMATCHER_BINDING",
@@ -38561,6 +39311,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1246*/ meltfptr[1245])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_FIELD_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_FIELD_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FIELD_BINDING",
@@ -38579,6 +39332,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1248*/ meltfptr[1247])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_FORMAL_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_FORMAL_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FORMAL_BINDING",
@@ -38597,6 +39353,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1250*/ meltfptr[1249])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_LET_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_LET_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_LET_BINDING", (long) MELT_GET);
@@ -38614,6 +39373,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1252*/ meltfptr[1251])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_VALUE_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_VALUE_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_VALUE_BINDING",
@@ -38632,6 +39394,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1254*/ meltfptr[1253])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_PRIMITIVE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_PRIMITIVE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_PRIMITIVE", (long) MELT_GET);
@@ -38649,6 +39414,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1256*/ meltfptr[1255])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_PATTERN_EXPANSION_CONTEXT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_PATTERN_EXPANSION_CONTEXT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_PATTERN_EXPANSION_CONTEXT",
@@ -38667,6 +39435,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1258*/ meltfptr[1257])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_ROOT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_ROOT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ROOT", (long) MELT_GET);
@@ -38683,6 +39454,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1272*/ meltfptr[1271])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PCTX_MEXPANDER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PCTX_MEXPANDER =
 	melthookproc_HOOK_NAMED_SYMBOL ("PCTX_MEXPANDER", (long) MELT_GET);
@@ -38700,6 +39474,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1274*/ meltfptr[1273])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PCTX_PEXPANDER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PCTX_PEXPANDER =
 	melthookproc_HOOK_NAMED_SYMBOL ("PCTX_PEXPANDER", (long) MELT_GET);
@@ -38717,6 +39494,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1276*/ meltfptr[1275])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PCTX_VARMAP without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PCTX_VARMAP =
 	melthookproc_HOOK_NAMED_SYMBOL ("PCTX_VARMAP", (long) MELT_GET);
@@ -38733,6 +39513,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1278*/ meltfptr[1277])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PCTX_MODCTX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PCTX_MODCTX =
 	melthookproc_HOOK_NAMED_SYMBOL ("PCTX_MODCTX", (long) MELT_GET);
@@ -38749,6 +39532,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1302*/ meltfptr[1301])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PAIRLIST_TO_MULTIPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PAIRLIST_TO_MULTIPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("PAIRLIST_TO_MULTIPLE",
@@ -38767,6 +39553,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1304*/ meltfptr[1303])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_REFERENCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_REFERENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_REFERENCE", (long) MELT_GET);
@@ -38784,6 +39573,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1306*/ meltfptr[1305])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MULTIPLE_MAP without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MULTIPLE_MAP =
 	melthookproc_HOOK_NAMED_SYMBOL ("MULTIPLE_MAP", (long) MELT_GET);
@@ -38800,6 +39592,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1308*/ meltfptr[1307])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_INTEGER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_INTEGER =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_INTEGER", (long) MELT_GET);
@@ -38817,6 +39612,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1310*/ meltfptr[1309])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_PATMACRO_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_PATMACRO_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_PATMACRO_BINDING",
@@ -38835,6 +39633,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1283*/ meltfptr[1282])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol QUESTION without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_QUESTION =
 	melthookproc_HOOK_NAMED_SYMBOL ("QUESTION", (long) MELT_GET);
@@ -38850,6 +39651,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1286*/ meltfptr[1285])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol _ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_ =
 	melthookproc_HOOK_NAMED_SYMBOL ("_", (long) MELT_GET);
@@ -38865,6 +39669,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1314*/ meltfptr[1313])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_LIST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_LIST =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_LIST", (long) MELT_GET);
@@ -38881,6 +39688,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1316*/ meltfptr[1315])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CTYPE_VALUE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CTYPE_VALUE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CTYPE_VALUE", (long) MELT_GET);
@@ -38897,6 +39707,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1318*/ meltfptr[1317])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_MAP_OBJECTS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_MAP_OBJECTS =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_MAP_OBJECTS", (long) MELT_GET);
@@ -38914,6 +39727,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1320*/ meltfptr[1319])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_FORMAL_SEQUENCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_FORMAL_SEQUENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_FORMAL_SEQUENCE",
@@ -38941,6 +39757,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1322*/ meltfptr[1321])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_VARIADIC_FORMAL_SEQUENCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_VARIADIC_FORMAL_SEQUENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_VARIADIC_FORMAL_SEQUENCE",
@@ -38968,6 +39787,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1324*/ meltfptr[1323])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_CTYPE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_CTYPE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CTYPE", (long) MELT_GET);
@@ -38984,6 +39806,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1326*/ meltfptr[1325])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_QUASI_CTYPE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_QUASI_CTYPE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_QUASI_CTYPE", (long) MELT_GET);
@@ -39001,6 +39826,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1328*/ meltfptr[1327])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_ANY_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_ANY_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_ANY_BINDING", (long) MELT_GET);
@@ -39018,6 +39846,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1332*/ meltfptr[1331])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol INITIAL_ENVIRONMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_INITIAL_ENVIRONMENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("INITIAL_ENVIRONMENT",
@@ -39036,6 +39867,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1336*/ meltfptr[1335])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol WARN_SHADOW without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_WARN_SHADOW =
 	melthookproc_HOOK_NAMED_SYMBOL ("WARN_SHADOW", (long) MELT_GET);
@@ -39052,6 +39886,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1347*/ meltfptr[1346])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_VERBATIM_STRING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_VERBATIM_STRING =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_VERBATIM_STRING",
@@ -39079,6 +39916,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1357*/ meltfptr[1356])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFPRIMITIVE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFPRIMITIVE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFPRIMITIVE", (long) MELT_GET);
@@ -39095,6 +39935,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1361*/ meltfptr[1360])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFCITERATOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFCITERATOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFCITERATOR", (long) MELT_GET);
@@ -39111,6 +39954,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1366*/ meltfptr[1365])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MULTIPLE_EVERY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MULTIPLE_EVERY =
 	melthookproc_HOOK_NAMED_SYMBOL ("MULTIPLE_EVERY", (long) MELT_GET);
@@ -39128,6 +39974,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1368*/ meltfptr[1367])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFCMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFCMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFCMATCHER", (long) MELT_GET);
@@ -39144,6 +39993,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1373*/ meltfptr[1372])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFUNMATCHER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFUNMATCHER =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFUNMATCHER", (long) MELT_GET);
@@ -39160,6 +40012,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1377*/ meltfptr[1376])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_FUNCTION_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_FUNCTION_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FUNCTION_BINDING",
@@ -39178,6 +40033,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1379*/ meltfptr[1378])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFUN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFUN =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFUN", (long) MELT_GET);
@@ -39193,6 +40051,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1385*/ meltfptr[1384])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_HOOK_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_HOOK_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_HOOK_BINDING",
@@ -39220,6 +40081,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1387*/ meltfptr[1386])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFHOOK without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFHOOK =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFHOOK", (long) MELT_GET);
@@ -39235,6 +40099,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1392*/ meltfptr[1391])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_DEFINED_VALUE_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_DEFINED_VALUE_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_DEFINED_VALUE_BINDING",
@@ -39253,6 +40120,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1394*/ meltfptr[1393])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFINE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFINE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFINE", (long) MELT_GET);
@@ -39277,6 +40147,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1402*/ meltfptr[1401])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_CLASS_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_CLASS_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CLASS_BINDING",
@@ -39295,6 +40168,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1404*/ meltfptr[1403])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_CLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_CLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_CLASS", (long) MELT_GET);
@@ -39320,6 +40196,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1410*/ meltfptr[1409])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_CLASS_SEQUENCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_CLASS_SEQUENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_CLASS_SEQUENCE",
@@ -39338,6 +40217,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1412*/ meltfptr[1411])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_MAP_STRINGS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_MAP_STRINGS =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_MAP_STRINGS", (long) MELT_GET);
@@ -39355,6 +40237,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1414*/ meltfptr[1413])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_FIELD_SEQUENCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_FIELD_SEQUENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_FIELD_SEQUENCE",
@@ -39373,6 +40258,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1416*/ meltfptr[1415])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFCLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFCLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFCLASS", (long) MELT_GET);
@@ -39388,6 +40276,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1421*/ meltfptr[1420])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MULTIPLE_ITERATE_TEST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MULTIPLE_ITERATE_TEST =
 	melthookproc_HOOK_NAMED_SYMBOL ("MULTIPLE_ITERATE_TEST",
@@ -39406,6 +40297,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1427*/ meltfptr[1426])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_INSTANCE_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_INSTANCE_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_INSTANCE_BINDING",
@@ -39433,6 +40327,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1429*/ meltfptr[1428])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFINSTANCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFINSTANCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFINSTANCE", (long) MELT_GET);
@@ -39449,6 +40346,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1435*/ meltfptr[1434])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MELT_MODE_REFERENCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MELT_MODE_REFERENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("MELT_MODE_REFERENCE",
@@ -39476,6 +40376,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1437*/ meltfptr[1436])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEFSELECTOR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEFSELECTOR =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEFSELECTOR", (long) MELT_GET);
@@ -39492,6 +40395,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1441*/ meltfptr[1440])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol INSTANCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_INSTANCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("INSTANCE", (long) MELT_GET);
@@ -39507,6 +40413,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1445*/ meltfptr[1444])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LOAD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LOAD =
 	melthookproc_HOOK_NAMED_SYMBOL ("LOAD", (long) MELT_GET);
@@ -39522,6 +40431,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1458*/ meltfptr[1457])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol OBJECT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_OBJECT =
 	melthookproc_HOOK_NAMED_SYMBOL ("OBJECT", (long) MELT_GET);
@@ -39537,6 +40449,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1463*/ meltfptr[1462])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_SEXPR_MACROSTRING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_SEXPR_MACROSTRING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_SEXPR_MACROSTRING",
@@ -39555,6 +40470,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1467*/ meltfptr[1466])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CODE_CHUNK without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CODE_CHUNK =
 	melthookproc_HOOK_NAMED_SYMBOL ("CODE_CHUNK", (long) MELT_GET);
@@ -39571,6 +40489,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1471*/ meltfptr[1470])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPR_CHUNK without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPR_CHUNK =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPR_CHUNK", (long) MELT_GET);
@@ -39587,6 +40508,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1475*/ meltfptr[1474])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol UNSAFE_PUT_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_UNSAFE_PUT_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("UNSAFE_PUT_FIELDS", (long) MELT_GET);
@@ -39604,6 +40528,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1479*/ meltfptr[1478])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PUT_FIELDS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PUT_FIELDS =
 	melthookproc_HOOK_NAMED_SYMBOL ("PUT_FIELDS", (long) MELT_GET);
@@ -39620,6 +40547,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1483*/ meltfptr[1482])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol UNSAFE_GET_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_UNSAFE_GET_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("UNSAFE_GET_FIELD", (long) MELT_GET);
@@ -39637,6 +40567,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1487*/ meltfptr[1486])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol GET_FIELD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_GET_FIELD =
 	melthookproc_HOOK_NAMED_SYMBOL ("GET_FIELD", (long) MELT_GET);
@@ -39653,6 +40586,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1494*/ meltfptr[1493])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SETQ without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SETQ =
 	melthookproc_HOOK_NAMED_SYMBOL ("SETQ", (long) MELT_GET);
@@ -39668,6 +40604,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1498*/ meltfptr[1497])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol IF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_IF =
 	melthookproc_HOOK_NAMED_SYMBOL ("IF", (long) MELT_GET);
@@ -39683,6 +40622,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1502*/ meltfptr[1501])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol WHEN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_WHEN =
 	melthookproc_HOOK_NAMED_SYMBOL ("WHEN", (long) MELT_GET);
@@ -39698,6 +40640,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1506*/ meltfptr[1505])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol UNLESS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_UNLESS =
 	melthookproc_HOOK_NAMED_SYMBOL ("UNLESS", (long) MELT_GET);
@@ -39713,6 +40658,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1510*/ meltfptr[1509])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CPPIF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CPPIF =
 	melthookproc_HOOK_NAMED_SYMBOL ("CPPIF", (long) MELT_GET);
@@ -39728,6 +40676,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1516*/ meltfptr[1515])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol GCCIF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_GCCIF =
 	melthookproc_HOOK_NAMED_SYMBOL ("GCCIF", (long) MELT_GET);
@@ -39752,6 +40703,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1523*/ meltfptr[1522])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol COND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_COND =
 	melthookproc_HOOK_NAMED_SYMBOL ("COND", (long) MELT_GET);
@@ -39767,6 +40721,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1532*/ meltfptr[1531])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol AS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_AS =
 	melthookproc_HOOK_NAMED_SYMBOL ("AS", (long) MELT_GET);
@@ -39782,6 +40739,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1538*/ meltfptr[1537])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol AND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_AND =
 	melthookproc_HOOK_NAMED_SYMBOL ("AND", (long) MELT_GET);
@@ -39797,6 +40757,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1545*/ meltfptr[1544])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol OR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_OR =
 	melthookproc_HOOK_NAMED_SYMBOL ("OR", (long) MELT_GET);
@@ -39822,6 +40785,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1554*/ meltfptr[1553])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol REFERENCE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_REFERENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("REFERENCE", (long) MELT_GET);
@@ -39838,6 +40804,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1560*/ meltfptr[1559])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CONTAINER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CONTAINER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CONTAINER", (long) MELT_GET);
@@ -39854,6 +40823,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1564*/ meltfptr[1563])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol REFERENCED_VALUE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_REFERENCED_VALUE =
 	melthookproc_HOOK_NAMED_SYMBOL ("REFERENCED_VALUE", (long) MELT_GET);
@@ -39871,6 +40843,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1566*/ meltfptr[1565])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEREF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEREF =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEREF", (long) MELT_GET);
@@ -39886,6 +40861,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1570*/ meltfptr[1569])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CONTENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CONTENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("CONTENT", (long) MELT_GET);
@@ -39901,6 +40879,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1572*/ meltfptr[1571])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXCLAIM without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXCLAIM =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXCLAIM", (long) MELT_GET);
@@ -39916,6 +40897,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1576*/ meltfptr[1575])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol SET_REF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_SET_REF =
 	melthookproc_HOOK_NAMED_SYMBOL ("SET_REF", (long) MELT_GET);
@@ -39931,6 +40915,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1582*/ meltfptr[1581])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol TUPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_TUPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("TUPLE", (long) MELT_GET);
@@ -39946,6 +40933,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1588*/ meltfptr[1587])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LIST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LIST =
 	melthookproc_HOOK_NAMED_SYMBOL ("LIST", (long) MELT_GET);
@@ -39961,6 +40951,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1593*/ meltfptr[1592])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MATCH without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MATCH =
 	melthookproc_HOOK_NAMED_SYMBOL ("MATCH", (long) MELT_GET);
@@ -39976,6 +40969,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1598*/ meltfptr[1597])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MATCHALT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MATCHALT =
 	melthookproc_HOOK_NAMED_SYMBOL ("MATCHALT", (long) MELT_GET);
@@ -39991,6 +40987,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1602*/ meltfptr[1601])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol QUASI_CTYPE_AUTO without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_QUASI_CTYPE_AUTO =
 	melthookproc_HOOK_NAMED_SYMBOL ("QUASI_CTYPE_AUTO", (long) MELT_GET);
@@ -40008,6 +41007,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1604*/ meltfptr[1603])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_FIXED_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_FIXED_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_FIXED_BINDING",
@@ -40026,6 +41028,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1611*/ meltfptr[1610])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LET without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LET =
 	melthookproc_HOOK_NAMED_SYMBOL ("LET", (long) MELT_GET);
@@ -40041,6 +41046,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1615*/ meltfptr[1614])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol INSTALL_METHOD without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_INSTALL_METHOD =
 	melthookproc_HOOK_NAMED_SYMBOL ("INSTALL_METHOD", (long) MELT_GET);
@@ -40058,6 +41066,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1621*/ meltfptr[1620])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_LETREC_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_LETREC_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_LETREC_BINDING",
@@ -40076,6 +41087,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1623*/ meltfptr[1622])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LETREC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LETREC =
 	melthookproc_HOOK_NAMED_SYMBOL ("LETREC", (long) MELT_GET);
@@ -40091,6 +41105,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1628*/ meltfptr[1627])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LAMBDA without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LAMBDA =
 	melthookproc_HOOK_NAMED_SYMBOL ("LAMBDA", (long) MELT_GET);
@@ -40106,6 +41123,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1636*/ meltfptr[1635])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol VARIADIC without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_VARIADIC =
 	melthookproc_HOOK_NAMED_SYMBOL ("VARIADIC", (long) MELT_GET);
@@ -40121,6 +41141,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1642*/ meltfptr[1641])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MULTICALL without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MULTICALL =
 	melthookproc_HOOK_NAMED_SYMBOL ("MULTICALL", (long) MELT_GET);
@@ -40137,6 +41160,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1646*/ meltfptr[1645])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol QUOTE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_QUOTE =
 	melthookproc_HOOK_NAMED_SYMBOL ("QUOTE", (long) MELT_GET);
@@ -40152,6 +41178,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1650*/ meltfptr[1649])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol BOX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_BOX =
 	melthookproc_HOOK_NAMED_SYMBOL ("BOX", (long) MELT_GET);
@@ -40167,6 +41196,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1654*/ meltfptr[1653])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CONSTANT_BOX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CONSTANT_BOX =
 	melthookproc_HOOK_NAMED_SYMBOL ("CONSTANT_BOX", (long) MELT_GET);
@@ -40183,6 +41215,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1658*/ meltfptr[1657])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol UNBOX without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_UNBOX =
 	melthookproc_HOOK_NAMED_SYMBOL ("UNBOX", (long) MELT_GET);
@@ -40198,6 +41233,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1662*/ meltfptr[1661])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol COMMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_COMMENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("COMMENT", (long) MELT_GET);
@@ -40213,6 +41251,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1666*/ meltfptr[1665])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_STRBUF without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_STRBUF =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_STRBUF", (long) MELT_GET);
@@ -40229,6 +41270,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1668*/ meltfptr[1667])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol ADD2OUT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_ADD2OUT =
 	melthookproc_HOOK_NAMED_SYMBOL ("ADD2OUT", (long) MELT_GET);
@@ -40244,6 +41288,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1670*/ meltfptr[1669])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CHEADER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CHEADER =
 	melthookproc_HOOK_NAMED_SYMBOL ("CHEADER", (long) MELT_GET);
@@ -40259,6 +41306,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1674*/ meltfptr[1673])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DISCR_STRING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_STRING =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_STRING", (long) MELT_GET);
@@ -40275,6 +41325,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1676*/ meltfptr[1675])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol USE_PACKAGE_FROM_PKG_CONFIG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_USE_PACKAGE_FROM_PKG_CONFIG =
 	melthookproc_HOOK_NAMED_SYMBOL ("USE_PACKAGE_FROM_PKG_CONFIG",
@@ -40293,6 +41346,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1678*/ meltfptr[1677])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol USE-PACKAGE-FROM-PKG-CONFIG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_USE_PACKAGE_FROM_PKG_CONFIG =
 	melthookproc_HOOK_NAMED_SYMBOL ("USE-PACKAGE-FROM-PKG-CONFIG",
@@ -40311,6 +41367,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1685*/ meltfptr[1684])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PROGN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PROGN =
 	melthookproc_HOOK_NAMED_SYMBOL ("PROGN", (long) MELT_GET);
@@ -40326,6 +41385,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1689*/ meltfptr[1688])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol RETURN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_RETURN =
 	melthookproc_HOOK_NAMED_SYMBOL ("RETURN", (long) MELT_GET);
@@ -40341,6 +41403,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1694*/ meltfptr[1693])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CLASS_LABEL_BINDING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_LABEL_BINDING =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_LABEL_BINDING",
@@ -40359,6 +41424,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1696*/ meltfptr[1695])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol FOREVER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_FOREVER =
 	melthookproc_HOOK_NAMED_SYMBOL ("FOREVER", (long) MELT_GET);
@@ -40374,6 +41442,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1701*/ meltfptr[1700])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXIT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXIT =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXIT", (long) MELT_GET);
@@ -40389,6 +41460,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1705*/ meltfptr[1704])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol AGAIN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_AGAIN =
 	melthookproc_HOOK_NAMED_SYMBOL ("AGAIN", (long) MELT_GET);
@@ -40404,6 +41478,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1709*/ meltfptr[1708])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol COMPILE_WARNING without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_COMPILE_WARNING =
 	melthookproc_HOOK_NAMED_SYMBOL ("COMPILE_WARNING", (long) MELT_GET);
@@ -40421,6 +41498,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1712*/ meltfptr[1711])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol ASSERT_FAILED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_ASSERT_FAILED =
 	melthookproc_HOOK_NAMED_SYMBOL ("ASSERT_FAILED", (long) MELT_GET);
@@ -40438,6 +41518,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1717*/ meltfptr[1716])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol FIND_ENV_DEBUG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_FIND_ENV_DEBUG =
 	melthookproc_HOOK_NAMED_SYMBOL ("FIND_ENV_DEBUG", (long) MELT_GET);
@@ -40455,6 +41538,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1714*/ meltfptr[1713])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MELT_HAVE_DEBUG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MELT_HAVE_DEBUG =
 	melthookproc_HOOK_NAMED_SYMBOL ("MELT_HAVE_DEBUG", (long) MELT_GET);
@@ -40472,6 +41558,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1719*/ meltfptr[1718])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol ASSERT_MSG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_ASSERT_MSG =
 	melthookproc_HOOK_NAMED_SYMBOL ("ASSERT_MSG", (long) MELT_GET);
@@ -40488,6 +41577,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1722*/ meltfptr[1721])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MELT_CALLCOUNT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MELT_CALLCOUNT =
 	melthookproc_HOOK_NAMED_SYMBOL ("MELT_CALLCOUNT", (long) MELT_GET);
@@ -40505,6 +41597,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1724*/ meltfptr[1723])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEBUG_MSG_FUN without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEBUG_MSG_FUN =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEBUG_MSG_FUN", (long) MELT_GET);
@@ -40522,6 +41617,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1727*/ meltfptr[1726])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEBUG_MSG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEBUG_MSG =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEBUG_MSG", (long) MELT_GET);
@@ -40538,6 +41636,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1730*/ meltfptr[1729])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MELT_NEED_DBG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MELT_NEED_DBG =
 	melthookproc_HOOK_NAMED_SYMBOL ("MELT_NEED_DBG", (long) MELT_GET);
@@ -40555,6 +41656,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1732*/ meltfptr[1731])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MELT_INCREMENT_DBGCOUNTER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MELT_INCREMENT_DBGCOUNTER =
 	melthookproc_HOOK_NAMED_SYMBOL ("MELT_INCREMENT_DBGCOUNTER",
@@ -40573,6 +41677,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1736*/ meltfptr[1735])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol STRING4OUT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_STRING4OUT =
 	melthookproc_HOOK_NAMED_SYMBOL ("STRING4OUT", (long) MELT_GET);
@@ -40589,6 +41696,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1738*/ meltfptr[1737])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LIST_APPEND2LIST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LIST_APPEND2LIST =
 	melthookproc_HOOK_NAMED_SYMBOL ("LIST_APPEND2LIST", (long) MELT_GET);
@@ -40606,6 +41716,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1740*/ meltfptr[1739])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol DEBUG without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DEBUG =
 	melthookproc_HOOK_NAMED_SYMBOL ("DEBUG", (long) MELT_GET);
@@ -40621,6 +41734,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1745*/ meltfptr[1744])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPORT_VALUES without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPORT_VALUES =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPORT_VALUES", (long) MELT_GET);
@@ -40638,6 +41754,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1749*/ meltfptr[1748])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPORT_MACRO without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPORT_MACRO =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPORT_MACRO", (long) MELT_GET);
@@ -40654,6 +41773,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1753*/ meltfptr[1752])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPORT_PATMACRO without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPORT_PATMACRO =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPORT_PATMACRO", (long) MELT_GET);
@@ -40671,6 +41793,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1758*/ meltfptr[1757])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPORT_CLASS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPORT_CLASS =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPORT_CLASS", (long) MELT_GET);
@@ -40687,6 +41812,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1762*/ meltfptr[1761])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPORT_SYNONYM without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPORT_SYNONYM =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPORT_SYNONYM", (long) MELT_GET);
@@ -40704,6 +41832,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1766*/ meltfptr[1765])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol CURRENT_MODULE_ENVIRONMENT_CONTAINER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CURRENT_MODULE_ENVIRONMENT_CONTAINER =
 	melthookproc_HOOK_NAMED_SYMBOL
@@ -40723,6 +41854,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1770*/ meltfptr[1769])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PARENT_MODULE_ENVIRONMENT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PARENT_MODULE_ENVIRONMENT =
 	melthookproc_HOOK_NAMED_SYMBOL ("PARENT_MODULE_ENVIRONMENT",
@@ -40741,6 +41875,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1774*/ meltfptr[1773])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER =
 	melthookproc_HOOK_NAMED_SYMBOL
@@ -40760,6 +41897,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1778*/ meltfptr[1777])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol FETCH_PREDEFINED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_FETCH_PREDEFINED =
 	melthookproc_HOOK_NAMED_SYMBOL ("FETCH_PREDEFINED", (long) MELT_GET);
@@ -40777,6 +41917,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1782*/ meltfptr[1781])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol STORE_PREDEFINED without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_STORE_PREDEFINED =
 	melthookproc_HOOK_NAMED_SYMBOL ("STORE_PREDEFINED", (long) MELT_GET);
@@ -40794,6 +41937,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1784*/ meltfptr[1783])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPAND_APPLY without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPAND_APPLY =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPAND_APPLY", (long) MELT_GET);
@@ -40810,6 +41956,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1786*/ meltfptr[1785])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPAND_MSEND without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPAND_MSEND =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPAND_MSEND", (long) MELT_GET);
@@ -40826,6 +41975,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1788*/ meltfptr[1787])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPAND_PAIRLIST_AS_TUPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPAND_PAIRLIST_AS_TUPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPAND_PAIRLIST_AS_TUPLE",
@@ -40844,6 +41996,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1790*/ meltfptr[1789])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol EXPAND_PRIMITIVE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_EXPAND_PRIMITIVE =
 	melthookproc_HOOK_NAMED_SYMBOL ("EXPAND_PRIMITIVE", (long) MELT_GET);
@@ -40861,6 +42016,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1792*/ meltfptr[1791])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol INSTALL_INITIAL_MACRO without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_INSTALL_INITIAL_MACRO =
 	melthookproc_HOOK_NAMED_SYMBOL ("INSTALL_INITIAL_MACRO",
@@ -40879,6 +42037,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1794*/ meltfptr[1793])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol LAMBDA_ARG_BINDINGS without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LAMBDA_ARG_BINDINGS =
 	melthookproc_HOOK_NAMED_SYMBOL ("LAMBDA_ARG_BINDINGS",
@@ -40897,6 +42058,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1796*/ meltfptr[1795])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MACROEXPAND_1 without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MACROEXPAND_1 =
 	melthookproc_HOOK_NAMED_SYMBOL ("MACROEXPAND_1", (long) MELT_GET);
@@ -40914,6 +42078,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1798*/ meltfptr[1797])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol MACROEXPAND_TOPLEVEL_LIST without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MACROEXPAND_TOPLEVEL_LIST =
 	melthookproc_HOOK_NAMED_SYMBOL ("MACROEXPAND_TOPLEVEL_LIST",
@@ -40932,6 +42099,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1800*/ meltfptr[1799])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PATTERNEXPAND_1 without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PATTERNEXPAND_1 =
 	melthookproc_HOOK_NAMED_SYMBOL ("PATTERNEXPAND_1", (long) MELT_GET);
@@ -40949,6 +42119,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1802*/ meltfptr[1801])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PATTERNEXPAND_EXPR without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PATTERNEXPAND_EXPR =
 	melthookproc_HOOK_NAMED_SYMBOL ("PATTERNEXPAND_EXPR",
@@ -40967,6 +42140,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1804*/ meltfptr[1803])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PATTERNEXPAND_PAIRLIST_AS_TUPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PATTERNEXPAND_PAIRLIST_AS_TUPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("PATTERNEXPAND_PAIRLIST_AS_TUPLE",
@@ -40985,6 +42161,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1806*/ meltfptr[1805])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol PATTERN_WEIGHT_TUPLE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_PATTERN_WEIGHT_TUPLE =
 	melthookproc_HOOK_NAMED_SYMBOL ("PATTERN_WEIGHT_TUPLE",
@@ -41003,6 +42182,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1808*/ meltfptr[1807])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol REGISTER_GENERATOR_DEVICE without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_REGISTER_GENERATOR_DEVICE =
 	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_GENERATOR_DEVICE",
@@ -41021,6 +42203,9 @@ melt_start_this_module (void *modargp_)
 
   if (NULL == /*_.VALDATA___V1810*/ meltfptr[1809])
     {
+#if !MELT_HAS_INITIAL_ENVIRONMENT
+#error MELT getting named symbol S_EXPR_WEIGHT without initial environment
+#endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
 #if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_S_EXPR_WEIGHT =
 	melthookproc_HOOK_NAMED_SYMBOL ("S_EXPR_WEIGHT", (long) MELT_GET);
