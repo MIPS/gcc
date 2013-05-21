@@ -1,6 +1,14 @@
 
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_NAMED_SYMBOL_USE_HOOK): Remove that
+	temporary kludge.
+
+	* melt-runtime.c (meltgc_named_symbol): Warn, not just inform,
+	when without HOOK_NAMED_SYMBOL.
+
+2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

@@ -3389,10 +3389,6 @@ extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #define gt_ggc_mx_gimple_seq_d melt_gt_ggc_mx_gimple_seq_d
 #endif /* GCC 4.8 */
 
-
-#warning temporary kludge for MELT_NAMED_SYMBOL_USE_HOOK
-#define MELT_NAMED_SYMBOL_USE_HOOK 1
-
 #endif /*MELT_INCLUDED_ */
 
 /* eof $Id$ */

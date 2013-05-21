@@ -7056,7 +7056,6 @@ meltgc_named_symbol (const char *nam, int create)
   closv = NULL;
   if (!nam || !MELT_PREDEF (INITIAL_SYSTEM_DATA))
     goto end;
-#if MELT_NAMED_SYMBOL_USE_HOOK
   if (MELT_PREDEF (HOOK_NAMED_SYMBOL))
     {
       static bool informeduse;
@@ -7071,17 +7070,16 @@ meltgc_named_symbol (const char *nam, int create)
     }
   else
     {
-      static bool informednotuse;
-      if (!informednotuse)
+      static bool warnednotuse;
+      if (!warnednotuse)
 	{
-	  inform (UNKNOWN_LOCATION, "MELT named symbol %s (create %d) cannot use HOOK_NAMED_SYMBOL", 
-		  nam, create);
-	  informednotuse = true;
+	  warning (0, "MELT named symbol %s (%s) cannot use HOOK_NAMED_SYMBOL", 
+		   nam, create?"creating":"getting");
+	  warnednotuse = true;
 	}
       goto begin;
     }
  begin:
-#endif /*MELT_NAMED_SYMBOL_USE_HOOK*/
   namlen = strlen (nam);
   memset (tinybuf, 0, sizeof (tinybuf));
   if (namlen < (int) sizeof (tinybuf) - 2)
