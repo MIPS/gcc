@@ -19,7 +19,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199131] MELT_0\
+const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199151] MELT_0\
 .9.9-pre"
 
 	     #ifdef __cplusplus
@@ -29,17 +29,18 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_199131]";
+const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_199151]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-hooks */
 const char melt_modulename[]="warmelt-hooks";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.9-pre/warmelt-hooks";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
+-modules/0.9.9-pre/warmelt-hooks";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="3465c04706f5348bea5557d1bc0bf1cf";
+const char melt_prepromd5meltrun[]="28ff96b9fa37a6988c61ef789cebfee4";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="91338c370ff4fcd69c7774c0ecc8608b";
+const char melt_primaryhexmd5[]="7a6027cd54d5616f3e8910685c3c0bb1";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -51,10 +52,10 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=0;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="91338c370ff4fcd69c7774c0ecc8608b" ;
+const char melt_cumulated_hexmd5[]="7a6027cd54d5616f3e8910685c3c0bb1" ;
 
 /* include the timestamp file */
-#define meltmod_warmelt_hooks_mds__91338c370ff4fcd69c7774c0ecc8608b 1
+#define meltmod_warmelt_hooks_mds__7a6027cd54d5616f3e8910685c3c0bb1 1
 #include "warmelt-hooks+melttime.h"
 	 
 

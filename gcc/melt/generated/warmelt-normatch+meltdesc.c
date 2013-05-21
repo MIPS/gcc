@@ -19,7 +19,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199131] MELT_0\
+const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199151] MELT_0\
 .9.9-pre"
 
 	     #ifdef __cplusplus
@@ -29,17 +29,18 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_199131]";
+const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_199151]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-normatch */
 const char melt_modulename[]="warmelt-normatch";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.9-pre/warmelt-normatch";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
+-modules/0.9.9-pre/warmelt-normatch";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="3465c04706f5348bea5557d1bc0bf1cf";
+const char melt_prepromd5meltrun[]="28ff96b9fa37a6988c61ef789cebfee4";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="c521a8f7e4f854ff3f4a450a27f1a8a6";
+const char melt_primaryhexmd5[]="3d3db7b120baaf0a3af0205b5aacd50e";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -56,10 +57,10 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="0f22f95f71f50ed108ac16a7ae0de6b5" ;
+const char melt_cumulated_hexmd5[]="9b398e60920d23d23d2e9edf7e6de3cd" ;
 
 /* include the timestamp file */
-#define meltmod_warmelt_normatch_mds__0f22f95f71f50ed108ac16a7ae0de6b5 1
+#define meltmod_warmelt_normatch_mds__9b398e60920d23d23d2e9edf7e6de3cd 1
 #include "warmelt-normatch+melttime.h"
 	 
 

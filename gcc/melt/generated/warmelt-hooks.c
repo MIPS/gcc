@@ -5880,12 +5880,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol VAL without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_VAL =
 	melthookproc_HOOK_NAMED_SYMBOL ("VAL", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_VAL = meltgc_named_symbol ("VAL", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V17*/ meltfptr[16] = (melt_ptr_t) meltsy_VAL;
     }				/*endgetnamedsym VAL */
 
@@ -5898,12 +5894,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol FILENAME without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_FILENAME =
 	melthookproc_HOOK_NAMED_SYMBOL ("FILENAME", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_FILENAME = meltgc_named_symbol ("FILENAME", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V20*/ meltfptr[19] = (melt_ptr_t) meltsy_FILENAME;
     }				/*endgetnamedsym FILENAME */
 
@@ -5916,12 +5908,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol LINENO without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_LINENO =
 	melthookproc_HOOK_NAMED_SYMBOL ("LINENO", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_LINENO = meltgc_named_symbol ("LINENO", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V23*/ meltfptr[22] = (melt_ptr_t) meltsy_LINENO;
     }				/*endgetnamedsym LINENO */
 
@@ -5934,12 +5922,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol MSG without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MSG =
 	melthookproc_HOOK_NAMED_SYMBOL ("MSG", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_MSG = meltgc_named_symbol ("MSG", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V26*/ meltfptr[25] = (melt_ptr_t) meltsy_MSG;
     }				/*endgetnamedsym MSG */
 
@@ -5952,12 +5936,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol COUNT without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_COUNT =
 	melthookproc_HOOK_NAMED_SYMBOL ("COUNT", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_COUNT = meltgc_named_symbol ("COUNT", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V29*/ meltfptr[28] = (melt_ptr_t) meltsy_COUNT;
     }				/*endgetnamedsym COUNT */
 
@@ -5970,13 +5950,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol MELT_DEBUG_FUN without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_MELT_DEBUG_FUN =
 	melthookproc_HOOK_NAMED_SYMBOL ("MELT_DEBUG_FUN", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_MELT_DEBUG_FUN =
-	meltgc_named_symbol ("MELT_DEBUG_FUN", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V12*/ meltfptr[11] = (melt_ptr_t) meltsy_MELT_DEBUG_FUN;
     }				/*endgetnamedsym MELT_DEBUG_FUN */
 
@@ -5989,14 +5964,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol OVERRIDE_GATE_DELAYED_QUEUE without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_OVERRIDE_GATE_DELAYED_QUEUE =
 	melthookproc_HOOK_NAMED_SYMBOL ("OVERRIDE_GATE_DELAYED_QUEUE",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_OVERRIDE_GATE_DELAYED_QUEUE =
-	meltgc_named_symbol ("OVERRIDE_GATE_DELAYED_QUEUE", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V33*/ meltfptr[32] =
 	(melt_ptr_t) meltsy_OVERRIDE_GATE_DELAYED_QUEUE;
     }				/*endgetnamedsym OVERRIDE_GATE_DELAYED_QUEUE */
@@ -6010,14 +5980,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol CLASS_DELAYED_QUEUE without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_DELAYED_QUEUE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_DELAYED_QUEUE",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_CLASS_DELAYED_QUEUE =
-	meltgc_named_symbol ("CLASS_DELAYED_QUEUE", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V35*/ meltfptr[34] =
 	(melt_ptr_t) meltsy_CLASS_DELAYED_QUEUE;
     }				/*endgetnamedsym CLASS_DELAYED_QUEUE */
@@ -6031,13 +5996,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol DISCR_LIST without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_DISCR_LIST =
 	melthookproc_HOOK_NAMED_SYMBOL ("DISCR_LIST", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_DISCR_LIST =
-	meltgc_named_symbol ("DISCR_LIST", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V41*/ meltfptr[40] = (melt_ptr_t) meltsy_DISCR_LIST;
     }				/*endgetnamedsym DISCR_LIST */
 
@@ -6050,13 +6010,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol BEFOREGATE without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_BEFOREGATE =
 	melthookproc_HOOK_NAMED_SYMBOL ("BEFOREGATE", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_BEFOREGATE =
-	meltgc_named_symbol ("BEFOREGATE", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V51*/ meltfptr[50] = (melt_ptr_t) meltsy_BEFOREGATE;
     }				/*endgetnamedsym BEFOREGATE */
 
@@ -6069,13 +6024,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol AFTERGATE without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_AFTERGATE =
 	melthookproc_HOOK_NAMED_SYMBOL ("AFTERGATE", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_AFTERGATE =
-	meltgc_named_symbol ("AFTERGATE", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V55*/ meltfptr[54] = (melt_ptr_t) meltsy_AFTERGATE;
     }				/*endgetnamedsym AFTERGATE */
 
@@ -6097,13 +6047,8 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol CLASS_REFERENCE without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_CLASS_REFERENCE =
 	melthookproc_HOOK_NAMED_SYMBOL ("CLASS_REFERENCE", (long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_CLASS_REFERENCE =
-	meltgc_named_symbol ("CLASS_REFERENCE", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V46*/ meltfptr[45] = (melt_ptr_t) meltsy_CLASS_REFERENCE;
     }				/*endgetnamedsym CLASS_REFERENCE */
 
@@ -6116,14 +6061,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol REGISTERED_FLAG_OVERRIDE_GATE without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_REGISTERED_FLAG_OVERRIDE_GATE =
 	melthookproc_HOOK_NAMED_SYMBOL ("REGISTERED_FLAG_OVERRIDE_GATE",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_REGISTERED_FLAG_OVERRIDE_GATE =
-	meltgc_named_symbol ("REGISTERED_FLAG_OVERRIDE_GATE", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V58*/ meltfptr[57] =
 	(melt_ptr_t) meltsy_REGISTERED_FLAG_OVERRIDE_GATE;
     }				/*endgetnamedsym REGISTERED_FLAG_OVERRIDE_GATE */
@@ -6137,14 +6077,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol HOOK_OVERRIDE_GATE without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_HOOK_OVERRIDE_GATE =
 	melthookproc_HOOK_NAMED_SYMBOL ("HOOK_OVERRIDE_GATE",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_HOOK_OVERRIDE_GATE =
-	meltgc_named_symbol ("HOOK_OVERRIDE_GATE", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V73*/ meltfptr[72] =
 	(melt_ptr_t) meltsy_HOOK_OVERRIDE_GATE;
     }				/*endgetnamedsym HOOK_OVERRIDE_GATE */
@@ -6158,14 +6093,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol HOOK_LOW_DEBUG_VALUE_AT without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_HOOK_LOW_DEBUG_VALUE_AT =
 	melthookproc_HOOK_NAMED_SYMBOL ("HOOK_LOW_DEBUG_VALUE_AT",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_HOOK_LOW_DEBUG_VALUE_AT =
-	meltgc_named_symbol ("HOOK_LOW_DEBUG_VALUE_AT", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V75*/ meltfptr[74] =
 	(melt_ptr_t) meltsy_HOOK_LOW_DEBUG_VALUE_AT;
     }				/*endgetnamedsym HOOK_LOW_DEBUG_VALUE_AT */
@@ -6179,14 +6109,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol REGISTER_OVERRIDE_GATE_FIRST without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_FIRST =
 	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_OVERRIDE_GATE_FIRST",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_FIRST =
-	meltgc_named_symbol ("REGISTER_OVERRIDE_GATE_FIRST", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V77*/ meltfptr[76] =
 	(melt_ptr_t) meltsy_REGISTER_OVERRIDE_GATE_FIRST;
     }				/*endgetnamedsym REGISTER_OVERRIDE_GATE_FIRST */
@@ -6200,14 +6125,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol REGISTER_OVERRIDE_GATE_LAST without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_LAST =
 	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_OVERRIDE_GATE_LAST",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_REGISTER_OVERRIDE_GATE_LAST =
-	meltgc_named_symbol ("REGISTER_OVERRIDE_GATE_LAST", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V79*/ meltfptr[78] =
 	(melt_ptr_t) meltsy_REGISTER_OVERRIDE_GATE_LAST;
     }				/*endgetnamedsym REGISTER_OVERRIDE_GATE_LAST */
@@ -6221,14 +6141,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol UNREGISTER_OVERRIDE_GATE_FIRST without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_FIRST =
 	melthookproc_HOOK_NAMED_SYMBOL ("UNREGISTER_OVERRIDE_GATE_FIRST",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_FIRST =
-	meltgc_named_symbol ("UNREGISTER_OVERRIDE_GATE_FIRST", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V81*/ meltfptr[80] =
 	(melt_ptr_t) meltsy_UNREGISTER_OVERRIDE_GATE_FIRST;
     }				/*endgetnamedsym UNREGISTER_OVERRIDE_GATE_FIRST */
@@ -6242,14 +6157,9 @@ melt_start_this_module (void *modargp_)
 #if !MELT_HAS_INITIAL_ENVIRONMENT
 #error MELT getting named symbol UNREGISTER_OVERRIDE_GATE_LAST without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-#if MELT_NAMED_SYMBOL_USE_HOOK
       melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_LAST =
 	melthookproc_HOOK_NAMED_SYMBOL ("UNREGISTER_OVERRIDE_GATE_LAST",
 					(long) MELT_GET);
-#else /*!MELT_NAMED_SYMBOL_USE_HOOK */
-      melt_ptr_t meltsy_UNREGISTER_OVERRIDE_GATE_LAST =
-	meltgc_named_symbol ("UNREGISTER_OVERRIDE_GATE_LAST", MELT_GET);
-#endif /*!MELT_NAMED_SYMBOL_USE_HOOK */
    /*_.VALDATA___V83*/ meltfptr[82] =
 	(melt_ptr_t) meltsy_UNREGISTER_OVERRIDE_GATE_LAST;
     }				/*endgetnamedsym UNREGISTER_OVERRIDE_GATE_LAST */
