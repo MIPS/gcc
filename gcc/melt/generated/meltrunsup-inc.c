@@ -3073,11 +3073,6 @@ melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
 		  !strncmp (melthkp->hookname,
 			    "HOOK_LOW_DEBUG_VALUE_AT",
 			    MELT_HOOKNAME_LEN - 1));
-  /* check hook data HOOK_LOW_DEBUG_VALUE_AT */
-  melt_assertmsg
-    ("good predefhook data hash HOOK_LOW_DEBUG_VALUE_AT or bootstrapping",
-     melt_flag_bootstrapping != 0
-     || melt_obj_hash (melthkp->hookdata) == 372954826);
   return (*melthookptr_HOOK_LOW_DEBUG_VALUE_AT) ((melt_ptr_t) melthkp,
 						 meltin_VAL_p0,
 						 meltin_FILENAME_p1,
@@ -3114,11 +3109,6 @@ melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
   melt_assertmsg ("check predefhook name HOOK_OVERRIDE_GATE",
 		  !strncmp (melthkp->hookname,
 			    "HOOK_OVERRIDE_GATE", MELT_HOOKNAME_LEN - 1));
-  /* check hook data HOOK_OVERRIDE_GATE */
-  melt_assertmsg
-    ("good predefhook data hash HOOK_OVERRIDE_GATE or bootstrapping",
-     melt_flag_bootstrapping != 0
-     || melt_obj_hash (melthkp->hookdata) == 224148143);
   return (*melthookptr_HOOK_OVERRIDE_GATE) ((melt_ptr_t) melthkp,
 					    meltin_BEFOREGATE_p0,
 					    meltout_AFTERGATE_o0);
