@@ -7039,93 +7039,6 @@ meltgc_makesexpr (struct melt_reading_st *rd, int lineno, melt_ptr_t contents_p,
 }
 
 
-
-melt_ptr_t
-meltgc_named_symbol (const char *nam, int create)
-{
-  int namlen = 0, ix = 0;
-  char *namdup = 0;
-  char tinybuf[130];
-  MELT_ENTERFRAME (4, NULL);
-#define symbv    meltfram__.mcfr_varptr[0]
-#define dictv    meltfram__.mcfr_varptr[1]
-#define closv    meltfram__.mcfr_varptr[2]
-#define nstrv    meltfram__.mcfr_varptr[3]
-  symbv = NULL;
-  dictv = NULL;
-  closv = NULL;
-  if (!nam || !MELT_PREDEF (INITIAL_SYSTEM_DATA))
-    goto end;
-  if (MELT_PREDEF (HOOK_NAMED_SYMBOL))
-    {
-      static bool informeduse;
-      if (!informeduse)
-	{
-	  inform (UNKNOWN_LOCATION, "MELT named symbol %s (create %d) uses HOOK_NAMED_SYMBOL", 
-		  nam, create);
-	  informeduse = true;
-	}
-      symbv = melthookproc_HOOK_NAMED_SYMBOL (nam, (long) create);
-      goto end;
-    }
-  else
-    {
-      static bool warnednotuse;
-      if (!warnednotuse)
-	{
-	  warning (0, "MELT named symbol %s (%s) cannot use HOOK_NAMED_SYMBOL", 
-		   nam, create?"creating":"getting");
-	  warnednotuse = true;
-	}
-      goto begin;
-    }
- begin:
-  namlen = strlen (nam);
-  memset (tinybuf, 0, sizeof (tinybuf));
-  if (namlen < (int) sizeof (tinybuf) - 2)
-    namdup = strcpy (tinybuf, nam);
-  else
-    namdup = strcpy ((char *) xcalloc (namlen + 1, 1), nam);
-  gcc_assert (melt_magic_discr ((melt_ptr_t) MELT_PREDEF (CLASS_SYSTEM_DATA))
-              == MELTOBMAG_OBJECT);
-  gcc_assert (melt_magic_discr ((melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA)) ==
-              MELTOBMAG_OBJECT);
-  for (ix = 0; ix < namlen; ix++)
-    if (ISALPHA (namdup[ix]))
-      namdup[ix] = TOUPPER (namdup[ix]);
-  if (MELT_PREDEF (INITIAL_SYSTEM_DATA) != 0) {
-    dictv = melt_get_inisysdata (MELTFIELD_SYSDATA_SYMBOLDICT);
-    if (melt_magic_discr ((melt_ptr_t) dictv) == MELTOBMAG_MAPSTRINGS)
-      symbv =
-        melt_get_mapstrings ((struct meltmapstrings_st *) dictv,
-                             namdup);
-    if (symbv || !create)
-      goto end;
-    closv = melt_get_inisysdata (MELTFIELD_SYSDATA_ADDSYMBOL);
-    if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) {
-      union meltparam_un pararg[1];
-      memset (&pararg, 0, sizeof (pararg));
-      nstrv = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF (DISCR_STRING), namdup);
-      pararg[0].meltbp_aptr = (melt_ptr_t *) & nstrv;
-      symbv =
-        melt_apply ((meltclosure_ptr_t) closv,
-                    (melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA),
-                    MELTBPARSTR_PTR, pararg, "", NULL);
-      goto end;
-    }
-  }
-end:
-  ;
-  if (namdup && namdup != tinybuf)
-    free (namdup);
-  MELT_EXITFRAME ();
-  return (melt_ptr_t) symbv;
-#undef symbv
-#undef dictv
-#undef closv
-#undef nstrv
-}
-
 melt_ptr_t
 meltgc_intern_symbol (melt_ptr_t symb_p)
 {
@@ -7514,7 +7427,7 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
   seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
   sbufv = meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
   if (rdcurc() == '$' && rdfollowc(1)=='\'') {
-    symbv = meltgc_named_symbol ("quote", MELT_CREATE);
+    symbv = melthookproc_HOOK_NAMED_SYMBOL ("quote", (long)MELT_CREATE);
     quoted = 1;
     meltgc_append_list((melt_ptr_t) seqv, (melt_ptr_t) symbv);
     symbv = NULL;
@@ -7586,14 +7499,14 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
 		tinybuf[lnam] = (char)0;
 		if (quoted)
 		  MELT_READ_WARNING ("quoted macro string with $%s symbol", tinybuf);
-		symbv = meltgc_named_symbol(tinybuf, MELT_CREATE);
+		symbv = melthookproc_HOOK_NAMED_SYMBOL(tinybuf, (long) MELT_CREATE);
 	      } 
 	    else 
 	      {
 		char *nambuf = (char*) xcalloc(lnam+2, 1);
 		memcpy(nambuf, &rdfollowc(1), lnam-1);
 		nambuf[lnam] = (char)0;
-		symbv = meltgc_named_symbol(nambuf, MELT_CREATE);
+		symbv = melthookproc_HOOK_NAMED_SYMBOL(nambuf, (long) MELT_CREATE);
 		if (quoted)
 		  MELT_READ_WARNING ("quoted macro string with $%s symbol", nambuf);
 		free(nambuf);
@@ -7953,7 +7866,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     if (!got)
       MELT_READ_ERROR ("MELT: expecting value after quote %.20s", &rdcurc ());
     seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
-    altv = meltgc_named_symbol ("quote", MELT_CREATE);
+    altv = melthookproc_HOOK_NAMED_SYMBOL ("quote", (long) MELT_CREATE);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
     melt_dbgread_value ("readval altv=", altv);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
@@ -7980,7 +7893,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     if (!got)
       MELT_READ_ERROR ("MELT: expecting value after exclamation mark ! %.20s", &rdcurc ());
     seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
-    altv = meltgc_named_symbol ("exclaim", MELT_CREATE);
+    altv = melthookproc_HOOK_NAMED_SYMBOL ("exclaim", (long) MELT_CREATE);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
     melt_linemap_compute_current_location (rd);
@@ -8011,7 +7924,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       MELT_READ_ERROR ("MELT: expecting value after backquote %.20s",
                        &rdcurc ());
     seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
-    altv = meltgc_named_symbol ("backquote", MELT_CREATE);
+    altv = melthookproc_HOOK_NAMED_SYMBOL ("backquote", (long) MELT_CREATE);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
     readv = meltgc_makesexpr (rd, lineno, (melt_ptr_t) seqv, loc, MELT_MACSTR_PLAIN);
@@ -8033,7 +7946,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     if (!got)
       MELT_READ_ERROR ("MELT: expecting value after comma %.20s", &rdcurc ());
     seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
-    altv = meltgc_named_symbol ("comma", MELT_CREATE);
+    altv = melthookproc_HOOK_NAMED_SYMBOL ("comma", (long) MELT_CREATE);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
     readv = meltgc_makesexpr (rd, lineno, (melt_ptr_t) seqv, loc, MELT_MACSTR_PLAIN);
@@ -8055,7 +7968,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     if (!got)
       MELT_READ_ERROR ("MELT: expecting value after at %.20s", &rdcurc ());
     seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
-    altv = meltgc_named_symbol ("at", MELT_CREATE);
+    altv = melthookproc_HOOK_NAMED_SYMBOL ("at", (long) MELT_CREATE);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
     readv = meltgc_makesexpr (rd, lineno, (melt_ptr_t) seqv, loc, MELT_MACSTR_PLAIN);
@@ -8077,7 +7990,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     if (!got)
       MELT_READ_ERROR ("MELT: expecting value after question %.20s", &rdcurc ());
     seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
-    altv = meltgc_named_symbol ("question", MELT_CREATE);
+    altv = melthookproc_HOOK_NAMED_SYMBOL ("question", (long) MELT_CREATE);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) altv);
     meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) compv);
     readv = meltgc_makesexpr (rd, lineno, (melt_ptr_t) seqv, loc, MELT_MACSTR_PLAIN);
@@ -8097,7 +8010,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
     goto end;
   } else if (ISALPHA (c) || strchr (EXTRANAMECHARS, c) != NULL) {
     nam = melt_readsimplename (rd);
-    readv = meltgc_named_symbol (nam, MELT_CREATE);
+    readv = melthookproc_HOOK_NAMED_SYMBOL (nam, (long) MELT_CREATE);
     melt_dbgread_value ("readval symbol readv=", readv);
     *pgot = TRUE;
     goto end;
@@ -10795,7 +10708,7 @@ meltgc_set_user_options (const char* optstr)
         debugeprintf("optname '%s", optname);
         if (!optname || !optname[0])
           error ("MELT option %s without valid name", optstr);
-        optsymbv = meltgc_named_symbol (optname, MELT_CREATE);
+        optsymbv = melthookproc_HOOK_NAMED_SYMBOL (optname, (long) MELT_CREATE);
         debugeprintf("optname '%s got optsymbv %p", optname, optsymbv);
         {
           union meltparam_un pararg[1];

@@ -1,6 +1,21 @@
 
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (meltgc_named_symbol): Remove declaration.
+
+	* melt-runtime.c (meltgc_named_symbol): Remove function.
+	(meltgc_readmacrostringsequence, meltgc_readval)
+	(meltgc_set_user_options): Use melthookproc_HOOK_NAMED_SYMBOL
+	instead of meltgc_named_symbol.
+
+	* melt/warmelt-first.melt (class_initial_system_data): Remove
+	sysdata_addsymbol field, temporarily replacing it with
+	sysdata__obsolete1.
+	(add_new_symbol_token): Remove function.
+	(initial_system_data): Don't use sysdata_addsymbol.
+
+2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_NAMED_SYMBOL_USE_HOOK): Remove that
 	temporary kludge.
 

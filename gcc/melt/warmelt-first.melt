@@ -405,7 +405,7 @@ don't instanciate this class!}#
 	   sysdata_macro_exporter	;closure to export a macro
 	   sysdata_symboldict 		; stringmap for symbols
 	   sysdata_keywdict 		;stringmap for keywords
-	   sysdata_addsymbol 		;closure to add a symbol of given name
+	   sysdata__obsolete1
 	   sysdata_addkeyw		;closure to add a keyword of given name
 	   sysdata_internsymbol		;closure to intern a symbol
 	   sysdata_internkeyw		;closure to intern a keyword
@@ -2906,24 +2906,6 @@ Keyword is :cstring.}#
 
 
 
-;; obsolete function to add a new symbol [called by meltgc_named_symbol in the runtime]
-(defun add_new_symbol_token (syda str)
-  (code_chunk addnewsymb_chk 
-	      #{ /* add_new_symbol_token $ADDNEWSYMB_CHK */
-    static bool meltcalled_$ADDNEWSYMB_CHK;
-    if (!meltcalled_$ADDNEWSYMB_CHK)
-	         warning (0, "MELT add_new_symbol_token unexpectedly called with %s",
-			     melt_string_str ($STR));
-#warning obsolete add_new_symbol_token  $ADDNEWSYMB_CHK
- meltcalled_$ADDNEWSYMB_CHK = 1;
-	      }#)
-  (assert_msg "check syda" (is_a syda class_system_data))
-  (let ( (sy (instance class_symbol :named_name str)) 
-	 (sydict (unsafe_get_field :sysdata_symboldict syda))
-	 )
-    (mapstring_putstr sydict str sy)
-    sy))
-
 ;; function to add a new keyword [called by meltgc_named_keyword in the runtime]
 (defun add_new_keyword_token (syda str)
   (assert_msg "check syda" (is_a syda class_system_data))
@@ -3632,7 +3614,7 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_macro_exporter initmacro_exporter ;macro exporter in module
   :sysdata_symboldict  (make_mapstring discr_map_strings 600) ;stringmap for symbols
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
-  :sysdata_addsymbol  add_new_symbol_token ;closure to add a symbol of given name
+  :sysdata__obsolete1 () ;;; obsolete
   :sysdata_addkeyw add_new_keyword_token ;closure to add a keyword of given name
   :sysdata_internsymbol	intern_symbol	 ;closure to intern a symbol
   :sysdata_internkeyw intern_keyword	 ;closure to intern a keyword

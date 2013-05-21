@@ -2623,7 +2623,9 @@ enum
   MELT_CREATE
 };
 
-melt_ptr_t meltgc_named_symbol (const char *nam, int create);
+/* Nota: use the melthookproc_HOOK_NAMED_SYMBOL to get or created
+   named symbols */
+
 
 /* get (or create) the keyword of a given name (without the colon),
    using the INITIAL_SYSTEM_DATA global; the NAM string can be in the
