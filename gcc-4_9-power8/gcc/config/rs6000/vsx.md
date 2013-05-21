@@ -1090,7 +1090,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(parallel [(set (match_dup 4) (and:DI (match_dup 5) (match_dup 6)))
 	      (clobber (match_dup 3))])
    (parallel [(set (match_dup 7) (and:DI (match_dup 8) (match_dup 9)))
@@ -1120,7 +1120,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(const_int 0)]
 {
   operands[3] = simplify_subreg (DImode, operands[0], <MODE>mode, 0);
@@ -1170,7 +1170,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (xor:DI (match_dup 4) (match_dup 5)))
    (set (match_dup 6) (xor:DI (match_dup 7) (match_dup 8)))]
 {
@@ -1194,7 +1194,7 @@
    xxlnor %x0,%x1,%x1
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 2) (not:DI (match_dup 3)))
    (set (match_dup 4) (not:DI (match_dup 5)))]
 {
@@ -1218,7 +1218,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (not:DI (ior:DI (match_dup 4) (match_dup 5))))
    (set (match_dup 6) (not:DI (ior:DI (match_dup 7) (match_dup 8))))]
 {
@@ -1245,7 +1245,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (and:DI (not:DI (match_dup 4)) (match_dup 5)))
    (set (match_dup 6) (and:DI (not:DI (match_dup 7)) (match_dup 8)))]
 {
@@ -1261,7 +1261,7 @@
 
 ;; Power8 vector logical instructions.  We only generate the VSX form of the
 ;; instruction (xxl<xxx> vs. v<xxx>).
-(define_insn_and_split "eqv<mode>"
+(define_insn_and_split "*vsx_eqv<mode>3"
   [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,?wr")
 	(not:VSX_L
 	 (xor:VSX_L (match_operand:VSX_L 1 "register_operand" "wa,0,wr,wr")
@@ -1273,7 +1273,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (not:DI (xor:DI (match_dup 4) (match_dup 5))))
    (set (match_dup 6) (not:DI (xor:DI (match_dup 7) (match_dup 8))))]
 {
@@ -1288,7 +1288,7 @@
    (set_attr "length" "4,8,8,8")])
 
 ;; Rewrite nand into canonical form
-(define_insn_and_split "nand<mode>"
+(define_insn_and_split "*vsx_nand<mode>3"
   [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,?wr")
 	(ior:VSX_L
 	 (not:VSX_L (match_operand:VSX_L 1 "register_operand" "wa,0,wr,wr"))
@@ -1300,7 +1300,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (ior:DI (not:DI (match_dup 4)) (not:DI (match_dup 5))))
    (set (match_dup 6) (ior:DI (not:DI (match_dup 7)) (not:DI (match_dup 8))))]
 {
@@ -1316,7 +1316,7 @@
 
 ;; The canonical form is to have the negated elment first, so we need to
 ;; reverse arguments.
-(define_insn_and_split "orc<mode>"
+(define_insn_and_split "*vsx_orc<mode>3"
   [(set (match_operand:VSX_L 0 "register_operand" "=wa,?wr,?wr,?wr")
 	(ior:VSX_L
 	 (not:VSX_L (match_operand:VSX_L 1 "register_operand" "wa,0,wr,wr"))
@@ -1328,7 +1328,7 @@
    #
    #
    #"
-  "reload_completed && INT_REGNO_P (REGNO (operands[0]))"
+  "reload_completed && int_reg_operand (operands[0], <MODE>mode)"
   [(set (match_dup 3) (ior:DI (not:DI (match_dup 4)) (match_dup 5)))
    (set (match_dup 6) (ior:DI (not:DI (match_dup 7)) (match_dup 8)))]
 {
