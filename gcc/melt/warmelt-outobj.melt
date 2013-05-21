@@ -3765,12 +3765,11 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
       (output_c_code oilocv declbuf implbuf (+i depth 1))
       (add2sbuf_strconst implbuf ") {")
       (add2sbuf_indentnl implbuf 0)
+      ;; it should never happen that we have no initial environemt,
+      ;; because the objgetnamedsymbol should not have been built.
       (add2sbuf_strconst implbuf "#if !MELT_HAS_INITIAL_ENVIRONMENT")
-      (add2sbuf_indentnl implbuf (+i depth 1))
-      (add2out implbuf 
-	       "warning (0, \"MELT get named %s without initial environment\", \"")
-      (add2sbuf_cencstring implbuf nsy)
-      (add2out implbuf "\");")
+      (add2sbuf_indentnl implbuf 0)
+      (add2out implbuf "#error MELT getting named symbol " nsy " without initial environment")
       (add2sbuf_indentnl implbuf 0)
       (add2sbuf_strconst implbuf "#endif /*!MELT_HAS_INITIAL_ENVIRONMENT*/")
       (add2sbuf_indentnl implbuf 0)

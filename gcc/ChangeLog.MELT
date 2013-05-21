@@ -2,6 +2,12 @@
 
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_objgetnamedsymbol): Emit an
+	#error when without environment -i.e. when translating
+	warmelt-first, because this should never happen.
+
+2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-genobj.melt (compile2obj_initproc): Don't build
 	symbol or keyword getters or importers for the first initial
 	module.
