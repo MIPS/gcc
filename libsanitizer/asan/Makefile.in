@@ -93,6 +93,12 @@ am__nobase_list = $(am__nobase_strip_setup); \
 am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
+am__uninstall_files_from_dir = { \
+  test -z "$$files" \
+    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
+    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
+         $(am__cd) "$$dir" && rm -f $$files; }; \
+  }
 am__installdirs = "$(DESTDIR)$(toolexeclibdir)" \
 	"$(DESTDIR)$(toolexeclibdir)"
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
@@ -129,6 +135,11 @@ CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	$(LDFLAGS) -o $@
 SOURCES = $(libasan_la_SOURCES)
 DIST_SOURCES = $(libasan_la_SOURCES)
+am__can_run_installinfo = \
+  case $$AM_UPDATE_INFO_DIR in \
+    n|no|NO) false;; \
+    *) (install-info --version) >/dev/null 2>&1;; \
+  esac
 HEADERS = $(nodist_toolexeclib_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -471,8 +482,11 @@ clean-libtool:
 	-rm -rf .libs _libs
 install-nodist_toolexeclibHEADERS: $(nodist_toolexeclib_HEADERS)
 	@$(NORMAL_INSTALL)
-	test -z "$(toolexeclibdir)" || $(MKDIR_P) "$(DESTDIR)$(toolexeclibdir)"
 	@list='$(nodist_toolexeclib_HEADERS)'; test -n "$(toolexeclibdir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(toolexeclibdir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(toolexeclibdir)" || exit 1; \
+	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
@@ -486,9 +500,7 @@ uninstall-nodist_toolexeclibHEADERS:
 	@$(NORMAL_UNINSTALL)
 	@list='$(nodist_toolexeclib_HEADERS)'; test -n "$(toolexeclibdir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	test -n "$$files" || exit 0; \
-	echo " ( cd '$(DESTDIR)$(toolexeclibdir)' && rm -f" $$files ")"; \
-	cd "$(DESTDIR)$(toolexeclibdir)" && rm -f $$files
+	dir='$(DESTDIR)$(toolexeclibdir)'; $(am__uninstall_files_from_dir)
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

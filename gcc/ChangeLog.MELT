@@ -1,6 +1,11 @@
 
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_NAMED_SYMBOL_USE_HOOK): Temporarily define
+	it to check that it is working.
+
+2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.
