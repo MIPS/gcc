@@ -1,3 +1,253 @@
+2013-05-22  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/19599
+	PR target/57340
+	* config/arm/arm.c (any_sibcall_uses_r3): Rename to ..
+	(any_sibcall_could_use_r3): this and handle indirect calls.
+	(arm_get_frame_offsets): Rename use of any_sibcall_uses_r3.
+
+2013-05-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (MALLOC_ABI_ALIGNMENT): New #define.
+
+2013-05-22  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57349
+	* profile.c (branch_prob): Do not split blocks that are
+	abnormally receiving from ECF_RETURNS_TWICE functions.
+
+2013-05-22  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* recog.c (offsettable_address_addr_space_p): Fix calculation of
+	address mode.  Move pointer mode initialization to the same place.
+
+2013-05-22  Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* read-rtl.c (copy_rtx_for_iterators): Continue applying iterators
+	while it has any effect.
+
+2013-05-21  Easwaran Raman  <eraman@google.com>
+
+	PR tree-optimization/57322
+	* (build_and_add_sum): If a BB is empty, set the UID of the statement
+	added to the BB to be 1.
+
+2013-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57331
+	* tree-vrp.c (simplify_cond_using_ranges): Don't optimize
+	comparison of conversion from pointer type to integral type
+	with integer.
+
+2013-05-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/57289
+	* ipa-prop.c (ipa_read_node_info): Process param_used and
+	controlled_uses in the same order as when writing.
+
+2013-05-21  Magnus Granberg  <baldrick@free.fr>
+
+	PR plugins/56754
+	* Makefile.in (PLUGIN_HEADERS): Add $(TARGET_H).
+
+2013-05-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57318
+	* tree-ssa-loop-ivcanon.c (tree_estimate_loop_size): Do not
+	estimate stmts with side-effects as likely eliminated.
+
+2013-05-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57330
+	* cgraph.c (cgraph_redirect_edge_call_stmt_to_callee): Properly
+	preserve the call stmts fntype.
+
+2013-05-21  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57303
+	* tree-ssa-sink.c (statement_sink_location): Improve killing
+	stmt detection and properly handle self-assignments.
+
+2013-05-21  Christian Bruel  <christian.bruel@st.com>
+
+        * dwarf2out.c (multiple_reg_loc_descriptor): Use dbx_reg_number for
+        spanning registers. LEAF_REG_REMAP is supported only for contiguous
+	registers. Set register size out of the PARALLEL loop.
+
+2013-05-20  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/56547
+	* config/sh/sh.md (fmasf4): Remove empty constraints strings.
+	(*fmasf4, *fmasf4_media): New insns.
+
+2013-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.h (BASE_INSN_LENGTH, NOP_INSN_LENGTH): New macros.
+	* config/mips/mips.c (mips_symbol_insns, mips_address_insns)
+	(mips_const_insns, mips_split_const_insns, mips_load_store_insns)
+	(mips_idiv_insns): Update the comments to say that the returned
+	instruction counts are in units of BASE_INSN_LENGTH.
+	(mips_adjust_insn_length): Multiply the mips_load_label_num_insns
+	by BASE_INSN_LENGTH rather than 4.  Add the jump separately,
+	using 2 rather than 4 as the length of indirect MIPS16 and
+	microMIPS jumps.  Use NOP_INSN_LENGTH rather than 4 as the
+	length of a NOP.  Don't divide MIPS16 lengths by 2.
+	(mips16_split_long_branches): Assume a branch is long if the
+	length is greater than 4 rather than 8.
+	* config/mips/mips.md (length): Give MIPS16 lengths directly,
+	rather than multiplying them by 2.  Multiply instruction counts
+	by BASE_INSN_LENGTH rather than 4.
+	(*jump_mips16, tls_get_tp_mips16_<mode>)
+	(*tls_get_tp_mips16_call_<mode>): Divide lengths by 2.
+
+2013-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.md (extended_mips16): Remove branch case.
+	(length): Remove duplicated extended_mips16 test.
+
+2013-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/t-sde: Don't build 64-bit microMIPS multilibs.
+
+2013-05-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* recog.h (Recog_data): Rename to...
+	(recog_data_d): ...this.
+	(recog_data): Update accordingly.
+	* recog.c (recog_data): Likewise.
+	* reload.c (save_recog_data): Likewise.
+	* config/picochip/picochip.c (picochip_saved_recog_data): Likewise.
+	(picochip_save_recog_data, picochip_restore_recog_data): Likewise.
+
+2013-05-17  Julian Brown  <julian@codesourcery.com>
+
+	* gcse.c (compute_ld_motion_mems): If a non-simple MEM is
+	found in a REG_EQUAL note, invalidate it.
+
+2013-05-17   Easwaran Raman  <eraman@google.com>
+
+	* tree-ssa-reassoc.c (find_insert_point): New function.
+	(insert_stmt_after): Likewise.
+	(get_def_stmt): Likewise.
+	(ensure_ops_are_available): Likewise.
+	(not_dominated_by): Likewise.
+	(rewrite_expr_tree): Do not move statements beyond what is
+	necessary. Remove call to swap_ops_for_binary_stmt...
+	(reassociate_bb): ... and move it here.
+	(build_and_add_sum): Assign UIDs for new statements.
+	(linearize_expr): Likewise.
+	(do_reassoc): Renumber gimple statement UIDs.
+
+2013-05-17  Jan Hubicka  <jh@suse.cz>
+
+	* lto-symtab.c (lto_symtab_merge_cgraph_nodes): Resolve cross module
+	weakrefs.
+	* cgraph.c (dump_cgraph_node): Do not ice on unresolved alias.
+	* cgraphunit.c (handle_alias_pairs): Store target of unresolved
+	weakrefs.
+	(output_weakrefs): Update.
+
+2013-05-17  Po-Chun Chang  <pchang9@cs.wisc.edu>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/57276
+	* ipa-cp.c (cgraph_edge_brings_all_agg_vals_for_node): Break when a
+	value that corresponds to the given aggval is found in values vector.
+
+2013-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Pass mmx, 3dnow,
+	sse, sse2, sse3, ssse3 and sse4a flags to options.
+
+2013-05-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* gengtype-state.c: (s_expr_writer): New class, to handle
+	prettifying of output layout of s-expressions.
+	(state_writer): New class, to write out gtype.state.
+	(state_written_type_count): Move this variable into member data of
+	state_writer.
+	(s_expr_writer::s_expr_writer): New code: constructor for new class
+	(state_writer::state_writer(): ditto
+	(s_expr_writer::write_new_line): New function
+	(s_expr_writer::write_any_indent): ditto
+	(s_expr_writer::begin_s_expr): ditto
+	(s_expr_writer::end_s_expr): ditto
+	(write_state_fileloc): convert to method of state_writer...
+	(state_writer:: write_state_fileloc): ...and use methods of
+	s_expr_writer to write indentation into the gtype.state output file
+	to visually represent the hierarchical structure of the list
+	structures
+	(write_state_fields): ditto, renaming to...
+	(state_writer::write_state_fields)
+	(write_state_a_string): ditto, renaming to...
+	(state_writer::write_state_a_string)
+	(write_state_string_option): ditto, renaming to...
+	(state_writer::write_state_string_option)
+	(write_state_type_option): ditto, renaming to...
+	(state_writer::write_state_type_option)
+	(write_state_nested_option): ditto, renaming to...
+	(state_writer::write_state_nested_option)
+	(write_state_option): ditto, renaming to...
+	(state_writer::write_state_option)
+	(write_state_options): ditto, renaming to...
+	(state_writer::write_state_options)
+	(write_state_lang_bitmap): ditto, renaming to...
+	(state_writer::write_state_lang_bitmap)
+	(write_state_version): ditto, renaming to...
+	(state_writer::write_state_version)
+	(write_state_scalar_type): ditto, renaming to...
+	(state_writer::write_state_scalar_type)
+	(write_state_string_type): ditto, renaming to...
+	(state_writer::write_state_string_type)
+	(write_state_undefined_type): ditto, renaming to...
+	(state_writer::write_state_undefined_type)
+	(write_state_struct_union_type): ditto, renaming to...
+	(state_writer::write_state_struct_union_type)
+	(write_state_struct_type): ditto, renaming to...
+	(state_writer::write_state_struct_type)
+	(write_state_user_struct_type): ditto, renaming to...
+	(state_writer::write_state_user_struct_type)
+	(write_state_lang_struct_type): ditto, renaming to...
+	(state_writer::write_state_lang_struct_type)
+	(write_state_param_struct_type): ditto, renaming to...
+	(state_writer::write_state_param_struct_type)
+	(write_state_pointer_type): ditto, renaming to...
+	(state_writer::write_state_pointer_type)
+	(write_state_array_type): ditto, renaming to...
+	(state_writer::write_state_array_type)
+	(write_state_gc_used): ditto, renaming to...
+	(state_writer::write_state_gc_used)
+	(write_state_common_type_content): ditto, renaming to...
+	(state_writer::write_state_common_type_content)
+	(write_state_type): ditto, renaming to...
+	(state_writer::write_state_type)
+	(write_state_pair_list): ditto, renaming to...
+	(state_writer::write_state_pair_list)
+	(write_state_pair): ditto, renaming to...
+	(state_writer::write_state_pair)
+	(write_state_typedefs): ditto, renaming to...
+	(state_writer::write_state_typedefs)
+	(write_state_structures): ditto, renaming to...
+	(state_writer::write_state_structures)
+	(write_state_param_structs): ditto, renaming to...
+	(state_writer::write_state_param_structs)
+	(write_state_variables): ditto, renaming to...
+	(state_writer::write_state_variables)
+	(write_state_srcdir): ditto, renaming to...
+	(state_writer::write_state_srcdir)
+	(write_state_files_list): ditto, renaming to...
+	(state_writer::write_state_files_list)
+	(write_state_languages): ditto, renaming to...
+	(state_writer::write_state_languages)
+	(write_state): create a state_writer instance and use it when
+	writing out the state file
+
+2013-05-17  Mike Stump  <mikestump@comcast.net>
+
+	PR rtl-optimization/57304
+	* web.c (union_match_dups): Ensure that DF_REF_LOC exists before
+	accessing DF_REF_REAL_LOC.
+
 2013-05-17  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/57281
@@ -18,9 +268,8 @@
 
 2013-05-17  Marek Polacek  <polacek@redhat.com>
 
-	* tree-ssa-strlen.c (handle_char_store): Don't invalidate
-	cached length when doing non-zero store of storing '\0' to
-	'\0'.
+	* tree-ssa-strlen.c (handle_char_store): Don't invalidate cached
+	length when doing non-zero store of storing '\0' to '\0'.
 
 2013-05-17  Jakub Jelinek  <jakub@redhat.com>
 
