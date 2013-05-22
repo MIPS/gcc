@@ -1068,6 +1068,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	= gimple_call_copy_skip_args (e->call_stmt,
 				      e->callee->clone.combined_args_to_skip);
       gimple_call_set_fndecl (new_stmt, e->callee->symbol.decl);
+      gimple_call_set_fntype (new_stmt, gimple_call_fntype (e->call_stmt));
 
       if (gimple_vdef (new_stmt)
 	  && TREE_CODE (gimple_vdef (new_stmt)) == SSA_NAME)
@@ -1558,7 +1559,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 	       (int)node->thunk.virtual_value,
 	       (int)node->thunk.virtual_offset_p);
     }
-  if (node->alias && node->thunk.alias)
+  if (node->alias && node->thunk.alias && DECL_P (node->thunk.alias))
     {
       fprintf (f, "  Alias of %s",
 	       lang_hooks.decl_printable_name (node->thunk.alias, 2));
