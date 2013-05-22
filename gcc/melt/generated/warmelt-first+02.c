@@ -999,8 +999,24 @@ MELT_EXTERN
 
 
 /* declare hook frame marking routine for melthook_HOOK_NAMED_SYMBOL hook */
-static void melthookmark_HOOK_NAMED_SYMBOL_rout (struct melt_callframe_st *,
-						 int);
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_NAMED_SYMBOL_rout (struct
+								 melt_callframe_st
+								 *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_NAMED_KEYWORD */
+MELT_EXTERN
+  melt_ptr_t melthook_HOOK_NAMED_KEYWORD (melt_ptr_t melthookdata,
+					  const char *meltinp0_NAM,
+					  long meltinp1_CREATE);
+
+
+/* declare hook frame marking routine for melthook_HOOK_NAMED_KEYWORD hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_NAMED_KEYWORD_rout (struct
+								  melt_callframe_st
+								  *, int);
 
 
 

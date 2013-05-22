@@ -25214,7 +25214,7 @@ meltlab_endgetargs:;
       /*^apply.arg */
       argtab[2].meltbp_cstring = " hook */\n";
       /*^apply.arg */
-      argtab[3].meltbp_cstring = "static void melthookmark_";
+      argtab[3].meltbp_cstring = "void MELT_MODULE_VISIBILITY melthookmark_";
       /*^apply.arg */
       argtab[4].meltbp_aptr =
 	(melt_ptr_t *) & /*_.NRAWHOOKNAME__V14*/ meltfptr[13];
