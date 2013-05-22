@@ -2923,7 +2923,8 @@ Keyword is :cstring.}#
     ))
 
 
-;; function to intern a keyword (or return the previous one)
+;; internal function to intern a keyword (or return the previous one)
+;; used by meltgc_intern_symbol which is becoming obsolete
 (defun intern_keyword (inidat keyw)
   (assert_msg "check inidat" (is_a inidat class_system_data))
   (assert_msg "check keyw" (is_a keyw class_keyword))
@@ -2934,6 +2935,7 @@ Keyword is :cstring.}#
 	oldkw
       (progn (mapstring_putstr kwdict kwname keyw) keyw))
     ))
+
 
 ;;; container of a mapstring for cloning symbol, maping symbol names to boxed integer
 (definstance container_clonemapstring class_reference
@@ -4774,6 +4776,8 @@ which signals are not handled. It could be dynamically nested.}#
 
 (defhook hook_named_symbol (:cstring nam :long create) () :value
   :predef HOOK_NAMED_SYMBOL
+  :doc #{hook to get a symbol of name $NAM and perhaps create it iff
+$CREATE is true i.e. non zero.}#
   (if (not (cstring_non_empty nam))
       (return ()))
   (block_signals
@@ -4839,6 +4843,8 @@ which signals are not handled. It could be dynamically nested.}#
 
 (defhook hook_named_keyword (:cstring nam :long create) () :value
   :predef HOOK_NAMED_KEYWORD
+  :doc #{hook to get a keyword of name $NAM and perhaps create it iff
+$CREATE is true i.e. non zero.}#
   (if (not (cstring_non_empty nam))
       (return ()))
   (block_signals
@@ -4905,8 +4911,45 @@ which signals are not handled. It could be dynamically nested.}#
      
      
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defhook hook_intern_symbol (:value symbv) () :value
+  :predef HOOK_INTERN_SYMBOL
+  :doc #{Intern and return the given symbol $SYMBV if it is new, or
+  return the previous old symbol of same name.}#
+  (if (and 
+       (is_a symbv class_symbol)
+       (is_not_a symbv class_keyword))
+      (let ( (syname (unsafe_get_field :named_name symbv))
+	     (sydict (get_field :sysdata_symboldict initial_system_data))
+	     (oldsy (mapstring_getstr sydict syname))
+	     )
+	(if (is_object oldsy)
+	    (setq symbv oldsy)
+	  (mapstring_putstr sydict syname symbv))
+	(return symbv))
+    (return ())))	    
+
+;;;;;;;;;;;;;;;;
+(defhook hook_intern_keyword (:value keywv) () :value
+  :predef HOOK_INTERN_KEYWORD
+  :doc #{Intern and return the given keyword $KEYWV if it is new, or
+  return the previous old keyword of same name.}#
+  (if (is_a keywv class_keyword)
+      (let ( (keyname (unsafe_get_field :named_name keywv))
+	     (kwdict (get_field :sysdata_keywdict initial_system_data))
+	     (oldkw (mapstring_getstr kwdict keyname))
+	     )
+	(if (is_object oldkw)
+	    (setq keywv oldkw)
+	  (mapstring_putstr kwdict keyname keywv))
+	(return keywv))
+    (return ())))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  block_signals
+ hook_intern_symbol
+ hook_intern_keyword
  hook_named_symbol
  hook_named_keyword 
  ignore
