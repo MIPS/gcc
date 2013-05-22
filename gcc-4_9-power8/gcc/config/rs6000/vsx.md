@@ -218,48 +218,30 @@
 ;; VSX moves
 (define_insn "*vsx_mov<mode>"
   [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,wQ,?&r,??Y,??r,??r,<VSr>,?wa,*r,v,wZ, v")
-	(match_operand:VSX_M 1 "input_operand"     "<VSr>,    Z,<VSr>,wa,  Z, wa, r, wQ,  r,  Y,  r,    j,  j, j,W, v,wZ"))]
+	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,wa,Z,wa,r,wQ,r,Y,r,j,j,j,W,v,wZ"))]
   "VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
-  const char *ret = rs6000_output_move_128bit (operands);
-
-  if (TARGET_DEBUG_ADDR)
-    {
-      fprintf (stderr, "\n========== vsx_mov<mode>, alternative = %d, string = %s\n",
-	       which_alternative, ret);
-      debug_rtx (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
-    }
-
-  return ret;
+  return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type"   "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,load,store,store,load, *,vecsimple,vecsimple,*, *,vecstore,vecload")
-   (set_attr "length" "       4,      4,        4,       4,      4,        4,  12,   12,   12,  12,16,        4,        4,*,16,       4,      4")])
+  [(set_attr "type" "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,load,store,store,load, *,vecsimple,vecsimple,*, *,vecstore,vecload")
+   (set_attr "length" "4,4,4,4,4,4,12,12,12,12,16,4,4,*,16,4,4")])
 
 ;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
 ;; use of TImode is for unions.  However for plain data movement, slightly
 ;; favor the vector loads
 (define_insn "*vsx_movti_64bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,wQ,&r,Y,r,r,?r")
-	(match_operand:TI 1 "input_operand"        "wa, Z,wa, O,W,wZ, v, r,wQ,r,Y,r, n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v,v,wZ,wQ,&r,Y,r,r,?r")
+	(match_operand:TI 1 "input_operand" "wa,Z,wa,O,W,wZ,v,r,wQ,r,Y,r,n"))]
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"
 {
-  const char *ret = rs6000_output_move_128bit (operands);
-
-  if (TARGET_DEBUG_ADDR)
-    {
-      fprintf (stderr, "\n========== vsx_movti_64bit, alternative = %d, string = %s\n",
-	       which_alternative, ret);
-      debug_rtx (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
-    }
-
-  return ret;
+  return rs6000_output_move_128bit (operands);
 }
   [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,load,store,load,*,*")
-   (set_attr "length" "     4,      4,        4,       4,        16,       4,      4,    8,   8,    8,   8,8,8")])
+   (set_attr "length" "4,4,4,4,16,4,4,8,8,8,8,8,8")])
 
 (define_insn "*vsx_movti_32bit"
   [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,Q,Y,????r,????r,????r,r")
