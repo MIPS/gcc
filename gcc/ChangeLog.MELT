@@ -1,6 +1,17 @@
 
 2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (meltgc_named_keyword): Remove declaration.
+
+	* melt-runtime.c (meltgc_named_keyword): Remove function.
+
+	* melt/warmelt-first.melt (class_initial_system_data)
+	(initial_system_data): Remove sysdata_addkeyw renamed as
+	sysdata__obsolete2.
+	(add_new_keyword_token): Remove obsolete function.
+
+2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.

@@ -2626,11 +2626,8 @@ enum
 /* Nota: use the melthookproc_HOOK_NAMED_SYMBOL to get or created
    named symbols */
 
-
-/* get (or create) the keyword of a given name (without the colon),
-   using the INITIAL_SYSTEM_DATA global; the NAM string can be in the
-   GC-allocated heap since it is copied */
-melt_ptr_t meltgc_named_keyword (const char *nam, int create);
+/* Note: use the melthookproc_HOOK_NAMED_KEYWORD to get or created
+   named keywords */
 
 /* intern a symbol, ie add it into the global name map; if the symbol
    is new, return it otherwise return the older homonymous symnol */

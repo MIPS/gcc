@@ -7137,12 +7137,6 @@ end:
 
 
 
-melt_ptr_t
-meltgc_named_keyword (const char *nam, int create)
-{
-  return melthookproc_HOOK_NAMED_KEYWORD (nam, (long) create);
-}
-
 
 
 static melt_ptr_t

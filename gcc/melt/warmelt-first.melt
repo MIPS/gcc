@@ -406,7 +406,7 @@ don't instanciate this class!}#
 	   sysdata_symboldict 		; stringmap for symbols
 	   sysdata_keywdict 		;stringmap for keywords
 	   sysdata__obsolete1
-	   sysdata_addkeyw		;closure to add a keyword of given name
+	   sysdata__obsolete2		;closure to add a keyword of given name
 	   sysdata_internsymbol		;closure to intern a symbol
 	   sysdata_internkeyw		;closure to intern a keyword
 	   sysdata_value_importer	;closure to import a value
@@ -2907,14 +2907,6 @@ Keyword is :cstring.}#
 
 
 
-;; obsolete function to add a new keyword [called by meltgc_named_keyword in the runtime]
-(defun add_new_keyword_token (syda str)
-  (assert_msg "check syda" (is_a syda class_system_data))
-  (let ( (kw (instance class_keyword :named_name str)) 
-	 (kwdict (unsafe_get_field :sysdata_keywdict syda))
-	 )
-    (mapstring_putstr kwdict str kw)
-    kw))
 
 ;; function to intern a symbol (or return the previous one)
 (defun intern_symbol (inidat symb)
@@ -3616,7 +3608,7 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_symboldict  (make_mapstring discr_map_strings 600) ;stringmap for symbols
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
   :sysdata__obsolete1 () ;;; obsolete
-  :sysdata_addkeyw add_new_keyword_token ;closure to add a keyword of given name
+  :sysdata__obsolete2 () ;closure to add a keyword of given name
   :sysdata_internsymbol	intern_symbol	 ;closure to intern a symbol
   :sysdata_internkeyw intern_keyword	 ;closure to intern a keyword
   :sysdata_value_importer initvalue_importer
