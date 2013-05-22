@@ -1,4 +1,22 @@
+	================ start of patch #6
+
+2013-05-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/direct-move-vint1.c: New tests for power8
+	direct move instructions.
+	* gcc.target/powerpc/direct-move-vint2.c: Likewise.
+	* gcc.target/powerpc/direct-move.h: Likewise.
+	* gcc.target/powerpc/direct-move-float1.c: Likewise.
+	* gcc.target/powerpc/direct-move-float2.c: Likewise.
+	* gcc.target/powerpc/direct-move-double1.c: Likewise.
+	* gcc.target/powerpc/direct-move-double2.c: Likewise.
+	* gcc.target/powerpc/direct-move-long1.c: Likewise.
+	* gcc.target/powerpc/direct-move-long2.c: Likewise.
+
 	================ start of patch #5
+	http://gcc.gnu.org/ml/gcc-patches/2013-05/msg01191.html
 
 2013-05-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
@@ -25,7 +43,8 @@
 	(is-effective-target-keyword): Likewise.
 	(check_vect_support_and_set_flags): Likewise.
 
-	================ start of patch #1
+	================ start of patch #2
+	http://gcc.gnu.org/ml/gcc-patches/2013-05/msg01122.html
 
 2013-05-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
