@@ -790,6 +790,19 @@
 	 (match_operand:VEC_L 2 "register_operand" "")))]
   "TARGET_P8_VECTOR && VECTOR_MEM_VSX_P (<MODE>mode)
    && (<MODE>mode != TImode || TARGET_POWERPC64)")
+
+;; Vector count leading zeros
+(define_expand "clz<mode>2"
+  [(set (match_operand:VEC_I 0 "register_operand" "")
+	(clz:VEC_I (match_operand:VEC_I 1 "register_operand" "")))]
+  "TARGET_P8_VECTOR")
+
+;; Vector population count
+(define_expand "popcount<mode>2"
+  [(set (match_operand:VEC_I 0 "register_operand" "")
+        (popcount:VEC_I (match_operand:VEC_I 1 "register_operand" "")))]
+  "TARGET_P8_VECTOR")
+
 
 ;; Same size conversions
 (define_expand "float<VEC_int><mode>2"

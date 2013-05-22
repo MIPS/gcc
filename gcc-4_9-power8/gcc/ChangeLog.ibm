@@ -1,5 +1,17 @@
 2013-05-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (clz<mode>2): Move count leading zero
+	and population count expanders to vector.md from altivec.md.
+	(popcount<mode>2): Likewise.
+	* config/rs6000/altivec.md (p8v_clz<mode>2): Likewise.
+	(p8v_popcount<mode>2): Likewise.
+
+	* config/rs6000/vsx.md (VSX logical ops): Only allow GPRs if we
+	are in quad memory mode.  Provide non-quad memory mode patterns.
+
+	* config/rs6000/predicates.md (int_reg_operand): Rework tests so
+	that only the GPRs are recognized.
+
 	* config/rs6000/rs6000-builtin.def (power8 logical builtins):
 	Change name to be consistant with the normal logical operations.
 
