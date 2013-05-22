@@ -17752,7 +17752,8 @@ emit_unlikely_jump (rtx cond, rtx label)
 }
 
 /* A subroutine of the atomic operation splitters.  Emit a load-locked
-   instruction in MODE.  */
+   instruction in MODE.  For QI/HImode, possibly use a pattern than includes
+   the zero_extend operation.  */
 
 static void
 emit_load_locked (enum machine_mode mode, rtx reg, rtx mem)
@@ -17761,11 +17762,25 @@ emit_load_locked (enum machine_mode mode, rtx reg, rtx mem)
 
   switch (mode)
     {
+    case QImode:
+      fn = gen_load_lockedqi;
+      break;
+    case HImode:
+      fn = gen_load_lockedhi;
+      break;
     case SImode:
-      fn = gen_load_lockedsi;
+      if (GET_MODE (mem) == QImode)
+	fn = gen_load_lockedqi_si;
+      else if (GET_MODE (mem) == HImode)
+	fn = gen_load_lockedhi_si;
+      else
+	fn = gen_load_lockedsi;
       break;
     case DImode:
       fn = gen_load_lockeddi;
+      break;
+    case TImode:
+      fn = gen_load_lockedti;
       break;
     default:
       gcc_unreachable ();
@@ -17783,11 +17798,20 @@ emit_store_conditional (enum machine_mode mode, rtx res, rtx mem, rtx val)
 
   switch (mode)
     {
+    case QImode:
+      fn = gen_store_conditionalqi;
+      break;
+    case HImode:
+      fn = gen_store_conditionalhi;
+      break;
     case SImode:
       fn = gen_store_conditionalsi;
       break;
     case DImode:
       fn = gen_store_conditionaldi;
+      break;
+    case TImode:
+      fn = gen_store_conditionalti;
       break;
     default:
       gcc_unreachable ();
@@ -17934,7 +17958,7 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
 {
   rtx boolval, retval, mem, oldval, newval, cond;
   rtx label1, label2, x, mask, shift;
-  enum machine_mode mode;
+  enum machine_mode mode, orig_mode;
   enum memmodel mod_s, mod_f;
   bool is_weak;
 
@@ -17946,22 +17970,29 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   is_weak = (INTVAL (operands[5]) != 0);
   mod_s = (enum memmodel) INTVAL (operands[6]);
   mod_f = (enum memmodel) INTVAL (operands[7]);
-  mode = GET_MODE (mem);
+  orig_mode = mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
   if (mode == QImode || mode == HImode)
     {
-      mem = rs6000_adjust_atomic_subword (mem, &shift, &mask);
-
-      /* Shift and mask OLDVAL into position with the word.  */
+      /* Before power8, we didn't have access to lbarx/lharx, so generate a
+	 lwarx and shift/mask operations.  With power8, we need to do the
+	 comparison in SImode, but the store is still done in QI/HImode.  */
       oldval = convert_modes (SImode, mode, oldval, 1);
-      oldval = expand_simple_binop (SImode, ASHIFT, oldval, shift,
-				    NULL_RTX, 1, OPTAB_LIB_WIDEN);
 
-      /* Shift and mask NEWVAL into position within the word.  */
-      newval = convert_modes (SImode, mode, newval, 1);
-      newval = expand_simple_binop (SImode, ASHIFT, newval, shift,
-				    NULL_RTX, 1, OPTAB_LIB_WIDEN);
+      if (!TARGET_SYNC_HI_QI)
+	{
+	  mem = rs6000_adjust_atomic_subword (mem, &shift, &mask);
+
+	  /* Shift and mask OLDVAL into position with the word.  */
+	  oldval = expand_simple_binop (SImode, ASHIFT, oldval, shift,
+					NULL_RTX, 1, OPTAB_LIB_WIDEN);
+
+	  /* Shift and mask NEWVAL into position within the word.  */
+	  newval = convert_modes (SImode, mode, newval, 1);
+	  newval = expand_simple_binop (SImode, ASHIFT, newval, shift,
+					NULL_RTX, 1, OPTAB_LIB_WIDEN);
+	}
 
       /* Prepare to adjust the return value.  */
       retval = gen_reg_rtx (SImode);
@@ -17990,7 +18021,25 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
     }
 
   cond = gen_reg_rtx (CCmode);
-  x = gen_rtx_COMPARE (CCmode, x, oldval);
+  /* If we have TImode, synthesize a comparison.  */
+  if (mode != TImode)
+    x = gen_rtx_COMPARE (CCmode, x, oldval);
+  else
+    {
+      rtx xor1_result = gen_reg_rtx (DImode);
+      rtx xor2_result = gen_reg_rtx (DImode);
+      rtx or_result = gen_reg_rtx (DImode);
+      rtx new_word0 = simplify_gen_subreg (DImode, x, TImode, 0);
+      rtx new_word1 = simplify_gen_subreg (DImode, x, TImode, 8);
+      rtx old_word0 = simplify_gen_subreg (DImode, oldval, TImode, 0);
+      rtx old_word1 = simplify_gen_subreg (DImode, oldval, TImode, 8);
+
+      emit_insn (gen_xordi3 (xor1_result, new_word0, old_word0));
+      emit_insn (gen_xordi3 (xor2_result, new_word1, old_word1));
+      emit_insn (gen_iordi3 (or_result, xor1_result, xor2_result));
+      x = gen_rtx_COMPARE (CCmode, or_result, const0_rtx);
+    }
+
   emit_insn (gen_rtx_SET (VOIDmode, cond, x));
 
   x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
@@ -18000,7 +18049,7 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
   if (mask)
     x = rs6000_mask_atomic_subword (retval, newval, mask);
 
-  emit_store_conditional (mode, cond, mem, x);
+  emit_store_conditional (orig_mode, cond, mem, x);
 
   if (!is_weak)
     {
@@ -18018,6 +18067,8 @@ rs6000_expand_atomic_compare_and_swap (rtx operands[])
 
   if (shift)
     rs6000_finish_atomic_subword (operands[1], retval, shift);
+  else if (mode != GET_MODE (operands[1]))
+    convert_move (operands[1], retval, 1);
 
   /* In all cases, CR0 contains EQ on success, and NE on failure.  */
   x = gen_rtx_EQ (SImode, cond, const0_rtx);
@@ -18041,7 +18092,7 @@ rs6000_expand_atomic_exchange (rtx operands[])
   mode = GET_MODE (mem);
 
   mask = shift = NULL_RTX;
-  if (mode == QImode || mode == HImode)
+  if (!TARGET_SYNC_HI_QI && (mode == QImode || mode == HImode))
     {
       mem = rs6000_adjust_atomic_subword (mem, &shift, &mask);
 
@@ -18090,11 +18141,25 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 {
   enum memmodel model = (enum memmodel) INTVAL (model_rtx);
   enum machine_mode mode = GET_MODE (mem);
+  enum machine_mode store_mode = mode;
   rtx label, x, cond, mask, shift;
   rtx before = orig_before, after = orig_after;
 
   mask = shift = NULL_RTX;
-  if (mode == QImode || mode == HImode)
+  /* On power8, we want to use SImode for the operation.  On previoius systems,
+     use the operation in a subword and shift/mask to get the proper byte or
+     halfword.  */
+  if (TARGET_SYNC_HI_QI && (mode == QImode || mode == HImode))
+    {
+      val = convert_modes (SImode, mode, val, 1);
+
+      /* Prepare to adjust the return value.  */
+      before = gen_reg_rtx (SImode);
+      if (after)
+	after = gen_reg_rtx (SImode);
+      mode = SImode;
+    }
+  else if (mode == QImode || mode == HImode)
     {
       mem = rs6000_adjust_atomic_subword (mem, &shift, &mask);
 
@@ -18136,7 +18201,7 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
       before = gen_reg_rtx (SImode);
       if (after)
 	after = gen_reg_rtx (SImode);
-      mode = SImode;
+      store_mode = mode = SImode;
     }
 
   mem = rs6000_pre_atomic_barrier (mem, model);
@@ -18169,9 +18234,11 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 			       NULL_RTX, 1, OPTAB_LIB_WIDEN);
       x = rs6000_mask_atomic_subword (before, x, mask);
     }
+  else if (store_mode != mode)
+    x = convert_modes (store_mode, mode, x, 1);
 
   cond = gen_reg_rtx (CCmode);
-  emit_store_conditional (mode, cond, mem, x);
+  emit_store_conditional (store_mode, cond, mem, x);
 
   x = gen_rtx_NE (VOIDmode, cond, const0_rtx);
   emit_unlikely_jump (x, label);
@@ -18180,10 +18247,21 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
 
   if (shift)
     {
+      /* QImode/HImode on machines without lbarx/lharx where we do a lwarx and
+	 then do the calcuations in a SImode register.  */
       if (orig_before)
 	rs6000_finish_atomic_subword (orig_before, before, shift);
       if (orig_after)
 	rs6000_finish_atomic_subword (orig_after, after, shift);
+    }
+  else if (store_mode != mode)
+    {
+      /* QImode/HImode on machines with lbarx/lharx where we do the native
+	 operation and then do the calcuations in a SImode register.  */
+      if (orig_before)
+	convert_move (orig_before, before, 1);
+      if (orig_after)
+	convert_move (orig_after, after, 1);
     }
   else if (orig_after && after != orig_after)
     emit_move_insn (orig_after, after);
