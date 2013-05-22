@@ -2906,7 +2906,7 @@ Keyword is :cstring.}#
 
 
 
-;; function to add a new keyword [called by meltgc_named_keyword in the runtime]
+;; obsolete function to add a new keyword [called by meltgc_named_keyword in the runtime]
 (defun add_new_keyword_token (syda str)
   (assert_msg "check syda" (is_a syda class_system_data))
   (let ( (kw (instance class_keyword :named_name str)) 
@@ -4776,7 +4776,8 @@ which signals are not handled. It could be dynamically nested.}#
 
 ;;;====================================================================
 ;;;***************** get or create a named symbol *********************
-;; to be called by meltgc_named_symbol
+;; hook used at many places, including the MELT reader.
+
 
 (defhook hook_named_symbol (:cstring nam :long create) () :value
   :predef HOOK_NAMED_SYMBOL
@@ -4785,7 +4786,7 @@ which signals are not handled. It could be dynamically nested.}#
   (block_signals
    ()
    ()
-   (let ( (sydict (unsafe_get_field :sysdata_symboldict initial_system_data))
+   (let ( (sydict (get_field :sysdata_symboldict initial_system_data))
 	 (symbv ())
 	 (namev ())
 	 )
@@ -4840,10 +4841,81 @@ which signals are not handled. It could be dynamically nested.}#
 )
 ;; end hook_named_symbol
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defhook hook_named_keyword (:cstring nam :long create) () :value
+  :predef HOOK_NAMED_KEYWORD
+  (if (not (cstring_non_empty nam))
+      (return ()))
+  (block_signals
+   ()
+   ()
+   (let ( (kwdict (get_field :sysdata_keywdict initial_system_data))
+	 (keywv ())
+	 (namev ())
+	 )
+     (assert_msg "check kwdict" (is_mapstring kwdict))
+     (code_chunk 
+      namedkeyw_chk 
+      #{ /* hook_named_keyword $NAMEDKEYW_CHK start */
+      char tinybuf_$NAMEDKEYW_CHK[80];
+      char* xstr_$NAMEDKEYW_CHK = NULL;
+      int namlen_$NAMEDKEYW_CHK = 0;
+      int ix_$NAMEDKEYW_CHK = 0;
+        char* namdup_$NAMEDKEYW_CHK = NULL;
+      if ($NAM[0] == ':') 
+        $NAM++;
+      namlen_$NAMEDKEYW_CHK = strlen ($NAM);
+      memset (tinybuf_$NAMEDKEYW_CHK, 0, sizeof(tinybuf_$NAMEDKEYW_CHK));
+      if (namlen_$NAMEDKEYW_CHK < (int) sizeof(tinybuf_$NAMEDKEYW_CHK)-2) 
+        {
+          strncpy (tinybuf_$NAMEDKEYW_CHK, $NAM, sizeof(tinybuf_$NAMEDKEYW_CHK)-1);
+          namdup_$NAMEDKEYW_CHK = tinybuf_$NAMEDKEYW_CHK;
+        } 
+      else 
+        {
+          xstr_$NAMEDKEYW_CHK = (char*) xcalloc (namlen_$NAMEDKEYW_CHK + 1, 1);
+	  strcpy (xstr_$NAMEDKEYW_CHK, $NAM);
+          namdup_$NAMEDKEYW_CHK = xstr_$NAMEDKEYW_CHK;
+        };
+      /* normalize as uppercase namdup_$NAMEDKEYW_CHK */
+      for (ix_$NAMEDKEYW_CHK = 0; 
+	   ix_$NAMEDKEYW_CHK < namlen_$NAMEDKEYW_CHK;
+	   ix_$NAMEDKEYW_CHK++)
+        if (ISALPHA (namdup_$NAMEDKEYW_CHK[ix_$NAMEDKEYW_CHK]))
+	  namdup_$NAMEDKEYW_CHK[ix_$NAMEDKEYW_CHK]
+            = TOUPPER (namdup_$NAMEDKEYW_CHK[ix_$NAMEDKEYW_CHK]);
+      /* get the keyword if any for $NAMEDKEYW_CHK */
+      $KEYWV = melt_get_mapstrings ((struct meltmapstrings_st *) $KWDICT,
+    				     namdup_$NAMEDKEYW_CHK);
+      if (!$KEYWV && $CREATE) /* should create keyword $NAMEDKEYW_CHK */
+        {
+            $NAMEV = 
+	      meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF (DISCR_STRING),
+    				       namdup_$NAMEDKEYW_CHK);
+	    $(progn
+	       (setq keywv (instance class_keyword :named_name namev))
+	       (mapstring_putstr kwdict namev keywv)
+	       (void))
+	}
+        if (xstr_$NAMEDKEYW_CHK)
+          free (xstr_$NAMEDKEYW_CHK);
+        xstr_$NAMEDKEYW_CHK = NULL;
+        namdup_$NAMEDKEYW_CHK = NULL;
+      /* hook_named_keyword $NAMEDKEYW_CHK end */
+      }#)
+     (return keywv)
+     )
+   ))
+     
+     
+     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  block_signals
  hook_named_symbol
+ hook_named_keyword 
  ignore
  void
 )

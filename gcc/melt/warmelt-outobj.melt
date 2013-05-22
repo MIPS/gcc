@@ -2469,7 +2469,7 @@ MELT_EXTERN  void* melt_start_this_module (void*);
     (add2sbuf_indentnl declbuf 0)
     (add2out declbuf
 	     "/* declare hook frame marking routine for " hookname " hook */\n"
-	     "static void melthookmark_" nrawhookname "_rout (struct melt_callframe_st*, int);\n")
+	     "void MELT_MODULE_VISIBILITY melthookmark_" nrawhookname "_rout (struct melt_callframe_st*, int);\n")
     (add2sbuf_indentnl declbuf 0)
     (add2sbuf_indentnl declbuf 0)
     (add2out 

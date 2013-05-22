@@ -1,4 +1,15 @@
 
+2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{hookifiying meltgc_named_keyword}}
+	* melt-predef.list (HOOK_NAMED_KEYWORD): New.
+
+	* melt/warmelt-first.melt (hook_named_keyword): New.
+	(add_new_keyword_token): Becoming obsolete.
+
+	* melt/warmelt-outobj.melt (outpucod_hookroutine): The emitted
+	melthookmark* routine has module visibility.
+
 2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
