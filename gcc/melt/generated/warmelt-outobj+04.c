@@ -9065,7 +9065,7 @@ meltlab_endgetargs:;
       MELT_LOCATION ("warmelt-outobj.melt:3713:/ locexp");
       /*add2sbuf_strconst */
 	meltgc_add_strbuf ((melt_ptr_t) ( /*_.IMPLBUF__V4*/ meltfptr[3]),
-			   ("(void) meltgc_intern_symbol((melt_ptr_t)("));
+			   ("(void) melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)("));
     }
     ;
 
@@ -9662,7 +9662,7 @@ meltlab_endgetargs:;
       MELT_LOCATION ("warmelt-outobj.melt:3737:/ locexp");
       /*add2sbuf_strconst */
 	meltgc_add_strbuf ((melt_ptr_t) ( /*_.IMPLBUF__V4*/ meltfptr[3]),
-			   ("(void) meltgc_intern_keyword((melt_ptr_t)("));
+			   ("(void) melthookproc_HOOK_INTERN_KEYWORD ((melt_ptr_t)("));
     }
     ;
 

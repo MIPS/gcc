@@ -8268,83 +8268,103 @@ meltmod__warmelt_hooks__initialmeltchunk_1 (meltinitial_frame_t *
 
   /*internsym:VAL */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V17*/ meltfptr[16]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V17*/ meltfptr[16]));
 
   /*internsym:FILENAME */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V20*/ meltfptr[19]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V20*/ meltfptr[19]));
 
   /*internsym:LINENO */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V23*/ meltfptr[22]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V23*/ meltfptr[22]));
 
   /*internsym:MSG */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V26*/ meltfptr[25]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V26*/ meltfptr[25]));
 
   /*internsym:COUNT */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V29*/ meltfptr[28]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V29*/ meltfptr[28]));
 
   /*internsym:MELT_DEBUG_FUN */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V12*/ meltfptr[11]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V12*/ meltfptr[11]));
 
   /*internsym:OVERRIDE_GATE_DELAYED_QUEUE */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V33*/ meltfptr[32]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V33*/ meltfptr[32]));
 
   /*internsym:CLASS_DELAYED_QUEUE */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V35*/ meltfptr[34]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V35*/ meltfptr[34]));
 
   /*internsym:DISCR_LIST */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V41*/ meltfptr[40]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V41*/ meltfptr[40]));
 
   /*internsym:BEFOREGATE */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V51*/ meltfptr[50]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V51*/ meltfptr[50]));
 
   /*internsym:AFTERGATE */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V55*/ meltfptr[54]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V55*/ meltfptr[54]));
 
   /*internkeyw:TRUE */
   (void)
-    meltgc_intern_keyword ((melt_ptr_t) ( /*_.VALDATA___V44*/ meltfptr[43]));
+    melthookproc_HOOK_INTERN_KEYWORD ((melt_ptr_t)
+				      ( /*_.VALDATA___V44*/ meltfptr[43]));
 
   /*internsym:CLASS_REFERENCE */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V46*/ meltfptr[45]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V46*/ meltfptr[45]));
 
   /*internsym:REGISTERED_FLAG_OVERRIDE_GATE */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V58*/ meltfptr[57]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V58*/ meltfptr[57]));
 
   /*internsym:HOOK_OVERRIDE_GATE */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V73*/ meltfptr[72]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V73*/ meltfptr[72]));
 
   /*internsym:HOOK_LOW_DEBUG_VALUE_AT */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V75*/ meltfptr[74]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V75*/ meltfptr[74]));
 
   /*internsym:REGISTER_OVERRIDE_GATE_FIRST */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V77*/ meltfptr[76]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V77*/ meltfptr[76]));
 
   /*internsym:REGISTER_OVERRIDE_GATE_LAST */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V79*/ meltfptr[78]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V79*/ meltfptr[78]));
 
   /*internsym:UNREGISTER_OVERRIDE_GATE_FIRST */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V81*/ meltfptr[80]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V81*/ meltfptr[80]));
 
   /*internsym:UNREGISTER_OVERRIDE_GATE_LAST */
   (void)
-    meltgc_intern_symbol ((melt_ptr_t) ( /*_.VALDATA___V83*/ meltfptr[82]));
+    melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
+				     ( /*_.VALDATA___V83*/ meltfptr[82]));
 
  /**COMMENT: set retinit from boxloc **/ ;
 

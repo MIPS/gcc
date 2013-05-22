@@ -38,26 +38,26 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-pre/warmelt-first";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="8a62eeb70673a608981c927911832a6e";
+const char melt_prepromd5meltrun[]="3598ce6dfeb1da54aca17a035935d56a";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="74e69fbeb2959b2aa4edd9c25fbed699";
+const char melt_primaryhexmd5[]="7f7690f6e00fcfb1cb914c979151a36f";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-first+01.c #1 */ "f980f2b559e309c0d1ca37892731b60a",
- /*sechexmd5checksum meltbuild-sources/warmelt-first+02.c #2 */ "adbb8f2d922cd8ad01d34e554a258f2d",
- /*sechexmd5checksum meltbuild-sources/warmelt-first+03.c #3 */ "5329dae2079fa9a87aad5df11f72ddbc",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+01.c #1 */ "2b954cae5ed6587cfa4d00fb59984fe7",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+02.c #2 */ "f93b78b2ac19a7d66abc6082b985490e",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+03.c #3 */ "5a81e63bf1b825048dda8f6e8c466078",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=3;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="fdda77479871913d0ce37421f896c5d5" ;
+const char melt_cumulated_hexmd5[]="48a2a7a23842a80dbc9fd25a88ac2f4c" ;
 
 /* include the timestamp file */
-#define meltmod_warmelt_first_mds__fdda77479871913d0ce37421f896c5d5 1
+#define meltmod_warmelt_first_mds__48a2a7a23842a80dbc9fd25a88ac2f4c 1
 #include "warmelt-first+melttime.h"
 	 
 
