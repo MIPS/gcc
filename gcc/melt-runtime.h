@@ -2624,18 +2624,13 @@ enum
 };
 
 /* Nota: use the melthookproc_HOOK_NAMED_SYMBOL to get or created
-   named symbols */
+   named symbols. */
 
 /* Note: use the melthookproc_HOOK_NAMED_KEYWORD to get or created
-   named keywords */
+   named keywords. */
 
-/* intern a symbol, ie add it into the global name map; if the symbol
-   is new, return it otherwise return the older homonymous symnol */
-melt_ptr_t meltgc_intern_symbol (melt_ptr_t symb);
-
-/* intern a keyword, ie add it into the global name map; if the symbol
-   is new, return it otherwise return the older homonymous symnol */
-melt_ptr_t meltgc_intern_keyword (melt_ptr_t symb);
+/* Note: use the melthookproc_HOOK_INTERN_SYMBOL to intern symbols,
+   and melthookproc_HOOK_INTERN_KEYWORD to intern keywords.  */
 
 /* Read a list of sexpressions from a file; if the second argument is
    non-empty and non-null, it is used for locations; otherwise the

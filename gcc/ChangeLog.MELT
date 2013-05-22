@@ -2,6 +2,19 @@
 
 2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_initial_system_data)
+	(initial_system_data): Remove sysdata_internsymbol &
+	sysdata_internkeyw replacing them with sysdata__obsolete3 &
+	sysdata__obsolete4.
+
+	* melt-runtime.h (meltgc_intern_symbol, meltgc_intern_keyword):
+	Remove declarations.
+
+	* melt-runtime.c (meltgc_intern_symbol, meltgc_intern_keyword):
+	Remove definitions.
+
+2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
 	* melt/generated/warmelt-base.c: Regenerate.

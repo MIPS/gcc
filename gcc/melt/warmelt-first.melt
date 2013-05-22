@@ -406,9 +406,9 @@ don't instanciate this class!}#
 	   sysdata_symboldict 		; stringmap for symbols
 	   sysdata_keywdict 		;stringmap for keywords
 	   sysdata__obsolete1
-	   sysdata__obsolete2		;closure to add a keyword of given name
-	   sysdata_internsymbol		;closure to intern a symbol
-	   sysdata_internkeyw		;closure to intern a keyword
+	   sysdata__obsolete2		
+	   sysdata__obsolete3		
+	   sysdata__obsolete4		
 	   sysdata_value_importer	;closure to import a value
 	   sysdata_pass_dict		;stringmap for passes
 	   sysdata_exit_finalizer       ;;closure to be called after the passes, at finalization
@@ -3583,9 +3583,9 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_symboldict  (make_mapstring discr_map_strings 600) ;stringmap for symbols
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
   :sysdata__obsolete1 () ;;; obsolete
-  :sysdata__obsolete2 () ;closure to add a keyword of given name
-  :sysdata_internsymbol	()	 ;closure to intern a symbol
-  :sysdata_internkeyw ()	 ;closure to intern a keyword
+  :sysdata__obsolete2 () ;;; obsolete
+  :sysdata__obsolete3 () ;;; obsolete
+  :sysdata__obsolete4 () ;;; obsolete
   :sysdata_value_importer initvalue_importer
   :sysdata_pass_dict (make_mapstring discr_map_strings 100) ;stringmap for gcc passes
   :sysdata_exit_finalizer init_exitfinalizer

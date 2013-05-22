@@ -7039,28 +7039,6 @@ meltgc_makesexpr (struct melt_reading_st *rd, int lineno, melt_ptr_t contents_p,
 }
 
 
-melt_ptr_t
-meltgc_intern_symbol (melt_ptr_t symb_p)
-{
-  return melthookproc_HOOK_INTERN_SYMBOL (symb_p);
-}
-
-
-
-
-melt_ptr_t
-meltgc_intern_keyword (melt_ptr_t keyw_p)
-{
-  return melthookproc_HOOK_INTERN_KEYWORD (keyw_p);
-}
-
-
-
-
-
-
-
-
 static melt_ptr_t
 meltgc_readsexpr (struct melt_reading_st *rd, int endc)
 {
