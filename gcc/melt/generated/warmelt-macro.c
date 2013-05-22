@@ -37695,7 +37695,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:TRUE */
   {
-    melt_ptr_t kw_TRUE = meltgc_named_keyword ("TRUE", MELT_GET);
+    melt_ptr_t kw_TRUE =
+      melthookproc_HOOK_NAMED_KEYWORD ("TRUE", (long) MELT_GET);
     if (kw_TRUE)
 	       /*_.VALDATA___V1158*/
       meltfptr[1157] = (melt_ptr_t) kw_TRUE;
@@ -38395,7 +38396,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:REST */
   {
-    melt_ptr_t kw_REST = meltgc_named_keyword ("REST", MELT_GET);
+    melt_ptr_t kw_REST =
+      melthookproc_HOOK_NAMED_KEYWORD ("REST", (long) MELT_GET);
     if (kw_REST)
 	       /*_.VALDATA___V1201*/
       meltfptr[1200] = (melt_ptr_t) kw_REST;
@@ -38420,7 +38422,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:AUTO */
   {
-    melt_ptr_t kw_AUTO = meltgc_named_keyword ("AUTO", MELT_GET);
+    melt_ptr_t kw_AUTO =
+      melthookproc_HOOK_NAMED_KEYWORD ("AUTO", (long) MELT_GET);
     if (kw_AUTO)
 	       /*_.VALDATA___V1203*/
       meltfptr[1202] = (melt_ptr_t) kw_AUTO;
@@ -38519,7 +38522,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:DOC */
   {
-    melt_ptr_t kw_DOC = meltgc_named_keyword ("DOC", MELT_GET);
+    melt_ptr_t kw_DOC =
+      melthookproc_HOOK_NAMED_KEYWORD ("DOC", (long) MELT_GET);
     if (kw_DOC)
 	      /*_.VALDATA___V1354*/
       meltfptr[1353] = (melt_ptr_t) kw_DOC;
@@ -38645,7 +38649,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:PREDEF */
   {
-    melt_ptr_t kw_PREDEF = meltgc_named_keyword ("PREDEF", MELT_GET);
+    melt_ptr_t kw_PREDEF =
+      melthookproc_HOOK_NAMED_KEYWORD ("PREDEF", (long) MELT_GET);
     if (kw_PREDEF)
 		 /*_.VALDATA___V1382*/
       meltfptr[1381] = (melt_ptr_t) kw_PREDEF;
@@ -38698,7 +38703,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:SUPER */
   {
-    melt_ptr_t kw_SUPER = meltgc_named_keyword ("SUPER", MELT_GET);
+    melt_ptr_t kw_SUPER =
+      melthookproc_HOOK_NAMED_KEYWORD ("SUPER", (long) MELT_GET);
     if (kw_SUPER)
 		/*_.VALDATA___V1397*/
       meltfptr[1396] = (melt_ptr_t) kw_SUPER;
@@ -38737,7 +38743,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:FIELDS */
   {
-    melt_ptr_t kw_FIELDS = meltgc_named_keyword ("FIELDS", MELT_GET);
+    melt_ptr_t kw_FIELDS =
+      melthookproc_HOOK_NAMED_KEYWORD ("FIELDS", (long) MELT_GET);
     if (kw_FIELDS)
 		 /*_.VALDATA___V1399*/
       meltfptr[1398] = (melt_ptr_t) kw_FIELDS;
@@ -38839,7 +38846,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:OBJ_NUM */
   {
-    melt_ptr_t kw_OBJ_NUM = meltgc_named_keyword ("OBJ_NUM", MELT_GET);
+    melt_ptr_t kw_OBJ_NUM =
+      melthookproc_HOOK_NAMED_KEYWORD ("OBJ_NUM", (long) MELT_GET);
     if (kw_OBJ_NUM)
 		  /*_.VALDATA___V1424*/
       meltfptr[1423] = (melt_ptr_t) kw_OBJ_NUM;
@@ -38878,7 +38886,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:FORMALS */
   {
-    melt_ptr_t kw_FORMALS = meltgc_named_keyword ("FORMALS", MELT_GET);
+    melt_ptr_t kw_FORMALS =
+      melthookproc_HOOK_NAMED_KEYWORD ("FORMALS", (long) MELT_GET);
     if (kw_FORMALS)
 		  /*_.VALDATA___V1432*/
       meltfptr[1431] = (melt_ptr_t) kw_FORMALS;
@@ -39129,7 +39138,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:ELSE */
   {
-    melt_ptr_t kw_ELSE = meltgc_named_keyword ("ELSE", MELT_GET);
+    melt_ptr_t kw_ELSE =
+      melthookproc_HOOK_NAMED_KEYWORD ("ELSE", (long) MELT_GET);
     if (kw_ELSE)
 	       /*_.VALDATA___V1520*/
       meltfptr[1519] = (melt_ptr_t) kw_ELSE;
@@ -39195,7 +39205,7 @@ melt_start_this_module (void *modargp_)
   /*getnamedkeyw:REFERENCED_VALUE */
   {
     melt_ptr_t kw_REFERENCED_VALUE =
-      meltgc_named_keyword ("REFERENCED_VALUE", MELT_GET);
+      melthookproc_HOOK_NAMED_KEYWORD ("REFERENCED_VALUE", (long) MELT_GET);
     if (kw_REFERENCED_VALUE)
 			   /*_.VALDATA___V1548*/
       meltfptr[1547] = (melt_ptr_t) kw_REFERENCED_VALUE;

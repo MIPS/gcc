@@ -35085,7 +35085,8 @@ melt_start_this_module (void *modargp_)
   /*^getnamedkeyword */
   /*getnamedkeyw:TRUE */
   {
-    melt_ptr_t kw_TRUE = meltgc_named_keyword ("TRUE", MELT_GET);
+    melt_ptr_t kw_TRUE =
+      melthookproc_HOOK_NAMED_KEYWORD ("TRUE", (long) MELT_GET);
     if (kw_TRUE)
 	       /*_.VALDATA___V1473*/
       meltfptr[1472] = (melt_ptr_t) kw_TRUE;
