@@ -1,3 +1,49 @@
+2013-04-11  Release Manager
+
+	* GCC 4.7.3 released.
+
+2013-04-10  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.h (ASM_CPU_SPEC): Pass -Av8 if -mcpu=supersparc
+	or -mcpu=hypersparc.
+
+2013-04-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/56848
+	Revert
+	2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2013-02-25  Andrey Belevantsev  <abel@ispras.ru>
+	Alexander Monakov  <amonakov@ispras.ru>
+
+	PR middle-end/56077
+	* sched-deps.c (sched_analyze_insn): When reg_pending_barrier,
+	flush pending lists also on non-jumps.  Adjust comment.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56501
+	* tree-switch-conversion.c (check_process_case): Properly
+	handle !single_succ_p case.
+
+2013-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56539
+	* tree-tailcall.c (adjust_return_value_with_ops): Use GSI_SAME_STMT
+	instead of GSI_CONTINUE_LINKING as last argument to
+	force_gimple_operand_gsi.  Adjust function comment.
+
+	2013-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/56510
+	* cfgexpand.c (expand_debug_parm_decl): Call copy_rtx on incoming.
+	(avoid_complex_debug_insns): New function.
+	(expand_debug_locations): Call it.
+
 2013-04-02  Wei Mi  <wmi@google.com>
 
 	* config/i386/i386.c (ix86_rtx_costs): Set proper rtx cost for
