@@ -7042,46 +7042,7 @@ meltgc_makesexpr (struct melt_reading_st *rd, int lineno, melt_ptr_t contents_p,
 melt_ptr_t
 meltgc_intern_symbol (melt_ptr_t symb_p)
 {
-  MELT_ENTERFRAME (4, NULL);
-#define symbv    meltfram__.mcfr_varptr[0]
-#define closv    meltfram__.mcfr_varptr[1]
-#define nstrv    meltfram__.mcfr_varptr[2]
-#define resv     meltfram__.mcfr_varptr[3]
-#define obj_symbv    ((meltobject_ptr_t)(symbv))
-  symbv = symb_p;
-  if (melt_magic_discr ((melt_ptr_t) symbv) != MELTOBMAG_OBJECT
-      || obj_symbv->obj_len < MELTLENGTH_CLASS_SYMBOL
-      || !melt_is_instance_of ((melt_ptr_t) symbv,
-                               (melt_ptr_t) MELT_PREDEF (CLASS_SYMBOL)))
-    goto fail;
-  nstrv = obj_symbv->obj_vartab[MELTFIELD_NAMED_NAME];
-  if (melt_magic_discr ((melt_ptr_t) nstrv) != MELTOBMAG_STRING)
-    goto fail;
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_INTERNSYMBOL);
-  if (melt_magic_discr ((melt_ptr_t) closv) != MELTOBMAG_CLOSURE)
-    goto fail;
-  else {
-    union meltparam_un pararg[1];
-    memset (&pararg, 0, sizeof (pararg));
-    pararg[0].meltbp_aptr = (melt_ptr_t *) & symbv;
-    MELT_LOCATION_HERE ("intern symbol before apply");
-    resv =
-      melt_apply ((meltclosure_ptr_t) closv,
-                  (melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA),
-                  MELTBPARSTR_PTR, pararg, "", NULL);
-    goto end;
-  }
-fail:
-  resv = NULL;
-end:
-  ;
-  MELT_EXITFRAME ();
-  return (melt_ptr_t) resv;
-#undef symbv
-#undef closv
-#undef nstrv
-#undef resv
-#undef obj_symbv
+  return melthookproc_HOOK_INTERN_SYMBOL (symb_p);
 }
 
 
@@ -7090,46 +7051,7 @@ end:
 melt_ptr_t
 meltgc_intern_keyword (melt_ptr_t keyw_p)
 {
-  MELT_ENTERFRAME (4, NULL);
-#define keywv    meltfram__.mcfr_varptr[0]
-#define closv    meltfram__.mcfr_varptr[1]
-#define nstrv    meltfram__.mcfr_varptr[2]
-#define resv     meltfram__.mcfr_varptr[3]
-#define obj_keywv    ((meltobject_ptr_t)(keywv))
-  keywv = keyw_p;
-  if (melt_magic_discr ((melt_ptr_t) keywv) != MELTOBMAG_OBJECT
-      || melt_object_length ((melt_ptr_t) obj_keywv) < MELTLENGTH_CLASS_SYMBOL
-      || !melt_is_instance_of ((melt_ptr_t) keywv,
-                               (melt_ptr_t) MELT_PREDEF (CLASS_KEYWORD)))
-    goto fail;
-  nstrv = obj_keywv->obj_vartab[MELTFIELD_NAMED_NAME];
-  if (melt_magic_discr ((melt_ptr_t) nstrv) != MELTOBMAG_STRING)
-    goto fail;
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_INTERNKEYW);
-  if (melt_magic_discr ((melt_ptr_t) closv) != MELTOBMAG_CLOSURE)
-    goto fail;
-  else {
-    union meltparam_un pararg[1];
-    memset (&pararg, 0, sizeof (pararg));
-    pararg[0].meltbp_aptr = (melt_ptr_t *) & keywv;
-    MELT_LOCATION_HERE ("intern keyword before apply");
-    resv =
-      melt_apply ((meltclosure_ptr_t) closv,
-                  (melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA),
-                  MELTBPARSTR_PTR, pararg, "", NULL);
-    goto end;
-  }
-fail:
-  resv = NULL;
-end:
-  ;
-  MELT_EXITFRAME ();
-  return (melt_ptr_t) resv;
-#undef symbv
-#undef closv
-#undef nstrv
-#undef resv
-#undef obj_symbv
+  return melthookproc_HOOK_INTERN_KEYWORD (keyw_p);
 }
 
 

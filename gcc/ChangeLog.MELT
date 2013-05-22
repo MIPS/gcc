@@ -2,6 +2,21 @@
 
 2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (meltgc_intern_symbol): Just call
+	melthookproc_HOOK_INTERN_SYMBOL.
+	(meltgc_intern_keyword): Just call
+	melthookproc_HOOK_INTERN_KEYWORD.
+
+	* melt/warmelt-first.melt (intern_symbol, intern_keyword): Remove.
+	(:sysdata_internsymbol, :sysdata_internkeyw): Clear.
+
+	* melt/warmelt-outobj.melt (outpucod_objinternsymbol): Emit call
+	to melthookproc_HOOK_INTERN_SYMBOL.
+	(outpucod_objinternkeyword): Emit call to
+	melthookproc_HOOK_INTERN_KEYWORD.
+
+2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

@@ -2908,33 +2908,6 @@ Keyword is :cstring.}#
 
 
 
-;; function to intern a symbol (or return the previous one)
-(defun intern_symbol (inidat symb)
-  (assert_msg "check inidat" (is_a inidat class_system_data))
-  (assert_msg "check sym" (is_a symb class_symbol))
-  (let ( (syname (unsafe_get_field :named_name symb)) 
-	 (sydict (unsafe_get_field :sysdata_symboldict inidat))
-	 (oldsy (mapstring_getstr sydict syname)) )
-    (if oldsy 
-	oldsy 
-      (progn 
-	(mapstring_putstr sydict syname symb) 
-	symb))
-    ))
-
-
-;; internal function to intern a keyword (or return the previous one)
-;; used by meltgc_intern_symbol which is becoming obsolete
-(defun intern_keyword (inidat keyw)
-  (assert_msg "check inidat" (is_a inidat class_system_data))
-  (assert_msg "check keyw" (is_a keyw class_keyword))
-  (let ( (kwname (unsafe_get_field :named_name keyw)) 
-	 (kwdict (unsafe_get_field :sysdata_keywdict inidat))
-	 (oldkw (mapstring_getstr kwdict kwname)) )
-    (if oldkw 
-	oldkw
-      (progn (mapstring_putstr kwdict kwname keyw) keyw))
-    ))
 
 
 ;;; container of a mapstring for cloning symbol, maping symbol names to boxed integer
@@ -3611,8 +3584,8 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
   :sysdata__obsolete1 () ;;; obsolete
   :sysdata__obsolete2 () ;closure to add a keyword of given name
-  :sysdata_internsymbol	intern_symbol	 ;closure to intern a symbol
-  :sysdata_internkeyw intern_keyword	 ;closure to intern a keyword
+  :sysdata_internsymbol	()	 ;closure to intern a symbol
+  :sysdata_internkeyw ()	 ;closure to intern a keyword
   :sysdata_value_importer initvalue_importer
   :sysdata_pass_dict (make_mapstring discr_map_strings 100) ;stringmap for gcc passes
   :sysdata_exit_finalizer init_exitfinalizer
