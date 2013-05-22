@@ -3019,6 +3019,37 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  /* Quad memory only works in 64-bit mode, if the user did -mcpu=power8 -m32,
+     silently turn off quad memory mode.
+
+     Also, we must not split wide types with quad memory, because it will mess
+     up the quad word atomic operations combined with a logical operation.  The
+     logical operations splitters will handle splitting up the operation if it
+     is done in a GPR instead of a VSX register.  */
+  if (TARGET_QUAD_MEMORY)
+    {
+      if (!TARGET_64BIT)
+	{
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_QUAD_MEMORY) != 0)
+	    warning (0, N_("-mquad-memory requires 64-bit mode"));
+
+	  rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
+	}
+
+      else if (flag_split_wide_types)
+	{
+	  if (global_options_set.x_flag_split_wide_types)
+	    {
+	      warning (0, N_("-mquad-memory is incompatible with "
+			     "-fsplit-wide-types"));
+
+	      rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
+	    }
+	  else
+	    flag_split_wide_types = 0;
+	}
+    }
+
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
 
@@ -3090,33 +3121,6 @@ rs6000_option_override_internal (bool global_init_p)
       && optimize_function_for_speed_p (cfun)
       && optimize >= 3)
     rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
-
-  /* Quad memory only works in 64-bit mode, if the user did -mcpu=power8 -m32,
-     silently turn off quad memory mode.  Also, we must not split wide
-     types.  */
-  if (TARGET_QUAD_MEMORY)
-    {
-      if (!TARGET_64BIT)
-	{
-	  if ((rs6000_isa_flags_explicit & OPTION_MASK_QUAD_MEMORY) != 0)
-	    warning (0, N_("-mquad-memory requires 64-bit mode"));
-
-	  rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
-	}
-
-      else if (flag_split_wide_types)
-	{
-	  if (global_options_set.x_flag_split_wide_types)
-	    {
-	      warning (0, N_("-mquad-memory is incompatible with "
-			     "-fsplit-wide-types"));
-
-	      rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
-	    }
-	  else
-	    flag_split_wide_types = 0;
-	}
-    }
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
