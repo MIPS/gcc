@@ -1134,12 +1134,13 @@ null. Use $HOOK_NAMED_SYMBOL.}#
 
 ;; primitive to get or create a keyword from a string value
 (defprimitive get_keywordstr (strv) :value
-  :doc #{Get an existing keyword of given string value $STRV or null if not found.}#
-  #{meltgc_named_keyword( melt_string_str((melt_ptr_t)($STRV)), MELT_GET)}#)
+  :doc #{Get an existing keyword of given string value $STRV or null if not found. 
+Use $HOOK_NAMED_KEYWORD}#
+  #{melthookproc_HOOK_NAMED_KEYWORD (melt_string_str((melt_ptr_t)($STRV)), (long) MELT_GET)}#)
 (defprimitive create_keywordstr (strv) :value
   :doc #{Retrieve an existing keyword of given string value $STRV or
 create it if not found.}# 
-  #{meltgc_named_keyword( melt_string_str((melt_ptr_t)($STRV)), MELT_CREATE)}#)
+  #{melthookproc_HOOK_NAMED_KEYWORD (melt_string_str((melt_ptr_t)($STRV)), (long) MELT_CREATE)}#)
 
 
 ;; runtime assertion with message called by expansion of assert_msg

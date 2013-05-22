@@ -7140,65 +7140,7 @@ end:
 melt_ptr_t
 meltgc_named_keyword (const char *nam, int create)
 {
-  int namlen = 0, ix = 0;
-  char *namdup = 0;
-  char tinybuf[130];
-  MELT_ENTERFRAME (4, NULL);
-#define keywv    meltfram__.mcfr_varptr[0]
-#define dictv    meltfram__.mcfr_varptr[1]
-#define closv    meltfram__.mcfr_varptr[2]
-#define nstrv    meltfram__.mcfr_varptr[3]
-  keywv = NULL;
-  dictv = NULL;
-  closv = NULL;
-  if (!nam || !MELT_PREDEF (INITIAL_SYSTEM_DATA))
-    goto end;
-  if (nam[0] == ':')
-    nam++;
-  namlen = strlen (nam);
-  memset (tinybuf, 0, sizeof (tinybuf));
-  if (namlen < (int) sizeof (tinybuf) - 2)
-    namdup = strcpy (tinybuf, nam);
-  else
-    namdup = strcpy ((char *) xcalloc (namlen + 1, 1), nam);
-  for (ix = 0; ix < namlen; ix++)
-    if (ISALPHA (namdup[ix]))
-      namdup[ix] = TOUPPER (namdup[ix]);
-  gcc_assert (melt_magic_discr ((melt_ptr_t) MELT_PREDEF (CLASS_SYSTEM_DATA))
-              == MELTOBMAG_OBJECT);
-  gcc_assert (melt_magic_discr ((melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA)) ==
-              MELTOBMAG_OBJECT);
-  if (MELT_PREDEF (INITIAL_SYSTEM_DATA)) {
-    dictv = melt_get_inisysdata (MELTFIELD_SYSDATA_KEYWDICT);
-    if (melt_magic_discr ((melt_ptr_t) dictv) == MELTOBMAG_MAPSTRINGS)
-      keywv =
-        melt_get_mapstrings ((struct meltmapstrings_st *) dictv,
-                             namdup);
-    if (keywv || !create)
-      goto end;
-    closv = melt_get_inisysdata (MELTFIELD_SYSDATA_ADDKEYW);
-    if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) {
-      union meltparam_un pararg[1];
-      memset (&pararg, 0, sizeof (pararg));
-      nstrv = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF (DISCR_STRING), namdup);
-      pararg[0].meltbp_aptr = (melt_ptr_t *) & nstrv;
-      keywv =
-        melt_apply ((meltclosure_ptr_t) closv,
-                    (melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA),
-                    MELTBPARSTR_PTR, pararg, "", NULL);
-      goto end;
-    }
-  }
-end:
-  ;
-  if (namdup && namdup != tinybuf)
-    free (namdup);
-  MELT_EXITFRAME ();
-  return (melt_ptr_t) keywv;
-#undef keywv
-#undef dictv
-#undef closv
-#undef nstrv
+  return melthookproc_HOOK_NAMED_KEYWORD (nam, (long) create);
 }
 
 
@@ -8002,7 +7944,7 @@ meltgc_readval (struct melt_reading_st *rd, bool * pgot)
       MELT_READ_ERROR ("MELT: colon should be followed by letter for keyword, but got %c",
                        rdfollowc(1));
     nam = melt_readsimplename (rd);
-    readv = meltgc_named_keyword (nam, MELT_CREATE);
+    readv = melthookproc_HOOK_NAMED_KEYWORD (nam, (long)MELT_CREATE);
     melt_dbgread_value ("readval keyword readv=", readv);
     if (!readv)
       MELT_READ_ERROR ("MELT: unknown named keyword %s", nam);

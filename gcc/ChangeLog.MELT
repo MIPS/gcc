@@ -1,5 +1,18 @@
 
-2013-05-21  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.c (meltgc_named_keyword): Always call
+	melthookproc_HOOK_NAMED_KEYWORD. Obsolete function.
+	(meltgc_readval): Call melthookproc_HOOK_NAMED_KEYWORD.
+
+	* melt/warmelt-first.melt (get_keywordstr, create_keywordstr): Use
+	melthookproc_HOOK_NAMED_KEYWORD.
+
+	* melt/warmelt-outobj.melt (outpucod_objgetnamedkeyword): Emit
+	call to melthookproc_HOOK_NAMED_KEYWORD instead of
+	meltgc_named_keyword.
+
+2013-05-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
