@@ -347,7 +347,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
   (debug "repl_docmd cmd=" cmd " moduldata=" moduldata)
   (code_chunk replwelcome_chk 
 	      #{ /* repl_docmd $REPLWELCOME_CHK */
-	      printf ("; Welcome to the MELT interactive Read-Eval-Print-Loop [=REPL]\n");
+	      printf ("; Welcome to the MELT interactive Read-Eval-Print-Loop [=REPL]; see gcc-melt.org\n");
 	      printf ("; Type a sequence of MELT expressions to be evaluated\n");
 	      printf ("; End that sequence with two (2) consecutive newlines.\n");
 	      printf ("; Call the CONTINUE function like (CONTINUE) to exit this REPL, or give an end-of-file thru ^D\n");
@@ -398,7 +398,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (debug "repl_docmd newenv=" newenv " repldata=" repldata)
     (register_input_channel_handler repl_processor repldata 0)
     ;; register waiting REPL after all passes
-    (register_all_passes_end_hook_first
+    (register_all_passes_end_first
      (lambda (endp)
        (debug "repl_docmd/endpasses endp=" endp)
        (code_chunk endp_chk

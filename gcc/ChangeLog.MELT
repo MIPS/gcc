@@ -2,6 +2,27 @@
 
 
 2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (at_finish_unit_first)
+	(at_finish_unit_last, at_start_unit_first, at_start_unit_last):
+	Move to warmelt-hooks.melt.
+
+	* melt/warmelt-base.melt (register_all_passes_end_hook_first)
+	(register_all_passes_end_hook_last)
+	(register_all_passes_start_hook_first)
+	(register_all_passes_start_hook_last): Move to warmelt-hooks.melt.
+
+	* melt/warmelt-hooks.melt (at_finish_unit_first)
+	(at_finish_unit_last, at_start_unit_first, at_start_unit_last)
+	(register_all_passes_end_first, register_all_passes_end_last)
+	(register_all_passes_start_first, register_all_passes_start_last):
+	Move from elsewhere. Some things missing, see generated #warnings.
+
+	* melt/warmelt-modes.melt (repl_docmd): Call
+	register_all_passes_end_first not
+	register_all_passes_end_hook_first.
+
+2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-outobj.melt (compile_list_sexpr)
 	(translate_run_melt_expressions): Initialize field
 	:mocx_cimplementlist to an empty list.

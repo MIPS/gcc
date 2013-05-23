@@ -3359,115 +3359,7 @@ exit, in last place.}#
     (if (is_closure fun) (list_append lastlist fun)))
   )
 
-;;;;;; private queue for start of compilation unit
-(definstance start_unit_delayed_queue class_delayed_queue
-  :named_name '"start_unit_delayed_queue"
-  :delqu_first (make_list discr_list)
-  :delqu_last (make_list discr_list)
-  )
 
-
-(defun init_unitstarter ()
-  (let ( (firstlist (unsafe_get_field :delqu_first start_unit_delayed_queue))
-	 (lastlist (unsafe_get_field :delqu_last start_unit_delayed_queue))
-	 (revlastlist (make_list discr_list))
-	 (rescont (instance class_reference))
-	 )
-;;; call the first routines in natural order
-    (list_every 
-     firstlist
-     (lambda (firstproc)
-       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
-	      (nextres (firstproc prevres start_unit_delayed_queue))
-	      )
-	 (unsafe_put_fields rescont :referenced_value nextres)
-	 )))
-;;; reverse the last list
-    (list_every 
-     lastlist 
-     (lambda (lastproc)
-       (if (is_closure lastproc) (list_prepend revlastlist lastproc))))
-;;; call the last routines in reverse order
-    (list_every
-     revlastlist
-     (lambda (lastproc)
-       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
-	      (nextres (lastproc prevres start_unit_delayed_queue))
-	      )
-	 (unsafe_put_fields rescont :referenced_value nextres)
-	 )))
-    ))
-
-
-(defun at_start_unit_first (fun)
-  :doc #{Use $AT_START_UNIT_FIRST to register a function to be run at start of translation unit, in first place.}#
-  (let ( (firstlist (unsafe_get_field :delqu_first start_unit_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append firstlist fun)))
-  )  
-
-(defun at_start_unit_last (fun)
-  :doc #{Use $AT_START_UNIT_LAST to register a function to be run at start of translation unit, in first place.}#
-  (let ( (lastlist (unsafe_get_field :delqu_last start_unit_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append lastlist fun)))
-  )
-
-
-;;;; the private queue for compilation unit finish
-(definstance finish_unit_delayed_queue class_delayed_queue
-  :named_name '"finish_unit_delayed_queue"
-  :delqu_first (make_list discr_list)
-  :delqu_last (make_list discr_list)
-  )
-
-(defun init_unitfinisher ()
-  (let ( (firstlist (unsafe_get_field :delqu_first finish_unit_delayed_queue))
-	 (lastlist (unsafe_get_field :delqu_last finish_unit_delayed_queue))
-	 (revlastlist (make_list discr_list))
-	 (rescont (instance class_reference))
-	 )
-;;; call the first routines in natural order
-    (list_every 
-     firstlist
-     (lambda (firstproc)
-       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
-	      (nextres (firstproc prevres finish_unit_delayed_queue))
-	      )
-	 (unsafe_put_fields rescont :referenced_value nextres)
-	 )))
-;;; reverse the last list
-    (list_every 
-     lastlist 
-     (lambda (lastproc)
-       (if (is_closure lastproc) (list_prepend revlastlist lastproc))))
-;;; call the last routines in reverse order
-    (list_every
-     revlastlist
-     (lambda (lastproc)
-       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
-	      (nextres (lastproc prevres finish_unit_delayed_queue))
-	      )
-	 (unsafe_put_fields rescont :referenced_value nextres)
-	 )))
-    ))
-
-
-(defun at_finish_unit_first (fun)
-  :doc #{Use $AT_FINISH_UNIT_FIRST to register a function to be run at
-end of compilation unit in first place}#
-  (let ( (firstlist (unsafe_get_field :delqu_first finish_unit_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append firstlist fun)))
-  )  
-
-(defun at_finish_unit_last (fun)
-  :doc #{Use $AT_FINISH_UNIT_LAST to register a function to be run at
-end of compilation unit in last place}#
-  (let ( (lastlist (unsafe_get_field :delqu_last finish_unit_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append lastlist fun)))
-  )
 
 
 (definstance option_map_container class_reference 
@@ -3598,8 +3490,8 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_stdout ()			;initialized later
   :sysdata_stderr ()			;initialized later
   :sysdata_dumpfile ()			;initialized later
-  :sysdata_unit_starter init_unitstarter
-  :sysdata_unit_finisher init_unitfinisher
+  :sysdata_unit_starter ()		;obsolete
+  :sysdata_unit_finisher ()		;obsolete
   :sysdata_option_set init_optionsetter
   :sysdata_passexec_hook ()		;initialized later, lazily
   :sysdata_meltpass_after_hook () 	;initialized lazily
@@ -4634,10 +4526,6 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  at_exit_last
  at_end_melt_pass_first
  at_end_melt_pass_last
- at_finish_unit_first
- at_finish_unit_last
- at_start_unit_first
- at_start_unit_last
  clone_symbol
  closure_every
  compare_obj_ranked

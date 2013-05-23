@@ -234,13 +234,405 @@ See also $UNREGISTER_OVERRIDE_GATE_LAST, $REGISTER_OVERRIDE_GATE_FIRST, etc...}#
     (debug "unregister_override_gate_last fail")
     (return ())))
 
+;;;====================================================================
+;;;******************* START_UNIT plugin event *********************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(cheader #{/* flag for PLUGIN_START_UNIT */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_start_unit_registered_flag;
+}#)
+
+(cimplement #{/* flag for for PLUGIN_START_UNIT */
+bool  melthk_start_unit_registered_flag;
+}#)
+
+;;;;;; private queue for start of compilation unit
+(definstance start_unit_delayed_queue class_delayed_queue
+  :named_name '"start_unit_delayed_queue"
+  :delqu_first (make_list discr_list)
+  :delqu_last (make_list discr_list)
+  )
+
+;; this internal hook needs to be predefined, or static variable
+;; [which are not yet implemented in MELT 0.9.9] to remain alive for
+;; the MELT & Ggc garbage collectors...
+(defhook hook_start_unit () () :void
+  :predef HOOK_START_UNIT
+  (let ( (firstlist (unsafe_get_field :delqu_first start_unit_delayed_queue))
+	 (lastlist (unsafe_get_field :delqu_last start_unit_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (rescont (instance class_reference))
+	 )
+;;; call the first routines in natural order
+    (list_every 
+     firstlist
+     (lambda (firstproc)
+       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
+	      (nextres (firstproc prevres start_unit_delayed_queue))
+	      )
+	 (unsafe_put_fields rescont :referenced_value nextres)
+	 )))
+;;; reverse the last list
+    (list_every 
+     lastlist 
+     (lambda (lastproc)
+       (if (is_closure lastproc) (list_prepend revlastlist lastproc))))
+;;; call the last routines in reverse order
+    (list_every
+     revlastlist
+     (lambda (lastproc)
+       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
+	      (nextres (lastproc prevres start_unit_delayed_queue))
+	      )
+	 (unsafe_put_fields rescont :referenced_value nextres)
+	 )))
+    ))
+
+;; internal function to enable the plugin hook
+(defun enable_start_unit ()
+  (code_chunk 
+   enabstartunit_chk
+   #{
+   melthk_start_unit_registered_flag = true ;
+   #warning enable_start_unit $ENABSTARTUNIT_CHK should register PLUGIN_START_UNIT
+   }#)
+  )
+
+
+(defun at_start_unit_first (fun)
+  :doc #{Use $AT_START_UNIT_FIRST to register a function to be run at start of translation unit, in first place.}#
+  (let ( (firstlist (unsafe_get_field :delqu_first start_unit_delayed_queue))
+	 )
+    (when (is_closure fun) 
+      (enable_start_unit)
+      (list_append firstlist fun)))
+  )  
+
+(defun at_start_unit_last (fun)
+  :doc #{Use $AT_START_UNIT_LAST to register a function to be run at start of translation unit, in first place.}#
+  (let ( (lastlist (unsafe_get_field :delqu_last start_unit_delayed_queue))
+	 )
+    (when (is_closure fun) 
+      (enable_start_unit)
+      (list_append lastlist fun)))
+  )
+
+  
+;;;====================================================================
+;;;******************* FINISH_UNIT plugin event *********************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;; the private queue for compilation unit finish
+(definstance finish_unit_delayed_queue class_delayed_queue
+  :named_name '"finish_unit_delayed_queue"
+  :delqu_first (make_list discr_list)
+  :delqu_last (make_list discr_list)
+  )
+
+(cheader #{/* flag for PLUGIN_FINISH_UNIT */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
+}#)
+
+(cimplement #{/* flag for PLUGIN_FINISH_UNIT */
+bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
+}#)
+
+(defhook hook_finish_unit () () :void
+  :predef HOOK_FINISH_UNIT
+  (let ( (firstlist (unsafe_get_field :delqu_first finish_unit_delayed_queue))
+	 (lastlist (unsafe_get_field :delqu_last finish_unit_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (rescont (instance class_reference))
+	 )
+;;; call the first routines in natural order
+    (list_every 
+     firstlist
+     (lambda (firstproc)
+       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
+	      (nextres (firstproc prevres finish_unit_delayed_queue))
+	      )
+	 (unsafe_put_fields rescont :referenced_value nextres)
+	 )))
+;;; reverse the last list
+    (list_every 
+     lastlist 
+     (lambda (lastproc)
+       (if (is_closure lastproc) (list_prepend revlastlist lastproc))))
+;;; call the last routines in reverse order
+    (list_every
+     revlastlist
+     (lambda (lastproc)
+       (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
+	      (nextres (lastproc prevres finish_unit_delayed_queue))
+	      )
+	 (unsafe_put_fields rescont :referenced_value nextres)
+	 )))
+    ))
+
+
+(defun enable_finish_unit ()
+  (code_chunk 
+   enfinishunit_chk
+   #{ /* enable_finish_unit $ENFINISHUNIT_CHK */
+   if (!melthk_finish_unit_registered_flag) 
+     {
+        melthk_finish_unit_registered_flag = true;
+#warning enable_finish_unit  $ENFINISHUNIT_CHK should register PLUGIN_FINISH_UNIT
+     }
+   }#)
+)
+
+(defun at_finish_unit_first (fun)
+  :doc #{Use $AT_FINISH_UNIT_FIRST to register a function to be run at
+end of compilation unit in first place}#
+  (let ( (firstlist (unsafe_get_field :delqu_first finish_unit_delayed_queue))
+	 )
+    (when (is_closure fun) 
+      (enable_finish_unit)
+      (list_append firstlist fun)))
+  )  
+
+(defun at_finish_unit_last (fun)
+  :doc #{Use $AT_FINISH_UNIT_LAST to register a function to be run at
+end of compilation unit in last place}#
+  (let ( (lastlist (unsafe_get_field :delqu_last finish_unit_delayed_queue))
+	 )
+    (when (is_closure fun) 
+      (enable_finish_unit)
+      (list_append lastlist fun)))
+  )
+
+
+
+
+  
+;;;====================================================================
+;;;****************** ALL_PASSES_START plugin event *******************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; handling PLUGIN_ALL_PASSES_START
+;; private all_passes_start handling queue
+(definstance all_passes_start_delayed_queue class_delayed_queue
+  :named_name '"all_passes_start_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+(cheader #{/* flag for PLUGIN_ALL_PASSES_START declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag;
+}#)
+(cimplement  #{/* flag for PLUGIN_ALL_PASSES_START define */
+ bool melthk_all_passes_start_registered_flag;
+}#)
+
+;; internal hook for PLUGIN_ALL_PASSES_START 
+(defhook hook_all_passes_start () () :void
+  :predef HOOK_ALL_PASSES_START
+  (let ( (firstlist (get_field :delqu_first all_passes_start_delayed_queue))
+	 (lastlist (get_field :delqu_last all_passes_start_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res ())
+	 )
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (firstpair firstproc)
+     (setq res (firstproc res))
+     )
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (lastpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+    (if lastlist 
+	(foreach_in_list
+	 (revlastlist)
+	 (revlastpair revlastproc)
+	 (setq res (revlastproc res))
+    ))))
+
+(defun enable_all_passes_start ()
+  (code_chunk 
+   enallpassesstart_chk
+   #{ /* enable_all_passes_start $ENALLPASSESSTART_CHK */
+     if (!melthk_all_passes_start_registered_flag) {
+       melthk_all_passes_start_registered_flag = true;
+#warning enable_all_passes_start $ENALLPASSESSTART_CHK should register the PLUGIN_ALL_PASSES_START
+     }
+   }#
+  ))
+
+(defun register_all_passes_start_first (fun)
+  :doc #{Use $REGISTER_ALL_PASSES_START_FIRST to register a function $FUN to
+  be run at PLUGIN_ALL_PASSES_START, in first place.  $FUN must be a closure
+  which takes no arguments and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (firstlist (get_field :delqu_first all_passes_start_delayed_queue))
+	    )
+	(enable_all_passes_start)
+	(if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        all_passes_start_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+	(list_append firstlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_passes_start_hook_first")
+    ))
+
+(defun register_all_passes_start_last (fun)
+  :doc #{Use $REGISTER_ALL_PASSES_START_LAST to register a function $FUN to
+  be run at PLUGIN_ALL_PASSES_START, in last place.  $FUN must be a closure
+  which takes no argument and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (lastlist (get_field :delqu_last all_passes_start_delayed_queue))
+	    )
+	(enable_all_passes_start)
+	(if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+	        all_passes_start_delayed_queue
+	        :delqu_first (make_list discr_list)
+	        :delqu_last lastlist)
+	      ))
+	(list_append lastlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_passes_start_hook_last")
+    ))
+
+
+;;;====================================================================
+;;;****************** ALL_PASSES_END plugin event *******************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+(cheader #{/* flag for PLUGIN_ALL_PASSES_END declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_end_registered_flag;
+}#)
+(cimplement #{/* flag for PLUGIN_ALL_PASSES_END define */
+bool  melthk_all_passes_end_registered_flag;
+}#)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; handling PLUGIN_ALL_PASSES_END
+;; private all_passes_end handling queue
+(definstance all_passes_end_delayed_queue class_delayed_queue
+  :named_name '"all_passes_end_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+;; internal private hook for PLUGIN_ALL_PASSES_END 
+(defhook hook_all_passes_end () () :void
+  :predef HOOK_ALL_PASSES_END
+  (let ( (firstlist (get_field :delqu_first all_passes_end_delayed_queue))
+	 (lastlist (get_field :delqu_last all_passes_end_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res ())
+	 )
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (firstpair firstproc)
+     (setq res (firstproc res))
+     )
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (lastpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+    (foreach_in_list
+     (revlastlist)
+     (revlastpair revlastproc)
+     (setq res (revlastproc res))
+    )))
+
+(defun enable_all_passes_end ()
+  (code_chunk 
+   enallpassesend_chk
+   #{ /* enable_all_passes_end $ENALLPASSESEND_CHK */
+     if (!melthk_all_passes_end_registered_flag) {
+       melthk_all_passes_end_registered_flag = true;
+#warning enable_all_passes_end $ENALLPASSESEND_CHK should register the PLUGIN_ALL_PASSES_END
+     }
+   }#
+  ))
+
+(defun register_all_passes_end_first (fun)
+  :doc #{Use $REGISTER_ALL_PASSES_END_FIRST to register a function $FUN to
+  be run at PLUGIN_ALL_PASSES_END, in first place.  $FUN must be a closure
+  which takes no argument and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (firstlist (get_field :delqu_first all_passes_end_delayed_queue))
+	    )
+	(enable_all_passes_end)
+	(if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        all_passes_end_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+	(list_append firstlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_passes_end_first")
+    ))
+
+(defun register_all_passes_end_last (fun)
+  :doc #{Use $REGISTER_ALL_PASSES_END_LAST to register a function $FUN to
+  be run at PLUGIN_ALL_PASSES_END, in last place.  $FUN must be a closure
+  which takes no arguments and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (lastlist (get_field :delqu_last all_passes_end_delayed_queue))
+	    )
+	(enable_all_passes_end)
+	(if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+	        all_passes_end_delayed_queue
+	        :delqu_first (make_list discr_list)
+	        :delqu_last lastlist)
+	      ))
+	(list_append lastlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_passes_end_hook_last")
+    ))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values
+  at_finish_unit_first
+  at_finish_unit_last
+  at_start_unit_first
+  at_start_unit_last
   hook_override_gate
   hook_low_debug_value_at
   register_override_gate_first
   register_override_gate_last
+  register_all_passes_end_first
+  register_all_passes_end_last
+  register_all_passes_start_first
+  register_all_passes_start_last
   unregister_override_gate_first
   unregister_override_gate_last
 )
