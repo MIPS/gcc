@@ -2,6 +2,14 @@
 
 2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (normadeclb_macroexpanded_list): Rename as
+	(normalize_macroexpanded_list): New name, and don't give a declbuf
+	as a secondary result.
+	(translate_macroexpanded_list): Output the extra cheaders &
+	cimplementations...
+
+2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (normexp_cimplement): New method for
 	normal_exp on class_source_cimplement.
 

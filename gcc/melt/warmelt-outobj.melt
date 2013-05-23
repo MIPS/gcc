@@ -1336,7 +1336,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 			    (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
 	)))
 
-;; we really want to avoid outputint the same location twice, so we
+;; we really want to avoid outputing the same location twice, so we
 ;; keep the previous location and implbuf
 
 (definstance prevloc_container class_reference)
@@ -6051,11 +6051,12 @@ if (1) return;
      ))
 
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; internal utility function to normalize & declare a macroexpanded list
-;; return the normalized list, the declaration buffer, the start clock
-(defun normadeclb_macroexpanded_list (xlist modnamstr modctx ncx inienv)
-  (debug "normadeclb_macroexpanded_list start xlist= " xlist
+;; internal utility function to normalize a macroexpanded list
+;; return the normalized list, the normalized bindings, the start clock
+(defun normalize_macroexpanded_list (xlist modnamstr modctx ncx inienv)
+  (debug "normalize_macroexpanded_list start xlist= " xlist
 	 "\n* modnamstr=" modnamstr 
 	 "\n* modctx=" modctx
 	 "\n* ncx=" ncx
@@ -6065,28 +6066,25 @@ if (1) return;
   (assert_msg "check modctx" (is_a modctx class_module_context))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
   (assert_msg "check inienv" (is_a inienv class_environment))
-  (debug "normadeclb_macroexpanded_list modctx=" modctx)
+  (debug "normalize_macroexpanded_list modctx=" modctx)
   (let (
 	(:long startclock 0)
 	(normlist (list))
 	(bindlist (list))
-	(declbuf (make_strbuf discr_strbuf))
 	(firstx (pair_head (list_first xlist)))
 	(firstloc (if (is_a firstx class_source) (get_field :loca_location firstx)))
 	(errorhdlr (get_field :mocx_errorhandler modctx))
 	(modinienv (get_field :mocx_initialenv modctx))
 	(iniproc (get_field :nctx_initproc ncx))
-	(cheadlist (get_field :mocx_cheaderlist modctx))
 	;; make an update_current_module_environment at the very beginning
 	(ucmeb1 (instance class_source_update_current_module_environment_container
 			  :loca_location firstloc
 			  :sucme_comment '"at very start"
 			  ))
 	)
-    (debug "normadeclb_macroexpanded_list modctx=" modctx)
-    (debug "normadeclb_macroexpanded_list @@cheadlist=" cheadlist)
+    (debug "normalize_macroexpanded_list modctx=" modctx)
     (code_chunk startmodnam
-		#{ /* normadeclb_macroexpanded_list $STARTMODNAM */
+		#{ /* normalize_macroexpanded_list $STARTMODNAM */
 		#if HAVE_CLOCK
 		$STARTCLOCK = (long) clock () ;
 		#endif /*HAVE_CLOCK */
@@ -6100,7 +6098,6 @@ if (1) return;
 			 melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
 		#endif /* MELT_HAVE_DEBUG */
 		}#)
-    (add2sbuf_indentnl declbuf 0)
     ;; special hack to copy the first comment before anything else,
     ;; practically useful to make the copyright comment appear really
     ;; early in generated declaration buffer.
@@ -6109,136 +6106,42 @@ if (1) return;
       (let ( (sloc (unsafe_get_field :loca_location firstx))
 	     (scomm (unsafe_get_field :scomm_str firstx)) 
 	     )
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_strconst 
-	 declbuf 
-	 "/***************************************************")
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_ccomstring declbuf scomm)
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_strconst 
-	 declbuf 
-	 "****************************************************/")
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_indentnl declbuf 0)
+	(put_fields modctx :mocx_startcomment scomm)
 	)
       )
-    (debug "normadeclb_macroexpanded_list modctx=" modctx 
-	   "\n with @@cheadlist=" cheadlist)
-    ;; only warmelt-first.melt gets a zeroed MELT_HAS_INITIAL_ENVIRONMENT
-    (if modinienv
-	(progn
-	  (debug "normadeclb_macroexpanded_list usual modinienv=" modinienv)
-	  (add2sbuf_strconst declbuf "/* ordinary MELT module */")
-	  (add2sbuf_indentnl declbuf 0)
-	  (add2sbuf_strconst declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 1 /*usual*/"))
-      (progn
-	(debug "normadeclb_macroexpanded_list initial modinienv=" modinienv)
-	(add2sbuf_strconst declbuf "/* initial MELT module */")
-	(add2sbuf_indentnl declbuf 0)
-	(code_chunk check_warmelt_first_bootstrapping_chunk #{ 
-		    /* $CHECK_WARMELT_FIRST_BOOTSTRAPPING_CHUNK */ 
-		    melt_checkmsg ("bootstrapping first file",
-				   melt_flag_bootstrapping 
-				   && melt_string_str((melt_ptr_t) $MODNAMSTR)
-				   && strstr(melt_string_str((melt_ptr_t) $MODNAMSTR), "first")) ;
-		    }#)
-	;; lack of initial environment happens only in translateinit mode for warmelt-first.melt
-	(add2sbuf_strconst declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 0 /*initial*/")))
-    ;;
-    (add2sbuf_indentnl declbuf 0)
-    (add2sbuf_indentnl declbuf 0)
-    (add2sbuf_strconst declbuf "struct melt_callframe_st; /*defined in melt-runtime.h*/")
-    (add2sbuf_indentnl declbuf 0)
-    (add2sbuf_indentnl declbuf 0)
     (list_prepend xlist ucmeb1)
     ;;
     ;; we need to normalize now, because cheaders are handled by normalization
     (foreach_in_list
      (xlist)
      (curpair sexp)
-     (debug "normadeclb_macroexpanded_list sexp=" sexp)
+     (debug "normalize_macroexpanded_list sexp=" sexp)
      (let (
 	   (psloc (if (is_a sexp class_located) (unsafe_get_field :loca_location sexp)))
 	   )
-       ;; special hack to handle toplevel comments specially; the generated comment goes into the declbuf
-       ;; practically useful to copy a copyright notice into the generated C code
-       (if (is_a sexp class_source_comment)
-	   (let ( (sloc (unsafe_get_field :loca_location sexp))
-		  (scomm (unsafe_get_field :scomm_str sexp)) 
-		  )
-	     (add2sbuf_indentnl declbuf 0)
-	     (add2sbuf_strconst declbuf "/**!!** ")
-	     (add2sbuf_ccomstring declbuf scomm)
-	     (add2sbuf_strconst declbuf "**!!**/")
-	     (add2sbuf_indentnl declbuf 0)
-	     )
-;;; otherwise, normalize etc.
-	 (multicall 
-	  (nexp nbind)
-	  (normal_exp sexp inienv ncx psloc)	    
-	  (debug "normadeclb_macroexpanded_list nexp=" nexp " nbind=" nbind)    
-	  (if (and (is_a nexp class_nrep)
-		   (not (is_a nexp class_nrep_anyproc)))
-	      (let ( (wnexp (wrap_normal_let1 nexp nbind psloc)) )
-		(debug "normadeclb_macroexpanded_list wnexp=" wnexp)
-		(list_append (unsafe_get_field :ninit_topl iniproc) 
-			     wnexp)
-		))
-	  (list_append normlist nexp)
-	  (list_append bindlist nbind)
-	  ))))
-
-    (debug "normadeclb_macroexpanded_list @@cheadlist=" cheadlist "\n modctx=" modctx)
-    ;; handle cheaders, should be done after normalization which is filling cheadlist
-    (let (
-	  (cheadtup (list_to_multiple cheadlist discr_multiple))
-	  (:long nbchead (multiple_length cheadtup))
-	  )
-      (debug "normadeclb_macroexpanded_list cheadtup=" cheadtup "\n nbchead=" nbchead
-	     "\n @@cheadlist=" cheadlist)
-      (when (>i nbchead 0)
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_indentnl declbuf 0)
-	(add2out declbuf ##{/***** $NBCHEAD extra C headers *****/}#)
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_indentnl declbuf 0)
-	(foreach_in_multiple
-	 (cheadtup)
-	 (curchead :long hix)
-	 (debug "normadeclb_macroexpanded_list curchead=" curchead " hix=" hix)
-	 (assert_msg "check curchead" (is_a curchead class_source_cheader))
-	 (add2sbuf_indentnl declbuf 0)
-	 (add2out declbuf ##{/** header #$HIX: **/}#)
-	 (add2sbuf_indentnl declbuf 0)
-	 (let ( (hloc (get_field :loca_location curchead))
-		(chstr (get_field :sc_codestring curchead))
-		)
-	   (if hloc
-	       (output_raw_location hloc declbuf 0 "cheader"))
-	   (add2out declbuf chstr)
-	   (add2sbuf_indentnl declbuf 0)
-	   )
-	 )
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_indentnl declbuf 0)
-	(add2out declbuf ##{/***** end of $NBCHEAD extra C headers *****/}#)
-	(add2sbuf_indentnl declbuf 0)
-	(add2sbuf_indentnl declbuf 0)
-	)
-      (debug "normadeclb_macroexpanded_list  @@cheadlist=" cheadlist)
-      )
+       (multicall 
+	(nexp nbind)
+	(normal_exp sexp inienv ncx psloc)	    
+	(debug "normalize_macroexpanded_list nexp=" nexp " nbind=" nbind)    
+	(if (and (is_a nexp class_nrep)
+		 (not (is_a nexp class_nrep_anyproc)))
+	    (let ( (wnexp (wrap_normal_let1 nexp nbind psloc)) )
+	      (debug "normalize_macroexpanded_list wnexp=" wnexp)
+	      (list_append (unsafe_get_field :ninit_topl iniproc) 
+			   wnexp)
+	      ))
+	(list_append normlist nexp)
+	(list_append bindlist nbind)
+	)))
     ;;
     (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc))
     (assert_msg "check xlist" (is_list xlist))
     ;;
-    (debug "normadeclb_macroexpanded_list gives normlist=" normlist
+    (debug "normalize_macroexpanded_list gives normlist=" normlist
 	   "\n bindlist=" bindlist
-	   "\n declbuf=" declbuf
 	   "\n startclock=" startclock)
-    (return normlist bindlist declbuf startclock)
+    (return normlist bindlist startclock)
     ))
-
 
 
 
@@ -6283,18 +6186,18 @@ if (1) return;
 	(modinienv (get_field :mocx_initialenv modctx))
 	(iniproc (get_field :nctx_initproc ncx))
 	(implbuf (make_strbuf discr_strbuf)) 
+	(declbuf (make_strbuf discr_strbuf))
 	)
     (debug "translate_macroexpanded_list modinienv=" modinienv " modnamstr=" modnamstr
-	   " before normadeclb_macroexpanded_list modctx=" modctx)
+	   " before normalize_macroexpanded_list modctx=" modctx)
     (multicall
-     (normlist bindlist declbuf :long startclock)
-     (normadeclb_macroexpanded_list xlist modnamstr modctx ncx inienv)
-     (debug "translate_macroexpanded_list normadeclb_macroexpanded_list give normlist=" normlist 
+     (normlist bindlist :long startclock)
+     (normalize_macroexpanded_list xlist modnamstr modctx ncx inienv)
+     (debug "translate_macroexpanded_list normalize_macroexpanded_list give normlist=" normlist 
 	    "\n bindlist=" bindlist)
      (assert_msg "check normlist" (is_list normlist))
      (assert_msg "check bindlist" (is_list bindlist))
-     (assert_msg "check declbuf" (is_strbuf declbuf))
-     (debug "translate_macroexpanded_list after normadeclb_macroexpanded_list modctx=" modctx
+     (debug "translate_macroexpanded_list after normalize_macroexpanded_list modctx=" modctx
 	    "\n normalisthandler=" normalisthandler
 	    "\n normlist=" normlist)
      (when (is_closure normalisthandler)
@@ -6406,6 +6309,108 @@ if (1) return;
 		)
 	   (debug "translate_macroexpanded_list iniobj=" iniobj
 		  "\n objlist=" objlist)
+	   ;;;
+	   ;;;;;;;;;
+	   (let ( 
+		 (mstartcom (get_field :mocx_startcomment modctx))
+		 (mheadertup (list_to_multiple (get_field :mocx_cheaderlist modctx) discr_multiple))
+		 (mimplemtup (list_to_multiple (get_field :mocx_cimplementlist modctx) discr_multiple))
+		 (:long nbheaders (multiple_length mheadertup))
+		 (:long nbimplems (multiple_length mimplemtup))
+		 )
+	     (debug "translate_macroexpanded_list mstartcom=" mstartcom
+		    "\n .. mheadertup=" mheadertup
+		    "\n .. mimplemtup=" mimplemtup)
+	     (add2out declbuf "/**** MELT GENERATED DECLARATIONS for ")
+	     (add2sbuf_ccomstring declbuf (make_string_nakedbasename discr_string modnamstr))
+	     (add2out declbuf " ** DO NOT EDIT ; see gcc-melt.org ****/")
+	     (add2sbuf_indentnl declbuf 0)
+	     ;;
+	     (add2out implbuf "/**** MELT GENERATED IMPLEMENTATIONS for ")
+	     (add2sbuf_ccomstring implbuf (make_string_nakedbasename discr_string modnamstr))
+	     (add2out implbuf " ** DO NOT EDIT ; see gcc-melt.org ****/")
+	     (add2sbuf_indentnl declbuf 0)
+	     (add2sbuf_indentnl implbuf 0)
+	     (when (is_string mstartcom)
+	       (add2out declbuf "/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n")
+	       (add2sbuf_ccomstring declbuf mstartcom)
+	       (add2sbuf_indentnl declbuf 0)
+	       (add2out declbuf "----------------------------------------------------------------****/\n\n")
+	       (add2sbuf_indentnl declbuf 0))
+	     ;;
+	     (if modinienv
+		 (progn
+		   ;; plain module
+		   (add2out declbuf "/** ordinary MELT module " modnamstr "**/")
+		   (add2sbuf_indentnl declbuf 0)
+		   (add2out declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 1 /*usualmodule*/\n")
+		   )
+	       (progn
+		 ;; lack of initial environment happens only in translateinit
+		 ;; mode for warmelt-first.melt
+		   (add2out declbuf "/** first MELT module " modnamstr "**/")
+		   (add2sbuf_indentnl declbuf 0)
+		   (add2out declbuf "#define MELT_HAS_INITIAL_ENVIRONMENT 0 /*firstmodule*/\n")
+		   (code_chunk 
+		    check_warmelt_first_bootstrapping_chunk #{ 
+		    /* translate_macroexpanded_list $CHECK_WARMELT_FIRST_BOOTSTRAPPING_CHUNK */ 
+		    melt_checkmsg ("bootstrapping first file",
+				   melt_flag_bootstrapping 
+				   && melt_string_str((melt_ptr_t) $MODNAMSTR)
+				   && strstr(melt_string_str((melt_ptr_t) $MODNAMSTR), "first"));
+		    }#)
+		 ))
+	       (add2sbuf_indentnl declbuf 0)
+	       (add2sbuf_indentnl declbuf 0)
+	     ;;
+	     ;;
+	     (if nbheaders
+		 (progn
+		   (add2out declbuf "/*** " nbheaders " extra MELT c-headers ***/\n")
+		   (foreach_in_multiple
+		    (mheadertup)
+		    (curheader :long hdix)
+		    (debug  "translate_macroexpanded_list curheader=" curheader " hdix#" hdix)
+		    (assert_msg "check curheader" (is_a curheader class_source_cheader))
+		    (let ( 
+			  (hloc (get_field :loca_location curheader))
+			  (hstr (get_field :sc_codestring curheader))
+			  )
+		    (add2sbuf_indentnl declbuf 0)
+		    (add2sbuf_indentnl declbuf 0)
+		    (add2out declbuf "/** MELT extra c-header " (+i hdix 1) " : **/\n")
+		    (output_raw_location hloc declbuf 0 "xtracheader")
+		    (add2sbuf_string declbuf hstr)
+		    (add2sbuf_indentnl declbuf 0)
+		    )
+		   (add2out declbuf "/*** end of " nbheaders " extra MELT c-headers ***/\n")
+		   ))
+	       (add2out declbuf "/*** no extra MELT c-headers ***/\n"))
+	     ;;
+	     ;;
+	     (if nbimplems
+		 (progn
+		   (add2out implbuf "/*** " nbimplems " extra MELT implementations ***/\n")
+		   (foreach_in_multiple
+		    (mimplemtup)
+		    (curimplem :long imix)
+		    (assert_msg "check curimplem" (is_a curimplem class_source_cimplement))
+		    (let ( 
+			  (iloc (get_field :loca_location curimplem))
+			  (istr (get_field :sc_codestring curimplem))
+			  )
+		    (add2sbuf_indentnl implbuf 0)
+		    (add2sbuf_indentnl implbuf 0)
+		    (add2out implbuf "/** MELT extra c-implementation " (+i imix 1) " : **/\n")
+		    (output_raw_location iloc implbuf 0 "xtracimplem")
+		    (add2sbuf_string implbuf istr)
+		    (add2sbuf_indentnl implbuf 0)		    
+		    ))
+		   (add2out implbuf "/*** end of " nbimplems " extra MELT c-implementations ***/\n")
+		   )
+	       (add2out implbuf "/*** no extra MELT implementations ***/\n"))
+	     )
+	   ;;;;
 	   ;;
 	   (foreach_in_list
 	    (objlist)
