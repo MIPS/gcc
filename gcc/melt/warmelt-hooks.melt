@@ -288,13 +288,33 @@ bool  melthk_start_unit_registered_flag;
 	 )))
     ))
 
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_startunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_startunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+    melthookproc_HOOK_START_UNIT ();
+ }
+ }#)
+
 ;; internal function to enable the plugin hook
 (defun enable_start_unit ()
   (code_chunk 
    enabstartunit_chk
    #{
-   melthk_start_unit_registered_flag = true ;
-   #warning enable_start_unit $ENABSTARTUNIT_CHK should register PLUGIN_START_UNIT
+   if (!melthk_start_unit_registered_flag) 
+     {
+       melthk_start_unit_registered_flag = true;
+       register_callback (melt_plugin_name, PLUGIN_START_UNIT,
+			  melt_startunithook_callback,
+			  NULL);
+     }
    }#)
   )
 
@@ -371,6 +391,22 @@ bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
     ))
 
 
+(cheader 
+ #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_finishunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement
+ #{
+ void 
+ melt_finishunithook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+    melthookproc_HOOK_FINISH_UNIT ();
+ }
+ }#)
 (defun enable_finish_unit ()
   (code_chunk 
    enfinishunit_chk
@@ -378,7 +414,9 @@ bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
    if (!melthk_finish_unit_registered_flag) 
      {
         melthk_finish_unit_registered_flag = true;
-#warning enable_finish_unit  $ENFINISHUNIT_CHK should register PLUGIN_FINISH_UNIT
+       register_callback (melt_plugin_name, PLUGIN_FINISH_UNIT,
+			  melt_finishunithook_callback,
+			  NULL);
      }
    }#)
 )
@@ -454,13 +492,30 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag
 	 (setq res (revlastproc res))
     ))))
 
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_allpassesstarthook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_allpassesstarthook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+    melthookproc_HOOK_ALL_PASSES_START ();
+ }
+ }#)
+
 (defun enable_all_passes_start ()
   (code_chunk 
    enallpassesstart_chk
    #{ /* enable_all_passes_start $ENALLPASSESSTART_CHK */
      if (!melthk_all_passes_start_registered_flag) {
        melthk_all_passes_start_registered_flag = true;
-#warning enable_all_passes_start $ENALLPASSESSTART_CHK should register the PLUGIN_ALL_PASSES_START
+       register_callback (melt_plugin_name, PLUGIN_ALL_PASSES_START,
+			  melt_allpassesstarthook_callback,
+			  NULL);
      }
    }#
   ))
@@ -560,14 +615,31 @@ bool  melthk_all_passes_end_registered_flag;
      (setq res (revlastproc res))
     )))
 
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_allpassesendhook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_allpassesendhook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+    melthookproc_HOOK_ALL_PASSES_END ();
+ }
+ }#)
+
 (defun enable_all_passes_end ()
   (code_chunk 
    enallpassesend_chk
    #{ /* enable_all_passes_end $ENALLPASSESEND_CHK */
      if (!melthk_all_passes_end_registered_flag) {
-       melthk_all_passes_end_registered_flag = true;
-#warning enable_all_passes_end $ENALLPASSESEND_CHK should register the PLUGIN_ALL_PASSES_END
-     }
+       melthk_all_passes_end_registered_flag = true; 
+       register_callback (melt_plugin_name, PLUGIN_ALL_PASSES_END,
+			  melt_allpassesendhook_callback,
+                          NULL);
+     } 
    }#
   ))
 

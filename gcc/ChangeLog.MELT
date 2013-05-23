@@ -3,6 +3,18 @@
 
 2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (meltgc_all_passes_start_callback)
+	(meltgc_all_passes_end_callback): Remove, since done in
+	warmelt-hooks.melt.
+	(melt_really_initialize): Don't register them...
+
+	* melt/warmelt-hooks.melt (melt_startunithook_callback)
+	(melt_finishunithook_callback): New in cheader & cimplement.
+	(enable_start_unit, enable_finish_unit): register them for
+	PLUGIN_START_UNIT & PLUGIN_FINISH_UNIT.
+
+2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+01.c: Regenerate.
