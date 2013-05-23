@@ -123,10 +123,10 @@ struct target_bb_reorder *this_target_bb_reorder = &default_target_bb_reorder;
   (this_target_bb_reorder->x_uncond_jump_length)
 
 /* Branch thresholds in thousandths (per mille) of the REG_BR_PROB_BASE.  */
-static int branch_threshold[N_ROUNDS] = {400, 200, 100, 0, 0};
+static const int branch_threshold[N_ROUNDS] = {400, 200, 100, 0, 0};
 
 /* Exec thresholds in thousandths (per mille) of the frequency of bb 0.  */
-static int exec_threshold[N_ROUNDS] = {500, 200, 50, 0, 0};
+static const int exec_threshold[N_ROUNDS] = {500, 200, 50, 0, 0};
 
 /* If edge frequency is lower than DUPLICATION_THRESHOLD per mille of entry
    block the edge destination is not duplicated while connecting traces.  */
@@ -1053,7 +1053,7 @@ connect_traces (int n_traces, struct trace *traces)
   current_partition = BB_PARTITION (traces[0].first);
   two_passes = false;
 
-  if (flag_reorder_blocks_and_partition)
+  if (crtl->has_bb_partition)
     for (i = 0; i < n_traces && !two_passes; i++)
       if (BB_PARTITION (traces[0].first)
 	  != BB_PARTITION (traces[i].first))
@@ -1262,7 +1262,7 @@ connect_traces (int n_traces, struct trace *traces)
 		      }
 		  }
 
-	      if (flag_reorder_blocks_and_partition)
+	      if (crtl->has_bb_partition)
 		try_copy = false;
 
 	      /* Copy tiny blocks always; copy larger blocks only when the
@@ -1998,14 +1998,12 @@ fix_crossing_unconditional_branches (void)
       if (JUMP_P (last_insn)
 	  && (succ->flags & EDGE_CROSSING))
 	{
-	  rtx label2, table;
-
 	  gcc_assert (!any_condjump_p (last_insn));
 
 	  /* Make sure the jump is not already an indirect or table jump.  */
 
 	  if (!computed_jump_p (last_insn)
-	      && !tablejump_p (last_insn, &label2, &table))
+	      && !tablejump_p (last_insn, NULL, NULL))
 	    {
 	      /* We have found a "crossing" unconditional branch.  Now
 		 we must convert it to an indirect jump.  First create
@@ -2070,43 +2068,6 @@ add_reg_crossing_jump_notes (void)
 	add_reg_note (BB_END (e->src), REG_CROSSING_JUMP, NULL_RTX);
 }
 
-/* Verify, in the basic block chain, that there is at most one switch
-   between hot/cold partitions. This is modelled on
-   rtl_verify_flow_info_1, but it cannot go inside that function
-   because this condition will not be true until after
-   reorder_basic_blocks is called.  */
-
-static void
-verify_hot_cold_block_grouping (void)
-{
-  basic_block bb;
-  int err = 0;
-  bool switched_sections = false;
-  int current_partition = 0;
-
-  FOR_EACH_BB (bb)
-    {
-      if (!current_partition)
-	current_partition = BB_PARTITION (bb);
-      if (BB_PARTITION (bb) != current_partition)
-	{
-	  if (switched_sections)
-	    {
-	      error ("multiple hot/cold transitions found (bb %i)",
-		     bb->index);
-	      err = 1;
-	    }
-	  else
-	    {
-	      switched_sections = true;
-	      current_partition = BB_PARTITION (bb);
-	    }
-	}
-    }
-
-  gcc_assert(!err);
-}
-
 /* Reorder basic blocks.  The main entry point to this file.  FLAGS is
    the set of flags to pass to cfg_layout_initialize().  */
 
@@ -2159,8 +2120,9 @@ reorder_basic_blocks (void)
       dump_flow_info (dump_file, dump_flags);
     }
 
-  if (flag_reorder_blocks_and_partition)
-    verify_hot_cold_block_grouping ();
+  /* Signal that rtl_verify_flow_info_1 can now verify that there
+     is at most one switch between hot/cold sections.  */
+  crtl->bb_reorder_complete = true;
 }
 
 /* Determine which partition the first basic block in the function
@@ -2175,7 +2137,6 @@ static void
 insert_section_boundary_note (void)
 {
   basic_block bb;
-  rtx new_note;
   int first_partition = 0;
 
   if (!flag_reorder_blocks_and_partition)
@@ -2187,11 +2148,7 @@ insert_section_boundary_note (void)
 	first_partition = BB_PARTITION (bb);
       if (BB_PARTITION (bb) != first_partition)
 	{
-	  new_note = emit_note_before (NOTE_INSN_SWITCH_TEXT_SECTIONS,
-				       BB_HEAD (bb));
-	  /* ??? This kind of note always lives between basic blocks,
-	     but add_insn_before will set BLOCK_FOR_INSN anyway.  */
-	  BLOCK_FOR_INSN (new_note) = NULL;
+	  emit_note_before (NOTE_INSN_SWITCH_TEXT_SECTIONS, BB_HEAD (bb));
 	  break;
 	}
     }
@@ -2509,6 +2466,8 @@ partition_hot_cold_basic_blocks (void)
   crossing_edges = find_rarely_executed_basic_blocks_and_crossing_edges ();
   if (!crossing_edges.exists ())
     return 0;
+
+  crtl->has_bb_partition = true;
 
   /* Make sure the source of any crossing edge ends in a jump and the
      destination of any crossing edge has a label.  */

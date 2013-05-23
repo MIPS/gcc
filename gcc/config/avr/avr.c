@@ -7629,9 +7629,9 @@ _reg_unused_after (rtx insn, rtx reg)
 	      rtx this_insn = XVECEXP (PATTERN (insn), 0, i);
 	      rtx set = single_set (this_insn);
 
-	      if (GET_CODE (this_insn) == CALL_INSN)
+	      if (CALL_P (this_insn))
 		code = CALL_INSN;
-	      else if (GET_CODE (this_insn) == JUMP_INSN)
+	      else if (JUMP_P (this_insn))
 		{
 		  if (INSN_ANNULLED_BRANCH_P (this_insn))
 		    return 0;
@@ -8324,7 +8324,10 @@ avr_encode_section_info (tree decl, rtx rtl, int new_decl_p)
       && SYMBOL_REF == GET_CODE (XEXP (rtl, 0)))
    {
       rtx sym = XEXP (rtl, 0);
-      addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (decl));
+      tree type = TREE_TYPE (decl);
+      if (type == error_mark_node)
+	return;
+      addr_space_t as = TYPE_ADDR_SPACE (type);
 
       /* PSTR strings are in generic space but located in flash:
          patch address space.  */

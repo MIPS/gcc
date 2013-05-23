@@ -1643,7 +1643,16 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 
   /* See if this is an external procedure from the same file.  If so,
      return the backend_decl.  */
-  gsym =  gfc_find_gsymbol (gfc_gsym_root, sym->name);
+  gsym =  gfc_find_gsymbol (gfc_gsym_root, sym->binding_label
+					   ? sym->binding_label : sym->name);
+
+  if (gsym && !gsym->defined)
+    gsym = NULL;
+
+  /* This can happen because of C binding.  */
+  if (gsym && gsym->ns && gsym->ns->proc_name
+      && gsym->ns->proc_name->attr.flavor == FL_MODULE)
+    goto module_sym;
 
   if ((!sym->attr.use_assoc || sym->attr.if_source != IFSRC_DECL)
       && !sym->backend_decl
@@ -1701,12 +1710,19 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   if (sym->module)
     gsym =  gfc_find_gsymbol (gfc_gsym_root, sym->module);
 
-  if (gsym && gsym->ns && gsym->type == GSYM_MODULE)
+module_sym:
+  if (gsym && gsym->ns
+      && (gsym->type == GSYM_MODULE
+	  || (gsym->ns->proc_name && gsym->ns->proc_name->attr.flavor == FL_MODULE)))
     {
       gfc_symbol *s;
 
       s = NULL;
-      gfc_find_symbol (sym->name, gsym->ns, 0, &s);
+      if (gsym->type == GSYM_MODULE)
+	gfc_find_symbol (sym->name, gsym->ns, 0, &s);
+      else
+	gfc_find_symbol (gsym->sym_name, gsym->ns, 0, &s);
+
       if (s && s->backend_decl)
 	{
 	  if (sym->ts.type == BT_DERIVED || sym->ts.type == BT_CLASS)
@@ -2141,6 +2157,27 @@ create_function_arglist (gfc_symbol * sym)
 	      else
 		type = gfc_sym_type (f->sym);
 	    }
+	}
+      /* For noncharacter scalar intrinsic types, VALUE passes the value,
+	 hence, the optional status cannot be transfered via a NULL pointer.
+	 Thus, we will use a hidden argument in that case.  */
+      else if (f->sym->attr.optional && f->sym->attr.value
+	       && !f->sym->attr.dimension && f->sym->ts.type != BT_CLASS
+	       && f->sym->ts.type != BT_DERIVED)
+	{
+          tree tmp;
+          strcpy (&name[1], f->sym->name);
+          name[0] = '_';
+          tmp = build_decl (input_location,
+			    PARM_DECL, get_identifier (name),
+			    boolean_type_node);
+
+          hidden_arglist = chainon (hidden_arglist, tmp);
+          DECL_CONTEXT (tmp) = fndecl;
+          DECL_ARTIFICIAL (tmp) = 1;
+          DECL_ARG_TYPE (tmp) = boolean_type_node;
+          TREE_READONLY (tmp) = 1;
+          gfc_finish_decl (tmp);
 	}
 
       /* For non-constant length array arguments, make sure they use
@@ -3628,7 +3665,37 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 				NULL_TREE);
 	}
 
-      if (sym->attr.dimension || sym->attr.codimension)
+      if (sym->ts.type == BT_CLASS
+	  && (sym->attr.save || gfc_option.flag_max_stack_var_size == 0)
+	  && CLASS_DATA (sym)->attr.allocatable)
+	{
+	  tree vptr;
+
+          if (UNLIMITED_POLY (sym))
+	    vptr = null_pointer_node;
+	  else
+	    {
+	      gfc_symbol *vsym;
+	      vsym = gfc_find_derived_vtab (sym->ts.u.derived);
+	      vptr = gfc_get_symbol_decl (vsym);
+	      vptr = gfc_build_addr_expr (NULL, vptr);
+	    }
+
+	  if (CLASS_DATA (sym)->attr.dimension
+	      || (CLASS_DATA (sym)->attr.codimension
+		  && gfc_option.coarray != GFC_FCOARRAY_LIB))
+	    {
+	      tmp = gfc_class_data_get (sym->backend_decl);
+	      tmp = gfc_build_null_descriptor (TREE_TYPE (tmp));
+	    }
+	  else
+	    tmp = null_pointer_node;
+
+	  DECL_INITIAL (sym->backend_decl)
+		= gfc_class_set_static_fields (sym->backend_decl, vptr, tmp);
+	  TREE_CONSTANT (DECL_INITIAL (sym->backend_decl)) = 1;
+	}
+      else if (sym->attr.dimension || sym->attr.codimension)
 	{
           /* Assumed-size Cray pointees need to be treated as AS_EXPLICIT.  */
           array_type tmp = sym->as->type;
