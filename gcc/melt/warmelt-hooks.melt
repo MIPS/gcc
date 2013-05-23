@@ -2,7 +2,7 @@
 ;; file warmelt-hooks.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2012 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -131,31 +131,43 @@
 
 
 ;; internal flag set when PLUGIN_OVERRIDE_GATE registered
-(definstance registered_flag_override_gate class_reference)
+
+(cheader #{/* flag for PLUGIN_OVERRIDE_GATE */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_override_gate_registered_flag;
+}#)
+
+(cimplement #{/* flag for PLUGIN_OVERRIDE_GATE */
+bool  melthk_override_gate_registered_flag;
+}#)
 
 ;; internal function to enable the plugin hook
 (defun enable_override_gate ()
-  (when (null !registered_flag_override_gate)
-    (set_ref registered_flag_override_gate :true)
     (code_chunk 
-     regplugin_chk
-     #{ /* enable_override_gate $REGPLUGIN_CHK */
-     register_callback (melt_plugin_name, PLUGIN_OVERRIDE_GATE,
-			melt_override_gate_callback,
-			NULL);
+     regpluginoverride_gate_chk
+     #{ /* enable_override_gate $REGPLUGINOVERRIDE_GATE_CHK */
+     if (!melthk_override_gate_registered_flag) 
+       {
+         melthk_override_gate_registered_flag = true;
+         register_callback (melt_plugin_name, PLUGIN_OVERRIDE_GATE,
+			    melt_override_gate_callback,
+			    NULL);
+       }
      }#)
-))
+)
 
 ;; internal function to disable the plugin hook
 (defun maybe_disable_override_gate ()
-  (when (and registered_flag_override_gate
+  (when (and 
 	     (null (list_first (get_field :delqu_first override_gate_delayed_queue)))
 	     (null (list_first (get_field :delqu_last override_gate_delayed_queue))))
-    (set_ref registered_flag_override_gate ())
     (code_chunk
-     unregplugin_chk
-     #{ /* disable_override_gate $UNREGPLUGIN_CHK */
-     unregister_callback (melt_plugin_name, PLUGIN_OVERRIDE_GATE);
+     unregpluginoverride_gate_chk
+     #{ /* disable_override_gate $UNREGPLUGINOVERRIDE_GATE_CHK */
+     if (melthk_override_gate_registered_flag)
+       {
+         melthk_override_gate_registered_flag = false;
+         unregister_callback (melt_plugin_name, PLUGIN_OVERRIDE_GATE);
+       }
      }#)
 ))
 
