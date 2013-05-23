@@ -6177,7 +6177,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -766);
+		  iniframp__->mcfr_nbvar == /*minihash */ -2921);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -6269,7 +6269,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_5__BUFFER_LIMIT_CONT.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
-  meltcdat->dobj_5__BUFFER_LIMIT_CONT.obj_hash = 1073653643;
+  meltcdat->dobj_5__BUFFER_LIMIT_CONT.obj_hash = 259024127;
   meltcdat->dobj_5__BUFFER_LIMIT_CONT.obj_len = 1;
 
   /*iniboxint dint_6__ */
@@ -8489,7 +8489,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_168__PREVLOC_CONTAINER.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
-  meltcdat->dobj_168__PREVLOC_CONTAINER.obj_hash = 419230693;
+  meltcdat->dobj_168__PREVLOC_CONTAINER.obj_hash = 1068992101;
   meltcdat->dobj_168__PREVLOC_CONTAINER.obj_len = 1;
 
 
@@ -8544,7 +8544,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_171__PREVIMPLBUF_CONTAINER.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
-  meltcdat->dobj_171__PREVIMPLBUF_CONTAINER.obj_hash = 515947888;
+  meltcdat->dobj_171__PREVIMPLBUF_CONTAINER.obj_hash = 341899711;
   meltcdat->dobj_171__PREVIMPLBUF_CONTAINER.obj_len = 1;
 
   /*inirout drout_172__LINE_AND_FILE_OF_LOCATION */
@@ -10538,7 +10538,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_316__LABELCOUNTREF.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
-  meltcdat->dobj_316__LABELCOUNTREF.obj_hash = 1018064674;
+  meltcdat->dobj_316__LABELCOUNTREF.obj_hash = 243318520;
   meltcdat->dobj_316__LABELCOUNTREF.obj_len = 1;
 
   /*iniboxint dint_317__ */
@@ -12233,7 +12233,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_443__OBJPUTPAIRHEAD_COUNTER.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
-  meltcdat->dobj_443__OBJPUTPAIRHEAD_COUNTER.obj_hash = 417148878;
+  meltcdat->dobj_443__OBJPUTPAIRHEAD_COUNTER.obj_hash = 629086383;
   meltcdat->dobj_443__OBJPUTPAIRHEAD_COUNTER.obj_len = 1;
 
   /*iniboxint dint_444__ */
@@ -13422,7 +13422,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_532__CLASS_SECONDARY_C_FILE.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_CLASS))));
   meltcdat->dobj_532__CLASS_SECONDARY_C_FILE.obj_num = MELTOBMAG_OBJECT;
-  meltcdat->dobj_532__CLASS_SECONDARY_C_FILE.obj_hash = 1024631422;
+  meltcdat->dobj_532__CLASS_SECONDARY_C_FILE.obj_hash = 127473708;
   meltcdat->dobj_532__CLASS_SECONDARY_C_FILE.obj_len = 8;
 
 
@@ -13503,7 +13503,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_538__SECFIL_MODNAM.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FIELD))));
   meltcdat->dobj_538__SECFIL_MODNAM.obj_num = 0;
-  meltcdat->dobj_538__SECFIL_MODNAM.obj_hash = 127473708;
+  meltcdat->dobj_538__SECFIL_MODNAM.obj_hash = 401958740;
   meltcdat->dobj_538__SECFIL_MODNAM.obj_len = 4;
 
 
@@ -13572,7 +13572,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_542__SECFIL_PATH.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FIELD))));
   meltcdat->dobj_542__SECFIL_PATH.obj_num = 1;
-  meltcdat->dobj_542__SECFIL_PATH.obj_hash = 401958740;
+  meltcdat->dobj_542__SECFIL_PATH.obj_hash = 1073153559;
   meltcdat->dobj_542__SECFIL_PATH.obj_len = 4;
 
 
@@ -13641,7 +13641,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_546__SECFIL_DECLBUF.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FIELD))));
   meltcdat->dobj_546__SECFIL_DECLBUF.obj_num = 2;
-  meltcdat->dobj_546__SECFIL_DECLBUF.obj_hash = 1073153559;
+  meltcdat->dobj_546__SECFIL_DECLBUF.obj_hash = 420001319;
   meltcdat->dobj_546__SECFIL_DECLBUF.obj_len = 4;
 
 
@@ -13710,7 +13710,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_550__SECFIL_IMPLBUF.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FIELD))));
   meltcdat->dobj_550__SECFIL_IMPLBUF.obj_num = 3;
-  meltcdat->dobj_550__SECFIL_IMPLBUF.obj_hash = 420001319;
+  meltcdat->dobj_550__SECFIL_IMPLBUF.obj_hash = 321176725;
   meltcdat->dobj_550__SECFIL_IMPLBUF.obj_len = 4;
 
 
@@ -13778,7 +13778,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_554__GENERATED_C_FILENAME.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_PRIMITIVE))));
-  meltcdat->dobj_554__GENERATED_C_FILENAME.obj_hash = 236493172;
+  meltcdat->dobj_554__GENERATED_C_FILENAME.obj_hash = 7620986;
   meltcdat->dobj_554__GENERATED_C_FILENAME.obj_len = 5;
 
   /*inimult dtup_555__GENERATED_C_FILENAME */
@@ -13844,7 +13844,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_559.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_559.obj_num = 0;
-  meltcdat->dobj_559.obj_hash = 5280475;
+  meltcdat->dobj_559.obj_hash = 472828151;
   meltcdat->dobj_559.obj_len = 2;
 
 
@@ -13897,7 +13897,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_562.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_562.obj_num = 1;
-  meltcdat->dobj_562.obj_hash = 519325906;
+  meltcdat->dobj_562.obj_hash = 924794301;
   meltcdat->dobj_562.obj_len = 2;
 
 
@@ -13950,7 +13950,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_565.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_565.obj_num = 2;
-  meltcdat->dobj_565.obj_hash = 596748552;
+  meltcdat->dobj_565.obj_hash = 103430175;
   meltcdat->dobj_565.obj_len = 2;
 
 
@@ -14003,7 +14003,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_568.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_568.obj_num = 3;
-  meltcdat->dobj_568.obj_hash = 548315478;
+  meltcdat->dobj_568.obj_hash = 750194091;
   meltcdat->dobj_568.obj_len = 2;
 
 
@@ -14345,7 +14345,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_593.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_593.obj_num = 0;
-  meltcdat->dobj_593.obj_hash = 591173339;
+  meltcdat->dobj_593.obj_hash = 63331976;
   meltcdat->dobj_593.obj_len = 2;
 
 
@@ -14399,7 +14399,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_596.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_596.obj_num = 1;
-  meltcdat->dobj_596.obj_hash = 623337458;
+  meltcdat->dobj_596.obj_hash = 823008795;
   meltcdat->dobj_596.obj_len = 2;
 
 
@@ -14452,7 +14452,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_599.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_599.obj_num = 2;
-  meltcdat->dobj_599.obj_hash = 604713267;
+  meltcdat->dobj_599.obj_hash = 518244656;
   meltcdat->dobj_599.obj_len = 2;
 
 
@@ -14506,7 +14506,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_602.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_602.obj_num = 3;
-  meltcdat->dobj_602.obj_hash = 928065157;
+  meltcdat->dobj_602.obj_hash = 377621745;
   meltcdat->dobj_602.obj_len = 2;
 
 
@@ -14559,7 +14559,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_605.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_605.obj_num = 4;
-  meltcdat->dobj_605.obj_hash = 780919546;
+  meltcdat->dobj_605.obj_hash = 699298913;
   meltcdat->dobj_605.obj_len = 2;
 
   /*inimult dtup_606__SYNTAX_TEST_GENERATOR */
@@ -14586,7 +14586,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_607__SYNTAX_TEST_GENERATOR.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_SELECTOR__V139*/ meltfptr[138]);
-  meltcdat->dobj_607__SYNTAX_TEST_GENERATOR.obj_hash = 796869222;
+  meltcdat->dobj_607__SYNTAX_TEST_GENERATOR.obj_hash = 400621766;
   meltcdat->dobj_607__SYNTAX_TEST_GENERATOR.obj_len = 4;
 
 
@@ -15753,7 +15753,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_687__LAMBDA_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_687__LAMBDA_.routdescr,
-	   "LAMBDA_ @warmelt-outobj.melt:6623", MELT_ROUTDESCR_LEN - 1);
+	   "LAMBDA_ @warmelt-outobj.melt:6624", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_687__LAMBDA_.nbval = 1;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_687__LAMBDA_,
 			     meltrout_148_warmelt_outobj_LAMBDA___26__);
@@ -15962,7 +15962,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_699__MELT_RUN_EXTENSI.val[18] = (char) 0;
   meltcdat->dstr_699__MELT_RUN_EXTENSI.slen = 18;
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ iniobj");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ iniobj");
 
 /*iniobj dobj_700__MELT_RUN_EXTENSION*/
 /*_.VALDATA___V882*/ meltfptr[881] =
@@ -15980,7 +15980,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_700__MELT_RUN_EXTENSION.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_PRIMITIVE))));
-  meltcdat->dobj_700__MELT_RUN_EXTENSION.obj_hash = 708421974;
+  meltcdat->dobj_700__MELT_RUN_EXTENSION.obj_hash = 666162086;
   meltcdat->dobj_700__MELT_RUN_EXTENSION.obj_len = 5;
 
   /*inimult dtup_701__MELT_RUN_EXTENSION */
@@ -16047,7 +16047,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_705.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_705.obj_num = 0;
-  meltcdat->dobj_705.obj_hash = 634220652;
+  meltcdat->dobj_705.obj_hash = 929813716;
   meltcdat->dobj_705.obj_len = 2;
 
 
@@ -16100,7 +16100,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_708.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_708.obj_num = 1;
-  meltcdat->dobj_708.obj_hash = 555995255;
+  meltcdat->dobj_708.obj_hash = 34446058;
   meltcdat->dobj_708.obj_len = 2;
 
 
@@ -16154,7 +16154,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_711.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_711.obj_num = 2;
-  meltcdat->dobj_711.obj_hash = 1040536123;
+  meltcdat->dobj_711.obj_hash = 78125745;
   meltcdat->dobj_711.obj_len = 2;
 
 
@@ -16222,7 +16222,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_717__AUTOBOX_NORMAL_RETURN.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_717__AUTOBOX_NORMAL_RETURN.routdescr,
-	   "AUTOBOX_NORMAL_RETURN @warmelt-outobj.melt:6677",
+	   "AUTOBOX_NORMAL_RETURN @warmelt-outobj.melt:6678",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_717__AUTOBOX_NORMAL_RETURN.nbval = 19;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_717__AUTOBOX_NORMAL_RETURN,
@@ -16649,7 +16649,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_743__TRANSLATE_RUN_MELT_EXPRESSIONS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_743__TRANSLATE_RUN_MELT_EXPRESSIONS.routdescr,
-	   "TRANSLATE_RUN_MELT_EXPRESSIONS @warmelt-outobj.melt:6804",
+	   "TRANSLATE_RUN_MELT_EXPRESSIONS @warmelt-outobj.melt:6805",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_743__TRANSLATE_RUN_MELT_EXPRESSIONS.nbval = 41;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
@@ -16669,7 +16669,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_745__LAMBDA_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_745__LAMBDA_.routdescr,
-	   "LAMBDA_ @warmelt-outobj.melt:6842", MELT_ROUTDESCR_LEN - 1);
+	   "LAMBDA_ @warmelt-outobj.melt:6843", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_745__LAMBDA_.nbval = 3;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_745__LAMBDA_,
 			     meltrout_151_warmelt_outobj_LAMBDA___27__);
@@ -16745,7 +16745,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_750__LAMBDA_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_750__LAMBDA_.routdescr,
-	   "LAMBDA_ @warmelt-outobj.melt:6886", MELT_ROUTDESCR_LEN - 1);
+	   "LAMBDA_ @warmelt-outobj.melt:6888", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_750__LAMBDA_.nbval = 5;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_750__LAMBDA_,
 			     meltrout_152_warmelt_outobj_LAMBDA___28__);
@@ -16829,7 +16829,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_756__LAMBDA_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_756__LAMBDA_.routdescr,
-	   "LAMBDA_ @warmelt-outobj.melt:6949", MELT_ROUTDESCR_LEN - 1);
+	   "LAMBDA_ @warmelt-outobj.melt:6951", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_756__LAMBDA_.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_756__LAMBDA_,
 			     meltrout_153_warmelt_outobj_LAMBDA___29__);
@@ -16947,7 +16947,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_764__READ_MELT_EXPRESSIONS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_764__READ_MELT_EXPRESSIONS.routdescr,
-	   "READ_MELT_EXPRESSIONS @warmelt-outobj.melt:7089",
+	   "READ_MELT_EXPRESSIONS @warmelt-outobj.melt:7091",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_764__READ_MELT_EXPRESSIONS.nbval = 6;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_764__READ_MELT_EXPRESSIONS,
@@ -17000,7 +17000,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
   meltcdat->drout_768__TRANSLATE_TO_C_MODULE_MELT_SOURCES.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_768__TRANSLATE_TO_C_MODULE_MELT_SOURCES.routdescr,
-	   "TRANSLATE_TO_C_MODULE_MELT_SOURCES @warmelt-outobj.melt:7127",
+	   "TRANSLATE_TO_C_MODULE_MELT_SOURCES @warmelt-outobj.melt:7129",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_768__TRANSLATE_TO_C_MODULE_MELT_SOURCES.nbval = 5;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
@@ -17022,7 +17022,7 @@ initialize_module_meltdata_warmelt_outobj (meltinitial_frame_t * iniframp__,
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_ROUTINE))));
   strncpy (meltcdat->drout_770__GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT.
 	   routdescr,
-	   "GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT @warmelt-outobj.melt:7172",
+	   "GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT @warmelt-outobj.melt:7174",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_770__GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT.nbval =
     0;
@@ -17282,13 +17282,14 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 766*/
+/* declstructinit initial routine melt_start_this_module minihash 2921*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
-  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar = /*minihash */ -766;
+  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar =
+    /*minihash */ -2921;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__warmelt_outobj__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -44577,7 +44578,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V865*/ meltfptr[864])->tabval[7] =
     (melt_ptr_t) ( /*_.VALCLO___V864*/ meltfptr[863]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6623:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6624:/ initchunk");
   /*^putroutconstnotnull */
   /*putroutconstnotnull */
   melt_assertmsg ("putroutconstnotnull checkrout",
@@ -44589,7 +44590,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V866*/ meltfptr[865])->tabval[0] =
     (melt_ptr_t) ( /*_.VALCLO___V864*/ meltfptr[863]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6623:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6624:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V866*/ meltfptr[865]);
@@ -44887,7 +44888,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V880*/ meltfptr[879],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -44928,7 +44929,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V885*/ meltfptr[884],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -44946,7 +44947,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
   /*_.VALDATA___V885*/ meltfptr[884]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -44964,12 +44965,12 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
 		    ((melt_ptr_t) (MELT_PREDEF (CTYPE_VALUE))));
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touch */
   /*touch:VALUEDATA_ */
   meltgc_touch ( /*_.VALDATA___V884*/ meltfptr[883]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touchobj */
 
   melt_dbgtrace_written_object ( /*_.VALDATA___V884*/ meltfptr[883],
@@ -44998,7 +44999,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V888*/ meltfptr[887],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -45016,7 +45017,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
   /*_.VALDATA___V888*/ meltfptr[887]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -45034,12 +45035,12 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
 		    ((melt_ptr_t) (MELT_PREDEF (CTYPE_VALUE))));
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touch */
   /*touch:VALUEDATA_ */
   meltgc_touch ( /*_.VALDATA___V887*/ meltfptr[886]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touchobj */
 
   melt_dbgtrace_written_object ( /*_.VALDATA___V887*/ meltfptr[886],
@@ -45068,7 +45069,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V891*/ meltfptr[890],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -45086,7 +45087,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
   /*_.VALDATA___V891*/ meltfptr[890]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -45104,12 +45105,12 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
 		    ((melt_ptr_t) (MELT_PREDEF (CTYPE_VALUE))));
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touch */
   /*touch:VALUEDATA_ */
   meltgc_touch ( /*_.VALDATA___V890*/ meltfptr[889]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touchobj */
 
   melt_dbgtrace_written_object ( /*_.VALDATA___V890*/ meltfptr[889],
@@ -45160,7 +45161,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   /*touch:INITUP_ */
   meltgc_touch ( /*_.VALTUP___V893*/ meltfptr[892]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -45178,7 +45179,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
   /*_.VALTUP___V893*/ meltfptr[892]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -45297,7 +45298,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   /*touch:INITUP_ */
   meltgc_touch ( /*_.VALTUP___V898*/ meltfptr[897]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^putslot */
   /*putslot */
   melt_assertmsg ("putslot checkobj",
@@ -45315,18 +45316,18 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
     (melt_ptr_t) (
   /*_.VALTUP___V898*/ meltfptr[897]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touch */
   /*touch:VALUEDATA_ */
   meltgc_touch ( /*_.VALDATA___V882*/ meltfptr[881]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6667:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6668:/ initchunk");
   /*^touchobj */
 
   melt_dbgtrace_written_object ( /*_.VALDATA___V882*/ meltfptr[881],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45341,7 +45342,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[0] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45356,7 +45357,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[1] =
     (melt_ptr_t) ( /*_.DISCR_LIST__V63*/ meltfptr[62]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45371,7 +45372,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[2] =
     (melt_ptr_t) ( /*_.CLASS_CTYPE__V24*/ meltfptr[23]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45409,7 +45410,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V900*/ meltfptr[899],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45424,7 +45425,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[4] =
     (melt_ptr_t) ( /*_.VALDATA___V900*/ meltfptr[899]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45439,7 +45440,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[5] =
     (melt_ptr_t) ( /*_.CLASS_NORMAL_LET_BINDING__V171*/ meltfptr[170]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45454,7 +45455,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[6] =
     (melt_ptr_t) ( /*_.CTYPE_VALUE__V28*/ meltfptr[27]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45469,7 +45470,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[7] =
     (melt_ptr_t) ( /*_.CLASS_NREP_LOCSYMOCC__V172*/ meltfptr[171]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45484,7 +45485,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[8] =
     (melt_ptr_t) ( /*_.CLASS_NREP_RETURN__V173*/ meltfptr[172]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45499,7 +45500,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[9] =
     (melt_ptr_t) ( /*_.CTYPE_LONG__V73*/ meltfptr[72]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45514,7 +45515,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[10] =
     (melt_ptr_t) ( /*_.CLASS_NREP_CHUNK__V174*/ meltfptr[173]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45552,7 +45553,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V902*/ meltfptr[901],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45567,7 +45568,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[12] =
     (melt_ptr_t) ( /*_.VALDATA___V902*/ meltfptr[901]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45582,7 +45583,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[13] =
     (melt_ptr_t) ( /*_.CLASS_LET_BINDING__V175*/ meltfptr[174]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45620,7 +45621,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V904*/ meltfptr[903],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45635,7 +45636,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[15] =
     (melt_ptr_t) ( /*_.VALDATA___V904*/ meltfptr[903]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45650,7 +45651,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[16] =
     (melt_ptr_t) ( /*_.CLASS_CTYPE_GTY__V177*/ meltfptr[176]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45688,7 +45689,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V906*/ meltfptr[905],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45703,7 +45704,7 @@ meltmod__warmelt_outobj__initialmeltchunk_15 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V899*/ meltfptr[898])->tabval[18] =
     (melt_ptr_t) ( /*_.VALDATA___V906*/ meltfptr[905]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6677:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6678:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V899*/ meltfptr[898]);
@@ -45920,7 +45921,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V923*/ meltfptr[922],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45935,7 +45936,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[0] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45950,7 +45951,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[1] =
     (melt_ptr_t) ( /*_.CLASS_ENVIRONMENT__V151*/ meltfptr[150]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45965,7 +45966,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[2] =
     (melt_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45980,7 +45981,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[3] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -45995,7 +45996,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[4] =
     (melt_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6842:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6843:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46032,7 +46033,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V927*/ meltfptr[926],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:6842:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6843:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46046,7 +46047,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V926*/ meltfptr[925])->tabval[1] =
     (melt_ptr_t) ( /*_.VALDATA___V927*/ meltfptr[926]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6842:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6843:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46060,12 +46061,12 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V926*/ meltfptr[925])->tabval[2] =
     (melt_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6842:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6843:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V926*/ meltfptr[925]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46080,7 +46081,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[5] =
     (melt_ptr_t) ( /*_.VALROUT___V926*/ meltfptr[925]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46097,7 +46098,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
     (melt_ptr_t) ( /*_.CLASS_RUNNING_EXTENSION_MODULE_CONTEXT__V138*/
 		  meltfptr[137]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46112,7 +46113,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[7] =
     (melt_ptr_t) ( /*_.DISCR_MAP_STRINGS__V164*/ meltfptr[163]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46127,7 +46128,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[8] =
     (melt_ptr_t) ( /*_.DISCR_INTEGER__V50*/ meltfptr[49]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46142,7 +46143,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[9] =
     (melt_ptr_t) ( /*_.DISCR_LIST__V63*/ meltfptr[62]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46157,7 +46158,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[10] =
     (melt_ptr_t) ( /*_.DISCR_MAP_OBJECTS__V145*/ meltfptr[144]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46172,7 +46173,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[11] =
     (melt_ptr_t) ( /*_.CREATE_NORMAL_EXTENDING_CONTEXT__V178*/ meltfptr[177]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46187,7 +46188,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[12] =
     (melt_ptr_t) ( /*_.CLASS_SEXPR__V179*/ meltfptr[178]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46202,7 +46203,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[13] =
     (melt_ptr_t) ( /*_.CLASS_SYMBOL__V18*/ meltfptr[17]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46217,7 +46218,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[14] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46232,7 +46233,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[15] =
     (melt_ptr_t) ( /*_.CLASS_NAMED__V36*/ meltfptr[35]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6886:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6888:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46246,7 +46247,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V929*/ meltfptr[928])->tabval[0] =
     (melt_ptr_t) ( /*_.CLASS_SEXPR__V179*/ meltfptr[178]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6886:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6888:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46260,7 +46261,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V929*/ meltfptr[928])->tabval[1] =
     (melt_ptr_t) ( /*_.CLASS_SYMBOL__V18*/ meltfptr[17]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6886:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6888:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46274,7 +46275,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V929*/ meltfptr[928])->tabval[2] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6886:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6888:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46288,7 +46289,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V929*/ meltfptr[928])->tabval[3] =
     (melt_ptr_t) ( /*_.CLASS_NAMED__V36*/ meltfptr[35]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6886:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6888:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46302,12 +46303,12 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V929*/ meltfptr[928])->tabval[4] =
     (melt_ptr_t) ( /*_.VALSTR___V930*/ meltfptr[929]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6886:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6888:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V929*/ meltfptr[928]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46322,7 +46323,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[16] =
     (melt_ptr_t) ( /*_.VALROUT___V929*/ meltfptr[928]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46337,7 +46338,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[17] =
     (melt_ptr_t) ( /*_.CLASS_SEXPR__V179*/ meltfptr[178]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46352,7 +46353,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[18] =
     (melt_ptr_t) ( /*_.VALSTR___V931*/ meltfptr[930]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46367,7 +46368,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[19] =
     (melt_ptr_t) ( /*_.VALSTR___V932*/ meltfptr[931]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46382,7 +46383,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[20] =
     (melt_ptr_t) ( /*_.MACROEXPAND_TOPLEVEL_LIST__V167*/ meltfptr[166]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46397,7 +46398,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[21] =
     (melt_ptr_t) ( /*_.MACROEXPAND_1__V168*/ meltfptr[167]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46412,7 +46413,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[22] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46427,7 +46428,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[23] =
     (melt_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46442,7 +46443,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[24] =
     (melt_ptr_t) ( /*_.GET_CTYPE__V107*/ meltfptr[106]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46457,7 +46458,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[25] =
     (melt_ptr_t) ( /*_.CLASS_CTYPE__V24*/ meltfptr[23]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46472,7 +46473,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[26] =
     (melt_ptr_t) ( /*_.CTYPE_VALUE__V28*/ meltfptr[27]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46487,7 +46488,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[27] =
     (melt_ptr_t) ( /*_.CLASS_NREP_RETURN__V173*/ meltfptr[172]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46502,7 +46503,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[28] =
     (melt_ptr_t) ( /*_.CLASS_NAMED__V36*/ meltfptr[35]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconstnotnull */
   /*putroutconstnotnull */
   melt_assertmsg ("putroutconstnotnull checkrout",
@@ -46514,7 +46515,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[29] =
     (melt_ptr_t) ( /*_.VALCLO___V908*/ meltfptr[907]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46529,7 +46530,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[30] =
     (melt_ptr_t) ( /*_.WRAP_NORMAL_LET1__V157*/ meltfptr[156]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46543,7 +46544,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[0] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46557,7 +46558,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[1] =
     (melt_ptr_t) ( /*_.CLASS_REFERENCE__V7*/ meltfptr[6]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46571,7 +46572,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[2] =
     (melt_ptr_t) ( /*_.GET_CTYPE__V107*/ meltfptr[106]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46585,7 +46586,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[3] =
     (melt_ptr_t) ( /*_.CLASS_CTYPE__V24*/ meltfptr[23]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46599,7 +46600,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[4] =
     (melt_ptr_t) ( /*_.CTYPE_VALUE__V28*/ meltfptr[27]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46613,7 +46614,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[5] =
     (melt_ptr_t) ( /*_.CLASS_NREP_RETURN__V173*/ meltfptr[172]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46627,7 +46628,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[6] =
     (melt_ptr_t) ( /*_.CLASS_NAMED__V36*/ meltfptr[35]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconstnotnull */
   /*putroutconstnotnull */
   melt_assertmsg ("putroutconstnotnull checkrout",
@@ -46639,7 +46640,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[7] =
     (melt_ptr_t) ( /*_.VALCLO___V908*/ meltfptr[907]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46653,12 +46654,12 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V933*/ meltfptr[932])->tabval[8] =
     (melt_ptr_t) ( /*_.WRAP_NORMAL_LET1__V157*/ meltfptr[156]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6949:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6951:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V933*/ meltfptr[932]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46673,7 +46674,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[31] =
     (melt_ptr_t) ( /*_.VALROUT___V933*/ meltfptr[932]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46688,7 +46689,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[32] =
     (melt_ptr_t) ( /*_.VALSTR___V934*/ meltfptr[933]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46703,7 +46704,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[33] =
     (melt_ptr_t) ( /*_.DISCR_STRING__V51*/ meltfptr[50]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconstnotnull */
   /*putroutconstnotnull */
   melt_assertmsg ("putroutconstnotnull checkrout",
@@ -46715,7 +46716,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[34] =
     (melt_ptr_t) ( /*_.VALCLO___V852*/ meltfptr[851]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46730,7 +46731,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[35] =
     (melt_ptr_t) ( /*_.COMPILE2OBJ_INITEXTENDPROC__V180*/ meltfptr[179]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46745,7 +46746,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[36] =
     (melt_ptr_t) ( /*_.VALSTR___V935*/ meltfptr[934]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46760,7 +46761,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[37] =
     (melt_ptr_t) ( /*_.VALSTR___V936*/ meltfptr[935]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46775,7 +46776,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[38] =
     (melt_ptr_t) ( /*_.DISCR_MULTIPLE__V65*/ meltfptr[64]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46790,7 +46791,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[39] =
     (melt_ptr_t) ( /*_.CLASS_MODULE_CONTEXT__V137*/ meltfptr[136]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46805,7 +46806,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V925*/ meltfptr[924])->tabval[40] =
     (melt_ptr_t) ( /*_.CLASS_LITERAL_VALUE__V181*/ meltfptr[180]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:6804:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:6805:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V925*/ meltfptr[924]);
@@ -46917,7 +46918,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V944*/ meltfptr[943],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:7089:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7091:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46932,7 +46933,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V946*/ meltfptr[945])->tabval[0] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7089:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7091:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46962,7 +46963,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   /*touch:DATACLOSURE_ */
   meltgc_touch ( /*_.VALCLO___V947*/ meltfptr[946]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7089:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7091:/ initchunk");
   /*^putroutconstnotnull */
   /*putroutconstnotnull */
   melt_assertmsg ("putroutconstnotnull checkrout",
@@ -46974,7 +46975,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V946*/ meltfptr[945])->tabval[2] =
     (melt_ptr_t) ( /*_.VALCLO___V947*/ meltfptr[946]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7089:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7091:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -46989,7 +46990,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V946*/ meltfptr[945])->tabval[3] =
     (melt_ptr_t) ( /*_.CLASS_SYMBOL__V18*/ meltfptr[17]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7089:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7091:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -47004,7 +47005,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V946*/ meltfptr[945])->tabval[4] =
     (melt_ptr_t) ( /*_.CLASS_SEXPR__V179*/ meltfptr[178]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7089:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7091:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -47019,7 +47020,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V946*/ meltfptr[945])->tabval[5] =
     (melt_ptr_t) ( /*_.CLASS_NAMED__V36*/ meltfptr[35]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7089:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7091:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V946*/ meltfptr[945]);
@@ -47047,7 +47048,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   melt_dbgtrace_written_object ( /*_.VALDATA___V948*/ meltfptr[947],
 				"new static instance");
 
-  MELT_LOCATION ("warmelt-outobj.melt:7127:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7129:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -47062,7 +47063,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V950*/ meltfptr[949])->tabval[0] =
     (melt_ptr_t) ( /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7127:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7129:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -47077,7 +47078,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V950*/ meltfptr[949])->tabval[1] =
     (melt_ptr_t) ( /*_.CLASS_ENVIRONMENT__V151*/ meltfptr[150]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7127:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7129:/ initchunk");
   /*^putroutconst */
   /*putroutconst */
   if (MELT_HAS_INITIAL_ENVIRONMENT)
@@ -47092,7 +47093,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V950*/ meltfptr[949])->tabval[2] =
     (melt_ptr_t) ( /*_.DISCR_LIST__V63*/ meltfptr[62]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7127:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7129:/ initchunk");
   /*^putroutconstnotnull */
   /*putroutconstnotnull */
   melt_assertmsg ("putroutconstnotnull checkrout",
@@ -47104,7 +47105,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V950*/ meltfptr[949])->tabval[3] =
     (melt_ptr_t) ( /*_.VALCLO___V947*/ meltfptr[946]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7127:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7129:/ initchunk");
   /*^putroutconstnotnull */
   /*putroutconstnotnull */
   melt_assertmsg ("putroutconstnotnull checkrout",
@@ -47116,7 +47117,7 @@ meltmod__warmelt_outobj__initialmeltchunk_16 (meltinitial_frame_t *
   ((meltroutine_ptr_t) /*_.VALROUT___V950*/ meltfptr[949])->tabval[4] =
     (melt_ptr_t) ( /*_.VALCLO___V867*/ meltfptr[866]);
 
-  MELT_LOCATION ("warmelt-outobj.melt:7127:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7129:/ initchunk");
   /*^touch */
   /*touch:IROUTVAL_ */
   meltgc_touch ( /*_.VALROUT___V950*/ meltfptr[949]);
@@ -50633,7 +50634,7 @@ meltmod__warmelt_outobj__initialmeltchunk_17 (meltinitial_frame_t *
 	    /*clear *//*_.INSTALL_METHOD__V1065*/ meltfptr[966] = 0;
   }
 
-  MELT_LOCATION ("warmelt-outobj.melt:7230:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7232:/ initchunk");
   /*^block */
   /*anyblock */
   {
@@ -50787,7 +50788,7 @@ meltmod__warmelt_outobj__initialmeltchunk_17 (meltinitial_frame_t *
 	    /*clear *//*_.VALUEXPORTER___V1066*/ meltfptr[967] = 0;
   }
 
-  MELT_LOCATION ("warmelt-outobj.melt:7240:/ initchunk");
+  MELT_LOCATION ("warmelt-outobj.melt:7242:/ initchunk");
   /*^block */
   /*anyblock */
   {
@@ -52069,7 +52070,7 @@ meltmod__warmelt_outobj__forward_or_mark_module_start_frame (struct
   int meltix = 0;
   melt_initial_frame_st *meltframptr_ = (melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -766);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -2921);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf

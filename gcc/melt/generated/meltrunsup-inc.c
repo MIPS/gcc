@@ -3008,6 +3008,94 @@ end:
 
 
 
+/*predefined hook definition HOOK_ALL_PASSES_START #106*/
+void
+melthookproc_HOOK_ALL_PASSES_START ()
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_ALL_PASSES_START */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp =
+    (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_PASSES_START);
+  typedef void melthooksig_HOOK_ALL_PASSES_START_t (melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_ALL_PASSES_START */
+  melthooksig_HOOK_ALL_PASSES_START_t *melthookptr_HOOK_ALL_PASSES_START =
+    (melthooksig_HOOK_ALL_PASSES_START_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_ALL_PASSES_START",
+		  melthookptr_HOOK_ALL_PASSES_START);
+
+  /* check predefhook HOOK_ALL_PASSES_START name */
+  melt_assertmsg ("check predefhook name HOOK_ALL_PASSES_START",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_ALL_PASSES_START", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_ALL_PASSES_START) ((melt_ptr_t) melthkp);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_ALL_PASSES_START */
+
+
+
+/*predefined hook definition HOOK_ALL_PASSES_END #107*/
+void
+melthookproc_HOOK_ALL_PASSES_END ()
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_ALL_PASSES_END */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_PASSES_END);
+  typedef void melthooksig_HOOK_ALL_PASSES_END_t (melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_ALL_PASSES_END */
+  melthooksig_HOOK_ALL_PASSES_END_t *melthookptr_HOOK_ALL_PASSES_END =
+    (melthooksig_HOOK_ALL_PASSES_END_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_ALL_PASSES_END",
+		  melthookptr_HOOK_ALL_PASSES_END);
+
+  /* check predefhook HOOK_ALL_PASSES_END name */
+  melt_assertmsg ("check predefhook name HOOK_ALL_PASSES_END",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_ALL_PASSES_END", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_ALL_PASSES_END) ((melt_ptr_t) melthkp);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_ALL_PASSES_END */
+
+
+
+/*predefined hook definition HOOK_FINISH_UNIT #108*/
+void
+melthookproc_HOOK_FINISH_UNIT ()
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_FINISH_UNIT */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FINISH_UNIT);
+  typedef void melthooksig_HOOK_FINISH_UNIT_t (melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_FINISH_UNIT exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_FINISH_UNIT is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_FINISH_UNIT */
+  melthooksig_HOOK_FINISH_UNIT_t *melthookptr_HOOK_FINISH_UNIT =
+    (melthooksig_HOOK_FINISH_UNIT_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_FINISH_UNIT",
+		  melthookptr_HOOK_FINISH_UNIT);
+
+  /* check predefhook HOOK_FINISH_UNIT name */
+  melt_assertmsg ("check predefhook name HOOK_FINISH_UNIT",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_FINISH_UNIT", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_FINISH_UNIT) ((melt_ptr_t) melthkp);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_FINISH_UNIT */
 
 
 
@@ -3217,6 +3305,35 @@ melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 
 
 
+/*predefined hook definition HOOK_START_UNIT #115*/
+void
+melthookproc_HOOK_START_UNIT ()
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_START_UNIT */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_START_UNIT);
+  typedef void melthooksig_HOOK_START_UNIT_t (melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_START_UNIT exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_START_UNIT is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_START_UNIT */
+  melthooksig_HOOK_START_UNIT_t *melthookptr_HOOK_START_UNIT =
+    (melthooksig_HOOK_START_UNIT_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_START_UNIT",
+		  melthookptr_HOOK_START_UNIT);
+
+  /* check predefhook HOOK_START_UNIT name */
+  melt_assertmsg ("check predefhook name HOOK_START_UNIT",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_START_UNIT", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_START_UNIT) ((melt_ptr_t) melthkp);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_START_UNIT */
+
+
 
 
 
@@ -3226,4 +3343,4 @@ melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 /* end of code generated by generate_runtypesupport_predefined_hooks for 121 predefined */
 
 /*** End of code file meltbuild-sources/generated/meltrunsup-inc.c generated on 2013 May 23
- * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 199233] MELT_0.9.9-pre . ***/
+ * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 199263] MELT_0.9.9-pre . ***/

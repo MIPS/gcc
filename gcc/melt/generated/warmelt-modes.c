@@ -8167,7 +8167,7 @@ meltlab_endgetargs:;
       MELT_LOCATION ("warmelt-modes.melt:348:/ locexp");
       /* repl_docmd REPLWELCOME_CHK__1 */
       printf
-	("; Welcome to the MELT interactive Read-Eval-Print-Loop [=REPL]\n");
+	("; Welcome to the MELT interactive Read-Eval-Print-Loop [=REPL]; see gcc-melt.org\n");
       printf ("; Type a sequence of MELT expressions to be evaluated\n");
       printf ("; End that sequence with two (2) consecutive newlines.\n");
       printf
@@ -8637,9 +8637,9 @@ meltlab_endgetargs:;
     MELT_LOCATION ("warmelt-modes.melt:401:/ apply");
     /*apply */
     {
-      /*_.REGISTER_ALL_PASSES_END_HOOK_FIRST__V34*/ meltfptr[33] =
+      /*_.REGISTER_ALL_PASSES_END_FIRST__V34*/ meltfptr[33] =
 	melt_apply ((meltclosure_ptr_t)
-		    (( /*!REGISTER_ALL_PASSES_END_HOOK_FIRST */ meltfrout->
+		    (( /*!REGISTER_ALL_PASSES_END_FIRST */ meltfrout->
 		      tabval[18])),
 		    (melt_ptr_t) ( /*_.LAMBDA___V32*/ meltfptr[28]), (""),
 		    (union meltparam_un *) 0, "", (union meltparam_un *) 0);
@@ -8785,7 +8785,7 @@ meltlab_endgetargs:;
     /*^clear */
 	   /*clear *//*_.LAMBDA___V32*/ meltfptr[28] = 0;
     /*^clear */
-	   /*clear *//*_.REGISTER_ALL_PASSES_END_HOOK_FIRST__V34*/ meltfptr[33] = 0;
+	   /*clear *//*_.REGISTER_ALL_PASSES_END_FIRST__V34*/ meltfptr[33] = 0;
     /*^clear */
 	   /*clear *//*_.LAMBDA___V35*/ meltfptr[34] = 0;
     /*^clear */
@@ -9000,9 +9000,8 @@ initialize_module_meltdata_warmelt_modes (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (9) dstr_115__WAIT_REPL;
     struct MELT_OBJECT_STRUCT (3) dsym_116__PUT_ENV;
     struct MELT_STRING_STRUCT (7) dstr_117__PUT_ENV;
-    struct MELT_OBJECT_STRUCT (3)
-      dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST;
-    struct MELT_STRING_STRUCT (34) dstr_119__REGISTER_ALL_PAS;
+    struct MELT_OBJECT_STRUCT (3) dsym_118__REGISTER_ALL_PASSES_END_FIRST;
+    struct MELT_STRING_STRUCT (29) dstr_119__REGISTER_ALL_PAS;
     struct MELT_ROUTINE_STRUCT (2) drout_120__LAMBDA_;
     struct MELT_STRING_STRUCT (20) dstr_121__ended_all_GCC_pa;
     struct MELT_OBJECT_STRUCT (3) dsym_122__AT_FINISH_UNIT_FIRST;
@@ -11239,25 +11238,25 @@ initialize_module_meltdata_warmelt_modes (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_117__PUT_ENV.slen = 7;
 
 
-/*iniobj dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST*/
+/*iniobj dsym_118__REGISTER_ALL_PASSES_END_FIRST*/
   /*uniqueobj*/ if (! /*_.VALDATA___V207*/ meltfptr[206])
 /*_.VALDATA___V207*/ meltfptr[206] =
-      (melt_ptr_t) & meltcdat->dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST;
+      (melt_ptr_t) & meltcdat->dsym_118__REGISTER_ALL_PASSES_END_FIRST;
   if (MELT_LIKELY (!melt_prohibit_garbcoll))
     melt_assertmsg
-      ("iniobj check.discr isobj dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST",
+      ("iniobj check.discr isobj dsym_118__REGISTER_ALL_PASSES_END_FIRST",
        melt_magic_discr ((melt_ptr_t)
 			 (((melt_ptr_t) (MELT_PREDEF (CLASS_SYMBOL))))) ==
        MELTOBMAG_OBJECT);
   if (MELT_LIKELY (!melt_prohibit_garbcoll))
     melt_assertmsg
-      ("iniobj check.discr objmagic dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST",
+      ("iniobj check.discr objmagic dsym_118__REGISTER_ALL_PASSES_END_FIRST",
        ((meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_SYMBOL)))))->
        meltobj_magic == MELTOBMAG_OBJECT);
-  meltcdat->dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST.meltobj_class =
+  meltcdat->dsym_118__REGISTER_ALL_PASSES_END_FIRST.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_SYMBOL))));
-  meltcdat->dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST.obj_hash = 119698505;
-  meltcdat->dsym_118__REGISTER_ALL_PASSES_END_HOOK_FIRST.obj_len = 3;
+  meltcdat->dsym_118__REGISTER_ALL_PASSES_END_FIRST.obj_hash = 377865029;
+  meltcdat->dsym_118__REGISTER_ALL_PASSES_END_FIRST.obj_len = 3;
 
 
 /*inistring dstr_119__REGISTER_ALL_PAS*/
@@ -11266,11 +11265,11 @@ initialize_module_meltdata_warmelt_modes (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_119__REGISTER_ALL_PAS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
   /*small inistring */ strncpy (meltcdat->dstr_119__REGISTER_ALL_PAS.val,
-				"REGISTER_ALL_PASSES_END_HOOK_FIRST",
+				"REGISTER_ALL_PASSES_END_FIRST",
 				sizeof (meltcdat->dstr_119__REGISTER_ALL_PAS.
 					val) - 1);
-  meltcdat->dstr_119__REGISTER_ALL_PAS.val[34] = (char) 0;
-  meltcdat->dstr_119__REGISTER_ALL_PAS.slen = 34;
+  meltcdat->dstr_119__REGISTER_ALL_PAS.val[29] = (char) 0;
+  meltcdat->dstr_119__REGISTER_ALL_PAS.slen = 29;
 
   /*inirout drout_120__LAMBDA_ */
  /*_.VALROUT___V193*/ meltfptr[192] =
@@ -17999,19 +17998,19 @@ melt_start_this_module (void *modargp_)
 
 
   /*^getnamedsymbol */
-  /*getnamedsym:REGISTER_ALL_PASSES_END_HOOK_FIRST */
+  /*getnamedsym:REGISTER_ALL_PASSES_END_FIRST */
 
   if (NULL == /*_.VALDATA___V207*/ meltfptr[206])
     {
 #if !MELT_HAS_INITIAL_ENVIRONMENT
-#error MELT getting named symbol REGISTER_ALL_PASSES_END_HOOK_FIRST without initial environment
+#error MELT getting named symbol REGISTER_ALL_PASSES_END_FIRST without initial environment
 #endif /*!MELT_HAS_INITIAL_ENVIRONMENT */
-      melt_ptr_t meltsy_REGISTER_ALL_PASSES_END_HOOK_FIRST =
-	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_ALL_PASSES_END_HOOK_FIRST",
+      melt_ptr_t meltsy_REGISTER_ALL_PASSES_END_FIRST =
+	melthookproc_HOOK_NAMED_SYMBOL ("REGISTER_ALL_PASSES_END_FIRST",
 					(long) MELT_GET);
    /*_.VALDATA___V207*/ meltfptr[206] =
-	(melt_ptr_t) meltsy_REGISTER_ALL_PASSES_END_HOOK_FIRST;
-    }				/*endgetnamedsym REGISTER_ALL_PASSES_END_HOOK_FIRST */
+	(melt_ptr_t) meltsy_REGISTER_ALL_PASSES_END_FIRST;
+    }				/*endgetnamedsym REGISTER_ALL_PASSES_END_FIRST */
 
 
   /*^getnamedsymbol */
@@ -19800,10 +19799,10 @@ melt_start_this_module (void *modargp_)
     /*^apply.arg */
     argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_.PREVENV___V4*/ meltfptr[3];
     /*^apply.arg */
-    argtab[1].meltbp_cstring = "REGISTER_ALL_PASSES_END_HOOK_FIRST";
+    argtab[1].meltbp_cstring = "REGISTER_ALL_PASSES_END_FIRST";
     /*^apply.arg */
     argtab[2].meltbp_cstring = "warmelt-modes";
-    /*_.REGISTER_ALL_PASSES_END_HOOK_FIRST__V30*/ meltfptr[29] =
+    /*_.REGISTER_ALL_PASSES_END_FIRST__V30*/ meltfptr[29] =
       melt_apply ((meltclosure_ptr_t) ( /*_.VALIMPORT___V6*/ meltfptr[5]),
 		  (melt_ptr_t) ( /*_.VALDATA___V207*/ meltfptr[206]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
@@ -23656,11 +23655,9 @@ meltmod__warmelt_modes__initialmeltchunk_2 (meltinitial_frame_t *
   if (MELT_HAS_INITIAL_ENVIRONMENT)
     melt_checkmsg ("putroutconst constnull.drout_103__REPL_DOCMD#18",
 		   NULL !=
-		   ( /*_.REGISTER_ALL_PASSES_END_HOOK_FIRST__V30*/
-		    meltfptr[29]));
+		   ( /*_.REGISTER_ALL_PASSES_END_FIRST__V30*/ meltfptr[29]));
   ((meltroutine_ptr_t) /*_.VALROUT___V183*/ meltfptr[182])->tabval[18] =
-    (melt_ptr_t) ( /*_.REGISTER_ALL_PASSES_END_HOOK_FIRST__V30*/
-		  meltfptr[29]);
+    (melt_ptr_t) ( /*_.REGISTER_ALL_PASSES_END_FIRST__V30*/ meltfptr[29]);
 
   MELT_LOCATION ("warmelt-modes.melt:345:/ initchunk");
   /*^putroutconst */
@@ -37555,7 +37552,7 @@ meltmod__warmelt_modes__initialmeltchunk_11 (meltinitial_frame_t *
     melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
 				     ( /*_.VALDATA___V205*/ meltfptr[204]));
 
-  /*internsym:REGISTER_ALL_PASSES_END_HOOK_FIRST */
+  /*internsym:REGISTER_ALL_PASSES_END_FIRST */
   (void)
     melthookproc_HOOK_INTERN_SYMBOL ((melt_ptr_t)
 				     ( /*_.VALDATA___V207*/ meltfptr[206]));
