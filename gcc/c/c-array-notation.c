@@ -631,7 +631,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
     case BUILT_IN_CILKPLUS_SEC_REDUCE_MUL:
     case BUILT_IN_CILKPLUS_SEC_REDUCE_MAX:
     case BUILT_IN_CILKPLUS_SEC_REDUCE_MIN:
-      new_var_type = ARRAY_NOTATION_TYPE ((*array_list)[0]);
+      new_var_type = TREE_TYPE ((*array_list)[0]);
       break;
     case BUILT_IN_CILKPLUS_SEC_REDUCE_ALL_ZERO:
     case BUILT_IN_CILKPLUS_SEC_REDUCE_ALL_NONZERO:
@@ -645,7 +645,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       break;
     case BUILT_IN_CILKPLUS_SEC_REDUCE:
       if (call_fn && identity_value) 
-	new_var_type = ARRAY_NOTATION_TYPE ((*array_list)[0]);
+	new_var_type = TREE_TYPE ((*array_list)[0]);
       break;
     case BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING:
       new_var_type = NULL_TREE;
@@ -2846,7 +2846,6 @@ build_array_notation_ref (location_t loc, tree array, tree start_index,
   ARRAY_NOTATION_START (array_ntn_tree) = start_index;
   ARRAY_NOTATION_LENGTH (array_ntn_tree) = length;
   ARRAY_NOTATION_STRIDE (array_ntn_tree) = stride;
-  ARRAY_NOTATION_TYPE (array_ntn_tree) = type;
   TREE_TYPE (array_ntn_tree) = type;
   
   return array_ntn_tree;

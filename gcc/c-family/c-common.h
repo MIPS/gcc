@@ -1149,8 +1149,6 @@ extern enum stv_conv scalar_to_vector (location_t loc, enum tree_code code,
   TREE_OPERAND (ARRAY_NOTATION_CHECK (NODE), 2)
 #define ARRAY_NOTATION_STRIDE(NODE) \
   TREE_OPERAND (ARRAY_NOTATION_CHECK (NODE), 3)
-#define ARRAY_NOTATION_TYPE(NODE) \
-  TREE_OPERAND (ARRAY_NOTATION_CHECK (NODE), 4)
 
 extern int extract_sec_implicit_index_arg (location_t, tree);
 extern bool is_sec_implicit_index_fn (tree);
