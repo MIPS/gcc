@@ -2,6 +2,27 @@
 
 2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_ALL_PASSES_START, HOOK_ALL_PASSES_END)
+	(HOOK_FINISH_UNIT, HOOK_START_UNIT): New.
+
+	* melt/warmelt-first.melt (class_module_context): Add
+	mocx_cimplementlist & mocx_startcomment fields.
+	(initvalue_importer): Warning, not error, when import fails on
+	bootstrapping.
+
+	* melt/warmelt-macro.melt (class_source_code_string): New abstract
+	class with sc_codestring field.
+	(class_source_cheader): Inherit from it, remove field
+	scheader_codestring which is now sc_codestring.
+	(class_source_cimplement): New class.
+	(mexpand_cheader): Improve.
+	(mexpand_cimplement): New macro expander for cimplement.
+
+	* melt/warmelt-outobj.melt (normadeclb_macroexpanded_list): Use
+	sc_codestring.
+
+2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (class_initial_system_data): Remove
 	sysdata__obsolete1, sysdata__obsolete2, sysdata__obsolete3, and
 	sysdata__obsolete4 fields.

@@ -6212,7 +6212,7 @@ if (1) return;
 	 (add2out declbuf ##{/** header #$HIX: **/}#)
 	 (add2sbuf_indentnl declbuf 0)
 	 (let ( (hloc (get_field :loca_location curchead))
-		(chstr (get_field :scheader_codestring curchead))
+		(chstr (get_field :sc_codestring curchead))
 		)
 	   (if hloc
 	       (output_raw_location hloc declbuf 0 "cheader"))

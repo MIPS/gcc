@@ -180,15 +180,30 @@ the expression.}#
   :fields (scomm_str
 	   ))
 
-;;;; source cheader
-(defclass class_source_cheader
-  :doc #{The internal $CLASS_SOURCE_C_HEADER is for $C_HEADER abstract
-syntax.  $SCHEADER_CODESTRING gives the code string to add into the
-declaration part. }#
+(defclass class_source_code_string
+  :doc #{The internal abstract superclass $CLASS_SOURCE_CODE_STRING is
+  for $C_HEADER and $C_IMPLEMENT }#
   :super class_source
-  :fields (scheader_codestring
+  :fields (sc_codestring
 	   )
 )
+;;;; source cheader
+(defclass class_source_cheader
+  :doc #{The internal $CLASS_SOURCE_CHEADER is for $C_HEADER abstract
+syntax.  $S_CODESTRING gives the code string to add into the
+declaration part. }#
+  :super class_source_code_string
+  :fields ()
+)
+;;;; source cimplement
+(defclass class_source_cimplement
+  :doc #{The internal $CLASS_SOURCE_CIMPLEMENT is for $C_IMPLEMENT abstract
+syntax.  $S_CODESTRING gives the code string to add into the
+implementation part. }#
+  :super class_source_code_string
+  :fields ()
+)
+
 
 ;;;; source use_package_from_pkg_config
 (defclass class_source_use_package_from_pkg_config
@@ -6358,13 +6373,61 @@ remain.}#)
      )
     (let ( (sch (instance class_source_cheader
 			  :loca_location loc
-			  :scheader_codestring chead)) )
+			  :sc_codestring chead)) )
       (debug "mexpand_cheader gives sch=" sch)
       (return sch)
       )))
 (install_initial_macro 'cheader mexpand_cheader)
 (export_macro cheader mexpand_cheader
  :doc #{The $CHEADER syntax inserts C code in the header part of the generated code.}#)
+
+
+;;;;;;;;;;;;;;;;
+;;;;;;;; for CIMPLEMENT
+(defun mexpand_cimplement  (sexpr env mexpander modctx)
+  (debug "mexpand_cimplement sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check modctx" (is_object modctx))
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 (chead (pair_head curpair))
+	 )
+    (if (pair_tail curpair)
+	(warning_plain loc "CIMPLEMENT should have only one argument"))
+    (debug "mexpand_cimplement chead=" chead)
+    (cond
+     ((is_string chead)
+      (void)
+      )
+     ((is_a chead class_sexpr_macrostring)
+      (let ( (sbuf (make_strbuf discr_strbuf))
+	     (scont (get_field :sexp_contents chead))
+	     (sloc (get_field :loca_location chead))
+	     )
+	(if sloc (setq loc sloc))
+	(foreach_in_list
+	 (scont)
+	 (curpair curarg)
+	 (add2out sbuf curarg)
+	 )
+	(setq chead (strbuf2string discr_verbatim_string sbuf))
+	))
+     (:else
+      (error_plain loc "CIMPLEMENT without string or macrostring"_)
+      (return)
+      )
+     )
+    (let ( (sch (instance class_source_cimplement
+			  :loca_location loc
+			  :sc_codestring chead)) )
+      (debug "mexpand_cimplement gives sch=" sch)
+      (return sch)
+      )))
+(install_initial_macro 'cimplement mexpand_cimplement)
+(export_macro cimplement mexpand_cimplement
+ :doc #{The $CIMPLEMENT syntax inserts C code in the implementation part of the generated code.}#)
 
 
 ;;;;;;;;;;;;;;;;
@@ -7377,8 +7440,10 @@ $CURRENT_MODULE_ENVIRONMENT_CONTAINER. Will be renamed as
  class_source_argumented_operator
  class_source_box
  class_source_cheader
+ class_source_cimplement
  class_source_citeration
  class_source_cmatchexpr
+ class_source_code_string
  class_source_codechunk
  class_source_comment
  class_source_compilewarning

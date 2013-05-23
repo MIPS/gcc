@@ -895,6 +895,8 @@ subclasses are produced by macro expanders.}# )
 	   mocx_cflags			;cflags of generated module
 	   mocx_linkflags		;linkflags of generated module
 	   mocx_cheaderlist		;list of cheaders
+	   mocx_cimplementlist		;list of cimplements
+	   mocx_startcomment		;the starting comment if any
 	   mocx_gendevlist		;list of generator devices
 	   mocx_packagepclist		;list of pkg-config package string names
 	   mocx_errorhandler		;closure to be called on errors
@@ -908,7 +910,9 @@ integer counting the defined functions (excluding $LAMBDA-s, counting
 only $DEFUN), used to help generate C code in several files, described
 in $MOCX_FILETUPLE. $MOCX_CFLAGS is for the C compilation flags of the
 module. $MOCX_LINKFLAGS is for the linking flags. $MOCX_CHEADERLIST is
-the list of cheader. $MOCX_GENDEVLIST is the list of instances of
+the list of cheaders. $MOCX_CIMPLEMENTLIST is the list of
+cimplements. $MOCX_STARTCOMMENT is the initial comment.
+$MOCX_GENDEVLIST is the list of instances of
 $CLASS_SOURCE_GENERATOR_DEVICE. $MOCX_ERRORHANDLER is the closure, if
 any, to call on errors. For gurus!}# )
 
@@ -3065,15 +3069,24 @@ Keyword is :cstring.}#
   ;; error if importing a non symbol
   (when (is_not_a sym class_symbol)
     (shortbacktrace_dbg "initvalue_importer" 10)
-    (code_chunk errfailimport_chk
-		#{ /* initvalue_importer $ERRFAILIMPORT_CHK */ 
-		if ($STRNAM)
-		error ("MELT [%s]: imported symbol %s not found",
-		       $MODNAM, $STRNAM);
-		else
-		error ("MELT [%s]: importing non symbol", $MODNAM);
-		}#)
-    (return)
+    (code_chunk 
+     errfailimport_chk
+     #{ /* initvalue_importer $ERRFAILIMPORT_CHK */ 
+     if ($STRNAM)
+       {
+         if (melt_flag_bootstrapping)
+	   warning (0, "MELT BOOTSTRAPPING [%s]: imported symbol %s not found",
+		    $MODNAM, $STRNAM);
+	 else
+           error ("MELT [%s]: imported symbol %s not found",
+	          $MODNAM, $STRNAM);
+       }
+     else
+       {
+         error ("MELT [%s]: importing non symbol", $MODNAM);
+       }
+     }#)
+    (return ())
 	)
   ;; error if importing from a non environment
   (if (is_not_a parenv class_environment)
@@ -3091,7 +3104,7 @@ Keyword is :cstring.}#
           error  ("MELT [%s]: imported symbol %s without bad parent environment",
 		  $MODNAM, $STRNAM);
 	  }#)
-      (return)))
+      (return ())))
   ;;
   (assert_msg "check sym" (is_a sym class_symbol))
   (assert_msg "check parenv" (is_a parenv class_environment))
