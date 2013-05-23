@@ -8053,6 +8053,27 @@ source location.}#
 (install_method class_source_cheader normal_exp normexp_cheader)
 
 
+;;;; normalize a cimplement
+(defun normexp_cimplement (recv env ncx psloc)
+  (debug "normexp_cimplement recv=" recv "\n* ncx=" ncx)
+  (assert_msg "check cimplement recv" (is_a recv class_source_cimplement))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check nctxt" (is_a ncx class_normalization_context))
+  (let ( 
+	(sloc (unsafe_get_field :loca_location recv))
+	(modctx (get_field :nctx_modulcontext ncx))
+	(mcimplemlist (get_field :mocx_cimplementlist modctx))
+	)
+    (debug "normexp_cimplement modctx=" modctx "\n mcimplemlist=" mcimplemlist)
+    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check mcimplemlist" (is_list mcimplemlist))
+    (list_append mcimplemlist recv)
+    (debug "normexp_cimplement updated mcimplemlist=" mcimplemlist "\n modctx=" modctx "\n")
+    (return)
+))
+(install_method class_source_cimplement normal_exp normexp_cimplement)
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;; normalize a use_package_from_pkg_config
