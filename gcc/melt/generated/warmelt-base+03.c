@@ -1264,7 +1264,7 @@ meltlab_endgetargs:;
 					     meltfrout->tabval[3]))) ==
 			 MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					      meltfrout->tabval[3])), (34),
+					      meltfrout->tabval[3])), (30),
 					    (( /*!MELT_EARLY_GIMPLE_PASSES_START_RUNNER */ meltfrout->tabval[4])), "SYSDATA_EARLY_GIMPLE_PASSES_START_HOOK");
 		      ;
 		      /*^touch */
@@ -1580,7 +1580,7 @@ meltlab_endgetargs:;
 					     meltfrout->tabval[3]))) ==
 			 MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					      meltfrout->tabval[3])), (34),
+					      meltfrout->tabval[3])), (30),
 					    (( /*!MELT_EARLY_GIMPLE_PASSES_START_RUNNER */ meltfrout->tabval[4])), "SYSDATA_EARLY_GIMPLE_PASSES_START_HOOK");
 		      ;
 		      /*^touch */
@@ -2225,7 +2225,7 @@ meltlab_endgetargs:;
 					     meltfrout->tabval[3]))) ==
 			 MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					      meltfrout->tabval[3])), (35),
+					      meltfrout->tabval[3])), (31),
 					    (( /*!MELT_EARLY_GIMPLE_PASSES_END_RUNNER */ meltfrout->tabval[4])), "SYSDATA_EARLY_GIMPLE_PASSES_END_HOOK");
 		      ;
 		      /*^touch */
@@ -2541,7 +2541,7 @@ meltlab_endgetargs:;
 					     meltfrout->tabval[3]))) ==
 			 MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					      meltfrout->tabval[3])), (35),
+					      meltfrout->tabval[3])), (31),
 					    (( /*!MELT_EARLY_GIMPLE_PASSES_END_RUNNER */ meltfrout->tabval[4])), "SYSDATA_EARLY_GIMPLE_PASSES_END_HOOK");
 		      ;
 		      /*^touch */

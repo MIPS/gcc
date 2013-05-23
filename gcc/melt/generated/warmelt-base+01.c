@@ -3519,7 +3519,7 @@ meltlab_endgetargs:;
       static long meltlab_count_1;
       meltlab_count_1++;
       debugeprintf
-	("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/b27c30e. *CLASS_OBJLABELINSTR/1c8e70fc. %ld",
+	("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/18814003. *CLASS_OBJLABELINSTR/1c56c883. %ld",
 	 meltlab_count_1);
 #endif
 
@@ -3584,7 +3584,7 @@ meltlab_endgetargs:;
       static long meltlab_count_2;
       meltlab_count_2++;
       debugeprintf
-	("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/2a2833ad. *CLASS_OBJLABELINSTR/24ee0604. %ld",
+	("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/3fbbf126. *CLASS_OBJLABELINSTR/13b09d3e. %ld",
 	 meltlab_count_2);
 #endif
 
@@ -3641,7 +3641,7 @@ meltlab_endgetargs:;
       static long meltlab_count_3;
       meltlab_count_3++;
       debugeprintf
-	("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/3834aebc. *CLASS_OBJLABELINSTR/3324ec73. %ld",
+	("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/1d220d38. *CLASS_OBJLABELINSTR/25db88f5. %ld",
 	 meltlab_count_3);
 #endif
 
@@ -3755,7 +3755,7 @@ meltlab_endgetargs:;
       static long meltlab_count_4;
       meltlab_count_4++;
       debugeprintf
-	("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/1a9836a2. *CLASS_OBJLABELINSTR/18758dbc. %ld",
+	("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/4eb0fef. *CLASS_OBJLABELINSTR/1ae9ee64. %ld",
 	 meltlab_count_4);
 #endif
 
@@ -3832,7 +3832,7 @@ meltlab_endgetargs:;
       static long meltlab_count_5;
       meltlab_count_5++;
       debugeprintf
-	("objlabel_5 mtch1__end_h703339861 *CLASS_OBJLABELINSTR/29ec1d55. %ld",
+	("objlabel_5 mtch1__end_h479097084 *CLASS_OBJLABELINSTR/1c8e70fc. %ld",
 	 meltlab_count_5);
 #endif
 
@@ -6451,7 +6451,7 @@ meltlab_endgetargs:;
 						    meltfrout->tabval[2]))) ==
 				MELTOBMAG_OBJECT);
 		melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-					tabval[2])), (25),
+					tabval[2])), (21),
 				      ( /*_.LAMBDA___V15*/ meltfptr[13]),
 				      "SYSDATA_PASSEXEC_HOOK");
 		;
@@ -6971,7 +6971,7 @@ meltlab_endgetargs:;
 					     meltfrout->tabval[1]))) ==
 			 MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					      meltfrout->tabval[1])), (25),
+					      meltfrout->tabval[1])), (21),
 					    (( /*nil */ NULL)),
 					    "SYSDATA_PASSEXEC_HOOK");
 		      ;
@@ -7056,7 +7056,7 @@ meltlab_endgetargs:;
 					     meltfrout->tabval[1]))) ==
 			 MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					      meltfrout->tabval[1])), (25),
+					      meltfrout->tabval[1])), (21),
 					    ( /*_.LAMBDA___V8*/ meltfptr[7]),
 					    "SYSDATA_PASSEXEC_HOOK");
 		      ;
@@ -7442,7 +7442,7 @@ meltlab_endgetargs:;
 	  obj =
 	    (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 27, "SYSDATA_MELTPRAGMAS");
+	  melt_object_get_field (slot, obj, 23, "SYSDATA_MELTPRAGMAS");
    /*_.OLDTUPLE__V5*/ meltfptr[3] = slot;
 	};
 	;
@@ -7677,7 +7677,7 @@ meltlab_endgetargs:;
 					      meltfrout->tabval[0]))) ==
 			  MELTOBMAG_OBJECT);
 	  melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-				  tabval[0])), (27),
+				  tabval[0])), (23),
 				( /*_.NEWTUPLE__V7*/ meltfptr[6]),
 				"SYSDATA_MELTPRAGMAS");
 	  ;
@@ -7969,7 +7969,7 @@ meltlab_endgetargs:;
 						    meltfrout->tabval[3]))) ==
 				MELTOBMAG_OBJECT);
 		melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-					tabval[3])), (21),
+					tabval[3])), (17),
 				      (( /*!PRE_GENERICIZE_HOOK_RUNNER */
 					meltfrout->tabval[4])),
 				      "SYSDATA_PRE_GENERICIZE");
@@ -8302,7 +8302,7 @@ meltlab_endgetargs:;
 						    meltfrout->tabval[3]))) ==
 				MELTOBMAG_OBJECT);
 		melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-					tabval[3])), (21),
+					tabval[3])), (17),
 				      (( /*!PRE_GENERICIZE_HOOK_RUNNER */
 					meltfrout->tabval[4])),
 				      "SYSDATA_PRE_GENERICIZE");

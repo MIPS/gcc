@@ -12004,7 +12004,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.MODCTX__V19*/ meltfptr[18]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 10, "MOCX_PACKAGEPCLIST");
+	  melt_object_get_field (slot, obj, 12, "MOCX_PACKAGEPCLIST");
    /*_.MCPACKAGELIST__V20*/ meltfptr[19] = slot;
 	};
 	;
