@@ -1,5 +1,8 @@
+#include <stdlib.h>
+
 void abort (void);
 void exit(int);
+int main2 (int argc, char **argv);
 
 int main(int argc, char **argv)
 {
@@ -7,7 +10,7 @@ int main(int argc, char **argv)
   if (argc == 1)
     {
       const char *array[] = {"a.out", "5"};	     
-      x = main2 (2, array);
+      x = main2 (2, (char **)array);
     }
   else
     x = main2 (argc, argv);
@@ -18,7 +21,6 @@ int main(int argc, char **argv)
 int main2 (int argc, char **argv)
 {
   int array[10], ii = 0, x = 2, z= 0 , y = 0 ;
-
   for (ii = 0; ii < 10; ii++)
     array[ii] = 10;
 
@@ -26,12 +28,12 @@ int main2 (int argc, char **argv)
 
   for (ii = 0; ii < 10; ii++)
     if (array[ii] != 15)
-      abort ();
+      return 5;
   array[0:5:2] = 20;
 
   for (ii = 0; ii < 10; ii += 2)
     if (array[ii] != 20)
-      abort ();
+      return 4;
 
 
   x = atoi(argv[1]);
@@ -41,7 +43,7 @@ int main2 (int argc, char **argv)
   
   for (ii = x; ii < 10; ii += z)
     if (array[ii] != 50)
-      abort ();
+      return 3;
 
   x = atoi(argv[1]);
   z = (10-atoi(argv[1]))/atoi(argv[1]);
@@ -50,9 +52,8 @@ int main2 (int argc, char **argv)
   array[x:y:z] = 505;
   for (ii = x; ii < 10; ii += z)
     if (array[ii] != 505)
-      abort ();
+      return 2;
     
-
   x = atoi(argv[1]);
   z = (10-atoi(argv[1]))/atoi(argv[1]);
   y = 10-atoi(argv[1]);
@@ -61,8 +62,7 @@ int main2 (int argc, char **argv)
 
   for (ii = x; ii < 10; ii += z)
     if (array[ii] != 25)
-      abort ();
-  
+      return 1;
   x = atoi(argv[1]);
   z = (10-atoi(argv[1]))/atoi(argv[1]);
   y = 10-atoi(argv[1]);
