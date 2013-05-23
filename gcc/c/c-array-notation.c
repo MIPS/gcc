@@ -2840,8 +2840,8 @@ build_array_notation_ref (location_t loc, tree array, tree start_index,
       error_at (loc, "rank of array notation triplet's stride is not zero");
       return error_mark_node;
     }  
-  array_ntn_tree = build5 (ARRAY_NOTATION_REF, NULL_TREE, NULL_TREE, NULL_TREE,
-			   NULL_TREE, NULL_TREE, NULL_TREE);
+  array_ntn_tree = build4 (ARRAY_NOTATION_REF, NULL_TREE, NULL_TREE, NULL_TREE,
+			   NULL_TREE, NULL_TREE);
   ARRAY_NOTATION_ARRAY (array_ntn_tree) = array;
   ARRAY_NOTATION_START (array_ntn_tree) = start_index;
   ARRAY_NOTATION_LENGTH (array_ntn_tree) = length;

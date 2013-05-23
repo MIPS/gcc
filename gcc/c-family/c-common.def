@@ -59,9 +59,8 @@ DEFTREECODE (SIZEOF_EXPR, "sizeof_expr", tcc_expression, 1)
    Operand 0 is the array.
    Operand 1 is the starting array index.
    Operand 2 contains the number of elements you need to access.
-   Operand 3 is the stride.
-   Operand 4 is the array notation's type.  */
-DEFTREECODE (ARRAY_NOTATION_REF, "array_notation_ref", tcc_reference, 5) 
+   Operand 3 is the stride.  */
+DEFTREECODE (ARRAY_NOTATION_REF, "array_notation_ref", tcc_reference, 4) 
 
 /*
 Local variables:
