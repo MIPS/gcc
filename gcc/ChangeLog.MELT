@@ -2,6 +2,12 @@
 
 2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_initial_system_data): Remove
+	sysdata__obsolete1, sysdata__obsolete2, sysdata__obsolete3, and
+	sysdata__obsolete4 fields.
+
+2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (initial_system_data): Remove
 	sysdata__obsolete* fields initializations to nil.
 
