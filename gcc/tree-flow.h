@@ -282,12 +282,6 @@ struct int_tree_map {
   tree to;
 };
 
-extern unsigned int int_tree_map_hash (const void *);
-extern int int_tree_map_eq (const void *, const void *);
-
-extern unsigned int uid_decl_map_hash (const void *);
-extern int uid_decl_map_eq (const void *, const void *);
-
 #define num_ssa_names (vec_safe_length (cfun->gimple_df->ssa_names))
 #define ssa_name(i) ((*cfun->gimple_df->ssa_names)[(i)])
 
@@ -401,7 +395,7 @@ extern void verify_gimple_in_cfg (struct function *);
 extern tree gimple_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool gimple_duplicate_sese_region (edge, edge, basic_block *, unsigned,
-					basic_block *);
+					basic_block *, bool);
 extern bool gimple_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
 				      basic_block *);
 extern void gather_blocks_in_sese_region (basic_block entry, basic_block exit,

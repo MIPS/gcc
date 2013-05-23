@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "target-globals.h"
 #include "opts.h"
+#include "tree-pass.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -2006,7 +2007,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, enum machine_mode mode)
    values of mode MODE to or from addresses of type TYPE.  Return 0 if
    the given type of symbol is not valid in addresses.
 
-   In both cases, treat extended MIPS16 instructions as two instructions.  */
+   In both cases, instruction counts are based off BASE_INSN_LENGTH.  */
 
 static int
 mips_symbol_insns (enum mips_symbol_type type, enum machine_mode mode)
@@ -2333,12 +2334,11 @@ mips16_unextended_reference_p (enum machine_mode mode, rtx base,
 }
 
 /* Return the number of instructions needed to load or store a value
-   of mode MODE at address X.  Return 0 if X isn't valid for MODE.
+   of mode MODE at address X, assuming that BASE_INSN_LENGTH is the
+   length of one instruction.  Return 0 if X isn't valid for MODE.
    Assume that multiword moves may need to be split into word moves
    if MIGHT_SPLIT_P, otherwise assume that a single load or store is
-   enough.
-
-   For MIPS16 code, count extended instructions as two instructions.  */
+   enough.  */
 
 int
 mips_address_insns (rtx x, enum machine_mode mode, bool might_split_p)
@@ -2440,7 +2440,8 @@ umips_12bit_offset_address_p (rtx x, enum machine_mode mode)
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
-/* Return the number of instructions needed to load constant X.
+/* Return the number of instructions needed to load constant X,
+   assuming that BASE_INSN_LENGTH is the length of one instruction.
    Return 0 if X isn't a valid constant.  */
 
 int
@@ -2523,7 +2524,8 @@ mips_const_insns (rtx x)
 
 /* X is a doubleword constant that can be handled by splitting it into
    two words and loading each word separately.  Return the number of
-   instructions required to do this.  */
+   instructions required to do this, assuming that BASE_INSN_LENGTH
+   is the length of one instruction.  */
 
 int
 mips_split_const_insns (rtx x)
@@ -2537,8 +2539,8 @@ mips_split_const_insns (rtx x)
 }
 
 /* Return the number of instructions needed to implement INSN,
-   given that it loads from or stores to MEM.  Count extended
-   MIPS16 instructions as two instructions.  */
+   given that it loads from or stores to MEM.  Assume that
+   BASE_INSN_LENGTH is the length of one instruction.  */
 
 int
 mips_load_store_insns (rtx mem, rtx insn)
@@ -2562,7 +2564,8 @@ mips_load_store_insns (rtx mem, rtx insn)
   return mips_address_insns (XEXP (mem, 0), mode, might_split_p);
 }
 
-/* Return the number of instructions needed for an integer division.  */
+/* Return the number of instructions needed for an integer division,
+   assuming that BASE_INSN_LENGTH is the length of one instruction.  */
 
 int
 mips_idiv_insns (void)
@@ -3355,113 +3358,6 @@ mips_rewrite_small_data (rtx pattern)
   pattern = copy_insn (pattern);
   for_each_rtx (&pattern, mips_rewrite_small_data_1, NULL);
   return pattern;
-}
-
-/* We need a lot of little routines to check the range of MIPS16 immediate
-   operands.  */
-
-static int
-m16_check_op (rtx op, int low, int high, int mask)
-{
-  return (CONST_INT_P (op)
-	  && IN_RANGE (INTVAL (op), low, high)
-	  && (INTVAL (op) & mask) == 0);
-}
-
-int
-m16_uimm3_b (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, 0x1, 0x8, 0);
-}
-
-int
-m16_simm4_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x8, 0x7, 0);
-}
-
-int
-m16_nsimm4_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x7, 0x8, 0);
-}
-
-int
-m16_simm5_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x10, 0xf, 0);
-}
-
-int
-m16_nsimm5_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0xf, 0x10, 0);
-}
-
-int
-m16_uimm5_4 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x10 << 2, 0xf << 2, 3);
-}
-
-int
-m16_nuimm5_4 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0xf << 2, 0x10 << 2, 3);
-}
-
-int
-m16_simm8_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x80, 0x7f, 0);
-}
-
-int
-m16_nsimm8_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x7f, 0x80, 0);
-}
-
-int
-m16_uimm8_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, 0x0, 0xff, 0);
-}
-
-int
-m16_nuimm8_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0xff, 0x0, 0);
-}
-
-int
-m16_uimm8_m1_1 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x1, 0xfe, 0);
-}
-
-int
-m16_uimm8_4 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, 0x0, 0xff << 2, 3);
-}
-
-int
-m16_nuimm8_4 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0xff << 2, 0x0, 3);
-}
-
-int
-m16_simm8_8 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x80 << 3, 0x7f << 3, 7);
-}
-
-int
-m16_nsimm8_8 (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
-{
-  return m16_check_op (op, -0x7f << 3, 0x80 << 3, 7);
 }
 
 /* The cost of loading values from the constant pool.  It should be
@@ -7099,6 +6995,15 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (decl
       && const_call_insn_operand (XEXP (DECL_RTL (decl), 0), VOIDmode)
       && mips_call_may_need_jalx_p (decl))
+    return false;
+
+  /* Sibling calls should not prevent lazy binding.  Lazy-binding stubs
+     require $gp to be valid on entry, so sibcalls can only use stubs
+     if $gp is call-clobbered.  */
+  if (decl
+      && TARGET_CALL_SAVED_GP
+      && !TARGET_ABICALLS_PIC0
+      && !targetm.binds_local_p (decl))
     return false;
 
   /* Otherwise OK.  */
@@ -11414,6 +11319,7 @@ mips_expand_epilogue (bool sibcall_p)
   const struct mips_frame_info *frame;
   HOST_WIDE_INT step1, step2;
   rtx base, adjust, insn;
+  bool use_jraddiusp_p = false;
 
   if (!sibcall_p && mips_can_use_return_insn ())
     {
@@ -11541,12 +11447,19 @@ mips_expand_epilogue (bool sibcall_p)
 	  emit_insn (gen_cop0_move (gen_rtx_REG (SImode, COP0_STATUS_REG_NUM),
 				    gen_rtx_REG (SImode, K0_REG_NUM)));
 	}
+      else if (TARGET_MICROMIPS
+	       && !crtl->calls_eh_return
+	       && !sibcall_p
+	       && step2 > 0
+	       && mips_unsigned_immediate_p (step2, 5, 2))
+	use_jraddiusp_p = true;
       else
 	/* Deallocate the final bit of the frame.  */
 	mips_deallocate_stack (stack_pointer_rtx, GEN_INT (step2), 0);
     }
 
-  gcc_assert (!mips_epilogue.cfa_restores);
+  if (!use_jraddiusp_p)
+    gcc_assert (!mips_epilogue.cfa_restores);
 
   /* Add in the __builtin_eh_return stack adjustment.  We need to
      use a temporary in MIPS16 code.  */
@@ -11596,12 +11509,16 @@ mips_expand_epilogue (bool sibcall_p)
 	      rtx reg = gen_rtx_REG (Pmode, GP_REG_FIRST + 7);
 	      pat = gen_return_internal (reg);
 	    }
+	  else if (use_jraddiusp_p)
+	    pat = gen_jraddiusp (GEN_INT (step2));
 	  else
 	    {
 	      rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
 	      pat = gen_simple_return_internal (reg);
 	    }
 	  emit_jump_insn (pat);
+	  if (use_jraddiusp_p)
+	    mips_epilogue_set_cfa (stack_pointer_rtx, step2);
 	}
     }
 
@@ -12358,16 +12275,18 @@ mips_adjust_insn_length (rtx insn, int length)
 	 is a conditional branch.  */
       length = simplejump_p (insn) ? 0 : 8;
 
-      /* Load the label into $AT and jump to it.  Ignore the delay
-	 slot of the jump.  */
-      length += 4 * mips_load_label_num_insns() + 4;
+      /* Add the size of a load into $AT.  */
+      length += BASE_INSN_LENGTH * mips_load_label_num_insns ();
+
+      /* Add the length of an indirect jump, ignoring the delay slot.  */
+      length += TARGET_COMPRESSION ? 2 : 4;
     }
 
   /* A unconditional jump has an unfilled delay slot if it is not part
      of a sequence.  A conditional jump normally has a delay slot, but
      does not on MIPS16.  */
   if (CALL_P (insn) || (TARGET_MIPS16 ? simplejump_p (insn) : JUMP_P (insn)))
-    length += 4;
+    length += TARGET_MIPS16 ? 2 : 4;
 
   /* See how many nops might be needed to avoid hardware hazards.  */
   if (!cfun->machine->ignore_hazard_length_p && INSN_CODE (insn) >= 0)
@@ -12377,19 +12296,13 @@ mips_adjust_insn_length (rtx insn, int length)
 	break;
 
       case HAZARD_DELAY:
-	length += 4;
+	length += NOP_INSN_LENGTH;
 	break;
 
       case HAZARD_HILO:
-	length += 8;
+	length += NOP_INSN_LENGTH * 2;
 	break;
       }
-
-  /* In order to make it easier to share MIPS16 and non-MIPS16 patterns,
-     the .md file length attributes are 4-based for both modes.
-     Adjust the MIPS16 ones here.  */
-  if (TARGET_MIPS16)
-    length /= 2;
 
   return length;
 }
@@ -16286,7 +16199,7 @@ mips16_split_long_branches (void)
       something_changed = false;
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	if (JUMP_P (insn)
-	    && get_attr_length (insn) > 8
+	    && get_attr_length (insn) > 4
 	    && (any_condjump_p (insn) || any_uncondjump_p (insn)))
 	  {
 	    rtx old_label, new_label, temp, saved_temp;
@@ -16356,12 +16269,14 @@ mips_reorg (void)
       mips_df_reorg ();
       free_bb_for_insn ();
     }
+}
 
-  if (optimize > 0 && flag_delayed_branch)
-    {
-      cleanup_barriers ();
-      dbr_schedule (get_insns ());
-    }
+/* We use a machine specific pass to do a second machine dependent reorg
+   pass after delay branch scheduling.  */
+
+static unsigned int
+mips_machine_reorg2 (void)
+{
   mips_reorg_process_insns ();
   if (!TARGET_MIPS16
       && TARGET_EXPLICIT_RELOCS
@@ -16373,7 +16288,36 @@ mips_reorg (void)
        optimizations, but this should be an extremely rare case anyhow.  */
     mips_reorg_process_insns ();
   mips16_split_long_branches ();
+  return 0;
 }
+
+struct rtl_opt_pass pass_mips_machine_reorg2 =
+{
+ {
+  RTL_PASS,
+  "mach2",				/* name */
+  OPTGROUP_NONE,			/* optinfo_flags */
+  NULL,					/* gate */
+  mips_machine_reorg2,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_MACH_DEP,				/* tv_id */
+  0,					/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_verify_rtl_sharing,		/* todo_flags_finish */
+ }
+};
+
+struct register_pass_info insert_pass_mips_machine_reorg2 =
+{
+  &pass_mips_machine_reorg2.pass,	/* pass */
+  "dbr",				/* reference_pass_name */
+  1,					/* ref_pass_instance_number */
+  PASS_POS_INSERT_AFTER			/* po_op */
+};
 
 /* Implement TARGET_ASM_OUTPUT_MI_THUNK.  Generate rtl rather than asm text
    in order to avoid duplicating too much logic from elsewhere.  */
@@ -17149,6 +17093,11 @@ mips_option_override (void)
      Do all CPP-sensitive stuff in uncompressed mode; we'll switch modes
      later if required.  */
   mips_set_compression_mode (0);
+
+  /* We register a second machine specific reorg pass after delay slot
+     filling.  Registering the pass must be done at start up.  It's
+     convenient to do it here.  */
+  register_pass (&insert_pass_mips_machine_reorg2);
 }
 
 /* Swap the register information for registers I and I + 1, which

@@ -136,7 +136,7 @@ copy_loop_headers (void)
 
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS
 		       | LOOPS_HAVE_SIMPLE_LATCHES);
-  if (number_of_loops () <= 1)
+  if (number_of_loops (cfun) <= 1)
     {
       loop_optimizer_finalize ();
       return 0;
@@ -197,7 +197,8 @@ copy_loop_headers (void)
       entry = loop_preheader_edge (loop);
 
       propagate_threaded_block_debug_into (exit->dest, entry->dest);
-      if (!gimple_duplicate_sese_region (entry, exit, bbs, n_bbs, copied_bbs))
+      if (!gimple_duplicate_sese_region (entry, exit, bbs, n_bbs, copied_bbs,
+					 true))
 	{
 	  fprintf (dump_file, "Duplication failed.\n");
 	  continue;

@@ -1033,7 +1033,7 @@ Common Alias(fdiagnostics-color=,always,never)
 ;
 
 fdiagnostics-color=
-Common Joined RejectNegative Enum(diagnostic_color_rule)
+Common Joined RejectNegative Var(flag_diagnostics_show_color) Enum(diagnostic_color_rule) Init(DIAGNOSTICS_COLOR_NO)
 -fdiagnostics-color=[never|always|auto]	Colorize diagnostics
 
 ; Required for these enum values.
@@ -1504,6 +1504,10 @@ flto-report
 Common Report Var(flag_lto_report) Init(0)
 Report various link-time optimization statistics
 
+flto-report-wpa
+Common Report Var(flag_lto_report_wpa) Init(0)
+Report various link-time optimization statistics for WPA only
+
 fmath-errno
 Common Report Var(flag_errno_math) Init(1) Optimization SetByCombined
 Set errno after built-in math functions
@@ -1937,6 +1941,10 @@ Use propolice as a stack protection method
 fstack-protector-all
 Common Report RejectNegative Var(flag_stack_protect, 2)
 Use a stack protection method for every function
+
+fstack-protector-strong
+Common Report RejectNegative Var(flag_stack_protect, 3)
+Use a smart stack protection method for certain functions
 
 fstack-usage
 Common RejectNegative Var(flag_stack_usage)

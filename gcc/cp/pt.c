@@ -5375,7 +5375,7 @@ unify_no_common_base (bool explain_p, enum template_base_result r,
       {
       case tbr_ambiguous_baseclass:
 	inform (input_location, "  %qT is an ambiguous base class of %qT",
-		arg, parm);
+		parm, arg);
 	break;
       default:
 	inform (input_location, "  %qT is not derived from %qT", arg, parm);
@@ -5651,7 +5651,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	    }
 	  if (POINTER_TYPE_P (expr_type))
 	    {
-	      error ("%qE is not a valid template argument for %qT"
+	      error ("%qE is not a valid template argument for %qT "
 		     "because it is not the address of a variable",
 		     expr, type);
 	      return NULL_TREE;
@@ -6368,7 +6368,8 @@ convert_template_argument (tree parm,
 	      val = error_mark_node;
 	    }
 	}
-      else if (!uses_template_parms (orig_arg) && !uses_template_parms (t))
+      else if (!dependent_template_arg_p (orig_arg)
+	       && !uses_template_parms (t))
 	/* We used to call digest_init here.  However, digest_init
 	   will report errors, which we don't want when complain
 	   is zero.  More importantly, digest_init will try too
@@ -7016,7 +7017,7 @@ maybe_get_template_decl_from_type_decl (tree decl)
     ? CLASSTYPE_TI_TEMPLATE (TREE_TYPE (decl)) : decl;
 }
 
-/* Given an IDENTIFIER_NODE (type TEMPLATE_DECL) and a chain of
+/* Given an IDENTIFIER_NODE (or type TEMPLATE_DECL) and a chain of
    parameters, find the desired type.
 
    D1 is the PTYPENAME terminal, and ARGLIST is the list of arguments.
@@ -7096,6 +7097,11 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       templ = d1;
       d1 = DECL_NAME (templ);
       context = DECL_CONTEXT (templ);
+    }
+  else if (DECL_TEMPLATE_TEMPLATE_PARM_P (d1))
+    {
+      templ = d1;
+      d1 = DECL_NAME (templ);
     }
 
   /* Issue an error message if we didn't find a template.  */
@@ -9196,8 +9202,15 @@ use_pack_expansion_extra_args_p (tree parm_packs,
 				 int arg_pack_len,
 				 bool has_empty_arg)
 {
+  /* If one pack has an expansion and another pack has a normal
+     argument or if one pack has an empty argument and an another
+     one hasn't then tsubst_pack_expansion cannot perform the
+     substitution and need to fall back on the
+     PACK_EXPANSION_EXTRA mechanism.  */
   if (parm_packs == NULL_TREE)
     return false;
+  else if (has_empty_arg)
+    return true;
 
   bool has_expansion_arg = false;
   for (int i = 0 ; i < arg_pack_len; ++i)
@@ -9215,13 +9228,7 @@ use_pack_expansion_extra_args_p (tree parm_packs,
 	    has_non_expansion_arg = true;
 	}
 
-      /* If one pack has an expansion and another pack has a normal
-	 argument or if one pack has an empty argument another one
-	 hasn't then tsubst_pack_expansion cannot perform the
-	 substitution and need to fall back on the
-	 PACK_EXPANSION_EXTRA mechanism.  */
-      if ((has_expansion_arg && has_non_expansion_arg)
-	  || (has_empty_arg && (has_expansion_arg || has_non_expansion_arg)))
+      if (has_expansion_arg && has_non_expansion_arg)
 	return true;
     }
   return false;
@@ -11521,6 +11528,21 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 	    return error_mark_node;
 	  }
+	else if (TREE_CODE (type) == FUNCTION_TYPE
+		 && (type_memfn_quals (type) != TYPE_UNQUALIFIED
+		     || type_memfn_rqual (type) != REF_QUAL_NONE))
+	  {
+	    if (complain & tf_error)
+	      {
+		if (code == POINTER_TYPE)
+		  error ("forming pointer to qualified function type %qT",
+			 type);
+		else
+		  error ("forming reference to qualified function type %qT",
+			 type);
+	      }
+	    return error_mark_node;
+	  }
 	else if (code == POINTER_TYPE)
 	  {
 	    r = build_pointer_type (type);
@@ -11544,6 +11566,18 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	else
 	  r = cp_build_reference_type (type, TYPE_REF_IS_RVALUE (t));
 	r = cp_build_qualified_type_real (r, cp_type_quals (t), complain);
+
+	if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+	  {
+	    if (complain & tf_warning_or_error)
+	      pedwarn
+		(input_location, OPT_Wvla,
+		 code == REFERENCE_TYPE
+		 ? G_("cannot declare reference to array of runtime bound")
+		 : G_("cannot declare pointer to array of runtime bound"));
+	    else
+	      r = error_mark_node;
+	  }
 
 	if (r != error_mark_node)
 	  /* Will this ever be needed for TYPE_..._TO values?  */
@@ -11779,7 +11813,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	--c_inhibit_evaluation_warnings;
 
 	if (DECLTYPE_FOR_LAMBDA_CAPTURE (t))
-	  type = lambda_capture_field_type (type);
+	  type = lambda_capture_field_type (type,
+					    DECLTYPE_FOR_INIT_CAPTURE (t));
 	else if (DECLTYPE_FOR_LAMBDA_PROXY (t))
 	  type = lambda_proxy_type (type);
 	else
@@ -12038,7 +12073,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
       expr = (finish_qualified_id_expr
 	      (scope, expr, done, address_p && PTRMEM_OK_P (qualified_id),
 	       QUALIFIED_NAME_IS_TEMPLATE (qualified_id),
-	       /*template_arg_p=*/false));
+	       /*template_arg_p=*/false, complain));
     }
 
   /* Expressions do not generally have reference type.  */
@@ -13794,7 +13829,11 @@ tsubst_copy_and_build (tree t,
 
     case MODOP_EXPR:
       {
-	tree r = build_x_modify_expr
+	tree r;
+
+	++c_inhibit_evaluation_warnings;
+
+	r = build_x_modify_expr
 	  (EXPR_LOCATION (t),
 	   RECUR (TREE_OPERAND (t, 0)),
 	   TREE_CODE (TREE_OPERAND (t, 1)),
@@ -13808,6 +13847,9 @@ tsubst_copy_and_build (tree t,
 	   here.  */
 	if (TREE_NO_WARNING (t))
 	  TREE_NO_WARNING (r) = TREE_NO_WARNING (t);
+
+	--c_inhibit_evaluation_warnings;
+
 	RETURN (r);
       }
 
@@ -14360,7 +14402,10 @@ tsubst_copy_and_build (tree t,
         newlen = vec_safe_length (n);
 	FOR_EACH_VEC_SAFE_ELT (n, idx, ce)
 	  {
-	    if (ce->index && process_index_p)
+	    if (ce->index && process_index_p
+		/* An identifier index is looked up in the type
+		   being initialized, not the current scope.  */
+		&& TREE_CODE (ce->index) != IDENTIFIER_NODE)
 	      ce->index = RECUR (ce->index);
 
             if (PACK_EXPANSION_P (ce->value))
@@ -15110,9 +15155,21 @@ fn_type_unification (tree fn,
      callers must be ready to deal with unification failures in any
      event.  */
 
+  TREE_VALUE (tinst) = targs;
+  /* If we aren't explaining yet, push tinst context so we can see where
+     any errors (e.g. from class instantiations triggered by instantiation
+     of default template arguments) come from.  If we are explaining, this
+     context is redundant.  */
+  if (!explain_p && !push_tinst_level (tinst))
+    {
+      excessive_deduction_depth = true;
+      goto fail;
+    }
   ok = !type_unification_real (DECL_INNERMOST_TEMPLATE_PARMS (fn),
 			       targs, parms, args, nargs, /*subr=*/0,
 			       strict, flags, explain_p);
+  if (!explain_p)
+    pop_tinst_level ();
   if (!ok)
     goto fail;
 
@@ -16013,7 +16070,7 @@ resolve_nondeduced_context (tree orig_expr)
 	    {
 	      tree base
 		= TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (offset, 0)));
-	      expr = build_offset_ref (base, expr, addr);
+	      expr = build_offset_ref (base, expr, addr, tf_warning_or_error);
 	    }
 	  if (addr)
 	    expr = cp_build_addr_expr (expr, tf_warning_or_error);
@@ -20120,7 +20177,8 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
 
     case TRAIT_EXPR:
       if (dependent_type_p (TRAIT_EXPR_TYPE1 (*tp))
-	  || dependent_type_p (TRAIT_EXPR_TYPE2 (*tp)))
+	  || (TRAIT_EXPR_TYPE2 (*tp)
+	      && dependent_type_p (TRAIT_EXPR_TYPE2 (*tp))))
 	return *tp;
       *walk_subtrees = false;
       return NULL_TREE;

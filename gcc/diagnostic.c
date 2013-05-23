@@ -72,9 +72,12 @@ build_message_string (const char *msg, ...)
 
 /* Same as diagnostic_build_prefix, but only the source FILE is given.  */
 char *
-file_name_as_prefix (const char *f)
+file_name_as_prefix (diagnostic_context *context, const char *f)
 {
-  return build_message_string ("%s: ", f);
+  const char *locus_cs
+    = colorize_start (pp_show_color (context->printer), "locus");
+  const char *locus_ce = colorize_stop (pp_show_color (context->printer));
+  return build_message_string ("%s%s:%s ", locus_cs, f, locus_ce);
 }
 
 
@@ -514,18 +517,18 @@ diagnostic_report_current_module (diagnostic_context *context, location_t where)
 	  map = INCLUDED_FROM (line_table, map);
 	  if (context->show_column)
 	    pp_verbatim (context->printer,
-			 "In file included from %s:%d:%d",
+			 "In file included from %r%s:%d:%d%R", "locus",
 			 LINEMAP_FILE (map),
 			 LAST_SOURCE_LINE (map), LAST_SOURCE_COLUMN (map));
 	  else
 	    pp_verbatim (context->printer,
-			 "In file included from %s:%d",
+			 "In file included from %r%s:%d%R", "locus",
 			 LINEMAP_FILE (map), LAST_SOURCE_LINE (map));
 	  while (! MAIN_FILE_P (map))
 	    {
 	      map = INCLUDED_FROM (line_table, map);
 	      pp_verbatim (context->printer,
-			   ",\n                 from %s:%d",
+			   ",\n                 from %r%s:%d%R", "locus",
 			   LINEMAP_FILE (map), LAST_SOURCE_LINE (map));
 	    }
 	  pp_verbatim (context->printer, ":");

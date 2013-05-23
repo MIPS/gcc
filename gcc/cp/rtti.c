@@ -393,9 +393,12 @@ get_tinfo_decl (tree type)
 
   if (variably_modified_type_p (type, /*fn=*/NULL_TREE))
     {
-      error ("cannot create type information for type %qT because "
-	     "it involves types of variable size",
-	     type);
+      if (array_of_runtime_bound_p (type))
+	error ("typeid of array of runtime bound");
+      else
+	error ("cannot create type information for type %qT because "
+	       "it involves types of variable size",
+	       type);
       return error_mark_node;
     }
 
@@ -476,6 +479,16 @@ get_typeid (tree type, tsubst_flags_t complain)
      typeid expression refers to a type_info object representing the
      referenced type.  */
   type = non_reference (type);
+
+  /* This is not one of the uses of a qualified function type in 8.3.5.  */
+  if (TREE_CODE (type) == FUNCTION_TYPE
+      && (type_memfn_quals (type) != TYPE_UNQUALIFIED
+	  || type_memfn_rqual (type) != REF_QUAL_NONE))
+    {
+      if (complain & tf_error)
+	error ("typeid of qualified function type %qT", type);
+      return error_mark_node;
+    }
 
   /* The top-level cv-qualifiers of the lvalue expression or the type-id
      that is the operand of typeid are always ignored.  */

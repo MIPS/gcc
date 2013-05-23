@@ -8610,7 +8610,9 @@ first argument of @code{asm_fprintf}.  This construct outputs
 @code{ASSEMBLER_DIALECT} is zero, one, two, etc.  Any special characters
 within these strings retain their usual meaning.  If there are fewer
 alternatives within the braces than the value of
-@code{ASSEMBLER_DIALECT}, the construct outputs nothing.
+@code{ASSEMBLER_DIALECT}, the construct outputs nothing. If it's needed
+to print curly braces or @samp{|} character in assembler output directly,
+@samp{%@{}, @samp{%@}} and @samp{%|} can be used.
 
 If you do not define this macro, the characters @samp{@{}, @samp{|} and
 @samp{@}} do not have any special meaning when used in templates or
@@ -10787,9 +10789,12 @@ Fold a call to a machine specific built-in function that was set up by
 @samp{TARGET_INIT_BUILTINS}.  @var{fndecl} is the declaration of the
 built-in function.  @var{n_args} is the number of arguments passed to
 the function; the arguments themselves are pointed to by @var{argp}.
-The result is another tree containing a simplified expression for the
-call's result.  If @var{ignore} is true the value will be ignored.
+The result is another tree, valid for both GIMPLE and GENERIC,
+containing a simplified expression for the call's result.  If
+@var{ignore} is true the value will be ignored.
 @end deftypefn
+
+@hook TARGET_GIMPLE_FOLD_BUILTIN
 
 @hook TARGET_COMPARE_VERSION_PRIORITY
 This hook is used to compare the target attributes in two functions to

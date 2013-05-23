@@ -304,7 +304,8 @@ enum ix86_tune_indices {
   X86_TUNE_EPILOGUE_USING_MOVE,
   X86_TUNE_SHIFT1,
   X86_TUNE_USE_FFREEP,
-  X86_TUNE_INTER_UNIT_MOVES,
+  X86_TUNE_INTER_UNIT_MOVES_TO_VEC,
+  X86_TUNE_INTER_UNIT_MOVES_FROM_VEC,
   X86_TUNE_INTER_UNIT_CONVERSIONS,
   X86_TUNE_FOUR_JUMP_LIMIT,
   X86_TUNE_SCHEDULE,
@@ -395,8 +396,11 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_EPILOGUE_USING_MOVE]
 #define TARGET_SHIFT1		ix86_tune_features[X86_TUNE_SHIFT1]
 #define TARGET_USE_FFREEP	ix86_tune_features[X86_TUNE_USE_FFREEP]
-#define TARGET_INTER_UNIT_MOVES	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES]
-#define TARGET_INTER_UNIT_CONVERSIONS\
+#define TARGET_INTER_UNIT_MOVES_TO_VEC \
+	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES_TO_VEC]
+#define TARGET_INTER_UNIT_MOVES_FROM_VEC \
+	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES_FROM_VEC]
+#define TARGET_INTER_UNIT_CONVERSIONS \
 	ix86_tune_features[X86_TUNE_INTER_UNIT_CONVERSIONS]
 #define TARGET_FOUR_JUMP_LIMIT	ix86_tune_features[X86_TUNE_FOUR_JUMP_LIMIT]
 #define TARGET_SCHEDULE		ix86_tune_features[X86_TUNE_SCHEDULE]
@@ -533,8 +537,14 @@ extern tree x86_mfence;
 /* This is re-defined by cygming.h.  */
 #define TARGET_SEH 0
 
+/* This is re-defined by cygming.h.  */
+#define TARGET_PECOFF 0
+
 /* The default abi used by target.  */
 #define DEFAULT_ABI SYSV_ABI
+
+/* The default TLS segment register used by target.  */
+#define DEFAULT_TLS_SEG_REG (TARGET_64BIT ? SEG_FS : SEG_GS)
 
 /* Subtargets may reset this to 1 in order to enable 96-bit long double
    with the rounding mode forced to 53 bits.  */
@@ -1195,7 +1205,7 @@ enum target_cpu_default
 
 #define PIC_OFFSET_TABLE_REGNUM				\
   ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC	\
-                     || DEFAULT_ABI == MS_ABI))		\
+                     || TARGET_PECOFF))		\
    || !flag_pic ? INVALID_REGNUM			\
    : reload_completed ? REGNO (pic_offset_table_rtx)	\
    : REAL_PIC_OFFSET_TABLE_REGNUM)

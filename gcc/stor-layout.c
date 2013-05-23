@@ -290,6 +290,8 @@ finalize_size_functions (void)
 
   for (i = 0; size_functions && size_functions->iterate (i, &fndecl); i++)
     {
+      allocate_struct_function (fndecl, false);
+      set_cfun (NULL);
       dump_function (TDI_original, fndecl);
       gimplify_function_tree (fndecl);
       dump_function (TDI_generic, fndecl);
@@ -464,6 +466,18 @@ unsigned int
 get_mode_alignment (enum machine_mode mode)
 {
   return MIN (BIGGEST_ALIGNMENT, MAX (1, mode_base_align[mode]*BITS_PER_UNIT));
+}
+
+/* Return the precision of the mode, or for a complex or vector mode the
+   precision of the mode of its elements.  */
+
+unsigned int
+element_precision (enum machine_mode mode)
+{
+  if (COMPLEX_MODE_P (mode) || VECTOR_MODE_P (mode))
+    mode = GET_MODE_INNER (mode);
+
+  return GET_MODE_PRECISION (mode);
 }
 
 /* Return the natural mode of an array, given that it is SIZE bytes in

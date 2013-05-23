@@ -851,6 +851,7 @@ merge_types (tree t1, tree t2)
 	tree raises = merge_exception_specifiers (TYPE_RAISES_EXCEPTIONS (t1),
 						  TYPE_RAISES_EXCEPTIONS (t2),
 						  NULL_TREE);
+	cp_ref_qualifier rqual = type_memfn_rqual (t1);
 	tree t3;
 
 	/* If this was a member function type, get back to the
@@ -864,6 +865,7 @@ merge_types (tree t1, tree t2)
 	t3 = build_method_type_directly (basetype, TREE_TYPE (t3),
 					 TYPE_ARG_TYPES (t3));
 	t1 = build_exception_variant (t3, raises);
+	t1 = build_ref_qualified_type (t1, rqual);
 	break;
       }
 
@@ -1522,7 +1524,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
   if (TREE_CODE (type) == METHOD_TYPE)
     {
       if (complain)
-	pedwarn (input_location, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith, 
+	pedwarn (input_location, OPT_Wpointer_arith, 
 		 "invalid application of %qs to a member function", 
 		 operator_name_info[(int) op].name);
       value = size_one_node;
@@ -1545,6 +1547,15 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
       value = build_min (op, size_type_node, type);
       TREE_READONLY (value) = 1;
       return value;
+    }
+
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+    {
+      if (complain & tf_warning_or_error)
+	pedwarn (input_location, OPT_Wvla,
+		 "taking sizeof array of runtime bound");
+      else
+	return error_mark_node;
     }
 
   return c_sizeof_or_alignof_type (input_location, complete_type (type),
@@ -1725,15 +1736,19 @@ cxx_alignas_expr (tree e)
        
 	   When the alignment-specifier is of the form
 	   alignas(type-id ), it shall have the same effect as
-	   alignas( alignof(type-id )).  */
+	   alignas(alignof(type-id )).  */
 
     return cxx_sizeof_or_alignof_type (e, ALIGNOF_EXPR, false);
   
-
   /* If we reach this point, it means the alignas expression if of
      the form "alignas(assignment-expression)", so we should follow
      what is stated by [dcl.align]/2.  */
 
+  if (value_dependent_expression_p (e))
+    /* Leave value-dependent expression alone for now. */
+    return e;
+
+  e = fold_non_dependent_expr (e);
   e = mark_rvalue_use (e);
 
   /* [dcl.align]/2 says:
@@ -1741,18 +1756,7 @@ cxx_alignas_expr (tree e)
          the assignment-expression shall be an integral constant
 	 expression.  */
   
-  e = fold_non_dependent_expr (e);
-  if (value_dependent_expression_p (e))
-    /* Leave value-dependent expression alone for now. */;
-  else
-    e = cxx_constant_value (e);
-
-  if (e == NULL_TREE
-      || e == error_mark_node
-      || TREE_CODE (e) != INTEGER_CST)
-    return error_mark_node;
-
-  return e;
+  return cxx_constant_value (e);
 }
 
 
@@ -2137,7 +2141,8 @@ rationalize_conditional_expr (enum tree_code code, tree t,
       gcc_assert (!TREE_SIDE_EFFECTS (op0)
 		  && !TREE_SIDE_EFFECTS (op1));
       return
-	build_conditional_expr (build_x_binary_op (input_location,
+	build_conditional_expr (EXPR_LOC_OR_HERE (t),
+				build_x_binary_op (EXPR_LOC_OR_HERE (t),
 						   (TREE_CODE (t) == MIN_EXPR
 						    ? LE_EXPR : GE_EXPR),
 						   op0, TREE_CODE (op0),
@@ -2150,7 +2155,7 @@ rationalize_conditional_expr (enum tree_code code, tree t,
     }
 
   return
-    build_conditional_expr (TREE_OPERAND (t, 0),
+    build_conditional_expr (EXPR_LOC_OR_HERE (t), TREE_OPERAND (t, 0),
 			    cp_build_unary_op (code, TREE_OPERAND (t, 1), 0,
                                                complain),
 			    cp_build_unary_op (code, TREE_OPERAND (t, 2), 0,
@@ -2483,7 +2488,9 @@ lookup_destructor (tree object, tree scope, tree dtor_name,
 	       scope, dtor_type);
       return error_mark_node;
     }
-  if (identifier_p (dtor_type))
+  if (is_auto (dtor_type))
+    dtor_type = object_type;
+  else if (identifier_p (dtor_type))
     {
       /* In a template, names we can't find a match for are still accepted
 	 destructor names, and we check them here.  */
@@ -2793,6 +2800,19 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
   return expr;
 }
 
+/* Build a COMPONENT_REF of OBJECT and MEMBER with the appropriate
+   type.  */
+
+tree
+build_simple_component_ref (tree object, tree member)
+{
+  tree type = cp_build_qualified_type (TREE_TYPE (member),
+				       cp_type_quals (TREE_TYPE (object)));
+  return fold_build3_loc (input_location,
+			  COMPONENT_REF, type,
+			  object, member, NULL_TREE);
+}
+
 /* Return an expression for the MEMBER_NAME field in the internal
    representation of PTRMEM, a pointer-to-member function.  (Each
    pointer-to-member function type gets its own RECORD_TYPE so it is
@@ -2805,7 +2825,6 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
 {
   tree ptrmem_type;
   tree member;
-  tree member_type;
 
   /* This code is a stripped down version of
      build_class_member_access_expr.  It does not work to use that
@@ -2815,11 +2834,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
   gcc_assert (TYPE_PTRMEMFUNC_P (ptrmem_type));
   member = lookup_member (ptrmem_type, member_name, /*protect=*/0,
 			  /*want_type=*/false, tf_warning_or_error);
-  member_type = cp_build_qualified_type (TREE_TYPE (member),
-					 cp_type_quals (ptrmem_type));
-  return fold_build3_loc (input_location,
-		      COMPONENT_REF, member_type,
-		      ptrmem, member, NULL_TREE);
+  return build_simple_component_ref (ptrmem, member);
 }
 
 /* Given an expression PTR for a pointer, return an expression
@@ -3010,7 +3025,7 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 
     case COND_EXPR:
       ret = build_conditional_expr
-	      (TREE_OPERAND (array, 0),
+	       (loc, TREE_OPERAND (array, 0),
 	       cp_build_array_ref (loc, TREE_OPERAND (array, 1), idx,
 				   complain),
 	       cp_build_array_ref (loc, TREE_OPERAND (array, 2), idx,
@@ -3292,7 +3307,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
 		     cp_build_addr_expr (e2, complain));
 
       e2 = fold_convert (TREE_TYPE (e3), e2);
-      e1 = build_conditional_expr (e1, e2, e3, complain);
+      e1 = build_conditional_expr (input_location, e1, e2, e3, complain);
       if (e1 == error_mark_node)
 	return error_mark_node;
 
@@ -3977,6 +3992,7 @@ cp_build_binary_op (location_t location,
             return error_mark_node;
           case stv_firstarg:
             {
+	      op0 = save_expr (op0);
               op0 = convert (TREE_TYPE (type1), op0);
               op0 = build_vector_from_val (type1, op0);
               type0 = TREE_TYPE (op0);
@@ -3986,6 +4002,7 @@ cp_build_binary_op (location_t location,
             }
           case stv_secondarg:
             {
+	      op1 = save_expr (op1);
               op1 = convert (TREE_TYPE (type0), op1);
               op1 = build_vector_from_val (type0, op1);
               type1 = TREE_TYPE (op1);
@@ -5162,7 +5179,7 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 		       "  Say %<&%T::%D%>",
 		       base, name);
 	}
-      arg = build_offset_ref (base, fn, /*address_p=*/true);
+      arg = build_offset_ref (base, fn, /*address_p=*/true, complain);
     }
 
   /* Uninstantiated types are all functions.  Taking the
@@ -5311,7 +5328,17 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
     }
 
   if (argtype != error_mark_node)
-    argtype = build_pointer_type (argtype);
+    {
+      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (argtype))
+	{
+	  if (complain & tf_warning_or_error)
+	    pedwarn (input_location, OPT_Wvla,
+		     "taking address of array of runtime bound");
+	  else
+	    return error_mark_node;
+	}
+      argtype = build_pointer_type (argtype);
+    }
 
   /* In a template, we are processing a non-dependent expression
      so we can just form an ADDR_EXPR with the correct type.  */
@@ -5599,8 +5626,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	    else if (!TYPE_PTROB_P (argtype)) 
               {
                 if (complain & tf_error)
-                  pedwarn (input_location,
-			   pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+                  pedwarn (input_location, OPT_Wpointer_arith,
 			   (code == PREINCREMENT_EXPR
                               || code == POSTINCREMENT_EXPR)
 			   ? G_("ISO C++ forbids incrementing a pointer of type %qT")
@@ -5877,7 +5903,7 @@ build_x_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2,
       op2 = build_non_dependent_expr (op2);
     }
 
-  expr = build_conditional_expr (ifexp, op1, op2, complain);
+  expr = build_conditional_expr (loc, ifexp, op1, op2, complain);
   if (processing_template_decl && expr != error_mark_node
       && TREE_CODE (expr) != VEC_COND_EXPR)
     {
@@ -7127,7 +7153,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	  return error_mark_node;
 
 	cond = build_conditional_expr
-	  (TREE_OPERAND (lhs, 0),
+	  (input_location, TREE_OPERAND (lhs, 0),
 	   cp_build_modify_expr (TREE_OPERAND (lhs, 1),
 				 modifycode, rhs, complain),
 	   cp_build_modify_expr (TREE_OPERAND (lhs, 2),
@@ -8117,6 +8143,7 @@ maybe_warn_about_returning_address_of_local (tree retval)
   if (DECL_P (whats_returned)
       && DECL_NAME (whats_returned)
       && DECL_FUNCTION_SCOPE_P (whats_returned)
+      && !is_capture_proxy (whats_returned)
       && !(TREE_STATIC (whats_returned)
 	   || TREE_PUBLIC (whats_returned)))
     {
@@ -8343,7 +8370,7 @@ check_return_expr (tree retval, bool *no_warning)
      && DECL_CONTEXT (retval) == current_function_decl
      && ! TREE_STATIC (retval)
      && ! DECL_ANON_UNION_VAR_P (retval)
-     && (DECL_ALIGN (retval) >= DECL_ALIGN (result))
+     && (DECL_ALIGN (retval) <= DECL_ALIGN (result))
      /* The cv-unqualified type of the returned value must be the
         same as the cv-unqualified return type of the
         function.  */

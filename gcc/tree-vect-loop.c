@@ -879,7 +879,6 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_REDUCTION_CHAINS (res).create (10);
   LOOP_VINFO_SLP_INSTANCES (res).create (10);
   LOOP_VINFO_SLP_UNROLLING_FACTOR (res) = 1;
-  LOOP_VINFO_PEELING_HTAB (res) = NULL;
   LOOP_VINFO_TARGET_COST_DATA (res) = init_cost (loop);
   LOOP_VINFO_PEELING_FOR_GAPS (res) = false;
   LOOP_VINFO_OPERANDS_SWAPPED (res) = false;
@@ -960,8 +959,8 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
   LOOP_VINFO_REDUCTIONS (loop_vinfo).release ();
   LOOP_VINFO_REDUCTION_CHAINS (loop_vinfo).release ();
 
-  if (LOOP_VINFO_PEELING_HTAB (loop_vinfo))
-    htab_delete (LOOP_VINFO_PEELING_HTAB (loop_vinfo));
+  if (LOOP_VINFO_PEELING_HTAB (loop_vinfo).is_created ())
+    LOOP_VINFO_PEELING_HTAB (loop_vinfo).dispose ();
 
   destroy_cost_data (LOOP_VINFO_TARGET_COST_DATA (loop_vinfo));
 
@@ -5500,19 +5499,22 @@ vect_transform_loop (loop_vec_info loop_vinfo)
       check_profitability = true;
     }
 
+  /* Version the loop first, if required, so the profitability check
+     comes first.  */
+
+  if (LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT (loop_vinfo)
+      || LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo))
+    {
+      vect_loop_versioning (loop_vinfo, th, check_profitability);
+      check_profitability = false;
+    }
+
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
 
   if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
     {
       vect_do_peeling_for_alignment (loop_vinfo, th, check_profitability);
-      check_profitability = false;
-    }
-
-  if (LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT (loop_vinfo)
-      || LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo))
-    {
-      vect_loop_versioning (loop_vinfo, th, check_profitability);
       check_profitability = false;
     }
 
@@ -5786,8 +5788,11 @@ vect_transform_loop (loop_vec_info loop_vinfo)
     }
 
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location, "LOOP VECTORIZED.");
-  if (loop->inner && dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
-		     "OUTER LOOP VECTORIZED.");
+    {
+      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+		       "LOOP VECTORIZED\n");
+      if (loop->inner)
+	dump_printf_loc (MSG_NOTE, vect_location,
+			 "OUTER LOOP VECTORIZED\n");
+    }
 }

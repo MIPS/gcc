@@ -379,7 +379,7 @@ Objective-C and Objective-C++ Dialects}.
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
 -floop-parallelize-all -flto -flto-compression-level @gol
--flto-partition=@var{alg} -flto-report -fmerge-all-constants @gol
+-flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants fmudflap -fmudflapir -fmudflapth -fno-branch-count-reg @gol
 -fno-default-inline @gol
@@ -407,8 +407,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fshrink-wrap -fsignaling-nans -fsingle-precision-constant @gol
 -fsplit-ivs-in-unroller -fsplit-wide-types -fstack-protector @gol
--fstack-protector-all -fstrict-aliasing -fstrict-overflow @gol
--fthread-jumps -ftracer -ftree-bit-ccp @gol
+-fstack-protector-all -fstack-protector-strong -fstrict-aliasing @gol
+-fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
@@ -618,11 +618,11 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{HPPA Options}
 @gccoptlist{-march=@var{architecture-type} @gol
--mbig-switch  -mdisable-fpregs  -mdisable-indexing @gol
+-mdisable-fpregs  -mdisable-indexing @gol
 -mfast-indirect-calls  -mgas  -mgnu-ld   -mhp-ld @gol
 -mfixed-range=@var{register-range} @gol
 -mjump-in-delay -mlinker-opt -mlong-calls @gol
--mlong-load-store  -mno-big-switch  -mno-disable-fpregs @gol
+-mlong-load-store  -mno-disable-fpregs @gol
 -mno-disable-indexing  -mno-fast-indirect-calls  -mno-gas @gol
 -mno-jump-in-delay  -mno-long-load-store @gol
 -mno-portable-runtime  -mno-soft-float @gol
@@ -860,7 +860,10 @@ See RS/6000 and PowerPC Options.
 -mno-recip-precision @gol
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
--msave-toc-indirect -mno-save-toc-indirect}
+-msave-toc-indirect -mno-save-toc-indirect @gol
+-mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vector @gol
+-mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
+-mquad-memory -mno-quad-memory}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -1655,7 +1658,7 @@ The name @samp{gnu++0x} is deprecated.
 
 @item c++1y
 The next revision of the ISO C++ standard, tentatively planned for
-2017.  Support is highly experimental, and will almost certainly
+2014.  Support is highly experimental, and will almost certainly
 change in incompatible ways in future releases.
 
 @item gnu++1y
@@ -2964,9 +2967,10 @@ a message which is too long to fit on a single line.
 @cindex highlight, color, colour
 @vindex GCC_COLORS @r{environment variable}
 Use color in diagnostics.  @var{WHEN} is @samp{never}, @samp{always},
-or @samp{auto}.  The default is @samp{never}, @samp{auto} means to use color
-only when the standard error is a terminal. The forms
-@option{-fdiagnostics-color} and @option{-fno-diagnostics-color} are
+or @samp{auto}.  The default is @samp{never} if @env{GCC_COLORS} environment
+variable isn't present in the environment, and @samp{auto} otherwise.
+@samp{auto} means to use color only when the standard error is a terminal.
+The forms @option{-fdiagnostics-color} and @option{-fno-diagnostics-color} are
 aliases for @option{-fdiagnostics-color=always} and
 @option{-fdiagnostics-color=never}, respectively.
 
@@ -8455,6 +8459,10 @@ files in LTO mode (via @option{-flto}).
 
 Disabled by default.
 
+@item -flto-report-wpa
+Like @option{-flto-report}, but only print for the WPA phase of Link
+Time Optimization.
+
 @item -fuse-linker-plugin
 Enables the use of a linker plugin during link-time optimization.  This
 option relies on plugin support in the linker, which is available in gold
@@ -8951,6 +8959,12 @@ If a guard check fails, an error message is printed and the program exits.
 @item -fstack-protector-all
 @opindex fstack-protector-all
 Like @option{-fstack-protector} except that all functions are protected.
+
+@item -fstack-protector-strong
+@opindex fstack-protector-strong
+Like @option{-fstack-protector} but includes additional functions to
+be protected --- those that have local array definitions, or have
+references to local frame addresses.
 
 @item -fsection-anchors
 @opindex fsection-anchors
@@ -13505,12 +13519,6 @@ other way around.
 @opindex mpa-risc-2-0
 Synonyms for @option{-march=1.0}, @option{-march=1.1}, and @option{-march=2.0} respectively.
 
-@item -mbig-switch
-@opindex mbig-switch
-Generate code suitable for big switch tables.  Use this option only if
-the assembler/linker complain about out-of-range branches within a switch
-table.
-
 @item -mjump-in-delay
 @opindex mjump-in-delay
 Fill delay slots of function calls with unconditional jump instructions
@@ -17336,7 +17344,8 @@ following options:
 @gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
 -mpopcntb -mpopcntd  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
--msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx}
+-msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
+-mcrypto -mdirect-move -mpower8-fusion -mpower8-vector -mquad-memory}
 
 The particular options set for any particular CPU varies between
 compiler versions, depending on what setting seems to produce optimal
@@ -17453,6 +17462,47 @@ This option has been deprecated.  Use @option{-mspe} and
 Generate code that uses (does not use) vector/scalar (VSX)
 instructions, and also enable the use of built-in functions that allow
 more direct access to the VSX instruction set.
+
+@item -mcrypto
+@itemx -mno-crypto
+@opindex mcrypto
+@opindex mno-crypto
+Enable the use (disable) of the built-in functions that allow direct
+access to the cryptographic instructions that were added in version
+2.07 of the PowerPC ISA.
+
+@item -mdirect-move
+@itemx -mno-direct-move
+@opindex mdirect-move
+@opindex mno-direct-move
+Generate code that uses (does not use) the instructions to move data
+between the general purpose registers and the vector/scalar (VSX)
+registers that were added in version 2.07 of the PowerPC ISA.
+
+@item -mpower8-fusion
+@itemx -mno-power8-fusion
+@opindex mpower8-fusion
+@opindex mno-power8-fusion
+Generate code that keeps (does not keeps) some integer operations
+adjacent so that the instructions can be fused together on power8 and
+later processors.
+
+@item -mpower8-vector
+@itemx -mno-power8-vector
+@opindex mpower8-vector
+@opindex mno-power8-vector
+Generate code that uses (does not use) the vector and scalar
+instructions that were added in version 2.07 of the PowerPC ISA.  Also
+enable the use of built-in functions that allow more direct access to
+the vector instructions.
+
+@item -mquad-memory
+@itemx -mno-quad-memory
+@opindex mquad-memory
+@opindex mno-quad-memory
+Generate code that uses (does not use) the quad word memory
+instructions.  The @option{-mquad-memory} option requires use of
+64-bit mode.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs

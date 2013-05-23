@@ -1061,20 +1061,27 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 	  /* We have to make sure that any param to a bind(c) routine does
 	     not have the allocatable, pointer, or optional attributes,
 	     according to J3/04-007, section 5.1.  */
-	  if (sym->attr.allocatable == 1)
-	    {
-	      gfc_error ("Variable '%s' at %L cannot have the "
-			 "ALLOCATABLE attribute because procedure '%s'"
-			 " is BIND(C)", sym->name, &(sym->declared_at),
-			 sym->ns->proc_name->name);
-	      retval = false;
-	    }
+	  if (sym->attr.allocatable == 1
+	      && !gfc_notify_std (GFC_STD_F2008_TS, "Variable '%s' at %L with "
+				  "ALLOCATABLE attribute in procedure '%s' "
+				  "with BIND(C)", sym->name,
+				  &(sym->declared_at),
+				  sym->ns->proc_name->name))
+	    retval = false;
 
-	  if (sym->attr.pointer == 1)
+	  if (sym->attr.pointer == 1
+	      && !gfc_notify_std (GFC_STD_F2008_TS, "Variable '%s' at %L with "
+				  "POINTER attribute in procedure '%s' "
+				  "with BIND(C)", sym->name,
+				  &(sym->declared_at),
+				  sym->ns->proc_name->name))
+	    retval = false;
+
+	  if ((sym->attr.allocatable || sym->attr.pointer) && !sym->as)
 	    {
-	      gfc_error ("Variable '%s' at %L cannot have the "
-			 "POINTER attribute because procedure '%s'"
-			 " is BIND(C)", sym->name, &(sym->declared_at),
+	      gfc_error ("Scalar variable '%s' at %L with POINTER or "
+			 "ALLOCATABLE in procedure '%s' with BIND(C) is not yet"
+			 " supported", sym->name, &(sym->declared_at),
 			 sym->ns->proc_name->name);
 	      retval = false;
 	    }
@@ -1703,6 +1710,7 @@ gfc_match_null (gfc_expr **result)
   gfc_intrinsic_symbol (sym);
 
   if (sym->attr.proc != PROC_INTRINSIC
+      && !(sym->attr.use_assoc && sym->attr.intrinsic)
       && (!gfc_add_procedure(&sym->attr, PROC_INTRINSIC, sym->name, NULL)
 	  || !gfc_add_function (&sym->attr, sym->name, NULL)))
     return MATCH_ERROR;
@@ -4200,6 +4208,9 @@ gfc_match_bind_c_stmt (void)
 
   if (found_match == MATCH_YES)
     {
+      if (!gfc_notify_std (GFC_STD_F2003, "BIND(C) statement at %C"))
+	return MATCH_ERROR;
+
       /* Look for the :: now, but it is not required.  */
       gfc_match (" :: ");
 
@@ -5343,27 +5354,58 @@ cleanup:
    to return false upon finding an existing global entry.  */
 
 static bool
-add_global_entry (const char *name, int sub)
+add_global_entry (const char *name, const char *binding_label, bool sub)
 {
   gfc_gsymbol *s;
   enum gfc_symbol_type type;
 
-  s = gfc_get_gsymbol(name);
   type = sub ? GSYM_SUBROUTINE : GSYM_FUNCTION;
 
-  if (s->defined
-      || (s->type != GSYM_UNKNOWN
-	  && s->type != type))
-    gfc_global_used(s, NULL);
-  else
+  /* Only in Fortran 2003: For procedures with a binding label also the Fortran
+     name is a global identifier.  */
+  if (!binding_label || gfc_notification_std (GFC_STD_F2008))
     {
-      s->type = type;
-      s->where = gfc_current_locus;
-      s->defined = 1;
-      s->ns = gfc_current_ns;
-      return true;
+      s = gfc_get_gsymbol (name);
+
+      if (s->defined || (s->type != GSYM_UNKNOWN && s->type != type))
+	{
+	  gfc_global_used(s, NULL);
+	  return false;
+	}
+      else
+	{
+	  s->type = type;
+	  s->sym_name = name;
+	  s->where = gfc_current_locus;
+	  s->defined = 1;
+	  s->ns = gfc_current_ns;
+	}
     }
-  return false;
+
+  /* Don't add the symbol multiple times.  */
+  if (binding_label
+      && (!gfc_notification_std (GFC_STD_F2008)
+	  || strcmp (name, binding_label) != 0))
+    {
+      s = gfc_get_gsymbol (binding_label);
+
+      if (s->defined || (s->type != GSYM_UNKNOWN && s->type != type))
+	{
+	  gfc_global_used(s, NULL);
+	  return false;
+	}
+      else
+	{
+	  s->type = type;
+	  s->sym_name = name;
+	  s->binding_label = binding_label;
+	  s->where = gfc_current_locus;
+	  s->defined = 1;
+	  s->ns = gfc_current_ns;
+	}
+    }
+
+  return true;
 }
 
 
@@ -5491,10 +5533,6 @@ gfc_match_entry (void)
 
   if (state == COMP_SUBROUTINE)
     {
-      /* An entry in a subroutine.  */
-      if (!gfc_current_ns->parent && !add_global_entry (name, 1))
-	return MATCH_ERROR;
-
       m = gfc_match_formal_arglist (entry, 0, 1);
       if (m != MATCH_YES)
 	return MATCH_ERROR;
@@ -5516,6 +5554,11 @@ gfc_match_entry (void)
 	      return MATCH_ERROR;
 	}
 
+      if (!gfc_current_ns->parent
+	  && !add_global_entry (name, entry->binding_label, true))
+	return MATCH_ERROR;
+
+      /* An entry in a subroutine.  */
       if (!gfc_add_entry (&entry->attr, entry->name, NULL)
 	  || !gfc_add_subroutine (&entry->attr, entry->name, NULL))
 	return MATCH_ERROR;
@@ -5531,9 +5574,6 @@ gfc_match_entry (void)
 	    ENTRY f() RESULT (r)
 	 can't be written as
 	    ENTRY f RESULT (r).  */
-      if (!gfc_current_ns->parent && !add_global_entry (name, 0))
-	return MATCH_ERROR;
-
       old_loc = gfc_current_locus;
       if (gfc_match_eos () == MATCH_YES)
 	{
@@ -5582,6 +5622,10 @@ gfc_match_entry (void)
 	      entry->result = entry;
 	    }
 	}
+
+      if (!gfc_current_ns->parent
+	  && !add_global_entry (name, entry->binding_label, false))
+	return MATCH_ERROR;
     }
 
   if (gfc_match_eos () != MATCH_YES)

@@ -624,10 +624,20 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
   result = cp_convert (type, expr, complain);
 
   if ((complain & tf_warning)
-      && c_inhibit_evaluation_warnings == 0
-      && !TREE_OVERFLOW_P (expr)
-      && result != error_mark_node)
-    warnings_for_convert_and_check (type, expr, result);
+      && c_inhibit_evaluation_warnings == 0)
+    {
+      tree folded = maybe_constant_value (expr);
+      tree stripped = folded;
+      tree folded_result = cp_convert (type, folded, complain);
+
+      /* maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW in a
+	 NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
+      STRIP_NOPS (stripped);
+
+      if (!TREE_OVERFLOW_P (stripped)
+	  && folded_result != error_mark_node)
+	warnings_for_convert_and_check (type, folded, folded_result);
+    }
 
   return result;
 }
@@ -1630,17 +1640,24 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 	{
 	  if (winner)
 	    {
-	      if (complain)
+	      tree winner_type
+		= non_reference (TREE_TYPE (TREE_TYPE (winner)));
+
+	      if (!same_type_ignoring_top_level_qualifiers_p (winner_type,
+							      candidate))
 		{
-		  error ("ambiguous default type conversion from %qT",
-			 basetype);
-		  error ("  candidate conversions include %qD and %qD",
-			 winner, cand);
+		  if (complain)
+		    {
+		      error ("ambiguous default type conversion from %qT",
+			     basetype);
+		      error ("  candidate conversions include %qD and %qD",
+			     winner, cand);
+		    }
+		  return error_mark_node;
 		}
-	      return error_mark_node;
 	    }
-	  else
-	    winner = cand;
+
+	  winner = cand;
 	}
     }
 

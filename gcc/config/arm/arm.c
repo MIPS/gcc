@@ -281,6 +281,7 @@ static unsigned arm_add_stmt_cost (void *data, int count,
 
 static void arm_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
 					 bool op0_preserve_value);
+static unsigned HOST_WIDE_INT arm_asan_shadow_offset (void);
 
 /* Table of machine attributes.  */
 static const struct attribute_spec arm_attribute_table[] =
@@ -656,6 +657,9 @@ static const struct attribute_spec arm_attribute_table[] =
 #undef TARGET_CANONICALIZE_COMPARISON
 #define TARGET_CANONICALIZE_COMPARISON \
   arm_canonicalize_comparison
+
+#undef TARGET_ASAN_SHADOW_OFFSET
+#define TARGET_ASAN_SHADOW_OFFSET arm_asan_shadow_offset
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -5372,9 +5376,8 @@ arm_function_ok_for_sibcall (tree decl, tree exp)
   if (cfun->machine->sibcall_blocked)
     return false;
 
-  /* Never tailcall something for which we have no decl, or if we
-     are generating code for Thumb-1.  */
-  if (decl == NULL || TARGET_THUMB1)
+  /* Never tailcall something if we are generating code for Thumb-1.  */
+  if (TARGET_THUMB1)
     return false;
 
   /* The PIC register is live on entry to VxWorks PLT entries, so we
@@ -5384,13 +5387,14 @@ arm_function_ok_for_sibcall (tree decl, tree exp)
 
   /* Cannot tail-call to long calls, since these are out of range of
      a branch instruction.  */
-  if (arm_is_long_call_p (decl))
+  if (decl && arm_is_long_call_p (decl))
     return false;
 
   /* If we are interworking and the function is not declared static
      then we can't tail-call it unless we know that it exists in this
      compilation unit (since it might be a Thumb routine).  */
-  if (TARGET_INTERWORK && TREE_PUBLIC (decl) && !TREE_ASM_WRITTEN (decl))
+  if (TARGET_INTERWORK && decl && TREE_PUBLIC (decl)
+      && !TREE_ASM_WRITTEN (decl))
     return false;
 
   func_type = arm_current_func_type ();
@@ -5422,6 +5426,7 @@ arm_function_ok_for_sibcall (tree decl, tree exp)
      sibling calls.  */
   if (TARGET_AAPCS_BASED
       && arm_abi == ARM_ABI_AAPCS
+      && decl
       && DECL_WEAK (decl))
     return false;
 
@@ -11851,6 +11856,134 @@ arm_gen_movmemqi (rtx *operands)
   return 1;
 }
 
+/* Helper for gen_movmem_ldrd_strd. Increase the address of memory rtx
+by mode size.  */
+inline static rtx
+next_consecutive_mem (rtx mem)
+{
+  enum machine_mode mode = GET_MODE (mem);
+  HOST_WIDE_INT offset = GET_MODE_SIZE (mode);
+  rtx addr = plus_constant (Pmode, XEXP (mem, 0), offset);
+
+  return adjust_automodify_address (mem, mode, addr, offset);
+}
+
+/* Copy using LDRD/STRD instructions whenever possible.
+   Returns true upon success. */
+bool
+gen_movmem_ldrd_strd (rtx *operands)
+{
+  unsigned HOST_WIDE_INT len;
+  HOST_WIDE_INT align;
+  rtx src, dst, base;
+  rtx reg0;
+  bool src_aligned, dst_aligned;
+  bool src_volatile, dst_volatile;
+
+  gcc_assert (CONST_INT_P (operands[2]));
+  gcc_assert (CONST_INT_P (operands[3]));
+
+  len = UINTVAL (operands[2]);
+  if (len > 64)
+    return false;
+
+  /* Maximum alignment we can assume for both src and dst buffers.  */
+  align = INTVAL (operands[3]);
+
+  if ((!unaligned_access) && (len >= 4) && ((align & 3) != 0))
+    return false;
+
+  /* Place src and dst addresses in registers
+     and update the corresponding mem rtx.  */
+  dst = operands[0];
+  dst_volatile = MEM_VOLATILE_P (dst);
+  dst_aligned = MEM_ALIGN (dst) >= BITS_PER_WORD;
+  base = copy_to_mode_reg (SImode, XEXP (dst, 0));
+  dst = adjust_automodify_address (dst, VOIDmode, base, 0);
+
+  src = operands[1];
+  src_volatile = MEM_VOLATILE_P (src);
+  src_aligned = MEM_ALIGN (src) >= BITS_PER_WORD;
+  base = copy_to_mode_reg (SImode, XEXP (src, 0));
+  src = adjust_automodify_address (src, VOIDmode, base, 0);
+
+  if (!unaligned_access && !(src_aligned && dst_aligned))
+    return false;
+
+  if (src_volatile || dst_volatile)
+    return false;
+
+  /* If we cannot generate any LDRD/STRD, try to generate LDM/STM.  */
+  if (!(dst_aligned || src_aligned))
+    return arm_gen_movmemqi (operands);
+
+  src = adjust_address (src, DImode, 0);
+  dst = adjust_address (dst, DImode, 0);
+  while (len >= 8)
+    {
+      len -= 8;
+      reg0 = gen_reg_rtx (DImode);
+      if (src_aligned)
+        emit_move_insn (reg0, src);
+      else
+        emit_insn (gen_unaligned_loaddi (reg0, src));
+
+      if (dst_aligned)
+        emit_move_insn (dst, reg0);
+      else
+        emit_insn (gen_unaligned_storedi (dst, reg0));
+
+      src = next_consecutive_mem (src);
+      dst = next_consecutive_mem (dst);
+    }
+
+  gcc_assert (len < 8);
+  if (len >= 4)
+    {
+      /* More than a word but less than a double-word to copy.  Copy a word.  */
+      reg0 = gen_reg_rtx (SImode);
+      src = adjust_address (src, SImode, 0);
+      dst = adjust_address (dst, SImode, 0);
+      if (src_aligned)
+        emit_move_insn (reg0, src);
+      else
+        emit_insn (gen_unaligned_loadsi (reg0, src));
+
+      if (dst_aligned)
+        emit_move_insn (dst, reg0);
+      else
+        emit_insn (gen_unaligned_storesi (dst, reg0));
+
+      src = next_consecutive_mem (src);
+      dst = next_consecutive_mem (dst);
+      len -= 4;
+    }
+
+  if (len == 0)
+    return true;
+
+  /* Copy the remaining bytes.  */
+  if (len >= 2)
+    {
+      dst = adjust_address (dst, HImode, 0);
+      src = adjust_address (src, HImode, 0);
+      reg0 = gen_reg_rtx (SImode);
+      emit_insn (gen_unaligned_loadhiu (reg0, src));
+      emit_insn (gen_unaligned_storehi (dst, gen_lowpart (HImode, reg0)));
+      src = next_consecutive_mem (src);
+      dst = next_consecutive_mem (dst);
+      if (len == 2)
+        return true;
+    }
+
+  dst = adjust_address (dst, QImode, 0);
+  src = adjust_address (src, QImode, 0);
+  reg0 = gen_reg_rtx (QImode);
+  emit_move_insn (reg0, src);
+  emit_move_insn (dst, reg0);
+  return true;
+}
+
 /* Select a dominance comparison mode if possible for a test of the general
    form (OP (COND_OR (X) (Y)) (const_int 0)).  We support three forms.
    COND_OR == DOM_CC_X_AND_Y => (X && Y)
@@ -17435,11 +17568,27 @@ thumb_force_lr_save (void)
 	     || df_regs_ever_live_p (LR_REGNUM));
 }
 
+/* We do not know if r3 will be available because
+   we do have an indirect tailcall happening in this
+   particular case.  */
+static bool
+is_indirect_tailcall_p (rtx call)
+{
+  rtx pat = PATTERN (call);
+
+  /* Indirect tail call.  */
+  pat = XVECEXP (pat, 0, 0);
+  if (GET_CODE (pat) == SET)
+    pat = SET_SRC (pat);
+
+  pat = XEXP (XEXP (pat, 0), 0);
+  return REG_P (pat);
+}
 
 /* Return true if r3 is used by any of the tail call insns in the
    current function.  */
 static bool
-any_sibcall_uses_r3 (void)
+any_sibcall_could_use_r3 (void)
 {
   edge_iterator ei;
   edge e;
@@ -17453,7 +17602,8 @@ any_sibcall_uses_r3 (void)
 	if (!CALL_P (call))
 	  call = prev_nonnote_nondebug_insn (call);
 	gcc_assert (CALL_P (call) && SIBLING_CALL_P (call));
-	if (find_regno_fusage (call, USE, 3))
+	if (find_regno_fusage (call, USE, 3)
+	    || is_indirect_tailcall_p (call))
 	  return true;
       }
   return false;
@@ -17620,7 +17770,7 @@ arm_get_frame_offsets (void)
 	  /* If it is safe to use r3, then do so.  This sometimes
 	     generates better code on Thumb-2 by avoiding the need to
 	     use 32-bit push/pop instructions.  */
-          if (! any_sibcall_uses_r3 ()
+          if (! any_sibcall_could_use_r3 ()
 	      && arm_size_return_regs () <= 12
 	      && (offsets->saved_regs_mask & (1 << 3)) == 0
               && (TARGET_THUMB2 || !current_tune->prefer_ldrd_strd))
@@ -19940,6 +20090,7 @@ arm_debugger_arg_offset (int value, rtx addr)
 typedef enum {
   T_V8QI,
   T_V4HI,
+  T_V4HF,
   T_V2SI,
   T_V2SF,
   T_DI,
@@ -19957,14 +20108,15 @@ typedef enum {
 #define TYPE_MODE_BIT(X) (1 << (X))
 
 #define TB_DREG (TYPE_MODE_BIT (T_V8QI) | TYPE_MODE_BIT (T_V4HI)	\
-		 | TYPE_MODE_BIT (T_V2SI) | TYPE_MODE_BIT (T_V2SF)	\
-		 | TYPE_MODE_BIT (T_DI))
+		 | TYPE_MODE_BIT (T_V4HF) | TYPE_MODE_BIT (T_V2SI)	\
+		 | TYPE_MODE_BIT (T_V2SF) | TYPE_MODE_BIT (T_DI))
 #define TB_QREG (TYPE_MODE_BIT (T_V16QI) | TYPE_MODE_BIT (T_V8HI)	\
 		 | TYPE_MODE_BIT (T_V4SI) | TYPE_MODE_BIT (T_V4SF)	\
 		 | TYPE_MODE_BIT (T_V2DI) | TYPE_MODE_BIT (T_TI))
 
 #define v8qi_UP  T_V8QI
 #define v4hi_UP  T_V4HI
+#define v4hf_UP  T_V4HF
 #define v2si_UP  T_V2SI
 #define v2sf_UP  T_V2SF
 #define di_UP    T_DI
@@ -20000,6 +20152,8 @@ typedef enum {
   NEON_SCALARMULH,
   NEON_SCALARMAC,
   NEON_CONVERT,
+  NEON_FLOAT_WIDEN,
+  NEON_FLOAT_NARROW,
   NEON_FIXCONV,
   NEON_SELECT,
   NEON_RESULTPAIR,
@@ -20393,6 +20547,7 @@ arm_init_neon_builtins (void)
 
   tree neon_intQI_type_node;
   tree neon_intHI_type_node;
+  tree neon_floatHF_type_node;
   tree neon_polyQI_type_node;
   tree neon_polyHI_type_node;
   tree neon_intSI_type_node;
@@ -20419,6 +20574,7 @@ arm_init_neon_builtins (void)
 
   tree V8QI_type_node;
   tree V4HI_type_node;
+  tree V4HF_type_node;
   tree V2SI_type_node;
   tree V2SF_type_node;
   tree V16QI_type_node;
@@ -20473,6 +20629,9 @@ arm_init_neon_builtins (void)
   neon_float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (neon_float_type_node) = FLOAT_TYPE_SIZE;
   layout_type (neon_float_type_node);
+  neon_floatHF_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (neon_floatHF_type_node) = GET_MODE_PRECISION (HFmode);
+  layout_type (neon_floatHF_type_node);
 
   /* Define typedefs which exactly correspond to the modes we are basing vector
      types on.  If you change these names you'll need to change
@@ -20481,6 +20640,8 @@ arm_init_neon_builtins (void)
 					     "__builtin_neon_qi");
   (*lang_hooks.types.register_builtin_type) (neon_intHI_type_node,
 					     "__builtin_neon_hi");
+  (*lang_hooks.types.register_builtin_type) (neon_floatHF_type_node,
+					     "__builtin_neon_hf");
   (*lang_hooks.types.register_builtin_type) (neon_intSI_type_node,
 					     "__builtin_neon_si");
   (*lang_hooks.types.register_builtin_type) (neon_float_type_node,
@@ -20522,6 +20683,8 @@ arm_init_neon_builtins (void)
     build_vector_type_for_mode (neon_intQI_type_node, V8QImode);
   V4HI_type_node =
     build_vector_type_for_mode (neon_intHI_type_node, V4HImode);
+  V4HF_type_node =
+    build_vector_type_for_mode (neon_floatHF_type_node, V4HFmode);
   V2SI_type_node =
     build_vector_type_for_mode (neon_intSI_type_node, V2SImode);
   V2SF_type_node =
@@ -20644,7 +20807,7 @@ arm_init_neon_builtins (void)
       neon_builtin_datum *d = &neon_builtin_data[i];
 
       const char* const modenames[] = {
-	"v8qi", "v4hi", "v2si", "v2sf", "di",
+	"v8qi", "v4hi", "v4hf", "v2si", "v2sf", "di",
 	"v16qi", "v8hi", "v4si", "v4sf", "v2di",
 	"ti", "ei", "oi"
       };
@@ -20847,8 +21010,9 @@ arm_init_neon_builtins (void)
 	case NEON_REINTERP:
 	  {
 	    /* We iterate over 5 doubleword types, then 5 quadword
-	       types.  */
-	    int rhs = d->mode % 5;
+	       types. V4HF is not a type used in reinterpret, so we translate
+	       d->mode to the correct index in reinterp_ftype_dreg.  */
+	    int rhs = (d->mode - ((d->mode > T_V4HF) ? 1 : 0)) % 5;
 	    switch (insn_data[d->code].operand[0].mode)
 	      {
 	      case V8QImode: ftype = reinterp_ftype_dreg[0][rhs]; break;
@@ -20865,7 +21029,38 @@ arm_init_neon_builtins (void)
 	      }
 	  }
 	  break;
+	case NEON_FLOAT_WIDEN:
+	  {
+	    tree eltype = NULL_TREE;
+	    tree return_type = NULL_TREE;
 
+	    switch (insn_data[d->code].operand[1].mode)
+	    {
+	      case V4HFmode:
+	        eltype = V4HF_type_node;
+	        return_type = V4SF_type_node;
+	        break;
+	      default: gcc_unreachable ();
+	    }
+	    ftype = build_function_type_list (return_type, eltype, NULL);
+	    break;
+	  }
+	case NEON_FLOAT_NARROW:
+	  {
+	    tree eltype = NULL_TREE;
+	    tree return_type = NULL_TREE;
+
+	    switch (insn_data[d->code].operand[1].mode)
+	    {
+	      case V4SFmode:
+	        eltype = V4SF_type_node;
+	        return_type = V4HF_type_node;
+	        break;
+	      default: gcc_unreachable ();
+	    }
+	    ftype = build_function_type_list (return_type, eltype, NULL);
+	    break;
+	  }
 	default:
 	  gcc_unreachable ();
 	}
@@ -21862,6 +22057,8 @@ arm_expand_neon_builtin (int fcode, tree exp, rtx target)
     case NEON_DUP:
     case NEON_RINT:
     case NEON_SPLIT:
+    case NEON_FLOAT_WIDEN:
+    case NEON_FLOAT_NARROW:
     case NEON_REINTERP:
       return arm_expand_neon_args (target, icode, 1, type_mode, exp, fcode,
         NEON_ARG_COPY_TO_REG, NEON_ARG_STOP);
@@ -24067,7 +24264,8 @@ arm_expand_epilogue (bool really_return)
   if (IS_NAKED (func_type)
       || (IS_VOLATILE (func_type) && TARGET_ABORT_NORETURN))
     {
-      emit_jump_insn (simple_return_rtx);
+      if (really_return)
+        emit_jump_insn (simple_return_rtx);
       return;
     }
 
@@ -25517,7 +25715,7 @@ arm_vector_mode_supported_p (enum machine_mode mode)
 {
   /* Neon also supports V2SImode, etc. listed in the clause below.  */
   if (TARGET_NEON && (mode == V2SFmode || mode == V4SImode || mode == V8HImode
-      || mode == V16QImode || mode == V4SFmode || mode == V2DImode))
+      || mode == V4HFmode || mode == V16QImode || mode == V4SFmode || mode == V2DImode))
     return true;
 
   if ((TARGET_NEON || TARGET_IWMMXT)
@@ -26361,6 +26559,7 @@ static arm_mangle_map_entry arm_mangle_map[] = {
   { V8QImode,  "__builtin_neon_uqi",    "16__simd64_uint8_t" },
   { V4HImode,  "__builtin_neon_hi",     "16__simd64_int16_t" },
   { V4HImode,  "__builtin_neon_uhi",    "17__simd64_uint16_t" },
+  { V4HFmode,  "__builtin_neon_hf",     "18__simd64_float16_t" },
   { V2SImode,  "__builtin_neon_si",     "16__simd64_int32_t" },
   { V2SImode,  "__builtin_neon_usi",    "17__simd64_uint32_t" },
   { V2SFmode,  "__builtin_neon_sf",     "18__simd64_float32_t" },
@@ -28011,6 +28210,14 @@ arm_validize_comparison (rtx *comparison, rtx * op1, rtx * op2)
 
   return false;
 
+}
+
+/* Implement the TARGET_ASAN_SHADOW_OFFSET hook.  */
+
+static unsigned HOST_WIDE_INT
+arm_asan_shadow_offset (void)
+{
+  return (unsigned HOST_WIDE_INT) 1 << 29;
 }
 
 #include "gt-arm.h"

@@ -269,7 +269,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	      dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
 				 DR_REF (drb));
 	    }
-	  return false;
+	  return true;
 	}
 
       if (dump_enabled_p ())
@@ -305,7 +305,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	      dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
 				 DR_REF (drb));
 	    }
-	  return false;
+	  return true;
 	}
 
       if (dump_enabled_p ())
@@ -1024,7 +1024,8 @@ vector_alignment_reachable_p (struct data_reference *dr)
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
                          "Unknown misalignment, is_packed = %d",is_packed);
-      if (targetm.vectorize.vector_alignment_reachable (type, is_packed))
+      if ((TYPE_USER_ALIGN (type) && !is_packed)
+	  || targetm.vectorize.vector_alignment_reachable (type, is_packed))
 	return true;
       else
 	return false;
@@ -1062,27 +1063,6 @@ vect_get_data_access_cost (struct data_reference *dr,
 }
 
 
-static hashval_t
-vect_peeling_hash (const void *elem)
-{
-  const struct _vect_peel_info *peel_info;
-
-  peel_info = (const struct _vect_peel_info *) elem;
-  return (hashval_t) peel_info->npeel;
-}
-
-
-static int
-vect_peeling_hash_eq (const void *elem1, const void *elem2)
-{
-  const struct _vect_peel_info *a, *b;
-
-  a = (const struct _vect_peel_info *) elem1;
-  b = (const struct _vect_peel_info *) elem2;
-  return (a->npeel == b->npeel);
-}
-
-
 /* Insert DR into peeling hash table with NPEEL as key.  */
 
 static void
@@ -1090,12 +1070,11 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
                           int npeel)
 {
   struct _vect_peel_info elem, *slot;
-  void **new_slot;
+  _vect_peel_info **new_slot;
   bool supportable_dr_alignment = vect_supportable_dr_alignment (dr, true);
 
   elem.npeel = npeel;
-  slot = (vect_peel_info) htab_find (LOOP_VINFO_PEELING_HTAB (loop_vinfo),
-                                     &elem);
+  slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo).find (&elem);
   if (slot)
     slot->count++;
   else
@@ -1104,8 +1083,7 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
       slot->npeel = npeel;
       slot->dr = dr;
       slot->count = 1;
-      new_slot = htab_find_slot (LOOP_VINFO_PEELING_HTAB (loop_vinfo), slot,
-                                 INSERT);
+      new_slot = LOOP_VINFO_PEELING_HTAB (loop_vinfo).find_slot (slot, INSERT);
       *new_slot = slot;
     }
 
@@ -1117,11 +1095,11 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
 /* Traverse peeling hash table to find peeling option that aligns maximum
    number of data accesses.  */
 
-static int
-vect_peeling_hash_get_most_frequent (void **slot, void *data)
+int
+vect_peeling_hash_get_most_frequent (_vect_peel_info **slot,
+				     _vect_peel_extended_info *max)
 {
-  vect_peel_info elem = (vect_peel_info) *slot;
-  vect_peel_extended_info max = (vect_peel_extended_info) data;
+  vect_peel_info elem = *slot;
 
   if (elem->count > max->peel_info.count
       || (elem->count == max->peel_info.count
@@ -1139,11 +1117,11 @@ vect_peeling_hash_get_most_frequent (void **slot, void *data)
 /* Traverse peeling hash table and calculate cost for each peeling option.
    Find the one with the lowest cost.  */
 
-static int
-vect_peeling_hash_get_lowest_cost (void **slot, void *data)
+int
+vect_peeling_hash_get_lowest_cost (_vect_peel_info **slot,
+				   _vect_peel_extended_info *min)
 {
-  vect_peel_info elem = (vect_peel_info) *slot;
-  vect_peel_extended_info min = (vect_peel_extended_info) data;
+  vect_peel_info elem = *slot;
   int save_misalignment, dummy;
   unsigned int inside_cost = 0, outside_cost = 0, i;
   gimple stmt = DR_STMT (elem->dr);
@@ -1223,14 +1201,16 @@ vect_peeling_hash_choose_best_peeling (loop_vec_info loop_vinfo,
      {
        res.inside_cost = INT_MAX;
        res.outside_cost = INT_MAX;
-       htab_traverse (LOOP_VINFO_PEELING_HTAB (loop_vinfo),
-                      vect_peeling_hash_get_lowest_cost, &res);
+       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+           .traverse <_vect_peel_extended_info *,
+                      vect_peeling_hash_get_lowest_cost> (&res);
      }
    else
      {
        res.peel_info.count = 0;
-       htab_traverse (LOOP_VINFO_PEELING_HTAB (loop_vinfo),
-                      vect_peeling_hash_get_most_frequent, &res);
+       LOOP_VINFO_PEELING_HTAB (loop_vinfo)
+           .traverse <_vect_peel_extended_info *,
+                      vect_peeling_hash_get_most_frequent> (&res);
      }
 
    *npeel = res.peel_info.npeel;
@@ -1344,7 +1324,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   bool stat;
   gimple stmt;
   stmt_vec_info stmt_info;
-  int vect_versioning_for_alias_required;
   unsigned int npeel = 0;
   bool all_misalignments_unknown = true;
   unsigned int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -1423,10 +1402,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 						    size_zero_node) < 0;
 
               /* Save info about DR in the hash table.  */
-              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo))
-                LOOP_VINFO_PEELING_HTAB (loop_vinfo) =
-                           htab_create (1, vect_peeling_hash,
-                                        vect_peeling_hash_eq, free);
+              if (!LOOP_VINFO_PEELING_HTAB (loop_vinfo).is_created ())
+                LOOP_VINFO_PEELING_HTAB (loop_vinfo).create (1);
 
               vectype = STMT_VINFO_VECTYPE (stmt_info);
               nelements = TYPE_VECTOR_SUBPARTS (vectype);
@@ -1533,15 +1510,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         }
     }
 
-  vect_versioning_for_alias_required
-    = LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo);
-
-  /* Temporarily, if versioning for alias is required, we disable peeling
-     until we support peeling and versioning.  Often peeling for alignment
-     will require peeling for loop-bound, which in turn requires that we
-     know how to adjust the loop ivs after the loop.  */
-  if (vect_versioning_for_alias_required
-      || !vect_can_advance_ivs_p (loop_vinfo)
+  /* Check if we can possibly peel the loop.  */
+  if (!vect_can_advance_ivs_p (loop_vinfo)
       || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
@@ -4745,9 +4715,10 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-      if (targetm.vectorize.
-	  support_vector_misalignment (mode, type,
-				       DR_MISALIGNMENT (dr), is_packed))
+      if ((TYPE_USER_ALIGN (type) && !is_packed)
+	  || targetm.vectorize.
+	       support_vector_misalignment (mode, type,
+					    DR_MISALIGNMENT (dr), is_packed))
 	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
@@ -4759,9 +4730,10 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-     if (targetm.vectorize.
-         support_vector_misalignment (mode, type,
-				      DR_MISALIGNMENT (dr), is_packed))
+     if ((TYPE_USER_ALIGN (type) && !is_packed)
+	 || targetm.vectorize.
+	      support_vector_misalignment (mode, type,
+					   DR_MISALIGNMENT (dr), is_packed))
        return dr_unaligned_supported;
     }
 

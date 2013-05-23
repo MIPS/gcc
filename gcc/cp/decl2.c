@@ -2210,9 +2210,6 @@ determine_visibility (tree decl)
 	      && !lookup_attribute ("visibility", attribs))
 	    {
 	      int depth = TMPL_ARGS_DEPTH (args);
-	      int class_depth = 0;
-	      if (class_type && CLASSTYPE_TEMPLATE_INFO (class_type))
-		class_depth = TMPL_ARGS_DEPTH (CLASSTYPE_TI_ARGS (class_type));
 	      if (DECL_VISIBILITY_SPECIFIED (decl))
 		{
 		  /* A class template member with explicit visibility
@@ -2225,7 +2222,7 @@ determine_visibility (tree decl)
 		      constrain_visibility_for_template (decl, lev);
 		    }
 		}
-	      else if (depth > class_depth)
+	      else if (PRIMARY_TEMPLATE_P (TI_TEMPLATE (tinfo)))
 		/* Limit visibility based on its template arguments.  */
 		constrain_visibility_for_template (decl, args);
 	    }
@@ -4463,7 +4460,7 @@ check_default_args (tree x)
     {
       if (TREE_PURPOSE (arg))
 	saw_def = true;
-      else if (saw_def)
+      else if (saw_def && !PACK_EXPANSION_P (TREE_VALUE (arg)))
 	{
 	  error ("default argument missing for parameter %P of %q+#D", i, x);
 	  TREE_PURPOSE (arg) = error_mark_node;

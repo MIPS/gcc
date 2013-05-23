@@ -90,6 +90,7 @@ c-common.h, not after.
       LAMBDA_EXPR_MUTABLE_P (in LAMBDA_EXPR)
       DECL_FINAL_P (in FUNCTION_DECL)
       QUALIFIED_NAME_IS_TEMPLATE (in SCOPE_REF)
+      DECLTYPE_FOR_INIT_CAPTURE (in DECLTYPE_TYPE)
    2: IDENTIFIER_OPNAME_P (in IDENTIFIER_NODE)
       ICS_THIS_FLAG (in _CONV)
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (in VAR_DECL)
@@ -97,6 +98,7 @@ c-common.h, not after.
       TYPENAME_IS_RESOLVING_P (in TYPE_NAME_TYPE)
       TARGET_EXPR_DIRECT_INIT_P (in TARGET_EXPR)
       FNDECL_USED_AUTO (in FUNCTION_DECL)
+      DECLTYPE_FOR_LAMBDA_PROXY (in DECLTYPE_TYPE)
    3: (TREE_REFERENCE_EXPR) (in NON_LVALUE_EXPR) (commented-out).
       ICS_BAD_FLAG (in _CONV)
       FN_TRY_BLOCK_P (in TRY_BLOCK)
@@ -3590,10 +3592,12 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
   (DECLTYPE_TYPE_CHECK (NODE))->type_common.string_flag
 
 /* These flags indicate that we want different semantics from normal
-   decltype: lambda capture just drops references, lambda proxies look
-   through implicit dereference.  */
+   decltype: lambda capture just drops references, init capture
+   uses auto semantics, lambda proxies look through implicit dereference.  */
 #define DECLTYPE_FOR_LAMBDA_CAPTURE(NODE) \
   TREE_LANG_FLAG_0 (DECLTYPE_TYPE_CHECK (NODE))
+#define DECLTYPE_FOR_INIT_CAPTURE(NODE) \
+  TREE_LANG_FLAG_1 (DECLTYPE_TYPE_CHECK (NODE))
 #define DECLTYPE_FOR_LAMBDA_PROXY(NODE) \
   TREE_LANG_FLAG_2 (DECLTYPE_TYPE_CHECK (NODE))
 
@@ -4636,7 +4640,9 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
    TFF_UNQUALIFIED_NAME: do not print the qualifying scope of the
        top-level entity.
    TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS: do not omit template arguments
-       identical to their defaults.  */
+       identical to their defaults.
+   TFF_NO_TEMPLATE_BINDINGS: do not print information about the template
+       arguments for a function template specialization.  */
 
 #define TFF_PLAIN_IDENTIFIER			(0)
 #define TFF_SCOPE				(1)
@@ -4652,6 +4658,7 @@ enum overload_flags { NO_SPECIAL = 0, DTOR_FLAG, TYPENAME_FLAG };
 #define TFF_NO_FUNCTION_ARGUMENTS		(1 << 10)
 #define TFF_UNQUALIFIED_NAME			(1 << 11)
 #define TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS	(1 << 12)
+#define TFF_NO_TEMPLATE_BINDINGS		(1 << 13)
 
 /* Returns the TEMPLATE_DECL associated to a TEMPLATE_TEMPLATE_PARM
    node.  */
@@ -4962,7 +4969,7 @@ extern bool pragma_java_exceptions;
 /* in call.c */
 extern bool check_dtor_name			(tree, tree);
 
-extern tree build_conditional_expr		(tree, tree, tree, 
+extern tree build_conditional_expr		(location_t, tree, tree, tree, 
                                                  tsubst_flags_t);
 extern tree build_addr_func			(tree, tsubst_flags_t);
 extern void set_flags_from_callee		(tree);
@@ -5083,6 +5090,7 @@ extern tree in_class_defaulted_default_constructor (tree);
 extern bool user_provided_p			(tree);
 extern bool type_has_user_provided_constructor  (tree);
 extern bool type_has_user_provided_default_constructor (tree);
+extern bool vbase_has_user_provided_move_assign (tree);
 extern tree default_init_uninitialized_part (tree);
 extern bool trivial_default_constructor_is_constexpr (tree);
 extern bool type_has_constexpr_default_constructor (tree);
@@ -5348,7 +5356,10 @@ extern tree get_type_value			(tree);
 extern tree build_zero_init			(tree, tree, bool);
 extern tree build_value_init			(tree, tsubst_flags_t);
 extern tree build_value_init_noctor		(tree, tsubst_flags_t);
-extern tree build_offset_ref			(tree, tree, bool);
+extern tree build_offset_ref			(tree, tree, bool,
+						 tsubst_flags_t);
+extern tree throw_bad_array_new_length		(void);
+extern tree throw_bad_array_length		(void);
 extern tree build_new				(vec<tree, va_gc> **, tree, tree,
 						 vec<tree, va_gc> **, int,
                                                  tsubst_flags_t);
@@ -5745,7 +5756,7 @@ extern void add_typedef_to_current_template_for_access_check (tree, tree,
 							      location_t);
 extern void check_accessibility_of_qualified_id (tree, tree, tree);
 extern tree finish_qualified_id_expr		(tree, tree, bool, bool,
-						 bool, bool);
+						 bool, bool, tsubst_flags_t);
 extern void simplify_aggr_init_expr		(tree *);
 extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
@@ -5777,7 +5788,7 @@ extern tree finish_trait_expr			(enum cp_trait_kind, tree, tree);
 extern tree build_lambda_expr                   (void);
 extern tree build_lambda_object			(tree);
 extern tree begin_lambda_type                   (tree);
-extern tree lambda_capture_field_type		(tree);
+extern tree lambda_capture_field_type		(tree, bool);
 extern tree lambda_return_type			(tree);
 extern tree lambda_proxy_type			(tree);
 extern tree lambda_function			(tree);
@@ -5840,6 +5851,7 @@ extern tree get_target_expr			(tree);
 extern tree get_target_expr_sfinae		(tree, tsubst_flags_t);
 extern tree build_cplus_array_type		(tree, tree);
 extern tree build_array_of_n_type		(tree, int);
+extern bool array_of_runtime_bound_p		(tree);
 extern tree build_array_copy			(tree);
 extern tree build_vec_init_expr			(tree, tree, tsubst_flags_t);
 extern void diagnose_non_constexpr_vec_init	(tree);
@@ -6023,6 +6035,7 @@ extern tree cp_build_binary_op                  (location_t,
 						 enum tree_code, tree, tree,
 						 tsubst_flags_t);
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
+extern tree build_simple_component_ref		(tree, tree);
 extern tree build_ptrmemfunc_access_expr	(tree, tree);
 extern tree build_address			(tree);
 extern tree build_typed_address			(tree, tree);
