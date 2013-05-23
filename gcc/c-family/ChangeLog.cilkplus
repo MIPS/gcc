@@ -1,4 +1,4 @@
-2013-05-06  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+2013-05-23  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c-common.c (c_define_builtins): When cilkplus is enabled, the
 	function array_notation_init_builtins is called.
@@ -13,7 +13,6 @@
 	(ARRAY_NOTATION_START): Likewise.
 	(ARRAY_NOTATION_LENGTH): Likewise.
 	(ARRAY_NOTATION_STRIDE): Likewise.
-	(ARRAY_NOTATION_TYPE): Likewise.
 	* c-pretty-print.c (pp_c_postifix_expression): Added a new case for
 	ARRAY_NOTATION_REF.
 	(pp_c_expression): Likewise.
