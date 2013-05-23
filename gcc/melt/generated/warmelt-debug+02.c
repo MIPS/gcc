@@ -9,9 +9,9 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] =
 
 
 /**** warmelt-debug+02.c declarations ****/
+/**** MELT GENERATED DECLARATIONS for warmelt-debug ** DO NOT EDIT ; see gcc-melt.org ****/
 
-
-/***************************************************
+/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ***
     Copyright 2009 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
@@ -32,13 +32,14 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] =
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.
 ***
-****************************************************/
+----------------------------------------------------------------****/
 
-/* ordinary MELT module */
-#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usual */
 
-struct melt_callframe_st;	/*defined in melt-runtime.h */
+/** ordinary MELT module meltbuild-sources/warmelt-debug**/
+#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
+
+/*** no extra MELT c-headers ***/
 
 
 

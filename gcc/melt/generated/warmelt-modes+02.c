@@ -9,9 +9,9 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] =
 
 
 /**** warmelt-modes+02.c declarations ****/
+/**** MELT GENERATED DECLARATIONS for warmelt-modes ** DO NOT EDIT ; see gcc-melt.org ****/
 
-
-/***************************************************
+/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ***
     Copyright (C) 2011, 2012 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
@@ -32,13 +32,14 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] =
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.
 ***
-****************************************************/
+----------------------------------------------------------------****/
 
-/* ordinary MELT module */
-#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usual */
 
-struct melt_callframe_st;	/*defined in melt-runtime.h */
+/** ordinary MELT module meltbuild-sources/warmelt-modes**/
+#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
+
+/*** no extra MELT c-headers ***/
 
 
 
@@ -10312,7 +10313,8 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
 \n    goto end;\n  srcmagic = melt_magic_discr ((melt_ptr_t)srcvalv\
 );\n  newmagic = ((meltobject_ptr_t)newdiscrv)->meltobj_magic;\
 \n  if (srcmagic != newmagic) \n    goto end;\
-\n  switch (srcmagic) { /* end cloning heeader */\n";
+\n  switch (srcmagic) { /* end cloning heeade\
+r */\n";
       /*_.ADD2OUT__V16*/ meltfptr[14] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[1])),

@@ -9,9 +9,9 @@ MELT_EXTERN const char meltrun_used_md5_melt_f3[] =
 
 
 /**** warmelt-modes+03.c declarations ****/
+/**** MELT GENERATED DECLARATIONS for warmelt-modes ** DO NOT EDIT ; see gcc-melt.org ****/
 
-
-/***************************************************
+/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ***
     Copyright (C) 2011, 2012 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
@@ -32,13 +32,14 @@ MELT_EXTERN const char meltrun_used_md5_melt_f3[] =
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.
 ***
-****************************************************/
+----------------------------------------------------------------****/
 
-/* ordinary MELT module */
-#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usual */
 
-struct melt_callframe_st;	/*defined in melt-runtime.h */
+/** ordinary MELT module meltbuild-sources/warmelt-modes**/
+#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
+
+/*** no extra MELT c-headers ***/
 
 
 

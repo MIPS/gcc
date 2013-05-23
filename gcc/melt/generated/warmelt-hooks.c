@@ -10,9 +10,9 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
 
 
 /**** warmelt-hooks declarations ****/
+/**** MELT GENERATED DECLARATIONS for warmelt-hooks ** DO NOT EDIT ; see gcc-melt.org ****/
 
-
-/***************************************************
+/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ***
     Copyright 2008 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
@@ -33,19 +33,17 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.
 ***
-****************************************************/
-
-/* ordinary MELT module */
-#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usual */
-
-struct melt_callframe_st;	/*defined in melt-runtime.h */
+----------------------------------------------------------------****/
 
 
+/** ordinary MELT module meltbuild-sources/warmelt-hooks**/
+#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
-/***** 1 extra C headers *****/
+
+/*** 1 extra MELT c-headers ***/
 
 
-/** header #0: **/
+/** MELT extra c-header 1 : **/
 
 
 static void
@@ -62,10 +60,7 @@ melt_override_gate_callback (void *gccdata, void *userdata ATTRIBUTE_UNUSED)
   *pgatestatus = gatsta;
 }				/* end of  melt_override_gate_callback */
 
-
-
-/***** end of 1 extra C headers *****/
-
+/*** end of 1 extra MELT c-headers ***/
 
 /** declaration of hook melthook_HOOK_LOW_DEBUG_VALUE_AT */
 MELT_EXTERN
@@ -242,6 +237,8 @@ meltmod__warmelt_hooks__forward_or_mark_module_start_frame (struct
 
 
 /**** warmelt-hooks implementations ****/
+/**** MELT GENERATED IMPLEMENTATIONS for warmelt-hooks ** DO NOT EDIT ; see gcc-melt.org ****/
+/*** no extra MELT implementations ***/
 /* frame for melthook_HOOK_LOW_DEBUG_VALUE_AT hook: */
 typedef struct meltframe_melthook_HOOK_LOW_DEBUG_VALUE_AT_st
 {

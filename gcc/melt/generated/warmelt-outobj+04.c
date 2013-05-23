@@ -9,9 +9,9 @@ MELT_EXTERN const char meltrun_used_md5_melt_f4[] =
 
 
 /**** warmelt-outobj+04.c declarations ****/
+/**** MELT GENERATED DECLARATIONS for warmelt-outobj ** DO NOT EDIT ; see gcc-melt.org ****/
 
-
-/***************************************************
+/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ***
     Copyright (C) 2008 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
@@ -32,13 +32,14 @@ MELT_EXTERN const char meltrun_used_md5_melt_f4[] =
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.
 ***
-****************************************************/
+----------------------------------------------------------------****/
 
-/* ordinary MELT module */
-#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usual */
 
-struct melt_callframe_st;	/*defined in melt-runtime.h */
+/** ordinary MELT module meltbuild-sources/warmelt-outobj**/
+#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
+
+/*** no extra MELT c-headers ***/
 
 
 
@@ -2349,20 +2350,20 @@ meltrout_143_warmelt_outobj_EMIT_SYNTAX_TESTING_ROUTINE (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_144_warmelt_outobj_NORMADECLB_MACROEXPANDED_LIST (meltclosure_ptr_t
-							   meltclosp_,
-							   melt_ptr_t
-							   meltfirstargp_,
-							   const
-							   melt_argdescr_cell_t
-							   meltxargdescr_[],
-							   union meltparam_un
-							   *meltxargtab_,
-							   const
-							   melt_argdescr_cell_t
-							   meltxresdescr_[],
-							   union meltparam_un
-							   *meltxrestab_);
+meltrout_144_warmelt_outobj_NORMALIZE_MACROEXPANDED_LIST (meltclosure_ptr_t
+							  meltclosp_,
+							  melt_ptr_t
+							  meltfirstargp_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxargdescr_[],
+							  union meltparam_un
+							  *meltxargtab_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxresdescr_[],
+							  union meltparam_un
+							  *meltxrestab_);
 
 
 

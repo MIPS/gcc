@@ -9,9 +9,9 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] =
 
 
 /**** warmelt-normal+02.c declarations ****/
+/**** MELT GENERATED DECLARATIONS for warmelt-normal ** DO NOT EDIT ; see gcc-melt.org ****/
 
-
-/***************************************************
+/****++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ***
     Copyright 2008 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
@@ -32,13 +32,14 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] =
     along with GCC; see the file COPYING3.  If not see
     <http://www.gnu.org/licenses/>.
 ***
-****************************************************/
+----------------------------------------------------------------****/
 
-/* ordinary MELT module */
-#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usual */
 
-struct melt_callframe_st;	/*defined in melt-runtime.h */
+/** ordinary MELT module meltbuild-sources/warmelt-normal**/
+#define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
+
+/*** no extra MELT c-headers ***/
 
 
 
@@ -2311,7 +2312,22 @@ meltrout_162_warmelt_normal_NORMEXP_CHEADER (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_163_warmelt_normal_NORMEXP_USE_PACKAGE_FROM_PKG_CONFIG
+meltrout_163_warmelt_normal_NORMEXP_CIMPLEMENT (meltclosure_ptr_t meltclosp_,
+						melt_ptr_t meltfirstargp_,
+						const melt_argdescr_cell_t
+						meltxargdescr_[],
+						union meltparam_un
+						*meltxargtab_,
+						const melt_argdescr_cell_t
+						meltxresdescr_[],
+						union meltparam_un
+						*meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_164_warmelt_normal_NORMEXP_USE_PACKAGE_FROM_PKG_CONFIG
 (meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
 union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
 union meltparam_un *meltxrestab_);
