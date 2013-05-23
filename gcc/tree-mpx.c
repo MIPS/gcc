@@ -3646,17 +3646,21 @@ mpx_fix_function_decls (void)
       }
 }
 
-/* We could insert some code right after call which ends bb.
-   It's not allowed and therefore we fix it here.  We did not
-   add new edges from the beginning because it may cause new
-   phi node creation which may be incorrect due to incomplete
-   bound phi nodes.  */
+/* Some code transformation made during MPX pass may put
+   code into inconsistent state.  Here we find and fix
+   such flaws.  */
 void
 mpx_fix_cfg ()
 {
+  unsigned int n;
   basic_block bb;
   gimple_stmt_iterator i;
 
+  /* We could insert some code right after stmt which ends bb.
+     We wanted to put this code on fallthru edge but did not
+     add new edges from the beginning because it may cause new
+     phi node creation which may be incorrect due to incomplete
+     bound phi nodes.  */
   FOR_ALL_BB (bb)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
       {
@@ -3668,14 +3672,35 @@ mpx_fix_cfg ()
 	if (stmt_ends_bb_p (stmt)
 	    && !gsi_end_p (next))
 	  {
+	    edge fall = find_fallthru_edge (bb->succs);
+	    basic_block dest = NULL;
+	    int flags = 0;
+
+	    gcc_assert (fall);
+
+	    /* We cannot split abnormal edge.  Therefore we
+	       store its params, make it regular and then
+	       rebuild abnormal edge after split.  */
+	    if (fall->flags & EDGE_ABNORMAL)
+	      {
+		flags = fall->flags & ~EDGE_FALLTHRU;
+		dest = fall->dest;
+
+		fall->flags &= ~EDGE_COMPLEX;
+	      }
+
 	    while (!gsi_end_p (next))
 	      {
 		gimple next_stmt = gsi_stmt (next);
 		gsi_remove (&next, false);
-		gsi_insert_on_edge (FALLTHRU_EDGE (bb), next_stmt);
+		gsi_insert_on_edge (fall, next_stmt);
 	      }
 
 	    gsi_commit_edge_inserts ();
+
+	    /* Re-create abnormal edge.  */
+	    if (dest)
+	      make_edge (bb, dest, flags);
 	  }
       }
 }
