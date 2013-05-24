@@ -38,20 +38,20 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-pre/warmelt-genobj";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="c1b5b97655a404582009a11a94a32d90";
+const char melt_prepromd5meltrun[]="8e2c39043a93f219af33c99fff3a9bbe";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="0aef28b67b6c99e8265fc76af6e30906";
+const char melt_primaryhexmd5[]="e66c71e8365ba374a56d8facf264d753";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-genobj+01.c #1 */ "537570db01b92cfed5650406c4538da6",
+ /*sechexmd5checksum meltbuild-sources/warmelt-genobj+01.c #1 */ "0971d8545946e4dbbe6064bd489bd455",
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+02.c #2 */ "2a02fde341e3ba8d3657c29f428064c9",
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+03.c #3 */ "15c86e12f573bf49d15ef8f39b9d5bfa",
- /*sechexmd5checksum meltbuild-sources/warmelt-genobj+04.c #4 */ "c7804319063c30a65de7d8261259112d",
+ /*sechexmd5checksum meltbuild-sources/warmelt-genobj+04.c #4 */ "bc7752905c0eb220ad3d9c88cd48dd96",
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+05.c #5 */ "4f99dfc7034e07a4a71617c34ea203ad",
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+06.c #6 */ "24d2420416ea03e059906d01fd831269",
- /*sechexmd5checksum meltbuild-sources/warmelt-genobj+07.c #7 */ "1f4ecd26e6dee6cd79176f8665d94f60",
+ /*sechexmd5checksum meltbuild-sources/warmelt-genobj+07.c #7 */ "506d1ec38bb196d8861f662449845964",
  /*nosecfile*/ (const char*)0,
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
@@ -60,10 +60,10 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=7;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="5c4e732ece79070cf7494eb5f4b5fbba" ;
+const char melt_cumulated_hexmd5[]="dac33d004b040d977ab3b75ec6d51066" ;
 
 /* include the timestamp file */
-#define meltmod_warmelt_genobj_mds__5c4e732ece79070cf7494eb5f4b5fbba 1
+#define meltmod_warmelt_genobj_mds__dac33d004b040d977ab3b75ec6d51066 1
 #include "warmelt-genobj+melttime.h"
 	 
 
