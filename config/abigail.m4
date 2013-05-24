@@ -83,10 +83,6 @@ AC_DEFUN([ABIGAIL_INIT],
     		 [found_abigail_lib=yes], [], [])
  fi
 
- if test x$found_abigail_lib = xyes; then
-    abigaillibs="$abigaillibs -labigail"
- fi
-
  if test x$abigailinc = x; then
     AC_LANG_PUSH(C++)
     AC_CHECK_HEADER([libabigail/abg-version.h],
@@ -103,7 +99,8 @@ AC_DEFUN([ABIGAIL_INIT],
  #Test whether libabigail is in the gcc source tree.
  if test x$HAVE_LIBABIGAIL != xyes; then
    if test -d $srcdir/libabigail -a -f $srcdir/gcc/gcc.c; then
-      abigaillibs='-L$$r/$(HOST_SUBDIR)/libabigail/src/'"${lt_cv_objdir} ${abigaillibs}"
+      libpath='$$r/$(HOST_SUBDIR)/libabigail/src/'"${lt_cv_objdir}"
+      abigaillibs="-L$libpath ${abigaillibs}"
       abigailinc='-I${srcdir}/libabigail/src '"${abigailinc}"
       found_abigail_lib=yes
       found_abigail_inc=yes
@@ -112,6 +109,11 @@ AC_DEFUN([ABIGAIL_INIT],
       ENABLE_ABIGAIL_VERSION_CHECK=no
    fi
  fi
+
+ if test x$found_abigail_lib = xyes; then
+    abigaillibs="$abigaillibs -labigail"
+ fi
+
 ]
 )
 
