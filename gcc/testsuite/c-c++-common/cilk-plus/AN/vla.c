@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-fcilkplus" } */
+/* { dg-options "-fcilkplus -std=c99" } */
 
 int func (int x)
 {
