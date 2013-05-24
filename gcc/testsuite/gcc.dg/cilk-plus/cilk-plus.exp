@@ -30,7 +30,7 @@ dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -g
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -g -O1 -fcilkplus" " "
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -g -O2 -ftree-vectorize -fcilkplus" " "
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -g -O3 -fcilkplus" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/array_notation_tests/errors/*.c]] " -O3 -ftree-vectorize -fcilkplus -g" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -O3 -ftree-vectorize -fcilkplus -g" " "
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -fcilkplus -std=c99" " "
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -fcilkplus -O0 -std=c99" " "
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -fcilkplus -O1 -std=c99" " "
@@ -41,5 +41,5 @@ dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -f
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -fcilkplus -g -O1 -std=c99" " "
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -fcilkplus -g -O2 -ftree-vectorize -std=c99" " "
 dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -fcilkplus -g -O3 -std=c99" " "
-dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/array_notation_tests/errors/*.c]] " -O3 -ftree-vectorize -std=c99 -g -fcilkplus" " "
+dg-runtest [lsort [glob -nocomplain $srcdir/c-c++-common/cilk-plus/AN/*.c]] " -O3 -ftree-vectorize -std=c99 -g -fcilkplus" " "
 dg-finish
