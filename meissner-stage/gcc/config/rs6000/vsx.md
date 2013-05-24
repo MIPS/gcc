@@ -1847,3 +1847,28 @@
 }"
   [(set_attr "length" "20")
    (set_attr "type" "veccomplex")])
+
+
+;; Power8 Vector fusion
+;; Note, the fused ops must be adjacent, so don't split these ops
+(define_peephole
+  [(set (match_operand:P 0 "base_reg_operand" "")
+	(match_operand:P 1 "short_cint_operand" ""))
+   (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
+	(mem:VSX_M2 (plus:P (match_dup 0)
+			    (match_operand:P 3 "int_reg_operand" ""))))]
+  "TARGET_P8_FUSION"
+  "li %0,%1\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
+  [(set_attr "length" "8")
+   (set_attr "type" "vecload")])
+
+(define_peephole
+  [(set (match_operand:P 0 "base_reg_operand" "")
+	(match_operand:P 1 "short_cint_operand" ""))
+   (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
+	(mem:VSX_M2 (plus:P (match_operand:P 3 "int_reg_operand" "")
+			    (match_dup 0))))]
+  "TARGET_P8_FUSION"
+  "li %0,%1\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
+  [(set_attr "length" "8")
+   (set_attr "type" "vecload")])
