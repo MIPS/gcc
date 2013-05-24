@@ -1,3 +1,102 @@
+2013-05-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/57294
+	* gcc.dg/ipa/pr57294.c: New test.
+
+2013-05-24  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/scalar_intrinsics.c
+	(force_simd): Use a valid instruction.
+	(test_vdupd_lane_s64): Pass a valid lane argument.
+	(test_vdupd_lane_u64): Likewise.
+
+2013-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57287
+	* gcc.dg/pr57287.c: New testcase.
+
+2013-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/26572
+	* g++.dg/template/error51.C: New.
+
+2013-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/25503
+	* g++.dg/template/bitfield2.C: New.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/noinline1.ads: New test.
+	* gnat.dg/noinline2.ad[sb]: Likewise.
+	* gnat.dg/specs/noinline3.ads: Likewise.
+	* gnat.dg/specs/noinline3_pkg.ad[sb]: New helper.
+
+2013-05-24  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	PR tree-ssa/57385
+	* gcc.dg/tree-ssa/pr57385.c: New test.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/derived_type4.adb: New test.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/builtin-bswap-6.c: New test.
+	* gcc.dg/builtin-bswap-7.c: Likewise.
+	* gcc.dg/builtin-bswap-8.c: Likewise.
+	* gcc.dg/builtin-bswap-9.c: Likewise.
+
+2013-05-23  Christian Bruel  <christian.bruel@st.com>
+
+	PR debug/57351
+	* gcc.dg/debug/pr57351.c: New test
+
+2013-05-23  Vidya Praveen <vidyapraveen@arm.com>
+
+	* gcc.target/aarch64/vect-clz.c: New file.
+
+2013-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/57347
+	* gcc.dg/ipa/pr57347.c: New test.
+
+2013-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57380
+	* g++.dg/tree-ssa/pr57380.C: New testcase.
+
+2013-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57381
+	* gcc.dg/torture/pr57381.c: New testcase.
+
+2013-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/57344
+	* gcc.c-torture/execute/pr57344-1.c: New test.
+	* gcc.c-torture/execute/pr57344-2.c: New test.
+	* gcc.c-torture/execute/pr57344-3.c: New test.
+	* gcc.c-torture/execute/pr57344-4.c: New test.
+
+2013-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/57341
+	* gcc.dg/torture/pr57341.c: New testcase.
+
+2013-05-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57352
+	* g++.dg/parse/crash62.C: New.
+
+2013-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/crypto-builtin-1.c: New file, test for power8
+	crypto builtins.
+
 2013-05-22  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/57364
