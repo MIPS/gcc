@@ -1294,7 +1294,7 @@ DEFHOOK
 (mpx_bound_type,
  "Return type to be used for bounds",
  tree, (void),
- hook_tree_uint_null)
+ hook_tree_void_null)
 
 /* Bounds mode MPX should use.  */
 DEFHOOK
