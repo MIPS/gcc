@@ -265,7 +265,7 @@ CXX_PRETTY_PRINT_H = cp/cxx-pretty-print.h $(C_PRETTY_PRINT_H)
 
 cp/lex.o: cp/lex.c $(CXX_TREE_H) $(TM_H) $(FLAGS_H) \
   $(C_PRAGMA_H) input.h cp/operators.def $(TM_P_H) \
-  c-family/c-objc.h
+  c-family/c-objc.h cp/abi-instr.h
 cp/cp-lang.o: cp/cp-lang.c $(CXX_TREE_H) $(TM_H) debug.h langhooks.h \
   $(LANGHOOKS_DEF_H) $(C_COMMON_H) gtype-cp.h gt-cp-cp-lang.h \
   cp/cp-objcp-common.h $(EXPR_H) $(TARGET_H) $(CXX_PARSER_H)
@@ -274,7 +274,7 @@ cp/decl.o: cp/decl.c $(CXX_TREE_H) $(TM_H) $(FLAGS_H) cp/decl.h \
   cp/operators.def $(TM_P_H) $(TREE_INLINE_H) $(DIAGNOSTIC_H) $(C_PRAGMA_H) \
   debug.h gt-cp-decl.h $(TIMEVAR_H) $(TARGET_H) $(PLUGIN_H) \
   intl.h tree-iterator.h pointer-set.h $(SPLAY_TREE_H) \
-  c-family/c-objc.h
+  c-family/c-objc.h cp/abi-instr.h
 cp/decl2.o: cp/decl2.c $(CXX_TREE_H) $(TM_H) $(FLAGS_H) cp/decl.h \
   toplev.h $(C_COMMON_H) gt-cp-decl2.h $(CGRAPH_H) \
   $(C_PRAGMA_H) dumpfile.h intl.h $(TARGET_H) $(GIMPLE_H) pointer-set.h \
@@ -346,4 +346,4 @@ cp/name-lookup.o: cp/name-lookup.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 cp/cxx-pretty-print.o: cp/cxx-pretty-print.c $(CXX_PRETTY_PRINT_H) \
   $(CONFIG_H) $(SYSTEM_H) $(TM_H) coretypes.h $(CXX_TREE_H) tree-pretty-print.h
 
-cp/abi-instr.o: cp/abi-instr.c $(CONFIG_H)
+cp/abi-instr.o: cp/abi-instr.cc $(CONFIG_H) cp/abi-instr.h

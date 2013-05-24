@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-objc.h"
 #include "tm_p.h"
 #include "timevar.h"
+#include "abi-instr.h"
 
 static int interface_strcmp (const char *);
 static void init_cp_pragma (void);
@@ -85,6 +86,8 @@ void
 cxx_finish (void)
 {
   c_common_finish ();
+  if (flag_dump_abi)
+    abi_instr_finish();
 }
 
 /* A mapping from tree codes to operator name information.  */
@@ -241,6 +244,8 @@ cxx_init (void)
   init_operators ();
   init_method ();
   init_error ();
+  if (flag_dump_abi)
+    abi_instr_init ();
 
   current_function_decl = NULL;
 

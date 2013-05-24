@@ -891,6 +891,10 @@ fdump-ada-spec-slim
 C ObjC C++ ObjC++ RejectNegative Var(flag_dump_ada_spec_slim)
 Write all declarations as Ada code for the given file only
 
+fdump-abi
+C++ Var(flag_dump_abi)
+Dump the ABI of the translation unit to a file
+
 felide-constructors
 C++ ObjC++ Var(flag_elide_constructors) Init(1)
 

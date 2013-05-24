@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "plugin.h"
 #include "cgraph.h"
+#include "abi-instr.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -869,6 +870,8 @@ wrapup_globals_for_namespace (tree name_space, void* data)
     {
       check_global_declarations (vec, len);
       emit_debug_global_declarations (vec, len);
+      if (flag_dump_abi)
+	abi_instr_emit_vars (vec, len);
       return 0;
     }
 
