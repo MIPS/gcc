@@ -1,3 +1,10 @@
+2013-05-24  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/power8.md (): Modify DU_cracked_power8/DU_first_power8
+	reservations and update uses.
+	(power8-branch): Remove du7_power8 from reservations.
+	* config/rs6000/rs6000.md: Include power8.md.
+				
 2013-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 199211.

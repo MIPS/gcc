@@ -35,9 +35,14 @@
 		    "du0_power8|du1_power8|du2_power8|du3_power8|du4_power8|\
 		     du5_power8")
 
-; Cracked instructions that are first in group
-(define_reservation "DU_first_power8"
+; 2-way Cracked instructions go in slots 0-1
+;   (can also have a second in slots 3-4 if insns are adjacent)
+(define_reservation "DU_cracked_power8"
 		    "du0_power8+du1_power8")
+
+; Insns that are first in group
+(define_reservation "DU_first_power8"
+		    "du0_power8")
 
 ; Insns that are first and last in group
 (define_reservation "DU_both_power8"
@@ -81,12 +86,12 @@
 (define_insn_reservation "power8-load-update" 3
   (and (eq_attr "type" "load_u,load_ux")
        (eq_attr "cpu" "power8"))
-  "DU_first_power8,LU_or_LSU_power8+FXU_power8")
+  "DU_cracked_power8,LU_or_LSU_power8+FXU_power8")
 
 (define_insn_reservation "power8-load-ext" 3
   (and (eq_attr "type" "load_ext")
        (eq_attr "cpu" "power8"))
-  "DU_first_power8,LU_or_LSU_power8,FXU_power8")
+  "DU_cracked_power8,LU_or_LSU_power8,FXU_power8")
 
 (define_insn_reservation "power8-load-ext-update" 3
   (and (eq_attr "type" "load_ext_u,load_ext_ux")
@@ -101,22 +106,17 @@
 (define_insn_reservation "power8-fpload-update" 5
   (and (eq_attr "type" "fpload_u,fpload_ux")
        (eq_attr "cpu" "power8"))
-  "DU_first_power8,LU_power8+FXU_power8")
+  "DU_cracked_power8,LU_power8+FXU_power8")
 
 (define_insn_reservation "power8-store" 5 ; store-forwarding latency
-  (and (eq_attr "type" "store")
+  (and (eq_attr "type" "store,store_u")
        (eq_attr "cpu" "power8"))
   "DU_any_power8,LSU_power8+LU_power8")
-
-(define_insn_reservation "power8-store-update" 5
-  (and (eq_attr "type" "store_u")
-       (eq_attr "cpu" "power8"))
-  "DU_any_power8,LSU_power8+LU_power8") ; No FXU for update-form stores?
 
 (define_insn_reservation "power8-store-update-indexed" 5
   (and (eq_attr "type" "store_ux")
        (eq_attr "cpu" "power8"))
-  "DU_first_power8,LSU_power8+LU_power8")
+  "DU_cracked_power8,LSU_power8+LU_power8")
 
 (define_insn_reservation "power8-fpstore" 5
   (and (eq_attr "type" "fpstore")
@@ -126,12 +126,12 @@
 (define_insn_reservation "power8-fpstore-update" 5
   (and (eq_attr "type" "fpstore_u,fpstore_ux")
        (eq_attr "cpu" "power8"))
-  "DU_any_power8,LSU_power8+VSU_power8+FXU_power8")
+  "DU_any_power8,LSU_power8+VSU_power8")
 
 (define_insn_reservation "power8-vecstore" 5
   (and (eq_attr "type" "vecstore")
        (eq_attr "cpu" "power8"))
-  "DU_first_power8,LSU_power8+VSU_power8")
+  "DU_cracked_power8,LSU_power8+VSU_power8")
 
 (define_insn_reservation "power8-larx" 3
   (and (eq_attr "type" "load_l")
@@ -199,7 +199,7 @@
 (define_insn_reservation "power8-compare" 2
   (and (eq_attr "type" "compare,delayed_compare,var_delayed_compare")
        (eq_attr "cpu" "power8"))
-  "DU_first_power8,FXU_power8,FXU_power8")
+  "DU_cracked_power8,FXU_power8,FXU_power8")
 
 ; Extra cycle to LU/LSU
 (define_bypass 3 "power8-fast-compare,power8-compare"
@@ -218,7 +218,7 @@
 (define_insn_reservation "power8-mul-compare" 4
   (and (eq_attr "type" "imul_compare,lmul_compare")
        (eq_attr "cpu" "power8"))
-  "DU_first_power8,FXU_power8")
+  "DU_cracked_power8,FXU_power8")
 
 ; Extra cycle to LU/LSU
 (define_bypass 5 "power8-mul,power8-mul-compare"
@@ -243,7 +243,7 @@
 (define_insn_reservation "power8-mtjmpr" 5
   (and (eq_attr "type" "mtjmpr")
        (eq_attr "cpu" "power8"))
-  "du0_power8,FXU_power8")
+  "DU_first_power8,FXU_power8")
 
 ; Should differentiate between 1 cr field and > 1 since mtocrf is not microcode
 (define_insn_reservation "power8-mtcr" 3
@@ -256,12 +256,12 @@
 (define_insn_reservation "power8-mfjmpr" 5
   (and (eq_attr "type" "mfjmpr")
        (eq_attr "cpu" "power8"))
-  "du0_power8,cru_power8+FXU_power8")
+  "DU_first_power8,cru_power8+FXU_power8")
 
 (define_insn_reservation "power8-crlogical" 3
   (and (eq_attr "type" "cr_logical,delayed_cr")
        (eq_attr "cpu" "power8"))
-  "du0_power8,cru_power8")
+  "DU_first_power8,cru_power8")
 
 (define_insn_reservation "power8-mfcr" 5
   (and (eq_attr "type" "mfcr")
@@ -271,7 +271,7 @@
 (define_insn_reservation "power8-mfcrf" 3
   (and (eq_attr "type" "mfcrf")
        (eq_attr "cpu" "power8"))
-  "du0_power8,cru_power8")
+  "DU_first_power8,cru_power8")
 
 
 ; BR Unit
@@ -280,16 +280,14 @@
 (define_insn_reservation "power8-branch" 3
   (and (eq_attr "type" "jmpreg,branch")
        (eq_attr "cpu" "power8"))
-  "(du7_power8\
-   |du6_power8+du7_power8\
-   |du5_power8+du6_power8+du7_power8\
-   |du4_power8+du5_power8+du6_power8+du7_power8\
-   |du3_power8+du4_power8+du5_power8+du6_power8+du7_power8\
-   |du2_power8+du3_power8+du4_power8+du5_power8+du6_power8+du7_power8\
-   |du1_power8+du2_power8+du3_power8+du4_power8+du5_power8+du6_power8+\
-    du7_power8\
+  "(du6_power8\
+   |du5_power8+du6_power8\
+   |du4_power8+du5_power8+du6_power8\
+   |du3_power8+du4_power8+du5_power8+du6_power8\
+   |du2_power8+du3_power8+du4_power8+du5_power8+du6_power8\
+   |du1_power8+du2_power8+du3_power8+du4_power8+du5_power8+du6_power8\
    |du0_power8+du1_power8+du2_power8+du3_power8+du4_power8+du5_power8+\
-    du6_power8+du7_power8),bpu_power8")
+    du6_power8),bpu_power8")
 
 ; Branch updating LR/CTR feeding mf[lr|ctr]
 (define_bypass 4 "power8-branch" "power8-mfjmpr")
@@ -330,7 +328,7 @@
   "DU_any_power8,VSU_power8")
 
 (define_insn_reservation "power8-vecsimple" 2
-  (and (eq_attr "type" "vecperm,vecsimple,veccmp") ; veccmp simple op?
+  (and (eq_attr "type" "vecperm,vecsimple,veccmp")
        (eq_attr "cpu" "power8"))
   "DU_any_power8,VSU_power8")
 
@@ -343,7 +341,7 @@
 		 "power8-vecsimple,power8-veccomplex,power8-fpstore*,\
 		  power8-vecstore")
 
-(define_insn_reservation "power8-veccomplex" 8
+(define_insn_reservation "power8-veccomplex" 7
   (and (eq_attr "type" "veccomplex")
        (eq_attr "cpu" "power8"))
   "DU_any_power8,VSU_power8")
