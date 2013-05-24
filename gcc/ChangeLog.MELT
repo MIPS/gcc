@@ -1,6 +1,23 @@
 
 
 
+2013-05-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-predef.list (HOOK_ALL_IPA_PASSES_START, HOOK_ALL_IPA_PASSES_END): New.
+
+	* melt-runtime.c (meltgc_all_ipa_passes_start_callback)
+	(meltgc_all_ipa_passes_end_callback): Remove functions.
+	(melt_really_initialize): Don't register_callback them.
+
+	* melt/warmelt-first.melt (class_initial_system_data): remove
+	sysdata_all_ipa_passes_start_hook &
+	sysdata_all_ipa_passes_end_hook.
+
+	* melt/warmelt-base.melt: Move *all_ipa_passes* functions.
+
+	* melt/warmelt-hooks.melt: To here. Add relevant hooks.
+
+
 2013-05-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.c (meltgc_all_passes_start_callback)

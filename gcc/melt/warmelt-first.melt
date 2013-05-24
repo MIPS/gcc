@@ -415,10 +415,6 @@ don't instanciate this class!}#
 	   sysdata_dumpfile		;raw file for dump_file
 	   sysdata_pre_genericize       ;closure to be called for PLUGIN_PRE_GENERICIZE:
 					;look at gcc/c-decl.c.
-	   sysdata_unit_starter		;closure to be called at
-					;compilation unit start
-	   sysdata_unit_finisher	;closure to be called at
-					;compilation unit end
 	   sysdata_option_set 		;closure to set a MELT option
 	   sysdata_passexec_hook	;internal closure if any to be
 					;called using PLUGIN_PASS_EXECUTION
@@ -434,8 +430,8 @@ don't instanciate this class!}#
 	   sysdata_finishdecl_hook	;a closure for PLUGIN_FINISH_DECL
 	   sysdata_all_passes_start_hook	;closure for PLUGIN_ALL_PASSES_START
 	   sysdata_all_passes_end_hook		;closure for PLUGIN_ALL_PASSES_END
-	   sysdata_all_ipa_passes_start_hook	;closure for PLUGIN_ALL_IPA_PASSES_START
-	   sysdata_all_ipa_passes_end_hook	;closure for PLUGIN_ALL_IPA_PASSES_END
+	   ;sysdata_all_ipa_passes_start_hook	;obsolete
+	   ;sysdata_all_ipa_passes_end_hook	;obsolete
 	   sysdata_early_gimple_passes_start_hook ;closure for PLUGIN_EARLY_GIMPLE_PASSES_START
 	   sysdata_early_gimple_passes_end_hook ;closure for PLUGIN_EARLY_GIMPLE_PASSES_END
 	   ;;
@@ -3490,8 +3486,6 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_stdout ()			;initialized later
   :sysdata_stderr ()			;initialized later
   :sysdata_dumpfile ()			;initialized later
-  :sysdata_unit_starter ()		;obsolete
-  :sysdata_unit_finisher ()		;obsolete
   :sysdata_option_set init_optionsetter
   :sysdata_passexec_hook ()		;initialized later, lazily
   :sysdata_meltpass_after_hook () 	;initialized lazily

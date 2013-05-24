@@ -8766,47 +8766,6 @@ melt_pre_genericize_callback (void *ptr_fndecl,
 
 
 
-/* the plugin callback when starting a compilation unit */
-static void
-melt_startunit_callback(void *gcc_data ATTRIBUTE_UNUSED,
-                        void* user_data ATTRIBUTE_UNUSED)
-{
-  MELT_ENTERFRAME (1, NULL);
-#define staclosv meltfram__.mcfr_varptr[0]
-  MELT_LOCATION_HERE ("melt_startunit_callback");
-  MELT_CHECK_SIGNAL ();
-  staclosv = melt_get_inisysdata (MELTFIELD_SYSDATA_UNIT_STARTER);
-  if (melt_magic_discr ((melt_ptr_t) staclosv) == MELTOBMAG_CLOSURE) {
-    (void) melt_apply ((meltclosure_ptr_t) staclosv,
-                       (melt_ptr_t) NULL, "", NULL, "", NULL);
-  }
-  MELT_EXITFRAME ();
-#undef staclosv
-}
-
-
-/* the plugin callback when finishing a compilation unit */
-static void
-melt_finishunit_callback(void *gcc_data ATTRIBUTE_UNUSED,
-                         void* user_data ATTRIBUTE_UNUSED)
-{
-  MELT_ENTERFRAME (1, NULL);
-#define finclosv meltfram__.mcfr_varptr[0]
-  finclosv = melt_get_inisysdata (MELTFIELD_SYSDATA_UNIT_FINISHER);
-  MELT_LOCATION_HERE ("melt_finishunit_callback");
-  MELT_CHECK_SIGNAL ();
-  if (melt_magic_discr ((melt_ptr_t) finclosv) == MELTOBMAG_CLOSURE) {
-    MELT_LOCATION_HERE
-    ("melt_finishunit_callback before applying finish unit closure");
-    (void) melt_apply ((meltclosure_ptr_t) finclosv,
-                       (melt_ptr_t) NULL, "", NULL, "", NULL);
-  }
-  /* Always force a minor GC to be sure nothing stays in young region */
-  melt_garbcoll (0, MELT_ONLY_MINOR);
-  debugeprintf ("ending melt_finishunit_callback meltnbgc %ld", melt_nb_garbcoll);
-  MELT_EXITFRAME ();
-#undef finclosv
-}
 
 /* The plugin callback for pass execution.  */
 static void
@@ -8872,57 +8831,6 @@ melt_finishall_callback(void *gcc_data ATTRIBUTE_UNUSED,
 {
   debugeprintf ("melt_finishall_callback melt_nb_garbcoll=%ld", melt_nb_garbcoll);
   melt_do_finalize ();
-}
-
-
-/*****
- * Support for PLUGIN_ALL_IPA_PASSES_START; invoked in file
- * cgraphunit.c function ipa_passes
- *****/
-static void
-meltgc_all_ipa_passes_start_callback (void *gcc_data ATTRIBUTE_UNUSED,
-                                      void* user_data ATTRIBUTE_UNUSED)
-{
-  MELT_ENTERFRAME (1, NULL);
-#define closv     meltfram__.mcfr_varptr[0]
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_ALL_IPA_PASSES_START_HOOK);
-  if (closv && melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE) {
-    MELT_LOCATION_HERE ("all_ipa_passes_start_callback applying");
-    debugeprintf ("before applying all_ipa_passes_start_callback closv=%p", 
-		  (void*) closv);
-    (void) melt_apply ((meltclosure_ptr_t) closv, NULL,
-                       "", NULL, "", NULL);
-    debugeprintf ("after applying all_ipa_passes_start_callback closv=%p", 
-		  (void*) closv);
-  }
-  MELT_EXITFRAME ();
-#undef closv
-}
-
-
-
-/*****
- * Support for PLUGIN_ALL_IPA_PASSES_END; invoked in file
- * cgraphunit.c function ipa_passes
- *****/
-static void
-meltgc_all_ipa_passes_end_callback (void *gcc_data ATTRIBUTE_UNUSED,
-                                    void* user_data ATTRIBUTE_UNUSED)
-{
-  MELT_ENTERFRAME (1, NULL);
-#define closv     meltfram__.mcfr_varptr[0]
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_ALL_IPA_PASSES_END_HOOK);
-  if (closv && melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE) {
-    MELT_LOCATION_HERE ("all_ipa_passes_end_callback applying");
-    debugeprintf ("before applying all_ipa_passes_end_callback closv=%p", 
-		  (void*) closv);
-    (void) melt_apply ((meltclosure_ptr_t) closv, NULL,
-                       "", NULL, "", NULL);
-    debugeprintf ("after applying all_ipa_passes_end_callback closv=%p", 
-		  (void*) closv);
-  }
-  MELT_EXITFRAME ();
-#undef closv
 }
 
 
@@ -11238,12 +11146,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
                      melt_pre_genericize_callback, NULL);
   register_callback (melt_plugin_name, PLUGIN_FINISH,
                      melt_finishall_callback,
-                     NULL);
-  register_callback (melt_plugin_name, PLUGIN_ALL_IPA_PASSES_START,
-                     meltgc_all_ipa_passes_start_callback,
-                     NULL);
-  register_callback (melt_plugin_name, PLUGIN_ALL_IPA_PASSES_END,
-                     meltgc_all_ipa_passes_end_callback,
                      NULL);
   register_callback (melt_plugin_name, PLUGIN_EARLY_GIMPLE_PASSES_START,
                      meltgc_early_gimple_passes_start_callback,

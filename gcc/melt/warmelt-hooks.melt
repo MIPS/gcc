@@ -388,6 +388,9 @@ bool MELT_MODULE_VISIBILITY  melthk_finish_unit_registered_flag;
 	      )
 	 (unsafe_put_fields rescont :referenced_value nextres)
 	 )))
+;;; force a minor GC to ensure nothing stays in the young region
+    (code_chunk finishunitminorgc_chk 
+		#{/*hook_finish_unit $FINISHUNITMINORGC_CHK*/ melt_garbcoll (0, MELT_ONLY_MINOR)}#)
     ))
 
 
@@ -494,13 +497,13 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag
 
 (cheader #{ 
  void MELT_MODULE_VISIBILITY 
-    melt_allpassesstarthook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+    melt_all_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 				 void* user_data ATTRIBUTE_UNUSED);
  }#)
 
 (cimplement #{
  void 
- melt_allpassesstarthook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+ melt_all_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
     melthookproc_HOOK_ALL_PASSES_START ();
@@ -514,7 +517,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag
      if (!melthk_all_passes_start_registered_flag) {
        melthk_all_passes_start_registered_flag = true;
        register_callback (melt_plugin_name, PLUGIN_ALL_PASSES_START,
-			  melt_allpassesstarthook_callback,
+			  melt_all_passes_start_hook_callback,
 			  NULL);
      }
    }#
@@ -617,13 +620,13 @@ bool  melthk_all_passes_end_registered_flag;
 
 (cheader #{ 
  void MELT_MODULE_VISIBILITY 
-    melt_allpassesendhook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+    melt_all_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 				 void* user_data ATTRIBUTE_UNUSED);
  }#)
 
 (cimplement #{
  void 
- melt_allpassesendhook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+ melt_all_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
     melthookproc_HOOK_ALL_PASSES_END ();
@@ -637,7 +640,7 @@ bool  melthk_all_passes_end_registered_flag;
      if (!melthk_all_passes_end_registered_flag) {
        melthk_all_passes_end_registered_flag = true; 
        register_callback (melt_plugin_name, PLUGIN_ALL_PASSES_END,
-			  melt_allpassesendhook_callback,
+			  melt_all_passes_end_hook_callback,
                           NULL);
      } 
    }#
@@ -686,8 +689,258 @@ bool  melthk_all_passes_end_registered_flag;
 	)
     ;; fun not a closure
       (errormsg_plain
-        "Bad function (non closure) passed to register_all_passes_end_hook_last")
+        "Bad function (non closure) passed to register_all_passes_end_last")
     ))
+
+
+;;;====================================================================
+;;;****************** ALL_IPA_PASSES_START plugin event *******************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; handling PLUGIN_ALL_IPA_PASSES_START
+;; private all_ipa_passes_start handling queue
+(definstance all_ipa_passes_start_delayed_queue class_delayed_queue
+  :named_name '"all_ipa_passes_start_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+(cheader #{/* flag for PLUGIN_ALL_IPA_PASSES_START declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_start_registered_flag;
+}#)
+(cimplement  #{/* flag for PLUGIN_ALL_IPA_PASSES_START define */
+ bool melthk_all_ipa_passes_start_registered_flag;
+}#)
+
+;; internal hook for PLUGIN_ALL_IPA_PASSES_START 
+(defhook hook_all_ipa_passes_start () () :void
+  :predef HOOK_ALL_IPA_PASSES_START
+  (let ( (firstlist (get_field :delqu_first all_ipa_passes_start_delayed_queue))
+	 (lastlist (get_field :delqu_last all_ipa_passes_start_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res ())
+	 )
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (firstpair firstproc)
+     (setq res (firstproc res))
+     )
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (lastpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+    (if lastlist 
+	(foreach_in_list
+	 (revlastlist)
+	 (revlastpair revlastproc)
+	 (setq res (revlastproc res))
+    ))))
+
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_all_ipa_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_all_ipa_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+ #warning should call melthookproc_HOOK_ALL_IPA_PASSES_START ();
+ }
+ }#)
+
+(defun enable_all_ipa_passes_start ()
+  (code_chunk 
+   enallpassesstart_chk
+   #{ /* enable_all_ipa_passes_start $ENALLPASSESSTART_CHK */
+     if (!melthk_all_ipa_passes_start_registered_flag) {
+       melthk_all_ipa_passes_start_registered_flag = true;
+       register_callback (melt_plugin_name, PLUGIN_ALL_IPA_PASSES_START,
+			  melt_all_ipa_passes_start_hook_callback,
+			  NULL);
+     }
+   }#
+  ))
+
+(defun register_all_ipa_passes_start_first (fun)
+  :doc #{Use $REGISTER_ALL_IPA_PASSES_START_FIRST to register a function $FUN to
+  be run at PLUGIN_ALL_IPA_PASSES_START, in first place.  $FUN must be a closure
+  which takes no arguments and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (firstlist (get_field :delqu_first all_ipa_passes_start_delayed_queue))
+	    )
+	(enable_all_ipa_passes_start)
+	(if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        all_ipa_passes_start_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+	(list_append firstlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_ipa_passes_start_hook_first")
+    ))
+
+(defun register_all_ipa_passes_start_last (fun)
+  :doc #{Use $REGISTER_ALL_IPA_PASSES_START_LAST to register a function $FUN to
+  be run at PLUGIN_ALL_IPA_PASSES_START, in last place.  $FUN must be a closure
+  which takes no argument and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (lastlist (get_field :delqu_last all_ipa_passes_start_delayed_queue))
+	    )
+	(enable_all_ipa_passes_start)
+	(if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+	        all_ipa_passes_start_delayed_queue
+	        :delqu_first (make_list discr_list)
+	        :delqu_last lastlist)
+	      ))
+	(list_append lastlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_ipa_passes_start_hook_last")
+    ))
+
+
+;;;====================================================================
+;;;****************** ALL_IPA_PASSES_END plugin event *******************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+(cheader #{/* flag for PLUGIN_ALL_IPA_PASSES_END declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_end_registered_flag;
+}#)
+(cimplement #{/* flag for PLUGIN_ALL_IPA_PASSES_END define */
+bool  melthk_all_ipa_passes_end_registered_flag;
+}#)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; handling PLUGIN_ALL_IPA_PASSES_END
+;; private all_ipa_passes_end handling queue
+(definstance all_ipa_passes_end_delayed_queue class_delayed_queue
+  :named_name '"all_ipa_passes_end_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+;; internal private hook for PLUGIN_ALL_IPA_PASSES_END 
+(defhook hook_all_ipa_passes_end () () :void
+  :predef HOOK_ALL_IPA_PASSES_END
+  (let ( (firstlist (get_field :delqu_first all_ipa_passes_end_delayed_queue))
+	 (lastlist (get_field :delqu_last all_ipa_passes_end_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res ())
+	 )
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (firstpair firstproc)
+     (setq res (firstproc res))
+     )
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (lastpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+    (foreach_in_list
+     (revlastlist)
+     (revlastpair revlastproc)
+     (setq res (revlastproc res))
+    )))
+
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_all_ipa_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_all_ipa_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+#warning should call    melthookproc_HOOK_ALL_IPA_PASSES_END ();
+ }
+ }#)
+
+(defun enable_all_ipa_passes_end ()
+  (code_chunk 
+   enallpassesend_chk
+   #{ /* enable_all_ipa_passes_end $ENALLPASSESEND_CHK */
+     if (!melthk_all_ipa_passes_end_registered_flag) {
+       melthk_all_ipa_passes_end_registered_flag = true; 
+       register_callback (melt_plugin_name, PLUGIN_ALL_IPA_PASSES_END,
+			  melt_all_ipa_passes_end_hook_callback,
+                          NULL);
+     } 
+   }#
+  ))
+
+(defun register_all_ipa_passes_end_first (fun)
+  :doc #{Use $REGISTER_ALL_IPA_PASSES_END_FIRST to register a function $FUN to
+  be run at PLUGIN_ALL_IPA_PASSES_END, in first place.  $FUN must be a closure
+  which takes no argument and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (firstlist (get_field :delqu_first all_ipa_passes_end_delayed_queue))
+	    )
+	(enable_all_ipa_passes_end)
+	(if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        all_ipa_passes_end_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+	(list_append firstlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_ipa_passes_end_first")
+    ))
+
+(defun register_all_ipa_passes_end_last (fun)
+  :doc #{Use $REGISTER_ALL_IPA_PASSES_END_LAST to register a function $FUN to
+  be run at PLUGIN_ALL_IPA_PASSES_END, in last place.  $FUN must be a closure
+  which takes no arguments and whose result is ignored.}#
+  (if (is_closure fun)
+      (let ( (lastlist (get_field :delqu_last all_ipa_passes_end_delayed_queue))
+	    )
+	(enable_all_ipa_passes_end)
+	(if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+	        all_ipa_passes_end_delayed_queue
+	        :delqu_first (make_list discr_list)
+	        :delqu_last lastlist)
+	      ))
+	(list_append lastlist fun)
+	)
+    ;; fun not a closure
+      (errormsg_plain
+        "Bad function (non closure) passed to register_all_ipa_passes_end_last")
+    ))
+
+
+;;;=====================================================================
+;;;******************* PRE_GENERICIZE plugin event *********************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -701,6 +954,10 @@ bool  melthk_all_passes_end_registered_flag;
   hook_low_debug_value_at
   register_override_gate_first
   register_override_gate_last
+  register_all_ipa_passes_end_first
+  register_all_ipa_passes_end_last
+  register_all_ipa_passes_start_first
+  register_all_ipa_passes_start_last
   register_all_passes_end_first
   register_all_passes_end_last
   register_all_passes_start_first
