@@ -38,7 +38,7 @@ using std::tr1::shared_ptr;
 using std::tr1::unordered_map;
 using std::string;
 
-struct tree_hash
+struct type_or_decl_hash
 {
   size_t
   operator () (const_tree t) const
@@ -47,94 +47,152 @@ struct tree_hash
       return 0;
     if (TYPE_P (t))
       return TYPE_HASH (t);
+
+    char tclass = TREE_CODE_CLASS (TREE_CODE (t));
+    gcc_assert (tclass == tcc_declaration);
     return iterative_hash_expr (t, 0);
   }
 };
 
-
-struct tree_equal
+struct type_or_decl_equal
 {
   bool
   operator () (const_tree t0, const_tree t1) const
   {
+    if (TYPE_P (t0))
+      return same_type_p (CONST_CAST_TREE (t0), CONST_CAST_TREE (t1));
     return operand_equal_p (t0, t1, 0);
   }
 };
 
 typedef unordered_map <const_tree,
 		       shared_ptr <abigail::scope_decl>,
-		       tree_hash, tree_equal> tree_scope_decl_map;
+		       type_or_decl_hash, type_or_decl_equal> scope_map;
 
-static shared_ptr <abigail::translation_unit> tu;
-static shared_ptr<abigail::config> conf;
-static shared_ptr <tree_scope_decl_map> tree_2_scope_map;
+typedef unordered_map <const_tree,
+		       shared_ptr <abigail::type_base>,
+		       type_or_decl_hash,
+		       type_or_decl_equal>  type_map;
 
+typedef unordered_map <const_tree,
+		       shared_ptr <abigail::decl_base>,
+		       type_or_decl_hash,
+		       type_or_decl_equal> decl_map;
+
+static abigail::translation_unit	*tu;
+static abigail::config			*conf;
+static scope_map			*tree_2_scope_map;
+static type_map			*tree_2_type_map;
+static decl_map			*tree_2_decl_map;
+
+static void deallocate_stuff ();
+static abigail::translation_unit& get_cur_tu ();
+static const abigail::config& get_conf ();
+static scope_map& get_tree_2_scope_map ();
+static type_map& get_tree_2_type_map ();
+static shared_ptr<abigail::scope_decl> gen_scope_of (const_tree );
+static abigail::decl_base::visibility convert_visibility (symbol_visibility);
+static abigail::location convert_location (source_location);
+static abigail::decl_base::visibility get_decl_visibility (const_tree);
+static abigail::location get_location (const_tree);
+static abigail::decl_base::binding get_decl_binding (const_tree);
+static shared_ptr <abigail::scope_decl> gen_scope_decl (const_tree,
+							shared_ptr <abigail::scope_decl>);
+static shared_ptr<abigail::type_base> gen_type_in_scope (const_tree,
+							 shared_ptr <abigail::scope_decl>);
+static shared_ptr<abigail::type_base> gen_type (const_tree);
+static shared_ptr<abigail::decl_base> gen_decl_in_scope (const_tree,
+							shared_ptr <abigail::scope_decl>);
+static shared_ptr<abigail::decl_base> gen_decl(const_tree);
+
+// Deallocate the dynamic memory used by globals in this translation unit.
 static void
 deallocate_stuff ()
 {
-  tu.reset ();
-  tree_2_scope_map.reset ();
-  conf.reset ();
+  delete tu; tu = 0;
+  delete tree_2_scope_map; tree_2_scope_map = 0;
+  delete conf; conf = 0;
+  delete tree_2_type_map; tree_2_type_map = 0;
+  delete tree_2_decl_map; tree_2_decl_map = 0;
 }
 
-void
-abi_instr_init ()
-{
-}
-
-void
-abi_instr_finish ()
-{
-  abi_instr_dump_file ();
-  deallocate_stuff ();
-}
-
+// Returns the current translation unit.  This function allocates it,
+// if necessary.
 static abigail::translation_unit&
 get_cur_tu ()
 {
   if (!tu)
-    tu.reset (new abigail::translation_unit (main_input_filename));
+    tu = new abigail::translation_unit (main_input_filename);
 
   return *tu;
 }
 
+// Returns the instance of configuration type used by the libabigail
+// library.
 static const abigail::config&
 get_conf ()
 {
   if (!conf)
-    conf.reset (new abigail::config);
+    conf = new abigail::config;
 
   return *conf;
 }
 
-static tree_scope_decl_map&
+// Allocates (if necessary) and return the map that associates trees
+// representing a scope and their matching instance of libabigail
+// scope.
+static scope_map&
 get_tree_2_scope_map ()
 {
   if (!tree_2_scope_map)
-    tree_2_scope_map.reset (new tree_scope_decl_map);
+    tree_2_scope_map = new scope_map;
 
   return *tree_2_scope_map;
 }
 
-static shared_ptr<abigail::scope_decl>
-get_scope (const_tree t)
+// Allocates (if necessary) and return the map that associates trees
+// representing a type and their matching instance of libabigail type.
+static type_map&
+get_tree_2_type_map ()
 {
-  shared_ptr<abigail::scope_decl> nil;
-  if (t == NULL_TREE)
-    return nil;
+  if (!tree_2_type_map)
+    tree_2_type_map = new type_map;
 
-  tree_scope_decl_map& s = get_tree_2_scope_map ();
-  tree_scope_decl_map::const_iterator i = s.find (t);
-  if (i == s.end ())
-    {
-      if ((TYPE_P (t) && TYPE_FILE_SCOPE_P (t))
-	  || (DECL_P (t) && DECL_FILE_SCOPE_P (t)))
-	return get_cur_tu ().get_global_scope ();
-      return shared_ptr<abigail::scope_decl> ();
-    }
-  return i->second;
+  return *tree_2_type_map;
 }
 
+// Generate (if necessary) and return an instance of libabigail scope
+// type representing the scope of T.
+static shared_ptr<abigail::scope_decl>
+gen_scope_of (const_tree t)
+{
+  shared_ptr<abigail::scope_decl> result;
+  if (t == NULL_TREE)
+    return result;
+
+  tree context = NULL_TREE;
+  if (TYPE_P (t))
+    context = TYPE_CONTEXT (t);
+  else if (DECL_P (t))
+    context = DECL_CONTEXT (t);
+
+  if (SCOPE_FILE_SCOPE_P (context))
+    return get_cur_tu ().get_global_scope ();
+
+  gcc_assert (TREE_CODE (context) == NAMESPACE_DECL
+	      || TYPE_P (context));
+
+  scope_map& m = get_tree_2_scope_map ();
+  scope_map::const_iterator i = m.find (context);
+  if (i != m.end ())
+    return i->second;
+
+  result = gen_scope_decl (context, gen_scope_of (context));
+
+  return result;
+}
+
+// Convert a symbol_visibility into a libabigail visibility.
 static abigail::decl_base::visibility
 convert_visibility (symbol_visibility v)
 {
@@ -152,17 +210,23 @@ convert_visibility (symbol_visibility v)
   return abigail::decl_base::VISIBILITY_NONE;
 }
 
+// Convert a GCC source location into an instance of libabigail
+// location.
 static abigail::location
 convert_location (source_location l)
 {
+  if (l <= BUILTINS_LOCATION)
+    return abigail::location ();
+
   expanded_location e = expand_location (l);
   return get_cur_tu ().get_loc_mgr ().create_new_location (e.file,
 							   e.line,
 							   e.column);
 }
 
+// Return a libabigail visibility of the GCC DECL.
 static abigail::decl_base::visibility
-decl_visibility (const_tree decl)
+get_decl_visibility (const_tree decl)
 {
   if (decl == NULL_TREE)
     return abigail::decl_base::VISIBILITY_NONE;
@@ -170,8 +234,9 @@ decl_visibility (const_tree decl)
   return convert_visibility (DECL_VISIBILITY (decl));
 }
 
+// Return the libabigail location of T.
 static abigail::location
-tree_location (const_tree t)
+get_location (const_tree t)
 {
   if (t != NULL_TREE)
     {
@@ -185,6 +250,7 @@ tree_location (const_tree t)
   return abigail::location ();
 }
 
+// Return the libabigail binding of DECL.
 static abigail::decl_base::binding
 get_decl_binding (const_tree decl)
 {
@@ -202,12 +268,89 @@ get_decl_binding (const_tree decl)
   return abigail::decl_base::BINDING_NONE;
 }
 
-static shared_ptr<abigail::type_decl>
-gen_basic_type_in_scope (const_tree t,
-			 shared_ptr<abigail::scope_decl> scope)
+// Generate (if necessary) and return an instance of the libabigail
+// scope decl type, for T that is supposed to be a GCC scope tree;
+// that is either a namespace or a class.  The resulting scope is
+// itself added to SCOPE.
+static shared_ptr <abigail::scope_decl>
+gen_scope_decl (const_tree t,
+		shared_ptr <abigail::scope_decl> scope)
+{
+  shared_ptr <abigail::scope_decl> result;
+  if (t == NULL_TREE
+      || (TREE_CODE (t) != NAMESPACE_DECL
+	  && !CLASS_TYPE_P (t)))
+      return result;
+
+  if (TREE_CODE (t) == NAMESPACE_DECL)
+    {
+      result.reset
+	(new abigail::namespace_decl (IDENTIFIER_POINTER (DECL_NAME (t)),
+				      get_location (t),
+				      get_decl_visibility (t)));
+      add_decl_to_scope (result, scope);
+    }
+  else
+    {
+      // FIXME: Generate class declaration here.
+    }
+  return result;
+}
+
+// Generate (if necessary) and return an instance of libabigail decl
+// for T that is supposed to be a GCC decl tree.  The resulting
+// instance of libabigail decl is added to the scope SCOPE.
+static shared_ptr <abigail::decl_base>
+gen_decl_in_scope (const_tree t,
+		   shared_ptr <abigail::scope_decl> scope)
+{
+  if (t == NULL_TREE || !DECL_P (t))
+    return shared_ptr <abigail::decl_base> ();
+
+  switch (TREE_CODE (t))
+    {
+    case VAR_DECL:
+      {
+	shared_ptr <abigail::type_base> type = gen_type (TREE_TYPE (t));
+	shared_ptr<abigail::var_decl> v
+	  (new abigail::var_decl (IDENTIFIER_POINTER (DECL_NAME (t)),
+				  type, get_location (t),
+				  IDENTIFIER_POINTER
+				  (DECL_ASSEMBLER_NAME (CONST_CAST_TREE (t))),
+				  get_decl_visibility (t),
+				  get_decl_binding (t)));
+	add_decl_to_scope (v, scope);
+	return v;
+      }
+    case NAMESPACE_DECL:
+      {
+	shared_ptr<abigail::namespace_decl> n
+	  (new abigail::namespace_decl (IDENTIFIER_POINTER (DECL_NAME (t)),
+					get_location (t),
+					get_decl_visibility (t)));
+	add_decl_to_scope (n, scope);
+	return n;
+      }
+    default:
+      break;
+    }
+  return shared_ptr <abigail::decl_base> ();
+}
+
+// Generate (if necessary) and return an instance of libabigail type
+// for T that is supposed to be a GCC type tree.  The resulting
+// libabigail type is added to the scope SCOPE.
+static shared_ptr<abigail::type_base>
+gen_type_in_scope (const_tree t,
+		   shared_ptr <abigail::scope_decl> scope)
 {
   if (t == NULL_TREE || !TYPE_P (t))
-    return shared_ptr<abigail::type_decl> ();
+    return shared_ptr <abigail::type_decl> ();
+
+  type_map& m = get_tree_2_type_map ();
+  type_map::const_iterator i = m.find (t);
+  if (i != m.end ())
+    return i->second;
 
   switch (TREE_CODE (t))
     {
@@ -216,7 +359,7 @@ gen_basic_type_in_scope (const_tree t,
     case NULLPTR_TYPE:
     case VOID_TYPE:
       {
-	abigail::location aloc = tree_location (t);
+	abigail::location aloc = get_location (t);
 
 	shared_ptr<abigail::type_decl> type_declaration
 	  (new abigail::type_decl (IDENTIFIER_POINTER
@@ -225,60 +368,92 @@ gen_basic_type_in_scope (const_tree t,
 				   TYPE_ALIGN (t), aloc,
 				   IDENTIFIER_POINTER
 				   (DECL_ASSEMBLER_NAME (TYPE_NAME (t))),
-				   decl_visibility (TYPE_NAME (t))));
+				   get_decl_visibility (TYPE_NAME (t))));
 
 	add_decl_to_scope (type_declaration, scope);
+	m[t] = type_declaration;
 	return type_declaration;
       }
     default:
       break;
     }
-  return shared_ptr<abigail::type_decl> ();
+  return shared_ptr <abigail::type_decl> ();
 }
 
-static shared_ptr<abigail::type_decl>
-gen_type_decl (const_tree t)
+// Generate (if necessary) and return an instance of libabigail decl
+// for T that is supposed to be a GCC decl tree.
+static shared_ptr<abigail::decl_base>
+gen_decl(const_tree t)
 {
-  shared_ptr<abigail::scope_decl> scope = get_scope (t);
+  shared_ptr <abigail::decl_base> result;
+  if (t == NULL_TREE)
+    return result;
+
+  gen_type (TREE_TYPE (t));
+  shared_ptr <abigail::scope_decl> scope = gen_scope_of (t);
   if (scope)
-    return gen_basic_type_in_scope (t, scope);
-  /* FIXME: if scope is null, then generate abi instr for the
-     scope.  */
-  return shared_ptr<abigail::type_decl> ();
+    result = gen_decl_in_scope (t, scope);
+
+  return result;
 }
 
-/* Build a representation of type T, in libabigail.  Return true iff
-   the type was emitted.  */
+// Generate (if necessary) and return an instance of libabigail type
+// for T that is supposed to be a GCC type tree.
+static shared_ptr<abigail::type_base>
+gen_type (const_tree t)
+{
+  shared_ptr<abigail::scope_decl> scope = gen_scope_of (t);
+  if (scope)
+    return gen_type_in_scope (t, scope);
+  return shared_ptr<abigail::type_base> ();
+}
+
+// -- The public entry points of this translation unit start here.
+
+// All initialization stuff should go here.
+void
+abi_instr_init ()
+{
+}
+
+// Anything that should be done at the very end of the life time of
+// this module should go here.
+void
+abi_instr_finish ()
+{
+  abi_instr_dump_file ();
+  deallocate_stuff ();
+}
+
+// Build a libabigail representation of type T and add it to the
+// libabigail representation of the current translation unit.  Return
+// TRUE upon successful completion, false otherwise.
 bool
 abi_instr_emit_type (const_tree t)
 {
   gcc_assert (TYPE_P (t));
 
-  return gen_type_decl (t);
+  return gen_type (t);
 }
 
+// Build a libabigail representation of the variables in the VARS
+// array and add them to the libabigail representation of the current
+// translation unit.  Return TRUE upon successful completion, false
+// otherwise.
 bool
 abi_instr_emit_vars (tree *vars, int len)
 {
   for (int i = 0; i < len; ++i)
     {
       tree var = vars[i];
-      shared_ptr<abigail::type_decl> t = gen_type_decl (TREE_TYPE (var));
-      abigail::location loc = tree_location (var);
-
-      shared_ptr<abigail::var_decl> v
-	(new abigail::var_decl (IDENTIFIER_POINTER
-				(DECL_NAME (var)),
-				t, loc,
-				IDENTIFIER_POINTER
-				(DECL_ASSEMBLER_NAME (var)),
-				decl_visibility (var),
-				get_decl_binding (var)));
-      add_decl_to_scope (v, get_scope (var));
+      if (!gen_decl (var))
+	return false;
     }
   return true;
 }
 
+// Serialize the libabigail representation of the current translation
+// unit into a file named after the name of the main input file.
 void
 abi_instr_dump_file ()
 {
