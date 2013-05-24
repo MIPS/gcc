@@ -1,59 +1,42 @@
-2013-05-23  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+2013-05-24  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
-	* gcc.dg/cilk-plus/array_notation/compile/array_test2.c: New test.
-	* gcc.dg/cilk-plus/array_notation/compile/array_test1.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/compile/array_test_ND.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/compile/builtin_func_double.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/compile/builtin_func_double2.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/compile/gather_scatter.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/compile/if_test.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/compile/sec_implicit_ex.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/decl-ptr-colon.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/dimensionless-arrays.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/fn_ptr.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/fp_triplet_values.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/gather-scatter.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/misc.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/parser_errors.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/parser_errors2.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/parser_errors3.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/parser_errors4.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/rank_mismatch.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/rank_mismatch2.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/rank_mismatch3.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/sec_implicit.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/sec_implicit2.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/sec_reduce_max_min_ind.c:
-	Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/tst_lngth.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/vla.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/an-if.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/array_test1.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/array_test2.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/array_test_ND.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/builtin_fn_custom.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/builtin_fn_mutating.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/builtin_func_double.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/builtin_func_double2.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/comma_exp.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/conditional.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/exec-once.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/exec-once2.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/gather_scatter.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/if_test.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/n-ptr-test.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/sec_implicit_ex.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/side-effects-1.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/test_builtin_return.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/test_sec_limits.c: Ditto.
-	* gcc.dg/cilk-plus/array_notation/execute/cilkplus_AN_c_execute.exp:
-	New script.
-	* gcc.dg/cilk-plus/array_notation/compile/cilkplus_AN_c_compile.exp:
-	Ditto.
-	* gcc.dg/cilk-plus/array_notation/errors/cilkplus_AN_c_errors.exp:
-	Ditto.
+	* gcc.dg/cilk-plus/AN/array_test1.c: New test.
+	* gcc.dg/cilk-plus/AN/array_test2.c: Ditto.
+	* gcc.dg/cilk-plus/AN/array_test_ND.c: Ditto.
+	* gcc.dg/cilk-plus/AN/builtin_func_double.c: Ditto.
+	* gcc.dg/cilk-plus/AN/builtin_func_double2.c: Ditto.
+	* gcc.dg/cilk-plus/AN/gather-scatter-errors.c: Ditto.
+	* gcc.dg/cilk-plus/AN/if_test.c: Ditto.
+	* gcc.dg/cilk-plus/AN/sec_implicit_ex.c: Ditto.
+	* gcc.dg/cilk-plus/AN/decl-ptr-colon.c: Ditto.
+	* gcc.dg/cilk-plus/AN/dimensionless-arrays.c: Ditto.
+	* gcc.dg/cilk-plus/AN/fn_ptr.c: Ditto.
+	* gcc.dg/cilk-plus/AN/fp_triplet_values.c: Ditto.
+	* gcc.dg/cilk-plus/AN/gather-scatter.c: Ditto.
+	* gcc.dg/cilk-plus/AN/misc.c: Ditto.
+	* gcc.dg/cilk-plus/AN/parser_errors.c: Ditto.
+	* gcc.dg/cilk-plus/AN/parser_errors2.c: Ditto.
+	* gcc.dg/cilk-plus/AN/parser_errors3.c: Ditto.
+	* gcc.dg/cilk-plus/AN/parser_errors4.c: Ditto.
+	* gcc.dg/cilk-plus/AN/rank_mismatch.c: Ditto.
+	* gcc.dg/cilk-plus/AN/rank_mismatch2.c: Ditto.
+	* gcc.dg/cilk-plus/AN/rank_mismatch3.c: Ditto.
+	* gcc.dg/cilk-plus/AN/sec_implicit.c: Ditto.
+	* gcc.dg/cilk-plus/AN/sec_implicit2.c: Ditto.
+	* gcc.dg/cilk-plus/AN/sec_reduce_max_min_ind.c: Ditto.
+	* gcc.dg/cilk-plus/AN/tst_lngth.c: Ditto.
+	* gcc.dg/cilk-plus/AN/vla.c: Ditto.
+	* gcc.dg/cilk-plus/AN/an-if.c: Ditto.
+	* gcc.dg/cilk-plus/AN/builtin_fn_custom.c: Ditto.
+	* gcc.dg/cilk-plus/AN/builtin_fn_mutating.c: Ditto.
+	* gcc.dg/cilk-plus/AN/comma_exp.c: Ditto.
+	* gcc.dg/cilk-plus/AN/conditional.c: Ditto.
+	* gcc.dg/cilk-plus/AN/exec-once.c: Ditto.
+	* gcc.dg/cilk-plus/AN/exec-once2.c: Ditto.
+	* gcc.dg/cilk-plus/AN/gather_scatter.c: Ditto.
+	* gcc.dg/cilk-plus/AN/n-ptr-test.c: Ditto.
+	* gcc.dg/cilk-plus/AN/side-effects-1.c: Ditto.
+	* gcc.dg/cilk-plus/AN/test_builtin_return.c: Ditto.
+	* gcc.dg/cilk-plus/AN/test_sec_limits.c: Ditto.
+	* gcc.dg/cilk-plus/AN/cilkplus_AN_c.exp: New script.
 
-2012-05-23  Balaji V. Iyer  <balaji.v.iyer@intel.com>
-
-	* gcc.dg/cilk-plus/array_notation: New directory and supporting
-	infrastructure.
