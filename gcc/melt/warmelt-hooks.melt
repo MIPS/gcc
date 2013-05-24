@@ -751,7 +751,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_start_registered_
  melt_all_ipa_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
- #warning should call melthookproc_HOOK_ALL_IPA_PASSES_START ();
+   melthookproc_HOOK_ALL_IPA_PASSES_START ();
  }
  }#)
 
@@ -874,7 +874,7 @@ bool  melthk_all_ipa_passes_end_registered_flag;
  melt_all_ipa_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
-#warning should call    melthookproc_HOOK_ALL_IPA_PASSES_END ();
+    melthookproc_HOOK_ALL_IPA_PASSES_END ();
  }
  }#)
 
