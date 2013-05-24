@@ -216,6 +216,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2013-05-24  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4781
+	* testsuite/lib/target-supports.exp (check_vect_support_and_set_flags):
+	Set dg-do-what-default to compile for octeon targets.
+
 2013-05-20  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.c (mips_expand_ext_as_unaligned_load):

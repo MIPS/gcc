@@ -5566,7 +5566,12 @@ proc check_vect_support_and_set_flags { } {
         if { [check_effective_target_mpaired_single] } {
             lappend DEFAULT_VECTCFLAGS "-mpaired-single"
         }
-        set dg-do-what-default run
+	# Skip octeon running target as it might not work.
+	if { [istarget *-octeon-*] } {
+            set dg-do-what-default compile
+        } else {
+            set dg-do-what-default run
+        }
     } elseif [istarget sparc*-*-*] {
         lappend DEFAULT_VECTCFLAGS "-mcpu=ultrasparc" "-mvis"
         if [check_effective_target_ultrasparc_hw] {
