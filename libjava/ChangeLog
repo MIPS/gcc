@@ -1,3 +1,26 @@
+2013-05-22  Mark Mitchell  <mark@codesourcery.com>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	* configure.ac (dbexecdir): Base on $(toolexeclibdir), not
+	$(libdir).
+	* Makefile.am (pkgconfigdir): Likewise.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* gcj/Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+
+2013-04-16  Andreas Schwab  <schwab@suse.de>
+
+	* configure.host: Add support for aarch64.
+	* sysdep/aarch64/locks.h: New file.
+
+2013-03-12  Andrew John Hughes  <gnu.andrew@redhat.com>
+
+	* include/posix-threads.h:
+	(_Jv_MutexCheckMonitor(_Jv_Mutex_t)): Use
+	pthread_equal rather than !=.
+
 2013-01-07  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* Makefile.am (lib_gnu_awt_xlib_la_LDFLAGS): Replace

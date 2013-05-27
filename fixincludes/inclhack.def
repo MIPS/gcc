@@ -617,6 +617,33 @@ fix = {
 };
 
 /*
+ *  Fix AIX definition of NULL for G++.
+ */
+fix = {
+    hackname  = aix_null;
+    mach      = "*-*-aix*";
+    files     = curses.h, dbm.h, locale.h, stdio.h, stdlib.h, string.h,
+    time.h, unistd.h, wchar.h, sys/dir.h, sys/param.h, sys/types.h;
+    bypass    = __null;
+    select    = "#define[ \t]+NULL[ \t]+\\(*0L*\\)*";
+    c_fix     = format;
+    c_fix_arg = <<- _EOFix_
+	#ifndef NULL
+	#ifdef __cplusplus
+	#ifdef __GNUG__
+	#define NULL __null
+	#else /* ! __GNUG__  */
+	#define NULL 0L
+	#endif /* __GNUG__  */
+	#else /* ! __cplusplus  */
+	#define NULL ((void *)0)
+	#endif /* __cplusplus  */
+	#endif /* !NULL  */
+	_EOFix_;
+    test_text = "# define\tNULL \t(0L)  /* typed NULL */";
+};
+
+/*
  *  pthread.h on AIX defines PTHREAD_ONCE_INIT, PTHREAD_MUTEX_INITIALIZER,
  *  PTHREAD_COND_INITIALIZER and PTHREAD_RWLOCK_INITIALIZER without enough
  *  braces.
@@ -3447,7 +3474,7 @@ fix = {
 
 
 /*
- *  The pow overloads with int were removed in C++ 2011.
+ *  The pow overloads with int were removed in C++ 2011 DR 550.
  */
 fix = {
     hackname  = solaris_pow_int_overload;
@@ -3456,7 +3483,7 @@ fix = {
     select    = "^[ \t]*inline [a-z ]* pow\\([^()]*, int [^()]*\\)"
 		" *\\{[^{}]*\n[^{}]*\\}";
     c_fix     = format;
-    c_fix_arg = "#ifndef __GXX_EXPERIMENTAL_CXX0X__\n%0\n#endif";
+    c_fix_arg = "#if __cplusplus < 201103L\n%0\n#endif";
 
     test_text =
     "	inline long double pow(long double __X, int __Y) { return\n"
@@ -4552,23 +4579,26 @@ fix = {
  */
 fix = {
     hackname  = void_null;
-    files     = curses.h;
-    files     = dbm.h;
-    files     = locale.h;
-    files     = stdio.h;
-    files     = stdlib.h;
-    files     = string.h;
-    files     = time.h;
-    files     = unistd.h;
-    files     = sys/dir.h;
-    files     = sys/param.h;
-    files     = sys/types.h;
+    files     = curses.h, dbm.h, locale.h, stdio.h, stdlib.h, string.h,
+    time.h, unistd.h, sys/dir.h, sys/param.h, sys/types.h;
     /* avoid changing C++ friendly NULL */
     bypass    = __cplusplus;
     bypass    = __null;
     select    = "^#[ \t]*define[ \t]+NULL[ \t]+\\(\\(void[ \t]*\\*\\)0\\)";
     c_fix     = format;
-    c_fix_arg = "#define NULL 0";
+    c_fix_arg = <<- _EOFix_
+	#ifndef NULL
+	#ifdef __cplusplus
+	#ifdef __GNUG__
+	#define NULL __null
+	#else /* ! __GNUG__  */
+	#define NULL 0L
+	#endif /* __GNUG__  */
+	#else /* ! __cplusplus  */
+	#define NULL ((void *)0)
+	#endif /* __cplusplus  */
+	#endif /* !NULL  */
+	_EOFix_;
     test_text = "# define\tNULL \t((void *)0)  /* typed NULL */";
 };
 
@@ -4862,6 +4892,20 @@ fix = {
     test_text = <<- _EOText_
 	  __asm__ __volatile__ ("divss %1, %0" : : "x" (__f), "x" (__g));
 	_EOText_;
+};
+
+/*
+ *  Old Linux kernel's <compiler.h> header breaks Traditional CPP
+ */
+fix = {
+    hackname  = complier_h_tradcpp;
+    files     = linux/compiler.h;
+
+    select    = "#define __builtin_warning\\(x, y\\.\\.\\.\\) \\(1\\)";
+    c_fix     = format;
+    c_fix_arg = "/* __builtin_warning(x, y...) is obsolete */";
+
+    test_text = "#define __builtin_warning(x, y...) (1)";
 };
 
 /*EOF*/

@@ -126,7 +126,6 @@ static void asm_output_aligned_bss (FILE *, tree, const char *,
 #endif /* BSS_SECTION_ASM_OP */
 static void mark_weak (tree);
 static void output_constant_pool (const char *, tree);
-static rtx output_constant_def_1 (tree, tree, int);
 
 /* Well-known sections, each one associated with some sort of *_ASM_OP.  */
 section *text_section;
@@ -403,12 +402,16 @@ get_named_section (tree decl, const char *name, int reloc)
 {
   unsigned int flags;
 
-  gcc_assert (!decl || DECL_P (decl));
   if (name == NULL)
-    name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+    {
+      gcc_assert (decl && DECL_P (decl) && DECL_SECTION_NAME (decl));
+      name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+    }
 
   flags = targetm.section_type_flags (decl, name, reloc);
 
+  if (decl && !DECL_P (decl))
+    decl = NULL_TREE;
   return get_section (name, flags, decl);
 }
 
@@ -1187,8 +1190,7 @@ make_decl_rtl (tree decl)
      pre-computed RTL or recompute it in LTO mode.  */
   if (TREE_CODE (decl) == VAR_DECL && DECL_IN_CONSTANT_POOL (decl))
     {
-      SET_DECL_RTL (decl, output_constant_def_1 (DECL_INITIAL (decl),
-						 decl, 1));
+      SET_DECL_RTL (decl, output_constant_def (DECL_INITIAL (decl), 1));
       return;
     }
 
@@ -3075,16 +3077,16 @@ get_constant_size (tree exp)
    Make a constant descriptor to enter EXP in the hash table.
    Assign the label number and construct RTL to refer to the
    constant's location in memory.
-   If DECL is non-NULL use it as VAR_DECL associated with the constant.
    Caller is responsible for updating the hash table.  */
 
 static struct constant_descriptor_tree *
-build_constant_desc (tree exp, tree decl)
+build_constant_desc (tree exp)
 {
   struct constant_descriptor_tree *desc;
   rtx symbol, rtl;
   char label[256];
   int labelno;
+  tree decl;
 
   desc = ggc_alloc_constant_descriptor_tree ();
   desc->value = copy_constant (exp);
@@ -3098,32 +3100,28 @@ build_constant_desc (tree exp, tree decl)
   ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
 
   /* Construct the VAR_DECL associated with the constant.  */
-  if (decl == NULL_TREE)
+  decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (label),
+		     TREE_TYPE (exp));
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
+  TREE_READONLY (decl) = 1;
+  TREE_STATIC (decl) = 1;
+  TREE_ADDRESSABLE (decl) = 1;
+  /* We don't set the RTL yet as this would cause varpool to assume that the
+     variable is referenced.  Moreover, it would just be dropped in LTO mode.
+     Instead we set the flag that will be recognized in make_decl_rtl.  */
+  DECL_IN_CONSTANT_POOL (decl) = 1;
+  DECL_INITIAL (decl) = desc->value;
+  /* ??? CONSTANT_ALIGNMENT hasn't been updated for vector types on most
+     architectures so use DATA_ALIGNMENT as well, except for strings.  */
+  if (TREE_CODE (exp) == STRING_CST)
     {
-      decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (label),
-			 TREE_TYPE (exp));
-      DECL_ARTIFICIAL (decl) = 1;
-      DECL_IGNORED_P (decl) = 1;
-      TREE_READONLY (decl) = 1;
-      TREE_STATIC (decl) = 1;
-      TREE_ADDRESSABLE (decl) = 1;
-      /* We don't set the RTL yet as this would cause varpool to assume that
-	 the variable is referenced.  Moreover, it would just be dropped in
-	 LTO mode.  Instead we set the flag that will be recognized in
-	 make_decl_rtl.  */
-      DECL_IN_CONSTANT_POOL (decl) = 1;
-      DECL_INITIAL (decl) = desc->value;
-      /* ??? CONSTANT_ALIGNMENT hasn't been updated for vector types on most
-	 architectures so use DATA_ALIGNMENT as well, except for strings.  */
-      if (TREE_CODE (exp) == STRING_CST)
-	{
 #ifdef CONSTANT_ALIGNMENT
-	  DECL_ALIGN (decl) = CONSTANT_ALIGNMENT (exp, DECL_ALIGN (decl));
+      DECL_ALIGN (decl) = CONSTANT_ALIGNMENT (exp, DECL_ALIGN (decl));
 #endif
-	}
-      else
-	align_variable (decl, 0);
     }
+  else
+    align_variable (decl, 0);
 
   /* Now construct the SYMBOL_REF and the MEM.  */
   if (use_object_blocks_p ())
@@ -3160,7 +3158,7 @@ build_constant_desc (tree exp, tree decl)
 }
 
 /* Return an rtx representing a reference to constant data in memory
-   for the constant expression EXP with the associated DECL.
+   for the constant expression EXP.
 
    If assembler code for such a constant has already been output,
    return an rtx to refer to it.
@@ -3172,8 +3170,8 @@ build_constant_desc (tree exp, tree decl)
 
    `const_desc_table' records which constants already have label strings.  */
 
-static rtx
-output_constant_def_1 (tree exp, tree decl, int defer)
+rtx
+output_constant_def (tree exp, int defer)
 {
   struct constant_descriptor_tree *desc;
   struct constant_descriptor_tree key;
@@ -3188,22 +3186,13 @@ output_constant_def_1 (tree exp, tree decl, int defer)
   desc = (struct constant_descriptor_tree *) *loc;
   if (desc == 0)
     {
-      desc = build_constant_desc (exp, decl);
+      desc = build_constant_desc (exp);
       desc->hash = key.hash;
       *loc = desc;
     }
 
   maybe_output_constant_def_contents (desc, defer);
   return desc->rtl;
-}
-
-/* Like output_constant_def but create a new decl representing the
-   constant if necessary.  */
-
-rtx
-output_constant_def (tree exp, int defer)
-{
-  return output_constant_def_1 (exp, NULL_TREE, defer);
 }
 
 /* Subroutine of output_constant_def: Decide whether or not we need to
@@ -3342,7 +3331,7 @@ tree_output_constant_def (tree exp)
   desc = (struct constant_descriptor_tree *) *loc;
   if (desc == 0)
     {
-      desc = build_constant_desc (exp, NULL_TREE);
+      desc = build_constant_desc (exp);
       desc->hash = key.hash;
       *loc = desc;
     }
@@ -5504,14 +5493,15 @@ do_assemble_alias (tree decl, tree target)
     }
   if (lookup_attribute ("ifunc", DECL_ATTRIBUTES (decl)))
     {
-#if defined (ASM_OUTPUT_TYPE_DIRECTIVE) && HAVE_GNU_INDIRECT_FUNCTION
-      ASM_OUTPUT_TYPE_DIRECTIVE
-	(asm_out_file, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
-	 IFUNC_ASM_TYPE);
-#else
-      error_at (DECL_SOURCE_LOCATION (decl),
-		"ifunc is not supported in this configuration");
+#if defined (ASM_OUTPUT_TYPE_DIRECTIVE)
+      if (targetm.has_ifunc_p ())
+	ASM_OUTPUT_TYPE_DIRECTIVE
+	  (asm_out_file, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)),
+	   IFUNC_ASM_TYPE);
+      else
 #endif
+	error_at (DECL_SOURCE_LOCATION (decl),
+		  "ifunc is not supported on this target");
     }
 
 # ifdef ASM_OUTPUT_DEF_FROM_DECLS
@@ -6004,7 +5994,7 @@ default_section_type_flags (tree decl, const char *name, int reloc)
 	flags |= SECTION_RELRO;
     }
 
-  if (decl && DECL_ONE_ONLY (decl))
+  if (decl && DECL_P (decl) && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
   if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))
@@ -6363,8 +6353,6 @@ default_elf_select_section (tree decl, int reloc,
       gcc_unreachable ();
     }
 
-  if (!DECL_P (decl))
-    decl = NULL_TREE;
   return get_named_section (decl, sname, reloc);
 }
 
@@ -6592,9 +6580,9 @@ default_use_anchors_for_symbol_p (const_rtx symbol)
   decl = SYMBOL_REF_DECL (symbol);
   if (decl && DECL_P (decl))
     {
-      /* Don't use section anchors for decls that might be defined by
-	 other modules.  */
-      if (!targetm.binds_local_p (decl))
+      /* Don't use section anchors for decls that might be defined or
+	 usurped by other modules.  */
+      if (TREE_PUBLIC (decl) && !decl_binds_to_current_def_p (decl))
 	return false;
 
       /* Don't use section anchors for decls that will be placed in a

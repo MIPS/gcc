@@ -90,6 +90,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
+#include "cfgloop.h"
 
 /* Per basic block info.  */
 
@@ -1131,6 +1132,8 @@ split_function (struct split_point *split_point)
       e = make_edge (new_return_bb, EXIT_BLOCK_PTR, 0);
       e->probability = REG_BR_PROB_BASE;
       e->count = new_return_bb->count;
+      if (current_loops)
+	add_bb_to_loop (new_return_bb, current_loops->tree_root);
       bitmap_set_bit (split_point->split_bbs, new_return_bb->index);
     }
   /* When we pass around the value, use existing return block.  */
@@ -1309,7 +1312,9 @@ split_function (struct split_point *split_point)
      so return slot optimization is always possible.  Moreover this is
      required to make DECL_BY_REFERENCE work.  */
   if (aggregate_value_p (DECL_RESULT (current_function_decl),
-			 TREE_TYPE (current_function_decl)))
+			 TREE_TYPE (current_function_decl))
+      && (!is_gimple_reg_type (TREE_TYPE (DECL_RESULT (current_function_decl)))
+	  || DECL_BY_REFERENCE (DECL_RESULT (current_function_decl))))
     gimple_call_set_return_slot_opt (call, true);
 
   /* Update return value.  This is bit tricky.  When we do not return,

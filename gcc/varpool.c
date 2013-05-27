@@ -86,6 +86,10 @@ dump_varpool_node (FILE *f, struct varpool_node *node)
     fprintf (f, " finalized");
   if (node->output)
     fprintf (f, " output");
+  if (TREE_READONLY (node->symbol.decl))
+    fprintf (f, " read-only");
+  if (const_value_known_p (node->symbol.decl))
+    fprintf (f, " const-value-known");
   fprintf (f, "\n");
 }
 
@@ -191,7 +195,7 @@ varpool_add_new_variable (tree decl)
   struct varpool_node *node;
   varpool_finalize_decl (decl);
   node = varpool_node_for_decl (decl);
-  if (varpool_externally_visible_p (node, false))
+  if (varpool_externally_visible_p (node))
     node->symbol.externally_visible = true;
 }
 
