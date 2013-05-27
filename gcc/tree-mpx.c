@@ -103,6 +103,7 @@ static tree mpx_find_bounds (tree ptr, gimple_stmt_iterator *iter);
 static tree mpx_find_bounds_loaded (tree ptr, tree ptr_src,
 				   gimple_stmt_iterator *iter);
 static tree mpx_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter) ATTRIBUTE_UNUSED;
+static tree mpx_find_bounds_abnormal (tree ptr, tree phi);
 static void mpx_check_mem_access (tree first, tree last, tree bounds,
 				 gimple_stmt_iterator iter,
 				 location_t location, tree dirflag);
@@ -171,6 +172,8 @@ static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
      htab_t mpx_reg_addr_bounds;
 static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
      htab_t mpx_incomplete_bounds_map;
+static GTY ((if_marked ("tree_vec_map_marked_p"), param_is (struct tree_vec_map)))
+     htab_t mpx_abnormal_phi_copies;
 
 static const char *BOUND_TMP_NAME = "__bound_tmp";
 static const char *SIZE_TMP_NAME = "__size_tmp";
@@ -535,7 +538,16 @@ mpx_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
   for (i = 0; i < gimple_phi_num_args (bounds_phi); i++)
     {
       tree ptr_arg = gimple_phi_arg_def (ptr_phi, i);
-      tree bound_arg = mpx_find_bounds (ptr_arg, NULL);
+      edge e = gimple_phi_arg_edge (ptr_phi, i);
+      tree bound_arg;
+
+      /* This bounds computation is final for the PHI node.
+	 We have to create bound copies for abnormal edges
+	 to avoid problem in SSA names coalescing.  */
+      if (e->flags & EDGE_ABNORMAL)
+	bound_arg = mpx_find_bounds_abnormal (ptr_arg, bounds);
+      else
+	bound_arg = mpx_find_bounds (ptr_arg, NULL);
 
       add_phi_arg (bounds_phi, bound_arg,
 		   gimple_phi_arg_edge (ptr_phi, i),
@@ -2936,6 +2948,83 @@ mpx_find_bounds_narrowed (tree ptr, gimple_stmt_iterator *iter)
   return mpx_find_bounds_1 (ptr, NULL_TREE, iter, true);
 }
 
+/* Search for bounds for PTR to be used in abnormal PHI node.  */
+static tree
+mpx_find_bounds_abnormal (tree ptr, tree phi)
+{
+  tree bounds = mpx_find_bounds_1 (ptr, NULL_TREE, NULL, false);
+  tree copy = NULL;
+  gimple assign;
+  gimple_stmt_iterator gsi;
+  struct tree_vec_map *found, in;
+  vec<tree, va_gc> **copies = NULL;
+  unsigned int i;
+
+  if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
+    return bounds;
+
+  /* Check for existing bound copies created for specified
+     PHI bounds.  */
+  in.base.from = phi;
+  found = (struct tree_vec_map *)
+    htab_find_with_hash (mpx_abnormal_phi_copies, &in,
+			 htab_hash_pointer (phi));
+
+  if (found)
+    {
+      copies = &found->to;
+      for (i = 0; i < (*copies)->length (); i++)
+	{
+	  tree ssa = (**copies)[i];
+	  gimple def = SSA_NAME_DEF_STMT (ssa);
+	  if (gimple_assign_rhs1 (def) == bounds)
+	    {
+	      copy = ssa;
+	      break;
+	    }
+	}
+    }
+
+  /* If copy was not found then create it and store into
+     vector of copies for PHI.  */
+  if (!copy)
+    {
+      copy = create_tmp_reg (bound_type_node, BOUND_TMP_NAME);
+      copy = make_ssa_name (copy, gimple_build_nop ());
+      assign = gimple_build_assign (copy, bounds);
+
+      if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_NOP)
+	gsi = gsi_last_bb (mpx_get_entry_block ());
+      else
+	gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (bounds));
+
+      gsi_insert_after (&gsi, assign, GSI_SAME_STMT);
+
+      if (!copies)
+	{
+	  void **loc;
+
+	  found = ggc_alloc_tree_vec_map ();
+	  found->base.from = phi;
+	  found->to = NULL;
+	  loc = htab_find_slot_with_hash (mpx_abnormal_phi_copies, found,
+					  htab_hash_pointer (phi),
+					  INSERT);
+	  *(struct tree_vec_map **) loc = found;
+
+	  copies = &found->to;
+	}
+
+      vec_safe_push (*copies, copy);
+    }
+
+  /* After bounds are replaced with their copy in abnormal PHI,
+     we do not need this flag set anymore.  */
+  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (bounds) = 0;
+
+  return copy;
+}
+
 /* Generate code to instersect bounds BOUNDS1 and BOUNDS2 and
    return the result.  if ITER is not NULL then Code is inserted
    before position pointed by ITER.  Otherwise code is added to
@@ -3721,6 +3810,8 @@ mpx_init (void)
 					htab_eq_pointer, NULL);
   mpx_completed_bounds_map = htab_create_ggc (31, htab_hash_pointer,
 					      htab_eq_pointer, NULL);
+  mpx_abnormal_phi_copies = htab_create_ggc (31, tree_vec_map_hash,
+					     tree_vec_map_eq, NULL);
 
   entry_block = NULL;
   zero_bounds = NULL_TREE;
