@@ -7321,7 +7321,7 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
      allocate memory to the destination.  */
   gfc_init_block (&block);
 
-  if (rank == 0)
+  if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (dest)))
     {
       tmp = null_pointer_node;
       tmp = fold_build2_loc (input_location, MODIFY_EXPR, type, dest, tmp);
@@ -7348,7 +7348,11 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
       null_data = gfc_finish_block (&block);
 
       gfc_init_block (&block);
-      nelems = get_full_array_size (&block, src, rank);
+      if (rank)
+	nelems = get_full_array_size (&block, src, rank);
+      else
+	nelems = gfc_index_one_node;
+
       tmp = fold_convert (gfc_array_index_type,
 			  TYPE_SIZE_UNIT (gfc_get_element_type (type)));
       size = fold_build2_loc (input_location, MULT_EXPR, gfc_array_index_type,
@@ -7374,7 +7378,7 @@ duplicate_allocatable (tree dest, tree src, tree type, int rank,
 
   /* Null the destination if the source is null; otherwise do
      the allocate and copy.  */
-  if (rank == 0)
+  if (!GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (src)))
     null_cond = src;
   else
     null_cond = gfc_conv_descriptor_data_get (src);
@@ -7547,8 +7551,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	  called_dealloc_with_status = false;
 	  gfc_init_block (&tmpblock);
 
-	  if (c->attr.allocatable
-	      && (c->attr.dimension || c->attr.codimension))
+	  if (c->attr.allocatable && (c->attr.dimension || c->attr.codimension)
+	      && !c->attr.proc_pointer)
 	    {
 	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
 				      decl, cdecl, NULL_TREE);
@@ -7582,7 +7586,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      comp = fold_build3_loc (input_location, COMPONENT_REF,
 				      TREE_TYPE (tmp), comp, tmp, NULL_TREE);
 
-	      if (GFC_DESCRIPTOR_TYPE_P(TREE_TYPE (comp)))
+	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (comp)))
 	        tmp = gfc_trans_dealloc_allocated (comp,
 					CLASS_DATA (c)->attr.codimension);
 	      else
@@ -7647,7 +7651,7 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      tmp = CLASS_DATA (c)->backend_decl;
 	      comp = fold_build3_loc (input_location, COMPONENT_REF,
 				      TREE_TYPE (tmp), comp, tmp, NULL_TREE);
-	      if (GFC_DESCRIPTOR_TYPE_P(TREE_TYPE (comp)))
+	      if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (comp)))
 		gfc_conv_descriptor_data_set (&fnblock, comp, null_pointer_node);
 	      else
 		{
@@ -7730,7 +7734,8 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 	      continue;
 	    }
 
-	  if (c->attr.allocatable && !cmp_has_alloc_comps)
+	  if (c->attr.allocatable && !c->attr.proc_pointer
+	      && !cmp_has_alloc_comps)
 	    {
 	      rank = c->as ? c->as->rank : 0;
 	      tmp = gfc_duplicate_allocatable (dcmp, comp, ctype, rank);

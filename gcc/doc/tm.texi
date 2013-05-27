@@ -260,7 +260,8 @@ line, but, unlike @code{LIBGCC_SPEC}, it is used unmodified.
 @defmac USE_LD_AS_NEEDED
 A macro that controls the modifications to @code{LIBGCC_SPEC}
 mentioned in @code{REAL_LIBGCC_SPEC}.  If nonzero, a spec will be
-generated that uses --as-needed and the shared libgcc in place of the
+generated that uses @option{--as-needed} or equivalent options and the
+shared @file{libgcc} in place of the
 static exception handler library, when linking without any of
 @code{-static}, @code{-static-libgcc}, or @code{-shared-libgcc}.
 @end defmac
@@ -2903,6 +2904,10 @@ A target hook which returns true if an address with the same structure  can have
 
 @deftypefn {Target Hook} reg_class_t TARGET_SPILL_CLASS (reg_class_t, enum @var{machine_mode})
 This hook defines a class of registers which could be used for spilling  pseudos of the given mode and class, or @code{NO_REGS} if only memory  should be used.  Not defining this hook is equivalent to returning  @code{NO_REGS} for all inputs.
+@end deftypefn
+
+@deftypefn {Target Hook} {enum machine_mode} TARGET_CSTORE_MODE (enum insn_code @var{icode})
+This hook defines the machine mode to use for the boolean result of  conditional store patterns.  The ICODE argument is the instruction code  for the cstore being performed.  Not definiting this hook is the same  as accepting the mode encoded into operand 0 of the cstore expander  patterns.
 @end deftypefn
 
 @node Old Constraints
@@ -6760,7 +6765,7 @@ Deallocate internal data in target scheduling context pointed to by @var{tc}.
 Deallocate a store for target scheduling context pointed to by @var{tc}.
 @end deftypefn
 
-@deftypefn {Target Hook} int TARGET_SCHED_SPECULATE_INSN (rtx @var{insn}, int @var{request}, rtx *@var{new_pat})
+@deftypefn {Target Hook} int TARGET_SCHED_SPECULATE_INSN (rtx @var{insn}, unsigned int @var{dep_status}, rtx *@var{new_pat})
 This hook is called by the insn scheduler when @var{insn} has only
 speculative dependencies and therefore can be scheduled speculatively.
 The hook is used to check if the pattern of @var{insn} has a speculative
@@ -6771,13 +6776,13 @@ speculation.  If the return value equals 1 then @var{new_pat} is assigned
 the generated speculative pattern.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_SCHED_NEEDS_BLOCK_P (int @var{dep_status})
+@deftypefn {Target Hook} bool TARGET_SCHED_NEEDS_BLOCK_P (unsigned int @var{dep_status})
 This hook is called by the insn scheduler during generation of recovery code
 for @var{insn}.  It should return @code{true}, if the corresponding check
 instruction should branch to recovery code, or @code{false} otherwise.
 @end deftypefn
 
-@deftypefn {Target Hook} rtx TARGET_SCHED_GEN_SPEC_CHECK (rtx @var{insn}, rtx @var{label}, int @var{mutate_p})
+@deftypefn {Target Hook} rtx TARGET_SCHED_GEN_SPEC_CHECK (rtx @var{insn}, rtx @var{label}, unsigned int @var{ds})
 This hook is called by the insn scheduler to generate a pattern for recovery
 check instruction.  If @var{mutate_p} is zero, then @var{insn} is a
 speculative instruction for which the check should be generated.
@@ -8724,7 +8729,9 @@ first argument of @code{asm_fprintf}.  This construct outputs
 @code{ASSEMBLER_DIALECT} is zero, one, two, etc.  Any special characters
 within these strings retain their usual meaning.  If there are fewer
 alternatives within the braces than the value of
-@code{ASSEMBLER_DIALECT}, the construct outputs nothing.
+@code{ASSEMBLER_DIALECT}, the construct outputs nothing. If it's needed
+to print curly braces or @samp{|} character in assembler output directly,
+@samp{%@{}, @samp{%@}} and @samp{%|} can be used.
 
 If you do not define this macro, the characters @samp{@{}, @samp{|} and
 @samp{@}} do not have any special meaning when used in templates or
@@ -8798,7 +8805,7 @@ fprintf (@var{stream}, "\t.word L%d\n", @var{value})
 Define this if the label before a jump-table needs to be output
 specially.  The first three arguments are the same as for
 @code{(*targetm.asm_out.internal_label)}; the fourth argument is the
-jump-table which follows (a @code{jump_insn} containing an
+jump-table which follows (a @code{jump_table_data} containing an
 @code{addr_vec} or @code{addr_diff_vec}).
 
 This feature is used on system V to output a @code{swbeg} statement
@@ -9038,8 +9045,8 @@ The maximum number of bytes to skip before @var{label} when applying
 @end deftypefn
 
 @defmac LOOP_ALIGN (@var{label})
-The alignment (log base 2) to put in front of @var{label}, which follows
-a @code{NOTE_INSN_LOOP_BEG} note.
+The alignment (log base 2) to put in front of @var{label} that heads
+a frequently executed basic block (usually the header of a loop).
 
 This macro need not be defined if you don't want any special alignment
 to be done at such a time.  Most machine descriptions do not currently
@@ -9848,40 +9855,40 @@ target specific attribute attached to it, it will not be inlined.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_OPTION_VALID_ATTRIBUTE_P (tree @var{fndecl}, tree @var{name}, tree @var{args}, int @var{flags})
-This hook is called to parse the @code{attribute(option("..."))}, and
-it allows the function to set different target machine compile time
-options for the current function that might be different than the
-options specified on the command line.  The hook should return
+This hook is called to parse @code{attribute(target("..."))}, which
+allows setting target-specific options on individual functions.
+These function-specific options may differ
+from the options specified on the command line.  The hook should return
 @code{true} if the options are valid.
 
-The hook should set the @var{DECL_FUNCTION_SPECIFIC_TARGET} field in
-the function declaration to hold a pointer to a target specific
-@var{struct cl_target_option} structure.
+The hook should set the @code{DECL_FUNCTION_SPECIFIC_TARGET} field in
+the function declaration to hold a pointer to a target-specific
+@code{struct cl_target_option} structure.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_OPTION_SAVE (struct cl_target_option *@var{ptr})
-This hook is called to save any additional target specific information
-in the @var{struct cl_target_option} structure for function specific
+This hook is called to save any additional target-specific information
+in the @code{struct cl_target_option} structure for function-specific
 options.
 @xref{Option file format}.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_OPTION_RESTORE (struct cl_target_option *@var{ptr})
-This hook is called to restore any additional target specific
-information in the @var{struct cl_target_option} structure for
-function specific options.
+This hook is called to restore any additional target-specific
+information in the @code{struct cl_target_option} structure for
+function-specific options.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_OPTION_PRINT (FILE *@var{file}, int @var{indent}, struct cl_target_option *@var{ptr})
-This hook is called to print any additional target specific
-information in the @var{struct cl_target_option} structure for
-function specific options.
+This hook is called to print any additional target-specific
+information in the @code{struct cl_target_option} structure for
+function-specific options.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_OPTION_PRAGMA_PARSE (tree @var{args}, tree @var{pop_target})
-This target hook parses the options for @code{#pragma GCC option} to
-set the machine specific options for functions that occur later in the
-input stream.  The options should be the same as handled by the
+This target hook parses the options for @code{#pragma GCC target}, which
+sets the target-specific options for functions that occur later in the
+input stream.  The options accepted should be the same as those handled by the
 @code{TARGET_OPTION_VALID_ATTRIBUTE_P} hook.
 @end deftypefn
 
@@ -10926,8 +10933,16 @@ Fold a call to a machine specific built-in function that was set up by
 @samp{TARGET_INIT_BUILTINS}.  @var{fndecl} is the declaration of the
 built-in function.  @var{n_args} is the number of arguments passed to
 the function; the arguments themselves are pointed to by @var{argp}.
-The result is another tree containing a simplified expression for the
-call's result.  If @var{ignore} is true the value will be ignored.
+The result is another tree, valid for both GIMPLE and GENERIC,
+containing a simplified expression for the call's result.  If
+@var{ignore} is true the value will be ignored.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_GIMPLE_FOLD_BUILTIN (gimple_stmt_iterator *@var{gsi})
+Fold a call to a machine specific built-in function that was set up
+by @samp{TARGET_INIT_BUILTINS}.  @var{gsi} points to the gimple
+statement holding the function call.  Returns true if any change
+was made to the GIMPLE stream.
 @end deftypefn
 
 @deftypefn {Target Hook} int TARGET_COMPARE_VERSION_PRIORITY (tree @var{decl1}, tree @var{decl2})
@@ -11341,3 +11356,9 @@ memory model bits are allowed.
 @deftypevr {Target Hook} {unsigned char} TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
 This value should be set if the result written by @code{atomic_test_and_set} is not exactly 1, i.e. the @code{bool} @code{true}.
 @end deftypevr
+
+@deftypefn {Target Hook} bool TARGET_HAS_IFUNC_P (void)
+It returns true if the target supports GNU indirect functions.
+The support includes the assembler, linker and dynamic linker.
+The default value of this hook is based on target's libc.
+@end deftypefn

@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-streamer.h"
 #include "tree-streamer.h"
 #include "streamer-hooks.h"
+#include "cfgloop.h"
 
 
 /* Clear the line info stored in DATA_IN.  */
@@ -77,8 +78,7 @@ create_output_block (enum lto_section_type section_type)
 
   clear_line_info (ob);
 
-  ob->string_hash_table = htab_create (37, hash_string_slot_node,
-				       eq_string_slot_node, NULL);
+  ob->string_hash_table.create (37);
   gcc_obstack_init (&ob->obstack);
 
   return ob;
@@ -92,7 +92,7 @@ destroy_output_block (struct output_block *ob)
 {
   enum lto_section_type section_type = ob->section_type;
 
-  htab_delete (ob->string_hash_table);
+  ob->string_hash_table.dispose ();
 
   free (ob->main_stream);
   free (ob->string_stream);
@@ -644,7 +644,7 @@ output_cfg (struct output_block *ob, struct function *fn)
 	{
 	  streamer_write_uhwi (ob, e->dest->index);
 	  streamer_write_hwi (ob, e->probability);
-	  streamer_write_hwi (ob, e->count);
+	  streamer_write_gcov_count (ob, e->count);
 	  streamer_write_uhwi (ob, e->flags);
 	}
     }
@@ -659,6 +659,45 @@ output_cfg (struct output_block *ob, struct function *fn)
     }
 
   streamer_write_hwi (ob, -1);
+
+  /* ???  The cfgloop interface is tied to cfun.  */
+  gcc_assert (cfun == fn);
+
+  /* Output the number of loops.  */
+  streamer_write_uhwi (ob, number_of_loops (fn));
+
+  /* Output each loop, skipping the tree root which has number zero.  */
+  for (unsigned i = 1; i < number_of_loops (fn); ++i)
+    {
+      struct loop *loop = get_loop (fn, i);
+
+      /* Write the index of the loop header.  That's enough to rebuild
+         the loop tree on the reader side.  Stream -1 for an unused
+	 loop entry.  */
+      if (!loop)
+	{
+	  streamer_write_hwi (ob, -1);
+	  continue;
+	}
+      else
+	streamer_write_hwi (ob, loop->header->index);
+
+      /* Write everything copy_loop_info copies.  */
+      streamer_write_enum (ob->main_stream,
+			   loop_estimation, EST_LAST, loop->estimate_state);
+      streamer_write_hwi (ob, loop->any_upper_bound);
+      if (loop->any_upper_bound)
+	{
+	  streamer_write_uhwi (ob, loop->nb_iterations_upper_bound.low);
+	  streamer_write_hwi (ob, loop->nb_iterations_upper_bound.high);
+	}
+      streamer_write_hwi (ob, loop->any_estimate);
+      if (loop->any_estimate)
+	{
+	  streamer_write_uhwi (ob, loop->nb_iterations_estimate.low);
+	  streamer_write_hwi (ob, loop->nb_iterations_estimate.high);
+	}
+    }
 
   ob->main_stream = tmp_stream;
 }
@@ -1265,17 +1304,36 @@ bool
 output_symbol_p (symtab_node node)
 {
   struct cgraph_node *cnode;
-  struct ipa_ref *ref;
-
   if (!symtab_real_symbol_p (node))
     return false;
   /* We keep external functions in symtab for sake of inlining
      and devirtualization.  We do not want to see them in symbol table as
-     references.  */
+     references unless they are really used.  */
   cnode = dyn_cast <cgraph_node> (node);
-  if (cnode && DECL_EXTERNAL (cnode->symbol.decl))
-    return (cnode->callers
-	    || ipa_ref_list_referring_iterate (&cnode->symbol.ref_list, 0, ref));
+  if (cnode && DECL_EXTERNAL (cnode->symbol.decl)
+      && cnode->callers)
+    return true;
+
+ /* Ignore all references from external vars initializers - they are not really
+    part of the compilation unit until they are used by folding.  Some symbols,
+    like references to external construction vtables can not be referred to at all.
+    We decide this at can_refer_decl_in_current_unit_p.  */
+ if (DECL_EXTERNAL (node->symbol.decl))
+    {
+      int i;
+      struct ipa_ref *ref;
+      for (i = 0; ipa_ref_list_referring_iterate (&node->symbol.ref_list,
+					          i, ref); i++)
+	{
+	  if (ref->use == IPA_REF_ALIAS)
+	    continue;
+          if (is_a <cgraph_node> (ref->referring))
+	    return true;
+	  if (!DECL_EXTERNAL (ref->referring->symbol.decl))
+	    return true;
+	}
+      return false;
+    }
   return true;
 }
 

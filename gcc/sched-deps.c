@@ -352,6 +352,8 @@ delete_dep_node (dep_node_t n)
   gcc_assert (dep_link_is_detached_p (DEP_NODE_BACK (n))
 	      && dep_link_is_detached_p (DEP_NODE_FORW (n)));
 
+  XDELETE (DEP_REPLACE (DEP_NODE_DEP (n)));
+
   --dn_pool_diff;
 
   pool_free (dn_pool, n);
@@ -3317,9 +3319,9 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx insn)
             SET_REGNO_REG_SET (&deps->reg_last_in_use, i);
           }
 
-      /* Flush pending lists on jumps, but not on speculative checks.  */
-      if (JUMP_P (insn) && !(sel_sched_p ()
-                             && sel_insn_is_speculation_check (insn)))
+      /* Don't flush pending lists on speculative checks for
+	 selective scheduling.  */
+      if (!sel_sched_p () || !sel_insn_is_speculation_check (insn))
 	flush_pending_lists (deps, insn, true, true);
 
       reg_pending_barrier = NOT_A_BARRIER;
@@ -3677,12 +3679,6 @@ deps_analyze_insn (struct deps_desc *deps, rtx insn)
 
   if (sched_deps_info->use_cselib)
     cselib_process_insn (insn);
-
-  /* EH_REGION insn notes can not appear until well after we complete
-     scheduling.  */
-  if (NOTE_P (insn))
-    gcc_assert (NOTE_KIND (insn) != NOTE_INSN_EH_REGION_BEG
-		&& NOTE_KIND (insn) != NOTE_INSN_EH_REGION_END);
 
   if (sched_deps_info->finish_insn)
     sched_deps_info->finish_insn ();
@@ -4174,8 +4170,9 @@ add_dependence_1 (rtx insn, rtx elem, enum reg_note dep_type)
     cur_insn = NULL;
 }
 
-/* Return weakness of speculative type TYPE in the dep_status DS.  */
-dw_t
+/* Return weakness of speculative type TYPE in the dep_status DS,
+   without checking to prevent ICEs on malformed input.  */
+static dw_t
 get_dep_weak_1 (ds_t ds, ds_t type)
 {
   ds = ds & type;
@@ -4192,6 +4189,7 @@ get_dep_weak_1 (ds_t ds, ds_t type)
   return (dw_t) ds;
 }
 
+/* Return weakness of speculative type TYPE in the dep_status DS.  */
 dw_t
 get_dep_weak (ds_t ds, ds_t type)
 {

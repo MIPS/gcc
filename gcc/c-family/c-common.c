@@ -307,6 +307,8 @@ static tree handle_common_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_hot_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cold_attribute (tree *, tree, tree, int, bool *);
+static tree handle_no_sanitize_address_attribute (tree *, tree, tree,
+						  int, bool *);
 static tree handle_no_address_safety_analysis_attribute (tree *, tree, tree,
 							 int, bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
@@ -714,6 +716,9 @@ const struct attribute_spec c_common_attribute_table[] =
   { "no_address_safety_analysis",
 			      0, 0, true, false, false,
 			      handle_no_address_safety_analysis_attribute,
+			      false },
+  { "no_sanitize_address",    0, 0, true, false, false,
+			      handle_no_sanitize_address_attribute,
 			      false },
   { "warning",		      1, 1, true,  false, false,
 			      handle_error_attribute, false },
@@ -2222,7 +2227,7 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
   convertible_lax =
     (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
      && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE ||
-	 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
+	 TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2))
      && (INTEGRAL_TYPE_P (TREE_TYPE (t1))
 	 == INTEGRAL_TYPE_P (TREE_TYPE (t2))));
 
@@ -3027,6 +3032,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
   switch (code)
     {
     case CONSTRUCTOR:
+    case SIZEOF_EXPR:
       return;
 
     case COMPOUND_EXPR:
@@ -4275,20 +4281,14 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
-      pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+      pedwarn (loc, OPT_Wpointer_arith,
 	       "pointer of type %<void *%> used in arithmetic");
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
     {
-      pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+      pedwarn (loc, OPT_Wpointer_arith,
 	       "pointer to a function used in arithmetic");
-      size_exp = integer_one_node;
-    }
-  else if (TREE_CODE (TREE_TYPE (result_type)) == METHOD_TYPE)
-    {
-      pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
-	       "pointer to member function used in arithmetic");
       size_exp = integer_one_node;
     }
   else
@@ -4865,8 +4865,8 @@ c_sizeof_or_alignof_type (location_t loc,
     {
       if (is_sizeof)
 	{
-	  if (complain && (pedantic || warn_pointer_arith))
-	    pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+	  if (complain && warn_pointer_arith)
+	    pedwarn (loc, OPT_Wpointer_arith,
 		     "invalid application of %<sizeof%> to a function type");
           else if (!complain)
             return error_mark_node;
@@ -4889,8 +4889,8 @@ c_sizeof_or_alignof_type (location_t loc,
   else if (type_code == VOID_TYPE || type_code == ERROR_MARK)
     {
       if (type_code == VOID_TYPE
-	  && complain && (pedantic || warn_pointer_arith))
-	pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+	  && complain && warn_pointer_arith)
+	pedwarn (loc, OPT_Wpointer_arith,
 		 "invalid application of %qs to a void type", op_name);
       else if (!complain)
         return error_mark_node;
@@ -6505,6 +6505,22 @@ handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
+/* Handle a "no_sanitize_address" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_no_sanitize_address_attribute (tree *node, tree name, tree, int,
+				      bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "no_address_safety_analysis" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -6513,11 +6529,12 @@ handle_no_address_safety_analysis_attribute (tree *node, tree name, tree, int,
 					     bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
-    }
-
+    warning (OPT_Wattributes, "%qE attribute ignored", name);
+  else if (!lookup_attribute ("no_sanitize_address", DECL_ATTRIBUTES (*node)))
+    DECL_ATTRIBUTES (*node)
+      = tree_cons (get_identifier ("no_sanitize_address"),
+		   NULL_TREE, DECL_ATTRIBUTES (*node));
+  *no_add_attrs = true;
   return NULL_TREE;
 }
 
@@ -7286,9 +7303,10 @@ check_user_alignment (const_tree align, bool allow_zero)
     }
   else if (allow_zero && integer_zerop (align))
     return -1;
-  else if ((i = tree_log2 (align)) == -1)
+  else if (tree_int_cst_sgn (align) == -1
+           || (i = tree_log2 (align)) == -1)
     {
-      error ("requested alignment is not a power of 2");
+      error ("requested alignment is not a positive power of 2");
       return -1;
     }
   else if (i >= HOST_BITS_PER_INT - BITS_PER_UNIT_LOG)

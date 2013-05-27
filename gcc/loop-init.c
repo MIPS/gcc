@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "df.h"
 #include "ggc.h"
+#include "tree-flow.h"
 
 
 /* Apply FLAGS to the loop state.  */
@@ -91,16 +92,27 @@ loop_optimizer_init (unsigned flags)
     }
   else
     {
+      bool recorded_exits = loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS);
+
       gcc_assert (cfun->curr_properties & PROP_loops);
 
       /* Ensure that the dominators are computed, like flow_loops_find does.  */
       calculate_dominance_info (CDI_DOMINATORS);
 
+      if (loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	{
+	  loops_state_clear (~0U);
+	  fix_loop_structure (NULL);
+	}
+
 #ifdef ENABLE_CHECKING
-      verify_loop_structure ();
+      else
+	verify_loop_structure ();
 #endif
 
       /* Clear all flags.  */
+      if (recorded_exits)
+	release_recorded_exits ();
       loops_state_clear (~0U);
     }
 
@@ -130,6 +142,8 @@ loop_optimizer_finalize (void)
 
   if (loops_state_satisfies_p (LOOPS_HAVE_RECORDED_EXITS))
     release_recorded_exits ();
+
+  free_numbers_of_iterations_estimates ();
 
   /* If we should preserve loop structure, do not free it but clear
      flags that advanced properties are there as we are not preserving
@@ -186,7 +200,7 @@ fix_loop_structure (bitmap changed_bbs)
   int record_exits = 0;
   loop_iterator li;
   struct loop *loop;
-  unsigned old_nloops;
+  unsigned old_nloops, i;
 
   timevar_push (TV_LOOP_INIT);
 
@@ -230,13 +244,14 @@ fix_loop_structure (bitmap changed_bbs)
 	  flow_loop_tree_node_add (loop_outer (loop), ploop);
 	}
 
-      /* Remove the loop and free its data.  */
-      delete_loop (loop);
+      /* Remove the loop.  */
+      loop->header = NULL;
+      flow_loop_tree_node_remove (loop);
     }
 
   /* Remember the number of loops so we can return how many new loops
      flow_loops_find discovered.  */
-  old_nloops = number_of_loops ();
+  old_nloops = number_of_loops (cfun);
 
   /* Re-compute loop structure in-place.  */
   flow_loops_find (current_loops);
@@ -253,6 +268,14 @@ fix_loop_structure (bitmap changed_bbs)
 	}
     }
 
+  /* Finally free deleted loops.  */
+  FOR_EACH_VEC_ELT (*get_loops (cfun), i, loop)
+    if (loop && loop->header == NULL)
+      {
+	(*get_loops (cfun))[i] = NULL;
+	flow_loop_free (loop);
+      }
+
   loops_state_clear (LOOPS_NEED_FIXUP);
 
   /* Apply flags to loops.  */
@@ -264,7 +287,7 @@ fix_loop_structure (bitmap changed_bbs)
 
   timevar_pop (TV_LOOP_INIT);
 
-  return number_of_loops () - old_nloops;
+  return number_of_loops (cfun) - old_nloops;
 }
 
 /* Gate for the RTL loop superpass.  The actual passes are subpasses.
@@ -309,7 +332,7 @@ struct rtl_opt_pass pass_loop2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect                      /* todo_flags_finish */
+  0                                     /* todo_flags_finish */
  }
 };
 
@@ -403,7 +426,7 @@ gate_rtl_move_loop_invariants (void)
 static unsigned int
 rtl_move_loop_invariants (void)
 {
-  if (number_of_loops () > 1)
+  if (number_of_loops (cfun) > 1)
     move_loop_invariants ();
   return 0;
 }
@@ -440,7 +463,7 @@ gate_rtl_unswitch (void)
 static unsigned int
 rtl_unswitch (void)
 {
-  if (number_of_loops () > 1)
+  if (number_of_loops (cfun) > 1)
     unswitch_loops ();
   return 0;
 }
@@ -476,7 +499,7 @@ gate_rtl_unroll_and_peel_loops (void)
 static unsigned int
 rtl_unroll_and_peel_loops (void)
 {
-  if (number_of_loops () > 1)
+  if (number_of_loops (cfun) > 1)
     {
       int flags = 0;
       if (dump_file)
@@ -530,7 +553,7 @@ static unsigned int
 rtl_doloop (void)
 {
 #ifdef HAVE_doloop_end
-  if (number_of_loops () > 1)
+  if (number_of_loops (cfun) > 1)
     doloop_optimize_loops ();
 #endif
   return 0;

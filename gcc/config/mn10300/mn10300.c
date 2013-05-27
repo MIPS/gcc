@@ -622,6 +622,7 @@ mn10300_can_use_rets_insn (void)
 
 /* Returns the set of live, callee-saved registers as a bitmask.  The
    callee-saved extended registers cannot be stored individually, so
+   all of them will be included in the mask if any one of them is used.
    Also returns the number of bytes in the registers in the mask if
    BYTES_SAVED is not NULL.  */
 
@@ -1077,7 +1078,7 @@ mn10300_expand_epilogue (void)
 	      /* Insn: add size + 4 * num_regs_to_save
 				+ reg_save_bytes - 252,sp.  */
 	      this_strategy_size = SIZE_ADD_SP (size + 4 * num_regs_to_save
-						+ reg_save_bytes - 252);
+						+ (int) reg_save_bytes - 252);
 	      /* Insn: fmov (##,sp),fs#, fo each fs# to be restored.  */
 	      this_strategy_size += SIZE_FMOV_SP (252 - reg_save_bytes
 						  - 4 * num_regs_to_save,
@@ -3225,7 +3226,6 @@ mn10300_loop_contains_call_insn (loop_p loop)
 static void
 mn10300_scan_for_setlb_lcc (void)
 {
-  struct loops loops;
   loop_iterator liter;
   loop_p loop;
 

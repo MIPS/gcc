@@ -84,7 +84,6 @@ DEBUG_FUNCTION void
 debug_gimple_stmt (gimple gs)
 {
   print_gimple_stmt (stderr, gs, 0, TDF_VOPS|TDF_MEMSYMS);
-  fprintf (stderr, "\n");
 }
 
 
@@ -97,6 +96,21 @@ print_gimple_stmt (FILE *file, gimple g, int spc, int flags)
   maybe_init_pretty_print (file);
   pp_gimple_stmt_1 (&buffer, g, spc, flags);
   pp_newline_and_flush (&buffer);
+}
+
+DEBUG_FUNCTION void
+debug (gimple_statement_d &ref)
+{
+  print_gimple_stmt (stderr, &ref, 0, 0);
+}
+
+DEBUG_FUNCTION void
+debug (gimple_statement_d *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
 }
 
 
@@ -1398,6 +1412,11 @@ dump_gimple_transaction (pretty_printer *buffer, gimple gs, int spc, int flags)
 		{
 		  pp_string (buffer, "GTMA_DOES_GO_IRREVOCABLE ");
 		  subcode &= ~GTMA_DOES_GO_IRREVOCABLE;
+		}
+	      if (subcode & GTMA_HAS_NO_INSTRUMENTATION)
+		{
+		  pp_string (buffer, "GTMA_HAS_NO_INSTRUMENTATION ");
+		  subcode &= ~GTMA_HAS_NO_INSTRUMENTATION;
 		}
 	      if (subcode)
 		pp_printf (buffer, "0x%x ", subcode);

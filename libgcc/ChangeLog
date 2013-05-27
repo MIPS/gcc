@@ -1,3 +1,152 @@
+2013-05-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config.host (powerpc-*-elf*): Add rs6000/t-savresfgpr to tmake_file.
+	(powerpc-wrs-vxworks): Likewise.
+
+2013-05-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sol2-unwind.h (sparc64_frob_update_context): Do it for
+	signal frames as well.
+	(MD_FALLBACK_FRAME_STATE_FOR): Do minor cleanups throughout and add the
+	STACK_BIAS to the CFA offset.
+
+2013-05-17  Richard Henderson  <rth@redhat.com>
+
+	PR target/49146
+	* unwind-dw2.c (UNWIND_COLUMN_IN_RANGE): New macro.
+	(execute_cfa_program): Use it when storing to fs->regs.
+
+2013-05-08  Kai Tietz  <ktietz@redhat.com>
+
+	* config/i386/cygming-crtbegin.c (__register_frame_info): Make weak.
+	(__deregister_frame_info): Likewise.
+
+2013-05-06  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* fp-bit.c (unpack_d, pack_d): Properly preserve and restore a
+	NaN's payload.
+
+	* fp-bit.h [FLOAT] (QUIET_NAN): Correct value.
+
+2013-04-25  Alan Modra  <amodra@gmail.com>
+
+	* config.host: Match little-endian powerpc-linux.
+
+2013-04-19  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config/aarch64/sfp-machine.h (_FP_W_TYPE): Change to define
+	as 'unsigned long long' instead of 'unsigned long'.
+	(_FP_WS_TYPE): Change to define as 'signed long long' instead of
+	'signed long'.
+
+2013-04-10  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/linux-atomic.c (SUBWORD_SYNC_OP, SUBWORD_VAL_CAS)
+	(SUBWORD_TEST_AND_SET): Use signed char/short types instead of
+	unsigned char/unsigned short.
+	(__sync_val_compare_and_swap_{1,2}): Handle signed argument.
+
+2013-04-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR other/55274
+	* config/t-slibgcc-hpux (SHLIB_MAPFILES): Define.
+
+2013-04-04  Meador Inge  <meadori@codesourcery.com>
+
+	* config/arm/bpabi.S (aeabi_ldivmod): Add DWARF information for
+	computing the location of the link register.
+	(aeabi_uldivmod): Ditto.
+
+2013-03-27  Kai Tietz  <ktietz@redhat.com>
+
+	* config.host: Add support for cygwin x64 target.
+	* configure: Regenerated.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/t-crtstuff: Add -fno-asynchronous-unwind-tables
+	-mcmodel=large to CRTSTUFF_T_CFLAGS_S variable.
+
+2013-03-25  Kai Tietz  <ktietz@redhat.com>
+
+	* config/i386/cygwin.S: Replace use of _WIN64 by __x86_64__.
+
+2013-03-20  Robert Mason  <rbmj@verizon.net>
+
+	* config/vxlib-tls.c (__gthread_get_tsd_data,)
+	(__gthread_set_tsd_data, __gthread_enter_tsd_dtor_context,)
+	(__gthread_leave_tsd_dtor_context): Add prototypes.
+	(tls_delete_hook): Update.
+
+2013-03-20  Catherine Moore  <clm@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips16.S:  Don't build for microMIPS.
+	* config/mips/linux-unwind.h: Handle microMIPS frame.
+	* config/mips/crtn.S (fini, init): New labels.
+
+2013-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/53265
+	* unwind-dw2.c (execute_cfa_program): Avoid
+	-Waggressive-array-optimizations warnings for DW_CFA_GNU_window_save
+	on targets with DWARF_FRAME_REGISTERS < 32.
+
+2013-03-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/49880
+	* config/sh/lib1funcs.S (sdivsi3_i4, udivsi3_i4): Enable for SH2A.
+	(sdivsi3, udivsi3): Remove SH4 check and always compile these functions.
+
+2013-03-07  Sriraman Tallam  <tmsriram@google.com>
+
+	* config/i386/cpuinfo.c (get_intel_cpu): Fix cpuid codes for
+	sandybridge processors.
+
+2013-03-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/56529
+	* config/sh/lib1funcs.S (udivsi3_i4i, sdivsi3_i4i): Add __SH2A__ to
+	inclusion list.
+
+2013-03-04  Edgar E. Iglesias <edgar.iglesias@gmail.com>
+
+	* config/microblaze/crti.S: Setup stack protection at entry
+
+2013-03-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/lib1funcs.S (__ashrdi3, __lshrdi3, __ashldi3)
+	(__rotldi3): Shift bytewise if applicable.
+
+2013-03-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/sync-cache.c
+	(__aarch64_sync_cache_range): Silence warnings.
+
+2013-02-25  Catherine Moore  <clm@codesourcery.com>
+
+	Revert:
+	2013-02-24  Catherine Moore  <clm@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips16.S:  Don't build for microMIPS.
+	* config/mips/linux-unwind.h: Handle microMIPS frame.
+	* config/mips/crtn.S (fini, init): New labels.
+
+2013-02-24  Catherine Moore  <clm@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Chao-ying Fu  <fu@mips.com>
+
+	* config/mips/mips16.S:  Don't build for microMIPS.
+	* config/mips/linux-unwind.h: Handle microMIPS frame.
+	* config/mips/crtn.S (fini, init): New labels.
+
+2012-02-19  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
+	* config/microblaze/modsi3.S (modsi3): Fix case with 0x80000000 
+	as dividend.
+
 2013-02-16  Alan Modra  <amodra@gmail.com>
 
 	PR target/55431

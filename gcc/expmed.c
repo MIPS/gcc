@@ -64,26 +64,27 @@ static rtx expand_smod_pow2 (enum machine_mode, rtx, HOST_WIDE_INT);
 static rtx expand_sdiv_pow2 (enum machine_mode, rtx, HOST_WIDE_INT);
 
 /* Test whether a value is zero of a power of two.  */
-#define EXACT_POWER_OF_2_OR_ZERO_P(x) (((x) & ((x) - 1)) == 0)
+#define EXACT_POWER_OF_2_OR_ZERO_P(x) \
+  (((x) & ((x) - (unsigned HOST_WIDE_INT) 1)) == 0)
 
 struct init_expmed_rtl
 {
-  struct rtx_def reg;		rtunion reg_fld[2];
-  struct rtx_def plus;	rtunion plus_fld1;
+  struct rtx_def reg;
+  struct rtx_def plus;
   struct rtx_def neg;
-  struct rtx_def mult;	rtunion mult_fld1;
-  struct rtx_def sdiv;	rtunion sdiv_fld1;
-  struct rtx_def udiv;	rtunion udiv_fld1;
-  struct rtx_def sdiv_32;	rtunion sdiv_32_fld1;
-  struct rtx_def smod_32;	rtunion smod_32_fld1;
-  struct rtx_def wide_mult;	rtunion wide_mult_fld1;
-  struct rtx_def wide_lshr;	rtunion wide_lshr_fld1;
+  struct rtx_def mult;
+  struct rtx_def sdiv;
+  struct rtx_def udiv;
+  struct rtx_def sdiv_32;
+  struct rtx_def smod_32;
+  struct rtx_def wide_mult;
+  struct rtx_def wide_lshr;
   struct rtx_def wide_trunc;
-  struct rtx_def shift;	rtunion shift_fld1;
-  struct rtx_def shift_mult;	rtunion shift_mult_fld1;
-  struct rtx_def shift_add;	rtunion shift_add_fld1;
-  struct rtx_def shift_sub0;	rtunion shift_sub0_fld1;
-  struct rtx_def shift_sub1;	rtunion shift_sub1_fld1;
+  struct rtx_def shift;
+  struct rtx_def shift_mult;
+  struct rtx_def shift_add;
+  struct rtx_def shift_sub0;
+  struct rtx_def shift_sub1;
   struct rtx_def zext;
   struct rtx_def trunc;
 
@@ -1093,10 +1094,14 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
       thispos = (bitpos + bitsdone) % unit;
 
       /* When region of bytes we can touch is restricted, decrease
-	 UNIT close to the end of the region as needed.  */
+	 UNIT close to the end of the region as needed.  If op0 is a REG
+	 or SUBREG of REG, don't do this, as there can't be data races
+	 on a register and we can expand shorter code in some cases.  */
       if (bitregion_end
 	  && unit > BITS_PER_UNIT
-	  && bitpos + bitsdone - thispos + unit > bitregion_end + 1)
+	  && bitpos + bitsdone - thispos + unit > bitregion_end + 1
+	  && !REG_P (op0)
+	  && (GET_CODE (op0) != SUBREG || !REG_P (SUBREG_REG (op0))))
 	{
 	  unit = unit / 2;
 	  continue;
@@ -1146,14 +1151,15 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	 the current word starting from the base register.  */
       if (GET_CODE (op0) == SUBREG)
 	{
-	  int word_offset = (SUBREG_BYTE (op0) / UNITS_PER_WORD) + offset;
+	  int word_offset = (SUBREG_BYTE (op0) / UNITS_PER_WORD)
+			    + (offset * unit / BITS_PER_WORD);
 	  enum machine_mode sub_mode = GET_MODE (SUBREG_REG (op0));
 	  if (sub_mode != BLKmode && GET_MODE_SIZE (sub_mode) < UNITS_PER_WORD)
 	    word = word_offset ? const0_rtx : op0;
 	  else
 	    word = operand_subword_force (SUBREG_REG (op0), word_offset,
 					  GET_MODE (SUBREG_REG (op0)));
-	  offset = 0;
+	  offset &= BITS_PER_WORD / unit - 1;
 	}
       else if (REG_P (op0))
 	{
@@ -1161,8 +1167,9 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	  if (op0_mode != BLKmode && GET_MODE_SIZE (op0_mode) < UNITS_PER_WORD)
 	    word = offset ? const0_rtx : op0;
 	  else
-	    word = operand_subword_force (op0, offset, GET_MODE (op0));
-	  offset = 0;
+	    word = operand_subword_force (op0, offset * unit / BITS_PER_WORD,
+					  GET_MODE (op0));
+	  offset &= BITS_PER_WORD / unit - 1;
 	}
       else
 	word = op0;
@@ -2121,6 +2128,20 @@ expand_shift_1 (enum tree_code code, enum machine_mode mode, rtx shifted,
 	op1 = SUBREG_REG (op1);
     }
 
+  /* Canonicalize rotates by constant amount.  If op1 is bitsize / 2,
+     prefer left rotation, if op1 is from bitsize / 2 + 1 to
+     bitsize - 1, use other direction of rotate with 1 .. bitsize / 2 - 1
+     amount instead.  */
+  if (rotate
+      && CONST_INT_P (op1)
+      && IN_RANGE (INTVAL (op1), GET_MODE_BITSIZE (mode) / 2 + left,
+		   GET_MODE_BITSIZE (mode) - 1))
+    {
+      op1 = GEN_INT (GET_MODE_BITSIZE (mode) - INTVAL (op1));
+      left = !left;
+      code = left ? LROTATE_EXPR : RROTATE_EXPR;
+    }
+
   if (op1 == const0_rtx)
     return shifted;
 
@@ -2165,7 +2186,8 @@ expand_shift_1 (enum tree_code code, enum machine_mode mode, rtx shifted,
 	    {
 	      /* If we have been unable to open-code this by a rotation,
 		 do it as the IOR of two shifts.  I.e., to rotate A
-		 by N bits, compute (A << N) | ((unsigned) A >> (C - N))
+		 by N bits, compute
+		 (A << N) | ((unsigned) A >> ((-N) & (C - 1)))
 		 where C is the bitsize of A.
 
 		 It is theoretically possible that the target machine might
@@ -2180,14 +2202,22 @@ expand_shift_1 (enum tree_code code, enum machine_mode mode, rtx shifted,
 	      rtx temp1;
 
 	      new_amount = op1;
-	      if (CONST_INT_P (op1))
+	      if (op1 == const0_rtx)
+		return shifted;
+	      else if (CONST_INT_P (op1))
 		other_amount = GEN_INT (GET_MODE_BITSIZE (mode)
 					- INTVAL (op1));
 	      else
-		other_amount
-		  = simplify_gen_binary (MINUS, GET_MODE (op1),
-					 GEN_INT (GET_MODE_PRECISION (mode)),
-					 op1);
+		{
+		  other_amount
+		    = simplify_gen_unary (NEG, GET_MODE (op1),
+					  op1, GET_MODE (op1));
+		  other_amount
+		    = simplify_gen_binary (AND, GET_MODE (op1),
+					   other_amount,
+					   GEN_INT (GET_MODE_PRECISION (mode)
+						    - 1));
+		}
 
 	      shifted = force_reg (mode, shifted);
 
@@ -3079,7 +3109,10 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	  /* If we are multiplying in DImode, it may still be a win
 	     to try to work with shifts and adds.  */
 	  if (CONST_DOUBLE_HIGH (scalar_op1) == 0
-	      && CONST_DOUBLE_LOW (scalar_op1) > 0)
+	      && (CONST_DOUBLE_LOW (scalar_op1) > 0
+		  || (CONST_DOUBLE_LOW (scalar_op1) < 0
+		      && EXACT_POWER_OF_2_OR_ZERO_P
+			   (CONST_DOUBLE_LOW (scalar_op1)))))
 	    {
 	      coeff = CONST_DOUBLE_LOW (scalar_op1);
 	      is_neg = false;
@@ -3109,7 +3142,8 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	 use synth_mult.  */
 
       /* Special case powers of two.  */
-      if (EXACT_POWER_OF_2_OR_ZERO_P (coeff))
+      if (EXACT_POWER_OF_2_OR_ZERO_P (coeff)
+	  && !(is_neg && mode_bitsize > HOST_BITS_PER_WIDE_INT))
 	return expand_shift (LSHIFT_EXPR, mode, op0,
 			     floor_log2 (coeff), target, unsignedp);
 
@@ -3124,13 +3158,24 @@ expand_mult (enum machine_mode mode, rtx op0, rtx op1, rtx target,
 	     result is interpreted as an unsigned coefficient.
 	     Exclude cost of op0 from max_cost to match the cost
 	     calculation of the synth_mult.  */
+	  coeff = -(unsigned HOST_WIDE_INT) coeff;
 	  max_cost = (set_src_cost (gen_rtx_MULT (mode, fake_reg, op1), speed)
 		      - neg_cost(speed, mode));
-	  if (max_cost > 0
-	      && choose_mult_variant (mode, -coeff, &algorithm,
-				      &variant, max_cost))
+	  if (max_cost <= 0)
+	    goto skip_synth;
+
+	  /* Special case powers of two.  */
+	  if (EXACT_POWER_OF_2_OR_ZERO_P (coeff))
 	    {
-	      rtx temp = expand_mult_const (mode, op0, -coeff, NULL_RTX,
+	      rtx temp = expand_shift (LSHIFT_EXPR, mode, op0,
+				       floor_log2 (coeff), target, unsignedp);
+	      return expand_unop (mode, neg_optab, temp, target, 0);
+	    }
+
+	  if (choose_mult_variant (mode, coeff, &algorithm, &variant,
+				   max_cost))
+	    {
+	      rtx temp = expand_mult_const (mode, op0, coeff, NULL_RTX,
 					    &algorithm, variant);
 	      return expand_unop (mode, neg_optab, temp, target, 0);
 	    }
@@ -3813,13 +3858,12 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
   int op1_is_constant, op1_is_pow2 = 0;
   int max_cost, extra_cost;
   static HOST_WIDE_INT last_div_const = 0;
-  static HOST_WIDE_INT ext_op1;
   bool speed = optimize_insn_for_speed_p ();
 
   op1_is_constant = CONST_INT_P (op1);
   if (op1_is_constant)
     {
-      ext_op1 = INTVAL (op1);
+      unsigned HOST_WIDE_INT ext_op1 = UINTVAL (op1);
       if (unsignedp)
 	ext_op1 &= GET_MODE_MASK (mode);
       op1_is_pow2 = ((EXACT_POWER_OF_2_OR_ZERO_P (ext_op1)
@@ -3967,7 +4011,7 @@ expand_divmod (int rem_flag, enum tree_code code, enum machine_mode mode,
       op1_is_pow2 = (op1_is_constant
 		     && ((EXACT_POWER_OF_2_OR_ZERO_P (INTVAL (op1))
 			  || (! unsignedp
-			      && EXACT_POWER_OF_2_OR_ZERO_P (-INTVAL (op1)))))) ;
+			      && EXACT_POWER_OF_2_OR_ZERO_P (-UINTVAL (op1))))));
     }
 
   /* If one of the operands is a volatile MEM, copy it into a register.  */
@@ -5066,7 +5110,7 @@ emit_cstore (rtx target, enum insn_code icode, enum rtx_code code,
 {
   struct expand_operand ops[4];
   rtx op0, last, comparison, subtarget;
-  enum machine_mode result_mode = insn_data[(int) icode].operand[0].mode;
+  enum machine_mode result_mode = targetm.cstore_mode (icode);
 
   last = get_last_insn ();
   x = prepare_operand (icode, x, 2, mode, compare_mode, unsignedp);

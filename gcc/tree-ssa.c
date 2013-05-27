@@ -59,16 +59,13 @@ redirect_edge_var_map_add (edge e, tree result, tree def, source_location locus)
   slot = pointer_map_insert (edge_var_maps, e);
   head = (edge_var_map_vector *) *slot;
   if (!head)
-    {
-      head = new edge_var_map_vector;
-      head->create (5);
-      *slot = head;
-    }
+    vec_safe_reserve (head, 5);
   new_node.def = def;
   new_node.result = result;
   new_node.locus = locus;
 
-  head->safe_push (new_node);
+  vec_safe_push (head, new_node);
+  *slot = head;
 }
 
 
@@ -88,7 +85,7 @@ redirect_edge_var_map_clear (edge e)
   if (slot)
     {
       head = (edge_var_map_vector *) *slot;
-      delete head;
+      vec_free (head);
       *slot = NULL;
     }
 }
@@ -115,11 +112,11 @@ redirect_edge_var_map_dup (edge newe, edge olde)
     return;
   head = (edge_var_map_vector *) *old_slot;
 
-  edge_var_map_vector *new_head = new edge_var_map_vector;
+  edge_var_map_vector *new_head = NULL;
   if (head)
-    *new_head = head->copy ();
+    new_head = vec_safe_copy (head);
   else
-    new_head->create (5);
+    vec_safe_reserve (new_head, 5);
   *new_slot = new_head;
 }
 
@@ -151,7 +148,7 @@ free_var_map_entry (const void *key ATTRIBUTE_UNUSED,
 		    void *data ATTRIBUTE_UNUSED)
 {
   edge_var_map_vector *head = (edge_var_map_vector *) *value;
-  delete head;
+  vec_free (head);
   return true;
 }
 
@@ -1047,42 +1044,6 @@ verify_ssa (bool check_modified_stmt)
 
 err:
   internal_error ("verify_ssa failed");
-}
-
-/* Return true if the uid in both int tree maps are equal.  */
-
-int
-int_tree_map_eq (const void *va, const void *vb)
-{
-  const struct int_tree_map *a = (const struct int_tree_map *) va;
-  const struct int_tree_map *b = (const struct int_tree_map *) vb;
-  return (a->uid == b->uid);
-}
-
-/* Hash a UID in a int_tree_map.  */
-
-unsigned int
-int_tree_map_hash (const void *item)
-{
-  return ((const struct int_tree_map *)item)->uid;
-}
-
-/* Return true if the DECL_UID in both trees are equal.  */
-
-int
-uid_decl_map_eq (const void *va, const void *vb)
-{
-  const_tree a = (const_tree) va;
-  const_tree b = (const_tree) vb;
-  return (a->decl_minimal.uid == b->decl_minimal.uid);
-}
-
-/* Hash a tree in a uid_decl_map.  */
-
-unsigned int
-uid_decl_map_hash (const void *item)
-{
-  return ((const_tree)item)->decl_minimal.uid;
 }
 
 /* Return true if the DECL_UID in both trees are equal.  */
@@ -2156,7 +2117,8 @@ execute_update_addresses_taken (void)
 	  }
 
       /* Update SSA form here, we are called as non-pass as well.  */
-      if (number_of_loops () > 1 && loops_state_satisfies_p (LOOP_CLOSED_SSA))
+      if (number_of_loops (cfun) > 1
+	  && loops_state_satisfies_p (LOOP_CLOSED_SSA))
 	rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
       else
 	update_ssa (TODO_update_ssa);

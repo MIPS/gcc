@@ -246,6 +246,7 @@ md_file=
 case ${target} in
    picochip-*				\
  | score-*				\
+ | *-*-solaris2.9*			\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -536,6 +537,9 @@ x86_64-*-*)
 	fi
 	tm_file="vxworks-dummy.h ${tm_file}"
 	;;
+arm*-*-* | mips*-*-* | sh*-*-* | sparc*-*-*)
+	tm_file="vxworks-dummy.h ${tm_file}"
+	;;
 esac
 
 # On a.out targets, we need to use collect2.
@@ -661,8 +665,11 @@ case ${target} in
   # Add Android userspace support to Linux targets.
   case $target in
     *linux*)
+      tm_p_file="${tm_p_file} linux-protos.h"
+      tmake_file="${tmake_file} t-linux-android"
       tm_file="$tm_file linux-android.h"
       extra_options="$extra_options linux-android.opt"
+      extra_objs="$extra_objs linux-android.o"
       ;;
   esac
   # Enable compilation for Android by default for *android* targets.
@@ -861,7 +868,7 @@ arm-wrs-vxworks)
 	tmake_file="${tmake_file} arm/t-arm arm/t-vxworks"
 	;;
 arm*-*-netbsdelf*)
-	tm_file="dbxelf.h elfos.h netbsd.h netbsd-elf.h arm/elf.h arm/aout.h arm/arm.h arm/netbsd-elf.h"
+	tm_file="dbxelf.h elfos.h netbsd.h netbsd-elf.h arm/elf.h arm/aout.h ${tm_file} arm/netbsd-elf.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	tmake_file="${tmake_file} arm/t-arm"
 	;;
@@ -874,6 +881,7 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 	esac
 	tmake_file="${tmake_file} arm/t-arm arm/t-arm-elf arm/t-bpabi arm/t-linux-eabi"
 	tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h arm/aout.h arm/arm.h"
+	extra_objs="$extra_objs linux-android.o"
 	# Define multilib configuration for arm-linux-androideabi.
 	case ${target} in
 	*-androideabi)
@@ -891,7 +899,7 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 arm*-*-uclinux*eabi*)		# ARM ucLinux
 	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/linux-gas.h arm/uclinux-elf.h glibc-stdint.h"
 	tmake_file="arm/t-arm arm/t-arm-elf arm/t-bpabi"
-	tm_file="$tm_file arm/bpabi.h arm/uclinux-eabi.h arm/aout.h arm/arm.h"
+	tm_file="$tm_file arm/bpabi.h arm/uclinux-eabi.h arm/aout.h vxworks-dummy.h arm/arm.h"
 	# The BPABI long long divmod functions return a 128-bit value in
 	# registers r0-r3.  Correctly modeling that requires the use of
 	# TImode.
@@ -900,6 +908,10 @@ arm*-*-uclinux*eabi*)		# ARM ucLinux
 	default_use_cxa_atexit=yes
 	;;
 arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
+	case ${target} in
+	arm*eb-*-eabi*)
+	  tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
+	esac
 	# The BPABI long long divmod functions return a 128-bit value in
 	# registers r0-r3.  Correctly modeling that requires the use of
 	# TImode.
@@ -924,7 +936,7 @@ arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
 	  tmake_file="${tmake_file} arm/t-symbian"
 	  ;;
 	esac
-	tm_file="${tm_file} arm/aout.h arm/arm.h"
+	tm_file="${tm_file} arm/aout.h vxworks-dummy.h arm/arm.h"
 	;;
 avr-*-rtems*)
 	tm_file="elfos.h avr/elf.h avr/avr-arch.h avr/avr.h dbxelf.h avr/rtems.h rtems.h newlib-stdint.h"
@@ -1444,6 +1456,22 @@ i[34567]86-*-cygwin*)
 		thread_file='posix'
 	fi
 	use_gcc_stdint=wrap
+	;;
+x86_64-*-cygwin*)
+	need_64bit_isa=yes
+	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h i386/cygwin.h i386/cygwin-w64.h i386/cygwin-stdint.h"
+	xm_file=i386/xm-cygwin.h
+	tmake_file="${tmake_file} i386/t-cygming t-slibgcc i386/t-cygwin-w64"
+	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
+	extra_options="${extra_options} i386/cygming.opt"
+	extra_objs="winnt.o winnt-stubs.o"
+	c_target_objs="${c_target_objs} msformat-c.o"
+	cxx_target_objs="${cxx_target_objs} winnt-cxx.o msformat-c.o"
+	if test x$enable_threads = xyes; then
+		thread_file='posix'
+	fi
+	use_gcc_stdint=wrap
+	tm_defines="${tm_defines} TARGET_CYGWIN64=1"
 	;;
 i[34567]86-*-mingw* | x86_64-*-mingw*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h"
@@ -2059,20 +2087,24 @@ powerpc-*-rtems*)
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-rtems t-rtems rs6000/t-ppccomm"
 	;;
-powerpc-*-linux* | powerpc64-*-linux*)
+powerpc*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h freebsd-spec.h rs6000/sysv4.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
+	case ${target} in
+	    powerpc*le-*-*)
+	    tm_file="${tm_file} rs6000/sysv4le.h" ;;
+	esac
 	maybe_biarch=yes
 	case ${target} in
-	    powerpc64-*-linux*spe* | powerpc64-*-linux*paired*)
+	    powerpc64*-*-linux*spe* | powerpc64*-*-linux*paired*)
 	    	echo "*** Configuration ${target} not supported" 1>&2
 		exit 1
 		;;
-	    powerpc-*-linux*spe* | powerpc-*-linux*paired*)
+	    powerpc*-*-linux*spe* | powerpc*-*-linux*paired*)
 		maybe_biarch=
 		;;
-	    powerpc64-*-linux*)
+	    powerpc64*-*-linux*)
 	    	test x$with_cpu != x || cpu_is_64bit=yes
 		maybe_biarch=always
 		;;
@@ -2367,7 +2399,7 @@ sh-*-elf* | sh[12346l]*-*-elf* | \
 		sh[1234]*)	sh_multilibs=${sh_cpu_target} ;;
 		sh64* | sh5*)	sh_multilibs=m5-32media,m5-32media-nofpu,m5-compact,m5-compact-nofpu,m5-64media,m5-64media-nofpu ;;
 		sh-superh-*)	sh_multilibs=m4,m4-single,m4-single-only,m4-nofpu ;;
-		sh*-*-linux*)	sh_multilibs=m1,m3e,m4 ;;
+		sh*-*-linux*)	sh_multilibs=m1,m2,m2a,m3e,m4 ;;
 		sh*-*-netbsd*)	sh_multilibs=m3,m3e,m4 ;;
 		*) sh_multilibs=m1,m2,m2e,m4,m4-single,m4-single-only,m2a,m2a-single ;;
 		esac
@@ -2546,7 +2578,7 @@ tic6x-*-uclinux)
 tilegx-*-linux*)
 	tm_file="elfos.h gnu-user.h linux.h glibc-stdint.h tilegx/linux.h ${tm_file}"
         tmake_file="${tmake_file} tilegx/t-tilegx"
-	extra_objs="mul-tables.o"
+	extra_objs="${extra_objs} mul-tables.o"
 	c_target_objs="${c_target_objs} tilegx-c.o"
 	cxx_target_objs="${cxx_target_objs} tilegx-c.o"
 	extra_headers="feedback.h"
@@ -2554,7 +2586,7 @@ tilegx-*-linux*)
 tilepro-*-linux*)
 	tm_file="elfos.h gnu-user.h linux.h glibc-stdint.h tilepro/linux.h ${tm_file}"
         tmake_file="${tmake_file} tilepro/t-tilepro"
-	extra_objs="mul-tables.o"
+	extra_objs="${extra_objs} mul-tables.o"
 	c_target_objs="${c_target_objs} tilepro-c.o"
 	cxx_target_objs="${cxx_target_objs} tilepro-c.o"
 	extra_headers="feedback.h"
@@ -3503,7 +3535,7 @@ case "${target}" in
 				tm_defines="${tm_defines} CONFIG_PPC405CR"
 				eval "with_$which=405"
 				;;
-			"" | common \
+			"" | common | native \
 			| power | power[2345678] | power6x | powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 464 | 464fp \
@@ -3667,10 +3699,9 @@ case ${target} in
 		;;
 
 	hppa*-*-*)
-		target_cpu_default2="MASK_BIG_SWITCH"
 		if test x$gas = xyes
 		then
-			target_cpu_default2="${target_cpu_default2}|MASK_GAS|MASK_JUMP_IN_DELAY"
+			target_cpu_default2="MASK_GAS|MASK_JUMP_IN_DELAY"
 		fi
 		;;
 

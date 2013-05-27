@@ -3333,10 +3333,10 @@ pointer_diff (location_t loc, tree op0, tree op1)
 
 
   if (TREE_CODE (target_type) == VOID_TYPE)
-    pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+    pedwarn (loc, OPT_Wpointer_arith,
 	     "pointer of type %<void *%> used in subtraction");
   if (TREE_CODE (target_type) == FUNCTION_TYPE)
-    pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+    pedwarn (loc, OPT_Wpointer_arith,
 	     "pointer to a function used in subtraction");
 
   /* If the conversion to ptrdiff_type does anything like widening or
@@ -3663,10 +3663,10 @@ build_unary_op (location_t location,
 		     || TREE_CODE (TREE_TYPE (argtype)) == VOID_TYPE)
 	      {
 		if (code == PREINCREMENT_EXPR || code == POSTINCREMENT_EXPR)
-		  pedwarn (location, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+		  pedwarn (location, OPT_Wpointer_arith,
 			   "wrong type argument to increment");
 		else
-		  pedwarn (location, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+		  pedwarn (location, OPT_Wpointer_arith,
 			   "wrong type argument to decrement");
 	      }
 
@@ -5245,11 +5245,9 @@ convert_for_assignment (location_t location, tree type, tree rhs,
   rhs = require_complete_type (rhs);
   if (rhs == error_mark_node)
     return error_mark_node;
-  /* A type converts to a reference to it.
-     This code doesn't fully support references, it's just for the
-     special case of va_start and va_copy.  */
-  if (codel == REFERENCE_TYPE
-      && comptypes (TREE_TYPE (type), TREE_TYPE (rhs)) == 1)
+  /* A non-reference type can convert to a reference.  This handles
+     va_start, va_copy and possibly port built-ins.  */
+  if (codel == REFERENCE_TYPE && coder != REFERENCE_TYPE)
     {
       if (!lvalue_p (rhs))
 	{
@@ -5261,16 +5259,11 @@ convert_for_assignment (location_t location, tree type, tree rhs,
       rhs = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (rhs)), rhs);
       SET_EXPR_LOCATION (rhs, location);
 
-      /* We already know that these two types are compatible, but they
-	 may not be exactly identical.  In fact, `TREE_TYPE (type)' is
-	 likely to be __builtin_va_list and `TREE_TYPE (rhs)' is
-	 likely to be va_list, a typedef to __builtin_va_list, which
-	 is different enough that it will cause problems later.  */
-      if (TREE_TYPE (TREE_TYPE (rhs)) != TREE_TYPE (type))
-	{
-	  rhs = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (type)), rhs);
-	  SET_EXPR_LOCATION (rhs, location);
-	}
+      rhs = convert_for_assignment (location, build_pointer_type (TREE_TYPE (type)),
+				    rhs, origtype, errtype, null_pointer_constant,
+				    fundecl, function, parmnum);
+      if (rhs == error_mark_node)
+	return error_mark_node;
 
       rhs = build1 (NOP_EXPR, type, rhs);
       SET_EXPR_LOCATION (rhs, location);
