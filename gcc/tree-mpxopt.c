@@ -1135,7 +1135,7 @@ reduce_bounds_lifetime (void)
 	    {
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "Cannot move statement bacause there is no "
-			     "suitable dominator block other than entry block.");
+			     "suitable dominator block other than entry block.\n");
 
 		  gsi_next (&i);
 	    }
