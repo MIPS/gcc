@@ -1184,6 +1184,134 @@ bool  melthk_early_gimple_passes_end_registered_flag;
     ))
 
 
+
+;;;=====================================================================
+;;;******************* PRE_GENERICIZE plugin event *********************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; private pregenericize queue
+(definstance pregenericize_delayed_queue class_delayed_queue
+  :named_name '"pregenericize_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+
+(cheader #{/* flag for PLUGIN_PRE_GENERICIZE declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pre_genericize_registered_flag;
+}#)
+
+(cimplement #{/* flag for PLUGIN_PRE_GENERICIZE define */
+bool  melthk_pre_genericize_registered_flag;
+}#)
+
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_pre_genericize_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_pre_genericize_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+#warning should call melthookproc_HOOK_PRE_GENERICIZE ();
+ }
+ }#)
+
+(defun enable_pre_genericize ()
+  (code_chunk 
+   enablepregen_chk
+   #{ /* enable_pre_genericize $enablepregen_chk */
+   if (!melthk_pre_genericize_registered_flag) {
+     melthk_pre_genericize_registered_flag = true;
+/*
+  register_callback (melt_plugin_name, PLUGIN_PRE_GENERICIZE,
+                     melt_pre_genericize_hook_callback, NULL);
+*/
+   }
+   }#)
+)
+
+(defhook hook_pre_genericize (:tree tfndecl) () :void
+  :predef HOOK_PRE_GENERICIZE
+  (let ( (firstlist (get_field :delqu_first pregenericize_delayed_queue))
+	 (lastlist (get_field :delqu_last pregenericize_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res ())
+	 )
+    (let ( (cfndeclv (constant_box tfndecl))
+	   )
+;;; call the first routines in natural order
+      (foreach_in_list
+       (firstlist)
+       (firstpair firstproc)
+       (setq res (firstproc cfndeclv res))
+       )
+;;; reverse the last list
+      (foreach_in_list
+       (lastlist)
+       (lastpair lastproc)
+       (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+      (foreach_in_list
+       (revlastlist)
+       (revlastpair revlastproc)
+       (setq res (revlastproc cfndeclv res))
+       )
+      )
+    )
+  )					;end hook_pre_genericize 
+
+
+(defun register_pre_genericize_first (fun)
+  :doc #{Use $REGISTER_PRE_GENERICIZE_FIRST to register a function $FUN to
+  be run at PLUGIN_PRE_GENERICIZE hook, in first place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (firstlist (get_field :delqu_first pregenericize_delayed_queue))
+	     )
+    (if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        pregenericize_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+      (progn 
+	(list_append firstlist fun)
+	(enable_pre_genericize))
+      (errormsg_plain
+        "Bad hook passed to register_pre_genericize_hook")
+    ))
+)
+
+(defun register_pre_genericize_last (fun)
+  :doc #{Use $REGISTER_PRE_GENERICIZE_LAST to register a function $FUN to
+  be run at PLUGIN_PRE_GENERICIZE hook, in last place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (lastlist (get_field :delqu_first pregenericize_delayed_queue))
+	     )
+    (if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+	        pregenericize_delayed_queue
+	        :delqu_first lastlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+	(progn
+	  (list_append lastlist fun)
+	  (enable_pre_genericize))
+      (errormsg_plain
+        "Bad hook passed to register_pre_genericize_hook")
+    ))
+)
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values

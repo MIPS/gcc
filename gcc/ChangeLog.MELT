@@ -3,6 +3,17 @@
 
 2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Unstable}}
+	* melt/warmelt-hooks.melt: Re-implement PLUGIN_PRE_GENERICIZE
+	plugin event.
+	(pregenericize_delayed_queue)
+	(melthk_pre_genericize_registered_flag)
+	(melt_pre_genericize_hook_callback, enable_pre_genericize)
+	(hook_pre_genericize, register_pre_genericize_first)
+	(register_pre_genericize_last, register_pre_genericize_last): New.
+
+2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt: Re-implement EARLY_GIMPLE_PASSES_START
 	& EARLY_GIMPLE_PASSES_END plugin events.
 	(early_gimple_passes_start_delayed_queue)
