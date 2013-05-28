@@ -1144,10 +1144,7 @@ reduce_bounds_lifetime (void)
 	      if (dom_bb)
 		{
 		  gimple_stmt_iterator last = gsi_last_bb (dom_bb);
-		  if (!gsi_end_p (last)
-		      && (is_ctrl_stmt (gsi_stmt (last))
-			  || (is_gimple_call (gsi_stmt (last))
-			      && stmt_can_throw_internal (gsi_stmt (last)))))
+		  if (!gsi_end_p (last) && stmt_ends_bb_p (gsi_stmt (last)))
 		    gsi_move_before (&i, &last);
 		  else
 		    gsi_move_after (&i, &last);
