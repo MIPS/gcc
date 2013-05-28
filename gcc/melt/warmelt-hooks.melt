@@ -997,7 +997,9 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_start_regist
  melt_early_gimple_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
-#warning should call   melthookproc_HOOK_EARLY_GIMPLE_PASSES_START ();
+#warning should call melthookproc_HOOK_EARLY_GIMPLE_PASSES_START ();
+   melt_assertmsg ("unimplemented melt_early_gimple_passes_start_hook_callback", 0);
+   abort();
  }
  }#)
 
@@ -1121,6 +1123,8 @@ bool  melthk_early_gimple_passes_end_registered_flag;
 			      void* user_data ATTRIBUTE_UNUSED)
  {
 #warning should call melthookproc_HOOK_EARLY_GIMPLE_PASSES_END ();
+   melt_assertmsg ("unimplemented melt_early_gimple_passes_end_hook_callback", 0);
+   abort ();
  }
  }#)
 
@@ -1217,6 +1221,8 @@ bool  melthk_pre_genericize_registered_flag;
 			      void* user_data ATTRIBUTE_UNUSED)
  {
 #warning should call melthookproc_HOOK_PRE_GENERICIZE ();
+   melt_assertmsg ("unimplemented melt_pre_genericize_hook_callback", 0);
+   abort ();
  }
  }#)
 

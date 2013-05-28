@@ -3,6 +3,16 @@
 
 2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt
+	(melt_early_gimple_passes_start_hook_callback)
+	(melt_early_gimple_passes_end_hook_callback)
+	(melt_pre_genericize_hook_callback)
+	(melt_early_gimple_passes_start_hook_callback)
+	(melt_early_gimple_passes_end_hook_callback)
+	(melt_pre_genericize_hook_callback): Temporarily add an abort.
+
+2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Unstable}}
 	* melt/warmelt-hooks.melt: Re-implement PLUGIN_PRE_GENERICIZE
 	plugin event.
