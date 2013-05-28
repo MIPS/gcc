@@ -1,6 +1,37 @@
 
 
 
+2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Unstable, because some hooks not yet re-implemented}}
+	* melt-predef.list (HOOK_EARLY_GIMPLE_PASSES_START)
+	(HOOK_EARLY_GIMPLE_PASSES_END, HOOK_PASS_EXECUTION)
+	(HOOK_PRE_GENERICIZE): Adding new hooks.
+
+	* melt-runtime.c (melt_pre_genericize_callback)
+	(meltgc_passexec_callback)
+	(meltgc_early_gimple_passes_start_callback)
+	(meltgc_early_gimple_passes_end_callback): Remove.
+	(melt_really_initialize): Don't register them.
+
+	* melt/warmelt-first.melt (sysdata_pre_genericize)
+	(sysdata_passexec_hook): Obsolete.
+
+	* melt/warmelt-base.melt (pass_execution_reference)
+	(run_all_pass_execution_hooks, register_pass_execution_hook)
+	(unregister_pass_execution_hook, pregenericize_delayed_queue)
+	(register_pre_genericize_hook_first)
+	(register_pre_genericize_hook_last, pre_genericize_hook_runner)
+	(early_gimple_passes_start_delayed_queue)
+	(melt_early_gimple_passes_start_runner)
+	(register_early_gimple_passes_start_hook_first)
+	(register_early_gimple_passes_start_hook_last)
+	(early_gimple_passes_end_delayed_queue)
+	(register_early_gimple_passes_end_hook_first)
+	(register_early_gimple_passes_end_hook_last): Remove, they are
+	going into warmelt-hooks.melt.
+
+
+
 2013-05-24  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt: Really call the all_ipa_passes* hooks.

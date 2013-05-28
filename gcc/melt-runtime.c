@@ -8735,91 +8735,13 @@ melt_pragma_callback (void *gcc_data ATTRIBUTE_UNUSED,
 #endif  /*GCC >4.6 for handling pragma support*/
 
 
-/* This function is used when PLUGIN_PRE_GENERICIZE callback is invoked.  It
-   calls the closure registered in field sydata_pre_genericize of
-   initial_system_data.  The first argument is the tree containing the function
-   declaration (as given in file gcc/c-decl.c).  */
-static void
-melt_pre_genericize_callback (void *ptr_fndecl,
-                              void *user_data ATTRIBUTE_UNUSED)
-{
-  int pregenmagic = 0;
-  MELT_ENTERFRAME (2, NULL);
-#define pregenv meltfram__.mcfr_varptr[0]
-#define fndeclv meltfram__.mcfr_varptr[1]
-  fndeclv = meltgc_new_tree ((meltobject_ptr_t) MELT_PREDEF (DISCR_TREE),
-                             ((tree) ptr_fndecl));
-  pregenv = melt_get_inisysdata (MELTFIELD_SYSDATA_PRE_GENERICIZE);
-  pregenmagic = melt_magic_discr ((melt_ptr_t) pregenv);
-  MELT_LOCATION_HERE ("melt_pre_genericize_callback");
-  MELT_CHECK_SIGNAL ();
-  if (pregenmagic == MELTOBMAG_CLOSURE) {
-    MELT_LOCATION_HERE
-    ("melt_pre_genericize before applying pre_genericize closure");
-    (void) melt_apply ((meltclosure_ptr_t) pregenv, (melt_ptr_t) fndeclv,
-                       "", NULL, "", NULL);
-  }
-  MELT_EXITFRAME ();
-#undef fndeclv
-#undef pregenclosv
-}
 
 
 
 
-/* The plugin callback for pass execution.  */
-static void
-meltgc_passexec_callback (void *gcc_data,
-                          void* user_data ATTRIBUTE_UNUSED)
-{
-  struct opt_pass* pass = (struct opt_pass*) gcc_data;
-  MELT_ENTERFRAME (2, NULL);
-#define passxhv   meltfram__.mcfr_varptr[0]
-#define passnamev meltfram__.mcfr_varptr[1]
-  passxhv = melt_get_inisysdata (MELTFIELD_SYSDATA_PASSEXEC_HOOK);
-  MELT_LOCATION_HERE ("meltgc_passexec_callback");
-  MELT_CHECK_SIGNAL ();
-  if (!passxhv) 
-    goto end;
-  debugeprintf ("meltgc_passexec_callback pass %p named %s passxhv %p",
-                (void*) pass, pass?pass->name:"_none_", passxhv);
-  gcc_assert (pass != NULL);
-  if (melt_magic_discr((melt_ptr_t) passxhv) == MELTOBMAG_CLOSURE) {
-    char curlocbuf[96];
-    union meltparam_un pararg[1];
-    memset (&pararg, 0, sizeof (pararg));
-    pararg[0].meltbp_long = pass->static_pass_number;
-    MELT_LOCATION_HERE_PRINTF (curlocbuf,
-			       "meltgc_passexec_callback pass %p named %s #%d",
-			       (void*) pass, 
-			       pass->name,
-			       pass->static_pass_number);
-    if (pass->name)
-      passnamev = meltgc_new_stringdup
-	((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING), pass->name);
-#if MELT_HAVE_DEBUG
-    {
-      static char locbuf[110];
-      memset (locbuf, 0, sizeof (locbuf));
-      MELT_LOCATION_HERE_PRINTF(locbuf, "meltgc_passexec_callback [pass %s #%d] before apply",
-                                pass->name, pass->static_pass_number);
-    }
-#endif
-    debugeprintf ("meltgc_passexec_callback before apply pass @ %p %s #%d",
-                  (void*)pass,
-                  pass->name, pass->static_pass_number);
-    (void) melt_apply ((meltclosure_ptr_t) passxhv,
-                       (melt_ptr_t) passnamev,
-                       MELTBPARSTR_LONG, pararg, "", NULL);
-    debugeprintf ("meltgc_passexec_callback after apply pass @ %p %s #%d",
-                  (void*)pass,
-                  pass->name, pass->static_pass_number);
-  }
-#undef passxhv
-#undef passnamev
- end:
-  MELT_EXITFRAME ();
-}
+
+
+
 
 static void melt_do_finalize (void);
 
@@ -8833,57 +8755,6 @@ melt_finishall_callback(void *gcc_data ATTRIBUTE_UNUSED,
   melt_do_finalize ();
 }
 
-
-
-/*****
- * Support for PLUGIN_EARLY_GIMPLE_PASSES_START; invoked in file
- * passes.c function execute_ipa_pass_list
- *****/
-static void
-meltgc_early_gimple_passes_start_callback (void *gcc_data ATTRIBUTE_UNUSED,
-    void* user_data ATTRIBUTE_UNUSED)
-{
-  MELT_ENTERFRAME (1, NULL);
-#define closv     meltfram__.mcfr_varptr[0]
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_EARLY_GIMPLE_PASSES_START_HOOK);
-  if (closv && melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE) {
-    MELT_LOCATION_HERE ("early_gimple_passes_start_callback applying");
-    debugeprintf ("before applying early_gimple_passes_start_callback closv=%p", 
-		  (void*) closv);
-    (void) melt_apply ((meltclosure_ptr_t) closv, NULL,
-                       "", NULL, "", NULL);
-    debugeprintf ("after applying early_gimple_passes_start_callback closv=%p", 
-		  (void*) closv);
-  }
-  MELT_EXITFRAME ();
-#undef closv
-}
-
-
-
-/*****
- * Support for PLUGIN_EARLY_GIMPLE_PASSES_END; invoked in file
- * passes.c function execute_ipa_pass_list
- *****/
-static void
-meltgc_early_gimple_passes_end_callback (void *gcc_data ATTRIBUTE_UNUSED,
-    void* user_data ATTRIBUTE_UNUSED)
-{
-  MELT_ENTERFRAME (1, NULL);
-#define closv     meltfram__.mcfr_varptr[0]
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_EARLY_GIMPLE_PASSES_END_HOOK);
-  if (closv && melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE) {
-    MELT_LOCATION_HERE ("early_gimple_passes_end_callback applying");
-    debugeprintf ("before applying early_gimple_passes_end_callback closv=%p", 
-		  (void*) closv);
-    (void) melt_apply ((meltclosure_ptr_t) closv, NULL,
-                       "", NULL, "", NULL);
-    debugeprintf ("after applying early_gimple_passes_end_callback closv=%p", 
-		  (void*) closv);
-  }
-  MELT_EXITFRAME ();
-#undef closv
-}
 
 
 
@@ -11142,21 +11013,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
                      NULL);
   register_callback (melt_plugin_name, PLUGIN_PRAGMAS, melt_pragma_callback,
                      NULL);
-  register_callback (melt_plugin_name, PLUGIN_PRE_GENERICIZE,
-                     melt_pre_genericize_callback, NULL);
   register_callback (melt_plugin_name, PLUGIN_FINISH,
                      melt_finishall_callback,
-                     NULL);
-  register_callback (melt_plugin_name, PLUGIN_EARLY_GIMPLE_PASSES_START,
-                     meltgc_early_gimple_passes_start_callback,
-                     NULL);
-  register_callback (melt_plugin_name, PLUGIN_EARLY_GIMPLE_PASSES_END,
-                     meltgc_early_gimple_passes_end_callback,
-                     NULL);
-  /* The meltgc_passexec_callback is always registered, perhaps just to
-     check for signals. */
-  register_callback (melt_plugin_name, PLUGIN_PASS_EXECUTION,
-                     meltgc_passexec_callback,
                      NULL);
   debugeprintf ("melt_really_initialize cpp_PREFIX=%s", cpp_PREFIX);
   debugeprintf ("melt_really_initialize cpp_EXEC_PREFIX=%s", cpp_EXEC_PREFIX);
@@ -13751,7 +13609,7 @@ meltgc_notify_finish_type_hook (void)
                        NULL);
   } else {
     /* This should never happen. The calling MELT code should test that
-    the :sysdata_passexec_hook is either a closure or null. */
+    the :sysdata_finishtype_hook is either a closure or null. */
     melt_fatal_error ("sysdata_finishtype_hook has invalid kind magic #%d",
                       melt_magic_discr ((melt_ptr_t)ftyhookv));
   }

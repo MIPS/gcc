@@ -413,11 +413,9 @@ don't instanciate this class!}#
 	   sysdata_stdout		;raw file for stdout
 	   sysdata_stderr		;raw file for stderr
 	   sysdata_dumpfile		;raw file for dump_file
-	   sysdata_pre_genericize       ;closure to be called for PLUGIN_PRE_GENERICIZE:
-					;look at gcc/c-decl.c.
+	   sysdata_pre_genericize       ;obsolete
 	   sysdata_option_set 		;closure to set a MELT option
-	   sysdata_passexec_hook	;internal closure if any to be
-					;called using PLUGIN_PASS_EXECUTION
+	   sysdata_passexec_hook	;obsolete
 	   sysdata_meltpass_after_hook	;closure to be called after
 					;MELT pass execution
 					;functions, it is
