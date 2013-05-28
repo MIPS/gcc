@@ -734,11 +734,6 @@ mpx_output_static_bounds (tree var, tree bnd_var, struct mpx_ctor_stmt_list *stm
   ub = size_binop (PLUS_EXPR, lb, size);
   ub = build1 (BIT_NOT_EXPR, size_type_node, ub);
 
-  lhs = build1 (INDIRECT_REF, size_type_node, bnd_p);
-  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, lb);
-  append_to_statement_list (modify, &stmts->stmts);
-  stmts->avail--;
-
   lhs = build1 (INDIRECT_REF, size_type_node,
 		build2 (POINTER_PLUS_EXPR, size_ptr, bnd_p,
 			TYPE_SIZE_UNIT (size_type_node)));
@@ -839,14 +834,6 @@ mpx_finish_file (void)
 				   MAX_RESERVED_INIT_PRIORITY + 2);
     }
 
-  if (mpx_size_decls)
-    {
-      htab_traverse (mpx_size_decls, mpx_output_size_variable, &tmp);
-
-      htab_delete (mpx_size_decls);
-      mpx_size_decls = NULL;
-    }
-
   if (mpx_static_const_bounds)
     FOR_EACH_VEC_ELT (*mpx_static_const_bounds, i, var)
       assemble_variable (var, 1, 0, 0);
@@ -888,6 +875,14 @@ mpx_finish_file (void)
       htab_delete (mpx_static_var_bounds_r);
       mpx_static_var_bounds = NULL;
       mpx_static_var_bounds_r = NULL;
+    }
+
+  if (mpx_size_decls)
+    {
+      htab_traverse (mpx_size_decls, mpx_output_size_variable, &tmp);
+
+      htab_delete (mpx_size_decls);
+      mpx_size_decls = NULL;
     }
 }
 
@@ -2267,6 +2262,14 @@ mpx_make_static_bounds (tree obj)
 
       bnd_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			    get_identifier (bnd_var_name), bound_type_node);
+
+      /* Address of the var will be used as lower bound.  */
+      TREE_ADDRESSABLE (obj) = 1;
+
+      /* There are cases when symbol is removed ignoring that
+	 we have bounds for it.  Avoid it by forcing symbol
+	 output.  */
+      symtab_get_node (obj)->symbol.force_output = 1;
     }
   else
     {
@@ -2279,13 +2282,14 @@ mpx_make_static_bounds (tree obj)
 
   TREE_PUBLIC (bnd_var) = 0;
   TREE_USED (bnd_var) = 1;
-  TREE_READONLY (bnd_var) = 1;
+  TREE_READONLY (bnd_var) = 0;
   TREE_STATIC (bnd_var) = 1;
   TREE_ADDRESSABLE (bnd_var) = 0;
   DECL_ARTIFICIAL (bnd_var) = 1;
   DECL_COMMON (bnd_var) = 1;
   DECL_COMDAT (bnd_var) = 1;
   DECL_READ_P (bnd_var) = 1;
+  DECL_INITIAL (bnd_var) = mpx_build_addr_expr (obj);
 
   /* Add created var to the global hash map.  */
   if (!mpx_static_var_bounds)
