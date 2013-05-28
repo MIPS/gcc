@@ -997,9 +997,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_start_regist
  melt_early_gimple_passes_start_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
-#warning should call melthookproc_HOOK_EARLY_GIMPLE_PASSES_START ();
-   melt_assertmsg ("unimplemented melt_early_gimple_passes_start_hook_callback", 0);
-   abort();
+   melthookproc_HOOK_EARLY_GIMPLE_PASSES_START ();
  }
  }#)
 
@@ -1122,9 +1120,7 @@ bool  melthk_early_gimple_passes_end_registered_flag;
  melt_early_gimple_passes_end_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
-#warning should call melthookproc_HOOK_EARLY_GIMPLE_PASSES_END ();
-   melt_assertmsg ("unimplemented melt_early_gimple_passes_end_hook_callback", 0);
-   abort ();
+   melthookproc_HOOK_EARLY_GIMPLE_PASSES_END ();
  }
  }#)
 
@@ -1217,12 +1213,10 @@ bool  melthk_pre_genericize_registered_flag;
 
 (cimplement #{
  void 
- melt_pre_genericize_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+ melt_pre_genericize_hook_callback (void* gcc_data,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
-#warning should call melthookproc_HOOK_PRE_GENERICIZE ();
-   melt_assertmsg ("unimplemented melt_pre_genericize_hook_callback", 0);
-   abort ();
+   melthookproc_HOOK_PRE_GENERICIZE ((tree)gcc_data);
  }
  }#)
 
@@ -1320,15 +1314,143 @@ bool  melthk_pre_genericize_registered_flag;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+;;;=====================================================================
+;;;******************* PASS_EXECUTION plugin event *********************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; private pass_execution queue
+(definstance pass_execution_delayed_queue class_delayed_queue
+  :named_name '"pass_execution_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+(cheader #{/* flag for PLUGIN_PASS_EXECUTION declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_pass_execution_registered_flag;
+}#)
+(cimplement #{/* flag for PLUGIN_PASS_EXECUTION define */
+bool  melthk_pass_execution_registered_flag;
+}#)
+
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_pass_execution_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_pass_execution_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+   struct opt_pass* pass = (struct opt_pass*) gcc_data;
+#warning should call melthookproc_HOOK_PASS_EXECUTION (pass->name, (long) pass->static_pass_number);
+ }
+ }#)
+
+
+;; we always register the pass_execution hook, because we want the GC
+;; to run there
+(code_chunk 
+ register_pass_execution_hook_chk
+ #{ /* we always $register_pass_execution_hook_chk */
+    register_callback (melt_plugin_name, PLUGIN_PASS_EXECUTION,
+		       melt_pass_execution_hook_callback, NULL);
+ }#)
+
+(defhook hook_pass_execution (:cstring passname :long passnum) () :void
+  :predef HOOK_PASS_EXECUTION
+  (let (
+	(passnameval (expr_chunk
+		      makepassname_chk  
+		      :value
+		      #{/*hook_pass_execution $MAKEPASSNAME_CHK*/
+		      meltgc_new_stringdup 
+		      ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
+		       $PASSNAME)
+		      }#))
+	(firstlist (get_field :delqu_first pass_execution_delayed_queue))
+	(lastlist (get_field :delqu_last  pass_execution_delayed_queue))
+	(revlastlist (make_list discr_list))
+	(res ())
+	)
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (firstpair firstproc)
+     (setq res (firstproc passnameval passnum res))
+     )
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (lastpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+    (foreach_in_list
+     (revlastlist)
+     (revlastpair revlastproc)
+     (setq res (revlastproc passnameval passnum res))
+     )
+    )
+  ;; always force a minor garbage collection, otherwise other GCC
+  ;; passes could break havoc
+  (minor_garbcoll 1024)
+  )					;end hook_pass_execution 
+
+
+(defun register_pass_execution_first (fun)
+  :doc #{Use $REGISTER_PASS_EXECUTION_FIRST to register a function $FUN to
+  be run at PLUGIN_PASS_EXECUTION hook, in first place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (firstlist (get_field :delqu_first pass_execution_delayed_queue))
+	     )
+    (if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        pass_execution_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+      (list_append firstlist fun)
+      (errormsg_plain
+        "Bad hook passed to register_pass_execution_hook")
+    ))
+)
+
+(defun register_pass_execution_last (fun)
+  :doc #{Use $REGISTER_PASS_EXECUTION_LAST to register a function $FUN to
+  be run at PLUGIN_PASS_EXECUTION hook, in last place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (lastlist (get_field :delqu_first pass_execution_delayed_queue))
+	     )
+    (if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+ 	        pass_execution_delayed_queue
+	        :delqu_first lastlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+      (list_append lastlist fun)
+      (errormsg_plain
+        "Bad hook passed to register_pass_execution_last_hook")
+    ))
+)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (export_values
   at_finish_unit_first
   at_finish_unit_last
   at_start_unit_first
   at_start_unit_last
-  hook_override_gate
   hook_low_debug_value_at
-  register_override_gate_first
-  register_override_gate_last
+  hook_override_gate
   register_all_ipa_passes_end_first
   register_all_ipa_passes_end_last
   register_all_ipa_passes_start_first
@@ -1341,6 +1463,12 @@ bool  melthk_pre_genericize_registered_flag;
   register_early_gimple_passes_end_last
   register_early_gimple_passes_start_first
   register_early_gimple_passes_start_last
+  register_override_gate_first
+  register_override_gate_last
+  register_pass_execution_first
+  register_pass_execution_last
+  register_pre_genericize_first
+  register_pre_genericize_last
   unregister_override_gate_first
   unregister_override_gate_last
 )

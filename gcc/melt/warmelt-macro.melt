@@ -1246,7 +1246,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
     (if  (is_pair spair)
 	(let ( (varexp (pair_head spair)) )
 	  (setq spair (pair_tail spair))
-	  (setq varformals (lambda_arg_bindings varexp))
+	  (setq varformals (lambda_arg_bindings varexp ()))
 	  )
       (progn
 	(error_strv sloc "missing varformals in citeration"_
@@ -2039,7 +2039,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			(if (or (not (is_a argtype class_ctype))
 				(not (is_string (unsafe_get_field :ctype_parstring argtype))))
 			    (error_strv argloc "invalid argument type in formal arglist"_
-					(unsafe_get_field :named_name curarg))))
+					(get_field :named_name curarg))))
 		    (put_int curbind argrk)
 		    (mapobject_put argmap curarg curbind)
 		    (list_append bndlist curbind)
@@ -2071,7 +2071,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	       (setq ix (+i ix 1))
 	       (setq bndpair (pair_tail bndpair))
 	       )
-      (debug "lambda_arg_bindings result bndtup" bndtup)
+      (debug "lambda_arg_bindings result bndtup" bndtup ())
       (return bndtup)
       )))
 
@@ -2377,7 +2377,7 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
       )
     (setq curpair (pair_tail curpair))
     ;; parse the formal start arguments
-    (setq bstartup (lambda_arg_bindings (pair_head curpair)))
+    (setq bstartup (lambda_arg_bindings (pair_head curpair) ()))
     (setq curpair (pair_tail curpair))
     (setq statsymb (pair_head curpair))
     (when (is_not_a statsymb class_symbol)
@@ -2390,7 +2390,7 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
 	  (return))
     ;; parse the formal local arguments
     (setq curpair (pair_tail curpair))
-    (setq blocvtup  (lambda_arg_bindings (pair_head curpair)))
+    (setq blocvtup  (lambda_arg_bindings (pair_head curpair) ()))
     (when (is_a blocvtup  discr_variadic_formal_sequence)
       (error_plain loc
 		   "(DEFCITERATOR symb startformals state localformals...) cannot have variadic local formals")
@@ -2532,7 +2532,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	  (return)))
     (setq curpair (pair_tail curpair))
     ;; parse the match & in formals 
-    (let ( (matinformals (lambda_arg_bindings (pair_head curpair)))
+    (let ( (matinformals (lambda_arg_bindings (pair_head curpair) ()))
 	   (:long nbmatinformals (multiple_length matinformals)) 
 	   )
       (if (<i nbmatinformals 1)
@@ -2556,7 +2556,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       )
     ;; parse the out formals
     (setq curpair (pair_tail curpair))
-    (setq outformals (lambda_arg_bindings (pair_head curpair)))
+    (setq outformals (lambda_arg_bindings (pair_head curpair) ()))
     (debug "mexpand_defcmatcher outformals" outformals)
     (if (not (is_multiple outformals))
 	(progn
@@ -2724,7 +2724,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	  (return)))
     (setq curpair (pair_tail curpair))
     ;; parse the match & in formals 
-    (let ( (matinformals (lambda_arg_bindings (pair_head curpair)))
+    (let ( (matinformals (lambda_arg_bindings (pair_head curpair) ()))
 	   (:long nbmatinformals (multiple_length matinformals)) 
 	   )
       (if (<i nbmatinformals 1)
@@ -2748,7 +2748,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       )
     ;; parse the out formals
     (setq curpair (pair_tail curpair))
-    (setq outformals (lambda_arg_bindings (pair_head curpair)))
+    (setq outformals (lambda_arg_bindings (pair_head curpair) ()))
     (if (not (is_multiple outformals))
 	(progn
 	  (error_plain loc "bad outs for (DEFUNMATCHER <symb> <ins> <outs>[:doc docum]  <matchfun> <applyfun> [<data>])"_)
@@ -2950,14 +2950,42 @@ $EXPORT_VALUES to be visible outside its module.}#)
     (setq curpair (pair_tail curpair))
     (warn_if_redefined symb env loc)
     ;; parse the formal input arguments
-    (setq intup (lambda_arg_bindings (pair_head curpair)))
+    (setq intup 
+	  (let ( (insexp (pair_head curpair))
+		 (symbname (get_field :named_name symb))
+		 )
+	    (debug "mexpand_defhook insexp=" insexp)
+	    (cond ( (is_a insexp class_sexpr)
+		    (lambda_arg_bindings insexp :true))
+		  ( (null insexp)
+		    (make_multiple discr_multiple 0))
+		  (:else
+		    (error_strv 
+		     loc
+		     "bad input formals for  (DEFHOOK <symb> <informals> <outformals> <ctype-key> ...)"
+		     symbname)
+		    (return)))))
     (debug "mexpand_defhook intup=" intup)
     (when (is_a intup  discr_variadic_formal_sequence)
       (error_strv loc "DEFHOOK cannot have variadic input formals" symbname)
       (return))
     (setq curpair (pair_tail curpair))
     ;; parse the formal output arguments
-    (setq outup (lambda_arg_bindings (pair_head curpair)))
+    (setq outup 
+	  (let ( (outsexp (pair_head curpair))
+		 (symbname (get_field :named_name symb))
+		 )
+	    (debug "mexpand_defhook outsexp=" outsexp)
+	    (cond ( (is_a outsexp class_sexpr)
+		    (lambda_arg_bindings outsexp :true))
+		  ( (null outsexp)
+		    (make_multiple discr_multiple 0))
+		  (:else
+		    (error_strv 
+		     loc
+		     "bad output formals for  (DEFHOOK <symb> <informals> <outformals> <ctype-key> ...)"
+		     symbname)
+		    (return)))))
     (debug "mexpand_defhook outup=" outup)
     (when (is_a outup  discr_variadic_formal_sequence)
       (error_strv loc "DEFHOOK cannot have variadic output formals" symbname)

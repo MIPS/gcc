@@ -1,7 +1,32 @@
 
 2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
-	{{Regenerate}}
 
+	* melt-predef.list (HOOK_REGISTER_PASS): New.
+
+	* melt/warmelt-macro.melt: Add explicit argument to
+	lambda_arg_bindings calls.
+	(mexpand_defhook): More checks on input
+	and output formals.
+
+	* melt/warmelt-hooks.melt:
+	(melt_early_gimple_passes_start_hook_callback): Call
+	melthookproc_HOOK_EARLY_GIMPLE_PASSES_START.
+	(melt_early_gimple_passes_end_hook_callback): Call
+	melthookproc_HOOK_EARLY_GIMPLE_PASSES_END.
+	(melt_pre_genericize_hook_callback): Call
+	melthookproc_HOOK_PRE_GENERICIZE.
+	Handle PASS_EXECUTION plugin event.
+	(pass_execution_delayed_queue)
+	(melthk_pass_execution_registered_flag)
+	(melt_pass_execution_hook_callback, hook_pass_execution)
+	(register_pass_execution_first, register_pass_execution_last)
+	(hook_register_pass): New.
+
+	* melt/xtramelt-ana-base.melt (install_melt_pass): New but
+	incomplete...
+
+2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+01.c: Regenerate.

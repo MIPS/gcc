@@ -43,17 +43,93 @@
   :doc #{The main input file name given to GCC thru $MAIN_INPUT_FILENAME}#
   #{ main_input_filename }#)
   
-(defprimitive install_melt_gcc_pass 
+
+
+;;;;;;;;;;;;;;;;;;;;;; install a MELT GCC PASS
+(defprimitive install_melt_gcc_pass  
+   (:value pass :cstring positioning refpassname :long refpassnum) 
+   :void
+   :doc #{Install a GCC pass coded in MELT. The $PASS should be an
+  object, instance of a sub-class of $CLASS_GCC_PASS, e.g. of
+  $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING is "before"
+   or "after". The reference pass is given thru $REFPASSNAME and
+   $REFPASSNUM. Usually $INSTALL_MELT_GCC_PASS is called from a mode
+   initializer.}#
+  #{ meltgc_register_pass ((melt_ptr_t) $pass, $positioning, $refpassname, $refpassnum); 
+  }#)
+
+;; new function to replace that.
+(defun install_melt_pass 
   (:value pass :cstring positioning refpassname :long refpassnum) 
-  :void
   :doc #{Install a GCC pass coded in MELT. The $PASS should be an
   object, instance of a sub-class of $CLASS_GCC_PASS, e.g. of
   $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING is "before"
   or "after". The reference pass is given thru $REFPASSNAME and
   $REFPASSNUM. Usually $INSTALL_MELT_GCC_PASS is called from a mode
   initializer.}#
-  #{ meltgc_register_pass ((melt_ptr_t) $pass, $positioning, $refpassname, $refpassnum); 
-  }#)
+  (debug "install_melt_gcc_pass pass=" pass 
+	 " positioning=" positioning " refpassname=" refpassname " refpassnum=" refpassnum)
+  ;; check that we have a mode
+  (let ( (:long badmodeflag 0)
+	 )
+    (code_chunk badmode_chk
+       #{/*install_melt_gcc_pass $BADMODE_CHK */
+         const char* modstr = melt_argument("mode");
+	 if (!modstr || !modstr[0])
+           $BADMODEFLAG = 1;
+	   }#)
+    (if badmodeflag (return)))  
+  ;;; check the pass
+  (when (is_not_a pass class_gcc_pass)
+    (errormsg_plain "MELT bad pass to install")
+    (return))
+  (let ( (passname (get_field :named_name pass))
+	 (passdict (get_field :sysdata_pass_dict initial_system_data))
+	 )
+    (when (not (is_string passname))
+      (errormsg_plain "MELT corrupted nameless pass to install")
+      (return))
+  ;; check the positioning
+    (when (not (cstring_non_empty positioning))
+      (errormsg_strv "cannot install MELT pass without positioning" passname)
+      (return))
+  ;; check the refpassname
+    (when (not (cstring_non_empty refpassname))
+      (errormsg_strv "cannot install MELT pass without reference pass name" passname)
+      (return))
+  ;; check that the pass is not already installed
+    (when (mapstring_getstr passdict passname)
+      (errormsg_strv "MELT pass of same name already installed" passname)
+      (return)
+      )
+    (let (
+	  (propreqv (get_field :gccpass_properties_required pass))
+	  (propprov (get_field :gccpass_properties_provided pass))
+	  (todostartv (get_field :gccpass_todo_flags_start pass))
+	  (todofinishv (get_field :gccpass_todo_flags_finish pass))
+	  )
+      (cond ((is_a pass class_gcc_gimple_pass)
+	     (code_chunk 
+	      gimplepass_chk
+	      #{ /* start install_melt_gcc_pass $GIMPLEPASS_CHK */
+	        struct gimple_opt_pass* gimpass = NULL;
+	        gimpass = XNEW(struct gimple_opt_pass);
+		memset(gimpass, 0, sizeof(struct gimple_opt_pass));
+		gimpass->pass.type = GIMPLE_PASS;
+		gimpass->pass.name = 
+		  melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
+ #warning very incomplete 
+	      /* end install_melt_gcc_pass $GIMPLEPASS_CHK */
+	      }#)
+	     )
+	    (:else
+	     (errormsg_strv "MELT failed to install pass" passname)
+	     (return)
+	     )
+	    )
+	     
+    )))					;end install_melt_gcc_pass
+
 
 ;;; edge related primitives
 (defprimitive make_edge (discr :edge edg) :value
