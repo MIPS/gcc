@@ -2,6 +2,25 @@
 
 
 2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt: Re-implement EARLY_GIMPLE_PASSES_START
+	& EARLY_GIMPLE_PASSES_END plugin events.
+	(early_gimple_passes_start_delayed_queue)
+	(melthk_early_gimple_passes_start_registered_flag)
+	(hook_early_gimple_passes_start)
+	(melt_early_gimple_passes_start_hook_callback)
+	(enable_early_gimple_passes_start)
+	(register_early_gimple_passes_start_first)
+	(register_early_gimple_passes_start_last)
+	(early_gimple_passes_end_delayed_queue)
+	(melthk_early_gimple_passes_end_registered_flag)
+	(hook_early_gimple_passes_end)
+	(melt_early_gimple_passes_end_hook_callback)
+	(enable_early_gimple_passes_end)
+	(register_early_gimple_passes_end_first)
+	(register_early_gimple_passes_end_last): Add functions.
+
+2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable, because some hooks not yet re-implemented}}
 	* melt-predef.list (HOOK_EARLY_GIMPLE_PASSES_START)
 	(HOOK_EARLY_GIMPLE_PASSES_END, HOOK_PASS_EXECUTION)
