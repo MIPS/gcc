@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] =
 #define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
 
-/*** 14 extra MELT c-headers ***/
+/*** 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 1 : **/
@@ -59,7 +59,7 @@ melt_override_gate_callback (void *gccdata, void *userdata ATTRIBUTE_UNUSED)
   *pgatestatus = gatsta;
 }				/* end of  melt_override_gate_callback */
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 2 : **/
@@ -67,7 +67,7 @@ melt_override_gate_callback (void *gccdata, void *userdata ATTRIBUTE_UNUSED)
 /* flag for PLUGIN_OVERRIDE_GATE */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY melthk_override_gate_registered_flag;
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 3 : **/
@@ -75,7 +75,7 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY melthk_override_gate_registered_flag;
 /* flag for PLUGIN_START_UNIT */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY melthk_start_unit_registered_flag;
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 4 : **/
@@ -85,7 +85,7 @@ void MELT_MODULE_VISIBILITY
 melt_startunithook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 			     void *user_data ATTRIBUTE_UNUSED);
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 5 : **/
@@ -93,7 +93,7 @@ melt_startunithook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 /* flag for PLUGIN_FINISH_UNIT */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY melthk_finish_unit_registered_flag;
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 6 : **/
@@ -103,7 +103,7 @@ void MELT_MODULE_VISIBILITY
 melt_finishunithook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 			      void *user_data ATTRIBUTE_UNUSED);
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 7 : **/
@@ -112,7 +112,7 @@ melt_finishunithook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 MELT_EXTERN bool MELT_MODULE_VISIBILITY
   melthk_all_passes_start_registered_flag;
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 8 : **/
@@ -122,7 +122,7 @@ void MELT_MODULE_VISIBILITY
 melt_all_passes_start_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 				     void *user_data ATTRIBUTE_UNUSED);
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 9 : **/
@@ -130,7 +130,7 @@ melt_all_passes_start_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 /* flag for PLUGIN_ALL_PASSES_END declare */
 MELT_EXTERN bool MELT_MODULE_VISIBILITY melthk_all_passes_end_registered_flag;
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 10 : **/
@@ -140,7 +140,7 @@ void MELT_MODULE_VISIBILITY
 melt_all_passes_end_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 				   void *user_data ATTRIBUTE_UNUSED);
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 11 : **/
@@ -149,7 +149,7 @@ melt_all_passes_end_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 MELT_EXTERN bool MELT_MODULE_VISIBILITY
   melthk_all_ipa_passes_start_registered_flag;
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 12 : **/
@@ -159,7 +159,7 @@ void MELT_MODULE_VISIBILITY
 melt_all_ipa_passes_start_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 					 void *user_data ATTRIBUTE_UNUSED);
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 13 : **/
@@ -168,7 +168,7 @@ melt_all_ipa_passes_start_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 MELT_EXTERN bool MELT_MODULE_VISIBILITY
   melthk_all_ipa_passes_end_registered_flag;
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
 
 
 /** MELT extra c-header 14 : **/
@@ -178,7 +178,64 @@ void MELT_MODULE_VISIBILITY
 melt_all_ipa_passes_end_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 				       void *user_data ATTRIBUTE_UNUSED);
 
-/*** end of 14 extra MELT c-headers ***/
+/*** end of 20 extra MELT c-headers ***/
+
+
+/** MELT extra c-header 15 : **/
+
+/* flag for PLUGIN_EARLY_GIMPLE_PASSES_START declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY
+  melthk_early_gimple_passes_start_registered_flag;
+
+/*** end of 20 extra MELT c-headers ***/
+
+
+/** MELT extra c-header 16 : **/
+
+
+void MELT_MODULE_VISIBILITY
+melt_early_gimple_passes_start_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
+					      void *user_data
+					      ATTRIBUTE_UNUSED);
+
+/*** end of 20 extra MELT c-headers ***/
+
+
+/** MELT extra c-header 17 : **/
+
+/* flag for PLUGIN_EARLY_GIMPLE_PASSES_END declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY
+  melthk_early_gimple_passes_end_registered_flag;
+
+/*** end of 20 extra MELT c-headers ***/
+
+
+/** MELT extra c-header 18 : **/
+
+
+void MELT_MODULE_VISIBILITY
+melt_early_gimple_passes_end_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
+					    void *user_data ATTRIBUTE_UNUSED);
+
+/*** end of 20 extra MELT c-headers ***/
+
+
+/** MELT extra c-header 19 : **/
+
+/* flag for PLUGIN_PRE_GENERICIZE declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY melthk_pre_genericize_registered_flag;
+
+/*** end of 20 extra MELT c-headers ***/
+
+
+/** MELT extra c-header 20 : **/
+
+
+void MELT_MODULE_VISIBILITY
+melt_pre_genericize_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
+				   void *user_data ATTRIBUTE_UNUSED);
+
+/*** end of 20 extra MELT c-headers ***/
 
 /** declaration of hook melthook_HOOK_LOW_DEBUG_VALUE_AT */
 MELT_EXTERN
@@ -766,6 +823,173 @@ meltrout_38_warmelt_hooks_REGISTER_ALL_IPA_PASSES_END_LAST (meltclosure_ptr_t
 							    union meltparam_un
 							    *meltxrestab_);
 
+/** declaration of hook melthook_HOOK_EARLY_GIMPLE_PASSES_START */
+MELT_EXTERN
+  void melthook_HOOK_EARLY_GIMPLE_PASSES_START (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_EARLY_GIMPLE_PASSES_START hook */
+void MELT_MODULE_VISIBILITY
+melthookmark_HOOK_EARLY_GIMPLE_PASSES_START_rout (struct melt_callframe_st *,
+						  int);
+
+
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START (meltclosure_ptr_t
+							    meltclosp_,
+							    melt_ptr_t
+							    meltfirstargp_,
+							    const
+							    melt_argdescr_cell_t
+							    meltxargdescr_[],
+							    union meltparam_un
+							    *meltxargtab_,
+							    const
+							    melt_argdescr_cell_t
+							    meltxresdescr_[],
+							    union meltparam_un
+							    *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+/** declaration of hook melthook_HOOK_EARLY_GIMPLE_PASSES_END */
+MELT_EXTERN
+  void melthook_HOOK_EARLY_GIMPLE_PASSES_END (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_EARLY_GIMPLE_PASSES_END hook */
+void MELT_MODULE_VISIBILITY
+melthookmark_HOOK_EARLY_GIMPLE_PASSES_END_rout (struct melt_callframe_st *,
+						int);
+
+
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_44_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_END (meltclosure_ptr_t
+							  meltclosp_,
+							  melt_ptr_t
+							  meltfirstargp_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxargdescr_[],
+							  union meltparam_un
+							  *meltxargtab_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxresdescr_[],
+							  union meltparam_un
+							  *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_45_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_END_FIRST
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_46_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_END_LAST
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_47_warmelt_hooks_ENABLE_PRE_GENERICIZE (meltclosure_ptr_t meltclosp_,
+						 melt_ptr_t meltfirstargp_,
+						 const melt_argdescr_cell_t
+						 meltxargdescr_[],
+						 union meltparam_un
+						 *meltxargtab_,
+						 const melt_argdescr_cell_t
+						 meltxresdescr_[],
+						 union meltparam_un
+						 *meltxrestab_);
+
+/** declaration of hook melthook_HOOK_PRE_GENERICIZE */
+MELT_EXTERN
+  void melthook_HOOK_PRE_GENERICIZE (melt_ptr_t melthookdata,
+				     tree meltinp0_TFNDECL);
+
+
+/* declare hook frame marking routine for melthook_HOOK_PRE_GENERICIZE hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_PRE_GENERICIZE_rout (struct
+								   melt_callframe_st
+								   *, int);
+
+
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_49_warmelt_hooks_REGISTER_PRE_GENERICIZE_FIRST (meltclosure_ptr_t
+							 meltclosp_,
+							 melt_ptr_t
+							 meltfirstargp_,
+							 const
+							 melt_argdescr_cell_t
+							 meltxargdescr_[],
+							 union meltparam_un
+							 *meltxargtab_,
+							 const
+							 melt_argdescr_cell_t
+							 meltxresdescr_[],
+							 union meltparam_un
+							 *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_50_warmelt_hooks_REGISTER_PRE_GENERICIZE_LAST (meltclosure_ptr_t
+							meltclosp_,
+							melt_ptr_t
+							meltfirstargp_,
+							const
+							melt_argdescr_cell_t
+							meltxargdescr_[],
+							union meltparam_un
+							*meltxargtab_,
+							const
+							melt_argdescr_cell_t
+							meltxresdescr_[],
+							union meltparam_un
+							*meltxrestab_);
+
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
@@ -793,6 +1017,8 @@ void MELT_MODULE_VISIBILITY
 meltmod__warmelt_hooks__initialmeltchunk_2 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__warmelt_hooks__initialmeltchunk_3 (meltinitial_frame_t *, char *);
+void MELT_MODULE_VISIBILITY
+meltmod__warmelt_hooks__initialmeltchunk_4 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__warmelt_hooks__forward_or_mark_module_start_frame (struct
 							    melt_callframe_st
@@ -4952,6 +5178,712 @@ meltlabend_rout:
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
 }				/*end meltrout_38_warmelt_hooks_REGISTER_ALL_IPA_PASSES_END_LAST */
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START (meltclosure_ptr_t
+							    meltclosp_,
+							    melt_ptr_t
+							    meltfirstargp_,
+							    const
+							    melt_argdescr_cell_t
+							    meltxargdescr_[],
+							    union meltparam_un
+							    * meltxargtab_,
+							    const
+							    melt_argdescr_cell_t
+							    meltxresdescr_[],
+							    union meltparam_un
+							    * meltxrestab_)
+{
+  long
+    current_blocklevel_signals_meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START_melt
+    = melt_blocklevel_signals;
+
+#if MELT_HAVE_DEBUG
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
+#undef meltcallcount
+#define meltcallcount melt_thiscallcounter__
+#else
+#undef meltcallcount
+#define meltcallcount 0L
+#endif
+
+  struct meltframe_meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START_st
+  {
+    int mcfr_nbvar;
+#if MELT_HAVE_DEBUG
+    const char *mcfr_flocs;
+#else				/*!MELT_HAVE_DEBUG */
+    const char *mcfr_unusedflocs;
+#endif				/*MELT_HAVE_DEBUG */
+    struct meltclosure_st *mcfr_clos;
+    struct excepth_melt_st *mcfr_exh;
+    struct melt_callframe_st *mcfr_prev;
+#undef MELTFRAM_NBVARPTR
+#undef MELTFRAM_NBVARNUM
+#define MELTFRAM_NBVARPTR 1
+    melt_ptr_t mcfr_varptr[1];
+/*no varnum*/
+#define MELTFRAM_NBVARNUM /*none*/0
+/*others*/
+    long _spare_;
+  }
+   *meltframptr_ = 0, meltfram__;	/*declfrastruct */
+#define meltframe meltfram__
+  /*meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START is not initial declstructinit */
+  if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
+    {				/*mark for ggc */
+      int meltix;
+      meltframptr_ =
+	(struct
+	 meltframe_meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START_st
+	 *) meltfirstargp_;
+      /* use arguments meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START output_curframe_declstruct_init */
+      (void) meltclosp_;
+      (void) meltfirstargp_;
+      (void) meltxargdescr_;
+      (void) meltxargtab_;
+      (void) meltxresdescr_;
+      (void) meltxrestab_;
+      /* marking closure */
+      gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
+      for (meltix = 0; meltix < 1; meltix++)
+	if (meltframptr_->mcfr_varptr[meltix])
+	  gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
+      return NULL;
+    } /*end markggc */ ;
+  memset (&meltfram__, 0, sizeof (meltfram__));
+/* declstructinit plain routine meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START nbval 1*/
+  meltfram__.mcfr_nbvar = 1 /*nbval */ ;
+  meltfram__.mcfr_clos = meltclosp_;
+  meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+  melt_topframe = (struct melt_callframe_st *) &meltfram__;
+  melt_trace_start ("ENABLE_EARLY_GIMPLE_PASSES_START", meltcallcount);
+/*getargs*/
+  ;
+  goto meltlab_endgetargs;
+meltlab_endgetargs:;
+/*body*/
+  MELT_LOCATION ("warmelt-hooks.melt:1006:/ block");
+/*anyblock*/
+  {
+
+
+    {
+      MELT_LOCATION ("warmelt-hooks.melt:1007:/ locexp");
+      /* enable_early_gimple_passes_start ENALLPASSESSTART_CHK__3 */
+      if (!melthk_early_gimple_passes_start_registered_flag)
+	{
+	  melthk_early_gimple_passes_start_registered_flag = true;
+	  register_callback (melt_plugin_name,
+			     PLUGIN_EARLY_GIMPLE_PASSES_START,
+			     melt_early_gimple_passes_start_hook_callback,
+			     NULL);
+	}
+      ;
+    }
+    ;
+    /*epilog */
+  }
+
+  ;
+  goto meltlabend_rout;
+meltlabend_rout:
+  melt_trace_end ("ENABLE_EARLY_GIMPLE_PASSES_START", meltcallcount);
+  MELT_TRACE_EXIT_LOCATION ();
+  melt_blocklevel_signals =
+    current_blocklevel_signals_meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START_melt;
+  melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
+  return (melt_ptr_t) ( /*noretval */ NULL);
+#undef meltcallcount
+#undef meltfram__
+#undef MELTFRAM_NBVARNUM
+#undef MELTFRAM_NBVARPTR
+}				/*end meltrout_40_warmelt_hooks_ENABLE_EARLY_GIMPLE_PASSES_START */
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST
+  (meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_,
+   const melt_argdescr_cell_t meltxargdescr_[],
+   union meltparam_un * meltxargtab_,
+   const melt_argdescr_cell_t meltxresdescr_[],
+   union meltparam_un * meltxrestab_)
+{
+  long
+    current_blocklevel_signals_meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST_melt
+    = melt_blocklevel_signals;
+
+#if MELT_HAVE_DEBUG
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
+#undef meltcallcount
+#define meltcallcount melt_thiscallcounter__
+#else
+#undef meltcallcount
+#define meltcallcount 0L
+#endif
+
+  struct meltframe_meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST_st
+  {
+    int mcfr_nbvar;
+#if MELT_HAVE_DEBUG
+    const char *mcfr_flocs;
+#else				/*!MELT_HAVE_DEBUG */
+    const char *mcfr_unusedflocs;
+#endif				/*MELT_HAVE_DEBUG */
+    struct meltclosure_st *mcfr_clos;
+    struct excepth_melt_st *mcfr_exh;
+    struct melt_callframe_st *mcfr_prev;
+#undef MELTFRAM_NBVARPTR
+#undef MELTFRAM_NBVARNUM
+#define MELTFRAM_NBVARPTR 7
+    melt_ptr_t mcfr_varptr[7];
+#define MELTFRAM_NBVARNUM 2
+    long mcfr_varnum[2];
+/*others*/
+    long _spare_;
+  }
+   *meltframptr_ = 0, meltfram__;	/*declfrastruct */
+#define meltframe meltfram__
+  /*meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST is not initial declstructinit */
+  if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
+    {				/*mark for ggc */
+      int meltix;
+      meltframptr_ =
+	(struct
+	 meltframe_meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST_st
+	 *) meltfirstargp_;
+      /* use arguments meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST output_curframe_declstruct_init */
+      (void) meltclosp_;
+      (void) meltfirstargp_;
+      (void) meltxargdescr_;
+      (void) meltxargtab_;
+      (void) meltxresdescr_;
+      (void) meltxrestab_;
+      /* marking closure */
+      gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
+      for (meltix = 0; meltix < 7; meltix++)
+	if (meltframptr_->mcfr_varptr[meltix])
+	  gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
+      return NULL;
+    } /*end markggc */ ;
+  memset (&meltfram__, 0, sizeof (meltfram__));
+/* declstructinit plain routine meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST nbval 7*/
+  meltfram__.mcfr_nbvar = 7 /*nbval */ ;
+  meltfram__.mcfr_clos = meltclosp_;
+  meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+  melt_topframe = (struct melt_callframe_st *) &meltfram__;
+  melt_trace_start ("REGISTER_EARLY_GIMPLE_PASSES_START_FIRST",
+		    meltcallcount);
+/*getargs*/
+
+  /*getarg#0 */
+  MELT_LOCATION ("warmelt-hooks.melt:1019:/ getarg");
+ /*_.FUN__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+  ;
+  goto meltlab_endgetargs;
+meltlab_endgetargs:;
+/*body*/
+/*^block*/
+/*anyblock*/
+  {
+
+
+    MELT_CHECK_SIGNAL ();
+    ;
+ /*_#IS_CLOSURE__L1*/ meltfnum[0] =
+      (melt_magic_discr ((melt_ptr_t) ( /*_.FUN__V2*/ meltfptr[1])) ==
+       MELTOBMAG_CLOSURE);;
+    MELT_LOCATION ("warmelt-hooks.melt:1023:/ cond");
+    /*cond */ if ( /*_#IS_CLOSURE__L1*/ meltfnum[0])	/*then */
+      {
+	/*^cond.then */
+	/*^block */
+	/*anyblock */
+	{
+
+	  MELT_LOCATION ("warmelt-hooks.melt:1024:/ quasiblock");
+
+
+	  /*^cond */
+	  /*cond */ if (
+			 /*ifisa */
+			 melt_is_instance_of ((melt_ptr_t)
+					      (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])),
+					      (melt_ptr_t) (( /*!CLASS_DELAYED_QUEUE */ meltfrout->tabval[1])))
+	    )			/*then */
+	    {
+	      /*^cond.then */
+	      /*^getslot */
+	      {
+		melt_ptr_t slot = NULL, obj = NULL;
+		obj =
+		  (melt_ptr_t) (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])) /*=obj*/ ;
+		melt_object_get_field (slot, obj, 2, "DELQU_FIRST");
+     /*_.FIRSTLIST__V3*/ meltfptr[2] = slot;
+	      };
+	      ;
+	    }
+	  else
+	    {			/*^cond.else */
+
+    /*_.FIRSTLIST__V3*/ meltfptr[2] = NULL;;
+	    }
+	  ;
+
+	  MELT_CHECK_SIGNAL ();
+	  ;
+	  MELT_LOCATION ("warmelt-hooks.melt:1026:/ apply");
+	  /*apply */
+	  {
+	    /*_.ENABLE_EARLY_GIMPLE_PASSES_START__V4*/ meltfptr[3] =
+	      melt_apply ((meltclosure_ptr_t)
+			  (( /*!ENABLE_EARLY_GIMPLE_PASSES_START */
+			    meltfrout->tabval[2])), (melt_ptr_t) (NULL), (""),
+			  (union meltparam_un *) 0, "",
+			  (union meltparam_un *) 0);
+	  }
+	  ;
+
+	  MELT_CHECK_SIGNAL ();
+	  ;
+   /*_#NULL__L2*/ meltfnum[1] =
+	    (( /*_.FIRSTLIST__V3*/ meltfptr[2]) == NULL);;
+	  MELT_LOCATION ("warmelt-hooks.melt:1027:/ cond");
+	  /*cond */ if ( /*_#NULL__L2*/ meltfnum[1])	/*then */
+	    {
+	      /*^cond.then */
+	      /*^block */
+	      /*anyblock */
+	      {
+
+     /*_.MAKE_LIST__V5*/ meltfptr[4] =
+		  (meltgc_new_list
+		   ((meltobject_ptr_t)
+		    (( /*!DISCR_LIST */ meltfrout->tabval[3]))));;
+		MELT_LOCATION ("warmelt-hooks.melt:1029:/ compute");
+		/*_.FIRSTLIST__V3*/ meltfptr[2] =
+		  /*_.SETQ___V6*/ meltfptr[5] =
+		  /*_.MAKE_LIST__V5*/ meltfptr[4];;
+
+		MELT_CHECK_SIGNAL ();
+		;
+     /*_.MAKE_LIST__V7*/ meltfptr[6] =
+		  (meltgc_new_list
+		   ((meltobject_ptr_t)
+		    (( /*!DISCR_LIST */ meltfrout->tabval[3]))));;
+		MELT_LOCATION ("warmelt-hooks.melt:1030:/ cond");
+		/*cond */ if (
+			       /*ifisa */
+			       melt_is_instance_of ((melt_ptr_t)
+						    (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])),
+						    (melt_ptr_t) (( /*!CLASS_DELAYED_QUEUE */ meltfrout->tabval[1])))
+		  )		/*then */
+		  {
+		    /*^cond.then */
+		    /*^block */
+		    /*anyblock */
+		    {
+
+		      /*^putslot */
+		      /*putslot */
+		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+				      melt_magic_discr ((melt_ptr_t)
+							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
+		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.FIRSTLIST__V3*/ meltfptr[2]), "DELQU_FIRST");
+		      ;
+		      /*^putslot */
+		      /*putslot */
+		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+				      melt_magic_discr ((melt_ptr_t)
+							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
+		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_LAST");
+		      ;
+		      /*^touch */
+		      meltgc_touch (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]));
+		      ;
+		      /*^touchobj */
+
+		      melt_dbgtrace_written_object (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]), "put-fields");
+		      ;
+		      /*epilog */
+		    }
+		    ;
+		  }		/*noelse */
+		;
+		MELT_LOCATION ("warmelt-hooks.melt:1028:/ quasiblock");
+
+
+		/*epilog */
+
+		MELT_LOCATION ("warmelt-hooks.melt:1027:/ clear");
+	       /*clear *//*_.MAKE_LIST__V5*/ meltfptr[4] = 0;
+		/*^clear */
+	       /*clear *//*_.SETQ___V6*/ meltfptr[5] = 0;
+		/*^clear */
+	       /*clear *//*_.MAKE_LIST__V7*/ meltfptr[6] = 0;
+	      }
+	      ;
+	    }			/*noelse */
+	  ;
+
+	  {
+	    MELT_LOCATION ("warmelt-hooks.melt:1035:/ locexp");
+	    meltgc_append_list ((melt_ptr_t)
+				( /*_.FIRSTLIST__V3*/ meltfptr[2]),
+				(melt_ptr_t) ( /*_.FUN__V2*/ meltfptr[1]));
+	  }
+	  ;
+
+	  MELT_LOCATION ("warmelt-hooks.melt:1024:/ clear");
+	     /*clear *//*_.FIRSTLIST__V3*/ meltfptr[2] = 0;
+	  /*^clear */
+	     /*clear *//*_.ENABLE_EARLY_GIMPLE_PASSES_START__V4*/ meltfptr[3] =
+	    0;
+	  /*^clear */
+	     /*clear *//*_#NULL__L2*/ meltfnum[1] = 0;
+	  /*epilog */
+	}
+	;
+      }
+    else
+      {
+	MELT_LOCATION ("warmelt-hooks.melt:1023:/ cond.else");
+
+	/*^block */
+	/*anyblock */
+	{
+
+
+	  {
+	    MELT_LOCATION ("warmelt-hooks.melt:1038:/ locexp");
+	    error ("MELT ERROR MSG [#%ld]::: %s", melt_dbgcounter,
+		   ("Bad function (non closure) passed to register_early_gimple_passes_start_hook_\
+first"));
+	  }
+	  ;
+	  /*epilog */
+	}
+	;
+      }
+    ;
+    /*epilog */
+
+    MELT_LOCATION ("warmelt-hooks.melt:1019:/ clear");
+	   /*clear *//*_#IS_CLOSURE__L1*/ meltfnum[0] = 0;
+  }
+
+  ;
+  goto meltlabend_rout;
+meltlabend_rout:
+  melt_trace_end ("REGISTER_EARLY_GIMPLE_PASSES_START_FIRST", meltcallcount);
+  MELT_TRACE_EXIT_LOCATION ();
+  melt_blocklevel_signals =
+    current_blocklevel_signals_meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST_melt;
+  melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
+  return (melt_ptr_t) ( /*noretval */ NULL);
+#undef meltcallcount
+#undef meltfram__
+#undef MELTFRAM_NBVARNUM
+#undef MELTFRAM_NBVARPTR
+}				/*end meltrout_41_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_FIRST */
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST
+  (meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_,
+   const melt_argdescr_cell_t meltxargdescr_[],
+   union meltparam_un * meltxargtab_,
+   const melt_argdescr_cell_t meltxresdescr_[],
+   union meltparam_un * meltxrestab_)
+{
+  long
+    current_blocklevel_signals_meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST_melt
+    = melt_blocklevel_signals;
+
+#if MELT_HAVE_DEBUG
+  static long melt_call_counter__;
+  long melt_thiscallcounter__ ATTRIBUTE_UNUSED = ++melt_call_counter__;
+#undef meltcallcount
+#define meltcallcount melt_thiscallcounter__
+#else
+#undef meltcallcount
+#define meltcallcount 0L
+#endif
+
+  struct meltframe_meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST_st
+  {
+    int mcfr_nbvar;
+#if MELT_HAVE_DEBUG
+    const char *mcfr_flocs;
+#else				/*!MELT_HAVE_DEBUG */
+    const char *mcfr_unusedflocs;
+#endif				/*MELT_HAVE_DEBUG */
+    struct meltclosure_st *mcfr_clos;
+    struct excepth_melt_st *mcfr_exh;
+    struct melt_callframe_st *mcfr_prev;
+#undef MELTFRAM_NBVARPTR
+#undef MELTFRAM_NBVARNUM
+#define MELTFRAM_NBVARPTR 7
+    melt_ptr_t mcfr_varptr[7];
+#define MELTFRAM_NBVARNUM 2
+    long mcfr_varnum[2];
+/*others*/
+    long _spare_;
+  }
+   *meltframptr_ = 0, meltfram__;	/*declfrastruct */
+#define meltframe meltfram__
+  /*meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST is not initial declstructinit */
+  if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
+    {				/*mark for ggc */
+      int meltix;
+      meltframptr_ =
+	(struct
+	 meltframe_meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST_st
+	 *) meltfirstargp_;
+      /* use arguments meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST output_curframe_declstruct_init */
+      (void) meltclosp_;
+      (void) meltfirstargp_;
+      (void) meltxargdescr_;
+      (void) meltxargtab_;
+      (void) meltxresdescr_;
+      (void) meltxrestab_;
+      /* marking closure */
+      gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
+      for (meltix = 0; meltix < 7; meltix++)
+	if (meltframptr_->mcfr_varptr[meltix])
+	  gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
+      return NULL;
+    } /*end markggc */ ;
+  memset (&meltfram__, 0, sizeof (meltfram__));
+/* declstructinit plain routine meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST nbval 7*/
+  meltfram__.mcfr_nbvar = 7 /*nbval */ ;
+  meltfram__.mcfr_clos = meltclosp_;
+  meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+  melt_topframe = (struct melt_callframe_st *) &meltfram__;
+  melt_trace_start ("REGISTER_EARLY_GIMPLE_PASSES_START_LAST", meltcallcount);
+/*getargs*/
+
+  /*getarg#0 */
+  MELT_LOCATION ("warmelt-hooks.melt:1042:/ getarg");
+ /*_.FUN__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
+  ;
+  goto meltlab_endgetargs;
+meltlab_endgetargs:;
+/*body*/
+/*^block*/
+/*anyblock*/
+  {
+
+
+    MELT_CHECK_SIGNAL ();
+    ;
+ /*_#IS_CLOSURE__L1*/ meltfnum[0] =
+      (melt_magic_discr ((melt_ptr_t) ( /*_.FUN__V2*/ meltfptr[1])) ==
+       MELTOBMAG_CLOSURE);;
+    MELT_LOCATION ("warmelt-hooks.melt:1046:/ cond");
+    /*cond */ if ( /*_#IS_CLOSURE__L1*/ meltfnum[0])	/*then */
+      {
+	/*^cond.then */
+	/*^block */
+	/*anyblock */
+	{
+
+	  MELT_LOCATION ("warmelt-hooks.melt:1047:/ quasiblock");
+
+
+	  /*^cond */
+	  /*cond */ if (
+			 /*ifisa */
+			 melt_is_instance_of ((melt_ptr_t)
+					      (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])),
+					      (melt_ptr_t) (( /*!CLASS_DELAYED_QUEUE */ meltfrout->tabval[1])))
+	    )			/*then */
+	    {
+	      /*^cond.then */
+	      /*^getslot */
+	      {
+		melt_ptr_t slot = NULL, obj = NULL;
+		obj =
+		  (melt_ptr_t) (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])) /*=obj*/ ;
+		melt_object_get_field (slot, obj, 3, "DELQU_LAST");
+     /*_.LASTLIST__V3*/ meltfptr[2] = slot;
+	      };
+	      ;
+	    }
+	  else
+	    {			/*^cond.else */
+
+    /*_.LASTLIST__V3*/ meltfptr[2] = NULL;;
+	    }
+	  ;
+
+	  MELT_CHECK_SIGNAL ();
+	  ;
+	  MELT_LOCATION ("warmelt-hooks.melt:1049:/ apply");
+	  /*apply */
+	  {
+	    /*_.ENABLE_EARLY_GIMPLE_PASSES_START__V4*/ meltfptr[3] =
+	      melt_apply ((meltclosure_ptr_t)
+			  (( /*!ENABLE_EARLY_GIMPLE_PASSES_START */
+			    meltfrout->tabval[2])), (melt_ptr_t) (NULL), (""),
+			  (union meltparam_un *) 0, "",
+			  (union meltparam_un *) 0);
+	  }
+	  ;
+
+	  MELT_CHECK_SIGNAL ();
+	  ;
+   /*_#NULL__L2*/ meltfnum[1] =
+	    (( /*_.LASTLIST__V3*/ meltfptr[2]) == NULL);;
+	  MELT_LOCATION ("warmelt-hooks.melt:1050:/ cond");
+	  /*cond */ if ( /*_#NULL__L2*/ meltfnum[1])	/*then */
+	    {
+	      /*^cond.then */
+	      /*^block */
+	      /*anyblock */
+	      {
+
+     /*_.MAKE_LIST__V5*/ meltfptr[4] =
+		  (meltgc_new_list
+		   ((meltobject_ptr_t)
+		    (( /*!DISCR_LIST */ meltfrout->tabval[3]))));;
+		MELT_LOCATION ("warmelt-hooks.melt:1052:/ compute");
+		/*_.LASTLIST__V3*/ meltfptr[2] = /*_.SETQ___V6*/ meltfptr[5] =
+		  /*_.MAKE_LIST__V5*/ meltfptr[4];;
+
+		MELT_CHECK_SIGNAL ();
+		;
+     /*_.MAKE_LIST__V7*/ meltfptr[6] =
+		  (meltgc_new_list
+		   ((meltobject_ptr_t)
+		    (( /*!DISCR_LIST */ meltfrout->tabval[3]))));;
+		MELT_LOCATION ("warmelt-hooks.melt:1053:/ cond");
+		/*cond */ if (
+			       /*ifisa */
+			       melt_is_instance_of ((melt_ptr_t)
+						    (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])),
+						    (melt_ptr_t) (( /*!CLASS_DELAYED_QUEUE */ meltfrout->tabval[1])))
+		  )		/*then */
+		  {
+		    /*^cond.then */
+		    /*^block */
+		    /*anyblock */
+		    {
+
+		      /*^putslot */
+		      /*putslot */
+		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+				      melt_magic_discr ((melt_ptr_t)
+							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
+		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_FIRST");
+		      ;
+		      /*^putslot */
+		      /*putslot */
+		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+				      melt_magic_discr ((melt_ptr_t)
+							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
+		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.LASTLIST__V3*/ meltfptr[2]), "DELQU_LAST");
+		      ;
+		      /*^touch */
+		      meltgc_touch (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]));
+		      ;
+		      /*^touchobj */
+
+		      melt_dbgtrace_written_object (( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]), "put-fields");
+		      ;
+		      /*epilog */
+		    }
+		    ;
+		  }		/*noelse */
+		;
+		MELT_LOCATION ("warmelt-hooks.melt:1051:/ quasiblock");
+
+
+		/*epilog */
+
+		MELT_LOCATION ("warmelt-hooks.melt:1050:/ clear");
+	       /*clear *//*_.MAKE_LIST__V5*/ meltfptr[4] = 0;
+		/*^clear */
+	       /*clear *//*_.SETQ___V6*/ meltfptr[5] = 0;
+		/*^clear */
+	       /*clear *//*_.MAKE_LIST__V7*/ meltfptr[6] = 0;
+	      }
+	      ;
+	    }			/*noelse */
+	  ;
+
+	  {
+	    MELT_LOCATION ("warmelt-hooks.melt:1058:/ locexp");
+	    meltgc_append_list ((melt_ptr_t)
+				( /*_.LASTLIST__V3*/ meltfptr[2]),
+				(melt_ptr_t) ( /*_.FUN__V2*/ meltfptr[1]));
+	  }
+	  ;
+
+	  MELT_LOCATION ("warmelt-hooks.melt:1047:/ clear");
+	     /*clear *//*_.LASTLIST__V3*/ meltfptr[2] = 0;
+	  /*^clear */
+	     /*clear *//*_.ENABLE_EARLY_GIMPLE_PASSES_START__V4*/ meltfptr[3] =
+	    0;
+	  /*^clear */
+	     /*clear *//*_#NULL__L2*/ meltfnum[1] = 0;
+	  /*epilog */
+	}
+	;
+      }
+    else
+      {
+	MELT_LOCATION ("warmelt-hooks.melt:1046:/ cond.else");
+
+	/*^block */
+	/*anyblock */
+	{
+
+
+	  {
+	    MELT_LOCATION ("warmelt-hooks.melt:1061:/ locexp");
+	    error ("MELT ERROR MSG [#%ld]::: %s", melt_dbgcounter,
+		   ("Bad function (non closure) passed to register_early_gimple_passes_start_hook_last"));
+	  }
+	  ;
+	  /*epilog */
+	}
+	;
+      }
+    ;
+    /*epilog */
+
+    MELT_LOCATION ("warmelt-hooks.melt:1042:/ clear");
+	   /*clear *//*_#IS_CLOSURE__L1*/ meltfnum[0] = 0;
+  }
+
+  ;
+  goto meltlabend_rout;
+meltlabend_rout:
+  melt_trace_end ("REGISTER_EARLY_GIMPLE_PASSES_START_LAST", meltcallcount);
+  MELT_TRACE_EXIT_LOCATION ();
+  melt_blocklevel_signals =
+    current_blocklevel_signals_meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST_melt;
+  melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
+  return (melt_ptr_t) ( /*noretval */ NULL);
+#undef meltcallcount
+#undef meltfram__
+#undef MELTFRAM_NBVARNUM
+#undef MELTFRAM_NBVARPTR
+}				/*end meltrout_42_warmelt_hooks_REGISTER_EARLY_GIMPLE_PASSES_START_LAST */
 
 
 
