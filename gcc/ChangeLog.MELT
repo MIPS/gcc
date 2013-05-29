@@ -2,6 +2,11 @@
 
 
 2013-05-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.c (meltgc_rtl_gate, meltgc_rtl_execute)
+	(meltgc_simple_ipa_gate, meltgc_simple_ipa_execute): Becoming
+	obsolete, since just calling their corresponding hooks.
+
+2013-05-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
