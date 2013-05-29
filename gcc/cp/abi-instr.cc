@@ -243,7 +243,7 @@ get_location (const_tree t)
     {
       if (DECL_P (t))
 	return convert_location (DECL_SOURCE_LOCATION (t));
-      if (TYPE_P (t))
+      if (TYPE_P (t) && TYPE_NAME (t))
 	return convert_location (DECL_SOURCE_LOCATION (TYPE_NAME (t)));
       if (EXPR_P (t) && EXPR_HAS_LOCATION (t))
 	return convert_location (EXPR_LOCATION (t));
