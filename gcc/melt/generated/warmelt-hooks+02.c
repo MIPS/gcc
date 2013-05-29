@@ -1061,6 +1061,79 @@ meltrout_53_warmelt_hooks_REGISTER_PASS_EXECUTION_LAST (meltclosure_ptr_t
 							union meltparam_un
 							*meltxrestab_);
 
+/** declaration of hook melthook_HOOK_GIMPLE_GATE */
+MELT_EXTERN long melthook_HOOK_GIMPLE_GATE (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_GIMPLE_GATE hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_GIMPLE_GATE_rout (struct
+								melt_callframe_st
+								*, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_GIMPLE_EXECUTE */
+MELT_EXTERN long melthook_HOOK_GIMPLE_EXECUTE (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_GIMPLE_EXECUTE hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_GIMPLE_EXECUTE_rout (struct
+								   melt_callframe_st
+								   *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_RTL_GATE */
+MELT_EXTERN long melthook_HOOK_RTL_GATE (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_RTL_GATE hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_RTL_GATE_rout (struct
+							     melt_callframe_st
+							     *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_RTL_EXECUTE */
+MELT_EXTERN long melthook_HOOK_RTL_EXECUTE (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_RTL_EXECUTE hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_RTL_EXECUTE_rout (struct
+								melt_callframe_st
+								*, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_SIMPLE_IPA_GATE */
+MELT_EXTERN long melthook_HOOK_SIMPLE_IPA_GATE (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_SIMPLE_IPA_GATE hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_SIMPLE_IPA_GATE_rout (struct
+								    melt_callframe_st
+								    *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_SIMPLE_IPA_EXECUTE */
+MELT_EXTERN long melthook_HOOK_SIMPLE_IPA_EXECUTE (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_SIMPLE_IPA_EXECUTE hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_SIMPLE_IPA_EXECUTE_rout (struct
+								       melt_callframe_st
+								       *,
+								       int);
+
+
+
+
 
 
 MELT_EXTERN void *melt_start_this_module (void *);

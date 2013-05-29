@@ -29,7 +29,7 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_199376]";
+const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_199383]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-modes */
@@ -38,7 +38,7 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-pre/warmelt-modes";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="84546a7259ab1ab48483acc822a41fca";
+const char melt_prepromd5meltrun[]="5ac3d6be56fffe6b27897c052b96a338";
 /* hexmd5checksum of primary C file */
 const char melt_primaryhexmd5[]="2896680108384056b51ee0e7c49723af";
 
