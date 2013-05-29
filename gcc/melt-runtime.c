@@ -12955,6 +12955,7 @@ meltgc_gimple_execute (void) /* to be replaced by hook_gimple_execute in wamrmel
 static bool
 meltgc_rtl_gate(void) /* to be replaced by hook_rtl_gate from warmelt-hooks.melt */
 {
+#warning meltgc_rtl_gate to be replaced by hook_rtl_gate 
 #if MELT_HAVE_DEBUG
   char curlocbuf[120];
 #endif
@@ -13091,6 +13092,7 @@ end:
 static bool
 meltgc_simple_ipa_gate(void) /* to be replaced by hook_simple_ipa_gate from warmelt-hooks.melt */
 {
+#warning meltgc_simple_ipa_gate obsolete
   int ok = TRUE;
 #if MELT_HAVE_DEBUG
   char curlocbuf[120];
@@ -13157,6 +13159,7 @@ end:
 static unsigned int
 meltgc_simple_ipa_execute(void) /* to be replaced by hook_simple_ipa_execute from warmelt-hooks.melt */
 {
+#warning meltgc_simple_ipa_execute obsolete
   static const char*modstr;
   FILE* oldf = NULL;
   unsigned int res = 0;
