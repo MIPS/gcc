@@ -3337,6 +3337,8 @@ void meltgc_walk_use_def_chain (melt_ptr_t clos_p, melt_ptr_t val_p, tree trvar,
 
 
 
+FILE* meltgc_set_dump_file (FILE* dumpf);
+void meltgc_restore_dump_file (FILE* oldf);
 
 /*** MELT interface to walk_gimple_seq; using the given DATA as first
      argument to closures, walk recursively inside gimple_seq GSEQ,

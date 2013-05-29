@@ -12884,7 +12884,7 @@ end:
 }
 
 
-static FILE* 
+FILE* 
 meltgc_set_dump_file (FILE* dumpf)
 {
   FILE *oldf = NULL;
@@ -12910,7 +12910,7 @@ meltgc_set_dump_file (FILE* dumpf)
 }
 
 
-static void
+void
 meltgc_restore_dump_file (FILE* oldf)
 {
   MELT_ENTERFRAME(1, NULL);
@@ -12936,58 +12936,8 @@ meltgc_restore_dump_file (FILE* oldf)
 static bool
 meltgc_gimple_gate(void) /* soon replaced by hook_gimple_gate in warmelt-hooks.melt */
 {
-  int ok = TRUE;
-  static const char* modstr;
-  FILE *oldf = NULL;
-#if MELT_HAVE_DEBUG
-  char curlocbuf[120];
-#endif
-  MELT_ENTERFRAME(4, NULL);
-#define passv        meltfram__.mcfr_varptr[0]
-#define passdictv    meltfram__.mcfr_varptr[1]
-#define closv        meltfram__.mcfr_varptr[2]
-#define resv         meltfram__.mcfr_varptr[3]
-  if (!modstr)
-    modstr = melt_argument ("mode");
-  if (!modstr || !modstr)
-    goto end;
-  MELT_LOCATION_HERE ("meltgc_gimple_gate");
-  MELT_CHECK_SIGNAL ();
-  gcc_assert(current_pass != NULL);
-  gcc_assert(current_pass->name != NULL);
-  gcc_assert(current_pass->type == GIMPLE_PASS);
-  debugeprintf ("meltgc_gimple_gate pass %s", current_pass->name);
-  passdictv = melt_get_inisysdata (MELTFIELD_SYSDATA_PASS_DICT);
-  if (melt_magic_discr((melt_ptr_t) passdictv) != MELTOBMAG_MAPSTRINGS)
-    goto end;
-  passv = melt_get_mapstrings((struct meltmapstrings_st*) passdictv, current_pass->name);
-  if (!passv
-      || !melt_is_instance_of((melt_ptr_t) passv, (melt_ptr_t)  MELT_PREDEF(CLASS_GCC_GIMPLE_PASS)))
-    goto end;
-  closv = melt_object_nth_field((melt_ptr_t) passv, MELTFIELD_GCCPASS_GATE);
-  if (melt_magic_discr((melt_ptr_t) closv) != MELTOBMAG_CLOSURE)
-    goto end;
-  oldf = meltgc_set_dump_file (dump_file);
-  debugeprintf ("meltgc_gimple_gate pass %s before apply", current_pass->name);
-  MELT_LOCATION_HERE_PRINTF (curlocbuf, "meltgc_gimple_gate pass %s before apply", current_pass->name);
-  MELT_CHECK_SIGNAL ();
-  resv =
-    melt_apply ((struct meltclosure_st *) closv,
-                (melt_ptr_t) passv, "",
-                (union meltparam_un *) 0, "",
-                (union meltparam_un *) 0);
-  ok = (resv != NULL);
-  debugeprintf ("meltgc_gimple_gate pass %s after apply ok=%d",
-                current_pass->name, ok);
-  meltgc_restore_dump_file (oldf);
-end:
-  debugeprintf ("meltgc_gimple_gate pass %s ended ok=%d", current_pass->name, ok);
-  MELT_EXITFRAME();
-  return ok;
-#undef passv
-#undef passdictv
-#undef closv
-#undef resv
+#warning meltgc_gimple_gate is obsolete
+  return melthookproc_HOOK_GIMPLE_GATE () != 0L;
 }
 
 
@@ -12995,82 +12945,8 @@ end:
 static unsigned int
 meltgc_gimple_execute (void) /* to be replaced by hook_gimple_execute in wamrmelt-hooks.melt */
 {
-  unsigned int res = 0;
-  static const char* modstr;
-#if MELT_HAVE_DEBUG
-  char curlocbuf[120];
-#endif
-  MELT_ENTERFRAME(4, NULL);
-#define passv        meltfram__.mcfr_varptr[0]
-#define passdictv    meltfram__.mcfr_varptr[1]
-#define closv        meltfram__.mcfr_varptr[2]
-#define resvalv      meltfram__.mcfr_varptr[3]
-  if (!modstr)
-    modstr = melt_argument ("mode");
-  if (!modstr || !modstr[0])
-    goto end;
-  MELT_LOCATION_HERE("meltgc_gimple_execute");
-  MELT_CHECK_SIGNAL ();
-  gcc_assert (current_pass != NULL);
-  gcc_assert (current_pass->name != NULL);
-  gcc_assert (current_pass->type == GIMPLE_PASS);
-  debugeprintf ("meltgc_gimple_execute pass %s starting", current_pass->name);
-  passdictv = melt_get_inisysdata (MELTFIELD_SYSDATA_PASS_DICT);
-  if (melt_magic_discr((melt_ptr_t) passdictv) != MELTOBMAG_MAPSTRINGS)
-    goto end;
-  passv = melt_get_mapstrings((struct meltmapstrings_st *)passdictv, current_pass->name);
-  if (!passv
-      || !melt_is_instance_of((melt_ptr_t) passv,
-                              (melt_ptr_t) MELT_PREDEF(CLASS_GCC_GIMPLE_PASS)))
-    goto end;
-  closv = melt_object_nth_field((melt_ptr_t) passv, MELTFIELD_GCCPASS_EXEC);
-  if (melt_magic_discr((melt_ptr_t) closv) != MELTOBMAG_CLOSURE)
-    goto end;
-  {
-    long passdbgcounter = melt_dbgcounter;
-    long todol = 0;
-    FILE *oldf = NULL;
-    union meltparam_un restab[1];
-    memset (&restab, 0, sizeof (restab));
-    debugeprintf
-    ("gimple_execute passname %s dbgcounter %ld cfun %p ",
-     current_pass->name, melt_dbgcounter, (void *) cfun);
-    if (cfun && melt_flag_debug)
-      debug_tree (cfun->decl);
-    debugeprintf ("gimple_execute passname %s before apply",
-                  current_pass->name);
-    oldf = meltgc_set_dump_file (dump_file);
-    debugeprintf ("gimple_execute passname %s before apply dbgcounter %ld",
-                  current_pass->name, passdbgcounter);
-    /* apply with one extra long result */
-    MELT_LOCATION_HERE_PRINTF(curlocbuf, "meltgc_gimple_execute pass %s before apply",
-                              current_pass->name);
-    MELT_CHECK_SIGNAL ();
-    restab[0].meltbp_longptr = &todol;
-    resvalv =
-      melt_apply ((struct meltclosure_st *) closv,
-                  (melt_ptr_t) passv, "",
-                  (union meltparam_un *) 0, MELTBPARSTR_LONG "",
-                  restab);
-    debugeprintf ("gimple_execute passname %s after apply dbgcounter %ld",
-                  current_pass->name, passdbgcounter);
-    meltgc_restore_dump_file (oldf);
-    MELT_LOCATION_HERE_PRINTF(curlocbuf, "meltgc_gimple_execute pass %s after apply",
-                              current_pass->name);
-    MELT_CHECK_SIGNAL ();
-    if (resvalv)
-      res = (unsigned int) todol;
-    meltgc_run_meltpass_after_hook ();
-  }
-end:
-  debugeprintf ("meltgc_gimple_execute pass %s ended res=%u",
-                current_pass->name, res);
-  MELT_EXITFRAME();
-  return res;
-#undef passv
-#undef passdictv
-#undef closv
-#undef resvalv
+#warning meltgc_gimple_execute is obsolete
+  return (unsigned int) melthookproc_HOOK_GIMPLE_EXECUTE ();
 }
 
 

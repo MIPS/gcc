@@ -1447,20 +1447,110 @@ bool  melthk_pass_execution_registered_flag;
 (defhook hook_gimple_gate
   () () :long
   :predef HOOK_GIMPLE_GATE
-  (errormsg_plain "hook_gimple_gate unimplmented")
-  (assert_msg "$@$hook_gimple_gate not implemented yet")
-  (return 0)
-)
+  (let ( (:long hasmodeflag 0)
+	 (:long okres 0)
+	 (passdict (get_field :sysdata_pass_dict initial_system_data))
+	 (mypass ())
+	 )
+    (code_chunk gethasmode_chk 
+		#{ /* hook_gimple_gate $GETHASMODE_CHK */
+		static const char* $GETHASMODE_CHK#modstr ;
+		if (!$GETHASMODE_CHK#modstr) 
+		$GETHASMODE_CHK#modstr = melt_argument("mode") ;
+		$HASMODEFLAG = $GETHASMODE_CHK#modstr != NULL && $GETHASMODE_CHK#modstr[0] ;
+		}#)
+    (if (not hasmodeflag)
+	(return 0))
+    (code_chunk 
+     getmypass_chk
+     #{ /* hook_gimple_gate $GETMYPASS_CHK */		
+     gcc_assert(current_pass != NULL) ;
+     gcc_assert(current_pass->name != NULL) ;
+     gcc_assert(current_pass->type == GIMPLE_PASS) ;
+     $MYPASS = melt_get_mapstrings ((struct meltmapstrings_st*) $PASSDICT, 
+				    current_pass->name)	;
+     }#)
+    (if (is_a mypass class_gcc_gimple_pass)
+	(let ( (gatefun (get_field :gccpass_gate mypass))
+	       (:cstring curpassname (the_null_cstring))
+	       )
+	  (if (is_closure gatefun)
+	      (code_chunk 
+	       dogatefun_chk
+	       #{ /* hook_gimple_gate $DOGATEFUN_CHK */
+	       FILE* oldf = meltgc_set_dump_file (dump_file) ;
+	       $CURPASSNAME = current_pass->name ;
+	       $(progn
+		  (debug "hook_gimple_gate curpassname=" curpassname " mypass=" mypass)
+		  (if (gatefun mypass)
+		      (setq okres 1))
+		  (debug "hook_gimple_gate after call okres=" okres)
+		  (void)
+		  )
+	       meltgc_restore_dump_file (oldf) ;
+	       oldf = NULL ;
+	       }#)
+	    )))
+    (return okres)
+    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; execute hook for gimple passes
 (defhook hook_gimple_execute
   () () :long
   :predef HOOK_GIMPLE_EXECUTE
-  (errormsg_plain "hook_gimple_execute unimplmented")
-  (assert_msg "$@$hook_gimple_execute not implemented yet")
-  (return 0)
-)
+  (let ( (:long hasmodeflag 0)
+	 (:long okres 0)
+	 (passdict (get_field :sysdata_pass_dict initial_system_data))
+	 (mypass ())
+	 )
+    (code_chunk gethasmode_chk 
+		#{ /* hook_gimple_execute $GETHASMODE_CHK */
+		static const char* $GETHASMODE_CHK#modstr ;
+		if (!$GETHASMODE_CHK#modstr) 
+		$GETHASMODE_CHK#modstr = melt_argument("mode") ;
+		$HASMODEFLAG = $GETHASMODE_CHK#modstr != NULL && $GETHASMODE_CHK#modstr[0] ;
+		}#)
+    (if (not hasmodeflag)
+	(return 0))
+    (code_chunk 
+     getmypass_chk
+     #{ /* hook_gimple_execute $GETMYPASS_CHK */		
+     gcc_assert(current_pass != NULL) ;
+     gcc_assert(current_pass->name != NULL) ;
+     gcc_assert(current_pass->type == GIMPLE_PASS) ;
+     $MYPASS = melt_get_mapstrings ((struct meltmapstrings_st*) $PASSDICT, 
+				    current_pass->name)	;
+     }#)
+    (if (is_a mypass class_gcc_gimple_pass)
+	(let ( (execfun (get_field :gccpass_exec mypass))
+	       (:cstring curpassname (the_null_cstring))
+	       )
+	  (if (is_closure execfun)
+	      (code_chunk 
+	       doexecfun_chk
+	       #{ /* hook_gimple_execute $DOEXECFUN_CHK */
+	       FILE* oldf = meltgc_set_dump_file (dump_file) ;
+	       $CURPASSNAME = current_pass->name ;
+	       $(progn
+		 (debug "hook_gimple_execute curpassname=" curpassname " mypass=" mypass)
+		 (multicall
+		  (resexec :long flagexec)
+		  (execfun mypass)
+		  (debug "hook_gimple_execute after call resexec=" resexec 
+			 " flagexec=" flagexec)
+		  (if (null resexec)
+		      (setq okres flagexec)
+		    (setq okres 1))
+		  )
+		 (void)
+		 )
+	       meltgc_restore_dump_file (oldf) ;
+	       oldf = NULL ;
+	       }#)
+	    )))
+    (return okres)
+))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
