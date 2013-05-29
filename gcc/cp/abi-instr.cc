@@ -367,8 +367,7 @@ gen_type_in_scope (const_tree t,
 	abigail::location aloc = get_location (t);
 
 	shared_ptr<abigail::type_decl> type_declaration
-	  (new abigail::type_decl (IDENTIFIER_POINTER
-				   (DECL_NAME (TYPE_NAME (t))),
+	  (new abigail::type_decl (IDENTIFIER_POINTER (TYPE_IDENTIFIER (t)),
 				   int_cst_value (TYPE_SIZE (t)),
 				   TYPE_ALIGN (t), aloc,
 				   IDENTIFIER_POINTER
