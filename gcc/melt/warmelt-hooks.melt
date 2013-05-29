@@ -1441,6 +1441,74 @@ bool  melthk_pass_execution_registered_flag;
     ))
 )
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; gate hook for gimple passes
+(defhook hook_gimple_gate
+  () () :long
+  :predef HOOK_GIMPLE_GATE
+  (errormsg_plain "hook_gimple_gate unimplmented")
+  (assert_msg "$@$hook_gimple_gate not implemented yet")
+  (return 0)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; execute hook for gimple passes
+(defhook hook_gimple_execute
+  () () :long
+  :predef HOOK_GIMPLE_EXECUTE
+  (errormsg_plain "hook_gimple_execute unimplmented")
+  (assert_msg "$@$hook_gimple_execute not implemented yet")
+  (return 0)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; gate hook for rtl passes
+(defhook hook_rtl_gate
+  () () :long
+  :predef HOOK_GIMPLE_GATE
+  (errormsg_plain "hook_rtl_gate unimplmented")
+  (assert_msg "$@$hook_rtl_gate not implemented yet")
+  (return 0)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; execute hook for rtl passes
+(defhook hook_rtl_execute
+  () () :long
+  :predef HOOK_RTL_EXECUTE
+  (errormsg_plain "hook_rtl_execute unimplmented")
+  (assert_msg "$@$hook_rtl_execute not implemented yet")
+  (return 0)
+)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; gate hook for simple_ipa passes
+(defhook hook_simple_ipa_gate
+  () () :long
+  :predef HOOK_SIMPLE_IPA_GATE
+  (errormsg_plain "hook_simple_ipa_gate unimplmented")
+  (assert_msg "$@$hook_simple_ipa_gate not implemented yet")
+  (return 0)
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; execute hook for simple_ipa passes
+(defhook hook_simple_ipa_execute
+  () () :long
+  :predef HOOK_SIMPLE_IPA_EXECUTE
+  (errormsg_plain "hook_simple_ipa_execute unimplmented")
+  (assert_msg "$@$hook_simple_ipa_execute not implemented yet")
+  (return 0)
+)
+
+
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

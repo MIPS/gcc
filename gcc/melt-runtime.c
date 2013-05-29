@@ -12934,7 +12934,7 @@ meltgc_restore_dump_file (FILE* oldf)
 
 /* the gate function of MELT gimple passes */
 static bool
-meltgc_gimple_gate(void)
+meltgc_gimple_gate(void) /* soon replaced by hook_gimple_gate in warmelt-hooks.melt */
 {
   int ok = TRUE;
   static const char* modstr;
@@ -12993,7 +12993,7 @@ end:
 
 /* the execute function of MELT gimple passes */
 static unsigned int
-meltgc_gimple_execute (void)
+meltgc_gimple_execute (void) /* to be replaced by hook_gimple_execute in wamrmelt-hooks.melt */
 {
   unsigned int res = 0;
   static const char* modstr;
@@ -13077,7 +13077,7 @@ end:
 
 /* the gate function of MELT rtl passes */
 static bool
-meltgc_rtl_gate(void)
+meltgc_rtl_gate(void) /* to be replaced by hook_rtl_gate from warmelt-hooks.melt */
 {
 #if MELT_HAVE_DEBUG
   char curlocbuf[120];
@@ -13133,7 +13133,7 @@ end:
 
 /* the execute function of MELT rtl passes */
 static unsigned int
-meltgc_rtl_execute(void)
+meltgc_rtl_execute(void) /* to be replaced by hook_rtl_execute from warmelt-hooks.melt */
 {
   unsigned int res = 0;
   FILE* oldf = NULL;
@@ -13213,7 +13213,7 @@ end:
 
 /* the gate function of MELT simple_ipa passes */
 static bool
-meltgc_simple_ipa_gate(void)
+meltgc_simple_ipa_gate(void) /* to be replaced by hook_simple_ipa_gate from warmelt-hooks.melt */
 {
   int ok = TRUE;
 #if MELT_HAVE_DEBUG
@@ -13279,7 +13279,7 @@ end:
 
 /* the execute function of MELT simple_ipa passes */
 static unsigned int
-meltgc_simple_ipa_execute(void)
+meltgc_simple_ipa_execute(void) /* to be replaced by hook_simple_ipa_execute from warmelt-hooks.melt */
 {
   static const char*modstr;
   FILE* oldf = NULL;

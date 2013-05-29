@@ -1,4 +1,19 @@
 
+2013-05-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{more hooks for pass gate & execution}}
+	* melt-predef.list (HOOK_GIMPLE_EXECUTE, HOOK_GIMPLE_GATE)
+	(HOOK_SIMPLE_IPA_EXECUTE, HOOK_SIMPLE_IPA_GATE, HOOK_RTL_EXECUTE)
+	(HOOK_RTL_GATE): New.
+
+	* melt-runtime.c (meltgc_gimple_gate, meltgc_gimple_execute)
+	(meltgc_rtl_gate, meltgc_rtl_execute, meltgc_simple_ipa_gate)
+	(meltgc_simple_ipa_execute): Add comment mentionning the hooks.
+
+	* melt/warmelt-hooks.melt (hook_gimple_gate, hook_gimple_execute)
+	(hook_rtl_gate, hook_rtl_execute, hook_simple_ipa_gate)
+	(hook_simple_ipa_execute): Add stub.
+
 2013-05-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
