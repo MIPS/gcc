@@ -322,7 +322,7 @@
 #endif
 
 #ifdef _ARCH_PWR8
-/* Vector additions added in Power8/ISA 2.07.  */
+/* Vector additions added in ISA 2.07.  */
 #define vec_eqv __builtin_vec_eqv
 #define vec_nand __builtin_vec_nand
 #define vec_orc __builtin_vec_orc
