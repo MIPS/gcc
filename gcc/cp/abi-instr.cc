@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 using std::tr1::shared_ptr;
 using std::tr1::unordered_map;
 using std::string;
+using std::list;
 
 struct type_or_decl_hash
 {
@@ -349,8 +350,9 @@ static shared_ptr<abigail::type_base>
 gen_type_in_scope (const_tree t,
 		   shared_ptr <abigail::scope_decl> scope)
 {
+  shared_ptr <abigail::type_base> result;
   if (t == NULL_TREE || !TYPE_P (t))
-    return shared_ptr <abigail::type_decl> ();
+    return result;
 
   type_map& m = get_tree_2_type_map ();
   type_map::const_iterator i = m.find (t);
@@ -375,13 +377,48 @@ gen_type_in_scope (const_tree t,
 				   get_decl_visibility (TYPE_NAME (t))));
 
 	add_decl_to_scope (type_declaration, scope);
-	m[t] = type_declaration;
-	return type_declaration;
+	result = type_declaration;
       }
+      break;
+
+    case ENUMERAL_TYPE:
+      {
+	shared_ptr <abigail::type_base> underlying_type;
+	if (ENUM_UNDERLYING_TYPE (t))
+	  underlying_type = gen_type (ENUM_UNDERLYING_TYPE (t));
+
+	list<abigail::enum_type_decl::enumerator> enumerators;
+	for (tree e = TYPE_VALUES (t); e ; e = TREE_CHAIN (e))
+	  enumerators.push_back
+	    (abigail::enum_type_decl::enumerator (IDENTIFIER_POINTER
+						  (TREE_PURPOSE (e)),
+						  int_cst_value
+						  (DECL_INITIAL
+						   (TREE_VALUE (e)))));
+
+	abigail::location loc = get_location (t);
+
+	shared_ptr <abigail::enum_type_decl> enum_type_decl
+	  (new abigail::enum_type_decl (IDENTIFIER_POINTER
+					(TYPE_IDENTIFIER (t)),
+					loc, underlying_type, enumerators,
+					IDENTIFIER_POINTER
+					(DECL_ASSEMBLER_NAME (TYPE_NAME (t))),
+					get_decl_visibility (TYPE_NAME (t))));
+
+	add_decl_to_scope (enum_type_decl, scope);
+	result = enum_type_decl;
+      }
+      break;
+
     default:
       break;
     }
-  return shared_ptr <abigail::type_decl> ();
+
+  if (result)
+    m[t] = result;
+
+  return result;
 }
 
 // Generate (if necessary) and return an instance of libabigail decl
