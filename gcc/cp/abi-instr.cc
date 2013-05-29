@@ -411,6 +411,39 @@ gen_type_in_scope (const_tree t,
       }
       break;
 
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      {
+	shared_ptr <abigail::type_base> pointed_to = gen_type (TREE_TYPE (t));
+	if (pointed_to)
+	  {
+	    abigail::location loc = get_location (t);
+	    if (TREE_CODE (t) == POINTER_TYPE)
+	      {
+		shared_ptr <abigail::pointer_type_def> pointer_type
+		  (new abigail::pointer_type_def
+		   (pointed_to,
+		    int_cst_value (TYPE_SIZE (t)),
+		    TYPE_ALIGN (t), loc));
+
+		add_decl_to_scope (pointer_type, scope);
+		result = pointer_type;
+	      }
+	    else
+	      {
+		shared_ptr <abigail::reference_type_def> reference_type
+		  (new abigail::reference_type_def
+		   (pointed_to, !TYPE_REF_IS_RVALUE (t),
+		    int_cst_value (TYPE_SIZE (t)),
+		    TYPE_ALIGN (t), loc));
+
+		add_decl_to_scope (reference_type, scope);
+		result = reference_type;
+	      }
+	  }
+      }
+      break;
+
     default:
       break;
     }
