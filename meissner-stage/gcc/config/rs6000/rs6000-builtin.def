@@ -30,7 +30,7 @@
    RS6000_BUILTIN_A -- ABS builtins
    RS6000_BUILTIN_D -- DST builtins
    RS6000_BUILTIN_E -- SPE EVSEL builtins.
-   RS6000_BUILTIN_P -- Altivec, VSX, Power8 vector predicate builtins
+   RS6000_BUILTIN_P -- Altivec, VSX, ISA 2.07 vector predicate builtins
    RS6000_BUILTIN_Q -- Paired floating point VSX predicate builtins
    RS6000_BUILTIN_S -- SPE predicate builtins
    RS6000_BUILTIN_X -- special builtins
@@ -301,7 +301,7 @@
 		     | RS6000_BTC_SPECIAL),				\
 		    CODE_FOR_nothing)			/* ICODE */
 
-/* Power8 vector convenience macros.  */
+/* ISA 2.07 (power8) vector convenience macros.  */
 /* For the instructions that are encoded as altivec instructions use
    __builtin_altivec_ as the builtin name.  */
 #define BU_P8V_AV_1(ENUM, NAME, ATTR, ICODE)				\
@@ -1304,7 +1304,7 @@ BU_P8V_AV_P (VCMPEQUD_P,	"vcmpequd_p",	CONST,	vector_eq_v2di_p)
 BU_P8V_AV_P (VCMPGTSD_P,	"vcmpgtsd_p",	CONST,	vector_gt_v2di_p)
 BU_P8V_AV_P (VCMPGTUD_P,	"vcmpgtud_p",	CONST,	vector_gtu_v2di_p)
 
-/* Power8 vector overloaded 1 argument functions.  */
+/* ISA 2.07 vector overloaded 1 argument functions.  */
 BU_P8V_OVERLOAD_1 (VUPKHSW,	"vupkhsw")
 BU_P8V_OVERLOAD_1 (VUPKLSW,	"vupklsw")
 BU_P8V_OVERLOAD_1 (VCLZ,	"vclz")
@@ -1319,7 +1319,7 @@ BU_P8V_OVERLOAD_1 (VPOPCNTW,	"vpopcntw")
 BU_P8V_OVERLOAD_1 (VPOPCNTD,	"vpopcntd")
 BU_P8V_OVERLOAD_1 (VGBBD,	"vgbbd")
 
-/* Power8 vector overloaded 2 argument functions.  */
+/* ISA 2.07 vector overloaded 2 argument functions.  */
 BU_P8V_OVERLOAD_2 (EQV,		"eqv")
 BU_P8V_OVERLOAD_2 (NAND,	"nand")
 BU_P8V_OVERLOAD_2 (ORC,		"orc")
