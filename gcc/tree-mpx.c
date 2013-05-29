@@ -2964,7 +2964,8 @@ mpx_find_bounds_abnormal (tree ptr, tree phi)
   vec<tree, va_gc> **copies = NULL;
   unsigned int i;
 
-  if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
+  if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI
+      && bounds == phi)
     return bounds;
 
   /* Check for existing bound copies created for specified
@@ -2997,12 +2998,20 @@ mpx_find_bounds_abnormal (tree ptr, tree phi)
       copy = make_ssa_name (copy, gimple_build_nop ());
       assign = gimple_build_assign (copy, bounds);
 
-      if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_NOP)
-	gsi = gsi_last_bb (mpx_get_entry_block ());
+      if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
+	{
+	  gsi = gsi_after_labels (gimple_bb (SSA_NAME_DEF_STMT (bounds)));
+	  gsi_insert_before (&gsi, assign, GSI_SAME_STMT);
+	}
       else
-	gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (bounds));
+	{
+	  if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_NOP)
+	    gsi = gsi_last_bb (mpx_get_entry_block ());
+	  else
+	    gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (bounds));
 
-      gsi_insert_after (&gsi, assign, GSI_SAME_STMT);
+	  gsi_insert_after (&gsi, assign, GSI_SAME_STMT);
+	}
 
       if (!copies)
 	{
@@ -3023,8 +3032,25 @@ mpx_find_bounds_abnormal (tree ptr, tree phi)
     }
 
   /* After bounds are replaced with their copy in abnormal PHI,
-     we do not need this flag set anymore.  */
+     we need to recompute usage in abnormal phi flag.
+     Current copy creation algorithm allows original bounds usage
+     in abnormal phi only if it is a result of this phi.  */
   SSA_NAME_OCCURS_IN_ABNORMAL_PHI (bounds) = 0;
+  if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
+    {
+      gimple def = SSA_NAME_DEF_STMT (bounds);
+      for (i = 0; i < gimple_phi_num_args (def); i++)
+	{
+	  tree arg = gimple_phi_arg_def (def, i);
+	  edge e = gimple_phi_arg_edge (def, i);
+	  if ((e->flags & EDGE_ABNORMAL)
+	      && arg == bounds)
+	    {
+	      SSA_NAME_OCCURS_IN_ABNORMAL_PHI (bounds) = 1;
+	      break;
+	    }
+	}
+    }
 
   return copy;
 }
@@ -3814,7 +3840,7 @@ mpx_init (void)
 					htab_eq_pointer, NULL);
   mpx_completed_bounds_map = htab_create_ggc (31, htab_hash_pointer,
 					      htab_eq_pointer, NULL);
-  mpx_abnormal_phi_copies = htab_create_ggc (31, tree_vec_map_hash,
+  mpx_abnormal_phi_copies = htab_create_ggc (31, tree_map_base_hash,
 					     tree_vec_map_eq, NULL);
 
   entry_block = NULL;
