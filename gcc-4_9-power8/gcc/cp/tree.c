@@ -1769,8 +1769,10 @@ build_ref_qualified_type (tree type, cp_ref_qualifier rqual)
     {
     case REF_QUAL_RVALUE:
       FUNCTION_RVALUE_QUALIFIED (t) = 1;
-      /* Intentional fall through */
+      FUNCTION_REF_QUALIFIED (t) = 1;
+      break;
     case REF_QUAL_LVALUE:
+      FUNCTION_RVALUE_QUALIFIED (t) = 0;
       FUNCTION_REF_QUALIFIED (t) = 1;
       break;
     default:
@@ -3978,7 +3980,7 @@ cp_fix_function_decl_p (tree decl)
 
       /* Don't fix same_body aliases.  Although they don't have their own
 	 CFG, they share it with what they alias to.  */
-      if (!node || !node->alias
+      if (!node || !node->symbol.alias
 	  || !vec_safe_length (node->symbol.ref_list.references))
 	return true;
     }

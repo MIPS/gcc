@@ -1,3 +1,291 @@
+2013-05-29  Easwaran Raman  <eraman@google.com>
+
+	PR tree-optimization/57442
+	* gcc.dg/tree-ssa/reassoc-30.c: New testcase.
+
+2013-05-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/57441
+	* gcc.c-torture/compile/pr57441.c: New.
+
+2013-05-29  Dehao Chen  <dehao@google.com>
+
+	PR testsuite/57413
+	* gcc.dg/debug/dwarf2/discriminator.c: Restrict the test to linux-gnu.
+
+2013-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* gfortran.dg/auto_dealloc_2.f90: Update _free count in the dump.
+	* gfortran.dg/class_19.f03: Ditto.
+
+2013-05-29  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/vect/bb-slp-32.c: New testcase.
+
+2013-05-28  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-c++-common/cilk-plus/AN/array_test1.c: New test.
+	* c-c++-common/cilk-plus/AN/array_test2.c: Likewise.
+	* c-c++-common/cilk-plus/AN/array_test_ND.c: Likewise.
+	* c-c++-common/cilk-plus/AN/builtin_func_double.c: Likewise.
+	* c-c++-common/cilk-plus/AN/builtin_func_double2.c: Likewise.
+	* c-c++-common/cilk-plus/AN/gather-scatter-errors.c: Likewise.
+	* c-c++-common/cilk-plus/AN/if_test.c: Likewise.
+	* c-c++-common/cilk-plus/AN/sec_implicit_ex.c: Likewise.
+	* c-c++-common/cilk-plus/AN/decl-ptr-colon.c: Likewise.
+	* c-c++-common/cilk-plus/AN/dimensionless-arrays.c: Likewise.
+	* c-c++-common/cilk-plus/AN/fn_ptr.c: Likewise.
+	* c-c++-common/cilk-plus/AN/fp_triplet_values.c: Likewise.
+	* c-c++-common/cilk-plus/AN/gather-scatter.c: Likewise.
+	* c-c++-common/cilk-plus/AN/misc.c: Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors.c: Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors2.c: Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors3.c: Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors4.c: Likewise.
+	* c-c++-common/cilk-plus/AN/rank_mismatch.c: Likewise.
+	* c-c++-common/cilk-plus/AN/rank_mismatch2.c: Likewise.
+	* c-c++-common/cilk-plus/AN/rank_mismatch3.c: Likewise.
+	* c-c++-common/cilk-plus/AN/sec_implicit.c: Likewise.
+	* c-c++-common/cilk-plus/AN/sec_implicit2.c: Likewise.
+	* c-c++-common/cilk-plus/AN/sec_reduce_max_min_ind.c: Likewise.
+	* c-c++-common/cilk-plus/AN/tst_lngth.c: Likewise.
+	* c-c++-common/cilk-plus/AN/vla.c: Likewise.
+	* c-c++-common/cilk-plus/AN/an-if.c: Likewise.
+	* c-c++-common/cilk-plus/AN/builtin_fn_custom.c: Likewise.
+	* c-c++-common/cilk-plus/AN/builtin_fn_mutating.c: Likewise.
+	* c-c++-common/cilk-plus/AN/comma_exp.c: Likewise.
+	* c-c++-common/cilk-plus/AN/conditional.c: Likewise.
+	* c-c++-common/cilk-plus/AN/exec-once.c: Likewise.
+	* c-c++-common/cilk-plus/AN/exec-once2.c: Likewise.
+	* c-c++-common/cilk-plus/AN/gather_scatter.c: Likewise.
+	* c-c++-common/cilk-plus/AN/n-ptr-test.c: Likewise.
+	* c-c++-common/cilk-plus/AN/side-effects-1.c: Likewise.
+	* c-c++-common/cilk-plus/AN/test_builtin_return.c: Likewise.
+	* c-c++-common/cilk-plus/AN/test_sec_limits.c: Likewise.
+	* gcc.dg/cilk-plus/cilk-plus.exp: New script.
+
+2013-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* gfortran.dg/finalize_11.f90: New.
+	* gfortran.dg/finalize_4.f03: Remove dg-error.
+	* gfortran.dg/finalize_5.f03: Ditto.
+	* gfortran.dg/finalize_6.f03: Ditto.
+	* gfortran.dg/finalize_7.f03: Ditto.
+
+2013-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/class_array_16.f90: New.
+
+2013-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57435
+	* testsuite/gfortran.dg/use_29.f90: New.
+
+2013-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/fp_exception.adb: New test.
+
+2013-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56787
+	* gcc.dg/vect/pr56787.c: New testcase.
+
+2013-05-28  Janus Weil  <janus@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57217
+	* gfortran.dg/typebound_override_4.f90: New.
+
+2013-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57411
+	* g++.dg/opt/pr57411.C: New testcase.
+
+2013-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/builtin-bswap-8.c: Compile at -O2.
+	* gcc.dg/builtin-bswap-9.c: Likewise.
+
+2013-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/bmaskbshuf.c: Remove superfluous options.
+
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57412
+	* gcc.dg/gomp/pr57412.c: New testcase.
+
+2013-05-27  Bud Davis  <jmdavis@link.com>
+
+	PR fortran/50405
+	* gfortran.dg/stfunc_8.f90: New.
+
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57343
+	* gcc.dg/torture/pr57343.c: New testcase.
+
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57417
+	* gcc.dg/torture/pr57417.c: New testcase.
+
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57396
+	* gfortran.fortran-torture/execute/pr57396.f90: New testcase.
+
+2013-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/last_bit.ads: New test.
+
+2013-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/machine_attribute.ads: New test.
+
+2013-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/incomplete3.ad[sb]: New test.
+
+2013-05-25  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/53916
+	* gcc.target/mips/div-13.c: New test.
+
+2013-05-25  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/55777
+	* gcc.target/mips/mips16-attributes-5.c,
+	* gcc.target/mips/mips16-attributes-6.c: New tests.
+
+2013-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/builtin-bswap-6.c: Use same options as optimize-bswapsi-1.c.
+	* gcc.dg/builtin-bswap-8.c: Likewise.
+
+2013-05-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52216
+	* g++.dg/cpp0x/new1.C: New.
+
+2013-05-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/25666
+	* g++.dg/parse/dtor16.C: New.
+	* g++.dg/parse/dtor6.C: Adjust.
+
+2013-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/19618
+	* g++.dg/expr/bitfield12.C: New.
+
+2013-05-24  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/57124
+	* gcc.c-torture/execute/pr57124.c: New test.
+	* gcc.c-torture/execute/pr57124.x: Set -fno-strict-overflow.
+
+2013-05-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/57294
+	* gcc.dg/ipa/pr57294.c: New test.
+
+2013-05-24  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/scalar_intrinsics.c
+	(force_simd): Use a valid instruction.
+	(test_vdupd_lane_s64): Pass a valid lane argument.
+	(test_vdupd_lane_u64): Likewise.
+
+2013-05-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57287
+	* gcc.dg/pr57287.c: New testcase.
+
+2013-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/26572
+	* g++.dg/template/error51.C: New.
+
+2013-05-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/25503
+	* g++.dg/template/bitfield2.C: New.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/noinline1.ads: New test.
+	* gnat.dg/noinline2.ad[sb]: Likewise.
+	* gnat.dg/specs/noinline3.ads: Likewise.
+	* gnat.dg/specs/noinline3_pkg.ad[sb]: New helper.
+
+2013-05-24  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	PR tree-ssa/57385
+	* gcc.dg/tree-ssa/pr57385.c: New test.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/derived_type4.adb: New test.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/builtin-bswap-6.c: New test.
+	* gcc.dg/builtin-bswap-7.c: Likewise.
+	* gcc.dg/builtin-bswap-8.c: Likewise.
+	* gcc.dg/builtin-bswap-9.c: Likewise.
+
+2013-05-23  Christian Bruel  <christian.bruel@st.com>
+
+	PR debug/57351
+	* gcc.dg/debug/pr57351.c: New test
+
+2013-05-23  Vidya Praveen <vidyapraveen@arm.com>
+
+	* gcc.target/aarch64/vect-clz.c: New file.
+
+2013-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/57347
+	* gcc.dg/ipa/pr57347.c: New test.
+
+2013-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57380
+	* g++.dg/tree-ssa/pr57380.C: New testcase.
+
+2013-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57381
+	* gcc.dg/torture/pr57381.c: New testcase.
+
+2013-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/57344
+	* gcc.c-torture/execute/pr57344-1.c: New test.
+	* gcc.c-torture/execute/pr57344-2.c: New test.
+	* gcc.c-torture/execute/pr57344-3.c: New test.
+	* gcc.c-torture/execute/pr57344-4.c: New test.
+
+2013-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/57341
+	* gcc.dg/torture/pr57341.c: New testcase.
+
+2013-05-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57352
+	* g++.dg/parse/crash62.C: New.
+
+2013-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/crypto-builtin-1.c: New file, test for power8
+	crypto builtins.
+
 2013-05-22  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/57364

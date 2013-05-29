@@ -306,6 +306,14 @@ resolve_formal_arglist (gfc_symbol *proc)
 	       && !resolve_procedure_interface (sym))
 	return;
 
+      if (strcmp (proc->name, sym->name) == 0)
+        {
+          gfc_error ("Self-referential argument "
+                     "'%s' at %L is not allowed", sym->name,
+                     &proc->declared_at);
+          return;
+        }
+
       if (sym->attr.if_source != IFSRC_UNKNOWN)
 	resolve_formal_arglist (sym);
 
@@ -9254,7 +9262,7 @@ get_temp_from_expr (gfc_expr *e, gfc_namespace *ns)
   gfc_array_ref *aref;
   gfc_ref *ref;
 
-  sprintf (name, "DA@%d", serial++);
+  sprintf (name, GFC_PREFIX("DA%d"), serial++);
   gfc_get_sym_tree (name, ns, &tmp, false);
   gfc_add_type (tmp->n.sym, &e->ts, NULL);
 
@@ -11232,10 +11240,6 @@ error:
     gfc_warning ("Only array FINAL procedures declared for derived type '%s'"
 		 " defined at %L, suggest also scalar one",
 		 derived->name, &derived->declared_at);
-
-  /* TODO:  Remove this error when finalization is finished.  */
-  gfc_error ("Finalization at %L is not yet implemented",
-	     &derived->declared_at);
 
   gfc_find_derived_vtab (derived);
   return result;

@@ -1,5 +1,8 @@
 2013-05-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 199427.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/altivec.h: Change comments from saying power8 to
 	ISA 2.07.
 	* config/rs6000/rs6000-builtin.def: Likewise.
