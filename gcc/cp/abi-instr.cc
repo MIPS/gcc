@@ -312,6 +312,11 @@ gen_decl_in_scope (const_tree t,
     case VAR_DECL:
       {
 	shared_ptr <abigail::type_base> type = gen_type (TREE_TYPE (t));
+	if (!type)
+	  // FIXME: we should log that we do not generate the decl as
+	  // we cannot generate its type.
+	  return shared_ptr <abigail::decl_base> ();
+
 	shared_ptr<abigail::var_decl> v
 	  (new abigail::var_decl (IDENTIFIER_POINTER (DECL_NAME (t)),
 				  type, get_location (t),
@@ -389,7 +394,14 @@ gen_decl(const_tree t)
   if (t == NULL_TREE)
     return result;
 
-  gen_type (TREE_TYPE (t));
+  // As the decl is going to refer to its type, we want the type to be
+  // defined in the serialized output prior to its use.  So try to
+  // generate the type first.
+  if (!gen_type (TREE_TYPE (t)))
+    // FIXME: we should somehow signal that we couldn't generate this
+    // type, so we are not going to emit the decl.
+    return result;
+
   shared_ptr <abigail::scope_decl> scope = gen_scope_of (t);
   if (scope)
     result = gen_decl_in_scope (t, scope);
