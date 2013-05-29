@@ -1,6 +1,5 @@
 ;;  Machine Description for Renesas RX processors
-;;  Copyright (C) 2008, 2009, 2010, 2011, 2012
-;;  Free Software Foundation, Inc.
+;;  Copyright (C) 2008-2013 Free Software Foundation, Inc.
 ;;  Contributed by Red Hat.
 
 ;; This file is part of GCC.
@@ -31,7 +30,7 @@
 ;; then all operations on doubles have to be handled by
 ;; library functions.
 (define_mode_iterator register_modes
-  [(SF "ALLOW_RX_FPU_INSNS") (SI "") (HI "") (QI "")])
+  [(SF "") (SI "") (HI "") (QI "")])
 
 (define_constants
   [
@@ -1651,7 +1650,7 @@
 (define_expand "subdi3"
   [(set (match_operand:DI           0 "register_operand")
 	(minus:DI (match_operand:DI 1 "register_operand")
-		  (match_operand:DI 2 "rx_compare_operand")))]
+		  (match_operand:DI 2 "register_operand")))]
   ""
 {
   rtx op0l, op0h, op1l, op1h, op2l, op2h;
@@ -2621,4 +2620,22 @@
 	    (const:SI (unspec:SI [(match_operand:SI 1)] UNSPEC_PID_ADDR)))]
   ""
   ""
+)
+
+(define_insn "movdi"
+  [(set:DI (match_operand:DI 0 "nonimmediate_operand" "=rm")
+	   (match_operand:DI 1 "general_operand"      "rmi"))]
+  "TARGET_ENABLE_LRA || 1"
+  { return rx_gen_move_template (operands, false); }
+  [(set_attr "length" "16")
+   (set_attr "timings" "22")]
+)
+
+(define_insn "movdf"
+  [(set:DF (match_operand:DF 0 "nonimmediate_operand" "=rm")
+	   (match_operand:DF 1 "general_operand"      "rmi"))]
+  "TARGET_ENABLE_LRA || 1"
+  { return rx_gen_move_template (operands, false); }
+  [(set_attr "length" "16")
+   (set_attr "timings" "22")]
 )

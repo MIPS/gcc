@@ -1,6 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -34,12 +33,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "gimple.h"
 #include "tree-inline.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "domwalk.h"
 #include "params.h"
-#include "vecprim.h"
 #include "diagnostic-core.h"
 
 
@@ -84,7 +82,7 @@ typedef struct def_blocks_d *def_blocks_p;
 
    - A NULL node at the top entry is used to mark the last slot
      associated with the current block.  */
-static VEC(tree,heap) *block_defs_stack;
+static vec<tree> block_defs_stack;
 
 
 /* Set of existing SSA names being replaced by update_ssa.  */
@@ -102,10 +100,10 @@ sbitmap interesting_blocks;
    released after we finish updating the SSA web.  */
 static bitmap names_to_release;
 
-/* VEC of VECs of PHIs to rewrite in a basic block.  Element I corresponds
+/* vec of vec of PHIs to rewrite in a basic block.  Element I corresponds
    the to basic block with index I.  Allocated once per compilation, *not*
    released between different functions.  */
-static VEC(gimple_vec, heap) *phis_to_rewrite;
+static vec<gimple_vec> phis_to_rewrite;
 
 /* The bitmap of non-NULL elements of PHIS_TO_REWRITE.  */
 static bitmap blocks_with_phis_to_rewrite;
@@ -161,12 +159,33 @@ struct var_info_d
 /* The information associated with decls.  */
 typedef struct var_info_d *var_info_p;
 
-DEF_VEC_P(var_info_p);
-DEF_VEC_ALLOC_P(var_info_p,heap);
+
+/* VAR_INFOS hashtable helpers.  */
+
+struct var_info_hasher : typed_free_remove <var_info_d>
+{
+  typedef var_info_d value_type;
+  typedef var_info_d compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+var_info_hasher::hash (const value_type *p)
+{
+  return DECL_UID (p->var);
+}
+
+inline bool
+var_info_hasher::equal (const value_type *p1, const compare_type *p2)
+{
+  return p1->var == p2->var;
+}
+
 
 /* Each entry in VAR_INFOS contains an element of type STRUCT 
    VAR_INFO_D.  */
-static htab_t var_infos;
+static hash_table <var_info_hasher> var_infos;
 
 
 /* Information stored for SSA names.  */
@@ -186,10 +205,8 @@ struct ssa_name_info
 
 /* The information associated with names.  */
 typedef struct ssa_name_info *ssa_name_info_p;
-DEF_VEC_P (ssa_name_info_p);
-DEF_VEC_ALLOC_P (ssa_name_info_p, heap);
 
-static VEC(ssa_name_info_p, heap) *info_for_ssa_name;
+static vec<ssa_name_info_p> info_for_ssa_name;
 static unsigned current_info_for_ssa_name_age;
 
 static bitmap_obstack update_ssa_obstack;
@@ -235,7 +252,7 @@ extern void debug_currdefs (void);
 
 /* The set of symbols we ought to re-write into SSA form in update_ssa.  */
 static bitmap symbols_to_rename_set;
-static VEC(tree,heap) *symbols_to_rename;
+static vec<tree> symbols_to_rename;
 
 /* Mark SYM for renaming.  */
 
@@ -245,7 +262,7 @@ mark_for_renaming (tree sym)
   if (!symbols_to_rename_set)
     symbols_to_rename_set = BITMAP_ALLOC (NULL);
   if (bitmap_set_bit (symbols_to_rename_set, DECL_UID (sym)))
-    VEC_safe_push (tree, heap, symbols_to_rename, sym);
+    symbols_to_rename.safe_push (sym);
 }
 
 /* Return true if SYM is marked for renaming.  */
@@ -309,22 +326,21 @@ static inline ssa_name_info_p
 get_ssa_name_ann (tree name)
 {
   unsigned ver = SSA_NAME_VERSION (name);
-  unsigned len = VEC_length (ssa_name_info_p, info_for_ssa_name);
+  unsigned len = info_for_ssa_name.length ();
   struct ssa_name_info *info;
 
   /* Re-allocate the vector at most once per update/into-SSA.  */
   if (ver >= len)
-    VEC_safe_grow_cleared (ssa_name_info_p, heap,
-			   info_for_ssa_name, num_ssa_names);
+    info_for_ssa_name.safe_grow_cleared (num_ssa_names);
 
   /* But allocate infos lazily.  */
-  info = VEC_index (ssa_name_info_p, info_for_ssa_name, ver);
+  info = info_for_ssa_name[ver];
   if (!info)
     {
       info = XCNEW (struct ssa_name_info);
       info->age = current_info_for_ssa_name_age;
       info->info.need_phi_state = NEED_PHI_STATE_UNKNOWN;
-      VEC_replace (ssa_name_info_p, info_for_ssa_name, ver, info);
+      info_for_ssa_name[ver] = info;
     }
 
   if (info->age < current_info_for_ssa_name_age)
@@ -347,17 +363,17 @@ static inline var_info_p
 get_var_info (tree decl)
 {
   struct var_info_d vi;
-  void **slot;
+  var_info_d **slot;
   vi.var = decl;
-  slot = htab_find_slot_with_hash (var_infos, &vi, DECL_UID (decl), INSERT);
+  slot = var_infos.find_slot_with_hash (&vi, DECL_UID (decl), INSERT);
   if (*slot == NULL)
     {
       var_info_p v = XCNEW (struct var_info_d);
       v->var = decl;
-      *slot = (void *)v;
+      *slot = v;
       return v;
     }
-  return (var_info_p) *slot;
+  return *slot;
 }
 
 
@@ -541,7 +557,7 @@ is_old_name (tree name)
   if (!new_ssa_names)
     return false;
   return (ver < SBITMAP_SIZE (new_ssa_names)
-	  && TEST_BIT (old_ssa_names, ver));
+	  && bitmap_bit_p (old_ssa_names, ver));
 }
 
 
@@ -554,7 +570,7 @@ is_new_name (tree name)
   if (!new_ssa_names)
     return false;
   return (ver < SBITMAP_SIZE (new_ssa_names)
-	  && TEST_BIT (new_ssa_names, ver));
+	  && bitmap_bit_p (new_ssa_names, ver));
 }
 
 
@@ -610,8 +626,8 @@ add_new_name_mapping (tree new_tree, tree old)
 
   /* Register NEW_TREE and OLD in NEW_SSA_NAMES and OLD_SSA_NAMES,
      respectively.  */
-  SET_BIT (new_ssa_names, SSA_NAME_VERSION (new_tree));
-  SET_BIT (old_ssa_names, SSA_NAME_VERSION (old));
+  bitmap_set_bit (new_ssa_names, SSA_NAME_VERSION (new_tree));
+  bitmap_set_bit (old_ssa_names, SSA_NAME_VERSION (old));
 }
 
 
@@ -653,7 +669,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
 	  set_rewrite_uses (stmt, true);
 	}
       if (rewrite_uses_p (stmt))
-	SET_BIT (interesting_blocks, bb->index);
+	bitmap_set_bit (interesting_blocks, bb->index);
       return;
     }
 
@@ -681,7 +697,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
   /* If we found the statement interesting then also mark the block BB
      as interesting.  */
   if (rewrite_uses_p (stmt) || register_defs_p (stmt))
-    SET_BIT (interesting_blocks, bb->index);
+    bitmap_set_bit (interesting_blocks, bb->index);
 }
 
 /* Structure used by prune_unused_phi_nodes to record bounds of the intervals
@@ -734,7 +750,7 @@ find_dfsnum_interval (struct dom_dfsnum *defs, unsigned n, unsigned s)
 static void
 prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 {
-  VEC(int, heap) *worklist;
+  vec<int> worklist;
   bitmap_iterator bi;
   unsigned i, b, p, u, top;
   bitmap live_phis;
@@ -806,8 +822,8 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
      dfs_out numbers, increase the dfs number by one (so that it corresponds
      to the start of the following interval, not to the end of the current
      one).  We use WORKLIST as a stack.  */
-  worklist = VEC_alloc (int, heap, n_defs + 1);
-  VEC_quick_push (int, worklist, 1);
+  worklist.create (n_defs + 1);
+  worklist.quick_push (1);
   top = 1;
   n_defs = 1;
   for (i = 1; i < adef; i++)
@@ -817,8 +833,8 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	{
 	  /* This is a closing element.  Interval corresponding to the top
 	     of the stack after removing it follows.  */
-	  VEC_pop (int, worklist);
-	  top = VEC_index (int, worklist, VEC_length (int, worklist) - 1);
+	  worklist.pop ();
+	  top = worklist[worklist.length () - 1];
 	  defs[n_defs].bb_index = top;
 	  defs[n_defs].dfs_num = defs[i].dfs_num + 1;
 	}
@@ -828,7 +844,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	     it to the correct position.  */
 	  defs[n_defs].bb_index = defs[i].bb_index;
 	  defs[n_defs].dfs_num = defs[i].dfs_num;
-	  VEC_quick_push (int, worklist, b);
+	  worklist.quick_push (b);
 	  top = b;
 	}
 
@@ -839,19 +855,19 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
       else
 	n_defs++;
     }
-  VEC_pop (int, worklist);
-  gcc_assert (VEC_empty (int, worklist));
+  worklist.pop ();
+  gcc_assert (worklist.is_empty ());
 
   /* Now process the uses.  */
   live_phis = BITMAP_ALLOC (NULL);
   EXECUTE_IF_SET_IN_BITMAP (uses, 0, i, bi)
     {
-      VEC_safe_push (int, heap, worklist, i);
+      worklist.safe_push (i);
     }
 
-  while (!VEC_empty (int, worklist))
+  while (!worklist.is_empty ())
     {
-      b = VEC_pop (int, worklist);
+      b = worklist.pop ();
       if (b == ENTRY_BLOCK)
 	continue;
 
@@ -889,11 +905,11 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	    continue;
 
 	  bitmap_set_bit (uses, u);
-	  VEC_safe_push (int, heap, worklist, u);
+	  worklist.safe_push (u);
 	}
     }
 
-  VEC_free (int, heap, worklist);
+  worklist.release ();
   bitmap_copy (phis, live_phis);
   BITMAP_FREE (live_phis);
   free (defs);
@@ -932,15 +948,14 @@ mark_phi_for_rewrite (basic_block bb, gimple phi)
   bitmap_set_bit (blocks_with_phis_to_rewrite, idx);
 
   n = (unsigned) last_basic_block + 1;
-  if (VEC_length (gimple_vec, phis_to_rewrite) < n)
-    VEC_safe_grow_cleared (gimple_vec, heap, phis_to_rewrite, n);
+  if (phis_to_rewrite.length () < n)
+    phis_to_rewrite.safe_grow_cleared (n);
 
-  phis = VEC_index (gimple_vec, phis_to_rewrite, idx);
-  if (!phis)
-    phis = VEC_alloc (gimple, heap, 10);
+  phis = phis_to_rewrite[idx];
+  phis.reserve (10);
 
-  VEC_safe_push (gimple, heap, phis, phi);
-  VEC_replace (gimple_vec, phis_to_rewrite, idx, phis);
+  phis.safe_push (phi);
+  phis_to_rewrite[idx] = phis;
 }
 
 /* Insert PHI nodes for variable VAR using the iterated dominance
@@ -977,6 +992,12 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
       if (update_p)
 	mark_block_for_update (bb);
 
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "creating PHI node in block #%d for ", bb_index);
+	  print_generic_expr (dump_file, var, TDF_SLIM);
+	  fprintf (dump_file, "\n");
+	}
       phi = NULL;
 
       if (TREE_CODE (var) == SSA_NAME)
@@ -1046,30 +1067,30 @@ insert_phi_nodes_compare_var_infos (const void *a, const void *b)
 static void
 insert_phi_nodes (bitmap_head *dfs)
 {
-  htab_iterator hi;
+  hash_table <var_info_hasher>::iterator hi;
   unsigned i;
   var_info_p info;
-  VEC(var_info_p,heap) *vars;
+  vec<var_info_p> vars;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
 
-  vars = VEC_alloc (var_info_p, heap, htab_elements (var_infos));
-  FOR_EACH_HTAB_ELEMENT (var_infos, info, var_info_p, hi)
+  vars.create (var_infos.elements ());
+  FOR_EACH_HASH_TABLE_ELEMENT (var_infos, info, var_info_p, hi)
     if (info->info.need_phi_state != NEED_PHI_STATE_NO)
-      VEC_quick_push (var_info_p, vars, info);
+      vars.quick_push (info);
 
   /* Do two stages to avoid code generation differences for UID
      differences but no UID ordering differences.  */
-  VEC_qsort (var_info_p, vars, insert_phi_nodes_compare_var_infos);
+  vars.qsort (insert_phi_nodes_compare_var_infos);
 
-  FOR_EACH_VEC_ELT (var_info_p, vars, i, info)
+  FOR_EACH_VEC_ELT (vars, i, info)
     {
       bitmap idf = compute_idf (info->info.def_blocks.def_blocks, dfs);
       insert_phi_nodes_for (info->var, idf, false);
       BITMAP_FREE (idf);
     }
 
-  VEC_free(var_info_p, heap, vars);
+  vars.release ();
 
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
@@ -1105,7 +1126,7 @@ register_new_def (tree def, tree sym)
      in the stack so that we know which symbol is being defined by
      this SSA name when we unwind the stack.  */
   if (currdef && !is_gimple_reg (sym))
-    VEC_safe_push (tree, heap, block_defs_stack, sym);
+    block_defs_stack.safe_push (sym);
 
   /* Push the current reaching definition into BLOCK_DEFS_STACK.  This
      stack is later used by the dominator tree callbacks to restore
@@ -1113,7 +1134,7 @@ register_new_def (tree def, tree sym)
      block after a recursive visit to all its immediately dominated
      blocks.  If there is no current reaching definition, then just
      record the underlying _DECL node.  */
-  VEC_safe_push (tree, heap, block_defs_stack, currdef ? currdef : sym);
+  block_defs_stack.safe_push (currdef ? currdef : sym);
 
   /* Set the current reaching definition for SYM to be DEF.  */
   info->current_def = def;
@@ -1362,13 +1383,18 @@ rewrite_add_phi_arguments (basic_block bb)
       for (gsi = gsi_start_phis (e->dest); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  tree currdef;
-	  gimple stmt;
+	  tree currdef, res;
+	  location_t loc;
 
 	  phi = gsi_stmt (gsi);
-	  currdef = get_reaching_def (SSA_NAME_VAR (gimple_phi_result (phi)));
-	  stmt = SSA_NAME_DEF_STMT (currdef);
-	  add_phi_arg (phi, currdef, e, gimple_location (stmt));
+	  res = gimple_phi_result (phi);
+	  currdef = get_reaching_def (SSA_NAME_VAR (res));
+	  /* Virtual operand PHI args do not need a location.  */
+	  if (virtual_operand_p (res))
+	    loc = UNKNOWN_LOCATION;
+	  else
+	    loc = gimple_location (SSA_NAME_DEF_STMT (currdef));
+	  add_phi_arg (phi, currdef, e, loc);
 	}
     }
 }
@@ -1388,7 +1414,7 @@ rewrite_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     fprintf (dump_file, "\n\nRenaming block #%d\n\n", bb->index);
 
   /* Mark the unwind point for this block.  */
-  VEC_safe_push (tree, heap, block_defs_stack, NULL_TREE);
+  block_defs_stack.safe_push (NULL_TREE);
 
   /* Step 1.  Register new definitions for every PHI node in the block.
      Conceptually, all the PHI nodes are executed in parallel and each PHI
@@ -1402,7 +1428,7 @@ rewrite_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
   /* Step 2.  Rewrite every variable used in each statement in the block
      with its immediate reaching definitions.  Update the current definition
      of a variable when a new real or virtual definition is found.  */
-  if (TEST_BIT (interesting_blocks, bb->index))
+  if (bitmap_bit_p (interesting_blocks, bb->index))
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       rewrite_stmt (&gsi);
 
@@ -1423,9 +1449,9 @@ rewrite_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		     basic_block bb ATTRIBUTE_UNUSED)
 {
   /* Restore CURRDEFS to its original state.  */
-  while (VEC_length (tree, block_defs_stack) > 0)
+  while (block_defs_stack.length () > 0)
     {
-      tree tmp = VEC_pop (tree, block_defs_stack);
+      tree tmp = block_defs_stack.pop ();
       tree saved_def, var;
 
       if (tmp == NULL_TREE)
@@ -1443,7 +1469,7 @@ rewrite_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	  saved_def = tmp;
 	  var = SSA_NAME_VAR (saved_def);
 	  if (!is_gimple_reg (var))
-	    var = VEC_pop (tree, block_defs_stack);
+	    var = block_defs_stack.pop ();
 	}
       else
 	{
@@ -1511,11 +1537,11 @@ dump_defs_stack (FILE *file, int n)
 
   i = 1;
   fprintf (file, "Level %d (current level)\n", i);
-  for (j = (int) VEC_length (tree, block_defs_stack) - 1; j >= 0; j--)
+  for (j = (int) block_defs_stack.length () - 1; j >= 0; j--)
     {
       tree name, var;
 
-      name = VEC_index (tree, block_defs_stack, j);
+      name = block_defs_stack[j];
       if (name == NULL_TREE)
 	{
 	  i++;
@@ -1536,7 +1562,7 @@ dump_defs_stack (FILE *file, int n)
 	  if (!is_gimple_reg (var))
 	    {
 	      j--;
-	      var = VEC_index (tree, block_defs_stack, j);
+	      var = block_defs_stack[j];
 	    }
 	}
 
@@ -1572,11 +1598,11 @@ dump_currdefs (FILE *file)
   unsigned i;
   tree var;
 
-  if (VEC_empty (tree, symbols_to_rename))
+  if (symbols_to_rename.is_empty ())
     return;
 
   fprintf (file, "\n\nCurrent reaching definitions\n\n");
-  FOR_EACH_VEC_ELT (tree, symbols_to_rename, i, var)
+  FOR_EACH_VEC_ELT (symbols_to_rename, i, var)
     {
       common_info_p info = get_common_info (var);
       fprintf (file, "CURRDEF (");
@@ -1629,12 +1655,12 @@ debug_tree_ssa (void)
 /* Dump statistics for the hash table HTAB.  */
 
 static void
-htab_statistics (FILE *file, htab_t htab)
+htab_statistics (FILE *file, hash_table <var_info_hasher> htab)
 {
   fprintf (file, "size %ld, %ld elements, %f collision/search ratio\n",
-	   (long) htab_size (htab),
-	   (long) htab_elements (htab),
-	   htab_collisions (htab));
+	   (long) htab.size (),
+	   (long) htab.elements (),
+	   htab.collisions ());
 }
 
 
@@ -1643,7 +1669,7 @@ htab_statistics (FILE *file, htab_t htab)
 void
 dump_tree_ssa_stats (FILE *file)
 {
-  if (var_infos)
+  if (var_infos.is_created ())
     {
       fprintf (file, "\nHash table statistics:\n");
       fprintf (file, "    var_infos:   ");
@@ -1662,29 +1688,12 @@ debug_tree_ssa_stats (void)
 }
 
 
-/* Hashing and equality functions for VAR_INFOS.  */
-
-static hashval_t
-var_info_hash (const void *p)
-{
-  return DECL_UID (((const struct var_info_d *)p)->var);
-}
-
-static int
-var_info_eq (const void *p1, const void *p2)
-{
-  return ((const struct var_info_d *)p1)->var
-	 == ((const struct var_info_d *)p2)->var;
-}
-
-
 /* Callback for htab_traverse to dump the VAR_INFOS hash table.  */
 
-static int
-debug_var_infos_r (void **slot, void *data)
+int
+debug_var_infos_r (var_info_d **slot, FILE *file)
 {
-  FILE *file = (FILE *) data;
-  struct var_info_d *info = (struct var_info_d *) *slot;
+  struct var_info_d *info = *slot;
 
   fprintf (file, "VAR: ");
   print_generic_expr (file, info->var, dump_flags);
@@ -1705,8 +1714,8 @@ void
 dump_var_infos (FILE *file)
 {
   fprintf (file, "\n\nDefinition and live-in blocks:\n\n");
-  if (var_infos)
-    htab_traverse (var_infos, debug_var_infos_r, file);
+  if (var_infos.is_created ())
+    var_infos.traverse <FILE *, debug_var_infos_r> (file);
 }
 
 
@@ -1732,9 +1741,9 @@ register_new_update_single (tree new_name, tree old_name)
      restore the reaching definitions for all the variables
      defined in the block after a recursive visit to all its
      immediately dominated blocks.  */
-  VEC_reserve (tree, heap, block_defs_stack, 2);
-  VEC_quick_push (tree, block_defs_stack, currdef);
-  VEC_quick_push (tree, block_defs_stack, old_name);
+  block_defs_stack.reserve (2);
+  block_defs_stack.quick_push (currdef);
+  block_defs_stack.quick_push (old_name);
 
   /* Set the current reaching definition for OLD_NAME to be
      NEW_NAME.  */
@@ -1988,8 +1997,8 @@ rewrite_update_phi_arguments (basic_block bb)
       if (!bitmap_bit_p (blocks_with_phis_to_rewrite, e->dest->index))
 	continue;
 
-      phis = VEC_index (gimple_vec, phis_to_rewrite, e->dest->index);
-      FOR_EACH_VEC_ELT (gimple, phis, i, phi)
+      phis = phis_to_rewrite[e->dest->index];
+      FOR_EACH_VEC_ELT (phis, i, phi)
 	{
 	  tree arg, lhs_sym, reaching_def = NULL;
 	  use_operand_p arg_p;
@@ -2025,20 +2034,26 @@ rewrite_update_phi_arguments (basic_block bb)
           /* Update the argument if there is a reaching def.  */
 	  if (reaching_def)
 	    {
-	      gimple stmt;
 	      source_location locus;
 	      int arg_i = PHI_ARG_INDEX_FROM_USE (arg_p);
 
 	      SET_USE (arg_p, reaching_def);
-	      stmt = SSA_NAME_DEF_STMT (reaching_def);
 
-	      /* Single element PHI nodes  behave like copies, so get the
-		 location from the phi argument.  */
-	      if (gimple_code (stmt) == GIMPLE_PHI &&
-		  gimple_phi_num_args (stmt) == 1)
-		locus = gimple_phi_arg_location (stmt, 0);
+	      /* Virtual operands do not need a location.  */
+	      if (virtual_operand_p (reaching_def))
+		locus = UNKNOWN_LOCATION;
 	      else
-		locus = gimple_location (stmt);
+		{
+		  gimple stmt = SSA_NAME_DEF_STMT (reaching_def);
+
+		  /* Single element PHI nodes  behave like copies, so get the
+		     location from the phi argument.  */
+		  if (gimple_code (stmt) == GIMPLE_PHI
+		      && gimple_phi_num_args (stmt) == 1)
+		    locus = gimple_phi_arg_location (stmt, 0);
+		  else
+		    locus = gimple_location (stmt);
+		}
 
 	      gimple_phi_arg_set_location (phi, arg_i, locus);
 	    }
@@ -2068,7 +2083,7 @@ rewrite_update_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 	     bb->index);
 
   /* Mark the unwind point for this block.  */
-  VEC_safe_push (tree, heap, block_defs_stack, NULL_TREE);
+  block_defs_stack.safe_push (NULL_TREE);
 
   if (!bitmap_bit_p (blocks_to_update, bb->index))
     return;
@@ -2114,7 +2129,7 @@ rewrite_update_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
     }
 
   /* Step 2.  Rewrite every variable used in each statement in the block.  */
-  if (TEST_BIT (interesting_blocks, bb->index))
+  if (bitmap_bit_p (interesting_blocks, bb->index))
     {
       gcc_checking_assert (bitmap_bit_p (blocks_to_update, bb->index));
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -2135,9 +2150,9 @@ static void
 rewrite_update_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 			    basic_block bb ATTRIBUTE_UNUSED)
 {
-  while (VEC_length (tree, block_defs_stack) > 0)
+  while (block_defs_stack.length () > 0)
     {
-      tree var = VEC_pop (tree, block_defs_stack);
+      tree var = block_defs_stack.pop ();
       tree saved_def;
 
       /* NULL indicates the unwind stop point for this block (see
@@ -2145,7 +2160,7 @@ rewrite_update_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
       if (var == NULL)
 	return;
 
-      saved_def = VEC_pop (tree, block_defs_stack);
+      saved_def = block_defs_stack.pop ();
       get_common_info (var)->current_def = saved_def;
     }
 }
@@ -2191,7 +2206,7 @@ rewrite_blocks (basic_block entry, enum rewrite_mode what)
   else
     gcc_unreachable ();
 
-  block_defs_stack = VEC_alloc (tree, heap, 10);
+  block_defs_stack.create (10);
 
   /* Initialize the dominator walker.  */
   init_walk_dominator_tree (&walk_data);
@@ -2207,11 +2222,11 @@ rewrite_blocks (basic_block entry, enum rewrite_mode what)
   if (dump_file && (dump_flags & TDF_STATS))
     {
       dump_dfa_stats (dump_file);
-      if (var_infos)
+      if (var_infos.is_created ())
 	dump_tree_ssa_stats (dump_file);
     }
 
-  VEC_free (tree, heap, block_defs_stack);
+  block_defs_stack.release ();
 
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 }
@@ -2287,9 +2302,8 @@ init_ssa_renamer (void)
   cfun->gimple_df->in_ssa_p = false;
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
-  gcc_assert (var_infos == NULL);
-  var_infos = htab_create (VEC_length (tree, cfun->local_decls),
-			   var_info_hash, var_info_eq, free);
+  gcc_assert (!var_infos.is_created ());
+  var_infos.create (vec_safe_length (cfun->local_decls));
 
   bitmap_obstack_initialize (&update_ssa_obstack);
 }
@@ -2300,11 +2314,8 @@ init_ssa_renamer (void)
 static void
 fini_ssa_renamer (void)
 {
-  if (var_infos)
-    {
-      htab_delete (var_infos);
-      var_infos = NULL;
-    }
+  if (var_infos.is_created ())
+    var_infos.dispose ();
 
   bitmap_obstack_release (&update_ssa_obstack);
 
@@ -2404,6 +2415,7 @@ struct gimple_opt_pass pass_build_ssa =
  {
   GIMPLE_PASS,
   "ssa",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,					/* gate */
   rewrite_into_ssa,			/* execute */
   NULL,					/* sub */
@@ -2667,17 +2679,17 @@ prepare_names_to_update (bool insert_phi_p)
      want to replace existing instances.  */
   if (names_to_release)
     EXECUTE_IF_SET_IN_BITMAP (names_to_release, 0, i, bi)
-      RESET_BIT (new_ssa_names, i);
+      bitmap_clear_bit (new_ssa_names, i);
 
   /* First process names in NEW_SSA_NAMES.  Otherwise, uses of old
      names may be considered to be live-in on blocks that contain
      definitions for their replacements.  */
-  EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (new_ssa_names, 0, i, sbi)
     prepare_def_site_for (ssa_name (i), insert_phi_p);
 
   /* If an old name is in NAMES_TO_RELEASE, we cannot remove it from
      OLD_SSA_NAMES, but we have to ignore its definition site.  */
-  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (old_ssa_names, 0, i, sbi)
     {
       if (names_to_release == NULL || !bitmap_bit_p (names_to_release, i))
 	prepare_def_site_for (ssa_name (i), insert_phi_p);
@@ -2737,7 +2749,7 @@ dump_update_ssa (FILE *file)
       fprintf (file, "N_i -> { O_1 ... O_j } means that N_i replaces "
 	             "O_1, ..., O_j\n\n");
 
-      EXECUTE_IF_SET_IN_SBITMAP (new_ssa_names, 0, i, sbi)
+      EXECUTE_IF_SET_IN_BITMAP (new_ssa_names, 0, i, sbi)
 	dump_names_replaced_by (file, ssa_name (i));
     }
 
@@ -2807,7 +2819,7 @@ delete_update_ssa (void)
 
   BITMAP_FREE (symbols_to_rename_set);
   symbols_to_rename_set = NULL;
-  VEC_free (tree, heap, symbols_to_rename);
+  symbols_to_rename.release ();
 
   if (names_to_release)
     {
@@ -2823,10 +2835,9 @@ delete_update_ssa (void)
   if (blocks_with_phis_to_rewrite)
     EXECUTE_IF_SET_IN_BITMAP (blocks_with_phis_to_rewrite, 0, i, bi)
       {
-	gimple_vec phis = VEC_index (gimple_vec, phis_to_rewrite, i);
-
-	VEC_free (gimple, heap, phis);
-	VEC_replace (gimple_vec, phis_to_rewrite, i, NULL);
+	gimple_vec phis = phis_to_rewrite[i];
+	phis.release ();
+	phis_to_rewrite[i].create (0);
       }
 
   BITMAP_FREE (blocks_with_phis_to_rewrite);
@@ -3037,6 +3048,17 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
   BITMAP_FREE (idf);
 }
 
+/* Sort symbols_to_rename after their DECL_UID.  */
+
+static int
+insert_updated_phi_nodes_compare_uids (const void *a, const void *b)
+{
+  const_tree syma = *(const const_tree *)a;
+  const_tree symb = *(const const_tree *)b;
+  if (DECL_UID (syma) == DECL_UID (symb))
+    return 0;
+  return DECL_UID (syma) < DECL_UID (symb) ? -1 : 1;
+}
 
 /* Given a set of newly created SSA names (NEW_SSA_NAMES) and a set of
    existing SSA names (OLD_SSA_NAMES), update the SSA form so that:
@@ -3140,8 +3162,8 @@ update_ssa (unsigned update_flags)
   gcc_assert (update_ssa_initialized_fn == cfun);
 
   blocks_with_phis_to_rewrite = BITMAP_ALLOC (NULL);
-  if (!phis_to_rewrite)
-    phis_to_rewrite = VEC_alloc (gimple_vec, heap, last_basic_block + 1);
+  if (!phis_to_rewrite.exists ())
+    phis_to_rewrite.create (last_basic_block + 1);
   blocks_to_update = BITMAP_ALLOC (NULL);
 
   /* Ensure that the dominance information is up-to-date.  */
@@ -3169,7 +3191,7 @@ update_ssa (unsigned update_flags)
     {
       /* If we rename bare symbols initialize the mapping to
          auxiliar info we need to keep track of.  */
-      var_infos = htab_create (47, var_info_hash, var_info_eq, free);
+      var_infos.create (47);
 
       /* If we have to rename some symbols from scratch, we need to
 	 start the process at the root of the CFG.  FIXME, it should
@@ -3241,13 +3263,14 @@ update_ssa (unsigned update_flags)
 	     for traversal.  */
 	  sbitmap tmp = sbitmap_alloc (SBITMAP_SIZE (old_ssa_names));
 	  bitmap_copy (tmp, old_ssa_names);
-	  EXECUTE_IF_SET_IN_SBITMAP (tmp, 0, i, sbi)
+	  EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, sbi)
 	    insert_updated_phi_nodes_for (ssa_name (i), dfs, blocks_to_update,
 	                                  update_flags);
 	  sbitmap_free (tmp);
 	}
 
-      FOR_EACH_VEC_ELT (tree, symbols_to_rename, i, sym)
+      symbols_to_rename.qsort (insert_updated_phi_nodes_compare_uids);
+      FOR_EACH_VEC_ELT (symbols_to_rename, i, sym)
 	insert_updated_phi_nodes_for (sym, dfs, blocks_to_update,
 	                              update_flags);
 
@@ -3265,17 +3288,17 @@ update_ssa (unsigned update_flags)
 
   /* Reset the current definition for name and symbol before renaming
      the sub-graph.  */
-  EXECUTE_IF_SET_IN_SBITMAP (old_ssa_names, 0, i, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (old_ssa_names, 0, i, sbi)
     get_ssa_name_ann (ssa_name (i))->info.current_def = NULL_TREE;
 
-  FOR_EACH_VEC_ELT (tree, symbols_to_rename, i, sym)
+  FOR_EACH_VEC_ELT (symbols_to_rename, i, sym)
     get_var_info (sym)->info.current_def = NULL_TREE;
 
   /* Now start the renaming process at START_BB.  */
   interesting_blocks = sbitmap_alloc (last_basic_block);
   bitmap_clear (interesting_blocks);
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_update, 0, i, bi)
-    SET_BIT (interesting_blocks, i);
+    bitmap_set_bit (interesting_blocks, i);
 
   rewrite_blocks (start_bb, REWRITE_UPDATE);
 

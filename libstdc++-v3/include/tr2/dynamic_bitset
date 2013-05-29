@@ -1,6 +1,6 @@
 // TR2 <dynamic_bitset> -*- C++ -*-
 
-// Copyright (C) 2009-2012 Free Software Foundation, Inc.
+// Copyright (C) 2009-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -33,7 +33,6 @@
 
 #include <limits>
 #include <vector>
-#include <cstddef> // For size_t
 #include <string>
 #include <memory> // For std::allocator
 #include <bits/functexcept.h>   // For invalid_argument, out_of_range,

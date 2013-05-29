@@ -1,6 +1,5 @@
 /* Lower vector operations to scalar operations.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -231,7 +230,7 @@ expand_vector_piecewise (gimple_stmt_iterator *gsi, elem_op_func f,
 			 tree type, tree inner_type,
 			 tree a, tree b, enum tree_code code)
 {
-  VEC(constructor_elt,gc) *v;
+  vec<constructor_elt, va_gc> *v;
   tree part_width = TYPE_SIZE (inner_type);
   tree index = bitsize_int (0);
   int nunits = TYPE_VECTOR_SUBPARTS (type);
@@ -247,13 +246,13 @@ expand_vector_piecewise (gimple_stmt_iterator *gsi, elem_op_func f,
     warning_at (loc, OPT_Wvector_operation_performance,
 		"vector operation will be expanded in parallel");
 
-  v = VEC_alloc(constructor_elt, gc, (nunits + delta - 1) / delta);
+  vec_alloc (v, (nunits + delta - 1) / delta);
   for (i = 0; i < nunits;
        i += delta, index = int_const_binop (PLUS_EXPR, index, part_width))
     {
       tree result = f (gsi, inner_type, a, b, index, part_width, code);
       constructor_elt ce = {NULL_TREE, result};
-      VEC_quick_push (constructor_elt, v, ce);
+      v->quick_push (ce);
     }
 
   return build_constructor (type, v);
@@ -325,52 +324,6 @@ expand_vector_addition (gimple_stmt_iterator *gsi,
     return expand_vector_piecewise (gsi, f,
 				    type, TREE_TYPE (type),
 				    a, b, code);
-}
-
-/* Check if vector VEC consists of all the equal elements and
-   that the number of elements corresponds to the type of VEC.
-   The function returns first element of the vector
-   or NULL_TREE if the vector is not uniform.  */
-static tree
-uniform_vector_p (tree vec)
-{
-  tree first, t;
-  unsigned i;
-
-  if (vec == NULL_TREE)
-    return NULL_TREE;
-
-  if (TREE_CODE (vec) == VECTOR_CST)
-    {
-      first = VECTOR_CST_ELT (vec, 0);
-      for (i = 1; i < VECTOR_CST_NELTS (vec); ++i)
-	if (!operand_equal_p (first, VECTOR_CST_ELT (vec, i), 0))
-	  return NULL_TREE;
-
-      return first;
-    }
-
-  else if (TREE_CODE (vec) == CONSTRUCTOR)
-    {
-      first = error_mark_node;
-
-      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (vec), i, t)
-        {
-          if (i == 0)
-            {
-              first = t;
-              continue;
-            }
-	  if (!operand_equal_p (first, t, 0))
-	    return NULL_TREE;
-        }
-      if (i != TYPE_VECTOR_SUBPARTS (TREE_TYPE (vec)))
-	return NULL_TREE;
-
-      return first;
-    }
-
-  return NULL_TREE;
 }
 
 /* Try to expand vector comparison expression OP0 CODE OP1 by
@@ -868,6 +821,72 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
   return gimplify_build2 (gsi, MINUS_EXPR, type, op0, tem);
 }
 
+/* Expand a vector condition to scalars, by using many conditions
+   on the vector's elements.  */
+static void
+expand_vector_condition (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree type = gimple_expr_type (stmt);
+  tree a = gimple_assign_rhs1 (stmt);
+  tree a1 = a;
+  tree a2;
+  bool a_is_comparison = false;
+  tree b = gimple_assign_rhs2 (stmt);
+  tree c = gimple_assign_rhs3 (stmt);
+  vec<constructor_elt, va_gc> *v;
+  tree constr;
+  tree inner_type = TREE_TYPE (type);
+  tree cond_type = TREE_TYPE (TREE_TYPE (a));
+  tree comp_inner_type = cond_type;
+  tree width = TYPE_SIZE (inner_type);
+  tree index = bitsize_int (0);
+  int nunits = TYPE_VECTOR_SUBPARTS (type);
+  int i;
+  location_t loc = gimple_location (gsi_stmt (*gsi));
+
+  if (!is_gimple_val (a))
+    {
+      gcc_assert (COMPARISON_CLASS_P (a));
+      a_is_comparison = true;
+      a1 = TREE_OPERAND (a, 0);
+      a2 = TREE_OPERAND (a, 1);
+      comp_inner_type = TREE_TYPE (TREE_TYPE (a1));
+    }
+
+  if (expand_vec_cond_expr_p (type, TREE_TYPE (a1)))
+    return;
+
+  /* TODO: try and find a smaller vector type.  */
+
+  warning_at (loc, OPT_Wvector_operation_performance,
+	      "vector condition will be expanded piecewise");
+
+  vec_alloc (v, nunits);
+  for (i = 0; i < nunits;
+       i++, index = int_const_binop (PLUS_EXPR, index, width))
+    {
+      tree aa, result;
+      tree bb = tree_vec_extract (gsi, inner_type, b, width, index);
+      tree cc = tree_vec_extract (gsi, inner_type, c, width, index);
+      if (a_is_comparison)
+	{
+	  tree aa1 = tree_vec_extract (gsi, comp_inner_type, a1, width, index);
+	  tree aa2 = tree_vec_extract (gsi, comp_inner_type, a2, width, index);
+	  aa = build2 (TREE_CODE (a), cond_type, aa1, aa2);
+	}
+      else
+	aa = tree_vec_extract (gsi, cond_type, a, width, index);
+      result = gimplify_build3 (gsi, COND_EXPR, inner_type, aa, bb, cc);
+      constructor_elt ce = {NULL_TREE, result};
+      v->quick_push (ce);
+    }
+
+  constr = build_constructor (type, v);
+  gimple_assign_set_rhs_from_tree (gsi, constr);
+  update_stmt (gsi_stmt (*gsi));
+}
+
 static tree
 expand_vector_operation (gimple_stmt_iterator *gsi, tree type, tree compute_type,
 			 gimple assign, enum tree_code code)
@@ -1116,7 +1135,7 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
   tree vect_elt_type = TREE_TYPE (vect_type);
   tree mask_elt_type = TREE_TYPE (mask_type);
   unsigned int elements = TYPE_VECTOR_SUBPARTS (vect_type);
-  VEC(constructor_elt,gc) *v;
+  vec<constructor_elt, va_gc> *v;
   tree constr, t, si, i_val;
   tree vec0tmp = NULL_TREE, vec1tmp = NULL_TREE, masktmp = NULL_TREE;
   bool two_operand_p = !operand_equal_p (vec0, vec1, 0);
@@ -1152,7 +1171,7 @@ lower_vec_perm (gimple_stmt_iterator *gsi)
   warning_at (loc, OPT_Wvector_operation_performance,
               "vector shuffling operation will be expanded piecewise");
 
-  v = VEC_alloc (constructor_elt, gc, elements);
+  vec_alloc (v, elements);
   for (i = 0; i < elements; i++)
     {
       si = size_int (i);
@@ -1248,6 +1267,11 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
       return;
     }
 
+  if (code == VEC_COND_EXPR)
+    {
+      expand_vector_condition (gsi);
+      return;
+    }
   if (rhs_class != GIMPLE_UNARY_RHS && rhs_class != GIMPLE_BINARY_RHS)
     return;
 
@@ -1402,7 +1426,7 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
 static bool
 gate_expand_vector_operations_ssa (void)
 {
-  return optimize == 0;
+  return !(cfun->curr_properties & PROP_gimple_lvec);
 }
 
 static unsigned int
@@ -1435,6 +1459,7 @@ struct gimple_opt_pass pass_lower_vector =
  {
   GIMPLE_PASS,
   "veclower",				/* name */
+  OPTGROUP_VEC,                         /* optinfo_flags */
   gate_expand_vector_operations_ssa,    /* gate */
   expand_vector_operations,		/* execute */
   NULL,					/* sub */
@@ -1442,7 +1467,7 @@ struct gimple_opt_pass pass_lower_vector =
   0,					/* static_pass_number */
   TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
+  PROP_gimple_lvec,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_update_ssa	                /* todo_flags_finish */
@@ -1457,6 +1482,7 @@ struct gimple_opt_pass pass_lower_vector_ssa =
  {
   GIMPLE_PASS,
   "veclower2",				/* name */
+  OPTGROUP_VEC,                         /* optinfo_flags */
   0,	                                /* gate */
   expand_vector_operations,		/* execute */
   NULL,					/* sub */
@@ -1464,7 +1490,7 @@ struct gimple_opt_pass pass_lower_vector_ssa =
   0,					/* static_pass_number */
   TV_NONE,				/* tv_id */
   PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
+  PROP_gimple_lvec,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_update_ssa	                /* todo_flags_finish */

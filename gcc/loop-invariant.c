@@ -1,6 +1,5 @@
 /* RTL-level loop invariant motion.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,7 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "flags.h"
 #include "df.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "except.h"
 #include "params.h"
 #include "regs.h"
@@ -171,12 +170,10 @@ static unsigned actual_stamp;
 
 typedef struct invariant *invariant_p;
 
-DEF_VEC_P(invariant_p);
-DEF_VEC_ALLOC_P(invariant_p, heap);
 
 /* The invariants.  */
 
-static VEC(invariant_p,heap) *invariants;
+static vec<invariant_p> invariants;
 
 /* Check the size of the invariant table and realloc if necessary.  */
 
@@ -188,7 +185,7 @@ check_invariant_table_size (void)
       unsigned int new_size = DF_DEFS_TABLE_SIZE () + (DF_DEFS_TABLE_SIZE () / 4);
       invariant_table = XRESIZEVEC (struct invariant *, invariant_table, new_size);
       memset (&invariant_table[invariant_table_size], 0,
-	      (new_size - invariant_table_size) * sizeof (struct rtx_iv *));
+	      (new_size - invariant_table_size) * sizeof (struct invariant *));
       invariant_table_size = new_size;
     }
 }
@@ -427,27 +424,28 @@ invariant_expr_equal_p (rtx insn1, rtx e1, rtx insn2, rtx e2)
   return true;
 }
 
-/* Returns hash value for invariant expression entry E.  */
-
-static hashval_t
-hash_invariant_expr (const void *e)
+struct invariant_expr_hasher : typed_free_remove <invariant_expr_entry>
 {
-  const struct invariant_expr_entry *const entry =
-    (const struct invariant_expr_entry *) e;
+  typedef invariant_expr_entry value_type;
+  typedef invariant_expr_entry compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
 
+/* Returns hash value for invariant expression entry ENTRY.  */
+
+inline hashval_t
+invariant_expr_hasher::hash (const value_type *entry)
+{
   return entry->hash;
 }
 
-/* Compares invariant expression entries E1 and E2.  */
+/* Compares invariant expression entries ENTRY1 and ENTRY2.  */
 
-static int
-eq_invariant_expr (const void *e1, const void *e2)
+inline bool
+invariant_expr_hasher::equal (const value_type *entry1,
+			      const compare_type *entry2)
 {
-  const struct invariant_expr_entry *const entry1 =
-    (const struct invariant_expr_entry *) e1;
-  const struct invariant_expr_entry *const entry2 =
-    (const struct invariant_expr_entry *) e2;
-
   if (entry1->mode != entry2->mode)
     return 0;
 
@@ -455,24 +453,26 @@ eq_invariant_expr (const void *e1, const void *e2)
 				 entry2->inv->insn, entry2->expr);
 }
 
+typedef hash_table <invariant_expr_hasher> invariant_htab_type;
+
 /* Checks whether invariant with value EXPR in machine mode MODE is
    recorded in EQ.  If this is the case, return the invariant.  Otherwise
    insert INV to the table for this expression and return INV.  */
 
 static struct invariant *
-find_or_insert_inv (htab_t eq, rtx expr, enum machine_mode mode,
+find_or_insert_inv (invariant_htab_type eq, rtx expr, enum machine_mode mode,
 		    struct invariant *inv)
 {
   hashval_t hash = hash_invariant_expr_1 (inv->insn, expr);
   struct invariant_expr_entry *entry;
   struct invariant_expr_entry pentry;
-  PTR *slot;
+  invariant_expr_entry **slot;
 
   pentry.expr = expr;
   pentry.inv = inv;
   pentry.mode = mode;
-  slot = htab_find_slot_with_hash (eq, &pentry, hash, INSERT);
-  entry = (struct invariant_expr_entry *) *slot;
+  slot = eq.find_slot_with_hash (&pentry, hash, INSERT);
+  entry = *slot;
 
   if (entry)
     return entry->inv;
@@ -491,7 +491,7 @@ find_or_insert_inv (htab_t eq, rtx expr, enum machine_mode mode,
    hash table of the invariants.  */
 
 static void
-find_identical_invariants (htab_t eq, struct invariant *inv)
+find_identical_invariants (invariant_htab_type eq, struct invariant *inv)
 {
   unsigned depno;
   bitmap_iterator bi;
@@ -504,7 +504,7 @@ find_identical_invariants (htab_t eq, struct invariant *inv)
 
   EXECUTE_IF_SET_IN_BITMAP (inv->depends_on, 0, depno, bi)
     {
-      dep = VEC_index (invariant_p, invariants, depno);
+      dep = invariants[depno];
       find_identical_invariants (eq, dep);
     }
 
@@ -528,13 +528,13 @@ merge_identical_invariants (void)
 {
   unsigned i;
   struct invariant *inv;
-  htab_t eq = htab_create (VEC_length (invariant_p, invariants),
-			   hash_invariant_expr, eq_invariant_expr, free);
+  invariant_htab_type eq;
+  eq.create (invariants.length ());
 
-  FOR_EACH_VEC_ELT (invariant_p, invariants, i, inv)
+  FOR_EACH_VEC_ELT (invariants, i, inv)
     find_identical_invariants (eq, inv);
 
-  htab_delete (eq);
+  eq.dispose ();
 }
 
 /* Determines the basic blocks inside LOOP that are always executed and
@@ -732,11 +732,11 @@ create_new_invariant (struct def *def, rtx insn, bitmap depends_on,
   inv->stamp = 0;
   inv->insn = insn;
 
-  inv->invno = VEC_length (invariant_p, invariants);
+  inv->invno = invariants.length ();
   inv->eqto = ~0u;
   if (def)
     def->invno = inv->invno;
-  VEC_safe_push (invariant_p, heap, invariants, inv);
+  invariants.safe_push (inv);
 
   if (dump_file)
     {
@@ -1079,7 +1079,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
   bitmap_iterator bi;
 
   /* Find the representative of the class of the equivalent invariants.  */
-  inv = VEC_index (invariant_p, invariants, inv->eqto);
+  inv = invariants[inv->eqto];
 
   *comp_cost = 0;
   if (! flag_ira_loop_pressure)
@@ -1145,7 +1145,7 @@ get_inv_cost (struct invariant *inv, int *comp_cost, unsigned *regs_needed)
     {
       bool check_p;
 
-      dep = VEC_index (invariant_p, invariants, depno);
+      dep = invariants[depno];
 
       get_inv_cost (dep, &acomp_cost, aregs_needed);
 
@@ -1276,7 +1276,7 @@ best_gain_for_invariant (struct invariant **best, unsigned *regs_needed,
   int i, gain = 0, again;
   unsigned aregs_needed[N_REG_CLASSES], invno;
 
-  FOR_EACH_VEC_ELT (invariant_p, invariants, invno, inv)
+  FOR_EACH_VEC_ELT (invariants, invno, inv)
     {
       if (inv->move)
 	continue;
@@ -1310,11 +1310,11 @@ best_gain_for_invariant (struct invariant **best, unsigned *regs_needed,
 static void
 set_move_mark (unsigned invno, int gain)
 {
-  struct invariant *inv = VEC_index (invariant_p, invariants, invno);
+  struct invariant *inv = invariants[invno];
   bitmap_iterator bi;
 
   /* Find the representative of the class of the equivalent invariants.  */
-  inv = VEC_index (invariant_p, invariants, inv->eqto);
+  inv = invariants[inv->eqto];
 
   if (inv->move)
     return;
@@ -1345,7 +1345,7 @@ find_invariants_to_move (bool speed, bool call_p)
   unsigned i, regs_used, regs_needed[N_REG_CLASSES], new_regs[N_REG_CLASSES];
   struct invariant *inv = NULL;
 
-  if (!VEC_length (invariant_p, invariants))
+  if (!invariants.length ())
     return;
 
   if (flag_ira_loop_pressure)
@@ -1425,8 +1425,8 @@ replace_uses (struct invariant *inv, rtx reg, bool in_group)
 static bool
 move_invariant_reg (struct loop *loop, unsigned invno)
 {
-  struct invariant *inv = VEC_index (invariant_p, invariants, invno);
-  struct invariant *repr = VEC_index (invariant_p, invariants, inv->eqto);
+  struct invariant *inv = invariants[invno];
+  struct invariant *repr = invariants[inv->eqto];
   unsigned i;
   basic_block preheader = loop_preheader_edge (loop)->src;
   rtx reg, set, dest, note;
@@ -1530,11 +1530,11 @@ move_invariants (struct loop *loop)
   struct invariant *inv;
   unsigned i;
 
-  FOR_EACH_VEC_ELT (invariant_p, invariants, i, inv)
+  FOR_EACH_VEC_ELT (invariants, i, inv)
     move_invariant_reg (loop, i);
   if (flag_ira_loop_pressure && resize_reg_info ())
     {
-      FOR_EACH_VEC_ELT (invariant_p, invariants, i, inv)
+      FOR_EACH_VEC_ELT (invariants, i, inv)
 	if (inv->reg != NULL_RTX)
 	  {
 	    if (inv->orig_regno >= 0)
@@ -1556,7 +1556,7 @@ init_inv_motion_data (void)
 {
   actual_stamp = 1;
 
-  invariants = VEC_alloc (invariant_p, heap, 100);
+  invariants.create (100);
 }
 
 /* Frees the data allocated by invariant motion.  */
@@ -1583,12 +1583,12 @@ free_inv_motion_data (void)
 	}
     }
 
-  FOR_EACH_VEC_ELT (invariant_p, invariants, i, inv)
+  FOR_EACH_VEC_ELT (invariants, i, inv)
     {
       BITMAP_FREE (inv->depends_on);
       free (inv);
     }
-  VEC_free (invariant_p, heap, invariants);
+  invariants.release ();
 }
 
 /* Move the invariants out of the LOOP.  */

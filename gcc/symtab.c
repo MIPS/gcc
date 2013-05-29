@@ -1,5 +1,5 @@
 /* Symbol table.
-   Copyright (C) 2012 Free Software Foundation, Inc.
+   Copyright (C) 2012-2013 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -102,7 +102,7 @@ eq_assembler_name (const void *p1, const void *p2)
 /* Insert NODE to assembler name hash.  */
 
 static void
-insert_to_assembler_name_hash (symtab_node node)
+insert_to_assembler_name_hash (symtab_node node, bool with_clones)
 {
   if (is_a <varpool_node> (node) && DECL_HARD_REGISTER (node->symbol.decl))
     return;
@@ -111,6 +111,9 @@ insert_to_assembler_name_hash (symtab_node node)
   if (assembler_name_hash)
     {
       void **aslot;
+      struct cgraph_node *cnode;
+      tree decl = node->symbol.decl;
+
       tree name = DECL_ASSEMBLER_NAME (node->symbol.decl);
 
       aslot = htab_find_slot_with_hash (assembler_name_hash, name,
@@ -121,6 +124,13 @@ insert_to_assembler_name_hash (symtab_node node)
       if (*aslot != NULL)
 	((symtab_node)*aslot)->symbol.previous_sharing_asm_name = node;
       *aslot = node;
+
+      /* Update also possible inline clones sharing a decl.  */
+      cnode = dyn_cast <cgraph_node> (node);
+      if (cnode && cnode->clones && with_clones)
+	for (cnode = cnode->clones; cnode; cnode = cnode->next_sibling_clone)
+	  if (cnode->symbol.decl == decl)
+	    insert_to_assembler_name_hash ((symtab_node) cnode, true);
     }
 
 }
@@ -128,10 +138,13 @@ insert_to_assembler_name_hash (symtab_node node)
 /* Remove NODE from assembler name hash.  */
 
 static void
-unlink_from_assembler_name_hash (symtab_node node)
+unlink_from_assembler_name_hash (symtab_node node, bool with_clones)
 {
   if (assembler_name_hash)
     {
+      struct cgraph_node *cnode;
+      tree decl = node->symbol.decl;
+
       if (node->symbol.next_sharing_asm_name)
 	node->symbol.next_sharing_asm_name->symbol.previous_sharing_asm_name
 	  = node->symbol.previous_sharing_asm_name;
@@ -155,6 +168,13 @@ unlink_from_assembler_name_hash (symtab_node node)
 	}
       node->symbol.next_sharing_asm_name = NULL;
       node->symbol.previous_sharing_asm_name = NULL;
+
+      /* Update also possible inline clones sharing a decl.  */
+      cnode = dyn_cast <cgraph_node> (node);
+      if (cnode && cnode->clones && with_clones)
+	for (cnode = cnode->clones; cnode; cnode = cnode->next_sibling_clone)
+	  if (cnode->symbol.decl == decl)
+	    unlink_from_assembler_name_hash ((symtab_node) cnode, true);
     }
 }
 
@@ -163,8 +183,8 @@ unlink_from_assembler_name_hash (symtab_node node)
 void
 symtab_prevail_in_asm_name_hash (symtab_node node)
 {
-  unlink_from_assembler_name_hash (node);
-  insert_to_assembler_name_hash (node);
+  unlink_from_assembler_name_hash (node, false);
+  insert_to_assembler_name_hash (node, false);
 }
 
 
@@ -196,7 +216,7 @@ symtab_register_node (symtab_node node)
 
   /* Be sure to do this last; C++ FE might create new nodes via
      DECL_ASSEMBLER_NAME langhook!  */
-  insert_to_assembler_name_hash (node);
+  insert_to_assembler_name_hash (node, false);
 }
 
 /* Make NODE to be the one symtab hash is pointing to.  Used when reshaping tree
@@ -259,7 +279,7 @@ symtab_unregister_node (symtab_node node)
       else
 	*slot = replacement_node;
     }
-  unlink_from_assembler_name_hash (node);
+  unlink_from_assembler_name_hash (node, false);
 }
 
 /* Return symbol table node associated with DECL, if any,
@@ -312,7 +332,7 @@ symtab_initialize_asm_name_hash (void)
 	htab_create_ggc (10, hash_node_by_assembler_name, eq_assembler_name,
 			 NULL);
       FOR_EACH_SYMBOL (node)
-	insert_to_assembler_name_hash (node);
+	insert_to_assembler_name_hash (node, false);
     }
 }
 
@@ -355,7 +375,7 @@ change_decl_assembler_name (tree decl, tree name)
     {
       SET_DECL_ASSEMBLER_NAME (decl, name);
       if (node)
-	insert_to_assembler_name_hash (node);
+	insert_to_assembler_name_hash (node, true);
     }
   else
     {
@@ -363,14 +383,14 @@ change_decl_assembler_name (tree decl, tree name)
 	return;
 
       if (node)
-	unlink_from_assembler_name_hash (node);
+	unlink_from_assembler_name_hash (node, true);
       if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
 	  && DECL_RTL_SET_P (decl))
 	warning (0, "%D renamed after being referenced in assembly", decl);
 
       SET_DECL_ASSEMBLER_NAME (decl, name);
       if (node)
-	insert_to_assembler_name_hash (node);
+	insert_to_assembler_name_hash (node, true);
     }
 }
 
@@ -453,9 +473,15 @@ dump_symtab_base (FILE *f, symtab_node node)
 	   node->symbol.order,
 	   symtab_node_name (node));
   dump_addr (f, " @", (void *)node);
-  fprintf (f, "\n  Type: %s\n", symtab_type_names[node->symbol.type]);
-  fprintf (f, "  Visibility:");
+  fprintf (f, "\n  Type: %s", symtab_type_names[node->symbol.type]);
 
+  if (node->symbol.definition)
+    fprintf (f, " definition");
+  if (node->symbol.analyzed)
+    fprintf (f, " analyzed");
+  if (node->symbol.alias)
+    fprintf (f, " alias");
+  fprintf (f, "\n  Visibility:");
   if (node->symbol.in_other_partition)
     fprintf (f, " in_other_partition");
   if (node->symbol.used_from_other_partition)
@@ -633,6 +659,12 @@ verify_symtab_base (symtab_node node)
       && node->symbol.previous_sharing_asm_name->symbol.next_sharing_asm_name != node)
     {
       error ("double linked list of assembler names corrupted");
+      error_found = true;
+    }
+  if (node->symbol.analyzed && !node->symbol.definition)
+    {
+      error ("node is analyzed byt it is not a definition");
+      error_found = true;
     }
   if (node->symbol.same_comdat_group)
     {
@@ -736,23 +768,6 @@ symtab_make_decl_local (tree decl)
 
   if (DECL_ONE_ONLY (decl) || DECL_COMDAT (decl))
     {
-      /* It is possible that we are linking against library defining same COMDAT
-	 function.  To avoid conflict we need to rename our local name of the
-	 function just in the case WHOPR partitioning decide to make it hidden
-	 to avoid cross partition references.  */
-      if (flag_wpa)
-	{
-	  const char *old_name;
-          symtab_node node = symtab_get_node (decl);
-	  old_name  = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-	  change_decl_assembler_name (decl,
-				      clone_function_name (decl, "local"));
-	  if (node->symbol.lto_file_data)
-	    lto_record_renamed_decl (node->symbol.lto_file_data,
-				     old_name,
-				     IDENTIFIER_POINTER
-				       (DECL_ASSEMBLER_NAME (decl)));
-	}
       DECL_SECTION_NAME (decl) = 0;
       DECL_COMDAT (decl) = 0;
     }
@@ -779,5 +794,41 @@ symtab_make_decl_local (tree decl)
     return;
 
   SYMBOL_REF_WEAK (symbol) = DECL_WEAK (decl);
+}
+
+/* Given NODE, walk the alias chain to return the symbol NODE is alias of.
+   If NODE is not an alias, return NODE.
+   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
+
+symtab_node
+symtab_alias_ultimate_target (symtab_node node, enum availability *availability)
+{
+  if (availability)
+    {
+      if (is_a <cgraph_node> (node))
+        *availability = cgraph_function_body_availability (cgraph (node));
+      else
+        *availability = cgraph_variable_initializer_availability (varpool (node));
+    }
+  while (node)
+    {
+      if (node->symbol.alias && node->symbol.analyzed)
+	node = symtab_alias_target (node);
+      else
+	return node;
+      if (node && availability)
+	{
+	  enum availability a;
+	  if (is_a <cgraph_node> (node))
+	    a = cgraph_function_body_availability (cgraph (node));
+	  else
+	    a = cgraph_variable_initializer_availability (varpool (node));
+	  if (a < *availability)
+	    *availability = a;
+	}
+    }
+  if (availability)
+    *availability = AVAIL_NOT_AVAILABLE;
+  return NULL;
 }
 #include "gt-symtab.h"

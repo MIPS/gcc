@@ -1,6 +1,5 @@
 /* Local Register Allocator (LRA) intercommunication header file.
-   Copyright (C) 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -24,6 +23,8 @@ along with GCC; see the file COPYING3.	If not see
 #include "recog.h"
 #include "insn-attr.h"
 #include "insn-codes.h"
+#include "insn-config.h"
+#include "regs.h"
 
 #define lra_assert(c) gcc_checking_assert (c)
 
@@ -117,6 +118,8 @@ struct lra_reg
   /* Value holding by register.	 If the pseudos have the same value
      they do not conflict.  */
   int val;
+  /* Offset from relative eliminate register to pesudo reg.  */
+  int offset;
   /* These members are set up in lra-lives.c and updated in
      lra-coalesce.c.  */
   /* The biggest size mode in which each pseudo reg is referred in
@@ -227,10 +230,8 @@ struct lra_insn_recog_data
      value can be NULL or points to array of the hard register numbers
      ending with a negative value.  */
   int *arg_hard_regs;
-#ifdef HAVE_ATTR_enabled
   /* Alternative enabled for the insn.	NULL for debug insns.  */
   bool *alternative_enabled_p;
-#endif
   /* The alternative should be used for the insn, -1 if invalid, or we
      should try to use any alternative, or the insn is a debug
      insn.  */
@@ -244,6 +245,31 @@ typedef struct lra_insn_recog_data *lra_insn_recog_data_t;
 /* Whether the clobber is used temporary in LRA.  */
 #define LRA_TEMP_CLOBBER_P(x) \
   (RTL_FLAG_CHECK1 ("TEMP_CLOBBER_P", (x), CLOBBER)->unchanging)
+
+/* Cost factor for each additional reload and maximal cost reject for
+   insn reloads.  One might ask about such strange numbers.  Their
+   values occurred historically from former reload pass.  */
+#define LRA_LOSER_COST_FACTOR 6
+#define LRA_MAX_REJECT 600
+
+/* Maximum allowed number of constraint pass iterations after the last
+   spill pass.	It is for preventing LRA cycling in a bug case.	 */
+#define LRA_MAX_CONSTRAINT_ITERATION_NUMBER 30
+
+/* The maximal number of inheritance/split passes in LRA.  It should
+   be more 1 in order to perform caller saves transformations and much
+   less MAX_CONSTRAINT_ITERATION_NUMBER to prevent LRA to do as many
+   as permitted constraint passes in some complicated cases.  The
+   first inheritance/split pass has a biggest impact on generated code
+   quality.  Each subsequent affects generated code in less degree.
+   For example, the 3rd pass does not change generated SPEC2000 code
+   at all on x86-64.  */
+#define LRA_MAX_INHERITANCE_PASSES 2
+
+#if LRA_MAX_INHERITANCE_PASSES <= 0 \
+    || LRA_MAX_INHERITANCE_PASSES >= LRA_MAX_CONSTRAINT_ITERATION_NUMBER - 8
+#error wrong LRA_MAX_INHERITANCE_PASSES value
+#endif
 
 /* lra.c: */
 
@@ -291,6 +317,7 @@ extern lra_copy_t lra_get_copy (int);
 extern bool lra_former_scratch_p (int);
 extern bool lra_former_scratch_operand_p (rtx, int);
 
+extern int lra_new_regno_start;
 extern int lra_constraint_new_regno_start;
 extern bitmap_head lra_inheritance_pseudos;
 extern bitmap_head lra_split_regs;
@@ -327,6 +354,8 @@ extern lra_live_range_t lra_merge_live_ranges (lra_live_range_t,
 extern bool lra_intersected_live_ranges_p (lra_live_range_t,
 					   lra_live_range_t);
 extern void lra_print_live_range_list (FILE *, lra_live_range_t);
+extern void debug (lra_live_range &ref);
+extern void debug (lra_live_range *ptr);
 extern void lra_debug_live_range_list (lra_live_range_t);
 extern void lra_debug_pseudo_live_ranges (int);
 extern void lra_debug_live_ranges (void);
@@ -416,6 +445,37 @@ lra_get_insn_recog_data (rtx insn)
   return lra_set_insn_recog_data (insn);
 }
 
+/* Update offset from pseudos with VAL by INCR.  */
+static inline void
+lra_update_reg_val_offset (int val, int incr)
+{
+  int i;
+
+  for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
+    {
+      if (lra_reg_info[i].val == val)
+        lra_reg_info[i].offset += incr;
+    }
+}
+
+/* Return true if register content is equal to VAL with OFFSET.  */
+static inline bool
+lra_reg_val_equal_p (int regno, int val, int offset)
+{
+  if (lra_reg_info[regno].val == val
+      && lra_reg_info[regno].offset == offset)
+    return true;
+
+  return false;
+}
+
+/* Assign value of register FROM to TO.  */
+static inline void
+lra_assign_reg_val (int from, int to)
+{
+  lra_reg_info[to].val = lra_reg_info[from].val;
+  lra_reg_info[to].offset = lra_reg_info[from].offset;
+}
 
 
 struct target_lra_int

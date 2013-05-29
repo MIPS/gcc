@@ -29,7 +29,7 @@
 // result types.
 
 // The standard C memcmp function, used for struct comparisons.
-DEF_GO_RUNTIME(MEMCMP, "memcmp", P3(POINTER, POINTER, UINTPTR), R1(INT))
+DEF_GO_RUNTIME(MEMCMP, "__go_memcmp", P3(POINTER, POINTER, UINTPTR), R1(INT))
 
 // Range over a string, returning the next index.
 DEF_GO_RUNTIME(STRINGITER, "runtime.stringiter", P2(STRING, INT), R1(INT))
@@ -198,7 +198,7 @@ DEF_GO_RUNTIME(CHECK_DEFER, "__go_check_defer", P1(BOOLPTR), R0())
 DEF_GO_RUNTIME(UNDEFER, "__go_undefer", P1(BOOLPTR), R0())
 
 // Panic with a runtime error.
-DEF_GO_RUNTIME(RUNTIME_ERROR, "__go_runtime_error", P1(INT), R0())
+DEF_GO_RUNTIME(RUNTIME_ERROR, "__go_runtime_error", P1(INT32), R0())
 
 
 // Close.
@@ -352,6 +352,10 @@ DEF_GO_RUNTIME(PRINT_SPACE, "__go_print_space", P0(), R0())
 
 // Print a newline (for println).
 DEF_GO_RUNTIME(PRINT_NL, "__go_print_nl", P0(), R0())
+
+
+// Used for field tracking for data analysis.
+DEF_GO_RUNTIME(FIELDTRACK, "__go_fieldtrack", P1(POINTER), R0())
 
 
 // Remove helper macros.

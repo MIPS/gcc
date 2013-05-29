@@ -1,7 +1,5 @@
 /* Control flow graph manipulation code for GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -107,14 +105,14 @@ clear_edges (void)
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
 	free_edge (e);
-      VEC_truncate (edge, bb->succs, 0);
-      VEC_truncate (edge, bb->preds, 0);
+      vec_safe_truncate (bb->succs, 0);
+      vec_safe_truncate (bb->preds, 0);
     }
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     free_edge (e);
-  VEC_truncate (edge, EXIT_BLOCK_PTR->preds, 0);
-  VEC_truncate (edge, ENTRY_BLOCK_PTR->succs, 0);
+  vec_safe_truncate (EXIT_BLOCK_PTR->preds, 0);
+  vec_safe_truncate (ENTRY_BLOCK_PTR->succs, 0);
 
   gcc_assert (!n_edges);
 }
@@ -199,7 +197,7 @@ expunge_block (basic_block b)
 static inline void
 connect_src (edge e)
 {
-  VEC_safe_push (edge, gc, e->src->succs, e);
+  vec_safe_push (e->src->succs, e);
   df_mark_solutions_dirty ();
 }
 
@@ -209,7 +207,7 @@ static inline void
 connect_dest (edge e)
 {
   basic_block dest = e->dest;
-  VEC_safe_push (edge, gc, dest->preds, e);
+  vec_safe_push (dest->preds, e);
   e->dest_idx = EDGE_COUNT (dest->preds) - 1;
   df_mark_solutions_dirty ();
 }
@@ -227,7 +225,7 @@ disconnect_src (edge e)
     {
       if (tmp == e)
 	{
-	  VEC_unordered_remove (edge, src->succs, ei.index);
+	  src->succs->unordered_remove (ei.index);
 	  df_mark_solutions_dirty ();
 	  return;
 	}
@@ -246,7 +244,7 @@ disconnect_dest (edge e)
   basic_block dest = e->dest;
   unsigned int dest_idx = e->dest_idx;
 
-  VEC_unordered_remove (edge, dest->preds, dest_idx);
+  dest->preds->unordered_remove (dest_idx);
 
   /* If we removed an edge in the middle of the edge vector, we need
      to update dest_idx of the edge that moved into the "hole".  */
@@ -289,11 +287,11 @@ cached_make_edge (sbitmap edge_cache, basic_block src, basic_block dst, int flag
     return make_edge (src, dst, flags);
 
   /* Does the requested edge already exist?  */
-  if (! TEST_BIT (edge_cache, dst->index))
+  if (! bitmap_bit_p (edge_cache, dst->index))
     {
       /* The edge does not exist.  Create one and update the
 	 cache.  */
-      SET_BIT (edge_cache, dst->index);
+      bitmap_set_bit (edge_cache, dst->index);
       return unchecked_make_edge (src, dst, flags);
     }
 
@@ -505,6 +503,23 @@ dump_edge_info (FILE *file, edge e, int flags, int do_succ)
 
       fputc (')', file);
     }
+}
+
+DEBUG_FUNCTION void
+debug (edge_def &ref)
+{
+  /* FIXME (crowl): Is this desireable?  */
+  dump_edge_info (stderr, &ref, 0, false);
+  dump_edge_info (stderr, &ref, 0, true);
+}
+
+DEBUG_FUNCTION void
+debug (edge_def *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
 }
 
 /* Simple routines to easily allocate AUX fields of basic blocks.  */
@@ -833,7 +848,7 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
   /* Compute the probability of TAKEN_EDGE being reached via threaded edge.
      Watch for overflows.  */
   if (bb->frequency)
-    prob = edge_frequency * REG_BR_PROB_BASE / bb->frequency;
+    prob = GCOV_COMPUTE_SCALE (edge_frequency, bb->frequency);
   else
     prob = 0;
   if (prob > taken_edge->probability)
@@ -1164,7 +1179,7 @@ get_loop_copy (struct loop *loop)
   key.index1 = loop->num;
   entry = loop_copy.find (&key);
   if (entry)
-    return get_loop (entry->index2);
+    return get_loop (cfun, entry->index2);
   else
     return NULL;
 }

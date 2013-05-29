@@ -1,6 +1,5 @@
 /* High-level loop manipulation functions.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -173,7 +172,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 {
   unsigned i;
   bitmap_iterator bi;
-  VEC (basic_block, heap) *worklist;
+  vec<basic_block> worklist;
   struct loop *def_loop = def_bb->loop_father;
   unsigned def_loop_depth = loop_depth (def_loop);
   bitmap def_loop_exits;
@@ -181,7 +180,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
   /* Normally the work list size is bounded by the number of basic
      blocks in the largest loop.  We don't know this number, but we
      can be fairly sure that it will be relatively small.  */
-  worklist = VEC_alloc (basic_block, heap, MAX (8, n_basic_blocks / 128));
+  worklist.create (MAX (8, n_basic_blocks / 128));
 
   EXECUTE_IF_SET_IN_BITMAP (use_blocks, 0, i, bi)
     {
@@ -192,21 +191,21 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
       if (! flow_loop_nested_p (use_loop, def_loop))
 	use_bb = find_sibling_superloop (use_loop, def_loop)->header;
       if (bitmap_set_bit (live_exits, use_bb->index))
-	VEC_safe_push (basic_block, heap, worklist, use_bb);
+	worklist.safe_push (use_bb);
     }
 
   /* Iterate until the worklist is empty.  */
-  while (! VEC_empty (basic_block, worklist))
+  while (! worklist.is_empty ())
     {
       edge e;
       edge_iterator ei;
 
       /* Pull a block off the worklist.  */
-      basic_block bb = VEC_pop (basic_block, worklist);
+      basic_block bb = worklist.pop ();
 
       /* Make sure we have at least enough room in the work list
 	 for all predecessors of this block.  */
-      VEC_reserve (basic_block, heap, worklist, EDGE_COUNT (bb->preds));
+      worklist.reserve (EDGE_COUNT (bb->preds));
 
       /* For each predecessor block.  */
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -241,10 +240,10 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 	  if (pred_visited || dominated_by_p (CDI_DOMINATORS, pred, bb))
 	    continue;
 
-	  VEC_quick_push (basic_block, worklist, pred);
+	  worklist.quick_push (pred);
 	}
     }
-  VEC_free (basic_block, heap, worklist);
+  worklist.release ();
 
   def_loop_exits = BITMAP_ALLOC (&loop_renamer_obstack);
   for (struct loop *loop = def_loop;
@@ -343,11 +342,11 @@ get_loops_exits (bitmap *loop_exits)
 
   FOR_EACH_LOOP (li, loop, 0)
     {
-      VEC(edge, heap) *exit_edges = get_loop_exit_edges (loop);
+      vec<edge> exit_edges = get_loop_exit_edges (loop);
       loop_exits[loop->num] = BITMAP_ALLOC (&loop_renamer_obstack);
-      FOR_EACH_VEC_ELT (edge, exit_edges, j, e)
+      FOR_EACH_VEC_ELT (exit_edges, j, e)
         bitmap_set_bit (loop_exits[loop->num], e->dest->index);
-      VEC_free (edge, heap, exit_edges);
+      exit_edges.release ();
     }
 }
 
@@ -403,7 +402,7 @@ find_uses_to_rename_stmt (gimple stmt, bitmap *use_blocks, bitmap need_phis)
   if (is_gimple_debug (stmt))
     return;
 
-  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_ALL_USES)
+  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
     find_uses_to_rename_use (bb, var, use_blocks, need_phis);
 }
 
@@ -423,8 +422,9 @@ find_uses_to_rename_bb (basic_block bb, bitmap *use_blocks, bitmap need_phis)
     for (bsi = gsi_start_phis (e->dest); !gsi_end_p (bsi); gsi_next (&bsi))
       {
         gimple phi = gsi_stmt (bsi);
-	find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (phi, e),
-				 use_blocks, need_phis);
+	if (! virtual_operand_p (gimple_phi_result (phi)))
+	  find_uses_to_rename_use (bb, PHI_ARG_DEF_FROM_EDGE (phi, e),
+				   use_blocks, need_phis);
       }
 
   for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
@@ -443,21 +443,12 @@ find_uses_to_rename (bitmap changed_bbs, bitmap *use_blocks, bitmap need_phis)
   unsigned index;
   bitmap_iterator bi;
 
-  /* ??? If CHANGED_BBS is empty we rewrite the whole function -- why?  */
-  if (changed_bbs && !bitmap_empty_p (changed_bbs))
-    {
-      EXECUTE_IF_SET_IN_BITMAP (changed_bbs, 0, index, bi)
-	{
-	  find_uses_to_rename_bb (BASIC_BLOCK (index), use_blocks, need_phis);
-	}
-    }
+  if (changed_bbs)
+    EXECUTE_IF_SET_IN_BITMAP (changed_bbs, 0, index, bi)
+      find_uses_to_rename_bb (BASIC_BLOCK (index), use_blocks, need_phis);
   else
-    {
-      FOR_EACH_BB (bb)
-	{
-	  find_uses_to_rename_bb (bb, use_blocks, need_phis);
-	}
-    }
+    FOR_EACH_BB (bb)
+      find_uses_to_rename_bb (bb, use_blocks, need_phis);
 }
 
 /* Rewrites the program into a loop closed ssa form -- i.e. inserts extra
@@ -498,12 +489,11 @@ find_uses_to_rename (bitmap changed_bbs, bitmap *use_blocks, bitmap need_phis)
 void
 rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
 {
-  bitmap *loop_exits;
   bitmap *use_blocks;
   bitmap names_to_rename;
 
   loops_state_set (LOOP_CLOSED_SSA);
-  if (number_of_loops () <= 1)
+  if (number_of_loops (cfun) <= 1)
     return;
 
   /* If the pass has caused the SSA form to be out-of-date, update it
@@ -514,11 +504,6 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
 
   names_to_rename = BITMAP_ALLOC (&loop_renamer_obstack);
 
-  /* An array of bitmaps where LOOP_EXITS[I] is the set of basic blocks
-     that are the destination of an edge exiting loop number I.  */
-  loop_exits = XNEWVEC (bitmap, number_of_loops ());
-  get_loops_exits (loop_exits);
-
   /* Uses of names to rename.  We don't have to initialize this array,
      because we know that we will only have entries for the SSA names
      in NAMES_TO_RENAME.  */
@@ -527,17 +512,26 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
   /* Find the uses outside loops.  */
   find_uses_to_rename (changed_bbs, use_blocks, names_to_rename);
 
-  /* Add the PHI nodes on exits of the loops for the names we need to
-     rewrite.  */
-  add_exit_phis (names_to_rename, use_blocks, loop_exits);
+  if (!bitmap_empty_p (names_to_rename))
+    {
+      /* An array of bitmaps where LOOP_EXITS[I] is the set of basic blocks
+	 that are the destination of an edge exiting loop number I.  */
+      bitmap *loop_exits = XNEWVEC (bitmap, number_of_loops (cfun));
+      get_loops_exits (loop_exits);
+
+      /* Add the PHI nodes on exits of the loops for the names we need to
+	 rewrite.  */
+      add_exit_phis (names_to_rename, use_blocks, loop_exits);
+
+      free (loop_exits);
+
+      /* Fix up all the names found to be used outside their original
+	 loops.  */
+      update_ssa (TODO_update_ssa);
+    }
 
   bitmap_obstack_release (&loop_renamer_obstack);
   free (use_blocks);
-  free (loop_exits);
-
-  /* Fix up all the names found to be used outside their original
-     loops.  */
-  update_ssa (TODO_update_ssa);
 }
 
 /* Check invariants of the loop closed ssa form for the USE in BB.  */
@@ -584,7 +578,7 @@ verify_loop_closed_ssa (bool verify_ssa_p)
   edge e;
   edge_iterator ei;
 
-  if (number_of_loops () <= 1)
+  if (number_of_loops (cfun) <= 1)
     return;
 
   if (verify_ssa_p)
@@ -741,7 +735,7 @@ copy_phi_node_args (unsigned first_new_block)
 bool
 gimple_duplicate_loop_to_header_edge (struct loop *loop, edge e,
 				    unsigned int ndupl, sbitmap wont_exit,
-				    edge orig, VEC (edge, heap) **to_remove,
+				    edge orig, vec<edge> *to_remove,
 				    int flags)
 {
   unsigned first_new_block;
@@ -1038,7 +1032,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   unsigned new_est_niter, i, prob;
   unsigned irr = loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP;
   sbitmap wont_exit;
-  VEC (edge, heap) *to_remove = NULL;
+  vec<edge> to_remove = vNULL;
 
   est_niter = expected_loop_iterations (loop);
   determine_exit_conditions (loop, desc, factor,
@@ -1173,7 +1167,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
      last one.  */
   wont_exit = sbitmap_alloc (factor);
   bitmap_ones (wont_exit);
-  RESET_BIT (wont_exit, factor - 1);
+  bitmap_clear_bit (wont_exit, factor - 1);
 
   ok = gimple_duplicate_loop_to_header_edge
 	  (loop, loop_latch_edge (loop), factor - 1,
@@ -1181,12 +1175,12 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   free (wont_exit);
   gcc_assert (ok);
 
-  FOR_EACH_VEC_ELT (edge, to_remove, i, e)
+  FOR_EACH_VEC_ELT (to_remove, i, e)
     {
       ok = remove_path (e);
       gcc_assert (ok);
     }
-  VEC_free (edge, heap, to_remove);
+  to_remove.release ();
   update_ssa (TODO_update_ssa);
 
   /* Ensure that the frequencies in the loop match the new estimated

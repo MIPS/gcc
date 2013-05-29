@@ -1,6 +1,5 @@
 /* Copy propagation on hard registers for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010  Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -1016,6 +1015,13 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	  EXECUTE_IF_SET_IN_HARD_REG_SET (regs_invalidated_by_call, 0, regno, hrsi)
 	    if (regno < set_regno || regno >= set_regno + set_nregs)
 	      kill_value_regno (regno, 1, vd);
+
+	  /* If SET was seen in CALL_INSN_FUNCTION_USAGE, and SET_SRC
+	     of the SET isn't in regs_invalidated_by_call hard reg set,
+	     but instead among CLOBBERs on the CALL_INSN, we could wrongly
+	     assume the value in it is still live.  */
+	  if (ksvd.ignore_set_reg)
+	    note_stores (PATTERN (insn), kill_clobbered_value, vd);
 	}
 
       /* Notice stores.  */
@@ -1054,14 +1060,14 @@ copyprop_hardreg_forward (void)
 
   FOR_EACH_BB (bb)
     {
-      SET_BIT (visited, bb->index);
+      bitmap_set_bit (visited, bb->index);
 
       /* If a block has a single predecessor, that we've already
 	 processed, begin with the value data that was live at
 	 the end of the predecessor block.  */
       /* ??? Ought to use more intelligent queuing of blocks.  */
       if (single_pred_p (bb)
-	  && TEST_BIT (visited, single_pred (bb)->index)
+	  && bitmap_bit_p (visited, single_pred (bb)->index)
 	  && ! (single_pred_edge (bb)->flags & (EDGE_ABNORMAL_CALL | EDGE_EH)))
 	{
 	  all_vd[bb->index] = all_vd[single_pred (bb)->index];
@@ -1089,7 +1095,7 @@ copyprop_hardreg_forward (void)
   if (MAY_HAVE_DEBUG_INSNS)
     {
       FOR_EACH_BB (bb)
-	if (TEST_BIT (visited, bb->index)
+	if (bitmap_bit_p (visited, bb->index)
 	    && all_vd[bb->index].n_debug_insn_changes)
 	  {
 	    unsigned int regno;
@@ -1235,6 +1241,7 @@ struct rtl_opt_pass pass_cprop_hardreg =
  {
   RTL_PASS,
   "cprop_hardreg",                      /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_handle_cprop,                    /* gate */
   copyprop_hardreg_forward,             /* execute */
   NULL,                                 /* sub */

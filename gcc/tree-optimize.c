@@ -1,6 +1,5 @@
 /* Top-level control of tree optimizations.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -38,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "ggc.h"
 #include "cgraph.h"
-#include "graph.h"
 #include "cfgloop.h"
 #include "except.h"
 #include "plugin.h"
@@ -95,6 +93,7 @@ struct gimple_opt_pass pass_cleanup_cfg_post_optimizing =
  {
   GIMPLE_PASS,
   "optimized",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,					/* gate */
   execute_cleanup_cfg_post_optimizing,	/* execute */
   NULL,					/* sub */
@@ -127,25 +126,20 @@ execute_fixup_cfg (void)
   edge e;
   edge_iterator ei;
 
-  if (ENTRY_BLOCK_PTR->count)
-    count_scale = ((cgraph_get_node (current_function_decl)->count
-		    * REG_BR_PROB_BASE + ENTRY_BLOCK_PTR->count / 2)
-		   / ENTRY_BLOCK_PTR->count);
-  else
-    count_scale = REG_BR_PROB_BASE;
+  count_scale
+      = GCOV_COMPUTE_SCALE (cgraph_get_node (current_function_decl)->count,
+                            ENTRY_BLOCK_PTR->count);
 
   ENTRY_BLOCK_PTR->count = cgraph_get_node (current_function_decl)->count;
-  EXIT_BLOCK_PTR->count = (EXIT_BLOCK_PTR->count * count_scale
-  			   + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+  EXIT_BLOCK_PTR->count = apply_scale (EXIT_BLOCK_PTR->count,
+                                       count_scale);
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-    e->count = (e->count * count_scale
-       + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+    e->count = apply_scale (e->count, count_scale);
 
   FOR_EACH_BB (bb)
     {
-      bb->count = (bb->count * count_scale
-		   + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+      bb->count = apply_scale (bb->count, count_scale);
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
@@ -178,8 +172,7 @@ execute_fixup_cfg (void)
 	}
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-        e->count = (e->count * count_scale
-		    + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+        e->count = apply_scale (e->count, count_scale);
 
       /* If we have a basic block with no successors that does not
 	 end with a control statement or a noreturn call end it with
@@ -205,14 +198,15 @@ execute_fixup_cfg (void)
 
   /* We just processed all calls.  */
   if (cfun->gimple_df)
-    {
-      VEC_free (gimple, gc, MODIFIED_NORETURN_CALLS (cfun));
-      MODIFIED_NORETURN_CALLS (cfun) = NULL;
-    }
+    vec_free (MODIFIED_NORETURN_CALLS (cfun));
 
   /* Dump a textual representation of the flowgraph.  */
   if (dump_file)
     gimple_dump_cfg (dump_file, dump_flags);
+
+  if (current_loops
+      && (todo & TODO_cleanup_cfg))
+    loops_state_set (LOOPS_NEED_FIXUP);
 
   return todo;
 }
@@ -222,6 +216,7 @@ struct gimple_opt_pass pass_fixup_cfg =
  {
   GIMPLE_PASS,
   "*free_cfg_annotations",		/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,					/* gate */
   execute_fixup_cfg,			/* execute */
   NULL,					/* sub */

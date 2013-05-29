@@ -1,6 +1,5 @@
 /* Functions to determine/estimate number of iterations of a loop.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,7 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "tree-inline.h"
-#include "gmp.h"
+#include "tree-pass.h"
 
 #define SWAP(X, Y) do { affine_iv *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
 
@@ -553,10 +552,18 @@ number_of_iterations_ne_max (mpz_t bnd, bool no_overflow, tree c, tree s,
 {
   double_int max;
   mpz_t d;
+  tree type = TREE_TYPE (c);
   bool bnds_u_valid = ((no_overflow && exit_must_be_taken)
 		       || mpz_sgn (bnds->below) >= 0);
 
-  if (multiple_of_p (TREE_TYPE (c), c, s))
+  if (integer_onep (s)
+      || (TREE_CODE (c) == INTEGER_CST
+	  && TREE_CODE (s) == INTEGER_CST
+	  && tree_to_double_int (c).mod (tree_to_double_int (s),
+					 TYPE_UNSIGNED (type),
+					 EXACT_DIV_EXPR).is_zero ())
+      || (TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (c))
+	  && multiple_of_p (type, c, s)))
     {
       /* If C is an exact multiple of S, then its value will be reached before
 	 the induction variable overflows (unless the loop is exited in some
@@ -573,16 +580,15 @@ number_of_iterations_ne_max (mpz_t bnd, bool no_overflow, tree c, tree s,
      the whole # of iterations analysis will fail).  */
   if (!no_overflow)
     {
-      max = double_int::mask (TYPE_PRECISION (TREE_TYPE (c))
-			     - tree_low_cst (num_ending_zeros (s), 1));
+      max = double_int::mask (TYPE_PRECISION (type)
+			      - tree_low_cst (num_ending_zeros (s), 1));
       mpz_set_double_int (bnd, max, true);
       return;
     }
 
   /* Now we know that the induction variable does not overflow, so the loop
      iterates at most (range of type / S) times.  */
-  mpz_set_double_int (bnd, double_int::mask (TYPE_PRECISION (TREE_TYPE (c))),
-		      true);
+  mpz_set_double_int (bnd, double_int::mask (TYPE_PRECISION (type)), true);
 
   /* If the induction variable is guaranteed to reach the value of C before
      overflow, ... */
@@ -1209,6 +1215,8 @@ dump_affine_iv (FILE *file, affine_iv *iv)
    -- in this case we can use the information whether the control induction
    variables can overflow or not in a more efficient way.
 
+   if EVERY_ITERATION is true, we know the test is executed on every iteration.
+
    The results (number of iterations and assumptions as described in
    comments at struct tree_niter_desc in tree-flow.h) are stored to NITER.
    Returns false if it fails to determine number of iterations, true if it
@@ -1218,10 +1226,20 @@ static bool
 number_of_iterations_cond (struct loop *loop,
 			   tree type, affine_iv *iv0, enum tree_code code,
 			   affine_iv *iv1, struct tree_niter_desc *niter,
-			   bool only_exit)
+			   bool only_exit, bool every_iteration)
 {
   bool exit_must_be_taken = false, ret;
   bounds bnds;
+
+  /* If the test is not executed every iteration, wrapping may make the test
+     to pass again. 
+     TODO: the overflow case can be still used as unreliable estimate of upper
+     bound.  But we have no API to pass it down to number of iterations code
+     and, at present, it will not use it anyway.  */
+  if (!every_iteration
+      && (!iv0->no_overflow || !iv1->no_overflow
+	  || code == NE_EXPR || code == EQ_EXPR))
+    return false;
 
   /* The meaning of these assumptions is this:
      if !assumptions
@@ -1300,7 +1318,8 @@ number_of_iterations_cond (struct loop *loop,
     }
 
   /* If the loop exits immediately, there is nothing to do.  */
-  if (integer_zerop (fold_build2 (code, boolean_type_node, iv0->base, iv1->base)))
+  tree tem = fold_binary (code, boolean_type_node, iv0->base, iv1->base);
+  if (tem && integer_zerop (tem))
     {
       niter->niter = build_int_cst (unsigned_type_for (type), 0);
       niter->max = double_int_zero;
@@ -1808,9 +1827,11 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   tree op0, op1;
   enum tree_code code;
   affine_iv iv0, iv1;
+  bool safe;
 
-  if (every_iteration
-      && !dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
+  safe = dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src);
+
+  if (every_iteration && !safe)
     return false;
 
   niter->assumptions = boolean_false_node;
@@ -1827,9 +1848,9 @@ number_of_iterations_exit (struct loop *loop, edge exit,
     {
     case GT_EXPR:
     case GE_EXPR:
-    case NE_EXPR:
     case LT_EXPR:
     case LE_EXPR:
+    case NE_EXPR:
       break;
 
     default:
@@ -1856,7 +1877,7 @@ number_of_iterations_exit (struct loop *loop, edge exit,
   iv0.base = expand_simple_operations (iv0.base);
   iv1.base = expand_simple_operations (iv1.base);
   if (!number_of_iterations_cond (loop, type, &iv0, code, &iv1, niter,
-				  loop_only_exit_p (loop, exit)))
+				  loop_only_exit_p (loop, exit), safe))
     {
       fold_undefer_and_ignore_overflow_warnings ();
       return false;
@@ -1879,6 +1900,10 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 					       niter->may_be_zero);
 
   fold_undefer_and_ignore_overflow_warnings ();
+
+  /* If NITER has simplified into a constant, update MAX.  */
+  if (TREE_CODE (niter->niter) == INTEGER_CST)
+    niter->max = tree_to_double_int (niter->niter);
 
   if (integer_onep (niter->assumptions))
     return true;
@@ -1929,17 +1954,14 @@ tree
 find_loop_niter (struct loop *loop, edge *exit)
 {
   unsigned i;
-  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+  vec<edge> exits = get_loop_exit_edges (loop);
   edge ex;
   tree niter = NULL_TREE, aniter;
   struct tree_niter_desc desc;
 
   *exit = NULL;
-  FOR_EACH_VEC_ELT (edge, exits, i, ex)
+  FOR_EACH_VEC_ELT (exits, i, ex)
     {
-      if (!just_once_each_iteration_p (loop, ex->src))
-	continue;
-
       if (!number_of_iterations_exit (loop, ex, &desc, false))
 	continue;
 
@@ -1983,7 +2005,7 @@ find_loop_niter (struct loop *loop, edge *exit)
 	  continue;
 	}
     }
-  VEC_free (edge, heap, exits);
+  exits.release ();
 
   return niter ? niter : chrec_dont_know;
 }
@@ -1993,11 +2015,7 @@ find_loop_niter (struct loop *loop, edge *exit)
 bool
 finite_loop_p (struct loop *loop)
 {
-  unsigned i;
-  VEC (edge, heap) *exits;
-  edge ex;
-  struct tree_niter_desc desc;
-  bool finite = false;
+  double_int nit;
   int flags;
 
   if (flag_unsafe_loop_optimizations)
@@ -2011,26 +2029,15 @@ finite_loop_p (struct loop *loop)
       return true;
     }
 
-  exits = get_loop_exit_edges (loop);
-  FOR_EACH_VEC_ELT (edge, exits, i, ex)
+  if (loop->any_upper_bound
+      || max_loop_iterations (loop, &nit))
     {
-      if (!just_once_each_iteration_p (loop, ex->src))
-	continue;
-
-      if (number_of_iterations_exit (loop, ex, &desc, false))
-        {
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    {
-	      fprintf (dump_file, "Found loop %i to be finite: iterating ", loop->num);
-	      print_generic_expr (dump_file, desc.niter, TDF_SLIM);
-	      fprintf (dump_file, " times\n");
-	    }
-	  finite = true;
-	  break;
-	}
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Found loop %i to be finite: upper bound found.\n",
+		 loop->num);
+      return true;
     }
-  VEC_free (edge, heap, exits);
-  return finite;
+  return false;
 }
 
 /*
@@ -2281,7 +2288,7 @@ tree
 find_loop_niter_by_eval (struct loop *loop, edge *exit)
 {
   unsigned i;
-  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+  vec<edge> exits = get_loop_exit_edges (loop);
   edge ex;
   tree niter = NULL_TREE, aniter;
 
@@ -2289,13 +2296,13 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
 
   /* Loops with multiple exits are expensive to handle and less important.  */
   if (!flag_expensive_optimizations
-      && VEC_length (edge, exits) > 1)
+      && exits.length () > 1)
     {
-      VEC_free (edge, heap, exits);
+      exits.release ();
       return chrec_dont_know;
     }
 
-  FOR_EACH_VEC_ELT (edge, exits, i, ex)
+  FOR_EACH_VEC_ELT (exits, i, ex)
     {
       if (!just_once_each_iteration_p (loop, ex->src))
 	continue;
@@ -2311,7 +2318,7 @@ find_loop_niter_by_eval (struct loop *loop, edge *exit)
       niter = aniter;
       *exit = ex;
     }
-  VEC_free (edge, heap, exits);
+  exits.release ();
 
   return niter ? niter : chrec_dont_know;
 }
@@ -2527,6 +2534,41 @@ record_niter_bound (struct loop *loop, double_int i_bound, bool realistic,
     loop->nb_iterations_estimate = loop->nb_iterations_upper_bound;
 }
 
+/* Emit a -Waggressive-loop-optimizations warning if needed.  */
+
+static void
+do_warn_aggressive_loop_optimizations (struct loop *loop,
+				       double_int i_bound, gimple stmt)
+{
+  /* Don't warn if the loop doesn't have known constant bound.  */
+  if (!loop->nb_iterations
+      || TREE_CODE (loop->nb_iterations) != INTEGER_CST
+      || !warn_aggressive_loop_optimizations
+      /* To avoid warning multiple times for the same loop,
+	 only start warning when we preserve loops.  */
+      || (cfun->curr_properties & PROP_loops) == 0
+      /* Only warn once per loop.  */
+      || loop->warned_aggressive_loop_optimizations
+      /* Only warn if undefined behavior gives us lower estimate than the
+	 known constant bound.  */
+      || i_bound.ucmp (tree_to_double_int (loop->nb_iterations)) >= 0
+      /* And undefined behavior happens unconditionally.  */
+      || !dominated_by_p (CDI_DOMINATORS, loop->latch, gimple_bb (stmt)))
+    return;
+
+  edge e = single_exit (loop);
+  if (e == NULL)
+    return;
+
+  gimple estmt = last_stmt (e->src);
+  if (warning_at (gimple_location (stmt), OPT_Waggressive_loop_optimizations,
+		  "iteration %E invokes undefined behavior",
+		  double_int_to_tree (TREE_TYPE (loop->nb_iterations),
+				      i_bound)))
+    inform (gimple_location (estmt), "containing loop");
+  loop->warned_aggressive_loop_optimizations = true;
+}
+
 /* Records that AT_STMT is executed at most BOUND + 1 times in LOOP.  IS_EXIT
    is true if the loop is exited immediately after STMT, and this exit
    is taken at last when the STMT is executed BOUND + 1 times.
@@ -2556,12 +2598,18 @@ record_estimate (struct loop *loop, tree bound, double_int i_bound,
      real number of iterations.  */
   if (TREE_CODE (bound) != INTEGER_CST)
     realistic = false;
+  else
+    gcc_checking_assert (i_bound == tree_to_double_int (bound));
   if (!upper && !realistic)
     return;
 
   /* If we have a guaranteed upper bound, record it in the appropriate
-     list.  */
-  if (upper)
+     list, unless this is an !is_exit bound (i.e. undefined behavior in
+     at_stmt) in a loop with known constant number of iterations.  */
+  if (upper
+      && (is_exit
+	  || loop->nb_iterations == NULL_TREE
+	  || TREE_CODE (loop->nb_iterations) != INTEGER_CST))
     {
       struct nb_iter_bound *elt = ggc_alloc_nb_iter_bound ();
 
@@ -2591,6 +2639,8 @@ record_estimate (struct loop *loop, tree bound, double_int i_bound,
   if (i_bound.ult (delta))
     return;
 
+  if (upper && !is_exit)
+    do_warn_aggressive_loop_optimizations (loop, i_bound, at_stmt);
   record_niter_bound (loop, i_bound, realistic, upper);
 }
 
@@ -2670,6 +2720,7 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
   tree low, high, type, next;
   bool sign, upper = true, at_end = false;
   struct loop *loop = data->loop;
+  bool reliable = true;
 
   if (TREE_CODE (base) != ARRAY_REF)
     return true;
@@ -2683,7 +2734,12 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
       upper = false;
     }
 
-  ev = instantiate_parameters (loop, analyze_scalar_evolution (loop, *idx));
+  struct loop *dloop = loop_containing_stmt (data->stmt);
+  if (!dloop)
+    return true;
+
+  ev = analyze_scalar_evolution (dloop, *idx);
+  ev = instantiate_parameters (loop, ev);
   init = initial_condition (ev);
   step = evolution_part_in_loop_num (ev, loop->num);
 
@@ -2736,7 +2792,14 @@ idx_infer_loop_bounds (tree base, tree *idx, void *dta)
       && tree_int_cst_compare (next, high) <= 0)
     return true;
 
-  record_nonwrapping_iv (loop, init, step, data->stmt, low, high, true, upper);
+  /* If access is not executed on every iteration, we must ensure that overlow may
+     not make the access valid later.  */
+  if (!dominated_by_p (CDI_DOMINATORS, loop->latch, gimple_bb (data->stmt))
+      && scev_probably_wraps_p (initial_condition_in_loop_num (ev, loop->num),
+				step, data->stmt, loop, true))
+    reliable = false;
+
+  record_nonwrapping_iv (loop, init, step, data->stmt, low, high, reliable, upper);
   return true;
 }
 
@@ -2955,6 +3018,222 @@ gcov_type_to_double_int (gcov_type val)
   return ret;
 }
 
+/* Compare double ints, callback for qsort.  */
+
+int
+double_int_cmp (const void *p1, const void *p2)
+{
+  const double_int *d1 = (const double_int *)p1;
+  const double_int *d2 = (const double_int *)p2;
+  if (*d1 == *d2)
+    return 0;
+  if (d1->ult (*d2))
+    return -1;
+  return 1;
+}
+
+/* Return index of BOUND in BOUNDS array sorted in increasing order.
+   Lookup by binary search.  */
+
+int
+bound_index (vec<double_int> bounds, double_int bound)
+{
+  unsigned int end = bounds.length ();
+  unsigned int begin = 0;
+
+  /* Find a matching index by means of a binary search.  */
+  while (begin != end)
+    {
+      unsigned int middle = (begin + end) / 2;
+      double_int index = bounds[middle];
+
+      if (index == bound)
+	return middle;
+      else if (index.ult (bound))
+	begin = middle + 1;
+      else
+	end = middle;
+    }
+  gcc_unreachable ();
+}
+
+/* We recorded loop bounds only for statements dominating loop latch (and thus
+   executed each loop iteration).  If there are any bounds on statements not
+   dominating the loop latch we can improve the estimate by walking the loop
+   body and seeing if every path from loop header to loop latch contains
+   some bounded statement.  */
+
+static void
+discover_iteration_bound_by_body_walk (struct loop *loop)
+{
+  pointer_map_t *bb_bounds;
+  struct nb_iter_bound *elt;
+  vec<double_int> bounds = vNULL;
+  vec<vec<basic_block> > queues = vNULL;
+  vec<basic_block> queue = vNULL;
+  ptrdiff_t queue_index;
+  ptrdiff_t latch_index = 0;
+  pointer_map_t *block_priority;
+
+  /* Discover what bounds may interest us.  */
+  for (elt = loop->bounds; elt; elt = elt->next)
+    {
+      double_int bound = elt->bound;
+
+      /* Exit terminates loop at given iteration, while non-exits produce undefined
+	 effect on the next iteration.  */
+      if (!elt->is_exit)
+	{
+	  bound += double_int_one;
+	  /* If an overflow occurred, ignore the result.  */
+	  if (bound.is_zero ())
+	    continue;
+	}
+
+      if (!loop->any_upper_bound
+	  || bound.ult (loop->nb_iterations_upper_bound))
+        bounds.safe_push (bound);
+    }
+
+  /* Exit early if there is nothing to do.  */
+  if (!bounds.exists ())
+    return;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, " Trying to walk loop body to reduce the bound.\n");
+
+  /* Sort the bounds in decreasing order.  */
+  qsort (bounds.address (), bounds.length (),
+	 sizeof (double_int), double_int_cmp);
+
+  /* For every basic block record the lowest bound that is guaranteed to
+     terminate the loop.  */
+
+  bb_bounds = pointer_map_create ();
+  for (elt = loop->bounds; elt; elt = elt->next)
+    {
+      double_int bound = elt->bound;
+      if (!elt->is_exit)
+	{
+	  bound += double_int_one;
+	  /* If an overflow occurred, ignore the result.  */
+	  if (bound.is_zero ())
+	    continue;
+	}
+
+      if (!loop->any_upper_bound
+	  || bound.ult (loop->nb_iterations_upper_bound))
+	{
+	  ptrdiff_t index = bound_index (bounds, bound);
+	  void **entry = pointer_map_contains (bb_bounds,
+					       gimple_bb (elt->stmt));
+	  if (!entry)
+	    *pointer_map_insert (bb_bounds,
+				 gimple_bb (elt->stmt)) = (void *)index;
+	  else if ((ptrdiff_t)*entry > index)
+	    *entry = (void *)index;
+	}
+    }
+
+  block_priority = pointer_map_create ();
+
+  /* Perform shortest path discovery loop->header ... loop->latch.
+
+     The "distance" is given by the smallest loop bound of basic block
+     present in the path and we look for path with largest smallest bound
+     on it.
+
+     To avoid the need for fibonacci heap on double ints we simply compress
+     double ints into indexes to BOUNDS array and then represent the queue
+     as arrays of queues for every index.
+     Index of BOUNDS.length() means that the execution of given BB has
+     no bounds determined.
+
+     VISITED is a pointer map translating basic block into smallest index
+     it was inserted into the priority queue with.  */
+  latch_index = -1;
+
+  /* Start walk in loop header with index set to infinite bound.  */
+  queue_index = bounds.length ();
+  queues.safe_grow_cleared (queue_index + 1);
+  queue.safe_push (loop->header);
+  queues[queue_index] = queue;
+  *pointer_map_insert (block_priority, loop->header) = (void *)queue_index;
+
+  for (; queue_index >= 0; queue_index--)
+    {
+      if (latch_index < queue_index)
+	{
+	  while (queues[queue_index].length ())
+	    {
+	      basic_block bb;
+	      ptrdiff_t bound_index = queue_index;
+	      void **entry;
+              edge e;
+              edge_iterator ei;
+
+	      queue = queues[queue_index];
+	      bb = queue.pop ();
+
+	      /* OK, we later inserted the BB with lower priority, skip it.  */
+	      if ((ptrdiff_t)*pointer_map_contains (block_priority, bb) > queue_index)
+		continue;
+
+	      /* See if we can improve the bound.  */
+	      entry = pointer_map_contains (bb_bounds, bb);
+	      if (entry && (ptrdiff_t)*entry < bound_index)
+		bound_index = (ptrdiff_t)*entry;
+
+	      /* Insert succesors into the queue, watch for latch edge
+		 and record greatest index we saw.  */
+	      FOR_EACH_EDGE (e, ei, bb->succs)
+		{
+		  bool insert = false;
+		  void **entry;
+
+		  if (loop_exit_edge_p (loop, e))
+		    continue;
+
+		  if (e == loop_latch_edge (loop)
+		      && latch_index < bound_index)
+		    latch_index = bound_index;
+		  else if (!(entry = pointer_map_contains (block_priority, e->dest)))
+		    {
+		      insert = true;
+		      *pointer_map_insert (block_priority, e->dest) = (void *)bound_index;
+		    }
+		  else if ((ptrdiff_t)*entry < bound_index)
+		    {
+		      insert = true;
+		      *entry = (void *)bound_index;
+		    }
+		    
+		  if (insert)
+		    queues[bound_index].safe_push (e->dest);
+		}
+	    }
+	}
+      queues[queue_index].release ();
+    }
+
+  gcc_assert (latch_index >= 0);
+  if ((unsigned)latch_index < bounds.length ())
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "Found better loop bound ");
+	  dump_double_int (dump_file, bounds[latch_index], true);
+	  fprintf (dump_file, "\n");
+	}
+      record_niter_bound (loop, bounds[latch_index], false, true);
+    }
+
+  queues.release ();
+  bounds.release ();
+  pointer_map_destroy (bb_bounds);
+  pointer_map_destroy (block_priority);
+}
+
 /* See if every path cross the loop goes through a statement that is known
    to not execute at the last iteration. In that case we can decrese iteration
    count by 1.  */
@@ -2962,10 +3241,10 @@ gcov_type_to_double_int (gcov_type val)
 static void
 maybe_lower_iteration_bound (struct loop *loop)
 {
-  pointer_set_t *not_executed_last_iteration = pointer_set_create ();
+  pointer_set_t *not_executed_last_iteration = NULL;
   struct nb_iter_bound *elt;
   bool found_exit = false;
-  VEC (basic_block, heap) *queue = NULL;
+  vec<basic_block> queue = vNULL;
   bitmap visited;
 
   /* Collect all statements with interesting (i.e. lower than
@@ -2993,14 +3272,14 @@ maybe_lower_iteration_bound (struct loop *loop)
      effects that may terminate the loop otherwise) without visiting
      any of the statements known to have undefined effect on the last
      iteration.  */
-  VEC_safe_push (basic_block, heap, queue, loop->header);
+  queue.safe_push (loop->header);
   visited = BITMAP_ALLOC (NULL);
   bitmap_set_bit (visited, loop->header->index);
   found_exit = false;
 
   do
     {
-      basic_block bb = VEC_pop (basic_block, queue);
+      basic_block bb = queue.pop ();
       gimple_stmt_iterator gsi;
       bool stmt_found = false;
 
@@ -3037,11 +3316,11 @@ maybe_lower_iteration_bound (struct loop *loop)
 		  break;
 		}
 	      if (bitmap_set_bit (visited, e->dest->index))
-		VEC_safe_push (basic_block, heap, queue, e->dest);
+		queue.safe_push (e->dest);
 	    }
 	}
     }
-  while (VEC_length (basic_block, queue) && !found_exit);
+  while (queue.length () && !found_exit);
 
   /* If every path through the loop reach bounding statement before exit,
      then we know the last iteration of the loop will have undefined effect
@@ -3056,7 +3335,8 @@ maybe_lower_iteration_bound (struct loop *loop)
 			  false, true);
     }
   BITMAP_FREE (visited);
-  VEC_free (basic_block, heap, queue);
+  queue.release ();
+  pointer_set_destroy (not_executed_last_iteration);
 }
 
 /* Records estimates on numbers of iterations of LOOP.  If USE_UNDEFINED_P
@@ -3065,7 +3345,7 @@ maybe_lower_iteration_bound (struct loop *loop)
 void
 estimate_numbers_of_iterations_loop (struct loop *loop)
 {
-  VEC (edge, heap) *exits;
+  vec<edge> exits;
   tree niter, type;
   unsigned i;
   struct tree_niter_desc niter_desc;
@@ -3081,9 +3361,14 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
   /* Force estimate compuation but leave any existing upper bound in place.  */
   loop->any_estimate = false;
 
+  /* Ensure that loop->nb_iterations is computed if possible.  If it turns out
+     to be constant, we avoid undefined behavior implied bounds and instead
+     diagnose those loops with -Waggressive-loop-optimizations.  */
+  number_of_latch_executions (loop);
+
   exits = get_loop_exit_edges (loop);
   likely_exit = single_likely_exit (loop);
-  FOR_EACH_VEC_ELT (edge, exits, i, ex)
+  FOR_EACH_VEC_ELT (exits, i, ex)
     {
       if (!number_of_iterations_exit (loop, ex, &niter_desc, false, false))
 	continue;
@@ -3098,9 +3383,12 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
 		       last_stmt (ex->src),
 		       true, ex == likely_exit, true);
     }
-  VEC_free (edge, heap, exits);
+  exits.release ();
 
-  infer_loop_bounds_from_undefined (loop);
+  if (flag_aggressive_loop_optimizations)
+    infer_loop_bounds_from_undefined (loop);
+
+  discover_iteration_bound_by_body_walk (loop);
 
   maybe_lower_iteration_bound (loop);
 
@@ -3111,6 +3399,17 @@ estimate_numbers_of_iterations_loop (struct loop *loop)
       gcov_type nit = expected_loop_iterations_unbounded (loop) + 1;
       bound = gcov_type_to_double_int (nit);
       record_niter_bound (loop, bound, true, false);
+    }
+
+  /* If we know the exact number of iterations of this loop, try to
+     not break code with undefined behavior by not recording smaller
+     maximum number of iterations.  */
+  if (loop->nb_iterations
+      && TREE_CODE (loop->nb_iterations) == INTEGER_CST)
+    {
+      loop->any_upper_bound = true;
+      loop->nb_iterations_upper_bound
+	= tree_to_double_int (loop->nb_iterations);
     }
 }
 
@@ -3332,8 +3631,15 @@ stmt_dominates_stmt_p (gimple s1, gimple s2)
 /* Returns true when we can prove that the number of executions of
    STMT in the loop is at most NITER, according to the bound on
    the number of executions of the statement NITER_BOUND->stmt recorded in
-   NITER_BOUND.  If STMT is NULL, we must prove this bound for all
-   statements in the loop.  */
+   NITER_BOUND and fact that NITER_BOUND->stmt dominate STMT.
+
+   ??? This code can become quite a CPU hog - we can have many bounds,
+   and large basic block forcing stmt_dominates_stmt_p to be queried
+   many times on a large basic blocks, so the whole thing is O(n^2)
+   for scev_probably_wraps_p invocation (that can be done n times).
+
+   It would make more sense (and give better answers) to remember BB
+   bounds computed by discover_iteration_bound_by_body_walk.  */
 
 static bool
 n_of_executions_at_most (gimple stmt,
@@ -3354,32 +3660,43 @@ n_of_executions_at_most (gimple stmt,
   /* We know that NITER_BOUND->stmt is executed at most NITER_BOUND->bound + 1
      times.  This means that:
 
-     -- if NITER_BOUND->is_exit is true, then everything before
-        NITER_BOUND->stmt is executed at most NITER_BOUND->bound + 1
-	times, and everything after it at most NITER_BOUND->bound times.
+     -- if NITER_BOUND->is_exit is true, then everything after
+	it at most NITER_BOUND->bound times.
 
      -- If NITER_BOUND->is_exit is false, then if we can prove that when STMT
 	is executed, then NITER_BOUND->stmt is executed as well in the same
-	iteration (we conclude that if both statements belong to the same
-	basic block, or if STMT is after NITER_BOUND->stmt), then STMT
-	is executed at most NITER_BOUND->bound + 1 times.  Otherwise STMT is
-	executed at most NITER_BOUND->bound + 2 times.  */
+	iteration then STMT is executed at most NITER_BOUND->bound + 1 times. 
+
+	If we can determine that NITER_BOUND->stmt is always executed
+	after STMT, then STMT is executed at most NITER_BOUND->bound + 2 times.
+	We conclude that if both statements belong to the same
+	basic block and STMT is before NITER_BOUND->stmt and there are no
+	statements with side effects in between.  */
 
   if (niter_bound->is_exit)
     {
-      if (stmt
-	  && stmt != niter_bound->stmt
-	  && stmt_dominates_stmt_p (niter_bound->stmt, stmt))
-	cmp = GE_EXPR;
-      else
-	cmp = GT_EXPR;
+      if (stmt == niter_bound->stmt
+	  || !stmt_dominates_stmt_p (niter_bound->stmt, stmt))
+	return false;
+      cmp = GE_EXPR;
     }
   else
     {
-      if (!stmt
-	  || (gimple_bb (stmt) != gimple_bb (niter_bound->stmt)
-	      && !stmt_dominates_stmt_p (niter_bound->stmt, stmt)))
+      if (!stmt_dominates_stmt_p (niter_bound->stmt, stmt))
 	{
+          gimple_stmt_iterator bsi;
+	  if (gimple_bb (stmt) != gimple_bb (niter_bound->stmt)
+	      || gimple_code (stmt) == GIMPLE_PHI
+	      || gimple_code (niter_bound->stmt) == GIMPLE_PHI)
+	    return false;
+
+	  /* By stmt_dominates_stmt_p we already know that STMT appears
+	     before NITER_BOUND->STMT.  Still need to test that the loop
+	     can not be terinated by a side effect in between.  */
+	  for (bsi = gsi_for_stmt (stmt); gsi_stmt (bsi) != niter_bound->stmt;
+	       gsi_next (&bsi))
+	    if (gimple_has_side_effects (gsi_stmt (bsi)))
+	       return false;
 	  bound += double_int_one;
 	  if (bound.is_zero ()
 	      || !double_int_fits_to_tree_p (nit_type, bound))
@@ -3423,10 +3740,12 @@ scev_probably_wraps_p (tree base, tree step,
 		       gimple at_stmt, struct loop *loop,
 		       bool use_overflow_semantics)
 {
-  struct nb_iter_bound *bound;
   tree delta, step_abs;
   tree unsigned_type, valid_niter;
   tree type = TREE_TYPE (step);
+  tree e;
+  double_int niter;
+  struct nb_iter_bound *bound;
 
   /* FIXME: We really need something like
      http://gcc.gnu.org/ml/gcc-patches/2005-06/msg02025.html.
@@ -3489,14 +3808,26 @@ scev_probably_wraps_p (tree base, tree step,
   valid_niter = fold_build2 (FLOOR_DIV_EXPR, unsigned_type, delta, step_abs);
 
   estimate_numbers_of_iterations_loop (loop);
-  for (bound = loop->bounds; bound; bound = bound->next)
+
+  if (max_loop_iterations (loop, &niter)
+      && double_int_fits_to_tree_p (TREE_TYPE (valid_niter), niter)
+      && (e = fold_binary (GT_EXPR, boolean_type_node, valid_niter,
+			   double_int_to_tree (TREE_TYPE (valid_niter),
+					       niter))) != NULL
+      && integer_nonzerop (e))
     {
-      if (n_of_executions_at_most (at_stmt, bound, valid_niter))
-	{
-	  fold_undefer_and_ignore_overflow_warnings ();
-	  return false;
-	}
+      fold_undefer_and_ignore_overflow_warnings ();
+      return false;
     }
+  if (at_stmt)
+    for (bound = loop->bounds; bound; bound = bound->next)
+      {
+	if (n_of_executions_at_most (at_stmt, bound, valid_niter))
+	  {
+	    fold_undefer_and_ignore_overflow_warnings ();
+	    return false;
+	  }
+      }
 
   fold_undefer_and_ignore_overflow_warnings ();
 

@@ -1,6 +1,5 @@
 /* Gimple Represented as Polyhedra.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@inria.fr>.
 
 This file is part of GCC.
@@ -63,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "graphite-scop-detection.h"
 #include "graphite-clast-to-gimple.h"
 #include "graphite-sese-to-poly.h"
+#include "graphite-htab.h"
 
 CloogState *cloog_state;
 
@@ -183,13 +183,13 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
 /* Print statistics for SCOPS to FILE.  */
 
 static void
-print_graphite_statistics (FILE* file, VEC (scop_p, heap) *scops)
+print_graphite_statistics (FILE* file, vec<scop_p> scops)
 {
   int i;
 
   scop_p scop;
 
-  FOR_EACH_VEC_ELT (scop_p, scops, i, scop)
+  FOR_EACH_VEC_ELT (scops, i, scop)
     print_graphite_scop_statistics (file, scop);
 }
 
@@ -198,7 +198,7 @@ print_graphite_statistics (FILE* file, VEC (scop_p, heap) *scops)
 static bool
 graphite_initialize (isl_ctx *ctx)
 {
-  if (number_of_loops () <= 1
+  if (number_of_loops (cfun) <= 1
       /* FIXME: This limit on the number of basic blocks of a function
 	 should be removed when the SCOP detection is faster.  */
       || n_basic_blocks > PARAM_VALUE (PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION))
@@ -255,8 +255,8 @@ graphite_transform_loops (void)
   int i;
   scop_p scop;
   bool need_cfg_cleanup_p = false;
-  VEC (scop_p, heap) *scops = NULL;
-  htab_t bb_pbb_mapping;
+  vec<scop_p> scops = vNULL;
+  bb_pbb_htab_type bb_pbb_mapping;
   isl_ctx *ctx;
 
   /* If a function is parallel it was most probably already run through graphite
@@ -278,9 +278,9 @@ graphite_transform_loops (void)
       print_global_statistics (dump_file);
     }
 
-  bb_pbb_mapping = htab_create (10, bb_pbb_map_hash, eq_bb_pbb_map, free);
+  bb_pbb_mapping.create (10);
 
-  FOR_EACH_VEC_ELT (scop_p, scops, i, scop)
+  FOR_EACH_VEC_ELT (scops, i, scop)
     if (dbg_cnt (graphite_scop))
       {
 	scop->ctx = ctx;
@@ -292,7 +292,7 @@ graphite_transform_loops (void)
 	  need_cfg_cleanup_p = true;
       }
 
-  htab_delete (bb_pbb_mapping);
+  bb_pbb_mapping.dispose ();
   free_scops (scops);
   graphite_finalize (need_cfg_cleanup_p);
   the_isl_ctx = NULL;

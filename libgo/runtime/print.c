@@ -4,6 +4,7 @@
 
 #include <stdarg.h>
 #include "runtime.h"
+#include "array.h"
 
 //static Lock debuglock;
 
@@ -17,7 +18,10 @@ gwrite(const void *v, int32 n)
 	G* g = runtime_g();
 
 	if(g == nil || g->writebuf == nil) {
-		runtime_write(2, v, n);
+		// Avoid -D_FORTIFY_SOURCE problems.
+		int rv __attribute__((unused));
+
+		rv = runtime_write(2, v, n);
 		return;
 	}
 
@@ -294,8 +298,8 @@ runtime_printstring(String v)
 	//	gwrite("[string too long]", 17);
 	//	return;
 	// }
-	if(v.__length > 0)
-		gwrite(v.__data, v.__length);
+	if(v.len > 0)
+		gwrite(v.str, v.len);
 }
 
 void

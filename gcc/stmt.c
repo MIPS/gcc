@@ -1,7 +1,5 @@
 /* Expands front end tree to back end RTL for GCC
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1762,6 +1760,10 @@ expand_switch_as_decision_tree_p (tree range,
     return true;
   if (!flag_jump_tables)
     return true;
+#ifndef ASM_OUTPUT_ADDR_DIFF_ELT
+  if (flag_pic)
+    return true;
+#endif
 
   /* If the switch is relatively small such that the cost of one
      indirect jump on the target are higher than the cost of a
@@ -1888,7 +1890,7 @@ conditional_probability (int target_prob, int base_prob)
     {
       gcc_assert (target_prob >= 0);
       gcc_assert (target_prob <= base_prob);
-      return RDIV (target_prob * REG_BR_PROB_BASE, base_prob);
+      return GCOV_COMPUTE_SCALE (target_prob, base_prob);
     }
   return -1;
 }
@@ -2010,7 +2012,7 @@ emit_case_dispatch_table (tree index_expr, tree index_type,
       edge e;
       edge_iterator ei;
       FOR_EACH_EDGE (e, ei, stmt_bb->succs)
-        e->probability = RDIV (e->probability * REG_BR_PROB_BASE,  base);
+        e->probability = GCOV_COMPUTE_SCALE (e->probability,  base);
     }
 
   if (try_with_tablejump)
@@ -2023,13 +2025,14 @@ emit_case_dispatch_table (tree index_expr, tree index_type,
   emit_label (table_label);
 
   if (CASE_VECTOR_PC_RELATIVE || flag_pic)
-    emit_jump_insn (gen_rtx_ADDR_DIFF_VEC (CASE_VECTOR_MODE,
-					   gen_rtx_LABEL_REF (Pmode, table_label),
-					   gen_rtvec_v (ncases, labelvec),
-					   const0_rtx, const0_rtx));
+    emit_jump_table_data (gen_rtx_ADDR_DIFF_VEC (CASE_VECTOR_MODE,
+						 gen_rtx_LABEL_REF (Pmode,
+								    table_label),
+						 gen_rtvec_v (ncases, labelvec),
+						 const0_rtx, const0_rtx));
   else
-    emit_jump_insn (gen_rtx_ADDR_VEC (CASE_VECTOR_MODE,
-				      gen_rtvec_v (ncases, labelvec)));
+    emit_jump_table_data (gen_rtx_ADDR_VEC (CASE_VECTOR_MODE,
+					    gen_rtvec_v (ncases, labelvec)));
 
   /* Record no drop-through after the table.  */
   emit_barrier ();
@@ -2061,7 +2064,7 @@ compute_cases_per_edge (gimple stmt)
       tree lab = CASE_LABEL (elt);
       basic_block case_bb = label_to_block_fn (cfun, lab);
       edge case_edge = find_edge (bb, case_bb);
-      case_edge->aux = (void *)((long)(case_edge->aux) + 1);
+      case_edge->aux = (void *)((intptr_t)(case_edge->aux) + 1);
     }
 }
 
@@ -2176,7 +2179,7 @@ expand_case (gimple stmt)
       edge case_edge = find_edge (bb, case_bb);
       case_list = add_case_node (
           case_list, low, high, lab,
-          case_edge->probability / (long)(case_edge->aux),
+          case_edge->probability / (intptr_t)(case_edge->aux),
           case_node_pool);
     }
   pointer_set_destroy (seen_labels);
@@ -2224,12 +2227,12 @@ expand_case (gimple stmt)
 
 void
 expand_sjlj_dispatch_table (rtx dispatch_index,
-			    VEC(tree,heap) *dispatch_table)
+			    vec<tree> dispatch_table)
 {
   tree index_type = integer_type_node;
   enum machine_mode index_mode = TYPE_MODE (index_type);
 
-  int ncases = VEC_length (tree, dispatch_table);
+  int ncases = dispatch_table.length ();
 
   do_pending_stack_adjust ();
   rtx before_case = get_last_insn ();
@@ -2239,7 +2242,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
      and seems to be a reasonable compromise between the "old way"
      of expanding as a decision tree or dispatch table vs. the "new
      way" with decrement chain or dispatch table.  */
-  if (VEC_length (tree, dispatch_table) <= 5
+  if (dispatch_table.length () <= 5
       || (!HAVE_casesi && !HAVE_tablejump)
       || !flag_jump_tables)
     {
@@ -2261,7 +2264,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
       rtx zero = CONST0_RTX (index_mode);
       for (int i = 0; i < ncases; i++)
         {
-	  tree elt = VEC_index (tree, dispatch_table, i);
+	  tree elt = dispatch_table[i];
 	  rtx lab = label_rtx (CASE_LABEL (elt));
 	  do_jump_if_equal (index_mode, index, zero, lab, 0, -1);
 	  force_expand_binop (index_mode, sub_optab,
@@ -2278,13 +2281,13 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
 						     ncases);
       tree index_expr = make_tree (index_type, dispatch_index);
       tree minval = build_int_cst (index_type, 0);
-      tree maxval = CASE_LOW (VEC_last (tree, dispatch_table));
+      tree maxval = CASE_LOW (dispatch_table.last ());
       tree range = maxval;
       rtx default_label = gen_label_rtx ();
 
-      for (int i = ncases - 1; i > 0; --i)
+      for (int i = ncases - 1; i >= 0; --i)
 	{
-	  tree elt = VEC_index (tree, dispatch_table, i);
+	  tree elt = dispatch_table[i];
 	  tree low = CASE_LOW (elt);
 	  tree lab = CASE_LABEL (elt);
 	  case_list = add_case_node (case_list, low, low, lab, 0, case_node_pool);

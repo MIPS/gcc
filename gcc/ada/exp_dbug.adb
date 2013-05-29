@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1996-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1307,14 +1307,15 @@ package body Exp_Dbug is
       if Has_Qualified_Name (Ent) then
          return;
 
-      --  In formal verification mode, simply append a suffix for homonyms, but
-      --  do not mark the name as being qualified. We used to qualify entity
-      --  names as full expansion does, but this was removed as this prevents
-      --  the verification back-end from using a short name for debugging and
-      --  user interaction. The verification back-end already takes care of
-      --  qualifying names when needed.
+      --  In formal verification mode, simply append a suffix for homonyms.
+      --  We used to qualify entity names as full expansion does, but this was
+      --  removed as this prevents the verification back-end from using a short
+      --  name for debugging and user interaction. The verification back-end
+      --  already takes care of qualifying names when needed. Still mark the
+      --  name as being qualified, as Qualify_Entity_Name may be called more
+      --  than once on the same entity.
 
-      elsif Alfa_Mode then
+      elsif SPARK_Mode then
          if Has_Homonym (Ent) then
             Get_Name_String (Chars (Ent));
             Append_Homonym_Number (Ent);
@@ -1322,6 +1323,7 @@ package body Exp_Dbug is
             Set_Chars (Ent, Name_Enter);
          end if;
 
+         Set_Has_Qualified_Name (Ent);
          return;
 
       --  If the entity is a variable encoding the debug name for an object

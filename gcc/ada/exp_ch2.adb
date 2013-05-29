@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,11 +28,9 @@ with Checks;   use Checks;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
 with Elists;   use Elists;
-with Errout;   use Errout;
 with Exp_Smem; use Exp_Smem;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
-with Exp_VFpt; use Exp_VFpt;
 with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
@@ -164,12 +162,11 @@ package body Exp_Ch2 is
          --  lvalue references in the arguments.
 
          and then not (Nkind (Parent (N)) = N_Attribute_Reference
-                         and then
-                           (Attribute_Name (Parent (N)) = Name_Asm_Input
-                              or else
-                            Attribute_Name (Parent (N)) = Name_Asm_Output
-                              or else
-                            Prefix (Parent (N)) = N))
+                        and then
+                          (Nam_In (Attribute_Name (Parent (N)),
+                                   Name_Asm_Input,
+                                   Name_Asm_Output)
+                            or else Prefix (Parent (N)) = N))
 
       then
          --  Case of Current_Value is a compile time known value
@@ -342,7 +339,8 @@ package body Exp_Ch2 is
    begin
       --  Defend against errors
 
-      if No (E) and then Total_Errors_Detected /= 0 then
+      if No (E) then
+         Check_Error_Detected;
          return;
       end if;
 
@@ -636,10 +634,14 @@ package body Exp_Ch2 is
    ---------------------------
 
    procedure Expand_N_Real_Literal (N : Node_Id) is
+      pragma Unreferenced (N);
+
    begin
-      if Vax_Float (Etype (N)) then
-         Expand_Vax_Real_Literal (N);
-      end if;
+      --  Historically, this routine existed because there were expansion
+      --  requirements for Vax real literals, but now Vax real literals
+      --  are now handled by gigi, so this routine no longer does anything.
+
+      null;
    end Expand_N_Real_Literal;
 
    --------------------------------

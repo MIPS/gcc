@@ -1,6 +1,5 @@
 ;; Machine description of the Adaptiva epiphany cpu for GNU C compiler
-;; Copyright (C) 1994, 1997, 1998, 1999, 2000, 2004, 2005, 2007, 2009, 2010,
-;; 2011, 2012 Free Software Foundation, Inc.
+;; Copyright (C) 1994-2013 Free Software Foundation, Inc.
 ;; Contributed by Embecosm on behalf of Adapteva, Inc.
 
 ;; This file is part of GCC.
@@ -23,6 +22,7 @@
 
 (define_constants
   [(GPR_0			 0)
+   (GPR_1			 1)
    (GPR_FP			11)
    (GPR_IP			12)
    (GPR_SP			13)
@@ -57,7 +57,7 @@
 ;; Insn type.  Used to default other attribute values.
 
 (define_attr "type"
-  "move,load,store,cmove,unary,compare,shift,mul,uncond_branch,branch,call,fp,fp_int,misc,sfunc,fp_sfunc,flow"
+  "move,load,store,cmove,unary,compare,shift,mul,uncond_branch,branch,call,fp,fp_int,v2fp,misc,sfunc,fp_sfunc,flow"
   (const_string "misc"))
 
 ;; Length (in # bytes)
@@ -79,7 +79,7 @@
 	(const_string "trunc")))
 
 (define_attr "fp_mode" "round_unknown,round_nearest,round_trunc,int,caller,none"
-  (cond [(eq_attr "type" "fp,fp_sfunc")
+  (cond [(eq_attr "type" "fp,v2fp,fp_sfunc")
 	 (symbol_ref "(enum attr_fp_mode) epiphany_normal_fp_rounding")
 	 (eq_attr "type" "call")
 	 (symbol_ref "(enum attr_fp_mode) epiphany_normal_fp_mode")
@@ -265,6 +265,15 @@
   rtx addr
     = (frame_pointer_needed ? hard_frame_pointer_rtx : stack_pointer_rtx);
 
+  if (!MACHINE_FUNCTION (cfun)->lr_slot_known)
+    {
+      start_sequence ();
+      epiphany_expand_prologue ();
+      if (!MACHINE_FUNCTION (cfun)->lr_slot_known)
+        epiphany_expand_epilogue (0);
+      end_sequence ();
+      gcc_assert (MACHINE_FUNCTION (cfun)->lr_slot_known);
+    }
   addr = plus_constant (Pmode, addr, MACHINE_FUNCTION (cfun)->lr_slot_offset);
   operands[1] = gen_frame_mem (SImode, addr);
 })
@@ -325,6 +334,7 @@
       if (epiphany_vect_align != 4 /* == 8 */
 	  && !reload_in_progress
 	  && (GET_CODE (operands[0]) == MEM || GET_CODE (operands[1]) == MEM)
+	  && !misaligned_operand (operands[1], <MODE>mode)
 	  && (GET_CODE (operands[0]) != SUBREG
 	      || (GET_MODE_SIZE (GET_MODE (SUBREG_REG (operands[0])))
 		  != GET_MODE_SIZE (<MODE>mode)
@@ -355,7 +365,9 @@
    ldrd %0,%X1
    strd %1,%X0"
   "reload_completed
-   && ((!MEM_P (operands[0]) && !MEM_P (operands[1]))
+   && (((!MEM_P (operands[0]) || misaligned_operand (operands[0], <MODE>mode))
+	&& (!MEM_P (operands[1])
+	    || misaligned_operand (operands[1], <MODE>mode)))
        || epiphany_vect_align == 4)"
   [(set (match_dup 2) (match_dup 3))
    (set (match_dup 4) (match_dup 5))]
@@ -411,18 +423,26 @@
 {
   if (reload_in_progress || reload_completed)
     emit_insn (gen_addsi3_r (operands[0], operands[1], operands[2]));
+  else if (TARGET_FP_IARITH && add_reg_operand (operands[2], SImode))
+    emit_insn (gen_iadd (operands[0], operands[1], operands[2]));
   else
     emit_insn (gen_addsi3_i (operands[0], operands[1], operands[2]));
   DONE;
 }")
 
+; The default case of epiphany_print_operand emits IMMEDIATE_PREFIX
+; where appropriate; however, 'n' is processed by output_asm_insn
+; which doesn't, so we have to explicitly emit the '# in the
+; r/r/CnL output template alternative.
 (define_insn "addsi3_i"
-  [(set (match_operand:SI 0 "add_reg_operand" "=r")
-	(plus:SI (match_operand:SI 1 "add_reg_operand" "%r")
-		 (match_operand:SI 2 "add_operand" "rL")))
+  [(set (match_operand:SI 0 "add_reg_operand" "=r,r")
+	(plus:SI (match_operand:SI 1 "add_reg_operand" "%r,r")
+		 (match_operand:SI 2 "add_operand" "rL,CnL")))
    (clobber (reg:CC CC_REGNUM))]
   ""
-  "add %0,%1,%2"
+  "@
+   add %0,%1,%2
+   sub %0,%1,#%n2"
 [(set_attr "type" "misc")])
 
 ; We use a clobber of UNKNOWN_REGNUM here so that the peephole optimizers
@@ -539,7 +559,23 @@
 				(plus:SI (match_dup 0) (match_dup 1)))))]
   "")
 
-(define_insn "subsi3"
+(define_expand "subsi3"
+  [(set (match_operand:SI 0 "gpr_operand" "")
+	(plus:SI (match_operand:SI 1 "add_reg_operand" "")
+		 (match_operand:SI 2 "arith_operand" "")))]
+  ""
+  "
+{
+  gcc_assert (!reload_in_progress && !reload_completed);
+
+  if (TARGET_FP_IARITH)
+    emit_insn (gen_isub (operands[0], operands[1], operands[2]));
+  else
+    emit_insn (gen_subsi3_i (operands[0], operands[1], operands[2]));
+  DONE;
+}")
+
+(define_insn "subsi3_i"
   [(set (match_operand:SI 0 "gpr_operand" "=r")
 	(minus:SI (match_operand:SI 1 "add_reg_operand" "r")
 		  (match_operand:SI 2 "arith_operand" "rL")))
@@ -905,7 +941,10 @@
   ""
   "fix %0, %1"
   [(set_attr "type" "fp")
-   (set_attr "fp_mode" "round_trunc")])
+   (set (attr "fp_mode")
+	(cond [(match_test "TARGET_MAY_ROUND_FOR_TRUNC")
+	       (const_string "round_unknown")]
+	      (const_string "round_trunc")))])
 
 (define_expand "fixuns_truncsfsi2"
   [(set (match_operand:SI 0 "gpr_operand" "")
@@ -927,7 +966,7 @@
 
       op1si = simplify_gen_subreg (SImode, operands[1], SFmode, 0);
       emit_insn (gen_fix_truncsfsi2 (operands[0], operands[1]));
-      emit_insn (gen_subsi3 (tmp, op1si, bit31));
+      emit_insn (gen_subsi3_i (tmp, op1si, bit31));
       emit_insn (gen_ashlsi3 (tmp, tmp, GEN_INT (8)));
       emit_insn (gen_cmpsi_cc_insn (op1si, limit));
       emit_insn (gen_movsicc (operands[0], cmp, tmp, operands[0]));
@@ -956,7 +995,14 @@
   DONE;
 })
 
-(define_insn "*iadd"
+(define_expand "iadd"
+  [(parallel
+     [(set (match_operand:SF 0 "gpr_operand" "")
+	   (plus:SI (match_operand:SF 1 "gpr_operand" "")
+		    (match_operand:SF 2 "gpr_operand" "")))
+      (clobber (reg:CC_FP CCFP_REGNUM))])])
+
+(define_insn "*iadd_i"
   [(match_parallel 3 "float_operation"
      [(set (match_operand:SI 0 "gpr_operand" "=r")
 	   (plus:SI (match_operand:SI 1 "gpr_operand" "%r")
@@ -966,7 +1012,14 @@
   "iadd %0, %1, %2"
   [(set_attr "type" "fp_int")])
 
-(define_insn "*isub"
+(define_expand "isub"
+  [(parallel
+     [(set (match_operand:SF 0 "gpr_operand" "")
+	   (minus:SI (match_operand:SF 1 "gpr_operand" "")
+		     (match_operand:SF 2 "gpr_operand" "")))
+      (clobber (reg:CC_FP CCFP_REGNUM))])])
+
+(define_insn "*isub_i"
   [(match_parallel 3 "float_operation"
      [(set (match_operand:SI 0 "gpr_operand" "=r")
 	   (minus:SI (match_operand:SI 1 "gpr_operand" "r")
@@ -975,6 +1028,35 @@
   ""
   "isub %0, %1, %2"
   [(set_attr "type" "fp_int")])
+
+; Try to figure out if we over-committed the FPU, and if so, move
+; some insns back over to the integer pipe.
+
+; The peephole optimizer 'consumes' the insns that are explicitly
+; mentioned.  We do not want the preceding insn reconsidered, but
+; we do want that for the following one, so that if we have a run
+; of five fpu users, two of them get changed.  Therefore, we
+; use next_active_insn to look at the 'following' insn.  That should
+; exist, because peephole2 runs after reload, and there has to be
+; a return after an fp_int insn.
+; ??? However, we can not even ordinarily match the preceding insn;
+; there is some bug in the generators such that then it leaves out
+; the check for PARALLEL before the length check for the then-second
+; main insn.  Observed when compiling compatibility-atomic-c++0x.cc
+; from libstdc++-v3.
+(define_peephole2
+  [(match_parallel 3 "float_operation"
+     [(set (match_operand:SI 0 "gpr_operand" "")
+	   (match_operator:SI 4 "addsub_operator"
+	     [(match_operand:SI 1 "gpr_operand" "")
+	      (match_operand:SI 2 "gpr_operand" "")]))
+      (clobber (reg:CC_FP CCFP_REGNUM))])]
+  "get_attr_sched_use_fpu (prev_active_insn (peep2_next_insn (0)))
+   && peep2_regno_dead_p (1, CC_REGNUM)
+   && get_attr_sched_use_fpu (next_active_insn (peep2_next_insn (0)))"
+  [(parallel [(set (match_dup 0) (match_dup 4))
+	      (clobber (reg:CC CC_REGNUM))])]
+)
 
 (define_expand "mulsi3"
   [(parallel
@@ -1011,7 +1093,7 @@
 		    (match_operand:SI 3 "gpr_operand" "0")))
       (clobber (reg:CC_FP CCFP_REGNUM))])]
   ""
-  "imsub %0, %1, %2"
+  "imadd %0, %1, %2"
   [(set_attr "type" "fp_int")])
 
 (define_insn "*imsub"
@@ -1366,6 +1448,16 @@
   [(set_attr "type" "flow")
    (set_attr "length" "20,4")])
 
+(define_insn_and_split "save_config"
+  [(set (match_operand:SI 0 "gpr_operand" "=r") (reg:SI CONFIG_REGNUM))
+   (use (reg:SI FP_NEAREST_REGNUM))
+   (use (reg:SI FP_TRUNCATE_REGNUM))
+   (use (reg:SI FP_ANYFP_REGNUM))]
+  ""
+  "#"
+  "reload_completed"
+  [(set (match_dup 0) (reg:SI CONFIG_REGNUM))])
+
 (define_insn_and_split "set_fp_mode"
   [(set (reg:SI FP_NEAREST_REGNUM)
 	(match_operand:SI 0 "set_fp_mode_operand" "rCfm"))
@@ -1639,6 +1731,132 @@
   "sub %0,%1,%2"
   [(set_attr "type" "compare")])
 
+(define_code_iterator logical_op
+  [and ior xor])
+
+(define_code_attr op_mnc
+  [(plus "add") (minus "sub") (and "and") (ior "orr") (xor "eor")])
+
+(define_insn "*<op_mnc>_f"
+  [(set (reg:CC CC_REGNUM)
+        (compare:CC (logical_op:SI (match_operand:SI 1 "gpr_operand" "%r")
+				   (match_operand:SI 2 "gpr_operand"  "r"))
+                    (const_int 0)))
+   (set (match_operand:SI 0 "gpr_operand" "=r")
+        (logical_op:SI (match_dup 1) (match_dup 2)))]
+  ""
+  "<op_mnc> %0,%1,%2"
+  [(set_attr "type" "compare")])
+
+(define_insn_and_split "*mov_f"
+  [(set (reg:CC CC_REGNUM)
+        (compare:CC (match_operand:SI 1 "gpr_operand"  "r") (const_int 0)))
+   (set (match_operand:SI 0 "gpr_operand" "=r") (match_dup 1))]
+  ""
+  "#"
+  "reload_completed"
+  [(parallel
+    [(set (reg:CC CC_REGNUM)
+	  (compare:CC (and:SI (match_dup 1) (match_dup 1)) (const_int 0)))
+     (set (match_operand:SI 0 "gpr_operand" "=r")
+	  (and:SI (match_dup 1) (match_dup 1)))])]
+  ""
+  [(set_attr "type" "compare")])
+
+(define_peephole2
+  [(parallel
+    [(set (match_operand:SI 0 "gpr_operand" "=r")
+	  (logical_op:SI (match_operand:SI 1 "gpr_operand"  "r")
+			 (match_operand:SI 2 "gpr_operand" "%r")))
+     (clobber (reg:CC CC_REGNUM))])
+   (parallel
+    [(set (reg:CC CC_REGNUM)
+	  (compare:CC (and:SI (match_dup 0) (match_dup 0)) (const_int 0)))
+     (set (match_operand:SI 3 "gpr_operand" "=r")
+	  (and:SI (match_dup 0) (match_dup 0)))])]
+  "peep2_reg_dead_p (2, operands[0])"
+  [(parallel
+    [(set (reg:CC CC_REGNUM)
+	  (compare:CC (logical_op:SI (match_dup 1) (match_dup 2))
+		      (const_int 0)))
+     (set (match_dup 3) (logical_op:SI (match_dup 1) (match_dup 2)))])])
+
+(define_peephole2
+  [(parallel
+    [(set (match_operand:SI 0 "gpr_operand" "=r")
+	  (logical_op:SI (match_operand:SI 1 "gpr_operand"  "r")
+			 (match_operand:SI 2 "gpr_operand" "%r")))
+     (clobber (reg:CC CC_REGNUM))])
+   (parallel
+    [(set (reg:CC CC_REGNUM)
+	  (compare:CC (and:SI (match_dup 0) (match_dup 0)) (const_int 0)))
+     (set (match_operand:SI 3 "gpr_operand" "=r")
+	  (and:SI (match_dup 0) (match_dup 0)))])]
+  "peep2_reg_dead_p (2, operands[3])"
+  [(parallel
+    [(set (reg:CC CC_REGNUM)
+	  (compare:CC (logical_op:SI (match_dup 1) (match_dup 2))
+		      (const_int 0)))
+     (set (match_dup 0) (logical_op:SI (match_dup 1) (match_dup 2)))])])
+
+(define_peephole2
+  [(parallel
+    [(set (match_operand:SI 0 "gpr_operand" "=r")
+	  (logical_op:SI (match_operand:SI 1 "gpr_operand"  "r")
+			 (match_operand:SI 2 "gpr_operand" "%r")))
+     (clobber (reg:CC CC_REGNUM))])
+   (parallel
+    [(set (reg:CC CC_REGNUM)
+	  (compare:CC (match_dup 0) (const_int 0)))
+     (clobber (match_operand:SI 3 "gpr_operand" "=r"))])]
+  ""
+  [(parallel
+    [(set (reg:CC CC_REGNUM)
+	  (compare:CC (logical_op:SI (match_dup 1) (match_dup 2))
+		      (const_int 0)))
+     (set (match_dup 0) (logical_op:SI (match_dup 1) (match_dup 2)))])])
+
+(define_expand "cstoresi4"
+  [(parallel
+    [(set (reg:CC CC_REGNUM)
+          (match_operand:SI 1 "comparison_operator"))
+     (match_operand:SI 2 "" "")])
+   (set (match_dup 0) (match_operand:SI 3 "arith_operand" ""))
+   (set (match_operand:SI 0 "gpr_operand" "=r")
+	(if_then_else:SI (match_dup 4) (match_dup 5) (match_dup 0)))]
+  ""
+{
+  enum rtx_code o2_code = GET_CODE (operands[2]);
+  enum rtx_code cmp_code = GET_CODE (operands[1]);
+
+  if ((o2_code == AND || o2_code == IOR || o2_code == XOR)
+      && operands[3] == const0_rtx)
+    {
+      operands[2] = copy_rtx(operands[2]);
+      XEXP (operands[2], 0) = force_reg (SImode, XEXP (operands[2], 0));
+      XEXP (operands[2], 1) = force_reg (SImode, XEXP (operands[2], 1));
+    }
+  else
+    operands[2] = force_reg (SImode, operands[2]);
+  operands[1] = gen_rtx_COMPARE (CCmode, operands[2], operands[3]);
+  if (cmp_code != NE)
+    {
+      operands[2] = gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (SImode));
+      operands[3] = const0_rtx;
+    }
+  else
+    {
+      if (operands[3] != const0_rtx)
+	operands[2] = gen_rtx_MINUS (SImode, operands[2], operands[3]);
+      operands[2] = gen_rtx_SET (VOIDmode, operands[0], operands[2]);
+      operands[3] = operands[0];
+    }
+  operands[4] = gen_rtx_fmt_ee (cmp_code, SImode,
+				gen_rtx_REG (CCmode, CC_REGNUM), const0_rtx);
+  operands[5] = force_reg (SImode, GEN_INT (STORE_FLAG_VALUE));
+})
+
+
 ; floating point comparisons
 
 (define_insn "*cmpsf_cc_insn"
@@ -1681,7 +1899,7 @@
    (clobber (reg:SI GPR_IP))
    (clobber (reg:SI GPR_16))
    (clobber (reg:SI GPR_LR))]
-  "TARGET_SOFT_CMPSF"
+  ""
   "%f0"
   [(set_attr "type" "sfunc")])
 
@@ -1745,6 +1963,8 @@
 	 operations - if we get some.  */
       operands[1]
 	= gen_compare_reg (<MODE>mode, code, cmp_in_mode, cmp_op0, cmp_op1);
+      if (!operands[1])
+	FAIL;
     }
 })
 
@@ -2219,6 +2439,11 @@
   [(plus "add") (minus "sub") (mult "mul") (div "div")
    (and "and") (ior "ior") (xor "xor")])
 
+; The addsi3 / subsi3 do checks that we don't want when splitting V2SImode
+; operations into two SImode operations.
+(define_code_attr si_pattern_suffix
+  [(plus "_i") (minus "_i") (and "") (ior "") (xor "")])
+
 ; You might think that this would work better as a define_expand, but
 ; again lower_subreg pessimizes the code if it sees indiviudual operations.
 ; We need to keep inputs and outputs as register pairs if we want to
@@ -2245,8 +2470,8 @@
     o1h = copy_to_mode_reg (SImode, o1h);
   if (reg_overlap_mentioned_p (o0l, o2h))
     o2h = copy_to_mode_reg (SImode, o2h);
-  emit_insn (gen_<insn_opname>si3 (o0l, o1l, o2l));
-  emit_insn (gen_<insn_opname>si3 (o0h, o1h, o2h));
+  emit_insn (gen_<insn_opname>si3<si_pattern_suffix> (o0l, o1l, o2l));
+  emit_insn (gen_<insn_opname>si3<si_pattern_suffix> (o0h, o1h, o2h));
   DONE;
 }
   [(set_attr "length" "8")])
@@ -2303,7 +2528,7 @@
   operands[11] = XVECEXP (operands[3], 0, XVECLEN (operands[3], 0) - 1);
 }
   [(set_attr "length" "8")
-   (set_attr "type" "fp")])
+   (set_attr "type" "v2fp")])
 
 (define_expand "mul<mode>3"
   [(parallel

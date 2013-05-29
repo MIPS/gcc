@@ -6,7 +6,7 @@
 // { dg-require-gthreads "" }
 // { dg-require-atomic-builtins "" }
 
-// Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+// Copyright (C) 2009-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -65,7 +65,7 @@ void test02()
 
   try
   {
-    p1.set_exception(std::copy_exception(4));
+    p1.set_exception(std::make_exception_ptr(4));
     VERIFY( false );
   }
   catch (std::future_error& e)

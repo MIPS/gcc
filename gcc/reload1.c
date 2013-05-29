@@ -1,7 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -328,7 +326,7 @@ static int first_label_num;
 static char *offsets_known_at;
 static HOST_WIDE_INT (*offsets_at)[NUM_ELIMINABLE_REGS];
 
-VEC(reg_equivs_t,gc) *reg_equivs;
+vec<reg_equivs_t, va_gc> *reg_equivs;
 
 /* Stack of addresses where an rtx has been changed.  We can undo the 
    changes by popping items off the stack and restoring the original
@@ -341,9 +339,7 @@ VEC(reg_equivs_t,gc) *reg_equivs;
    rtx expression would be changed.  See PR 42431.  */
 
 typedef rtx *rtx_p;
-DEF_VEC_P(rtx_p);
-DEF_VEC_ALLOC_P(rtx_p,heap);
-static VEC(rtx_p,heap) *substitute_stack;
+static vec<rtx_p> substitute_stack;
 
 /* Number of labels in the current function.  */
 
@@ -472,8 +468,11 @@ init_reload (void)
     }
 
   /* Initialize obstack for our rtl allocation.  */
-  gcc_obstack_init (&reload_obstack);
-  reload_startobj = XOBNEWVAR (&reload_obstack, char, 0);
+  if (reload_startobj == NULL)
+    {
+      gcc_obstack_init (&reload_obstack);
+      reload_startobj = XOBNEWVAR (&reload_obstack, char, 0);
+    }
 
   INIT_REG_SET (&spilled_pseudos);
   INIT_REG_SET (&changed_allocation_pseudos);
@@ -656,15 +655,15 @@ has_nonexceptional_receiver (void)
 void
 grow_reg_equivs (void)
 {
-  int old_size = VEC_length (reg_equivs_t, reg_equivs);
+  int old_size = vec_safe_length (reg_equivs);
   int max_regno = max_reg_num ();
   int i;
   reg_equivs_t ze;
 
   memset (&ze, 0, sizeof (reg_equivs_t));
-  VEC_reserve (reg_equivs_t, gc, reg_equivs, max_regno);
+  vec_safe_reserve (reg_equivs, max_regno);
   for (i = old_size; i < max_regno; i++)
-    VEC_quick_insert (reg_equivs_t, reg_equivs, i, ze);
+    reg_equivs->quick_insert (i, ze);
 }
 
 
@@ -1323,7 +1322,7 @@ reload (rtx first, int global)
     REGNO_POINTER_ALIGN (HARD_FRAME_POINTER_REGNUM) = BITS_PER_UNIT;
 #endif
 
-  VEC_free (rtx_p, heap, substitute_stack);
+  substitute_stack.release ();
 
   gcc_assert (bitmap_empty_p (&spilled_pseudos));
 
@@ -1491,7 +1490,7 @@ calculate_needs_all_insns (int global)
 	 include REG_LABEL_OPERAND and REG_LABEL_TARGET), we need to see
 	 what effects this has on the known offsets at labels.  */
 
-      if (LABEL_P (insn) || JUMP_P (insn)
+      if (LABEL_P (insn) || JUMP_P (insn) || JUMP_TABLE_DATA_P (insn)
 	  || (INSN_P (insn) && REG_NOTES (insn) != 0))
 	set_label_offsets (insn, insn, 0);
 
@@ -1621,7 +1620,7 @@ calculate_elim_costs_all_insns (void)
 	     include REG_LABEL_OPERAND and REG_LABEL_TARGET), we need to see
 	     what effects this has on the known offsets at labels.  */
 
-	  if (LABEL_P (insn) || JUMP_P (insn)
+	  if (LABEL_P (insn) || JUMP_P (insn) || JUMP_TABLE_DATA_P (insn)
 	      || (INSN_P (insn) && REG_NOTES (insn) != 0))
 	    set_label_offsets (insn, insn, 0);
 
@@ -2405,6 +2404,10 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 
       return;
 
+    case JUMP_TABLE_DATA:
+      set_label_offsets (PATTERN (insn), insn, initial_p);
+      return;
+
     case JUMP_INSN:
       set_label_offsets (PATTERN (insn), insn, initial_p);
 
@@ -3007,7 +3010,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
 
 	}
       else if (reg_renumber[regno] < 0
-	       && reg_equivs != 0
+	       && reg_equivs
 	       && reg_equiv_constant (regno)
 	       && ! function_invariant_p (reg_equiv_constant (regno)))
 	elimination_effects (reg_equiv_constant (regno), mem_mode);
@@ -3078,7 +3081,7 @@ elimination_effects (rtx x, enum machine_mode mem_mode)
       if (REG_P (SUBREG_REG (x))
 	  && (GET_MODE_SIZE (GET_MODE (x))
 	      <= GET_MODE_SIZE (GET_MODE (SUBREG_REG (x))))
-	  && reg_equivs != 0
+	  && reg_equivs
 	  && reg_equiv_memory_loc (REGNO (SUBREG_REG (x))) != 0)
 	return;
 
@@ -3235,12 +3238,10 @@ eliminate_regs_in_insn (rtx insn, int replace)
 
   if (! insn_is_asm && icode < 0)
     {
-      gcc_assert (GET_CODE (PATTERN (insn)) == USE
+      gcc_assert (DEBUG_INSN_P (insn)
+		  || GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
-		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
-		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-		  || DEBUG_INSN_P (insn));
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
       if (DEBUG_INSN_P (insn))
 	INSN_VAR_LOCATION_LOC (insn)
 	  = eliminate_regs (INSN_VAR_LOCATION_LOC (insn), VOIDmode, insn);
@@ -3646,12 +3647,10 @@ elimination_costs_in_insn (rtx insn)
 
   if (! insn_is_asm && icode < 0)
     {
-      gcc_assert (GET_CODE (PATTERN (insn)) == USE
+      gcc_assert (DEBUG_INSN_P (insn)
+		  || GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
-		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
-		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-		  || DEBUG_INSN_P (insn));
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
       return;
     }
 
@@ -4229,7 +4228,6 @@ free_reg_equiv (void)
 {
   int i;
 
-
   free (offsets_known_at);
   free (offsets_at);
   offsets_at = 0;
@@ -4238,9 +4236,7 @@ free_reg_equiv (void)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (reg_equiv_alt_mem_list (i))
       free_EXPR_LIST_list (&reg_equiv_alt_mem_list (i));
-  VEC_free (reg_equivs_t, gc, reg_equivs);
-  reg_equivs = NULL;
-
+  vec_free (reg_equivs);
 }
 
 /* Kick all pseudos out of hard register REGNO.
@@ -5589,7 +5585,7 @@ substitute (rtx *where, const_rtx what, rtx repl)
   if (*where == what || rtx_equal_p (*where, what))
     {
       /* Record the location of the changed rtx.  */
-      VEC_safe_push (rtx_p, heap, substitute_stack, where);
+      substitute_stack.safe_push (where);
       *where = repl;
       return;
     }
@@ -5688,9 +5684,9 @@ gen_reload_chain_without_interm_reg_p (int r1, int r2)
     }
 
   /* Restore the original value at each changed address within R1.  */
-  while (!VEC_empty (rtx_p, substitute_stack))
+  while (!substitute_stack.is_empty ())
     {
-      rtx *where = VEC_pop (rtx_p, substitute_stack);
+      rtx *where = substitute_stack.pop ();
       *where = rld[r2].in;
     }
 
@@ -8872,8 +8868,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg, rtx new_reload_reg)
 	     since if they are the only uses, they are dead.  */
 	  if (set != 0 && SET_DEST (set) == reg)
 	    continue;
-	  if (LABEL_P (i2)
-	      || JUMP_P (i2))
+	  if (LABEL_P (i2) || JUMP_P (i2))
 	    break;
 	  if ((NONJUMP_INSN_P (i2) || CALL_P (i2))
 	      && reg_mentioned_p (reg, PATTERN (i2)))
@@ -8897,8 +8892,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg, rtx new_reload_reg)
 	      delete_address_reloads (i2, insn);
 	      delete_insn (i2);
 	    }
-	  if (LABEL_P (i2)
-	      || JUMP_P (i2))
+	  if (LABEL_P (i2) || JUMP_P (i2))
 	    break;
 	}
 

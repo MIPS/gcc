@@ -1,5 +1,5 @@
 /* Tail merging for gimple.
-   Copyright (C) 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
    Contributed by Tom de Vries (tom@codesourcery.com)
 
 This file is part of GCC.
@@ -176,6 +176,11 @@ along with GCC; see the file COPYING3.  If not see
    - handle blocks with gimple_reg phi_nodes.
 
 
+   PASS PLACEMENT
+   This 'pass' is not a stand-alone gimple pass, but runs as part of
+   pass_pre, in order to share the value numbering.
+
+
    SWITCHES
 
    - ftree-tail-merge.  On at -O2.  We may have to enable it only at -Os.  */
@@ -197,9 +202,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "tree-ssa-sccvn.h"
 #include "tree-dump.h"
-
-/* ??? This currently runs as part of tree-ssa-pre.  Why is this not
-   a stand-alone GIMPLE pass?  */
+#include "cfgloop.h"
 #include "tree-pass.h"
 
 /* Describes a group of bbs with the same successors.  The successor bbs are
@@ -219,7 +222,7 @@ struct same_succ_def
      bb.  */
   bitmap inverse;
   /* The edge flags for each of the successor bbs.  */
-  VEC (int, heap) *succ_flags;
+  vec<int> succ_flags;
   /* Indicates whether the struct is currently in the worklist.  */
   bool in_worklist;
   /* The hash value of the struct.  */
@@ -376,8 +379,8 @@ same_succ_print (FILE *file, const same_succ e)
   bitmap_print (file, e->succs, "succs:", "\n");
   bitmap_print (file, e->inverse, "inverse:", "\n");
   fprintf (file, "flags:");
-  for (i = 0; i < VEC_length (int, e->succ_flags); ++i)
-    fprintf (file, " %x", VEC_index (int, e->succ_flags, i));
+  for (i = 0; i < e->succ_flags.length (); ++i)
+    fprintf (file, " %x", e->succ_flags[i]);
   fprintf (file, "\n");
 }
 
@@ -476,9 +479,9 @@ same_succ_hash (const_same_succ e)
   hashval = iterative_hash_hashval_t (size, hashval);
   BB_SIZE (bb) = size;
 
-  for (i = 0; i < VEC_length (int, e->succ_flags); ++i)
+  for (i = 0; i < e->succ_flags.length (); ++i)
     {
-      flags = VEC_index (int, e->succ_flags, i);
+      flags = e->succ_flags[i];
       flags = flags & ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
       hashval = iterative_hash_hashval_t (flags, hashval);
     }
@@ -512,13 +515,13 @@ inverse_flags (const_same_succ e1, const_same_succ e2)
   int f1a, f1b, f2a, f2b;
   int mask = ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE);
 
-  if (VEC_length (int, e1->succ_flags) != 2)
+  if (e1->succ_flags.length () != 2)
     return false;
 
-  f1a = VEC_index (int, e1->succ_flags, 0);
-  f1b = VEC_index (int, e1->succ_flags, 1);
-  f2a = VEC_index (int, e2->succ_flags, 0);
-  f2b = VEC_index (int, e2->succ_flags, 1);
+  f1a = e1->succ_flags[0];
+  f1b = e1->succ_flags[1];
+  f2a = e2->succ_flags[0];
+  f2b = e2->succ_flags[1];
 
   if (f1a == f2a && f1b == f2b)
     return false;
@@ -539,7 +542,7 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
   if (e1->hashval != e2->hashval)
     return 0;
 
-  if (VEC_length (int, e1->succ_flags) != VEC_length (int, e2->succ_flags))
+  if (e1->succ_flags.length () != e2->succ_flags.length ())
     return 0;
 
   if (!bitmap_equal_p (e1->succs, e2->succs))
@@ -547,9 +550,8 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
 
   if (!inverse_flags (e1, e2))
     {
-      for (i = 0; i < VEC_length (int, e1->succ_flags); ++i)
-	if (VEC_index (int, e1->succ_flags, i)
-	    != VEC_index (int, e1->succ_flags, i))
+      for (i = 0; i < e1->succ_flags.length (); ++i)
+	if (e1->succ_flags[i] != e1->succ_flags[i])
 	  return 0;
     }
 
@@ -593,7 +595,7 @@ same_succ_alloc (void)
   same->bbs = BITMAP_ALLOC (NULL);
   same->succs = BITMAP_ALLOC (NULL);
   same->inverse = BITMAP_ALLOC (NULL);
-  same->succ_flags = VEC_alloc (int, heap, 10);
+  same->succ_flags.create (10);
   same->in_worklist = false;
 
   return same;
@@ -607,7 +609,7 @@ same_succ_def::remove (same_succ e)
   BITMAP_FREE (e->bbs);
   BITMAP_FREE (e->succs);
   BITMAP_FREE (e->inverse);
-  VEC_free (int, heap, e->succ_flags);
+  e->succ_flags.release ();
 
   XDELETE (e);
 }
@@ -620,7 +622,7 @@ same_succ_reset (same_succ same)
   bitmap_clear (same->bbs);
   bitmap_clear (same->succs);
   bitmap_clear (same->inverse);
-  VEC_truncate (int, same->succ_flags, 0);
+  same->succ_flags.truncate (0);
 }
 
 static hash_table <same_succ_def> same_succ_htab;
@@ -647,12 +649,10 @@ debug_same_succ ( void)
   same_succ_htab.traverse <FILE *, ssa_same_succ_print_traverse> (stderr);
 }
 
-DEF_VEC_P (same_succ);
-DEF_VEC_ALLOC_P (same_succ, heap);
 
 /* Vector of bbs to process.  */
 
-static VEC (same_succ, heap) *worklist;
+static vec<same_succ> worklist;
 
 /* Prints worklist to FILE.  */
 
@@ -660,8 +660,8 @@ static void
 print_worklist (FILE *file)
 {
   unsigned int i;
-  for (i = 0; i < VEC_length (same_succ, worklist); ++i)
-    same_succ_print (file, VEC_index (same_succ, worklist, i));
+  for (i = 0; i < worklist.length (); ++i)
+    same_succ_print (file, worklist[i]);
 }
 
 /* Adds SAME to worklist.  */
@@ -676,7 +676,7 @@ add_to_worklist (same_succ same)
     return;
 
   same->in_worklist = true;
-  VEC_safe_push (same_succ, heap, worklist, same);
+  worklist.safe_push (same);
 }
 
 /* Add BB to same_succ_htab.  */
@@ -691,7 +691,15 @@ find_same_succ_bb (basic_block bb, same_succ *same_p)
   edge_iterator ei;
   edge e;
 
-  if (bb == NULL)
+  if (bb == NULL
+      /* Be conservative with loop structure.  It's not evident that this test
+	 is sufficient.  Before tail-merge, we've just called
+	 loop_optimizer_finalize, and LOOPS_MAY_HAVE_MULTIPLE_LATCHES is now
+	 set, so there's no guarantee that the loop->latch value is still valid.
+	 But we assume that, since we've forced LOOPS_HAVE_SIMPLE_LATCHES at the
+	 start of pre, we've kept that property intact throughout pre, and are
+	 keeping it throughout tail-merge using this test.  */
+      || bb->loop_father->latch == bb)
     return;
   bitmap_set_bit (same->bbs, bb->index);
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -701,7 +709,7 @@ find_same_succ_bb (basic_block bb, same_succ *same_p)
       same_succ_edge_flags[index] = e->flags;
     }
   EXECUTE_IF_SET_IN_BITMAP (same->succs, 0, j, bj)
-    VEC_safe_push (int, heap, same->succ_flags, same_succ_edge_flags[j]);
+    same->succ_flags.safe_push (same_succ_edge_flags[j]);
 
   same->hashval = same_succ_hash (same);
 
@@ -752,7 +760,7 @@ init_worklist (void)
   same_succ_edge_flags = XCNEWVEC (int, last_basic_block);
   deleted_bbs = BITMAP_ALLOC (NULL);
   deleted_bb_preds = BITMAP_ALLOC (NULL);
-  worklist = VEC_alloc (same_succ, heap, n_basic_blocks);
+  worklist.create (n_basic_blocks);
   find_same_succ ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -773,7 +781,7 @@ delete_worklist (void)
   same_succ_edge_flags = NULL;
   BITMAP_FREE (deleted_bbs);
   BITMAP_FREE (deleted_bb_preds);
-  VEC_free (same_succ, heap, worklist);
+  worklist.release ();
 }
 
 /* Mark BB as deleted, and mark its predecessors.  */
@@ -970,19 +978,17 @@ delete_cluster (bb_cluster c)
   XDELETE (c);
 }
 
-DEF_VEC_P (bb_cluster);
-DEF_VEC_ALLOC_P (bb_cluster, heap);
 
 /* Array that contains all clusters.  */
 
-static VEC (bb_cluster, heap) *all_clusters;
+static vec<bb_cluster> all_clusters;
 
 /* Allocate all cluster vectors.  */
 
 static void
 alloc_cluster_vectors (void)
 {
-  all_clusters = VEC_alloc (bb_cluster, heap, n_basic_blocks);
+  all_clusters.create (n_basic_blocks);
 }
 
 /* Reset all cluster vectors.  */
@@ -992,9 +998,9 @@ reset_cluster_vectors (void)
 {
   unsigned int i;
   basic_block bb;
-  for (i = 0; i < VEC_length (bb_cluster, all_clusters); ++i)
-    delete_cluster (VEC_index (bb_cluster, all_clusters, i));
-  VEC_truncate (bb_cluster, all_clusters, 0);
+  for (i = 0; i < all_clusters.length (); ++i)
+    delete_cluster (all_clusters[i]);
+  all_clusters.truncate (0);
   FOR_EACH_BB (bb)
     BB_CLUSTER (bb) = NULL;
 }
@@ -1005,9 +1011,9 @@ static void
 delete_cluster_vectors (void)
 {
   unsigned int i;
-  for (i = 0; i < VEC_length (bb_cluster, all_clusters); ++i)
-    delete_cluster (VEC_index (bb_cluster, all_clusters, i));
-  VEC_free (bb_cluster, heap, all_clusters);
+  for (i = 0; i < all_clusters.length (); ++i)
+    delete_cluster (all_clusters[i]);
+  all_clusters.release ();
 }
 
 /* Merge cluster C2 into C1.  */
@@ -1035,8 +1041,8 @@ set_cluster (basic_block bb1, basic_block bb2)
       add_bb_to_cluster (c, bb2);
       BB_CLUSTER (bb1) = c;
       BB_CLUSTER (bb2) = c;
-      c->index = VEC_length (bb_cluster, all_clusters);
-      VEC_safe_push (bb_cluster, heap, all_clusters, c);
+      c->index = all_clusters.length ();
+      all_clusters.safe_push (c);
     }
   else if (BB_CLUSTER (bb1) == NULL || BB_CLUSTER (bb2) == NULL)
     {
@@ -1056,7 +1062,7 @@ set_cluster (basic_block bb1, basic_block bb2)
       merge_clusters (merge, old);
       EXECUTE_IF_SET_IN_BITMAP (old->bbs, 0, i, bi)
 	BB_CLUSTER (BASIC_BLOCK (i)) = merge;
-      VEC_replace (bb_cluster, all_clusters, old->index, NULL);
+      all_clusters[old->index] = NULL;
       update_rep_bb (merge, old->rep_bb);
       delete_cluster (old);
     }
@@ -1124,17 +1130,14 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
     case GIMPLE_ASSIGN:
       lhs1 = gimple_get_lhs (s1);
       lhs2 = gimple_get_lhs (s2);
-      if (gimple_vdef (s1))
-	{
-	  if (vn_valueize (gimple_vdef (s1)) != vn_valueize (gimple_vdef (s2)))
-	    return false;
-	  if (TREE_CODE (lhs1) != SSA_NAME
-	      && TREE_CODE (lhs2) != SSA_NAME)
-	    return true;
-	}
-      return (TREE_CODE (lhs1) == SSA_NAME
-	      && TREE_CODE (lhs2) == SSA_NAME
-	      && vn_valueize (lhs1) == vn_valueize (lhs2));
+      if (TREE_CODE (lhs1) != SSA_NAME
+	  && TREE_CODE (lhs2) != SSA_NAME)
+	return (vn_valueize (gimple_vdef (s1))
+		== vn_valueize (gimple_vdef (s2)));
+      else if (TREE_CODE (lhs1) == SSA_NAME
+	       && TREE_CODE (lhs2) == SSA_NAME)
+	return vn_valueize (lhs1) == vn_valueize (lhs2);
+      return false;
 
     case GIMPLE_COND:
       t1 = gimple_cond_lhs (s1);
@@ -1213,7 +1216,18 @@ find_duplicate (same_succ same_succ, basic_block bb1, basic_block bb2)
 
   while (!gsi_end_p (gsi1) && !gsi_end_p (gsi2))
     {
-      if (!gimple_equal_p (same_succ, gsi_stmt (gsi1), gsi_stmt (gsi2)))
+      gimple stmt1 = gsi_stmt (gsi1);
+      gimple stmt2 = gsi_stmt (gsi2);
+
+      if (!gimple_equal_p (same_succ, stmt1, stmt2))
+	return;
+
+      // We cannot tail-merge the builtins that end transactions.
+      // ??? The alternative being unsharing of BBs in the tm_init pass.
+      if (flag_tm
+	  && is_gimple_call (stmt1)
+	  && (gimple_call_flags (stmt1) & ECF_TM_BUILTIN)
+	  && is_tm_ending_fndecl (gimple_call_fndecl (stmt1)))
 	return;
 
       gsi_prev_nondebug (&gsi1);
@@ -1412,9 +1426,9 @@ find_clusters (void)
 {
   same_succ same;
 
-  while (!VEC_empty (same_succ, worklist))
+  while (!worklist.is_empty ())
     {
-      same = VEC_pop (same_succ, worklist);
+      same = worklist.pop ();
       same->in_worklist = false;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -1477,7 +1491,8 @@ replace_block_by (basic_block bb1, basic_block bb2)
   bb2->frequency += bb1->frequency;
   if (bb2->frequency > BB_FREQ_MAX)
     bb2->frequency = BB_FREQ_MAX;
-  bb1->frequency = 0;
+
+  bb2->count += bb1->count;
 
   /* Do updates that use bb1, before deleting bb1.  */
   release_last_vdef (bb1);
@@ -1502,9 +1517,9 @@ apply_clusters (void)
   bitmap_iterator bj;
   int nr_bbs_removed = 0;
 
-  for (i = 0; i < VEC_length (bb_cluster, all_clusters); ++i)
+  for (i = 0; i < all_clusters.length (); ++i)
     {
-      c = VEC_index (bb_cluster, all_clusters, i);
+      c = all_clusters[i];
       if (c == NULL)
 	continue;
 
@@ -1596,7 +1611,19 @@ tail_merge_optimize (unsigned int todo)
   int iteration_nr = 0;
   int max_iterations = PARAM_VALUE (PARAM_MAX_TAIL_MERGE_ITERATIONS);
 
-  if (!flag_tree_tail_merge || max_iterations == 0)
+  if (!flag_tree_tail_merge
+      || max_iterations == 0
+      /* We try to be conservative with respect to loop structure, since:
+	 - the cases where tail-merging could both affect loop structure and be
+	   benificial are rare,
+	 - it prevents us from having to fixup the loops using
+	   loops_state_set (LOOPS_NEED_FIXUP), and
+	 - keeping loop structure may allow us to simplify the pass.
+	 In order to be conservative, we need loop information.	 In rare cases
+	 (about 7 test-cases in the g++ testsuite) there is none (because
+	 loop_optimizer_finalize has been called before tail-merge, and
+	 PROP_loops is not set), so we bail out.  */
+      || current_loops == NULL)
     return 0;
 
   timevar_push (TV_TREE_TAIL_MERGE);
@@ -1609,7 +1636,7 @@ tail_merge_optimize (unsigned int todo)
     }
   init_worklist ();
 
-  while (!VEC_empty (same_succ, worklist))
+  while (!worklist.is_empty ())
     {
       if (!loop_entered)
 	{
@@ -1625,8 +1652,8 @@ tail_merge_optimize (unsigned int todo)
 	fprintf (dump_file, "worklist iteration #%d\n", iteration_nr);
 
       find_clusters ();
-      gcc_assert (VEC_empty (same_succ, worklist));
-      if (VEC_empty (bb_cluster, all_clusters))
+      gcc_assert (worklist.is_empty ());
+      if (all_clusters.is_empty ())
 	break;
 
       nr_bbs_removed = apply_clusters ();

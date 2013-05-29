@@ -1,7 +1,5 @@
 /* Definitions for Toshiba Media Processor
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Red Hat, Inc.
 
 This file is part of GCC.
@@ -300,54 +298,54 @@ mep_option_override (void)
   unsigned int i;
   int j;
   cl_deferred_option *opt;
-  VEC(cl_deferred_option,heap) *vec
-    = (VEC(cl_deferred_option,heap) *) mep_deferred_options;
+  vec<cl_deferred_option> *v = (vec<cl_deferred_option> *) mep_deferred_options;
 
-  FOR_EACH_VEC_ELT (cl_deferred_option, vec, i, opt)
-    {
-      switch (opt->opt_index)
-	{
-	case OPT_mivc2:
-	  for (j = 0; j < 32; j++)
-	    fixed_regs[j + 48] = 0;
-	  for (j = 0; j < 32; j++)
-	    call_used_regs[j + 48] = 1;
-	  for (j = 6; j < 8; j++)
-	    call_used_regs[j + 48] = 0;
+  if (v)
+    FOR_EACH_VEC_ELT (*v, i, opt)
+      {
+	switch (opt->opt_index)
+	  {
+	  case OPT_mivc2:
+	    for (j = 0; j < 32; j++)
+	      fixed_regs[j + 48] = 0;
+	    for (j = 0; j < 32; j++)
+	      call_used_regs[j + 48] = 1;
+	    for (j = 6; j < 8; j++)
+	      call_used_regs[j + 48] = 0;
 
 #define RN(n,s) reg_names[FIRST_CCR_REGNO + n] = s
-	  RN (0, "$csar0");
-	  RN (1, "$cc");
-	  RN (4, "$cofr0");
-	  RN (5, "$cofr1");
-	  RN (6, "$cofa0");
-	  RN (7, "$cofa1");
-	  RN (15, "$csar1");
+	    RN (0, "$csar0");
+	    RN (1, "$cc");
+	    RN (4, "$cofr0");
+	    RN (5, "$cofr1");
+	    RN (6, "$cofa0");
+	    RN (7, "$cofa1");
+	    RN (15, "$csar1");
 
-	  RN (16, "$acc0_0");
-	  RN (17, "$acc0_1");
-	  RN (18, "$acc0_2");
-	  RN (19, "$acc0_3");
-	  RN (20, "$acc0_4");
-	  RN (21, "$acc0_5");
-	  RN (22, "$acc0_6");
-	  RN (23, "$acc0_7");
+	    RN (16, "$acc0_0");
+	    RN (17, "$acc0_1");
+	    RN (18, "$acc0_2");
+	    RN (19, "$acc0_3");
+	    RN (20, "$acc0_4");
+	    RN (21, "$acc0_5");
+	    RN (22, "$acc0_6");
+	    RN (23, "$acc0_7");
 
-	  RN (24, "$acc1_0");
-	  RN (25, "$acc1_1");
-	  RN (26, "$acc1_2");
-	  RN (27, "$acc1_3");
-	  RN (28, "$acc1_4");
-	  RN (29, "$acc1_5");
-	  RN (30, "$acc1_6");
-	  RN (31, "$acc1_7");
+	    RN (24, "$acc1_0");
+	    RN (25, "$acc1_1");
+	    RN (26, "$acc1_2");
+	    RN (27, "$acc1_3");
+	    RN (28, "$acc1_4");
+	    RN (29, "$acc1_5");
+	    RN (30, "$acc1_6");
+	    RN (31, "$acc1_7");
 #undef RN
-	  break;
+	    break;
 
-	default:
-	  gcc_unreachable ();
-	}
-    }
+	  default:
+	    gcc_unreachable ();
+	  }
+      }
 
   if (flag_pic == 1)
     warning (OPT_fpic, "-fpic is not supported");
@@ -4884,7 +4882,7 @@ mep_reorg_regmove (rtx insns)
 
   if (dump_file)
     for (insn = insns; insn; insn = NEXT_INSN (insn))
-      if (GET_CODE (insn) == INSN)
+      if (NONJUMP_INSN_P (insn))
 	before++;
 
   /* We're looking for (set r2 r1) moves where r1 dies, followed by a
@@ -4898,7 +4896,7 @@ mep_reorg_regmove (rtx insns)
       for (insn = insns; insn; insn = next)
 	{
 	  next = next_nonnote_nondebug_insn (insn);
-	  if (GET_CODE (insn) != INSN)
+	  if (! NONJUMP_INSN_P (insn))
 	    continue;
 	  pat = PATTERN (insn);
 
@@ -4914,7 +4912,7 @@ mep_reorg_regmove (rtx insns)
 	      if (dump_file)
 		fprintf (dump_file, "superfluous moves: considering %d\n", INSN_UID (insn));
 
-	      while (follow && GET_CODE (follow) == INSN
+	      while (follow && NONJUMP_INSN_P (follow)
 		     && GET_CODE (PATTERN (follow)) == SET
 		     && !dead_or_set_p (follow, SET_SRC (pat))
 		     && !mep_mentioned_p (PATTERN (follow), SET_SRC (pat), 0)
@@ -4927,7 +4925,7 @@ mep_reorg_regmove (rtx insns)
 
 	      if (dump_file)
 		fprintf (dump_file, "\tfollow is %d\n", INSN_UID (follow));
-	      if (follow && GET_CODE (follow) == INSN
+	      if (follow && NONJUMP_INSN_P (follow)
 		  && GET_CODE (PATTERN (follow)) == SET
 		  && find_regno_note (follow, REG_DEAD, REGNO (SET_DEST (pat))))
 		{
@@ -5513,7 +5511,6 @@ mep_reorg_erepeat (rtx insns)
 
   for (insn = insns; insn; insn = NEXT_INSN (insn))
     if (JUMP_P (insn)
-	&& ! JUMP_TABLE_DATA_P (insn)
 	&& mep_invertable_branch_p (insn))
       {
 	if (dump_file)
@@ -5525,8 +5522,7 @@ mep_reorg_erepeat (rtx insns)
 	count = simplejump_p (insn) ? 0 : 1;
 	for (prev = PREV_INSN (insn); prev; prev = PREV_INSN (prev))
 	  {
-	    if (GET_CODE (prev) == CALL_INSN
-		|| BARRIER_P (prev))
+	    if (CALL_P (prev) || BARRIER_P (prev))
 	      break;
 
 	    if (prev == JUMP_LABEL (insn))
@@ -5545,10 +5541,10 @@ mep_reorg_erepeat (rtx insns)
 		       *after* the label.  */
 		    rtx barrier;
 		    for (barrier = PREV_INSN (prev);
-			 barrier && GET_CODE (barrier) == NOTE;
+			 barrier && NOTE_P (barrier);
 			 barrier = PREV_INSN (barrier))
 		      ;
-		    if (barrier && GET_CODE (barrier) != BARRIER)
+		    if (barrier && ! BARRIER_P (barrier))
 		      break;
 		  }
 		else
@@ -5592,10 +5588,9 @@ mep_reorg_erepeat (rtx insns)
 		if (LABEL_NUSES (prev) == 1)
 		  {
 		    for (user = PREV_INSN (prev);
-			 user && (INSN_P (user) || GET_CODE (user) == NOTE);
+			 user && (INSN_P (user) || NOTE_P (user));
 			 user = PREV_INSN (user))
-		      if (GET_CODE (user) == JUMP_INSN
-			  && JUMP_LABEL (user) == prev)
+		      if (JUMP_P (user) && JUMP_LABEL (user) == prev)
 			{
 			  safe = INSN_UID (user);
 			  break;
@@ -5633,8 +5628,8 @@ mep_jmp_return_reorg (rtx insns)
       /* Find the fist real insn the jump jumps to.  */
       label = ret = JUMP_LABEL (insn);
       while (ret
-	     && (GET_CODE (ret) == NOTE
-		 || GET_CODE (ret) == CODE_LABEL
+	     && (NOTE_P (ret)
+		 || LABEL_P (ret)
 		 || GET_CODE (PATTERN (ret)) == USE))
 	ret = NEXT_INSN (ret);
 
@@ -7020,7 +7015,7 @@ mep_bundle_insns (rtx insns)
       if (recog_memoized (insn) >= 0
 	  && get_attr_slot (insn) == SLOT_COP)
 	{
-	  if (GET_CODE (insn) == JUMP_INSN
+	  if (JUMP_P (insn)
 	      || ! last
 	      || recog_memoized (last) < 0
 	      || get_attr_slot (last) != SLOT_CORE

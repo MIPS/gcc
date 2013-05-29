@@ -1,6 +1,6 @@
 /* Write the GIMPLE representation to a file stream.
 
-   Copyright 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    Re-implemented by Diego Novillo <dnovillo@google.com>
 
@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-streamer.h"
 #include "tree-streamer.h"
 #include "streamer-hooks.h"
+#include "cfgloop.h"
 
 
 /* Clear the line info stored in DATA_IN.  */
@@ -77,8 +78,7 @@ create_output_block (enum lto_section_type section_type)
 
   clear_line_info (ob);
 
-  ob->string_hash_table = htab_create (37, hash_string_slot_node,
-				       eq_string_slot_node, NULL);
+  ob->string_hash_table.create (37);
   gcc_obstack_init (&ob->obstack);
 
   return ob;
@@ -92,7 +92,7 @@ destroy_output_block (struct output_block *ob)
 {
   enum lto_section_type section_type = ob->section_type;
 
-  htab_delete (ob->string_hash_table);
+  ob->string_hash_table.dispose ();
 
   free (ob->main_stream);
   free (ob->string_stream);
@@ -162,6 +162,9 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
   xloc = expand_location (loc);
 
   bp_pack_value (bp, ob->current_file != xloc.file, 1);
+  bp_pack_value (bp, ob->current_line != xloc.line, 1);
+  bp_pack_value (bp, ob->current_col != xloc.column, 1);
+
   if (ob->current_file != xloc.file)
     bp_pack_var_len_unsigned (bp,
 	                      streamer_string_index (ob, xloc.file,
@@ -169,12 +172,10 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
 						     true));
   ob->current_file = xloc.file;
 
-  bp_pack_value (bp, ob->current_line != xloc.line, 1);
   if (ob->current_line != xloc.line)
     bp_pack_var_len_unsigned (bp, xloc.line);
   ob->current_line = xloc.line;
 
-  bp_pack_value (bp, ob->current_col != xloc.column, 1);
   if (ob->current_col != xloc.column)
     bp_pack_var_len_unsigned (bp, xloc.column);
   ob->current_col = xloc.column;
@@ -328,6 +329,7 @@ lto_write_tree (struct output_block *ob, tree expr, bool ref_p)
       tree initial = DECL_INITIAL (expr);
       if (TREE_CODE (expr) == VAR_DECL
 	  && (TREE_STATIC (expr) || DECL_EXTERNAL (expr))
+	  && !DECL_IN_CONSTANT_POOL (expr)
 	  && initial)
 	{
 	  lto_symtab_encoder_t encoder;
@@ -543,35 +545,33 @@ output_eh_regions (struct output_block *ob, struct function *fn)
       streamer_write_hwi (ob, fn->eh->region_tree->index);
 
       /* Emit all the EH regions in the region array.  */
-      streamer_write_hwi (ob, VEC_length (eh_region, fn->eh->region_array));
-      FOR_EACH_VEC_ELT (eh_region, fn->eh->region_array, i, eh)
+      streamer_write_hwi (ob, vec_safe_length (fn->eh->region_array));
+      FOR_EACH_VEC_SAFE_ELT (fn->eh->region_array, i, eh)
 	output_eh_region (ob, eh);
 
       /* Emit all landing pads.  */
-      streamer_write_hwi (ob, VEC_length (eh_landing_pad, fn->eh->lp_array));
-      FOR_EACH_VEC_ELT (eh_landing_pad, fn->eh->lp_array, i, lp)
+      streamer_write_hwi (ob, vec_safe_length (fn->eh->lp_array));
+      FOR_EACH_VEC_SAFE_ELT (fn->eh->lp_array, i, lp)
 	output_eh_lp (ob, lp);
 
       /* Emit all the runtime type data.  */
-      streamer_write_hwi (ob, VEC_length (tree, fn->eh->ttype_data));
-      FOR_EACH_VEC_ELT (tree, fn->eh->ttype_data, i, ttype)
+      streamer_write_hwi (ob, vec_safe_length (fn->eh->ttype_data));
+      FOR_EACH_VEC_SAFE_ELT (fn->eh->ttype_data, i, ttype)
 	stream_write_tree (ob, ttype, true);
 
       /* Emit the table of action chains.  */
       if (targetm.arm_eabi_unwinder)
 	{
 	  tree t;
-	  streamer_write_hwi (ob, VEC_length (tree,
-				              fn->eh->ehspec_data.arm_eabi));
-	  FOR_EACH_VEC_ELT (tree, fn->eh->ehspec_data.arm_eabi, i, t)
+	  streamer_write_hwi (ob, vec_safe_length (fn->eh->ehspec_data.arm_eabi));
+	  FOR_EACH_VEC_SAFE_ELT (fn->eh->ehspec_data.arm_eabi, i, t)
 	    stream_write_tree (ob, t, true);
 	}
       else
 	{
 	  uchar c;
-	  streamer_write_hwi (ob, VEC_length (uchar,
-				              fn->eh->ehspec_data.other));
-	  FOR_EACH_VEC_ELT (uchar, fn->eh->ehspec_data.other, i, c)
+	  streamer_write_hwi (ob, vec_safe_length (fn->eh->ehspec_data.other));
+	  FOR_EACH_VEC_SAFE_ELT (fn->eh->ehspec_data.other, i, c)
 	    streamer_write_char_stream (ob->main_stream, c);
 	}
     }
@@ -589,12 +589,12 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 {
   unsigned int i, len;
 
-  len = VEC_length (tree, SSANAMES (fn));
+  len = vec_safe_length (SSANAMES (fn));
   streamer_write_uhwi (ob, len);
 
   for (i = 1; i < len; i++)
     {
-      tree ptr = VEC_index (tree, SSANAMES (fn), i);
+      tree ptr = (*SSANAMES (fn))[i];
 
       if (ptr == NULL_TREE
 	  || SSA_NAME_IN_FREE_LIST (ptr)
@@ -644,7 +644,7 @@ output_cfg (struct output_block *ob, struct function *fn)
 	{
 	  streamer_write_uhwi (ob, e->dest->index);
 	  streamer_write_hwi (ob, e->probability);
-	  streamer_write_hwi (ob, e->count);
+	  streamer_write_gcov_count (ob, e->count);
 	  streamer_write_uhwi (ob, e->flags);
 	}
     }
@@ -659,6 +659,45 @@ output_cfg (struct output_block *ob, struct function *fn)
     }
 
   streamer_write_hwi (ob, -1);
+
+  /* ???  The cfgloop interface is tied to cfun.  */
+  gcc_assert (cfun == fn);
+
+  /* Output the number of loops.  */
+  streamer_write_uhwi (ob, number_of_loops (fn));
+
+  /* Output each loop, skipping the tree root which has number zero.  */
+  for (unsigned i = 1; i < number_of_loops (fn); ++i)
+    {
+      struct loop *loop = get_loop (fn, i);
+
+      /* Write the index of the loop header.  That's enough to rebuild
+         the loop tree on the reader side.  Stream -1 for an unused
+	 loop entry.  */
+      if (!loop)
+	{
+	  streamer_write_hwi (ob, -1);
+	  continue;
+	}
+      else
+	streamer_write_hwi (ob, loop->header->index);
+
+      /* Write everything copy_loop_info copies.  */
+      streamer_write_enum (ob->main_stream,
+			   loop_estimation, EST_LAST, loop->estimate_state);
+      streamer_write_hwi (ob, loop->any_upper_bound);
+      if (loop->any_upper_bound)
+	{
+	  streamer_write_uhwi (ob, loop->nb_iterations_upper_bound.low);
+	  streamer_write_hwi (ob, loop->nb_iterations_upper_bound.high);
+	}
+      streamer_write_hwi (ob, loop->any_estimate);
+      if (loop->any_estimate)
+	{
+	  streamer_write_uhwi (ob, loop->nb_iterations_estimate.low);
+	  streamer_write_hwi (ob, loop->nb_iterations_estimate.high);
+	}
+    }
 
   ob->main_stream = tmp_stream;
 }
@@ -730,8 +769,8 @@ output_struct_function_base (struct output_block *ob, struct function *fn)
   stream_write_tree (ob, fn->nonlocal_goto_save_area, true);
 
   /* Output all the local variables in the function.  */
-  streamer_write_hwi (ob, VEC_length (tree, fn->local_decls));
-  FOR_EACH_VEC_ELT (tree, fn->local_decls, i, t)
+  streamer_write_hwi (ob, vec_safe_length (fn->local_decls));
+  FOR_EACH_VEC_SAFE_ELT (fn->local_decls, i, t)
     stream_write_tree (ob, t, true);
 
   /* Output current IL state of the function.  */
@@ -940,7 +979,7 @@ copy_function (struct cgraph_node *node)
 	 must be empty where we reach here. */
       gcc_assert (lto_tree_ref_encoder_size (encoder) == 0);
       for (j = 0; j < n; j++)
-	VEC_safe_push (tree, heap, encoder->trees, trees[j]);
+	encoder->trees.safe_push (trees[j]);
       encoder->next_index = n;
     }
 
@@ -974,7 +1013,7 @@ lto_output (void)
       cgraph_node *node = dyn_cast <cgraph_node> (snode);
       if (node
 	  && lto_symtab_encoder_encode_body_p (encoder, node)
-	  && !node->alias
+	  && !node->symbol.alias
 	  && !node->thunk.thunk_p)
 	{
 #ifdef ENABLE_CHECKING
@@ -1009,6 +1048,7 @@ struct ipa_opt_pass_d pass_ipa_lto_gimple_out =
  {
   IPA_PASS,
   "lto_gimple_out",	                /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_lto_out,			        /* gate */
   NULL,		                	/* execute */
   NULL,					/* sub */
@@ -1165,7 +1205,8 @@ write_symbol (struct streamer_tree_cache_d *cache,
   if (!TREE_PUBLIC (t)
       || is_builtin_fn (t)
       || DECL_ABSTRACT (t)
-      || TREE_CODE (t) == RESULT_DECL)
+      || TREE_CODE (t) == RESULT_DECL
+      || (TREE_CODE (t) == VAR_DECL && DECL_HARD_REGISTER (t)))
     return;
 
   gcc_assert (TREE_CODE (t) == VAR_DECL
@@ -1202,10 +1243,10 @@ write_symbol (struct streamer_tree_cache_d *cache,
 
       /* When something is defined, it should have node attached.  */
       gcc_assert (alias || TREE_CODE (t) != VAR_DECL
-		  || varpool_get_node (t)->finalized);
+		  || varpool_get_node (t)->symbol.definition);
       gcc_assert (alias || TREE_CODE (t) != FUNCTION_DECL
 		  || (cgraph_get_node (t)
-		      && cgraph_get_node (t)->analyzed));
+		      && cgraph_get_node (t)->symbol.definition));
     }
 
   /* Imitate what default_elf_asm_output_external do.
@@ -1257,6 +1298,45 @@ write_symbol (struct streamer_tree_cache_d *cache,
   lto_output_data_stream (stream, &slot_num, 4);
 }
 
+/* Return true if NODE should appear in the plugin symbol table.  */
+
+bool
+output_symbol_p (symtab_node node)
+{
+  struct cgraph_node *cnode;
+  if (!symtab_real_symbol_p (node))
+    return false;
+  /* We keep external functions in symtab for sake of inlining
+     and devirtualization.  We do not want to see them in symbol table as
+     references unless they are really used.  */
+  cnode = dyn_cast <cgraph_node> (node);
+  if (cnode && DECL_EXTERNAL (cnode->symbol.decl)
+      && cnode->callers)
+    return true;
+
+ /* Ignore all references from external vars initializers - they are not really
+    part of the compilation unit until they are used by folding.  Some symbols,
+    like references to external construction vtables can not be referred to at all.
+    We decide this at can_refer_decl_in_current_unit_p.  */
+ if (DECL_EXTERNAL (node->symbol.decl))
+    {
+      int i;
+      struct ipa_ref *ref;
+      for (i = 0; ipa_ref_list_referring_iterate (&node->symbol.ref_list,
+					          i, ref); i++)
+	{
+	  if (ref->use == IPA_REF_ALIAS)
+	    continue;
+          if (is_a <cgraph_node> (ref->referring))
+	    return true;
+	  if (!DECL_EXTERNAL (ref->referring->symbol.decl))
+	    return true;
+	}
+      return false;
+    }
+  return true;
+}
+
 
 /* Write an IL symbol table to OB.
    SET and VSET are cgraph/varpool node sets we are outputting.  */
@@ -1285,7 +1365,7 @@ produce_symtab (struct output_block *ob)
     {
       symtab_node node = lsei_node (lsei);
 
-      if (!symtab_real_symbol_p (node) || DECL_EXTERNAL (node->symbol.decl))
+      if (!output_symbol_p (node) || DECL_EXTERNAL (node->symbol.decl))
 	continue;
       write_symbol (cache, &stream, node->symbol.decl, seen, false);
     }
@@ -1294,7 +1374,7 @@ produce_symtab (struct output_block *ob)
     {
       symtab_node node = lsei_node (lsei);
 
-      if (!symtab_real_symbol_p (node) || !DECL_EXTERNAL (node->symbol.decl))
+      if (!output_symbol_p (node) || !DECL_EXTERNAL (node->symbol.decl))
 	continue;
       write_symbol (cache, &stream, node->symbol.decl, seen, false);
     }
@@ -1341,12 +1421,12 @@ produce_asm_for_decls (void)
 
   /* Write the global symbols.  */
   out_state = lto_get_out_decl_state ();
-  num_fns = VEC_length (lto_out_decl_state_ptr, lto_function_decl_states);
+  num_fns = lto_function_decl_states.length ();
   lto_output_decl_state_streams (ob, out_state);
   for (idx = 0; idx < num_fns; idx++)
     {
       fn_out_state =
-	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
+	lto_function_decl_states[idx];
       lto_output_decl_state_streams (ob, fn_out_state);
     }
 
@@ -1363,7 +1443,7 @@ produce_asm_for_decls (void)
   for (idx = 0; idx < num_fns; idx++)
     {
       fn_out_state =
-	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
+	lto_function_decl_states[idx];
       decl_state_size += lto_out_decl_state_written_size (fn_out_state);
     }
   header.decl_state_size = decl_state_size;
@@ -1386,7 +1466,7 @@ produce_asm_for_decls (void)
   for (idx = 0; idx < num_fns; idx++)
     {
       fn_out_state =
-	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
+	lto_function_decl_states[idx];
       lto_output_decl_state_refs (ob, decl_state_stream, fn_out_state);
     }
   lto_write_stream (decl_state_stream);
@@ -1409,12 +1489,11 @@ produce_asm_for_decls (void)
   for (idx = 0; idx < num_fns; idx++)
     {
       fn_out_state =
-	VEC_index (lto_out_decl_state_ptr, lto_function_decl_states, idx);
+	lto_function_decl_states[idx];
       lto_delete_out_decl_state (fn_out_state);
     }
   lto_symtab_encoder_delete (ob->decl_state->symtab_node_encoder);
-  VEC_free (lto_out_decl_state_ptr, heap, lto_function_decl_states);
-  lto_function_decl_states = NULL;
+  lto_function_decl_states.release ();
   destroy_output_block (ob);
 }
 
@@ -1424,6 +1503,7 @@ struct ipa_opt_pass_d pass_ipa_lto_finish_out =
  {
   IPA_PASS,
   "lto_decls_out",	                /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_lto_out,			        /* gate */
   NULL,        	                        /* execute */
   NULL,					/* sub */

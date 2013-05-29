@@ -1,6 +1,5 @@
 /* IPA reference lists.
-   Copyright (C) 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -48,19 +47,15 @@ struct GTY(()) ipa_ref
 typedef struct ipa_ref ipa_ref_t;
 typedef struct ipa_ref *ipa_ref_ptr;
 
-DEF_VEC_O(ipa_ref_t);
-DEF_VEC_ALLOC_O(ipa_ref_t,gc);
-DEF_VEC_P(ipa_ref_ptr);
-DEF_VEC_ALLOC_P(ipa_ref_ptr,heap);
 
 /* List of references.  This is stored in both callgraph and varpool nodes.  */
 struct GTY(()) ipa_ref_list
 {
   /* Store actual references in references vector.  */
-  VEC(ipa_ref_t,gc) *references;
+  vec<ipa_ref_t, va_gc> *references;
   /* Referring is vector of pointers to references.  It must not live in GGC space
      or GGC will try to mark middle of references vectors.  */
-  VEC(ipa_ref_ptr,heap) * GTY((skip)) referring;
+  vec<ipa_ref_ptr>  GTY((skip)) referring;
 };
 
 struct ipa_ref * ipa_record_reference (symtab_node,
@@ -76,3 +71,5 @@ void ipa_clone_references (symtab_node, struct ipa_ref_list *);
 void ipa_clone_referring (symtab_node, struct ipa_ref_list *);
 bool ipa_ref_cannot_lead_to_return (struct ipa_ref *);
 bool ipa_ref_has_aliases_p (struct ipa_ref_list *);
+struct ipa_ref * ipa_find_reference (symtab_node, symtab_node, gimple);
+void ipa_remove_stmt_references (symtab_node, gimple);

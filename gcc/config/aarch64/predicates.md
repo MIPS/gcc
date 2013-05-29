@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -31,16 +31,22 @@
        (ior (match_operand 0 "register_operand")
 	    (match_test "op == const0_rtx"))))
 
-(define_predicate "aarch64_reg_zero_or_m1"
+(define_predicate "aarch64_reg_or_fp_zero"
+  (and (match_code "reg,subreg,const_double")
+       (ior (match_operand 0 "register_operand")
+	    (match_test "aarch64_float_const_zero_rtx_p (op)"))))
+
+(define_predicate "aarch64_reg_zero_or_m1_or_1"
   (and (match_code "reg,subreg,const_int")
        (ior (match_operand 0 "register_operand")
 	    (ior (match_test "op == const0_rtx")
-		 (match_test "op == constm1_rtx")))))
+		 (ior (match_test "op == constm1_rtx")
+		      (match_test "op == const1_rtx"))))))
 
 (define_predicate "aarch64_fp_compare_operand"
   (ior (match_operand 0 "register_operand")
        (and (match_code "const_double")
-	    (match_test "aarch64_const_double_zero_rtx_p (op)"))))
+	    (match_test "aarch64_float_const_zero_rtx_p (op)"))))
 
 (define_predicate "aarch64_plus_immediate"
   (and (match_code "const_int")
@@ -109,10 +115,6 @@
        (match_test "aarch64_legitimate_address_p (mode, XEXP (op, 0), PARALLEL,
 					       0)")))
 
-(define_predicate "aarch64_const_address"
-  (and (match_code "symbol_ref")
-       (match_test "mode == DImode && CONSTANT_ADDRESS_P (op)")))
-
 (define_predicate "aarch64_valid_symref"
   (match_code "const, symbol_ref, label_ref")
 {
@@ -164,15 +166,10 @@
 })
 
 (define_predicate "aarch64_mov_operand"
-  (and (match_code "reg,subreg,mem,const_int,symbol_ref,high")
+  (and (match_code "reg,subreg,mem,const,const_int,symbol_ref,label_ref,high")
        (ior (match_operand 0 "register_operand")
 	    (ior (match_operand 0 "memory_operand")
-		 (ior (match_test "GET_CODE (op) == HIGH
-				   && aarch64_valid_symref (XEXP (op, 0),
-							    GET_MODE (XEXP (op, 0)))")
-		      (ior (match_test "CONST_INT_P (op)
-					&& aarch64_move_imm (INTVAL (op), mode)")
-			   (match_test "aarch64_const_address (op, mode)")))))))
+		 (match_test "aarch64_mov_operand_p (op, SYMBOL_CONTEXT_ADR, mode)")))))
 
 (define_predicate "aarch64_movti_operand"
   (and (match_code "reg,subreg,mem,const_int")

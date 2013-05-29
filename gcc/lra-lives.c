@@ -1,6 +1,5 @@
 /* Build live ranges for pseudos.
-   Copyright (C) 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -382,7 +381,7 @@ bb_has_abnormal_call_pred (basic_block bb)
 }
 
 /* Vec containing execution frequencies of program points.  */
-static VEC(int,heap) *point_freq_vec;
+static vec<int> point_freq_vec;
 
 /* The start of the above vector elements.  */
 int *lra_point_freq;
@@ -392,8 +391,8 @@ int *lra_point_freq;
 static void
 next_program_point (int &point, int freq)
 {
-  VEC_safe_push (int, heap, point_freq_vec, freq);
-  lra_point_freq = VEC_address (int, point_freq_vec);
+  point_freq_vec.safe_push (freq);
+  lra_point_freq = point_freq_vec.address ();
   point++;
 }
 
@@ -780,8 +779,8 @@ remove_some_program_points_and_update_live_ranges (void)
       for (r = lra_reg_info[i].live_ranges; r != NULL; r = r->next)
 	{
 	  lra_assert (r->start <= r->finish);
-	  SET_BIT (born, r->start);
-	  SET_BIT (dead, r->finish);
+	  bitmap_set_bit (born, r->start);
+	  bitmap_set_bit (dead, r->finish);
 	}
     }
   born_or_dead = sbitmap_alloc (lra_live_max_point);
@@ -789,10 +788,10 @@ remove_some_program_points_and_update_live_ranges (void)
   map = XCNEWVEC (int, lra_live_max_point);
   n = -1;
   prev_born_p = prev_dead_p = false;
-  EXECUTE_IF_SET_IN_SBITMAP (born_or_dead, 0, i, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (born_or_dead, 0, i, sbi)
     {
-      born_p = TEST_BIT (born, i);
-      dead_p = TEST_BIT (dead, i);
+      born_p = bitmap_bit_p (born, i);
+      dead_p = bitmap_bit_p (dead, i);
       if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
 	  || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
 	{
@@ -847,6 +846,21 @@ lra_print_live_range_list (FILE *f, lra_live_range_t r)
   for (; r != NULL; r = r->next)
     fprintf (f, " [%d..%d]", r->start, r->finish);
   fprintf (f, "\n");
+}
+
+DEBUG_FUNCTION void
+debug (lra_live_range &ref)
+{
+  lra_print_live_range_list (stderr, &ref);
+}
+
+DEBUG_FUNCTION void
+debug (lra_live_range *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
 }
 
 /* Print live ranges R to stderr.  */
@@ -915,6 +929,7 @@ lra_create_live_ranges (bool all_p)
   basic_block bb;
   int i, hard_regno, max_regno = max_reg_num ();
   int curr_point;
+  bool have_referenced_pseudos = false;
 
   timevar_push (TV_LRA_CREATE_LIVE_RANGES);
 
@@ -935,6 +950,10 @@ lra_create_live_ranges (bool all_p)
 #ifdef STACK_REGS
       lra_reg_info[i].no_stack_p = false;
 #endif
+      /* The biggest mode is already set but its value might be to
+	 conservative because of recent transformation.  Here in this
+	 file we recalculate it again as it costs practically
+	 nothing.  */
       if (regno_reg_rtx[i] != NULL_RTX)
 	lra_reg_info[i].biggest_mode = GET_MODE (regno_reg_rtx[i]);
       else
@@ -943,10 +962,24 @@ lra_create_live_ranges (bool all_p)
       lra_reg_info[i].call_p = false;
 #endif
       if (i >= FIRST_PSEUDO_REGISTER
-	  && lra_reg_info[i].nrefs != 0 && (hard_regno = reg_renumber[i]) >= 0)
-	lra_hard_reg_usage[hard_regno] += lra_reg_info[i].freq;
+	  && lra_reg_info[i].nrefs != 0)
+	{
+	  if ((hard_regno = reg_renumber[i]) >= 0)
+	    lra_hard_reg_usage[hard_regno] += lra_reg_info[i].freq;
+	  have_referenced_pseudos = true;
+	}
     }
   lra_free_copies ();
+ 
+  /* Under some circumstances, we can have functions without pseudo
+     registers.  For such functions, lra_live_max_point will be 0,
+     see e.g. PR55604, and there's nothing more to do for us here.  */
+  if (! have_referenced_pseudos)
+    {
+      timevar_pop (TV_LRA_CREATE_LIVE_RANGES);
+      return;
+    }
+
   pseudos_live = sparseset_alloc (max_regno);
   pseudos_live_through_calls = sparseset_alloc (max_regno);
   pseudos_live_through_setjumps = sparseset_alloc (max_regno);
@@ -955,8 +988,8 @@ lra_create_live_ranges (bool all_p)
   dead_set = sparseset_alloc (max_regno);
   unused_set = sparseset_alloc (max_regno);
   curr_point = 0;
-  point_freq_vec = VEC_alloc (int, heap, get_max_uid () * 2);
-  lra_point_freq = VEC_address (int, point_freq_vec);
+  point_freq_vec.create (get_max_uid () * 2);
+  lra_point_freq = point_freq_vec.address ();
   int *post_order_rev_cfg = XNEWVEC (int, last_basic_block);
   int n_blocks_inverted = inverted_post_order_compute (post_order_rev_cfg);
   lra_assert (n_blocks_inverted == n_basic_blocks);
@@ -969,6 +1002,7 @@ lra_create_live_ranges (bool all_p)
     }
   free (post_order_rev_cfg);
   lra_live_max_point = curr_point;
+  gcc_checking_assert (lra_live_max_point > 0);
   if (lra_dump_file != NULL)
     print_live_ranges (lra_dump_file);
   /* Clean up.	*/
@@ -991,7 +1025,7 @@ lra_clear_live_ranges (void)
 
   for (i = 0; i < max_reg_num (); i++)
     free_live_range_list (lra_reg_info[i].live_ranges);
-  VEC_free (int, heap, point_freq_vec);
+  point_freq_vec.release ();
 }
 
 /* Initialize live ranges data once per function.  */

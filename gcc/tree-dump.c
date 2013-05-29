@@ -1,6 +1,5 @@
 /* Tree-dumping functionality for intermediate representation.
-   Copyright (C) 1999, 2000, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1999-2013 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>
 
 This file is part of GCC.
@@ -29,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dump.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
+#include "tree-pretty-print.h"
 
 static unsigned int queue (dump_info_p, const_tree, int);
 static void dump_index (dump_info_p, unsigned int);
@@ -177,7 +177,8 @@ void
 dump_pointer (dump_info_p di, const char *field, void *ptr)
 {
   dump_maybe_newline (di);
-  fprintf (di->stream, "%-4s: %-8lx ", field, (unsigned long) ptr);
+  fprintf (di->stream, "%-4s: %-8" HOST_WIDE_INT_PRINT "x ", field,
+	   (unsigned HOST_WIDE_INT) (uintptr_t) ptr);
   di->column += 15;
 }
 
@@ -290,7 +291,7 @@ dequeue_and_dump (dump_info_p di)
     {
       unsigned ix;
       tree base;
-      VEC(tree,gc) *accesses = BINFO_BASE_ACCESSES (t);
+      vec<tree, va_gc> *accesses = BINFO_BASE_ACCESSES (t);
 
       dump_child ("type", BINFO_TYPE (t));
 
@@ -300,8 +301,7 @@ dequeue_and_dump (dump_info_p di)
       dump_int (di, "bases", BINFO_N_BASE_BINFOS (t));
       for (ix = 0; BINFO_BASE_ITERATE (t, ix, base); ix++)
 	{
-	  tree access = (accesses ? VEC_index (tree, accesses, ix)
-			 : access_public_node);
+	  tree access = (accesses ? (*accesses)[ix] : access_public_node);
 	  const char *string = NULL;
 
 	  if (access == access_public_node)
@@ -649,8 +649,7 @@ dequeue_and_dump (dump_info_p di)
       {
 	unsigned HOST_WIDE_INT cnt;
 	tree index, value;
-	dump_int (di, "lngt", VEC_length (constructor_elt,
-					  CONSTRUCTOR_ELTS (t)));
+	dump_int (di, "lngt", vec_safe_length (CONSTRUCTOR_ELTS (t)));
 	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (t), cnt, index, value)
 	  {
 	    dump_child ("idx", index);

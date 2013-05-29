@@ -1,6 +1,5 @@
 /* IRA processing allocno lives to build allocno live ranges.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -779,22 +778,16 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
 	  break;
 
 	case 'n':
-	  if (CONST_INT_P (op)
-	      || CONST_DOUBLE_AS_INT_P (op)
-	      || (equiv_const != NULL_RTX
-		  && (CONST_INT_P (equiv_const)
-		      || CONST_DOUBLE_AS_INT_P (equiv_const))))
+	  if (CONST_SCALAR_INT_P (op)
+	      || (equiv_const != NULL_RTX && CONST_SCALAR_INT_P (equiv_const)))
 	    return NO_REGS;
 	  break;
 
 	case 's':
-	  if ((CONSTANT_P (op) 
-	       && !CONST_INT_P (op) 
-	       && !CONST_DOUBLE_AS_INT_P (op))
+	  if ((CONSTANT_P (op) && !CONST_SCALAR_INT_P (op))
 	      || (equiv_const != NULL_RTX
 		  && CONSTANT_P (equiv_const)
-		  && !CONST_INT_P (equiv_const)
-		  && !CONST_DOUBLE_AS_INT_P (equiv_const)))
+		  && !CONST_SCALAR_INT_P (equiv_const)))
 	    return NO_REGS;
 	  break;
 
@@ -1471,8 +1464,8 @@ remove_some_program_points_and_update_live_ranges (void)
     for (r = OBJECT_LIVE_RANGES (obj); r != NULL; r = r->next)
       {
 	ira_assert (r->start <= r->finish);
-	SET_BIT (born, r->start);
-	SET_BIT (dead, r->finish);
+	bitmap_set_bit (born, r->start);
+	bitmap_set_bit (dead, r->finish);
       }
 
   born_or_dead = sbitmap_alloc (ira_max_point);
@@ -1480,10 +1473,10 @@ remove_some_program_points_and_update_live_ranges (void)
   map = (int *) ira_allocate (sizeof (int) * ira_max_point);
   n = -1;
   prev_born_p = prev_dead_p = false;
-  EXECUTE_IF_SET_IN_SBITMAP (born_or_dead, 0, i, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (born_or_dead, 0, i, sbi)
     {
-      born_p = TEST_BIT (born, i);
-      dead_p = TEST_BIT (dead, i);
+      born_p = bitmap_bit_p (born, i);
+      dead_p = bitmap_bit_p (dead, i);
       if ((prev_born_p && ! prev_dead_p && born_p && ! dead_p)
 	  || (prev_dead_p && ! prev_born_p && dead_p && ! born_p))
 	map[i] = n;
@@ -1527,6 +1520,21 @@ ira_print_live_range_list (FILE *f, live_range_t r)
   for (; r != NULL; r = r->next)
     fprintf (f, " [%d..%d]", r->start, r->finish);
   fprintf (f, "\n");
+}
+
+DEBUG_FUNCTION void
+debug (live_range &ref)
+{
+  ira_print_live_range_list (stderr, &ref);
+}
+
+DEBUG_FUNCTION void
+debug (live_range *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
 }
 
 /* Print live ranges R to stderr.  */

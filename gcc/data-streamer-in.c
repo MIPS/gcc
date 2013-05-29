@@ -1,7 +1,7 @@
 /* Routines for restoring various data types from a file stream.  This deals
    with various data types like strings, integers, enums, etc.
 
-   Copyright 2011 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -157,4 +157,14 @@ streamer_read_hwi (struct lto_input_block *ib)
 	  return result;
 	}
     }
+}
+
+/* Read gcov_type value from IB.  */
+
+gcov_type
+streamer_read_gcov_count (struct lto_input_block *ib)
+{
+  gcov_type ret = streamer_read_hwi (ib);
+  gcc_assert (ret >= 0);
+  return ret;
 }

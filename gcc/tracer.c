@@ -1,8 +1,7 @@
 /* The tracer pass for the GNU compiler.
    Contributed by Jan Hubicka, SuSE Labs.
    Adapted to work on GIMPLE instead of RTL by Robert Kidd, UIUC.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -74,13 +73,13 @@ mark_bb_seen (basic_block bb)
   if ((unsigned int)bb->index >= size)
     bb_seen = sbitmap_resize (bb_seen, size * 2, 0);
 
-  SET_BIT (bb_seen, bb->index);
+  bitmap_set_bit (bb_seen, bb->index);
 }
 
 static inline bool
 bb_seen_p (basic_block bb)
 {
-  return TEST_BIT (bb_seen, bb->index);
+  return bitmap_bit_p (bb_seen, bb->index);
 }
 
 /* Return true if we should ignore the basic block for purposes of tracing.  */
@@ -381,9 +380,9 @@ tracer (void)
   if (changed)
     {
       free_dominance_info (CDI_DOMINATORS);
-      calculate_dominance_info (CDI_DOMINATORS);
+      /* If we changed the CFG schedule loops for fixup by cleanup_cfg.  */
       if (current_loops)
-	fix_loop_structure (NULL);
+	loops_state_set (LOOPS_NEED_FIXUP);
     }
 
   if (dump_file)
@@ -403,6 +402,7 @@ struct gimple_opt_pass pass_tracer =
  {
   GIMPLE_PASS,
   "tracer",                             /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_tracer,                          /* gate */
   tracer,                               /* execute */
   NULL,                                 /* sub */

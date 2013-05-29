@@ -1,7 +1,5 @@
 /* Expand builtin functions.
-   Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012 Free Software Foundation, Inc.
+   Copyright (C) 1988-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -76,6 +74,9 @@ const char * built_in_names[(int) END_BUILTINS] =
 /* Setup an array of _DECL trees, make sure each element is
    initialized to NULL_TREE.  */
 builtin_info_type builtin_info;
+
+/* Non-zero if __builtin_constant_p should be folded right away.  */
+bool force_folding_builtin_constant_p;
 
 static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);
@@ -951,7 +952,8 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 
   /* We must not allow the code we just generated to be reordered by
      scheduling.  Specifically, the update of the frame pointer must
-     happen immediately, not later.  */
+     happen immediately, not later.  Similarly, we must block
+     (frame-related) register values to be used across this code.  */
   emit_insn (gen_blockage ());
 }
 
@@ -1959,6 +1961,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   tree fndecl = get_callee_fndecl (exp);
   enum machine_mode mode;
   bool errno_set = false;
+  bool try_widening = false;
   tree arg;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
@@ -1970,6 +1973,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     {
     CASE_FLT_FN (BUILT_IN_SQRT):
       errno_set = ! tree_expr_nonnegative_p (arg);
+      try_widening = true;
       builtin_optab = sqrt_optab;
       break;
     CASE_FLT_FN (BUILT_IN_EXP):
@@ -2026,11 +2030,13 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   if (! flag_errno_math || ! HONOR_NANS (mode))
     errno_set = false;
 
-  /* Before working hard, check whether the instruction is available.  */
-  if (optab_handler (builtin_optab, mode) != CODE_FOR_nothing
+  /* Before working hard, check whether the instruction is available, but try
+     to widen the mode for specific operations.  */
+  if ((optab_handler (builtin_optab, mode) != CODE_FOR_nothing
+       || (try_widening && !excess_precision_type (TREE_TYPE (exp))))
       && (!errno_set || !optimize_insn_for_size_p ()))
     {
-      target = gen_reg_rtx (mode);
+      rtx result = gen_reg_rtx (mode);
 
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
@@ -2041,20 +2047,20 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
 
       start_sequence ();
 
-      /* Compute into TARGET.
-	 Set TARGET to wherever the result comes back.  */
-      target = expand_unop (mode, builtin_optab, op0, target, 0);
+      /* Compute into RESULT.
+	 Set RESULT to wherever the result comes back.  */
+      result = expand_unop (mode, builtin_optab, op0, result, 0);
 
-      if (target != 0)
+      if (result != 0)
 	{
 	  if (errno_set)
-	    expand_errno_check (exp, target);
+	    expand_errno_check (exp, result);
 
 	  /* Output the entire sequence.  */
 	  insns = get_insns ();
 	  end_sequence ();
 	  emit_insn (insns);
-	  return target;
+	  return result;
 	}
 
       /* If we were unable to expand via the builtin, stop the sequence
@@ -2077,7 +2083,7 @@ static rtx
 expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
 {
   optab builtin_optab;
-  rtx op0, op1, insns;
+  rtx op0, op1, insns, result;
   int op1_type = REAL_TYPE;
   tree fndecl = get_callee_fndecl (exp);
   tree arg0, arg1;
@@ -2133,7 +2139,7 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
   if (optab_handler (builtin_optab, mode) == CODE_FOR_nothing)
     return NULL_RTX;
 
-  target = gen_reg_rtx (mode);
+  result = gen_reg_rtx (mode);
 
   if (! flag_errno_math || ! HONOR_NANS (mode))
     errno_set = false;
@@ -2150,29 +2156,29 @@ expand_builtin_mathfn_2 (tree exp, rtx target, rtx subtarget)
 
   start_sequence ();
 
-  /* Compute into TARGET.
-     Set TARGET to wherever the result comes back.  */
-  target = expand_binop (mode, builtin_optab, op0, op1,
-			 target, 0, OPTAB_DIRECT);
+  /* Compute into RESULT.
+     Set RESULT to wherever the result comes back.  */
+  result = expand_binop (mode, builtin_optab, op0, op1,
+			 result, 0, OPTAB_DIRECT);
 
   /* If we were unable to expand via the builtin, stop the sequence
      (without outputting the insns) and call to the library function
      with the stabilized argument list.  */
-  if (target == 0)
+  if (result == 0)
     {
       end_sequence ();
       return expand_call (exp, target, target == const0_rtx);
     }
 
   if (errno_set)
-    expand_errno_check (exp, target);
+    expand_errno_check (exp, result);
 
   /* Output the entire sequence.  */
   insns = get_insns ();
   end_sequence ();
   emit_insn (insns);
 
-  return target;
+  return result;
 }
 
 /* Expand a call to the builtin trinary math functions (fma).
@@ -2186,7 +2192,7 @@ static rtx
 expand_builtin_mathfn_ternary (tree exp, rtx target, rtx subtarget)
 {
   optab builtin_optab;
-  rtx op0, op1, op2, insns;
+  rtx op0, op1, op2, insns, result;
   tree fndecl = get_callee_fndecl (exp);
   tree arg0, arg1, arg2;
   enum machine_mode mode;
@@ -2213,7 +2219,7 @@ expand_builtin_mathfn_ternary (tree exp, rtx target, rtx subtarget)
   if (optab_handler (builtin_optab, mode) == CODE_FOR_nothing)
     return NULL_RTX;
 
-  target = gen_reg_rtx (mode);
+  result = gen_reg_rtx (mode);
 
   /* Always stabilize the argument list.  */
   CALL_EXPR_ARG (exp, 0) = arg0 = builtin_save_expr (arg0);
@@ -2226,15 +2232,15 @@ expand_builtin_mathfn_ternary (tree exp, rtx target, rtx subtarget)
 
   start_sequence ();
 
-  /* Compute into TARGET.
-     Set TARGET to wherever the result comes back.  */
-  target = expand_ternary_op (mode, builtin_optab, op0, op1, op2,
-			      target, 0);
+  /* Compute into RESULT.
+     Set RESULT to wherever the result comes back.  */
+  result = expand_ternary_op (mode, builtin_optab, op0, op1, op2,
+			      result, 0);
 
   /* If we were unable to expand via the builtin, stop the sequence
      (without outputting the insns) and call to the library function
      with the stabilized argument list.  */
-  if (target == 0)
+  if (result == 0)
     {
       end_sequence ();
       return expand_call (exp, target, target == const0_rtx);
@@ -2245,7 +2251,7 @@ expand_builtin_mathfn_ternary (tree exp, rtx target, rtx subtarget)
   end_sequence ();
   emit_insn (insns);
 
-  return target;
+  return result;
 }
 
 /* Expand a call to the builtin sin and cos math functions.
@@ -2297,7 +2303,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
   /* Before working hard, check whether the instruction is available.  */
   if (optab_handler (builtin_optab, mode) != CODE_FOR_nothing)
     {
-      target = gen_reg_rtx (mode);
+      rtx result = gen_reg_rtx (mode);
 
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
@@ -2308,37 +2314,35 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
 
       start_sequence ();
 
-      /* Compute into TARGET.
-	 Set TARGET to wherever the result comes back.  */
+      /* Compute into RESULT.
+	 Set RESULT to wherever the result comes back.  */
       if (builtin_optab == sincos_optab)
 	{
-	  int result;
+	  int ok;
 
 	  switch (DECL_FUNCTION_CODE (fndecl))
 	    {
 	    CASE_FLT_FN (BUILT_IN_SIN):
-	      result = expand_twoval_unop (builtin_optab, op0, 0, target, 0);
+	      ok = expand_twoval_unop (builtin_optab, op0, 0, result, 0);
 	      break;
 	    CASE_FLT_FN (BUILT_IN_COS):
-	      result = expand_twoval_unop (builtin_optab, op0, target, 0, 0);
+	      ok = expand_twoval_unop (builtin_optab, op0, result, 0, 0);
 	      break;
 	    default:
 	      gcc_unreachable ();
 	    }
-	  gcc_assert (result);
+	  gcc_assert (ok);
 	}
       else
-	{
-	  target = expand_unop (mode, builtin_optab, op0, target, 0);
-	}
+	result = expand_unop (mode, builtin_optab, op0, result, 0);
 
-      if (target != 0)
+      if (result != 0)
 	{
 	  /* Output the entire sequence.  */
 	  insns = get_insns ();
 	  end_sequence ();
 	  emit_insn (insns);
-	  return target;
+	  return result;
 	}
 
       /* If we were unable to expand via the builtin, stop the sequence
@@ -2347,9 +2351,7 @@ expand_builtin_mathfn_3 (tree exp, rtx target, rtx subtarget)
       end_sequence ();
     }
 
-  target = expand_call (exp, target, target == const0_rtx);
-
-  return target;
+  return expand_call (exp, target, target == const0_rtx);
 }
 
 /* Given an interclass math builtin decl FNDECL and it's argument ARG
@@ -2756,6 +2758,7 @@ expand_builtin_int_roundingfn (tree exp, rtx target)
   exp = build_call_nofold_loc (EXPR_LOCATION (exp), fallback_fndecl, 1, arg);
 
   tmp = expand_normal (exp);
+  tmp = maybe_emit_group_store (tmp, TREE_TYPE (exp));
 
   /* Truncate the result of floating point optab to integer
      via expand_fix ().  */
@@ -2818,7 +2821,7 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
   /* There's no easy way to detect the case we need to set EDOM.  */
   if (!flag_errno_math)
     {
-      target = gen_reg_rtx (mode);
+      rtx result = gen_reg_rtx (mode);
 
       /* Wrap the computation of the argument in a SAVE_EXPR, as we may
 	 need to expand the argument again.  This way, we will not perform
@@ -2829,13 +2832,13 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
 
       start_sequence ();
 
-      if (expand_sfix_optab (target, op0, builtin_optab))
+      if (expand_sfix_optab (result, op0, builtin_optab))
 	{
 	  /* Output the entire sequence.  */
 	  insns = get_insns ();
 	  end_sequence ();
 	  emit_insn (insns);
-	  return target;
+	  return result;
 	}
 
       /* If we were unable to expand via the builtin, stop the sequence
@@ -2859,12 +2862,11 @@ expand_builtin_int_roundingfn_2 (tree exp, rtx target)
 				   fallback_fndecl, 1, arg);
 
       target = expand_call (exp, NULL_RTX, target == const0_rtx);
+      target = maybe_emit_group_store (target, TREE_TYPE (exp));
       return convert_to_mode (mode, target, 0);
     }
 
-  target = expand_call (exp, target, target == const0_rtx);
-
-  return target;
+  return expand_call (exp, target, target == const0_rtx);
 }
 
 /* Expand a call to the powi built-in mathematical function.  Return NULL_RTX if
@@ -4666,7 +4668,14 @@ expand_builtin_trap (void)
 {
 #ifdef HAVE_trap
   if (HAVE_trap)
-    emit_insn (gen_trap ());
+    {
+      rtx insn = emit_insn (gen_trap ());
+      /* For trap insns when not accumulating outgoing args force
+	 REG_ARGS_SIZE note to prevent crossjumping of calls with
+	 different args sizes.  */
+      if (!ACCUMULATE_OUTGOING_ARGS)
+	add_reg_note (insn, REG_ARGS_SIZE, GEN_INT (stack_pointer_delta));
+    }
   else
 #endif
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
@@ -4849,8 +4858,7 @@ expand_builtin_init_trampoline (tree exp, bool onstack)
      within the local function's FRAME decl.  Either way, let's see if
      we can fill in the MEM_ATTRs for this memory.  */
   if (TREE_CODE (t_tramp) == ADDR_EXPR)
-    set_mem_attributes_minus_bitpos (m_tramp, TREE_OPERAND (t_tramp, 0),
-				     true, 0);
+    set_mem_attributes (m_tramp, TREE_OPERAND (t_tramp, 0), true);
 
   /* Creator of a heap trampoline is responsible for making sure the
      address is aligned to at least STACK_BOUNDARY.  Normally malloc
@@ -6581,7 +6589,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_ATOMIC_COMPARE_EXCHANGE_16:
       {
 	unsigned int nargs, z;
-	VEC(tree,gc) *vec;
+	vec<tree, va_gc> *vec;
 
 	mode = 
 	    get_builtin_sync_mode (fcode - BUILT_IN_ATOMIC_COMPARE_EXCHANGE_1);
@@ -6592,12 +6600,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	/* If this is turned into an external library call, the weak parameter
 	   must be dropped to match the expected parameter list.  */
 	nargs = call_expr_nargs (exp);
-	vec = VEC_alloc (tree, gc, nargs - 1);
+	vec_alloc (vec, nargs - 1);
 	for (z = 0; z < 3; z++)
-	  VEC_quick_push (tree, vec, CALL_EXPR_ARG (exp, z));
+	  vec->quick_push (CALL_EXPR_ARG (exp, z));
 	/* Skip the boolean weak parameter.  */
 	for (z = 4; z < 6; z++)
-	  VEC_quick_push (tree, vec, CALL_EXPR_ARG (exp, z));
+	  vec->quick_push (CALL_EXPR_ARG (exp, z));
 	exp = build_call_vec (TREE_TYPE (exp), CALL_EXPR_FN (exp), vec);
 	break;
       }
@@ -6973,7 +6981,8 @@ fold_builtin_constant_p (tree arg)
       || AGGREGATE_TYPE_P (TREE_TYPE (arg))
       || POINTER_TYPE_P (TREE_TYPE (arg))
       || cfun == 0
-      || folding_initializer)
+      || folding_initializer
+      || force_folding_builtin_constant_p)
     return integer_zero_node;
 
   return NULL_TREE;
@@ -9693,7 +9702,16 @@ fold_builtin_logb (location_t loc, tree arg, tree rettype)
       case rvc_inf:
 	/* If arg is Inf or NaN and we're logb, return it.  */
 	if (TREE_CODE (rettype) == REAL_TYPE)
-	  return fold_convert_loc (loc, rettype, arg);
+	  {
+	    /* For logb(-Inf) we have to return +Inf.  */
+	    if (real_isinf (value) && real_isneg (value))
+	      {
+		REAL_VALUE_TYPE tem;
+		real_inf (&tem);
+		return build_real (rettype, tem);
+	      }
+	    return fold_convert_loc (loc, rettype, arg);
+	  }
 	/* Fall through... */
       case rvc_zero:
 	/* Zero may set errno and/or raise an exception for logb, also
@@ -11206,10 +11224,10 @@ build_call_expr_loc_array (location_t loc, tree fndecl, int n, tree *argarray)
    VEC.  */
 
 tree
-build_call_expr_loc_vec (location_t loc, tree fndecl, VEC(tree,gc) *vec)
+build_call_expr_loc_vec (location_t loc, tree fndecl, vec<tree, va_gc> *vec)
 {
-  return build_call_expr_loc_array (loc, fndecl, VEC_length (tree, vec),
-				    VEC_address (tree, vec));
+  return build_call_expr_loc_array (loc, fndecl, vec_safe_length (vec),
+				    vec_safe_address (vec));
 }
 
 

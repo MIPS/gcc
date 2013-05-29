@@ -1,6 +1,5 @@
 /* Data flow functions for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -363,8 +362,8 @@ get_or_create_ssa_default_def (struct function *fn, tree var)
   tree ddef = ssa_default_def (fn, var);
   if (ddef == NULL_TREE)
     {
-      ddef = make_ssa_name (var, gimple_build_nop ());
-      set_ssa_default_def (cfun, var, ddef);
+      ddef = make_ssa_name_fn (fn, var, gimple_build_nop ());
+      set_ssa_default_def (fn, var, ddef);
     }
   return ddef;
 }
@@ -434,9 +433,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	    if (this_offset && TREE_CODE (this_offset) == INTEGER_CST)
 	      {
 		double_int doffset = tree_to_double_int (this_offset);
-		doffset = doffset.alshift (BITS_PER_UNIT == 8
-					   ? 3 : exact_log2 (BITS_PER_UNIT),
-					   HOST_BITS_PER_DOUBLE_INT);
+		doffset = doffset.lshift (BITS_PER_UNIT == 8
+					  ? 3 : exact_log2 (BITS_PER_UNIT));
 		doffset += tree_to_double_int (DECL_FIELD_BIT_OFFSET (field));
 		bit_offset = bit_offset + doffset;
 
@@ -502,9 +500,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 		  = (TREE_INT_CST (index) - TREE_INT_CST (low_bound))
 		    .sext (TYPE_PRECISION (TREE_TYPE (index)));
 		doffset *= tree_to_double_int (unit_size);
-		doffset = doffset.alshift (BITS_PER_UNIT == 8
-					   ? 3 : exact_log2 (BITS_PER_UNIT),
-					   HOST_BITS_PER_DOUBLE_INT);
+		doffset = doffset.lshift (BITS_PER_UNIT == 8
+					  ? 3 : exact_log2 (BITS_PER_UNIT));
 		bit_offset = bit_offset + doffset;
 
 		/* An array ref with a constant index up in the structure
@@ -553,9 +550,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	      else
 		{
 		  double_int off = mem_ref_offset (exp);
-		  off = off.alshift (BITS_PER_UNIT == 8
-				     ? 3 : exact_log2 (BITS_PER_UNIT),
-				     HOST_BITS_PER_DOUBLE_INT);
+		  off = off.lshift (BITS_PER_UNIT == 8
+				    ? 3 : exact_log2 (BITS_PER_UNIT));
 		  off = off + bit_offset;
 		  if (off.fits_shwi ())
 		    {
@@ -584,9 +580,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
 	      else
 		{
 		  double_int off = mem_ref_offset (exp);
-		  off = off.alshift (BITS_PER_UNIT == 8
-				     ? 3 : exact_log2 (BITS_PER_UNIT),
-				     HOST_BITS_PER_DOUBLE_INT);
+		  off = off.lshift (BITS_PER_UNIT == 8
+				    ? 3 : exact_log2 (BITS_PER_UNIT));
 		  off += bit_offset;
 		  if (off.fits_shwi ())
 		    {
@@ -700,8 +695,6 @@ struct GTY(()) numbered_tree_d
 };
 typedef struct numbered_tree_d numbered_tree;
 
-DEF_VEC_O (numbered_tree);
-DEF_VEC_ALLOC_O (numbered_tree, heap);
 
 /* Compare two declarations references by their DECL_UID / sequence number.
    Called via qsort.  */
@@ -722,14 +715,14 @@ static tree
 dump_enumerated_decls_push (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  VEC (numbered_tree, heap) **list = (VEC (numbered_tree, heap) **) &wi->info;
+  vec<numbered_tree> *list = (vec<numbered_tree> *) wi->info;
   numbered_tree nt;
 
   if (!DECL_P (*tp))
     return NULL_TREE;
   nt.t = *tp;
-  nt.num = VEC_length (numbered_tree, *list);
-  VEC_safe_push (numbered_tree, heap, *list, nt);
+  nt.num = list->length ();
+  list->safe_push (nt);
   *walk_subtrees = 0;
   return NULL_TREE;
 }
@@ -747,10 +740,11 @@ dump_enumerated_decls (FILE *file, int flags)
 {
   basic_block bb;
   struct walk_stmt_info wi;
-  VEC (numbered_tree, heap) *decl_list = VEC_alloc (numbered_tree, heap, 40);
+  vec<numbered_tree> decl_list;
+  decl_list.create (40);
 
   memset (&wi, '\0', sizeof (wi));
-  wi.info = (void*) decl_list;
+  wi.info = (void *) &decl_list;
   FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator gsi;
@@ -759,9 +753,8 @@ dump_enumerated_decls (FILE *file, int flags)
 	if (!is_gimple_debug (gsi_stmt (gsi)))
 	  walk_gimple_stmt (&gsi, NULL, dump_enumerated_decls_push, &wi);
     }
-  decl_list = (VEC (numbered_tree, heap) *) wi.info;
-  VEC_qsort (numbered_tree, decl_list, compare_decls_by_uid);
-  if (VEC_length (numbered_tree, decl_list))
+  decl_list.qsort (compare_decls_by_uid);
+  if (decl_list.length ())
     {
       unsigned ix;
       numbered_tree *ntp;
@@ -769,7 +762,7 @@ dump_enumerated_decls (FILE *file, int flags)
 
       fprintf (file, "Declarations used by %s, sorted by DECL_UID:\n",
 	       current_function_name ());
-      FOR_EACH_VEC_ELT (numbered_tree, decl_list, ix, ntp)
+      FOR_EACH_VEC_ELT (decl_list, ix, ntp)
 	{
 	  if (ntp->t == last)
 	    continue;
@@ -779,6 +772,5 @@ dump_enumerated_decls (FILE *file, int flags)
 	  last = ntp->t;
 	}
     }
-  VEC_free (numbered_tree, heap, decl_list);
+  decl_list.release ();
 }
-

@@ -1,7 +1,5 @@
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
-   Copyright (C) 1989, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1989-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "statistics.h"
 #include "vec.h"
-#include "vecir.h"
 #include "double-int.h"
 #include "real.h"
 #include "fixed-value.h"
@@ -168,6 +165,10 @@ extern const enum tree_code_class tree_code_type[];
 #define DECL_P(CODE)\
         (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
 
+/* True if NODE designates a variable declaration.  */
+#define VAR_P(NODE) \
+  (TREE_CODE (NODE) == VAR_DECL)
+
 /* Nonzero if DECL represents a VAR_DECL or FUNCTION_DECL.  */
 
 #define VAR_OR_FUNCTION_DECL_P(DECL)\
@@ -250,10 +251,8 @@ typedef struct GTY(()) alias_pair
 } alias_pair;
 
 /* Define gc'd vector type.  */
-DEF_VEC_O(alias_pair);
-DEF_VEC_ALLOC_O(alias_pair,gc);
 
-extern GTY(()) VEC(alias_pair,gc) * alias_pairs;
+extern GTY(()) vec<alias_pair, va_gc> *alias_pairs;
 
 
 /* Classify which part of the compiler has defined a given builtin function.
@@ -986,6 +985,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define STRIP_USELESS_TYPE_CONVERSION(EXP) \
   (EXP) = tree_ssa_strip_useless_type_conversions (EXP)
 
+/* Nonzero if TYPE represents a vector type.  */
+
+#define VECTOR_TYPE_P(TYPE) (TREE_CODE (TYPE) == VECTOR_TYPE)
+
 /* Nonzero if TYPE represents an integral type.  Note that we do not
    include COMPLEX types here.  Keep these checks in ascending code
    order.  */
@@ -1021,15 +1024,15 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* Nonzero if TYPE represents a vector integer type.  */
                 
-#define VECTOR_INTEGER_TYPE_P(TYPE)                   \
-             (TREE_CODE (TYPE) == VECTOR_TYPE      \
-                 && TREE_CODE (TREE_TYPE (TYPE)) == INTEGER_TYPE)
+#define VECTOR_INTEGER_TYPE_P(TYPE)			\
+  (VECTOR_TYPE_P (TYPE)					\
+   && TREE_CODE (TREE_TYPE (TYPE)) == INTEGER_TYPE)
 
 
 /* Nonzero if TYPE represents a vector floating-point type.  */
 
 #define VECTOR_FLOAT_TYPE_P(TYPE)	\
-  (TREE_CODE (TYPE) == VECTOR_TYPE	\
+  (VECTOR_TYPE_P (TYPE)			\
    && TREE_CODE (TREE_TYPE (TYPE)) == REAL_TYPE)
 
 /* Nonzero if TYPE represents a floating-point type, including complex
@@ -1039,7 +1042,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define FLOAT_TYPE_P(TYPE)			\
   (SCALAR_FLOAT_TYPE_P (TYPE)			\
    || ((TREE_CODE (TYPE) == COMPLEX_TYPE 	\
-        || TREE_CODE (TYPE) == VECTOR_TYPE)	\
+        || VECTOR_TYPE_P (TYPE))		\
        && SCALAR_FLOAT_TYPE_P (TREE_TYPE (TYPE))))
 
 /* Nonzero if TYPE represents a decimal floating-point type.  */
@@ -1324,18 +1327,13 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, \
 		RESULT_DECL)->decl_common.decl_by_reference_flag)
 
-/* In a RESULT_DECL, PARM_DECL and VAR_DECL, means that this decl
-   can be used as restricted tag to disambiguate against other restrict
-   pointers.  Used by fortran to capture something like non-addressability
-   (which it isn't really because the middle-end does take addresses of
-   such variables).  */
-#define DECL_RESTRICTED_P(NODE) \
-  (TREE_CHECK3 (NODE, VAR_DECL, PARM_DECL, \
-		RESULT_DECL)->decl_common.decl_restricted_flag)
-
+/* In VAR_DECL and PARM_DECL, set when the decl has been used except for
+   being set.  */
 #define DECL_READ_P(NODE) \
   (TREE_CHECK2 (NODE, VAR_DECL, PARM_DECL)->decl_common.decl_read_flag)
 
+/* In VAR_DECL or RESULT_DECL, set when significant code movement precludes
+   attempting to share the stack slot with some other variable.  */
 #define DECL_NONSHAREABLE(NODE) \
   (TREE_CHECK2 (NODE, VAR_DECL, \
 		RESULT_DECL)->decl_common.decl_nonshareable_flag)
@@ -1530,17 +1528,17 @@ struct GTY(()) tree_vec {
 /* In a CONSTRUCTOR node.  */
 #define CONSTRUCTOR_ELTS(NODE) (CONSTRUCTOR_CHECK (NODE)->constructor.elts)
 #define CONSTRUCTOR_ELT(NODE,IDX) \
-  (&VEC_index (constructor_elt, CONSTRUCTOR_ELTS (NODE), IDX))
+  (&(*CONSTRUCTOR_ELTS (NODE))[IDX])
 #define CONSTRUCTOR_NELTS(NODE) \
-  (VEC_length (constructor_elt, CONSTRUCTOR_ELTS (NODE)))
+  (vec_safe_length (CONSTRUCTOR_ELTS (NODE)))
 
 /* Iterate through the vector V of CONSTRUCTOR_ELT elements, yielding the
    value of each element (stored within VAL). IX must be a scratch variable
    of unsigned integer type.  */
 #define FOR_EACH_CONSTRUCTOR_VALUE(V, IX, VAL) \
-  for (IX = 0; (IX >= VEC_length (constructor_elt, V)) \
+  for (IX = 0; (IX >= vec_safe_length (V)) \
 	       ? false \
-	       : ((VAL = VEC_index (constructor_elt, V, IX).value), \
+	       : ((VAL = (*(V))[IX].value), \
 	       true); \
        (IX)++)
 
@@ -1548,10 +1546,10 @@ struct GTY(()) tree_vec {
    the value of each element (stored within VAL) and its index (stored
    within INDEX). IX must be a scratch variable of unsigned integer type.  */
 #define FOR_EACH_CONSTRUCTOR_ELT(V, IX, INDEX, VAL) \
-  for (IX = 0; (IX >= VEC_length (constructor_elt, V)) \
+  for (IX = 0; (IX >= vec_safe_length (V)) \
 	       ? false \
-	       : (((void) (VAL = VEC_index (constructor_elt, V, IX).value)), \
-		  (INDEX = VEC_index (constructor_elt, V, IX).index), \
+	       : (((void) (VAL = (*V)[IX].value)), \
+		  (INDEX = (*V)[IX].index), \
 		  true); \
        (IX)++)
 
@@ -1559,7 +1557,7 @@ struct GTY(()) tree_vec {
 #define CONSTRUCTOR_APPEND_ELT(V, INDEX, VALUE) \
   do { \
     constructor_elt _ce___ = {INDEX, VALUE}; \
-    VEC_safe_push (constructor_elt, gc, V, _ce___); \
+    vec_safe_push ((V), _ce___); \
   } while (0)
 
 /* True if NODE, a FIELD_DECL, is to be processed as a bitfield for
@@ -1584,12 +1582,10 @@ typedef struct GTY(()) constructor_elt_d {
   tree value;
 } constructor_elt;
 
-DEF_VEC_O(constructor_elt);
-DEF_VEC_ALLOC_O(constructor_elt,gc);
 
 struct GTY(()) tree_constructor {
   struct tree_typed typed;
-  VEC(constructor_elt,gc) *elts;
+  vec<constructor_elt, va_gc> *elts;
 };
 
 /* Define fields and accessors for some nodes that represent expressions.  */
@@ -2037,9 +2033,8 @@ struct GTY(()) tree_omp_clause {
 #define BLOCK_NONLOCALIZED_VARS(NODE) \
   (BLOCK_CHECK (NODE)->block.nonlocalized_vars)
 #define BLOCK_NUM_NONLOCALIZED_VARS(NODE) \
-  VEC_length (tree, BLOCK_NONLOCALIZED_VARS (NODE))
-#define BLOCK_NONLOCALIZED_VAR(NODE,N) \
-  VEC_index (tree, BLOCK_NONLOCALIZED_VARS (NODE), N)
+  vec_safe_length (BLOCK_NONLOCALIZED_VARS (NODE))
+#define BLOCK_NONLOCALIZED_VAR(NODE,N) (*BLOCK_NONLOCALIZED_VARS (NODE))[N]
 #define BLOCK_SUBBLOCKS(NODE) (BLOCK_CHECK (NODE)->block.subblocks)
 #define BLOCK_SUPERCONTEXT(NODE) (BLOCK_CHECK (NODE)->block.supercontext)
 #define BLOCK_CHAIN(NODE) (BLOCK_CHECK (NODE)->block.chain)
@@ -2095,7 +2090,7 @@ struct GTY(()) tree_block {
   location_t locus;
 
   tree vars;
-  VEC(tree,gc) *nonlocalized_vars;
+  vec<tree, va_gc> *nonlocalized_vars;
 
   tree subblocks;
   tree supercontext;
@@ -2129,7 +2124,7 @@ struct GTY(()) tree_block {
 /* Vector types need to check target flags to determine type.  */
 extern enum machine_mode vector_type_mode (const_tree);
 #define TYPE_MODE(NODE) \
-  (TREE_CODE (TYPE_CHECK (NODE)) == VECTOR_TYPE \
+  (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
    ? vector_type_mode (NODE) : (NODE)->type_common.mode)
 #define SET_TYPE_MODE(NODE, MODE) \
   (TYPE_CHECK (NODE)->type_common.mode = (MODE))
@@ -2201,8 +2196,8 @@ extern enum machine_mode vector_type_mode (const_tree);
    get one debug info record for them.  */
 #define TYPE_STUB_DECL(NODE) (TREE_CHAIN (TYPE_CHECK (NODE)))
 
-/* In a RECORD_TYPE, UNION_TYPE or QUAL_UNION_TYPE, it means the type
-   has BLKmode only because it lacks the alignment requirement for
+/* In a RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE or ARRAY_TYPE, it means
+   the type has BLKmode only because it lacks the alignment required for
    its size.  */
 #define TYPE_NO_FORCE_BLK(NODE) \
   (TYPE_CHECK (NODE)->type_common.no_force_blk_flag)
@@ -2512,15 +2507,15 @@ struct GTY(()) tree_type_non_common {
 #define BINFO_BASE_BINFOS(NODE) (&TREE_BINFO_CHECK(NODE)->binfo.base_binfos)
 
 /* The number of basetypes for NODE.  */
-#define BINFO_N_BASE_BINFOS(NODE) (VEC_length (tree, BINFO_BASE_BINFOS (NODE)))
+#define BINFO_N_BASE_BINFOS(NODE) (BINFO_BASE_BINFOS (NODE)->length ())
 
 /* Accessor macro to get to the Nth base binfo of this binfo.  */
 #define BINFO_BASE_BINFO(NODE,N) \
- (VEC_index (tree, BINFO_BASE_BINFOS (NODE), (N)))
+ ((*BINFO_BASE_BINFOS (NODE))[(N)])
 #define BINFO_BASE_ITERATE(NODE,N,B) \
- (VEC_iterate (tree, BINFO_BASE_BINFOS (NODE), (N), (B)))
+ (BINFO_BASE_BINFOS (NODE)->iterate ((N), &(B)))
 #define BINFO_BASE_APPEND(NODE,T) \
- (VEC_quick_push (tree, BINFO_BASE_BINFOS (NODE), (T)))
+ (BINFO_BASE_BINFOS (NODE)->quick_push ((T)))
 
 /* For a BINFO record describing a virtual base class, i.e., one where
    TREE_VIA_VIRTUAL is set, this field assists in locating the virtual
@@ -2535,9 +2530,9 @@ struct GTY(()) tree_type_non_common {
 #define BINFO_BASE_ACCESSES(NODE) (TREE_BINFO_CHECK(NODE)->binfo.base_accesses)
 
 #define BINFO_BASE_ACCESS(NODE,N) \
-  VEC_index (tree, BINFO_BASE_ACCESSES (NODE), (N))
+  (*BINFO_BASE_ACCESSES (NODE))[(N)]
 #define BINFO_BASE_ACCESS_APPEND(NODE,T) \
-  VEC_quick_push (tree, BINFO_BASE_ACCESSES (NODE), (T))
+  BINFO_BASE_ACCESSES (NODE)->quick_push ((T))
 
 /* The index in the VTT where this subobject's sub-VTT can be found.
    NULL_TREE if there is no sub-VTT.  */
@@ -2561,13 +2556,13 @@ struct GTY (()) tree_binfo {
   tree vtable;
   tree virtuals;
   tree vptr_field;
-  VEC(tree,gc) *base_accesses;
+  vec<tree, va_gc> *base_accesses;
   tree inheritance;
 
   tree vtt_subvtt;
   tree vtt_vptr;
 
-  VEC(tree,none) base_binfos;
+  vec<tree, va_gc> base_binfos;
 };
 
 
@@ -2722,8 +2717,6 @@ struct GTY(()) tree_decl_minimal {
    checked before any access to the former.  */
 #define DECL_FUNCTION_CODE(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.function_code)
-#define DECL_DEBUG_EXPR_IS_FROM(NODE) \
-  (DECL_COMMON_CHECK (NODE)->decl_common.debug_expr_is_from)
 
 #define DECL_FUNCTION_PERSONALITY(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.personality)
@@ -2854,26 +2847,22 @@ struct GTY(()) tree_decl_common {
      In VAR_DECL, PARM_DECL and RESULT_DECL, this is
      DECL_HAS_VALUE_EXPR_P.  */
   unsigned decl_flag_2 : 1;
+  /* 1 bit unused.  */
+  unsigned decl_flag_3 : 1;
   /* Logically, these two would go in a theoretical base shared by var and
      parm decl. */
   unsigned gimple_reg_flag : 1;
   /* In VAR_DECL, PARM_DECL and RESULT_DECL, this is DECL_BY_REFERENCE.  */
   unsigned decl_by_reference_flag : 1;
-  /* In VAR_DECL, PARM_DECL and RESULT_DECL, this is DECL_RESTRICTED_P.  */
-  unsigned decl_restricted_flag : 1;
-
-  /* In VAR_DECL and PARM_DECL set when the decl has been used except for
-     being set.  */
+  /* In a VAR_DECL and PARM_DECL, this is DECL_READ_P.  */
   unsigned decl_read_flag : 1;
-
-  /* In VAR_DECL or RESULT_DECL set when significant code movement precludes
-     attempting to share the stack slot with some other variable.  */
+  /* In a VAR_DECL or RESULT_DECL, this is DECL_NONSHAREABLE.  */
   unsigned decl_nonshareable_flag : 1;
 
   /* DECL_OFFSET_ALIGN, used only for FIELD_DECLs.  */
   unsigned int off_align : 8;
 
-  /* 24-bits unused.  */
+  /* 24 bits unused.  */
 
   /* DECL_ALIGN.  It should have the same size as TYPE_ALIGN.  */
   unsigned int align;
@@ -3215,13 +3204,14 @@ struct GTY(()) tree_decl_with_vis {
  /* Belong to VAR_DECL exclusively.  */
  unsigned defer_output : 1;
  unsigned hard_register : 1;
- unsigned thread_local : 1;
  unsigned common_flag : 1;
  unsigned in_text_section : 1;
  unsigned in_constant_pool : 1;
  unsigned dllimport_flag : 1;
  /* Don't belong to VAR_DECL exclusively.  */
  unsigned weak_flag : 1;
+ /* When SECTION_NAME is implied by -ffunction-section.  */
+ unsigned implicit_section_name_p : 1;
 
  unsigned seen_in_bind_expr : 1;
  unsigned comdat_flag : 1;
@@ -3234,16 +3224,14 @@ struct GTY(()) tree_decl_with_vis {
  unsigned init_priority_p : 1;
  /* Used by C++ only.  Might become a generic decl flag.  */
  unsigned shadowed_for_var_p : 1;
- /* When SECTION_NAME is implied by -ffunsection-section.  */
- unsigned implicit_section_name_p : 1;
- /* 13 unused bits. */
+ /* 14 unused bits. */
 };
 
 extern tree decl_debug_expr_lookup (tree);
 extern void decl_debug_expr_insert (tree, tree);
-/* For VAR_DECL, this is set to either an expression that it was split
-   from (if DECL_DEBUG_EXPR_IS_FROM is true), otherwise a tree_list of
-   subexpressions that it was split into.  */
+/* For VAR_DECL, this is set to an expression that it was split from.  */
+#define DECL_HAS_DEBUG_EXPR_P(NODE) \
+  (VAR_DECL_CHECK (NODE)->decl_common.debug_expr_is_from)
 #define DECL_DEBUG_EXPR(NODE) \
   (decl_debug_expr_lookup (VAR_DECL_CHECK (NODE)))
 
@@ -3443,8 +3431,8 @@ struct GTY(())
 #define DECL_DISREGARD_INLINE_LIMITS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->function_decl.disregard_inline_limits)
 
-extern VEC(tree, gc) **decl_debug_args_lookup (tree);
-extern VEC(tree, gc) **decl_debug_args_insert (tree);
+extern vec<tree, va_gc> **decl_debug_args_lookup (tree);
+extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 
 /* Nonzero if a FUNCTION_DECL has DEBUG arguments attached to it.  */
 #define DECL_HAS_DEBUG_ARGS_P(NODE) \
@@ -3479,6 +3467,12 @@ extern VEC(tree, gc) **decl_debug_args_insert (tree);
    compiling this function.  */
 #define DECL_FUNCTION_SPECIFIC_OPTIMIZATION(NODE) \
    (FUNCTION_DECL_CHECK (NODE)->function_decl.function_specific_optimization)
+
+/* In FUNCTION_DECL, this is set if this function has other versions generated
+   using "target" attributes.  The default version is the one which does not
+   have any "target" attribute set. */
+#define DECL_FUNCTION_VERSIONED(NODE)\
+   (FUNCTION_DECL_CHECK (NODE)->function_decl.versioned_function)
 
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
@@ -3524,8 +3518,8 @@ struct GTY(()) tree_function_decl {
   unsigned looping_const_or_pure_flag : 1;
   unsigned has_debug_args_flag : 1;
   unsigned tm_clone_flag : 1;
-
-  /* 1 bit left */
+  unsigned versioned_function : 1;
+  /* No bits left.  */
 };
 
 /* The source language of the translation-unit.  */
@@ -3543,7 +3537,7 @@ struct GTY(()) tree_translation_unit_decl {
 };
 
 /* A vector of all translation-units.  */
-extern GTY (()) VEC(tree,gc) *all_translation_units;
+extern GTY (()) vec<tree, va_gc> *all_translation_units;
 
 /* For a TYPE_DECL, holds the "original" type.  (TREE_TYPE has the copy.) */
 #define DECL_ORIGINAL_TYPE(NODE) \
@@ -3598,13 +3592,29 @@ struct GTY(()) tree_optimization_option {
 
   /* The optimization options used by the user.  */
   struct cl_optimization opts;
+
+  /* Target optabs for this set of optimization options.  This is of
+     type `struct target_optabs *'.  */
+  unsigned char *GTY ((atomic)) optabs;
+
+  /* The value of this_target_optabs against which the optabs above were
+     generated.  */
+  struct target_optabs *GTY ((skip)) base_optabs;
 };
 
 #define TREE_OPTIMIZATION(NODE) \
   (&OPTIMIZATION_NODE_CHECK (NODE)->optimization.opts)
 
+#define TREE_OPTIMIZATION_OPTABS(NODE) \
+  (OPTIMIZATION_NODE_CHECK (NODE)->optimization.optabs)
+
+#define TREE_OPTIMIZATION_BASE_OPTABS(NODE) \
+  (OPTIMIZATION_NODE_CHECK (NODE)->optimization.base_optabs)
+
 /* Return a tree node that encapsulates the current optimization options.  */
 extern tree build_optimization_node (void);
+
+extern void init_tree_optimization_optabs (tree);
 
 /* Target options used by a function.  */
 
@@ -4639,7 +4649,7 @@ extern tree maybe_get_identifier (const char *);
 /* Construct various types of nodes.  */
 
 extern tree build_nt (enum tree_code, ...);
-extern tree build_nt_call_vec (tree, VEC(tree,gc) *);
+extern tree build_nt_call_vec (tree, vec<tree, va_gc> *);
 
 extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
@@ -4748,19 +4758,21 @@ extern tree make_vector_stat (unsigned MEM_STAT_DECL);
 #define make_vector(n) make_vector_stat (n MEM_STAT_INFO)
 extern tree build_vector_stat (tree, tree * MEM_STAT_DECL);
 #define build_vector(t,v) build_vector_stat (t, v MEM_STAT_INFO)
-extern tree build_vector_from_ctor (tree, VEC(constructor_elt,gc) *);
+extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
-extern tree build_constructor (tree, VEC(constructor_elt,gc) *);
+extern tree build_constructor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_constructor_single (tree, tree, tree);
 extern tree build_constructor_from_list (tree, tree);
+extern tree build_constructor_va (tree, int, ...);
 extern tree build_real_from_int_cst (tree, const_tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_one_cst (tree);
+extern tree build_minus_one_cst (tree);
 extern tree build_zero_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 #define build_tree_list(t,q) build_tree_list_stat(t,q MEM_STAT_INFO)
-extern tree build_tree_list_vec_stat (const VEC(tree,gc) * MEM_STAT_DECL);
+extern tree build_tree_list_vec_stat (const vec<tree, va_gc> *MEM_STAT_DECL);
 #define build_tree_list_vec(v) build_tree_list_vec_stat (v MEM_STAT_INFO)
 extern tree build_decl_stat (location_t, enum tree_code,
 			     tree, tree MEM_STAT_DECL);
@@ -4779,7 +4791,7 @@ extern tree build_call_valist (tree, tree, int, va_list);
 #define build_call_array(T1,T2,N,T3)\
    build_call_array_loc (UNKNOWN_LOCATION, T1, T2, N, T3)
 extern tree build_call_array_loc (location_t, tree, tree, int, const tree *);
-extern tree build_call_vec (tree, tree, VEC(tree,gc) *);
+extern tree build_call_vec (tree, tree, vec<tree, va_gc> *);
 
 /* Construct various nodes representing data types.  */
 
@@ -4810,10 +4822,10 @@ extern tree build_varargs_function_type_list (tree, ...);
 extern tree build_function_type_array (tree, int, tree *);
 extern tree build_varargs_function_type_array (tree, int, tree *);
 #define build_function_type_vec(RET, V) \
-  build_function_type_array (RET, VEC_length (tree, V), VEC_address (tree, V))
+  build_function_type_array (RET, vec_safe_length (V), vec_safe_address (V))
 #define build_varargs_function_type_vec(RET, V) \
-  build_varargs_function_type_array (RET, VEC_length (tree, V), \
-				     VEC_address (tree, V))
+  build_varargs_function_type_array (RET, vec_safe_length (V), \
+				     vec_safe_address (V))
 extern tree build_method_type_directly (tree, tree, tree);
 extern tree build_method_type (tree, tree);
 extern tree build_offset_type (tree, tree);
@@ -4824,7 +4836,7 @@ extern bool range_in_array_bounds_p (tree);
 
 extern tree value_member (tree, tree);
 extern tree purpose_member (const_tree, tree);
-extern bool vec_member (const_tree, VEC(tree,gc) *);
+extern bool vec_member (const_tree, vec<tree, va_gc> *);
 extern tree chain_index (int, tree);
 
 extern int attribute_list_equal (const_tree, const_tree);
@@ -4856,6 +4868,7 @@ extern bool may_negate_without_overflow_p (const_tree);
 extern tree strip_array_types (tree);
 extern tree excess_precision_type (tree);
 extern bool valid_constant_size_p (const_tree);
+extern unsigned int element_precision (const_tree);
 
 /* Construct various nodes representing fract or accum data types.  */
 
@@ -5126,7 +5139,7 @@ typedef struct record_layout_info_s
   tree prev_field;
   /* The static variables (i.e., class variables, as opposed to
      instance variables) encountered in T.  */
-  VEC(tree,gc) *pending_statics;
+  vec<tree, va_gc> *pending_statics;
   /* Bits remaining in the current alignment group */
   int remaining_in_alignment;
   /* True if we've seen a packed field that didn't have normal
@@ -5278,9 +5291,14 @@ extern tree first_field (const_tree);
 
 extern bool initializer_zerop (const_tree);
 
+/* Given a vector VEC, return its first element if all elements are
+   the same.  Otherwise return NULL_TREE.  */
+
+extern tree uniform_vector_p (const_tree);
+
 /* Given a CONSTRUCTOR CTOR, return the element values as a vector.  */
 
-extern VEC(tree,gc) *ctor_to_vec (tree);
+extern vec<tree, va_gc> *ctor_to_vec (tree);
 
 extern bool categorize_ctor_elements (const_tree, HOST_WIDE_INT *,
 				      HOST_WIDE_INT *, bool *);
@@ -5299,6 +5317,11 @@ extern int integer_onep (const_tree);
    all of whose significant bits are 1.  */
 
 extern int integer_all_onesp (const_tree);
+
+/* integer_minus_onep (tree x) is nonzero if X is an integer constant of
+   value -1.  */
+
+extern int integer_minus_onep (const_tree);
 
 /* integer_pow2p (tree x) is nonzero is X is an integer constant with
    exactly one bit 1.  */
@@ -5329,10 +5352,15 @@ extern tree staticp (tree);
 
 extern tree save_expr (tree);
 
-/* Look inside EXPR and into any simple arithmetic operations.  Return
-   the innermost non-arithmetic node.  */
+/* Look inside EXPR into any simple arithmetic operations.  Return the
+   outermost non-arithmetic or non-invariant node.  */
 
 extern tree skip_simple_arithmetic (tree);
+
+/* Look inside EXPR into simple arithmetic operations involving constants.
+   Return the outermost non-arithmetic or non-constant node.  */
+
+extern tree skip_simple_constant_arithmetic (tree);
 
 /* Return which tree structure is used by T.  */
 
@@ -5362,7 +5390,7 @@ extern bool type_contains_placeholder_p (tree);
    or CALL_EXPRs with PLACEHOLDER_EXPRs occurring only in their
    argument list.  */
 
-extern void find_placeholder_in_expr (tree, VEC (tree, heap) **);
+extern void find_placeholder_in_expr (tree, vec<tree> *);
 
 /* This macro calls the above function but short-circuits the common
    case of a constant to save time and also checks for NULL.  */
@@ -5615,6 +5643,7 @@ extern void change_decl_assembler_name (tree, tree);
 
 /* In gimplify.c */
 extern tree unshare_expr (tree);
+extern tree unshare_expr_without_location (tree);
 
 /* In stmt.c */
 
@@ -5741,7 +5770,6 @@ extern tree omit_two_operands_loc (location_t, tree, tree, tree, tree);
 #define invert_truthvalue(T)\
    invert_truthvalue_loc(UNKNOWN_LOCATION, T)
 extern tree invert_truthvalue_loc (location_t, tree);
-extern tree fold_truth_not_expr (location_t, tree);
 extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
@@ -5844,6 +5872,10 @@ fold_build_pointer_plus_hwi_loc (location_t loc, tree ptr, HOST_WIDE_INT off)
 	fold_build_pointer_plus_hwi_loc (UNKNOWN_LOCATION, p, o)
 
 /* In builtins.c */
+
+/* Non-zero if __builtin_constant_p should be folded right away.  */
+extern bool force_folding_builtin_constant_p;
+
 extern bool avoid_folding_inline_builtin (tree);
 extern tree fold_call_expr (location_t, tree, bool);
 extern tree fold_builtin_fputs (location_t, tree, tree, bool, bool, tree);
@@ -5860,7 +5892,7 @@ extern bool fold_builtin_next_arg (tree, bool);
 extern enum built_in_function builtin_mathfn_code (const_tree);
 extern tree fold_builtin_call_array (location_t, tree, tree, int, tree *);
 extern tree build_call_expr_loc_array (location_t, tree, int, tree *);
-extern tree build_call_expr_loc_vec (location_t, tree, VEC(tree,gc) *);
+extern tree build_call_expr_loc_vec (location_t, tree, vec<tree, va_gc> *);
 extern tree build_call_expr_loc (location_t, tree, int, ...);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
@@ -5913,8 +5945,6 @@ extern hashval_t iterative_hash_host_wide_int (HOST_WIDE_INT, hashval_t);
 extern int compare_tree_int (const_tree, unsigned HOST_WIDE_INT);
 extern int type_list_equal (const_tree, const_tree);
 extern int chain_member (const_tree, const_tree);
-extern tree type_hash_lookup (unsigned int, tree);
-extern void type_hash_add (unsigned int, tree);
 extern int simple_cst_list_equal (const_tree, const_tree);
 extern void dump_tree_statistics (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
@@ -5944,6 +5974,7 @@ extern tree block_ultimate_origin (const_tree);
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
 				     HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern bool contains_bitfld_component_ref_p (const_tree);
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);
@@ -5978,11 +6009,23 @@ extern void print_rtl (FILE *, const_rtx);
 
 /* In print-tree.c */
 extern void debug_tree (tree);
-extern void debug_vec_tree (VEC(tree,gc) *);
+extern void debug_raw (const tree_node &ref);
+extern void debug_raw (const tree_node *ptr);
+extern void debug (const tree_node &ref);
+extern void debug (const tree_node *ptr);
+extern void debug_verbose (const tree_node &ref);
+extern void debug_verbose (const tree_node *ptr);
+extern void debug_head (const tree_node &ref);
+extern void debug_head (const tree_node *ptr);
+extern void debug_body (const tree_node &ref);
+extern void debug_body (const tree_node *ptr);
+extern void debug_vec_tree (vec<tree, va_gc> *);
+extern void debug (vec<tree, va_gc> &ref);
+extern void debug (vec<tree, va_gc> *ptr);
 #ifdef BUFSIZ
 extern void dump_addr (FILE*, const char *, const void *);
 extern void print_node (FILE *, const char *, tree, int);
-extern void print_vec_tree (FILE *, const char *, VEC(tree,gc) *, int);
+extern void print_vec_tree (FILE *, const char *, vec<tree, va_gc> *, int);
 extern void print_node_brief (FILE *, const char *, const_tree, int);
 extern void indent_to (FILE *, int);
 #endif
@@ -5991,7 +6034,6 @@ extern void indent_to (FILE *, int);
 extern bool debug_find_tree (tree, tree);
 /* This is in tree-inline.c since the routine uses
    data structures from the inliner.  */
-extern tree unsave_expr_now (tree);
 extern tree build_duplicate_type (tree);
 
 /* In calls.c */
@@ -6033,6 +6075,7 @@ extern tree build_duplicate_type (tree);
 
 extern int flags_from_decl_or_type (const_tree);
 extern int call_expr_flags (const_tree);
+extern void set_call_expr_flags (tree, int);
 
 /* Call argument flags.  */
 
@@ -6282,7 +6325,7 @@ struct GTY(()) tree_priority_map {
 
 struct GTY(()) tree_vec_map {
   struct tree_map_base base;
-  VEC(tree,gc) *to;
+  vec<tree, va_gc> *to;
 };
 
 #define tree_vec_map_eq tree_map_base_eq
@@ -6311,6 +6354,9 @@ extern unsigned HOST_WIDE_INT compute_builtin_object_size (tree, int);
    instructions.  Return nonzero if a call to move_by_pieces should
    succeed.  */
 extern int can_move_by_pieces (unsigned HOST_WIDE_INT, unsigned int);
+
+/* Is it an ADDR_EXPR of a DECL that's not in memory?  */
+extern bool addr_expr_of_non_mem_decl_p (tree);
 
 extern unsigned HOST_WIDE_INT highest_pow2_factor (const_tree);
 extern tree build_personality_function (const char *);

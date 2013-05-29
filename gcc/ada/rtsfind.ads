@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1307,6 +1307,9 @@ package Rtsfind is
      RE_Release_Buffer,                  -- System.Partition_Interface
      RE_BS_To_Any,                       -- System.Partition_Interface
      RE_Any_To_BS,                       -- System.Partition_Interface
+     RE_Build_Complex_TC,                -- System.Partition_Interface
+     RE_Get_TC,                          -- System.Partition_Interface
+     RE_Set_TC,                          -- System.Partition_Interface
 
      RE_FA_A,                            -- System.Partition_Interface
      RE_FA_B,                            -- System.Partition_Interface
@@ -1350,10 +1353,6 @@ package Rtsfind is
      RE_TA_Std_String,                   -- System.Partition_Interface
      RE_TA_TC,                           -- System.Partition_Interface
 
-     RE_TC_Alias,                        -- System.Partition_Interface
-     RE_TC_Build,                        -- System.Partition_Interface
-     RE_Get_TC,                          -- System.Partition_Interface
-     RE_Set_TC,                          -- System.Partition_Interface
      RE_TC_A,                            -- System.Partition_Interface
      RE_TC_B,                            -- System.Partition_Interface
      RE_TC_C,                            -- System.Partition_Interface
@@ -1373,12 +1372,14 @@ package Rtsfind is
      RE_TC_Opaque,                       -- System.Partition_Interface
      RE_TC_WC,                           -- System.Partition_Interface
      RE_TC_WWC,                          -- System.Partition_Interface
-     RE_TC_Array,                        -- System.Partition_Interface
-     RE_TC_Sequence,                     -- System.Partition_Interface
      RE_TC_String,                       -- System.Partition_Interface
-     RE_TC_Struct,                       -- System.Partition_Interface
-     RE_TC_Union,                        -- System.Partition_Interface
-     RE_TC_Object,                       -- System.Partition_Interface
+
+     RE_Tk_Alias,                        -- System.Partition_Interface
+     RE_Tk_Array,                        -- System.Partition_Interface
+     RE_Tk_Sequence,                     -- System.Partition_Interface
+     RE_Tk_Struct,                       -- System.Partition_Interface
+     RE_Tk_Objref,                       -- System.Partition_Interface
+     RE_Tk_Union,                        -- System.Partition_Interface
 
      RE_IS_Is1,                          -- System.Scalar_Values
      RE_IS_Is2,                          -- System.Scalar_Values
@@ -1762,10 +1763,12 @@ package Rtsfind is
      RE_Timed_Task_Entry_Call,           -- System.Tasking.Rendezvous
      RE_Timed_Selective_Wait,            -- System.Tasking.Rendezvous
 
-     RE_Complete_Restricted_Activation,  -- System.Tasking.Restricted.Stages
-     RE_Create_Restricted_Task,          -- System.Tasking.Restricted.Stages
-     RE_Complete_Restricted_Task,        -- System.Tasking.Restricted.Stages
-     RE_Restricted_Terminated,           -- System.Tasking.Restricted.Stages
+     RE_Activate_Restricted_Tasks,         -- System.Tasking.Restricted.Stages
+     RE_Complete_Restricted_Activation,    -- System.Tasking.Restricted.Stages
+     RE_Create_Restricted_Task,            -- System.Tasking.Restricted.Stages
+     RE_Create_Restricted_Task_Sequential, -- System.Tasking.Restricted.Stages
+     RE_Complete_Restricted_Task,          -- System.Tasking.Restricted.Stages
+     RE_Restricted_Terminated,             -- System.Tasking.Restricted.Stages
 
      RE_Abort_Tasks,                     -- System.Tasking.Stages
      RE_Activate_Tasks,                  -- System.Tasking.Stages
@@ -2548,6 +2551,9 @@ package Rtsfind is
      RE_Release_Buffer                   => System_Partition_Interface,
      RE_BS_To_Any                        => System_Partition_Interface,
      RE_Any_To_BS                        => System_Partition_Interface,
+     RE_Build_Complex_TC                 => System_Partition_Interface,
+     RE_Get_TC                           => System_Partition_Interface,
+     RE_Set_TC                           => System_Partition_Interface,
 
      RE_FA_A                             => System_Partition_Interface,
      RE_FA_B                             => System_Partition_Interface,
@@ -2591,10 +2597,6 @@ package Rtsfind is
      RE_TA_Std_String                    => System_Partition_Interface,
      RE_TA_TC                            => System_Partition_Interface,
 
-     RE_TC_Alias                         => System_Partition_Interface,
-     RE_TC_Build                         => System_Partition_Interface,
-     RE_Get_TC                           => System_Partition_Interface,
-     RE_Set_TC                           => System_Partition_Interface,
      RE_TC_A                             => System_Partition_Interface,
      RE_TC_B                             => System_Partition_Interface,
      RE_TC_C                             => System_Partition_Interface,
@@ -2614,12 +2616,14 @@ package Rtsfind is
      RE_TC_Opaque                        => System_Partition_Interface,
      RE_TC_WC                            => System_Partition_Interface,
      RE_TC_WWC                           => System_Partition_Interface,
-     RE_TC_Array                         => System_Partition_Interface,
-     RE_TC_Sequence                      => System_Partition_Interface,
      RE_TC_String                        => System_Partition_Interface,
-     RE_TC_Struct                        => System_Partition_Interface,
-     RE_TC_Union                         => System_Partition_Interface,
-     RE_TC_Object                        => System_Partition_Interface,
+
+     RE_Tk_Alias                         => System_Partition_Interface,
+     RE_Tk_Array                         => System_Partition_Interface,
+     RE_Tk_Sequence                      => System_Partition_Interface,
+     RE_Tk_Struct                        => System_Partition_Interface,
+     RE_Tk_Objref                        => System_Partition_Interface,
+     RE_Tk_Union                         => System_Partition_Interface,
 
      RE_Global_Pool_Object               => System_Pool_Global,
 
@@ -3054,10 +3058,12 @@ package Rtsfind is
      RE_Timed_Task_Entry_Call            => System_Tasking_Rendezvous,
      RE_Timed_Selective_Wait             => System_Tasking_Rendezvous,
 
-     RE_Complete_Restricted_Activation   => System_Tasking_Restricted_Stages,
-     RE_Create_Restricted_Task           => System_Tasking_Restricted_Stages,
-     RE_Complete_Restricted_Task         => System_Tasking_Restricted_Stages,
-     RE_Restricted_Terminated            => System_Tasking_Restricted_Stages,
+     RE_Activate_Restricted_Tasks         => System_Tasking_Restricted_Stages,
+     RE_Complete_Restricted_Activation    => System_Tasking_Restricted_Stages,
+     RE_Create_Restricted_Task            => System_Tasking_Restricted_Stages,
+     RE_Create_Restricted_Task_Sequential => System_Tasking_Restricted_Stages,
+     RE_Complete_Restricted_Task          => System_Tasking_Restricted_Stages,
+     RE_Restricted_Terminated             => System_Tasking_Restricted_Stages,
 
      RE_Abort_Tasks                      => System_Tasking_Stages,
      RE_Activate_Tasks                   => System_Tasking_Stages,

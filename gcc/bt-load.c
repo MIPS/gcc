@@ -1,6 +1,6 @@
+
 /* Perform branch target register load optimizations.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -499,10 +499,10 @@ compute_defs_uses_and_gen (fibheap_t all_btr_defs, btr_def *def_array,
 		  SET_HARD_REG_BIT (info.btrs_live_in_block, regno);
 		  bitmap_and_compl (bb_gen[i], bb_gen[i],
 				      btr_defset[regno - first_btr]);
-		  SET_BIT (bb_gen[i], insn_uid);
+		  bitmap_set_bit (bb_gen[i], insn_uid);
 		  def->next_this_bb = defs_this_bb;
 		  defs_this_bb = def;
-		  SET_BIT (btr_defset[regno - first_btr], insn_uid);
+		  bitmap_set_bit (btr_defset[regno - first_btr], insn_uid);
 		  note_other_use_this_block (regno, info.users_this_bb);
 		}
 	      /* Check for the blockage emitted by expand_nl_goto_receiver.  */
@@ -651,7 +651,7 @@ compute_out (sbitmap *bb_out, sbitmap *bb_gen, sbitmap *bb_kill, int max_uid)
       changed = 0;
       for (i = NUM_FIXED_BLOCKS; i < last_basic_block; i++)
 	{
-	  sbitmap_union_of_preds (bb_in, bb_out, BASIC_BLOCK (i));
+	  bitmap_union_of_preds (bb_in, bb_out, BASIC_BLOCK (i));
 	  changed |= bitmap_ior_and_compl (bb_out[i], bb_gen[i],
 					       bb_in, bb_kill[i]);
 	}
@@ -674,7 +674,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
       rtx insn;
       rtx last;
 
-      sbitmap_union_of_preds (reaching_defs, bb_out, BASIC_BLOCK (i));
+      bitmap_union_of_preds (reaching_defs, bb_out, BASIC_BLOCK (i));
       for (insn = BB_HEAD (bb), last = NEXT_INSN (BB_END (bb));
 	   insn != last;
 	   insn = NEXT_INSN (insn))
@@ -691,7 +691,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
 		     for this one.  */
 		  bitmap_and_compl (reaching_defs, reaching_defs,
 				      btr_defset[def->btr - first_btr]);
-		  SET_BIT(reaching_defs, insn_uid);
+		  bitmap_set_bit(reaching_defs, insn_uid);
 		}
 
 	      if (user != NULL)
@@ -720,7 +720,7 @@ link_btr_uses (btr_def *def_array, btr_user *use_array, sbitmap *bb_out,
 			    reaching_defs,
 			    btr_defset[reg - first_btr]);
 		    }
-		  EXECUTE_IF_SET_IN_SBITMAP (reaching_defs_of_reg, 0, uid, sbi)
+		  EXECUTE_IF_SET_IN_BITMAP (reaching_defs_of_reg, 0, uid, sbi)
 		    {
 		      btr_def def = def_array[uid];
 
@@ -1509,6 +1509,7 @@ struct rtl_opt_pass pass_branch_target_load_optimize1 =
  {
   RTL_PASS,
   "btl1",                               /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_handle_branch_target_load_optimize1,      /* gate */
   rest_of_handle_branch_target_load_optimize1,   /* execute */
   NULL,                                 /* sub */
@@ -1519,8 +1520,7 @@ struct rtl_opt_pass pass_branch_target_load_optimize1 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_verify_rtl_sharing |
-  TODO_ggc_collect,                     /* todo_flags_finish */
+  TODO_verify_rtl_sharing,              /* todo_flags_finish */
  }
 };
 
@@ -1558,6 +1558,7 @@ struct rtl_opt_pass pass_branch_target_load_optimize2 =
  {
   RTL_PASS,
   "btl2",                               /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_handle_branch_target_load_optimize2,      /* gate */
   rest_of_handle_branch_target_load_optimize2,   /* execute */
   NULL,                                 /* sub */
@@ -1568,6 +1569,6 @@ struct rtl_opt_pass pass_branch_target_load_optimize2 =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect,                     /* todo_flags_finish */
+  0,                                    /* todo_flags_finish */
  }
 };

@@ -1,6 +1,5 @@
 /* Lower complex number operations to scalar operations.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
+#include "tree-hasher.h"
+#include "cfgloop.h"
 
 
 /* For each complex ssa name, a lattice value.  We're interested in finding
@@ -49,17 +50,15 @@ typedef int complex_lattice_t;
 
 #define PAIR(a, b)  ((a) << 2 | (b))
 
-DEF_VEC_I(complex_lattice_t);
-DEF_VEC_ALLOC_I(complex_lattice_t, heap);
 
-static VEC(complex_lattice_t, heap) *complex_lattice_values;
+static vec<complex_lattice_t> complex_lattice_values;
 
 /* For each complex variable, a pair of variables for the components exists in
    the hashtable.  */
-static htab_t complex_variable_components;
+static int_tree_htab_type complex_variable_components;
 
 /* For each complex SSA_NAME, a pair of ssa names for the components.  */
-static VEC(tree, heap) *complex_ssa_name_components;
+static vec<tree> complex_ssa_name_components;
 
 /* Lookup UID in the complex_variable_components hashtable and return the
    associated tree.  */
@@ -68,7 +67,7 @@ cvc_lookup (unsigned int uid)
 {
   struct int_tree_map *h, in;
   in.uid = uid;
-  h = (struct int_tree_map *) htab_find_with_hash (complex_variable_components, &in, uid);
+  h = complex_variable_components.find_with_hash (&in, uid);
   return h ? h->to : NULL;
 }
 
@@ -78,14 +77,13 @@ static void
 cvc_insert (unsigned int uid, tree to)
 {
   struct int_tree_map *h;
-  void **loc;
+  int_tree_map **loc;
 
   h = XNEW (struct int_tree_map);
   h->uid = uid;
   h->to = to;
-  loc = htab_find_slot_with_hash (complex_variable_components, h,
-				  uid, INSERT);
-  *(struct int_tree_map **) loc = h;
+  loc = complex_variable_components.find_slot_with_hash (h, uid, INSERT);
+  *loc = h;
 }
 
 /* Return true if T is not a zero constant.  In the case of real values,
@@ -143,8 +141,7 @@ find_lattice_value (tree t)
   switch (TREE_CODE (t))
     {
     case SSA_NAME:
-      return VEC_index (complex_lattice_t, complex_lattice_values,
-			SSA_NAME_VERSION (t));
+      return complex_lattice_values[SSA_NAME_VERSION (t)];
 
     case COMPLEX_CST:
       real = TREE_REALPART (t);
@@ -177,8 +174,7 @@ init_parameter_lattice_values (void)
   for (parm = DECL_ARGUMENTS (cfun->decl); parm ; parm = DECL_CHAIN (parm))
     if (is_complex_reg (parm)
 	&& (ssa_name = ssa_default_def (cfun, parm)) != NULL_TREE)
-      VEC_replace (complex_lattice_t, complex_lattice_values,
-		   SSA_NAME_VERSION (ssa_name), VARYING);
+      complex_lattice_values[SSA_NAME_VERSION (ssa_name)] = VARYING;
 }
 
 /* Initialize simulation state for each statement.  Return false if we
@@ -311,7 +307,7 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 
   *result_p = lhs;
   ver = SSA_NAME_VERSION (lhs);
-  old_l = VEC_index (complex_lattice_t, complex_lattice_values, ver);
+  old_l = complex_lattice_values[ver];
 
   switch (gimple_expr_code (stmt))
     {
@@ -380,7 +376,7 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
   if (new_l == old_l)
     return SSA_PROP_NOT_INTERESTING;
 
-  VEC_replace (complex_lattice_t, complex_lattice_values, ver, new_l);
+  complex_lattice_values[ver] = new_l;
   return new_l == VARYING ? SSA_PROP_VARYING : SSA_PROP_INTERESTING;
 }
 
@@ -406,12 +402,12 @@ complex_visit_phi (gimple phi)
     new_l |= find_lattice_value (gimple_phi_arg_def (phi, i));
 
   ver = SSA_NAME_VERSION (lhs);
-  old_l = VEC_index (complex_lattice_t, complex_lattice_values, ver);
+  old_l = complex_lattice_values[ver];
 
   if (new_l == old_l)
     return SSA_PROP_NOT_INTERESTING;
 
-  VEC_replace (complex_lattice_t, complex_lattice_values, ver, new_l);
+  complex_lattice_values[ver] = new_l;
   return new_l == VARYING ? SSA_PROP_VARYING : SSA_PROP_INTERESTING;
 }
 
@@ -433,7 +429,7 @@ create_one_component_var (tree type, tree orig, const char *prefix,
       DECL_NAME (r) = get_identifier (ACONCAT ((name, suffix, NULL)));
 
       SET_DECL_DEBUG_EXPR (r, build1 (code, type, orig));
-      DECL_DEBUG_EXPR_IS_FROM (r) = 1;
+      DECL_HAS_DEBUG_EXPR_P (r) = 1;
       DECL_IGNORED_P (r) = 0;
       TREE_NO_WARNING (r) = TREE_NO_WARNING (orig);
     }
@@ -485,7 +481,7 @@ get_component_ssa_name (tree ssa_name, bool imag_p)
     }
 
   ssa_name_index = SSA_NAME_VERSION (ssa_name) * 2 + imag_p;
-  ret = VEC_index (tree, complex_ssa_name_components, ssa_name_index);
+  ret = complex_ssa_name_components[ssa_name_index];
   if (ret == NULL)
     {
       if (SSA_NAME_VAR (ssa_name))
@@ -505,7 +501,7 @@ get_component_ssa_name (tree ssa_name, bool imag_p)
 	  set_ssa_default_def (cfun, SSA_NAME_VAR (ret), ret);
 	}
 
-      VEC_replace (tree, complex_ssa_name_components, ssa_name_index, ret);
+      complex_ssa_name_components[ssa_name_index] = ret;
     }
 
   return ret;
@@ -534,7 +530,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
      This is fine.  Now we should create an initialization for the value
      we created earlier.  */
   ssa_name_index = SSA_NAME_VERSION (ssa_name) * 2 + imag_p;
-  comp = VEC_index (tree, complex_ssa_name_components, ssa_name_index);
+  comp = complex_ssa_name_components[ssa_name_index];
   if (comp)
     ;
 
@@ -544,7 +540,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
   else if (is_gimple_min_invariant (value)
 	   && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ssa_name))
     {
-      VEC_replace (tree, complex_ssa_name_components, ssa_name_index, value);
+      complex_ssa_name_components[ssa_name_index] = value;
       return NULL;
     }
   else if (TREE_CODE (value) == SSA_NAME
@@ -560,7 +556,7 @@ set_component_ssa_name (tree ssa_name, bool imag_p, tree value)
 	  replace_ssa_name_symbol (value, comp);
 	}
 
-      VEC_replace (tree, complex_ssa_name_components, ssa_name_index, value);
+      complex_ssa_name_components[ssa_name_index] = value;
       return NULL;
     }
 
@@ -1144,6 +1140,11 @@ expand_complex_div_wide (gimple_stmt_iterator *gsi, tree inner_type,
       make_edge (bb_cond, bb_false, EDGE_FALSE_VALUE);
       make_edge (bb_true, bb_join, EDGE_FALLTHRU);
       make_edge (bb_false, bb_join, EDGE_FALLTHRU);
+      if (current_loops)
+	{
+	  add_bb_to_loop (bb_true, bb_cond->loop_father);
+	  add_bb_to_loop (bb_false, bb_cond->loop_father);
+	}
 
       /* Update dominance info.  Note that bb_join's data was
          updated by split_block.  */
@@ -1395,6 +1396,36 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
   update_stmt (stmt);
 }
 
+/* Expand inline asm that sets some complex SSA_NAMEs.  */
+
+static void
+expand_complex_asm (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  unsigned int i;
+
+  for (i = 0; i < gimple_asm_noutputs (stmt); ++i)
+    {
+      tree link = gimple_asm_output_op (stmt, i);
+      tree op = TREE_VALUE (link);
+      if (TREE_CODE (op) == SSA_NAME
+	  && TREE_CODE (TREE_TYPE (op)) == COMPLEX_TYPE)
+	{
+	  tree type = TREE_TYPE (op);
+	  tree inner_type = TREE_TYPE (type);
+	  tree r = build1 (REALPART_EXPR, inner_type, op);
+	  tree i = build1 (IMAGPART_EXPR, inner_type, op);
+	  gimple_seq list = set_component_ssa_name (op, false, r);
+
+	  if (list)
+	    gsi_insert_seq_after (gsi, list, GSI_CONTINUE_LINKING);
+
+	  list = set_component_ssa_name (op, true, i);
+	  if (list)
+	    gsi_insert_seq_after (gsi, list, GSI_CONTINUE_LINKING);
+	}
+    }
+}
 
 /* Process one statement.  If we identify a complex operation, expand it.  */
 
@@ -1406,6 +1437,12 @@ expand_complex_operations_1 (gimple_stmt_iterator *gsi)
   tree ac, ar, ai, bc, br, bi;
   complex_lattice_t al, bl;
   enum tree_code code;
+
+  if (gimple_code (stmt) == GIMPLE_ASM)
+    {
+      expand_complex_asm (gsi);
+      return;
+    }
 
   lhs = gimple_get_lhs (stmt);
   if (!lhs && gimple_code (stmt) != GIMPLE_COND)
@@ -1567,19 +1604,16 @@ tree_lower_complex (void)
   if (!init_dont_simulate_again ())
     return 0;
 
-  complex_lattice_values = VEC_alloc (complex_lattice_t, heap, num_ssa_names);
-  VEC_safe_grow_cleared (complex_lattice_t, heap,
-			 complex_lattice_values, num_ssa_names);
+  complex_lattice_values.create (num_ssa_names);
+  complex_lattice_values.safe_grow_cleared (num_ssa_names);
 
   init_parameter_lattice_values ();
   ssa_propagate (complex_visit_stmt, complex_visit_phi);
 
-  complex_variable_components = htab_create (10,  int_tree_map_hash,
-					     int_tree_map_eq, free);
+  complex_variable_components.create (10);
 
-  complex_ssa_name_components = VEC_alloc (tree, heap, 2*num_ssa_names);
-  VEC_safe_grow_cleared (tree, heap, complex_ssa_name_components,
-			 2 * num_ssa_names);
+  complex_ssa_name_components.create (2 * num_ssa_names);
+  complex_ssa_name_components.safe_grow_cleared (2 * num_ssa_names);
 
   update_parameter_components ();
 
@@ -1597,9 +1631,9 @@ tree_lower_complex (void)
 
   gsi_commit_edge_inserts ();
 
-  htab_delete (complex_variable_components);
-  VEC_free (tree, heap, complex_ssa_name_components);
-  VEC_free (complex_lattice_t, heap, complex_lattice_values);
+  complex_variable_components.dispose ();
+  complex_ssa_name_components.release ();
+  complex_lattice_values.release ();
   return 0;
 }
 
@@ -1608,6 +1642,7 @@ struct gimple_opt_pass pass_lower_complex =
  {
   GIMPLE_PASS,
   "cplxlower",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   0,					/* gate */
   tree_lower_complex,			/* execute */
   NULL,					/* sub */
@@ -1618,9 +1653,8 @@ struct gimple_opt_pass pass_lower_complex =
   PROP_gimple_lcx,			/* properties_provided */
   0,                       		/* properties_destroyed */
   0,					/* todo_flags_start */
-    TODO_ggc_collect
-    | TODO_update_ssa
-    | TODO_verify_stmts	 		/* todo_flags_finish */
+  TODO_update_ssa
+  | TODO_verify_stmts	 		/* todo_flags_finish */
  }
 };
 
@@ -1638,6 +1672,7 @@ struct gimple_opt_pass pass_lower_complex_O0 =
  {
   GIMPLE_PASS,
   "cplxlower0",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_no_optimization,			/* gate */
   tree_lower_complex,			/* execute */
   NULL,					/* sub */
@@ -1648,8 +1683,7 @@ struct gimple_opt_pass pass_lower_complex_O0 =
   PROP_gimple_lcx,			/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect
-    | TODO_update_ssa
-    | TODO_verify_stmts	 		/* todo_flags_finish */
+  TODO_update_ssa
+  | TODO_verify_stmts	 		/* todo_flags_finish */
  }
 };

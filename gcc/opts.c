@@ -1,8 +1,5 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012
-
-   Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -33,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "params.h"
 #include "diagnostic.h"
+#include "diagnostic-color.h"
 #include "opts-diagnostic.h"
 #include "insn-attr-common.h"
 #include "common/common-target.h"
@@ -190,8 +188,6 @@ base_of_path (const char *path, const char **base_out)
 static const char undocumented_msg[] = N_("This switch lacks documentation");
 
 typedef char *char_p; /* For DEF_VEC_P.  */
-DEF_VEC_P(char_p);
-DEF_VEC_ALLOC_P(char_p,heap);
 
 static void handle_param (struct gcc_options *opts,
 			  struct gcc_options *opts_set, location_t loc,
@@ -239,7 +235,9 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
   char *r;
   char *w;
   char *token_start;
-  VEC(char_p,heap) *vec = (VEC(char_p,heap) *) *pvec;
+  vec<char_p> *v = (vec<char_p> *) *pvec;
+  
+  vec_check_alloc (v, 1);
 
   /* We never free this string.  */
   tmp = xstrdup (arg);
@@ -254,7 +252,7 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
 	{
 	  *w++ = '\0';
 	  ++r;
-	  VEC_safe_push (char_p, heap, vec, token_start);
+	  v->safe_push (token_start);
 	  token_start = w;
 	}
       if (*r == '\\' && r[1] == ',')
@@ -266,9 +264,9 @@ add_comma_separated_to_vector (void **pvec, const char *arg)
 	*w++ = *r++;
     }
   if (*token_start != '\0')
-    VEC_safe_push (char_p, heap, vec, token_start);
+    v->safe_push (token_start);
 
-  *pvec = vec;
+  *pvec = v;
 }
 
 /* Initialize OPTS and OPTS_SET before using them in parsing options.  */
@@ -277,6 +275,8 @@ void
 init_options_struct (struct gcc_options *opts, struct gcc_options *opts_set)
 {
   size_t num_params = get_num_compiler_params ();
+
+  gcc_obstack_init (&opts_obstack);
 
   *opts = global_options_init;
   memset (opts_set, 0, sizeof (*opts_set));
@@ -542,9 +542,8 @@ default_options_optimization (struct gcc_options *opts,
 	    {
 	      const int optimize_val = integral_argument (opt->arg);
 	      if (optimize_val == -1)
-		error_at (loc,
-			  "argument to %qs should be a non-negative integer",
-			  "-O");
+		error_at (loc, "argument to %<-O%> should be a non-negative "
+			       "integer, %<g%>, %<s%> or %<fast%>");
 	      else
 		{
 		  opts->x_optimize = optimize_val;
@@ -642,8 +641,8 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	 directory, typically the directory to contain the object
 	 file.  */
       if (opts->x_dump_dir_name)
-	opts->x_dump_base_name = concat (opts->x_dump_dir_name,
-					 opts->x_dump_base_name, NULL);
+	opts->x_dump_base_name = opts_concat (opts->x_dump_dir_name,
+					      opts->x_dump_base_name, NULL);
       else if (opts->x_aux_base_name
 	       && strcmp (opts->x_aux_base_name, HOST_BIT_BUCKET) != 0)
 	{
@@ -653,8 +652,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	  if (opts->x_aux_base_name != aux_base)
 	    {
 	      int dir_len = aux_base - opts->x_aux_base_name;
-	      char *new_dump_base_name =
-		XNEWVEC (char, strlen (opts->x_dump_base_name) + dir_len + 1);
+	      char *new_dump_base_name
+		= XOBNEWVEC (&opts_obstack, char,
+			     strlen (opts->x_dump_base_name) + dir_len + 1);
 
 	      /* Copy directory component from OPTS->X_AUX_BASE_NAME.  */
 	      memcpy (new_dump_base_name, opts->x_aux_base_name, dir_len);
@@ -829,6 +829,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     maybe_set_param_value (PARAM_MAX_STORES_TO_SINK, 0,
                            opts->x_param_values, opts_set->x_param_values);
 
+  /* The -gsplit-dwarf option requires -gpubnames.  */
+  if (opts->x_dwarf_split_debug_info)
+    opts->x_debug_generate_pub_sections = 1;
 }
 
 #define LEFT_COLUMN	27
@@ -1495,6 +1498,11 @@ common_handle_option (struct gcc_options *opts,
       dc->show_caret = value;
       break;
 
+    case OPT_fdiagnostics_color_:
+      pp_show_color (dc->printer)
+	= colorize_init ((diagnostic_color_rule_t) value);
+      break;
+
     case OPT_fdiagnostics_show_option:
       dc->show_option_requested = value;
       break;
@@ -1587,6 +1595,12 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_flag_unswitch_loops = value;
       if (!opts_set->x_flag_gcse_after_reload)
 	opts->x_flag_gcse_after_reload = value;
+      if (!opts_set->x_flag_tree_vectorize)
+	opts->x_flag_tree_vectorize = value;
+      if (!opts_set->x_flag_vect_cost_model)
+	opts->x_flag_vect_cost_model = value;
+      if (!opts_set->x_flag_tree_loop_distribute_patterns)
+	opts->x_flag_tree_loop_distribute_patterns = value;
       break;
 
     case OPT_fprofile_generate_:
@@ -1691,12 +1705,29 @@ common_handle_option (struct gcc_options *opts,
       set_debug_level (SDB_DEBUG, false, arg, opts, opts_set, loc);
       break;
 
+    case OPT_gdwarf:
+      if (arg && strlen (arg) != 0)
+        {
+          error_at (loc, "%<-gdwarf%s%> is ambiguous; "
+                    "use %<-gdwarf-%s%> for DWARF version "
+                    "or %<-gdwarf -g%s%> for debug level", arg, arg, arg);
+          break;
+        }
+      else
+        value = opts->x_dwarf_version;
+      
+      /* FALLTHRU */
     case OPT_gdwarf_:
       if (value < 2 || value > 4)
 	error_at (loc, "dwarf version %d is not supported", value);
       else
 	opts->x_dwarf_version = value;
       set_debug_level (DWARF2_DEBUG, false, "", opts, opts_set, loc);
+      break;
+
+    case OPT_gsplit_dwarf:
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "", opts, opts_set,
+		       loc);
       break;
 
     case OPT_ggdb:
@@ -1739,8 +1770,20 @@ common_handle_option (struct gcc_options *opts,
       dc->max_errors = value;
       break;
 
+    case OPT_fuse_ld_bfd:
+    case OPT_fuse_ld_gold:
     case OPT_fuse_linker_plugin:
       /* No-op. Used by the driver and passed to us because it starts with f.*/
+      break;
+
+    case OPT_fwrapv:
+      if (value)
+	opts->x_flag_trapv = 0;
+      break;
+
+    case OPT_ftrapv:
+      if (value)
+	opts->x_flag_wrapv = 0;
       break;
 
     default:
@@ -1967,9 +2010,6 @@ decode_d_option (const char *arg, struct gcc_options *opts,
       case 'P':
 	opts->x_flag_dump_rtl_in_asm = 1;
 	opts->x_flag_print_asm_name = 1;
-	break;
-      case 'v':
-	opts->x_graph_dump_format = vcg;
 	break;
       case 'x':
 	opts->x_rtl_dump_and_exit = 1;

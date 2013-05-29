@@ -302,6 +302,12 @@ enum demangle_component_type
   /* The const qualifier modifying a member function.  The one subtree
      is the type which is being qualified.  */
   DEMANGLE_COMPONENT_CONST_THIS,
+  /* C++11 A reference modifying a member function.  The one subtree is the
+     type which is being referenced.  */
+  DEMANGLE_COMPONENT_REFERENCE_THIS,
+  /* C++11: An rvalue reference modifying a member function.  The one
+     subtree is the type which is being referenced.  */
+  DEMANGLE_COMPONENT_RVALUE_REFERENCE_THIS,
   /* A vendor qualifier.  The left subtree is the type which is being
      qualified, and the right subtree is the name of the
      qualifier.  */
@@ -420,6 +426,8 @@ enum demangle_component_type
   DEMANGLE_COMPONENT_NONTRANSACTION_CLONE,
   /* A pack expansion.  */
   DEMANGLE_COMPONENT_PACK_EXPANSION,
+  /* A name with an ABI tag.  */
+  DEMANGLE_COMPONENT_TAGGED_NAME,
   /* A cloned function.  */
   DEMANGLE_COMPONENT_CLONE
 };

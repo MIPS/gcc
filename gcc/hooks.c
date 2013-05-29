@@ -1,6 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -148,6 +147,14 @@ hook_bool_FILEptr_rtx_false (FILE *a ATTRIBUTE_UNUSED,
   return false;
 }
 
+/* Generic hook that takes (gimple_stmt_iterator *) and returns
+   false.  */
+bool
+hook_bool_gsiptr_false (gimple_stmt_iterator *a ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
 /* Used for the TARGET_ASM_CAN_OUTPUT_MI_THUNK hook.  */
 bool
 hook_bool_const_tree_hwi_hwi_const_tree_false (const_tree a ATTRIBUTE_UNUSED,
@@ -200,6 +207,18 @@ int
 hook_int_rtx_0 (rtx a ATTRIBUTE_UNUSED)
 {
   return 0;
+}
+
+int
+hook_int_rtx_1 (rtx)
+{
+  return 1;
+}
+
+int
+hook_int_rtx_unreachable (rtx)
+{
+  gcc_unreachable ();
 }
 
 int

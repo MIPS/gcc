@@ -1,7 +1,5 @@
 /* Read and write coverage files, and associated functionality.
-   Copyright (C) 1990, 1991, 1992, 1993, 1994, 1996, 1997, 1998, 1999,
-   2000, 2001, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1990-2013 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -128,9 +126,9 @@ static void build_info_type (tree, tree);
 static tree build_fn_info (const struct coverage_data *, tree, tree);
 static tree build_info (tree, tree);
 static bool coverage_obj_init (void);
-static VEC(constructor_elt,gc) *coverage_obj_fn
-(VEC(constructor_elt,gc) *, tree, struct coverage_data const *);
-static void coverage_obj_finish (VEC(constructor_elt,gc) *);
+static vec<constructor_elt, va_gc> *coverage_obj_fn
+(vec<constructor_elt, va_gc> *, tree, struct coverage_data const *);
+static void coverage_obj_finish (vec<constructor_elt, va_gc> *);
 
 /* Return the type node for gcov_type.  */
 
@@ -764,8 +762,8 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
   tree fields = TYPE_FIELDS (type);
   tree ctr_type;
   unsigned ix;
-  VEC(constructor_elt,gc) *v1 = NULL;
-  VEC(constructor_elt,gc) *v2 = NULL;
+  vec<constructor_elt, va_gc> *v1 = NULL;
+  vec<constructor_elt, va_gc> *v2 = NULL;
 
   /* key */
   CONSTRUCTOR_APPEND_ELT (v1, fields,
@@ -795,7 +793,7 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
   for (ix = 0; ix != GCOV_COUNTERS; ix++)
     if (prg_ctr_mask & (1 << ix))
       {
-	VEC(constructor_elt,gc) *ctr = NULL;
+	vec<constructor_elt, va_gc> *ctr = NULL;
 	tree var = data->ctr_vars[ix];
 	unsigned count = 0;
 
@@ -898,8 +896,8 @@ build_info (tree info_type, tree fn_ary)
   unsigned ix;
   tree filename_string;
   int da_file_name_len;
-  VEC(constructor_elt,gc) *v1 = NULL;
-  VEC(constructor_elt,gc) *v2 = NULL;
+  vec<constructor_elt, va_gc> *v1 = NULL;
+  vec<constructor_elt, va_gc> *v2 = NULL;
 
   /* Version ident */
   CONSTRUCTOR_APPEND_ELT (v1, info_fields,
@@ -969,6 +967,32 @@ build_info (tree info_type, tree fn_ary)
   return build_constructor (info_type, v1);
 }
 
+/* Generate the constructor function to call __gcov_init.  */
+
+static void
+build_init_ctor (tree gcov_info_type)
+{
+  tree ctor, stmt, init_fn;
+
+  /* Build a decl for __gcov_init.  */
+  init_fn = build_pointer_type (gcov_info_type);
+  init_fn = build_function_type_list (void_type_node, init_fn, NULL);
+  init_fn = build_decl (BUILTINS_LOCATION, FUNCTION_DECL,
+			get_identifier ("__gcov_init"), init_fn);
+  TREE_PUBLIC (init_fn) = 1;
+  DECL_EXTERNAL (init_fn) = 1;
+  DECL_ASSEMBLER_NAME (init_fn);
+
+  /* Generate a call to __gcov_init(&gcov_info).  */
+  ctor = NULL;
+  stmt = build_fold_addr_expr (gcov_info_var);
+  stmt = build_call_expr (init_fn, 1, stmt);
+  append_to_statement_list (stmt, &ctor);
+
+  /* Generate a constructor to run it.  */
+  cgraph_build_static_cdtor ('I', ctor, DEFAULT_INIT_PRIORITY);
+}
+
 /* Create the gcov_info types and object.  Generate the constructor
    function to call __gcov_init.  Does not generate the initializer
    for the object.  Returns TRUE if coverage data is being emitted.  */
@@ -976,7 +1000,7 @@ build_info (tree info_type, tree fn_ary)
 static bool
 coverage_obj_init (void)
 {
-  tree gcov_info_type, ctor, stmt, init_fn;
+  tree gcov_info_type;
   unsigned n_counters = 0;
   unsigned ix;
   struct coverage_data *fn;
@@ -999,6 +1023,9 @@ coverage_obj_init (void)
       /* The function is not being emitted, remove from list.  */
       *fn_prev = fn->next;
 
+  if (functions_head == NULL)
+    return false;
+
   for (ix = 0; ix != GCOV_COUNTERS; ix++)
     if ((1u << ix) & prg_ctr_mask)
       n_counters++;
@@ -1019,23 +1046,7 @@ coverage_obj_init (void)
   ASM_GENERATE_INTERNAL_LABEL (name_buf, "LPBX", 0);
   DECL_NAME (gcov_info_var) = get_identifier (name_buf);
 
-  /* Build a decl for __gcov_init.  */
-  init_fn = build_pointer_type (gcov_info_type);
-  init_fn = build_function_type_list (void_type_node, init_fn, NULL);
-  init_fn = build_decl (BUILTINS_LOCATION, FUNCTION_DECL,
-			get_identifier ("__gcov_init"), init_fn);
-  TREE_PUBLIC (init_fn) = 1;
-  DECL_EXTERNAL (init_fn) = 1;
-  DECL_ASSEMBLER_NAME (init_fn);
-
-  /* Generate a call to __gcov_init(&gcov_info).  */
-  ctor = NULL;
-  stmt = build_fold_addr_expr (gcov_info_var);
-  stmt = build_call_expr (init_fn, 1, stmt);
-  append_to_statement_list (stmt, &ctor);
-
-  /* Generate a constructor to run it.  */
-  cgraph_build_static_cdtor ('I', ctor, DEFAULT_INIT_PRIORITY);
+  build_init_ctor (gcov_info_type);
 
   return true;
 }
@@ -1043,8 +1054,8 @@ coverage_obj_init (void)
 /* Generate the coverage function info for FN and DATA.  Append a
    pointer to that object to CTOR and return the appended CTOR.  */
 
-static VEC(constructor_elt,gc) *
-coverage_obj_fn (VEC(constructor_elt,gc) *ctor, tree fn,
+static vec<constructor_elt, va_gc> *
+coverage_obj_fn (vec<constructor_elt, va_gc> *ctor, tree fn,
 		 struct coverage_data const *data)
 {
   tree init = build_fn_info (data, gcov_fn_info_type, gcov_info_var);
@@ -1062,9 +1073,9 @@ coverage_obj_fn (VEC(constructor_elt,gc) *ctor, tree fn,
    function objects from CTOR.  Generate the gcov_info initializer.  */
 
 static void
-coverage_obj_finish (VEC(constructor_elt,gc) *ctor)
+coverage_obj_finish (vec<constructor_elt, va_gc> *ctor)
 {
-  unsigned n_functions = VEC_length(constructor_elt, ctor);
+  unsigned n_functions = vec_safe_length (ctor);
   tree fn_info_ary_type = build_array_type
     (build_qualified_type (gcov_fn_info_ptr_type, TYPE_QUAL_CONST),
      build_index_type (size_int (n_functions - 1)));
@@ -1153,7 +1164,7 @@ coverage_finish (void)
 
   if (coverage_obj_init ())
     {
-      VEC(constructor_elt,gc) *fn_ctor = NULL;
+      vec<constructor_elt, va_gc> *fn_ctor = NULL;
       struct coverage_data *fn;
       
       for (fn = functions_head; fn; fn = fn->next)

@@ -1,7 +1,5 @@
 /* Target hook definitions.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -782,7 +780,7 @@ DEFHOOK_UNDOC
  "Given the current cost, @var{cost}, of an insn, @var{insn}, calculate and\
  return a new cost based on its relationship to @var{dep_insn} through the\
  dependence of weakness @var{dw}.  The default is to make no adjustment.",
- int, (rtx insn, int dep_type1, rtx dep_insn, int cost, int dw), NULL)
+ int, (rtx insn, int dep_type1, rtx dep_insn, int cost, unsigned int dw), NULL)
 
 /* The following member value is a pointer to a function called
    by the insn scheduler. This hook is called to notify the backend
@@ -837,7 +835,7 @@ DEFHOOK
 DEFHOOK
 (speculate_insn,
  "",
- int, (rtx insn, int request, rtx *new_pat), NULL)
+ int, (rtx insn, unsigned int dep_status, rtx *new_pat), NULL)
 
 /* The following member value is a pointer to a function called
    by the insn scheduler.  It should return true if the check instruction
@@ -845,20 +843,19 @@ DEFHOOK
 DEFHOOK
 (needs_block_p,
  "",
- bool, (int dep_status), NULL)
+ bool, (unsigned int dep_status), NULL)
 
 /* The following member value is a pointer to a function called
    by the insn scheduler.  It should return a pattern for the check
    instruction.
    The first parameter is a speculative instruction, the second parameter
    is the label of the corresponding recovery block (or null, if it is a
-   simple check).  If the mutation of the check is requested (e.g. from
-   ld.c to chk.a), the third parameter is true - in this case the first
-   parameter is the previous check.  */
+   simple check).  The third parameter is the kind of speculation that
+   is being performed.  */
 DEFHOOK
 (gen_spec_check,
  "",
- rtx, (rtx insn, rtx label, int mutate_p), NULL)
+ rtx, (rtx insn, rtx label, unsigned int ds), NULL)
 
 /* The following member value is a pointer to a function controlling
    what insns from the ready insn queue will be considered for the
@@ -882,12 +879,12 @@ DEFHOOK
 DEFHOOK_UNDOC
 (get_insn_spec_ds,
  "Return speculation types of instruction @var{insn}.",
- int, (rtx insn), NULL)
+ unsigned int, (rtx insn), NULL)
 
 DEFHOOK_UNDOC
 (get_insn_checked_ds,
  "Return speculation types that are checked for instruction @var{insn}",
- int, (rtx insn), NULL)
+ unsigned int, (rtx insn), NULL)
 
 DEFHOOK_UNDOC
 (skip_rtx_p,
@@ -1291,12 +1288,54 @@ DEFHOOK
  "",
  tree, (unsigned int /*location_t*/ loc, tree fndecl, void *arglist), NULL)
 
-/* Fold a target-specific builtin.  */
+/* Fold a target-specific builtin to a tree valid for both GIMPLE
+   and GENERIC.  */
 DEFHOOK
 (fold_builtin,
  "",
  tree, (tree fndecl, int n_args, tree *argp, bool ignore),
  hook_tree_tree_int_treep_bool_null)
+
+/* Fold a target-specific builtin to a valid GIMPLE tree.  */
+DEFHOOK
+(gimple_fold_builtin,
+ "Fold a call to a machine specific built-in function that was set up\n\
+by @samp{TARGET_INIT_BUILTINS}.  @var{gsi} points to the gimple\n\
+statement holding the function call.  Returns true if any change\n\
+was made to the GIMPLE stream.",
+ bool, (gimple_stmt_iterator *gsi),
+ hook_bool_gsiptr_false)
+
+/* Target hook is used to compare the target attributes in two functions to
+   determine which function's features get higher priority.  This is used
+   during function multi-versioning to figure out the order in which two
+   versions must be dispatched.  A function version with a higher priority
+   is checked for dispatching earlier.  DECL1 and DECL2 are
+   the two function decls that will be compared. It returns positive value
+   if DECL1 is higher priority,  negative value if DECL2 is higher priority
+   and 0 if they are the same. */
+DEFHOOK
+(compare_version_priority,
+ "",
+ int, (tree decl1, tree decl2), NULL)
+
+/*  Target hook is used to generate the dispatcher logic to invoke the right
+    function version at run-time for a given set of function versions.
+    ARG points to the callgraph node of the dispatcher function whose body
+    must be generated.  */
+DEFHOOK
+(generate_version_dispatcher_body,
+ "",
+ tree, (void *arg), NULL) 
+
+/* Target hook is used to get the dispatcher function for a set of function
+   versions.  The dispatcher function is called to invoke the right function
+   version at run-time.  DECL is one version from a set of semantically
+   identical versions.  */
+DEFHOOK
+(get_function_versions_dispatcher,
+ "",
+ tree, (void *decl), NULL)
 
 /* Returns a code for a target-specific builtin that implements
    reciprocal of the function, or NULL_TREE if not available.  */
@@ -1464,6 +1503,13 @@ DEFHOOK
  bool, (enum machine_mode mode, const_rtx x),
  hook_bool_mode_const_rtx_false)
 
+/* True if the given decl can be put into an object_block.  */
+DEFHOOK
+(use_blocks_for_decl_p,
+ "",
+ bool, (const_tree decl),
+ hook_bool_const_tree_true)
+
 /* The minimum and maximum byte offsets for anchored addresses.  */
 DEFHOOKPOD
 (min_anchor_offset,
@@ -1481,6 +1527,15 @@ DEFHOOK
  "",
  bool, (const_rtx x),
  default_use_anchors_for_symbol_p)
+
+/* True if target supports indirect functions.  */
+DEFHOOK
+(has_ifunc_p,
+ "It returns true if the target supports GNU indirect functions.\n\
+The support includes the assembler, linker and dynamic linker.\n\
+The default value of this hook is based on target's libc.",
+ bool, (void),
+ default_has_ifunc_p)
 
 /* True if it is OK to do sibling call optimization for the specified
    call expression EXP.  DECL will be the called function, or NULL if
@@ -1778,7 +1833,7 @@ DEFHOOK
  "",
  rtx, (rtx hard_reg), NULL)
 
-/* Return nonzero if evaluating UNSPEC[_VOLATILE] X might cause a trap.
+/* Return nonzero if evaluating UNSPEC X might cause a trap.
    FLAGS has the same meaning as in rtlanal.c: may_trap_p_1.  */
 DEFHOOK
 (unspec_may_trap_p,
@@ -2024,6 +2079,17 @@ DEFHOOK
 (memmodel_check,
  "",
  unsigned HOST_WIDE_INT, (unsigned HOST_WIDE_INT val), NULL)
+
+/* Defines an offset bitwise ored into shifted address to get corresponding
+   Address Sanitizer shadow address, or -1 if Address Sanitizer is not
+   supported by the target.  */
+DEFHOOK
+(asan_shadow_offset,
+ "Return the offset bitwise ored into shifted address to get corresponding\n\
+Address Sanitizer shadow memory address.  NULL if Address Sanitizer is not\n\
+supported by the target.",
+ unsigned HOST_WIDE_INT, (void),
+ NULL)
 
 /* Functions relating to calls - argument passing, returns, etc.  */
 /* Members of struct call have no special macro prefix.  */
@@ -2401,6 +2467,16 @@ DEFHOOK
  reg_class_t, (reg_class_t, enum machine_mode),
  NULL)
 
+DEFHOOK
+(cstore_mode,
+ "This hook defines the machine mode to use for the boolean result of\
+  conditional store patterns.  The ICODE argument is the instruction code\
+  for the cstore being performed.  Not definiting this hook is the same\
+  as accepting the mode encoded into operand 0 of the cstore expander\
+  patterns.",
+  enum machine_mode, (enum insn_code icode),
+  default_cstore_mode)
+
 /* True if a structure, union or array with MODE containing FIELD should
    be accessed using BLKmode.  */
 DEFHOOK
@@ -2727,9 +2803,9 @@ HOOK_VECTOR_END (emutls)
 #define HOOK_PREFIX "TARGET_OPTION_"
 HOOK_VECTOR (TARGET_OPTION_HOOKS, target_option_hooks)
 
-/* Function to validate the attribute((option(...))) strings or NULL.  If
-   the option is validated, it is assumed that DECL_FUNCTION_SPECIFIC will
-   be filled in in the function decl node.  */
+/* Function to validate the attribute((target(...))) strings.  If
+   the option is validated, the hook should also fill in
+   DECL_FUNCTION_SPECIFIC_TARGET in the function decl node.  */
 DEFHOOK
 (valid_attribute_p,
  "",
@@ -2756,11 +2832,10 @@ DEFHOOK
  "",
  void, (FILE *file, int indent, struct cl_target_option *ptr), NULL)
 
-/* Function to parse arguments to be validated for #pragma option, and to
+/* Function to parse arguments to be validated for #pragma target, and to
    change the state if the options are valid.  If the first argument is
    NULL, the second argument specifies the default options to use.  Return
    true if the options are valid, and set the current state.  */
-/* ??? The documentation in tm.texi is incomplete.  */
 DEFHOOK
 (pragma_parse,
  "",
@@ -2773,6 +2848,16 @@ DEFHOOK
  "",
  void, (void),
  hook_void_void)
+
+/* This function returns true if DECL1 and DECL2 are versions of the same
+   function.  DECL1 and DECL2 are function versions if and only if they
+   have the same function signature and different target specific attributes,
+   that is, they are compiled for different target machines.  */
+DEFHOOK
+(function_versions,
+ "",
+ bool, (tree decl1, tree decl2),
+ hook_bool_tree_tree_false)
 
 /* Function to determine if one function can inline another function.  */
 #undef HOOK_PREFIX
@@ -2817,6 +2902,14 @@ DEFHOOK
  "",
  enum unwind_info_type, (void),
  default_debug_unwind_info)
+
+/* The code parameter should be of type enum rtx_code but this is not
+   defined at this time.  */
+DEFHOOK
+(canonicalize_comparison,
+ "",
+ void, (int *code, rtx *op0, rtx *op1, bool op0_preserve_value),
+ default_canonicalize_comparison)
 
 DEFHOOKPOD
 (atomic_test_and_set_trueval,

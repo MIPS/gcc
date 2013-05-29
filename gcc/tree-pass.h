@@ -1,6 +1,5 @@
 /* Definitions for describing one tree-ssa optimization pass.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>
 
 This file is part of GCC.
@@ -45,6 +44,9 @@ struct opt_pass
   /* Terse name of the pass used as a fragment of the dump file
      name.  If the name starts with a star, no dump happens. */
   const char *name;
+
+  /* The -fopt-info optimization group flags as defined in dumpfile.h. */
+  unsigned int optinfo_flags;
 
   /* If non-null, this pass and all sub-passes are executed only if
      the function returns true.  */
@@ -146,12 +148,13 @@ struct simple_ipa_opt_pass
 #define PROP_cfglayout	 	(1 << 9)	/* cfglayout mode on RTL */
 #define PROP_gimple_lcx		(1 << 10)       /* lowered complex */
 #define PROP_loops		(1 << 11)	/* preserve loop structures */
+#define PROP_gimple_lvec	(1 << 12)       /* lowered vector */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
 
 /* To-do flags.  */
-#define TODO_ggc_collect		(1 << 1)
+#define TODO_do_not_ggc_collect		(1 << 1)
 #define TODO_verify_ssa			(1 << 2)
 #define TODO_verify_flow		(1 << 3)
 #define TODO_verify_stmts		(1 << 4)
@@ -256,6 +259,10 @@ struct register_pass_info
 
 extern struct gimple_opt_pass pass_mudflap_1;
 extern struct gimple_opt_pass pass_mudflap_2;
+extern struct gimple_opt_pass pass_asan;
+extern struct gimple_opt_pass pass_asan_O0;
+extern struct gimple_opt_pass pass_tsan;
+extern struct gimple_opt_pass pass_tsan_O0;
 extern struct gimple_opt_pass pass_lower_cf;
 extern struct gimple_opt_pass pass_refactor_eh;
 extern struct gimple_opt_pass pass_lower_eh;
@@ -540,6 +547,9 @@ extern void register_pass (struct register_pass_info *);
    throughout the compilation -- we will be able to mark the affected loops
    directly in jump threading, and avoid peeling them next time.  */
 extern bool first_pass_instance;
+
+extern struct opt_pass **passes_by_id;
+extern int passes_by_id_size;
 
 /* Declare for plugins.  */
 extern void do_per_function_toporder (void (*) (void *), void *);

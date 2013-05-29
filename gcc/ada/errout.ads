@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,26 +39,6 @@ with System;
 
 package Errout is
 
-   Serious_Errors_Detected : Nat renames Err_Vars.Serious_Errors_Detected;
-   --  This is a count of errors that are serious enough to stop expansion,
-   --  and hence to prevent generation of an object file even if the switch
-   --  -gnatQ is set.
-
-   Total_Errors_Detected : Nat renames Err_Vars.Total_Errors_Detected;
-   --  Number of errors detected so far. Includes count of serious errors and
-   --  non-serious errors, so this value is always greater than or equal to
-   --  the Serious_Errors_Detected value.
-
-   Warnings_Detected : Nat renames Err_Vars.Warnings_Detected;
-   --  Number of warnings detected
-
-   Configurable_Run_Time_Violations : Nat := 0;
-   --  Count of configurable run time violations so far. This is used to
-   --  suppress certain cascaded error messages when we know that we may not
-   --  have fully expanded some items, due to high integrity violations (i.e.
-   --  the use of constructs not permitted by the library in use, or improper
-   --  constructs in No_Run_Time mode).
-
    Current_Error_Source_File : Source_File_Index
      renames Err_Vars.Current_Error_Source_File;
    --  Id of current messages. Used to post file name when unit changes. This
@@ -78,6 +58,12 @@ package Errout is
 
    Error_Msg_Exception : exception renames Err_Vars.Error_Msg_Exception;
    --  Exception raised if Raise_Exception_On_Error is true
+
+   Warning_Doc_Switch : Boolean renames Err_Vars.Warning_Doc_Switch;
+   --  If this is set True, then the ??/?x?/?X? sequences in error messages
+   --  are active (see errout.ads for details). If this switch is False, then
+   --  these sequences are ignored (i.e. simply equivalent to a single ?). The
+   --  -gnatw.d switch sets this flag True, -gnatw.D sets this flag False.
 
    -----------------------------------
    -- Suppression of Error Messages --
@@ -236,7 +222,7 @@ package Errout is
    --      A second ^ may occur in the message, in which case it is replaced
    --      by the decimal conversion of the Uint value in Error_Msg_Uint_2.
 
-   --    Insertion character > (Right bracket, run time name)
+   --    Insertion character > (Greater Than, run time name)
    --      The character > is replaced by a string of the form (name) if
    --      Targparm scanned out a Run_Time_Name (see package Targparm for
    --      details). The name is enclosed in parentheses and output in mixed
@@ -256,7 +242,7 @@ package Errout is
    --      messages starting with the \ insertion character). The effect of the
    --      use of ! in a parent message automatically applies to all of its
    --      continuation messages (since we clearly don't want any case in which
-   --      continuations are separated from the parent message. It is allowable
+   --      continuations are separated from the main message). It is allowable
    --      to put ! in continuation messages, and the usual style is to include
    --      it, since it makes it clear that the continuation is part of an
    --      unconditional message.
@@ -294,6 +280,27 @@ package Errout is
    --      which is being continued. It is allowable to put ? in continuation
    --      messages, and the usual style is to include it, since it makes it
    --      clear that the continuation is part of a warning message.
+   --
+   --      Note: this usage is obsolete, use ??, ?x? or ?X? instead to specify
+   --      the string to be added when Warn_Doc_Switch is set to True. If this
+   --      switch is True, then for simple ? messages it has no effect. This
+   --      simple form is to ease transition and will be removed later.
+
+   --    Insertion character ?? (Two question marks: default warning)
+   --      Like ?, but if the flag Warn_Doc_Switch is True, adds the string
+   --      "[enabled by default]" at the end of the warning message. For
+   --      continuations, use this in each continuation message.
+
+   --    Insertion character ?x? (warning with switch)
+   --      Like ?, but if the flag Warn_Doc_Switch is True, adds the string
+   --      "[-gnatwx]" at the end of the warning message. x is a lower case
+   --      letter. For continuations, use this on each continuation message.
+
+   --    Insertion character ?X? (warning with dot switch)
+   --      Like ?, but if the flag Warn_Doc_Switch is True, adds the string
+   --      "[-gnatw.x]" at the end of the warning message. X is an upper case
+   --      letter corresponding to the lower case letter x in the message.
+   --      For continuations, use this on each continuation message.
 
    --    Insertion character < (Less Than: conditional warning message)
    --      The character < appearing anywhere in a message is used for a
@@ -317,9 +324,8 @@ package Errout is
    --    Insertion character ' (Quote: literal character)
    --      Precedes a character which is placed literally into the message.
    --      Used to insert characters into messages that are one of the
-   --      insertion characters defined here. Also useful in inserting
-   --      sequences of upper case letters which are not to be treated as
-   --      keywords.
+   --      insertion characters defined here. Also used when insertion
+   --      upper case letter sequences not to be treated as keywords.
 
    --    Insertion character \ (Backslash: continuation message)
    --      Indicates that the message is a continuation of a message
@@ -501,8 +507,8 @@ package Errout is
    --  Note: a special exception is that RM is never treated as a keyword
    --  but instead is copied literally into the message, this avoids the
    --  need for writing 'R'M for all reference manual quotes. A similar
-   --  exception is applied to the occurrence of the string Alfa used in
-   --  error messages about the Alfa subset of Ada.
+   --  exception is applied to the occurrence of the string SPARK used in
+   --  error messages about the SPARK subset of Ada.
 
    --  In the case of names, the default mode for the error text processor
    --  is to surround the name by quotation marks automatically. The case
@@ -727,13 +733,6 @@ package Errout is
    --  This routine can only be called during semantic analysis. It may not
    --  be called during parsing.
 
-   procedure Cascaded_Error;
-   --  When an anomaly is detected, many semantic routines silently bail out,
-   --  assuming that the anomaly was caused by a previously detected error.
-   --  This routine should be called in these cases, and will raise an
-   --  exception if no serious error has been detected. This ensure that the
-   --  anomaly is never allowed to go unnoticed.
-
    procedure Change_Error_Text (Error_Id : Error_Msg_Id; New_Msg : String);
    --  The error message text of the message identified by Id is replaced by
    --  the given text. This text may contain insertion characters in the
@@ -748,6 +747,9 @@ package Errout is
    --  points to the start of the first token in the expression. In the case
    --  where the expression is parenthesized, an attempt is made to include
    --  the parentheses (i.e. to return the location of the initial paren).
+
+   function Get_Ignore_Errors return Boolean;
+   --  Return True if all error calls are ignored.
 
    procedure Purge_Messages (From : Source_Ptr; To : Source_Ptr)
      renames Erroutc.Purge_Messages;

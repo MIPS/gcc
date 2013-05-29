@@ -1,7 +1,5 @@
 /* Generate code from machine description to compute values of attributes.
-   Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1991-2013 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -113,7 +111,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "errors.h"
 #include "read-md.h"
 #include "gensupport.h"
-#include "vecprim.h"
 #include "fnmatch.h"
 
 #define DEBUG 0
@@ -1636,14 +1633,15 @@ write_length_unit_log (FILE *outf)
   unsigned int length_unit_log, length_or;
   int unknown = 0;
 
-  if (length_attr == 0)
-    return;
-  length_or = or_attr_value (length_attr->default_val->value, &unknown);
-  for (av = length_attr->first_value; av; av = av->next)
-    for (ie = av->first_insn; ie; ie = ie->next)
-      length_or |= or_attr_value (av->value, &unknown);
+  if (length_attr)
+    {
+      length_or = or_attr_value (length_attr->default_val->value, &unknown);
+      for (av = length_attr->first_value; av; av = av->next)
+	for (ie = av->first_insn; ie; ie = ie->next)
+	  length_or |= or_attr_value (av->value, &unknown);
+    }
 
-  if (unknown)
+  if (length_attr == NULL || unknown)
     length_unit_log = 0;
   else
     {

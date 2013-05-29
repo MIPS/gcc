@@ -1,6 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
-   2007, 2008, 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 1997-2013 Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GCC.
@@ -149,7 +148,7 @@ typedef struct alias_set_entry_d *alias_set_entry;
 static int rtx_equal_for_memref_p (const_rtx, const_rtx);
 static int memrefs_conflict_p (int, rtx, int, rtx, HOST_WIDE_INT);
 static void record_set (rtx, const_rtx, void *);
-static int base_alias_check (rtx, rtx, enum machine_mode,
+static int base_alias_check (rtx, rtx, rtx, rtx, enum machine_mode,
 			     enum machine_mode);
 static rtx find_base_value (rtx);
 static int mems_in_disjoint_alias_sets_p (const_rtx, const_rtx);
@@ -206,7 +205,7 @@ static void memory_modified_1 (rtx, const_rtx, void *);
    The ADDRESS in group (1) _may_ alias globals; it has VOIDmode to
    indicate this.  */
 
-static GTY(()) VEC(rtx,gc) *reg_base_value;
+static GTY(()) vec<rtx, va_gc> *reg_base_value;
 static rtx *new_reg_base_value;
 
 /* The single VOIDmode ADDRESS that represents all argument bases.
@@ -219,7 +218,7 @@ static int unique_id;
 /* We preserve the copy of old array around to avoid amount of garbage
    produced.  About 8% of garbage produced were attributed to this
    array.  */
-static GTY((deletable)) VEC(rtx,gc) *old_reg_base_value;
+static GTY((deletable)) vec<rtx, va_gc> *old_reg_base_value;
 
 /* Values of XINT (address, 0) of Pmode ADDRESS rtxes for special
    registers.  */
@@ -231,14 +230,14 @@ static GTY((deletable)) VEC(rtx,gc) *old_reg_base_value;
 #define static_reg_base_value \
   (this_target_rtl->x_static_reg_base_value)
 
-#define REG_BASE_VALUE(X)				\
-  (REGNO (X) < VEC_length (rtx, reg_base_value)		\
-   ? VEC_index (rtx, reg_base_value, REGNO (X)) : 0)
+#define REG_BASE_VALUE(X)					\
+  (REGNO (X) < vec_safe_length (reg_base_value)			\
+   ? (*reg_base_value)[REGNO (X)] : 0)
 
 /* Vector indexed by N giving the initial (unchanging) value known for
    pseudo-register N.  This vector is initialized in init_alias_analysis,
    and does not change until end_alias_analysis is called.  */
-static GTY(()) VEC(rtx,gc) *reg_known_value;
+static GTY(()) vec<rtx, va_gc> *reg_known_value;
 
 /* Vector recording for each reg_known_value whether it is due to a
    REG_EQUIV note.  Future passes (viz., reload) may replace the
@@ -258,11 +257,9 @@ static sbitmap reg_known_equiv_p;
    NOTE_INSN_FUNCTION_BEG note.  */
 static bool copying_arguments;
 
-DEF_VEC_P(alias_set_entry);
-DEF_VEC_ALLOC_P(alias_set_entry,gc);
 
 /* The splay-tree used to store the various alias set entries.  */
-static GTY (()) VEC(alias_set_entry,gc) *alias_sets;
+static GTY (()) vec<alias_set_entry, va_gc> *alias_sets;
 
 /* Build a decomposed reference object for querying the alias-oracle
    from the MEM rtx and store it in *REF.
@@ -285,43 +282,24 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
   if (base == NULL_TREE)
     return false;
 
-  /* The tree oracle doesn't like to have these.  */
-  if (TREE_CODE (base) == FUNCTION_DECL
-      || TREE_CODE (base) == LABEL_DECL)
-    return false;
-
-  /* If this is a pointer dereference of a non-SSA_NAME punt.
-     ???  We could replace it with a pointer to anything.  */
-  if ((INDIRECT_REF_P (base)
-       || TREE_CODE (base) == MEM_REF)
-      && TREE_CODE (TREE_OPERAND (base, 0)) != SSA_NAME)
-    return false;
-  if (TREE_CODE (base) == TARGET_MEM_REF
-      && TMR_BASE (base)
-      && TREE_CODE (TMR_BASE (base)) != SSA_NAME)
+  /* The tree oracle doesn't like bases that are neither decls
+     nor indirect references of SSA names.  */
+  if (!(DECL_P (base)
+	|| (TREE_CODE (base) == MEM_REF
+	    && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME)
+	|| (TREE_CODE (base) == TARGET_MEM_REF
+	    && TREE_CODE (TMR_BASE (base)) == SSA_NAME)))
     return false;
 
   /* If this is a reference based on a partitioned decl replace the
-     base with an INDIRECT_REF of the pointer representative we
+     base with a MEM_REF of the pointer representative we
      created during stack slot partitioning.  */
   if (TREE_CODE (base) == VAR_DECL
-      && ! TREE_STATIC (base)
+      && ! is_global_var (base)
       && cfun->gimple_df->decls_to_pointers != NULL)
     {
       void *namep;
       namep = pointer_map_contains (cfun->gimple_df->decls_to_pointers, base);
-      if (namep)
-	ref->base = build_simple_mem_ref (*(tree *)namep);
-    }
-  else if (TREE_CODE (base) == TARGET_MEM_REF
-	   && TREE_CODE (TMR_BASE (base)) == ADDR_EXPR
-	   && TREE_CODE (TREE_OPERAND (TMR_BASE (base), 0)) == VAR_DECL
-	   && ! TREE_STATIC (TREE_OPERAND (TMR_BASE (base), 0))
-	   && cfun->gimple_df->decls_to_pointers != NULL)
-    {
-      void *namep;
-      namep = pointer_map_contains (cfun->gimple_df->decls_to_pointers,
-				    TREE_OPERAND (TMR_BASE (base), 0));
       if (namep)
 	ref->base = build_simple_mem_ref (*(tree *)namep);
     }
@@ -391,7 +369,7 @@ rtx_refs_may_alias_p (const_rtx x, const_rtx mem, bool tbaa_p)
 static inline alias_set_entry
 get_alias_set_entry (alias_set_type alias_set)
 {
-  return VEC_index (alias_set_entry, alias_sets, alias_set);
+  return (*alias_sets)[alias_set];
 }
 
 /* Returns nonzero if the alias sets for MEM1 and MEM2 are such that
@@ -854,9 +832,9 @@ new_alias_set (void)
   if (flag_strict_aliasing)
     {
       if (alias_sets == 0)
-	VEC_safe_push (alias_set_entry, gc, alias_sets, 0);
-      VEC_safe_push (alias_set_entry, gc, alias_sets, 0);
-      return VEC_length (alias_set_entry, alias_sets) - 1;
+	vec_safe_push (alias_sets, (alias_set_entry) 0);
+      vec_safe_push (alias_sets, (alias_set_entry) 0);
+      return alias_sets->length () - 1;
     }
   else
     return 0;
@@ -900,7 +878,7 @@ record_alias_subset (alias_set_type superset, alias_set_type subset)
 			      ggc_alloc_splay_tree_scalar_scalar_splay_tree_s,
 			      ggc_alloc_splay_tree_scalar_scalar_splay_tree_node_s);
       superset_entry->has_zero_child = 0;
-      VEC_replace (alias_set_entry, alias_sets, superset, superset_entry);
+      (*alias_sets)[superset] = superset_entry;
     }
 
   if (subset == 0)
@@ -1079,7 +1057,7 @@ find_base_value (rtx src)
 	 The test above is not sufficient because the scheduler may move
 	 a copy out of an arg reg past the NOTE_INSN_FUNCTION_BEGIN.  */
       if ((regno >= FIRST_PSEUDO_REGISTER || fixed_regs[regno])
-	  && regno < VEC_length (rtx, reg_base_value))
+	  && regno < vec_safe_length (reg_base_value))
 	{
 	  /* If we're inside init_alias_analysis, use new_reg_base_value
 	     to reduce the number of relaxation iterations.  */
@@ -1087,8 +1065,8 @@ find_base_value (rtx src)
 	      && DF_REG_DEF_COUNT (regno) == 1)
 	    return new_reg_base_value[regno];
 
-	  if (VEC_index (rtx, reg_base_value, regno))
-	    return VEC_index (rtx, reg_base_value, regno);
+	  if ((*reg_base_value)[regno])
+	    return (*reg_base_value)[regno];
 	}
 
       return 0;
@@ -1233,7 +1211,7 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
 
   regno = REGNO (dest);
 
-  gcc_checking_assert (regno < VEC_length (rtx, reg_base_value));
+  gcc_checking_assert (regno < reg_base_value->length ());
 
   /* If this spans multiple hard registers, then we must indicate that every
      register has an unusable value.  */
@@ -1245,7 +1223,7 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
     {
       while (--n >= 0)
 	{
-	  SET_BIT (reg_seen, regno + n);
+	  bitmap_set_bit (reg_seen, regno + n);
 	  new_reg_base_value[regno + n] = 0;
 	}
       return;
@@ -1266,12 +1244,12 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
   else
     {
       /* There's a REG_NOALIAS note against DEST.  */
-      if (TEST_BIT (reg_seen, regno))
+      if (bitmap_bit_p (reg_seen, regno))
 	{
 	  new_reg_base_value[regno] = 0;
 	  return;
 	}
-      SET_BIT (reg_seen, regno);
+      bitmap_set_bit (reg_seen, regno);
       new_reg_base_value[regno] = unique_base_value (unique_id++);
       return;
     }
@@ -1327,10 +1305,10 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
       }
   /* If this is the first set of a register, record the value.  */
   else if ((regno >= FIRST_PSEUDO_REGISTER || ! fixed_regs[regno])
-	   && ! TEST_BIT (reg_seen, regno) && new_reg_base_value[regno] == 0)
+	   && ! bitmap_bit_p (reg_seen, regno) && new_reg_base_value[regno] == 0)
     new_reg_base_value[regno] = find_base_value (src);
 
-  SET_BIT (reg_seen, regno);
+  bitmap_set_bit (reg_seen, regno);
 }
 
 /* Return REG_BASE_VALUE for REGNO.  Selective scheduler uses this to avoid
@@ -1338,7 +1316,7 @@ record_set (rtx dest, const_rtx set, void *data ATTRIBUTE_UNUSED)
 rtx
 get_reg_base_value (unsigned int regno)
 {
-  return VEC_index (rtx, reg_base_value, regno);
+  return (*reg_base_value)[regno];
 }
 
 /* If a value is known for REGNO, return it.  */
@@ -1349,8 +1327,8 @@ get_reg_known_value (unsigned int regno)
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
       regno -= FIRST_PSEUDO_REGISTER;
-      if (regno < VEC_length (rtx, reg_known_value))
-	return VEC_index (rtx, reg_known_value, regno);
+      if (regno < vec_safe_length (reg_known_value))
+	return (*reg_known_value)[regno];
     }
   return NULL;
 }
@@ -1363,8 +1341,8 @@ set_reg_known_value (unsigned int regno, rtx val)
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
       regno -= FIRST_PSEUDO_REGISTER;
-      if (regno < VEC_length (rtx, reg_known_value))
-	VEC_replace (rtx, reg_known_value, regno, val);
+      if (regno < vec_safe_length (reg_known_value))
+	(*reg_known_value)[regno] = val;
     }
 }
 
@@ -1376,8 +1354,8 @@ get_reg_known_equiv_p (unsigned int regno)
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
       regno -= FIRST_PSEUDO_REGISTER;
-      if (regno < VEC_length (rtx, reg_known_value))
-	return TEST_BIT (reg_known_equiv_p, regno);
+      if (regno < vec_safe_length (reg_known_value))
+	return bitmap_bit_p (reg_known_equiv_p, regno);
     }
   return false;
 }
@@ -1388,12 +1366,12 @@ set_reg_known_equiv_p (unsigned int regno, bool val)
   if (regno >= FIRST_PSEUDO_REGISTER)
     {
       regno -= FIRST_PSEUDO_REGISTER;
-      if (regno < VEC_length (rtx, reg_known_value))
+      if (regno < vec_safe_length (reg_known_value))
 	{
 	  if (val)
-	    SET_BIT (reg_known_equiv_p, regno);
+	    bitmap_set_bit (reg_known_equiv_p, regno);
 	  else
-	    RESET_BIT (reg_known_equiv_p, regno);
+	    bitmap_clear_bit (reg_known_equiv_p, regno);
 	}
     }
 }
@@ -1486,6 +1464,10 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
 
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
+
+    case ENTRY_VALUE:
+      /* This is magic, don't go through canonicalization et al.  */
+      return rtx_equal_p (ENTRY_VALUE_EXP (x), ENTRY_VALUE_EXP (y));
 
     case VALUE:
     CASE_CONST_UNIQUE:
@@ -1690,35 +1672,31 @@ find_base_term (rtx x)
 	if (tmp1 == pic_offset_table_rtx && CONSTANT_P (tmp2))
 	  return find_base_term (tmp2);
 
-	/* If either operand is known to be a pointer, then use it
+	/* If either operand is known to be a pointer, then prefer it
 	   to determine the base term.  */
 	if (REG_P (tmp1) && REG_POINTER (tmp1))
+	  ;
+	else if (REG_P (tmp2) && REG_POINTER (tmp2))
 	  {
-	    rtx base = find_base_term (tmp1);
-	    if (base)
-	      return base;
+	    rtx tem = tmp1;
+	    tmp1 = tmp2;
+	    tmp2 = tem;
 	  }
 
-	if (REG_P (tmp2) && REG_POINTER (tmp2))
-	  {
-	    rtx base = find_base_term (tmp2);
-	    if (base)
-	      return base;
-	  }
-
-	/* Neither operand was known to be a pointer.  Go ahead and find the
-	   base term for both operands.  */
-	tmp1 = find_base_term (tmp1);
-	tmp2 = find_base_term (tmp2);
-
-	/* If either base term is named object or a special address
+	/* Go ahead and find the base term for both operands.  If either base
+	   term is from a pointer or is a named object or a special address
 	   (like an argument or stack reference), then use it for the
 	   base term.  */
-	if (tmp1 != 0 && known_base_value_p (tmp1))
-	  return tmp1;
-
-	if (tmp2 != 0 && known_base_value_p (tmp2))
-	  return tmp2;
+	rtx base = find_base_term (tmp1);
+	if (base != NULL_RTX
+	    && ((REG_P (tmp1) && REG_POINTER (tmp1))
+		 || known_base_value_p (base)))
+	  return base;
+	base = find_base_term (tmp2);
+	if (base != NULL_RTX
+	    && ((REG_P (tmp2) && REG_POINTER (tmp2))
+		 || known_base_value_p (base)))
+	  return base;
 
 	/* We could not determine which of the two operands was the
 	   base register and which was the index.  So we can determine
@@ -1754,12 +1732,9 @@ may_be_sp_based_p (rtx x)
    objects, 1 if they might be pointers to the same object.  */
 
 static int
-base_alias_check (rtx x, rtx y, enum machine_mode x_mode,
-		  enum machine_mode y_mode)
+base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
+		  enum machine_mode x_mode, enum machine_mode y_mode)
 {
-  rtx x_base = find_base_term (x);
-  rtx y_base = find_base_term (y);
-
   /* If the address itself has no known base see if a known equivalent
      value has one.  If either address still has no known base, nothing
      is known about aliasing.  */
@@ -1926,6 +1901,20 @@ addr_side_effect_eval (rtx addr, int size, int n_refs)
   return addr;
 }
 
+/* Return TRUE if an object X sized at XSIZE bytes and another object
+   Y sized at YSIZE bytes, starting C bytes after X, may overlap.  If
+   any of the sizes is zero, assume an overlap, otherwise use the
+   absolute value of the sizes as the actual sizes.  */
+
+static inline bool
+offset_overlap_p (HOST_WIDE_INT c, int xsize, int ysize)
+{
+  return (xsize == 0 || ysize == 0
+	  || (c >= 0
+	      ? (abs (xsize) > c)
+	      : (abs (ysize) > -c)));
+}
+
 /* Return one if X and Y (memory addresses) reference the
    same location in memory or if the references overlap.
    Return zero if they do not overlap, else return
@@ -1998,23 +1987,17 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
   else if (GET_CODE (x) == LO_SUM)
     x = XEXP (x, 1);
   else
-    x = addr_side_effect_eval (x, xsize, 0);
+    x = addr_side_effect_eval (x, abs (xsize), 0);
   if (GET_CODE (y) == HIGH)
     y = XEXP (y, 0);
   else if (GET_CODE (y) == LO_SUM)
     y = XEXP (y, 1);
   else
-    y = addr_side_effect_eval (y, ysize, 0);
+    y = addr_side_effect_eval (y, abs (ysize), 0);
 
   if (rtx_equal_for_memref_p (x, y))
     {
-      if (xsize <= 0 || ysize <= 0)
-	return 1;
-      if (c >= 0 && xsize > c)
-	return 1;
-      if (c < 0 && ysize+c > 0)
-	return 1;
-      return 0;
+      return offset_overlap_p (c, xsize, ysize);
     }
 
   /* This code used to check for conflicts involving stack references and
@@ -2084,8 +2067,7 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	  x0 = canon_rtx (XEXP (x, 0));
 	  y0 = canon_rtx (XEXP (y, 0));
 	  if (rtx_equal_for_memref_p (x0, y0))
-	    return (xsize == 0 || ysize == 0
-		    || (c >= 0 && xsize > c) || (c < 0 && ysize+c > 0));
+	    return offset_overlap_p (c, xsize, ysize);
 
 	  /* Can't properly adjust our sizes.  */
 	  if (!CONST_INT_P (x1))
@@ -2102,14 +2084,21 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 
   /* Deal with alignment ANDs by adjusting offset and size so as to
      cover the maximum range, without taking any previously known
-     alignment into account.  */
+     alignment into account.  Make a size negative after such an
+     adjustments, so that, if we end up with e.g. two SYMBOL_REFs, we
+     assume a potential overlap, because they may end up in contiguous
+     memory locations and the stricter-alignment access may span over
+     part of both.  */
   if (GET_CODE (x) == AND && CONST_INT_P (XEXP (x, 1)))
     {
       HOST_WIDE_INT sc = INTVAL (XEXP (x, 1));
       unsigned HOST_WIDE_INT uc = sc;
-      if (xsize > 0 && sc < 0 && -uc == (uc & -uc))
+      if (sc < 0 && -uc == (uc & -uc))
 	{
-	  xsize -= sc + 1;
+	  if (xsize > 0)
+	    xsize = -xsize;
+	  if (xsize)
+	    xsize += sc + 1;
 	  c -= sc + 1;
 	  return memrefs_conflict_p (xsize, canon_rtx (XEXP (x, 0)),
 				     ysize, y, c);
@@ -2119,9 +2108,12 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
     {
       HOST_WIDE_INT sc = INTVAL (XEXP (y, 1));
       unsigned HOST_WIDE_INT uc = sc;
-      if (ysize > 0 && sc < 0 && -uc == (uc & -uc))
+      if (sc < 0 && -uc == (uc & -uc))
 	{
-	  ysize -= sc + 1;
+	  if (ysize > 0)
+	    ysize = -ysize;
+	  if (ysize)
+	    ysize += sc + 1;
 	  c += sc + 1;
 	  return memrefs_conflict_p (xsize, x,
 				     ysize, canon_rtx (XEXP (y, 0)), c);
@@ -2133,8 +2125,7 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
       if (CONST_INT_P (x) && CONST_INT_P (y))
 	{
 	  c += (INTVAL (y) - INTVAL (x));
-	  return (xsize <= 0 || ysize <= 0
-		  || (c >= 0 && xsize > c) || (c < 0 && ysize+c > 0));
+	  return offset_overlap_p (c, xsize, ysize);
 	}
 
       if (GET_CODE (x) == CONST)
@@ -2150,10 +2141,12 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	return memrefs_conflict_p (xsize, x, ysize,
 				   canon_rtx (XEXP (y, 0)), c);
 
+      /* Assume a potential overlap for symbolic addresses that went
+	 through alignment adjustments (i.e., that have negative
+	 sizes), because we can't know how far they are from each
+	 other.  */
       if (CONSTANT_P (y))
-	return (xsize <= 0 || ysize <= 0
-		|| (rtx_equal_for_memref_p (x, y)
-		    && ((c >= 0 && xsize > c) || (c < 0 && ysize+c > 0))));
+	return (xsize < 0 || ysize < 0 || offset_overlap_p (c, xsize, ysize));
 
       return -1;
     }
@@ -2238,11 +2231,10 @@ nonoverlapping_component_refs_p (const_rtx rtlx, const_rtx rtly)
       return false;
 
     found:
-      /* If we're left with accessing different fields of a structure,
-	 then no overlap.  */
-      if (TREE_CODE (typex) == RECORD_TYPE
-	  && fieldx != fieldy)
-	return true;
+      /* If we're left with accessing different fields of a structure, then no
+	 possible overlap, unless they are both bitfields.  */
+      if (TREE_CODE (typex) == RECORD_TYPE && fieldx != fieldy)
+	return !(DECL_BIT_FIELD (fieldx) && DECL_BIT_FIELD (fieldy));
 
       /* The comparison on the current field failed.  If we're accessing
 	 a very nested structure, look at the next outer level.  */
@@ -2512,7 +2504,9 @@ true_dependence_1 (const_rtx mem, enum machine_mode mem_mode, rtx mem_addr,
 		   && CONSTANT_POOL_ADDRESS_P (base))))
     return 0;
 
-  if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
+  rtx mem_base = find_base_term (mem_addr);
+  if (! base_alias_check (x_addr, base, mem_addr, mem_base,
+			  GET_MODE (x), mem_mode))
     return 0;
 
   x_addr = canon_rtx (x_addr);
@@ -2604,16 +2598,16 @@ write_dependence_p (const_rtx mem, const_rtx x, int writep)
       mem_addr = get_addr (mem_addr);
     }
 
-  if (! writep)
-    {
-      base = find_base_term (mem_addr);
-      if (base && (GET_CODE (base) == LABEL_REF
-		   || (GET_CODE (base) == SYMBOL_REF
-		       && CONSTANT_POOL_ADDRESS_P (base))))
-	return 0;
-    }
+  base = find_base_term (mem_addr);
+  if (! writep
+      && base
+      && (GET_CODE (base) == LABEL_REF
+	  || (GET_CODE (base) == SYMBOL_REF
+	      && CONSTANT_POOL_ADDRESS_P (base))))
+    return 0;
 
-  if (! base_alias_check (x_addr, mem_addr, GET_MODE (x),
+  rtx x_base = find_base_term (x_addr);
+  if (! base_alias_check (x_addr, x_base, mem_addr, base, GET_MODE (x),
 			  GET_MODE (mem)))
     return 0;
 
@@ -2693,7 +2687,10 @@ may_alias_p (const_rtx mem, const_rtx x)
       mem_addr = get_addr (mem_addr);
     }
 
-  if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), GET_MODE (mem_addr)))
+  rtx x_base = find_base_term (x_addr);
+  rtx mem_base = find_base_term (mem_addr);
+  if (! base_alias_check (x_addr, x_base, mem_addr, mem_base,
+			  GET_MODE (x), GET_MODE (mem_addr)))
     return 0;
 
   x_addr = canon_rtx (x_addr);
@@ -2811,17 +2808,18 @@ init_alias_analysis (void)
 
   timevar_push (TV_ALIAS_ANALYSIS);
 
-  reg_known_value = VEC_alloc (rtx, gc, maxreg - FIRST_PSEUDO_REGISTER);
+  vec_safe_grow_cleared (reg_known_value, maxreg - FIRST_PSEUDO_REGISTER);
   reg_known_equiv_p = sbitmap_alloc (maxreg - FIRST_PSEUDO_REGISTER);
+  bitmap_clear (reg_known_equiv_p);
 
   /* If we have memory allocated from the previous run, use it.  */
   if (old_reg_base_value)
     reg_base_value = old_reg_base_value;
 
   if (reg_base_value)
-    VEC_truncate (rtx, reg_base_value, 0);
+    reg_base_value->truncate (0);
 
-  VEC_safe_grow_cleared (rtx, gc, reg_base_value, maxreg);
+  vec_safe_grow_cleared (reg_base_value, maxreg);
 
   new_reg_base_value = XNEWVEC (rtx, maxreg);
   reg_seen = sbitmap_alloc (maxreg);
@@ -2969,11 +2967,10 @@ init_alias_analysis (void)
       for (ui = 0; ui < maxreg; ui++)
 	{
 	  if (new_reg_base_value[ui]
-	      && new_reg_base_value[ui] != VEC_index (rtx, reg_base_value, ui)
-	      && ! rtx_equal_p (new_reg_base_value[ui],
-				VEC_index (rtx, reg_base_value, ui)))
+	      && new_reg_base_value[ui] != (*reg_base_value)[ui]
+	      && ! rtx_equal_p (new_reg_base_value[ui], (*reg_base_value)[ui]))
 	    {
-	      VEC_replace (rtx, reg_base_value, ui, new_reg_base_value[ui]);
+	      (*reg_base_value)[ui] = new_reg_base_value[ui];
 	      changed = 1;
 	    }
 	}
@@ -2982,7 +2979,7 @@ init_alias_analysis (void)
   XDELETEVEC (rpo);
 
   /* Fill in the remaining entries.  */
-  FOR_EACH_VEC_ELT (rtx, reg_known_value, i, val)
+  FOR_EACH_VEC_ELT (*reg_known_value, i, val)
     {
       int regno = i + FIRST_PSEUDO_REGISTER;
       if (! val)
@@ -3003,14 +3000,14 @@ init_alias_analysis (void)
 void
 vt_equate_reg_base_value (const_rtx reg1, const_rtx reg2)
 {
-  VEC_replace (rtx, reg_base_value, REGNO (reg1), REG_BASE_VALUE (reg2));
+  (*reg_base_value)[REGNO (reg1)] = REG_BASE_VALUE (reg2);
 }
 
 void
 end_alias_analysis (void)
 {
   old_reg_base_value = reg_base_value;
-  VEC_free (rtx, gc, reg_known_value);
+  vec_free (reg_known_value);
   sbitmap_free (reg_known_equiv_p);
 }
 

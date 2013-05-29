@@ -1,7 +1,5 @@
 /* Functions dealing with attribute handling, used by most front ends.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1992-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,7 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cpplib.h"
 #include "target.h"
 #include "langhooks.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "plugin.h"
 
 /* Table of the tables of attributes (common, language, format, machine)
@@ -46,23 +44,49 @@ struct substring
   int length;
 };
 
-DEF_VEC_O (attribute_spec);
-DEF_VEC_ALLOC_O (attribute_spec, heap);
+/* Simple hash function to avoid need to scan whole string.  */
+
+static inline hashval_t
+substring_hash (const char *str, int l)
+{
+  return str[0] + str[l - 1] * 256 + l * 65536;
+}
+
+/* Used for attribute_hash.  */
+
+struct attribute_hasher : typed_noop_remove <attribute_spec>
+{
+  typedef attribute_spec value_type;
+  typedef substring compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+attribute_hasher::hash (const value_type *spec)
+{
+  const int l = strlen (spec->name);
+  return substring_hash (spec->name, l);
+}
+
+inline bool
+attribute_hasher::equal (const value_type *spec, const compare_type *str)
+{
+  return (strncmp (spec->name, str->str, str->length) == 0
+	  && !spec->name[str->length]);
+}
 
 /* Scoped attribute name representation.  */
 
 struct scoped_attributes
 {
   const char *ns;
-  VEC (attribute_spec, heap) *attributes;
-  htab_t attribute_hash;
+  vec<attribute_spec> attributes;
+  hash_table <attribute_hasher> attribute_hash;
 };
 
-DEF_VEC_O (scoped_attributes);
-DEF_VEC_ALLOC_O (scoped_attributes, heap);
-
 /* The table of scope attributes.  */
-static VEC(scoped_attributes, heap) *attributes_table;
+static vec<scoped_attributes> attributes_table;
 
 static scoped_attributes* find_attribute_namespace (const char*);
 static void register_scoped_attribute (const struct attribute_spec *,
@@ -91,36 +115,6 @@ extract_attribute_substring (struct substring *str)
     }
 }
 
-/* Simple hash function to avoid need to scan whole string.  */
-
-static inline hashval_t
-substring_hash (const char *str, int l)
-{
-  return str[0] + str[l - 1] * 256 + l * 65536;
-}
-
-/* Used for attribute_hash.  */
-
-static hashval_t
-hash_attr (const void *p)
-{
-  const struct attribute_spec *const spec = (const struct attribute_spec *) p;
-  const int l = strlen (spec->name);
-
-  return substring_hash (spec->name, l);
-}
-
-/* Used for attribute_hash.  */
-
-static int
-eq_attr (const void *p, const void *q)
-{
-  const struct attribute_spec *const spec = (const struct attribute_spec *) p;
-  const struct substring *const str = (const struct substring *) q;
-
-  return (!strncmp (spec->name, str->str, str->length) && !spec->name[str->length]);
-}
-
 /* Insert an array of attributes ATTRIBUTES into a namespace.  This
    array must be NULL terminated.  NS is the name of attribute
    namespace.  The function returns the namespace into which the
@@ -140,21 +134,20 @@ register_scoped_attributes (const struct attribute_spec * attributes,
       /* We don't have any namespace NS yet.  Create one.  */
       scoped_attributes sa;
 
-      if (attributes_table == NULL)
-	attributes_table = VEC_alloc (scoped_attributes, heap, 64);
+      if (!attributes_table.is_empty ())
+	attributes_table.create (64);
 
       memset (&sa, 0, sizeof (sa));
       sa.ns = ns;
-      sa.attributes = VEC_alloc (attribute_spec, heap, 64);
-      result = VEC_safe_push (scoped_attributes, heap, attributes_table, sa);
-      result->attribute_hash = htab_create (200, hash_attr, eq_attr, NULL);
+      sa.attributes.create (64);
+      result = attributes_table.safe_push (sa);
+      result->attribute_hash.create (200);
     }
 
   /* Really add the attributes to their namespace now.  */
   for (unsigned i = 0; attributes[i].name != NULL; ++i)
     {
-      VEC_safe_push (attribute_spec, heap,
-		     result->attributes, attributes[i]);
+      result->attributes.safe_push (attributes[i]);
       register_scoped_attribute (&attributes[i], result);
     }
 
@@ -171,7 +164,7 @@ find_attribute_namespace (const char* ns)
   unsigned ix;
   scoped_attributes *iter;
 
-  FOR_EACH_VEC_ELT (scoped_attributes, attributes_table, ix, iter)
+  FOR_EACH_VEC_ELT (attributes_table, ix, iter)
     if (ns == iter->ns
 	|| (iter->ns != NULL
 	    && ns != NULL
@@ -281,11 +274,11 @@ register_scoped_attribute (const struct attribute_spec *attr,
 			   scoped_attributes *name_space)
 {
   struct substring str;
-  void **slot;
+  attribute_spec **slot;
 
   gcc_assert (attr != NULL && name_space != NULL);
 
-  gcc_assert (name_space->attribute_hash != NULL);
+  gcc_assert (name_space->attribute_hash.is_created ());
 
   str.str = attr->name;
   str.length = strlen (str.str);
@@ -294,11 +287,11 @@ register_scoped_attribute (const struct attribute_spec *attr,
      in the form '__text__'.  */
   gcc_assert (str.length > 0 && str.str[0] != '_');
 
-  slot = htab_find_slot_with_hash (name_space->attribute_hash, &str,
-				   substring_hash (str.str, str.length),
-				   INSERT);
+  slot = name_space->attribute_hash
+	 .find_slot_with_hash (&str, substring_hash (str.str, str.length),
+			       INSERT);
   gcc_assert (!*slot || attr->name[0] == '*');
-  *slot = (void *) CONST_CAST (struct attribute_spec *, attr);
+  *slot = CONST_CAST (struct attribute_spec *, attr);
 }
 
 /* Return the spec for the scoped attribute with namespace NS and
@@ -320,17 +313,25 @@ lookup_scoped_attribute_spec (const_tree ns, const_tree name)
   attr.str = IDENTIFIER_POINTER (name);
   attr.length = IDENTIFIER_LENGTH (name);
   extract_attribute_substring (&attr);
-  return (const struct attribute_spec *)
-    htab_find_with_hash (attrs->attribute_hash, &attr,
+  return attrs->attribute_hash.find_with_hash (&attr,
 			 substring_hash (attr.str, attr.length));
 }
 
-/* Return the spec for the attribute named NAME.  */
+/* Return the spec for the attribute named NAME.  If NAME is a TREE_LIST,
+   it also specifies the attribute namespace.  */
 
 const struct attribute_spec *
 lookup_attribute_spec (const_tree name)
 {
-  return lookup_scoped_attribute_spec (get_identifier ("gnu"), name);
+  tree ns;
+  if (TREE_CODE (name) == TREE_LIST)
+    {
+      ns = TREE_PURPOSE (name);
+      name = TREE_VALUE (name);
+    }
+  else
+    ns = get_identifier ("gnu");
+  return lookup_scoped_attribute_spec (ns, name);
 }
 
 

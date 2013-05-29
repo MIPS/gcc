@@ -1,7 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1992-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -124,8 +122,12 @@ int current_blocks;
 static basic_block *bblst_table;
 static int bblst_size, bblst_last;
 
-static char *bb_state_array;
-static state_t *bb_state;
+/* Arrays that hold the DFA state at the end of a basic block, to re-use
+   as the initial state at the start of successor blocks.  The BB_STATE
+   array holds the actual DFA state, and BB_STATE_ARRAY[I] is a pointer
+   into BB_STATE for basic block I.  FIXME: This should be a vec.  */
+static char *bb_state_array = NULL;
+static state_t *bb_state = NULL;
 
 /* Target info declarations.
 
@@ -188,7 +190,7 @@ static sbitmap *dom;
 
 /* Is bb_src dominated by bb_trg.  */
 #define IS_DOMINATED(bb_src, bb_trg)                                 \
-( TEST_BIT (dom[bb_src], bb_trg) )
+( bitmap_bit_p (dom[bb_src], bb_trg) )
 
 /* Probability: Prob[i] is an int in [0, REG_BR_PROB_BASE] which is
    the probability of bb i relative to the region entry.  */
@@ -342,7 +344,7 @@ extract_edgelst (sbitmap set, edgelst *el)
   el->nr_members = 0;
 
   /* Iterate over each word in the bitset.  */
-  EXECUTE_IF_SET_IN_SBITMAP (set, 0, i, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (set, 0, i, sbi)
     {
       edgelst_table[edgelst_last++] = rgn_edges[i];
       el->nr_members++;
@@ -566,10 +568,10 @@ too_large (int block, int *num_bbs, int *num_insns)
   if (max_hdr[blk] == -1)			\
     max_hdr[blk] = hdr;				\
   else if (dfs_nr[max_hdr[blk]] > dfs_nr[hdr])	\
-    RESET_BIT (inner, hdr);			\
+    bitmap_clear_bit (inner, hdr);			\
   else if (dfs_nr[max_hdr[blk]] < dfs_nr[hdr])	\
     {						\
-      RESET_BIT (inner,max_hdr[blk]);		\
+      bitmap_clear_bit (inner,max_hdr[blk]);		\
       max_hdr[blk] = hdr;			\
     }						\
 }
@@ -681,8 +683,8 @@ haifa_find_rgns (void)
 	      gcc_assert (node != ENTRY_BLOCK);
 	      child = ei_edge (current_edge)->dest->index;
 	      gcc_assert (child != EXIT_BLOCK);
-	      RESET_BIT (in_stack, child);
-	      if (max_hdr[child] >= 0 && TEST_BIT (in_stack, max_hdr[child]))
+	      bitmap_clear_bit (in_stack, child);
+	      if (max_hdr[child] >= 0 && bitmap_bit_p (in_stack, max_hdr[child]))
 		UPDATE_LOOP_RELATIONS (node, max_hdr[child]);
 	      ei_next (&current_edge);
 	    }
@@ -698,7 +700,7 @@ haifa_find_rgns (void)
       /* Process a node.  */
       node = ei_edge (current_edge)->src->index;
       gcc_assert (node != ENTRY_BLOCK);
-      SET_BIT (in_stack, node);
+      bitmap_set_bit (in_stack, node);
       dfs_nr[node] = ++count;
 
       /* We don't traverse to the exit block.  */
@@ -713,10 +715,10 @@ haifa_find_rgns (void)
       /* If the successor is in the stack, then we've found a loop.
 	 Mark the loop, if it is not a natural loop, then it will
 	 be rejected during the second traversal.  */
-      if (TEST_BIT (in_stack, child))
+      if (bitmap_bit_p (in_stack, child))
 	{
 	  no_loops = 0;
-	  SET_BIT (header, child);
+	  bitmap_set_bit (header, child);
 	  UPDATE_LOOP_RELATIONS (node, child);
 	  SET_EDGE_PASSED (current_edge);
 	  ei_next (&current_edge);
@@ -728,7 +730,7 @@ haifa_find_rgns (void)
 	 with a new edge.  */
       if (dfs_nr[child])
 	{
-	  if (max_hdr[child] >= 0 && TEST_BIT (in_stack, max_hdr[child]))
+	  if (max_hdr[child] >= 0 && bitmap_bit_p (in_stack, max_hdr[child]))
 	    UPDATE_LOOP_RELATIONS (node, max_hdr[child]);
 	  SET_EDGE_PASSED (current_edge);
 	  ei_next (&current_edge);
@@ -786,7 +788,7 @@ haifa_find_rgns (void)
       bool extend_regions_p;
 
       if (no_loops)
-	SET_BIT (header, 0);
+	bitmap_set_bit (header, 0);
 
       /* Second traversal:find reducible inner loops and topologically sort
 	 block of each region.  */
@@ -805,7 +807,7 @@ haifa_find_rgns (void)
 	 loops to consider at this point.  */
       FOR_EACH_BB (bb)
 	{
-	  if (TEST_BIT (header, bb->index) && TEST_BIT (inner, bb->index))
+	  if (bitmap_bit_p (header, bb->index) && bitmap_bit_p (inner, bb->index))
 	    {
 	      edge e;
 	      edge_iterator ei;
@@ -876,7 +878,7 @@ haifa_find_rgns (void)
 			&& single_succ (jbb) == EXIT_BLOCK_PTR)
 		      {
 			queue[++tail] = jbb->index;
-			SET_BIT (in_queue, jbb->index);
+			bitmap_set_bit (in_queue, jbb->index);
 
 			if (too_large (jbb->index, &num_bbs, &num_insns))
 			  {
@@ -900,7 +902,7 @@ haifa_find_rgns (void)
 			{
 			  /* This is a loop latch.  */
 			  queue[++tail] = node;
-			  SET_BIT (in_queue, node);
+			  bitmap_set_bit (in_queue, node);
 
 			  if (too_large (node, &num_bbs, &num_insns))
 			    {
@@ -958,10 +960,10 @@ haifa_find_rgns (void)
 			  tail = -1;
 			  break;
 			}
-		      else if (!TEST_BIT (in_queue, node) && node != bb->index)
+		      else if (!bitmap_bit_p (in_queue, node) && node != bb->index)
 			{
 			  queue[++tail] = node;
-			  SET_BIT (in_queue, node);
+			  bitmap_set_bit (in_queue, node);
 
 			  if (too_large (node, &num_bbs, &num_insns))
 			    {
@@ -1025,7 +1027,7 @@ haifa_find_rgns (void)
 		     of one too_large region.  */
                   FOR_EACH_EDGE (e, ei, bb->succs)
                     if (e->dest != EXIT_BLOCK_PTR)
-                      SET_BIT (extended_rgn_header, e->dest->index);
+                      bitmap_set_bit (extended_rgn_header, e->dest->index);
                 }
 	    }
 	}
@@ -1194,7 +1196,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 	  edge_iterator ei;
 	  int bbn = order[i];
 
-	  if (max_hdr[bbn] != -1 && !TEST_BIT (header, bbn))
+	  if (max_hdr[bbn] != -1 && !bitmap_bit_p (header, bbn))
 	    {
 	      int hdr = -1;
 
@@ -1233,7 +1235,7 @@ extend_rgns (int *degree, int *idxp, sbitmap header, int *loop_hdr)
 		{
 		  /* If BB start its own region,
 		     update set of headers with BB.  */
-		  SET_BIT (header, bbn);
+		  bitmap_set_bit (header, bbn);
 		  rescan = 1;
 		}
 	      else
@@ -1408,7 +1410,7 @@ compute_dom_prob_ps (int bb)
 
   if (IS_RGN_ENTRY (bb))
     {
-      SET_BIT (dom[bb], 0);
+      bitmap_set_bit (dom[bb], 0);
       prob[bb] = REG_BR_PROB_BASE;
       return;
     }
@@ -1432,17 +1434,23 @@ compute_dom_prob_ps (int bb)
       bitmap_ior (ancestor_edges[bb],
 		      ancestor_edges[bb], ancestor_edges[pred_bb]);
 
-      SET_BIT (ancestor_edges[bb], EDGE_TO_BIT (in_edge));
+      bitmap_set_bit (ancestor_edges[bb], EDGE_TO_BIT (in_edge));
 
       bitmap_ior (pot_split[bb], pot_split[bb], pot_split[pred_bb]);
 
       FOR_EACH_EDGE (out_edge, out_ei, in_edge->src->succs)
-	SET_BIT (pot_split[bb], EDGE_TO_BIT (out_edge));
+	bitmap_set_bit (pot_split[bb], EDGE_TO_BIT (out_edge));
 
-      prob[bb] += ((prob[pred_bb] * in_edge->probability) / REG_BR_PROB_BASE);
+      prob[bb] += combine_probabilities (prob[pred_bb], in_edge->probability);
+      // The rounding divide in combine_probabilities can result in an extra
+      // probability increment propagating along 50-50 edges. Eventually when
+      // the edges re-merge, the accumulated probability can go slightly above
+      // REG_BR_PROB_BASE.
+      if (prob[bb] > REG_BR_PROB_BASE)
+        prob[bb] = REG_BR_PROB_BASE;
     }
 
-  SET_BIT (dom[bb], bb);
+  bitmap_set_bit (dom[bb], bb);
   bitmap_and_compl (pot_split[bb], pot_split[bb], ancestor_edges[bb]);
 
   if (sched_verbose >= 2)
@@ -1512,7 +1520,7 @@ compute_trg_info (int trg)
 	  int tf = prob[trg], cf = prob[i];
 
 	  /* In CFGs with low probability edges TF can possibly be zero.  */
-	  sp->src_prob = (tf ? ((cf * REG_BR_PROB_BASE) / tf) : 0);
+	  sp->src_prob = (tf ? GCOV_COMPUTE_SCALE (cf, tf) : 0);
 	  sp->is_valid = (sp->src_prob >= min_spec_prob);
 	}
 
@@ -1548,7 +1556,7 @@ compute_trg_info (int trg)
 	      block = el.first_member[j]->src;
 	      FOR_EACH_EDGE (e, ei, block->succs)
 		{
-		  if (!TEST_BIT (visited, e->dest->index))
+		  if (!bitmap_bit_p (visited, e->dest->index))
 		    {
 		      for (k = 0; k < el.nr_members; k++)
 			if (e == el.first_member[k])
@@ -1557,7 +1565,7 @@ compute_trg_info (int trg)
 		      if (k >= el.nr_members)
 			{
 			  bblst_table[bblst_last++] = e->dest;
-			  SET_BIT (visited, e->dest->index);
+			  bitmap_set_bit (visited, e->dest->index);
 			  update_idx++;
 			}
 		    }
@@ -1829,7 +1837,7 @@ update_live (rtx insn, int src)
 #define IS_REACHABLE(bb_from, bb_to)					\
   (bb_from == bb_to							\
    || IS_RGN_ENTRY (bb_from)						\
-   || (TEST_BIT (ancestor_edges[bb_to],					\
+   || (bitmap_bit_p (ancestor_edges[bb_to],					\
 	 EDGE_TO_BIT (single_pred_edge (BASIC_BLOCK (BB_TO_BLOCK (bb_from)))))))
 
 /* Turns on the fed_by_spec_load flag for insns fed by load_insn.  */
@@ -2447,7 +2455,7 @@ add_branch_dependences (rtx head, rtx tail)
   insn = tail;
   last = 0;
   while (CALL_P (insn)
-	 || JUMP_P (insn)
+	 || JUMP_P (insn) || JUMP_TABLE_DATA_P (insn)
 	 || (NONJUMP_INSN_P (insn)
 	     && (GET_CODE (PATTERN (insn)) == USE
 		 || GET_CODE (PATTERN (insn)) == CLOBBER
@@ -2466,7 +2474,7 @@ add_branch_dependences (rtx head, rtx tail)
 	    {
 	      if (! sched_insns_conditions_mutex_p (last, insn))
 		add_dependence (last, insn, REG_DEP_ANTI);
-	      SET_BIT (insn_referenced, INSN_LUID (insn));
+	      bitmap_set_bit (insn_referenced, INSN_LUID (insn));
 	    }
 
 	  CANT_MOVE (insn) = 1;
@@ -2490,7 +2498,7 @@ add_branch_dependences (rtx head, rtx tail)
       {
 	insn = prev_nonnote_insn (insn);
 
-	if (TEST_BIT (insn_referenced, INSN_LUID (insn))
+	if (bitmap_bit_p (insn_referenced, INSN_LUID (insn))
 	    || DEBUG_INSN_P (insn))
 	  continue;
 
@@ -2534,7 +2542,7 @@ add_branch_dependences (rtx head, rtx tail)
      possible improvement for handling COND_EXECs in this scheduler: it
      could remove always-true predicates.  */
 
-  if (!reload_completed || ! JUMP_P (tail))
+  if (!reload_completed || ! (JUMP_P (tail) || JUMP_TABLE_DATA_P (tail)))
     return;
 
   insn = tail;
@@ -2903,6 +2911,61 @@ compute_priorities (void)
   current_sched_info->sched_max_insns_priority++;
 }
 
+/* (Re-)initialize the arrays of DFA states at the end of each basic block.
+
+   SAVED_LAST_BASIC_BLOCK is the previous length of the arrays.  It must be
+   zero for the first call to this function, to allocate the arrays for the
+   first time.
+
+   This function is called once during initialization of the scheduler, and
+   called again to resize the arrays if new basic blocks have been created,
+   for example for speculation recovery code.  */
+
+static void
+realloc_bb_state_array (int saved_last_basic_block)
+{
+  char *old_bb_state_array = bb_state_array;
+  size_t lbb = (size_t) last_basic_block;
+  size_t slbb = (size_t) saved_last_basic_block;
+
+  /* Nothing to do if nothing changed since the last time this was called.  */
+  if (saved_last_basic_block == last_basic_block)
+    return;
+
+  /* The selective scheduler doesn't use the state arrays.  */
+  if (sel_sched_p ())
+    {
+      gcc_assert (bb_state_array == NULL && bb_state == NULL);
+      return;
+    }
+
+  gcc_checking_assert (saved_last_basic_block == 0
+		       || (bb_state_array != NULL && bb_state != NULL));
+
+  bb_state_array = XRESIZEVEC (char, bb_state_array, lbb * dfa_state_size);
+  bb_state = XRESIZEVEC (state_t, bb_state, lbb);
+
+  /* If BB_STATE_ARRAY has moved, fixup all the state pointers array.
+     Otherwise only fixup the newly allocated ones.  For the state
+     array itself, only initialize the new entries.  */
+  bool bb_state_array_moved = (bb_state_array != old_bb_state_array);
+  for (size_t i = bb_state_array_moved ? 0 : slbb; i < lbb; i++)
+    bb_state[i] = (state_t) (bb_state_array + i * dfa_state_size);
+  for (size_t i = slbb; i < lbb; i++)
+    state_reset (bb_state[i]);
+}
+
+/* Free the arrays of DFA states at the end of each basic block.  */
+
+static void
+free_bb_state_array (void)
+{
+  free (bb_state_array);
+  free (bb_state);
+  bb_state_array = NULL;
+  bb_state = NULL;
+}
+
 /* Schedule a region.  A region is either an inner loop, a loop-free
    subroutine, or a single basic block.  Each bb in the region is
    scheduled after its flow predecessors.  */
@@ -2986,10 +3049,12 @@ schedule_region (int rgn)
       if (dbg_cnt (sched_block))
         {
 	  edge f;
+	  int saved_last_basic_block = last_basic_block;
 
-          schedule_block (&curr_bb, bb_state[first_bb->index]);
-          gcc_assert (EBB_FIRST_BB (bb) == first_bb);
-          sched_rgn_n_insns += sched_n_insns;
+	  schedule_block (&curr_bb, bb_state[first_bb->index]);
+	  gcc_assert (EBB_FIRST_BB (bb) == first_bb);
+	  sched_rgn_n_insns += sched_n_insns;
+	  realloc_bb_state_array (saved_last_basic_block);
 	  f = find_fallthru_edge (last_bb->succs);
 	  if (f && f->probability * 100 / REG_BR_PROB_BASE >=
 	      PARAM_VALUE (PARAM_SCHED_STATE_EDGE_PROB_CUTOFF))
@@ -3032,8 +3097,6 @@ schedule_region (int rgn)
 void
 sched_rgn_init (bool single_blocks_p)
 {
-  int i;
-
   min_spec_prob = ((PARAM_VALUE (PARAM_MIN_SPEC_PROB) * REG_BR_PROB_BASE)
 		    / 100);
 
@@ -3045,22 +3108,7 @@ sched_rgn_init (bool single_blocks_p)
   CONTAINING_RGN (ENTRY_BLOCK) = -1;
   CONTAINING_RGN (EXIT_BLOCK) = -1;
 
-  if (!sel_sched_p ())
-    {
-      bb_state_array = (char *) xmalloc (last_basic_block * dfa_state_size);
-      bb_state = XNEWVEC (state_t, last_basic_block);
-      for (i = 0; i < last_basic_block; i++)
-	{
-	  bb_state[i] = (state_t) (bb_state_array + i * dfa_state_size);
-      
-	  state_reset (bb_state[i]);
-	}
-    }
-  else
-    {
-      bb_state_array = NULL;
-      bb_state = NULL;
-    }
+  realloc_bb_state_array (0);
 
   /* Compute regions for scheduling.  */
   if (single_blocks_p
@@ -3098,8 +3146,7 @@ sched_rgn_init (bool single_blocks_p)
 void
 sched_rgn_finish (void)
 {
-  free (bb_state_array);
-  free (bb_state);
+  free_bb_state_array ();
 
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
@@ -3575,6 +3622,7 @@ struct rtl_opt_pass pass_sched =
  {
   RTL_PASS,
   "sched1",                             /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_handle_sched,                    /* gate */
   rest_of_handle_sched,                 /* execute */
   NULL,                                 /* sub */
@@ -3586,8 +3634,7 @@ struct rtl_opt_pass pass_sched =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_verify_flow |
-  TODO_ggc_collect                      /* todo_flags_finish */
+  TODO_verify_flow                      /* todo_flags_finish */
  }
 };
 
@@ -3596,6 +3643,7 @@ struct rtl_opt_pass pass_sched2 =
  {
   RTL_PASS,
   "sched2",                             /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_handle_sched2,                   /* gate */
   rest_of_handle_sched2,                /* execute */
   NULL,                                 /* sub */
@@ -3607,7 +3655,6 @@ struct rtl_opt_pass pass_sched2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_verify_flow |
-  TODO_ggc_collect                      /* todo_flags_finish */
+  TODO_verify_flow                      /* todo_flags_finish */
  }
 };

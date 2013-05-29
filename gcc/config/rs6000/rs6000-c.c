@@ -1,5 +1,5 @@
 /* Subroutines for the C front end on the PowerPC architecture.
-   Copyright (C) 2002-2012 Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
 
    Contributed by Zack Weinberg <zack@codesourcery.com>
    and Paolo Bonzini <bonzini@gnu.org>
@@ -315,6 +315,8 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "_ARCH_PWR6X");
   if ((flags & OPTION_MASK_POPCNTD) != 0)
     rs6000_define_or_undefine_macro (define_p, "_ARCH_PWR7");
+  if ((flags & OPTION_MASK_DIRECT_MOVE) != 0)
+    rs6000_define_or_undefine_macro (define_p, "_ARCH_PWR8");
   if ((flags & OPTION_MASK_SOFT_FLOAT) != 0)
     rs6000_define_or_undefine_macro (define_p, "_SOFT_FLOAT");
   if ((flags & OPTION_MASK_RECIP_PRECISION) != 0)
@@ -331,6 +333,10 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     }
   if ((flags & OPTION_MASK_VSX) != 0)
     rs6000_define_or_undefine_macro (define_p, "__VSX__");
+  if ((flags & OPTION_MASK_P8_VECTOR) != 0)
+    rs6000_define_or_undefine_macro (define_p, "__POWER8_VECTOR__");
+  if ((flags & OPTION_MASK_CRYPTO) != 0)
+    rs6000_define_or_undefine_macro (define_p, "__CRYPTO__");
 
   /* options from the builtin masks.  */
   if ((bu_mask & RS6000_BTM_SPE) != 0)
@@ -3377,6 +3383,40 @@ const struct altivec_builtin_types altivec_overloaded_builtins[] = {
   { ALTIVEC_BUILTIN_VEC_VCMPGE_P, VSX_BUILTIN_XVCMPGEDP_P,
     RS6000_BTI_INTSI, RS6000_BTI_INTSI, RS6000_BTI_V2DF, RS6000_BTI_V2DF },
 
+  /* Crypto builtins.  */
+  { CRYPTO_BUILTIN_VPERMXOR, CRYPTO_BUILTIN_VPERMXOR_V16QI,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI },
+  { CRYPTO_BUILTIN_VPERMXOR, CRYPTO_BUILTIN_VPERMXOR_V8HI,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI },
+  { CRYPTO_BUILTIN_VPERMXOR, CRYPTO_BUILTIN_VPERMXOR_V4SI,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI },
+  { CRYPTO_BUILTIN_VPERMXOR, CRYPTO_BUILTIN_VPERMXOR_V2DI,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI },
+
+  { CRYPTO_BUILTIN_VPMSUM, CRYPTO_BUILTIN_VPMSUMB,
+    RS6000_BTI_unsigned_V16QI, RS6000_BTI_unsigned_V16QI,
+    RS6000_BTI_unsigned_V16QI, 0 },
+  { CRYPTO_BUILTIN_VPMSUM, CRYPTO_BUILTIN_VPMSUMH,
+    RS6000_BTI_unsigned_V8HI, RS6000_BTI_unsigned_V8HI,
+    RS6000_BTI_unsigned_V8HI, 0 },
+  { CRYPTO_BUILTIN_VPMSUM, CRYPTO_BUILTIN_VPMSUMW,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_unsigned_V4SI, 0 },
+  { CRYPTO_BUILTIN_VPMSUM, CRYPTO_BUILTIN_VPMSUMD,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI,
+    RS6000_BTI_unsigned_V2DI, 0 },
+
+  { CRYPTO_BUILTIN_VSHASIGMA, CRYPTO_BUILTIN_VSHASIGMAW,
+    RS6000_BTI_unsigned_V4SI, RS6000_BTI_unsigned_V4SI,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI },
+  { CRYPTO_BUILTIN_VSHASIGMA, CRYPTO_BUILTIN_VSHASIGMAD,
+    RS6000_BTI_unsigned_V2DI, RS6000_BTI_unsigned_V2DI,
+    RS6000_BTI_INTSI, RS6000_BTI_INTSI },
+
   { (enum rs6000_builtins) 0, (enum rs6000_builtins) 0, 0, 0, 0, 0 }
 };
 
@@ -3505,8 +3545,8 @@ tree
 altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 				    void *passed_arglist)
 {
-  VEC(tree,gc) *arglist = (VEC(tree,gc) *) passed_arglist;
-  unsigned int nargs = VEC_length (tree, arglist);
+  vec<tree, va_gc> *arglist = static_cast<vec<tree, va_gc> *> (passed_arglist);
+  unsigned int nargs = vec_safe_length (arglist);
   enum rs6000_builtins fcode
     = (enum rs6000_builtins)DECL_FUNCTION_CODE (fndecl);
   tree fnargs = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
@@ -3529,7 +3569,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
       int size;
       int i;
       bool unsigned_p;
-      VEC(constructor_elt,gc) *vec;
+      vec<constructor_elt, va_gc> *vec;
       const char *name = fcode == ALTIVEC_BUILTIN_VEC_SPLATS ? "vec_splats": "vec_promote";
 
       if (nargs == 0)
@@ -3549,10 +3589,10 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	}
       /* Ignore promote's element argument.  */
       if (fcode == ALTIVEC_BUILTIN_VEC_PROMOTE
-	  && !INTEGRAL_TYPE_P (TREE_TYPE (VEC_index (tree, arglist, 1))))
+	  && !INTEGRAL_TYPE_P (TREE_TYPE ((*arglist)[1])))
 	goto bad;
 
-      arg = VEC_index (tree, arglist, 0);
+      arg = (*arglist)[0];
       type = TREE_TYPE (arg);
       if (!SCALAR_FLOAT_TYPE_P (type)
 	  && !INTEGRAL_TYPE_P (type))
@@ -3582,11 +3622,11 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	    goto bad;
 	}
       arg = save_expr (fold_convert (TREE_TYPE (type), arg));
-      vec = VEC_alloc (constructor_elt, gc, size);
+      vec_alloc (vec, size);
       for(i = 0; i < size; i++)
 	{
 	  constructor_elt elt = {NULL_TREE, arg};
-	  VEC_quick_push (constructor_elt, vec, elt);
+	  vec->quick_push (elt);
 	}
 	return build_constructor (type, vec);
     }
@@ -3610,8 +3650,8 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  return error_mark_node;
 	}
 
-      arg2 = VEC_index (tree, arglist, 1);
-      arg1 = VEC_index (tree, arglist, 0);
+      arg2 = (*arglist)[1];
+      arg1 = (*arglist)[0];
       arg1_type = TREE_TYPE (arg1);
 
       if (TREE_CODE (arg1_type) != VECTOR_TYPE)
@@ -3686,10 +3726,10 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	  return error_mark_node;
 	}
 
-      arg0 = VEC_index (tree, arglist, 0);
-      arg1 = VEC_index (tree, arglist, 1);
+      arg0 = (*arglist)[0];
+      arg1 = (*arglist)[1];
       arg1_type = TREE_TYPE (arg1);
-      arg2 = VEC_index (tree, arglist, 2);
+      arg2 = (*arglist)[2];
 
       if (TREE_CODE (arg1_type) != VECTOR_TYPE)
 	goto bad; 
@@ -3752,7 +3792,7 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
        fnargs = TREE_CHAIN (fnargs), n++)
     {
       tree decl_type = TREE_VALUE (fnargs);
-      tree arg = VEC_index (tree, arglist, n);
+      tree arg = (*arglist)[n];
       tree type;
 
       if (arg == error_mark_node)
@@ -3824,7 +3864,8 @@ altivec_resolve_overloaded_builtin (location_t loc, tree fndecl,
 	&& (desc->op2 == RS6000_BTI_NOT_OPAQUE
 	    || rs6000_builtin_type_compatible (types[1], desc->op2))
 	&& (desc->op3 == RS6000_BTI_NOT_OPAQUE
-	    || rs6000_builtin_type_compatible (types[2], desc->op3)))
+	    || rs6000_builtin_type_compatible (types[2], desc->op3))
+	&& rs6000_builtin_decls[desc->overloaded_code] != NULL_TREE)
       return altivec_build_resolved_builtin (args, n, desc);
 
  bad:

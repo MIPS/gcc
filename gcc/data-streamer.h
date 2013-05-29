@@ -1,6 +1,6 @@
 /* Generic streaming support for various data types.
 
-   Copyright 2011 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -31,8 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 static unsigned const BITS_PER_BITPACK_WORD = HOST_BITS_PER_WIDE_INT;
 
 typedef unsigned HOST_WIDE_INT bitpack_word_t;
-DEF_VEC_I(bitpack_word_t);
-DEF_VEC_ALLOC_I(bitpack_word_t, heap);
 
 struct bitpack_d
 {
@@ -46,15 +44,6 @@ struct bitpack_d
   void *stream;
 };
 
-
-/* String hashing.  */
-struct string_slot
-{
-  const char *s;
-  int len;
-  unsigned int slot_num;
-};
-
 /* In data-streamer.c  */
 void bp_pack_var_len_unsigned (struct bitpack_d *, unsigned HOST_WIDE_INT);
 void bp_pack_var_len_int (struct bitpack_d *, HOST_WIDE_INT);
@@ -65,6 +54,7 @@ HOST_WIDE_INT bp_unpack_var_len_int (struct bitpack_d *);
 void streamer_write_zero (struct output_block *);
 void streamer_write_uhwi (struct output_block *, unsigned HOST_WIDE_INT);
 void streamer_write_hwi (struct output_block *, HOST_WIDE_INT);
+void streamer_write_gcov_count (struct output_block *, gcov_type);
 void streamer_write_string (struct output_block *, struct lto_output_stream *,
 			    const char *, bool);
 unsigned streamer_string_index (struct output_block *, const char *,
@@ -79,6 +69,7 @@ void bp_pack_string (struct output_block *, struct bitpack_d *,
 void streamer_write_uhwi_stream (struct lto_output_stream *,
 				 unsigned HOST_WIDE_INT);
 void streamer_write_hwi_stream (struct lto_output_stream *, HOST_WIDE_INT);
+void streamer_write_gcov_count_stream (struct lto_output_stream *, gcov_type);
 
 /* In data-streamer-in.c  */
 const char *string_for_index (struct data_in *, unsigned int, unsigned int *);
@@ -91,35 +82,7 @@ const char *bp_unpack_indexed_string (struct data_in *, struct bitpack_d *,
 const char *bp_unpack_string (struct data_in *, struct bitpack_d *);
 unsigned HOST_WIDE_INT streamer_read_uhwi (struct lto_input_block *);
 HOST_WIDE_INT streamer_read_hwi (struct lto_input_block *);
-
-/* Returns a hash code for P.  Adapted from libiberty's htab_hash_string
-   to support strings that may not end in '\0'.  */
-
-static inline hashval_t
-hash_string_slot_node (const void *p)
-{
-  const struct string_slot *ds = (const struct string_slot *) p;
-  hashval_t r = ds->len;
-  int i;
-
-  for (i = 0; i < ds->len; i++)
-     r = r * 67 + (unsigned)ds->s[i] - 113;
-  return r;
-}
-
-/* Returns nonzero if P1 and P2 are equal.  */
-
-static inline int
-eq_string_slot_node (const void *p1, const void *p2)
-{
-  const struct string_slot *ds1 = (const struct string_slot *) p1;
-  const struct string_slot *ds2 = (const struct string_slot *) p2;
-
-  if (ds1->len == ds2->len)
-    return memcmp (ds1->s, ds2->s, ds1->len) == 0;
-
-  return 0;
-}
+gcov_type streamer_read_gcov_count (struct lto_input_block *);
 
 /* Returns a new bit-packing context for bit-packing into S.  */
 static inline struct bitpack_d

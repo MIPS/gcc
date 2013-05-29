@@ -1,6 +1,4 @@
-@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-@c 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-@c Free Software Foundation, Inc.
+@c Copyright (C) 1988-2013 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -10,10 +8,7 @@
 @c man end
 
 @c man begin COPYRIGHT
-Copyright @copyright{} 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-2012
-Free Software Foundation, Inc.
+Copyright @copyright{} 1988-2013 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -197,6 +192,7 @@ in the following sections.
 -fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
 -fno-default-inline  -fvisibility-inlines-hidden @gol
 -fvisibility-ms-compat @gol
+-fext-numeric-literals @gol
 -Wabi  -Wconversion-null  -Wctor-dtor-privacy @gol
 -Wdelete-non-virtual-dtor -Wliteral-suffix -Wnarrowing @gol
 -Wnoexcept -Wnon-virtual-dtor  -Wreorder @gol
@@ -230,13 +226,15 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Language Independent Options,,Options to Control Diagnostic Messages Formatting}.
 @gccoptlist{-fmessage-length=@var{n}  @gol
 -fdiagnostics-show-location=@r{[}once@r{|}every-line@r{]}  @gol
+-fdiagnostics-color=@r{[}auto@r{|}never@r{|}always@r{]}  @gol
 -fno-diagnostics-show-option -fno-diagnostics-show-caret}
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
 @gccoptlist{-fsyntax-only  -fmax-errors=@var{n}  -Wpedantic @gol
 -pedantic-errors @gol
--w  -Wextra  -Wall  -Waddress  -Waggregate-return  -Warray-bounds @gol
+-w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
+-Waggressive-loop-optimizations -Warray-bounds @gol
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc++-compat -Wc++11-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
@@ -288,6 +286,7 @@ Objective-C and Objective-C++ Dialects}.
 @item Debugging Options
 @xref{Debugging Options,,Options for Debugging Your Program or GCC}.
 @gccoptlist{-d@var{letters}  -dumpspecs  -dumpmachine  -dumpversion @gol
+-fsanitize=@var{style} @gol
 -fdbg-cnt-list -fdbg-cnt=@var{counter-value-list} @gol
 -fdisable-ipa-@var{pass_name} @gol
 -fdisable-rtl-@var{pass_name} @gol
@@ -303,7 +302,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-all @gol
 -fdump-tree-original@r{[}-@var{n}@r{]}  @gol
 -fdump-tree-optimized@r{[}-@var{n}@r{]} @gol
--fdump-tree-cfg -fdump-tree-vcg -fdump-tree-alias @gol
+-fdump-tree-cfg -fdump-tree-alias @gol
 -fdump-tree-ch @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
@@ -352,10 +351,12 @@ Objective-C and Objective-C++ Dialects}.
 
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
-@gccoptlist{-falign-functions[=@var{n}] -falign-jumps[=@var{n}] @gol
--falign-labels[=@var{n}] -falign-loops[=@var{n}] -fassociative-math @gol
--fauto-inc-dec -fbranch-probabilities -fbranch-target-load-optimize @gol
--fbranch-target-load-optimize2 -fbtr-bb-exclusive -fcaller-saves @gol
+@gccoptlist{-faggressive-loop-optimizations -falign-functions[=@var{n}] @gol
+-falign-jumps[=@var{n}] @gol
+-falign-labels[=@var{n}] -falign-loops[=@var{n}] @gol
+-fassociative-math -fauto-inc-dec -fbranch-probabilities @gol
+-fbranch-target-load-optimize -fbranch-target-load-optimize2 @gol
+-fbtr-bb-exclusive -fcaller-saves @gol
 -fcheck-data-deps -fcombine-stack-adjustments -fconserve-stack @gol
 -fcompare-elim -fcprop-registers -fcrossjumping @gol
 -fcse-follow-jumps -fcse-skip-blocks -fcx-fortran-rules @gol
@@ -378,7 +379,7 @@ Objective-C and Objective-C++ Dialects}.
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
 -floop-parallelize-all -flto -flto-compression-level @gol
--flto-partition=@var{alg} -flto-report -fmerge-all-constants @gol
+-flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
 -fmove-loop-invariants fmudflap -fmudflapir -fmudflapth -fno-branch-count-reg @gol
 -fno-default-inline @gol
@@ -406,8 +407,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fshrink-wrap -fsignaling-nans -fsingle-precision-constant @gol
 -fsplit-ivs-in-unroller -fsplit-wide-types -fstack-protector @gol
--fstack-protector-all -fstrict-aliasing -fstrict-overflow @gol
--fthread-jumps -ftracer -ftree-bit-ccp @gol
+-fstack-protector-all -fstack-protector-strong -fstrict-aliasing @gol
+-fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
@@ -422,7 +423,7 @@ Objective-C and Objective-C++ Dialects}.
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
--fwhole-program -fwpa -fuse-linker-plugin @gol
+-fwhole-program -fwpa -fuse-ld=@var{linker} -fuse-linker-plugin @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os -Ofast -Og}
 
@@ -450,8 +451,9 @@ Objective-C and Objective-C++ Dialects}.
 @xref{Link Options,,Options for Linking}.
 @gccoptlist{@var{object-file-name}  -l@var{library} @gol
 -nostartfiles  -nodefaultlibs  -nostdlib -pie -rdynamic @gol
--s  -static  -static-libgcc  -static-libstdc++ -shared  @gol
--shared-libgcc  -symbolic @gol
+-s  -static -static-libgcc -static-libstdc++ @gol
+-static-libasan -static-libtsan @gol
+-shared -shared-libgcc  -symbolic @gol
 -T @var{script}  -Wl,@var{option}  -Xlinker @var{option} @gol
 -u @var{symbol}}
 
@@ -502,7 +504,6 @@ Objective-C and Objective-C++ Dialects}.
 -msingle-pic-base  -mno-single-pic-base @gol
 -mpic-register=@var{reg} @gol
 -mnop-fun-dllimport @gol
--mcirrus-fix-invalid-insns -mno-cirrus-fix-invalid-insns @gol
 -mpoke-function-name @gol
 -mthumb  -marm @gol
 -mtpcs-frame  -mtpcs-leaf-frame @gol
@@ -510,12 +511,13 @@ Objective-C and Objective-C++ Dialects}.
 -mtp=@var{name} -mtls-dialect=@var{dialect} @gol
 -mword-relocations @gol
 -mfix-cortex-m3-ldrd @gol
--munaligned-access}
+-munaligned-access @gol
+-mneon-for-64bits}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
 -mcall-prologues -mint8 -mno-interrupts -mrelax @gol
--mstrict-X -mtiny-stack}
+-mstrict-X -mtiny-stack -Waddr-space-convert}
 
 @emph{Blackfin Options}
 @gccoptlist{-mcpu=@var{cpu}@r{[}-@var{sirevision}@r{]} @gol
@@ -616,11 +618,11 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{HPPA Options}
 @gccoptlist{-march=@var{architecture-type} @gol
--mbig-switch  -mdisable-fpregs  -mdisable-indexing @gol
+-mdisable-fpregs  -mdisable-indexing @gol
 -mfast-indirect-calls  -mgas  -mgnu-ld   -mhp-ld @gol
 -mfixed-range=@var{register-range} @gol
 -mjump-in-delay -mlinker-opt -mlong-calls @gol
--mlong-load-store  -mno-big-switch  -mno-disable-fpregs @gol
+-mlong-load-store  -mno-disable-fpregs @gol
 -mno-disable-indexing  -mno-fast-indirect-calls  -mno-gas @gol
 -mno-jump-in-delay  -mno-long-load-store @gol
 -mno-portable-runtime  -mno-soft-float @gol
@@ -655,7 +657,8 @@ Objective-C and Objective-C++ Dialects}.
 -mcmodel=@var{code-model} -mabi=@var{name} -maddress-mode=@var{mode} @gol
 -m32 -m64 -mx32 -mlarge-data-threshold=@var{num} @gol
 -msse2avx -mfentry -m8bit-idiv @gol
--mavx256-split-unaligned-load -mavx256-split-unaligned-store}
+-mavx256-split-unaligned-load -mavx256-split-unaligned-store @gol
+-mstack-protector-guard=@var{guard}}
 
 @emph{i386 and x86-64 Windows Options}
 @gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll @gol
@@ -734,13 +737,14 @@ Objective-C and Objective-C++ Dialects}.
 -mmemcpy -mxl-soft-mul -mxl-soft-div -mxl-barrel-shift @gol
 -mxl-pattern-compare -mxl-stack-check -mxl-gp-opt -mno-clearbss @gol
 -mxl-multiply-high -mxl-float-convert -mxl-float-sqrt @gol
--mxl-mode-@var{app-model}}
+-mbig-endian -mlittle-endian -mxl-reorder -mxl-mode-@var{app-model}}
 
 @emph{MIPS Options}
 @gccoptlist{-EL  -EB  -march=@var{arch}  -mtune=@var{arch} @gol
 -mips1  -mips2  -mips3  -mips4  -mips32  -mips32r2 @gol
 -mips64  -mips64r2 @gol
 -mips16  -mno-mips16  -mflip-mips16 @gol
+-minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
@@ -748,6 +752,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-float -msingle-float  -mdouble-float  @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
+-mmicromips -mno-micromips @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
@@ -763,7 +768,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mdivide-traps  -mdivide-breaks @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
--mmad  -mno-mad  -mfused-madd  -mno-fused-madd  -nocpp @gol
+-mmad -mno-mad -mimadd -mno-imadd -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-24k -mno-fix-24k @gol
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
 -mfix-r10000 -mno-fix-r10000  -mfix-vr4120  -mno-fix-vr4120 @gol
@@ -855,7 +860,10 @@ See RS/6000 and PowerPC Options.
 -mno-recip-precision @gol
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
--msave-toc-indirect -mno-save-toc-indirect}
+-msave-toc-indirect -mno-save-toc-indirect @gol
+-mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vector @gol
+-mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
+-mquad-memory -mno-quad-memory}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -922,13 +930,13 @@ See RS/6000 and PowerPC Options.
 -mfaster-structs  -mno-faster-structs  -mflat  -mno-flat @gol
 -mfpu  -mno-fpu  -mhard-float  -msoft-float @gol
 -mhard-quad-float  -msoft-quad-float @gol
--mlittle-endian @gol
 -mstack-bias  -mno-stack-bias @gol
 -munaligned-doubles  -mno-unaligned-doubles @gol
 -mv8plus  -mno-v8plus  -mvis  -mno-vis @gol
 -mvis2  -mno-vis2  -mvis3  -mno-vis3 @gol
+-mcbcond -mno-cbcond @gol
 -mfmaf  -mno-fmaf  -mpopc  -mno-popc @gol
--mfix-at697f}
+-mfix-at697f -mfix-ut699}
 
 @emph{SPU Options}
 @gccoptlist{-mwarn-reloc -merror-reloc @gol
@@ -956,11 +964,16 @@ See RS/6000 and PowerPC Options.
 -mtda=@var{n}  -msda=@var{n}  -mzda=@var{n} @gol
 -mapp-regs  -mno-app-regs @gol
 -mdisable-callt  -mno-disable-callt @gol
--mv850e2v3 @gol
--mv850e2 @gol
--mv850e1 -mv850es @gol
--mv850e @gol
--mv850  -mbig-switch}
+-mv850e2v3 -mv850e2 -mv850e1 -mv850es @gol
+-mv850e -mv850 -mv850e3v5 @gol
+-mloop @gol
+-mrelax @gol
+-mlong-jumps @gol
+-msoft-float @gol
+-mhard-float @gol
+-mgcc-abi @gol
+-mrh850-abi @gol
+-mbig-switch}
 
 @emph{VAX Options}
 @gccoptlist{-mg  -mgnu  -munix}
@@ -1645,7 +1658,7 @@ The name @samp{gnu++0x} is deprecated.
 
 @item c++1y
 The next revision of the ISO C++ standard, tentatively planned for
-2017.  Support is highly experimental, and will almost certainly
+2014.  Support is highly experimental, and will almost certainly
 change in incompatible ways in future releases.
 
 @item gnu++1y
@@ -1785,6 +1798,17 @@ compiler generates parallel code according to the OpenMP Application
 Program Interface v3.0 @w{@uref{http://www.openmp.org/}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
 have support for @option{-pthread}.
+
+@item -fcilkplus
+@opindex fcilkplus
+@cindex Enable Cilk Plus
+Enable the usage of Cilk Language extension features for C/C++.  When the flag
+@option{-fcilkplus} is specified, all the Cilk Plus components are converted 
+to the appropriate C/C++ code.  The present implementation follows ABI version 
+0.9.  There are four major parts to Cilk Plus language 
+extension: Array Notations, Cilk Keywords, SIMD annotations and elemental 
+functions.  Detailed information about Cilk Plus can be found at 
+@w{@uref{http://www.cilkplus.org}}. 
 
 @item -fgnu-tm
 @opindex fgnu-tm
@@ -2029,6 +2053,29 @@ for reducing code size in production builds, much like defining
 exceptions in violation of the exception specifications; the compiler
 still optimizes based on the specifications, so throwing an
 unexpected exception results in undefined behavior at run time.
+
+@item -fextern-tls-init
+@itemx -fno-extern-tls-init
+@opindex fextern-tls-init
+@opindex fno-extern-tls-init
+The C++11 and OpenMP standards allow @samp{thread_local} and
+@samp{threadprivate} variables to have dynamic (runtime)
+initialization.  To support this, any use of such a variable goes
+through a wrapper function that performs any necessary initialization.
+When the use and definition of the variable are in the same
+translation unit, this overhead can be optimized away, but when the
+use is in a different translation unit there is significant overhead
+even if the variable doesn't actually need dynamic initialization.  If
+the programmer can be sure that no use of the variable in a
+non-defining TU needs to trigger dynamic initialization (either
+because the variable is statically initialized, or a use of the
+variable in the defining TU will be executed before any uses in
+another TU), they can avoid this overhead with the
+@option{-fno-extern-tls-init} option.
+
+On targets that support symbol aliases, the default is
+@option{-fextern-tls-init}.  On targets that do not support symbol
+aliases, the default is @option{-fno-extern-tls-init}.
 
 @item -ffor-scope
 @itemx -fno-for-scope
@@ -2427,7 +2474,9 @@ union U @{
 @opindex Wno-ctor-dtor-privacy
 Warn when a class seems unusable because all the constructors or
 destructors in that class are private, and it has neither friends nor
-public static member functions.
+public static member functions.  Also warn if there are no non-private
+methods, and there's at least one private member function that isn't
+a constructor or destructor.
 
 @item -Wdelete-non-virtual-dtor @r{(C++ and Objective-C++ only)}
 @opindex Wdelete-non-virtual-dtor
@@ -2515,6 +2564,19 @@ struct A @{
 The compiler rearranges the member initializers for @samp{i}
 and @samp{j} to match the declaration order of the members, emitting
 a warning to that effect.  This warning is enabled by @option{-Wall}.
+
+@item -fext-numeric-literals @r{(C++ and Objective-C++ only)}
+@opindex fext-numeric-literals
+@opindex fno-ext-numeric-literals
+Accept imaginary, fixed-point, or machine-defined
+literal number suffixes as GNU extensions.
+When this option is turned off these suffixes are treated
+as C++11 user-defined literal numeric suffixes.
+This is on by default for all pre-C++11 dialects and all GNU dialects:
+@option{-std=c++98}, @option{-std=gnu++98}, @option{-std=gnu++11},
+@option{-std=gnu++1y}.
+This option is off by default
+for ISO C++11 onwards (@option{-std=c++11}, ...).
 @end table
 
 The following @option{-W@dots{}} options are not affected by @option{-Wall}.
@@ -2638,23 +2700,6 @@ Warn when overload resolution chooses a promotion from unsigned or
 enumerated type to a signed type, over a conversion to an unsigned type of
 the same size.  Previous versions of G++ tried to preserve
 unsignedness, but the standard mandates the current behavior.
-
-@smallexample
-struct A @{
-  operator int ();
-  A& operator = (int);
-@};
-
-main ()
-@{
-  A a,b;
-  a = b;
-@}
-@end smallexample
-
-@noindent
-In this example, G++ synthesizes a default @samp{A& operator =
-(const A&);}, while cfront uses the user-defined @samp{operator =}.
 @end table
 
 @node Objective-C and Objective-C++ Dialect Options
@@ -2926,6 +2971,77 @@ Only meaningful in line-wrapping mode.  Instructs the diagnostic
 messages reporter to emit the same source location information (as
 prefix) for physical lines that result from the process of breaking
 a message which is too long to fit on a single line.
+
+@item -fdiagnostics-color[=@var{WHEN}]
+@itemx -fno-diagnostics-color
+@opindex fdiagnostics-color
+@cindex highlight, color, colour
+@vindex GCC_COLORS @r{environment variable}
+Use color in diagnostics.  @var{WHEN} is @samp{never}, @samp{always},
+or @samp{auto}.  The default is @samp{never} if @env{GCC_COLORS} environment
+variable isn't present in the environment, and @samp{auto} otherwise.
+@samp{auto} means to use color only when the standard error is a terminal.
+The forms @option{-fdiagnostics-color} and @option{-fno-diagnostics-color} are
+aliases for @option{-fdiagnostics-color=always} and
+@option{-fdiagnostics-color=never}, respectively.
+
+The colors are defined by the environment variable @env{GCC_COLORS}.
+Its value is a colon-separated list of capabilities and Select Graphic
+Rendition (SGR) substrings. SGR commands are interpreted by the
+terminal or terminal emulator.  (See the section in the documentation
+of your text terminal for permitted values and their meanings as
+character attributes.)  These substring values are integers in decimal
+representation and can be concatenated with semicolons.
+Common values to concatenate include
+@samp{1} for bold,
+@samp{4} for underline,
+@samp{5} for blink,
+@samp{7} for inverse,
+@samp{39} for default foreground color,
+@samp{30} to @samp{37} for foreground colors,
+@samp{90} to @samp{97} for 16-color mode foreground colors,
+@samp{38;5;0} to @samp{38;5;255}
+for 88-color and 256-color modes foreground colors,
+@samp{49} for default background color,
+@samp{40} to @samp{47} for background colors,
+@samp{100} to @samp{107} for 16-color mode background colors,
+and @samp{48;5;0} to @samp{48;5;255}
+for 88-color and 256-color modes background colors.
+
+The default @env{GCC_COLORS} is
+@samp{error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01}
+where @samp{01;31} is bold red, @samp{01;35} is bold magenta,
+@samp{01;36} is bold cyan, @samp{01;32} is bold green and
+@samp{01} is bold. Setting @env{GCC_COLORS} to the empty
+string disables colors.
+Supported capabilities are as follows.
+
+@table @code
+@item error=
+@vindex error GCC_COLORS @r{capability}
+SGR substring for error: markers.
+
+@item warning=
+@vindex warning GCC_COLORS @r{capability}
+SGR substring for warning: markers.
+
+@item note=
+@vindex note GCC_COLORS @r{capability}
+SGR substring for note: markers.
+
+@item caret=
+@vindex caret GCC_COLORS @r{capability}
+SGR substring for caret line.
+
+@item locus=
+@vindex locus GCC_COLORS @r{capability}
+SGR substring for location information, @samp{file:line} or
+@samp{file:line:column} etc.
+
+@item quote=
+@vindex quote GCC_COLORS @r{capability}
+SGR substring for information printed within quotes.
+@end table
 
 @item -fno-diagnostics-show-option
 @opindex fno-diagnostics-show-option
@@ -3241,10 +3357,12 @@ the compiler performs the entire computation with @code{double}
 because the floating-point literal is a @code{double}.
 
 @item -Wformat
+@itemx -Wformat=@var{n}
 @opindex Wformat
 @opindex Wno-format
 @opindex ffreestanding
 @opindex fno-builtin
+@opindex Wformat=
 Check calls to @code{printf} and @code{scanf}, etc., to make sure that
 the arguments supplied have types appropriate to the format string
 specified, and that the conversions specified in the format string make
@@ -3268,20 +3386,17 @@ in the selected standard version (but not for @code{strfmon} formats,
 since those are not in any version of the C standard).  @xref{C Dialect
 Options,,Options Controlling C Dialect}.
 
-Since @option{-Wformat} also checks for null format arguments for
-several functions, @option{-Wformat} also implies @option{-Wnonnull}.
-
-@option{-Wformat} is included in @option{-Wall}.  For more control over some
-aspects of format checking, the options @option{-Wformat-y2k},
-@option{-Wno-format-extra-args}, @option{-Wno-format-zero-length},
-@option{-Wformat-nonliteral}, @option{-Wformat-security}, and
-@option{-Wformat=2} are available, but are not included in @option{-Wall}.
-
-@item -Wformat-y2k
-@opindex Wformat-y2k
-@opindex Wno-format-y2k
-If @option{-Wformat} is specified, also warn about @code{strftime}
-formats that may yield only a two-digit year.
+@table @gcctabopt
+@item -Wformat=1
+@itemx -Wformat
+Option @option{-Wformat} is equivalent to @option{-Wformat=1}, and
+@option{-Wno-format} is equivalent to @option{-Wformat=0}.  Since
+@option{-Wformat} also checks for null format arguments for several
+functions, @option{-Wformat} also implies @option{-Wnonnull}.  Some
+aspects of this level of format checking can be disabled by the
+options: @option{-Wno-format-contains-nul},
+@option{-Wno-format-extra-args}, and @option{-Wno-format-zero-length}.
+@option{-Wformat} is enabled by @option{-Wall}.
 
 @item -Wno-format-contains-nul
 @opindex Wno-format-contains-nul
@@ -3310,6 +3425,12 @@ Unix Specification says that such unused arguments are allowed.
 If @option{-Wformat} is specified, do not warn about zero-length formats.
 The C standard specifies that zero-length formats are allowed.
 
+
+@item -Wformat=2
+Enable @option{-Wformat} plus additional format checks.  Currently
+equivalent to @option{-Wformat -Wformat-nonliteral -Wformat-security
+-Wformat-y2k}.
+
 @item -Wformat-nonliteral
 @opindex Wformat-nonliteral
 @opindex Wno-format-nonliteral
@@ -3330,12 +3451,12 @@ currently a subset of what @option{-Wformat-nonliteral} warns about, but
 in future warnings may be added to @option{-Wformat-security} that are not
 included in @option{-Wformat-nonliteral}.)
 
-@item -Wformat=2
-@opindex Wformat=2
-@opindex Wno-format=2
-Enable @option{-Wformat} plus format checks not included in
-@option{-Wformat}.  Currently equivalent to @option{-Wformat
--Wformat-nonliteral -Wformat-security -Wformat-y2k}.
+@item -Wformat-y2k
+@opindex Wformat-y2k
+@opindex Wno-format-y2k
+If @option{-Wformat} is specified, also warn about @code{strftime}
+formats that may yield only a two-digit year.
+@end table
 
 @item -Wnonnull
 @opindex Wnonnull
@@ -3796,7 +3917,6 @@ It is equivalent to @option{-Wstrict-aliasing=3}
 
 @item -Wstrict-aliasing=n
 @opindex Wstrict-aliasing=n
-@opindex Wno-strict-aliasing=n
 This option is only active when @option{-fstrict-aliasing} is active.
 It warns about code that might break the strict aliasing rules that the
 compiler is using for optimization.
@@ -4393,6 +4513,12 @@ Warn if any functions that return structures or unions are defined or
 called.  (In languages where you can return an array, this also elicits
 a warning.)
 
+@item -Wno-aggressive-loop-optimizations
+@opindex Wno-aggressive-loop-optimizations
+@opindex Waggressive-loop-optimizations
+Warn if in a loop with constant number of iterations the compiler detects
+undefined behavior in some statement during one or more of the iterations.
+
 @item -Wno-attributes
 @opindex Wno-attributes
 @opindex Wattributes
@@ -4846,6 +4972,14 @@ it reasonable to use the optimizer for programs that might have bugs.
 The following options are useful when GCC is generated with the
 capability for more than one debugging format.
 
+@item -gsplit-dwarf
+@opindex gsplit-dwarf
+Separate as much dwarf debugging information as possible into a
+separate output file with the extension .dwo.  This option allows
+the build system to avoid linking files with debug information.  To
+be useful, this option requires a debugger capable of reading .dwo
+files.
+
 @item -ggdb
 @opindex ggdb
 Produce debugging information for use by GDB@.  This means to use the
@@ -4994,6 +5128,18 @@ argument in the command line does not matter; it takes effect after all
 other options are processed, and it does so only once, no matter how
 many times it is given.  This is mainly intended to be used with
 @option{-fcompare-debug}.
+
+@item -fsanitize=address
+Enable AddressSanitizer, a fast memory error detector.
+Memory access instructions will be instrumented to detect
+out-of-bounds and use-after-free bugs.
+See @uref{http://code.google.com/p/address-sanitizer/} for more details.
+
+@item -fsanitize=thread
+Enable ThreadSanitizer, a fast data race detector.
+Memory access instructions will be instrumented to detect
+data race bugs.
+See @uref{http://code.google.com/p/data-race-test/wiki/ThreadSanitizer} for more details.
 
 @item -fdump-final-insns@r{[}=@var{file}@r{]}
 @opindex fdump-final-insns
@@ -5341,7 +5487,7 @@ appended with a sequential number starting from 1.  @var{range-list} is a
 comma-separated list of function ranges or assembler names.  Each range is a number
 pair separated by a colon.  The range is inclusive in both ends.  If the range
 is trivial, the number pair can be simplified as a single number.  If the
-function's cgraph node's @var{uid} falls within one of the specified ranges,
+function's call graph node's @var{uid} falls within one of the specified ranges,
 the @var{pass} is disabled for that function.  The @var{uid} is shown in the
 function header of a dump file, and the pass names can be dumped by using
 option @option{-fdump-passes}.
@@ -5576,7 +5722,7 @@ Dump after the peephole pass.
 @opindex fdump-rtl-postreload
 Dump after post-reload optimizations.
 
-@itemx -fdump-rtl-pro_and_epilogue
+@item -fdump-rtl-pro_and_epilogue
 @opindex fdump-rtl-pro_and_epilogue
 Dump after generating the function prologues and epilogues.
 
@@ -5697,12 +5843,6 @@ also printed.
 Dump the RTL in the assembler output as a comment before each instruction.
 Also turns on @option{-dp} annotation.
 
-@item -dv
-@opindex dv
-For each of the other indicated dump files (@option{-fdump-rtl-@var{pass}}),
-dump a representation of the control flow graph suitable for viewing with VCG
-to @file{@var{file}.@var{pass}.vcg}.
-
 @item -dx
 @opindex dx
 Just generate RTL for a function instead of compiling it.  Usually used
@@ -5811,10 +5951,16 @@ If @code{DECL_ASSEMBLER_NAME} has been set for a given decl, use that
 in the dump instead of @code{DECL_NAME}.  Its primary use is ease of
 use working backward from mangled names in the assembly file.
 @item slim
-Inhibit dumping of members of a scope or body of a function merely
-because that scope has been reached.  Only dump such items when they
-are directly reachable by some other path.  When dumping pretty-printed
-trees, this option inhibits dumping the bodies of control structures.
+When dumping front-end intermediate representations, inhibit dumping
+of members of a scope or body of a function merely because that scope
+has been reached.  Only dump such items when they are directly reachable
+by some other path.
+
+When dumping pretty-printed trees, this option inhibits dumping the
+bodies of control structures.
+
+When dumping RTL, print the RTL in slim (condensed) form instead of
+the default LISP-like representation.
 @item raw
 Print a raw representation of the tree.  By default, trees are
 pretty-printed into a C-like representation.
@@ -5826,6 +5972,15 @@ Enable dumping various statistics about the pass (not honored by every dump
 option).
 @item blocks
 Enable showing basic block boundaries (disabled in raw dumps).
+@item graph
+For each of the other indicated dump files (@option{-fdump-rtl-@var{pass}}),
+dump a representation of the control flow graph suitable for viewing with
+GraphViz to @file{@var{file}.@var{passid}.@var{pass}.dot}.  Each function in
+the file is pretty-printed as a subgraph, so that GraphViz can render them
+all in a single plot.
+
+This option currently only works for RTL dumps, and the RTL is always
+dumped in slim form.
 @item vops
 Enable showing virtual operands for every statement.
 @item lineno
@@ -5892,14 +6047,6 @@ file name is made by appending @file{.gimple} to the source file name.
 @opindex fdump-tree-cfg
 Dump the control flow graph of each function to a file.  The file name is
 made by appending @file{.cfg} to the source file name.
-
-@item vcg
-@opindex fdump-tree-vcg
-Dump the control flow graph of each function to a file in VCG format.  The
-file name is made by appending @file{.vcg} to the source file name.  Note
-that if the file contains more than one function, the generated file cannot
-be used directly by VCG@.  You must cut and paste each function's
-graph into its own separate file first.
 
 @item ch
 @opindex fdump-tree-ch
@@ -6021,58 +6168,108 @@ Enable all the available tree dumps with the flags provided in this option.
 @itemx -fopt-info-@var{options}
 @itemx -fopt-info-@var{options}=@var{filename}
 @opindex fopt-info
-Controls optimization dumps from all the passes. If the
+Controls optimization dumps from various optimization passes. If the
 @samp{-@var{options}} form is used, @var{options} is a list of
-@samp{-} separated options to control the dump details.  If
-@var{options} is not specified, it defaults to @option{optall}. If the
-@var{filename} is not specified, it defaults to @file{stderr}. Note
-that the output @var{filename} will be overwritten in case of multiple
-translation units. If a combined output from multiple translation
-units is desired, @file{stderr} should be used instead.
+@samp{-} separated options to select the dump details and
+optimizations.  If @var{options} is not specified, it defaults to
+@option{all} for details and @option{optall} for optimization
+groups. If the @var{filename} is not specified, it defaults to
+@file{stderr}. Note that the output @var{filename} will be overwritten
+in case of multiple translation units. If a combined output from
+multiple translation units is desired, @file{stderr} should be used
+instead.
 
-The following options are available
+The options can be divided into two groups, 1) options describing the
+verbosity of the dump, and 2) options describing which optimizations
+should be included. The options from both the groups can be freely
+mixed as they are non-overlapping. However, in case of any conflicts,
+the latter options override the earlier options on the command
+line. Though multiple -fopt-info options are accepted, only one of
+them can have @option{=filename}. If other filenames are provided then
+all but the first one are ignored.
+
+The dump verbosity has the following options
 
 @table @samp
 @item optimized
 Print information when an optimization is successfully applied. It is
 up to a pass to decide which information is relevant. For example, the
-vectorizer pass prints the location of loop which got vectorized.
+vectorizer passes print the source location of loops which got
+successfully vectorized.
 @item missed
 Print information about missed optimizations. Individual passes
 control which information to include in the output. For example,
 
 @smallexample
-gcc -O2 -ftree-vectorize -fopt-info-missed
+gcc -O2 -ftree-vectorize -fopt-info-vec-missed
 @end smallexample
 
-will print information about missed optimization opportunities on
-stderr.
+will print information about missed optimization opportunities from
+vectorization passes on stderr.
 @item note
 Print verbose information about optimizations, such as certain
 transformations, more detailed messages about decisions etc.
-@item optall
+@item all
 Print detailed optimization information. This includes
-@var{optimized}, @var{missed}, and @var{note}. For example,
-
-@smallexample
-gcc -O2 -ftree-vectorize -fopt-info-optall=opt.all
-@end smallexample
-
-outputs detailed optimization report from all the passes into
-@file{opt.all}.
+@var{optimized}, @var{missed}, and @var{note}.
 @end table
 
-It applies the dump options to all the passes. If the @var{filename}
-is provided, the dump from all the passes is concatenated, otherwise
-the dump is output onto @file{stderr}. If @var{options} is omitted, it
-defaults to @option{optall}.
+The second set of options describes a group of optimizations and may
+include one or more of the following.
 
+@table @samp
+@item ipa
+Enable dumps from all interprocedural optimizations.
+@item loop
+Enable dumps from all loop optimizations.
+@item inline
+Enable dumps from all inlining optimizations.
+@item vec
+Enable dumps from all vectorization optimizations.
+@end table
+
+For example,
 @smallexample
-gcc -O3 -fopt-info-optimized-missed=optdump.txt
+gcc -O3 -fopt-info-missed=missed.all
 @end smallexample
 
-This will output information about missed optimizations as well as
-optimized locations from all the passes into @file{optdump.txt}.
+outputs missed optimization report from all the passes into
+@file{missed.all}.
+
+As another example,
+@smallexample
+gcc -O3 -fopt-info-inline-optimized-missed=inline.txt
+@end smallexample
+
+will output information about missed optimizations as well as
+optimized locations from all the inlining passes into
+@file{inline.txt}.
+
+If the @var{filename} is provided, then the dumps from all the
+applicable optimizations are concatenated into the @file{filename}.
+Otherwise the dump is output onto @file{stderr}. If @var{options} is
+omitted, it defaults to @option{all-optall}, which means dump all
+available optimization info from all the passes. In the following
+example, all optimization info is output on to @file{stderr}.
+
+@smallexample
+gcc -O3 -fopt-info
+@end smallexample
+
+Note that @option{-fopt-info-vec-missed} behaves the same as
+@option{-fopt-info-missed-vec}.
+
+As another example, consider
+
+@smallexample
+gcc -fopt-info-vec-missed=vec.miss -fopt-info-loop-optimized=loop.opt
+@end smallexample
+
+Here the two output filenames @file{vec.miss} and @file{loop.opt} are
+in conflict since only one output file is allowed. In this case, only
+the first option takes effect and the subsequent options are
+ignored. Thus only the @file{vec.miss} is produced which cotaints
+dumps from the vectorizer about missed opportunities.
 
 @item -ftree-vectorizer-verbose=@var{n}
 @opindex ftree-vectorizer-verbose
@@ -6258,6 +6455,11 @@ usually just @file{.}, if OS libraries are present in @file{lib@var{suffix}}
 sibling directories this prints e.g.@: @file{../lib64}, @file{../lib} or
 @file{../lib32}, or if OS libraries are present in @file{lib/@var{subdir}}
 subdirectories it prints e.g.@: @file{amd64}, @file{sparcv9} or @file{ev6}.
+
+@item -print-multiarch
+@opindex print-multiarch
+Print the path to OS libraries for the selected multiarch,
+relative to some @file{lib} subdirectory.
 
 @item -print-prog-name=@var{program}
 @opindex print-prog-name
@@ -6889,6 +7091,16 @@ Not enabled at any optimization level.
 When @option{-fgcse-after-reload} is enabled, a redundant load elimination
 pass is performed after reload.  The purpose of this pass is to clean up
 redundant spilling.
+
+@item -faggressive-loop-optimizations
+@opindex faggressive-loop-optimizations
+This option tells the loop optimizer to use language constraints to
+derive bounds for the number of iterations of a loop.  This assumes that
+loop code does not invoke undefined behavior by for example causing signed
+integer overflows or out-of-bound array accesses.  The bounds for the
+number of iterations of a loop are used to guide loop unrolling and peeling
+and loop exit test optimizations.
+This option is enabled by default.
 
 @item -funsafe-loop-optimizations
 @opindex funsafe-loop-optimizations
@@ -8052,15 +8264,11 @@ Enabled by default with @option{-funroll-loops}.
 Assume that the current compilation unit represents the whole program being
 compiled.  All public functions and variables with the exception of @code{main}
 and those merged by attribute @code{externally_visible} become static functions
-and in effect are optimized more aggressively by interprocedural optimizers. If @command{gold} is used as the linker plugin, @code{externally_visible} attributes are automatically added to functions (not variable yet due to a current @command{gold} issue) that are accessed outside of LTO objects according to resolution file produced by @command{gold}.  For other linkers that cannot generate resolution file, explicit @code{externally_visible} attributes are still necessary.
-While this option is equivalent to proper use of the @code{static} keyword for
-programs consisting of a single file, in combination with option
-@option{-flto} this flag can be used to
-compile many smaller scale programs since the functions and variables become
-local for the whole combined compilation unit, not for the single source file
-itself.
+and in effect are optimized more aggressively by interprocedural optimizers.
 
-This option implies @option{-fwhole-file} for Fortran programs.
+This option should not be used in combination with @code{-flto}.
+Instead relying on a linker plugin should provide safer and more precise
+information.
 
 @item -flto[=@var{n}]
 @opindex flto
@@ -8262,6 +8470,10 @@ files in LTO mode (via @option{-flto}).
 
 Disabled by default.
 
+@item -flto-report-wpa
+Like @option{-flto-report}, but only print for the WPA phase of Link
+Time Optimization.
+
 @item -fuse-linker-plugin
 Enables the use of a linker plugin during link-time optimization.  This
 option relies on plugin support in the linker, which is available in gold
@@ -8292,7 +8504,7 @@ requires the complete toolchain to be aware of LTO. It requires a linker with
 linker plugin support for basic functionality.  Additionally,
 @command{nm}, @command{ar} and @command{ranlib}
 need to support linker plugins to allow a full-featured build environment
-(capable of building static libraries etc). gcc provides the @command{gcc-ar},
+(capable of building static libraries etc).  GCC provides the @command{gcc-ar},
 @command{gcc-nm}, @command{gcc-ranlib} wrappers to pass the right options
 to these tools. With non fat LTO makefiles need to be modified to use them.
 
@@ -8311,6 +8523,12 @@ This pass only applies to certain targets that cannot explicitly represent
 the comparison operation before register allocation is complete.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fuse-ld=bfd
+Use the @command{bfd} linker instead of the default linker.
+
+@item -fuse-ld=gold
+Use the @command{gold} linker instead of the default linker.
 
 @item -fcprop-registers
 @opindex fcprop-registers
@@ -8359,7 +8577,8 @@ Enable profile feedback directed optimizations, and optimizations
 generally profitable only with profile feedback available.
 
 The following options are enabled: @code{-fbranch-probabilities}, @code{-fvpt},
-@code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}
+@code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}, @code{-ftree-vectorize},
+@code{ftree-loop-distribute-patterns}
 
 By default, GCC emits an error message if the feedback profiles do not
 match the source code.  This error can be turned into a warning by using
@@ -8752,6 +8971,12 @@ If a guard check fails, an error message is printed and the program exits.
 @opindex fstack-protector-all
 Like @option{-fstack-protector} except that all functions are protected.
 
+@item -fstack-protector-strong
+@opindex fstack-protector-strong
+Like @option{-fstack-protector} but includes additional functions to
+be protected --- those that have local array definitions, or have
+references to local frame addresses.
+
 @item -fsection-anchors
 @opindex fsection-anchors
 Try to reduce the number of symbolic address calculations by using
@@ -8881,6 +9106,12 @@ by the compiler are investigated.  To those functions, a different
 (more restrictive) limit compared to functions declared inline can
 be applied.
 The default value is 40.
+
+@item inline-min-speedup
+When estimated performance improvement of caller + callee runtime exceeds this
+threshold (in precent), the function can be inlined regardless the limit on
+@option{--param max-inline-insns-single} and @option{--param
+max-inline-insns-auto}.
 
 @item large-function-insns
 The limit specifying really large functions.  For functions larger than this
@@ -9034,6 +9265,9 @@ the loop code is peeled.
 @item max-peel-times
 The maximum number of peelings of a single loop.
 
+@item max-peel-branches
+The maximum number of branches on the hot path through the peeled sequence.
+
 @item max-completely-peeled-insns
 The maximum number of insns of a completely peeled loop.
 
@@ -9117,9 +9351,9 @@ doing loop versioning for alias in the vectorizer.  See option
 The maximum number of iterations of a loop the brute-force algorithm
 for analysis of the number of iterations of the loop tries to evaluate.
 
-@item hot-bb-count-fraction
-Select fraction of the maximal count of repetitions of basic block in program
-given basic block needs to have to be considered hot.
+@item hot-bb-count-ws-permille
+A basic block profile count is considered hot if it contributes to 
+the given permillage (i.e. 0...1000) of the entire profiled execution.
 
 @item hot-bb-frequency-fraction
 Select fraction of the entry block frequency of executions of basic block in
@@ -9837,6 +10071,24 @@ exceptions, you must link it using the G++ or GCJ driver, as appropriate
 for the languages used in the program, or using the option
 @option{-shared-libgcc}, such that it is linked with the shared
 @file{libgcc}.
+
+@item -static-libasan
+When the @option{-fsanitize=address} option is used to link a program,
+the GCC driver automatically links against @option{libasan}.  If
+@file{libasan} is available as a shared library, and the @option{-static}
+option is not used, then this links against the shared version of
+@file{libasan}.  The @option{-static-libasan} option directs the GCC
+driver to link @file{libasan} statically, without necessarily linking
+other libraries statically.
+
+@item -static-libtsan
+When the @option{-fsanitize=thread} option is used to link a program,
+the GCC driver automatically links against @option{libtsan}.  If
+@file{libtsan} is available as a shared library, and the @option{-static}
+option is not used, then this links against the shared version of
+@file{libtsan}.  The @option{-static-libtsan} option directs the GCC
+driver to link @file{libtsan} statically, without necessarily linking
+other libraries statically.
 
 @item -static-libstdc++
 When the @command{g++} program is used to link a C++ program, it
@@ -10705,6 +10957,125 @@ platform.
 * zSeries Options::
 @end menu
 
+@node AArch64 Options
+@subsection AArch64 Options
+@cindex AArch64 Options
+
+These options are defined for AArch64 implementations:
+
+@table @gcctabopt
+
+@item -mbig-endian
+@opindex mbig-endian
+Generate big-endian code.  This is the default when GCC is configured for an
+@samp{aarch64_be-*-*} target.
+
+@item -mgeneral-regs-only
+@opindex mgeneral-regs-only
+Generate code which uses only the general registers.
+
+@item -mlittle-endian
+@opindex mlittle-endian
+Generate little-endian code.  This is the default when GCC is configured for an
+@samp{aarch64-*-*} but not an @samp{aarch64_be-*-*} target.
+
+@item -mcmodel=tiny
+@opindex mcmodel=tiny
+Generate code for the tiny code model.  The program and its statically defined
+symbols must be within 1GB of each other.  Pointers are 64 bits.  Programs can
+be statically or dynamically linked.  This model is not fully implemented and
+mostly treated as @samp{small}.
+
+@item -mcmodel=small
+@opindex mcmodel=small
+Generate code for the small code model.  The program and its statically defined
+symbols must be within 4GB of each other.  Pointers are 64 bits.  Programs can
+be statically or dynamically linked.  This is the default code model.
+
+@item -mcmodel=large
+@opindex mcmodel=large
+Generate code for the large code model.  This makes no assumptions about
+addresses and sizes of sections.  Pointers are 64 bits.  Programs can be
+statically linked only.
+
+@item -mstrict-align
+@opindex mstrict-align
+Do not assume that unaligned memory references will be handled by the system.
+
+@item -momit-leaf-frame-pointer
+@itemx -mno-omit-leaf-frame-pointer
+@opindex momit-leaf-frame-pointer
+@opindex mno-omit-leaf-frame-pointer
+Omit or keep the frame pointer in leaf functions.  The former behaviour is the
+default.
+
+@item -mtls-dialect=desc
+@opindex mtls-dialect=desc
+Use TLS descriptors as the thread-local storage mechanism for dynamic accesses
+of TLS variables.  This is the default.
+
+@item -mtls-dialect=traditional
+@opindex mtls-dialect=traditional
+Use traditional TLS as the thread-local storage mechanism for dynamic accesses
+of TLS variables.
+
+@item -march=@var{name}
+@opindex march
+Specify the name of the target architecture, optionally suffixed by one or
+more feature modifiers.  This option has the form
+@option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
+only value for @var{arch} is @samp{armv8-a}.  The possible values for
+@var{feature} are documented in the sub-section below.
+
+Where conflicting feature modifiers are specified, the right-most feature is
+used.
+
+GCC uses this name to determine what kind of instructions it can emit when
+generating assembly code.  This option can be used in conjunction with or
+instead of the @option{-mcpu=} option.
+
+@item -mcpu=@var{name}
+@opindex mcpu
+Specify the name of the target processor, optionally suffixed by one or more
+feature modifiers.  This option has the form
+@option{-mcpu=@var{cpu}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
+possible values for @var{cpu} are @samp{generic}, @samp{large}.  The
+possible values for @var{feature} are documented in the sub-section
+below.
+
+Where conflicting feature modifiers are specified, the right-most feature is
+used.
+
+GCC uses this name to determine what kind of instructions it can emit when
+generating assembly code.
+
+@item -mtune=@var{name}
+@opindex mtune
+Specify the name of the processor to tune the performance for.  The code will
+be tuned as if the target processor were of the type specified in this option,
+but still using instructions compatible with the target processor specified
+by a @option{-mcpu=} option.  This option cannot be suffixed by feature
+modifiers.
+
+@end table
+
+@subsubsection @option{-march} and @option{-mcpu} feature modifiers
+@cindex @option{-march} feature modifiers
+@cindex @option{-mcpu} feature modifiers
+Feature modifiers used with @option{-march} and @option{-mcpu} can be one
+the following:
+
+@table @samp
+@item crypto
+Enable Crypto extension.  This implies Advanced SIMD is enabled.
+@item fp
+Enable floating-point instructions.
+@item simd
+Enable Advanced SIMD instructions.  This implies floating-point instructions
+are enabled.  This is the default for all current possible values for options
+@option{-march} and @option{-mcpu=}.
+@end table
+
 @node Adapteva Epiphany Options
 @subsection Adapteva Epiphany Options
 
@@ -10861,125 +11232,6 @@ purpose.  The default is @option{-m1reg-none}.
 
 @end table
 
-@node AArch64 Options
-@subsection AArch64 Options
-@cindex AArch64 Options
-
-These options are defined for AArch64 implementations:
-
-@table @gcctabopt
-
-@item -mbig-endian
-@opindex mbig-endian
-Generate big-endian code.  This is the default when GCC is configured for an
-@samp{aarch64_be-*-*} target.
-
-@item -mgeneral-regs-only
-@opindex mgeneral-regs-only
-Generate code which uses only the general registers.
-
-@item -mlittle-endian
-@opindex mlittle-endian
-Generate little-endian code.  This is the default when GCC is configured for an
-@samp{aarch64-*-*} but not an @samp{aarch64_be-*-*} target.
-
-@item -mcmodel=tiny
-@opindex mcmodel=tiny
-Generate code for the tiny code model.  The program and its statically defined
-symbols must be within 1GB of each other.  Pointers are 64 bits.  Programs can
-be statically or dynamically linked.  This model is not fully implemented and
-mostly treated as @samp{small}.
-
-@item -mcmodel=small
-@opindex mcmodel=small
-Generate code for the small code model.  The program and its statically defined
-symbols must be within 4GB of each other.  Pointers are 64 bits.  Programs can
-be statically or dynamically linked.  This is the default code model.
-
-@item -mcmodel=large
-@opindex mcmodel=large
-Generate code for the large code model.  This makes no assumptions about
-addresses and sizes of sections.  Pointers are 64 bits.  Programs can be
-statically linked only.
-
-@item -mstrict-align
-@opindex mstrict-align
-Do not assume that unaligned memory references will be handled by the system.
-
-@item -momit-leaf-frame-pointer
-@itemx -mno-omit-leaf-frame-pointer
-@opindex momit-leaf-frame-pointer
-@opindex mno-omit-leaf-frame-pointer
-Omit or keep the frame pointer in leaf functions.  The former behaviour is the
-default.
-
-@item -mtls-dialect=desc
-@opindex mtls-dialect=desc
-Use TLS descriptors as the thread-local storage mechanism for dynamic accesses
-of TLS variables.  This is the default.
-
-@item -mtls-dialect=traditional
-@opindex mtls-dialect=traditional
-Use traditional TLS as the thread-local storage mechanism for dynamic accesses
-of TLS variables.
-
-@item -march=@var{name}
-@opindex march
-Specify the name of the target architecture, optionally suffixed by one or
-more feature modifiers.  This option has the form
-@option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-only value for @var{arch} is @samp{armv8-a}.  The possible values for
-@var{feature} are documented in the sub-section below.
-
-Where conflicting feature modifiers are specified, the right-most feature is
-used.
-
-GCC uses this name to determine what kind of instructions it can emit when
-generating assembly code.  This option can be used in conjunction with or
-instead of the @option{-mcpu=} option.
-
-@item -mcpu=@var{name}
-@opindex mcpu
-Specify the name of the target processor, optionally suffixed by one or more
-feature modifiers.  This option has the form
-@option{-mcpu=@var{cpu}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-possible values for @var{cpu} are @samp{generic}, @samp{large}.  The
-possible values for @var{feature} are documented in the sub-section
-below.
-
-Where conflicting feature modifiers are specified, the right-most feature is
-used.
-
-GCC uses this name to determine what kind of instructions it can emit when
-generating assembly code.
-
-@item -mtune=@var{name}
-@opindex mtune
-Specify the name of the processor to tune the performance for.  The code will
-be tuned as if the target processor were of the type specified in this option,
-but still using instructions compatible with the target processor specified
-by a @option{-mcpu=} option.  This option cannot be suffixed by feature
-modifiers.
-
-@end table
-
-@subsubsection @option{-march} and @option{-mcpu} feature modifiers
-@cindex @option{-march} feature modifiers
-@cindex @option{-mcpu} feature modifiers
-Feature modifiers used with @option{-march} and @option{-mcpu} can be one
-the following:
-
-@table @samp
-@item crypto
-Enable Crypto extension.  This implies Advanced SIMD is enabled.
-@item fp
-Enable floating-point instructions.
-@item simd
-Enable Advanced SIMD instructions.  This implies floating-point instructions
-are enabled.  This is the default for all current possible values for options
-@option{-march} and @option{-mcpu=}.
-@end table
-
 @node ARM Options
 @subsection ARM Options
 @cindex ARM options
@@ -11111,11 +11363,12 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm1136j-s}, @samp{arm1136jf-s}, @samp{mpcore}, @samp{mpcorenovfp},
 @samp{arm1156t2-s}, @samp{arm1156t2f-s}, @samp{arm1176jz-s}, @samp{arm1176jzf-s},
 @samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8}, @samp{cortex-a9}, 
-@samp{cortex-a15}, @samp{cortex-r4}, @samp{cortex-r4f}, @samp{cortex-r5},
-@samp{cortex-m4}, @samp{cortex-m3},
+@samp{cortex-a15}, @samp{cortex-a53}, @samp{cortex-r4}, @samp{cortex-r4f},
+@samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m4}, @samp{cortex-m3},
 @samp{cortex-m1},
 @samp{cortex-m0},
 @samp{cortex-m0plus},
+@samp{marvell-pj4},
 @samp{xscale}, @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312},
 @samp{fa526}, @samp{fa626},
 @samp{fa606te}, @samp{fa626te}, @samp{fmp626}, @samp{fa726te}.
@@ -11259,18 +11512,6 @@ before execution begins.
 Specify the register to be used for PIC addressing.  The default is R10
 unless stack-checking is enabled, when R9 is used.
 
-@item -mcirrus-fix-invalid-insns
-@opindex mcirrus-fix-invalid-insns
-@opindex mno-cirrus-fix-invalid-insns
-Insert NOPs into the instruction stream to in order to work around
-problems with invalid Maverick instruction combinations.  This option
-is only valid if the @option{-mcpu=ep9312} option has been used to
-enable generation of instructions for the Cirrus Maverick floating-point
-co-processor.  This option is not enabled by default, since the
-problem is only present in older Maverick implementations.  The default
-can be re-enabled by use of the @option{-mno-cirrus-fix-invalid-insns}
-switch.
-
 @item -mpoke-function-name
 @opindex mpoke-function-name
 Write the name of each function into the text section, directly
@@ -11386,6 +11627,11 @@ setting of this option.  If unaligned access is enabled then the
 preprocessor symbol @code{__ARM_FEATURE_UNALIGNED} will also be
 defined.
 
+@item -mneon-for-64bits
+@opindex mneon-for-64bits
+Enables using Neon to handle scalar 64-bits operations. This is
+disabled by default since the cost of moving data from core registers
+to Neon is high.
 @end table
 
 @node AVR Options
@@ -11497,6 +11743,11 @@ sbiw r26, const   ; X -= const
 @item -mtiny-stack
 @opindex mtiny-stack
 Only change the lower 8@tie{}bits of the stack pointer.
+
+@item -Waddr-space-convert
+@opindex Waddr-space-convert
+Warn about conversions between address spaces in the case where the
+resulting address space is not contained in the incoming address space.
 @end table
 
 @subsubsection @code{EIND} and Devices with more than 128 Ki Bytes of Flash
@@ -11554,7 +11805,7 @@ points to.
 The startup code from libgcc never sets @code{EIND}.
 Notice that startup code is a blend of code from libgcc and AVR-LibC.
 For the impact of AVR-LibC on @code{EIND}, see the
-@w{@uref{http://nongnu.org/avr-libc/user-manual,AVR-LibC user manual}}.
+@w{@uref{http://nongnu.org/avr-libc/user-manual/,AVR-LibC user manual}}.
 
 @item
 It is legitimate for user-specific startup code to set up @code{EIND}
@@ -11720,6 +11971,9 @@ the device name as from the AVR user manual. The difference between
 
 If @var{device} is not a device but only a core architecture like
 @code{avr51}, this macro will not be defined.
+
+@item __AVR_XMEGA__
+The device / architecture belongs to the XMEGA family of devices.
 
 @item __AVR_HAVE_ELPM__
 The device has the the @code{ELPM} instruction.
@@ -12237,7 +12491,7 @@ linker multiple times and joining the results together with
 
 The subtype of the file created (like @samp{ppc7400} or @samp{ppc970} or
 @samp{i686}) is determined by the flags that specify the ISA
-that GCC is targetting, like @option{-mcpu} or @option{-march}.  The
+that GCC is targeting, like @option{-mcpu} or @option{-march}.  The
 @option{-force_cpusubtype_ALL} option can be used to override this.
 
 The Darwin tools vary in their behavior when presented with an ISA
@@ -13276,12 +13530,6 @@ other way around.
 @opindex mpa-risc-2-0
 Synonyms for @option{-march=1.0}, @option{-march=1.1}, and @option{-march=2.0} respectively.
 
-@item -mbig-switch
-@opindex mbig-switch
-Generate code suitable for big switch tables.  Use this option only if
-the assembler/linker complain about out-of-range branches within a switch
-table.
-
 @item -mjump-in-delay
 @opindex mjump-in-delay
 Fill delay slots of function calls with unconditional jump instructions
@@ -13628,6 +13876,11 @@ AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
 supersets BMI, TBM, F16C, FMA, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE,
 SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
 extensions.)
+@item bdver3
+AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
+supersets BMI, TBM, F16C, FMA, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE,
+SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
+extensions.
 
 @item btver1
 CPUs based on AMD Family 14h cores with x86-64 instruction set support.  (This
@@ -14358,6 +14611,13 @@ to 255, 8-bit unsigned integer divide is used instead of
 @opindex avx256-split-unaligned-load
 @opindex avx256-split-unaligned-store
 Split 32-byte AVX unaligned load and store.
+
+@item -mstack-protector-guard=@var{guard}
+@opindex mstack-protector-guard=@var{guard}
+Generate stack protection code using canary at @var{guard}.  Supported
+locations are @samp{global} for global canary or @samp{tls} for per-thread
+canary in the TLS block (the default).  This option has effect only when
+@option{-fstack-protector} or @option{-fstack-protector-all} is specified.
 
 @end table
 
@@ -15673,6 +15933,18 @@ Use hardware floating-point conversion instructions.
 @opindex mxl-float-sqrt
 Use hardware floating-point square root instruction.
 
+@item -mbig-endian
+@opindex mbig-endian
+Generate code for a big-endian target.
+
+@item -mlittle-endian
+@opindex mlittle-endian
+Generate code for a little-endian target.
+
+@item -mxl-reorder
+@opindex mxl-reorder
+Use reorder instructions (swap and byte reversed load/store).
+
 @item -mxl-mode-@var{app-model}
 Select application model @var{app-model}.  Valid models are
 @table @samp
@@ -15735,10 +16007,11 @@ The processor names are:
 @samp{1004kc}, @samp{1004kf2_1}, @samp{1004kf1_1},
 @samp{loongson2e}, @samp{loongson2f}, @samp{loongson3a},
 @samp{m4k},
+@samp{m14k}, @samp{m14ke}, @samp{m14kec},
 @samp{octeon}, @samp{octeon+}, @samp{octeon2},
 @samp{orion},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
-@samp{r4600}, @samp{r4650}, @samp{r6000}, @samp{r8000},
+@samp{r4600}, @samp{r4650}, @samp{r4700}, @samp{r6000}, @samp{r8000},
 @samp{rm7000}, @samp{rm9000},
 @samp{r10000}, @samp{r12000}, @samp{r14000}, @samp{r16000},
 @samp{sb1},
@@ -15848,17 +16121,25 @@ Generate MIPS16 code on alternating functions.  This option is provided
 for regression testing of mixed MIPS16/non-MIPS16 code generation, and is
 not intended for ordinary use in compiling user code.
 
+@item -minterlink-compressed
+@item -mno-interlink-compressed
+@opindex minterlink-compressed
+@opindex mno-interlink-compressed
+Require (do not require) that code using the standard (uncompressed) MIPS ISA
+be link-compatible with MIPS16 and microMIPS code, and vice versa.
+
+For example, code using the standard ISA encoding cannot jump directly
+to MIPS16 or microMIPS code; it must either use a call or an indirect jump.
+@option{-minterlink-compressed} therefore disables direct jumps unless GCC
+knows that the target of the jump is not compressed.
+
 @item -minterlink-mips16
 @itemx -mno-interlink-mips16
 @opindex minterlink-mips16
 @opindex mno-interlink-mips16
-Require (do not require) that non-MIPS16 code be link-compatible with
-MIPS16 code.
-
-For example, non-MIPS16 code cannot jump directly to MIPS16 code;
-it must either use a call or an indirect jump.  @option{-minterlink-mips16}
-therefore disables direct jumps unless GCC knows that the target of the
-jump is not MIPS16.
+Aliases of @option{-minterlink-compressed} and
+@option{-mno-interlink-compressed}.  These options predate the microMIPS ASE
+and are retained for backwards compatiblity.
 
 @item -mabi=32
 @itemx -mabi=o64
@@ -16072,6 +16353,16 @@ hardware floating-point support to be enabled.
 @opindex mno-mips3d
 Use (do not use) the MIPS-3D ASE@.  @xref{MIPS-3D Built-in Functions}.
 The option @option{-mips3d} implies @option{-mpaired-single}.
+
+@item -mmicromips
+@itemx -mno-micromips
+@opindex mmicromips
+@opindex mno-mmicromips
+Generate (do not generate) microMIPS code.
+
+MicroMIPS code generation can also be controlled on a per-function basis
+by means of @code{micromips} and @code{nomicromips} attributes.
+@xref{Function Attributes}, for more information.
 
 @item -mmt
 @itemx -mno-mt
@@ -16287,6 +16578,15 @@ This option has no effect on abicalls code.  The default is
 Enable (disable) use of the @code{mad}, @code{madu} and @code{mul}
 instructions, as provided by the R4650 ISA@.
 
+@item -mimadd
+@itemx -mno-imadd
+@opindex mimadd
+@opindex mno-imadd
+Enable (disable) use of the @code{madd} and @code{msub} integer
+instructions.  The default is @option{-mimadd} on architectures
+that support @code{madd} and @code{msub} except for the 74k 
+architecture where it was found to generate slower code.
+
 @item -mfused-madd
 @itemx -mno-fused-madd
 @opindex mfused-madd
@@ -16295,10 +16595,12 @@ Enable (disable) use of the floating-point multiply-accumulate
 instructions, when they are available.  The default is
 @option{-mfused-madd}.
 
-When multiply-accumulate instructions are used, the intermediate
-product is calculated to infinite precision and is not subject to
-the FCSR Flush to Zero bit.  This may be undesirable in some
-circumstances.
+On the R8000 CPU when multiply-accumulate instructions are used,
+the intermediate product is calculated to infinite precision
+and is not subject to the FCSR Flush to Zero bit.  This may be
+undesirable in some circumstances.  On other processors the result
+is numerically identical to the equivalent computation using
+separate multiply, add, subtract and negate instructions.
 
 @item -nocpp
 @opindex nocpp
@@ -17035,7 +17337,7 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{e300c3}, @samp{e500mc}, @samp{e500mc64}, @samp{e5500},
 @samp{e6500}, @samp{ec603e}, @samp{G3}, @samp{G4}, @samp{G5},
 @samp{titan}, @samp{power3}, @samp{power4}, @samp{power5}, @samp{power5+},
-@samp{power6}, @samp{power6x}, @samp{power7}, @samp{powerpc},
+@samp{power6}, @samp{power6x}, @samp{power7}, @samp{power8}, @samp{powerpc},
 @samp{powerpc64}, and @samp{rs64}.
 
 @option{-mcpu=powerpc}, and @option{-mcpu=powerpc64} specify pure 32-bit
@@ -17053,7 +17355,8 @@ following options:
 @gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
 -mpopcntb -mpopcntd  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
--msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx}
+-msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
+-mcrypto -mdirect-move -mpower8-fusion -mpower8-vector -mquad-memory}
 
 The particular options set for any particular CPU varies between
 compiler versions, depending on what setting seems to produce optimal
@@ -17170,6 +17473,47 @@ This option has been deprecated.  Use @option{-mspe} and
 Generate code that uses (does not use) vector/scalar (VSX)
 instructions, and also enable the use of built-in functions that allow
 more direct access to the VSX instruction set.
+
+@item -mcrypto
+@itemx -mno-crypto
+@opindex mcrypto
+@opindex mno-crypto
+Enable the use (disable) of the built-in functions that allow direct
+access to the cryptographic instructions that were added in version
+2.07 of the PowerPC ISA.
+
+@item -mdirect-move
+@itemx -mno-direct-move
+@opindex mdirect-move
+@opindex mno-direct-move
+Generate code that uses (does not use) the instructions to move data
+between the general purpose registers and the vector/scalar (VSX)
+registers that were added in version 2.07 of the PowerPC ISA.
+
+@item -mpower8-fusion
+@itemx -mno-power8-fusion
+@opindex mpower8-fusion
+@opindex mno-power8-fusion
+Generate code that keeps (does not keeps) some integer operations
+adjacent so that the instructions can be fused together on power8 and
+later processors.
+
+@item -mpower8-vector
+@itemx -mno-power8-vector
+@opindex mpower8-vector
+@opindex mno-power8-vector
+Generate code that uses (does not use) the vector and scalar
+instructions that were added in version 2.07 of the PowerPC ISA.  Also
+enable the use of built-in functions that allow more direct access to
+the vector instructions.
+
+@item -mquad-memory
+@itemx -mno-quad-memory
+@opindex mquad-memory
+@opindex mno-quad-memory
+Generate code that uses (does not use) the quad word memory
+instructions.  The @option{-mquad-memory} option requires use of
+64-bit mode.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
@@ -17837,9 +18181,9 @@ which handle the double-precision reciprocal square root calculations.
 @opindex mrecip-precision
 Assume (do not assume) that the reciprocal estimate instructions
 provide higher-precision estimates than is mandated by the PowerPC
-ABI.  Selecting @option{-mcpu=power6} or @option{-mcpu=power7}
-automatically selects @option{-mrecip-precision}.  The double-precision 
-square root estimate instructions are not generated by
+ABI.  Selecting @option{-mcpu=power6}, @option{-mcpu=power7} or
+@option{-mcpu=power8} automatically selects @option{-mrecip-precision}.
+The double-precision square root estimate instructions are not generated by
 default on low-precision machines, since they do not provide an
 estimate that converges after three steps.
 
@@ -18588,8 +18932,8 @@ Set the cost to assume for a multiply insn.
 
 @item -mdiv=@var{strategy}
 @opindex mdiv=@var{strategy}
-Set the division strategy to use for SHmedia code.  @var{strategy} must be
-one of: 
+Set the division strategy to be used for integer division operations.
+For SHmedia @var{strategy} can be one of: 
 
 @table @samp
 
@@ -18646,6 +18990,36 @@ slows down the case of larger dividends.  @samp{inv20u} assumes the case of a su
 a small dividend to be unlikely, and @samp{inv20l} assumes it to be likely.
 
 @end table
+
+For targets other than SHmedia @var{strategy} can be one of:
+
+@table @samp
+
+@item call-div1
+Calls a library function that uses the single-step division instruction
+@code{div1} to perform the operation.  Division by zero calculates an
+unspecified result and does not trap.  This is the default except for SH4,
+SH2A and SHcompact.
+
+@item call-fp
+Calls a library function that performs the operation in double precision
+floating point.  Division by zero causes a floating-point exception.  This is
+the default for SHcompact with FPU.  Specifying this for targets that do not
+have a double precision FPU will default to @code{call-div1}.
+
+@item call-table
+Calls a library function that uses a lookup table for small divisors and
+the @code{div1} instruction with case distinction for larger divisors.  Division
+by zero calculates an unspecified result and does not trap.  This is the default
+for SH4.  Specifying this for targets that do not have dynamic shift
+instructions will default to @code{call-div1}.
+
+@end table
+
+When a division strategy has not been specified the default strategy will be
+selected based on the current target.  For SH2A the default strategy is to
+use the @code{divs} and @code{divu} instructions instead of library function
+calls.
 
 @item -maccumulate-outgoing-args
 @opindex maccumulate-outgoing-args
@@ -19055,6 +19429,15 @@ default is @option{-mvis3} when targeting a cpu that supports such
 instructions, such as niagara-3 and later.  Setting @option{-mvis3}
 also sets @option{-mvis2} and @option{-mvis}.
 
+@item -mcbcond
+@itemx -mno-cbcond
+@opindex mcbcond
+@opindex mno-cbcond
+With @option{-mcbcond}, GCC generates code that takes advantage of
+compare-and-branch instructions, as defined in the Sparc Architecture 2011.
+The default is @option{-mcbcond} when targeting a cpu that supports such
+instructions, such as niagara-4 and later.
+
 @item -mpopc
 @itemx -mno-popc
 @opindex mpopc
@@ -19077,17 +19460,17 @@ later.
 @opindex mfix-at697f
 Enable the documented workaround for the single erratum of the Atmel AT697F
 processor (which corresponds to erratum #13 of the AT697E processor).
+
+@item -mfix-ut699
+@opindex mfix-ut699
+Enable the documented workarounds for the floating-point errata of the UT699
+processor.
 @end table
 
 These @samp{-m} options are supported in addition to the above
 on SPARC-V9 processors in 64-bit environments:
 
 @table @gcctabopt
-@item -mlittle-endian
-@opindex mlittle-endian
-Generate code for a processor running in little-endian mode.  It is only
-available for a few configurations and most notably not on Solaris and Linux.
-
 @item -m32
 @itemx -m64
 @opindex m32
@@ -19442,26 +19825,20 @@ the first 32 kilobytes of memory.
 @opindex mv850
 Specify that the target processor is the V850.
 
-@item -mbig-switch
-@opindex mbig-switch
-Generate code suitable for big switch tables.  Use this option only if
-the assembler/linker complain about out of range branches within a switch
-table.
+@item -mv850e3v5
+@opindex mv850e3v5
+Specify that the target processor is the V850E3V5.  The preprocessor
+constant @samp{__v850e3v5__} is defined if this option is used.
 
-@item -mapp-regs
-@opindex mapp-regs
-This option causes r2 and r5 to be used in the code generated by
-the compiler.  This setting is the default.
-
-@item -mno-app-regs
-@opindex mno-app-regs
-This option causes r2 and r5 to be treated as fixed registers.
+@item -mv850e2v4
+@opindex mv850e2v4
+Specify that the target processor is the V850E3V5.  This is an alias for
+the @option{-mv850e3v5} option.
 
 @item -mv850e2v3
 @opindex mv850e2v3
 Specify that the target processor is the V850E2V3.  The preprocessor
-constant @samp{__v850e2v3__} is defined if
-this option is used.
+constant @samp{__v850e2v3__} is defined if this option is used.
 
 @item -mv850e2
 @opindex mv850e2
@@ -19485,7 +19862,7 @@ Specify that the target processor is the V850E@.  The preprocessor
 constant @samp{__v850e__} is defined if this option is used.
 
 If neither @option{-mv850} nor @option{-mv850e} nor @option{-mv850e1}
-nor @option{-mv850e2} nor @option{-mv850e2v3}
+nor @option{-mv850e2} nor @option{-mv850e2v3} nor @option{-mv850e3v5}
 are defined then a default target processor is chosen and the
 relevant @samp{__v850*__} preprocessor constant is defined.
 
@@ -19493,10 +19870,131 @@ The preprocessor constants @samp{__v850} and @samp{__v851__} are always
 defined, regardless of which processor variant is the target.
 
 @item -mdisable-callt
+@itemx -mno-disable-callt
 @opindex mdisable-callt
+@opindex mno-disable-callt
 This option suppresses generation of the @code{CALLT} instruction for the
-v850e, v850e1, v850e2 and v850e2v3 flavors of the v850 architecture.  The default is
-@option{-mno-disable-callt} which allows the @code{CALLT} instruction to be used.
+v850e, v850e1, v850e2, v850e2v3 and v850e3v5 flavors of the v850
+architecture.
+
+This option is enabled by default when the RH850 ABI is
+in use (see @option{-mrh850-abi}), and disabled by default when the
+GCC ABI is in use.  If @code{CALLT} instructions are being generated
+then the C preprocessor symbol @code{__V850_CALLT__} will be defined.
+
+@item -mrelax
+@itemx -mno-relax
+@opindex mrelax
+@opindex mno-relax
+Pass on (or do not pass on) the @option{-mrelax} command line option
+to the assembler.
+
+@item -mlong-jumps
+@itemx -mno-long-jumps
+@opindex mlong-jumps
+@opindex mno-long-jumps
+Disable (or re-enable) the generation of PC-relative jump instructions.
+
+@item -msoft-float
+@itemx -mhard-float
+@opindex msoft-float
+@opindex mhard-float
+Disable (or re-enable) the generation of hardware floating point
+instructions.  This option is only significant when the target
+architecture is @samp{V850E2V3} or higher.  If hardware floating point
+instructions are being generated then the C preprocessor symbol
+@code{__FPU_OK__} will be defined, otherwise the symbol
+@code{__NO_FPU__} will be defined.
+
+@item -mloop
+@opindex mloop
+Enables the use of the e3v5 LOOP instruction.  The use of this
+instruction is not enabled by default when the e3v5 architecture is
+selected because its use is still experimental.
+
+@item -mrh850-abi
+@itemx -mghs
+@opindex mrh850-abi
+@opindex mghs
+Enables support for the RH850 version of the V850 ABI.  This is the
+default.  With this version of the ABI the following rules apply:
+
+@itemize
+@item
+Integer sized structures and unions are returned via a memory pointer
+rather than a register.
+
+@item
+Large structures and unions (more than 8 bytes in size) are passed by
+value.
+
+@item
+Functions are aligned to 16-bit boundaries.
+
+@item
+The @option{-m8byte-align} command line option is supported.
+
+@item
+The @option{-mdisable-callt} command line option is enabled by
+default.  The @option{-mno-disable-callt} command line option is not
+supported.
+@end itemize
+
+When this version of the ABI is enabled the C preprocessor symbol
+@code{__V850_RH850_ABI__} is defined.
+
+@item -mgcc-abi
+@opindex mgcc-abi
+Enables support for the old GCC version of the V850 ABI.  With this
+version of the ABI the following rules apply:
+
+@itemize
+@item
+Integer sized structures and unions are returned in register @code{r10}.
+
+@item
+Large structures and unions (more than 8 bytes in size) are passed by
+reference.
+
+@item
+Functions are aligned to 32-bit boundaries, unless optimizing for
+size.
+
+@item
+The @option{-m8byte-align} command line option is not supported.
+
+@item
+The @option{-mdisable-callt} command line option is supported but not
+enabled by default.
+@end itemize
+
+When this version of the ABI is enabled the C preprocessor symbol
+@code{__V850_GCC_ABI__} is defined.
+
+@item -m8byte-align
+@itemx -mno-8byte-align
+@opindex m8byte-align
+@opindex mno-8byte-align
+Enables support for @code{doubles} and @code{long long} types to be
+aligned on 8-byte boundaries.  The default is to restrict the
+alignment of all objects to at most 4-bytes.  When
+@option{-m8byte-align} is in effect the C preprocessor symbol
+@code{__V850_8BYTE_ALIGN__} will be defined.
+
+@item -mbig-switch
+@opindex mbig-switch
+Generate code suitable for big switch tables.  Use this option only if
+the assembler/linker complain about out of range branches within a switch
+table.
+
+@item -mapp-regs
+@opindex mapp-regs
+This option causes r2 and r5 to be used in the code generated by
+the compiler.  This setting is the default.
+
+@item -mno-app-regs
+@opindex mno-app-regs
+This option causes r2 and r5 to be treated as fixed registers.
 
 @end table
 

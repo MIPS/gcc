@@ -1,7 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1988-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -167,8 +165,16 @@ extern bool ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					  enum machine_mode, int);
 extern bool ix86_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
+
 extern int ix86_mode_needed (int, rtx);
-extern void emit_i387_cw_initialization (int);
+extern int ix86_mode_after (int, int, rtx);
+extern int ix86_mode_entry (int);
+extern int ix86_mode_exit (int);
+
+#ifdef HARD_CONST
+extern void ix86_emit_mode_set (int, int, HARD_REG_SET);
+#endif
+
 extern void x86_order_regs_for_local_alloc (void);
 extern void x86_function_profiler (FILE *, int);
 extern void x86_emit_floatuns (rtx [2]);
@@ -254,6 +260,7 @@ extern void i386_pe_end_function (FILE *, const char *, tree);
 extern void i386_pe_assemble_visibility (tree, int);
 extern tree i386_pe_mangle_decl_assembler_name (tree, tree);
 extern tree i386_pe_mangle_assembler_name (const char *);
+extern void i386_pe_record_stub (const char *);
 
 extern void i386_pe_seh_init (FILE *);
 extern void i386_pe_seh_end_prologue (FILE *);

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -911,10 +911,10 @@ package body Exp_Ch9 is
    --  Start of processing for Build_Activation_Chain_Entity
 
    begin
-      --  Activation chain is never used in restricted profile, see comment
-      --  for Create_Restricted_Task in s-tarest.ads.
+      --  Activation chain is never used for sequential elaboration policy, see
+      --  comment for Create_Restricted_Task_Sequential in s-tarest.ads).
 
-      if Restricted_Profile then
+      if Partition_Elaboration_Policy = 'S' then
          return;
       end if;
 
@@ -1925,7 +1925,8 @@ package body Exp_Ch9 is
          P : Node_Id;
 
       begin
-         P := Spec_PPC_List (Contract (E));
+         P := Pre_Post_Conditions (Contract (E));
+
          if No (P) then
             return;
          end if;
@@ -1933,8 +1934,8 @@ package body Exp_Ch9 is
          --  Transfer ppc pragmas to the declarations of the wrapper
 
          while Present (P) loop
-            if Pragma_Name (P) = Name_Precondition
-              or else Pragma_Name (P) = Name_Postcondition
+            if Nam_In (Pragma_Name (P), Name_Precondition,
+                                        Name_Postcondition)
             then
                Append (Relocate_Node (P), Decls);
                Set_Analyzed (Last (Decls), False);
@@ -4900,10 +4901,10 @@ package body Exp_Ch9 is
       P     : Node_Id;
 
    begin
-      --  On restricted profile, all the tasks will be activated at the end
-      --  of the elaboration (Sequential elaboration policy).
+      --  For sequential elaboration policy, all the tasks will be activated at
+      --  the end of the elaboration.
 
-      if Restricted_Profile then
+      if Partition_Elaboration_Policy = 'S' then
          return;
       end if;
 
@@ -4925,7 +4926,11 @@ package body Exp_Ch9 is
       end if;
 
       if Present (Chain) then
-         Name := New_Reference_To (RTE (RE_Activate_Tasks), Loc);
+         if Restricted_Profile then
+            Name := New_Reference_To (RTE (RE_Activate_Restricted_Tasks), Loc);
+         else
+            Name := New_Reference_To (RTE (RE_Activate_Tasks), Loc);
+         end if;
 
          Call :=
            Make_Procedure_Call_Statement (Loc,
@@ -8808,9 +8813,7 @@ package body Exp_Ch9 is
 
       if Present (Private_Declarations (Pdef)) then
          Priv := First (Private_Declarations (Pdef));
-
          while Present (Priv) loop
-
             if Nkind (Priv) = N_Component_Declaration then
                if not Static_Component_Size (Defining_Identifier (Priv)) then
 
@@ -8823,10 +8826,10 @@ package body Exp_Ch9 is
                      Check_Restriction (No_Implicit_Heap_Allocations, Priv);
 
                   elsif Restriction_Active (No_Implicit_Heap_Allocations) then
-                     Error_Msg_N ("component has non-static size?", Priv);
+                     Error_Msg_N ("component has non-static size??", Priv);
                      Error_Msg_NE
                        ("\creation of protected object of type& will violate"
-                        & " restriction No_Implicit_Heap_Allocations?",
+                        & " restriction No_Implicit_Heap_Allocations??",
                         Priv, Prot_Typ);
                   end if;
                end if;
@@ -11838,7 +11841,7 @@ package body Exp_Ch9 is
          Ent := First_Entity (Tasktyp);
          while Present (Ent) loop
             if Ekind_In (Ent, E_Entry, E_Entry_Family)
-              and then Present (Spec_PPC_List (Contract (Ent)))
+              and then Present (Pre_Post_Conditions (Contract (Ent)))
             then
                Build_PPC_Wrapper (Ent, N);
             end if;
@@ -13386,6 +13389,7 @@ package body Exp_Ch9 is
       Args        : List_Id;
       L           : constant List_Id := New_List;
       Has_Entry   : constant Boolean := Has_Entries (Ptyp);
+      Prio_Type   : Entity_Id;
       Restricted  : constant Boolean := Restricted_Profile;
 
    begin
@@ -13454,18 +13458,37 @@ package body Exp_Ch9 is
                     Expression
                      (First (Pragma_Argument_Associations (Prio_Clause)));
 
+                  --  Get_Rep_Item returns either priority pragma.
+
+                  if Pragma_Name (Prio_Clause) = Name_Priority then
+                     Prio_Type := RTE (RE_Any_Priority);
+                  else
+                     Prio_Type := RTE (RE_Interrupt_Priority);
+                  end if;
+
                --  Attribute definition clause Priority
 
                else
+                  if Chars (Prio_Clause) = Name_Priority then
+                     Prio_Type := RTE (RE_Any_Priority);
+                  else
+                     Prio_Type := RTE (RE_Interrupt_Priority);
+                  end if;
+
                   Prio := Expression (Prio_Clause);
                end if;
 
                --  If priority is a static expression, then we can duplicate it
                --  with no problem and simply append it to the argument list.
+               --  However, it has only be pre-analyzed, so we need to check
+               --  now that it is in the bounds of the priority type.
 
                if Is_Static_Expression (Prio) then
+                  Set_Analyzed (Prio, False);
                   Append_To (Args,
-                    Duplicate_Subexpr_No_Checks (Prio));
+                    Make_Type_Conversion (Loc,
+                      Subtype_Mark => New_Occurrence_Of (Prio_Type, Loc),
+                      Expression   => Duplicate_Subexpr (Prio)));
 
                --  Otherwise, the priority may be a per-object expression, if
                --  it depends on a discriminant of the type. In this case,
@@ -13475,18 +13498,13 @@ package body Exp_Ch9 is
                --  appropriate approach, but that could generate declarations
                --  improperly placed in the enclosing scope.
 
-               --  Note: Use System.Any_Priority as the expected type for the
-               --  non-static priority expression, in case the expression has
-               --  not been analyzed yet (as occurs for example with pragma
-               --  Interrupt_Priority).
-
                else
                   Temp := Make_Temporary (Loc, 'R', Prio);
                   Append_To (L,
                      Make_Object_Declaration (Loc,
                         Defining_Identifier => Temp,
                         Object_Definition   =>
-                          New_Occurrence_Of (RTE (RE_Any_Priority), Loc),
+                          New_Occurrence_Of (Prio_Type,  Loc),
                         Expression          => Relocate_Node (Prio)));
 
                   Append_To (Args, New_Occurrence_Of (Temp, Loc));
@@ -13980,10 +13998,10 @@ package body Exp_Ch9 is
           Prefix => Make_Identifier (Loc, New_External_Name (Tnam, 'E')),
           Attribute_Name => Name_Unchecked_Access));
 
-      --  Chain parameter. This is a reference to the Chain parameter of the
-      --  initialization procedure. There is no chain in restricted profile.
+      --  Add Chain parameter (not done for sequential elaboration policy, see
+      --  comment for Create_Restricted_Task_Sequential in s-tarest.ads).
 
-      if not Restricted_Profile then
+      if Partition_Elaboration_Policy /= 'S' then
          Append_To (Args, Make_Identifier (Loc, Name_uChain));
       end if;
 
@@ -14015,11 +14033,22 @@ package body Exp_Ch9 is
           Prefix        => Make_Identifier (Loc, Name_uInit),
           Selector_Name => Make_Identifier (Loc, Name_uTask_Id)));
 
-      if Restricted_Profile then
-         Name := New_Reference_To (RTE (RE_Create_Restricted_Task), Loc);
-      else
-         Name := New_Reference_To (RTE (RE_Create_Task), Loc);
-      end if;
+      declare
+         Create_RE : RE_Id;
+
+      begin
+         if Restricted_Profile then
+            if Partition_Elaboration_Policy = 'S' then
+               Create_RE := RE_Create_Restricted_Task_Sequential;
+            else
+               Create_RE := RE_Create_Restricted_Task;
+            end if;
+         else
+            Create_RE := RE_Create_Task;
+         end if;
+
+         Name := New_Reference_To (RTE (Create_RE), Loc);
+      end;
 
       return
         Make_Procedure_Call_Statement (Loc,
@@ -14058,11 +14087,10 @@ package body Exp_Ch9 is
         and then (Nkind_In (Stmt, N_Null_Statement, N_Label)
                     or else
                       (Nkind (Stmt) = N_Pragma
-                         and then (Pragma_Name (Stmt) = Name_Unreferenced
-                                     or else
-                                   Pragma_Name (Stmt) = Name_Unmodified
-                                     or else
-                                   Pragma_Name (Stmt) = Name_Warnings)))
+                        and then
+                          Nam_In (Pragma_Name (Stmt), Name_Unreferenced,
+                                                      Name_Unmodified,
+                                                      Name_Warnings)))
       loop
          Next (Stmt);
       end loop;

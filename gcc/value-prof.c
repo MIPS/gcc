@@ -1,6 +1,5 @@
 /* Transformations based on profile information for values.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -45,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "pointer-set.h"
 #include "profile.h"
+#include "data-streamer.h"
 
 /* In this file value profile based optimizations are placed.  Currently the
    following optimizations are implemented (for more detailed descriptions
@@ -73,7 +73,7 @@ along with GCC; see the file COPYING3.  If not see
    to profile.  There are different histogram types (see HIST_TYPE_* in
    value-prof.h) and each transformation can request one or more histogram
    types per GIMPLE statement.  The function gimple_find_values_to_profile()
-   collects the values to profile in a VEC, and adds the number of counters
+   collects the values to profile in a vec, and adds the number of counters
    required for the different histogram types.
 
    For a -fprofile-generate run, the statements for which values should be
@@ -334,7 +334,95 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 	}
       fprintf (dump_file, ".\n");
       break;
+    case HIST_TYPE_MAX:
+      gcc_unreachable ();
    }
+}
+
+/* Dump information about HIST to DUMP_FILE.  */
+
+void
+stream_out_histogram_value (struct output_block *ob, histogram_value hist)
+{
+  struct bitpack_d bp;
+  unsigned int i;
+
+  bp = bitpack_create (ob->main_stream);
+  bp_pack_enum (&bp, hist_type, HIST_TYPE_MAX, hist->type);
+  bp_pack_value (&bp, hist->hvalue.next != NULL, 1);
+  streamer_write_bitpack (&bp);
+  switch (hist->type)
+    {
+    case HIST_TYPE_INTERVAL:
+      streamer_write_hwi (ob, hist->hdata.intvl.int_start);
+      streamer_write_uhwi (ob, hist->hdata.intvl.steps);
+      break;
+    default:
+      break;
+    }
+  for (i = 0; i < hist->n_counters; i++)
+    streamer_write_gcov_count (ob, hist->hvalue.counters[i]);
+  if (hist->hvalue.next)
+    stream_out_histogram_value (ob, hist->hvalue.next);
+}
+/* Dump information about HIST to DUMP_FILE.  */
+
+void
+stream_in_histogram_value (struct lto_input_block *ib, gimple stmt)
+{
+  enum hist_type type;
+  unsigned int ncounters = 0;
+  struct bitpack_d bp;
+  unsigned int i;
+  histogram_value new_val;
+  bool next;
+  histogram_value *next_p = NULL;
+
+  do
+    {
+      bp = streamer_read_bitpack (ib);
+      type = bp_unpack_enum (&bp, hist_type, HIST_TYPE_MAX);
+      next = bp_unpack_value (&bp, 1);
+      new_val = gimple_alloc_histogram_value (cfun, type, stmt, NULL);
+      switch (type)
+	{
+	case HIST_TYPE_INTERVAL:
+	  new_val->hdata.intvl.int_start = streamer_read_hwi (ib);
+	  new_val->hdata.intvl.steps = streamer_read_uhwi (ib);
+	  ncounters = new_val->hdata.intvl.steps + 2;
+	  break;
+
+	case HIST_TYPE_POW2:
+	case HIST_TYPE_AVERAGE:
+	  ncounters = 2;
+	  break;
+
+	case HIST_TYPE_SINGLE_VALUE:
+	case HIST_TYPE_INDIR_CALL:
+	  ncounters = 3;
+	  break;
+
+	case HIST_TYPE_CONST_DELTA:
+	  ncounters = 4;
+	  break;
+
+	case HIST_TYPE_IOR:
+	  ncounters = 1;
+	  break;
+	case HIST_TYPE_MAX:
+	  gcc_unreachable ();
+	}
+      new_val->hvalue.counters = XNEWVAR (gcov_type, sizeof (*new_val->hvalue.counters) * ncounters);
+      new_val->n_counters = ncounters;
+      for (i = 0; i < ncounters; i++)
+	new_val->hvalue.counters[i] = streamer_read_gcov_count (ib);
+      if (!next_p)
+	gimple_add_histogram_value (cfun, stmt, new_val);
+      else
+	*next_p = new_val;
+      next_p = &new_val->hvalue.next;
+    }
+  while (next);
 }
 
 /* Dump all histograms attached to STMT to DUMP_FILE.  */
@@ -713,7 +801,7 @@ gimple_divmod_fixed_value_transform (gimple_stmt_iterator *si)
 
   /* Compute probability of taking the optimal path.  */
   if (all > 0)
-    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+    prob = GCOV_COMPUTE_SCALE (count, all);
   else
     prob = 0;
 
@@ -873,7 +961,7 @@ gimple_mod_pow2_value_transform (gimple_stmt_iterator *si)
     return false;
 
   if (all > 0)
-    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+    prob = GCOV_COMPUTE_SCALE (count, all);
   else
     prob = 0;
 
@@ -1067,8 +1155,8 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
   /* Compute probability of taking the optimal path(s).  */
   if (all > 0)
     {
-      prob1 = (count1 * REG_BR_PROB_BASE + all / 2) / all;
-      prob2 = (count2 * REG_BR_PROB_BASE + all / 2) / all;
+      prob1 = GCOV_COMPUTE_SCALE (count1, all);
+      prob2 = GCOV_COMPUTE_SCALE (count2, all);
     }
   else
     {
@@ -1085,7 +1173,8 @@ gimple_mod_subtract_transform (gimple_stmt_iterator *si)
   return true;
 }
 
-static VEC(cgraph_node_ptr, heap) *cgraph_node_map = NULL;
+static vec<cgraph_node_ptr> cgraph_node_map
+    = vNULL;
 
 /* Initialize map from FUNCDEF_NO to CGRAPH_NODE.  */
 
@@ -1095,14 +1184,12 @@ init_node_map (void)
   struct cgraph_node *n;
 
   if (get_last_funcdef_no ())
-    VEC_safe_grow_cleared (cgraph_node_ptr, heap,
-                           cgraph_node_map, get_last_funcdef_no ());
+    cgraph_node_map.safe_grow_cleared (get_last_funcdef_no ());
 
   FOR_EACH_FUNCTION (n)
     {
       if (DECL_STRUCT_FUNCTION (n->symbol.decl))
-        VEC_replace (cgraph_node_ptr, cgraph_node_map,
-                     DECL_STRUCT_FUNCTION (n->symbol.decl)->funcdef_no, n);
+        cgraph_node_map[DECL_STRUCT_FUNCTION (n->symbol.decl)->funcdef_no] = n;
     }
 }
 
@@ -1111,8 +1198,7 @@ init_node_map (void)
 void
 del_node_map (void)
 {
-   VEC_free (cgraph_node_ptr, heap, cgraph_node_map);
-   cgraph_node_map = NULL;
+   cgraph_node_map.release ();
 }
 
 /* Return cgraph node for function with pid */
@@ -1121,9 +1207,7 @@ static inline struct cgraph_node*
 find_func_by_funcdef_no (int func_id)
 {
   int max_id = get_last_funcdef_no ();
-  if (func_id >= max_id || VEC_index (cgraph_node_ptr,
-                                      cgraph_node_map,
-                                      func_id) == NULL)
+  if (func_id >= max_id || cgraph_node_map[func_id] == NULL)
     {
       if (flag_profile_correction)
         inform (DECL_SOURCE_LOCATION (current_function_decl),
@@ -1134,7 +1218,7 @@ find_func_by_funcdef_no (int func_id)
       return NULL;
     }
 
-  return VEC_index (cgraph_node_ptr, cgraph_node_map, func_id);
+  return cgraph_node_map[func_id];
 }
 
 /* Perform sanity check on the indirect call target. Due to race conditions,
@@ -1345,7 +1429,7 @@ gimple_ic_transform (gimple_stmt_iterator *gsi)
     return false;
 
   if (all > 0)
-    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+    prob = GCOV_COMPUTE_SCALE (count, all);
   else
     prob = 0;
   direct_call = find_func_by_funcdef_no ((int)val);
@@ -1551,7 +1635,7 @@ gimple_stringops_transform (gimple_stmt_iterator *gsi)
   if (check_counter (stmt, "value", &count, &all, gimple_bb (stmt)->count))
     return false;
   if (all > 0)
-    prob = (count * REG_BR_PROB_BASE + all / 2) / all;
+    prob = GCOV_COMPUTE_SCALE (count, all);
   else
     prob = 0;
   dest = gimple_call_arg (stmt, 0);
@@ -1667,13 +1751,12 @@ gimple_divmod_values_to_profile (gimple stmt, histogram_values *values)
       divisor = gimple_assign_rhs2 (stmt);
       op0 = gimple_assign_rhs1 (stmt);
 
-      VEC_reserve (histogram_value, heap, *values, 3);
+      values->reserve (3);
 
       if (TREE_CODE (divisor) == SSA_NAME)
 	/* Check for the case where the divisor is the same value most
 	   of the time.  */
-	VEC_quick_push (histogram_value, *values,
-			gimple_alloc_histogram_value (cfun,
+	values->quick_push (gimple_alloc_histogram_value (cfun,
 						      HIST_TYPE_SINGLE_VALUE,
 						      stmt, divisor));
 
@@ -1684,16 +1767,16 @@ gimple_divmod_values_to_profile (gimple stmt, histogram_values *values)
 	{
           tree val;
           /* Check for a special case where the divisor is power of 2.  */
-	  VEC_quick_push (histogram_value, *values,
-			  gimple_alloc_histogram_value (cfun, HIST_TYPE_POW2,
-							stmt, divisor));
+	  values->quick_push (gimple_alloc_histogram_value (cfun,
+		                                            HIST_TYPE_POW2,
+							    stmt, divisor));
 
 	  val = build2 (TRUNC_DIV_EXPR, type, op0, divisor);
 	  hist = gimple_alloc_histogram_value (cfun, HIST_TYPE_INTERVAL,
 					       stmt, val);
 	  hist->hdata.intvl.int_start = 0;
 	  hist->hdata.intvl.steps = 2;
-	  VEC_quick_push (histogram_value, *values, hist);
+	  values->quick_push (hist);
 	}
       return;
 
@@ -1717,11 +1800,10 @@ gimple_indirect_call_to_profile (gimple stmt, histogram_values *values)
 
   callee = gimple_call_fn (stmt);
 
-  VEC_reserve (histogram_value, heap, *values, 3);
+  values->reserve (3);
 
-  VEC_quick_push (histogram_value, *values,
-		  gimple_alloc_histogram_value (cfun, HIST_TYPE_INDIR_CALL,
-						stmt, callee));
+  values->quick_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_INDIR_CALL,
+						    stmt, callee));
 
   return;
 }
@@ -1750,17 +1832,15 @@ gimple_stringops_values_to_profile (gimple stmt, histogram_values *values)
 
   if (TREE_CODE (blck_size) != INTEGER_CST)
     {
-      VEC_safe_push (histogram_value, heap, *values,
-		     gimple_alloc_histogram_value (cfun, HIST_TYPE_SINGLE_VALUE,
-						   stmt, blck_size));
-      VEC_safe_push (histogram_value, heap, *values,
-		     gimple_alloc_histogram_value (cfun, HIST_TYPE_AVERAGE,
-						   stmt, blck_size));
+      values->safe_push (gimple_alloc_histogram_value (cfun,
+						       HIST_TYPE_SINGLE_VALUE,
+						       stmt, blck_size));
+      values->safe_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_AVERAGE,
+						       stmt, blck_size));
     }
   if (TREE_CODE (blck_size) != INTEGER_CST)
-    VEC_safe_push (histogram_value, heap, *values,
-		   gimple_alloc_histogram_value (cfun, HIST_TYPE_IOR,
-						 stmt, dest));
+    values->safe_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_IOR,
+						     stmt, dest));
 }
 
 /* Find values inside STMT for that we want to measure histograms and adds
@@ -1782,12 +1862,12 @@ gimple_find_values_to_profile (histogram_values *values)
   unsigned i;
   histogram_value hist = NULL;
 
-  *values = NULL;
+  values->create (0);
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       gimple_values_to_profile (gsi_stmt (gsi), values);
 
-  FOR_EACH_VEC_ELT (histogram_value, *values, i, hist)
+  FOR_EACH_VEC_ELT (*values, i, hist)
     {
       switch (hist->type)
         {

@@ -1,7 +1,6 @@
 // Debugging support implementation -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-// Free Software Foundation, Inc.
+// Copyright (C) 2003-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -332,6 +331,11 @@ _GLIBCXX_DEBUG_VERIFY(this != &_Other,					\
 _GLIBCXX_DEBUG_VERIFY(_F > 0.0f,					\
 		      _M_message(__gnu_debug::__msg_valid_load_factor)	\
                       ._M_sequence(*this, "this"))
+
+#define __glibcxx_check_equal_allocs(_Other)			\
+_GLIBCXX_DEBUG_VERIFY(this->get_allocator() == _Other.get_allocator(),	\
+		      _M_message(__gnu_debug::__msg_equal_allocs)	\
+		      ._M_sequence(*this, "this"))
 
 #ifdef _GLIBCXX_DEBUG_PEDANTIC
 #  define __glibcxx_check_string(_String) _GLIBCXX_DEBUG_ASSERT(_String != 0)

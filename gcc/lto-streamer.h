@@ -1,7 +1,7 @@
 /* Data structures and declarations used for reading and writing
    GIMPLE to a file stream.
 
-   Copyright (C) 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by Doug Kwan <dougkwan@google.com>
 
 This file is part of GCC.
@@ -24,12 +24,12 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_LTO_STREAMER_H
 
 #include "plugin-api.h"
+#include "hash-table.h"
 #include "tree.h"
 #include "gimple.h"
 #include "target.h"
 #include "cgraph.h"
 #include "vec.h"
-#include "vecprim.h"
 #include "alloc-pool.h"
 #include "gcov-io.h"
 #include "diagnostic.h"
@@ -142,7 +142,7 @@ along with GCC; see the file COPYING3.  If not see
 #define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
 
 #define LTO_major_version 2
-#define LTO_minor_version 1
+#define LTO_minor_version 2
 
 typedef unsigned char	lto_decl_flags_t;
 
@@ -244,10 +244,12 @@ enum lto_section_type
   LTO_section_jump_functions,
   LTO_section_ipa_pure_const,
   LTO_section_ipa_reference,
+  LTO_section_ipa_profile,
   LTO_section_symtab_nodes,
   LTO_section_opts,
   LTO_section_cgraph_opt_sum,
   LTO_section_inline_summary,
+  LTO_section_ipcp_transform,
   LTO_N_SECTION_TYPES		/* Must be last.  */
 };
 
@@ -265,8 +267,6 @@ typedef enum
 } lto_decl_stream_e_t;
 
 typedef enum ld_plugin_symbol_resolution ld_plugin_symbol_resolution_t;
-DEF_VEC_I(ld_plugin_symbol_resolution_t);
-DEF_VEC_ALLOC_I(ld_plugin_symbol_resolution_t, heap);
 
 
 /* Macro to define convenience functions for type and decl streams
@@ -438,13 +438,11 @@ typedef struct
   unsigned int initializer:1;
 } lto_encoder_entry;
 
-DEF_VEC_O(lto_encoder_entry);
-DEF_VEC_ALLOC_O(lto_encoder_entry, heap);
 
 /* Encoder data structure used to stream callgraph nodes.  */
 struct lto_symtab_encoder_d
 {
-  VEC(lto_encoder_entry,heap) *nodes;
+  vec<lto_encoder_entry> nodes;
   pointer_map_t *map;
 };
 
@@ -485,7 +483,7 @@ struct lto_tree_ref_encoder
 {
   htab_t tree_hash_table;	/* Maps pointers to indices. */
   unsigned int next_index;	/* Next available index. */
-  VEC(tree,heap) *trees;	/* Maps indices to pointers. */
+  vec<tree> trees;	/* Maps indices to pointers. */
 };
 
 
@@ -521,8 +519,6 @@ struct lto_out_decl_state
 
 typedef struct lto_out_decl_state *lto_out_decl_state_ptr;
 
-DEF_VEC_P(lto_out_decl_state_ptr);
-DEF_VEC_ALLOC_P(lto_out_decl_state_ptr, heap);
 
 /* Compact representation of a index <-> resolution pair. Unpacked to an 
    vector later. */
@@ -533,8 +529,6 @@ struct res_pair
 };
 typedef struct res_pair res_pair;
 
-DEF_VEC_O(res_pair);
-DEF_VEC_ALLOC_O(res_pair, heap);
 
 /* One of these is allocated for each object file that being compiled
    by lto.  This structure contains the tables that are needed by the
@@ -571,7 +565,7 @@ struct GTY(()) lto_file_decl_data
   unsigned HOST_WIDE_INT id;
 
   /* Symbol resolutions for this file */
-  VEC(res_pair, heap) * GTY((skip)) respairs;
+  vec<res_pair>  GTY((skip)) respairs;
   unsigned max_index;
 
   struct gcov_ctr_summary GTY((skip)) profile_info;
@@ -634,6 +628,50 @@ struct lto_simple_output_block
   struct lto_output_stream *main_stream;
 };
 
+/* String hashing.  */
+
+struct string_slot
+{
+  const char *s;
+  int len;
+  unsigned int slot_num;
+};
+
+/* Hashtable helpers.  */
+
+struct string_slot_hasher : typed_noop_remove <string_slot>
+{
+  typedef string_slot value_type;
+  typedef string_slot compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+/* Returns a hash code for DS.  Adapted from libiberty's htab_hash_string
+   to support strings that may not end in '\0'.  */
+
+inline hashval_t
+string_slot_hasher::hash (const value_type *ds)
+{
+  hashval_t r = ds->len;
+  int i;
+
+  for (i = 0; i < ds->len; i++)
+     r = r * 67 + (unsigned)ds->s[i] - 113;
+  return r;
+}
+
+/* Returns nonzero if DS1 and DS2 are equal.  */
+
+inline bool
+string_slot_hasher::equal (const value_type *ds1, const compare_type *ds2)
+{
+  if (ds1->len == ds2->len)
+    return memcmp (ds1->s, ds2->s, ds1->len) == 0;
+
+  return 0;
+}
+
 /* Data structure holding all the data and descriptors used when writing
    an LTO file.  */
 struct output_block
@@ -652,7 +690,7 @@ struct output_block
 
   /* The hash table that contains the set of strings we have seen so
      far and the indexes assigned to them.  */
-  htab_t string_hash_table;
+  hash_table <string_slot_hasher> string_hash_table;
 
   /* The current cgraph_node that we are currently serializing.  Null
      if we are serializing something else.  */
@@ -699,12 +737,8 @@ struct data_in
   /* Number of unnamed labels.  */
   unsigned int num_unnamed_labels;
 
-  const char *current_file;
-  int current_line;
-  int current_col;
-
   /* Maps each reference number to the resolution done by the linker. */
-  VEC(ld_plugin_symbol_resolution_t,heap) *globals_resolution;
+  vec<ld_plugin_symbol_resolution_t> globals_resolution;
 
   /* Cache of pickled nodes.  */
   struct streamer_tree_cache_d *reader_cache;
@@ -809,7 +843,7 @@ extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 extern void lto_input_toplevel_asms (struct lto_file_decl_data *, int);
 extern struct data_in *lto_data_in_create (struct lto_file_decl_data *,
 				    const char *, unsigned,
-				    VEC(ld_plugin_symbol_resolution_t,heap) *);
+				    vec<ld_plugin_symbol_resolution_t> );
 extern void lto_data_in_delete (struct data_in *);
 extern void lto_input_data_block (struct lto_input_block *, void *, size_t);
 location_t lto_input_location (struct bitpack_d *, struct data_in *);
@@ -866,7 +900,7 @@ lto_symtab_encoder_t compute_ltrans_boundary (lto_symtab_encoder_t encoder);
 extern void lto_symtab_merge_decls (void);
 extern void lto_symtab_merge_cgraph_nodes (void);
 extern tree lto_symtab_prevailing_decl (tree decl);
-extern GTY(()) VEC(tree,gc) *lto_global_var_decls;
+extern GTY(()) vec<tree, va_gc> *lto_global_var_decls;
 
 
 /* In lto-opts.c.  */
@@ -881,7 +915,7 @@ extern const char *lto_section_name[];
 
 /* Holds all the out decl states of functions output so far in the
    current output file.  */
-extern VEC(lto_out_decl_state_ptr, heap) *lto_function_decl_states;
+extern vec<lto_out_decl_state_ptr> lto_function_decl_states;
 
 /* Return true if LTO tag TAG corresponds to a tree code.  */
 static inline bool
@@ -966,7 +1000,7 @@ lto_init_tree_ref_encoder (struct lto_tree_ref_encoder *encoder,
 {
   encoder->tree_hash_table = htab_create (37, hash_fn, eq_fn, free);
   encoder->next_index = 0;
-  encoder->trees = NULL;
+  encoder->trees.create (0);
 }
 
 
@@ -978,14 +1012,14 @@ lto_destroy_tree_ref_encoder (struct lto_tree_ref_encoder *encoder)
   /* Hash table may be delete already.  */
   if (encoder->tree_hash_table)
     htab_delete (encoder->tree_hash_table);
-  VEC_free (tree, heap, encoder->trees);
+  encoder->trees.release ();
 }
 
 /* Return the number of trees encoded in ENCODER. */
 static inline unsigned int
 lto_tree_ref_encoder_size (struct lto_tree_ref_encoder *encoder)
 {
-  return VEC_length (tree, encoder->trees);
+  return encoder->trees.length ();
 }
 
 /* Return the IDX-th tree in ENCODER. */
@@ -993,7 +1027,7 @@ static inline tree
 lto_tree_ref_encoder_get_tree (struct lto_tree_ref_encoder *encoder,
 			       unsigned int idx)
 {
-  return VEC_index (tree, encoder->trees, idx);
+  return encoder->trees[idx];
 }
 
 
@@ -1008,7 +1042,7 @@ emit_label_in_global_context_p (tree label)
 static inline int
 lto_symtab_encoder_size (lto_symtab_encoder_t encoder)
 {
-  return VEC_length (lto_encoder_entry, encoder->nodes);
+  return encoder->nodes.length ();
 }
 
 /* Value used to represent failure of lto_symtab_encoder_lookup.  */
@@ -1043,24 +1077,21 @@ lsei_next (lto_symtab_encoder_iterator *lsei)
 static inline symtab_node
 lsei_node (lto_symtab_encoder_iterator lsei)
 {
-  return VEC_index (lto_encoder_entry,
-		    lsei.encoder->nodes, lsei.index).node;
+  return lsei.encoder->nodes[lsei.index].node;
 }
 
 /* Return the node pointed to by LSI.  */
 static inline struct cgraph_node *
 lsei_cgraph_node (lto_symtab_encoder_iterator lsei)
 {
-  return cgraph (VEC_index (lto_encoder_entry,
-			    lsei.encoder->nodes, lsei.index).node);
+  return cgraph (lsei.encoder->nodes[lsei.index].node);
 }
 
 /* Return the node pointed to by LSI.  */
 static inline struct varpool_node *
 lsei_varpool_node (lto_symtab_encoder_iterator lsei)
 {
-  return varpool (VEC_index (lto_encoder_entry,
-			     lsei.encoder->nodes, lsei.index).node);
+  return varpool (lsei.encoder->nodes[lsei.index].node);
 }
 
 /* Return the cgraph node corresponding to REF using ENCODER.  */
@@ -1071,7 +1102,7 @@ lto_symtab_encoder_deref (lto_symtab_encoder_t encoder, int ref)
   if (ref == LCC_NOT_FOUND)
     return NULL;
 
-  return VEC_index (lto_encoder_entry, encoder->nodes, ref).node;
+  return encoder->nodes[ref].node;
 }
 
 /* Return an iterator to the first node in LSI.  */

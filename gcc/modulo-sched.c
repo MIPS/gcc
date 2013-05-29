@@ -1,6 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
 This file is part of GCC.
@@ -160,8 +159,6 @@ struct ps_reg_move_info
 };
 
 typedef struct ps_reg_move_info ps_reg_move_info;
-DEF_VEC_O (ps_reg_move_info);
-DEF_VEC_ALLOC_O (ps_reg_move_info, heap);
 
 /* Holds the partial schedule as an array of II rows.  Each entry of the
    array points to a linked list of PS_INSNs, which represents the
@@ -176,7 +173,7 @@ struct partial_schedule
 
   /* All the moves added for this partial schedule.  Index X has
      a ps_insn id of X + g->num_nodes.  */
-  VEC (ps_reg_move_info, heap) *reg_moves;
+  vec<ps_reg_move_info> reg_moves;
 
   /*  rows_length[i] holds the number of instructions in the row.
       It is used only (as an optimization) to back off quickly from
@@ -229,7 +226,7 @@ static void remove_node_from_ps (partial_schedule_ptr, ps_insn_ptr);
 
 #define NODE_ASAP(node) ((node)->aux.count)
 
-#define SCHED_PARAMS(x) (&VEC_index (node_sched_params, node_sched_param_vec, x))
+#define SCHED_PARAMS(x) (&node_sched_param_vec[x])
 #define SCHED_TIME(x) (SCHED_PARAMS (x)->time)
 #define SCHED_ROW(x) (SCHED_PARAMS (x)->row)
 #define SCHED_STAGE(x) (SCHED_PARAMS (x)->stage)
@@ -249,8 +246,6 @@ typedef struct node_sched_params
 } *node_sched_params_ptr;
 
 typedef struct node_sched_params node_sched_params;
-DEF_VEC_O (node_sched_params);
-DEF_VEC_ALLOC_O (node_sched_params, heap);
 
 /* The following three functions are copied from the current scheduler
    code in order to use sched_analyze() for computing the dependencies.
@@ -305,7 +300,7 @@ static struct ps_reg_move_info *
 ps_reg_move (partial_schedule_ptr ps, int id)
 {
   gcc_checking_assert (id >= ps->g->num_nodes);
-  return &VEC_index (ps_reg_move_info, ps->reg_moves, id - ps->g->num_nodes);
+  return &ps->reg_moves[id - ps->g->num_nodes];
 }
 
 /* Return the rtl instruction that is being scheduled by partial schedule
@@ -443,24 +438,22 @@ res_MII (ddg_ptr g)
 
 
 /* A vector that contains the sched data for each ps_insn.  */
-static VEC (node_sched_params, heap) *node_sched_param_vec;
+static vec<node_sched_params> node_sched_param_vec;
 
 /* Allocate sched_params for each node and initialize it.  */
 static void
 set_node_sched_params (ddg_ptr g)
 {
-  VEC_truncate (node_sched_params, node_sched_param_vec, 0);
-  VEC_safe_grow_cleared (node_sched_params, heap,
-			 node_sched_param_vec, g->num_nodes);
+  node_sched_param_vec.truncate (0);
+  node_sched_param_vec.safe_grow_cleared (g->num_nodes);
 }
 
 /* Make sure that node_sched_param_vec has an entry for every move in PS.  */
 static void
 extend_node_sched_params (partial_schedule_ptr ps)
 {
-  VEC_safe_grow_cleared (node_sched_params, heap, node_sched_param_vec,
-			 ps->g->num_nodes + VEC_length (ps_reg_move_info,
-							ps->reg_moves));
+  node_sched_param_vec.safe_grow_cleared (ps->g->num_nodes
+					  + ps->reg_moves.length ());
 }
 
 /* Update the sched_params (time, row and stage) for node U using the II,
@@ -615,11 +608,11 @@ schedule_reg_move (partial_schedule_ptr ps, int i_reg_move,
 
   /* Handle the dependencies between the move and previously-scheduled
      successors.  */
-  EXECUTE_IF_SET_IN_SBITMAP (move->uses, 0, u, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (move->uses, 0, u, sbi)
     {
       this_insn = ps_rtl_insn (ps, u);
       this_latency = insn_latency (move->insn, this_insn);
-      if (distance1_uses && !TEST_BIT (distance1_uses, u))
+      if (distance1_uses && !bitmap_bit_p (distance1_uses, u))
 	this_distance = -1;
       else
 	this_distance = 0;
@@ -644,7 +637,7 @@ schedule_reg_move (partial_schedule_ptr ps, int i_reg_move,
     }
 
   bitmap_clear (must_follow);
-  SET_BIT (must_follow, move->def);
+  bitmap_set_bit (must_follow, move->def);
 
   start = MAX (start, end - (ii - 1));
   for (c = end; c >= start; c--)
@@ -747,9 +740,8 @@ schedule_reg_moves (partial_schedule_ptr ps)
 	continue;
 
       /* Create NREG_MOVES register moves.  */
-      first_move = VEC_length (ps_reg_move_info, ps->reg_moves);
-      VEC_safe_grow_cleared (ps_reg_move_info, heap, ps->reg_moves,
-			     first_move + nreg_moves);
+      first_move = ps->reg_moves.length ();
+      ps->reg_moves.safe_grow_cleared (first_move + nreg_moves);
       extend_node_sched_params (ps);
 
       /* Record the moves associated with this node.  */
@@ -796,9 +788,9 @@ schedule_reg_moves (partial_schedule_ptr ps)
 		ps_reg_move_info *move;
 
 		move = ps_reg_move (ps, first_move + dest_copy - 1);
-		SET_BIT (move->uses, e->dest->cuid);
+		bitmap_set_bit (move->uses, e->dest->cuid);
 		if (e->distance == 1)
-		  SET_BIT (distance1_uses, e->dest->cuid);
+		  bitmap_set_bit (distance1_uses, e->dest->cuid);
 	      }
 	  }
 
@@ -824,12 +816,12 @@ apply_reg_moves (partial_schedule_ptr ps)
   ps_reg_move_info *move;
   int i;
 
-  FOR_EACH_VEC_ELT (ps_reg_move_info, ps->reg_moves, i, move)
+  FOR_EACH_VEC_ELT (ps->reg_moves, i, move)
     {
       unsigned int i_use;
       sbitmap_iterator sbi;
 
-      EXECUTE_IF_SET_IN_SBITMAP (move->uses, 0, i_use, sbi)
+      EXECUTE_IF_SET_IN_BITMAP (move->uses, 0, i_use, sbi)
 	{
 	  replace_rtx (ps->g->nodes[i_use].insn, move->old_reg, move->new_reg);
 	  df_insn_rescan (ps->g->nodes[i_use].insn);
@@ -1368,7 +1360,7 @@ sms_schedule (void)
 
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS
 		       | LOOPS_HAVE_RECORDED_EXITS);
-  if (number_of_loops () <= 1)
+  if (number_of_loops (cfun) <= 1)
     {
       loop_optimizer_finalize ();
       return;  /* There are no loops to schedule.  */
@@ -1392,7 +1384,7 @@ sms_schedule (void)
 
   /* Allocate memory to hold the DDG array one entry for each loop.
      We use loop->num as index into this array.  */
-  g_arr = XCNEWVEC (ddg_ptr, number_of_loops ());
+  g_arr = XCNEWVEC (ddg_ptr, number_of_loops (cfun));
 
   if (dump_file)
   {
@@ -1758,7 +1750,7 @@ sms_schedule (void)
 	}
 
       free_partial_schedule (ps);
-      VEC_free (node_sched_params, heap, node_sched_param_vec);
+      node_sched_param_vec.release ();
       free (node_order);
       free_ddg (g);
     }
@@ -1911,7 +1903,7 @@ get_sched_window (partial_schedule_ptr ps, ddg_node_ptr u_node,
       {
 	int v = e->src->cuid;
 
-	if (TEST_BIT (sched_nodes, v))
+	if (bitmap_bit_p (sched_nodes, v))
 	  {
 	    int p_st = SCHED_TIME (v);
 	    int earliest = p_st + e->latency - (e->distance * ii);
@@ -1939,7 +1931,7 @@ get_sched_window (partial_schedule_ptr ps, ddg_node_ptr u_node,
       {
 	int v = e->dest->cuid;
 
-	if (TEST_BIT (sched_nodes, v))
+	if (bitmap_bit_p (sched_nodes, v))
 	  {
 	    int s_st = SCHED_TIME (v);
 	    int earliest = (e->data_type == MEM_DEP ? s_st - ii + 1 : INT_MIN);
@@ -2068,14 +2060,14 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
      and check only if
       SCHED_TIME (e->src) - (e->distance * ii) == first_cycle_in_window  */
   for (e = u_node->in; e != 0; e = e->next_in)
-    if (TEST_BIT (sched_nodes, e->src->cuid)
+    if (bitmap_bit_p (sched_nodes, e->src->cuid)
 	&& ((SCHED_TIME (e->src->cuid) - (e->distance * ii)) ==
              first_cycle_in_window))
       {
 	if (dump_file)
 	  fprintf (dump_file, "%d ", e->src->cuid);
 
-	SET_BIT (must_precede, e->src->cuid);
+	bitmap_set_bit (must_precede, e->src->cuid);
       }
 
   if (dump_file)
@@ -2093,14 +2085,14 @@ calculate_must_precede_follow (ddg_node_ptr u_node, int start, int end,
      and check only if
       SCHED_TIME (e->dest) + (e->distance * ii) == last_cycle_in_window  */
   for (e = u_node->out; e != 0; e = e->next_out)
-    if (TEST_BIT (sched_nodes, e->dest->cuid)
+    if (bitmap_bit_p (sched_nodes, e->dest->cuid)
 	&& ((SCHED_TIME (e->dest->cuid) + (e->distance * ii)) ==
              last_cycle_in_window))
       {
 	if (dump_file)
 	  fprintf (dump_file, "%d ", e->dest->cuid);
 
-	SET_BIT (must_follow, e->dest->cuid);
+	bitmap_set_bit (must_follow, e->dest->cuid);
       }
 
   if (dump_file)
@@ -2131,7 +2123,7 @@ try_scheduling_node_in_cycle (partial_schedule_ptr ps,
   if (psi)
     {
       SCHED_TIME (u) = cycle;
-      SET_BIT (sched_nodes, u);
+      bitmap_set_bit (sched_nodes, u);
       success = 1;
       *num_splits = 0;
       if (dump_file)
@@ -2178,11 +2170,11 @@ sms_schedule_by_order (ddg_ptr g, int mii, int maxii, int *nodes_order)
 
 	  if (!NONDEBUG_INSN_P (insn))
 	    {
-	      RESET_BIT (tobe_scheduled, u);
+	      bitmap_clear_bit (tobe_scheduled, u);
 	      continue;
 	    }
 
-	  if (TEST_BIT (sched_nodes, u))
+	  if (bitmap_bit_p (sched_nodes, u))
 	    continue;
 
 	  /* Try to get non-empty scheduling window.  */
@@ -2379,7 +2371,7 @@ compute_split_row (sbitmap sched_nodes, int low, int up, int ii,
     {
       int v = e->src->cuid;
 
-      if (TEST_BIT (sched_nodes, v)
+      if (bitmap_bit_p (sched_nodes, v)
 	  && (low == SCHED_TIME (v) + e->latency - (e->distance * ii)))
 	if (SCHED_TIME (v) > lower)
 	  {
@@ -2398,7 +2390,7 @@ compute_split_row (sbitmap sched_nodes, int low, int up, int ii,
     {
       int v = e->dest->cuid;
 
-      if (TEST_BIT (sched_nodes, v)
+      if (bitmap_bit_p (sched_nodes, v)
 	  && (up == SCHED_TIME (v) - e->latency + (e->distance * ii)))
 	if (SCHED_TIME (v) < upper)
 	  {
@@ -2434,7 +2426,7 @@ verify_partial_schedule (partial_schedule_ptr ps, sbitmap sched_nodes)
 	  int u = crr_insn->id;
 	  
 	  length++;
-	  gcc_assert (TEST_BIT (sched_nodes, u));
+	  gcc_assert (bitmap_bit_p (sched_nodes, u));
 	  /* ??? Test also that all nodes of sched_nodes are in ps, perhaps by
 	     popcount (sched_nodes) == number of insns in ps.  */
 	  gcc_assert (SCHED_TIME (u) >= ps->min_cycle);
@@ -2493,9 +2485,9 @@ check_nodes_order (int *node_order, int num_nodes)
 
       if (dump_file)
         fprintf (dump_file, "%d ", u);
-      gcc_assert (u < num_nodes && u >= 0 && !TEST_BIT (tmp, u));
+      gcc_assert (u < num_nodes && u >= 0 && !bitmap_bit_p (tmp, u));
 
-      SET_BIT (tmp, u);
+      bitmap_set_bit (tmp, u);
     }
 
   if (dump_file)
@@ -2664,7 +2656,7 @@ find_max_asap (ddg_ptr g, sbitmap nodes)
   int result = -1;
   sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -2686,7 +2678,7 @@ find_max_hv_min_mob (ddg_ptr g, sbitmap nodes)
   int result = -1;
   sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -2715,7 +2707,7 @@ find_max_dv_min_mob (ddg_ptr g, sbitmap nodes)
   int result = -1;
   sbitmap_iterator sbi;
 
-  EXECUTE_IF_SET_IN_SBITMAP (nodes, 0, u, sbi)
+  EXECUTE_IF_SET_IN_BITMAP (nodes, 0, u, sbi)
     {
       ddg_node_ptr u_node = &g->nodes[u];
 
@@ -2774,7 +2766,7 @@ order_nodes_in_scc (ddg_ptr g, sbitmap nodes_ordered, sbitmap scc,
 
       bitmap_clear (workset);
       if ((u = find_max_asap (g, scc)) >= 0)
-	SET_BIT (workset, u);
+	bitmap_set_bit (workset, u);
       dir = BOTTOMUP;
     }
 
@@ -2799,8 +2791,8 @@ order_nodes_in_scc (ddg_ptr g, sbitmap nodes_ordered, sbitmap scc,
 	      /* Don't consider the already ordered successors again.  */
 	      bitmap_and_compl (tmp, tmp, nodes_ordered);
 	      bitmap_ior (workset, workset, tmp);
-	      RESET_BIT (workset, v);
-	      SET_BIT (nodes_ordered, v);
+	      bitmap_clear_bit (workset, v);
+	      bitmap_set_bit (nodes_ordered, v);
 	    }
 	  dir = BOTTOMUP;
 	  bitmap_clear (predecessors);
@@ -2820,8 +2812,8 @@ order_nodes_in_scc (ddg_ptr g, sbitmap nodes_ordered, sbitmap scc,
 	      /* Don't consider the already ordered predecessors again.  */
 	      bitmap_and_compl (tmp, tmp, nodes_ordered);
 	      bitmap_ior (workset, workset, tmp);
-	      RESET_BIT (workset, v);
-	      SET_BIT (nodes_ordered, v);
+	      bitmap_clear_bit (workset, v);
+	      bitmap_set_bit (nodes_ordered, v);
 	    }
 	  dir = TOPDOWN;
 	  bitmap_clear (successors);
@@ -2849,7 +2841,7 @@ create_partial_schedule (int ii, ddg_ptr g, int history)
   partial_schedule_ptr ps = XNEW (struct partial_schedule);
   ps->rows = (ps_insn_ptr *) xcalloc (ii, sizeof (ps_insn_ptr));
   ps->rows_length = (int *) xcalloc (ii, sizeof (int));
-  ps->reg_moves = NULL;
+  ps->reg_moves.create (0);
   ps->ii = ii;
   ps->history = history;
   ps->min_cycle = INT_MAX;
@@ -2890,9 +2882,9 @@ free_partial_schedule (partial_schedule_ptr ps)
   if (!ps)
     return;
 
-  FOR_EACH_VEC_ELT (ps_reg_move_info, ps->reg_moves, i, move)
+  FOR_EACH_VEC_ELT (ps->reg_moves, i, move)
     sbitmap_free (move->uses);
-  VEC_free (ps_reg_move_info, heap, ps->reg_moves);
+  ps->reg_moves.release ();
 
   free_ps_insns (ps);
   free (ps->rows);
@@ -3019,10 +3011,10 @@ ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
        next_ps_i = next_ps_i->next_in_row)
     {
       if (must_follow
-	  && TEST_BIT (must_follow, next_ps_i->id)
+	  && bitmap_bit_p (must_follow, next_ps_i->id)
 	  && ! first_must_follow)
         first_must_follow = next_ps_i;
-      if (must_precede && TEST_BIT (must_precede, next_ps_i->id))
+      if (must_precede && bitmap_bit_p (must_precede, next_ps_i->id))
         {
           /* If we have already met a node that must follow, then
 	     there is no possible column.  */
@@ -3033,7 +3025,7 @@ ps_insn_find_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
         }
       /* The closing branch must be the last in the row.  */
       if (must_precede 
-	  && TEST_BIT (must_precede, next_ps_i->id)
+	  && bitmap_bit_p (must_precede, next_ps_i->id)
 	  && JUMP_P (ps_rtl_insn (ps, next_ps_i->id)))
 	return false;
              
@@ -3105,7 +3097,7 @@ ps_insn_advance_column (partial_schedule_ptr ps, ps_insn_ptr ps_i,
 
   /* Check if next_in_row is dependent on ps_i, both having same sched
      times (typically ANTI_DEP).  If so, ps_i cannot skip over it.  */
-  if (must_follow && TEST_BIT (must_follow, ps_i->next_in_row->id))
+  if (must_follow && bitmap_bit_p (must_follow, ps_i->next_in_row->id))
     return false;
 
   /* Advance PS_I over its next_in_row in the doubly linked list.  */
@@ -3364,6 +3356,7 @@ struct rtl_opt_pass pass_sms =
  {
   RTL_PASS,
   "sms",                                /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_handle_sms,                      /* gate */
   rest_of_handle_sms,                   /* execute */
   NULL,                                 /* sub */
@@ -3376,7 +3369,6 @@ struct rtl_opt_pass pass_sms =
   0,                                    /* todo_flags_start */
   TODO_df_finish
     | TODO_verify_flow
-    | TODO_verify_rtl_sharing
-    | TODO_ggc_collect                  /* todo_flags_finish */
+    | TODO_verify_rtl_sharing           /* todo_flags_finish */
  }
 };

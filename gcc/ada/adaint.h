@@ -6,7 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -128,9 +128,10 @@ extern int    __gnat_rename                        (char *, char *);
 extern int    __gnat_chdir                         (char *);
 extern int    __gnat_rmdir                         (char *);
 
-extern FILE  *__gnat_fopen			   (char *, char *, int);
+extern FILE  *__gnat_fopen			   (char *, char *, int,
+						    char *);
 extern FILE  *__gnat_freopen			   (char *, char *, FILE *,
-				                    int);
+				                    int, char *);
 extern int    __gnat_open_read                     (char *, int);
 extern int    __gnat_open_rw                       (char *, int);
 extern int    __gnat_open_create                   (char *, int);
@@ -250,7 +251,11 @@ extern char * __gnat_locate_executable_file        (char *, char *);
 extern char * __gnat_locate_file_with_predicate    (char *, char *,
 						    int (*)(char*));
 
-#if defined (linux)
+#if defined (__ANDROID__)
+#undef linux
+extern void   *__gnat_lwp_self                     (void);
+
+#elif defined (linux)
 extern void   *__gnat_lwp_self			   (void);
 
 /* Routines for interface to required CPU set primitives */

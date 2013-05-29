@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1794,10 +1794,12 @@ package body Exp_Ch5 is
       end if;
 
       --  Apply discriminant check if required. If Lhs is an access type to a
-      --  designated type with discriminants, we must always check.
+      --  designated type with discriminants, we must always check. If the
+      --  type has unknown discriminants, more elaborate processing below.
 
-      if Has_Discriminants (Etype (Lhs)) then
-
+      if Has_Discriminants (Etype (Lhs))
+        and then not Has_Unknown_Discriminants (Etype (Lhs))
+      then
          --  Skip discriminant check if change of representation. Will be
          --  done when the change of representation is expanded out.
 
@@ -2128,7 +2130,8 @@ package body Exp_Ch5 is
                   --  the assignment we generate run-time check to ensure that
                   --  the tags of source and target match.
 
-                  if Is_Class_Wide_Type (Typ)
+                  if not Tag_Checks_Suppressed (Typ)
+                    and then Is_Class_Wide_Type (Typ)
                     and then Is_Tagged_Type (Typ)
                     and then Is_Tagged_Type (Underlying_Type (Etype (Rhs)))
                   then
@@ -3028,7 +3031,7 @@ package body Exp_Ch5 is
             declare
                Default_Iter : constant Entity_Id :=
                                 Entity
-                                  (Find_Aspect
+                                  (Find_Value_Of_Aspect
                                     (Etype (Container),
                                      Aspect_Default_Iterator));
 
@@ -3107,6 +3110,11 @@ package body Exp_Ch5 is
                        Prefix      => Relocate_Node (Container_Arg),
                        Expressions =>
                          New_List (New_Occurrence_Of (Cursor, Loc))));
+
+               --  The defining identifier in the iterator is user-visible
+               --  and must be visible in the debugger.
+
+               Set_Debug_Info_Needed (Id);
 
                --  If the container holds controlled objects, wrap the loop
                --  statements and element renaming declaration with a block.
@@ -3395,10 +3403,14 @@ package body Exp_Ch5 is
          end loop;
       end if;
 
-      --  If original loop has a name, preserve it so it can be recognized by
-      --  an exit statement in the body of the rewritten loop.
+      --  If original loop has a source name, preserve it so it can be
+      --  recognized by an exit statement in the body of the rewritten loop.
+      --  This only concerns source names: the generated name of an anonymous
+      --  loop will be create again during the subsequent analysis below.
 
-      if Present (Identifier (N)) then
+      if Present (Identifier (N))
+        and then Comes_From_Source (Identifier (N))
+      then
          Set_Identifier (Core_Loop, Relocate_Node (Identifier (N)));
       end if;
 
@@ -3419,8 +3431,9 @@ package body Exp_Ch5 is
    --  7. Insert polling call if required
 
    procedure Expand_N_Loop_Statement (N : Node_Id) is
-      Loc  : constant Source_Ptr := Sloc (N);
-      Isc  : constant Node_Id    := Iteration_Scheme (N);
+      Loc    : constant Source_Ptr := Sloc (N);
+      Scheme : constant Node_Id    := Iteration_Scheme (N);
+      Stmt   : Node_Id;
 
    begin
       --  Delete null loop
@@ -3430,12 +3443,10 @@ package body Exp_Ch5 is
          return;
       end if;
 
-      Process_Statements_For_Controlled_Objects (N);
-
       --  Deal with condition for C/Fortran Boolean
 
-      if Present (Isc) then
-         Adjust_Condition (Condition (Isc));
+      if Present (Scheme) then
+         Adjust_Condition (Condition (Scheme));
       end if;
 
       --  Generate polling call
@@ -3446,7 +3457,7 @@ package body Exp_Ch5 is
 
       --  Nothing more to do for plain loop with no iteration scheme
 
-      if No (Isc) then
+      if No (Scheme) then
          null;
 
       --  Case of for loop (Loop_Parameter_Specification present)
@@ -3455,13 +3466,15 @@ package body Exp_Ch5 is
       --  range bounds here, since they were frozen with constant declarations
       --  and it is during that process that the validity checking is done.
 
-      elsif Present (Loop_Parameter_Specification (Isc)) then
+      elsif Present (Loop_Parameter_Specification (Scheme)) then
          declare
-            LPS     : constant Node_Id   := Loop_Parameter_Specification (Isc);
+            LPS     : constant Node_Id   :=
+                        Loop_Parameter_Specification (Scheme);
             Loop_Id : constant Entity_Id := Defining_Identifier (LPS);
             Ltype   : constant Entity_Id := Etype (Loop_Id);
             Btype   : constant Entity_Id := Base_Type (Ltype);
             Expr    : Node_Id;
+            Decls   : List_Id;
             New_Id  : Entity_Id;
 
          begin
@@ -3521,6 +3534,16 @@ package body Exp_Ch5 is
                         New_List (New_Reference_To (New_Id, Loc)));
                end if;
 
+               --  Build declaration for loop identifier
+
+               Decls :=
+                 New_List (
+                   Make_Object_Declaration (Loc,
+                     Defining_Identifier => Loop_Id,
+                     Constant_Present    => True,
+                     Object_Definition   => New_Reference_To (Ltype, Loc),
+                     Expression          => Expr));
+
                Rewrite (N,
                  Make_Loop_Statement (Loc,
                    Identifier => Identifier (N),
@@ -3568,14 +3591,7 @@ package body Exp_Ch5 is
 
                    Statements => New_List (
                      Make_Block_Statement (Loc,
-                       Declarations => New_List (
-                         Make_Object_Declaration (Loc,
-                           Defining_Identifier => Loop_Id,
-                           Constant_Present    => True,
-                           Object_Definition   =>
-                             New_Reference_To (Ltype, Loc),
-                           Expression          => Expr)),
-
+                       Declarations => Decls,
                        Handled_Statement_Sequence =>
                          Make_Handled_Sequence_Of_Statements (Loc,
                            Statements => Statements (N)))),
@@ -3583,13 +3599,22 @@ package body Exp_Ch5 is
                    End_Label => End_Label (N)));
 
                --  The loop parameter's entity must be removed from the loop
-               --  scope's entity list, since it will now be located in the
-               --  new block scope. Any other entities already associated with
-               --  the loop scope, such as the loop parameter's subtype, will
-               --  remain there.
+               --  scope's entity list and rendered invisible, since it will
+               --  now be located in the new block scope. Any other entities
+               --  already associated with the loop scope, such as the loop
+               --  parameter's subtype, will remain there.
 
-               pragma Assert (First_Entity (Scope (Loop_Id)) = Loop_Id);
+               --  In an element loop, the loop will contain a declaration for
+               --  a cursor variable; otherwise the loop id is the first entity
+               --  in the scope constructed for the loop.
+
+               if Comes_From_Source (Loop_Id) then
+                  pragma Assert (First_Entity (Scope (Loop_Id)) = Loop_Id);
+                  null;
+               end if;
+
                Set_First_Entity (Scope (Loop_Id), Next_Entity (Loop_Id));
+               Remove_Homonym (Loop_Id);
 
                if Last_Entity (Scope (Loop_Id)) = Loop_Id then
                   Set_Last_Entity (Scope (Loop_Id), Empty);
@@ -3619,22 +3644,22 @@ package body Exp_Ch5 is
       --       ...
       --    end loop
 
-      elsif Present (Isc)
-        and then Present (Condition_Actions (Isc))
-        and then Present (Condition (Isc))
+      elsif Present (Scheme)
+        and then Present (Condition_Actions (Scheme))
+        and then Present (Condition (Scheme))
       then
          declare
             ES : Node_Id;
 
          begin
             ES :=
-              Make_Exit_Statement (Sloc (Condition (Isc)),
+              Make_Exit_Statement (Sloc (Condition (Scheme)),
                 Condition =>
-                  Make_Op_Not (Sloc (Condition (Isc)),
-                    Right_Opnd => Condition (Isc)));
+                  Make_Op_Not (Sloc (Condition (Scheme)),
+                    Right_Opnd => Condition (Scheme)));
 
             Prepend (ES, Statements (N));
-            Insert_List_Before (ES, Condition_Actions (Isc));
+            Insert_List_Before (ES, Condition_Actions (Scheme));
 
             --  This is not an implicit loop, since it is generated in response
             --  to the loop statement being processed. If this is itself
@@ -3652,11 +3677,24 @@ package body Exp_Ch5 is
 
       --  Here to deal with iterator case
 
-      elsif Present (Isc)
-        and then Present (Iterator_Specification (Isc))
+      elsif Present (Scheme)
+        and then Present (Iterator_Specification (Scheme))
       then
          Expand_Iterator_Loop (N);
       end if;
+
+      --  When the iteration scheme mentiones attribute 'Loop_Entry, the loop
+      --  is transformed into a conditional block where the original loop is
+      --  the sole statement. Inspect the statements of the nested loop for
+      --  controlled objects.
+
+      Stmt := N;
+
+      if Subject_To_Loop_Entry_Attributes (Stmt) then
+         Stmt := Find_Loop_In_Conditional_Block (Stmt);
+      end if;
+
+      Process_Statements_For_Controlled_Objects (Stmt);
    end Expand_N_Loop_Statement;
 
    ----------------------------
@@ -3849,10 +3887,10 @@ package body Exp_Ch5 is
             --  Rewrite the loop
 
             D :=
-               Make_Object_Declaration (Loc,
-                 Defining_Identifier => Loop_Id,
-                 Object_Definition   => New_Occurrence_Of (Ltype, Loc),
-                 Expression          => Lo_Val (First (Stat)));
+              Make_Object_Declaration (Loc,
+                Defining_Identifier => Loop_Id,
+                Object_Definition   => New_Occurrence_Of (Ltype, Loc),
+                Expression          => Lo_Val (First (Stat)));
             Set_Suppress_Assignment_Checks (D);
 
             Rewrite (N,

@@ -6,7 +6,7 @@
  *                                                                          *
  *                           C Implementation File                          *
  *                                                                          *
- *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -228,7 +228,9 @@ int optimize_size;
 int flag_compare_debug;
 enum stack_check_type flag_stack_check = NO_STACK_CHECK;
 
-/* Post-switch processing.  */
+/* Settings adjustments after switches processing by the back-end.
+   Note that the front-end switches processing (Scan_Compiler_Arguments)
+   has not been done yet at this point!  */
 
 static bool
 gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
@@ -344,9 +346,7 @@ gnat_init (void)
   return true;
 }
 
-/* If we are using the GCC mechanism to process exception handling, we
-   have to register the personality routine for Ada and to initialize
-   various language dependent hooks.  */
+/* Initialize the GCC support for exception handling.  */
 
 void
 gnat_init_gcc_eh (void)
@@ -377,6 +377,28 @@ gnat_init_gcc_eh (void)
   flag_non_call_exceptions = 1;
 
   init_eh ();
+}
+
+/* Initialize the GCC support for floating-point operations.  */
+
+void
+gnat_init_gcc_fp (void)
+{
+  /* Disable FP optimizations that ignore the signedness of zero if
+     S'Signed_Zeros is True, but don't override the user if not.  */
+  if (Signed_Zeros_On_Target)
+    flag_signed_zeros = 1;
+  else if (!global_options_set.x_flag_signed_zeros)
+    flag_signed_zeros = 0;
+
+  /* Assume that FP operations can trap if S'Machine_Overflow is True,
+     but don't override the user if not.
+
+     ??? Alpha/VMS enables FP traps without declaring it.  */
+  if (Machine_Overflows_On_Target || TARGET_ABI_OPEN_VMS)
+    flag_trapping_math = 1;
+  else if (!global_options_set.x_flag_trapping_math)
+    flag_trapping_math = 0;
 }
 
 /* Print language-specific items in declaration NODE.  */
@@ -604,8 +626,8 @@ gnat_get_subrange_bounds (const_tree gnu_type, tree *lowval, tree *highval)
 bool
 default_pass_by_ref (tree gnu_type)
 {
-  /* We pass aggregates by reference if they are sufficiently large.  The
-     choice of constant here is somewhat arbitrary.  We also pass by
+  /* We pass aggregates by reference if they are sufficiently large for
+     their alignment.  The ratio is somewhat arbitrary.  We also pass by
      reference if the target machine would either pass or return by
      reference.  Strictly speaking, we need only check the return if this
      is an In Out parameter, but it's probably best to err on the side of
@@ -618,9 +640,9 @@ default_pass_by_ref (tree gnu_type)
     return true;
 
   if (AGGREGATE_TYPE_P (gnu_type)
-      && (!host_integerp (TYPE_SIZE (gnu_type), 1)
-	  || 0 < compare_tree_int (TYPE_SIZE (gnu_type),
-				   8 * TYPE_ALIGN (gnu_type))))
+      && (!valid_constant_size_p (TYPE_SIZE_UNIT (gnu_type))
+	  || 0 < compare_tree_int (TYPE_SIZE_UNIT (gnu_type),
+				   TYPE_ALIGN (gnu_type))))
     return true;
 
   return false;
@@ -639,8 +661,8 @@ must_pass_by_ref (tree gnu_type)
      not have such objects.  */
   return (TREE_CODE (gnu_type) == UNCONSTRAINED_ARRAY_TYPE
 	  || TYPE_IS_BY_REFERENCE_P (gnu_type)
-	  || (TYPE_SIZE (gnu_type)
-	      && TREE_CODE (TYPE_SIZE (gnu_type)) != INTEGER_CST));
+	  || (TYPE_SIZE_UNIT (gnu_type)
+	      && TREE_CODE (TYPE_SIZE_UNIT (gnu_type)) != INTEGER_CST));
 }
 
 /* This function is called by the front-end to enumerate all the supported

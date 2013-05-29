@@ -1,6 +1,5 @@
 /* Store motion via Lazy Code Motion on the reverse CFG.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005,
-   2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 1997-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,7 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "intl.h"
 #include "tree-pass.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "df.h"
 #include "dbgcnt.h"
 
@@ -54,7 +53,7 @@ along with GCC; see the file COPYING3.  If not see
      invalidate REG_EQUAL/REG_EQUIV notes for?).
    - pattern_regs in st_expr should be a regset (on its own obstack).
    - antic_stores and avail_stores should be VECs instead of lists.
-   - store_motion_mems should be a VEC instead of a list.
+   - store_motion_mems should be a vec instead of a list.
    - there should be an alloc pool for struct st_expr objects.
    - investigate whether it is helpful to make the address of an st_expr
      a cselib VALUE.
@@ -91,9 +90,6 @@ struct st_expr
 /* Head of the list of load/store memory refs.  */
 static struct st_expr * store_motion_mems = NULL;
 
-/* Hashtable for the load/store memory refs.  */
-static htab_t store_motion_mems_table = NULL;
-
 /* These bitmaps will hold the local dataflow properties per basic block.  */
 static sbitmap *st_kill, *st_avloc, *st_antloc, *st_transp;
 
@@ -109,21 +105,31 @@ static int num_stores;
 /* Contains the edge_list returned by pre_edge_lcm.  */
 static struct edge_list *edge_list;
 
-static hashval_t
-pre_st_expr_hash (const void *p)
+/* Hashtable helpers.  */
+
+struct st_expr_hasher : typed_noop_remove <st_expr>
+{
+  typedef st_expr value_type;
+  typedef st_expr compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+st_expr_hasher::hash (const value_type *x)
 {
   int do_not_record_p = 0;
-  const struct st_expr *const x = (const struct st_expr *) p;
   return hash_rtx (x->pattern, GET_MODE (x->pattern), &do_not_record_p, NULL, false);
 }
 
-static int
-pre_st_expr_eq (const void *p1, const void *p2)
+inline bool
+st_expr_hasher::equal (const value_type *ptr1, const compare_type *ptr2)
 {
-  const struct st_expr *const ptr1 = (const struct st_expr *) p1,
-    *const ptr2 = (const struct st_expr *) p2;
   return exp_equiv_p (ptr1->pattern, ptr2->pattern, 0, true);
 }
+
+/* Hashtable for the load/store memory refs.  */
+static hash_table <st_expr_hasher> store_motion_mems_table;
 
 /* This will search the st_expr list for a matching expression. If it
    doesn't find one, we create one and initialize it.  */
@@ -134,16 +140,16 @@ st_expr_entry (rtx x)
   int do_not_record_p = 0;
   struct st_expr * ptr;
   unsigned int hash;
-  void **slot;
+  st_expr **slot;
   struct st_expr e;
 
   hash = hash_rtx (x, GET_MODE (x), &do_not_record_p,
 		   NULL,  /*have_reg_qty=*/false);
 
   e.pattern = x;
-  slot = htab_find_slot_with_hash (store_motion_mems_table, &e, hash, INSERT);
+  slot = store_motion_mems_table.find_slot_with_hash (&e, hash, INSERT);
   if (*slot)
-    return (struct st_expr *)*slot;
+    return *slot;
 
   ptr = XNEW (struct st_expr);
 
@@ -177,9 +183,8 @@ free_st_expr_entry (struct st_expr * ptr)
 static void
 free_store_motion_mems (void)
 {
-  if (store_motion_mems_table)
-    htab_delete (store_motion_mems_table);
-  store_motion_mems_table = NULL;
+  if (store_motion_mems_table.is_created ())
+    store_motion_mems_table.dispose ();
 
   while (store_motion_mems)
     {
@@ -646,8 +651,7 @@ compute_store_table (void)
   unsigned int max_gcse_regno = max_reg_num ();
 
   store_motion_mems = NULL;
-  store_motion_mems_table = htab_create (13, pre_st_expr_hash,
-					 pre_st_expr_eq, NULL);
+  store_motion_mems_table.create (13);
   last_set_in = XCNEWVEC (int, max_gcse_regno);
   already_set = XNEWVEC (int, max_gcse_regno);
 
@@ -709,8 +713,7 @@ compute_store_table (void)
       if (! ptr->avail_stores)
 	{
 	  *prev_next_ptr_ptr = ptr->next;
-	  htab_remove_elt_with_hash (store_motion_mems_table,
-				     ptr, ptr->hash_index);
+	  store_motion_mems_table.remove_elt_with_hash (ptr, ptr->hash_index);
 	  free_st_expr_entry (ptr);
 	}
       else
@@ -796,7 +799,7 @@ insert_store (struct st_expr * expr, edge e)
 	int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
 
 	gcc_assert (index != EDGE_INDEX_NO_EDGE);
-	if (! TEST_BIT (st_insert_map[index], expr->index))
+	if (! bitmap_bit_p (st_insert_map[index], expr->index))
 	  break;
       }
 
@@ -807,7 +810,7 @@ insert_store (struct st_expr * expr, edge e)
       FOR_EACH_EDGE (tmp, ei, e->dest->preds)
 	{
 	  int index = EDGE_INDEX (edge_list, tmp->src, tmp->dest);
-	  RESET_BIT (st_insert_map[index], expr->index);
+	  bitmap_clear_bit (st_insert_map[index], expr->index);
 	}
       insert_insn_start_basic_block (insn, bb);
       return 0;
@@ -867,16 +870,16 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
       bb = act->dest;
 
       if (bb == EXIT_BLOCK_PTR
-	  || TEST_BIT (visited, bb->index))
+	  || bitmap_bit_p (visited, bb->index))
 	{
 	  if (!ei_end_p (ei))
 	      ei_next (&ei);
 	  act = (! ei_end_p (ei)) ? ei_edge (ei) : NULL;
 	  continue;
 	}
-      SET_BIT (visited, bb->index);
+      bitmap_set_bit (visited, bb->index);
 
-      if (TEST_BIT (st_antloc[bb->index], smexpr->index))
+      if (bitmap_bit_p (st_antloc[bb->index], smexpr->index))
 	{
 	  for (last = smexpr->antic_stores;
 	       BLOCK_FOR_INSN (XEXP (last, 0)) != bb;
@@ -1030,7 +1033,7 @@ build_store_vectors (void)
 	     we can delete this one (It occurs earlier in the block). We'll
 	     copy the SRC expression to an unused register in case there
 	     are any side effects.  */
-	  if (TEST_BIT (st_avloc[bb->index], ptr->index))
+	  if (bitmap_bit_p (st_avloc[bb->index], ptr->index))
 	    {
 	      rtx r = gen_reg_rtx_and_attrs (ptr->pattern);
 	      if (dump_file)
@@ -1038,14 +1041,14 @@ build_store_vectors (void)
 	      replace_store_insn (r, XEXP (st, 0), bb, ptr);
 	      continue;
 	    }
-	  SET_BIT (st_avloc[bb->index], ptr->index);
+	  bitmap_set_bit (st_avloc[bb->index], ptr->index);
 	}
 
       for (st = ptr->antic_stores; st != NULL; st = XEXP (st, 1))
 	{
 	  insn = XEXP (st, 0);
 	  bb = BLOCK_FOR_INSN (insn);
-	  SET_BIT (st_antloc[bb->index], ptr->index);
+	  bitmap_set_bit (st_antloc[bb->index], ptr->index);
 	}
     }
 
@@ -1079,12 +1082,12 @@ build_store_vectors (void)
 	    {
 	      /* It should not be necessary to consider the expression
 		 killed if it is both anticipatable and available.  */
-	      if (!TEST_BIT (st_antloc[bb->index], ptr->index)
-		  || !TEST_BIT (st_avloc[bb->index], ptr->index))
-		SET_BIT (st_kill[bb->index], ptr->index);
+	      if (!bitmap_bit_p (st_antloc[bb->index], ptr->index)
+		  || !bitmap_bit_p (st_avloc[bb->index], ptr->index))
+		bitmap_set_bit (st_kill[bb->index], ptr->index);
 	    }
 	  else
-	    SET_BIT (st_transp[bb->index], ptr->index);
+	    bitmap_set_bit (st_transp[bb->index], ptr->index);
 	}
     }
 
@@ -1143,8 +1146,7 @@ one_store_motion_pass (void)
   num_stores = compute_store_table ();
   if (num_stores == 0)
     {
-      htab_delete (store_motion_mems_table);
-      store_motion_mems_table = NULL;
+      store_motion_mems_table.dispose ();
       end_alias_analysis ();
       return 0;
     }
@@ -1164,7 +1166,7 @@ one_store_motion_pass (void)
       /* If any of the edges we have above are abnormal, we can't move this
 	 store.  */
       for (x = NUM_EDGES (edge_list) - 1; x >= 0; x--)
-	if (TEST_BIT (st_insert_map[x], ptr->index)
+	if (bitmap_bit_p (st_insert_map[x], ptr->index)
 	    && (INDEX_EDGE (edge_list, x)->flags & EDGE_ABNORMAL))
 	  break;
 
@@ -1181,14 +1183,14 @@ one_store_motion_pass (void)
       /* Now we want to insert the new stores which are going to be needed.  */
 
       FOR_EACH_BB (bb)
-	if (TEST_BIT (st_delete_map[bb->index], ptr->index))
+	if (bitmap_bit_p (st_delete_map[bb->index], ptr->index))
 	  {
 	    delete_store (ptr, bb);
 	    n_stores_deleted++;
 	  }
 
       for (x = 0; x < NUM_EDGES (edge_list); x++)
-	if (TEST_BIT (st_insert_map[x], ptr->index))
+	if (bitmap_bit_p (st_insert_map[x], ptr->index))
 	  {
 	    did_edge_inserts |= insert_store (ptr, INDEX_EDGE (edge_list, x));
 	    n_stores_created++;
@@ -1238,6 +1240,7 @@ struct rtl_opt_pass pass_rtl_store_motion =
  {
   RTL_PASS,
   "store_motion",                       /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   gate_rtl_store_motion,                /* gate */
   execute_rtl_store_motion,		/* execute */
   NULL,                                 /* sub */
@@ -1249,6 +1252,6 @@ struct rtl_opt_pass pass_rtl_store_motion =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_verify_flow | TODO_ggc_collect   /* todo_flags_finish */
+  TODO_verify_flow                      /* todo_flags_finish */
  }
 };

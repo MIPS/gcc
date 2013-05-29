@@ -1,7 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1988-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -101,6 +99,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    known at compile time or estimated via feedback, the SIZE array
    is walked in order until MAX is greater then the estimate (or -1
    means infinity).  Corresponding ALG is used then.
+   When NOALIGN is true the code guaranting the alignment of the memory
+   block is skipped.
+
    For example initializer:
     {{256, loop}, {-1, rep_prefix_4_byte}}
    will use loop for blocks smaller or equal to 256 bytes, rep prefix will
@@ -111,6 +112,7 @@ struct stringop_algs
   const struct stringop_strategy {
     const int max;
     const enum stringop_alg alg;
+    int noalign;
   } size [MAX_STRINGOP_ALGS];
 };
 
@@ -242,18 +244,16 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
-#define TARGET_CORE2_32 (ix86_tune == PROCESSOR_CORE2_32)
-#define TARGET_CORE2_64 (ix86_tune == PROCESSOR_CORE2_64)
-#define TARGET_CORE2 (TARGET_CORE2_32 || TARGET_CORE2_64)
-#define TARGET_COREI7_32 (ix86_tune == PROCESSOR_COREI7_32)
-#define TARGET_COREI7_64 (ix86_tune == PROCESSOR_COREI7_64)
-#define TARGET_COREI7 (TARGET_COREI7_32 || TARGET_COREI7_64)
+#define TARGET_CORE2 (ix86_tune == PROCESSOR_CORE2)
+#define TARGET_COREI7 (ix86_tune == PROCESSOR_COREI7)
+#define TARGET_HASWELL (ix86_tune == PROCESSOR_HASWELL)
 #define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
 #define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
 #define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
 #define TARGET_BDVER1 (ix86_tune == PROCESSOR_BDVER1)
 #define TARGET_BDVER2 (ix86_tune == PROCESSOR_BDVER2)
+#define TARGET_BDVER3 (ix86_tune == PROCESSOR_BDVER3)
 #define TARGET_BTVER1 (ix86_tune == PROCESSOR_BTVER1)
 #define TARGET_BTVER2 (ix86_tune == PROCESSOR_BTVER2)
 #define TARGET_ATOM (ix86_tune == PROCESSOR_ATOM)
@@ -304,7 +304,8 @@ enum ix86_tune_indices {
   X86_TUNE_EPILOGUE_USING_MOVE,
   X86_TUNE_SHIFT1,
   X86_TUNE_USE_FFREEP,
-  X86_TUNE_INTER_UNIT_MOVES,
+  X86_TUNE_INTER_UNIT_MOVES_TO_VEC,
+  X86_TUNE_INTER_UNIT_MOVES_FROM_VEC,
   X86_TUNE_INTER_UNIT_CONVERSIONS,
   X86_TUNE_FOUR_JUMP_LIMIT,
   X86_TUNE_SCHEDULE,
@@ -313,7 +314,6 @@ enum ix86_tune_indices {
   X86_TUNE_PAD_RETURNS,
   X86_TUNE_PAD_SHORT_FUNCTION,
   X86_TUNE_EXT_80387_CONSTANTS,
-  X86_TUNE_SHORTEN_X87_SSE,
   X86_TUNE_AVOID_VECTOR_DECODE,
   X86_TUNE_PROMOTE_HIMODE_IMUL,
   X86_TUNE_SLOW_IMUL_IMM32_MEM,
@@ -331,6 +331,7 @@ enum ix86_tune_indices {
   X86_TUNE_REASSOC_INT_TO_PARALLEL,
   X86_TUNE_REASSOC_FP_TO_PARALLEL,
   X86_TUNE_GENERAL_REGS_SSE_SPILL,
+  X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE,
 
   X86_TUNE_LAST
 };
@@ -395,8 +396,11 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_EPILOGUE_USING_MOVE]
 #define TARGET_SHIFT1		ix86_tune_features[X86_TUNE_SHIFT1]
 #define TARGET_USE_FFREEP	ix86_tune_features[X86_TUNE_USE_FFREEP]
-#define TARGET_INTER_UNIT_MOVES	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES]
-#define TARGET_INTER_UNIT_CONVERSIONS\
+#define TARGET_INTER_UNIT_MOVES_TO_VEC \
+	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES_TO_VEC]
+#define TARGET_INTER_UNIT_MOVES_FROM_VEC \
+	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES_FROM_VEC]
+#define TARGET_INTER_UNIT_CONVERSIONS \
 	ix86_tune_features[X86_TUNE_INTER_UNIT_CONVERSIONS]
 #define TARGET_FOUR_JUMP_LIMIT	ix86_tune_features[X86_TUNE_FOUR_JUMP_LIMIT]
 #define TARGET_SCHEDULE		ix86_tune_features[X86_TUNE_SCHEDULE]
@@ -407,7 +411,6 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_PAD_SHORT_FUNCTION]
 #define TARGET_EXT_80387_CONSTANTS \
 	ix86_tune_features[X86_TUNE_EXT_80387_CONSTANTS]
-#define TARGET_SHORTEN_X87_SSE	ix86_tune_features[X86_TUNE_SHORTEN_X87_SSE]
 #define TARGET_AVOID_VECTOR_DECODE \
 	ix86_tune_features[X86_TUNE_AVOID_VECTOR_DECODE]
 #define TARGET_TUNE_PROMOTE_HIMODE_IMUL \
@@ -437,6 +440,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_REASSOC_FP_TO_PARALLEL]
 #define TARGET_GENERAL_REGS_SSE_SPILL \
 	ix86_tune_features[X86_TUNE_GENERAL_REGS_SSE_SPILL]
+#define TARGET_AVOID_MEM_OPND_FOR_CMOVE \
+	ix86_tune_features[X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -485,6 +490,9 @@ extern unsigned char x86_prefetch_sse;
 #define TARGET_TLS_DIRECT_SEG_REFS_DEFAULT 0
 #endif
 
+#define TARGET_SSP_GLOBAL_GUARD (ix86_stack_protector_guard == SSP_GLOBAL)
+#define TARGET_SSP_TLS_GUARD    (ix86_stack_protector_guard == SSP_TLS)
+
 /* Fence to use after loop using storent.  */
 
 extern tree x86_mfence;
@@ -517,6 +525,9 @@ extern tree x86_mfence;
 #define MACHOPIC_INDIRECT 0
 #define MACHOPIC_PURE 0
 
+/* For the RDOS  */
+#define TARGET_RDOS 0
+
 /* For the Windows 64-bit ABI.  */
 #define TARGET_64BIT_MS_ABI (TARGET_64BIT && ix86_cfun_abi () == MS_ABI)
 
@@ -526,8 +537,14 @@ extern tree x86_mfence;
 /* This is re-defined by cygming.h.  */
 #define TARGET_SEH 0
 
+/* This is re-defined by cygming.h.  */
+#define TARGET_PECOFF 0
+
 /* The default abi used by target.  */
 #define DEFAULT_ABI SYSV_ABI
+
+/* The default TLS segment register used by target.  */
+#define DEFAULT_TLS_SEG_REG (TARGET_64BIT ? SEG_FS : SEG_GS)
 
 /* Subtargets may reset this to 1 in order to enable 96-bit long double
    with the rounding mode forced to 53 bits.  */
@@ -604,6 +621,7 @@ enum target_cpu_default
   TARGET_CPU_DEFAULT_nocona,
   TARGET_CPU_DEFAULT_core2,
   TARGET_CPU_DEFAULT_corei7,
+  TARGET_CPU_DEFAULT_haswell,
   TARGET_CPU_DEFAULT_atom,
 
   TARGET_CPU_DEFAULT_geode,
@@ -616,6 +634,7 @@ enum target_cpu_default
   TARGET_CPU_DEFAULT_amdfam10,
   TARGET_CPU_DEFAULT_bdver1,
   TARGET_CPU_DEFAULT_bdver2,
+  TARGET_CPU_DEFAULT_bdver3,
   TARGET_CPU_DEFAULT_btver1,
   TARGET_CPU_DEFAULT_btver2,
 
@@ -1035,6 +1054,9 @@ enum target_cpu_default
    || (MODE) == V4DImode || (MODE) == V2TImode || (MODE) == V8SFmode	\
    || (MODE) == V4DFmode)
 
+#define VALID_AVX256_REG_OR_OI_MODE(MODE)					\
+  (VALID_AVX256_REG_MODE (MODE) || (MODE) == OImode)
+
 #define VALID_SSE2_REG_MODE(MODE)					\
   ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode	\
    || (MODE) == V2DImode || (MODE) == DFmode)
@@ -1170,7 +1192,8 @@ enum target_cpu_default
 #define REAL_PIC_OFFSET_TABLE_REGNUM  BX_REG
 
 #define PIC_OFFSET_TABLE_REGNUM				\
-  ((TARGET_64BIT && ix86_cmodel == CM_SMALL_PIC)	\
+  ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC	\
+                     || TARGET_PECOFF))		\
    || !flag_pic ? INVALID_REGNUM			\
    : reload_completed ? REGNO (pic_offset_table_rtx)	\
    : REAL_PIC_OFFSET_TABLE_REGNUM)
@@ -1611,7 +1634,8 @@ typedef struct ix86_args {
    They give nonzero only if REGNO is a hard reg of the suitable class
    or a pseudo reg currently allocated to a suitable hard reg.
    Since they use reg_renumber, they are safe only once reg_renumber
-   has been allocated, which happens in local-alloc.c.  */
+   has been allocated, which happens in reginfo.c during register
+   allocation.  */
 
 #define REGNO_OK_FOR_INDEX_P(REGNO) 					\
   ((REGNO) < STACK_POINTER_REGNUM 					\
@@ -1949,6 +1973,8 @@ extern int const dbx_register_map[FIRST_PSEUDO_REGISTER];
 extern int const dbx64_register_map[FIRST_PSEUDO_REGISTER];
 extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 
+extern int const x86_64_ms_sysv_extra_clobbered_registers[12];
+
 /* Before the prologue, RA is at 0(%esp).  */
 #define INCOMING_RETURN_ADDR_RTX \
   gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
@@ -2074,6 +2100,10 @@ do {									\
    asm (SECTION_OP "\n\t"					\
 	"call " CRT_MKSTR(__USER_LABEL_PREFIX__) #FUNC "\n"	\
 	TEXT_SECTION_ASM_OP);
+
+/* Default threshold for putting data in large sections
+   with x86-64 medium memory model */
+#define DEFAULT_LARGE_SECTION_THRESHOLD 65536
 
 /* Which processor to tune code generation for.  */
 
@@ -2089,15 +2119,15 @@ enum processor_type
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
   PROCESSOR_NOCONA,
-  PROCESSOR_CORE2_32,
-  PROCESSOR_CORE2_64,
-  PROCESSOR_COREI7_32,
-  PROCESSOR_COREI7_64,
+  PROCESSOR_CORE2,
+  PROCESSOR_COREI7,
+  PROCESSOR_HASWELL,
   PROCESSOR_GENERIC32,
   PROCESSOR_GENERIC64,
   PROCESSOR_AMDFAM10,
   PROCESSOR_BDVER1,
   PROCESSOR_BDVER2,
+  PROCESSOR_BDVER3,
   PROCESSOR_BTVER1,
   PROCESSOR_BTVER2,
   PROCESSOR_ATOM,
@@ -2141,7 +2171,8 @@ enum ix86_fpcmp_strategy {
 
 enum ix86_entity
 {
-  I387_TRUNC = 0,
+  AVX_U128 = 0,
+  I387_TRUNC,
   I387_FLOOR,
   I387_CEIL,
   I387_MASK_PM,
@@ -2150,14 +2181,20 @@ enum ix86_entity
 
 enum ix86_stack_slot
 {
-  SLOT_VIRTUAL = 0,
-  SLOT_TEMP,
+  SLOT_TEMP = 0,
   SLOT_CW_STORED,
   SLOT_CW_TRUNC,
   SLOT_CW_FLOOR,
   SLOT_CW_CEIL,
   SLOT_CW_MASK_PM,
   MAX_386_STACK_LOCALS
+};
+
+enum avx_u128_state
+{
+  AVX_U128_CLEAN,
+  AVX_U128_DIRTY,
+  AVX_U128_ANY
 };
 
 /* Define this macro if the port needs extra instructions inserted
@@ -2175,15 +2212,33 @@ enum ix86_stack_slot
    refer to the mode-switched entity in question.  */
 
 #define NUM_MODES_FOR_MODE_SWITCHING \
-   { I387_CW_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY }
+  { AVX_U128_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY, I387_CW_ANY }
 
 /* ENTITY is an integer specifying a mode-switched entity.  If
    `OPTIMIZE_MODE_SWITCHING' is defined, you must define this macro to
    return an integer value not larger than the corresponding element
    in `NUM_MODES_FOR_MODE_SWITCHING', to denote the mode that ENTITY
-   must be switched into prior to the execution of INSN. */
+   must be switched into prior to the execution of INSN.  */
 
 #define MODE_NEEDED(ENTITY, I) ix86_mode_needed ((ENTITY), (I))
+
+/* If this macro is defined, it is evaluated for every INSN during
+   mode switching.  It determines the mode that an insn results in (if
+   different from the incoming mode).  */
+
+#define MODE_AFTER(ENTITY, MODE, I) ix86_mode_after ((ENTITY), (MODE), (I))
+
+/* If this macro is defined, it is evaluated for every ENTITY that
+   needs mode switching.  It should evaluate to an integer, which is
+   a mode that ENTITY is assumed to be switched to at function entry.  */
+
+#define MODE_ENTRY(ENTITY) ix86_mode_entry (ENTITY)
+
+/* If this macro is defined, it is evaluated for every ENTITY that
+   needs mode switching.  It should evaluate to an integer, which is
+   a mode that ENTITY is assumed to be switched to at function exit.  */
+
+#define MODE_EXIT(ENTITY) ix86_mode_exit (ENTITY)
 
 /* This macro specifies the order in which modes for ENTITY are
    processed.  0 is the highest priority.  */
@@ -2194,11 +2249,8 @@ enum ix86_stack_slot
    is the set of hard registers live at the point where the insn(s)
    are to be inserted.  */
 
-#define EMIT_MODE_SET(ENTITY, MODE, HARD_REGS_LIVE) 			\
-  ((MODE) != I387_CW_ANY && (MODE) != I387_CW_UNINITIALIZED		\
-   ? emit_i387_cw_initialization (MODE), 0				\
-   : 0)
-
+#define EMIT_MODE_SET(ENTITY, MODE, HARD_REGS_LIVE) \
+  ix86_emit_mode_set ((ENTITY), (MODE), (HARD_REGS_LIVE))
 
 /* Avoid renaming of stack registers, as doing so in combination with
    scheduling just increases amount of live registers at time and in
@@ -2299,21 +2351,6 @@ struct GTY(()) machine_function {
      stack below the return address.  */
   BOOL_BITFIELD static_chain_on_stack : 1;
 
-  /* Nonzero if caller passes 256bit AVX modes.  */
-  BOOL_BITFIELD caller_pass_avx256_p : 1;
-
-  /* Nonzero if caller returns 256bit AVX modes.  */
-  BOOL_BITFIELD caller_return_avx256_p : 1;
-
-  /* Nonzero if the current callee passes 256bit AVX modes.  */
-  BOOL_BITFIELD callee_pass_avx256_p : 1;
-
-  /* Nonzero if the current callee returns 256bit AVX modes.  */
-  BOOL_BITFIELD callee_return_avx256_p : 1;
-
-  /* Nonzero if rescan vzerouppers in the current function is needed.  */
-  BOOL_BITFIELD rescan_vzeroupper_p : 1;
-
   /* During prologue/epilogue generation, the current frame state.
      Otherwise, the frame state at the end of the prologue.  */
   struct machine_frame_state fs;
@@ -2357,6 +2394,10 @@ struct GTY(()) machine_function {
 #define SYMBOL_FLAG_DLLEXPORT		(SYMBOL_FLAG_MACH_DEP << 2)
 #define SYMBOL_REF_DLLEXPORT_P(X) \
 	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_DLLEXPORT) != 0)
+
+#define SYMBOL_FLAG_STUBVAR	(SYMBOL_FLAG_MACH_DEP << 4)
+#define SYMBOL_REF_STUBVAR_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_STUBVAR) != 0)
 
 extern void debug_ready_dispatch (void);
 extern void debug_dispatch_window (int);

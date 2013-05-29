@@ -1,7 +1,5 @@
 /* Handle errors.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Niels Kristian Bech Jensen
 
 This file is part of GCC.
@@ -387,7 +385,7 @@ show_locus (locus *loc, int c1, int c2)
   cmax -= offset;
 
   p = &(lb->line[offset]);
-  for (i = 0; i <= cmax; i++)
+  for (i = 0; i < cmax; i++)
     {
       int spaces, j;
       spaces = gfc_widechar_display_length (*p++);
@@ -400,6 +398,11 @@ show_locus (locus *loc, int c1, int c2)
       for (j = 0; j < spaces; j++)
 	error_char (' ');
     }
+
+  if (i == c1)
+    error_char ('1');
+  else if (i == c2)
+    error_char ('2');
 
   error_char ('\n');
 
@@ -803,10 +806,10 @@ gfc_notification_std (int std)
 
 /* Possibly issue a warning/error about use of a nonstandard (or deleted)
    feature.  An error/warning will be issued if the currently selected
-   standard does not contain the requested bits.  Return FAILURE if
+   standard does not contain the requested bits.  Return false if
    an error is generated.  */
 
-gfc_try
+bool
 gfc_notify_std (int std, const char *gmsgid, ...)
 {
   va_list argp;
@@ -816,10 +819,10 @@ gfc_notify_std (int std, const char *gmsgid, ...)
 
   warning = ((gfc_option.warn_std & std) != 0) && !inhibit_warnings;
   if ((gfc_option.allow_std & std) != 0 && !warning)
-    return SUCCESS;
+    return true;
 
   if (suppress_errors)
-    return warning ? SUCCESS : FAILURE;
+    return warning ? true : false;
 
   cur_error_buffer = warning ? &warning_buffer : &error_buffer;
   cur_error_buffer->flag = 1;
@@ -880,7 +883,7 @@ gfc_notify_std (int std, const char *gmsgid, ...)
       cur_error_buffer->flag = 0;
     }
 
-  return (warning && !warnings_are_errors) ? SUCCESS : FAILURE;
+  return (warning && !warnings_are_errors) ? true : false;
 }
 
 

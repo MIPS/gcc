@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -56,6 +56,7 @@ package Checks is
    function Index_Checks_Suppressed           (E : Entity_Id) return Boolean;
    function Length_Checks_Suppressed          (E : Entity_Id) return Boolean;
    function Overflow_Checks_Suppressed        (E : Entity_Id) return Boolean;
+   function Predicate_Checks_Suppressed       (E : Entity_Id) return Boolean;
    function Range_Checks_Suppressed           (E : Entity_Id) return Boolean;
    function Storage_Checks_Suppressed         (E : Entity_Id) return Boolean;
    function Tag_Checks_Suppressed             (E : Entity_Id) return Boolean;
@@ -72,12 +73,11 @@ package Checks is
    --  determine whether check C is suppressed either on the entity E or
    --  as the result of a scope suppress pragma. If Checks_May_Be_Suppressed
    --  is False, then the status of the check can be determined simply by
-   --  examining Scope_Checks (C), so this routine is not called in that case.
+   --  examining Scope_Suppress, so this routine is not called in that case.
 
-   function Overflow_Check_Mode (E : Entity_Id) return Overflow_Check_Type;
+   function Overflow_Check_Mode return Overflow_Mode_Type;
    --  Returns current overflow checking mode, taking into account whether
-   --  we are inside an assertion expression. Always returns Suppressed if
-   --  overflow checks are suppressed for entity E.
+   --  we are inside an assertion expression.
 
    -------------------------------------------
    -- Procedures to Activate Checking Flags --
@@ -94,6 +94,8 @@ package Checks is
    --  Sets Do_Overflow_Check flag in node N, and handles possible local raise.
    --  Always call this routine rather than calling Set_Do_Overflow_Check to
    --  set an explicit value of True, to ensure handling the local raise case.
+   --  Note that this call has no effect for MOD, REM, and unary "+" for which
+   --  overflow is never possible in any case.
 
    procedure Activate_Range_Check (N : Node_Id);
    pragma Inline (Activate_Range_Check);
@@ -130,8 +132,11 @@ package Checks is
    --  are enabled, then this procedure generates a check that the specified
    --  address has an alignment consistent with the alignment of the object,
    --  raising PE if this is not the case. The resulting check (if one is
-   --  generated) is inserted before node N. check is also made for the case of
-   --  a clear overlay situation that the size of the overlaying object is not
+   --  generated) is prepended to the Actions list of N_Freeze_Entity node N.
+   --  Note that the check references E'Alignment, so it cannot be emitted
+   --  before N (its freeze node), otherwise this would cause an illegal
+   --  access before elaboration error in GIGI. For the case of a clear overlay
+   --  situation, we also check that the size of the overlaying object is not
    --  larger than the overlaid object.
 
    procedure Apply_Arithmetic_Overflow_Check (N : Node_Id);
@@ -142,7 +147,10 @@ package Checks is
    --  overflow checking for dependent expressions. This routine handles
    --  front end vs back end overflow checks (in the front end case it expands
    --  the necessary check). Note that divide is handled separately using
-   --  Apply_Divide_Checks.
+   --  Apply_Divide_Checks. Node N may or may not have Do_Overflow_Check.
+   --  In STRICT mode, there is nothing to do if this flag is off, but in
+   --  MINIMIZED/ELIMINATED mode we still have to deal with possible use
+   --  of doing operations in Long_Long_Integer or Bignum mode.
 
    procedure Apply_Constraint_Check
      (N          : Node_Id;
@@ -266,15 +274,16 @@ package Checks is
    --  Insert_Action of the whole block (it is returned unanalyzed). The Loc
    --  parameter is used to supply Sloc values for the constructed tree.
 
-   procedure Minimize_Eliminate_Overflow_Checks
+   procedure Minimize_Eliminate_Overflows
      (N         : Node_Id;
       Lo        : out Uint;
       Hi        : out Uint;
       Top_Level : Boolean);
    --  This is the main routine for handling MINIMIZED and ELIMINATED overflow
-   --  checks. On entry N is a node whose result is a signed integer subtype.
-   --  If the node is an arithmetic operation, then a range analysis is carried
-   --  out, and there are three possibilities:
+   --  processing. On entry N is a node whose result is a signed integer
+   --  subtype. The Do_Overflow_Check flag may or may not be set on N. If the
+   --  node is an arithmetic operation, then a range analysis is carried out,
+   --  and there are three possibilities:
    --
    --    The node is left unchanged (apart from expansion of an exponentiation
    --    operation). This happens if the routine can determine that the result
@@ -313,16 +322,16 @@ package Checks is
    --  The routine is called in three situations if we are operating in either
    --  MINIMIZED or ELIMINATED modes.
    --
-   --    Overflow checks applied to the top node of an expression tree when
+   --    Overflow processing applied to the top node of an expression tree when
    --    that node is an arithmetic operator. In this case the result is
    --    converted to the appropriate result type (there is special processing
    --    when the parent is a conversion, see body for details).
    --
-   --    Overflow checks are applied to the operands of a comparison operation.
+   --    Overflow processing applied to the operands of a comparison operation.
    --    In this case, the comparison is done on the result Long_Long_Integer
    --    or Bignum values, without raising any exceptions.
    --
-   --    Overflow checks are applied to the left operand of a membership test.
+   --    Overflow processing applied to the left operand of a membership test.
    --    In this case no exception is raised if a Long_Long_Integer or Bignum
    --    result is outside the range of the type of that left operand (it is
    --    just that the result of IN is false in that case).
@@ -332,13 +341,13 @@ package Checks is
    --
    --  Top_Level is used to avoid inefficient unnecessary transitions into the
    --  Bignum domain. If Top_Level is True, it means that the caller will have
-   --  to convert any Bignum value back to Long_Long_Integer, checking that the
-   --  value is in range. This is the normal case for a top level operator in
-   --  a subexpression. There is no point in going into Bignum mode to avoid an
-   --  overflow just so we can check for overflow the next moment. For calls
-   --  from comparisons and membership tests, and for all recursive calls, we
-   --  do want to transition into the Bignum domain if necessary. Note that
-   --  this setting is only relevant in ELIMINATED mode.
+   --  to convert any Bignum value back to Long_Long_Integer, possibly checking
+   --  that the value is in range. This is the normal case for a top level
+   --  operator in a subexpression. There is no point in going into Bignum mode
+   --  to avoid an overflow just so we can check for overflow the next moment.
+   --  For calls from comparisons and membership tests, and for all recursive
+   --  calls, we do want to transition into the Bignum domain if necessary.
+   --  Note that this setting is only relevant in ELIMINATED mode.
 
    -------------------------------------------------------
    -- Control and Optimization of Range/Overflow Checks --
@@ -370,9 +379,7 @@ package Checks is
    --  has no effect. If a check is needed then this routine sets the flag
    --  Do_Overflow_Check in node N to True, unless it can be determined that
    --  the check is not needed. The only condition under which this is the
-   --  case is if there was an identical check earlier on. These optimziations
-   --  apply to CHECKED mode, but not to MINIMIZED/ELIMINATED modes. See the
-   --  body for a full explanation.
+   --  case is if there was an identical check earlier on.
 
    procedure Enable_Range_Check (N : Node_Id);
    --  Set Do_Range_Check flag in node N True, unless it can be determined
