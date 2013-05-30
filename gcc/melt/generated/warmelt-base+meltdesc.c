@@ -20,7 +20,7 @@
 	     
 /* version of the GCC compiler & MELT runtime generating this */
 const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199411] MELT_0\
-.9.9-pre"
+.9.9-rc"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -29,23 +29,23 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_199411]";
+const char melt_versionmeltstr[]="0.9.9-rc [melt-branch_revision_199411]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-base */
 const char melt_modulename[]="warmelt-base";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
--modules/0.9.9-pre/warmelt-base";
+-modules/0.9.9-rc/warmelt-base";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="1d07c2531d781bd1f68a89d2c46a359c";
+const char melt_prepromd5meltrun[]="c921275e23f347bca68b1649fd8bd0f0";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="7ef208708e317a2629f89b97dae035b6";
+const char melt_primaryhexmd5[]="84d9f5772ed261030234ac0fb886332a";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-base+01.c #1 */ "d8969721a36bd76e061d9bfe0bb990f0",
+ /*sechexmd5checksum meltbuild-sources/warmelt-base+01.c #1 */ "bc2b1bfd6becff289fe059e09c7ec13c",
  /*sechexmd5checksum meltbuild-sources/warmelt-base+02.c #2 */ "12c04ed31edf72ff0f84458b500b78e9",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
@@ -54,10 +54,10 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="95186c3e6cdd8c1cf8202e1b33caca6e" ;
+const char melt_cumulated_hexmd5[]="7dc502061fad277d15a32d55e19c5893" ;
 
 /* include the timestamp file */
-#define meltmod_warmelt_base_mds__95186c3e6cdd8c1cf8202e1b33caca6e 1
+#define meltmod_warmelt_base_mds__7dc502061fad277d15a32d55e19c5893 1
 #include "warmelt-base+melttime.h"
 	 
 
