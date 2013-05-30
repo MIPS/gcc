@@ -1,6 +1,20 @@
 
 
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (class_nrep_putstaticvar): New class
+	with fields nputstatic_destvar & nputstatic_value.
+	(normexp_symbol, normexp_setq): Handle static occurrences of
+	variables.
+	(gectyp_statvarocc): New method for get_ctype on
+	class_nrep_staticvarocc.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_staticvarocc): New
+	method stub for compile_obj on class_nrep_staticvarocc.
+	(compilobj_nrep_putstaticvar): New method stub for compile_obj on
+	compilobj_nrep_putstaticvar.
+
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (find_bind): Return immediately binding when found.
 	(find_enclosing_env): Return secondarily the enclosing procedures
 	and the containing environment.

@@ -3866,6 +3866,29 @@ $SBUF.}#
     ))
 (install_method class_nrep_unsafe_put_fields compile_obj compilobj_nrep_unsafe_put_fields)
 
+;;;;
+(defun compilobj_nrep_staticvarocc (nsvar gcx)
+  (debug "compilobj_nrep_staticvarocc nsvar=" nsvar)
+  (assert_msg "check nsvar" (is_a nsvar class_nrep_staticvarocc))
+  (let  ( (nvbind (get_field :nstatvar_bind nsvar))
+	  (nsym (get_field :binder nvbind))
+	  (nvnum (get_field :nvarb_num nvbind))
+	 )
+  (assert_msg "@$@unimplemented compilobj_nrep_staticvarocc")
+))
+(install_method class_nrep_staticvarocc compile_obj compilobj_nrep_staticvarocc)
+
+;;;;
+(defun compilobj_nrep_putstaticvar (npvar gcx)
+  (debug "compilobj_nrep_putstaticvar npvar=" npvar)
+  (assert_msg "check npvar" (is_a npvar class_nrep_putstaticvar))
+  (let ( (loc (unsafe_get_field :nrep_loc npvar)) 
+	 (destvar (unsafe_get_field :nputstatic_destvar npvar))
+	 (nval (unsafe_get_field :nputstatic_value npvar))
+	)
+  (assert_msg "@$@unimplemented compilobj_nrep_putstaticvar")
+  ))
+(install_method class_nrep_putstaticvar compile_obj compilobj_nrep_putstaticvar)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun compilobj_nrep_checksignal (nchint gcx)

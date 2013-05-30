@@ -299,6 +299,11 @@ part, $NIFP_ELSE the else part, $NIFP_CTYP the ctype.}#
   :fields ()
 )
 
+(defclass class_nrep_putstaticvar
+  :super class_nrep_expression
+  :fields (nputstatic_destvar
+	  nputstatic_value))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (compile_warning ":doc missing below")
 ;; normalized unsafe get field
@@ -664,6 +669,12 @@ procedure in a module, defined with $DEFHOOK. }#
   :fields (nlitval_symbol
 	   ))
 
+;; normal static variable occurrence
+(defclass class_nrep_staticvarocc
+  :super class_nrep_simple
+  :fields (nstatvar_bind		;the normal variable binding, containing the index
+	   ))
+
 ;; normal  occurrence of a symbol 
 (defclass class_nrep_symocc
   :super class_nrep_simple
@@ -785,21 +796,22 @@ procedure in a module, defined with $DEFHOOK. }#
  class_normal_constructed_tuple_binding
  class_normal_constructor_binding
  class_normal_magic_binding
+ class_normal_variable_binding
  class_nrep
  class_nrep_again
  class_nrep_anyproc
  class_nrep_apply
+ class_nrep_bound_data
+ class_nrep_check_running_module_environment_container
+ class_nrep_checksignal
  class_nrep_chunk
  class_nrep_citeration
- class_nrep_checksignal
- class_nrep_check_running_module_environment_container
  class_nrep_closedocc
  class_nrep_comment 
  class_nrep_constant
  class_nrep_constocc
  class_nrep_consume_variadic
  class_nrep_cppif
- class_nrep_bound_data
  class_nrep_databoxedinteger
  class_nrep_dataclosure
  class_nrep_datahook
@@ -809,9 +821,9 @@ procedure in a module, defined with $DEFHOOK. }#
  class_nrep_datastring
  class_nrep_datasymbol
  class_nrep_datatuple
- class_nrep_discriminated_data
  class_nrep_defined_constant
  class_nrep_defunroutproc
+ class_nrep_discriminated_data
  class_nrep_exit
  class_nrep_expression
  class_nrep_fieldacc
@@ -831,10 +843,10 @@ procedure in a module, defined with $DEFHOOK. }#
  class_nrep_instance
  class_nrep_lambda
  class_nrep_lambdaroutproc
- class_nrep_literalvalue
- class_nrep_literalnamedvalue
  class_nrep_let
  class_nrep_letrec
+ class_nrep_literalnamedvalue
+ class_nrep_literalvalue
  class_nrep_locsymocc
  class_nrep_msend
  class_nrep_multacc
@@ -843,6 +855,7 @@ procedure in a module, defined with $DEFHOOK. }#
  class_nrep_nil
  class_nrep_predef
  class_nrep_progn
+ class_nrep_putstaticvar
  class_nrep_quasiconst_current_module_environment_container
  class_nrep_quasiconst_parent_module_environment
  class_nrep_quasiconstant
@@ -853,16 +866,16 @@ procedure in a module, defined with $DEFHOOK. }#
  class_nrep_routproc
  class_nrep_setq
  class_nrep_simple
+ class_nrep_staticvarocc
  class_nrep_store_predefined
  class_nrep_symocc
  class_nrep_typed_expression
  class_nrep_typed_expression_with_arguments
  class_nrep_unsafe_get_field
- class_nrep_unsafe_put_fields
  class_nrep_unsafe_nth_component
+ class_nrep_unsafe_put_fields
  class_nrep_update_current_module_environment_container
  class_nrep_variadic_argument
-
  )					;end of export normal classes
 
 
@@ -1763,7 +1776,7 @@ source location.}#
 	      (progn
 		;; cache the result
 		(mapobject_put sycmap recv bvar)
-		(debug "normexp_symbol local value bvar=" bvar " updated sycmap=" sycmap)
+		(debug "normexp_symbol local value bvar=" bvar "\n.. updated sycmap=" sycmap)
 		(return bvar ())
 		)
 	      )))
@@ -1771,8 +1784,15 @@ source location.}#
 	;; static variables
 	( (is_a bind class_normal_variable_binding)
 	  (debug "normexp_symbol variable binding bind=" bind)
-	  (assert_msg "@$@unimplemented normexp_symbol variable binding")
-	  )
+	  (let ( (nstvar (instance class_nrep_staticvarocc
+				   :nstatvar_bind bind))
+		 )
+	    ;; cache the result
+	    (mapobject_put sycmap recv nstvar)
+	    (debug "normexp_symbol static variable occurrence nstvar=" nstvar  
+		   "\n.. updated sycmap=" sycmap)
+	    (return nstvar ())
+	  ))
 	;;
 	;; the procs is a non-empty list, so the symbol is closed
 	( (and (is_list procs)
@@ -1898,6 +1918,14 @@ source location.}#
   (unsafe_get_field :nocc_ctyp recv)
   )
 (install_method class_nrep_symocc get_ctype gectyp_symocc)
+
+
+;;;
+(defun gectyp_statvarocc (recv env)
+  (assert_msg "check recv" (is_a recv class_nrep_staticvarocc))
+  (return ctype_value)
+  )
+(install_method class_nrep_staticvarocc get_ctype gectyp_statvarocc)
 
 
 ;;; normalize a class - used in particular in normalization of get_field
@@ -3908,15 +3936,38 @@ source location.}#
 	      )
 	 (debug "normexp_setq expctyp" expctyp)
 	 (assert_msg "check expctyp" (is_a expctyp class_ctype))
-	 (if (!= varctyp expctyp)
-	     (progn
+	 (when (!= varctyp expctyp)
 	       (error_strv sloc "incompatible type for SETQ"
 			   (unsafe_get_field :named_name svar))
 	       (inform_strv sloc "left [var] type for incomatible SETQ"
 			    (unsafe_get_field :named_name varctyp))
 	       (inform_strv sloc "right [expr] type for incomatible SETQ"
 			    (unsafe_get_field :named_name expctyp))
-	       )))
+	       ))
+       (when (is_a nvar class_nrep_staticvarocc)
+	 (debug "normexp_setq staticvarocc nexp=" nexp)
+	 (let ( (csym (clone_symbol 'putstatic_))
+		(csbind (instance class_normal_let_binding
+				 :binder csym
+				 :letbind_loc sloc
+				 :letbind_type ctype_void
+				 :letbind_expr
+				 (instance class_nrep_putstaticvar
+					   :nrep_loc sloc
+					   :nputstatic_destvar nvar
+					   :nputstatic_value nexp)))
+		(cslocc (instance class_nrep_locsymocc
+				 :nrep_loc sloc
+				 :nocc_ctyp ctype_void
+				 :nocc_symb csym
+				 :nocc_bind csbind)
+			)
+		)
+	   (debug "normexp_set static csbind=" csbind "\n cslocc=" cslocc)
+	   (list_append nbind csbind)
+	   (return cslocc nbind)
+	 ))
+       ;;
        (let ( (csym (clone_symbol 'setq_)) 
 	      (cbind  (instance class_normal_let_binding
 				:binder csym
