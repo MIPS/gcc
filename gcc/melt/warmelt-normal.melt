@@ -1622,9 +1622,9 @@ source location.}#
 	 )
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
   (multicall
-   (bind procs)
+   (bind procs gotenv)
    (find_enclosing_env env recv)
-   (debug "normexp_symbol after find_enclosing_env bind=" bind "\n.. procs=" procs)
+   (debug "normexp_symbol after find_enclosing_env bind=" bind "\n.. procs=" procs "\n.. gotenv=" gotenv)
    (assert_msg "normexp_symbol check recv" (is_a recv class_symbol))
    (let ( (modctx  (unsafe_get_field :nctx_modulcontext ncx))
 	  (valbindmap (unsafe_get_field :nctx_valbindmap ncx))
@@ -7079,23 +7079,30 @@ source location.}#
     (when (is_not_a curproc class_nrep_initproc)
       (error_plain sloc "(DEFVAR ...) can appear only at top-level")
       (return))
-    (when (find_env env sname)
-      (error_strv sloc "cannot define already bound variable with DEFVAR" 
-		  (get_field :named_name sname))
-      (return))
-    (debug "normexp_defvar class_normal_variable_binding=" class_normal_variable_binding)
-    (let (
-	  (bnumvar (constant_box numvar))
-	  (varbnd (instance class_normal_variable_binding
-			    :binder sname
-			    :nvarb_num bnumvar))
-	  )
-      (put_int bnbvar numvar)
-      (put_env env sloc varbnd)
-      (list_append varlist varbnd)
-      (debug "normexp_defvar updated varlist=" varlist)
-      (return)
-      )))
+    (multicall
+     (vbind procs gotenv)
+     (find_enclosing_env env sname)
+     (debug "normexp_defvar vbind=" vbind "\n procs=" procs "\n gotenv=" gotenv)
+     (when 
+	 (or (!= gotenv env) 
+	     (is_not_a vbind class_variable_binding))
+       (error_strv sloc "cannot redefine variable with DEFVAR" 
+		   (get_field :named_name sname))
+       (return))
+     (debug "normexp_defvar class_normal_variable_binding=" class_normal_variable_binding)
+     (let (
+	   (bnumvar (constant_box numvar))
+	   (varbnd (instance class_normal_variable_binding
+			     :binder sname
+			     :nvarb_num bnumvar))
+	   )
+       (debug "normexp_defvar varbnd=" varbnd)
+       (put_int bnbvar numvar)
+       (put_env env varbnd)
+       (list_append varlist varbnd)
+       (debug "normexp_defvar updated varlist=" varlist)
+       (return)
+       ))))
 (install_method class_source_defvar normal_exp normexp_defvar)
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;

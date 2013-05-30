@@ -2961,7 +2961,15 @@ $EXPORT_VALUES to be visible outside its module.}#)
       (error_strv loc "DEFVAR too long - expecting (DEFVAR <name> [:doc <doc>])"
 		  (get_field :named_name symb))
       (return))
-    ))
+    (let ( (sdefvar (instance class_source_defvar
+			      :loca_location loc 
+			      :sdef_name symb
+			      :sdef_doc docv
+			      ))
+	   )
+      (debug "mexpand_defvar sdefvar=" sdefvar)
+      (return sdefvar)
+    )))
 (install_initial_macro 'defvar mexpand_defvar)
 (export_macro defvar mexpand_defvar
 	      :doc #{The $DEFVAR macro defines a static variable,

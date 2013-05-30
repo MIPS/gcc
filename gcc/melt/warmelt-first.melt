@@ -4074,7 +4074,7 @@ $CLASS_DESCRIBED_ENVIRONMENT.}#
 
 ;; find a binding inside an environment
 (defun find_env (env binder)
-  :doc #{Find a binding inside environement $ENV for binder symbol $BINDER}#
+  :doc #{Find a binding inside environement $ENV for binder symbol $BINDER.}#
   (assert_msg "check arg env" (is_a env class_environment))
   (assert_msg "check arg binder" (is_object binder))
   (forever
@@ -4089,7 +4089,7 @@ $CLASS_DESCRIBED_ENVIRONMENT.}#
      (let ( (bnd 
 	     (mapobject_get bindmap binder)) )
        (if bnd 
-	   (exit findloop bnd))
+	   (return bnd))
        ))
    (setq env (unsafe_get_field :env_prev env))
    )
@@ -4117,7 +4117,7 @@ $CLASS_DESCRIBED_ENVIRONMENT.}#
    )
   )
 
-;; find a binding inside an environment and also returns the reversed list of enclosing procedures
+;; find a binding inside an environment and also returns the reversed list of enclosing procedures and the environment having that binding
 (defun find_enclosing_env (env binder)
   :doc #{Find the binding in environment $ENV for given $BINDER symbol 
 and secondarily return the reversed list of enclosing procedures.}#
@@ -4131,7 +4131,7 @@ and secondarily return the reversed list of enclosing procedures.}#
 		    )
 	       (assert_msg "check bindmap" (is_mapobject bindmap))
 	       (let ( (bnd (mapobject_get bindmap binder)) )
-		 (if bnd (return bnd proclist)))
+		 (if bnd (return bnd proclist env)))
 	       (if eproc (list_prepend proclist eproc))
 	       (setq env (unsafe_get_field :env_prev env))
 	       ))))

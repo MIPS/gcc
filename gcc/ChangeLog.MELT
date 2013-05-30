@@ -1,6 +1,18 @@
 
 
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (find_bind): Return immediately binding when found.
+	(find_enclosing_env): Return secondarily the enclosing procedures
+	and the containing environment.
+
+	* melt/warmelt-macro.melt (mexpand_defvar): Gives a
+	class_source_defvar instance.
+
+	* melt/warmelt-normal.melt (normexp_symbol): Adapt call to
+	find_enclosing_env.
+	(normexp_defvar): Extend the environment.
+
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt (class_module_context): Add fields
 	mocx_varcount & mocx_varlist.
