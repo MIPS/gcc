@@ -447,6 +447,12 @@ tuple of the normalized slots, and $NINSTB_CLABIND is the class binding.}#
   :super  class_normal_constructor_binding
   :fields (ninstb_slots ninstb_clabind))
 
+(defclass class_normal_variable_binding
+  :doc #{The internal $CLASS_NORMAL_VARIABLE_BINDING is the
+class of static variable bindings. }#
+  :super class_variable_binding
+  :fields (nvarb_num))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; procedures
 (defclass class_nrep_anyproc
@@ -1761,6 +1767,12 @@ source location.}#
 		(return bvar ())
 		)
 	      )))
+	;;
+	;; static variables
+	( (is_a bind class_normal_variable_binding)
+	  (debug "normexp_symbol variable binding bind=" bind)
+	  (assert_msg "@$@unimplemented normexp_symbol variable binding")
+	  )
 	;;
 	;; the procs is a non-empty list, so the symbol is closed
 	( (and (is_list procs)
@@ -3871,13 +3883,14 @@ source location.}#
        (return clocc nbindlist)
        ))))
 (install_method class_source_put_fields normal_exp normexp_put_fields)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; normalize a setq
 (defun normexp_setq (recv env ncx psloc)
+  (debug "normexp setq recv=" recv)
   (assert_msg "check setq recv" (is_a recv class_source_setq))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (debug "normexp setq recv" recv)
   (let ( (sloc   (unsafe_get_field :loca_location recv))
 	 (svar   (unsafe_get_field :sstq_var recv))
 	 (sexp   (unsafe_get_field :sstq_expr recv)) ) 
@@ -7047,18 +7060,42 @@ source location.}#
 (install_method class_source_definstance normal_exp normexp_definstance)
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;; normalize a DEFVAR for a static variable
 (defun normexp_defvar (recv env ncx psloc)
   (debug "normexp_defvar recv=" recv)
   (assert_msg "check defvar recv" (is_a recv class_source_defvar))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (let ( (sloc   (unsafe_get_field :loca_location recv))
-	 (sname  (unsafe_get_field :sdef_name recv))
+  (let ( (sloc (unsafe_get_field :loca_location recv))
+	 (sname (unsafe_get_field :sdef_name recv))
+	 (modctx (unsafe_get_field :nctx_modulcontext ncx))
+	 (curproc (unsafe_get_field :nctx_curproc ncx)) 
+	 (bnbvar (unsafe_get_field :mocx_varcount modctx))
+	 (varlist (unsafe_get_field :mocx_varlist modctx))
+	 (:long numvar (+i (get_int bnbvar) 1))
 	 )
-    (error_strv sloc "unimplemented normexp_defvar" sname)
-    (assert_msg "@$^unimplemented normexp_defvar")
-    (return)
-    ))
+    (debug "normexp_defvar modctx=" modctx)
+    (when (is_not_a curproc class_nrep_initproc)
+      (error_plain sloc "(DEFVAR ...) can appear only at top-level")
+      (return))
+    (when (find_env env sname)
+      (error_strv sloc "cannot define already bound variable with DEFVAR" 
+		  (get_field :named_name sname))
+      (return))
+    (debug "normexp_defvar class_normal_variable_binding=" class_normal_variable_binding)
+    (let (
+	  (bnumvar (constant_box numvar))
+	  (varbnd (instance class_normal_variable_binding
+			    :binder sname
+			    :nvarb_num bnumvar))
+	  )
+      (put_int bnbvar numvar)
+      (put_env env sloc varbnd)
+      (list_append varlist varbnd)
+      (debug "normexp_defvar updated varlist=" varlist)
+      (return)
+      )))
 (install_method class_source_defvar normal_exp normexp_defvar)
     
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -7094,10 +7131,9 @@ source location.}#
     (assert_msg "check binddef" (is_a binddef class_defined_value_binding))
     (debug "normexp_define curproc=" curproc " newenv=" newenv)
     ;; TODO:: maybe we could have internal defines for constants...
-    (if (is_not_a curproc class_nrep_initproc)
-	(progn
-	  (error_plain sloc "(DEFINE ...) can appear only at top-level")
-	  (return)))
+    (when (is_not_a curproc class_nrep_initproc)
+      (error_plain sloc "(DEFINE ...) can appear only at top-level")
+      (return))
     (put_env newenv locbind)
     (debug "normexp_define sbody=" sbody "\n newenv=" newenv)
     (multicall

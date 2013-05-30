@@ -2,6 +2,21 @@
 
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_module_context): Add fields
+	mocx_varcount & mocx_varlist.
+
+	* melt/warmelt-normal.melt (normexp_defvar): New method for
+	normal_exp on class_source_defvar.
+	(normexp_symbol): Unimplemented case for static variables.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr)
+	(translate_run_melt_expressions): Initialize mocx_varcount &
+	mocx_varlist fields.
+
+	* gcc/testsuite/melt/tdefvar-1.melt: New file.
+
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (meltgc_notify_sysdata_passexec_hook)
 	(meltgc_notify_finish_type_hook, meltgc_notify_finish_decl_hook):
 	Remove.

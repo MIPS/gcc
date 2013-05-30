@@ -899,6 +899,8 @@ subclasses are produced by macro expanders.}# )
 	   mocx_gendevlist		;list of generator devices
 	   mocx_packagepclist		;list of pkg-config package string names
 	   mocx_errorhandler		;closure to be called on errors
+	   mocx_varcount		;a boxed counter for defined variables
+	   mocx_varlist			;list of static variables bindings
 	   )
   :doc #{The internal $CLASS_MODULE_CONTEXT describes the whole module
 context of a translation. $MOCX_MODULENAME gives the module name,
@@ -913,7 +915,9 @@ the list of cheaders. $MOCX_CIMPLEMENTLIST is the list of
 cimplements. $MOCX_STARTCOMMENT is the initial comment.
 $MOCX_GENDEVLIST is the list of instances of
 $CLASS_SOURCE_GENERATOR_DEVICE. $MOCX_ERRORHANDLER is the closure, if
-any, to call on errors. For gurus!}# )
+any, to call on errors. $MOCX_VARCOUNT is the counter for
+variables. $MOCX_VARLIST contains the list of variable
+descriptions. For gurus!}# )
 
 (defclass class_running_extension_module_context
   :super class_module_context
