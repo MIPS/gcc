@@ -7047,6 +7047,20 @@ source location.}#
 (install_method class_source_definstance normal_exp normexp_definstance)
 
 
+(defun normexp_defvar (recv env ncx psloc)
+  (debug "normexp_defvar recv=" recv)
+  (assert_msg "check defvar recv" (is_a recv class_source_defvar))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check nctxt" (is_a ncx class_normalization_context))
+  (let ( (sloc   (unsafe_get_field :loca_location recv))
+	 (sname  (unsafe_get_field :sdef_name recv))
+	 )
+    (error_strv sloc "unimplemented normexp_defvar" sname)
+    (assert_msg "@$^unimplemented normexp_defvar")
+    (return)
+    ))
+(install_method class_source_defvar normal_exp normexp_defvar)
+    
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; normalize a DEFINE for a constant
 (defun normexp_define (recv env ncx psloc)

@@ -424,14 +424,10 @@ don't instanciate this class!}#
 	   sysdata_meltpragmas		;a list or tuple of pragma
 					;descriptor object of
 					;CLASS_GCC_PRAGMA
-	   sysdata_finishtype_hook	;a closure for PLUGIN_FINISH_TYPE
-	   sysdata_finishdecl_hook	;a closure for PLUGIN_FINISH_DECL
+	   sysdata_finishtype_hook	;obsolete
+	   sysdata_finishdecl_hook	;obsolete
 	   sysdata_all_passes_start_hook	;closure for PLUGIN_ALL_PASSES_START
 	   sysdata_all_passes_end_hook		;closure for PLUGIN_ALL_PASSES_END
-	   ;sysdata_all_ipa_passes_start_hook	;obsolete
-	   ;sysdata_all_ipa_passes_end_hook	;obsolete
-	   sysdata_early_gimple_passes_start_hook ;closure for PLUGIN_EARLY_GIMPLE_PASSES_START
-	   sysdata_early_gimple_passes_end_hook ;closure for PLUGIN_EARLY_GIMPLE_PASSES_END
 	   ;;
 	   ;; these are called by the runtime system thru
 	   ;; MELT_CHECK_SIGNAL macro and meltgc_handle_sigio &
@@ -578,6 +574,15 @@ definition, and the $PBIND_PRIMITIVE gives the primitive itself.}# )
   :doc #{The internal $CLASS_FUNCTION_BINDING is for function
 bindings. See the $DEFUN macro. The $FUBIND_DEFUN provides the
 definition.}# 
+)
+
+
+;; variable binding
+(defclass class_variable_binding
+  :super class_fixed_binding
+  :fields ()
+  :doc #{The internal $CLASS_VARIABLE_BINDING is for static variable
+bindings. See the $DEFVAR macro.}# 
 )
 
 
@@ -4313,6 +4318,7 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  class_symbol
  class_system_data
  class_value_binding 
+ class_variable_binding
  )					;end of export class
 
 

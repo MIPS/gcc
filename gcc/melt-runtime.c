@@ -12932,139 +12932,18 @@ meltgc_restore_dump_file (FILE* oldf)
 #undef dumpv
 }
 
-
-/*****************
- * Support for PLUGIN_FINISH_TYPE hook.
- *****************/
-
-static void
-meltgc_finishtype_callback (void *gcc_data,
-                            void *user_data ATTRIBUTE_UNUSED)
+void meltgc_notify_finish_type_hook (void)
 {
-  tree tr = (tree) gcc_data;
-  MELT_ENTERFRAME(2, NULL);
-#define ftyhookv      meltfram__.mcfr_varptr[0]
-#define boxtreev      meltfram__.mcfr_varptr[1]
-  ftyhookv =  melt_get_inisysdata (MELTFIELD_SYSDATA_FINISHTYPE_HOOK);
-  if (melt_magic_discr ((melt_ptr_t)ftyhookv) != MELTOBMAG_CLOSURE)
-    /* this really should ever happen */
-    melt_fatal_error ("MELT PLUGIN_FINISH_TYPE callback bad :sysdata_finishtype (bad magic #%d)",
-                      melt_magic_discr ((melt_ptr_t)ftyhookv));
-  if (tr)
-    boxtreev = meltgc_new_tree ((meltobject_ptr_t) MELT_PREDEF(DISCR_TREE), tr);
-  else
-    boxtreev = NULL;
-  MELT_LOCATION_HERE
-  ("meltgc_finishtype_callback before applying :sysdata_finishtype closure");
-  MELT_CHECK_SIGNAL ();
-  (void) melt_apply ((meltclosure_ptr_t) ftyhookv, (melt_ptr_t) boxtreev,
-                     "", NULL, "", NULL);
-  MELT_EXITFRAME();
-#undef ftyhookv
-#undef boxtreev
-}
-
-/* Function to be called by MELT code when the
-   :sysdata_finishtype_hook is changed.  Called by code_chunk-s inside
-   MELT file melt/warmelt-base.melt.  */
-void
-meltgc_notify_finish_type_hook (void)
-{
-  /* the PLUGIN_FINISH_TYPE hook is getting a tree data; see function
-     c_parser_declspecs of file c-parser.c */
-  MELT_ENTERFRAME (1, NULL);
-#define ftyhookv      meltfram__.mcfr_varptr[0]
-  MELT_LOCATION_HERE ("meltgc_notify_finish_type_hook");
-  MELT_CHECK_SIGNAL ();
-  ftyhookv =  melt_get_inisysdata (MELTFIELD_SYSDATA_FINISHTYPE_HOOK);
-  if (ftyhookv == NULL) {
-    unregister_callback (melt_plugin_name, PLUGIN_FINISH_TYPE);
-  } else if (melt_magic_discr ((melt_ptr_t) ftyhookv) == MELTOBMAG_CLOSURE) {
-    register_callback (melt_plugin_name, PLUGIN_FINISH_TYPE,
-                       meltgc_finishtype_callback,
-                       NULL);
-  } else {
-    /* This should never happen. The calling MELT code should test that
-    the :sysdata_finishtype_hook is either a closure or null. */
-    melt_fatal_error ("sysdata_finishtype_hook has invalid kind magic #%d",
-                      melt_magic_discr ((melt_ptr_t)ftyhookv));
-  }
-  MELT_EXITFRAME ();
-#undef passxhv
+#warning meltgc_notify_finish_type_hook is obsolete
+  warning(0, "obsolete call to meltgc_notify_finish_type_hook");
 }
 
 
-
-
-/******************
- * Support for PLUGIN_FINISH_DECL hook, which exists only in GCC 4.7 but not 4.6
- ******************/
-
-#if MELT_GCC_VERSION >= 4007 /* GCC 4.7 */
-static void
-meltgc_finishdecl_callback (void *gcc_data,
-                            void *user_data ATTRIBUTE_UNUSED)
-{
-  tree tr = (tree) gcc_data;
-  MELT_ENTERFRAME(2, NULL);
-#define fdclhookv      meltfram__.mcfr_varptr[0]
-#define boxtreev      meltfram__.mcfr_varptr[1]
-  MELT_LOCATION_HERE ("meltgc_finishdecl_callback");
-  MELT_CHECK_SIGNAL ();
-  fdclhookv =  melt_get_inisysdata (MELTFIELD_SYSDATA_FINISHDECL_HOOK);
-  if (melt_magic_discr ((melt_ptr_t)fdclhookv) != MELTOBMAG_CLOSURE)
-    /* this really should ever happen */
-    melt_fatal_error ("MELT PLUGIN_FINISH_TYPE callback bad :sysdata_finishdecl (bad magic #%d)",
-                      melt_magic_discr ((melt_ptr_t)fdclhookv));
-  if (tr)
-    boxtreev = meltgc_new_tree ((meltobject_ptr_t) MELT_PREDEF(DISCR_TREE), tr);
-  else
-    boxtreev = NULL;
-  MELT_LOCATION_HERE
-  ("meltgc_finishdecl_callback before applying :sysdata_finishdecl closure");
-  (void) melt_apply ((meltclosure_ptr_t) fdclhookv, (melt_ptr_t) boxtreev,
-                     "", NULL, "", NULL);
-  MELT_EXITFRAME();
-#undef fdclhookv
-#undef boxtreev
-}
-#endif /* MELT_GCC_VERSION >= 4007 */
-
-/* Function to be called by MELT code when the
-   :sysdata_finishdecl_hook is changed.  Called by code_chunk-s inside
-   MELT file melt/warmelt-base.melt.  */
 void
 meltgc_notify_finish_decl_hook (void)
 {
-  /* the PLUGIN_FINISH_DECL hook is getting a tree data; see function
-     finish_decl of file c-decl.c */
-  MELT_ENTERFRAME (1, NULL);
-#define ftyhookv      meltfram__.mcfr_varptr[0]
-  MELT_LOCATION_HERE ("meltgc_notify_finish_decl_hook");
-  MELT_CHECK_SIGNAL ();
-#if MELT_GCC_VERSION >= 4007 /* GCC 4.7 */
-  ftyhookv =  melt_get_inisysdata (MELTFIELD_SYSDATA_FINISHDECL_HOOK);
-  if (ftyhookv == NULL) {
-    unregister_callback (melt_plugin_name, PLUGIN_FINISH_DECL);
-  } else if (melt_magic_discr ((melt_ptr_t) ftyhookv) == MELTOBMAG_CLOSURE) {
-    register_callback (melt_plugin_name, PLUGIN_FINISH_DECL,
-                       meltgc_finishdecl_callback,
-                       NULL);
-  } else {
-    /* This should never happen. The calling MELT code should test that
-    the :sysdata_passexec_hook is either a closure or null. */
-    melt_fatal_error ("sysdata_finishdecl_hook has invalid kind magic #%d",
-                      melt_magic_discr ((melt_ptr_t)ftyhookv));
-  }
-#else /* GCC 4.6 */
-  {
-    static int count;
-    if (count++ == 0)
-      error("GCC 4.6 don't have PLUGIN_FINISH_DECL for MELT %s", melt_version_str ());
-  }
-#endif /* if  GCC 4.7 */
-  MELT_EXITFRAME ();
-#undef passxhv
+#warning meltgc_notify_finish_decl_hook is obsolete
+  warning(0, "obsolete call to meltgc_notify_finish_decl_hook");
 }
 
 

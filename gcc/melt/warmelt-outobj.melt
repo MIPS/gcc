@@ -2019,6 +2019,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl declbuf 0)
     (add2out declbuf ##{
 MELT_EXTERN  void* melt_start_this_module (void*);
+struct melt_initial_frame_st;
  }#)
     (add2sbuf_indentnl declbuf 0)
     (add2sbuf_indentnl implbuf 0)

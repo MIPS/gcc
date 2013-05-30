@@ -2,6 +2,41 @@
 
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Start implementing defvar}}
+
+	* melt-runtime.c (meltgc_finishtype_callback)
+	(meltgc_finishdecl_callback): Remove.
+	(meltgc_notify_finish_type_hook): Obsolete.
+	(meltgc_notify_finish_decl_hook): Obsolete.
+
+	* melt/warmelt-first.melt (class_variable_binding): New class,
+	without any own fields.
+
+	* melt/warmelt-base.melt (register_finish_decl_hook_first)
+	(register_finish_decl_hook_last, register_finish_type_hook_first)
+	(register_finish_type_hook_last): Remove.
+
+	* melt/warmelt-macro.melt (class_source_defvar): New class,
+	without any own fields.
+	(mexpand_defvar): New macro expander, for...
+	(defvar): New macro.
+
+	* melt/warmelt-normal.melt (normexp_defvar): Empty stub method for
+	normal_exp on class_source_defvar.
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit
+	incomplete declaration of struct melt_initial_frame_st.
+
+	* melt/warmelt-hooks.melt: Support for FINISH_DECL plugin event,
+	only for GCC 4.7 and later.
+	(finishdecl queue, melthk_finish_decl_registered_flag)
+	(melt_finish_decl_hook_callback, enable_finish_decl)
+	(hook_finish_decl, register_finish_decl_first)
+	(register_finish_decl_last).
+
+
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

@@ -1347,7 +1347,7 @@ bool  melthk_finish_type_registered_flag;
  melt_finish_type_hook_callback (void* gcc_data,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
-#warning should call melthookproc_HOOK_FINISH_TYPE ((tree)gcc_data);
+   melthookproc_HOOK_FINISH_TYPE ((tree)gcc_data);
  }
  }#)
 
@@ -1357,10 +1357,8 @@ bool  melthk_finish_type_registered_flag;
    #{ /* enable_finish_type $enablepregen_chk */
    if (!melthk_finish_type_registered_flag) {
      melthk_finish_type_registered_flag = true;
-/*
-  register_callback (melt_plugin_name, PLUGIN_FINISH_TYPE,
-                     melt_finish_type_hook_callback, NULL);
-*/
+     register_callback (melt_plugin_name, PLUGIN_FINISH_TYPE,
+			melt_finish_type_hook_callback, NULL);
    }
    }#)
 )
@@ -1439,6 +1437,139 @@ bool  melthk_finish_type_registered_flag;
 	  (enable_finish_type))
       (errormsg_plain
         "Bad hook passed to register_finish_type_last")
+    ))
+)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;=====================================================================
+;;;******************* FINISH_DECL plugin event *********************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; private finishdecl queue
+(definstance finishdecl_delayed_queue class_delayed_queue
+  :named_name '"finishdecl_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+
+(cheader #{/* flag for PLUGIN_FINISH_DECL declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_decl_registered_flag;
+}#)
+
+(cimplement #{/* flag for PLUGIN_FINISH_DECL define */
+bool  melthk_finish_decl_registered_flag;
+}#)
+
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_finish_decl_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_finish_decl_hook_callback (void* gcc_data,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+#warning should call melthookproc_HOOK_FINISH_DECL ((tree)gcc_data);
+ }
+ }#)
+
+(defun enable_finish_decl ()
+  (code_chunk 
+   enablepregen_chk
+   #{ /* enable_finish_decl $enablepregen_chk */
+   if (!melthk_finish_decl_registered_flag) {
+     melthk_finish_decl_registered_flag = true;
+#if MELT_GCC_VERSION < 4007
+   melt_fatal_error ("PLUGIN_FINISH_DECL unsupported for GCC 4.6 or earlier");
+#endif
+/*
+  register_callback (melt_plugin_name, PLUGIN_FINISH_DECL,
+                     melt_finish_decl_hook_callback, NULL);
+*/
+   }
+   }#)
+)
+
+(defhook hook_finish_decl (:tree tfndecl) () :void
+  :predef HOOK_FINISH_DECL
+  (let ( (firstlist (get_field :delqu_first finishdecl_delayed_queue))
+	 (lastlist (get_field :delqu_last finishdecl_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res ())
+	 )
+    (let ( (cfndeclv (constant_box tfndecl))
+	   )
+;;; call the first routines in natural order
+      (foreach_in_list
+       (firstlist)
+       (firstpair firstproc)
+       (setq res (firstproc cfndeclv res))
+       )
+;;; reverse the last list
+      (foreach_in_list
+       (lastlist)
+       (lastpair lastproc)
+       (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+      (foreach_in_list
+       (revlastlist)
+       (revlastpair revlastproc)
+       (setq res (revlastproc cfndeclv res))
+       )
+      )
+    )
+  )					;end hook_finish_decl 
+
+
+(defun register_finish_decl_first (fun)
+  :doc #{Use $REGISTER_FINISH_DECL_FIRST to register a function $FUN to
+  be run at PLUGIN_FINISH_DECL hook, in first place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (firstlist (get_field :delqu_first finishdecl_delayed_queue))
+	     )
+    (if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        finishdecl_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+      (progn 
+	(list_append firstlist fun)
+	(enable_finish_decl))
+      (errormsg_plain
+        "Bad hook passed to register_finish_decl_first")
+    ))
+)
+
+(defun register_finish_decl_last (fun)
+  :doc #{Use $REGISTER_FINISH_DECL_LAST to register a function $FUN to
+  be run at PLUGIN_FINISH_DECL hook, in last place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (lastlist (get_field :delqu_first finishdecl_delayed_queue))
+	     )
+    (if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+	        finishdecl_delayed_queue
+	        :delqu_first lastlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+	(progn
+	  (list_append lastlist fun)
+	  (enable_finish_decl))
+      (errormsg_plain
+        "Bad hook passed to register_finish_decl_last")
     ))
 )
 
@@ -1949,6 +2080,8 @@ bool  melthk_pass_execution_registered_flag;
   register_early_gimple_passes_end_last
   register_early_gimple_passes_start_first
   register_early_gimple_passes_start_last
+  register_finish_decl_first
+  register_finish_decl_last
   register_finish_type_first
   register_finish_type_last
   register_override_gate_first

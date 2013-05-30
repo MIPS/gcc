@@ -324,6 +324,12 @@ documentation $SEXPSYN_DOC.}#
 	   sdef_doc			;documentation string or list
 	   ))
 
+;;;; define a static variable
+(defclass class_source_defvar
+  :super class_source_definition
+  :doc #{The $CLASS_SOURCE_DEFVAR defines a static variable, initialized to the nil value.}#
+)
+
 ;;;; define a value
 (defclass class_source_define
   :super class_source_definition
@@ -2885,13 +2891,12 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
       (foreach_in_multiple (btup) (fb :long bix) (put_env newenv fb))
       (setq curpair (pair_tail curpair))
       ;; handle the optional :doc documentationvalue
-      (if (== (pair_head curpair) ':doc)
-	  (progn
+      (when (== (pair_head curpair) ':doc)
 	    (setq curpair (pair_tail curpair)) ;; consume :doc
 	    ;; the documentation is NOT macro-expanded
 	    (setq docv (pair_head curpair))    ;; get the docv
 	    (setq curpair (pair_tail curpair))  ;; consume it
-	    ))
+	    )
       ;; handle the body
       (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx)) 
 	     (sdefun
@@ -2918,6 +2923,50 @@ in sequence. The value of the last is returned. See also $RETURN and
 $LAMBDA macros. A function defined by $DEFUN has to be exported with 
 $EXPORT_VALUES to be visible outside its module.}#)
 
+
+;;;;;;;;;;;;;;;;;; the defvar expander
+;;;(DEFVAR varname [:doc documentation])
+(defun mexpand_defvar (sexpr env mexpander modctx)
+  (debug "mexpand_defvar sexpr" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check modctx" (is_object modctx))
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont)))
+	 (symb (pair_head curpair))
+	 (symbname (get_field :named_name symb))
+	 (newenv (fresh_env env))
+	 (docv ())
+	 (vbind 
+	  (instance class_variable_binding
+		    :binder symb
+		    ))
+	 )
+    (when (is_not_a symb class_symbol)
+	(error_plain loc "missing symbol for DEFVAR"_)
+	(return))
+    (warn_if_redefined symb env loc)
+    (put_env env vbind)
+    (setq curpair (pair_tail curpair))
+      ;; handle the optional :doc documentationvalue
+    (when (== (pair_head curpair) ':doc)
+	    (setq curpair (pair_tail curpair)) ;; consume :doc
+	    ;; the documentation is NOT macro-expanded
+	    (setq docv (pair_head curpair))    ;; get the docv
+	    (setq curpair (pair_tail curpair))  ;; consume it
+	    )
+    ;; check that no body is given
+    (when curpair
+      (error_strv loc "DEFVAR too long - expecting (DEFVAR <name> [:doc <doc>])"
+		  (get_field :named_name symb))
+      (return))
+    ))
+(install_initial_macro 'defvar mexpand_defvar)
+(export_macro defvar mexpand_defvar
+	      :doc #{The $DEFVAR macro defines a static variable,
+initialized to the nil value. Syntax 
+is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -7491,6 +7540,7 @@ $CURRENT_MODULE_ENVIRONMENT_CONTAINER. Will be renamed as
  class_source_defselector
  class_source_defun
  class_source_defunmatcher
+ class_source_defvar
  class_source_exit
  class_source_export_class
  class_source_export_macro
