@@ -2,6 +2,16 @@
 
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_FINISH_TYPE): New.
+
+	* melt/warmelt-hooks.melt: Support FINISH_TYPE plugin event.
+	(finishtype_delayed_queue, melthk_finish_type_registered_flag)
+	(melt_finish_type_hook_callback, enable_finish_type)
+	(hook_finish_type, register_finish_type_first)
+	(register_finish_type_last): New.
+
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (meltgc_register_pass): Remove declaration. See
 	install_melt_pass_in_gcc in melt/xtramelt-ana-base.melt.
 
@@ -10,7 +20,7 @@
 	(meltgc_simple_ipa_execute, meltgc_register_pass): Remove
 	functions.
 
-	* melt/xtramelt-ana-simple.melt: Pass a quoted string as tje
+	* melt/xtramelt-ana-simple.melt: Pass a quoted string as the
 	reference pass name for install_melt_pass_in_gcc.
 	* melt/xtramelt-c-generator.melt: Ditto.
 	* melt/xtramelt-opengpu.melt: Ditto.

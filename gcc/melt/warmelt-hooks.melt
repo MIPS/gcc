@@ -1315,6 +1315,138 @@ bool  melthk_pre_genericize_registered_flag;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+
+;;;=====================================================================
+;;;******************* FINISH_TYPE plugin event *********************
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; private finishtype queue
+(definstance finishtype_delayed_queue class_delayed_queue
+  :named_name '"finishtype_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+
+(cheader #{/* flag for PLUGIN_FINISH_TYPE declare */
+MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_finish_type_registered_flag;
+}#)
+
+(cimplement #{/* flag for PLUGIN_FINISH_TYPE define */
+bool  melthk_finish_type_registered_flag;
+}#)
+
+(cheader #{ 
+ void MELT_MODULE_VISIBILITY 
+    melt_finish_type_hook_callback (void* gcc_data ATTRIBUTE_UNUSED,
+				 void* user_data ATTRIBUTE_UNUSED);
+ }#)
+
+(cimplement #{
+ void 
+ melt_finish_type_hook_callback (void* gcc_data,
+			      void* user_data ATTRIBUTE_UNUSED)
+ {
+#warning should call melthookproc_HOOK_FINISH_TYPE ((tree)gcc_data);
+ }
+ }#)
+
+(defun enable_finish_type ()
+  (code_chunk 
+   enablepregen_chk
+   #{ /* enable_finish_type $enablepregen_chk */
+   if (!melthk_finish_type_registered_flag) {
+     melthk_finish_type_registered_flag = true;
+/*
+  register_callback (melt_plugin_name, PLUGIN_FINISH_TYPE,
+                     melt_finish_type_hook_callback, NULL);
+*/
+   }
+   }#)
+)
+
+(defhook hook_finish_type (:tree tfndecl) () :void
+  :predef HOOK_FINISH_TYPE
+  (let ( (firstlist (get_field :delqu_first finishtype_delayed_queue))
+	 (lastlist (get_field :delqu_last finishtype_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res ())
+	 )
+    (let ( (cfndeclv (constant_box tfndecl))
+	   )
+;;; call the first routines in natural order
+      (foreach_in_list
+       (firstlist)
+       (firstpair firstproc)
+       (setq res (firstproc cfndeclv res))
+       )
+;;; reverse the last list
+      (foreach_in_list
+       (lastlist)
+       (lastpair lastproc)
+       (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+      (foreach_in_list
+       (revlastlist)
+       (revlastpair revlastproc)
+       (setq res (revlastproc cfndeclv res))
+       )
+      )
+    )
+  )					;end hook_finish_type 
+
+
+(defun register_finish_type_first (fun)
+  :doc #{Use $REGISTER_FINISH_TYPE_FIRST to register a function $FUN to
+  be run at PLUGIN_FINISH_TYPE hook, in first place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (firstlist (get_field :delqu_first finishtype_delayed_queue))
+	     )
+    (if (null firstlist)
+	    (progn
+	      (setq firstlist (make_list discr_list))
+	      (put_fields
+	        finishtype_delayed_queue
+	        :delqu_first firstlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+      (progn 
+	(list_append firstlist fun)
+	(enable_finish_type))
+      (errormsg_plain
+        "Bad hook passed to register_finish_type_first")
+    ))
+)
+
+(defun register_finish_type_last (fun)
+  :doc #{Use $REGISTER_FINISH_TYPE_LAST to register a function $FUN to
+  be run at PLUGIN_FINISH_TYPE hook, in last place.  $FUN must be a closure
+  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  (let ( (lastlist (get_field :delqu_first finishtype_delayed_queue))
+	     )
+    (if (null lastlist)
+	    (progn
+	      (setq lastlist (make_list discr_list))
+	      (put_fields
+	        finishtype_delayed_queue
+	        :delqu_first lastlist
+	        :delqu_last (make_list discr_list))
+	      ))
+    (if (is_closure fun)
+	(progn
+	  (list_append lastlist fun)
+	  (enable_finish_type))
+      (errormsg_plain
+        "Bad hook passed to register_finish_type_last")
+    ))
+)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
 ;;;=====================================================================
 ;;;******************* PASS_EXECUTION plugin event *********************
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1817,6 +1949,8 @@ bool  melthk_pass_execution_registered_flag;
   register_early_gimple_passes_end_last
   register_early_gimple_passes_start_first
   register_early_gimple_passes_start_last
+  register_finish_type_first
+  register_finish_type_last
   register_override_gate_first
   register_override_gate_last
   register_pass_execution_first
