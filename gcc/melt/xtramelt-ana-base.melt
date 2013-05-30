@@ -49,24 +49,57 @@
 (defprimitive install_melt_gcc_pass  
    (:value pass :cstring positioning refpassname :long refpassnum) 
    :void
-   :doc #{Install a GCC pass coded in MELT. The $PASS should be an
-  object, instance of a sub-class of $CLASS_GCC_PASS, e.g. of
-  $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING is "before"
-   or "after". The reference pass is given thru $REFPASSNAME and
-   $REFPASSNUM. Usually $INSTALL_MELT_GCC_PASS is called from a mode
-   initializer.}#
-  #{ meltgc_register_pass ((melt_ptr_t) $pass, $positioning, $refpassname, $refpassnum); 
-  }#)
+   :doc #{Obsolete primitive to install a GCC pass coded in MELT. The
+  $PASS should be an object, instance of a sub-class of
+  $CLASS_GCC_PASS, e.g. of $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING
+  is "before" or "after" or "replace". The reference pass is given
+  thru $REFPASSNAME and $REFPASSNUM. Usually $INSTALL_MELT_GCC_PASS is
+  called from a mode initializer.}# 
+#{ /* install_melt_gcc_pass */
+  meltgc_register_pass ((melt_ptr_t) $PASS, $POSITIONING,  $REFPASSNAME, $REFPASSNUM); }#)
+
+
+
+;;;;;;;;;;;;;;;;
+(cheader 
+ #{static bool melthk_gimple_gate(void) 
+ { return melthookproc_HOOK_GIMPLE_GATE () != 0L; }
+}#)
+
+(cheader 
+ #{static unsigned int melthk_gimple_execute(void) 
+ { return (unsigned) melthookproc_HOOK_GIMPLE_EXECUTE (); }
+}#)
+
+(cheader 
+ #{static bool melthk_simple_ipa_gate(void) 
+ { return melthookproc_HOOK_SIMPLE_IPA_GATE () != 0L; }
+}#)
+
+(cheader 
+ #{static unsigned int melthk_simple_ipa_execute(void) 
+ { return (unsigned) melthookproc_HOOK_SIMPLE_IPA_EXECUTE (); }
+}#)
+
+(cheader 
+ #{static bool melthk_rtl_gate(void) 
+ { return melthookproc_HOOK_RTL_GATE () != 0L; }
+}#)
+
+(cheader 
+ #{static unsigned int melthk_rtl_execute(void) 
+ { return (unsigned) melthookproc_HOOK_RTL_EXECUTE (); }
+}#)
 
 ;; new function to replace that.
-(defun install_melt_pass 
-  (:value pass :cstring positioning refpassname :long refpassnum) 
-  :doc #{Install a GCC pass coded in MELT. The $PASS should be an
-  object, instance of a sub-class of $CLASS_GCC_PASS, e.g. of
-  $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING is "before"
-  or "after". The reference pass is given thru $REFPASSNAME and
-  $REFPASSNUM. Usually $INSTALL_MELT_GCC_PASS is called from a mode
-  initializer.}#
+(defun install_melt_pass_in_gcc 
+  (:value pass positioning refpassname :long refpassnum) 
+  :doc #{$INSTALL_MELT_PASS_IN_GCC is nstalling your GCC pass coded in
+  MELT. The $PASS should be an object, instance of a sub-class of
+  $CLASS_GCC_PASS, e.g. of $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING
+  is :before or :after or :replace. The reference pass is given thru $REFPASSNAME
+  -a boxed string- and $REFPASSNUM. Usually $INSTALL_MELT_PASS_IN_GCC is
+  called from a mode initializer.}#
   (debug "install_melt_gcc_pass pass=" pass 
 	 " positioning=" positioning " refpassname=" refpassname " refpassnum=" refpassnum)
   ;; check that we have a mode
@@ -89,12 +122,8 @@
     (when (not (is_string passname))
       (errormsg_plain "MELT corrupted nameless pass to install")
       (return))
-  ;; check the positioning
-    (when (not (cstring_non_empty positioning))
-      (errormsg_strv "cannot install MELT pass without positioning" passname)
-      (return))
   ;; check the refpassname
-    (when (not (cstring_non_empty refpassname))
+    (when (not (is_string refpassname))
       (errormsg_strv "cannot install MELT pass without reference pass name" passname)
       (return))
   ;; check that the pass is not already installed
@@ -105,30 +134,135 @@
     (let (
 	  (propreqv (get_field :gccpass_properties_required pass))
 	  (propprov (get_field :gccpass_properties_provided pass))
+	  (propdestrv (get_field :gccpass_properties_destroyed pass))
 	  (todostartv (get_field :gccpass_todo_flags_start pass))
 	  (todofinishv (get_field :gccpass_todo_flags_finish pass))
+	  (gatefun (get_field :gccpass_gate pass))
+	  (execfun (get_field :gccpass_exec pass))
+	  (:long posopl 
+		 (match positioning
+			(:before 
+			 (expr_chunk before_chk :long #{(long)PASS_POS_INSERT_BEFORE}#))
+			(:after
+			 (expr_chunk after_chk :long #{(long)PASS_POS_INSERT_AFTER}#))
+			(:replace
+			 (expr_chunk replace_chk :long #{(long)PASS_POS_REPLACE}#))
+			(?_
+			 (errormsg_strv "bad pass positioning; should be :BEFORE or :AFTER or :REPLACE"
+					passname)
+			 (return)
+			 -1
+			 )))
 	  )
-      (cond ((is_a pass class_gcc_gimple_pass)
-	     (code_chunk 
-	      gimplepass_chk
-	      #{ /* start install_melt_gcc_pass $GIMPLEPASS_CHK */
-	        struct gimple_opt_pass* gimpass = NULL;
-	        gimpass = XNEW(struct gimple_opt_pass);
-		memset(gimpass, 0, sizeof(struct gimple_opt_pass));
-		gimpass->pass.type = GIMPLE_PASS;
-		gimpass->pass.name = 
-		  melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
- #warning very incomplete 
-	      /* end install_melt_gcc_pass $GIMPLEPASS_CHK */
-	      }#)
-	     )
-	    (:else
-	     (errormsg_strv "MELT failed to install pass" passname)
-	     (return)
-	     )
-	    )
-	     
-    )))					;end install_melt_gcc_pass
+      (cond 
+       ;; installing gimple passes
+       ((is_a pass class_gcc_gimple_pass)
+	(code_chunk 
+	 gimplepass_chk
+	 #{ /* start install_melt_gcc_pass $GIMPLEPASS_CHK */
+	 struct gimple_opt_pass* gimpass = NULL;
+	 struct register_pass_info rpassinfo;
+	 memset (&rpassinfo, 0, sizeof(rpassinfo));
+	 gimpass = XNEW(struct gimple_opt_pass);
+	 memset(gimpass, 0, sizeof(struct gimple_opt_pass));
+	 gimpass->pass.type = GIMPLE_PASS;
+	 gimpass->pass.name = 
+	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
+	 gimpass->pass.gate = ($GATEFUN != NULL)?melthk_gimple_gate:NULL;
+	 gimpass->pass.execute = ($EXECFUN != NULL)?melthk_gimple_execute:NULL;
+	 gimpass->pass.tv_id = TV_PLUGIN_RUN;
+	 gimpass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
+	 gimpass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
+	 gimpass->pass.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
+	 gimpass->pass.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
+	 gimpass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
+	 rpassinfo.pass = (struct opt_pass*) gimpass;
+	 rpassinfo.reference_pass_name = 
+	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
+	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
+	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
+			    NULL, &rpassinfo);
+	 /* end install_melt_gcc_pass $GIMPLEPASS_CHK */
+	 }#)
+	(mapstring_putstr passdict passname pass)
+	(debug "install_melt_pass_in_gcc installed gimple pass=" pass)
+	)
+       ;; installing simple_ipa passes
+       ((is_a pass class_gcc_simple_ipa_pass)
+	(code_chunk 
+	 simipapass_chk
+	 #{ /* start install_melt_gcc_pass $SIMIPAPASS_CHK */
+	 struct simple_ipa_opt_pass* simipass = NULL;
+	 struct register_pass_info rpassinfo;
+	 memset (&rpassinfo, 0, sizeof(rpassinfo));
+	 simipass = XNEW(struct simple_ipa_opt_pass);
+	 memset(simipass, 0, sizeof(struct simple_ipa_opt_pass));
+	 simipass->pass.type = SIMPLE_IPA_PASS;
+	 simipass->pass.name = 
+	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
+	 simipass->pass.gate = ($GATEFUN != NULL)?melthk_simple_ipa_gate:NULL;
+	 simipass->pass.execute = ($EXECFUN != NULL)?melthk_simple_ipa_execute:NULL;
+	 simipass->pass.tv_id = TV_PLUGIN_RUN;
+	 simipass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
+	 simipass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
+	 simipass->pass.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
+	 simipass->pass.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
+	 simipass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
+	 rpassinfo.pass = (struct opt_pass*) simipass;
+	 rpassinfo.reference_pass_name = 
+	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
+	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
+	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
+			    NULL, &rpassinfo);
+	 /* end install_melt_gcc_pass $SIMIPAPASS_CHK */
+	 }#)
+	(debug "install_melt_pass_in_gcc installed simple ipa pass=" pass)
+	(mapstring_putstr passdict passname pass)
+	)
+       ;; installing rtl passes
+       ((is_a pass class_gcc_rtl_pass)
+	(code_chunk 
+	 rtlpass_chk
+	 #{ /* start install_melt_gcc_pass $RTLPASS_CHK */
+	 struct rtl_opt_pass* rtlpass = NULL;
+	 struct register_pass_info rpassinfo;
+	 memset (&rpassinfo, 0, sizeof(rpassinfo));
+	 rtlpass = XNEW(struct rtl_opt_pass);
+	 memset(rtlpass, 0, sizeof(struct simple_ipa_opt_pass));
+	 rtlpass->pass.type = RTL_PASS;
+	 rtlpass->pass.name = 
+	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
+	 rtlpass->pass.gate = ($GATEFUN != NULL)?melthk_rtl_gate:NULL;
+	 rtlpass->pass.execute = ($EXECFUN != NULL)?melthk_rtl_execute:NULL;
+	 rtlpass->pass.tv_id = TV_PLUGIN_RUN;
+	 rtlpass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
+	 rtlpass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
+	 rtlpass->pass.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
+	 rtlpass->pass.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
+	 rtlpass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
+	 rpassinfo.pass = (struct opt_pass*) rtlpass;
+	 rpassinfo.reference_pass_name = 
+	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
+	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
+	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
+			    NULL, &rpassinfo);
+	 /* end install_melt_gcc_pass $RTLPASS_CHK */
+	 }#)
+	(debug "install_melt_pass_in_gcc installed simple ipa pass=" pass)
+	(mapstring_putstr passdict passname pass)
+	)
+       ;;
+       (:else
+	(errormsg_strv "MELT failed to install pass" passname)
+	(return)
+	)
+       )	     
+    )
+    (debug "install_melt_pass_in_gcc end pass=" pass "\n ... updated passdict=" passdict)
+    ))					;end install_melt_pass_in_gcc
 
 
 ;;; edge related primitives
@@ -1747,6 +1881,7 @@ current function and gives its declaration in $CFUNDECL}#
  get_immediate_post_dominator
  has_cfun
  install_melt_gcc_pass
+ install_melt_pass_in_gcc
  is_basicblock
  is_edge
  is_loop

@@ -215,7 +215,7 @@
 		    :gccpass_properties_required ()
 	      ))
         )
-  (install_melt_gcc_pass justscanpass "after" "phiopt" 0)
+  (install_melt_pass_in_gcc justscanpass :after "phiopt" 0)
   (debug  "justscan_mode installed pass=" justscanpass)
   (return cmd)			;return non-nil to continue compilation
   ))

@@ -12792,7 +12792,7 @@ end:
 
 
 /* convert a MELT value to a plugin flag or option */
-static unsigned long
+unsigned long
 melt_val2passflag(melt_ptr_t val_p)
 {
   unsigned long res = 0;

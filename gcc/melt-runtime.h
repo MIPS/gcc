@@ -114,7 +114,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
 /* The version string of MELT; this is parsed by make, so spaces are
    important!  That version string is extracted by scripts or
    makefiles... */
-#define MELT_VERSION_STRING "0.9.9-pre"
+#define MELT_VERSION_STRING "0.9.9-rc"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -3071,6 +3071,10 @@ void meltgc_notify_finish_decl_hook (void);
    :sysdata_inchannel_data is changed.  Called by code_chunk-s inside
    MELT file melt/warmelt-base.melt.  */
 void meltgc_notify_inchannel_data (void);
+
+
+/* convert a MELT value to a plugin flag or option */
+unsigned long melt_val2passflag(melt_ptr_t val_p);
 
 /* ====== safer output routines ===== */
 

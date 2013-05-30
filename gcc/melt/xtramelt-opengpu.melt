@@ -893,10 +893,10 @@ and $OPGPULC_GIMPLE the gimple making it.}#
 		     () ;  (list  '"dump_func" '"dump_cgraph")
 		    ))
 	 )
-;    (install_melt_gcc_pass opengpudetect_pass "before" "vect" 0)
-    (install_melt_gcc_pass opengpudetect_pass "before" "ivcanon" 0)
+;    (install_melt_pass_in_gcc opengpudetect_pass :before "vect" 0)
+    (install_melt_pass_in_gcc opengpudetect_pass :before "ivcanon" 0)
 ;; "ivcanon" is actually the pass just after graphite and its subpasses
-;    (install_melt_gcc_pass opengpudetect_pass "after" "graphite" 0)
+;    (install_melt_pass_in_gcc opengpudetect_pass :after "graphite" 0)
     ))
 
 (defun opengpu_docmd (cmd moduldata)

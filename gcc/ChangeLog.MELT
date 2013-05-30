@@ -1,5 +1,28 @@
 
 
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (MELT_VERSION_STRING): Change to 0.9.9-rc.
+	(melt_val2passflag): New declaration.
+
+	* melt-runtime.c (melt_val2passflag): No more static.
+
+	* melt/xtramelt-ana-base.melt (install_melt_gcc_pass): Becoming obsolete.
+	(melthk_gimple_gate, melthk_gimple_execute)
+	(melthk_simple_ipa_gate, melthk_simple_ipa_execute)
+	(melthk_rtl_gate, melthk_rtl_execute): New C wrapping hook
+	functions in cheader-s.
+	(install_melt_pass): Rename as...
+	(install_melt_pass_in_gcc): New function. Should work.
+
+	* melt/xtramelt-ana-simple.melt: Call install_melt_pass_in_gcc
+	instead of install_melt_gcc_pass.
+
+	* melt/xtramelt-c-generator.melt: Ditto.
+
+	* melt/xtramelt-opengpu.melt: Ditto.
+
+	* melt/xtramelt-probe.melt: Ditto.
 
 2013-05-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.c (meltgc_rtl_gate, meltgc_rtl_execute)
