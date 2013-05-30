@@ -1213,6 +1213,7 @@ meltrout_82_warmelt_modes_UNREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
+struct melt_initial_frame_st;
 
 /*declare opaque initial frame: */
 typedef struct melt_initial_frame_st meltinitial_frame_t;

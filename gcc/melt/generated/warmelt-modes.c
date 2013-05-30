@@ -1214,6 +1214,7 @@ meltrout_82_warmelt_modes_UNREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
+struct melt_initial_frame_st;
 
 /*declare opaque initial frame: */
 typedef struct melt_initial_frame_st meltinitial_frame_t;
@@ -37180,7 +37181,7 @@ meltmod__warmelt_modes__initialmeltchunk_11 (meltinitial_frame_t *
 					     meltfptr[7])) ==
 			  MELTOBMAG_OBJECT);
 	  melt_putfield_object (( /*_.INITIAL_SYSTEM_DATA__V8*/ meltfptr[7]),
-				(30), ( /*_.VALCLO___V599*/ meltfptr[598]),
+				(28), ( /*_.VALCLO___V599*/ meltfptr[598]),
 				"SYSDATA_CHILD_HOOK");
 	  ;
 	  /*^touch */

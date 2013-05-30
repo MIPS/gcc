@@ -2217,6 +2217,7 @@ meltrout_141_warmelt_normatch_LAMBDA___34__ (meltclosure_ptr_t meltclosp_,
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
+struct melt_initial_frame_st;
 
 /*declare opaque initial frame: */
 typedef struct melt_initial_frame_st meltinitial_frame_t;

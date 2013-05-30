@@ -2942,6 +2942,7 @@ meltrout_190_warmelt_genobj_LAMBDA___52__ (meltclosure_ptr_t meltclosp_,
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
+struct melt_initial_frame_st;
 
 /*declare opaque initial frame: */
 typedef struct melt_initial_frame_st meltinitial_frame_t;
@@ -19720,7 +19721,8 @@ meltlab_endgetargs:;
 		  /*^apply.arg */
 		  argtab[5].meltbp_cstring =
 		    " should have no parent\",\n\t\t\t\t    modargp_ == NULL) ;\
-\n\t\t     ";
+\n\t\t\
+     ";
 		  /*_.OCHECKNOPAR__V192*/ meltfptr[160] =
 		    melt_apply ((meltclosure_ptr_t)
 				(( /*!MAKE_OBJCOMPUTE */ meltfrout->

@@ -1213,6 +1213,7 @@ meltrout_82_warmelt_modes_UNREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
+struct melt_initial_frame_st;
 
 /*declare opaque initial frame: */
 typedef struct melt_initial_frame_st meltinitial_frame_t;
@@ -5630,7 +5631,7 @@ meltlab_endgetargs:;
 	  obj =
 	    (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 			   tabval[3])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 28, "SYSDATA_INCHANNEL_DATA");
+	  melt_object_get_field (slot, obj, 26, "SYSDATA_INCHANNEL_DATA");
    /*_.INBUCK__V14*/ meltfptr[13] = slot;
 	};
 	;
@@ -5727,7 +5728,7 @@ meltlab_endgetargs:;
 					      meltfrout->tabval[3]))) ==
 			  MELTOBMAG_OBJECT);
 	  melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-				  tabval[3])), (28),
+				  tabval[3])), (26),
 				( /*_.UPDATEDINBUCK__V19*/ meltfptr[16]),
 				"SYSDATA_INCHANNEL_DATA");
 	  ;
@@ -6238,7 +6239,7 @@ meltlab_endgetargs:;
 						  meltfrout->tabval[3]))) ==
 			      MELTOBMAG_OBJECT);
 	      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-				      tabval[3])), (29),
+				      tabval[3])), (27),
 				    ( /*_.LAMBDA___V16*/ meltfptr[14]),
 				    "SYSDATA_ALARM_HOOK");
 	      ;
@@ -7003,7 +7004,7 @@ meltlab_endgetargs:;
 					      meltfrout->tabval[3]))) ==
 			  MELTOBMAG_OBJECT);
 	  melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-				  tabval[3])), (29),
+				  tabval[3])), (27),
 				(( /*!HANDLE_ALARM_SIGNAL */ meltfrout->
 				  tabval[8])), "SYSDATA_ALARM_HOOK");
 	  ;
@@ -7116,7 +7117,7 @@ meltlab_endgetargs:;
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!INITIAL_SYSTEM_DATA */ meltfrout->tabval[3]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					      meltfrout->tabval[3])), (29),
+					      meltfrout->tabval[3])), (27),
 					    (( /*nil */ NULL)),
 					    "SYSDATA_ALARM_HOOK");
 		      ;
@@ -7833,7 +7834,7 @@ meltlab_endgetargs:;
 					       meltfrout->tabval[6]))) ==
 			   MELTOBMAG_OBJECT);
 			melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-						meltfrout->tabval[6])), (29),
+						meltfrout->tabval[6])), (27),
 					      (( /*!HANDLE_ALARM_SIGNAL */
 						meltfrout->tabval[7])),
 					      "SYSDATA_ALARM_HOOK");
@@ -8512,7 +8513,7 @@ meltlab_endgetargs:;
 				  melt_magic_discr ((melt_ptr_t)
 						    (( /*!INITIAL_SYSTEM_DATA */ meltfrout->tabval[5]))) == MELTOBMAG_OBJECT);
 		  melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-					  meltfrout->tabval[5])), (29),
+					  meltfrout->tabval[5])), (27),
 					(( /*nil */ NULL)),
 					"SYSDATA_ALARM_HOOK");
 		  ;
@@ -11499,7 +11500,7 @@ meltlab_endgetargs:;
 					       meltfrout->tabval[6]))) ==
 			   MELTOBMAG_OBJECT);
 			melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */
-						meltfrout->tabval[6])), (30),
+						meltfrout->tabval[6])), (28),
 					      (( /*!CHILD_PROCESS_SIGCHLD_HANDLER */ meltfrout->tabval[7])), "SYSDATA_CHILD_HOOK");
 			;
 			/*^touch */
