@@ -1,6 +1,19 @@
 
 
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (meltgc_notify_sysdata_passexec_hook)
+	(meltgc_notify_finish_type_hook, meltgc_notify_finish_decl_hook):
+	Remove.
+
+	* melt-runtime.c (meltgc_notify_finish_type_hook)
+	(meltgc_notify_finish_decl_hook): Remove.
+
+	* melt/warmelt-hooks.melt (melt_finish_decl_hook_callback)
+	(melt_pass_execution_hook_callback): Really call appropriate
+	hooks.
+
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

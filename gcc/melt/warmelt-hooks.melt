@@ -1475,7 +1475,7 @@ bool  melthk_finish_decl_registered_flag;
  melt_finish_decl_hook_callback (void* gcc_data,
 			      void* user_data ATTRIBUTE_UNUSED)
  {
-#warning should call melthookproc_HOOK_FINISH_DECL ((tree)gcc_data);
+ melthookproc_HOOK_FINISH_DECL ((tree)gcc_data);
  }
  }#)
 
@@ -1488,10 +1488,8 @@ bool  melthk_finish_decl_registered_flag;
 #if MELT_GCC_VERSION < 4007
    melt_fatal_error ("PLUGIN_FINISH_DECL unsupported for GCC 4.6 or earlier");
 #endif
-/*
   register_callback (melt_plugin_name, PLUGIN_FINISH_DECL,
                      melt_finish_decl_hook_callback, NULL);
-*/
    }
    }#)
 )
@@ -1608,7 +1606,7 @@ bool  melthk_pass_execution_registered_flag;
 			      void* user_data ATTRIBUTE_UNUSED)
  {
    struct opt_pass* pass = (struct opt_pass*) gcc_data;
-#warning should call melthookproc_HOOK_PASS_EXECUTION (pass->name, (long) pass->static_pass_number);
+   melthookproc_HOOK_PASS_EXECUTION (pass->name, (long) pass->static_pass_number);
  }
  }#)
 

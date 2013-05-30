@@ -12932,20 +12932,6 @@ meltgc_restore_dump_file (FILE* oldf)
 #undef dumpv
 }
 
-void meltgc_notify_finish_type_hook (void)
-{
-#warning meltgc_notify_finish_type_hook is obsolete
-  warning(0, "obsolete call to meltgc_notify_finish_type_hook");
-}
-
-
-void
-meltgc_notify_finish_decl_hook (void)
-{
-#warning meltgc_notify_finish_decl_hook is obsolete
-  warning(0, "obsolete call to meltgc_notify_finish_decl_hook");
-}
-
 
 
 /* Routine passed to walk_use_def_chains by meltgc_walk_use_def_chain
