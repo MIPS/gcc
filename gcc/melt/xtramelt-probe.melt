@@ -823,7 +823,7 @@
 		    )
 	 )
   (debug "install_scanprobe_pass start scpropass=" scpropass)
-  (install_melt_pass_in_gcc scpropass :after "*build_cgraph_edges" 0)
+  (install_melt_pass_in_gcc scpropass :after '"*build_cgraph_edges" 0)
   (debug "install_scanprobe_pass installed scpropass=" scpropass)
   (return scpropass)))
 

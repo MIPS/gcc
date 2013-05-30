@@ -45,20 +45,6 @@
   
 
 
-;;;;;;;;;;;;;;;;;;;;;; install a MELT GCC PASS
-(defprimitive install_melt_gcc_pass  
-   (:value pass :cstring positioning refpassname :long refpassnum) 
-   :void
-   :doc #{Obsolete primitive to install a GCC pass coded in MELT. The
-  $PASS should be an object, instance of a sub-class of
-  $CLASS_GCC_PASS, e.g. of $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING
-  is "before" or "after" or "replace". The reference pass is given
-  thru $REFPASSNAME and $REFPASSNUM. Usually $INSTALL_MELT_GCC_PASS is
-  called from a mode initializer.}# 
-#{ /* install_melt_gcc_pass */
-  meltgc_register_pass ((melt_ptr_t) $PASS, $POSITIONING,  $REFPASSNAME, $REFPASSNUM); }#)
-
-
 
 ;;;;;;;;;;;;;;;;
 (cheader 
@@ -91,7 +77,7 @@
  { return (unsigned) melthookproc_HOOK_RTL_EXECUTE (); }
 }#)
 
-;; new function to replace that.
+;; new function to install a melt pass in gcc
 (defun install_melt_pass_in_gcc 
   (:value pass positioning refpassname :long refpassnum) 
   :doc #{$INSTALL_MELT_PASS_IN_GCC is nstalling your GCC pass coded in
@@ -263,6 +249,40 @@
     )
     (debug "install_melt_pass_in_gcc end pass=" pass "\n ... updated passdict=" passdict)
     ))					;end install_melt_pass_in_gcc
+
+
+;;;;;;;;;;;;;;;;;;;;;; obsolete install a MELT GCC PASS; for compatibility
+(defun install_melt_gcc_pass  
+   (:value pass :cstring positioning refpassname :long refpassnum) 
+   :doc #{@b{Obsolete function} to install a GCC pass coded in MELT,
+  replaced with $INSTALL_MELT_PASS_IN_GCC. The $PASS should be an
+  object, instance of a sub-class of $CLASS_GCC_PASS, e.g. of
+  $CLASS_GCC_GIMPLE_PASS. The $POSITIONNING is "before" or "after"
+  or "replace". The reference pass is given thru $REFPASSNAME and
+  $REFPASSNUM. Usually $INSTALL_MELT_GCC_PASS is called from a mode
+  initializer.}# 
+  (debug "install_melt_gcc_pass pass=" pass " positioning=" positioning 
+	 "refpassname=" refpassname " refpassnum=" refpassnum)
+  (shortbacktrace_dbg "install_melt_gcc_pass" 15)
+  (let ( (positv ())
+	 (refpanamv ())
+	 (passname (get_field :named_name pass))
+	 )
+    (code_chunk makeval_chk 
+		#{ /* install_melt_gcc_pass $MAKEVAL_CHK start */
+		warning (0, "MELT obsolete usage of INSTALL_MELT_GCC_PASS for %s."
+			    " Use INSTALL_MELT_PASS_IN_GCC instead.",
+			    melt_string_str ($PASSNAME));
+		$POSITV = melthookproc_HOOK_NAMED_KEYWORD ($POSITIONING, (long) MELT_CREATE);
+		$REFPANAMV = meltgc_new_stringdup ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
+						   $POSITIONING);
+		 /* install_melt_gcc_pass $MAKEVAL_CHK end */ }#)
+    (debug "install_melt_gcc_pass pass=" pass " positv=" positv " refpanamv=" refpanamv 
+	   " refpassnum=" refpassnum)
+    (install_melt_pass_in_gcc pass positv refpanamv refpassnum)
+    (return ())
+    )
+)
 
 
 ;;; edge related primitives

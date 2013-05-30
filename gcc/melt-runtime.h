@@ -2513,18 +2513,6 @@ void meltgc_out_edge(melt_ptr_t out_p, edge edg);
 void meltgc_out_loop(melt_ptr_t out_p, loop_p loo);
 
 
-/***************** PASS MANAGEMENT ****************/
-/* register a Melt pass PASS; there is no way to unregister it, and the
-   opt_pass and plugin_pass used internally are never deallocated.
-   The POSITIONING is one of the strings "after" "before" "replace"
-   The REFPASSNAME is the name of the existing reference pass
-   The REFPASSNUMBER is the number of the reference pass or 0 for all.
-   Non-simple IPA passes are not yet implemented! 
-*/
-void
-meltgc_register_pass (melt_ptr_t pass_p, const char* positioning, 
-			 const char*refpassname,
-			 int refpassnum);
 
 /*** allocate a boxed file ***/
 melt_ptr_t meltgc_new_file(melt_ptr_t discr_p, FILE* fil);

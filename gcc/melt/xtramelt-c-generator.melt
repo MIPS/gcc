@@ -908,7 +908,7 @@
 				     :functions_root (list)
 				     :structures_declarations (list))
 		     :gccpass_properties_required ())))
-      (install_melt_pass_in_gcc generator :after "cfg" 0)
+      (install_melt_pass_in_gcc generator :after '"cfg" 0)
       (at_finish_unit_last
        (lambda ()
 	 (let ((root (get_field :gccpass_data generator))

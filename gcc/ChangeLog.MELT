@@ -2,6 +2,22 @@
 
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (meltgc_register_pass): Remove declaration. See
+	install_melt_pass_in_gcc in melt/xtramelt-ana-base.melt.
+
+	* melt-runtime.c (meltgc_gimple_gate, meltgc_gimple_execute)
+	(meltgc_rtl_gate, meltgc_rtl_execute, meltgc_simple_ipa_gate)
+	(meltgc_simple_ipa_execute, meltgc_register_pass): Remove
+	functions.
+
+	* melt/xtramelt-ana-simple.melt: Pass a quoted string as tje
+	reference pass name for install_melt_pass_in_gcc.
+	* melt/xtramelt-c-generator.melt: Ditto.
+	* melt/xtramelt-opengpu.melt: Ditto.
+	* melt/xtramelt-probe.melt: Ditto.
+
+2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_VERSION_STRING): Change to 0.9.9-rc.
 	(melt_val2passflag): New declaration.
 
