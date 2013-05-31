@@ -1309,6 +1309,35 @@ procedure in a module, defined with $DEFHOOK. }#
 			 "\n* for comp=" comp 
 			 "\n ix=" ix)
 		  (assert_msg "check nbinds" (is_list_or_null nbinds))
+		  ;; Shameful dirty hack for module variables; notably for
+		  ;; application, we need to put them into a local
+		  ;; binding, because meltgc_apply is passing argument
+		  ;; by references, and melt_module_var_fetch returns
+		  ;; a pointer value, not a reference. 
+		  (if (is_a norcomp class_nrep_modulevarocc)
+		      (let ( (nvarbind (unsafe_get_field :nmodvar_bind norcomp))
+			     )
+			(debug "normalize_tuple/lambda modulevarocc norcomp=" norcomp " ix#" ix)
+			(if (null nbinds) 
+			    (setq nbinds (make_list discr_list)))
+			(assert_msg "check nvarbind" (is_a nvarbind class_normal_module_variable_binding))
+			(let ( (nvbinder (get_field :binder nvarbind))
+			       (clonsym (clone_symbol nvbinder))
+			       (clonbind (instance class_normal_let_binding
+						:letbind_loc ()
+						:binder clonsym
+						:letbind_type ctype_value
+						:letbind_expr norcomp))
+			       (clonocc (instance class_nrep_locsymocc
+						  :nrep_loc ()
+						  :nocc_ctyp ctype_value
+						  :nocc_symb clonsym
+						  :nocc_bind clonbind))
+			       )
+			  (list_append nbinds clonbind)
+			  (setq norcomp clonocc)
+		      )))
+		  ;;
 		  (assert_msg "check norcomp not class_nrep_expression" 
 			      (is_not_a norcomp class_nrep_expression))
 		  (if (is_list nbinds)
@@ -1782,17 +1811,17 @@ source location.}#
 		)
 	      )))
 	;;
-	;; static variables
+	;; module variables
 	( (is_a bind class_normal_module_variable_binding)
 	  (debug "normexp_symbol variable binding bind=" bind)
-	  (let ( (nstvar (instance class_nrep_modulevarocc
+	  (let ( (nmodvar (instance class_nrep_modulevarocc
 				   :nmodvar_bind bind))
 		 )
 	    ;; cache the result
-	    (mapobject_put sycmap recv nstvar)
-	    (debug "normexp_symbol module variable occurrence nstvar=" nstvar  
+	    (mapobject_put sycmap recv nmodvar)
+	    (debug "normexp_symbol module variable occurrence nmodvar=" nmodvar  
 		   "\n.. updated sycmap=" sycmap)
-	    (return nstvar ())
+	    (return nmodvar ())
 	  ))
 	;;
 	;; the procs is a non-empty list, so the symbol is closed

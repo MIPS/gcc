@@ -3889,7 +3889,8 @@ $SBUF.}#
 	 )
     (assert_msg "check nvbind" (is_a nvbind class_normal_module_variable_binding))
       (let ( (ofetch (instance class_objfetchmodvar
-			     :obfetchmodvar_bind nvbind))
+			       :obv_type ctype_value
+			       :obfetchmodvar_bind nvbind))
 	     )
 	(debug "compilobj_nrep_modulevarocc ofetch=" ofetch)
 	(return ofetch)

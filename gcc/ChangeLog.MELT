@@ -1,6 +1,21 @@
 
 
 2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tdefvar-1.melt test still fails!}}
+	* melt/warmelt-normal.melt (normalize_tuple): Add dirty hack to
+	put module variables inside local bindings, because meltgc_apply
+	is passing by reference, so we cannot emit melt_module_var_fetch
+	in function application arguments.
+	(normexp_symbol): Use nmodvar, not nstvar whose name is
+	misleading.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_modulevarocc):
+	Explicitly set the obv_type of the result.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Less
+	typos in emitted code relative to module variables.
+
+2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

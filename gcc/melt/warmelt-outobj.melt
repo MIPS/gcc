@@ -92,12 +92,16 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (let ( (csymnam (get_field :named_name binder))
 		   (crank (get_field :csym_urank binder))
 		   )
-	      (add2out out "meltmodvarix_" outnam csymnam "_clon" crank)
+	      (add2out out "meltmodvarix_") 
+	      (add2out_cident out csymnam)
+	      (add2out out "_clon" crank)
 	    ))
 	  ( (== (discrim binder) class_symbol)
 	    (let ( (symnam (get_field :named_name binder))
 		   )
-	      (add2out out "meltmodvarix_" outnam symnam "_symb")
+	      (add2out out "meltmodvarix_")
+	      (add2out_cident out symnam)
+	      (add2out out "_symb")
 	    ))
 	  (:else
 	   (debug "out_enumix_modvarbind bad binder in mvarbind=" mvarbind)
@@ -3008,7 +3012,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
   (let ( (varbind (get_field :obfetchmodvar_bind fmodvar))
 	 )
     ;; the inlined function melt_module_var_fetch is emitted by translate_macroexpanded_list
-    (assert_msg "check varbind" (is_a class_normal_module_variable_binding varbind))
+    (assert_msg "check varbind" (is_a varbind class_normal_module_variable_binding))
     (add2out implbuf " (melt_module_var_fetch (")
     (out_enumix_modvarbind implbuf varbind)
     (add2out implbuf "))")
@@ -3024,7 +3028,8 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 	 (oval (get_field :obputmodvar_val pmodvar))
 	 )
     ;; the inlined function melt_module_var_put is emitted by translate_macroexpanded_list
-    (assert_msg "check varbind" (is_a class_normal_module_variable_binding varbind))
+    (debug "outpucod_objputmodvar varbind=" varbind)
+    (assert_msg "check varbind" (is_a varbind class_normal_module_variable_binding))
     (if oloc (output_location oloc implbuf depth "putmodvar"))
     (add2out implbuf "melt_module_var_put (")
     (out_enumix_modvarbind implbuf varbind)
@@ -6458,39 +6463,49 @@ if (1) return;
 	     (let ( (modvartup (list_to_multiple modvarlist discr_multiple))
 		    (:long nbmodvars (multiple_length modvartup))
 		    (modnamcident (let ( (sbuf (make_strbuf discr_strbuf)) )
-				    (add2sbuf_cident sbuf modnamstr)
+				    (add2sbuf_cident sbuf (get_field :mocx_modulename modctx))
 				    (strbuf2string discr_verbatim_string sbuf)))
 		    )
 	       (if nbmodvars
 		   (progn
 		     (debug "translate_macroexpanded_list modvartup=" modvartup)
-		     (add2out declbuf "/*** " nbmodvars " MELT module variables ****/\n")
+		     (add2out declbuf "/*** " nbmodvars " MELT module variables declarations ****/\n")
+		     (add2out implbuf "/*** " nbmodvars " MELT module variables implementations ****/\n")
 		     (add2out declbuf "MELT_EXTERN void melt_forwarding_module_data (void);\n")
 		     (add2out declbuf "MELT_EXTERN void melt_marking_module_data (void);\n")
-		     ;; declare the static pointers and flags
-		     (add2out declbuf 
-			      "MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_ptr_tab[" 
-			      (*i 16 (+i (/iraw (+i nbmodvars 1) 16) 1)) "];\n")
-		     (add2out declbuf 
-			      "MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_flags[" 
-			      (+i (/iraw nbmodvars 16) 1) "];\n")
+		     ;; declare & define the static pointers and flags
+		     (let ( (:long nbvarslots (*i 16 (+i (/iraw (+i nbmodvars 1) 16) 1)))
+			    (:long nbflags (+i (/iraw nbmodvars 16) 1))
+			    )
+		       (add2out declbuf 
+				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_ptr_tab[" 
+				nbvarslots "];\n")
+		       (add2out declbuf 
+				"MELT_EXTERN bool MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_flags[" 
+				nbflags "];\n")
+		       (add2out implbuf "melt_" modnamcident "_module_var_ptr_tab[" nbvarslots "];\n")
+		       (add2out implbuf "melt_" modnamcident "_module_var_flags["  nbflags "];\n")
+		       )
 		     ;; emit the fetch & put; useful for outpucod_objfetchmodvar & outpucod_objputmodvar
 		     (add2out declbuf 
 			      "static inline melt_ptr_t melt_module_var_fetch (int ix)\n"
-			      "{return (ix>0 && ix<= " nbmodvars ")?melt_" modnamcident "_module_var_ptr_tab[ix]:NULL;}\n\n")
+			      "{return (ix > 0  &&  ix <= " nbmodvars ")?melt_" modnamcident "_module_var_ptr_tab[ix]:NULL;}\n\n")
 		     (add2out declbuf 
 			      "static inline void melt_module_var_put (int ix, melt_ptr_t val)\n"
-			      "{if (ix>0 && ix<= " nbmodvars ") { melt_" modnamcident "_module_var_ptr_tab[ix]= val;\n"
-			      " melt_" modnamcident "_module_var_flags[ix/16] = true;}\n}\n\n")
+			      "{\n"
+			      "  if (ix > 0  &&  ix <= " nbmodvars ") {\n"
+			      "    melt_" modnamcident "_module_var_ptr_tab[ix]= val;\n"
+			      "    melt_" modnamcident "_module_var_flags[ix/16] = true;\n  }\n}\n\n")
 		     ;; emit the forwarding routine
 		     (add2out implbuf "\n/**** forwarding MELT module variables ****/\n")
 		     (add2out implbuf "void melt_forwarding_module_data (void) {\n")
 		     (add2out implbuf "  int i, j;\n")
+		     (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
 		     (add2out implbuf "  for (i=0; i<=" (/iraw (+i nbmodvars 1) 16) "; i++) {\n")
 		     (add2out implbuf "    if (melt_" modnamcident "_module_var_flags[i]) {\n")
-		     (add2out implbuf "      " modnamcident "_module_var_flags[i] = false;\n")
+		     (add2out implbuf "      melt_" modnamcident "_module_var_flags[i] = false;\n")
 		     (add2out implbuf "      for (j=0; j<16; j++)\n")
-		     (add2out implbuf "        MELT_FOWARDED (melt_" modnamcident "_module_var_ptr_tab[i*16+j]);\n")
+		     (add2out implbuf "        MELT_FORWARDED (melt_" modnamcident "_module_var_ptr_tab[i*16+j]);\n")
 		     (add2out implbuf "    };\n")
 		     (add2out implbuf "  }\n")
 		     (add2out implbuf "} /* end melt_fowarding_module_data */\n\n")
@@ -6498,7 +6513,8 @@ if (1) return;
 		     (add2out implbuf "\n/**** marking MELT module variables ****/\n")
 		     (add2out implbuf "void melt_marking_module_data (void) {\n")
 		     (add2out implbuf "  int i;\n")
-		     (add2out implbuf "  for (i=0; i<=" nbmodvars "; i++)\n")
+		     (add2out implbuf "  melt_" modnamcident "_module_var_ptr_tab[0] = NULL; /* unused modvar elem */\n")
+		     (add2out implbuf "  for (i=1; i <= " nbmodvars "; i++)\n")
 		     (add2out implbuf "    " (get_field :ctype_marker ctype_value) "(melt_" modnamcident "_module_var_ptr_tab[i]);\n")
 		     (add2out implbuf "} /* end melt_marking_module_data */\n\n")
 		     ;;
