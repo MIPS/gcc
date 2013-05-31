@@ -1,5 +1,13 @@
 
 2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-mode.melt
+	(generate_runtypesupport_predefined_hooks): Should work even
+	without input arguments...
+
+	* melt/warmelt-outobj.melt (output_hooks_with_modvar): Done.
+
+2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tdefvar-2.melt reaches output_hooks_with_modvar}}
 	* melt/warmelt-normal.melt (normexp_defhook): Correct call to
 	find_env.

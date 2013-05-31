@@ -1,7 +1,7 @@
 ;; file warmelt-modes.melt -*- Lisp -*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright (C) 2011, 2012 Free Software Foundation, Inc.
+    Copyright (C) 2011 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -3747,6 +3747,7 @@ melt_scanning (melt_ptr_t p)
 		      (douts (get_field :hookdesc_out_formals hkdata))
 		      (dctype (get_field :hookdesc_ctype hkdata))
 		      (ctynam (get_field :ctype_cname dctype))
+		      (:long nbparam 0)
 		      )
 		 (add2out outdeclbuf "MELT_EXTERN " ctynam " melthookproc_" hkname "(")
 		 (add2out outcodebuf  ctynam " melthookproc_" hkname "(")
@@ -3754,9 +3755,10 @@ melt_scanning (melt_ptr_t p)
 		  (dins)
 		  (curinsb :long inix)
 		  (debug "generate_runtypesupport_predefined_hooks curinsb=" curinsb " inix#" inix)
-		  (when (>i inix 0) 
+		  (when (>i nbparam 0) 
 		    (add2out outdeclbuf ", ")
 		    (add2out outcodebuf ", "))
+		  (setq nbparam (+i nbparam 1))
 		  (assert_msg "check curinsb" (is_a curinsb class_formal_binding))
 		  (add2out outdeclbuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
 		  (add2out outdeclbuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
@@ -3767,11 +3769,13 @@ melt_scanning (melt_ptr_t p)
 		  (douts)
 		  (curoutb :long outix)
 		  (debug "generate_runtypesupport_predefined_hooks curoutb=" curoutb " outix#" outix)
-		  (add2out outdeclbuf ", ")
+		  (when (>i nbparam 0) 
+		    (add2out outdeclbuf ", ")
+		    (add2out outcodebuf ", "))
+		  (setq nbparam (+i nbparam 1))
 		  (add2out outdeclbuf 
 			   (get_field :ctype_cname (get_field :fbind_type curoutb))
 			   "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
-		  (add2out outcodebuf ", ")
 		  (add2out outcodebuf (get_field :ctype_cname (get_field :fbind_type curoutb)))
 		  (add2out outcodebuf "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
 		  )

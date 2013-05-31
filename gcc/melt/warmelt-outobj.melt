@@ -6221,20 +6221,132 @@ if (1) return;
   (debug "output_hooks_with_modvar tuphooks=" tuphooks)
   (let ( (:long nbhooks (multiple_length tuphooks))
 	 )
-    (add2out declbuf "\n/*** " nbhooks " hooks in module variables declaration ***/\n")
-    (add2out implbuf "\n/*** " nbhooks " hooks in module variables implementations ***/\n")
+    (add2out declbuf "\n/*** " nbhooks " hooks in module variables declarations ***/\n")
+    (add2out implbuf "\n/*** " nbhooks 
+	     " hooks in module variables implementations [by output_hooks_with_modvar] ***/\n")
     (foreach_in_multiple
      (tuphooks)
      (curhookrout :long hix)
      (debug "output_hooks_with_modvar curhookrout=" curhookrout " hix#" hix)
      (assert_msg "check curhookrout" (is_a curhookrout class_hookroutineobj))
      (let ( (nhookproc (get_field :obrout_proc curhookrout))
+	    (nhookdata (get_field :nrhook_datahook nhookproc))
+	    (modvarbind (get_field :ndhook_modvarbind nhookdata))
+	    (hkname (get_field :nrhook_name nhookdata))
+	    (hkins (get_field :nrhook_inb nhookdata))
+	    (hkouts (get_field :nrhook_outb nhookdata))
+	    (hkctype (get_field :nrhook_ctype nhookdata))
+	    (hkctypename (get_field :ctype_cname hkctype)) 
+	    (:long nbparam 0)
 	   )
-       (debug "output_hooks_with_modvar nhookproc=" nhookproc)
-       (assert_msg "@$@unimplemented output_hooks_with_modvar")
+       (debug "output_hooks_with_modvar nhookproc=" nhookproc "\n modvarbind=" modvarbind "\n hkname=" hkname)
+       (assert_msg "check nhookproc" (is_a nhookproc class_nrep_hookproc))
+       (debug "output_hooks_with_modvar nhookdata=" nhookdata)
+       (assert_msg "check nhookdata" (is_a nhookdata class_nrep_datahook))
+       (add2out declbuf "\n" "/* declare hook with module variable " hkname " */\n")
+       (add2out declbuf "MELT_EXTERN " hkctypename " melthookproc_" hkname " (")
+       (add2out implbuf "\n" "/* define hook with module variable " hkname " */\n")
+       (add2out implbuf hkctypename " melthookproc_" hkname " (")
+       (debug "output_hooks_with_modvar hkins=" hkins)
+       ;; some code similar to generate_runtypesupport_predefined_hooks
+       ;; emit the input parameters
+       (foreach_in_multiple 
+	(hkins)
+	(curinsb :long inix)
+	(debug "output_hooks_with_modvar curinsb=" curinsb " inix#" inix)
+	(when (>i nbparam 0) 
+	  (add2out declbuf ", ")
+	  (add2out implbuf ", "))
+	(setq nbparam (+i nbparam 1))
+	(assert_msg "check curinsb" (is_a curinsb class_formal_binding))
+	(add2out declbuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
+	(add2out declbuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
+	(add2out implbuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
+	(add2out implbuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
+	)
+       ;; emit the output parameters
+       (foreach_in_multiple
+	(hkouts)
+	(curoutb :long outix)
+	(debug "output_hooks_with_modvar curoutb=" curoutb " outix#" outix)
+	(when (>i nbparam 0) 
+	  (add2out declbuf ", ")
+	  (add2out implbuf ", "))
+	(setq nbparam (+i nbparam 1))
+	(add2out declbuf 
+		 (get_field :ctype_cname (get_field :fbind_type curoutb))
+		 "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
+	(add2out implbuf ", ")
+	(add2out implbuf (get_field :ctype_cname (get_field :fbind_type curoutb)))
+	(add2out implbuf "* meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
+	)
+       (add2out declbuf ");\n")
+       (add2out implbuf ")\n" "{")
+       ;; emit the body
+       (add2out implbuf "typedef " hkctypename " melthooksig_" hkname "_t (")
+       (add2out implbuf "melt_ptr_t")
+       (foreach_in_multiple 
+	(hkins)
+	(curinsb :long inix)
+	(add2out implbuf ", " (get_field :ctype_cname (get_field :fbind_type curinsb)))
+	)
+       (foreach_in_multiple 
+	(hkouts)
+	(curoutb :long outix)
+	(add2out implbuf ", "  (get_field :ctype_cname (get_field :fbind_type curoutb)) "* ")
+	)
+       (add2out implbuf ");")
+       (add2sbuf_indentnl implbuf 1)
+       (add2out implbuf "  melthook_ptr_t melthkp = (melthook_ptr_t) melt_module_var_fetch (")
+       (out_enumix_modvarbind implbuf modvarbind)
+       (add2out implbuf ");\n")
+       (add2sbuf_indentnl implbuf 1)
+       (add2out implbuf "/*checkhook exist*/ melt_assertmsg (\" check module hook " hkname " exists\", ")
+       (add2sbuf_indentnl implbuf 15)
+       (add2out implbuf "             melthkp != NULL);")
+       (add2sbuf_indentnl implbuf 1)
+       (add2out implbuf "/*checkhook good*/ melt_assertmsg (\" check  module good hook " hkname " \", ")
+       (add2sbuf_indentnl implbuf 15)
+       (add2out implbuf "             melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);")
+       (add2sbuf_indentnl implbuf 1)
+       (add2out
+	implbuf 
+##{ /* check hook routine $HKNAME */
+   melthooksig_$HKNAME#_t *melthookptr_$HKNAME = 
+   (melthooksig_$HKNAME#_t*) (melthkp->hookad) ;
+   melt_assertmsg("check module hook routine $HKNAME", 
+	       melthookptr_$HKNAME);
+}#)
+       (add2sbuf_indentnl implbuf 1)
+       (add2out
+	implbuf ##{return (*melthookptr_$HKNAME) ((melt_ptr_t)melthkp}#
+                                                            )
+	(foreach_in_multiple 
+	 (hkins)
+	 (curinsb :long inix)
+	 (add2out implbuf ",")
+	 (add2sbuf_indentnl implbuf 20)
+	 (add2out implbuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
+	 )
+	(foreach_in_multiple
+	 (hkouts)
+	 (curoutb :long outix)
+	 (add2out implbuf ",") 
+	 (add2sbuf_indentnl implbuf 20)
+	 (add2out implbuf " meltout_" (get_field :named_name (get_field :binder curoutb)) "_o" outix)
+	 )
+	(add2out implbuf ");")
+	(add2sbuf_indentnl implbuf 0)
+       (add2out implbuf "} /*** end  melthookproc_" hkname " **/\n\n")
        )
      )					;end foreach tuphooks
-))
+    (add2out declbuf "\n/*** end of " nbhooks " hooks in module variables declarations ***/\n")
+    (add2out implbuf "\n/*** end of " nbhooks 
+	     " hooks in module variables implementations ***/\n")
+));; end output_hooks_with_modvar
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; utility function to translate a macroexpanded list
