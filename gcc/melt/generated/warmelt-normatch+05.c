@@ -39,6 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f5[] =
 #define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
 
+/**** no MELT module variables ****/
 /*** no extra MELT c-headers ***/
 
 
@@ -4541,7 +4542,7 @@ meltlab_endgetargs:;
       ;
       /*^putpairtail */
       /*putpairtail */
-      melt_assertmsg ("putpairtail /28430132 checkpair",
+      melt_assertmsg ("putpairtail /206ee5fe checkpair",
 		      melt_magic_discr ((melt_ptr_t)
 					( /*_.NSETFLAG__V38*/ meltfptr[37]))
 		      == MELTOBMAG_PAIR);
@@ -48864,7 +48865,7 @@ meltlab_endgetargs:;
       ;
       /*^putpairtail */
       /*putpairtail */
-      melt_assertmsg ("putpairtail /20398821 checkpair",
+      melt_assertmsg ("putpairtail /32a44cd7 checkpair",
 		      melt_magic_discr ((melt_ptr_t)
 					( /*_.NRESBIND__V260*/ meltfptr[251]))
 		      == MELTOBMAG_PAIR);

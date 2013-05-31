@@ -39,6 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] =
 #define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
 
+/**** no MELT module variables ****/
 /*** no extra MELT c-headers ***/
 
 
