@@ -6225,16 +6225,12 @@ if (1) return;
     (add2out implbuf "\n/*** " nbhooks " hooks in module variables implementations ***/\n")
     (foreach_in_multiple
      (tuphooks)
-     (curhookini :long hix)
-     (debug "output_hooks_with_modvar curhookini=" curhookini " hix#" hix)
-     (assert_msg "check curhookini" (is_a curhookini class_objinithook))
-     (let ( (ndhook (get_field :oie_data curhookini))
-	    (modvarbind (get_field :oihk_modvarbind curhookini))
-	    (ohkdata (get_field :oihk_data curhookini))
-	    (nhpro (get_field :oihk_prochook curhookini))
+     (curhookrout :long hix)
+     (debug "output_hooks_with_modvar curhookrout=" curhookrout " hix#" hix)
+     (assert_msg "check curhookrout" (is_a curhookrout class_hookroutineobj))
+     (let ( (nhookproc (get_field :obrout_proc curhookrout))
 	   )
-       (debug "output_hooks_with_modvar ndhook=" ndhook " modvarbind=" modvarbind
-	      " ohkdata=" ohkdata " nhpro=" nhpro)
+       (debug "output_hooks_with_modvar nhookproc=" nhookproc)
        (assert_msg "@$@unimplemented output_hooks_with_modvar")
        )
      )					;end foreach tuphooks
@@ -6478,20 +6474,23 @@ if (1) return;
 			    (:long nbflags (+i (/iraw nbmodvars 16) 1))
 			    )
 		       (add2out declbuf 
+				"\n"
 				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_ptr_tab[" 
 				nbvarslots "];\n")
 		       (add2out declbuf 
 				"MELT_EXTERN bool MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_flags[" 
-				nbflags "];\n")
+				nbflags "];\n\n")
 		       (add2out implbuf "melt_ptr_t melt_" modnamcident "_module_var_ptr_tab[" nbvarslots "];\n")
 		       (add2out implbuf "bool melt_" modnamcident "_module_var_flags["  nbflags "];\n")
 		       )
 		     ;; emit the fetch & put; useful for outpucod_objfetchmodvar & outpucod_objputmodvar
 		     (add2out declbuf 
-			      "static inline melt_ptr_t melt_module_var_fetch (int ix)\n"
+			      "static inline melt_ptr_t\n"
+			      "melt_module_var_fetch (int ix)\n"
 			      "{return (ix > 0  &&  ix <= " nbmodvars ")?melt_" modnamcident "_module_var_ptr_tab[ix]:NULL;}\n\n")
 		     (add2out declbuf 
-			      "static inline void melt_module_var_put (int ix, melt_ptr_t val)\n"
+			      "static inline void\n" 
+			      "melt_module_var_put (int ix, melt_ptr_t val)\n"
 			      "{\n"
 			      "  if (ix > 0  &&  ix <= " nbmodvars ") {\n"
 			      "    melt_" modnamcident "_module_var_ptr_tab[ix]= val;\n"
@@ -6587,17 +6586,24 @@ if (1) return;
 	       (add2out implbuf "/*** no extra MELT implementations ***/\n"))
 ;;;;
 	     ;;
+	     (debug "translate_macroexpanded_list objlist=" objlist)
 	     (foreach_in_list
 	      (objlist)
 	      (pairel obel)
 	      (debug "translate_macroexpanded_list obel=" obel)
 	      (assert_msg "check obel" (is_object obel))
 	      ;; hack to generate hook routine with module variable
-	      (when (and (is_a obel class_objinithook)
-			 (unsafe_get_field :oihk_modvarbind obel))
-		(list_append hookswithmodvarlist obel)
-		(debug "translate_macroexpanded_list hookwithmodvar obel=" obel)
-		)
+	      (when  (is_a obel class_hookroutineobj)
+		(debug "translate_macroexpanded_list obel is hookroutineobj " obel)
+		(let ( (hkproc (get_field :obrout_proc obel))
+		       (hkdata (get_field :nrhook_datahook hkproc))
+		       )
+		  (debug "translate_macroexpanded_list hkproc=" hkproc "\n.. hkdata=" hkdata)
+		(when (get_field :ndhook_modvarbind hkdata)
+		  (list_append hookswithmodvarlist obel)
+		  (debug "translate_macroexpanded_list hookwithmodvar obel=" obel)
+		)))
+	      ;;
 	      ;; we do want to generate several C files...
 	      (let ( (:long filnum
 			    (if (is_a obel class_procroutineobj)
@@ -6627,6 +6633,7 @@ if (1) return;
 ;;;; emit the initial routine
 	     (output_c_code iniobj declbuf implbuf 0)
 	     (output_exported_offsets modctx declbuf implbuf)
+	     (debug "translate_macroexpanded_list hookswithmodvarlist=" hookswithmodvarlist)
 	     (let ( (tuphookswithmodvar (list_to_multiple hookswithmodvarlist discr_multiple))
 		    )
 	       (debug "translate_macroexpanded_list tuphookswithmodvar=" tuphookswithmodvar)

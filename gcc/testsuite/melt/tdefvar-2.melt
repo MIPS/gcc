@@ -24,6 +24,6 @@
   (debug "hookme inv=" inv)
   )
 
-(debug "tdefvar-2 varhook=" varhook)
+(debug "tdefvar-2 final varhook=" varhook)
 
 ;; eof tdefvar-2.melt

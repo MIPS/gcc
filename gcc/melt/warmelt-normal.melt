@@ -4731,7 +4731,7 @@ source location.}#
 	   "\n.. ndatahook=" ndatahook "\n.. sctype=" sctype
 	   "\n.. descrhook=" descrhook "\n.. smodvar=" smodvar) 
     (if smodvar
-	(let ( (modvarbind (find_env smodvar env))
+	(let ( (modvarbind (find_env env smodvar))
 	      )
 	  (debug "normexp_defhook symbname=" symbname " smodvar=" smodvar " modvarbind=" modvarbind)
 	  (when (is_not_a modvarbind class_normal_module_variable_binding)
