@@ -6483,8 +6483,8 @@ if (1) return;
 		       (add2out declbuf 
 				"MELT_EXTERN bool MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_flags[" 
 				nbflags "];\n")
-		       (add2out implbuf "melt_" modnamcident "_module_var_ptr_tab[" nbvarslots "];\n")
-		       (add2out implbuf "melt_" modnamcident "_module_var_flags["  nbflags "];\n")
+		       (add2out implbuf "melt_ptr_t melt_" modnamcident "_module_var_ptr_tab[" nbvarslots "];\n")
+		       (add2out implbuf "bool melt_" modnamcident "_module_var_flags["  nbflags "];\n")
 		       )
 		     ;; emit the fetch & put; useful for outpucod_objfetchmodvar & outpucod_objputmodvar
 		     (add2out declbuf 

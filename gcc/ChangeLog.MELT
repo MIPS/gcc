@@ -1,6 +1,11 @@
 
 
 2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tdefvar-1.melt test passes, but tdefvar-2.melt fails!}}
+	* melt/warmelt-outobj.melt: Correct emission of definition of
+	module variables related array.
+
+2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tdefvar-1.melt test still fails!}}
 	* melt/warmelt-normal.melt (normalize_tuple): Add dirty hack to
 	put module variables inside local bindings, because meltgc_apply
