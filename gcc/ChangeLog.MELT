@@ -1,6 +1,54 @@
 
 
 2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{convention naming change: use melt_forwarding_module_data and
+	melt_marking_module_data; speak of module variables, not static
+	variables...}}
+	* melt-runtime.c (struct melt_module_info_st)
+	(struct melt_extension_info_st): Update comment.
+	(melt_load_module_index, meltgc_run_c_extension): Update for the
+	changing convention.
+
+	* melt/warmelt-first.melt (class_any_module_context): Improve
+	comment.
+
+	* melt/warmelt-macro.melt (class_source_defvar, mexpand_defvar)
+	(defvar): Improve comment and documentation.
+
+	* melt/warmelt-normal.melt (class_normal_variable_binding):
+	Remove, since renamed as...
+	(class_normal_module_variable_binding): Changed name.
+	(class_nrep_staticvarocc): Remove, since renamed as...
+	(class_nrep_modulevarocc): Changed name.
+	(class_nrep_putstaticvar): Remove, since renamed as...
+	(class_nrep_putmodulevar): Changed name.
+	(normexp_symbol, normexp_setq, normexp_defvar): Update
+	accordingly.
+	(gectyp_statvarocc): Rename as...
+	(gectyp_modvarocc): New name.
+
+	* melt/warmelt-genobj.melt (class_objfetchmodvar): New class with
+	field obfetchmodvar_bind.
+	(class_objputmodvar): New class with fields obputmodvar_bind &
+	obputmodvar_val.
+	(compilobj_nrep_staticvarocc, compilobj_nrep_putstaticvar): Rename
+	as...
+	(compilobj_nrep_modulevarocc, compilobj_nrep_putmodulevar): New,
+	use the classes above.
+
+	* melt/warmelt-outobj.melt (out_enumix_modvarbind): New utility function.
+	(outpucod_objfetchmodvar): New method for output_c_code of
+	class_objfetchmodvar.
+	(outpucod_objputmodvar): New method for output_c_code of
+	class_objputmodvar.
+	(output_melt_descriptor): Emit melt_module_nb_module_vars.
+	(translate_macroexpanded_list): Emit declaration and
+	implementation for module variables. Emit enumeration of module
+	variable indexes.
+
+	* melt/warmelt-hooks.melt: Improve comment.
+
+2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{add convention about melt_marking_here and melt_forwarding_here
 	in generated code}}

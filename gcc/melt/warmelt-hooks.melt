@@ -253,9 +253,8 @@ bool  melthk_start_unit_registered_flag;
   :delqu_last (make_list discr_list)
   )
 
-;; this internal hook needs to be predefined, or static variable
-;; [which are not yet implemented in MELT 0.9.9] to remain alive for
-;; the MELT & Ggc garbage collectors...
+;; this internal hook needs to be predefined to remain alive for the
+;; MELT & Ggc garbage collectors...
 (defhook hook_start_unit () () :void
   :predef HOOK_START_UNIT
   (let ( (firstlist (unsafe_get_field :delqu_first start_unit_delayed_queue))

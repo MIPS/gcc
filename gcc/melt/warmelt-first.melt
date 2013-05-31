@@ -581,7 +581,7 @@ definition.}#
 (defclass class_variable_binding
   :super class_fixed_binding
   :fields ()
-  :doc #{The internal $CLASS_VARIABLE_BINDING is for static variable
+  :doc #{The internal $CLASS_VARIABLE_BINDING is for module variable
 bindings. See the $DEFVAR macro.}# 
 )
 
@@ -900,7 +900,7 @@ subclasses are produced by macro expanders.}# )
 	   mocx_packagepclist		;list of pkg-config package string names
 	   mocx_errorhandler		;closure to be called on errors
 	   mocx_varcount		;a boxed counter for defined variables
-	   mocx_varlist			;list of static variables bindings
+	   mocx_varlist			;list of module variables bindings
 	   )
   :doc #{The internal $CLASS_ANY_MODULE_CONTEXT describes the whole module or extension
 context of a translation. $MOCX_MODULENAME gives the module name,

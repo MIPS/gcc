@@ -299,10 +299,10 @@ part, $NIFP_ELSE the else part, $NIFP_CTYP the ctype.}#
   :fields ()
 )
 
-(defclass class_nrep_putstaticvar
+(defclass class_nrep_putmodulevar
   :super class_nrep_expression
-  :fields (nputstatic_destvar
-	  nputstatic_value))
+  :fields (nputmod_destvar
+	  nputmod_value))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (compile_warning ":doc missing below")
@@ -452,9 +452,9 @@ tuple of the normalized slots, and $NINSTB_CLABIND is the class binding.}#
   :super  class_normal_constructor_binding
   :fields (ninstb_slots ninstb_clabind))
 
-(defclass class_normal_variable_binding
-  :doc #{The internal $CLASS_NORMAL_VARIABLE_BINDING is the
-class of static variable bindings. }#
+(defclass class_normal_module_variable_binding
+  :doc #{The internal $CLASS_NORMAL_MODULE_VARIABLE_BINDING is the
+class of module variable bindings. }#
   :super class_variable_binding
   :fields (nvarb_num))
 
@@ -670,9 +670,9 @@ procedure in a module, defined with $DEFHOOK. }#
 	   ))
 
 ;; normal static variable occurrence
-(defclass class_nrep_staticvarocc
+(defclass class_nrep_modulevarocc
   :super class_nrep_simple
-  :fields (nstatvar_bind		;the normal variable binding, containing the index
+  :fields (nmodvar_bind		;the normal variable binding, containing the index
 	   ))
 
 ;; normal  occurrence of a symbol 
@@ -796,7 +796,7 @@ procedure in a module, defined with $DEFHOOK. }#
  class_normal_constructed_tuple_binding
  class_normal_constructor_binding
  class_normal_magic_binding
- class_normal_variable_binding
+ class_normal_module_variable_binding
  class_nrep
  class_nrep_again
  class_nrep_anyproc
@@ -855,7 +855,7 @@ procedure in a module, defined with $DEFHOOK. }#
  class_nrep_nil
  class_nrep_predef
  class_nrep_progn
- class_nrep_putstaticvar
+ class_nrep_putmodulevar
  class_nrep_quasiconst_current_module_environment_container
  class_nrep_quasiconst_parent_module_environment
  class_nrep_quasiconstant
@@ -866,7 +866,7 @@ procedure in a module, defined with $DEFHOOK. }#
  class_nrep_routproc
  class_nrep_setq
  class_nrep_simple
- class_nrep_staticvarocc
+ class_nrep_modulevarocc
  class_nrep_store_predefined
  class_nrep_symocc
  class_nrep_typed_expression
@@ -1782,14 +1782,14 @@ source location.}#
 	      )))
 	;;
 	;; static variables
-	( (is_a bind class_normal_variable_binding)
+	( (is_a bind class_normal_module_variable_binding)
 	  (debug "normexp_symbol variable binding bind=" bind)
-	  (let ( (nstvar (instance class_nrep_staticvarocc
-				   :nstatvar_bind bind))
+	  (let ( (nstvar (instance class_nrep_modulevarocc
+				   :nmodvar_bind bind))
 		 )
 	    ;; cache the result
 	    (mapobject_put sycmap recv nstvar)
-	    (debug "normexp_symbol static variable occurrence nstvar=" nstvar  
+	    (debug "normexp_symbol module variable occurrence nstvar=" nstvar  
 		   "\n.. updated sycmap=" sycmap)
 	    (return nstvar ())
 	  ))
@@ -1921,11 +1921,11 @@ source location.}#
 
 
 ;;;
-(defun gectyp_statvarocc (recv env)
-  (assert_msg "check recv" (is_a recv class_nrep_staticvarocc))
+(defun gectyp_modvarocc (recv env)
+  (assert_msg "check recv" (is_a recv class_nrep_modulevarocc))
   (return ctype_value)
   )
-(install_method class_nrep_staticvarocc get_ctype gectyp_statvarocc)
+(install_method class_nrep_modulevarocc get_ctype gectyp_modvarocc)
 
 
 ;;; normalize a class - used in particular in normalization of get_field
@@ -3944,18 +3944,18 @@ source location.}#
 	       (inform_strv sloc "right [expr] type for incomatible SETQ"
 			    (unsafe_get_field :named_name expctyp))
 	       ))
-       (when (is_a nvar class_nrep_staticvarocc)
-	 (debug "normexp_setq staticvarocc nexp=" nexp)
+       (when (is_a nvar class_nrep_modulevarocc)
+	 (debug "normexp_setq modulevarocc nexp=" nexp)
 	 (let ( (csym (clone_symbol 'putstatic_))
 		(csbind (instance class_normal_let_binding
 				 :binder csym
 				 :letbind_loc sloc
 				 :letbind_type ctype_void
 				 :letbind_expr
-				 (instance class_nrep_putstaticvar
+				 (instance class_nrep_putmodulevar
 					   :nrep_loc sloc
-					   :nputstatic_destvar nvar
-					   :nputstatic_value nexp)))
+					   :nputmod_destvar nvar
+					   :nputmod_value nexp)))
 		(cslocc (instance class_nrep_locsymocc
 				 :nrep_loc sloc
 				 :nocc_ctyp ctype_void
@@ -7140,10 +7140,10 @@ source location.}#
        (error_strv sloc "cannot redefine variable with DEFVAR" 
 		   (get_field :named_name sname))
        (return))
-     (debug "normexp_defvar class_normal_variable_binding=" class_normal_variable_binding)
+     (debug "normexp_defvar class_normal_module_variable_binding=" class_normal_module_variable_binding)
      (let (
 	   (bnumvar (constant_box numvar))
-	   (varbnd (instance class_normal_variable_binding
+	   (varbnd (instance class_normal_module_variable_binding
 			     :binder sname
 			     :nvarb_num bnumvar))
 	   )

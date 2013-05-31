@@ -79,6 +79,32 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		 code_buffer_limit_optset)
 
 
+
+;;;;;;
+;; utility function to output the enum index of a module variable binding
+(defun out_enumix_modvarbind (out mvarbind)
+  (assert_msg "check out" (is_out out))
+  (assert_msg "check mvarbind" (is_a mvarbind class_normal_module_variable_binding))
+  (let ( (binder (get_field :binder mvarbind))
+	 (outnam (lambda (nam) (add2out_cident out nam)))
+	 )
+    (cond ( (is_a binder class_cloned_symbol)
+	    (let ( (csymnam (get_field :named_name binder))
+		   (crank (get_field :csym_urank binder))
+		   )
+	      (add2out out "meltmodvarix_" outnam csymnam "_clon" crank)
+	    ))
+	  ( (== (discrim binder) class_symbol)
+	    (let ( (symnam (get_field :named_name binder))
+		   )
+	      (add2out out "meltmodvarix_" outnam symnam "_symb")
+	    ))
+	  (:else
+	   (debug "out_enumix_modvarbind bad binder in mvarbind=" mvarbind)
+	   (assert_msg "out_enumix_modvarbind bad binder" ()))
+  )))
+
+;;;;;;
 (defun outdeclinit_root (recv sbuf)
   (debug "outdeclinit_root recv=" recv)
   (assert_msg "outdeclinit_root unimplemented catchall" ())
@@ -2877,7 +2903,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 (install_method class_objgetarg output_c_code outpucod_getarg)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; output code for argument getter
+;; output code for rest argument getter
 (defun outpucod_getargrest (garg declbuf implbuf :long depth)
   (assert_msg "check garg" (is_a garg class_objgetargrest))
   (let ( (oloc (unsafe_get_field :obarg_obloc garg)) 
@@ -2974,6 +3000,39 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 (install_method class_objcformal output_c_code outpucod_objcformal)
 
 
+;;; output code for module variable fetching
+(defun outpucod_objfetchmodvar (fmodvar declbuf implbuf :long depth)
+  (debug "outpucod_objfetchmodvar fmodvar=" fmodvar)
+  (assert_msg "check fmodvar" (is_a fmodvar class_objfetchmodvar))
+  (let ( (varbind (get_field :obfetchmodvar_bind fmodvar))
+	 )
+    ;; the inlined function melt_module_var_fetch is emitted by translate_macroexpanded_list
+    (assert_msg "check varbind" (is_a class_normal_module_variable_binding varbind))
+    (add2out implbuf " (melt_module_var_fetch (")
+    (out_enumix_modvarbind implbuf varbind)
+    (add2out implbuf "))")
+))
+(install_method class_objfetchmodvar output_c_code outpucod_objfetchmodvar)
+
+;;; output code for module variable putting
+(defun outpucod_objputmodvar (pmodvar declbuf implbuf :long depth)
+  (debug "outpucod_objputmodvar pmodvar=" pmodvar)
+  (assert_msg "check pmodvar" (is_a pmodvar class_objputmodvar))
+  (let ( (oloc (get_field :obi_loc pmodvar))
+	 (varbind (get_field :obputmodvar_bind pmodvar))
+	 (oval (get_field :obputmodvar_val pmodvar))
+	 )
+    ;; the inlined function melt_module_var_put is emitted by translate_macroexpanded_list
+    (assert_msg "check varbind" (is_a class_normal_module_variable_binding varbind))
+    (if oloc (output_location oloc implbuf depth "putmodvar"))
+    (add2out implbuf "melt_module_var_put (")
+    (out_enumix_modvarbind implbuf varbind)
+    (add2out implbuf ", (melt_ptr_t)(")
+    (output_c_code oval declbuf implbuf depth)
+    (add2out implbuf "));")
+    (add2sbuf_indentnl implbuf depth)
+))
+(install_method class_objputmodvar output_c_code outpucod_objputmodvar)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output code for put output argument in hooks
 (defun outpucod_objputoutarg (outa declbuf implbuf :long depth)
@@ -5337,7 +5396,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 	     extern "C" const char* const melt_secondaryhexmd5tab[];
 	     extern "C" const int melt_lastsecfileindex;
 	     extern "C" const char melt_cumulated_hexmd5[];
-	     extern "C" const int melt_module_nb_static_vars;
+	     extern "C" const int melt_module_nb_module_vars;
 
 	     extern "C" {
 	     #endif /*__cplusplus */
@@ -5596,8 +5655,8 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 	 ##{/* cumulated checksum of primary & secondary files */
 const char melt_cumulated_hexmd5[]="$CUMPATHMDS" ;
 
-/* number of static variables */
-const int melt_module_nb_static_vars= $NBSTATVAR;
+/* number of module variables */
+const int melt_module_nb_module_vars= $NBSTATVAR;
 
 /* include the timestamp file */
 #define $MODIDNAM 1
@@ -6380,48 +6439,62 @@ if (1) return;
 		 (if nbmodvars
 		     (progn
 		       (debug "translate_macroexpanded_list modvartup=" modvartup)
-		       (add2out declbuf "/*** " nbmodvars " MELT static variables ****/\n")
-		       (add2out declbuf "MELT_EXTERN void melt_forwarding_here (void);\n")
-		       (add2out declbuf "MELT_EXTERN void melt_marking_here (void);\n")
+		       (add2out declbuf "/*** " nbmodvars " MELT module variables ****/\n")
+		       (add2out declbuf "MELT_EXTERN void melt_forwarding_module_data (void);\n")
+		       (add2out declbuf "MELT_EXTERN void melt_marking_module_data (void);\n")
 		       ;; declare the static pointers and flags
 		       (add2out declbuf 
-				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_static_var_ptr_tab[" 
+				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_ptr_tab[" 
 				(*i 16 (+i (/iraw (+i nbmodvars 1) 16) 1)) "];\n")
 		       (add2out declbuf 
-				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_static_var_flags[" 
+				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_module_var_flags[" 
 				(+i (/iraw nbmodvars 16) 1) "];\n")
-		       ;; emit the fetch & put
+		       ;; emit the fetch & put; useful for outpucod_objfetchmodvar & outpucod_objputmodvar
 		       (add2out declbuf 
-				"static inline melt_ptr_t melt_static_var_fetch (int ix)\n"
-				"{return (ix>0 && ix<= " nbmodvars ")?melt_" modnamcident "_static_var_ptr_tab[ix]:NULL;}\n\n")
+				"static inline melt_ptr_t melt_module_var_fetch (int ix)\n"
+				"{return (ix>0 && ix<= " nbmodvars ")?melt_" modnamcident "_module_var_ptr_tab[ix]:NULL;}\n\n")
 		       (add2out declbuf 
-				"static inline void melt_static_var_put (int ix, melt_ptr_t val)\n"
-				"{if (ix>0 && ix<= " nbmodvars ") { melt_" modnamcident "_static_var_ptr_tab[ix]= val;\n"
-				" melt_" modnamcident "_static_var_flags[ix/16] = true;}\n}\n\n")
+				"static inline void melt_module_var_put (int ix, melt_ptr_t val)\n"
+				"{if (ix>0 && ix<= " nbmodvars ") { melt_" modnamcident "_module_var_ptr_tab[ix]= val;\n"
+				" melt_" modnamcident "_module_var_flags[ix/16] = true;}\n}\n\n")
 		       ;; emit the forwarding routine
-		       (add2out implbuf "\n/**** forwarding static MELT variables ****/\n")
-		       (add2out implbuf "void melt_forwarding_here (void) {\n")
+		       (add2out implbuf "\n/**** forwarding MELT module variables ****/\n")
+		       (add2out implbuf "void melt_forwarding_module_data (void) {\n")
 		       (add2out implbuf "  int i, j;\n")
 		       (add2out implbuf "  for (i=0; i<=" (/iraw (+i nbmodvars 1) 16) "; i++) {\n")
-		       (add2out implbuf "    if (melt_" modnamcident "_static_var_flags[i]) {\n")
-		       (add2out implbuf "      " modnamcident "_static_var_flags[i] = false;\n")
+		       (add2out implbuf "    if (melt_" modnamcident "_module_var_flags[i]) {\n")
+		       (add2out implbuf "      " modnamcident "_module_var_flags[i] = false;\n")
 		       (add2out implbuf "      for (j=0; j<16; j++)\n")
-		       (add2out implbuf "        MELT_FOWARDED (melt_" modnamcident "_static_var_ptr_tab[i*16+j]);\n")
+		       (add2out implbuf "        MELT_FOWARDED (melt_" modnamcident "_module_var_ptr_tab[i*16+j]);\n")
 		       (add2out implbuf "    };\n")
 		       (add2out implbuf "  }\n")
-		       (add2out implbuf "} /* end melt_fowarding_here */\n\n")
+		       (add2out implbuf "} /* end melt_fowarding_module_data */\n\n")
 		       ;; emit the marking routine
-		       (add2out implbuf "\n/**** marking static MELT variables ****/\n")
-		       (add2out implbuf "void melt_marking_here (void) {\n")
+		       (add2out implbuf "\n/**** marking MELT module variables ****/\n")
+		       (add2out implbuf "void melt_marking_module_data (void) {\n")
 		       (add2out implbuf "  int i;\n")
 		       (add2out implbuf "  for (i=0; i<=" nbmodvars "; i++)\n")
-		       (add2out implbuf "    " (get_field :ctype_marker ctype_value) "(melt_" modnamcident "_static_var_ptr_tab[i]);\n")
-		       (add2out implbuf "} /* end melt_marking_here */\n\n")
+		       (add2out implbuf "    " (get_field :ctype_marker ctype_value) "(melt_" modnamcident "_module_var_ptr_tab[i]);\n")
+		       (add2out implbuf "} /* end melt_marking_module_data */\n\n")
 		       ;;
 		       ;; should emit the enum for the indexes
+		       (add2out declbuf "/* MELT module variables indexes */\n"
+				"enum {\n"
+				" meltmodatix_none,\n")
+		       (foreach_in_multiple
+			(modvartup)
+			(curmodvarbind :long mvix)
+			(debug "translate_macroexpanded_list curmodvarbind=" curmodvarbind " mvix#" mvix)
+			(assert_msg "check curmodvarbind" (is_a curmodvarbind class_normal_module_variable_binding))
+			(add2out declbuf " ")
+			(out_enumix_modvarbind declbuf curmodvarbind)
+			(add2out declbuf " = " (+i mvix 1) ",\n")
+			)
+		       (add2out declbuf " meltmodatix_last\n")
+		       (add2out declbuf "}; /* end MELT module variables indexes */\n")
 		       )
 		   (progn
-		     (add2out declbuf "/**** no MELT static variables ****/\n")
+		     (add2out declbuf "/**** no MELT module variables ****/\n")
 		     ))
 		 )
 	       ;;

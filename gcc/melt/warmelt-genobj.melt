@@ -91,6 +91,11 @@
   :fields (
 	   ))
 
+;; fetch a module variable
+(defclass class_objfetchmodvar 
+  :super class_objpurevalue
+  :fields (obfetchmodvar_bind ;; the normal module variable binding
+	   ))
 
 ;; predefined object
 (defclass class_objpredef
@@ -243,6 +248,11 @@
   :fields (obcpt_expr			;expression list or object or tuple
 	   obcpt_type			;ctype of expression
 	   ))
+
+(defclass class_objputmodvar
+  :super class_objinstr
+  :fields (obputmodvar_bind
+	   obputmodvar_val))
 
 ;; get argument instruction
 (defclass class_objgetarg
@@ -692,6 +702,7 @@
  class_objexit
  class_objexpandpureval
  class_objexpv
+ class_objfetchmodvar
  class_objfinalreturn
  class_objflag
  class_objgetarg
@@ -742,6 +753,7 @@
  class_objputpair
  class_objputpairhead
  class_objputpairtail
+ class_objputmodvar
  class_objputroutconst
  class_objputroutconstnotnull
  class_objputslot
@@ -3866,29 +3878,48 @@ $SBUF.}#
     ))
 (install_method class_nrep_unsafe_put_fields compile_obj compilobj_nrep_unsafe_put_fields)
 
-;;;;
-(defun compilobj_nrep_staticvarocc (nsvar gcx)
-  (debug "compilobj_nrep_staticvarocc nsvar=" nsvar)
-  (assert_msg "check nsvar" (is_a nsvar class_nrep_staticvarocc))
-  (let  ( (nvbind (get_field :nstatvar_bind nsvar))
-	  (nsym (get_field :binder nvbind))
-	  (nvnum (get_field :nvarb_num nvbind))
-	 )
-  (assert_msg "@$@unimplemented compilobj_nrep_staticvarocc")
-))
-(install_method class_nrep_staticvarocc compile_obj compilobj_nrep_staticvarocc)
+
 
 ;;;;
-(defun compilobj_nrep_putstaticvar (npvar gcx)
-  (debug "compilobj_nrep_putstaticvar npvar=" npvar)
-  (assert_msg "check npvar" (is_a npvar class_nrep_putstaticvar))
+(defun compilobj_nrep_modulevarocc (nsvar gcx)
+  (debug "compilobj_nrep_modulevarocc nsvar=" nsvar)
+  (assert_msg "check nsvar" (is_a nsvar class_nrep_modulevarocc))
+  (let  ( (nvbind (get_field :nmodvar_bind nsvar))
+	 )
+    (assert_msg "check nvbind" (is_a nvbind class_normal_module_variable_binding))
+      (let ( (ofetch (instance class_objfetchmodvar
+			     :obfetchmodvar_bind nvbind))
+	     )
+	(debug "compilobj_nrep_modulevarocc ofetch=" ofetch)
+	(return ofetch)
+)))
+(install_method class_nrep_modulevarocc compile_obj compilobj_nrep_modulevarocc)
+
+
+
+;;;;
+(defun compilobj_nrep_putmodulevar (npvar gcx)
+  (debug "compilobj_nrep_putmodulevar npvar=" npvar)
+  (assert_msg "check npvar" (is_a npvar class_nrep_putmodulevar))
   (let ( (loc (unsafe_get_field :nrep_loc npvar)) 
-	 (destvar (unsafe_get_field :nputstatic_destvar npvar))
-	 (nval (unsafe_get_field :nputstatic_value npvar))
-	)
-  (assert_msg "@$@unimplemented compilobj_nrep_putstaticvar")
-  ))
-(install_method class_nrep_putstaticvar compile_obj compilobj_nrep_putstaticvar)
+	 (destvar (unsafe_get_field :nputmod_destvar npvar))
+	 (nval (unsafe_get_field :nputmod_value npvar))
+	 )
+    (debug "compilobj_nrep_putmodulevar destvar=" destvar " nval=" nval)
+    (assert_msg "check destvar" (is_a destvar class_nrep_modulevarocc))
+    (let ( (modvarbind (get_field :nmodvar_bind destvar))
+	   (oval (compile_obj nval gcx))
+	   )
+      (assert_msg "check modvarbind" (is_a modvarbind class_normal_module_variable_binding))
+      (let ( (oput (instance class_objputmodvar
+			     :obi_loc loc
+			     :obputmodvar_bind modvarbind
+			     :obputmodvar_val oval))
+	     )
+	(debug "compilobj_nrep_putmodulevar result oput=" oput)
+	(return oput)
+	))))
+(install_method class_nrep_putmodulevar compile_obj compilobj_nrep_putmodulevar)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun compilobj_nrep_checksignal (nchint gcx)

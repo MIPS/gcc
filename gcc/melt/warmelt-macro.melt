@@ -324,10 +324,10 @@ documentation $SEXPSYN_DOC.}#
 	   sdef_doc			;documentation string or list
 	   ))
 
-;;;; define a static variable
+;;;; define a module variable
 (defclass class_source_defvar
   :super class_source_definition
-  :doc #{The $CLASS_SOURCE_DEFVAR defines a static variable, initialized to the nil value.}#
+  :doc #{The $CLASS_SOURCE_DEFVAR defines a module variable, initialized to the nil value.}#
 )
 
 ;;;; define a value
@@ -2972,7 +2972,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
     )))
 (install_initial_macro 'defvar mexpand_defvar)
 (export_macro defvar mexpand_defvar
-	      :doc #{The $DEFVAR macro defines a static variable,
+	      :doc #{The $DEFVAR macro defines a module variable,
 initialized to the nil value. Syntax 
 is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 
