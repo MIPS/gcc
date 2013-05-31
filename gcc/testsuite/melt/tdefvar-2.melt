@@ -1,0 +1,29 @@
+;; file tdefvar-2.melt -*- lisp -*-
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tdefvar-2.melt 
+ gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args | sed 's:^ *::')" 
+ ./cc1 -fmelt-mode=rundebug  -fmelt-module-path=meltbuild-stage3:meltbuild-modules \
+    -fmelt-source-path=meltbuild-stage3:meltbuild-sources \
+    -fmelt-module-makefile=$GCCMELT_SOURCE/gcc/melt-module.mk \
+    -fmelt-workdir=meltbuild-workdir \
+    -fmelt-tempdir=meltbuild-tempdir \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tdefvar-2.melt \
+     "$gccmelt_cflags" \
+    meltbuild-empty-file.c
+|#
+
+(defvar varhook)
+(defvar vartwo)
+
+(defhook hookme (inv) () :void
+  :var varhook
+  (setq vartwo inv)
+  (debug "hookme inv=" inv)
+  )
+
+(debug "tdefvar-2 varhook=" varhook)
+
+;; eof tdefvar-2.melt

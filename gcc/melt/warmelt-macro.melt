@@ -370,10 +370,11 @@ the location of the expansion.}#
   :doc #{The internal $CLASS_SOURCE_DEFHOOK is the abstract syntax for
   $DEFHOOK. Inherited $SFORMAL_ARGS are the input formals, and
   $SHOOK_OUT_FORMALS are the output formals, $SHOOK_CTYPE is the
-  result ctype, $SHOOK_PREDEF is the optional predefined slot, and
-  $SHOOK_BODY is the body. }#
+  result ctype, $SHOOK_PREDEF is the optional predefined slot,
+  $SHOOK_VARIABLE is the optional module variable, and $SHOOK_BODY is
+  the body. }#
   :super class_source_definition_formal
-  :fields (shook_out_formals shook_ctype shook_predef shook_body))
+  :fields (shook_out_formals shook_ctype shook_predef shook_variable shook_body))
 
 ;;; define a citerator
 (defclass class_source_defciterator
@@ -2993,6 +2994,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 	 (restypkw ())			;the ctype keyword of result
 	 (resctyp ())			;the ctype of result
 	 (predefv ())			;optional :predef
+	 (modvar ())			;optional :var
 	 (docv ())			;optional :doc
 	 (hbind (instance class_hook_binding
 			  :binder symb
@@ -3067,6 +3069,16 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
       (setq predefv (pair_head curpair))
       (setq curpair (pair_tail curpair))
       )
+    ;; handle :var
+    (when (== (pair_head curpair) ':var)
+      (setq curpair (pair_tail curpair))
+      (if modvar (error_strv loc "duplicate :VAR in DEFHOOK" symbname))
+      (setq modvar (pair_head curpair))
+      (setq curpair (pair_tail curpair))
+      (when (is_not_a modvar class_symbol)
+	(error_strv loc "DEFHOOK should have a symbol :VAR" symbname)
+	(return))
+      )
     ;; handle :doc
     (when (== (pair_head curpair) ':doc)
       (setq curpair (pair_tail curpair))
@@ -3097,6 +3109,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 		      :shook_out_formals outup
 		      :shook_ctype resctyp
 		      :shook_predef predefv
+		      :shook_variable modvar
 		      :shook_body bodytup
 		      ))
 	   )

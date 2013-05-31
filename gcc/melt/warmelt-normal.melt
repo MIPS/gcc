@@ -640,6 +640,7 @@ procedure in a module, defined with $DEFHOOK. }#
 	   ndhook_data		    ;the data
 	   ndhook_closv		    ;tuple of closed values
 	   ndhook_predef	    ;the predefined, if any
+	   ndhook_modvarbind	    ;the module variable binding if any
 	   ))
 
 ;; normal static closure data
@@ -4642,6 +4643,7 @@ source location.}#
 	 (soutformals (unsafe_get_field :shook_out_formals recv))
 	 (sctype (unsafe_get_field :shook_ctype recv))
 	 (spredef (unsafe_get_field :shook_predef recv))
+	 (smodvar (unsafe_get_field :shook_variable recv))
 	 (sbody (unsafe_get_field :shook_body recv))
 	 (shobind (find_env env symb))
 	 (newenv (fresh_env env))
@@ -4672,6 +4674,7 @@ source location.}#
 			      :ndhook_data ()
 			      :ndhook_closv ()
 			      :ndhook_predef spredef
+			      :ndhook_modvarbind ()
 			      ))
 	;; map of formal symbol -> data of formal_binding
 	(formsymbmap (make_mapobject discr_map_objects
@@ -4697,7 +4700,19 @@ source location.}#
     (debug "normexp_defhook newenv=" newenv
 	   "\n.. oldproc=" oldproc "\n.. nproc=" nproc
 	   "\n.. ndatahook=" ndatahook "\n.. sctype=" sctype
-	   "\n.. descrhook=" descrhook) 
+	   "\n.. descrhook=" descrhook "\n.. smodvar=" smodvar) 
+    (if smodvar
+	(let ( (modvarbind (find_env smodvar env))
+	      )
+	  (debug "normexp_defhook symbname=" symbname " smodvar=" smodvar " modvarbind=" modvarbind)
+	  (when (is_not_a modvarbind class_normal_module_variable_binding)
+	    (error_strv sloc "DEFHOOK has bad :VAR annotation, should be a module variable"
+			symbname)
+	    (return)
+	    )
+	  (put_fields ndatahook :ndhook_modvarbind modvarbind)
+	  (debug "normexp_defhook updated ndatahook=" ndatahook)
+	  ))
     (assert_msg "check sctype" (is_a sctype class_ctype))
     (assert_msg "check symbname" (is_string symbname))
     (assert_msg "check sinformals" (and (is_multiple_or_null sinformals)

@@ -1,6 +1,26 @@
 
 
 2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{defhook can have :var annotation, but that don't work yet.}}
+	* testsuite/melt/tdefvar-2.melt: New test with a hook and :var
+	annotation inside. Don't work yet.
+
+	* melt/warmelt-macro.melt (class_source_defhook): Add shook_variable field.
+	(mexpand_defhook): Fill it.
+
+	* melt/warmelt-normal.melt (class_nrep_datahook): Add ndhook_modvarbind field.
+	(normexp_defhook): Fill it.
+
+	* melt/warmelt-genobj.melt (class_objinithook): Add
+	oihk_modvarbind field.
+	(compilobj_datahook): Fill it.
+
+	* melt/warmelt-outobj.melt (output_hooks_with_modvar): New utility
+	stub function. Incomplete.
+	(translate_macroexpanded_list): Collect the objinithook-s with a
+	module variable, and call output_hooks_with_modvar.
+
+2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{convention naming change: use melt_forwarding_module_data and
 	melt_marking_module_data; speak of module variables, not static
 	variables...}}
