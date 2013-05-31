@@ -1089,7 +1089,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
   (assert_msg "check defin" (is_a defin class_source_definition))
   (assert_msg "check repr" (is_object repr))
   (assert_msg "check modctx" (is_object modctx))
-  (if (is_a modctx class_module_context)
+  (if (is_a modctx class_any_module_context)
       (let ( (sloc (get_field :loca_location defin))
 	     (mgendevlist (get_field :mocx_gendevlist modctx))
 	     (gendev (instance class_source_generator_device

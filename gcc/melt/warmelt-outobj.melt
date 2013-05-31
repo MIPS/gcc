@@ -5175,7 +5175,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     ))
 
 (defun output_exported_offsets (modctx declbuf implbuf)
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (let ( 
 	(rawdictfields (unsafe_get_field :mocx_expfieldict modctx))
 	(sortedfields (sorted_named_dict_tuple rawdictfields))
@@ -5254,7 +5254,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 
 ;;; retrieve or create the nth secondary file in a module
 (defun nth_secundary_file (modctx modnamstr declbuf :long ix)
-    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check modctx" (is_a modctx class_any_module_context))
     (assert_msg "check modnamstr" (is_string modnamstr))
     (assert_msg "check declbuf" (is_strbuf declbuf))
     (let ( (mofiles (get_field :mocx_filetuple modctx))
@@ -5290,7 +5290,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 (defun output_melt_descriptor (modnamstr secfiles modctx)
   (debug "output_melt_descriptor modnamstr=" modnamstr " secfiles=" secfiles " modctx=" modctx)
   (assert_msg "check modnamstr" (is_string modnamstr))
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (let ( 
 	(:long nbsecfiles (multiple_length secfiles))
 	(:long lastsecfileix 0)
@@ -5299,6 +5299,8 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 	(mkbuf (make_strbuf discr_strbuf))
 	(pathlist (make_list discr_list))
 	(md5list (make_list discr_list))
+	(tupstatvar (list_to_multiple (get_field :mocx_varlist modctx) discr_multiple))
+	(:long nbstatvar (multiple_length tupstatvar))
 	(modbuildstr (make_string_nakedbasename discr_string modnamstr))
 	(modcident (let ( (buf (make_strbuf discr_strbuf))
 			  )
@@ -5326,15 +5328,16 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     (add2out debuf ##{
 	     #ifdef __cplusplus
 	     /* explicitly declare as extern "C" our dlsym-ed symbols */
-	     extern "C" const char melt_versionmeltstr[]	    ;
-	     extern "C" const char melt_genversionstr[]		    ;
-	     extern "C" const char melt_modulename[]		    ;
-	     extern "C" const char melt_modulerealpath[]	    ;
-	     extern "C" const char melt_prepromd5meltrun[]	    ;
-	     extern "C" const char melt_primaryhexmd5[]		    ;
-	     extern "C" const char* const melt_secondaryhexmd5tab[] ;
-	     extern "C" const int melt_lastsecfileindex		    ;
-	     extern "C" const char melt_cumulated_hexmd5[]	    ;
+	     extern "C" const char melt_versionmeltstr[];
+	     extern "C" const char melt_genversionstr[];
+	     extern "C" const char melt_modulename[];
+	     extern "C" const char melt_modulerealpath[];
+	     extern "C" const char melt_prepromd5meltrun[];
+	     extern "C" const char melt_primaryhexmd5[]	;
+	     extern "C" const char* const melt_secondaryhexmd5tab[];
+	     extern "C" const int melt_lastsecfileindex;
+	     extern "C" const char melt_cumulated_hexmd5[];
+	     extern "C" const int melt_module_nb_static_vars;
 
 	     extern "C" {
 	     #endif /*__cplusplus */
@@ -5593,6 +5596,9 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 	 ##{/* cumulated checksum of primary & secondary files */
 const char melt_cumulated_hexmd5[]="$CUMPATHMDS" ;
 
+/* number of static variables */
+const int melt_module_nb_static_vars= $NBSTATVAR;
+
 /* include the timestamp file */
 #define $MODIDNAM 1
 #include "$MIDSTR+melttime.h"
@@ -5719,7 +5725,7 @@ $MODCTX is the module context, and $IX is the index.}#
     (error_strv dloc "unimplemented SYNTAX_TEST_GENERATOR method for " disname)
     (assert_msg "check gendev" (is_a gendev class_source_generator_device))
     (assert_msg "check sbuf" (is_strbuf sbuf))
-    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check modctx" (is_a modctx class_any_module_context))
     (assert_msg "@$@unimplemented syntax_test_generator")
 ))
 (install_method discr_any_receiver syntax_test_generator syntestgen_any)
@@ -5781,7 +5787,7 @@ $MODCTX is the module context, and $IX is the index.}#
   (assert_msg "check recv" (is_a recv class_primitive))
   (assert_msg "check gendev" (is_a gendev class_source_generator_device))
   (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (let ( (dloc (get_field :loca_location gendev))
 	 (pridef (get_field :srcgen_defin gendev))
 	 (prirep (get_field :srcgen_repr gendev))
@@ -5841,7 +5847,7 @@ $MODCTX is the module context, and $IX is the index.}#
   (assert_msg "check recv" (is_a recv class_citerator))
   (assert_msg "check gendev" (is_a gendev class_source_generator_device))
   (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (let ( (dloc (get_field :loca_location gendev))
 	 (citdef (get_field :srcgen_defin gendev))
 	 (citrep (get_field :srcgen_repr gendev))
@@ -5909,7 +5915,7 @@ $MODCTX is the module context, and $IX is the index.}#
   (assert_msg "check recv" (is_a recv class_cmatcher))
   (assert_msg "check gendev" (is_a gendev class_source_generator_device))
   (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (let ( (dloc (get_field :loca_location gendev))
 	 (cmatdef (get_field :srcgen_defin gendev))
 	 (cmatrep (get_field :srcgen_repr gendev))
@@ -5993,7 +5999,7 @@ $MODCTX is the module context, and $IX is the index.}#
   (debug "emit_syntax_testing_routine gendevtup=" gendevtup 
 	 " sbuf=" sbuf)
   (assert_msg "check gendevtup" (is_multiple gendevtup))
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (assert_msg "check sbuf" (is_strbuf sbuf))
   (let ( 
 	(:long nbgendev (multiple_length gendevtup))
@@ -6064,7 +6070,7 @@ if (1) return;
 	 "\n* inienv=" inienv)
   (assert_msg "check xlist" (is_list xlist))
   (assert_msg "check modnamstr" (is_string modnamstr))
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
   (assert_msg "check inienv" (is_a inienv class_environment))
   (debug "normalize_macroexpanded_list modctx=" modctx)
@@ -6154,7 +6160,7 @@ if (1) return;
   ;;
   ;; MODNAMSTR is the name string of the module
   ;;
-  ;; MODCTX is the module generation context of class_module_context
+  ;; MODCTX is the module generation context of class_any_module_context
   ;;
   ;; NCX is the normalization context, of class_normalization_context
   ;;
@@ -6171,7 +6177,7 @@ if (1) return;
 	 "\n* iniproctransl=" iniproctransl)
   (assert_msg "check xlist" (is_list xlist))
   (assert_msg "check modnamstr" (is_string modnamstr))
-  (assert_msg "check modctx" (is_a modctx class_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
   (assert_msg "check inienv" (is_a inienv class_environment))
   (assert_msg "translate_macroexpanded_list modulename not ended with MELT_DYNLOADED_SUFFIX."
@@ -6277,7 +6283,6 @@ if (1) return;
 	 (return))
        ;;
        ;; compile the initial procedure
-       (debug "translate_macroexpanded_list objlist=" objlist)
        (assert_msg "check objlist" (is_list objlist))
        (foreach_in_list
 	(objlist)
@@ -6316,6 +6321,7 @@ if (1) return;
 		 (mstartcom (get_field :mocx_startcomment modctx))
 		 (mheadertup (list_to_multiple (get_field :mocx_cheaderlist modctx) discr_multiple))
 		 (mimplemtup (list_to_multiple (get_field :mocx_cimplementlist modctx) discr_multiple))
+		 (modvarlist (get_field :mocx_varlist modctx))
 		 (:long nbheaders (multiple_length mheadertup))
 		 (:long nbimplems (multiple_length mimplemtup))
 		 )
@@ -6365,6 +6371,61 @@ if (1) return;
 	       (add2sbuf_indentnl declbuf 0)
 	     ;;
 	     ;;
+	       (let ( (modvartup (list_to_multiple modvarlist discr_multiple))
+		      (:long nbmodvars (multiple_length modvartup))
+		      (modnamcident (let ( (sbuf (make_strbuf discr_strbuf)) )
+				      (add2sbuf_cident sbuf modnamstr)
+				      (strbuf2string discr_verbatim_string sbuf)))
+		      )
+		 (if nbmodvars
+		     (progn
+		       (debug "translate_macroexpanded_list modvartup=" modvartup)
+		       (add2out declbuf "/*** " nbmodvars " MELT static variables ****/\n")
+		       (add2out declbuf "MELT_EXTERN void melt_forwarding_here (void);\n")
+		       (add2out declbuf "MELT_EXTERN void melt_marking_here (void);\n")
+		       ;; declare the static pointers and flags
+		       (add2out declbuf 
+				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_static_var_ptr_tab[" 
+				(*i 16 (+i (/iraw (+i nbmodvars 1) 16) 1)) "];\n")
+		       (add2out declbuf 
+				"MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY melt_" modnamcident "_static_var_flags[" 
+				(+i (/iraw nbmodvars 16) 1) "];\n")
+		       ;; emit the fetch & put
+		       (add2out declbuf 
+				"static inline melt_ptr_t melt_static_var_fetch (int ix)\n"
+				"{return (ix>0 && ix<= " nbmodvars ")?melt_" modnamcident "_static_var_ptr_tab[ix]:NULL;}\n\n")
+		       (add2out declbuf 
+				"static inline void melt_static_var_put (int ix, melt_ptr_t val)\n"
+				"{if (ix>0 && ix<= " nbmodvars ") { melt_" modnamcident "_static_var_ptr_tab[ix]= val;\n"
+				" melt_" modnamcident "_static_var_flags[ix/16] = true;}\n}\n\n")
+		       ;; emit the forwarding routine
+		       (add2out implbuf "\n/**** forwarding static MELT variables ****/\n")
+		       (add2out implbuf "void melt_forwarding_here (void) {\n")
+		       (add2out implbuf "  int i, j;\n")
+		       (add2out implbuf "  for (i=0; i<=" (/iraw (+i nbmodvars 1) 16) "; i++) {\n")
+		       (add2out implbuf "    if (melt_" modnamcident "_static_var_flags[i]) {\n")
+		       (add2out implbuf "      " modnamcident "_static_var_flags[i] = false;\n")
+		       (add2out implbuf "      for (j=0; j<16; j++)\n")
+		       (add2out implbuf "        MELT_FOWARDED (melt_" modnamcident "_static_var_ptr_tab[i*16+j]);\n")
+		       (add2out implbuf "    };\n")
+		       (add2out implbuf "  }\n")
+		       (add2out implbuf "} /* end melt_fowarding_here */\n\n")
+		       ;; emit the marking routine
+		       (add2out implbuf "\n/**** marking static MELT variables ****/\n")
+		       (add2out implbuf "void melt_marking_here (void) {\n")
+		       (add2out implbuf "  int i;\n")
+		       (add2out implbuf "  for (i=0; i<=" nbmodvars "; i++)\n")
+		       (add2out implbuf "    " (get_field :ctype_marker ctype_value) "(melt_" modnamcident "_static_var_ptr_tab[i]);\n")
+		       (add2out implbuf "} /* end melt_marking_here */\n\n")
+		       ;;
+		       ;; should emit the enum for the indexes
+		       )
+		   (progn
+		     (add2out declbuf "/**** no MELT static variables ****/\n")
+		     ))
+		 )
+	       ;;
+	       ;;
 	     (if nbheaders
 		 (progn
 		   (add2out declbuf "/*** " nbheaders " extra MELT c-headers ***/\n")
@@ -6826,11 +6887,11 @@ if (1) return;
 	 (refnormlist (instance class_reference))
 	 )
     (code_chunk numchk #{/* translate_run_melt_expressions $NUMCHK */ 
-		char basbuf_$NUMCHK[64]				   ;
-		long num_$NUMCHK = 0				   ;
+		char basbuf_$NUMCHK[64];
+		long num_$NUMCHK = 0;
 		memset (basbuf_$NUMCHK, 0, sizeof(basbuf_$NUMCHK)) ;
-		melt_count_runtime_extensions++			   ;
-		num_$NUMCHK = melt_count_runtime_extensions	   ;
+		melt_count_runtime_extensions++	;
+		num_$NUMCHK = melt_count_runtime_extensions;
 		if (melt_count_runtime_extensions
 		    > MELT_MAX_RUNTIME_EXTENSIONS)
 		melt_fatal_error ("too many %ld MELT runtime extensions",

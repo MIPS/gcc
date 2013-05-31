@@ -883,7 +883,7 @@ subclasses are produced by macro expanders.}# )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; module compilation context
-(defclass class_module_context
+(defclass class_any_module_context
   :super class_root
   :fields (mocx_modulename		;the module name
 	   mocx_expfieldict		;dict of exported fields
@@ -902,7 +902,7 @@ subclasses are produced by macro expanders.}# )
 	   mocx_varcount		;a boxed counter for defined variables
 	   mocx_varlist			;list of static variables bindings
 	   )
-  :doc #{The internal $CLASS_MODULE_CONTEXT describes the whole module
+  :doc #{The internal $CLASS_ANY_MODULE_CONTEXT describes the whole module or extension
 context of a translation. $MOCX_MODULENAME gives the module name,
 $MOCX_EXPFIELDICT gives the dictionnary of exported fields,
 $MOCX_EXPCLASSDICT gives the dictionnary of exported classes, and
@@ -919,8 +919,13 @@ any, to call on errors. $MOCX_VARCOUNT is the counter for
 variables. $MOCX_VARLIST contains the list of variable
 descriptions. For gurus!}# )
 
+(defclass class_module_context
+  :super class_any_module_context
+  :fields (
+	  ))
+
 (defclass class_running_extension_module_context
-  :super class_module_context
+  :super class_any_module_context
   :fields (morcx_litervalist
 	   morcx_literobjmap
 	   morcx_countlitval
@@ -4256,6 +4261,7 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
  class_alarm_handler
  class_any_binding
  class_any_matcher
+ class_any_module_context
  class_c_generation_context
  class_child_process_handler
  class_citerator

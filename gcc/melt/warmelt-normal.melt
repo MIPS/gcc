@@ -1023,7 +1023,7 @@ procedure in a module, defined with $DEFHOOK. }#
 	 (predefmap (make_mapobject discr_map_objects (+i 19 (*i 2 maxpredefix))))
 	 (valmap (make_mapobject discr_map_objects 350))
 	 )
-    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check modctx" (is_a modctx class_any_module_context))
     (forever predefloop
 	     (if (>=i ix maxpredefix) (exit predefloop))
 	     (let ( (curpredef (get_globpredef ix)) )
@@ -1075,7 +1075,7 @@ procedure in a module, defined with $DEFHOOK. }#
 	 (predefmap (make_mapobject discr_map_objects (+i 11 (*i 2 maxpredefix))))
 	 (valmap (make_mapobject discr_map_objects 91))
 	 )
-    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check modctx" (is_a modctx class_extension_generation_context))
     (assert_msg "check modenv" (is_a modenv class_environment))
     (forever predefloop
 	     (if (>=i ix maxpredefix) (exit predefloop))
@@ -7557,7 +7557,7 @@ source location.}#
 			   :nrep_loc sloc))
 	(mocx (unsafe_get_field :nctx_modulcontext ncx))
 	)
-    (assert_msg "check mocx" (is_a mocx class_module_context))
+    (assert_msg "check mocx" (is_a mocx class_any_module_context))
     (multiple_every
      sxnames
      (lambda (xnam :long ix)
@@ -7962,7 +7962,7 @@ source location.}#
 		    " clocc=" clocc " bindlist=" bindlist)
 	     (return clocc bindlist)
 	     ))
-	  ((is_a modctx class_module_context)
+	  ((is_a modctx class_any_module_context)
 	   (assert_msg "check modctx not running" (is_not_a modctx class_running_extension_module_context))
 	   (let ( (nup (instance class_nrep_update_current_module_environment_container
 				 ;; :ncumeb_expr filled later
@@ -8152,7 +8152,7 @@ source location.}#
 	(mcheadlist (get_field :mocx_cheaderlist modctx))
 	)
     (debug "normexp_cheader modctx=" modctx "\n mcheadlist=" mcheadlist)
-    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check modctx" (is_a modctx class_any_module_context))
     (assert_msg "check mcheadlist" (is_list mcheadlist))
     (list_append mcheadlist recv)
     (debug "normexp_cheader updated mcheadlist=" mcheadlist "\n modctx=" modctx "\n")
@@ -8173,7 +8173,7 @@ source location.}#
 	(mcimplemlist (get_field :mocx_cimplementlist modctx))
 	)
     (debug "normexp_cimplement modctx=" modctx "\n mcimplemlist=" mcimplemlist)
-    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check modctx" (is_a modctx class_any_module_context))
     (assert_msg "check mcimplemlist" (is_list mcimplemlist))
     (list_append mcimplemlist recv)
     (debug "normexp_cimplement updated mcimplemlist=" mcimplemlist "\n modctx=" modctx "\n")
@@ -8197,7 +8197,7 @@ source location.}#
 	(mcpackagelist (get_field :mocx_packagepclist modctx))
 	)
     (debug "normexp_use_package_from_pkg_config initial mcpackagelist=" mcpackagelist)
-    (assert_msg "check modctx" (is_a modctx class_module_context))
+    (assert_msg "check modctx" (is_a modctx class_any_module_context))
     (assert_msg "check mcpackagelist" (is_list mcpackagelist))
     ;; append each package name only if it is not already in the list
     (foreach_in_multiple

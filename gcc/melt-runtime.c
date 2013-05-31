@@ -316,6 +316,13 @@ FILE* melt_loctrace_file; /* thru GCCMELT_TRACE_LOCATION env.var. */
    the newly built current environment. */
 typedef melt_ptr_t (melt_start_rout_t) (melt_ptr_t);
 
+/* The data forwarding routine of MELT modules or extensions is for
+   the MELT garbage collectors, forwarding values */
+typedef void melt_forwarding_rout_t (void);
+
+/* The data marking routine of MELT modules or extensions is for Ggc */
+typedef void melt_marking_rout_t (void);
+
 typedef struct melt_module_info_st {
   unsigned mmi_magic;   /* always MELT_MODULE_MAGIC */
   void *mmi_dlh;      /* dlopen handle */
@@ -324,7 +331,9 @@ typedef struct melt_module_info_st {
   char* mmi_descrbase;    /* strdup-ed file base path of the
            MELT descriptive file, without its
            +meltdesc.c suffix */
-  melt_start_rout_t *mmi_startrout; /* start routine */
+  melt_start_rout_t *mmi_startrout; /* start routine named melt_start_this_module */
+  melt_forwarding_rout_t *mmi_forwardrout; /* named melt_fowarding_there */
+  melt_marking_rout_t *mmi_markingrout; /* named melt_marking_here */
 } melt_module_info_t;
 
 /* we used to have a melt_modinfvec vector... */
@@ -349,6 +358,8 @@ typedef struct melt_extension_info_st {
            MELT descriptive file, without its
            +meltdesc.c suffix */
   /* no start routine is needed, since it is immediately called */
+  melt_forwarding_rout_t *mmx_forwardrout; /* named melt_fowarding_here */
+  melt_marking_rout_t *mmx_markingrout; /* named melt_marking_here */
 } melt_extension_info_t;
 
 // we used to have a melt_extinfvec vector
@@ -1283,6 +1294,22 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
   struct melt_callframe_st *cf = 0;
   meltmarkingcount++;
   dbgprintf ("start of melt_marking_callback %ld", meltmarkingcount);
+  /* Call the marking of every module and extension */
+  for (ix = 1; ix <= melt_modulinfo.modi_count; ix++) 
+    {
+      melt_module_info_t* mod = melt_modulinfo.modi_array + ix;
+      gcc_assert (mod->mmi_magic == MELT_MODULE_MAGIC);
+      if (mod->mmi_markingrout)
+	(*mod->mmi_markingrout) ();
+    }
+  for (ix = 1; ix <= melt_extinfo.mxi_count; ix++) 
+    {
+      melt_extension_info_t* mex = melt_extinfo.mxi_array + ix;
+      gcc_assert (mex->mmx_magic == MELT_EXTENSION_MAGIC);
+      if (mex->mmx_markingrout)
+	(*mex->mmx_markingrout) ();
+    }
+
   /* Scan all the MELT call frames */
   for (cf = (struct melt_callframe_st*) melt_topframe; cf != NULL;
        cf = cf->mcfr_prev) {
@@ -1421,6 +1448,22 @@ melt_minor_copying_garbage_collector (size_t wanted)
       for (j=0; j<MELT_GLOBAL_ENTRY_CHUNK; j++)
 	MELT_FORWARDED(chp[j]);
     };
+
+  /* Call the forwarding of every module and extension */
+  for (ix = 1; ix <= melt_modulinfo.modi_count; ix++) 
+    {
+      melt_module_info_t* mod = melt_modulinfo.modi_array + ix;
+      gcc_assert (mod->mmi_magic == MELT_MODULE_MAGIC);
+      if (mod->mmi_forwardrout)
+	(*mod->mmi_forwardrout) ();
+    }
+  for (ix = 1; ix <= melt_extinfo.mxi_count; ix++) 
+    {
+      melt_extension_info_t* mex = melt_extinfo.mxi_array + ix;
+      gcc_assert (mex->mmx_magic == MELT_EXTENSION_MAGIC);
+      if (mex->mmx_forwardrout)
+	(*mex->mmx_forwardrout) ();
+    }
 
   for (cfram = melt_topframe; cfram != NULL; cfram = cfram->mcfr_prev) {
     int varix = 0;
@@ -8930,17 +8973,25 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 
   /* list of optional dynamic symbols (dlsymed in the module, provided
      in the FOO+meltdesc.c or FOO+melttime.h file). */
-#define MELTDESCR_OPTIONAL_LIST				\
-  MELTDESCR_OPTIONAL_SYMBOL (melt_versionstr, char);	\
-  MELTDESCR_OPTIONAL_SYMBOL (melt_modulerealpath, char)
+#define MELTDESCR_OPTIONAL_LIST					\
+  MELTDESCR_OPTIONAL_SYMBOL (melt_versionstr, char);		\
+  MELTDESCR_OPTIONAL_SYMBOL (melt_module_nb_static_vars, int);	\
+  MELTDESCR_OPTIONAL_SYMBOL (melt_modulerealpath, char);        \
+  MELTDESCR_OPTIONAL_SYMBOL (melt_forwarding_here, melt_forwarding_rout_t); \
+  MELTDESCR_OPTIONAL_SYMBOL (melt_marking_here, melt_forwarding_rout_t); 
+
 
   /* declare our dynamic symbols */
 #define MELTDESCR_REQUIRED_SYMBOL(Sym,Typ) Typ* dynr_##Sym = NULL
+  /* Declare the required symbols */
   MELTDESCR_REQUIRED_LIST;
 #undef MELTDESCR_REQUIRED_SYMBOL
+
 #define MELTDESCR_OPTIONAL_SYMBOL(Sym,Typ) Typ* dyno_##Sym = NULL
+  /* Declare the optional symbols */
   MELTDESCR_OPTIONAL_LIST;
 #undef MELTDESCR_OPTIONAL_SYMBOL
+
 
 #define MELTDESCR_OPTIONAL(Sym) dyno_##Sym
 #define MELTDESCR_REQUIRED(Sym) dynr_##Sym
@@ -9207,6 +9258,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 	validh = FALSE;						\
       } else dynr_##Sym = u_##Sym.dat_##Sym; } while(0)
 
+  /* Fetch required symbols */
   MELTDESCR_REQUIRED_LIST;
 
 #undef MELTDESCR_REQUIRED_SYMBOL
@@ -9217,6 +9269,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       if (u_##Sym.ptr_##Sym)				\
 	dyno_##Sym = u_##Sym.dat_##Sym; } while(0)
 
+  /* Fetch optional symbols */
   MELTDESCR_OPTIONAL_LIST;
 
 #undef MELTDESCR_OPTIONAL_SYMBOL
@@ -9357,6 +9410,8 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
     minf.mmi_descrbase = xstrdup (srcbase);
     minf.mmi_modpath = xstrdup (sopath);
     minf.mmi_startrout = MELTDESCR_REQUIRED (melt_start_this_module);
+    minf.mmi_forwardrout = MELTDESCR_OPTIONAL (melt_forwarding_here);
+    minf.mmi_markingrout = MELTDESCR_OPTIONAL (melt_marking_here);
     minf.mmi_magic = MELT_MODULE_MAGIC;
     melt_modulinfo.modi_array[ix] = minf;
     melt_modulinfo.modi_count = ix;
@@ -9416,10 +9471,14 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
   MELTRUNDESCR_REQUIRED_SYMBOL (melt_secondaryhexmd5tab, char*);	\
   MELTRUNDESCR_REQUIRED_SYMBOL (melt_versionmeltstr, char);		\
   MELTRUNDESCR_REQUIRED_SYMBOL (melt_start_run_extension, melt_start_runext_rout_t)
+
   /* list of optional dynamic symbols (dlsymed in the module, provided
      in the FOO+meltdesc.c or FOO+melttime.h file). */
-#define MELTRUNDESCR_OPTIONAL_LIST				\
-  MELTRUNDESCR_OPTIONAL_SYMBOL (melt_versionstr, char);	
+#define MELTRUNDESCR_OPTIONAL_LIST					\
+  MELTRUNDESCR_OPTIONAL_SYMBOL (melt_versionstr, char);			\
+  MELTRUNDESCR_OPTIONAL_SYMBOL (melt_forwarding_here, melt_forwarding_rout_t); \
+  MELTRUNDESCR_OPTIONAL_SYMBOL (melt_marking_here, melt_forwarding_rout_t); 
+
   /* declare our dynamic symbols */
 #define MELTRUNDESCR_REQUIRED_SYMBOL(Sym,Typ) Typ* dynr_##Sym = NULL
   MELTRUNDESCR_REQUIRED_LIST;
@@ -9614,6 +9673,8 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
     mext.mmx_descrbase = xstrdup (basenamebuf);
     mext.mmx_extpath = xstrdup (sopath);
     mext.mmx_rank = ix;
+    mext.mmx_forwardrout = MELTDESCR_OPTIONAL (melt_forwarding_here);
+    mext.mmx_markingrout = MELTDESCR_OPTIONAL (melt_marking_here);
     mext.mmx_magic = MELT_EXTENSION_MAGIC;
     melt_extinfo.mxi_array[ix] = mext;
     melt_extinfo.mxi_count = ix;

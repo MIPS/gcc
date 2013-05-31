@@ -1,5 +1,41 @@
 
 
+2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{add convention about melt_marking_here and melt_forwarding_here
+	in generated code}}
+	* melt-runtime.c (melt_forwarding_rout_t, melt_marking_rout_t):
+	New signatures.
+	(struct melt_module_info_st): Add mmi_forwardrout &
+	mmi_markingrout fields.
+	(struct melt_extension_info_st): Add mmx_forwardrout &
+	mmx_markingrout fields.
+	(melt_marking_callback): Call the mmi_markingrout &
+	mmx_markingrout for modules and extensions.
+	(melt_minor_copying_garbage_collector): Call the forwarding of
+	every module and extension.
+	(melt_load_module_index, meltgc_run_c_extension): Get the
+	melt_forwarding_here & melt_marking_here dynamic routines.
+
+	* melt/warmelt-first.melt (class_module_context): Renamed as...
+	(class_any_module_context).
+	(class_module_context): New class, subclass of class_any_module_context.
+	(class_extension_generation_context): Make it a subclass of
+	class_any_module_context.
+
+	* melt/warmelt-macro.melt: Check for class_any_module_context, not
+	class_module_context.
+
+	* melt/warmelt-normal.melt: Likewise.
+
+	* melt/warmelt-genobj.melt: Likewise.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Emit
+	the melt_marking_here and melt_forwarding_here routines. Declare
+	the module-visible arrays and flags for MELT static
+	variables. Emit melt_static_var_fetch & melt_static_var_put routine.
+	Emission of the enum is missing.
+
 2013-05-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-normal.melt (class_nrep_putstaticvar): New class
