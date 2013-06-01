@@ -472,6 +472,11 @@ DEFTREECODE (BASES, "bases", tcc_type, 0)
    instantiation time.  */
 DEFTREECODE (TEMPLATE_INFO, "template_info", tcc_exceptional, 0)
 
+/* Concepts. */
+
+/* Used to represent information associated with constrained declarations. */
+DEFTREECODE (CONSTRAINT_INFO, "constraint_info", tcc_exceptional, 0)
+
 /*
 Local variables:
 mode:c

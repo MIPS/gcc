@@ -457,6 +457,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__is_literal_type", RID_IS_LITERAL_TYPE, D_CXXONLY },
   { "__is_pod",		RID_IS_POD,	D_CXXONLY },
   { "__is_polymorphic",	RID_IS_POLYMORPHIC, D_CXXONLY },
+  { "__is_same_as",     RID_IS_SAME_AS, D_CXXONLY },
   { "__is_standard_layout", RID_IS_STD_LAYOUT, D_CXXONLY },
   { "__is_trivial",     RID_IS_TRIVIAL, D_CXXONLY },
   { "__is_union",	RID_IS_UNION,	D_CXXONLY },
@@ -559,10 +560,6 @@ const struct c_common_resword c_common_reswords[] =
   { "concept",		RID_CONCEPT,	D_CXXONLY | D_CXX0X | D_CXXWARN },
   { "forall", 		RID_FORALL,	D_CXXONLY | D_CXX0X | D_CXXWARN },
   { "requires", 	RID_REQUIRES,	D_CXXONLY | D_CXX0X | D_CXXWARN },
-  { "__declval",        RID_DECLVAL,    D_CXXONLY | D_CXX0X | D_CXXWARN },
-  { "__is_same",        RID_IS_SAME,    D_CXXONLY | D_CXX0X | D_CXXWARN },
-  { "__is_valid_expr",  RID_IS_VALID_EXPR, D_CXXONLY | D_CXX0X | D_CXXWARN },
-  { "__is_valid_type",  RID_IS_VALID_TYPE, D_CXXONLY | D_CXX0X | D_CXXWARN },
 
   /* These Objective-C keywords are recognized only immediately after
      an '@'.  */

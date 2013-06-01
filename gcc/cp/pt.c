@@ -201,7 +201,6 @@ static void append_type_to_template_for_access_check_1 (tree, tree, tree,
 static tree listify (tree);
 static tree listify_autos (tree, tree);
 static tree template_parm_to_arg (tree t);
-static tree current_template_args (void);
 static tree tsubst_template_parm (tree, tree, tsubst_flags_t);
 static tree instantiate_alias_template (tree, tree, tsubst_flags_t);
 
@@ -3883,7 +3882,7 @@ template_parms_to_args (tree parms)
 /* Within the declaration of a template, return the currently active
    template parameters as an argument TREE_VEC.  */
 
-static tree
+tree
 current_template_args (void)
 {
   return template_parms_to_args (current_template_parms);
@@ -4698,7 +4697,8 @@ push_template_decl_real (tree decl, bool is_friend)
 	     class-type, we must be redeclaring it here.  Make sure
 	     that the redeclaration is valid.  */
 	  redeclare_class_template (TREE_TYPE (decl),
-				    current_template_parms);
+				    current_template_parms,
+                                    current_template_reqs);
 	  /* We don't need to create a new TEMPLATE_DECL; just use the
 	     one we already had.  */
 	  tmpl = TYPE_TI_TEMPLATE (TREE_TYPE (decl));
@@ -4929,7 +4929,7 @@ add_inherited_template_parms (tree fn, tree inherited)
      template <class T> struct S {};  */
 
 bool
-redeclare_class_template (tree type, tree parms)
+redeclare_class_template (tree type, tree parms, tree cons)
 {
   tree tmpl;
   tree tmpl_parms;
@@ -8374,7 +8374,9 @@ tsubst_friend_class (tree friend_tmpl, tree args)
 
           saved_input_location = input_location;
           input_location = DECL_SOURCE_LOCATION (friend_tmpl);
-	  redeclare_class_template (TREE_TYPE (tmpl), parms);
+          tree type = TREE_TYPE (tmpl);
+          tree cons = CLASSTYPE_TEMPLATE_CONSTRAINT (type);
+	        redeclare_class_template (TREE_TYPE (tmpl), parms, cons);
           input_location = saved_input_location;
           
 	}

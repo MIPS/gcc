@@ -142,8 +142,9 @@ enum rid
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
-  RID_IS_STD_LAYOUT,           RID_IS_TRIVIAL,
-  RID_IS_UNION,                RID_UNDERLYING_TYPE,
+  RID_IS_SAME_AS,              RID_IS_STD_LAYOUT,           
+  RID_IS_TRIVIAL,              RID_IS_UNION,
+  RID_UNDERLYING_TYPE,
 
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
@@ -151,10 +152,6 @@ enum rid
   /* C++ concepts */
   RID_ASSUME,    RID_AXIOM,        RID_CONCEPT,
   RID_FORALL,    RID_REQUIRES,
-
-  /* C++ concepts (intrinsics) */
-  RID_DECLVAL,       RID_IS_SAME,
-  RID_IS_VALID_EXPR, RID_IS_VALID_TYPE,
 
   /* Objective-C ("AT" reserved words - they are only keywords when
      they follow '@')  */

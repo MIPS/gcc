@@ -1,3 +1,59 @@
+2013-06-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/system.h (cstdlib): Include <cstdlib> to avoid poisoned
+	declaration errors.
+	* gcc/c-family/common.c (c_common_r): Added __is_same_as intrinsic,
+	removed previous, unused intrinsics.
+	* gcc/c-family/common.h (rid): Added RID_IS_SAME_AS.
+	* gcc/cp/parser.c (take): New.
+	(cp_requires_clause): New.
+	(cp_requires_clause_opt): New.
+	(cp_rule): New.
+	(cp_parser_optional_if_token): New.
+        (cp_parser_optional_if_not_token): New.
+        (cp_parser_optional_if_keyword): New.
+	(cp_parser_decl_specifier_seq): Parse 'concept' as a declspec.
+	(cp_parser_type_parameter): Parse constrained template template parms.
+	(cp_parser_member_specification_opt): Parse member constraints after
+	the declaration, not before.
+	(cp_parser_template_declaration_after_exp): Rewrote parsing for
+	template requirements
+	(cp_parser_late_parsing_for_member): Re-push the current template 
+	requirements when late-parsing member definitions.
+	* gcc/cp/decl.c (check_concept_fn): New.
+	(grokfndecl): Semantics for concept declspec.
+	(grokdeclarator): Semantics for concept declspec.
+	(xref_tag_1): Update to new interface.
+	* gcc/cp/constraint.cc (make_constraints): New.
+	* gcc/cp/cp-objcp-common.c (cp_tree_size): Add case for constraint_info.
+	* gcc/cp/cp-tree.h (require): New.
+	(tree_template_info): Add a field for constraint info.
+	(tree_constraint_info): New.
+	(constraint_info_p): New.
+	(template_info_p): New.
+	(CI_SPELLING): New.
+	(CI_REQUIREMENTS): New.
+	(CI_ASSUMPTIONS): New.
+	(TI_CONSTRAINT): New.
+	(TI_SPELLING): New.
+	(TI_REQUIREMENTS): New.
+	(TI_ASSUMPTIONS): New.
+	(DECL_TEMPLATE_CONSTRAINT): New.
+	(CLASSTYPE_TEMPLATE_CONSTRAINT): New.
+	(ENUM_TEMPLATE_CONSTRAINT): New.
+	(TEMPLATE_TEMPLATE_PARM_TEMPLATE_CONSTRAINT): New.
+	(TYPE_TEMPLATE_CONSTRAINT): New.
+	(cp_tree_node_structure_enum): Added entry for constraint info.
+	(lang_tree_node): Added entry for constraint info.
+	(lang_decl_base): Added bit for concept declarations.
+	(DECL_DECLARED_CONCEPT_P): New.
+	(cp_decl_spec): Added ds_concept declaration specifier.
+	* gcc/cp/Make-lang.in (logic.o): New target.
+	* gcc/cp/semantics.c (finish_template_requirements): Rewrite.
+	* gcc/cp/logic.cc: New
+	* gcc/cp-tree.def (CONSTRAINT_INFO): New node.
+	* gcc/cp/pt.c (current_template_args): Make non-static.
+	(redeclare_class_template): Take constraints as a 3rd argument
+
 2013-04-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	
 	* gcc/cp/Make-lang.in: Add constraints.o target.

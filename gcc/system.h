@@ -222,6 +222,10 @@ extern int errno;
 # endif
 #endif
 
+#ifdef __cplusplus
+# include <cstdlib>
+#endif
+
 #ifdef HAVE_STDLIB_H
 # include <stdlib.h>
 #endif

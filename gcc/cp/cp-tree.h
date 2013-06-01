@@ -26,6 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "vec.h"
 
+// Require that pointer P is non-null before returning.
+template<typename T>
+inline T*
+check_nonnull (T* p)
+{
+  gcc_assert (p);
+  return p;
+}
+
 /* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
    diagnostic-core.h, not after.  We override the definition of GCC_DIAG_STYLE
@@ -774,8 +783,87 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
 
 struct GTY(()) tree_template_info {
   struct tree_common common;
+  tree constraint;
   vec<qualified_typedef_usage_t, va_gc> *typedefs_needing_access_checking;
 };
+
+/* Constraint information for a C++ declaration. This includes the
+   requirements (as a constant expression) and the decomposed assumptions
+   and conclusions. The assumptions and conclusions are cached for the
+   purposes of overlaod resolution and diagnostics. */
+struct GTY(()) tree_constraint_info {
+  struct tree_base base;
+  tree spelling;
+  tree requirements;
+  tree assumptions;
+};
+
+// Returns true iff T is non-null and represents constraint info.
+inline tree_constraint_info *
+constraint_info_p (tree t)
+{
+  if (t && TREE_CODE (t) == CONSTRAINT_INFO)
+    return (tree_constraint_info *)t;
+  return NULL;
+}
+
+// Returns true iff T is non-null and is a template info object.
+inline tree_template_info *
+template_info_p (tree t)
+{
+  if (t && TREE_CODE (t) == TEMPLATE_INFO)
+    return (tree_template_info *)t;
+  return NULL;
+}
+
+// Get the spelling of the requirements
+#define CI_SPELLING(NODE) \
+  check_nonnull (constraint_info_p (NODE))->spelling
+
+// Get the reduced requirements associated with the constraint info node
+#define CI_REQUIREMENTS(NODE) \
+  check_nonnull (constraint_info_p (NODE))->requirements
+
+// Get the set of assumptions associated with the constraint info node
+#define CI_ASSUMPTIONS(NODE) \
+  check_nonnull (constraint_info_p (NODE))->assumptions
+
+// Get the constraint associated with the template info NODE.
+#define TI_CONSTRAINT(NODE) \
+  check_nonnull (template_info_p (NODE))->constraint
+
+// Get the spelling of constraints associated
+#define TI_SPELLING(NODE) \
+  check_nonnull (constraint_info_p (TI_CONSTRAINT (NODE)))->spelling
+
+// Get requirements associated with the template info NODE.
+#define TI_REQUIREMENTS(NODE) \
+  check_nonnull (constraint_info_p (TI_CONSTRAINT (NODE)))->requirements
+
+// Get assumptions associated with the template info NODE.
+#define TI_ASSUMPTIONS(NODE) \
+  check_nonnull (constraint_info_p (TI_CONSTRAINT (NODE)))->assumptions
+
+// Access constraint information for C++ declarations. Note that
+// NODE must be a lang-decl.
+#define DECL_TEMPLATE_CONSTRAINT(NODE) \
+  TI_CONSTRAINT (DECL_TEMPLATE_INFO (NODE))
+
+// Access constraint information for class types.
+#define CLASSTYPE_TEMPLATE_CONSTRAINT(NODE) \
+  TI_CONSTRAINT (CLASSTYPE_TEMPLATE_INFO (NODE))
+
+// Access constraint information for enum types.
+#define ENUM_TEMPLATE_CONSTRAINT(NODE) \
+  TI_CONSTRAINT (ENUM_TEMPLATE_INFO (NODE))
+
+// Access constraint information for template template parameters.
+#define TEMPLATE_TEMPLATE_PARM_TEMPLATE_CONSTRAINT(NODE) \
+  TI_CONSTRAINT (TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (NODE))
+
+// Access constraint information for any type.
+#define TYPE_TEMPLATE_CONSTRAINT(NODE) \
+  TI_CONSTRAINT (TYPE_TEMPLATE_INFO (NODE))
 
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
@@ -793,6 +881,7 @@ enum cp_tree_node_structure_enum {
   TS_CP_TRAIT_EXPR,
   TS_CP_LAMBDA_EXPR,
   TS_CP_TEMPLATE_INFO,
+  TS_CP_CONSTRAINT_INFO,
   TS_CP_USERDEF_LITERAL,
   LAST_TS_CP_ENUM
 };
@@ -819,6 +908,8 @@ union GTY((desc ("cp_tree_node_structure (&%h)"),
     lambda_expression;
   struct tree_template_info GTY ((tag ("TS_CP_TEMPLATE_INFO")))
     template_info;
+  struct tree_constraint_info GTY ((tag ("TS_CP_CONSTRAINT_INFO")))
+    constraint_info;
   struct tree_userdef_literal GTY ((tag ("TS_CP_USERDEF_LITERAL")))
     userdef_literal;
 };
@@ -1911,7 +2002,13 @@ struct GTY((variable_size)) lang_type {
 /* Flags shared by all forms of DECL_LANG_SPECIFIC.
 
    Some of the flags live here only to make lang_decl_min/fn smaller.  Do
-   not make this struct larger than 32 bits; instead, make sel smaller.  */
+   not make this struct larger than 32 bits; instead, make sel smaller. 
+
+
+   The concept_p flag can apply to function and variable templates. The 
+   flag implies that the declaration is constexpr, that the declaration
+   cannot be specialized or refined, and that the result type must be
+   convertible to bool. */
 
 struct GTY(()) lang_decl_base {
   unsigned selector : 16;   /* Larger than necessary for faster access.  */
@@ -1926,7 +2023,8 @@ struct GTY(()) lang_decl_base {
   unsigned template_conv_p : 1;		   /* var or template */
   unsigned odr_used : 1;		   /* var or fn */
   unsigned u2sel : 1;
-  /* 1 spare bit */
+  unsigned concept_p : 1;                  /* applies to vars and functions */
+  /* 0 spare bits */
 };
 
 /* True for DECL codes which have template info and access.  */
@@ -2465,6 +2563,10 @@ struct GTY((variable_size)) lang_decl {
 /* True if DECL is declared 'constexpr'.  */
 #define DECL_DECLARED_CONSTEXPR_P(DECL) \
   DECL_LANG_FLAG_8 (VAR_OR_FUNCTION_DECL_CHECK (STRIP_TEMPLATE (DECL)))
+
+// True if NODE was declared as 'concept'.
+#define DECL_DECLARED_CONCEPT_P(NODE) \
+  (DECL_LANG_SPECIFIC (NODE)->u.base.concept_p)
 
 /* Nonzero if this DECL is the __PRETTY_FUNCTION__ variable in a
    template function.  */
@@ -4774,6 +4876,7 @@ typedef enum cp_decl_spec {
   ds_std_attribute,
   ds_storage_class,
   ds_long_long,
+  ds_concept,
   ds_last /* This enumerator must always be the last one.  */
 } cp_decl_spec;
 
@@ -5337,8 +5440,6 @@ extern tree begin_eh_spec_block			(void);
 extern void finish_eh_spec_block		(tree, tree);
 extern tree build_eh_type_type			(tree);
 extern tree cp_protect_cleanup_actions		(void);
-extern tree substitute_template_parameters      (tree, tree);
-extern tree instantiate_requirements            (tree, tree);
 
 /* in expr.c */
 extern tree cplus_expand_constant		(tree);
@@ -5462,7 +5563,7 @@ extern bool check_default_tmpl_args             (tree, tree, bool, bool, int);
 extern tree push_template_decl			(tree);
 extern tree push_template_decl_real		(tree, bool);
 extern tree add_inherited_template_parms	(tree, tree);
-extern bool redeclare_class_template		(tree, tree);
+extern bool redeclare_class_template		(tree, tree, tree);
 extern tree lookup_template_class		(tree, tree, tree, tree,
 						 int, tsubst_flags_t);
 extern tree lookup_template_function		(tree, tree);
@@ -5490,6 +5591,7 @@ extern bool function_parameter_expanded_from_pack_p (tree, tree);
 extern tree make_pack_expansion                 (tree);
 extern bool check_for_bare_parameter_packs      (tree);
 extern tree build_template_info			(tree, tree);
+extern tree build_template_info                 (tree, tree, tree);
 extern tree get_template_info			(const_tree);
 extern vec<qualified_typedef_usage_t, va_gc> *get_types_needing_access_check (tree);
 extern int template_class_depth			(tree);
@@ -5550,6 +5652,11 @@ extern tree get_template_argument_pack_elems	(const_tree);
 extern tree get_function_template_decl		(const_tree);
 extern tree resolve_nondeduced_context		(tree);
 extern hashval_t iterative_hash_template_arg (tree arg, hashval_t val);
+extern tree substitute_template_parameters      (tree, tree);
+extern tree substitute_requirements             (tree, tree);
+extern tree instantiate_requirements            (tree, tree);
+extern tree tsubst_constraint                   (tree, tree);
+extern tree current_template_args               ();
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -6138,11 +6245,16 @@ extern bool cxx_omp_privatize_by_reference	(const_tree);
 extern void suggest_alternatives_for            (location_t, tree);
 extern tree strip_using_decl                    (tree);
 
-/* in constraint.c */
+/* in constraint.cc */
 extern tree conjoin_requirements                (tree, tree);
 extern tree disjoin_requirements                (tree, tree);
 extern tree reduce_requirements                 (tree);
+extern tree make_constraints                    (tree);
 
+/* in logic.cc */
+extern tree decompose_assumptions               (tree);
+extern tree decompose_conclusions               (tree);
+extern bool subsumes                            (tree, tree);
 
 /* -- end of C++ */
 

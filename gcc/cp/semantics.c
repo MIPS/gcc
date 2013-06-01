@@ -9941,22 +9941,15 @@ is_lambda_ignored_entity (tree val)
 // Semantics for constraints.
 
 
-// Finish the template requirement, EXPRESSION, by first reducing it into
-// a logical formula written in terms of atomic propositions, and then
-// decomposing it into sets of those propositions.
+// Finish the template requirement, EXPR, by translating it into
+// a constraint information record.
 tree
-finish_template_requirements (tree expression)
+finish_template_requirements (tree expr)
 {
-  if (expression == error_mark_node)
+  if (expr == error_mark_node)
     return NULL_TREE;
-
-  tree reduced = reduce_requirements (expression);
-  
-  // TODO: Perform an initial left/right decomposition on the
-  // reduced requirements.
-
-  sorry ("no template requirements yet");
-  return NULL_TREE;
+  else
+    return make_constraints (expr);
 }
 
 #include "gt-cp-semantics.h"

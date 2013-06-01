@@ -40,6 +40,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "parser.h"
 
 
+
+namespace {
+// A helper function. Returns the object pointed to by P
+// and sets P to NULL.
+template<typename T>
+inline T* release(T*& p)
+{
+  T* q = p;
+  p = NULL;
+  return q;
+}
+} // namespace
+
+
 /* The lexer.  */
 
 /* The cp_lexer_* routines mediate between the lexer proper (in libcpp
@@ -2196,7 +2210,9 @@ static void cp_parser_label_declaration
 
 /* Concept Extensions */
 
-static tree cp_parser_template_requirement_opt
+static tree cp_parser_requires_clause
+  (cp_parser *);
+static tree cp_parser_requires_clause_opt
   (cp_parser *);
 
 /* Transactional Memory Extensions */
@@ -2400,6 +2416,58 @@ static tree cp_parser_make_typename_type
   (cp_parser *, tree, tree, location_t location);
 static cp_declarator * cp_parser_make_indirect_declarator
  (enum tree_code, tree, cp_cv_quals, cp_declarator *, tree);
+
+
+// A helper type for declaring rule pointers.
+typedef tree (*cp_rule)(cp_parser *);
+
+
+// -------------------------------------------------------------------------- //
+// Optional Parsing
+//
+// The following functions will optionally parse a rule if the corresponding
+// criteria is satisfied. If not, the parser returns NULL indicating that
+// the optional parse taken.
+//
+// Note that an optional parse returning error_mark_node means that the
+// optional parse was taken, but failed due to some error in the following
+// token stream. 
+
+// Optionally parse RULE if the next token type matches TYPE.
+template<typename Rule>
+static inline tree
+cp_parser_optional_if_token (cp_parser *parser, Rule rule, cpp_ttype type)
+{
+  if (cp_lexer_next_token_is (parser->lexer, type))
+    return rule (parser);
+  else
+    return NULL_TREE;
+}
+
+// Optionally parse RULE if the next token type does not match TYPE.
+template<typename Rule>
+static inline tree
+cp_parser_optional_if_not_token (cp_parser *parser, Rule rule, cpp_ttype type)
+{
+  if (cp_lexer_next_token_is_not (parser->lexer, type))
+    return rule (parser);
+  else
+    return NULL_TREE;
+}
+
+// Optionally parse RULE if the next token is the keyword KW.
+template<typename Rule>
+static inline tree
+cp_parser_optional_if_keyword (cp_parser *parser, Rule rule, rid kw)
+{
+  if (cp_lexer_next_token_is_keyword (parser->lexer, kw))
+    return rule (parser);
+  else
+    return NULL_TREE;
+}
+
+// -------------------------------------------------------------------------- //
+// Tentative Parsing
 
 /* Returns nonzero if we are parsing tentatively.  */
 
@@ -10918,6 +10986,12 @@ cp_parser_simple_declaration (cp_parser* parser,
    decl-specifier:
      attributes
 
+   Concepts Extension:
+
+   decl-specifier:
+     concept
+
+
    Set *DECL_SPECS to a representation of the decl-specifier-seq.
 
    The parser flags FLAGS is used to control type-specifier parsing.
@@ -11041,7 +11115,12 @@ cp_parser_decl_specifier_seq (cp_parser* parser,
 	  break;
 
         case RID_CONSTEXPR:
-	  ds = ds_constexpr;
+          ds = ds_constexpr;
+          cp_lexer_consume_token (parser->lexer);
+          break;
+
+        case RID_CONCEPT:
+          ds = ds_concept;
           cp_lexer_consume_token (parser->lexer);
           break;
 
@@ -12726,6 +12805,10 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	tree identifier;
 	tree default_argument;
 
+        // Save the current requirements before parsing the
+        // template parameter list.
+        tree saved_template_reqs = release (current_template_reqs);
+
 	/* Look for the `<'.  */
 	cp_parser_require (parser, CPP_LESS, RT_LESS);
 	/* Parse the template-parameter-list.  */
@@ -12734,16 +12817,12 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	cp_parser_require (parser, CPP_GREATER, RT_GREATER);
 	
         // If template requirements are present, parse them.
-        tree saved_template_reqs = current_template_reqs;
         if (flag_concepts)
           {
-            if (tree req = cp_parser_template_requirement_opt (parser))
-              {
-                // The prameter's constraints are independent of
-                // the enclosing scope.
-                current_template_reqs = NULL_TREE;
-                current_template_reqs = finish_template_requirements (req);
-              }
+            tree reqs = release (current_template_reqs);
+            if (tree r = cp_parser_requires_clause_opt (parser))
+              reqs = conjoin_requirements (reqs, r);
+            current_template_reqs = finish_template_requirements (reqs);
           }
 
         /* Look for the `class' keyword.  */
@@ -19428,20 +19507,7 @@ cp_parser_member_specification_opt (cp_parser* parser)
    C++0x Extensions:
 
    member-declaration:
-     static_assert-declaration  
-
-
-   Concepts Extensions:
-
-   member-declaration:
-     constrained-member-declaration:
-
-   constrained-member-declaration:
-     requires logical-or-expression constrained-member-declarator
-
-   constrained-member-declarator:
-     decl-specifier-seq [opt] member-declarator-list [opt] ;
-     function-definition ; [opt] */
+     static_assert-declaration  */
 
 static void
 cp_parser_member_declaration (cp_parser* parser)
@@ -19468,99 +19534,81 @@ cp_parser_member_declaration (cp_parser* parser)
       return;
     }
 
-  // If the declaration starts with a requires clause, parse a constrained
-  // member declaration. Note that we can only have constrained members
-  // in a template.
-  tree saved_template_reqs = current_template_reqs;
-  bool unconstrained = true;
-  if (flag_concepts && processing_template_decl)
+  /* Check for a template-declaration.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
     {
-      if (tree req = cp_parser_template_requirement_opt (parser))
-        {
-          current_template_reqs = finish_template_requirements (req);
-          unconstrained = false;
-        }
+      /* An explicit specialization here is an error condition, and we
+         expect the specialization handler to detect and report this.  */
+      if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_LESS
+          && cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_GREATER)
+        cp_parser_explicit_specialization (parser);
+      else
+        cp_parser_template_declaration (parser, /*member_p=*/true);
+
+      return;
     }
 
-  if (unconstrained)
+  /* Check for a using-declaration.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_USING))
     {
-      /* Check for a template-declaration.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_TEMPLATE))
+      if (cxx_dialect < cxx0x)
+       	{
+          /* Parse the using-declaration.  */
+          cp_parser_using_declaration (parser,
+              /*access_declaration_p=*/false);
+          return;
+	      }
+      else
         {
-          /* An explicit specialization here is an error condition, and we
-             expect the specialization handler to detect and report this.  */
-          if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_LESS
-              && cp_lexer_peek_nth_token (parser->lexer, 3)->type == CPP_GREATER)
-            cp_parser_explicit_specialization (parser);
+          tree decl;
+          bool alias_decl_expected;
+          cp_parser_parse_tentatively (parser);
+          decl = cp_parser_alias_declaration (parser);
+          /* Note that if we actually see the '=' token after the
+             identifier, cp_parser_alias_declaration commits the
+             tentative parse.  In that case, we really expects an
+             alias-declaration.  Otherwise, we expect a using
+             declaration.  */
+          alias_decl_expected =
+            !cp_parser_uncommitted_to_tentative_parse_p (parser);
+          cp_parser_parse_definitely (parser);
+
+          if (alias_decl_expected)
+            finish_member_declaration (decl);
           else
-            cp_parser_template_declaration (parser, /*member_p=*/true);
-
+            cp_parser_using_declaration (parser,
+                /*access_declaration_p=*/false);
           return;
-        }
+      	}
+    }
 
-      /* Check for a using-declaration.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_USING))
+  /* Check for @defs.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AT_DEFS))
+    {
+      tree ivar, member;
+      tree ivar_chains = cp_parser_objc_defs_expression (parser);
+      ivar = ivar_chains;
+      while (ivar)
         {
-          if (cxx_dialect < cxx0x)
-           	{
-              /* Parse the using-declaration.  */
-              cp_parser_using_declaration (parser,
-                  /*access_declaration_p=*/false);
-              return;
-    	      }
-          else
-            {
-              tree decl;
-              bool alias_decl_expected;
-              cp_parser_parse_tentatively (parser);
-              decl = cp_parser_alias_declaration (parser);
-              /* Note that if we actually see the '=' token after the
-                 identifier, cp_parser_alias_declaration commits the
-                 tentative parse.  In that case, we really expects an
-                 alias-declaration.  Otherwise, we expect a using
-                 declaration.  */
-              alias_decl_expected =
-                !cp_parser_uncommitted_to_tentative_parse_p (parser);
-              cp_parser_parse_definitely (parser);
-
-              if (alias_decl_expected)
-                finish_member_declaration (decl);
-              else
-                cp_parser_using_declaration (parser,
-                    /*access_declaration_p=*/false);
-              return;
-          	}
+          member = ivar;
+          ivar = TREE_CHAIN (member);
+          TREE_CHAIN (member) = NULL_TREE;
+          finish_member_declaration (member);
         }
+      return;
+    }
 
-      /* Check for @defs.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_AT_DEFS))
-        {
-          tree ivar, member;
-          tree ivar_chains = cp_parser_objc_defs_expression (parser);
-          ivar = ivar_chains;
-          while (ivar)
-            {
-              member = ivar;
-              ivar = TREE_CHAIN (member);
-              TREE_CHAIN (member) = NULL_TREE;
-              finish_member_declaration (member);
-            }
-          return;
-        }
-
-      /* If the next token is `static_assert' we have a static assertion.  */
-      if (cp_lexer_next_token_is_keyword (parser->lexer, RID_STATIC_ASSERT))
-        {
-          cp_parser_static_assert (parser, /*member_p=*/true);
-          return;
-        }
+  /* If the next token is `static_assert' we have a static assertion.  */
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_STATIC_ASSERT))
+    {
+      cp_parser_static_assert (parser, /*member_p=*/true);
+      return;
     }
 
   parser->colon_corrects_to_scope_p = false;
 
-  if (unconstrained)
-    if (cp_parser_using_declaration (parser, /*access_declaration=*/true))
-        goto out;
+  if (cp_parser_using_declaration (parser, /*access_declaration=*/true))
+      goto out;
 
   /* Parse the decl-specifier-seq.  */
   decl_spec_token_start = cp_lexer_peek_token (parser->lexer);
@@ -19835,6 +19883,17 @@ cp_parser_member_declaration (cp_parser* parser)
 	      else
 		initializer = NULL_TREE;
 
+              // If we're looking at a function declaration, then a requires
+              // clause may follow the declaration.
+              tree saved_template_reqs = current_template_reqs;
+              if (flag_concepts 
+                  && function_declarator_p (declarator)
+                  && cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
+                {
+                  if (tree r = cp_parser_requires_clause_opt (parser))
+                    current_template_reqs = finish_template_requirements (r);
+                }
+
 	      /* See if we are probably looking at a function
 		 definition.  We are certainly not looking at a
 		 member-declarator.  Calling `grokfield' has
@@ -19863,7 +19922,11 @@ cp_parser_member_declaration (cp_parser* parser)
 		  /* If the next token is a semicolon, consume it.  */
 		  if (token->type == CPP_SEMICOLON)
 		    cp_lexer_consume_token (parser->lexer);
-		  goto out;
+		  
+                  // Restore the current template requirements.
+                  current_template_reqs = saved_template_reqs;
+
+                  goto out;
 		}
 	      else
 		if (declarator->kind == cdk_function)
@@ -19937,7 +20000,6 @@ cp_parser_member_declaration (cp_parser* parser)
 
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
  out:
-  current_template_reqs = saved_template_reqs;
   parser->colon_corrects_to_scope_p = saved_colon_corrects_to_scope_p;
 }
 
@@ -21361,29 +21423,38 @@ cp_parser_label_declaration (cp_parser* parser)
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 }
 
+// Parse a requires clause:
+//
+//   requires-clause:
+//     'requires' constant-expression
+//
+// The constant expression is a logical-or-expression.
+static tree
+cp_parser_requires_clause (cp_parser *parser)
+{
+  gcc_assert (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES));
+  cp_lexer_consume_token (parser->lexer);
+
+  // Parse a logical-or-expression as a constant expression.
+  tree expr = 
+    cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
+  if (!potential_rvalue_constant_expression (expr))
+    {
+      require_potential_rvalue_constant_expression (expr);
+      return error_mark_node;
+    }
+  return expr;
+}
 
 // Parse an optional template requirement, returning NULL_TREE if no
 // 'requires' clause is found. The template requirement is required to
 // be a constant expression.
 static tree
-cp_parser_template_requirement_opt (cp_parser* parser)
+cp_parser_requires_clause_opt (cp_parser* parser)
 {
-  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
-    cp_lexer_consume_token (parser->lexer);
-  else
-    return NULL_TREE;
-
-  // Parse a logical-or-expression as a constant expression.
-  tree expression = 
-    cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
-  if (!potential_rvalue_constant_expression (expression))
-    {
-      require_potential_rvalue_constant_expression (expression);
-      return error_mark_node;
-    }
-  return expression;
+  cp_rule p = cp_parser_requires_clause;
+  return cp_parser_optional_if_keyword (parser, p, RID_REQUIRES);
 }
-
 
 /* Support Functions */
 
@@ -22219,6 +22290,9 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
      cannot check the decl-specifier list.  */
   push_deferring_access_checks (dk_deferred);
 
+  // Save the current template requirements.
+  tree saved_template_reqs = release (current_template_reqs);
+
   /* If the next token is `>', then we have an invalid
      specialization.  Rather than complain about an invalid template
      parameter, issue an error message here.  */
@@ -22245,12 +22319,13 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   /* We just processed one more parameter list.  */
   ++parser->num_template_parameter_lists;
 
-  // Parse template requirements if any have been given.
-  tree saved_template_reqs = current_template_reqs;
+  // Manage template requirements
   if (flag_concepts)
     {
-      if (tree req = cp_parser_template_requirement_opt (parser))
-        current_template_reqs = finish_template_requirements (req);
+      tree reqs = release (current_template_reqs);
+      if (tree r = cp_parser_requires_clause_opt (parser))
+        reqs = conjoin_requirements (reqs, r);
+      current_template_reqs = finish_template_requirements (reqs);
     }
 
   /* If the next token is `template', there are more template
@@ -22777,6 +22852,12 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
   /* Make sure that any template parameters are in scope.  */
   maybe_begin_member_template_processing (member_function);
 
+  // Restore the declaration's requirements for the parsing of
+  // the definition.
+  tree saved_template_reqs = release (current_template_reqs);
+  if (tree tinfo = DECL_TEMPLATE_INFO (member_function))
+    current_template_reqs = TI_CONSTRAINT (tinfo);
+
   /* If the body of the function has not yet been parsed, parse it
      now.  */
   if (DECL_PENDING_INLINE_P (member_function))
@@ -22819,6 +22900,9 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 	pop_function_context ();
       cp_parser_pop_lexer (parser);
     }
+
+  // Restore the template constraints.
+  current_template_reqs = saved_template_reqs;
 
   /* Remove any template parameters from the symbol table.  */
   maybe_end_member_template_processing ();

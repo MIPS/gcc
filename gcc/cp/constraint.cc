@@ -448,3 +448,27 @@ reduce_requirements (tree reqs)
 {
   return reduce_node (reqs);
 }
+
+// Create a constraint-info node from the specified requirements.
+tree 
+make_constraints (tree reqs)
+{
+  // No requirements == no constraints
+  if (!reqs)
+    return NULL_TREE;
+
+  // Reduce the requirements into atoms and break them into
+  // sets of atomic propositions.
+  tree atomic = reduce_requirements (reqs);
+  if (atomic == error_mark_node)
+    return error_mark_node;
+  tree assume = decompose_assumptions (atomic);
+
+  tree_constraint_info *cinfo = 
+    (tree_constraint_info *)make_node (CONSTRAINT_INFO);
+  cinfo->spelling = reqs;
+  cinfo->requirements = atomic;
+  cinfo->assumptions = assume;
+    
+  return (tree)cinfo;
+}

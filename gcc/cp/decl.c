@@ -7315,6 +7315,27 @@ check_static_quals (tree decl, cp_cv_quals quals)
 	   decl);
 }
 
+// Check that FN takes no arguments and returns bool.
+static bool
+check_concept_fn (tree fn)
+{
+  // A constraint is nullary.
+  if (DECL_ARGUMENTS (fn))
+    {
+      error ("concept %q#D declared with function arguments", fn);
+      return false;
+    }
+
+  // The result type must be convertible to bool.
+  if (!can_convert (TREE_TYPE (TREE_TYPE (fn)), boolean_type_node, tf_none))
+    {
+      error ("concept %q#D result must be convertible to bool", fn);
+      return false;
+    }
+
+  return true;
+}
+
 /* CTYPE is class type, or null if non-class.
    TYPE is type this FUNCTION_DECL should have, either FUNCTION_TYPE
    or METHOD_TYPE.
@@ -7566,6 +7587,15 @@ grokfndecl (tree ctype,
     DECL_DECLARED_INLINE_P (decl) = 1;
   if (inlinep & 2)
     DECL_DECLARED_CONSTEXPR_P (decl) = true;
+
+  // If the concept declaration specifier was found, check
+  // that the declaration satisfies the necessary requirements.
+  if (inlinep & 4)
+    {
+      DECL_DECLARED_CONCEPT_P (decl) = true;
+      if (!check_concept_fn (decl))
+        return NULL_TREE;
+    }
 
   DECL_EXTERNAL (decl) = 1;
   if (TREE_CODE (type) == FUNCTION_TYPE)
@@ -8718,6 +8748,12 @@ grokdeclarator (const cp_declarator *declarator,
   longlong = decl_spec_seq_has_spec_p (declspecs, ds_long_long);
   explicit_int128 = declspecs->explicit_int128_p;
   thread_p = decl_spec_seq_has_spec_p (declspecs, ds_thread);
+
+  // Was concept_p specified? Note that ds_concept
+  // implies ds_constexpr!
+  bool concept_p = decl_spec_seq_has_spec_p (declspecs, ds_concept);
+  if (concept_p)
+    constexpr_p = true;
 
   if (decl_context == FUNCDEF)
     funcdef_flag = true, decl_context = NORMAL;
@@ -10723,7 +10759,9 @@ grokdeclarator (const cp_declarator *declarator,
 	decl = grokfndecl (ctype, type, original_name, parms, unqualified_id,
 			   virtualp, flags, memfn_quals, rqual, raises,
 			   1, friendp,
-			   publicp, inlinep | (2 * constexpr_p), sfk,
+			   publicp, 
+                           inlinep | (2 * constexpr_p) | (4 * concept_p), 
+                           sfk,
                            funcdef_flag,
 			   template_count, in_namespace, attrlist,
 			   declarator->id_loc);
@@ -12092,7 +12130,9 @@ xref_tag_1 (enum tag_types tag_code, tree name,
     {
       if (template_header_p && MAYBE_CLASS_TYPE_P (t))
         {
-	  if (!redeclare_class_template (t, current_template_parms))
+	  if (!redeclare_class_template (t, 
+                                   current_template_parms, 
+                                   current_template_reqs))
             return error_mark_node;
         }
       else if (!processing_template_decl
