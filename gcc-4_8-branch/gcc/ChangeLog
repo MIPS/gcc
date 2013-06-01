@@ -1,3 +1,13 @@
+2013-05-15  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+	* config/i386/i386.c (processor_alias_table): Add instruction
+	FSGSBASE for AMD bdver3 architecture.
+
+2013-05-13  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+	* config/i386/i386.c (processor_target_table): Modified default 
+	alignment values for AMD BD and BT architectures.
+
 2013-05-24  Greta Yorsh  <Greta.Yorsh@arm.com>
 
 	Backport from mainline
