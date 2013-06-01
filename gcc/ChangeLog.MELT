@@ -1,4 +1,45 @@
 
+
+2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Regenerate}}
+	* melt/generated/meltrunsup-inc.c: Regenerated.
+	* melt/generated/meltrunsup.h: Regenerated.
+	* melt/generated/warmelt-base+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-base+melttime.h: Regenerated.
+	* melt/generated/warmelt-base.c: Regenerated.
+	* melt/generated/warmelt-debug+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-debug+melttime.h: Regenerated.
+	* melt/generated/warmelt-first+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-first+melttime.h: Regenerated.
+	* melt/generated/warmelt-genobj+06.c: Regenerated.
+	* melt/generated/warmelt-genobj+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-genobj+melttime.h: Regenerated.
+	* melt/generated/warmelt-hooks+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-hooks+melttime.h: Regenerated.
+	* melt/generated/warmelt-macro+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-macro+melttime.h: Regenerated.
+	* melt/generated/warmelt-modes+01.c: Regenerated.
+	* melt/generated/warmelt-modes+02.c: Regenerated.
+	* melt/generated/warmelt-modes+03.c: Regenerated.
+	* melt/generated/warmelt-modes+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-modes+melttime.h: Regenerated.
+	* melt/generated/warmelt-modes.c: Regenerated.
+	* melt/generated/warmelt-normal+03.c: Regenerated.
+	* melt/generated/warmelt-normal+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-normal+melttime.h: Regenerated.
+	* melt/generated/warmelt-normatch+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-normatch+melttime.h: Regenerated.
+	* melt/generated/warmelt-outobj+01.c: Regenerated.
+	* melt/generated/warmelt-outobj+02.c: Regenerated.
+	* melt/generated/warmelt-outobj+03.c: Regenerated.
+	* melt/generated/warmelt-outobj+04.c: Regenerated.
+	* melt/generated/warmelt-outobj+05.c: Regenerated.
+	* melt/generated/warmelt-outobj+06.c: Regenerated.
+	* melt/generated/warmelt-outobj+07.c: Regenerated.
+	* melt/generated/warmelt-outobj+meltdesc.c: Regenerated.
+	* melt/generated/warmelt-outobj+melttime.h: Regenerated.
+	* melt/generated/warmelt-outobj.c: Regenerated.
+
 2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tdefvar-2.melt with a hook with module variable works!}}
 	* melt/warmelt-genobj.melt (compilobj_datahook): Put the hook

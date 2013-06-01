@@ -6502,7 +6502,7 @@ meltlab_endgetargs:;
 					    ( /*_.INST__V133*/ meltfptr[132]))
 			  == MELTOBMAG_OBJECT);
 	  melt_putfield_object (( /*_.INST__V133*/ meltfptr[132]), (2),
-				( /*_.OHKDATA__V121*/ meltfptr[92]),
+				( /*_.OIHOOK__V122*/ meltfptr[81]),
 				"OBPUTMODVAR_VAL");
 	  ;
 	  /*^touchobj */
