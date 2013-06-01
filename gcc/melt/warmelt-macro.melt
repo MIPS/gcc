@@ -3119,7 +3119,25 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
       )))
 (install_initial_macro 'defhook mexpand_defhook)
 (export_macro defhook mexpand_defhook
-	      :doc #{The $DEFHOOK macro defines hooks.}#)
+ :doc #{The $DEFHOOK macro defines hooks, that is arbitrary C/C++
+ routines coded in MELT.. Syntax is @code{(DEFHOOK @var{hook-name}
+ @var{input-formals} @var{output-formals} @var{ctype} [:var
+ @var{hook-var}] [:predef @var{hook-predef}] [:doc
+ @var{documentation}] @var{body...})}. This binds @var{hook-name} to a
+ generated hook value of $DISCR_HOOK discriminant, containing a
+ pointer to the generated C/C++ routine and closed values, like
+ functions and instances mentionned inside the @var{body}, etc... This
+ generates an @code{extern "C"} C/C++ routine named
+ @code{melthook_@var{hook-name}}, return a result of given @var{ctype},
+ and with formal arguments: the hook value itself, the input formals,
+ the pointers to output formals (which can be modified in the body
+ with $SETQ).  If @var{hook-var} is given with a @code{:var}
+ annotation, it should be a module variable defined with $DEFVAR, and
+ that module variable is assigned to the hook value. Then, a C/C++
+ routine named @code{melthookproc_@var{hook-name}} is emitted, taking
+ only the input and output formals, and passing that module variable
+ as the hook. And similarily for predefined hooks with their
+ @var{hook-predef}.}#)
 
 
 
@@ -4311,8 +4329,10 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 	      :doc #{The $CODE_CHUNK macro is for low-level C code
 chunks. The syntax is ($CODE_CHUNK @var{state-symbol} @var{chunk}...)
 where @var{chunk}-s may be macro-strings or nested s-expressions. It
-generates a C block. Since it does not make any type verification, it
-should be usually avoided. See $DEFPRIMITIVE and $EXPR_CHUNK etc.}#)
+generates a C block. Nested expressions should be :void and are
+expanded at place of occurence, as blocks. Since it does not make any
+type verification, it should be used with parcimony. See $DEFPRIMITIVE
+and $EXPR_CHUNK etc.}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; the expr_chunk expander
@@ -4375,7 +4395,7 @@ should be usually avoided. See $DEFPRIMITIVE and $EXPR_CHUNK etc.}#)
 (export_macro expr_chunk mexpand_expr_chunk
 	      :doc #{The $EXPR_CHUNK macro is for low-level C
 @b{expression} chunks, e.g. anonymous primitive-like expressions. The
-syntax is ($EXPR_CHUNK @var{state-symbol} @var{chunk}...)  where
+syntax is ($EXPR_CHUNK @var{state-symbol} @var{ctype} @var{chunk}...)  where
 @var{chunk}-s may be macro-strings or sub-expressions. It generates a
 C expressions, with all the sub-expressions strictly normalized before
 the expansion of the @code{expr_chunk}. Since it does not make any

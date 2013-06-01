@@ -1,6 +1,13 @@
 
 
 2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.9 rc1 release candidate}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-rc1
+
+	* melt/warmelt-macro.melt (defhook, expr_chunk): Improve very
+	significantly the documentation of these macros.
+
+2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerated.
 	* melt/generated/meltrunsup.h: Regenerated.

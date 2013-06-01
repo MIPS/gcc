@@ -1,7 +1,7 @@
 Short installation instructions for MELT as a plugin to an installed
 gcc-4.7 enabled for plugins.
 
-See also http://gcc.gnu.org/wiki/MELT and http://gcc-melt.org/
+See also http://gcc-melt.org/
 
 MELT is a plugin and domain specific language for extending GCC (the
 Gnu Compiler Collection), free software GPLv3+ licensed, FSF
@@ -187,6 +187,142 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 
+
+
+################################################################
+NEWS for 0.9.9 MELT plugin for GCC 4.6 & 4.7 & 4.8
+[[june, 01st, 2013]]
+
+This is a significant release. A lot of new features are
+appearing. Much more ability to mix arbitrary C/C++ & MELT code in any
+way and both directions!
+
+This is the last MELT release supporting GCC 4.6 and GCC compilers in
+C only. Future MELT releases with will be C++ only (i.e. emit C++
+code), for GCC 4.7 & 4.8
+
+   Language improvements
+   =====================
+
+   ***
+   * Code chunks can contain void side-effecting expressions of :VOID
+     ctype, translated to some C/C++ block. Hence code chunks can even
+     be indirectly nested. Within the macro-string, write $(...) for
+     the expression. You may want to make it a PROGN ending with
+     (VOID) to force it to be void.  Sub-expressions -of :VOID ctype-
+     inside code chunks are evaluated at the place of appearance, and
+     are expanded to C/C++ blocks at their occurrence.
+
+
+   ***
+   * Expression chunks are expanded into C/C++ expressions. Syntax is
+
+        (EXPR_CHUNK <state-symbol> <ctype> <macro-string> ...)
+
+   For instance, to get the pid of the cc1 running your MELT extension, use
+      (expr_chunk getpid_chk :long #{/*$GETPID_CHK*/ (long)getpid()}#)
+
+   Important notice: any sub-expression appearing in some EXPR_CHUNK
+   is evaluated before, like for primitives, so will always be
+   evaluated.
+
+
+   ***
+   * Ability to emit some C code in the implementation part. Syntax
+     (CIMPLEMENT <code-string>)
+
+   This is a companion to the existing CHEADER. Useful to declare some
+   specific non-inlined C++ function or static variable with CHEADER
+   and to define it with CIMPLEMENT.
+
+
+
+   ***
+   * New ability to add module "static" value variables in MELT
+   
+        (DEFVAR <varname>)
+   
+   The so defined variable <varname> is (in the generated C/C++ code)
+   a pointer [to some MELT value] inside a static array. Garbage
+   collection support is generated.  The variable <varname> cannot be
+   exported with EXPORT_VALUES, you need to export functions accessing
+   or changing it.  Once defined, you can use SETQ to assign to such a
+   module variable (and also DEFHOOK with :VAR)
+
+
+   ***
+   * New ability to define hooks, that is C/C++ functions coded in
+     MELT. Syntax is 
+
+        (DEFHOOK <hookname> <input-formals> <output-formals> <ctype> 
+                 [:var <module-variable>] <body...>)
+     
+    The optional <module-variable> given with a :var annotation should be 
+    a module variable previously defined with DEFVAR. 
+    For example, with the following code
+
+        (defvar varlist)
+        (setq varlist (list))
+        (defvar varhook)
+        (defhook appendnumhk (:long n) (:long outlen) :void 
+                 :var varhook
+            (list_append varlist (constant_box n))
+            (setq outlen (list_length varlist)))
+
+    you get two generated extern "C" functions in the emitted C/C++ code
+            void melthook_APPENDNUMHK (melt_ptr_t hook, long n, long* outlen);
+    and
+            void melthookproc_APPENDNUMHK (long n, long* outlen);
+
+    which you could use e.g. in some other code_chunk-s. The first
+    function melthook_APPENDNUMHK needs the hook value `appendnumhk' as
+    its first argument; the second function melthookproc_APPENDNUMHK
+    is generated because a :var annotation has been given, and uses
+    the hook value automagically stored in that `varhook' module
+    variable.
+    
+    Many functions previously coded in C/C++ inside the melt-runtime.c
+    have been migrated to predefined hooks coded in MELT inside
+    melt/warmelt-hooks.melt etc...
+
+    Hooks are a very important addition: with them you can mix C/C++ & MELT code 
+    at will.
+
+
+   Runtime improvements
+   ====================
+
+   *** 
+   * To register your MELT pass, use the INSTALL_MELT_PASS_IN_GCC
+   function instead of the obsolete INSTALL_MELT_GCC_PASS
+   primitive. Notice that INSTALL_MELT_PASS_IN_GCC is incompatible
+   with the older INSTALL_MELT_GCC_PASS, because you need to pass
+   the :after keyword instead of the "after" cstring, etc, etc...
+
+
+   ***
+   * Many plugin events are interfaced (using hook machinery). 
+   Some of them are incompatible with previous MELT releases.
+
+
+   ***
+   * Add macro melt_low_debug_value(Message,Value) to debug-print 
+   some arbitrary MELT value in C/C++ code or chunk. 
+   This goes thru a predefined hook, similar to the DEBUG macro of MELT.
+
+
+   *** 
+   * Add C variable melt_plugin_name containing the name of the MELT
+   plugin, useful for using register_callback.
+
+
+   ***
+   * Many bug fixes and internal improvements... Emitted C/C++ code 
+     contains more checks..
+
+   ***
+   * More primitives and functions
+   
 
 
 ################################################################
