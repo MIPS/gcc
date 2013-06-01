@@ -871,7 +871,14 @@ wrapup_globals_for_namespace (tree name_space, void* data)
       check_global_declarations (vec, len);
       emit_debug_global_declarations (vec, len);
       if (flag_dump_abi)
-	abi_instr_emit_vars (vec, len);
+	{
+	  abi_instr_emit_vars (vec, len);
+	  for (tree t = level->names; t; t = TREE_CHAIN (t))
+	    if (TREE_CODE (t) == FUNCTION_DECL
+		&& TREE_PUBLIC (t)
+		&& !DECL_BUILT_IN (t))
+	      abi_instr_emit_function (t);
+	}
       return 0;
     }
 

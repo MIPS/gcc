@@ -38,6 +38,7 @@ using std::tr1::shared_ptr;
 using std::tr1::unordered_map;
 using std::string;
 using std::list;
+using std::vector;
 
 struct type_or_decl_hash
 {
@@ -97,6 +98,9 @@ static abigail::location convert_location (source_location);
 static abigail::decl_base::visibility get_decl_visibility (const_tree);
 static abigail::location get_location (const_tree);
 static abigail::decl_base::binding get_decl_binding (const_tree);
+static void get_name (const_tree, string&);
+static void get_mangled_name (const_tree, string&);
+static size_t get_int_constant_value (const_tree);
 static shared_ptr <abigail::scope_decl> gen_scope_decl (const_tree,
 							shared_ptr <abigail::scope_decl>);
 static shared_ptr<abigail::type_base> gen_type_in_scope (const_tree,
@@ -269,6 +273,53 @@ get_decl_binding (const_tree decl)
   return abigail::decl_base::BINDING_NONE;
 }
 
+// Return the name of the type, decl, or identifier represented by T.
+// IDENTIFIER is the returned name.
+static void
+get_name (const_tree t, string& identifier)
+{
+  if (t == NULL_TREE || t == error_mark_node)
+    identifier = "";
+  else if (TREE_CODE (t) == IDENTIFIER_NODE)
+    identifier = IDENTIFIER_POINTER (t);
+  else if (DECL_P (t))
+    identifier = IDENTIFIER_POINTER (DECL_NAME (t));
+  else if (TYPE_P (t))
+    identifier = IDENTIFIER_POINTER (TYPE_IDENTIFIER (t));
+  else
+    identifier = "";
+}
+
+// Return the mangled name of T in the string NAME.
+// Note that T might be a decl or a type.
+static void
+get_mangled_name (const_tree t, string& name)
+{
+  if (!t || t == error_mark_node)
+    return;
+
+  if (TYPE_P (t))
+    t = TYPE_NAME (t);
+
+  if (!DECL_P (t))
+    return;
+
+  get_name (DECL_ASSEMBLER_NAME (CONST_CAST_TREE (t)), name);
+}
+
+// Return the value of an INTEGER_CST tree.
+//
+// Note that this returns 0 if T is NULL.
+static size_t
+get_int_constant_value (const_tree t)
+{
+  if (t == NULL_TREE)
+    return 0;
+
+  gcc_assert (TREE_CODE (t) == INTEGER_CST);
+
+  return int_cst_value (t);
+}
 // Generate (if necessary) and return an instance of the libabigail
 // scope decl type, for T that is supposed to be a GCC scope tree;
 // that is either a namespace or a class.  The resulting scope is
@@ -305,8 +356,9 @@ static shared_ptr <abigail::decl_base>
 gen_decl_in_scope (const_tree t,
 		   shared_ptr <abigail::scope_decl> scope)
 {
+  shared_ptr <abigail::decl_base> result;
   if (t == NULL_TREE || !DECL_P (t))
-    return shared_ptr <abigail::decl_base> ();
+    return result;
 
   switch (TREE_CODE (t))
     {
@@ -326,8 +378,10 @@ gen_decl_in_scope (const_tree t,
 				  get_decl_visibility (t),
 				  get_decl_binding (t)));
 	add_decl_to_scope (v, scope);
-	return v;
+	result = v;
       }
+      break;
+
     case NAMESPACE_DECL:
       {
 	shared_ptr<abigail::namespace_decl> n
@@ -335,12 +389,35 @@ gen_decl_in_scope (const_tree t,
 					get_location (t),
 					get_decl_visibility (t)));
 	add_decl_to_scope (n, scope);
-	return n;
+	result = n;
       }
+      break;
+
+    case FUNCTION_DECL:
+      {
+	shared_ptr <abigail::type_base> fn_type = gen_type (TREE_TYPE (t));
+	if (fn_type)
+	  {
+	    string name, mangled_name;
+	    get_name (t, name);
+	    get_mangled_name (t, mangled_name);
+	    shared_ptr <abigail::function_decl> fn_decl
+	      (new abigail::function_decl (name, fn_type,
+					   DECL_DECLARED_INLINE_P (t),
+					   get_location (t),
+					   mangled_name,
+					   get_decl_visibility (t),
+					   get_decl_binding (t)));
+	    add_decl_to_scope (fn_decl, scope);
+	    result = fn_decl;
+	  }
+      }
+      break;
+
     default:
       break;
     }
-  return shared_ptr <abigail::decl_base> ();
+  return result;
 }
 
 // Generate (if necessary) and return an instance of libabigail type
@@ -367,13 +444,15 @@ gen_type_in_scope (const_tree t,
     case VOID_TYPE:
       {
 	abigail::location aloc = get_location (t);
+	string name, mangled_name;
+	get_name (t, name);
+	get_mangled_name (t, mangled_name);
 
 	shared_ptr<abigail::type_decl> type_declaration
-	  (new abigail::type_decl (IDENTIFIER_POINTER (TYPE_IDENTIFIER (t)),
-				   int_cst_value (TYPE_SIZE (t)),
+	  (new abigail::type_decl (name,
+				   get_int_constant_value (TYPE_SIZE (t)),
 				   TYPE_ALIGN (t), aloc,
-				   IDENTIFIER_POINTER
-				   (DECL_ASSEMBLER_NAME (TYPE_NAME (t))),
+				   mangled_name,
 				   get_decl_visibility (TYPE_NAME (t))));
 
 	add_decl_to_scope (type_declaration, scope);
@@ -392,18 +471,19 @@ gen_type_in_scope (const_tree t,
 	  enumerators.push_back
 	    (abigail::enum_type_decl::enumerator (IDENTIFIER_POINTER
 						  (TREE_PURPOSE (e)),
-						  int_cst_value
+						  get_int_constant_value
 						  (DECL_INITIAL
 						   (TREE_VALUE (e)))));
 
 	abigail::location loc = get_location (t);
+	string name, mangled_name;
+	get_name (t, name);
+	get_mangled_name (t, mangled_name);
 
 	shared_ptr <abigail::enum_type_decl> enum_type_decl
-	  (new abigail::enum_type_decl (IDENTIFIER_POINTER
-					(TYPE_IDENTIFIER (t)),
+	  (new abigail::enum_type_decl (name,
 					loc, underlying_type, enumerators,
-					IDENTIFIER_POINTER
-					(DECL_ASSEMBLER_NAME (TYPE_NAME (t))),
+					mangled_name,
 					get_decl_visibility (TYPE_NAME (t))));
 
 	add_decl_to_scope (enum_type_decl, scope);
@@ -423,7 +503,7 @@ gen_type_in_scope (const_tree t,
 		shared_ptr <abigail::pointer_type_def> pointer_type
 		  (new abigail::pointer_type_def
 		   (pointed_to,
-		    int_cst_value (TYPE_SIZE (t)),
+		    get_int_constant_value (TYPE_SIZE (t)),
 		    TYPE_ALIGN (t), loc));
 
 		add_decl_to_scope (pointer_type, scope);
@@ -434,13 +514,55 @@ gen_type_in_scope (const_tree t,
 		shared_ptr <abigail::reference_type_def> reference_type
 		  (new abigail::reference_type_def
 		   (pointed_to, !TYPE_REF_IS_RVALUE (t),
-		    int_cst_value (TYPE_SIZE (t)),
+		    get_int_constant_value (TYPE_SIZE (t)),
 		    TYPE_ALIGN (t), loc));
 
 		add_decl_to_scope (reference_type, scope);
 		result = reference_type;
 	      }
 	  }
+      }
+      break;
+
+    case FUNCTION_TYPE:
+      /* FIXME: support case METHOD_TYPE:  */
+      {
+	vector<shared_ptr <abigail::function_decl::parameter> > parms;
+	tree parm_desc = NULL_TREE;
+	for (parm_desc = TYPE_ARG_TYPES (t);
+	     parm_desc;
+	     parm_desc = TREE_CHAIN (parm_desc))
+	  {
+	    if (parm_desc == void_list_node)
+	      break;
+
+	    shared_ptr <abigail::type_base> parm_type =
+	      gen_type (TREE_VALUE (parm_desc));
+
+	    shared_ptr <abigail::function_decl::parameter> parm
+	      (new abigail::function_decl::parameter (parm_type, "",
+						      abigail::location()));
+	    parms.push_back (parm);
+	  }
+
+	// A list of parameters not ending with an ellipsis must end
+	// with void_list_node.
+	if (!parm_desc)
+	  {
+	    shared_ptr <abigail::type_base> empty_type;
+	    shared_ptr <abigail::function_decl::parameter> variadic_marker_parm
+	      (new abigail::function_decl::parameter
+	       (empty_type, "", abigail::location(),
+		/* variadic_marker=*/true));
+	    parms.push_back (variadic_marker_parm);
+	  }
+
+	shared_ptr <abigail::type_base> return_type = gen_type (TREE_TYPE (t));
+	shared_ptr <abigail::function_type> fn_type
+	  (new abigail::function_type (return_type, parms,
+				       get_int_constant_value (TYPE_SIZE (t)),
+				       TYPE_ALIGN (t)));
+	result = fn_type;
       }
       break;
 
@@ -533,6 +655,14 @@ abi_instr_emit_vars (tree *vars, int len)
   return true;
 }
 
+// Build a libabigail representation of the function FN and add it to
+// the libabigail repesentation of the current translation unit.
+// Return TRUE upon successful completion, false otherwise.
+bool
+abi_instr_emit_function(const_tree fn)
+{
+  return gen_decl (fn);
+}
 // Serialize the libabigail representation of the current translation
 // unit into a file named after the name of the main input file.
 void
