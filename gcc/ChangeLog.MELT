@@ -1,4 +1,12 @@
 
+2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tdefvar-2.melt with a hook with module variable works!}}
+	* melt/warmelt-genobj.melt (compilobj_datahook): Put the hook
+	itself in the module variable when relevant.
+
+	* melt/warmelt-outobj.melt (output_hooks_with_modvar): Correct to
+	make it work.
+
 2013-05-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-mode.melt

@@ -6061,7 +6061,7 @@ $SBUF.}#
 	  (let ( (opmv (instance class_objputmodvar
 				 :obi_loc nloc
 				 :obputmodvar_bind nmodvarbind
-				 :obputmodvar_val ohkdata
+				 :obputmodvar_val oihook
 			))
 		 )
 	    (list_append inibody opmv)
