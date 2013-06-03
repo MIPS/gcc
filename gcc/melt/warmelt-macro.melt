@@ -101,7 +101,15 @@ $SARGOP_ARGS is the tuple of arguments.}#
 	   ))
 
 
+;;; source arithmetic variadic operation
+(defclass class_source_arithmetic_variadic_operation
+  :doc #{The internal $CLASS_SOURCE_ARITHMETIC_VARIADIC_OPERATION is
+  for expansion of variadic arithmetic operations like + - * /.}#
+  :super class_source_argumented_operator
+  :fields (sarithvar_neutral
+	  sarithvar_primitive))
 
+  
 ;;; source citerator invocation
 (defclass class_source_citeration
   :doc #{The intenal $CLASS_SOURCE_CITERATION is for c-iteration
@@ -7396,7 +7404,7 @@ is used to define patmacros.}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; current_module_environment_container macro 
-(defun mexpand_current_module_environment_container (sexpr env mexpander modctx)
+(defun mexpand_current_module_environment_reference (sexpr env mexpander modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
@@ -7409,19 +7417,23 @@ is used to define patmacros.}#)
 		       :loca_location loc))
 	)
     (if (notnull curpair)
-	(error_plain loc "(CURRENT_MODULE_ENVIRONMENT_CONTAINER) should not have any argument"_))
+	(error_plain loc "(CURRENT_MODULE_ENVIRONMENT_REFERENCE) should not have any argument"_))
     (debug "mexpand_current_module_environment_container return res" res)
     (return res)
     ))
 
-(install_initial_macro 'current_module_environment_container mexpand_current_module_environment_container)
-(export_macro current_module_environment_container mexpand_current_module_environment_container
-	      :doc #{@code{($CURRENT_MODULE_ENVIRONMENT_CONTAINER)}
+(install_initial_macro 'current_module_environment_reference mexpand_current_module_environment_reference)
+(export_macro current_module_environment_reference mexpand_current_module_environment_reference
+	      :doc #{@code{($CURRENT_MODULE_ENVIRONMENT_REFERENCE)}
 returns a container, i.e. a reference thru @code{$CLASS_REFERENCE},
 for the current environment. See also $PARENT_MODULE_ENVIRONMENT and
-$CLASS_ENVIRONMENT. Will be renamed as
-@code{CURRENT_MODULE_ENVIRONMENT_REFERENCE}.}#)
+$CLASS_ENVIRONMENT. Was previously called
+@code{CURRENT_MODULE_ENVIRONMENT_CONTAINER}.}#)
 
+(install_initial_macro 'current_module_environment_container mexpand_current_module_environment_reference)
+(export_macro current_module_environment_container mexpand_current_module_environment_reference
+	      :doc #{@code{($CURRENT_MODULE_ENVIRONMENT_CONTAINER)} is
+	      obsolete. Use $CURRENT_MODULE_ENVIRONMENT_REFERENCE.}#)
 
 ;;;;;;;;;;;;;;;;
 ;;;; parent_module_environment macro 
@@ -7453,9 +7465,9 @@ $CLASS_ENVIRONMENT. Will be renamed as
 
 
 ;;;;;;;;;;;;;;;;
-;;;; update_current_module_environment_container macro 
-(defun mexpand_update_current_module_environment_container  (sexpr env mexpander modctx)
-  (debug "mexpand_update_current_module_environment_container sexpr" sexpr)
+;;;; update_current_module_environment_reference macro 
+(defun mexpand_update_current_module_environment_reference  (sexpr env mexpander modctx)
+  (debug "mexpand_update_current_module_environment_reference sexpr" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
@@ -7467,21 +7479,25 @@ $CLASS_ENVIRONMENT. Will be renamed as
 		       :loca_location loc))
 	)
     (if (notnull curpair)
-	(error_plain loc "(UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER) should not have any argument"_))
-    (debug "mexpand_update_current_module_environment_container return res" res)
+	(error_plain loc "(UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE) should not have any argument"_))
+    (if (not (melt_is_bootstrapping))
+	(error_plain loc "(UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE) can only be used while bootstrapping MELT."))
+    (debug "mexpand_update_current_module_environment_reference return res" res)
     (return res)
     ))
 
-(install_initial_macro 'update_current_module_environment_container mexpand_update_current_module_environment_container)
-(export_macro update_current_module_environment_container mexpand_update_current_module_environment_container
+(install_initial_macro 'update_current_module_environment_reference mexpand_update_current_module_environment_reference)
+(export_macro update_current_module_environment_reference mexpand_update_current_module_environment_reference
 	      :doc
-#{@code{($UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER)} is a guru
-macro to update the current module environment container.  You
+#{@code{($UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE)} is a guru
+macro to update the current module environment reference.  You
 probably should never use it, but it is necessary inside MELT. See
-$CURRENT_MODULE_ENVIRONMENT_CONTAINER. Will be renamed as
-@code{UPDATE_CURRENT_MODULE_ENVIRONMENT_BOX}.}#)
+$CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
+@code{UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER}.}#)
 
-
+;; compatibility
+(install_initial_macro 'update_current_module_environment_container mexpand_update_current_module_environment_reference)
+(export_macro update_current_module_environment_container mexpand_update_current_module_environment_reference)
 
 ;;;;;;;;;;;;;;;;
 
@@ -7555,6 +7571,7 @@ $CURRENT_MODULE_ENVIRONMENT_CONTAINER. Will be renamed as
  class_pattern_expansion_context
  class_source_again
  class_source_apply
+ class_source_arithmetic_variadic_operation
  class_source_argumented_operator
  class_source_box
  class_source_cheader

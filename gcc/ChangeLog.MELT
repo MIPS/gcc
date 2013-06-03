@@ -1,6 +1,21 @@
 
 
 2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt
+	(class_source_arithmetic_variadic_operation): New, with fields
+	sarithvar_neutral & sarithvar_primitive.
+
+	(current_module_environment_container)
+	(mexpand_current_module_environment_container)
+	(update_current_module_environment_container): Rename as
+	(current_module_environment_reference)
+	(mexpand_current_module_environment_reference)
+	(update_current_module_environment_reference): Renamed.
+	(mexpand_update_current_module_environment_reference): Error when
+	not bootstrapping.
+
+2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-rc1p
 
 	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Add
