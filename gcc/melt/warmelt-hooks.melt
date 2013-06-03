@@ -1485,10 +1485,11 @@ bool  melthk_finish_decl_registered_flag;
    if (!melthk_finish_decl_registered_flag) {
      melthk_finish_decl_registered_flag = true;
 #if MELT_GCC_VERSION < 4007
-   melt_fatal_error ("PLUGIN_FINISH_DECL unsupported for GCC 4.6 or earlier");
-#endif
+   melt_fatal_error ("PLUGIN_FINISH_DECL does not exist in GCC 4.6");
+#else
   register_callback (melt_plugin_name, PLUGIN_FINISH_DECL,
                      melt_finish_decl_hook_callback, NULL);
+#endif 
    }
    }#)
 )

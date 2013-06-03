@@ -2,6 +2,11 @@
 
 
 2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (enable_finish_decl): PLUGIN_FINISH_DECL
+	does not exist in GCC 4.6
+
+2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
