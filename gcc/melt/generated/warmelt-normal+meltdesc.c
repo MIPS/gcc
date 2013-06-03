@@ -20,8 +20,8 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199542] MELT_0\
-.9.9-rc"
+const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199596] MELT_0\
+.9.9-rc1p"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -30,18 +30,17 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-rc [melt-branch_revision_199542]";
+const char melt_versionmeltstr[]="0.9.9-rc1p [melt-branch_revision_199596]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-normal */
 const char melt_modulename[]="warmelt-normal";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
--modules/0.9.9-rc/warmelt-normal";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.9-pre/warmelt-normal";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="669a0be9c385dc02682364a489f7fb4a";
+const char melt_prepromd5meltrun[]="3af4faabf88ffbed034d7a098798ba4c";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="dc7437630770ecec6ff017118f914230";
+const char melt_primaryhexmd5[]="900f6eb5395770323c480571297c5be8";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -58,13 +57,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="21c31128792dd1d665197677815ee22c" ;
+const char melt_cumulated_hexmd5[]="1b08d3e0b990d077c8dd34179f436d02" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_warmelt_normal_mds__21c31128792dd1d665197677815ee22c 1
+#define meltmod_warmelt_normal_mds__1b08d3e0b990d077c8dd34179f436d02 1
 #include "warmelt-normal+melttime.h"
 	 
 

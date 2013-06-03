@@ -23027,7 +23027,7 @@ meltlab_endgetargs:;
       MELT_LOCATION ("warmelt-outobj.melt:2165:/ locexp");
       /*add2sbuf_strconst */
 	meltgc_add_strbuf ((melt_ptr_t) ( /*_.DSBUF__V3*/ meltfptr[2]),
-			   ("melt_initial_frame_st "));
+			   ("struct /*startiniframdecl*/ melt_initial_frame_st "));
     }
     ;
 

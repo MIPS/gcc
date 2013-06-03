@@ -20,8 +20,8 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199542] MELT_0\
-.9.9-rc"
+const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199596] MELT_0\
+.9.9-rc1p"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -30,18 +30,17 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-rc [melt-branch_revision_199542]";
+const char melt_versionmeltstr[]="0.9.9-rc1p [melt-branch_revision_199596]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-hooks */
 const char melt_modulename[]="warmelt-hooks";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
--modules/0.9.9-rc/warmelt-hooks";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.9-pre/warmelt-hooks";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="669a0be9c385dc02682364a489f7fb4a";
+const char melt_prepromd5meltrun[]="3af4faabf88ffbed034d7a098798ba4c";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="7d72151cc73a267d526fbad2ef64cb82";
+const char melt_primaryhexmd5[]="f85239e810f0bbffea8c94d863f8cda6";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -55,13 +54,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="e8a086026bfb36162ccfe6c0c8b75495" ;
+const char melt_cumulated_hexmd5[]="f2d53e61b941a9fad4e37df7cf69b9f1" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_warmelt_hooks_mds__e8a086026bfb36162ccfe6c0c8b75495 1
+#define meltmod_warmelt_hooks_mds__f2d53e61b941a9fad4e37df7cf69b9f1 1
 #include "warmelt-hooks+melttime.h"
 	 
 
