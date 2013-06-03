@@ -2162,7 +2162,7 @@ struct melt_initial_frame_st;
     (output_curframe_declstruct_init 
      (lambda (rou dsbuf)
        (add2sbuf_indentnl dsbuf 0)
-       (add2sbuf_strconst dsbuf "melt_initial_frame_st ")
+       (add2sbuf_strconst dsbuf "struct /*startiniframdecl*/ melt_initial_frame_st ")
        )
      pini implbuf)
 ;;; output the prologue

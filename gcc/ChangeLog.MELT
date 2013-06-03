@@ -1,5 +1,11 @@
 
 
+2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-rc1p
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Add
+	explicit struct in emitted code, with startiniframdecl comment.
+
 2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin 0.9.9 rc1 release candidate}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-rc1
