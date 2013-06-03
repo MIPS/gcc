@@ -1,4 +1,8 @@
 
+2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine):
+	Missing struct in emitted code.
 
 2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
