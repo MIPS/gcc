@@ -1,3 +1,77 @@
+2013-06-03  Yuri Rumyantsev  <yuri.s.rumyantsev@intel.com>
+
+	* config/i386/i386.c (ix86_lea_outperforms): Fix formatting.
+	(ix86_avoid_lea_for_addr): Likewise.
+	(exact_dependency_1): Likewise.
+	(ix86_adjust_cost): Likewise.
+	(swap_top_of_ready_list): Fix formatting and !reload_completed check
+	removed.
+	(do_reorder_for_imul): Fix typo, formatting and
+	!reload_completed check removed.
+	(ix86_sched_reorder): Fix typo and formatting.
+	(fold_builtin_cpu): Move M_INTEL_SLM at the end of processor types
+	list.
+
+2013-05-31  Yuri Rumyantsev  <yuri.s.rumyantsev@intel.com>
+	    Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	Silvermont (SLM) architecture performance tuning.
+	* config/i386/i386.h (enum ix86_tune_indices): Add
+	X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS.
+	(TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS): New define.
+
+	* config/i386/i386.c (initial_ix86_tune_features)
+	<X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS>: Initialize.
+	(ix86_lea_outperforms): Handle Silvermont tuning.
+	(ix86_avoid_lea_for_add): Add new argument to ix86_lea_outperforms
+	call.
+	(ix86_use_lea_for_mov): Likewise.
+	(ix86_avoid_lea_for_addr): Likewise.
+	(ix86_lea_for_add_ok): Likewise.
+	(exact_dependency_1): New function.
+	(exact_store_load_dependency): Likewise.
+	(ix86_adjust_cost): Handle Silvermont tuning.
+	(do_reoder_for_imul): Likewise.
+	(swap_top_of_ready_list): New function.
+	(ix86_sched_reorder): Changed to handle Silvermont tuning.
+
+	* config/i386/i386.md (peepholes that split memory operand in fp
+	converts): New.
+
+2013-05-30  Yuri Rumyantsev  <yuri.s.rumyantsev@intel.com>
+	    Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	Silvermont (SLM) architecture pipeline model, tuning and
+	insn selection.
+	* config.gcc: Add slm config options and target.
+
+	* config/i386/slm.md: New.
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Check movbe.
+
+	* gcc/config/i386/i386-c.c (ix86_target_macros_internal):  New case
+	PROCESSOR_SLM.
+	(ix86_target_macros_internal): Likewise.
+
+	* gcc/config/i386/i386.c (slm_cost): New cost.
+	(m_SLM): New macro flag.
+	(initial_ix86_tune_features): Set m_SLM.
+	(x86_accumulate_outgoing_args): Likewise.
+	(x86_arch_always_fancy_math_387): Likewise.
+	(processor_target_table): Add slm cost.
+	(cpu_names): Add slm cpu name.
+	(x86_option_override_internal): Set SLM ISA.
+	(ix86_issue_rate): New case PROCESSOR_SLM.
+	(ia32_multipass_dfa_lookahead): Likewise.
+	(fold_builtin_cpu): Add slm.
+
+	* config/i386/i386.h (TARGET_SLM): New target macro.
+	(target_cpu_default): Add TARGET_CPU_DEFAULT_slm.
+	(processor_type): Add PROCESSOR_SLM.
+
+	* config/i386/i386.md (cpu): Add new value "slm".
+	(slm.md): Include slm.md.
+
 2013-05-29  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
 
 	* config/i386/i386.c (initial_ix86_tune_features): Enable
