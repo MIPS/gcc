@@ -646,6 +646,15 @@ check_classfn (tree ctype, tree function, tree template_parms)
   /* OK, is this a definition of a member template?  */
   is_template = (template_parms != NULL_TREE);
 
+  /* [temp.mem]
+
+     A destructor shall not be a member template.  */
+  if (DECL_DESTRUCTOR_P (function) && is_template)
+    {
+      error ("destructor %qD declared as member template", function);
+      return error_mark_node;
+    }
+
   /* We must enter the scope here, because conversion operators are
      named by target type, and type equivalence relies on typenames
      resolving within the scope of CTYPE.  */
@@ -1794,7 +1803,7 @@ import_export_class (tree ctype)
 static bool
 var_finalized_p (tree var)
 {
-  return varpool_node_for_decl (var)->finalized;
+  return varpool_node_for_decl (var)->symbol.definition;
 }
 
 /* DECL is a VAR_DECL or FUNCTION_DECL which, for whatever reason,
@@ -4192,8 +4201,8 @@ cp_write_global_declarations (void)
 	      struct cgraph_node *node, *next;
 
 	      node = cgraph_get_node (decl);
-	      if (node->same_body_alias)
-		node = cgraph_alias_aliased_node (node);
+	      if (node->symbol.cpp_implicit_alias)
+		node = cgraph_alias_target (node);
 
 	      cgraph_for_node_and_aliases (node, clear_decl_external,
 					   NULL, true);
@@ -4215,7 +4224,7 @@ cp_write_global_declarations (void)
 	  if (!DECL_EXTERNAL (decl)
 	      && decl_needed_p (decl)
 	      && !TREE_ASM_WRITTEN (decl)
-	      && !cgraph_get_node (decl)->local.finalized)
+	      && !cgraph_get_node (decl)->symbol.definition)
 	    {
 	      /* We will output the function; no longer consider it in this
 		 loop.  */

@@ -2256,7 +2256,7 @@ mark_decl_referenced (tree decl)
 	 definition.  */
       struct cgraph_node *node = cgraph_get_create_node (decl);
       if (!DECL_EXTERNAL (decl)
-	  && !node->local.finalized)
+	  && !node->symbol.definition)
 	cgraph_mark_force_output_node (node);
     }
   else if (TREE_CODE (decl) == VAR_DECL)
@@ -4612,28 +4612,21 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
       switch (TREE_CODE (exp))
 	{
 	case CONSTRUCTOR:
-	    output_constructor (exp, size, align, NULL);
+	  output_constructor (exp, size, align, NULL);
 	  return;
 	case STRING_CST:
-	  thissize = MIN ((unsigned HOST_WIDE_INT)TREE_STRING_LENGTH (exp),
-			  size);
+	  thissize
+	    = MIN ((unsigned HOST_WIDE_INT)TREE_STRING_LENGTH (exp), size);
 	  assemble_string (TREE_STRING_POINTER (exp), thissize);
 	  break;
-
 	case VECTOR_CST:
 	  {
-	    int elt_size;
-	    unsigned int i, nalign;
-	    enum machine_mode inner;
-
-	    inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
-	    nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
-
-	    elt_size = GET_MODE_SIZE (inner);
-
+	    enum machine_mode inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
+	    unsigned int nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
+	    int elt_size = GET_MODE_SIZE (inner);
 	    output_constant (VECTOR_CST_ELT (exp, 0), elt_size, align);
 	    thissize = elt_size;
-	    for (i = 1; i < VECTOR_CST_NELTS (exp); ++i)
+	    for (unsigned int i = 1; i < VECTOR_CST_NELTS (exp); i++)
 	      {
 		output_constant (VECTOR_CST_ELT (exp, i), elt_size, nalign);
 		thissize += elt_size;
@@ -5560,13 +5553,6 @@ assemble_alias (tree decl, tree target)
 
       if (alias == target)
 	error ("weakref %q+D ultimately targets itself", decl);
-      else
-	{
-#ifndef ASM_OUTPUT_WEAKREF
-	  IDENTIFIER_TRANSPARENT_ALIAS (alias) = 1;
-	  TREE_CHAIN (alias) = target;
-#endif
-	}
       if (TREE_PUBLIC (decl))
 	error ("weakref %q+D must have static linkage", decl);
     }
@@ -5595,9 +5581,9 @@ assemble_alias (tree decl, tree target)
 
   /* Allow aliases to aliases.  */
   if (TREE_CODE (decl) == FUNCTION_DECL)
-    cgraph_get_create_node (decl)->alias = true;
+    cgraph_get_create_node (decl)->symbol.alias = true;
   else
-    varpool_node_for_decl (decl)->alias = true;
+    varpool_node_for_decl (decl)->symbol.alias = true;
 
   /* If the target has already been emitted, we don't have to queue the
      alias.  This saves a tad of memory.  */
@@ -5700,12 +5686,12 @@ dump_tm_clone_pairs (vec<tm_alias_pair> tm_alias_pairs)
 	 TM_GETTMCLONE.  If neither of these are true, we didn't generate
 	 a clone, and we didn't call it indirectly... no sense keeping it
 	 in the clone table.  */
-      if (!dst_n || !dst_n->analyzed)
+      if (!dst_n || !dst_n->symbol.definition)
 	continue;
 
       /* This covers the case where we have optimized the original
 	 function away, and only access the transactional clone.  */
-      if (!src_n || !src_n->analyzed)
+      if (!src_n || !src_n->symbol.definition)
 	continue;
 
       if (!switched)
