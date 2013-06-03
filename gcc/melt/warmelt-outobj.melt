@@ -2356,7 +2356,7 @@ struct melt_initial_frame_st;
     (add2sbuf_indentnl implbuf 1)
     (add2sbuf_strconst implbuf "int meltix=0;")
     (add2sbuf_indentnl implbuf 1)
-    (add2sbuf_strconst implbuf "struct melt_initial_frame_st* meltframptr_= (melt_initial_frame_st*)fp;")
+    (add2sbuf_strconst implbuf "struct melt_initial_frame_st* meltframptr_= (struct melt_initial_frame_st*)fp;")
     (add2sbuf_indentnl implbuf 1)
     (add2sbuf_strconst implbuf " melt_assertmsg (\"check module frame\", meltframptr_->mcfr_nbvar == /*minihash*/ -")
     (add2sbuf_longdec implbuf minihash)
