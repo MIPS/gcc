@@ -1,3 +1,26 @@
+2013-06-03  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline.
+	2013-04-25  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_print_operand): Fix asm_fprintf
+	format specifier in 'X' case.
+
+2013-05-31  Richard Henderson  <rth@redhat.com>
+
+	PR target/56742
+	* config/i386/i386.c (ix86_seh_fixup_eh_fallthru): New.
+	(ix86_reorg): Call it.
+
+2012-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.8.2.
+	* DEV-PHASE: Set to prerelease.
+
+2013-05-31  Release Manager
+
+	* GCC 4.8.1 released.
+
 2013-06-03  Yuri Rumyantsev  <yuri.s.rumyantsev@intel.com>
 
 	* config/i386/i386.c (ix86_lea_outperforms): Fix formatting.
