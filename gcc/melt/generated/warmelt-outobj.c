@@ -54120,7 +54120,8 @@ meltmod__warmelt_outobj__forward_or_mark_module_start_frame (struct
 							     *fp, int marking)
 {
   int meltix = 0;
-  struct melt_initial_frame_st *meltframptr_ = (melt_initial_frame_st *) fp;
+  struct melt_initial_frame_st *meltframptr_ =
+    (struct melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
 		  meltframptr_->mcfr_nbvar == /*minihash */ -1017);
   if (!marking && melt_is_forwarding)
