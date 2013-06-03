@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199596] MELT_0\
+const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199607] MELT_0\
 .9.9-rc1p"
 
 	     #ifdef __cplusplus
@@ -30,17 +30,18 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-rc1p [melt-branch_revision_199596]";
+const char melt_versionmeltstr[]="0.9.9-rc1p [melt-branch_revision_199607]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-normatch */
 const char melt_modulename[]="warmelt-normatch";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.9-pre/warmelt-normatch";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
+-modules/0.9.9-rc1p/warmelt-normatch";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="ff469a5825b335b3a93c78bd9d2d4e6d";
+const char melt_prepromd5meltrun[]="bc4813be37782e6afeaf742aa6dfdcbe";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="da411cf321d0280773883578f9bcef5c";
+const char melt_primaryhexmd5[]="7af2be22a026f539e73842cd28ebe2af";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -57,13 +58,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="c7b88e03d9bd3290a22f8004b8d3639b" ;
+const char melt_cumulated_hexmd5[]="f4037dc463ae623dbeb7b6512b2f57c8" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_warmelt_normatch_mds__c7b88e03d9bd3290a22f8004b8d3639b 1
+#define meltmod_warmelt_normatch_mds__f4037dc463ae623dbeb7b6512b2f57c8 1
 #include "warmelt-normatch+melttime.h"
 	 
 

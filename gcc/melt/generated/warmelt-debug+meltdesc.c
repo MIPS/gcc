@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199596] MELT_0\
+const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 199607] MELT_0\
 .9.9-rc1p"
 
 	     #ifdef __cplusplus
@@ -30,17 +30,18 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-rc1p [melt-branch_revision_199596]";
+const char melt_versionmeltstr[]="0.9.9-rc1p [melt-branch_revision_199607]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-debug */
 const char melt_modulename[]="warmelt-debug";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.9-pre/warmelt-debug";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown-linux-gnu/4.8.0/melt\
+-modules/0.9.9-rc1p/warmelt-debug";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="ff469a5825b335b3a93c78bd9d2d4e6d";
+const char melt_prepromd5meltrun[]="bc4813be37782e6afeaf742aa6dfdcbe";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="fa3976075d352a52948004575c79c030";
+const char melt_primaryhexmd5[]="d0170e0b561c28e87b55e7d37030ae09";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -54,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="dd0f207ee61207e90889bf62936986fc" ;
+const char melt_cumulated_hexmd5[]="21c2eb8309706dc756c5e0df741529e9" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_warmelt_debug_mds__dd0f207ee61207e90889bf62936986fc 1
+#define meltmod_warmelt_debug_mds__21c2eb8309706dc756c5e0df741529e9 1
 #include "warmelt-debug+melttime.h"
 	 
 
