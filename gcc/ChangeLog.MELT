@@ -1,5 +1,9 @@
 
 2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT Plugin 0.9.9 rc2}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-rc2
+
+2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
 	* melt/generated/warmelt-debug+melttime.h: Regenerate.
