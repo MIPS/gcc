@@ -1,6 +1,48 @@
 
 
 2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{rename current_environment_container as
+	current_environment_reference everywhere...}}
+
+	* melt/warmelt-first.melt: Call update_current_module_environment_reference.
+	(post_initialization): Call current_module_environment_reference.
+
+	* melt/warmelt-macro.melt
+	(class_source_current_module_environment_container): Rename as ...
+	(class_source_current_module_environment_reference): New name.
+	(class_source_update_current_module_environment_container): Rename as ...
+	(class_source_update_current_module_environment_reference): New name.
+	Also export_synonym the old names.
+
+	* melt/warmelt-normal.melt
+	(class_nrep_quasiconst_current_module_environment_container): Rename as ...
+	(class_nrep_quasiconst_current_module_environment_reference): New
+	name.
+	(class_nrep_quasidata_current_module_environment_container): Rename as ...
+	(class_nrep_quasidata_current_module_environment_reference): New name.
+	(class_nrep_update_current_module_environment_container): Rename as ...
+	(class_nrep_update_current_module_environment_reference): New name.
+	(create_normcontext, create_normal_extending_context)
+	(normal_exported_value): Update accordingly.
+
+	* melt/warmelt-genobj.melt
+	(compilobj_nrep_quasiconst_current_module_environment_container):
+	Rename as...
+	(compilobj_nrep_quasiconst_current_module_environment_reference):
+	New name.
+	(compilobj_quasidata_current_module_environment_container): Rename as...
+	(compilobj_quasidata_current_module_environment_reference): New name.
+	(compilobj_nrep_update_current_module_environment_container): Rename as...
+	(compilobj_nrep_update_current_module_environment_reference): New
+	name.
+
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): Update
+	accordingly.
+
+	* melt/warmelt-modes.melt (makedoc_docmd): Ditto.
+
+
+2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

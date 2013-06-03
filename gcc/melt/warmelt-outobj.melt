@@ -6149,7 +6149,7 @@ if (1) return;
 	(modinienv (get_field :mocx_initialenv modctx))
 	(iniproc (get_field :nctx_initproc ncx))
 	;; make an update_current_module_environment at the very beginning
-	(ucmeb1 (instance class_source_update_current_module_environment_container
+	(ucmeb1 (instance class_source_update_current_module_environment_reference
 			  :loca_location firstloc
 			  :sucme_comment '"at very start"
 			  ))

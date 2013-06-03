@@ -2784,9 +2784,9 @@ $SBUF.}#
   )
 (install_method class_nrep_quasiconstant compile_obj compilobj_nrep_quasiconstant)
 
-(defun compilobj_nrep_quasiconst_current_module_environment_container (nqcme gcx)
-  (debug "compilobj_nrep_quasiconst_current_module_environment_container start nqcme=" nqcme)
-  (assert_msg "check nqme" (is_a nqcme class_nrep_quasiconst_current_module_environment_container))
+(defun compilobj_nrep_quasiconst_current_module_environment_reference (nqcme gcx)
+  (debug "compilobj_nrep_quasiconst_current_module_environment_reference start nqcme=" nqcme)
+  (assert_msg "check nqme" (is_a nqcme class_nrep_quasiconst_current_module_environment_reference))
   (let ( (onres (compilobj_nrep_quasiconstant nqcme gcx))
 	 (scomm (unsafe_get_field :nqcmec_comment nqcme))
 	 (str (let ( (sbuf (make_strbuf discr_strbuf)) )
@@ -2805,11 +2805,11 @@ $SBUF.}#
 				    )
 			 ))
 	 )
-    (debug "compilobj_nrep_quasiconstant_current_module_environment_container result ores=" ores)
+    (debug "compilobj_nrep_quasiconstant_current_module_environment_reference result ores=" ores)
     (return ores)
     ))
-(install_method class_nrep_quasiconst_current_module_environment_container compile_obj
-		compilobj_nrep_quasiconst_current_module_environment_container)
+(install_method class_nrep_quasiconst_current_module_environment_reference compile_obj
+		compilobj_nrep_quasiconst_current_module_environment_reference)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; compile a forever
 (defun compilobj_nrep_forever (nfor gcx)
@@ -6106,13 +6106,13 @@ $SBUF.}#
 (install_method class_nrep_datahook compile_obj compilobj_datahook)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defun compilobj_quasidata_current_module_environment_container (qdcm gcx)
-  (assert_msg "check qdcm" (is_a qdcm class_nrep_quasidata_current_module_environment_container))
+(defun compilobj_quasidata_current_module_environment_reference (qdcm gcx)
+  (assert_msg "check qdcm" (is_a qdcm class_nrep_quasidata_current_module_environment_reference))
   (assert_msg "check gcx" (is_a gcx class_initial_generation_context))
   (let ( (locbox (get_field :igncx_contenvloc gcx)) 
 	 )
     (return locbox)))
-(install_method class_nrep_quasidata_current_module_environment_container compile_obj compilobj_quasidata_current_module_environment_container)
+(install_method class_nrep_quasidata_current_module_environment_reference compile_obj compilobj_quasidata_current_module_environment_reference)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -6165,10 +6165,10 @@ $SBUF.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(defun compilobj_nrep_update_current_module_environment_container (nucmeb gcx)
-  (assert_msg "check nucmeb" (is_a nucmeb class_nrep_update_current_module_environment_container))
+(defun compilobj_nrep_update_current_module_environment_reference (nucmeb gcx)
+  (assert_msg "check nucmeb" (is_a nucmeb class_nrep_update_current_module_environment_reference))
   (assert_msg "check gcx" (is_a gcx class_initial_generation_context))
-  (debug "compilobj_nrep_update_current_module_environment_container nucmeb=" nucmeb)
+  (debug "compilobj_nrep_update_current_module_environment_reference nucmeb=" nucmeb)
   (let ( (nloc (unsafe_get_field :nrep_loc nucmeb))
 	 (ncomm (unsafe_get_field :ncumeb_comment nucmeb))
 	 (nex (unsafe_get_field :nucmeb_expr nucmeb))
@@ -6193,11 +6193,11 @@ $SBUF.}#
 	 )
     ;; get the igncx_procurmodenvlist from gcx
     ;; for each routine of class_procroutineobj  get its nrpro_const list and
-    ;; for each CLASS_NREP_QUASIDATA_CURRENT_MODULE_ENVIRONMENT_CONTAINER there do ....
+    ;; for each CLASS_NREP_QUASIDATA_CURRENT_MODULE_ENVIRONMENT_REFERENCE there do ....
     (foreach_in_list
      (pcml)
      (curpair curout)
-     (debug "compilobj_nrep_update_current_module_environment_container curout=" curout)
+     (debug "compilobj_nrep_update_current_module_environment_reference curout=" curout)
      (if (is_a curout class_procroutineobj)
 	 (let (
 	       (curproc (unsafe_get_field :obrout_proc curout))
@@ -6214,7 +6214,7 @@ $SBUF.}#
 	      (let (
 		    (:long curcount (get_int boxcount))
 		    )
-		(if (is_a curconst class_nrep_quasidata_current_module_environment_container)
+		(if (is_a curconst class_nrep_quasidata_current_module_environment_reference)
 		    ;; set into oroutlocvar  the constant ranked curcount to oex
 		    ;; and touch it
 		    (let (
@@ -6248,7 +6248,7 @@ $SBUF.}#
     (debug "compobj.upd.mod.env.box result ocblo=" ocblo)
     (return ocblo)
     ))
-(install_method class_nrep_update_current_module_environment_container compile_obj compilobj_nrep_update_current_module_environment_container)
+(install_method class_nrep_update_current_module_environment_reference compile_obj compilobj_nrep_update_current_module_environment_reference)
 
 
 
@@ -6302,7 +6302,7 @@ $SBUF.}#
     (foreach_in_list
      (pcml)
      (curpair curout)
-     (debug "compilobj_nrep_update_current_module_environment_container curout=" curout)
+     (debug "compilobj_nrep_update_current_module_environment_reference curout=" curout)
      (if (is_a curout class_procroutineobj)
 	 (let (
 	       (curproc (unsafe_get_field :obrout_proc curout))
@@ -6319,7 +6319,7 @@ $SBUF.}#
 	      (let (
 		    (:long curcount (get_int boxcount))
 		    )
-		(if (is_a curconst class_nrep_quasidata_current_module_environment_container)
+		(if (is_a curconst class_nrep_quasidata_current_module_environment_reference)
 		    ;; set into oroutlocvar  the constant ranked curcount to oex
 		    ;; and touch it
 		    (let (

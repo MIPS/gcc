@@ -1572,7 +1572,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	(parmodenv (parent_module_environment))
 	(curenv (if moduldata 
 		    moduldata 
-		  (deref (current_module_environment_container))))
+		  (deref (current_module_environment_reference))))
 	(arglist (split_string_comma discr_string (make_stringconst discr_string (melt_argument "arglist"))))
 	(outarg (make_stringconst discr_string (melt_argument "output")))
 	(rlist (make_list discr_list))

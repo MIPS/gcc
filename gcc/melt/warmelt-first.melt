@@ -459,7 +459,7 @@ don't instanciate this class!}#
 is $ENV_BIND, the previous environment is $ENV_PREV, and the procedure
 if any of this environment is $ENV_PROC. It is heavily used within the
 MELT translator. Module initialization produces fresh instances of
-it. See the $CURRENT_MODULE_ENVIRONMENT_CONTAINER and
+it. See the $CURRENT_MODULE_ENVIRONMENT_REFERENCE and
 $PARENT_MODULE_ENVIRONMENT macros.}#
   :fields (env_bind			;the map of bindings
 	   env_prev			;the previous environment
@@ -951,9 +951,9 @@ objects. $MORCX_COUNTLITVAL is the literal value counter.}# )
 	   nctx_valbindmap 		;objmap of value binding -> data
 	   nctx_curproc			;current procedure
 	   nctx_modulcontext		;the module compilation context
-	   nctx_qdatcurmodenvbox ;quasi data for current_module_environment_container
+	   nctx_qdatcurmodenvbox ;quasi data for current_module_environment_reference
 	   nctx_qdatparmodenv		;quasi data for parent_module_environment
-	   nctx_procurmodenvlist	;list of procedures using the current_module_environment_container construct
+	   nctx_procurmodenvlist	;list of procedures using the current_module_environment_reference construct
 	   )
   :doc #{The internal $CLASS_NORMALIZATION_CONTEXT (for gurus only) is used for
 expression normalization by the translator. $NCTX_INITPROC gives the
@@ -1011,7 +1011,7 @@ label prefix is in $GNCX_MATCHMAP.}# )
   :super class_c_generation_context
   :fields (igncx_prevenvloc	    ;stack local for previous environment [parent_module_environment]
 	   igncx_contenvloc	    ;stack local for the container of environment
-	   igncx_procurmodenvlist   ;list of routines using the current_module_environment_container
+	   igncx_procurmodenvlist   ;list of routines using the current_module_environment_reference
 	   igncx_importmap	    ;mapping of imported symbols to locvars
 	   )
   :doc #{The internal $CLASS_INITIAL_GENERATION_CONTEXT (for gurus) is used when
@@ -4187,18 +4187,18 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
 
 ;;;****************************************************************
 
-;; before the update_current_module_environment_container below, most
-;; constants for current_module_environment_container or
+;; before the update_current_module_environment_reference below, most
+;; constants for current_module_environment_reference or
 ;; parent_module_environment are null because there is not enough
 ;; stuff yet to build them.
-(update_current_module_environment_container)
+(update_current_module_environment_reference)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; a special function to be called when compiling with compilinit mode.
 ;;; which magically adds a call to it at end of the read list
 (defun post_initialization (unusedarg :cstring meltfilnam)
-  (let ( (curmodenvcont (current_module_environment_container)) )
+  (let ( (curmodenvcont (current_module_environment_reference)) )
     (if (not (is_a curmodenvcont class_reference))
 	(progn
 	  (warningmsg_strv "post_initialization strange curmodenvcont of discr"

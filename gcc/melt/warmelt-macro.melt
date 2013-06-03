@@ -730,7 +730,7 @@ $EXIT loops. The field $SEXI_BODY is the body sequence.}#
 
 ;; the fresh current module environment box, returning the newly build
 ;; module environment result of the generated initial routine
-(defclass class_source_current_module_environment_container
+(defclass class_source_current_module_environment_reference
   :super class_source
   :fields (
 	   cmec_comment		;extra comment
@@ -746,7 +746,7 @@ $EXIT loops. The field $SEXI_BODY is the body sequence.}#
 
 ;; update the current module environment container - only callable at
 ;; toplevel
-(defclass class_source_update_current_module_environment_container
+(defclass class_source_update_current_module_environment_reference
   :super class_source
   :fields (
 	   sucme_comment		;optional comment, only used
@@ -7403,22 +7403,22 @@ is used to define patmacros.}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; current_module_environment_container macro 
+;;;; current_module_environment_reference macro 
 (defun mexpand_current_module_environment_reference (sexpr env mexpander modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
-  (debug "mexpand_current_module_environment_container sexpr" sexpr)
+  (debug "mexpand_current_module_environment_reference sexpr" sexpr)
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
 	(curpair (pair_tail (list_first cont)))
-	(res (instance class_source_current_module_environment_container
+	(res (instance class_source_current_module_environment_reference
 		       :loca_location loc))
 	)
     (if (notnull curpair)
 	(error_plain loc "(CURRENT_MODULE_ENVIRONMENT_REFERENCE) should not have any argument"_))
-    (debug "mexpand_current_module_environment_container return res" res)
+    (debug "mexpand_current_module_environment_reference return res" res)
     (return res)
     ))
 
@@ -7427,7 +7427,7 @@ is used to define patmacros.}#)
 	      :doc #{@code{($CURRENT_MODULE_ENVIRONMENT_REFERENCE)}
 returns a container, i.e. a reference thru @code{$CLASS_REFERENCE},
 for the current environment. See also $PARENT_MODULE_ENVIRONMENT and
-$CLASS_ENVIRONMENT. Was previously called
+$CLASS_ENVIRONMENT. Was previously called inccorrectly
 @code{CURRENT_MODULE_ENVIRONMENT_CONTAINER}.}#)
 
 (install_initial_macro 'current_module_environment_container mexpand_current_module_environment_reference)
@@ -7460,7 +7460,7 @@ $CLASS_ENVIRONMENT. Was previously called
 	      :doc #{@code{($PARENT_MODULE_ENVIRONMENT)} gives the
 	      parent environnment of this module. See also
 	      $CLASS_ENVIRONMENT and
-	      $CURRENT_MODULE_ENVIRONMENT_CONTAINER.}#)
+	      $CURRENT_MODULE_ENVIRONMENT_REFERENCE.}#)
 
 
 
@@ -7475,7 +7475,7 @@ $CLASS_ENVIRONMENT. Was previously called
 	(loc  (unsafe_get_field :loca_location sexpr))
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(curpair (pair_tail (list_first cont)))
-	(res (instance class_source_update_current_module_environment_container
+	(res (instance class_source_update_current_module_environment_reference
 		       :loca_location loc))
 	)
     (if (notnull curpair)
@@ -7584,7 +7584,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_compilewarning
  class_source_constant_box
  class_source_cppif
- class_source_current_module_environment_container
+ class_source_current_module_environment_reference
  class_source_defciterator
  class_source_defclass
  class_source_defcmatcher
@@ -7660,9 +7660,17 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_unbox
  class_source_unsafe_get_field
  class_source_unsafe_put_fields
- class_source_update_current_module_environment_container
+ class_source_update_current_module_environment_reference
  class_source_use_package_from_pkg_config
  )			       ;end classes for source representations
+
+(export_synonym
+ class_source_update_current_module_environment_container class_source_update_current_module_environment_reference
+)
+
+(export_synonym
+ class_source_current_module_environment_container class_source_current_module_environment_reference
+)
 
 (export_values			 ;values for source representations
  expand_apply
