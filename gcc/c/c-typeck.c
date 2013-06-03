@@ -2304,6 +2304,17 @@ build_array_ref (location_t loc, tree array, tree index)
       || TREE_TYPE (index) == error_mark_node)
     return error_mark_node;
 
+  if (flag_enable_cilkplus && contains_array_notation_expr (index))
+    {
+      size_t rank = 0;
+      if (!find_rank (loc, index, index, true, &rank))
+	return error_mark_node;
+      if (rank > 1)
+	{
+	  error_at (loc, "rank of the array's index is greater than 1");
+	  return error_mark_node;
+	}
+    }
   if (TREE_CODE (TREE_TYPE (array)) != ARRAY_TYPE
       && TREE_CODE (TREE_TYPE (array)) != POINTER_TYPE
       /* Allow vector[index] but not index[vector].  */
@@ -2722,6 +2733,10 @@ build_function_call_vec (location_t loc, tree function,
 	 often rewritten and don't match the original parameter list.  */
       if (name && !strncmp (IDENTIFIER_POINTER (name), "__atomic_", 9))
         origtypes = NULL;
+
+      if (flag_enable_cilkplus
+	  && is_cilkplus_reduce_builtin (function))
+	origtypes = NULL;
     }
   if (TREE_CODE (TREE_TYPE (function)) == FUNCTION_TYPE)
     function = function_to_pointer_conversion (loc, function);
@@ -2944,6 +2959,17 @@ convert_arguments (tree typelist, vec<tree, va_gc> *values,
       bool npc;
       tree parmval;
 
+      // FIXME: I assume this code is here to handle the overloaded
+      // behavior of the __sec_reduce* builtins, and avoid giving
+      // argument mismatch warnings/errors.  We should probably handle
+      // this with the resolve_overloaded_builtin infrastructure.
+      /* If the function call is a builtin function call, then we do not
+	 worry about it since we break them up into its equivalent later and
+	 we do the appropriate checks there.  */
+      if (flag_enable_cilkplus
+	  && is_cilkplus_reduce_builtin (fundecl))
+	continue;
+      
       if (type == void_type_node)
 	{
 	  if (selector)
@@ -3181,10 +3207,16 @@ convert_arguments (tree typelist, vec<tree, va_gc> *values,
 
   if (typetail != 0 && TREE_VALUE (typetail) != void_type_node)
     {
-      error_at (input_location,
-		"too few arguments to function %qE", function);
-      inform_declaration (fundecl);
-      return -1;
+      /* If array notation is used and Cilk Plus is enabled, then we do not
+	 worry about this error now.  We will handle them in a later place.  */
+      if (!flag_enable_cilkplus
+	  || !is_cilkplus_reduce_builtin (fundecl))
+	{
+	  error_at (input_location,
+		    "too few arguments to function %qE", function);
+	  inform_declaration (fundecl);
+	  return -1;
+	}
     }
 
   return error_args ? -1 : (int) parmnum;
@@ -3875,6 +3907,7 @@ lvalue_p (const_tree ref)
 
     case INDIRECT_REF:
     case ARRAY_REF:
+    case ARRAY_NOTATION_REF:
     case VAR_DECL:
     case PARM_DECL:
     case RESULT_DECL:
@@ -5245,11 +5278,9 @@ convert_for_assignment (location_t location, tree type, tree rhs,
   rhs = require_complete_type (rhs);
   if (rhs == error_mark_node)
     return error_mark_node;
-  /* A type converts to a reference to it.
-     This code doesn't fully support references, it's just for the
-     special case of va_start and va_copy.  */
-  if (codel == REFERENCE_TYPE
-      && comptypes (TREE_TYPE (type), TREE_TYPE (rhs)) == 1)
+  /* A non-reference type can convert to a reference.  This handles
+     va_start, va_copy and possibly port built-ins.  */
+  if (codel == REFERENCE_TYPE && coder != REFERENCE_TYPE)
     {
       if (!lvalue_p (rhs))
 	{
@@ -5261,16 +5292,11 @@ convert_for_assignment (location_t location, tree type, tree rhs,
       rhs = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (rhs)), rhs);
       SET_EXPR_LOCATION (rhs, location);
 
-      /* We already know that these two types are compatible, but they
-	 may not be exactly identical.  In fact, `TREE_TYPE (type)' is
-	 likely to be __builtin_va_list and `TREE_TYPE (rhs)' is
-	 likely to be va_list, a typedef to __builtin_va_list, which
-	 is different enough that it will cause problems later.  */
-      if (TREE_TYPE (TREE_TYPE (rhs)) != TREE_TYPE (type))
-	{
-	  rhs = build1 (NOP_EXPR, build_pointer_type (TREE_TYPE (type)), rhs);
-	  SET_EXPR_LOCATION (rhs, location);
-	}
+      rhs = convert_for_assignment (location, build_pointer_type (TREE_TYPE (type)),
+				    rhs, origtype, errtype, null_pointer_constant,
+				    fundecl, function, parmnum);
+      if (rhs == error_mark_node)
+	return error_mark_node;
 
       rhs = build1 (NOP_EXPR, type, rhs);
       SET_EXPR_LOCATION (rhs, location);
@@ -8647,11 +8673,25 @@ c_finish_return (location_t loc, tree retval, tree origtype)
   tree valtype = TREE_TYPE (TREE_TYPE (current_function_decl)), ret_stmt;
   bool no_warning = false;
   bool npc = false;
+  size_t rank = 0;
 
   if (TREE_THIS_VOLATILE (current_function_decl))
     warning_at (loc, 0,
 		"function declared %<noreturn%> has a %<return%> statement");
 
+  if (flag_enable_cilkplus && contains_array_notation_expr (retval))
+    {
+      /* Array notations are allowed in a return statement if it is inside a
+	 built-in array notation reduction function.  */
+      if (!find_rank (loc, retval, retval, false, &rank))
+	return error_mark_node;
+      if (rank >= 1)
+	{
+	  error_at (loc, "array notation expression cannot be used as a "
+		    "return value");
+	  return error_mark_node;
+	}
+    }
   if (retval)
     {
       tree semantic_type = NULL_TREE;
@@ -8994,6 +9034,13 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 {
   tree entry = NULL, exit = NULL, t;
 
+  if (flag_enable_cilkplus && contains_array_notation_expr (cond))
+    {
+      error_at (start_locus, "array notation expression cannot be used in a "
+		"loop%'s condition");
+      return;
+    }
+  
   /* If the condition is zero don't generate a loop construct.  */
   if (cond && integer_zerop (cond))
     {
@@ -9500,8 +9547,18 @@ build_binary_op (location_t location, enum tree_code code,
       op1 = default_conversion (op1);
     }
 
-  orig_type0 = type0 = TREE_TYPE (op0);
-  orig_type1 = type1 = TREE_TYPE (op1);
+  /* When Cilk Plus is enabled and there are array notations inside op0, then
+     we check to see if there are builtin array notation functions.  If
+     so, then we take on the type of the array notation inside it.  */
+  if (flag_enable_cilkplus && contains_array_notation_expr (op0)) 
+    orig_type0 = type0 = find_correct_array_notation_type (op0);
+  else
+    orig_type0 = type0 = TREE_TYPE (op0);
+
+  if (flag_enable_cilkplus && contains_array_notation_expr (op1))
+    orig_type1 = type1 = find_correct_array_notation_type (op1);
+  else 
+    orig_type1 = type1 = TREE_TYPE (op1);
 
   /* The expression codes of the data types of the arguments tell us
      whether the arguments are integers, floating, pointers, etc.  */

@@ -4969,7 +4969,7 @@ extern bool pragma_java_exceptions;
 /* in call.c */
 extern bool check_dtor_name			(tree, tree);
 
-extern tree build_conditional_expr		(tree, tree, tree, 
+extern tree build_conditional_expr		(location_t, tree, tree, tree, 
                                                  tsubst_flags_t);
 extern tree build_addr_func			(tree, tsubst_flags_t);
 extern void set_flags_from_callee		(tree);
@@ -5112,6 +5112,7 @@ extern void deduce_noexcept_on_destructor       (tree);
 extern void insert_late_enum_def_into_classtype_sorted_fields (tree, tree);
 extern bool uniquely_derived_from_p             (tree, tree);
 extern bool publicly_uniquely_derived_p         (tree, tree);
+extern tree common_enclosing_class		(tree, tree);
 
 /* in cvt.c */
 extern tree convert_to_reference		(tree, tree, int, int, tree,
