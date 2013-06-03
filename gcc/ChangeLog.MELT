@@ -1,6 +1,16 @@
 
 
 2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_plus, mexpand_minus)
+	(mexpand_times, mexpand_div): New macro expanders for +,-, *, /
+	variadic operators.
+
+	* melt/warmelt-normal.melt
+	(normexp_arithmetic_variadic_operation): New method for normal_exp
+	on class_source_arithmetic_variadic_operation.
+
+2013-06-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{rename current_environment_container as
 	current_environment_reference everywhere...}}
 

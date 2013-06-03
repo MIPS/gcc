@@ -5443,6 +5443,122 @@ condition is a string such as "4.5." or a list of strings.}#)
  means @code{(PUT_FIELDS @var{<ref>} :REFERENCED_VALUE @var{<value>})}, hence test that @var{<ref>}
  is indeed an instance of $CLASS_REFERENCE before updating it.}#)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; + 
+;;;; the + macro expander
+(defun mexpand_plus  (sexpr env mexpander modctx)
+  (debug "mexpand_plus sexpr" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(xargtup (expand_restlist_as_tuple cont env mexpander modctx))
+	(res (instance class_source_arithmetic_variadic_operation
+	      :loca_location loc
+	      :sargop_args xargtup
+	      :sarithvar_neutral '0
+	      :sarithvar_primitive +i
+	      ))
+	)
+    (when (==i 0 (multiple_length xargtup))
+      (error_plain loc "+ operator needs at least one argument")
+      (return))
+    (debug "mexpand_plus result" res)
+    (return res)
+    ))
+(install_initial_macro '+ mexpand_plus)
+(export_macro + mexpand_plus
+ :doc #{The addition @code{+} operator is variadic, and understood as successive 
+applications of @code{+i} primitives.}#
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; - 
+;;;; the - macro expander
+(defun mexpand_minus  (sexpr env mexpander modctx)
+  (debug "mexpand_minus sexpr" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(xargtup (expand_restlist_as_tuple cont env mexpander modctx))
+	(res (instance class_source_arithmetic_variadic_operation
+	      :loca_location loc
+	      :sargop_args xargtup
+	      :sarithvar_neutral '0
+	      :sarithvar_primitive -i
+	      ))
+	)
+    (when (==i 0 (multiple_length xargtup))
+      (error_plain loc "- operator needs at least one argument")
+      (return))
+    (debug "mexpand_minus result" res)
+    (return res)
+    ))
+(install_initial_macro '- mexpand_minus)
+(export_macro - mexpand_minus
+ :doc #{The substraction @code{-} operator is variadic, and understood as successive 
+applications of @code{-i} primitives.}#
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; - 
+;;;; the * macro expander
+(defun mexpand_times  (sexpr env mexpander modctx)
+  (debug "mexpand_times sexpr" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(xargtup (expand_restlist_as_tuple cont env mexpander modctx))
+	(res (instance class_source_arithmetic_variadic_operation
+	      :loca_location loc
+	      :sargop_args xargtup
+	      :sarithvar_neutral '1
+	      :sarithvar_primitive *i
+	      ))
+	)
+    (when (==i 0 (multiple_length xargtup))
+      (error_plain loc "* operator needs at least one argument")
+      (return))
+    (debug "mexpand_times result" res)
+    (return res)
+    ))
+(install_initial_macro '* mexpand_times)
+(export_macro * mexpand_times
+ :doc #{The product @code{*} operator is variadic, and understood as successive 
+applications of @code{*i} primitives.}#
+)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; - 
+;;;; the / macro expander
+(defun mexpand_div  (sexpr env mexpander modctx)
+  (debug "mexpand_div sexpr" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(xargtup (expand_restlist_as_tuple cont env mexpander modctx))
+	(res (instance class_source_arithmetic_variadic_operation
+	      :loca_location loc
+	      :sargop_args xargtup
+	      :sarithvar_neutral '1
+	      :sarithvar_primitive /i
+	      ))
+	)
+    (when (==i 0 (multiple_length xargtup))
+      (error_plain loc "/ operator needs at least one argument")
+      (return))
+    (debug "mexpand_div result" res)
+    (return res)
+    ))
+(install_initial_macro '/ mexpand_div)
+(export_macro / mexpand_div
+ :doc #{The division @code{/} operator is variadic, and understood as successive 
+applications of @code{/i} primitives.}#
+)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; TUPLE 
 ;;;; the TUPLE macro expander
 (defun mexpand_tuple  (sexpr env mexpander modctx)

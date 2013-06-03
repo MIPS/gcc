@@ -2003,7 +2003,7 @@ source location.}#
 (install_method class_class normal_exp normexp_class)
 
 
-
+;;;;;;;;;;;;;;;;
 ;;; normalize a primitive invocation
 (defun normexp_primitive (recv env ncx psloc)
   (debug "normexp_primitive recv" recv)
@@ -5355,6 +5355,100 @@ source location.}#
 (install_method class_source_list normal_exp normexp_list)
 ;;;;;;;;;;;;;;;;
 
+
+(defun normexp_arithmetic_variadic_operation (recv env ncx psloc)
+  (debug "normexp_arithmetic_variadic_operation recv" recv)
+  (assert_msg "check list recv" (is_a recv class_source_list))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check nctxt" (is_a ncx class_normalization_context))
+  (let ( (sloc (or (unsafe_get_field :loca_location recv) psloc))
+	 (sargs (unsafe_get_field :sargop_args recv))
+	 (sneutral (unsafe_get_field :sarithvar_neutral recv))
+	 (sprimitive (unsafe_get_field :sarithvar_primitive recv))
+	 )
+    (debug "normexp_arithmetic_variadic_operation sprimitive=" sprimitive " sneutral=" sneutral)
+    (assert_msg "check sprimitive" (is_a sprimitive class_primitive))
+    (assert_msg "check sneutral" (is_integerbox sneutral))
+    ;; actually, we normalize only to check the type here. We produce
+    ;; a source primitive which is normalized again.
+    (multicall
+     (nargs nbindings)
+     (normalize_tuple sargs env ncx sloc)
+     (debug "normexp_arithmetic_variadic_operation nargs=" nargs " nbindings=" nbindings)
+     (assert_msg "check nbindings" (is_list_or_null nbindings))
+     ;; check that all arguments are :long
+     (foreach_in_multiple
+      (nargs)
+      (curnarg :long argix)
+      (let ( (argctyp (get_ctype curnarg env))
+	     )
+	(when (!= argctyp ctype_long)
+	  (error_plain sloc "variadic arithmetic operation requires only :long arguments")
+	  (return))		
+	))
+     (match
+      sargs
+      (?(tuple ?s0)
+	(let ( (sprim (instance class_source_primitive
+				:loca_location sloc
+				:sprim_oper sprimitive
+				:sargop_args (tuple sneutral s0)))
+	       )
+	  (debug "normexp_arithmetic_variadic_operation unary sprim=" sprim)
+	  (multicall
+	   (nrealargs nrealbindings)
+	   (normexp_primitive sprim env ncx psloc)
+	   (debug "normexp_arithmetic_variadic_operation unary result nrealargs=" nrealargs 
+		  " nrealbindings=" nrealbindings)
+	   (return nrealargs nrealbindings)
+	   (void)
+	   )))
+      (?(tuple ?s0 ?s1)
+	(let ( (sprim (instance class_source_primitive
+				:loca_location sloc
+				:sprim_oper sprimitive
+				:sargop_args (tuple s0 s1)))
+	       )
+	  (debug "normexp_arithmetic_variadic_operation binary sprim=" sprim)
+	  (multicall
+	   (nrealargs nrealbindings)
+	   (normexp_primitive sprim env ncx psloc)
+	   (debug "normexp_arithmetic_variadic_operation binary result nrealargs=" nrealargs 
+		  " nrealbindings=" nrealbindings)
+	   (return nrealargs nrealbindings)
+	   (void)
+	   )))
+      (?_
+       (assert_msg "check #args>2" (>i (multiple_length sargs) 2))
+       (let ( (sprim (instance class_source_primitive
+			       :loca_location sloc
+			       :sprim_oper sprimitive
+			       :sargop_args (tuple (multiple_nth sargs 0) (multiple_nth sargs 1))))
+	      )
+	 (foreach_in_multiple
+	  (sargs)
+	  (cursarg :long six)
+	  (if (>i six 1)
+	      (let ( (newsprim (instance class_source_primitive
+					 :loca_location sloc
+					 :sprim_oper sprimitive
+					 :sargop_args (tuple sprim cursarg)))
+		     )
+		(setq sprim newsprim)))
+	  )
+	 (debug "normexp_arithmetic_variadic_operation nary sprim=" sprim)
+	 (multicall
+	  (nrealargs nrealbindings)
+	  (normexp_primitive sprim env ncx psloc)
+	  (debug "normexp_arithmetic_variadic_operation nary result nrealargs=" nrealargs 
+		 " nrealbindings=" nrealbindings)
+	  (return nrealargs nrealbindings)
+	  (void)	 
+	  )))
+      ))))
+(install_method class_source_arithmetic_variadic_operation normal_exp normexp_arithmetic_variadic_operation)
+
+;;;;;;;;;;;;;;;;
 (defselector prepare_constructor_binding class_selector
   :doc #{The $PREPARE_CONSTRUCTOR_BINDING selector applied to: an
   constructible expression $RECV, a symbol $SYMB, a normalization
