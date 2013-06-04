@@ -5062,19 +5062,24 @@ $SBUF.}#
 	 (oblock (instance class_objplainblock
 			   :obi_loc rloc
 			   :oblo_bodyl olis))
-	 (omainv (compile_obj rmain gcx))
+	 (omainv (progn (debug "compilobj_nrep_return rmain=" rmain)
+			(compile_obj rmain gcx)))
 	 )
+    (debug "compilobj_nrep_return omainv=" omainv)
     (assert_msg "check orout" (is_a orout class_routineobj))
     (assert_msg "check rrest" (is_multiple_or_null rrest))
     (if (null (get_field :obrout_retval orout))
 	(put_fields orout :obrout_retval retloc))
-    (list_append olis (put_objdest omainv retloc))
+    (debug "compilobj_nrep_return omainv=" omainv " retloc=" retloc)
+    (if retloc 
+	(list_append olis (put_objdest omainv retloc)))
     (when (and (is_a orout class_initialroutineobj)
 	       (>i (multiple_length rrest) 0))
       (debug "compilobj_nrep_return bad initial orout=" orout " with secondary results rrest=" rrest)
       (error_plain rloc "(RETURN ...) with secondary results outside of function")
       (return)
       )
+    (debug "compilobj_nrep_return rrest=" rrest)
     (foreach_in_multiple
      (rrest)
      (rxtra :long ix)

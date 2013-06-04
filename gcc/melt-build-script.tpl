@@ -697,6 +697,8 @@ meltbuild_arg tempdir=meltbuild-tempdir >> $meltcommon_argstemp
 meltbuild_arg source-path=meltbuild-sources:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
 meltbuild_arg module-path=meltbuild-modules:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
 meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcommon_argstemp
+meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltcommon_argstemp
+
 $GCCMELT_MOVE_IF_CHANGE $meltcommon_argstemp $meltcommon_args
 meltbuild_info [+(.(fromline))+] $meltcommon_args is
 cat $meltcommon_args < /dev/null >&2

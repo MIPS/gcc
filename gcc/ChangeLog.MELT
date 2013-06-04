@@ -1,6 +1,15 @@
 
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{test thook-4.melt passes}}
+	* melt/warmelt-genobj.melt: Only assign the return when available.
+
+	* melt-build-script.tpl: Also emit module-makefile in
+	meltbuild-common.args.
+
+	* melt-build-script.sh: Regenerate.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/thook-4.melt: New test, failing in svn.rev. 199649
 
