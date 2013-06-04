@@ -34,6 +34,17 @@
 ;;    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; internal primitive to make a fresh environment reference; call the
+;; hook_fresh_environment_reference_maker from warmelt-hooks.melt
+(defprimitive melt_make_fresh_environment_reference
+  (:value prevenv :cstring modulname) :value
+  :doc #{Internal primitive $MELT_MAKE_FRESH_ENVIRONMENT to call the $HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER, 
+used to create new environments in modules. Only for gurus and MELT itself.}#
+  #{ /* melt_make_fresh_environment_reference */ 
+  melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER ((melt_ptr_t) ($PREVENV), $MODULNAME)
+  }#)
+
+
 ;; negation of is_object
 (defprimitive is_not_object (obj) :long
   :doc #{Test if $OBJ is not an object. Negation of $IS_OBJECT.}#
@@ -3147,6 +3158,7 @@ typedef struct melthook_st *melthook_ptr_t;
  melt_is_bootstrapping
  melt_mode_reference
  melt_version_str
+ melt_make_fresh_environment_reference
  message_dbg
  messagenum_dbg 
  messageval_dbg
