@@ -459,6 +459,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   mkdoc_instances
 	   mkdoc_macros
 	   mkdoc_patmacros
+	   mkdoc_hooks
 	   ;; map from formal symbols to lists of definitions containing them
 	   mkdoc_formaloccmap
 	   ;; map from predefined symbol to definition
@@ -714,6 +715,20 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   )
 	  (add_docsym mname curexp)
 	  (list_append (get_field :mkdoc_macros mdinfo) curexp)
+	  )
+;;;;;;;
+;;; handle defhook
+	(?(instance
+	   class_source_defhook
+	   :loca_location ?loc
+	   :sdef_name ?mname
+	   :sdef_doc 
+	   ?(instance class_sexpr 
+		      :loca_location ?docloc
+		      :sexp_contents ?docont)
+	   )
+	  (add_docsym mname curexp)
+	  (list_append (get_field :mkdoc_hooks mdinfo) curexp)
 	  )
 ;;;;;;;
 ;;; catchall with warning
@@ -1479,6 +1494,80 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     )
   )
 
+;;;;;;;;;;;;;;;;
+;;;;; generate the hook documentation
+(defun makedoc_genhook (mdinfo outb)
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check outb" (is_strbuf outb))
+  (add2sbuf_strconst outb "@node MELT hooks")
+  (add2sbuf_indentnl outb 0)
+  (add2sbuf_strconst outb "@section MELT hooks")
+  (add2sbuf_indentnl outb 0)
+  (add2sbuf_indentnl outb 0)
+  (let ( (rawhooklist (get_field :mkdoc_hooks mdinfo))
+	 (rawhooktup (list_to_multiple rawhooklist discr_multiple))
+	 (sortedhooktup
+	  (multiple_sort 
+	   rawhooktup 
+	   (lambda (sm1 sm2)
+	     (compare_named_alpha 
+	      (get_field :sdef_name sm1)
+	      (get_field :sdef_name sm2)))
+	   discr_multiple))
+	 )
+    (add2sbuf_strconst outb "There are ")
+    (add2sbuf_longdec outb (multiple_length sortedhooktup))
+    (add2sbuf_strconst outb " hooks.")
+    (add2sbuf_indentnl outb 0)
+    (foreach_in_multiple
+     (sortedhooktup)
+     (curhook :long hix)
+     (debug "makedoc_genhook curhook=" curhook)
+     (assert_msg "check curhook" (is_a curhook class_source_defhook))
+     (let ( (loc (get_field :loca_location curhook))
+	    (name (get_field :sdef_name curhook))
+	    (doc (get_field :sdef_doc curhook))
+	    (ins (get_field :sformal_args curhook))
+	    (outs (get_field :shook_out_formals curhook))
+	    (hctyp (get_field :shook_ctype curhook))
+	    (predef (get_field :shook_predef curhook))
+	    (hvar (get_field :shook_variable curhook))
+	    )
+       (add2sbuf_indentnl outb 0)
+       (add2sbuf_strconst outb "@subsection @var{")
+       (add2sbuf_string outb (get_field :named_name name))
+       (add2sbuf_strconst outb "} hook")
+       (add2sbuf_indentnl outb 0)
+       (add2sbuf_strconst outb "@vindex ")
+       (add2sbuf_string outb (get_field :named_name name))
+       (add2sbuf_indentnl outb 0)
+       (makedoc_outdefloc outb curhook "Hook defined at ")
+       (add2sbuf_indentnl outb 0)
+       (makedoc_outformals outb ins "@strong{hook input formals:}")
+       (add2sbuf_indentnl outb 0)
+       (makedoc_outformals outb outs "@strong{hook output formals:}")
+       (add2sbuf_indentnl outb 0)
+       (add2out outb 
+		"@strong{hook result ctype:} "
+		(get_field :named_name 
+			   (get_field :ctype_keyword hctyp)))
+       (add2sbuf_indentnl outb 0)
+       (when (is_a predef class_named)
+	 (add2out outb "Hook @strong{predefined as}: "
+		  "@code{" (get_field :named_name predef) "}.")
+	 (add2sbuf_indentnl outb 0)
+	 )
+       (when (is_a hvar class_named)
+	 (add2out outb "Hook @strong{stored in module variable}: "
+		  "@code{" (get_field :named_name hvar) "}.")
+	 (add2sbuf_indentnl outb 0))
+       (makedoc_outdoc outb doc "@strong{Hook description:} ")
+       (add2sbuf_indentnl outb 0)
+       (increment_mkdoc_counter mdinfo)
+       )
+     )
+    )
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; makedoc - generate the output file
@@ -1505,6 +1594,23 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (add2sbuf_indentnl outb 0)
     (add2sbuf_indentnl outb 0)
 
+    (let ( (datestr ())
+	   (versionstr ())
+	   )
+      (code_chunk getdatestr_chk #{ /* makedoc_genoutput $GETDATESTR_CHK */
+		  time_t now = 0;
+		  char nowbuf[64];
+		  time (&now);
+		  memset (nowbuf, 0, sizeof(nowbuf));
+		  strftime (nowbuf, sizeof(nowbuf)-1, "%x", localtime(&now));
+		  $DATESTR = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
+						nowbuf);
+		  $VERSIONSTR = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
+						   melt_version_str ());
+		  }#)
+      (add2out outb ##{This documentation is @strong{generated} on @emph{$DATESTR} by @emph{MELT $VERSIONSTR}.}#)
+      (add2sbuf_indentnl outb 0)
+      )
     ;; Some people suggested outputting an GFDL license. But
     ;; others objected.  A paragraph of code doing that was
     ;; removed after rev.160339 see
@@ -1529,6 +1635,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (add2sbuf_indentnl outb 0)
     (add2sbuf_strconst outb "* MELT c-matchers:: The MELT c-matchers.")
     (add2sbuf_indentnl outb 0)
+    (add2sbuf_strconst outb "* MELT hooks:: The MELT hooks.")
+    (add2sbuf_indentnl outb 0)
     (add2sbuf_strconst outb "@end menu")
     (add2sbuf_indentnl outb 0)
     ;; generate macro related stuff
@@ -1545,6 +1653,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (makedoc_genciterator mdinfo outb)
     ;; generate c-matchers related stuff
     (makedoc_gencmatcher mdinfo outb)
+    ;; generate hooks related stuff
+    (makedoc_genhook mdinfo outb)
+    ;;
     (add2sbuf_indentnl outb 0)
     (add2sbuf_strconst outb "@c **** end of makedoc generated file ")
     (add2sbuf_string outb outarg)

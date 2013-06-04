@@ -1,8 +1,8 @@
 ## a GNU Makefile for building the MELT plugin
 ##
-##    Middle End Lisp Translator = MELT
+##    Middle End Lisp Translator = MELT ; see http://gcc-melt.org/
 ##
-##    Copyright (C) 2011, 2012 Free Software Foundation, Inc.
+##    Copyright (C) 2011 - 2013 Free Software Foundation, Inc.
 ##    Contributed by Basile Starynkevitch <basile@starynkevitch.net> and others
 ## 
 ## This file contrib/MELT-Plugin-Makefile is part of GCC.
