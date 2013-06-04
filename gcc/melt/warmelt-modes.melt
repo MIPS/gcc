@@ -1602,7 +1602,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		  char nowbuf[64];
 		  time (&now);
 		  memset (nowbuf, 0, sizeof(nowbuf));
-		  strftime (nowbuf, sizeof(nowbuf)-1, "%x", localtime(&now));
+		  strftime (nowbuf, sizeof(nowbuf)-1, "%B %d, %Y", localtime(&now));
 		  $DATESTR = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
 						nowbuf);
 		  $VERSIONSTR = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
@@ -1699,6 +1699,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		   :mkdoc_instances (make_list discr_list)
 		   :mkdoc_macros (make_list discr_list)
 		   :mkdoc_patmacros (make_list discr_list)
+		   :mkdoc_hooks (make_list discr_list)
 		   :mkdoc_formaloccmap (make_mapobject discr_map_objects 1000)
 		   :mkdoc_predefmap (make_mapobject discr_map_objects 200)
 		   :mkdoc_docsymap (make_mapobject discr_map_objects 400)

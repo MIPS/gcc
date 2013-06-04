@@ -1,5 +1,10 @@
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (makedoc_genoutput): Date of generation
+	is in more readable format.
+	(makedoc_docmd): Initialize mkdoc_hooks field.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-modes.melt (makedoc_genhook): New function.
 	(makedoc_genoutput): Emit generation date and version string. Call
 	makedoc_genhook to document hooks.
