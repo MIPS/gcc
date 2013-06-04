@@ -2,7 +2,12 @@
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* melt/warmelt-hooks.melt (hook_fresh_environment_reference_maker): New hook.
+	* melt/warmelt-hooks.melt (hook_value_importer): New hook.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt
+	(hook_fresh_environment_reference_maker): New hook.
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 

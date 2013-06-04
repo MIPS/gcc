@@ -56,6 +56,84 @@
     ))
   
 
+;;;====================================================================
+;;;************************* value importer ***************************
+(defhook hook_value_importer (:value sym parenv
+			      :cstring symname modulename) 
+  () 
+  :value
+  :predef HOOK_VALUE_IMPORTER
+  :doc #{$HOOK_VALUE_IMPORTER is an internal hook to import a symbol at start of a module.}#
+  (debug "hook_value_importer sym=" sym)
+  (code_chunk ensuremodnam_chk #{ /* hook_value_importer $ENSUREMODNAM_CHK */ 
+       if (!$MODULENAME) $MODULENAME = "???"; 
+       }#)
+  ;; error if importing a non symbol
+  (when (is_not_a sym class_symbol)
+    (shortbacktrace_dbg "hook_value_importer" 10)
+    (code_chunk 
+     errfailimport_chk
+     #{ /* hook_value_importer $ERRFAILIMPORT_CHK */ 
+     if ($SYMNAME)
+       {
+         if (melt_flag_bootstrapping)
+             warning (0, "MELT BOOTSTRAPPING [%s]: imported symbol %s not found",
+		      $MODULENAME, $SYMNAME)	;
+         else
+             error ("MELT [%s]: imported symbol %s not found",
+	            $MODULENAME, $SYMNAME) ;
+     }
+     else
+       {
+         error ("MELT [%s]: importing non symbol", $MODULENAME);
+       }
+     }#)
+    (return ())
+    )
+  ;; error if importing from a non environment
+  (if (is_not_a parenv class_environment)
+    (let ( (pardiscr (discrim parenv))
+	   (pardiscnam (get_field :named_name pardiscr))
+	   )
+      (shortbacktrace_dbg "hook_value_importer" 10)
+      (code_chunk 
+       errparenv_chk
+       #{ /* hook_value_importer $ERRPARENV_CHK */
+       if ($PARENV)
+          error ("MELT [%s]: imported symbol %s with bad parent environment of discriminant %s",
+		 $MODULENAME, $SYMNAME, melt_string_str ((melt_ptr_t)$PARDISCNAM));
+       else
+          error  ("MELT [%s]: imported symbol %s without bad parent environment",
+		  $MODULENAME, $SYMNAME);
+	  }#)
+      (return ())))
+  ;;
+  (assert_msg "check sym" (is_a sym class_symbol))
+  (assert_msg "check parenv" (is_a parenv class_environment))
+  (let ( (valbind (find_env parenv sym))
+	 )
+    (if (is_not_a valbind class_value_binding)
+	(let ( (symnam (get_field :named_name sym)) 
+	       (bindiscr (discrim valbind))
+	       (bindiscrnam (get_field :named_name bindiscr))
+	       )
+	  (assert_msg "check symnam" (is_string symnam))
+	  (code_chunk errbadimport 
+		      #{ /* hook_value_importer $ERRBADIMPORT start */ {
+		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAME);
+		      error ("MELT [%s]: imported symbol %s has unexpected binding of %s",
+			     $MODULENAME,
+			     $ERRBADIMPORT#_str?$ERRBADIMPORT#_str:$SYMNAME,
+			     melt_string_str ((melt_ptr_t)$BINDISCRNAM));
+		    } /* hook_value_importer $ERRBADIMPORT end */ }#)
+	  (return)
+	  ))
+    (assert_msg "check valbind" (is_a valbind class_value_binding))
+    (return (unsafe_get_field :vbind_value valbind))
+))
+
+
+
 
 
 ;;;====================================================================
