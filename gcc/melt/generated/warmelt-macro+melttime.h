@@ -5,7 +5,7 @@
 
 
 /* This warmelt-macro+melttime.h is included from warmelt-macro+meltdesc.c only. */
-#if meltmod_warmelt_macro_mds__10e00087fd9cb4b39c25ddccff013091
+#if meltmod_warmelt_macro_mds__e6c6c20ea7bed18660bb5e2abfb65ef4
 /* MELT generation timestamp for meltbuild-sources/warmelt-macro */
 
 #ifdef __cplusplus
@@ -18,8 +18,8 @@ extern "C" {
 
 		 
 /*MELT BOOTSTRAP*/
-const char melt_gen_timestamp[]="Tue Jun  4 19:40:00 2013 MEST";
-const long long melt_gen_timenum=1370367600;
+const char melt_gen_timestamp[]="Tue Jun  4 20:24:55 2013 MEST";
+const long long melt_gen_timenum=1370370295;
 
 		 const char melt_build_timestamp[]= __DATE__ "@" __TIME__
 		 #ifdef __cplusplus
@@ -34,7 +34,7 @@ const long long melt_gen_timenum=1370367600;
 		 }  /* end extern C timestamp */
 		 #endif /*__cplusplus */
 
-		 #else /* ! meltmod_warmelt_macro_mds__10e00087fd9cb4b39c25ddccff013091 */
+		 #else /* ! meltmod_warmelt_macro_mds__e6c6c20ea7bed18660bb5e2abfb65ef4 */
 		 #error invalid timestamp file for meltbuild-sources/warmelt-macro 
-		 #endif /* meltmod_warmelt_macro_mds__10e00087fd9cb4b39c25ddccff013091 */
+		 #endif /* meltmod_warmelt_macro_mds__e6c6c20ea7bed18660bb5e2abfb65ef4 */
 		 

@@ -843,6 +843,91 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_INTERN_KEYWORD_rout (struct
 
 
 
+/** declaration of hook melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER */
+MELT_EXTERN
+  melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t
+							      melthookdata,
+							      melt_ptr_t
+							      meltinp0_PREVENV,
+							      const char
+							      *meltinp1_MODULNAME);
+
+
+/* declare hook frame marking routine for melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER hook */
+void MELT_MODULE_VISIBILITY
+melthookmark_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_rout (struct
+							  melt_callframe_st *,
+							  int);
+
+
+
+
+/** declaration of hook melthook_HOOK_VALUE_IMPORTER */
+MELT_EXTERN
+  melt_ptr_t melthook_HOOK_VALUE_IMPORTER (melt_ptr_t melthookdata,
+					   melt_ptr_t meltinp0_SYM,
+					   melt_ptr_t meltinp1_PARENV,
+					   const char *meltinp2_SYMNAME,
+					   const char *meltinp3_MODULENAME);
+
+
+/* declare hook frame marking routine for melthook_HOOK_VALUE_IMPORTER hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_VALUE_IMPORTER_rout (struct
+								   melt_callframe_st
+								   *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_VALUE_EXPORTER */
+MELT_EXTERN
+  void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
+				     melt_ptr_t meltinp0_SYM,
+				     melt_ptr_t meltinp1_VAL,
+				     melt_ptr_t meltinp2_CONTENV);
+
+
+/* declare hook frame marking routine for melthook_HOOK_VALUE_EXPORTER hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_VALUE_EXPORTER_rout (struct
+								   melt_callframe_st
+								   *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_MACRO_EXPORTER */
+MELT_EXTERN
+  void melthook_HOOK_MACRO_EXPORTER (melt_ptr_t melthookdata,
+				     melt_ptr_t meltinp0_SYM,
+				     melt_ptr_t meltinp1_VAL,
+				     melt_ptr_t meltinp2_CONTENV);
+
+
+/* declare hook frame marking routine for melthook_HOOK_MACRO_EXPORTER hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_MACRO_EXPORTER_rout (struct
+								   melt_callframe_st
+								   *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_PATMACRO_EXPORTER */
+MELT_EXTERN
+  void melthook_HOOK_PATMACRO_EXPORTER (melt_ptr_t melthookdata,
+					melt_ptr_t meltinp0_SYM,
+					melt_ptr_t meltinp1_MACVAL,
+					melt_ptr_t meltinp2_PATVAL,
+					melt_ptr_t meltinp3_CONTENV);
+
+
+/* declare hook frame marking routine for melthook_HOOK_PATMACRO_EXPORTER hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_PATMACRO_EXPORTER_rout (struct
+								      melt_callframe_st
+								      *, int);
+
+
+
+
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
@@ -989,6 +1074,10 @@ void MELT_MODULE_VISIBILITY
 meltmod__warmelt_first__initialmeltchunk_61 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__warmelt_first__initialmeltchunk_62 (meltinitial_frame_t *, char *);
+void MELT_MODULE_VISIBILITY
+meltmod__warmelt_first__initialmeltchunk_63 (meltinitial_frame_t *, char *);
+void MELT_MODULE_VISIBILITY
+meltmod__warmelt_first__initialmeltchunk_64 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__warmelt_first__forward_or_mark_module_start_frame (struct
 							    melt_callframe_st
