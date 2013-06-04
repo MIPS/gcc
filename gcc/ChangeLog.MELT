@@ -1,6 +1,12 @@
 
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (initfresh_contenvmaker): Remove
+	function.
+	(initial_system_data): Remove setting of sysdata_cont_fresh_env
+	field.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable & regenerated}}
 
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.

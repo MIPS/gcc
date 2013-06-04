@@ -2965,24 +2965,6 @@ Keyword is :cstring.}#
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; soon obsolete, since replaced with hooks
-;; initial fresh environment container maker - inside INITIAL_SYSTEM_DATA
-(defun initfresh_contenvmaker (prevenv :cstring modnam)
-  ;; soon obsolete replaced by hook_fresh_environment_reference_maker
-  (if (melt_need_dbg 0) 
-      (shortbacktrace_dbg "initfresh_contenvmaker" 15))
-  (let (
-	(descr (if modnam (make_stringconst discr_string modnam)))
-	(newenv (fresh_env prevenv descr)) 
-	(newcont (instance class_reference 
-			   :referenced_value newenv))
-	)
-    (return newcont)
-    ))
-
-
-
 ;; initial value exporter - inside INITIAL_SYSTEM_DATA
 (defun initvalue_exporter (sym val contenv)
   ;; soon obsolete replaced by hook_value_exporter
@@ -3495,7 +3477,6 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :predef INITIAL_SYSTEM_DATA
   :named_name '"INITIAL_SYSTEM_DATA"
   :sysdata_mode_dict  (make_mapstring discr_map_strings 40) ;stringmap for modes
-  :sysdata_cont_fresh_env initfresh_contenvmaker	;fresh environment maker in module
   :sysdata_value_exporter initvalue_exporter ;value exporter in module
   :sysdata_macro_exporter initmacro_exporter ;macro exporter in module
   :sysdata_symboldict  (make_mapstring discr_map_strings 600) ;stringmap for symbols
