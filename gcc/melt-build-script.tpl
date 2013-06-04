@@ -440,8 +440,6 @@ GCCMELT_LASTSTAGE=[+stagdir+]
 ################################################################
 
 
-GCCMELT_LASTSTAGE=$GCCMELT_STAGE
-
 meltbuild_info [+(.(fromline))+] last stage $GCCMELT_LASTSTAGE
 
 ################################################################
@@ -685,6 +683,25 @@ if [ "$melt_overall_goal" = "modlists" ]; then
     meltbuild_info [+(.(fromline))+] done modlists overall goal with stamp  $melt_final_application_stamp
     exit 0
 fi
+
+
+################################################################
+#@ [+(.(fromline))+] making the meltbuild-common.args file to make life easier
+# I would often use that meltbuild-common.args for testing, etc.
+meltcommon_args=meltbuild-common.args
+meltbuild_info [+(.(fromline))+] making $meltcommon_args
+meltcommon_argstemp=$meltcommon_args-tmp$$
+echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]"' > $meltcommon_argstemp
+meltbuild_arg workdir=meltbuild-workdir >>  $meltcommon_argstemp
+meltbuild_arg tempdir=meltbuild-tempdir >> $meltcommon_argstemp
+meltbuild_arg source-path=meltbuild-sources:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
+meltbuild_arg module-path=meltbuild-modules:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
+meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcommon_argstemp
+$GCCMELT_MOVE_IF_CHANGE $meltcommon_argstemp $meltcommon_args
+meltbuild_info [+(.(fromline))+] $meltcommon_args is
+cat $meltcommon_args < /dev/null >&2
+
+
 
 
 ################################################################

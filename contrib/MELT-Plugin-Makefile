@@ -84,12 +84,13 @@ STAMP ?= echo timestamp >
 MELTLIBS_INCLUDEFLAGS ?=
 
 ## the gengtype for that GCC and its flag
-MELTGCC_GENGTYPE := $(shell $(MELTGCC) -print-file-name=gengtype)
+# some distributions want plugin/gengtype, others just gengtype
+MELTGCC_GENGTYPE := $(or $(wildcard $(shell $(MELTGCC) -print-prog-name=gengtype)),$(wildcard $(shell $(MELTGCC) -print-prog-name=plugin/gengtype)))
 
 MELTGCC_GENGTYPEFLAGS = -v
 
 ## its state file
-MELTGCC_GTYPESTATE  := $(shell $(MELTGCC) -print-file-name=gtype.state)
+MELTGCC_GTYPESTATE := $(or $(wildcard $(shell $(MELTGCC) -print-file-name=gtype.state)),$(wildcard $(shell  $(MELTGCC) -print-file-name=plugin/gtype.state)))
 
 ## MELT plugin extra libraries and flags for melt.so
 MELTGCC_LIBES = 

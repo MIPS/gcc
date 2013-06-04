@@ -1,4 +1,11 @@
 
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile (MELTGCC_GENGTYPE, MELTGCC_GTYPESTATE): Use
+	or, wildcard to make some distributions happier. Improve
+	http://data.gpo.zugaina.org/dMaggot/dev-util/melt/files/melt-makefile.diff
+	patch.
+
 2012-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* make-melt-plugin-source-tar.sh: Make a snapshot with -s
