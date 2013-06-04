@@ -2,6 +2,10 @@
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/thook-4.melt: New test, failing in svn.rev. 199649
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (hook_value_importer): New hook.
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
