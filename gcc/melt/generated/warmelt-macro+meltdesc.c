@@ -39,9 +39,9 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-rc2p/warmelt-macro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="31af68a868f2b06f48b6f3063b643d16";
+const char melt_prepromd5meltrun[]="b631b87d5522c22d6e243e5f93930336";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="c6a559c84c9d517b0755b0e77565cd0c";
+const char melt_primaryhexmd5[]="8cdb6a2c099aa0e7741811dc209a30ba";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -58,13 +58,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="4557de3454b783e529879af3e115ee23" ;
+const char melt_cumulated_hexmd5[]="10e00087fd9cb4b39c25ddccff013091" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_warmelt_macro_mds__4557de3454b783e529879af3e115ee23 1
+#define meltmod_warmelt_macro_mds__10e00087fd9cb4b39c25ddccff013091 1
 #include "warmelt-macro+melttime.h"
 	 
 
