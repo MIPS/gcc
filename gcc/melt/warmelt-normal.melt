@@ -8148,18 +8148,9 @@ source location.}#
 		    (tuple
 		     scurenvbox
 		     (instance 
-		      class_source_apply
+		      class_source_primitive
 		      :loca_location psloc
-		      :sapp_fun (instance
-				 class_source_unsafe_get_field
-				 :loca_location psloc
-				 :suget_obj (instance
-					     class_source_fetch_predefined
-					     :loca_location psloc
-					     :sfepd_predef 'initial_system_data
-					     )
-				 :suget_field sysdata_cont_fresh_env
-				 )
+		      :sprim_oper melt_make_fresh_environment_reference 
 		      :sargop_args (tuple
 				    (instance class_source_parent_module_environment
 					      :loca_location psloc)
