@@ -3776,8 +3776,201 @@ melthookproc_HOOK_START_UNIT ()
 
 
 
+/*predefined hook definition HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER #130*/
+melt_ptr_t
+melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t
+						     meltin_PREVENV_p0,
+						     const char
+						     *meltin_MODULNAME_p1)
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp =
+    (melthook_ptr_t) MELT_PREDEF (HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER);
+  typedef melt_ptr_t
+    melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t (melt_ptr_t,
+							  melt_ptr_t,
+							  const char *);
+  /*checkhook exist */
+    melt_assertmsg
+    (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER exists",
+     melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg
+    (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER is hook",
+     melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+  /* check hook routine HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER */
+  melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t
+    *melthookptr_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER =
+    (melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t *) (melthkp->
+							      hookad);
+  melt_assertmsg
+    ("check predefhook routine HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER",
+     melthookptr_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER);
+
+  /* check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER name */
+  melt_assertmsg
+    ("check predefhook name HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER",
+     !strncmp (melthkp->hookname, "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER",
+	       MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER) ((melt_ptr_t)
+								melthkp,
+								meltin_PREVENV_p0,
+								meltin_MODULNAME_p1);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER */
 
 
+
+/*predefined hook definition HOOK_VALUE_IMPORTER #131*/
+melt_ptr_t
+melthookproc_HOOK_VALUE_IMPORTER (melt_ptr_t meltin_SYM_p0,
+				  melt_ptr_t meltin_PARENV_p1,
+				  const char *meltin_SYMNAME_p2,
+				  const char *meltin_MODULENAME_p3)
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_VALUE_IMPORTER */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_VALUE_IMPORTER);
+  typedef melt_ptr_t melthooksig_HOOK_VALUE_IMPORTER_t (melt_ptr_t,
+							melt_ptr_t,
+							melt_ptr_t,
+							const char *,
+							const char *);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_VALUE_IMPORTER exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_VALUE_IMPORTER is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_VALUE_IMPORTER */
+  melthooksig_HOOK_VALUE_IMPORTER_t *melthookptr_HOOK_VALUE_IMPORTER =
+    (melthooksig_HOOK_VALUE_IMPORTER_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_VALUE_IMPORTER",
+		  melthookptr_HOOK_VALUE_IMPORTER);
+
+  /* check predefhook HOOK_VALUE_IMPORTER name */
+  melt_assertmsg ("check predefhook name HOOK_VALUE_IMPORTER",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_VALUE_IMPORTER", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_VALUE_IMPORTER) ((melt_ptr_t) melthkp,
+					     meltin_SYM_p0,
+					     meltin_PARENV_p1,
+					     meltin_SYMNAME_p2,
+					     meltin_MODULENAME_p3);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_VALUE_IMPORTER */
+
+
+
+/*predefined hook definition HOOK_VALUE_EXPORTER #132*/
+void
+melthookproc_HOOK_VALUE_EXPORTER (melt_ptr_t meltin_SYM_p0,
+				  melt_ptr_t meltin_VAL_p1,
+				  melt_ptr_t meltin_CONTENV_p2)
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_VALUE_EXPORTER */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_VALUE_EXPORTER);
+  typedef void melthooksig_HOOK_VALUE_EXPORTER_t (melt_ptr_t, melt_ptr_t,
+						  melt_ptr_t, melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_VALUE_EXPORTER */
+  melthooksig_HOOK_VALUE_EXPORTER_t *melthookptr_HOOK_VALUE_EXPORTER =
+    (melthooksig_HOOK_VALUE_EXPORTER_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_VALUE_EXPORTER",
+		  melthookptr_HOOK_VALUE_EXPORTER);
+
+  /* check predefhook HOOK_VALUE_EXPORTER name */
+  melt_assertmsg ("check predefhook name HOOK_VALUE_EXPORTER",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_VALUE_EXPORTER", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_VALUE_EXPORTER) ((melt_ptr_t) melthkp,
+					     meltin_SYM_p0,
+					     meltin_VAL_p1,
+					     meltin_CONTENV_p2);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_VALUE_EXPORTER */
+
+
+
+/*predefined hook definition HOOK_MACRO_EXPORTER #133*/
+void
+melthookproc_HOOK_MACRO_EXPORTER (melt_ptr_t meltin_SYM_p0,
+				  melt_ptr_t meltin_VAL_p1,
+				  melt_ptr_t meltin_CONTENV_p2)
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_MACRO_EXPORTER */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_MACRO_EXPORTER);
+  typedef void melthooksig_HOOK_MACRO_EXPORTER_t (melt_ptr_t, melt_ptr_t,
+						  melt_ptr_t, melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_MACRO_EXPORTER */
+  melthooksig_HOOK_MACRO_EXPORTER_t *melthookptr_HOOK_MACRO_EXPORTER =
+    (melthooksig_HOOK_MACRO_EXPORTER_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_MACRO_EXPORTER",
+		  melthookptr_HOOK_MACRO_EXPORTER);
+
+  /* check predefhook HOOK_MACRO_EXPORTER name */
+  melt_assertmsg ("check predefhook name HOOK_MACRO_EXPORTER",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_MACRO_EXPORTER", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_MACRO_EXPORTER) ((melt_ptr_t) melthkp,
+					     meltin_SYM_p0,
+					     meltin_VAL_p1,
+					     meltin_CONTENV_p2);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_MACRO_EXPORTER */
+
+
+
+/*predefined hook definition HOOK_PATMACRO_EXPORTER #134*/
+void
+melthookproc_HOOK_PATMACRO_EXPORTER (melt_ptr_t meltin_SYM_p0,
+				     melt_ptr_t meltin_MACVAL_p1,
+				     melt_ptr_t meltin_PATVAL_p2,
+				     melt_ptr_t meltin_CONTENV_p3)
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_PATMACRO_EXPORTER */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp =
+    (melthook_ptr_t) MELT_PREDEF (HOOK_PATMACRO_EXPORTER);
+  typedef void melthooksig_HOOK_PATMACRO_EXPORTER_t (melt_ptr_t, melt_ptr_t,
+						     melt_ptr_t, melt_ptr_t,
+						     melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_PATMACRO_EXPORTER */
+  melthooksig_HOOK_PATMACRO_EXPORTER_t *melthookptr_HOOK_PATMACRO_EXPORTER =
+    (melthooksig_HOOK_PATMACRO_EXPORTER_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_PATMACRO_EXPORTER",
+		  melthookptr_HOOK_PATMACRO_EXPORTER);
+
+  /* check predefhook HOOK_PATMACRO_EXPORTER name */
+  melt_assertmsg ("check predefhook name HOOK_PATMACRO_EXPORTER",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_PATMACRO_EXPORTER", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_PATMACRO_EXPORTER) ((melt_ptr_t) melthkp,
+						meltin_SYM_p0,
+						meltin_MACVAL_p1,
+						meltin_PATVAL_p2,
+						meltin_CONTENV_p3);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_PATMACRO_EXPORTER */
 
 
 
@@ -3789,4 +3982,4 @@ melthookproc_HOOK_START_UNIT ()
 /* end of code generated by generate_runtypesupport_predefined_hooks for 140 predefined */
 
 /*** End of code file meltbuild-sources/generated/meltrunsup-inc.c generated on 2013 Jun 04
- * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 199634] MELT_0.9.9-rc2p . ***/
+ * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 199649] MELT_0.9.9-rc2p . ***/
