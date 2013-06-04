@@ -3046,6 +3046,13 @@ source location.}#
       (multicall
        (nrets nbindrets)
        (normalize_tuple srets env ncx sloc)
+       (debug "normexp_return nrets=" nrets " nbindrets=" nbindrets)
+       (when (and
+	      (>i nbrets 1)
+	      (is_a curproc class_nrep_hookproc))
+	 (error_plain sloc
+		      "multiple RETURN not allowed inside hooks")
+	 (return))
        (let ( (nret0 (multiple_nth nrets 0))
 	      (toth (make_multiple discr_multiple (-i nbrets 1))) 
 	      (ctyp0 (get_ctype nret0 env))
@@ -7997,10 +8004,10 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; normalize current_module_environment_reference
 (defun normexp_current_module_environment_reference (recv env ncx psloc)
+  (debug "normexp_current_module_environment_reference recv=" recv)
   (assert_msg "check current_module_environment_reference recv" (is_a recv class_source_current_module_environment_reference))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (debug "normexp_current_module_environment_reference recv" recv)
   (let ( 
 	(sloc (unsafe_get_field :loca_location recv))
 	(scomm (unsafe_get_field :cmec_comment recv))
@@ -8016,11 +8023,13 @@ source location.}#
 			  ))
 	)
     (assert_msg "check qdatcur" (is_a qdatcur class_nrep_quasidata_current_module_environment_reference))
-    (if (is_a curproc class_nrep_routproc)
-	(progn
+    (when (is_a curproc class_nrep_hookproc)
+      (error_plain sloc "(CURRENT_MODULE_ENVIRONMENT_REFERENCE) cannot be used within hooks")
+      (return))
+    (when (is_a curproc class_nrep_routproc)
 	  (list_append (unsafe_get_field :nrpro_const curproc) qdatcur)
 	  (list_append ncurmodenvlist curproc)
-	  ))
+	  )
     (debug "normexp_current_module_environment_reference nquasi" nquasi)
     (return nquasi ())
     ))
@@ -8044,6 +8053,9 @@ source location.}#
 			  :nconst_data qdatpar
 			  ))
 	)
+    (when (is_a curproc class_nrep_hookproc)
+      (error_plain sloc "(PARENT_MODULE_ENVIRONMENT) cannot be used within hooks")
+      (return))
     (assert_msg "check qdatpar" (is_a qdatpar class_nrep_quasidata_parent_module_environment))
     (if (is_a curproc class_nrep_routproc)
 	(list_append (unsafe_get_field :nrpro_const curproc) qdatpar))

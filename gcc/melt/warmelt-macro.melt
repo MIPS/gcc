@@ -6824,7 +6824,7 @@ remain.}#)
 (export_macro return mexpand_return
  :doc #{The $RETURN syntax is for returning a primary and possibly
  secondary results. Syntax is (RETURN <expression>...). If no
- expression is given, returns nil.}#)
+ expression is given, returns nil. Hooks cannot return secondary results.}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -7543,7 +7543,8 @@ is used to define patmacros.}#)
 	      :doc #{@code{($CURRENT_MODULE_ENVIRONMENT_REFERENCE)}
 returns a container, i.e. a reference thru @code{$CLASS_REFERENCE},
 for the current environment. See also $PARENT_MODULE_ENVIRONMENT and
-$CLASS_ENVIRONMENT. Was previously called inccorrectly
+$CLASS_ENVIRONMENT. @code{($CURRENT_MODULE_ENVIRONMENT_REFERENCE)}
+cannot be used inside hooks. Was previously called inccorrectly
 @code{CURRENT_MODULE_ENVIRONMENT_CONTAINER}.}#)
 
 (install_initial_macro 'current_module_environment_container mexpand_current_module_environment_reference)
@@ -7576,7 +7577,8 @@ $CLASS_ENVIRONMENT. Was previously called inccorrectly
 	      :doc #{@code{($PARENT_MODULE_ENVIRONMENT)} gives the
 	      parent environnment of this module. See also
 	      $CLASS_ENVIRONMENT and
-	      $CURRENT_MODULE_ENVIRONMENT_REFERENCE.}#)
+	      $CURRENT_MODULE_ENVIRONMENT_REFERENCE. @code{($PARENT_MODULE_ENVIRONMENT)}
+	      cannot be used inside hooks.}#)
 
 
 

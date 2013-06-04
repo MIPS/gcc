@@ -6108,7 +6108,7 @@ $SBUF.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun compilobj_quasidata_current_module_environment_reference (qdcm gcx)
   (assert_msg "check qdcm" (is_a qdcm class_nrep_quasidata_current_module_environment_reference))
-  (assert_msg "check gcx" (is_a gcx class_initial_generation_context))
+  ;; the get_field below will fail if gcx is not a  class_initial_generation_context
   (let ( (locbox (get_field :igncx_contenvloc gcx)) 
 	 )
     (return locbox)))
@@ -6117,8 +6117,9 @@ $SBUF.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun compilobj_quasidata_parent_module_environment (qdpm gcx)
+  (debug "compilobj_quasidata_parent_module_environment qdpm=" qdpm " gcx=" gcx)
   (assert_msg "check qdpm" (is_a qdpm class_nrep_quasidata_parent_module_environment))
-  (assert_msg "check gcx" (is_a gcx class_initial_generation_context))
+  ;; the get_field below will fail if gcx is not a  class_initial_generation_context
   (let ( (prevenvloc (get_field :igncx_prevenvloc gcx)) 
 	 )
     (return prevenvloc)))

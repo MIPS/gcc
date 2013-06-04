@@ -1550,18 +1550,22 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        (add2out outb 
 		"@strong{hook result ctype:} "
 		(get_field :named_name 
-			   (get_field :ctype_keyword hctyp)))
+			   (get_field :ctype_keyword hctyp))
+)
        (add2sbuf_indentnl outb 0)
        (when (is_a predef class_named)
 	 (add2out outb "Hook @strong{predefined as}: "
 		  "@code{" (get_field :named_name predef) "}.")
 	 (add2sbuf_indentnl outb 0)
+	 (add2sbuf_indentnl outb 0)
 	 )
        (when (is_a hvar class_named)
 	 (add2out outb "Hook @strong{stored in module variable}: "
 		  "@code{" (get_field :named_name hvar) "}.")
+	 (add2sbuf_indentnl outb 0)
 	 (add2sbuf_indentnl outb 0))
        (makedoc_outdoc outb doc "@strong{Hook description:} ")
+       (add2sbuf_indentnl outb 0)
        (add2sbuf_indentnl outb 0)
        (increment_mkdoc_counter mdinfo)
        )

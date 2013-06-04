@@ -1,5 +1,38 @@
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.c (melt_minor_copying_garbage_collector): Clear
+	melt_touchedglobalchunk.
+
+	* melt-predef.list (HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER)
+	(HOOK_VALUE_IMPORTER, HOOK_VALUE_EXPORTER, HOOK_MACRO_EXPORTER)
+	(HOOK_PATMACRO_EXPORTER). New, not used yet.
+
+	* melt/warmelt-first.melt (class_initial_system_data)
+	(initial_system_data): Remove fields sysdata_pre_genericize,
+	sysdata_passexec_hook, sysdata_finishtype_hook,
+	sysdata_finishdecl_hook, sysdata_all_passes_start_hook,
+	sysdata_all_passes_end_hook.
+	(initfresh_contenvmaker, initvalue_exporter, initvalue_importer)
+	(initmacro_exporter, initpatmacro_exporter): Soon becoming
+	obsolete.
+
+	* melt/warmelt-macro.melt (return)
+	(current_module_environment_reference, parent_module_environment):
+	Mention limitations for hooks.
+
+	* melt/warmelt-normal.melt
+	(normexp_current_module_environment_reference)
+	(normexp_parent_module_environment): Give error if used inside
+	hooks.
+
+	* melt/warmelt-genobj.melt
+	(compilobj_quasidata_current_module_environment_reference)
+	(compilobj_quasidata_parent_module_environment): More debug, add
+	comment.
+
+	* melt/warmelt-mode.melt (makedoc_genhook): Improve output.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-modes.melt (makedoc_genoutput): Date of generation
 	is in more readable format.
 	(makedoc_docmd): Initialize mkdoc_hooks field.

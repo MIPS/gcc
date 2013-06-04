@@ -413,9 +413,7 @@ don't instanciate this class!}#
 	   sysdata_stdout		;raw file for stdout
 	   sysdata_stderr		;raw file for stderr
 	   sysdata_dumpfile		;raw file for dump_file
-	   sysdata_pre_genericize       ;obsolete
 	   sysdata_option_set 		;closure to set a MELT option
-	   sysdata_passexec_hook	;obsolete
 	   sysdata_meltpass_after_hook	;closure to be called after
 					;MELT pass execution
 					;functions, it is
@@ -424,10 +422,6 @@ don't instanciate this class!}#
 	   sysdata_meltpragmas		;a list or tuple of pragma
 					;descriptor object of
 					;CLASS_GCC_PRAGMA
-	   sysdata_finishtype_hook	;obsolete
-	   sysdata_finishdecl_hook	;obsolete
-	   sysdata_all_passes_start_hook	;closure for PLUGIN_ALL_PASSES_START
-	   sysdata_all_passes_end_hook		;closure for PLUGIN_ALL_PASSES_END
 	   ;;
 	   ;; these are called by the runtime system thru
 	   ;; MELT_CHECK_SIGNAL macro and meltgc_handle_sigio &
@@ -2972,8 +2966,10 @@ Keyword is :cstring.}#
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; soon obsolete, since replaced with hooks
 ;; initial fresh environment container maker - inside INITIAL_SYSTEM_DATA
 (defun initfresh_contenvmaker (prevenv :cstring modnam)
+  ;; soon obsolete replaced by hook_fresh_environment_reference_maker
   (if (melt_need_dbg 0) 
       (shortbacktrace_dbg "initfresh_contenvmaker" 15))
   (let (
@@ -2985,8 +2981,11 @@ Keyword is :cstring.}#
     (return newcont)
     ))
 
+
+
 ;; initial value exporter - inside INITIAL_SYSTEM_DATA
 (defun initvalue_exporter (sym val contenv)
+  ;; soon obsolete replaced by hook_value_exporter
   (let ( (parenv (parent_module_environment)) )
     (if (null contenv)
 	(progn
@@ -3072,6 +3071,7 @@ Keyword is :cstring.}#
 
 ;; initial value importer - inside INITIAL_SYSTEM_DATA
 (defun initvalue_importer (sym parenv :cstring strnam modnam)
+  ;; soon obsolete replaced by hook_value_importer
   (code_chunk ensuremodnam #{ /* $ensuremodnam */ if (!$modnam) $modnam = "???"; 
 	      }#)
   ;; error if importing a non symbol
@@ -3140,6 +3140,7 @@ Keyword is :cstring.}#
 
 ;; initial macro exporter - inside INITIAL_SYSTEM_DATA
 (defun initmacro_exporter (sym val contenv)
+  ;; soon obsolete replaced by hook_macro_exporter
   (assert_msg "check sym" (is_a sym class_symbol))
   (if (null contenv)
       (progn
@@ -3169,6 +3170,7 @@ Keyword is :cstring.}#
 
 ;; initial patmacro exporter - inside INITIAL_SYSTEM_DATA
 (defun initpatmacro_exporter (sym macval patval contenv)
+  ;; soon obsolete replaced by  hook_patmacro_exporter
   (assert_msg "check sym" (is_a sym class_symbol))
   (if (null contenv)
       (progn
@@ -3197,6 +3199,12 @@ Keyword is :cstring.}#
       (put_env env macbind)
       (return)
       )))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+
 
 
 ;;  class for delayed queues.
@@ -3499,8 +3507,6 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_stderr ()			;initialized later
   :sysdata_dumpfile ()			;initialized later
   :sysdata_option_set init_optionsetter
-  :sysdata_passexec_hook ()		;initialized later, lazily
-  :sysdata_meltpass_after_hook () 	;initialized lazily
   :sysdata_meltpragmas ()
   :sysdata_src_loc_file_dict (make_mapstring discr_map_strings 200)
   )

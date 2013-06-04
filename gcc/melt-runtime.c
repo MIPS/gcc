@@ -1447,6 +1447,7 @@ melt_minor_copying_garbage_collector (size_t wanted)
       chp = melt_globalptrs + ix * MELT_GLOBAL_ENTRY_CHUNK;
       for (j=0; j<MELT_GLOBAL_ENTRY_CHUNK; j++)
 	MELT_FORWARDED(chp[j]);
+      melt_touchedglobalchunk[ix] = false;
     };
 
   /* Call the forwarding of every module and extension */
