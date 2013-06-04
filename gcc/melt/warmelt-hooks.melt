@@ -135,6 +135,167 @@
 
 
 
+;;;====================================================================
+;;;************************* value exporter ***************************
+
+(defhook hook_value_exporter (:value sym val contenv) 
+  ()
+  :void
+  :predef HOOK_VALUE_EXPORTER 
+  :doc #{$HOOK_VALUE_EXPORTER is an internal hook to export values from modules. 
+  See also $EXPORT_VALUES macro.}#
+  (debug "hook_value_exporter sym=" sym " val=" val)
+  (when (null contenv)
+    (warningmsg_strv "exporting value too early with null environment container" 
+		     (unsafe_get_field :named_name sym))
+    (return))
+  (assert_msg "check sym" (is_a sym class_symbol))
+  (assert_msg "check contenv" (is_a contenv class_reference))
+  (let ( (env (unsafe_get_field :referenced_value contenv)) )
+    (when (null env)
+      (informsg_strv "exporting value too early with null environment" (unsafe_get_field :named_name sym))
+      (return))
+    (assert_msg "check good env" (is_a env class_environment))
+    (let (
+	  (parenv (get_field :env_prev env))
+	  (prevbind (if parenv (find_env parenv sym)))
+	  (valbind (instance
+		    class_value_binding
+		    :binder sym
+		    :vbind_value val
+		    )) 
+	  (symnam (unsafe_get_field :named_name sym))
+	  )
+      (cond 
+       ( (null prevbind) () )
+       ( (and 
+	  (is_a prevbind class_selector_binding)
+	  (is_a val class_selector))
+	 (warningmsg_strv "not exporting previous bound selector" symnam)
+	 (return))
+       ( (and
+	  (is_a prevbind class_instance_binding)
+	  (is_object val))
+	 (warningmsg_strv "not exporting previous bound instance" symnam)
+	 (return))
+       ( (and
+	  (is_a prevbind class_primitive_binding)
+	  (is_a val class_primitive))
+	 (warningmsg_strv "not exporting previous bound primitive" symnam)
+	 (return))
+       ( (and
+	  (is_a prevbind class_function_binding)
+	  (is_closure val))
+	 (warningmsg_strv "not exporting previous bound function" symnam)
+	 (return))
+       ( (and
+	  (is_a prevbind class_class_binding)
+	  (is_a val class_class))
+	 (warningmsg_strv "not exporting previous bound class" symnam)
+	 (return))
+       ( (and
+	  (is_a prevbind class_field_binding)
+	  (is_a val class_class))
+	 (warningmsg_strv "not exporting previous bound field" symnam)
+	 (return)
+	 )
+       ( (and
+	  (is_a prevbind class_instance_binding)
+	  (is_object val))
+	 (warningmsg_strv "not exporting previous bound instance" symnam)
+	 (return)
+	 )
+       (  (is_a prevbind class_value_binding)
+	  (let ( (preval (unsafe_get_field :vbind_value prevbind))
+		 (prevdiscr (discrim preval))
+		 (curdiscr (discrim val))
+		 )
+	    (if (== prevdiscr curdiscr)
+		(progn
+		  (warningmsg_strv "not exporting previous bound homogenous value" symnam)
+		  (warningmsg_strv "common value discrim" 
+				   (unsafe_get_field :named_name prevdiscr))
+		  (return)))
+	    ))
+       )
+      (assert_msg "check valbind" (is_a valbind class_any_binding))
+      (put_env env valbind)
+      (return)
+      )))
+
+
+
+;;;====================================================================
+;;;************************* macro exporter ***************************
+
+(defhook hook_macro_exporter (:value sym val contenv) 
+  ()
+  :void
+  :predef HOOK_MACRO_EXPORTER
+  (debug "hook_macro_exporter sym=" sym " val=" val)
+  (assert_msg "check sym" (is_a sym class_symbol))
+  (when (null contenv)
+    (warningmsg_strv "exporting macro too early with null environment container" 
+		     (unsafe_get_field :named_name sym))
+    (return))
+  (assert_msg "check contenv" (is_a contenv class_reference))
+  (let ( (env (unsafe_get_field :referenced_value contenv)) )
+    (when (null env)
+      (informsg_strv "exporting macro too early with null environment"
+		     (unsafe_get_field :named_name sym))
+      (return)
+      )
+    (assert_msg "check env" (is_a env class_environment))
+    (assert_msg "check val is closure" (is_closure val))
+    (let ( (macbind (instance
+		     class_macro_binding
+		     :binder sym
+		     :mbind_expanser val))
+	   )
+      (put_env env macbind)
+      (return)
+      )))
+
+
+;;;====================================================================
+;;;*********************** patmacro exporter **************************
+
+(defhook hook_patmacro_exporter (:value sym macval patval contenv) 
+  ()
+  :void
+  :predef HOOK_PATMACRO_EXPORTER
+  :doc #{$HOOK_PATMACRO_EXPORTER is an internal hook to export pattern-macros. 
+See also $EXPORT_PATMACRO}#
+  (debug "hook_patmacro_exporter sym=" sym)
+  (assert_msg "check sym" (is_a sym class_symbol))
+  (when (null contenv)
+    (warningmsg_strv "exporting patmacro too early with null environment container" 
+		     (unsafe_get_field :named_name sym))
+    (return)
+    )
+  (assert_msg "check contenv" (is_a contenv class_reference))
+  (let ( (env (unsafe_get_field :referenced_value contenv)) )
+    (when (null env)
+      (informsg_strv "exporting patmacro too early with null environment"
+		     (unsafe_get_field :named_name sym))
+      (return)
+      )
+    (assert_msg "check env" (is_a env class_environment))
+    (assert_msg "check macval is closure" (is_closure macval))
+    (assert_msg "check patval is closure" (is_closure patval))
+    (let ( (macbind (instance
+		     class_patmacro_binding
+		     :binder sym
+		     :mbind_expanser macval
+		     :patbind_expanser patval))
+	   )
+      (put_env env macbind)
+      (return)
+)))
+
+
+
+
 
 ;;;====================================================================
 ;;;******************* OVERRIDE_GATE plugin event *********************

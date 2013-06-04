@@ -1,6 +1,11 @@
 
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (hook_value_exporter)
+	(hook_macro_exporter, hook_patmacro_exporter): New hooks.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{test thook-4.melt passes}}
 	* melt/warmelt-genobj.melt: Only assign the return when available.
 
