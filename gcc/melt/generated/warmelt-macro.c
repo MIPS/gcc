@@ -35654,54 +35654,30 @@ melt_start_this_module (void *modargp_)
  /**COMMENT: compute boxloc **/ ;
 
   /*^cond */
-  /*cond */ if ( /*_.CONTENV___V2*/ meltfptr[1] || melt_object_length ((melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA)) < MELTFIELD_SYSDATA_CONT_FRESH_ENV)	/*then */
+  /*cond */ if ( /*_.CONTENV___V2*/ meltfptr[1])	/*then */
     {
     }
   else
     {				/*^cond.else */
 
-      /*^block */
-      /*com.block:compute fresh module environment */
-      {
+      /*^compute */
 
-	/*^comment */
-   /**COMMENT: start computing boxloc **/ ;
-	;
-	/*^getslot */
+      /* compile2obj_initproc emitted initialization of environment reference for warmelt-macro */
+      if ( /*_.PREVENV___V4*/ meltfptr[3])
 	{
-	  melt_ptr_t slot = NULL, obj = NULL;
-	  obj =
-	    (melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	    /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 3, "SYSDATA_CONT_FRESH_ENV");
-    /*_.FRESHENV___V3*/ meltfptr[2] = slot;
-	};
-	;
-	/*^compute */
-
-	/*checkfreshenv */ if (( /*_.PREVENV___V4*/ meltfptr[3])
-			       &&
-			       melt_magic_discr ((melt_ptr_t)
-						 ( /*_.FRESHENV___V3*/
-						  meltfptr[2])) !=
-			       MELTOBMAG_CLOSURE)
-	  warning (0,
-		   "MELT corruption: bad FRESH_ENV @%p in system data <%s:%d>",
-		   (void *) ( /*_.FRESHENV___V3*/ meltfptr[2]), __FILE__,
-		   __LINE__);;;
-	/*^apply */
-	/*apply */
-	{
-	  /*_.CONTENV___V2*/ meltfptr[1] =
-	    melt_apply ((meltclosure_ptr_t)
-			( /*_.FRESHENV___V3*/ meltfptr[2]),
-			(melt_ptr_t) ( /*_.PREVENV___V4*/ meltfptr[3]), (""),
-			(union meltparam_un *) 0, "",
-			(union meltparam_un *) 0);
+	  if (!melt_flag_bootstrapping)
+	    warning (0,
+		     "MELT is creating a fresh environment reference for warmelt-macro");
+			      /*_.CONTENV___V2*/ meltfptr[1] = melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER
+	    ((melt_ptr_t) /*_.PREVENV___V4*/ meltfptr[3], "warmelt-macro");
 	}
-	;
-      }				/*com.end block:compute fresh module environment */
-      ;
+      else			/* no prevenv */
+	{
+	  if (!melt_flag_bootstrapping)
+	    warning (0,
+		     "MELT is not creating a fresh environment reference for warmelt-macro without parent env.");
+	}
+      ;;
     }
 
   /*^comment */
@@ -113401,54 +113377,30 @@ meltmod__warmelt_macro__initialmeltchunk_41 (meltinitial_frame_t *
 
  /**COMMENT: compute boxloc again **/ ;
 
-  /*cond */ if ( /*_.CONTENV___V2*/ meltfptr[1] || melt_object_length ((melt_ptr_t) MELT_PREDEF (INITIAL_SYSTEM_DATA)) < MELTFIELD_SYSDATA_CONT_FRESH_ENV)	/*then */
+  /*cond */ if ( /*_.CONTENV___V2*/ meltfptr[1])	/*then */
     {
     }
   else
     {				/*^cond.else */
 
-      /*^block */
-      /*com.block:compute fresh module environment */
-      {
+      /*^compute */
 
-	/*^comment */
-   /**COMMENT: start computing boxloc **/ ;
-	;
-	/*^getslot */
+      /* compile2obj_initproc emitted initialization of environment reference for warmelt-macro */
+      if ( /*_.PREVENV___V4*/ meltfptr[3])
 	{
-	  melt_ptr_t slot = NULL, obj = NULL;
-	  obj =
-	    (melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	    /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 3, "SYSDATA_CONT_FRESH_ENV");
-    /*_.FRESHENV___V3*/ meltfptr[2] = slot;
-	};
-	;
-	/*^compute */
-
-	/*checkfreshenv */ if (( /*_.PREVENV___V4*/ meltfptr[3])
-			       &&
-			       melt_magic_discr ((melt_ptr_t)
-						 ( /*_.FRESHENV___V3*/
-						  meltfptr[2])) !=
-			       MELTOBMAG_CLOSURE)
-	  warning (0,
-		   "MELT corruption: bad FRESH_ENV @%p in system data <%s:%d>",
-		   (void *) ( /*_.FRESHENV___V3*/ meltfptr[2]), __FILE__,
-		   __LINE__);;;
-	/*^apply */
-	/*apply */
-	{
-	  /*_.CONTENV___V2*/ meltfptr[1] =
-	    melt_apply ((meltclosure_ptr_t)
-			( /*_.FRESHENV___V3*/ meltfptr[2]),
-			(melt_ptr_t) ( /*_.PREVENV___V4*/ meltfptr[3]), (""),
-			(union meltparam_un *) 0, "",
-			(union meltparam_un *) 0);
+	  if (!melt_flag_bootstrapping)
+	    warning (0,
+		     "MELT is creating a fresh environment reference for warmelt-macro");
+			      /*_.CONTENV___V2*/ meltfptr[1] = melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER
+	    ((melt_ptr_t) /*_.PREVENV___V4*/ meltfptr[3], "warmelt-macro");
 	}
-	;
-      }				/*com.end block:compute fresh module environment */
-      ;
+      else			/* no prevenv */
+	{
+	  if (!melt_flag_bootstrapping)
+	    warning (0,
+		     "MELT is not creating a fresh environment reference for warmelt-macro without parent env.");
+	}
+      ;;
     }
 
  /**COMMENT: intern symbols **/ ;
