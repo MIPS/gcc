@@ -2,6 +2,10 @@
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (hook_fresh_environment_reference_maker): New hook.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

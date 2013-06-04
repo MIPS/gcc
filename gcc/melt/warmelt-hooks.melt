@@ -39,6 +39,26 @@
 )
 
 ;;;====================================================================
+;;;******* fresh environment reference maker **************************
+(defhook hook_fresh_environment_reference_maker (:value prevenv :cstring modulname)
+  ()
+  :value
+  :predef HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER
+  (if (melt_need_dbg 0) 
+      (shortbacktrace_dbg "hook_fresh_environment_reference_maker" 15))
+  (let (
+	(descr (if modulname (make_stringconst discr_string modulname)))
+	(newenv (fresh_env prevenv descr)) 
+	(newcont (instance class_reference 
+			   :referenced_value newenv))
+	)
+    (return newcont)
+    ))
+  
+
+
+
+;;;====================================================================
 ;;;******************* OVERRIDE_GATE plugin event *********************
 (definstance override_gate_delayed_queue class_delayed_queue
   :named_name '"override_gate_delayed_queue"
