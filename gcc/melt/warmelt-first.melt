@@ -399,7 +399,7 @@ SYSDATA_, for various system facilities.  It is very magical, and
 should be kept in sync with the MELT runtime.  Only for gurus! So
 don't instanciate this class!}#
   :fields (sysdata_mode_dict			;stringmap for commands
-	   sysdata_cont_fresh_env	       	;closure to make a fresh environment
+	   sysdata_cont_fresh_env		;;soon obsolete
 	   sysdata_value_exporter      	;closure to export a value
 	   sysdata_macro_exporter	;closure to export a macro
 	   sysdata_symboldict 		; stringmap for symbols
@@ -3072,7 +3072,7 @@ Keyword is :cstring.}#
 ;; initial value importer - inside INITIAL_SYSTEM_DATA
 (defun initvalue_importer (sym parenv :cstring strnam modnam)
   ;; soon obsolete replaced by hook_value_importer
-  (code_chunk ensuremodnam #{ /* $ensuremodnam */ if (!$modnam) $modnam = "???"; 
+  (code_chunk ensuremodnam #{ /* initvalue_importer $ENSUREMODNAM */ if (!$MODNAM) $MODNAM = "???"; 
 	      }#)
   ;; error if importing a non symbol
   (when (is_not_a sym class_symbol)
@@ -3117,18 +3117,20 @@ Keyword is :cstring.}#
   (assert_msg "check sym" (is_a sym class_symbol))
   (assert_msg "check parenv" (is_a parenv class_environment))
   (let ( (valbind (find_env parenv sym))
+	 (symname (get_field :named_name sym)) 
 	 )
     (if (is_not_a valbind class_value_binding)
-	(let ( (symnam (get_field :named_name sym)) 
+	(let ( 
 	       (bindiscr (discrim valbind))
 	       (bindiscrnam (get_field :named_name bindiscr))
 	       )
-	  (assert_msg "check symnam" (is_string symnam))
+	  (assert_msg "check symname" (is_string symname))
 	  (code_chunk errbadimport 
 		      #{ /* $ERRBADIMPORT start */ {
-		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAM);
+#warning initvalue_importer $ERRBADIMPORT
+		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAME);
 		      error ("MELT [%s]: imported symbol %s has unexpected binding of %s",
-			     $modnam,
+			     $MODNAM,
 			     $ERRBADIMPORT#_str?$ERRBADIMPORT#_str:$STRNAM,
 			     melt_string_str ((melt_ptr_t)$BINDISCRNAM));
 		    } /* $ERRBADIMPORT end */ }#)

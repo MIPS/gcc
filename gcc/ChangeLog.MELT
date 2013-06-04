@@ -1,6 +1,15 @@
 
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Unstable}}
+	* melt/warmelt-first.melt (initvalue_importer): Becoming obsolete.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc): Emit call to
+	melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER
+	i.e. hook_fresh_environment_reference_maker... No more usage of
+	sysdata_cont_fresh_env.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable & regenerated}}
 	* melt/generated/warmelt-base+01.c: Regenerate.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
