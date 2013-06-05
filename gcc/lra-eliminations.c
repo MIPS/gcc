@@ -621,6 +621,14 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
 	}
     }
 
+  /* Eliminate in notes as well */
+  if (REG_NOTES (x))
+    {
+      new_rtx = lra_eliminate_regs_1 (REG_NOTES (x), mem_mode,
+                                      subst_p, update_p, full_p);
+      REG_NOTES (x) = new_rtx;
+    }
+
   return x;
 }
 
@@ -1253,7 +1261,7 @@ lra_eliminate (bool final_p)
 {
   int i;
   unsigned int uid;
-  rtx mem_loc, invariant;
+  rtx mem_loc, invariant, stack_slot;
   bitmap_head insns_with_changed_offsets;
   bitmap_iterator bi;
   struct elim_table *ep;
@@ -1278,7 +1286,11 @@ lra_eliminate (bool final_p)
 			   &lra_reg_info[ep->from].insn_bitmap);
     }
   else if (! update_reg_eliminate (&insns_with_changed_offsets))
-    goto lra_eliminate_done;
+    {
+      // We may always want to process the elimination table in the event
+      // of stack slots existing
+//      goto lra_eliminate_done;
+    }
   if (lra_dump_file != NULL)
     {
       fprintf (lra_dump_file, "New elimination table:\n");
@@ -1292,13 +1304,20 @@ lra_eliminate (bool final_p)
 	  mem_loc = lra_eliminate_regs_1 (mem_loc, VOIDmode,
 					  final_p, ! final_p, false);
 	ira_reg_equiv[i].memory = mem_loc;
+
+	stack_slot = ira_reg_equiv[i].stack_slot;
+	if (stack_slot != NULL_RTX)
+	  stack_slot = lra_eliminate_regs_1 (stack_slot, VOIDmode,
+					  final_p, ! final_p, false);
+	ira_reg_equiv[i].stack_slot = stack_slot;
+
 	invariant = ira_reg_equiv[i].invariant;
 	if (invariant != NULL_RTX)
 	  invariant = lra_eliminate_regs_1 (invariant, VOIDmode,
 					    final_p, ! final_p, false);
 	ira_reg_equiv[i].invariant = invariant;
 	if (lra_dump_file != NULL
-	    && (mem_loc != NULL_RTX || invariant != NULL))
+	    && (mem_loc != NULL_RTX || invariant != NULL || stack_slot != NULL))
 	  fprintf (lra_dump_file,
 		   "Updating elimination of equiv for reg %d\n", i);
       }
