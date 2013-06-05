@@ -428,6 +428,10 @@ mflags-expensive
 Target Report Var(TARGET_FLAGS_EXPENSIVE) Init(0)
 Make the flags expensive for MIPS16
 
+mno-component-fold
+Target Report RejectNegative Var(TARGET_NO_COMPONENT_FOLD) Init(0)
+Do not fold component references which makes CSE better.
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values
