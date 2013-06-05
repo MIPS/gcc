@@ -480,6 +480,10 @@ mira-mips16-tweak
 Target Report Var(TARGET_IRA_COST_MIPS16_TWEAK)
 Increase the cost of argument registers based on frequency.
 
+mshrink-offsets
+Target Report Mask(SHRINK_OFFSETS)
+Shrink offsets in MIPS16 code to avoid extended loads and stores
+
 noasmopt
 Driver
 
