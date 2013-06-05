@@ -12996,7 +12996,7 @@ mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
       return 5;
 
     default:
-      return 0;
+      return 1;
     }
 }
 
@@ -13029,7 +13029,7 @@ mips_move_from_gpr_cost (machine_mode mode, reg_class_t to)
       return 5;
 
     default:
-      return 0;
+      return 1;
     }
 }
 
