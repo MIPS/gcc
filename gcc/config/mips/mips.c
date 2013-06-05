@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
+#include "hash-table.h"
 
 /* Definitions used in ready queue reordering for first scheduling pass.  */
 
@@ -19332,6 +19333,331 @@ mips_set_tune (const struct mips_cpu_info *info)
     }
 }
 
+typedef struct mem_offset_def
+{
+  HOST_WIDE_INT offset;
+  HOST_WIDE_INT modified_offset;
+  basic_block bb;
+} mem_offset_def_t;
+
+typedef struct mem_offset_def *mem_offset_info;
+
+typedef struct offset_entry
+{
+  /* We hash by  */
+  HOST_WIDE_INT base_regno;
+
+  /* Store  */
+  HOST_WIDE_INT min_offset;
+  vec<mem_offset_info> offsets;
+
+  /* hash table support.  */
+  typedef offset_entry value_type;
+  typedef offset_entry compare_type;
+  static inline hashval_t hash (const value_type *v)
+    { return (hashval_t) v->base_regno; };
+  static bool equal (const value_type *v, const compare_type *c)
+    { return (v->base_regno == c->base_regno); };
+  static void remove (value_type *)
+    {};
+} offset_entry_t;
+
+static int
+offset_cmp (const void *x, const void *y)
+{
+  const mem_offset_info p1 = *((const mem_offset_info *) x);
+  const mem_offset_info p2 = *((const mem_offset_info *) y);
+  if (p1->offset < p2->offset)
+    return -1;
+  if (p1->offset > p2->offset)
+    return 1;
+  return 0;
+}
+
+int
+calculate_modified_offsets (offset_entry **slot, FILE *stderr)
+{
+  int i;
+  HOST_WIDE_INT base;
+  mem_offset_info m;
+  offset_entry *info = *slot;
+
+  info->offsets.qsort (offset_cmp);
+
+#if 0
+  fprintf(stderr,"REGNO = %d offsets are: ", info->base_regno);
+  for (i = 0; info->offsets.iterate (i, &m); i++)
+    fprintf(stderr,"%d ", m->offset);
+  fprintf(stderr,"\n");
+#endif
+
+  base = 0;
+  for (i = 0; info->offsets.iterate (i, &m); i++)
+    {
+      if ((m->offset - base) >= 128)
+	base = m->offset;
+      m->modified_offset = base;
+    }
+  return 1;
+}
+
+
+static void
+mark_mem (rtx mem, basic_block bb, hash_table <offset_entry> * offset_table)
+{
+  rtx addr, base;
+  HOST_WIDE_INT offset;
+  offset_entry **slot;
+  offset_entry *info;
+  offset_entry xinfo;
+  mem_offset_info oi;
+  mips_split_plus (XEXP (mem, 0), &base, &offset);
+  if (REG_P (base))
+    {
+      xinfo.base_regno = REGNO (base);
+      slot = offset_table->find_slot (&xinfo, INSERT);
+      info = *slot;
+      if (!info)
+	{
+	  /* Make new entry.  */
+	  *slot = info = XNEW (offset_entry_t);
+	  info->base_regno = REGNO (base);
+	  info->offsets = vNULL;
+	}
+      oi = XNEW (mem_offset_def_t);
+      oi->offset = offset;
+      oi->modified_offset = 0;
+      oi->bb = bb;
+      info->offsets.safe_push (oi);
+    }
+}
+
+static void
+dump_modified_offsets (hash_table <offset_entry> * offset_table)
+{
+  offset_entry xinfo;
+  offset_entry *info;
+  mem_offset_info m;
+  int i, j, n;
+  n = max_reg_num ();
+  for (i = 0; i < n; i++)
+    {
+      if (i >= FIRST_PSEUDO_REGISTER)
+	{
+	  fprintf(stderr,"Check REG %d [",i);
+	  xinfo.base_regno = i;
+	  info = offset_table->find (&xinfo);
+	  if (info)
+	    {
+	      for (j = 0; info->offsets.iterate (j, &m); j++)
+		fprintf(stderr, "%d(%d) ", m->offset, m->modified_offset);
+	    }
+	  fprintf(stderr, "]\n");
+	}
+    }
+}
+
+static HOST_WIDE_INT
+get_modified_offset (basic_block bb, HOST_WIDE_INT regno, HOST_WIDE_INT offset, hash_table <offset_entry> * offset_table)
+{
+  HOST_WIDE_INT j;
+  offset_entry *info;
+  offset_entry xinfo;
+  mem_offset_info m;
+  int i, uses, other_uses, other_bbs, bb_uses;
+
+  j = 0;
+  uses = 0;
+  other_uses = 0;
+  bb_uses = 0;
+  other_bbs = 0;
+  xinfo.base_regno = regno;
+  info = offset_table->find (&xinfo);
+
+  for (i = 0; info->offsets.iterate (i, &m); i++)
+    {
+      if (m->offset == offset) j = m->modified_offset;
+    }
+
+#if 1
+  for (i = 0; info->offsets.iterate (i, &m); i++)
+    {
+      if (m->modified_offset == j) uses++;
+      if (m->modified_offset != j) other_uses++;
+      if ((m->modified_offset == j) && (m->bb != bb)) other_bbs++;
+      if ((m->modified_offset == j) && (m->bb == bb)) bb_uses++;
+    }
+
+  //if ((uses < 10) && (other_uses > 0) /* && (other_bbs > 0) */ ) return 0;
+  if ((uses < 3) /* && (other_bbs > 0) */ ) return 0;
+#endif
+
+  /* if (use < 4) j = 0; */
+
+#if 0
+  fprintf(stderr, "In get_modified_offset, returning %d for offset %d (REG %d)\n", j, offset, regno);
+#endif
+  return j;
+}
+
+static rtx
+can_shrink_mem (rtx insn, basic_block bb, rtx mem, hash_table <offset_entry> * offset_table)
+{
+  rtx base, new_reg, new_insn;
+  HOST_WIDE_INT offset, modified_offset;
+  offset_entry *info;
+  enum machine_mode mode;
+  mips_split_plus (XEXP (mem, 0), &base, &offset);
+  if (REG_P (base) && (offset > 0)
+      && (REGNO (base) >= FIRST_PSEUDO_REGISTER))
+    {
+      modified_offset = get_modified_offset (bb, REGNO (base), offset, offset_table);
+      if ((modified_offset > 0) && (offset >= modified_offset))
+	{
+#if 0
+	  fprintf(stderr, "Shrinking offset from %d to %d on register %d\n", offset, modified_offset, REGNO (base));
+#endif
+	  mode = GET_MODE (base);
+	  new_reg = gen_reg_rtx (mode);
+	  new_insn = gen_rtx_SET (VOIDmode, new_reg, gen_rtx_PLUS (mode, base, GEN_INT (modified_offset)));
+	  emit_insn_before(new_insn, insn);
+	  if (offset == modified_offset)
+	    return (new_reg);
+	  else
+	    return (gen_rtx_PLUS (mode, new_reg, GEN_INT (offset - modified_offset)));
+	}
+    }
+  return NULL_RTX;
+}
+
+static void
+split_extended_insn (rtx insn, basic_block bb, hash_table <offset_entry> * offset_table)
+{
+  rtx set, new_src, new_dest, new_rtx;
+  set = single_set (insn);
+  if (set && MEM_P (SET_DEST (set)))
+    {
+      new_dest = can_shrink_mem (insn, bb, SET_DEST (set), offset_table);
+      if (new_dest)
+	{
+	  new_rtx = simplify_replace_rtx (SET_DEST (set), XEXP (SET_DEST (set), 0), new_dest);
+	  validate_change (insn, &SET_DEST (set), new_rtx, 0);
+	}
+    }
+
+  if (set && MEM_P (SET_SRC (set)))
+    {
+      new_src = can_shrink_mem (insn, bb, SET_SRC (set), offset_table);
+      if (new_src)
+	{
+	  new_rtx = simplify_replace_rtx (SET_SRC (set), XEXP (SET_SRC (set), 0), new_src);
+	  validate_change (insn, &SET_SRC (set), new_rtx, 0);
+	}
+    }
+}
+
+static unsigned int
+rest_of_handle_shrink_offsets (void)
+{
+  vec<mem_offset_info> offset_info = vNULL;
+  hash_table <offset_entry> offset_table;
+  basic_block bb;
+  rtx insn, set;
+  int i;
+
+#if 1
+  offset_table.create (10);
+  FOR_EACH_BB_FN (bb, cfun)
+    FOR_BB_INSNS (bb, insn)
+      {
+	set = single_set (insn);
+	if (set)
+	  {
+	    if (MEM_P (SET_SRC (set)))
+	      mark_mem (SET_SRC (set), bb, &offset_table);
+	    if (MEM_P (SET_DEST (set)))
+	      mark_mem (SET_DEST (set), bb, &offset_table);
+	  }
+      }
+  offset_table.traverse <FILE *, calculate_modified_offsets> (stderr);
+#if 0
+  dump_modified_offsets (&offset_table);
+#endif
+  FOR_EACH_BB_FN (bb, cfun)
+    FOR_BB_INSNS (bb, insn)
+      split_extended_insn (insn, bb, &offset_table);
+  offset_table.dispose ();
+#endif
+#if 0
+  FOR_EACH_BB (bb)
+    {
+      offset_table.create (10);
+      FOR_BB_INSNS (bb, insn)
+	{
+	  set = single_set (insn);
+	  if (set)
+	    {
+	      if (MEM_P (SET_SRC (set)))
+		mark_mem (SET_SRC (set), bb, &offset_table);
+	      if (MEM_P (SET_DEST (set)))
+		mark_mem (SET_DEST (set), &offset_table);
+	    }
+	}
+      offset_table.traverse <FILE *, calculate_modified_offsets> (stderr);
+      /* dump_modified_offsets(offset_table); */
+      FOR_BB_INSNS (bb, insn)
+	split_extended_insn (insn, bb, &offset_table);
+      offset_table.dispose ();
+    }
+#endif
+  return 0;
+}
+
+static bool
+gate_shrink_offsets (void)
+{
+	return TARGET_MIPS16 && TARGET_SHRINK_OFFSETS;
+}
+
+namespace {
+
+const pass_data pass_data_shrink_mips16_offsets =
+{
+  RTL_PASS,                             /* type */
+  "shrink_offsets",                     /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
+  true,                                 /* has_gate */
+  true,                                 /* has_execute */
+  TV_NONE,                              /* tv_id */
+  PROP_cfglayout,                       /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_df_finish | TODO_verify_rtl_sharing |
+  TODO_verify_flow                      /* todo_flags_finish */
+};
+
+class pass_shrink_mips16_offsets : public rtl_opt_pass
+{
+  public:
+    pass_shrink_mips16_offsets(gcc::context *ctxt)
+      : rtl_opt_pass(pass_data_shrink_mips16_offsets, ctxt)
+    {}
+
+    /* opt_pass methods: */
+    bool gate () { return gate_shrink_offsets (); }
+    unsigned int execute () { return rest_of_handle_shrink_offsets (); }
+
+  }; // class pass_shrink_mips16_offsets
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_shrink_mips16_offsets (gcc::context *ctxt)
+{
+    return new pass_shrink_mips16_offsets (ctxt);
+}
+
 /* Implement TARGET_OPTION_OVERRIDE.  */
 
 static void
@@ -19643,6 +19969,9 @@ mips_option_override (void)
   if (optimize > 2 && (target_flags_explicit & MASK_VR4130_ALIGN) == 0)
     target_flags |= MASK_VR4130_ALIGN;
 
+  if (optimize_size && (target_flags_explicit & MASK_SHRINK_OFFSETS) == 0)
+    target_flags |= MASK_SHRINK_OFFSETS;
+
   /* Prefer a call to memcpy over inline code when optimizing for size,
      though see MOVE_RATIO in mips.h.  */
   if (optimize_size && (target_flags_explicit & MASK_MEMCPY) == 0)
@@ -19898,6 +20227,18 @@ mips_option_override (void)
 
   if (TARGET_HARD_FLOAT_ABI && TARGET_MIPS5900)
     REAL_MODE_FORMAT (SFmode) = &spu_single_format;
+
+  new_pass = make_pass_shrink_mips16_offsets (g);
+  /* May not be the right place for this, but .....  */
+  static struct register_pass_info shrink_mips16_offsets_info =
+    {
+      new_pass,                 /* pass */
+      "cse1",                   /* reference_pass_name */
+      1,                        /* ref_pass_instance_number */
+      PASS_POS_INSERT_BEFORE    /* po_op */
+    };
+
+  register_pass (&shrink_mips16_offsets_info);
 }
 
 /* Swap the register information for registers I and I + 1, which
