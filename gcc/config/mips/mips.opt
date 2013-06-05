@@ -428,6 +428,10 @@ modd-spreg
 Target Report Mask(ODD_SPREG)
 Enable use of odd-numbered single-precision registers
 
+mshrink-offsets
+Target Report Var(TARGET_SHRINK_OFFSETS)
+Shrink offsets in MIPS16 code to avoid extended loads and stores
+
 noasmopt
 Driver
 
