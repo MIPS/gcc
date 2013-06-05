@@ -41,6 +41,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 
 /* The basic structure describing an equivalency created by traversing
    an edge.  Traversing the edge effectively means that we can assume
@@ -504,8 +506,26 @@ uncprop_into_successor_phis (basic_block bb)
 		  tree equiv = elt->equivalences[j];
 
 		  if (gimple_can_coalesce_p (equiv, res))
-		    {
+                    {
 		      SET_PHI_ARG_DEF (phi, e->dest_idx, equiv);
+                      break;
+                    }
+                  else if (SSA_NAME_VAR (equiv) == SSA_NAME_VAR (res))
+		    {
+                      tree restype = TREE_TYPE (res);
+                      tree tmp = make_temp_ssa_name (restype, NULL, "UNCPROP");
+                      gimple stmt = gimple_build_assign (tmp, fold_convert (restype, equiv));
+
+                      gimple_stmt_iterator last = gsi_last_bb (e->src);
+                      gcc_checking_assert (gsi_bb (last) == e->src);
+
+                      /* Have to check gsi_end_p because it could be an empty block.  */
+                      if (!gsi_end_p (last) && is_ctrl_stmt (gsi_stmt (last)))
+                        gsi_insert_before (&last, stmt, GSI_SAME_STMT);
+                      else
+                        gsi_insert_after (&last, stmt, GSI_NEW_STMT);
+
+		      SET_PHI_ARG_DEF (phi, e->dest_idx, tmp);
 		      break;
 		    }
 		}
