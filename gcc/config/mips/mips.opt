@@ -400,5 +400,9 @@ mxgot
 Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
 
+mshrink-offsets
+Target Report Mask(SHRINK_OFFSETS)
+Shrink offsets in MIPS16 code to avoid extended loads and stores
+
 noasmopt
 Driver
