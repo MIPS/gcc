@@ -440,6 +440,10 @@ mgrow-frame-downwards
 Target Report Var(TARGET_FRAME_GROWS_DOWNWARDS) Init(1) Undocumented
 Change the behaviour to grow the frame downwards.
 
+mshrink-offsets
+Target Report Mask(SHRINK_OFFSETS)
+Shrink offsets in MIPS16 code to avoid extended loads and stores.
+
 noasmopt
 Driver
 
