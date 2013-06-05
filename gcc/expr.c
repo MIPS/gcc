@@ -6777,7 +6777,15 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	    if (this_offset == 0)
 	      break;
 
-	    offset = size_binop (PLUS_EXPR, offset, this_offset);
+            /* Do not fold a COMPONENT_REF expression as it may well be the
+               base for multiple other expressions */
+            if (optimize_size)
+              offset = build2_stat_loc (UNKNOWN_LOCATION, PLUS_EXPR,
+                                        TREE_TYPE (offset), offset,
+                                        this_offset PASS_MEM_STAT);
+            else
+	      offset = size_binop (PLUS_EXPR, offset, this_offset);
+
 	    bit_offset += tree_to_double_int (DECL_FIELD_BIT_OFFSET (field));
 
 	    /* ??? Right now we don't do anything with DECL_OFFSET_ALIGN.  */
