@@ -2152,11 +2152,68 @@ source location.}#
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (let ( (sloc (unsafe_get_field :loca_location recv)) 
 	 (shook (unsafe_get_field :shook_called recv))
-	 (sargs (unsafe_get_field :sargop_args recv)) 
+	 (sargs (unsafe_get_field :sargop_args recv))
+	 (hkname ())
+	 (hkins ())
+	 (hkouts ())
+	 (hkctype ())
 	 )
     (debug "normexp_hook_call shook=" shook " sargs=" sargs)
-    (assert_msg "$@$unimplemented normexp_hook_call")
-))
+    (match shook
+	   (?(instance class_source_defhook
+		       :sdef_name ?shkname
+		       :sformal_args ?shkins
+		       :shook_ctype ?shctype
+		       :shook_out_formals ?shkouts)
+	     (setq hkname shkname)
+	     (setq hkins shkins)
+	     (setq hkouts shkouts)
+	     (setq hkctype shctype)
+	     )
+	   (?_
+	    (assert_msg "@$@unexpected hook, unimplemented")
+	    ))
+    (debug "normexp_hook_call hkname=" hkname " hkins=" hkins 
+	   " hkouts=" hkouts " hkctype=" hkctype)
+    (assert_msg "check hkctype" (is_a hkctype class_ctype))
+    (let ( (:long nbins (multiple_length hkins))
+	   (:long nbouts (multiple_length hkouts))
+	   (hnamestr (get_field :named_name hkname))
+	   (sins (make_multiple discr_multiple nbins))
+	   (souts (make_multiple discr_multiple nbouts))
+	   )
+      (when (!=i (multiple_length sargs) (+i nbins nbouts))
+	(error_strv sloc "invalid operand arity for hook call" hnamestr)
+	(return))
+      ;; extract and normalize the inputs
+      (foreach_long_upto
+       (0 (-i nbins 1))
+       (:long inix)
+       (multiple_put_nth sins inix (multiple_nth sargs inix))
+       )
+      (debug "normexp_hook_call sins=" sins)
+      (multicall 
+       (ninargs ninbinds)
+       (normalize_tuple sins env ncx sloc)
+       (debug "normexp_hook_call ninargs=" ninargs " ninbinds=" ninbinds)
+       ;; check type compatibility of inputs
+       (foreach_in_multiple
+	(ninargs)
+	(curinarg :long inix)
+	(debug "normexp_hook_call curinarg=" curinarg " inix#" inix)
+	(let ( (curinbind (multiple_nth hkins inix))
+	       )
+	  (debug "normexp_hook_call curinbind=" curinbind)
+	))
+       ;;
+       ;; extract and normalize the outputs
+       (foreach_long_upto
+	(0 (-i nbouts 1))
+	(:long outix)
+	(multiple_put_nth souts outix (multiple_nth sargs (+i outix nbins))))
+       (debug "normexp_hook_call souts=" souts)
+       (assert_msg "$@$unimplemented normexp_hook_call")
+       ))))
 (install_method class_source_hook_call normal_exp normexp_hook_call)
 
 
@@ -5393,7 +5450,7 @@ source location.}#
 
 (defun normexp_arithmetic_variadic_operation (recv env ncx psloc)
   (debug "normexp_arithmetic_variadic_operation recv" recv)
-  (assert_msg "check list recv" (is_a recv class_source_list))
+  (assert_msg "check recv" (is_a recv class_source_arithmetic_variadic_operation))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (let ( (sloc (or (unsafe_get_field :loca_location recv) psloc))

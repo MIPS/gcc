@@ -10,13 +10,16 @@
     -fmelt-debug meltbuild-empty-file.c
 |#
 
-(defhook hook_testcall (:value v) () :long
+(defhook hook_testcall (:value v) (:long l) :long
   (debug "hook_testcall v=" v)
+  (setq l (+ 1 (* 3 (get_int v)) 5))
   (return (get_int v)))
 
 (defun testcall_internal (v)
   (debug "testcall_internal v=" v)
-  (box (hook_testcall v)))
+  (let ( (:long ll 0) 
+	 )
+  (box (hook_testcall (tuple v 'test) ll))))
 
 (defun testcall_outside ()
   (debug "testcall_outside")
