@@ -864,6 +864,7 @@ Objective-C and Objective-C++ Dialects}.
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -mcode-readable=@var{setting} @gol
 -mdead-loads -mno-dead-loads @gol
+-mshrink-offsets -mno-shrink-offsets @gol
 -msplit-addresses  -mno-split-addresses @gol
 -mexplicit-relocs  -mno-explicit-relocs @gol
 -mcheck-zero-division  -mno-check-zero-division @gol
@@ -18441,6 +18442,16 @@ When the result of such a load is unused then there may be an output
 dependency stall if the result register is reused soon after the load.
 For MIPS32 a dead load will be redirected to @code{$0} to avoid the output
 dependency.
+
+@item -mshrink-offsets
+@itemx -mno-shrink-offsets
+@opindex mshrink-offsets
+@opindex mno-shrink-offsets
+Enable (disable) an optimisation to reduce offsets used directly in
+memory references for MIPS16 code to make more use of 16-bit instructions
+for loads and stores.  This is at the expense of one additional setup
+instruction to adjust the base pointer for several memory references.
+This optimisation is enabled by default with @option{-Os}.
 
 @item -msplit-addresses
 @itemx -mno-split-addresses
