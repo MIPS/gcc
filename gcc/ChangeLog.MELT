@@ -1,5 +1,28 @@
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Adding ability to call hooks in MELT expressions}}
+	* melt-runtime.c (meltgc_add_out_cident): Common special
+	characters are mangled with two lowercase letters.
+
+	* melt/warmelt-base.melt (symbol_cname): New function.
+
+	* melt/warmelt-macro.melt (class_source_hook_call): New class with
+	shook_called field.
+	(expand_hook): New function.
+	(macroexpand_1): Add :doc string, and call expand_hook when needed.
+	(mexpand_defhook): Check the length of the name to fit in
+	MELT_HOOKNAME_LEN chars.
+
+	* melt/warmelt-normal.melt (class_nrep_hook_call): New class with
+	nhook_called & nhook_outs fields.
+	(normexp_symbol): On failure, abort when bootstrapping with more debug outputs.
+	(normexp_hook_call): Incomplete stub method for normal_exp on
+	class_source_hook_call.
+
+	* testsuite/melt/thookcall.melt: New test case.
+
+2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable & regenerated}}
 
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.

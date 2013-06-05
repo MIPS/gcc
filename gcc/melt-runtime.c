@@ -2708,19 +2708,36 @@ meltgc_add_out_cident (melt_ptr_t outbuf_p, const char *str)
   char tinybuf[80];
   if (!str || !str[0])
     return;
-  if (slen < (int) sizeof (tinybuf) - 2) {
+  if (2*slen < (int) sizeof (tinybuf) - 4) {
     memset (tinybuf, 0, sizeof (tinybuf));
     dupstr = tinybuf;
   } else
-    dupstr = (char *) xcalloc (slen + 2, 1);
+    dupstr = (char *) xcalloc (2*slen + 4, 1);
   if (str)
     for (ps = (const char *) str, pd = dupstr; *ps; ps++) {
       if (ISALNUM (*ps))
+        *(pd++) = TOUPPER(*ps);
+      else if(*ps=='_')
         *(pd++) = *ps;
-      else if (pd > dupstr && pd[-1] != '_')
-        *(pd++) = '_';
-      else
-        *pd = (char) 0;
+      else switch (*ps) {
+	case '-': pd[0]='m'; pd[1]='i'; pd+=2; break;
+	case '+': pd[0]='p'; pd[1]='l'; pd+=2; break;
+	case '*': pd[0]='s'; pd[1]='t'; pd+=2; break;
+	case '/': pd[0]='d'; pd[1]='i'; pd+=2; break;
+	case '<': pd[0]='l'; pd[1]='t'; pd+=2; break;
+	case '>': pd[0]='g'; pd[1]='t'; pd+=2; break;
+	case '=': pd[0]='e'; pd[1]='q'; pd+=2; break;
+	case '?': pd[0]='q'; pd[1]='m'; pd+=2; break;
+	case '!': pd[0]='e'; pd[1]='x'; pd+=2; break;
+	case '%': pd[0]='p'; pd[1]='c'; pd+=2; break;
+	case '~': pd[0]='t'; pd[1]='i'; pd+=2; break;
+	case '@': pd[0]='a'; pd[1]='t'; pd+=2; break;
+	default:
+	  if (pd > dupstr && pd[-1] != '_')
+	    *(pd++) = '_';
+	  else
+	    *pd = (char) 0;
+	}
       pd[1] = (char) 0;
     }
   meltgc_add_out_raw (outbuf_p, dupstr);

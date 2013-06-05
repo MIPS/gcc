@@ -100,6 +100,14 @@ $SARGOP_ARGS is the tuple of arguments.}#
   :fields (sprim_oper			;the primitive operation
 	   ))
 
+(defclass class_source_hook_call
+  :doc #{The internal $CLASS_SOURCE_HOOK_CALL is for hook
+call abstract syntax. $SHOOK_CALLED is the called hook or hook definition,
+$SARGOP_ARGS is the tuple of arguments.}#
+  :super class_source_argumented_operator
+  :fields (shook_called			;the called hook
+	   ))
+
 
 ;;; source arithmetic variadic operation
 (defclass class_source_arithmetic_variadic_operation
@@ -1387,6 +1395,10 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 ;;;;;;;;;;;;;;;; the main macro expander of one expression
 (defun macroexpand_1 (sexpr env mexpander modctx)
+  :doc #{Function to macro-expand a single s-expr $SEXPR in
+  environment $ENV using the macroexpander $MEXPAND in module context
+  $MODCTX. Return the expanded form, subclass of $CLASS_SOURCE, and
+  perhaps other expansions.}#
   (if (null mexpander) (setq mexpander macroexpand_1))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check mexpander" (is_closure mexpander))
@@ -1429,7 +1441,14 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		     (let ( (citer (unsafe_get_field :cbind_citerator opbind))
 			    (resc (expand_citeration citer sexpr env mexpander modctx))
 			    )
-		       (debug "macroexpand_1 result for citerator resc" resc)
+		       (debug "macroexpand_1 result for citerator resc=" resc)
+		       (return resc ())
+		       ))
+		   ( (is_a opbind class_hook_binding)
+		     (let ( (hookdef (unsafe_get_field :hookbind_defhook opbind))
+			    (resc (expand_hook hookdef sexpr env mexpander modctx))
+			    )
+		       (debug "macroexpand_1 result for hook resc=" resc)
 		       (return resc ())
 		       ))
 		   ( (is_a opbind class_cmatcher_binding)
@@ -1468,6 +1487,9 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 			  )
 			( (is_a val class_primitive)
 			  (return (expand_primitive val sexpr env mexpander modctx) ())
+			  )
+			( (is_hook val)
+			  (return (expand_hook val sexpr env mexpander modctx) ())
 			  )
 			( (is_a val class_selector) 
 			  (let ( (ress 
@@ -1562,6 +1584,27 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	      :sprim_oper sprim
 	      :sargop_args xargtup)))
 
+;;; expand a hook s-expression
+(defun expand_hook (shook sexpr env mexpander modctx)
+  (debug "expand_hook shook=" shook " sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check end" (is_a env class_environment))
+  (assert_msg "check mexpander" (is_closure mexpander))
+  (assert_msg "check modctx" (is_object modctx))
+  (assert_msg "check shook" (or (is_hook shook) (is_a shook class_source_defhook)))
+  (let ( (scont (unsafe_get_field :sexp_contents sexpr))
+	 (sloc (unsafe_get_field :loca_location sexpr))
+	 (soper (pair_head (list_first scont)))
+	 (xargtup (expand_restlist_as_tuple scont env mexpander modctx))
+	 (resh (instance class_source_hook_call
+			 :loca_location sloc
+			 :sargop_args xargtup
+			 :shook_called shook
+			 ))
+	 )
+    (debug "expand_hook gives resh=" resh)
+    (return resh ())
+))
 
 ;;; class for pattern expansion context
 (defclass class_pattern_expansion_context
@@ -2997,6 +3040,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 	 (curpair (pair_tail (list_first cont)))
 	 (symb (pair_head curpair))
 	 (symbname (get_field :named_name symb))
+	 (sycname (symbol_cname symb))
 	 (intup ())			;formal input tuple
 	 (outup ())			;formal output tuple
 	 (restypkw ())			;the ctype keyword of result
@@ -3014,12 +3058,16 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
       (error_plain loc 
 		   "missing symbol for (DEFHOOK <symb> <informals> <outformals> <ctype-key> [:predef <predef>] [:doc <doc>] <body....>)")
       (return))
+    (when (>=i (string_length sycname)
+	      (expr_chunk maxlen_chk :long #{/*mexpand_defhook $MAXLEN_CHK*/MELT_HOOKNAME_LEN}#))
+      (error_strv loc
+		  "too long cname for symbol of DEFHOOK" sycname)
+      (return))
     (setq curpair (pair_tail curpair))
     (warn_if_redefined symb env loc)
     ;; parse the formal input arguments
     (setq intup 
 	  (let ( (insexp (pair_head curpair))
-		 (symbname (get_field :named_name symb))
 		 )
 	    (debug "mexpand_defhook insexp=" insexp)
 	    (cond ( (is_a insexp class_sexpr)
@@ -3040,7 +3088,6 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
     ;; parse the formal output arguments
     (setq outup 
 	  (let ( (outsexp (pair_head curpair))
-		 (symbname (get_field :named_name symb))
 		 )
 	    (debug "mexpand_defhook outsexp=" outsexp)
 	    (cond ( (is_a outsexp class_sexpr)
@@ -7732,6 +7779,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_funmatchexpr
  class_source_generator_device
  class_source_get_field
+ class_source_hook_call
  class_source_if
  class_source_ifelse
  class_source_ifvariadic

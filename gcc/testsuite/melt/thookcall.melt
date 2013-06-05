@@ -1,0 +1,32 @@
+; -*- lisp -*-
+;; file thookcall.melt
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thookcall.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=thookcall.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(defhook hook_testcall (:value v) () :long
+  (debug "hook_testcall v=" v)
+  (return (get_int v)))
+
+(defun testcall_internal (v)
+  (debug "testcall_internal v=" v)
+  (box (hook_testcall v)))
+
+(defun testcall_outside ()
+  (debug "testcall_outside")
+  (hook_named_keyword "TRUE" 0))
+
+(debug "hook_testcall=" hook_testcall " hook_named_keyword=" hook_named_keyword)
+
+(debug "before testcall_internal")
+(debug "testcall_internal gives=" (testcall_internal '23))
+
+(debug "before testcall_outside")
+(debug "testcall_outside gives=" (testcall_outside))
+;; eof thookcall.melt

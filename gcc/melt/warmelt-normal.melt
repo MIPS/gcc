@@ -107,6 +107,13 @@ applications. $NAPP_FUN is the simple function to apply to $NEXPR_ARGS.}#
   :fields (napp_fun			;simple function to apply
 	   ))
 
+;; normal hook calls
+(defclass class_nrep_hook_call
+  :super class_nrep_typed_expression_with_arguments
+  :doc #{The $CLASS_NREP_HOOK_CALL is for normal hook calls. 
+  $NHOOK_CALLED is the called hook. NHOOK_OUTS it the actual output arguments to the hook.}#
+  :fields (nhook_called
+	   nhook_outs))
 
 ;; normalized multiresult apply
 (defclass class_nrep_multiapply
@@ -831,6 +838,7 @@ procedure in a module, defined with $DEFHOOK. }#
  class_nrep_fieldassign
  class_nrep_forever
  class_nrep_hookproc
+ class_nrep_hook_call
  class_nrep_if
  class_nrep_ifcommon
  class_nrep_ifisa
@@ -1664,6 +1672,7 @@ source location.}#
 	 " psloc=" psloc 
 	 )
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
+  (assert_msg "check recv" (is_a recv class_symbol))
   (multicall
    (bind procs gotenv)
    (find_enclosing_env env recv)
@@ -1676,12 +1685,17 @@ source location.}#
      (if (null psloc)
 	 (shortbacktrace_dbg "normex_symbol null psloc" 10)
        )
-     (if (null bind)
-	 (progn
-	   (error_strv psloc "unknown name; symbol is not bound"
-		       (unsafe_get_field :named_name recv))
-	   (shortbacktrace_dbg "normexp_symbol null bind" 15)
-	   (return () ())))
+     (when (null bind)
+       (error_strv psloc "unknown name; symbol is not bound"
+		   (unsafe_get_field :named_name recv))
+       (shortbacktrace_dbg "normexp_symbol null bind" 15)
+       (debug "normexp_symbol bad name recv=" recv "\n.. env=" env)
+       (debug "normexp_symbol bad name envprev=" (get_field :env_prev env))
+       (debug "normexp_symbol bad name envprev2=" (get_field :env_prev (get_field :env_prev env)))
+       (debug "normexp_symbol bad name envprev3=" (get_field :env_prev  (get_field :env_prev (get_field :env_prev env))))
+       (if (melt_is_bootstrapping)
+	   (assert_msg "@$@normexp_symbol is failing while bootstrapping"))
+       (return () ()))
      ;;
      (if (is_a bind class_normal_magic_binding)
 	 (let ( (magval (get_field :nmagic_value bind))
@@ -2129,7 +2143,21 @@ source location.}#
 
 (install_method class_source_primitive normal_exp normexp_primitive)
 
-
+;;;;;;;;;;;;;;;;
+;;; normalize a hook call
+(defun normexp_hook_call (recv env ncx psloc)
+  (debug "normexp_hook_call recv" recv)
+  (assert_msg "check recv" (is_a recv class_source_hook_call))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check nctxt" (is_a ncx class_normalization_context))
+  (let ( (sloc (unsafe_get_field :loca_location recv)) 
+	 (shook (unsafe_get_field :shook_called recv))
+	 (sargs (unsafe_get_field :sargop_args recv)) 
+	 )
+    (debug "normexp_hook_call shook=" shook " sargs=" sargs)
+    (assert_msg "$@$unimplemented normexp_hook_call")
+))
+(install_method class_source_hook_call normal_exp normexp_hook_call)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

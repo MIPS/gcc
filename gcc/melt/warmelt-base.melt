@@ -3013,6 +3013,28 @@ typedef struct melthook_st *melthook_ptr_t;
   :doc #{Count the number of MELT errors.}#
   #{melt_error_counter}#)
 
+
+(defun symbol_cname (sy) 
+  :doc #{Give the cname of a symbol, keyword or else NULL}#
+  (cond ( (is_a sy class_cloned_symbol)
+	  (let ( (sbuf (make_strbuf discr_strbuf)) )
+	    (add2sbuf_cident sbuf (get_field :named_name sy))
+	    (add2out sbuf "cl" (get_field :csym_urank sy))
+	    (strbuf2string discr_verbatim_string sbuf)
+	    ))
+	( (is_a sy class_keyword)
+	  (let ( (sbuf (make_strbuf discr_strbuf)) )
+	    (add2sbuf_cident sbuf (get_field :named_name sy))
+	    (add2sbuf_strconst sbuf "kw")
+	    (strbuf2string discr_verbatim_string sbuf)
+	    ))
+	( (is_a sy class_symbol)
+	  (let ( (sbuf (make_strbuf discr_strbuf)) )
+	    (add2sbuf_cident sbuf (get_field :named_name sy))
+	    (strbuf2string discr_verbatim_string sbuf)
+	    ))
+	(:else
+	 ())))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  ;; keep the alphanumerical order
@@ -3240,6 +3262,7 @@ typedef struct melthook_st *melthook_ptr_t;
  subclass_of
  subclass_or_eq
  subseq_multiple
+ symbol_cname
  tuple_nth
  tuple_sized
  valdesc_bucketlongs
