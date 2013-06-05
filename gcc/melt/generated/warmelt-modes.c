@@ -47,99 +47,20 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE (meltclosure_ptr_t meltclosp_,
-					     melt_ptr_t meltfirstargp_,
-					     const melt_argdescr_cell_t
-					     meltxargdescr_[],
-					     union meltparam_un *meltxargtab_,
-					     const melt_argdescr_cell_t
-					     meltxresdescr_[],
-					     union meltparam_un
-					     *meltxrestab_);
+meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE (meltclosure_ptr_t meltclosp_,
+					    melt_ptr_t meltfirstargp_,
+					    const melt_argdescr_cell_t
+					    meltxargdescr_[],
+					    union meltparam_un *meltxargtab_,
+					    const melt_argdescr_cell_t
+					    meltxresdescr_[],
+					    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD (meltclosure_ptr_t meltclosp_,
-					 melt_ptr_t meltfirstargp_,
-					 const melt_argdescr_cell_t
-					 meltxargdescr_[],
-					 union meltparam_un *meltxargtab_,
-					 const melt_argdescr_cell_t
-					 meltxresdescr_[],
-					 union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_4_WARMELTmiMODES_EVAL_DOCMD (meltclosure_ptr_t meltclosp_,
-				      melt_ptr_t meltfirstargp_,
-				      const melt_argdescr_cell_t
-				      meltxargdescr_[],
-				      union meltparam_un *meltxargtab_,
-				      const melt_argdescr_cell_t
-				      meltxresdescr_[],
-				      union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_6_WARMELTmiMODES_REPL_PROCESSOR (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_7_WARMELTmiMODES_REPL_DOCMD (meltclosure_ptr_t meltclosp_,
-				      melt_ptr_t meltfirstargp_,
-				      const melt_argdescr_cell_t
-				      meltxargdescr_[],
-				      union meltparam_un *meltxargtab_,
-				      const melt_argdescr_cell_t
-				      meltxresdescr_[],
-				      union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_8_WARMELTmiMODES_LAMBDA___1__ (meltclosure_ptr_t meltclosp_,
+meltrout_2_WARMELTmiMODESRUNFILE_DOCMD (meltclosure_ptr_t meltclosp_,
 					melt_ptr_t meltfirstargp_,
 					const melt_argdescr_cell_t
 					meltxargdescr_[],
@@ -152,20 +73,7 @@ meltrout_8_WARMELTmiMODES_LAMBDA___1__ (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_9_WARMELTmiMODES_LAMBDA___2__ (meltclosure_ptr_t meltclosp_,
-					melt_ptr_t meltfirstargp_,
-					const melt_argdescr_cell_t
-					meltxargdescr_[],
-					union meltparam_un *meltxargtab_,
-					const melt_argdescr_cell_t
-					meltxresdescr_[],
-					union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_10_WARMELTmiMODES_LAMBDA___3__ (meltclosure_ptr_t meltclosp_,
+meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
 					 melt_ptr_t meltfirstargp_,
 					 const melt_argdescr_cell_t
 					 meltxargdescr_[],
@@ -178,7 +86,20 @@ meltrout_10_WARMELTmiMODES_LAMBDA___3__ (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_11_WARMELTmiMODES_LAMBDA___4__ (meltclosure_ptr_t meltclosp_,
+meltrout_4_WARMELTmiMODESEVAL_DOCMD (meltclosure_ptr_t meltclosp_,
+				     melt_ptr_t meltfirstargp_,
+				     const melt_argdescr_cell_t
+				     meltxargdescr_[],
+				     union meltparam_un *meltxargtab_,
+				     const melt_argdescr_cell_t
+				     meltxresdescr_[],
+				     union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_5_WARMELTmiMODESEVALFILE_DOCMD (meltclosure_ptr_t meltclosp_,
 					 melt_ptr_t meltfirstargp_,
 					 const melt_argdescr_cell_t
 					 meltxargdescr_[],
@@ -191,7 +112,7 @@ meltrout_11_WARMELTmiMODES_LAMBDA___4__ (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_12_WARMELTmiMODES_LAMBDA___5__ (meltclosure_ptr_t meltclosp_,
+meltrout_6_WARMELTmiMODESREPL_PROCESSOR (meltclosure_ptr_t meltclosp_,
 					 melt_ptr_t meltfirstargp_,
 					 const melt_argdescr_cell_t
 					 meltxargdescr_[],
@@ -204,313 +125,85 @@ meltrout_12_WARMELTmiMODES_LAMBDA___5__ (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_13_WARMELTmiMODES_INCREMENT_MKDOC_COUNTER (meltclosure_ptr_t
-						    meltclosp_,
-						    melt_ptr_t meltfirstargp_,
-						    const melt_argdescr_cell_t
-						    meltxargdescr_[],
-						    union meltparam_un
-						    *meltxargtab_,
-						    const melt_argdescr_cell_t
-						    meltxresdescr_[],
-						    union meltparam_un
-						    *meltxrestab_);
+meltrout_7_WARMELTmiMODESREPL_DOCMD (meltclosure_ptr_t meltclosp_,
+				     melt_ptr_t meltfirstargp_,
+				     const melt_argdescr_cell_t
+				     meltxargdescr_[],
+				     union meltparam_un *meltxargtab_,
+				     const melt_argdescr_cell_t
+				     meltxresdescr_[],
+				     union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_14_WARMELTmiMODES_MAKEDOC_SCANINPUT (meltclosure_ptr_t meltclosp_,
-					      melt_ptr_t meltfirstargp_,
-					      const melt_argdescr_cell_t
-					      meltxargdescr_[],
-					      union meltparam_un
-					      *meltxargtab_,
-					      const melt_argdescr_cell_t
-					      meltxresdescr_[],
-					      union meltparam_un
-					      *meltxrestab_);
+meltrout_8_WARMELTmiMODESLAMBDA_cl1 (meltclosure_ptr_t meltclosp_,
+				     melt_ptr_t meltfirstargp_,
+				     const melt_argdescr_cell_t
+				     meltxargdescr_[],
+				     union meltparam_un *meltxargtab_,
+				     const melt_argdescr_cell_t
+				     meltxresdescr_[],
+				     union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_15_WARMELTmiMODES_LAMBDA___6__ (meltclosure_ptr_t meltclosp_,
-					 melt_ptr_t meltfirstargp_,
-					 const melt_argdescr_cell_t
-					 meltxargdescr_[],
-					 union meltparam_un *meltxargtab_,
-					 const melt_argdescr_cell_t
-					 meltxresdescr_[],
-					 union meltparam_un *meltxrestab_);
+meltrout_9_WARMELTmiMODESLAMBDA_cl2 (meltclosure_ptr_t meltclosp_,
+				     melt_ptr_t meltfirstargp_,
+				     const melt_argdescr_cell_t
+				     meltxargdescr_[],
+				     union meltparam_un *meltxargtab_,
+				     const melt_argdescr_cell_t
+				     meltxresdescr_[],
+				     union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_16_WARMELTmiMODES_LAMBDA___7__ (meltclosure_ptr_t meltclosp_,
-					 melt_ptr_t meltfirstargp_,
-					 const melt_argdescr_cell_t
-					 meltxargdescr_[],
-					 union meltparam_un *meltxargtab_,
-					 const melt_argdescr_cell_t
-					 meltxresdescr_[],
-					 union meltparam_un *meltxrestab_);
+meltrout_10_WARMELTmiMODESLAMBDA_cl3 (meltclosure_ptr_t meltclosp_,
+				      melt_ptr_t meltfirstargp_,
+				      const melt_argdescr_cell_t
+				      meltxargdescr_[],
+				      union meltparam_un *meltxargtab_,
+				      const melt_argdescr_cell_t
+				      meltxresdescr_[],
+				      union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_17_WARMELTmiMODES_LAMBDA___8__ (meltclosure_ptr_t meltclosp_,
-					 melt_ptr_t meltfirstargp_,
-					 const melt_argdescr_cell_t
-					 meltxargdescr_[],
-					 union meltparam_un *meltxargtab_,
-					 const melt_argdescr_cell_t
-					 meltxresdescr_[],
-					 union meltparam_un *meltxrestab_);
+meltrout_11_WARMELTmiMODESLAMBDA_cl4 (meltclosure_ptr_t meltclosp_,
+				      melt_ptr_t meltfirstargp_,
+				      const melt_argdescr_cell_t
+				      meltxargdescr_[],
+				      union meltparam_un *meltxargtab_,
+				      const melt_argdescr_cell_t
+				      meltxresdescr_[],
+				      union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_18_WARMELTmiMODES_LAMBDA___9__ (meltclosure_ptr_t meltclosp_,
-					 melt_ptr_t meltfirstargp_,
-					 const melt_argdescr_cell_t
-					 meltxargdescr_[],
-					 union meltparam_un *meltxargtab_,
-					 const melt_argdescr_cell_t
-					 meltxresdescr_[],
-					 union meltparam_un *meltxrestab_);
+meltrout_12_WARMELTmiMODESLAMBDA_cl5 (meltclosure_ptr_t meltclosp_,
+				      melt_ptr_t meltfirstargp_,
+				      const melt_argdescr_cell_t
+				      meltxargdescr_[],
+				      union meltparam_un *meltxargtab_,
+				      const melt_argdescr_cell_t
+				      meltxresdescr_[],
+				      union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_19_WARMELTmiMODES_MAKEDOC_OUTDEFLOC (meltclosure_ptr_t meltclosp_,
-					      melt_ptr_t meltfirstargp_,
-					      const melt_argdescr_cell_t
-					      meltxargdescr_[],
-					      union meltparam_un
-					      *meltxargtab_,
-					      const melt_argdescr_cell_t
-					      meltxresdescr_[],
-					      union meltparam_un
-					      *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_20_WARMELTmiMODES_MAKEDOC_OUTFORMALS (meltclosure_ptr_t meltclosp_,
-					       melt_ptr_t meltfirstargp_,
-					       const melt_argdescr_cell_t
-					       meltxargdescr_[],
-					       union meltparam_un
-					       *meltxargtab_,
-					       const melt_argdescr_cell_t
-					       meltxresdescr_[],
-					       union meltparam_un
-					       *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_21_WARMELTmiMODES_MAKEDOC_OUTDOC (meltclosure_ptr_t meltclosp_,
-					   melt_ptr_t meltfirstargp_,
-					   const melt_argdescr_cell_t
-					   meltxargdescr_[],
-					   union meltparam_un *meltxargtab_,
-					   const melt_argdescr_cell_t
-					   meltxresdescr_[],
-					   union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_22_WARMELTmiMODES_MAKEDOC_OUTCLASSDEF (meltclosure_ptr_t meltclosp_,
-						melt_ptr_t meltfirstargp_,
-						const melt_argdescr_cell_t
-						meltxargdescr_[],
-						union meltparam_un
-						*meltxargtab_,
-						const melt_argdescr_cell_t
-						meltxresdescr_[],
-						union meltparam_un
-						*meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_23_WARMELTmiMODES_MAKEDOC_GENMACRO (meltclosure_ptr_t meltclosp_,
-					     melt_ptr_t meltfirstargp_,
-					     const melt_argdescr_cell_t
-					     meltxargdescr_[],
-					     union meltparam_un *meltxargtab_,
-					     const melt_argdescr_cell_t
-					     meltxresdescr_[],
-					     union meltparam_un
-					     *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_24_WARMELTmiMODES_LAMBDA___10__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_25_WARMELTmiMODES_MAKEDOC_GENPATMACRO (meltclosure_ptr_t meltclosp_,
-						melt_ptr_t meltfirstargp_,
-						const melt_argdescr_cell_t
-						meltxargdescr_[],
-						union meltparam_un
-						*meltxargtab_,
-						const melt_argdescr_cell_t
-						meltxresdescr_[],
-						union meltparam_un
-						*meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_26_WARMELTmiMODES_LAMBDA___11__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_27_WARMELTmiMODES_MAKEDOC_GENCLASS (meltclosure_ptr_t meltclosp_,
-					     melt_ptr_t meltfirstargp_,
-					     const melt_argdescr_cell_t
-					     meltxargdescr_[],
-					     union meltparam_un *meltxargtab_,
-					     const melt_argdescr_cell_t
-					     meltxresdescr_[],
-					     union meltparam_un
-					     *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_28_WARMELTmiMODES_LAMBDA___12__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_29_WARMELTmiMODES_LAMBDA___13__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_30_WARMELTmiMODES_LAMBDA___14__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_31_WARMELTmiMODES_LAMBDA___15__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_32_WARMELTmiMODES_MAKEDOC_OUTPRIMITIVEDEF (meltclosure_ptr_t
-						    meltclosp_,
-						    melt_ptr_t meltfirstargp_,
-						    const melt_argdescr_cell_t
-						    meltxargdescr_[],
-						    union meltparam_un
-						    *meltxargtab_,
-						    const melt_argdescr_cell_t
-						    meltxresdescr_[],
-						    union meltparam_un
-						    *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_33_WARMELTmiMODES_MAKEDOC_GENPRIMITIVE (meltclosure_ptr_t meltclosp_,
-						 melt_ptr_t meltfirstargp_,
-						 const melt_argdescr_cell_t
-						 meltxargdescr_[],
-						 union meltparam_un
-						 *meltxargtab_,
-						 const melt_argdescr_cell_t
-						 meltxresdescr_[],
-						 union meltparam_un
-						 *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_34_WARMELTmiMODES_LAMBDA___16__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_35_WARMELTmiMODES_MAKEDOC_OUTFUNCTIONDEF (meltclosure_ptr_t
+meltrout_13_WARMELTmiMODESINCREMENT_MKDOC_COUNTER (meltclosure_ptr_t
 						   meltclosp_,
 						   melt_ptr_t meltfirstargp_,
 						   const melt_argdescr_cell_t
@@ -526,117 +219,87 @@ meltrout_35_WARMELTmiMODES_MAKEDOC_OUTFUNCTIONDEF (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_36_WARMELTmiMODES_MAKEDOC_GENFUNCTION (meltclosure_ptr_t meltclosp_,
-						melt_ptr_t meltfirstargp_,
-						const melt_argdescr_cell_t
-						meltxargdescr_[],
-						union meltparam_un
-						*meltxargtab_,
-						const melt_argdescr_cell_t
-						meltxresdescr_[],
-						union meltparam_un
-						*meltxrestab_);
+meltrout_14_WARMELTmiMODESMAKEDOC_SCANINPUT (meltclosure_ptr_t meltclosp_,
+					     melt_ptr_t meltfirstargp_,
+					     const melt_argdescr_cell_t
+					     meltxargdescr_[],
+					     union meltparam_un *meltxargtab_,
+					     const melt_argdescr_cell_t
+					     meltxresdescr_[],
+					     union meltparam_un
+					     *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_37_WARMELTmiMODES_LAMBDA___17__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
+meltrout_15_WARMELTmiMODESLAMBDA_cl6 (meltclosure_ptr_t meltclosp_,
+				      melt_ptr_t meltfirstargp_,
+				      const melt_argdescr_cell_t
+				      meltxargdescr_[],
+				      union meltparam_un *meltxargtab_,
+				      const melt_argdescr_cell_t
+				      meltxresdescr_[],
+				      union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_38_WARMELTmiMODES_MAKEDOC_GENCITERATOR (meltclosure_ptr_t meltclosp_,
-						 melt_ptr_t meltfirstargp_,
-						 const melt_argdescr_cell_t
-						 meltxargdescr_[],
-						 union meltparam_un
-						 *meltxargtab_,
-						 const melt_argdescr_cell_t
-						 meltxresdescr_[],
-						 union meltparam_un
-						 *meltxrestab_);
+meltrout_16_WARMELTmiMODESLAMBDA_cl7 (meltclosure_ptr_t meltclosp_,
+				      melt_ptr_t meltfirstargp_,
+				      const melt_argdescr_cell_t
+				      meltxargdescr_[],
+				      union meltparam_un *meltxargtab_,
+				      const melt_argdescr_cell_t
+				      meltxresdescr_[],
+				      union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_39_WARMELTmiMODES_LAMBDA___18__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
+meltrout_17_WARMELTmiMODESLAMBDA_cl8 (meltclosure_ptr_t meltclosp_,
+				      melt_ptr_t meltfirstargp_,
+				      const melt_argdescr_cell_t
+				      meltxargdescr_[],
+				      union meltparam_un *meltxargtab_,
+				      const melt_argdescr_cell_t
+				      meltxresdescr_[],
+				      union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_40_WARMELTmiMODES_MAKEDOC_GENCMATCHER (meltclosure_ptr_t meltclosp_,
-						melt_ptr_t meltfirstargp_,
-						const melt_argdescr_cell_t
-						meltxargdescr_[],
-						union meltparam_un
-						*meltxargtab_,
-						const melt_argdescr_cell_t
-						meltxresdescr_[],
-						union meltparam_un
-						*meltxrestab_);
+meltrout_18_WARMELTmiMODESLAMBDA_cl9 (meltclosure_ptr_t meltclosp_,
+				      melt_ptr_t meltfirstargp_,
+				      const melt_argdescr_cell_t
+				      meltxargdescr_[],
+				      union meltparam_un *meltxargtab_,
+				      const melt_argdescr_cell_t
+				      meltxresdescr_[],
+				      union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_41_WARMELTmiMODES_LAMBDA___19__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
+meltrout_19_WARMELTmiMODESMAKEDOC_OUTDEFLOC (meltclosure_ptr_t meltclosp_,
+					     melt_ptr_t meltfirstargp_,
+					     const melt_argdescr_cell_t
+					     meltxargdescr_[],
+					     union meltparam_un *meltxargtab_,
+					     const melt_argdescr_cell_t
+					     meltxresdescr_[],
+					     union meltparam_un
+					     *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_42_WARMELTmiMODES_MAKEDOC_GENHOOK (meltclosure_ptr_t meltclosp_,
-					    melt_ptr_t meltfirstargp_,
-					    const melt_argdescr_cell_t
-					    meltxargdescr_[],
-					    union meltparam_un *meltxargtab_,
-					    const melt_argdescr_cell_t
-					    meltxresdescr_[],
-					    union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_43_WARMELTmiMODES_LAMBDA___20__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_44_WARMELTmiMODES_MAKEDOC_GENOUTPUT (meltclosure_ptr_t meltclosp_,
+meltrout_20_WARMELTmiMODESMAKEDOC_OUTFORMALS (meltclosure_ptr_t meltclosp_,
 					      melt_ptr_t meltfirstargp_,
 					      const melt_argdescr_cell_t
 					      meltxargdescr_[],
@@ -651,7 +314,7 @@ meltrout_44_WARMELTmiMODES_MAKEDOC_GENOUTPUT (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_45_WARMELTmiMODES_MAKEDOC_DOCMD (meltclosure_ptr_t meltclosp_,
+meltrout_21_WARMELTmiMODESMAKEDOC_OUTDOC (meltclosure_ptr_t meltclosp_,
 					  melt_ptr_t meltfirstargp_,
 					  const melt_argdescr_cell_t
 					  meltxargdescr_[],
@@ -664,33 +327,35 @@ meltrout_45_WARMELTmiMODES_MAKEDOC_DOCMD (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_46_WARMELTmiMODES_LAMBDA___21__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
+meltrout_22_WARMELTmiMODESMAKEDOC_OUTCLASSDEF (meltclosure_ptr_t meltclosp_,
+					       melt_ptr_t meltfirstargp_,
+					       const melt_argdescr_cell_t
+					       meltxargdescr_[],
+					       union meltparam_un
+					       *meltxargtab_,
+					       const melt_argdescr_cell_t
+					       meltxresdescr_[],
+					       union meltparam_un
+					       *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_47_WARMELTmiMODES_SHOWVAR_DOCMD (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
+meltrout_23_WARMELTmiMODESMAKEDOC_GENMACRO (meltclosure_ptr_t meltclosp_,
+					    melt_ptr_t meltfirstargp_,
+					    const melt_argdescr_cell_t
+					    meltxargdescr_[],
+					    union meltparam_un *meltxargtab_,
+					    const melt_argdescr_cell_t
+					    meltxresdescr_[],
+					    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_48_WARMELTmiMODES_HELP_DOCMD (meltclosure_ptr_t meltclosp_,
+meltrout_24_WARMELTmiMODESLAMBDA_cl10 (meltclosure_ptr_t meltclosp_,
 				       melt_ptr_t meltfirstargp_,
 				       const melt_argdescr_cell_t
 				       meltxargdescr_[],
@@ -703,7 +368,323 @@ meltrout_48_WARMELTmiMODES_HELP_DOCMD (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_49_WARMELTmiMODES_NOP_DOCMD (meltclosure_ptr_t meltclosp_,
+meltrout_25_WARMELTmiMODESMAKEDOC_GENPATMACRO (meltclosure_ptr_t meltclosp_,
+					       melt_ptr_t meltfirstargp_,
+					       const melt_argdescr_cell_t
+					       meltxargdescr_[],
+					       union meltparam_un
+					       *meltxargtab_,
+					       const melt_argdescr_cell_t
+					       meltxresdescr_[],
+					       union meltparam_un
+					       *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_26_WARMELTmiMODESLAMBDA_cl11 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_27_WARMELTmiMODESMAKEDOC_GENCLASS (meltclosure_ptr_t meltclosp_,
+					    melt_ptr_t meltfirstargp_,
+					    const melt_argdescr_cell_t
+					    meltxargdescr_[],
+					    union meltparam_un *meltxargtab_,
+					    const melt_argdescr_cell_t
+					    meltxresdescr_[],
+					    union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_28_WARMELTmiMODESLAMBDA_cl12 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_29_WARMELTmiMODESLAMBDA_cl13 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_30_WARMELTmiMODESLAMBDA_cl14 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_31_WARMELTmiMODESLAMBDA_cl15 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_32_WARMELTmiMODESMAKEDOC_OUTPRIMITIVEDEF (meltclosure_ptr_t
+						   meltclosp_,
+						   melt_ptr_t meltfirstargp_,
+						   const melt_argdescr_cell_t
+						   meltxargdescr_[],
+						   union meltparam_un
+						   *meltxargtab_,
+						   const melt_argdescr_cell_t
+						   meltxresdescr_[],
+						   union meltparam_un
+						   *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_33_WARMELTmiMODESMAKEDOC_GENPRIMITIVE (meltclosure_ptr_t meltclosp_,
+						melt_ptr_t meltfirstargp_,
+						const melt_argdescr_cell_t
+						meltxargdescr_[],
+						union meltparam_un
+						*meltxargtab_,
+						const melt_argdescr_cell_t
+						meltxresdescr_[],
+						union meltparam_un
+						*meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_34_WARMELTmiMODESLAMBDA_cl16 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_35_WARMELTmiMODESMAKEDOC_OUTFUNCTIONDEF (meltclosure_ptr_t
+						  meltclosp_,
+						  melt_ptr_t meltfirstargp_,
+						  const melt_argdescr_cell_t
+						  meltxargdescr_[],
+						  union meltparam_un
+						  *meltxargtab_,
+						  const melt_argdescr_cell_t
+						  meltxresdescr_[],
+						  union meltparam_un
+						  *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_36_WARMELTmiMODESMAKEDOC_GENFUNCTION (meltclosure_ptr_t meltclosp_,
+					       melt_ptr_t meltfirstargp_,
+					       const melt_argdescr_cell_t
+					       meltxargdescr_[],
+					       union meltparam_un
+					       *meltxargtab_,
+					       const melt_argdescr_cell_t
+					       meltxresdescr_[],
+					       union meltparam_un
+					       *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_37_WARMELTmiMODESLAMBDA_cl17 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_38_WARMELTmiMODESMAKEDOC_GENCITERATOR (meltclosure_ptr_t meltclosp_,
+						melt_ptr_t meltfirstargp_,
+						const melt_argdescr_cell_t
+						meltxargdescr_[],
+						union meltparam_un
+						*meltxargtab_,
+						const melt_argdescr_cell_t
+						meltxresdescr_[],
+						union meltparam_un
+						*meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_39_WARMELTmiMODESLAMBDA_cl18 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_40_WARMELTmiMODESMAKEDOC_GENCMATCHER (meltclosure_ptr_t meltclosp_,
+					       melt_ptr_t meltfirstargp_,
+					       const melt_argdescr_cell_t
+					       meltxargdescr_[],
+					       union meltparam_un
+					       *meltxargtab_,
+					       const melt_argdescr_cell_t
+					       meltxresdescr_[],
+					       union meltparam_un
+					       *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_41_WARMELTmiMODESLAMBDA_cl19 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_42_WARMELTmiMODESMAKEDOC_GENHOOK (meltclosure_ptr_t meltclosp_,
+					   melt_ptr_t meltfirstargp_,
+					   const melt_argdescr_cell_t
+					   meltxargdescr_[],
+					   union meltparam_un *meltxargtab_,
+					   const melt_argdescr_cell_t
+					   meltxresdescr_[],
+					   union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_43_WARMELTmiMODESLAMBDA_cl20 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_44_WARMELTmiMODESMAKEDOC_GENOUTPUT (meltclosure_ptr_t meltclosp_,
+					     melt_ptr_t meltfirstargp_,
+					     const melt_argdescr_cell_t
+					     meltxargdescr_[],
+					     union meltparam_un *meltxargtab_,
+					     const melt_argdescr_cell_t
+					     meltxresdescr_[],
+					     union meltparam_un
+					     *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_45_WARMELTmiMODESMAKEDOC_DOCMD (meltclosure_ptr_t meltclosp_,
+					 melt_ptr_t meltfirstargp_,
+					 const melt_argdescr_cell_t
+					 meltxargdescr_[],
+					 union meltparam_un *meltxargtab_,
+					 const melt_argdescr_cell_t
+					 meltxresdescr_[],
+					 union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_46_WARMELTmiMODESLAMBDA_cl21 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_47_WARMELTmiMODESSHOWVAR_DOCMD (meltclosure_ptr_t meltclosp_,
+					 melt_ptr_t meltfirstargp_,
+					 const melt_argdescr_cell_t
+					 meltxargdescr_[],
+					 union meltparam_un *meltxargtab_,
+					 const melt_argdescr_cell_t
+					 meltxresdescr_[],
+					 union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_48_WARMELTmiMODESHELP_DOCMD (meltclosure_ptr_t meltclosp_,
 				      melt_ptr_t meltfirstargp_,
 				      const melt_argdescr_cell_t
 				      meltxargdescr_[],
@@ -716,7 +697,20 @@ meltrout_49_WARMELTmiMODES_NOP_DOCMD (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC
+meltrout_49_WARMELTmiMODESNOP_DOCMD (meltclosure_ptr_t meltclosp_,
+				     melt_ptr_t meltfirstargp_,
+				     const melt_argdescr_cell_t
+				     meltxargdescr_[],
+				     union meltparam_un *meltxargtab_,
+				     const melt_argdescr_cell_t
+				     meltxresdescr_[],
+				     union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_50_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC
 (meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
 union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
 union meltparam_un *meltxrestab_);
@@ -725,26 +719,26 @@ union meltparam_un *meltxrestab_);
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY (meltclosure_ptr_t
-							meltclosp_,
-							melt_ptr_t
-							meltfirstargp_,
-							const
-							melt_argdescr_cell_t
-							meltxargdescr_[],
-							union meltparam_un
-							*meltxargtab_,
-							const
-							melt_argdescr_cell_t
-							meltxresdescr_[],
-							union meltparam_un
-							*meltxrestab_);
+meltrout_51_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_GTY (meltclosure_ptr_t
+						       meltclosp_,
+						       melt_ptr_t
+						       meltfirstargp_,
+						       const
+						       melt_argdescr_cell_t
+						       meltxargdescr_[],
+						       union meltparam_un
+						       *meltxargtab_,
+						       const
+						       melt_argdescr_cell_t
+						       meltxresdescr_[],
+						       union meltparam_un
+						       *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN
+meltrout_52_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_FORWCOPY_FUN
 (meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
 union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
 union meltparam_un *meltxrestab_);
@@ -753,7 +747,7 @@ union meltparam_un *meltxrestab_);
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN
+meltrout_53_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_CLONING_FUN
 (meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
 union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
 union meltparam_un *meltxrestab_);
@@ -762,56 +756,7 @@ union meltparam_un *meltxrestab_);
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING (meltclosure_ptr_t
-							     meltclosp_,
-							     melt_ptr_t
-							     meltfirstargp_,
-							     const
-							     melt_argdescr_cell_t
-							     meltxargdescr_[],
-							     union
-							     meltparam_un
-							     *meltxargtab_,
-							     const
-							     melt_argdescr_cell_t
-							     meltxresdescr_[],
-							     union
-							     meltparam_un
-							     *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM (meltclosure_ptr_t
-							  meltclosp_,
-							  melt_ptr_t
-							  meltfirstargp_,
-							  const
-							  melt_argdescr_cell_t
-							  meltxargdescr_[],
-							  union meltparam_un
-							  *meltxargtab_,
-							  const
-							  melt_argdescr_cell_t
-							  meltxresdescr_[],
-							  union meltparam_un
-							  *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE
-(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
-union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
-union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR (meltclosure_ptr_t
+meltrout_54_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_SCANNING (meltclosure_ptr_t
 							    meltclosp_,
 							    melt_ptr_t
 							    meltfirstargp_,
@@ -830,68 +775,7 @@ meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN
-(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
-union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
-union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN (meltclosure_ptr_t
-							   meltclosp_,
-							   melt_ptr_t
-							   meltfirstargp_,
-							   const
-							   melt_argdescr_cell_t
-							   meltxargdescr_[],
-							   union meltparam_un
-							   *meltxargtab_,
-							   const
-							   melt_argdescr_cell_t
-							   meltxresdescr_[],
-							   union meltparam_un
-							   *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS
-(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
-union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
-union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_61_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS
-(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
-union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
-union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_62_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD (meltclosure_ptr_t meltclosp_,
-						 melt_ptr_t meltfirstargp_,
-						 const melt_argdescr_cell_t
-						 meltxargdescr_[],
-						 union meltparam_un
-						 *meltxargtab_,
-						 const melt_argdescr_cell_t
-						 meltxresdescr_[],
-						 union meltparam_un
-						 *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_63_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE (meltclosure_ptr_t
+meltrout_55_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_PARAM (meltclosure_ptr_t
 							 meltclosp_,
 							 melt_ptr_t
 							 meltfirstargp_,
@@ -910,191 +794,28 @@ meltrout_63_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_64_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD (meltclosure_ptr_t
-						    meltclosp_,
-						    melt_ptr_t meltfirstargp_,
-						    const melt_argdescr_cell_t
-						    meltxargdescr_[],
-						    union meltparam_un
-						    *meltxargtab_,
-						    const melt_argdescr_cell_t
-						    meltxresdescr_[],
-						    union meltparam_un
-						    *meltxrestab_);
+meltrout_56_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_COD2CTYPE (meltclosure_ptr_t
+							     meltclosp_,
+							     melt_ptr_t
+							     meltfirstargp_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxargdescr_[],
+							     union
+							     meltparam_un
+							     *meltxargtab_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxresdescr_[],
+							     union
+							     meltparam_un
+							     *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_65_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
-						 melt_ptr_t meltfirstargp_,
-						 const melt_argdescr_cell_t
-						 meltxargdescr_[],
-						 union meltparam_un
-						 *meltxargtab_,
-						 const melt_argdescr_cell_t
-						 meltxresdescr_[],
-						 union meltparam_un
-						 *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_66_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD (meltclosure_ptr_t
-						   meltclosp_,
-						   melt_ptr_t meltfirstargp_,
-						   const melt_argdescr_cell_t
-						   meltxargdescr_[],
-						   union meltparam_un
-						   *meltxargtab_,
-						   const melt_argdescr_cell_t
-						   meltxresdescr_[],
-						   union meltparam_un
-						   *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_67_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD (meltclosure_ptr_t
-						     meltclosp_,
-						     melt_ptr_t
-						     meltfirstargp_,
-						     const
-						     melt_argdescr_cell_t
-						     meltxargdescr_[],
-						     union meltparam_un
-						     *meltxargtab_,
-						     const
-						     melt_argdescr_cell_t
-						     meltxresdescr_[],
-						     union meltparam_un
-						     *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_68_WARMELTmiMODES_TRANSLATEFILE_DOCMD (meltclosure_ptr_t meltclosp_,
-						melt_ptr_t meltfirstargp_,
-						const melt_argdescr_cell_t
-						meltxargdescr_[],
-						union meltparam_un
-						*meltxargtab_,
-						const melt_argdescr_cell_t
-						meltxresdescr_[],
-						union meltparam_un
-						*meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD (meltclosure_ptr_t meltclosp_,
-						melt_ptr_t meltfirstargp_,
-						const melt_argdescr_cell_t
-						meltxargdescr_[],
-						union meltparam_un
-						*meltxargtab_,
-						const melt_argdescr_cell_t
-						meltxresdescr_[],
-						union meltparam_un
-						*meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_70_WARMELTmiMODES_LAMBDA___22__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED (meltclosure_ptr_t
-						   meltclosp_,
-						   melt_ptr_t meltfirstargp_,
-						   const melt_argdescr_cell_t
-						   meltxargdescr_[],
-						   union meltparam_un
-						   *meltxargtab_,
-						   const melt_argdescr_cell_t
-						   meltxresdescr_[],
-						   union meltparam_un
-						   *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_72_WARMELTmiMODES_LAMBDA___23__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD (meltclosure_ptr_t
-						      meltclosp_,
-						      melt_ptr_t
-						      meltfirstargp_,
-						      const
-						      melt_argdescr_cell_t
-						      meltxargdescr_[],
-						      union meltparam_un
-						      *meltxargtab_,
-						      const
-						      melt_argdescr_cell_t
-						      meltxresdescr_[],
-						      union meltparam_un
-						      *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD
-(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
-union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
-union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD
-(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
-union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
-union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD
-(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
-union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
-union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_77_WARMELTmiMODES_REGISTER_INPUT_CHANNEL_HANDLER (meltclosure_ptr_t
+meltrout_57_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_MAG2STR (meltclosure_ptr_t
 							   meltclosp_,
 							   melt_ptr_t
 							   meltfirstargp_,
@@ -1113,66 +834,28 @@ meltrout_77_WARMELTmiMODES_REGISTER_INPUT_CHANNEL_HANDLER (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_78_WARMELTmiMODES_HANDLE_ALARM_SIGNAL (meltclosure_ptr_t meltclosp_,
-						melt_ptr_t meltfirstargp_,
-						const melt_argdescr_cell_t
-						meltxargdescr_[],
-						union meltparam_un
-						*meltxargtab_,
-						const melt_argdescr_cell_t
-						meltxresdescr_[],
-						union meltparam_un
-						*meltxrestab_);
+meltrout_58_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_BOXINGFUN (meltclosure_ptr_t
+							     meltclosp_,
+							     melt_ptr_t
+							     meltfirstargp_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxargdescr_[],
+							     union
+							     meltparam_un
+							     *meltxargtab_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxresdescr_[],
+							     union
+							     meltparam_un
+							     *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_79_WARMELTmiMODES_LAMBDA___24__ (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un *meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_80_WARMELTmiMODES_REGISTER_ALARM_TIMER (meltclosure_ptr_t meltclosp_,
-						 melt_ptr_t meltfirstargp_,
-						 const melt_argdescr_cell_t
-						 meltxargdescr_[],
-						 union meltparam_un
-						 *meltxargtab_,
-						 const melt_argdescr_cell_t
-						 meltxresdescr_[],
-						 union meltparam_un
-						 *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_81_WARMELTmiMODES_UNREGISTER_ALARM_TIMER (meltclosure_ptr_t
-						   meltclosp_,
-						   melt_ptr_t meltfirstargp_,
-						   const melt_argdescr_cell_t
-						   meltxargdescr_[],
-						   union meltparam_un
-						   *meltxargtab_,
-						   const melt_argdescr_cell_t
-						   meltxresdescr_[],
-						   union meltparam_un
-						   *meltxrestab_);
-
-
-
-
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_82_WARMELTmiMODES_CHILD_PROCESS_SIGCHLD_HANDLER (meltclosure_ptr_t
+meltrout_59_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_MAPFUN (meltclosure_ptr_t
 							  meltclosp_,
 							  melt_ptr_t
 							  meltfirstargp_,
@@ -1191,41 +874,369 @@ meltrout_82_WARMELTmiMODES_CHILD_PROCESS_SIGCHLD_HANDLER (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_83_WARMELTmiMODES_REGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
-							   meltclosp_,
-							   melt_ptr_t
-							   meltfirstargp_,
-							   const
-							   melt_argdescr_cell_t
-							   meltxargdescr_[],
-							   union meltparam_un
-							   *meltxargtab_,
-							   const
-							   melt_argdescr_cell_t
-							   meltxresdescr_[],
-							   union meltparam_un
-							   *meltxrestab_);
+meltrout_60_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_PREDEF_FIELDS
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_84_WARMELTmiMODES_UNREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
-							     meltclosp_,
-							     melt_ptr_t
-							     meltfirstargp_,
-							     const
-							     melt_argdescr_cell_t
-							     meltxargdescr_[],
-							     union
-							     meltparam_un
-							     *meltxargtab_,
-							     const
-							     melt_argdescr_cell_t
-							     meltxresdescr_[],
-							     union
-							     meltparam_un
-							     *meltxrestab_);
+meltrout_61_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_62_WARMELTmiMODESRUNTYPESUPPORT_DOCMD (meltclosure_ptr_t meltclosp_,
+						melt_ptr_t meltfirstargp_,
+						const melt_argdescr_cell_t
+						meltxargdescr_[],
+						union meltparam_un
+						*meltxargtab_,
+						const melt_argdescr_cell_t
+						meltxresdescr_[],
+						union meltparam_un
+						*meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_63_WARMELTmiMODESTRANSLATE_TO_FLAVORED_MODULE (meltclosure_ptr_t
+							meltclosp_,
+							melt_ptr_t
+							meltfirstargp_,
+							const
+							melt_argdescr_cell_t
+							meltxargdescr_[],
+							union meltparam_un
+							*meltxargtab_,
+							const
+							melt_argdescr_cell_t
+							meltxresdescr_[],
+							union meltparam_un
+							*meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_64_WARMELTmiMODESTRANSLATETOMODULE_DOCMD (meltclosure_ptr_t
+						   meltclosp_,
+						   melt_ptr_t meltfirstargp_,
+						   const melt_argdescr_cell_t
+						   meltxargdescr_[],
+						   union meltparam_un
+						   *meltxargtab_,
+						   const melt_argdescr_cell_t
+						   meltxresdescr_[],
+						   union meltparam_un
+						   *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_65_WARMELTmiMODESTRANSLATEDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
+						melt_ptr_t meltfirstargp_,
+						const melt_argdescr_cell_t
+						meltxargdescr_[],
+						union meltparam_un
+						*meltxargtab_,
+						const melt_argdescr_cell_t
+						meltxresdescr_[],
+						union meltparam_un
+						*meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_66_WARMELTmiMODESTRANSLATEQUICKLY_DOCMD (meltclosure_ptr_t
+						  meltclosp_,
+						  melt_ptr_t meltfirstargp_,
+						  const melt_argdescr_cell_t
+						  meltxargdescr_[],
+						  union meltparam_un
+						  *meltxargtab_,
+						  const melt_argdescr_cell_t
+						  meltxresdescr_[],
+						  union meltparam_un
+						  *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_67_WARMELTmiMODESTRANSLATEOPTIMIZED_DOCMD (meltclosure_ptr_t
+						    meltclosp_,
+						    melt_ptr_t meltfirstargp_,
+						    const melt_argdescr_cell_t
+						    meltxargdescr_[],
+						    union meltparam_un
+						    *meltxargtab_,
+						    const melt_argdescr_cell_t
+						    meltxresdescr_[],
+						    union meltparam_un
+						    *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_68_WARMELTmiMODESTRANSLATEFILE_DOCMD (meltclosure_ptr_t meltclosp_,
+					       melt_ptr_t meltfirstargp_,
+					       const melt_argdescr_cell_t
+					       meltxargdescr_[],
+					       union meltparam_un
+					       *meltxargtab_,
+					       const melt_argdescr_cell_t
+					       meltxresdescr_[],
+					       union meltparam_un
+					       *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_69_WARMELTmiMODESTRANSLATEINIT_DOCMD (meltclosure_ptr_t meltclosp_,
+					       melt_ptr_t meltfirstargp_,
+					       const melt_argdescr_cell_t
+					       meltxargdescr_[],
+					       union meltparam_un
+					       *meltxargtab_,
+					       const melt_argdescr_cell_t
+					       meltxresdescr_[],
+					       union meltparam_un
+					       *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_70_WARMELTmiMODESLAMBDA_cl22 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_71_WARMELTmiMODESTRANSLATEINIT_FLAVORED (meltclosure_ptr_t
+						  meltclosp_,
+						  melt_ptr_t meltfirstargp_,
+						  const melt_argdescr_cell_t
+						  meltxargdescr_[],
+						  union meltparam_un
+						  *meltxargtab_,
+						  const melt_argdescr_cell_t
+						  meltxresdescr_[],
+						  union meltparam_un
+						  *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_72_WARMELTmiMODESLAMBDA_cl23 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_73_WARMELTmiMODESTRANSLATEINITMODULE_DOCMD (meltclosure_ptr_t
+						     meltclosp_,
+						     melt_ptr_t
+						     meltfirstargp_,
+						     const
+						     melt_argdescr_cell_t
+						     meltxargdescr_[],
+						     union meltparam_un
+						     *meltxargtab_,
+						     const
+						     melt_argdescr_cell_t
+						     meltxresdescr_[],
+						     union meltparam_un
+						     *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_74_WARMELTmiMODESTRANSLATEINITMODULEQUICKLYBUILT_DOCMD
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_75_WARMELTmiMODESTRANSLATEINITMODULEDEBUGNOLINE_DOCMD
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_76_WARMELTmiMODESTRANSLATEINITMODULEOPTIMIZED_DOCMD
+(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[],
+union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[],
+union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_77_WARMELTmiMODESREGISTER_INPUT_CHANNEL_HANDLER (meltclosure_ptr_t
+							  meltclosp_,
+							  melt_ptr_t
+							  meltfirstargp_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxargdescr_[],
+							  union meltparam_un
+							  *meltxargtab_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxresdescr_[],
+							  union meltparam_un
+							  *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_78_WARMELTmiMODESHANDLE_ALARM_SIGNAL (meltclosure_ptr_t meltclosp_,
+					       melt_ptr_t meltfirstargp_,
+					       const melt_argdescr_cell_t
+					       meltxargdescr_[],
+					       union meltparam_un
+					       *meltxargtab_,
+					       const melt_argdescr_cell_t
+					       meltxresdescr_[],
+					       union meltparam_un
+					       *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_79_WARMELTmiMODESLAMBDA_cl24 (meltclosure_ptr_t meltclosp_,
+				       melt_ptr_t meltfirstargp_,
+				       const melt_argdescr_cell_t
+				       meltxargdescr_[],
+				       union meltparam_un *meltxargtab_,
+				       const melt_argdescr_cell_t
+				       meltxresdescr_[],
+				       union meltparam_un *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_80_WARMELTmiMODESREGISTER_ALARM_TIMER (meltclosure_ptr_t meltclosp_,
+						melt_ptr_t meltfirstargp_,
+						const melt_argdescr_cell_t
+						meltxargdescr_[],
+						union meltparam_un
+						*meltxargtab_,
+						const melt_argdescr_cell_t
+						meltxresdescr_[],
+						union meltparam_un
+						*meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_81_WARMELTmiMODESUNREGISTER_ALARM_TIMER (meltclosure_ptr_t
+						  meltclosp_,
+						  melt_ptr_t meltfirstargp_,
+						  const melt_argdescr_cell_t
+						  meltxargdescr_[],
+						  union meltparam_un
+						  *meltxargtab_,
+						  const melt_argdescr_cell_t
+						  meltxresdescr_[],
+						  union meltparam_un
+						  *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_82_WARMELTmiMODESCHILD_PROCESS_SIGCHLD_HANDLER (meltclosure_ptr_t
+							 meltclosp_,
+							 melt_ptr_t
+							 meltfirstargp_,
+							 const
+							 melt_argdescr_cell_t
+							 meltxargdescr_[],
+							 union meltparam_un
+							 *meltxargtab_,
+							 const
+							 melt_argdescr_cell_t
+							 meltxresdescr_[],
+							 union meltparam_un
+							 *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_83_WARMELTmiMODESREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
+							  meltclosp_,
+							  melt_ptr_t
+							  meltfirstargp_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxargdescr_[],
+							  union meltparam_un
+							  *meltxargtab_,
+							  const
+							  melt_argdescr_cell_t
+							  meltxresdescr_[],
+							  union meltparam_un
+							  *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_84_WARMELTmiMODESUNREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
+							    meltclosp_,
+							    melt_ptr_t
+							    meltfirstargp_,
+							    const
+							    melt_argdescr_cell_t
+							    meltxargdescr_[],
+							    union meltparam_un
+							    *meltxargtab_,
+							    const
+							    melt_argdescr_cell_t
+							    meltxresdescr_[],
+							    union meltparam_un
+							    *meltxrestab_);
 
 
 
@@ -1289,17 +1300,17 @@ meltmod__WARMELTmiMODES__forward_or_mark_module_start_frame (struct
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE (meltclosure_ptr_t meltclosp_,
-					     melt_ptr_t meltfirstargp_,
-					     const melt_argdescr_cell_t
-					     meltxargdescr_[],
-					     union meltparam_un *meltxargtab_,
-					     const melt_argdescr_cell_t
-					     meltxresdescr_[],
-					     union meltparam_un *meltxrestab_)
+meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE (meltclosure_ptr_t meltclosp_,
+					    melt_ptr_t meltfirstargp_,
+					    const melt_argdescr_cell_t
+					    meltxargdescr_[],
+					    union meltparam_un *meltxargtab_,
+					    const melt_argdescr_cell_t
+					    meltxresdescr_[],
+					    union meltparam_un *meltxrestab_)
 {
   long
-    current_blocklevel_signals_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_melt
+    current_blocklevel_signals_meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE_melt
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
@@ -1312,7 +1323,7 @@ meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_st
+  struct meltframe_meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -1334,14 +1345,14 @@ meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE is not initial declstructinit */
+  /*meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_st *)
+	(struct meltframe_meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE_st *)
 	meltfirstargp_;
-      /* use arguments meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE output_curframe_declstruct_init */
+      /* use arguments meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -1356,7 +1367,7 @@ meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE nbval 11*/
+/* declstructinit plain routine meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE nbval 11*/
   meltfram__.mcfr_nbvar = 11 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -1666,30 +1677,30 @@ meltlabend_rout:
   melt_trace_end ("INSTALL_MELT_MODE", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_melt;
+    current_blocklevel_signals_meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*noretval */ NULL);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE */
+}				/*end meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD (meltclosure_ptr_t meltclosp_,
-					 melt_ptr_t meltfirstargp_,
-					 const melt_argdescr_cell_t
-					 meltxargdescr_[],
-					 union meltparam_un * meltxargtab_,
-					 const melt_argdescr_cell_t
-					 meltxresdescr_[],
-					 union meltparam_un * meltxrestab_)
+meltrout_2_WARMELTmiMODESRUNFILE_DOCMD (meltclosure_ptr_t meltclosp_,
+					melt_ptr_t meltfirstargp_,
+					const melt_argdescr_cell_t
+					meltxargdescr_[],
+					union meltparam_un * meltxargtab_,
+					const melt_argdescr_cell_t
+					meltxresdescr_[],
+					union meltparam_un * meltxrestab_)
 {
-  long current_blocklevel_signals_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_melt
+  long current_blocklevel_signals_meltrout_2_WARMELTmiMODESRUNFILE_DOCMD_melt
     = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
@@ -1702,7 +1713,7 @@ meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_st
+  struct meltframe_meltrout_2_WARMELTmiMODESRUNFILE_DOCMD_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -1726,14 +1737,14 @@ meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD is not initial declstructinit */
+  /*meltrout_2_WARMELTmiMODESRUNFILE_DOCMD is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_st *)
+	(struct meltframe_meltrout_2_WARMELTmiMODESRUNFILE_DOCMD_st *)
 	meltfirstargp_;
-      /* use arguments meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD output_curframe_declstruct_init */
+      /* use arguments meltrout_2_WARMELTmiMODESRUNFILE_DOCMD output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -1748,7 +1759,7 @@ meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD nbval 63*/
+/* declstructinit plain routine meltrout_2_WARMELTmiMODESRUNFILE_DOCMD nbval 63*/
   meltfram__.mcfr_nbvar = 63 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -3207,32 +3218,31 @@ meltlabend_rout:
   melt_trace_end ("RUNFILE_DOCMD", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_melt;
+    current_blocklevel_signals_meltrout_2_WARMELTmiMODESRUNFILE_DOCMD_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD */
+}				/*end meltrout_2_WARMELTmiMODESRUNFILE_DOCMD */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un * meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un * meltxrestab_)
+meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
+					 melt_ptr_t meltfirstargp_,
+					 const melt_argdescr_cell_t
+					 meltxargdescr_[],
+					 union meltparam_un * meltxargtab_,
+					 const melt_argdescr_cell_t
+					 meltxresdescr_[],
+					 union meltparam_un * meltxrestab_)
 {
-  long
-    current_blocklevel_signals_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_melt =
-    melt_blocklevel_signals;
+  long current_blocklevel_signals_meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD_melt
+    = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
   static long melt_call_counter__;
@@ -3244,7 +3254,7 @@ meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_st
+  struct meltframe_meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -3268,14 +3278,14 @@ meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD is not initial declstructinit */
+  /*meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_st *)
+	(struct meltframe_meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD_st *)
 	meltfirstargp_;
-      /* use arguments meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD output_curframe_declstruct_init */
+      /* use arguments meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -3290,7 +3300,7 @@ meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD nbval 63*/
+/* declstructinit plain routine meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD nbval 63*/
   meltfram__.mcfr_nbvar = 63 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -4750,30 +4760,30 @@ meltlabend_rout:
   melt_trace_end ("RUNDEBUG_DOCMD", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_melt;
+    current_blocklevel_signals_meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD */
+}				/*end meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_4_WARMELTmiMODES_EVAL_DOCMD (meltclosure_ptr_t meltclosp_,
-				      melt_ptr_t meltfirstargp_,
-				      const melt_argdescr_cell_t
-				      meltxargdescr_[],
-				      union meltparam_un * meltxargtab_,
-				      const melt_argdescr_cell_t
-				      meltxresdescr_[],
-				      union meltparam_un * meltxrestab_)
+meltrout_4_WARMELTmiMODESEVAL_DOCMD (meltclosure_ptr_t meltclosp_,
+				     melt_ptr_t meltfirstargp_,
+				     const melt_argdescr_cell_t
+				     meltxargdescr_[],
+				     union meltparam_un * meltxargtab_,
+				     const melt_argdescr_cell_t
+				     meltxresdescr_[],
+				     union meltparam_un * meltxrestab_)
 {
-  long current_blocklevel_signals_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_melt =
+  long current_blocklevel_signals_meltrout_4_WARMELTmiMODESEVAL_DOCMD_melt =
     melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
@@ -4786,7 +4796,7 @@ meltrout_4_WARMELTmiMODES_EVAL_DOCMD (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_st
+  struct meltframe_meltrout_4_WARMELTmiMODESEVAL_DOCMD_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -4809,14 +4819,14 @@ meltrout_4_WARMELTmiMODES_EVAL_DOCMD (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_4_WARMELTmiMODES_EVAL_DOCMD is not initial declstructinit */
+  /*meltrout_4_WARMELTmiMODESEVAL_DOCMD is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_st *)
+	(struct meltframe_meltrout_4_WARMELTmiMODESEVAL_DOCMD_st *)
 	meltfirstargp_;
-      /* use arguments meltrout_4_WARMELTmiMODES_EVAL_DOCMD output_curframe_declstruct_init */
+      /* use arguments meltrout_4_WARMELTmiMODESEVAL_DOCMD output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -4831,7 +4841,7 @@ meltrout_4_WARMELTmiMODES_EVAL_DOCMD (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_4_WARMELTmiMODES_EVAL_DOCMD nbval 34*/
+/* declstructinit plain routine meltrout_4_WARMELTmiMODESEVAL_DOCMD nbval 34*/
   meltfram__.mcfr_nbvar = 34 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -5610,32 +5620,31 @@ meltlabend_rout:
   melt_trace_end ("EVAL_DOCMD", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_melt;
+    current_blocklevel_signals_meltrout_4_WARMELTmiMODESEVAL_DOCMD_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_4_WARMELTmiMODES_EVAL_DOCMD */
+}				/*end meltrout_4_WARMELTmiMODESEVAL_DOCMD */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un * meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un * meltxrestab_)
+meltrout_5_WARMELTmiMODESEVALFILE_DOCMD (meltclosure_ptr_t meltclosp_,
+					 melt_ptr_t meltfirstargp_,
+					 const melt_argdescr_cell_t
+					 meltxargdescr_[],
+					 union meltparam_un * meltxargtab_,
+					 const melt_argdescr_cell_t
+					 meltxresdescr_[],
+					 union meltparam_un * meltxrestab_)
 {
-  long
-    current_blocklevel_signals_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_melt =
-    melt_blocklevel_signals;
+  long current_blocklevel_signals_meltrout_5_WARMELTmiMODESEVALFILE_DOCMD_melt
+    = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
   static long melt_call_counter__;
@@ -5647,7 +5656,7 @@ meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_st
+  struct meltframe_meltrout_5_WARMELTmiMODESEVALFILE_DOCMD_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -5670,14 +5679,14 @@ meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD is not initial declstructinit */
+  /*meltrout_5_WARMELTmiMODESEVALFILE_DOCMD is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_st *)
+	(struct meltframe_meltrout_5_WARMELTmiMODESEVALFILE_DOCMD_st *)
 	meltfirstargp_;
-      /* use arguments meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD output_curframe_declstruct_init */
+      /* use arguments meltrout_5_WARMELTmiMODESEVALFILE_DOCMD output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -5692,7 +5701,7 @@ meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD nbval 34*/
+/* declstructinit plain routine meltrout_5_WARMELTmiMODESEVALFILE_DOCMD nbval 34*/
   meltfram__.mcfr_nbvar = 34 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -6478,32 +6487,31 @@ meltlabend_rout:
   melt_trace_end ("EVALFILE_DOCMD", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_melt;
+    current_blocklevel_signals_meltrout_5_WARMELTmiMODESEVALFILE_DOCMD_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD */
+}				/*end meltrout_5_WARMELTmiMODESEVALFILE_DOCMD */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_6_WARMELTmiMODES_REPL_PROCESSOR (meltclosure_ptr_t meltclosp_,
-					  melt_ptr_t meltfirstargp_,
-					  const melt_argdescr_cell_t
-					  meltxargdescr_[],
-					  union meltparam_un * meltxargtab_,
-					  const melt_argdescr_cell_t
-					  meltxresdescr_[],
-					  union meltparam_un * meltxrestab_)
+meltrout_6_WARMELTmiMODESREPL_PROCESSOR (meltclosure_ptr_t meltclosp_,
+					 melt_ptr_t meltfirstargp_,
+					 const melt_argdescr_cell_t
+					 meltxargdescr_[],
+					 union meltparam_un * meltxargtab_,
+					 const melt_argdescr_cell_t
+					 meltxresdescr_[],
+					 union meltparam_un * meltxrestab_)
 {
-  long
-    current_blocklevel_signals_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_melt =
-    melt_blocklevel_signals;
+  long current_blocklevel_signals_meltrout_6_WARMELTmiMODESREPL_PROCESSOR_melt
+    = melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
   static long melt_call_counter__;
@@ -6515,7 +6523,7 @@ meltrout_6_WARMELTmiMODES_REPL_PROCESSOR (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_st
+  struct meltframe_meltrout_6_WARMELTmiMODESREPL_PROCESSOR_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -6537,14 +6545,14 @@ meltrout_6_WARMELTmiMODES_REPL_PROCESSOR (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_6_WARMELTmiMODES_REPL_PROCESSOR is not initial declstructinit */
+  /*meltrout_6_WARMELTmiMODESREPL_PROCESSOR is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_st *)
+	(struct meltframe_meltrout_6_WARMELTmiMODESREPL_PROCESSOR_st *)
 	meltfirstargp_;
-      /* use arguments meltrout_6_WARMELTmiMODES_REPL_PROCESSOR output_curframe_declstruct_init */
+      /* use arguments meltrout_6_WARMELTmiMODESREPL_PROCESSOR output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -6559,7 +6567,7 @@ meltrout_6_WARMELTmiMODES_REPL_PROCESSOR (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_6_WARMELTmiMODES_REPL_PROCESSOR nbval 48*/
+/* declstructinit plain routine meltrout_6_WARMELTmiMODESREPL_PROCESSOR nbval 48*/
   meltfram__.mcfr_nbvar = 48 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -7903,30 +7911,30 @@ meltlabend_rout:
   melt_trace_end ("REPL_PROCESSOR", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_melt;
+    current_blocklevel_signals_meltrout_6_WARMELTmiMODESREPL_PROCESSOR_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_6_WARMELTmiMODES_REPL_PROCESSOR */
+}				/*end meltrout_6_WARMELTmiMODESREPL_PROCESSOR */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_7_WARMELTmiMODES_REPL_DOCMD (meltclosure_ptr_t meltclosp_,
-				      melt_ptr_t meltfirstargp_,
-				      const melt_argdescr_cell_t
-				      meltxargdescr_[],
-				      union meltparam_un * meltxargtab_,
-				      const melt_argdescr_cell_t
-				      meltxresdescr_[],
-				      union meltparam_un * meltxrestab_)
+meltrout_7_WARMELTmiMODESREPL_DOCMD (meltclosure_ptr_t meltclosp_,
+				     melt_ptr_t meltfirstargp_,
+				     const melt_argdescr_cell_t
+				     meltxargdescr_[],
+				     union meltparam_un * meltxargtab_,
+				     const melt_argdescr_cell_t
+				     meltxresdescr_[],
+				     union meltparam_un * meltxrestab_)
 {
-  long current_blocklevel_signals_meltrout_7_WARMELTmiMODES_REPL_DOCMD_melt =
+  long current_blocklevel_signals_meltrout_7_WARMELTmiMODESREPL_DOCMD_melt =
     melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
@@ -7939,7 +7947,7 @@ meltrout_7_WARMELTmiMODES_REPL_DOCMD (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_7_WARMELTmiMODES_REPL_DOCMD_st
+  struct meltframe_meltrout_7_WARMELTmiMODESREPL_DOCMD_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -7961,14 +7969,14 @@ meltrout_7_WARMELTmiMODES_REPL_DOCMD (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_7_WARMELTmiMODES_REPL_DOCMD is not initial declstructinit */
+  /*meltrout_7_WARMELTmiMODESREPL_DOCMD is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_7_WARMELTmiMODES_REPL_DOCMD_st *)
+	(struct meltframe_meltrout_7_WARMELTmiMODESREPL_DOCMD_st *)
 	meltfirstargp_;
-      /* use arguments meltrout_7_WARMELTmiMODES_REPL_DOCMD output_curframe_declstruct_init */
+      /* use arguments meltrout_7_WARMELTmiMODESREPL_DOCMD output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -7983,7 +7991,7 @@ meltrout_7_WARMELTmiMODES_REPL_DOCMD (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_7_WARMELTmiMODES_REPL_DOCMD nbval 42*/
+/* declstructinit plain routine meltrout_7_WARMELTmiMODESREPL_DOCMD nbval 42*/
   meltfram__.mcfr_nbvar = 42 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -8864,14 +8872,14 @@ meltlabend_rout:
   melt_trace_end ("REPL_DOCMD", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_7_WARMELTmiMODES_REPL_DOCMD_melt;
+    current_blocklevel_signals_meltrout_7_WARMELTmiMODESREPL_DOCMD_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_7_WARMELTmiMODES_REPL_DOCMD */
+}				/*end meltrout_7_WARMELTmiMODESREPL_DOCMD */
 
 
 
@@ -8916,25 +8924,25 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_OBJECT_STRUCT (3) dsym_3__CLASS_MELT_MODE;
     struct MELT_STRING_STRUCT (15) dstr_4__CLASS_MELT_MODE;
     struct MELT_OBJECT_STRUCT (3) dsym_5__INITIAL_SYSTEM_DATA;
-    struct MELT_STRING_STRUCT (19) dstr_6__INITIAL_SYSTEM_D;
+    struct MELT_STRING_STRUCT (19) dstr_6__INITIAL_SYSTEM_DATA;
     struct MELT_OBJECT_STRUCT (3) dsym_7__CLASS_SYSTEM_DATA;
-    struct MELT_STRING_STRUCT (17) dstr_8__CLASS_SYSTEM_DAT;
+    struct MELT_STRING_STRUCT (17) dstr_8__CLASS_SYSTEM_DATA;
     struct MELT_OBJECT_STRUCT (3) dsym_9__CLASS_NAMED;
     struct MELT_STRING_STRUCT (11) dstr_10__CLASS_NAMED;
     struct MELT_OBJECT_STRUCT (3) dsym_11__MELT_DEBUG_FUN;
     struct MELT_STRING_STRUCT (14) dstr_12__MELT_DEBUG_FUN;
     struct MELT_OBJECT_STRUCT (3) dsym_13__INSTALL_MELT_MODE;
-    struct MELT_STRING_STRUCT (17) dstr_14__INSTALL_MELT_MOD;
+    struct MELT_STRING_STRUCT (17) dstr_14__INSTALL_MELT_MODE;
     struct MELT_ROUTINE_STRUCT (9) drout_15__RUNFILE_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_16__RUNFILE_DOCMD;
     struct MELT_OBJECT_STRUCT (3) dsym_17__INITIAL_ENVIRONMENT;
-    struct MELT_STRING_STRUCT (19) dstr_18__INITIAL_ENVIRONM;
+    struct MELT_STRING_STRUCT (19) dstr_18__INITIAL_ENVIRONMENT;
     struct MELT_OBJECT_STRUCT (3) dsym_19__DISCR_STRING;
     struct MELT_STRING_STRUCT (12) dstr_20__DISCR_STRING;
     struct MELT_OBJECT_STRUCT (3) dsym_21__CLASS_ENVIRONMENT;
-    struct MELT_STRING_STRUCT (17) dstr_22__CLASS_ENVIRONMEN;
+    struct MELT_STRING_STRUCT (17) dstr_22__CLASS_ENVIRONMENT;
     struct MELT_OBJECT_STRUCT (3) dsym_23__TRANSLATE_TO_C_MODULE_MELT_SOURCES;
-    struct MELT_STRING_STRUCT (34) dstr_24__TRANSLATE_TO_C_M;
+    struct MELT_STRING_STRUCT (34) dstr_24__TRANSLATE_TO_C_MODULE_ME;
     struct MELT_STRING_STRUCT (12) dstr_25__quicklybuilt;
     struct MELT_STRING_STRUCT (12) dstr_26__quicklybuilt;
     struct MELT_OBJECT_STRUCT (3) dsym_27__TRUE;
@@ -8943,7 +8951,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (12) dstr_30__RUNFILE_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_31__RUNFILE_MODE;
     struct MELT_STRING_STRUCT (7) dstr_32__runfile;
-    struct MELT_STRING_STRUCT (163) dstr_33__translate_and_ru;
+    struct MELT_STRING_STRUCT (163) dstr_33__translate_and_run_a_mel;
     struct MELT_ROUTINE_STRUCT (9) drout_34__RUNDEBUG_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_35__RUNDEBUG_DOCMD;
     struct MELT_STRING_STRUCT (11) dstr_36__debugnoline;
@@ -8952,19 +8960,19 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (13) dstr_39__RUNDEBUG_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_40__RUNDEBUG_MODE;
     struct MELT_STRING_STRUCT (8) dstr_41__rundebug;
-    struct MELT_STRING_STRUCT (88) dstr_42__translate_and_ru;
+    struct MELT_STRING_STRUCT (88) dstr_42__translate_and_run_a_mel;
     struct MELT_ROUTINE_STRUCT (14) drout_43__EVAL_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_44__EVAL_DOCMD;
     struct MELT_OBJECT_STRUCT (3) dsym_45__DISCR_MAP_OBJECTS;
-    struct MELT_STRING_STRUCT (17) dstr_46__DISCR_MAP_OBJECT;
+    struct MELT_STRING_STRUCT (17) dstr_46__DISCR_MAP_OBJECTS;
     struct MELT_OBJECT_STRUCT (3) dsym_47__FRESH_ENV;
     struct MELT_STRING_STRUCT (9) dstr_48__FRESH_ENV;
     struct MELT_OBJECT_STRUCT (3) dsym_49__TRANSLATE_RUN_MELT_EXPRESSIONS;
-    struct MELT_STRING_STRUCT (30) dstr_50__TRANSLATE_RUN_ME;
+    struct MELT_STRING_STRUCT (30) dstr_50__TRANSLATE_RUN_MELT_EXPRE;
     struct MELT_OBJECT_STRUCT (3) dsym_51__CLASS_DEBUG_OUTPUT_INFORMATION;
-    struct MELT_STRING_STRUCT (30) dstr_52__CLASS_DEBUG_OUTP;
+    struct MELT_STRING_STRUCT (30) dstr_52__CLASS_DEBUG_OUTPUT_INFOR;
     struct MELT_OBJECT_STRUCT (3) dsym_53__DISCR_CONSTANT_INTEGER;
-    struct MELT_STRING_STRUCT (22) dstr_54__DISCR_CONSTANT_I;
+    struct MELT_STRING_STRUCT (22) dstr_54__DISCR_CONSTANT_INTEGER;
     struct MELT_OBJECT_STRUCT (3) dsym_55__ADD2OUT;
     struct MELT_STRING_STRUCT (7) dstr_56__ADD2OUT;
     struct MELT_OBJECT_STRUCT (3) dsym_57__DBG_OUT;
@@ -8973,22 +8981,22 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (9) dstr_60__EVAL_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_61__EVAL_MODE;
     struct MELT_STRING_STRUCT (4) dstr_62__eval;
-    struct MELT_STRING_STRUCT (126) dstr_63__translate_and_ru;
+    struct MELT_STRING_STRUCT (126) dstr_63__translate_and_run_i_e_;
     struct MELT_ROUTINE_STRUCT (14) drout_64__EVALFILE_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_65__EVALFILE_DOCMD;
     struct MELT_OBJECT_STRUCT (3) dsym_66__EVALFILE_MODE;
     struct MELT_STRING_STRUCT (13) dstr_67__EVALFILE_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_68__EVALFILE_MODE;
     struct MELT_STRING_STRUCT (8) dstr_69__evalfile;
-    struct MELT_STRING_STRUCT (140) dstr_70__translate_and_ru;
+    struct MELT_STRING_STRUCT (140) dstr_70__translate_and_run_i_e_;
     struct MELT_OBJECT_STRUCT (3) dsym_71__CLASS_READ_EVAL_PRINT_LOOP_DATA;
-    struct MELT_STRING_STRUCT (31) dstr_72__CLASS_READ_EVAL_;
+    struct MELT_STRING_STRUCT (31) dstr_72__CLASS_READ_EVAL_PRINT_LO;
     struct MELT_OBJECT_STRUCT (3) dsym_73__CLASS_PROPED;
     struct MELT_STRING_STRUCT (12) dstr_74__CLASS_PROPED;
     struct MELT_OBJECT_STRUCT (8) dobj_75__CLASS_READ_EVAL_PRINT_LOOP_DATA;
-    struct MELT_STRING_STRUCT (31) dstr_76__CLASS_READ_EVAL_;
-    struct MELT_MULTIPLE_STRUCT (2) dtup_77__CLASS_READ_EVAL_PRINT_LOOP_DATA;
-    struct MELT_MULTIPLE_STRUCT (5) dtup_78__CLASS_READ_EVAL_PRINT_LOOP_DATA;
+    struct MELT_STRING_STRUCT (31) dstr_76__CLASS_READ_EVAL_PRINT_LO;
+    struct MELT_MULTIPLE_STRUCT (2) dtup_77_syCLASS_READ_EVAL_PRINT_LOOP_DATA;
+    struct MELT_MULTIPLE_STRUCT (5) dtup_78_syCLASS_READ_EVAL_PRINT_LOOP_DATA;
     struct MELT_OBJECT_STRUCT (3) dsym_79__REPL_ENV;
     struct MELT_STRING_STRUCT (8) dstr_80__REPL_ENV;
     struct MELT_OBJECT_STRUCT (4) dobj_81__REPL_ENV;
@@ -9008,20 +9016,20 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_ROUTINE_STRUCT (14) drout_95__REPL_PROCESSOR;
     struct MELT_CLOSURE_STRUCT (0) dclo_96__REPL_PROCESSOR;
     struct MELT_OBJECT_STRUCT (3) dsym_97__CLASS_INPUT_CHANNEL_HANDLER;
-    struct MELT_STRING_STRUCT (27) dstr_98__CLASS_INPUT_CHAN;
+    struct MELT_STRING_STRUCT (27) dstr_98__CLASS_INPUT_CHANNEL_HAND;
     struct MELT_OBJECT_STRUCT (3) dsym_99__CLASS_REFERENCE;
     struct MELT_STRING_STRUCT (15) dstr_100__CLASS_REFERENCE;
     struct MELT_OBJECT_STRUCT (3) dsym_101__CLASS_DEBUG_INFORMATION;
-    struct MELT_STRING_STRUCT (23) dstr_102__CLASS_DEBUG_INFO;
+    struct MELT_STRING_STRUCT (23) dstr_102__CLASS_DEBUG_INFORMATION;
     struct MELT_ROUTINE_STRUCT (28) drout_103__REPL_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_104__REPL_DOCMD;
-    struct MELT_STRING_STRUCT (48) dstr_105__the_interactive_;
+    struct MELT_STRING_STRUCT (48) dstr_105__the_interactive_Read_Eva;
     struct MELT_OBJECT_STRUCT (3) dsym_106__DISCR_INTEGER;
     struct MELT_STRING_STRUCT (13) dstr_107__DISCR_INTEGER;
     struct MELT_ROUTINE_STRUCT (2) drout_108__LAMBDA_;
     struct MELT_ROUTINE_STRUCT (2) drout_109__LAMBDA_;
     struct MELT_OBJECT_STRUCT (3) dsym_110__CLASS_VALUE_BINDING;
-    struct MELT_STRING_STRUCT (19) dstr_111__CLASS_VALUE_BIND;
+    struct MELT_STRING_STRUCT (19) dstr_111__CLASS_VALUE_BINDING;
     struct MELT_OBJECT_STRUCT (3) dsym_112__CONTINUE;
     struct MELT_STRING_STRUCT (8) dstr_113__CONTINUE;
     struct MELT_OBJECT_STRUCT (3) dsym_114__WAITmiREPL;
@@ -9029,29 +9037,29 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_OBJECT_STRUCT (3) dsym_116__PUT_ENV;
     struct MELT_STRING_STRUCT (7) dstr_117__PUT_ENV;
     struct MELT_OBJECT_STRUCT (3) dsym_118__REGISTER_ALL_PASSES_END_FIRST;
-    struct MELT_STRING_STRUCT (29) dstr_119__REGISTER_ALL_PAS;
+    struct MELT_STRING_STRUCT (29) dstr_119__REGISTER_ALL_PASSES_END_;
     struct MELT_ROUTINE_STRUCT (2) drout_120__LAMBDA_;
-    struct MELT_STRING_STRUCT (20) dstr_121__ended_all_GCC_pa;
+    struct MELT_STRING_STRUCT (20) dstr_121__ended_all_GCC_passes;
     struct MELT_OBJECT_STRUCT (3) dsym_122__AT_FINISH_UNIT_FIRST;
-    struct MELT_STRING_STRUCT (20) dstr_123__AT_FINISH_UNIT_F;
+    struct MELT_STRING_STRUCT (20) dstr_123__AT_FINISH_UNIT_FIRST;
     struct MELT_ROUTINE_STRUCT (2) drout_124__LAMBDA_;
-    struct MELT_STRING_STRUCT (25) dstr_125__finished_compila;
+    struct MELT_STRING_STRUCT (25) dstr_125__finished_compilation_uni;
     struct MELT_OBJECT_STRUCT (3) dsym_126__AT_EXIT_LAST;
     struct MELT_STRING_STRUCT (12) dstr_127__AT_EXIT_LAST;
     struct MELT_ROUTINE_STRUCT (2) drout_128__LAMBDA_;
     struct MELT_STRING_STRUCT (16) dstr_129__GCC_MELT_exiting;
-    struct MELT_STRING_STRUCT (21) dstr_130__GCC_MELT_initial;
+    struct MELT_STRING_STRUCT (21) dstr_130__GCC_MELT_initial_wait;
     struct MELT_OBJECT_STRUCT (3) dsym_131__REPL_MODE;
     struct MELT_STRING_STRUCT (9) dstr_132__REPL_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_133__REPL_MODE;
     struct MELT_STRING_STRUCT (4) dstr_134__repl;
-    struct MELT_STRING_STRUCT (37) dstr_135__interactive_Read;
+    struct MELT_STRING_STRUCT (37) dstr_135__interactive_Read_Eval_Pr;
     struct MELT_OBJECT_STRUCT (3) dsym_136__CLASS_MAKEDOC_INFO;
-    struct MELT_STRING_STRUCT (18) dstr_137__CLASS_MAKEDOC_IN;
+    struct MELT_STRING_STRUCT (18) dstr_137__CLASS_MAKEDOC_INFO;
     struct MELT_OBJECT_STRUCT (8) dobj_138__CLASS_MAKEDOC_INFO;
-    struct MELT_STRING_STRUCT (18) dstr_139__CLASS_MAKEDOC_IN;
-    struct MELT_MULTIPLE_STRUCT (2) dtup_140__CLASS_MAKEDOC_INFO;
-    struct MELT_MULTIPLE_STRUCT (17) dtup_141__CLASS_MAKEDOC_INFO;
+    struct MELT_STRING_STRUCT (18) dstr_139__CLASS_MAKEDOC_INFO;
+    struct MELT_MULTIPLE_STRUCT (2) dtup_140_syCLASS_MAKEDOC_INFO;
+    struct MELT_MULTIPLE_STRUCT (17) dtup_141_syCLASS_MAKEDOC_INFO;
     struct MELT_OBJECT_STRUCT (3) dsym_142__MKDOC_PRIMITIVES;
     struct MELT_STRING_STRUCT (16) dstr_143__MKDOC_PRIMITIVES;
     struct MELT_OBJECT_STRUCT (4) dobj_144__MKDOC_PRIMITIVES;
@@ -9097,9 +9105,9 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_OBJECT_STRUCT (4) dobj_184__MKDOC_HOOKS;
     struct MELT_STRING_STRUCT (11) dstr_185__MKDOC_HOOKS;
     struct MELT_OBJECT_STRUCT (3) dsym_186__MKDOC_FORMALOCCMAP;
-    struct MELT_STRING_STRUCT (18) dstr_187__MKDOC_FORMALOCCM;
+    struct MELT_STRING_STRUCT (18) dstr_187__MKDOC_FORMALOCCMAP;
     struct MELT_OBJECT_STRUCT (4) dobj_188__MKDOC_FORMALOCCMAP;
-    struct MELT_STRING_STRUCT (18) dstr_189__MKDOC_FORMALOCCM;
+    struct MELT_STRING_STRUCT (18) dstr_189__MKDOC_FORMALOCCMAP;
     struct MELT_OBJECT_STRUCT (3) dsym_190__MKDOC_PREDEFMAP;
     struct MELT_STRING_STRUCT (15) dstr_191__MKDOC_PREDEFMAP;
     struct MELT_OBJECT_STRUCT (4) dobj_192__MKDOC_PREDEFMAP;
@@ -9109,9 +9117,9 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_OBJECT_STRUCT (4) dobj_196__MKDOC_DOCSYMAP;
     struct MELT_STRING_STRUCT (14) dstr_197__MKDOC_DOCSYMAP;
     struct MELT_OBJECT_STRUCT (3) dsym_198__MKDOC_SUBCLASSMAP;
-    struct MELT_STRING_STRUCT (17) dstr_199__MKDOC_SUBCLASSMA;
+    struct MELT_STRING_STRUCT (17) dstr_199__MKDOC_SUBCLASSMAP;
     struct MELT_OBJECT_STRUCT (4) dobj_200__MKDOC_SUBCLASSMAP;
-    struct MELT_STRING_STRUCT (17) dstr_201__MKDOC_SUBCLASSMA;
+    struct MELT_STRING_STRUCT (17) dstr_201__MKDOC_SUBCLASSMAP;
     struct MELT_OBJECT_STRUCT (3) dsym_202__MKDOC_BOXCOUNTER;
     struct MELT_STRING_STRUCT (16) dstr_203__MKDOC_BOXCOUNTER;
     struct MELT_OBJECT_STRUCT (4) dobj_204__MKDOC_BOXCOUNTER;
@@ -9126,44 +9134,44 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_ROUTINE_STRUCT (2) drout_213__LAMBDA_;
     struct MELT_ROUTINE_STRUCT (4) drout_214__LAMBDA_;
     struct MELT_OBJECT_STRUCT (3) dsym_215__CLASS_FORMAL_BINDING;
-    struct MELT_STRING_STRUCT (20) dstr_216__CLASS_FORMAL_BIN;
+    struct MELT_STRING_STRUCT (20) dstr_216__CLASS_FORMAL_BINDING;
     struct MELT_OBJECT_STRUCT (3) dsym_217__CLASS_SOURCE_DEFINITION;
-    struct MELT_STRING_STRUCT (23) dstr_218__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (23) dstr_218__CLASS_SOURCE_DEFINITION;
     struct MELT_OBJECT_STRUCT (3) dsym_219__CLASS_ANY_BINDING;
-    struct MELT_STRING_STRUCT (17) dstr_220__CLASS_ANY_BINDIN;
+    struct MELT_STRING_STRUCT (17) dstr_220__CLASS_ANY_BINDING;
     struct MELT_OBJECT_STRUCT (3) dsym_221__DISCR_LIST;
     struct MELT_STRING_STRUCT (10) dstr_222__DISCR_LIST;
     struct MELT_OBJECT_STRUCT (3) dsym_223__LIST_EVERY;
     struct MELT_STRING_STRUCT (10) dstr_224__LIST_EVERY;
     struct MELT_ROUTINE_STRUCT (19) drout_225__LAMBDA_;
     struct MELT_OBJECT_STRUCT (3) dsym_226__CLASS_SOURCE_DEFCLASS;
-    struct MELT_STRING_STRUCT (21) dstr_227__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (21) dstr_227__CLASS_SOURCE_DEFCLASS;
     struct MELT_OBJECT_STRUCT (3) dsym_228__CLASS_SEXPR;
     struct MELT_STRING_STRUCT (11) dstr_229__CLASS_SEXPR;
     struct MELT_OBJECT_STRUCT (3) dsym_230__CLASS_CLASS_BINDING;
-    struct MELT_STRING_STRUCT (19) dstr_231__CLASS_CLASS_BIND;
+    struct MELT_STRING_STRUCT (19) dstr_231__CLASS_CLASS_BINDING;
     struct MELT_OBJECT_STRUCT (3) dsym_232__CLASS_CLASS;
     struct MELT_STRING_STRUCT (11) dstr_233__CLASS_CLASS;
     struct MELT_OBJECT_STRUCT (3) dsym_234__CLASS_FIELD;
     struct MELT_STRING_STRUCT (11) dstr_235__CLASS_FIELD;
     struct MELT_OBJECT_STRUCT (3) dsym_236__CLASS_SOURCE_DEFSELECTOR;
-    struct MELT_STRING_STRUCT (24) dstr_237__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (24) dstr_237__CLASS_SOURCE_DEFSELECTOR;
     struct MELT_OBJECT_STRUCT (3) dsym_238__CLASS_SOURCE_DEFINSTANCE;
-    struct MELT_STRING_STRUCT (24) dstr_239__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (24) dstr_239__CLASS_SOURCE_DEFINSTANCE;
     struct MELT_OBJECT_STRUCT (3) dsym_240__CLASS_SOURCE_DEFPRIMITIVE;
-    struct MELT_STRING_STRUCT (25) dstr_241__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (25) dstr_241__CLASS_SOURCE_DEFPRIMITIV;
     struct MELT_OBJECT_STRUCT (3) dsym_242__CLASS_SOURCE_DEFUN;
-    struct MELT_STRING_STRUCT (18) dstr_243__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (18) dstr_243__CLASS_SOURCE_DEFUN;
     struct MELT_OBJECT_STRUCT (3) dsym_244__CLASS_SOURCE_DEFCITERATOR;
-    struct MELT_STRING_STRUCT (25) dstr_245__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (25) dstr_245__CLASS_SOURCE_DEFCITERATO;
     struct MELT_OBJECT_STRUCT (3) dsym_246__CLASS_SOURCE_DEFCMATCHER;
-    struct MELT_STRING_STRUCT (24) dstr_247__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (24) dstr_247__CLASS_SOURCE_DEFCMATCHER;
     struct MELT_OBJECT_STRUCT (3) dsym_248__CLASS_SOURCE_EXPORT_PATMACRO;
-    struct MELT_STRING_STRUCT (28) dstr_249__CLASS_SOURCE_EXP;
+    struct MELT_STRING_STRUCT (28) dstr_249__CLASS_SOURCE_EXPORT_PATM;
     struct MELT_OBJECT_STRUCT (3) dsym_250__CLASS_SOURCE_EXPORT_MACRO;
-    struct MELT_STRING_STRUCT (25) dstr_251__CLASS_SOURCE_EXP;
+    struct MELT_STRING_STRUCT (25) dstr_251__CLASS_SOURCE_EXPORT_MACR;
     struct MELT_OBJECT_STRUCT (3) dsym_252__CLASS_SOURCE_DEFHOOK;
-    struct MELT_STRING_STRUCT (20) dstr_253__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (20) dstr_253__CLASS_SOURCE_DEFHOOK;
     struct MELT_ROUTINE_STRUCT (2) drout_254__MAKEDOC_OUTDEFLOC;
     struct MELT_CLOSURE_STRUCT (0) dclo_255__MAKEDOC_OUTDEFLOC;
     struct MELT_OBJECT_STRUCT (3) dsym_256__CLASS_LOCATED;
@@ -9171,7 +9179,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_ROUTINE_STRUCT (4) drout_258__MAKEDOC_OUTFORMALS;
     struct MELT_CLOSURE_STRUCT (0) dclo_259__MAKEDOC_OUTFORMALS;
     struct MELT_OBJECT_STRUCT (3) dsym_260__CLASS_QUASI_CTYPE;
-    struct MELT_STRING_STRUCT (17) dstr_261__CLASS_QUASI_CTYP;
+    struct MELT_STRING_STRUCT (17) dstr_261__CLASS_QUASI_CTYPE;
     struct MELT_ROUTINE_STRUCT (2) drout_262__MAKEDOC_OUTDOC;
     struct MELT_CLOSURE_STRUCT (0) dclo_263__MAKEDOC_OUTDOC;
     struct MELT_ROUTINE_STRUCT (14) drout_264__MAKEDOC_OUTCLASSDEF;
@@ -9181,7 +9189,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_OBJECT_STRUCT (3) dsym_268__DISCR_MULTIPLE;
     struct MELT_STRING_STRUCT (14) dstr_269__DISCR_MULTIPLE;
     struct MELT_OBJECT_STRUCT (3) dsym_270__COMPARE_NAMED_ALPHA;
-    struct MELT_STRING_STRUCT (19) dstr_271__COMPARE_NAMED_AL;
+    struct MELT_STRING_STRUCT (19) dstr_271__COMPARE_NAMED_ALPHA;
     struct MELT_ROUTINE_STRUCT (12) drout_272__MAKEDOC_GENMACRO;
     struct MELT_CLOSURE_STRUCT (0) dclo_273__MAKEDOC_GENMACRO;
     struct MELT_ROUTINE_STRUCT (2) drout_274__LAMBDA_;
@@ -9200,7 +9208,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_ROUTINE_STRUCT (10) drout_287__MAKEDOC_OUTPRIMITIVEDEF;
     struct MELT_CLOSURE_STRUCT (0) dclo_288__MAKEDOC_OUTPRIMITIVEDEF;
     struct MELT_OBJECT_STRUCT (3) dsym_289__CLASS_SOURCE_DEFINITION_FORMAL;
-    struct MELT_STRING_STRUCT (30) dstr_290__CLASS_SOURCE_DEF;
+    struct MELT_STRING_STRUCT (30) dstr_290__CLASS_SOURCE_DEFINITION_;
     struct MELT_ROUTINE_STRUCT (9) drout_291__MAKEDOC_GENPRIMITIVE;
     struct MELT_CLOSURE_STRUCT (0) dclo_292__MAKEDOC_GENPRIMITIVE;
     struct MELT_ROUTINE_STRUCT (2) drout_293__LAMBDA_;
@@ -9218,7 +9226,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_CLOSURE_STRUCT (0) dclo_305__MAKEDOC_GENCMATCHER;
     struct MELT_ROUTINE_STRUCT (2) drout_306__LAMBDA_;
     struct MELT_OBJECT_STRUCT (3) dsym_307__CLASS_ANY_MATCHER;
-    struct MELT_STRING_STRUCT (17) dstr_308__CLASS_ANY_MATCHE;
+    struct MELT_STRING_STRUCT (17) dstr_308__CLASS_ANY_MATCHER;
     struct MELT_ROUTINE_STRUCT (18) drout_309__MAKEDOC_GENHOOK;
     struct MELT_CLOSURE_STRUCT (0) dclo_310__MAKEDOC_GENHOOK;
     struct MELT_ROUTINE_STRUCT (2) drout_311__LAMBDA_;
@@ -9229,19 +9237,19 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_ROUTINE_STRUCT (19) drout_316__MAKEDOC_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_317__MAKEDOC_DOCMD;
     struct MELT_OBJECT_STRUCT (3) dsym_318__MELT_MODE_REFERENCE;
-    struct MELT_STRING_STRUCT (19) dstr_319__MELT_MODE_REFERE;
+    struct MELT_STRING_STRUCT (19) dstr_319__MELT_MODE_REFERENCE;
     struct MELT_ROUTINE_STRUCT (2) drout_320__LAMBDA_;
     struct MELT_OBJECT_STRUCT (3) dsym_321__LIST_APPEND2LIST;
     struct MELT_STRING_STRUCT (16) dstr_322__LIST_APPEND2LIST;
     struct MELT_OBJECT_STRUCT (3) dsym_323__MACROEXPAND_TOPLEVEL_LIST;
-    struct MELT_STRING_STRUCT (25) dstr_324__MACROEXPAND_TOPL;
+    struct MELT_STRING_STRUCT (25) dstr_324__MACROEXPAND_TOPLEVEL_LIS;
     struct MELT_OBJECT_STRUCT (3) dsym_325__MACROEXPAND_1;
     struct MELT_STRING_STRUCT (13) dstr_326__MACROEXPAND_1;
     struct MELT_OBJECT_STRUCT (3) dsym_327__MAKEDOC_MODE;
     struct MELT_STRING_STRUCT (12) dstr_328__MAKEDOC_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_329__MAKEDOC_MODE;
     struct MELT_STRING_STRUCT (7) dstr_330__makedoc;
-    struct MELT_STRING_STRUCT (105) dstr_331__generate_texi_d;
+    struct MELT_STRING_STRUCT (105) dstr_331__generate_texi_documenta;
     struct MELT_ROUTINE_STRUCT (6) drout_332__SHOWVAR_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_333__SHOWVAR_DOCMD;
     struct MELT_OBJECT_STRUCT (3) dsym_334__FIND_ENV;
@@ -9252,40 +9260,40 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (9) dstr_339__HELP_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_340__HELP_MODE;
     struct MELT_STRING_STRUCT (4) dstr_341__help;
-    struct MELT_STRING_STRUCT (32) dstr_342__MELT_help_about_;
+    struct MELT_STRING_STRUCT (32) dstr_342__MELT_help_about_availabl;
     struct MELT_ROUTINE_STRUCT (2) drout_343__NOP_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_344__NOP_DOCMD;
     struct MELT_OBJECT_STRUCT (3) dsym_345__NOP_MODE;
     struct MELT_STRING_STRUCT (8) dstr_346__NOP_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_347__NOP_MODE;
     struct MELT_STRING_STRUCT (3) dstr_348__nop;
-    struct MELT_STRING_STRUCT (21) dstr_349__a_mode_doing_not;
+    struct MELT_STRING_STRUCT (21) dstr_349__a_mode_doing_nothing_;
     struct MELT_ROUTINE_STRUCT (5)
       drout_350__GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC;
     struct MELT_CLOSURE_STRUCT (0)
       dclo_351__GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC;
-    struct MELT_STRING_STRUCT (117) dstr_352__from_genera;
+    struct MELT_STRING_STRUCT (117) dstr_352__from_generate_runty;
     struct MELT_OBJECT_STRUCT (3) dsym_353__CLASS_VALUE_DESCRIPTOR;
-    struct MELT_STRING_STRUCT (22) dstr_354__CLASS_VALUE_DESC;
+    struct MELT_STRING_STRUCT (22) dstr_354__CLASS_VALUE_DESCRIPTOR;
     struct MELT_OBJECT_STRUCT (3) dsym_355__CLASS_CTYPE_GTY;
     struct MELT_STRING_STRUCT (15) dstr_356__CLASS_CTYPE_GTY;
     struct MELT_ROUTINE_STRUCT (11) drout_357__GENERATE_RUNTYPESUPPORT_GTY;
     struct MELT_CLOSURE_STRUCT (0) dclo_358__GENERATE_RUNTYPESUPPORT_GTY;
-    struct MELT_STRING_STRUCT (164) dstr_359__ifndef_meltobj;
-    struct MELT_STRING_STRUCT (133) dstr_360__ifndef_melt_pt;
-    struct MELT_STRING_STRUCT (169) dstr_361__ifndef_meltrou;
-    struct MELT_STRING_STRUCT (169) dstr_362__ifndef_meltclo;
-    struct MELT_STRING_STRUCT (532) dstr_363__ifndef_meltrou;
+    struct MELT_STRING_STRUCT (164) dstr_359__ifndef_meltobject_ptr_;
+    struct MELT_STRING_STRUCT (133) dstr_360__ifndef_melt_ptr_t_TYPE;
+    struct MELT_STRING_STRUCT (169) dstr_361__ifndef_meltroutine_ptr;
+    struct MELT_STRING_STRUCT (169) dstr_362__ifndef_meltclosure_ptr;
+    struct MELT_STRING_STRUCT (532) dstr_363__ifndef_meltroutfun_t_T;
     struct MELT_OBJECT_STRUCT (3) dsym_364__CLASS_CTYPE;
     struct MELT_STRING_STRUCT (11) dstr_365__CLASS_CTYPE;
     struct MELT_OBJECT_STRUCT (3) dsym_366__CLASS_VARISIZED_VALUE_DESCRIPTOR;
-    struct MELT_STRING_STRUCT (32) dstr_367__CLASS_VARISIZED_;
+    struct MELT_STRING_STRUCT (32) dstr_367__CLASS_VARISIZED_VALUE_DE;
     struct MELT_ROUTINE_STRUCT (6)
       drout_368__GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN;
     struct MELT_CLOSURE_STRUCT (0)
       dclo_369__GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN;
-    struct MELT_STRING_STRUCT (579) dstr_370__cheney_like_;
-    struct MELT_STRING_STRUCT (1671) dstr_371__trailer_gene;
+    struct MELT_STRING_STRUCT (579) dstr_370__cheney_like_forwardi;
+    struct MELT_STRING_STRUCT (1671) dstr_371__trailer_generated_by;
     struct MELT_ROUTINE_STRUCT (7)
       drout_372__GENERATE_RUNTYPESUPPORT_CLONING_FUN;
     struct MELT_CLOSURE_STRUCT (0)
@@ -9293,8 +9301,8 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_ROUTINE_STRUCT (7)
       drout_374__GENERATE_RUNTYPESUPPORT_SCANNING;
     struct MELT_CLOSURE_STRUCT (0) dclo_375__GENERATE_RUNTYPESUPPORT_SCANNING;
-    struct MELT_STRING_STRUCT (689) dstr_376__header_from_;
-    struct MELT_STRING_STRUCT (300) dstr_377__trailer_gene;
+    struct MELT_STRING_STRUCT (689) dstr_376__header_from_generate;
+    struct MELT_STRING_STRUCT (300) dstr_377__trailer_generated_by;
     struct MELT_ROUTINE_STRUCT (3) drout_378__GENERATE_RUNTYPESUPPORT_PARAM;
     struct MELT_CLOSURE_STRUCT (0) dclo_379__GENERATE_RUNTYPESUPPORT_PARAM;
     struct MELT_ROUTINE_STRUCT (4)
@@ -9303,20 +9311,20 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
       dclo_381__GENERATE_RUNTYPESUPPORT_COD2CTYPE;
     struct MELT_ROUTINE_STRUCT (6) drout_382__GENERATE_RUNTYPESUPPORT_MAG2STR;
     struct MELT_CLOSURE_STRUCT (0) dclo_383__GENERATE_RUNTYPESUPPORT_MAG2STR;
-    struct MELT_STRING_STRUCT (237) dstr_384__const_char_melt;
-    struct MELT_STRING_STRUCT (245) dstr_385__default_int;
+    struct MELT_STRING_STRUCT (237) dstr_384__const_char_melt_obmag_s;
+    struct MELT_STRING_STRUCT (245) dstr_385__default_int_ix_i;
     struct MELT_ROUTINE_STRUCT (6)
       drout_386__GENERATE_RUNTYPESUPPORT_BOXINGFUN;
     struct MELT_CLOSURE_STRUCT (0)
       dclo_387__GENERATE_RUNTYPESUPPORT_BOXINGFUN;
     struct MELT_OBJECT_STRUCT (3) dsym_388__SOME_STRING_VALUE;
-    struct MELT_STRING_STRUCT (17) dstr_389__SOME_STRING_VALU;
+    struct MELT_STRING_STRUCT (17) dstr_389__SOME_STRING_VALUE;
     struct MELT_OBJECT_STRUCT (3) dsym_390__CLASS_DISCRIMINANT;
-    struct MELT_STRING_STRUCT (18) dstr_391__CLASS_DISCRIMINA;
+    struct MELT_STRING_STRUCT (18) dstr_391__CLASS_DISCRIMINANT;
     struct MELT_ROUTINE_STRUCT (8) drout_392__GENERATE_RUNTYPESUPPORT_MAPFUN;
     struct MELT_CLOSURE_STRUCT (0) dclo_393__GENERATE_RUNTYPESUPPORT_MAPFUN;
-    struct MELT_STRING_STRUCT (164) dstr_394__generated_map;
-    struct MELT_STRING_STRUCT (158) dstr_395__not_map_mag;
+    struct MELT_STRING_STRUCT (164) dstr_394__generated_map_creatio;
+    struct MELT_STRING_STRUCT (158) dstr_395__not_map_magic_;
     struct MELT_ROUTINE_STRUCT (5)
       drout_396__GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS;
     struct MELT_CLOSURE_STRUCT (0)
@@ -9326,24 +9334,24 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_CLOSURE_STRUCT (0)
       dclo_399__GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS;
     struct MELT_OBJECT_STRUCT (3) dsym_400__CLASS_HOOK_DESCRIPTOR;
-    struct MELT_STRING_STRUCT (21) dstr_401__CLASS_HOOK_DESCR;
+    struct MELT_STRING_STRUCT (21) dstr_401__CLASS_HOOK_DESCRIPTOR;
     struct MELT_ROUTINE_STRUCT (24) drout_402__RUNTYPESUPPORT_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_403__RUNTYPESUPPORT_DOCMD;
     struct MELT_STRING_STRUCT (10) dstr_404__meltrunsup;
     struct MELT_OBJECT_STRUCT (3) dsym_405__RETRIEVE_DICTIONNARY_CTYPE_GTY;
-    struct MELT_STRING_STRUCT (30) dstr_406__RETRIEVE_DICTION;
+    struct MELT_STRING_STRUCT (30) dstr_406__RETRIEVE_DICTIONNARY_CTY;
     struct MELT_OBJECT_STRUCT (3) dsym_407__RETRIEVE_DICTIONNARY_CTYPE;
-    struct MELT_STRING_STRUCT (26) dstr_408__RETRIEVE_DICTION;
+    struct MELT_STRING_STRUCT (26) dstr_408__RETRIEVE_DICTIONNARY_CTY;
     struct MELT_OBJECT_STRUCT (3)
       dsym_409__GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT;
-    struct MELT_STRING_STRUCT (45) dstr_410__GENERATE_GPLV3PL;
+    struct MELT_STRING_STRUCT (45) dstr_410__GENERATE_GPLV3PLUS_COPYR;
     struct MELT_OBJECT_STRUCT (3) dsym_411__RETRIEVE_VALUE_DESCRIPTOR_LIST;
-    struct MELT_STRING_STRUCT (30) dstr_412__RETRIEVE_VALUE_D;
+    struct MELT_STRING_STRUCT (30) dstr_412__RETRIEVE_VALUE_DESCRIPTO;
     struct MELT_OBJECT_STRUCT (3) dsym_413__RUNTYPESUPPORT_MODE;
-    struct MELT_STRING_STRUCT (19) dstr_414__RUNTYPESUPPORT_M;
+    struct MELT_STRING_STRUCT (19) dstr_414__RUNTYPESUPPORT_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_415__RUNTYPESUPPORT_MODE;
     struct MELT_STRING_STRUCT (14) dstr_416__runtypesupport;
-    struct MELT_STRING_STRUCT (92) dstr_417__generate_runtime;
+    struct MELT_STRING_STRUCT (92) dstr_417__generate_runtime_support;
     struct MELT_ROUTINE_STRUCT (4) drout_418__TRANSLATE_TO_FLAVORED_MODULE;
     struct MELT_CLOSURE_STRUCT (0) dclo_419__TRANSLATE_TO_FLAVORED_MODULE;
     struct MELT_ROUTINE_STRUCT (9) drout_420__TRANSLATETOMODULE_DOCMD;
@@ -9352,51 +9360,51 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (9) dstr_423__optimized;
     struct MELT_STRING_STRUCT (11) dstr_424__debugnoline;
     struct MELT_OBJECT_STRUCT (3) dsym_425__TRANSLATETOMODULE_MODE;
-    struct MELT_STRING_STRUCT (22) dstr_426__TRANSLATETOMODUL;
+    struct MELT_STRING_STRUCT (22) dstr_426__TRANSLATETOMODULE_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_427__TRANSLATETOMODULE_MODE;
-    struct MELT_STRING_STRUCT (17) dstr_428__translatetomodul;
-    struct MELT_STRING_STRUCT (211) dstr_429__translate_a_mel;
+    struct MELT_STRING_STRUCT (17) dstr_428__translatetomodule;
+    struct MELT_STRING_STRUCT (211) dstr_429__translate_a_melt_file_t;
     struct MELT_ROUTINE_STRUCT (7) drout_430__TRANSLATEDEBUG_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_431__TRANSLATEDEBUG_DOCMD;
     struct MELT_STRING_STRUCT (11) dstr_432__debugnoline;
     struct MELT_OBJECT_STRUCT (3) dsym_433__TRANSLATEDEBUG_MODE;
-    struct MELT_STRING_STRUCT (19) dstr_434__TRANSLATEDEBUG_M;
+    struct MELT_STRING_STRUCT (19) dstr_434__TRANSLATEDEBUG_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_435__TRANSLATEDEBUG_MODE;
     struct MELT_STRING_STRUCT (14) dstr_436__translatedebug;
-    struct MELT_STRING_STRUCT (321) dstr_437__translate_a_mel;
+    struct MELT_STRING_STRUCT (321) dstr_437__translate_a_melt_file_t;
     struct MELT_ROUTINE_STRUCT (7) drout_438__TRANSLATEQUICKLY_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_439__TRANSLATEQUICKLY_DOCMD;
     struct MELT_STRING_STRUCT (12) dstr_440__quicklybuilt;
     struct MELT_OBJECT_STRUCT (3) dsym_441__TRANSLATEQUICKLY_MODE;
-    struct MELT_STRING_STRUCT (21) dstr_442__TRANSLATEQUICKLY;
+    struct MELT_STRING_STRUCT (21) dstr_442__TRANSLATEQUICKLY_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_443__TRANSLATEQUICKLY_MODE;
     struct MELT_STRING_STRUCT (16) dstr_444__translatequickly;
-    struct MELT_STRING_STRUCT (214) dstr_445__translate_quickl;
+    struct MELT_STRING_STRUCT (214) dstr_445__translate_quickly_a_mel;
     struct MELT_ROUTINE_STRUCT (7) drout_446__TRANSLATEOPTIMIZED_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_447__TRANSLATEOPTIMIZED_DOCMD;
     struct MELT_STRING_STRUCT (9) dstr_448__optimized;
     struct MELT_OBJECT_STRUCT (3) dsym_449__TRANSLATEOPTIMIZED_MODE;
-    struct MELT_STRING_STRUCT (23) dstr_450__TRANSLATEOPTIMIZ;
+    struct MELT_STRING_STRUCT (23) dstr_450__TRANSLATEOPTIMIZED_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_451__TRANSLATEOPTIMIZED_MODE;
-    struct MELT_STRING_STRUCT (18) dstr_452__translateoptimiz;
-    struct MELT_STRING_STRUCT (178) dstr_453__translate_a_me;
+    struct MELT_STRING_STRUCT (18) dstr_452__translateoptimized;
+    struct MELT_STRING_STRUCT (178) dstr_453__translate_a_melt_file_;
     struct MELT_ROUTINE_STRUCT (7) drout_454__TRANSLATEFILE_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_455__TRANSLATEFILE_DOCMD;
     struct MELT_OBJECT_STRUCT (3) dsym_456__TRANSLATEFILE_MODE;
-    struct MELT_STRING_STRUCT (18) dstr_457__TRANSLATEFILE_MO;
+    struct MELT_STRING_STRUCT (18) dstr_457__TRANSLATEFILE_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_458__TRANSLATEFILE_MODE;
     struct MELT_STRING_STRUCT (13) dstr_459__translatefile;
-    struct MELT_STRING_STRUCT (79) dstr_460__translate_a_mel;
+    struct MELT_STRING_STRUCT (79) dstr_460__translate_a_melt_file_t;
     struct MELT_ROUTINE_STRUCT (11) drout_461__TRANSLATEINIT_DOCMD;
     struct MELT_CLOSURE_STRUCT (0) dclo_462__TRANSLATEINIT_DOCMD;
     struct MELT_ROUTINE_STRUCT (2) drout_463__LAMBDA_;
     struct MELT_OBJECT_STRUCT (3) dsym_464__COMPILE_LIST_SEXPR;
-    struct MELT_STRING_STRUCT (18) dstr_465__COMPILE_LIST_SEX;
+    struct MELT_STRING_STRUCT (18) dstr_465__COMPILE_LIST_SEXPR;
     struct MELT_OBJECT_STRUCT (3) dsym_466__TRANSLATEINIT_MODE;
-    struct MELT_STRING_STRUCT (18) dstr_467__TRANSLATEINIT_MO;
+    struct MELT_STRING_STRUCT (18) dstr_467__TRANSLATEINIT_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_468__TRANSLATEINIT_MODE;
     struct MELT_STRING_STRUCT (13) dstr_469__translateinit;
-    struct MELT_STRING_STRUCT (120) dstr_470__translate_the_ve;
+    struct MELT_STRING_STRUCT (120) dstr_470__translate_the_very_first;
     struct MELT_ROUTINE_STRUCT (9) drout_471__TRANSLATEINIT_FLAVORED;
     struct MELT_CLOSURE_STRUCT (0) dclo_472__TRANSLATEINIT_FLAVORED;
     struct MELT_ROUTINE_STRUCT (2) drout_473__LAMBDA_;
@@ -9406,10 +9414,10 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (11) dstr_477__debugnoline;
     struct MELT_STRING_STRUCT (9) dstr_478__optimized;
     struct MELT_OBJECT_STRUCT (3) dsym_479__TRANSLATEINITMODULE_MODE;
-    struct MELT_STRING_STRUCT (24) dstr_480__TRANSLATEINITMOD;
+    struct MELT_STRING_STRUCT (24) dstr_480__TRANSLATEINITMODULE_MODE;
     struct MELT_OBJECT_STRUCT (5) dobj_481__TRANSLATEINITMODULE_MODE;
-    struct MELT_STRING_STRUCT (19) dstr_482__translateinitmod;
-    struct MELT_STRING_STRUCT (188) dstr_483__translate_the_ve;
+    struct MELT_STRING_STRUCT (19) dstr_482__translateinitmodule;
+    struct MELT_STRING_STRUCT (188) dstr_483__translate_the_very_first;
     struct MELT_ROUTINE_STRUCT (4)
       drout_484__TRANSLATEINITMODULEQUICKLYBUILT_DOCMD;
     struct MELT_CLOSURE_STRUCT (0)
@@ -9417,11 +9425,11 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (12) dstr_486__quicklybuilt;
     struct MELT_OBJECT_STRUCT (3)
       dsym_487__TRANSLATEINITMODULEQUICKLYBUILT_MODE;
-    struct MELT_STRING_STRUCT (36) dstr_488__TRANSLATEINITMOD;
+    struct MELT_STRING_STRUCT (36) dstr_488__TRANSLATEINITMODULEQUICK;
     struct MELT_OBJECT_STRUCT (5)
       dobj_489__TRANSLATEINITMODULEQUICKLYBUILT_MODE;
-    struct MELT_STRING_STRUCT (31) dstr_490__translateinitmod;
-    struct MELT_STRING_STRUCT (152) dstr_491__translate_the_ve;
+    struct MELT_STRING_STRUCT (31) dstr_490__translateinitmodulequick;
+    struct MELT_STRING_STRUCT (152) dstr_491__translate_the_very_first;
     struct MELT_ROUTINE_STRUCT (4)
       drout_492__TRANSLATEINITMODULEDEBUGNOLINE_DOCMD;
     struct MELT_CLOSURE_STRUCT (0)
@@ -9429,59 +9437,59 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
     struct MELT_STRING_STRUCT (11) dstr_494__debugnoline;
     struct MELT_OBJECT_STRUCT (3)
       dsym_495__TRANSLATEINITMODULEDEBUGNOLINE_MODE;
-    struct MELT_STRING_STRUCT (35) dstr_496__TRANSLATEINITMOD;
+    struct MELT_STRING_STRUCT (35) dstr_496__TRANSLATEINITMODULEDEBUG;
     struct MELT_OBJECT_STRUCT (5)
       dobj_497__TRANSLATEINITMODULEDEBUGNOLINE_MODE;
-    struct MELT_STRING_STRUCT (30) dstr_498__translateinitmod;
-    struct MELT_STRING_STRUCT (151) dstr_499__translate_the_ve;
+    struct MELT_STRING_STRUCT (30) dstr_498__translateinitmoduledebug;
+    struct MELT_STRING_STRUCT (151) dstr_499__translate_the_very_first;
     struct MELT_ROUTINE_STRUCT (4)
       drout_500__TRANSLATEINITMODULEOPTIMIZED_DOCMD;
     struct MELT_CLOSURE_STRUCT (0)
       dclo_501__TRANSLATEINITMODULEOPTIMIZED_DOCMD;
     struct MELT_STRING_STRUCT (9) dstr_502__optimized;
     struct MELT_OBJECT_STRUCT (3) dsym_503__TRANSLATEINITMODULEOPTIMIZED_MODE;
-    struct MELT_STRING_STRUCT (33) dstr_504__TRANSLATEINITMOD;
+    struct MELT_STRING_STRUCT (33) dstr_504__TRANSLATEINITMODULEOPTIM;
     struct MELT_OBJECT_STRUCT (5) dobj_505__TRANSLATEINITMODULEOPTIMIZED_MODE;
-    struct MELT_STRING_STRUCT (28) dstr_506__translateinitmod;
-    struct MELT_STRING_STRUCT (149) dstr_507__translate_the_ve;
+    struct MELT_STRING_STRUCT (28) dstr_506__translateinitmoduleoptim;
+    struct MELT_STRING_STRUCT (149) dstr_507__translate_the_very_first;
     struct MELT_ROUTINE_STRUCT (6) drout_508__REGISTER_INPUT_CHANNEL_HANDLER;
     struct MELT_CLOSURE_STRUCT (0) dclo_509__REGISTER_INPUT_CHANNEL_HANDLER;
     struct MELT_OBJECT_STRUCT (3) dsym_510__DISCR_BUCKET_LONGS;
-    struct MELT_STRING_STRUCT (18) dstr_511__DISCR_BUCKET_LON;
+    struct MELT_STRING_STRUCT (18) dstr_511__DISCR_BUCKET_LONGS;
     struct MELT_OBJECT_STRUCT (3) dsym_512__ALARM_BUCKET_REFERENCE;
-    struct MELT_STRING_STRUCT (22) dstr_513__ALARM_BUCKET_REF;
+    struct MELT_STRING_STRUCT (22) dstr_513__ALARM_BUCKET_REFERENCE;
     struct MELT_OBJECT_STRUCT (1) dobj_514__ALARM_BUCKET_REFERENCE;
     struct MELT_ROUTINE_STRUCT (9) drout_515__HANDLE_ALARM_SIGNAL;
     struct MELT_CLOSURE_STRUCT (0) dclo_516__HANDLE_ALARM_SIGNAL;
     struct MELT_ROUTINE_STRUCT (2) drout_517__LAMBDA_;
     struct MELT_OBJECT_STRUCT (3) dsym_518__CLASS_ALARM_HANDLER;
-    struct MELT_STRING_STRUCT (19) dstr_519__CLASS_ALARM_HAND;
+    struct MELT_STRING_STRUCT (19) dstr_519__CLASS_ALARM_HANDLER;
     struct MELT_ROUTINE_STRUCT (9) drout_520__REGISTER_ALARM_TIMER;
     struct MELT_CLOSURE_STRUCT (0) dclo_521__REGISTER_ALARM_TIMER;
     struct MELT_ROUTINE_STRUCT (7) drout_522__UNREGISTER_ALARM_TIMER;
     struct MELT_CLOSURE_STRUCT (0) dclo_523__UNREGISTER_ALARM_TIMER;
     struct MELT_OBJECT_STRUCT (3) dsym_524__CHILDPROC_BUCKET_REFERENCE;
-    struct MELT_STRING_STRUCT (26) dstr_525__CHILDPROC_BUCKET;
+    struct MELT_STRING_STRUCT (26) dstr_525__CHILDPROC_BUCKET_REFEREN;
     struct MELT_OBJECT_STRUCT (1) dobj_526__CHILDPROC_BUCKET_REFERENCE;
     struct MELT_ROUTINE_STRUCT (8) drout_527__CHILD_PROCESS_SIGCHLD_HANDLER;
     struct MELT_CLOSURE_STRUCT (0) dclo_528__CHILD_PROCESS_SIGCHLD_HANDLER;
     struct MELT_OBJECT_STRUCT (3) dsym_529__CLASS_CHILD_PROCESS_HANDLER;
-    struct MELT_STRING_STRUCT (27) dstr_530__CLASS_CHILD_PROC;
+    struct MELT_STRING_STRUCT (27) dstr_530__CLASS_CHILD_PROCESS_HAND;
     struct MELT_ROUTINE_STRUCT (9) drout_531__REGISTER_CHILD_PROCESS_HANDLER;
     struct MELT_CLOSURE_STRUCT (0) dclo_532__REGISTER_CHILD_PROCESS_HANDLER;
     struct MELT_ROUTINE_STRUCT (1)
       drout_533__UNREGISTER_CHILD_PROCESS_HANDLER;
     struct MELT_CLOSURE_STRUCT (0) dclo_534__UNREGISTER_CHILD_PROCESS_HANDLER;
     struct MELT_OBJECT_STRUCT (3) dsym_535__REGISTER_ALARM_TIMER;
-    struct MELT_STRING_STRUCT (20) dstr_536__REGISTER_ALARM_T;
+    struct MELT_STRING_STRUCT (20) dstr_536__REGISTER_ALARM_TIMER;
     struct MELT_OBJECT_STRUCT (3) dsym_537__REGISTER_CHILD_PROCESS_HANDLER;
-    struct MELT_STRING_STRUCT (30) dstr_538__REGISTER_CHILD_P;
+    struct MELT_STRING_STRUCT (30) dstr_538__REGISTER_CHILD_PROCESS_H;
     struct MELT_OBJECT_STRUCT (3) dsym_539__REGISTER_INPUT_CHANNEL_HANDLER;
-    struct MELT_STRING_STRUCT (30) dstr_540__REGISTER_INPUT_C;
+    struct MELT_STRING_STRUCT (30) dstr_540__REGISTER_INPUT_CHANNEL_H;
     struct MELT_OBJECT_STRUCT (3) dsym_541__UNREGISTER_ALARM_TIMER;
-    struct MELT_STRING_STRUCT (22) dstr_542__UNREGISTER_ALARM;
+    struct MELT_STRING_STRUCT (22) dstr_542__UNREGISTER_ALARM_TIMER;
     struct MELT_OBJECT_STRUCT (3) dsym_543__UNREGISTER_CHILD_PROCESS_HANDLER;
-    struct MELT_STRING_STRUCT (32) dstr_544__UNREGISTER_CHILD;
+    struct MELT_STRING_STRUCT (32) dstr_544__UNREGISTER_CHILD_PROCESS;
     long spare_;
   } *meltcdat = NULL;
   dbgprintf ("start initialize_module_meltdata_WARMELTmiMODES iniframp__=%p",
@@ -9505,7 +9513,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_1__INSTALL_MELT_MODE.nbval = 5;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_1__INSTALL_MELT_MODE,
-			     meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE);
+			     meltrout_1_WARMELTmiMODESINSTALL_MELT_MODE);
 
   /*iniclos dclo_2__INSTALL_MELT_MODE */
  /*_._VALCLO___V83*/ meltfptr[82] =
@@ -9570,17 +9578,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_5__INITIAL_SYSTEM_DATA.obj_len = 3;
 
 
-/*inistring dstr_6__INITIAL_SYSTEM_D*/
+/*inistring dstr_6__INITIAL_SYSTEM_DATA*/
  /*_._VALSTR___V87*/ meltfptr[86] =
-    (melt_ptr_t) & meltcdat->dstr_6__INITIAL_SYSTEM_D;
-  meltcdat->dstr_6__INITIAL_SYSTEM_D.discr =
+    (melt_ptr_t) & meltcdat->dstr_6__INITIAL_SYSTEM_DATA;
+  meltcdat->dstr_6__INITIAL_SYSTEM_DATA.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_6__INITIAL_SYSTEM_D.val,
+  /*small inistring */ strncpy (meltcdat->dstr_6__INITIAL_SYSTEM_DATA.val,
 				"INITIAL_SYSTEM_DATA",
-				sizeof (meltcdat->dstr_6__INITIAL_SYSTEM_D.
+				sizeof (meltcdat->dstr_6__INITIAL_SYSTEM_DATA.
 					val) - 1);
-  meltcdat->dstr_6__INITIAL_SYSTEM_D.val[19] = (char) 0;
-  meltcdat->dstr_6__INITIAL_SYSTEM_D.slen = 19;
+  meltcdat->dstr_6__INITIAL_SYSTEM_DATA.val[19] = (char) 0;
+  meltcdat->dstr_6__INITIAL_SYSTEM_DATA.slen = 19;
 
 
 /*iniobj dsym_7__CLASS_SYSTEM_DATA*/
@@ -9604,17 +9612,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_7__CLASS_SYSTEM_DATA.obj_len = 3;
 
 
-/*inistring dstr_8__CLASS_SYSTEM_DAT*/
+/*inistring dstr_8__CLASS_SYSTEM_DATA*/
  /*_._VALSTR___V89*/ meltfptr[88] =
-    (melt_ptr_t) & meltcdat->dstr_8__CLASS_SYSTEM_DAT;
-  meltcdat->dstr_8__CLASS_SYSTEM_DAT.discr =
+    (melt_ptr_t) & meltcdat->dstr_8__CLASS_SYSTEM_DATA;
+  meltcdat->dstr_8__CLASS_SYSTEM_DATA.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_8__CLASS_SYSTEM_DAT.val,
+  /*small inistring */ strncpy (meltcdat->dstr_8__CLASS_SYSTEM_DATA.val,
 				"CLASS_SYSTEM_DATA",
-				sizeof (meltcdat->dstr_8__CLASS_SYSTEM_DAT.
+				sizeof (meltcdat->dstr_8__CLASS_SYSTEM_DATA.
 					val) - 1);
-  meltcdat->dstr_8__CLASS_SYSTEM_DAT.val[17] = (char) 0;
-  meltcdat->dstr_8__CLASS_SYSTEM_DAT.slen = 17;
+  meltcdat->dstr_8__CLASS_SYSTEM_DATA.val[17] = (char) 0;
+  meltcdat->dstr_8__CLASS_SYSTEM_DATA.slen = 17;
 
 
 /*iniobj dsym_9__CLASS_NAMED*/
@@ -9706,17 +9714,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_13__INSTALL_MELT_MODE.obj_len = 3;
 
 
-/*inistring dstr_14__INSTALL_MELT_MOD*/
+/*inistring dstr_14__INSTALL_MELT_MODE*/
  /*_._VALSTR___V95*/ meltfptr[94] =
-    (melt_ptr_t) & meltcdat->dstr_14__INSTALL_MELT_MOD;
-  meltcdat->dstr_14__INSTALL_MELT_MOD.discr =
+    (melt_ptr_t) & meltcdat->dstr_14__INSTALL_MELT_MODE;
+  meltcdat->dstr_14__INSTALL_MELT_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_14__INSTALL_MELT_MOD.val,
+  /*small inistring */ strncpy (meltcdat->dstr_14__INSTALL_MELT_MODE.val,
 				"INSTALL_MELT_MODE",
-				sizeof (meltcdat->dstr_14__INSTALL_MELT_MOD.
+				sizeof (meltcdat->dstr_14__INSTALL_MELT_MODE.
 					val) - 1);
-  meltcdat->dstr_14__INSTALL_MELT_MOD.val[17] = (char) 0;
-  meltcdat->dstr_14__INSTALL_MELT_MOD.slen = 17;
+  meltcdat->dstr_14__INSTALL_MELT_MODE.val[17] = (char) 0;
+  meltcdat->dstr_14__INSTALL_MELT_MODE.slen = 17;
 
   /*inirout drout_15__RUNFILE_DOCMD */
  /*_._VALROUT___V96*/ meltfptr[95] =
@@ -9727,7 +9735,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "RUNFILE_DOCMD @warmelt-modes.melt:51", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_15__RUNFILE_DOCMD.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_15__RUNFILE_DOCMD,
-			     meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD);
+			     meltrout_2_WARMELTmiMODESRUNFILE_DOCMD);
 
   /*iniclos dclo_16__RUNFILE_DOCMD */
  /*_._VALCLO___V101*/ meltfptr[100] =
@@ -9758,17 +9766,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_17__INITIAL_ENVIRONMENT.obj_len = 3;
 
 
-/*inistring dstr_18__INITIAL_ENVIRONM*/
+/*inistring dstr_18__INITIAL_ENVIRONMENT*/
  /*_._VALSTR___V103*/ meltfptr[102] =
-    (melt_ptr_t) & meltcdat->dstr_18__INITIAL_ENVIRONM;
-  meltcdat->dstr_18__INITIAL_ENVIRONM.discr =
+    (melt_ptr_t) & meltcdat->dstr_18__INITIAL_ENVIRONMENT;
+  meltcdat->dstr_18__INITIAL_ENVIRONMENT.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_18__INITIAL_ENVIRONM.val,
+  /*small inistring */ strncpy (meltcdat->dstr_18__INITIAL_ENVIRONMENT.val,
 				"INITIAL_ENVIRONMENT",
-				sizeof (meltcdat->dstr_18__INITIAL_ENVIRONM.
-					val) - 1);
-  meltcdat->dstr_18__INITIAL_ENVIRONM.val[19] = (char) 0;
-  meltcdat->dstr_18__INITIAL_ENVIRONM.slen = 19;
+				sizeof (meltcdat->
+					dstr_18__INITIAL_ENVIRONMENT.val) -
+				1);
+  meltcdat->dstr_18__INITIAL_ENVIRONMENT.val[19] = (char) 0;
+  meltcdat->dstr_18__INITIAL_ENVIRONMENT.slen = 19;
 
 
 /*iniobj dsym_19__DISCR_STRING*/
@@ -9826,17 +9835,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_21__CLASS_ENVIRONMENT.obj_len = 3;
 
 
-/*inistring dstr_22__CLASS_ENVIRONMEN*/
+/*inistring dstr_22__CLASS_ENVIRONMENT*/
  /*_._VALSTR___V107*/ meltfptr[106] =
-    (melt_ptr_t) & meltcdat->dstr_22__CLASS_ENVIRONMEN;
-  meltcdat->dstr_22__CLASS_ENVIRONMEN.discr =
+    (melt_ptr_t) & meltcdat->dstr_22__CLASS_ENVIRONMENT;
+  meltcdat->dstr_22__CLASS_ENVIRONMENT.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_22__CLASS_ENVIRONMEN.val,
+  /*small inistring */ strncpy (meltcdat->dstr_22__CLASS_ENVIRONMENT.val,
 				"CLASS_ENVIRONMENT",
-				sizeof (meltcdat->dstr_22__CLASS_ENVIRONMEN.
+				sizeof (meltcdat->dstr_22__CLASS_ENVIRONMENT.
 					val) - 1);
-  meltcdat->dstr_22__CLASS_ENVIRONMEN.val[17] = (char) 0;
-  meltcdat->dstr_22__CLASS_ENVIRONMEN.slen = 17;
+  meltcdat->dstr_22__CLASS_ENVIRONMENT.val[17] = (char) 0;
+  meltcdat->dstr_22__CLASS_ENVIRONMENT.slen = 17;
 
 
 /*iniobj dsym_23__TRANSLATE_TO_C_MODULE_MELT_SOURCES*/
@@ -9860,17 +9869,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_23__TRANSLATE_TO_C_MODULE_MELT_SOURCES.obj_len = 3;
 
 
-/*inistring dstr_24__TRANSLATE_TO_C_M*/
+/*inistring dstr_24__TRANSLATE_TO_C_MODULE_ME*/
  /*_._VALSTR___V109*/ meltfptr[108] =
-    (melt_ptr_t) & meltcdat->dstr_24__TRANSLATE_TO_C_M;
-  meltcdat->dstr_24__TRANSLATE_TO_C_M.discr =
+    (melt_ptr_t) & meltcdat->dstr_24__TRANSLATE_TO_C_MODULE_ME;
+  meltcdat->dstr_24__TRANSLATE_TO_C_MODULE_ME.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_24__TRANSLATE_TO_C_M.val,
-				"TRANSLATE_TO_C_MODULE_MELT_SOURCES",
-				sizeof (meltcdat->dstr_24__TRANSLATE_TO_C_M.
+  /*small inistring */ strncpy (meltcdat->dstr_24__TRANSLATE_TO_C_MODULE_ME.
+				val, "TRANSLATE_TO_C_MODULE_MELT_SOURCES",
+				sizeof (meltcdat->
+					dstr_24__TRANSLATE_TO_C_MODULE_ME.
 					val) - 1);
-  meltcdat->dstr_24__TRANSLATE_TO_C_M.val[34] = (char) 0;
-  meltcdat->dstr_24__TRANSLATE_TO_C_M.slen = 34;
+  meltcdat->dstr_24__TRANSLATE_TO_C_MODULE_ME.val[34] = (char) 0;
+  meltcdat->dstr_24__TRANSLATE_TO_C_MODULE_ME.slen = 34;
 
 
 /*inistring dstr_25__quicklybuilt*/
@@ -9995,17 +10005,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_32__runfile.slen = 7;
 
 
-/*inistring dstr_33__translate_and_ru*/
+/*inistring dstr_33__translate_and_run_a_mel*/
  /*_._VALSTR___V114*/ meltfptr[113] =
-    (melt_ptr_t) & meltcdat->dstr_33__translate_and_ru;
-  meltcdat->dstr_33__translate_and_ru.discr =
+    (melt_ptr_t) & meltcdat->dstr_33__translate_and_run_a_mel;
+  meltcdat->dstr_33__translate_and_run_a_mel.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_33__translate_and_ru.val, "translate and run a .melt file.\n \t ARGUMENT=\
+  /*small inistring */ strncpy (meltcdat->dstr_33__translate_and_run_a_mel.val, "translate and run a .melt file.\n \t ARGUMENT=\
 \ninput file; [OUTPUT=generated C]. The module is quickly compiled\
  and\nhas basic debug support thru DEBUG, ASSERT_MSG...",
-				sizeof (meltcdat->dstr_33__translate_and_ru.val) - 1);
-  meltcdat->dstr_33__translate_and_ru.val[163] = (char) 0;
-  meltcdat->dstr_33__translate_and_ru.slen = 163;
+				sizeof (meltcdat->dstr_33__translate_and_run_a_mel.val) - 1);
+  meltcdat->dstr_33__translate_and_run_a_mel.val[163] = (char) 0;
+  meltcdat->dstr_33__translate_and_run_a_mel.slen = 163;
 
   /*inirout drout_34__RUNDEBUG_DOCMD */
  /*_._VALROUT___V115*/ meltfptr[114] =
@@ -10016,7 +10026,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "RUNDEBUG_DOCMD @warmelt-modes.melt:114", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_34__RUNDEBUG_DOCMD.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_34__RUNDEBUG_DOCMD,
-			     meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD);
+			     meltrout_3_WARMELTmiMODESRUNDEBUG_DOCMD);
 
   /*iniclos dclo_35__RUNDEBUG_DOCMD */
  /*_._VALCLO___V118*/ meltfptr[117] =
@@ -10117,16 +10127,16 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_41__rundebug.slen = 8;
 
 
-/*inistring dstr_42__translate_and_ru*/
+/*inistring dstr_42__translate_and_run_a_mel*/
  /*_._VALSTR___V123*/ meltfptr[122] =
-    (melt_ptr_t) & meltcdat->dstr_42__translate_and_ru;
-  meltcdat->dstr_42__translate_and_ru.discr =
+    (melt_ptr_t) & meltcdat->dstr_42__translate_and_run_a_mel;
+  meltcdat->dstr_42__translate_and_run_a_mel.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_42__translate_and_ru.val, "translate and run a .melt file for debug;\
+  /*small inistring */ strncpy (meltcdat->dstr_42__translate_and_run_a_mel.val, "translate and run a .melt file for debug;\
 \n\n\t ARGUMENT= input file;  [OUTPUT=generated C]",
-				sizeof (meltcdat->dstr_42__translate_and_ru.val) - 1);
-  meltcdat->dstr_42__translate_and_ru.val[88] = (char) 0;
-  meltcdat->dstr_42__translate_and_ru.slen = 88;
+				sizeof (meltcdat->dstr_42__translate_and_run_a_mel.val) - 1);
+  meltcdat->dstr_42__translate_and_run_a_mel.val[88] = (char) 0;
+  meltcdat->dstr_42__translate_and_run_a_mel.slen = 88;
 
   /*inirout drout_43__EVAL_DOCMD */
  /*_._VALROUT___V124*/ meltfptr[123] =
@@ -10137,7 +10147,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "EVAL_DOCMD @warmelt-modes.melt:178", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_43__EVAL_DOCMD.nbval = 14;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_43__EVAL_DOCMD,
-			     meltrout_4_WARMELTmiMODES_EVAL_DOCMD);
+			     meltrout_4_WARMELTmiMODESEVAL_DOCMD);
 
   /*iniclos dclo_44__EVAL_DOCMD */
  /*_._VALCLO___V125*/ meltfptr[124] =
@@ -10168,17 +10178,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_45__DISCR_MAP_OBJECTS.obj_len = 3;
 
 
-/*inistring dstr_46__DISCR_MAP_OBJECT*/
+/*inistring dstr_46__DISCR_MAP_OBJECTS*/
  /*_._VALSTR___V127*/ meltfptr[126] =
-    (melt_ptr_t) & meltcdat->dstr_46__DISCR_MAP_OBJECT;
-  meltcdat->dstr_46__DISCR_MAP_OBJECT.discr =
+    (melt_ptr_t) & meltcdat->dstr_46__DISCR_MAP_OBJECTS;
+  meltcdat->dstr_46__DISCR_MAP_OBJECTS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_46__DISCR_MAP_OBJECT.val,
+  /*small inistring */ strncpy (meltcdat->dstr_46__DISCR_MAP_OBJECTS.val,
 				"DISCR_MAP_OBJECTS",
-				sizeof (meltcdat->dstr_46__DISCR_MAP_OBJECT.
+				sizeof (meltcdat->dstr_46__DISCR_MAP_OBJECTS.
 					val) - 1);
-  meltcdat->dstr_46__DISCR_MAP_OBJECT.val[17] = (char) 0;
-  meltcdat->dstr_46__DISCR_MAP_OBJECT.slen = 17;
+  meltcdat->dstr_46__DISCR_MAP_OBJECTS.val[17] = (char) 0;
+  meltcdat->dstr_46__DISCR_MAP_OBJECTS.slen = 17;
 
 
 /*iniobj dsym_47__FRESH_ENV*/
@@ -10235,17 +10245,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_49__TRANSLATE_RUN_MELT_EXPRESSIONS.obj_len = 3;
 
 
-/*inistring dstr_50__TRANSLATE_RUN_ME*/
+/*inistring dstr_50__TRANSLATE_RUN_MELT_EXPRE*/
  /*_._VALSTR___V131*/ meltfptr[130] =
-    (melt_ptr_t) & meltcdat->dstr_50__TRANSLATE_RUN_ME;
-  meltcdat->dstr_50__TRANSLATE_RUN_ME.discr =
+    (melt_ptr_t) & meltcdat->dstr_50__TRANSLATE_RUN_MELT_EXPRE;
+  meltcdat->dstr_50__TRANSLATE_RUN_MELT_EXPRE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_50__TRANSLATE_RUN_ME.val,
-				"TRANSLATE_RUN_MELT_EXPRESSIONS",
-				sizeof (meltcdat->dstr_50__TRANSLATE_RUN_ME.
+  /*small inistring */ strncpy (meltcdat->dstr_50__TRANSLATE_RUN_MELT_EXPRE.
+				val, "TRANSLATE_RUN_MELT_EXPRESSIONS",
+				sizeof (meltcdat->
+					dstr_50__TRANSLATE_RUN_MELT_EXPRE.
 					val) - 1);
-  meltcdat->dstr_50__TRANSLATE_RUN_ME.val[30] = (char) 0;
-  meltcdat->dstr_50__TRANSLATE_RUN_ME.slen = 30;
+  meltcdat->dstr_50__TRANSLATE_RUN_MELT_EXPRE.val[30] = (char) 0;
+  meltcdat->dstr_50__TRANSLATE_RUN_MELT_EXPRE.slen = 30;
 
 
 /*iniobj dsym_51__CLASS_DEBUG_OUTPUT_INFORMATION*/
@@ -10269,17 +10280,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_51__CLASS_DEBUG_OUTPUT_INFORMATION.obj_len = 3;
 
 
-/*inistring dstr_52__CLASS_DEBUG_OUTP*/
+/*inistring dstr_52__CLASS_DEBUG_OUTPUT_INFOR*/
  /*_._VALSTR___V133*/ meltfptr[132] =
-    (melt_ptr_t) & meltcdat->dstr_52__CLASS_DEBUG_OUTP;
-  meltcdat->dstr_52__CLASS_DEBUG_OUTP.discr =
+    (melt_ptr_t) & meltcdat->dstr_52__CLASS_DEBUG_OUTPUT_INFOR;
+  meltcdat->dstr_52__CLASS_DEBUG_OUTPUT_INFOR.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_52__CLASS_DEBUG_OUTP.val,
-				"CLASS_DEBUG_OUTPUT_INFORMATION",
-				sizeof (meltcdat->dstr_52__CLASS_DEBUG_OUTP.
+  /*small inistring */ strncpy (meltcdat->dstr_52__CLASS_DEBUG_OUTPUT_INFOR.
+				val, "CLASS_DEBUG_OUTPUT_INFORMATION",
+				sizeof (meltcdat->
+					dstr_52__CLASS_DEBUG_OUTPUT_INFOR.
 					val) - 1);
-  meltcdat->dstr_52__CLASS_DEBUG_OUTP.val[30] = (char) 0;
-  meltcdat->dstr_52__CLASS_DEBUG_OUTP.slen = 30;
+  meltcdat->dstr_52__CLASS_DEBUG_OUTPUT_INFOR.val[30] = (char) 0;
+  meltcdat->dstr_52__CLASS_DEBUG_OUTPUT_INFOR.slen = 30;
 
 
 /*iniobj dsym_53__DISCR_CONSTANT_INTEGER*/
@@ -10303,17 +10315,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_53__DISCR_CONSTANT_INTEGER.obj_len = 3;
 
 
-/*inistring dstr_54__DISCR_CONSTANT_I*/
+/*inistring dstr_54__DISCR_CONSTANT_INTEGER*/
  /*_._VALSTR___V135*/ meltfptr[134] =
-    (melt_ptr_t) & meltcdat->dstr_54__DISCR_CONSTANT_I;
-  meltcdat->dstr_54__DISCR_CONSTANT_I.discr =
+    (melt_ptr_t) & meltcdat->dstr_54__DISCR_CONSTANT_INTEGER;
+  meltcdat->dstr_54__DISCR_CONSTANT_INTEGER.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_54__DISCR_CONSTANT_I.val,
+  /*small inistring */ strncpy (meltcdat->dstr_54__DISCR_CONSTANT_INTEGER.val,
 				"DISCR_CONSTANT_INTEGER",
-				sizeof (meltcdat->dstr_54__DISCR_CONSTANT_I.
-					val) - 1);
-  meltcdat->dstr_54__DISCR_CONSTANT_I.val[22] = (char) 0;
-  meltcdat->dstr_54__DISCR_CONSTANT_I.slen = 22;
+				sizeof (meltcdat->
+					dstr_54__DISCR_CONSTANT_INTEGER.val) -
+				1);
+  meltcdat->dstr_54__DISCR_CONSTANT_INTEGER.val[22] = (char) 0;
+  meltcdat->dstr_54__DISCR_CONSTANT_INTEGER.slen = 22;
 
 
 /*iniobj dsym_55__ADD2OUT*/
@@ -10443,16 +10456,16 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_62__eval.slen = 4;
 
 
-/*inistring dstr_63__translate_and_ru*/
+/*inistring dstr_63__translate_and_run_i_e_*/
  /*_._VALSTR___V144*/ meltfptr[143] =
-    (melt_ptr_t) & meltcdat->dstr_63__translate_and_ru;
-  meltcdat->dstr_63__translate_and_ru.discr =
+    (melt_ptr_t) & meltcdat->dstr_63__translate_and_run_i_e_;
+  meltcdat->dstr_63__translate_and_run_i_e_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_63__translate_and_ru.val, "translate and run, i.e. evaluate, MELT expressions, displaying the\
+  /*small inistring */ strncpy (meltcdat->dstr_63__translate_and_run_i_e_.val, "translate and run, i.e. evaluate, MELT expressions, displaying the\
  last evaluated result;\n\n\t ARGUMENT= expressions to evaluate",
-				sizeof (meltcdat->dstr_63__translate_and_ru.val) - 1);
-  meltcdat->dstr_63__translate_and_ru.val[126] = (char) 0;
-  meltcdat->dstr_63__translate_and_ru.slen = 126;
+				sizeof (meltcdat->dstr_63__translate_and_run_i_e_.val) - 1);
+  meltcdat->dstr_63__translate_and_run_i_e_.val[126] = (char) 0;
+  meltcdat->dstr_63__translate_and_run_i_e_.slen = 126;
 
   /*inirout drout_64__EVALFILE_DOCMD */
  /*_._VALROUT___V145*/ meltfptr[144] =
@@ -10463,7 +10476,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "EVALFILE_DOCMD @warmelt-modes.melt:228", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_64__EVALFILE_DOCMD.nbval = 14;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_64__EVALFILE_DOCMD,
-			     meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD);
+			     meltrout_5_WARMELTmiMODESEVALFILE_DOCMD);
 
   /*iniclos dclo_65__EVALFILE_DOCMD */
  /*_._VALCLO___V146*/ meltfptr[145] =
@@ -10538,16 +10551,16 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_69__evalfile.slen = 8;
 
 
-/*inistring dstr_70__translate_and_ru*/
+/*inistring dstr_70__translate_and_run_i_e_*/
  /*_._VALSTR___V151*/ meltfptr[150] =
-    (melt_ptr_t) & meltcdat->dstr_70__translate_and_ru;
-  meltcdat->dstr_70__translate_and_ru.discr =
+    (melt_ptr_t) & meltcdat->dstr_70__translate_and_run_i_e_;
+  meltcdat->dstr_70__translate_and_run_i_e_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_70__translate_and_ru.val, "translate and run, i.e. evaluate, MELT expressions from a file, displaying\
+  /*small inistring */ strncpy (meltcdat->dstr_70__translate_and_run_i_e_.val, "translate and run, i.e. evaluate, MELT expressions from a file, displaying\
  the last evaluated result;\n\n\t ARGUMENT= file name, or - for stdin",
-				sizeof (meltcdat->dstr_70__translate_and_ru.val) - 1);
-  meltcdat->dstr_70__translate_and_ru.val[140] = (char) 0;
-  meltcdat->dstr_70__translate_and_ru.slen = 140;
+				sizeof (meltcdat->dstr_70__translate_and_run_i_e_.val) - 1);
+  meltcdat->dstr_70__translate_and_run_i_e_.val[140] = (char) 0;
+  meltcdat->dstr_70__translate_and_run_i_e_.slen = 140;
 
 
 /*iniobj dsym_71__CLASS_READ_EVAL_PRINT_LOOP_DATA*/
@@ -10571,17 +10584,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_71__CLASS_READ_EVAL_PRINT_LOOP_DATA.obj_len = 3;
 
 
-/*inistring dstr_72__CLASS_READ_EVAL_*/
+/*inistring dstr_72__CLASS_READ_EVAL_PRINT_LO*/
  /*_._VALSTR___V153*/ meltfptr[152] =
-    (melt_ptr_t) & meltcdat->dstr_72__CLASS_READ_EVAL_;
-  meltcdat->dstr_72__CLASS_READ_EVAL_.discr =
+    (melt_ptr_t) & meltcdat->dstr_72__CLASS_READ_EVAL_PRINT_LO;
+  meltcdat->dstr_72__CLASS_READ_EVAL_PRINT_LO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_72__CLASS_READ_EVAL_.val,
-				"CLASS_READ_EVAL_PRINT_LOOP_DATA",
-				sizeof (meltcdat->dstr_72__CLASS_READ_EVAL_.
+  /*small inistring */ strncpy (meltcdat->dstr_72__CLASS_READ_EVAL_PRINT_LO.
+				val, "CLASS_READ_EVAL_PRINT_LOOP_DATA",
+				sizeof (meltcdat->
+					dstr_72__CLASS_READ_EVAL_PRINT_LO.
 					val) - 1);
-  meltcdat->dstr_72__CLASS_READ_EVAL_.val[31] = (char) 0;
-  meltcdat->dstr_72__CLASS_READ_EVAL_.slen = 31;
+  meltcdat->dstr_72__CLASS_READ_EVAL_PRINT_LO.val[31] = (char) 0;
+  meltcdat->dstr_72__CLASS_READ_EVAL_PRINT_LO.slen = 31;
 
 
 /*iniobj dsym_73__CLASS_PROPED*/
@@ -10641,30 +10655,31 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_75__CLASS_READ_EVAL_PRINT_LOOP_DATA.obj_len = 8;
 
 
-/*inistring dstr_76__CLASS_READ_EVAL_*/
+/*inistring dstr_76__CLASS_READ_EVAL_PRINT_LO*/
  /*_._VALSTR___V157*/ meltfptr[156] =
-    (melt_ptr_t) & meltcdat->dstr_76__CLASS_READ_EVAL_;
-  meltcdat->dstr_76__CLASS_READ_EVAL_.discr =
+    (melt_ptr_t) & meltcdat->dstr_76__CLASS_READ_EVAL_PRINT_LO;
+  meltcdat->dstr_76__CLASS_READ_EVAL_PRINT_LO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_76__CLASS_READ_EVAL_.val,
-				"CLASS_READ_EVAL_PRINT_LOOP_DATA",
-				sizeof (meltcdat->dstr_76__CLASS_READ_EVAL_.
+  /*small inistring */ strncpy (meltcdat->dstr_76__CLASS_READ_EVAL_PRINT_LO.
+				val, "CLASS_READ_EVAL_PRINT_LOOP_DATA",
+				sizeof (meltcdat->
+					dstr_76__CLASS_READ_EVAL_PRINT_LO.
 					val) - 1);
-  meltcdat->dstr_76__CLASS_READ_EVAL_.val[31] = (char) 0;
-  meltcdat->dstr_76__CLASS_READ_EVAL_.slen = 31;
+  meltcdat->dstr_76__CLASS_READ_EVAL_PRINT_LO.val[31] = (char) 0;
+  meltcdat->dstr_76__CLASS_READ_EVAL_PRINT_LO.slen = 31;
 
-  /*inimult dtup_77__CLASS_READ_EVAL_PRINT_LOOP_DATA */
+  /*inimult dtup_77_syCLASS_READ_EVAL_PRINT_LOOP_DATA */
  /*_._VALTUP___V158*/ meltfptr[157] =
-    (melt_ptr_t) & meltcdat->dtup_77__CLASS_READ_EVAL_PRINT_LOOP_DATA;
-  meltcdat->dtup_77__CLASS_READ_EVAL_PRINT_LOOP_DATA.discr =
+    (melt_ptr_t) & meltcdat->dtup_77_syCLASS_READ_EVAL_PRINT_LOOP_DATA;
+  meltcdat->dtup_77_syCLASS_READ_EVAL_PRINT_LOOP_DATA.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_CLASS_SEQUENCE))));
-  meltcdat->dtup_77__CLASS_READ_EVAL_PRINT_LOOP_DATA.nbval = 2;
-  /*inimult dtup_78__CLASS_READ_EVAL_PRINT_LOOP_DATA */
+  meltcdat->dtup_77_syCLASS_READ_EVAL_PRINT_LOOP_DATA.nbval = 2;
+  /*inimult dtup_78_syCLASS_READ_EVAL_PRINT_LOOP_DATA */
  /*_._VALTUP___V167*/ meltfptr[166] =
-    (melt_ptr_t) & meltcdat->dtup_78__CLASS_READ_EVAL_PRINT_LOOP_DATA;
-  meltcdat->dtup_78__CLASS_READ_EVAL_PRINT_LOOP_DATA.discr =
+    (melt_ptr_t) & meltcdat->dtup_78_syCLASS_READ_EVAL_PRINT_LOOP_DATA;
+  meltcdat->dtup_78_syCLASS_READ_EVAL_PRINT_LOOP_DATA.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_FIELD_SEQUENCE))));
-  meltcdat->dtup_78__CLASS_READ_EVAL_PRINT_LOOP_DATA.nbval = 5;
+  meltcdat->dtup_78_syCLASS_READ_EVAL_PRINT_LOOP_DATA.nbval = 5;
 
 /*iniobj dsym_79__REPL_ENV*/
   /*uniqueobj*/ if (! /*_._VALDATA___V168*/ meltfptr[167])
@@ -10944,7 +10959,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "REPL_PROCESSOR @warmelt-modes.melt:285", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_95__REPL_PROCESSOR.nbval = 14;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_95__REPL_PROCESSOR,
-			     meltrout_6_WARMELTmiMODES_REPL_PROCESSOR);
+			     meltrout_6_WARMELTmiMODESREPL_PROCESSOR);
 
   /*iniclos dclo_96__REPL_PROCESSOR */
  /*_._VALCLO___V177*/ meltfptr[176] =
@@ -10975,17 +10990,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_97__CLASS_INPUT_CHANNEL_HANDLER.obj_len = 3;
 
 
-/*inistring dstr_98__CLASS_INPUT_CHAN*/
+/*inistring dstr_98__CLASS_INPUT_CHANNEL_HAND*/
  /*_._VALSTR___V179*/ meltfptr[178] =
-    (melt_ptr_t) & meltcdat->dstr_98__CLASS_INPUT_CHAN;
-  meltcdat->dstr_98__CLASS_INPUT_CHAN.discr =
+    (melt_ptr_t) & meltcdat->dstr_98__CLASS_INPUT_CHANNEL_HAND;
+  meltcdat->dstr_98__CLASS_INPUT_CHANNEL_HAND.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_98__CLASS_INPUT_CHAN.val,
-				"CLASS_INPUT_CHANNEL_HANDLER",
-				sizeof (meltcdat->dstr_98__CLASS_INPUT_CHAN.
+  /*small inistring */ strncpy (meltcdat->dstr_98__CLASS_INPUT_CHANNEL_HAND.
+				val, "CLASS_INPUT_CHANNEL_HANDLER",
+				sizeof (meltcdat->
+					dstr_98__CLASS_INPUT_CHANNEL_HAND.
 					val) - 1);
-  meltcdat->dstr_98__CLASS_INPUT_CHAN.val[27] = (char) 0;
-  meltcdat->dstr_98__CLASS_INPUT_CHAN.slen = 27;
+  meltcdat->dstr_98__CLASS_INPUT_CHANNEL_HAND.val[27] = (char) 0;
+  meltcdat->dstr_98__CLASS_INPUT_CHANNEL_HAND.slen = 27;
 
 
 /*iniobj dsym_99__CLASS_REFERENCE*/
@@ -11043,17 +11059,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_101__CLASS_DEBUG_INFORMATION.obj_len = 3;
 
 
-/*inistring dstr_102__CLASS_DEBUG_INFO*/
+/*inistring dstr_102__CLASS_DEBUG_INFORMATION*/
  /*_._VALSTR___V183*/ meltfptr[182] =
-    (melt_ptr_t) & meltcdat->dstr_102__CLASS_DEBUG_INFO;
-  meltcdat->dstr_102__CLASS_DEBUG_INFO.discr =
+    (melt_ptr_t) & meltcdat->dstr_102__CLASS_DEBUG_INFORMATION;
+  meltcdat->dstr_102__CLASS_DEBUG_INFORMATION.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_102__CLASS_DEBUG_INFO.val,
-				"CLASS_DEBUG_INFORMATION",
-				sizeof (meltcdat->dstr_102__CLASS_DEBUG_INFO.
+  /*small inistring */ strncpy (meltcdat->dstr_102__CLASS_DEBUG_INFORMATION.
+				val, "CLASS_DEBUG_INFORMATION",
+				sizeof (meltcdat->
+					dstr_102__CLASS_DEBUG_INFORMATION.
 					val) - 1);
-  meltcdat->dstr_102__CLASS_DEBUG_INFO.val[23] = (char) 0;
-  meltcdat->dstr_102__CLASS_DEBUG_INFO.slen = 23;
+  meltcdat->dstr_102__CLASS_DEBUG_INFORMATION.val[23] = (char) 0;
+  meltcdat->dstr_102__CLASS_DEBUG_INFORMATION.slen = 23;
 
   /*inirout drout_103__REPL_DOCMD */
  /*_._VALROUT___V184*/ meltfptr[183] =
@@ -11064,7 +11081,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "REPL_DOCMD @warmelt-modes.melt:345", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_103__REPL_DOCMD.nbval = 28;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_103__REPL_DOCMD,
-			     meltrout_7_WARMELTmiMODES_REPL_DOCMD);
+			     meltrout_7_WARMELTmiMODESREPL_DOCMD);
 
   /*iniclos dclo_104__REPL_DOCMD */
  /*_._VALCLO___V201*/ meltfptr[200] =
@@ -11074,17 +11091,19 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dclo_104__REPL_DOCMD.nbval = 0;
 
 
-/*inistring dstr_105__the_interactive_*/
+/*inistring dstr_105__the_interactive_Read_Eva*/
  /*_._VALSTR___V185*/ meltfptr[184] =
-    (melt_ptr_t) & meltcdat->dstr_105__the_interactive_;
-  meltcdat->dstr_105__the_interactive_.discr =
+    (melt_ptr_t) & meltcdat->dstr_105__the_interactive_Read_Eva;
+  meltcdat->dstr_105__the_interactive_Read_Eva.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_105__the_interactive_.val,
+  /*small inistring */ strncpy (meltcdat->dstr_105__the_interactive_Read_Eva.
+				val,
 				"the interactive Read-Eval-Print-Loop environment",
-				sizeof (meltcdat->dstr_105__the_interactive_.
+				sizeof (meltcdat->
+					dstr_105__the_interactive_Read_Eva.
 					val) - 1);
-  meltcdat->dstr_105__the_interactive_.val[48] = (char) 0;
-  meltcdat->dstr_105__the_interactive_.slen = 48;
+  meltcdat->dstr_105__the_interactive_Read_Eva.val[48] = (char) 0;
+  meltcdat->dstr_105__the_interactive_Read_Eva.slen = 48;
 
 
 /*iniobj dsym_106__DISCR_INTEGER*/
@@ -11129,7 +11148,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:365", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_108__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_108__LAMBDA_,
-			     meltrout_8_WARMELTmiMODES_LAMBDA___1__);
+			     meltrout_8_WARMELTmiMODESLAMBDA_cl1);
 
   /*inirout drout_109__LAMBDA_ */
  /*_._VALROUT___V187*/ meltfptr[186] =
@@ -11140,7 +11159,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:366", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_109__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_109__LAMBDA_,
-			     meltrout_9_WARMELTmiMODES_LAMBDA___2__);
+			     meltrout_9_WARMELTmiMODESLAMBDA_cl2);
 
 
 /*iniobj dsym_110__CLASS_VALUE_BINDING*/
@@ -11164,17 +11183,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_110__CLASS_VALUE_BINDING.obj_len = 3;
 
 
-/*inistring dstr_111__CLASS_VALUE_BIND*/
+/*inistring dstr_111__CLASS_VALUE_BINDING*/
  /*_._VALSTR___V205*/ meltfptr[204] =
-    (melt_ptr_t) & meltcdat->dstr_111__CLASS_VALUE_BIND;
-  meltcdat->dstr_111__CLASS_VALUE_BIND.discr =
+    (melt_ptr_t) & meltcdat->dstr_111__CLASS_VALUE_BINDING;
+  meltcdat->dstr_111__CLASS_VALUE_BINDING.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_111__CLASS_VALUE_BIND.val,
+  /*small inistring */ strncpy (meltcdat->dstr_111__CLASS_VALUE_BINDING.val,
 				"CLASS_VALUE_BINDING",
-				sizeof (meltcdat->dstr_111__CLASS_VALUE_BIND.
-					val) - 1);
-  meltcdat->dstr_111__CLASS_VALUE_BIND.val[19] = (char) 0;
-  meltcdat->dstr_111__CLASS_VALUE_BIND.slen = 19;
+				sizeof (meltcdat->
+					dstr_111__CLASS_VALUE_BINDING.val) -
+				1);
+  meltcdat->dstr_111__CLASS_VALUE_BINDING.val[19] = (char) 0;
+  meltcdat->dstr_111__CLASS_VALUE_BINDING.slen = 19;
 
 
 /*iniobj dsym_112__CONTINUE*/
@@ -11297,17 +11317,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_118__REGISTER_ALL_PASSES_END_FIRST.obj_len = 3;
 
 
-/*inistring dstr_119__REGISTER_ALL_PAS*/
+/*inistring dstr_119__REGISTER_ALL_PASSES_END_*/
  /*_._VALSTR___V209*/ meltfptr[208] =
-    (melt_ptr_t) & meltcdat->dstr_119__REGISTER_ALL_PAS;
-  meltcdat->dstr_119__REGISTER_ALL_PAS.discr =
+    (melt_ptr_t) & meltcdat->dstr_119__REGISTER_ALL_PASSES_END_;
+  meltcdat->dstr_119__REGISTER_ALL_PASSES_END_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_119__REGISTER_ALL_PAS.val,
-				"REGISTER_ALL_PASSES_END_FIRST",
-				sizeof (meltcdat->dstr_119__REGISTER_ALL_PAS.
+  /*small inistring */ strncpy (meltcdat->dstr_119__REGISTER_ALL_PASSES_END_.
+				val, "REGISTER_ALL_PASSES_END_FIRST",
+				sizeof (meltcdat->
+					dstr_119__REGISTER_ALL_PASSES_END_.
 					val) - 1);
-  meltcdat->dstr_119__REGISTER_ALL_PAS.val[29] = (char) 0;
-  meltcdat->dstr_119__REGISTER_ALL_PAS.slen = 29;
+  meltcdat->dstr_119__REGISTER_ALL_PASSES_END_.val[29] = (char) 0;
+  meltcdat->dstr_119__REGISTER_ALL_PASSES_END_.slen = 29;
 
   /*inirout drout_120__LAMBDA_ */
  /*_._VALROUT___V194*/ meltfptr[193] =
@@ -11318,20 +11339,21 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:402", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_120__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_120__LAMBDA_,
-			     meltrout_10_WARMELTmiMODES_LAMBDA___3__);
+			     meltrout_10_WARMELTmiMODESLAMBDA_cl3);
 
 
-/*inistring dstr_121__ended_all_GCC_pa*/
+/*inistring dstr_121__ended_all_GCC_passes*/
  /*_._VALSTR___V195*/ meltfptr[194] =
-    (melt_ptr_t) & meltcdat->dstr_121__ended_all_GCC_pa;
-  meltcdat->dstr_121__ended_all_GCC_pa.discr =
+    (melt_ptr_t) & meltcdat->dstr_121__ended_all_GCC_passes;
+  meltcdat->dstr_121__ended_all_GCC_passes.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_121__ended_all_GCC_pa.val,
+  /*small inistring */ strncpy (meltcdat->dstr_121__ended_all_GCC_passes.val,
 				"ended all GCC passes",
-				sizeof (meltcdat->dstr_121__ended_all_GCC_pa.
-					val) - 1);
-  meltcdat->dstr_121__ended_all_GCC_pa.val[20] = (char) 0;
-  meltcdat->dstr_121__ended_all_GCC_pa.slen = 20;
+				sizeof (meltcdat->
+					dstr_121__ended_all_GCC_passes.val) -
+				1);
+  meltcdat->dstr_121__ended_all_GCC_passes.val[20] = (char) 0;
+  meltcdat->dstr_121__ended_all_GCC_passes.slen = 20;
 
 
 /*iniobj dsym_122__AT_FINISH_UNIT_FIRST*/
@@ -11355,17 +11377,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_122__AT_FINISH_UNIT_FIRST.obj_len = 3;
 
 
-/*inistring dstr_123__AT_FINISH_UNIT_F*/
+/*inistring dstr_123__AT_FINISH_UNIT_FIRST*/
  /*_._VALSTR___V211*/ meltfptr[210] =
-    (melt_ptr_t) & meltcdat->dstr_123__AT_FINISH_UNIT_F;
-  meltcdat->dstr_123__AT_FINISH_UNIT_F.discr =
+    (melt_ptr_t) & meltcdat->dstr_123__AT_FINISH_UNIT_FIRST;
+  meltcdat->dstr_123__AT_FINISH_UNIT_FIRST.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_123__AT_FINISH_UNIT_F.val,
+  /*small inistring */ strncpy (meltcdat->dstr_123__AT_FINISH_UNIT_FIRST.val,
 				"AT_FINISH_UNIT_FIRST",
-				sizeof (meltcdat->dstr_123__AT_FINISH_UNIT_F.
-					val) - 1);
-  meltcdat->dstr_123__AT_FINISH_UNIT_F.val[20] = (char) 0;
-  meltcdat->dstr_123__AT_FINISH_UNIT_F.slen = 20;
+				sizeof (meltcdat->
+					dstr_123__AT_FINISH_UNIT_FIRST.val) -
+				1);
+  meltcdat->dstr_123__AT_FINISH_UNIT_FIRST.val[20] = (char) 0;
+  meltcdat->dstr_123__AT_FINISH_UNIT_FIRST.slen = 20;
 
   /*inirout drout_124__LAMBDA_ */
  /*_._VALROUT___V196*/ meltfptr[195] =
@@ -11376,20 +11399,21 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:413", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_124__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_124__LAMBDA_,
-			     meltrout_11_WARMELTmiMODES_LAMBDA___4__);
+			     meltrout_11_WARMELTmiMODESLAMBDA_cl4);
 
 
-/*inistring dstr_125__finished_compila*/
+/*inistring dstr_125__finished_compilation_uni*/
  /*_._VALSTR___V197*/ meltfptr[196] =
-    (melt_ptr_t) & meltcdat->dstr_125__finished_compila;
-  meltcdat->dstr_125__finished_compila.discr =
+    (melt_ptr_t) & meltcdat->dstr_125__finished_compilation_uni;
+  meltcdat->dstr_125__finished_compilation_uni.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_125__finished_compila.val,
-				"finished compilation unit",
-				sizeof (meltcdat->dstr_125__finished_compila.
+  /*small inistring */ strncpy (meltcdat->dstr_125__finished_compilation_uni.
+				val, "finished compilation unit",
+				sizeof (meltcdat->
+					dstr_125__finished_compilation_uni.
 					val) - 1);
-  meltcdat->dstr_125__finished_compila.val[25] = (char) 0;
-  meltcdat->dstr_125__finished_compila.slen = 25;
+  meltcdat->dstr_125__finished_compilation_uni.val[25] = (char) 0;
+  meltcdat->dstr_125__finished_compilation_uni.slen = 25;
 
 
 /*iniobj dsym_126__AT_EXIT_LAST*/
@@ -11434,7 +11458,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:424", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_128__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_128__LAMBDA_,
-			     meltrout_12_WARMELTmiMODES_LAMBDA___5__);
+			     meltrout_12_WARMELTmiMODESLAMBDA_cl5);
 
 
 /*inistring dstr_129__GCC_MELT_exiting*/
@@ -11450,17 +11474,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_129__GCC_MELT_exiting.slen = 16;
 
 
-/*inistring dstr_130__GCC_MELT_initial*/
+/*inistring dstr_130__GCC_MELT_initial_wait*/
  /*_._VALSTR___V200*/ meltfptr[199] =
-    (melt_ptr_t) & meltcdat->dstr_130__GCC_MELT_initial;
-  meltcdat->dstr_130__GCC_MELT_initial.discr =
+    (melt_ptr_t) & meltcdat->dstr_130__GCC_MELT_initial_wait;
+  meltcdat->dstr_130__GCC_MELT_initial_wait.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_130__GCC_MELT_initial.val,
+  /*small inistring */ strncpy (meltcdat->dstr_130__GCC_MELT_initial_wait.val,
 				"GCC MELT initial wait",
-				sizeof (meltcdat->dstr_130__GCC_MELT_initial.
-					val) - 1);
-  meltcdat->dstr_130__GCC_MELT_initial.val[21] = (char) 0;
-  meltcdat->dstr_130__GCC_MELT_initial.slen = 21;
+				sizeof (meltcdat->
+					dstr_130__GCC_MELT_initial_wait.val) -
+				1);
+  meltcdat->dstr_130__GCC_MELT_initial_wait.val[21] = (char) 0;
+  meltcdat->dstr_130__GCC_MELT_initial_wait.slen = 21;
 
 
 /*iniobj dsym_131__REPL_MODE*/
@@ -11528,17 +11553,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_134__repl.slen = 4;
 
 
-/*inistring dstr_135__interactive_Read*/
+/*inistring dstr_135__interactive_Read_Eval_Pr*/
  /*_._VALSTR___V218*/ meltfptr[217] =
-    (melt_ptr_t) & meltcdat->dstr_135__interactive_Read;
-  meltcdat->dstr_135__interactive_Read.discr =
+    (melt_ptr_t) & meltcdat->dstr_135__interactive_Read_Eval_Pr;
+  meltcdat->dstr_135__interactive_Read_Eval_Pr.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_135__interactive_Read.val,
-				"interactive Read Eval Print Loop mode",
-				sizeof (meltcdat->dstr_135__interactive_Read.
+  /*small inistring */ strncpy (meltcdat->dstr_135__interactive_Read_Eval_Pr.
+				val, "interactive Read Eval Print Loop mode",
+				sizeof (meltcdat->
+					dstr_135__interactive_Read_Eval_Pr.
 					val) - 1);
-  meltcdat->dstr_135__interactive_Read.val[37] = (char) 0;
-  meltcdat->dstr_135__interactive_Read.slen = 37;
+  meltcdat->dstr_135__interactive_Read_Eval_Pr.val[37] = (char) 0;
+  meltcdat->dstr_135__interactive_Read_Eval_Pr.slen = 37;
 
 
 /*iniobj dsym_136__CLASS_MAKEDOC_INFO*/
@@ -11562,17 +11588,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_136__CLASS_MAKEDOC_INFO.obj_len = 3;
 
 
-/*inistring dstr_137__CLASS_MAKEDOC_IN*/
+/*inistring dstr_137__CLASS_MAKEDOC_INFO*/
  /*_._VALSTR___V220*/ meltfptr[219] =
-    (melt_ptr_t) & meltcdat->dstr_137__CLASS_MAKEDOC_IN;
-  meltcdat->dstr_137__CLASS_MAKEDOC_IN.discr =
+    (melt_ptr_t) & meltcdat->dstr_137__CLASS_MAKEDOC_INFO;
+  meltcdat->dstr_137__CLASS_MAKEDOC_INFO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_137__CLASS_MAKEDOC_IN.val,
+  /*small inistring */ strncpy (meltcdat->dstr_137__CLASS_MAKEDOC_INFO.val,
 				"CLASS_MAKEDOC_INFO",
-				sizeof (meltcdat->dstr_137__CLASS_MAKEDOC_IN.
-					val) - 1);
-  meltcdat->dstr_137__CLASS_MAKEDOC_IN.val[18] = (char) 0;
-  meltcdat->dstr_137__CLASS_MAKEDOC_IN.slen = 18;
+				sizeof (meltcdat->
+					dstr_137__CLASS_MAKEDOC_INFO.val) -
+				1);
+  meltcdat->dstr_137__CLASS_MAKEDOC_INFO.val[18] = (char) 0;
+  meltcdat->dstr_137__CLASS_MAKEDOC_INFO.slen = 18;
 
   MELT_LOCATION ("warmelt-modes.melt:447:/ iniobj");
 
@@ -11597,30 +11624,31 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_138__CLASS_MAKEDOC_INFO.obj_len = 8;
 
 
-/*inistring dstr_139__CLASS_MAKEDOC_IN*/
+/*inistring dstr_139__CLASS_MAKEDOC_INFO*/
  /*_._VALSTR___V222*/ meltfptr[221] =
-    (melt_ptr_t) & meltcdat->dstr_139__CLASS_MAKEDOC_IN;
-  meltcdat->dstr_139__CLASS_MAKEDOC_IN.discr =
+    (melt_ptr_t) & meltcdat->dstr_139__CLASS_MAKEDOC_INFO;
+  meltcdat->dstr_139__CLASS_MAKEDOC_INFO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_139__CLASS_MAKEDOC_IN.val,
+  /*small inistring */ strncpy (meltcdat->dstr_139__CLASS_MAKEDOC_INFO.val,
 				"CLASS_MAKEDOC_INFO",
-				sizeof (meltcdat->dstr_139__CLASS_MAKEDOC_IN.
-					val) - 1);
-  meltcdat->dstr_139__CLASS_MAKEDOC_IN.val[18] = (char) 0;
-  meltcdat->dstr_139__CLASS_MAKEDOC_IN.slen = 18;
+				sizeof (meltcdat->
+					dstr_139__CLASS_MAKEDOC_INFO.val) -
+				1);
+  meltcdat->dstr_139__CLASS_MAKEDOC_INFO.val[18] = (char) 0;
+  meltcdat->dstr_139__CLASS_MAKEDOC_INFO.slen = 18;
 
-  /*inimult dtup_140__CLASS_MAKEDOC_INFO */
+  /*inimult dtup_140_syCLASS_MAKEDOC_INFO */
  /*_._VALTUP___V223*/ meltfptr[222] =
-    (melt_ptr_t) & meltcdat->dtup_140__CLASS_MAKEDOC_INFO;
-  meltcdat->dtup_140__CLASS_MAKEDOC_INFO.discr =
+    (melt_ptr_t) & meltcdat->dtup_140_syCLASS_MAKEDOC_INFO;
+  meltcdat->dtup_140_syCLASS_MAKEDOC_INFO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_CLASS_SEQUENCE))));
-  meltcdat->dtup_140__CLASS_MAKEDOC_INFO.nbval = 2;
-  /*inimult dtup_141__CLASS_MAKEDOC_INFO */
+  meltcdat->dtup_140_syCLASS_MAKEDOC_INFO.nbval = 2;
+  /*inimult dtup_141_syCLASS_MAKEDOC_INFO */
  /*_._VALTUP___V256*/ meltfptr[255] =
-    (melt_ptr_t) & meltcdat->dtup_141__CLASS_MAKEDOC_INFO;
-  meltcdat->dtup_141__CLASS_MAKEDOC_INFO.discr =
+    (melt_ptr_t) & meltcdat->dtup_141_syCLASS_MAKEDOC_INFO;
+  meltcdat->dtup_141_syCLASS_MAKEDOC_INFO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_FIELD_SEQUENCE))));
-  meltcdat->dtup_141__CLASS_MAKEDOC_INFO.nbval = 17;
+  meltcdat->dtup_141_syCLASS_MAKEDOC_INFO.nbval = 17;
 
 /*iniobj dsym_142__MKDOC_PRIMITIVES*/
   /*uniqueobj*/ if (! /*_._VALDATA___V257*/ meltfptr[256])
@@ -12402,17 +12430,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_186__MKDOC_FORMALOCCMAP.obj_len = 3;
 
 
-/*inistring dstr_187__MKDOC_FORMALOCCM*/
+/*inistring dstr_187__MKDOC_FORMALOCCMAP*/
  /*_._VALSTR___V280*/ meltfptr[279] =
-    (melt_ptr_t) & meltcdat->dstr_187__MKDOC_FORMALOCCM;
-  meltcdat->dstr_187__MKDOC_FORMALOCCM.discr =
+    (melt_ptr_t) & meltcdat->dstr_187__MKDOC_FORMALOCCMAP;
+  meltcdat->dstr_187__MKDOC_FORMALOCCMAP.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_187__MKDOC_FORMALOCCM.val,
+  /*small inistring */ strncpy (meltcdat->dstr_187__MKDOC_FORMALOCCMAP.val,
 				"MKDOC_FORMALOCCMAP",
-				sizeof (meltcdat->dstr_187__MKDOC_FORMALOCCM.
-					val) - 1);
-  meltcdat->dstr_187__MKDOC_FORMALOCCM.val[18] = (char) 0;
-  meltcdat->dstr_187__MKDOC_FORMALOCCM.slen = 18;
+				sizeof (meltcdat->
+					dstr_187__MKDOC_FORMALOCCMAP.val) -
+				1);
+  meltcdat->dstr_187__MKDOC_FORMALOCCMAP.val[18] = (char) 0;
+  meltcdat->dstr_187__MKDOC_FORMALOCCMAP.slen = 18;
 
   /*^iniobj */
 
@@ -12437,17 +12466,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_188__MKDOC_FORMALOCCMAP.obj_len = 4;
 
 
-/*inistring dstr_189__MKDOC_FORMALOCCM*/
+/*inistring dstr_189__MKDOC_FORMALOCCMAP*/
  /*_._VALSTR___V247*/ meltfptr[246] =
-    (melt_ptr_t) & meltcdat->dstr_189__MKDOC_FORMALOCCM;
-  meltcdat->dstr_189__MKDOC_FORMALOCCM.discr =
+    (melt_ptr_t) & meltcdat->dstr_189__MKDOC_FORMALOCCMAP;
+  meltcdat->dstr_189__MKDOC_FORMALOCCMAP.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_189__MKDOC_FORMALOCCM.val,
+  /*small inistring */ strncpy (meltcdat->dstr_189__MKDOC_FORMALOCCMAP.val,
 				"MKDOC_FORMALOCCMAP",
-				sizeof (meltcdat->dstr_189__MKDOC_FORMALOCCM.
-					val) - 1);
-  meltcdat->dstr_189__MKDOC_FORMALOCCM.val[18] = (char) 0;
-  meltcdat->dstr_189__MKDOC_FORMALOCCM.slen = 18;
+				sizeof (meltcdat->
+					dstr_189__MKDOC_FORMALOCCMAP.val) -
+				1);
+  meltcdat->dstr_189__MKDOC_FORMALOCCMAP.val[18] = (char) 0;
+  meltcdat->dstr_189__MKDOC_FORMALOCCMAP.slen = 18;
 
 
 /*iniobj dsym_190__MKDOC_PREDEFMAP*/
@@ -12609,17 +12639,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_198__MKDOC_SUBCLASSMAP.obj_len = 3;
 
 
-/*inistring dstr_199__MKDOC_SUBCLASSMA*/
+/*inistring dstr_199__MKDOC_SUBCLASSMAP*/
  /*_._VALSTR___V286*/ meltfptr[285] =
-    (melt_ptr_t) & meltcdat->dstr_199__MKDOC_SUBCLASSMA;
-  meltcdat->dstr_199__MKDOC_SUBCLASSMA.discr =
+    (melt_ptr_t) & meltcdat->dstr_199__MKDOC_SUBCLASSMAP;
+  meltcdat->dstr_199__MKDOC_SUBCLASSMAP.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_199__MKDOC_SUBCLASSMA.val,
+  /*small inistring */ strncpy (meltcdat->dstr_199__MKDOC_SUBCLASSMAP.val,
 				"MKDOC_SUBCLASSMAP",
-				sizeof (meltcdat->dstr_199__MKDOC_SUBCLASSMA.
+				sizeof (meltcdat->dstr_199__MKDOC_SUBCLASSMAP.
 					val) - 1);
-  meltcdat->dstr_199__MKDOC_SUBCLASSMA.val[17] = (char) 0;
-  meltcdat->dstr_199__MKDOC_SUBCLASSMA.slen = 17;
+  meltcdat->dstr_199__MKDOC_SUBCLASSMAP.val[17] = (char) 0;
+  meltcdat->dstr_199__MKDOC_SUBCLASSMAP.slen = 17;
 
   /*^iniobj */
 
@@ -12644,17 +12674,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_200__MKDOC_SUBCLASSMAP.obj_len = 4;
 
 
-/*inistring dstr_201__MKDOC_SUBCLASSMA*/
+/*inistring dstr_201__MKDOC_SUBCLASSMAP*/
  /*_._VALSTR___V253*/ meltfptr[252] =
-    (melt_ptr_t) & meltcdat->dstr_201__MKDOC_SUBCLASSMA;
-  meltcdat->dstr_201__MKDOC_SUBCLASSMA.discr =
+    (melt_ptr_t) & meltcdat->dstr_201__MKDOC_SUBCLASSMAP;
+  meltcdat->dstr_201__MKDOC_SUBCLASSMAP.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_201__MKDOC_SUBCLASSMA.val,
+  /*small inistring */ strncpy (meltcdat->dstr_201__MKDOC_SUBCLASSMAP.val,
 				"MKDOC_SUBCLASSMAP",
-				sizeof (meltcdat->dstr_201__MKDOC_SUBCLASSMA.
+				sizeof (meltcdat->dstr_201__MKDOC_SUBCLASSMAP.
 					val) - 1);
-  meltcdat->dstr_201__MKDOC_SUBCLASSMA.val[17] = (char) 0;
-  meltcdat->dstr_201__MKDOC_SUBCLASSMA.slen = 17;
+  meltcdat->dstr_201__MKDOC_SUBCLASSMAP.val[17] = (char) 0;
+  meltcdat->dstr_201__MKDOC_SUBCLASSMAP.slen = 17;
 
 
 /*iniobj dsym_202__MKDOC_BOXCOUNTER*/
@@ -12735,7 +12765,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_206__INCREMENT_MKDOC_COUNTER.nbval = 1;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_206__INCREMENT_MKDOC_COUNTER,
-			     meltrout_13_WARMELTmiMODES_INCREMENT_MKDOC_COUNTER);
+			     meltrout_13_WARMELTmiMODESINCREMENT_MKDOC_COUNTER);
 
   /*iniclos dclo_207__INCREMENT_MKDOC_COUNTER */
  /*_._VALCLO___V290*/ meltfptr[289] =
@@ -12754,7 +12784,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_208__MAKEDOC_SCANINPUT.nbval = 33;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_208__MAKEDOC_SCANINPUT,
-			     meltrout_14_WARMELTmiMODES_MAKEDOC_SCANINPUT);
+			     meltrout_14_WARMELTmiMODESMAKEDOC_SCANINPUT);
 
   /*iniclos dclo_209__MAKEDOC_SCANINPUT */
  /*_._VALCLO___V296*/ meltfptr[295] =
@@ -12772,7 +12802,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:494", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_210__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_210__LAMBDA_,
-			     meltrout_15_WARMELTmiMODES_LAMBDA___6__);
+			     meltrout_15_WARMELTmiMODESLAMBDA_cl6);
 
 
 /*iniobj dsym_211__CLASS_SYMBOL*/
@@ -12817,7 +12847,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:507", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_213__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_213__LAMBDA_,
-			     meltrout_16_WARMELTmiMODES_LAMBDA___7__);
+			     meltrout_16_WARMELTmiMODESLAMBDA_cl7);
 
   /*inirout drout_214__LAMBDA_ */
  /*_._VALROUT___V294*/ meltfptr[293] =
@@ -12828,7 +12858,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:517", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_214__LAMBDA_.nbval = 4;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_214__LAMBDA_,
-			     meltrout_17_WARMELTmiMODES_LAMBDA___8__);
+			     meltrout_17_WARMELTmiMODESLAMBDA_cl8);
 
 
 /*iniobj dsym_215__CLASS_FORMAL_BINDING*/
@@ -12852,17 +12882,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_215__CLASS_FORMAL_BINDING.obj_len = 3;
 
 
-/*inistring dstr_216__CLASS_FORMAL_BIN*/
+/*inistring dstr_216__CLASS_FORMAL_BINDING*/
  /*_._VALSTR___V300*/ meltfptr[299] =
-    (melt_ptr_t) & meltcdat->dstr_216__CLASS_FORMAL_BIN;
-  meltcdat->dstr_216__CLASS_FORMAL_BIN.discr =
+    (melt_ptr_t) & meltcdat->dstr_216__CLASS_FORMAL_BINDING;
+  meltcdat->dstr_216__CLASS_FORMAL_BINDING.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_216__CLASS_FORMAL_BIN.val,
+  /*small inistring */ strncpy (meltcdat->dstr_216__CLASS_FORMAL_BINDING.val,
 				"CLASS_FORMAL_BINDING",
-				sizeof (meltcdat->dstr_216__CLASS_FORMAL_BIN.
-					val) - 1);
-  meltcdat->dstr_216__CLASS_FORMAL_BIN.val[20] = (char) 0;
-  meltcdat->dstr_216__CLASS_FORMAL_BIN.slen = 20;
+				sizeof (meltcdat->
+					dstr_216__CLASS_FORMAL_BINDING.val) -
+				1);
+  meltcdat->dstr_216__CLASS_FORMAL_BINDING.val[20] = (char) 0;
+  meltcdat->dstr_216__CLASS_FORMAL_BINDING.slen = 20;
 
 
 /*iniobj dsym_217__CLASS_SOURCE_DEFINITION*/
@@ -12886,17 +12917,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_217__CLASS_SOURCE_DEFINITION.obj_len = 3;
 
 
-/*inistring dstr_218__CLASS_SOURCE_DEF*/
+/*inistring dstr_218__CLASS_SOURCE_DEFINITION*/
  /*_._VALSTR___V302*/ meltfptr[301] =
-    (melt_ptr_t) & meltcdat->dstr_218__CLASS_SOURCE_DEF;
-  meltcdat->dstr_218__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_218__CLASS_SOURCE_DEFINITION;
+  meltcdat->dstr_218__CLASS_SOURCE_DEFINITION.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_218__CLASS_SOURCE_DEF.val,
-				"CLASS_SOURCE_DEFINITION",
-				sizeof (meltcdat->dstr_218__CLASS_SOURCE_DEF.
+  /*small inistring */ strncpy (meltcdat->dstr_218__CLASS_SOURCE_DEFINITION.
+				val, "CLASS_SOURCE_DEFINITION",
+				sizeof (meltcdat->
+					dstr_218__CLASS_SOURCE_DEFINITION.
 					val) - 1);
-  meltcdat->dstr_218__CLASS_SOURCE_DEF.val[23] = (char) 0;
-  meltcdat->dstr_218__CLASS_SOURCE_DEF.slen = 23;
+  meltcdat->dstr_218__CLASS_SOURCE_DEFINITION.val[23] = (char) 0;
+  meltcdat->dstr_218__CLASS_SOURCE_DEFINITION.slen = 23;
 
 
 /*iniobj dsym_219__CLASS_ANY_BINDING*/
@@ -12920,17 +12952,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_219__CLASS_ANY_BINDING.obj_len = 3;
 
 
-/*inistring dstr_220__CLASS_ANY_BINDIN*/
+/*inistring dstr_220__CLASS_ANY_BINDING*/
  /*_._VALSTR___V304*/ meltfptr[303] =
-    (melt_ptr_t) & meltcdat->dstr_220__CLASS_ANY_BINDIN;
-  meltcdat->dstr_220__CLASS_ANY_BINDIN.discr =
+    (melt_ptr_t) & meltcdat->dstr_220__CLASS_ANY_BINDING;
+  meltcdat->dstr_220__CLASS_ANY_BINDING.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_220__CLASS_ANY_BINDIN.val,
+  /*small inistring */ strncpy (meltcdat->dstr_220__CLASS_ANY_BINDING.val,
 				"CLASS_ANY_BINDING",
-				sizeof (meltcdat->dstr_220__CLASS_ANY_BINDIN.
+				sizeof (meltcdat->dstr_220__CLASS_ANY_BINDING.
 					val) - 1);
-  meltcdat->dstr_220__CLASS_ANY_BINDIN.val[17] = (char) 0;
-  meltcdat->dstr_220__CLASS_ANY_BINDIN.slen = 17;
+  meltcdat->dstr_220__CLASS_ANY_BINDING.val[17] = (char) 0;
+  meltcdat->dstr_220__CLASS_ANY_BINDING.slen = 17;
 
 
 /*iniobj dsym_221__DISCR_LIST*/
@@ -13009,7 +13041,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:539", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_225__LAMBDA_.nbval = 19;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_225__LAMBDA_,
-			     meltrout_18_WARMELTmiMODES_LAMBDA___9__);
+			     meltrout_18_WARMELTmiMODESLAMBDA_cl9);
 
 
 /*iniobj dsym_226__CLASS_SOURCE_DEFCLASS*/
@@ -13033,17 +13065,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_226__CLASS_SOURCE_DEFCLASS.obj_len = 3;
 
 
-/*inistring dstr_227__CLASS_SOURCE_DEF*/
+/*inistring dstr_227__CLASS_SOURCE_DEFCLASS*/
  /*_._VALSTR___V310*/ meltfptr[309] =
-    (melt_ptr_t) & meltcdat->dstr_227__CLASS_SOURCE_DEF;
-  meltcdat->dstr_227__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_227__CLASS_SOURCE_DEFCLASS;
+  meltcdat->dstr_227__CLASS_SOURCE_DEFCLASS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_227__CLASS_SOURCE_DEF.val,
+  /*small inistring */ strncpy (meltcdat->dstr_227__CLASS_SOURCE_DEFCLASS.val,
 				"CLASS_SOURCE_DEFCLASS",
-				sizeof (meltcdat->dstr_227__CLASS_SOURCE_DEF.
-					val) - 1);
-  meltcdat->dstr_227__CLASS_SOURCE_DEF.val[21] = (char) 0;
-  meltcdat->dstr_227__CLASS_SOURCE_DEF.slen = 21;
+				sizeof (meltcdat->
+					dstr_227__CLASS_SOURCE_DEFCLASS.val) -
+				1);
+  meltcdat->dstr_227__CLASS_SOURCE_DEFCLASS.val[21] = (char) 0;
+  meltcdat->dstr_227__CLASS_SOURCE_DEFCLASS.slen = 21;
 
 
 /*iniobj dsym_228__CLASS_SEXPR*/
@@ -13101,17 +13134,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_230__CLASS_CLASS_BINDING.obj_len = 3;
 
 
-/*inistring dstr_231__CLASS_CLASS_BIND*/
+/*inistring dstr_231__CLASS_CLASS_BINDING*/
  /*_._VALSTR___V314*/ meltfptr[313] =
-    (melt_ptr_t) & meltcdat->dstr_231__CLASS_CLASS_BIND;
-  meltcdat->dstr_231__CLASS_CLASS_BIND.discr =
+    (melt_ptr_t) & meltcdat->dstr_231__CLASS_CLASS_BINDING;
+  meltcdat->dstr_231__CLASS_CLASS_BINDING.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_231__CLASS_CLASS_BIND.val,
+  /*small inistring */ strncpy (meltcdat->dstr_231__CLASS_CLASS_BINDING.val,
 				"CLASS_CLASS_BINDING",
-				sizeof (meltcdat->dstr_231__CLASS_CLASS_BIND.
-					val) - 1);
-  meltcdat->dstr_231__CLASS_CLASS_BIND.val[19] = (char) 0;
-  meltcdat->dstr_231__CLASS_CLASS_BIND.slen = 19;
+				sizeof (meltcdat->
+					dstr_231__CLASS_CLASS_BINDING.val) -
+				1);
+  meltcdat->dstr_231__CLASS_CLASS_BINDING.val[19] = (char) 0;
+  meltcdat->dstr_231__CLASS_CLASS_BINDING.slen = 19;
 
 
 /*iniobj dsym_232__CLASS_CLASS*/
@@ -13203,17 +13237,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_236__CLASS_SOURCE_DEFSELECTOR.obj_len = 3;
 
 
-/*inistring dstr_237__CLASS_SOURCE_DEF*/
+/*inistring dstr_237__CLASS_SOURCE_DEFSELECTOR*/
  /*_._VALSTR___V320*/ meltfptr[319] =
-    (melt_ptr_t) & meltcdat->dstr_237__CLASS_SOURCE_DEF;
-  meltcdat->dstr_237__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_237__CLASS_SOURCE_DEFSELECTOR;
+  meltcdat->dstr_237__CLASS_SOURCE_DEFSELECTOR.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_237__CLASS_SOURCE_DEF.val,
-				"CLASS_SOURCE_DEFSELECTOR",
-				sizeof (meltcdat->dstr_237__CLASS_SOURCE_DEF.
+  /*small inistring */ strncpy (meltcdat->dstr_237__CLASS_SOURCE_DEFSELECTOR.
+				val, "CLASS_SOURCE_DEFSELECTOR",
+				sizeof (meltcdat->
+					dstr_237__CLASS_SOURCE_DEFSELECTOR.
 					val) - 1);
-  meltcdat->dstr_237__CLASS_SOURCE_DEF.val[24] = (char) 0;
-  meltcdat->dstr_237__CLASS_SOURCE_DEF.slen = 24;
+  meltcdat->dstr_237__CLASS_SOURCE_DEFSELECTOR.val[24] = (char) 0;
+  meltcdat->dstr_237__CLASS_SOURCE_DEFSELECTOR.slen = 24;
 
 
 /*iniobj dsym_238__CLASS_SOURCE_DEFINSTANCE*/
@@ -13237,17 +13272,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_238__CLASS_SOURCE_DEFINSTANCE.obj_len = 3;
 
 
-/*inistring dstr_239__CLASS_SOURCE_DEF*/
+/*inistring dstr_239__CLASS_SOURCE_DEFINSTANCE*/
  /*_._VALSTR___V322*/ meltfptr[321] =
-    (melt_ptr_t) & meltcdat->dstr_239__CLASS_SOURCE_DEF;
-  meltcdat->dstr_239__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_239__CLASS_SOURCE_DEFINSTANCE;
+  meltcdat->dstr_239__CLASS_SOURCE_DEFINSTANCE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_239__CLASS_SOURCE_DEF.val,
-				"CLASS_SOURCE_DEFINSTANCE",
-				sizeof (meltcdat->dstr_239__CLASS_SOURCE_DEF.
+  /*small inistring */ strncpy (meltcdat->dstr_239__CLASS_SOURCE_DEFINSTANCE.
+				val, "CLASS_SOURCE_DEFINSTANCE",
+				sizeof (meltcdat->
+					dstr_239__CLASS_SOURCE_DEFINSTANCE.
 					val) - 1);
-  meltcdat->dstr_239__CLASS_SOURCE_DEF.val[24] = (char) 0;
-  meltcdat->dstr_239__CLASS_SOURCE_DEF.slen = 24;
+  meltcdat->dstr_239__CLASS_SOURCE_DEFINSTANCE.val[24] = (char) 0;
+  meltcdat->dstr_239__CLASS_SOURCE_DEFINSTANCE.slen = 24;
 
 
 /*iniobj dsym_240__CLASS_SOURCE_DEFPRIMITIVE*/
@@ -13271,17 +13307,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_240__CLASS_SOURCE_DEFPRIMITIVE.obj_len = 3;
 
 
-/*inistring dstr_241__CLASS_SOURCE_DEF*/
+/*inistring dstr_241__CLASS_SOURCE_DEFPRIMITIV*/
  /*_._VALSTR___V324*/ meltfptr[323] =
-    (melt_ptr_t) & meltcdat->dstr_241__CLASS_SOURCE_DEF;
-  meltcdat->dstr_241__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_241__CLASS_SOURCE_DEFPRIMITIV;
+  meltcdat->dstr_241__CLASS_SOURCE_DEFPRIMITIV.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_241__CLASS_SOURCE_DEF.val,
-				"CLASS_SOURCE_DEFPRIMITIVE",
-				sizeof (meltcdat->dstr_241__CLASS_SOURCE_DEF.
+  /*small inistring */ strncpy (meltcdat->dstr_241__CLASS_SOURCE_DEFPRIMITIV.
+				val, "CLASS_SOURCE_DEFPRIMITIVE",
+				sizeof (meltcdat->
+					dstr_241__CLASS_SOURCE_DEFPRIMITIV.
 					val) - 1);
-  meltcdat->dstr_241__CLASS_SOURCE_DEF.val[25] = (char) 0;
-  meltcdat->dstr_241__CLASS_SOURCE_DEF.slen = 25;
+  meltcdat->dstr_241__CLASS_SOURCE_DEFPRIMITIV.val[25] = (char) 0;
+  meltcdat->dstr_241__CLASS_SOURCE_DEFPRIMITIV.slen = 25;
 
 
 /*iniobj dsym_242__CLASS_SOURCE_DEFUN*/
@@ -13305,17 +13342,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_242__CLASS_SOURCE_DEFUN.obj_len = 3;
 
 
-/*inistring dstr_243__CLASS_SOURCE_DEF*/
+/*inistring dstr_243__CLASS_SOURCE_DEFUN*/
  /*_._VALSTR___V326*/ meltfptr[325] =
-    (melt_ptr_t) & meltcdat->dstr_243__CLASS_SOURCE_DEF;
-  meltcdat->dstr_243__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_243__CLASS_SOURCE_DEFUN;
+  meltcdat->dstr_243__CLASS_SOURCE_DEFUN.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_243__CLASS_SOURCE_DEF.val,
+  /*small inistring */ strncpy (meltcdat->dstr_243__CLASS_SOURCE_DEFUN.val,
 				"CLASS_SOURCE_DEFUN",
-				sizeof (meltcdat->dstr_243__CLASS_SOURCE_DEF.
-					val) - 1);
-  meltcdat->dstr_243__CLASS_SOURCE_DEF.val[18] = (char) 0;
-  meltcdat->dstr_243__CLASS_SOURCE_DEF.slen = 18;
+				sizeof (meltcdat->
+					dstr_243__CLASS_SOURCE_DEFUN.val) -
+				1);
+  meltcdat->dstr_243__CLASS_SOURCE_DEFUN.val[18] = (char) 0;
+  meltcdat->dstr_243__CLASS_SOURCE_DEFUN.slen = 18;
 
 
 /*iniobj dsym_244__CLASS_SOURCE_DEFCITERATOR*/
@@ -13339,17 +13377,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_244__CLASS_SOURCE_DEFCITERATOR.obj_len = 3;
 
 
-/*inistring dstr_245__CLASS_SOURCE_DEF*/
+/*inistring dstr_245__CLASS_SOURCE_DEFCITERATO*/
  /*_._VALSTR___V328*/ meltfptr[327] =
-    (melt_ptr_t) & meltcdat->dstr_245__CLASS_SOURCE_DEF;
-  meltcdat->dstr_245__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_245__CLASS_SOURCE_DEFCITERATO;
+  meltcdat->dstr_245__CLASS_SOURCE_DEFCITERATO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_245__CLASS_SOURCE_DEF.val,
-				"CLASS_SOURCE_DEFCITERATOR",
-				sizeof (meltcdat->dstr_245__CLASS_SOURCE_DEF.
+  /*small inistring */ strncpy (meltcdat->dstr_245__CLASS_SOURCE_DEFCITERATO.
+				val, "CLASS_SOURCE_DEFCITERATOR",
+				sizeof (meltcdat->
+					dstr_245__CLASS_SOURCE_DEFCITERATO.
 					val) - 1);
-  meltcdat->dstr_245__CLASS_SOURCE_DEF.val[25] = (char) 0;
-  meltcdat->dstr_245__CLASS_SOURCE_DEF.slen = 25;
+  meltcdat->dstr_245__CLASS_SOURCE_DEFCITERATO.val[25] = (char) 0;
+  meltcdat->dstr_245__CLASS_SOURCE_DEFCITERATO.slen = 25;
 
 
 /*iniobj dsym_246__CLASS_SOURCE_DEFCMATCHER*/
@@ -13373,17 +13412,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_246__CLASS_SOURCE_DEFCMATCHER.obj_len = 3;
 
 
-/*inistring dstr_247__CLASS_SOURCE_DEF*/
+/*inistring dstr_247__CLASS_SOURCE_DEFCMATCHER*/
  /*_._VALSTR___V330*/ meltfptr[329] =
-    (melt_ptr_t) & meltcdat->dstr_247__CLASS_SOURCE_DEF;
-  meltcdat->dstr_247__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_247__CLASS_SOURCE_DEFCMATCHER;
+  meltcdat->dstr_247__CLASS_SOURCE_DEFCMATCHER.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_247__CLASS_SOURCE_DEF.val,
-				"CLASS_SOURCE_DEFCMATCHER",
-				sizeof (meltcdat->dstr_247__CLASS_SOURCE_DEF.
+  /*small inistring */ strncpy (meltcdat->dstr_247__CLASS_SOURCE_DEFCMATCHER.
+				val, "CLASS_SOURCE_DEFCMATCHER",
+				sizeof (meltcdat->
+					dstr_247__CLASS_SOURCE_DEFCMATCHER.
 					val) - 1);
-  meltcdat->dstr_247__CLASS_SOURCE_DEF.val[24] = (char) 0;
-  meltcdat->dstr_247__CLASS_SOURCE_DEF.slen = 24;
+  meltcdat->dstr_247__CLASS_SOURCE_DEFCMATCHER.val[24] = (char) 0;
+  meltcdat->dstr_247__CLASS_SOURCE_DEFCMATCHER.slen = 24;
 
 
 /*iniobj dsym_248__CLASS_SOURCE_EXPORT_PATMACRO*/
@@ -13407,17 +13447,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_248__CLASS_SOURCE_EXPORT_PATMACRO.obj_len = 3;
 
 
-/*inistring dstr_249__CLASS_SOURCE_EXP*/
+/*inistring dstr_249__CLASS_SOURCE_EXPORT_PATM*/
  /*_._VALSTR___V332*/ meltfptr[331] =
-    (melt_ptr_t) & meltcdat->dstr_249__CLASS_SOURCE_EXP;
-  meltcdat->dstr_249__CLASS_SOURCE_EXP.discr =
+    (melt_ptr_t) & meltcdat->dstr_249__CLASS_SOURCE_EXPORT_PATM;
+  meltcdat->dstr_249__CLASS_SOURCE_EXPORT_PATM.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_249__CLASS_SOURCE_EXP.val,
-				"CLASS_SOURCE_EXPORT_PATMACRO",
-				sizeof (meltcdat->dstr_249__CLASS_SOURCE_EXP.
+  /*small inistring */ strncpy (meltcdat->dstr_249__CLASS_SOURCE_EXPORT_PATM.
+				val, "CLASS_SOURCE_EXPORT_PATMACRO",
+				sizeof (meltcdat->
+					dstr_249__CLASS_SOURCE_EXPORT_PATM.
 					val) - 1);
-  meltcdat->dstr_249__CLASS_SOURCE_EXP.val[28] = (char) 0;
-  meltcdat->dstr_249__CLASS_SOURCE_EXP.slen = 28;
+  meltcdat->dstr_249__CLASS_SOURCE_EXPORT_PATM.val[28] = (char) 0;
+  meltcdat->dstr_249__CLASS_SOURCE_EXPORT_PATM.slen = 28;
 
 
 /*iniobj dsym_250__CLASS_SOURCE_EXPORT_MACRO*/
@@ -13441,17 +13482,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_250__CLASS_SOURCE_EXPORT_MACRO.obj_len = 3;
 
 
-/*inistring dstr_251__CLASS_SOURCE_EXP*/
+/*inistring dstr_251__CLASS_SOURCE_EXPORT_MACR*/
  /*_._VALSTR___V334*/ meltfptr[333] =
-    (melt_ptr_t) & meltcdat->dstr_251__CLASS_SOURCE_EXP;
-  meltcdat->dstr_251__CLASS_SOURCE_EXP.discr =
+    (melt_ptr_t) & meltcdat->dstr_251__CLASS_SOURCE_EXPORT_MACR;
+  meltcdat->dstr_251__CLASS_SOURCE_EXPORT_MACR.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_251__CLASS_SOURCE_EXP.val,
-				"CLASS_SOURCE_EXPORT_MACRO",
-				sizeof (meltcdat->dstr_251__CLASS_SOURCE_EXP.
+  /*small inistring */ strncpy (meltcdat->dstr_251__CLASS_SOURCE_EXPORT_MACR.
+				val, "CLASS_SOURCE_EXPORT_MACRO",
+				sizeof (meltcdat->
+					dstr_251__CLASS_SOURCE_EXPORT_MACR.
 					val) - 1);
-  meltcdat->dstr_251__CLASS_SOURCE_EXP.val[25] = (char) 0;
-  meltcdat->dstr_251__CLASS_SOURCE_EXP.slen = 25;
+  meltcdat->dstr_251__CLASS_SOURCE_EXPORT_MACR.val[25] = (char) 0;
+  meltcdat->dstr_251__CLASS_SOURCE_EXPORT_MACR.slen = 25;
 
 
 /*iniobj dsym_252__CLASS_SOURCE_DEFHOOK*/
@@ -13475,17 +13517,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_252__CLASS_SOURCE_DEFHOOK.obj_len = 3;
 
 
-/*inistring dstr_253__CLASS_SOURCE_DEF*/
+/*inistring dstr_253__CLASS_SOURCE_DEFHOOK*/
  /*_._VALSTR___V336*/ meltfptr[335] =
-    (melt_ptr_t) & meltcdat->dstr_253__CLASS_SOURCE_DEF;
-  meltcdat->dstr_253__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_253__CLASS_SOURCE_DEFHOOK;
+  meltcdat->dstr_253__CLASS_SOURCE_DEFHOOK.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_253__CLASS_SOURCE_DEF.val,
+  /*small inistring */ strncpy (meltcdat->dstr_253__CLASS_SOURCE_DEFHOOK.val,
 				"CLASS_SOURCE_DEFHOOK",
-				sizeof (meltcdat->dstr_253__CLASS_SOURCE_DEF.
-					val) - 1);
-  meltcdat->dstr_253__CLASS_SOURCE_DEF.val[20] = (char) 0;
-  meltcdat->dstr_253__CLASS_SOURCE_DEF.slen = 20;
+				sizeof (meltcdat->
+					dstr_253__CLASS_SOURCE_DEFHOOK.val) -
+				1);
+  meltcdat->dstr_253__CLASS_SOURCE_DEFHOOK.val[20] = (char) 0;
+  meltcdat->dstr_253__CLASS_SOURCE_DEFHOOK.slen = 20;
 
   /*inirout drout_254__MAKEDOC_OUTDEFLOC */
  /*_._VALROUT___V337*/ meltfptr[336] =
@@ -13497,7 +13540,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_254__MAKEDOC_OUTDEFLOC.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_254__MAKEDOC_OUTDEFLOC,
-			     meltrout_19_WARMELTmiMODES_MAKEDOC_OUTDEFLOC);
+			     meltrout_19_WARMELTmiMODESMAKEDOC_OUTDEFLOC);
 
   /*iniclos dclo_255__MAKEDOC_OUTDEFLOC */
  /*_._VALCLO___V338*/ meltfptr[337] =
@@ -13550,7 +13593,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_258__MAKEDOC_OUTFORMALS.nbval = 4;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_258__MAKEDOC_OUTFORMALS,
-			     meltrout_20_WARMELTmiMODES_MAKEDOC_OUTFORMALS);
+			     meltrout_20_WARMELTmiMODESMAKEDOC_OUTFORMALS);
 
   /*iniclos dclo_259__MAKEDOC_OUTFORMALS */
  /*_._VALCLO___V342*/ meltfptr[341] =
@@ -13581,17 +13624,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_260__CLASS_QUASI_CTYPE.obj_len = 3;
 
 
-/*inistring dstr_261__CLASS_QUASI_CTYP*/
+/*inistring dstr_261__CLASS_QUASI_CTYPE*/
  /*_._VALSTR___V344*/ meltfptr[343] =
-    (melt_ptr_t) & meltcdat->dstr_261__CLASS_QUASI_CTYP;
-  meltcdat->dstr_261__CLASS_QUASI_CTYP.discr =
+    (melt_ptr_t) & meltcdat->dstr_261__CLASS_QUASI_CTYPE;
+  meltcdat->dstr_261__CLASS_QUASI_CTYPE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_261__CLASS_QUASI_CTYP.val,
+  /*small inistring */ strncpy (meltcdat->dstr_261__CLASS_QUASI_CTYPE.val,
 				"CLASS_QUASI_CTYPE",
-				sizeof (meltcdat->dstr_261__CLASS_QUASI_CTYP.
+				sizeof (meltcdat->dstr_261__CLASS_QUASI_CTYPE.
 					val) - 1);
-  meltcdat->dstr_261__CLASS_QUASI_CTYP.val[17] = (char) 0;
-  meltcdat->dstr_261__CLASS_QUASI_CTYP.slen = 17;
+  meltcdat->dstr_261__CLASS_QUASI_CTYPE.val[17] = (char) 0;
+  meltcdat->dstr_261__CLASS_QUASI_CTYPE.slen = 17;
 
   /*inirout drout_262__MAKEDOC_OUTDOC */
  /*_._VALROUT___V345*/ meltfptr[344] =
@@ -13602,7 +13645,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "MAKEDOC_OUTDOC @warmelt-modes.melt:807", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_262__MAKEDOC_OUTDOC.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_262__MAKEDOC_OUTDOC,
-			     meltrout_21_WARMELTmiMODES_MAKEDOC_OUTDOC);
+			     meltrout_21_WARMELTmiMODESMAKEDOC_OUTDOC);
 
   /*iniclos dclo_263__MAKEDOC_OUTDOC */
  /*_._VALCLO___V346*/ meltfptr[345] =
@@ -13621,7 +13664,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_264__MAKEDOC_OUTCLASSDEF.nbval = 14;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_264__MAKEDOC_OUTCLASSDEF,
-			     meltrout_22_WARMELTmiMODES_MAKEDOC_OUTCLASSDEF);
+			     meltrout_22_WARMELTmiMODESMAKEDOC_OUTCLASSDEF);
 
   /*iniclos dclo_265__MAKEDOC_OUTCLASSDEF */
  /*_._VALCLO___V348*/ meltfptr[347] =
@@ -13720,17 +13763,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_270__COMPARE_NAMED_ALPHA.obj_len = 3;
 
 
-/*inistring dstr_271__COMPARE_NAMED_AL*/
+/*inistring dstr_271__COMPARE_NAMED_ALPHA*/
  /*_._VALSTR___V354*/ meltfptr[353] =
-    (melt_ptr_t) & meltcdat->dstr_271__COMPARE_NAMED_AL;
-  meltcdat->dstr_271__COMPARE_NAMED_AL.discr =
+    (melt_ptr_t) & meltcdat->dstr_271__COMPARE_NAMED_ALPHA;
+  meltcdat->dstr_271__COMPARE_NAMED_ALPHA.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_271__COMPARE_NAMED_AL.val,
+  /*small inistring */ strncpy (meltcdat->dstr_271__COMPARE_NAMED_ALPHA.val,
 				"COMPARE_NAMED_ALPHA",
-				sizeof (meltcdat->dstr_271__COMPARE_NAMED_AL.
-					val) - 1);
-  meltcdat->dstr_271__COMPARE_NAMED_AL.val[19] = (char) 0;
-  meltcdat->dstr_271__COMPARE_NAMED_AL.slen = 19;
+				sizeof (meltcdat->
+					dstr_271__COMPARE_NAMED_ALPHA.val) -
+				1);
+  meltcdat->dstr_271__COMPARE_NAMED_ALPHA.val[19] = (char) 0;
+  meltcdat->dstr_271__COMPARE_NAMED_ALPHA.slen = 19;
 
   /*inirout drout_272__MAKEDOC_GENMACRO */
  /*_._VALROUT___V355*/ meltfptr[354] =
@@ -13742,7 +13786,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_272__MAKEDOC_GENMACRO.nbval = 12;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_272__MAKEDOC_GENMACRO,
-			     meltrout_23_WARMELTmiMODES_MAKEDOC_GENMACRO);
+			     meltrout_23_WARMELTmiMODESMAKEDOC_GENMACRO);
 
   /*iniclos dclo_273__MAKEDOC_GENMACRO */
  /*_._VALCLO___V357*/ meltfptr[356] =
@@ -13760,7 +13804,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:981", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_274__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_274__LAMBDA_,
-			     meltrout_24_WARMELTmiMODES_LAMBDA___10__);
+			     meltrout_24_WARMELTmiMODESLAMBDA_cl10);
 
   /*inirout drout_275__MAKEDOC_GENPATMACRO */
  /*_._VALROUT___V358*/ meltfptr[357] =
@@ -13772,7 +13816,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_275__MAKEDOC_GENPATMACRO.nbval = 13;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_275__MAKEDOC_GENPATMACRO,
-			     meltrout_25_WARMELTmiMODES_MAKEDOC_GENPATMACRO);
+			     meltrout_25_WARMELTmiMODESMAKEDOC_GENPATMACRO);
 
   /*iniclos dclo_276__MAKEDOC_GENPATMACRO */
  /*_._VALCLO___V360*/ meltfptr[359] =
@@ -13790,7 +13834,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1050", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_277__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_277__LAMBDA_,
-			     meltrout_26_WARMELTmiMODES_LAMBDA___11__);
+			     meltrout_26_WARMELTmiMODESLAMBDA_cl11);
 
   /*inirout drout_278__MAKEDOC_GENCLASS */
  /*_._VALROUT___V361*/ meltfptr[360] =
@@ -13802,7 +13846,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_278__MAKEDOC_GENCLASS.nbval = 21;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_278__MAKEDOC_GENCLASS,
-			     meltrout_27_WARMELTmiMODES_MAKEDOC_GENCLASS);
+			     meltrout_27_WARMELTmiMODESMAKEDOC_GENCLASS);
 
   /*iniclos dclo_279__MAKEDOC_GENCLASS */
  /*_._VALCLO___V369*/ meltfptr[368] =
@@ -13841,7 +13885,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1116", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_283__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_283__LAMBDA_,
-			     meltrout_28_WARMELTmiMODES_LAMBDA___12__);
+			     meltrout_28_WARMELTmiMODESLAMBDA_cl12);
 
   /*inirout drout_284__LAMBDA_ */
  /*_._VALROUT___V366*/ meltfptr[365] =
@@ -13852,7 +13896,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1121", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_284__LAMBDA_.nbval = 1;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_284__LAMBDA_,
-			     meltrout_29_WARMELTmiMODES_LAMBDA___13__);
+			     meltrout_29_WARMELTmiMODESLAMBDA_cl13);
 
   /*inirout drout_285__LAMBDA_ */
  /*_._VALROUT___V367*/ meltfptr[366] =
@@ -13863,7 +13907,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1151", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_285__LAMBDA_.nbval = 1;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_285__LAMBDA_,
-			     meltrout_30_WARMELTmiMODES_LAMBDA___14__);
+			     meltrout_30_WARMELTmiMODESLAMBDA_cl14);
 
   /*inirout drout_286__LAMBDA_ */
  /*_._VALROUT___V368*/ meltfptr[367] =
@@ -13874,7 +13918,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1174", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_286__LAMBDA_.nbval = 3;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_286__LAMBDA_,
-			     meltrout_31_WARMELTmiMODES_LAMBDA___15__);
+			     meltrout_31_WARMELTmiMODESLAMBDA_cl15);
 
   /*inirout drout_287__MAKEDOC_OUTPRIMITIVEDEF */
  /*_._VALROUT___V370*/ meltfptr[369] =
@@ -13886,7 +13930,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_287__MAKEDOC_OUTPRIMITIVEDEF.nbval = 10;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_287__MAKEDOC_OUTPRIMITIVEDEF,
-			     meltrout_32_WARMELTmiMODES_MAKEDOC_OUTPRIMITIVEDEF);
+			     meltrout_32_WARMELTmiMODESMAKEDOC_OUTPRIMITIVEDEF);
 
   /*iniclos dclo_288__MAKEDOC_OUTPRIMITIVEDEF */
  /*_._VALCLO___V371*/ meltfptr[370] =
@@ -13917,17 +13961,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_289__CLASS_SOURCE_DEFINITION_FORMAL.obj_len = 3;
 
 
-/*inistring dstr_290__CLASS_SOURCE_DEF*/
+/*inistring dstr_290__CLASS_SOURCE_DEFINITION_*/
  /*_._VALSTR___V373*/ meltfptr[372] =
-    (melt_ptr_t) & meltcdat->dstr_290__CLASS_SOURCE_DEF;
-  meltcdat->dstr_290__CLASS_SOURCE_DEF.discr =
+    (melt_ptr_t) & meltcdat->dstr_290__CLASS_SOURCE_DEFINITION_;
+  meltcdat->dstr_290__CLASS_SOURCE_DEFINITION_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_290__CLASS_SOURCE_DEF.val,
-				"CLASS_SOURCE_DEFINITION_FORMAL",
-				sizeof (meltcdat->dstr_290__CLASS_SOURCE_DEF.
+  /*small inistring */ strncpy (meltcdat->dstr_290__CLASS_SOURCE_DEFINITION_.
+				val, "CLASS_SOURCE_DEFINITION_FORMAL",
+				sizeof (meltcdat->
+					dstr_290__CLASS_SOURCE_DEFINITION_.
 					val) - 1);
-  meltcdat->dstr_290__CLASS_SOURCE_DEF.val[30] = (char) 0;
-  meltcdat->dstr_290__CLASS_SOURCE_DEF.slen = 30;
+  meltcdat->dstr_290__CLASS_SOURCE_DEFINITION_.val[30] = (char) 0;
+  meltcdat->dstr_290__CLASS_SOURCE_DEFINITION_.slen = 30;
 
   /*inirout drout_291__MAKEDOC_GENPRIMITIVE */
  /*_._VALROUT___V374*/ meltfptr[373] =
@@ -13939,7 +13984,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_291__MAKEDOC_GENPRIMITIVE.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_291__MAKEDOC_GENPRIMITIVE,
-			     meltrout_33_WARMELTmiMODES_MAKEDOC_GENPRIMITIVE);
+			     meltrout_33_WARMELTmiMODESMAKEDOC_GENPRIMITIVE);
 
   /*iniclos dclo_292__MAKEDOC_GENPRIMITIVE */
  /*_._VALCLO___V376*/ meltfptr[375] =
@@ -13957,7 +14002,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1277", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_293__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_293__LAMBDA_,
-			     meltrout_34_WARMELTmiMODES_LAMBDA___16__);
+			     meltrout_34_WARMELTmiMODESLAMBDA_cl16);
 
   /*inirout drout_294__MAKEDOC_OUTFUNCTIONDEF */
  /*_._VALROUT___V377*/ meltfptr[376] =
@@ -13969,7 +14014,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_294__MAKEDOC_OUTFUNCTIONDEF.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_294__MAKEDOC_OUTFUNCTIONDEF,
-			     meltrout_35_WARMELTmiMODES_MAKEDOC_OUTFUNCTIONDEF);
+			     meltrout_35_WARMELTmiMODESMAKEDOC_OUTFUNCTIONDEF);
 
   /*iniclos dclo_295__MAKEDOC_OUTFUNCTIONDEF */
  /*_._VALCLO___V378*/ meltfptr[377] =
@@ -13988,7 +14033,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_296__MAKEDOC_GENFUNCTION.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_296__MAKEDOC_GENFUNCTION,
-			     meltrout_36_WARMELTmiMODES_MAKEDOC_GENFUNCTION);
+			     meltrout_36_WARMELTmiMODESMAKEDOC_GENFUNCTION);
 
   /*iniclos dclo_297__MAKEDOC_GENFUNCTION */
  /*_._VALCLO___V381*/ meltfptr[380] =
@@ -14006,7 +14051,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1340", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_298__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_298__LAMBDA_,
-			     meltrout_37_WARMELTmiMODES_LAMBDA___17__);
+			     meltrout_37_WARMELTmiMODESLAMBDA_cl17);
 
   /*inirout drout_299__MAKEDOC_GENCITERATOR */
  /*_._VALROUT___V382*/ meltfptr[381] =
@@ -14018,7 +14063,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_299__MAKEDOC_GENCITERATOR.nbval = 16;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_299__MAKEDOC_GENCITERATOR,
-			     meltrout_38_WARMELTmiMODES_MAKEDOC_GENCITERATOR);
+			     meltrout_38_WARMELTmiMODESMAKEDOC_GENCITERATOR);
 
   /*iniclos dclo_300__MAKEDOC_GENCITERATOR */
  /*_._VALCLO___V384*/ meltfptr[383] =
@@ -14036,7 +14081,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1376", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_301__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_301__LAMBDA_,
-			     meltrout_39_WARMELTmiMODES_LAMBDA___18__);
+			     meltrout_39_WARMELTmiMODESLAMBDA_cl18);
 
 
 /*iniobj dsym_302__CLASS_CITERATOR*/
@@ -14082,7 +14127,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_304__MAKEDOC_GENCMATCHER.nbval = 18;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_304__MAKEDOC_GENCMATCHER,
-			     meltrout_40_WARMELTmiMODES_MAKEDOC_GENCMATCHER);
+			     meltrout_40_WARMELTmiMODESMAKEDOC_GENCMATCHER);
 
   /*iniclos dclo_305__MAKEDOC_GENCMATCHER */
  /*_._VALCLO___V389*/ meltfptr[388] =
@@ -14100,7 +14145,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1438", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_306__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_306__LAMBDA_,
-			     meltrout_41_WARMELTmiMODES_LAMBDA___19__);
+			     meltrout_41_WARMELTmiMODESLAMBDA_cl19);
 
 
 /*iniobj dsym_307__CLASS_ANY_MATCHER*/
@@ -14124,17 +14169,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_307__CLASS_ANY_MATCHER.obj_len = 3;
 
 
-/*inistring dstr_308__CLASS_ANY_MATCHE*/
+/*inistring dstr_308__CLASS_ANY_MATCHER*/
  /*_._VALSTR___V391*/ meltfptr[390] =
-    (melt_ptr_t) & meltcdat->dstr_308__CLASS_ANY_MATCHE;
-  meltcdat->dstr_308__CLASS_ANY_MATCHE.discr =
+    (melt_ptr_t) & meltcdat->dstr_308__CLASS_ANY_MATCHER;
+  meltcdat->dstr_308__CLASS_ANY_MATCHER.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_308__CLASS_ANY_MATCHE.val,
+  /*small inistring */ strncpy (meltcdat->dstr_308__CLASS_ANY_MATCHER.val,
 				"CLASS_ANY_MATCHER",
-				sizeof (meltcdat->dstr_308__CLASS_ANY_MATCHE.
+				sizeof (meltcdat->dstr_308__CLASS_ANY_MATCHER.
 					val) - 1);
-  meltcdat->dstr_308__CLASS_ANY_MATCHE.val[17] = (char) 0;
-  meltcdat->dstr_308__CLASS_ANY_MATCHE.slen = 17;
+  meltcdat->dstr_308__CLASS_ANY_MATCHER.val[17] = (char) 0;
+  meltcdat->dstr_308__CLASS_ANY_MATCHER.slen = 17;
 
   /*inirout drout_309__MAKEDOC_GENHOOK */
  /*_._VALROUT___V392*/ meltfptr[391] =
@@ -14146,7 +14191,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_309__MAKEDOC_GENHOOK.nbval = 18;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_309__MAKEDOC_GENHOOK,
-			     meltrout_42_WARMELTmiMODES_MAKEDOC_GENHOOK);
+			     meltrout_42_WARMELTmiMODESMAKEDOC_GENHOOK);
 
   /*iniclos dclo_310__MAKEDOC_GENHOOK */
  /*_._VALCLO___V394*/ meltfptr[393] =
@@ -14164,7 +14209,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1512", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_311__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_311__LAMBDA_,
-			     meltrout_43_WARMELTmiMODES_LAMBDA___20__);
+			     meltrout_43_WARMELTmiMODESLAMBDA_cl20);
 
   /*inirout drout_312__MAKEDOC_GENOUTPUT */
  /*_._VALROUT___V395*/ meltfptr[394] =
@@ -14176,7 +14221,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_312__MAKEDOC_GENOUTPUT.nbval = 12;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_312__MAKEDOC_GENOUTPUT,
-			     meltrout_44_WARMELTmiMODES_MAKEDOC_GENOUTPUT);
+			     meltrout_44_WARMELTmiMODESMAKEDOC_GENOUTPUT);
 
   /*iniclos dclo_313__MAKEDOC_GENOUTPUT */
  /*_._VALCLO___V396*/ meltfptr[395] =
@@ -14228,7 +14273,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "MAKEDOC_DOCMD @warmelt-modes.melt:1684", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_316__MAKEDOC_DOCMD.nbval = 19;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_316__MAKEDOC_DOCMD,
-			     meltrout_45_WARMELTmiMODES_MAKEDOC_DOCMD);
+			     meltrout_45_WARMELTmiMODESMAKEDOC_DOCMD);
 
   /*iniclos dclo_317__MAKEDOC_DOCMD */
  /*_._VALCLO___V401*/ meltfptr[400] =
@@ -14259,17 +14304,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_318__MELT_MODE_REFERENCE.obj_len = 3;
 
 
-/*inistring dstr_319__MELT_MODE_REFERE*/
+/*inistring dstr_319__MELT_MODE_REFERENCE*/
  /*_._VALSTR___V403*/ meltfptr[402] =
-    (melt_ptr_t) & meltcdat->dstr_319__MELT_MODE_REFERE;
-  meltcdat->dstr_319__MELT_MODE_REFERE.discr =
+    (melt_ptr_t) & meltcdat->dstr_319__MELT_MODE_REFERENCE;
+  meltcdat->dstr_319__MELT_MODE_REFERENCE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_319__MELT_MODE_REFERE.val,
+  /*small inistring */ strncpy (meltcdat->dstr_319__MELT_MODE_REFERENCE.val,
 				"MELT_MODE_REFERENCE",
-				sizeof (meltcdat->dstr_319__MELT_MODE_REFERE.
-					val) - 1);
-  meltcdat->dstr_319__MELT_MODE_REFERE.val[19] = (char) 0;
-  meltcdat->dstr_319__MELT_MODE_REFERE.slen = 19;
+				sizeof (meltcdat->
+					dstr_319__MELT_MODE_REFERENCE.val) -
+				1);
+  meltcdat->dstr_319__MELT_MODE_REFERENCE.val[19] = (char) 0;
+  meltcdat->dstr_319__MELT_MODE_REFERENCE.slen = 19;
 
   /*inirout drout_320__LAMBDA_ */
  /*_._VALROUT___V400*/ meltfptr[399] =
@@ -14280,7 +14326,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "LAMBDA_ @warmelt-modes.melt:1725", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_320__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_320__LAMBDA_,
-			     meltrout_46_WARMELTmiMODES_LAMBDA___21__);
+			     meltrout_46_WARMELTmiMODESLAMBDA_cl21);
 
 
 /*iniobj dsym_321__LIST_APPEND2LIST*/
@@ -14338,17 +14384,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_323__MACROEXPAND_TOPLEVEL_LIST.obj_len = 3;
 
 
-/*inistring dstr_324__MACROEXPAND_TOPL*/
+/*inistring dstr_324__MACROEXPAND_TOPLEVEL_LIS*/
  /*_._VALSTR___V407*/ meltfptr[406] =
-    (melt_ptr_t) & meltcdat->dstr_324__MACROEXPAND_TOPL;
-  meltcdat->dstr_324__MACROEXPAND_TOPL.discr =
+    (melt_ptr_t) & meltcdat->dstr_324__MACROEXPAND_TOPLEVEL_LIS;
+  meltcdat->dstr_324__MACROEXPAND_TOPLEVEL_LIS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_324__MACROEXPAND_TOPL.val,
-				"MACROEXPAND_TOPLEVEL_LIST",
-				sizeof (meltcdat->dstr_324__MACROEXPAND_TOPL.
+  /*small inistring */ strncpy (meltcdat->dstr_324__MACROEXPAND_TOPLEVEL_LIS.
+				val, "MACROEXPAND_TOPLEVEL_LIST",
+				sizeof (meltcdat->
+					dstr_324__MACROEXPAND_TOPLEVEL_LIS.
 					val) - 1);
-  meltcdat->dstr_324__MACROEXPAND_TOPL.val[25] = (char) 0;
-  meltcdat->dstr_324__MACROEXPAND_TOPL.slen = 25;
+  meltcdat->dstr_324__MACROEXPAND_TOPLEVEL_LIS.val[25] = (char) 0;
+  meltcdat->dstr_324__MACROEXPAND_TOPLEVEL_LIS.slen = 25;
 
 
 /*iniobj dsym_325__MACROEXPAND_1*/
@@ -14450,16 +14497,16 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_330__makedoc.slen = 7;
 
 
-/*inistring dstr_331__generate_texi_d*/
+/*inistring dstr_331__generate_texi_documenta*/
  /*_._VALSTR___V414*/ meltfptr[413] =
-    (melt_ptr_t) & meltcdat->dstr_331__generate_texi_d;
-  meltcdat->dstr_331__generate_texi_d.discr =
+    (melt_ptr_t) & meltcdat->dstr_331__generate_texi_documenta;
+  meltcdat->dstr_331__generate_texi_documenta.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_331__generate_texi_d.val, "generate .texi documentation from .melt source files;\
+  /*small inistring */ strncpy (meltcdat->dstr_331__generate_texi_documenta.val, "generate .texi documentation from .melt source files;\
 \n\n\t ARGLIST= input file, ...; OUTPUT= generated file",
-				sizeof (meltcdat->dstr_331__generate_texi_d.val) - 1);
-  meltcdat->dstr_331__generate_texi_d.val[105] = (char) 0;
-  meltcdat->dstr_331__generate_texi_d.slen = 105;
+				sizeof (meltcdat->dstr_331__generate_texi_documenta.val) - 1);
+  meltcdat->dstr_331__generate_texi_documenta.val[105] = (char) 0;
+  meltcdat->dstr_331__generate_texi_documenta.slen = 105;
 
   /*inirout drout_332__SHOWVAR_DOCMD */
  /*_._VALROUT___V415*/ meltfptr[414] =
@@ -14470,7 +14517,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "SHOWVAR_DOCMD @warmelt-modes.melt:1764", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_332__SHOWVAR_DOCMD.nbval = 6;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_332__SHOWVAR_DOCMD,
-			     meltrout_47_WARMELTmiMODES_SHOWVAR_DOCMD);
+			     meltrout_47_WARMELTmiMODESSHOWVAR_DOCMD);
 
   /*iniclos dclo_333__SHOWVAR_DOCMD */
  /*_._VALCLO___V416*/ meltfptr[415] =
@@ -14521,7 +14568,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "HELP_DOCMD @warmelt-modes.melt:1789", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_336__HELP_DOCMD.nbval = 8;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_336__HELP_DOCMD,
-			     meltrout_48_WARMELTmiMODES_HELP_DOCMD);
+			     meltrout_48_WARMELTmiMODESHELP_DOCMD);
 
   /*iniclos dclo_337__HELP_DOCMD */
  /*_._VALCLO___V420*/ meltfptr[419] =
@@ -14596,17 +14643,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_341__help.slen = 4;
 
 
-/*inistring dstr_342__MELT_help_about_*/
+/*inistring dstr_342__MELT_help_about_availabl*/
  /*_._VALSTR___V425*/ meltfptr[424] =
-    (melt_ptr_t) & meltcdat->dstr_342__MELT_help_about_;
-  meltcdat->dstr_342__MELT_help_about_.discr =
+    (melt_ptr_t) & meltcdat->dstr_342__MELT_help_about_availabl;
+  meltcdat->dstr_342__MELT_help_about_availabl.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_342__MELT_help_about_.val,
-				"MELT help about available modes.",
-				sizeof (meltcdat->dstr_342__MELT_help_about_.
+  /*small inistring */ strncpy (meltcdat->dstr_342__MELT_help_about_availabl.
+				val, "MELT help about available modes.",
+				sizeof (meltcdat->
+					dstr_342__MELT_help_about_availabl.
 					val) - 1);
-  meltcdat->dstr_342__MELT_help_about_.val[32] = (char) 0;
-  meltcdat->dstr_342__MELT_help_about_.slen = 32;
+  meltcdat->dstr_342__MELT_help_about_availabl.val[32] = (char) 0;
+  meltcdat->dstr_342__MELT_help_about_availabl.slen = 32;
 
   /*inirout drout_343__NOP_DOCMD */
  /*_._VALROUT___V426*/ meltfptr[425] =
@@ -14617,7 +14665,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 	   "NOP_DOCMD @warmelt-modes.melt:1851", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_343__NOP_DOCMD.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_343__NOP_DOCMD,
-			     meltrout_49_WARMELTmiMODES_NOP_DOCMD);
+			     meltrout_49_WARMELTmiMODESNOP_DOCMD);
 
   /*iniclos dclo_344__NOP_DOCMD */
  /*_._VALCLO___V427*/ meltfptr[426] =
@@ -14690,17 +14738,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dstr_348__nop.slen = 3;
 
 
-/*inistring dstr_349__a_mode_doing_not*/
+/*inistring dstr_349__a_mode_doing_nothing_*/
  /*_._VALSTR___V432*/ meltfptr[431] =
-    (melt_ptr_t) & meltcdat->dstr_349__a_mode_doing_not;
-  meltcdat->dstr_349__a_mode_doing_not.discr =
+    (melt_ptr_t) & meltcdat->dstr_349__a_mode_doing_nothing_;
+  meltcdat->dstr_349__a_mode_doing_nothing_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_349__a_mode_doing_not.val,
+  /*small inistring */ strncpy (meltcdat->dstr_349__a_mode_doing_nothing_.val,
 				"a mode doing nothing.",
-				sizeof (meltcdat->dstr_349__a_mode_doing_not.
-					val) - 1);
-  meltcdat->dstr_349__a_mode_doing_not.val[21] = (char) 0;
-  meltcdat->dstr_349__a_mode_doing_not.slen = 21;
+				sizeof (meltcdat->
+					dstr_349__a_mode_doing_nothing_.val) -
+				1);
+  meltcdat->dstr_349__a_mode_doing_nothing_.val[21] = (char) 0;
+  meltcdat->dstr_349__a_mode_doing_nothing_.slen = 21;
 
   /*inirout drout_350__GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC */
  /*_._VALROUT___V433*/ meltfptr[432] =
@@ -14714,7 +14763,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_350__GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC.nbval = 5;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_350__GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC,
-			     meltrout_50_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC);
+			     meltrout_50_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC);
 
   /*iniclos dclo_351__GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC */
  /*_._VALCLO___V435*/ meltfptr[434] =
@@ -14724,17 +14773,17 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dclo_351__GENERATE_RUNTYPESUPPORT_ENUM_OBJMAGIC.nbval = 0;
 
 
-/*inistring dstr_352__from_genera*/
+/*inistring dstr_352__from_generate_runty*/
  /*_._VALSTR___V434*/ meltfptr[433] =
-    (melt_ptr_t) & meltcdat->dstr_352__from_genera;
-  meltcdat->dstr_352__from_genera.discr =
+    (melt_ptr_t) & meltcdat->dstr_352__from_generate_runty;
+  meltcdat->dstr_352__from_generate_runty.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_352__from_genera.val, " /** from generate_runtypesupport_enum_objmagic **/\
+  /*small inistring */ strncpy (meltcdat->dstr_352__from_generate_runty.val, " /** from generate_runtypesupport_enum_objmagic **/\
 \n     enum meltobmag_en /*generated*/ { MELTOBMAG__NONE = 0,\
-\n     ", sizeof (meltcdat->dstr_352__from_genera.val) -
+\n     ", sizeof (meltcdat->dstr_352__from_generate_runty.val) -
 				1);
-  meltcdat->dstr_352__from_genera.val[117] = (char) 0;
-  meltcdat->dstr_352__from_genera.slen = 117;
+  meltcdat->dstr_352__from_generate_runty.val[117] = (char) 0;
+  meltcdat->dstr_352__from_generate_runty.slen = 117;
 
 
 /*iniobj dsym_353__CLASS_VALUE_DESCRIPTOR*/
@@ -14758,17 +14807,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_353__CLASS_VALUE_DESCRIPTOR.obj_len = 3;
 
 
-/*inistring dstr_354__CLASS_VALUE_DESC*/
+/*inistring dstr_354__CLASS_VALUE_DESCRIPTOR*/
  /*_._VALSTR___V437*/ meltfptr[436] =
-    (melt_ptr_t) & meltcdat->dstr_354__CLASS_VALUE_DESC;
-  meltcdat->dstr_354__CLASS_VALUE_DESC.discr =
+    (melt_ptr_t) & meltcdat->dstr_354__CLASS_VALUE_DESCRIPTOR;
+  meltcdat->dstr_354__CLASS_VALUE_DESCRIPTOR.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_354__CLASS_VALUE_DESC.val,
-				"CLASS_VALUE_DESCRIPTOR",
-				sizeof (meltcdat->dstr_354__CLASS_VALUE_DESC.
+  /*small inistring */ strncpy (meltcdat->dstr_354__CLASS_VALUE_DESCRIPTOR.
+				val, "CLASS_VALUE_DESCRIPTOR",
+				sizeof (meltcdat->
+					dstr_354__CLASS_VALUE_DESCRIPTOR.
 					val) - 1);
-  meltcdat->dstr_354__CLASS_VALUE_DESC.val[22] = (char) 0;
-  meltcdat->dstr_354__CLASS_VALUE_DESC.slen = 22;
+  meltcdat->dstr_354__CLASS_VALUE_DESCRIPTOR.val[22] = (char) 0;
+  meltcdat->dstr_354__CLASS_VALUE_DESCRIPTOR.slen = 22;
 
 
 /*iniobj dsym_355__CLASS_CTYPE_GTY*/
@@ -14815,7 +14865,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_357__GENERATE_RUNTYPESUPPORT_GTY.nbval = 11;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_357__GENERATE_RUNTYPESUPPORT_GTY,
-			     meltrout_51_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_GTY);
+			     meltrout_51_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_GTY);
 
   /*iniclos dclo_358__GENERATE_RUNTYPESUPPORT_GTY */
  /*_._VALCLO___V446*/ meltfptr[445] =
@@ -14825,69 +14875,69 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dclo_358__GENERATE_RUNTYPESUPPORT_GTY.nbval = 0;
 
 
-/*inistring dstr_359__ifndef_meltobj*/
+/*inistring dstr_359__ifndef_meltobject_ptr_*/
  /*_._VALSTR___V441*/ meltfptr[440] =
-    (melt_ptr_t) & meltcdat->dstr_359__ifndef_meltobj;
-  meltcdat->dstr_359__ifndef_meltobj.discr =
+    (melt_ptr_t) & meltcdat->dstr_359__ifndef_meltobject_ptr_;
+  meltcdat->dstr_359__ifndef_meltobject_ptr_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_359__ifndef_meltobj.val, "\n#ifndef meltobject_ptr_t_TYPEDEFINED\
+  /*small inistring */ strncpy (meltcdat->dstr_359__ifndef_meltobject_ptr_.val, "\n#ifndef meltobject_ptr_t_TYPEDEFINED\
 \ntypedef struct meltobject_st* meltobject_ptr_t ;\
 \n#define meltobject_ptr_t_TYPEDEFINED\
 \n#endif /*meltobject_ptr_t_TYPEDEFINED*/\n",
-				sizeof (meltcdat->dstr_359__ifndef_meltobj.val) - 1);
-  meltcdat->dstr_359__ifndef_meltobj.val[164] = (char) 0;
-  meltcdat->dstr_359__ifndef_meltobj.slen = 164;
+				sizeof (meltcdat->dstr_359__ifndef_meltobject_ptr_.val) - 1);
+  meltcdat->dstr_359__ifndef_meltobject_ptr_.val[164] = (char) 0;
+  meltcdat->dstr_359__ifndef_meltobject_ptr_.slen = 164;
 
 
-/*inistring dstr_360__ifndef_melt_pt*/
+/*inistring dstr_360__ifndef_melt_ptr_t_TYPE*/
  /*_._VALSTR___V442*/ meltfptr[441] =
-    (melt_ptr_t) & meltcdat->dstr_360__ifndef_melt_pt;
-  meltcdat->dstr_360__ifndef_melt_pt.discr =
+    (melt_ptr_t) & meltcdat->dstr_360__ifndef_melt_ptr_t_TYPE;
+  meltcdat->dstr_360__ifndef_melt_ptr_t_TYPE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_360__ifndef_melt_pt.val, "\n#ifndef melt_ptr_t_TYPEDEFINED\ntypedef union melt_un* melt_ptr_t\
+  /*small inistring */ strncpy (meltcdat->dstr_360__ifndef_melt_ptr_t_TYPE.val, "\n#ifndef melt_ptr_t_TYPEDEFINED\ntypedef union melt_un* melt_ptr_t\
  ;\n#define melt_ptr_t_TYPEDEFINED\
 \n#endif /*melt_ptr_t_TYPEDEFINED*/\n",
-				sizeof (meltcdat->dstr_360__ifndef_melt_pt.val) - 1);
-  meltcdat->dstr_360__ifndef_melt_pt.val[133] = (char) 0;
-  meltcdat->dstr_360__ifndef_melt_pt.slen = 133;
+				sizeof (meltcdat->dstr_360__ifndef_melt_ptr_t_TYPE.val) - 1);
+  meltcdat->dstr_360__ifndef_melt_ptr_t_TYPE.val[133] = (char) 0;
+  meltcdat->dstr_360__ifndef_melt_ptr_t_TYPE.slen = 133;
 
 
-/*inistring dstr_361__ifndef_meltrou*/
+/*inistring dstr_361__ifndef_meltroutine_ptr*/
  /*_._VALSTR___V443*/ meltfptr[442] =
-    (melt_ptr_t) & meltcdat->dstr_361__ifndef_meltrou;
-  meltcdat->dstr_361__ifndef_meltrou.discr =
+    (melt_ptr_t) & meltcdat->dstr_361__ifndef_meltroutine_ptr;
+  meltcdat->dstr_361__ifndef_meltroutine_ptr.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_361__ifndef_meltrou.val, "\n#ifndef meltroutine_ptr_t_TYPEDEFINED\
+  /*small inistring */ strncpy (meltcdat->dstr_361__ifndef_meltroutine_ptr.val, "\n#ifndef meltroutine_ptr_t_TYPEDEFINED\
 \ntypedef struct meltroutine_st *meltroutine_ptr_t ;\
 \n#define meltroutine_ptr_t_TYPEDEFINED\
 \n#endif /*meltroutine_ptr_t_TYPEDEFINED*/\n",
-				sizeof (meltcdat->dstr_361__ifndef_meltrou.val) - 1);
-  meltcdat->dstr_361__ifndef_meltrou.val[169] = (char) 0;
-  meltcdat->dstr_361__ifndef_meltrou.slen = 169;
+				sizeof (meltcdat->dstr_361__ifndef_meltroutine_ptr.val) - 1);
+  meltcdat->dstr_361__ifndef_meltroutine_ptr.val[169] = (char) 0;
+  meltcdat->dstr_361__ifndef_meltroutine_ptr.slen = 169;
 
 
-/*inistring dstr_362__ifndef_meltclo*/
+/*inistring dstr_362__ifndef_meltclosure_ptr*/
  /*_._VALSTR___V444*/ meltfptr[443] =
-    (melt_ptr_t) & meltcdat->dstr_362__ifndef_meltclo;
-  meltcdat->dstr_362__ifndef_meltclo.discr =
+    (melt_ptr_t) & meltcdat->dstr_362__ifndef_meltclosure_ptr;
+  meltcdat->dstr_362__ifndef_meltclosure_ptr.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_362__ifndef_meltclo.val, "\n#ifndef meltclosure_ptr_t_TYPEDEFINED\
+  /*small inistring */ strncpy (meltcdat->dstr_362__ifndef_meltclosure_ptr.val, "\n#ifndef meltclosure_ptr_t_TYPEDEFINED\
 \ntypedef struct meltclosure_st *meltclosure_ptr_t ;\
 \n#define meltclosure_ptr_t_TYPEDEFINED\
 \n#endif /*meltclosure_ptr_t_TYPEDEFINED*/\n",
-				sizeof (meltcdat->dstr_362__ifndef_meltclo.val) - 1);
-  meltcdat->dstr_362__ifndef_meltclo.val[169] = (char) 0;
-  meltcdat->dstr_362__ifndef_meltclo.slen = 169;
+				sizeof (meltcdat->dstr_362__ifndef_meltclosure_ptr.val) - 1);
+  meltcdat->dstr_362__ifndef_meltclosure_ptr.val[169] = (char) 0;
+  meltcdat->dstr_362__ifndef_meltclosure_ptr.slen = 169;
 
 
-/*inistring dstr_363__ifndef_meltrou*/
+/*inistring dstr_363__ifndef_meltroutfun_t_T*/
  /*_._VALSTR___V445*/ meltfptr[444] =
-    (melt_ptr_t) & meltcdat->dstr_363__ifndef_meltrou;
-  meltcdat->dstr_363__ifndef_meltrou.discr =
+    (melt_ptr_t) & meltcdat->dstr_363__ifndef_meltroutfun_t_T;
+  meltcdat->dstr_363__ifndef_meltroutfun_t_T.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
   /*big inistring */
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_363__ifndef_meltrou.val + 0,
+  memcpy (meltcdat->dstr_363__ifndef_meltroutfun_t_T.val + 0,
 	  "\n#ifndef meltroutfun_t_TYPEDEFINED\
 \ntypedef melt_ptr_t meltroutfu" "n_t (struct meltclosure_st* meltclosp_,\
 \n                        " "          melt_ptr_t meltfirstargp_,\
@@ -14895,18 +14945,19 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 \n            ",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_363__ifndef_meltrou.val + 256,
+  memcpy (meltcdat->dstr_363__ifndef_meltroutfun_t_T.val + 256,
 	  "                      union meltparam_un *meltxargtab_,\
 \n        " "                          const melt_argdescr_cell_t meltxresdes" "cr_[],\n                                  union meltparam_un *mel" "txrestab_) ;\n#define meltroutfun_t_TYPEDEFINED\
 \n#endif /*meltrout",
 	  /*big */ 256);
-  /*end big inistring */ strncpy (meltcdat->dstr_363__ifndef_meltrou.val +
-				  512, "fun_t_TYPEDEFINED*/\n",
-				  sizeof (meltcdat->dstr_363__ifndef_meltrou.
+  /*end big inistring */ strncpy (meltcdat->dstr_363__ifndef_meltroutfun_t_T.
+				  val + 512, "fun_t_TYPEDEFINED*/\n",
+				  sizeof (meltcdat->
+					  dstr_363__ifndef_meltroutfun_t_T.
 					  val) - 513);
 
-  meltcdat->dstr_363__ifndef_meltrou.val[532] = (char) 0;
-  meltcdat->dstr_363__ifndef_meltrou.slen = 532;
+  meltcdat->dstr_363__ifndef_meltroutfun_t_T.val[532] = (char) 0;
+  meltcdat->dstr_363__ifndef_meltroutfun_t_T.slen = 532;
 
 
 /*iniobj dsym_364__CLASS_CTYPE*/
@@ -14964,17 +15015,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dsym_366__CLASS_VARISIZED_VALUE_DESCRIPTOR.obj_len = 3;
 
 
-/*inistring dstr_367__CLASS_VARISIZED_*/
+/*inistring dstr_367__CLASS_VARISIZED_VALUE_DE*/
  /*_._VALSTR___V450*/ meltfptr[449] =
-    (melt_ptr_t) & meltcdat->dstr_367__CLASS_VARISIZED_;
-  meltcdat->dstr_367__CLASS_VARISIZED_.discr =
+    (melt_ptr_t) & meltcdat->dstr_367__CLASS_VARISIZED_VALUE_DE;
+  meltcdat->dstr_367__CLASS_VARISIZED_VALUE_DE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_367__CLASS_VARISIZED_.val,
-				"CLASS_VARISIZED_VALUE_DESCRIPTOR",
-				sizeof (meltcdat->dstr_367__CLASS_VARISIZED_.
+  /*small inistring */ strncpy (meltcdat->dstr_367__CLASS_VARISIZED_VALUE_DE.
+				val, "CLASS_VARISIZED_VALUE_DESCRIPTOR",
+				sizeof (meltcdat->
+					dstr_367__CLASS_VARISIZED_VALUE_DE.
 					val) - 1);
-  meltcdat->dstr_367__CLASS_VARISIZED_.val[32] = (char) 0;
-  meltcdat->dstr_367__CLASS_VARISIZED_.slen = 32;
+  meltcdat->dstr_367__CLASS_VARISIZED_VALUE_DE.val[32] = (char) 0;
+  meltcdat->dstr_367__CLASS_VARISIZED_VALUE_DE.slen = 32;
 
   /*inirout drout_368__GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN */
  /*_._VALROUT___V451*/ meltfptr[450] =
@@ -14988,7 +15040,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_368__GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN.nbval = 6;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_368__GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN,
-			     meltrout_52_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN);
+			     meltrout_52_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_FORWCOPY_FUN);
 
   /*iniclos dclo_369__GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN */
  /*_._VALCLO___V454*/ meltfptr[453] =
@@ -14998,43 +15050,45 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dclo_369__GENERATE_RUNTYPESUPPORT_FORWCOPY_FUN.nbval = 0;
 
 
-/*inistring dstr_370__cheney_like_*/
+/*inistring dstr_370__cheney_like_forwardi*/
  /*_._VALSTR___V452*/ meltfptr[451] =
-    (melt_ptr_t) & meltcdat->dstr_370__cheney_like_;
-  meltcdat->dstr_370__cheney_like_.discr =
+    (melt_ptr_t) & meltcdat->dstr_370__cheney_like_forwardi;
+  meltcdat->dstr_370__cheney_like_forwardi.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
   /*big inistring */
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_370__cheney_like_.val + 0,
+  memcpy (meltcdat->dstr_370__cheney_like_forwardi.val + 0,
 	  "\n/* cheney like forwarding generated function */\
 \nmelt_ptr_t \nmel" "t_forwarded_copy (melt_ptr_t p)\n{ /* header generated by generat" "e_runtypesupport_forwcopy_fun */\n  melt_ptr_t n = 0;\
 \n  int mag =" " 0;\n  gcc_assert (melt_is_young (p));\
 \n  gcc_assert (p->u_discr &",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_370__cheney_like_.val + 256,
+  memcpy (meltcdat->dstr_370__cheney_like_forwardi.val + 256,
 	  "& p->u_discr != MELT_FORWARDED_DISCR);\
 \n  if (p->u_discr->meltobj" "_class == MELT_FORWARDED_DISCR)\n    mag =\
 \n      ((meltobject_ptr" "_t)\n       (((struct meltforward_st *) p->u_discr)->forward))->m" "eltobj_magic;\n  else\n    mag = p->u_discr->meltobj_magic;\
 \n  melt",
 	  /*big */ 256);
-  /*end big inistring */ strncpy (meltcdat->dstr_370__cheney_like_.val + 512,
+  /*end big inistring */ strncpy (meltcdat->dstr_370__cheney_like_forwardi.
+				  val + 512,
 				  "_forward_counter++;\n  switch (mag) { /* end of generated header */\n",
-				  sizeof (meltcdat->dstr_370__cheney_like_.
+				  sizeof (meltcdat->
+					  dstr_370__cheney_like_forwardi.
 					  val) - 513);
 
-  meltcdat->dstr_370__cheney_like_.val[579] = (char) 0;
-  meltcdat->dstr_370__cheney_like_.slen = 579;
+  meltcdat->dstr_370__cheney_like_forwardi.val[579] = (char) 0;
+  meltcdat->dstr_370__cheney_like_forwardi.slen = 579;
 
 
-/*inistring dstr_371__trailer_gene*/
+/*inistring dstr_371__trailer_generated_by*/
  /*_._VALSTR___V453*/ meltfptr[452] =
-    (melt_ptr_t) & meltcdat->dstr_371__trailer_gene;
-  meltcdat->dstr_371__trailer_gene.discr =
+    (melt_ptr_t) & meltcdat->dstr_371__trailer_generated_by;
+  meltcdat->dstr_371__trailer_generated_by.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
   /*big inistring */
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_371__trailer_gene.val + 0,
+  memcpy (meltcdat->dstr_371__trailer_generated_by.val + 0,
 	  " /* trailer generated by generate_runtypesupport_forwcopy_fun  *"
 	  "/\n    default:\n      fatal_error (\"corruption: forward invalid p"
 	  "=%p discr=%p magic=%d\",\n\t\t   (void *) p, (void *) p->u_discr, ma"
@@ -15042,14 +15096,14 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 \n    melt_debuggc_eprintf (\"melt",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_371__trailer_gene.val + 256,
+  memcpy (meltcdat->dstr_371__trailer_generated_by.val + 256,
 	  "_forwarded_copy#%ld/%04ld %p => %p %s\", \
 \n\t\t\t  melt_nb_garbcoll, " "melt_forward_counter, (void*)p, \n                          (void" "*)n, melt_obmag_string (mag));\n  if (n)\
 \n    {\n#if ENABLE_CHECKIN" "G\n      if (melt_alptr_1 && (void*)melt_alptr_1 == (void*)n) \
 \n\t{",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_371__trailer_gene.val + 512,
+  memcpy (meltcdat->dstr_371__trailer_generated_by.val + 512,
 	  "\n\t  fprintf (stderr, \"melt_forwarded_copy to alptr_1 %p mag %d\\n"
 	  "\",  melt_alptr_1, mag);\n\t  fflush (stderr);\
 \n\t  melt_debuggc_epri" "ntf(\"melt_forwarded_copy #%ld alptr_1 %p mag %d\", \
@@ -15057,21 +15111,21 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 \n\t  melt_break_alptr_1 (\"forwa",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_371__trailer_gene.val + 768,
+  memcpy (meltcdat->dstr_371__trailer_generated_by.val + 768,
 	  "rded copy to alptr_1\");\n\t}\n      if (melt_alptr_2 && (void*)melt"
 	  "_alptr_2 == (void*)n) \n\t{\n\t  fprintf (stderr, \"melt_forwarded_co"
 	  "py to alptr_2 %p mag %d\\n\",  melt_alptr_2, mag);\
 \n\t  fflush (stde" "rr);\n\t  melt_debuggc_eprintf(\"melt_forwarded_copy #%ld alptr_2 %",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_371__trailer_gene.val + 1024,
+  memcpy (meltcdat->dstr_371__trailer_generated_by.val + 1024,
 	  "p\", \n\t\t\t       melt_nb_garbcoll, melt_alptr_2);\
 \n\t  melt_break_al" "ptr_2 (\"forwarded copy to alptr_2\");\
 \n\t};\n#endif /*ENABLE_CHECKIN" "G*/\n\n      p->u_forward.discr = MELT_FORWARDED_DISCR;\
 \n      p->u" "_forward.forward = n;\n\n      gcc_assert (melt_scangcvect != NULL",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_371__trailer_gene.val + 1280,
+  memcpy (meltcdat->dstr_371__trailer_generated_by.val + 1280,
 	  ");\n      {\n\tunsigned long ulen = melt_scangcvect->vv_ulen;\
 \n\tif (" "MELT_UNLIKELY(ulen + 3 < melt_scangcvect->vv_size)) {\
 \n\t  unsigne" "d long newsiz = (ulen + ulen/4 + 100);\
@@ -15079,17 +15133,18 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 \n\tmelt_scangcve",
 	  /*big */ 256);
   /*quite big chunk inistring */
-  memcpy (meltcdat->dstr_371__trailer_gene.val + 1536,
+  memcpy (meltcdat->dstr_371__trailer_generated_by.val + 1536,
 	  "ct->vv_ulen = ulen+1;\n      }\n\n    }\
 \n  return n;\n}  /* end of me" "lt_forwarded_copy generated by generate_runtypesupport_forwcopy_",
 	  /*lessbig */ 128);
-  /*end big inistring */ strncpy (meltcdat->dstr_371__trailer_gene.val + 1664,
-				  "fun */\n",
-				  sizeof (meltcdat->dstr_371__trailer_gene.
+  /*end big inistring */ strncpy (meltcdat->dstr_371__trailer_generated_by.
+				  val + 1664, "fun */\n",
+				  sizeof (meltcdat->
+					  dstr_371__trailer_generated_by.
 					  val) - 1665);
 
-  meltcdat->dstr_371__trailer_gene.val[1671] = (char) 0;
-  meltcdat->dstr_371__trailer_gene.slen = 1671;
+  meltcdat->dstr_371__trailer_generated_by.val[1671] = (char) 0;
+  meltcdat->dstr_371__trailer_generated_by.slen = 1671;
 
   /*inirout drout_372__GENERATE_RUNTYPESUPPORT_CLONING_FUN */
  /*_._VALROUT___V455*/ meltfptr[454] =
@@ -15102,7 +15157,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_372__GENERATE_RUNTYPESUPPORT_CLONING_FUN.nbval = 7;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_372__GENERATE_RUNTYPESUPPORT_CLONING_FUN,
-			     meltrout_53_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_CLONING_FUN);
+			     meltrout_53_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_CLONING_FUN);
 
   /*iniclos dclo_373__GENERATE_RUNTYPESUPPORT_CLONING_FUN */
  /*_._VALCLO___V456*/ meltfptr[455] =
@@ -15122,7 +15177,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_374__GENERATE_RUNTYPESUPPORT_SCANNING.nbval = 7;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_374__GENERATE_RUNTYPESUPPORT_SCANNING,
-			     meltrout_54_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_SCANNING);
+			     meltrout_54_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_SCANNING);
 
   /*iniclos dclo_375__GENERATE_RUNTYPESUPPORT_SCANNING */
  /*_._VALCLO___V460*/ meltfptr[459] =
@@ -15132,20 +15187,20 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dclo_375__GENERATE_RUNTYPESUPPORT_SCANNING.nbval = 0;
 
 
-/*inistring dstr_376__header_from_*/
+/*inistring dstr_376__header_from_generate*/
  /*_._VALSTR___V458*/ meltfptr[457] =
-    (melt_ptr_t) & meltcdat->dstr_376__header_from_;
-  meltcdat->dstr_376__header_from_.discr =
+    (melt_ptr_t) & meltcdat->dstr_376__header_from_generate;
+  meltcdat->dstr_376__header_from_generate.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
   /*big inistring */
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_376__header_from_.val + 0,
+  memcpy (meltcdat->dstr_376__header_from_generate.val + 0,
 	  " /* header from generate_runtypesupport_scanning */\
 \n/* The melt_" "scanning routine is mostly Chesney like ; however some types,\
 \n  " " including objects, strbuf, stringmaps, objectmaps, all the othe" "r\n   *maps, contain a pointer to a non value ; this pointer shou",
 	  /*big */ 256);
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_376__header_from_.val + 256,
+  memcpy (meltcdat->dstr_376__header_from_generate.val + 256,
 	  "ld be\n   carefully updated if it was young. */\
 \nstatic void\nmelt_" "scanning (melt_ptr_t p)\n{\n  unsigned omagic = 0;\
 \n  if (!p)\n    r" "eturn;\n  gcc_assert (p != (void *) HTAB_DELETED_ENTRY);\
@@ -15153,39 +15208,41 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
 \n  MELT_",
 	  /*big */ 256);
   /*quite big chunk inistring */
-  memcpy (meltcdat->dstr_376__header_from_.val + 512,
+  memcpy (meltcdat->dstr_376__header_from_generate.val + 512,
 	  "FORWARDED (p->u_discr);\n  gcc_assert (!melt_is_young (p));\
 \n  oma" "gic = p->u_discr->meltobj_magic;\n  switch (omagic)\
 \n    {\n/* end ",
 	  /*lessbig */ 128);
-  /*end big inistring */ strncpy (meltcdat->dstr_376__header_from_.val + 640,
+  /*end big inistring */ strncpy (meltcdat->dstr_376__header_from_generate.
+				  val + 640,
 				  "of header from generate_runtypesupport_scanning*/",
-				  sizeof (meltcdat->dstr_376__header_from_.
+				  sizeof (meltcdat->
+					  dstr_376__header_from_generate.
 					  val) - 641);
 
-  meltcdat->dstr_376__header_from_.val[689] = (char) 0;
-  meltcdat->dstr_376__header_from_.slen = 689;
+  meltcdat->dstr_376__header_from_generate.val[689] = (char) 0;
+  meltcdat->dstr_376__header_from_generate.slen = 689;
 
 
-/*inistring dstr_377__trailer_gene*/
+/*inistring dstr_377__trailer_generated_by*/
  /*_._VALSTR___V459*/ meltfptr[458] =
-    (melt_ptr_t) & meltcdat->dstr_377__trailer_gene;
-  meltcdat->dstr_377__trailer_gene.discr =
+    (melt_ptr_t) & meltcdat->dstr_377__trailer_generated_by;
+  meltcdat->dstr_377__trailer_generated_by.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
   /*big inistring */
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_377__trailer_gene.val + 0,
+  memcpy (meltcdat->dstr_377__trailer_generated_by.val + 0,
 	  " /* trailer generated by generate_runtypesupport_scanning */\
 \n   " " default:\n      /* gcc_unreachable (); */\
 \n      fatal_error (\"me" "lt melt_scanning GC: corrupted heap, p=%p omagic=%d\\n\",\
 \n\t\t   (vo" "id *) p, (int) omagic);\n    }\n} /* end of melt_scanning generate",
 	  /*big */ 256);
-  /*end big inistring */ strncpy (meltcdat->dstr_377__trailer_gene.val + 256, "d by generate_runtypesupport_scanning */\
-\n   ", sizeof (meltcdat->dstr_377__trailer_gene.val) -
+  /*end big inistring */ strncpy (meltcdat->dstr_377__trailer_generated_by.val + 256, "d by generate_runtypesupport_scanning */\
+\n   ", sizeof (meltcdat->dstr_377__trailer_generated_by.val) -
 				  257);
 
-  meltcdat->dstr_377__trailer_gene.val[300] = (char) 0;
-  meltcdat->dstr_377__trailer_gene.slen = 300;
+  meltcdat->dstr_377__trailer_generated_by.val[300] = (char) 0;
+  meltcdat->dstr_377__trailer_generated_by.slen = 300;
 
   /*inirout drout_378__GENERATE_RUNTYPESUPPORT_PARAM */
  /*_._VALROUT___V461*/ meltfptr[460] =
@@ -15198,7 +15255,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_378__GENERATE_RUNTYPESUPPORT_PARAM.nbval = 3;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_378__GENERATE_RUNTYPESUPPORT_PARAM,
-			     meltrout_55_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PARAM);
+			     meltrout_55_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_PARAM);
 
   /*iniclos dclo_379__GENERATE_RUNTYPESUPPORT_PARAM */
  /*_._VALCLO___V462*/ meltfptr[461] =
@@ -15218,7 +15275,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_380__GENERATE_RUNTYPESUPPORT_COD2CTYPE.nbval = 4;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_380__GENERATE_RUNTYPESUPPORT_COD2CTYPE,
-			     meltrout_56_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_COD2CTYPE);
+			     meltrout_56_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_COD2CTYPE);
 
   /*iniclos dclo_381__GENERATE_RUNTYPESUPPORT_COD2CTYPE */
  /*_._VALCLO___V464*/ meltfptr[463] =
@@ -15238,7 +15295,7 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->drout_382__GENERATE_RUNTYPESUPPORT_MAG2STR.nbval = 6;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_382__GENERATE_RUNTYPESUPPORT_MAG2STR,
-			     meltrout_57_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAG2STR);
+			     meltrout_57_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_MAG2STR);
 
   /*iniclos dclo_383__GENERATE_RUNTYPESUPPORT_MAG2STR */
  /*_._VALCLO___V468*/ meltfptr[467] =
@@ -15248,33 +15305,33 @@ initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t * iniframp__,
   meltcdat->dclo_383__GENERATE_RUNTYPESUPPORT_MAG2STR.nbval = 0;
 
 
-/*inistring dstr_384__const_char_melt*/
+/*inistring dstr_384__const_char_melt_obmag_s*/
  /*_._VALSTR___V466*/ meltfptr[465] =
-    (melt_ptr_t) & meltcdat->dstr_384__const_char_melt;
-  meltcdat->dstr_384__const_char_melt.discr =
+    (melt_ptr_t) & meltcdat->dstr_384__const_char_melt_obmag_s;
+  meltcdat->dstr_384__const_char_melt_obmag_s.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_384__const_char_melt.val, "const char* melt_obmag_string (int i) {\
+  /*small inistring */ strncpy (meltcdat->dstr_384__const_char_melt_obmag_s.val, "const char* melt_obmag_string (int i) {\
 \n#define MELT_MAG2STR_CACHEBUF 17\
 \n#define MELT_MAG2STR_MAGLEN   16\
 \n   static char melt_cacheobmagbuf[MELT_MAG2STR_CACHEBUF][MELT_MAG2STR_MAGLE\
 N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
-				sizeof (meltcdat->dstr_384__const_char_melt.val) - 1);
-  meltcdat->dstr_384__const_char_melt.val[237] = (char) 0;
-  meltcdat->dstr_384__const_char_melt.slen = 237;
+				sizeof (meltcdat->dstr_384__const_char_melt_obmag_s.val) - 1);
+  meltcdat->dstr_384__const_char_melt_obmag_s.val[237] = (char) 0;
+  meltcdat->dstr_384__const_char_melt_obmag_s.slen = 237;
 
 
-/*inistring dstr_385__default_int*/
+/*inistring dstr_385__default_int_ix_i*/
  /*_._VALSTR___V467*/ meltfptr[466] =
-    (melt_ptr_t) & meltcdat->dstr_385__default_int;
-  meltcdat->dstr_385__default_int.discr =
+    (melt_ptr_t) & meltcdat->dstr_385__default_int_ix_i;
+  meltcdat->dstr_385__default_int_ix_i.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_385__default_int.val, "default:\n  { int ix = (i & 0x3ffffff) % MELT_MAG2STR_CACHEBUF;\
+  /*small inistring */ strncpy (meltcdat->dstr_385__default_int_ix_i.val, "default:\n  { int ix = (i & 0x3ffffff) % MELT_MAG2STR_CACHEBUF;\
 \n    snprintf (melt_cacheobmagbuf[ix], MELT_MAG2STR_MAGLEN-1, \"?MeltObjMag\
 ?%d\", i);\n    return melt_cacheobmagbuf[ix];\
 \n  }\n } /* end switch */\n} /* end generated melt_obmag_string */\n",
-				sizeof (meltcdat->dstr_385__default_int.val) - 1);
-  meltcdat->dstr_385__default_int.val[245] = (char) 0;
-  meltcdat->dstr_385__default_int.slen = 245;
+				sizeof (meltcdat->dstr_385__default_int_ix_i.val) - 1);
+  meltcdat->dstr_385__default_int_ix_i.val[245] = (char) 0;
+  meltcdat->dstr_385__default_int_ix_i.slen = 245;
 
   /*inirout drout_386__GENERATE_RUNTYPESUPPORT_BOXINGFUN */
  /*_._VALROUT___V469*/ meltfptr[468] =
@@ -15287,7 +15344,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->drout_386__GENERATE_RUNTYPESUPPORT_BOXINGFUN.nbval = 6;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_386__GENERATE_RUNTYPESUPPORT_BOXINGFUN,
-			     meltrout_58_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_BOXINGFUN);
+			     meltrout_58_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_BOXINGFUN);
 
   /*iniclos dclo_387__GENERATE_RUNTYPESUPPORT_BOXINGFUN */
  /*_._VALCLO___V470*/ meltfptr[469] =
@@ -15318,17 +15375,17 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_388__SOME_STRING_VALUE.obj_len = 3;
 
 
-/*inistring dstr_389__SOME_STRING_VALU*/
+/*inistring dstr_389__SOME_STRING_VALUE*/
  /*_._VALSTR___V472*/ meltfptr[471] =
-    (melt_ptr_t) & meltcdat->dstr_389__SOME_STRING_VALU;
-  meltcdat->dstr_389__SOME_STRING_VALU.discr =
+    (melt_ptr_t) & meltcdat->dstr_389__SOME_STRING_VALUE;
+  meltcdat->dstr_389__SOME_STRING_VALUE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_389__SOME_STRING_VALU.val,
+  /*small inistring */ strncpy (meltcdat->dstr_389__SOME_STRING_VALUE.val,
 				"SOME_STRING_VALUE",
-				sizeof (meltcdat->dstr_389__SOME_STRING_VALU.
+				sizeof (meltcdat->dstr_389__SOME_STRING_VALUE.
 					val) - 1);
-  meltcdat->dstr_389__SOME_STRING_VALU.val[17] = (char) 0;
-  meltcdat->dstr_389__SOME_STRING_VALU.slen = 17;
+  meltcdat->dstr_389__SOME_STRING_VALUE.val[17] = (char) 0;
+  meltcdat->dstr_389__SOME_STRING_VALUE.slen = 17;
 
 
 /*iniobj dsym_390__CLASS_DISCRIMINANT*/
@@ -15352,17 +15409,18 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_390__CLASS_DISCRIMINANT.obj_len = 3;
 
 
-/*inistring dstr_391__CLASS_DISCRIMINA*/
+/*inistring dstr_391__CLASS_DISCRIMINANT*/
  /*_._VALSTR___V474*/ meltfptr[473] =
-    (melt_ptr_t) & meltcdat->dstr_391__CLASS_DISCRIMINA;
-  meltcdat->dstr_391__CLASS_DISCRIMINA.discr =
+    (melt_ptr_t) & meltcdat->dstr_391__CLASS_DISCRIMINANT;
+  meltcdat->dstr_391__CLASS_DISCRIMINANT.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_391__CLASS_DISCRIMINA.val,
+  /*small inistring */ strncpy (meltcdat->dstr_391__CLASS_DISCRIMINANT.val,
 				"CLASS_DISCRIMINANT",
-				sizeof (meltcdat->dstr_391__CLASS_DISCRIMINA.
-					val) - 1);
-  meltcdat->dstr_391__CLASS_DISCRIMINA.val[18] = (char) 0;
-  meltcdat->dstr_391__CLASS_DISCRIMINA.slen = 18;
+				sizeof (meltcdat->
+					dstr_391__CLASS_DISCRIMINANT.val) -
+				1);
+  meltcdat->dstr_391__CLASS_DISCRIMINANT.val[18] = (char) 0;
+  meltcdat->dstr_391__CLASS_DISCRIMINANT.slen = 18;
 
   /*inirout drout_392__GENERATE_RUNTYPESUPPORT_MAPFUN */
  /*_._VALROUT___V475*/ meltfptr[474] =
@@ -15375,7 +15433,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->drout_392__GENERATE_RUNTYPESUPPORT_MAPFUN.nbval = 8;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_392__GENERATE_RUNTYPESUPPORT_MAPFUN,
-			     meltrout_59_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_MAPFUN);
+			     meltrout_59_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_MAPFUN);
 
   /*iniclos dclo_393__GENERATE_RUNTYPESUPPORT_MAPFUN */
  /*_._VALCLO___V478*/ meltfptr[477] =
@@ -15385,31 +15443,31 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dclo_393__GENERATE_RUNTYPESUPPORT_MAPFUN.nbval = 0;
 
 
-/*inistring dstr_394__generated_map*/
+/*inistring dstr_394__generated_map_creatio*/
  /*_._VALSTR___V476*/ meltfptr[475] =
-    (melt_ptr_t) & meltcdat->dstr_394__generated_map;
-  meltcdat->dstr_394__generated_map.discr =
+    (melt_ptr_t) & meltcdat->dstr_394__generated_map_creatio;
+  meltcdat->dstr_394__generated_map_creatio.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_394__generated_map.val, " /*generated map creation */\n\t\t\t       if (melt_magic_discr ((melt_ptr_t\
+  /*small inistring */ strncpy (meltcdat->dstr_394__generated_map_creatio.val, " /*generated map creation */\n\t\t\t       if (melt_magic_discr ((melt_ptr_t\
 ) discr) != MELTOBMAG_OBJECT)\n\t\t\t       return NULL ;\
 \n\t\t\t       if (discr->meltobj_magic != ",
-				sizeof (meltcdat->dstr_394__generated_map.val) - 1);
-  meltcdat->dstr_394__generated_map.val[164] = (char) 0;
-  meltcdat->dstr_394__generated_map.slen = 164;
+				sizeof (meltcdat->dstr_394__generated_map_creatio.val) - 1);
+  meltcdat->dstr_394__generated_map_creatio.val[164] = (char) 0;
+  meltcdat->dstr_394__generated_map_creatio.slen = 164;
 
 
-/*inistring dstr_395__not_map_mag*/
+/*inistring dstr_395__not_map_magic_*/
  /*_._VALSTR___V477*/ meltfptr[476] =
-    (melt_ptr_t) & meltcdat->dstr_395__not_map_mag;
-  meltcdat->dstr_395__not_map_mag.discr =
+    (melt_ptr_t) & meltcdat->dstr_395__not_map_magic_;
+  meltcdat->dstr_395__not_map_magic_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_395__not_map_mag.val, ") /* not map magic */\n\t\t\t       return NULL ;\
+  /*small inistring */ strncpy (meltcdat->dstr_395__not_map_magic_.val, ") /* not map magic */\n\t\t\t       return NULL ;\
 \n\t\t\t       return (melt_ptr_t) meltgc_raw_new_mappointers (discr\
 , len) ;\n\t\t\t       } /*end generated new map\
- for ", sizeof (meltcdat->dstr_395__not_map_mag.val) -
+ for ", sizeof (meltcdat->dstr_395__not_map_magic_.val) -
 				1);
-  meltcdat->dstr_395__not_map_mag.val[158] = (char) 0;
-  meltcdat->dstr_395__not_map_mag.slen = 158;
+  meltcdat->dstr_395__not_map_magic_.val[158] = (char) 0;
+  meltcdat->dstr_395__not_map_magic_.slen = 158;
 
   /*inirout drout_396__GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS */
  /*_._VALROUT___V479*/ meltfptr[478] =
@@ -15423,7 +15481,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->drout_396__GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS.nbval = 5;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_396__GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS,
-			     meltrout_60_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS);
+			     meltrout_60_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_PREDEF_FIELDS);
 
   /*iniclos dclo_397__GENERATE_RUNTYPESUPPORT_PREDEF_FIELDS */
  /*_._VALCLO___V480*/ meltfptr[479] =
@@ -15445,7 +15503,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->drout_398__GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_398__GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS,
-			     meltrout_61_WARMELTmiMODES_GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS);
+			     meltrout_61_WARMELTmiMODESGENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS);
 
   /*iniclos dclo_399__GENERATE_RUNTYPESUPPORT_PREDEFINED_HOOKS */
  /*_._VALCLO___V482*/ meltfptr[481] =
@@ -15477,17 +15535,18 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_400__CLASS_HOOK_DESCRIPTOR.obj_len = 3;
 
 
-/*inistring dstr_401__CLASS_HOOK_DESCR*/
+/*inistring dstr_401__CLASS_HOOK_DESCRIPTOR*/
  /*_._VALSTR___V484*/ meltfptr[483] =
-    (melt_ptr_t) & meltcdat->dstr_401__CLASS_HOOK_DESCR;
-  meltcdat->dstr_401__CLASS_HOOK_DESCR.discr =
+    (melt_ptr_t) & meltcdat->dstr_401__CLASS_HOOK_DESCRIPTOR;
+  meltcdat->dstr_401__CLASS_HOOK_DESCRIPTOR.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_401__CLASS_HOOK_DESCR.val,
+  /*small inistring */ strncpy (meltcdat->dstr_401__CLASS_HOOK_DESCRIPTOR.val,
 				"CLASS_HOOK_DESCRIPTOR",
-				sizeof (meltcdat->dstr_401__CLASS_HOOK_DESCR.
-					val) - 1);
-  meltcdat->dstr_401__CLASS_HOOK_DESCR.val[21] = (char) 0;
-  meltcdat->dstr_401__CLASS_HOOK_DESCR.slen = 21;
+				sizeof (meltcdat->
+					dstr_401__CLASS_HOOK_DESCRIPTOR.val) -
+				1);
+  meltcdat->dstr_401__CLASS_HOOK_DESCRIPTOR.val[21] = (char) 0;
+  meltcdat->dstr_401__CLASS_HOOK_DESCRIPTOR.slen = 21;
 
   /*inirout drout_402__RUNTYPESUPPORT_DOCMD */
  /*_._VALROUT___V485*/ meltfptr[484] =
@@ -15499,7 +15558,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_402__RUNTYPESUPPORT_DOCMD.nbval = 24;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_402__RUNTYPESUPPORT_DOCMD,
-			     meltrout_62_WARMELTmiMODES_RUNTYPESUPPORT_DOCMD);
+			     meltrout_62_WARMELTmiMODESRUNTYPESUPPORT_DOCMD);
 
   /*iniclos dclo_403__RUNTYPESUPPORT_DOCMD */
  /*_._VALCLO___V487*/ meltfptr[486] =
@@ -15543,17 +15602,18 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_405__RETRIEVE_DICTIONNARY_CTYPE_GTY.obj_len = 3;
 
 
-/*inistring dstr_406__RETRIEVE_DICTION*/
+/*inistring dstr_406__RETRIEVE_DICTIONNARY_CTY*/
  /*_._VALSTR___V489*/ meltfptr[488] =
-    (melt_ptr_t) & meltcdat->dstr_406__RETRIEVE_DICTION;
-  meltcdat->dstr_406__RETRIEVE_DICTION.discr =
+    (melt_ptr_t) & meltcdat->dstr_406__RETRIEVE_DICTIONNARY_CTY;
+  meltcdat->dstr_406__RETRIEVE_DICTIONNARY_CTY.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_406__RETRIEVE_DICTION.val,
-				"RETRIEVE_DICTIONNARY_CTYPE_GTY",
-				sizeof (meltcdat->dstr_406__RETRIEVE_DICTION.
+  /*small inistring */ strncpy (meltcdat->dstr_406__RETRIEVE_DICTIONNARY_CTY.
+				val, "RETRIEVE_DICTIONNARY_CTYPE_GTY",
+				sizeof (meltcdat->
+					dstr_406__RETRIEVE_DICTIONNARY_CTY.
 					val) - 1);
-  meltcdat->dstr_406__RETRIEVE_DICTION.val[30] = (char) 0;
-  meltcdat->dstr_406__RETRIEVE_DICTION.slen = 30;
+  meltcdat->dstr_406__RETRIEVE_DICTIONNARY_CTY.val[30] = (char) 0;
+  meltcdat->dstr_406__RETRIEVE_DICTIONNARY_CTY.slen = 30;
 
 
 /*iniobj dsym_407__RETRIEVE_DICTIONNARY_CTYPE*/
@@ -15577,17 +15637,18 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_407__RETRIEVE_DICTIONNARY_CTYPE.obj_len = 3;
 
 
-/*inistring dstr_408__RETRIEVE_DICTION*/
+/*inistring dstr_408__RETRIEVE_DICTIONNARY_CTY*/
  /*_._VALSTR___V491*/ meltfptr[490] =
-    (melt_ptr_t) & meltcdat->dstr_408__RETRIEVE_DICTION;
-  meltcdat->dstr_408__RETRIEVE_DICTION.discr =
+    (melt_ptr_t) & meltcdat->dstr_408__RETRIEVE_DICTIONNARY_CTY;
+  meltcdat->dstr_408__RETRIEVE_DICTIONNARY_CTY.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_408__RETRIEVE_DICTION.val,
-				"RETRIEVE_DICTIONNARY_CTYPE",
-				sizeof (meltcdat->dstr_408__RETRIEVE_DICTION.
+  /*small inistring */ strncpy (meltcdat->dstr_408__RETRIEVE_DICTIONNARY_CTY.
+				val, "RETRIEVE_DICTIONNARY_CTYPE",
+				sizeof (meltcdat->
+					dstr_408__RETRIEVE_DICTIONNARY_CTY.
 					val) - 1);
-  meltcdat->dstr_408__RETRIEVE_DICTION.val[26] = (char) 0;
-  meltcdat->dstr_408__RETRIEVE_DICTION.slen = 26;
+  meltcdat->dstr_408__RETRIEVE_DICTIONNARY_CTY.val[26] = (char) 0;
+  meltcdat->dstr_408__RETRIEVE_DICTIONNARY_CTY.slen = 26;
 
 
 /*iniobj dsym_409__GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT*/
@@ -15615,17 +15676,19 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
     3;
 
 
-/*inistring dstr_410__GENERATE_GPLV3PL*/
+/*inistring dstr_410__GENERATE_GPLV3PLUS_COPYR*/
  /*_._VALSTR___V493*/ meltfptr[492] =
-    (melt_ptr_t) & meltcdat->dstr_410__GENERATE_GPLV3PL;
-  meltcdat->dstr_410__GENERATE_GPLV3PL.discr =
+    (melt_ptr_t) & meltcdat->dstr_410__GENERATE_GPLV3PLUS_COPYR;
+  meltcdat->dstr_410__GENERATE_GPLV3PLUS_COPYR.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_410__GENERATE_GPLV3PL.val,
+  /*small inistring */ strncpy (meltcdat->dstr_410__GENERATE_GPLV3PLUS_COPYR.
+				val,
 				"GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT",
-				sizeof (meltcdat->dstr_410__GENERATE_GPLV3PL.
+				sizeof (meltcdat->
+					dstr_410__GENERATE_GPLV3PLUS_COPYR.
 					val) - 1);
-  meltcdat->dstr_410__GENERATE_GPLV3PL.val[45] = (char) 0;
-  meltcdat->dstr_410__GENERATE_GPLV3PL.slen = 45;
+  meltcdat->dstr_410__GENERATE_GPLV3PLUS_COPYR.val[45] = (char) 0;
+  meltcdat->dstr_410__GENERATE_GPLV3PLUS_COPYR.slen = 45;
 
 
 /*iniobj dsym_411__RETRIEVE_VALUE_DESCRIPTOR_LIST*/
@@ -15649,17 +15712,18 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_411__RETRIEVE_VALUE_DESCRIPTOR_LIST.obj_len = 3;
 
 
-/*inistring dstr_412__RETRIEVE_VALUE_D*/
+/*inistring dstr_412__RETRIEVE_VALUE_DESCRIPTO*/
  /*_._VALSTR___V495*/ meltfptr[494] =
-    (melt_ptr_t) & meltcdat->dstr_412__RETRIEVE_VALUE_D;
-  meltcdat->dstr_412__RETRIEVE_VALUE_D.discr =
+    (melt_ptr_t) & meltcdat->dstr_412__RETRIEVE_VALUE_DESCRIPTO;
+  meltcdat->dstr_412__RETRIEVE_VALUE_DESCRIPTO.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_412__RETRIEVE_VALUE_D.val,
-				"RETRIEVE_VALUE_DESCRIPTOR_LIST",
-				sizeof (meltcdat->dstr_412__RETRIEVE_VALUE_D.
+  /*small inistring */ strncpy (meltcdat->dstr_412__RETRIEVE_VALUE_DESCRIPTO.
+				val, "RETRIEVE_VALUE_DESCRIPTOR_LIST",
+				sizeof (meltcdat->
+					dstr_412__RETRIEVE_VALUE_DESCRIPTO.
 					val) - 1);
-  meltcdat->dstr_412__RETRIEVE_VALUE_D.val[30] = (char) 0;
-  meltcdat->dstr_412__RETRIEVE_VALUE_D.slen = 30;
+  meltcdat->dstr_412__RETRIEVE_VALUE_DESCRIPTO.val[30] = (char) 0;
+  meltcdat->dstr_412__RETRIEVE_VALUE_DESCRIPTO.slen = 30;
 
 
 /*iniobj dsym_413__RUNTYPESUPPORT_MODE*/
@@ -15683,17 +15747,18 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_413__RUNTYPESUPPORT_MODE.obj_len = 3;
 
 
-/*inistring dstr_414__RUNTYPESUPPORT_M*/
+/*inistring dstr_414__RUNTYPESUPPORT_MODE*/
  /*_._VALSTR___V497*/ meltfptr[496] =
-    (melt_ptr_t) & meltcdat->dstr_414__RUNTYPESUPPORT_M;
-  meltcdat->dstr_414__RUNTYPESUPPORT_M.discr =
+    (melt_ptr_t) & meltcdat->dstr_414__RUNTYPESUPPORT_MODE;
+  meltcdat->dstr_414__RUNTYPESUPPORT_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_414__RUNTYPESUPPORT_M.val,
+  /*small inistring */ strncpy (meltcdat->dstr_414__RUNTYPESUPPORT_MODE.val,
 				"RUNTYPESUPPORT_MODE",
-				sizeof (meltcdat->dstr_414__RUNTYPESUPPORT_M.
-					val) - 1);
-  meltcdat->dstr_414__RUNTYPESUPPORT_M.val[19] = (char) 0;
-  meltcdat->dstr_414__RUNTYPESUPPORT_M.slen = 19;
+				sizeof (meltcdat->
+					dstr_414__RUNTYPESUPPORT_MODE.val) -
+				1);
+  meltcdat->dstr_414__RUNTYPESUPPORT_MODE.val[19] = (char) 0;
+  meltcdat->dstr_414__RUNTYPESUPPORT_MODE.slen = 19;
 
   MELT_LOCATION ("warmelt-modes.melt:4135:/ iniobj");
 
@@ -15729,16 +15794,16 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dstr_416__runtypesupport.slen = 14;
 
 
-/*inistring dstr_417__generate_runtime*/
+/*inistring dstr_417__generate_runtime_support*/
  /*_._VALSTR___V500*/ meltfptr[499] =
-    (melt_ptr_t) & meltcdat->dstr_417__generate_runtime;
-  meltcdat->dstr_417__generate_runtime.discr =
+    (melt_ptr_t) & meltcdat->dstr_417__generate_runtime_support;
+  meltcdat->dstr_417__generate_runtime_support.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_417__generate_runtime.val, "generate runtime support for our GTY types (ctypes, values);\
+  /*small inistring */ strncpy (meltcdat->dstr_417__generate_runtime_support.val, "generate runtime support for our GTY types (ctypes, values);\
 \n\n\t OUTPUT=generated file prefix",
-				sizeof (meltcdat->dstr_417__generate_runtime.val) - 1);
-  meltcdat->dstr_417__generate_runtime.val[92] = (char) 0;
-  meltcdat->dstr_417__generate_runtime.slen = 92;
+				sizeof (meltcdat->dstr_417__generate_runtime_support.val) - 1);
+  meltcdat->dstr_417__generate_runtime_support.val[92] = (char) 0;
+  meltcdat->dstr_417__generate_runtime_support.slen = 92;
 
   /*inirout drout_418__TRANSLATE_TO_FLAVORED_MODULE */
  /*_._VALROUT___V501*/ meltfptr[500] =
@@ -15751,7 +15816,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->drout_418__TRANSLATE_TO_FLAVORED_MODULE.nbval = 4;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_418__TRANSLATE_TO_FLAVORED_MODULE,
-			     meltrout_63_WARMELTmiMODES_TRANSLATE_TO_FLAVORED_MODULE);
+			     meltrout_63_WARMELTmiMODESTRANSLATE_TO_FLAVORED_MODULE);
 
   /*iniclos dclo_419__TRANSLATE_TO_FLAVORED_MODULE */
  /*_._VALCLO___V502*/ meltfptr[501] =
@@ -15770,7 +15835,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_420__TRANSLATETOMODULE_DOCMD.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_420__TRANSLATETOMODULE_DOCMD,
-			     meltrout_64_WARMELTmiMODES_TRANSLATETOMODULE_DOCMD);
+			     meltrout_64_WARMELTmiMODESTRANSLATETOMODULE_DOCMD);
 
   /*iniclos dclo_421__TRANSLATETOMODULE_DOCMD */
  /*_._VALCLO___V507*/ meltfptr[506] =
@@ -15840,17 +15905,18 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dsym_425__TRANSLATETOMODULE_MODE.obj_len = 3;
 
 
-/*inistring dstr_426__TRANSLATETOMODUL*/
+/*inistring dstr_426__TRANSLATETOMODULE_MODE*/
  /*_._VALSTR___V509*/ meltfptr[508] =
-    (melt_ptr_t) & meltcdat->dstr_426__TRANSLATETOMODUL;
-  meltcdat->dstr_426__TRANSLATETOMODUL.discr =
+    (melt_ptr_t) & meltcdat->dstr_426__TRANSLATETOMODULE_MODE;
+  meltcdat->dstr_426__TRANSLATETOMODULE_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_426__TRANSLATETOMODUL.val,
-				"TRANSLATETOMODULE_MODE",
-				sizeof (meltcdat->dstr_426__TRANSLATETOMODUL.
+  /*small inistring */ strncpy (meltcdat->dstr_426__TRANSLATETOMODULE_MODE.
+				val, "TRANSLATETOMODULE_MODE",
+				sizeof (meltcdat->
+					dstr_426__TRANSLATETOMODULE_MODE.
 					val) - 1);
-  meltcdat->dstr_426__TRANSLATETOMODUL.val[22] = (char) 0;
-  meltcdat->dstr_426__TRANSLATETOMODUL.slen = 22;
+  meltcdat->dstr_426__TRANSLATETOMODULE_MODE.val[22] = (char) 0;
+  meltcdat->dstr_426__TRANSLATETOMODULE_MODE.slen = 22;
 
   MELT_LOCATION ("warmelt-modes.melt:4214:/ iniobj");
 
@@ -15874,31 +15940,31 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;",
   meltcdat->dobj_427__TRANSLATETOMODULE_MODE.obj_len = 5;
 
 
-/*inistring dstr_428__translatetomodul*/
+/*inistring dstr_428__translatetomodule*/
  /*_._VALSTR___V511*/ meltfptr[510] =
-    (melt_ptr_t) & meltcdat->dstr_428__translatetomodul;
-  meltcdat->dstr_428__translatetomodul.discr =
+    (melt_ptr_t) & meltcdat->dstr_428__translatetomodule;
+  meltcdat->dstr_428__translatetomodule.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_428__translatetomodul.val,
+  /*small inistring */ strncpy (meltcdat->dstr_428__translatetomodule.val,
 				"translatetomodule",
-				sizeof (meltcdat->dstr_428__translatetomodul.
+				sizeof (meltcdat->dstr_428__translatetomodule.
 					val) - 1);
-  meltcdat->dstr_428__translatetomodul.val[17] = (char) 0;
-  meltcdat->dstr_428__translatetomodul.slen = 17;
+  meltcdat->dstr_428__translatetomodule.val[17] = (char) 0;
+  meltcdat->dstr_428__translatetomodule.slen = 17;
 
 
-/*inistring dstr_429__translate_a_mel*/
+/*inistring dstr_429__translate_a_melt_file_t*/
  /*_._VALSTR___V512*/ meltfptr[511] =
-    (melt_ptr_t) & meltcdat->dstr_429__translate_a_mel;
-  meltcdat->dstr_429__translate_a_mel.discr =
+    (melt_ptr_t) & meltcdat->dstr_429__translate_a_melt_file_t;
+  meltcdat->dstr_429__translate_a_melt_file_t.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_429__translate_a_mel.val, "translate a .melt file to MELT_DYNLOADED_SUFFIX modules in quicklybuilt\
+  /*small inistring */ strncpy (meltcdat->dstr_429__translate_a_melt_file_t.val, "translate a .melt file to MELT_DYNLOADED_SUFFIX modules in quicklybuilt\
 , optimized, debugnoline flavors;\
 \n\n\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUF\
 FIX; OUTPUTC= generated *.c file.",
-				sizeof (meltcdat->dstr_429__translate_a_mel.val) - 1);
-  meltcdat->dstr_429__translate_a_mel.val[211] = (char) 0;
-  meltcdat->dstr_429__translate_a_mel.slen = 211;
+				sizeof (meltcdat->dstr_429__translate_a_melt_file_t.val) - 1);
+  meltcdat->dstr_429__translate_a_melt_file_t.val[211] = (char) 0;
+  meltcdat->dstr_429__translate_a_melt_file_t.slen = 211;
 
   /*inirout drout_430__TRANSLATEDEBUG_DOCMD */
  /*_._VALROUT___V513*/ meltfptr[512] =
@@ -15910,7 +15976,7 @@ FIX; OUTPUTC= generated *.c file.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_430__TRANSLATEDEBUG_DOCMD.nbval = 7;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_430__TRANSLATEDEBUG_DOCMD,
-			     meltrout_65_WARMELTmiMODES_TRANSLATEDEBUG_DOCMD);
+			     meltrout_65_WARMELTmiMODESTRANSLATEDEBUG_DOCMD);
 
   /*iniclos dclo_431__TRANSLATEDEBUG_DOCMD */
  /*_._VALCLO___V515*/ meltfptr[514] =
@@ -15954,17 +16020,18 @@ FIX; OUTPUTC= generated *.c file.",
   meltcdat->dsym_433__TRANSLATEDEBUG_MODE.obj_len = 3;
 
 
-/*inistring dstr_434__TRANSLATEDEBUG_M*/
+/*inistring dstr_434__TRANSLATEDEBUG_MODE*/
  /*_._VALSTR___V517*/ meltfptr[516] =
-    (melt_ptr_t) & meltcdat->dstr_434__TRANSLATEDEBUG_M;
-  meltcdat->dstr_434__TRANSLATEDEBUG_M.discr =
+    (melt_ptr_t) & meltcdat->dstr_434__TRANSLATEDEBUG_MODE;
+  meltcdat->dstr_434__TRANSLATEDEBUG_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_434__TRANSLATEDEBUG_M.val,
+  /*small inistring */ strncpy (meltcdat->dstr_434__TRANSLATEDEBUG_MODE.val,
 				"TRANSLATEDEBUG_MODE",
-				sizeof (meltcdat->dstr_434__TRANSLATEDEBUG_M.
-					val) - 1);
-  meltcdat->dstr_434__TRANSLATEDEBUG_M.val[19] = (char) 0;
-  meltcdat->dstr_434__TRANSLATEDEBUG_M.slen = 19;
+				sizeof (meltcdat->
+					dstr_434__TRANSLATEDEBUG_MODE.val) -
+				1);
+  meltcdat->dstr_434__TRANSLATEDEBUG_MODE.val[19] = (char) 0;
+  meltcdat->dstr_434__TRANSLATEDEBUG_MODE.slen = 19;
 
   MELT_LOCATION ("warmelt-modes.melt:4240:/ iniobj");
 
@@ -16000,25 +16067,24 @@ FIX; OUTPUTC= generated *.c file.",
   meltcdat->dstr_436__translatedebug.slen = 14;
 
 
-/*inistring dstr_437__translate_a_mel*/
+/*inistring dstr_437__translate_a_melt_file_t*/
  /*_._VALSTR___V520*/ meltfptr[519] =
-    (melt_ptr_t) & meltcdat->dstr_437__translate_a_mel;
-  meltcdat->dstr_437__translate_a_mel.discr =
+    (melt_ptr_t) & meltcdat->dstr_437__translate_a_melt_file_t;
+  meltcdat->dstr_437__translate_a_melt_file_t.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
   /*big inistring */
   /*really big chunk inistring */
-  memcpy (meltcdat->dstr_437__translate_a_mel.val + 0,
+  memcpy (meltcdat->dstr_437__translate_a_melt_file_t.val + 0,
 	  "translate a .melt file to .debugnoline module for low-level\
 \ndebu" "g, including gdb;\n\n\t ARGUMENT= input file; OUTPUT= generated mod" "ule with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.c file\
 \n\n\t g" "enerates also *.c and no MELT line number;\
 \n\n\t Useful for running",
 	  /*big */ 256);
-  /*end big inistring */ strncpy (meltcdat->dstr_437__translate_a_mel.val + 256, " gdb on the module. MELT debugging (DEBUG,\
-\nASSERT_MSG) is enabled", sizeof (meltcdat->dstr_437__translate_a_mel.val) -
-				  257);
+  /*end big inistring */ strncpy (meltcdat->dstr_437__translate_a_melt_file_t.val + 256, " gdb on the module. MELT debugging (DEBUG,\
+\nASSERT_MSG) is enabled", sizeof (meltcdat->dstr_437__translate_a_melt_file_t.val) - 257);
 
-  meltcdat->dstr_437__translate_a_mel.val[321] = (char) 0;
-  meltcdat->dstr_437__translate_a_mel.slen = 321;
+  meltcdat->dstr_437__translate_a_melt_file_t.val[321] = (char) 0;
+  meltcdat->dstr_437__translate_a_melt_file_t.slen = 321;
 
   /*inirout drout_438__TRANSLATEQUICKLY_DOCMD */
  /*_._VALROUT___V521*/ meltfptr[520] =
@@ -16030,7 +16096,7 @@ FIX; OUTPUTC= generated *.c file.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_438__TRANSLATEQUICKLY_DOCMD.nbval = 7;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_438__TRANSLATEQUICKLY_DOCMD,
-			     meltrout_66_WARMELTmiMODES_TRANSLATEQUICKLY_DOCMD);
+			     meltrout_66_WARMELTmiMODESTRANSLATEQUICKLY_DOCMD);
 
   /*iniclos dclo_439__TRANSLATEQUICKLY_DOCMD */
  /*_._VALCLO___V523*/ meltfptr[522] =
@@ -16074,17 +16140,18 @@ FIX; OUTPUTC= generated *.c file.",
   meltcdat->dsym_441__TRANSLATEQUICKLY_MODE.obj_len = 3;
 
 
-/*inistring dstr_442__TRANSLATEQUICKLY*/
+/*inistring dstr_442__TRANSLATEQUICKLY_MODE*/
  /*_._VALSTR___V525*/ meltfptr[524] =
-    (melt_ptr_t) & meltcdat->dstr_442__TRANSLATEQUICKLY;
-  meltcdat->dstr_442__TRANSLATEQUICKLY.discr =
+    (melt_ptr_t) & meltcdat->dstr_442__TRANSLATEQUICKLY_MODE;
+  meltcdat->dstr_442__TRANSLATEQUICKLY_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_442__TRANSLATEQUICKLY.val,
+  /*small inistring */ strncpy (meltcdat->dstr_442__TRANSLATEQUICKLY_MODE.val,
 				"TRANSLATEQUICKLY_MODE",
-				sizeof (meltcdat->dstr_442__TRANSLATEQUICKLY.
-					val) - 1);
-  meltcdat->dstr_442__TRANSLATEQUICKLY.val[21] = (char) 0;
-  meltcdat->dstr_442__TRANSLATEQUICKLY.slen = 21;
+				sizeof (meltcdat->
+					dstr_442__TRANSLATEQUICKLY_MODE.val) -
+				1);
+  meltcdat->dstr_442__TRANSLATEQUICKLY_MODE.val[21] = (char) 0;
+  meltcdat->dstr_442__TRANSLATEQUICKLY_MODE.slen = 21;
 
   MELT_LOCATION ("warmelt-modes.melt:4271:/ iniobj");
 
@@ -16121,18 +16188,18 @@ FIX; OUTPUTC= generated *.c file.",
   meltcdat->dstr_444__translatequickly.slen = 16;
 
 
-/*inistring dstr_445__translate_quickl*/
+/*inistring dstr_445__translate_quickly_a_mel*/
  /*_._VALSTR___V528*/ meltfptr[527] =
-    (melt_ptr_t) & meltcdat->dstr_445__translate_quickl;
-  meltcdat->dstr_445__translate_quickl.discr =
+    (melt_ptr_t) & meltcdat->dstr_445__translate_quickly_a_mel;
+  meltcdat->dstr_445__translate_quickly_a_mel.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_445__translate_quickl.val, "translate quickly a .melt file to .quicklybuilt module with MELT debugging\
+  /*small inistring */ strncpy (meltcdat->dstr_445__translate_quickly_a_mel.val, "translate quickly a .melt file to .quicklybuilt module with MELT debugging\
  enabled (DEBUG, ASSERT_MSG...);\n\
 \n\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFI\
 X; COUTPUT= generated *.c file\n.",
-				sizeof (meltcdat->dstr_445__translate_quickl.val) - 1);
-  meltcdat->dstr_445__translate_quickl.val[214] = (char) 0;
-  meltcdat->dstr_445__translate_quickl.slen = 214;
+				sizeof (meltcdat->dstr_445__translate_quickly_a_mel.val) - 1);
+  meltcdat->dstr_445__translate_quickly_a_mel.val[214] = (char) 0;
+  meltcdat->dstr_445__translate_quickly_a_mel.slen = 214;
 
   /*inirout drout_446__TRANSLATEOPTIMIZED_DOCMD */
  /*_._VALROUT___V529*/ meltfptr[528] =
@@ -16144,7 +16211,7 @@ X; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_446__TRANSLATEOPTIMIZED_DOCMD.nbval = 7;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_446__TRANSLATEOPTIMIZED_DOCMD,
-			     meltrout_67_WARMELTmiMODES_TRANSLATEOPTIMIZED_DOCMD);
+			     meltrout_67_WARMELTmiMODESTRANSLATEOPTIMIZED_DOCMD);
 
   /*iniclos dclo_447__TRANSLATEOPTIMIZED_DOCMD */
  /*_._VALCLO___V531*/ meltfptr[530] =
@@ -16188,17 +16255,18 @@ X; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_449__TRANSLATEOPTIMIZED_MODE.obj_len = 3;
 
 
-/*inistring dstr_450__TRANSLATEOPTIMIZ*/
+/*inistring dstr_450__TRANSLATEOPTIMIZED_MODE*/
  /*_._VALSTR___V533*/ meltfptr[532] =
-    (melt_ptr_t) & meltcdat->dstr_450__TRANSLATEOPTIMIZ;
-  meltcdat->dstr_450__TRANSLATEOPTIMIZ.discr =
+    (melt_ptr_t) & meltcdat->dstr_450__TRANSLATEOPTIMIZED_MODE;
+  meltcdat->dstr_450__TRANSLATEOPTIMIZED_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_450__TRANSLATEOPTIMIZ.val,
-				"TRANSLATEOPTIMIZED_MODE",
-				sizeof (meltcdat->dstr_450__TRANSLATEOPTIMIZ.
+  /*small inistring */ strncpy (meltcdat->dstr_450__TRANSLATEOPTIMIZED_MODE.
+				val, "TRANSLATEOPTIMIZED_MODE",
+				sizeof (meltcdat->
+					dstr_450__TRANSLATEOPTIMIZED_MODE.
 					val) - 1);
-  meltcdat->dstr_450__TRANSLATEOPTIMIZ.val[23] = (char) 0;
-  meltcdat->dstr_450__TRANSLATEOPTIMIZ.slen = 23;
+  meltcdat->dstr_450__TRANSLATEOPTIMIZED_MODE.val[23] = (char) 0;
+  meltcdat->dstr_450__TRANSLATEOPTIMIZED_MODE.slen = 23;
 
   MELT_LOCATION ("warmelt-modes.melt:4299:/ iniobj");
 
@@ -16222,31 +16290,32 @@ X; COUTPUT= generated *.c file\n.",
   meltcdat->dobj_451__TRANSLATEOPTIMIZED_MODE.obj_len = 5;
 
 
-/*inistring dstr_452__translateoptimiz*/
+/*inistring dstr_452__translateoptimized*/
  /*_._VALSTR___V535*/ meltfptr[534] =
-    (melt_ptr_t) & meltcdat->dstr_452__translateoptimiz;
-  meltcdat->dstr_452__translateoptimiz.discr =
+    (melt_ptr_t) & meltcdat->dstr_452__translateoptimized;
+  meltcdat->dstr_452__translateoptimized.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_452__translateoptimiz.val,
+  /*small inistring */ strncpy (meltcdat->dstr_452__translateoptimized.val,
 				"translateoptimized",
-				sizeof (meltcdat->dstr_452__translateoptimiz.
-					val) - 1);
-  meltcdat->dstr_452__translateoptimiz.val[18] = (char) 0;
-  meltcdat->dstr_452__translateoptimiz.slen = 18;
+				sizeof (meltcdat->
+					dstr_452__translateoptimized.val) -
+				1);
+  meltcdat->dstr_452__translateoptimized.val[18] = (char) 0;
+  meltcdat->dstr_452__translateoptimized.slen = 18;
 
 
-/*inistring dstr_453__translate_a_me*/
+/*inistring dstr_453__translate_a_melt_file_*/
  /*_._VALSTR___V536*/ meltfptr[535] =
-    (melt_ptr_t) & meltcdat->dstr_453__translate_a_me;
-  meltcdat->dstr_453__translate_a_me.discr =
+    (melt_ptr_t) & meltcdat->dstr_453__translate_a_melt_file_;
+  meltcdat->dstr_453__translate_a_melt_file_.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_453__translate_a_me.val, "translate  a .melt file to an .optimized module without MELT debugging\
+  /*small inistring */ strncpy (meltcdat->dstr_453__translate_a_melt_file_.val, "translate  a .melt file to an .optimized module without MELT debugging\
 \
 \n\n\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUF\
 FIX; COUTPUT= generated *.c file\n.",
-				sizeof (meltcdat->dstr_453__translate_a_me.val) - 1);
-  meltcdat->dstr_453__translate_a_me.val[178] = (char) 0;
-  meltcdat->dstr_453__translate_a_me.slen = 178;
+				sizeof (meltcdat->dstr_453__translate_a_melt_file_.val) - 1);
+  meltcdat->dstr_453__translate_a_melt_file_.val[178] = (char) 0;
+  meltcdat->dstr_453__translate_a_melt_file_.slen = 178;
 
   /*inirout drout_454__TRANSLATEFILE_DOCMD */
  /*_._VALROUT___V537*/ meltfptr[536] =
@@ -16258,7 +16327,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_454__TRANSLATEFILE_DOCMD.nbval = 7;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_454__TRANSLATEFILE_DOCMD,
-			     meltrout_68_WARMELTmiMODES_TRANSLATEFILE_DOCMD);
+			     meltrout_68_WARMELTmiMODESTRANSLATEFILE_DOCMD);
 
   /*iniclos dclo_455__TRANSLATEFILE_DOCMD */
  /*_._VALCLO___V538*/ meltfptr[537] =
@@ -16289,17 +16358,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_456__TRANSLATEFILE_MODE.obj_len = 3;
 
 
-/*inistring dstr_457__TRANSLATEFILE_MO*/
+/*inistring dstr_457__TRANSLATEFILE_MODE*/
  /*_._VALSTR___V540*/ meltfptr[539] =
-    (melt_ptr_t) & meltcdat->dstr_457__TRANSLATEFILE_MO;
-  meltcdat->dstr_457__TRANSLATEFILE_MO.discr =
+    (melt_ptr_t) & meltcdat->dstr_457__TRANSLATEFILE_MODE;
+  meltcdat->dstr_457__TRANSLATEFILE_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_457__TRANSLATEFILE_MO.val,
+  /*small inistring */ strncpy (meltcdat->dstr_457__TRANSLATEFILE_MODE.val,
 				"TRANSLATEFILE_MODE",
-				sizeof (meltcdat->dstr_457__TRANSLATEFILE_MO.
-					val) - 1);
-  meltcdat->dstr_457__TRANSLATEFILE_MO.val[18] = (char) 0;
-  meltcdat->dstr_457__TRANSLATEFILE_MO.slen = 18;
+				sizeof (meltcdat->
+					dstr_457__TRANSLATEFILE_MODE.val) -
+				1);
+  meltcdat->dstr_457__TRANSLATEFILE_MODE.val[18] = (char) 0;
+  meltcdat->dstr_457__TRANSLATEFILE_MODE.slen = 18;
 
   MELT_LOCATION ("warmelt-modes.melt:4353:/ iniobj");
 
@@ -16335,16 +16405,16 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dstr_459__translatefile.slen = 13;
 
 
-/*inistring dstr_460__translate_a_mel*/
+/*inistring dstr_460__translate_a_melt_file_t*/
  /*_._VALSTR___V543*/ meltfptr[542] =
-    (melt_ptr_t) & meltcdat->dstr_460__translate_a_mel;
-  meltcdat->dstr_460__translate_a_mel.discr =
+    (melt_ptr_t) & meltcdat->dstr_460__translate_a_melt_file_t;
+  meltcdat->dstr_460__translate_a_melt_file_t.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_460__translate_a_mel.val, "translate a .melt file to .c;\n\n\t ARGUMENT= input file; OUTPUT= generated\
- C file", sizeof (meltcdat->dstr_460__translate_a_mel.val) -
+  /*small inistring */ strncpy (meltcdat->dstr_460__translate_a_melt_file_t.val, "translate a .melt file to .c;\n\n\t ARGUMENT= input file; OUTPUT= generated\
+ C file", sizeof (meltcdat->dstr_460__translate_a_melt_file_t.val) -
 				1);
-  meltcdat->dstr_460__translate_a_mel.val[79] = (char) 0;
-  meltcdat->dstr_460__translate_a_mel.slen = 79;
+  meltcdat->dstr_460__translate_a_melt_file_t.val[79] = (char) 0;
+  meltcdat->dstr_460__translate_a_melt_file_t.slen = 79;
 
   /*inirout drout_461__TRANSLATEINIT_DOCMD */
  /*_._VALROUT___V544*/ meltfptr[543] =
@@ -16356,7 +16426,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_461__TRANSLATEINIT_DOCMD.nbval = 11;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_461__TRANSLATEINIT_DOCMD,
-			     meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD);
+			     meltrout_69_WARMELTmiMODESTRANSLATEINIT_DOCMD);
 
   /*iniclos dclo_462__TRANSLATEINIT_DOCMD */
  /*_._VALCLO___V546*/ meltfptr[545] =
@@ -16374,7 +16444,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   "LAMBDA_ @warmelt-modes.melt:4408", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_463__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_463__LAMBDA_,
-			     meltrout_70_WARMELTmiMODES_LAMBDA___22__);
+			     meltrout_70_WARMELTmiMODESLAMBDA_cl22);
 
 
 /*iniobj dsym_464__COMPILE_LIST_SEXPR*/
@@ -16398,17 +16468,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_464__COMPILE_LIST_SEXPR.obj_len = 3;
 
 
-/*inistring dstr_465__COMPILE_LIST_SEX*/
+/*inistring dstr_465__COMPILE_LIST_SEXPR*/
  /*_._VALSTR___V548*/ meltfptr[547] =
-    (melt_ptr_t) & meltcdat->dstr_465__COMPILE_LIST_SEX;
-  meltcdat->dstr_465__COMPILE_LIST_SEX.discr =
+    (melt_ptr_t) & meltcdat->dstr_465__COMPILE_LIST_SEXPR;
+  meltcdat->dstr_465__COMPILE_LIST_SEXPR.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_465__COMPILE_LIST_SEX.val,
+  /*small inistring */ strncpy (meltcdat->dstr_465__COMPILE_LIST_SEXPR.val,
 				"COMPILE_LIST_SEXPR",
-				sizeof (meltcdat->dstr_465__COMPILE_LIST_SEX.
-					val) - 1);
-  meltcdat->dstr_465__COMPILE_LIST_SEX.val[18] = (char) 0;
-  meltcdat->dstr_465__COMPILE_LIST_SEX.slen = 18;
+				sizeof (meltcdat->
+					dstr_465__COMPILE_LIST_SEXPR.val) -
+				1);
+  meltcdat->dstr_465__COMPILE_LIST_SEXPR.val[18] = (char) 0;
+  meltcdat->dstr_465__COMPILE_LIST_SEXPR.slen = 18;
 
 
 /*iniobj dsym_466__TRANSLATEINIT_MODE*/
@@ -16432,17 +16503,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_466__TRANSLATEINIT_MODE.obj_len = 3;
 
 
-/*inistring dstr_467__TRANSLATEINIT_MO*/
+/*inistring dstr_467__TRANSLATEINIT_MODE*/
  /*_._VALSTR___V550*/ meltfptr[549] =
-    (melt_ptr_t) & meltcdat->dstr_467__TRANSLATEINIT_MO;
-  meltcdat->dstr_467__TRANSLATEINIT_MO.discr =
+    (melt_ptr_t) & meltcdat->dstr_467__TRANSLATEINIT_MODE;
+  meltcdat->dstr_467__TRANSLATEINIT_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_467__TRANSLATEINIT_MO.val,
+  /*small inistring */ strncpy (meltcdat->dstr_467__TRANSLATEINIT_MODE.val,
 				"TRANSLATEINIT_MODE",
-				sizeof (meltcdat->dstr_467__TRANSLATEINIT_MO.
-					val) - 1);
-  meltcdat->dstr_467__TRANSLATEINIT_MO.val[18] = (char) 0;
-  meltcdat->dstr_467__TRANSLATEINIT_MO.slen = 18;
+				sizeof (meltcdat->
+					dstr_467__TRANSLATEINIT_MODE.val) -
+				1);
+  meltcdat->dstr_467__TRANSLATEINIT_MODE.val[18] = (char) 0;
+  meltcdat->dstr_467__TRANSLATEINIT_MODE.slen = 18;
 
   MELT_LOCATION ("warmelt-modes.melt:4431:/ iniobj");
 
@@ -16478,17 +16550,17 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dstr_469__translateinit.slen = 13;
 
 
-/*inistring dstr_470__translate_the_ve*/
+/*inistring dstr_470__translate_the_very_first*/
  /*_._VALSTR___V553*/ meltfptr[552] =
-    (melt_ptr_t) & meltcdat->dstr_470__translate_the_ve;
-  meltcdat->dstr_470__translate_the_ve.discr =
+    (melt_ptr_t) & meltcdat->dstr_470__translate_the_very_first;
+  meltcdat->dstr_470__translate_the_very_first.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_470__translate_the_ve.val, "translate the very first *.melt file;\
+  /*small inistring */ strncpy (meltcdat->dstr_470__translate_the_very_first.val, "translate the very first *.melt file;\
 \n\n\t useful only at MELT installation! ARGUMENT= input file; OUTPUT\
-= generated file.", sizeof (meltcdat->dstr_470__translate_the_ve.val) -
-				1);
-  meltcdat->dstr_470__translate_the_ve.val[120] = (char) 0;
-  meltcdat->dstr_470__translate_the_ve.slen = 120;
+= generated file.", sizeof (meltcdat->dstr_470__translate_the_very_first.val)
+				- 1);
+  meltcdat->dstr_470__translate_the_very_first.val[120] = (char) 0;
+  meltcdat->dstr_470__translate_the_very_first.slen = 120;
 
   /*inirout drout_471__TRANSLATEINIT_FLAVORED */
  /*_._VALROUT___V554*/ meltfptr[553] =
@@ -16500,7 +16572,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_471__TRANSLATEINIT_FLAVORED.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_471__TRANSLATEINIT_FLAVORED,
-			     meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED);
+			     meltrout_71_WARMELTmiMODESTRANSLATEINIT_FLAVORED);
 
   /*iniclos dclo_472__TRANSLATEINIT_FLAVORED */
  /*_._VALCLO___V556*/ meltfptr[555] =
@@ -16518,7 +16590,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   "LAMBDA_ @warmelt-modes.melt:4485", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_473__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_473__LAMBDA_,
-			     meltrout_72_WARMELTmiMODES_LAMBDA___23__);
+			     meltrout_72_WARMELTmiMODESLAMBDA_cl23);
 
   /*inirout drout_474__TRANSLATEINITMODULE_DOCMD */
  /*_._VALROUT___V557*/ meltfptr[556] =
@@ -16530,7 +16602,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_474__TRANSLATEINITMODULE_DOCMD.nbval = 6;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_474__TRANSLATEINITMODULE_DOCMD,
-			     meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD);
+			     meltrout_73_WARMELTmiMODESTRANSLATEINITMODULE_DOCMD);
 
   /*iniclos dclo_475__TRANSLATEINITMODULE_DOCMD */
  /*_._VALCLO___V561*/ meltfptr[560] =
@@ -16600,17 +16672,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_479__TRANSLATEINITMODULE_MODE.obj_len = 3;
 
 
-/*inistring dstr_480__TRANSLATEINITMOD*/
+/*inistring dstr_480__TRANSLATEINITMODULE_MODE*/
  /*_._VALSTR___V563*/ meltfptr[562] =
-    (melt_ptr_t) & meltcdat->dstr_480__TRANSLATEINITMOD;
-  meltcdat->dstr_480__TRANSLATEINITMOD.discr =
+    (melt_ptr_t) & meltcdat->dstr_480__TRANSLATEINITMODULE_MODE;
+  meltcdat->dstr_480__TRANSLATEINITMODULE_MODE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_480__TRANSLATEINITMOD.val,
-				"TRANSLATEINITMODULE_MODE",
-				sizeof (meltcdat->dstr_480__TRANSLATEINITMOD.
+  /*small inistring */ strncpy (meltcdat->dstr_480__TRANSLATEINITMODULE_MODE.
+				val, "TRANSLATEINITMODULE_MODE",
+				sizeof (meltcdat->
+					dstr_480__TRANSLATEINITMODULE_MODE.
 					val) - 1);
-  meltcdat->dstr_480__TRANSLATEINITMOD.val[24] = (char) 0;
-  meltcdat->dstr_480__TRANSLATEINITMOD.slen = 24;
+  meltcdat->dstr_480__TRANSLATEINITMODULE_MODE.val[24] = (char) 0;
+  meltcdat->dstr_480__TRANSLATEINITMODULE_MODE.slen = 24;
 
   MELT_LOCATION ("warmelt-modes.melt:4542:/ iniobj");
 
@@ -16634,31 +16707,32 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dobj_481__TRANSLATEINITMODULE_MODE.obj_len = 5;
 
 
-/*inistring dstr_482__translateinitmod*/
+/*inistring dstr_482__translateinitmodule*/
  /*_._VALSTR___V565*/ meltfptr[564] =
-    (melt_ptr_t) & meltcdat->dstr_482__translateinitmod;
-  meltcdat->dstr_482__translateinitmod.discr =
+    (melt_ptr_t) & meltcdat->dstr_482__translateinitmodule;
+  meltcdat->dstr_482__translateinitmodule.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_482__translateinitmod.val,
+  /*small inistring */ strncpy (meltcdat->dstr_482__translateinitmodule.val,
 				"translateinitmodule",
-				sizeof (meltcdat->dstr_482__translateinitmod.
-					val) - 1);
-  meltcdat->dstr_482__translateinitmod.val[19] = (char) 0;
-  meltcdat->dstr_482__translateinitmod.slen = 19;
+				sizeof (meltcdat->
+					dstr_482__translateinitmodule.val) -
+				1);
+  meltcdat->dstr_482__translateinitmodule.val[19] = (char) 0;
+  meltcdat->dstr_482__translateinitmodule.slen = 19;
 
 
-/*inistring dstr_483__translate_the_ve*/
+/*inistring dstr_483__translate_the_very_first*/
  /*_._VALSTR___V566*/ meltfptr[565] =
-    (melt_ptr_t) & meltcdat->dstr_483__translate_the_ve;
-  meltcdat->dstr_483__translate_the_ve.discr =
+    (melt_ptr_t) & meltcdat->dstr_483__translate_the_very_first;
+  meltcdat->dstr_483__translate_the_very_first.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_483__translate_the_ve.val, "translate the very first *.melt file into quicklybuilt, optimized,\
+  /*small inistring */ strncpy (meltcdat->dstr_483__translate_the_very_first.val, "translate the very first *.melt file into quicklybuilt, optimized,\
  debugnoline falvors of modules;\n\
 \n\t useful only at MELT installation! ARGUMENT= input file; OUTPUT\
-= generated module base.", sizeof (meltcdat->dstr_483__translate_the_ve.val) -
-				1);
-  meltcdat->dstr_483__translate_the_ve.val[188] = (char) 0;
-  meltcdat->dstr_483__translate_the_ve.slen = 188;
+= generated module base.", sizeof
+				(meltcdat->dstr_483__translate_the_very_first.val) - 1);
+  meltcdat->dstr_483__translate_the_very_first.val[188] = (char) 0;
+  meltcdat->dstr_483__translate_the_very_first.slen = 188;
 
   /*inirout drout_484__TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */
  /*_._VALROUT___V567*/ meltfptr[566] =
@@ -16672,7 +16746,7 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->drout_484__TRANSLATEINITMODULEQUICKLYBUILT_DOCMD.nbval = 4;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_484__TRANSLATEINITMODULEQUICKLYBUILT_DOCMD,
-			     meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD);
+			     meltrout_74_WARMELTmiMODESTRANSLATEINITMODULEQUICKLYBUILT_DOCMD);
 
   /*iniclos dclo_485__TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */
  /*_._VALCLO___V569*/ meltfptr[568] =
@@ -16717,17 +16791,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_487__TRANSLATEINITMODULEQUICKLYBUILT_MODE.obj_len = 3;
 
 
-/*inistring dstr_488__TRANSLATEINITMOD*/
+/*inistring dstr_488__TRANSLATEINITMODULEQUICK*/
  /*_._VALSTR___V571*/ meltfptr[570] =
-    (melt_ptr_t) & meltcdat->dstr_488__TRANSLATEINITMOD;
-  meltcdat->dstr_488__TRANSLATEINITMOD.discr =
+    (melt_ptr_t) & meltcdat->dstr_488__TRANSLATEINITMODULEQUICK;
+  meltcdat->dstr_488__TRANSLATEINITMODULEQUICK.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_488__TRANSLATEINITMOD.val,
-				"TRANSLATEINITMODULEQUICKLYBUILT_MODE",
-				sizeof (meltcdat->dstr_488__TRANSLATEINITMOD.
+  /*small inistring */ strncpy (meltcdat->dstr_488__TRANSLATEINITMODULEQUICK.
+				val, "TRANSLATEINITMODULEQUICKLYBUILT_MODE",
+				sizeof (meltcdat->
+					dstr_488__TRANSLATEINITMODULEQUICK.
 					val) - 1);
-  meltcdat->dstr_488__TRANSLATEINITMOD.val[36] = (char) 0;
-  meltcdat->dstr_488__TRANSLATEINITMOD.slen = 36;
+  meltcdat->dstr_488__TRANSLATEINITMODULEQUICK.val[36] = (char) 0;
+  meltcdat->dstr_488__TRANSLATEINITMODULEQUICK.slen = 36;
 
   MELT_LOCATION ("warmelt-modes.melt:4560:/ iniobj");
 
@@ -16752,30 +16827,31 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dobj_489__TRANSLATEINITMODULEQUICKLYBUILT_MODE.obj_len = 5;
 
 
-/*inistring dstr_490__translateinitmod*/
+/*inistring dstr_490__translateinitmodulequick*/
  /*_._VALSTR___V573*/ meltfptr[572] =
-    (melt_ptr_t) & meltcdat->dstr_490__translateinitmod;
-  meltcdat->dstr_490__translateinitmod.discr =
+    (melt_ptr_t) & meltcdat->dstr_490__translateinitmodulequick;
+  meltcdat->dstr_490__translateinitmodulequick.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_490__translateinitmod.val,
-				"translateinitmodulequicklybuilt",
-				sizeof (meltcdat->dstr_490__translateinitmod.
+  /*small inistring */ strncpy (meltcdat->dstr_490__translateinitmodulequick.
+				val, "translateinitmodulequicklybuilt",
+				sizeof (meltcdat->
+					dstr_490__translateinitmodulequick.
 					val) - 1);
-  meltcdat->dstr_490__translateinitmod.val[31] = (char) 0;
-  meltcdat->dstr_490__translateinitmod.slen = 31;
+  meltcdat->dstr_490__translateinitmodulequick.val[31] = (char) 0;
+  meltcdat->dstr_490__translateinitmodulequick.slen = 31;
 
 
-/*inistring dstr_491__translate_the_ve*/
+/*inistring dstr_491__translate_the_very_first*/
  /*_._VALSTR___V574*/ meltfptr[573] =
-    (melt_ptr_t) & meltcdat->dstr_491__translate_the_ve;
-  meltcdat->dstr_491__translate_the_ve.discr =
+    (melt_ptr_t) & meltcdat->dstr_491__translate_the_very_first;
+  meltcdat->dstr_491__translate_the_very_first.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_491__translate_the_ve.val, "translate the very first *.melt file into quicklybuilt module;\
+  /*small inistring */ strncpy (meltcdat->dstr_491__translate_the_very_first.val, "translate the very first *.melt file into quicklybuilt module;\
 \n\n\t useful only at MELT installation! ARGUMENT= input file; OUTPUT\
-= generated module base.", sizeof (meltcdat->dstr_491__translate_the_ve.val) -
-				1);
-  meltcdat->dstr_491__translate_the_ve.val[152] = (char) 0;
-  meltcdat->dstr_491__translate_the_ve.slen = 152;
+= generated module base.", sizeof
+				(meltcdat->dstr_491__translate_the_very_first.val) - 1);
+  meltcdat->dstr_491__translate_the_very_first.val[152] = (char) 0;
+  meltcdat->dstr_491__translate_the_very_first.slen = 152;
 
   /*inirout drout_492__TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */
  /*_._VALROUT___V575*/ meltfptr[574] =
@@ -16789,7 +16865,7 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->drout_492__TRANSLATEINITMODULEDEBUGNOLINE_DOCMD.nbval = 4;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_492__TRANSLATEINITMODULEDEBUGNOLINE_DOCMD,
-			     meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD);
+			     meltrout_75_WARMELTmiMODESTRANSLATEINITMODULEDEBUGNOLINE_DOCMD);
 
   /*iniclos dclo_493__TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */
  /*_._VALCLO___V577*/ meltfptr[576] =
@@ -16834,17 +16910,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_495__TRANSLATEINITMODULEDEBUGNOLINE_MODE.obj_len = 3;
 
 
-/*inistring dstr_496__TRANSLATEINITMOD*/
+/*inistring dstr_496__TRANSLATEINITMODULEDEBUG*/
  /*_._VALSTR___V579*/ meltfptr[578] =
-    (melt_ptr_t) & meltcdat->dstr_496__TRANSLATEINITMOD;
-  meltcdat->dstr_496__TRANSLATEINITMOD.discr =
+    (melt_ptr_t) & meltcdat->dstr_496__TRANSLATEINITMODULEDEBUG;
+  meltcdat->dstr_496__TRANSLATEINITMODULEDEBUG.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_496__TRANSLATEINITMOD.val,
-				"TRANSLATEINITMODULEDEBUGNOLINE_MODE",
-				sizeof (meltcdat->dstr_496__TRANSLATEINITMOD.
+  /*small inistring */ strncpy (meltcdat->dstr_496__TRANSLATEINITMODULEDEBUG.
+				val, "TRANSLATEINITMODULEDEBUGNOLINE_MODE",
+				sizeof (meltcdat->
+					dstr_496__TRANSLATEINITMODULEDEBUG.
 					val) - 1);
-  meltcdat->dstr_496__TRANSLATEINITMOD.val[35] = (char) 0;
-  meltcdat->dstr_496__TRANSLATEINITMOD.slen = 35;
+  meltcdat->dstr_496__TRANSLATEINITMODULEDEBUG.val[35] = (char) 0;
+  meltcdat->dstr_496__TRANSLATEINITMODULEDEBUG.slen = 35;
 
   MELT_LOCATION ("warmelt-modes.melt:4578:/ iniobj");
 
@@ -16869,30 +16946,31 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dobj_497__TRANSLATEINITMODULEDEBUGNOLINE_MODE.obj_len = 5;
 
 
-/*inistring dstr_498__translateinitmod*/
+/*inistring dstr_498__translateinitmoduledebug*/
  /*_._VALSTR___V581*/ meltfptr[580] =
-    (melt_ptr_t) & meltcdat->dstr_498__translateinitmod;
-  meltcdat->dstr_498__translateinitmod.discr =
+    (melt_ptr_t) & meltcdat->dstr_498__translateinitmoduledebug;
+  meltcdat->dstr_498__translateinitmoduledebug.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_498__translateinitmod.val,
-				"translateinitmoduledebugnoline",
-				sizeof (meltcdat->dstr_498__translateinitmod.
+  /*small inistring */ strncpy (meltcdat->dstr_498__translateinitmoduledebug.
+				val, "translateinitmoduledebugnoline",
+				sizeof (meltcdat->
+					dstr_498__translateinitmoduledebug.
 					val) - 1);
-  meltcdat->dstr_498__translateinitmod.val[30] = (char) 0;
-  meltcdat->dstr_498__translateinitmod.slen = 30;
+  meltcdat->dstr_498__translateinitmoduledebug.val[30] = (char) 0;
+  meltcdat->dstr_498__translateinitmoduledebug.slen = 30;
 
 
-/*inistring dstr_499__translate_the_ve*/
+/*inistring dstr_499__translate_the_very_first*/
  /*_._VALSTR___V582*/ meltfptr[581] =
-    (melt_ptr_t) & meltcdat->dstr_499__translate_the_ve;
-  meltcdat->dstr_499__translate_the_ve.discr =
+    (melt_ptr_t) & meltcdat->dstr_499__translate_the_very_first;
+  meltcdat->dstr_499__translate_the_very_first.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_499__translate_the_ve.val, "translate the very first *.melt file into debugnoline module;\
+  /*small inistring */ strncpy (meltcdat->dstr_499__translate_the_very_first.val, "translate the very first *.melt file into debugnoline module;\
 \n\n\t useful only at MELT installation! ARGUMENT= input file; OUTPUT\
-= generated module base.", sizeof (meltcdat->dstr_499__translate_the_ve.val) -
-				1);
-  meltcdat->dstr_499__translate_the_ve.val[151] = (char) 0;
-  meltcdat->dstr_499__translate_the_ve.slen = 151;
+= generated module base.", sizeof
+				(meltcdat->dstr_499__translate_the_very_first.val) - 1);
+  meltcdat->dstr_499__translate_the_very_first.val[151] = (char) 0;
+  meltcdat->dstr_499__translate_the_very_first.slen = 151;
 
   /*inirout drout_500__TRANSLATEINITMODULEOPTIMIZED_DOCMD */
  /*_._VALROUT___V583*/ meltfptr[582] =
@@ -16905,7 +16983,7 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->drout_500__TRANSLATEINITMODULEOPTIMIZED_DOCMD.nbval = 4;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_500__TRANSLATEINITMODULEOPTIMIZED_DOCMD,
-			     meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD);
+			     meltrout_76_WARMELTmiMODESTRANSLATEINITMODULEOPTIMIZED_DOCMD);
 
   /*iniclos dclo_501__TRANSLATEINITMODULEOPTIMIZED_DOCMD */
  /*_._VALCLO___V585*/ meltfptr[584] =
@@ -16949,17 +17027,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_503__TRANSLATEINITMODULEOPTIMIZED_MODE.obj_len = 3;
 
 
-/*inistring dstr_504__TRANSLATEINITMOD*/
+/*inistring dstr_504__TRANSLATEINITMODULEOPTIM*/
  /*_._VALSTR___V587*/ meltfptr[586] =
-    (melt_ptr_t) & meltcdat->dstr_504__TRANSLATEINITMOD;
-  meltcdat->dstr_504__TRANSLATEINITMOD.discr =
+    (melt_ptr_t) & meltcdat->dstr_504__TRANSLATEINITMODULEOPTIM;
+  meltcdat->dstr_504__TRANSLATEINITMODULEOPTIM.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_504__TRANSLATEINITMOD.val,
-				"TRANSLATEINITMODULEOPTIMIZED_MODE",
-				sizeof (meltcdat->dstr_504__TRANSLATEINITMOD.
+  /*small inistring */ strncpy (meltcdat->dstr_504__TRANSLATEINITMODULEOPTIM.
+				val, "TRANSLATEINITMODULEOPTIMIZED_MODE",
+				sizeof (meltcdat->
+					dstr_504__TRANSLATEINITMODULEOPTIM.
 					val) - 1);
-  meltcdat->dstr_504__TRANSLATEINITMOD.val[33] = (char) 0;
-  meltcdat->dstr_504__TRANSLATEINITMOD.slen = 33;
+  meltcdat->dstr_504__TRANSLATEINITMODULEOPTIM.val[33] = (char) 0;
+  meltcdat->dstr_504__TRANSLATEINITMODULEOPTIM.slen = 33;
 
   MELT_LOCATION ("warmelt-modes.melt:4596:/ iniobj");
 
@@ -16983,30 +17062,31 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dobj_505__TRANSLATEINITMODULEOPTIMIZED_MODE.obj_len = 5;
 
 
-/*inistring dstr_506__translateinitmod*/
+/*inistring dstr_506__translateinitmoduleoptim*/
  /*_._VALSTR___V589*/ meltfptr[588] =
-    (melt_ptr_t) & meltcdat->dstr_506__translateinitmod;
-  meltcdat->dstr_506__translateinitmod.discr =
+    (melt_ptr_t) & meltcdat->dstr_506__translateinitmoduleoptim;
+  meltcdat->dstr_506__translateinitmoduleoptim.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_506__translateinitmod.val,
-				"translateinitmoduleoptimized",
-				sizeof (meltcdat->dstr_506__translateinitmod.
+  /*small inistring */ strncpy (meltcdat->dstr_506__translateinitmoduleoptim.
+				val, "translateinitmoduleoptimized",
+				sizeof (meltcdat->
+					dstr_506__translateinitmoduleoptim.
 					val) - 1);
-  meltcdat->dstr_506__translateinitmod.val[28] = (char) 0;
-  meltcdat->dstr_506__translateinitmod.slen = 28;
+  meltcdat->dstr_506__translateinitmoduleoptim.val[28] = (char) 0;
+  meltcdat->dstr_506__translateinitmoduleoptim.slen = 28;
 
 
-/*inistring dstr_507__translate_the_ve*/
+/*inistring dstr_507__translate_the_very_first*/
  /*_._VALSTR___V590*/ meltfptr[589] =
-    (melt_ptr_t) & meltcdat->dstr_507__translate_the_ve;
-  meltcdat->dstr_507__translate_the_ve.discr =
+    (melt_ptr_t) & meltcdat->dstr_507__translate_the_very_first;
+  meltcdat->dstr_507__translate_the_very_first.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_507__translate_the_ve.val, "translate the very first *.melt file into optimized module;\
+  /*small inistring */ strncpy (meltcdat->dstr_507__translate_the_very_first.val, "translate the very first *.melt file into optimized module;\
 \n\n\t useful only at MELT installation! ARGUMENT= input file; OUTPUT\
-= generated module base.", sizeof (meltcdat->dstr_507__translate_the_ve.val) -
-				1);
-  meltcdat->dstr_507__translate_the_ve.val[149] = (char) 0;
-  meltcdat->dstr_507__translate_the_ve.slen = 149;
+= generated module base.", sizeof
+				(meltcdat->dstr_507__translate_the_very_first.val) - 1);
+  meltcdat->dstr_507__translate_the_very_first.val[149] = (char) 0;
+  meltcdat->dstr_507__translate_the_very_first.slen = 149;
 
   /*inirout drout_508__REGISTER_INPUT_CHANNEL_HANDLER */
  /*_._VALROUT___V193*/ meltfptr[192] =
@@ -17019,7 +17099,7 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->drout_508__REGISTER_INPUT_CHANNEL_HANDLER.nbval = 6;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_508__REGISTER_INPUT_CHANNEL_HANDLER,
-			     meltrout_77_WARMELTmiMODES_REGISTER_INPUT_CHANNEL_HANDLER);
+			     meltrout_77_WARMELTmiMODESREGISTER_INPUT_CHANNEL_HANDLER);
 
   /*iniclos dclo_509__REGISTER_INPUT_CHANNEL_HANDLER */
  /*_._VALCLO___V192*/ meltfptr[191] =
@@ -17050,17 +17130,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_510__DISCR_BUCKET_LONGS.obj_len = 3;
 
 
-/*inistring dstr_511__DISCR_BUCKET_LON*/
+/*inistring dstr_511__DISCR_BUCKET_LONGS*/
  /*_._VALSTR___V592*/ meltfptr[591] =
-    (melt_ptr_t) & meltcdat->dstr_511__DISCR_BUCKET_LON;
-  meltcdat->dstr_511__DISCR_BUCKET_LON.discr =
+    (melt_ptr_t) & meltcdat->dstr_511__DISCR_BUCKET_LONGS;
+  meltcdat->dstr_511__DISCR_BUCKET_LONGS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_511__DISCR_BUCKET_LON.val,
+  /*small inistring */ strncpy (meltcdat->dstr_511__DISCR_BUCKET_LONGS.val,
 				"DISCR_BUCKET_LONGS",
-				sizeof (meltcdat->dstr_511__DISCR_BUCKET_LON.
-					val) - 1);
-  meltcdat->dstr_511__DISCR_BUCKET_LON.val[18] = (char) 0;
-  meltcdat->dstr_511__DISCR_BUCKET_LON.slen = 18;
+				sizeof (meltcdat->
+					dstr_511__DISCR_BUCKET_LONGS.val) -
+				1);
+  meltcdat->dstr_511__DISCR_BUCKET_LONGS.val[18] = (char) 0;
+  meltcdat->dstr_511__DISCR_BUCKET_LONGS.slen = 18;
 
 
 /*iniobj dsym_512__ALARM_BUCKET_REFERENCE*/
@@ -17084,17 +17165,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_512__ALARM_BUCKET_REFERENCE.obj_len = 3;
 
 
-/*inistring dstr_513__ALARM_BUCKET_REF*/
+/*inistring dstr_513__ALARM_BUCKET_REFERENCE*/
  /*_._VALSTR___V594*/ meltfptr[593] =
-    (melt_ptr_t) & meltcdat->dstr_513__ALARM_BUCKET_REF;
-  meltcdat->dstr_513__ALARM_BUCKET_REF.discr =
+    (melt_ptr_t) & meltcdat->dstr_513__ALARM_BUCKET_REFERENCE;
+  meltcdat->dstr_513__ALARM_BUCKET_REFERENCE.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_513__ALARM_BUCKET_REF.val,
-				"ALARM_BUCKET_REFERENCE",
-				sizeof (meltcdat->dstr_513__ALARM_BUCKET_REF.
+  /*small inistring */ strncpy (meltcdat->dstr_513__ALARM_BUCKET_REFERENCE.
+				val, "ALARM_BUCKET_REFERENCE",
+				sizeof (meltcdat->
+					dstr_513__ALARM_BUCKET_REFERENCE.
 					val) - 1);
-  meltcdat->dstr_513__ALARM_BUCKET_REF.val[22] = (char) 0;
-  meltcdat->dstr_513__ALARM_BUCKET_REF.slen = 22;
+  meltcdat->dstr_513__ALARM_BUCKET_REFERENCE.val[22] = (char) 0;
+  meltcdat->dstr_513__ALARM_BUCKET_REFERENCE.slen = 22;
 
   MELT_LOCATION ("warmelt-modes.melt:4663:/ iniobj");
 
@@ -17127,7 +17209,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_515__HANDLE_ALARM_SIGNAL.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_515__HANDLE_ALARM_SIGNAL,
-			     meltrout_78_WARMELTmiMODES_HANDLE_ALARM_SIGNAL);
+			     meltrout_78_WARMELTmiMODESHANDLE_ALARM_SIGNAL);
 
   /*iniclos dclo_516__HANDLE_ALARM_SIGNAL */
  /*_._VALCLO___V598*/ meltfptr[597] =
@@ -17145,7 +17227,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   "LAMBDA_ @warmelt-modes.melt:4678", MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_517__LAMBDA_.nbval = 2;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_517__LAMBDA_,
-			     meltrout_79_WARMELTmiMODES_LAMBDA___24__);
+			     meltrout_79_WARMELTmiMODESLAMBDA_cl24);
 
 
 /*iniobj dsym_518__CLASS_ALARM_HANDLER*/
@@ -17169,17 +17251,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_518__CLASS_ALARM_HANDLER.obj_len = 3;
 
 
-/*inistring dstr_519__CLASS_ALARM_HAND*/
+/*inistring dstr_519__CLASS_ALARM_HANDLER*/
  /*_._VALSTR___V600*/ meltfptr[599] =
-    (melt_ptr_t) & meltcdat->dstr_519__CLASS_ALARM_HAND;
-  meltcdat->dstr_519__CLASS_ALARM_HAND.discr =
+    (melt_ptr_t) & meltcdat->dstr_519__CLASS_ALARM_HANDLER;
+  meltcdat->dstr_519__CLASS_ALARM_HANDLER.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_519__CLASS_ALARM_HAND.val,
+  /*small inistring */ strncpy (meltcdat->dstr_519__CLASS_ALARM_HANDLER.val,
 				"CLASS_ALARM_HANDLER",
-				sizeof (meltcdat->dstr_519__CLASS_ALARM_HAND.
-					val) - 1);
-  meltcdat->dstr_519__CLASS_ALARM_HAND.val[19] = (char) 0;
-  meltcdat->dstr_519__CLASS_ALARM_HAND.slen = 19;
+				sizeof (meltcdat->
+					dstr_519__CLASS_ALARM_HANDLER.val) -
+				1);
+  meltcdat->dstr_519__CLASS_ALARM_HANDLER.val[19] = (char) 0;
+  meltcdat->dstr_519__CLASS_ALARM_HANDLER.slen = 19;
 
   /*inirout drout_520__REGISTER_ALARM_TIMER */
  /*_._VALROUT___V601*/ meltfptr[600] =
@@ -17191,7 +17274,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_520__REGISTER_ALARM_TIMER.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_520__REGISTER_ALARM_TIMER,
-			     meltrout_80_WARMELTmiMODES_REGISTER_ALARM_TIMER);
+			     meltrout_80_WARMELTmiMODESREGISTER_ALARM_TIMER);
 
   /*iniclos dclo_521__REGISTER_ALARM_TIMER */
  /*_._VALCLO___V602*/ meltfptr[601] =
@@ -17210,7 +17293,7 @@ FIX; COUTPUT= generated *.c file\n.",
 	   MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_522__UNREGISTER_ALARM_TIMER.nbval = 7;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->drout_522__UNREGISTER_ALARM_TIMER,
-			     meltrout_81_WARMELTmiMODES_UNREGISTER_ALARM_TIMER);
+			     meltrout_81_WARMELTmiMODESUNREGISTER_ALARM_TIMER);
 
   /*iniclos dclo_523__UNREGISTER_ALARM_TIMER */
  /*_._VALCLO___V604*/ meltfptr[603] =
@@ -17241,17 +17324,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_524__CHILDPROC_BUCKET_REFERENCE.obj_len = 3;
 
 
-/*inistring dstr_525__CHILDPROC_BUCKET*/
+/*inistring dstr_525__CHILDPROC_BUCKET_REFEREN*/
  /*_._VALSTR___V606*/ meltfptr[605] =
-    (melt_ptr_t) & meltcdat->dstr_525__CHILDPROC_BUCKET;
-  meltcdat->dstr_525__CHILDPROC_BUCKET.discr =
+    (melt_ptr_t) & meltcdat->dstr_525__CHILDPROC_BUCKET_REFEREN;
+  meltcdat->dstr_525__CHILDPROC_BUCKET_REFEREN.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_525__CHILDPROC_BUCKET.val,
-				"CHILDPROC_BUCKET_REFERENCE",
-				sizeof (meltcdat->dstr_525__CHILDPROC_BUCKET.
+  /*small inistring */ strncpy (meltcdat->dstr_525__CHILDPROC_BUCKET_REFEREN.
+				val, "CHILDPROC_BUCKET_REFERENCE",
+				sizeof (meltcdat->
+					dstr_525__CHILDPROC_BUCKET_REFEREN.
 					val) - 1);
-  meltcdat->dstr_525__CHILDPROC_BUCKET.val[26] = (char) 0;
-  meltcdat->dstr_525__CHILDPROC_BUCKET.slen = 26;
+  meltcdat->dstr_525__CHILDPROC_BUCKET_REFEREN.val[26] = (char) 0;
+  meltcdat->dstr_525__CHILDPROC_BUCKET_REFEREN.slen = 26;
 
   MELT_LOCATION ("warmelt-modes.melt:4788:/ iniobj");
 
@@ -17285,7 +17369,7 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->drout_527__CHILD_PROCESS_SIGCHLD_HANDLER.nbval = 8;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_527__CHILD_PROCESS_SIGCHLD_HANDLER,
-			     meltrout_82_WARMELTmiMODES_CHILD_PROCESS_SIGCHLD_HANDLER);
+			     meltrout_82_WARMELTmiMODESCHILD_PROCESS_SIGCHLD_HANDLER);
 
   /*iniclos dclo_528__CHILD_PROCESS_SIGCHLD_HANDLER */
  /*_._VALCLO___V609*/ meltfptr[608] =
@@ -17316,17 +17400,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_529__CLASS_CHILD_PROCESS_HANDLER.obj_len = 3;
 
 
-/*inistring dstr_530__CLASS_CHILD_PROC*/
+/*inistring dstr_530__CLASS_CHILD_PROCESS_HAND*/
  /*_._VALSTR___V611*/ meltfptr[610] =
-    (melt_ptr_t) & meltcdat->dstr_530__CLASS_CHILD_PROC;
-  meltcdat->dstr_530__CLASS_CHILD_PROC.discr =
+    (melt_ptr_t) & meltcdat->dstr_530__CLASS_CHILD_PROCESS_HAND;
+  meltcdat->dstr_530__CLASS_CHILD_PROCESS_HAND.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_530__CLASS_CHILD_PROC.val,
-				"CLASS_CHILD_PROCESS_HANDLER",
-				sizeof (meltcdat->dstr_530__CLASS_CHILD_PROC.
+  /*small inistring */ strncpy (meltcdat->dstr_530__CLASS_CHILD_PROCESS_HAND.
+				val, "CLASS_CHILD_PROCESS_HANDLER",
+				sizeof (meltcdat->
+					dstr_530__CLASS_CHILD_PROCESS_HAND.
 					val) - 1);
-  meltcdat->dstr_530__CLASS_CHILD_PROC.val[27] = (char) 0;
-  meltcdat->dstr_530__CLASS_CHILD_PROC.slen = 27;
+  meltcdat->dstr_530__CLASS_CHILD_PROCESS_HAND.val[27] = (char) 0;
+  meltcdat->dstr_530__CLASS_CHILD_PROCESS_HAND.slen = 27;
 
   /*inirout drout_531__REGISTER_CHILD_PROCESS_HANDLER */
  /*_._VALROUT___V612*/ meltfptr[611] =
@@ -17339,7 +17424,7 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->drout_531__REGISTER_CHILD_PROCESS_HANDLER.nbval = 9;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_531__REGISTER_CHILD_PROCESS_HANDLER,
-			     meltrout_83_WARMELTmiMODES_REGISTER_CHILD_PROCESS_HANDLER);
+			     meltrout_83_WARMELTmiMODESREGISTER_CHILD_PROCESS_HANDLER);
 
   /*iniclos dclo_532__REGISTER_CHILD_PROCESS_HANDLER */
  /*_._VALCLO___V613*/ meltfptr[612] =
@@ -17359,7 +17444,7 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->drout_533__UNREGISTER_CHILD_PROCESS_HANDLER.nbval = 1;
   MELT_ROUTINE_SET_ROUTCODE (&meltcdat->
 			     drout_533__UNREGISTER_CHILD_PROCESS_HANDLER,
-			     meltrout_84_WARMELTmiMODES_UNREGISTER_CHILD_PROCESS_HANDLER);
+			     meltrout_84_WARMELTmiMODESUNREGISTER_CHILD_PROCESS_HANDLER);
 
   /*iniclos dclo_534__UNREGISTER_CHILD_PROCESS_HANDLER */
  /*_._VALCLO___V615*/ meltfptr[614] =
@@ -17390,17 +17475,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_535__REGISTER_ALARM_TIMER.obj_len = 3;
 
 
-/*inistring dstr_536__REGISTER_ALARM_T*/
+/*inistring dstr_536__REGISTER_ALARM_TIMER*/
  /*_._VALSTR___V617*/ meltfptr[616] =
-    (melt_ptr_t) & meltcdat->dstr_536__REGISTER_ALARM_T;
-  meltcdat->dstr_536__REGISTER_ALARM_T.discr =
+    (melt_ptr_t) & meltcdat->dstr_536__REGISTER_ALARM_TIMER;
+  meltcdat->dstr_536__REGISTER_ALARM_TIMER.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_536__REGISTER_ALARM_T.val,
+  /*small inistring */ strncpy (meltcdat->dstr_536__REGISTER_ALARM_TIMER.val,
 				"REGISTER_ALARM_TIMER",
-				sizeof (meltcdat->dstr_536__REGISTER_ALARM_T.
-					val) - 1);
-  meltcdat->dstr_536__REGISTER_ALARM_T.val[20] = (char) 0;
-  meltcdat->dstr_536__REGISTER_ALARM_T.slen = 20;
+				sizeof (meltcdat->
+					dstr_536__REGISTER_ALARM_TIMER.val) -
+				1);
+  meltcdat->dstr_536__REGISTER_ALARM_TIMER.val[20] = (char) 0;
+  meltcdat->dstr_536__REGISTER_ALARM_TIMER.slen = 20;
 
 
 /*iniobj dsym_537__REGISTER_CHILD_PROCESS_HANDLER*/
@@ -17424,17 +17510,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_537__REGISTER_CHILD_PROCESS_HANDLER.obj_len = 3;
 
 
-/*inistring dstr_538__REGISTER_CHILD_P*/
+/*inistring dstr_538__REGISTER_CHILD_PROCESS_H*/
  /*_._VALSTR___V619*/ meltfptr[618] =
-    (melt_ptr_t) & meltcdat->dstr_538__REGISTER_CHILD_P;
-  meltcdat->dstr_538__REGISTER_CHILD_P.discr =
+    (melt_ptr_t) & meltcdat->dstr_538__REGISTER_CHILD_PROCESS_H;
+  meltcdat->dstr_538__REGISTER_CHILD_PROCESS_H.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_538__REGISTER_CHILD_P.val,
-				"REGISTER_CHILD_PROCESS_HANDLER",
-				sizeof (meltcdat->dstr_538__REGISTER_CHILD_P.
+  /*small inistring */ strncpy (meltcdat->dstr_538__REGISTER_CHILD_PROCESS_H.
+				val, "REGISTER_CHILD_PROCESS_HANDLER",
+				sizeof (meltcdat->
+					dstr_538__REGISTER_CHILD_PROCESS_H.
 					val) - 1);
-  meltcdat->dstr_538__REGISTER_CHILD_P.val[30] = (char) 0;
-  meltcdat->dstr_538__REGISTER_CHILD_P.slen = 30;
+  meltcdat->dstr_538__REGISTER_CHILD_PROCESS_H.val[30] = (char) 0;
+  meltcdat->dstr_538__REGISTER_CHILD_PROCESS_H.slen = 30;
 
 
 /*iniobj dsym_539__REGISTER_INPUT_CHANNEL_HANDLER*/
@@ -17458,17 +17545,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_539__REGISTER_INPUT_CHANNEL_HANDLER.obj_len = 3;
 
 
-/*inistring dstr_540__REGISTER_INPUT_C*/
+/*inistring dstr_540__REGISTER_INPUT_CHANNEL_H*/
  /*_._VALSTR___V621*/ meltfptr[620] =
-    (melt_ptr_t) & meltcdat->dstr_540__REGISTER_INPUT_C;
-  meltcdat->dstr_540__REGISTER_INPUT_C.discr =
+    (melt_ptr_t) & meltcdat->dstr_540__REGISTER_INPUT_CHANNEL_H;
+  meltcdat->dstr_540__REGISTER_INPUT_CHANNEL_H.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_540__REGISTER_INPUT_C.val,
-				"REGISTER_INPUT_CHANNEL_HANDLER",
-				sizeof (meltcdat->dstr_540__REGISTER_INPUT_C.
+  /*small inistring */ strncpy (meltcdat->dstr_540__REGISTER_INPUT_CHANNEL_H.
+				val, "REGISTER_INPUT_CHANNEL_HANDLER",
+				sizeof (meltcdat->
+					dstr_540__REGISTER_INPUT_CHANNEL_H.
 					val) - 1);
-  meltcdat->dstr_540__REGISTER_INPUT_C.val[30] = (char) 0;
-  meltcdat->dstr_540__REGISTER_INPUT_C.slen = 30;
+  meltcdat->dstr_540__REGISTER_INPUT_CHANNEL_H.val[30] = (char) 0;
+  meltcdat->dstr_540__REGISTER_INPUT_CHANNEL_H.slen = 30;
 
 
 /*iniobj dsym_541__UNREGISTER_ALARM_TIMER*/
@@ -17492,17 +17580,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_541__UNREGISTER_ALARM_TIMER.obj_len = 3;
 
 
-/*inistring dstr_542__UNREGISTER_ALARM*/
+/*inistring dstr_542__UNREGISTER_ALARM_TIMER*/
  /*_._VALSTR___V623*/ meltfptr[622] =
-    (melt_ptr_t) & meltcdat->dstr_542__UNREGISTER_ALARM;
-  meltcdat->dstr_542__UNREGISTER_ALARM.discr =
+    (melt_ptr_t) & meltcdat->dstr_542__UNREGISTER_ALARM_TIMER;
+  meltcdat->dstr_542__UNREGISTER_ALARM_TIMER.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_542__UNREGISTER_ALARM.val,
-				"UNREGISTER_ALARM_TIMER",
-				sizeof (meltcdat->dstr_542__UNREGISTER_ALARM.
+  /*small inistring */ strncpy (meltcdat->dstr_542__UNREGISTER_ALARM_TIMER.
+				val, "UNREGISTER_ALARM_TIMER",
+				sizeof (meltcdat->
+					dstr_542__UNREGISTER_ALARM_TIMER.
 					val) - 1);
-  meltcdat->dstr_542__UNREGISTER_ALARM.val[22] = (char) 0;
-  meltcdat->dstr_542__UNREGISTER_ALARM.slen = 22;
+  meltcdat->dstr_542__UNREGISTER_ALARM_TIMER.val[22] = (char) 0;
+  meltcdat->dstr_542__UNREGISTER_ALARM_TIMER.slen = 22;
 
 
 /*iniobj dsym_543__UNREGISTER_CHILD_PROCESS_HANDLER*/
@@ -17526,17 +17615,18 @@ FIX; COUTPUT= generated *.c file\n.",
   meltcdat->dsym_543__UNREGISTER_CHILD_PROCESS_HANDLER.obj_len = 3;
 
 
-/*inistring dstr_544__UNREGISTER_CHILD*/
+/*inistring dstr_544__UNREGISTER_CHILD_PROCESS*/
  /*_._VALSTR___V625*/ meltfptr[624] =
-    (melt_ptr_t) & meltcdat->dstr_544__UNREGISTER_CHILD;
-  meltcdat->dstr_544__UNREGISTER_CHILD.discr =
+    (melt_ptr_t) & meltcdat->dstr_544__UNREGISTER_CHILD_PROCESS;
+  meltcdat->dstr_544__UNREGISTER_CHILD_PROCESS.discr =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (DISCR_STRING))));
-  /*small inistring */ strncpy (meltcdat->dstr_544__UNREGISTER_CHILD.val,
-				"UNREGISTER_CHILD_PROCESS_HANDLER",
-				sizeof (meltcdat->dstr_544__UNREGISTER_CHILD.
+  /*small inistring */ strncpy (meltcdat->dstr_544__UNREGISTER_CHILD_PROCESS.
+				val, "UNREGISTER_CHILD_PROCESS_HANDLER",
+				sizeof (meltcdat->
+					dstr_544__UNREGISTER_CHILD_PROCESS.
 					val) - 1);
-  meltcdat->dstr_544__UNREGISTER_CHILD.val[32] = (char) 0;
-  meltcdat->dstr_544__UNREGISTER_CHILD.slen = 32;
+  meltcdat->dstr_544__UNREGISTER_CHILD_PROCESS.val[32] = (char) 0;
+  meltcdat->dstr_544__UNREGISTER_CHILD_PROCESS.slen = 32;
   meltcdat = NULL;
   melt_prohibit_garbcoll = FALSE;
 
