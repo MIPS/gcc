@@ -5314,7 +5314,10 @@ mips_canonicalize_int_order_test (enum rtx_code *code, rtx *cmp1,
   if (mips_int_order_operand_ok_p (*code, *cmp1))
     return true;
 
-  if (CONST_INT_P (*cmp1))
+  /* Do not invent new immediates to improve performance when optimizing
+     for size. This leads to subtly different immediates being loaded
+     independently */
+  if (!optimize_size && CONST_INT_P (*cmp1))
     switch (*code)
       {
       case LE:
