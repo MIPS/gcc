@@ -400,5 +400,9 @@ mper-function-pools
 Target Optimization Var(TARGET_PER_FUNCTION_POOLS) Init(1)
 Use per function constant pools instead of one shared pool
 
+mshrink-offsets
+Target Report Mask(SHRINK_OFFSETS)
+Shrink offsets in MIPS16 code to avoid extended loads and stores
+
 noasmopt
 Driver
