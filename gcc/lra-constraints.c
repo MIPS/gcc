@@ -476,11 +476,14 @@ get_equiv (rtx x)
   rtx res;
 
   if (! REG_P (x) || (regno = REGNO (x)) < FIRST_PSEUDO_REGISTER
-      || ! ira_reg_equiv[regno].defined_p
+      || (! ira_reg_equiv[regno].defined_p
+          && ira_reg_equiv[regno].stack_slot == NULL_RTX)
       || ! ira_reg_equiv[regno].profitable_p
       || lra_get_regno_hard_regno (regno) >= 0)
     return x;
   if ((res = ira_reg_equiv[regno].memory) != NULL_RTX)
+    return res;
+  if ((res = ira_reg_equiv[regno].stack_slot) != NULL_RTX)
     return res;
   if ((res = ira_reg_equiv[regno].constant) != NULL_RTX)
     return res;
