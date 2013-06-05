@@ -5100,8 +5100,7 @@ gfc_array_init_size (tree descriptor, gfc_typespec *ts,
 		     int rank, int corank, tree * poffset,
 		     gfc_expr ** lower, gfc_expr ** upper, stmtblock_t * pblock,
 		     stmtblock_t * descriptor_block, tree * overflow,
-		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3,
-		     gfc_typespec *ts)
+		     tree expr3_elem_size, tree *nelems, gfc_expr *expr3)
 {
   tree type;
   tree tmp;
@@ -5438,10 +5437,12 @@ gfc_array_allocate (gfc_se * se, gfc_expr * expr, tree status, tree errmsg,
   overflow = integer_zero_node;
 
   gfc_init_block (&set_descriptor_block);
-  size = gfc_array_init_size (se->expr, &expr->ts, ref->u.ar.as->rank,
+  size = gfc_array_init_size (se->expr,
+			      ts->type != BT_UNKNOWN ? ts : &expr->ts,
+			      ref->u.ar.as->rank,
 			      ref->u.ar.as->corank, &offset, lower, upper,
 			      &se->pre, &set_descriptor_block, &overflow,
-			      expr3_elem_size, nelems, expr3, ts);
+			      expr3_elem_size, nelems, expr3);
 
   if (dimension)
     {

@@ -1,3 +1,9 @@
+2013-06-05  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_array_init_size): Remove superfluous
+	"ts" argument due to trunk merging.
+	(gfc_array_allocate): Pass only one ts.
+
 2013-05-07  Tobias Burnus  <burnus@net-b.de>
 
 	* trans-intrinsic.c (gfc_conv_intrinsic_bound,
