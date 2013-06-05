@@ -1,3 +1,52 @@
+2013-06-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Patches that correspond to patch #4 revisions:
+	* config/rs6000/vector.md (nor<mode>3): Use the canonical format
+	for nor.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Remove
+	code disable splitting wide types if quad memory references.
+
+	* config/rs6000/vsx.md (VSX_L2): New iterator.
+	(vsx_and<mode>3): Change the name of the logical functions.  Use
+	canonical format for nor/eqv.  Change from using quad memory as a
+	selector for allowing logical operations in GPRs to just 64-bit.
+	(vsx_and<mode>3_32bit): Likewise.
+	(vsx_and<mode>3_64bit): Likewise.
+	(vsx_or_gpr_and<mode>3): Likewise.
+	(vsx_ior<mode>): Likewise.
+	(vsx_ior<mode>3_32bit): Likewise.
+	(vsx_ior<mode>3_64bit): Likewise.
+	(vsx_or_gpr_ior<mode>3): Likewise.
+	(vsx_xor<mode>): Likewise.
+	(vsx_xor<mode>3_32bit): Likewise.
+	(vsx_xor<mode>3_64bit): Likewise.
+	(vsx_or_gpr_xor<mode>3): Likewise.
+	(vsx_nor<mode>): Likewise.
+	(vsx_nor<mode>3_32bit): Likewise.
+	(vsx_nor<mode>3_64bit): Likewise.
+	(vsx_or_gpr_nor<mode>3): Likewise.
+	(vsx_nand<mode>): Likewise.
+	(vsx_nand<mode>3_32bit): Likewise.
+	(vsx_nand<mode>3_64bit): Likewise.
+	(vsx_or_gpr_nand<mode>3): Likewise.
+	(vsx_orc<mode>): Likewise.
+	(vsx_orc<mode>3_32bit): Likewise.
+	(vsx_orc<mode>3_64bit): Likewise.
+	(vsx_or_gpr_orc<mode>3): Likewise.
+	(vsx_eqv<mode>): Likewise.
+	(vsx_eqv<mode>3_32bit): Likewise.
+	(vsx_eqv<mode>3_64bit): Likewise.
+	(vsx_or_gpr_eqv<mode>3): Likewise.
+
+	* config/rs6000/rs6000.h (VLOGICAL_REGNO_P): Update comment.
+
+	* config/rs6000/altivec.md (altivec_nor<mode>3): Use canonical
+	format.
+
+	* config/rs6000/rs6000.md (eqv<mode>3): Add support for eqv
+	operation.
+
 2013-05-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 199427.

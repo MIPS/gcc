@@ -749,8 +749,8 @@
 
 (define_expand "nor<mode>3"
   [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-        (not:VEC_L (ior:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
-			      (match_operand:VEC_L 2 "vlogical_operand" ""))))]
+	(and:VEC_L (not:VEC_L (match_operand:VEC_L 1 "vlogical_operand" ""))
+		   (not:VEC_L (match_operand:VEC_L 2 "vlogical_operand" ""))))]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
    && (<MODE>mode != TImode || TARGET_POWERPC64)"
   "")

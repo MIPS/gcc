@@ -1079,8 +1079,8 @@
   
 (define_insn "*altivec_nor<mode>3"
   [(set (match_operand:VM 0 "register_operand" "=v")
-        (not:VM (ior:VM (match_operand:VM 1 "register_operand" "v")
-			(match_operand:VM 2 "register_operand" "v"))))]
+	(and:VM (not:VM (match_operand:VM 1 "register_operand" "v"))
+		(not:VM (match_operand:VM 2 "register_operand" "v"))))]
   "VECTOR_MEM_ALTIVEC_P (<MODE>mode)"
   "vnor %0,%1,%2"
   [(set_attr "type" "vecsimple")])
