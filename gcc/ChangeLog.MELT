@@ -1,5 +1,12 @@
 
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-genobj.melt (compile2obj_procedure): Use
+	symbol_cname for the generated name.
+	(compilobj_nrep_hook_call): New method stub for compile_obj on
+	class_nrep_hook_call.
+
+2013-06-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable & regenerated}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
@@ -77,7 +84,7 @@
 	* melt/generated/warmelt-outobj+melttime.h: Regenerate.
 	* melt/generated/warmelt-outobj.c: Regenerate.
 
-2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-06-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Adding ability to call hooks in MELT expressions}}
 	* melt-runtime.c (meltgc_add_out_cident): Common special

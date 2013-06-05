@@ -1371,16 +1371,19 @@ $SBUF.}#
 	(let ( (pronam (unsafe_get_field :nrpro_name pro)) 
 	       (nvariadic (unsafe_get_field :nrpro_variadic pro))
 	       )
-	  (when (is_a pronam class_named)
-	    (setq routfunam (unsafe_get_field :named_name pronam))
-	    (add2sbuf_strconst namsbuf "_")
-	    (add2sbuf_cident namsbuf (unsafe_get_field :named_name pronam))
-	    (when (is_a pronam class_cloned_symbol)
-	      (add2sbuf_strconst namsbuf "__")
-	      (add2sbuf_longdec namsbuf (get_int (get_field :csym_urank pronam)))
-	      (add2sbuf_strconst namsbuf "__")
-	      )
-	    )
+	  (cond ( (is_a pronam class_symbol)
+		  (setq routfunam (symbol_cname pronam))
+		  (add2out namsbuf routfunam))
+		( (is_a pronam class_named)
+		  (let ( (nambuf (make_strbuf discr_strbuf))
+			 )
+		    (add2sbuf_cident nambuf
+				     (unsafe_get_field :named_name pronam))
+		    (setq routfunam (strbuf2string discr_verbatim_string
+						   nambuf))
+		    (add2out namsbuf "_nm" routfunam)))
+		( (is_string pronam)
+		  (add2sbuf_cident namsbuf pronam)))	  
 	  (if nvariadic 
 	      (setq restnam nvariadic))
 	  ))
@@ -3937,13 +3940,13 @@ $SBUF.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; compile a simple application
 (defun compilobj_nrep_apply (napp gcx)
+  (debug "compilobj_nrep_apply napp=" napp)
   (assert_msg "check napp" (is_a napp class_nrep_apply))
   (assert_msg "check gcx" (is_a gcx class_c_generation_context))
   (let ( (loc (unsafe_get_field :nrep_loc napp))
 	 (fun (unsafe_get_field :napp_fun napp))
 	 (args (unsafe_get_field :nexpr_args napp))
 	 )
-    (debug "compilobj_nrep_apply napp=" napp)
     (let ( (oclos (compile_obj fun gcx)) 
 	   (oargs (multiple_map
 		   args
@@ -3965,6 +3968,22 @@ $SBUF.}#
       oapp
       )))
 (install_method class_nrep_apply compile_obj compilobj_nrep_apply)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; compile a hook call
+(defun compilobj_nrep_hook_call (nhkcall gcx)
+  (debug "compilobj_nrep_hook_call nhkcall=" nhkcall)
+  (assert_msg "check nhkcall" (is_a nhkcall class_nrep_hook_call))
+  (assert_msg "check gcx" (is_a gcx class_c_generation_context))
+  (let ( (loc (unsafe_get_field :nrep_loc nhkcall))
+	 (nhook (unsafe_get_field :nhook_called nhkcall))
+	 (nargs (unsafe_get_field :nexpr_args nhkcall))
+	 (nouts (unsafe_get_field :nhook_outs nhkcall))
+	 )
+    (debug "compilobj_nrep_hook_call nhook=" nhook " nargs=" nargs " nouts=" nouts)
+    (assert_msg "@$@unimplemented compilobj_nrep_hook_call")
+))
+(install_method class_nrep_hook_call compile_obj compilobj_nrep_hook_call)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun compilobj_nrep_multiapply (nmapp gcx)
@@ -5574,16 +5593,19 @@ $SBUF.}#
 	   )
       (add2sbuf_strconst nambuf "dtup_")
       (add2sbuf_longdec nambuf drk)
-      (cond ((is_a nam class_named)
-	     (add2sbuf_strconst nambuf "__")
-	     (add2sbuf_cident nambuf (get_field :named_name nam)))
-	    ((is_string nam)
-	     (add2out nambuf "___") (add2sbuf_cident nambuf nam)))
+      (cond 
+       ((is_a nam class_symbol)
+	(add2out nambuf "_sy" (symbol_cname nam)))
+       ((is_a nam class_named)
+	(add2sbuf_strconst nambuf "__")
+	(add2sbuf_cident nambuf (get_field :named_name nam)))
+       ((is_string nam)
+	(add2out nambuf "___") (add2sbuf_cident nambuf nam)))
       (let ( (otup (instance class_objinitmultiple
 			     :obv_type ctype_value
 			     :oie_discr odiscr
 			     :oie_locvar locvar
-			     :oie_cname (strbuf2string discr_string nambuf)
+			     :oie_cname (strbuf2string discr_verbatim_string nambuf)
 			     :oim_tupval ocompi
 			     ))
 	     )
@@ -5652,7 +5674,7 @@ $SBUF.}#
       (add2sbuf_strconst nambuf "dstr_")
       (add2sbuf_longdec nambuf drk)
       (add2sbuf_strconst nambuf "__")
-      (add2sbuf_cidentprefix nambuf odata 16)
+      (add2sbuf_cidentprefix nambuf odata 24)
       (put_int ostr (string_length odata))
       (if nam 
 	  (progn
