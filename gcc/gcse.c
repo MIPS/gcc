@@ -4213,6 +4213,7 @@ public:
   {}
 
   /* opt_pass methods: */
+  opt_pass * clone () { return new pass_rtl_hoist (ctxt_); }
   bool gate () { return gate_rtl_hoist (); }
   unsigned int execute () { return execute_rtl_hoist (); }
 
