@@ -8604,12 +8604,15 @@ convert_white_space (char *orig)
 static const char config_rpath[] = CONFIGURE_RPATH_PREFIX;
 
 /* Common code for extra_rpath_dirs_spec_function and
-   extra_cpu_dirs_spec_function to build up a list of -rpath=<dir> or -L<dir>
-   options, based on the extra rpath directories that were configured in.  */
+   extra_cpu_dirs_spec_function to build up a list of -rpath-link=<dir> or
+   -L<dir> options, based on the extra rpath directories that were configured
+   in.  */
 
 static char *
 build_rpath_or_cpu_dirs (const char *rpath_dirs,
+			 const char *global_prefix,
 			 const char *prefix,
+			 const char *sep,
 			 const char *subdir)
 {
   char *ret = NULL;
@@ -8672,7 +8675,9 @@ build_rpath_or_cpu_dirs (const char *rpath_dirs,
 	    {
 	      *endp = '\0';
 	      if (ret)
-		ret = reconcat (ret, ret, " ", prefix, tmpstr, NULL);
+		ret = reconcat (ret, ret, sep, prefix, tmpstr, NULL);
+	      else if (global_prefix)
+		ret = concat (global_prefix, prefix, tmpstr, NULL);
 	      else
 		ret = concat (prefix, tmpstr, NULL);
 	    }
@@ -8684,33 +8689,52 @@ build_rpath_or_cpu_dirs (const char *rpath_dirs,
   return ret;
 }
 
+static const char path_sep[2] = { PATH_SEPARATOR, '\0' };
+
+/* Return an rpath to use for creating extra rpath dirs or cpu dirs.  If this
+   is a native compiler, update LD_RUN_PATH to include the extra rpath
+   directories.  */
+
+static const char *
+get_rpath_dirs (void)
+{
+  static const char *rpath_with_env = config_rpath;
+
+#ifndef CROSS_DIRECTORY_STRUCTURE
+  /* If we are not cross compiling, update the LD_RUN_PATH environment
+     variable.  */
+  static const char *ld_run_path = NULL;
+
+  if (!ld_run_path)
+    {
+      const char *cur_ld_run_path = getenv ("LD_RUN_PATH");
+      if (cur_ld_run_path)
+	rpath_with_env = concat (cur_ld_run_path, path_sep, config_rpath, NULL);
+
+      ld_run_path = build_rpath_or_cpu_dirs (rpath_with_env, "LD_RUN_PATH=",
+					     "", path_sep, NULL);
+      xputenv (ld_run_path);
+    }
+#endif
+
+  return rpath_with_env;
+}
+
 /* %:extra-rpath-dirs spec function.  If we have alternate rpath directories
     (install lib directory + alternate startfile prefix directories), build a
-    string with all of the directories that are found with appropriate -rpath
-    options for the linker.  If the LD_RUN_PATH environment variable is
-    specified, include this into the -rpath arguments, since LD_RUN_PATH is
-    only used if -rpath is not specified.  */
+    string with all of the directories that are found with appropriate
+    -rpath-link options for the linker.  On native builds, use and update the
+    LD_RUN_PATH environment variable as well as using -rpath-link.  If the user
+    uses explicit -rpath=<dir>, then those will override these values.  */
 
 static const char *
 extra_rpath_dirs_spec_function (int argc, const char **argv ATTRIBUTE_UNUSED)
 {
-  static const char path_sep[2] = { PATH_SEPARATOR, '\0' };
-  const char *ld_run_path = getenv ("LD_RUN_PATH");
-  const char *ret;
-
   if (argc != 0)
     abort ();
 
-  if (ld_run_path)
-    {
-      char *new_rpath = concat (config_rpath, path_sep, ld_run_path, NULL);
-      ret = build_rpath_or_cpu_dirs (new_rpath, "-rpath=", NULL);
-      free (new_rpath);
-    }
-  else
-    ret = build_rpath_or_cpu_dirs (config_rpath, "-rpath=", NULL);
-
-  return ret;
+  return build_rpath_or_cpu_dirs (get_rpath_dirs (), NULL, "-rpath-link=", " ",
+				  NULL);
 }
 
 /* %:extra-cpu-dirs spec function.  If we have alternate rpath directories,
@@ -8724,7 +8748,7 @@ extra_cpu_dirs_spec_function (int argc, const char **argv)
   if (argc != 1)
     abort ();
 
-  return build_rpath_or_cpu_dirs (config_rpath, "-L", argv[0]);
+  return build_rpath_or_cpu_dirs (get_rpath_dirs (), NULL, "-L", " ", argv[0]);
 }
 
 /* %:find-dynamic-linker spec function.  Find the dynamic linker if we have
