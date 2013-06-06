@@ -1,16 +1,7 @@
-2013-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* config/rs6000/rs6000.h (LOCAL_CPU_EXTRA_SPEC_FUNCTIONS): Fix
-	typo in cross compiler case.
-
-2013-04-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to ibm-gcc-4_7-branch, subversion id 198058.
-
-2013-04-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2013-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* configure.ac (--with-extra-prefix=): Add configure time switches
-	to add addition prefix directories for the compiler to search for
+	to add additional prefix directories for the compiler to search for
 	extra executables, startfiles, and directories to add to the list
 	of shared library locations.
 	(--with-extra-exec-prefix=): Likewise.
@@ -40,6 +31,7 @@
 	(IS_STD_DIR): Likewise.
 	(config_rpath): Likewise.
 	(build_rpath_or_cpu_dirs): Likewise.
+	(get_rpath_dirs): Likewise.
 	(extra_rpath_dirs_spec_function): Likewsie.
 	(extra_cpu_dirs_spec_function): Likewise.
 	(find_dynamic_linker_spec_function): Likewise.
