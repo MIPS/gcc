@@ -1,6 +1,12 @@
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* params.def (PARAM_MELT_FULL_PERIOD): Increased a lot.
+
+	* melt-runtime.c (melt_garbcoll): melt_fullperiod increased.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base.c: Regenerate.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.

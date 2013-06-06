@@ -1693,9 +1693,9 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   }
   if (melt_fullperiod == 0) {
     const char* fullperstr = melt_argument ("full-period");
-    melt_fullperiod = fullperstr ? (atoi (fullperstr)) : 128;
-    if (melt_fullperiod < 64) melt_fullperiod = 64;
-    else if (melt_fullperiod > 512) melt_fullperiod = 512;
+    melt_fullperiod = fullperstr ? (atoi (fullperstr)) : 1024;
+    if (melt_fullperiod < 256) melt_fullperiod = 256;
+    else if (melt_fullperiod > 8192) melt_fullperiod = 8192;
   }
 
   if (!needfullreason &&  gckd > MELT_ONLY_MINOR 
