@@ -17535,8 +17535,7 @@ e for ";
 	(melt_ptr_t *) & /*_.RAWMODNAM__V28*/ meltfptr[27];
       /*^apply.arg */
       argtab[15].meltbp_cstring = " without parent env.\");\n\t\t\t    }\
-\n\t\t\
-\t    ";
+\n\t\t\t    ";
       /*_.MAKE_OBJCOMPUTE__V96*/ meltfptr[88] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!MAKE_OBJCOMPUTE */ meltfrout->tabval[25])),

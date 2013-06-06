@@ -2253,8 +2253,8 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
 #ifndef ggc_alloc_meltroutine_st
 #define ggc_alloc_meltroutine_st(SIZE) ((struct meltroutine_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif 
-     size_t sz = nbv*sizeof(void*) + offsetof(struct meltroutine_st, tabval);
      int nbv = (int) src->nbval;
+     size_t sz = nbv*sizeof(void*) + offsetof(struct meltroutine_st, tabval);
      int ix = 0;
      dst =
        /* Don't need a cleared allocation!  */

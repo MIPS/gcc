@@ -277,14 +277,13 @@ melt_forwarded_copy (melt_ptr_t p)
 	unsigned len = melt_primtab[lnix];
 	unsigned ucnt = 0;
 	unsigned ix = 0;
+	size_t sz = len * sizeof (struct melt_bucketlongentry_st)
+	  + offsetof (struct meltbucketlongs_st, buckl_entab);
 	gcc_assert (lnix > 0);
 	gcc_assert (len > 0);
 	dst =			/* Don't need a cleared allocation! */
-	  ggc_alloc_meltbucketlongs_st (len *
-					sizeof (struct
-						melt_bucketlongentry_st) +
-					offsetof (struct meltbucketlongs_st,
-						  buckl_entab));
+	  ggc_alloc_meltbucketlongs_st (sz);
+	melt_forwarded_copy_byte_count += sz;
 	dst->discr = src->discr;
 	dst->buckl_lenix = src->buckl_lenix;
 	dst->buckl_aux = src->buckl_aux;
@@ -315,10 +314,12 @@ melt_forwarded_copy (melt_ptr_t p)
 #endif
 	int nbv = (int) src->nbval;
 	int ix = 0;
+	size_t sz =
+	  nbv * sizeof (void *) + offsetof (struct meltclosure_st, tabval);
 	dst =
 	  /* Don't need a cleared allocation!  */
-	  ggc_alloc_meltclosure_st
-	  (nbv * sizeof (void *) + offsetof (struct meltclosure_st, tabval));
+	  ggc_alloc_meltclosure_st (sz);
+	melt_forwarded_copy_byte_count += sz;
 	dst->discr = src->discr;
 	dst->rout = src->rout;
 	dst->nbval = (unsigned) nbv;
@@ -341,6 +342,7 @@ melt_forwarded_copy (melt_ptr_t p)
 #endif
 	dst = ggc_alloc_meltdecay_st ();
 	*dst = *src;
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 
 	n = (melt_ptr_t) dst;
 	break;
@@ -358,10 +360,12 @@ melt_forwarded_copy (melt_ptr_t p)
 #endif
 	int nbv = (int) src->nbval;
 	int ix = 0;
+	size_t sz =
+	  nbv * sizeof (void *) + offsetof (struct melthook_st, tabval);
 	dst =
 	  /* Don't need a cleared allocation!  */
-	  ggc_alloc_melthook_st
-	  (nbv * sizeof (void *) + offsetof (struct melthook_st, tabval));
+	  ggc_alloc_melthook_st (sz);
+	melt_forwarded_copy_byte_count += sz;
 	dst->discr = src->discr;
 	strncpy (dst->hookname, src->hookname, MELT_HOOKNAME_LEN);
 	dst->hookname[MELT_HOOKNAME_LEN - 1] = 0;
@@ -388,6 +392,7 @@ melt_forwarded_copy (melt_ptr_t p)
 	dst =
 	  /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltint_st ();
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 	*dst = *src;
 
 	n = (melt_ptr_t) dst;
@@ -408,6 +413,7 @@ melt_forwarded_copy (melt_ptr_t p)
 	  /* Don't need a cleared allocation!  */
 	  ggc_alloc_meltlist_st ();
 	*dst = *src;
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 	/* end chunk from VALDESC_LIST */
 
 	n = (melt_ptr_t) dst;
@@ -431,6 +437,7 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_cleared_vec_entryobjectsmelt_st(n) ((struct entryobjectsmelt_st *)(ggc_internal_cleared_vec_alloc_stat (sizeof (struct entryobjectsmelt_st), n MEM_STAT_INFO)))
 #endif
 	int siz = melt_primtab[src->lenix];
+	size_t sz = 0;
 	dst =
 	  /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltmapobjects_st ();
@@ -438,14 +445,17 @@ melt_forwarded_copy (melt_ptr_t p)
 	dst->count = src->count;
 	dst->lenix = src->lenix;
 	dst->meltmap_aux = src->meltmap_aux;
+	sz = sizeof (*dst);
 	if (siz > 0 && src->entab)
 	  {
 	    /* Don't need a cleared allocation.  */
 	    dst->entab = ggc_alloc_vec_entryobjectsmelt_st (siz);
 	    memcpy (dst->entab, src->entab, siz * sizeof (dst->entab[0]));
+	    sz += siz * sizeof (dst->entab[0]);
 	  }
 	else
 	  dst->entab = NULL;
+	melt_forwarded_copy_byte_count += sz;
 
 	n = (melt_ptr_t) dst;
 	break;
@@ -468,9 +478,11 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_cleared_vec_entrystringsmelt_st(n) ((struct entrystringsmelt_st *)(ggc_internal_cleared_vec_alloc_stat (sizeof (struct entrystringsmelt_st), n MEM_STAT_INFO)))
 #endif
 	int siz = melt_primtab[src->lenix];
+	size_t sz = 0;
 	dst =
 	  /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltmapstrings_st ();
+	sz = sizeof (*dst);
 	dst->discr = src->discr;
 	dst->count = src->count;
 	dst->lenix = src->lenix;
@@ -480,9 +492,11 @@ melt_forwarded_copy (melt_ptr_t p)
 	    /* Don't need a cleared allocation.  */
 	    dst->entab = ggc_alloc_vec_entrystringsmelt_st (siz);
 	    memcpy (dst->entab, src->entab, siz * sizeof (dst->entab[0]));
+	    sz += siz * sizeof (dst->entab[0]);
 	  }
 	else
 	  dst->entab = NULL;
+	melt_forwarded_copy_byte_count += sz;
 
 	n = (melt_ptr_t) dst;
 	break;
@@ -499,15 +513,17 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_meltmixbigint_st(SIZE) ((struct meltmixbigint_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
 	unsigned blen = src->biglen;
+	size_t sz =
+	  blen * sizeof (long) + offsetof (struct meltmixbigint_st, tabig);
 	dst =
 	  /* Don't need a cleared allocation.  */
-	  ggc_alloc_meltmixbigint_st
-	  (blen * sizeof (long) + offsetof (struct meltmixbigint_st, tabig));
+	  ggc_alloc_meltmixbigint_st (sz);
 	dst->discr = src->discr;
 	dst->ptrval = src->ptrval;
 	dst->negative = src->negative;
 	dst->biglen = blen;
 	memcpy (dst->tabig, src->tabig, blen * sizeof (dst->tabig[0]));
+	melt_forwarded_copy_byte_count += sz;
 
 	n = (melt_ptr_t) dst;
 	break;
@@ -526,6 +542,7 @@ melt_forwarded_copy (melt_ptr_t p)
 	dst =
 	  /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltmixint_st ();
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 	*dst = *src;
 
 	n = (melt_ptr_t) dst;
@@ -546,6 +563,7 @@ melt_forwarded_copy (melt_ptr_t p)
 	  /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltmixloc_st ();
 	*dst = *src;
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 
 	n = (melt_ptr_t) dst;
 	break;
@@ -563,10 +581,12 @@ melt_forwarded_copy (melt_ptr_t p)
 #endif
 	int nbv = (int) src->nbval;
 	int ix = 0;
+	size_t sz =
+	  nbv * sizeof (void *) + offsetof (struct meltmultiple_st, tabval);
 	dst =
 	  /* Don't need a cleared allocation!  */
-	  ggc_alloc_meltmultiple_st
-	  (nbv * sizeof (void *) + offsetof (struct meltmultiple_st, tabval));
+	  ggc_alloc_meltmultiple_st (sz);
+	melt_forwarded_copy_byte_count += sz;
 	/* we cannot copy the whole src, because MELT_FLEXIBLE_DIM might be
 	   1 and nbval could be 0 */
 	dst->discr = src->discr;
@@ -591,11 +611,13 @@ melt_forwarded_copy (melt_ptr_t p)
 #endif
 	int ix = 0;
 	int oblen = (int) (src->obj_len);
+	size_t sz = 0;
 	/* We don't need to clear at allocation, since the object is
 	   explicitly filled here! */
-	dst = ggc_alloc_meltobject_st
-	  (oblen * sizeof (void *)
-	   + offsetof (struct meltobject_st, obj_vartab));
+	sz = oblen * sizeof (void *)
+	  + offsetof (struct meltobject_st, obj_vartab);
+	dst = ggc_alloc_meltobject_st (sz);
+	melt_forwarded_copy_byte_count += sz;
 	/* we cannot copy the whole src, because MELT_FLEXIBLE_DIM might be 1 */
 	dst->meltobj_class = src->meltobj_class;
 	dst->obj_hash = src->obj_hash;
@@ -632,6 +654,7 @@ melt_forwarded_copy (melt_ptr_t p)
 	dst =			/* Don't need a cleared allocation.  */
 	  ggc_alloc_meltpair_st ();
 	*dst = *src;
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 
 	n = (melt_ptr_t) dst;
 	break;
@@ -650,6 +673,7 @@ melt_forwarded_copy (melt_ptr_t p)
 	dst =
 	  /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltreal_st ();
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 	*dst = *src;
 
 	n = (melt_ptr_t) dst;
@@ -667,11 +691,13 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_meltroutine_st(SIZE) ((struct meltroutine_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
 	int nbv = (int) src->nbval;
+	size_t sz =
+	  nbv * sizeof (void *) + offsetof (struct meltroutine_st, tabval);
 	int ix = 0;
 	dst =
 	  /* Don't need a cleared allocation!  */
-	  ggc_alloc_meltroutine_st
-	  (nbv * sizeof (void *) + offsetof (struct meltroutine_st, tabval));
+	  ggc_alloc_meltroutine_st (sz);
+	melt_forwarded_copy_byte_count += sz;
 	dst->discr = src->discr;
 	strncpy (dst->routdescr, src->routdescr, MELT_ROUTDESCR_LEN);
 	dst->routdescr[MELT_ROUTDESCR_LEN - 1] = 0;
@@ -702,6 +728,7 @@ melt_forwarded_copy (melt_ptr_t p)
 	/* add the new copy to the old (major) special list */
 	dst->meltspec_next = melt_oldspecdatalist;
 	melt_oldspecdatalist = dst;
+	melt_forwarded_copy_byte_count += sizeof (*dst);
 
 	n = (melt_ptr_t) dst;
 	break;
@@ -718,6 +745,7 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_meltstrbuf_st() ((struct meltstrbuf_st *)(ggc_internal_alloc_stat (sizeof (struct meltstrbuf_st) MEM_STAT_INFO)))
 #endif
 	unsigned blen = melt_primtab[src->buflenix];
+	size_t sz = sizeof (*dst);
 	dst =
 	  /* Don't need a cleared allocation.  */
 	  ggc_alloc_meltstrbuf_st ();
@@ -727,17 +755,14 @@ melt_forwarded_copy (melt_ptr_t p)
 	dst->buflenix = src->buflenix;
 	if (blen > 0)
 	  {
-#if BUILDING_GCC_VERSION > 4005 || GCCPLUGIN_VERSION > 4005 || MELT_GCC_VERSION > 4005
 	    dst->bufzn =
 	      CONST_CAST (char *, ggc_alloc_string (src->bufzn, blen + 1));
-#else /*GCC 4.5 */
-	    dst->bufzn = (char *) ggc_alloc_cleared (1 + blen);
-	    memcpy (dst->bufzn, src->bufzn, blen);
-#endif /*!GCC 4.5 */
 	    dst->bufzn[blen] = (char) 0;
+	    sz += blen + 1;
 	  }
 	else
 	  dst->bufzn = NULL;
+	melt_forwarded_copy_byte_count += sz;
 	/* end copy chunk from VALDESC_STRBUF */
 
 	n = (melt_ptr_t) dst;
@@ -755,10 +780,11 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_meltstring_st(SIZE) ((struct meltstring_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
 	int srclen = (src->val) ? strlen (src->val) : 0;
+	size_t sz = offsetof (struct meltstring_st, val) + (srclen + 1);
 	dst =
 	  /* Don't need a cleared allocation.  */
-	ggc_alloc_meltstring_st
-	  (offsetof (struct meltstring_st, val) + (srclen + 1));
+	  ggc_alloc_meltstring_st (sz);
+	melt_forwarded_copy_byte_count += sz;
 	dst->discr = src->discr;
 	memcpy (dst->val, src->val, srclen);
 	dst->val[srclen] = (char) 0;
@@ -3981,5 +4007,5 @@ melthookproc_HOOK_PATMACRO_EXPORTER (melt_ptr_t meltin_SYM_p0,
 
 /* end of code generated by generate_runtypesupport_predefined_hooks for 140 predefined */
 
-/*** End of code file meltbuild-sources/generated/meltrunsup-inc.c generated on 2013 Jun 05
- * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 199649] MELT_0.9.9-rc2p . ***/
+/*** End of code file meltbuild-sources/generated/meltrunsup-inc.c generated on 2013 Jun 06
+ * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 199720] MELT_0.9.9-rc2p . ***/
