@@ -1373,10 +1373,11 @@ $SBUF.}#
 	       )
 	  (cond ( (is_a pronam class_symbol)
 		  (setq routfunam (symbol_cname pronam))
-		  (add2out namsbuf routfunam))
+		  (add2out namsbuf "_" routfunam))
 		( (is_a pronam class_named)
 		  (let ( (nambuf (make_strbuf discr_strbuf))
 			 )
+		    (add2sbuf_strconst nambuf "_")
 		    (add2sbuf_cident nambuf
 				     (unsafe_get_field :named_name pronam))
 		    (setq routfunam (strbuf2string discr_verbatim_string

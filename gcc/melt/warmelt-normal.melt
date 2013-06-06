@@ -2172,7 +2172,28 @@ source location.}#
 	     (setq hkouts shkouts)
 	     (setq hkctype shctype)
 	     )
+	   (?(some_hook_with_data
+	      ?(instance class_hook_descriptor
+			 :named_name ?dhkname
+			 :hookdesc_in_formals ?dhkins
+			 :hookdesc_out_formals ?dhkouts
+			 :hookdesc_ctype ?dhkctype))
+	     (setq hkname dhkname)
+	     (setq hkins dhkins)
+	     (setq hkouts dhkouts)
+	     (setq hkctype dhkctype)
+	     (debug "normexp_hook_call hook hkname=" hkname
+		    "\n.. hkins=" hkins
+		    "\n.. hkouts=" hkouts
+		    "\n.. hkctype=" hkctype)
+	     (assert_msg "check hkname" (is_string hkname))
+	     (assert_msg "check hkins" (is_multiple hkins))
+	     (assert_msg "check hkouts" (is_multiple hkouts))
+	     (assert_msg "check hkctype" (is_a hkctype class_ctype))
+	     )
 	   (?_
+	    (error_plain sloc "invalid hook call")
+	    (setq errorflag 1)
 	    (assert_msg "@$@unexpected hook, unimplemented")
 	    ))
     (debug "normexp_hook_call hkname=" hkname " hkins=" hkins 
@@ -4921,6 +4942,7 @@ source location.}#
 		  symbname)
       (return))
 ;;; fill the named_name of insdata
+    (debug "normexp_defhook namstrdata=" namstrdata)
     (multiple_put_nth slotup (get_int named_name) namstrdata)
     ;; fill the hookdesc_in_formals of insdata
     (fill_normal_formals sinformals formintuple formsymbmap env ncx sloc)

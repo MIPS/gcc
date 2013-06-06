@@ -1500,6 +1500,23 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 )
 
 
+;;; comatcher for a hook with some data
+(defcmatcher some_hook_with_data
+  (:value hookv)					;no match
+  (:value hkdata)
+  somehook
+  :doc #{The $SOME_HOOK_WITH_DATA matcher matches a hook value, 
+and extracts its data in $HKDATA}#
+  ;; test expansion
+  #{ /* some_hook_with_data $SOMEHOOK ? */ (($HOOKV) 
+    && melt_magic_discr ((melt_ptr_t)($HOOKV)) == MELTOBMAG_HOOK) }#
+  ;; fill expansion
+  #{ /* some_hook_with_data $SOMEHOOK ! */
+     $HKDATA = melt_hook_data ((melt_ptr_t) ($HOOKV)); 
+  }#
+  ;; no operator
+  )
+
 ;; primitive to compute the length of a cstring
 (defprimitive cstring_length
   (:cstring cstr) :long
@@ -3256,6 +3273,7 @@ typedef struct melthook_st *melthook_ptr_t;
  retrieve_value_descriptor_list
  set_reference
  set_real_timer_millisec
+ some_hook_with_data
  some_integer_different_from
  some_integer_equal_to
  some_integer_greater_or_equal_to

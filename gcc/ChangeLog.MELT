@@ -1,6 +1,15 @@
 
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (some_hook_with_data): New cmatcher.
+
+	* melt/warmelt-normal.melt (normexp_defhook): More.
+
+	* melt/warmelt-genobj.melt (compile2obj_procedure): Add underscore
+	inside generated name.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (melt_kilowords_forwarded): New variable
 	declaration.
 
