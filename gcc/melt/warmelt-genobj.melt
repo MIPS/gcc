@@ -4011,6 +4011,7 @@
        (debug "compilobj_nrep_hook_call ohook=" ohook " oargs=" oargs " oouts=" oouts)
        (let ( 
 	     (commastr (make_stringconst discr_verbatim_string ", "))
+	     (commampstr (make_stringconst discr_verbatim_string ", &"))
 	     (addins (lambda (alist)
 		       (foreach_in_multiple
 			(oargs)
@@ -4023,7 +4024,7 @@
 		       (foreach_in_multiple
 			(oouts)
 			(curout :long outix)
-			(list_append alist commastr)
+			(list_append alist commampstr)
 			(list_append alist oargs)
 			)
 		       ))
