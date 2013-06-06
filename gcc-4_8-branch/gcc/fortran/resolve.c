@@ -3247,6 +3247,7 @@ resolve_function (gfc_expr *expr)
       for (arg = expr->value.function.actual; arg; arg = arg->next)
 	{
 	  if ((GENERIC_ID == GFC_ISYM_UBOUND || GENERIC_ID == GFC_ISYM_SIZE)
+	      && arg == expr->value.function.actual
 	      && arg->next != NULL && arg->next->expr)
 	    {
 	      if (arg->next->expr->expr_type != EXPR_CONSTANT)
@@ -9758,6 +9759,7 @@ get_temp_from_expr (gfc_expr *e, gfc_namespace *ns)
 
   gfc_set_sym_referenced (tmp->n.sym);
   gfc_add_flavor (&tmp->n.sym->attr, FL_VARIABLE, name, NULL);
+  gfc_commit_symbol (tmp->n.sym);
   e = gfc_lval_expr_from_sym (tmp->n.sym);
 
   /* Should the lhs be a section, use its array ref for the
