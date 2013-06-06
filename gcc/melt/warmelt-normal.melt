@@ -2060,19 +2060,18 @@ source location.}#
 		 (actype (get_ctype actarg env))
 		 )
 	    (debug "normexp_primitive actarg=" actarg " actype=" actype)
-	    (if (and (is_a fortype class_ctype)
-		     (is_a actype class_ctype)
-		     (!= fortype actype))
-		(progn
-		  (error_strv sloc "type mismatch between formals & actuals in primitive"
-			      sopnamstr)
-		  (inform_strv sloc "mismatched primitive formal name"
-			       (unsafe_get_field :named_name forarg))
-		  (inform_strv sloc "mismatched primitive actual type"
-			       (unsafe_get_field :named_name actype))
-		  (inform_strv sloc "mismatched primitive expected type"
-			       (unsafe_get_field :named_name fortype))
-		  ))
+	    (when (and (is_a fortype class_ctype)
+		       (is_a actype class_ctype)
+		       (!= fortype actype))
+	      (error_strv sloc "type mismatch between formals & actuals in primitive"
+			  sopnamstr)
+	      (inform_strv sloc "mismatched primitive formal name"
+			   (unsafe_get_field :named_name forarg))
+	      (inform_strv sloc "mismatched primitive actual type"
+			   (unsafe_get_field :named_name actype))
+	      (inform_strv sloc "mismatched primitive expected type"
+			   (unsafe_get_field :named_name fortype))
+	      )
 	    (mapobject_put bmap forarg actarg)
 	    ))
 	 (debug "normexp_primitive bmap in sopexp" bmap)
@@ -2157,6 +2156,8 @@ source location.}#
 	 (hkins ())
 	 (hkouts ())
 	 (hkctype ())
+	 (:long errorflag 0)
+	 (newenv (fresh_env env))
 	 )
     (debug "normexp_hook_call shook=" shook " sargs=" sargs)
     (match shook
@@ -2181,10 +2182,11 @@ source location.}#
 	   (hnamestr (get_field :named_name hkname))
 	   (sins (make_multiple discr_multiple nbins))
 	   (souts (make_multiple discr_multiple nbouts))
+	   (nouts (make_multiple discr_multiple nbouts))
 	   )
       (when (!=i (multiple_length sargs) (+i nbins nbouts))
 	(error_strv sloc "invalid operand arity for hook call" hnamestr)
-	(return))
+	(return () ()))
       ;; extract and normalize the inputs
       (foreach_long_upto
        (0 (-i nbins 1))
@@ -2196,24 +2198,89 @@ source location.}#
        (ninargs ninbinds)
        (normalize_tuple sins env ncx sloc)
        (debug "normexp_hook_call ninargs=" ninargs " ninbinds=" ninbinds)
+       (foreach_in_list
+	(ninbinds)
+	(curpair curinbind)
+	(put_env newenv curinbind)
+	)
        ;; check type compatibility of inputs
        (foreach_in_multiple
 	(ninargs)
 	(curinarg :long inix)
-	(debug "normexp_hook_call curinarg=" curinarg " inix#" inix)
 	(let ( (curinbind (multiple_nth hkins inix))
+	       (inbctyp (get_field :fbind_type curinbind))
+	       (inbinder (get_field :binder curinbind))
+	       (curinctyp (get_ctype curinarg newenv))
 	       )
-	  (debug "normexp_hook_call curinbind=" curinbind)
+	  (debug "normexp_hook_call curinbind=" curinbind 
+		 "\n curinarg=" curinarg "\n inix#" inix 
+		 "\n inbctyp=" inbctyp "\n curinctyp=" curinctyp)
+	  (assert_msg "check inbctyp" (is_a inbctyp class_ctype))
+	  (assert_msg "check curinctyp" (is_a curinctyp class_ctype))
+	  (when (!= inbctyp curinctyp)
+	      (error_strv sloc "type mismatch between input formals & actuals in hook call"
+			  hnamestr)
+	      (inform_strv sloc "mismatched hook input formal name"
+			   (unsafe_get_field :named_name inbinder))
+	      (inform_strv sloc "mismatched hook actual type"
+			   (unsafe_get_field :named_name curinctyp))
+	      (inform_strv sloc "mismatched hook expected type"
+			   (unsafe_get_field :named_name inbctyp))
+	      (setq errorflag 1)
+	    )
 	))
        ;;
        ;; extract and normalize the outputs
        (foreach_long_upto
 	(0 (-i nbouts 1))
 	(:long outix)
-	(multiple_put_nth souts outix (multiple_nth sargs (+i outix nbins))))
-       (debug "normexp_hook_call souts=" souts)
+	(let ( (curoutarg (multiple_nth sargs (+i outix nbins)))
+	       (curoutbind (multiple_nth hkouts outix))
+	       (outbctyp (get_field :fbind_type curoutbind))
+	       (outbinder (get_field :binder curoutbind))
+	       )
+	  (debug "normexp_hook_call curoutarg=" curoutarg
+		 "\n curoutbind=" curoutbind "\n outix#" outix)
+	(multiple_put_nth souts outix curoutarg)
+	(cond 
+	 ( (is_a curoutarg class_symbol)
+	   (let ( (noutvar (normexp_symbol curoutarg env ncx sloc)) 
+		  (varoutctyp (get_ctype curoutarg env))
+		  )
+	     (debug "normexp_hook_call noutvar=" noutvar " varoutctyp=" varoutctyp)
+	     (assert_msg "check varoutctyp" (is_a varoutctyp class_ctype))
+	     (when (!= varoutctyp outbctyp)
+	       (error_strv sloc "incompatible output variable type for hook" hnamestr)
+	       (inform_strv sloc "output formal name for hook" 
+			    (get_field :named_name outbinder))
+	       (inform_strv sloc "actual output ctype for hook" 
+			    (get_field :named_name varoutctyp))
+	       (inform_strv sloc "expected output ctype for hook" 
+			    (get_field :named_name outbctyp))
+	       (setq errorflag 1)
+	       )
+	     (multiple_put_nth nouts outix noutvar)
+	     ))
+	 (:else
+	  (error_strv sloc "hook output argument is not a symbol" hnamestr)
+	  (inform_strv sloc "corresponding hook formal output name"
+		       (unsafe_get_field :named_name outbinder))
+	  (setq errorflag 1)
+	  ))
+	)
+       (debug "normexp_hook_call souts=" souts " nouts=" nouts " errorflag=" errorflag)
+       (if errorflag 
+	   (return () ()))
+       (let ( (nhkcall (instance class_nrep_hook_call
+				 :nhook_called shook
+				 :nexpr_args ninargs
+				 :nhook_outs nouts
+				 ))
+	     )
+	 (compile_warning "we need to compute the normalized hook ...")
+	 (debug "normexp_hook_call nhkcall=" nhkcall)
        (assert_msg "$@$unimplemented normexp_hook_call")
-       ))))
+       ))))))
 (install_method class_source_hook_call normal_exp normexp_hook_call)
 
 
@@ -4061,9 +4128,9 @@ source location.}#
 	 (when (!= varctyp expctyp)
 	       (error_strv sloc "incompatible type for SETQ"
 			   (unsafe_get_field :named_name svar))
-	       (inform_strv sloc "left [var] type for incomatible SETQ"
+	       (inform_strv sloc "left [var] type for incompatible SETQ"
 			    (unsafe_get_field :named_name varctyp))
-	       (inform_strv sloc "right [expr] type for incomatible SETQ"
+	       (inform_strv sloc "right [expr] type for incompatible SETQ"
 			    (unsafe_get_field :named_name expctyp))
 	       ))
        (when (is_a nvar class_nrep_modulevarocc)

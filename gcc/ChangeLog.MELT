@@ -1,9 +1,16 @@
 
 
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (normexp_hook_call): Almost complete,
+	but needs to get the normalized hook...
+.
 2013-06-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* melt/warmelt-normal.melt (normexp_hook_call): More, but still incomplete.
-	(normexp_arithmetic_variadic_operation): Correct assert on recv reciever.
+	* melt/warmelt-normal.melt (normexp_hook_call): More, but still
+	incomplete.
+	(normexp_arithmetic_variadic_operation): Correct assert on recv
+	reciever.
 	* testsuite/melt/thookcall.melt: Have in & out arguments, using
 	variadic arithmetic...
 
