@@ -2220,6 +2220,8 @@ source location.}#
        (ninargs ninbinds)
        (normalize_tuple sins env ncx sloc)
        (debug "normexp_hook_call ninargs=" ninargs " ninbinds=" ninbinds)
+       (if (null ninbinds)
+	   (setq ninbinds (make_list discr_list)))
        (foreach_in_list
 	(ninbinds)
 	(curpair curinbind)
@@ -2240,17 +2242,17 @@ source location.}#
 	  (assert_msg "check inbctyp" (is_a inbctyp class_ctype))
 	  (assert_msg "check curinctyp" (is_a curinctyp class_ctype))
 	  (when (!= inbctyp curinctyp)
-	      (error_strv sloc "type mismatch between input formals & actuals in hook call"
-			  hnamestr)
-	      (inform_strv sloc "mismatched hook input formal name"
-			   (unsafe_get_field :named_name inbinder))
-	      (inform_strv sloc "mismatched hook actual type"
-			   (unsafe_get_field :named_name curinctyp))
-	      (inform_strv sloc "mismatched hook expected type"
-			   (unsafe_get_field :named_name inbctyp))
-	      (setq errorflag 1)
+	    (error_strv sloc "type mismatch between input formals & actuals in hook call"
+			hnamestr)
+	    (inform_strv sloc "mismatched hook input formal name"
+			 (unsafe_get_field :named_name inbinder))
+	    (inform_strv sloc "mismatched hook actual type"
+			 (unsafe_get_field :named_name curinctyp))
+	    (inform_strv sloc "mismatched hook expected type"
+			 (unsafe_get_field :named_name inbctyp))
+	    (setq errorflag 1)
 	    )
-	))
+	  ))
        ;;
        ;; extract and normalize the outputs
        (foreach_long_upto
@@ -2263,46 +2265,63 @@ source location.}#
 	       )
 	  (debug "normexp_hook_call curoutarg=" curoutarg
 		 "\n curoutbind=" curoutbind "\n outix#" outix)
-	(multiple_put_nth souts outix curoutarg)
-	(cond 
-	 ( (is_a curoutarg class_symbol)
-	   (let ( (noutvar (normexp_symbol curoutarg env ncx sloc)) 
-		  (varoutctyp (get_ctype curoutarg env))
-		  )
-	     (debug "normexp_hook_call noutvar=" noutvar " varoutctyp=" varoutctyp)
-	     (assert_msg "check varoutctyp" (is_a varoutctyp class_ctype))
-	     (when (!= varoutctyp outbctyp)
-	       (error_strv sloc "incompatible output variable type for hook" hnamestr)
-	       (inform_strv sloc "output formal name for hook" 
-			    (get_field :named_name outbinder))
-	       (inform_strv sloc "actual output ctype for hook" 
-			    (get_field :named_name varoutctyp))
-	       (inform_strv sloc "expected output ctype for hook" 
-			    (get_field :named_name outbctyp))
-	       (setq errorflag 1)
+	  (multiple_put_nth souts outix curoutarg)
+	  (cond 
+	   ( (is_a curoutarg class_symbol)
+	     (let ( (noutvar (normexp_symbol curoutarg env ncx sloc)) 
+		    (varoutctyp (get_ctype noutvar env))
+		    )
+	       (debug "normexp_hook_call noutvar=" noutvar " varoutctyp=" varoutctyp)
+	       (assert_msg "check varoutctyp" (is_a varoutctyp class_ctype))
+	       (when (!= varoutctyp outbctyp)
+		 (error_strv sloc "incompatible output variable type for hook" hnamestr)
+		 (inform_strv sloc "output formal name for hook" 
+			      (get_field :named_name outbinder))
+		 (inform_strv sloc "actual output ctype for hook" 
+			      (get_field :named_name varoutctyp))
+		 (inform_strv sloc "expected output ctype for hook" 
+			      (get_field :named_name outbctyp))
+		 (setq errorflag 1)
+		 )
+	       (multiple_put_nth nouts outix noutvar)
+	       ))
+	   (:else
+	    (error_strv sloc "hook output argument is not a symbol" hnamestr)
+	    (inform_strv sloc "corresponding hook formal output name"
+			 (unsafe_get_field :named_name outbinder))
+	    (setq errorflag 1)
+	    ))
+	  )
+	(debug "normexp_hook_call souts=" souts " nouts=" nouts " errorflag=" errorflag)
+	(if errorflag 
+	    (return () ()))
+	(let ( (nhkcall (instance class_nrep_hook_call
+				  :nhook_called shook
+				  :nexpr_args ninargs
+				  :nhook_outs nouts
+				  ))
 	       )
-	     (multiple_put_nth nouts outix noutvar)
-	     ))
-	 (:else
-	  (error_strv sloc "hook output argument is not a symbol" hnamestr)
-	  (inform_strv sloc "corresponding hook formal output name"
-		       (unsafe_get_field :named_name outbinder))
-	  (setq errorflag 1)
-	  ))
-	)
-       (debug "normexp_hook_call souts=" souts " nouts=" nouts " errorflag=" errorflag)
-       (if errorflag 
-	   (return () ()))
-       (let ( (nhkcall (instance class_nrep_hook_call
-				 :nhook_called shook
-				 :nexpr_args ninargs
-				 :nhook_outs nouts
-				 ))
-	     )
-	 (compile_warning "we need to compute the normalized hook ...")
-	 (debug "normexp_hook_call nhkcall=" nhkcall)
-       (assert_msg "$@$unimplemented normexp_hook_call")
-       ))))))
+	  (compile_warning "we need to compute the normalized hook ...")
+	  (debug "normexp_hook_call nhkcall=" nhkcall)
+	  (let ( (csym (clone_symbol hkname))
+		 (cbind (instance class_normal_let_binding
+				  :letbind_loc sloc
+				  :binder csym
+				  :letbind_type hkctype
+				  :letbind_expr nhkcall
+				  )) 
+		 (clocc (instance class_nrep_locsymocc
+				  :nrep_loc sloc
+				  :nocc_ctyp hkctype
+				  :nocc_symb csym
+				  :nocc_bind cbind)) 
+		 )
+	    (debug "normexp_hook_call cbind=" cbind " clocc=" clocc)
+	    (list_append ninbinds cbind)
+	    (debug "normexp_hook_call result clocc=" clocc 
+		   " ninbinds=" ninbinds)
+	    (return clocc ninbinds)
+	    )))))))
 (install_method class_source_hook_call normal_exp normexp_hook_call)
 
 

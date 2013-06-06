@@ -1,6 +1,10 @@
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normexp_hook_call): Completed.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* params.def (PARAM_MELT_FULL_PERIOD): Increased a lot.
 
 	* melt-runtime.c (melt_garbcoll): melt_fullperiod increased.
