@@ -253,7 +253,7 @@ can_inline_edge_p (struct cgraph_edge *e, bool report)
 
   gcc_assert (e->inline_failed);
 
-  if (!callee || !callee->analyzed)
+  if (!callee || !callee->symbol.definition)
     {
       e->inline_failed = CIF_BODY_NOT_AVAILABLE;
       inlinable = false;
@@ -1100,8 +1100,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
   int i;
   struct ipa_ref *ref;
 
-  if ((!node->alias && !inline_summary (node)->inlinable)
-      || cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE
+  if ((!node->symbol.alias && !inline_summary (node)->inlinable)
       || node->global.inlined_to)
     return;
   if (!bitmap_set_bit (updated_nodes, node->uid))
@@ -1162,7 +1161,7 @@ update_callee_keys (fibheap_t heap, struct cgraph_node *node,
 	if (e->inline_failed
 	    && (callee = cgraph_function_or_thunk_node (e->callee, &avail))
 	    && inline_summary (callee)->inlinable
-	    && cgraph_function_body_availability (callee) >= AVAIL_AVAILABLE
+	    && avail >= AVAIL_AVAILABLE
 	    && !bitmap_bit_p (updated_nodes, callee->uid))
 	  {
 	    if (can_inline_edge_p (e, false)
@@ -1795,6 +1794,9 @@ ipa_inline (void)
     }
 
   inline_small_functions ();
+
+  /* Do first after-inlining removal.  We want to remove all "stale" extern inline
+     functions and virtual functions so we really know what is called once.  */
   symtab_remove_unreachable_nodes (false, dump_file);
   free (order);
 
