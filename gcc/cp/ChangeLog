@@ -1,3 +1,49 @@
+2013-06-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51908
+	* parser.c (cp_parser_postfix_expression [RID_*CAST]): Set
+	parser->in_type_id_in_expr_p before calling cp_parser_type_id.
+
+2013-06-03  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (maybe_make_one_only): Use forced_by_abi instead of
+	mark_decl_referenced.
+	(mark_needed): Likewise.
+
+2013-06-03  Jason Merrill  <jason@redhat.com>
+
+	* class.c (mark_type_abi_tags): New.
+	(check_abi_tags): Use it.
+
+2013-06-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57419
+	* decl2.c (mark_used): Add overload taking a tsubst_flags_t too.
+	* semantics.c (finish_qualified_id_expr): Use it.
+	* cp-tree.h: Update.
+
+2013-06-01  Jan Hubicka  <jh@suse.cz>
+
+	* decl2.c (cp_write_global_declarations): Replace same_body_alias
+	by symbol.cpp_implicit_alias.
+
+2013-05-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57404
+	* cp-lang.c (cp_classify_record): Handle structs without
+	TYPE_LANG_SPECIFIC.
+
+	PR c++/52377
+	* class.c (common_enclosing_class): New.
+	* cp-tree.h: Declare it.
+	* init.c (sort_mem_initializers): Don't splice out a union member
+	with an NSDMI.
+
+2013-05-29  Jan Hubicka  <jh@suse.cz>
+
+	* tree.c (cp_fix_function_decl_p): Update for new symtab flags.
+	* decl2.c )var_finalized_p, cp_write_global_declarations): Likewise.
+
 2013-05-25  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/25666

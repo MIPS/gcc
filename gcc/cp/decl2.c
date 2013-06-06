@@ -1703,9 +1703,10 @@ maybe_make_one_only (tree decl)
 
       if (VAR_P (decl))
 	{
+          struct varpool_node *node = varpool_node_for_decl (decl);
 	  DECL_COMDAT (decl) = 1;
 	  /* Mark it needed so we don't forget to emit it.  */
-	  mark_decl_referenced (decl);
+          node->symbol.forced_by_abi = true;
 	  TREE_USED (decl) = 1;
 	}
     }
@@ -1803,7 +1804,7 @@ import_export_class (tree ctype)
 static bool
 var_finalized_p (tree var)
 {
-  return varpool_node_for_decl (var)->finalized;
+  return varpool_node_for_decl (var)->symbol.definition;
 }
 
 /* DECL is a VAR_DECL or FUNCTION_DECL which, for whatever reason,
@@ -1813,7 +1814,22 @@ void
 mark_needed (tree decl)
 {
   TREE_USED (decl) = 1;
-  mark_decl_referenced (decl);
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      /* Extern inline functions don't become needed when referenced.
+	 If we know a method will be emitted in other TU and no new
+	 functions can be marked reachable, just use the external
+	 definition.  */
+      struct cgraph_node *node = cgraph_get_create_node (decl);
+      node->symbol.forced_by_abi = true;
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      struct varpool_node *node = varpool_node_for_decl (decl);
+      /* C++ frontend use mark_decl_references to force COMDAT variables
+         to be output that might appear dead otherwise.  */
+      node->symbol.forced_by_abi = true;
+    }
 }
 
 /* DECL is either a FUNCTION_DECL or a VAR_DECL.  This function
@@ -4201,8 +4217,8 @@ cp_write_global_declarations (void)
 	      struct cgraph_node *node, *next;
 
 	      node = cgraph_get_node (decl);
-	      if (node->same_body_alias)
-		node = cgraph_alias_aliased_node (node);
+	      if (node->symbol.cpp_implicit_alias)
+		node = cgraph_alias_target (node);
 
 	      cgraph_for_node_and_aliases (node, clear_decl_external,
 					   NULL, true);
@@ -4224,7 +4240,7 @@ cp_write_global_declarations (void)
 	  if (!DECL_EXTERNAL (decl)
 	      && decl_needed_p (decl)
 	      && !TREE_ASM_WRITTEN (decl)
-	      && !cgraph_get_node (decl)->local.finalized)
+	      && !cgraph_get_node (decl)->symbol.definition)
 	    {
 	      /* We will output the function; no longer consider it in this
 		 loop.  */
@@ -4499,7 +4515,7 @@ possibly_inlined_p (tree decl)
    wrong, true otherwise.  */
 
 bool
-mark_used (tree decl)
+mark_used (tree decl, tsubst_flags_t complain)
 {
   /* If DECL is a BASELINK for a single function, then treat it just
      like the DECL for the function.  Otherwise, if the BASELINK is
@@ -4537,9 +4553,12 @@ mark_used (tree decl)
 	      return false;
 	    }
 	}
-      error ("use of deleted function %qD", decl);
-      if (!maybe_explain_implicit_delete (decl))
-	error_at (DECL_SOURCE_LOCATION (decl), "declared here");
+      if (complain & tf_error)
+	{
+	  error ("use of deleted function %qD", decl);
+	  if (!maybe_explain_implicit_delete (decl))
+	    inform (DECL_SOURCE_LOCATION (decl), "declared here");
+	}
       return false;
     }
 
@@ -4552,7 +4571,8 @@ mark_used (tree decl)
     {
       if (!processing_template_decl && type_uses_auto (TREE_TYPE (decl)))
 	{
-	  error ("use of %qD before deduction of %<auto%>", decl);
+	  if (complain & tf_error)
+	    error ("use of %qD before deduction of %<auto%>", decl);
 	  return false;
 	}
       return true;
@@ -4699,6 +4719,12 @@ mark_used (tree decl)
     }
 
   return true;
+}
+
+bool
+mark_used (tree decl)
+{
+  return mark_used (decl, tf_warning_or_error);
 }
 
 #include "gt-cp-decl2.h"
