@@ -2145,7 +2145,8 @@ source location.}#
 ;;;;;;;;;;;;;;;;
 ;;; normalize a hook call
 (defun normexp_hook_call (recv env ncx psloc)
-  (debug "normexp_hook_call recv" recv)
+  (debug "normexp_hook_call recv=" recv)
+  (shortbacktrace_dbg "normexp_hook_call" 15)
   (assert_msg "check recv" (is_a recv class_source_hook_call))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
@@ -5012,13 +5013,16 @@ source location.}#
        (put_fields nproc :nproc_body nseq)
        (put_fields ndatahook :ndhook_closv closvtup)
        (put_fields shobind :fixbind_data ndatahook)
-       (debug "normexp_defhook nproc=" nproc "\n.. ndatahook=" ndatahook 
+       (debug "normexp_defhook final nproc=" nproc "\n.. ndatahook=" ndatahook 
 	      "\n.. shobind=" shobind)
        ;;
        (debug "normexp_defhook result nproc=" nproc)
        (return nproc ())
        ))))
 (install_method class_source_defhook normal_exp normexp_defhook)
+
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; normalize a LAMBDA

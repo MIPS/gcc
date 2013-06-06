@@ -198,6 +198,8 @@ int melt_debug_garbcoll;	/* Can be set in GDB, and is used by
 
 static int melt_debugging_after_mode;
 
+static long melt_forwarded_copy_byte_count;
+
 /* the generating GGC marking routine */
 extern void gt_ggc_mx_melt_un (void *);
 

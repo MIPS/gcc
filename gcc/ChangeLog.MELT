@@ -2,6 +2,20 @@
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (melt_forwarded_copy_byte_count): New static
+	variable, will be incremented by MELT generated forwarding code.
+
+	* melt/warmelt-base.melt: Add increment of
+	melt_forwarded_copy_byte_count in every :valdesc_forwchunk field
+	of descriptors like valdesc_object, etc...
+
+	* melt/warmelt-debug.melt (dbgout_mapstring_method): Don't output
+	content of deep and big string maps.
+
+	* melt/warmelt-normal.melt (normexp_hook_call): More debug.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (normexp_hook_call): Almost complete,
 	but needs to get the normalized hook...
 .
