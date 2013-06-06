@@ -2154,6 +2154,7 @@ source location.}#
 	 (shook (unsafe_get_field :shook_called recv))
 	 (sargs (unsafe_get_field :sargop_args recv))
 	 (hkname ())
+	 (hksymb ())
 	 (hkins ())
 	 (hkouts ())
 	 (hkctype ())
@@ -2163,11 +2164,13 @@ source location.}#
     (debug "normexp_hook_call shook=" shook " sargs=" sargs)
     (match shook
 	   (?(instance class_source_defhook
-		       :sdef_name ?shkname
+		       :sdef_name ?shksymb
 		       :sformal_args ?shkins
 		       :shook_ctype ?shctype
 		       :shook_out_formals ?shkouts)
-	     (setq hkname shkname)
+	     (setq hksymb shksymb)
+	     (assert_msg "check hksymb" (is_a hksymb class_symbol))
+	     (setq hkname (get_field :named_name shksymb))
 	     (setq hkins shkins)
 	     (setq hkouts shkouts)
 	     (setq hkctype shctype)
@@ -2178,6 +2181,8 @@ source location.}#
 			 :hookdesc_in_formals ?dhkins
 			 :hookdesc_out_formals ?dhkouts
 			 :hookdesc_ctype ?dhkctype))
+	     (assert_msg "check dhkname" (is_string dhkname))
+	     (setq hksymb (get_symbolstr dhkname))
 	     (setq hkname dhkname)
 	     (setq hkins dhkins)
 	     (setq hkouts dhkouts)
@@ -2186,18 +2191,19 @@ source location.}#
 		    "\n.. hkins=" hkins
 		    "\n.. hkouts=" hkouts
 		    "\n.. hkctype=" hkctype)
-	     (assert_msg "check hkname" (is_string hkname))
-	     (assert_msg "check hkins" (is_multiple hkins))
-	     (assert_msg "check hkouts" (is_multiple hkouts))
-	     (assert_msg "check hkctype" (is_a hkctype class_ctype))
 	     )
 	   (?_
 	    (error_plain sloc "invalid hook call")
 	    (setq errorflag 1)
 	    (assert_msg "@$@unexpected hook, unimplemented")
 	    ))
-    (debug "normexp_hook_call hkname=" hkname " hkins=" hkins 
-	   " hkouts=" hkouts " hkctype=" hkctype)
+	     (assert_msg "check hkname" (is_string hkname))
+	     (assert_msg "check hkins" (is_multiple hkins))
+	     (assert_msg "check hkouts" (is_multiple hkouts))
+	     (assert_msg "check hkctype" (is_a hkctype class_ctype))
+    (debug "normexp_hook_call hkname=" hkname " hksymb=" hksymb 
+	   "\n.. hkins=" hkins 
+	   "\n.. hkouts=" hkouts "\n.. hkctype=" hkctype)
     (assert_msg "check hkctype" (is_a hkctype class_ctype))
     (let ( (:long nbins (multiple_length hkins))
 	   (:long nbouts (multiple_length hkouts))
@@ -2205,7 +2211,10 @@ source location.}#
 	   (sins (make_multiple discr_multiple nbins))
 	   (souts (make_multiple discr_multiple nbouts))
 	   (nouts (make_multiple discr_multiple nbouts))
+	   (hkbind (find_env env hksymb))
 	   )
+      (debug "normexp_hook_call hkbind=" hkbind "\n hksymb=" hksymb)
+      (assert_msg "check hkbind" (is_object hkbind))
       (when (!=i (multiple_length sargs) (+i nbins nbouts))
 	(error_strv sloc "invalid operand arity for hook call" hnamestr)
 	(return () ()))
@@ -2295,15 +2304,18 @@ source location.}#
 	(debug "normexp_hook_call souts=" souts " nouts=" nouts " errorflag=" errorflag)
 	(if errorflag 
 	    (return () ()))
-	(let ( (nhkcall (instance class_nrep_hook_call
-				  :nhook_called shook
-				  :nexpr_args ninargs
-				  :nhook_outs nouts
-				  ))
-	       )
-	  (compile_warning "we need to compute the normalized hook ...")
-	  (debug "normexp_hook_call nhkcall=" nhkcall)
-	  (let ( (csym (clone_symbol hkname))
+	(debug "normexp_hook_call hksymb=" hksymb "\n hkbind=" hkbind)
+	(let (
+	      (nhook (normexp_symbol hksymb env ncx sloc))
+	      (nhkcall (instance class_nrep_hook_call
+				 :nhook_called nhook
+				 :nexpr_args ninargs
+				 :nhook_outs nouts
+				 ))
+	      )
+	  (debug "normexp_hook_call nhkcall=" nhkcall "\n.. nhook=" nhook 
+		 "\n.. hksymb=" hksymb)
+	  (let ( (csym (clone_symbol hksymb))
 		 (cbind (instance class_normal_let_binding
 				  :letbind_loc sloc
 				  :binder csym

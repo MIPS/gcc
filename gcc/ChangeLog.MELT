@@ -1,5 +1,12 @@
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normexp_hook_call): Compute the hksymb
+	and the nhook.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_hook_call): Still
+	unimplemented, but more.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-normal.melt (normexp_hook_call): Completed.
 

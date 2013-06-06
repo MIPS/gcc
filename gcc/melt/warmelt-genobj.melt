@@ -3981,9 +3981,32 @@ $SBUF.}#
 	 (nargs (unsafe_get_field :nexpr_args nhkcall))
 	 (nouts (unsafe_get_field :nhook_outs nhkcall))
 	 )
-    (debug "compilobj_nrep_hook_call nhook=" nhook " nargs=" nargs " nouts=" nouts)
-    (assert_msg "@$@unimplemented compilobj_nrep_hook_call")
-))
+    (debug "compilobj_nrep_hook_call nhook=" nhook "\n.. nargs=" nargs 
+	   "\n.. nouts=" nouts)
+    (let ( (ohook (let ( (oh (compile_obj nhook gcx)) )
+		    (debug "compilobj_nrep_hook_call ohook=" oh)
+		    oh))
+	   (oargs (multiple_map
+		   nargs
+		   (lambda (ncomp :long ix)
+		     (debug "compilobj_nrep_hook_call ncomp=" ncomp " ix#" ix)
+		     (let ( (ocomp (compile_obj ncomp gcx)) )
+		       (debug "compilobj_nrep_hook_call ocomp=" ocomp)
+		       (assert_msg "compilobj_nrep_hook_call check ocomp not objinstr"
+				   (not (is_a ocomp class_objinstr)))
+		       ocomp))))
+	   (oouts (multiple_map
+		   nouts 
+		   (lambda (nvar :long oix)
+		     (debug "compilobj_nrep_hook_call nvar=" nvar " oix#" oix)
+		     (let ( (ovar (compile_obj nvar gcx))
+			    )
+		       (debug "compilobj_nrep_hook_call ovar=" ovar)
+		       ovar))))
+	   )
+      (debug "compilobj_nrep_hook_call ohook=" ohook " oargs=" oargs " oouts=" oouts)
+      (assert_msg "@$@unimplemented compilobj_nrep_hook_call")
+      )))
 (install_method class_nrep_hook_call compile_obj compilobj_nrep_hook_call)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
