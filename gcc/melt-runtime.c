@@ -295,6 +295,8 @@ static long melt_minorsizekilow = 0;
 static long melt_fullthresholdkilow = 0;
 static int melt_fullperiod = 0;
 
+
+
 /* File containing the generated C file list. Enabled by the
    -f[plugin-arg-]melt-generated-c-file-list= program option. */
 static FILE* melt_generated_c_files_list_fil;
@@ -391,10 +393,21 @@ deletion */
 struct meltspecialdata_st* melt_newspecdatalist;
 struct meltspecialdata_st* melt_oldspecdatalist;
 
+/* number of kilowords allocated in the your heap since last full MELT
+   garbage collection */
 unsigned long melt_kilowords_sincefull;
+/* cumulated kilowords forwarded & copied to old Ggc heap */
+unsigned long melt_kilowords_forwarded;
 /* number of full & any melt garbage collections */
 unsigned long melt_nb_full_garbcoll;
 unsigned long melt_nb_garbcoll;
+
+/* counting various reasons for full garbage collection: */
+unsigned long melt_nb_fullgc_because_asked;
+unsigned long melt_nb_fullgc_because_periodic;
+unsigned long melt_nb_fullgc_because_threshold;
+unsigned long melt_nb_fullgc_because_copied;
+
 void* melt_touched_cache[MELT_TOUCHED_CACHE_SIZE];
 bool melt_prohibit_garbcoll;
 
@@ -1646,14 +1659,15 @@ melt_delete_unmarked_old_specialdata (void)
 void
 melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
 {
-  bool needfull = FALSE;
+  char* needfullreason = NULL;
   if (melt_prohibit_garbcoll)
     fatal_error ("MELT garbage collection prohibited");
   melt_nb_garbcoll++;
   if (gckd == MELT_NEED_FULL) {
     melt_debuggc_eprintf ("melt_garbcoll explicitly needs full gckd#%d",
                           (int) gckd);
-    needfull = TRUE;
+    needfullreason = "explicit";
+    melt_nb_fullgc_because_asked ++;
   }
 
   /* set some parameters if they are cleared.  Should happen once.
@@ -1669,37 +1683,52 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   }
   if (melt_fullthresholdkilow == 0) {
     const char* fullthstr = melt_argument ("full-threshold");
-    melt_fullthresholdkilow = fullthstr ? (atol (fullthstr)) : 2048;
-    if (melt_fullthresholdkilow < 1024)
-      melt_fullthresholdkilow = 1024;
-    if (melt_fullthresholdkilow < 2*melt_minorsizekilow)
-      melt_fullthresholdkilow =  2*melt_minorsizekilow;
-    if (melt_fullthresholdkilow > 65536)
-      melt_fullthresholdkilow  =65536;
+    melt_fullthresholdkilow = fullthstr ? (atol (fullthstr)) : 8*1024;
+    if (melt_fullthresholdkilow < 8*1024)
+      melt_fullthresholdkilow = 8*1024;
+    if (melt_fullthresholdkilow < 16*melt_minorsizekilow)
+      melt_fullthresholdkilow =  16*melt_minorsizekilow;
+    if (melt_fullthresholdkilow > 512*1024)
+      melt_fullthresholdkilow  = 512*1024;
   }
   if (melt_fullperiod == 0) {
     const char* fullperstr = melt_argument ("full-period");
-    melt_fullperiod = fullperstr ? (atoi (fullperstr)) : 64;
-    if (melt_fullperiod < 32) melt_fullperiod = 32;
-    else if (melt_fullperiod > 256) melt_fullperiod = 256;
+    melt_fullperiod = fullperstr ? (atoi (fullperstr)) : 128;
+    if (melt_fullperiod < 64) melt_fullperiod = 64;
+    else if (melt_fullperiod > 512) melt_fullperiod = 512;
   }
 
-  if (melt_nb_garbcoll % melt_fullperiod == 0) {
+  if (!needfullreason &&  gckd > MELT_ONLY_MINOR 
+      && melt_nb_garbcoll % melt_fullperiod == 0) {
     melt_debuggc_eprintf ("melt_garbcoll peridically need full nbgarbcoll %ld fullperiod %d",
                           melt_nb_garbcoll, melt_fullperiod);
-    needfull = TRUE;
+    melt_nb_fullgc_because_periodic++;
+    needfullreason = "periodic";
   }
 
-  if (gckd > MELT_ONLY_MINOR && melt_kilowords_sincefull >
-      (unsigned long) melt_fullthresholdkilow) {
+  if (!needfullreason && gckd > MELT_ONLY_MINOR 
+      && melt_kilowords_sincefull > (unsigned long) melt_fullthresholdkilow) {
     melt_debuggc_eprintf ("melt_garbcoll need full threshold melt_kilowords_sincefull %ld melt_fullthresholdkilow %ld",
                           melt_kilowords_sincefull, melt_fullthresholdkilow);
-    needfull = TRUE;
+    melt_nb_fullgc_because_threshold++;
+    needfullreason = "threshold";
   }
 
   melt_minor_copying_garbage_collector (wanted);
 
-  if (needfull) {
+  melt_debuggc_eprintf ("melt_garbcoll melt_forwarded_copy_byte_count=%ld", 
+			melt_forwarded_copy_byte_count);
+  if (!needfullreason && gckd > MELT_ONLY_MINOR 
+      && melt_forwarded_copy_byte_count > 4*melt_minorsizekilow*(1024*sizeof(void*)))
+    {
+      melt_kilowords_forwarded += melt_forwarded_copy_byte_count/(1024*sizeof(void*));
+      melt_debuggc_eprintf ("melt_kilowords_forwarded %ld", melt_kilowords_forwarded);
+      melt_forwarded_copy_byte_count = 0;
+      melt_nb_fullgc_because_copied++;
+      needfullreason = "copied";
+    }
+
+  if (needfullreason) {
     long nboldspec = 0;
     melt_nb_full_garbcoll++;
     debugeprintf ("melt_garbcoll #%ld fullgarbcoll #%ld",
@@ -1711,14 +1740,18 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
     ggc_collect ();
     debugeprintf ("melt_garbcoll after fullgarbcoll #%ld", melt_nb_full_garbcoll);
     melt_delete_unmarked_old_specialdata ();
-    if (!quiet_flag) {
-      /* when not quiet, the GGC collector displays data, so we can
-         add a message and end the line! "*/
-      fprintf (stderr, " MELT full gc#%ld/%ld [%ld Kw]\n",
-               melt_nb_full_garbcoll, melt_nb_garbcoll, melt_kilowords_sincefull);
-      fflush (stderr);
+    if (!quiet_flag) 
+      {
+	/* when not quiet, the GGC collector displays data, so we can
+	   add a message and end the line! "*/
+	fprintf (stderr, " MELT full gc#%ld/%ld [%s, %ld Kw young, %ld Kw forwarded]\n",
+		 melt_nb_full_garbcoll, melt_nb_garbcoll, 
+		 needfullreason,
+		 melt_kilowords_sincefull, melt_kilowords_forwarded);
+	fflush (stderr);
     }
     melt_kilowords_sincefull = 0;
+    melt_kilowords_forwarded = 0;
     /* end of MELT full garbage collection */
   }
   melt_check_call_frames (MELT_NOYOUNG, "after garbage collection");
@@ -11264,8 +11297,20 @@ melt_do_finalize (void)
     }
 #endif
   dbgprintf ("melt_do_finalize ended melt_nb_modules=%d", melt_nb_modules);
+  if (!quiet_flag)
+    { /* when not quiet, the GGC collector displays data, so we show
+	 our various GC reasons count */
+      fprintf(stderr, "\n MELT did %ld garbage collections; %ld full + %ld minor.\n",
+	      melt_nb_garbcoll, melt_nb_full_garbcoll, melt_nb_garbcoll - melt_nb_full_garbcoll);
+      if (melt_nb_full_garbcoll > 0)
+	fprintf(stderr,
+		"MELT full GCs because %ld asked, %ld periodic, %ld threshold, %ld copied.\n",
+		melt_nb_fullgc_because_asked, melt_nb_fullgc_because_periodic, 
+		melt_nb_fullgc_because_threshold, melt_nb_fullgc_because_copied);
+    }
  end:
   MELT_EXITFRAME ();
+  fflush(NULL);
 #undef finclosv
 }
 

@@ -1,6 +1,22 @@
 
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (melt_kilowords_forwarded): New variable
+	declaration.
+
+	* melt-runtime.c (melt_kilowords_sincefull)
+	(melt_nb_fullgc_because_asked, melt_nb_fullgc_because_periodic)
+	(melt_nb_fullgc_because_threshold, melt_nb_fullgc_because_copied):
+	New variable definitions.
+	(melt_garbcoll): Display the needfullreason on verbose messages.
+	Increase the default melt_fullthresholdkilow & melt_fullperiod.
+	(melt_do_finalize): Display GC stats when no quiet_flag.
+	Call fflush.
+
+	* params.def (PARAM_MELT_FULL_THRESHOLD, PARAM_MELT_FULL_PERIOD):
+	Increase.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-base.melt (valdesc_routine): Typo in its
 	:valdesc_forwchunk.
 

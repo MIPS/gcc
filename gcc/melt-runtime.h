@@ -958,8 +958,10 @@ MELT_EXTERN struct meltspecialdata_st* melt_newspecdatalist;
 MELT_EXTERN struct meltspecialdata_st* melt_oldspecdatalist;
 
 
-/* kilowords allocated since last full collection */
+/* kilowords allocated in young zone since last full collection */
 extern unsigned long melt_kilowords_sincefull;
+/* cumulated kilowords forwarded & copied to old Ggc heap */
+extern unsigned long melt_kilowords_forwarded;
 /* number of full & any melt garbage collections */
 extern unsigned long melt_nb_full_garbcoll;
 extern unsigned long melt_nb_garbcoll;
