@@ -1,6 +1,14 @@
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normexp_defhook): Add the name
+	string data correctly.
+
+	* testsuite/melt/thook-3.melt: Improve test. The hook data does
+	contain the name.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.c
 	* melt/generated/warmelt-base+02.c

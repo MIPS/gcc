@@ -4943,6 +4943,7 @@ source location.}#
       (return))
 ;;; fill the named_name of insdata
     (debug "normexp_defhook namstrdata=" namstrdata)
+    (add_nctx_data ncx namstrdata)
     (multiple_put_nth slotup (get_int named_name) namstrdata)
     ;; fill the hookdesc_in_formals of insdata
     (fill_normal_formals sinformals formintuple formsymbmap env ncx sloc)
@@ -4968,6 +4969,8 @@ source location.}#
       (debug "normexp_defhook noutupdata=" noutupdata))
     ;; fill the hookdesc_ctype of insdata
     (multiple_put_nth slotup (get_int hookdesc_ctype) (normal_predef sctype ncx sloc "hook ctype"))
+    ;;
+    (debug "normexp_defhook slotup=" slotup)
     ;;
     (debug "normexp_defhook updated ncx=" ncx "\n .. nproc=" nproc)
     (foreach_in_multiple

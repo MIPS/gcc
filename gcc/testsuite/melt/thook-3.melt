@@ -2,17 +2,11 @@
 ;; file thook-3.melt
 
 #| run in buildir/gcc
- ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thook-3.melt 
- gccmelt_cflags="$(grep fmelt-module-cflags meltbuild-checkruntime.args | sed 's:^ *::')" 
- ./cc1 -fmelt-mode=rundebug  -fmelt-module-path=meltbuild-stage3:meltbuild-modules \
-    -fmelt-source-path=meltbuild-stage3:meltbuild-sources \
-    -fmelt-module-makefile=$GCCMELT_SOURCE/gcc/melt-module.mk \
-    -fmelt-workdir=meltbuild-workdir \
-    -fmelt-tempdir=meltbuild-tempdir \
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thook-3.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
     -fmelt-keep-temporary-files \
     -fmelt-init=@warmelt.quicklybuilt \
     -fmelt-arg=thook-3.melt \
-     "$gccmelt_cflags" \
     -fmelt-debug meltbuild-empty-file.c
 |#
 
@@ -24,6 +18,7 @@
 )
 
 (debug "quoting_hook =" quoting_hook)
+(debug "quoting_hook data: " (hook_data quoting_hook))
 
 (code_chunk 
  doqhook_chk 
