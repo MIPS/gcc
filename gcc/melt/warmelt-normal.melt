@@ -112,7 +112,8 @@ applications. $NAPP_FUN is the simple function to apply to $NEXPR_ARGS.}#
   :super class_nrep_typed_expression_with_arguments
   :doc #{The $CLASS_NREP_HOOK_CALL is for normal hook calls. 
   $NHOOK_CALLED is the called hook. NHOOK_OUTS it the actual output arguments to the hook.}#
-  :fields (nhook_called
+  :fields (nhook_name
+	   nhook_called
 	   nhook_outs))
 
 ;; normalized multiresult apply
@@ -2281,6 +2282,10 @@ source location.}#
 		    (varoutctyp (get_ctype noutvar env))
 		    )
 	       (debug "normexp_hook_call noutvar=" noutvar " varoutctyp=" varoutctyp)
+	       (when (is_not_a noutvar class_nrep_locsymocc)
+		 (error_strv sloc "invalid output variable for hook" hnamestr)
+		 (error_strv sloc "invalid hook output variable is" (get_field :named_name curoutarg))
+		 (setq errorflag 1))		 
 	       (assert_msg "check varoutctyp" (is_a varoutctyp class_ctype))
 	       (when (!= varoutctyp outbctyp)
 		 (error_strv sloc "incompatible output variable type for hook" hnamestr)
@@ -2308,6 +2313,9 @@ source location.}#
 	(let (
 	      (nhook (normexp_symbol hksymb env ncx sloc))
 	      (nhkcall (instance class_nrep_hook_call
+				 :nrep_loc sloc
+				 :nexpr_ctyp hkctype
+				 :nhook_name hkname
 				 :nhook_called nhook
 				 :nexpr_args ninargs
 				 :nhook_outs nouts

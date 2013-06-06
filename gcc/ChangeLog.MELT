@@ -1,5 +1,11 @@
 
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normexp_hook_call): Check that output
+	variables are local.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_hook_call): Done.
+
+2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normexp_hook_call): Compute the hksymb
 	and the nhook.
 
