@@ -199,6 +199,8 @@ static int access_check (const char *, int);
 static char *find_a_file (const struct path_prefix *, const char *, int, bool);
 static void add_prefix (struct path_prefix *, const char *, const char *,
 			int, int, int);
+static void add_multiple_prefix (struct path_prefix *, const char *,
+				 const char *, int, int, int);
 static void add_sysrooted_prefix (struct path_prefix *, const char *,
 				  const char *, int, int, int);
 static char *skip_whitespace (char *);
@@ -258,6 +260,7 @@ static const char *remove_outfile_spec_function (int, const char **);
 static const char *version_compare_spec_function (int, const char **);
 static const char *include_spec_function (int, const char **);
 static const char *find_file_spec_function (int, const char **);
+static const char *find_dynamic_linker_spec_function (int, const char **);
 static const char *find_plugindir_spec_function (int, const char **);
 static const char *print_asm_header_spec_function (int, const char **);
 static const char *compare_debug_dump_opt_spec_function (int, const char **);
@@ -266,6 +269,8 @@ static const char *compare_debug_auxbase_opt_spec_function (int, const char **);
 static const char *pass_through_libs_spec_func (int, const char **);
 static const char *replace_extension_spec_func (int, const char **);
 static char *convert_white_space (char *);
+static const char *extra_rpath_dirs_spec_function (int, const char **);
+const char *extra_cpu_dirs_spec_function (int, const char **);
 
 /* The Specs Language
 
@@ -722,6 +727,16 @@ proper position among the other output files.  */
     %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}}}"
 #endif
 
+#ifndef LINK_RPATH_DIRS_SPEC
+#ifdef CONFIGURE_RPATH_PREFIX
+/* Add extra -rpath= options if configured.  */
+#define LINK_RPATH_DIRS_SPEC \
+  "%{!nostdlib:%{!nodefaultlibs:%{!static: %:extra-rpath-dirs()}}}"
+#else
+#define LINK_RPATH_DIRS_SPEC
+#endif
+#endif
+
 /* -u* was put back because both BSD and SysV seem to support it.  */
 /* %{static:} simply prevents an error message if the target machine
    doesn't handle -static.  */
@@ -735,6 +750,7 @@ proper position among the other output files.  */
 #define LINK_COMMAND_SPEC "\
 %{!fsyntax-only:%{!c:%{!M:%{!MM:%{!E:%{!S:\
     %(linker) " \
+    LINK_RPATH_DIRS_SPEC \
     LINK_PLUGIN_SPEC \
    "%{flto|flto=*:%<fcompare-debug*} \
     %{flto} %{flto=*} %l " LINK_PIE_SPEC \
@@ -1168,6 +1184,17 @@ static const char *gcc_libexec_prefix;
 #define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/"
 #endif
 
+/* Additional directories added at configure time.  */
+#ifndef CONFIGURE_INCLUDE_PREFIX
+#define CONFIGURE_INCLUDE_PREFIX ""
+#endif
+#ifndef CONFIGURE_STARTFILE_PREFIX
+#define CONFIGURE_STARTFILE_PREFIX ""
+#endif
+#ifndef CONFIGURE_EXEC_PREFIX
+#define CONFIGURE_EXEC_PREFIX ""
+#endif
+
 #ifdef CROSS_DIRECTORY_STRUCTURE  /* Don't use these prefixes for a cross compiler.  */
 #undef MD_EXEC_PREFIX
 #undef MD_STARTFILE_PREFIX
@@ -1206,6 +1233,12 @@ static const char *const standard_startfile_prefix_1
   = STANDARD_STARTFILE_PREFIX_1;
 static const char *const standard_startfile_prefix_2
   = STANDARD_STARTFILE_PREFIX_2;
+static const char *const configure_startfile_prefix
+  = CONFIGURE_STARTFILE_PREFIX;
+static const char *const configure_exec_prefix
+  = CONFIGURE_EXEC_PREFIX;
+static const char *const configure_include_prefix
+  = CONFIGURE_INCLUDE_PREFIX;
 
 /* A relative path to be used in finding the location of tools
    relative to the driver.  */
@@ -1328,6 +1361,7 @@ static const struct spec_function static_spec_functions[] =
   { "version-compare",		version_compare_spec_function },
   { "include",			include_spec_function },
   { "find-file",		find_file_spec_function },
+  { "find-dynamic-linker",	find_dynamic_linker_spec_function },
   { "find-plugindir",		find_plugindir_spec_function },
   { "print-asm-header",		print_asm_header_spec_function },
   { "compare-debug-dump-opt",	compare_debug_dump_opt_spec_function },
@@ -1335,6 +1369,8 @@ static const struct spec_function static_spec_functions[] =
   { "compare-debug-auxbase-opt", compare_debug_auxbase_opt_spec_function },
   { "pass-through-libs",	pass_through_libs_spec_func },
   { "replace-extension",	replace_extension_spec_func },
+  { "extra-rpath-dirs",		extra_rpath_dirs_spec_function },
+  { "extra-cpu-dirs",		extra_cpu_dirs_spec_function },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -2526,6 +2562,44 @@ add_prefix (struct path_prefix *pprefix, const char *prefix,
   /* Insert after PREV.  */
   pl->next = (*prev);
   (*prev) = pl;
+}
+
+/* Same as add_prefix, but split the prefix at each PATH_SEPARATOR.  */
+static void
+add_multiple_prefix (struct path_prefix *pprefix, const char *prefix,
+		     const char *component,
+		     /* enum prefix_priority */ int priority,
+		     int require_machine_suffix, int os_multilib)
+{
+  const char *startp, *endp;
+  char *nstore = (char *) alloca (strlen (prefix) + 3);
+
+  startp = endp = prefix;
+  while (1)
+    {
+      if (*endp == PATH_SEPARATOR || *endp == 0)
+	{
+	  strncpy (nstore, startp, endp - startp);
+	  if (endp == startp)
+	    strcpy (nstore, concat (".", dir_separator_str, NULL));
+	  else if (!IS_DIR_SEPARATOR (endp[-1]))
+	    {
+	      nstore[endp - startp] = DIR_SEPARATOR;
+	      nstore[endp - startp + 1] = 0;
+	    }
+	  else
+	    nstore[endp - startp] = 0;
+	  add_prefix (pprefix, nstore, component, priority,
+		      require_machine_suffix, os_multilib);
+	  if (*endp == 0)
+	    break;
+	  endp = startp = endp + 1;
+	}
+      else
+	endp++;
+    }
+
+  return;
 }
 
 /* Same as add_prefix, but prepending target_system_root to prefix.  */
@@ -3778,101 +3852,22 @@ process_command (unsigned int decoded_options_count,
   temp = getenv ("COMPILER_PATH");
   if (temp)
     {
-      const char *startp, *endp;
-      char *nstore = (char *) alloca (strlen (temp) + 3);
-
-      startp = endp = temp;
-      while (1)
-	{
-	  if (*endp == PATH_SEPARATOR || *endp == 0)
-	    {
-	      strncpy (nstore, startp, endp - startp);
-	      if (endp == startp)
-		strcpy (nstore, concat (".", dir_separator_str, NULL));
-	      else if (!IS_DIR_SEPARATOR (endp[-1]))
-		{
-		  nstore[endp - startp] = DIR_SEPARATOR;
-		  nstore[endp - startp + 1] = 0;
-		}
-	      else
-		nstore[endp - startp] = 0;
-	      add_prefix (&exec_prefixes, nstore, 0,
-			  PREFIX_PRIORITY_LAST, 0, 0);
-	      add_prefix (&include_prefixes, nstore, 0,
-			  PREFIX_PRIORITY_LAST, 0, 0);
-	      if (*endp == 0)
-		break;
-	      endp = startp = endp + 1;
-	    }
-	  else
-	    endp++;
-	}
+      add_multiple_prefix (&exec_prefixes, temp, 0,
+			   PREFIX_PRIORITY_LAST, 0, 0);
+      add_multiple_prefix (&include_prefixes, temp, 0,
+			   PREFIX_PRIORITY_LAST, 0, 0);
     }
 
   temp = getenv (LIBRARY_PATH_ENV);
   if (temp && *cross_compile == '0')
-    {
-      const char *startp, *endp;
-      char *nstore = (char *) alloca (strlen (temp) + 3);
-
-      startp = endp = temp;
-      while (1)
-	{
-	  if (*endp == PATH_SEPARATOR || *endp == 0)
-	    {
-	      strncpy (nstore, startp, endp - startp);
-	      if (endp == startp)
-		strcpy (nstore, concat (".", dir_separator_str, NULL));
-	      else if (!IS_DIR_SEPARATOR (endp[-1]))
-		{
-		  nstore[endp - startp] = DIR_SEPARATOR;
-		  nstore[endp - startp + 1] = 0;
-		}
-	      else
-		nstore[endp - startp] = 0;
-	      add_prefix (&startfile_prefixes, nstore, NULL,
-			  PREFIX_PRIORITY_LAST, 0, 1);
-	      if (*endp == 0)
-		break;
-	      endp = startp = endp + 1;
-	    }
-	  else
-	    endp++;
-	}
-    }
+    add_multiple_prefix (&startfile_prefixes, temp, NULL,
+			 PREFIX_PRIORITY_LAST, 0, 1);
 
   /* Use LPATH like LIBRARY_PATH (for the CMU build program).  */
   temp = getenv ("LPATH");
   if (temp && *cross_compile == '0')
-    {
-      const char *startp, *endp;
-      char *nstore = (char *) alloca (strlen (temp) + 3);
-
-      startp = endp = temp;
-      while (1)
-	{
-	  if (*endp == PATH_SEPARATOR || *endp == 0)
-	    {
-	      strncpy (nstore, startp, endp - startp);
-	      if (endp == startp)
-		strcpy (nstore, concat (".", dir_separator_str, NULL));
-	      else if (!IS_DIR_SEPARATOR (endp[-1]))
-		{
-		  nstore[endp - startp] = DIR_SEPARATOR;
-		  nstore[endp - startp + 1] = 0;
-		}
-	      else
-		nstore[endp - startp] = 0;
-	      add_prefix (&startfile_prefixes, nstore, NULL,
-			  PREFIX_PRIORITY_LAST, 0, 1);
-	      if (*endp == 0)
-		break;
-	      endp = startp = endp + 1;
-	    }
-	  else
-	    endp++;
-	}
-    }
+    add_multiple_prefix (&startfile_prefixes, temp, NULL,
+			 PREFIX_PRIORITY_LAST, 0, 1);
 
   /* Process the options and store input files and switches in their
      vectors.  */
@@ -4049,6 +4044,19 @@ process_command (unsigned int decoded_options_count,
 	}
     }
 #endif
+
+  /* Add prefixes specified by configure's --with-prefix.  */
+  if (*configure_exec_prefix)
+    add_multiple_prefix (&exec_prefixes, configure_exec_prefix, "GCC",
+			 PREFIX_PRIORITY_LAST, 0, 0);
+
+  if (*configure_include_prefix)
+    add_multiple_prefix (&include_prefixes, configure_include_prefix,
+			 "GCC", PREFIX_PRIORITY_LAST, 0, 1);
+
+  if (*configure_startfile_prefix)
+    add_multiple_prefix (&startfile_prefixes, configure_startfile_prefix,
+			 "GCC", PREFIX_PRIORITY_LAST, 0, 1);
 
   /* More prefixes are enabled in main, after we read the specs file
      and determine whether this is cross-compilation or not.  */
@@ -8253,7 +8261,6 @@ find_file_spec_function (int argc, const char **argv)
   return file;
 }
 
-
 /* %:find-plugindir spec function.  This function replaces its argument
     by the -iplugindir=<dir> option.  `dir' is found through find_file, that
     is the -print-file-name gcc program option. */
@@ -8590,3 +8597,232 @@ convert_white_space (char *orig)
   else
     return orig;
 }
+
+#define IS_STD_DIR(PATH,STD) (strncmp (PATH, STD, sizeof (STD)-1) == 0)
+
+#ifdef CONFIGURE_RPATH_PREFIX
+
+static const char config_rpath[] = CONFIGURE_RPATH_PREFIX;
+
+/* Common code for extra_rpath_dirs_spec_function and
+   extra_cpu_dirs_spec_function to build up a list of -rpath-link=<dir> or
+   -L<dir> options, based on the extra rpath directories that were configured
+   in.  */
+
+static char *
+build_rpath_or_cpu_dirs (const char *rpath_dirs,
+			 const char *global_prefix,
+			 const char *prefix,
+			 const char *sep,
+			 const char *subdir)
+{
+  char *ret = NULL;
+  char *tmpstr, *endp, *prev_dir;
+  size_t rpath_len = strlen (rpath_dirs);
+  size_t subdir_len = (subdir) ? strlen (subdir) : 0;
+  size_t mlib_len = (multilib_os_dir) ? strlen (multilib_os_dir) : 0;
+  bool mlib_updir;
+  size_t i;
+
+  mlib_updir = (DIR_SEPARATOR == '/'
+		&& mlib_len > sizeof ("../") - 1
+		&& multilib_os_dir[0] == '.'
+		&& multilib_os_dir[1] == '.'
+		&& multilib_os_dir[2] == '/');
+
+  endp = tmpstr = XALLOCAVEC (char, rpath_len + subdir_len + mlib_len + 4);
+  prev_dir = NULL;
+  for (i = 0; i <= rpath_len; i++)
+    {
+      int ch = rpath_dirs[i];
+      if (ch != PATH_SEPARATOR && ch != '\0')
+	{
+	  *endp++ = ch;
+	  if (ch == DIR_SEPARATOR)
+	    prev_dir = endp;
+	}
+      else if (endp > tmpstr)
+	{
+	  /* Add current multlib directory.  Convert <stuff>/lib/../lib64 into
+	     <stuff>/lib64.  */
+	  if (mlib_len > 0)
+	    {
+	      if (mlib_updir && prev_dir)
+		{
+		  memcpy (prev_dir, multilib_os_dir + 3, mlib_len - 3);
+		  endp = prev_dir + mlib_len - 3;
+		}
+	      else
+		{
+		  *endp = DIR_SEPARATOR;
+		  memcpy (endp+1, multilib_os_dir, mlib_len);
+		  endp += mlib_len + 1;
+		}
+	    }
+
+	  /* Look for machine specific subdir?  */
+	  if (subdir)
+	    {
+	      *endp = DIR_SEPARATOR;
+	      memcpy (endp+1, subdir, subdir_len);
+	      endp += subdir_len + 1;
+	    }
+
+	  endp[0] = DIR_SEPARATOR;
+	  endp[1] = '.';
+	  endp[2] = '\0';
+
+	  if (is_directory (tmpstr, false))
+	    {
+	      *endp = '\0';
+	      if (ret)
+		ret = reconcat (ret, ret, sep, prefix, tmpstr, NULL);
+	      else if (global_prefix)
+		ret = concat (global_prefix, prefix, tmpstr, NULL);
+	      else
+		ret = concat (prefix, tmpstr, NULL);
+	    }
+
+	  endp = tmpstr;
+	}
+    }
+
+  return ret;
+}
+
+static const char path_sep[2] = { PATH_SEPARATOR, '\0' };
+
+/* Return an rpath to use for creating extra rpath dirs or cpu dirs.  If this
+   is a native compiler, update LD_RUN_PATH to include the extra rpath
+   directories.  */
+
+static const char *
+get_rpath_dirs (void)
+{
+  static const char *rpath_with_env = config_rpath;
+
+#ifndef CROSS_DIRECTORY_STRUCTURE
+  /* If we are not cross compiling, update the LD_RUN_PATH environment
+     variable.  */
+  static const char *ld_run_path = NULL;
+
+  if (!ld_run_path)
+    {
+      const char *cur_ld_run_path = getenv ("LD_RUN_PATH");
+      if (cur_ld_run_path)
+	rpath_with_env = concat (cur_ld_run_path, path_sep, config_rpath, NULL);
+
+      ld_run_path = build_rpath_or_cpu_dirs (rpath_with_env, "LD_RUN_PATH=",
+					     "", path_sep, NULL);
+      xputenv (ld_run_path);
+    }
+#endif
+
+  return rpath_with_env;
+}
+
+/* %:extra-rpath-dirs spec function.  If we have alternate rpath directories
+    (install lib directory + alternate startfile prefix directories), build a
+    string with all of the directories that are found with appropriate
+    -rpath-link options for the linker.  On native builds, use and update the
+    LD_RUN_PATH environment variable as well as using -rpath-link.  If the user
+    uses explicit -rpath=<dir>, then those will override these values.  */
+
+static const char *
+extra_rpath_dirs_spec_function (int argc, const char **argv ATTRIBUTE_UNUSED)
+{
+  if (argc != 0)
+    abort ();
+
+  return build_rpath_or_cpu_dirs (get_rpath_dirs (), NULL, "-rpath-link=", " ",
+				  NULL);
+}
+
+/* %:extra-cpu-dirs spec function.  If we have alternate rpath directories,
+    search them to see if there are subdirectories that hold the static
+    libraries built for a particular machines, and return appropriate -L<dir>
+    to those directories.  */
+
+const char *
+extra_cpu_dirs_spec_function (int argc, const char **argv)
+{
+  if (argc != 1)
+    abort ();
+
+  return build_rpath_or_cpu_dirs (get_rpath_dirs (), NULL, "-L", " ", argv[0]);
+}
+
+/* %:find-dynamic-linker spec function.  Find the dynamic linker if we have
+    extra search paths configured.  */
+
+static const char *
+find_dynamic_linker_spec_function (int argc, const char **argv)
+{
+  const char *file;
+  char *tmpstr;
+  char *endp;
+  char *prev_dir;
+  size_t len;
+  size_t i;
+  int ch;
+
+  if (argc < 1)
+    abort ();
+
+  file = argv[0];
+  len = strlen (file);
+  gcc_assert (file[0] == DIR_SEPARATOR);
+
+  endp = tmpstr = XALLOCAVEC (char, ARRAY_SIZE (config_rpath) + len + 1);
+  prev_dir = NULL;
+  for (i = 0; i <= ARRAY_SIZE (config_rpath); i++)
+    {
+      ch = config_rpath[i];
+      if (ch != PATH_SEPARATOR && ch != '\0')
+	{
+	  if (ch == DIR_SEPARATOR)
+	    prev_dir = endp;
+
+	  *endp++ = ch;
+	}
+      else if (endp > tmpstr)
+	{
+	  *endp = '\0';
+	  if (prev_dir && strncmp (prev_dir, "/lib", sizeof ("/lib")-1) == 0)
+	    endp = prev_dir;
+	  memcpy (endp, file, len);
+	  endp[len] = '\0';
+	  if (access (tmpstr, X_OK) == 0)
+	    return xstrdup (tmpstr);
+
+	  endp = tmpstr;
+	}
+    }
+
+  return xstrdup (file);
+}
+
+#else
+const char *
+extra_rpath_dirs_spec_function (int argc ATTRIBUTE_UNUSED,
+				const char **argv ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+const char *
+extra_cpu_dirs_spec_function (int argc ATTRIBUTE_UNUSED,
+			      const char **argv ATTRIBUTE_UNUSED)
+{
+  return NULL;
+}
+
+static const char *
+find_dynamic_linker_spec_function (int argc, const char **argv)
+{
+  if (argc != 1)
+    abort ();
+
+  return xstrdup (argv[0]);
+}
+#endif
