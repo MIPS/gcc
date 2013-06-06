@@ -774,17 +774,34 @@
         (match_operand:SHORT 1 "general_operand"      " r,M,D<hq>,m, m,rZ,*w,*w, r,*w"))]
   "(register_operand (operands[0], <MODE>mode)
     || aarch64_reg_or_zero (operands[1], <MODE>mode))"
-  "@
-   mov\\t%w0, %w1
-   mov\\t%w0, %1
-   movi\\t%0.<Vallxd>, %1
-   ldr<size>\\t%w0, %1
-   ldr\\t%<size>0, %1
-   str<size>\\t%w1, %0
-   str\\t%<size>1, %0
-   umov\\t%w0, %1.<v>[0]
-   dup\\t%0.<Vallxd>, %w1
-   dup\\t%0, %1.<v>[0]"
+{
+   switch (which_alternative)
+     {
+     case 0:
+       return "mov\t%w0, %w1";
+     case 1:
+       return "mov\t%w0, %1";
+     case 2:
+       return aarch64_output_scalar_simd_mov_immediate (operands[1],
+							<MODE>mode);
+     case 3:
+       return "ldr<size>\t%w0, %1";
+     case 4:
+       return "ldr\t%<size>0, %1";
+     case 5:
+       return "str<size>\t%w1, %0";
+     case 6:
+       return "str\t%<size>1, %0";
+     case 7:
+       return "umov\t%w0, %1.<v>[0]";
+     case 8:
+       return "dup\t%0.<Vallxd>, %w1";
+     case 9:
+       return "dup\t%0, %1.<v>[0]";
+     default:
+       gcc_unreachable ();
+     }
+}
   [(set_attr "v8type" "move,alu,alu,load1,load1,store1,store1,*,*,*")
    (set_attr "simd_type" "*,*,simd_move_imm,*,*,*,*,simd_movgp,simd_dupgp,simd_dup")
    (set_attr "simd" "*,*,yes,*,*,*,*,yes,yes,yes")
@@ -850,7 +867,8 @@
    movi\\t%d0, %1"
   [(set_attr "v8type" "move,move,move,alu,load1,load1,store1,store1,adr,adr,fmov,fmov,fmov,fmov")
    (set_attr "mode" "DI")
-   (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,yes")]
+   (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,*")
+   (set_attr "simd" "*,*,*,*,*,*,*,*,*,*,*,*,*,yes")]
 )
 
 (define_insn "insv_imm<mode>"
@@ -3159,6 +3177,50 @@
 			 (match_operand 3 "const_int_operand" "n")))]
   ""
   "<su>bfx\\t%<w>0, %<w>1, %3, %2"
+  [(set_attr "v8type" "bfm")
+   (set_attr "mode" "<MODE>")]
+)
+
+;; Bitfield Insert (insv)
+(define_expand "insv<mode>"
+  [(set (zero_extract:GPI (match_operand:GPI 0 "register_operand")
+			  (match_operand 1 "const_int_operand")
+			  (match_operand 2 "const_int_operand"))
+	(match_operand:GPI 3 "general_operand"))]
+  ""
+{
+  unsigned HOST_WIDE_INT width = UINTVAL (operands[1]);
+  unsigned HOST_WIDE_INT pos = UINTVAL (operands[2]);
+  rtx value = operands[3];
+
+  if (width == 0 || (pos + width) > GET_MODE_BITSIZE (<MODE>mode))
+    FAIL;
+
+  if (CONST_INT_P (value))
+    {
+      unsigned HOST_WIDE_INT mask = ((unsigned HOST_WIDE_INT)1 << width) - 1;
+
+      /* Prefer AND/OR for inserting all zeros or all ones.  */
+      if ((UINTVAL (value) & mask) == 0
+	   || (UINTVAL (value) & mask) == mask)
+	FAIL;
+
+      /* 16-bit aligned 16-bit wide insert is handled by insv_imm.  */
+      if (width == 16 && (pos % 16) == 0)
+	DONE;
+    }
+  operands[3] = force_reg (<MODE>mode, value);
+})
+
+(define_insn "*insv_reg<mode>"
+  [(set (zero_extract:GPI (match_operand:GPI 0 "register_operand" "+r")
+			  (match_operand 1 "const_int_operand" "n")
+			  (match_operand 2 "const_int_operand" "n"))
+	(match_operand:GPI 3 "register_operand" "r"))]
+  "!(UINTVAL (operands[1]) == 0
+     || (UINTVAL (operands[2]) + UINTVAL (operands[1])
+	 > GET_MODE_BITSIZE (<MODE>mode)))"
+  "bfi\\t%<w>0, %<w>3, %2, %1"
   [(set_attr "v8type" "bfm")
    (set_attr "mode" "<MODE>")]
 )

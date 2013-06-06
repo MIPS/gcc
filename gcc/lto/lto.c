@@ -166,7 +166,7 @@ has_analyzed_clone_p (struct cgraph_node *node)
   if (node)
     while (node != orig)
       {
-	if (node->analyzed)
+	if (node->symbol.analyzed)
 	  return true;
 	if (node->clones)
 	  node = node->clones;
@@ -196,7 +196,8 @@ lto_materialize_function (struct cgraph_node *node)
   decl = node->symbol.decl;
   /* Read in functions with body (analyzed nodes)
      and also functions that are needed to produce virtual clones.  */
-  if (cgraph_function_with_gimple_body_p (node) || has_analyzed_clone_p (node))
+  if ((cgraph_function_with_gimple_body_p (node) && node->symbol.analyzed)
+      || has_analyzed_clone_p (node))
     {
       /* Clones don't need to be read.  */
       if (node->clone_of)
@@ -1787,6 +1788,7 @@ lto_register_function_decl_in_symtab (struct data_in *data_in, tree decl)
     }
 }
 
+static unsigned long num_merged_types = 0;
 
 /* Given a streamer cache structure DATA_IN (holding a sequence of trees
    for one compilation unit) go over all trees starting at index FROM until the
@@ -1816,7 +1818,10 @@ uniquify_nodes (struct data_in *data_in, unsigned from)
 	     to reset that flag afterwards - nothing that refers
 	     to those types is left and they are collected.  */
 	  if (newt != t)
-	    TREE_VISITED (t) = 1;
+	    {
+	      num_merged_types++;
+	      TREE_VISITED (t) = 1;
+	    }
 	}
     }
 
@@ -3032,10 +3037,9 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Before merging:\n");
-      dump_cgraph (cgraph_dump_file);
-      dump_varpool (cgraph_dump_file);
+      dump_symtab (cgraph_dump_file);
     }
-  lto_symtab_merge_cgraph_nodes ();
+  lto_symtab_merge_symbols ();
   ggc_collect ();
 
   /* FIXME: ipa_transforms_to_apply holds list of passes that have optimization
@@ -3136,6 +3140,7 @@ print_lto_report_1 (void)
 	     htab_collisions (type_hash_cache));
   else
     fprintf (stderr, "[%s] GIMPLE type hash cache table is empty\n", pfx);
+  fprintf (stderr, "[%s] Merged %lu types\n", pfx, num_merged_types);
 
   print_gimple_types_stats (pfx);
   print_lto_report (pfx);
@@ -3168,10 +3173,7 @@ do_whole_program_analysis (void)
   cgraph_function_flags_ready = true;
 
   if (cgraph_dump_file)
-    {
-      dump_cgraph (cgraph_dump_file);
-      dump_varpool (cgraph_dump_file);
-    }
+    dump_symtab (cgraph_dump_file);
   bitmap_obstack_initialize (NULL);
   cgraph_state = CGRAPH_STATE_IPA_SSA;
 
@@ -3181,8 +3183,7 @@ do_whole_program_analysis (void)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Optimized ");
-      dump_cgraph (cgraph_dump_file);
-      dump_varpool (cgraph_dump_file);
+      dump_symtab (cgraph_dump_file);
     }
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
