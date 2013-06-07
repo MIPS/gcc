@@ -1,5 +1,5 @@
 
-2013-03-14  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	* INSTALL/README-MELT-PLUGIN: Mention eval and the ability to
 	apply hooks.
 

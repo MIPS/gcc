@@ -2175,6 +2175,8 @@ source location.}#
 	     (setq hkins shkins)
 	     (setq hkouts shkouts)
 	     (setq hkctype shctype)
+	     (debug "normexp_hook_call sourcedefhook hkname=" hkname
+		    "\n hkins=" hkins "\n hkouts=" hkouts)
 	     )
 	   (?(some_hook_with_data
 	      ?(instance class_hook_descriptor
@@ -2188,7 +2190,7 @@ source location.}#
 	     (setq hkins dhkins)
 	     (setq hkouts dhkouts)
 	     (setq hkctype dhkctype)
-	     (debug "normexp_hook_call hook hkname=" hkname
+	     (debug "normexp_hook_call valuehook hkname=" hkname
 		    "\n.. hkins=" hkins
 		    "\n.. hkouts=" hkouts
 		    "\n.. hkctype=" hkctype)
@@ -2198,10 +2200,10 @@ source location.}#
 	    (setq errorflag 1)
 	    (assert_msg "@$@unexpected hook, unimplemented")
 	    ))
-	     (assert_msg "check hkname" (is_string hkname))
-	     (assert_msg "check hkins" (is_multiple hkins))
-	     (assert_msg "check hkouts" (is_multiple hkouts))
-	     (assert_msg "check hkctype" (is_a hkctype class_ctype))
+    (assert_msg "check hkname" (is_string hkname))
+    (assert_msg "check hkins" (is_multiple hkins))
+    (assert_msg "check hkouts" (is_multiple hkouts))
+    (assert_msg "check hkctype" (is_a hkctype class_ctype))
     (debug "normexp_hook_call hkname=" hkname " hksymb=" hksymb 
 	   "\n.. hkins=" hkins 
 	   "\n.. hkouts=" hkouts "\n.. hkctype=" hkctype)
@@ -2263,6 +2265,7 @@ source location.}#
 	    (setq errorflag 1)
 	    )
 	  ))
+       (debug "normexp_hook_call errorflag=" errorflag " after checking ninargs=" ninargs)
        ;;
        ;; extract and normalize the outputs
        (foreach_long_upto
@@ -2305,43 +2308,44 @@ source location.}#
 			 (unsafe_get_field :named_name outbinder))
 	    (setq errorflag 1)
 	    ))
-	  )
-	(debug "normexp_hook_call souts=" souts " nouts=" nouts " errorflag=" errorflag)
-	(if errorflag 
-	    (return () ()))
-	(debug "normexp_hook_call hksymb=" hksymb "\n hkbind=" hkbind)
-	(let (
-	      (nhook (normexp_symbol hksymb env ncx sloc))
-	      (nhkcall (instance class_nrep_hook_call
+	  ))
+       (debug "normexp_hook_call  errorflag=" errorflag " souts=" souts " nouts=" nouts)
+       (if errorflag 
+	   (return () ()))
+       ;;
+       (debug "normexp_hook_call hksymb=" hksymb "\n hkbind=" hkbind)
+       (let (
+	     (nhook (normexp_symbol hksymb env ncx sloc))
+	     (nhkcall (instance class_nrep_hook_call
+				:nrep_loc sloc
+				:nexpr_ctyp hkctype
+				:nhook_name hkname
+				:nhook_called nhook
+				:nexpr_args ninargs
+				:nhook_outs nouts
+				))
+	     )
+	 (debug "normexp_hook_call nhkcall=" nhkcall "\n.. nhook=" nhook 
+		"\n.. hksymb=" hksymb)
+	 (let ( (csym (clone_symbol hksymb))
+		(cbind (instance class_normal_let_binding
+				 :letbind_loc sloc
+				 :binder csym
+				 :letbind_type hkctype
+				 :letbind_expr nhkcall
+				 )) 
+		(clocc (instance class_nrep_locsymocc
 				 :nrep_loc sloc
-				 :nexpr_ctyp hkctype
-				 :nhook_name hkname
-				 :nhook_called nhook
-				 :nexpr_args ninargs
-				 :nhook_outs nouts
-				 ))
-	      )
-	  (debug "normexp_hook_call nhkcall=" nhkcall "\n.. nhook=" nhook 
-		 "\n.. hksymb=" hksymb)
-	  (let ( (csym (clone_symbol hksymb))
-		 (cbind (instance class_normal_let_binding
-				  :letbind_loc sloc
-				  :binder csym
-				  :letbind_type hkctype
-				  :letbind_expr nhkcall
-				  )) 
-		 (clocc (instance class_nrep_locsymocc
-				  :nrep_loc sloc
-				  :nocc_ctyp hkctype
-				  :nocc_symb csym
-				  :nocc_bind cbind)) 
-		 )
-	    (debug "normexp_hook_call cbind=" cbind " clocc=" clocc)
-	    (list_append ninbinds cbind)
-	    (debug "normexp_hook_call result clocc=" clocc 
-		   " ninbinds=" ninbinds)
-	    (return clocc ninbinds)
-	    )))))))
+				 :nocc_ctyp hkctype
+				 :nocc_symb csym
+				 :nocc_bind cbind)) 
+		)
+	   (debug "normexp_hook_call cbind=" cbind " clocc=" clocc)
+	   (list_append ninbinds cbind)
+	   (debug "normexp_hook_call result clocc=" clocc 
+		  " ninbinds=" ninbinds)
+	   (return clocc ninbinds)
+	   ))))))
 (install_method class_source_hook_call normal_exp normexp_hook_call)
 
 

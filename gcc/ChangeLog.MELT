@@ -3,6 +3,15 @@
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (dbgout_mapstring_method): Improve.
+
+	* melt/warmelt-normal.melt (normexp_hook_call): Fix
+	parenthesizing.
+
+	* testsuite/melt/thookcall.melt: Improve.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (eval): New function.
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>

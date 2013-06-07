@@ -26,7 +26,8 @@
 
 (defun testcall_outside ()
   (debug "testcall_outside start")
-  (let ( (valuekw (hook_named_keyword "VALUE" 0))
+  (let ( (valuekw 
+	  (hook_named_keyword "VALUE" 0))
 	 )
     (debug "testcall_outside valuekw=" valuekw)
     valuekw))
@@ -38,4 +39,11 @@
 
 (debug "before testcall_outside")
 (debug "testcall_outside gives=" (testcall_outside))
+
+(debug "testing hook_named_keyword in exprchunk hook_named_keyword=" hook_named_keyword
+       " computed :long="
+       (expr_chunk hookeyw_chk :value ##{ /* $hookeyw_chk */
+		   melthookproc_HOOK_NAMED_KEYWORD ("LONG", (long)0)
+		   }#)
+       )
 ;; eof thookcall.melt
