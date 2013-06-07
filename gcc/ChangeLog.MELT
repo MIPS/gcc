@@ -2,6 +2,11 @@
 
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{test thookcall.melt passes}}
+	* melt/warmelt-outobj.melt(translate_macroexpanded_list): Do
+	emit called hook declarations correctly.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt (class_any_module_context): Add
 	mocx_hookdict field.
