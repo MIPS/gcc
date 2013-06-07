@@ -724,10 +724,17 @@ go_net_sock_file = go/net/sock_bsd.go
 go_net_sockopt_file = go/net/sockopt_bsd.go
 go_net_sockoptip_file = go/net/sockoptip_bsd.go go/net/sockoptip_posix.go
 else
+if LIBGO_IS_GNU
+go_net_cgo_file = go/net/cgo_linux.go
+go_net_sock_file = go/net/sock_gnu.go
+go_net_sockopt_file = go/net/sockopt_bsd.go
+go_net_sockoptip_file = go/net/sockoptip_bsd.go go/net/sockoptip_netbsd.go
+else
 go_net_cgo_file = go/net/cgo_bsd.go
 go_net_sock_file = go/net/sock_bsd.go
 go_net_sockopt_file = go/net/sockopt_bsd.go
 go_net_sockoptip_file = go/net/sockoptip_bsd.go go/net/sockoptip_posix.go
+endif
 endif
 endif
 endif
@@ -832,7 +839,11 @@ else
 if LIBGO_IS_RTEMS
 go_os_sys_file = go/os/sys_uname.go
 else
+if LIBGO_IS_GNU
+go_os_sys_file = go/os/sys_uname.go
+else
 go_os_sys_file = go/os/sys_bsd.go
+endif
 endif
 endif
 endif
@@ -1572,8 +1583,13 @@ if LIBGO_IS_LINUX
 syscall_exec_file = go/syscall/exec_unix.go
 syscall_exec_os_file = go/syscall/exec_linux.go
 else
+if LIBGO_IS_GNU
+syscall_exec_file = go/syscall/exec_unix.go
+syscall_exec_os_file = go/syscall/exec_gnu.go
+else
 syscall_exec_file = go/syscall/exec_unix.go
 syscall_exec_os_file = go/syscall/exec_bsd.go
+endif
 endif
 endif
 
@@ -1710,11 +1726,17 @@ else
 syscall_creds_test_file =
 endif
 
+if LIBGO_IS_GNU
+syscall_libcall_file = go/syscall/libcall_gnu.go
+else
+syscall_libcall_file = go/syscall/libcall_posix.go
+endif
+
 go_base_syscall_files = \
 	go/syscall/env_unix.go \
 	go/syscall/syscall_errno.go \
 	go/syscall/libcall_support.go \
-	go/syscall/libcall_posix.go \
+	$(syscall_libcall_file) \
 	go/syscall/race0.go \
 	go/syscall/socket.go \
 	go/syscall/sockcmsg_unix.go \

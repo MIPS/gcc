@@ -7,3 +7,8 @@ patch1.diff: src/libgo/runtime/proc.c: Workaround: enable code for
 
 patch2.diff: src/libgo/configure.ac: add support for gnu, new variable
 LIBGO_IS_GNU
+
+id:"1370597304.4596.35.camel@PackardBell-PC"
+
+patch3.diff: src/libgo/Makefile.am: Use variable LIBGO_IS_GNU to add
+functions for GNU/Hurd.
