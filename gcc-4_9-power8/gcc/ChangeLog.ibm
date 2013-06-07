@@ -1,3 +1,12 @@
+2013-06-07  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (is_microcoded_insn): Adjust test for
+	Power4/Power5 only.
+	(is_cracked_insn): Likewise.
+	(insn_must_be_first_in_group, insn_must_be_last_in_group): Add Power8
+	support.
+	(force_new_group): Adjust comment.
+
 2013-06-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Patches that correspond to patch #4 revisions:
