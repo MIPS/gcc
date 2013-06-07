@@ -7484,6 +7484,36 @@ if (1) return;
     ))
 
 ;;;;;;;;;;;;;;;;
+(defun eval (exp env)
+  :doc #{$EVAL is evaluating $EXP -an s-expression or a list or tuple
+  of s-expressions- inside environment $ENV or else the
+  @code{($PARENT_MODULE_ENVIRONMENT)}. It works using
+  $TRANSLATE_RUN_MELT_EXPRESSIONS so generate some C/C++ code then
+  compiles and dynamically loads it.}#
+  (debug "eval exp=" exp " env=" env)
+  (if (null env)
+      (setq env (parent_module_environment)))
+  (when (is_not_a env class_environment)
+    (debug "eval returns nil with bad env=" env)
+    (warningmsg_plain "EVAL got a bad environment")
+    (return ())
+    )
+  (let ( (listexps
+	  (cond ((is_list exp)
+		 exp)
+		((is_multiple exp)
+		 (multiple_to_list exp discr_list)
+		 )
+		(:else
+		 (list exp))))
+	 )
+    (debug "eval listexps=" listexps " updated env=" env)
+    (let ( (reseval (translate_run_melt_expressions listexps env))
+	   )
+      (debug "eval gives reseval=" reseval)
+      reseval)
+    ))
+;;;;;;;;;;;;;;;;
 
 (defun generate_gplv3plus_copyright_notice_c_comment (sbuf name)
   :doc #{Generate into stringbuffer $SBUF a C comment with GPLv3+
@@ -7544,13 +7574,14 @@ notice for file named $NAME.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values 
- syntax_test_generator
  compile_list_sexpr
+ eval
  generate_gplv3plus_copyright_notice_c_comment 
  get_code_buffer_limit
  put_code_buffer_limit
- translate_to_c_module_melt_sources
+ syntax_test_generator
  translate_run_melt_expressions
+ translate_to_c_module_melt_sources
  )
 
 (export_class class_secondary_c_file)

@@ -289,6 +289,22 @@ code), for GCC 4.7 & 4.8
     at will.
 
 
+   ***
+   * New ability to call hooks,
+
+   Expresssions can also call known hooks given by their operator. But
+   the hook cannot be unknown: only applications can be done with
+   statically unknown operators.
+
+
+   ***
+   * EVAL function
+
+   An EVAL function has been added, it wraps the existing
+   TRANSLATE_RUN_MELT_EXPRESSIONS utility function so works by
+   generating C/C++ code then loading and running it.
+
+
    Runtime improvements
    ====================
 

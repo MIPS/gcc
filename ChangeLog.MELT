@@ -1,5 +1,9 @@
 
 2013-03-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention eval and the ability to
+	apply hooks.
+
+2013-06-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin 0.9.9 rc1 release candidate}}
 	* INSTALL/README-MELT-PLUGIN: Explain numerous improvements.
 
