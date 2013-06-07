@@ -4765,6 +4765,8 @@ $CREATE is true i.e. non zero.}#
 
 ;;;====================================================================
 ;;;************************* value importer ***************************
+;; Should be used in code emitted by compile2obj_initproc for its importvalues
+;; perhaps we don't need the sym, only the symname?
 (defhook hook_value_importer (:value sym parenv
 			      :cstring symname modulename) 
   () 

@@ -1,6 +1,13 @@
 
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (hook_value_importer): Add comment.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc): Don't need
+	ovalueexporter.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (class_initial_system_data): Field
 	sysdata_value_export is obsolete, so renamed as sysdata_obsolete2.
 	(initvalue_exporter): Remove function.

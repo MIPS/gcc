@@ -1601,7 +1601,6 @@
 			   )
 		      (put_fields gcx :igncx_prevenvloc preve)
 		      preve))
-	 (ovalueexporter (get_free_objlocptr gcx '_valexport_)) 
 	 (ovalueimporter (get_free_objlocptr gcx '_valimport_))
 	 (inidefbinds (get_field :ninit_defbinds ipro))
 	 )
