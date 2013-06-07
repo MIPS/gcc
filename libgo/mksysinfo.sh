@@ -207,6 +207,20 @@ echo '#include <errno.h>' | ${CC} -x c - -E -dM | \
   egrep '#define E[A-Z0-9_]+ ' | \
   sed -e 's/^#define \(E[A-Z0-9_]*\) .*$/const \1 = Errno(_\1)/' >> ${OUT}
 
+# Special treatment of EWOULDBLOCK for GNU/Hurd
+# /usr/include/bits/errno.h: #define EWOULDBLOCK EAGAIN
+egrep '^const EWOULDBLOCK = Errno(_EWOULDBLOCK)' ${OUT} | \
+    sed -i.bak -e 's/_EWOULDBLOCK/_EAGAIN/' ${OUT}
+
+# Special treatment of st_dev for GNU/Hurd
+# /usr/include/i386-gnu/bits/stat.h: #define st_dev st_fsid
+if grep '#define st_dev st_fsid' gen-sysinfo.go >/dev/null 2>&1; then
+    grep '^type _stat ' gen-sysinfo.go | \
+	sed -i.bak 's/st_fsid\([^;]*\)/st_fsid\1; st_dev\1/' gen-sysinfo.go
+    grep '^type _stat ' ${OUT} | \
+	sed -i.bak 's/st_fsid\([^;]*\)/&; st_dev\1/' ${OUT}
+fi
+
 # The O_xxx flags.
 egrep '^const _(O|F|FD)_' gen-sysinfo.go | \
   sed -e 's/^\(const \)_\([^= ]*\)\(.*\)$/\1\2 = _\2/' >> ${OUT}

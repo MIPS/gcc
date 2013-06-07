@@ -27,3 +27,7 @@ exec_bsd.go, with function raw_ptrace returning ENOSYS.
 
 patch7.diff: src/libgo/go/syscall/wait.c: Define WCONTINUED empty as a
 workaround for now.
+
+patch8.diff: src/libgo/mksysinfo.sh: Fix problems for gcc -fdump-go-spec
+not catching #define EWOULDBLOCK EAGAIN. For #define st_dev st_fsid
+likewise.
