@@ -4829,7 +4829,7 @@ $CREATE is true i.e. non zero.}#
 			   $ERRBADIMPORT#_str?$ERRBADIMPORT#_str:$SYMNAMESTR,
 			   melt_string_str ((melt_ptr_t)$BINDISCRNAM)) ;
 		    } /* hook_symbol_importer $ERRBADIMPORT end */ }#)
-	(return)
+	(return ())
 	)
       (assert_msg "check valbind" (is_a valbind class_value_binding))
       (return (unsafe_get_field :vbind_value valbind))

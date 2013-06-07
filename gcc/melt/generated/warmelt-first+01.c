@@ -863,19 +863,19 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_INTERN_KEYWORD_rout (struct
 
 
 
-/** declaration of hook melthook_HOOK_VALUE_IMPORTER */
+/** declaration of hook melthook_HOOK_SYMBOL_IMPORTER */
 MELT_EXTERN
-  melt_ptr_t melthook_HOOK_VALUE_IMPORTER (melt_ptr_t melthookdata,
-					   melt_ptr_t meltinp0_SYM,
-					   melt_ptr_t meltinp1_PARENV,
-					   const char *meltinp2_SYMNAME,
-					   const char *meltinp3_MODULENAME);
+  melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
+					    const char *meltinp0_SYMNAMESTR,
+					    const char
+					    *meltinp1_MODULENAMESTR,
+					    melt_ptr_t meltinp2_PARENV);
 
 
-/* declare hook frame marking routine for melthook_HOOK_VALUE_IMPORTER hook */
-void MELT_MODULE_VISIBILITY melthookmark_HOOK_VALUE_IMPORTER_rout (struct
-								   melt_callframe_st
-								   *, int);
+/* declare hook frame marking routine for melthook_HOOK_SYMBOL_IMPORTER hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_SYMBOL_IMPORTER_rout (struct
+								    melt_callframe_st
+								    *, int);
 
 
 

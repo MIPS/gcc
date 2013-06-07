@@ -39,9 +39,9 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-rc2p/warmelt-hooks";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="e02a27f2bf6b5eafeccaaff99f137083";
+const char melt_prepromd5meltrun[]="020be2bb60dacab099ad176bc6ee4e8c";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="f64d7eb7624d92251b38186351ee7d3c";
+const char melt_primaryhexmd5[]="c21ba20d94686c69e158248b986e4eea";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="16f9559cf572f160fda4a3956b223abe" ;
+const char melt_cumulated_hexmd5[]="45bbf6ca09132c4b0fd85958c9e73f43" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiHOOKS_mds__16F9559CF572F160FDA4A3956B223ABE 1
+#define meltmod_WARMELTmiHOOKS_mds__45BBF6CA09132C4B0FD85958C9E73F43 1
 #include "warmelt-hooks+melttime.h"
 	 
 

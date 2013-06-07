@@ -1654,7 +1654,7 @@ melthook_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t melthookdata,
   /* clear and push the new call frame for hook melthook_HOOK_LOW_DEBUG_VALUE_AT */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -1010 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -257 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_LOW_DEBUG_VALUE_AT_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -1733,7 +1733,7 @@ melthookmark_HOOK_LOW_DEBUG_VALUE_AT_rout (struct melt_callframe_st
   melthookframe_HOOK_LOW_DEBUG_VALUE_AT_t *meltframptr_
     = (melthookframe_HOOK_LOW_DEBUG_VALUE_AT_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_LOW_DEBUG_VALUE_AT good hash",
-		  meltframptr_->mcfr_nbvar == -1010);
+		  meltframptr_->mcfr_nbvar == -257);
   if (meltmarking)
     {				/* marking hook HOOK_LOW_DEBUG_VALUE_AT */
       int meltix;
@@ -1793,7 +1793,7 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
   /* clear and push the new call frame for hook melthook_HOOK_OVERRIDE_GATE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -2645 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -3239 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_OVERRIDE_GATE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -3168,7 +3168,7 @@ melthookmark_HOOK_OVERRIDE_GATE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_OVERRIDE_GATE_t *meltframptr_
     = (melthookframe_HOOK_OVERRIDE_GATE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_OVERRIDE_GATE good hash",
-		  meltframptr_->mcfr_nbvar == -2645);
+		  meltframptr_->mcfr_nbvar == -3239);
   if (meltmarking)
     {				/* marking hook HOOK_OVERRIDE_GATE */
       int meltix;
@@ -6257,7 +6257,7 @@ melthook_HOOK_START_UNIT (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_START_UNIT */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -2460 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -524 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_START_UNIT_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -6508,7 +6508,7 @@ melthookmark_HOOK_START_UNIT_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_START_UNIT_t *meltframptr_
     = (melthookframe_HOOK_START_UNIT_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_START_UNIT good hash",
-		  meltframptr_->mcfr_nbvar == -2460);
+		  meltframptr_->mcfr_nbvar == -524);
   if (meltmarking)
     {				/* marking hook HOOK_START_UNIT */
       int meltix;
@@ -6686,7 +6686,7 @@ melthook_HOOK_FINISH_UNIT (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_FINISH_UNIT */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -407 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -3559 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_FINISH_UNIT_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -6939,7 +6939,7 @@ melthookmark_HOOK_FINISH_UNIT_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_FINISH_UNIT_t *meltframptr_
     = (melthookframe_HOOK_FINISH_UNIT_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_FINISH_UNIT good hash",
-		  meltframptr_->mcfr_nbvar == -407);
+		  meltframptr_->mcfr_nbvar == -3559);
   if (meltmarking)
     {				/* marking hook HOOK_FINISH_UNIT */
       int meltix;
@@ -6997,7 +6997,7 @@ melthook_HOOK_ALL_PASSES_START (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_ALL_PASSES_START */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -654 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -742 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_ALL_PASSES_START_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -7279,7 +7279,7 @@ melthookmark_HOOK_ALL_PASSES_START_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_ALL_PASSES_START_t *meltframptr_
     = (melthookframe_HOOK_ALL_PASSES_START_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_ALL_PASSES_START good hash",
-		  meltframptr_->mcfr_nbvar == -654);
+		  meltframptr_->mcfr_nbvar == -742);
   if (meltmarking)
     {				/* marking hook HOOK_ALL_PASSES_START */
       int meltix;
@@ -7337,7 +7337,7 @@ melthook_HOOK_ALL_PASSES_END (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_ALL_PASSES_END */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -2698 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -174 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_ALL_PASSES_END_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -7602,7 +7602,7 @@ melthookmark_HOOK_ALL_PASSES_END_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_ALL_PASSES_END_t *meltframptr_
     = (melthookframe_HOOK_ALL_PASSES_END_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_ALL_PASSES_END good hash",
-		  meltframptr_->mcfr_nbvar == -2698);
+		  meltframptr_->mcfr_nbvar == -174);
   if (meltmarking)
     {				/* marking hook HOOK_ALL_PASSES_END */
       int meltix;
@@ -7660,7 +7660,7 @@ melthook_HOOK_ALL_IPA_PASSES_START (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_ALL_IPA_PASSES_START */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -1123 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -114 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_ALL_IPA_PASSES_START_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -7942,7 +7942,7 @@ melthookmark_HOOK_ALL_IPA_PASSES_START_rout (struct melt_callframe_st
   melthookframe_HOOK_ALL_IPA_PASSES_START_t *meltframptr_
     = (melthookframe_HOOK_ALL_IPA_PASSES_START_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_ALL_IPA_PASSES_START good hash",
-		  meltframptr_->mcfr_nbvar == -1123);
+		  meltframptr_->mcfr_nbvar == -114);
   if (meltmarking)
     {				/* marking hook HOOK_ALL_IPA_PASSES_START */
       int meltix;
@@ -8000,7 +8000,7 @@ melthook_HOOK_ALL_IPA_PASSES_END (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_ALL_IPA_PASSES_END */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -3145 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -3573 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_ALL_IPA_PASSES_END_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -8263,7 +8263,7 @@ melthookmark_HOOK_ALL_IPA_PASSES_END_rout (struct melt_callframe_st
   melthookframe_HOOK_ALL_IPA_PASSES_END_t *meltframptr_
     = (melthookframe_HOOK_ALL_IPA_PASSES_END_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_ALL_IPA_PASSES_END good hash",
-		  meltframptr_->mcfr_nbvar == -3145);
+		  meltframptr_->mcfr_nbvar == -3573);
   if (meltmarking)
     {				/* marking hook HOOK_ALL_IPA_PASSES_END */
       int meltix;
@@ -8321,7 +8321,7 @@ melthook_HOOK_EARLY_GIMPLE_PASSES_START (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_EARLY_GIMPLE_PASSES_START */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -2768 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -1459 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_EARLY_GIMPLE_PASSES_START_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -8603,7 +8603,7 @@ melthookmark_HOOK_EARLY_GIMPLE_PASSES_START_rout (struct melt_callframe_st
   melthookframe_HOOK_EARLY_GIMPLE_PASSES_START_t *meltframptr_
     = (melthookframe_HOOK_EARLY_GIMPLE_PASSES_START_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_EARLY_GIMPLE_PASSES_START good hash",
-		  meltframptr_->mcfr_nbvar == -2768);
+		  meltframptr_->mcfr_nbvar == -1459);
   if (meltmarking)
     {				/* marking hook HOOK_EARLY_GIMPLE_PASSES_START */
       int meltix;
@@ -8662,7 +8662,7 @@ melthook_HOOK_EARLY_GIMPLE_PASSES_END (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_EARLY_GIMPLE_PASSES_END */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -3882 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -2249 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_EARLY_GIMPLE_PASSES_END_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -8925,7 +8925,7 @@ melthookmark_HOOK_EARLY_GIMPLE_PASSES_END_rout (struct melt_callframe_st
   melthookframe_HOOK_EARLY_GIMPLE_PASSES_END_t *meltframptr_
     = (melthookframe_HOOK_EARLY_GIMPLE_PASSES_END_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_EARLY_GIMPLE_PASSES_END good hash",
-		  meltframptr_->mcfr_nbvar == -3882);
+		  meltframptr_->mcfr_nbvar == -2249);
   if (meltmarking)
     {				/* marking hook HOOK_EARLY_GIMPLE_PASSES_END */
       int meltix;
@@ -8984,7 +8984,7 @@ melthook_HOOK_PRE_GENERICIZE (melt_ptr_t melthookdata, tree meltinp0_TFNDECL)
   /* clear and push the new call frame for hook melthook_HOOK_PRE_GENERICIZE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -3965 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -3267 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_PRE_GENERICIZE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -9272,7 +9272,7 @@ melthookmark_HOOK_PRE_GENERICIZE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_PRE_GENERICIZE_t *meltframptr_
     = (melthookframe_HOOK_PRE_GENERICIZE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_PRE_GENERICIZE good hash",
-		  meltframptr_->mcfr_nbvar == -3965);
+		  meltframptr_->mcfr_nbvar == -3267);
   if (meltmarking)
     {				/* marking hook HOOK_PRE_GENERICIZE */
       int meltix;
@@ -9333,7 +9333,7 @@ melthook_HOOK_FINISH_TYPE (melt_ptr_t melthookdata, tree meltinp0_TFNDECL)
   /* clear and push the new call frame for hook melthook_HOOK_FINISH_TYPE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -3094 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -1312 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_FINISH_TYPE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -9621,7 +9621,7 @@ melthookmark_HOOK_FINISH_TYPE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_FINISH_TYPE_t *meltframptr_
     = (melthookframe_HOOK_FINISH_TYPE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_FINISH_TYPE good hash",
-		  meltframptr_->mcfr_nbvar == -3094);
+		  meltframptr_->mcfr_nbvar == -1312);
   if (meltmarking)
     {				/* marking hook HOOK_FINISH_TYPE */
       int meltix;
@@ -9682,7 +9682,7 @@ melthook_HOOK_FINISH_DECL (melt_ptr_t melthookdata, tree meltinp0_TFNDECL)
   /* clear and push the new call frame for hook melthook_HOOK_FINISH_DECL */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -3358 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -3898 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_FINISH_DECL_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -9970,7 +9970,7 @@ melthookmark_HOOK_FINISH_DECL_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_FINISH_DECL_t *meltframptr_
     = (melthookframe_HOOK_FINISH_DECL_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_FINISH_DECL good hash",
-		  meltframptr_->mcfr_nbvar == -3358);
+		  meltframptr_->mcfr_nbvar == -3898);
   if (meltmarking)
     {				/* marking hook HOOK_FINISH_DECL */
       int meltix;
@@ -10033,7 +10033,7 @@ melthook_HOOK_PASS_EXECUTION (melt_ptr_t melthookdata,
   /* clear and push the new call frame for hook melthook_HOOK_PASS_EXECUTION */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -3327 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -1892 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_PASS_EXECUTION_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -10332,7 +10332,7 @@ melthookmark_HOOK_PASS_EXECUTION_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_PASS_EXECUTION_t *meltframptr_
     = (melthookframe_HOOK_PASS_EXECUTION_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_PASS_EXECUTION good hash",
-		  meltframptr_->mcfr_nbvar == -3327);
+		  meltframptr_->mcfr_nbvar == -1892);
   if (meltmarking)
     {				/* marking hook HOOK_PASS_EXECUTION */
       int meltix;
@@ -10391,7 +10391,7 @@ melthook_HOOK_GIMPLE_GATE (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_GIMPLE_GATE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -1404 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -4038 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_GIMPLE_GATE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -11001,7 +11001,7 @@ melthookmark_HOOK_GIMPLE_GATE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_GIMPLE_GATE_t *meltframptr_
     = (melthookframe_HOOK_GIMPLE_GATE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_GIMPLE_GATE good hash",
-		  meltframptr_->mcfr_nbvar == -1404);
+		  meltframptr_->mcfr_nbvar == -4038);
   if (meltmarking)
     {				/* marking hook HOOK_GIMPLE_GATE */
       int meltix;
@@ -11060,7 +11060,7 @@ melthook_HOOK_GIMPLE_EXECUTE (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_GIMPLE_EXECUTE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -1729 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -462 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_GIMPLE_EXECUTE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -11699,7 +11699,7 @@ melthookmark_HOOK_GIMPLE_EXECUTE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_GIMPLE_EXECUTE_t *meltframptr_
     = (melthookframe_HOOK_GIMPLE_EXECUTE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_GIMPLE_EXECUTE good hash",
-		  meltframptr_->mcfr_nbvar == -1729);
+		  meltframptr_->mcfr_nbvar == -462);
   if (meltmarking)
     {				/* marking hook HOOK_GIMPLE_EXECUTE */
       int meltix;
@@ -11758,7 +11758,7 @@ melthook_HOOK_RTL_GATE (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_RTL_GATE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -750 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -3634 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_RTL_GATE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -12378,7 +12378,7 @@ melthookmark_HOOK_RTL_GATE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_RTL_GATE_t *meltframptr_
     = (melthookframe_HOOK_RTL_GATE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_RTL_GATE good hash",
-		  meltframptr_->mcfr_nbvar == -750);
+		  meltframptr_->mcfr_nbvar == -3634);
   if (meltmarking)
     {				/* marking hook HOOK_RTL_GATE */
       int meltix;
@@ -12437,7 +12437,7 @@ melthook_HOOK_RTL_EXECUTE (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_RTL_EXECUTE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -1742 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -911 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_RTL_EXECUTE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -13077,7 +13077,7 @@ melthookmark_HOOK_RTL_EXECUTE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_RTL_EXECUTE_t *meltframptr_
     = (melthookframe_HOOK_RTL_EXECUTE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_RTL_EXECUTE good hash",
-		  meltframptr_->mcfr_nbvar == -1742);
+		  meltframptr_->mcfr_nbvar == -911);
   if (meltmarking)
     {				/* marking hook HOOK_RTL_EXECUTE */
       int meltix;
@@ -13136,7 +13136,7 @@ melthook_HOOK_SIMPLE_IPA_GATE (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_SIMPLE_IPA_GATE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -3529 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -990 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_SIMPLE_IPA_GATE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -13756,7 +13756,7 @@ melthookmark_HOOK_SIMPLE_IPA_GATE_rout (struct melt_callframe_st *meltcfram,
   melthookframe_HOOK_SIMPLE_IPA_GATE_t *meltframptr_
     = (melthookframe_HOOK_SIMPLE_IPA_GATE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_SIMPLE_IPA_GATE good hash",
-		  meltframptr_->mcfr_nbvar == -3529);
+		  meltframptr_->mcfr_nbvar == -990);
   if (meltmarking)
     {				/* marking hook HOOK_SIMPLE_IPA_GATE */
       int meltix;
@@ -13815,7 +13815,7 @@ melthook_HOOK_SIMPLE_IPA_EXECUTE (melt_ptr_t melthookdata)
   /* clear and push the new call frame for hook melthook_HOOK_SIMPLE_IPA_EXECUTE */
   memset (&meltfram__, 0, sizeof (meltfram__));
 #define meltframe meltfram__
-  meltframe.mcfr_nbvar = -2496 /*hook minihash */ ;
+  meltframe.mcfr_nbvar = -2515 /*hook minihash */ ;
   ((struct melt_callframe_st *) &meltframe)->mcfr_forwmarkrout
     = melthookmark_HOOK_SIMPLE_IPA_EXECUTE_rout;
   meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
@@ -14455,7 +14455,7 @@ melthookmark_HOOK_SIMPLE_IPA_EXECUTE_rout (struct melt_callframe_st
   melthookframe_HOOK_SIMPLE_IPA_EXECUTE_t *meltframptr_
     = (melthookframe_HOOK_SIMPLE_IPA_EXECUTE_t *) meltcfram;
   melt_assertmsg ("hook frame HOOK_SIMPLE_IPA_EXECUTE good hash",
-		  meltframptr_->mcfr_nbvar == -2496);
+		  meltframptr_->mcfr_nbvar == -2515);
   if (meltmarking)
     {				/* marking hook HOOK_SIMPLE_IPA_EXECUTE */
       int meltix;
@@ -14902,7 +14902,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -4051);
+		  iniframp__->mcfr_nbvar == /*minihash */ -3969);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -15240,7 +15240,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_4__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_4__.obj_hash = 61038917;
+  meltcdat->dobj_4__.obj_hash = 181680009;
   meltcdat->dobj_4__.obj_len = 6;
 
 
@@ -15306,7 +15306,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_8.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_8.obj_num = 0;
-  meltcdat->dobj_8.obj_hash = 371771293;
+  meltcdat->dobj_8.obj_hash = 406709503;
   meltcdat->dobj_8.obj_len = 2;
 
 
@@ -15360,7 +15360,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_11.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_11.obj_num = 1;
-  meltcdat->dobj_11.obj_hash = 467852442;
+  meltcdat->dobj_11.obj_hash = 773191960;
   meltcdat->dobj_11.obj_len = 2;
 
 
@@ -15413,7 +15413,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_14.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_14.obj_num = 2;
-  meltcdat->dobj_14.obj_hash = 168834482;
+  meltcdat->dobj_14.obj_hash = 411113918;
   meltcdat->dobj_14.obj_len = 2;
 
 
@@ -15465,7 +15465,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_17.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_17.obj_num = 3;
-  meltcdat->dobj_17.obj_hash = 583881541;
+  meltcdat->dobj_17.obj_hash = 623835440;
   meltcdat->dobj_17.obj_len = 2;
 
 
@@ -15518,7 +15518,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_20.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_20.obj_num = 4;
-  meltcdat->dobj_20.obj_hash = 797660124;
+  meltcdat->dobj_20.obj_hash = 658296379;
   meltcdat->dobj_20.obj_len = 2;
 
   /*inimult dtup_21___HOOK_LOW_DEBUG_VALUE_AT */
@@ -15655,7 +15655,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_29__OVERRIDE_GATE_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_29__OVERRIDE_GATE_DELAYED_QUEUE.obj_hash = 734253579;
+  meltcdat->dobj_29__OVERRIDE_GATE_DELAYED_QUEUE.obj_hash = 632569047;
   meltcdat->dobj_29__OVERRIDE_GATE_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -15749,7 +15749,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_34__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_34__.obj_hash = 926934820;
+  meltcdat->dobj_34__.obj_hash = 62493145;
   meltcdat->dobj_34__.obj_len = 6;
 
 
@@ -15818,7 +15818,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_38.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_38.obj_num = 0;
-  meltcdat->dobj_38.obj_hash = 73134892;
+  meltcdat->dobj_38.obj_hash = 72219711;
   meltcdat->dobj_38.obj_len = 2;
 
   /*inimult dtup_39___HOOK_OVERRIDE_GATE */
@@ -15879,7 +15879,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_42.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_42.obj_num = 0;
-  meltcdat->dobj_42.obj_hash = 613469941;
+  meltcdat->dobj_42.obj_hash = 382380260;
   meltcdat->dobj_42.obj_len = 2;
 
   /*inimult dtup_43___HOOK_OVERRIDE_GATE */
@@ -16123,7 +16123,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_62__START_UNIT_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_62__START_UNIT_DELAYED_QUEUE.obj_hash = 380041859;
+  meltcdat->dobj_62__START_UNIT_DELAYED_QUEUE.obj_hash = 593141257;
   meltcdat->dobj_62__START_UNIT_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -16181,7 +16181,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_65__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_65__.obj_hash = 644334016;
+  meltcdat->dobj_65__.obj_hash = 567778766;
   meltcdat->dobj_65__.obj_len = 6;
 
 
@@ -16386,7 +16386,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_82__FINISH_UNIT_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_82__FINISH_UNIT_DELAYED_QUEUE.obj_hash = 118648889;
+  meltcdat->dobj_82__FINISH_UNIT_DELAYED_QUEUE.obj_hash = 860266678;
   meltcdat->dobj_82__FINISH_UNIT_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -16444,7 +16444,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_85__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_85__.obj_hash = 96140776;
+  meltcdat->dobj_85__.obj_hash = 90754340;
   meltcdat->dobj_85__.obj_len = 6;
 
 
@@ -16615,7 +16615,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_100__ALL_PASSES_START_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_100__ALL_PASSES_START_DELAYED_QUEUE.obj_hash = 99029075;
+  meltcdat->dobj_100__ALL_PASSES_START_DELAYED_QUEUE.obj_hash = 333867830;
   meltcdat->dobj_100__ALL_PASSES_START_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -16675,7 +16675,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_103__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_103__.obj_hash = 872191445;
+  meltcdat->dobj_103__.obj_hash = 959183873;
   meltcdat->dobj_103__.obj_len = 6;
 
 
@@ -16816,7 +16816,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_115__ALL_PASSES_END_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_115__ALL_PASSES_END_DELAYED_QUEUE.obj_hash = 998847154;
+  meltcdat->dobj_115__ALL_PASSES_END_DELAYED_QUEUE.obj_hash = 470079060;
   meltcdat->dobj_115__ALL_PASSES_END_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -16876,7 +16876,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_118__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_118__.obj_hash = 827064546;
+  meltcdat->dobj_118__.obj_hash = 57510778;
   meltcdat->dobj_118__.obj_len = 6;
 
 
@@ -17017,8 +17017,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_130__ALL_IPA_PASSES_START_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_130__ALL_IPA_PASSES_START_DELAYED_QUEUE.obj_hash =
-    1020332241;
+  meltcdat->dobj_130__ALL_IPA_PASSES_START_DELAYED_QUEUE.obj_hash = 809858638;
   meltcdat->dobj_130__ALL_IPA_PASSES_START_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -17079,7 +17078,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_133__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_133__.obj_hash = 786278535;
+  meltcdat->dobj_133__.obj_hash = 1040447145;
   meltcdat->dobj_133__.obj_len = 6;
 
 
@@ -17221,7 +17220,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_145__ALL_IPA_PASSES_END_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_145__ALL_IPA_PASSES_END_DELAYED_QUEUE.obj_hash = 1047581270;
+  meltcdat->dobj_145__ALL_IPA_PASSES_END_DELAYED_QUEUE.obj_hash = 908909247;
   meltcdat->dobj_145__ALL_IPA_PASSES_END_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -17282,7 +17281,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_148__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_148__.obj_hash = 747279486;
+  meltcdat->dobj_148__.obj_hash = 257308520;
   meltcdat->dobj_148__.obj_len = 6;
 
 
@@ -17428,7 +17427,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_160__EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
   meltcdat->dobj_160__EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE.obj_hash =
-    354232215;
+    474782915;
   meltcdat->dobj_160__EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -17491,7 +17490,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_163__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_163__.obj_hash = 626982610;
+  meltcdat->dobj_163__.obj_hash = 896938298;
   meltcdat->dobj_163__.obj_len = 6;
 
 
@@ -17642,7 +17641,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_175__EARLY_GIMPLE_PASSES_END_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
   meltcdat->dobj_175__EARLY_GIMPLE_PASSES_END_DELAYED_QUEUE.obj_hash =
-    122638502;
+    183819560;
   meltcdat->dobj_175__EARLY_GIMPLE_PASSES_END_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -17703,7 +17702,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_178__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_178__.obj_hash = 798604868;
+  meltcdat->dobj_178__.obj_hash = 718530085;
   meltcdat->dobj_178__.obj_len = 6;
 
 
@@ -17848,7 +17847,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_190__PREGENERICIZE_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_190__PREGENERICIZE_DELAYED_QUEUE.obj_hash = 735922179;
+  meltcdat->dobj_190__PREGENERICIZE_DELAYED_QUEUE.obj_hash = 414069621;
   meltcdat->dobj_190__PREGENERICIZE_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -17927,7 +17926,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_195__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_195__.obj_hash = 956604539;
+  meltcdat->dobj_195__.obj_hash = 249971616;
   meltcdat->dobj_195__.obj_len = 6;
 
 
@@ -17995,7 +17994,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_199.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_199.obj_num = 0;
-  meltcdat->dobj_199.obj_hash = 757757220;
+  meltcdat->dobj_199.obj_hash = 48613516;
   meltcdat->dobj_199.obj_len = 2;
 
   /*inimult dtup_200___HOOK_PRE_GENERICIZE */
@@ -18103,7 +18102,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_208__FINISHTYPE_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_208__FINISHTYPE_DELAYED_QUEUE.obj_hash = 28620105;
+  meltcdat->dobj_208__FINISHTYPE_DELAYED_QUEUE.obj_hash = 132685678;
   meltcdat->dobj_208__FINISHTYPE_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -18181,7 +18180,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_213__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_213__.obj_hash = 403011986;
+  meltcdat->dobj_213__.obj_hash = 97684963;
   meltcdat->dobj_213__.obj_len = 6;
 
 
@@ -18216,7 +18215,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_215.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_215.obj_num = 0;
-  meltcdat->dobj_215.obj_hash = 850781225;
+  meltcdat->dobj_215.obj_hash = 476876334;
   meltcdat->dobj_215.obj_len = 2;
 
   /*inimult dtup_216___HOOK_FINISH_TYPE */
@@ -18322,7 +18321,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_224__FINISHDECL_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_224__FINISHDECL_DELAYED_QUEUE.obj_hash = 1040741140;
+  meltcdat->dobj_224__FINISHDECL_DELAYED_QUEUE.obj_hash = 488940125;
   meltcdat->dobj_224__FINISHDECL_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -18400,7 +18399,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_229__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_229__.obj_hash = 992628450;
+  meltcdat->dobj_229__.obj_hash = 842835969;
   meltcdat->dobj_229__.obj_len = 6;
 
 
@@ -18435,7 +18434,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_231.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_231.obj_num = 0;
-  meltcdat->dobj_231.obj_hash = 595945230;
+  meltcdat->dobj_231.obj_hash = 270026616;
   meltcdat->dobj_231.obj_len = 2;
 
   /*inimult dtup_232___HOOK_FINISH_DECL */
@@ -18541,7 +18540,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_240__PASS_EXECUTION_DELAYED_QUEUE.meltobj_class =
     (meltobject_ptr_t) ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7]);
-  meltcdat->dobj_240__PASS_EXECUTION_DELAYED_QUEUE.obj_hash = 279559901;
+  meltcdat->dobj_240__PASS_EXECUTION_DELAYED_QUEUE.obj_hash = 286110706;
   meltcdat->dobj_240__PASS_EXECUTION_DELAYED_QUEUE.obj_len = 5;
 
 
@@ -18601,7 +18600,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_243__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_243__.obj_hash = 236215202;
+  meltcdat->dobj_243__.obj_hash = 796502669;
   meltcdat->dobj_243__.obj_len = 6;
 
 
@@ -18670,7 +18669,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_247.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_247.obj_num = 0;
-  meltcdat->dobj_247.obj_hash = 23577968;
+  meltcdat->dobj_247.obj_hash = 840892115;
   meltcdat->dobj_247.obj_len = 2;
 
 
@@ -18724,7 +18723,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_250.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_250.obj_num = 1;
-  meltcdat->dobj_250.obj_hash = 664705484;
+  meltcdat->dobj_250.obj_hash = 834378580;
   meltcdat->dobj_250.obj_len = 2;
 
   /*inimult dtup_251___HOOK_PASS_EXECUTION */
@@ -18821,7 +18820,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_258__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_258__.obj_hash = 174295043;
+  meltcdat->dobj_258__.obj_hash = 57638251;
   meltcdat->dobj_258__.obj_len = 6;
 
 
@@ -19030,7 +19029,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_271__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_271__.obj_hash = 50158220;
+  meltcdat->dobj_271__.obj_hash = 834599628;
   meltcdat->dobj_271__.obj_len = 6;
 
 
@@ -19100,7 +19099,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_276__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_276__.obj_hash = 390352334;
+  meltcdat->dobj_276__.obj_hash = 35334915;
   meltcdat->dobj_276__.obj_len = 6;
 
 
@@ -19205,7 +19204,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_283__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_283__.obj_hash = 108427385;
+  meltcdat->dobj_283__.obj_hash = 342632717;
   meltcdat->dobj_283__.obj_len = 6;
 
 
@@ -19276,7 +19275,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_288__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_288__.obj_hash = 873493000;
+  meltcdat->dobj_288__.obj_hash = 681147605;
   meltcdat->dobj_288__.obj_len = 6;
 
 
@@ -19384,7 +19383,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_295__.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_HOOK_DESCRIPTOR))));
-  meltcdat->dobj_295__.obj_hash = 749637918;
+  meltcdat->dobj_295__.obj_hash = 57077214;
   meltcdat->dobj_295__.obj_len = 6;
 
 
@@ -20509,14 +20508,14 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 4051*/
+/* declstructinit initial routine melt_start_this_module minihash 3969*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
   ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar =
-    /*minihash */ -4051;
+    /*minihash */ -3969;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__WARMELTmiHOOKS__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -30944,7 +30943,7 @@ meltmod__WARMELTmiHOOKS__forward_or_mark_module_start_frame (struct
   struct melt_initial_frame_st *meltframptr_ =
     (struct melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -4051);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -3969);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf
