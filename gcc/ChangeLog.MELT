@@ -1,6 +1,13 @@
 
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (class_initial_system_data): Field
+	sysdata_value_export is obsolete, so renamed as sysdata_obsolete2.
+	(initvalue_exporter): Remove function.
+	(initial_system_data): Remove sysdata_value_export field
+	initialization.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+01.c: Regenerate.
