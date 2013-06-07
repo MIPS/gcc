@@ -12,3 +12,6 @@ id:"1370597304.4596.35.camel@PackardBell-PC"
 
 patch3.diff: src/libgo/Makefile.am: Use variable LIBGO_IS_GNU to add
 functions for GNU/Hurd.
+
+patch4.diff: src/libgo/go/syscall/libcall_gnu.go: New file, copied
+from libcall_posix.go with the mount function removed.
