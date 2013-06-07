@@ -24,3 +24,6 @@ id:"1370598609.4596.50.camel@PackardBell-PC"
 
 patch6.diff: src/libgo/go/syscall/exec_gnu.go: New file, copied from
 exec_bsd.go, with function raw_ptrace returning ENOSYS.
+
+patch7.diff: src/libgo/go/syscall/wait.c: Define WCONTINUED empty as a
+workaround for now.

@@ -8,6 +8,9 @@
    OS-independent.  */
 
 #include <stdint.h>
+#ifdef __GNU__
+#define WCONTINUED
+#endif
 #include <sys/wait.h>
 
 #include "runtime.h"
