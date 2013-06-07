@@ -40,7 +40,18 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] =
 
 
 /**** no MELT module variables ****/
-/**** no MELT called hook declarations ***/
+
+/*** 1 MELT called hook declarations ***/
+
+/*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
+MELT_EXTERN melt_ptr_t
+melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdata,
+						 melt_ptr_t meltinp0_PREVENV,
+						 const char
+						 *meltinp1_MODULNAME);
+
+/*** end of 1 MELT called hook declarations ***/
+
 /*** no extra MELT c-headers ***/
 
 
@@ -1713,7 +1724,7 @@ meltlab_endgetargs:;
 				    static long meltlab_count_1;
 				    meltlab_count_1++;
 				    debugeprintf
-				      ("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/1ed51c42. *CLASS_OBJLABELINSTR/10e3ee29. %ld",
+				      ("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/2c487227. *CLASS_OBJLABELINSTR/20e0dd6a. %ld",
 				       meltlab_count_1);
 #endif
 
@@ -1763,7 +1774,7 @@ meltlab_endgetargs:;
 				    static long meltlab_count_2;
 				    meltlab_count_2++;
 				    debugeprintf
-				      ("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/37e324a8. *CLASS_OBJLABELINSTR/74b6878. %ld",
+				      ("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/2fa76f8c. *CLASS_OBJLABELINSTR/36704270. %ld",
 				       meltlab_count_2);
 #endif
 
@@ -1821,7 +1832,7 @@ meltlab_endgetargs:;
 				    static long meltlab_count_3;
 				    meltlab_count_3++;
 				    debugeprintf
-				      ("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/191036de. *CLASS_OBJLABELINSTR/12c8b722. %ld",
+				      ("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/3d1d041e. *CLASS_OBJLABELINSTR/3e9cd89f. %ld",
 				       meltlab_count_3);
 #endif
 
@@ -1849,7 +1860,7 @@ meltlab_endgetargs:;
 				    static long meltlab_count_4;
 				    meltlab_count_4++;
 				    debugeprintf
-				      ("objlabel_4 mtch1__end_h983683021 *CLASS_OBJLABELINSTR/3aa1cfcd. %ld",
+				      ("objlabel_4 mtch1__end_h122382456 *CLASS_OBJLABELINSTR/74b6878. %ld",
 				       meltlab_count_4);
 #endif
 
@@ -7779,7 +7790,7 @@ meltlab_endgetargs:;
 	    static long meltlab_count_5;
 	    meltlab_count_5++;
 	    debugeprintf
-	      ("objlabel_5 mtch1_*CLASS_NORMTESTER_SAME/3c9f14f5. *CLASS_OBJLABELINSTR/23e2af61. %ld",
+	      ("objlabel_5 mtch1_*CLASS_NORMTESTER_SAME/5e8959a. *CLASS_OBJLABELINSTR/26688e25. %ld",
 	       meltlab_count_5);
 #endif
 
@@ -7822,7 +7833,7 @@ meltlab_endgetargs:;
 	    static long meltlab_count_6;
 	    meltlab_count_6++;
 	    debugeprintf
-	      ("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/2ad3dfca. *CLASS_OBJLABELINSTR/3bc2c2b7. %ld",
+	      ("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/2d002038. *CLASS_OBJLABELINSTR/1ab3f0. %ld",
 	       meltlab_count_6);
 #endif
 
@@ -7850,7 +7861,7 @@ meltlab_endgetargs:;
 	    static long meltlab_count_7;
 	    meltlab_count_7++;
 	    debugeprintf
-	      ("objlabel_7 mtch1_*CLASS_NORMTESTER_SAME/dbe9695. *CLASS_OBJLABELINSTR/e79cc61. %ld",
+	      ("objlabel_7 mtch1_*CLASS_NORMTESTER_SAME/17b37160. *CLASS_OBJLABELINSTR/304687d5. %ld",
 	       meltlab_count_7);
 #endif
 
@@ -7893,7 +7904,7 @@ meltlab_endgetargs:;
 	    static long meltlab_count_8;
 	    meltlab_count_8++;
 	    debugeprintf
-	      ("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/1048a421. *CLASS_OBJLABELINSTR/355cc800. %ld",
+	      ("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/390c6530. *CLASS_OBJLABELINSTR/1c58a102. %ld",
 	       meltlab_count_8);
 #endif
 
@@ -7921,7 +7932,7 @@ meltlab_endgetargs:;
 	    static long meltlab_count_9;
 	    meltlab_count_9++;
 	    debugeprintf
-	      ("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/17b37160. *CLASS_OBJLABELINSTR/18e61792. %ld",
+	      ("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/314cfece. *CLASS_OBJLABELINSTR/1adefa0f. %ld",
 	       meltlab_count_9);
 #endif
 
@@ -7949,7 +7960,7 @@ meltlab_endgetargs:;
 	    static long meltlab_count_10;
 	    meltlab_count_10++;
 	    debugeprintf
-	      ("objlabel_10 mtch1__end_h492687036 *CLASS_OBJLABELINSTR/1d5dcebc. %ld",
+	      ("objlabel_10 mtch1__end_h284624693 *CLASS_OBJLABELINSTR/10f70735. %ld",
 	       meltlab_count_10);
 #endif
 

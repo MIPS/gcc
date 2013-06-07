@@ -4905,14 +4905,14 @@ $CREATE is true i.e. non zero.}#
   (let ( (valbind (find_env parenv sym))
 	 )
     (if (is_not_a valbind class_value_binding)
-	(let ( (symnam (get_field :named_name sym)) 
+	(let ( (symnamv (get_field :named_name sym)) 
 	       (bindiscr (discrim valbind))
 	       (bindiscrnam (get_field :named_name bindiscr))
 	       )
 	  (assert_msg "check symnam" (is_string symnam))
 	  (code_chunk errbadimport 
 		      #{ /* hook_value_importer $ERRBADIMPORT start */ {
-		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAME);
+		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAMV);
 		      error ("MELT [%s]: imported symbol %s has unexpected binding of %s",
 			     $MODULENAME,
 			     $ERRBADIMPORT#_str?$ERRBADIMPORT#_str:$SYMNAME,
