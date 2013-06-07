@@ -399,7 +399,7 @@ SYSDATA_, for various system facilities.  It is very magical, and
 should be kept in sync with the MELT runtime.  Only for gurus! So
 don't instanciate this class!}#
   :fields (sysdata_mode_dict			;stringmap for commands
-	   sysdata_cont_fresh_env		;;soon obsolete
+	   sysdata_obsolete_cont_fresh_env		;;soon obsolete
 	   sysdata_value_exporter      	;closure to export a value
 	   sysdata_macro_exporter	;closure to export a macro
 	   sysdata_symboldict 		; stringmap for symbols
@@ -4909,7 +4909,7 @@ $CREATE is true i.e. non zero.}#
 	       (bindiscr (discrim valbind))
 	       (bindiscrnam (get_field :named_name bindiscr))
 	       )
-	  (assert_msg "check symnam" (is_string symnam))
+	  (assert_msg "check symnamv" (is_string symnamv))
 	  (code_chunk errbadimport 
 		      #{ /* hook_value_importer $ERRBADIMPORT start */ {
 		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAMV);

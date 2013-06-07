@@ -1,6 +1,16 @@
 
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-build-script.tpl: echo blank lines before each stage...
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-first.melt (class_initial_system_data): Rename
+	field sysdata_cont_fresh_env as sysdata_obsolete_cont_fresh_env
+	before removing it.
+	(hook_value_importer): Improve.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.c: Regenerate.
 	* melt/generated/warmelt-base+02.c: Regenerate.

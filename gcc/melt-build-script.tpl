@@ -425,7 +425,8 @@ GCCMELT_SKIPEMITC=
 if [ ! -f [+stagdir+]/[+stagdir+].stamp -o [+stagdir+]/[+stagdir+].stamp -ot $GCCMELT_RUNTIME_DEPENDENCY \
 [+FOR melt_translator_file+] -o [+stagdir+]/[+stagdir+].stamp -ot $GCCMELT_MELTSOURCEDIR/[+base+].melt \
 [+ENDFOR melt_translator_file+] ]; then
-    meltbuild_info  [+(.(fromline))+] building stage [+stagdir+]
+    echo ; echo ; echo ; echo 
+    meltbuild_info  [+(.(fromline))+] '++++++++++++++++' building stage [+stagdir+] '++++++++++++++++'
     ## building stage [+stagdir+] previous [+stagprevdir+]  [+(.(fromline))+]
     meltbuild_do_stage  [+(.(fromline))+] [+stagdir+] quicklybuilt [+stagprevdir+] [+stagprevflavor+]
 else
