@@ -3,6 +3,11 @@
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-tree.melt (foreach_maptree): Add cast to int
+	in chunk.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt
 	(hook_fresh_environment_reference_maker): Move definition before
 	invocation of update_current_module_environment_reference.

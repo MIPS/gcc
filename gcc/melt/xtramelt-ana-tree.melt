@@ -1566,7 +1566,7 @@ pointer type node.}#
   #{
    /*$EACHMAPTR*/ int $EACHMAPTR#_rk=0;
    for ($EACHMAPTR#_rk=0;
-        $EACHMAPTR#_rk<melt_size_maptrees((struct meltmaptrees_st*)($TRMAP));
+        $EACHMAPTR#_rk < (int) melt_size_maptrees((struct meltmaptrees_st*)($TRMAP));
 	$EACHMAPTR#_rk++) {
    tree $EACHMAPTR#_tr = ((struct meltmaptrees_st*)($TRMAP))->entab[$EACHMAPTR#_rk].e_at;
    $TRATT = (tree) NULL;
