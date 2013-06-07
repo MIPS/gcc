@@ -1,2 +1,6 @@
 Subject: [PATCH] Hurd port for GCC Go
 
+id:"1370596471.4596.25.camel@PackardBell-PC"
+
+patch1.diff: src/libgo/runtime/proc.c: Workaround: enable code for
+!SETCONTEXT_CLOBBERS_TLS
