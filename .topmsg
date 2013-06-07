@@ -19,3 +19,8 @@ from libcall_posix.go with the mount function removed.
 patch5.diff: src/libgo/go/net/sock_gnu.go: New file, copied from
 sock_bsd.go, with function maxListenerBacklog() empty (to be
 reimplemented)
+
+id:"1370598609.4596.50.camel@PackardBell-PC"
+
+patch6.diff: src/libgo/go/syscall/exec_gnu.go: New file, copied from
+exec_bsd.go, with function raw_ptrace returning ENOSYS.
