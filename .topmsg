@@ -15,3 +15,7 @@ functions for GNU/Hurd.
 
 patch4.diff: src/libgo/go/syscall/libcall_gnu.go: New file, copied
 from libcall_posix.go with the mount function removed.
+
+patch5.diff: src/libgo/go/net/sock_gnu.go: New file, copied from
+sock_bsd.go, with function maxListenerBacklog() empty (to be
+reimplemented)
