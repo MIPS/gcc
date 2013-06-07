@@ -536,12 +536,6 @@ number $NUM opaque location number $LOC.}#
   #{inform(UNKNOWN_LOCATION, "MELT INFORM [#%ld]: %s",  melt_dbgcounter, ($cmsg))}#
   )
 
-(defprimitive informsg_strv (:cstring cmsg :value strv) :void
-  :doc #{Show a plain notice with raw message string $CMSG and string value $STRV.}#
-  #{inform(UNKNOWN_LOCATION, "MELT INFORM [#%ld]: %s - %s",  
-			     melt_dbgcounter, ($CMSG), 
-			     melt_string_str ((melt_ptr_t) ($STRV)))}#
-  )
 
 ;;; citerator on integers
 (defciterator foreach_long_upto
@@ -3179,7 +3173,6 @@ typedef struct melthook_st *melthook_ptr_t;
  inform_plain
  inform_strv
  informsg_plain
- informsg_strv
  is_file
  is_mixbigint
  is_mixint

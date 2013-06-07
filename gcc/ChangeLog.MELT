@@ -1,6 +1,11 @@
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (informsg_strv): Remove definition, since
+	already defined in warmelt-first.melt file.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt-build-script.sh
 	* melt/generated/meltrunsup-inc.c: Regenerate.
