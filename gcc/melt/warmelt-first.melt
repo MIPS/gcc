@@ -399,7 +399,7 @@ SYSDATA_, for various system facilities.  It is very magical, and
 should be kept in sync with the MELT runtime.  Only for gurus! So
 don't instanciate this class!}#
   :fields (sysdata_mode_dict			;stringmap for commands
-	   sysdata_obsolete_cont_fresh_env		;;soon obsolete
+	   sysdata_obsolete1
 	   sysdata_value_exporter      	;closure to export a value
 	   sysdata_macro_exporter	;closure to export a macro
 	   sysdata_symboldict 		; stringmap for symbols

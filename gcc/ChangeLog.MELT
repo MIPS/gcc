@@ -1,6 +1,14 @@
 
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (class_initial_system_data): Rename
+	field sysdata_obsolete_cont_fresh_env as sysdata_obsolete1.
+
+	* melt/warmelt-normal.melt (normal_predef): Handle non-object
+	predefined like hooks.
+	(normal_value_exporter): Use the hook_value_exporter.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base.c: Regenerate.

@@ -6257,21 +6257,26 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;; create the normal predef (or fail with a msg) 
-(defun normal_predef (pred ncx sloc msg)
-  (assert_msg "check pred" (is_object pred))
+(defun normal_predef (pred ncx sloc :cstring predname)
+  (debug "normal_predef pred=" pred)
   (assert_msg "check nctxt"  (is_a ncx class_normalization_context))
   (let ( (predefmap (unsafe_get_field :nctx_predefmap ncx)) 
-	 (brk (mapobject_get predefmap pred)) )
+	 (brk (or (mapobject_get predefmap pred)
+		  (get_raw_symbol predname)))
+	 )
+    (debug "normal_predef brk=" brk)
     (if (or (is_integerbox brk) (is_a brk class_symbol))
-	(instance class_nrep_predef
-		  :nrep_loc sloc
-		  :nrpredef brk)
-      (if (is_string msg) 
-	  (progn
-	    (debug "normalpredef predefmap=" predefmap " pred=" pred)
-	    (error_strv sloc "not a predef:" msg)
-	    ()
-	    )))))
+	(let ( (res (instance class_nrep_predef
+			    :nrep_loc sloc
+			    :nrpredef brk))
+	       )
+	  (debug "normal_predef res=" res)
+	  (return res))
+      (progn
+	(debug "normalpredef fail predefmap=" predefmap " pred=" pred)
+	(error_strv sloc "not a predef:" (make_stringconst discr_verbatim_string predname))
+	(return ())
+	))))
 
 
 ;; retrieve or create the normalized datasym for a symbol
@@ -7747,6 +7752,8 @@ source location.}#
 ;;; internal function giving a normalized cloned symbol for the value exporter
 ;;; return only one result, and update the bindslist
 (defun normal_value_exporter (env ncx psloc bindslist)
+  (debug "normal_value_exporter env=" env "\n.. ncx=" ncx "\n.. psloc=" psloc "\n.. bindslist=" bindslist)
+  (shortbacktrace_dbg "normal_value_exporter" 18)
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check bindslist" (is_list bindslist))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
@@ -7815,12 +7822,24 @@ source location.}#
 			    :letbind_loc psloc
 			    :binder csymexpo
 			    :letbind_type ctype_void
-			    :letbind_expr (instance class_nrep_apply
-						    :nrep_loc psloc
-						    :nexpr_ctyp ctype_value
-						    :napp_fun nvaluexp
-						    :nexpr_args argtup
-						    )))
+			    :letbind_expr 
+			    (instance class_nrep_hook_call
+				      :nrep_loc psloc
+				      :nexpr_ctyp ctype_value
+				      :nhook_name '"HOOK_VALUE_EXPORTER"
+				      :nexpr_args argtup
+				      :nhook_called (normal_predef hook_value_exporter ncx
+								   psloc "hook_value_exporter")
+				      :nhook_outs (tuple)
+				      :nhook_descr (hook_data hook_value_exporter)
+				      )
+			    ;;- (instance class_nrep_apply
+			    ;;- 		    :nrep_loc psloc
+			    ;;- 		    :nexpr_ctyp ctype_value
+			    ;;- 		    :napp_fun nvaluexp
+			    ;;- 		    :nexpr_args argtup
+			    ;;- 		    )
+			    ))
 	   (syocc (instance class_nrep_locsymocc
 			    :nrep_loc psloc
 			    :nocc_ctyp ctype_void 
