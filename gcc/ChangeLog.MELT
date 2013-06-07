@@ -1,5 +1,13 @@
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-predef.list (HOOK_VALUE_IMPORTER): Poisoned.
+	(HOOK_SYMBOL_IMPORTER): New.
+
+	* melt/warmelt-first.melt (hook_value_importer): Remove.
+	(hook_symbol_importer): New, with slightly different semantics and
+	interface.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-base.melt (informsg_strv): Remove definition, since
 	already defined in warmelt-first.melt file.
