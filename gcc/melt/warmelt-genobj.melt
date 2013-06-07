@@ -1527,6 +1527,7 @@
 	  "\n* importvalues=" importvalues
 	  "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
 	  )
+   (shortbacktrace_dbg "compile2obj_initproc" 15)
    (assert_msg "check ipro" (is_a ipro class_nrep_initproc))
    (assert_msg "check idata" (is_list idata))
    (assert_msg "check modctx" (is_a modctx class_any_module_context))

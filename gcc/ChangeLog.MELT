@@ -2,6 +2,12 @@
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_VALUE_IMPORTER): Remove entirely.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc): More debug.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
