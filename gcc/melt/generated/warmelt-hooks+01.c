@@ -40,6 +40,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] =
 
 
 /**** no MELT module variables ****/
+/**** no MELT called hook declarations ***/
 /*** 26 extra MELT c-headers ***/
 
 
