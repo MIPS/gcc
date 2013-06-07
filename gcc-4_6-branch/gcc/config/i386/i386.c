@@ -5938,7 +5938,10 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	{
 	  /* The return value of this function uses 256bit AVX modes.  */
 	  if (caller)
-	    cfun->machine->callee_return_avx256_p = true;
+	    {
+	      cfun->machine->callee_return_avx256_p = true;
+	      cum->callee_return_avx256_p = true;
+	    }
 	  else
 	    cfun->machine->caller_return_avx256_p = true;
 	}
@@ -7206,9 +7209,18 @@ ix86_function_arg (CUMULATIVE_ARGS *cum, enum machine_mode omode,
     {
       /* This argument uses 256bit AVX modes.  */
       if (cum->caller)
-	cfun->machine->callee_pass_avx256_p = true;
+	cum->callee_pass_avx256_p = true;
       else
 	cfun->machine->caller_pass_avx256_p = true;
+    }
+
+  if (cum->caller && mode == VOIDmode)
+    {
+      /* This function is called with MODE == VOIDmode immediately
+	 before the call instruction is emitted.  We copy callee 256bit
+	 AVX info from the current CUM here.  */
+      cfun->machine->callee_return_avx256_p = cum->callee_return_avx256_p;
+      cfun->machine->callee_pass_avx256_p = cum->callee_pass_avx256_p;
     }
 
   return arg;
@@ -15523,9 +15535,9 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
       if (tmp)
 	{
 	  tmp = force_operand (tmp, NULL);
-	  tmp = expand_simple_binop (Pmode, PLUS, tmp, addend,
+	  op1 = expand_simple_binop (Pmode, PLUS, tmp, addend,
 				     op0, 1, OPTAB_DIRECT);
-	  if (tmp == op0)
+	  if (op1 == op0)
 	    return;
 	}
     }
@@ -29169,6 +29181,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int *total, bool speed)
 	{
 	  if (CONST_INT_P (XEXP (x, 1)))
 	    *total = cost->shift_const;
+	  else if (GET_CODE (XEXP (x, 1)) == SUBREG
+		   && GET_CODE (XEXP (XEXP (x, 1), 0)) == AND)
+	    {
+	      /* Return the cost after shift-and truncation.  */
+	      *total = cost->shift_var;
+	      return true;
+	    }
 	  else
 	    *total = cost->shift_var;
 	}

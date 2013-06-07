@@ -36,7 +36,8 @@ MULTILIB_DIRNAMES       = 64 32
 MULTILIB_EXTRA_OPTS     = fPIC mstrict-align
 MULTILIB_EXCEPTIONS     =
 MULTILIB_EXCLUSIONS     =
-MULTILIB_OSDIRNAMES	= ../lib64 $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)
+MULTILIB_OSDIRNAMES	= ../lib64$(call if_multiarch,:powerpc64-linux-gnu)
+MULTILIB_OSDIRNAMES    += $(if $(wildcard $(shell echo $(SYSTEM_HEADER_DIR))/../../usr/lib32),../lib32,../lib)$(call if_multiarch,:powerpc-linux-gnu)
 MULTILIB_MATCHES        =
 
 softfp_wrap_start := '\#ifndef __powerpc64__'
