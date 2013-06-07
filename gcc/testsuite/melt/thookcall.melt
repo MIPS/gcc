@@ -13,17 +13,23 @@
 (defhook hook_testcall (:value v) (:long l) :long
   (debug "hook_testcall v=" v)
   (setq l (+ 1 (* 3 (get_int v)) 5))
-  (return (get_int v)))
+  (return (+i 2 (get_int v))))
 
-(defun testcall_internal (v)
-  (debug "testcall_internal v=" v)
-  (let ( (:long ll 0) 
+(defun testcall_internal (u)
+  (debug "testcall_internal u=" u)
+  (let ( (:long ll 0)
+	 (res (box (hook_testcall (+ivi u 5) ll)))
 	 )
-  (box (hook_testcall (tuple v 'test) ll))))
+    (debug "testcall_internal res=" res)
+    res
+  ))
 
 (defun testcall_outside ()
-  (debug "testcall_outside")
-  (hook_named_keyword "TRUE" 0))
+  (debug "testcall_outside start")
+  (let ( (valuekw (hook_named_keyword "VALUE" 0))
+	 )
+    (debug "testcall_outside valuekw=" valuekw)
+    valuekw))
 
 (debug "hook_testcall=" hook_testcall " hook_named_keyword=" hook_named_keyword)
 

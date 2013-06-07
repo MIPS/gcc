@@ -3972,6 +3972,7 @@
        )))
  (install_method class_nrep_apply compile_obj compilobj_nrep_apply)
 
+
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  ;;;; compile a hook call
  (defun compilobj_nrep_hook_call (nhkcall gcx)
@@ -4012,6 +4013,7 @@
        (let ( 
 	     (commastr (make_stringconst discr_verbatim_string ", "))
 	     (commampstr (make_stringconst discr_verbatim_string ", &"))
+	     (rhkname (clone_with_discriminant nhkname discr_verbatim_string))
 	     (addins (lambda (alist)
 		       (foreach_in_multiple
 			(oargs)
@@ -4025,13 +4027,13 @@
 			(oouts)
 			(curout :long outix)
 			(list_append alist commampstr)
-			(list_append alist oargs)
+			(list_append alist curout)
 			)
 		       ))
 	     (ohkcall
 	      (make_objlocatedexp 
 	       loc nhkctype
-	       ##{ /*hookcall*/ melthook_$NHKNAME ((melt_ptr_t) $OHOOK$ADDINS$ADDOUTS) }#
+	       ##{ /*hookcall*/ melthook_$RHKNAME ((melt_ptr_t) $OHOOK$ADDINS$ADDOUTS) }#
 	       ))
 	     )
 	 (debug "compilobj_nrep_hook_call ohkcall=" ohkcall)

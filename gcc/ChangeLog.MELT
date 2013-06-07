@@ -1,4 +1,10 @@
 
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-genobj.melt (compilobj_nrep_hook_call): Emit better
+	code.
+
+	* testsuite/melt/thookcall.melt: Improve.
+
 2013-06-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-genobj.melt (compilobj_nrep_hook_call): Use
 	commampstr i.e. ", &" for output arguments. 
