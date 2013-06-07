@@ -4,3 +4,6 @@ id:"1370596471.4596.25.camel@PackardBell-PC"
 
 patch1.diff: src/libgo/runtime/proc.c: Workaround: enable code for
 !SETCONTEXT_CLOBBERS_TLS
+
+patch2.diff: src/libgo/configure.ac: add support for gnu, new variable
+LIBGO_IS_GNU

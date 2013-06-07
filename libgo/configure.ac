@@ -145,6 +145,7 @@ case ${host} in
   *-*-openbsd*)  is_openbsd=yes; GOOS=openbsd ;;
   *-*-rtems*)    is_rtems=yes;   GOOS=rtems ;;
   *-*-solaris2*) is_solaris=yes; GOOS=solaris ;;
+  *-*-gnu*)      is_gnu=yes;     GOOS=gnu ;;
 esac
 AM_CONDITIONAL(LIBGO_IS_DARWIN, test $is_darwin = yes)
 AM_CONDITIONAL(LIBGO_IS_FREEBSD, test $is_freebsd = yes)
@@ -154,6 +155,7 @@ AM_CONDITIONAL(LIBGO_IS_NETBSD, test $is_netbsd = yes)
 AM_CONDITIONAL(LIBGO_IS_OPENBSD, test $is_openbsd = yes)
 AM_CONDITIONAL(LIBGO_IS_RTEMS, test $is_rtems = yes)
 AM_CONDITIONAL(LIBGO_IS_SOLARIS, test $is_solaris = yes)
+AM_CONDITIONAL(LIBGO_IS_GNU, test $is_gnu = yes)
 AC_SUBST(GOOS)
 
 dnl Test whether we need to use DejaGNU or whether we can use the
