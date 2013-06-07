@@ -1,6 +1,24 @@
 
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Regenerate}}
+	* melt/generated/meltrunsup.h: Regenerate.
+	* melt/generated/warmelt-base.c: Regenerate.
+	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
+	* melt/generated/warmelt-base+melttime.h: Regenerate.
+	* melt/generated/warmelt-debug+melttime.h: Regenerate.
+	* melt/generated/warmelt-first.c: Regenerate.
+	* melt/generated/warmelt-first+meltdesc.c: Regenerate.
+	* melt/generated/warmelt-first+melttime.h: Regenerate.
+	* melt/generated/warmelt-genobj+melttime.h: Regenerate.
+	* melt/generated/warmelt-hooks+melttime.h: Regenerate.
+	* melt/generated/warmelt-macro+melttime.h: Regenerate.
+	* melt/generated/warmelt-modes+melttime.h: Regenerate.
+	* melt/generated/warmelt-normal+melttime.h: Regenerate.
+	* melt/generated/warmelt-normatch+melttime.h: Regenerate.
+	* melt/generated/warmelt-outobj+melttime.h: Regenerate.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-build-script.tpl: echo blank lines before each stage...
 	* melt-build-script.sh: Regenerate.
