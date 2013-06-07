@@ -3,6 +3,21 @@
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_any_module_context): Add
+	mocx_hookdict field.
+
+	* melt/warmelt-normal.melt (class_nrep_hook_call): Add nhook_descr
+	field.
+	(normexp_hook_call): Fill it.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_hook_call): Use
+	nhook_descr to grow mocx_hookdict.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Should
+	emit called hook declarations.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-debug.melt (dbgout_mapstring_method): Improve.
 
 	* melt/warmelt-normal.melt (normexp_hook_call): Fix

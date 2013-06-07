@@ -1223,10 +1223,7 @@
 	       (locinb (get_free_objloctyped gcx syminb ctypinb))
 	       (incname (let ( (sbuf (make_strbuf discr_strbuf))
 			       )
-			  (add2out sbuf "meltinp" inix "_")
-			  (add2sbuf_cident sbuf (get_field :named_name syminb))
-			  (if (is_a syminb class_cloned_symbol)
-			      (add2out sbuf "__" (get_field :csym_urank syminb)))
+			  (add2out sbuf "meltinp" inix "_" (symbol_cname syminb))
 			  (strbuf2string discr_verbatim_string sbuf)))
 	       (incformal (instance class_objcformal
 				    :obv_type ctypinb
@@ -1258,10 +1255,7 @@
 	       (locoutb (get_free_objloctyped gcx symoutb ctypoutb))
 	       (outcname (let ( (sbuf (make_strbuf discr_strbuf))
 				)
-			   (add2out sbuf "meltoutp" outix "_")
-			   (add2sbuf_cident sbuf (get_field :named_name symoutb))
-			   (if (is_a symoutb class_cloned_symbol)
-			       (add2out sbuf "__" (get_field :csym_urank symoutb)))
+			   (add2out sbuf "meltoutp" outix "_" (symbol_cname symoutb))
 			   (strbuf2string discr_verbatim_string sbuf)))
 	       (outcformal (instance class_objcformal
 				     :obv_type ctypoutb
@@ -3975,54 +3969,58 @@
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  ;;;; compile a hook call
- (defun compilobj_nrep_hook_call (nhkcall gcx)
-   (debug "compilobj_nrep_hook_call nhkcall=" nhkcall)
-   (assert_msg "check nhkcall" (is_a nhkcall class_nrep_hook_call))
-   (assert_msg "check gcx" (is_a gcx class_c_generation_context))
-   (let ( (loc (unsafe_get_field :nrep_loc nhkcall))
-	  (nhkname (unsafe_get_field :nhook_name nhkcall))
-	  (nhkctype (unsafe_get_field :nexpr_ctyp nhkcall))
-	  (nhook (unsafe_get_field :nhook_called nhkcall))
-	  (nargs (unsafe_get_field :nexpr_args nhkcall))
-	  (nouts (unsafe_get_field :nhook_outs nhkcall))
-	  )
-     (debug "compilobj_nrep_hook_call nhook=" nhook "\n.. nargs=" nargs 
-	    "\n.. nouts=" nouts "\n.. nhkname=" nhkname)
-     (let ( (ohook (let ( (oh (compile_obj nhook gcx)) )
-		     (debug "compilobj_nrep_hook_call ohook=" oh)
-		     oh))
-	    (oargs (multiple_map
-		    nargs
-		    (lambda (ncomp :long ix)
-		      (debug "compilobj_nrep_hook_call ncomp=" ncomp " ix#" ix)
-		      (let ( (ocomp (compile_obj ncomp gcx)) )
-			(debug "compilobj_nrep_hook_call ocomp=" ocomp)
-			(assert_msg "compilobj_nrep_hook_call check ocomp not objinstr"
-				    (not (is_a ocomp class_objinstr)))
-			ocomp))))
-	    (oouts (multiple_map
-		    nouts 
-		    (lambda (nvar :long oix)
-		      (debug "compilobj_nrep_hook_call nvar=" nvar " oix#" oix)
-		      (let ( (ovar (compile_obj nvar gcx))
-			     )
-			(debug "compilobj_nrep_hook_call ovar=" ovar)
-			ovar))))
-	    )
-       (debug "compilobj_nrep_hook_call ohook=" ohook " oargs=" oargs " oouts=" oouts)
-       (let ( 
-	     (commastr (make_stringconst discr_verbatim_string ", "))
-	     (commampstr (make_stringconst discr_verbatim_string ", &"))
-	     (rhkname (clone_with_discriminant nhkname discr_verbatim_string))
-	     (addins (lambda (alist)
-		       (foreach_in_multiple
-			(oargs)
-			(curarg :long argix)
-			(list_append alist commastr)
-			(list_append alist curarg)
-			)
-		       ))
-	     (addouts (lambda (alist)
+(defun compilobj_nrep_hook_call (nhkcall gcx)
+  (debug "compilobj_nrep_hook_call nhkcall=" nhkcall)
+  (assert_msg "check nhkcall" (is_a nhkcall class_nrep_hook_call))
+  (assert_msg "check gcx" (is_a gcx class_c_generation_context))
+  (let ( (loc (unsafe_get_field :nrep_loc nhkcall))
+	 (nhkname (unsafe_get_field :nhook_name nhkcall))
+	 (nhkctype (unsafe_get_field :nexpr_ctyp nhkcall))
+	 (nhook (unsafe_get_field :nhook_called nhkcall))
+	 (nargs (unsafe_get_field :nexpr_args nhkcall))
+	 (nouts (unsafe_get_field :nhook_outs nhkcall))
+	 (nhkdescr (unsafe_get_field :nhook_descr nhkcall))
+	 (modctx (unsafe_get_field :gncx_modulcontext gcx))
+	 (mhookdict (get_field :mocx_hookdict modctx))
+	 )
+    (debug "compilobj_nrep_hook_call nhook=" nhook "\n.. nargs=" nargs 
+	   "\n.. nouts=" nouts "\n.. nhkname=" nhkname "\n.. nhkdescr=" nhkdescr
+	   "\n.. mhookdict=" mhookdict)
+    (let ( (ohook (let ( (oh (compile_obj nhook gcx)) )
+		    (debug "compilobj_nrep_hook_call ohook=" oh)
+		    oh))
+	   (oargs (multiple_map
+		   nargs
+		   (lambda (ncomp :long ix)
+		     (debug "compilobj_nrep_hook_call ncomp=" ncomp " ix#" ix)
+		     (let ( (ocomp (compile_obj ncomp gcx)) )
+		       (debug "compilobj_nrep_hook_call ocomp=" ocomp)
+		       (assert_msg "compilobj_nrep_hook_call check ocomp not objinstr"
+				   (not (is_a ocomp class_objinstr)))
+		       ocomp))))
+	   (oouts (multiple_map
+		   nouts 
+		   (lambda (nvar :long oix)
+		     (debug "compilobj_nrep_hook_call nvar=" nvar " oix#" oix)
+		     (let ( (ovar (compile_obj nvar gcx))
+			    )
+		       (debug "compilobj_nrep_hook_call ovar=" ovar)
+		       ovar))))
+	   )
+      (debug "compilobj_nrep_hook_call ohook=" ohook " oargs=" oargs " oouts=" oouts)
+      (let ( 
+	    (commastr (make_stringconst discr_verbatim_string ", "))
+	    (commampstr (make_stringconst discr_verbatim_string ", &"))
+	    (rhkname (clone_with_discriminant nhkname discr_verbatim_string))
+	    (addins (lambda (alist)
+		      (foreach_in_multiple
+		       (oargs)
+		       (curarg :long argix)
+		       (list_append alist commastr)
+		       (list_append alist curarg)
+		       )
+		      ))
+	    (addouts (lambda (alist)
 		       (foreach_in_multiple
 			(oouts)
 			(curout :long outix)
@@ -4030,15 +4028,28 @@
 			(list_append alist curout)
 			)
 		       ))
-	     (ohkcall
-	      (make_objlocatedexp 
-	       loc nhkctype
-	       ##{ /*hookcall*/ melthook_$RHKNAME ((melt_ptr_t) $OHOOK$ADDINS$ADDOUTS) }#
-	       ))
-	     )
-	 (debug "compilobj_nrep_hook_call ohkcall=" ohkcall)
-	 (return ohkcall)
-      ))))
+	    (ohkcall
+	     (make_objlocatedexp 
+	      loc nhkctype
+	      ##{ /*hookcall*/ melthook_$RHKNAME ((melt_ptr_t) $OHOOK$ADDINS$ADDOUTS) }#
+	      ))
+	    )
+	(when nhkdescr
+	  (debug "compilobj_nrep_hook_call nhkdescr=" nhkdescr "\n.. nhkname=" nhkname
+		 "\n.. mhookdict=" mhookdict)
+	  (assert_msg "check nhkdescr" (is_a nhkdescr class_hook_descriptor))
+	  (let ( (oldescr (mapstring_getstr mhookdict nhkname))
+		 )
+	    (debug "compilobj_nrep_hook_call nhkdescr=" nhkdescr " oldescr=" oldescr)
+	    (if oldescr
+		(assert_msg "check oldescr" (== oldescr nhkdescr))
+	      (progn
+		(mapstring_putstr mhookdict nhkname nhkdescr)
+		(debug "compilobj_nrep_hook_call updated mhookdict=" mhookdict)
+		))))
+	(debug "compilobj_nrep_hook_call ohkcall=" ohkcall)
+	(return ohkcall)
+	))))
 (install_method class_nrep_hook_call compile_obj compilobj_nrep_hook_call)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

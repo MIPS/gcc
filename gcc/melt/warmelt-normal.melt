@@ -110,11 +110,14 @@ applications. $NAPP_FUN is the simple function to apply to $NEXPR_ARGS.}#
 ;; normal hook calls
 (defclass class_nrep_hook_call
   :super class_nrep_typed_expression_with_arguments
-  :doc #{The $CLASS_NREP_HOOK_CALL is for normal hook calls. 
-  $NHOOK_CALLED is the called hook. NHOOK_OUTS it the actual output arguments to the hook.}#
+  :doc #{The $CLASS_NREP_HOOK_CALL is for normal hook calls.
+  $NHOOK_CALLED is the called hook. $NHOOK_OUTS it the actual output
+  arguments to the hook. $NHOOK_DESCR is the descriptor.}#
   :fields (nhook_name
 	   nhook_called
-	   nhook_outs))
+	   nhook_outs
+	   nhook_descr
+	   ))
 
 ;; normalized multiresult apply
 (defclass class_nrep_multiapply
@@ -2159,6 +2162,7 @@ source location.}#
 	 (hkins ())
 	 (hkouts ())
 	 (hkctype ())
+	 (hkdescr ())
 	 (:long errorflag 0)
 	 (newenv (fresh_env env))
 	 )
@@ -2179,14 +2183,16 @@ source location.}#
 		    "\n hkins=" hkins "\n hkouts=" hkouts)
 	     )
 	   (?(some_hook_with_data
-	      ?(instance class_hook_descriptor
-			 :named_name ?dhkname
-			 :hookdesc_in_formals ?dhkins
-			 :hookdesc_out_formals ?dhkouts
-			 :hookdesc_ctype ?dhkctype))
+	      ?(and ?dhkdescr 
+		    ?(instance class_hook_descriptor
+			       :named_name ?dhkname
+			       :hookdesc_in_formals ?dhkins
+			       :hookdesc_out_formals ?dhkouts
+			       :hookdesc_ctype ?dhkctype)))
 	     (assert_msg "check dhkname" (is_string dhkname))
 	     (setq hksymb (get_symbolstr dhkname))
 	     (setq hkname dhkname)
+	     (setq hkdescr dhkdescr)
 	     (setq hkins dhkins)
 	     (setq hkouts dhkouts)
 	     (setq hkctype dhkctype)
@@ -2323,10 +2329,11 @@ source location.}#
 				:nhook_called nhook
 				:nexpr_args ninargs
 				:nhook_outs nouts
+				:nhook_descr hkdescr
 				))
 	     )
 	 (debug "normexp_hook_call nhkcall=" nhkcall "\n.. nhook=" nhook 
-		"\n.. hksymb=" hksymb)
+		"\n.. hksymb=" hksymb "\n .. hkdescr=" hkdescr)
 	 (let ( (csym (clone_symbol hksymb))
 		(cbind (instance class_normal_let_binding
 				 :letbind_loc sloc

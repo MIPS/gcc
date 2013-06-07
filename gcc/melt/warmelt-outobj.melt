@@ -6524,6 +6524,8 @@ if (1) return;
 		 (modvarlist (get_field :mocx_varlist modctx))
 		 (:long nbheaders (multiple_length mheadertup))
 		 (:long nbimplems (multiple_length mimplemtup))
+		 (modhookdict (get_field :mocx_hookdict modctx))
+		 (:long nbmodhooks (mapstring_count modhookdict))
 		 (hookswithmodvarlist (make_list discr_list)) ; hack to generate hook with :var
 		 )
 	     (debug "translate_macroexpanded_list mstartcom=" mstartcom
@@ -6572,6 +6574,7 @@ if (1) return;
 	     (add2sbuf_indentnl declbuf 0)
 	     ;;
 	     ;;
+	     ;; module variables
 	     (let ( (modvartup (list_to_multiple modvarlist discr_multiple))
 		    (:long nbmodvars (multiple_length modvartup))
 		    (modnamcident (let ( (sbuf (make_strbuf discr_strbuf)) )
@@ -6655,6 +6658,31 @@ if (1) return;
 	       )
 	     ;;
 	     ;;
+	     ;;;; called hook declarations
+	     (if nbmodhooks
+		 (let ( (sortuphook (sorted_named_dict_tuple modhookdict))
+		       )
+		   (debug "translate_macroexpanded_list sortuphook=" sortuphook)
+		   (add2out declbuf "\n/*** " nbmodhooks " MELT called hook declarations ***/\n")
+		   (foreach_in_multiple
+		    (sortuphook)
+		    (curhkdesc :long hkix)
+		    (debug "translate_macroexpanded_list curhkdesc=" curhkdesc "\n .. hkix#" hkix)
+		    (assert_msg "check curhkdesc" (is_a curhkdesc class_hook_descriptor))
+		    (let ( (hkname (get_field :named_name curhkdesc))
+			   )
+		    (add2out declbuf "/*declare MELT called hook #" hkix " " hkname " **/\n")
+		    (add2out declbuf "#error missing called hook " hkname " declaration\n")
+		   ))
+		   (add2out declbuf
+			    "/*** end of " nbmodhooks " MELT called hook declarations ***/\n\n")
+		   )
+	       (progn
+		 (add2out declbuf "/**** no MELT called hook declarations ***/\n")
+		 ))
+	     ;;
+	     ;;
+	     ;;;; headers
 	     (if nbheaders
 		 (progn
 		   (add2out declbuf "/*** " nbheaders " extra MELT c-headers ***/\n")
@@ -6934,6 +6962,7 @@ if (1) return;
 			  :mocx_errorhandler (lambda (v) (fatal_compile_error modnamstr v))
 			  :mocx_varcount (make_integerbox discr_integer 0)
 			  :mocx_varlist (make_list discr_list)
+			  :mocx_hookdict (make_mapstring discr_map_strings 31)
 			  ))
 	(ncx (create_normcontext modctx)) 
 	)
@@ -7184,6 +7213,7 @@ if (1) return;
 			    :mocx_cimplementlist (make_list discr_list)
 			    :mocx_varcount (make_integerbox discr_integer 0)
 			    :mocx_varlist (make_list discr_list)
+			    :mocx_hookdict (make_mapstring discr_map_strings 31)
 			    ;; :mocx_cflags (make_list discr_list)
 			    ;; :mocx_linkflags (make_list discr_list)
 			    :mocx_packagepclist (make_list discr_list)

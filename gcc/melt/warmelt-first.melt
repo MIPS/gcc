@@ -895,6 +895,7 @@ subclasses are produced by macro expanders.}# )
 	   mocx_errorhandler		;closure to be called on errors
 	   mocx_varcount		;a boxed counter for defined variables
 	   mocx_varlist			;list of module variables bindings
+	   mocx_hookdict		;dictionnary of called hooks descriptors
 	   )
   :doc #{The internal $CLASS_ANY_MODULE_CONTEXT describes the whole module or extension
 context of a translation. $MOCX_MODULENAME gives the module name,
@@ -986,6 +987,7 @@ using the current module environment is in $NCTX_PROCURMODENVLIST.}# )
 					;giving a unique label prefix
 	    ;; for the new alternate match translation
 	    gncx_altmatch
+	    ;;
 	    )
   :doc #{The internal $CLASS_C_GENERATION_CONTEXT (for gurus) is the class of
 contexts for C code generation, while generating a single C
