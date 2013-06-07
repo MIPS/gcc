@@ -3111,7 +3111,6 @@ Keyword is :cstring.}#
 	  (assert_msg "check symname" (is_string symname))
 	  (code_chunk errbadimport 
 		      #{ /* $ERRBADIMPORT start */ {
-#warning initvalue_importer $ERRBADIMPORT
 		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAME);
 		      error ("MELT [%s]: imported symbol %s has unexpected binding of %s",
 			     $MODNAM,

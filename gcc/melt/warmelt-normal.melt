@@ -7738,46 +7738,6 @@ source location.}#
 (install_method class_source_defselector normal_exp normexp_defselector)
 
 
-;;;;;; (export_values v ...) 
-;; is equivalent to
-;;;;;; let  _valuexporter = the_system_data.sysdata_value_exporter 
-;;;;;; then _quotev = 'v
-;;;;;; then _norm_v = v
-;;;;;; then _curenv = (current_module_environment)
-;;;;;; then :void _exported_v = _valueexporter _quotev _norm_v 
-;;;;;; in _exported_v
-;; where _valuexporter _quotev _norm_v _exported_v are fresh variables 
-;; and the_system_data is accessed using predef-s
-
-;;; internal function giving a normalized cloned symbol for the value exporter
-;;; return only one result, and update the bindslist
-(defun normal_value_exporter (env ncx psloc bindslist)
-  (debug "normal_value_exporter env=" env "\n.. ncx=" ncx "\n.. psloc=" psloc "\n.. bindslist=" bindslist)
-  (shortbacktrace_dbg "normal_value_exporter" 18)
-  (assert_msg "check env" (is_a env class_environment))
-  (assert_msg "check bindslist" (is_list bindslist))
-  (assert_msg "check ncx" (is_a ncx class_normalization_context))
-  (let ( (csymvalexp (clone_symbol '_valuexporter_))
-	 (nsysdat (instance class_nrep_predef
-			    :nrep_loc psloc
-			    :nrpredef 'INITIAL_SYSTEM_DATA))
-	 (cbind (instance class_normal_let_binding
-			  :letbind_loc psloc
-			  :binder csymvalexp
-			  :letbind_type ctype_value
-			  :letbind_expr (instance class_nrep_unsafe_get_field
-						  :nrep_loc psloc
-						  :nuget_obj nsysdat
-						  :nuget_field sysdata_value_exporter)))
-	 (locsym (instance class_nrep_locsymocc
-			   :nrep_loc psloc
-			   :nocc_ctyp ctype_value
-			   :nocc_symb csymvalexp
-			   :nocc_bind cbind))
-	 )
-    (list_append bindslist cbind)
-    (return locsym)
-    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; internal function for value export
@@ -7786,14 +7746,10 @@ source location.}#
 ;;
 ;;; nexp is the normalized expression of its value
 ;;
-;;; nvalueexp is the normalized expression of the value exporter given
-;;; by normal_value_exporter above
-(defun normal_exported_value (sym nexp nvaluexp env ncx psloc bindslist)
-  (debug "normal_exported_value start sym=" sym " nexp=" nexp
-	 " nvaluexp=" nvaluexp)
+(defun normal_exported_value (sym nexp env ncx psloc bindslist)
+  (debug "normal_exported_value start sym=" sym " nexp=" nexp)
   (assert_msg "check sym" (is_a sym class_symbol))
   (assert_msg "check nexp" (is_a nexp class_nrep))
-  (assert_msg "check nvaluexp" (is_a nvaluexp class_nrep))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
   (assert_msg "check bindslist" (is_list bindslist))
@@ -7809,7 +7765,7 @@ source location.}#
 			       :loca_location psloc
 			       :cmec_comment (strbuf2string discr_string csbuf)))
 	 )
-    (debug "normal_exported_value scurenvbox" scurenvbox)
+    (debug "normal_exported_value scurenvbox=" scurenvbox)
     (multicall 
      (ncurenvbox curenvbinds)
      (normal_exp scurenvbox env ncx psloc)
@@ -7833,12 +7789,6 @@ source location.}#
 				      :nhook_outs (tuple)
 				      :nhook_descr (hook_data hook_value_exporter)
 				      )
-			    ;;- (instance class_nrep_apply
-			    ;;- 		    :nrep_loc psloc
-			    ;;- 		    :nexpr_ctyp ctype_value
-			    ;;- 		    :napp_fun nvaluexp
-			    ;;- 		    :nexpr_args argtup
-			    ;;- 		    )
 			    ))
 	   (syocc (instance class_nrep_locsymocc
 			    :nrep_loc psloc
@@ -7869,11 +7819,9 @@ source location.}#
 	(sloc (unsafe_get_field :loca_location recv))
 	(sxnames (unsafe_get_field :sexport_names recv))
 	(bindslist (make_list discr_list))
-	(nvaluexporter (normal_value_exporter env ncx sloc bindslist))
 	(nilnrep (instance class_nrep_nil
 			   :nrep_loc sloc))
 	)
-    (debug "normexp_export_values nvaluexporter" nvaluexporter)
     (foreach_in_multiple
      (sxnames)
      (xnam :long ix)
@@ -7885,7 +7833,7 @@ source location.}#
 	(debug "normexp_export_values nsym=" nsym " nsymbinds=" nsymbinds)
 	(list_append2list bindslist nsymbinds)
 	(debug "normexp_export_values again xnam=" xnam " bindslist=" bindslist)
-	(let ( (nexpv (normal_exported_value xnam nsym nvaluexporter env ncx sloc bindslist))
+	(let ( (nexpv (normal_exported_value xnam nsym env ncx sloc bindslist))
 	       )
 	  (debug "normexp_export_values normal_exported_value gave nexpv" nexpv)
 	  )))
@@ -7908,12 +7856,10 @@ source location.}#
 	(newname (unsafe_get_field :sexpsyn_newname recv))
 	(oldname (unsafe_get_field :sexpsyn_oldname recv))
 	(bindslist (make_list discr_list))
-	(nvaluexporter (normal_value_exporter env ncx sloc bindslist))
 	(nilnrep (instance class_nrep_nil
 			   :nrep_loc sloc))
 	)
-    (debug "normexp_export_synonym nvaluexporter=" nvaluexporter
-	   " newname=" newname	 " oldname=" oldname)
+    (debug "normexp_export_synonym newname=" newname	 " oldname=" oldname)
     (assert_msg "check newname" (is_a newname class_symbol))
     (assert_msg "check oldname" (is_a oldname class_symbol))
     ;; when a class has a synonym, we should generate in the C code 
@@ -7926,7 +7872,7 @@ source location.}#
      (normal_exp oldname env ncx sloc)
      (debug "normexp_export_synonym noldsym=" noldsym " noldsymbinds=" noldsymbinds)
      (list_append2list bindslist noldsymbinds)
-     (let ( (nexpv (normal_exported_value newname noldsym nvaluexporter env ncx sloc bindslist))
+     (let ( (nexpv (normal_exported_value newname noldsym env ncx sloc bindslist))
 	    )
        (debug "normexp_export_synonym normal_exported_value gave nexpv=" nexpv
 	      " final nilnrep=" nilnrep
@@ -7947,7 +7893,6 @@ source location.}#
 	(sloc (unsafe_get_field :loca_location recv))
 	(sxnames (unsafe_get_field :sexport_names recv))
 	(bindslist (make_list discr_list))
-	(nvaluexporter (normal_value_exporter env ncx sloc bindslist))
 	(nilnrep (instance class_nrep_nil
 			   :nrep_loc sloc))
 	(mocx (unsafe_get_field :nctx_modulcontext ncx))
@@ -7975,7 +7920,7 @@ source location.}#
 	   (if (is_not_a xdata class_nrep_bound_data)
 	       (error_strv sloc "forward defined class symbol to EXPORT_CLASS"
 			   (unsafe_get_field :named_name xnam)))
-	   (let ( (nclav (normal_exported_value xnam xdata nvaluexporter env ncx sloc bindslist))
+	   (let ( (nclav (normal_exported_value xnam xdata env ncx sloc bindslist))
 		  )
 	     (debug "normexp_export_class nclav" nclav)
 	     (assert_msg "check xclass" (is_a xclass class_class))
@@ -8000,7 +7945,7 @@ source location.}#
 			  (assert_msg "check fldbind" (is_a fldbind class_field_binding))
 			  (let ( (fldata (unsafe_get_field :fixbind_data fldbind))
 				 (field (unsafe_get_field :flbind_field fldbind))
-				 (nfld (normal_exported_value fldsym fldata nvaluexporter env ncx sloc bindslist))
+				 (nfld (normal_exported_value fldsym fldata env ncx sloc bindslist))
 				 )
 			    (assert_msg "check field" (is_a field class_field))
 			    (assert_msg "check expfldic" (is_mapstring expfldic))

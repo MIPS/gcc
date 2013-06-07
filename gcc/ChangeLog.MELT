@@ -1,6 +1,14 @@
 
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (initvalue_importer): Remove #warning in
+	code chunk.
+	* melt/warmelt-normal.melt (normal_value_exporter): Remove function.
+	(normal_exported_value): Remove nvaluexp formal argument.
+	(normexp_export_synonym, normexp_export_values)
+	(normexp_export_class): Update accordingly.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (class_initial_system_data): Rename
 	field sysdata_obsolete_cont_fresh_env as sysdata_obsolete1.
 
