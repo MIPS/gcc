@@ -4178,6 +4178,30 @@ also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
 
 ;;;****************************************************************
 
+;;;====================================================================
+;;;******* fresh environment reference maker **************************
+;; tricky and perhaps dirty: emitted by compile2obj_initproc in
+;; warmelt-genobj.melt & used by 
+;; normexp_update_current_module_environment_reference in warmelt-normal.melt
+(defhook hook_fresh_environment_reference_maker (:value prevenv :cstring modulname)
+  ()
+  :value
+  :predef HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER
+  :doc #{The internal $HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER is 
+creating new environments in modules, it is called by the internal 
+$MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
+  (if (melt_need_dbg 0) 
+      (shortbacktrace_dbg "hook_fresh_environment_reference_maker" 15))
+  (let (
+	(descr (if modulname (make_stringconst discr_string modulname)))
+	(newenv (fresh_env prevenv descr)) 
+	(newcont (instance class_reference 
+			   :referenced_value newenv))
+	)
+    (return newcont)
+    ))
+  
+
 ;; before the update_current_module_environment_reference below, most
 ;; constants for current_module_environment_reference or
 ;; parent_module_environment are null because there is not enough
@@ -4812,10 +4836,10 @@ $CREATE is true i.e. non zero.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  block_signals
- hook_intern_symbol
  hook_intern_keyword
- hook_named_symbol
+ hook_intern_symbol
  hook_named_keyword 
+ hook_named_symbol
  ignore
  void
 )
@@ -4824,31 +4848,6 @@ $CREATE is true i.e. non zero.}#
 
 ;;;;;hooks for environment management are so fondamental that they
 ;;;;;have to be in warmelt-first.melt
-
-;;;====================================================================
-;;;******* fresh environment reference maker **************************
-;; tricky and perhaps dirty: emitted by compile2obj_initproc in
-;; warmelt-genobj.melt & used by melt_make_fresh_environment_reference
-;; primitive which is magically invoked by
-;; normexp_update_current_module_environment_reference in warmelt-normal.melt
-(defhook hook_fresh_environment_reference_maker (:value prevenv :cstring modulname)
-  ()
-  :value
-  :predef HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER
-  :doc #{The internal $HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER is 
-creating new environments in modules, it is called by the internal 
-$MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
-  (if (melt_need_dbg 0) 
-      (shortbacktrace_dbg "hook_fresh_environment_reference_maker" 15))
-  (let (
-	(descr (if modulname (make_stringconst discr_string modulname)))
-	(newenv (fresh_env prevenv descr)) 
-	(newcont (instance class_reference 
-			   :referenced_value newenv))
-	)
-    (return newcont)
-    ))
-  
 
 ;;;====================================================================
 ;;;************************* value importer ***************************
@@ -5084,5 +5083,13 @@ See also $EXPORT_PATMACRO}#
 )))
 
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(export_values 
+ hook_fresh_environment_reference_maker
+ hook_macro_exporter
+ hook_patmacro_exporter
+ hook_value_exporter
+ hook_value_importer
+ )
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; eof warmelt-first.melt

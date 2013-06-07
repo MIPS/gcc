@@ -3,6 +3,22 @@
 
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt
+	(hook_fresh_environment_reference_maker): Move definition before
+	invocation of update_current_module_environment_reference.
+	(hook_fresh_environment_reference_maker)
+	(hook_macro_exporter, hook_patmacro_exporter, hook_value_exporter)
+	(hook_value_importer): Export these hooks.
+	* melt/warmelt-normal.melt
+	(normexp_update_current_module_environment_reference): Gives a
+	call to the hook_fresh_environment_reference_maker hook, not the
+	melt_make_fresh_environment_reference primitive.
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): Don't
+	prepend a magical update_current_module_environment_reference for
+	the very initial module.
+
+2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

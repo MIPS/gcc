@@ -6181,7 +6181,9 @@ if (1) return;
 	(put_fields modctx :mocx_startcomment scomm)
 	)
       )
-    (list_prepend xlist ucmeb1)
+    (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 " modinienv=" modinienv)
+    (if modinienv 
+	(list_prepend xlist ucmeb1))
     ;;
     ;; we need to normalize now, because cheaders are handled by normalization
     (foreach_in_list

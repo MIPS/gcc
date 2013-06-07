@@ -8379,14 +8379,15 @@ source location.}#
 		    (tuple
 		     scurenvbox
 		     (instance 
-		      class_source_primitive
+		      class_source_hook_call
 		      :loca_location psloc
-		      :sprim_oper melt_make_fresh_environment_reference 
+		      :shook_called hook_fresh_environment_reference_maker
 		      :sargop_args (tuple
 				    (instance class_source_parent_module_environment
 					      :loca_location psloc)
 				    modnam
-				    )))))
+				    ))
+		     )))
 		  )
 	     (multicall
 	      (ncurenvbox bindlist)
