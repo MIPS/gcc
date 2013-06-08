@@ -1520,11 +1520,10 @@
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  ;;;; compile the initial procedure into an object
- (defun compile2obj_initproc (ipro modctx idata compicache procurmodenvlist importvalues)
+ (defun compile2obj_initproc (ipro modctx idata compicache procurmodenvlist)
    (debug "compile2obj_initproc ipro=" ipro 
 	  "\n* modctx=" modctx "\n* compicache=" compicache
 	  "\n* procurmodenvlist=" procurmodenvlist 
-	  "\n* importvalues=" importvalues
 	  "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
 	  )
    (shortbacktrace_dbg "compile2obj_initproc" 15)
@@ -1532,11 +1531,8 @@
    (assert_msg "check idata" (is_list idata))
    (assert_msg "check modctx" (is_a modctx class_any_module_context))
    (assert_msg "check compicache" (is_mapobject compicache))
-   (when (null importvalues)
-     (setq importvalues (get_field :ninit_imports ipro))
-     (debug "compile2obj_initproc got importvalues=" importvalues))
-   (assert_msg "check importvalues" (is_list importvalues))
    (let ((locmap (make_mapobject discr_map_objects 50))
+	 (importvalues (get_field :ninit_imports ipro))
 	 (oiniprolog (make_list discr_list))
 	 (oinibody (make_list discr_list))
 	 (modinienv (get_field :mocx_initialenv modctx))
@@ -1859,22 +1855,18 @@
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  ;; this function is similar to compile2obj_initproc but they are some differences
  ;; it compiles the initial routine for runtime evaluation
- (defun compile2obj_initextendproc (ipro modctx idata compicache procurmodenvlist importvalues)
+ (defun compile2obj_initextendproc (ipro modctx idata compicache procurmodenvlist)
    (debug "compile2obj_initextendproc ipro=" ipro 
 	  "\n* modctx=" modctx "\n* idata=" idata "\n* compicache=" compicache
 	  "\n* procurmodenvlist=" procurmodenvlist 
-	  "\n* importvalues=" importvalues
 	  "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
 	  )
    (assert_msg "check ipro" (is_a ipro class_nrep_initextendproc))
    (assert_msg "check idata" (is_list idata))
    (assert_msg "check modctx" (is_a modctx class_running_extension_module_context))
    (assert_msg "check compicache" (is_mapobject compicache))
-   (when (null importvalues)
-     (setq importvalues (get_field :ninit_imports ipro))
-     (debug "compile2obj_initextendproc got importvalues=" importvalues))
-   (assert_msg "check importvalues" (is_list importvalues))
    (let ( (locmap (make_mapobject discr_map_objects 50))
+	  (importvalues (get_field :ninit_imports ipro))
 	  (oiniprolog (make_list discr_list))
 	  (oinibody (make_list discr_list))
 	  (modenv (get_field :ninitextend_modenv ipro))

@@ -3,6 +3,12 @@
 
 2013-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compile2obj_initproc)
+	(compile2obj_initextendproc): Don't get the importvalues thru
+	arguments but get it inside the initial procedure.
+
+2013-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Don't
 	pass the importvalues to the iniproctransl.
 
