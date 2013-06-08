@@ -30843,7 +30843,7 @@ meltlab_endgetargs:;
 		   /*ifisa */
 		   melt_is_instance_of ((melt_ptr_t)
 					( /*_.INIPRO__V120*/ meltfptr[119]),
-					(melt_ptr_t) (( /*!CLASS_NREP_ANYPROC */ meltfrout->tabval[11])))
+					(melt_ptr_t) (( /*!CLASS_NREP_INITPROC */ meltfrout->tabval[14])))
       )				/*then */
       {
 	/*^cond.then */
@@ -30861,6 +30861,17 @@ meltlab_endgetargs:;
 	  melt_putfield_object (( /*_.INIPRO__V120*/ meltfptr[119]), (1),
 				( /*_.NORMLIST__V41*/ meltfptr[37]),
 				"NPROC_BODY");
+	  ;
+	  /*^putslot */
+	  /*putslot */
+	  melt_assertmsg ("putslot checkobj @NINIT_IMPORTS",
+			  melt_magic_discr ((melt_ptr_t)
+					    ( /*_.INIPRO__V120*/
+					     meltfptr[119])) ==
+			  MELTOBMAG_OBJECT);
+	  melt_putfield_object (( /*_.INIPRO__V120*/ meltfptr[119]), (4),
+				( /*_.IMPORTVALUES__V122*/ meltfptr[121]),
+				"NINIT_IMPORTS");
 	  ;
 	  /*^touch */
 	  meltgc_touch ( /*_.INIPRO__V120*/ meltfptr[119]);
