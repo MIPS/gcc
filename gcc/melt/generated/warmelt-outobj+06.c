@@ -31345,7 +31345,7 @@ meltlab_endgetargs:;
     MELT_LOCATION ("warmelt-outobj.melt:6516:/ apply");
     /*apply */
     {
-      union meltparam_un argtab[5];
+      union meltparam_un argtab[4];
       memset (&argtab, 0, sizeof (argtab));
       /*^apply.arg */
       argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_.MODCTX__V4*/ meltfptr[3];
@@ -31358,15 +31358,12 @@ meltlab_endgetargs:;
       /*^apply.arg */
       argtab[3].meltbp_aptr =
 	(melt_ptr_t *) & /*_.PROCURMODENVLIST__V123*/ meltfptr[122];
-      /*^apply.arg */
-      argtab[4].meltbp_aptr =
-	(melt_ptr_t *) & /*_.IMPORTVALUES__V122*/ meltfptr[121];
       /*_.INIOBJ__V149*/ meltfptr[148] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_.INIPROCTRANSL__V8*/ meltfptr[7]),
 		    (melt_ptr_t) ( /*_.INIPRO__V120*/ meltfptr[119]),
 		    (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR
-		     MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
+		     MELTBPARSTR_PTR ""), argtab, "",
 		    (union meltparam_un *) 0);
     }
     ;
