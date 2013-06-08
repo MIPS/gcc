@@ -6500,7 +6500,7 @@ if (1) return;
 		"\n iniproctransl=" iniproctransl
 		"\n normlist=" normlist)
 	 (assert_msg "null iniprobody" (null (get_field :nproc_body inipro)))
-	 (put_fields inipro :nproc_body normlist)
+	 (put_fields inipro :nproc_body normlist :ninit_imports importvalues)
 	 (debug "translate_macroexpanded_list unpdated inipro=" inipro)
 	 (assert_msg "check inipro" (is_a inipro class_nrep_initproc))
 	 (assert_msg "check iniproctransl" (is_closure iniproctransl))

@@ -1,5 +1,19 @@
 
 
+2013-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.c (melt_assert_failed): Display again the debug
+	counter.
+
+	* melt/warmelt-normal.melt (class_nrep_initproc): Add ninit_imports field.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc)
+	(compile2obj_initextendproc): When importvalues is null get it
+	thru ninit_imports.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Put
+	ninit_imports in initial procedure.
+
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

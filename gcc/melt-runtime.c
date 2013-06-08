@@ -12791,8 +12791,13 @@ melt_assert_failed (const char *msg, const char *filnam,
   time (&nowt);
   melt_fatal_info (filnam, lineno);
   /* don't call melt_fatal_error here! */
-  fatal_error ("%s:%d: MELT ASSERT FAILED <%s> : %s\n @ %s\n",
-               melt_basename (filnam), lineno, fun, msg, ctime (&nowt));
+  if (melt_dbgcounter > 0)
+    fatal_error ("%s:%d: MELT ASSERT FAILED <%s> : %s\n  [dbg#%ld] @ %s\n",
+		 melt_basename (filnam), lineno, fun, msg, melt_dbgcounter, ctime (&nowt));
+  else
+    fatal_error ("%s:%d: MELT ASSERT FAILED <%s> : %s\n @ %s\n",
+		 melt_basename (filnam), lineno, fun, msg, ctime (&nowt));
+    
 }
 
 

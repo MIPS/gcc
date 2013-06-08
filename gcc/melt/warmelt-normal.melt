@@ -485,9 +485,11 @@ procedures. Field $NPROC_BODY is the normalized body.}#
   :super class_nrep_anyproc
   :doc #{The $CLASS_NREP_INITPROC is the class for the initial
 procedure in a module. Field $NINIT_TOPL is the list of top-level
-normalized expressions. Field $NINIT_DEFBINDS is the list of $DEFINE-d bindings.}#
+normalized expressions. Field $NINIT_DEFBINDS is the list of $DEFINE-d
+bindings. Field $NINIT_IMPORTS is the list of imports.}#
   :fields (ninit_topl			;list of toplevel nrep
 	   ninit_defbinds		;list of define-d bindings
+	   ninit_imports		;list of imports
 	   ))
 
 ;; the class of the initial procedure when extending a module
