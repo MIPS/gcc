@@ -3,6 +3,11 @@
 
 2013-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Don't
+	pass the importvalues to the iniproctransl.
+
+2013-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

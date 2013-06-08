@@ -6513,7 +6513,7 @@ if (1) return;
 	  (assert_msg "check obel is object" (is_object obel))
 	  )
 	 (let ( (iniobj
-		 (iniproctransl inipro modctx inidata compicache procurmodenvlist importvalues)) 
+		 (iniproctransl inipro modctx inidata compicache procurmodenvlist)) 
 		)
 	   (debug "translate_macroexpanded_list iniobj=" iniobj
 		  "\n objlist=" objlist)
