@@ -1520,7 +1520,7 @@
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  ;;;; compile the initial procedure into an object
- (defun compile2obj_initproc (ipro modctx idata compicache procurmodenvlist)
+(defun compile2obj_initproc (ipro modctx idata compicache procurmodenvlist)
    (debug "compile2obj_initproc ipro=" ipro 
 	  "\n* modctx=" modctx "\n* compicache=" compicache
 	  "\n* procurmodenvlist=" procurmodenvlist 
@@ -1606,7 +1606,7 @@
 	 )
      (append_commentconst oinibody "start of oinibody")
      (debug boxloc "compile2obj_initproc boxloc=" boxloc " inidefbinds=" inidefbinds)
- ;;; reserve location for defined values
+;;; reserve location for defined values
      (foreach_in_list
       (inidefbinds)
       (curpair curdefbind)
@@ -1633,24 +1633,24 @@
 		      :obcond_test boxloc
 		      :obcond_then ()
 		      :obcond_else
-			  (make_objcompute
-			   ()
-			   ctype_void
-			   ##{ /* compile2obj_initproc emitted initialization of environment reference for $RAWMODNAM */
-			   if ($OPREVENV) 
-			     {
-			       if (!melt_flag_bootstrapping)
-				 warning(0, "MELT is creating a fresh environment reference for $RAWMODNAM");
-			       $BOXLOC = melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER 
-							 ((melt_ptr_t) $OPREVENV, "$RAWMODNAM");
-			     }
-			     else /* no prevenv */
-			     {
-			       if (!melt_flag_bootstrapping)
-				 warning(0, "MELT is not creating a fresh environment reference for $RAWMODNAM without parent env.");
-			     }
-			     }#
-			     )))
+		      (make_objcompute
+		       ()
+		       ctype_void
+		       ##{ /* compile2obj_initproc emitted initialization of environment reference for $RAWMODNAM */
+		       if ($OPREVENV) 
+		         {
+		          if (!melt_flag_bootstrapping)
+		            warning(0, "MELT is creating a fresh environment reference for $RAWMODNAM") ;
+		          $BOXLOC = melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER 
+		               ((melt_ptr_t) $OPREVENV, "$RAWMODNAM") ;
+		         }
+		       else /* no prevenv */
+		         {
+		           if (!melt_flag_bootstrapping)
+		             warning(0, "MELT is not creating a fresh environment reference for $RAWMODNAM without parent env.") ;
+		          }
+		       }#
+		       )))
 	   ;;
 	   (limplocv
 	    (list_map 
@@ -1666,7 +1666,9 @@
 		 ilocv
 		 ))))
 	   )
-       (debug "compile2obj_initproc otestcomputboxloc=" otestcomputboxloc)
+       (debug "compile2obj_initproc otestcomputboxloc=" otestcomputboxloc 
+	      "\n.. importvalues=" importvalues
+	      "\n.. limplocv=" limplocv)
        ;; the prologue starts by getting the previous environment from the
        ;; modargp_ unique argument
        (let ( (lisdest (make_list discr_list)) )
@@ -1746,27 +1748,46 @@
 					   :ogetsl_field sysdata_value_importer))
 		    ))
 	      (when (>i (list_length importvalues) 0)
-		(append_commentconst oiniprolog "before getting imported values")
-		;; generate the getting of imported values
-		(list_every
-		 importvalues
-		 (lambda (curimport)
-		   (debug "compile2obj_initproc curimport=" curimport)
-		   (assert_msg "check curimport" (is_a curimport class_nrep_importedval))
-		   (compile_warning "the generated import should have a cstring")
-		   (let ( (impsym (unsafe_get_field :nimport_symb curimport)) 
-			  (impsydat (unsafe_get_field :nimport_sydata curimport))
-			  (impsymstr (get_field :named_name impsym))
-			  (modulstr (get_field :mocx_modulename modctx)) 
-			  (osymdat (compile_obj impsydat gcx))
-			  (oimplocv (mapobject_get importmap impsym))
-			  (oimpappl (instance class_objapply
-					      :obdi_destlist (list oimplocv)
-					      :obapp_clos ovalueimporter
-					      :obapp_args (tuple osymdat oprevenv impsymstr modulstr)))
+		;; 
+		(append_commentconst oiniprolog "before new getting imported values")
+		(let ( (importvaltup (list_to_multiple importvalues discr_multiple))
+		       (importloctup (list_to_multiple limplocv discr_multiple))
+		      )
+		  (debug "compile2obj_initproc importvaltup=" importvaltup 
+			 "\n importloctup=" importloctup)
+		  (foreach_in_multiple 
+		   (importvaltup)
+		   (curimpval :long impix)
+		   (let ( (curimploc (multiple_nth importloctup impix))
 			  )
-		     (list_append oiniprolog oimpappl)
-		     )))
+		     (debug "compile2obj_initproc impix#" impix " curimpval=" curimpval 
+			    "\n.. curimploc=" curimploc)
+		     (assert_msg "check curimpval" (is_a curimpval class_nrep_importedval))
+		     (assert_msg "check curimploc" (is_a curimploc class_objlocv))
+		  )))
+		;;
+		(append_commentconst oiniprolog "before old getting imported values")
+		;; generate the getting of imported values
+		(foreach_in_list
+		 (importvalues)
+		 (curpair curimport)
+		 (debug "compile2obj_initproc curimport=" curimport)
+		 (assert_msg "check curimport" (is_a curimport class_nrep_importedval))
+		 (compile_warning "the generated import should have a cstring")
+		 (let ( (impsym (unsafe_get_field :nimport_symb curimport)) 
+			(impsydat (unsafe_get_field :nimport_sydata curimport))
+			(impsymstr (get_field :named_name impsym))
+			(modulstr (get_field :mocx_modulename modctx)) 
+			(osymdat (compile_obj impsydat gcx))
+			(oimplocv (mapobject_get importmap impsym))
+			(oimpappl (instance class_objapply
+					    :obdi_destlist (list oimplocv)
+					    :obapp_clos ovalueimporter
+					    :obapp_args (tuple osymdat oprevenv impsymstr modulstr)))
+			)
+		   (list_append oiniprolog oimpappl)
+		   ))
+
 		(append_commentconst oiniprolog "after getting imported values")
 		)
 	      )				;end if modinienv
@@ -1843,7 +1864,7 @@
 	   (put_objdest osetretinit retinit)
 	   (debug "compile2obj_initproc adding osetretinit=" osetretinit)
 	   (list_append oinibody osetretinit))
- ;;; ending
+;;; ending
 	 (append_commentconst oinibody "end the initproc")
 	 (debug "compile2obj_initproc final oinibody=" oinibody " gcx=" gcx " oinitrout=" oinitrout)
 	 (return oinitrout)

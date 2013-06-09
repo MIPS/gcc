@@ -1,6 +1,15 @@
 
 
 
+2013-06-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (hook_symbol_importer): Improve comment.
+
+	* melt/warmelt-normal.melt (normal_import): New function, incomplete.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc): With both old
+	and new ways of import. Transitional, new import not working yet.
+
 2013-06-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
