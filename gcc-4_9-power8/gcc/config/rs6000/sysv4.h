@@ -776,7 +776,12 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 
 #define LINK_START_LINUX_SPEC ""
 
+#ifdef CONFIGURE_STARTFILE_PREFIX
+#define GLIBC_DYNAMIC_LINKER "%:find-dynamic-linker(/lib/ld.so.1)"
+#else
 #define GLIBC_DYNAMIC_LINKER "/lib/ld.so.1"
+#endif
+
 #define UCLIBC_DYNAMIC_LINKER "/lib/ld-uClibc.so.0"
 #if DEFAULT_LIBC == LIBC_UCLIBC
 #define CHOOSE_DYNAMIC_LINKER(G, U) "%{mglibc:" G ";:" U "}"
@@ -785,10 +790,30 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 #else
 #error "Unsupported DEFAULT_LIBC"
 #endif
+
 #define GNU_USER_DYNAMIC_LINKER \
   CHOOSE_DYNAMIC_LINKER (GLIBC_DYNAMIC_LINKER, UCLIBC_DYNAMIC_LINKER)
 
-#define LINK_OS_LINUX_SPEC "-m elf32ppclinux %{!shared: %{!static: \
+#ifdef CONFIGURE_STARTFILE_PREFIX
+#ifdef HAVE_LOCAL_CPU_DETECT
+#define LINUX_EXTRA_STATIC_LIBDIRS32 \
+"%{static: \
+%{mcpu=native: %:linux_extra_static_libdirs(%:local_cpu_detect(cpu))} \
+%{!mcpu=native: %{mcpu=*: %:linux_extra_static_libdirs(%{mcpu=*}) }}} "
+
+#else
+#define LINUX_EXTRA_STATIC_LIBDIRS32 \
+"%{static: \
+%{mcpu=: %:linux_extra_static_libdirs(%{mcpu=*}) }} "
+#endif
+
+#else
+#define LINUX_EXTRA_STATIC_LIBDIRS32 ""
+#endif
+
+#define LINK_OS_LINUX_SPEC "-m elf32ppclinux " \
+LINUX_EXTRA_STATIC_LIBDIRS32 \
+"%{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   -dynamic-linker " GNU_USER_DYNAMIC_LINKER "}}"
 
@@ -852,6 +877,22 @@ ncrtn.o%s"
 
 #ifndef CPP_OS_OPENBSD_SPEC
 #define CPP_OS_OPENBSD_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_POSIX_THREADS}"
+#endif
+
+/* If we have additional startfiles, we want to use the dynamic linker from the
+   directories those startfiles are in.  We also want to set the -rpath for
+   those directories.
+
+   Also if this is a static link, see if we have any processor specific
+   directories in the extra startfiles directories.  We don't have to worry
+   about dynamic libraries, since the dynamic linker will include them
+   automatically. */
+#ifdef CONFIGURE_STARTFILE_PREFIX
+extern const char *rs6000_extra_static_libdirs (int argc, const char **argv);
+
+#undef SUBTARGET_EXTRA_SPEC_FUNCTIONS
+#define SUBTARGET_EXTRA_SPEC_FUNCTIONS \
+  { "linux_extra_static_libdirs",	rs6000_extra_static_libdirs },
 #endif
 
 /* Define any extra SPECS that the compiler needs to generate.  */
