@@ -1044,6 +1044,7 @@ static bool rs6000_debug_cannot_change_mode_class (enum machine_mode,
 						   enum machine_mode,
 						   enum reg_class);
 static bool rs6000_save_toc_in_prologue_p (void);
+static bool rs6000_lra_p (void);
 
 rtx (*rs6000_legitimize_reload_address_ptr) (rtx, enum machine_mode, int, int,
 					     int, int *)
@@ -1519,6 +1520,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P rs6000_lra_p
 
 
 /* Processor table.  */
@@ -1631,6 +1635,18 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (mode == TImode && TARGET_VSX_TIMODE && VSX_REGNO_P (regno))
     return 1;
 
+  /* Allow 64-bit and the 32-bit floating point types in Altivec registers
+     under Power8.  In theory, we would allow 32-bit integers as well.  We
+     allow SDmode, even though no decimal operation works the Altivec
+     registers, but it is ok for moves.  */
+  if (TARGET_VSX && VSX_REGNO_P (regno) && TARGET_P8_VECTOR
+      && VECTOR_MEM_VSX_P (DFmode)
+      && (mode == DImode
+	  || mode == DDmode
+	  || mode == SFmode
+	  || mode == SDmode))
+    return 1;
+
   /* The GPRs can hold any mode, but values bigger than one register
      cannot go past R31.  */
   if (INT_REGNO_P (regno))
@@ -1670,6 +1686,18 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   /* ...but GPRs can hold SIMD data on the SPE in one register.  */
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     return 1;
+
+  /* See if we need to be stricter about what goes into the special
+     registers (LR, CTR, VSAVE, VSCR).  */
+  if (TARGET_CONSTRAIN_REGS)
+    {
+      if (regno == LR_REGNO || regno == CTR_REGNO)
+	return (GET_MODE_CLASS (mode) == MODE_INT
+		&& rs6000_hard_regno_nregs[mode][regno] == 1);
+
+      if (regno == VRSAVE_REGNO || regno == VSCR_REGNO)
+	return (mode == SImode);
+    }
 
   /* We cannot put non-VSX TImode or PTImode anywhere except general register
      and it must be able to fit within the register set.  */
@@ -2138,6 +2166,9 @@ rs6000_debug_reg_global (void)
     fprintf (stderr, DEBUG_FMT_S, "p8 fusion",
 	     (TARGET_P8_FUSION_SIGN) ? "zero+sign" : "zero");
 
+  if (TARGET_CONSTRAIN_REGS)
+    fprintf (stderr, DEBUG_FMT_S, "constrain-regs", "true");
+
   fprintf (stderr, DEBUG_FMT_S, "plt-format",
 	   TARGET_SECURE_PLT ? "secure" : "bss");
   fprintf (stderr, DEBUG_FMT_S, "struct-return",
@@ -2319,6 +2350,15 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     {
       rs6000_vector_mem[TImode] = VECTOR_VSX;
       rs6000_vector_align[TImode] = align64;
+    }
+
+  /* SFmode, see if we want to use the VSX unit.  */
+  if (TARGET_P8_VECTOR)
+    {
+      rs6000_vector_unit[SFmode] = VECTOR_P8_VECTOR;
+      rs6000_vector_mem[SFmode]
+	= (TARGET_VSX_SCALAR_MEMORY ? VECTOR_P8_VECTOR : VECTOR_NONE);
+      rs6000_vector_align[SFmode] = align32;
     }
 
   /* TODO add SPE and paired floating point vector support.  */
@@ -3045,6 +3085,21 @@ rs6000_option_override_internal (bool global_init_p)
 	error ("-mvsx-timode requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
     }
+
+  /* Enable power8 fusion if we are tuning for power8, even if we aren't
+     generating power8 instructions.  */
+  if (!(rs6000_isa_flags_explicit & OPTION_MASK_P8_FUSION))
+    rs6000_isa_flags |= (processor_target_table[tune_index].target_enable
+			 & OPTION_MASK_P8_FUSION);
+
+  /* Power8 does not fuse sign extended loads with the addis.  If we are
+     optimizing at high levels for speed, convert a sign extended load into a
+     zero extending load, and an explicit sign extension.  */
+  if (TARGET_P8_FUSION
+      && !(rs6000_isa_flags_explicit & OPTION_MASK_P8_FUSION_SIGN)
+      && optimize_function_for_speed_p (cfun)
+      && optimize >= 3)
+    rs6000_isa_flags |= OPTION_MASK_P8_FUSION_SIGN;
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "after defaults", rs6000_isa_flags);
@@ -28673,12 +28728,14 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
 {
   { "altivec",			OPTION_MASK_ALTIVEC,		false, true  },
   { "cmpb",			OPTION_MASK_CMPB,		false, true  },
+  { "constrain-regs",		OPTION_MASK_CONSTRAIN_REGS,	false, false },
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "isel",			OPTION_MASK_ISEL,		false, true  },
+  { "lra",			OPTION_MASK_LRA,		false, false },
   { "mfcrf",			OPTION_MASK_MFCRF,		false, true  },
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "mulhw",			OPTION_MASK_MULHW,		false, true  },
@@ -29682,6 +29739,254 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 }
 
+
+/* Enable/disable the LRA (local register allocator).  */
+
+static bool
+rs6000_lra_p (void)
+{
+  return TARGET_LRA;
+}
+
+
+/* Return true if the peephole2 can combine a load involving a combination of
+   an addis instruction and a load with an offset that can be fused together on
+   a power8.  */
+
+bool
+fusion_gpr_load_p (rtx addis_reg,	/* reg. to hold high value.  */
+		   rtx addis_value,	/* high value loaded.  */
+		   rtx target,		/* reg. that is loaded.  */
+		   rtx mem,		/* memory to load.  */
+		   rtx insn)		/* insn for looking up reg notes or
+					   NULL_RTX if this is a peephole2.  */
+{
+  rtx addr;
+  rtx base_reg;
+
+  /* Validate arguments.  */
+  if (!base_reg_operand (addis_reg, GET_MODE (addis_reg)))
+    return false;
+
+  if (!base_reg_operand (target, GET_MODE (target)))
+    return false;
+
+  if (!fusion_gpr_addis (addis_value, GET_MODE (addis_value)))
+    return false;
+
+  if (!fusion_gpr_mem_load (mem, GET_MODE (mem)))
+    return false;
+
+  /* Validate that the register used to load the high value is either the
+     register being loaded, or we can safely replace its use in a peephole.
+
+     If this is a peephole2, we assume that there are 2 instructions in the
+     peephole (addis and load), so we want to check if the target register was
+     not used and the register to hold the addis result is dead after the
+     peephole.  */
+  if (REGNO (addis_reg) != REGNO (target))
+    {
+      if (reg_mentioned_p (target, mem))
+	return false;
+
+      if (insn)
+	{
+	  if (!find_reg_note (insn, REG_DEAD, addis_reg))
+	    return false;
+	}
+      else
+	{
+	  if (!peep2_reg_dead_p (2, addis_reg))
+	    return false;
+	}
+    }
+
+  /* Validate that the value being loaded in the addis is used in the load.  */
+  addr = XEXP (mem, 0);			/* either PLUS or LO_SUM.  */
+  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
+    return false;
+
+  base_reg = XEXP (addr, 0);
+  return REGNO (addis_reg) == REGNO (base_reg);
+}
+
+/* Return a string to fuse an addis instruction with a gpr load to the same
+   register that we loaded up the addis instruction.  The code is complicated,
+   so we call output_asm_insn directly, and just return "".  */
+
+const char *
+emit_fusion_gpr_load (rtx addis_reg, rtx addis_value, rtx target, rtx mem)
+{
+  rtx fuse_ops[10];
+  rtx addr;
+  rtx load_offset;
+  const char *addis_str = NULL;
+  const char *load_str = NULL;
+  const char *mode_name = NULL;
+  char insn_template[80];
+  enum machine_mode mode = GET_MODE (mem);
+  const char *comment_str = ASM_COMMENT_START;
+
+  if (*comment_str == ' ')
+    comment_str++;
+
+  if (!MEM_P (mem))
+    gcc_unreachable ();
+
+  addr = XEXP (mem, 0);
+  if (GET_CODE (addr) != PLUS && GET_CODE (addr) != LO_SUM)
+    gcc_unreachable ();
+
+  load_offset = XEXP (addr, 1);
+
+  /* Now emit the load instruction to the same register.  */
+  switch (mode)
+    {
+    case QImode:
+      mode_name = "char";
+      load_str = "lbz";
+      break;
+
+    case HImode:
+      mode_name = "short";
+      load_str = "lhz";
+      break;
+
+    case SImode:
+      mode_name = "int";
+      load_str = "lwz";
+      break;
+
+    case DImode:
+      if (TARGET_POWERPC64)
+	{
+	  mode_name = "long";
+	  load_str = "ld";
+	}
+      break;
+
+    default:
+      break;
+    }
+
+  if (!load_str)
+    gcc_unreachable ();
+
+  /* Emit the addis instruction.  */
+  fuse_ops[0] = target;
+  fuse_ops[1] = addis_reg;
+  if (satisfies_constraint_L (addis_value))
+    {
+      fuse_ops[2] = addis_value;
+      addis_str = "lis %0,%v2";
+    }
+
+  else if (GET_CODE (addis_value) == PLUS)
+    {
+      rtx op0 = XEXP (addis_value, 0);
+      rtx op1 = XEXP (addis_value, 1);
+
+      if (REG_P (op0) && CONST_INT_P (op1)
+	  && satisfies_constraint_L (op1))
+	{
+	  fuse_ops[2] = op0;
+	  fuse_ops[3] = op1;
+	  addis_str = "addis %0,%2,%v3";
+	}
+    }
+
+  else if (GET_CODE (addis_value) == HIGH)
+    {
+      rtx value = XEXP (addis_value, 0);
+      if (GET_CODE (value) == UNSPEC && XINT (value, 1) == UNSPEC_TOCREL)
+	{
+	  fuse_ops[2] = XVECEXP (value, 0, 0);		/* symbol ref.  */
+	  fuse_ops[3] = XVECEXP (value, 0, 1);		/* TOC register.  */
+	  if (TARGET_ELF)
+	    addis_str = "addis %0,%3,%2@toc@ha";
+
+	  else if (TARGET_XCOFF)
+	    addis_str = "addis %0,%2@u(%3)";
+	}
+
+      else if (GET_CODE (value) == PLUS)
+	{
+	  rtx op0 = XEXP (value, 0);
+	  rtx op1 = XEXP (value, 1);
+
+	  if (GET_CODE (op0) == UNSPEC
+	      && XINT (op0, 1) == UNSPEC_TOCREL
+	      && CONST_INT_P (op1))
+	    {
+	      fuse_ops[2] = XVECEXP (op0, 0, 0);	/* symbol ref.  */
+	      fuse_ops[3] = XVECEXP (op0, 0, 1);	/* TOC register.  */
+	      fuse_ops[4] = op1;
+	      if (TARGET_ELF)
+		addis_str = "addis %0,%3,%2+%4@toc@ha";
+
+	      else if (TARGET_XCOFF)
+		addis_str = "addis %0,%2+%4@u(%3)";
+	    }
+	}
+    }
+
+  if (!addis_str)
+    gcc_unreachable ();
+
+  sprintf (insn_template, "%s\t\t%s gpr load fusion, type %s, addis reg %%1",
+	   addis_str, comment_str, mode_name);
+  output_asm_insn (insn_template, fuse_ops);
+
+  if (CONST_INT_P (load_offset) && satisfies_constraint_I (load_offset))
+    {
+      sprintf (insn_template, "%s %%0,%%1(%%0)", load_str);
+      fuse_ops[1] = load_offset;
+      output_asm_insn (insn_template, fuse_ops);
+    }
+
+  else if (GET_CODE (load_offset) == UNSPEC
+	   && XINT (load_offset, 1) == UNSPEC_TOCREL)
+    {
+      if (TARGET_ELF)
+	sprintf (insn_template, "%s %%0,%%1@toc@l(%%0)", load_str);
+
+      else if (TARGET_XCOFF)
+	sprintf (insn_template, "%s %%0,%%1@l(%%0)", load_str);
+
+      else
+	gcc_unreachable ();
+
+      fuse_ops[1] = XVECEXP (load_offset, 0, 0);
+      output_asm_insn (insn_template, fuse_ops);
+    }
+
+  else if (GET_CODE (load_offset) == PLUS
+	   && GET_CODE (XEXP (load_offset, 0)) == UNSPEC
+	   && XINT (XEXP (load_offset, 0), 1) == UNSPEC_TOCREL
+	   && CONST_INT_P (XEXP (load_offset, 1)))
+    {
+      rtx tocrel_unspec = XEXP (load_offset, 0);
+      if (TARGET_ELF)
+	sprintf (insn_template, "%s %%0,%%1+%%2@toc@l(%%0)", load_str);
+
+      else if (TARGET_XCOFF)
+	sprintf (insn_template, "%s %%0,%%1+%%2@l(%%0)", load_str);
+
+      else
+	gcc_unreachable ();
+
+      fuse_ops[1] = XVECEXP (tocrel_unspec, 0, 0);
+      fuse_ops[2] = XEXP (load_offset, 1);
+      output_asm_insn (insn_template, fuse_ops);
+    }
+
+  else
+    gcc_unreachable ();
+
+  return "";
+}
+
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-rs6000.h"
