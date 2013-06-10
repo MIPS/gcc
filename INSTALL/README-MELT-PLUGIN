@@ -191,7 +191,7 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 ################################################################
 NEWS for 0.9.9 MELT plugin for GCC 4.6 & 4.7 & 4.8
-[[june, 01st, 2013]]
+[[june, XX, 2013]]
 
 This is a significant release. A lot of new features are
 appearing. Much more ability to mix arbitrary C/C++ & MELT code in any
@@ -332,9 +332,15 @@ code), for GCC 4.7 & 4.8
    plugin, useful for using register_callback.
 
 
+   *** 
+   * Raised default threshold for GC. The MELT full garbage
+   collector is less called.
+
+
    ***
    * Many bug fixes and internal improvements... Emitted C/C++ code 
      contains more checks..
+
 
    ***
    * More primitives and functions

@@ -1,4 +1,7 @@
 
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* INSTALL/README-MELT-PLUGIN: Mention GC improvements.
+
 2013-06-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	* INSTALL/README-MELT-PLUGIN: Mention eval and the ability to
 	apply hooks.

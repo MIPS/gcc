@@ -585,18 +585,14 @@ procedure in a module, defined with $DEFHOOK. }#
 		    :nexpr_ctyp ctype_value
 		    :nhook_name '"HOOK_SYMBOL_IMPORTER"
 		    :nexpr_args (tuple nsymbname modname ndataparenv)
-		    :nhook_called 
-		    ;; temporary dirty trick
-		    (if (is_a ncx class_normalization_context)
-			(normal_predef hook_symbol_importer ncx
-				       psloc "hook_symbol_importer")
-		      )
+		    :nhook_called (normal_predef hook_symbol_importer ncx
+						 sloc "hook_symbol_importer")
+		      
 		    :nhook_outs (tuple)
 		    :nhook_descr (hook_data hook_symbol_importer)
 		    )
 	  )
-	 (nimpsymb (if (is_a ncx class_normalization_context)
-		       (normexp_symbol nsymb env ncx sloc)))
+	 (nimpsymb (normexp_symbol nsymb env ncx sloc))
 	 )
     (debug "normal_import nimphc=" nimphc "\n.. nimpsymb=" nimpsymb)
     ))
