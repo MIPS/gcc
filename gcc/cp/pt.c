@@ -5382,7 +5382,7 @@ unify_no_common_base (bool explain_p, enum template_base_result r,
       {
       case tbr_ambiguous_baseclass:
 	inform (input_location, "  %qT is an ambiguous base class of %qT",
-		arg, parm);
+		parm, arg);
 	break;
       default:
 	inform (input_location, "  %qT is not derived from %qT", arg, parm);
@@ -7568,7 +7568,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       if (CLASS_TYPE_P (template_type) && is_dependent_type)
 	/* If the type makes use of template parameters, the
 	   code that generates debugging information will crash.  */
-	DECL_IGNORED_P (TYPE_STUB_DECL (t)) = 1;
+	DECL_IGNORED_P (TYPE_MAIN_DECL (t)) = 1;
 
       /* Possibly limit visibility based on template args.  */
       TREE_PUBLIC (type_decl) = 1;
@@ -8870,9 +8870,8 @@ instantiate_class_template_1 (tree type)
 		  else if (TREE_CODE (r) == FIELD_DECL)
 		    {
 		      /* Determine whether R has a valid type and can be
-			 completed later.  If R is invalid, then it is
-			 replaced by error_mark_node so that it will not be
-			 added to TYPE_FIELDS.  */
+			 completed later.  If R is invalid, then its type is
+			 replaced by error_mark_node.  */
 		      tree rtype = TREE_TYPE (r);
 		      if (can_complete_type_without_circularity (rtype))
 			complete_type (rtype);
@@ -8880,7 +8879,7 @@ instantiate_class_template_1 (tree type)
 		      if (!COMPLETE_TYPE_P (rtype))
 			{
 			  cxx_incomplete_type_error (r, rtype);
-			  r = error_mark_node;
+			  TREE_TYPE (r) = error_mark_node;
 			}
 		    }
 
@@ -10521,8 +10520,6 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* We don't have to set DECL_CONTEXT here; it is set by
 	   finish_member_declaration.  */
 	DECL_CHAIN (r) = NULL_TREE;
-	if (VOID_TYPE_P (type))
-	  error ("instantiation of %q+D as type %qT", r, type);
 
 	apply_late_template_attributes (&r, DECL_ATTRIBUTES (r), 0,
 					args, complain, in_decl);
@@ -20184,7 +20181,8 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
 
     case TRAIT_EXPR:
       if (dependent_type_p (TRAIT_EXPR_TYPE1 (*tp))
-	  || dependent_type_p (TRAIT_EXPR_TYPE2 (*tp)))
+	  || (TRAIT_EXPR_TYPE2 (*tp)
+	      && dependent_type_p (TRAIT_EXPR_TYPE2 (*tp))))
 	return *tp;
       *walk_subtrees = false;
       return NULL_TREE;
@@ -20373,8 +20371,7 @@ any_template_arguments_need_structural_equality_p (tree args)
 
 	      if (error_operand_p (arg))
 		return true;
-	      else if (TREE_CODE (arg) == TEMPLATE_DECL
-		       || TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM)
+	      else if (TREE_CODE (arg) == TEMPLATE_DECL)
 		continue;
 	      else if (TYPE_P (arg) && TYPE_STRUCTURAL_EQUALITY_P (arg))
 		return true;

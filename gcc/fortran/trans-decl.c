@@ -1643,7 +1643,16 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
 
   /* See if this is an external procedure from the same file.  If so,
      return the backend_decl.  */
-  gsym =  gfc_find_gsymbol (gfc_gsym_root, sym->name);
+  gsym =  gfc_find_gsymbol (gfc_gsym_root, sym->binding_label
+					   ? sym->binding_label : sym->name);
+
+  if (gsym && !gsym->defined)
+    gsym = NULL;
+
+  /* This can happen because of C binding.  */
+  if (gsym && gsym->ns && gsym->ns->proc_name
+      && gsym->ns->proc_name->attr.flavor == FL_MODULE)
+    goto module_sym;
 
   if ((!sym->attr.use_assoc || sym->attr.if_source != IFSRC_DECL)
       && !sym->backend_decl
@@ -1701,12 +1710,19 @@ gfc_get_extern_function_decl (gfc_symbol * sym)
   if (sym->module)
     gsym =  gfc_find_gsymbol (gfc_gsym_root, sym->module);
 
-  if (gsym && gsym->ns && gsym->type == GSYM_MODULE)
+module_sym:
+  if (gsym && gsym->ns
+      && (gsym->type == GSYM_MODULE
+	  || (gsym->ns->proc_name && gsym->ns->proc_name->attr.flavor == FL_MODULE)))
     {
       gfc_symbol *s;
 
       s = NULL;
-      gfc_find_symbol (sym->name, gsym->ns, 0, &s);
+      if (gsym->type == GSYM_MODULE)
+	gfc_find_symbol (sym->name, gsym->ns, 0, &s);
+      else
+	gfc_find_symbol (gsym->sym_name, gsym->ns, 0, &s);
+
       if (s && s->backend_decl)
 	{
 	  if (sym->ts.type == BT_DERIVED || sym->ts.type == BT_CLASS)
@@ -3485,38 +3501,57 @@ init_intent_out_dt (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	&& !f->sym->attr.pointer
 	&& f->sym->ts.type == BT_DERIVED)
       {
-	if (f->sym->ts.u.derived->attr.alloc_comp && !f->sym->value)
+	tmp = NULL_TREE;
+
+	/* Note: Allocatables are excluded as they are already handled
+	   by the caller.  */
+	if (!f->sym->attr.allocatable
+	    && gfc_is_finalizable (f->sym->ts.u.derived, NULL))
 	  {
-	    tmp = gfc_deallocate_alloc_comp (f->sym->ts.u.derived,
-					     f->sym->backend_decl,
-					     f->sym->as ? f->sym->as->rank : 0);
+	    stmtblock_t block;
+	    gfc_expr *e;
 
-	    if (f->sym->attr.optional
-		|| f->sym->ns->proc_name->attr.entry_master)
-	      {
-		present = gfc_conv_expr_present (f->sym);
-		tmp = build3_loc (input_location, COND_EXPR, TREE_TYPE (tmp),
-				  present, tmp,
-				  build_empty_stmt (input_location));
-	      }
-
-	    gfc_add_expr_to_block (&init, tmp);
+	    gfc_init_block (&block);
+	    f->sym->attr.referenced = 1;
+	    e = gfc_lval_expr_from_sym (f->sym);
+	    gfc_add_finalizer_call (&block, e);
+	    gfc_free_expr (e);
+	    tmp = gfc_finish_block (&block);
 	  }
-       else if (f->sym->value)
+
+	if (tmp == NULL_TREE && !f->sym->attr.allocatable
+	    && f->sym->ts.u.derived->attr.alloc_comp && !f->sym->value)
+	  tmp = gfc_deallocate_alloc_comp (f->sym->ts.u.derived,
+					   f->sym->backend_decl,
+					   f->sym->as ? f->sym->as->rank : 0);
+
+	if (tmp != NULL_TREE && (f->sym->attr.optional
+				 || f->sym->ns->proc_name->attr.entry_master))
+	  {
+	    present = gfc_conv_expr_present (f->sym);
+	    tmp = build3_loc (input_location, COND_EXPR, TREE_TYPE (tmp),
+			      present, tmp, build_empty_stmt (input_location));
+	  }
+
+	if (tmp != NULL_TREE)
+	  gfc_add_expr_to_block (&init, tmp);
+	else if (f->sym->value && !f->sym->attr.allocatable)
 	  gfc_init_default_dt (f->sym, &init, true);
       }
     else if (f->sym && f->sym->attr.intent == INTENT_OUT
 	     && f->sym->ts.type == BT_CLASS
 	     && !CLASS_DATA (f->sym)->attr.class_pointer
-	     && CLASS_DATA (f->sym)->ts.u.derived->attr.alloc_comp)
+	     && !CLASS_DATA (f->sym)->attr.allocatable)
       {
-	tmp = gfc_class_data_get (f->sym->backend_decl);
-	if (CLASS_DATA (f->sym)->as == NULL)
-	  tmp = build_fold_indirect_ref_loc (input_location, tmp);
-	tmp = gfc_deallocate_alloc_comp (CLASS_DATA (f->sym)->ts.u.derived,
-					 tmp,
-					 CLASS_DATA (f->sym)->as ?
-					 CLASS_DATA (f->sym)->as->rank : 0);
+	stmtblock_t block;
+	gfc_expr *e;
+
+	gfc_init_block (&block);
+	f->sym->attr.referenced = 1;
+	e = gfc_lval_expr_from_sym (f->sym);
+	gfc_add_finalizer_call (&block, e);
+	gfc_free_expr (e);
+	tmp = gfc_finish_block (&block);
 
 	if (f->sym->attr.optional || f->sym->ns->proc_name->attr.entry_master)
 	  {
@@ -3856,7 +3891,8 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
 	      /* Deallocate when leaving the scope. Nullifying is not
 		 needed.  */
-	      if (!sym->attr.result && !sym->attr.dummy)
+	      if (!sym->attr.result && !sym->attr.dummy
+		  && !sym->ns->proc_name->attr.is_main_program)
 		{
 		  if (sym->ts.type == BT_CLASS
 		      && CLASS_DATA (sym)->attr.codimension)

@@ -10530,21 +10530,13 @@ grokdeclarator (const cp_declarator *declarator,
 		 && (TREE_CODE (type) != ARRAY_TYPE || initialized == 0))
 	  {
 	    if (unqualified_id)
-	      error ("field %qD has incomplete type", unqualified_id);
+	      error ("field %qD has incomplete type %qT",
+		     unqualified_id, type);
 	    else
 	      error ("name %qT has incomplete type", type);
 
-	    /* If we're instantiating a template, tell them which
-	       instantiation made the field's type be incomplete.  */
-	    if (current_class_type
-		&& TYPE_NAME (current_class_type)
-		&& IDENTIFIER_TEMPLATE (current_class_name)
-		&& declspecs->type
-		&& declspecs->type == type)
-	      error ("  in instantiation of template %qT",
-		     current_class_type);
-
-	    return error_mark_node;
+	    type = error_mark_node;
+	    decl = NULL_TREE;
 	  }
 	else
 	  {
@@ -14417,10 +14409,15 @@ fndecl_declared_return_type (tree fn)
 {
   fn = STRIP_TEMPLATE (fn);
   if (FNDECL_USED_AUTO (fn))
-    return (DECL_STRUCT_FUNCTION (fn)->language
-	    ->x_auto_return_pattern);
-  else
-    return TREE_TYPE (TREE_TYPE (fn));
+    {
+      struct language_function *f = NULL;
+      if (DECL_STRUCT_FUNCTION (fn))
+	f = DECL_STRUCT_FUNCTION (fn)->language;
+      if (f == NULL)
+	f = DECL_SAVED_FUNCTION_DATA (fn);
+      return f->x_auto_return_pattern;
+    }
+  return TREE_TYPE (TREE_TYPE (fn));
 }
 
 /* Returns true iff DECL was declared with an auto return type and it has

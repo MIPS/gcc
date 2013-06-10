@@ -91,8 +91,8 @@ static void
 lto_varpool_replace_node (struct varpool_node *vnode,
 			  struct varpool_node *prevailing_node)
 {
-  gcc_assert (!vnode->finalized || prevailing_node->finalized);
-  gcc_assert (!vnode->analyzed || prevailing_node->analyzed);
+  gcc_assert (!vnode->symbol.definition || prevailing_node->symbol.definition);
+  gcc_assert (!vnode->symbol.analyzed || prevailing_node->symbol.analyzed);
 
   ipa_clone_referring ((symtab_node)prevailing_node, &vnode->symbol.ref_list);
 
@@ -255,14 +255,7 @@ lto_symtab_resolve_can_prevail_p (symtab_node e)
   if (DECL_EXTERNAL (e->symbol.decl))
     return false;
 
-  /* For functions we need a non-discarded body.  */
-  if (TREE_CODE (e->symbol.decl) == FUNCTION_DECL)
-    return (cgraph (e)->analyzed);
-
-  else if (TREE_CODE (e->symbol.decl) == VAR_DECL)
-    return varpool (e)->finalized;
-
-  gcc_unreachable ();
+  return e->symbol.definition;
 }
 
 /* Resolve the symbol with the candidates in the chain *SLOT and store
@@ -549,7 +542,7 @@ lto_symtab_merge_decls (void)
 /* Helper to process the decl chain for the symbol table entry *SLOT.  */
 
 static void
-lto_symtab_merge_cgraph_nodes_1 (symtab_node prevailing)
+lto_symtab_merge_symbols_1 (symtab_node prevailing)
 {
   symtab_node e, next;
 
@@ -575,34 +568,32 @@ lto_symtab_merge_cgraph_nodes_1 (symtab_node prevailing)
    lto_symtab_merge_decls.  */
 
 void
-lto_symtab_merge_cgraph_nodes (void)
+lto_symtab_merge_symbols (void)
 {
-  struct cgraph_node *cnode;
-  struct varpool_node *vnode;
   symtab_node node;
 
-  /* Populate assembler name hash.   */
-  symtab_initialize_asm_name_hash ();
-
   if (!flag_ltrans)
-    FOR_EACH_SYMBOL (node)
-      if (lto_symtab_symbol_p (node)
-	  && node->symbol.next_sharing_asm_name
-	  && !node->symbol.previous_sharing_asm_name)
-        lto_symtab_merge_cgraph_nodes_1 (node);
+    {
+      symtab_initialize_asm_name_hash ();
 
-  FOR_EACH_FUNCTION (cnode)
-    {
-      if ((cnode->thunk.thunk_p || cnode->alias)
-	  && cnode->thunk.alias)
-        cnode->thunk.alias = lto_symtab_prevailing_decl (cnode->thunk.alias);
-      cnode->symbol.aux = NULL;
-    }
-  FOR_EACH_VARIABLE (vnode)
-    {
-      if (vnode->alias_of)
-        vnode->alias_of = lto_symtab_prevailing_decl (vnode->alias_of);
-      vnode->symbol.aux = NULL;
+      /* Do the actual merging.  */
+      FOR_EACH_SYMBOL (node)
+	if (lto_symtab_symbol_p (node)
+	    && node->symbol.next_sharing_asm_name
+	    && !node->symbol.previous_sharing_asm_name)
+	  lto_symtab_merge_symbols_1 (node);
+
+      /* Resolve weakref aliases whose target are now in the compilation unit.  */
+      FOR_EACH_SYMBOL (node)
+	{
+	  if (!node->symbol.analyzed && node->symbol.alias_target)
+	    {
+	      symtab_node tgt = symtab_node_for_asm (node->symbol.alias_target);
+	      if (tgt)
+		symtab_resolve_alias (node, tgt);
+	    }
+	  node->symbol.aux = NULL;
+	}
     }
 }
 

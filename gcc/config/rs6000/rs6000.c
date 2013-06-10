@@ -831,6 +831,25 @@ struct processor_costs power7_cost = {
   12,			/* prefetch streams */
 };
 
+/* Instruction costs on POWER8 processors.  */
+static const
+struct processor_costs power8_cost = {
+  COSTS_N_INSNS (3),	/* mulsi */
+  COSTS_N_INSNS (3),	/* mulsi_const */
+  COSTS_N_INSNS (3),	/* mulsi_const9 */
+  COSTS_N_INSNS (3),	/* muldi */
+  COSTS_N_INSNS (19),	/* divsi */
+  COSTS_N_INSNS (35),	/* divdi */
+  COSTS_N_INSNS (3),	/* fp */
+  COSTS_N_INSNS (3),	/* dmul */
+  COSTS_N_INSNS (14),	/* sdiv */
+  COSTS_N_INSNS (17),	/* ddiv */
+  128,			/* cache line size */
+  32,			/* l1 cache */
+  256,			/* l2 cache */
+  12,			/* prefetch streams */
+};
+
 /* Instruction costs on POWER A2 processors.  */
 static const
 struct processor_costs ppca2_cost = {
@@ -1547,6 +1566,15 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 {
   int last_regno = regno + rs6000_hard_regno_nregs[mode][regno] - 1;
 
+  /* PTImode can only go in GPRs.  Quad word memory operations require even/odd
+     register combinations, and use PTImode where we need to deal with quad
+     word memory operations.  Don't allow quad words in the argument or frame
+     pointer registers, just registers 0..31.  */
+  if (mode == PTImode)
+    return (IN_RANGE (regno, FIRST_GPR_REGNO, LAST_GPR_REGNO)
+	    && IN_RANGE (last_regno, FIRST_GPR_REGNO, LAST_GPR_REGNO)
+	    && ((regno & 1) == 0));
+
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  Don't allow an item to be split between a FP register
      and an Altivec register.  */
@@ -1678,6 +1706,16 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
 	  comma = "";
 	}
 
+      len += fprintf (stderr, "%sreg-class = %s", comma,
+		      reg_class_names[(int)rs6000_regno_regclass[r]]);
+      comma = ", ";
+
+      if (len > 70)
+	{
+	  fprintf (stderr, ",\n\t");
+	  comma = "";
+	}
+
       fprintf (stderr, "%sregno = %d\n", comma, r);
     }
 }
@@ -1710,6 +1748,7 @@ rs6000_debug_reg_global (void)
     "none",
     "altivec",
     "vsx",
+    "p8_vector",
     "paired",
     "spe",
     "other"
@@ -1802,8 +1841,11 @@ rs6000_debug_reg_global (void)
 	   "wf reg_class = %s\n"
 	   "wg reg_class = %s\n"
 	   "wl reg_class = %s\n"
+	   "wm reg_class = %s\n"
+	   "wr reg_class = %s\n"
 	   "ws reg_class = %s\n"
 	   "wt reg_class = %s\n"
+	   "wv reg_class = %s\n"
 	   "wx reg_class = %s\n"
 	   "wz reg_class = %s\n"
 	   "\n",
@@ -1815,8 +1857,11 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wf]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wm]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ws]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wt]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wv]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wx]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
 
@@ -2050,6 +2095,10 @@ rs6000_debug_reg_global (void)
   if (targetm.lra_p ())
     fprintf (stderr, DEBUG_FMT_S, "lra", "true");
 
+  if (TARGET_P8_FUSION)
+    fprintf (stderr, DEBUG_FMT_S, "p8 fusion",
+	     (TARGET_P8_FUSION_SIGN) ? "zero+sign" : "zero");
+
   fprintf (stderr, DEBUG_FMT_S, "plt-format",
 	   TARGET_SECURE_PLT ? "secure" : "bss");
   fprintf (stderr, DEBUG_FMT_S, "struct-return",
@@ -2177,12 +2226,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	}
     }
 
-  /* V2DImode, only allow under VSX, which can do V2DI insert/splat/extract.
-     Altivec doesn't have 64-bit support.  */
+  /* V2DImode, full mode depends on ISA 2.07 vector mode.  Allow under VSX to
+     do insert/splat/extract.  Altivec doesn't have 64-bit integer support.  */
   if (TARGET_VSX)
     {
       rs6000_vector_mem[V2DImode] = VECTOR_VSX;
-      rs6000_vector_unit[V2DImode] = VECTOR_NONE;
+      rs6000_vector_unit[V2DImode]
+	= (TARGET_P8_VECTOR) ? VECTOR_P8_VECTOR : VECTOR_NONE;
       rs6000_vector_align[V2DImode] = align64;
     }
 
@@ -2239,6 +2289,15 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   if (TARGET_LFIWAX)
     rs6000_constraints[RS6000_CONSTRAINT_wl] = FLOAT_REGS;
+
+  if (TARGET_DIRECT_MOVE)
+    rs6000_constraints[RS6000_CONSTRAINT_wm] = VSX_REGS;
+
+  if (TARGET_POWERPC64)
+    rs6000_constraints[RS6000_CONSTRAINT_wr] = GENERAL_REGS;
+
+  if (TARGET_P8_VECTOR)
+    rs6000_constraints[RS6000_CONSTRAINT_wv] = ALTIVEC_REGS;
 
   if (TARGET_STFIWX)
     rs6000_constraints[RS6000_CONSTRAINT_wx] = FLOAT_REGS;
@@ -2520,16 +2579,18 @@ darwin_rs6000_override_options (void)
 HOST_WIDE_INT
 rs6000_builtin_mask_calculate (void)
 {
-  return (((TARGET_ALTIVEC)		    ? RS6000_BTM_ALTIVEC  : 0)
-	  | ((TARGET_VSX)		    ? RS6000_BTM_VSX	  : 0)
-	  | ((TARGET_SPE)		    ? RS6000_BTM_SPE	  : 0)
-	  | ((TARGET_PAIRED_FLOAT)	    ? RS6000_BTM_PAIRED	  : 0)
-	  | ((TARGET_FRE)		    ? RS6000_BTM_FRE	  : 0)
-	  | ((TARGET_FRES)		    ? RS6000_BTM_FRES	  : 0)
-	  | ((TARGET_FRSQRTE)		    ? RS6000_BTM_FRSQRTE  : 0)
-	  | ((TARGET_FRSQRTES)		    ? RS6000_BTM_FRSQRTES : 0)
-	  | ((TARGET_POPCNTD)		    ? RS6000_BTM_POPCNTD  : 0)
-	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL     : 0));
+  return (((TARGET_ALTIVEC)		    ? RS6000_BTM_ALTIVEC   : 0)
+	  | ((TARGET_VSX)		    ? RS6000_BTM_VSX	   : 0)
+	  | ((TARGET_SPE)		    ? RS6000_BTM_SPE	   : 0)
+	  | ((TARGET_PAIRED_FLOAT)	    ? RS6000_BTM_PAIRED	   : 0)
+	  | ((TARGET_FRE)		    ? RS6000_BTM_FRE	   : 0)
+	  | ((TARGET_FRES)		    ? RS6000_BTM_FRES	   : 0)
+	  | ((TARGET_FRSQRTE)		    ? RS6000_BTM_FRSQRTE   : 0)
+	  | ((TARGET_FRSQRTES)		    ? RS6000_BTM_FRSQRTES  : 0)
+	  | ((TARGET_POPCNTD)		    ? RS6000_BTM_POPCNTD   : 0)
+	  | ((rs6000_cpu == PROCESSOR_CELL) ? RS6000_BTM_CELL      : 0)
+	  | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
+	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0));
 }
 
 /* Override command line options.  Mostly we process the processor type and
@@ -2798,12 +2859,24 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
+     silently turn off quad memory mode.  */
+  if (TARGET_QUAD_MEMORY && !TARGET_POWERPC64)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_QUAD_MEMORY) != 0)
+	warning (0, N_("-mquad-memory requires 64-bit mode"));
+
+      rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
+    }
+
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
 
   /* For the newer switches (vsx, dfp, etc.) set some of the older options,
      unless the user explicitly used the -mno-<option> to disable the code.  */
-  if (TARGET_VSX)
+  if (TARGET_P8_VECTOR || TARGET_DIRECT_MOVE || TARGET_CRYPTO)
+    rs6000_isa_flags |= (ISA_2_7_MASKS_SERVER & ~rs6000_isa_flags_explicit);
+  else if (TARGET_VSX)
     rs6000_isa_flags |= (ISA_2_6_MASKS_SERVER & ~rs6000_isa_flags_explicit);
   else if (TARGET_POPCNTD)
     rs6000_isa_flags |= (ISA_2_6_MASKS_EMBEDDED & ~rs6000_isa_flags_explicit);
@@ -2817,6 +2890,34 @@ rs6000_option_override_internal (bool global_init_p)
     rs6000_isa_flags |= (ISA_2_2_MASKS & ~rs6000_isa_flags_explicit);
   else if (TARGET_ALTIVEC)
     rs6000_isa_flags |= (OPTION_MASK_PPC_GFXOPT & ~rs6000_isa_flags_explicit);
+
+  if (TARGET_CRYPTO && !TARGET_ALTIVEC)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_CRYPTO)
+	error ("-mcrypto requires -maltivec");
+      rs6000_isa_flags &= ~OPTION_MASK_CRYPTO;
+    }
+
+  if (TARGET_DIRECT_MOVE && !TARGET_VSX)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_DIRECT_MOVE)
+	error ("-mdirect-move requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_DIRECT_MOVE;
+    }
+
+  if (TARGET_P8_VECTOR && !TARGET_ALTIVEC)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR)
+	error ("-mpower8-vector requires -maltivec");
+      rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
+    }
+
+  if (TARGET_P8_VECTOR && !TARGET_VSX)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_P8_VECTOR)
+	error ("-mpower8-vector requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
+    }
 
   if (TARGET_VSX_TIMODE && !TARGET_VSX)
     {
@@ -2951,7 +3052,8 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* Place FP constants in the constant pool instead of TOC
      if section anchors enabled.  */
-  if (flag_section_anchors)
+  if (flag_section_anchors
+      && !global_options_set.x_TARGET_NO_FP_IN_TOC)
     TARGET_NO_FP_IN_TOC = 1;
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
@@ -3019,16 +3121,19 @@ rs6000_option_override_internal (bool global_init_p)
 			&& rs6000_cpu != PROCESSOR_POWER5
 			&& rs6000_cpu != PROCESSOR_POWER6
 			&& rs6000_cpu != PROCESSOR_POWER7
+			&& rs6000_cpu != PROCESSOR_POWER8
 			&& rs6000_cpu != PROCESSOR_PPCA2
 			&& rs6000_cpu != PROCESSOR_CELL
 			&& rs6000_cpu != PROCESSOR_PPC476);
   rs6000_sched_groups = (rs6000_cpu == PROCESSOR_POWER4
 			 || rs6000_cpu == PROCESSOR_POWER5
-			 || rs6000_cpu == PROCESSOR_POWER7);
+			 || rs6000_cpu == PROCESSOR_POWER7
+			 || rs6000_cpu == PROCESSOR_POWER8);
   rs6000_align_branch_targets = (rs6000_cpu == PROCESSOR_POWER4
 				 || rs6000_cpu == PROCESSOR_POWER5
 				 || rs6000_cpu == PROCESSOR_POWER6
 				 || rs6000_cpu == PROCESSOR_POWER7
+				 || rs6000_cpu == PROCESSOR_POWER8
 				 || rs6000_cpu == PROCESSOR_PPCE500MC
 				 || rs6000_cpu == PROCESSOR_PPCE500MC64
 				 || rs6000_cpu == PROCESSOR_PPCE5500
@@ -3272,6 +3377,10 @@ rs6000_option_override_internal (bool global_init_p)
 	rs6000_cost = &power7_cost;
 	break;
 
+      case PROCESSOR_POWER8:
+	rs6000_cost = &power8_cost;
+	break;
+
       case PROCESSOR_PPCA2:
 	rs6000_cost = &ppca2_cost;
 	break;
@@ -3444,7 +3553,8 @@ rs6000_loop_align (rtx label)
       && (rs6000_cpu == PROCESSOR_POWER4
 	  || rs6000_cpu == PROCESSOR_POWER5
 	  || rs6000_cpu == PROCESSOR_POWER6
-	  || rs6000_cpu == PROCESSOR_POWER7))
+	  || rs6000_cpu == PROCESSOR_POWER7
+	  || rs6000_cpu == PROCESSOR_POWER8))
     return 5;
   else
     return align_loops_log;
@@ -3983,6 +4093,22 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
       enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
       switch (fn)
 	{
+	case BUILT_IN_CLZIMAX:
+	case BUILT_IN_CLZLL:
+	case BUILT_IN_CLZL:
+	case BUILT_IN_CLZ:
+	  if (TARGET_P8_VECTOR && in_mode == out_mode && out_n == in_n)
+	    {
+	      if (out_mode == QImode && out_n == 16)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZB];
+	      else if (out_mode == HImode && out_n == 8)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZH];
+	      else if (out_mode == SImode && out_n == 4)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZW];
+	      else if (out_mode == DImode && out_n == 2)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZD];
+	    }
+	  break;
 	case BUILT_IN_COPYSIGN:
 	  if (VECTOR_UNIT_VSX_P (V2DFmode)
 	      && out_mode == DFmode && out_n == 2
@@ -3997,6 +4123,22 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 	    return rs6000_builtin_decls[VSX_BUILTIN_CPSGNSP];
 	  if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
 	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_COPYSIGN_V4SF];
+	  break;
+	case BUILT_IN_POPCOUNTIMAX:
+	case BUILT_IN_POPCOUNTLL:
+	case BUILT_IN_POPCOUNTL:
+	case BUILT_IN_POPCOUNT:
+	  if (TARGET_P8_VECTOR && in_mode == out_mode && out_n == in_n)
+	    {
+	      if (out_mode == QImode && out_n == 16)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTB];
+	      else if (out_mode == HImode && out_n == 8)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTH];
+	      else if (out_mode == SImode && out_n == 4)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTW];
+	      else if (out_mode == DImode && out_n == 2)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTD];
+	    }
 	  break;
 	case BUILT_IN_SQRT:
 	  if (VECTOR_UNIT_VSX_P (V2DFmode)
@@ -4856,8 +4998,11 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	{
 	  rtx freg = gen_reg_rtx (V4SFmode);
 	  rtx sreg = force_reg (SFmode, XVECEXP (vals, 0, 0));
+	  rtx cvt  = ((TARGET_XSCVDPSPN)
+		      ? gen_vsx_xscvdpspn_scalar (freg, sreg)
+		      : gen_vsx_xscvdpsp_scalar (freg, sreg));
 
-	  emit_insn (gen_vsx_xscvdpsp_scalar (freg, sreg));
+	  emit_insn (cvt);
 	  emit_insn (gen_vsx_xxspltw_v4sf (target, freg, const0_rtx));
 	}
       else
@@ -5375,91 +5520,102 @@ virtual_stack_registers_memory_p (rtx op)
 	  && regnum <= LAST_VIRTUAL_POINTER_REGISTER);
 }
 
-/* Return true if memory accesses to OP are known to never straddle
-   a 32k boundary.  */
+/* Return true if a MODE sized memory accesses to OP plus OFFSET
+   is known to not straddle a 32k boundary.  */
 
 static bool
 offsettable_ok_by_alignment (rtx op, HOST_WIDE_INT offset,
 			     enum machine_mode mode)
 {
   tree decl, type;
-  unsigned HOST_WIDE_INT dsize, dalign;
+  unsigned HOST_WIDE_INT dsize, dalign, lsb, mask;
 
   if (GET_CODE (op) != SYMBOL_REF)
     return false;
 
+  dsize = GET_MODE_SIZE (mode);
   decl = SYMBOL_REF_DECL (op);
   if (!decl)
     {
-      if (GET_MODE_SIZE (mode) == 0)
+      if (dsize == 0)
 	return false;
 
       /* -fsection-anchors loses the original SYMBOL_REF_DECL when
 	 replacing memory addresses with an anchor plus offset.  We
 	 could find the decl by rummaging around in the block->objects
 	 VEC for the given offset but that seems like too much work.  */
-      dalign = 1;
+      dalign = BITS_PER_UNIT;
       if (SYMBOL_REF_HAS_BLOCK_INFO_P (op)
 	  && SYMBOL_REF_ANCHOR_P (op)
 	  && SYMBOL_REF_BLOCK (op) != NULL)
 	{
 	  struct object_block *block = SYMBOL_REF_BLOCK (op);
-	  HOST_WIDE_INT lsb, mask;
 
-	  /* Given the alignment of the block..  */
 	  dalign = block->alignment;
-	  mask = dalign / BITS_PER_UNIT - 1;
-
-	  /* ..and the combined offset of the anchor and any offset
-	     to this block object..  */
 	  offset += SYMBOL_REF_BLOCK_OFFSET (op);
-	  lsb = offset & -offset;
-
-	  /* ..find how many bits of the alignment we know for the
-	     object.  */
-	  mask &= lsb - 1;
-	  dalign = mask + 1;
 	}
-      return dalign >= GET_MODE_SIZE (mode);
-    }
+      else if (CONSTANT_POOL_ADDRESS_P (op))
+	{
+	  /* It would be nice to have get_pool_align()..  */
+	  enum machine_mode cmode = get_pool_mode (op);
 
-  if (DECL_P (decl))
+	  dalign = GET_MODE_ALIGNMENT (cmode);
+	}
+    }
+  else if (DECL_P (decl))
     {
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	return true;
+      dalign = DECL_ALIGN (decl);
 
-      if (!DECL_SIZE_UNIT (decl))
-	return false;
+      if (dsize == 0)
+	{
+	  /* Allow BLKmode when the entire object is known to not
+	     cross a 32k boundary.  */
+	  if (!DECL_SIZE_UNIT (decl))
+	    return false;
 
-      if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
-	return false;
+	  if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
+	    return false;
 
-      dsize = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
-      if (dsize > 32768)
-	return false;
+	  dsize = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	  if (dsize > 32768)
+	    return false;
 
-      dalign = DECL_ALIGN_UNIT (decl);
-      return dalign >= dsize;
+	  return dalign / BITS_PER_UNIT >= dsize;
+	}
+    }
+  else
+    {
+      type = TREE_TYPE (decl);
+
+      dalign = TYPE_ALIGN (type);
+      if (CONSTANT_CLASS_P (decl))
+	dalign = CONSTANT_ALIGNMENT (decl, dalign);
+      else
+	dalign = DATA_ALIGNMENT (decl, dalign);
+
+      if (dsize == 0)
+	{
+	  /* BLKmode, check the entire object.  */
+	  if (TREE_CODE (decl) == STRING_CST)
+	    dsize = TREE_STRING_LENGTH (decl);
+	  else if (TYPE_SIZE_UNIT (type)
+		   && host_integerp (TYPE_SIZE_UNIT (type), 1))
+	    dsize = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+	  else
+	    return false;
+	  if (dsize > 32768)
+	    return false;
+
+	  return dalign / BITS_PER_UNIT >= dsize;
+	}
     }
 
-  type = TREE_TYPE (decl);
+  /* Find how many bits of the alignment we know for this access.  */
+  mask = dalign / BITS_PER_UNIT - 1;
+  lsb = offset & -offset;
+  mask &= lsb - 1;
+  dalign = mask + 1;
 
-  if (TREE_CODE (decl) == STRING_CST)
-    dsize = TREE_STRING_LENGTH (decl);
-  else if (TYPE_SIZE_UNIT (type)
-	   && host_integerp (TYPE_SIZE_UNIT (type), 1))
-    dsize = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
-  else
-    return false;
-  if (dsize > 32768)
-    return false;
-
-  dalign = TYPE_ALIGN (type);
-  if (CONSTANT_CLASS_P (decl))
-    dalign = CONSTANT_ALIGNMENT (decl, dalign);
-  else
-    dalign = DATA_ALIGNMENT (decl, dalign);
-  dalign /= BITS_PER_UNIT;
   return dalign >= dsize;
 }
 
@@ -6405,7 +6561,6 @@ use_toc_relative_ref (rtx sym)
 	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (sym),
 					       get_pool_mode (sym)))
 	  || (TARGET_CMODEL == CMODEL_MEDIUM
-	      && !CONSTANT_POOL_ADDRESS_P (sym)
 	      && SYMBOL_REF_LOCAL_P (sym)));
 }
 
@@ -9215,20 +9370,17 @@ setup_incoming_varargs (cumulative_args_t cum, enum machine_mode mode,
   if (! no_rtl && first_reg_offset < GP_ARG_NUM_REG
       && cfun->va_list_gpr_size)
     {
-      int nregs = GP_ARG_NUM_REG - first_reg_offset;
+      int n_gpr, nregs = GP_ARG_NUM_REG - first_reg_offset;
 
       if (va_list_gpr_counter_field)
-	{
-	  /* V4 va_list_gpr_size counts number of registers needed.  */
-	  if (nregs > cfun->va_list_gpr_size)
-	    nregs = cfun->va_list_gpr_size;
-	}
+	/* V4 va_list_gpr_size counts number of registers needed.  */
+	n_gpr = cfun->va_list_gpr_size;
       else
-	{
-	  /* char * va_list instead counts number of bytes needed.  */
-	  if (nregs > cfun->va_list_gpr_size / reg_size)
-	    nregs = cfun->va_list_gpr_size / reg_size;
-	}
+	/* char * va_list instead counts number of bytes needed.  */
+	n_gpr = (cfun->va_list_gpr_size + reg_size - 1) / reg_size;
+
+      if (nregs > n_gpr)
+	nregs = n_gpr;
 
       mem = gen_rtx_MEM (BLKmode,
 			 plus_constant (Pmode, save_area,
@@ -10575,6 +10727,27 @@ rs6000_expand_ternop_builtin (enum insn_code icode, tree exp, rtx target)
 	  || TREE_INT_CST_LOW (arg2) & ~0x1)
 	{
 	  error ("argument 3 must be a 1-bit unsigned literal");
+	  return const0_rtx;
+	}
+    }
+  else if (icode == CODE_FOR_crypto_vshasigmaw
+	   || icode == CODE_FOR_crypto_vshasigmad)
+    {
+      /* Check whether the 2nd and 3rd arguments are integer constants and in
+	 range and prepare arguments.  */
+      STRIP_NOPS (arg1);
+      if (TREE_CODE (arg1) != INTEGER_CST
+	  || !IN_RANGE (TREE_INT_CST_LOW (arg1), 0, 1))
+	{
+	  error ("argument 2 must be 0 or 1");
+	  return const0_rtx;
+	}
+
+      STRIP_NOPS (arg2);
+      if (TREE_CODE (arg2) != INTEGER_CST
+	  || !IN_RANGE (TREE_INT_CST_LOW (arg2), 0, 15))
+	{
+	  error ("argument 3 must be in the range 0..15");
 	  return const0_rtx;
 	}
     }
@@ -12268,6 +12441,10 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				integer_type_node, V4SI_type_node,
 				V4SI_type_node, NULL_TREE);
+  tree int_ftype_int_v2di_v2di
+    = build_function_type_list (integer_type_node,
+				integer_type_node, V2DI_type_node,
+				V2DI_type_node, NULL_TREE);
   tree void_ftype_v4si
     = build_function_type_list (void_type_node, V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_void
@@ -12350,6 +12527,8 @@ altivec_init_builtins (void)
     = build_function_type_list (integer_type_node,
 				integer_type_node, V2DF_type_node,
 				V2DF_type_node, NULL_TREE);
+  tree v2di_ftype_v2di
+    = build_function_type_list (V2DI_type_node, V2DI_type_node, NULL_TREE);
   tree v4si_ftype_v4si
     = build_function_type_list (V4SI_type_node, V4SI_type_node, NULL_TREE);
   tree v8hi_ftype_v8hi
@@ -12485,6 +12664,9 @@ altivec_init_builtins (void)
 	case VOIDmode:
 	  type = int_ftype_int_opaque_opaque;
 	  break;
+	case V2DImode:
+	  type = int_ftype_int_v2di_v2di;
+	  break;
 	case V4SImode:
 	  type = int_ftype_int_v4si_v4si;
 	  break;
@@ -12518,6 +12700,9 @@ altivec_init_builtins (void)
 
       switch (mode0)
 	{
+	case V2DImode:
+	  type = v2di_ftype_v2di;
+	  break;
 	case V4SImode:
 	  type = v4si_ftype_v4si;
 	  break;
@@ -12723,11 +12908,27 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
      are type correct.  */
   switch (builtin)
     {
+      /* unsigned 1 argument functions.  */
+    case CRYPTO_BUILTIN_VSBOX:
+    case P8V_BUILTIN_VGBBD:
+      h.uns_p[0] = 1;
+      h.uns_p[1] = 1;
+      break;
+
       /* unsigned 2 argument functions.  */
     case ALTIVEC_BUILTIN_VMULEUB_UNS:
     case ALTIVEC_BUILTIN_VMULEUH_UNS:
     case ALTIVEC_BUILTIN_VMULOUB_UNS:
     case ALTIVEC_BUILTIN_VMULOUH_UNS:
+    case CRYPTO_BUILTIN_VCIPHER:
+    case CRYPTO_BUILTIN_VCIPHERLAST:
+    case CRYPTO_BUILTIN_VNCIPHER:
+    case CRYPTO_BUILTIN_VNCIPHERLAST:
+    case CRYPTO_BUILTIN_VPMSUMB:
+    case CRYPTO_BUILTIN_VPMSUMH:
+    case CRYPTO_BUILTIN_VPMSUMW:
+    case CRYPTO_BUILTIN_VPMSUMD:
+    case CRYPTO_BUILTIN_VPMSUM:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       h.uns_p[2] = 1;
@@ -12750,6 +12951,14 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
     case VSX_BUILTIN_XXSEL_8HI_UNS:
     case VSX_BUILTIN_XXSEL_4SI_UNS:
     case VSX_BUILTIN_XXSEL_2DI_UNS:
+    case CRYPTO_BUILTIN_VPERMXOR:
+    case CRYPTO_BUILTIN_VPERMXOR_V2DI:
+    case CRYPTO_BUILTIN_VPERMXOR_V4SI:
+    case CRYPTO_BUILTIN_VPERMXOR_V8HI:
+    case CRYPTO_BUILTIN_VPERMXOR_V16QI:
+    case CRYPTO_BUILTIN_VSHASIGMAW:
+    case CRYPTO_BUILTIN_VSHASIGMAD:
+    case CRYPTO_BUILTIN_VSHASIGMA:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       h.uns_p[2] = 1;
@@ -12891,8 +13100,23 @@ rs6000_common_init_builtins (void)
       else
 	{
 	  enum insn_code icode = d->icode;
-          if (d->name == 0 || icode == CODE_FOR_nothing)
-	    continue;
+	  if (d->name == 0)
+	    {
+	      if (TARGET_DEBUG_BUILTIN)
+		fprintf (stderr, "rs6000_builtin, bdesc_3arg[%ld] no name\n",
+			 (long unsigned)i);
+
+	      continue;
+	    }
+
+          if (icode == CODE_FOR_nothing)
+	    {
+	      if (TARGET_DEBUG_BUILTIN)
+		fprintf (stderr, "rs6000_builtin, skip ternary %s (no code)\n",
+			 d->name);
+
+	      continue;
+	    }
 
 	  type = builtin_function_type (insn_data[icode].operand[0].mode,
 					insn_data[icode].operand[1].mode,
@@ -12931,8 +13155,23 @@ rs6000_common_init_builtins (void)
       else
 	{
 	  enum insn_code icode = d->icode;
-          if (d->name == 0 || icode == CODE_FOR_nothing)
-	    continue;
+	  if (d->name == 0)
+	    {
+	      if (TARGET_DEBUG_BUILTIN)
+		fprintf (stderr, "rs6000_builtin, bdesc_2arg[%ld] no name\n",
+			 (long unsigned)i);
+
+	      continue;
+	    }
+
+          if (icode == CODE_FOR_nothing)
+	    {
+	      if (TARGET_DEBUG_BUILTIN)
+		fprintf (stderr, "rs6000_builtin, skip binary %s (no code)\n",
+			 d->name);
+
+	      continue;
+	    }
 
           mode0 = insn_data[icode].operand[0].mode;
           mode1 = insn_data[icode].operand[1].mode;
@@ -12993,8 +13232,23 @@ rs6000_common_init_builtins (void)
       else
         {
 	  enum insn_code icode = d->icode;
-          if (d->name == 0 || icode == CODE_FOR_nothing)
-	    continue;
+	  if (d->name == 0)
+	    {
+	      if (TARGET_DEBUG_BUILTIN)
+		fprintf (stderr, "rs6000_builtin, bdesc_1arg[%ld] no name\n",
+			 (long unsigned)i);
+
+	      continue;
+	    }
+
+          if (icode == CODE_FOR_nothing)
+	    {
+	      if (TARGET_DEBUG_BUILTIN)
+		fprintf (stderr, "rs6000_builtin, skip unary %s (no code)\n",
+			 d->name);
+
+	      continue;
+	    }
 
           mode0 = insn_data[icode].operand[0].mode;
           mode1 = insn_data[icode].operand[1].mode;
@@ -15474,11 +15728,6 @@ print_operand (FILE *file, rtx x, int code)
 	 TOCs and the like.  */
       gcc_assert (GET_CODE (x) == SYMBOL_REF);
 
-      /* Mark the decl as referenced so that cgraph will output the
-	 function.  */
-      if (SYMBOL_REF_DECL (x))
-	mark_decl_referenced (SYMBOL_REF_DECL (x));
-
       /* For macho, check to see if we need a stub.  */
       if (TARGET_MACHO)
 	{
@@ -15887,16 +16136,41 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
     {
       rtx cmp, or_result, compare_result2;
       enum machine_mode op_mode = GET_MODE (op0);
+      bool reverse_p;
 
       if (op_mode == VOIDmode)
 	op_mode = GET_MODE (op1);
+
+      /* First reverse the condition codes that aren't directly supported.  */
+      switch (code)
+	{
+	  case NE:
+	  case UNLT:
+	  case UNLE:
+	  case UNGT:
+	  case UNGE:
+	    code = reverse_condition_maybe_unordered (code);
+	    reverse_p = true;
+	    break;
+
+	  case EQ:
+	  case LT:
+	  case LE:
+	  case GT:
+	  case GE:
+	    reverse_p = false;
+	    break;
+
+	  default:
+	    gcc_unreachable ();
+	}
 
       /* The E500 FP compare instructions toggle the GT bit (CR bit 1) only.
 	 This explains the following mess.  */
 
       switch (code)
 	{
-	case EQ: case UNEQ: case NE: case LTGT:
+	case EQ:
 	  switch (op_mode)
 	    {
 	    case SFmode:
@@ -15922,7 +16196,8 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	    }
 	  break;
 
-	case GT: case GTU: case UNGT: case UNGE: case GE: case GEU:
+	case GT:
+	case GE:
 	  switch (op_mode)
 	    {
 	    case SFmode:
@@ -15948,7 +16223,8 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	    }
 	  break;
 
-	case LT: case LTU: case UNLT: case UNLE: case LE: case LEU:
+	case LT: 
+	case LE:
 	  switch (op_mode)
 	    {
 	    case SFmode:
@@ -15973,23 +16249,15 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	      gcc_unreachable ();
 	    }
 	  break;
+
         default:
           gcc_unreachable ();
 	}
 
       /* Synthesize LE and GE from LT/GT || EQ.  */
-      if (code == LE || code == GE || code == LEU || code == GEU)
+      if (code == LE || code == GE)
 	{
 	  emit_insn (cmp);
-
-	  switch (code)
-	    {
-	    case LE: code = LT; break;
-	    case GE: code = GT; break;
-	    case LEU: code = LT; break;
-	    case GEU: code = GT; break;
-	    default: gcc_unreachable ();
-	    }
 
 	  compare_result2 = gen_reg_rtx (CCFPmode);
 
@@ -16017,22 +16285,17 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 	    default:
 	      gcc_unreachable ();
 	    }
+
 	  emit_insn (cmp);
 
 	  /* OR them together.  */
 	  or_result = gen_reg_rtx (CCFPmode);
 	  cmp = gen_e500_cr_ior_compare (or_result, compare_result,
-					   compare_result2);
+					 compare_result2);
 	  compare_result = or_result;
-	  code = EQ;
 	}
-      else
-	{
-	  if (code == NE || code == LTGT)
-	    code = NE;
-	  else
-	    code = EQ;
-	}
+
+      code = reverse_p ? NE : EQ;
 
       emit_insn (cmp);
     }
@@ -22360,7 +22623,10 @@ output_toc (FILE *file, rtx x, int labelno, enum machine_mode mode)
 	    fputs (DOUBLE_INT_ASM_OP, file);
 	  else
 	    fprintf (file, "\t.tc FS_%lx[TC],", l & 0xffffffff);
-	  fprintf (file, "0x%lx00000000\n", l & 0xffffffff);
+	  if (WORDS_BIG_ENDIAN)
+	    fprintf (file, "0x%lx00000000\n", l & 0xffffffff);
+	  else
+	    fprintf (file, "0x%lx\n", l & 0xffffffff);
 	  return;
 	}
       else
@@ -22951,6 +23217,7 @@ rs6000_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
                  || rs6000_cpu_attr == CPU_POWER4
                  || rs6000_cpu_attr == CPU_POWER5
 		 || rs6000_cpu_attr == CPU_POWER7
+		 || rs6000_cpu_attr == CPU_POWER8
                  || rs6000_cpu_attr == CPU_CELL)
                 && recog_memoized (dep_insn)
                 && (INSN_CODE (dep_insn) >= 0))
@@ -23537,6 +23804,8 @@ rs6000_issue_rate (void)
   case CPU_POWER6:
   case CPU_POWER7:
     return 5;
+  case CPU_POWER8:
+    return 7;
   default:
     return 1;
   }
@@ -24130,6 +24399,7 @@ insn_must_be_first_in_group (rtx insn)
         }
       break;
     case PROCESSOR_POWER7:
+    case PROCESSOR_POWER8:	/* FIXME */
       type = get_attr_type (insn);
 
       switch (type)
@@ -24226,6 +24496,7 @@ insn_must_be_last_in_group (rtx insn)
     }
     break;
   case PROCESSOR_POWER7:
+  case PROCESSOR_POWER8:	/* FIXME */
     type = get_attr_type (insn);
 
     switch (type)
@@ -24332,7 +24603,8 @@ force_new_group (int sched_verbose, FILE *dump, rtx *group_insns,
 	can_issue_more--;
 
       /* Power6 and Power7 have special group ending nop. */
-      if (rs6000_cpu_attr == CPU_POWER6 || rs6000_cpu_attr == CPU_POWER7)
+      if (rs6000_cpu_attr == CPU_POWER6 || rs6000_cpu_attr == CPU_POWER7
+	  || rs6000_cpu_attr == CPU_POWER8)
 	{
 	  nop = gen_group_ending_nop ();
 	  emit_insn_before (nop, next_insn);
@@ -26513,7 +26785,8 @@ rs6000_register_move_cost (enum machine_mode mode,
       /* For those processors that have slow LR/CTR moves, make them more
          expensive than memory in order to bias spills to memory .*/
       else if ((rs6000_cpu == PROCESSOR_POWER6
-		|| rs6000_cpu == PROCESSOR_POWER7)
+		|| rs6000_cpu == PROCESSOR_POWER7
+		|| rs6000_cpu == PROCESSOR_POWER8)
 	       && reg_classes_intersect_p (rclass, LINK_OR_CTR_REGS))
         ret = 6 * hard_regno_nregs[0][mode];
 
@@ -26990,26 +27263,31 @@ bool
 altivec_expand_vec_perm_const (rtx operands[4])
 {
   struct altivec_perm_insn {
+    HOST_WIDE_INT mask;
     enum insn_code impl;
     unsigned char perm[16];
   };
   static const struct altivec_perm_insn patterns[] = {
-    { CODE_FOR_altivec_vpkuhum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum,
       {  1,  3,  5,  7,  9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31 } },
-    { CODE_FOR_altivec_vpkuwum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum,
       {  2,  3,  6,  7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31 } },
-    { CODE_FOR_altivec_vmrghb,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrghb,
       {  0, 16,  1, 17,  2, 18,  3, 19,  4, 20,  5, 21,  6, 22,  7, 23 } },
-    { CODE_FOR_altivec_vmrghh,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrghh,
       {  0,  1, 16, 17,  2,  3, 18, 19,  4,  5, 20, 21,  6,  7, 22, 23 } },
-    { CODE_FOR_altivec_vmrghw,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrghw,
       {  0,  1,  2,  3, 16, 17, 18, 19,  4,  5,  6,  7, 20, 21, 22, 23 } },
-    { CODE_FOR_altivec_vmrglb,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrglb,
       {  8, 24,  9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31 } },
-    { CODE_FOR_altivec_vmrglh,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrglh,
       {  8,  9, 24, 25, 10, 11, 26, 27, 12, 13, 28, 29, 14, 15, 30, 31 } },
-    { CODE_FOR_altivec_vmrglw,
-      {  8,  9, 10, 11, 24, 25, 26, 27, 12, 13, 14, 15, 28, 29, 30, 31 } }
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrglw,
+      {  8,  9, 10, 11, 24, 25, 26, 27, 12, 13, 14, 15, 28, 29, 30, 31 } },
+    { OPTION_MASK_P8_VECTOR, CODE_FOR_p8_vmrgew,
+      {  0,  1,  2,  3, 16, 17, 18, 19,  8,  9, 10, 11, 24, 25, 26, 27 } },
+    { OPTION_MASK_P8_VECTOR, CODE_FOR_p8_vmrgow,
+      {  4,  5,  6,  7, 20, 21, 22, 23, 12, 13, 14, 15, 28, 29, 30, 31 } }
   };
 
   unsigned int i, j, elt, which;
@@ -27108,6 +27386,9 @@ altivec_expand_vec_perm_const (rtx operands[4])
   for (j = 0; j < ARRAY_SIZE (patterns); ++j)
     {
       bool swapped;
+
+      if ((patterns[j].mask & rs6000_isa_flags) == 0)
+	continue;
 
       elt = patterns[j].perm[0];
       if (perm[0] == elt)
@@ -27742,6 +28023,8 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
 {
   { "altivec",			OPTION_MASK_ALTIVEC,		false, true  },
   { "cmpb",			OPTION_MASK_CMPB,		false, true  },
+  { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
+  { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
@@ -27750,13 +28033,17 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "mulhw",			OPTION_MASK_MULHW,		false, true  },
   { "multiple",			OPTION_MASK_MULTIPLE,		false, true  },
-  { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
   { "popcntb",			OPTION_MASK_POPCNTB,		false, true  },
   { "popcntd",			OPTION_MASK_POPCNTD,		false, true  },
+  { "power8-fusion",		OPTION_MASK_P8_FUSION,		false, true  },
+  { "power8-fusion-sign",	OPTION_MASK_P8_FUSION_SIGN,	false, true  },
+  { "power8-vector",		OPTION_MASK_P8_VECTOR,		false, true  },
   { "powerpc-gfxopt",		OPTION_MASK_PPC_GFXOPT,		false, true  },
   { "powerpc-gpopt",		OPTION_MASK_PPC_GPOPT,		false, true  },
+  { "quad-memory",		OPTION_MASK_QUAD_MEMORY,	false, true  },
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
   { "string",			OPTION_MASK_STRING,		false, true  },
+  { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
   { "vsx-timode",		OPTION_MASK_VSX_TIMODE,		false, true  },
 #ifdef OPTION_MASK_64BIT
@@ -27798,6 +28085,8 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "frsqrtes",		 RS6000_BTM_FRSQRTES,	false, false },
   { "popcntd",		 RS6000_BTM_POPCNTD,	false, false },
   { "cell",		 RS6000_BTM_CELL,	false, false },
+  { "power8-vector",	 RS6000_BTM_P8_VECTOR,	false, false },
+  { "crypto",		 RS6000_BTM_CRYPTO,	false, false },
 };
 
 /* Option variables that we want to support inside attribute((target)) and

@@ -93,6 +93,15 @@
 ; IS_THUMB1 is set to 'yes' iff we are generating Thumb-1 code.
 (define_attr "is_thumb1" "no,yes" (const (symbol_ref "thumb1_code")))
 
+; We use this attribute to disable alternatives that can produce 32-bit
+; instructions inside an IT-block in Thumb2 state.  ARMv8 deprecates IT blocks
+; that contain 32-bit instructions.
+(define_attr "enabled_for_depr_it" "no,yes" (const_string "yes"))
+
+; This attribute is used to disable a predicated alternative when we have
+; arm_restrict_it.
+(define_attr "predicable_short_it" "no,yes" (const_string "yes"))
+
 ;; Operand number of an input operand that is shifted.  Zero if the
 ;; given instruction does not shift one of its input operands.
 (define_attr "shift" "" (const_int 0))
@@ -102,6 +111,8 @@
 ; performance we should try and group them together).
 (define_attr "fpu" "none,vfp"
   (const (symbol_ref "arm_fpu_attr")))
+
+(define_attr "predicated" "yes,no" (const_string "no"))
 
 ; LENGTH of an instruction (in bytes)
 (define_attr "length" ""
@@ -188,6 +199,15 @@
 ; Enable all alternatives that are both arch_enabled and insn_enabled.
  (define_attr "enabled" "no,yes"
    (cond [(eq_attr "insn_enabled" "no")
+	  (const_string "no")
+
+	  (and (eq_attr "predicable_short_it" "no")
+	       (and (eq_attr "predicated" "yes")
+	            (match_test "arm_restrict_it")))
+	  (const_string "no")
+
+	  (and (eq_attr "enabled_for_depr_it" "no")
+	       (match_test "arm_restrict_it"))
 	  (const_string "no")
 
 	  (eq_attr "arch_enabled" "no")
@@ -2163,29 +2183,28 @@
 )
 
 (define_insn_and_split "*anddi3_insn"
-  [(set (match_operand:DI         0 "s_register_operand"     "=&r,&r,&r,&r,w,w ,?&r,?&r,?w,?w")
-	(and:DI (match_operand:DI 1 "s_register_operand"     "%0 ,r ,0,r ,w,0 ,0  ,r  ,w ,0")
-		(match_operand:DI 2 "arm_anddi_operand_neon" "r  ,r ,De,De,w,DL,r  ,r  ,w ,DL")))]
+  [(set (match_operand:DI         0 "s_register_operand"     "=w,w ,&r,&r,&r,&r,?w,?w")
+        (and:DI (match_operand:DI 1 "s_register_operand"     "%w,0 ,0 ,r ,0 ,r ,w ,0")
+                (match_operand:DI 2 "arm_anddi_operand_neon" "w ,DL,r ,r ,De,De,w ,DL")))]
   "TARGET_32BIT && !TARGET_IWMMXT"
 {
   switch (which_alternative)
     {
-    case 0:
-    case 1:
-    case 2:
-    case 3: /* fall through */
-      return "#";
-    case 4: /* fall through */
-    case 8: return "vand\t%P0, %P1, %P2";
-    case 5: /* fall through */
-    case 9: return neon_output_logic_immediate ("vand", &operands[2],
+    case 0: /* fall through */
+    case 6: return "vand\t%P0, %P1, %P2";
+    case 1: /* fall through */
+    case 7: return neon_output_logic_immediate ("vand", &operands[2],
                     DImode, 1, VALID_NEON_QREG_MODE (DImode));
-    case 6: return "#";
-    case 7: return "#";
+    case 2:
+    case 3:
+    case 4:
+    case 5: /* fall through */
+      return "#";
     default: gcc_unreachable ();
     }
 }
-  "TARGET_32BIT && !TARGET_IWMMXT"
+  "TARGET_32BIT && !TARGET_IWMMXT && reload_completed
+   && !(IS_VFP_REGNUM (REGNO (operands[0])))"
   [(set (match_dup 3) (match_dup 4))
    (set (match_dup 5) (match_dup 6))]
   "
@@ -2201,19 +2220,11 @@
                                            gen_highpart_mode (SImode, DImode, operands[2]));
 
   }"
-  [(set_attr "neon_type" "*,*,*,*,neon_int_1,neon_int_1,*,*,neon_int_1,neon_int_1")
-   (set_attr "arch" "*,*,*,*,neon_for_64bits,neon_for_64bits,*,*,
+  [(set_attr "neon_type" "neon_int_1,neon_int_1,*,*,*,*,neon_int_1,neon_int_1")
+   (set_attr "arch" "neon_for_64bits,neon_for_64bits,*,*,*,*,
                      avoid_neon_for_64bits,avoid_neon_for_64bits")
-   (set_attr "length" "8,8,8,8,*,*,8,8,*,*")
-   (set (attr "insn_enabled") (if_then_else
-                                (lt (symbol_ref "which_alternative")
-                                    (const_int 4))
-                                (if_then_else (match_test "!TARGET_NEON")
-                                              (const_string "yes")
-                                              (const_string "no"))
-                                (if_then_else (match_test "TARGET_NEON")
-                                              (const_string "yes")
-                                              (const_string "no"))))]
+   (set_attr "length" "*,*,8,8,8,8,*,*")
+  ]
 )
 
 (define_insn_and_split "*anddi_zesidi_di"
@@ -2997,14 +3008,47 @@
   ""
 )
 
-(define_insn "*iordi3_insn"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
-	(ior:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
-		(match_operand:DI 2 "s_register_operand"   "r,r")))]
-  "TARGET_32BIT && !TARGET_IWMMXT && !TARGET_NEON"
-  "#"
-  [(set_attr "length" "8")
-   (set_attr "predicable" "yes")]
+(define_insn_and_split "*iordi3_insn"
+  [(set (match_operand:DI         0 "s_register_operand"     "=w,w ,&r,&r,&r,&r,?w,?w")
+	(ior:DI (match_operand:DI 1 "s_register_operand"     "%w,0 ,0 ,r ,0 ,r ,w ,0")
+		(match_operand:DI 2 "arm_iordi_operand_neon" "w ,Dl,r ,r ,Df,Df,w ,Dl")))]
+  "TARGET_32BIT && !TARGET_IWMMXT"
+  {
+  switch (which_alternative)
+    {
+    case 0: /* fall through */
+    case 6: return "vorr\t%P0, %P1, %P2";
+    case 1: /* fall through */
+    case 7: return neon_output_logic_immediate ("vorr", &operands[2],
+		     DImode, 0, VALID_NEON_QREG_MODE (DImode));
+    case 2:
+    case 3:
+    case 4:
+    case 5:
+      return "#";
+    default: gcc_unreachable ();
+    }
+  }
+  "TARGET_32BIT && !TARGET_IWMMXT && reload_completed
+   && !(IS_VFP_REGNUM (REGNO (operands[0])))"
+  [(set (match_dup 3) (match_dup 4))
+   (set (match_dup 5) (match_dup 6))]
+  "
+  {
+    operands[3] = gen_lowpart (SImode, operands[0]);
+    operands[5] = gen_highpart (SImode, operands[0]);
+
+    operands[4] = simplify_gen_binary (IOR, SImode,
+                                           gen_lowpart (SImode, operands[1]),
+                                           gen_lowpart (SImode, operands[2]));
+    operands[6] = simplify_gen_binary (IOR, SImode,
+                                           gen_highpart (SImode, operands[1]),
+                                           gen_highpart_mode (SImode, DImode, operands[2]));
+
+  }"
+  [(set_attr "neon_type" "neon_int_1,neon_int_1,*,*,*,*,neon_int_1,neon_int_1")
+   (set_attr "length" "*,*,8,8,8,8,*,*")
+   (set_attr "arch" "neon_for_64bits,neon_for_64bits,*,*,*,*,avoid_neon_for_64bits,avoid_neon_for_64bits")]
 )
 
 (define_insn "*iordi_zesidi_di"
@@ -3137,19 +3181,49 @@
 (define_expand "xordi3"
   [(set (match_operand:DI         0 "s_register_operand" "")
 	(xor:DI (match_operand:DI 1 "s_register_operand" "")
-		(match_operand:DI 2 "s_register_operand" "")))]
+		(match_operand:DI 2 "arm_xordi_operand" "")))]
   "TARGET_32BIT"
   ""
 )
 
-(define_insn "*xordi3_insn"
-  [(set (match_operand:DI         0 "s_register_operand" "=&r,&r")
-	(xor:DI (match_operand:DI 1 "s_register_operand"  "%0,r")
-		(match_operand:DI 2 "s_register_operand"   "r,r")))]
-  "TARGET_32BIT && !TARGET_IWMMXT && !TARGET_NEON"
-  "#"
-  [(set_attr "length" "8")
-   (set_attr "predicable" "yes")]
+(define_insn_and_split "*xordi3_insn"
+  [(set (match_operand:DI         0 "s_register_operand" "=w,&r,&r,&r,&r,?w")
+	(xor:DI (match_operand:DI 1 "s_register_operand" "w ,%0,r ,0 ,r ,w")
+		(match_operand:DI 2 "arm_xordi_operand"  "w ,r ,r ,Dg,Dg,w")))]
+  "TARGET_32BIT && !TARGET_IWMMXT"
+{
+  switch (which_alternative)
+    {
+    case 1:
+    case 2:
+    case 3:
+    case 4:  /* fall through */
+      return "#";
+    case 0: /* fall through */
+    case 5: return "veor\t%P0, %P1, %P2";
+    default: gcc_unreachable ();
+    }
+}
+  "TARGET_32BIT && !TARGET_IWMMXT && reload_completed
+   && !(IS_VFP_REGNUM (REGNO (operands[0])))"
+  [(set (match_dup 3) (match_dup 4))
+   (set (match_dup 5) (match_dup 6))]
+  "
+  {
+    operands[3] = gen_lowpart (SImode, operands[0]);
+    operands[5] = gen_highpart (SImode, operands[0]);
+
+    operands[4] = simplify_gen_binary (XOR, SImode,
+                                           gen_lowpart (SImode, operands[1]),
+                                           gen_lowpart (SImode, operands[2]));
+    operands[6] = simplify_gen_binary (XOR, SImode,
+                                           gen_highpart (SImode, operands[1]),
+                                           gen_highpart_mode (SImode, DImode, operands[2]));
+
+  }"
+  [(set_attr "length" "*,8,8,8,8,*")
+   (set_attr "neon_type" "neon_int_1,*,*,*,*,neon_int_1")
+   (set_attr "arch" "neon_for_64bits,*,*,*,*,avoid_neon_for_64bits")]
 )
 
 (define_insn "*xordi_zesidi_di"
@@ -9276,17 +9350,17 @@
   [(set_attr "type" "call")]
 )
 
-(define_expand "return"
-  [(return)]
+(define_expand "<return_str>return"
+  [(returns)]
   "(TARGET_ARM || (TARGET_THUMB2
                    && ARM_FUNC_TYPE (arm_current_func_type ()) == ARM_FT_NORMAL
                    && !IS_STACKALIGN (arm_current_func_type ())))
-    && USE_RETURN_INSN (FALSE)"
+    <return_cond_false>"
   "
   {
     if (TARGET_THUMB2)
       {
-        thumb2_expand_return ();
+        thumb2_expand_return (<return_simple_p>);
         DONE;
       }
   }
@@ -9311,13 +9385,13 @@
    (set_attr "predicable" "yes")]
 )
 
-(define_insn "*cond_return"
+(define_insn "*cond_<return_str>return"
   [(set (pc)
         (if_then_else (match_operator 0 "arm_comparison_operator"
 		       [(match_operand 1 "cc_register" "") (const_int 0)])
-                      (return)
+                      (returns)
                       (pc)))]
-  "TARGET_ARM && USE_RETURN_INSN (TRUE)"
+  "TARGET_ARM  <return_cond_true>"
   "*
   {
     if (arm_ccfsm_state == 2)
@@ -9325,20 +9399,21 @@
         arm_ccfsm_state += 2;
         return \"\";
       }
-    return output_return_instruction (operands[0], true, false, false);
+    return output_return_instruction (operands[0], true, false,
+				      <return_simple_p>);
   }"
   [(set_attr "conds" "use")
    (set_attr "length" "12")
    (set_attr "type" "load1")]
 )
 
-(define_insn "*cond_return_inverted"
+(define_insn "*cond_<return_str>return_inverted"
   [(set (pc)
         (if_then_else (match_operator 0 "arm_comparison_operator"
 		       [(match_operand 1 "cc_register" "") (const_int 0)])
                       (pc)
-		      (return)))]
-  "TARGET_ARM && USE_RETURN_INSN (TRUE)"
+		      (returns)))]
+  "TARGET_ARM <return_cond_true>"
   "*
   {
     if (arm_ccfsm_state == 2)
@@ -9346,7 +9421,8 @@
         arm_ccfsm_state += 2;
         return \"\";
       }
-    return output_return_instruction (operands[0], true, true, false);
+    return output_return_instruction (operands[0], true, true,
+				      <return_simple_p>);
   }"
   [(set_attr "conds" "use")
    (set_attr "length" "12")
@@ -12095,6 +12171,7 @@
      (const_int 0)])]
   "TARGET_32BIT"
   ""
+[(set_attr "predicated" "yes")]
 )
 
 (define_insn "force_register_use"

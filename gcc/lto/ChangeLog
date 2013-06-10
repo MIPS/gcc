@@ -1,3 +1,28 @@
+2013-06-05  Richard Biener  <rguenther@suse.de>
+
+	* lto.c (num_merged_types): New global variable.
+	(uniquify_nodes): Increase num_merged_types when merging a type.
+	(print_lto_report_1): Output the number of merged types.
+
+2013-06-01  Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (read_cgraph_and_symbols): Simplify dumping; Replace
+	lto_symtab_merge_cgraph_nodes by lto_symtab_merge_symbols.
+	(do_whole_program_analysis): Update dumping.
+
+2013-05-29  Jan Hubicka  <jh@suse.cz>
+
+	* lto.c (has_analyzed_clone_p, lto_materialize_function): Update for new symtab
+	flags.
+	* lto-partition.c (get_symbol_class, lto_balanced_map): Likewise.
+
+2013-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* lto-partition.c (privatize_symbol_name): Return true when
+	privatizing happened.
+	(rename_statics): Do not go into infinite loop when privatizing
+	is not needed.
+
 2013-05-16  Jason Merrill  <jason@redhat.com>
 
 	* Make-lang.in ($(LTO_EXE)): Use link mutex.

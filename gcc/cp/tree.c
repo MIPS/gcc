@@ -829,10 +829,12 @@ build_cplus_array_type (tree elt_type, tree index_type)
 
       if (TYPE_MAIN_VARIANT (t) != m)
 	{
-	  if (COMPLETE_TYPE_P (t) && !COMPLETE_TYPE_P (m))
+	  if (COMPLETE_TYPE_P (TREE_TYPE (t)) && !COMPLETE_TYPE_P (m))
 	    {
 	      /* m was built before the element type was complete, so we
-		 also need to copy the layout info from t.  */
+		 also need to copy the layout info from t.  We might
+	         end up doing this multiple times if t is an array of
+	         unknown bound.  */
 	      tree size = TYPE_SIZE (t);
 	      tree size_unit = TYPE_SIZE_UNIT (t);
 	      unsigned int align = TYPE_ALIGN (t);
@@ -1767,8 +1769,10 @@ build_ref_qualified_type (tree type, cp_ref_qualifier rqual)
     {
     case REF_QUAL_RVALUE:
       FUNCTION_RVALUE_QUALIFIED (t) = 1;
-      /* Intentional fall through */
+      FUNCTION_REF_QUALIFIED (t) = 1;
+      break;
     case REF_QUAL_LVALUE:
+      FUNCTION_RVALUE_QUALIFIED (t) = 0;
       FUNCTION_REF_QUALIFIED (t) = 1;
       break;
     default:
@@ -3976,7 +3980,7 @@ cp_fix_function_decl_p (tree decl)
 
       /* Don't fix same_body aliases.  Although they don't have their own
 	 CFG, they share it with what they alias to.  */
-      if (!node || !node->alias
+      if (!node || !node->symbol.alias
 	  || !vec_safe_length (node->symbol.ref_list.references))
 	return true;
     }

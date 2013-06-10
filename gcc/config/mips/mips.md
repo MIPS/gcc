@@ -55,6 +55,7 @@
   r5000
   r5400
   r5500
+  r5900
   r7000
   r8000
   r9000
@@ -407,7 +408,6 @@
 ;; Is this an extended instruction in mips16 mode?
 (define_attr "extended_mips16" "no,yes"
   (if_then_else (ior (eq_attr "move_type" "sll0")
-		     (eq_attr "type" "branch")
 		     (eq_attr "jal" "direct"))
 		(const_string "yes")
 		(const_string "no")))
@@ -426,7 +426,7 @@
 (define_attr "length" ""
    (cond [(and (eq_attr "extended_mips16" "yes")
 	       (match_test "TARGET_MIPS16"))
-	  (const_int 8)
+	  (const_int 4)
 
 	  (and (eq_attr "compression" "micromips,all")
 	       (eq_attr "dword_mode" "no")
@@ -568,72 +568,69 @@
 	  ;;	 move $2,$1		2 bytes
 	  ;; foo:
 	  ;;				(20 bytes in the worst case)
-	  ;;
-	  ;; Note that the conditions test adjusted lengths, whereas the
-	  ;; result is an unadjusted length, and is thus twice the true value.
 	  (and (eq_attr "type" "branch")
 	       (match_test "TARGET_MIPS16"))
 	  (cond [(and (le (minus (match_dup 0) (pc)) (const_int 254))
 		      (le (minus (pc) (match_dup 0)) (const_int 254)))
-		 (const_int 4)
+		 (const_int 2)
 		 (and (le (minus (match_dup 0) (pc)) (const_int 65534))
 		      (le (minus (pc) (match_dup 0)) (const_int 65532)))
-		 (const_int 8)
+		 (const_int 4)
 		 (and (match_test "TARGET_ABICALLS")
 		      (not (match_test "TARGET_ABSOLUTE_ABICALLS")))
-		 (const_int 40)
+		 (const_int 20)
 		 (match_test "Pmode == SImode")
-		 (const_int 32)
-		 ] (const_int 48))
-
-	  (and (eq_attr "extended_mips16" "yes")
-	       (match_test "TARGET_MIPS16"))
-	  (const_int 8)
+		 (const_int 16)
+		 ] (const_int 24))
 
 	  ;; "Ghost" instructions occupy no space.
 	  (eq_attr "type" "ghost")
 	  (const_int 0)
 
+	  ;; GOT loads are extended MIPS16 instructions and 4-byte
+	  ;; microMIPS instructions.
 	  (eq_attr "got" "load")
-	  (if_then_else (match_test "TARGET_MIPS16")
-			(const_int 8)
-			(const_int 4))
+	  (const_int 4)
+
+	  ;; A GOT load followed by an add of $gp.
 	  (eq_attr "got" "xgot_high")
 	  (const_int 8)
 
 	  ;; In general, constant-pool loads are extended instructions.
 	  (eq_attr "move_type" "loadpool")
-	  (const_int 8)
+	  (const_int 4)
 
 	  ;; SHIFT_SHIFTs are decomposed into two separate instructions.
 	  ;; They are extended instructions on MIPS16 targets.
 	  (eq_attr "move_type" "shift_shift")
-	  (if_then_else (match_test "TARGET_MIPS16")
-			(const_int 16)
-			(const_int 8))
+	  (const_int 8)
 
 	  ;; Check for doubleword moves that are decomposed into two
-	  ;; instructions.
+	  ;; instructions.  The individual instructions are unextended
+	  ;; MIPS16 ones or 2-byte microMIPS ones.
 	  (and (eq_attr "move_type" "mtc,mfc,mtlo,mflo,move")
 	       (eq_attr "dword_mode" "yes"))
-	  (const_int 8)
+	  (if_then_else (match_test "TARGET_COMPRESSION")
+	  		(const_int 4)
+	  		(const_int 8))
 
 	  ;; Doubleword CONST{,N} moves are split into two word
 	  ;; CONST{,N} moves.
 	  (and (eq_attr "move_type" "const,constN")
 	       (eq_attr "dword_mode" "yes"))
-	  (symbol_ref "mips_split_const_insns (operands[1]) * 4")
+	  (symbol_ref "mips_split_const_insns (operands[1]) * BASE_INSN_LENGTH")
 
 	  ;; Otherwise, constants, loads and stores are handled by external
 	  ;; routines.
 	  (eq_attr "move_type" "const,constN")
-	  (symbol_ref "mips_const_insns (operands[1]) * 4")
+	  (symbol_ref "mips_const_insns (operands[1]) * BASE_INSN_LENGTH")
 	  (eq_attr "move_type" "load,fpload")
-	  (symbol_ref "mips_load_store_insns (operands[1], insn) * 4")
+	  (symbol_ref "mips_load_store_insns (operands[1], insn)
+	  	       * BASE_INSN_LENGTH")
 	  (eq_attr "move_type" "store,fpstore")
-	  (cond [(not (match_test "TARGET_FIX_24K"))
-	         (symbol_ref "mips_load_store_insns (operands[0], insn) * 4")]
-	         (symbol_ref "mips_load_store_insns (operands[0], insn) * 4 + 4"))
+	  (symbol_ref "mips_load_store_insns (operands[0], insn)
+		       * BASE_INSN_LENGTH
+		       + (TARGET_FIX_24K ? NOP_INSN_LENGTH : 0)")
 
 	  ;; In the worst case, a call macro will take 8 instructions:
 	  ;;
@@ -664,10 +661,14 @@
 	  (const_int 8)
 
 	  (eq_attr "type" "idiv,idiv3")
-	  (symbol_ref "mips_idiv_insns () * 4")
+	  (symbol_ref "mips_idiv_insns () * BASE_INSN_LENGTH")
 
 	  (not (eq_attr "sync_mem" "none"))
-	  (symbol_ref "mips_sync_loop_insns (insn, operands) * 4")
+	  (symbol_ref "mips_sync_loop_insns (insn, operands)
+	  	       * BASE_INSN_LENGTH")
+
+	  (match_test "TARGET_MIPS16")
+	  (const_int 2)
 	  ] (const_int 4)))
 
 ;; Attribute describing the processor.
@@ -755,7 +756,9 @@
 ;; This mode iterator allows :MOVECC to be used anywhere that a
 ;; conditional-move-type condition is needed.
 (define_mode_iterator MOVECC [SI (DI "TARGET_64BIT")
-                              (CC "TARGET_HARD_FLOAT && !TARGET_LOONGSON_2EF")])
+                              (CC "TARGET_HARD_FLOAT
+				   && !TARGET_LOONGSON_2EF
+				   && !TARGET_MIPS5900")])
 
 ;; 32-bit integer moves for which we provide move patterns.
 (define_mode_iterator IMOVE32
@@ -2560,80 +2563,50 @@
 
 ;; VR4120 errata MD(A1): signed division instructions do not work correctly
 ;; with negative operands.  We use special libgcc functions instead.
-(define_expand "divmod<mode>4"
-  [(set (match_operand:GPR 0 "register_operand")
-	(div:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "register_operand")))
-   (set (match_operand:GPR 3 "register_operand")
-	(mod:GPR (match_dup 1)
-		 (match_dup 2)))]
-  "!TARGET_FIX_VR4120"
-{
-  if (TARGET_MIPS16)
-    {
-      emit_insn (gen_divmod<mode>4_split (operands[3], operands[1],
-					  operands[2]));
-      emit_move_insn (operands[0], gen_rtx_REG (<MODE>mode, LO_REGNUM));
-    }
-  else
-    emit_insn (gen_divmod<mode>4_internal (operands[0], operands[1],
-					   operands[2], operands[3]));
-  DONE;
-})
-
-(define_insn_and_split "divmod<mode>4_internal"
-  [(set (match_operand:GPR 0 "muldiv_target_operand" "=l")
+;;
+;; Expand generates divmod instructions for individual division and modulus
+;; operations.  We then rely on CSE to reuse earlier divmods where possible.
+;; This means that, when generating MIPS16 code, it is better not to expose
+;; the fixed LO register until after CSE has finished.  However, it's still
+;; better to split before register allocation, so that we don't allocate
+;; one of the scarce MIPS16 registers to an unused result.
+(define_insn_and_split "divmod<mode>4"
+  [(set (match_operand:GPR 0 "register_operand" "=kl")
 	(div:GPR (match_operand:GPR 1 "register_operand" "d")
 		 (match_operand:GPR 2 "register_operand" "d")))
    (set (match_operand:GPR 3 "register_operand" "=d")
 	(mod:GPR (match_dup 1)
 		 (match_dup 2)))]
-  "!TARGET_FIX_VR4120 && !TARGET_MIPS16"
+  "!TARGET_FIX_VR4120"
   "#"
-  "&& reload_completed"
+  "&& ((TARGET_MIPS16 && cse_not_expected) || reload_completed)"
   [(const_int 0)]
 {
   emit_insn (gen_divmod<mode>4_split (operands[3], operands[1], operands[2]));
+  if (TARGET_MIPS16)
+    emit_move_insn (operands[0], gen_rtx_REG (<MODE>mode, LO_REGNUM));
   DONE;
 }
  [(set_attr "type" "idiv")
   (set_attr "mode" "<MODE>")
   (set_attr "length" "8")])
 
-(define_expand "udivmod<mode>4"
-  [(set (match_operand:GPR 0 "register_operand")
-	(udiv:GPR (match_operand:GPR 1 "register_operand")
-		  (match_operand:GPR 2 "register_operand")))
-   (set (match_operand:GPR 3 "register_operand")
-	(umod:GPR (match_dup 1)
-		  (match_dup 2)))]
-  ""
-{
-  if (TARGET_MIPS16)
-    {
-      emit_insn (gen_udivmod<mode>4_split (operands[3], operands[1],
-					   operands[2]));
-      emit_move_insn (operands[0], gen_rtx_REG (<MODE>mode, LO_REGNUM));
-    }
-  else
-    emit_insn (gen_udivmod<mode>4_internal (operands[0], operands[1],
-					    operands[2], operands[3]));
-  DONE;
-})
-
-(define_insn_and_split "udivmod<mode>4_internal"
-  [(set (match_operand:GPR 0 "muldiv_target_operand" "=l")
+;; See the comment above "divmod<mode>4" for the MIPS16 handling.
+(define_insn_and_split "udivmod<mode>4"
+  [(set (match_operand:GPR 0 "register_operand" "=kl")
 	(udiv:GPR (match_operand:GPR 1 "register_operand" "d")
 		  (match_operand:GPR 2 "register_operand" "d")))
    (set (match_operand:GPR 3 "register_operand" "=d")
 	(umod:GPR (match_dup 1)
 		  (match_dup 2)))]
-  "!TARGET_MIPS16"
+  ""
   "#"
-  "reload_completed"
+  "(TARGET_MIPS16 && cse_not_expected) || reload_completed"
   [(const_int 0)]
 {
   emit_insn (gen_udivmod<mode>4_split (operands[3], operands[1], operands[2]));
+  if (TARGET_MIPS16)
+    emit_move_insn (operands[0], gen_rtx_REG (<MODE>mode, LO_REGNUM));
   DONE;
 }
  [(set_attr "type" "idiv")
@@ -5378,7 +5351,7 @@
   ""
   [(set_attr "type"	"load")
    (set_attr "mode"	"SI")
-   (set_attr "length"	"16")])
+   (set_attr "length"	"8")])
 
 (define_insn "rotr<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -5850,16 +5823,16 @@
 	;; is one instruction shorter than for conditional branches.
 	(cond [(and (le (minus (match_dup 0) (pc)) (const_int 2046))
 		    (le (minus (pc) (match_dup 0)) (const_int 2046)))
-	       (const_int 4)
+	       (const_int 2)
 	       (and (le (minus (match_dup 0) (pc)) (const_int 65534))
 		    (le (minus (pc) (match_dup 0)) (const_int 65532)))
-	       (const_int 8)
+	       (const_int 4)
 	       (and (match_test "TARGET_ABICALLS")
 		    (not (match_test "TARGET_ABSOLUTE_ABICALLS")))
-	       (const_int 36)
+	       (const_int 18)
 	       (match_test "Pmode == SImode")
-	       (const_int 28)
-	       ] (const_int 44)))])
+	       (const_int 14)
+	       ] (const_int 22)))])
 
 (define_expand "indirect_jump"
   [(set (pc) (match_operand 0 "register_operand"))]
@@ -6952,7 +6925,7 @@
    (set (match_dup 0) (reg:P TLS_GET_TP_REGNUM))]
   ""
   [(set_attr "type" "multi")
-   (set_attr "length" "16")
+   (set_attr "length" "8")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*tls_get_tp_mips16_call_<mode>"
@@ -6964,7 +6937,7 @@
   "HAVE_AS_TLS && TARGET_MIPS16"
   { return MIPS_CALL ("jal", operands, 0, -1); }
   [(set_attr "type" "call")
-   (set_attr "length" "12")
+   (set_attr "length" "6")
    (set_attr "mode" "<MODE>")])
 
 ;; Named pattern for expanding thread pointer reference.

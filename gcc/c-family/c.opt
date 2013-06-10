@@ -21,10 +21,6 @@
 
 ; Please try to keep this file in ASCII collating order.
 
-; Activate C++ concepts support.
-Variable
-bool flag_concepts
-
 Language
 C
 
@@ -847,9 +843,9 @@ fcanonical-system-headers
 C ObjC C++ ObjC++
 Where shorter, use canonicalized paths to systems headers.
 
-fconcepts
-C++ ObjC++ Var(flag_concepts, true)
-Activate support for C++ concepts
+fcilkplus
+C ObjC C++ ObjC++ LTO Report Var(flag_enable_cilkplus) Init(0)
+Enable Cilk Plus
 
 fcheck-new
 C++ ObjC++ Var(flag_check_new)

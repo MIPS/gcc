@@ -3474,7 +3474,7 @@ fix = {
 
 
 /*
- *  The pow overloads with int were removed in C++ 2011.
+ *  The pow overloads with int were removed in C++ 2011 DR 550.
  */
 fix = {
     hackname  = solaris_pow_int_overload;
@@ -3483,7 +3483,7 @@ fix = {
     select    = "^[ \t]*inline [a-z ]* pow\\([^()]*, int [^()]*\\)"
 		" *\\{[^{}]*\n[^{}]*\\}";
     c_fix     = format;
-    c_fix_arg = "#ifndef __GXX_EXPERIMENTAL_CXX0X__\n%0\n#endif";
+    c_fix_arg = "#if __cplusplus < 201103L\n%0\n#endif";
 
     test_text =
     "	inline long double pow(long double __X, int __Y) { return\n"
@@ -4892,6 +4892,20 @@ fix = {
     test_text = <<- _EOText_
 	  __asm__ __volatile__ ("divss %1, %0" : : "x" (__f), "x" (__g));
 	_EOText_;
+};
+
+/*
+ *  Old Linux kernel's <compiler.h> header breaks Traditional CPP
+ */
+fix = {
+    hackname  = complier_h_tradcpp;
+    files     = linux/compiler.h;
+
+    select    = "#define __builtin_warning\\(x, y\\.\\.\\.\\) \\(1\\)";
+    c_fix     = format;
+    c_fix_arg = "/* __builtin_warning(x, y...) is obsolete */";
+
+    test_text = "#define __builtin_warning(x, y...) (1)";
 };
 
 /*EOF*/
