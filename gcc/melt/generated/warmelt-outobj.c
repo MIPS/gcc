@@ -42,7 +42,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
 
 /**** no MELT module variables ****/
 
-/*** 2 MELT called hook declarations ***/
+/*** 3 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t
@@ -51,13 +51,22 @@ melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdata,
 						 const char
 						 *meltinp1_MODULNAME);
 
-/*declare MELT called hook #1 HOOK_VALUE_EXPORTER **/
+/*declare MELT called hook #1 HOOK_SYMBOL_IMPORTER **/
+MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
+						      const char
+						      *meltinp0_SYMNAMESTR,
+						      const char
+						      *meltinp1_MODULENAMESTR,
+						      melt_ptr_t
+						      meltinp2_PARENV);
+
+/*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
 					       melt_ptr_t meltinp0_SYM,
 					       melt_ptr_t meltinp1_VAL,
 					       melt_ptr_t meltinp2_CONTENV);
 
-/*** end of 2 MELT called hook declarations ***/
+/*** end of 3 MELT called hook declarations ***/
 
 /*** no extra MELT c-headers ***/
 
@@ -22198,7 +22207,1526 @@ melt_start_this_module (void *modargp_)
   /*^comment */
  /**COMMENT: before new getting imported values **/ ;
 
-  /*^comment */
+  MELT_LOCATION ("warmelt-outobj.melt:3:/ compute");
+ /*_.HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER__V6*/ meltfptr[5] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:37:/ compute");
+ /*_.CLASS_REFERENCE__V7*/ meltfptr[6] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_REFERENCE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:51:/ compute");
+ /*_.MELT_DEBUG_FUN__V8*/ meltfptr[7] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MELT_DEBUG_FUN", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:55:/ compute");
+ /*_.DISCR_CONSTANT_INTEGER__V9*/ meltfptr[8] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_CONSTANT_INTEGER", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:77:/ compute");
+ /*_.REGISTER_OPTION__V10*/ meltfptr[9] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "REGISTER_OPTION", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:87:/ compute");
+ /*_.CLASS_NORMAL_MODULE_VARIABLE_BINDING__V11*/ meltfptr[10] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NORMAL_MODULE_VARIABLE_BINDING",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:88:/ compute");
+ /*_.CLASS_ANY_BINDING__V12*/ meltfptr[11] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ANY_BINDING", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:91:/ compute");
+ /*_.CLASS_CLONED_SYMBOL__V13*/ meltfptr[12] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CLONED_SYMBOL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:92:/ compute");
+ /*_.CLASS_NAMED__V14*/ meltfptr[13] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NAMED", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:95:/ compute");
+ /*_.ADD2OUT__V15*/ meltfptr[14] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "ADD2OUT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:99:/ compute");
+ /*_.CLASS_SYMBOL__V16*/ meltfptr[15] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SYMBOL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:116:/ compute");
+ /*_.INSTALL_METHOD__V17*/ meltfptr[16] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "INSTALL_METHOD", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  /*^compute */
+ /*_.CLASS_ROOT__V18*/ meltfptr[17] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ROOT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  /*^compute */
+ /*_.OUTPUT_C_DECLINIT__V19*/ meltfptr[18] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "OUTPUT_C_DECLINIT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:120:/ compute");
+ /*_.CLASS_OBJINITELEM__V20*/ meltfptr[19] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITELEM", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:125:/ compute");
+ /*_.OUTPUT_C_CODE__V21*/ meltfptr[20] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "OUTPUT_C_CODE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:146:/ compute");
+ /*_.OUTPUT_C_INITIAL_FILL__V22*/ meltfptr[21] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "OUTPUT_C_INITIAL_FILL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:154:/ compute");
+ /*_.OUTPUT_C_INITIAL_PREDEF__V23*/ meltfptr[22] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "OUTPUT_C_INITIAL_PREDEF",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:170:/ compute");
+ /*_.OBPREDEF__V24*/ meltfptr[23] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "OBPREDEF", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:184:/ compute");
+ /*_.CLASS_OBJPREDEF__V25*/ meltfptr[24] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPREDEF", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:191:/ compute");
+ /*_.CLASS_OBJNIL__V26*/ meltfptr[25] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJNIL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:198:/ compute");
+ /*_.CLASS_OBJEXPANDPUREVAL__V27*/ meltfptr[26] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJEXPANDPUREVAL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:202:/ compute");
+ /*_.CLASS_OBJVALUE__V28*/ meltfptr[27] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJVALUE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:205:/ compute");
+ /*_.CLASS_CTYPE__V29*/ meltfptr[28] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CTYPE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:207:/ compute");
+ /*_.CTYPE_VOID__V30*/ meltfptr[29] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CTYPE_VOID", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:286:/ compute");
+ /*_.CLASS_OBJHOOKNTH__V31*/ meltfptr[30] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJHOOKNTH", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:287:/ compute");
+ /*_.CTYPE_VALUE__V32*/ meltfptr[31] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CTYPE_VALUE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:310:/ compute");
+ /*_.CLASS_OBJINITOBJECT__V33*/ meltfptr[32] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITOBJECT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:328:/ compute");
+ /*_.CLASS_NREP_DATAINSTANCE__V34*/ meltfptr[33] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_DATAINSTANCE",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:336:/ compute");
+ /*_.CLASS_CLASS__V35*/ meltfptr[34] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CLASS", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:379:/ compute");
+ /*_.CLASS_OBJINITUNIQUEOBJECT__V36*/ meltfptr[35] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITUNIQUEOBJECT",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:482:/ compute");
+ /*_.CLASS_NREP_NIL__V37*/ meltfptr[36] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_NIL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:560:/ compute");
+ /*_.CLASS_OBJINITHOOK__V38*/ meltfptr[37] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITHOOK", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:569:/ compute");
+ /*_.CLASS_NREP__V39*/ meltfptr[38] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:623:/ compute");
+ /*_.CLASS_OBJINITMULTIPLE__V40*/ meltfptr[39] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITMULTIPLE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:678:/ compute");
+ /*_.CLASS_OBJINITCLOSURE__V41*/ meltfptr[40] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITCLOSURE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:748:/ compute");
+ /*_.CLASS_OBJINITROUTINE__V42*/ meltfptr[41] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITROUTINE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:788:/ compute");
+ /*_.CLASS_NREP_DATAROUTINE__V43*/ meltfptr[42] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_DATAROUTINE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:795:/ compute");
+ /*_.CLASS_NREP_ROUTPROC__V44*/ meltfptr[43] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_ROUTPROC", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:877:/ compute");
+ /*_.CLASS_NREP_HOOKPROC__V45*/ meltfptr[44] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_HOOKPROC", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:934:/ compute");
+ /*_.CLASS_OBJINITSTRING__V46*/ meltfptr[45] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITSTRING", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1141:/ compute");
+ /*_.CLASS_OBJINITBOXINTEGER__V47*/ meltfptr[46] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITBOXINTEGER",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1201:/ compute");
+ /*_.CLASS_OBJINITPAIR__V48*/ meltfptr[47] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITPAIR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1250:/ compute");
+ /*_.CLASS_OBJINITLIST__V49*/ meltfptr[48] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINITLIST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1303:/ compute");
+ /*_.DISCR_ANY_RECEIVER__V50*/ meltfptr[49] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_ANY_RECEIVER", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1313:/ compute");
+ /*_.DISCR_NULL_RECEIVER__V51*/ meltfptr[50] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_NULL_RECEIVER", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1318:/ compute");
+ /*_.DISPLAY_DEBUG_MESSAGE__V52*/ meltfptr[51] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISPLAY_DEBUG_MESSAGE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1380:/ compute");
+ /*_.DISCR_INTEGER__V53*/ meltfptr[52] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_INTEGER", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1385:/ compute");
+ /*_.DISCR_STRING__V54*/ meltfptr[53] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_STRING", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1478:/ compute");
+ /*_.CLASS_INITIAL_EXTENSION_ROUTINEOBJ__V55*/ meltfptr[54] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_INITIAL_EXTENSION_ROUTINEOBJ",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1477:/ compute");
+ /*_.CLASS_INITIALROUTINEOBJ__V56*/ meltfptr[55] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_INITIALROUTINEOBJ",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1557:/ compute");
+ /*_.LIST_EVERY__V57*/ meltfptr[56] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "LIST_EVERY", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1560:/ compute");
+ /*_.CLASS_OBJLOCV__V58*/ meltfptr[57] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJLOCV", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1590:/ compute");
+ /*_.CLASS_ROUTINEOBJ__V59*/ meltfptr[58] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ROUTINEOBJ", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1594:/ compute");
+ /*_.CLASS_PROCROUTINEOBJ__V60*/ meltfptr[59] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_PROCROUTINEOBJ", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1664:/ compute");
+ /*_.CLASS_HOOKROUTINEOBJ__V61*/ meltfptr[60] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_HOOKROUTINEOBJ", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1828:/ compute");
+ /*_.VARIADIC_INDEX_IDSTR__V62*/ meltfptr[61] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "VARIADIC_INDEX_IDSTR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1829:/ compute");
+ /*_.VARIADIC_LENGTH_IDSTR__V63*/ meltfptr[62] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "VARIADIC_LENGTH_IDSTR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:1894:/ compute");
+ /*_.CLASS_OBJPUREVALUE__V64*/ meltfptr[63] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUREVALUE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2038:/ compute");
+ /*_.CLASS_INITIAL_MODULE_ROUTINEOBJ__V65*/ meltfptr[64] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_INITIAL_MODULE_ROUTINEOBJ",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2206:/ compute");
+ /*_.DISCR_LIST__V66*/ meltfptr[65] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_LIST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2214:/ compute");
+ /*_.LIST_TO_MULTIPLE__V67*/ meltfptr[66] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "LIST_TO_MULTIPLE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  /*^compute */
+ /*_.DISCR_MULTIPLE__V68*/ meltfptr[67] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_MULTIPLE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2225:/ compute");
+ /*_.DISCR_STRBUF__V69*/ meltfptr[68] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_STRBUF", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2234:/ compute");
+ /*_.CLASS_OBJINSTR__V70*/ meltfptr[69] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINSTR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2415:/ compute");
+ /*_.CLASS_OBJCFORMAL__V71*/ meltfptr[70] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCFORMAL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2848:/ compute");
+ /*_.CLASS_OBJGETARG__V72*/ meltfptr[71] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJGETARG", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2855:/ compute");
+ /*_.CLASS_FORMAL_BINDING__V73*/ meltfptr[72] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_FORMAL_BINDING", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:2913:/ compute");
+ /*_.CLASS_OBJGETARGREST__V74*/ meltfptr[73] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJGETARGREST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3011:/ compute");
+ /*_.CLASS_OBJFETCHMODVAR__V75*/ meltfptr[74] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJFETCHMODVAR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3025:/ compute");
+ /*_.CLASS_OBJPUTMODVAR__V76*/ meltfptr[75] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTMODVAR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3046:/ compute");
+ /*_.CLASS_OBJPUTOUTARG__V77*/ meltfptr[76] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTOUTARG", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3084:/ compute");
+ /*_.CTYPE_LONG__V78*/ meltfptr[77] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CTYPE_LONG", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3102:/ compute");
+ /*_.CLASS_OBJCLOCCV__V79*/ meltfptr[78] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCLOCCV", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3121:/ compute");
+ /*_.CLASS_OBJCLOHOOKV__V80*/ meltfptr[79] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCLOHOOKV", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3140:/ compute");
+ /*_.CLASS_OBJCONSTV__V81*/ meltfptr[80] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCONSTV", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3167:/ compute");
+ /*_.CLASS_OBJPLAINBLOCK__V82*/ meltfptr[81] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPLAINBLOCK", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3193:/ compute");
+ /*_.CLASS_OBJCHECKSIGNAL__V83*/ meltfptr[82] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCHECKSIGNAL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3206:/ compute");
+ /*_.CLASS_OBJANYBLOCK__V84*/ meltfptr[83] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJANYBLOCK", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3232:/ compute");
+ /*_.CLASS_OBJFLAG__V85*/ meltfptr[84] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJFLAG", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3243:/ compute");
+ /*_.CLASS_OBJMATCHFLAGBLOCK__V86*/ meltfptr[85] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJMATCHFLAGBLOCK",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3294:/ compute");
+ /*_.CLASS_OBJMULTIALLOCBLOCK__V87*/ meltfptr[86] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJMULTIALLOCBLOCK",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3305:/ compute");
+ /*_.DISCR_VERBATIM_STRING__V88*/ meltfptr[87] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_VERBATIM_STRING", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3366:/ compute");
+ /*_.CLASS_OBJCITERBLOCK__V89*/ meltfptr[88] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCITERBLOCK", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3375:/ compute");
+ /*_.CLASS_CITERATOR__V90*/ meltfptr[89] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CITERATOR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3421:/ compute");
+ /*_.CLASS_OBJCOMMENTINSTR__V91*/ meltfptr[90] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCOMMENTINSTR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3442:/ compute");
+ /*_.CLASS_OBJCOMMENTEDBLOCK__V92*/ meltfptr[91] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCOMMENTEDBLOCK",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3482:/ compute");
+ /*_.CLASS_OBJLABELINSTR__V93*/ meltfptr[92] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJLABELINSTR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3489:/ compute");
+ /*_.SET_CONTENT__V94*/ meltfptr[93] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "SET_CONTENT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3493:/ compute");
+ /*_.STRING4OUT__V95*/ meltfptr[94] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "STRING4OUT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3516:/ compute");
+ /*_.CLASS_OBJGOTOINSTR__V96*/ meltfptr[95] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJGOTOINSTR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3546:/ compute");
+ /*_.CLASS_OBJLOOP__V97*/ meltfptr[96] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJLOOP", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3605:/ compute");
+ /*_.CLASS_OBJEXIT__V98*/ meltfptr[97] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJEXIT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3625:/ compute");
+ /*_.CLASS_OBJAGAIN__V99*/ meltfptr[98] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJAGAIN", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3644:/ compute");
+ /*_.CLASS_OBJCOMPUTE__V100*/ meltfptr[99] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCOMPUTE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3671:/ compute");
+ /*_.MULTIPLE_EVERY__V101*/ meltfptr[100] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MULTIPLE_EVERY", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3690:/ compute");
+ /*_.CLASS_OBJCOND__V102*/ meltfptr[101] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCOND", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3732:/ compute");
+ /*_.CLASS_OBJCPPIF__V103*/ meltfptr[102] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCPPIF", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3765:/ compute");
+ /*_.CLASS_OBJINTERNSYMBOL__V104*/ meltfptr[103] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINTERNSYMBOL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3772:/ compute");
+ /*_.CLASS_NREP_DATASYMBOL__V105*/ meltfptr[104] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_DATASYMBOL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3790:/ compute");
+ /*_.CLASS_OBJINTERNKEYWORD__V106*/ meltfptr[105] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJINTERNKEYWORD", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3796:/ compute");
+ /*_.CLASS_NREP_DATAKEYWORD__V107*/ meltfptr[106] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_DATAKEYWORD", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3814:/ compute");
+ /*_.CLASS_OBJGETNAMEDSYMBOL__V108*/ meltfptr[107] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJGETNAMEDSYMBOL",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3865:/ compute");
+ /*_.CLASS_OBJGETNAMEDKEYWORD__V109*/ meltfptr[108] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJGETNAMEDKEYWORD",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3901:/ compute");
+ /*_.CLASS_OBJAPPLY__V110*/ meltfptr[109] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJAPPLY", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3928:/ compute");
+ /*_.GET_CTYPE__V111*/ meltfptr[110] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "GET_CTYPE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:3998:/ compute");
+ /*_.CLASS_OBJMSEND__V112*/ meltfptr[111] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJMSEND", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4096:/ compute");
+ /*_.CLASS_OBJMULTIAPPLY__V113*/ meltfptr[112] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJMULTIAPPLY", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4261:/ compute");
+ /*_.CLASS_OBJMULTIMSEND__V114*/ meltfptr[113] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJMULTIMSEND", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4416:/ compute");
+ /*_.CLASS_OBJCLEAR__V115*/ meltfptr[114] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJCLEAR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4432:/ compute");
+ /*_.CLASS_OBJRAWALLOCOBJ__V116*/ meltfptr[115] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJRAWALLOCOBJ", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4470:/ compute");
+ /*_.CLASS_OBJNEWCLOSURE__V117*/ meltfptr[116] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJNEWCLOSURE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4503:/ compute");
+ /*_.CLASS_OBJTOUCH__V118*/ meltfptr[117] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJTOUCH", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4528:/ compute");
+ /*_.CLASS_OBJDBGTRACEWRITEOBJ__V119*/ meltfptr[118] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJDBGTRACEWRITEOBJ",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4548:/ compute");
+ /*_.CLASS_OBJPUTUPLE__V120*/ meltfptr[119] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTUPLE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4624:/ compute");
+ /*_.CLASS_OBJPUTPAIR__V121*/ meltfptr[120] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTPAIR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4625:/ compute");
+ /*_.CLASS_OBJPUTPAIRHEAD__V122*/ meltfptr[121] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTPAIRHEAD", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4654:/ compute");
+ /*_.CLASS_OBJPUTPAIRTAIL__V123*/ meltfptr[122] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTPAIRTAIL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4679:/ compute");
+ /*_.CLASS_OBJPUTLIST__V124*/ meltfptr[123] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTLIST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4709:/ compute");
+ /*_.CLASS_OBJGETSLOT__V125*/ meltfptr[124] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJGETSLOT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4716:/ compute");
+ /*_.CLASS_FIELD__V126*/ meltfptr[125] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_FIELD", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4748:/ compute");
+ /*_.CLASS_OBJPUTSLOT__V127*/ meltfptr[126] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTSLOT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4823:/ compute");
+ /*_.CLASS_OBJPUTCLOSUROUT__V128*/ meltfptr[127] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTCLOSUROUT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4867:/ compute");
+ /*_.CLASS_OBJPUTCLOSEDV__V129*/ meltfptr[128] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTCLOSEDV", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4903:/ compute");
+ /*_.CLASS_OBJPUTCLOSEDNOTNULLV__V130*/ meltfptr[129] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTCLOSEDNOTNULLV",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4943:/ compute");
+ /*_.CLASS_OBJPUTROUTCONST__V131*/ meltfptr[130] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTROUTCONST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:4982:/ compute");
+ /*_.CLASS_OBJPUTROUTCONSTNOTNULL__V132*/ meltfptr[131] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTROUTCONSTNOTNULL",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5016:/ compute");
+ /*_.CLASS_OBJPUTHOOKCONST__V133*/ meltfptr[132] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTHOOKCONST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5022:/ compute");
+ /*_.CLASS_NREP_BOUND_DATA__V134*/ meltfptr[133] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_BOUND_DATA", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5056:/ compute");
+ /*_.CLASS_OBJPUTHOOKDATA__V135*/ meltfptr[134] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTHOOKDATA", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5084:/ compute");
+ /*_.CLASS_OBJPUTXTRARESULT__V136*/ meltfptr[135] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJPUTXTRARESULT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5125:/ compute");
+ /*_.CLASS_OBJEXPV__V137*/ meltfptr[136] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJEXPV", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5142:/ compute");
+ /*_.CLASS_OBJLOCATEDEXPV__V138*/ meltfptr[137] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJLOCATEDEXPV", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5213:/ compute");
+ /*_.CLASS_OBJFINALRETURN__V139*/ meltfptr[138] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_OBJFINALRETURN", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5238:/ compute");
+ /*_.COMPARE_NAMED_ALPHA__V140*/ meltfptr[139] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "COMPARE_NAMED_ALPHA", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5243:/ compute");
+ /*_.CLASS_ANY_MODULE_CONTEXT__V141*/ meltfptr[140] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ANY_MODULE_CONTEXT",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5381:/ compute");
+ /*_.CLASS_RUNNING_EXTENSION_MODULE_CONTEXT__V142*/ meltfptr[141] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_RUNNING_EXTENSION_MODULE_CONTEXT",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5771:/ compute");
+ /*_.CLASS_SELECTOR__V143*/ meltfptr[142] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SELECTOR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5783:/ compute");
+ /*_.CLASS_LOCATED__V144*/ meltfptr[143] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_LOCATED", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5791:/ compute");
+ /*_.CLASS_SOURCE_GENERATOR_DEVICE__V145*/ meltfptr[144] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_GENERATOR_DEVICE",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5852:/ compute");
+ /*_.CLASS_PRIMITIVE__V146*/ meltfptr[145] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_PRIMITIVE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5861:/ compute");
+ /*_.CLASS_SOURCE_DEFPRIMITIVE__V147*/ meltfptr[146] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFPRIMITIVE",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5864:/ compute");
+ /*_.DISCR_MAP_OBJECTS__V148*/ meltfptr[147] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_MAP_OBJECTS", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5931:/ compute");
+ /*_.CLASS_SOURCE_DEFCITERATOR__V149*/ meltfptr[148] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFCITERATOR",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5980:/ compute");
+ /*_.CLASS_CMATCHER__V150*/ meltfptr[149] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CMATCHER", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5988:/ compute");
+ /*_.CLASS_ANY_MATCHER__V151*/ meltfptr[150] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ANY_MATCHER", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:5995:/ compute");
+ /*_.CLASS_SOURCE_DEFCMATCHER__V152*/ meltfptr[151] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFCMATCHER",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6139:/ compute");
+ /*_.CLASS_NORMALIZATION_CONTEXT__V153*/ meltfptr[152] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NORMALIZATION_CONTEXT",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6140:/ compute");
+ /*_.CLASS_ENVIRONMENT__V154*/ meltfptr[153] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ENVIRONMENT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6147:/ compute");
+ /*_.CLASS_SOURCE__V155*/ meltfptr[154] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6152:/ compute");
+ /*_.CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE__V156*/
+    meltfptr[155] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6176:/ compute");
+ /*_.CLASS_SOURCE_COMMENT__V157*/ meltfptr[156] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_COMMENT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6198:/ compute");
+ /*_.NORMAL_EXP__V158*/ meltfptr[157] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "NORMAL_EXP", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6201:/ compute");
+ /*_.CLASS_NREP_ANYPROC__V159*/ meltfptr[158] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_ANYPROC", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6202:/ compute");
+ /*_.WRAP_NORMAL_LET1__V160*/ meltfptr[159] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "WRAP_NORMAL_LET1", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6211:/ compute");
+ /*_.CLASS_NREP_INITPROC__V161*/ meltfptr[160] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_INITPROC", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6236:/ compute");
+ /*_.CLASS_NREP_DATAHOOK__V162*/ meltfptr[161] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_DATAHOOK", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6456:/ compute");
+ /*_.COMPILE2OBJ_HOOK__V163*/ meltfptr[162] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "COMPILE2OBJ_HOOK", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6465:/ compute");
+ /*_.COMPILE2OBJ_PROCEDURE__V164*/ meltfptr[163] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "COMPILE2OBJ_PROCEDURE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6509:/ compute");
+ /*_.NORMAL_IMPORT__V165*/ meltfptr[164] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "NORMAL_IMPORT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6688:/ compute");
+ /*_.CLASS_HOOK_DESCRIPTOR__V166*/ meltfptr[165] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_HOOK_DESCRIPTOR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6701:/ compute");
+ /*_.SYMBOL_CNAME__V167*/ meltfptr[166] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "SYMBOL_CNAME", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6727:/ compute");
+ /*_.CLASS_SOURCE_CHEADER__V168*/ meltfptr[167] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_CHEADER", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6730:/ compute");
+ /*_.CLASS_SOURCE_CODE_STRING__V169*/ meltfptr[168] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_CODE_STRING",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6750:/ compute");
+ /*_.CLASS_SOURCE_CIMPLEMENT__V170*/ meltfptr[169] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_CIMPLEMENT",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6983:/ compute");
+ /*_.CLASS_MODULE_CONTEXT__V171*/ meltfptr[170] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_MODULE_CONTEXT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:6985:/ compute");
+ /*_.DISCR_MAP_STRINGS__V172*/ meltfptr[171] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_MAP_STRINGS", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7001:/ compute");
+ /*_.CREATE_NORMCONTEXT__V173*/ meltfptr[172] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CREATE_NORMCONTEXT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7016:/ compute");
+ /*_.INITIAL_ENVIRONMENT__V174*/ meltfptr[173] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "INITIAL_ENVIRONMENT", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7019:/ compute");
+ /*_.MACROEXPAND_TOPLEVEL_LIST__V175*/ meltfptr[174] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MACROEXPAND_TOPLEVEL_LIST",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  /*^compute */
+ /*_.MACROEXPAND_1__V176*/ meltfptr[175] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MACROEXPAND_1", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7031:/ compute");
+ /*_.COMPILE2OBJ_INITPROC__V177*/ meltfptr[176] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "COMPILE2OBJ_INITPROC", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7058:/ compute");
+ /*_.CLONE_SYMBOL__V178*/ meltfptr[177] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLONE_SYMBOL", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7059:/ compute");
+ /*_.CLASS_NORMAL_LET_BINDING__V179*/ meltfptr[178] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NORMAL_LET_BINDING",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7065:/ compute");
+ /*_.CLASS_NREP_LOCSYMOCC__V180*/ meltfptr[179] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_LOCSYMOCC", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7074:/ compute");
+ /*_.CLASS_NREP_RETURN__V181*/ meltfptr[180] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_RETURN", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7084:/ compute");
+ /*_.CLASS_NREP_CHUNK__V182*/ meltfptr[181] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NREP_CHUNK", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7102:/ compute");
+ /*_.CLASS_LET_BINDING__V183*/ meltfptr[182] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_LET_BINDING", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7108:/ compute");
+ /*_.CTYPE_CSTRING__V184*/ meltfptr[183] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CTYPE_CSTRING", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7133:/ compute");
+ /*_.CLASS_CTYPE_GTY__V185*/ meltfptr[184] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CTYPE_GTY", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7261:/ compute");
+ /*_.CREATE_NORMAL_EXTENDING_CONTEXT__V186*/ meltfptr[185] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CREATE_NORMAL_EXTENDING_CONTEXT",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7270:/ compute");
+ /*_.CLASS_SEXPR__V187*/ meltfptr[186] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SEXPR", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7418:/ compute");
+ /*_.COMPILE2OBJ_INITEXTENDPROC__V188*/ meltfptr[187] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "COMPILE2OBJ_INITEXTENDPROC",
+				   "warmelt-outobj", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7447:/ compute");
+ /*_.CLASS_LITERAL_VALUE__V189*/ meltfptr[188] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_LITERAL_VALUE", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7478:/ compute");
+ /*_.LIST_APPEND2LIST__V190*/ meltfptr[189] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "LIST_APPEND2LIST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-outobj.melt:7569:/ compute");
+ /*_.MULTIPLE_TO_LIST__V191*/ meltfptr[190] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MULTIPLE_TO_LIST", "warmelt-outobj",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
  /**COMMENT: before old getting imported values **/ ;
 
   /*^cond */

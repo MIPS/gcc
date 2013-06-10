@@ -42,7 +42,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
 
 /**** no MELT module variables ****/
 
-/*** 2 MELT called hook declarations ***/
+/*** 3 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t
@@ -51,13 +51,22 @@ melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdata,
 						 const char
 						 *meltinp1_MODULNAME);
 
-/*declare MELT called hook #1 HOOK_VALUE_EXPORTER **/
+/*declare MELT called hook #1 HOOK_SYMBOL_IMPORTER **/
+MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
+						      const char
+						      *meltinp0_SYMNAMESTR,
+						      const char
+						      *meltinp1_MODULENAMESTR,
+						      melt_ptr_t
+						      meltinp2_PARENV);
+
+/*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
 					       melt_ptr_t meltinp0_SYM,
 					       melt_ptr_t meltinp1_VAL,
 					       melt_ptr_t meltinp2_CONTENV);
 
-/*** end of 2 MELT called hook declarations ***/
+/*** end of 3 MELT called hook declarations ***/
 
 /*** 26 extra MELT c-headers ***/
 
@@ -21591,7 +21600,104 @@ melt_start_this_module (void *modargp_)
   /*^comment */
  /**COMMENT: before new getting imported values **/ ;
 
-  /*^comment */
+  MELT_LOCATION ("warmelt-hooks.melt:4:/ compute");
+ /*_.HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER__V6*/ meltfptr[5] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER",
+				   "warmelt-hooks", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:38:/ compute");
+ /*_.MELT_DEBUG_FUN__V7*/ meltfptr[6] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MELT_DEBUG_FUN", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:50:/ compute");
+ /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_DELAYED_QUEUE", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:52:/ compute");
+ /*_.DISCR_LIST__V9*/ meltfptr[8] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_LIST", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:66:/ compute");
+ /*_.CLASS_REFERENCE__V10*/ meltfptr[9] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_REFERENCE", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:273:/ compute");
+ /*_.LIST_EVERY__V11*/ meltfptr[10] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "LIST_EVERY", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:1720:/ compute");
+ /*_.INITIAL_SYSTEM_DATA__V12*/ meltfptr[11] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "INITIAL_SYSTEM_DATA", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  /*^compute */
+ /*_.CLASS_SYSTEM_DATA__V13*/ meltfptr[12] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SYSTEM_DATA", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:1741:/ compute");
+ /*_.CLASS_GCC_GIMPLE_PASS__V14*/ meltfptr[13] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_GCC_GIMPLE_PASS", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:1742:/ compute");
+ /*_.CLASS_GCC_PASS__V15*/ meltfptr[14] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_GCC_PASS", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:1858:/ compute");
+ /*_.CLASS_GCC_RTL_PASS__V16*/ meltfptr[15] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_GCC_RTL_PASS", "warmelt-hooks",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-hooks.melt:1975:/ compute");
+ /*_.CLASS_GCC_SIMPLE_IPA_PASS__V17*/ meltfptr[16] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_GCC_SIMPLE_IPA_PASS",
+				   "warmelt-hooks", /*_._PREVENV___V4*/
+				   meltfptr[3]);
  /**COMMENT: before old getting imported values **/ ;
 
   /*^cond */

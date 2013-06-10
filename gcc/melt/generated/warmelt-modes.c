@@ -42,7 +42,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
 
 /**** no MELT module variables ****/
 
-/*** 2 MELT called hook declarations ***/
+/*** 3 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t
@@ -51,13 +51,22 @@ melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdata,
 						 const char
 						 *meltinp1_MODULNAME);
 
-/*declare MELT called hook #1 HOOK_VALUE_EXPORTER **/
+/*declare MELT called hook #1 HOOK_SYMBOL_IMPORTER **/
+MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
+						      const char
+						      *meltinp0_SYMNAMESTR,
+						      const char
+						      *meltinp1_MODULENAMESTR,
+						      melt_ptr_t
+						      meltinp2_PARENV);
+
+/*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
 					       melt_ptr_t meltinp0_SYM,
 					       melt_ptr_t meltinp1_VAL,
 					       melt_ptr_t meltinp2_CONTENV);
 
-/*** end of 2 MELT called hook declarations ***/
+/*** end of 3 MELT called hook declarations ***/
 
 /*** no extra MELT c-headers ***/
 
@@ -19712,7 +19721,635 @@ melt_start_this_module (void *modargp_)
   /*^comment */
  /**COMMENT: before new getting imported values **/ ;
 
-  /*^comment */
+  MELT_LOCATION ("warmelt-modes.melt:3:/ compute");
+ /*_.HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER__V6*/ meltfptr[5] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:37:/ compute");
+ /*_.CLASS_MELT_MODE__V7*/ meltfptr[6] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_MELT_MODE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:38:/ compute");
+ /*_.INITIAL_SYSTEM_DATA__V8*/ meltfptr[7] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "INITIAL_SYSTEM_DATA", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  /*^compute */
+ /*_.CLASS_SYSTEM_DATA__V9*/ meltfptr[8] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SYSTEM_DATA", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:39:/ compute");
+ /*_.CLASS_NAMED__V10*/ meltfptr[9] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_NAMED", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:43:/ compute");
+ /*_.MELT_DEBUG_FUN__V11*/ meltfptr[10] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MELT_DEBUG_FUN", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:55:/ compute");
+ /*_.INITIAL_ENVIRONMENT__V12*/ meltfptr[11] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "INITIAL_ENVIRONMENT", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:56:/ compute");
+ /*_.DISCR_STRING__V13*/ meltfptr[12] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_STRING", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:63:/ compute");
+ /*_.CLASS_ENVIRONMENT__V14*/ meltfptr[13] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ENVIRONMENT", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:89:/ compute");
+ /*_.TRANSLATE_TO_C_MODULE_MELT_SOURCES__V15*/ meltfptr[14] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "TRANSLATE_TO_C_MODULE_MELT_SOURCES",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:186:/ compute");
+ /*_.DISCR_MAP_OBJECTS__V16*/ meltfptr[15] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_MAP_OBJECTS", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:200:/ compute");
+ /*_.FRESH_ENV__V17*/ meltfptr[16] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "FRESH_ENV", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:201:/ compute");
+ /*_.TRANSLATE_RUN_MELT_EXPRESSIONS__V18*/ meltfptr[17] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "TRANSLATE_RUN_MELT_EXPRESSIONS",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:202:/ compute");
+ /*_.CLASS_DEBUG_OUTPUT_INFORMATION__V19*/ meltfptr[18] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_DEBUG_OUTPUT_INFORMATION",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:205:/ compute");
+ /*_.DISCR_CONSTANT_INTEGER__V20*/ meltfptr[19] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_CONSTANT_INTEGER", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:209:/ compute");
+ /*_.ADD2OUT__V21*/ meltfptr[20] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "ADD2OUT", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:210:/ compute");
+ /*_.DBG_OUT__V22*/ meltfptr[21] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DBG_OUT", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:278:/ compute");
+ /*_.CLASS_PROPED__V23*/ meltfptr[22] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_PROPED", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:287:/ compute");
+ /*_.CLASS_INPUT_CHANNEL_HANDLER__V24*/ meltfptr[23] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_INPUT_CHANNEL_HANDLER",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:304:/ compute");
+ /*_.CLASS_REFERENCE__V25*/ meltfptr[24] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_REFERENCE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:323:/ compute");
+ /*_.CLASS_DEBUG_INFORMATION__V26*/ meltfptr[25] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_DEBUG_INFORMATION", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:359:/ compute");
+ /*_.DISCR_INTEGER__V27*/ meltfptr[26] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_INTEGER", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:389:/ compute");
+ /*_.CLASS_VALUE_BINDING__V28*/ meltfptr[27] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_VALUE_BINDING", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:396:/ compute");
+ /*_.PUT_ENV__V29*/ meltfptr[28] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "PUT_ENV", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:401:/ compute");
+ /*_.REGISTER_ALL_PASSES_END_FIRST__V30*/ meltfptr[29] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "REGISTER_ALL_PASSES_END_FIRST",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:412:/ compute");
+ /*_.AT_FINISH_UNIT_FIRST__V31*/ meltfptr[30] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "AT_FINISH_UNIT_FIRST", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:423:/ compute");
+ /*_.AT_EXIT_LAST__V32*/ meltfptr[31] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "AT_EXIT_LAST", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:496:/ compute");
+ /*_.CLASS_SYMBOL__V33*/ meltfptr[32] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SYMBOL", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:518:/ compute");
+ /*_.CLASS_FORMAL_BINDING__V34*/ meltfptr[33] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_FORMAL_BINDING", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:519:/ compute");
+ /*_.CLASS_SOURCE_DEFINITION__V35*/ meltfptr[34] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFINITION", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:520:/ compute");
+ /*_.CLASS_ANY_BINDING__V36*/ meltfptr[35] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ANY_BINDING", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:525:/ compute");
+ /*_.DISCR_LIST__V37*/ meltfptr[36] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_LIST", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:537:/ compute");
+ /*_.LIST_EVERY__V38*/ meltfptr[37] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "LIST_EVERY", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:545:/ compute");
+ /*_.CLASS_SOURCE_DEFCLASS__V39*/ meltfptr[38] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFCLASS", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:549:/ compute");
+ /*_.CLASS_SEXPR__V40*/ meltfptr[39] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SEXPR", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:553:/ compute");
+ /*_.CLASS_CLASS_BINDING__V41*/ meltfptr[40] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CLASS_BINDING", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:556:/ compute");
+ /*_.CLASS_CLASS__V42*/ meltfptr[41] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CLASS", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:565:/ compute");
+ /*_.CLASS_FIELD__V43*/ meltfptr[42] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_FIELD", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:588:/ compute");
+ /*_.CLASS_SOURCE_DEFSELECTOR__V44*/ meltfptr[43] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFSELECTOR",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:604:/ compute");
+ /*_.CLASS_SOURCE_DEFINSTANCE__V45*/ meltfptr[44] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFINSTANCE",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:621:/ compute");
+ /*_.CLASS_SOURCE_DEFPRIMITIVE__V46*/ meltfptr[45] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFPRIMITIVE",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:639:/ compute");
+ /*_.CLASS_SOURCE_DEFUN__V47*/ meltfptr[46] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFUN", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:657:/ compute");
+ /*_.CLASS_SOURCE_DEFCITERATOR__V48*/ meltfptr[47] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFCITERATOR",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:675:/ compute");
+ /*_.CLASS_SOURCE_DEFCMATCHER__V49*/ meltfptr[48] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFCMATCHER",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:693:/ compute");
+ /*_.CLASS_SOURCE_EXPORT_PATMACRO__V50*/ meltfptr[49] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_EXPORT_PATMACRO",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:707:/ compute");
+ /*_.CLASS_SOURCE_EXPORT_MACRO__V51*/ meltfptr[50] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_EXPORT_MACRO",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:721:/ compute");
+ /*_.CLASS_SOURCE_DEFHOOK__V52*/ meltfptr[51] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFHOOK", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:756:/ compute");
+ /*_.CLASS_LOCATED__V53*/ meltfptr[52] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_LOCATED", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:787:/ compute");
+ /*_.CLASS_QUASI_CTYPE__V54*/ meltfptr[53] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_QUASI_CTYPE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:935:/ compute");
+ /*_.LIST_TO_MULTIPLE__V55*/ meltfptr[54] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "LIST_TO_MULTIPLE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  /*^compute */
+ /*_.DISCR_MULTIPLE__V56*/ meltfptr[55] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_MULTIPLE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:936:/ compute");
+ /*_.COMPARE_NAMED_ALPHA__V57*/ meltfptr[56] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "COMPARE_NAMED_ALPHA", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1232:/ compute");
+ /*_.CLASS_SOURCE_DEFINITION_FORMAL__V58*/ meltfptr[57] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_SOURCE_DEFINITION_FORMAL",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1398:/ compute");
+ /*_.CLASS_CITERATOR__V59*/ meltfptr[58] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CITERATOR", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1457:/ compute");
+ /*_.CLASS_ANY_MATCHER__V60*/ meltfptr[59] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ANY_MATCHER", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1583:/ compute");
+ /*_.DISCR_STRBUF__V61*/ meltfptr[60] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_STRBUF", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1721:/ compute");
+ /*_.MELT_MODE_REFERENCE__V62*/ meltfptr[61] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MELT_MODE_REFERENCE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1731:/ compute");
+ /*_.LIST_APPEND2LIST__V63*/ meltfptr[62] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "LIST_APPEND2LIST", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1734:/ compute");
+ /*_.MACROEXPAND_TOPLEVEL_LIST__V64*/ meltfptr[63] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MACROEXPAND_TOPLEVEL_LIST",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  /*^compute */
+ /*_.MACROEXPAND_1__V65*/ meltfptr[64] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "MACROEXPAND_1", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1774:/ compute");
+ /*_.FIND_ENV__V66*/ meltfptr[65] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "FIND_ENV", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1899:/ compute");
+ /*_.CLASS_VALUE_DESCRIPTOR__V67*/ meltfptr[66] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_VALUE_DESCRIPTOR", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:1923:/ compute");
+ /*_.CLASS_CTYPE_GTY__V68*/ meltfptr[67] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CTYPE_GTY", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:2039:/ compute");
+ /*_.CLASS_CTYPE__V69*/ meltfptr[68] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CTYPE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:2098:/ compute");
+ /*_.CLASS_VARISIZED_VALUE_DESCRIPTOR__V70*/ meltfptr[69] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_VARISIZED_VALUE_DESCRIPTOR",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:3202:/ compute");
+ /*_.SOME_STRING_VALUE__V71*/ meltfptr[70] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "SOME_STRING_VALUE", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:3208:/ compute");
+ /*_.CLASS_DISCRIMINANT__V72*/ meltfptr[71] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_DISCRIMINANT", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:3860:/ compute");
+ /*_.CLASS_HOOK_DESCRIPTOR__V73*/ meltfptr[72] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_HOOK_DESCRIPTOR", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4012:/ compute");
+ /*_.RETRIEVE_DICTIONNARY_CTYPE_GTY__V74*/ meltfptr[73] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "RETRIEVE_DICTIONNARY_CTYPE_GTY",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4014:/ compute");
+ /*_.RETRIEVE_DICTIONNARY_CTYPE__V75*/ meltfptr[74] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "RETRIEVE_DICTIONNARY_CTYPE",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4021:/ compute");
+ /*_.GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT__V76*/ meltfptr[75] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4042:/ compute");
+ /*_.RETRIEVE_VALUE_DESCRIPTOR_LIST__V77*/ meltfptr[76] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "RETRIEVE_VALUE_DESCRIPTOR_LIST",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4423:/ compute");
+ /*_.COMPILE_LIST_SEXPR__V78*/ meltfptr[77] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "COMPILE_LIST_SEXPR", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4646:/ compute");
+ /*_.DISCR_BUCKET_LONGS__V79*/ meltfptr[78] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "DISCR_BUCKET_LONGS", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4686:/ compute");
+ /*_.CLASS_ALARM_HANDLER__V80*/ meltfptr[79] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_ALARM_HANDLER", "warmelt-modes",
+				   /*_._PREVENV___V4*/ meltfptr[3]);
+  MELT_LOCATION ("warmelt-modes.melt:4814:/ compute");
+ /*_.CLASS_CHILD_PROCESS_HANDLER__V81*/ meltfptr[80] =
+    /*hookcall */
+    melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t)
+				   ((melt_ptr_t)
+				    (MELT_PREDEF (HOOK_SYMBOL_IMPORTER))),
+				   "CLASS_CHILD_PROCESS_HANDLER",
+				   "warmelt-modes", /*_._PREVENV___V4*/
+				   meltfptr[3]);
  /**COMMENT: before old getting imported values **/ ;
 
   /*^cond */
