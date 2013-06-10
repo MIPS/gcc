@@ -6998,7 +6998,7 @@ initialize_module_meltdata_WARMELTmiOUTOBJ (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -1786);
+		  iniframp__->mcfr_nbvar == /*minihash */ -3104);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -17321,7 +17321,7 @@ initialize_module_meltdata_WARMELTmiOUTOBJ (meltinitial_frame_t * iniframp__,
        meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_728__MELT_RUN_EXTENSION.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_PRIMITIVE))));
-  meltcdat->dobj_728__MELT_RUN_EXTENSION.obj_hash = 202734826;
+  meltcdat->dobj_728__MELT_RUN_EXTENSION.obj_hash = 443833647;
   meltcdat->dobj_728__MELT_RUN_EXTENSION.obj_len = 5;
 
   /*inimult dtup_729_syMELT_RUN_EXTENSION */
@@ -17388,7 +17388,7 @@ initialize_module_meltdata_WARMELTmiOUTOBJ (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_733.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_733.obj_num = 0;
-  meltcdat->dobj_733.obj_hash = 164181045;
+  meltcdat->dobj_733.obj_hash = 809302402;
   meltcdat->dobj_733.obj_len = 2;
 
 
@@ -17441,7 +17441,7 @@ initialize_module_meltdata_WARMELTmiOUTOBJ (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_736.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_736.obj_num = 1;
-  meltcdat->dobj_736.obj_hash = 359835600;
+  meltcdat->dobj_736.obj_hash = 221489153;
   meltcdat->dobj_736.obj_len = 2;
 
 
@@ -17495,7 +17495,7 @@ initialize_module_meltdata_WARMELTmiOUTOBJ (meltinitial_frame_t * iniframp__,
   meltcdat->dobj_739.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_FORMAL_BINDING))));
   meltcdat->dobj_739.obj_num = 2;
-  meltcdat->dobj_739.obj_hash = 907310773;
+  meltcdat->dobj_739.obj_hash = 546952625;
   meltcdat->dobj_739.obj_len = 2;
 
 
@@ -18726,14 +18726,14 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 1786*/
+/* declstructinit initial routine melt_start_this_module minihash 3104*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
   ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar =
-    /*minihash */ -1786;
+    /*minihash */ -3104;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__WARMELTmiOUTOBJ__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -55037,7 +55037,7 @@ meltmod__WARMELTmiOUTOBJ__forward_or_mark_module_start_frame (struct
   struct melt_initial_frame_st *meltframptr_ =
     (struct melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -1786);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -3104);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf

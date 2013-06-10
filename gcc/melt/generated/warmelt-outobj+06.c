@@ -30866,7 +30866,7 @@ meltlab_endgetargs:;
       meltgc_new_closure ((meltobject_ptr_t)
 			  (((melt_ptr_t) (MELT_PREDEF (DISCR_CLOSURE)))),
 			  (meltroutine_ptr_t) (( /*!konst_18 */ meltfrout->
-						tabval[18])), (1));
+						tabval[18])), (2));
     ;
     /*^putclosedv */
     /*putclosv */
@@ -30879,6 +30879,19 @@ meltlab_endgetargs:;
 		    melt_closure_size ((melt_ptr_t)
 				       ( /*_.LAMBDA___V134*/ meltfptr[133])));
     ((meltclosure_ptr_t) /*_.LAMBDA___V134*/ meltfptr[133])->tabval[0] =
+      (melt_ptr_t) ( /*_.INIENV__V6*/ meltfptr[5]);
+    ;
+    /*^putclosedv */
+    /*putclosv */
+    melt_assertmsg ("putclosv checkclo",
+		    melt_magic_discr ((melt_ptr_t)
+				      ( /*_.LAMBDA___V134*/ meltfptr[133])) ==
+		    MELTOBMAG_CLOSURE);
+    melt_assertmsg ("putclosv checkoff", 1 >= 0
+		    && 1 <
+		    melt_closure_size ((melt_ptr_t)
+				       ( /*_.LAMBDA___V134*/ meltfptr[133])));
+    ((meltclosure_ptr_t) /*_.LAMBDA___V134*/ meltfptr[133])->tabval[1] =
       (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]);
     ;
     /*_.LAMBDA___V133*/ meltfptr[125] = /*_.LAMBDA___V134*/ meltfptr[133];;
@@ -39499,19 +39512,22 @@ meltlab_endgetargs:;
     /*^apply */
     /*apply */
     {
-      union meltparam_un argtab[2];
+      union meltparam_un argtab[3];
       memset (&argtab, 0, sizeof (argtab));
       /*^apply.arg */
       argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & ( /*~NCX */ meltfclos->tabval[0]);
+	(melt_ptr_t *) & ( /*~INIENV */ meltfclos->tabval[0]);
       /*^apply.arg */
-      argtab[1].meltbp_aptr = /*nil */ (melt_ptr_t *) NULL;
+      argtab[1].meltbp_aptr =
+	(melt_ptr_t *) & ( /*~NCX */ meltfclos->tabval[1]);
+      /*^apply.arg */
+      argtab[2].meltbp_aptr = /*nil */ (melt_ptr_t *) NULL;
       /*_.RESIMP__V8*/ meltfptr[4] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!NORMAL_IMPORT */ meltfrout->tabval[1])),
 		    (melt_ptr_t) ( /*_.CURIMP__V2*/ meltfptr[1]),
-		    (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		    (union meltparam_un *) 0);
+		    (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
+		    argtab, "", (union meltparam_un *) 0);
     }
     ;
 

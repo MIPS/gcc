@@ -14167,8 +14167,7 @@ meltlab_endgetargs:;
 \n\t       (void) meltxargdescr_\t;\
 \n\t       (void) meltxargtab_\t;\
 \n\t       (void) meltxresdescr_\t;\
-\n\t       (void) meltxresta\
-b_\t;\n\t       ";
+\n\t       (void) meltxrestab_\t;\n\t       ";
 			/*_.ADD2OUT__V38*/ meltfptr[32] =
 			  melt_apply ((meltclosure_ptr_t)
 				      (( /*!ADD2OUT */ meltfrout->tabval[6])),
