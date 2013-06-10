@@ -1750,21 +1750,19 @@
 		    ))
 	      (when (>i (list_length importvalues) 0)
 		;; 
+		(debug "compile2obj_initproc importexprs=" importexprs)
 		(append_commentconst oiniprolog "before new getting imported values")
-		(let ( (importvaltup (list_to_multiple importvalues discr_multiple))
-		       (importloctup (list_to_multiple limplocv discr_multiple))
-		      )
-		  (debug "compile2obj_initproc importvaltup=" importvaltup 
-			 "\n importloctup=" importloctup)
-		  (foreach_in_multiple 
-		   (importvaltup)
-		   (curimpval :long impix)
-		   (let ( (curimploc (multiple_nth importloctup impix))
+		(let ( (:long nbimportexprs (multiple_length importexprs))
+		       (oimportup (make_multiple discr_multiple nbimportexprs))
+		       )
+		  (foreach_in_multiple
+		   (importexprs)
+		   (curimpexp :long impix)
+		   (debug "compile2obj_initproc curimpexp=" curimpexp " impix#" impix)
+		   (let ( (ocurimp (compile_obj curimpexp gcx))
 			  )
-		     (debug "compile2obj_initproc impix#" impix " curimpval=" curimpval 
-			    "\n.. curimploc=" curimploc)
-		     (assert_msg "check curimpval" (is_a curimpval class_nrep_importedval))
-		     (assert_msg "check curimploc" (is_a curimploc class_objlocv))
+		     (debug "compile2obj_initproc ocurimp=" ocurimp)
+		     (list_append oiniprolog ocurimp)
 		  )))
 		;;
 		(append_commentconst oiniprolog "before old getting imported values")
@@ -1895,6 +1893,7 @@
    (assert_msg "check compicache" (is_mapobject compicache))
    (let ( (locmap (make_mapobject discr_map_objects 50))
 	  (importvalues (get_field :ninit_imports ipro))
+	  (importexprs (get_field :ninit_importexprs ipro))
 	  (oiniprolog (make_list discr_list))
 	  (oinibody (make_list discr_list))
 	  (modenv (get_field :ninitextend_modenv ipro))
@@ -1986,6 +1985,11 @@
      (append_commentconst oinibody "start of oinibody")
      (debug "compile2obj_initextendproc ocurenvboxloc=" ocurenvboxloc "\n inidefbinds=" inidefbinds
 	    "\n modenv=" modenv)
+     ;; no imports
+     (debug "compile2obj_initextendproc importvalues=" importvalues "\n.. importexprs=" importexprs)
+     (assert_msg "check empty importvalues" (==i 0 (list_length importvalues)))
+     (assert_msg "check empty importexprs" (==i 0 (multiple_length importexprs)))
+     ;;
      ;; reserve location for defined values
      (foreach_in_list
       (inidefbinds)
