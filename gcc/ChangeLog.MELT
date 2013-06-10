@@ -2,6 +2,11 @@
 
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_initial_system_data): Rename
+	sysdata_value_importer as sysdata_obsolete3.
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base.c: Regenerate.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.

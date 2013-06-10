@@ -404,7 +404,7 @@ don't instanciate this class!}#
 	   sysdata_macro_exporter	;closure to export a macro
 	   sysdata_symboldict 		; stringmap for symbols
 	   sysdata_keywdict 		;stringmap for keywords
-	   sysdata_value_importer	;OBSOLETE closure to import a value
+	   sysdata_obsolete3
 	   sysdata_pass_dict		;stringmap for passes
 	   sysdata_exit_finalizer       ;;closure to be called after the passes, at finalization
 	   sysdata_meltattr_definer	;;closure to be called for melt attributes
@@ -3328,7 +3328,6 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_macro_exporter initmacro_exporter ;macro exporter in module
   :sysdata_symboldict  (make_mapstring discr_map_strings 600) ;stringmap for symbols
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
-  :sysdata_value_importer () ;obsolete
   :sysdata_pass_dict (make_mapstring discr_map_strings 100) ;stringmap for gcc passes
   :sysdata_exit_finalizer init_exitfinalizer
   :sysdata_patmacro_exporter initpatmacro_exporter ; patmacro exporter in module
