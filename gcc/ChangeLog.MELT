@@ -2,6 +2,15 @@
 
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{use the hook_patmacro_exporter}}
+	* melt/warmelt-normal.melt: Re-indented some classes.
+	(normal_patmacro_exporter): Remove.
+	(normal_exported_patmacro): Remove nexp formal. Emit call to the
+	hook_patmacro_exporter hook.
+	(normexp_export_patmacro): Improve accordingly.
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.

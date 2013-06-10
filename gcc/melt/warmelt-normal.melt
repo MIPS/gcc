@@ -652,282 +652,282 @@ procedure in a module, defined with $DEFHOOK. }#
   :fields ( nstr_string			;the string
 	    ))
 
-  ;; normal "static" boxed integer
-  (defclass class_nrep_databoxedinteger
-    :super class_nrep_discriminated_data
-    :fields ( nboxint_num		;the numerical integer
-	      ))
+;; normal "static" boxed integer
+(defclass class_nrep_databoxedinteger
+  :super class_nrep_discriminated_data
+  :fields ( nboxint_num			;the numerical integer
+	    ))
 
-  ;; normal "static" tuple
-  (defclass class_nrep_datatuple
-    :super class_nrep_discriminated_data
-    :fields ( ntup_comp	    ;the tuple of component values expressions
-	      ))
+;; normal "static" tuple
+(defclass class_nrep_datatuple
+  :super class_nrep_discriminated_data
+  :fields ( ntup_comp	    ;the tuple of component values expressions
+	    ))
 
-  ;; normal interned static symbol
-  (defclass class_nrep_datasymbol
-    :super class_nrep_datainstance
-    :fields ( ndsy_namestr
-	      ))
+;; normal interned static symbol
+(defclass class_nrep_datasymbol
+  :super class_nrep_datainstance
+  :fields ( ndsy_namestr
+	    ))
 
-  ;; normal interned static keyword
-  (defclass class_nrep_datakeyword
-    :super class_nrep_datasymbol
-    :fields ( 
-	     ))
+;; normal interned static keyword
+(defclass class_nrep_datakeyword
+  :super class_nrep_datasymbol
+  :fields ( 
+	   ))
 
-  ;; normal static routine data
-  (defclass class_nrep_dataroutine
-    :super class_nrep_discriminated_data
-    :fields (ndrou_proc			;associated procedure
-	     ))
+;; normal static routine data
+(defclass class_nrep_dataroutine
+  :super class_nrep_discriminated_data
+  :fields (ndrou_proc			;associated procedure
+	   ))
 
-  ;; normal static hook data
-  (defclass class_nrep_datahook
-    :super class_nrep_discriminated_data
-    :fields (ndhook_proc	   ;associated procedure
-	     ndhook_data	   ;the data
-	     ndhook_closv	   ;tuple of closed values
-	     ndhook_predef	   ;the predefined, if any
-	     ndhook_modvarbind	   ;the module variable binding if any
-	     ))
+;; normal static hook data
+(defclass class_nrep_datahook
+  :super class_nrep_discriminated_data
+  :fields (ndhook_proc		   ;associated procedure
+	   ndhook_data		   ;the data
+	   ndhook_closv		   ;tuple of closed values
+	   ndhook_predef	   ;the predefined, if any
+	   ndhook_modvarbind	   ;the module variable binding if any
+	   ))
 
-  ;; normal static closure data
-  (defclass class_nrep_dataclosure
-    :super class_nrep_discriminated_data
-    :fields (ndclo_proc			;associated procedure
-	     ndclo_closv		;tuple of closed values
-	     ))
+;; normal static closure data
+(defclass class_nrep_dataclosure
+  :super class_nrep_discriminated_data
+  :fields (ndclo_proc			;associated procedure
+	   ndclo_closv			;tuple of closed values
+	   ))
 
-  ;; normal static start value
-  ;; obtained from an initial binding, imported from parent environment
-  (defclass class_nrep_importedval
-    :super class_nrep_simple
-    :fields (nimport_symb		;the symbol
-	     nimport_sydata		;the symbol data
-	     ))
+;; normal static start value
+;; obtained from an initial binding, imported from parent environment
+(defclass class_nrep_importedval
+  :super class_nrep_simple
+  :fields (nimport_symb			;the symbol
+	   nimport_sydata		;the symbol data
+	   ))
 
-  ;; normal literal value
-  (defclass class_nrep_literalvalue
-    :super class_nrep_simple
-    :fields (nlitval_regval
-	     ))
+;; normal literal value
+(defclass class_nrep_literalvalue
+  :super class_nrep_simple
+  :fields (nlitval_regval
+	   ))
 
-  ;; normal literal named values
-  (defclass class_nrep_literalnamedvalue
-    :super class_nrep_literalvalue
-    :fields (nlitval_symbol
-	     ))
+;; normal literal named values
+(defclass class_nrep_literalnamedvalue
+  :super class_nrep_literalvalue
+  :fields (nlitval_symbol
+	   ))
 
-  ;; normal static variable occurrence
-  (defclass class_nrep_modulevarocc
-    :super class_nrep_simple
-    :fields (nmodvar_bind ;the normal variable binding, containing the index
-	     ))
+;; normal static variable occurrence
+(defclass class_nrep_modulevarocc
+  :super class_nrep_simple
+  :fields (nmodvar_bind ;the normal variable binding, containing the index
+	   ))
 
-  ;; normal  occurrence of a symbol 
-  (defclass class_nrep_symocc
-    :super class_nrep_simple
-    :fields (nocc_symb
-	     nocc_ctyp	      ;the ctype of the symbol, eg ctype_value
-	     nocc_bind	      ;the binding of the symbol
-	     ))
+;; normal  occurrence of a symbol 
+(defclass class_nrep_symocc
+  :super class_nrep_simple
+  :fields (nocc_symb
+	   nocc_ctyp	      ;the ctype of the symbol, eg ctype_value
+	   nocc_bind	      ;the binding of the symbol
+	   ))
 
-  ;; normal local occurrence of a symbol
-  (defclass class_nrep_locsymocc
-    :super class_nrep_symocc
-    :fields (
-	     ))
+;; normal local occurrence of a symbol
+(defclass class_nrep_locsymocc
+  :super class_nrep_symocc
+  :fields (
+	   ))
 
-  ;; normal closed occurrence of a symbol
-  (defclass class_nrep_closedocc
-    :super class_nrep_symocc
-    :fields (ncloc_procs		;list of enclosing procedures
-	     ))
+;; normal closed occurrence of a symbol
+(defclass class_nrep_closedocc
+  :super class_nrep_symocc
+  :fields (ncloc_procs			;list of enclosing procedures
+	   ))
 
-  ;; normal constant occurrence of a symbol
-  (defclass class_nrep_constocc
-    :super class_nrep_closedocc
-    )
+;; normal constant occurrence of a symbol
+(defclass class_nrep_constocc
+  :super class_nrep_closedocc
+  )
 
 ;;; normal quasi constants for current_module_environment_reference &
 ;;; parent_module_environment & constants
-  (defclass class_nrep_quasiconstant
-    :super class_nrep_simple
-    :fields (nconst_sval      ;source value
-	     nconst_proc      ;containing proc
-	     nconst_data      ;normalized data or stuff inside iniproc
-	     ))
+(defclass class_nrep_quasiconstant
+  :super class_nrep_simple
+  :fields (nconst_sval	      ;source value
+	   nconst_proc	      ;containing proc
+	   nconst_data	      ;normalized data or stuff inside iniproc
+	   ))
 
-  ;; normal constant (.e.g a quoted symbol, a keyword, a define-d value ...)
-  (defclass class_nrep_constant
-    :super class_nrep_quasiconstant
-    :fields (
-	     ))
+;; normal constant (.e.g a quoted symbol, a keyword, a define-d value ...)
+(defclass class_nrep_constant
+  :super class_nrep_quasiconstant
+  :fields (
+	   ))
 
-  (defclass class_nrep_defined_constant
-    :super class_nrep_quasiconstant
-    :fields (nconst_defbind
-	     )
-    )
+(defclass class_nrep_defined_constant
+  :super class_nrep_quasiconstant
+  :fields (nconst_defbind
+	   )
+  )
 
-  ;; noormal current_module_environment_reference quasiconst
-  (defclass class_nrep_quasiconst_current_module_environment_reference
-    :super class_nrep_quasiconstant
-    :fields ( nqcmec_comment
-	      ))
+;; noormal current_module_environment_reference quasiconst
+(defclass class_nrep_quasiconst_current_module_environment_reference
+  :super class_nrep_quasiconstant
+  :fields ( nqcmec_comment
+	    ))
 
 
-  ;; normal current_module_environment_reference quasidata
-  (defclass class_nrep_quasidata_current_module_environment_reference
-    :super class_nrep_quasidata
-    :fields (
-	     ))
+;; normal current_module_environment_reference quasidata
+(defclass class_nrep_quasidata_current_module_environment_reference
+  :super class_nrep_quasidata
+  :fields (
+	   ))
 
-  ;; noormal parent_module_environment quasiconst
-  (defclass class_nrep_quasiconst_parent_module_environment
-    :super class_nrep_quasiconstant
-    :fields (
-	     ))
+;; noormal parent_module_environment quasiconst
+(defclass class_nrep_quasiconst_parent_module_environment
+  :super class_nrep_quasiconstant
+  :fields (
+	   ))
 
-  ;; normal parent_module_environment quasidata
-  (defclass class_nrep_quasidata_parent_module_environment
-    :super class_nrep_quasidata
-    :fields (
-	     ))
+;; normal parent_module_environment quasidata
+(defclass class_nrep_quasidata_parent_module_environment
+  :super class_nrep_quasidata
+  :fields (
+	   ))
 
-  ;; data field accessor (mostly used for defclass initialization) this
-  ;; translates into melt_field_object(<obj>,<off>) of obj is not a
-  ;; datainstance and directly to the field if it is a datainstance
-  (defclass class_nrep_fieldacc
-    :super class_nrep_expression
-    :fields (naccf_obj		  ;data for the object to be accessed 
-	     naccf_fld		  ;rank or field to be accessoed
-	     ))
+;; data field accessor (mostly used for defclass initialization) this
+;; translates into melt_field_object(<obj>,<off>) of obj is not a
+;; datainstance and directly to the field if it is a datainstance
+(defclass class_nrep_fieldacc
+  :super class_nrep_expression
+  :fields (naccf_obj		  ;data for the object to be accessed 
+	   naccf_fld		  ;rank or field to be accessoed
+	   ))
 
 ;;; data multiple accessor (mostly used for defclass initialization)
-  ;; this translates into melt_multiple_nth(<mul>,<ix>) if mul is not
-  ;; a datatuple and directly to the component if it is a datatuple
-  (defclass class_nrep_multacc
-    :super class_nrep_expression
-    :fields (naccm_mul	       ;data for the multiple to be accessed
-	     naccm_ix	       ;index to be accessed (a boxed integer)
-	     ))
+;; this translates into melt_multiple_nth(<mul>,<ix>) if mul is not
+;; a datatuple and directly to the component if it is a datatuple
+(defclass class_nrep_multacc
+  :super class_nrep_expression
+  :fields (naccm_mul	       ;data for the multiple to be accessed
+	   naccm_ix	       ;index to be accessed (a boxed integer)
+	   ))
 
-  ;; normalized store predefined
-  (defclass class_nrep_store_predefined
-    :super class_nrep_expression
-    :fields (nstpd_predef
-	     nstpd_value
-	     ))
+;; normalized store predefined
+(defclass class_nrep_store_predefined
+  :super class_nrep_expression
+  :fields (nstpd_predef
+	   nstpd_value
+	   ))
 
-  ;; normalized update current module environment box
-  (defclass class_nrep_update_current_module_environment_reference
-    :super class_nrep_expression
-    :fields (
-	     nucmeb_expr		;the normalized expression
+;; normalized update current module environment box
+(defclass class_nrep_update_current_module_environment_reference
+  :super class_nrep_expression
+  :fields (
+	   nucmeb_expr		;the normalized expression
 					;computing the box
-	     ncumeb_comment		;optional comment
-	     ))
+	   ncumeb_comment		;optional comment
+	   ))
 
-  ;; normalized check of current running module environment box
-  (defclass class_nrep_check_running_module_environment_container
-    :super class_nrep_expression
-    :fields (nchrumod_comment		;optional comment
-	     ))
+;; normalized check of current running module environment box
+(defclass class_nrep_check_running_module_environment_container
+  :super class_nrep_expression
+  :fields (nchrumod_comment		;optional comment
+	   ))
 
 ;;; export all the normalized representations classes
-  (export_class ;; normal representations classes in alphabetical order
+(export_class ;; normal representations classes in alphabetical order
 
-   class_normal_constructed_instance_binding
-   class_normal_constructed_lambda_binding
-   class_normal_constructed_list_binding
-   class_normal_constructed_pair_binding
-   class_normal_constructed_tuple_binding
-   class_normal_constructor_binding
-   class_normal_magic_binding
-   class_normal_module_variable_binding
-   class_nrep
-   class_nrep_again
-   class_nrep_anyproc
-   class_nrep_apply
-   class_nrep_bound_data
-   class_nrep_check_running_module_environment_container
-   class_nrep_checksignal
-   class_nrep_chunk
-   class_nrep_citeration
-   class_nrep_closedocc
-   class_nrep_comment 
-   class_nrep_constant
-   class_nrep_constocc
-   class_nrep_consume_variadic
-   class_nrep_cppif
-   class_nrep_databoxedinteger
-   class_nrep_dataclosure
-   class_nrep_datahook
-   class_nrep_datainstance
-   class_nrep_datakeyword
-   class_nrep_dataroutine
-   class_nrep_datastring
-   class_nrep_datasymbol
-   class_nrep_datatuple
-   class_nrep_defined_constant
-   class_nrep_defunroutproc
-   class_nrep_discriminated_data
-   class_nrep_exit
-   class_nrep_expression
-   class_nrep_fieldacc
-   class_nrep_fieldassign
-   class_nrep_forever
-   class_nrep_hookproc
-   class_nrep_hook_call
-   class_nrep_if
-   class_nrep_ifcommon
-   class_nrep_ifisa
-   class_nrep_ifsame
-   class_nrep_iftestvalue
-   class_nrep_iftuplesized
-   class_nrep_ifvariadic
-   class_nrep_importedval
-   class_nrep_initextendproc
-   class_nrep_initproc
-   class_nrep_instance
-   class_nrep_lambda
-   class_nrep_lambdaroutproc
-   class_nrep_let
-   class_nrep_letrec
-   class_nrep_literalnamedvalue
-   class_nrep_literalvalue
-   class_nrep_locsymocc
-   class_nrep_msend
-   class_nrep_multacc
-   class_nrep_multiapply
-   class_nrep_multimsend
-   class_nrep_nil
-   class_nrep_predef
-   class_nrep_progn
-   class_nrep_putmodulevar
-   class_nrep_quasiconst_current_module_environment_reference
-   class_nrep_quasiconst_parent_module_environment
-   class_nrep_quasiconstant
-   class_nrep_quasidata
-   class_nrep_quasidata_current_module_environment_reference
-   class_nrep_quasidata_parent_module_environment
-   class_nrep_return
-   class_nrep_routproc
-   class_nrep_setq
-   class_nrep_simple
-   class_nrep_modulevarocc
-   class_nrep_store_predefined
-   class_nrep_symocc
-   class_nrep_typed_expression
-   class_nrep_typed_expression_with_arguments
-   class_nrep_unsafe_get_field
-   class_nrep_unsafe_nth_component
-   class_nrep_unsafe_put_fields
-   class_nrep_update_current_module_environment_reference
-   class_nrep_variadic_argument
-   )					;end of export normal classes
+ class_normal_constructed_instance_binding
+ class_normal_constructed_lambda_binding
+ class_normal_constructed_list_binding
+ class_normal_constructed_pair_binding
+ class_normal_constructed_tuple_binding
+ class_normal_constructor_binding
+ class_normal_magic_binding
+ class_normal_module_variable_binding
+ class_nrep
+ class_nrep_again
+ class_nrep_anyproc
+ class_nrep_apply
+ class_nrep_bound_data
+ class_nrep_check_running_module_environment_container
+ class_nrep_checksignal
+ class_nrep_chunk
+ class_nrep_citeration
+ class_nrep_closedocc
+ class_nrep_comment 
+ class_nrep_constant
+ class_nrep_constocc
+ class_nrep_consume_variadic
+ class_nrep_cppif
+ class_nrep_databoxedinteger
+ class_nrep_dataclosure
+ class_nrep_datahook
+ class_nrep_datainstance
+ class_nrep_datakeyword
+ class_nrep_dataroutine
+ class_nrep_datastring
+ class_nrep_datasymbol
+ class_nrep_datatuple
+ class_nrep_defined_constant
+ class_nrep_defunroutproc
+ class_nrep_discriminated_data
+ class_nrep_exit
+ class_nrep_expression
+ class_nrep_fieldacc
+ class_nrep_fieldassign
+ class_nrep_forever
+ class_nrep_hookproc
+ class_nrep_hook_call
+ class_nrep_if
+ class_nrep_ifcommon
+ class_nrep_ifisa
+ class_nrep_ifsame
+ class_nrep_iftestvalue
+ class_nrep_iftuplesized
+ class_nrep_ifvariadic
+ class_nrep_importedval
+ class_nrep_initextendproc
+ class_nrep_initproc
+ class_nrep_instance
+ class_nrep_lambda
+ class_nrep_lambdaroutproc
+ class_nrep_let
+ class_nrep_letrec
+ class_nrep_literalnamedvalue
+ class_nrep_literalvalue
+ class_nrep_locsymocc
+ class_nrep_msend
+ class_nrep_multacc
+ class_nrep_multiapply
+ class_nrep_multimsend
+ class_nrep_nil
+ class_nrep_predef
+ class_nrep_progn
+ class_nrep_putmodulevar
+ class_nrep_quasiconst_current_module_environment_reference
+ class_nrep_quasiconst_parent_module_environment
+ class_nrep_quasiconstant
+ class_nrep_quasidata
+ class_nrep_quasidata_current_module_environment_reference
+ class_nrep_quasidata_parent_module_environment
+ class_nrep_return
+ class_nrep_routproc
+ class_nrep_setq
+ class_nrep_simple
+ class_nrep_modulevarocc
+ class_nrep_store_predefined
+ class_nrep_symocc
+ class_nrep_typed_expression
+ class_nrep_typed_expression_with_arguments
+ class_nrep_unsafe_get_field
+ class_nrep_unsafe_nth_component
+ class_nrep_unsafe_put_fields
+ class_nrep_update_current_module_environment_reference
+ class_nrep_variadic_argument
+ )					;end of export normal classes
 
 
 
@@ -7998,36 +7998,6 @@ source location.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; internal function giving a normalized cloned symbol for the patmacro exporter
-;;; return only one result, and update the bindslist
-(defun normal_patmacro_exporter (env ncx psloc bindslist)
-  (assert_msg "check env" (is_a env class_environment))
-  (assert_msg "check bindslist" (is_list bindslist))
-  (assert_msg "check ncx" (is_a ncx class_normalization_context))
-  (debug "normal_patmacro_exporter start psloc" psloc)
-  (let ( (csymvalexp (clone_symbol '_patmacroxporter_))
-	 (nsysdat (instance class_nrep_predef
-			    :nrep_loc psloc
-			    :nrpredef 'INITIAL_SYSTEM_DATA))
-	 (cbind (instance class_normal_let_binding
-			  :letbind_loc psloc
-			  :binder csymvalexp
-			  :letbind_type ctype_value
-			  :letbind_expr (instance class_nrep_unsafe_get_field
-						  :nrep_loc psloc
-						  :nuget_obj nsysdat
-						  :nuget_field sysdata_patmacro_exporter)))
-	 (locsym (instance class_nrep_locsymocc
-			   :nrep_loc psloc
-			   :nocc_ctyp ctype_value
-			   :nocc_symb csymvalexp
-			   :nocc_bind cbind))
-	 )
-    (list_append bindslist cbind)
-    (debug "normal_patmacro_exporter return locsym" locsym)
-    (return locsym)
-    ))
-
 ;;;;;;;;;;;;;;;;
 
 
@@ -8117,14 +8087,12 @@ source location.}#
 
 ;; return the normalized application to do the patmacro expport
 ;; sym is the symbol which is export_patmacro-ed
-;; nexp is the nrep of the patmatchexporter
 ;; nmacroxp is the nrep of the macro expander
 ;; npattxp is the nrep of the pattern expander
-(defun normal_exported_patmacro (sym nexp nmacroxp npattxp env ncx psloc bindslist)
-  (debug "normal_exported_patmacro start sym=" sym " nexp=" nexp
+(defun normal_exported_patmacro (sym nmacroxp npattxp env ncx psloc bindslist)
+  (debug "normal_exported_patmacro start sym=" sym
 	 " nmacroxp=" nmacroxp " npattxp=" npattxp)
   (assert_msg "check sym" (is_a sym class_symbol))
-  (assert_msg "check nexp" (is_a nexp class_nrep))
   (assert_msg "check nmacroxp" (is_a nmacroxp class_nrep))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
@@ -8152,12 +8120,16 @@ source location.}#
 			    :letbind_loc psloc
 			    :binder csymexpo
 			    :letbind_type ctype_void
-			    :letbind_expr (instance class_nrep_apply
-						    :nrep_loc psloc
-						    :nexpr_ctyp ctype_void
-						    :napp_fun nexp
-						    :nexpr_args argtup
-						    )))
+			    :letbind_expr 
+			    (instance class_nrep_hook_call
+				      :nexpr_ctyp ctype_void
+				      :nhook_name '"HOOK_PATMACRO_EXPORTER"
+				      :nexpr_args argtup
+				      :nhook_called  (normal_predef hook_patmacro_exporter ncx
+								    psloc "hook_patmacro_exporter")
+				      :nhook_outs (tuple)
+				      :nhook_descr (hook_data hook_patmacro_exporter))
+			    ))
 	   (syocc (instance class_nrep_locsymocc
 			    :nrep_loc psloc
 			    :nocc_ctyp ctype_void 
@@ -8169,23 +8141,23 @@ source location.}#
        syocc
        ;;
        ))))
+
 ;;;;;;;;;;;;;;;;
 ;;;; normalize an export_patmacro
 (defun normexp_export_patmacro (recv env ncx psloc)
+  (debug "normexp export_patmacro recv=" recv)
   (assert_msg "check export_patmacro recv" (is_a recv class_source_export_patmacro))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (debug "normexp export_patmacro recv" recv)
   (let (
 	(sloc (unsafe_get_field :loca_location recv))
 	(mname (unsafe_get_field :sexpmac_mname recv))
 	(mvalexp (unsafe_get_field :sexpmac_mval recv))
 	(mpatexp (unsafe_get_field :sexppat_pval recv))
 	(bindslist (make_list discr_list))
-	(npmaexp (normal_patmacro_exporter env ncx sloc bindslist))
 	(nrepnil (instance class_nrep_nil :nrep_loc sloc))
 	)
-    (debug "normexp export_patmacro mname=" mname " npmaexp=" npmaexp)
+    (debug "normexp export_patmacro mname=" mname)
     (assert_msg "check mname" (is_a mname class_symbol))
     (multicall 
      (nexpmac nbindms)
@@ -8197,7 +8169,7 @@ source location.}#
       (normal_exp mpatexp env ncx sloc)
       (list_append2list bindslist nbindps)
       (debug "normexp_export_patmacro nexppat" nexpmac)
-      (let ( (nexpm (normal_exported_patmacro mname npmaexp nexpmac nexppat env ncx sloc bindslist)) )
+      (let ( (nexpm (normal_exported_patmacro mname nexpmac nexppat env ncx sloc bindslist)) )
 	(debug "normexp_export_patmacro nexpm=" nexpm)
 	(debug "normexp_export_patmacro final nrepnil=" nrepnil " bindslist=" bindslist)
 	(return nrepnil bindslist)
