@@ -42,7 +42,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] =
 
 /**** no MELT module variables ****/
 
-/*** 3 MELT called hook declarations ***/
+/*** 4 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t
@@ -51,7 +51,13 @@ melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdata,
 						 const char
 						 *meltinp1_MODULNAME);
 
-/*declare MELT called hook #1 HOOK_SYMBOL_IMPORTER **/
+/*declare MELT called hook #1 HOOK_MACRO_EXPORTER **/
+MELT_EXTERN void melthook_HOOK_MACRO_EXPORTER (melt_ptr_t melthookdata,
+					       melt_ptr_t meltinp0_SYM,
+					       melt_ptr_t meltinp1_VAL,
+					       melt_ptr_t meltinp2_CONTENV);
+
+/*declare MELT called hook #2 HOOK_SYMBOL_IMPORTER **/
 MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
 						      const char
 						      *meltinp0_SYMNAMESTR,
@@ -60,13 +66,13 @@ MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
 						      melt_ptr_t
 						      meltinp2_PARENV);
 
-/*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
+/*declare MELT called hook #3 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
 					       melt_ptr_t meltinp0_SYM,
 					       melt_ptr_t meltinp1_VAL,
 					       melt_ptr_t meltinp2_CONTENV);
 
-/*** end of 3 MELT called hook declarations ***/
+/*** end of 4 MELT called hook declarations ***/
 
 /*** no extra MELT c-headers ***/
 
@@ -7072,8 +7078,8 @@ struct melt_initial_frame_st
   struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-#define MELTFRAM_NBVARPTR 2083
-  melt_ptr_t mcfr_varptr[2083];
+#define MELTFRAM_NBVARPTR 2012
+  melt_ptr_t mcfr_varptr[2012];
 /*no varnum*/
 #define MELTFRAM_NBVARNUM /*none*/0
 /*others*/
@@ -8983,7 +8989,7 @@ initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -744);
+		  iniframp__->mcfr_nbvar == /*minihash */ -1625);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -36262,13 +36268,14 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 744*/
+/* declstructinit initial routine melt_start_this_module minihash 1625*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
-  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar = /*minihash */ -744;
+  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar =
+    /*minihash */ -1625;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__WARMELTmiMACRO__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -103300,39 +103307,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1920*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1413*/ meltfptr[1412];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFPRIMITIVE */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1920*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1414*/ meltfptr[1413]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1414*/ meltfptr[1413],
+				      /*_._VALCLO___V1413*/ meltfptr[1412],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFPRIMITIVE */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1920*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2545:/ initchunk");
@@ -103351,7 +103338,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1417*/ meltfptr[1416];
-      /*_.INSTALL_INITIAL_MACRO__V1921*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1920*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1418*/ meltfptr[1417]),
@@ -103362,7 +103349,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1921*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1920*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2546:/ initchunk");
@@ -103370,39 +103357,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1922*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1417*/ meltfptr[1416];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFCITERATOR */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1922*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1418*/ meltfptr[1417]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1418*/ meltfptr[1417],
+				      /*_._VALCLO___V1417*/ meltfptr[1416],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFCITERATOR */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1922*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2746:/ initchunk");
@@ -103421,7 +103388,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1422*/ meltfptr[1421];
-      /*_.INSTALL_INITIAL_MACRO__V1923*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1921*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1425*/ meltfptr[1424]),
@@ -103432,7 +103399,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1923*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1921*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2747:/ initchunk");
@@ -103440,39 +103407,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1924*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1422*/ meltfptr[1421];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFCMATCHER */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1924*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1425*/ meltfptr[1424]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1425*/ meltfptr[1424],
+				      /*_._VALCLO___V1422*/ meltfptr[1421],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFCMATCHER */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1924*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2895:/ initchunk");
@@ -103491,7 +103438,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1429*/ meltfptr[1428];
-      /*_.INSTALL_INITIAL_MACRO__V1925*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1922*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1430*/ meltfptr[1429]),
@@ -103502,7 +103449,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1925*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1922*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2896:/ initchunk");
@@ -103510,39 +103457,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1926*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1429*/ meltfptr[1428];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFUNMATCHER */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1926*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1430*/ meltfptr[1429]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1430*/ meltfptr[1429],
+				      /*_._VALCLO___V1429*/ meltfptr[1428],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFUNMATCHER */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1926*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2968:/ initchunk");
@@ -103561,7 +103488,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1433*/ meltfptr[1432];
-      /*_.INSTALL_INITIAL_MACRO__V1927*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1923*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1436*/ meltfptr[1435]),
@@ -103572,7 +103499,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1927*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1923*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:2969:/ initchunk");
@@ -103580,39 +103507,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1928*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1433*/ meltfptr[1432];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFUN */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1928*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1436*/ meltfptr[1435]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1436*/ meltfptr[1435],
+				      /*_._VALCLO___V1433*/ meltfptr[1432],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFUN */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1928*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3025:/ initchunk");
@@ -103631,7 +103538,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1439*/ meltfptr[1438];
-      /*_.INSTALL_INITIAL_MACRO__V1929*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1924*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1442*/ meltfptr[1441]),
@@ -103642,7 +103549,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1929*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1924*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3026:/ initchunk");
@@ -103650,39 +103557,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1930*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1439*/ meltfptr[1438];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFVAR */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1930*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1442*/ meltfptr[1441]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1442*/ meltfptr[1441],
+				      /*_._VALCLO___V1439*/ meltfptr[1438],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFVAR */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1930*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3175:/ initchunk");
@@ -103701,7 +103588,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1449*/ meltfptr[1448];
-      /*_.INSTALL_INITIAL_MACRO__V1931*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1925*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1452*/ meltfptr[1451]),
@@ -103712,7 +103599,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1931*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1925*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3176:/ initchunk");
@@ -103720,39 +103607,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1932*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1449*/ meltfptr[1448];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFHOOK */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1932*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1452*/ meltfptr[1451]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1452*/ meltfptr[1451],
+				      /*_._VALCLO___V1449*/ meltfptr[1448],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFHOOK */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1932*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3317:/ initchunk");
@@ -103771,7 +103638,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1456*/ meltfptr[1455];
-      /*_.INSTALL_INITIAL_MACRO__V1933*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1926*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1459*/ meltfptr[1458]),
@@ -103782,7 +103649,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1933*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1926*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3318:/ initchunk");
@@ -103790,39 +103657,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1934*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1456*/ meltfptr[1455];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFINE */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1934*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1459*/ meltfptr[1458]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1459*/ meltfptr[1458],
+				      /*_._VALCLO___V1456*/ meltfptr[1455],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFINE */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1934*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3585:/ initchunk");
@@ -103841,7 +103688,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1474*/ meltfptr[1473];
-      /*_.INSTALL_INITIAL_MACRO__V1935*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1927*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1481*/ meltfptr[1480]),
@@ -103852,7 +103699,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1935*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1927*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3586:/ initchunk");
@@ -103860,39 +103707,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1936*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1474*/ meltfptr[1473];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFCLASS */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1936*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1481*/ meltfptr[1480]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1481*/ meltfptr[1480],
+				      /*_._VALCLO___V1474*/ meltfptr[1473],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFCLASS */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1936*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3796:/ initchunk");
@@ -103911,7 +103738,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1491*/ meltfptr[1490];
-      /*_.INSTALL_INITIAL_MACRO__V1937*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1928*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1494*/ meltfptr[1493]),
@@ -103922,7 +103749,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1937*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1928*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3797:/ initchunk");
@@ -103930,39 +103757,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1938*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1491*/ meltfptr[1490];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFINSTANCE */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1938*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1494*/ meltfptr[1493]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1494*/ meltfptr[1493],
+				      /*_._VALCLO___V1491*/ meltfptr[1490],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFINSTANCE */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1938*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3945:/ initchunk");
@@ -103981,7 +103788,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1499*/ meltfptr[1498];
-      /*_.INSTALL_INITIAL_MACRO__V1939*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1929*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1502*/ meltfptr[1501]),
@@ -103992,7 +103799,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1939*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1929*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:3946:/ initchunk");
@@ -104000,39 +103807,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1940*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1499*/ meltfptr[1498];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEFSELECTOR */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1940*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1502*/ meltfptr[1501]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1502*/ meltfptr[1501],
+				      /*_._VALCLO___V1499*/ meltfptr[1498],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEFSELECTOR */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1940*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4015:/ initchunk");
@@ -104051,7 +103838,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1505*/ meltfptr[1504];
-      /*_.INSTALL_INITIAL_MACRO__V1941*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1930*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1506*/ meltfptr[1505]),
@@ -104062,7 +103849,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1941*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1930*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4016:/ initchunk");
@@ -104070,39 +103857,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1942*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1505*/ meltfptr[1504];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : INSTANCE */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1942*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1506*/ meltfptr[1505]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1506*/ meltfptr[1505],
+				      /*_._VALCLO___V1505*/ meltfptr[1504],
+				      /*quasi.cur.mod.env.cont norm.exp.val : INSTANCE */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1942*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4057:/ initchunk");
@@ -104121,7 +103888,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1509*/ meltfptr[1508];
-      /*_.INSTALL_INITIAL_MACRO__V1943*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1931*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1510*/ meltfptr[1509]),
@@ -104132,7 +103899,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1943*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1931*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4058:/ initchunk");
@@ -104140,39 +103907,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1944*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1509*/ meltfptr[1508];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : LOAD */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1944*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1510*/ meltfptr[1509]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1510*/ meltfptr[1509],
+				      /*_._VALCLO___V1509*/ meltfptr[1508],
+				      /*quasi.cur.mod.env.cont norm.exp.val : LOAD */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1944*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4186:/ initchunk");
@@ -104194,7 +103941,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1505*/ meltfptr[1504];
-      /*_.INSTALL_INITIAL_PATMACRO__V1945*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1932*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1506*/ meltfptr[1505]),
@@ -104205,7 +103952,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1945*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1932*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4187:/ initchunk");
@@ -104220,7 +103967,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1946*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1933*/ meltfptr[1917] = slot;
     };
     ;
     /*^apply */
@@ -104239,7 +103986,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : INSTANCE */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1946*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1933*/ meltfptr[1917]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1506*/ meltfptr[1505]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -104248,7 +103995,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1946*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1933*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4291:/ initchunk");
@@ -104270,7 +104017,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1522*/ meltfptr[1521];
-      /*_.INSTALL_INITIAL_PATMACRO__V1947*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1934*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1523*/ meltfptr[1522]),
@@ -104281,7 +104028,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1947*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1934*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4292:/ initchunk");
@@ -104296,7 +104043,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1948*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1935*/ meltfptr[1917] = slot;
     };
     ;
     /*^apply */
@@ -104315,7 +104062,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : OBJECT */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1948*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1935*/ meltfptr[1917]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1523*/ meltfptr[1522]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -104324,7 +104071,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1948*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1935*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4382:/ initchunk");
@@ -104343,7 +104090,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1531*/ meltfptr[1530];
-      /*_.INSTALL_INITIAL_MACRO__V1949*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1936*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1532*/ meltfptr[1531]),
@@ -104354,7 +104101,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1949*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1936*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4383:/ initchunk");
@@ -104362,39 +104109,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1950*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1531*/ meltfptr[1530];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CODE_CHUNK */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1950*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1532*/ meltfptr[1531]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1532*/ meltfptr[1531],
+				      /*_._VALCLO___V1531*/ meltfptr[1530],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CODE_CHUNK */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1950*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4449:/ initchunk");
@@ -104413,7 +104140,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1535*/ meltfptr[1534];
-      /*_.INSTALL_INITIAL_MACRO__V1951*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1937*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1536*/ meltfptr[1535]),
@@ -104424,7 +104151,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1951*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1937*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4450:/ initchunk");
@@ -104432,39 +104159,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1952*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1535*/ meltfptr[1534];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXPR_CHUNK */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1952*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1536*/ meltfptr[1535]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1536*/ meltfptr[1535],
+				      /*_._VALCLO___V1535*/ meltfptr[1534],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXPR_CHUNK */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1952*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4502:/ initchunk");
@@ -104483,7 +104190,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1539*/ meltfptr[1538];
-      /*_.INSTALL_INITIAL_MACRO__V1953*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1938*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1540*/ meltfptr[1539]),
@@ -104494,7 +104201,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1953*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1938*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4503:/ initchunk");
@@ -104502,39 +104209,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1954*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1539*/ meltfptr[1538];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : UNSAFE_PUT_FIELDS */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1954*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1540*/ meltfptr[1539]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1540*/ meltfptr[1539],
+				      /*_._VALCLO___V1539*/ meltfptr[1538],
+				      /*quasi.cur.mod.env.cont norm.exp.val : UNSAFE_PUT_FIELDS */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1954*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4549:/ initchunk");
@@ -104553,7 +104240,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1543*/ meltfptr[1542];
-      /*_.INSTALL_INITIAL_MACRO__V1955*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1939*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1544*/ meltfptr[1543]),
@@ -104564,7 +104251,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1955*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1939*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4550:/ initchunk");
@@ -104572,39 +104259,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1956*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1543*/ meltfptr[1542];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : PUT_FIELDS */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1956*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1544*/ meltfptr[1543]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1544*/ meltfptr[1543],
+				      /*_._VALCLO___V1543*/ meltfptr[1542],
+				      /*quasi.cur.mod.env.cont norm.exp.val : PUT_FIELDS */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1956*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4590:/ initchunk");
@@ -104623,7 +104290,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1547*/ meltfptr[1546];
-      /*_.INSTALL_INITIAL_MACRO__V1957*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1940*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1548*/ meltfptr[1547]),
@@ -104634,7 +104301,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1957*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1940*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4591:/ initchunk");
@@ -104642,39 +104309,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1958*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1547*/ meltfptr[1546];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : UNSAFE_GET_FIELD */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1958*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1548*/ meltfptr[1547]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1548*/ meltfptr[1547],
+				      /*_._VALCLO___V1547*/ meltfptr[1546],
+				      /*quasi.cur.mod.env.cont norm.exp.val : UNSAFE_GET_FIELD */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1958*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4631:/ initchunk");
@@ -104693,7 +104340,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1551*/ meltfptr[1550];
-      /*_.INSTALL_INITIAL_MACRO__V1959*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1941*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1552*/ meltfptr[1551]),
@@ -104704,7 +104351,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1959*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1941*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4632:/ initchunk");
@@ -104712,39 +104359,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1960*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1551*/ meltfptr[1550];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : GET_FIELD */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1960*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1552*/ meltfptr[1551]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1552*/ meltfptr[1551],
+				      /*_._VALCLO___V1551*/ meltfptr[1550],
+				      /*quasi.cur.mod.env.cont norm.exp.val : GET_FIELD */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1960*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4683:/ initchunk");
@@ -104763,7 +104390,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1558*/ meltfptr[1557];
-      /*_.INSTALL_INITIAL_MACRO__V1961*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1942*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1559*/ meltfptr[1558]),
@@ -104774,7 +104401,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1961*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1942*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4684:/ initchunk");
@@ -104782,39 +104409,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1962*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1558*/ meltfptr[1557];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : SETQ */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1962*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1559*/ meltfptr[1558]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1559*/ meltfptr[1558],
+				      /*_._VALCLO___V1558*/ meltfptr[1557],
+				      /*quasi.cur.mod.env.cont norm.exp.val : SETQ */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1962*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4736:/ initchunk");
@@ -104833,7 +104440,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1562*/ meltfptr[1561];
-      /*_.INSTALL_INITIAL_MACRO__V1963*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1943*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1563*/ meltfptr[1562]),
@@ -104844,7 +104451,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1963*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1943*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4737:/ initchunk");
@@ -104852,39 +104459,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1964*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1562*/ meltfptr[1561];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : IF */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1964*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1563*/ meltfptr[1562]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1563*/ meltfptr[1562],
+				      /*_._VALCLO___V1562*/ meltfptr[1561],
+				      /*quasi.cur.mod.env.cont norm.exp.val : IF */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1964*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4772:/ initchunk");
@@ -104903,7 +104490,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1566*/ meltfptr[1565];
-      /*_.INSTALL_INITIAL_MACRO__V1965*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1944*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1567*/ meltfptr[1566]),
@@ -104914,7 +104501,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1965*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1944*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4773:/ initchunk");
@@ -104922,39 +104509,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1966*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1566*/ meltfptr[1565];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : WHEN */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1966*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1567*/ meltfptr[1566]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1567*/ meltfptr[1566],
+				      /*_._VALCLO___V1566*/ meltfptr[1565],
+				      /*quasi.cur.mod.env.cont norm.exp.val : WHEN */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1966*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4809:/ initchunk");
@@ -104973,7 +104540,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1570*/ meltfptr[1569];
-      /*_.INSTALL_INITIAL_MACRO__V1967*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1945*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1571*/ meltfptr[1570]),
@@ -104984,7 +104551,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1967*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1945*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4810:/ initchunk");
@@ -104992,39 +104559,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1968*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1570*/ meltfptr[1569];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : UNLESS */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1968*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1571*/ meltfptr[1570]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1571*/ meltfptr[1570],
+				      /*_._VALCLO___V1570*/ meltfptr[1569],
+				      /*quasi.cur.mod.env.cont norm.exp.val : UNLESS */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1968*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4865:/ initchunk");
@@ -105043,7 +104590,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1574*/ meltfptr[1573];
-      /*_.INSTALL_INITIAL_MACRO__V1969*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1946*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1575*/ meltfptr[1574]),
@@ -105054,7 +104601,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1969*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1946*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4866:/ initchunk");
@@ -105062,39 +104609,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1970*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1574*/ meltfptr[1573];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CPPIF */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1970*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1575*/ meltfptr[1574]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1575*/ meltfptr[1574],
+				      /*_._VALCLO___V1574*/ meltfptr[1573],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CPPIF */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1970*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4942:/ initchunk");
@@ -105113,7 +104640,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1580*/ meltfptr[1579];
-      /*_.INSTALL_INITIAL_MACRO__V1971*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1947*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1581*/ meltfptr[1580]),
@@ -105124,7 +104651,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1971*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1947*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:4943:/ initchunk");
@@ -105132,39 +104659,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1972*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1580*/ meltfptr[1579];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : GCCIF */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1972*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1581*/ meltfptr[1580]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1581*/ meltfptr[1580],
+				      /*_._VALCLO___V1580*/ meltfptr[1579],
+				      /*quasi.cur.mod.env.cont norm.exp.val : GCCIF */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1972*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5042:/ initchunk");
@@ -105183,7 +104690,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1587*/ meltfptr[1586];
-      /*_.INSTALL_INITIAL_MACRO__V1973*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1948*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1588*/ meltfptr[1587]),
@@ -105194,7 +104701,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1973*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1948*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5043:/ initchunk");
@@ -105202,39 +104709,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1974*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1587*/ meltfptr[1586];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : COND */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1974*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1588*/ meltfptr[1587]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1588*/ meltfptr[1587],
+				      /*_._VALCLO___V1587*/ meltfptr[1586],
+				      /*quasi.cur.mod.env.cont norm.exp.val : COND */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1974*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5145:/ initchunk");
@@ -105256,7 +104743,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1596*/ meltfptr[1595];
-      /*_.INSTALL_INITIAL_PATMACRO__V1975*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1949*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1597*/ meltfptr[1596]),
@@ -105267,7 +104754,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1975*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1949*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5146:/ initchunk");
@@ -105282,7 +104769,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1976*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1950*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -105301,7 +104788,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : AS */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1976*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1950*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1597*/ meltfptr[1596]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -105310,7 +104797,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1976*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1950*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5164:/ initchunk");
@@ -105332,7 +104819,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1566*/ meltfptr[1565];
-      /*_.INSTALL_INITIAL_PATMACRO__V1977*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1951*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1567*/ meltfptr[1566]),
@@ -105343,7 +104830,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1977*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1951*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5165:/ initchunk");
@@ -105358,7 +104845,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1978*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1952*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -105377,7 +104864,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : WHEN */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1978*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1952*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1567*/ meltfptr[1566]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -105386,7 +104873,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1978*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1952*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5193:/ initchunk");
@@ -105408,7 +104895,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1592*/ meltfptr[1591];
-      /*_.INSTALL_INITIAL_PATMACRO__V1979*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1953*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1603*/ meltfptr[1602]),
@@ -105419,7 +104906,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1979*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1953*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5194:/ initchunk");
@@ -105434,7 +104921,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1980*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1954*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -105453,7 +104940,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : AND */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1980*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1954*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1603*/ meltfptr[1602]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -105462,7 +104949,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1980*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1954*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5259:/ initchunk");
@@ -105484,7 +104971,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1607*/ meltfptr[1606];
-      /*_.INSTALL_INITIAL_PATMACRO__V1981*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1955*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1610*/ meltfptr[1609]),
@@ -105495,7 +104982,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1981*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1955*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5260:/ initchunk");
@@ -105510,7 +104997,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1982*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1956*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -105529,7 +105016,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : OR */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1982*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1956*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1610*/ meltfptr[1609]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -105538,7 +105025,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1982*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1956*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5341:/ initchunk");
@@ -105560,7 +105047,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1615*/ meltfptr[1614];
-      /*_.INSTALL_INITIAL_PATMACRO__V1983*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1957*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1619*/ meltfptr[1618]),
@@ -105571,7 +105058,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1983*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1957*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5342:/ initchunk");
@@ -105586,7 +105073,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1984*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1958*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -105605,7 +105092,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : REFERENCE */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1984*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1958*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1619*/ meltfptr[1618]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -105614,7 +105101,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1984*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1958*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5369:/ initchunk");
@@ -105636,7 +105123,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1622*/ meltfptr[1621];
-      /*_.INSTALL_INITIAL_PATMACRO__V1985*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1959*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1625*/ meltfptr[1624]),
@@ -105647,7 +105134,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1985*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1959*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5370:/ initchunk");
@@ -105662,7 +105149,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V1986*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1960*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -105681,7 +105168,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : CONTAINER */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V1986*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1960*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1625*/ meltfptr[1624]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -105690,7 +105177,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V1986*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1960*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5413:/ initchunk");
@@ -105709,7 +105196,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1628*/ meltfptr[1627];
-      /*_.INSTALL_INITIAL_MACRO__V1987*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1961*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1631*/ meltfptr[1630]),
@@ -105720,7 +105207,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1987*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1961*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5414:/ initchunk");
@@ -105728,39 +105215,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1988*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1628*/ meltfptr[1627];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEREF */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1988*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1631*/ meltfptr[1630]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1631*/ meltfptr[1630],
+				      /*_._VALCLO___V1628*/ meltfptr[1627],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEREF */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1988*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5427:/ initchunk");
@@ -105779,7 +105246,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1634*/ meltfptr[1633];
-      /*_.INSTALL_INITIAL_MACRO__V1989*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1962*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1635*/ meltfptr[1634]),
@@ -105790,7 +105257,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1989*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1962*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5428:/ initchunk");
@@ -105798,39 +105265,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1990*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1634*/ meltfptr[1633];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CONTENT */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1990*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1635*/ meltfptr[1634]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1635*/ meltfptr[1634],
+				      /*_._VALCLO___V1634*/ meltfptr[1633],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CONTENT */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1990*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5433:/ initchunk");
@@ -105849,7 +105296,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1628*/ meltfptr[1627];
-      /*_.INSTALL_INITIAL_MACRO__V1991*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1963*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1637*/ meltfptr[1636]),
@@ -105860,7 +105307,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1991*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1963*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5434:/ initchunk");
@@ -105868,39 +105315,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1992*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1628*/ meltfptr[1627];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXCLAIM */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1992*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1637*/ meltfptr[1636]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1637*/ meltfptr[1636],
+				      /*_._VALCLO___V1628*/ meltfptr[1627],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXCLAIM */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1992*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5486:/ initchunk");
@@ -105919,7 +105346,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1640*/ meltfptr[1639];
-      /*_.INSTALL_INITIAL_MACRO__V1993*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1964*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1641*/ meltfptr[1640]),
@@ -105930,7 +105357,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1993*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1964*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5487:/ initchunk");
@@ -105938,39 +105365,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1994*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1640*/ meltfptr[1639];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : SET_REF */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1994*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1641*/ meltfptr[1640]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1641*/ meltfptr[1640],
+				      /*_._VALCLO___V1640*/ meltfptr[1639],
+				      /*quasi.cur.mod.env.cont norm.exp.val : SET_REF */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1994*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5516:/ initchunk");
@@ -105989,7 +105396,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1645*/ meltfptr[1644];
-      /*_.INSTALL_INITIAL_MACRO__V1995*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1965*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1648*/ meltfptr[1647]),
@@ -106000,7 +105407,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1995*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1965*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5517:/ initchunk");
@@ -106008,39 +105415,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1996*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1645*/ meltfptr[1644];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : + */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1996*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1648*/ meltfptr[1647]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1648*/ meltfptr[1647],
+				      /*_._VALCLO___V1645*/ meltfptr[1644],
+				      /*quasi.cur.mod.env.cont norm.exp.val : + */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1996*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5545:/ initchunk");
@@ -106059,7 +105446,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1652*/ meltfptr[1651];
-      /*_.INSTALL_INITIAL_MACRO__V1997*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1966*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1655*/ meltfptr[1654]),
@@ -106070,7 +105457,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1997*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1966*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5546:/ initchunk");
@@ -106078,39 +105465,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V1998*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1652*/ meltfptr[1651];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : - */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V1998*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1655*/ meltfptr[1654]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1655*/ meltfptr[1654],
+				      /*_._VALCLO___V1652*/ meltfptr[1651],
+				      /*quasi.cur.mod.env.cont norm.exp.val : - */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V1998*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5574:/ initchunk");
@@ -106129,7 +105496,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1659*/ meltfptr[1658];
-      /*_.INSTALL_INITIAL_MACRO__V1999*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1967*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1662*/ meltfptr[1661]),
@@ -106140,7 +105507,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1999*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1967*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5575:/ initchunk");
@@ -106148,39 +105515,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2000*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1659*/ meltfptr[1658];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : * */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2000*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1662*/ meltfptr[1661]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1662*/ meltfptr[1661],
+				      /*_._VALCLO___V1659*/ meltfptr[1658],
+				      /*quasi.cur.mod.env.cont norm.exp.val : * */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2000*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5603:/ initchunk");
@@ -106199,7 +105546,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1666*/ meltfptr[1665];
-      /*_.INSTALL_INITIAL_MACRO__V2001*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1968*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1669*/ meltfptr[1668]),
@@ -106210,7 +105557,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_40 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2001*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1968*/ meltfptr[1916] = 0;
   }
 
 
@@ -106231,39 +105578,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2002*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1666*/ meltfptr[1665];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : / */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2002*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1669*/ meltfptr[1668]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1669*/ meltfptr[1668],
+				      /*_._VALCLO___V1666*/ meltfptr[1665],
+				      /*quasi.cur.mod.env.cont norm.exp.val : / */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2002*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5645:/ initchunk");
@@ -106285,7 +105612,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1672*/ meltfptr[1671];
-      /*_.INSTALL_INITIAL_PATMACRO__V2003*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1969*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1675*/ meltfptr[1674]),
@@ -106296,7 +105623,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V2003*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1969*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5646:/ initchunk");
@@ -106311,7 +105638,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V2004*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1970*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -106330,7 +105657,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : TUPLE */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V2004*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1970*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1675*/ meltfptr[1674]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -106339,7 +105666,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V2004*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1970*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5692:/ initchunk");
@@ -106361,7 +105688,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1678*/ meltfptr[1677];
-      /*_.INSTALL_INITIAL_PATMACRO__V2005*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_PATMACRO__V1971*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1392*/ meltfptr[1391]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1681*/ meltfptr[1680]),
@@ -106372,7 +105699,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V2005*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_PATMACRO__V1971*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5693:/ initchunk");
@@ -106387,7 +105714,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
 	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
 	/*=obj*/ ;
       melt_object_get_field (slot, obj, 12, "SYSDATA_PATMACRO_EXPORTER");
-   /*_._PATMACROXPORTER___V2006*/ meltfptr[1916] = slot;
+   /*_._PATMACROXPORTER___V1972*/ meltfptr[1916] = slot;
     };
     ;
     /*^apply */
@@ -106406,7 +105733,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
 	/*quasi.cur.mod.env.cont norm.exp.pat : LIST */
 /*_._CONTENV___V2*/ meltfptr[1];
       melt_apply ((meltclosure_ptr_t)
-		  ( /*_._PATMACROXPORTER___V2006*/ meltfptr[1916]),
+		  ( /*_._PATMACROXPORTER___V1972*/ meltfptr[1916]),
 		  (melt_ptr_t) ( /*_._VALDATA___V1681*/ meltfptr[1680]),
 		  (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""),
 		  argtab, "", (union meltparam_un *) 0);
@@ -106415,7 +105742,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_._PATMACROXPORTER___V2006*/ meltfptr[1916] = 0;
+	    /*clear *//*_._PATMACROXPORTER___V1972*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5788:/ initchunk");
@@ -106434,7 +105761,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1685*/ meltfptr[1684];
-      /*_.INSTALL_INITIAL_MACRO__V2007*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1973*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1686*/ meltfptr[1685]),
@@ -106445,7 +105772,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2007*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1973*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5789:/ initchunk");
@@ -106453,39 +105780,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2008*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1685*/ meltfptr[1684];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : MATCH */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2008*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1686*/ meltfptr[1685]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1686*/ meltfptr[1685],
+				      /*_._VALCLO___V1685*/ meltfptr[1684],
+				      /*quasi.cur.mod.env.cont norm.exp.val : MATCH */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2008*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5882:/ initchunk");
@@ -106504,7 +105811,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1690*/ meltfptr[1689];
-      /*_.INSTALL_INITIAL_MACRO__V2009*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1974*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1691*/ meltfptr[1690]),
@@ -106515,7 +105822,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2009*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1974*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:5883:/ initchunk");
@@ -106523,39 +105830,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2010*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1690*/ meltfptr[1689];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : MATCHALT */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2010*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1691*/ meltfptr[1690]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1691*/ meltfptr[1690],
+				      /*_._VALCLO___V1690*/ meltfptr[1689],
+				      /*quasi.cur.mod.env.cont norm.exp.val : MATCHALT */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2010*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6027:/ initchunk");
@@ -106574,7 +105861,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1703*/ meltfptr[1702];
-      /*_.INSTALL_INITIAL_MACRO__V2011*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1975*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1704*/ meltfptr[1703]),
@@ -106585,7 +105872,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2011*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1975*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6028:/ initchunk");
@@ -106593,39 +105880,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2012*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1703*/ meltfptr[1702];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : LET */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2012*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1704*/ meltfptr[1703]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1704*/ meltfptr[1703],
+				      /*_._VALCLO___V1703*/ meltfptr[1702],
+				      /*quasi.cur.mod.env.cont norm.exp.val : LET */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2012*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6047:/ initchunk");
@@ -106647,7 +105914,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1707*/ meltfptr[1706];
-      /*_.INSTALL_METHOD__V2013*/ meltfptr[1917] =
+      /*_.INSTALL_METHOD__V1976*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_.INSTALL_METHOD__V76*/ meltfptr[75]),
 		    (melt_ptr_t) ( /*_._VALDATA___V859*/ meltfptr[858]),
@@ -106658,7 +105925,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_METHOD__V2013*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_METHOD__V1976*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6048:/ initchunk");
@@ -106680,7 +105947,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1707*/ meltfptr[1706];
-      /*_.INSTALL_METHOD__V2014*/ meltfptr[1916] =
+      /*_.INSTALL_METHOD__V1977*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_.INSTALL_METHOD__V76*/ meltfptr[75]),
 		    (melt_ptr_t) ( /*_._VALDATA___V671*/ meltfptr[670]),
@@ -106691,7 +105958,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_METHOD__V2014*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_METHOD__V1977*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6049:/ initchunk");
@@ -106713,7 +105980,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1707*/ meltfptr[1706];
-      /*_.INSTALL_METHOD__V2015*/ meltfptr[1917] =
+      /*_.INSTALL_METHOD__V1978*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_.INSTALL_METHOD__V76*/ meltfptr[75]),
 		    (melt_ptr_t) ( /*_._VALDATA___V239*/ meltfptr[238]),
@@ -106724,7 +105991,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_METHOD__V2015*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_METHOD__V1978*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6050:/ initchunk");
@@ -106746,7 +106013,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1707*/ meltfptr[1706];
-      /*_.INSTALL_METHOD__V2016*/ meltfptr[1916] =
+      /*_.INSTALL_METHOD__V1979*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_.INSTALL_METHOD__V76*/ meltfptr[75]),
 		    (melt_ptr_t) ( /*_._VALDATA___V245*/ meltfptr[244]),
@@ -106757,7 +106024,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_METHOD__V2016*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_METHOD__V1979*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6201:/ initchunk");
@@ -106776,7 +106043,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1713*/ meltfptr[1712];
-      /*_.INSTALL_INITIAL_MACRO__V2017*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1980*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1716*/ meltfptr[1715]),
@@ -106787,7 +106054,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2017*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1980*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6202:/ initchunk");
@@ -106795,39 +106062,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2018*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1713*/ meltfptr[1712];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : LETREC */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2018*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1716*/ meltfptr[1715]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1716*/ meltfptr[1715],
+				      /*_._VALCLO___V1713*/ meltfptr[1712],
+				      /*quasi.cur.mod.env.cont norm.exp.val : LETREC */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2018*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6244:/ initchunk");
@@ -106846,7 +106093,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1720*/ meltfptr[1719];
-      /*_.INSTALL_INITIAL_MACRO__V2019*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1981*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1721*/ meltfptr[1720]),
@@ -106857,7 +106104,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2019*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1981*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6245:/ initchunk");
@@ -106865,39 +106112,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2020*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1720*/ meltfptr[1719];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : LAMBDA */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2020*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1721*/ meltfptr[1720]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1721*/ meltfptr[1720],
+				      /*_._VALCLO___V1720*/ meltfptr[1719],
+				      /*quasi.cur.mod.env.cont norm.exp.val : LAMBDA */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2020*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6368:/ initchunk");
@@ -106916,7 +106143,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1728*/ meltfptr[1727];
-      /*_.INSTALL_INITIAL_MACRO__V2021*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1982*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1729*/ meltfptr[1728]),
@@ -106927,7 +106154,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2021*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1982*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6369:/ initchunk");
@@ -106935,39 +106162,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2022*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1728*/ meltfptr[1727];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : VARIADIC */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2022*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1729*/ meltfptr[1728]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1729*/ meltfptr[1728],
+				      /*_._VALCLO___V1728*/ meltfptr[1727],
+				      /*quasi.cur.mod.env.cont norm.exp.val : VARIADIC */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2022*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6434:/ initchunk");
@@ -106986,7 +106193,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1734*/ meltfptr[1733];
-      /*_.INSTALL_INITIAL_MACRO__V2023*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1983*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1735*/ meltfptr[1734]),
@@ -106997,7 +106204,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2023*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1983*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6435:/ initchunk");
@@ -107005,39 +106212,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2024*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1734*/ meltfptr[1733];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : MULTICALL */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2024*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1735*/ meltfptr[1734]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1735*/ meltfptr[1734],
+				      /*_._VALCLO___V1734*/ meltfptr[1733],
+				      /*quasi.cur.mod.env.cont norm.exp.val : MULTICALL */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2024*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6477:/ initchunk");
@@ -107056,7 +106243,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1738*/ meltfptr[1737];
-      /*_.INSTALL_INITIAL_MACRO__V2025*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1984*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1739*/ meltfptr[1738]),
@@ -107067,7 +106254,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2025*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1984*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6478:/ initchunk");
@@ -107075,39 +106262,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2026*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1738*/ meltfptr[1737];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : QUOTE */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2026*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1739*/ meltfptr[1738]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1739*/ meltfptr[1738],
+				      /*_._VALCLO___V1738*/ meltfptr[1737],
+				      /*quasi.cur.mod.env.cont norm.exp.val : QUOTE */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2026*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6509:/ initchunk");
@@ -107126,7 +106293,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1742*/ meltfptr[1741];
-      /*_.INSTALL_INITIAL_MACRO__V2027*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1985*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1743*/ meltfptr[1742]),
@@ -107137,7 +106304,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2027*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1985*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6510:/ initchunk");
@@ -107145,39 +106312,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2028*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1742*/ meltfptr[1741];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : BOX */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2028*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1743*/ meltfptr[1742]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1743*/ meltfptr[1742],
+				      /*_._VALCLO___V1742*/ meltfptr[1741],
+				      /*quasi.cur.mod.env.cont norm.exp.val : BOX */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2028*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6541:/ initchunk");
@@ -107196,7 +106343,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1746*/ meltfptr[1745];
-      /*_.INSTALL_INITIAL_MACRO__V2029*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1986*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1747*/ meltfptr[1746]),
@@ -107207,7 +106354,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2029*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1986*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6542:/ initchunk");
@@ -107215,39 +106362,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2030*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1746*/ meltfptr[1745];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CONSTANT_BOX */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2030*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1747*/ meltfptr[1746]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1747*/ meltfptr[1746],
+				      /*_._VALCLO___V1746*/ meltfptr[1745],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CONSTANT_BOX */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2030*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6589:/ initchunk");
@@ -107266,7 +106393,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1750*/ meltfptr[1749];
-      /*_.INSTALL_INITIAL_MACRO__V2031*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1987*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1751*/ meltfptr[1750]),
@@ -107277,7 +106404,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2031*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1987*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6590:/ initchunk");
@@ -107285,39 +106412,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2032*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1750*/ meltfptr[1749];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : UNBOX */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2032*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1751*/ meltfptr[1750]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1751*/ meltfptr[1750],
+				      /*_._VALCLO___V1750*/ meltfptr[1749],
+				      /*quasi.cur.mod.env.cont norm.exp.val : UNBOX */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2032*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6620:/ initchunk");
@@ -107336,7 +106443,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1754*/ meltfptr[1753];
-      /*_.INSTALL_INITIAL_MACRO__V2033*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1988*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1755*/ meltfptr[1754]),
@@ -107347,7 +106454,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2033*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1988*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6621:/ initchunk");
@@ -107355,39 +106462,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2034*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1754*/ meltfptr[1753];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : COMMENT */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2034*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1755*/ meltfptr[1754]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1755*/ meltfptr[1754],
+				      /*_._VALCLO___V1754*/ meltfptr[1753],
+				      /*quasi.cur.mod.env.cont norm.exp.val : COMMENT */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2034*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6669:/ initchunk");
@@ -107406,7 +106493,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1758*/ meltfptr[1757];
-      /*_.INSTALL_INITIAL_MACRO__V2035*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1989*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1763*/ meltfptr[1762]),
@@ -107417,7 +106504,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2035*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1989*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6670:/ initchunk");
@@ -107425,39 +106512,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2036*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1758*/ meltfptr[1757];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CHEADER */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2036*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1763*/ meltfptr[1762]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1763*/ meltfptr[1762],
+				      /*_._VALCLO___V1758*/ meltfptr[1757],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CHEADER */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2036*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6717:/ initchunk");
@@ -107476,7 +106543,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1766*/ meltfptr[1765];
-      /*_.INSTALL_INITIAL_MACRO__V2037*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1990*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1767*/ meltfptr[1766]),
@@ -107487,7 +106554,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2037*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1990*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6718:/ initchunk");
@@ -107495,39 +106562,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2038*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1766*/ meltfptr[1765];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CIMPLEMENT */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2038*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1767*/ meltfptr[1766]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1767*/ meltfptr[1766],
+				      /*_._VALCLO___V1766*/ meltfptr[1765],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CIMPLEMENT */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2038*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6797:/ initchunk");
@@ -107546,7 +106593,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1770*/ meltfptr[1769];
-      /*_.INSTALL_INITIAL_MACRO__V2039*/ meltfptr[1917] =
+      /*_.INSTALL_INITIAL_MACRO__V1991*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1773*/ meltfptr[1772]),
@@ -107557,7 +106604,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2039*/ meltfptr[1917] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1991*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6798:/ initchunk");
@@ -107565,39 +106612,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2040*/ meltfptr[1916] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1770*/ meltfptr[1769];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : USE_PACKAGE_FROM_PKG_CONFIG */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2040*/ meltfptr[1916]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1773*/ meltfptr[1772]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1773*/ meltfptr[1772],
+				      /*_._VALCLO___V1770*/ meltfptr[1769],
+				      /*quasi.cur.mod.env.cont norm.exp.val : USE_PACKAGE_FROM_PKG_CONFIG */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2040*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6804:/ initchunk");
@@ -107605,39 +106632,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2041*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1770*/ meltfptr[1769];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : USE-PACKAGE-FROM-PKG-CONFIG */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2041*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1775*/ meltfptr[1774]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1775*/ meltfptr[1774],
+				      /*_._VALCLO___V1770*/ meltfptr[1769],
+				      /*quasi.cur.mod.env.cont norm.exp.val : USE-PACKAGE-FROM-PKG-CONFIG */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2041*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6849:/ initchunk");
@@ -107656,7 +106663,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1781*/ meltfptr[1780];
-      /*_.INSTALL_INITIAL_MACRO__V2042*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1992*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1782*/ meltfptr[1781]),
@@ -107667,7 +106674,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2042*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1992*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6850:/ initchunk");
@@ -107675,39 +106682,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2043*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1781*/ meltfptr[1780];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : PROGN */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2043*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1782*/ meltfptr[1781]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1782*/ meltfptr[1781],
+				      /*_._VALCLO___V1781*/ meltfptr[1780],
+				      /*quasi.cur.mod.env.cont norm.exp.val : PROGN */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2043*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6870:/ initchunk");
@@ -107726,7 +106713,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1785*/ meltfptr[1784];
-      /*_.INSTALL_INITIAL_MACRO__V2044*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1993*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1786*/ meltfptr[1785]),
@@ -107737,7 +106724,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2044*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1993*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6871:/ initchunk");
@@ -107745,39 +106732,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2045*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1785*/ meltfptr[1784];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : RETURN */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2045*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1786*/ meltfptr[1785]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1786*/ meltfptr[1785],
+				      /*_._VALCLO___V1785*/ meltfptr[1784],
+				      /*quasi.cur.mod.env.cont norm.exp.val : RETURN */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2045*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6912:/ initchunk");
@@ -107796,7 +106763,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1790*/ meltfptr[1789];
-      /*_.INSTALL_INITIAL_MACRO__V2046*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1994*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1793*/ meltfptr[1792]),
@@ -107807,7 +106774,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2046*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1994*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6913:/ initchunk");
@@ -107815,39 +106782,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2047*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1790*/ meltfptr[1789];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : FOREVER */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2047*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1793*/ meltfptr[1792]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1793*/ meltfptr[1792],
+				      /*_._VALCLO___V1790*/ meltfptr[1789],
+				      /*quasi.cur.mod.env.cont norm.exp.val : FOREVER */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2047*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6957:/ initchunk");
@@ -107866,7 +106813,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1797*/ meltfptr[1796];
-      /*_.INSTALL_INITIAL_MACRO__V2048*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1995*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1798*/ meltfptr[1797]),
@@ -107877,7 +106824,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2048*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1995*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:6958:/ initchunk");
@@ -107885,39 +106832,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2049*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1797*/ meltfptr[1796];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXIT */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2049*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1798*/ meltfptr[1797]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1798*/ meltfptr[1797],
+				      /*_._VALCLO___V1797*/ meltfptr[1796],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXIT */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2049*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7000:/ initchunk");
@@ -107936,7 +106863,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1801*/ meltfptr[1800];
-      /*_.INSTALL_INITIAL_MACRO__V2050*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1996*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1802*/ meltfptr[1801]),
@@ -107947,7 +106874,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2050*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1996*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7001:/ initchunk");
@@ -107955,39 +106882,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2051*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1801*/ meltfptr[1800];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : AGAIN */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2051*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1802*/ meltfptr[1801]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1802*/ meltfptr[1801],
+				      /*_._VALCLO___V1801*/ meltfptr[1800],
+				      /*quasi.cur.mod.env.cont norm.exp.val : AGAIN */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2051*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7040:/ initchunk");
@@ -108006,7 +106913,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1805*/ meltfptr[1804];
-      /*_.INSTALL_INITIAL_MACRO__V2052*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1997*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1806*/ meltfptr[1805]),
@@ -108017,7 +106924,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2052*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1997*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7041:/ initchunk");
@@ -108025,39 +106932,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2053*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1805*/ meltfptr[1804];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : COMPILE_WARNING */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2053*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1806*/ meltfptr[1805]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1806*/ meltfptr[1805],
+				      /*_._VALCLO___V1805*/ meltfptr[1804],
+				      /*quasi.cur.mod.env.cont norm.exp.val : COMPILE_WARNING */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2053*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7127:/ initchunk");
@@ -108076,7 +106963,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1813*/ meltfptr[1812];
-      /*_.INSTALL_INITIAL_MACRO__V2054*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1998*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1816*/ meltfptr[1815]),
@@ -108087,7 +106974,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2054*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1998*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7128:/ initchunk");
@@ -108095,39 +106982,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2055*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1813*/ meltfptr[1812];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : ASSERT_MSG */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2055*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1816*/ meltfptr[1815]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1816*/ meltfptr[1815],
+				      /*_._VALCLO___V1813*/ meltfptr[1812],
+				      /*quasi.cur.mod.env.cont norm.exp.val : ASSERT_MSG */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2055*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7200:/ initchunk");
@@ -108146,7 +107013,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1823*/ meltfptr[1822];
-      /*_.INSTALL_INITIAL_MACRO__V2056*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V1999*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1824*/ meltfptr[1823]),
@@ -108157,7 +107024,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2056*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V1999*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7201:/ initchunk");
@@ -108165,39 +107032,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2057*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1823*/ meltfptr[1822];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEBUG_MSG */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2057*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1824*/ meltfptr[1823]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1824*/ meltfptr[1823],
+				      /*_._VALCLO___V1823*/ meltfptr[1822],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEBUG_MSG */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2057*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7338:/ initchunk");
@@ -108216,7 +107063,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1832*/ meltfptr[1831];
-      /*_.INSTALL_INITIAL_MACRO__V2058*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2000*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1837*/ meltfptr[1836]),
@@ -108227,7 +107074,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2058*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2000*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7339:/ initchunk");
@@ -108235,39 +107082,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2059*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1832*/ meltfptr[1831];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : DEBUG */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2059*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1837*/ meltfptr[1836]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1837*/ meltfptr[1836],
+				      /*_._VALCLO___V1832*/ meltfptr[1831],
+				      /*quasi.cur.mod.env.cont norm.exp.val : DEBUG */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2059*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7381:/ initchunk");
@@ -108286,7 +107113,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1841*/ meltfptr[1840];
-      /*_.INSTALL_INITIAL_MACRO__V2060*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2001*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1842*/ meltfptr[1841]),
@@ -108297,7 +107124,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2060*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2001*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7382:/ initchunk");
@@ -108305,39 +107132,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2061*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1841*/ meltfptr[1840];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXPORT_VALUES */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2061*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1842*/ meltfptr[1841]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1842*/ meltfptr[1841],
+				      /*_._VALCLO___V1841*/ meltfptr[1840],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXPORT_VALUES */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2061*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7427:/ initchunk");
@@ -108356,7 +107163,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1845*/ meltfptr[1844];
-      /*_.INSTALL_INITIAL_MACRO__V2062*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2002*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1846*/ meltfptr[1845]),
@@ -108367,7 +107174,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2062*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2002*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7428:/ initchunk");
@@ -108375,39 +107182,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2063*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1845*/ meltfptr[1844];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXPORT_MACRO */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2063*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1846*/ meltfptr[1845]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1846*/ meltfptr[1845],
+				      /*_._VALCLO___V1845*/ meltfptr[1844],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXPORT_MACRO */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2063*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7479:/ initchunk");
@@ -108426,7 +107213,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1849*/ meltfptr[1848];
-      /*_.INSTALL_INITIAL_MACRO__V2064*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2003*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1850*/ meltfptr[1849]),
@@ -108437,7 +107224,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2064*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2003*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7480:/ initchunk");
@@ -108445,39 +107232,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2065*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1849*/ meltfptr[1848];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXPORT_PATMACRO */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2065*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1850*/ meltfptr[1849]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1850*/ meltfptr[1849],
+				      /*_._VALCLO___V1849*/ meltfptr[1848],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXPORT_PATMACRO */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2065*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7511:/ initchunk");
@@ -108496,7 +107263,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1854*/ meltfptr[1853];
-      /*_.INSTALL_INITIAL_MACRO__V2066*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2004*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1855*/ meltfptr[1854]),
@@ -108507,7 +107274,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2066*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2004*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7512:/ initchunk");
@@ -108515,39 +107282,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2067*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1854*/ meltfptr[1853];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXPORT_CLASS */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2067*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1855*/ meltfptr[1854]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1855*/ meltfptr[1854],
+				      /*_._VALCLO___V1854*/ meltfptr[1853],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXPORT_CLASS */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2067*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7560:/ initchunk");
@@ -108566,7 +107313,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1858*/ meltfptr[1857];
-      /*_.INSTALL_INITIAL_MACRO__V2068*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2005*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1859*/ meltfptr[1858]),
@@ -108577,7 +107324,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2068*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2005*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7561:/ initchunk");
@@ -108585,39 +107332,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2069*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1858*/ meltfptr[1857];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : EXPORT_SYNONYM */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2069*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1859*/ meltfptr[1858]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1859*/ meltfptr[1858],
+				      /*_._VALCLO___V1858*/ meltfptr[1857],
+				      /*quasi.cur.mod.env.cont norm.exp.val : EXPORT_SYNONYM */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2069*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7588:/ initchunk");
@@ -108636,7 +107363,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1862*/ meltfptr[1861];
-      /*_.INSTALL_INITIAL_MACRO__V2070*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2006*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1863*/ meltfptr[1862]),
@@ -108647,7 +107374,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2070*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2006*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7589:/ initchunk");
@@ -108655,39 +107382,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2071*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1862*/ meltfptr[1861];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CURRENT_MODULE_ENVIRONMENT_REFERENCE */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2071*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1863*/ meltfptr[1862]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1863*/ meltfptr[1862],
+				      /*_._VALCLO___V1862*/ meltfptr[1861],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CURRENT_MODULE_ENVIRONMENT_REFERENCE */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2071*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7597:/ initchunk");
@@ -108706,7 +107413,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1862*/ meltfptr[1861];
-      /*_.INSTALL_INITIAL_MACRO__V2072*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2007*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1865*/ meltfptr[1864]),
@@ -108717,7 +107424,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2072*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2007*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7598:/ initchunk");
@@ -108725,39 +107432,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2073*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1862*/ meltfptr[1861];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : CURRENT_MODULE_ENVIRONMENT_CONTAINER */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2073*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1865*/ meltfptr[1864]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1865*/ meltfptr[1864],
+				      /*_._VALCLO___V1862*/ meltfptr[1861],
+				      /*quasi.cur.mod.env.cont norm.exp.val : CURRENT_MODULE_ENVIRONMENT_CONTAINER */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2073*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7622:/ initchunk");
@@ -108776,7 +107463,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1868*/ meltfptr[1867];
-      /*_.INSTALL_INITIAL_MACRO__V2074*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2008*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1869*/ meltfptr[1868]),
@@ -108787,7 +107474,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2074*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2008*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7623:/ initchunk");
@@ -108795,39 +107482,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2075*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1868*/ meltfptr[1867];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : PARENT_MODULE_ENVIRONMENT */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2075*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1869*/ meltfptr[1868]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1869*/ meltfptr[1868],
+				      /*_._VALCLO___V1868*/ meltfptr[1867],
+				      /*quasi.cur.mod.env.cont norm.exp.val : PARENT_MODULE_ENVIRONMENT */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2075*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7654:/ initchunk");
@@ -108846,7 +107513,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1872*/ meltfptr[1871];
-      /*_.INSTALL_INITIAL_MACRO__V2076*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2009*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1873*/ meltfptr[1872]),
@@ -108857,7 +107524,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2076*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2009*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7655:/ initchunk");
@@ -108865,39 +107532,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2077*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1872*/ meltfptr[1871];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2077*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1873*/ meltfptr[1872]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1873*/ meltfptr[1872],
+				      /*_._VALCLO___V1872*/ meltfptr[1871],
+				      /*quasi.cur.mod.env.cont norm.exp.val : UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2077*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7664:/ initchunk");
@@ -108916,7 +107563,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1872*/ meltfptr[1871];
-      /*_.INSTALL_INITIAL_MACRO__V2078*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2010*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1875*/ meltfptr[1874]),
@@ -108927,7 +107574,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2078*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2010*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7665:/ initchunk");
@@ -108935,39 +107582,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2079*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1872*/ meltfptr[1871];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2079*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1875*/ meltfptr[1874]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1875*/ meltfptr[1874],
+				      /*_._VALCLO___V1872*/ meltfptr[1871],
+				      /*quasi.cur.mod.env.cont norm.exp.val : UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2079*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7693:/ initchunk");
@@ -108986,7 +107613,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1878*/ meltfptr[1877];
-      /*_.INSTALL_INITIAL_MACRO__V2080*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2011*/ meltfptr[1917] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1879*/ meltfptr[1878]),
@@ -108997,7 +107624,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2080*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2011*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7694:/ initchunk");
@@ -109005,39 +107632,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2081*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1878*/ meltfptr[1877];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : FETCH_PREDEFINED */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2081*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1879*/ meltfptr[1878]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1879*/ meltfptr[1878],
+				      /*_._VALCLO___V1878*/ meltfptr[1877],
+				      /*quasi.cur.mod.env.cont norm.exp.val : FETCH_PREDEFINED */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2081*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7729:/ initchunk");
@@ -109056,7 +107663,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
       /*^apply.arg */
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_._VALCLO___V1882*/ meltfptr[1881];
-      /*_.INSTALL_INITIAL_MACRO__V2082*/ meltfptr[1916] =
+      /*_.INSTALL_INITIAL_MACRO__V2012*/ meltfptr[1916] =
 	melt_apply ((meltclosure_ptr_t)
 		    ( /*_._VALCLO___V1388*/ meltfptr[1387]),
 		    (melt_ptr_t) ( /*_._VALDATA___V1883*/ meltfptr[1882]),
@@ -109067,7 +107674,7 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
     /*epilog */
 
     /*^clear */
-	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2082*/ meltfptr[1916] = 0;
+	    /*clear *//*_.INSTALL_INITIAL_MACRO__V2012*/ meltfptr[1916] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7730:/ initchunk");
@@ -109075,39 +107682,19 @@ meltmod__WARMELTmiMACRO__initialmeltchunk_41 (meltinitial_frame_t *
   /*anyblock */
   {
 
-    /*^getslot */
+
     {
-      melt_ptr_t slot = NULL, obj = NULL;
-      obj =
-	(melt_ptr_t) (((melt_ptr_t) (MELT_PREDEF (INITIAL_SYSTEM_DATA))))
-	/*=obj*/ ;
-      melt_object_get_field (slot, obj, 5, "SYSDATA_MACRO_EXPORTER");
-   /*_._MACROXPORTER___V2083*/ meltfptr[1917] = slot;
-    };
-    ;
-    /*^apply */
-    /*apply */
-    {
-      union meltparam_un argtab[2];
-      memset (&argtab, 0, sizeof (argtab));
-      /*^apply.arg */
-      argtab[0].meltbp_aptr =
-	(melt_ptr_t *) & /*_._VALCLO___V1882*/ meltfptr[1881];
-      /*^apply.arg */
-      argtab[1].meltbp_aptr = (melt_ptr_t *) &
-	/*quasi.cur.mod.env.cont norm.exp.val : STORE_PREDEFINED */
-/*_._CONTENV___V2*/ meltfptr[1];
-      melt_apply ((meltclosure_ptr_t)
-		  ( /*_._MACROXPORTER___V2083*/ meltfptr[1917]),
-		  (melt_ptr_t) ( /*_._VALDATA___V1883*/ meltfptr[1882]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "",
-		  (union meltparam_un *) 0);
+      /*hookcall */
+	melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t)
+				      ((melt_ptr_t)
+				       (MELT_PREDEF (HOOK_MACRO_EXPORTER))),
+				      /*_._VALDATA___V1883*/ meltfptr[1882],
+				      /*_._VALCLO___V1882*/ meltfptr[1881],
+				      /*quasi.cur.mod.env.cont norm.exp.val : STORE_PREDEFINED */
+/*_._CONTENV___V2*/ meltfptr[1]);
     }
     ;
     /*epilog */
-
-    /*^clear */
-	    /*clear *//*_._MACROXPORTER___V2083*/ meltfptr[1917] = 0;
   }
 
   MELT_LOCATION ("warmelt-macro.melt:7735:/ initchunk");
@@ -113875,20 +112462,20 @@ meltmod__WARMELTmiMACRO__forward_or_mark_module_start_frame (struct
   struct melt_initial_frame_st *meltframptr_ =
     (struct melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -744);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -1625);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf
 	("forward_or_mark_module_start_frame_WARMELTmiMACRO forwarding %d pointers in frame %p",
-	 2083, (void *) meltframptr_);
-      for (meltix = 0; meltix < 2083; meltix++)
+	 2012, (void *) meltframptr_);
+      for (meltix = 0; meltix < 2012; meltix++)
 	MELT_FORWARDED (meltframptr_->mcfr_varptr[meltix]);
       return;
     }				/*end forwarding */
   dbgprintf
     ("forward_or_mark_module_start_frame_WARMELTmiMACRO marking in frame %p",
      (void *) meltframptr_);
-  for (meltix = 0; meltix < 2083; meltix++)
+  for (meltix = 0; meltix < 2012; meltix++)
     if (meltframptr_->mcfr_varptr[meltix])
       gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
 
