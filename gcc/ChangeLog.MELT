@@ -1,5 +1,13 @@
 
 
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (class_nrep_initproc): Add
+	ninit_importexprs field.
+	(normal_import): Export that function.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Fill
+	ninit_importexprs using normal_import.
 
 2013-06-09  Basile Starynkevitch  <basile@starynkevitch.net>
 

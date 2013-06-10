@@ -6496,12 +6496,27 @@ if (1) return;
 	      (importvalues (unsafe_get_field :nctx_valuelist ncx))
 	      (procurmodenvlist (unsafe_get_field :nctx_procurmodenvlist ncx))
 	      )
-	 (debug "translate_macroexpanded_list before compiling initproc inipro=" inipro "\n of discrim=" (discrim inipro)
-		"\n iniproctransl=" iniproctransl
-		"\n normlist=" normlist)
+	 (debug "translate_macroexpanded_list before compiling initproc inipro=" inipro 
+		"\n... of discrim=" (discrim inipro)
+		"\n.. iniproctransl=" iniproctransl
+		"\n.. importvalues=" importvalues
+		"\n.. normlist=" normlist)
 	 (assert_msg "null iniprobody" (null (get_field :nproc_body inipro)))
-	 (put_fields inipro :nproc_body normlist :ninit_imports importvalues)
-	 (debug "translate_macroexpanded_list unpdated inipro=" inipro)
+	 (let ( (importup (list_to_multiple 
+			   importvalues discr_multiple
+			   (lambda (curimp)
+			     (debug "translate_macroexpanded_list/lambda curimp=" curimp)
+			     (let ( (resimp (normal_import curimp ncx ()))
+				    )
+			       (debug "translate_macroexpanded_list/lambda resimp=" resimp)
+			       resimp
+			       ))))
+		)
+	   (debug "translate_macroexpanded_list importup=" importup)
+	   (put_fields inipro :nproc_body normlist :ninit_imports importvalues
+		       :ninit_importexprs importup)
+	   (debug "translate_macroexpanded_list unpdated inipro=" inipro)
+	   )
 	 (assert_msg "check inipro" (is_a inipro class_nrep_initproc))
 	 (assert_msg "check iniproctransl" (is_closure iniproctransl))
 	 (debug "translate_macroexpanded_list inipro= " inipro

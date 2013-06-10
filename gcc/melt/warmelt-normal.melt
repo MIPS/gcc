@@ -490,6 +490,7 @@ bindings. Field $NINIT_IMPORTS is the list of imports.}#
   :fields (ninit_topl			;list of toplevel nrep
 	   ninit_defbinds		;list of define-d bindings
 	   ninit_imports		;list of imports
+	   ninit_importexprs		;tuple of import assignments
 	   ))
 
 ;; the class of the initial procedure when extending a module
@@ -8600,6 +8601,7 @@ source location.}#
  normal_exp
  normal_letrec_constructive
  normal_predef
+ normal_import
  normalize_binding
  normalize_tuple
  prepare_constructor_binding
