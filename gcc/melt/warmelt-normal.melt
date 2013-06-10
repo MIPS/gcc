@@ -592,9 +592,16 @@ procedure in a module, defined with $DEFHOOK. }#
 		    :nhook_descr (hook_data hook_symbol_importer)
 		    )
 	  )
-	 (nimpsymb (normexp_symbol nsymb env ncx sloc))
+	 (nsetimp (instance class_nrep_setq
+			    :nrep_loc sloc
+			    :nstq_var nimpval
+			    :nstq_exp nimphc
+		  ))
 	 )
-    (debug "normal_import nimphc=" nimphc "\n.. nimpsymb=" nimpsymb)
+    ;; the normalization  (normexp_symbol nsymb env ncx sloc)
+    ;; would produce the nimpval
+    (debug "normal_import nimphc=" nimphc "\n.. nimpval=" nimpval "\n.. nsetimp=" nsetimp)
+    (return nsetimp)
     ))
 
 ;;; quasidata are stuff to be computed inside the initial routine;

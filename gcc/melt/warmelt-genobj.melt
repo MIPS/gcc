@@ -1533,6 +1533,7 @@
    (assert_msg "check compicache" (is_mapobject compicache))
    (let ((locmap (make_mapobject discr_map_objects 50))
 	 (importvalues (get_field :ninit_imports ipro))
+	 (importexprs (get_field :ninit_importexprs ipro))
 	 (oiniprolog (make_list discr_list))
 	 (oinibody (make_list discr_list))
 	 (modinienv (get_field :mocx_initialenv modctx))
@@ -1784,8 +1785,14 @@
 					    :obdi_destlist (list oimplocv)
 					    :obapp_clos ovalueimporter
 					    :obapp_args (tuple osymdat oprevenv impsymstr modulstr)))
+			(oimpcond (instance class_objcond
+					    :obcond_test oimplocv
+					    :obcond_then ()
+					    :obcond_else oimpappl
+					    ))
 			)
-		   (list_append oiniprolog oimpappl)
+		   ;; we add a condition, because the new import might have already set oimplocv
+		   (list_append oiniprolog oimpcond)
 		   ))
 
 		(append_commentconst oiniprolog "after getting imported values")

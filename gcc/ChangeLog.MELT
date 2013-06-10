@@ -1,6 +1,12 @@
 
 
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normal_import): Gives a setq.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc): Import only if
+	imported value is not yet known.
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normal_import): Remove the temporary
 	tests.
 
