@@ -5,7 +5,7 @@
 
 
 /* This warmelt-normatch+melttime.h is included from warmelt-normatch+meltdesc.c only. */
-#if meltmod_WARMELTmiNORMATCH_mds__3C12F779746CB45962D797CBE199648C
+#if meltmod_WARMELTmiNORMATCH_mds__933293F16C276FA78015D5E289E3E03E
 /* MELT generation timestamp for meltbuild-sources/warmelt-normatch */
 
 #ifdef __cplusplus
@@ -18,8 +18,8 @@ extern "C" {
 
 		 
 /*MELT BOOTSTRAP*/
-const char melt_gen_timestamp[]="Mon Jun 10 10:37:52 2013 CEST";
-const long long melt_gen_timenum=1370853472;
+const char melt_gen_timestamp[]="Mon Jun 10 11:24:24 2013 CEST";
+const long long melt_gen_timenum=1370856264;
 
 		 const char melt_build_timestamp[]= __DATE__ "@" __TIME__
 		 #ifdef __cplusplus
@@ -34,7 +34,7 @@ const long long melt_gen_timenum=1370853472;
 		 }  /* end extern C timestamp */
 		 #endif /*__cplusplus */
 
-		 #else /* ! meltmod_WARMELTmiNORMATCH_mds__3C12F779746CB45962D797CBE199648C */
+		 #else /* ! meltmod_WARMELTmiNORMATCH_mds__933293F16C276FA78015D5E289E3E03E */
 		 #error invalid timestamp file for meltbuild-sources/warmelt-normatch 
-		 #endif /* meltmod_WARMELTmiNORMATCH_mds__3C12F779746CB45962D797CBE199648C */
+		 #endif /* meltmod_WARMELTmiNORMATCH_mds__933293F16C276FA78015D5E289E3E03E */
 		 

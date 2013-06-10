@@ -14902,7 +14902,7 @@ initialize_module_meltdata_WARMELTmiHOOKS (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -38);
+		  iniframp__->mcfr_nbvar == /*minihash */ -2533);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -20508,13 +20508,14 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 38*/
+/* declstructinit initial routine melt_start_this_module minihash 2533*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
-  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar = /*minihash */ -38;
+  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar =
+    /*minihash */ -2533;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__WARMELTmiHOOKS__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -21593,221 +21594,353 @@ melt_start_this_module (void *modargp_)
   /*^comment */
  /**COMMENT: before old getting imported values **/ ;
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER__V6*/ meltfptr[5] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V18*/ meltfptr[17]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+  /*^cond */
+  /*cond */ if ( /*_.HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER__V6*/ meltfptr[5])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "MELT_DEBUG_FUN";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.MELT_DEBUG_FUN__V7*/ meltfptr[6] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V21*/ meltfptr[20]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER__V6*/ meltfptr[5] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V18*/ meltfptr[17]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "CLASS_DELAYED_QUEUE";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V44*/ meltfptr[43]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+  /*^cond */
+  /*cond */ if ( /*_.MELT_DEBUG_FUN__V7*/ meltfptr[6])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "DISCR_LIST";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.DISCR_LIST__V9*/ meltfptr[8] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V50*/ meltfptr[49]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "MELT_DEBUG_FUN";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.MELT_DEBUG_FUN__V7*/ meltfptr[6] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V21*/ meltfptr[20]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "CLASS_REFERENCE";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.CLASS_REFERENCE__V10*/ meltfptr[9] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V55*/ meltfptr[54]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+  /*^cond */
+  /*cond */ if ( /*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "LIST_EVERY";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.LIST_EVERY__V11*/ meltfptr[10] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V86*/ meltfptr[85]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "CLASS_DELAYED_QUEUE";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.CLASS_DELAYED_QUEUE__V8*/ meltfptr[7] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V44*/ meltfptr[43]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "INITIAL_SYSTEM_DATA";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.INITIAL_SYSTEM_DATA__V12*/ meltfptr[11] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V281*/ meltfptr[280]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+  /*^cond */
+  /*cond */ if ( /*_.DISCR_LIST__V9*/ meltfptr[8])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "CLASS_SYSTEM_DATA";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.CLASS_SYSTEM_DATA__V13*/ meltfptr[12] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V283*/ meltfptr[282]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "DISCR_LIST";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.DISCR_LIST__V9*/ meltfptr[8] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V50*/ meltfptr[49]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "CLASS_GCC_GIMPLE_PASS";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.CLASS_GCC_GIMPLE_PASS__V14*/ meltfptr[13] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V285*/ meltfptr[284]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+  /*^cond */
+  /*cond */ if ( /*_.CLASS_REFERENCE__V10*/ meltfptr[9])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "CLASS_GCC_PASS";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.CLASS_GCC_PASS__V15*/ meltfptr[14] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V287*/ meltfptr[286]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "CLASS_REFERENCE";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.CLASS_REFERENCE__V10*/ meltfptr[9] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V55*/ meltfptr[54]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "CLASS_GCC_RTL_PASS";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.CLASS_GCC_RTL_PASS__V16*/ meltfptr[15] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V299*/ meltfptr[298]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+  /*^cond */
+  /*cond */ if ( /*_.LIST_EVERY__V11*/ meltfptr[10])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
 
-  /*^apply */
-  /*apply */
-  {
-    union meltparam_un argtab[3];
-    memset (&argtab, 0, sizeof (argtab));
-    /*^apply.arg */
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
-    /*^apply.arg */
-    argtab[1].meltbp_cstring = "CLASS_GCC_SIMPLE_IPA_PASS";
-    /*^apply.arg */
-    argtab[2].meltbp_cstring = "warmelt-hooks";
-    /*_.CLASS_GCC_SIMPLE_IPA_PASS__V17*/ meltfptr[16] =
-      melt_apply ((meltclosure_ptr_t) ( /*_._VALIMPORT___V5*/ meltfptr[4]),
-		  (melt_ptr_t) ( /*_._VALDATA___V311*/ meltfptr[310]),
-		  (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
-		   ""), argtab, "", (union meltparam_un *) 0);
-  }
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "LIST_EVERY";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.LIST_EVERY__V11*/ meltfptr[10] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V86*/ meltfptr[85]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
+
+  /*^cond */
+  /*cond */ if ( /*_.INITIAL_SYSTEM_DATA__V12*/ meltfptr[11])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
+
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "INITIAL_SYSTEM_DATA";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.INITIAL_SYSTEM_DATA__V12*/ meltfptr[11] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V281*/ meltfptr[280]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
+
+  /*^cond */
+  /*cond */ if ( /*_.CLASS_SYSTEM_DATA__V13*/ meltfptr[12])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
+
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "CLASS_SYSTEM_DATA";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.CLASS_SYSTEM_DATA__V13*/ meltfptr[12] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V283*/ meltfptr[282]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
+
+  /*^cond */
+  /*cond */ if ( /*_.CLASS_GCC_GIMPLE_PASS__V14*/ meltfptr[13])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
+
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "CLASS_GCC_GIMPLE_PASS";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.CLASS_GCC_GIMPLE_PASS__V14*/ meltfptr[13] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V285*/ meltfptr[284]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
+
+  /*^cond */
+  /*cond */ if ( /*_.CLASS_GCC_PASS__V15*/ meltfptr[14])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
+
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "CLASS_GCC_PASS";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.CLASS_GCC_PASS__V15*/ meltfptr[14] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V287*/ meltfptr[286]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
+
+  /*^cond */
+  /*cond */ if ( /*_.CLASS_GCC_RTL_PASS__V16*/ meltfptr[15])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
+
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "CLASS_GCC_RTL_PASS";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.CLASS_GCC_RTL_PASS__V16*/ meltfptr[15] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V299*/ meltfptr[298]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
+
+  /*^cond */
+  /*cond */ if ( /*_.CLASS_GCC_SIMPLE_IPA_PASS__V17*/ meltfptr[16])	/*then */
+    {
+    }
+  else
+    {				/*^cond.else */
+
+      /*^apply */
+      /*apply */
+      {
+	union meltparam_un argtab[3];
+	memset (&argtab, 0, sizeof (argtab));
+	/*^apply.arg */
+	argtab[0].meltbp_aptr =
+	  (melt_ptr_t *) & /*_._PREVENV___V4*/ meltfptr[3];
+	/*^apply.arg */
+	argtab[1].meltbp_cstring = "CLASS_GCC_SIMPLE_IPA_PASS";
+	/*^apply.arg */
+	argtab[2].meltbp_cstring = "warmelt-hooks";
+	/*_.CLASS_GCC_SIMPLE_IPA_PASS__V17*/ meltfptr[16] =
+	  melt_apply ((meltclosure_ptr_t)
+		      ( /*_._VALIMPORT___V5*/ meltfptr[4]),
+		      (melt_ptr_t) ( /*_._VALDATA___V311*/ meltfptr[310]),
+		      (MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING
+		       ""), argtab, "", (union meltparam_un *) 0);
+      }
+      ;
+    }
 
   /*^comment */
  /**COMMENT: after getting imported values **/ ;
@@ -30945,7 +31078,7 @@ meltmod__WARMELTmiHOOKS__forward_or_mark_module_start_frame (struct
   struct melt_initial_frame_st *meltframptr_ =
     (struct melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -38);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -2533);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf

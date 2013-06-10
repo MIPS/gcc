@@ -40,7 +40,7 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/
 /* hash of preprocessed melt-run.h generating this */
 const char melt_prepromd5meltrun[]="117f44b83f266ee5f9344dd80b5e891a";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="ed1db3bfb86d234511c2bab26ee3c648";
+const char melt_primaryhexmd5[]="e81d6740d7a1f42afa1af5deb93489e8";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -54,13 +54,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="035fedd9492aa61fd2fe64b7624ee5bf" ;
+const char melt_cumulated_hexmd5[]="7387855a39dca3ce4aba206c3134d484" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiBASE_mds__035FEDD9492AA61FD2FE64B7624EE5BF 1
+#define meltmod_WARMELTmiBASE_mds__7387855A39DCA3CE4ABA206C3134D484 1
 #include "warmelt-base+melttime.h"
 	 
 
