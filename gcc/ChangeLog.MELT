@@ -2,6 +2,15 @@
 
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{don't use sysdata_macro_exporter...}}
+	* melt/warmelt-normal.melt (normal_exported_macro): Remove
+	argument nmacroxp. Call the hook_macro_exporter.
+	(normal_macro_exporter): Remove function.
+	(normexp_export_macro): Don't call normal_macro_exporter, and
+	don't use sysdata_macro_exporter anymore..
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (class_initial_system_data): Rename
 	sysdata_value_importer as sysdata_obsolete3.
 

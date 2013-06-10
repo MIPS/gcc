@@ -7997,35 +7997,6 @@ source location.}#
 (install_method class_source_export_class normal_exp normexp_export_class)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; internal function giving a normalized cloned symbol for the macro exporter
-;;; return only one result, and update the bindslist
-(defun normal_macro_exporter (env ncx psloc bindslist)
-  (assert_msg "check env" (is_a env class_environment))
-  (assert_msg "check bindslist" (is_list bindslist))
-  (assert_msg "check ncx" (is_a ncx class_normalization_context))
-  (debug "normal_macro_exporter start psloc" psloc)
-  (let ( (csymvalexp (clone_symbol '_macroxporter_))
-	 (nsysdat (instance class_nrep_predef
-			    :nrep_loc psloc
-			    :nrpredef 'INITIAL_SYSTEM_DATA))
-	 (cbind (instance class_normal_let_binding
-			  :letbind_loc psloc
-			  :binder csymvalexp
-			  :letbind_type ctype_value
-			  :letbind_expr (instance class_nrep_unsafe_get_field
-						  :nrep_loc psloc
-						  :nuget_obj nsysdat
-						  :nuget_field sysdata_macro_exporter)))
-	 (locsym (instance class_nrep_locsymocc
-			   :nrep_loc psloc
-			   :nocc_ctyp ctype_value
-			   :nocc_symb csymvalexp
-			   :nocc_bind cbind))
-	 )
-    (list_append bindslist cbind)
-    (debug "normal_macro_exporter return locsym" locsym)
-    (return locsym)
-    ))
 
 ;;; internal function giving a normalized cloned symbol for the patmacro exporter
 ;;; return only one result, and update the bindslist
@@ -8061,12 +8032,10 @@ source location.}#
 
 
 ;; return the normalized application to do the macro expport
-(defun normal_exported_macro (sym nexp nmacroxp env ncx psloc bindslist)
-  (debug "normal_exported_macro start sym=" sym " nexp=" nexp
-	 " nmacroxp=" nmacroxp)
+(defun normal_exported_macro (sym nexp env ncx psloc bindslist)
+  (debug "normal_exported_macro start sym=" sym " nexp=" nexp)
   (assert_msg "check sym" (is_a sym class_symbol))
   (assert_msg "check nexp" (is_a nexp class_nrep))
-  (assert_msg "check nmacroxp" (is_a nmacroxp class_nrep))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
   (assert_msg "check bindslist" (is_list bindslist))
@@ -8092,12 +8061,16 @@ source location.}#
 			    :letbind_loc psloc
 			    :binder csymexpo
 			    :letbind_type ctype_void
-			    :letbind_expr (instance class_nrep_apply
-						    :nrep_loc psloc
-						    :nexpr_ctyp ctype_void
-						    :napp_fun nmacroxp
-						    :nexpr_args argtup
-						    )))
+			    :letbind_expr
+			    (instance class_nrep_hook_call
+				      :nexpr_ctyp ctype_void
+				      :nhook_name '"HOOK_MACRO_EXPORTER"
+				      :nexpr_args argtup
+				      :nhook_called  (normal_predef hook_macro_exporter ncx
+								    psloc "hook_macro_exporter")
+				      :nhook_outs (tuple)
+				      :nhook_descr (hook_data hook_macro_exporter))		      
+			    ))
 	   (syocc (instance class_nrep_locsymocc
 			    :nrep_loc psloc
 			    :nocc_ctyp ctype_void 
@@ -8112,16 +8085,15 @@ source location.}#
 
 ;;;; normalize an export_macro
 (defun normexp_export_macro (recv env ncx psloc)
+  (debug "normexp export_macro recv=" recv)
   (assert_msg "check export_macro recv" (is_a recv class_source_export_macro))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (debug "normexp export_macro recv" recv)
   (let ( 
 	(sloc (unsafe_get_field :loca_location recv))
 	(mname (unsafe_get_field :sexpmac_mname recv))
 	(mvalexp (unsafe_get_field :sexpmac_mval recv))
 	(bindslist (make_list discr_list))
-	(nmacexp (normal_macro_exporter env ncx sloc bindslist))
 	(nrepnil (instance class_nrep_nil :nrep_loc sloc))
 	)
     (assert_msg "check mname" (is_a mname class_symbol))
@@ -8130,7 +8102,7 @@ source location.}#
      (normal_exp mvalexp env ncx sloc)
      (list_append2list bindslist nbinds)
      (let ( 
-	   (nexpm (normal_exported_macro mname nexp nmacexp env ncx sloc bindslist))
+	   (nexpm (normal_exported_macro mname nexp env ncx sloc bindslist))
 	   )
        (debug "normexp_export_macro nexpm" nexpm)
        )
