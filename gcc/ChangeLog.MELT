@@ -2,6 +2,15 @@
 
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normal_import): Also takes an env
+	formal argument. So temporarily need to test ncx before using it
+	in normal_predef or normexp_symbol.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Pass
+	the inienv to normal_import.
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

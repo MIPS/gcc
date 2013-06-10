@@ -569,8 +569,8 @@ procedure in a module, defined with $DEFHOOK. }#
 	   ))
 
 ;; give the normal import of some imported value
-(defun normal_import (nimpval ncx psloc)
-  (debug "normal_import nimpval=" nimpval)
+(defun normal_import (nimpval env ncx psloc)
+  (debug "normal_import nimpval=" nimpval "\n.. ncx=" ncx)
   (assert_msg "check nimpval" (is_a nimpval class_nrep_importedval))
   (let ( (nsymb (get_field :nimport_symb  nimpval))
 	 (nsymbname (get_field :named_name nsymb))
@@ -578,20 +578,27 @@ procedure in a module, defined with $DEFHOOK. }#
 	 (curproc (get_field :nctx_curproc ncx))
 	 (ndataparenv (get_field :nctx_qdatparmodenv ncx))
 	 (modname (get_field :mocx_modulename modctx))
+	 (sloc (or (get_field :nrep_loc nimpval) psloc))
 	 (nimphc
 	  (instance class_nrep_hook_call
-		    :nrep_loc psloc
+		    :nrep_loc sloc
 		    :nexpr_ctyp ctype_value
 		    :nhook_name '"HOOK_SYMBOL_IMPORTER"
 		    :nexpr_args (tuple nsymbname modname ndataparenv)
-		    :nhook_called (normal_predef hook_symbol_importer ncx
-						 psloc "hook_symbol_importer")
+		    :nhook_called 
+		    ;; temporary dirty trick
+		    (if (is_a ncx class_normalization_context)
+			(normal_predef hook_symbol_importer ncx
+				       psloc "hook_symbol_importer")
+		      )
 		    :nhook_outs (tuple)
 		    :nhook_descr (hook_data hook_symbol_importer)
 		    )
 	  )
+	 (nimpsymb (if (is_a ncx class_normalization_context)
+		       (normexp_symbol nsymb env ncx sloc)))
 	 )
-    (debug "normal_import nimphc=" nimphc)
+    (debug "normal_import nimphc=" nimphc "\n.. nimpsymb=" nimpsymb)
     ))
 
 ;;; quasidata are stuff to be computed inside the initial routine;
