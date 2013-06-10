@@ -44,6 +44,14 @@
 ;; it to use gprs as well as vsx registers.
 (define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF])
 
+(define_mode_iterator VSX_M2 [V16QI
+			      V8HI
+			      V4SI
+			      V2DI
+			      V4SF
+			      V2DF
+			      (TI	"TARGET_VSX_TIMODE")])
+
 ;; Map into the appropriate load/store name based on the type
 (define_mode_attr VSm  [(V16QI "vw4")
 			(V8HI  "vw4")

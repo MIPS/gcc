@@ -1,5 +1,7 @@
 2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (VSX_M2): Add missing iterator.
+
 	* configure.ac (--with-extra-prefix=): Add configure time switches
 	to add additional prefix directories for the compiler to search for
 	extra executables, startfiles, and directories to add to the list
