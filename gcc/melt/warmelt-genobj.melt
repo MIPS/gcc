@@ -1602,7 +1602,6 @@
 			   )
 		      (put_fields gcx :igncx_prevenvloc preve)
 		      preve))
-	 (ovalueimporter (get_free_objlocptr gcx '_valimport_))
 	 (inidefbinds (get_field :ninit_defbinds ipro))
 	 )
      (append_commentconst oinibody "start of oinibody")
@@ -1739,19 +1738,10 @@
 		      ))))
 	      ;;
 	      ;; get the value importer if needed
-	      (if (>i (mapobject_count importmap) 0)
-		  (progn
-		    (append_commentconst oiniprolog "get the value importer")
-		    (list_append oiniprolog
-				 (instance class_objgetslot
-					   :obdi_destlist (list ovalueimporter)
-					   :ogetsl_obj initialsystemdata_objpredef 
-					   :ogetsl_field sysdata_value_importer))
-		    ))
 	      (when (>i (list_length importvalues) 0)
 		;; 
 		(debug "compile2obj_initproc importexprs=" importexprs)
-		(append_commentconst oiniprolog "before new getting imported values")
+		(append_commentconst oiniprolog "before getting imported values thru hook")
 		(let ( (:long nbimportexprs (multiple_length importexprs))
 		       (oimportup (make_multiple discr_multiple nbimportexprs))
 		       )
@@ -1764,34 +1754,6 @@
 		     (debug "compile2obj_initproc ocurimp=" ocurimp)
 		     (list_append oiniprolog ocurimp)
 		  )))
-		;;
-		(append_commentconst oiniprolog "before old getting imported values")
-		;; generate the getting of imported values
-		(foreach_in_list
-		 (importvalues)
-		 (curpair curimport)
-		 (debug "compile2obj_initproc curimport=" curimport)
-		 (assert_msg "check curimport" (is_a curimport class_nrep_importedval))
-		 (compile_warning "the generated import should have a cstring")
-		 (let ( (impsym (unsafe_get_field :nimport_symb curimport)) 
-			(impsydat (unsafe_get_field :nimport_sydata curimport))
-			(impsymstr (get_field :named_name impsym))
-			(modulstr (get_field :mocx_modulename modctx)) 
-			(osymdat (compile_obj impsydat gcx))
-			(oimplocv (mapobject_get importmap impsym))
-			(oimpappl (instance class_objapply
-					    :obdi_destlist (list oimplocv)
-					    :obapp_clos ovalueimporter
-					    :obapp_args (tuple osymdat oprevenv impsymstr modulstr)))
-			(oimpcond (instance class_objcond
-					    :obcond_test oimplocv
-					    :obcond_then ()
-					    :obcond_else oimpappl
-					    ))
-			)
-		   ;; we add a condition, because the new import might have already set oimplocv
-		   (list_append oiniprolog oimpcond)
-		   ))
 
 		(append_commentconst oiniprolog "after getting imported values")
 		)

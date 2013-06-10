@@ -404,7 +404,7 @@ don't instanciate this class!}#
 	   sysdata_macro_exporter	;closure to export a macro
 	   sysdata_symboldict 		; stringmap for symbols
 	   sysdata_keywdict 		;stringmap for keywords
-	   sysdata_value_importer	;closure to import a value
+	   sysdata_value_importer	;OBSOLETE closure to import a value
 	   sysdata_pass_dict		;stringmap for passes
 	   sysdata_exit_finalizer       ;;closure to be called after the passes, at finalization
 	   sysdata_meltattr_definer	;;closure to be called for melt attributes
@@ -2969,76 +2969,6 @@ Keyword is :cstring.}#
 
 
 
-;; initial value importer - inside INITIAL_SYSTEM_DATA
-(defun initvalue_importer (sym parenv :cstring strnam modnam)
-  ;; soon obsolete replaced by hook_value_importer
-  (code_chunk ensuremodnam #{ /* initvalue_importer $ENSUREMODNAM */ if (!$MODNAM) $MODNAM = "???"; 
-	      }#)
-  ;; error if importing a non symbol
-  (when (is_not_a sym class_symbol)
-    (shortbacktrace_dbg "initvalue_importer" 10)
-    (code_chunk 
-     errfailimport_chk
-     #{ /* initvalue_importer $ERRFAILIMPORT_CHK */ 
-     if ($STRNAM)
-       {
-         if (melt_flag_bootstrapping)
-	   warning (0, "MELT BOOTSTRAPPING [%s]: imported symbol %s not found",
-		    $MODNAM, $STRNAM);
-	 else
-           error ("MELT [%s]: imported symbol %s not found",
-	          $MODNAM, $STRNAM);
-       }
-     else
-       {
-         error ("MELT [%s]: importing non symbol", $MODNAM);
-       }
-     }#)
-    (return ())
-	)
-  ;; error if importing from a non environment
-  (if (is_not_a parenv class_environment)
-    (let ( (pardiscr (discrim parenv))
-	   (pardiscnam (get_field :named_name pardiscr))
-	   )
-      (shortbacktrace_dbg "initvalue_importer" 10)
-      (code_chunk 
-       errparenv_chk
-       #{ /* initvalue_importer $ERRPARENV_CHK */
-       if ($PARENV)
-          error ("MELT [%s]: imported symbol %s with bad parent environment of discriminant %s",
-		 $MODNAM, $STRNAM, melt_string_str ((melt_ptr_t)$PARDISCNAM));
-       else
-          error  ("MELT [%s]: imported symbol %s without bad parent environment",
-		  $MODNAM, $STRNAM);
-	  }#)
-      (return ())))
-  ;;
-  (assert_msg "check sym" (is_a sym class_symbol))
-  (assert_msg "check parenv" (is_a parenv class_environment))
-  (let ( (valbind (find_env parenv sym))
-	 (symname (get_field :named_name sym)) 
-	 )
-    (if (is_not_a valbind class_value_binding)
-	(let ( 
-	       (bindiscr (discrim valbind))
-	       (bindiscrnam (get_field :named_name bindiscr))
-	       )
-	  (assert_msg "check symname" (is_string symname))
-	  (code_chunk errbadimport 
-		      #{ /* $ERRBADIMPORT start */ {
-		      const char* $ERRBADIMPORT#_str = melt_string_str ((melt_ptr_t)$SYMNAME);
-		      error ("MELT [%s]: imported symbol %s has unexpected binding of %s",
-			     $MODNAM,
-			     $ERRBADIMPORT#_str?$ERRBADIMPORT#_str:$STRNAM,
-			     melt_string_str ((melt_ptr_t)$BINDISCRNAM));
-		    } /* $ERRBADIMPORT end */ }#)
-	  (return)
-	  ))
-    (assert_msg "check valbind" (is_a valbind class_value_binding))
-    (return (unsafe_get_field :vbind_value valbind))
-    ))
-
 ;; initial macro exporter - inside INITIAL_SYSTEM_DATA
 (defun initmacro_exporter (sym val contenv)
   ;; soon obsolete replaced by hook_macro_exporter
@@ -3068,6 +2998,7 @@ Keyword is :cstring.}#
       (put_env env macbind)
       (return)
       )))
+
 
 ;; initial patmacro exporter - inside INITIAL_SYSTEM_DATA
 (defun initpatmacro_exporter (sym macval patval contenv)
@@ -3397,7 +3328,7 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_macro_exporter initmacro_exporter ;macro exporter in module
   :sysdata_symboldict  (make_mapstring discr_map_strings 600) ;stringmap for symbols
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
-  :sysdata_value_importer initvalue_importer
+  :sysdata_value_importer () ;obsolete
   :sysdata_pass_dict (make_mapstring discr_map_strings 100) ;stringmap for gcc passes
   :sysdata_exit_finalizer init_exitfinalizer
   :sysdata_patmacro_exporter initpatmacro_exporter ; patmacro exporter in module

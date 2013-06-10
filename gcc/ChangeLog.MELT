@@ -2,6 +2,15 @@
 
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_system_data): Field
+	sysdata_value_importer is now empty and becoming obsolete.
+	(initvalue_importer): Remove function.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc): Don't use
+	sysdata_value_importer. Use only new import mechanism thru hook.
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.c: Regenerate.
 	* melt/generated/warmelt-base+02.c: Regenerate.
