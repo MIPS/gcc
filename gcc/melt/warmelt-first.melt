@@ -408,7 +408,7 @@ don't instanciate this class!}#
 	   sysdata_pass_dict		;stringmap for passes
 	   sysdata_exit_finalizer       ;;closure to be called after the passes, at finalization
 	   sysdata_meltattr_definer	;;closure to be called for melt attributes
-	   sysdata_patmacro_exporter	;closure to export a patmacro
+	   sysdata_obsolete5
 	   sysdata_debugmsg		;closure for debugmsg
 	   sysdata_stdout		;raw file for stdout
 	   sysdata_stderr		;raw file for stderr
@@ -2970,38 +2970,6 @@ Keyword is :cstring.}#
 
 
 
-;; initial patmacro exporter - inside INITIAL_SYSTEM_DATA
-(defun initpatmacro_exporter (sym macval patval contenv)
-  ;; soon obsolete replaced by  hook_patmacro_exporter
-  (assert_msg "check sym" (is_a sym class_symbol))
-  (if (null contenv)
-      (progn
-	;;(if (parent_module_environment)
-	;;    (warningmsg_strv "exporting patmacro too early with null environment container" 
-	;;		     (unsafe_get_field :named_name sym)))
-	(return)
-	))
-  (assert_msg "check contenv" (is_a contenv class_reference))
-  (let ( (env (unsafe_get_field :referenced_value contenv)) )
-    (if (null env)
-	(progn
-	  (informsg_strv "exporting patmacro too early with null environment"
-			 (unsafe_get_field :named_name sym))
-	  (return)
-	  ))
-    (assert_msg "check env" (is_a env class_environment))
-    (assert_msg "check macval is closure" (is_closure macval))
-    (assert_msg "check patval is closure" (is_closure patval))
-    (let ( (macbind (instance
-		     class_patmacro_binding
-		     :binder sym
-		     :mbind_expanser macval
-		     :patbind_expanser patval))
-	   )
-      (put_env env macbind)
-      (return)
-      )))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -3299,7 +3267,6 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
   :sysdata_pass_dict (make_mapstring discr_map_strings 100) ;stringmap for gcc passes
   :sysdata_exit_finalizer init_exitfinalizer
-  :sysdata_patmacro_exporter initpatmacro_exporter ; patmacro exporter in module
   :sysdata_debugmsg ()
   :sysdata_stdout ()			;initialized later
   :sysdata_stderr ()			;initialized later

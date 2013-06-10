@@ -2,6 +2,14 @@
 
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_initial_system_data): Rename
+	field sysdata_patmacro_exporter as sysdata_obsolete5.
+	(initpatmacro_exporter): Remove function.
+	(initial_system_data): Remove initialization of
+	sysdata_patmacro_exporter.
+
+2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
