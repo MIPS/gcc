@@ -13216,43 +13216,21 @@ melt_handle_melt_attribute (tree decl, tree name, const char *attrstr,
 #if MELT_HAVE_DEBUG
   char curlocbuf[120];
 #endif
-  MELT_ENTERFRAME (4, NULL);
+  MELT_ENTERFRAME (1, NULL);
 #define seqv       meltfram__.mcfr_varptr[0]
-#define declv      meltfram__.mcfr_varptr[1]
-#define namev      meltfram__.mcfr_varptr[2]
-#define atclov     meltfram__.mcfr_varptr[3]
   if (!attrstr || !attrstr[0])
     goto end;
   MELT_LOCATION_HERE ("melt_handle_melt_attribute");
   MELT_CHECK_SIGNAL ();
   seqv = meltgc_read_from_rawstring (attrstr, "*melt-attr*", loch);
-  atclov = melt_get_inisysdata (MELTFIELD_SYSDATA_MELTATTR_DEFINER);
-  if (melt_magic_discr ((melt_ptr_t) atclov) == MELTOBMAG_CLOSURE) {
-    union meltparam_un argtab[2];
-    MELT_LOCATION_HERE ("melt attribute definer");
-    declv =
-      meltgc_new_tree ((meltobject_ptr_t) MELT_PREDEF (DISCR_TREE),
-                       decl);
-    namev =
-      meltgc_new_tree ((meltobject_ptr_t) MELT_PREDEF (DISCR_TREE),
-                       name);
-    memset (argtab, 0, sizeof (argtab));
-    argtab[0].meltbp_aptr = (melt_ptr_t *) & namev;
-    argtab[1].meltbp_aptr = (melt_ptr_t *) & seqv;
-    MELT_LOCATION_HERE_PRINTF (curlocbuf, "melt_handle_melt_attribute %s before apply", attrstr);
-    MELT_CHECK_SIGNAL ();
-    (void) melt_apply ((meltclosure_ptr_t) atclov,
-                       (melt_ptr_t) declv,
-                       MELTBPARSTR_PTR MELTBPARSTR_PTR, argtab, "", NULL);
-    MELT_LOCATION_HERE_PRINTF (curlocbuf, "melt_handle_melt_attribute %s after apply", attrstr);
-    MELT_CHECK_SIGNAL ();
-  }
+  melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER
+    (decl, name, (melt_ptr_t) seqv, 
+     (loch==UNKNOWN_LOCATION)?"???":LOCATION_FILE(loch),
+     (loch==UNKNOWN_LOCATION)?(-1):LOCATION_LINE(loch)
+     );
 end:
   MELT_EXITFRAME ();
 #undef seqv
-#undef declv
-#undef namev
-#undef atclov
 }
 
 

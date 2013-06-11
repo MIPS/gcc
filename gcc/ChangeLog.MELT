@@ -1,6 +1,12 @@
 
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.c (melt_handle_melt_attribute): Simply call
+	melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER without using
+	:sysdata_meltattr_definer field.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (hook_melt_attribute_definer): Change
 	signature.
 	{{Regenerate}}
