@@ -1,3 +1,5 @@
+// copied from 2d2d80b8bd963f59534897b3d51ef8bd546cb4bc:libgo/go/net/sock_bsd.go
+
 // Copyright 2009 The Go Authors.  All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
