@@ -2314,6 +2314,7 @@ exit, in last place.}#
 	 (listbadinch (make_list discr_list))
 	 (:long pollres 0)
 	 )
+#|
     (if (<=i nbbucks 0)
 	(return 0))
     (code_chunk 
@@ -2435,6 +2436,7 @@ exit, in last place.}#
      (curpair curbadinch)
      (bucketlong_replace bucks (get_int curbadinch) :true)
      )
+|#
     (return pollres)
  ))
 

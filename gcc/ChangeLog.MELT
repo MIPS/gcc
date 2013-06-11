@@ -2,6 +2,14 @@
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Unstable}}
+	* melt/warmelt-hooks.melt (hook_poll_inputs): Mostly commented....
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_forwcopy_fun):
+	Emit better fatal error message on corruption.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-predef.list (HOOK_POLL_INPUTS): New.
 
 	* melt/warmelt-hooks.melt (hook_poll_inputs): New.
