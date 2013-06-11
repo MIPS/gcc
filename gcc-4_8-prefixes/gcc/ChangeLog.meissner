@@ -1,3 +1,7 @@
+2013-06-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Apply power8 patch #6, subversion id 199965.
+
 2013-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* configure.ac (--with-extra-prefix=): Add configure time switches
