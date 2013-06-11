@@ -1,6 +1,10 @@
 
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (class_initial_system_data): Reordered
+	some fields to put the sysdata_obsolete* fields at end.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.c (melt_handle_melt_attribute): Simply call
 	melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER without using

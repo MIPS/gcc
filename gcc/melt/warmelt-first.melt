@@ -399,22 +399,14 @@ SYSDATA_, for various system facilities.  It is very magical, and
 should be kept in sync with the MELT runtime.  Only for gurus! So
 don't instanciate this class!}#
   :fields (sysdata_mode_dict			;stringmap for commands
-	   sysdata_obsolete1
-	   sysdata_obsolete2      
-	   sysdata_obsolete3	
 	   sysdata_symboldict 		; stringmap for symbols
 	   sysdata_keywdict 		;stringmap for keywords
-	   sysdata_obsolete4
 	   sysdata_pass_dict		;stringmap for passes
-	   sysdata_obsolete5       ;;closure to be called after the passes, at finalization
-	   sysdata_obsolete6
-	   sysdata_obsolete7
 	   sysdata_debugmsg		;closure for debugmsg
 	   sysdata_stdout		;raw file for stdout
 	   sysdata_stderr		;raw file for stderr
 	   sysdata_dumpfile		;raw file for dump_file
-	   sysdata_option_set 		;closure to set a MELT option
-	   sysdata_obsolete8	
+	   sysdata_option_set 		;closure to set a MELT option	
 	   sysdata_meltpragmas		;a list or tuple of pragma
 					;descriptor object of
 					;CLASS_GCC_PRAGMA
@@ -428,6 +420,15 @@ don't instanciate this class!}#
 	   ;;
 	   ;; dictionnary to associate to location an interned file path string
 	   sysdata_src_loc_file_dict
+
+	   sysdata_obsolete1
+	   sysdata_obsolete2      
+	   sysdata_obsolete3	
+	   sysdata_obsolete4
+	   sysdata_obsolete5       ;;closure to be called after the passes, at finalization
+	   sysdata_obsolete6
+	   sysdata_obsolete7
+	   sysdata_obsolete8
 	   ;;
 	   ;;;keep these spare slots to ease the addition of other slots
 	   sysdata___spare1
