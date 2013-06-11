@@ -420,15 +420,6 @@ don't instanciate this class!}#
 	   ;;
 	   ;; dictionnary to associate to location an interned file path string
 	   sysdata_src_loc_file_dict
-
-	   sysdata_obsolete1
-	   sysdata_obsolete2      
-	   sysdata_obsolete3	
-	   sysdata_obsolete4
-	   sysdata_obsolete5       ;;closure to be called after the passes, at finalization
-	   sysdata_obsolete6
-	   sysdata_obsolete7
-	   sysdata_obsolete8
 	   ;;
 	   ;;;keep these spare slots to ease the addition of other slots
 	   sysdata___spare1
