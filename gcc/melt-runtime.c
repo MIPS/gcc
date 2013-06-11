@@ -11168,7 +11168,6 @@ melt_do_finalize (void)
   static int didfinal;
   const char* modstr = NULL;
   int arrcount = 0;
-  MELT_ENTERFRAME (1, NULL);
 #define finclosv meltfram__.mcfr_varptr[0]
   debugeprintf ("melt_do_finalize didfinal %d start", didfinal);
   if (didfinal++>0)
@@ -11177,13 +11176,7 @@ melt_do_finalize (void)
   debugeprintf ("melt_do_finalize modstr %s", modstr);
   if (!modstr)
     goto end;
-  finclosv = melt_get_inisysdata (MELTFIELD_SYSDATA_EXIT_FINALIZER);
-  if (melt_magic_discr ((melt_ptr_t) finclosv) == MELTOBMAG_CLOSURE) {
-    MELT_LOCATION_HERE
-      ("melt_do_finalize before applying final closure");
-    (void) melt_apply ((meltclosure_ptr_t) finclosv,
-                       (melt_ptr_t) NULL, "", NULL, "", NULL);
-  }
+  melthookproc_HOOK_EXIT_FINALIZER ();
   /* Always force a minor GC to be sure nothing stays in young
      region.  */
   melt_garbcoll (0, MELT_ONLY_MINOR);
@@ -11309,9 +11302,7 @@ melt_do_finalize (void)
 		melt_nb_fullgc_because_threshold, melt_nb_fullgc_because_copied);
     }
  end:
-  MELT_EXITFRAME ();
   fflush(NULL);
-#undef finclosv
 }
 
 

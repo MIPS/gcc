@@ -2,6 +2,13 @@
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (melt_do_finalize): Call melthookproc_HOOK_EXIT_FINALIZER.
+
+	* melt/warmelt-first.melt (class_initial_system_data): field
+	sysdata_exit_finalizer renamed as sysata_obsolete6.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
