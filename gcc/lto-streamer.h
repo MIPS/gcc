@@ -155,6 +155,9 @@ enum LTO_tags
 {
   LTO_null = 0,
 
+  /* Special for streamer.  Reference to previously-streamed node.  */
+  LTO_tree_pickle_reference,
+
   /* Reserve enough entries to fit all the tree and gimple codes handled
      by the streamer.  This guarantees that:
 
@@ -195,9 +198,6 @@ enum LTO_tags
 
   /* EH try/catch node.  */
   LTO_eh_catch,
-
-  /* Special for global streamer. Reference to previously-streamed node.  */
-  LTO_tree_pickle_reference,
 
   /* References to indexable tree nodes.  These objects are stored in
      tables that are written separately from the function bodies that
@@ -898,7 +898,7 @@ lto_symtab_encoder_t compute_ltrans_boundary (lto_symtab_encoder_t encoder);
 
 /* In lto-symtab.c.  */
 extern void lto_symtab_merge_decls (void);
-extern void lto_symtab_merge_cgraph_nodes (void);
+extern void lto_symtab_merge_symbols (void);
 extern tree lto_symtab_prevailing_decl (tree decl);
 extern GTY(()) vec<tree, va_gc> *lto_global_var_decls;
 
@@ -921,7 +921,7 @@ extern vec<lto_out_decl_state_ptr> lto_function_decl_states;
 static inline bool
 lto_tag_is_tree_code_p (enum LTO_tags tag)
 {
-  return tag > LTO_null && (unsigned) tag <= MAX_TREE_CODES;
+  return tag > LTO_tree_pickle_reference && (unsigned) tag <= MAX_TREE_CODES;
 }
 
 
@@ -929,8 +929,8 @@ lto_tag_is_tree_code_p (enum LTO_tags tag)
 static inline bool
 lto_tag_is_gimple_code_p (enum LTO_tags tag)
 {
-  return (unsigned) tag >= NUM_TREE_CODES + 1
-	 && (unsigned) tag < 1 + NUM_TREE_CODES + LAST_AND_UNUSED_GIMPLE_CODE;
+  return (unsigned) tag >= NUM_TREE_CODES + 2
+	 && (unsigned) tag < 2 + NUM_TREE_CODES + LAST_AND_UNUSED_GIMPLE_CODE;
 }
 
 
@@ -939,7 +939,7 @@ lto_tag_is_gimple_code_p (enum LTO_tags tag)
 static inline enum LTO_tags
 lto_gimple_code_to_tag (enum gimple_code code)
 {
-  return (enum LTO_tags) ((unsigned) code + NUM_TREE_CODES + 1);
+  return (enum LTO_tags) ((unsigned) code + NUM_TREE_CODES + 2);
 }
 
 
@@ -949,7 +949,7 @@ static inline enum gimple_code
 lto_tag_to_gimple_code (enum LTO_tags tag)
 {
   gcc_assert (lto_tag_is_gimple_code_p (tag));
-  return (enum gimple_code) ((unsigned) tag - NUM_TREE_CODES - 1);
+  return (enum gimple_code) ((unsigned) tag - NUM_TREE_CODES - 2);
 }
 
 
@@ -958,7 +958,7 @@ lto_tag_to_gimple_code (enum LTO_tags tag)
 static inline enum LTO_tags
 lto_tree_code_to_tag (enum tree_code code)
 {
-  return (enum LTO_tags) ((unsigned) code + 1);
+  return (enum LTO_tags) ((unsigned) code + 2);
 }
 
 
@@ -968,7 +968,7 @@ static inline enum tree_code
 lto_tag_to_tree_code (enum LTO_tags tag)
 {
   gcc_assert (lto_tag_is_tree_code_p (tag));
-  return (enum tree_code) ((unsigned) tag - 1);
+  return (enum tree_code) ((unsigned) tag - 2);
 }
 
 /* Check that tag ACTUAL == EXPECTED.  */

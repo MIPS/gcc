@@ -157,12 +157,16 @@ along with GCC; see the file COPYING3.  If not see
 	       true, true, true, ATTRS, true, \
 	       (flag_asan || flag_tsan))
 
+#undef DEF_CILKPLUS_BUILTIN
+#define DEF_CILKPLUS_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
+  DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, TYPE, TYPE, \
+               false, false, true, ATTRS, false, flag_enable_cilkplus)
+
 /* Builtin used by the implementation of MPX.  */
 #undef DEF_MPX_BUILTIN
 #define DEF_MPX_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
 	       true, true, true, ATTRS, true, flag_mpx)
-
 
 /* Define an attribute list for math functions that are normally
    "impure" because some of them may write into global memory for
@@ -863,3 +867,5 @@ DEF_MPX_BUILTIN (BUILT_IN_MPX_MEMSET_NOBND, "mpx_memset_nobnd", BT_FN_PTR_PTR_IN
 /* Sanitizer builtins. */
 #include "sanitizer.def"
 
+/* Cilk Plus builtins.  */
+#include "cilkplus.def"
