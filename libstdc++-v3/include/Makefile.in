@@ -271,6 +271,14 @@ toolexecdir = $(glibcxx_toolexecdir)
 toolexeclibdir = $(glibcxx_toolexeclibdir)
 @ENABLE_WERROR_FALSE@WERROR_FLAG = 
 @ENABLE_WERROR_TRUE@WERROR_FLAG = $(WERROR)
+@ENABLE_EXTERN_TEMPLATE_FALSE@XTEMPLATE_FLAGS = 
+@ENABLE_EXTERN_TEMPLATE_TRUE@XTEMPLATE_FLAGS = -fno-implicit-templates
+@ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXLINKFLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+@ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXFLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXFLAGS = -fvtable-verify=std \
+@ENABLE_VTABLE_VERIFY_TRUE@		-Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+
 
 # These bits are all figured out from configure.  Look in acinclude.m4
 # or configure.ac to see how they are set.  See GLIBCXX_EXPORT_FLAGS.

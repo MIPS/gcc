@@ -56,7 +56,8 @@ case ${query} in
     --cxxflags)
       CXXFLAGS_default="-D_GLIBCXX_ASSERT -fmessage-length=0"
       CXXFLAGS_config="@SECTION_FLAGS@ @CXXFLAGS@ @EXTRA_CXX_FLAGS@"
-      echo ${CXXFLAGS_default} ${CXXFLAGS_config}
+      CXXFLAGS_vtv="-Wl,--whole-archive -lvtv_init -Wl,--no-whole-archive"
+      echo ${CXXFLAGS_default} ${CXXFLAGS_config} ${CXXFLAGS_vtv}
       ;;
     --cxxparallelflags)
       CXXFLAGS_parallel="-D_GLIBCXX_PARALLEL -fopenmp

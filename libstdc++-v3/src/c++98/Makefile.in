@@ -304,6 +304,14 @@ toolexecdir = $(glibcxx_toolexecdir)
 toolexeclibdir = $(glibcxx_toolexeclibdir)
 @ENABLE_WERROR_FALSE@WERROR_FLAG = 
 @ENABLE_WERROR_TRUE@WERROR_FLAG = $(WERROR)
+@ENABLE_EXTERN_TEMPLATE_FALSE@XTEMPLATE_FLAGS = 
+@ENABLE_EXTERN_TEMPLATE_TRUE@XTEMPLATE_FLAGS = -fno-implicit-templates
+@ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXLINKFLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+@ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXFLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXFLAGS = -fvtable-verify=std \
+@ENABLE_VTABLE_VERIFY_TRUE@		-Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+
 
 # These bits are all figured out from configure.  Look in acinclude.m4
 # or configure.ac to see how they are set.  See GLIBCXX_EXPORT_FLAGS.
@@ -342,9 +350,10 @@ host_sources_extra = \
 	basic_file.cc c++locale.cc \
 	${inst_sources} ${parallel_sources}
 
-@ENABLE_EXTERN_TEMPLATE_FALSE@XTEMPLATE_FLAGS = 
-@ENABLE_EXTERN_TEMPLATE_TRUE@XTEMPLATE_FLAGS = -fno-implicit-templates
+# XTEMPLATE_FLAGS =
 @ENABLE_EXTERN_TEMPLATE_FALSE@inst_sources = 
+
+# XTEMPLATE_FLAGS = -fno-implicit-templates
 @ENABLE_EXTERN_TEMPLATE_TRUE@inst_sources = \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	allocator-inst.cc \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	concept-inst.cc \
@@ -398,6 +407,22 @@ sources = \
 
 libc__98convenience_la_SOURCES = $(sources)
 
+# We need to add this here because even thought the GCC driver normally would
+# add the flags below when doing a vtable-verification build, the driver
+# flags do not appear to be used when building the C++ std library.
+
+#if ENABLE_VTABLE_VERIFY
+#EXTRA_VTV_LDFLAGS = \
+#        -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+#LIBVTV_FLAGS = \
+#        -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+#VTV_CXXFLAGS = -fvtable-verify=std $(EXTRA_VTV_LDFLAGS)
+#else
+#EXTRA_VTV_LDFLAGS =
+#LIBVTV_FLAGS =
+#VTV_CXXFLAGS =
+#endif
+
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
 GLIBCXX_INCLUDE_DIR = $(glibcxx_builddir)/include
@@ -412,7 +437,7 @@ PARALLEL_FLAGS = -D_GLIBCXX_PARALLEL
 # as the occasion calls for it.
 AM_CXXFLAGS = \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
-	$(XTEMPLATE_FLAGS) \
+	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS)
 
 AM_MAKEFLAGS = \
@@ -463,6 +488,7 @@ CXXLINK = \
 	$(LIBTOOL) --tag CXX --tag disable-shared \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
+	$(VTV_CXXLINKFLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 all: all-am

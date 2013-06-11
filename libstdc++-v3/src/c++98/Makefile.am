@@ -82,7 +82,7 @@ basic_file.cc: ${glibcxx_srcdir}/$(BASIC_FILE_CC)
 
 
 if ENABLE_EXTERN_TEMPLATE
-XTEMPLATE_FLAGS = -fno-implicit-templates
+# XTEMPLATE_FLAGS = -fno-implicit-templates
 inst_sources = \
 	allocator-inst.cc \
 	concept-inst.cc \
@@ -97,7 +97,7 @@ inst_sources = \
 	streambuf-inst.cc \
 	wlocale-inst.cc
 else
-XTEMPLATE_FLAGS =
+# XTEMPLATE_FLAGS =
 inst_sources =
 endif
 
@@ -142,6 +142,22 @@ vpath % $(top_srcdir)/src/c++98
 
 libc__98convenience_la_SOURCES = $(sources)
 
+# We need to add this here because even thought the GCC driver normally would
+# add the flags below when doing a vtable-verification build, the driver
+# flags do not appear to be used when building the C++ std library.
+
+#if ENABLE_VTABLE_VERIFY
+#EXTRA_VTV_LDFLAGS = \
+#        -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+#LIBVTV_FLAGS = \
+#        -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+#VTV_CXXFLAGS = -fvtable-verify=std $(EXTRA_VTV_LDFLAGS)
+#else
+#EXTRA_VTV_LDFLAGS =
+#LIBVTV_FLAGS =
+#VTV_CXXFLAGS =
+#endif
+
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
 GLIBCXX_INCLUDE_DIR=$(glibcxx_builddir)/include
@@ -172,7 +188,7 @@ parallel_settings.o: parallel_settings.cc
 # as the occasion calls for it.
 AM_CXXFLAGS = \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
-	$(XTEMPLATE_FLAGS) \
+	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS)
 
 AM_MAKEFLAGS = \
@@ -222,4 +238,5 @@ CXXLINK = \
 	$(LIBTOOL) --tag CXX --tag disable-shared \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
+	$(VTV_CXXLINKFLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
