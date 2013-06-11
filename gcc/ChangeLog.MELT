@@ -1,5 +1,18 @@
 
 
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{move exit finalization to warmelt-hooks.melt}}
+	* melt-predef.list (HOOK_EXIT_FINALIZER): New.
+	* melt/warmelt-first.melt (final_delayed_queue)
+	(init_exitfinalizer): Remove.
+	(initial_system_data): Don't fill sysdata_exit_finalizer
+
+	* melt/warmelt-hooks.melt (final_exit_delayed_queue)
+	(hook_exit_finalizer): New hook.
+	(at_exit_first, at_exit_last): Moved here from
+	'warmelt-first.melt' file.
+
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt (class_initial_system_data): Rename

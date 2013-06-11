@@ -2987,75 +2987,6 @@ Keyword is :cstring.}#
 	   delqu_data
 	   ))
 
-;; private final queue
-(definstance final_delayed_queue class_delayed_queue
-  :named_name '"final_delayed_queue"
-  :delqu_first (make_list discr_list)
-  :delqu_last (make_list discr_list)
-  )
-
-
-;;;;;; the queue for full exit
-(defun init_exitfinalizer ()
-  ;; we can't use (debug ...) in this file!
-  (code_chunk initstartchk #{debugeprintf("init_exitfinalizer $INITSTARTCHK start clock %ld", (long) clock()) ;
-	      }#)
-  (let ( (firstlist (unsafe_get_field :delqu_first final_delayed_queue))
-	 (lastlist (unsafe_get_field :delqu_last final_delayed_queue))
-	 (revlastlist (make_list discr_list))
-	 (rescont (instance class_reference))
-	 )
-;;; call the first routines in natural order
-    (foreach_in_list
-     (firstlist)
-     (curpair firstproc)
-     (code_chunk firstroutchk #{debugeprintf("init_exitfinalizer $FIRSTROUTCHK firstproc=%p", (void*) $FIRSTPROC) ;
-		 }#)
-     (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
-	    (nextres (firstproc prevres final_delayed_queue))
-	    )
-       (unsafe_put_fields rescont :referenced_value nextres)
-       ))
-;;; reverse the last list
-    (foreach_in_list
-     (lastlist)
-     (curpair lastproc)
-     (code_chunk lastrevchk #{debugeprintf("init_exitfinalizer $LASTREVCHK lastproc=%p", (void*) $LASTPROC) ;
-		 }#)
-     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
-;;; call the last routines in reverse order
-    (foreach_in_list
-     (revlastlist)
-     (curpair lastproc)
-     (code_chunk lastrevprocchk #{debugeprintf("init_exitfinalizer $LASTREVPROCCHK lastproc=%p", (void*) $LASTPROC) ;
-		 }#)
-     (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
-	    (nextres (lastproc prevres final_delayed_queue))
-	    )
-       (unsafe_put_fields rescont :referenced_value nextres)
-       ))
-    ;;
-    (code_chunk initendchk #{debugeprintf("init_exitfinalizer $INITENDCHK start clock %ld", (long) clock()) ;
-		}#)
-    ))
-
-
-(defun at_exit_first (fun)
-  :doc #{Use $AT_EXIT_FIRST to register a function to be run at MELT
-exit, in first place.}#
-  (let ( (firstlist (unsafe_get_field :delqu_first final_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append firstlist fun)))
-  )  
-
-(defun at_exit_last (fun)
-  :doc #{Use $AT_EXIT_LAST to register a function to be run at MELT
-exit, in last place.}#
-  (let ( (lastlist (unsafe_get_field :delqu_last final_delayed_queue))
-	 )
-    (if (is_closure fun) (list_append lastlist fun)))
-  )
-
 
 ;;;;;; private queue for end of MELT pass execution
 (definstance end_melt_pass_execution_delayed_queue class_delayed_queue
@@ -3130,7 +3061,7 @@ exit, in last place.}#
   :doc #{Use $AT_END_MELT_PASS_LAST to register a function to be run
   at end of MELT passes' execution, in last place. See also
   $AT_END_MELT_PASS_FIRST.}#
-  (let ( (lastlist (unsafe_get_field :delqu_last final_delayed_queue))
+  (let ( (lastlist (unsafe_get_field :delqu_last end_melt_pass_execution_delayed_queue))
 	 )
     (if (null lastlist)
 	(progn
@@ -3266,7 +3197,6 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_symboldict  (make_mapstring discr_map_strings 600) ;stringmap for symbols
   :sysdata_keywdict  (make_mapstring discr_map_strings 100) ;stringmap for keywords
   :sysdata_pass_dict (make_mapstring discr_map_strings 100) ;stringmap for gcc passes
-  :sysdata_exit_finalizer init_exitfinalizer
   :sysdata_debugmsg ()
   :sysdata_stdout ()			;initialized later
   :sysdata_stderr ()			;initialized later
@@ -4325,8 +4255,6 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
 ;; export the functions & matchers defined above
 (export_values
  as_null
- at_exit_first
- at_exit_last
  at_end_melt_pass_first
  at_end_melt_pass_last
  clone_symbol

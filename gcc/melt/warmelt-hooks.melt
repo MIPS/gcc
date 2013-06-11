@@ -2062,40 +2062,102 @@ bool  melthk_pass_execution_registered_flag;
 
 
 
+;; private final queue
+(definstance final_exit_delayed_queue class_delayed_queue
+  :named_name '"final_exit_delayed_queue"
+  :delqu_first (make_list discr_list)
+  :delqu_last (make_list discr_list)
+  )
+
+
+
+
+;;
+(defhook hook_exit_finalizer () () :void
+  :predef HOOK_EXIT_FINALIZER
+  (let ( (firstlist (get_field :delqu_first final_exit_delayed_queue))
+	 (lastlist (get_field :delqu_last final_exit_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (rescont (instance class_reference))
+	 )
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (curpair firstproc)
+     (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
+	    (nextres (firstproc prevres final_exit_delayed_queue))
+	    )
+       (unsafe_put_fields rescont :referenced_value nextres)
+       ))
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (curpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+    (foreach_in_list
+     (revlastlist)
+     (curpair lastproc)
+     (let ( (prevres (unsafe_get_field :referenced_value rescont)) 
+	    (nextres (lastproc prevres final_exit_delayed_queue))
+	    )
+       (unsafe_put_fields rescont :referenced_value nextres)
+       ))
+    ))
+
+(defun at_exit_first (fun)
+  :doc #{Use $AT_EXIT_FIRST to register a function to be run at MELT
+exit, in first place.}#
+  (let ( (firstlist (unsafe_get_field :delqu_first final_exit_delayed_queue))
+	 )
+    (if (is_closure fun) (list_append firstlist fun)))
+  )  
+
+(defun at_exit_last (fun)
+  :doc #{Use $AT_EXIT_LAST to register a function to be run at MELT
+exit, in last place.}#
+  (let ( (lastlist (unsafe_get_field :delqu_last final_exit_delayed_queue))
+	 )
+    (if (is_closure fun) (list_append lastlist fun)))
+  )
+
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values
-  at_finish_unit_first
-  at_finish_unit_last
-  at_start_unit_first
-  at_start_unit_last
-  hook_low_debug_value_at
-  hook_override_gate
-  register_all_ipa_passes_end_first
-  register_all_ipa_passes_end_last
-  register_all_ipa_passes_start_first
-  register_all_ipa_passes_start_last
-  register_all_passes_end_first
-  register_all_passes_end_last
-  register_all_passes_start_first
-  register_all_passes_start_last
-  register_early_gimple_passes_end_first
-  register_early_gimple_passes_end_last
-  register_early_gimple_passes_start_first
-  register_early_gimple_passes_start_last
-  register_finish_decl_first
-  register_finish_decl_last
-  register_finish_type_first
-  register_finish_type_last
-  register_override_gate_first
-  register_override_gate_last
-  register_pass_execution_first
-  register_pass_execution_last
-  register_pre_genericize_first
-  register_pre_genericize_last
-  unregister_override_gate_first
-  unregister_override_gate_last
-)
+ at_exit_first
+ at_exit_last
+ at_finish_unit_first
+ at_finish_unit_last
+ at_start_unit_first
+ at_start_unit_last
+ hook_low_debug_value_at
+ hook_override_gate
+ register_all_ipa_passes_end_first
+ register_all_ipa_passes_end_last
+ register_all_ipa_passes_start_first
+ register_all_ipa_passes_start_last
+ register_all_passes_end_first
+ register_all_passes_end_last
+ register_all_passes_start_first
+ register_all_passes_start_last
+ register_early_gimple_passes_end_first
+ register_early_gimple_passes_end_last
+ register_early_gimple_passes_start_first
+ register_early_gimple_passes_start_last
+ register_finish_decl_first
+ register_finish_decl_last
+ register_finish_type_first
+ register_finish_type_last
+ register_override_gate_first
+ register_override_gate_last
+ register_pass_execution_first
+ register_pass_execution_last
+ register_pre_genericize_first
+ register_pre_genericize_last
+ unregister_override_gate_first
+ unregister_override_gate_last
+ )
 ;; eof warmelt-hooks.melt
