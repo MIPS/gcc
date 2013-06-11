@@ -9976,7 +9976,8 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
       argtab[0].meltbp_cstring =
 	"\n\t\t const char melt_build_timestamp[]= __DATE__ \"@\" __TIME__\
 \n\t\t #ifdef __cplusplus\n\t\t \" (in C++)\"\
-\n\t\t #else\n\t\t \" (in C)\"\n\t\t #endif /*__cplusplus*/\n\t\t\t\t\t;\n\t\t ";
+\n\t\t #else\n\t\t \" (in C)\"\n\t\t #endif /*__cplus\
+plus*/\n\t\t\t\t\t;\n\t\t ";
       /*_.ADD2OUT__V143*/ meltfptr[142] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[15])),
@@ -10056,7 +10057,8 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
       argtab[0].meltbp_cstring =
 	"\n\t\t #ifdef __cplusplus\n\t\t }\t  /* end extern C descriptor */\
 \
-\n\t\t #endif /*__cplusplus */\n\t\t ";
+\n\t\t #endif /*__cplusplus\
+ */\n\t\t ";
       /*_.ADD2OUT__V145*/ meltfptr[144] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[15])),

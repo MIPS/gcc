@@ -1497,6 +1497,30 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_POLL_INPUTS_rout (struct
 
 
 
+/** declaration of hook melthook_HOOK_HANDLE_SIGALRM */
+MELT_EXTERN void melthook_HOOK_HANDLE_SIGALRM (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_HANDLE_SIGALRM hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGALRM_rout (struct
+								   melt_callframe_st
+								   *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_HANDLE_SIGCHLD */
+MELT_EXTERN void melthook_HOOK_HANDLE_SIGCHLD (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_HANDLE_SIGCHLD hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGCHLD_rout (struct
+								   melt_callframe_st
+								   *, int);
+
+
+
+
 
 
 MELT_EXTERN void *melt_start_this_module (void *);
