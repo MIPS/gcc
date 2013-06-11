@@ -12884,37 +12884,6 @@ melt_check_failed (const char *msg, const char *filnam,
 
 
 
-/* internal function to run the melt pass after hook, at end of every
-   MELT pass exec function.  */
-static void
-meltgc_run_meltpass_after_hook (void)
-{
-  const char* passname = current_pass?current_pass->name:NULL;
-  int passnumber = current_pass?current_pass->static_pass_number:0;
-  MELT_ENTERFRAME (2, NULL);
-#define pahookv      meltfram__.mcfr_varptr[0]
-  MELT_LOCATION_HERE ("meltgc_run_meltpass_after_hook");
-  MELT_CHECK_SIGNAL ();
-  pahookv =  melt_get_inisysdata (MELTFIELD_SYSDATA_MELTPASS_AFTER_HOOK);
-  if (pahookv == NULL)
-    goto end;
-  if (melt_magic_discr ((melt_ptr_t) pahookv) == MELTOBMAG_CLOSURE) {
-    union meltparam_un argtab[2];
-    memset (argtab, 0, sizeof (argtab));
-    argtab[0].meltbp_cstring = passname;
-    argtab[1].meltbp_long = passnumber;
-    MELT_LOCATION_HERE ("meltgc_run_meltpass_after_hook before apply");
-    (void)
-    melt_apply ((meltclosure_ptr_t) pahookv, NULL,
-                MELTBPARSTR_CSTRING MELTBPARSTR_LONG, argtab,
-                "",  (union meltparam_un*)0);
-    MELT_LOCATION_HERE ("meltgc_run_meltpass_after_hook after apply");
-  }
-  melt_clear_inisysdata (MELTFIELD_SYSDATA_MELTPASS_AFTER_HOOK);
-end:
-  MELT_EXITFRAME ();
-}
-
 
 /* convert a MELT value to a plugin flag or option */
 unsigned long

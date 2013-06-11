@@ -2,6 +2,31 @@
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (meltgc_run_meltpass_after_hook): Remove.
+
+	* melt/warmelt-first.melt (class_initial_system_data): Field
+	sysdata_meltpass_after_hook renamed as sysdata_obsolete7.
+	(end_melt_pass_execution_delayed_queue, end_melt_pass_runner)
+	(at_end_melt_pass_first, at_end_melt_pass_last): Remove.
+
+	* melt/warmelt-hooks.melt (endmeltpass_delayed_queue)
+	(run_endmeltpass_functions, at_end_of_this_melt_pass_first)
+	(at_end_of_this_melt_pass_last): New.
+	(hook_gimple_execute, hook_rtl_execute, hook_simple_ipa_execute):
+	call run_endmeltpass_functions.
+
+	* melt/xtramelt-ana-base.melt (install_melt_pass_in_gcc): Always
+	install the execute function, because of the endmeltpass things.
+	(melthk_gimple_gate, melthk_gimple_execute)
+	(melthk_simple_ipa_gate, melthk_simple_ipa_execute)
+	(melthk_rtl_gate, melthk_rtl_execute): declare with
+	MELT_MODULE_VISIBILITY only.
+	(free_dominance_info, free_post_dominance_info): Becomes internal
+	functions, not primitives. Use at_end_of_this_melt_pass_last to
+	call them.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.c (melt_do_finalize): Call melthookproc_HOOK_EXIT_FINALIZER.
 
 	* melt/warmelt-first.melt (class_initial_system_data): field

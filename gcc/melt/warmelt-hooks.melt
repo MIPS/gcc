@@ -1449,6 +1449,70 @@ bool  melthk_finish_type_registered_flag;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;;; private endmeltpass queue
+
+(definstance endmeltpass_delayed_queue class_delayed_queue
+  :named_name '"endmeltpass_delayed_queue"
+  :delqu_first ()
+  :delqu_last ()
+  )
+
+(defun run_endmeltpass_functions ()
+  (let ( (firstlist (get_field :delqu_first endmeltpass_delayed_queue))
+	 (lastlist (get_field :delqu_last endmeltpass_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (res (instance class_container))
+	 )
+    (put_fields endmeltpass_delayed_queue
+		:delqu_first ()
+		:delqu_last ())
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (firstpair firstproc)
+     (if (is_closure firstproc) 
+	 (firstproc res))
+     )
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (lastpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
+;;; call the last routines in reverse order
+    (foreach_in_list
+     (revlastlist)
+     (revlastpair revlastproc)
+     (revlastproc res)
+     )
+    )
+  )
+
+(defun at_end_of_this_melt_pass_first (fun)
+  :doc #{Use $AT_END_OF_THIS_MELT_PASS_FIRST to register a function to be called at the end of the current MELT provided GCC pass, in first place.}#
+  (let ( (firstlist (unsafe_get_field :delqu_first endmeltpass_delayed_queue))
+	 )
+    (when (null firstlist)
+      (setq firstlist (make_list discr_list))
+      (put_fields endmeltpass_delayed_queue :delqu_first firstlist))
+    (if (is_closure fun)
+	(list_append firstlist fun))))
+
+		   
+(defun at_end_of_this_melt_pass_last (fun)
+  :doc #{Use $AT_END_OF_THIS_MELT_PASS_LAST to register a function to be called 
+at the end of the current MELT provided GCC pass, in last place.}#
+  (let ( (lastlist (unsafe_get_field :delqu_last endmeltpass_delayed_queue))
+	 )
+    (when (null lastlist)
+      (setq lastlist (make_list discr_list))
+      (put_fields endmeltpass_delayed_queue :delqu_last lastlist))
+    (if (is_closure fun)
+	(list_append lastlist fun))))
+
+		   
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 ;;;=====================================================================
 ;;;******************* FINISH_DECL plugin event *********************
@@ -1786,43 +1850,44 @@ bool  melthk_pass_execution_registered_flag;
     (code_chunk 
      getmypass_chk
      #{ /* hook_gimple_execute $GETMYPASS_CHK */		
-     gcc_assert(current_pass != NULL);
-     gcc_assert(current_pass->name != NULL);
-     gcc_assert(current_pass->type == GIMPLE_PASS);
+     gcc_assert(current_pass != NULL)		   ;
+     gcc_assert(current_pass->name != NULL)	   ;
+     gcc_assert(current_pass->type == GIMPLE_PASS) ;
      $MYPASS = melt_get_mapstrings ((struct meltmapstrings_st*) $PASSDICT, 
-				    current_pass->name);
-     $PASSNUM = current_pass->static_pass_number;
+				    current_pass->name)	;
+     $PASSNUM = current_pass->static_pass_number	;
      }#)
     (if (is_a mypass class_gcc_gimple_pass)
 	(let ( (execfun (get_field :gccpass_exec mypass))
 	       (:cstring curpassname (the_null_cstring))
 	       )
-	  (if (is_closure execfun)
-	      (code_chunk 
-	       doexecfun_chk
-	       #{ /* hook_gimple_execute $DOEXECFUN_CHK */
-	       FILE* oldf = meltgc_set_dump_file (dump_file) ;
-	       $CURPASSNAME = current_pass->name ;
-	       $(progn
-		 (debug "hook_gimple_execute curpassname=" curpassname " mypass=" mypass
-			" passnum=" passnum)
-		 (multicall
-		  (resexec :long flagexec)
-		  (execfun mypass passnum)
-		  (debug "hook_gimple_execute after call resexec=" resexec 
-			 " flagexec=" flagexec)
-		  (if (null resexec)
-		      (setq okres flagexec)
-		    (setq okres 1))
-		  )
-		 (void)
+	  (when (is_closure execfun)
+	    (code_chunk 
+	     doexecfun_chk
+	     #{ /* hook_gimple_execute $DOEXECFUN_CHK */
+	     FILE* oldf = meltgc_set_dump_file (dump_file) ;
+	     $CURPASSNAME = current_pass->name		   ;
+	     $(progn
+		(debug "hook_gimple_execute curpassname=" curpassname " mypass=" mypass
+		       " passnum=" passnum)
+		(multicall
+		 (resexec :long flagexec)
+		 (execfun mypass passnum)
+		 (debug "hook_gimple_execute after call resexec=" resexec 
+			" flagexec=" flagexec)
+		 (if (null resexec)
+		     (setq okres flagexec)
+		   (setq okres 1))
 		 )
-	       meltgc_restore_dump_file (oldf) ;
-	       oldf = NULL ;
-	       }#)
+		(void)
+		)
+	     meltgc_restore_dump_file (oldf) ;
+	     oldf = NULL		     ;
+	     }#)
+	    (run_endmeltpass_functions)
 	    )))
     (return okres)
-))
+    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1914,7 +1979,7 @@ bool  melthk_pass_execution_registered_flag;
 	(let ( (execfun (get_field :gccpass_exec mypass))
 	       (:cstring curpassname (the_null_cstring))
 	       )
-	  (if (is_closure execfun)
+	  (when (is_closure execfun)
 	      (code_chunk 
 	       doexecfun_chk
 	       #{ /* hook_rtl_execute $DOEXECFUN_CHK */
@@ -1938,6 +2003,7 @@ bool  melthk_pass_execution_registered_flag;
 	       meltgc_restore_dump_file (oldf) ;
 	       oldf = NULL ;
 	       }#)
+	      (run_endmeltpass_functions)
 	    )))
     (return okres)
 ))
@@ -2031,7 +2097,7 @@ bool  melthk_pass_execution_registered_flag;
 	(let ( (execfun (get_field :gccpass_exec mypass))
 	       (:cstring curpassname (the_null_cstring))
 	       )
-	  (if (is_closure execfun)
+	  (when (is_closure execfun)
 	      (code_chunk 
 	       doexecfun_chk
 	       #{ /* hook_simple_ipa_execute $DOEXECFUN_CHK */
@@ -2055,6 +2121,7 @@ bool  melthk_pass_execution_registered_flag;
 	       meltgc_restore_dump_file (oldf) ;
 	       oldf = NULL ;
 	       }#)
+	      (run_endmeltpass_functions)
 	    )))
     (return okres)
 ))
@@ -2127,6 +2194,8 @@ exit, in last place.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values
+ at_end_of_this_melt_pass_first
+ at_end_of_this_melt_pass_last
  at_exit_first
  at_exit_last
  at_finish_unit_first

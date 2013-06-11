@@ -48,34 +48,41 @@
 
 ;;;;;;;;;;;;;;;;
 (cheader 
- #{static bool melthk_gimple_gate(void) 
- { return melthookproc_HOOK_GIMPLE_GATE () != 0L; }
+ #{
+MELT_EXTERN bool melthk_gimple_gate(void) MELT_MODULE_VISIBILITY;
+MELT_EXTERN unsigned int melthk_gimple_execute(void) MELT_MODULE_VISIBILITY;
+MELT_EXTERN bool melthk_simple_ipa_gate(void)  MELT_MODULE_VISIBILITY;
+MELT_EXTERN unsigned int melthk_simple_ipa_execute(void) MELT_MODULE_VISIBILITY;
+MELT_EXTERN bool melthk_rtl_gate(void) MELT_MODULE_VISIBILITY;
+MELT_EXTERN unsigned int melthk_rtl_execute(void) MELT_MODULE_VISIBILITY;
 }#)
 
-(cheader 
- #{static unsigned int melthk_gimple_execute(void) 
- { return (unsigned) melthookproc_HOOK_GIMPLE_EXECUTE (); }
+(cimplement 
+ #{
+ 
+/* implementation of wrapping gate and exec functions from xtramelt-ana-base.melt */
+bool melthk_gimple_gate(void)
+{ return melthookproc_HOOK_GIMPLE_GATE () != 0L; }
+
+unsigned int melthk_gimple_execute(void) 
+{return (unsigned) melthookproc_HOOK_GIMPLE_EXECUTE (); }
+
+
+bool melthk_simple_ipa_gate(void)
+{ return melthookproc_HOOK_SIMPLE_IPA_GATE () != 0L; }
+
+unsigned int melthk_simple_ipa_execute(void) 
+{return (unsigned) melthookproc_HOOK_SIMPLE_IPA_EXECUTE (); }
+
+bool melthk_rtl_gate(void)
+{ return melthookproc_HOOK_RTL_GATE () != 0L; }
+
+unsigned int melthk_rtl_execute(void) 
+{return (unsigned) melthookproc_HOOK_RTL_EXECUTE (); }
+
 }#)
 
-(cheader 
- #{static bool melthk_simple_ipa_gate(void) 
- { return melthookproc_HOOK_SIMPLE_IPA_GATE () != 0L; }
-}#)
 
-(cheader 
- #{static unsigned int melthk_simple_ipa_execute(void) 
- { return (unsigned) melthookproc_HOOK_SIMPLE_IPA_EXECUTE (); }
-}#)
-
-(cheader 
- #{static bool melthk_rtl_gate(void) 
- { return melthookproc_HOOK_RTL_GATE () != 0L; }
-}#)
-
-(cheader 
- #{static unsigned int melthk_rtl_execute(void) 
- { return (unsigned) melthookproc_HOOK_RTL_EXECUTE (); }
-}#)
 
 ;; new function to install a melt pass in gcc
 (defun install_melt_pass_in_gcc 
@@ -155,7 +162,7 @@
 	 gimpass->pass.name = 
 	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 gimpass->pass.gate = ($GATEFUN != NULL)?melthk_gimple_gate:NULL;
-	 gimpass->pass.execute = ($EXECFUN != NULL)?melthk_gimple_execute:NULL;
+	 gimpass->pass.execute = melthk_gimple_execute;
 	 gimpass->pass.tv_id = TV_PLUGIN_RUN;
 	 gimpass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
 	 gimpass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
@@ -188,7 +195,7 @@
 	 simipass->pass.name = 
 	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 simipass->pass.gate = ($GATEFUN != NULL)?melthk_simple_ipa_gate:NULL;
-	 simipass->pass.execute = ($EXECFUN != NULL)?melthk_simple_ipa_execute:NULL;
+	 simipass->pass.execute = melthk_simple_ipa_execute;
 	 simipass->pass.tv_id = TV_PLUGIN_RUN;
 	 simipass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
 	 simipass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
@@ -221,7 +228,7 @@
 	 rtlpass->pass.name = 
 	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 rtlpass->pass.gate = ($GATEFUN != NULL)?melthk_rtl_gate:NULL;
-	 rtlpass->pass.execute = ($EXECFUN != NULL)?melthk_rtl_execute:NULL;
+	 rtlpass->pass.execute = melthk_rtl_execute;
 	 rtlpass->pass.tv_id = TV_PLUGIN_RUN;
 	 rtlpass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
 	 rtlpass->pass.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
@@ -651,45 +658,32 @@
   #{calculate_dominance_info(CDI_POST_DOMINATORS)}#
 )
 
-(defprimitive free_dominance_info () :void
-  :doc #{This primitive is internally called, user doesn't need it.
-        Clear dominance info if they have been allocated.}#
-  #{free_dominance_info(CDI_DOMINATORS)}#
+(defun free_dominance_info () 
+  (code_chunk freedominf_chk #{/* free_dominance_info $FREEDOMINF_CHK */ free_dominance_info(CDI_DOMINATORS)}#)
 )
 
-(defprimitive free_post_dominance_info () :void
-  :doc #{This primitive is internally called, user doesn't need it.
-    Clear post dominance info if they have been allocated.}#
-  #{free_dominance_info(CDI_POST_DOMINATORS)}#
+(defun free_post_dominance_info () 
+  (code_chunk freepostdominf_chk 
+  #{/* free_post_dominance_info $FREEPOSTDOMINF_CHK */ free_dominance_info(CDI_POST_DOMINATORS)}#)
 )
 
 (defun calculate_dominance_info ()
-  :doc #{This primitive is internally called, user doesn't need it.
-      Build the struct containing dominance info.
-      This struct is necessary to use other dominance related info.
-      It place a call to free dominance info when pass is finished if it is
-      necessary.}#
   (if (is_dominance_info_available)
     () ;; do nothing
     (progn ;; else calculate dom and ask to free them at end of pass
       (calculate_dominance_info_unsafe)
-      (at_end_melt_pass_first free_dominance_info)
+      (at_end_of_this_melt_pass_last free_dominance_info))
     ))
-)
+
 
 (defun calculate_post_dominance_info () 
-  :doc #{This primitive is internally called, user doesn't need it
-      Build the struct containing post dominance info.
-      This struct is necessary to use other post dominance related info.
-      It place a call to free dominance info when pass is finished if it is
-      necessary.}#
   (if (is_post_dominance_info_available)
     ()  ;; do nothing
     (progn ;; else calculate dom and ask to free them at end of pass
       (calculate_post_dominance_info_unsafe)
-      (at_end_melt_pass_first free_post_dominance_info)
+      (at_end_of_this_melt_pass_last free_post_dominance_info))
     ))
-)
+
 
 (defprimitive debug_dominance_info (:cstring msg) :void
   :doc #{Debug-print the dominance information.}#
