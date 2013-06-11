@@ -4240,8 +4240,7 @@ enum tree_index
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
 
-  TI_BOUND32_TYPE,
-  TI_BOUND64_TYPE,
+  TI_BOUND_TYPE,
 
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
@@ -4384,8 +4383,7 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
 
-#define bound32_type_node               global_trees[TI_BOUND32_TYPE]
-#define bound64_type_node               global_trees[TI_BOUND64_TYPE]
+#define bound_type_node                 global_trees[TI_BOUND_TYPE]
 
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */

@@ -1856,6 +1856,9 @@ do {							\
    between pointers and any other objects of this machine mode.  */
 #define Pmode (ix86_pmode == PMODE_DI ? DImode : SImode)
 
+/* Specify the machine mode that bounds have.  */
+#define BNDmode (TARGET_64BIT ? BND64mode : BND32mode)
+
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and
    greater then zero if they are zero-extended and less then zero if the

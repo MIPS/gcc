@@ -883,7 +883,7 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 	    /* We have to make a temporary for bounds if there is a bndmk.  */
 	    if (TREE_CODE (args[i].bounds_value) == CALL_EXPR)
 	      {
-		args[i].bounds = gen_reg_rtx (BNDmode);
+		args[i].bounds = gen_reg_rtx (targetm.mpx_bound_mode ());
 		expand_expr_real (args[i].bounds_value, args[i].bounds,
 				  VOIDmode, EXPAND_NORMAL, 0);
 	      }
@@ -4879,7 +4879,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       /* We have to make a temporary for bounds if there is a bndmk.  */
       if (TREE_CODE (arg->bounds_value) == CALL_EXPR)
 	{
-	  arg->bounds = gen_reg_rtx (BNDmode);
+	  arg->bounds = gen_reg_rtx (targetm.mpx_bound_mode ());
 	  expand_expr_real (arg->bounds_value, arg->bounds,
 			    VOIDmode, EXPAND_NORMAL, 0);
 	}

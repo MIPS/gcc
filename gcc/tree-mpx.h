@@ -6,9 +6,6 @@
 #define BOUNDED_P(node) \
   BOUNDED_TYPE_P (TREE_TYPE (node))
 
-#define bound_type_node (targetm.mpx_bound_type ())
-#define BNDmode (targetm.mpx_bound_mode ())
-
 extern const char *MPX_SIZE_OF_SYMBOL_PREFIX;
 
 extern bool mpx_register_var_initializer (tree var);

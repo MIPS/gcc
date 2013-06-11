@@ -26956,30 +26956,18 @@ enum ix86_builtins
   IX86_BUILTIN_XTEST,
 
   /* MPX */
-  IX86_BUILTIN_BNDMK32,
-  IX86_BUILTIN_BNDMK64,
-  IX86_BUILTIN_BNDSTX32,
-  IX86_BUILTIN_BNDSTX64, 
-  IX86_BUILTIN_BNDLDX32,
-  IX86_BUILTIN_BNDLDX64,
-  IX86_BUILTIN_BNDCL32,
-  IX86_BUILTIN_BNDCL64,
-  IX86_BUILTIN_BNDCU32,
-  IX86_BUILTIN_BNDCU64,
-  IX86_BUILTIN_BNDRET32,
-  IX86_BUILTIN_BNDRET64,
-  IX86_BUILTIN_BNDBIND32,
-  IX86_BUILTIN_BNDBIND64,
-  IX86_BUILTIN_BNDINT_USER32,
-  IX86_BUILTIN_BNDINT_USER64,
-  IX86_BUILTIN_BNDBIND_INT32,
-  IX86_BUILTIN_BNDBIND_INT64,
-  IX86_BUILTIN_BNDINT32,
-  IX86_BUILTIN_BNDINT64,
-  IX86_BUILTIN_ARG_BND32,
-  IX86_BUILTIN_ARG_BND64,
-  IX86_BUILTIN_SIZEOF32,
-  IX86_BUILTIN_SIZEOF64,
+  IX86_BUILTIN_BNDMK,
+  IX86_BUILTIN_BNDSTX,
+  IX86_BUILTIN_BNDLDX,
+  IX86_BUILTIN_BNDCL,
+  IX86_BUILTIN_BNDCU,
+  IX86_BUILTIN_BNDRET,
+  IX86_BUILTIN_BNDBIND,
+  IX86_BUILTIN_BNDINT_USER,
+  IX86_BUILTIN_BNDBIND_INT,
+  IX86_BUILTIN_BNDINT,
+  IX86_BUILTIN_ARG_BND,
+  IX86_BUILTIN_SIZEOF,
 
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
@@ -28193,21 +28181,23 @@ static const struct builtin_description bdesc_args[] =
 /* Bultins for MPX.  */
 static const struct builtin_description bdesc_mpx[] =
 {
-  { 0, CODE_FOR_bnd64_stx, "__builtin_ia32_bndstx64", IX86_BUILTIN_BNDSTX64, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND64 },
-  { 0, CODE_FOR_bnd32_stx, "__builtin_ia32_bndstx32", IX86_BUILTIN_BNDSTX32, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND32 },
-  { 0, CODE_FOR_bnd64_cl, "__builtin_ia32_bndcl64", IX86_BUILTIN_BNDCL64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { 0, CODE_FOR_bnd32_cl, "__builtin_ia32_bndcl32", IX86_BUILTIN_BNDCL32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
-  { 0, CODE_FOR_bnd64_cu, "__builtin_ia32_bndcu64", IX86_BUILTIN_BNDCU64, UNKNOWN, (int) VOID_FTYPE_BND64_PCVOID },
-  { 0, CODE_FOR_bnd32_cu, "__builtin_ia32_bndcu32", IX86_BUILTIN_BNDCU32, UNKNOWN, (int) VOID_FTYPE_BND32_PCVOID },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
 };
 
 /* Const builtins for MPX.  */
 static const struct builtin_description bdesc_mpx_const[] =
 {
-  { 0, CODE_FOR_bnd64_mk, "__builtin_ia32_bndmk64", IX86_BUILTIN_BNDMK64, UNKNOWN, (int) BND64_FTYPE_PCVOID_DI },
-  { 0, CODE_FOR_bnd32_mk, "__builtin_ia32_bndmk32", IX86_BUILTIN_BNDMK32, UNKNOWN, (int) BND32_FTYPE_PCVOID_DI },
-  { 0, CODE_FOR_bnd64_ldx, "__builtin_ia32_bndldx64", IX86_BUILTIN_BNDLDX64, UNKNOWN, (int) BND64_FTYPE_PCVOID_PCVOID },
-  { 0, CODE_FOR_bnd32_ldx, "__builtin_ia32_bndldx32", IX86_BUILTIN_BNDLDX32, UNKNOWN, (int) BND32_FTYPE_PCVOID_PCVOID },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndmk", IX86_BUILTIN_BNDMK, UNKNOWN, (int) BND_FTYPE_PCVOID_ULONG },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndldx", IX86_BUILTIN_BNDLDX, UNKNOWN, (int) BND_FTYPE_PCVOID_PCVOID },
+  { 0, (enum insn_code)0, "__builtin_ia32_bind_bounds", IX86_BUILTIN_BNDBIND, UNKNOWN, (int) PVOID_FTYPE_PVOID_PVOID_ULONG },
+  { 0, (enum insn_code)0, "__builtin_ia32_intersect_bounds", IX86_BUILTIN_BNDINT_USER, UNKNOWN, (int) PVOID_FTYPE_PVOID_PVOID_ULONG },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndbind_int", IX86_BUILTIN_BNDBIND_INT, UNKNOWN, (int) PVOID_FTYPE_PCVOID_BND_PCVOID_ULONG },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndret", IX86_BUILTIN_BNDRET, UNKNOWN, (int) BND_FTYPE_VOID },
+  { 0, (enum insn_code)0, "__builtin_ia32_bndint", IX86_BUILTIN_BNDINT, UNKNOWN, (int) BND_FTYPE_BND_BND },
+  { 0, (enum insn_code)0, "__builtin_ia32_arg_bnd", IX86_BUILTIN_ARG_BND, UNKNOWN, (int) BND_FTYPE_VOID },
+  { 0, (enum insn_code)0, "__builtin_ia32_sizeof", IX86_BUILTIN_SIZEOF, UNKNOWN, (int) ULONG_FTYPE_VOID },
 };
 
 /* FMA4 and XOP.  */
@@ -28907,36 +28897,6 @@ ix86_init_mmx_sse_builtins (void)
       ftype = (enum ix86_builtin_func_type) d->flag;
       def_builtin_const (d->mask, d->name, ftype, d->code);
     }
-
-  /* Add MPX instructions.  */
-  def_builtin_const (0, "__builtin_ia32_bind_bounds32",
-		     PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDBIND32);
-  def_builtin_const (0, "__builtin_ia32_bind_bounds64",
-		     PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDBIND64);
-  def_builtin_const (0, "__builtin_ia32_intersect_bounds32",
-		     PVOID_FTYPE_PVOID_PVOID_UINT, IX86_BUILTIN_BNDINT_USER32);
-  def_builtin_const (0, "__builtin_ia32_intersect_bounds64",
-		     PVOID_FTYPE_PVOID_PVOID_UINT64, IX86_BUILTIN_BNDINT_USER64);
-  def_builtin_const (0, "__builtin_ia32_bndbind_int32",
-		     PVOID_FTYPE_PCVOID_BND32_PCVOID_UINT, IX86_BUILTIN_BNDBIND_INT32);
-  def_builtin_const (0, "__builtin_ia32_bndbind_int64",
-		     PVOID_FTYPE_PCVOID_BND64_PCVOID_UINT64, IX86_BUILTIN_BNDBIND_INT64);
-  def_builtin_const (0, "__builtin_ia32_bndret32",
-		     BND32_FTYPE_VOID, IX86_BUILTIN_BNDRET32);
-  def_builtin_const (0, "__builtin_ia32_bndret64",
-		     BND64_FTYPE_VOID, IX86_BUILTIN_BNDRET64);
-  def_builtin_const (0, "__builtin_ia32_bndint32",
-		     BND32_FTYPE_BND32_BND32, IX86_BUILTIN_BNDINT32);
-  def_builtin_const (0, "__builtin_ia32_bndint64",
-		     BND64_FTYPE_BND64_BND64, IX86_BUILTIN_BNDINT64);
-  def_builtin_const (0, "__builtin_ia32_arg_bnd32",
-		     BND32_FTYPE_VOID, IX86_BUILTIN_ARG_BND32);
-  def_builtin_const (0, "__builtin_ia32_arg_bnd64",
-		     BND64_FTYPE_VOID, IX86_BUILTIN_ARG_BND64);
-  def_builtin_const (0, "__builtin_ia32_sizeof",
-		     USI_FTYPE_VOID, IX86_BUILTIN_SIZEOF32);
-  def_builtin_const (0, "__builtin_ia64_sizeof",
-		     UDI_FTYPE_VOID, IX86_BUILTIN_SIZEOF64);
 }
 
 static void
@@ -32091,8 +32051,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
   switch (fcode)
     {
-    case IX86_BUILTIN_BNDMK32:
-    case IX86_BUILTIN_BNDMK64:
+    case IX86_BUILTIN_BNDMK:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
 
@@ -32109,8 +32068,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
                  : gen_bnd32_mk (target, op0, op1));
       return target;
 
-    case IX86_BUILTIN_BNDSTX32:
-    case IX86_BUILTIN_BNDSTX64:
+    case IX86_BUILTIN_BNDSTX:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
       arg2 = CALL_EXPR_ARG (exp, 2);
@@ -32128,8 +32086,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
                  : gen_bnd32_stx (op0, op1, op2));
       return 0;
 
-    case IX86_BUILTIN_BNDLDX32:
-    case IX86_BUILTIN_BNDLDX64:
+    case IX86_BUILTIN_BNDLDX:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
 
@@ -32164,8 +32121,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
                  : gen_bnd32_ldx (target, op0, op1));
       return target;
 
-    case IX86_BUILTIN_BNDCL32:
-    case IX86_BUILTIN_BNDCL64:
+    case IX86_BUILTIN_BNDCL:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
 
@@ -32180,8 +32136,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
                  : gen_bnd32_cl (op0, op1));
       return 0;
 
-    case IX86_BUILTIN_BNDCU32:
-    case IX86_BUILTIN_BNDCU64: 
+    case IX86_BUILTIN_BNDCU:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
 
@@ -32196,14 +32151,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
                  : gen_bnd32_cu (op0, op1));
       return 0;
 
-    case IX86_BUILTIN_BNDRET32:
-    case IX86_BUILTIN_BNDRET64:
+    case IX86_BUILTIN_BNDRET:
       target = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);
       return target;
 
-    case IX86_BUILTIN_BNDBIND32:
-    case IX86_BUILTIN_BNDBIND64:
+    case IX86_BUILTIN_BNDBIND:
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
       arg2 = CALL_EXPR_ARG (exp, 2);
@@ -32227,8 +32180,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 				 op1, op2));
       return op0;
 
-    case IX86_BUILTIN_BNDBIND_INT32:
-    case IX86_BUILTIN_BNDBIND_INT64:
+    case IX86_BUILTIN_BNDBIND_INT:
       {
 	enum machine_mode mode = TARGET_64BIT ? BND64mode : BND32mode;
 	enum machine_mode hmode = TARGET_64BIT ? DImode : SImode;
@@ -32310,8 +32262,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	return op0;
       }
 
-    case IX86_BUILTIN_BNDINT32:
-    case IX86_BUILTIN_BNDINT64:
+    case IX86_BUILTIN_BNDINT:
       {
 	enum machine_mode mode = TARGET_64BIT ? BND64mode : BND32mode;
 	enum machine_mode hmode = TARGET_64BIT ? DImode : SImode;
@@ -32399,8 +32350,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	return res;
       }
 
-    case IX86_BUILTIN_ARG_BND32:
-    case IX86_BUILTIN_ARG_BND64:
+    case IX86_BUILTIN_ARG_BND:
       arg0 = CALL_EXPR_ARG (exp, 0);
 
       gcc_assert (TREE_CODE (arg0) == SSA_NAME);
@@ -32412,8 +32362,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       target = DECL_BOUNDS_RTL (arg0);
       return target;
 
-    case IX86_BUILTIN_SIZEOF32:
-    case IX86_BUILTIN_SIZEOF64:
+    case IX86_BUILTIN_SIZEOF:
       {
 	enum machine_mode mode = TARGET_64BIT ? DImode : SImode;
 	rtx t1, t2;
@@ -33196,48 +33145,37 @@ ix86_builtin_mpx_function (unsigned fcode)
   switch (fcode)
     {
     case BUILT_IN_MPX_BNDMK:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDMK64]
-	: ix86_builtins[IX86_BUILTIN_BNDMK32];
+      return ix86_builtins[IX86_BUILTIN_BNDMK];
 
     case BUILT_IN_MPX_BNDSTX:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDSTX64]
-	: ix86_builtins[IX86_BUILTIN_BNDSTX32];
+      return ix86_builtins[IX86_BUILTIN_BNDSTX];
 
     case BUILT_IN_MPX_BNDLDX:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDLDX64]
-        : ix86_builtins[IX86_BUILTIN_BNDLDX32];
+      return ix86_builtins[IX86_BUILTIN_BNDLDX];
 
     case BUILT_IN_MPX_BNDCL:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCL64]
-        : ix86_builtins[IX86_BUILTIN_BNDCL32];
+      return ix86_builtins[IX86_BUILTIN_BNDCL];
 
     case BUILT_IN_MPX_BNDCU:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDCU64]
-        : ix86_builtins[IX86_BUILTIN_BNDCU32];
+      return ix86_builtins[IX86_BUILTIN_BNDCU];
 
     case BUILT_IN_MPX_BNDRET:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDRET64]
-	: ix86_builtins[IX86_BUILTIN_BNDRET32];
+      return ix86_builtins[IX86_BUILTIN_BNDRET];
 
     case BUILT_IN_MPX_INTERSECT:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDINT64]
-	: ix86_builtins[IX86_BUILTIN_BNDINT32];
+      return ix86_builtins[IX86_BUILTIN_BNDINT];
 
     case BUILT_IN_MPX_USER_INTERSECT:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDINT_USER64]
-	: ix86_builtins[IX86_BUILTIN_BNDINT_USER32];
+      return ix86_builtins[IX86_BUILTIN_BNDINT_USER];
 
     case BUILT_IN_MPX_BIND_INTERSECT:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_BNDBIND_INT64]
-	: ix86_builtins[IX86_BUILTIN_BNDBIND_INT32];
+      return ix86_builtins[IX86_BUILTIN_BNDBIND_INT];
 
     case BUILT_IN_MPX_ARG_BND:
-      return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_ARG_BND64]
-	: ix86_builtins[IX86_BUILTIN_ARG_BND32];
+      return ix86_builtins[IX86_BUILTIN_ARG_BND];
 
     case BUILT_IN_MPX_SIZEOF:
-       return TARGET_64BIT ? ix86_builtins[IX86_BUILTIN_SIZEOF64]
-	 : ix86_builtins[IX86_BUILTIN_SIZEOF32];
+      return ix86_builtins[IX86_BUILTIN_SIZEOF];
 
     default:
       return NULL_TREE;
@@ -43251,7 +43189,7 @@ ix86_lra_p ()
 static tree
 ix86_mpx_bound_type ()
 {
-  return TARGET_64BIT ? bound64_type_node : bound32_type_node;
+  return bound_type_node;
 }
 
 static enum machine_mode

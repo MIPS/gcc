@@ -9518,12 +9518,9 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   void_type_node = make_node (VOID_TYPE);
   layout_type (void_type_node);
 
-  bound32_type_node = make_node (BOUND_TYPE);
-  TYPE_PRECISION (bound32_type_node) = 64;
-  layout_type (bound32_type_node);
-  bound64_type_node = make_node (BOUND_TYPE);
-  TYPE_PRECISION (bound64_type_node) = 128;
-  layout_type (bound64_type_node); 
+  bound_type_node = make_node (BOUND_TYPE);
+  TYPE_PRECISION (bound_type_node) = TYPE_PRECISION (size_type_node) * 2;
+  layout_type (bound_type_node);
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */

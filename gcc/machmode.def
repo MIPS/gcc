@@ -175,9 +175,6 @@ RANDOM_MODE (VOID);
    that fit no more specific mode.  */
 RANDOM_MODE (BLK);
 
-BOUND_MODE(BND32, 8);
-BOUND_MODE(BND64, 16);
-
 /* Single bit mode used for booleans.  */
 FRACTIONAL_INT_MODE (BI, 1, 1);
 

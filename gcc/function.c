@@ -3508,11 +3508,11 @@ assign_parms (tree fndecl)
 	  else if (!AGGREGATE_TYPE_P (data.passed_type))
 	    {
 	      int align = STACK_SLOT_ALIGNMENT (bound_type_node,
-						BNDmode,
+						targetm.mpx_bound_mode (),
 						TYPE_ALIGN (bound_type_node));
 	      rtx stack
-		= assign_stack_local (BNDmode,
-				      GET_MODE_SIZE (BNDmode),
+		= assign_stack_local (targetm.mpx_bound_mode (),
+				      GET_MODE_SIZE (targetm.mpx_bound_mode ()),
 				      align);
 
 	      gcc_assert (REG_P (data.bound_parm));
