@@ -1,3 +1,5 @@
+// copied from 12ebd6294172cc1108bbadab78fea03e890a6da4:libgo/go/syscall/exec_bsd.go
+
 // Copyright 2011 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -226,4 +228,18 @@ childerror:
 	// but the for loop above won't break
 	// and this shuts up the compiler.
 	panic("unreached")
+}
+
+// Try to open a pipe with O_CLOEXEC set on both file descriptors.
+func forkExecPipe(p []int) error {
+	err := Pipe(p)
+	if err != nil {
+		return err
+	}
+	_, err = fcntl(p[0], F_SETFD, FD_CLOEXEC)
+	if err != nil {
+		return err
+	}
+	_, err = fcntl(p[1], F_SETFD, FD_CLOEXEC)
+	return err
 }
