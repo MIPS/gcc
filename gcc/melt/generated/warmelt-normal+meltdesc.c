@@ -39,17 +39,17 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-rc2p/warmelt-normal";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="2c755034eea3dd7e0e971c5ddd537413";
+const char melt_prepromd5meltrun[]="80ea0a5186d55f247bd973b813998ced";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="21c37edf4484e9b74f1606b63aa0ea63";
+const char melt_primaryhexmd5[]="65c3dd60e41122d1bbedc56b106047aa";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+01.c #1 */ "82f532dbaf24b654ee9cfac952254766",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.c #2 */ "08f136cbd7cd8fd03c0dbffdfd01385e",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.c #2 */ "29e87536b300ee26dd09e214e2756a7f",
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+03.c #3 */ "e31ee6a34e3f320829e032d66d675bd0",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.c #4 */ "bcd0aa6a5f6014d8c5fe23fefa1c474f",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.c #4 */ "49e88244ef85b52b74f36e31ce934e0a",
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+05.c #5 */ "28189a2baf27a3a5ffbf0a29f193208c",
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+06.c #6 */ "945ec62ec3777d3c2338a67c418780d8",
  (const char*)0 };
@@ -58,13 +58,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="260df5bc7fb5b87b04eb6a72b2b95199" ;
+const char melt_cumulated_hexmd5[]="5f645aaa5d9d1438f080456e9763b5db" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiNORMAL_mds__260DF5BC7FB5B87B04EB6A72B2B95199 1
+#define meltmod_WARMELTmiNORMAL_mds__5F645AAA5D9D1438F080456E9763B5DB 1
 #include "warmelt-normal+melttime.h"
 	 
 

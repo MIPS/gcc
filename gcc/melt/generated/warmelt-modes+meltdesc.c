@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-rc2p/warmelt-modes";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="2c755034eea3dd7e0e971c5ddd537413";
+const char melt_prepromd5meltrun[]="80ea0a5186d55f247bd973b813998ced";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="a90b2f646ff3a6c601a683464dd9ce6f";
+const char melt_primaryhexmd5[]="4c94a74ddd2144c4965ac5c3db67eb95";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
  /*sechexmd5checksum meltbuild-sources/warmelt-modes+01.c #1 */ "5741bc8bd3828dd94c8d610077ec9021",
- /*sechexmd5checksum meltbuild-sources/warmelt-modes+02.c #2 */ "2ecf169841c13c0516bd3856770945c5",
+ /*sechexmd5checksum meltbuild-sources/warmelt-modes+02.c #2 */ "c2d44bc7063211f761f9d0c55d14ded9",
  /*sechexmd5checksum meltbuild-sources/warmelt-modes+03.c #3 */ "480932ceb48fef1cc9e9448285c82158",
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=3;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="29dd17e91c2bc9217119fd87b13eda40" ;
+const char melt_cumulated_hexmd5[]="0715ee362adeeaf7607c1349d465ad83" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMODES_mds__29DD17E91C2BC9217119FD87B13EDA40 1
+#define meltmod_WARMELTmiMODES_mds__0715EE362ADEEAF7607C1349D465AD83 1
 #include "warmelt-modes+melttime.h"
 	 
 
