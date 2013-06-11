@@ -1985,8 +1985,12 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 
 	 In the third case we have more freedom since both forms of
 	 access will work for any kind of symbol.  However, there seems
-	 little point in doing things differently.  */
-      if (mips_global_symbol_p (x))
+	 little point in doing things differently.
+
+	 Note in the second and third case with xgot turned on, we
+	 want to always use got displacement as the number of pages
+	 used by the GOT might cause a GOT overflow. */
+      if (mips_global_symbol_p (x) || TARGET_XGOT)
 	return SYMBOL_GOT_DISP;
 
       return SYMBOL_GOT_PAGE_OFST;
