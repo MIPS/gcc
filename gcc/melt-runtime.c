@@ -1659,7 +1659,7 @@ melt_delete_unmarked_old_specialdata (void)
 void
 melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
 {
-  char* needfullreason = NULL;
+  const char* needfullreason = NULL;
   if (melt_prohibit_garbcoll)
     fatal_error ("MELT garbage collection prohibited");
   melt_nb_garbcoll++;

@@ -2129,17 +2129,75 @@ bool  melthk_pass_execution_registered_flag;
 
 
 
-;; private final queue
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; attribute definer hook
+;; private hook definer queue
+
+(definstance attribute_definer_delayed_queue class_delayed_queue
+  :named_name '"attribute_definer_delayed_queue"
+  :delqu_first (make_list discr_list)
+  :delqu_last (make_list discr_list)
+  )
+
+(defhook hook_melt_attribute_definer 
+  (:tree decl :tree name :cstring attrstr
+	 :cstring fileloc :long lineno)      
+  ()
+  :void
+  :predef HOOK_MELT_ATTRIBUTE_DEFINER
+  (let ( (firstlist (get_field :delqu_first attribute_definer_delayed_queue))
+	 (lastlist (get_field :delqu_last attribute_definer_delayed_queue))
+	 (revlastlist (make_list discr_list))
+	 (rescont (instance class_reference))
+	 )
+;;; call the first routines in natural order
+    (foreach_in_list
+     (firstlist)
+     (curpair firstproc)
+     (if (is_closure firstproc)
+	 (firstproc rescont decl name attrstr fileloc lineno))
+     )
+;;; reverse the last list
+    (foreach_in_list
+     (lastlist)
+     (curpair lastproc)
+     (if (is_closure lastproc) (list_prepend revlastlist lastproc))
+     )
+    (foreach_in_list
+     (revlastlist)
+     (curpair lastproc)
+     (lastproc rescont decl name attrstr fileloc lineno)
+     )
+    ))
+
+(defun at_melt_attribute_first (fun)
+  :doc #{Use $AT_MELT_ATTRIBUTE_FIRST to register a function to be run at MELT
+attribute definition, in first place.}#
+  (let ( (firstlist (unsafe_get_field :delqu_first attribute_definer_delayed_queue))
+	 )
+    (if (is_closure fun) (list_append firstlist fun)))
+  ) 
+
+
+(defun at_melt_attribute_last (fun)
+  :doc #{Use $AT_MELT_ATTRIBUTE_FIRST to register a function to be run at MELT
+attribute definition, in last place.}#
+  (let ( (lastlist (unsafe_get_field :delqu_last attribute_definer_delayed_queue))
+	 )
+    (if (is_closure fun) (list_append lastlist fun)))
+  ) 
+
+;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; private final exit queue
 (definstance final_exit_delayed_queue class_delayed_queue
   :named_name '"final_exit_delayed_queue"
   :delqu_first (make_list discr_list)
   :delqu_last (make_list discr_list)
   )
 
-
-
-
-;;
+;;; exit hook 
 (defhook hook_exit_finalizer () () :void
   :predef HOOK_EXIT_FINALIZER
   (let ( (firstlist (get_field :delqu_first final_exit_delayed_queue))
@@ -2200,6 +2258,8 @@ exit, in last place.}#
  at_exit_last
  at_finish_unit_first
  at_finish_unit_last
+ at_melt_attribute_first
+ at_melt_attribute_last
  at_start_unit_first
  at_start_unit_last
  hook_low_debug_value_at

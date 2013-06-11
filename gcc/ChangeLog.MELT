@@ -2,6 +2,17 @@
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_MELT_ATTRIBUTE_DEFINER): New.
+
+	* melt-runtime.c (melt_garbcoll): Declare needfullreason as const
+	char* string...
+
+	* melt/warmelt-hooks.melt (hook_melt_attribute_definer): New.
+	(attribute_definer_delayed_queue, at_melt_attribute_first)
+	(at_melt_attribute_last): New.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.
