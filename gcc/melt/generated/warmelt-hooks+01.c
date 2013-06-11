@@ -1384,6 +1384,56 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_SIMPLE_IPA_EXECUTE_rout (struct
 
 
 
+/** declaration of hook melthook_HOOK_MELT_ATTRIBUTE_DEFINER */
+MELT_EXTERN
+  void melthook_HOOK_MELT_ATTRIBUTE_DEFINER (melt_ptr_t melthookdata,
+					     tree meltinp0_DECL,
+					     tree meltinp1_NAME,
+					     melt_ptr_t meltinp2_ATTRSEQ,
+					     const char *meltinp3_FILELOC,
+					     long meltinp4_LINENO);
+
+
+/* declare hook frame marking routine for melthook_HOOK_MELT_ATTRIBUTE_DEFINER hook */
+void MELT_MODULE_VISIBILITY
+melthookmark_HOOK_MELT_ATTRIBUTE_DEFINER_rout (struct melt_callframe_st *,
+					       int);
+
+
+
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_72_WARMELTmiHOOKS_AT_MELT_ATTRIBUTE_FIRST (meltclosure_ptr_t
+						    meltclosp_,
+						    melt_ptr_t meltfirstargp_,
+						    const melt_argdescr_cell_t
+						    meltxargdescr_[],
+						    union meltparam_un
+						    *meltxargtab_,
+						    const melt_argdescr_cell_t
+						    meltxresdescr_[],
+						    union meltparam_un
+						    *meltxrestab_);
+
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_73_WARMELTmiHOOKS_AT_MELT_ATTRIBUTE_LAST (meltclosure_ptr_t
+						   meltclosp_,
+						   melt_ptr_t meltfirstargp_,
+						   const melt_argdescr_cell_t
+						   meltxargdescr_[],
+						   union meltparam_un
+						   *meltxargtab_,
+						   const melt_argdescr_cell_t
+						   meltxresdescr_[],
+						   union meltparam_un
+						   *meltxrestab_);
+
 /** declaration of hook melthook_HOOK_EXIT_FINALIZER */
 MELT_EXTERN void melthook_HOOK_EXIT_FINALIZER (melt_ptr_t melthookdata);
 
@@ -1400,7 +1450,7 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_EXIT_FINALIZER_rout (struct
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_72_WARMELTmiHOOKS_AT_EXIT_FIRST (meltclosure_ptr_t meltclosp_,
+meltrout_75_WARMELTmiHOOKS_AT_EXIT_FIRST (meltclosure_ptr_t meltclosp_,
 					  melt_ptr_t meltfirstargp_,
 					  const melt_argdescr_cell_t
 					  meltxargdescr_[],
@@ -1413,7 +1463,7 @@ meltrout_72_WARMELTmiHOOKS_AT_EXIT_FIRST (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_73_WARMELTmiHOOKS_AT_EXIT_LAST (meltclosure_ptr_t meltclosp_,
+meltrout_76_WARMELTmiHOOKS_AT_EXIT_LAST (meltclosure_ptr_t meltclosp_,
 					 melt_ptr_t meltfirstargp_,
 					 const melt_argdescr_cell_t
 					 meltxargdescr_[],
@@ -1458,6 +1508,8 @@ void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiHOOKS__initialmeltchunk_6 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiHOOKS__initialmeltchunk_7 (meltinitial_frame_t *, char *);
+void MELT_MODULE_VISIBILITY
+meltmod__WARMELTmiHOOKS__initialmeltchunk_8 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiHOOKS__forward_or_mark_module_start_frame (struct
 							     melt_callframe_st

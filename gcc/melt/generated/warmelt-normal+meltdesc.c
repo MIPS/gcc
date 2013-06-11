@@ -38,17 +38,17 @@ const char melt_modulename[]="warmelt-normal";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.8.0/melt-modules/0.9.9-rc2p/warmelt-normal";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="e7d067f5896a955d01f1cc9dc452d31f";
+const char melt_prepromd5meltrun[]="07311aba1bdb86a36e837bcc35f6047f";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="65c3dd60e41122d1bbedc56b106047aa";
+const char melt_primaryhexmd5[]="0599f4d822d51901ea3aa0bfc1fe7bba";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+01.c #1 */ "82f532dbaf24b654ee9cfac952254766",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.c #2 */ "29e87536b300ee26dd09e214e2756a7f",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.c #2 */ "efbee1067bc9e8f6ac08a25ac1bf9915",
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+03.c #3 */ "e31ee6a34e3f320829e032d66d675bd0",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.c #4 */ "49e88244ef85b52b74f36e31ce934e0a",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.c #4 */ "969ecc774d3b8785dfaf44ddf52c07c3",
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+05.c #5 */ "28189a2baf27a3a5ffbf0a29f193208c",
  /*sechexmd5checksum meltbuild-sources/warmelt-normal+06.c #6 */ "945ec62ec3777d3c2338a67c418780d8",
  (const char*)0 };
@@ -57,13 +57,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="5f645aaa5d9d1438f080456e9763b5db" ;
+const char melt_cumulated_hexmd5[]="b796bd51b2ed6fbcf522cb05ea42c3bd" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiNORMAL_mds__5F645AAA5D9D1438F080456E9763B5DB 1
+#define meltmod_WARMELTmiNORMAL_mds__B796BD51B2ED6FBCF522CB05EA42C3BD 1
 #include "warmelt-normal+melttime.h"
 	 
 

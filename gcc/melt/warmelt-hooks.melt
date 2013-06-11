@@ -2140,7 +2140,7 @@ bool  melthk_pass_execution_registered_flag;
   )
 
 (defhook hook_melt_attribute_definer 
-  (:tree decl :tree name :cstring attrstr
+  (:tree decl :tree name :value attrseq
 	 :cstring fileloc :long lineno)      
   ()
   :void
@@ -2155,7 +2155,7 @@ bool  melthk_pass_execution_registered_flag;
      (firstlist)
      (curpair firstproc)
      (if (is_closure firstproc)
-	 (firstproc rescont decl name attrstr fileloc lineno))
+	 (firstproc attrseq rescont decl name fileloc lineno))
      )
 ;;; reverse the last list
     (foreach_in_list
@@ -2166,7 +2166,7 @@ bool  melthk_pass_execution_registered_flag;
     (foreach_in_list
      (revlastlist)
      (curpair lastproc)
-     (lastproc rescont decl name attrstr fileloc lineno)
+     (lastproc attrseq rescont decl name fileloc lineno)
      )
     ))
 
