@@ -1,4 +1,4 @@
-// copied from 754ed3a8804591ca52c2b896ee430588b2a3c036:libgo/go/syscall/libcall_posix.go
+// copied from 280f3681eb87d4c51a8e79bb58f82829c53d085b:libgo/go/syscall/libcall_posix.go
 
 // Copyright 2011 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -78,7 +78,7 @@ func Getcwd(buf []byte) (n int, err error) {
 }
 
 //sysnb	getgroups(size int, list *Gid_t) (nn int, err error)
-//getgroups(size int, list *Gid_t) _C_int
+//getgroups(size _C_int, list *Gid_t) _C_int
 
 func Getgroups() (gids []int, err error) {
 	n, err := getgroups(0, nil)
