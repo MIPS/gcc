@@ -5546,7 +5546,7 @@ meltlab_endgetargs:;
 	  obj =
 	    (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 19, "SYSDATA_MELTPRAGMAS");
+	  melt_object_get_field (slot, obj, 11, "SYSDATA_MELTPRAGMAS");
    /*_.OLDTUPLE__V5*/ meltfptr[3] = slot;
 	};
 	;
@@ -5782,7 +5782,7 @@ meltlab_endgetargs:;
 					      meltfrout->tabval[0]))) ==
 			  MELTOBMAG_OBJECT);
 	  melt_putfield_object ((( /*!INITIAL_SYSTEM_DATA */ meltfrout->
-				  tabval[0])), (19),
+				  tabval[0])), (11),
 				( /*_.NEWTUPLE__V7*/ meltfptr[6]),
 				"SYSDATA_MELTPRAGMAS");
 	  ;

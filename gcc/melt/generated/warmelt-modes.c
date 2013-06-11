@@ -5038,7 +5038,7 @@ meltlab_endgetargs:;
 	  obj =
 	    (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 			   tabval[3])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 14, "SYSDATA_STDOUT");
+	  melt_object_get_field (slot, obj, 7, "SYSDATA_STDOUT");
    /*_.STDOUT__V13*/ meltfptr[12] = slot;
 	};
 	;
@@ -5900,7 +5900,7 @@ meltlab_endgetargs:;
 	  obj =
 	    (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 			   tabval[3])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 14, "SYSDATA_STDOUT");
+	  melt_object_get_field (slot, obj, 7, "SYSDATA_STDOUT");
    /*_.STDOUT__V13*/ meltfptr[12] = slot;
 	};
 	;
@@ -7255,7 +7255,7 @@ meltlab_endgetargs:;
 		obj =
 		  (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 				 tabval[6])) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 14, "SYSDATA_STDOUT");
+		melt_object_get_field (slot, obj, 7, "SYSDATA_STDOUT");
      /*_.STDOUT__V25*/ meltfptr[24] = slot;
 	      };
 	      ;
@@ -37094,7 +37094,7 @@ meltmod__WARMELTmiMODES__initialmeltchunk_11 (meltinitial_frame_t *
 					     meltfptr[6])) ==
 			  MELTOBMAG_OBJECT);
 	  melt_putfield_object (( /*_.INITIAL_SYSTEM_DATA__V7*/ meltfptr[6]),
-				(22), ( /*_._VALCLO___V610*/ meltfptr[609]),
+				(14), ( /*_._VALCLO___V610*/ meltfptr[609]),
 				"SYSDATA_CHILD_HOOK");
 	  ;
 	  /*^touch */

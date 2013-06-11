@@ -10582,7 +10582,7 @@ melthook_HOOK_GIMPLE_GATE (melt_ptr_t melthookdata)
 	  obj =
 	    (melt_ptr_t) (( /*~INITIAL_SYSTEM_DATA */ meltfhook->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 9, "SYSDATA_PASS_DICT");
+	  melt_object_get_field (slot, obj, 5, "SYSDATA_PASS_DICT");
     /*_.PASSDICT__V2*/ meltfptr[1] = slot;
 	};
 	;
@@ -11253,7 +11253,7 @@ melthook_HOOK_GIMPLE_EXECUTE (melt_ptr_t melthookdata)
 	  obj =
 	    (melt_ptr_t) (( /*~INITIAL_SYSTEM_DATA */ meltfhook->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 9, "SYSDATA_PASS_DICT");
+	  melt_object_get_field (slot, obj, 5, "SYSDATA_PASS_DICT");
     /*_.PASSDICT__V2*/ meltfptr[1] = slot;
 	};
 	;
@@ -11996,7 +11996,7 @@ melthook_HOOK_RTL_GATE (melt_ptr_t melthookdata)
 	  obj =
 	    (melt_ptr_t) (( /*~INITIAL_SYSTEM_DATA */ meltfhook->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 9, "SYSDATA_PASS_DICT");
+	  melt_object_get_field (slot, obj, 5, "SYSDATA_PASS_DICT");
     /*_.PASSDICT__V2*/ meltfptr[1] = slot;
 	};
 	;
@@ -12675,7 +12675,7 @@ melthook_HOOK_RTL_EXECUTE (melt_ptr_t melthookdata)
 	  obj =
 	    (melt_ptr_t) (( /*~INITIAL_SYSTEM_DATA */ meltfhook->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 9, "SYSDATA_PASS_DICT");
+	  melt_object_get_field (slot, obj, 5, "SYSDATA_PASS_DICT");
     /*_.PASSDICT__V2*/ meltfptr[1] = slot;
 	};
 	;
@@ -13421,7 +13421,7 @@ melthook_HOOK_SIMPLE_IPA_GATE (melt_ptr_t melthookdata)
 	  obj =
 	    (melt_ptr_t) (( /*~INITIAL_SYSTEM_DATA */ meltfhook->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 9, "SYSDATA_PASS_DICT");
+	  melt_object_get_field (slot, obj, 5, "SYSDATA_PASS_DICT");
     /*_.PASSDICT__V2*/ meltfptr[1] = slot;
 	};
 	;
@@ -14100,7 +14100,7 @@ melthook_HOOK_SIMPLE_IPA_EXECUTE (melt_ptr_t melthookdata)
 	  obj =
 	    (melt_ptr_t) (( /*~INITIAL_SYSTEM_DATA */ meltfhook->
 			   tabval[0])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 9, "SYSDATA_PASS_DICT");
+	  melt_object_get_field (slot, obj, 5, "SYSDATA_PASS_DICT");
     /*_.PASSDICT__V2*/ meltfptr[1] = slot;
 	};
 	;

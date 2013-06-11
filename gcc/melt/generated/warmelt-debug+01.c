@@ -1147,7 +1147,7 @@ meltlab_endgetargs:;
 		obj =
 		  (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 				 tabval[0])) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 16, "SYSDATA_DUMPFILE");
+		melt_object_get_field (slot, obj, 9, "SYSDATA_DUMPFILE");
      /*_.DUMPF__V3*/ meltfptr[2] = slot;
 	      };
 	      ;
@@ -1174,7 +1174,7 @@ meltlab_endgetargs:;
 		obj =
 		  (melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 				 tabval[0])) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 15, "SYSDATA_STDERR");
+		melt_object_get_field (slot, obj, 8, "SYSDATA_STDERR");
      /*_.STDERRF__V4*/ meltfptr[3] = slot;
 	      };
 	      ;
@@ -1259,7 +1259,7 @@ meltlab_endgetargs:;
 		      obj =
 			(melt_ptr_t) (( /*!INITIAL_SYSTEM_DATA */ meltfrout->
 				       tabval[0])) /*=obj*/ ;
-		      melt_object_get_field (slot, obj, 15, "SYSDATA_STDERR");
+		      melt_object_get_field (slot, obj, 8, "SYSDATA_STDERR");
        /*_.SYSDATA_STDERR__V9*/ meltfptr[8] = slot;
 		    };
 		    ;
