@@ -855,6 +855,9 @@ else
 if LIBGO_IS_LINUX
 go_os_stat_file = go/os/stat_atim.go
 else
+if LIBGO_IS_GNU
+go_os_stat_file = go/os/stat_atim.go
+else
 if LIBGO_IS_OPENBSD
 go_os_stat_file = go/os/stat_atim.go
 else
@@ -868,6 +871,7 @@ if LIBGO_IS_NETBSD
 go_os_stat_file = go/os/stat_atimespec.go
 else
 go_os_stat_file = go/os/stat.go
+endif
 endif
 endif
 endif
@@ -1013,6 +1017,9 @@ go_unicode_files = \
 	go/unicode/tables.go
 
 if LIBGO_IS_LINUX
+archive_tar_atim_file = go/archive/tar/stat_atim.go
+endif
+if LIBGO_IS_GNU
 archive_tar_atim_file = go/archive/tar/stat_atim.go
 endif
 if LIBGO_IS_OPENBSD
