@@ -2,6 +2,12 @@
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_POLL_INPUTS): New.
+
+	* melt/warmelt-hooks.melt (hook_poll_inputs): New.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+01.c: Regenerate.
