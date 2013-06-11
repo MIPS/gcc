@@ -6,6 +6,9 @@
 	melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER without using
 	:sysdata_meltattr_definer field.
 
+	* melt/warmelt-first.melt (class_initial_system_data): Remove
+	sysdata_meltattr_definer field, replace by sysdata_obsolete8.
+
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (hook_melt_attribute_definer): Change
 	signature.
