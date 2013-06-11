@@ -2440,5 +2440,20 @@ exit, in last place.}#
     (return pollres)
  ))
 
+(defhook hook_handle_sigalrm
+  () ()
+  :void
+  :predef HOOK_HANDLE_SIGALRM
+  (assert_msg "hook_handle_sigalrm unimplemented")
+)
+
+
+(defhook hook_handle_sigchld
+  () ()
+  :void
+  :predef HOOK_HANDLE_SIGCHLD
+  (assert_msg "hook_handle_sigchld unimplemented")
+)
+
 
 ;; eof warmelt-hooks.melt

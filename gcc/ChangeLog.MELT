@@ -2,6 +2,13 @@
 
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_HANDLE_SIGALRM, HOOK_HANDLE_SIGCHLD): New.
+
+	* melt/warmelt-hooks.melt (hook_handle_sigalrm)
+	(hook_handle_sigchld): Empty stubs.
+
+2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.
