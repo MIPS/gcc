@@ -1,6 +1,11 @@
 
 
-2013-06-12  Basile Starynkevitch  <basile@s(tarynkevitch.net>
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_debug): Put a (void) in both
+	then and else branches of cppif.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt (class_initial_system_data): Replace
 	sysdata_inchannel_data with sysdata_obsolete1.
@@ -15,7 +20,7 @@
 
 	* melt/xtramelt-probe.melt (probe_at_exit): Likewise.
 
-2013-06-12  Basile Starynkevitch  <basile@s(tarynkevitch.net>
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.

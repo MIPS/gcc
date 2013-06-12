@@ -7327,7 +7327,7 @@ remain.}#)
 			    :loca_location loc
 			    :sifp_cond 'MELT_HAVE_DEBUG
 			    :sifp_then dprogn
-			    :sifp_else ()
+			    :sifp_else dvoid
 			    )) 
 	  )
       ;;
