@@ -2295,16 +2295,17 @@ exit, in last place.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(definstance melt_input_channels_buckets_ref class_reference)
 
-(cheader #{
+(cheader #{ /* header from warmelt-hooks.melt for poll etc... */
 #include <poll.h>
 
 #define MELT_BUFSIZE 8192
-
+#define MELT_POLL_DELAY_MILLISEC 500
 }#)
 
+
 #|
+(definstance melt_input_channels_buckets_ref class_reference)
 (defhook hook_poll_inputs
   (:long delayms)
   ()
@@ -2448,14 +2449,54 @@ exit, in last place.}#
   (assert_msg "hook_handle_sigalrm unimplemented")
 )
 
+(defvar melt_inpchanbuck)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; the sigio handler, called from safe places
 (defhook hook_handle_sigio
   () ()
   :void
   :predef HOOK_HANDLE_SIGIO
+  (let ( (inchbuck melt_inpchanbuck)
+	 (:long nbinch (bucketlong_count inchbuck))
+	 (:long respoll 0)
+	)
+    (debug "hook_handle_sigio inchbuck=" inchbuck)
+    (code_chunk 
+     pollin_chk 
+     #{ /* hook_handle_sigio $POLLIN_CHK start */
+     int nbfd = 0;
+     struct pollfd *fdtab
+       = (struct pollfd *) xcalloc ($NBINCH+1, sizeof(struct pollfd));
+     /* hook_handle_sigio $POLLIN_CHK iteration to fill fdtab */
+     $(foreach_in_bucketlong
+       (inchbuck)
+       (:long curfd :value curinchd)
+       (debug "hook_handle_sigio curfd#" curfd ", curinchd=" curinchd)
+       (when (is_a curinchd class_input_channel_handler)
+	 (assert_msg "check curinchd" (==i (get_int curinchd) curfd))
+	 (code_chunk 
+	  addfd_chk
+	  #{ /* hook_handle_sigio $POLLIN_CHK with $ADDFD_CHK */
+	  fdtab[nbfd].fd = (int) $CURFD;
+	  fdtab[nbfd].events = POLLIN;
+	  fdtab[nbfd].revents = 0;
+	  nbfd++;
+	  }#)
+	 )
+       )
+     /* hook_handle_sigio $POLLIN_CHK do the poll */
+     debugeprintf ("hook_handle_sigio nbfd=%d", nbfd);
+     $RESPOLL = poll (fdtab, nbfd, MELT_POLL_DELAY_MILLISEC);
+     debugeprintf ("hook_handle_sigio respoll=%ld", $RESPOLL);
+     /* hook_handle_sigio $POLLIN_CHK final */
+     free (fdtab);
+     /* hook_handle_sigio $POLLIN_CHK end */ }#)
   (assert_msg "hook_handle_sigio unimplemented")
-)
+))
+
+(export_values hook_handle_sigio)	;temporary
 
 
 ;; the sigchld handler, called from safe places
