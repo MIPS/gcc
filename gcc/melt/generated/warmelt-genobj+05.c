@@ -3554,9 +3554,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:4872:/ quasiblock");
 
 
@@ -3849,9 +3861,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:4882:/ quasiblock");
 
 
@@ -3965,7 +3989,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /2959c41b checkpair",
+	    melt_assertmsg ("putpairtail /1deadebd checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V29*/
 					       meltfptr[28])) ==
@@ -3988,7 +4012,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /3f810b18 checkpair",
+	    melt_assertmsg ("putpairtail /1fcdc20c checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OVARIADICINDEX__V30*/
 					       meltfptr[29])) ==
@@ -4011,7 +4035,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /1ebfe028 checkpair",
+	    melt_assertmsg ("putpairtail /3a35ce57 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V31*/
 					       meltfptr[30])) ==
@@ -4241,7 +4265,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /113263f1 checkpair",
+	    melt_assertmsg ("putpairtail /1d333c47 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V43*/
 					       meltfptr[42])) ==
@@ -4264,7 +4288,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /10720fc4 checkpair",
+	    melt_assertmsg ("putpairtail /2ed6b85a checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V44*/
 					       meltfptr[43])) ==
@@ -4287,7 +4311,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /cdc0e02 checkpair",
+	    melt_assertmsg ("putpairtail /23e6634 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V45*/
 					       meltfptr[44])) ==
@@ -4310,7 +4334,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /b474323 checkpair",
+	    melt_assertmsg ("putpairtail /1bcb5e1a checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OVARIADICINDEX__V46*/
 					       meltfptr[45])) ==
@@ -4333,7 +4357,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /37669fd9 checkpair",
+	    melt_assertmsg ("putpairtail /c9d8805 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V47*/
 					       meltfptr[46])) ==
@@ -4356,7 +4380,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /29805aae checkpair",
+	    melt_assertmsg ("putpairtail /37beb616 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OVARIADICINDEX__V48*/
 					       meltfptr[47])) ==
@@ -4379,7 +4403,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /9acf380 checkpair",
+	    melt_assertmsg ("putpairtail /2e5d6701 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V49*/
 					       meltfptr[48])) ==
@@ -4402,7 +4426,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /3ed6e5c6 checkpair",
+	    melt_assertmsg ("putpairtail /153c0a4e checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V50*/
 					       meltfptr[49])) ==
@@ -4425,7 +4449,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /14517af1 checkpair",
+	    melt_assertmsg ("putpairtail /24f8850b checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V51*/
 					       meltfptr[50])) ==
@@ -4648,9 +4672,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 		/*^cppif.else */
-		( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+		/*^block */
+		/*anyblock */
+		{
+
+
+		  {
+		    /*^locexp */
+		    /*void */ (void) 0;
+		  }
 		  ;
+		  /*epilog */
+		}
+
+#endif /*MELT_HAVE_DEBUG */
+		;
 
 #if MELT_HAVE_DEBUG
 		MELT_LOCATION ("warmelt-genobj.melt:4911:/ cppif.then");
@@ -4981,9 +5017,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 	  /*_.LET___V34*/ meltfptr[28] = /*_.OVLIST__V42*/ meltfptr[41];;
 
 	  MELT_LOCATION ("warmelt-genobj.melt:4893:/ clear");
@@ -5175,9 +5223,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:4931:/ quasiblock");
 
 
@@ -5314,9 +5374,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*_.LET___V72*/ meltfptr[29] = /*_.OBJTHEN__V73*/ meltfptr[30];;
 
     MELT_LOCATION ("warmelt-genobj.melt:4931:/ clear");
@@ -5435,9 +5507,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:4939:/ quasiblock");
 
 
@@ -5574,9 +5658,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*_.LET___V79*/ meltfptr[41] = /*_.OBJELSE__V80*/ meltfptr[28];;
 
     MELT_LOCATION ("warmelt-genobj.melt:4939:/ clear");
@@ -5754,9 +5850,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -6289,9 +6397,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:4964:/ cppif.then");
@@ -7214,9 +7334,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -7657,9 +7789,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:5014:/ quasiblock");
 
 
@@ -8241,9 +8385,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -10040,9 +10196,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:5112:/ quasiblock");
 
 
@@ -10240,9 +10408,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -10373,9 +10553,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5125:/ cppif.then");
@@ -10700,9 +10892,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -10916,9 +11120,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 
 	  {
 	    MELT_LOCATION ("warmelt-genobj.melt:5135:/ locexp");
@@ -11077,9 +11293,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*citerblock FOREACH_IN_MULTIPLE */
     {
       /* start foreach_in_multiple meltcit1__EACHTUP */
@@ -11212,9 +11440,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 	  MELT_LOCATION ("warmelt-genobj.melt:5143:/ quasiblock");
 
 
@@ -11403,9 +11643,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 
 	  {
 	    MELT_LOCATION ("warmelt-genobj.melt:5151:/ locexp");
@@ -11621,9 +11873,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 		/*^cppif.else */
-		( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+		/*^block */
+		/*anyblock */
+		{
+
+
+		  {
+		    /*^locexp */
+		    /*void */ (void) 0;
+		  }
 		  ;
+		  /*epilog */
+		}
+
+#endif /*MELT_HAVE_DEBUG */
+		;
 
 		{
 		  MELT_LOCATION ("warmelt-genobj.melt:5171:/ locexp");
@@ -11801,9 +12065,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*_.LET___V10*/ meltfptr[8] = /*_.OBLOCK__V17*/ meltfptr[16];;
 
     MELT_LOCATION ("warmelt-genobj.melt:5112:/ clear");
@@ -12242,9 +12518,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5193:/ cppif.then");
@@ -12509,9 +12797,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5200:/ cppif.then");
@@ -12804,9 +13104,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     {
       MELT_LOCATION ("warmelt-genobj.melt:5215:/ locexp");
@@ -12946,9 +13258,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*_.LET___V30*/ meltfptr[28] = /*_.CROU__V31*/ meltfptr[27];;
 
     MELT_LOCATION ("warmelt-genobj.melt:5223:/ clear");
@@ -13284,9 +13608,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*_.LET___V10*/ meltfptr[8] = /*_.OBLOCK__V25*/ meltfptr[24];;
 
     MELT_LOCATION ("warmelt-genobj.melt:5196:/ clear");
@@ -13706,9 +14042,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:5251:/ quasiblock");
 
 
@@ -14270,9 +14618,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*_.LET___V17*/ meltfptr[15] = /*_.OBLOCK__V23*/ meltfptr[22];;
 
     MELT_LOCATION ("warmelt-genobj.melt:5257:/ clear");
@@ -15182,9 +15542,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5319:/ cppif.then");
@@ -15820,9 +16192,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5342:/ cppif.then");
@@ -16564,9 +16948,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5368:/ cppif.then");
@@ -17680,9 +18076,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -18966,9 +19374,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:5493:/ quasiblock");
 
 
@@ -19428,9 +19848,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5498:/ cppif.then");
@@ -19698,9 +20130,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5507:/ cppif.then");
@@ -19885,9 +20329,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 
 	  MELT_CHECK_SIGNAL ();
 	  ;
@@ -20151,9 +20607,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:5527:/ quasiblock");
 
 
@@ -20409,9 +20877,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_LOCATION ("warmelt-genobj.melt:5538:/ clear");
 	   /*clear *//*_.DLOCBIND__V35*/ meltfptr[27] = 0;
@@ -20524,9 +21004,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -20901,9 +21393,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:5553:/ quasiblock");
 
 
@@ -21112,9 +21616,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 
 	  MELT_CHECK_SIGNAL ();
 	  ;
@@ -21618,9 +22134,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     {
       MELT_LOCATION ("warmelt-genobj.melt:5601:/ locexp");
@@ -21883,9 +22411,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_LOCATION ("warmelt-genobj.melt:5610:/ clear");
 	   /*clear *//*_.DLOCBIND__V42*/ meltfptr[38] = 0;
@@ -21998,9 +22538,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     /*_.LET___V31*/ meltfptr[30] = /*_.OINI__V32*/ meltfptr[31];;
 
     MELT_LOCATION ("warmelt-genobj.melt:5576:/ clear");
@@ -22430,9 +22982,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
     MELT_LOCATION ("warmelt-genobj.melt:5630:/ quasiblock");
 
 
@@ -22566,9 +23130,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5636:/ cppif.then");
@@ -22753,9 +23329,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 
 	  MELT_CHECK_SIGNAL ();
 	  ;
@@ -23410,9 +23998,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
  /*_#MULTIPLE_LENGTH__L16*/ meltfnum[11] =
       (melt_multiple_length
        ((melt_ptr_t) ( /*_.NCOMPI__V24*/ meltfptr[18])));;
@@ -23651,9 +24251,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     MELT_CHECK_SIGNAL ();
     ;
@@ -24812,9 +25424,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     {
       MELT_LOCATION ("warmelt-genobj.melt:5734:/ locexp");
@@ -25235,9 +25859,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5752:/ cppif.then");
@@ -25568,9 +26204,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 
 	  MELT_CHECK_SIGNAL ();
 	  ;
@@ -25884,9 +26532,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
     {
       MELT_LOCATION ("warmelt-genobj.melt:5781:/ locexp");
@@ -26293,9 +26953,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5799:/ cppif.then");
@@ -26634,9 +27306,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
 	  /*^cppif.else */
-	  ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+	  /*^block */
+	  /*anyblock */
+	  {
+
+
+	    {
+	      /*^locexp */
+	      /*void */ (void) 0;
+	    }
 	    ;
+	    /*epilog */
+	  }
+
+#endif /*MELT_HAVE_DEBUG */
+	  ;
 
 	  MELT_CHECK_SIGNAL ();
 	  ;
@@ -27135,9 +27819,21 @@ meltlab_endgetargs:;
 
 #else /*MELT_HAVE_DEBUG */
     /*^cppif.else */
-    ( /*nil */ NULL)
-#endif /*MELT_HAVE_DEBUG */
+    /*^block */
+    /*anyblock */
+    {
+
+
+      {
+	/*^locexp */
+	/*void */ (void) 0;
+      }
       ;
+      /*epilog */
+    }
+
+#endif /*MELT_HAVE_DEBUG */
+    ;
 
 #if MELT_HAVE_DEBUG
     MELT_LOCATION ("warmelt-genobj.melt:5844:/ cppif.then");

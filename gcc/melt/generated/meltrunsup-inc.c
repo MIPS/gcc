@@ -3783,6 +3783,36 @@ melthookproc_HOOK_PASS_EXECUTION (const char *meltin_PASSNAME_p0,
 
 
 
+/*predefined hook definition HOOK_POLL_INPUTS #129*/
+void
+melthookproc_HOOK_POLL_INPUTS (long meltin_DELAYMS_p0)
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_POLL_INPUTS */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_POLL_INPUTS);
+  typedef void melthooksig_HOOK_POLL_INPUTS_t (melt_ptr_t, long);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_POLL_INPUTS exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_POLL_INPUTS is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_POLL_INPUTS */
+  melthooksig_HOOK_POLL_INPUTS_t *melthookptr_HOOK_POLL_INPUTS =
+    (melthooksig_HOOK_POLL_INPUTS_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_POLL_INPUTS",
+		  melthookptr_HOOK_POLL_INPUTS);
+
+  /* check predefhook HOOK_POLL_INPUTS name */
+  melt_assertmsg ("check predefhook name HOOK_POLL_INPUTS",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_POLL_INPUTS", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_POLL_INPUTS) ((melt_ptr_t) melthkp,
+					  meltin_DELAYMS_p0);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_POLL_INPUTS */
+
+
 
 /*predefined hook definition HOOK_PRE_GENERICIZE #130*/
 void

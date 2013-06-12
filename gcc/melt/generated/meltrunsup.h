@@ -2349,7 +2349,7 @@ melt_auxput_maptrees (melt_ptr_t map_p, melt_ptr_t val_p)
   MELTFIELD_SYSDATA_DUMPFILE = 9 /*in CLASS_SYSTEM_DATA */ ,
   MELTFIELD_SYSDATA_OPTION_SET = 10 /*in CLASS_SYSTEM_DATA */ ,
   MELTFIELD_SYSDATA_MELTPRAGMAS = 11 /*in CLASS_SYSTEM_DATA */ ,
-  MELTFIELD_SYSDATA_INCHANNEL_DATA = 12 /*in CLASS_SYSTEM_DATA */ ,
+  MELTFIELD_SYSDATA_OBSOLETE1 = 12 /*in CLASS_SYSTEM_DATA */ ,
   MELTFIELD_SYSDATA_ALARM_HOOK = 13 /*in CLASS_SYSTEM_DATA */ ,
   MELTFIELD_SYSDATA_CHILD_HOOK = 14 /*in CLASS_SYSTEM_DATA */ ,
   MELTFIELD_SYSDATA_SRC_LOC_FILE_DICT = 15 /*in CLASS_SYSTEM_DATA */ ,
@@ -2458,6 +2458,9 @@ MELT_EXTERN void melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 MELT_EXTERN void melthookproc_HOOK_PASS_EXECUTION (const char
 						   *meltin_PASSNAME_p0,
 						   long meltin_PASSNUM_p1);
+
+/*predefined hook declaration HOOK_POLL_INPUTS #129*/
+MELT_EXTERN void melthookproc_HOOK_POLL_INPUTS (long meltin_DELAYMS_p0);
 
 /*predefined hook declaration HOOK_PRE_GENERICIZE #130*/
 MELT_EXTERN void melthookproc_HOOK_PRE_GENERICIZE (tree meltin_TFNDECL_p0);
