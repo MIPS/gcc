@@ -8997,7 +8997,7 @@ initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t * iniframp__,
 	     (void *) iniframp__);
   (void) meltpredefinited;	/* avoid warning if non-used. */
   melt_assertmsg ("check module initial frame",
-		  iniframp__->mcfr_nbvar == /*minihash */ -425);
+		  iniframp__->mcfr_nbvar == /*minihash */ -429);
   /*curframe_cdat_fill */
   meltcdat = (struct meltcdata_st *) meltgc_allocate (sizeof (*meltcdat), 0);
   melt_prohibit_garbcoll = TRUE;
@@ -29198,7 +29198,7 @@ initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t * iniframp__,
 		    meltobj_magic == MELTOBMAG_OBJECT);
   meltcdat->dobj_1311__WARN_SHADOW.meltobj_class =
     (meltobject_ptr_t) (((melt_ptr_t) (MELT_PREDEF (CLASS_PRIMITIVE))));
-  meltcdat->dobj_1311__WARN_SHADOW.obj_hash = 453820850;
+  meltcdat->dobj_1311__WARN_SHADOW.obj_hash = 451159604;
   meltcdat->dobj_1311__WARN_SHADOW.obj_len = 5;
 
   /*inimult dtup_1312_syWARN_SHADOW */
@@ -36276,13 +36276,13 @@ melt_start_this_module (void *modargp_)
 
   /*melt_start_this_module is initial declstructinit */
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit initial routine melt_start_this_module minihash 425*/
+/* declstructinit initial routine melt_start_this_module minihash 429*/
 
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
 /**initial routine prologue**/
   /* set initial frame marking */
-  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar = /*minihash */ -425;
+  ((struct melt_callframe_st *) &meltfram__)->mcfr_nbvar = /*minihash */ -429;
   ((struct melt_callframe_st *) &meltfram__)->mcfr_forwmarkrout =
     meltmod__WARMELTmiMACRO__forward_or_mark_module_start_frame;
  /**COMMENT: get previous environment **/ ;
@@ -112269,7 +112269,7 @@ meltmod__WARMELTmiMACRO__forward_or_mark_module_start_frame (struct
   struct melt_initial_frame_st *meltframptr_ =
     (struct melt_initial_frame_st *) fp;
   melt_assertmsg ("check module frame",
-		  meltframptr_->mcfr_nbvar == /*minihash */ -425);
+		  meltframptr_->mcfr_nbvar == /*minihash */ -429);
   if (!marking && melt_is_forwarding)
     {
       dbgprintf

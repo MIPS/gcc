@@ -32473,7 +32473,7 @@ meltlab_endgetargs:;
 				  melt_error_str ((melt_ptr_t)
 						  ( /*_.ARGLOC__V13*/
 						   meltfptr[12]),
-						  ("invalid keyword in formal arglist"),
+						  ("non-ctype keyword in formal arglist"),
 						  (melt_ptr_t) ( /*_.CURARGNAME__V39*/ meltfptr[27]));
 				}
 				;
@@ -32835,18 +32835,36 @@ meltlab_endgetargs:;
 				    {
 
 				      MELT_LOCATION
-					("warmelt-macro.melt:2091:/ getslot");
-				      {
-					melt_ptr_t slot = NULL, obj = NULL;
-					obj =
-					  (melt_ptr_t) ( /*_.CURARG__V23*/
-							meltfptr[22]) /*=obj*/
+					("warmelt-macro.melt:2091:/ cond");
+				      /*cond */ if (
+						     /*ifisa */
+						     melt_is_instance_of ((melt_ptr_t) ( /*_.CURARG__V23*/ meltfptr[22]),
+									  (melt_ptr_t) (( /*!CLASS_NAMED */ meltfrout->tabval[12])))
+					)	/*then */
+					{
+					  /*^cond.then */
+					  /*^getslot */
+					  {
+					    melt_ptr_t slot = NULL, obj =
+					      NULL;
+					    obj =
+					      (melt_ptr_t) ( /*_.CURARG__V23*/
+							    meltfptr[22])
+					      /*=obj*/ ;
+					    melt_object_get_field (slot, obj,
+								   1,
+								   "NAMED_NAME");
+	       /*_.NAMED_NAME__V54*/ meltfptr[45]
+					      = slot;
+					  };
 					  ;
-					melt_object_get_field (slot, obj, 1,
-							       "NAMED_NAME");
+					}
+				      else
+					{	/*^cond.else */
+
 	      /*_.NAMED_NAME__V54*/ meltfptr[45] =
-					  slot;
-				      };
+					    NULL;;
+					}
 				      ;
 
 				      {
