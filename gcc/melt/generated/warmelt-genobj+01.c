@@ -19901,7 +19901,8 @@ rence for ";
 		  /*^apply.arg */
 		  argtab[5].meltbp_cstring =
 		    " should have no parent\",\n\t\t\t\t     modargp_ == NULL) ;\
-\n\t\t      ";
+\n\t\t \
+     ";
 		  /*_.OCHECKNOPAR__V143*/ meltfptr[118] =
 		    melt_apply ((meltclosure_ptr_t)
 				(( /*!MAKE_OBJCOMPUTE */ meltfrout->
