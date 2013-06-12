@@ -1883,7 +1883,7 @@
 		  )
 	     (debug "compile2obj_initextendproc oinitxrout=" oi)
 	     oi))
-	  (importmap (make_mapobject discr_map_objects 10))
+	  (importmap (make_mapobject discr_map_objects 30))
 	  (valoclist (make_list discr_list))
 	  ;; running expressions are usually smaller
 	  (gcx (instance 
@@ -1945,12 +1945,12 @@
 	  (inidefbinds (get_field :ninit_defbinds ipro))
 	  )
      (append_commentconst oinibody "start of oinibody")
-     (debug "compile2obj_initextendproc ocurenvboxloc=" ocurenvboxloc "\n inidefbinds=" inidefbinds
+     (debug "compile2obj_initextendproc ocurenvboxloc=" ocurenvboxloc
+	    "\n inidefbinds=" inidefbinds
 	    "\n modenv=" modenv)
-     ;; no imports
-     (debug "compile2obj_initextendproc importvalues=" importvalues "\n.. importexprs=" importexprs)
-     (assert_msg "check empty importvalues" (==i 0 (list_length importvalues)))
-     (assert_msg "check empty importexprs" (==i 0 (multiple_length importexprs)))
+     (debug "compile2obj_initextendproc importvalues=" importvalues 
+	    "\n.. importexprs=" importexprs)
+     ;; we actually could import literal named values.
      ;;
      ;; reserve location for defined values
      (foreach_in_list
@@ -1971,6 +1971,7 @@
 	(mapobject_put locmap curdefbind oinidefloc)
 	))
      (debug "compile2obj_initextendproc updated locmap=" locmap)
+     ;;
      (let (
 	   (limplocv
 	    (list_map 
