@@ -555,8 +555,6 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
 #define  meltroutine_ptr_t_TYPEDEFINED
 #endif
 
-/* poll the input bucket INBUCK_P with DELAYMS millisecond delay */
-int meltgc_poll_inputs (melt_ptr_t inbuck_p, int delayms);
 
 /******************* closures, routines ************************/
 

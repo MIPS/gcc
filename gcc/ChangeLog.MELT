@@ -2,6 +2,14 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (meltgc_poll_inputs): Remove declaration.
+
+	* melt-runtime.c (meltgc_poll_inputs): Remove stub.
+
+	* melt/warmelt-base.melt (poll_all_inputs): Remove.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

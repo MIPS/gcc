@@ -3028,13 +3028,6 @@ typedef struct melthook_st *melthook_ptr_t;
 }#)
 
 
-(defprimitive poll_all_inputs (:long delayms) :long
-  :doc #{Poll all inputs and run appropriate handlers with a delay of $DELAYMS milliseconds}#
-  #{ /*poll_all_inputs*/  
-#warning obsolete poll_all_inputs primitive
-   0
-}#)
-
 (defprimitive increment (:long left incr) :void
   :doc #{Increment $LEFT (when variable) with $INCR.}#
   #{ /*increment*/ $LEFT += $INCR; 
@@ -3257,7 +3250,6 @@ typedef struct melthook_st *melthook_ptr_t;
  outstr_err
  outstrbuf_dbg
  outstrbuf_err
- poll_all_inputs
  pair_listlength
  pair_set_head 
  ppstrbuf_mixbigint

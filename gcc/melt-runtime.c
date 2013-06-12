@@ -13308,14 +13308,6 @@ meltgc_handle_sigchld (void)
 #undef closv
 }
 
-#warning meltgc_poll_inputs is obsolete
-int
-meltgc_poll_inputs (melt_ptr_t inbuck_p, int delayms)
-{
-  melt_low_debug_value("inbuck argument to meltgc_poll_inputs", inbuck_p);
-  melt_fatal_error ("unexpected call to meltgc_poll_inputs delayms=%d", delayms);
-}
-
 /* This meltgc_handle_signal routine is called thru the
    MELT_CHECK_SIGNAL macro, which is generated in many places in C
    code generated from MELT.  The MELT_CHECK_SIGNAL macro is
