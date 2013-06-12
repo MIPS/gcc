@@ -1,6 +1,25 @@
 
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-predef.list (HOOK_POLL_INPUTS): New.
+
+	* melt/runtime.c (meltgc_poll_inputs): Removing it, by making an
+	aborting stub.
+	(meltgc_handle_sigio): Removing it.
+	(melt_handle_signal): Call melthookproc_HOOK_HANDLE_SIGIO instead
+	of meltgc_handle_sigio.
+
+	* melt/warmelt-first.melt (class_initial_system_data):
+	sysdata_inchannel_data is becoming obsolete.
+
+	* melt/warmelt-hooks.melt (hook_poll_inputs): New, doing most of
+	hook_handle_sigio.
+	(hook_handle_sigio): Simply call hook_poll_inputs.
+	(melt_inpchanbuck): New variable
+	(register_input_channel_handler): Use it.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-hooks.melt (melt_invoke_input_callbacks): Completed
 	function.
 
