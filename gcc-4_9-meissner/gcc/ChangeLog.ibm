@@ -1,0 +1,196 @@
+2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (VSX_M2): Add missing iterator.
+
+	* configure.ac (--with-extra-prefix=): Add configure time switches
+	to add additional prefix directories for the compiler to search for
+	extra executables, startfiles, and directories to add to the list
+	of shared library locations.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+	* configure: Regenerate.
+
+	* doc/install.texi (--with-extra-prefix=): Document new configure
+	switches.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+
+	* gcc.c (LINK_RPATH_DIRS_SPEC): Add support for configuration time
+	additional executable, startfile, include, and shared library
+	location prefixes.  Add %find-dynamic-linker(), %extra-rpath-dirs(),
+	%extra-cpu-dirs() as spec functions.
+	(LINK_COMMAND_SPEC): Likewise.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(configure_include_prefix): Likewise.
+	(configure_startfile_prefix): Likewise.
+	(configure_exec_prefix): Likewise.
+	(static_spec_functions): Likewise.
+	(IS_STD_DIR): Likewise.
+	(config_rpath): Likewise.
+	(build_rpath_or_cpu_dirs): Likewise.
+	(get_rpath_dirs): Likewise.
+	(extra_rpath_dirs_spec_function): Likewsie.
+	(extra_cpu_dirs_spec_function): Likewise.
+	(find_dynamic_linker_spec_function): Likewise.
+	(add_multiple_prefix): New function that is like add_prefix, but
+	splits the prefix at PATH_SEPARATOR.
+	(process_command): Simplify processing COMPILER_PATH, LPATH, and
+	LIBRARY_PATH_ENV environment variables by using the function
+	add_multiple_prefix to do the splitting of the separate prefixes.
+	Add support for the configuration switch to add new executable,
+	startfile, include, and shared library prefixes.
+
+	* gcc.h (extra_cpu_dirs_spec_function): Add declaration.
+
+	* config.in (CONFIGURE_EXEC_PREFIX): Add defines for the configure
+	switches to add executable, startfile, include, and shared library
+	configuration directories.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(CONFIGURE_RPATH_PREFIX): Likewise.
+
+	* config/rs6000/x-rs6000 (driver-rs6000.o): Add $(GCC_H)
+	dependency.
+
+	* config/rs6000/linux64.h (GLIBC_DYNAMIC_LINKER32): If
+	--with-extra-startfile-prefix or --with-extra-prefix was used, use
+	%find-dynamic-linker() to find the dynamic linker in the startfile
+	prefixes.
+	(GLIBC_DYNAMIC_LINKER64): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS64): Likewise.
+	(LINK_OS_LINUX_SPEC32): Likewise.
+	(LINK_OS_LINUX_SPEC64): Likewise.
+	* config/rs6000/rs6000.h (EXTRA_SPEC_FUNCTIONS): Likewise.
+	(LOCAL_CPU_EXTR_SPEC_FUNCTIONS): Likewise.
+	* config/rs6000/sysv4.h (GLIBC_DYNAMIC_LINKER): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS32): Likewise.
+	(LINK_OS_LINUX_SPEC): Likewise.
+	(rs6000_extra_static_libdirs): Likewise.
+	(SUBTARGET_EXTRA_SPEC_FUNCTIONS): Likewise.
+
+	* config/rs6000/driver-rs6000.c (toplevel): Include gcc.h.
+	(rs6000_extra_static_libdirs): If we have extra configure
+	startfile prefixes, look for a machine specific file as a
+	subdirectory in the startfile prefixes if the user used
+	-mcpu=<xxx>.
+
+2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 199918, which installs patch #6.
+	* REVISION: Update subversion id.
+
+2013-06-10  Pat Haugen <pthaugen@us.ibm.com>
+	    Michael Meissner <meissner@linx.vnet.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (is_microcoded_insn): Adjust test for
+	Power4/Power5 only.
+	(is_cracked_insn): Likewise.
+	(insn_must_be_first_in_group, insn_must_be_last_in_group): Add Power8
+	support.
+	(force_new_group): Adjust comment.
+
+	* config/rs6000/power8.md (): Modify DU_cracked_power8/DU_first_power8
+	reservations and update uses.
+	(power8-branch): Remove du7_power8 from reservations.
+	* config/rs6000/rs6000.md: Include power8.md.
+
+2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>	(patch #8)
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/predicates.md (fusion_gpr_addis): New predicates
+	to support power8 load fusion.
+	(fusion_gpr_mem_load): Likewise.
+
+	* config/rs6000/rs6000-modes.def (PTImode): Update a comment.
+
+	* config/rs6000/rs6000-protos.h (fusion_gpr_load_p): New
+	declarations for power8 load fusion.
+	(emit_fusion_gpr_load): Likewise.
+
+	* config/rs6000/rs6000.opt (-mlra): New undocumented switch to
+	turn on using the LRA register allocator.
+	(-mconstrain-regs): New undocumented switch to constrain
+	non-integer values from being loaded into the LR or CTR registers.
+
+	* config/rs6000/rs6000.c (TARGET_LRA_P): If -mlra, turn on using
+	the LRA register allocator.
+	(rs6000_lra_p): Likewise.
+	(rs6000_hard_regno_mode_ok): Allow DI/DD/SF/SD modes in altivec
+	registers if power8.  If -mconstrain-regs, only allow int modes
+	into LR, CTR, and special purpose registers.
+	(rs6000_debug_reg_global): Print -mlra, -mconstrain-regs status if
+	debugging.
+	(rs6000_init_hard_regno_mode_ok): Mark that SFmode can use Altivec
+	registers in the future.
+	(rs6000_option_override_internal): If tuning for power8, turn on
+	fusion mode by default.  Turn on sign extending fusion mode if
+	normal fusion mode is on, and we are at -O2 or -O3.
+	(rs6000_opt_masks): Add -mlra, -mconstrain-regs.
+	(fusion_gpr_load_p): New function, return true if we can fuse an
+	addis instruction with a dependent load to a GPR.
+	(emit_fusion_gpr_load): Emit the instructions for power8 load
+	fusion to GPRs.
+
+	* config/rs6000/vsx.md (VSX load fusion peepholes): Add peepholes
+	to fuse together an addi instruction with a VSX load instruction.
+
+	* config/rs6000/rs6000.md (GPR load fusion peepholes): Add
+	peepholes to fuse an addis instruction with a load to a GPR base
+	register, if the addis instruction is dead after the load, by
+	using the register to be loaded for the addis.  If we are
+	supporting sign extending fusions, convert sign extending loads to
+	zero extending loads and an explicit sign extension.
+
+2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>	(patch #7)
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (emit_load_locked): Add support for
+	power8 byte, half-word, and quad-word atomic instructions.
+	(emit_store_conditional): Likewise.
+	(rs6000_expand_atomic_compare_and_swap): Likewise.
+	(rs6000_expand_atomic_op): Likewise.
+
+	* config/rs6000/sync.md (larx): Add new modes for power8.
+	(stcx): Likewise.
+	(AINT): New mode iterator to include TImode as well as normal
+	integer modes on power8.
+	(fetchop_pred): Use int_reg_operand instead of gpc_reg_operand so
+	that VSX registers are not considered.  Use AINT mode iterator
+	instead of INT1 to allow inclusion of quad word atomic operations
+	on power8.
+	(load_locked<mode>): Likewise.
+	(store_conditional<mode>): Likewise.
+	(atomic_compare_and_swap<mode>): Likewise.
+	(atomic_exchange<mode>): Likewise.
+	(atomic_nand<mode>): Likewise.
+	(atomic_fetch_<fetchop_name><mode>): Likewise.
+	(atomic_nand_fetch<mode>): Likewise.
+	(mem_thread_fence): Use gen_loadsync_<mode> instead of enumerating
+	each type.
+	(ATOMIC): On power8, add QImode, HImode modes.
+	(load_locked<QHI:mode>_si): Varients of load_locked for QI/HI
+	modes that promote to SImode.
+	(load_lockedti): Convert TImode arguments to PTImode, so that we
+	get a guaranteed even/odd register pair.
+	(load_lockedpti): Likewise.
+	(store_conditionalti): Likewise.
+	(store_conditionalpti): Likewise.
+
+	* config/rs6000/rs6000.md (QHI): New mode iterator for power8
+	atomic load/store instructions.
+	(HSI): Likewise.
+
+2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch from 199908.
+
+	* REVISON: New file, track merge version.
+

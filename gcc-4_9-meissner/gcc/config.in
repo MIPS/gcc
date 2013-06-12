@@ -2078,3 +2078,26 @@
 #undef vfork
 #endif
 
+
+/* Define extra executable prefixes at configure time.  */
+#ifndef USED_FOR_TARGET
+#undef CONFIGURE_EXEC_PREFIX
+#endif
+
+
+/* Define extra include prefixes at configure time.  */
+#ifndef USED_FOR_TARGET
+#undef CONFIGURE_INCLUDE_PREFIX
+#endif
+
+
+/* Define extra startfile prefixes at configure time.  */
+#ifndef USED_FOR_TARGET
+#undef CONFIGURE_STARTFILE_PREFIX
+#endif
+
+
+/* Define extra rpath prefixes at configure time.  */
+#ifndef USED_FOR_TARGET
+#undef CONFIGURE_RPATH_PREFIX
+#endif
