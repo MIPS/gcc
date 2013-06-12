@@ -13259,55 +13259,6 @@ melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg)
 
 
 
-
-/* Real handling of SIGALRM & SIGVTALRM signals.  Could be called from
-   many places thru melt_handle_signal via MELT_CHECK_SIGNAL
-   macro.  */
-static void
-meltgc_handle_sigalrm (void)
-{
-  static long hdlcounter;
-  MELT_ENTERFRAME (1, NULL);
-#define closv  meltfram__.mcfr_varptr[0]
-  MELT_LOCATION_HERE("meltgc_handle_sigalrm");
-  hdlcounter++;
-  debugeprintf ("meltgc_handle_sigalrm #%ld", hdlcounter);
-  if (hdlcounter<=0)
-    /* only when we got 2^64 signals ! */
-    melt_fatal_error ("meltgc_handle_sigalarm got too many alarms %ld",
-                      hdlcounter);
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_ALARM_HOOK);
-  if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) {
-    (void) melt_apply ((meltclosure_ptr_t) closv, (melt_ptr_t) NULL,
-                       "", NULL, "", NULL);
-  }
-  MELT_EXITFRAME ();
-#undef closv
-}
-
-/* Real handling of SIGCHLD signal.  Could be called from
-   many places thru melt_handle_signal via MELT_CHECK_SIGNAL
-   macro.  */
-static void
-meltgc_handle_sigchld (void)
-{
-  static long hdlcounter;
-  MELT_ENTERFRAME (1, NULL);
-#define closv  meltfram__.mcfr_varptr[0]
-  MELT_LOCATION_HERE("meltgc_handle_sigchld");
-  hdlcounter++;
-  debugeprintf ("meltgc_handle_sigchld #%ld", hdlcounter);
-#if 0
-  closv = melt_get_inisysdata (MELTFIELD_SYSDATA_ALARM_HOOK);
-  if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) {
-    (void) melt_apply ((meltclosure_ptr_t) closv, (melt_ptr_t) NULL,
-                       "", NULL, "", NULL);
-  }
-#endif
-  MELT_EXITFRAME ();
-#undef closv
-}
-
 /* This meltgc_handle_signal routine is called thru the
    MELT_CHECK_SIGNAL macro, which is generated in many places in C
    code generated from MELT.  The MELT_CHECK_SIGNAL macro is
@@ -13325,11 +13276,11 @@ melt_handle_signal (void)
   }
   if (melt_got_sigalrm) {
     melt_got_sigalrm = 0;
-    meltgc_handle_sigalrm ();
+    melthookproc_HOOK_HANDLE_SIGALRM ();
   }
   if (melt_got_sigchld) {
     melt_got_sigchld = 0;
-    meltgc_handle_sigchld ();
+    melthookproc_HOOK_HANDLE_SIGCHLD ();
   }
 }
 

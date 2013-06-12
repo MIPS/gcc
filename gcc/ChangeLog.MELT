@@ -2,6 +2,13 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (meltgc_handle_sigalrm, meltgc_handle_sigchld):
+	Remove since replaced by hooks.
+	(melt_handle_signal): Call melthookproc_HOOK_HANDLE_SIGALRM &
+	melthookproc_HOOK_HANDLE_SIGCHLD.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (melt_alarmbucket): New variable.
 	(hook_handle_sigalrm): Samel as old handle_alarm_signal but use melt_alarmbucket.
 	(handle_alarm_signal): Remove.
