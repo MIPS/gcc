@@ -414,7 +414,7 @@ don't instanciate this class!}#
 	   ;; these are called by the runtime system thru
 	   ;; MELT_CHECK_SIGNAL macro and meltgc_handle_sigio &
 	   ;; meltgc_poll_inputs and meltgc_handle_sigalrm
-	   sysdata_inchannel_data	;OBSOLETE
+	   sysdata_obsolete1	;OBSOLETE
 	   sysdata_alarm_hook		;closure for handling SIGALRM 
 	   sysdata_child_hook		;closure for handling SIGCHILD
 	   ;;

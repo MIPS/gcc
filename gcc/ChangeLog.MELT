@@ -2,6 +2,9 @@
 
 2013-06-12  Basile Starynkevitch  <basile@s(tarynkevitch.net>
 
+	* melt/warmelt-first.melt (class_initial_system_data): Replace
+	sysdata_inchannel_data with sysdata_obsolete1.
+
 	* melt/warmelt-base.melt (poll_all_inputs): Obsolete primitive.
 
 	* melt/warmelt-hooks.melt (hook_poll_inputs): Is predefined and
