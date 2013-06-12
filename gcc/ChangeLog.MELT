@@ -2,6 +2,13 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (MELT_VERSION_STRING): Bump to 0.9.9-rc3
+
+	* melt/warmelt-first.melt (class_initial_system_data): Remove
+	sysdata_obsolete1, sysdata_alarm_hook, sysdata_child_hook.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
