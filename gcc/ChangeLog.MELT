@@ -2,6 +2,18 @@
 
 2013-06-12  Basile Starynkevitch  <basile@s(tarynkevitch.net>
 
+	* melt/warmelt-base.melt (poll_all_inputs): Obsolete primitive.
+
+	* melt/warmelt-hooks.melt (hook_poll_inputs): Is predefined and
+	exported.
+
+	* melt/warmelt-modes.melt (repl_docmd): Use hook_poll_inputs
+	instead of poll_all_inputs.
+
+	* melt/xtramelt-probe.melt (probe_at_exit): Likewise.
+
+2013-06-12  Basile Starynkevitch  <basile@s(tarynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

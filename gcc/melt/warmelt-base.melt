@@ -3030,8 +3030,10 @@ typedef struct melthook_st *melthook_ptr_t;
 
 (defprimitive poll_all_inputs (:long delayms) :long
   :doc #{Poll all inputs and run appropriate handlers with a delay of $DELAYMS milliseconds}#
-  #{ /*poll_all_inputs*/ meltgc_poll_inputs (melt_get_inisysdata (MELTFIELD_SYSDATA_INCHANNEL_DATA), 
-                                             (int) $DELAYMS) }#)
+  #{ /*poll_all_inputs*/  
+#warning obsolete poll_all_inputs primitive
+   0
+}#)
 
 (defprimitive increment (:long left incr) :void
   :doc #{Increment $LEFT (when variable) with $INCR.}#

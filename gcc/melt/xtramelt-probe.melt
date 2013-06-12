@@ -581,9 +581,9 @@
        (debug "probe_at_exit loop probedata=" probedata
 	      " loopcnt=" loopcnt)
        (unless probedata (exit probendloop))
-       (debug "probe_at_exit loopcnt=" loopcnt " before poll_all_inputs")
-       (poll_all_inputs 5000)
-       (debug "probe_at_exit loopcnt=" loopcnt " after poll_all_inputs")
+       (debug "probe_at_exit loopcnt=" loopcnt " before hook_poll_inputs")
+       (hook_poll_inputs 5000)
+       (debug "probe_at_exit loopcnt=" loopcnt " after hook_poll_inputs")
        ))
     (debug "probe_at_exit ended loopcnt=" loopcnt)
     ))

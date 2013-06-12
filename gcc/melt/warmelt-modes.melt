@@ -382,7 +382,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 						   $EVALCOUNT) ;
 					   fflush (NULL)       ;
 					   }#)
-			       (poll_all_inputs 30000))
+			       (hook_poll_inputs 30000))
 			     (debug "repl_docmd/waitfun end refcont=" refcont 
 				    " evalcounter=" evalcounter)
 			     )))

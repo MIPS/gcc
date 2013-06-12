@@ -2304,143 +2304,6 @@ exit, in last place.}#
 }#)
 
 
-#|
-(definstance melt_input_channels_buckets_ref class_reference)
-(defhook hook_poll_inputs
-  (:long delayms)
-  ()
-  :long
-  ; :predef HOOK_POLL_INPUTS
-  (let ( (bucks !melt_input_channels_buckets_ref)
-	 (:long nbbucks (bucketlong_count bucks))
-	 (listbadinch (make_list discr_list))
-	 (:long pollres 0)
-	 )
-    (if (<=i nbbucks 0)
-	(return 0))
-    (code_chunk 
-     hookpollinputs_chk
-     #{ /* hook_poll_inputs $HOOKPOLLINPUTS_CHK start */
-     struct pollfd *fdtab
-        = (struct pollfd *) xcalloc ($NBBUCKS+1, sizeof(struct pollfd));
-     int nbfd = 0;
-     if (!fdtab)
-       melt_fatal_error ("hook_poll_inputs cannot allocate %d polling slots - %m",
-                      ($NBBUCKS+1));
-     $(foreach_in_bucketlong
-       (bucks)
-       (:long curfd :value valbu)
-       (when (and (>=i curfd 0)
-		  (is_a valbu class_input_channel_handler))
-	 (code_chunk 
-	  addfdtab_chk
-	  #{ /* hook_poll_inputs $ADDFDTAB_CHK */
-	  fdtab[nbfd].fd = (int) $CURFD;
-	  fdtab[nbfd].events = POLLIN;
-	  fdtab[nbfd].revents = 0;
-	  nbfd++;
-	  }#)
-	 )
-       )     
-     /* even when nbfd is null, we do call poll to sleep delayms */
-     $POLLRES = poll (fdtab, nbfd, $DELAYMS);
-     if ($POLLRES > 0) {
-       int ixfd = 0;
-       for (ixfd = 0; 
-	   ixfd < nbfd; 
-           ixfd++) {
-         int rfd = fdtab[ixfd].fd;
-         bool eaten = false;
-	 static char rbuf[MELT_BUFSIZE];
-         if (!fdtab[ixfd].revents & POLLIN)
-	   continue;
-	 $(let ( (curihd (bucketlong_get bucks 
-					 (expr_chunk rfd_chk :long #{rfd}#)))
-		 (:long rdcnt 0)
-		 (:long goterr (expr_chunk 
-				goterr_chk :long
-				#{ (fdtab[ixfd].revents & POLLERR) != 0
-				   || (fdtab[ixfd].revents & POLLNVAL) != 0
-				}#))
-	      )
-	    (cond 
-	      ( (is_a curihd class_input_channel_handler)
-		(let ( (sbuf (get_field :inch_sbuf curihd))
-		       (clos (get_field :inch_clos curihd))
-		       (seqv ())
-		       (:long eaten 0)
-		      )
-		  (code_chunk 
-		    read_chk
-		    #{ /* hook_poll_inputs $READ_CHK */
-		    memset (&rbuf, 0, sizeof(rbuf));
-		    $RDCNT = read (rfd, rbuf, sizeof(rbuf));
-		    if ($RDCNT > 0)
-		       meltgc_add_out_raw_len ((melt_ptr_t) $SBUF, 
-					       rbuf, $RDCNT);
-		    }#)
-		  (when (or goterr (==i rdcnt 0))
-		    ;; got eof or error
-		    (debug "hook_poll_inputs got error or eof for curihd=" 
-			   curihd)
-		    ;; notify end of input with a null argument to the closure
-		    (clos curihd ())
-		    (list_append listbadinch curihd)
-		    )
-		  (forever eat_loop
-		    (setq eaten 0)
-		    (when (>i rdcnt 0)
-		       (code_chunk 
-		        eat_chk
-		        #{ /* hook_poll_inputs $EAT_CHK */
-		        const char* bufdata
-                           = melt_strbuf_str ((melt_ptr_t) $SBUF);
-		        char* buf2nl = bufdata
-		          ? CONST_CAST (char*, strstr(bufdata,"\n\n")) 
-		          : NULL;
-		        if (buf2nl) {
-		          int nbread = buf2nl - bufdata + 2;
-		          ((char*) buf2nl)[1] = '\0';
-		          $SEQV = 
-		            meltgc_read_from_rawstring (bufdata, NULL, 
-		     			  	     UNKNOWN_LOCATION);
-		          melt_strbuf_consume ((melt_ptr_t) $SBUF, nbread);
-			  $(ignore (progn 
-				     (debug "hook_poll_inputs doing curihd=" curihd
-					    " seqv=" seqv)
-				     (clos curihd seqv)))
-			  $EATEN = true;
-			  $RDCNT -= nbread;
-		        }
-		        }#)
-		     )
-		     (if (not eaten) (exit eat_loop))
-		     ))
-		)
-	      (:else
-	       (code_chunk close_chk 
-			   #{ /* hook_poll_inputs $CLOSE_CHK */
-			   warning (0, "MELT polling, closing fd#%d without handler", rfd);
-			   (void) close(rfd);
-			   }#)
-	       )
-	      )
-	    (void)
-          )	  
-       }
-     }
-     /* hook_poll_inputs $HOOKPOLLINPUTS_CHK end */
-     free (fdtab);
-     }#)
-    (foreach_in_list
-     (listbadinch)
-     (curpair curbadinch)
-     (bucketlong_replace bucks (get_int curbadinch) :true)
-     )
-    (return pollres)
- ))
-|#
-
 ;; the sigalarm handler, called from safe places
 (defhook hook_handle_sigalrm
   () ()
@@ -2560,6 +2423,7 @@ exit, in last place.}#
   (:long delayms)
   ()
   :void
+  :predef HOOK_POLL_INPUTS
   (let ( (inchbuck melt_inpchanbuck)
 	 (:long nbinch (bucketlong_count inchbuck))
 	 (:long respoll 0)
@@ -2656,7 +2520,7 @@ exit, in last place.}#
   :predef HOOK_HANDLE_SIGIO
   (hook_poll_inputs 250)
 )
-(export_values hook_handle_sigio)	;temporary
+(export_values hook_handle_sigio hook_poll_inputs)
 
 
 ;; the sigchld handler, called from safe places
