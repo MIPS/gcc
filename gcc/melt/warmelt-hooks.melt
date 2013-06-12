@@ -2637,10 +2637,8 @@ exit, in last place.}#
 	      ;; missed time, set a quick alarm
 	      (set_real_timer_millisec 30))
 	    ( :else
-	      ;; no more alarm, disable SIGALRM
-	      (set_real_timer_millisec 0)
-	      (put_fields initial_system_data 
-			  :sysdata_alarm_hook ()))
+	      ;; no more alarm
+	      (set_real_timer_millisec 0))
 	    )
       )))
 
@@ -2697,8 +2695,6 @@ exit, in last place.}#
        ;; no more alarms
        (setq melt_alarmbucket ())
        (set_real_timer_millisec 0)
-       (put_fields initial_system_data 
-		   :sysdata_alarm_hook ())
        (return))
      (foreach_in_bucketlong
       (oldbuck)
