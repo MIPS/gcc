@@ -2,6 +2,16 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (melt_alarmbucket): New variable.
+	(hook_handle_sigalrm): Samel as old handle_alarm_signal but use melt_alarmbucket.
+	(handle_alarm_signal): Remove.
+	(register_alarm_timer): Use melt_alarmbucket.
+	(melt_childbuck): New variable.
+	(child_process_sigchld_handler): Remove function.
+	(hook_handle_sigchld): Use melt_childbuck.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (meltgc_poll_inputs): Remove declaration.
 
 	* melt-runtime.c (meltgc_poll_inputs): Remove stub.
