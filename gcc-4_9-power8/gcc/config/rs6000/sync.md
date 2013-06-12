@@ -210,8 +210,12 @@
    (use (match_operand:TI 1 "memory_operand" ""))]
   "TARGET_SYNC_TI"
 {
-  emit_insn (gen_load_lockedpti (gen_lowpart (PTImode, operands[0]),
-				 operands[1]));
+  /* Use a temporary register to force getting an even register for the
+     lqarx/stqcrx. instructions.  Normal optimizations will eliminate this
+     extra copy.  */
+  rtx pti = gen_reg_rtx (PTImode);
+  emit_insn (gen_load_lockedpti (pti, operands[1]));
+  emit_move_insn (operands[0], gen_lowpart (TImode, pti));
   DONE;
 })
 
@@ -240,9 +244,17 @@
    (use (match_operand:TI 2 "quad_int_reg_operand" ""))]
   "TARGET_SYNC_TI"
 {
-  emit_insn (gen_store_conditionalpti (operands[0],
-				       gen_lowpart (PTImode, operands[1]),
-				       gen_lowpart (PTImode, operands[2])));
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = operands[2];
+  rtx pti_op1 = change_address (op1, PTImode, XEXP (op1, 0));
+  rtx pti_op2 = gen_reg_rtx (PTImode);
+
+  /* Use a temporary register to force getting an even register for the
+     lqarx/stqcrx. instructions.  Normal optimizations will eliminate this
+     extra copy.  */
+  emit_move_insn (pti_op2, gen_lowpart (PTImode, op2));
+  emit_insn (gen_store_conditionalpti (op0, pti_op1, pti_op2));
   DONE;
 })
 

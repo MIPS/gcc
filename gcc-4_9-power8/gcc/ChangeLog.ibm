@@ -1,3 +1,10 @@
+2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/sync.md (load_lockedti): Use a temporary PTI
+	register instead of using SUBREG directly so atomic quad memory
+	operations work at -O0.
+	(store_conditionalti): Likewise.
+
 2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (VSX_M2): Add missing iterator.
