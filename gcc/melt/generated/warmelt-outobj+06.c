@@ -9913,8 +9913,7 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
  dlsym-ed */\nextern \"C\" const char melt_gen_timestamp[] ;\
 \nextern \"C\" const long long melt_gen_timenum ;\
 \nextern \"C\" const char melt_build_timestamp[] ;\
-\nextern \"C\" {\n#endif /*__cplusplu\
-s */\n\n\t\t ";
+\nextern \"C\" {\n#endif /*__cplusplus */\n\n\t\t ";
       /*_.ADD2OUT__V142*/ meltfptr[141] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[15])),

@@ -1483,20 +1483,6 @@ meltrout_76_WARMELTmiHOOKS_AT_EXIT_LAST (meltclosure_ptr_t meltclosp_,
 					 meltxresdescr_[],
 					 union meltparam_un *meltxrestab_);
 
-/** declaration of hook melthook_HOOK_POLL_INPUTS */
-MELT_EXTERN
-  long melthook_HOOK_POLL_INPUTS (melt_ptr_t melthookdata,
-				  long meltinp0_DELAYMS);
-
-
-/* declare hook frame marking routine for melthook_HOOK_POLL_INPUTS hook */
-void MELT_MODULE_VISIBILITY melthookmark_HOOK_POLL_INPUTS_rout (struct
-								melt_callframe_st
-								*, int);
-
-
-
-
 /** declaration of hook melthook_HOOK_HANDLE_SIGALRM */
 MELT_EXTERN void melthook_HOOK_HANDLE_SIGALRM (melt_ptr_t melthookdata);
 
@@ -1505,6 +1491,18 @@ MELT_EXTERN void melthook_HOOK_HANDLE_SIGALRM (melt_ptr_t melthookdata);
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGALRM_rout (struct
 								   melt_callframe_st
 								   *, int);
+
+
+
+
+/** declaration of hook melthook_HOOK_HANDLE_SIGIO */
+MELT_EXTERN void melthook_HOOK_HANDLE_SIGIO (melt_ptr_t melthookdata);
+
+
+/* declare hook frame marking routine for melthook_HOOK_HANDLE_SIGIO hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGIO_rout (struct
+								 melt_callframe_st
+								 *, int);
 
 
 

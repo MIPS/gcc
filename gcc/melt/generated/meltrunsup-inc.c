@@ -3469,7 +3469,37 @@ melthookproc_HOOK_HANDLE_SIGCHLD ()
 
 
 
-/*predefined hook definition HOOK_INTERN_KEYWORD #120*/
+/*predefined hook definition HOOK_HANDLE_SIGIO #120*/
+void
+melthookproc_HOOK_HANDLE_SIGIO ()
+{				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_HANDLE_SIGIO */
+#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
+  melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_SIGIO);
+  typedef void melthooksig_HOOK_HANDLE_SIGIO_t (melt_ptr_t);
+  /*checkhook exist */
+    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO exists",
+		    melthkp != NULL);
+  /*checkhook ishook */
+    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO is hook",
+		    melt_magic_discr ((melt_ptr_t) melthkp) ==
+		    MELTOBMAG_HOOK);
+  /* check hook routine HOOK_HANDLE_SIGIO */
+  melthooksig_HOOK_HANDLE_SIGIO_t *melthookptr_HOOK_HANDLE_SIGIO =
+    (melthooksig_HOOK_HANDLE_SIGIO_t *) (melthkp->hookad);
+  melt_assertmsg ("check predefhook routine HOOK_HANDLE_SIGIO",
+		  melthookptr_HOOK_HANDLE_SIGIO);
+
+  /* check predefhook HOOK_HANDLE_SIGIO name */
+  melt_assertmsg ("check predefhook name HOOK_HANDLE_SIGIO",
+		  !strncmp (melthkp->hookname,
+			    "HOOK_HANDLE_SIGIO", MELT_HOOKNAME_LEN - 1));
+  return (*melthookptr_HOOK_HANDLE_SIGIO) ((melt_ptr_t) melthkp);
+#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
+}				/* end  melthookproc_HOOK_HANDLE_SIGIO */
+
+
+
+/*predefined hook definition HOOK_INTERN_KEYWORD #121*/
 melt_ptr_t
 melthookproc_HOOK_INTERN_KEYWORD (melt_ptr_t meltin_KEYWV_p0)
 {				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_INTERN_KEYWORD */
@@ -3501,7 +3531,7 @@ melthookproc_HOOK_INTERN_KEYWORD (melt_ptr_t meltin_KEYWV_p0)
 
 
 
-/*predefined hook definition HOOK_INTERN_SYMBOL #121*/
+/*predefined hook definition HOOK_INTERN_SYMBOL #122*/
 melt_ptr_t
 melthookproc_HOOK_INTERN_SYMBOL (melt_ptr_t meltin_SYMBV_p0)
 {				/* code emitted by generate_runtypesupport_predefined_hooks for HOOK_INTERN_SYMBOL */
@@ -3533,7 +3563,7 @@ melthookproc_HOOK_INTERN_SYMBOL (melt_ptr_t meltin_SYMBV_p0)
 
 
 
-/*predefined hook definition HOOK_LOW_DEBUG_VALUE_AT #122*/
+/*predefined hook definition HOOK_LOW_DEBUG_VALUE_AT #123*/
 void
 melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
 				      const char *meltin_FILENAME_p1,
@@ -3576,7 +3606,7 @@ melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t meltin_VAL_p0,
 
 
 
-/*predefined hook definition HOOK_MELT_ATTRIBUTE_DEFINER #123*/
+/*predefined hook definition HOOK_MELT_ATTRIBUTE_DEFINER #124*/
 void
 melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER (tree meltin_DECL_p0,
 					  tree meltin_NAME_p1,
@@ -3620,7 +3650,7 @@ melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER (tree meltin_DECL_p0,
 
 
 
-/*predefined hook definition HOOK_NAMED_KEYWORD #124*/
+/*predefined hook definition HOOK_NAMED_KEYWORD #125*/
 melt_ptr_t
 melthookproc_HOOK_NAMED_KEYWORD (const char *meltin_NAM_p0,
 				 long meltin_CREATE_p1)
@@ -3653,7 +3683,7 @@ melthookproc_HOOK_NAMED_KEYWORD (const char *meltin_NAM_p0,
 
 
 
-/*predefined hook definition HOOK_NAMED_SYMBOL #125*/
+/*predefined hook definition HOOK_NAMED_SYMBOL #126*/
 melt_ptr_t
 melthookproc_HOOK_NAMED_SYMBOL (const char *meltin_NAM_p0,
 				long meltin_CREATE_p1)
@@ -3686,7 +3716,7 @@ melthookproc_HOOK_NAMED_SYMBOL (const char *meltin_NAM_p0,
 
 
 
-/*predefined hook definition HOOK_OVERRIDE_GATE #126*/
+/*predefined hook definition HOOK_OVERRIDE_GATE #127*/
 void
 melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 				 long *meltout_AFTERGATE_o0)
@@ -3719,7 +3749,7 @@ melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 
 
 
-/*predefined hook definition HOOK_PASS_EXECUTION #127*/
+/*predefined hook definition HOOK_PASS_EXECUTION #128*/
 void
 melthookproc_HOOK_PASS_EXECUTION (const char *meltin_PASSNAME_p0,
 				  long meltin_PASSNUM_p1)
@@ -3750,7 +3780,6 @@ melthookproc_HOOK_PASS_EXECUTION (const char *meltin_PASSNAME_p0,
 					     meltin_PASSNUM_p1);
 #endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
 }				/* end  melthookproc_HOOK_PASS_EXECUTION */
-
 
 
 

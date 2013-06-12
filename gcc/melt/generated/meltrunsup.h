@@ -2406,15 +2406,18 @@ MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGALRM ();
 /*predefined hook declaration HOOK_HANDLE_SIGCHLD #119*/
 MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGCHLD ();
 
-/*predefined hook declaration HOOK_INTERN_KEYWORD #120*/
+/*predefined hook declaration HOOK_HANDLE_SIGIO #120*/
+MELT_EXTERN void melthookproc_HOOK_HANDLE_SIGIO ();
+
+/*predefined hook declaration HOOK_INTERN_KEYWORD #121*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_INTERN_KEYWORD (melt_ptr_t
 							 meltin_KEYWV_p0);
 
-/*predefined hook declaration HOOK_INTERN_SYMBOL #121*/
+/*predefined hook declaration HOOK_INTERN_SYMBOL #122*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_INTERN_SYMBOL (melt_ptr_t
 							meltin_SYMBV_p0);
 
-/*predefined hook declaration HOOK_LOW_DEBUG_VALUE_AT #122*/
+/*predefined hook declaration HOOK_LOW_DEBUG_VALUE_AT #123*/
 MELT_EXTERN void melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t
 						       meltin_VAL_p0,
 						       const char
@@ -2424,7 +2427,7 @@ MELT_EXTERN void melthookproc_HOOK_LOW_DEBUG_VALUE_AT (melt_ptr_t
 						       *meltin_MSG_p3,
 						       long meltin_COUNT_p4);
 
-/*predefined hook declaration HOOK_MELT_ATTRIBUTE_DEFINER #123*/
+/*predefined hook declaration HOOK_MELT_ATTRIBUTE_DEFINER #124*/
 MELT_EXTERN void melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER (tree
 							   meltin_DECL_p0,
 							   tree
@@ -2436,22 +2439,22 @@ MELT_EXTERN void melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER (tree
 							   long
 							   meltin_LINENO_p4);
 
-/*predefined hook declaration HOOK_NAMED_KEYWORD #124*/
+/*predefined hook declaration HOOK_NAMED_KEYWORD #125*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_NAMED_KEYWORD (const char
 							*meltin_NAM_p0,
 							long
 							meltin_CREATE_p1);
 
-/*predefined hook declaration HOOK_NAMED_SYMBOL #125*/
+/*predefined hook declaration HOOK_NAMED_SYMBOL #126*/
 MELT_EXTERN melt_ptr_t melthookproc_HOOK_NAMED_SYMBOL (const char
 						       *meltin_NAM_p0,
 						       long meltin_CREATE_p1);
 
-/*predefined hook declaration HOOK_OVERRIDE_GATE #126*/
+/*predefined hook declaration HOOK_OVERRIDE_GATE #127*/
 MELT_EXTERN void melthookproc_HOOK_OVERRIDE_GATE (long meltin_BEFOREGATE_p0,
 						  long *meltout_AFTERGATE_o0);
 
-/*predefined hook declaration HOOK_PASS_EXECUTION #127*/
+/*predefined hook declaration HOOK_PASS_EXECUTION #128*/
 MELT_EXTERN void melthookproc_HOOK_PASS_EXECUTION (const char
 						   *meltin_PASSNAME_p0,
 						   long meltin_PASSNUM_p1);

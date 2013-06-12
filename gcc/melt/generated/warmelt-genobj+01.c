@@ -17361,8 +17361,7 @@ meltlab_endgetargs:;
 	"\") ;\n\t\t         }\n\t\t       else /* no prevenv */\
 \n\t\t         {\n\t\t           if (!melt_flag_bootstrapping)\
 \n\t\t             warning(0, \"MELT is not creating a fresh environment\
- refe\
-rence for ";
+ reference for ";
       /*^apply.arg */
       argtab[14].meltbp_aptr =
 	(melt_ptr_t *) & /*_.RAWMODNAM__V27*/ meltfptr[26];
@@ -19419,7 +19418,8 @@ rence for ";
 		  /*^apply.arg */
 		  argtab[5].meltbp_cstring =
 		    " should have no parent\",\n\t\t\t\t     modargp_ == NULL) ;\
-\n\t\t      ";
+\n\t\t \
+     ";
 		  /*_.OCHECKNOPAR__V173*/ meltfptr[138] =
 		    melt_apply ((meltclosure_ptr_t)
 				(( /*!MAKE_OBJCOMPUTE */ meltfrout->
