@@ -1,0 +1,33 @@
+; -*- lisp -*-
+;; file thook-5.melt
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thook-5.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=thook-5.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(defhook compohook (:value v :long l) () :void
+  (debug "compohook begin v=" v " l=" l)
+  (code_chunk cohk #{ /* compohook $COHK start */
+     debugeprintf("start compohook $COHK l=%ld", $L);
+     $(foreach_in_multiple 
+       (v)
+       (comp :long ix)
+       (debug "compohook comp=" comp " ix#" ix
+	      " class_reference=" class_reference)
+       )
+     debugeprintf("end compohook l=%ld", $L);
+     /* compohook $COHK end */ }#)
+  )
+
+(debug "compohook is " compohook)
+
+(compohook (tuple 'a 'b) 31)
+
+(debug "done compohook")
+
+;; eof thook-5.melt

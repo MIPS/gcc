@@ -2068,7 +2068,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			 )
 		    (cond 
 		     ( (is_not_a cty class_ctype)
-		       (error_strv argloc "invalid keyword in formal arglist"_
+		       (error_strv argloc "non-ctype keyword in formal arglist"_
 				   curargname))
 		     ( (== (unsafe_get_field :ctype_keyword cty) curarg)
 		       (setq argtype cty))
@@ -2088,7 +2088,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		( (is_a curarg class_symbol)
 		  (if (mapobject_get argmap curarg)
 		      (error_strv argloc "duplicate argument in formal arglist"_
-				  (unsafe_get_field :named_name curarg)))
+				  (get_field :named_name curarg)))
 		  (let ( (curbind
 			  (instance class_formal_binding 
 				    :binder curarg
