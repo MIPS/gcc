@@ -568,41 +568,58 @@ procedure in a module, defined with $DEFHOOK. }#
   :fields (
 	   ))
 
-;; give the normal import of some imported value
+
+;; give the normal import of some imported value or literal named value
 (defun normal_import (nimpval env ncx psloc)
   (debug "normal_import nimpval=" nimpval "\n.. ncx=" ncx)
-  (assert_msg "check nimpval" (is_a nimpval class_nrep_importedval))
-  (let ( (nsymb (get_field :nimport_symb  nimpval))
-	 (nsymbname (get_field :named_name nsymb))
-	 (modctx (get_field :nctx_modulcontext ncx))
-	 (curproc (get_field :nctx_curproc ncx))
-	 (ndataparenv (get_field :nctx_qdatparmodenv ncx))
-	 (modname (get_field :mocx_modulename modctx))
-	 (sloc (or (get_field :nrep_loc nimpval) psloc))
-	 (nimphc
-	  (instance class_nrep_hook_call
-		    :nrep_loc sloc
-		    :nexpr_ctyp ctype_value
-		    :nhook_name '"HOOK_SYMBOL_IMPORTER"
-		    :nexpr_args (tuple nsymbname modname ndataparenv)
-		    :nhook_called (normal_predef hook_symbol_importer ncx
-						 sloc "hook_symbol_importer")
-		      
-		    :nhook_outs (tuple)
-		    :nhook_descr (hook_data hook_symbol_importer)
-		    )
-	  )
-	 (nsetimp (instance class_nrep_setq
-			    :nrep_loc sloc
-			    :nstq_var nimpval
-			    :nstq_exp nimphc
-		  ))
+  (let ( (nsymb ())
+	 (nsymbname ())
 	 )
-    ;; the normalization  (normexp_symbol nsymb env ncx sloc)
-    ;; would produce the nimpval
-    (debug "normal_import nimphc=" nimphc "\n.. nimpval=" nimpval "\n.. nsetimp=" nsetimp)
-    (return nsetimp)
-    ))
+    (cond ( (is_a nimpval class_nrep_importedval)
+	    (setq nsymb (get_field :nimport_symb  nimpval))
+	    (setq nsymbname (get_field :named_name nsymb))
+	    (debug "normal_import importedval nsymb=" nsymb "\n.. nsymbname=" nsymbname)
+	    )
+	  ( (is_a nimpval class_nrep_literalvalue)
+	    (setq nsymb (get_field :nlitval_symbol nimpval))
+	    (setq nsymbname (get_field :named_name nsymb))
+	    (debug "normal_import literalvalue nsymb=" nsymb "\n.. nsymbname=" nsymbname)
+	    )
+	  (:else
+	   (debug "normal_import bad nimpval=" nimpval)
+	   (assert_msg "normal_import with unepxected nimpval" ())
+	   (return)
+	   )
+	  )
+    (assert_msg "check nsymb" (is_a nsymb class_symbol))
+    (let (
+	  (modctx (get_field :nctx_modulcontext ncx))
+	  (curproc (get_field :nctx_curproc ncx))
+	  (ndataparenv (get_field :nctx_qdatparmodenv ncx))
+	  (modname (get_field :mocx_modulename modctx))
+	  (sloc (or (get_field :nrep_loc nimpval) psloc))
+	  (nimphc
+	   (instance class_nrep_hook_call
+		     :nrep_loc sloc
+		     :nexpr_ctyp ctype_value
+		     :nhook_name '"HOOK_SYMBOL_IMPORTER"
+		     :nexpr_args (tuple nsymbname modname ndataparenv)
+		     :nhook_called (normal_predef hook_symbol_importer ncx
+						  sloc "hook_symbol_importer")
+		      
+		     :nhook_outs (tuple)
+		     :nhook_descr (hook_data hook_symbol_importer)
+		     )
+	   )
+	  (nsetimp (instance class_nrep_setq
+			     :nrep_loc sloc
+			     :nstq_var nimpval
+			     :nstq_exp nimphc
+			     ))
+	  )
+      (debug "normal_import nimphc=" nimphc "\n.. nimpval=" nimpval "\n.. nsetimp=" nsetimp)
+      (return nsetimp)
+      )))
 
 ;;; quasidata are stuff to be computed inside the initial routine;
 ;;; most of them are plain data, but current_module_environment_reference &
@@ -1126,7 +1143,7 @@ procedure in a module, defined with $DEFHOOK. }#
 	 (predefmap (make_mapobject discr_map_objects (+i 11 (*i 2 maxpredefix))))
 	 (valmap (make_mapobject discr_map_objects 91))
 	 )
-    (assert_msg "check modctx" (is_a modctx class_extension_generation_context))
+    (assert_msg "check modctx" (is_a modctx class_running_extension_module_context))
     (assert_msg "check modenv" (is_a modenv class_environment))
     (forever predefloop
 	     (if (>=i ix maxpredefix) (exit predefloop))

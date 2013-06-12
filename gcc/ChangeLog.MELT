@@ -2,6 +2,13 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normal_import): Handle both imported
+	values instances of class_nrep_importedval and literal named
+	values instances of class_nrep_literalvalue.
+	(create_normal_extending_context): Correct assert on modctx.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{eval mode don't work well}}
 	* melt/warmelt-hooks.melt (hook_handle_sigio): More but
 	incomplete, temporarily exported to be eval-able.
