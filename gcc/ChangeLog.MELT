@@ -2,6 +2,15 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macros.melt (mexpand_debug): Add an explicit (void)
+	in the expansion to force :void type.
+
+	* melt/warmelt-hooks.melt (melt_invoke_input_callbacks): New
+	incomplete utility function.
+	(hook_handle_sigio): Use it.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{eval works again}}
 	* melt/warmelt-genobj.melt (compile2obj_initextendproc): Don't
 	assume no import values, because we are importing literal

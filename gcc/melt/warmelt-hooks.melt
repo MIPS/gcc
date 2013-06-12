@@ -2453,6 +2453,46 @@ exit, in last place.}#
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; internal utility to read input and invoke the callbacks
+(defun melt_invoke_input_callbacks (tupinch tupstate :long nbins)
+  (debug "melt_invoke_input_callbacks tupinch=" tupinch
+	 "\n.. tupstate=" tupstate
+	 "\n.. nbins=" nbins)
+  (block_signals 
+   () ()   
+   (let ( (removelist (make_list discr_list))
+	  )
+     (foreach_long_upto
+      (0 (-i nbins 1))
+      (:long ix)
+      (let ( (curinch (multiple_nth tupinch ix))
+	     (curstate (multiple_nth tupstate ix))
+	     (curfd (get_int curinch))
+	     )
+	(debug "melt_invoke_input_callbacks ix#" ix " curfd#" curfd
+	       " curinch=" curinch "\n.. curstate=" curstate)
+	(assert_msg "check curinch" (is_a curinch class_input_channel_handler))
+	(assert_msg "check curfd" (>i curfd 0))
+	(if curstate
+	    (let ;; should read and callback if got entire message
+		(
+		 (:long readcnt -2)
+		 )
+	      (code_chunk 
+	       read_chk
+	       #{ /* melt_invoke_input_callbacks $READ_CHK */
+	       }#)
+	      )
+	  (progn ;; should callback for eof close and remove from bucks
+	    (list_append removelist curinch)
+	    ))
+	)
+      )
+     )
+   )
+  )
+
 ;; the sigio handler, called from safe places
 (defhook hook_handle_sigio
   () ()
@@ -2463,39 +2503,88 @@ exit, in last place.}#
 	 (:long respoll 0)
 	)
     (debug "hook_handle_sigio inchbuck=" inchbuck)
-    (code_chunk 
-     pollin_chk 
-     #{ /* hook_handle_sigio $POLLIN_CHK start */
-     int nbfd = 0;
-     struct pollfd *fdtab
-       = (struct pollfd *) xcalloc ($NBINCH+1, sizeof(struct pollfd));
-     /* hook_handle_sigio $POLLIN_CHK iteration to fill fdtab */
-     $(foreach_in_bucketlong
-       (inchbuck)
-       (:long curfd :value curinchd)
-       (debug "hook_handle_sigio curfd#" curfd ", curinchd=" curinchd)
-       (when (is_a curinchd class_input_channel_handler)
-	 (assert_msg "check curinchd" (==i (get_int curinchd) curfd))
-	 (code_chunk 
-	  addfd_chk
-	  #{ /* hook_handle_sigio $POLLIN_CHK with $ADDFD_CHK */
-	  fdtab[nbfd].fd = (int) $CURFD;
-	  fdtab[nbfd].events = POLLIN;
-	  fdtab[nbfd].revents = 0;
-	  nbfd++;
-	  }#)
-	 )
-       )
-     /* hook_handle_sigio $POLLIN_CHK do the poll */
-     debugeprintf ("hook_handle_sigio nbfd=%d", nbfd);
-     $RESPOLL = poll (fdtab, nbfd, MELT_POLL_DELAY_MILLISEC);
-     debugeprintf ("hook_handle_sigio respoll=%ld", $RESPOLL);
-     /* hook_handle_sigio $POLLIN_CHK final */
-     free (fdtab);
-     /* hook_handle_sigio $POLLIN_CHK end */ }#)
-  (assert_msg "hook_handle_sigio unimplemented")
-))
-
+    (when (==i nbinch 0)
+      (debug "hook_handle_sigio empty inchbuck")
+      (return))
+    (let (
+	  (tupinch (make_multiple discr_multiple nbinch))
+	  (:long nbfd 0)
+	  )
+      (code_chunk 
+       pollin_chk 
+       #{ /* hook_handle_sigio $POLLIN_CHK start */
+       struct pollfd *fdtab
+         = (struct pollfd *) xcalloc ($NBINCH+1, sizeof(struct pollfd));
+       /* hook_handle_sigio $POLLIN_CHK iteration to fill fdtab */
+       $(foreach_in_bucketlong
+         (inchbuck)
+         (:long curfd :value curinchd)
+         (debug "hook_handle_sigio curfd#" curfd ", curinchd=" curinchd)
+         (when (is_a curinchd class_input_channel_handler)
+	   (assert_msg "check curinchd" (==i (get_int curinchd) curfd))
+	   (code_chunk 
+	    addfd_chk
+	    #{ /* hook_handle_sigio $POLLIN_CHK with $ADDFD_CHK */
+	    fdtab[$NBFD].fd = (int) $CURFD ;
+	    fdtab[$NBFD].events = POLLIN ;
+	    fdtab[$NBFD].revents = 0 ;
+	    }#)
+	   (multiple_put_nth tupinch nbfd curinchd)
+	   (setq nbfd (+i nbfd 1))
+	   )
+         )
+       $(progn (debug "hook_handle_sigio nbfd=" nbfd " tupinch=" tupinch) (void))
+       /* hook_handle_sigio $POLLIN_CHK do the poll */
+       $RESPOLL = poll (fdtab, $NBFD, MELT_POLL_DELAY_MILLISEC);
+       debugeprintf ("hook_handle_sigio respoll=%ld", $RESPOLL);
+       $(if (>i respoll 0)
+	    (let ( 
+		  (tupstate (make_multiple discr_multiple nbfd))
+		  (badinchlist (make_list discr_list))
+		  )
+	  (foreach_long_upto
+	   (0 (-i nbfd 1))
+	   (:long ix)
+	   (let ( (curinchd (multiple_nth tupinch ix))
+		  )
+	     (debug "hook_handle_sigio ix#" ix " curinchd=" curinchd)
+	     (cond 
+	      ( (expr_chunk testpollin_chk :long 
+			   ##{/* hook_handle_sigio $TESTPOLLIN_CHK */ 
+			   fdtab[$IX].revents & POLLIN}#)
+		(debug "hook_handle_sigio POLLIN ix#" ix)
+		(multiple_put_nth tupstate ix :true) 
+		)
+	      ;; POLLERR & POLLHUP cannot happen for input polling
+	      ( (expr_chunk testpollnval_chk :long 
+			   ##{/* hook_handle_sigio $TESTPOLLNVAL_CHK */ 
+			   fdtab[$IX].revents & POLLNVAL}#)
+		(debug "hook_handle_sigio POLLNVAL ix#" ix)
+		(multiple_put_nth tupstate ix ())
+		(list_append badinchlist curinchd)
+		)
+	      )
+	   )) ;; end foreach_long_upto ix
+	  (debug "hook_handle_sigio nbfd#" nbfd
+		 "\n.. tupstate=" tupstate
+		 "\n.. badinchlist=" badinchlist)
+	  (foreach_in_list
+	   (badinchlist)
+	   (curpair curinchb)
+	   (debug "hook_handle_sigio bad curinchb=" curinchb)
+	   (bucketlong_put inchbuck (get_int curinchb) :true)
+	   )
+	  (debug "hook_handle_sigio before melt_invoke_input_callbacks tupinch=" tupinch
+		 "\n.. tupstate=" tupstate "\n.. nbfd=" nbfd)
+	  (melt_invoke_input_callbacks tupinch tupstate nbfd)	
+	  (debug "hook_handle_sigio after melt_invoke_input_callbacks nbfd=" nbfd)
+	  (void)
+	  ))
+       /* hook_handle_sigio $POLLIN_CHK final */
+       free (fdtab);
+       /* hook_handle_sigio $POLLIN_CHK end */ }#))
+      )
+)
 (export_values hook_handle_sigio)	;temporary
 
 

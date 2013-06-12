@@ -7313,10 +7313,15 @@ remain.}#)
 		   :loca_location loc
 		   :sif_test dneedbg
 		   :sif_then dcall))
+	  (dvoid (instance
+		  class_source_primitive
+		  :loca_location loc
+		  :sprim_oper void
+		  :sargop_args (tuple)))
 	  (dprogn (instance 
 		   class_source_progn
 		   :loca_location loc
-		   :sprogn_body (tuple dincrdbg difdbg)
+		   :sprogn_body (tuple dincrdbg difdbg dvoid)
 		   ))
 	  (dcppif (instance class_source_cppif
 			    :loca_location loc
@@ -7336,18 +7341,18 @@ remain.}#)
       (return dcppif)
       )))
 (install_initial_macro 'debug mexpand_debug)
+
 (export_macro debug mexpand_debug
-	      :doc #{$DEBUG is a variadic and polytypic macro for
-	      debugging prints. You can give it arbitrary arguments
-	      -either stuff or values-. Debugging prints should be
-	      enabled at compilation time of the generated C code with
-	      the @code{quicklybuilt} or @code{debugnoline} module
-	      flavors, and at run time with the
-	      @code{-f[plugin-arg-]melt-debugging=} option. Internally
-	      @code{(DEBUG @var{arg...})} is macro expanded to the
-	      equivalent of @code{(cppif
-	      MELT_HAVE_DEBUG (if (melt_need_dbg 0) (melt_debug_fun ()
-	      @var{count} @var{filename} @var{lineno} ...)))}}#)
+   :doc #{$DEBUG is a variadic and polytypic macro for debugging
+   prints. You can give it arbitrary arguments -either
+   stuff or values-. Debugging prints should be enabled at
+   compilation time of the generated C code with the
+   @code{quicklybuilt} or @code{debugnoline} module
+   flavors, and at run time with the
+   @code{-f[plugin-arg-]melt-debugging=} option. Internally
+   @code{(DEBUG @var{arg...})} is macro expanded to something similar to
+   @code{(cppif MELT_HAVE_DEBUG (if (melt_need_dbg 0) (melt_debug_fun ()
+   @var{count} @var{filename} @var{lineno} ...)))}}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; export_values macro (export_values <symbol> ...)
