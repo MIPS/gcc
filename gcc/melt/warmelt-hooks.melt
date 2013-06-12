@@ -2304,6 +2304,7 @@ exit, in last place.}#
 
 }#)
 
+#|
 (defhook hook_poll_inputs
   (:long delayms)
   ()
@@ -2314,7 +2315,6 @@ exit, in last place.}#
 	 (listbadinch (make_list discr_list))
 	 (:long pollres 0)
 	 )
-#|
     (if (<=i nbbucks 0)
 	(return 0))
     (code_chunk 
@@ -2436,10 +2436,11 @@ exit, in last place.}#
      (curpair curbadinch)
      (bucketlong_replace bucks (get_int curbadinch) :true)
      )
-|#
     (return pollres)
  ))
+|#
 
+;; the sigalarm handler, called from safe places
 (defhook hook_handle_sigalrm
   () ()
   :void
@@ -2448,6 +2449,16 @@ exit, in last place.}#
 )
 
 
+;; the sigio handler, called from safe places
+(defhook hook_handle_sigio
+  () ()
+  :void
+  :predef HOOK_HANDLE_SIGIO
+  (assert_msg "hook_handle_sigio unimplemented")
+)
+
+
+;; the sigchld handler, called from safe places
 (defhook hook_handle_sigchld
   () ()
   :void

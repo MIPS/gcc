@@ -2,6 +2,13 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-predef.list (HOOK_POLL_INPUTS): Remove.
+	(HOOK_HANDLE_SIGIO): Add.
+
+	* melt/warmelt-hooks.melt (hook_poll_inputs): Remove.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
