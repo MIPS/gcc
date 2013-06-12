@@ -2452,6 +2452,7 @@ exit, in last place.}#
 (defvar melt_inpchanbuck)
 
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; internal utility to read input and invoke the callbacks
@@ -2462,6 +2463,7 @@ exit, in last place.}#
   (block_signals 
    () ()   
    (let ( (removelist (make_list discr_list))
+	  (buck melt_inpchanbuck)
 	  )
      (foreach_long_upto
       (0 (-i nbins 1))
@@ -2469,30 +2471,91 @@ exit, in last place.}#
       (let ( (curinch (multiple_nth tupinch ix))
 	     (curstate (multiple_nth tupstate ix))
 	     (curfd (get_int curinch))
+	     (:long readcnt -2)
+	     (sbuf (get_field :inch_sbuf curinch))
+	     (clos (get_field :inch_clos curinch))
 	     )
 	(debug "melt_invoke_input_callbacks ix#" ix " curfd#" curfd
 	       " curinch=" curinch "\n.. curstate=" curstate)
 	(assert_msg "check curinch" (is_a curinch class_input_channel_handler))
 	(assert_msg "check curfd" (>i curfd 0))
 	(if curstate
-	    (let ;; should read and callback if got entire message
-		(
-		 (:long readcnt -2)
-		 )
+	    (progn ;; should read and callback if got entire message
 	      (code_chunk 
 	       read_chk
 	       #{ /* melt_invoke_input_callbacks $READ_CHK */
+	       static char rdbuf[MELT_BUFSIZE] ;
+	       memset (&rdbuf, 0, sizeof (rdbuf)) ;
+	       $READCNT = read ($CURFD, rdbuf, sizeof(rdbuf)) ;
+	       if ($READCNT > 0)
+	         meltgc_add_out_raw_len ((melt_ptr_t) $SBUF, rdbuf, $READCNT) ;
 	       }#)
+	      (when (==i readcnt 0)
+		(list_append removelist curinch)
+		(setq curstate ()))
+	      (void)
 	      )
 	  (progn ;; should callback for eof close and remove from bucks
 	    (list_append removelist curinch)
 	    ))
+	;; loop to handle every 2-newline ended paragraph in the sbuf
+	(forever 
+	 scanloop
+	 (let ( (:long stop 0)
+		(seqv ())
+		)
+	   (code_chunk 
+	    eat_chk
+	    #{ /* melt_invoke_input_callbacks $EAT_CHK */
+	    const char* bufdata = melt_strbuf_str ((melt_ptr_t) $SBUF);
+	    char* buf2nl = bufdata
+		          ? CONST_CAST (char*, strstr(bufdata,"\n\n")) 
+		          : NULL;
+            if (buf2nl) 
+              {
+	        int paralen = buf2nl - bufdata + 2;
+		((char*) buf2nl)[1] = '\0';
+		$SEQV =  meltgc_read_from_rawstring (bufdata, NULL, 
+		     			  	     UNKNOWN_LOCATION);
+		melt_strbuf_consume ((melt_ptr_t) $SBUF, paralen);
+	      }
+	    else 
+              {
+	        $STOP = 1;
+		if (!$CURSTATE && bufdata) {
+		  int buflen = strlen (bufdata);
+		  $SEQV = meltgc_read_from_rawstring (bufdata, NULL, 
+		     			  	     UNKNOWN_LOCATION);
+		  melt_strbuf_consume ((melt_ptr_t) $SBUF, buflen);
+		}
+              }
+	    }#)
+	   (when seqv
+	     (debug "melt_invoke_input_callbacks seqv=" seqv "\n curinch=" curinch)
+	     (clos curinch seqv))
+	   (if stop (exit scanloop))
+	   )
+	 )				;end scanloop
+	(when (null curstate)
+	  (debug "melt_invoke_input_callbacks eof curinch=" curinch)
+	  (clos curinch ())
 	)
       )
-     )
+     ) 					;end for ix
+     (debug "melt_invoke_input_callbacks removelist=" removelist)
+     (foreach_in_list
+      (removelist)
+      (curpair curemove)
+      (debug "melt_invoke_input_callbacks curemove=" curemove)
+      (setq buck (bucketlong_remove buck (get_int curemove)))
+      )
+     (setq melt_inpchanbuck buck)
    )
   )
+)					;end melt_invoke_input_callbacks 
 
+
+;;;;;;;;;;;;;;;;
 ;; the sigio handler, called from safe places
 (defhook hook_handle_sigio
   () ()

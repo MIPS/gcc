@@ -1,6 +1,10 @@
 
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt (melt_invoke_input_callbacks): Completed
+	function.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macros.melt (mexpand_debug): Add an explicit (void)
 	in the expansion to force :void type.
