@@ -1,10 +1,19 @@
 
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-predef.list (HOOK_POLL_INPUTS): Poison it.
+
+	* melt/warmelt-hooks.melt (hook_poll_inputs): Should be removed.
+	We need a sigio handler.
+
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (lambda_arg_bindings): Improve.
 
 	* testsuite/melt/thook-5.melt: New test that works.
-	
+
+
 2013-06-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

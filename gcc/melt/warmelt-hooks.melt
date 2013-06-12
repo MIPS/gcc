@@ -2308,7 +2308,7 @@ exit, in last place.}#
   (:long delayms)
   ()
   :long
-  :predef HOOK_POLL_INPUTS
+  ; :predef HOOK_POLL_INPUTS
   (let ( (bucks !melt_input_channels_buckets_ref)
 	 (:long nbbucks (bucketlong_count bucks))
 	 (listbadinch (make_list discr_list))
