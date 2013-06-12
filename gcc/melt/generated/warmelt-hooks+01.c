@@ -39,7 +39,39 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] =
 #define MELT_HAS_INITIAL_ENVIRONMENT 1	/*usualmodule */
 
 
-/**** no MELT module variables ****/
+/*** 1 MELT module variables declarations ****/
+MELT_EXTERN void melt_forwarding_module_data (void);
+MELT_EXTERN void melt_marking_module_data (void);
+
+MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY
+  melt_WARMELTmiHOOKS_module_var_ptr_tab[16];
+MELT_EXTERN bool MELT_MODULE_VISIBILITY
+  melt_WARMELTmiHOOKS_module_var_flags[1];
+
+static inline melt_ptr_t
+melt_module_var_fetch (int ix)
+{
+  return (ix > 0
+	  && ix <= 1) ? melt_WARMELTmiHOOKS_module_var_ptr_tab[ix] : NULL;
+}
+
+static inline void
+melt_module_var_put (int ix, melt_ptr_t val)
+{
+  if (ix > 0 && ix <= 1)
+    {
+      melt_WARMELTmiHOOKS_module_var_ptr_tab[ix] = val;
+      melt_WARMELTmiHOOKS_module_var_flags[ix / 16] = true;
+    }
+}
+
+/* MELT module variables indexes */
+enum
+{
+  meltmodatix_none,
+  meltmodvarix_MELT_INPCHANBUCK_symb = 1,
+  meltmodatix_last
+};				/* end MELT module variables indexes */
 
 /*** 3 MELT called hook declarations ***/
 
@@ -322,11 +354,11 @@ melt_pass_execution_hook_callback (void *gcc_data ATTRIBUTE_UNUSED,
 
 /** MELT extra c-header 27 : **/
 
-
+ /* header from warmelt-hooks.melt for poll etc... */
 #include <poll.h>
 
 #define MELT_BUFSIZE 8192
-
+#define MELT_POLL_DELAY_MILLISEC 500
 
 /*** end of 27 extra MELT c-headers ***/
 
@@ -1495,6 +1527,39 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGALRM_rout (struct
 
 
 
+
+
+
+melt_ptr_t MELT_MODULE_VISIBILITY
+meltrout_78_WARMELTmiHOOKS_MELT_INVOKE_INPUT_CALLBACKS (meltclosure_ptr_t
+							meltclosp_,
+							melt_ptr_t
+							meltfirstargp_,
+							const
+							melt_argdescr_cell_t
+							meltxargdescr_[],
+							union meltparam_un
+							*meltxargtab_,
+							const
+							melt_argdescr_cell_t
+							meltxresdescr_[],
+							union meltparam_un
+							*meltxrestab_);
+
+/** declaration of hook melthook_HOOK_POLL_INPUTS */
+MELT_EXTERN
+  void melthook_HOOK_POLL_INPUTS (melt_ptr_t melthookdata,
+				  long meltinp0_DELAYMS);
+
+
+/* declare hook frame marking routine for melthook_HOOK_POLL_INPUTS hook */
+void MELT_MODULE_VISIBILITY melthookmark_HOOK_POLL_INPUTS_rout (struct
+								melt_callframe_st
+								*, int);
+
+
+
+
 /** declaration of hook melthook_HOOK_HANDLE_SIGIO */
 MELT_EXTERN void melthook_HOOK_HANDLE_SIGIO (melt_ptr_t melthookdata);
 
@@ -1523,7 +1588,7 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGCHLD_rout (struct
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_80_WARMELTmiHOOKS_REGISTER_INPUT_CHANNEL_HANDLER (meltclosure_ptr_t
+meltrout_82_WARMELTmiHOOKS_REGISTER_INPUT_CHANNEL_HANDLER (meltclosure_ptr_t
 							   meltclosp_,
 							   melt_ptr_t
 							   meltfirstargp_,
@@ -1542,7 +1607,7 @@ meltrout_80_WARMELTmiHOOKS_REGISTER_INPUT_CHANNEL_HANDLER (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_81_WARMELTmiHOOKS_HANDLE_ALARM_SIGNAL (meltclosure_ptr_t meltclosp_,
+meltrout_83_WARMELTmiHOOKS_HANDLE_ALARM_SIGNAL (meltclosure_ptr_t meltclosp_,
 						melt_ptr_t meltfirstargp_,
 						const melt_argdescr_cell_t
 						meltxargdescr_[],
@@ -1557,7 +1622,7 @@ meltrout_81_WARMELTmiHOOKS_HANDLE_ALARM_SIGNAL (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_82_WARMELTmiHOOKS_LAMBDA_cl7 (meltclosure_ptr_t meltclosp_,
+meltrout_84_WARMELTmiHOOKS_LAMBDA_cl7 (meltclosure_ptr_t meltclosp_,
 				       melt_ptr_t meltfirstargp_,
 				       const melt_argdescr_cell_t
 				       meltxargdescr_[],
@@ -1570,7 +1635,7 @@ meltrout_82_WARMELTmiHOOKS_LAMBDA_cl7 (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_83_WARMELTmiHOOKS_REGISTER_ALARM_TIMER (meltclosure_ptr_t meltclosp_,
+meltrout_85_WARMELTmiHOOKS_REGISTER_ALARM_TIMER (meltclosure_ptr_t meltclosp_,
 						 melt_ptr_t meltfirstargp_,
 						 const melt_argdescr_cell_t
 						 meltxargdescr_[],
@@ -1585,7 +1650,7 @@ meltrout_83_WARMELTmiHOOKS_REGISTER_ALARM_TIMER (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_84_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER (meltclosure_ptr_t
+meltrout_86_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER (meltclosure_ptr_t
 						   meltclosp_,
 						   melt_ptr_t meltfirstargp_,
 						   const melt_argdescr_cell_t
@@ -1601,7 +1666,7 @@ meltrout_84_WARMELTmiHOOKS_UNREGISTER_ALARM_TIMER (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_85_WARMELTmiHOOKS_CHILD_PROCESS_SIGCHLD_HANDLER (meltclosure_ptr_t
+meltrout_87_WARMELTmiHOOKS_CHILD_PROCESS_SIGCHLD_HANDLER (meltclosure_ptr_t
 							  meltclosp_,
 							  melt_ptr_t
 							  meltfirstargp_,
@@ -1620,7 +1685,7 @@ meltrout_85_WARMELTmiHOOKS_CHILD_PROCESS_SIGCHLD_HANDLER (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_86_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
+meltrout_88_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
 							   meltclosp_,
 							   melt_ptr_t
 							   meltfirstargp_,
@@ -1639,7 +1704,7 @@ meltrout_86_WARMELTmiHOOKS_REGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_87_WARMELTmiHOOKS_UNREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
+meltrout_89_WARMELTmiHOOKS_UNREGISTER_CHILD_PROCESS_HANDLER (meltclosure_ptr_t
 							     meltclosp_,
 							     melt_ptr_t
 							     meltfirstargp_,
@@ -1696,6 +1761,8 @@ void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiHOOKS__initialmeltchunk_8 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiHOOKS__initialmeltchunk_9 (meltinitial_frame_t *, char *);
+void MELT_MODULE_VISIBILITY
+meltmod__WARMELTmiHOOKS__initialmeltchunk_10 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiHOOKS__forward_or_mark_module_start_frame (struct
 							     melt_callframe_st
