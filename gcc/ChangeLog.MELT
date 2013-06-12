@@ -2,6 +2,18 @@
 
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (register_alarm_timer)
+	(register_child_process_handler, register_input_channel_handler)
+	(unregister_alarm_timer, unregister_child_process_handler): New
+	functions, moved from warmelt-modes.melt file.
+
+	* melt/warmelt-modes.melt  (register_alarm_timer)
+	(register_child_process_handler, register_input_channel_handler)
+	(unregister_alarm_timer, unregister_child_process_handler): Move
+	functiont to warmelt-hooks.melt file.
+
+2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
