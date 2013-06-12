@@ -4708,7 +4708,7 @@ meltlab_endgetargs:;
       ;
       /*^putpairtail */
       /*putpairtail */
-      melt_assertmsg ("putpairtail /2ca91f82 checkpair",
+      melt_assertmsg ("putpairtail /941cd7f checkpair",
 		      melt_magic_discr ((melt_ptr_t)
 					( /*_.NSETFLAG__V32*/ meltfptr[31]))
 		      == MELTOBMAG_PAIR);
@@ -51030,7 +51030,7 @@ meltlab_endgetargs:;
       ;
       /*^putpairtail */
       /*putpairtail */
-      melt_assertmsg ("putpairtail /14a25f65 checkpair",
+      melt_assertmsg ("putpairtail /687dae2 checkpair",
 		      melt_magic_discr ((melt_ptr_t)
 					( /*_.NRESBIND__V203*/ meltfptr[198]))
 		      == MELTOBMAG_PAIR);

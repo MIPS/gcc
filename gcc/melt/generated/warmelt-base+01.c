@@ -601,8 +601,6 @@ meltmod__WARMELTmiBASE__initialmeltchunk_50 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiBASE__initialmeltchunk_51 (meltinitial_frame_t *, char *);
 void MELT_MODULE_VISIBILITY
-meltmod__WARMELTmiBASE__initialmeltchunk_52 (meltinitial_frame_t *, char *);
-void MELT_MODULE_VISIBILITY
 meltmod__WARMELTmiBASE__forward_or_mark_module_start_frame (struct
 							    melt_callframe_st
 							    *fp, int marking);
@@ -3093,7 +3091,7 @@ meltlab_endgetargs:;
       static long meltlab_count_1;
       meltlab_count_1++;
       debugeprintf
-	("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/1d44562. *CLASS_OBJLABELINSTR/19aebe60. %ld",
+	("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/3c92a003. *CLASS_OBJLABELINSTR/2ea723df. %ld",
 	 meltlab_count_1);
 #endif
 
@@ -3158,7 +3156,7 @@ meltlab_endgetargs:;
       static long meltlab_count_2;
       meltlab_count_2++;
       debugeprintf
-	("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/3d5ef891. *CLASS_OBJLABELINSTR/299404e1. %ld",
+	("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/3709a9da. *CLASS_OBJLABELINSTR/355218f5. %ld",
 	 meltlab_count_2);
 #endif
 
@@ -3215,7 +3213,7 @@ meltlab_endgetargs:;
       static long meltlab_count_3;
       meltlab_count_3++;
       debugeprintf
-	("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/2f444a19. *CLASS_OBJLABELINSTR/137cc6df. %ld",
+	("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/347f795a. *CLASS_OBJLABELINSTR/38d846c7. %ld",
 	 meltlab_count_3);
 #endif
 
@@ -3329,7 +3327,7 @@ meltlab_endgetargs:;
       static long meltlab_count_4;
       meltlab_count_4++;
       debugeprintf
-	("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/3b05f3e. *CLASS_OBJLABELINSTR/d1955f1. %ld",
+	("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/2b0fb7fe. *CLASS_OBJLABELINSTR/28bc644c. %ld",
 	 meltlab_count_4);
 #endif
 
@@ -3406,7 +3404,7 @@ meltlab_endgetargs:;
       static long meltlab_count_5;
       meltlab_count_5++;
       debugeprintf
-	("objlabel_5 mtch1__end_h594206211 *CLASS_OBJLABELINSTR/236ade03. %ld",
+	("objlabel_5 mtch1__end_h483278589 *CLASS_OBJLABELINSTR/1cce3efd. %ld",
 	 meltlab_count_5);
 #endif
 
