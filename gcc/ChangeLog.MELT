@@ -2,6 +2,10 @@
 
 2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt: More debug.
+
+2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{still buggy, REPL mode don't work because of a metabug}}
 	* melt/warmelt-genobj.melt (compilobj_nrep_unsafe_put_fields)
 	(compilobj_nrep_makeinst, compil_data_and_slots_fill): Less

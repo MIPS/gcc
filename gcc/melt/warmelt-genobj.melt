@@ -5343,6 +5343,7 @@
 ;;; return a tuple of bindings to be disposed
 (defun compil_data_and_slots_fill (ndat obj odiscr irout gcx)
   (debug "compil_data_and_slots_fill start ndat=" ndat " obj=" obj " odiscr=" odiscr " irout=" irout)
+  (shortbacktrace_dbg "compil_data_and_slots_fill" 10)
   (assert_msg "compil_data_and_slots_fill check ndat" (is_a ndat class_nrep_bound_data))
   (assert_msg "compil_data_and_slots_fill check obj" (is_a obj class_objinitobject))
   (assert_msg "compil_data_and_slots_fill check odiscr" (is_a odiscr class_objvalue))
@@ -5414,23 +5415,27 @@
 	  (setq istmtlis initlis)
 	  (list_append ibodylis ocondpredef)
 	  ))
-    (multiple_every
-     dlocbind
-     (lambda (lbind :long bindrk)
-       (assert_msg "compil_data_and_slots_fill check lbind" (is_a lbind class_normal_let_binding))
-       (let ( (bder (unsafe_get_field :binder lbind))
-	      (cty (unsafe_get_field :letbind_type lbind))
-	      (nexp (unsafe_get_field :letbind_expr lbind))
-	      (obva (get_free_objloctyped gcx bder cty))
-	      (obnx (compile_obj nexp gcx)) 
-	      )
-	 (if obva (mapobject_put locmap lbind obva))
-	 (let ( (obmy (if obva (put_objdest obnx obva) obnx)) )
-	   ;; add the modified obmy in the ibodylis
-	   (list_append istmtlis obmy)
-	   )
-	 (if obva (multiple_put_nth tupvar bindrk obva))
-	 )))
+    (debug "compil_data_and_slots_fill dlocbind=" dlocbind)
+    (foreach_in_multiple
+     (dlocbind)
+     (lbind :long bindrk)
+     (assert_msg "compil_data_and_slots_fill check lbind" (is_a lbind class_normal_let_binding))
+     (let ( (bder (unsafe_get_field :binder lbind))
+	    (cty (unsafe_get_field :letbind_type lbind))
+	    (nexp (unsafe_get_field :letbind_expr lbind))
+	    (obva (get_free_objloctyped gcx bder cty))
+	    (obnx (compile_obj nexp gcx)) 
+	    )
+       (if obva (mapobject_put locmap lbind obva))
+       (let ( (obmy (if obva (put_objdest obnx obva) obnx)) )
+	 ;; add the modified obmy in the ibodylis
+	 (list_append istmtlis obmy)
+	 )
+       (if obva (multiple_put_nth tupvar bindrk obva))
+       ))
+    (shortbacktrace_dbg "compil_data_and_slots_fill [slo]" 7)
+    (debug "compil_data_and_slots_fill ndats slots="
+	   (get_field :ninst_slots ndat))
     ;; for every non nil slot, append its initialization to istmtlis
     (foreach_in_multiple
      ((unsafe_get_field :ninst_slots ndat))
@@ -5449,7 +5454,7 @@
 				 :oslot_value slobj
 				 )) 
 		 )
-	     (debug "compil_data_and_slots_fill oput=" oput)
+	     (debug "compil_data_and_slots_fill oput=" oput "\n for sloval=" sloval)
 	     (list_append istmtlis oput)
 	     ))))
     ;; touch the object
