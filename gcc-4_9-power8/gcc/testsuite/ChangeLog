@@ -1,3 +1,92 @@
+2013-06-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/fold-minus-1.c: New testcase.
+
+2013-06-13  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/49074
+	* gfortran.dg/typebound_assignment_5.f03: New.
+
+2013-06-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/forwprop-27.c: New testcase.
+
+2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/atomic-p7.c: New file, add tests for atomic
+	load/store instructions on power7, power8.
+	* gcc.target/powerpc/atomic-p8.c: Likewise.
+
+2013-06-12  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57577
+	* c-c++-common/cilk-plus/AN/pr57577.c: New testcase.
+
+2013-06-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/38958
+	* g++.dg/warn/Wunused-var-20.C: New.
+
+2013-06-12  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mips.exp: Handle -f{no-,}common.
+	* gcc.target/mips/memcpy-1.c: Remove redundant dg-do.
+	Run with -fno-common.
+
+2013-06-12  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-c++-common/cilk-plus/AN/sec_implicit_ex.c (main): Replaced abort
+	and exit function calls with return 1 and return 0, respectively.
+
+2013-06-12  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/umips-branch-1.c, gcc.target/mips/umips-branch-2.c:
+	New tests.
+
+2013-06-12  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/57361
+	* gcc.dg/tree-ssa/pr57361.c: New file.
+
+2013-06-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/arm/unaligned-memcpy-4.c (src, dst): Initialize
+	to ensure alignment.
+	* gcc.target/arm/unaligned-memcpy-3.c (src): Likewise.
+
+2013-06-12  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/finalize_10.f90: Update scan-tree-dump.
+
+2013-06-12  Tobias Burnus  <burnus@net-b.de>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/finalize_10.f90: Update scan-tree-dump.
+
+2013-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56564
+	* gcc.target/i386/pr56564-1.c: Skip on darwin, mingw and cygwin.
+	* gcc.target/i386/pr56564-3.c: Likewise.
+
+2013-06-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57535
+	* gfortran.dg/class_array_18.f90: New.
+
+2013-06-11  Jan Hubicka  <jh@suse.cz>
+
+	PR c++/57551
+	* g++.dg/ext/visibility/anon6.C: Update testcase.
+
+2013-06-10  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57563
+	* c-c++-common/cilk-plus/AN/builtin_fn_mutating.c (main): Fixed a bug
+	in how we check __sec_reduce_mutating function's result.	
+
 2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Pat Haugen <pthaugen@us.ibm.com>
 	    Peter Bergner <bergner@vnet.ibm.com>

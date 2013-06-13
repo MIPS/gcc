@@ -1,3 +1,74 @@
+2013-06-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/tr1/modified_bessel_func.tcc (__gnu_cxx::__airy_ai(),
+	__gnu_cxx::__airy_bi()): Remove.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/airy.cc: Fix.
+
+2013-06-12  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/56430
+	* include/tr1/modified_bessel_func.tcc (__airy): Remove return
+	from void function.
+	(__gnu_cxx::__airy_ai(), __gnu_cxx::__airy_bi()): New functions.
+	* testsuite/tr1/5_numerical_facilities/special_functions/
+	10_cyl_bessel_k/airy.cc: New.
+
+2013-06-11  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	Fix library literals error involving namespace __detail.
+	* include/std/chrono: Rename __detail to __select_type. Reformat.
+	* include/bits/basic_string.h: Reformat.
+	* testsuite/20_util/duration/literals/ns_detail.cc: New.
+
+2013-06-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/56019
+	* include/c_global/cstddef (max_align_t): Add to namespace std.
+	* include/c_std/cstddef: Likewise.
+	* testsuite/18_support/max_align_t/requirements/1.cc: New.
+	* testsuite/18_support/max_align_t/requirements/2.cc: Likewise.
+
+2013-06-10  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* include/bits/c++config (_GLIBCXX_ABI_TAG_CXX11): Add.
+	* include/bits/stl_map.h (erase): Use abi_tag when C++11.
+	* include/bits/stl_multimap.h: Same.
+	* include/bits/stl_multiset.h: Same.
+	* include/bits/stl_set.h: Same.
+	* include/bits/stl_tree.h: Same.
+	* include/std/complex (real, imag): Use macro for abi_tag.
+
+	* testsuite/lib/libstdc++.exp: Disable inlinling with -fno-inline.
+	* testsuite/util/testsuite_containers.h (erase_external): New
+	declarations.
+	(erase_external_iterators): Same.
+	(linkage_check_cxx98_cxx11_erase): Same.
+	(linkage_check_cxx98_cxx11_erase_iterators): Same.
+	* testsuite/util/testsuite_shared.cc: Define.
+	* testsuite/23_containers/map/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/map/modifiers/erase/
+	dr130-linkage-check.cc: New.
+	* testsuite/23_containers/multimap/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/multimap/modifiers/erase/
+	dr130-linkage-check.cc: New.
+	* testsuite/23_containers/multiset/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/multiset/modifiers/erase/
+	dr130-linkage-check.cc: New.
+	* testsuite/23_containers/set/modifiers/erase/abi_tag.cc: New.
+	* testsuite/23_containers/set/modifiers/erase/dr130-linkage-check.cc:
+	New.
+	* testsuite/ext/profile/mutex_extensions_neg.cc: Adjust line number.
+
+	* testsuite/23_containers/map/dr130.cc: Move...
+	* testsuite/23_containers/map/modifiers/dr130.cc: ...here.
+	* testsuite/23_containers/multimap/dr130.cc: Move ...
+	* testsuite/23_containers/multimap/modifiers/dr130.cc: ...here.
+	* testsuite/23_containers/multiset/dr130.cc: Move...
+	* testsuite/23_containers/multiset/modifiers/dr130.cc: ...here.
+	* testsuite/23_containers/set/dr130.cc: Move...
+	* testsuite/23_containers/set/modifiers/dr130.cc: ...here.
+
 2013-06-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/17_intro/headers/c++1998/49745.cc: Extend current

@@ -568,6 +568,8 @@ cgraph_create_function_alias (tree alias, tree target)
   alias_node->symbol.alias_target = target;
   alias_node->symbol.definition = true;
   alias_node->symbol.alias = true;
+  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (alias)) != NULL)
+    alias_node->symbol.weakref = true;
   return alias_node;
 }
 
@@ -2288,6 +2290,8 @@ verify_edge_corresponds_to_fndecl (struct cgraph_edge *e, tree decl)
   struct cgraph_node *node;
 
   if (!decl || e->callee->global.inlined_to)
+    return false;
+  if (cgraph_state == CGRAPH_LTO_STREAMING)
     return false;
   node = cgraph_get_node (decl);
 

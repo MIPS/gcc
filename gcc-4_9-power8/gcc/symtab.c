@@ -269,7 +269,11 @@ symtab_unregister_node (symtab_node node)
   node->symbol.previous = NULL;
 
   slot = htab_find_slot (symtab_hash, node, NO_INSERT);
-  if (*slot == node)
+
+  /* During LTO symtab merging we temporarily corrupt decl to symtab node
+     hash.  */
+  gcc_assert ((slot && *slot) || in_lto_p);
+  if (slot && *slot && *slot == node)
     {
       symtab_node replacement_node = NULL;
       if (cgraph_node *cnode = dyn_cast <cgraph_node> (node))
@@ -291,10 +295,14 @@ symtab_get_node (const_tree decl)
   symtab_node *slot;
   struct symtab_node_base key;
 
+#ifdef ENABLE_CHECKING
+  /* Check that we are called for sane type of object - functions
+     and static or external variables.  */
   gcc_checking_assert (TREE_CODE (decl) == FUNCTION_DECL
 		       || (TREE_CODE (decl) == VAR_DECL
 			   && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
 			       || in_lto_p)));
+#endif
 
   if (!symtab_hash)
     return NULL;
@@ -481,6 +489,8 @@ dump_symtab_base (FILE *f, symtab_node node)
     fprintf (f, " analyzed");
   if (node->symbol.alias)
     fprintf (f, " alias");
+  if (node->symbol.weakref)
+    fprintf (f, " weakref");
   if (node->symbol.cpp_implicit_alias)
     fprintf (f, " cpp_implicit_alias");
   if (node->symbol.alias_target)
@@ -498,6 +508,8 @@ dump_symtab_base (FILE *f, symtab_node node)
     fprintf (f, " force_output");
   if (node->symbol.forced_by_abi)
     fprintf (f, " forced_by_abi");
+  if (node->symbol.externally_visible)
+    fprintf (f, " externally_visible");
   if (node->symbol.resolution != LDPR_UNKNOWN)
     fprintf (f, " %s",
  	     ld_plugin_symbol_resolution_names[(int)node->symbol.resolution]);
@@ -637,11 +649,23 @@ verify_symtab_base (symtab_node node)
       error_found = true;
     }
    
-  hashed_node = symtab_get_node (node->symbol.decl);
-  if (!hashed_node)
+  if (cgraph_state != CGRAPH_LTO_STREAMING)
     {
-      error ("node not found in symtab decl hashtable");
-      error_found = true;
+      hashed_node = symtab_get_node (node->symbol.decl);
+      if (!hashed_node)
+	{
+	  error ("node not found in symtab decl hashtable");
+	  error_found = true;
+	}
+      if (hashed_node != node
+	  && (!is_a <cgraph_node> (node)
+	      || !dyn_cast <cgraph_node> (node)->clone_of
+	      || dyn_cast <cgraph_node> (node)->clone_of->symbol.decl
+		 != node->symbol.decl))
+	{
+	  error ("node differs from symtab decl hashtable");
+	  error_found = true;
+	}
     }
   if (assembler_name_hash)
     {
@@ -682,9 +706,14 @@ verify_symtab_base (symtab_node node)
       error_found = true;
     }
   if (node->symbol.alias && !node->symbol.definition
-      && !lookup_attribute ("weakref", DECL_ATTRIBUTES (node->symbol.decl)))
+      && !node->symbol.weakref)
     {
       error ("node is alias but not definition");
+      error_found = true;
+    }
+  if (node->symbol.weakref && !node->symbol.alias)
+    {
+      error ("node is weakref but not an alias");
       error_found = true;
     }
   if (node->symbol.same_comdat_group)
@@ -799,8 +828,6 @@ symtab_make_decl_local (tree decl)
   DECL_VISIBILITY_SPECIFIED (decl) = 0;
   DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
   TREE_PUBLIC (decl) = 0;
-  DECL_VISIBILITY_SPECIFIED (decl) = 0;
-  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
   if (!DECL_RTL_SET_P (decl))
     return;
 
@@ -861,7 +888,7 @@ symtab_alias_ultimate_target (symtab_node node, enum availability *availability)
 
   if (availability)
     {
-      weakref_p = DECL_EXTERNAL (node->symbol.decl) && node->symbol.alias;
+      weakref_p = node->symbol.weakref;
       if (!weakref_p)
         *availability = symtab_node_availability (node);
       else
@@ -893,7 +920,7 @@ symtab_alias_ultimate_target (symtab_node node, enum availability *availability)
 	  enum availability a = symtab_node_availability (node);
 	  if (a < *availability)
 	    *availability = a;
-          weakref_p = DECL_EXTERNAL (node->symbol.decl) && node->symbol.alias;
+          weakref_p = node->symbol.weakref;
 	}
     }
   if (availability)

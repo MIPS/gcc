@@ -487,8 +487,9 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
      defined in other unit, we may use the info on aliases to resolve 
      symbol1 != symbol2 type tests that we can do only for locally defined objects
      otherwise.  */
-  alias_p = node->symbol.alias && (!boundary_p || DECL_EXTERNAL (node->symbol.decl));
+  alias_p = node->symbol.alias && (!boundary_p || node->symbol.weakref);
   bp_pack_value (&bp, alias_p, 1);
+  bp_pack_value (&bp, node->symbol.weakref, 1);
   bp_pack_value (&bp, node->frequency, 2);
   bp_pack_value (&bp, node->only_called_at_startup, 1);
   bp_pack_value (&bp, node->only_called_at_exit, 1);
@@ -531,8 +532,9 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
   bp_pack_value (&bp, node->symbol.forced_by_abi, 1);
   bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->symbol.definition, 1);
-  alias_p = node->symbol.alias && (!boundary_p || DECL_EXTERNAL (node->symbol.decl));
+  alias_p = node->symbol.alias && (!boundary_p || node->symbol.weakref);
   bp_pack_value (&bp, alias_p, 1);
+  bp_pack_value (&bp, node->symbol.weakref, 1);
   bp_pack_value (&bp, node->symbol.analyzed && !boundary_p, 1);
   gcc_assert (node->symbol.definition || !node->symbol.analyzed);
   /* Constant pool initializers can be de-unified into individual ltrans units.
@@ -906,6 +908,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
       TREE_STATIC (node->symbol.decl) = 0;
     }
   node->symbol.alias = bp_unpack_value (bp, 1);
+  node->symbol.weakref = bp_unpack_value (bp, 1);
   node->frequency = (enum node_frequency)bp_unpack_value (bp, 2);
   node->only_called_at_startup = bp_unpack_value (bp, 1);
   node->only_called_at_exit = bp_unpack_value (bp, 1);
@@ -956,7 +959,14 @@ input_node (struct lto_file_decl_data *file_data,
 				vNULL, false);
     }
   else
-    node = cgraph_get_create_node (fn_decl);
+    {
+      /* Declaration of functions can be already merged with a declaration
+	 from other input file.  We keep cgraph unmerged until after streaming
+	 of ipa passes is done.  Alays forcingly create a fresh node.  */
+      node = cgraph_create_empty_node ();
+      node->symbol.decl = fn_decl;
+      symtab_register_node ((symtab_node)node);
+    }
 
   node->symbol.order = order;
   if (order >= symtab_order)
@@ -1010,8 +1020,7 @@ input_node (struct lto_file_decl_data *file_data,
       node->thunk.virtual_value = virtual_value;
       node->thunk.virtual_offset_p = (type & 4);
     }
-  if (node->symbol.alias && !node->symbol.analyzed
-      && lookup_attribute ("weakref", DECL_ATTRIBUTES (node->symbol.decl)))
+  if (node->symbol.alias && !node->symbol.analyzed && node->symbol.weakref)
     node->symbol.alias_target = get_alias_symbol (node->symbol.decl);
   return node;
 }
@@ -1033,7 +1042,14 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   order = streamer_read_hwi (ib) + order_base;
   decl_index = streamer_read_uhwi (ib);
   var_decl = lto_file_decl_data_get_var_decl (file_data, decl_index);
-  node = varpool_node_for_decl (var_decl);
+
+  /* Declaration of functions can be already merged with a declaration
+     from other input file.  We keep cgraph unmerged until after streaming
+     of ipa passes is done.  Alays forcingly create a fresh node.  */
+  node = varpool_create_empty_node ();
+  node->symbol.decl = var_decl;
+  symtab_register_node ((symtab_node)node);
+
   node->symbol.order = order;
   if (order >= symtab_order)
     symtab_order = order + 1;
@@ -1046,6 +1062,7 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   node->symbol.unique_name = bp_unpack_value (&bp, 1);
   node->symbol.definition = bp_unpack_value (&bp, 1);
   node->symbol.alias = bp_unpack_value (&bp, 1);
+  node->symbol.weakref = bp_unpack_value (&bp, 1);
   node->symbol.analyzed = bp_unpack_value (&bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (&bp, 1);
   node->symbol.in_other_partition = bp_unpack_value (&bp, 1);
@@ -1054,8 +1071,7 @@ input_varpool_node (struct lto_file_decl_data *file_data,
       DECL_EXTERNAL (node->symbol.decl) = 1;
       TREE_STATIC (node->symbol.decl) = 0;
     }
-  if (node->symbol.alias && !node->symbol.analyzed
-      && lookup_attribute ("weakref", DECL_ATTRIBUTES (node->symbol.decl)))
+  if (node->symbol.alias && !node->symbol.analyzed && node->symbol.weakref)
     node->symbol.alias_target = get_alias_symbol (node->symbol.decl);
   ref = streamer_read_hwi (ib);
   /* Store a reference for now, and fix up later to be a pointer.  */

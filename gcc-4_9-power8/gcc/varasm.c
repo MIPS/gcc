@@ -307,19 +307,22 @@ get_section (const char *name, unsigned int flags, tree decl)
 	      return sect;
 	    }
 	  /* Sanity check user variables for flag changes.  */
-	  if (decl == 0)
-	    decl = sect->named.decl;
-	  gcc_assert (decl);
-	  if (sect->named.decl == NULL)
+	  if (sect->named.decl != NULL
+	      && DECL_P (sect->named.decl)
+	      && decl != sect->named.decl)
+	    {
+	      if (decl != NULL && DECL_P (decl))
+		error ("%+D causes a section type conflict with %D",
+		       decl, sect->named.decl);
+	      else
+		error ("section type conflict with %D", sect->named.decl);
+	      inform (DECL_SOURCE_LOCATION (sect->named.decl),
+		      "%qD was declared here", sect->named.decl);
+	    }
+	  else if (decl != NULL && DECL_P (decl))
 	    error ("%+D causes a section type conflict", decl);
 	  else
-	    {
-	      error ("%+D causes a section type conflict with %D",
-		     decl, sect->named.decl);
-	      if (decl != sect->named.decl)
-		inform (DECL_SOURCE_LOCATION (sect->named.decl),
-			"%qD was declared here", sect->named.decl);
-	    }
+	    error ("section type conflict");
 	  /* Make sure we don't error about one section multiple times.  */
 	  sect->common.flags |= SECTION_OVERRIDE;
 	}
@@ -409,9 +412,6 @@ get_named_section (tree decl, const char *name, int reloc)
     }
 
   flags = targetm.section_type_flags (decl, name, reloc);
-
-  if (decl && !DECL_P (decl))
-    decl = NULL_TREE;
   return get_section (name, flags, decl);
 }
 
@@ -1053,8 +1053,8 @@ get_variable_align (tree decl)
 	  if (! DECL_THREAD_LOCAL_P (decl) || const_align <= BITS_PER_WORD)
 	    align = const_align;
 	}
-    }
 #endif
+    }
 
   return align;
 }
@@ -3639,8 +3639,7 @@ force_const_mem (enum machine_mode mode, rtx x)
   *slot = desc;
 
   /* Align the location counter as required by EXP's data type.  */
-  gcc_checking_assert (mode != VOIDmode && mode != BLKmode);
-  align = GET_MODE_ALIGNMENT (mode);
+  align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 #ifdef CONSTANT_ALIGNMENT
   {
     tree type = lang_hooks.types.type_for_mode (mode, 0);
@@ -6781,10 +6780,10 @@ bool
 decl_binds_to_current_def_p (tree decl)
 {
   gcc_assert (DECL_P (decl));
-  if (!TREE_PUBLIC (decl))
-    return true;
   if (!targetm.binds_local_p (decl))
     return false;
+  if (!TREE_PUBLIC (decl))
+    return true;
   /* When resolution is available, just use it.  */
   if (TREE_CODE (decl) == VAR_DECL
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
@@ -6802,10 +6801,20 @@ decl_binds_to_current_def_p (tree decl)
 	return resolution_to_local_definition_p (node->symbol.resolution);
     }
   /* Otherwise we have to assume the worst for DECL_WEAK (hidden weaks
-     binds locally but still can be overwritten).
+     binds locally but still can be overwritten), DECL_COMMON (can be merged
+     with a non-common definition somewhere in the same module) or
+     DECL_EXTERNAL.
      This rely on fact that binds_local_p behave as decl_replaceable_p
      for all other declaration types.  */
-  return !DECL_WEAK (decl);
+  if (DECL_WEAK (decl))
+    return false;
+  if (DECL_COMMON (decl)
+      && (DECL_INITIAL (decl) == NULL
+	  || DECL_INITIAL (decl) == error_mark_node))
+    return false;
+  if (DECL_EXTERNAL (decl))
+    return false;
+  return true;
 }
 
 /* A replaceable function or variable is one which may be replaced
