@@ -3566,7 +3566,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -3575,7 +3575,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @ANDPAT_CONJ",
+    melt_assertmsg ("checkobj putslot  _ @ANDPAT_CONJ",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -3638,7 +3638,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @PAT_WEIGHT",
+    melt_assertmsg ("checkobj putslot  _ @PAT_WEIGHT",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.RES__V19*/ meltfptr[18])) ==
 		    MELTOBMAG_OBJECT);
@@ -4523,7 +4523,7 @@ meltlab_endgetargs:;
 	  ;
 	  /*^putslot */
 	  /*putslot */
-	  melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+	  melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 			  melt_magic_discr ((melt_ptr_t)
 					    ( /*_.INST__V29*/ meltfptr[28]))
 			  == MELTOBMAG_OBJECT);
@@ -4533,7 +4533,7 @@ meltlab_endgetargs:;
 	  ;
 	  /*^putslot */
 	  /*putslot */
-	  melt_assertmsg ("putslot checkobj @SOR_DISJ",
+	  melt_assertmsg ("checkobj putslot  _ @SOR_DISJ",
 			  melt_magic_discr ((melt_ptr_t)
 					    ( /*_.INST__V29*/ meltfptr[28]))
 			  == MELTOBMAG_OBJECT);
@@ -5419,7 +5419,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -5428,7 +5428,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @ORPAT_DISJ",
+    melt_assertmsg ("checkobj putslot  _ @ORPAT_DISJ",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -5488,7 +5488,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @PAT_WEIGHT",
+    melt_assertmsg ("checkobj putslot  _ @PAT_WEIGHT",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.RES__V19*/ meltfptr[18])) ==
 		    MELTOBMAG_OBJECT);
@@ -6356,7 +6356,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V25*/ meltfptr[24])) ==
 		    MELTOBMAG_OBJECT);
@@ -6365,7 +6365,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SFEPD_PREDEF",
+    melt_assertmsg ("checkobj putslot  _ @SFEPD_PREDEF",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V25*/ meltfptr[24])) ==
 		    MELTOBMAG_OBJECT);
@@ -6499,7 +6499,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V31*/ meltfptr[30])) ==
 		    MELTOBMAG_OBJECT);
@@ -6508,7 +6508,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SMINS_CLASS",
+    melt_assertmsg ("checkobj putslot  _ @SMINS_CLASS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V31*/ meltfptr[30])) ==
 		    MELTOBMAG_OBJECT);
@@ -6518,7 +6518,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SMINS_CLABIND",
+    melt_assertmsg ("checkobj putslot  _ @SMINS_CLABIND",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V31*/ meltfptr[30])) ==
 		    MELTOBMAG_OBJECT);
@@ -6528,7 +6528,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SMINS_FIELDS",
+    melt_assertmsg ("checkobj putslot  _ @SMINS_FIELDS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V31*/ meltfptr[30])) ==
 		    MELTOBMAG_OBJECT);
@@ -7424,7 +7424,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V24*/ meltfptr[23])) ==
 		    MELTOBMAG_OBJECT);
@@ -7433,7 +7433,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @PAT_WEIGHT",
+    melt_assertmsg ("checkobj putslot  _ @PAT_WEIGHT",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V24*/ meltfptr[23])) ==
 		    MELTOBMAG_OBJECT);
@@ -7443,7 +7443,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SPAT_CLASS",
+    melt_assertmsg ("checkobj putslot  _ @SPAT_CLASS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V24*/ meltfptr[23])) ==
 		    MELTOBMAG_OBJECT);
@@ -7453,7 +7453,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SPAT_FIELDS",
+    melt_assertmsg ("checkobj putslot  _ @SPAT_FIELDS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V24*/ meltfptr[23])) ==
 		    MELTOBMAG_OBJECT);
@@ -9042,7 +9042,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V23*/ meltfptr[22])) ==
 		    MELTOBMAG_OBJECT);
@@ -9051,7 +9051,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SFEPD_PREDEF",
+    melt_assertmsg ("checkobj putslot  _ @SFEPD_PREDEF",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V23*/ meltfptr[22])) ==
 		    MELTOBMAG_OBJECT);
@@ -9105,7 +9105,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V26*/ meltfptr[25])) ==
 		    MELTOBMAG_OBJECT);
@@ -9114,7 +9114,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SUGET_OBJ",
+    melt_assertmsg ("checkobj putslot  _ @SUGET_OBJ",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V26*/ meltfptr[25])) ==
 		    MELTOBMAG_OBJECT);
@@ -9123,7 +9123,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SUGET_FIELD",
+    melt_assertmsg ("checkobj putslot  _ @SUGET_FIELD",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V26*/ meltfptr[25])) ==
 		    MELTOBMAG_OBJECT);
@@ -10522,7 +10522,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V24*/ meltfptr[23])) ==
 		    MELTOBMAG_OBJECT);
@@ -10531,7 +10531,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SFEPD_PREDEF",
+    melt_assertmsg ("checkobj putslot  _ @SFEPD_PREDEF",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V24*/ meltfptr[23])) ==
 		    MELTOBMAG_OBJECT);
@@ -10585,7 +10585,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V27*/ meltfptr[26])) ==
 		    MELTOBMAG_OBJECT);
@@ -10594,7 +10594,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SFLA_FIELD",
+    melt_assertmsg ("checkobj putslot  _ @SFLA_FIELD",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V27*/ meltfptr[26])) ==
 		    MELTOBMAG_OBJECT);
@@ -10604,7 +10604,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SFLA_EXPR",
+    melt_assertmsg ("checkobj putslot  _ @SFLA_EXPR",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V27*/ meltfptr[26])) ==
 		    MELTOBMAG_OBJECT);
@@ -10684,7 +10684,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V31*/ meltfptr[30])) ==
 		    MELTOBMAG_OBJECT);
@@ -10693,7 +10693,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SUPUT_OBJ",
+    melt_assertmsg ("checkobj putslot  _ @SUPUT_OBJ",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V31*/ meltfptr[30])) ==
 		    MELTOBMAG_OBJECT);
@@ -10702,7 +10702,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SUPUT_FIELDS",
+    melt_assertmsg ("checkobj putslot  _ @SUPUT_FIELDS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V31*/ meltfptr[30])) ==
 		    MELTOBMAG_OBJECT);
@@ -11524,7 +11524,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -11533,7 +11533,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARGOP_ARGS",
+    melt_assertmsg ("checkobj putslot  _ @SARGOP_ARGS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -11542,7 +11542,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_NEUTRAL",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_NEUTRAL",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -11552,7 +11552,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_PRIMITIVE",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_PRIMITIVE",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -12270,7 +12270,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -12279,7 +12279,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARGOP_ARGS",
+    melt_assertmsg ("checkobj putslot  _ @SARGOP_ARGS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -12288,7 +12288,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_NEUTRAL",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_NEUTRAL",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -12298,7 +12298,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_PRIMITIVE",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_PRIMITIVE",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13016,7 +13016,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13025,7 +13025,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARGOP_ARGS",
+    melt_assertmsg ("checkobj putslot  _ @SARGOP_ARGS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13034,7 +13034,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_NEUTRAL",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_NEUTRAL",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13044,7 +13044,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_PRIMITIVE",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_PRIMITIVE",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13761,7 +13761,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13770,7 +13770,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARGOP_ARGS",
+    melt_assertmsg ("checkobj putslot  _ @SARGOP_ARGS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13779,7 +13779,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_NEUTRAL",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_NEUTRAL",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -13789,7 +13789,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARITHVAR_PRIMITIVE",
+    melt_assertmsg ("checkobj putslot  _ @SARITHVAR_PRIMITIVE",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -14509,7 +14509,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -14518,7 +14518,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARGOP_ARGS",
+    melt_assertmsg ("checkobj putslot  _ @SARGOP_ARGS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -15221,7 +15221,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -15230,7 +15230,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @CTPAT_SUBPA",
+    melt_assertmsg ("checkobj putslot  _ @CTPAT_SUBPA",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -15882,7 +15882,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -15891,7 +15891,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SARGOP_ARGS",
+    melt_assertmsg ("checkobj putslot  _ @SARGOP_ARGS",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V17*/ meltfptr[16])) ==
 		    MELTOBMAG_OBJECT);
@@ -16592,7 +16592,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -16601,7 +16601,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @CTPAT_SUBPA",
+    melt_assertmsg ("checkobj putslot  _ @CTPAT_SUBPA",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V20*/ meltfptr[19])) ==
 		    MELTOBMAG_OBJECT);
@@ -17905,7 +17905,7 @@ meltlab_endgetargs:;
 	      ;
 	      /*^putslot */
 	      /*putslot */
-	      melt_assertmsg ("putslot checkobj @PCTX_MEXPANDER",
+	      melt_assertmsg ("checkobj putslot  _ @PCTX_MEXPANDER",
 			      melt_magic_discr ((melt_ptr_t)
 						( /*_.INST__V50*/
 						 meltfptr[49])) ==
@@ -17916,7 +17916,7 @@ meltlab_endgetargs:;
 	      ;
 	      /*^putslot */
 	      /*putslot */
-	      melt_assertmsg ("putslot checkobj @PCTX_PEXPANDER",
+	      melt_assertmsg ("checkobj putslot  _ @PCTX_PEXPANDER",
 			      melt_magic_discr ((melt_ptr_t)
 						( /*_.INST__V50*/
 						 meltfptr[49])) ==
@@ -17927,7 +17927,7 @@ meltlab_endgetargs:;
 	      ;
 	      /*^putslot */
 	      /*putslot */
-	      melt_assertmsg ("putslot checkobj @PCTX_VARMAP",
+	      melt_assertmsg ("checkobj putslot  _ @PCTX_VARMAP",
 			      melt_magic_discr ((melt_ptr_t)
 						( /*_.INST__V50*/
 						 meltfptr[49])) ==
@@ -17938,7 +17938,7 @@ meltlab_endgetargs:;
 	      ;
 	      /*^putslot */
 	      /*putslot */
-	      melt_assertmsg ("putslot checkobj @PCTX_MODCTX",
+	      melt_assertmsg ("checkobj putslot  _ @PCTX_MODCTX",
 			      melt_magic_discr ((melt_ptr_t)
 						( /*_.INST__V50*/
 						 meltfptr[49])) ==
@@ -18221,7 +18221,7 @@ meltlab_endgetargs:;
 	      ;
 	      /*^putslot */
 	      /*putslot */
-	      melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+	      melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 			      melt_magic_discr ((melt_ptr_t)
 						( /*_.INST__V60*/
 						 meltfptr[59])) ==
@@ -18232,7 +18232,7 @@ meltlab_endgetargs:;
 	      ;
 	      /*^putslot */
 	      /*putslot */
-	      melt_assertmsg ("putslot checkobj @SCAM_PATT",
+	      melt_assertmsg ("checkobj putslot  _ @SCAM_PATT",
 			      melt_magic_discr ((melt_ptr_t)
 						( /*_.INST__V60*/
 						 meltfptr[59])) ==
@@ -18243,7 +18243,7 @@ meltlab_endgetargs:;
 	      ;
 	      /*^putslot */
 	      /*putslot */
-	      melt_assertmsg ("putslot checkobj @SCAM_BODY",
+	      melt_assertmsg ("checkobj putslot  _ @SCAM_BODY",
 			      melt_magic_discr ((melt_ptr_t)
 						( /*_.INST__V60*/
 						 meltfptr[59])) ==
@@ -18646,7 +18646,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @LOCA_LOCATION",
+    melt_assertmsg ("checkobj putslot  _ @LOCA_LOCATION",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V69*/ meltfptr[45])) ==
 		    MELTOBMAG_OBJECT);
@@ -18655,7 +18655,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SMAT_MATCHEDX",
+    melt_assertmsg ("checkobj putslot  _ @SMAT_MATCHEDX",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V69*/ meltfptr[45])) ==
 		    MELTOBMAG_OBJECT);
@@ -18664,7 +18664,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @SMAT_CASES",
+    melt_assertmsg ("checkobj putslot  _ @SMAT_CASES",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V69*/ meltfptr[45])) ==
 		    MELTOBMAG_OBJECT);

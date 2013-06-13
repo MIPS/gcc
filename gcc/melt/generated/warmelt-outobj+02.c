@@ -9493,7 +9493,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+    melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 		    melt_magic_discr ((melt_ptr_t)
 				      (( /*!PREVLOC_CONTAINER */ meltfrout->
 					tabval[0]))) == MELTOBMAG_OBJECT);
@@ -9518,7 +9518,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+    melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 		    melt_magic_discr ((melt_ptr_t)
 				      (( /*!PREVIMPLBUF_CONTAINER */
 					meltfrout->tabval[1]))) ==
@@ -20955,7 +20955,7 @@ meltlab_endgetargs:;
 
 	  /*^putslot */
 	  /*putslot */
-	  melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+	  melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 			  melt_magic_discr ((melt_ptr_t)
 					    (( /*!PREVLOC_CONTAINER */
 					      meltfrout->tabval[15]))) ==
@@ -20981,7 +20981,7 @@ meltlab_endgetargs:;
 
 	  /*^putslot */
 	  /*putslot */
-	  melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+	  melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 			  melt_magic_discr ((melt_ptr_t)
 					    (( /*!PREVIMPLBUF_CONTAINER */
 					      meltfrout->tabval[16]))) ==
@@ -21490,7 +21490,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+    melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 		    melt_magic_discr ((melt_ptr_t)
 				      (( /*!PREVLOC_CONTAINER */ meltfrout->
 					tabval[15]))) == MELTOBMAG_OBJECT);
@@ -21514,7 +21514,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+    melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 		    melt_magic_discr ((melt_ptr_t)
 				      (( /*!PREVIMPLBUF_CONTAINER */
 					meltfrout->tabval[16]))) ==

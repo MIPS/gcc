@@ -3091,7 +3091,7 @@ meltlab_endgetargs:;
       static long meltlab_count_1;
       meltlab_count_1++;
       debugeprintf
-	("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/3c92a003. *CLASS_OBJLABELINSTR/2ea723df. %ld",
+	("objlabel_1 mtch1_*CLASS_NORMTESTER_INSTANCE/34365c3d. *CLASS_OBJLABELINSTR/3a68c402. %ld",
 	 meltlab_count_1);
 #endif
 
@@ -3156,7 +3156,7 @@ meltlab_endgetargs:;
       static long meltlab_count_2;
       meltlab_count_2++;
       debugeprintf
-	("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/3709a9da. *CLASS_OBJLABELINSTR/355218f5. %ld",
+	("objlabel_2 mtch1_*CLASS_NORMTESTER_MATCHER/2f42d24b. *CLASS_OBJLABELINSTR/c1fd118. %ld",
 	 meltlab_count_2);
 #endif
 
@@ -3213,7 +3213,7 @@ meltlab_endgetargs:;
       static long meltlab_count_3;
       meltlab_count_3++;
       debugeprintf
-	("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/347f795a. *CLASS_OBJLABELINSTR/38d846c7. %ld",
+	("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/3ea7c832. *CLASS_OBJLABELINSTR/2bfc59df. %ld",
 	 meltlab_count_3);
 #endif
 
@@ -3327,7 +3327,7 @@ meltlab_endgetargs:;
       static long meltlab_count_4;
       meltlab_count_4++;
       debugeprintf
-	("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/2b0fb7fe. *CLASS_OBJLABELINSTR/28bc644c. %ld",
+	("objlabel_4 mtch1_*CLASS_NORMTESTER_SUCCESS/2c2fe5dd. *CLASS_OBJLABELINSTR/2ea0548f. %ld",
 	 meltlab_count_4);
 #endif
 
@@ -3404,7 +3404,7 @@ meltlab_endgetargs:;
       static long meltlab_count_5;
       meltlab_count_5++;
       debugeprintf
-	("objlabel_5 mtch1__end_h483278589 *CLASS_OBJLABELINSTR/1cce3efd. %ld",
+	("objlabel_5 mtch1__end_h423430547 *CLASS_OBJLABELINSTR/193d0993. %ld",
 	 meltlab_count_5);
 #endif
 
@@ -5774,7 +5774,7 @@ meltlab_endgetargs:;
 
 	  /*^putslot */
 	  /*putslot */
-	  melt_assertmsg ("putslot checkobj @SYSDATA_MELTPRAGMAS",
+	  melt_assertmsg ("checkobj putslot  _ @SYSDATA_MELTPRAGMAS",
 			  melt_magic_discr ((melt_ptr_t)
 					    (( /*!INITIAL_SYSTEM_DATA */
 					      meltfrout->tabval[0]))) ==
@@ -5961,7 +5961,7 @@ meltlab_endgetargs:;
 
 	  /*^putslot */
 	  /*putslot */
-	  melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+	  melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 			  melt_magic_discr ((melt_ptr_t)
 					    ( /*_.R__V2*/ meltfptr[1])) ==
 			  MELTOBMAG_OBJECT);

@@ -2203,7 +2203,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+    melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 		    melt_magic_discr ((melt_ptr_t)
 				      (( /*~RESCONT */ meltfclos->
 					tabval[0]))) == MELTOBMAG_OBJECT);
@@ -2510,7 +2510,7 @@ meltlab_endgetargs:;
 
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @REFERENCED_VALUE",
+    melt_assertmsg ("checkobj putslot  _ @REFERENCED_VALUE",
 		    melt_magic_discr ((melt_ptr_t)
 				      (( /*~RESCONT */ meltfclos->
 					tabval[0]))) == MELTOBMAG_OBJECT);
@@ -3340,14 +3340,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.FIRSTLIST__V3*/ meltfptr[2]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_LAST");
@@ -3637,14 +3637,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.LASTLIST__V3*/ meltfptr[2]), "DELQU_LAST");
@@ -4056,14 +4056,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.FIRSTLIST__V3*/ meltfptr[2]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_LAST");
@@ -4353,14 +4353,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.LASTLIST__V3*/ meltfptr[2]), "DELQU_LAST");
@@ -4768,14 +4768,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.FIRSTLIST__V3*/ meltfptr[2]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_LAST");
@@ -5057,14 +5057,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.LASTLIST__V3*/ meltfptr[2]), "DELQU_LAST");
@@ -5472,14 +5472,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.FIRSTLIST__V3*/ meltfptr[2]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_LAST");
@@ -5771,14 +5771,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!ALL_IPA_PASSES_END_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.LASTLIST__V3*/ meltfptr[2]), "DELQU_LAST");
@@ -6190,14 +6190,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.FIRSTLIST__V3*/ meltfptr[2]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_LAST");
@@ -6479,14 +6479,14 @@ meltlab_endgetargs:;
 
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_FIRST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_FIRST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (2), ( /*_.MAKE_LIST__V7*/ meltfptr[6]), "DELQU_FIRST");
 		      ;
 		      /*^putslot */
 		      /*putslot */
-		      melt_assertmsg ("putslot checkobj @DELQU_LAST",
+		      melt_assertmsg ("checkobj putslot  _ @DELQU_LAST",
 				      melt_magic_discr ((melt_ptr_t)
 							(( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0]))) == MELTOBMAG_OBJECT);
 		      melt_putfield_object ((( /*!EARLY_GIMPLE_PASSES_START_DELAYED_QUEUE */ meltfrout->tabval[0])), (3), ( /*_.LASTLIST__V3*/ meltfptr[2]), "DELQU_LAST");

@@ -8899,7 +8899,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @DBGI_OUT",
+    melt_assertmsg ("checkobj putslot  _ @DBGI_OUT",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V7*/ meltfptr[6])) ==
 		    MELTOBMAG_OBJECT);
@@ -8908,7 +8908,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @DBGI_OCCMAP",
+    melt_assertmsg ("checkobj putslot  _ @DBGI_OCCMAP",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V7*/ meltfptr[6])) ==
 		    MELTOBMAG_OBJECT);
@@ -8917,7 +8917,7 @@ meltlab_endgetargs:;
     ;
     /*^putslot */
     /*putslot */
-    melt_assertmsg ("putslot checkobj @DBGI_MAXDEPTH",
+    melt_assertmsg ("checkobj putslot  _ @DBGI_MAXDEPTH",
 		    melt_magic_discr ((melt_ptr_t)
 				      ( /*_.INST__V7*/ meltfptr[6])) ==
 		    MELTOBMAG_OBJECT);
