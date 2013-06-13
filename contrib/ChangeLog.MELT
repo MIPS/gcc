@@ -1,4 +1,8 @@
 
+2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile: better message echoed at end.
+
 2013-06-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile (MELTGCC_GENGTYPE, MELTGCC_GTYPESTATE): Use

@@ -1,5 +1,11 @@
 
 
+2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (outpucod_objputslot): Emit some name
+	in the assert message..
+
+
 2013-06-12  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-rc3p
 
