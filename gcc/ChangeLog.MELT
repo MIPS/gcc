@@ -2,6 +2,14 @@
 
 2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{still buggy, REPL mode don't work because of a metabug}}
+	* melt/warmelt-genobj.melt (compilobj_nrep_unsafe_put_fields)
+	(compilobj_nrep_makeinst, compil_data_and_slots_fill): Less
+	multiple_every, more foreach_in_multiple iterations and debug
+	messages.
+
+2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

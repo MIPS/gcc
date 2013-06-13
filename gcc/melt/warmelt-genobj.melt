@@ -3814,27 +3814,30 @@
 			    :oblo_epil oepil))
 	  (oobj (compile_obj nobj gcx))
 	  )
-     (multiple_every 
-      nfldass
-      (lambda (nfa :long ix)
-	(assert_msg "check nfa" (is_a nfa class_nrep_fieldassign))
-	(let ( (aloc (unsafe_get_field :nrep_loc nfa)) 
-	       (afield (unsafe_get_field :nfla_field nfa))
-	       (aval (unsafe_get_field :nfla_val nfa))
-	       (:long aoff (get_int afield))
-	       )
-	  (assert_msg "check afield" (is_a afield class_field))
-	  (let ( 
-		(oval (compile_obj aval gcx)) 
-		(opuf (instance class_objputslot
-				:obi_loc (if aloc aloc loc)
-				:oslot_odata oobj
-				:oslot_field afield
-				:oslot_offset (make_integerbox discr_integer aoff)
-				:oslot_value oval)) )
-	    (assert_msg "compilobj_nrep_unsafe_put_fields check oval not nrep" (not (is_a oval class_nrep)))
-	    (list_append obodl opuf))
-	  )))
+     (foreach_in_multiple 
+      (nfldass)
+      (nfa :long ix)
+      (assert_msg "check nfa" (is_a nfa class_nrep_fieldassign))
+      (let ( (aloc (unsafe_get_field :nrep_loc nfa)) 
+	     (afield (unsafe_get_field :nfla_field nfa))
+	     (aval (unsafe_get_field :nfla_val nfa))
+	     (:long aoff (get_int afield))
+	     )
+	(assert_msg "check afield" (is_a afield class_field))
+	(let ( 
+	      (oval (compile_obj aval gcx)) 
+	      (opuf (instance class_objputslot
+			      :obi_loc (if aloc aloc loc)
+			      :oslot_odata oobj
+			      :oslot_field afield
+			      :oslot_offset (make_integerbox discr_integer aoff)
+			      :oslot_value oval)) 
+	      )
+	  (debug "compilobj_nrep_unsafe_put_fields opuf=" opuf)
+	  (assert_msg "compilobj_nrep_unsafe_put_fields check oval not nrep" (not (is_a oval class_nrep)))
+	  (list_append obodl opuf))
+	))
+
      (list_append obodl (instance class_objtouch
 				  :obi_loc loc
 				  :otouch_val oobj))
@@ -5272,25 +5275,26 @@
       (list_append destlist locv)
       (list_append olis orallobj)
       ;; handle each field assign
-      (multiple_every
-       nfields
-       (lambda (cfla :long ix)
-	 (assert_msg "compilobj_nrep_makeinst check cfla" (is_a cfla class_nrep_fieldassign))
-	 (let ( (cfloc (unsafe_get_field :nrep_loc cfla))
-		(cfield (unsafe_get_field :nfla_field cfla))
-		(cval (unsafe_get_field :nfla_val cfla)) )
-	   (assert_msg "compilobj_nrep_makeinst check cfield" (is_a cfield class_field))
-	   (list_append 
-	    olis
-	    (let ( (oval (compile_obj cval gcx)) )
-	      (assert_msg "compilobj_nrep_makeinst check oval not nrep" (not (is_a oval class_nrep)))
-	      (instance class_objputslot 
-			:obi_loc (if cfloc cfloc nloc)
-			:oslot_odata locv
-			:oslot_field cfield
-			:oslot_offset (make_integerbox discr_integer (get_int cfield))
-			:oslot_value oval)
-	      )))))
+      (foreach_in_multiple
+       (nfields)
+       (cfla :long ix)
+       (assert_msg "compilobj_nrep_makeinst check cfla" (is_a cfla class_nrep_fieldassign))
+       (let ( (cfloc (unsafe_get_field :nrep_loc cfla))
+	      (cfield (unsafe_get_field :nfla_field cfla))
+	      (cval (unsafe_get_field :nfla_val cfla)) )
+	 (assert_msg "compilobj_nrep_makeinst check cfield" (is_a cfield class_field))
+	 (let ( (oval (compile_obj cval gcx)) 
+		(oputs (instance class_objputslot 
+				 :obi_loc (if cfloc cfloc nloc)
+				 :oslot_odata locv
+				 :oslot_field cfield
+				 :oslot_offset (make_integerbox discr_integer (get_int cfield))
+				 :oslot_value oval))
+		)
+	   (debug "compilobj_nrep_makeinst cval=" cval "\n.. oputs=" oputs)
+	   (assert_msg "compilobj_nrep_makeinst check oval not nrep" (not (is_a oval class_nrep)))
+	   (list_append olis oputs)
+	   )))
       ;; since nmki was normalized, the new object was allocated in
       ;; the birth zone so don't need to be touched.  
       ;; 
@@ -5300,14 +5304,14 @@
 			       :obdtw_writtenobj locv
 			       :obdtw_message '"newly made instance"
 			       ))
-		     )
+	     )
 	(list_append olis odbgtr)
 	)
       (list_append olis locv) ;;; last instruction is just the value, which can be set to some dest
       (debug "compilobj_nrep_makeinst result oblock=" oblock)
       oblock
-      ))
-  )
+      )))
+  
 (install_method class_nrep_instance compile_obj compilobj_nrep_makeinst)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -5428,26 +5432,26 @@
 	 (if obva (multiple_put_nth tupvar bindrk obva))
 	 )))
     ;; for every non nil slot, append its initialization to istmtlis
-    (multiple_every
-     (unsafe_get_field :ninst_slots ndat)
-     (lambda (sloval :long slork)
-       (if sloval
+    (foreach_in_multiple
+     ((unsafe_get_field :ninst_slots ndat))
+     (sloval :long slork)
+     (if sloval
 ;;; add to list inifill the filling in dai of slot#slork by slobj
-	   (let ( (slobj (compile_obj sloval gcx)) 
-		  )
-	     (assert_msg "compil_data_and_slots_fill check slobj not nrep" (not (is_a slobj class_nrep)))
-	     (let (
-		   (ooff (make_integerbox discr_integer slork))
-		   (oput 
-		    (instance class_objputslot
-			      :obi_loc  nloc
-			      :oslot_odata obj
-			      :oslot_offset ooff
-			      :oslot_value slobj
-			      )) 
-		   )
-	       (list_append istmtlis oput)
-	       )))))
+	 (let ( (slobj (compile_obj sloval gcx)) 
+		)
+	   (assert_msg "compil_data_and_slots_fill check slobj not nrep" (not (is_a slobj class_nrep)))
+	   (let (
+		 (ooff (make_integerbox discr_integer slork))
+		 (oput (instance class_objputslot
+				 :obi_loc  nloc
+				 :oslot_odata obj
+				 :oslot_offset ooff
+				 :oslot_value slobj
+				 )) 
+		 )
+	     (debug "compil_data_and_slots_fill oput=" oput)
+	     (list_append istmtlis oput)
+	     ))))
     ;; touch the object
     (list_append istmtlis 
 		 (instance class_objtouch
