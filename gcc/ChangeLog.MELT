@@ -1,4 +1,6 @@
+2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+        * melt/warmelt-outobj.melt (outpucod_objputslot): More debug.
 
 2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
 

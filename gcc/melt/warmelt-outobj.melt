@@ -4768,6 +4768,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 		        (add2out msgbuf " @#" ooff)))
 		(strbuf2string discr_verbatim_string msgbuf)))
 	 )
+    (debug "outpucod_objputslot msg=" msg)
     (assert_msg "outpucod_objputslot check oval not nrep" (not (is_a oval class_nrep)))
     (output_location iloc implbuf depth "putslot")
     (add2sbuf_strconst implbuf "/*putslot*/")

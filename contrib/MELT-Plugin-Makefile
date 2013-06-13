@@ -224,10 +224,10 @@ melt_is_plugin=1
 GCCMELT_STAGE_ZERO = meltbuild-stage0-quicklybuilt
 
 
-all: melt-run.h melt.so melt-applications melt-gendoc doc
+all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 	@echo 
 	@echo '+++++++++++++++++++'
-	@date +'*** MELT plugin \"$(melt_version_string)\" compilation completed at %c ***%n'
+	@date +'*** MELT plugin "$(melt_version_string)" compilation completed at %c ***%n'
 	@echo 
 	@echo You may want to manually compile			\
 	       simplemelt-gtkmm-probe.cc if you have GTK '>= 3.4' and	\
@@ -400,7 +400,7 @@ meltgendoc.texi:  melt-build-settings.sh  melt-build-param.sh melt-build-script.
 melt-clean:
 	$(RM) -rf meltbuild*
 
-melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency)warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
+melt-translator: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
 	@echo melt-translator script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh translator
 
