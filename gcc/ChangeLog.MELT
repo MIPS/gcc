@@ -2,6 +2,11 @@
 
 2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_objputslot): Emit improved
+	messages in asserts...
+
+2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (outpucod_objputslot): Emit some name
 	in the assert message..
 
