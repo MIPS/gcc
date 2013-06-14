@@ -12281,21 +12281,6 @@ ix86_cannot_force_const_mem (enum machine_mode mode, rtx x)
   return !ix86_legitimate_constant_p (mode, x);
 }
 
-/* Determine if the sum of passed values VAL1 and VAL2 is
-   a valid address operand.  If IS_INDEX is non zero then
-   VAL2 must be an index in resulting address.  Otherwise
-   VAL2 is a base of resultng address.  */
-bool
-ix86_decomposed_address_p (rtx val1, rtx val2, bool is_index)
-{
-  enum machine_mode mode = GET_MODE (val1);
-
-  if (is_index)
-    val2 = gen_rtx_MULT (mode, val2, const1_rtx);
-
-  return address_operand (gen_rtx_PLUS (mode, val1, val2), mode);
-}
-
 /*  Nonzero if the symbol is marked as dllimport, or as stub-variable,
     otherwise zero.  */
 
@@ -15139,6 +15124,25 @@ ix86_print_operand_address (FILE *file, rtx addr)
       gcc_assert (TARGET_64BIT);
       ok = ix86_decompose_address (XVECEXP (addr, 0, 0), &parts);
       code = 'q';
+    }
+  else if (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_BNDMK_ADDR)
+    {
+      ok = ix86_decompose_address (XVECEXP (addr, 0, 1), &parts);
+      gcc_assert (parts.base == NULL_RTX || parts.index == NULL_RTX);
+      if (parts.base != NULL_RTX)
+	{
+	  parts.index = parts.base;
+	  parts.scale = 1;
+	}
+      parts.base = XVECEXP (addr, 0, 0);
+      addr = XVECEXP (addr, 0, 0);
+    }
+  else if (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_BNDLDX_ADDR)
+    {
+      ok = ix86_decompose_address (XVECEXP (addr, 0, 0), &parts);
+      gcc_assert (parts.index == NULL_RTX);
+      parts.index = XVECEXP (addr, 0, 1);
+      addr = XVECEXP (addr, 0, 0);
     }
   else
     ok = ix86_decompose_address (addr, &parts);
@@ -32380,7 +32384,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
       op0 = force_reg (Pmode, op0);
       op1 = force_reg (Pmode, op1);
-      op2 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op2);
+      op2 = force_reg (BNDmode, op2);
 
       emit_insn (TARGET_64BIT 
                  ? gen_bnd64_stx (op0, op1, op2) 
@@ -32429,7 +32433,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
 
-      op0 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+      op0 = force_reg (BNDmode, op0);
       op1 = force_reg (Pmode, op1);
 
       emit_insn (TARGET_64BIT
@@ -32444,7 +32448,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op0 = expand_normal (arg0); 
       op1 = expand_normal (arg1); 
 
-      op0 = force_reg (TARGET_64BIT ? BND64mode : BND32mode, op0);
+      op0 = force_reg (BNDmode, op0);
       op1 = force_reg (Pmode, op1);
 
       emit_insn (TARGET_64BIT
@@ -32565,8 +32569,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_BNDINT:
       {
-	enum machine_mode mode = TARGET_64BIT ? BND64mode : BND32mode;
-	enum machine_mode hmode = TARGET_64BIT ? DImode : SImode;
+	enum machine_mode mode = BNDmode;
+	enum machine_mode hmode = Pmode;
 	rtx res = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
 	rtx m1, m2, m1h1, m1h2, m2h1, m2h2, t1, t2, t3, rh1, rh2;
 
@@ -32665,7 +32669,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_SIZEOF:
       {
-	enum machine_mode mode = TARGET_64BIT ? DImode : SImode;
+	enum machine_mode mode = Pmode;
 	rtx t1, t2;
 
 	arg0 = CALL_EXPR_ARG (exp, 0);
@@ -42308,6 +42312,15 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
 
   set_unique_reg_note (get_last_insn (), REG_EQUAL,
 		       gen_rtx_MULT (mode, op1, op2));
+}
+
+/* Return 1 if control tansfer instruction INSN
+   should be encoded with bnd prefix.  */
+
+bool
+ix86_bnd_prefixed_insn_p (rtx insn)
+{
+  return flag_mpx;
 }
 
 /* Expand an insert into a vector register through pinsr insn.

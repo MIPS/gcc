@@ -61,7 +61,6 @@ extern bool ix86_expand_setmem (rtx, rtx, rtx, rtx, rtx, rtx);
 extern bool ix86_expand_strlen (rtx, rtx, rtx, rtx);
 
 extern bool constant_address_p (rtx);
-extern bool ix86_decomposed_address_p (rtx val1, rtx val2, bool is_index);
 extern bool legitimate_pic_operand_p (rtx);
 extern bool legitimate_pic_address_disp_p (rtx);
 extern bool ix86_legitimize_reload_address (rtx, enum machine_mode,
@@ -235,6 +234,8 @@ extern void ix86_expand_mul_widen_evenodd (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_mul_widen_hilo (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_sse2_mulv4si3 (rtx, rtx, rtx);
 extern void ix86_expand_sse2_mulvxdi3 (rtx, rtx, rtx);
+
+extern bool ix86_bnd_prefixed_insn_p (rtx);
 
 /* In i386-c.c  */
 extern void ix86_target_macros (void);
