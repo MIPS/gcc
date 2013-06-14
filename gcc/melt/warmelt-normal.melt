@@ -1727,8 +1727,7 @@ source location.}#
 ;;;; normalize a symbol occurrence
 (defun normexp_symbol (recv env ncx psloc)
   (debug "normexp_symbol recv=" recv 
-	 "\n env=" env "\n ncx=" ncx
-	 " psloc=" psloc 
+	 "\n.. env=" env "\n.. ncx=" ncx "\n.. psloc=" psloc 
 	 )
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
   (assert_msg "check recv" (is_a recv class_symbol))
@@ -1930,14 +1929,14 @@ source location.}#
 		  ;; put the const occurrence if needed in the const list of each proc
 		  (foreach_in_list
 		   (procs)
-		   (curpairproc pr)
-		   (debug "normexp_symbol pr=" pr)
-		   (assert_msg "check pr" (is_a pr class_nrep_anyproc))
+		   (curpairproc curproc)
+		   (debug "normexp_symbol curproc=" curproc)
+		   (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
 		   (cond 
-		    ( (is_a pr class_nrep_routproc)
+		    ( (is_a curproc class_nrep_routproc)
 		      (let ( (clcont
 			      (instance class_reference :referenced_value fxocc))
-			     (cnstprocl (get_field :nrpro_const pr)) )
+			     (cnstprocl (get_field :nrpro_const curproc)) )
 			(foreach_in_list
 			 (cnstprocl)
 			 (curpairprocl cx) 
@@ -1947,10 +1946,10 @@ source location.}#
 			(let ( (newcl (get_field :referenced_value clcont)) )
 			  (if newcl (list_append cnstprocl newcl))) 
 			))
-		    ( (is_a pr class_nrep_hookproc)
-		      (debug "normexp_symbol pr=" pr "\n recv=" recv "\n bind=" bind 
+		    ( (is_a curproc class_nrep_hookproc)
+		      (debug "normexp_symbol curproc=" curproc "\n recv=" recv "\n bind=" bind 
 			     "\n fxocc=" fxocc)
-		      (let ( (hkclobindlist (get_field :nrhook_closedbindlist pr))
+		      (let ( (hkclobindlist (get_field :nrhook_closedbindlist curproc))
 			     (foundbind ())
 			     )
 			(debug "normexp_symbol hkclobindlist=" hkclobindlist)
@@ -1966,7 +1965,8 @@ source location.}#
 			))
 		    ;;
 		    (:else
-		     (assert_msg "normexp_symbol unexpected pr")
+		     (debug "normexp_symbol bad curproc=" curproc)
+		     (assert_msg "normexp_symbol unexpected curproc")
 		     ))
 		   )			;end foreach_in_list
 		  (return fxocc ())
@@ -1986,10 +1986,10 @@ source location.}#
 		;; put the closed occurrence if needed in the closed list of each proc
 		(foreach_in_list  
 		 (procs)
-		 (curpair pr)
-		 (assert_msg "check pr" (is_a pr class_nrep_anyproc))
+		 (curpair curproc)
+		 (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
 		 (let ( (clcont (instance class_reference :referenced_value clocc))
-			(clobindl (get_field :nrpro_closedb pr)) )
+			(clobindl (get_field :nrpro_closedb curproc)) )
 		   (foreach_in_list 
 		    (clobindl)
 		    (curbndpair clbnd) 

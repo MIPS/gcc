@@ -1,6 +1,10 @@
 
 
 2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normal_symbol): Slightly better local
+	variable names...
+
+2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-debug.melt (dbgout_mapobject_method)
 	(dbgout_mapstring_method): Improve.
