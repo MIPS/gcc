@@ -41,30 +41,30 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 /* hash of preprocessed melt-run.h generating this */
 const char melt_prepromd5meltrun[]="db7f7df3aad3a12a1f8c7d9285de722c";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="36901926b2884dfe39cdbbf237aad540";
+const char melt_primaryhexmd5[]="e1f2062c9bc42cd7c8fb6fc866939c7b";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+01.c #1 */ "a2e7f967c29fc107abd2eb9b194734d4",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.c #2 */ "1956f7421c064349902eaffefea64c4b",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+03.c #3 */ "f812b29c6190d8fe5a3d6f087fcf6554",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.c #4 */ "70b44713d90befea20e1dd2fbd0517f0",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+05.c #5 */ "a82bcc7d35a405eeb990ad2dea8182a0",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+06.c #6 */ "66e31c4d953b909f14a7fd5e8264ccec",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+01.c #1 */ "a9a953a05e3ec1134d2f90b03efd2c87",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.c #2 */ "8870f3e4cbac402485bd7061f206f7ae",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+03.c #3 */ "a1c89b7f3790c23218250d0ca8b1414e",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.c #4 */ "38312a0117524ef2f1ba71c61693d685",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+05.c #5 */ "e988b7852b254a87dabea446d9bc65fd",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+06.c #6 */ "579594b7798114406b712bb427dddb41",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="2de5e8bf7d379079aac4bb2a5324714e" ;
+const char melt_cumulated_hexmd5[]="31d56d27556498f98fc45d10b551b8d4" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiNORMAL_mds__2DE5E8BF7D379079AAC4BB2A5324714E 1
+#define meltmod_WARMELTmiNORMAL_mds__31D56D27556498F98FC45D10B551B8D4 1
 #include "warmelt-normal+melttime.h"
 	 
 
