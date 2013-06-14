@@ -519,9 +519,7 @@ is the extended environment.}#
   :super class_nrep_closproc
   :doc #{The $CLASS_NREP_HOOKPROC is the class for a hook
 procedure in a module, defined with $DEFHOOK. }#
-  :fields (nrhook_name	;; = nrclop_name
-	   nrhook_inb	;; = nrclop_argbindtuple
-           nrhook_outb			;output arguments binding tuple
+  :fields (nrhook_outb			;output arguments binding tuple
 	   nrhook_ctype			;ctype of result
 	   nrhook_datahook		;hook data object
 	   nrhook_closedbindlist ;; = nrclop_clobindlist
@@ -532,17 +530,12 @@ procedure in a module, defined with $DEFHOOK. }#
 (defclass class_nrep_routproc
   :super class_nrep_closproc
   :doc #{The $CLASS_NREP_ROUTPROC is the class for normal routine
-procedures, representing $DEFUN or $LAMBDA code. Field $NRPRO_NAME is
-the name, field $NRPRO_ARGB is the formal arguments binding. Field
-$NRPRO_CLOSEDB is the list of closed bindings. Field $NRPRO_CONST is
+procedures, representing $DEFUN or $LAMBDA code. Field $NRPRO_CONST is
 the list of constants. Field $NRPRO_DATAROUT is the routine data
 object. Field $NRPRO_DATACLOS is the closure data object. Field
 $NRPRO_THUNKLIST is the list of thunks to be called when compiling
 it. Field $NRPRO_VARIADIC is non-null if the routine is variadic.}#
   :fields (
-	   nrpro_name	;; = nrclop_name
-	   nrpro_argb	;; = nrclop_argbindtuple
-	   nrpro_closedb ;; = nrclop_clobindlist
 	   nrpro_const			;list of constants
 	   nrpro_datarout		;routine data object
 	   nrpro_dataclos		;closure data object
@@ -4861,11 +4854,8 @@ source location.}#
 ;;; dont forget to put the nil fields at end
 			  :nrep_loc sloc
 			  :nproc_body () ;filled later
-			  :nrpro_name snam
 			  :nrclop_name snam
-			  :nrpro_argb sformals
 			  :nrclop_argbindtuple sformals
-			  :nrpro_closedb closblis
 			  :nrclop_clobindlist closblis
 			  :nrpro_const (make_list discr_list)
 			  :nrpro_thunklist (make_list discr_list)
@@ -4986,9 +4976,7 @@ source location.}#
 	 (nproc (instance class_nrep_hookproc
 			  :nrep_loc sloc
 			  :nproc_body ()
-			  :nrhook_name symbname
 			  :nrclop_name symbname
-			  :nrhook_inb ()
 			  :nrclop_argbindtuple ()
 			  :nrhook_outb ()
 			  :nrhook_ctype sctype
@@ -5111,7 +5099,6 @@ source location.}#
      (put_env newenv fbo))
     (put_fields nproc 
 		:nrclop_argbindtuple sinformals
-		:nrhook_inb sinformals
 		:nrhook_outb soutformals)
     (put_fields newenv :env_proc nproc)
     (debug "normexp_defhook newenv=" newenv)
@@ -5201,10 +5188,8 @@ source location.}#
 	 (nproc (instance class_nrep_lambdaroutproc
 			  :nrep_loc sloc
 			  :nproc_body () ;filled later
-			  :nrpro_name csym
-			  :nrpro_argb sformalargs
+			  :nrclop_name csym
 			  :nrclop_argbindtuple sformalargs
-			  :nrpro_closedb closedblist
 			  :nrclop_clobindlist closedblist
 			  :nrpro_const (make_list discr_list)
 			  :nrpro_datarout () ; filled below

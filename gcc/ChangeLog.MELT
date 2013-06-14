@@ -2,6 +2,16 @@
 
 2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normalt.melt (class_nrep_hookproc): Remove fields
+	nrhook_name, nrhook_inb, nrhook_closedbindlist which are replaced
+	by nrclop_name, nrclop_argbindtuple, nrclop_clobindlist inherited
+	fields.
+	(class_nrep_routproc): Remove fields nrpro_name, nrpro_argb,
+	nrpro_closedb which are replaced by nrclop_name,
+	nrclop_argbindtuple, nrclop_clobindlist inherited fields.
+
+2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.c: Regenerate.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
