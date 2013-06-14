@@ -1,6 +1,17 @@
 
 
 2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (class_nrep_closproc): New class with
+	fields nrclop_name, nrclop_argbindtuple, nrclop_clobindlist.
+	(class_nrep_hookproc, class_nrep_routproc): Inherit from
+	class_nrep_closproc.
+	(normexp_symbol): Use nrclop_clobindlist instead of
+	nrhook_closedbindlist and nrpro_closedb.
+	(normexp_ifvariadic): Use nrclop_argbindtuple instead of nrpro_argb.
+	(normexp_defun, normexp_lambda, normexp_defhook): Fill both fields.
+
+2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normal_symbol): Slightly better local
 	variable names...
 

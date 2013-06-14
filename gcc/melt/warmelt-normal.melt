@@ -502,9 +502,35 @@ is the extended environment.}#
   :fields (ninitextend_modenv
 	   ))
 
+
+(defclass class_nrep_closproc
+  :super class_nrep_anyproc
+  :doc #{The internal $CLASS_NREP_CLOSPROC is the super-class for
+  closing procedures with optional name $NRCLOP_NAME, [input] arguments bindings tuplz
+  $NRCLOP_ARGBINDTUPLE and closed bindings list $NRCLOP_CLOBINDLIST.}#
+  :fields (nrclop_name
+	   nrclop_argbindtuple
+	   nrclop_clobindlist))
+
+
+
+;; the class of the normalized hook procedure
+(defclass class_nrep_hookproc
+  :super class_nrep_closproc
+  :doc #{The $CLASS_NREP_HOOKPROC is the class for a hook
+procedure in a module, defined with $DEFHOOK. }#
+  :fields (nrhook_name	;; = nrclop_name
+	   nrhook_inb	;; = nrclop_argbindtuple
+           nrhook_outb			;output arguments binding tuple
+	   nrhook_ctype			;ctype of result
+	   nrhook_datahook		;hook data object
+	   nrhook_closedbindlist ;; = nrclop_clobindlist
+	   nrhook_mapdata		;mapping of data...
+	   ))
+
 ;; normal routine procedure
 (defclass class_nrep_routproc
-  :super class_nrep_anyproc
+  :super class_nrep_closproc
   :doc #{The $CLASS_NREP_ROUTPROC is the class for normal routine
 procedures, representing $DEFUN or $LAMBDA code. Field $NRPRO_NAME is
 the name, field $NRPRO_ARGB is the formal arguments binding. Field
@@ -514,9 +540,9 @@ object. Field $NRPRO_DATACLOS is the closure data object. Field
 $NRPRO_THUNKLIST is the list of thunks to be called when compiling
 it. Field $NRPRO_VARIADIC is non-null if the routine is variadic.}#
   :fields (
-	   nrpro_name			;name (if any)
-	   nrpro_argb			;argument bindings
-	   nrpro_closedb		;list of closed bindings
+	   nrpro_name	;; = nrclop_name
+	   nrpro_argb	;; = nrclop_argbindtuple
+	   nrpro_closedb ;; = nrclop_clobindlist
 	   nrpro_const			;list of constants
 	   nrpro_datarout		;routine data object
 	   nrpro_dataclos		;closure data object
@@ -538,19 +564,6 @@ routine procedures.}#
 
 
 
-;; the class of the normalized hook procedure
-(defclass class_nrep_hookproc
-  :super class_nrep_anyproc
-  :doc #{The $CLASS_NREP_HOOKPROC is the class for a hook
-procedure in a module, defined with $DEFHOOK. }#
-  :fields (nrhook_name			;name
-	   nrhook_inb			;input arguments binding tuple
-           nrhook_outb			;output arguments binding tuple
-	   nrhook_ctype			;ctype of result
-	   nrhook_datahook		;hook data object
-	   nrhook_closedbindlist	;list of closed bindings
-	   nrhook_mapdata		;mapping of data...
-	   ))
 
 ;;; static normalized predef
 (defclass class_nrep_predef
@@ -1849,7 +1862,7 @@ source location.}#
 			       (if newcl (list_append cnstproc newcl))) 
 			     ))
 			 ( (is_a pr class_nrep_hookproc)
-			   (let ( (hkclobindlist (get_field :nrhook_closedbindlist pr))
+			   (let ( (hkclobindlist (get_field :nrclop_clobindlist pr))
 				  (foundbind ())
 				  )
 			     (debug "normexp_symbol hkclobindlist=" hkclobindlist)
@@ -1949,7 +1962,7 @@ source location.}#
 		    ( (is_a curproc class_nrep_hookproc)
 		      (debug "normexp_symbol curproc=" curproc "\n recv=" recv "\n bind=" bind 
 			     "\n fxocc=" fxocc)
-		      (let ( (hkclobindlist (get_field :nrhook_closedbindlist curproc))
+		      (let ( (hkclobindlist (get_field :nrclop_clobindlist curproc))
 			     (foundbind ())
 			     )
 			(debug "normexp_symbol hkclobindlist=" hkclobindlist)
@@ -1989,7 +2002,7 @@ source location.}#
 		 (curpair curproc)
 		 (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
 		 (let ( (clcont (instance class_reference :referenced_value clocc))
-			(clobindl (get_field :nrpro_closedb curproc)) )
+			(clobindl (get_field :nrclop_clobindlist curproc)) )
 		   (foreach_in_list 
 		    (clobindl)
 		    (curbndpair clbnd) 
@@ -4588,7 +4601,7 @@ source location.}#
 	 (sthen (unsafe_get_field :sifvariadic_then recv))
 	 (selse (unsafe_get_field :sifvariadic_else recv))
 	 (curpro (unsafe_get_field :nctx_curproc ncx))
-	 (curprocargs (get_field :nrpro_argb curpro))
+	 (curprocargs (get_field :nrclop_argbindtuple curpro))
 	 (nprovariadic (get_field :nrpro_variadic curpro))
 	 (newenv (fresh_env env))
 	 )
@@ -4848,8 +4861,11 @@ source location.}#
 			  :nrep_loc sloc
 			  :nproc_body () ;filled later
 			  :nrpro_name snam
+			  :nrclop_name snam
 			  :nrpro_argb sformals
+			  :nrclop_argbindtuple sformals
 			  :nrpro_closedb closblis
+			  :nrclop_clobindlist closblis
 			  :nrpro_const (make_list discr_list)
 			  :nrpro_thunklist (make_list discr_list)
 			  :nrpro_datarout () ; filled below
@@ -4970,12 +4986,16 @@ source location.}#
 			  :nrep_loc sloc
 			  :nproc_body ()
 			  :nrhook_name symbname
+			  :nrclop_name symbname
 			  :nrhook_inb ()
+			  :nrclop_argbindtuple ()
 			  :nrhook_outb ()
 			  :nrhook_ctype sctype
 			  :nrhook_datahook ()
 			  :nrhook_mapdata ()
-			  :nrhook_closedbindlist closbindlist))
+			  :nrhook_closedbindlist closbindlist
+			  :nrclop_clobindlist closbindlist
+			  ))
 	 (descrhook (instance class_hook_descriptor
 			      :named_name symbname
 			      :hookdesc_in_formals sinformals
@@ -5089,6 +5109,7 @@ source location.}#
      (assert_msg "check fbo" (is_a fbo class_formal_binding))
      (put_env newenv fbo))
     (put_fields nproc 
+		:nrclop_argbindtuple sinformals
 		:nrhook_inb sinformals
 		:nrhook_outb soutformals)
     (put_fields newenv :env_proc nproc)
@@ -5181,7 +5202,9 @@ source location.}#
 			  :nproc_body () ;filled later
 			  :nrpro_name csym
 			  :nrpro_argb sformalargs
+			  :nrclop_argbindtuple sformalargs
 			  :nrpro_closedb closedblist
+			  :nrclop_clobindlist closedblist
 			  :nrpro_const (make_list discr_list)
 			  :nrpro_datarout () ; filled below
 			  :nrpro_dataclos () ; not filled
