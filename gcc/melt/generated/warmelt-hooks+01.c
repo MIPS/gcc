@@ -511,41 +511,44 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST (meltclosure_ptr_t
 
 
 
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_9_WARMELTmiHOOKS_LAMBDA_cl1 (meltclosure_ptr_t meltclosp_,
-				      melt_ptr_t meltfirstargp_,
-				      const melt_argdescr_cell_t
-				      meltxargdescr_[],
-				      union meltparam_un *meltxargtab_,
-				      const melt_argdescr_cell_t
-				      meltxresdescr_[],
-				      union meltparam_un *meltxrestab_);
+melt_ptr_t MELT_MODULE_VISIBILITY meltrout_9_WARMELTmiHOOKS (meltclosure_ptr_t
+							     meltclosp_,
+							     melt_ptr_t
+							     meltfirstargp_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxargdescr_[],
+							     union
+							     meltparam_un
+							     *meltxargtab_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxresdescr_[],
+							     union
+							     meltparam_un
+							     *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_10_WARMELTmiHOOKS_LAMBDA_cl2 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_10_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_11_WARMELTmiHOOKS_LAMBDA_cl3 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_11_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 /** declaration of hook melthook_HOOK_START_UNIT */
 MELT_EXTERN void melthook_HOOK_START_UNIT (melt_ptr_t melthookdata);
@@ -608,40 +611,34 @@ meltrout_15_WARMELTmiHOOKS_AT_START_UNIT_LAST (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_16_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_17_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_18_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 /** declaration of hook melthook_HOOK_FINISH_UNIT */
 MELT_EXTERN void melthook_HOOK_FINISH_UNIT (melt_ptr_t melthookdata);
@@ -2080,16 +2077,14 @@ meltlabend_rout:
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un * meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un * meltxrestab_)
+meltrout_16_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un * meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un * meltxrestab_)
 {
-  long current_blocklevel_signals_meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4_melt =
+  long current_blocklevel_signals_meltrout_16_WARMELTmiHOOKS_melt =
     melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
@@ -2102,7 +2097,7 @@ meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4_st
+  struct meltframe_meltrout_16_WARMELTmiHOOKS_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -2124,14 +2119,13 @@ meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 is not initial declstructinit */
+  /*meltrout_16_WARMELTmiHOOKS is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4_st *)
-	meltfirstargp_;
-      /* use arguments meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 output_curframe_declstruct_init */
+	(struct meltframe_meltrout_16_WARMELTmiHOOKS_st *) meltfirstargp_;
+      /* use arguments meltrout_16_WARMELTmiHOOKS output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -2146,12 +2140,12 @@ meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 nbval 4*/
+/* declstructinit plain routine meltrout_16_WARMELTmiHOOKS nbval 4*/
   meltfram__.mcfr_nbvar = 4 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
-  melt_trace_start ("LAMBDA_cl4", meltcallcount);
+  melt_trace_start ("**", meltcallcount);
 /*getargs*/
 
   /*getarg#0 */
@@ -2231,33 +2225,31 @@ meltlab_endgetargs:;
   ;
   goto meltlabend_rout;
 meltlabend_rout:
-  melt_trace_end ("LAMBDA_cl4", meltcallcount);
+  melt_trace_end ("**", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4_melt;
+    current_blocklevel_signals_meltrout_16_WARMELTmiHOOKS_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*noretval */ NULL);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 */
+}				/*end meltrout_16_WARMELTmiHOOKS */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un * meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un * meltxrestab_)
+meltrout_17_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un * meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un * meltxrestab_)
 {
-  long current_blocklevel_signals_meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5_melt =
+  long current_blocklevel_signals_meltrout_17_WARMELTmiHOOKS_melt =
     melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
@@ -2270,7 +2262,7 @@ meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5_st
+  struct meltframe_meltrout_17_WARMELTmiHOOKS_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -2292,14 +2284,13 @@ meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 is not initial declstructinit */
+  /*meltrout_17_WARMELTmiHOOKS is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5_st *)
-	meltfirstargp_;
-      /* use arguments meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 output_curframe_declstruct_init */
+	(struct meltframe_meltrout_17_WARMELTmiHOOKS_st *) meltfirstargp_;
+      /* use arguments meltrout_17_WARMELTmiHOOKS output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -2314,12 +2305,12 @@ meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 nbval 2*/
+/* declstructinit plain routine meltrout_17_WARMELTmiHOOKS nbval 2*/
   meltfram__.mcfr_nbvar = 2 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
-  melt_trace_start ("LAMBDA_cl5", meltcallcount);
+  melt_trace_start ("**", meltcallcount);
 /*getargs*/
 
   /*getarg#0 */
@@ -2370,33 +2361,31 @@ meltlab_endgetargs:;
   ;
   goto meltlabend_rout;
 meltlabend_rout:
-  melt_trace_end ("LAMBDA_cl5", meltcallcount);
+  melt_trace_end ("**", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5_melt;
+    current_blocklevel_signals_meltrout_17_WARMELTmiHOOKS_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*noretval */ NULL);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 */
+}				/*end meltrout_17_WARMELTmiHOOKS */
 
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un * meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un * meltxrestab_)
+meltrout_18_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un * meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un * meltxrestab_)
 {
-  long current_blocklevel_signals_meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6_melt =
+  long current_blocklevel_signals_meltrout_18_WARMELTmiHOOKS_melt =
     melt_blocklevel_signals;
 
 #if MELT_HAVE_DEBUG
@@ -2409,7 +2398,7 @@ meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 (meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-  struct meltframe_meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6_st
+  struct meltframe_meltrout_18_WARMELTmiHOOKS_st
   {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -2431,14 +2420,13 @@ meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 (meltclosure_ptr_t meltclosp_,
   }
    *meltframptr_ = 0, meltfram__;	/*declfrastruct */
 #define meltframe meltfram__
-  /*meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 is not initial declstructinit */
+  /*meltrout_18_WARMELTmiHOOKS is not initial declstructinit */
   if (MELT_UNLIKELY (meltxargdescr_ == MELTPAR_MARKGGC))
     {				/*mark for ggc */
       int meltix;
       meltframptr_ =
-	(struct meltframe_meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6_st *)
-	meltfirstargp_;
-      /* use arguments meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 output_curframe_declstruct_init */
+	(struct meltframe_meltrout_18_WARMELTmiHOOKS_st *) meltfirstargp_;
+      /* use arguments meltrout_18_WARMELTmiHOOKS output_curframe_declstruct_init */
       (void) meltclosp_;
       (void) meltfirstargp_;
       (void) meltxargdescr_;
@@ -2453,12 +2441,12 @@ meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 (meltclosure_ptr_t meltclosp_,
       return NULL;
     } /*end markggc */ ;
   memset (&meltfram__, 0, sizeof (meltfram__));
-/* declstructinit plain routine meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 nbval 4*/
+/* declstructinit plain routine meltrout_18_WARMELTmiHOOKS nbval 4*/
   meltfram__.mcfr_nbvar = 4 /*nbval */ ;
   meltfram__.mcfr_clos = meltclosp_;
   meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
   melt_topframe = (struct melt_callframe_st *) &meltfram__;
-  melt_trace_start ("LAMBDA_cl6", meltcallcount);
+  melt_trace_start ("**", meltcallcount);
 /*getargs*/
 
   /*getarg#0 */
@@ -2538,17 +2526,17 @@ meltlab_endgetargs:;
   ;
   goto meltlabend_rout;
 meltlabend_rout:
-  melt_trace_end ("LAMBDA_cl6", meltcallcount);
+  melt_trace_end ("**", meltcallcount);
   MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
-    current_blocklevel_signals_meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6_melt;
+    current_blocklevel_signals_meltrout_18_WARMELTmiHOOKS_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
   return (melt_ptr_t) ( /*noretval */ NULL);
 #undef meltcallcount
 #undef meltfram__
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
-}				/*end meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 */
+}				/*end meltrout_18_WARMELTmiHOOKS */
 
 
 

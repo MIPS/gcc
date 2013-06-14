@@ -511,41 +511,44 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST (meltclosure_ptr_t
 
 
 
-melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_9_WARMELTmiHOOKS_LAMBDA_cl1 (meltclosure_ptr_t meltclosp_,
-				      melt_ptr_t meltfirstargp_,
-				      const melt_argdescr_cell_t
-				      meltxargdescr_[],
-				      union meltparam_un *meltxargtab_,
-				      const melt_argdescr_cell_t
-				      meltxresdescr_[],
-				      union meltparam_un *meltxrestab_);
+melt_ptr_t MELT_MODULE_VISIBILITY meltrout_9_WARMELTmiHOOKS (meltclosure_ptr_t
+							     meltclosp_,
+							     melt_ptr_t
+							     meltfirstargp_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxargdescr_[],
+							     union
+							     meltparam_un
+							     *meltxargtab_,
+							     const
+							     melt_argdescr_cell_t
+							     meltxresdescr_[],
+							     union
+							     meltparam_un
+							     *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_10_WARMELTmiHOOKS_LAMBDA_cl2 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_10_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_11_WARMELTmiHOOKS_LAMBDA_cl3 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_11_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 /** declaration of hook melthook_HOOK_START_UNIT */
 MELT_EXTERN void melthook_HOOK_START_UNIT (melt_ptr_t melthookdata);
@@ -608,40 +611,34 @@ meltrout_15_WARMELTmiHOOKS_AT_START_UNIT_LAST (meltclosure_ptr_t meltclosp_,
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_16_WARMELTmiHOOKS_LAMBDA_cl4 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_16_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_17_WARMELTmiHOOKS_LAMBDA_cl5 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_17_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 
 
 
 melt_ptr_t MELT_MODULE_VISIBILITY
-meltrout_18_WARMELTmiHOOKS_LAMBDA_cl6 (meltclosure_ptr_t meltclosp_,
-				       melt_ptr_t meltfirstargp_,
-				       const melt_argdescr_cell_t
-				       meltxargdescr_[],
-				       union meltparam_un *meltxargtab_,
-				       const melt_argdescr_cell_t
-				       meltxresdescr_[],
-				       union meltparam_un *meltxrestab_);
+meltrout_18_WARMELTmiHOOKS (meltclosure_ptr_t meltclosp_,
+			    melt_ptr_t meltfirstargp_,
+			    const melt_argdescr_cell_t meltxargdescr_[],
+			    union meltparam_un *meltxargtab_,
+			    const melt_argdescr_cell_t meltxresdescr_[],
+			    union meltparam_un *meltxrestab_);
 
 /** declaration of hook melthook_HOOK_FINISH_UNIT */
 MELT_EXTERN void melthook_HOOK_FINISH_UNIT (melt_ptr_t melthookdata);
