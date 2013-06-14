@@ -887,6 +887,7 @@ routine procedures.}#
  class_nrep_chunk
  class_nrep_citeration
  class_nrep_closedocc
+ class_nrep_closproc
  class_nrep_comment 
  class_nrep_constant
  class_nrep_constocc

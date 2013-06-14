@@ -2,6 +2,16 @@
 
 2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt: Export class_nrep_closproc.
+
+	* melt/warmelt-genobj.melt (compile2obj_hook)
+	(compile2obj_procedure): Use nrclop_name & nrclop_argbindtuple.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook)
+	(output_hooks_with_modvar): Use nrclop_name & nrclop_argbindtuple.
+
+2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

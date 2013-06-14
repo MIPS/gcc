@@ -1143,7 +1143,7 @@
    (let (
 	 (loc (get_field :nrep_loc nhook))
 	 (nbody (get_field :nproc_body nhook))
-	 (nhookname (get_field :nrhook_name nhook))
+	 (nhookname (get_field :nrclop_name nhook))
 	 (nmapdata (get_field :nrhook_mapdata nhook))
 	 (hookroutname (let (
 			     (namsbuf (make_strbuf discr_strbuf)) 
@@ -1152,7 +1152,7 @@
 			 (add2sbuf_cident namsbuf nhookname)
 			 (strbuf2string discr_verbatim_string namsbuf)
 			 ))
-	 (ninbinds (get_field :nrhook_inb nhook))
+	 (ninbinds (get_field :nrclop_argbindtuple nhook))
 	 (noutbinds (get_field :nrhook_outb nhook))
 	 (resctype (get_field :nrhook_ctype nhook))
 	 (ndatahook (get_field :nrhook_datahook nhook))
@@ -1364,7 +1364,7 @@
      (add2sbuf_strconst namsbuf "_")
      (add2sbuf_cident namsbuf (get_field :mocx_modulename modctx))
      (if (is_a pro class_nrep_routproc)
-	 (let ( (pronam (unsafe_get_field :nrpro_name pro)) 
+	 (let ( (pronam (get_field :nrclop_name pro)) 
 		(nvariadic (unsafe_get_field :nrpro_variadic pro))
 		)
 	   (cond ( (is_a pronam class_symbol)
@@ -1387,7 +1387,7 @@
      (let ( 
 	   (nbody (unsafe_get_field :nproc_body pro))
 	   (nloc (unsafe_get_field :nrep_loc pro))
-	   (nargb (if (is_a pro class_nrep_routproc) (unsafe_get_field :nrpro_argb pro)))
+	   (nargb (if (is_a pro class_nrep_routproc) (get_field :nrclop_argbindtuple pro)))
 	   (obodylist (make_list discr_list))
 	   ;; the number 20 below is the ratio of number of functions
 	   ;; per secondary generated C file. Change it carefully!  the
@@ -2510,7 +2510,7 @@
 	 (nloc (unsafe_get_field :nrep_loc nclo))
 	 )
      (assert_msg "check lastcproc" (is_a lastcproc class_nrep_routproc))
-     (let ( (cloblis (unsafe_get_field :nrpro_closedb lastcproc)) 
+     (let ( (cloblis (get_field :nrclop_clobindlist lastcproc)) 
 	    (:long clorank -1)
 	    )
        (assert_msg "check cloblis" (is_list cloblis))
@@ -2598,7 +2598,7 @@
       ( (is_a lastcproc class_nrep_hookproc)
 	(let ( (:long offhk -1)
 	       (:long count 0)
-	       (hclobindlist (get_field :nrhook_closedbindlist lastcproc))
+	       (hclobindlist (get_field :nrclop_clobindlist lastcproc))
 	       )
 	  (debug "compilobj_nrep_constocc hook hclobindlist=" hclobindlist)
 	  (foreach_in_list
@@ -5202,7 +5202,7 @@
 		 (debug "compilobj_nrep_lambda npro=" checkpro)
 		 (assert_msg "check checkpro" (is_a checkpro class_nrep_routproc))
 		 checkpro))
-	 (nam (unsafe_get_field :nrpro_name npro))
+	 (nam (get_field :nrclop_name npro))
 	 (nclovtup (unsafe_get_field :nlambda_closedv nlam))
 	 (:long nbclosed (multiple_length nclovtup))
 	 (locv (get_free_objlocptr gcx nam))
