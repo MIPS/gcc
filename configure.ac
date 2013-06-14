@@ -23,6 +23,7 @@ m4_include(config/acx.m4)
 m4_include(config/override.m4)
 m4_include(config/proginstall.m4)
 m4_include(config/elf.m4)
+m4_include(config/mpx.m4)
 m4_include([libtool.m4])
 m4_include([ltoptions.m4])
 m4_include([ltsugar.m4])
@@ -1670,6 +1671,11 @@ AC_SUBST(islinc)
 AC_SUBST(clooglibs)
 AC_SUBST(clooginc)
 
+ENABLE_MPX
+
+if test x${enable_mpx} = xyes ; then
+  target_configargs="--enable-mpx ${target_configargs}"
+fi
 
 # Check for LTO support.
 AC_ARG_ENABLE(lto,
