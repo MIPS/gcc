@@ -1778,8 +1778,9 @@ finish_qualified_id_expr (tree qualifying_class,
   if (error_operand_p (expr))
     return error_mark_node;
 
-  if (DECL_P (expr) || BASELINK_P (expr))
-    mark_used (expr);
+  if ((DECL_P (expr) || BASELINK_P (expr))
+      && !mark_used (expr, complain))
+    return error_mark_node;
 
   if (template_p)
     check_template_keyword (expr);
@@ -9485,6 +9486,15 @@ add_capture (tree lambda, tree id, tree initializer, bool by_reference_p,
 					  ptr_field, build_address (elt),
 					  nelts_field, array_type_nelts (type));
       type = ctype;
+    }
+  else if (variably_modified_type_p (type, NULL_TREE))
+    {
+      error ("capture of variable-size type %qT that is not a C++1y array "
+	     "of runtime bound", type);
+      if (TREE_CODE (type) == ARRAY_TYPE
+	  && variably_modified_type_p (TREE_TYPE (type), NULL_TREE))
+	inform (input_location, "because the array element type %qT has "
+		"variable size", TREE_TYPE (type));
     }
   else if (by_reference_p)
     {
