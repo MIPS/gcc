@@ -5455,6 +5455,7 @@
 				 )) 
 		 )
 	     (debug "compil_data_and_slots_fill oput=" oput "\n for sloval=" sloval)
+	     (shortbacktrace_dbg "compil_data_and_slots_fill oput" 7)
 	     (list_append istmtlis oput)
 	     ))))
     ;; touch the object
@@ -5529,6 +5530,7 @@
 		     :oio_class ()
 		     )) 
 	  )
+      (debug "compilobj_datasymbol obsym=" obsym)
       (mapobject_put compicache syv obsym)
       (debug "compilobj_datasymbol updated compicache=" compicache
 	     "\n.. syv=" syv "\n.. obsym=" obsym)

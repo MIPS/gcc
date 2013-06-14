@@ -1,5 +1,9 @@
 
 
+2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-genobj.melt: More debug.
+
 2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-genobj.melt: More debug.
