@@ -874,10 +874,7 @@ wrapup_globals_for_namespace (tree name_space, void* data)
 	{
 	  abi_instr_emit_vars (vec, len);
 	  for (tree t = level->names; t; t = TREE_CHAIN (t))
-	    if (TREE_CODE (t) == FUNCTION_DECL
-		&& TREE_ASM_WRITTEN (t)
-		&& TREE_PUBLIC (t))
-	      abi_instr_emit_function (t);
+	    abi_instr_emit_function (t);
 	}
       return 0;
     }
