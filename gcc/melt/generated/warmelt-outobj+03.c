@@ -3152,7 +3152,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NHOOKPROC__V11*/ meltfptr[6]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 2, "NRHOOK_NAME");
+	  melt_object_get_field (slot, obj, 5, "NRHOOK_NAME");
    /*_.NRAWHOOKNAME__V12*/ meltfptr[11] = slot;
 	};
 	;

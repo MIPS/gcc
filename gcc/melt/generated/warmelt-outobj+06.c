@@ -6824,8 +6824,7 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
       argtab[0].meltbp_cstring =
 	"\n\t     #ifdef __cplusplus\n\t     \" (in C++)\"\
 \n\t     #else\n\t     \" (in C)\"\
-\n\t     #endif\n\t\t\
-\t\t\t;\n\t     ";
+\n\t     #endif\n\t\t\t\t\t;\n\t     ";
       /*_.ADD2OUT__V37*/ meltfptr[36] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[15])),
@@ -10067,8 +10066,7 @@ plus*/\n\t\t\t\t\t;\n\t\t ";
       /*^apply.arg */
       argtab[0].meltbp_cstring =
 	"\n\t\t #ifdef __cplusplus\n\t\t }  /* end extern C timestamp */\
-\n\t\t #endif /*__cplusplus */\n\n\t\t #els\
-e /* ! ";
+\n\t\t #endif /*__cplusplus */\n\n\t\t #else /* ! ";
       /*^apply.arg */
       argtab[1].meltbp_aptr =
 	(melt_ptr_t *) & /*_.MODIDNAM__V99*/ meltfptr[94];
@@ -10121,8 +10119,7 @@ e /* ! ";
       argtab[0].meltbp_cstring =
 	"\n\t\t #ifdef __cplusplus\n\t\t }\t  /* end extern C descriptor */\
 \
-\n\t\t #endif /*__cplusplus\
- */\n\t\t ";
+\n\t\t #endif /*__cplusplus */\n\t\t ";
       /*_.ADD2OUT__V131*/ meltfptr[130] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[15])),
@@ -24312,7 +24309,7 @@ meltlab_endgetargs:;
 		melt_ptr_t slot = NULL, obj = NULL;
 		obj =
 		  (melt_ptr_t) ( /*_.NHOOKPROC__V17*/ meltfptr[16]) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 6, "NRHOOK_DATAHOOK");
+		melt_object_get_field (slot, obj, 9, "NRHOOK_DATAHOOK");
     /*_.NHOOKDATA__V18*/ meltfptr[17] = slot;
 	      };
 	      ;
@@ -24364,7 +24361,7 @@ meltlab_endgetargs:;
 		melt_ptr_t slot = NULL, obj = NULL;
 		obj =
 		  (melt_ptr_t) ( /*_.NHOOKPROC__V17*/ meltfptr[16]) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 2, "NRHOOK_NAME");
+		melt_object_get_field (slot, obj, 5, "NRHOOK_NAME");
     /*_.HKNAME__V20*/ meltfptr[19] = slot;
 	      };
 	      ;
@@ -24390,7 +24387,7 @@ meltlab_endgetargs:;
 		melt_ptr_t slot = NULL, obj = NULL;
 		obj =
 		  (melt_ptr_t) ( /*_.NHOOKPROC__V17*/ meltfptr[16]) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 3, "NRHOOK_INB");
+		melt_object_get_field (slot, obj, 6, "NRHOOK_INB");
     /*_.HKINS__V21*/ meltfptr[20] = slot;
 	      };
 	      ;
@@ -24416,7 +24413,7 @@ meltlab_endgetargs:;
 		melt_ptr_t slot = NULL, obj = NULL;
 		obj =
 		  (melt_ptr_t) ( /*_.NHOOKPROC__V17*/ meltfptr[16]) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 4, "NRHOOK_OUTB");
+		melt_object_get_field (slot, obj, 7, "NRHOOK_OUTB");
     /*_.HKOUTS__V22*/ meltfptr[21] = slot;
 	      };
 	      ;
@@ -24442,7 +24439,7 @@ meltlab_endgetargs:;
 		melt_ptr_t slot = NULL, obj = NULL;
 		obj =
 		  (melt_ptr_t) ( /*_.NHOOKPROC__V17*/ meltfptr[16]) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 5, "NRHOOK_CTYPE");
+		melt_object_get_field (slot, obj, 8, "NRHOOK_CTYPE");
     /*_.HKCTYPE__V23*/ meltfptr[22] = slot;
 	      };
 	      ;
@@ -37026,7 +37023,7 @@ meltlab_endgetargs:;
 		      obj =
 			(melt_ptr_t) ( /*_.HKPROC__V279*/ meltfptr[184])
 			/*=obj*/ ;
-		      melt_object_get_field (slot, obj, 6, "NRHOOK_DATAHOOK");
+		      melt_object_get_field (slot, obj, 9, "NRHOOK_DATAHOOK");
       /*_.HKDATA__V280*/ meltfptr[185] = slot;
 		    };
 		    ;

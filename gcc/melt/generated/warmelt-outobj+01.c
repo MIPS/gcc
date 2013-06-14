@@ -18062,7 +18062,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.HKPROC__V16*/ meltfptr[15]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 2, "NRHOOK_NAME");
+	  melt_object_get_field (slot, obj, 5, "NRHOOK_NAME");
    /*_.HKNAME__V19*/ meltfptr[18] = slot;
 	};
 	;
