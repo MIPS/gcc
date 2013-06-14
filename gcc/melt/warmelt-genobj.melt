@@ -5527,10 +5527,10 @@
 		     :obv_type ctype_value
 		     :oie_data syv
 		     :oie_discr odiscr
+		     :oie_cname ()
 		     :oio_class ()
 		     )) 
 	  )
-      (debug "compilobj_datasymbol obsym=" obsym)
       (mapobject_put compicache syv obsym)
       (debug "compilobj_datasymbol updated compicache=" compicache
 	     "\n.. syv=" syv "\n.. obsym=" obsym)
@@ -5544,6 +5544,8 @@
 	(add2sbuf_cident nambuf (unsafe_get_field :ndsy_namestr syv))
 	(unsafe_put_fields obsym
 			   :oie_cname (strbuf2string discr_string nambuf)))
+      (shortbacktrace_dbg "compilobj_datasymbol" 6)
+      (debug "compilobj_datasymbol obsym=" obsym "\n.. for syv=" syv)
       ;; put the length as obj_num of obsym
       (put_int obsym (multiple_length (unsafe_get_field :ninst_slots syv)))
       (let ( (dlocbind (compil_data_and_slots_fill syv obsym odiscr inirout gcx)) ) 

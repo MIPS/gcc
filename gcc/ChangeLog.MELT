@@ -2,6 +2,15 @@
 
 2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (dbgout_mapobject_method)
+	(dbgout_mapstring_method): Improve.
+
+	* melt/warmelt-normal.melt (normal_keyword_data): More debug.
+
+	* melt/warmelt-genobj.melt (compilobj_datasymbol): more debug.
+
+2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-genobj.melt: More debug.
 
 2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>

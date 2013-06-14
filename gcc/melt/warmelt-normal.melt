@@ -6400,6 +6400,8 @@ source location.}#
 			       :ninst_slots syslots
 			       :ndsy_namestr synamstr))
 	     )
+	(shortbacktrace_dbg "normal_keyword_data" 8)
+	(debug "normal_keyword_data sydata=" sydata)
 	(multiple_put_nth syslots (obj_num named_name) synamstrdata)
 	(add_nctx_data ncx sydata)
 	(add_nctx_data ncx synamstrdata)
