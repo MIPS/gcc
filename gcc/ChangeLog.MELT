@@ -2,6 +2,22 @@
 
 2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (class_nrep_hookproc, normexp_defhook):
+	Remove field nrhook_closedbindlist replaced by inherited
+	nrclop_clobindlist.
+	(normbind_anybind): Change error message.
+	(normexp_defhook): Handle both closbindlist & constlist to build
+	the closvtup.
+	(normexp_keyword): Use and update nrclop_constlist &
+	nrclop_objconstcachemap field of the current procedure.
+
+	* melt/warmelt-genobj.melt (ompilobj_nrep_closedocc): Better
+	debug.
+
+	* testsuite/melt/thook-5.melt: Improve.
+
+2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (class_nrep_routproc, normexp_defun)
 	(normexp_lambda): Remove nrpro_const field, replaced by inherited
 	nrclop_constlist field.

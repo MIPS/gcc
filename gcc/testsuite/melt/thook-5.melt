@@ -11,7 +11,7 @@
 |#
 
 (defhook compohook (:value v :long l) () :void
-  (debug "compohook begin v=" v " l=" l)
+  (debug "compohook begin v=" v " l=" l " :true=" :true " :value=" :value)
   (code_chunk cohk #{ /* compohook $COHK start */
      debugeprintf("start compohook $COHK l=%ld", $L);
      $(foreach_in_multiple 

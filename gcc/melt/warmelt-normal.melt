@@ -527,7 +527,6 @@ procedure in a module, defined with $DEFHOOK. }#
   :fields (nrhook_outb			;output arguments binding tuple
 	   nrhook_ctype			;ctype of result
 	   nrhook_datahook		;hook data object
-	   nrhook_closedbindlist ;; = nrclop_clobindlist
 	   nrhook_mapdata		;mapping of data...
 	   ))
 
@@ -1557,7 +1556,7 @@ source location.}#
     (warning_strv psloc "bizarre?? constant reference to"
 		  (unsafe_get_field :named_name symb))
     (debug "normbind_anybind bind=" bind "\n of dis=" dis)
-    (warning_strv psloc "bizarre binding normalization of binding of " (get_field :named_name dis))
+    (warning_strv psloc "bizarre binding normalization for " (get_field :named_name dis))
     (let ( (kocc
 	    (instance class_nrep_constocc
 		      :nrep_loc psloc
@@ -1580,7 +1579,7 @@ source location.}#
 	  (constlist)
 	  (curpaircl curcl)
 	  (if (== curcl kocc)
-	      (progn (put_fields clcont :referenced_value ()) ())))
+	      (put_fields clcont :referenced_value ())))
 	 (let ( (newcl (get_field :referenced_value clcont)) )
 	   (if newcl (list_append constlist newcl))) 
 	 ))
@@ -4972,6 +4971,7 @@ source location.}#
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
 	 (oldsymbcache (unsafe_get_field :nctx_symbcachemap ncx))
 	 (closbindlist (make_list discr_list))
+	 (constlist (make_list discr_list))
 	 (nmapdata (make_mapobject discr_map_objects 31))
 	 (nproc (instance class_nrep_hookproc
 			  :nrep_loc sloc
@@ -4982,9 +4982,8 @@ source location.}#
 			  :nrhook_ctype sctype
 			  :nrhook_datahook ()
 			  :nrhook_mapdata ()
-			  :nrhook_closedbindlist closbindlist
 			  :nrclop_clobindlist closbindlist
-			  :nrclop_constlist (make_list discr_list)
+			  :nrclop_constlist constlist
 			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
 			  ))
 	 (descrhook (instance class_hook_descriptor
@@ -5002,24 +5001,24 @@ source location.}#
 			      :ndhook_predef spredef
 			      :ndhook_modvarbind ()
 			      ))
-	;; map of formal symbol -> data of formal_binding
-	(formsymbmap (make_mapobject discr_map_objects
-				     (+i 9 (*i (+i (multiple_length sinformals) (multiple_length soutformals)) 2))))
-	(formintuple (make_multiple discr_multiple (multiple_length sinformals)))
-	(formoutuple (make_multiple discr_multiple (multiple_length soutformals)))		     
-	(namstrdata (instance class_nrep_datastring
-			      :nrep_loc sloc
-			      :ndata_discrx (normal_predef discr_string ncx sloc "discr_string") 
-			      :nstr_string  symbname))
-	(slotup (make_multiple discr_multiple
-			       (multiple_length (unsafe_get_field :class_fields class_hook_descriptor))))
-	(insdata (instance class_nrep_datainstance
-			   :nrep_loc sloc
-			   :ndata_name symbname
-			   :ndata_discrx (normal_predef class_hook_descriptor ncx sloc "class_hook_descriptor") 
-			   :ninst_hash (make_integerbox discr_integer (obj_hash descrhook))
-			   :ninst_slots slotup
-			   )) 
+	 ;; map of formal symbol -> data of formal_binding
+	 (formsymbmap (make_mapobject discr_map_objects
+				      (+i 9 (*i (+i (multiple_length sinformals) (multiple_length soutformals)) 2))))
+	 (formintuple (make_multiple discr_multiple (multiple_length sinformals)))
+	 (formoutuple (make_multiple discr_multiple (multiple_length soutformals)))		     
+	 (namstrdata (instance class_nrep_datastring
+			       :nrep_loc sloc
+			       :ndata_discrx (normal_predef discr_string ncx sloc "discr_string") 
+			       :nstr_string  symbname))
+	 (slotup (make_multiple discr_multiple
+				(multiple_length (unsafe_get_field :class_fields class_hook_descriptor))))
+	 (insdata (instance class_nrep_datainstance
+			    :nrep_loc sloc
+			    :ndata_name symbname
+			    :ndata_discrx (normal_predef class_hook_descriptor ncx sloc "class_hook_descriptor") 
+			    :ninst_hash (make_integerbox discr_integer (obj_hash descrhook))
+			    :ninst_slots slotup
+			    )) 
 	 )
     (put_fields ndatahook :ndhook_data insdata)
     (put_fields nproc :nrhook_datahook ndatahook)
@@ -5029,7 +5028,7 @@ source location.}#
 	   "\n.. descrhook=" descrhook "\n.. smodvar=" smodvar) 
     (if smodvar
 	(let ( (modvarbind (find_env env smodvar))
-	      )
+	       )
 	  (debug "normexp_defhook symbname=" symbname " smodvar=" smodvar " modvarbind=" modvarbind)
 	  (when (is_not_a modvarbind class_normal_module_variable_binding)
 	    (error_strv sloc "DEFHOOK has bad :VAR annotation, should be a module variable"
@@ -5132,25 +5131,44 @@ source location.}#
 		 :nctx_curproc oldproc
 		 )
      (debug "normexp_defhook restored ncx=" ncx)
-     ;; normalize the closed values
+     (debug "normexp_defhook closbindlist=" closbindlist "\n.. constlist=" constlist)
+     (assert_msg "check closbindlist" (is_list closbindlist))
+     (assert_msg "check constlist" (is_list constlist))
+     ;; normalize the closed and the const values
      (let ( (nseq (wrap_normal_letseq nbody nbindings sloc))
 	    (:long nbclosbind (list_length closbindlist))
-	    (closvtup
-	     (list_to_multiple 
-	      closbindlist
-	      discr_multiple
-	      (lambda (bnd)
-		(debug "normexp_defhook/lambda bnd=" bnd)
-		(assert_msg "normexp_defhook/lambda check bnd" (is_a bnd class_any_binding))
-		(let ( (sy (unsafe_get_field :binder bnd)) 
-		       ;; normalize in the *old* environment
-		       (nsy (normal_exp sy env ncx sloc))
-		       )
-		  (debug "normexp_defhook/lambda sy=" sy " nsy=" nsy)
-		  nsy
-		  ))))
+	    (:long nbconst (list_length constlist))
+	    (:long ix 0)
+	    (closvtup (make_multiple discr_multiple (+i nbclosbind nbclosbind)))
 	    )
-       (debug "normexp_defhook nseq=" nseq "\n .. closvtup=" closvtup)
+       (debug "normexp_defhook nbclosbind#" nbclosbind " nbconst#" nbconst)
+       ;;
+       (foreach_in_list 
+	(closbindlist)
+	(curpair curclobnd)
+	(debug "normexp_defhook curclobnd=" curclobnd " ix#" ix)
+	(assert_msg "check curclobnd" (is_a curclobnd class_any_binding))
+	(let ( (sy (unsafe_get_field :binder curclobnd)) 
+	       ;; normalize in the *old* environment
+	       (nsy (normal_exp sy env ncx sloc))
+	       )
+	  (debug "normal_exp nsy=" nsy)
+	  (multiple_put_nth closvtup ix nsy)
+	  (setq ix (+i ix 1))
+	  ))				;end foreach closbindlist
+       (debug "normexp_defhook after closbindloop ix=" ix " closvtup=" closvtup)
+       ;;
+       (foreach_in_list
+	(constlist)
+	(curpair curconst)
+	(debug "normexp_defhook curconst=" curconst " ix#" ix)
+	(assert_msg "check curconst" (is_a curconst class_nrep))
+	(multiple_put_nth closvtup ix curconst)
+	(setq ix (+i ix 1))
+	)				;end foreach constlist
+       (debug "normexp_defhook after constlistloop ix=" ix " closvtup=" closvtup)
+       ;;
+       (debug "normexp_defhook nseq=" nseq "\n ..final closvtup=" closvtup)
        (put_fields nproc :nproc_body nseq)
        (put_fields ndatahook :ndhook_closv closvtup)
        (put_fields shobind :fixbind_data ndatahook)
@@ -6545,29 +6563,37 @@ source location.}#
   (assert_msg "check keyword recv" (is_a recv class_keyword))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (let ( (kdata (normal_keyword_data recv ncx psloc)) 
-	 (curproc (unsafe_get_field :nctx_curproc ncx)) 
+  (let ( (curproc (unsafe_get_field :nctx_curproc ncx)) 
+	 (constlist (get_field :nrclop_constlist curproc))
+	 (objconstmap (get_field :nrclop_objconstcachemap curproc))
+	 (cacheres (mapobject_get objconstmap recv))
 	 )
-    (debug "normexp_keyword kdata=" kdata "\n.. curproc=" curproc)
-    (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
-    (if (is_a curproc class_nrep_routproc)
-	(let (
-	      (constlist (get_field :nrclop_constlist curproc))
-	      (nconst (instance class_nrep_constant
-				:nrep_loc psloc
-				:nconst_sval recv
-				:nconst_data kdata
-				:nconst_proc curproc))
-	      )
-	  (debug "normexp_keyword routine curproc=" curproc)
-	  (list_append constlist kdata)
-	  (debug "normexp_keyword result nconst=" nconst)
-	  (return nconst ())
+    (when cacheres
+      (debug "normexp_keyword return cacheres=" cacheres)
+      (return cacheres ()))
+    (let (
+	  (kdata (normal_keyword_data recv ncx psloc)) 
 	  )
-      (progn
-	(debug "normexp_keyword routineinit result kdata=" kdata)
-	(return kdata ())
-	))))
+      (debug "normexp_keyword kdata=" kdata "\n.. curproc=" curproc)
+      (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
+      (if (is_a curproc class_nrep_closproc)
+	  (let (
+		(nconst (instance class_nrep_constant
+				  :nrep_loc psloc
+				  :nconst_sval recv
+				  :nconst_data kdata
+				  :nconst_proc curproc))
+		)
+	    (debug "normexp_keyword closproc curproc=" curproc)
+	    (list_append constlist kdata)
+	    (mapobject_put objconstmap recv nconst)
+	    (debug "normexp_keyword result nconst=" nconst)
+	    (return nconst ())
+	    )
+	(progn
+	  (debug "normexp_keyword routineinit result kdata=" kdata)
+	  (return kdata ())
+	  )))))
 (install_method class_keyword normal_exp normexp_keyword)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

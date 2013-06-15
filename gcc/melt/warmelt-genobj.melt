@@ -2498,7 +2498,7 @@
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  (defun compilobj_nrep_closedocc (nclo gcx)
-   (debug "compilobj closedocc nclo=" nclo)
+   (debug "compilobj_nrep_closedocc nclo=" nclo)
    (assert_msg "check nclo" (is_a nclo class_nrep_closedocc))
    (assert_msg "check gcx" (is_a gcx class_c_generation_context))
    (let ( 
