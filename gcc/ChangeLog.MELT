@@ -1,5 +1,15 @@
 
 
+2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (class_nrep_closproc): Add
+	nrclop_constlist & nrclop_objconstcachemap fields.
+	(normbind_anybind, normexp_symbol, normexp_keyword, normexp_defun)
+	(normexp_lambda, normexp_defhook): Use or fill them.
+
+	* melt/warmelt-genobj.melt: Change unsafe gets of :nrpro_const to
+	safe gets.
+
 2013-06-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

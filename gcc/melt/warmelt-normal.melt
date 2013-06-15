@@ -506,11 +506,16 @@ is the extended environment.}#
 (defclass class_nrep_closproc
   :super class_nrep_anyproc
   :doc #{The internal $CLASS_NREP_CLOSPROC is the super-class for
-  closing procedures with optional name $NRCLOP_NAME, [input] arguments bindings tuplz
-  $NRCLOP_ARGBINDTUPLE and closed bindings list $NRCLOP_CLOBINDLIST.}#
+  closing procedures with optional name $NRCLOP_NAME, [input]
+  arguments bindings tuplz $NRCLOP_ARGBINDTUPLE, closed bindings list
+  $NRCLOP_CLOBINDLIST, constant list $NRCLOP_CONSTLIST, and object
+  const cache map $NRCLOP_OBJCONSTCACHEMAP}#
   :fields (nrclop_name
 	   nrclop_argbindtuple
-	   nrclop_clobindlist))
+	   nrclop_clobindlist
+	   nrclop_constlist
+	   nrclop_objconstcachemap
+	   ))
 
 
 
@@ -536,7 +541,7 @@ object. Field $NRPRO_DATACLOS is the closure data object. Field
 $NRPRO_THUNKLIST is the list of thunks to be called when compiling
 it. Field $NRPRO_VARIADIC is non-null if the routine is variadic.}#
   :fields (
-	   nrpro_const			;list of constants
+	   nrpro_const			;list of constants, should be nrclop_constlist
 	   nrpro_datarout		;routine data object
 	   nrpro_dataclos		;closure data object
 	   nrpro_thunklist		;list of thunks to be called when compiling it
@@ -1571,14 +1576,14 @@ source location.}#
        (debug "normbind_anybind const curproc" curproc)
        (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
        (let ( (clcont (instance class_reference :referenced_value kocc))
-	      (constproc (unsafe_get_field :nrpro_const curproc)) )
+	      (constlist (get_field :nrclop_constlist curproc)) )
 	 (foreach_in_list
-	  (constproc)
+	  (constlist)
 	  (curpaircl curcl)
 	  (if (== curcl kocc)
 	      (progn (put_fields clcont :referenced_value ()) ())))
 	 (let ( (newcl (get_field :referenced_value clcont)) )
-	   (if newcl (list_append constproc newcl))) 
+	   (if newcl (list_append constlist newcl))) 
 	 ))
       (return kocc)
       )))
@@ -1671,12 +1676,6 @@ source location.}#
                             :nconst_proc curproc
                             :nconst_defbind bind
                             ))
-					;- (syocc
-					;-        (instance class_nrep_locsymocc
-					;-                  :nrep_loc psloc
-					;-                  :nocc_ctyp ctype_value 
-					;-                  :nocc_symb symb
-					;-                  :nocc_bind bind) ) 
          )
     (debug "normbind_definedvalbind ncx=" ncx
 	   "\n env=" env " procs=" procs)
@@ -1845,15 +1844,15 @@ source location.}#
 		   (cond ( (is_a pr class_nrep_routproc)
 			   (let ( (clcont
 				   (instance class_reference :referenced_value fxocc))
-				  (cnstproc (get_field :nrpro_const pr)) )
-			     (debug "normexp_symbol cnstproc=" cnstproc "\n.. pr=" pr "\n.. recv=" recv)
+				  (cnstlist (get_field :nrclop_constlist pr)) )
+			     (debug "normexp_symbol cnstlist=" cnstlist "\n.. pr=" pr "\n.. recv=" recv)
 			     (foreach_in_list
-			      (cnstproc)
+			      (cnstlist)
 			      (curpaircx cx) 
 			      (when (== cx fxocc)
 				(put_fields clcont :referenced_value ())))
 			     (let ( (newcl (get_field :referenced_value clcont)) )
-			       (if newcl (list_append cnstproc newcl))) 
+			       (if newcl (list_append cnstlist newcl))) 
 			     ))
 			 ( (is_a pr class_nrep_hookproc)
 			   (let ( (hkclobindlist (get_field :nrclop_clobindlist pr))
@@ -1943,7 +1942,7 @@ source location.}#
 		    ( (is_a curproc class_nrep_routproc)
 		      (let ( (clcont
 			      (instance class_reference :referenced_value fxocc))
-			     (cnstprocl (get_field :nrpro_const curproc)) )
+			     (cnstprocl (get_field :nrclop_constlist curproc)) )
 			(foreach_in_list
 			 (cnstprocl)
 			 (curpairprocl cx) 
@@ -4850,6 +4849,7 @@ source location.}#
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
 	 (oldsymbcache (unsafe_get_field :nctx_symbcachemap ncx))
 	 (closblis (make_list discr_list))
+	 (cnstlist (make_list discr_list))
 	 (nproc (instance class_nrep_defunroutproc
 ;;; dont forget to put the nil fields at end
 			  :nrep_loc sloc
@@ -4857,7 +4857,9 @@ source location.}#
 			  :nrclop_name snam
 			  :nrclop_argbindtuple sformals
 			  :nrclop_clobindlist closblis
-			  :nrpro_const (make_list discr_list)
+			  :nrclop_constlist cnstlist
+			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
+			  :nrpro_const cnstlist
 			  :nrpro_thunklist (make_list discr_list)
 			  :nrpro_datarout () ; filled below
 			  :nrpro_dataclos () ; filled below
@@ -4984,6 +4986,8 @@ source location.}#
 			  :nrhook_mapdata ()
 			  :nrhook_closedbindlist closbindlist
 			  :nrclop_clobindlist closbindlist
+			  :nrclop_constlist (make_list discr_list)
+			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
 			  ))
 	 (descrhook (instance class_hook_descriptor
 			      :named_name symbname
@@ -5185,13 +5189,16 @@ source location.}#
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
 	 (savedcachemap (unsafe_get_field :nctx_symbcachemap ncx))
 	 (closedblist (make_list discr_list))
+	 (cnstlist (make_list discr_list))
 	 (nproc (instance class_nrep_lambdaroutproc
 			  :nrep_loc sloc
 			  :nproc_body () ;filled later
 			  :nrclop_name csym
 			  :nrclop_argbindtuple sformalargs
 			  :nrclop_clobindlist closedblist
-			  :nrpro_const (make_list discr_list)
+			  :nrclop_constlist cnstlist
+			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
+			  :nrpro_const cnstlist
 			  :nrpro_datarout () ; filled below
 			  :nrpro_dataclos () ; not filled
 			  :nrpro_thunklist (make_list discr_list)
@@ -5304,7 +5311,7 @@ source location.}#
        (unsafe_put_fields clocc :nocc_bind cbind)
        (list_append nbindlist cbind)
        (if insideflag
-	   (list_append (unsafe_get_field :nrpro_const oldproc) ndatarout))
+	   (list_append (get_field :nrclop_constlist oldproc) ndatarout))
        (debug "normexp_lambda return clocc=" clocc " nbindlist=" nbindlist)
        (return clocc nbindlist)
        ))))
@@ -5824,7 +5831,7 @@ source location.}#
 	    " oldproc=" oldproc
 	    " ndatarout=" ndatarout)
      (if insideflag
-	 (list_append (unsafe_get_field :nrpro_const oldproc) ndatarout))
+	 (list_append (get_field :nrclop_constlist oldproc) ndatarout))
      (put_fields cbind 
 		 :nlambdab_nclosed clovtup
 		 :nlambdab_constrout constrout
@@ -6490,7 +6497,7 @@ source location.}#
 				:nconst_data ndata
 				:nconst_proc curproc
 				)) )
-	  (list_append (unsafe_get_field :nrpro_const curproc) ndata)
+	  (list_append (get_field :nrclop_constlist curproc) ndata)
 	  (debug "normexp_quote in routine nconst=" nconst)
 	  (return nconst ()))
       (progn
@@ -6548,7 +6555,7 @@ source location.}#
     (assert_msg "check curproc" (is_a curproc class_nrep_anyproc))
     (if (is_a curproc class_nrep_routproc)
 	(let (
-	      (constlist (unsafe_get_field :nrpro_const curproc))
+	      (constlist (get_field :nrclop_constlist curproc))
 	      (nconst (instance class_nrep_constant
 				:nrep_loc psloc
 				:nconst_sval recv
@@ -8232,7 +8239,7 @@ source location.}#
       (error_plain sloc "(CURRENT_MODULE_ENVIRONMENT_REFERENCE) cannot be used within hooks")
       (return))
     (when (is_a curproc class_nrep_routproc)
-	  (list_append (unsafe_get_field :nrpro_const curproc) qdatcur)
+	  (list_append (get_field :nrclop_constlist curproc) qdatcur)
 	  (list_append ncurmodenvlist curproc)
 	  )
     (debug "normexp_current_module_environment_reference nquasi" nquasi)
@@ -8263,7 +8270,7 @@ source location.}#
       (return))
     (assert_msg "check qdatpar" (is_a qdatpar class_nrep_quasidata_parent_module_environment))
     (if (is_a curproc class_nrep_routproc)
-	(list_append (unsafe_get_field :nrpro_const curproc) qdatpar))
+	(list_append (get_field :nrclop_constlist curproc) qdatpar))
     (debug "normexp_parent_module_environment nquasi" nquasi)
     (return nquasi ())
     ))
