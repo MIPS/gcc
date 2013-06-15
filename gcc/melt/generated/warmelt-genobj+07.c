@@ -16128,7 +16128,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /30b73c1d checkpair",
+	    melt_assertmsg ("putpairtail /3db51be checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OSUCC__V35*/
 					       meltfptr[31])) ==

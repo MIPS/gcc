@@ -8024,7 +8024,7 @@ meltlab_endgetargs:;
 			 melt_is_instance_of ((melt_ptr_t)
 					      ( /*_.LASTCPROC__V15*/
 					       meltfptr[14]),
-					      (melt_ptr_t) (( /*!CLASS_NREP_ROUTPROC */ meltfrout->tabval[5])))
+					      (melt_ptr_t) (( /*!CLASS_NREP_CLOSPROC */ meltfrout->tabval[6])))
 	    )			/*then */
 	    {
 	      /*^cond.then */
@@ -8033,7 +8033,7 @@ meltlab_endgetargs:;
 		melt_ptr_t slot = NULL, obj = NULL;
 		obj =
 		  (melt_ptr_t) ( /*_.LASTCPROC__V15*/ meltfptr[14]) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 7, "NRPRO_CONST");
+		melt_object_get_field (slot, obj, 5, "NRCLOP_CONSTLIST");
      /*_.CNSTLIS__V26*/ meltfptr[25] = slot;
 	      };
 	      ;
@@ -8351,7 +8351,7 @@ meltlab_endgetargs:;
 	    melt_ptr_t newobj = 0;
 	    melt_raw_object_create (newobj,
 				    (melt_ptr_t) (( /*!CLASS_OBJCONSTV */
-						   meltfrout->tabval[6])),
+						   meltfrout->tabval[7])),
 				    (4), "CLASS_OBJCONSTV");
     /*_.INST__V42*/ meltfptr[41] =
 	      newobj;
@@ -8605,7 +8605,7 @@ meltlab_endgetargs:;
 	    melt_is_instance_of ((melt_ptr_t)
 				 ( /*_.LASTCPROC__V15*/ meltfptr[14]),
 				 (melt_ptr_t) (( /*!CLASS_NREP_HOOKPROC */
-						meltfrout->tabval[7])));;
+						meltfrout->tabval[8])));;
 	  MELT_LOCATION ("warmelt-genobj.melt:2598:/ cond");
 	  /*cond */ if ( /*_#IS_A__L23*/ meltfnum[12])	/*then */
 	    {
@@ -8626,7 +8626,7 @@ meltlab_endgetargs:;
 			       melt_is_instance_of ((melt_ptr_t)
 						    ( /*_.LASTCPROC__V15*/
 						     meltfptr[14]),
-						    (melt_ptr_t) (( /*!CLASS_NREP_CLOSPROC */ meltfrout->tabval[8])))
+						    (melt_ptr_t) (( /*!CLASS_NREP_CLOSPROC */ meltfrout->tabval[6])))
 		  )		/*then */
 		  {
 		    /*^cond.then */
@@ -12481,7 +12481,7 @@ meltlab_endgetargs:;
 			 /*ifisa */
 			 melt_is_instance_of ((melt_ptr_t)
 					      ( /*_.PROC__V14*/ meltfptr[13]),
-					      (melt_ptr_t) (( /*!CLASS_NREP_ROUTPROC */ meltfrout->tabval[3])))
+					      (melt_ptr_t) (( /*!CLASS_NREP_CLOSPROC */ meltfrout->tabval[4])))
 	    )			/*then */
 	    {
 	      /*^cond.then */
@@ -12489,7 +12489,7 @@ meltlab_endgetargs:;
 	      {
 		melt_ptr_t slot = NULL, obj = NULL;
 		obj = (melt_ptr_t) ( /*_.PROC__V14*/ meltfptr[13]) /*=obj*/ ;
-		melt_object_get_field (slot, obj, 7, "NRPRO_CONST");
+		melt_object_get_field (slot, obj, 5, "NRCLOP_CONSTLIST");
      /*_.CONSTLIST__V17*/ meltfptr[16] = slot;
 	      };
 	      ;
@@ -12512,7 +12512,7 @@ meltlab_endgetargs:;
    /*_.NAMBUF__V19*/ meltfptr[18] =
 	    (melt_ptr_t)
 	    meltgc_new_strbuf ((meltobject_ptr_t)
-			       (( /*!DISCR_STRBUF */ meltfrout->tabval[4])),
+			       (( /*!DISCR_STRBUF */ meltfrout->tabval[5])),
 			       (const char *) 0);;
 	  MELT_LOCATION ("warmelt-genobj.melt:2714:/ loop");
 	  /*loop */
@@ -12749,7 +12749,7 @@ meltlab_endgetargs:;
    /*_#IS_A__L14*/ meltfnum[9] =
 	    melt_is_instance_of ((melt_ptr_t) ( /*_.SVAL__V12*/ meltfptr[11]),
 				 (melt_ptr_t) (( /*!CLASS_NAMED */ meltfrout->
-						tabval[5])));;
+						tabval[6])));;
 	  MELT_LOCATION ("warmelt-genobj.melt:2730:/ cond");
 	  /*cond */ if ( /*_#IS_A__L14*/ meltfnum[9])	/*then */
 	    {
@@ -12805,12 +12805,13 @@ meltlab_endgetargs:;
    /*_.MAKE_INTEGERBOX__V29*/ meltfptr[28] =
 	    (meltgc_new_int
 	     ((meltobject_ptr_t)
-	      (( /*!DISCR_INTEGER */ meltfrout->tabval[8])),
+	      (( /*!DISCR_INTEGER */ meltfrout->tabval[9])),
 	      ( /*_#COFF__L6*/ meltfnum[0])));;
 	  /*^compute */
    /*_.STRBUF2STRING__V30*/ meltfptr[29] =
 	    (meltgc_new_stringdup
-	     ((meltobject_ptr_t) (( /*!DISCR_STRING */ meltfrout->tabval[9])),
+	     ((meltobject_ptr_t)
+	      (( /*!DISCR_STRING */ meltfrout->tabval[10])),
 	      melt_strbuf_str ((melt_ptr_t)
 			       ( /*_.NAMBUF__V19*/ meltfptr[18]))));;
 	  MELT_LOCATION ("warmelt-genobj.melt:2737:/ quasiblock");
@@ -12822,7 +12823,7 @@ meltlab_endgetargs:;
 	    melt_ptr_t newobj = 0;
 	    melt_raw_object_create (newobj,
 				    (melt_ptr_t) (( /*!CLASS_OBJCONSTV */
-						   meltfrout->tabval[6])),
+						   meltfrout->tabval[7])),
 				    (4), "CLASS_OBJCONSTV");
     /*_.INST__V32*/ meltfptr[31] =
 	      newobj;
@@ -12835,7 +12836,7 @@ meltlab_endgetargs:;
 					    ( /*_.INST__V32*/ meltfptr[31]))
 			  == MELTOBMAG_OBJECT);
 	  melt_putfield_object (( /*_.INST__V32*/ meltfptr[31]), (0),
-				(( /*!CTYPE_VALUE */ meltfrout->tabval[7])),
+				(( /*!CTYPE_VALUE */ meltfrout->tabval[8])),
 				"OBV_TYPE");
 	  ;
 	  /*^putslot */
@@ -13084,7 +13085,7 @@ meltlab_endgetargs:;
 	    /*_.ODATA__V37*/ meltfptr[28] =
 	      meltgc_send ((melt_ptr_t) ( /*_.DATA__V13*/ meltfptr[12]),
 			   (melt_ptr_t) (( /*!COMPILE_OBJ */ meltfrout->
-					  tabval[10])), (MELTBPARSTR_PTR ""),
+					  tabval[11])), (MELTBPARSTR_PTR ""),
 			   argtab, "", (union meltparam_un *) 0);
 	  }
 	  ;
