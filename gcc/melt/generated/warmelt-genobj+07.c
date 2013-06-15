@@ -59,14 +59,11 @@ MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
 						      melt_ptr_t
 						      meltinp2_PARENV);
 
-/*declare MELT called hook #2 HOOK_SYMBOL_IMPORTER **/
-MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
-						      const char
-						      *meltinp0_SYMNAMESTR,
-						      const char
-						      *meltinp1_MODULENAMESTR,
-						      melt_ptr_t
-						      meltinp2_PARENV);
+/*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
+MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
+					       melt_ptr_t meltinp0_SYM,
+					       melt_ptr_t meltinp1_VAL,
+					       melt_ptr_t meltinp2_CONTENV);
 
 /*declare MELT called hook #3 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
@@ -16131,7 +16128,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /2bcf707 checkpair",
+	    melt_assertmsg ("putpairtail /30b73c1d checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OSUCC__V35*/
 					       meltfptr[31])) ==

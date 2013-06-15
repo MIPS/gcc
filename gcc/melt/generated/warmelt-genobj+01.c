@@ -59,14 +59,11 @@ MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
 						      melt_ptr_t
 						      meltinp2_PARENV);
 
-/*declare MELT called hook #2 HOOK_SYMBOL_IMPORTER **/
-MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata,
-						      const char
-						      *meltinp0_SYMNAMESTR,
-						      const char
-						      *meltinp1_MODULENAMESTR,
-						      melt_ptr_t
-						      meltinp2_PARENV);
+/*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
+MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
+					       melt_ptr_t meltinp0_SYM,
+					       melt_ptr_t meltinp1_VAL,
+					       melt_ptr_t meltinp2_CONTENV);
 
 /*declare MELT called hook #3 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
@@ -4575,7 +4572,7 @@ meltlab_endgetargs:;
       static long meltlab_count_1;
       meltlab_count_1++;
       debugeprintf
-	("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/2132cd06. *CLASS_OBJLABELINSTR/38e10997. %ld",
+	("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/232e4112. *CLASS_OBJLABELINSTR/24ddc037. %ld",
 	 meltlab_count_1);
 #endif
 
@@ -4623,7 +4620,7 @@ meltlab_endgetargs:;
       static long meltlab_count_2;
       meltlab_count_2++;
       debugeprintf
-	("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/42db1ac. *CLASS_OBJLABELINSTR/7a68a33. %ld",
+	("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/3d498fb. *CLASS_OBJLABELINSTR/a3b1f40. %ld",
 	 meltlab_count_2);
 #endif
 
@@ -4668,7 +4665,7 @@ meltlab_endgetargs:;
       static long meltlab_count_3;
       meltlab_count_3++;
       debugeprintf
-	("objlabel_3 mtch1_*CLASS_NORMTESTER_INSTANCE/17402119. *CLASS_OBJLABELINSTR/a3b1f40. %ld",
+	("objlabel_3 mtch1_*CLASS_NORMTESTER_INSTANCE/164d8e6f. *CLASS_OBJLABELINSTR/374eb8a8. %ld",
 	 meltlab_count_3);
 #endif
 
@@ -4733,7 +4730,7 @@ meltlab_endgetargs:;
       static long meltlab_count_4;
       meltlab_count_4++;
       debugeprintf
-	("objlabel_4 mtch1_*CLASS_NORMTESTER_MATCHER/c2a627c. *CLASS_OBJLABELINSTR/23f06753. %ld",
+	("objlabel_4 mtch1_*CLASS_NORMTESTER_MATCHER/36530afe. *CLASS_OBJLABELINSTR/10e6bb35. %ld",
 	 meltlab_count_4);
 #endif
 
@@ -4790,7 +4787,7 @@ meltlab_endgetargs:;
       static long meltlab_count_5;
       meltlab_count_5++;
       debugeprintf
-	("objlabel_5 mtch1_*CLASS_NORMTESTER_SUCCESS/299535c8. *CLASS_OBJLABELINSTR/12345f8b. %ld",
+	("objlabel_5 mtch1_*CLASS_NORMTESTER_SUCCESS/1b101315. *CLASS_OBJLABELINSTR/3926da8b. %ld",
 	 meltlab_count_5);
 #endif
 
@@ -4946,7 +4943,7 @@ meltlab_endgetargs:;
       static long meltlab_count_6;
       meltlab_count_6++;
       debugeprintf
-	("objlabel_6 mtch1_*CLASS_NORMTESTER_INSTANCE/12d24ae6. *CLASS_OBJLABELINSTR/364f24a6. %ld",
+	("objlabel_6 mtch1_*CLASS_NORMTESTER_INSTANCE/2cc245d. *CLASS_OBJLABELINSTR/39f5ead0. %ld",
 	 meltlab_count_6);
 #endif
 
@@ -5000,7 +4997,7 @@ meltlab_endgetargs:;
       static long meltlab_count_7;
       meltlab_count_7++;
       debugeprintf
-	("objlabel_7 mtch1_*CLASS_NORMTESTER_SUCCESS/2693104f. *CLASS_OBJLABELINSTR/39f5ead0. %ld",
+	("objlabel_7 mtch1_*CLASS_NORMTESTER_SUCCESS/2718953d. *CLASS_OBJLABELINSTR/13938ae2. %ld",
 	 meltlab_count_7);
 #endif
 
@@ -5136,7 +5133,7 @@ meltlab_endgetargs:;
       static long meltlab_count_8;
       meltlab_count_8++;
       debugeprintf
-	("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/13c4d8e1. *CLASS_OBJLABELINSTR/1c6c5341. %ld",
+	("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/10679896. *CLASS_OBJLABELINSTR/2ba229ec. %ld",
 	 meltlab_count_8);
 #endif
 
@@ -5342,7 +5339,7 @@ meltlab_endgetargs:;
       static long meltlab_count_9;
       meltlab_count_9++;
       debugeprintf
-	("objlabel_9 mtch1__end_h660074621 *CLASS_OBJLABELINSTR/2757f07d. %ld",
+	("objlabel_9 mtch1__end_h128354867 *CLASS_OBJLABELINSTR/7a68a33. %ld",
 	 meltlab_count_9);
 #endif
 
@@ -6232,7 +6229,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NHOOK__V2*/ meltfptr[1]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 9, "NRHOOK_MAPDATA");
+	  melt_object_get_field (slot, obj, 11, "NRHOOK_MAPDATA");
    /*_.NMAPDATA__V17*/ meltfptr[16] = slot;
 	};
 	;
@@ -6319,7 +6316,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NHOOK__V2*/ meltfptr[1]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 5, "NRHOOK_OUTB");
+	  melt_object_get_field (slot, obj, 7, "NRHOOK_OUTB");
    /*_.NOUTBINDS__V23*/ meltfptr[22] = slot;
 	};
 	;
@@ -6343,7 +6340,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NHOOK__V2*/ meltfptr[1]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 6, "NRHOOK_CTYPE");
+	  melt_object_get_field (slot, obj, 8, "NRHOOK_CTYPE");
    /*_.RESCTYPE__V24*/ meltfptr[23] = slot;
 	};
 	;
@@ -6367,7 +6364,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NHOOK__V2*/ meltfptr[1]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 7, "NRHOOK_DATAHOOK");
+	  melt_object_get_field (slot, obj, 9, "NRHOOK_DATAHOOK");
    /*_.NDATAHOOK__V25*/ meltfptr[24] = slot;
 	};
 	;
@@ -12061,7 +12058,7 @@ meltlab_endgetargs:;
 	  {
 	    melt_ptr_t slot = NULL, obj = NULL;
 	    obj = (melt_ptr_t) ( /*_.PRO__V2*/ meltfptr[1]) /*=obj*/ ;
-	    melt_object_get_field (slot, obj, 9, "NRPRO_VARIADIC");
+	    melt_object_get_field (slot, obj, 11, "NRPRO_VARIADIC");
     /*_.NVARIADIC__V23*/ meltfptr[22] = slot;
 	  };
 	  ;
@@ -13479,7 +13476,7 @@ meltlab_endgetargs:;
 	  {
 	    melt_ptr_t slot = NULL, obj = NULL;
 	    obj = (melt_ptr_t) ( /*_.PRO__V2*/ meltfptr[1]) /*=obj*/ ;
-	    melt_object_get_field (slot, obj, 8, "NRPRO_THUNKLIST");
+	    melt_object_get_field (slot, obj, 10, "NRPRO_THUNKLIST");
     /*_.PTHULS__V77*/ meltfptr[55] = slot;
 	  };
 	  ;
@@ -19895,7 +19892,8 @@ rence for ";
 		  /*^apply.arg */
 		  argtab[5].meltbp_cstring =
 		    " should have no parent\",\n\t\t\t\t     modargp_ == NULL) ;\
-\n\t\t      ";
+\n\t\t \
+     ";
 		  /*_.OCHECKNOPAR__V143*/ meltfptr[118] =
 		    melt_apply ((meltclosure_ptr_t)
 				(( /*!MAKE_OBJCOMPUTE */ meltfrout->
