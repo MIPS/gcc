@@ -121,6 +121,12 @@ melt_application_file = {
   varsuf = OPENGPU;
 };
 
+melt_application_file = {
+  base = "xtramelt-playground";
+  varsuf = PLAYGROUND;
+};
+
+
 // The various MELT stages: stagdir gives the directory name, stagsuf gives a
 // suffix for variable name, and stagprevdir gives the directory name for
 // the previous stage, and stagprevflavor gives its flavor.

@@ -6584,9 +6584,12 @@ source location.}#
 				  :nconst_data kdata
 				  :nconst_proc curproc))
 		)
-	    (debug "normexp_keyword closproc curproc=" curproc)
+	    (debug "normexp_keyword closproc curproc=" curproc
+		   "\n.. adding const kdata=" kdata)
 	    (list_append constlist kdata)
 	    (mapobject_put objconstmap recv nconst)
+	    (debug "normexp_keyword updated constlist=" constlist 
+		   "\n.. objconstmap=" objconstmap)
 	    (debug "normexp_keyword result nconst=" nconst)
 	    (return nconst ())
 	    )

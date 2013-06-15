@@ -2,6 +2,22 @@
 
 2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-build-script.def: Add xtramelt-playground application file.
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-normal.melt (normexp_keyword): More debug.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook): Emit the
+	right argument to MELT_PREDEF etc...
+
+	* melt/xtramelt-opengpu.melt: Copyright as range of years.
+
+	* melt/xtramelt-playground.melt: New file. Should be left mostly
+	empty -except for comments- for releases.
+
+2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.c: Regenerate.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.

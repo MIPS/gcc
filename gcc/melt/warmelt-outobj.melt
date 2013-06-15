@@ -876,7 +876,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (:long nbcloval (multiple_length oclovaltup))
 	 (hkname (get_field :nrclop_name hkproc))
 	 )
-    (debug "outcinitfill_objinithook hkproc=" hkproc "\n .. hkdata=" hkdata)
+    (debug "outcinitfill_objinithook hkproc=" hkproc
+	   "\n .. hkdata=" hkdata "\n .. opredef=" opredef)
     (add2sbuf_indentnl sbuf depth)
     (add2out sbuf ##{/*inihook $CNAME */}#)
     (add2sbuf_indentnl sbuf (+i depth 1))
@@ -904,8 +905,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2out 
        sbuf 
        ##{/*predefinedhook $OPREDEF for $CNAME*/
-       if (!MELT_PREDEF($HKNAME))
-          MELT_STORE_PREDEF($HKNAME, (melt_ptr_t) &$PTRSTR->$CNAME);
+       if (!MELT_PREDEF($OPREDEF))
+          MELT_STORE_PREDEF($OPREDEF, (melt_ptr_t) &$PTRSTR->$CNAME);
        }#)
       (add2sbuf_indentnl sbuf depth)
       )
