@@ -535,13 +535,12 @@ procedure in a module, defined with $DEFHOOK. }#
 (defclass class_nrep_routproc
   :super class_nrep_closproc
   :doc #{The $CLASS_NREP_ROUTPROC is the class for normal routine
-procedures, representing $DEFUN or $LAMBDA code. Field $NRPRO_CONST is
-the list of constants. Field $NRPRO_DATAROUT is the routine data
-object. Field $NRPRO_DATACLOS is the closure data object. Field
-$NRPRO_THUNKLIST is the list of thunks to be called when compiling
-it. Field $NRPRO_VARIADIC is non-null if the routine is variadic.}#
+procedures, representing $DEFUN or $LAMBDA code. Field $NRPRO_DATAROUT
+is the routine data object. Field $NRPRO_DATACLOS is the closure data
+object. Field $NRPRO_THUNKLIST is the list of thunks to be called when
+compiling it. Field $NRPRO_VARIADIC is non-null if the routine is
+variadic.}#
   :fields (
-	   nrpro_const			;list of constants, should be nrclop_constlist
 	   nrpro_datarout		;routine data object
 	   nrpro_dataclos		;closure data object
 	   nrpro_thunklist		;list of thunks to be called when compiling it
@@ -4859,7 +4858,6 @@ source location.}#
 			  :nrclop_clobindlist closblis
 			  :nrclop_constlist cnstlist
 			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
-			  :nrpro_const cnstlist
 			  :nrpro_thunklist (make_list discr_list)
 			  :nrpro_datarout () ; filled below
 			  :nrpro_dataclos () ; filled below
@@ -5198,7 +5196,6 @@ source location.}#
 			  :nrclop_clobindlist closedblist
 			  :nrclop_constlist cnstlist
 			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
-			  :nrpro_const cnstlist
 			  :nrpro_datarout () ; filled below
 			  :nrpro_dataclos () ; not filled
 			  :nrpro_thunklist (make_list discr_list)
