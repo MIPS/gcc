@@ -3943,7 +3943,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /2e6faa54 checkpair",
+	    melt_assertmsg ("putpairtail /21644292 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V29*/
 					       meltfptr[28])) ==
@@ -3966,7 +3966,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /38a0f18d checkpair",
+	    melt_assertmsg ("putpairtail /2d2ef8f4 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OVARIADICINDEX__V30*/
 					       meltfptr[29])) ==
@@ -3989,7 +3989,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /3f070ab6 checkpair",
+	    melt_assertmsg ("putpairtail /2799cba6 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V31*/
 					       meltfptr[30])) ==
@@ -4219,7 +4219,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /19409e85 checkpair",
+	    melt_assertmsg ("putpairtail /21f9a9aa checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V43*/
 					       meltfptr[42])) ==
@@ -4242,7 +4242,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /2ed84c0 checkpair",
+	    melt_assertmsg ("putpairtail /131c74b2 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V44*/
 					       meltfptr[43])) ==
@@ -4265,7 +4265,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /13e4e4ef checkpair",
+	    melt_assertmsg ("putpairtail /3bfee068 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V45*/
 					       meltfptr[44])) ==
@@ -4288,7 +4288,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /e2d77e4 checkpair",
+	    melt_assertmsg ("putpairtail /21533b7c checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OVARIADICINDEX__V46*/
 					       meltfptr[45])) ==
@@ -4311,7 +4311,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /1c92586a checkpair",
+	    melt_assertmsg ("putpairtail /2de03070 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V47*/
 					       meltfptr[46])) ==
@@ -4334,7 +4334,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /1b0bed63 checkpair",
+	    melt_assertmsg ("putpairtail /72575b checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_.OVARIADICINDEX__V48*/
 					       meltfptr[47])) ==
@@ -4357,7 +4357,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /223de912 checkpair",
+	    melt_assertmsg ("putpairtail /1b4fdb51 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V49*/
 					       meltfptr[48])) ==
@@ -4380,7 +4380,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /3d0d532 checkpair",
+	    melt_assertmsg ("putpairtail /afd5544 checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V50*/
 					       meltfptr[49])) ==
@@ -4403,7 +4403,7 @@ meltlab_endgetargs:;
 	    ;
 	    /*^putpairtail */
 	    /*putpairtail */
-	    melt_assertmsg ("putpairtail /2b6d6339 checkpair",
+	    melt_assertmsg ("putpairtail /34f894f checkpair",
 			    melt_magic_discr ((melt_ptr_t)
 					      ( /*_._PAIROFLIST__V51*/
 					       meltfptr[50])) ==
@@ -27781,7 +27781,7 @@ meltlab_endgetargs:;
     {
       melt_ptr_t slot = NULL, obj = NULL;
       obj = (melt_ptr_t) ( /*_.NPRO__V27*/ meltfptr[26]) /*=obj*/ ;
-      melt_object_get_field (slot, obj, 8, "NRPRO_DATAROUT");
+      melt_object_get_field (slot, obj, 7, "NRPRO_DATAROUT");
   /*_.NDATAROU__V37*/ meltfptr[36] = slot;
     };
     ;

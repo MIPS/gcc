@@ -8083,7 +8083,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NHPRO__V35*/ meltfptr[29]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 11, "NRHOOK_MAPDATA");
+	  melt_object_get_field (slot, obj, 10, "NRHOOK_MAPDATA");
    /*_.NMD__V42*/ meltfptr[41] = slot;
 	};
 	;
@@ -13955,7 +13955,7 @@ meltlab_endgetargs:;
 		  melt_ptr_t slot = NULL, obj = NULL;
 		  obj =
 		    (melt_ptr_t) ( /*_.CURPROC__V28*/ meltfptr[26]) /*=obj*/ ;
-		  melt_object_get_field (slot, obj, 8, "NRPRO_DATAROUT");
+		  melt_object_get_field (slot, obj, 7, "NRPRO_DATAROUT");
      /*_.DATAROUT__V30*/ meltfptr[29] = slot;
 		};
 		;
@@ -16026,7 +16026,7 @@ meltlab_endgetargs:;
 		  melt_ptr_t slot = NULL, obj = NULL;
 		  obj =
 		    (melt_ptr_t) ( /*_.CURPROC__V33*/ meltfptr[31]) /*=obj*/ ;
-		  melt_object_get_field (slot, obj, 8, "NRPRO_DATAROUT");
+		  melt_object_get_field (slot, obj, 7, "NRPRO_DATAROUT");
      /*_.DATAROUT__V35*/ meltfptr[34] = slot;
 		};
 		;

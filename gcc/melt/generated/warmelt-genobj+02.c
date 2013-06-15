@@ -6387,7 +6387,7 @@ meltlab_endgetargs:;
 	      /*^apply.arg */
 	      argtab[2].meltbp_long = 2501;
 	      /*^apply.arg */
-	      argtab[3].meltbp_cstring = "compilobj closedocc nclo=";
+	      argtab[3].meltbp_cstring = "compilobj_nrep_closedocc nclo=";
 	      /*^apply.arg */
 	      argtab[4].meltbp_aptr =
 		(melt_ptr_t *) & /*_.NCLO__V2*/ meltfptr[1];
