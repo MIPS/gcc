@@ -2565,7 +2565,7 @@
      (cond 
       ;; handle routine procedures
       ( (is_a lastcproc class_nrep_routproc)
-	(let ( (cnstlis (get_field :nrpro_const lastcproc)) 
+	(let ( (cnstlis (get_field :nrclop_constlist lastcproc)) 
 	       (:long cnstrank -1)
 	       )
 	  (assert_msg "check cnstlis" (is_list cnstlis))
@@ -2705,7 +2705,7 @@
 	  (proc (unsafe_get_field :nconst_proc nconst))
 	  )
      (if (is_a proc class_nrep_routproc)
-	 (let ( (constlist (get_field :nrpro_const proc)) 
+	 (let ( (constlist (get_field :nrclop_constlist proc)) 
 		(curpair (list_first constlist))
 		(:long coff -1)
 		(:long curank 0)
@@ -5954,7 +5954,7 @@
 	  (debug "compilobj_dataroutine updated compicache=" compicache 
 		 "\n.. ndrou=" ndrou "\n.. oirout=" oirout)
 	  (if (is_a npro class_nrep_routproc)
-	      (let ( (pconstl (get_field :nrpro_const npro)) 
+	      (let ( (pconstl (get_field :nrclop_constlist npro)) 
 		     (:long nbconst (list_length pconstl))
 		     (bxoff (make_integerbox discr_integer 0))
 		     (comm (unsafe_get_field :named_name '_iroutval_))
@@ -6279,7 +6279,7 @@
      (if (is_a curout class_procroutineobj)
 	 (let (
 	       (curproc (unsafe_get_field :obrout_proc curout))
-	       (cnslis (get_field :nrpro_const curproc)) 
+	       (cnslis (get_field :nrclop_constlist curproc)) 
 	       (datarout (unsafe_get_field :nrpro_datarout curproc))
 	       (odatarout (compile_obj datarout gcx))
 	       (boxcount (make_integerbox discr_integer 0))
@@ -6384,7 +6384,7 @@
      (if (is_a curout class_procroutineobj)
 	 (let (
 	       (curproc (unsafe_get_field :obrout_proc curout))
-	       (cnslis (get_field :nrpro_const curproc)) 
+	       (cnslis (get_field :nrclop_constlist curproc)) 
 	       (datarout (unsafe_get_field :nrpro_datarout curproc))
 	       (odatarout (compile_obj datarout gcx))
 	       (boxcount (make_integerbox discr_integer 0))

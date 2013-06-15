@@ -2,6 +2,14 @@
 
 2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compilobj_nrep_constocc)
+	(compilobj_nrep_quasiconstant, compilobj_dataroutine)
+	(compilobj_nrep_update_current_module_environment_reference)
+	(compilobj_nrep_check_running_module_environment_container):
+	Replace nrpro_const with nrclop_constlist.
+
+2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
