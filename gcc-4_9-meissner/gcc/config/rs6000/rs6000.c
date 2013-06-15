@@ -3019,16 +3019,6 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
-     silently turn off quad memory mode.  */
-  if (TARGET_QUAD_MEMORY && !TARGET_POWERPC64)
-    {
-      if ((rs6000_isa_flags_explicit & OPTION_MASK_QUAD_MEMORY) != 0)
-	warning (0, N_("-mquad-memory requires 64-bit mode"));
-
-      rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
-    }
-
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
 
@@ -3084,6 +3074,16 @@ rs6000_option_override_internal (bool global_init_p)
       if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
 	error ("-mvsx-timode requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+    }
+
+  /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
+     silently turn off quad memory mode.  */
+  if (TARGET_QUAD_MEMORY && !TARGET_POWERPC64)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_QUAD_MEMORY) != 0)
+	warning (0, N_("-mquad-memory requires 64-bit mode"));
+
+      rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
     }
 
   /* Enable power8 fusion if we are tuning for power8, even if we aren't
@@ -18198,62 +18198,65 @@ rs6000_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
   rtx before = orig_before, after = orig_after;
 
   mask = shift = NULL_RTX;
-  /* On power8, we want to use SImode for the operation.  On previoius systems,
+  /* On power8, we want to use SImode for the operation.  On previous systems,
      use the operation in a subword and shift/mask to get the proper byte or
      halfword.  */
-  if (TARGET_SYNC_HI_QI && (mode == QImode || mode == HImode))
+  if (mode == QImode || mode == HImode)
     {
-      val = convert_modes (SImode, mode, val, 1);
-
-      /* Prepare to adjust the return value.  */
-      before = gen_reg_rtx (SImode);
-      if (after)
-	after = gen_reg_rtx (SImode);
-      mode = SImode;
-    }
-  else if (mode == QImode || mode == HImode)
-    {
-      mem = rs6000_adjust_atomic_subword (mem, &shift, &mask);
-
-      /* Shift and mask VAL into position with the word.  */
-      val = convert_modes (SImode, mode, val, 1);
-      val = expand_simple_binop (SImode, ASHIFT, val, shift,
-				 NULL_RTX, 1, OPTAB_LIB_WIDEN);
-
-      switch (code)
+      if (TARGET_SYNC_HI_QI)
 	{
-	case IOR:
-	case XOR:
-	  /* We've already zero-extended VAL.  That is sufficient to
-	     make certain that it does not affect other bits.  */
-	  mask = NULL;
-	  break;
+	  val = convert_modes (SImode, mode, val, 1);
 
-	case AND:
-	  /* If we make certain that all of the other bits in VAL are
-	     set, that will be sufficient to not affect other bits.  */
-	  x = gen_rtx_NOT (SImode, mask);
-	  x = gen_rtx_IOR (SImode, x, val);
-	  emit_insn (gen_rtx_SET (VOIDmode, val, x));
-	  mask = NULL;
-	  break;
-
-	case NOT:
-	case PLUS:
-	case MINUS:
-	  /* These will all affect bits outside the field and need
-	     adjustment via MASK within the loop.  */
-	  break;
-
-	default:
-	  gcc_unreachable ();
+	  /* Prepare to adjust the return value.  */
+	  before = gen_reg_rtx (SImode);
+	  if (after)
+	    after = gen_reg_rtx (SImode);
+	  mode = SImode;
 	}
+      else
+	{
+	  mem = rs6000_adjust_atomic_subword (mem, &shift, &mask);
 
-      /* Prepare to adjust the return value.  */
-      before = gen_reg_rtx (SImode);
-      if (after)
-	after = gen_reg_rtx (SImode);
-      store_mode = mode = SImode;
+	  /* Shift and mask VAL into position with the word.  */
+	  val = convert_modes (SImode, mode, val, 1);
+	  val = expand_simple_binop (SImode, ASHIFT, val, shift,
+				     NULL_RTX, 1, OPTAB_LIB_WIDEN);
+
+	  switch (code)
+	    {
+	    case IOR:
+	    case XOR:
+	      /* We've already zero-extended VAL.  That is sufficient to
+		 make certain that it does not affect other bits.  */
+	      mask = NULL;
+	      break;
+
+	    case AND:
+	      /* If we make certain that all of the other bits in VAL are
+		 set, that will be sufficient to not affect other bits.  */
+	      x = gen_rtx_NOT (SImode, mask);
+	      x = gen_rtx_IOR (SImode, x, val);
+	      emit_insn (gen_rtx_SET (VOIDmode, val, x));
+	      mask = NULL;
+	      break;
+
+	    case NOT:
+	    case PLUS:
+	    case MINUS:
+	      /* These will all affect bits outside the field and need
+		 adjustment via MASK within the loop.  */
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+
+	  /* Prepare to adjust the return value.  */
+	  before = gen_reg_rtx (SImode);
+	  if (after)
+	    after = gen_reg_rtx (SImode);
+	  store_mode = mode = SImode;
+	}
     }
 
   mem = rs6000_pre_atomic_barrier (mem, model);
