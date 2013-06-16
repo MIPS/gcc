@@ -22,13 +22,19 @@
     <http://www.gnu.org/licenses/>.
 ***")
 
-;; this file should not contain useful things. It is a playground for
-;; testing purposes. 
+;; this file should not contain useful things on MELT plugin
+;; releases.  It is a playground for testing purposes.
 
+
+;; temporary code
 (defhook hook_zxtra1predef (:value v) () :value
   :predef _ZXTRA1PREDEF
   (debug "hook_zxtra1predef v=" v " :long=" :long)
-  (return (tuple v :else))
+  (foreach_in_multiple 
+   (v)
+   (curcomp :long ix)
+   (debug "hook_zxtra1predef curcomp=" curcomp " ix#" ix " true=" :true))
+  (return (tuple v :value))
 )
 
 (debug "hook_zxtra1predef=" hook_zxtra1predef)

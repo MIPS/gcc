@@ -1,5 +1,15 @@
 
 
+2013-06-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (normal_keyword_data): More debug.
+
+	* melt/warmelt-genobj.melt (compile2obj_hook)
+	(compil_data_and_slots_fill, compilobj_datasymbol)
+	(compilobj_datainstance): More debug.
+
+	* melt/xtramelt-playground.melt: Temporary code for testing...
+
 2013-06-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-build-script.def: Add xtramelt-playground application file.

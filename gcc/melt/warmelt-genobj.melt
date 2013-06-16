@@ -1196,7 +1196,7 @@
 			:gncx_matchmap (make_mapobject discr_map_objects 40)
 			))
 	 )
-     (debug "compile2obj_hook empty hookrout=" hookrout 
+     (debug "compile2obj_hook " nhookname " empty hookrout=" hookrout 
 	    "\n nclosvtup=" nclosvtup
 	    "\n nmapdata=" nmapdata
 	    "\n resctype=" resctype "\n gcx=" gcx)
@@ -1212,11 +1212,11 @@
        (put_objdest ogetdata hdataloc)
        (list_append obodylist ogetdata)
        ;; handle the input arguments
-       (debug "compile2obj_hook ninbinds=" ninbinds)
+       (debug "compile2obj_hook " nhookname " ninbinds=" ninbinds)
        (foreach_in_multiple
 	(ninbinds)
 	(curinbnd :long inix)
-	(debug "compile2obj_hook curinbnd=" curinbnd "\n .. inix=" inix)
+	(debug "compile2obj_hook " nhookname " curinbnd=" curinbnd "\n .. inix=" inix)
 	(assert_msg "check curinbnd" (is_a curinbnd class_formal_binding))
 	(let ( (syminb (get_field :binder curinbnd))
 	       (ctypinb (get_field :fbind_type curinbnd))
@@ -1237,18 +1237,18 @@
 	  (put_int incformal inix)
 	  (put_objdest ogetfarg locinb)
 	  (list_append obodylist ogetfarg)
-	  (debug "compile2obj_hook incformal=" incformal)
+	  (debug "compile2obj_hook " nhookname " incformal=" incformal "\n.. ogetfarg=" ogetfarg)
 	  (multiple_put_nth oinargs inix incformal)
 	  (mapobject_put locmap curinbnd locinb)
 	  ))
-       (debug "compile2obj_hook oinargs=" oinargs "\n.. locmap=" locmap)
+       (debug "compile2obj_hook " nhookname " oinargs=" oinargs "\n.. locmap=" locmap)
        ;;
        ;; handle the output arguments
-       (debug "compile2obj_hook noutbinds=" noutbinds)
+       (debug "compile2obj_hook " nhookname " noutbinds=" noutbinds)
        (foreach_in_multiple
 	(noutbinds)
 	(curoutbnd :long outix)
-	(debug "compile2obj_hook curoutbnd=" curoutbnd "\n .. outix=" outix)
+	(debug "compile2obj_hook " nhookname " curoutbnd=" curoutbnd "\n .. outix=" outix)
 	(assert_msg "check curoutbnd" (is_a curoutbnd class_formal_binding))
 	(let ( (symoutb (get_field :binder curoutbnd))
 	       (ctypoutb (get_field :fbind_type curoutbnd))
@@ -1265,30 +1265,34 @@
 				     :oformal_locv locoutb))
 	       )
 	  (put_int outcformal outix)
-	  (debug "compile2obj_hook outcformal=" outcformal)
+	  (debug "compile2obj_hook " nhookname " outcformal=" outcformal)
 	  (multiple_put_nth ooutargs outix outcformal)
 	  (mapobject_put locmap curoutbnd locoutb)
 	  )
 	)
-       (debug "compile2obj_hook ooutargs=" ooutargs 
+       ;;
+       (debug "compile2obj_hook " nhookname " here obodylist=" obodylist)
+       (debug "compile2obj_hook " nhookname " ooutargs=" ooutargs 
 	      "\n.. nbody=" nbody "\n..locmap=" locmap)
        ;; associate the hook with its routine in the compiler cache
        (mapobject_put compicache nhook hookrout)
-       (debug "compile2obj_hook updated compicache=" compicache
+       (debug "compile2obj_hook " nhookname " updated compicache=" compicache
 	      "\n.. for nhook=" nhook)
        (shortbacktrace_dbg "compile2obj_hook updated compicache" 15)
        ;;
        ;; associate each hookdata with its retrieval in the compicache
-       (debug "compile2obj_hook nmapdata=" nmapdata "\n hdataloc=" hdataloc
-	      "\n nclosvtup=" nclosvtup "\n class_objhooknth=" class_objhooknth)
+       (debug "compile2obj_hook " nhookname " nmapdata=" nmapdata "\n.. hdataloc=" hdataloc
+	      "\n.. nclosvtup=" nclosvtup 
+	      "\n.. class_objhooknth=" class_objhooknth "\n")
        (let ( (:long nbclosvm1 (-i (multiple_length nclosvtup) 1))
 	      )
 	 (foreach_in_mapobject
 	  (nmapdata)
 	  (curndata bxdix)
-	  (debug "compile2obj_hook curndata=" curndata " bxdix=" bxdix)
+	  (debug "compile2obj_hook " nhookname " curndata=" curndata "\n.. bxdix=" bxdix)
 	  (assert_msg "check curndata" (is_a curndata class_nrep_quasidata))
 	  (assert_msg "check bxdix" (is_integerbox bxdix))
+	  ;; compile_obj of curndata don't work here
 	  (let ( (:long dix (get_int bxdix))
 		 (ofetchdata (instance class_objhooknth
 				       :obv_type ctype_value
@@ -1296,33 +1300,36 @@
 				       :ohknth_off (constant_box (+i dix nbclosvm1)))
 			     )
 		 )
-	    (debug "compile2obj_hook ofetchdata=" ofetchdata)
+	    (debug "compile2obj_hook " nhookname "\n ofetchdata=" ofetchdata)
 	    (mapobject_put compicache curndata ofetchdata)
 	    )
 	  )				; end foreach_in_mapobject
-	 (debug "compile2obj_hook hookdataupdated compicache=" compicache)
+	 (debug "compile2obj_hook " nhookname " hookdataupdated compicache=" compicache
+		"\n.. obodylist=" obodylist "\n")
 	 )
        ;;
        ;; compile the body
-       (debug "compile2obj_hook gcx=" gcx "\n.. nbody=" nbody)
+       (debug "compile2obj_hook " nhookname " beforebody obodylist=" obodylist)
+       (debug "compile2obj_hook " nhookname " gcx=" gcx "\n.. nbody=" nbody)
        (let ( (obody (compile_obj nbody gcx))
 	      )
-	 (debug "compile2obj_hook obody=" obody)
+	 (debug "compile2obj_hook " nhookname " obody=" obody)
 	 (list_append obodylist obody)
 	 ;; forget the closed data
 	 (foreach_in_mapobject
 	  (nmapdata)
 	  (curndata bxdix)
-	  (debug "compile2obj_hook forgetting curndata=" curndata 
+	  (debug "compile2obj_hook " nhookname " forgetting curndata=" curndata 
 		 " bxdix=" bxdix)
 	  (mapobject_remove compicache curndata))
-	 (debug "compile2obj_hook after forgethookdata compicache=" compicache)
+	 (debug "compile2obj_hook " nhookname " after forgethookdata compicache=" compicache)
+	 (debug "compile2obj_hook " nhookname " final obodylist=" obodylist "\n")
 	 ;;
 	 ;; set the output parameters in the epilog
 	 (foreach_in_multiple
 	  (ooutargs)
 	  (curout :long outix)
-	  (debug "compile2obj_hook curout=" curout "\n... outix=" outix)
+	  (debug "compile2obj_hook " nhookname " curout=" curout "\n... outix=" outix)
 	  (let (
 		(outloc (get_field :oformal_locv curout))
 		(ctypoutb (get_field :obv_type curout))
@@ -1330,12 +1337,12 @@
 				    :obi_loc loc
 				    :oboutarg_formal curout))
 		)
-	    (debug "compile2obj_hook ofargout=" ofargout)
+	    (debug "compile2obj_hook " nhookname " ofargout=" ofargout)
 	    (list_append oepiloglist ofargout)
 	    ))
 	 ;;
-	 (debug "compile2obj_hook oepiloglist=" oepiloglist)
-	 (debug "compile2obj_hook return hookrout=" hookrout)
+	 (debug "compile2obj_hook " nhookname "oepiloglist=" oepiloglist)
+	 (debug "compile2obj_hook " nhookname " return hookrout=" hookrout)
 	 (return hookrout)))))
 
 
@@ -2634,7 +2641,7 @@
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  (defun compilobj_nrep_importedval (nsva gcx)
-   (debug "compilobj_nrep_importedval nsva=" nsva)
+   (debug "compilobj_nrep_importedval nsva=" nsva " gcx=" gcx)
    (assert_msg "check gcx" (is_a gcx class_initial_generation_context))
    (assert_msg "check nsva" (is_a nsva class_nrep_importedval))
    (let ( (var (unsafe_get_field :nimport_symb nsva))
@@ -5342,8 +5349,11 @@
 ;;; to add the initial data fill and the slots filling
 ;;; return a tuple of bindings to be disposed
 (defun compil_data_and_slots_fill (ndat obj odiscr irout gcx)
-  (debug "compil_data_and_slots_fill start ndat=" ndat " obj=" obj " odiscr=" odiscr " irout=" irout)
-  (shortbacktrace_dbg "compil_data_and_slots_fill" 10)
+  (debug "compil_data_and_slots_fill start ndat=" ndat 
+	 "\n.. obj=" obj 
+	 "\n.. odiscr=" odiscr 
+	 "\n.. irout=" irout "\n")
+  (shortbacktrace_dbg "compil_data_and_slots_fill" 25)
   (assert_msg "compil_data_and_slots_fill check ndat" (is_a ndat class_nrep_bound_data))
   (assert_msg "compil_data_and_slots_fill check obj" (is_a obj class_objinitobject))
   (assert_msg "compil_data_and_slots_fill check odiscr" (is_a odiscr class_objvalue))
@@ -5419,6 +5429,7 @@
     (foreach_in_multiple
      (dlocbind)
      (lbind :long bindrk)
+     (debug "compil_data_and_slots_fill lbind=" lbind)
      (assert_msg "compil_data_and_slots_fill check lbind" (is_a lbind class_normal_let_binding))
      (let ( (bder (unsafe_get_field :binder lbind))
 	    (cty (unsafe_get_field :letbind_type lbind))
@@ -5426,6 +5437,7 @@
 	    (obva (get_free_objloctyped gcx bder cty))
 	    (obnx (compile_obj nexp gcx)) 
 	    )
+       (debug "compil_data_and_slots_fill obnx=" obnx "\n.. obva=" obva)
        (if obva (mapobject_put locmap lbind obva))
        (let ( (obmy (if obva (put_objdest obnx obva) obnx)) )
 	 ;; add the modified obmy in the ibodylis
@@ -5433,7 +5445,7 @@
 	 )
        (if obva (multiple_put_nth tupvar bindrk obva))
        ))
-    (shortbacktrace_dbg "compil_data_and_slots_fill [slo]" 7)
+    (shortbacktrace_dbg "compil_data_and_slots_fill [slo]" 21)
     (debug "compil_data_and_slots_fill ndats slots="
 	   (get_field :ninst_slots ndat))
     ;; for every non nil slot, append its initialization to istmtlis
@@ -5444,6 +5456,7 @@
 ;;; add to list inifill the filling in dai of slot#slork by slobj
 	 (let ( (slobj (compile_obj sloval gcx)) 
 		)
+	   (debug "compil_data_and_slots_fill slobj=" slobj "\n.. sloval=" sloval "\n slork#" slork)
 	   (assert_msg "compil_data_and_slots_fill check slobj not nrep" (not (is_a slobj class_nrep)))
 	   (let (
 		 (ooff (make_integerbox discr_integer slork))
@@ -5455,7 +5468,7 @@
 				 )) 
 		 )
 	     (debug "compil_data_and_slots_fill oput=" oput "\n for sloval=" sloval)
-	     (shortbacktrace_dbg "compil_data_and_slots_fill oput" 7)
+	     (shortbacktrace_dbg "compil_data_and_slots_fill oput" 18)
 	     (list_append istmtlis oput)
 	     ))))
     ;; touch the object
@@ -5532,8 +5545,8 @@
 		     )) 
 	  )
       (mapobject_put compicache syv obsym)
-      (debug "compilobj_datasymbol updated compicache=" compicache
-	     "\n.. syv=" syv "\n.. obsym=" obsym)
+      (debug "compilobj_datasymbol obsym=" obsym  "\n.. syv=" syv 
+	     "\n.. updated compicache=" compicache "\n")
       ;; make a cname
       (let ( (nambuf (make_strbuf discr_strbuf))
 	     (:long syrk (get_int (unsafe_get_field :ndata_rank syv)))
@@ -5552,6 +5565,7 @@
 	(debug "compilobj_datasymbol dlocbind=" dlocbind)
 	;;(dispose_dlocbind_after_data_and_slots_fill dlocbind gcx)
 	)
+      (shortbacktrace_dbg "compilobj_datasymbol" 9)
       (debug "compilobj_datasymbol final obsym=" obsym)
       (return obsym)
       )))
@@ -5561,8 +5575,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;; compilobj of datainstance
 (defun compilobj_datainstance (dai gcx)
-  (assert_msg "check gcx" (is_a gcx class_c_generation_context))
   (debug "compilobj_datainstance dai=" dai)
+  (assert_msg "check gcx" (is_a gcx class_c_generation_context))
   (let ( (compicache (unsafe_get_field :gncx_compicache gcx)) 
 	 (chobj (mapobject_get compicache dai))
 	 (inirout (unsafe_get_field :gncx_objrout gcx))
@@ -5586,6 +5600,7 @@
       (assert_msg "compilobj_datainstance check drank" (is_integerbox drank))
       (let ( (cdisx (compile_obj disx gcx)) 
 	     )
+	(debug "compilobj_datainstance cdisx=" cdisx)
 	(let (
 	      ;; make a cname
 	      (oini (if dpredef ;; if predefined, make it unique!
@@ -5608,6 +5623,8 @@
 	      (nambuf (make_strbuf discr_strbuf))
 	      (:long drk (get_int drank))
 	      )
+	  (debug "compilobj_datainstance oini=" oini)
+	  (shortbacktrace_dbg "compilobj_datainstance" 14)
 	  (mapobject_put compicache dai oini)
 	  (debug "compilobj_datainstance updated compicache=" compicache 
 		 "\n.. dai=" dai "\n.. oini=" oini)
@@ -5625,7 +5642,7 @@
 	    ;;(dispose_dlocbind_after_data_and_slots_fill dlocbind gcx)
 	    )
 	  (debug "compilobj_datainstance final oini=" oini)
-	  oini
+	  (return oini)
 	  )  
 	)
       )
