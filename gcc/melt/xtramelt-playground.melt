@@ -27,17 +27,19 @@
 
 
 ;; temporary code
-(defhook hook_zxtra1predef (:value v) () :value
-  :predef _ZXTRA1PREDEF
-  (debug "hook_zxtra1predef v=" v " :long=" :long)
+(defvar meltplay_var)
+(defhook hook_meltplay (:value v) () :value
+  :var meltplay_var
+  (debug "hook_meltplay v=" v " :long=" :long)
   (foreach_in_multiple 
    (v)
    (curcomp :long ix)
-   (debug "hook_zxtra1predef curcomp=" curcomp " ix#" ix " true=" :true))
+   (debug "hook_meltplay curcomp=" curcomp " ix#" ix " :true=" :true)
+   (void))
   (return (tuple v :value))
 )
 
-(debug "hook_zxtra1predef=" hook_zxtra1predef)
-(export_values hook_zxtra1predef)
+(debug "hook_meltplay=" hook_meltplay)
+(export_values hook_meltplay)
 
 ;; eof xtramelt-playground.melt
