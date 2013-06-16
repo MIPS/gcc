@@ -1,0 +1,29 @@
+;; -*- lisp -*-
+;; file tplaygr-1.melt
+
+#|;; assume that xtramelt-playground.melt contains the code below
+(defvar meltplay_var)
+(defhook hook_meltplay (:value v) () :value
+  :var meltplay_var
+  (debug "hook_meltplay v=" v " :long=" :long)
+  (foreach_in_multiple 
+   (v)
+   (curcomp :long ix)
+   (debug "hook_meltplay curcomp=" curcomp " ix#" ix " :true=" :true)
+   (void))
+  (return (tuple v :value))
+)
+|#
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tplaygr-1.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@melt-default-modules.quicklybuilt \
+    -fmelt-arg=tplaygr-1.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+(debug "hook_meltplay=" hook_meltplay)
+
+(hook_meltplay (tuple 'a '1 :else))
+;; eof tplaygr-1.melt

@@ -2578,7 +2578,8 @@ exit, in last place.}#
   :predef HOOK_HANDLE_SIGIO
   (hook_poll_inputs 250)
 )
-(export_values hook_handle_sigio hook_poll_inputs)
+
+(export_values hook_handle_sigio hook_poll_inputs melt_invoke_input_callbacks)
 
 
 

@@ -1,6 +1,11 @@
 
 2013-06-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tplaygr-1.melt: New test.
+	* melt/warmelt-hooks.melt: Export melt_invoke_input_callbacks.
+
+2013-06-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
