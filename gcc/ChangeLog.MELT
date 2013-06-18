@@ -2,6 +2,10 @@
 
 2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normal_symbol_data): More debug.
+
+2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 
 	* melt/generated/meltrunsup-inc.c: Regenerate.

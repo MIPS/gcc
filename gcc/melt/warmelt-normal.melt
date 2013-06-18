@@ -6377,39 +6377,41 @@ source location.}#
 (defun normal_symbol_data (sym ncx sloc)
   ;; sym should be strictly a symbol (not be in a subclass of class_symbol!)
   (debug "normal_symbol_data start sym=" sym)
+  (shortbacktrace_dbg "normal_symbol_data" 12)
   (assert_msg "check symb" (== (discrim sym) class_symbol))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (let ( (valmap  (unsafe_get_field :nctx_valmap ncx))
 	 (osydata (mapobject_get valmap sym)) )
-    (if osydata
-	(progn
-	  (debug "normal_symbol_data found osydata" osydata)
-	  (return osydata))
-      (let ( (:long syhash (obj_hash sym))
-	     (synamstr (unsafe_get_field :named_name sym))
-	     ;; make the datastring from synamstr
-	     (synamstrdata 
-	      (instance class_nrep_datastring 
-			:ndata_discrx (normal_predef discr_string ncx sloc "discr_string") 
-			:nstr_string synamstr
-			))
-	     (syslots (make_multiple discr_multiple
-				     (multiple_length (unsafe_get_field :class_fields class_symbol))))
-	     (sydata (instance class_nrep_datasymbol
-			       :ndata_name sym
-			       :ndata_discrx (normal_predef class_symbol ncx sloc "class_symbol")
-			       :ninst_hash (make_integerbox discr_integer syhash)
-			       :ninst_slots syslots
-			       :ndsy_namestr synamstr))
-	     )
-	(multiple_put_nth syslots (obj_num named_name) synamstrdata)
-	(add_nctx_data ncx sydata)
-	(add_nctx_data ncx synamstrdata)
-	(mapobject_put valmap sym sydata)
-	(mapstring_putstr (unsafe_get_field :nctx_symbmap ncx) synamstr sydata)
-	(debug "normal_symbol_data return sydata" sydata)
-	(return sydata)
-	))))
+    (debug "normal_symbol_data osydata=" osydata)
+    (when osydata
+      (debug "normal_symbol_data found osydata" osydata)
+      (return osydata))
+    (let ( (:long syhash (obj_hash sym))
+	   (synamstr (unsafe_get_field :named_name sym))
+	   ;; make the datastring from synamstr
+	   (synamstrdata 
+	    (instance class_nrep_datastring 
+		      :ndata_discrx (normal_predef discr_string ncx sloc "discr_string") 
+		      :nstr_string synamstr
+		      ))
+	   (syslots (make_multiple discr_multiple
+				   (multiple_length (unsafe_get_field :class_fields class_symbol))))
+	   (sydata (instance class_nrep_datasymbol
+			     :ndata_name sym
+			     :ndata_discrx (normal_predef class_symbol ncx sloc "class_symbol")
+			     :ninst_hash (make_integerbox discr_integer syhash)
+			     :ninst_slots syslots
+			     :ndsy_namestr synamstr))
+	   )
+      (debug "normal_symbol_data sydata=" sydata "\n.. synamstrdata=" synamstrdata)
+      (multiple_put_nth syslots (obj_num named_name) synamstrdata)
+      (add_nctx_data ncx sydata)
+      (add_nctx_data ncx synamstrdata)
+      (mapobject_put valmap sym sydata)
+      (mapstring_putstr (unsafe_get_field :nctx_symbmap ncx) synamstr sydata)
+      (debug "normal_symbol_data return sydata" sydata)
+      (return sydata)
+      )))
 
 
 
