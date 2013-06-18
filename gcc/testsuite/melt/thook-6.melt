@@ -1,0 +1,21 @@
+; -*- lisp -*-
+;; file thook-6.melt
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thook-6.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=thook-6.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+
+(defhook my6hook (:value v) () :void
+  (debug "my6hook v=" v " '1=" '1 " 'x=" 'x " :true=" :true)
+)
+
+(debug "my6hook=" my6hook)
+(my6hook 'a)
+
+;; eof thook-6.melt

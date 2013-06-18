@@ -914,7 +914,7 @@ objects. $MORCX_COUNTLITVAL is the literal value counter.}# )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; normalization context
 (defclass class_normalization_context
-  :super class_root
+  :super class_proped
   :fields (nctx_initproc		;initial procedure
 	   nctx_proclist		;list of procedures
 	   nctx_datalist		;list of data

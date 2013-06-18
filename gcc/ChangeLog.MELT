@@ -1,4 +1,13 @@
 
+2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/thook-1.melt: Improve running command comment.
+	* testsuite/melt/thook-2.melt: Improve running command comment.
+	* testsuite/melt/thook-6.melt: New test.
+
+	* melt/warmelt-first.melt (class_normalization_context): Is now a
+	subclass of class_proped.
+
 2013-06-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tplaygr-1.melt: New test.

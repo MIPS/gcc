@@ -1090,13 +1090,14 @@ routine procedures.}#
 	     ))
 	  )))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; create a normalization context
 (defun create_normcontext (modctx)
   :doc #{Internal routine to reate a normalization context for module
   context $MODCTX, used to compile modules.}#
   (debug "create_normcontext modctx=" modctx)
-  (shortbacktrace_dbg "create_normcontext" 10)
+  (shortbacktrace_dbg "create_normcontext" 12)
   (let ( (:long maxpredefix (last_globpredef_index))
 	 (:long ix 1)
 	 (predefmap (make_mapobject discr_map_objects (+i 19 (*i 2 maxpredefix))))
@@ -1116,39 +1117,40 @@ routine procedures.}#
 			      :ninit_defbinds (make_list discr_list)
 			      :nrep_loc ()
 			      )) 
-	   (ncx (instance 
-		 class_normalization_context
-		 :nctx_initproc inipro
-		 :nctx_proclist (make_list discr_list)
-		 :nctx_datalist (make_list discr_list)
-		 :nctx_valuelist (make_list discr_list)
-		 :nctx_symbmap  (make_mapstring discr_map_strings 50)
-		 :nctx_keywmap  (make_mapstring discr_map_strings 40)
-		 :nctx_predefmap predefmap
-		 :nctx_valmap valmap
-		 :nctx_valbindmap (make_mapobject discr_map_objects 20)
-		 ;; we need a symbcachemap for the toplevel expressions
-		 :nctx_symbcachemap (make_mapobject discr_map_objects 30)
-		 :nctx_curproc inipro
-		 :nctx_modulcontext modctx
-		 :nctx_qdatcurmodenvbox (instance class_nrep_quasidata_current_module_environment_reference
-						  )
-		 :nctx_qdatparmodenv (instance class_nrep_quasidata_parent_module_environment
-					       )
-		 :nctx_procurmodenvlist (make_list discr_list)
-		 ))
+	   (ncx (instance class_normalization_context
+			  :nctx_initproc inipro
+			  :nctx_proclist (make_list discr_list)
+			  :nctx_datalist (make_list discr_list)
+			  :nctx_valuelist (make_list discr_list)
+			  :nctx_symbmap  (make_mapstring discr_map_strings 50)
+			  :nctx_keywmap  (make_mapstring discr_map_strings 40)
+			  :nctx_predefmap predefmap
+			  :nctx_valmap valmap
+			  :nctx_valbindmap (make_mapobject discr_map_objects 20)
+			  ;; we need a symbcachemap for the toplevel expressions
+			  :nctx_symbcachemap (make_mapobject discr_map_objects 30)
+			  :nctx_curproc inipro
+			  :nctx_modulcontext modctx
+			  :nctx_qdatcurmodenvbox (instance class_nrep_quasidata_current_module_environment_reference
+							   )
+			  :nctx_qdatparmodenv (instance class_nrep_quasidata_parent_module_environment
+							)
+			  :nctx_procurmodenvlist (make_list discr_list)
+			  ))
 	   )
       (debug "create_normcontext make ncx=" ncx)
       (return ncx)
       )))
 
 
+
+;;;;;;;;;;;;;;;;
 (defun create_normal_extending_context (modctx modenv)
   :doc #{Internal routine to create a normalization context for module
   context $MODCTX, used to compile, e.g. for running, the extension of a module environment $MODENV.}#
   (debug "create_normal_extending_context start modctx=" modctx
 	 "\n* modenv=" modenv "\n")
-  (shortbacktrace_dbg "create_normal_extending_context" 10)
+  (shortbacktrace_dbg "create_normal_extending_context" 12)
   (let ( (:long maxpredefix (last_globpredef_index))
 	 (:long ix 1)
 	 (predefmap (make_mapobject discr_map_objects (+i 11 (*i 2 maxpredefix))))
@@ -1170,27 +1172,26 @@ routine procedures.}#
 			      :nrep_loc ()
 			      :ninitextend_modenv modenv
 			      )) 
-	   (ncx (instance 
-		 class_normalization_context
-		 :nctx_initproc inipro
-		 :nctx_proclist (make_list discr_list)
-		 :nctx_datalist (make_list discr_list)
-		 :nctx_valuelist (make_list discr_list)
-		 :nctx_symbmap  (make_mapstring discr_map_strings 30)
-		 :nctx_keywmap  (make_mapstring discr_map_strings 20)
-		 :nctx_predefmap predefmap
-		 :nctx_valmap valmap
-		 :nctx_valbindmap (make_mapobject discr_map_objects 20)
-		 ;; we need a symbcachemap for the toplevel expressions
-		 :nctx_symbcachemap (make_mapobject discr_map_objects 10)
-		 :nctx_curproc inipro
-		 :nctx_modulcontext modctx
-		 :nctx_qdatcurmodenvbox (instance class_nrep_quasidata_current_module_environment_reference
-						  )
-		 :nctx_qdatparmodenv (instance class_nrep_quasidata_parent_module_environment
-					       )
-		 :nctx_procurmodenvlist (make_list discr_list)
-		 ))
+	   (ncx (instance class_normalization_context
+			  :nctx_initproc inipro
+			  :nctx_proclist (make_list discr_list)
+			  :nctx_datalist (make_list discr_list)
+			  :nctx_valuelist (make_list discr_list)
+			  :nctx_symbmap  (make_mapstring discr_map_strings 30)
+			  :nctx_keywmap  (make_mapstring discr_map_strings 20)
+			  :nctx_predefmap predefmap
+			  :nctx_valmap valmap
+			  :nctx_valbindmap (make_mapobject discr_map_objects 20)
+			  ;; we need a symbcachemap for the toplevel expressions
+			  :nctx_symbcachemap (make_mapobject discr_map_objects 10)
+			  :nctx_curproc inipro
+			  :nctx_modulcontext modctx
+			  :nctx_qdatcurmodenvbox (instance class_nrep_quasidata_current_module_environment_reference
+							   )
+			  :nctx_qdatparmodenv (instance class_nrep_quasidata_parent_module_environment
+							)
+			  :nctx_procurmodenvlist (make_list discr_list)
+			  ))
 	   )
       (debug "create_normal_extending_context make ncx=" ncx)
       (return ncx)
