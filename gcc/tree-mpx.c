@@ -92,7 +92,6 @@ static GTY (()) tree incomplete_bounds;
 static GTY (()) tree tmp_var;
 static GTY (()) tree size_tmp_var;
 
-static GTY ((param_is (union gimple_statement_d))) htab_t mpx_marked_stmts;
 static GTY ((param_is (union tree_node))) htab_t mpx_invalid_bounds;
 static GTY ((param_is (union tree_node))) htab_t mpx_completed_bounds_map;
 static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
@@ -129,17 +128,21 @@ struct mpx_ctor_stmt_list
 static void
 mpx_mark_stmt (gimple s)
 {
-  void **slot;
+  gimple_set_plf (s, GF_PLF_1, true);
+}
 
-  slot = htab_find_slot (mpx_marked_stmts, s, INSERT);
-  *slot = s;
+/* Mark statement S to be instrumented.  */
+static void
+mpx_unmark_stmt (gimple s)
+{
+  gimple_set_plf (s, GF_PLF_1, false);
 }
 
 /* Return 1 if statement S should not be instrumented.  */
 static bool
 mpx_marked_stmt (gimple s)
 {
-  return htab_find (mpx_marked_stmts, s) != NULL;
+  return gimple_plf (s, GF_PLF_1);
 }
 
 /* Get var to be used for bound values.  */
@@ -3469,14 +3472,19 @@ mpx_fix_cfg ()
 static void
 mpx_init (void)
 {
+  basic_block bb;
+  gimple_stmt_iterator i;
+
+  for (bb = ENTRY_BLOCK_PTR ->next_bb; bb; bb = bb->next_bb)
+    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      mpx_unmark_stmt (gsi_stmt (i));
+
   mpx_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
 				    NULL);
   mpx_reg_addr_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
 					 NULL);
   mpx_incomplete_bounds_map = htab_create_ggc (31, tree_map_hash, tree_map_eq,
 					       NULL);
-  mpx_marked_stmts = htab_create_ggc (31, htab_hash_pointer, htab_eq_pointer,
-				      NULL);
   mpx_invalid_bounds = htab_create_ggc (31, htab_hash_pointer,
 					htab_eq_pointer, NULL);
   mpx_completed_bounds_map = htab_create_ggc (31, htab_hash_pointer,
