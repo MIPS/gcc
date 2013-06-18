@@ -1,3 +1,10 @@
+
+2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* make-melt-plugin-source-tar.sh: Also copy gcc/testsuite/melt
+	into testmelt.
+
+
 2013-06-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
         * MELT-Plugin-Makefile (all): Better message.

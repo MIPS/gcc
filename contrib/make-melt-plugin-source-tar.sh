@@ -103,6 +103,9 @@ copymelt() {
 ## just a reminder
 echo $0: You should have recently run in gcc/ of build tree: make upgrade-warmelt 
 
+mkdir $gccmelt_tarbase/testmelt
+
+copymelt gcc/testsuite/melt testmelt
 copymelt COPYING3
 copymelt move-if-change
 copymelt gcc/DATESTAMP GCCMELT-DATESTAMP
