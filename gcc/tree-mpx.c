@@ -92,17 +92,14 @@ static GTY (()) tree incomplete_bounds;
 static GTY (()) tree tmp_var;
 static GTY (()) tree size_tmp_var;
 
-static GTY ((param_is (union tree_node))) htab_t mpx_invalid_bounds;
-static GTY ((param_is (union tree_node))) htab_t mpx_completed_bounds_map;
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t mpx_reg_bounds;
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t mpx_reg_addr_bounds;
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
-     htab_t mpx_incomplete_bounds_map;
+struct pointer_set_t *mpx_invalid_bounds;
+struct pointer_set_t *mpx_completed_bounds_set;
+struct pointer_map_t *mpx_reg_bounds;
+struct pointer_map_t *mpx_reg_addr_bounds;
+struct pointer_map_t *mpx_incomplete_bounds_map;
+
 static GTY ((if_marked ("tree_vec_map_marked_p"), param_is (struct tree_vec_map)))
      htab_t mpx_abnormal_phi_copies;
-
 static GTY (()) vec<tree, va_gc> *var_inits;
 static GTY ((if_marked ("tree_map_marked_p"),
 	     param_is (struct tree_map))) htab_t mpx_size_decls;
@@ -169,19 +166,13 @@ mpx_get_size_tmp_var (void)
 static void
 mpx_register_addr_bounds (tree ptr, tree bnd)
 {
-  struct tree_map **slot, *map;
+  tree *slot;
 
   if (bnd == incomplete_bounds)
     return;
 
-  map = ggc_alloc_tree_map ();
-  map->hash = htab_hash_pointer (ptr);
-  map->base.from = ptr;
-  map->to = bnd;
-
-  slot = (struct tree_map **)
-    htab_find_slot_with_hash (mpx_reg_addr_bounds, map, map->hash, INSERT);
-  *slot = map;
+  slot = (tree *)pointer_map_insert (mpx_reg_addr_bounds, ptr);
+  *slot = bnd;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -197,24 +188,15 @@ mpx_register_addr_bounds (tree ptr, tree bnd)
 static tree
 mpx_get_registered_addr_bounds (tree ptr)
 {
-  struct tree_map *res, in;
-  in.base.from = ptr;
-  in.hash = htab_hash_pointer (ptr);
-
-  res = (struct tree_map *) htab_find_with_hash (mpx_reg_addr_bounds,
-						 &in, in.hash);
-
-  return res ? res->to : NULL_TREE;
+  tree *slot = (tree *)pointer_map_contains (mpx_reg_addr_bounds, ptr);
+  return slot ? *slot : NULL_TREE;
 }
 
 /* Mark BOUNDS as completed.  */
 static void
 mpx_mark_completed_bounds (tree bounds)
 {
-  void **slot;
-
-  slot = htab_find_slot (mpx_completed_bounds_map, bounds, INSERT);
-  *slot = bounds;
+  pointer_set_insert (mpx_completed_bounds_set, bounds);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -228,30 +210,23 @@ mpx_mark_completed_bounds (tree bounds)
 static bool
 mpx_completed_bounds (tree bounds)
 {
-  return htab_find (mpx_completed_bounds_map, bounds) != NULL;
+  return pointer_set_contains (mpx_completed_bounds_set, bounds);
 }
 
 /* Clear comleted bound marks.  */
 static void
 mpx_erase_completed_bounds (void)
 {
-  htab_empty (mpx_completed_bounds_map);
+  pointer_set_destroy (mpx_completed_bounds_set);
+  mpx_completed_bounds_set = pointer_set_create ();
 }
 
 /* Mark BOUNDS associated with PTR as incomplete.  */
 static void
 mpx_register_incomplete_bounds (tree bounds, tree ptr)
 {
-  struct tree_map **slot, *map;
-
-  map = ggc_alloc_tree_map ();
-  map->hash = htab_hash_pointer (bounds);
-  map->base.from = bounds;
-  map->to = ptr;
-
-  slot = (struct tree_map **)
-    htab_find_slot_with_hash (mpx_incomplete_bounds_map, map, map->hash, INSERT);
-  *slot = map;
+  tree *slot = (tree *)pointer_map_insert (mpx_incomplete_bounds_map, bounds);
+  *slot = ptr;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -267,7 +242,7 @@ mpx_register_incomplete_bounds (tree bounds, tree ptr)
 static bool
 mpx_incomplete_bounds (tree bounds)
 {
-  struct tree_map *res, in;
+  void **slot;
 
   if (bounds == incomplete_bounds)
     return true;
@@ -275,20 +250,17 @@ mpx_incomplete_bounds (tree bounds)
   if (mpx_completed_bounds (bounds))
     return false;
 
-  in.base.from = bounds;
-  in.hash = htab_hash_pointer (bounds);
+  slot = pointer_map_contains (mpx_incomplete_bounds_map, bounds);
 
-  res = (struct tree_map *) htab_find_with_hash (mpx_incomplete_bounds_map,
-						 &in, in.hash);
-
-  return res != NULL;
+  return slot != NULL;
 }
 
 /* Clear incomleted bound marks.  */
 static void
 mpx_erase_incomplete_bounds (void)
 {
-  htab_empty (mpx_incomplete_bounds_map);
+  pointer_map_destroy (mpx_incomplete_bounds_map);
+  mpx_incomplete_bounds_map = pointer_map_create ();
 }
 
 /* Split rtx RETURN_REG identifying slot for function value
@@ -484,11 +456,11 @@ mpx_emit_bounds_store (rtx bounds, rtx value, rtx mem)
 }
 
 /* Traversal function for mpx_may_finish_incomplete_bounds.  */
-static int
-mpx_may_complete_phi_bounds (void **slot, void *res)
+static bool
+mpx_may_complete_phi_bounds (const void *key, void **slot ATTRIBUTE_UNUSED,
+			     void *res)
 {
-  struct tree_map *map = (struct tree_map *)*slot;
-  tree bounds = map->base.from;
+  const_tree bounds = (const_tree)key;
   gimple phi;
   unsigned i;
 
@@ -505,11 +477,11 @@ mpx_may_complete_phi_bounds (void **slot, void *res)
 	{
 	  *((bool *)res) = false;
 	  /* Do not need to traverse further.  */
-	  return 0;
+	  return false;
 	}
     }
 
-  return 1;
+  return true;
 }
 
 /* Check if there is a phi node whose bounds computation
@@ -519,21 +491,20 @@ mpx_may_finish_incomplete_bounds (void)
 {
   bool res = true;
 
-  htab_traverse (mpx_incomplete_bounds_map,
-		 mpx_may_complete_phi_bounds,
-		 &res);
+  pointer_map_traverse (mpx_incomplete_bounds_map,
+			mpx_may_complete_phi_bounds,
+			&res);
 
   return res;
 }
 
 /* Helper function for mpx_finish_incomplete_bounds.
    Recompute args for bounds phi node.  */
-static int
-mpx_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
+static bool
+mpx_recompute_phi_bounds (const void *key, void **slot, void *res ATTRIBUTE_UNUSED)
 {
-  struct tree_map *map = (struct tree_map *)*slot;
-  tree bounds = map->base.from;
-  tree ptr = map->to;
+  tree bounds = (tree)key;
+  tree ptr = *(tree *)slot;
   gimple bounds_phi;
   gimple ptr_phi;
   unsigned i;
@@ -566,17 +537,14 @@ mpx_recompute_phi_bounds (void **slot, void *res ATTRIBUTE_UNUSED)
 		   UNKNOWN_LOCATION);
     }
 
-  return 1;
+  return true;
 }
 
 /* Mark BOUNDS as invalid.  */
 static void
 mpx_mark_invalid_bounds (tree bounds)
 {
-  void **slot;
-
-  slot = htab_find_slot (mpx_invalid_bounds, bounds, INSERT);
-  *slot = bounds;
+  pointer_set_insert (mpx_invalid_bounds, bounds);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -593,28 +561,24 @@ mpx_valid_bounds (tree bounds)
   if (bounds == zero_bounds || bounds == none_bounds)
     return false;
 
-  if (htab_find (mpx_invalid_bounds, bounds) != NULL)
-    return false;
-
-  return true;
+  return !pointer_set_contains (mpx_invalid_bounds, bounds);
 }
 
 /* Helper function for mpx_finish_incomplete_bounds.
    Check if bounds phi node previously did not have
    args allowing to determine value for phi but now
    has.  */
-static int
-mpx_find_valid_phi_bounds (void **slot, void *res)
+static bool
+mpx_find_valid_phi_bounds (const void *key, void **slot, void *res)
 {
-  struct tree_map *map = (struct tree_map *)*slot;
-  tree bounds = map->base.from;
+  tree bounds = (tree)key;
   gimple phi;
   unsigned i;
 
   gcc_assert (TREE_CODE (bounds) == SSA_NAME);
 
   if (mpx_completed_bounds (bounds))
-    return 1;
+    return true;
 
   phi = SSA_NAME_DEF_STMT (bounds);
 
@@ -630,28 +594,28 @@ mpx_find_valid_phi_bounds (void **slot, void *res)
 	{
 	  *((bool *)res) = true;
 	  mpx_mark_completed_bounds (bounds);
-	  mpx_recompute_phi_bounds (slot, NULL);
-	  return 1;
+	  mpx_recompute_phi_bounds (key, slot, NULL);
+	  return true;
 	}
     }
 
-  return 1;
+  return true;
 }
 
 /* Helper function for mpx_finish_incomplete_bounds.
    Marks all found invalid bounds.  */
-static int
-mpx_mark_invalid_bounds_walker (void **slot, void *res ATTRIBUTE_UNUSED)
+static bool
+mpx_mark_invalid_bounds_walker (const void *key, void **slot ATTRIBUTE_UNUSED,
+				void *res ATTRIBUTE_UNUSED)
 {
-  struct tree_map *map = (struct tree_map *)*slot;
-  tree bounds = map->base.from;
+  tree bounds = (tree)key;
 
   if (!mpx_completed_bounds (bounds))
     {
       mpx_mark_invalid_bounds (bounds);
       mpx_mark_completed_bounds (bounds);
     }
-  return 1;
+  return true;
 }
 
 /* This function is called when we have enough info
@@ -665,22 +629,22 @@ mpx_finish_incomplete_bounds (void)
     {
       found_valid = false;
 
-      htab_traverse (mpx_incomplete_bounds_map,
-		     mpx_find_valid_phi_bounds,
-		     &found_valid);
+      pointer_map_traverse (mpx_incomplete_bounds_map,
+			    mpx_find_valid_phi_bounds,
+			    &found_valid);
 
       if (found_valid)
-	htab_traverse (mpx_incomplete_bounds_map,
-		       mpx_recompute_phi_bounds,
-		       NULL);
+	pointer_map_traverse (mpx_incomplete_bounds_map,
+			      mpx_recompute_phi_bounds,
+			      NULL);
     }
 
-  htab_traverse (mpx_incomplete_bounds_map,
-		 mpx_mark_invalid_bounds_walker,
-		 NULL);
-  htab_traverse (mpx_incomplete_bounds_map,
-		 mpx_recompute_phi_bounds,
-		 &found_valid);
+  pointer_map_traverse (mpx_incomplete_bounds_map,
+			mpx_mark_invalid_bounds_walker,
+			NULL);
+  pointer_map_traverse (mpx_incomplete_bounds_map,
+			mpx_recompute_phi_bounds,
+			&found_valid);
 
   mpx_erase_completed_bounds ();
   mpx_erase_incomplete_bounds ();
@@ -898,19 +862,13 @@ mpx_add_tree_to_vec (void **slot, void *res)
 static void
 mpx_register_bounds (tree ptr, tree bnd)
 {
-  struct tree_map **slot, *map;
+  tree *slot;
 
   if (bnd == incomplete_bounds)
     return;
 
-  map = ggc_alloc_tree_map ();
-  map->hash = htab_hash_pointer (ptr);
-  map->base.from = ptr;
-  map->to = bnd;
-
-  slot = (struct tree_map **)
-    htab_find_slot_with_hash (mpx_reg_bounds, map, map->hash, INSERT);
-  *slot = map;
+  slot = (tree *)pointer_map_insert (mpx_reg_bounds, ptr);
+  *slot = bnd;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -926,14 +884,8 @@ mpx_register_bounds (tree ptr, tree bnd)
 tree
 mpx_get_registered_bounds (tree ptr)
 {
-  struct tree_map *res, in;
-  in.base.from = ptr;
-  in.hash = htab_hash_pointer (ptr);
-
-  res = (struct tree_map *) htab_find_with_hash (mpx_reg_bounds,
-						 &in, in.hash);
-
-  return res ? res->to : NULL_TREE;
+  tree *slot = (tree *)pointer_map_contains (mpx_reg_bounds, ptr);
+  return slot ? *slot : NULL_TREE;
 }
 
 /* Add bound retvals to return statement pointed by GSI.  */
@@ -3468,40 +3420,6 @@ mpx_fix_cfg ()
       }
 }
 
-/* Initialize pass. */
-static void
-mpx_init (void)
-{
-  basic_block bb;
-  gimple_stmt_iterator i;
-
-  for (bb = ENTRY_BLOCK_PTR ->next_bb; bb; bb = bb->next_bb)
-    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
-      mpx_unmark_stmt (gsi_stmt (i));
-
-  mpx_reg_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
-				    NULL);
-  mpx_reg_addr_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq,
-					 NULL);
-  mpx_incomplete_bounds_map = htab_create_ggc (31, tree_map_hash, tree_map_eq,
-					       NULL);
-  mpx_invalid_bounds = htab_create_ggc (31, htab_hash_pointer,
-					htab_eq_pointer, NULL);
-  mpx_completed_bounds_map = htab_create_ggc (31, htab_hash_pointer,
-					      htab_eq_pointer, NULL);
-  mpx_abnormal_phi_copies = htab_create_ggc (31, tree_map_base_hash,
-					     tree_vec_map_eq, NULL);
-
-  entry_block = NULL;
-  zero_bounds = NULL_TREE;
-  none_bounds = NULL_TREE;
-  incomplete_bounds = integer_zero_node;
-  tmp_var = NULL_TREE;
-  size_tmp_var = NULL_TREE;
-
-  mpx_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
-}
-
 /* This function requests intrumentation for all statements
    working with memory.  It also removes excess statements
    from static initializers.  */
@@ -3584,11 +3502,44 @@ mpx_instrument_function (void)
   while (bb);
 }
 
+/* Initialize pass. */
+static void
+mpx_init (void)
+{
+  basic_block bb;
+  gimple_stmt_iterator i;
+
+  for (bb = ENTRY_BLOCK_PTR ->next_bb; bb; bb = bb->next_bb)
+    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
+      mpx_unmark_stmt (gsi_stmt (i));
+
+  mpx_invalid_bounds = pointer_set_create ();
+  mpx_completed_bounds_set = pointer_set_create ();
+  mpx_reg_bounds = pointer_map_create ();
+  mpx_reg_addr_bounds = pointer_map_create ();
+  mpx_incomplete_bounds_map = pointer_map_create ();
+  mpx_abnormal_phi_copies = htab_create_ggc (31, tree_map_base_hash,
+					     tree_vec_map_eq, NULL);
+
+  entry_block = NULL;
+  zero_bounds = NULL_TREE;
+  none_bounds = NULL_TREE;
+  incomplete_bounds = integer_zero_node;
+  tmp_var = NULL_TREE;
+  size_tmp_var = NULL_TREE;
+
+  mpx_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
+}
+
 /* Finalize MPX instrumentation pass. */
 static void
 mpx_fini (void)
 {
-
+  pointer_set_destroy (mpx_invalid_bounds);
+  pointer_set_destroy (mpx_completed_bounds_set);
+  pointer_map_destroy (mpx_reg_bounds);
+  pointer_map_destroy (mpx_reg_addr_bounds);
+  pointer_map_destroy (mpx_incomplete_bounds_map);
 }
 
 /* Main MPX instrumentation pass function. */
