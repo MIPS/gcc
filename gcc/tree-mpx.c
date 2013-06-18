@@ -58,7 +58,7 @@ static tree mpx_find_bounds (tree ptr, gimple_stmt_iterator *iter);
 static tree mpx_find_bounds_loaded (tree ptr, tree ptr_src,
 				   gimple_stmt_iterator *iter);
 static tree mpx_find_bounds_abnormal (tree ptr, tree phi);
-static void collect_value (tree ssa_name, address_t &res);
+static void mpx_collect_value (tree ssa_name, address_t &res);
 
 #define mpx_bndldx_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDLDX))
 #define mpx_bndstx_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDSTX))
@@ -3611,7 +3611,7 @@ mpx_gate (void)
    to find items with equal var.  Also used for polynomial
    sorting.  */
 int
-pol_item_compare (const void *i1, const void *i2)
+mpx_pol_item_compare (const void *i1, const void *i2)
 {
   const struct pol_item *p1 = (const struct pol_item *)i1;
   const struct pol_item *p2 = (const struct pol_item *)i2;
@@ -3628,7 +3628,7 @@ pol_item_compare (const void *i1, const void *i2)
    and return its index.  Return -1 if item was not
    found.  */
 int
-pol_find (address_t &addr, tree var)
+mpx_pol_find (address_t &addr, tree var)
 {
   int left = 0;
   int right = addr.pol.length () - 1;
@@ -3655,7 +3655,7 @@ pol_find (address_t &addr, tree var)
 
 /* Return constant CST extended to size type.  */
 tree
-extend_const (tree cst)
+mpx_extend_const (tree cst)
 {
   if (TYPE_PRECISION (TREE_TYPE (cst)) < TYPE_PRECISION (size_type_node))
     return build_int_cst_type (size_type_node, tree_low_cst (cst, 0));
@@ -3665,11 +3665,11 @@ extend_const (tree cst)
 
 /* Add polynomial item CST * VAR to ADDR.  */
 void
-add_addr_item (address_t &addr, tree cst, tree var)
+mpx_add_addr_item (address_t &addr, tree cst, tree var)
 {
-  int n = pol_find (addr, var);
+  int n = mpx_pol_find (addr, var);
 
-  cst = extend_const (cst);
+  cst = mpx_extend_const (cst);
 
   if (n < 0)
     {
@@ -3678,7 +3678,7 @@ add_addr_item (address_t &addr, tree cst, tree var)
       item.var = var;
 
       addr.pol.safe_push (item);
-      addr.pol.qsort (&pol_item_compare);
+      addr.pol.qsort (&mpx_pol_item_compare);
     }
   else
     {
@@ -3692,11 +3692,11 @@ add_addr_item (address_t &addr, tree cst, tree var)
 
 /* Subtract polynomial item CST * VAR from ADDR.  */
 void
-sub_addr_item (address_t &addr, tree cst, tree var)
+mpx_sub_addr_item (address_t &addr, tree cst, tree var)
 {
-  int n = pol_find (addr, var);
+  int n = mpx_pol_find (addr, var);
 
-  cst = extend_const (cst);
+  cst = mpx_extend_const (cst);
 
   if (n < 0)
     {
@@ -3706,7 +3706,7 @@ sub_addr_item (address_t &addr, tree cst, tree var)
       item.var = var;
 
       addr.pol.safe_push (item);
-      addr.pol.qsort (&pol_item_compare);
+      addr.pol.qsort (&mpx_pol_item_compare);
     }
   else
     {
@@ -3720,25 +3720,25 @@ sub_addr_item (address_t &addr, tree cst, tree var)
 
 /* Add address DELTA to ADDR.  */
 void
-add_addr_addr (address_t &addr, address_t &delta)
+mpx_add_addr_addr (address_t &addr, address_t &delta)
 {
   unsigned int i;
   for (i = 0; i < delta.pol.length (); i++)
-    add_addr_item (addr, delta.pol[i].cst, delta.pol[i].var);
+    mpx_add_addr_item (addr, delta.pol[i].cst, delta.pol[i].var);
 }
 
 /* Subtract address DELTA from ADDR.  */
 void
-sub_addr_addr (address_t &addr, address_t &delta)
+mpx_sub_addr_addr (address_t &addr, address_t &delta)
 {
   unsigned int i;
   for (i = 0; i < delta.pol.length (); i++)
-    sub_addr_item (addr, delta.pol[i].cst, delta.pol[i].var);
+    mpx_sub_addr_item (addr, delta.pol[i].cst, delta.pol[i].var);
 }
 
 /* Mutiply address ADDR by integer constant MULT.  */
 void
-mult_addr (address_t &addr, tree mult)
+mpx_mult_addr (address_t &addr, tree mult)
 {
   unsigned int i;
   for (i = 0; i < addr.pol.length (); i++)
@@ -3750,7 +3750,7 @@ mult_addr (address_t &addr, tree mult)
    determined sign, which is put into *SIGN.  Otherwise
    return 0.  */
 bool
-is_constant_addr (const address_t &addr, int *sign)
+mpx_is_constant_addr (const address_t &addr, int *sign)
 {
   *sign = 0;
 
@@ -3772,7 +3772,7 @@ is_constant_addr (const address_t &addr, int *sign)
 
 /* Dump ADDR into dump_file.  */
 void
-print_addr (const address_t &addr)
+mpx_print_addr (const address_t &addr)
 {
   unsigned int n = 0;
   for (n = 0; n < addr.pol.length (); n++)
@@ -3798,7 +3798,7 @@ print_addr (const address_t &addr)
 /* Compute value of PTR and put it into address RES.
    PTR has to be ADDR_EXPR.  */
 void
-collect_addr_value (tree ptr, address_t &res)
+mpx_collect_addr_value (tree ptr, address_t &res)
 {
   tree obj = TREE_OPERAND (ptr, 0);
   address_t addr;
@@ -3806,23 +3806,23 @@ collect_addr_value (tree ptr, address_t &res)
   switch (TREE_CODE (obj))
     {
     case INDIRECT_REF:
-      collect_value (TREE_OPERAND (obj, 0), res);
+      mpx_collect_value (TREE_OPERAND (obj, 0), res);
       break;
 
     case MEM_REF:
-      collect_value (TREE_OPERAND (obj, 0), res);
+      mpx_collect_value (TREE_OPERAND (obj, 0), res);
       addr.pol.create (0);
-      collect_value (TREE_OPERAND (obj, 1), addr);
-      add_addr_addr (res, addr);
+      mpx_collect_value (TREE_OPERAND (obj, 1), addr);
+      mpx_add_addr_addr (res, addr);
       addr.pol.release ();
       break;
 
     case ARRAY_REF:
-      collect_value (build_fold_addr_expr (TREE_OPERAND (obj, 0)), res);
+      mpx_collect_value (build_fold_addr_expr (TREE_OPERAND (obj, 0)), res);
       addr.pol.create (0);
-      collect_value (TREE_OPERAND (obj, 1), addr);
-      mult_addr (addr, array_ref_element_size (obj));
-      add_addr_addr (res, addr);
+      mpx_collect_value (TREE_OPERAND (obj, 1), addr);
+      mpx_mult_addr (addr, array_ref_element_size (obj));
+      mpx_add_addr_addr (res, addr);
       addr.pol.release ();
       break;
 
@@ -3830,33 +3830,33 @@ collect_addr_value (tree ptr, address_t &res)
       {
 	tree str = TREE_OPERAND (obj, 0);
 	tree field = TREE_OPERAND (obj, 1);
-	collect_value (build_fold_addr_expr (str), res);
+	mpx_collect_value (build_fold_addr_expr (str), res);
 	addr.pol.create (0);
-	collect_value (component_ref_field_offset (obj), addr);
-	add_addr_addr (res, addr);
+	mpx_collect_value (component_ref_field_offset (obj), addr);
+	mpx_add_addr_addr (res, addr);
 	addr.pol.release ();
 	if (DECL_FIELD_BIT_OFFSET (field))
 	  {
 	    addr.pol.create (0);
-	    collect_value (fold_build2 (TRUNC_DIV_EXPR, size_type_node,
-					DECL_FIELD_BIT_OFFSET (field),
-					size_int (BITS_PER_UNIT)),
+	    mpx_collect_value (fold_build2 (TRUNC_DIV_EXPR, size_type_node,
+					    DECL_FIELD_BIT_OFFSET (field),
+					    size_int (BITS_PER_UNIT)),
 			   addr);
-	    add_addr_addr (res, addr);
+	    mpx_add_addr_addr (res, addr);
 	    addr.pol.release ();
 	  }
       }
       break;
 
     default:
-      add_addr_item (res, integer_one_node, ptr);
+      mpx_add_addr_item (res, integer_one_node, ptr);
       break;
     }
 }
 
 /* Compute value of PTR and put it into address RES.  */
 void
-collect_value (tree ptr, address_t &res)
+mpx_collect_value (tree ptr, address_t &res)
 {
   gimple def_stmt;
   enum gimple_code code;
@@ -3866,17 +3866,17 @@ collect_value (tree ptr, address_t &res)
 
   if (TREE_CODE (ptr) == INTEGER_CST)
     {
-      add_addr_item (res, ptr, NULL);
+      mpx_add_addr_item (res, ptr, NULL);
       return;
     }
   else if (TREE_CODE (ptr) == ADDR_EXPR)
     {
-      collect_addr_value (ptr, res);
+      mpx_collect_addr_value (ptr, res);
       return;
     }
   else if (TREE_CODE (ptr) != SSA_NAME)
     {
-      add_addr_item (res, integer_one_node, ptr);
+      mpx_add_addr_item (res, integer_one_node, ptr);
       return;
     }
 
@@ -3889,7 +3889,7 @@ collect_value (tree ptr, address_t &res)
      than assignment.  */
   if (code != GIMPLE_ASSIGN)
     {
-      add_addr_item (res, integer_one_node, ptr);
+      mpx_add_addr_item (res, integer_one_node, ptr);
       return;
     }
 
@@ -3901,23 +3901,23 @@ collect_value (tree ptr, address_t &res)
     case SSA_NAME:
     case INTEGER_CST:
     case ADDR_EXPR:
-      collect_value (rhs1, res);
+      mpx_collect_value (rhs1, res);
       break;
 
     case PLUS_EXPR:
     case POINTER_PLUS_EXPR:
-      collect_value (rhs1, res);
+      mpx_collect_value (rhs1, res);
       addr.pol.create (0);
-      collect_value (gimple_assign_rhs2 (def_stmt), addr);
-      add_addr_addr (res, addr);
+      mpx_collect_value (gimple_assign_rhs2 (def_stmt), addr);
+      mpx_add_addr_addr (res, addr);
       addr.pol.release ();
       break;
 
     case MINUS_EXPR:
-      collect_value (rhs1, res);
+      mpx_collect_value (rhs1, res);
       addr.pol.create (0);
-      collect_value (gimple_assign_rhs2 (def_stmt), addr);
-      sub_addr_addr (res, addr);
+      mpx_collect_value (gimple_assign_rhs2 (def_stmt), addr);
+      mpx_sub_addr_addr (res, addr);
       addr.pol.release ();
       break;
 
@@ -3925,21 +3925,21 @@ collect_value (tree ptr, address_t &res)
       if (TREE_CODE (rhs1) == SSA_NAME
 	  && TREE_CODE (gimple_assign_rhs2 (def_stmt)) == INTEGER_CST)
 	{
-	  collect_value (rhs1, res);
-	  mult_addr (res, gimple_assign_rhs2 (def_stmt));
+	  mpx_collect_value (rhs1, res);
+	  mpx_mult_addr (res, gimple_assign_rhs2 (def_stmt));
 	}
       else if (TREE_CODE (gimple_assign_rhs2 (def_stmt)) == SSA_NAME
 	       && TREE_CODE (rhs1) == INTEGER_CST)
 	{
-	  collect_value (gimple_assign_rhs2 (def_stmt), res);
-	  mult_addr (res, rhs1);
+	  mpx_collect_value (gimple_assign_rhs2 (def_stmt), res);
+	  mpx_mult_addr (res, rhs1);
 	}
       else
-	add_addr_item (res, integer_one_node, ptr);
+	mpx_add_addr_item (res, integer_one_node, ptr);
       break;
 
     default:
-      add_addr_item (res, integer_one_node, ptr);
+      mpx_add_addr_item (res, integer_one_node, ptr);
       break;
     }
 }
@@ -3947,11 +3947,11 @@ collect_value (tree ptr, address_t &res)
 /* Fill check_info structure *CI with information about
    check STMT.  */
 void
-fill_check_info (gimple stmt, struct check_info *ci)
+mpx_fill_check_info (gimple stmt, struct check_info *ci)
 {
   ci->addr.pol.create (0);
   ci->bounds = gimple_call_arg (stmt, 0);
-  collect_value (gimple_call_arg (stmt, 1), ci->addr);
+  mpx_collect_value (gimple_call_arg (stmt, 1), ci->addr);
   ci->type = (gimple_call_fndecl (stmt) == mpx_checkl_fndecl
 	     ? CHECK_LOWER_BOUND
 	     : CHECK_UPPER_BOUND);
@@ -3961,7 +3961,7 @@ fill_check_info (gimple stmt, struct check_info *ci)
 /* Release structures holding check information
    for current function.  */
 void
-release_check_info (void)
+mpx_release_check_info (void)
 {
   unsigned int n, m;
 
@@ -3981,7 +3981,7 @@ release_check_info (void)
 /* Create structures to hold check information
    for current function.  */
 void
-init_check_info (void)
+mpx_init_check_info (void)
 {
   struct bb_checks empty_bbc;
   int n;
@@ -3989,7 +3989,7 @@ init_check_info (void)
   empty_bbc.checks.create (0);
   empty_bbc.checks.release ();
 
-  release_check_info ();
+  mpx_release_check_info ();
 
   check_infos.create (n_basic_blocks);
   for (n = 0; n < n_basic_blocks; n++)
@@ -4002,7 +4002,7 @@ init_check_info (void)
 /* Find all checks in current function and store info about them
    in check_infos.  */
 void
-gather_checks_info (void)
+mpx_gather_checks_info (void)
 {
   basic_block bb;
   gimple_stmt_iterator i;
@@ -4010,7 +4010,7 @@ gather_checks_info (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Gathering information about checks...\n");
 
-  init_check_info ();
+  mpx_init_check_info ();
 
   bb = ENTRY_BLOCK_PTR ->next_bb;
   FOR_EACH_BB (bb)
@@ -4032,7 +4032,7 @@ gather_checks_info (void)
 	    {
 	      struct check_info ci;
 
-	      fill_check_info (stmt, &ci);
+	      mpx_fill_check_info (stmt, &ci);
 	      bbc->checks.safe_push (ci);
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4041,7 +4041,7 @@ gather_checks_info (void)
 		  fprintf (dump_file, "  bounds: ");
 		  print_generic_expr (dump_file, ci.bounds, 0);
 		  fprintf (dump_file, "\n  address: ");
-		  print_addr (ci.addr);
+		  mpx_print_addr (ci.addr);
 		  fprintf (dump_file, "\n  check: ");
 		  print_gimple_stmt (dump_file, stmt, 0, 0);
 		}
@@ -4054,7 +4054,7 @@ gather_checks_info (void)
    -1 if check CI against BOUNDS always fails and
    0 if we cannot compute check result.  */
 int
-get_check_result (struct check_info *ci, tree bounds)
+mpx_get_check_result (struct check_info *ci, tree bounds)
 {
   gimple bnd_def;
   address_t bound_val;
@@ -4066,7 +4066,7 @@ get_check_result (struct check_info *ci, tree bounds)
       fprintf (dump_file, "  check: ");
       print_gimple_stmt (dump_file, ci->stmt, 0, 0);
       fprintf (dump_file, "  address: ");
-      print_addr (ci->addr);
+      mpx_print_addr (ci->addr);
       fprintf (dump_file, "\n  bounds: ");
       print_generic_expr (dump_file, bounds, 0);
       fprintf (dump_file, "\n");
@@ -4089,27 +4089,27 @@ get_check_result (struct check_info *ci, tree bounds)
     }
 
   bound_val.pol.create (0);
-  collect_value (gimple_call_arg (bnd_def, 0), bound_val);
+  mpx_collect_value (gimple_call_arg (bnd_def, 0), bound_val);
   if (ci->type == CHECK_UPPER_BOUND)
     {
       address_t size_val;
       size_val.pol.create (0);
-      collect_value (gimple_call_arg (bnd_def, 1), size_val);
-      add_addr_addr (bound_val, size_val);
+      mpx_collect_value (gimple_call_arg (bnd_def, 1), size_val);
+      mpx_add_addr_addr (bound_val, size_val);
       size_val.pol.release ();
-      add_addr_item (bound_val, integer_minus_one_node, NULL);
+      mpx_add_addr_item (bound_val, integer_minus_one_node, NULL);
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "  bound value: ");
-      print_addr (bound_val);
+      mpx_print_addr (bound_val);
       fprintf (dump_file, "\n");
     }
 
-  sub_addr_addr (bound_val, ci->addr);
+  mpx_sub_addr_addr (bound_val, ci->addr);
 
-  if (!is_constant_addr (bound_val, &sign))
+  if (!mpx_is_constant_addr (bound_val, &sign))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "  result: cannot compute result\n");
@@ -4142,7 +4142,7 @@ get_check_result (struct check_info *ci, tree bounds)
    used in the check CI.  If we can prove that check
    always pass then remove it.  */
 void
-remove_check_if_pass (struct check_info *ci)
+mpx_remove_check_if_pass (struct check_info *ci)
 {
   int result = 0;
 
@@ -4152,7 +4152,7 @@ remove_check_if_pass (struct check_info *ci)
       print_gimple_stmt (dump_file, ci->stmt, 0, 0);
     }
 
-  result = get_check_result (ci, ci->bounds);
+  result = mpx_get_check_result (ci, ci->bounds);
 
   if (result == 1)
     {
@@ -4183,7 +4183,7 @@ remove_check_if_pass (struct check_info *ci)
    transformation is possible then fix check statement and
    recompute its info.  */
 void
-use_outer_bounds_if_possible (struct check_info *ci)
+mpx_use_outer_bounds_if_possible (struct check_info *ci)
 {
   gimple bnd_def;
   tree bnd1, bnd2, bnd_res = NULL;
@@ -4210,8 +4210,8 @@ use_outer_bounds_if_possible (struct check_info *ci)
   bnd1 = gimple_call_arg (bnd_def, 0);
   bnd2 = gimple_call_arg (bnd_def, 1);
 
-  check_res1 = get_check_result (ci, bnd1);
-  check_res2 = get_check_result (ci, bnd2);
+  check_res1 = mpx_get_check_result (ci, bnd1);
+  check_res2 = mpx_get_check_result (ci, bnd2);
   if (check_res1 == 1)
     bnd_res = bnd2;
   else if (check_res1 == -1)
@@ -4242,7 +4242,7 @@ use_outer_bounds_if_possible (struct check_info *ci)
     are used instead.  It allows to remove excess intersections
     and helps to compare checks.  */
 void
-remove_excess_intersections (void)
+mpx_remove_excess_intersections (void)
 {
   basic_block bb;
 
@@ -4258,13 +4258,13 @@ remove_excess_intersections (void)
       /* Iterate throw all found checks in BB.  */
       for (no = 0; no < bbc->checks.length (); no++)
 	if (bbc->checks[no].stmt)
-	  use_outer_bounds_if_possible (&bbc->checks[no]);
+	  mpx_use_outer_bounds_if_possible (&bbc->checks[no]);
     }
 }
 
 /*  Try to remove all checks which are known to alwyas pass.  */
 void
-remove_constant_checks (void)
+mpx_remove_constant_checks (void)
 {
   basic_block bb;
 
@@ -4280,7 +4280,7 @@ remove_constant_checks (void)
       /* Iterate throw all found checks in BB.  */
       for (no = 0; no < bbc->checks.length (); no++)
 	if (bbc->checks[no].stmt)
-	  remove_check_if_pass (&bbc->checks[no]);
+	  mpx_remove_check_if_pass (&bbc->checks[no]);
     }
 }
 
@@ -4298,7 +4298,7 @@ remove_constant_checks (void)
    then CI2 is moved to CI1's position to avoid bound violation happened
    before check is executed.  */
 void
-compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
+mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
 {
   address_t delta;
   int sign;
@@ -4319,12 +4319,12 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
     }
 
   delta.pol = ci1->addr.pol.copy ();
-  sub_addr_addr (delta, ci2->addr);
+  mpx_sub_addr_addr (delta, ci2->addr);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "    Delta: ");
-      print_addr (delta);
+      mpx_print_addr (delta);
       fprintf (dump_file, "\n");
     }
 
@@ -4340,7 +4340,7 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
       release_defs (ci2->stmt);
       ci2->stmt = NULL;
     }
-  else if (!is_constant_addr (delta, &sign))
+  else if (!mpx_is_constant_addr (delta, &sign))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "    Action: skip (delta is not constant)\n");
@@ -4421,7 +4421,7 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
 	      update_stmt (ci1->stmt);
 
 	      ci1->addr.pol.release ();
-	      fill_check_info (ci1->stmt, ci1);
+	      mpx_fill_check_info (ci1->stmt, ci1);
 	    }
 	  else
 	    {
@@ -4440,10 +4440,10 @@ compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
 }
 
 /* Find all pairs of checks where the first check dominates the
-   second one and call compare_checks to find and remove redundant
+   second one and call mpx_compare_checks to find and remove redundant
    checks.  */
 void
-remove_redundant_checks (void)
+mpx_remove_redundant_checks (void)
 {
   basic_block bb;
 
@@ -4466,7 +4466,8 @@ remove_redundant_checks (void)
 	    /* Compare check with all other following checks in this BB.  */
 	    for (other = no + 1; other < bbc->checks.length (); other++)
 	      if (bbc->checks[other].stmt)
-		compare_checks (&bbc->checks[no], &bbc->checks[other], true);
+		mpx_compare_checks (&bbc->checks[no], &bbc->checks[other],
+				    true);
 
 	    /* Now compare with checks in BBs dominated by current one.  */
 	    dom_bbs = get_all_dominated_blocks (CDI_DOMINATORS, bb);
@@ -4479,8 +4480,10 @@ remove_redundant_checks (void)
 
 		for (other = 0; other < dom_bbc->checks.length (); other++)
 		  if (dom_bbc->checks[other].stmt)
-		    compare_checks (&bbc->checks[no], &dom_bbc->checks[other],
-				    dominated_by_p (CDI_POST_DOMINATORS, bb, dom_bbs[bb_no]));
+		    mpx_compare_checks (&bbc->checks[no],
+					&dom_bbc->checks[other],
+					dominated_by_p (CDI_POST_DOMINATORS, bb,
+							dom_bbs[bb_no]));
 	      }
 	  }
     }
@@ -4488,7 +4491,7 @@ remove_redundant_checks (void)
 
 /* Return fast version of string function FNCODE.  */
 tree
-get_nobnd_fndecl (enum built_in_function fncode)
+mpx_get_nobnd_fndecl (enum built_in_function fncode)
 {
   switch (fncode)
     {
@@ -4513,7 +4516,7 @@ get_nobnd_fndecl (enum built_in_function fncode)
    are known to not write pointers to memory and use faster
    function versions for them.  */
 void
-optimize_string_function_calls (void)
+mpx_optimize_string_function_calls (void)
 {
   basic_block bb;
 
@@ -4557,7 +4560,7 @@ optimize_string_function_calls (void)
 		  && !mpx_type_has_pointer (TREE_TYPE (TREE_TYPE (dst))))
 		{
 		  tree fndecl_nobnd
-		    = get_nobnd_fndecl (DECL_FUNCTION_CODE (fndecl));
+		    = mpx_get_nobnd_fndecl (DECL_FUNCTION_CODE (fndecl));
 
 		  if (fndecl_nobnd)
 		    gimple_call_set_fndecl (stmt, fndecl_nobnd);
@@ -4573,7 +4576,7 @@ optimize_string_function_calls (void)
    lifetime.  We also do not want to have bounds creation
    code on paths which do not use them.  */
 void
-reduce_bounds_lifetime (void)
+mpx_reduce_bounds_lifetime (void)
 {
   basic_block bb = FALLTHRU_EDGE (ENTRY_BLOCK_PTR)->dest;
   gimple_stmt_iterator i;
@@ -4742,19 +4745,19 @@ mpxopt_execute (void)
 {
   mpxopt_init();
 
-  gather_checks_info ();
+  mpx_gather_checks_info ();
 
-  remove_excess_intersections ();
+  mpx_remove_excess_intersections ();
 
-  remove_constant_checks ();
+  mpx_remove_constant_checks ();
 
-  remove_redundant_checks ();
+  mpx_remove_redundant_checks ();
 
-  optimize_string_function_calls ();
+  mpx_optimize_string_function_calls ();
 
-  reduce_bounds_lifetime ();
+  mpx_reduce_bounds_lifetime ();
 
-  release_check_info ();
+  mpx_release_check_info ();
 
   mpxopt_fini ();
 
