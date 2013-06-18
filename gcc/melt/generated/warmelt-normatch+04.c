@@ -31880,7 +31880,7 @@ meltlab_endgetargs:;
     {
       melt_ptr_t slot = NULL, obj = NULL;
       obj = (melt_ptr_t) ( /*_.NCX__V27*/ meltfptr[26]) /*=obj*/ ;
-      melt_object_get_field (slot, obj, 6, "NCTX_SYMBCACHEMAP");
+      melt_object_get_field (slot, obj, 7, "NCTX_SYMBCACHEMAP");
   /*_.SYCMAP__V31*/ meltfptr[30] = slot;
     };
     ;

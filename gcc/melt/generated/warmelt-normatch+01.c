@@ -17671,7 +17671,7 @@ meltlab_endgetargs:;
 			    obj =
 			      (melt_ptr_t) ( /*_.NCX__V22*/ meltfptr[21])
 			      /*=obj*/ ;
-			    melt_object_get_field (slot, obj, 6,
+			    melt_object_get_field (slot, obj, 7,
 						   "NCTX_SYMBCACHEMAP");
 	 /*_.NCTX_SYMBCACHEMAP__V54*/ meltfptr[49] = slot;
 			  };
@@ -19371,7 +19371,7 @@ meltlab_endgetargs:;
 			    obj =
 			      (melt_ptr_t) ( /*_.NCX__V22*/ meltfptr[21])
 			      /*=obj*/ ;
-			    melt_object_get_field (slot, obj, 6,
+			    melt_object_get_field (slot, obj, 7,
 						   "NCTX_SYMBCACHEMAP");
 	 /*_.NCTX_SYMBCACHEMAP__V91*/ meltfptr[71] = slot;
 			  };
@@ -23910,7 +23910,7 @@ meltlab_endgetargs:;
 		      melt_ptr_t slot = NULL, obj = NULL;
 		      obj =
 			(melt_ptr_t) ( /*_.NCX__V19*/ meltfptr[18]) /*=obj*/ ;
-		      melt_object_get_field (slot, obj, 6,
+		      melt_object_get_field (slot, obj, 7,
 					     "NCTX_SYMBCACHEMAP");
       /*_.NCTX_SYMBCACHEMAP__V116*/ meltfptr[112] = slot;
 		    };
@@ -30183,7 +30183,7 @@ meltlab_endgetargs:;
 		      melt_ptr_t slot = NULL, obj = NULL;
 		      obj =
 			(melt_ptr_t) ( /*_.NCX__V14*/ meltfptr[13]) /*=obj*/ ;
-		      melt_object_get_field (slot, obj, 6,
+		      melt_object_get_field (slot, obj, 7,
 					     "NCTX_SYMBCACHEMAP");
       /*_.NCTX_SYMBCACHEMAP__V115*/ meltfptr[111] = slot;
 		    };
@@ -46917,7 +46917,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) (( /*~NCX */ meltfclos->tabval[1])) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 6, "NCTX_SYMBCACHEMAP");
+	  melt_object_get_field (slot, obj, 7, "NCTX_SYMBCACHEMAP");
    /*_.NCTX_SYMBCACHEMAP__V15*/ meltfptr[14] = slot;
 	};
 	;

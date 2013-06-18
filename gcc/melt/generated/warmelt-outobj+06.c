@@ -22310,7 +22310,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 0, "NCTX_INITPROC");
+	  melt_object_get_field (slot, obj, 1, "NCTX_INITPROC");
    /*_.INIPROC__V32*/ meltfptr[31] = slot;
 	};
 	;
@@ -28753,7 +28753,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 0, "NCTX_INITPROC");
+	  melt_object_get_field (slot, obj, 1, "NCTX_INITPROC");
    /*_.INIPROC__V31*/ meltfptr[30] = slot;
 	};
 	;
@@ -29838,7 +29838,7 @@ meltlab_endgetargs:;
 	{
 	  melt_ptr_t slot = NULL, obj = NULL;
 	  obj = (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]) /*=obj*/ ;
-	  melt_object_get_field (slot, obj, 1, "NCTX_PROCLIST");
+	  melt_object_get_field (slot, obj, 2, "NCTX_PROCLIST");
    /*_.PROLIST__V58*/ meltfptr[43] = slot;
 	};
 	;
@@ -31201,7 +31201,7 @@ meltlab_endgetargs:;
     {
       melt_ptr_t slot = NULL, obj = NULL;
       obj = (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]) /*=obj*/ ;
-      melt_object_get_field (slot, obj, 0, "NCTX_INITPROC");
+      melt_object_get_field (slot, obj, 1, "NCTX_INITPROC");
   /*_.INIPRO__V98*/ meltfptr[97] = slot;
     };
     ;
@@ -31209,7 +31209,7 @@ meltlab_endgetargs:;
     {
       melt_ptr_t slot = NULL, obj = NULL;
       obj = (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]) /*=obj*/ ;
-      melt_object_get_field (slot, obj, 2, "NCTX_DATALIST");
+      melt_object_get_field (slot, obj, 3, "NCTX_DATALIST");
   /*_.INIDATA__V99*/ meltfptr[98] = slot;
     };
     ;
@@ -31217,7 +31217,7 @@ meltlab_endgetargs:;
     {
       melt_ptr_t slot = NULL, obj = NULL;
       obj = (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]) /*=obj*/ ;
-      melt_object_get_field (slot, obj, 3, "NCTX_VALUELIST");
+      melt_object_get_field (slot, obj, 4, "NCTX_VALUELIST");
   /*_.IMPORTVALUES__V100*/ meltfptr[99] = slot;
     };
     ;
@@ -31225,7 +31225,7 @@ meltlab_endgetargs:;
     {
       melt_ptr_t slot = NULL, obj = NULL;
       obj = (melt_ptr_t) ( /*_.NCX__V5*/ meltfptr[4]) /*=obj*/ ;
-      melt_object_get_field (slot, obj, 14, "NCTX_PROCURMODENVLIST");
+      melt_object_get_field (slot, obj, 15, "NCTX_PROCURMODENVLIST");
   /*_.PROCURMODENVLIST__V101*/ meltfptr[100] = slot;
     };
     ;
