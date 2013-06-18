@@ -923,7 +923,6 @@
 {
   struct ix86_address parts;
   int ok;
-  rtx disp;
 
   ok = ix86_decompose_address (op, &parts);
   gcc_assert (ok);
@@ -956,7 +955,6 @@
 {
   struct ix86_address parts;
   int ok;
-  rtx disp;
 
   ok = ix86_decompose_address (op, &parts);
   gcc_assert (ok);

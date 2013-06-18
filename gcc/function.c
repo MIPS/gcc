@@ -61,7 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
-#include "tree-mpx.h"
 
 /* So we can assign to cfun in this file.  */
 #undef cfun

@@ -62,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "tree-pass.h"
 #include "tree-flow.h"
-#include "tree-mpx.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -33470,6 +33469,9 @@ ix86_builtin_mpx_function (unsigned fcode)
     case BUILT_IN_MPX_INTERSECT:
       return ix86_builtins[IX86_BUILTIN_BNDINT];
 
+    case BUILT_IN_MPX_BIND_BOUNDS:
+      return ix86_builtins[IX86_BUILTIN_BNDBIND];
+
     case BUILT_IN_MPX_USER_INTERSECT:
       return ix86_builtins[IX86_BUILTIN_BNDINT_USER];
 
@@ -43579,9 +43581,6 @@ ix86_mpx_bound_mode ()
 #undef TARGET_EXPAND_BUILTIN
 #define TARGET_EXPAND_BUILTIN ix86_expand_builtin
 
-#undef TARGET_BUILTIN_MPX_FUNCTION
-#define TARGET_BUILTIN_MPX_FUNCTION ix86_builtin_mpx_function
-
 #undef TARGET_LOAD_BOUNDS_FOR_ARG
 #define TARGET_LOAD_BOUNDS_FOR_ARG ix86_load_bounds
 
@@ -43945,6 +43944,9 @@ ix86_mpx_bound_mode ()
 
 #undef TARGET_MPX_BOUND_MODE
 #define TARGET_MPX_BOUND_MODE ix86_mpx_bound_mode
+
+#undef TARGET_BUILTIN_MPX_FUNCTION
+#define TARGET_BUILTIN_MPX_FUNCTION ix86_builtin_mpx_function
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

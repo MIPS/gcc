@@ -48,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "diagnostic-core.h"
 #include "builtins.h"
-#include "tree-mpx.h"
 
 
 #ifndef PAD_VARARGS_DOWN
@@ -5852,7 +5851,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       && !called_as_built_in (fndecl)
       && fcode != BUILT_IN_ALLOCA
       && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
-      && fcode != BUILT_IN_FREE)
+      && fcode != BUILT_IN_FREE
+      && fcode != BUILT_IN_MPX_CHECK_ADDRESS_WRITE
+      && fcode != BUILT_IN_MPX_CHECK_ADDRESS_READ
+      && fcode != BUILT_IN_MPX_BIND_BOUNDS
+      && fcode != BUILT_IN_MPX_USER_INTERSECT)
     return expand_call (exp, target, ignore);
 
   /* The built-in function expanders test for target == const0_rtx
@@ -6962,6 +6965,21 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       expand_builtin_set_thread_pointer (exp);
       return const0_rtx;
 
+    case BUILT_IN_MPX_CHECK_ADDRESS_WRITE:
+    case BUILT_IN_MPX_CHECK_ADDRESS_READ:
+    case BUILT_IN_MPX_BIND_BOUNDS:
+    case BUILT_IN_MPX_USER_INTERSECT:
+      /* We allow user MPX builtins if MPX is off.  */
+      if (!flag_mpx)
+	{
+	  if (fcode == BUILT_IN_MPX_BIND_BOUNDS
+	      || fcode == BUILT_IN_MPX_USER_INTERSECT)
+	    return expand_normal (CALL_EXPR_ARG (exp, 0));
+	  else
+	    return const0_rtx;
+	}
+      /* FALLTHROUGH */
+
     case BUILT_IN_MPX_BNDMK:
     case BUILT_IN_MPX_BNDSTX:
     case BUILT_IN_MPX_BNDCL:
@@ -6969,14 +6987,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MPX_BNDLDX:
     case BUILT_IN_MPX_BNDRET:
     case BUILT_IN_MPX_INTERSECT:
-    case BUILT_IN_MPX_USER_INTERSECT:
     case BUILT_IN_MPX_BIND_INTERSECT:
     case BUILT_IN_MPX_ARG_BND:
-    case BUILT_IN_MPX_CHECK_ADDRESS_WRITE:
-    case BUILT_IN_MPX_CHECK_ADDRESS_READ:
       /* Software implementation of MPX is NYI.
 	 Target with MPX support should be used.  */
-      gcc_unreachable ();
+      error ("Target platform does not support MPX");
       break;
 
     default:	/* just do library call, if unknown builtin */

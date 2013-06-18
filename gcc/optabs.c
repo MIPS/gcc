@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "basic-block.h"
 #include "target.h"
-#include "tree-mpx.h"
 
 struct target_optabs default_target_optabs;
 struct target_libfuncs default_target_libfuncs;

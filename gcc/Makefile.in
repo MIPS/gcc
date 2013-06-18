@@ -1402,7 +1402,6 @@ OBJS = \
 	tree-parloops.o \
 	tree-phinodes.o \
 	tree-mpx.o \
-	tree-mpxopt.o \
 	tree-predcom.o \
 	tree-pretty-print.o \
 	tree-profile.o \
@@ -2543,7 +2542,7 @@ gimplify.o : gimplify.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(GIMPLE_H) \
    $(LANGHOOKS_DEF_H) $(TREE_FLOW_H) $(CGRAPH_H) $(TIMEVAR_H) $(TM_H) \
    coretypes.h $(EXCEPT_H) $(FLAGS_H) $(RTL_H) $(FUNCTION_H) $(EXPR_H) \
    $(GGC_H) gt-gimplify.h $(HASHTAB_H) $(TARGET_H) $(DIAGNOSTIC_CORE_H) $(OPTABS_H) \
-   $(SPLAY_TREE_H) $(VEC_H) tree-iterator.h $(TREE_PASS_H) $(TREE_PRETTY_PRINT_H) tree-mpx.h
+   $(SPLAY_TREE_H) $(VEC_H) tree-iterator.h $(TREE_PASS_H) $(TREE_PRETTY_PRINT_H)
 gimple-iterator.o : gimple-iterator.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TREE_H) $(GIMPLE_H) $(TREE_FLOW_H) value-prof.h
 gimple-fold.o : gimple-fold.c $(TREE_FLOW_H) $(CONFIG_H) coretypes.h \
@@ -2673,13 +2672,7 @@ tree-nomudflap.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(C_TREE_H) $(C_COMMON_H) $(GIMPLE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    output.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h \
    $(GGC_H) gt-tree-mudflap.h $(TREE_PASS_H) $(DIAGNOSTIC_CORE_H)
-tree-mpx.o : tree-mpx.c tree-mpx.h gt-tree-mpx.h $(CONFIG_H) $(SYSTEM_H) \
-   $(TREE_H) $(TREE_INLINE_H) \
-   $(GIMPLE_H) $(DIAGNOSTIC_H) $(DEMANGLE_H) $(HASHTAB_H) langhooks.h \
-   $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_PASS_H) $(CGRAPH_H) $(GGC_H) \
-   $(BASIC_BLOCK_H) $(FLAGS_H) $(FUNCTION_H) $(TM_P_H) $(TREE_FLOW_H) \
-   $(DIAGNOSTIC_CORE_H) $(GIMPLE_H) tree-iterator.h
-tree-mpxopt.o : tree-mpxopt.c tree-mpx.h gt-tree-mpx.h $(CONFIG_H) $(SYSTEM_H) \
+tree-mpx.o : tree-mpx.c gt-tree-mpx.h $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(TREE_INLINE_H) \
    $(GIMPLE_H) $(DIAGNOSTIC_H) $(DEMANGLE_H) $(HASHTAB_H) langhooks.h \
    $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_PASS_H) $(CGRAPH_H) $(GGC_H) \
@@ -2794,7 +2787,7 @@ function.o : function.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_ERROR_
    output.h  $(EXCEPT_H) $(HASHTAB_H) $(GGC_H) $(TM_P_H) langhooks.h \
    gt-function.h $(TARGET_H) $(BASIC_BLOCK_H) $(PREDICT_H) \
    $(TREE_PASS_H) $(DF_H) $(PARAMS_H) bb-reorder.h \
-   $(COMMON_TARGET_H) tree-mpx.h
+   $(COMMON_TARGET_H)
 statistics.o : statistics.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TREE_PASS_H) $(TREE_DUMP_H) $(HASH_TABLE_H) statistics.h $(FUNCTION_H)
 stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(DUMPFILE_H) $(TM_H) \
@@ -2803,7 +2796,7 @@ stmt.o : stmt.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(DUMPFILE_H) $(TM_H) \
    $(LIBFUNCS_H) $(EXCEPT_H) $(RECOG_H) $(DIAGNOSTIC_CORE_H) \
    output.h $(GGC_H) $(TM_P_H) langhooks.h $(PREDICT_H) $(OPTABS_H) \
    $(TARGET_H) $(GIMPLE_H) $(MACHMODE_H) $(REGS_H) alloc-pool.h \
-   $(PRETTY_PRINT_H) $(BITMAP_H) $(PARAMS_H) tree-mpx.h
+   $(PRETTY_PRINT_H) $(BITMAP_H) $(PARAMS_H)
 except.o : except.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(EXCEPT_H) $(FUNCTION_H) $(EXPR_H) $(LIBFUNCS_H) \
    langhooks.h insn-config.h hard-reg-set.h $(BASIC_BLOCK_H) output.h \
@@ -2819,7 +2812,7 @@ expr.o : expr.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    reload.h langhooks.h intl.h $(TM_P_H) $(TARGET_H) \
    tree-iterator.h gt-expr.h $(MACHMODE_H) $(TIMEVAR_H) $(TREE_FLOW_H) \
    $(TREE_PASS_H) $(DF_H) $(DIAGNOSTIC_H) $(SSAEXPAND_H) \
-   $(PARAMS_H) $(COMMON_TARGET_H) target-globals.h tree-mpx.h
+   $(PARAMS_H) $(COMMON_TARGET_H) target-globals.h
 dojump.o : dojump.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TM_P_H) \
    $(RTL_H) $(TREE_H) \
    $(FLAGS_H) $(FUNCTION_H) $(EXPR_H) $(OPTABS_H) $(INSN_ATTR_H) insn-config.h \
@@ -2835,7 +2828,7 @@ calls.o : calls.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) $(EXPR_H) $(OPTABS_H) langhooks.h $(TARGET_H) \
    $(LIBFUNCS_H) $(REGS_H) $(DIAGNOSTIC_CORE_H) output.h \
    $(FUNCTION_H) $(TIMEVAR_H) $(TM_P_H) $(CGRAPH_H) $(EXCEPT_H) sbitmap.h \
-   $(DBGCNT_H) $(TREE_FLOW_H) tree-mpx.h
+   $(DBGCNT_H) $(TREE_FLOW_H)
 expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(FLAGS_H) insn-config.h $(EXPR_H) $(OPTABS_H) $(RECOG_H) \
    $(DIAGNOSTIC_CORE_H) $(TM_P_H) langhooks.h $(DF_H) $(TARGET_H) \
@@ -2843,7 +2836,7 @@ expmed.o : expmed.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_
 explow.o : explow.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) $(TREE_H) \
    $(FLAGS_H) hard-reg-set.h insn-config.h $(EXPR_H) $(OPTABS_H) $(RECOG_H) \
    $(DIAGNOSTIC_CORE_H) $(EXCEPT_H) $(FUNCTION_H) $(GGC_H) $(TM_P_H) langhooks.h gt-explow.h \
-   $(TARGET_H) $(COMMON_TARGET_H) output.h $(LIBFUNCS_H) tree-mpx.h
+   $(TARGET_H) $(COMMON_TARGET_H) output.h $(LIBFUNCS_H)
 optabs.o : optabs.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(TREE_H) $(FLAGS_H) insn-config.h $(EXPR_H) $(OPTABS_H) $(LIBFUNCS_H) \
    $(RECOG_H) reload.h $(DIAGNOSTIC_CORE_H) $(GGC_H) $(TM_P_H) \

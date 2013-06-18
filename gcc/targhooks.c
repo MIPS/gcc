@@ -1597,7 +1597,14 @@ default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 enum machine_mode
 default_mpx_bound_mode (void)
 {
-  return VOIDmode;
+  return DImode;
+}
+
+tree
+default_builtin_mpx_function (unsigned int fcode)
+{
+  error ("Target platform does not support MPX");
+  return NULL_TREE;
 }
 
 #include "gt-targhooks.h"

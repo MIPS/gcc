@@ -204,3 +204,4 @@ extern rtx default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
 extern tree default_fn_abi_va_list_bounds_size (tree);
 extern void default_init_returned_bounds (void);
 extern enum machine_mode default_mpx_bound_mode (void);
+extern tree default_builtin_mpx_function (unsigned int);

@@ -1286,7 +1286,7 @@ DEFHOOK
 target-specific functions which implement generic MPX\n\
 builtins.",
  tree, (unsigned fcode),
- hook_tree_uint_null)
+ default_builtin_mpx_function)
 
 /* Bounds type MPX should use.  */
 DEFHOOK

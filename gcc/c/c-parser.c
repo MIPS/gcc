@@ -54,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "plugin.h"
-#include "tree-mpx.h"
 
 
 /* Initialization routine for this file.  */

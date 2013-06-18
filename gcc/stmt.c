@@ -53,7 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "params.h"
 #include "dumpfile.h"
-#include "tree-mpx.h"
 
 
 /* Functions and data structures for expanding case statements.  */
