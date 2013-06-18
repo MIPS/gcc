@@ -105,7 +105,6 @@ echo $0: You should have recently run in gcc/ of build tree: make upgrade-warmel
 
 mkdir $gccmelt_tarbase/testmelt
 
-copymelt gcc/testsuite/melt testmelt
 copymelt COPYING3
 copymelt move-if-change
 copymelt gcc/DATESTAMP GCCMELT-DATESTAMP
@@ -117,6 +116,10 @@ copymelt gcc/doc/gnu.texi
 copymelt gcc/doc/include/gpl.texi 
 copymelt gcc/doc/include/gpl_v3.texi 
 copymelt gcc/doc/include/texinfo.tex
+
+for f in gcc/testsuite/melt/* ; do
+   copymelt $f testmelt/
+done
 
 copymelt gcc/doc/melt.texi
 

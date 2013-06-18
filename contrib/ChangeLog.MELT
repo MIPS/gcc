@@ -1,6 +1,10 @@
 
 2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* make-melt-plugin-source-tar.sh: Improve copy into testmelt/ directory.
+
+2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* make-melt-plugin-source-tar.sh: Also copy gcc/testsuite/melt
 	into testmelt.
 
