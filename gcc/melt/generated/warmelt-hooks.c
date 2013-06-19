@@ -2337,8 +2337,9 @@ melthook_HOOK_OVERRIDE_GATE (melt_ptr_t melthookdata,
       {
 	/*^cond.then */
 	/*_.GATEFLAG__V4*/ meltfptr[2] =
-	/*hooknth: */
-	(((melthook_ptr_t) ( /*_._HOOKDATA___V1*/ meltfptr[0]))->tabval[6]);;
+	  /*hooknth */ MELT_HOOK_NTH_SLOT (" fromhook _HOOKDATA___V1 #0",
+					   ( /*_._HOOKDATA___V1*/
+					    meltfptr[0]), /*rank= */ (0));;
       }
     else
       {
@@ -6881,10 +6882,12 @@ melthook_HOOK_START_UNIT (melt_ptr_t melthookdata)
       (melt_ptr_t)
       meltgc_new_closure ((meltobject_ptr_t)
 			  (((melt_ptr_t) (MELT_PREDEF (DISCR_CLOSURE)))),
-			  (meltroutine_ptr_t) ( /*hooknth: */
-			  (((melthook_ptr_t)
-			    ( /*_._HOOKDATA___V1*/ meltfptr[0]))->tabval[6])),
-			  (1));
+			  (meltroutine_ptr_t) ( /*hooknth */
+					       MELT_HOOK_NTH_SLOT
+					       (" fromhook _HOOKDATA___V1 #2",
+						( /*_._HOOKDATA___V1*/
+						 meltfptr[0]), /*rank= */ 
+						(2))), (1));
     ;
     /*^putclosedv */
     /*putclosv */
@@ -6926,10 +6929,12 @@ melthook_HOOK_START_UNIT (melt_ptr_t melthookdata)
       (melt_ptr_t)
       meltgc_new_closure ((meltobject_ptr_t)
 			  (((melt_ptr_t) (MELT_PREDEF (DISCR_CLOSURE)))),
-			  (meltroutine_ptr_t) ( /*hooknth: */
-			  (((melthook_ptr_t)
-			    ( /*_._HOOKDATA___V1*/ meltfptr[0]))->tabval[7])),
-			  (1));
+			  (meltroutine_ptr_t) ( /*hooknth */
+					       MELT_HOOK_NTH_SLOT
+					       (" fromhook _HOOKDATA___V1 #3",
+						( /*_._HOOKDATA___V1*/
+						 meltfptr[0]), /*rank= */ 
+						(3))), (1));
     ;
     /*^putclosedv */
     /*putclosv */
@@ -6972,10 +6977,12 @@ melthook_HOOK_START_UNIT (melt_ptr_t melthookdata)
       (melt_ptr_t)
       meltgc_new_closure ((meltobject_ptr_t)
 			  (((melt_ptr_t) (MELT_PREDEF (DISCR_CLOSURE)))),
-			  (meltroutine_ptr_t) ( /*hooknth: */
-			  (((melthook_ptr_t)
-			    ( /*_._HOOKDATA___V1*/ meltfptr[0]))->tabval[8])),
-			  (1));
+			  (meltroutine_ptr_t) ( /*hooknth */
+					       MELT_HOOK_NTH_SLOT
+					       (" fromhook _HOOKDATA___V1 #4",
+						( /*_._HOOKDATA___V1*/
+						 meltfptr[0]), /*rank= */ 
+						(4))), (1));
     ;
     /*^putclosedv */
     /*putclosv */
@@ -7310,10 +7317,12 @@ melthook_HOOK_FINISH_UNIT (melt_ptr_t melthookdata)
       (melt_ptr_t)
       meltgc_new_closure ((meltobject_ptr_t)
 			  (((melt_ptr_t) (MELT_PREDEF (DISCR_CLOSURE)))),
-			  (meltroutine_ptr_t) ( /*hooknth: */
-			  (((melthook_ptr_t)
-			    ( /*_._HOOKDATA___V1*/ meltfptr[0]))->tabval[4])),
-			  (1));
+			  (meltroutine_ptr_t) ( /*hooknth */
+					       MELT_HOOK_NTH_SLOT
+					       (" fromhook _HOOKDATA___V1 #0",
+						( /*_._HOOKDATA___V1*/
+						 meltfptr[0]), /*rank= */ 
+						(0))), (1));
     ;
     /*^putclosedv */
     /*putclosv */
@@ -7355,10 +7364,12 @@ melthook_HOOK_FINISH_UNIT (melt_ptr_t melthookdata)
       (melt_ptr_t)
       meltgc_new_closure ((meltobject_ptr_t)
 			  (((melt_ptr_t) (MELT_PREDEF (DISCR_CLOSURE)))),
-			  (meltroutine_ptr_t) ( /*hooknth: */
-			  (((melthook_ptr_t)
-			    ( /*_._HOOKDATA___V1*/ meltfptr[0]))->tabval[5])),
-			  (1));
+			  (meltroutine_ptr_t) ( /*hooknth */
+					       MELT_HOOK_NTH_SLOT
+					       (" fromhook _HOOKDATA___V1 #1",
+						( /*_._HOOKDATA___V1*/
+						 meltfptr[0]), /*rank= */ 
+						(1))), (1));
     ;
     /*^putclosedv */
     /*putclosv */
@@ -7400,10 +7411,12 @@ melthook_HOOK_FINISH_UNIT (melt_ptr_t melthookdata)
       (melt_ptr_t)
       meltgc_new_closure ((meltobject_ptr_t)
 			  (((melt_ptr_t) (MELT_PREDEF (DISCR_CLOSURE)))),
-			  (meltroutine_ptr_t) ( /*hooknth: */
-			  (((melthook_ptr_t)
-			    ( /*_._HOOKDATA___V1*/ meltfptr[0]))->tabval[6])),
-			  (1));
+			  (meltroutine_ptr_t) ( /*hooknth */
+					       MELT_HOOK_NTH_SLOT
+					       (" fromhook _HOOKDATA___V1 #2",
+						( /*_._HOOKDATA___V1*/
+						 meltfptr[0]), /*rank= */ 
+						(2))), (1));
     ;
     /*^putclosedv */
     /*putclosv */
