@@ -2948,12 +2948,14 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
-#define DECL_BOUNDS_RTL(NODE) (DECL_WRTL_CHECK (NODE)->decl_with_rtl.bounds)
+#define DECL_BOUNDS_RTL(NODE) (mpx_get_rtl_bounds (DECL_WRTL_CHECK (NODE)))
+
+#define SET_DECL_BOUNDS_RTL(NODE, VAL) \
+  (mpx_set_rtl_bounds (DECL_WRTL_CHECK (NODE), VAL))
 
 struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
   rtx rtl;
-  rtx bounds;
 };
 
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
@@ -6603,6 +6605,8 @@ builtin_decl_implicit_p (enum built_in_function fncode)
 
 /* In tree-mpx.c.  */
 
+extern rtx mpx_get_rtl_bounds (tree node);
+extern void mpx_set_rtl_bounds (tree node, rtx val);
 extern bool mpx_register_var_initializer (tree var);
 extern void mpx_finish_file (void);
 extern tree mpx_get_registered_bounds (tree ptr);

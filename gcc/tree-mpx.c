@@ -97,6 +97,7 @@ struct pointer_set_t *mpx_completed_bounds_set;
 struct pointer_map_t *mpx_reg_bounds;
 struct pointer_map_t *mpx_reg_addr_bounds;
 struct pointer_map_t *mpx_incomplete_bounds_map;
+struct pointer_map_t *mpx_rtx_bounds;
 
 static GTY ((if_marked ("tree_vec_map_marked_p"), param_is (struct tree_vec_map)))
      htab_t mpx_abnormal_phi_copies;
@@ -685,6 +686,33 @@ mpx_type_has_pointer (tree type)
     res = mpx_type_has_pointer (TREE_TYPE (type));
 
   return res;
+}
+
+/* Get bounds rtx associated with NODE via
+   mpx_set_rtl_bounds call.  */
+rtx
+mpx_get_rtl_bounds (tree node)
+{
+  rtx *slot;
+
+  if (!mpx_rtx_bounds)
+    return NULL_RTX;
+
+  slot = (rtx *)pointer_map_contains (mpx_rtx_bounds, node);
+  return slot ? *slot : NULL_RTX;
+}
+
+/* Associate bounds rtx VAL with NODE.  */
+void
+mpx_set_rtl_bounds (tree node, rtx val)
+{
+  rtx *slot;
+
+  if (!mpx_rtx_bounds)
+    return;
+
+  slot = (rtx *)pointer_map_insert (mpx_rtx_bounds, node);
+  *slot = val;
 }
 
 /* Check if statically initialized variable VAR require
@@ -3196,6 +3224,9 @@ mpx_finish_file (void)
       htab_delete (mpx_size_decls);
       mpx_size_decls = NULL;
     }
+
+  if (mpx_rtx_bounds)
+    pointer_map_destroy (mpx_rtx_bounds);
 }
 
 /* An instrumentation function which is called for each statement
@@ -3531,6 +3562,9 @@ mpx_init (void)
   mpx_reg_bounds = pointer_map_create ();
   mpx_reg_addr_bounds = pointer_map_create ();
   mpx_incomplete_bounds_map = pointer_map_create ();
+  if (mpx_rtx_bounds)
+    pointer_map_destroy (mpx_rtx_bounds);
+  mpx_rtx_bounds = pointer_map_create ();
   mpx_abnormal_phi_copies = htab_create_ggc (31, tree_map_base_hash,
 					     tree_vec_map_eq, NULL);
 

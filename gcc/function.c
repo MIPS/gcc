@@ -3520,7 +3520,7 @@ assign_parms (tree fndecl)
 	      data.bound_parm = stack;
 	    }
 	}
-      DECL_BOUNDS_RTL (parm) = data.bound_parm;
+      SET_DECL_BOUNDS_RTL (parm, data.bound_parm);
 
       /* Record permanently how this parm was passed.  */
       if (data.passed_pointer)
@@ -4947,7 +4947,7 @@ expand_function_start (tree subr)
 	      gcc_assert (GET_CODE (hard_reg) == PARALLEL);
 	      SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
 	    }
-	  DECL_BOUNDS_RTL (DECL_RESULT (subr)) = bounds;
+	  SET_DECL_BOUNDS_RTL (DECL_RESULT (subr), bounds);
 	}
 
       /* Set DECL_REGISTER flag so that expand_function_end will copy the
