@@ -1,6 +1,13 @@
 
 2013-06-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_HOOK_NTH_SLOT, melt_ensuremsg): New macros.
+
+	* melt/warmelt-outobj.melt (outpucod_objhooknth): Use them in
+	emitted code.
+
+2013-06-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

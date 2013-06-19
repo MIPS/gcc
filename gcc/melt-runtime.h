@@ -2173,6 +2173,12 @@ melt_hook_nth  (melt_ptr_t hk, int ix)
   return NULL;
 }
 
+#define MELT_HOOK_NTH_SLOT(Msg,Hk,Rk)					\
+   (melt_ensuremsg("MELT hook nth check" Msg,				\
+		   ((Rk) >= 0						\
+		    && (Rk) < melt_hook_size((melt_ptr_t)(Hk)))),	\
+    ((melthook_ptr_t)(Hk))->tabval[(Rk)])
+
 static inline melt_ptr_t
 melt_hook_data  (melt_ptr_t hk)
 {
@@ -2656,12 +2662,15 @@ melt_check_failed (const char *msg, const char *filnam, int lineno,
 #define melt_checkmsg(MSG,EXPR)   do { if (MELT_UNLIKELY(!(EXPR))) \
       melt_check_failed ((MSG),__FILE__,__LINE__,__FUNCTION__);	   \
   } while(0)
+#define melt_ensuremsg(MSG,EXPR) (void) ((EXPR) ||  \
+					 (melt_assert_failed ((MSG),__FILE__,__LINE__,__FUNCTION__),0)) 
 #else
 /* Include EXPR, so that unused variable warnings do not occur.  */
 #define melt_assertmsg(MSG,EXPR) ((void)(0 && (MSG) && (EXPR)))
 #define melt_assert_failed(MSG,FIL,LIN,FUN) ((void)(0 && (MSG)))
 #define melt_checkmsg(MSG,EXPR) ((void)(0 && (MSG) && (EXPR)))
 #define melt_check_failed(MSG,FIL,LIN,FUN) ((void)(0 && (MSG)))
+#define melt_ensuremsg(MSG,EXPR) ((void)(0 && (MSG) && (EXPR)))
 #endif
 
 /* MELT call frames checks are quite expensive and related to MELT's
