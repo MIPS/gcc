@@ -14,8 +14,9 @@
 (defhook my6hook (:value v) () :void
   (debug "my6hook v=" v 
 	 " quo.1=" '1 
-	 " quo.x=" 'x 
-	 " :true=" :true)
+	 ;" quo.x=" 'x 
+	 ;" :true=" :true
+	 )
 )
 
 (debug "@@my6hook=" my6hook "\n")

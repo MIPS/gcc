@@ -5027,8 +5027,12 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     (output_location oloc implbuf depth "puthookconst")
     (add2out implbuf ##{/*put inside hook $HOOKNAME */}#)
     (add2sbuf_indentnl implbuf depth)
+    (add2out implbuf "melt_assertmsg(\"puthookconst checkhook " hookname "\", melt_magic_discr((melt_ptr_t)(")
+    (output_c_code ohook declbuf implbuf depth)
+    (add2out implbuf ")) == MELTOBMAG_HOOK);")
+    (add2sbuf_indentnl implbuf depth)
     (add2out implbuf 
-     "melt_assertmsg(\"puthookconst checkhook " hookname "\",")
+	     "melt_assertmsg(\"puthookconst checkhook " hookname "\",")
     (add2sbuf_indentnl implbuf (+i 10 depth))
     (add2out implbuf "(")
     (output_c_code ohoff declbuf implbuf depth)

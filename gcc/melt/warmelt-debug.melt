@@ -915,9 +915,10 @@ $TORANK}#
 		    (dbg_out comp dbgi (get_int boxdepthp1))
 		    ))
       )
-    (add2sbuf_strconst sbuf "%]")
-    (when (<i depth 3)
-      (add2sbuf_indent sbuf depth))
+    (add2sbuf_strconst sbuf " %]")
+    (if (<i depth 3)
+	(add2sbuf_indentnl sbuf depth)
+      (add2sbuf_strconst sbuf " "))
     )
   )
 

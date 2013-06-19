@@ -5037,9 +5037,9 @@ source location.}#
     (put_fields ndatahook :ndhook_data insdata)
     (put_fields nproc :nrhook_datahook ndatahook)
     (debug "normexp_defhook newenv=" newenv
-	   "\n.. oldproc=" oldproc "\n.. nproc=" nproc
-	   "\n.. ndatahook=" ndatahook "\n.. sctype=" sctype
-	   "\n.. descrhook=" descrhook "\n.. smodvar=" smodvar) 
+	   "\n.. oldproc=" oldproc "\n.. nproc=" nproc)
+    (debug "normexp_defhook ndatahook=" ndatahook "\n.. sctype=" sctype)
+    (debug "normexp_defhook descrhook=" descrhook "\n.. smodvar=" smodvar) 
     (if smodvar
 	(let ( (modvarbind (find_env env smodvar))
 	       )
@@ -5186,7 +5186,8 @@ source location.}#
        (put_fields nproc :nproc_body nseq)
        (put_fields ndatahook :ndhook_closv closvtup)
        (put_fields shobind :fixbind_data ndatahook)
-       (debug "normexp_defhook final nproc=" nproc "\n.. ndatahook=" ndatahook 
+       (debug "normexp_defhook final nproc=" nproc)
+       (debug "normexp_defhook final ndatahook=" ndatahook 
 	      "\n.. shobind=" shobind)
        ;;
        (debug "normexp_defhook result nproc=" nproc)

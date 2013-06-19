@@ -13253,6 +13253,16 @@ melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg)
   melt_dbgshortbacktrace("melt_sparebreakpoint_2", 20);
   debugeprintf ("melt_sparebreakpoint_2_at msg %s", msg);
 }
+
+/* To be called from the gdb debugger only */
+MELT_EXTERN void melt_low_debug_for_gdb(const char*msg, melt_ptr_t val);
+
+void melt_low_debug_for_gdb(const char*msg, melt_ptr_t val)
+{
+  melt_low_debug_value_at("*fromgdb*", 0, msg, val);
+}
+
+
 #endif /*ENABLE_CHECKING*/
 
 

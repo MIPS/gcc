@@ -2,6 +2,24 @@
 
 2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Unstable}}
+	* melt-runtime.c (melt_low_debug_for_gdb): New function, to be
+	called from gdb only.
+
+	* melt/warmelt-debug (dbgout_hook_method): Slightly better output.
+
+	* melt/warmelt-normal.melt (normexp_defhook): More debug.
+
+	* melt/warmelt-genobj.melt (compilobj_datahook): Only put the
+	ndhook_closv in the datahook.
+
+	* melt/warmelt-outobj.melt (outpucod_objputhookconst): Emit more
+	checks.
+
+	* testsuite/melt/thook-6.melt: Temporarily simplified by commenting.
+
+2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (add_nctx_data): More debug.
 	(normalize_tuple): Use a foreach_in_multiple loop. More debug.
 	(normexp_defhook): The closvtup was incorrectly sized. Fix that.
