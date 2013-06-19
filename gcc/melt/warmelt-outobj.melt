@@ -292,6 +292,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (cond ( (is_string hknam)
 	    (add2out implbuf "/*hooknth*/MELT_HOOK_NTH_SLOT(\" fromhook ")
 	    (add2sbuf_cencstring implbuf hknam)
+	    (if (is_integerbox off)
+		(add2out implbuf " #" off))
 	    (add2out implbuf "\", (")
 	    (output_c_code ohook declbuf implbuf depth)
 	    (add2out implbuf "), /*rank=*/(")

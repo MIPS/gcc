@@ -1,6 +1,16 @@
 
 2013-06-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (add_nctx_data): More debug.
+
+	* melt/warmelt-genobj.melt (compile2obj_hook): Change emitted
+	offset in ofetchdata.
+
+	* melt/warmelt-outobj.melt (outpucod_objhooknth): Improve emitted
+	message.
+
+2013-06-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_HOOK_NTH_SLOT, melt_ensuremsg): New macros.
 
 	* melt/warmelt-outobj.melt (outpucod_objhooknth): Use them in

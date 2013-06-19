@@ -1197,11 +1197,12 @@
 			))
 	 )
      (debug "compile2obj_hook " nhookname " empty hookrout=" hookrout 
-	    "\n nclosvtup=" nclosvtup
-	    "\n nmapdata=" nmapdata
+	    "\n nclosvtup=" nclosvtup)
+     (debug "compile2obj_hook " nhookname  " nmapdata=" nmapdata
 	    "\n resctype=" resctype "\n gcx=" gcx)
      (assert_msg "check resctype" (is_a resctype class_ctype))
      (assert_msg "check nmapdata" (is_mapobject nmapdata))
+     (debug "compile2obj_hook " nhookname " nmapdata=" nmapdata)
      (let ( (retloc (get_free_objloctyped gcx '_reshook_ resctype))
 	    (hdataloc (get_free_objloctyped gcx '_hookdata_ ctype_value))
 	    (ogetdata (make_objcompute loc ctype_value 
@@ -1297,7 +1298,7 @@
 		 (ofetchdata (instance class_objhooknth
 				       :obv_type ctype_value
 				       :ohknth_hook hdataloc
-				       :ohknth_off (constant_box (+i dix nbclosvm1)))
+				       :ohknth_off (constant_box (-i dix 1)))
 			     )
 		 )
 	    (debug "compile2obj_hook " nhookname "\n ofetchdata=" ofetchdata)
@@ -6087,8 +6088,12 @@
 		       (curndata nbix)
 		       (debug "compilobj_datahook curndata=" curndata " nbix=" nbix)
 		       (assert_msg "check nbix" (is_integerbox nbix))
-		       (multiple_put_nth ndt (-i (get_int nbix) 1) curndata)
-		       )
+		       (let ( (:long rawnbix (get_int nbix))
+			      )
+		       (assert_msg "check good rawnbix" (and (>i rawnbix 0) (<=i rawnbix nbdata)))
+		       (multiple_put_nth ndt (-i rawnbix 1) curndata)
+		       ))
+		      (debug "compilobj_datahook ndatatup=" ndt)
 		      ndt
 		      ))
 	  (ndisx (get_field :ndata_discrx ndhook))
