@@ -1,3 +1,23 @@
+/* MPX insrumentation pass.
+   Copyright (C) 2013 Free Software Foundation, Inc.
+   Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -15,6 +35,271 @@
 #include "expr.h"
 #include "output.h"
 #include "gimple-pretty-print.h"
+
+/*  MPX pass instruments code with memory checks to find out-of-bounds
+    memory accesses.  Checks are performed by computing bounds for each
+    pointer and then comparing address of accessed memory before pointer
+    dereferencing.
+
+    1. Instrumentation.
+
+    There are few things to instrument:
+
+    a) Memory accesses - add MPX calls to check address of acessed memory
+    against against bounds of dereferened pointer.  Obviously safe memory
+    accesses like static variable access does not have to be instrumented
+    with checks.
+
+    Example:
+
+      val_2 = *p_1;
+
+      with 4 byte access it is transformed into:
+
+      __builtin___mpx_bndcl (__bound_tmp.1_3, p_1);
+      D.1_4 = p_1 + 3;
+      __builtin___mpx_bndcu (__bound_tmp.1_3, D.1_4);
+      val_2 = *p_1;
+
+      where __bound_tmp.1_3 are bounds computed for pointer D.1751_5.
+
+    b) Pointer stores.
+
+    When pointer is stored in memory we need to store its bounds.  To
+    achieve compatibility of MPX instrumentated code with regular codes
+    we have to keep data layout and store bounds in special bound tables
+    via special mpx call.
+
+    Example:
+
+      buf1[i_1] = &buf2;
+
+      is transformed into:
+
+      buf1[i_1] = &buf2;
+      D.1_2 = &buf1[i_1];
+      __builtin___mpx_bndstx (D.1_2, &buf2, __bound_tmp.1_2);
+
+      where __bound_tmp.1_2 are bounds of buf1.
+
+    c) Static initialization.
+
+    The special case of pointer store is static pointer initialization.
+    Bounds initialization is perfoemd in few steps:
+      - register all static initializations in front-end using
+      mpx_register_var_initializer
+      - when file comilation finished we create functions with special
+      attribute 'mpx ctor' and put explicit initialization code
+      (assignments) for all statically initialized pointers.
+      - when MPX costructor is compiled MPX pass adds required bounds
+      initialization for all satically initilized pointers
+      - since we do not actually need excexx pointers initialization
+      in MPX constructor we remove such assignments from them
+
+    d) Calls.
+
+    For each call in the code we should add additional arguments to pass
+    bounds for pointer arguments.  In call expression each bound argument
+    goes right after pointer argument it is added for. We determine type
+    of call arguments using arguments list from function declaration; if
+    function declaration is not available we use function type; otherwise
+    (e.g. for unnamed arguments) we use type of passed value.
+
+    MPX instrumentation assumes binary compatibility with non instrumented
+    codes.  Expand pass is responsible for handling added bounds arguments
+    correctly identifying them by type.
+
+    Example:
+
+      val_1 = foo (&buf1, &buf2, &buf1, 0);
+
+      is translated into:
+
+      val_1 = foo (&buf1, __bound_tmp.1_2, &buf2, __bound_tmp.1_3, &buf1, __bound_tmp.1_2);
+
+    e) Returns.
+
+    If function returns a pointer value we have to return bounds also.
+    Bounds for returned value are computed and associated with retval in
+    MPX structures.  MPX pass exports method mpx_get_registered_bounds to
+    obtain bounds associated with decls and ssa names which is used by
+    expand pass to obtain returned bounds.
+
+    To have explicit usage of SSA_NAME corresponding to bounds of return
+    value we also add new operand to return statement.  We do not actually
+    use this operands for expand, but need it to prevent removal of bounds
+    creation as dead code by DCE.
+
+    Example:
+
+      return &_buf1;
+
+      is transformed into
+
+      return &_buf1, __bound_tmp.1_1;
+
+    2. Bounds computation.
+
+    Compiler is fully responsible for computing bounds to be used for each
+    memory access.  The first step for bounds computation is to find the
+    origin of pointer dereferenced for memory access.  Basing on pointer
+    origin we define a way to compute its bounds.  There are just few
+    possible cases:
+
+    a) Pointer is returned by call.
+
+    In this case we use corresponding MPX builtin method to obtain returned
+    bounds.
+
+    Example:
+
+      buf_1 = malloc (size_2);
+      foo (buf_1);
+
+      is translated into:
+
+      buf_1 = malloc (size_2);
+      __bound_tmp.1_3 = __builtin___mpx_bndret ();
+      foo (buf_1, __bound_tmp.1_3);
+
+    b) Pointer is an input argument.
+
+    In this case we use corresponding MPX builtin method to obtatin bounds
+    passed for the argument.
+
+    Example:
+
+      foo (int * p)
+      {
+        <unnamed type> __bound_tmp.3;
+
+	<bb 3>:
+	__bound_tmp.3_3 = __builtin___mpx_arg_bnd (p_1(D));
+
+	<bb 2>:
+	return p_1(D), __bound_tmp.3_3;
+      }
+
+    c) Pointer is an address of an object.
+
+    In this case compiler tries to compute objects size and create corresponding
+    bounds.  If object has incomplete type then special MPX builtin is used to
+    obtain its size at runtime.
+
+    Example:
+
+      foo ()
+      {
+        <unnamed type> __bound_tmp.3;
+	static int buf[100];
+
+	<bb 3>:
+	__bound_tmp.3_2 = __builtin___mpx_bndmk (&buf, 400);
+
+	<bb 2>:
+	return &buf, __bound_tmp.3_2;
+      }
+
+    Example:
+
+      Address of an object with incomplete type is returned.
+
+      foo ()
+      {
+        <unnamed type> __bound_tmp.4;
+	long unsigned int __size_tmp.3;
+
+	<bb 3>:
+	__size_tmp.3_4 = __builtin_ia32_sizeof (buf);
+	__bound_tmp.4_3 = __builtin_ia32_bndmk (&buf, __size_tmp.3_4);
+
+	<bb 2>:
+	return &buf, __bound_tmp.4_3;
+      }
+
+    d) Pointer is the result of object narrowing.
+
+    It happens when we use pointer to an object to compute pointer to a part
+    of an object.  E.g. we take pointer to a field of a structure. In this
+    case we perform bounds intersection using bounds of original object and
+    bounds of object's part (which are computed basing on its type).
+
+    There may be some debatable questions about when narrowing should occur
+    and when it sohuld not.  To avoid false bound violations in correct
+    programms we do not perform narrowing when address of an array element is
+    obtained (it has address of the whole array) and when address of the first
+    structure field is obtained (because it is guaranteed to be equal to
+    address of the whole structure and it is legal to cast it back to structure).
+
+    Default narrowing behavior may be changed using compiler flags.
+
+    Example:
+
+      In this example address of the second structure field is returned.
+
+      foo (struct A * p)
+      {
+        <unnamed type> __bound_tmp.3;
+	int * _2;
+	int * _5;
+
+	<bb 3>:
+	__bound_tmp.3_4 = __builtin___mpx_arg_bnd (p_1(D));
+
+	<bb 2>:
+	_5 = &p_1(D)->second_field;
+	__bound_tmp.3_6 = __builtin___mpx_bndmk (_5, 4);
+	__bound_tmp.3_8 = __builtin___mpx_intersect (__bound_tmp.3_6, __bound_tmp.3_4);
+	_2 = &p_1(D)->second_field;
+	return _2, __bound_tmp.3_8;
+      }
+
+    Example:
+
+      In this example address of the first field of array element is returned.
+
+      foo (struct A * p, int i)
+      {
+        <unnamed type> __bound_tmp.3;
+	long unsigned int _2;
+	long unsigned int _3;
+	struct A * _5;
+	int * _6;
+
+	<bb 3>:
+	__bound_tmp.3_8 = __builtin___mpx_arg_bnd (p_4(D));
+
+	<bb 2>:
+	_2 = (long unsigned int) i_1(D);
+	_3 = _2 * 8;
+	_5 = p_4(D) + _3;
+	_6 = &_5->first_field;
+	return _6, __bound_tmp.3_8;
+      }
+
+
+    e) Pointer is the result of pointer arithmetic or type cast.
+
+    In this case bounds of the base pointer are used.
+
+    f) Pointer is loaded from the memory.
+
+    In this case we just need to load bounds from the bounds table.
+
+    Example:
+
+      foo ()
+      {
+        <unnamed type> __bound_tmp.3;
+	static int * buf;
+	int * _2;
+
+	<bb 2>:
+	_2 = buf;
+	__bound_tmp.3_4 = __builtin___mpx_bndldx (&buf, _2);
+	return _2, __bound_tmp.3_4;
+      }
+*/
 
 typedef void (*assign_handler)(tree, tree, void *);
 
