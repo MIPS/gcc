@@ -2,6 +2,15 @@
 
 2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (add_nctx_data): More debug.
+	(normalize_tuple): Use a foreach_in_multiple loop. More debug.
+	(normexp_defhook): The closvtup was incorrectly sized. Fix that.
+	(normexp_quote): More debug.
+
+	* testsuite/melt/thook-6.melt: Better indented.
+
+2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (normal_symbol_data): More debug.
 
 2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>

@@ -973,6 +973,7 @@ routine procedures.}#
   (assert_msg "check nctx" (is_a nctx class_normalization_context))
   (assert_msg "check ndata" (is_a ndata class_nrep_bound_data))
   (assert_msg "fresh ndata" (null (unsafe_get_field :ndata_rank ndata)))
+  (shortbacktrace_dbg "add_nctx_data" 16)
   (let ( (datlis (unsafe_get_field :nctx_datalist nctx)) 
 	 (ncurproc (unsafe_get_field :nctx_curproc nctx))
 	 )
@@ -986,7 +987,7 @@ routine procedures.}#
 	 )
 	(let ( (datamap (get_field :nrhook_mapdata ncurproc))
 	       )
-	  (debug "add_nctx_data datamap=" datamap "\n.. in ncurproc=" ncurproc)
+	  (debug "add_nctx_data hookdatamap=" datamap "\n.. in ncurproc=" ncurproc)
 	  (when datamap
 	    (assert_msg "check datamap" (is_mapobject datamap))
 	    (when (null (mapobject_get datamap ndata))
@@ -994,6 +995,7 @@ routine procedures.}#
 	      (shortbacktrace_dbg "add_nctx_data hooking" 11)
 	      (debug "add_nctx_data updated datamap=" datamap "\n.. with ndata=" ndata)
 	      ))))
+    (debug "add_nctx_data datlis=" datlis)
     (assert_msg "check datlis" (is_list datlis))
     (let ( (lastdat (pair_head (list_last datlis)))  )
       (if (is_a lastdat class_nrep_bound_data)
@@ -1006,6 +1008,7 @@ routine procedures.}#
 	  (unsafe_put_fields ndata :ndata_rank rkbox1)
 	  )))
     (list_append datlis ndata)
+    (debug "add_nctx_data updated datlis=" datlis "\n result ndata=" ndata)
     ndata
     ))
 
@@ -1369,71 +1372,74 @@ routine procedures.}#
 ;;; normalize a tuple - returning a tuple & a bindinglist
 (defun normalize_tuple (tup env ncx psloc)
   (debug "normalize_tuple start tup=" tup " psloc=" psloc)
-  (shortbacktrace_dbg "normalize_tuple" 8)
+  (shortbacktrace_dbg "normalize_tuple" 12)
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
   (if (null tup) (return () ()))
   (assert_msg "check tup" (is_multiple tup))
   (let ( (bindlist (make_list discr_list)) 
-	 (res (multiple_map
-	       tup 
-	       (lambda (comp :long ix)
-		 (debug "normalize_tuple/lambda comp=" comp "\n ix=" ix)
-		 (multicall 
-		  (norcomp nbinds)
-		  (normal_exp comp env ncx psloc)
-		  (debug "normalize_tuple/lambda norcomp=" norcomp 
-			 "\n of discrim=" (discrim norcomp)
-			 "\n* nbinds=" nbinds 
-			 "\n* for comp=" comp 
-			 "\n ix=" ix)
-		  (assert_msg "check nbinds" (is_list_or_null nbinds))
-		  ;; Shameful dirty hack for module variables; notably for
-		  ;; application, we need to put them into a local
-		  ;; binding, because meltgc_apply is passing argument
-		  ;; by references, and melt_module_var_fetch returns
-		  ;; a pointer value, not a reference. 
-		  (if (is_a norcomp class_nrep_modulevarocc)
-		      (let ( (nvarbind (unsafe_get_field :nmodvar_bind norcomp))
-			     )
-			(debug "normalize_tuple/lambda modulevarocc norcomp=" norcomp " ix#" ix)
-			(if (null nbinds) 
-			    (setq nbinds (make_list discr_list)))
-			(assert_msg "check nvarbind" (is_a nvarbind class_normal_module_variable_binding))
-			(let ( (nvbinder (get_field :binder nvarbind))
-			       (clonsym (clone_symbol nvbinder))
-			       (clonbind (instance class_normal_let_binding
-						:letbind_loc ()
-						:binder clonsym
-						:letbind_type ctype_value
-						:letbind_expr norcomp))
-			       (clonocc (instance class_nrep_locsymocc
-						  :nrep_loc ()
-						  :nocc_ctyp ctype_value
-						  :nocc_symb clonsym
-						  :nocc_bind clonbind))
-			       )
-			  (list_append nbinds clonbind)
-			  (setq norcomp clonocc)
-		      )))
-		  ;;
-		  (assert_msg "check norcomp not class_nrep_expression" 
-			      (is_not_a norcomp class_nrep_expression))
-		  (if (is_list nbinds)
-		      (foreach_in_list 
-		       (nbinds)
-		       (curpair bnd)
-		       (assert_msg "check bnd" (is_a bnd class_any_binding))
-		       (assert_msg "check bindlist" (is_list bindlist))
-		       (list_append bindlist bnd)
-		       )
-		    )
-		  norcomp
-		  ))))
+	 (:long tuplen (multiple_length tup))
+	 (res (make_multiple discr_multiple tuplen))
 	 )
+    (foreach_in_multiple
+     (tup)
+     (comp :long ix)
+     (debug "normalize_tuple comp=" comp "\n ix=" ix)
+     (multicall 
+      (norcomp nbinds)
+      (normal_exp comp env ncx psloc)
+      (debug "normalize_tuple norcomp=" norcomp 
+	     "\n of discrim=" (discrim norcomp)
+	     "\n* nbinds=" nbinds 
+	     "\n* for comp=" comp 
+	     "\n ix=" ix)
+      (assert_msg "check nbinds" (is_list_or_null nbinds))
+      ;; Shameful dirty hack for module variables; notably for
+      ;; application, we need to put them into a local
+      ;; binding, because meltgc_apply is passing argument
+      ;; by references, and melt_module_var_fetch returns
+      ;; a pointer value, not a reference. 
+      (if (is_a norcomp class_nrep_modulevarocc)
+	  (let ( (nvarbind (unsafe_get_field :nmodvar_bind norcomp))
+		 )
+	    (debug "normalize_tuple modulevarocc norcomp=" norcomp " ix#" ix)
+	    (if (null nbinds) 
+		(setq nbinds (make_list discr_list)))
+	    (assert_msg "check nvarbind" (is_a nvarbind class_normal_module_variable_binding))
+	    (let ( (nvbinder (get_field :binder nvarbind))
+		   (clonsym (clone_symbol nvbinder))
+		   (clonbind (instance class_normal_let_binding
+				       :letbind_loc ()
+				       :binder clonsym
+				       :letbind_type ctype_value
+				       :letbind_expr norcomp))
+		   (clonocc (instance class_nrep_locsymocc
+				      :nrep_loc ()
+				      :nocc_ctyp ctype_value
+				      :nocc_symb clonsym
+				      :nocc_bind clonbind))
+		   )
+	      (list_append nbinds clonbind)
+	      (setq norcomp clonocc)
+	      )))
+      ;;
+      (assert_msg "check norcomp not class_nrep_expression" 
+		  (is_not_a norcomp class_nrep_expression))
+      (if (is_list nbinds)
+	  (foreach_in_list 
+	   (nbinds)
+	   (curpair bnd)
+	   (assert_msg "check bnd" (is_a bnd class_any_binding))
+	   (assert_msg "check bindlist" (is_list bindlist))
+	   (list_append bindlist bnd)
+	   )
+	)
+      (debug "normalize_tuple ix#" ix " norcomp=" norcomp)
+      (multiple_put_nth res ix norcomp)
+      ))
     (if (not (is_pair (list_first bindlist)))
 	(setq bindlist ()))
-    (debug "normalize_tuple res=" res " bindlist=" bindlist)
+    (debug "normalize_tuple final res=" res "\n.. bindlist=" bindlist)
     (return res bindlist)
     ))
 
@@ -5147,7 +5153,7 @@ source location.}#
 	    (:long nbclosbind (list_length closbindlist))
 	    (:long nbconst (list_length constlist))
 	    (:long ix 0)
-	    (closvtup (make_multiple discr_multiple (+i nbclosbind nbclosbind)))
+	    (closvtup (make_multiple discr_multiple (+i nbclosbind nbconst)))
 	    )
        (debug "normexp_defhook nbclosbind#" nbclosbind " nbconst#" nbconst)
        ;;
@@ -6474,6 +6480,8 @@ source location.}#
     ))
 
 
+
+
 ;;;;;; normalize a QUOTE-d symbol, string or integer
 
 (defun normexp_quote (recv env ncx psloc)
@@ -6481,29 +6489,34 @@ source location.}#
   (assert_msg "check quote recv" (is_a recv class_source_quote))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (shortbacktrace_dbg "normexp_quote" 10)
+  (shortbacktrace_dbg "normexp_quote" 16)
   (let ( (sloc   (unsafe_get_field :loca_location recv))
 	 (quoted (unsafe_get_field :squoted recv)) 
 	 (curproc (unsafe_get_field :nctx_curproc ncx))
 	 (ndata 
 	  (cond
 	   ( (== (discrim quoted) class_symbol)
+	     (debug "normexp_quote symbol quoted=" quoted)
 	     (normal_symbol_data quoted ncx psloc))
 	   ( (is_integerbox quoted)
+	     (debug "normexp_quote integer quoted=" quoted)
 	     (let (
 		   (nintdata (instance class_nrep_databoxedinteger
 				       :ndata_discrx (normal_predef discr_constant_integer ncx sloc "discr_constant_integer") 
 				       :nboxint_num quoted))
 		   )
+	       (debug "normexp_quote nintdata=" nintdata)
 	       (add_nctx_data ncx nintdata)
 	       nintdata
 	       ))
 	   ( (is_string quoted)
+	     (debug "normexp_quote string quoted=" quoted)
 	     (let ( (nstrdata 
 		     (instance class_nrep_datastring
 			       :ndata_discrx (normal_predef discr_string ncx sloc "discr_string") 
 			       :nstr_string quoted))
 		    )
+	       (debug "normexp_quote nstrdata=" nstrdata)
 	       (add_nctx_data ncx nstrdata)
 	       nstrdata))
 	   (:else
@@ -6514,7 +6527,7 @@ source location.}#
 	   ))
 	 )
     (debug "normexp_quote ndata=" ndata "\n.. curproc=" curproc)
-    (if (is_a curproc class_nrep_routproc)
+    (if (is_a curproc class_nrep_closproc)
 	(let ( 
 	      (nconst (instance class_nrep_constant
 				:nrep_loc sloc
