@@ -1,3 +1,8 @@
+2013-06-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cilk.c (cilk_output_metadata): Make alignment number to be 32.
+	(output_zca_table): Hard-coded the size of IP to be 8.
+
 2013-05-08  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c/c-array-notation.c (fix_builtin_array_notation_fn): Added a check
