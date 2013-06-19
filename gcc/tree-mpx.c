@@ -113,7 +113,20 @@ static GTY ((if_marked ("tree_map_marked_p"),
 #define MPX_ZERO_BOUNDS_VAR_NAME "__mpx_zero_bounds"
 #define MPX_NONE_BOUNDS_VAR_NAME "__mpx_none_bounds"
 
-#define MAX_STMTS_IN_STATIC_MPX_CTOR 300
+/* Static MPX constructors may become very large and their
+   compilation with optimization may take too much time.
+   Therefore we put a limit to number of statements in one
+   MOPX construcor. Tests with 100 000 statically initialized
+   pointers showed following compilation times on Sandy Bridge
+   server (used -O2):
+   limit    100 => ~18 sec.
+   limit    300 => ~22 sec.
+   limit   1000 => ~30 sec.
+   limit   3000 => ~49 sec.
+   limit   5000 => ~55 sec.
+   limit  10000 => ~76 sec.
+   limit 100000 => ~532 sec.  */
+#define MAX_STMTS_IN_STATIC_MPX_CTOR (optimize > 0 ? 5000 : 100000)
 
 struct mpx_ctor_stmt_list
 {
