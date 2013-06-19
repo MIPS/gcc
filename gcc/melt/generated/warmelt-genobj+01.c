@@ -41,7 +41,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] =
 
 /**** no MELT module variables ****/
 
-/*** 4 MELT called hook declarations ***/
+/*** 3 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t
@@ -65,13 +65,7 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
 					       melt_ptr_t meltinp1_VAL,
 					       melt_ptr_t meltinp2_CONTENV);
 
-/*declare MELT called hook #3 HOOK_VALUE_EXPORTER **/
-MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata,
-					       melt_ptr_t meltinp0_SYM,
-					       melt_ptr_t meltinp1_VAL,
-					       melt_ptr_t meltinp2_CONTENV);
-
-/*** end of 4 MELT called hook declarations ***/
+/*** end of 3 MELT called hook declarations ***/
 
 /*** no extra MELT c-headers ***/
 
@@ -4572,7 +4566,7 @@ meltlab_endgetargs:;
       static long meltlab_count_1;
       meltlab_count_1++;
       debugeprintf
-	("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/18478fe8. *CLASS_OBJLABELINSTR/d46b49f. %ld",
+	("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/17402119. *CLASS_OBJLABELINSTR/311e70e1. %ld",
 	 meltlab_count_1);
 #endif
 
@@ -4620,7 +4614,7 @@ meltlab_endgetargs:;
       static long meltlab_count_2;
       meltlab_count_2++;
       debugeprintf
-	("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/10fb9bcf. *CLASS_OBJLABELINSTR/2d338481. %ld",
+	("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/140a0693. *CLASS_OBJLABELINSTR/f543397. %ld",
 	 meltlab_count_2);
 #endif
 
@@ -4665,7 +4659,7 @@ meltlab_endgetargs:;
       static long meltlab_count_3;
       meltlab_count_3++;
       debugeprintf
-	("objlabel_3 mtch1_*CLASS_NORMTESTER_INSTANCE/32fd563e. *CLASS_OBJLABELINSTR/3b70d470. %ld",
+	("objlabel_3 mtch1_*CLASS_NORMTESTER_INSTANCE/c2a627c. *CLASS_OBJLABELINSTR/1686a743. %ld",
 	 meltlab_count_3);
 #endif
 
@@ -4730,7 +4724,7 @@ meltlab_endgetargs:;
       static long meltlab_count_4;
       meltlab_count_4++;
       debugeprintf
-	("objlabel_4 mtch1_*CLASS_NORMTESTER_MATCHER/28172cff. *CLASS_OBJLABELINSTR/2d0d1b71. %ld",
+	("objlabel_4 mtch1_*CLASS_NORMTESTER_MATCHER/9328f88. *CLASS_OBJLABELINSTR/162e94dc. %ld",
 	 meltlab_count_4);
 #endif
 
@@ -4787,7 +4781,7 @@ meltlab_endgetargs:;
       static long meltlab_count_5;
       meltlab_count_5++;
       debugeprintf
-	("objlabel_5 mtch1_*CLASS_NORMTESTER_SUCCESS/aba8ae6. *CLASS_OBJLABELINSTR/ee8a612. %ld",
+	("objlabel_5 mtch1_*CLASS_NORMTESTER_SUCCESS/39020b. *CLASS_OBJLABELINSTR/3072bdb0. %ld",
 	 meltlab_count_5);
 #endif
 
@@ -4943,7 +4937,7 @@ meltlab_endgetargs:;
       static long meltlab_count_6;
       meltlab_count_6++;
       debugeprintf
-	("objlabel_6 mtch1_*CLASS_NORMTESTER_INSTANCE/3d2fda42. *CLASS_OBJLABELINSTR/29d6fffd. %ld",
+	("objlabel_6 mtch1_*CLASS_NORMTESTER_INSTANCE/4b16bf2. *CLASS_OBJLABELINSTR/d50046e. %ld",
 	 meltlab_count_6);
 #endif
 
@@ -4997,7 +4991,7 @@ meltlab_endgetargs:;
       static long meltlab_count_7;
       meltlab_count_7++;
       debugeprintf
-	("objlabel_7 mtch1_*CLASS_NORMTESTER_SUCCESS/4eca41a. *CLASS_OBJLABELINSTR/3f19888b. %ld",
+	("objlabel_7 mtch1_*CLASS_NORMTESTER_SUCCESS/2c2d4dac. *CLASS_OBJLABELINSTR/33e67ff7. %ld",
 	 meltlab_count_7);
 #endif
 
@@ -5133,7 +5127,7 @@ meltlab_endgetargs:;
       static long meltlab_count_8;
       meltlab_count_8++;
       debugeprintf
-	("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/333ac7e9. *CLASS_OBJLABELINSTR/301f11ad. %ld",
+	("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/1c01784d. *CLASS_OBJLABELINSTR/2a6d04c5. %ld",
 	 meltlab_count_8);
 #endif
 
@@ -5339,7 +5333,7 @@ meltlab_endgetargs:;
       static long meltlab_count_9;
       meltlab_count_9++;
       debugeprintf
-	("objlabel_9 mtch1__end_h1023052328 *CLASS_OBJLABELINSTR/3cfa8a28. %ld",
+	("objlabel_9 mtch1__end_h663314588 *CLASS_OBJLABELINSTR/2789609c. %ld",
 	 meltlab_count_9);
 #endif
 
@@ -20428,8 +20422,7 @@ rence for ";
 		  /*^apply.arg */
 		  argtab[5].meltbp_cstring =
 		    " should have no parent\",\n\t\t\t\t     modargp_ == NULL) ;\
-\n\t\t \
-     ";
+\n\t\t      ";
 		  /*_.OCHECKNOPAR__V143*/ meltfptr[118] =
 		    melt_apply ((meltclosure_ptr_t)
 				(( /*!MAKE_OBJCOMPUTE */ meltfrout->
