@@ -4039,7 +4039,8 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    && !(cleared || num_nonzero_elements == 0)
 	    && !TREE_ADDRESSABLE (type)
 	    && (!current_function_decl
-		|| !DECL_MPX_STATIC_INIT (current_function_decl)))
+		|| !lookup_attribute ("mpx ctor",
+				      DECL_ATTRIBUTES (current_function_decl))))
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;

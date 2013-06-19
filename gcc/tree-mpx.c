@@ -3429,7 +3429,7 @@ mpx_instrument_function (void)
   basic_block bb, next;
   gimple_stmt_iterator i;
   enum gimple_rhs_class grhs_class;
-  bool safe = DECL_MPX_STATIC_INIT (cfun->decl);
+  bool safe = lookup_attribute ("mpx ctor", DECL_ATTRIBUTES (cfun->decl));
 
   bb = ENTRY_BLOCK_PTR ->next_bb;
   do
@@ -3488,7 +3488,7 @@ mpx_instrument_function (void)
 
 	  /* We do not need any statements in MPX static initializer except
 	     created in MPX pass.  */
-	  if (DECL_MPX_STATIC_INIT (cfun->decl)
+	  if (lookup_attribute ("mpx ctor", DECL_ATTRIBUTES (cfun->decl))
 	      && gimple_code (s) == GIMPLE_ASSIGN)
 	    {
 	      gimple_stmt_iterator del_iter = gsi_for_stmt (s);
@@ -3546,7 +3546,6 @@ mpx_fini (void)
 static unsigned int
 mpx_execute (void)
 {
-  /* FIXME: check we need to instrument this function */
   mpx_init ();
 
   mpx_instrument_function ();
