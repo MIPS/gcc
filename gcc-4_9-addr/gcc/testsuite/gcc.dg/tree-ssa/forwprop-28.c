@@ -1,4 +1,4 @@
-/* { dg-do compile } */
+/* { dg-do compile { target { ! "m68k*-*-* mmix*-*-* mep*-*-* bfin*-*-* v850*-*-* picochip*-*-* moxie*-*-* cris*-*-* m32c*-*-* fr30*-*-* mcore*-*-* powerpc*-*-* xtensa*-*-*"} } } */
 /* { dg-options "-O2 -fdump-tree-forwprop1" } */
 
 extern char *frob (void);
@@ -74,3 +74,5 @@ test_8 (int code)
 }
 
 /* { dg-final { scan-tree-dump-times "Replaced" 8 "forwprop1"} } */
+/* { dg-final { cleanup-tree-dump "forwprop1" } } */
+

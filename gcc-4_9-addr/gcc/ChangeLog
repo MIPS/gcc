@@ -1,3 +1,90 @@
+2013-06-20  Oleg Endo <oleg.endo@t-online.de>
+	    Jason Merrill  <jason@redhat.com>
+
+	* system.h: Include <cstdlib> as well as <stdlib.h>.
+
+2013-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57655
+	* config/i386/i386.c (construct_container): Report error if
+	long double is used with disabled x87 float returns.
+
+2013-06-20  Jan Hubicka  <jh@suse.cz>
+
+	* lto-cgraph.c (input_symtab): Do not set cgraph state.
+
+2013-06-20  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/57425
+	PR rtl-optimization/57569
+	* alias.c (write_dependence_p): Remove parameters mem_mode and
+	canon_mem_addr.  Add parameters x_mode, x_addr and x_canonicalized.
+	Changed all callers.
+	(canon_anti_dependence): Get comments and semantics in sync.
+	Add parameter mem_canonicalized.  Changed all callers.
+	* rtl.h (canon_anti_dependence): Update prototype.
+
+2013-06-20  Richard Biener  <rguenther@suse.de>
+
+	* data-streamer-in.c (streamer_read_uhwi): Optimize single
+	byte case, inline streamer_read_uchar and defer section
+	overrun check.
+
+2013-06-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57584
+	* tree-ssa-loop-niter.c (expand_simple_operations): Avoid including
+	SSA names into the expanded expression that take part in
+	abnormal coalescing.
+
+2013-06-19    <singhai@google.com>
+
+	* gcov.c (print_usage): Handle new option.
+	(process_args): Ditto.
+	(get_gcov_intermediate_filename): New function.
+	(output_intermediate_file): New function.
+	(output_gcov_file): New function
+	(generate_results): Handle new option.
+	(release_function): Relase demangled name.
+	(read_graph_file): Handle demangled name.
+	(output_lines): Ditto.
+	* doc/gcov.texi: Document gcov intermediate format.
+
+2013-06-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/57604
+	* lra.c (emit_add3_insn, emit_add2_insn): New functions.
+	(lra_emit_add): Use the functions.  Add comment about Y as an
+	address segment.
+
+2013-06-19  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR driver/57652
+	* collect2.c (collect_atexit): New.
+	(collect_exit): Delete.
+	(main): Register collect_atexit with atexit.
+	(collect_wait): Change collect_exit to exit.
+	(do_wait): Same.
+	* collect2.h (collect_exit): Delete.
+	* tlink.c (do_tlink): Rename exit to ret. Change collect_exit to exit.
+
+2013-06-19  Wei Mi  <wmi@google.com>
+
+	PR rtl-optimization/57518
+	* ira.c (set_paradoxical_subreg): Set pdx_subregs[regno]
+	if regno is used in paradoxical subreg.
+	(update_equiv_regs): Check pdx_subregs[regno] before
+	set a reg to be equivalent with a mem.
+
+2013-06-19  Matthias Klose  <doko@ubuntu.com>
+
+	PR driver/57651
+	* file-find.h (find_a_file): Add a mode parameter.
+	* file-find.c (find_a_file): Likewise.
+	* gcc-ar.c (main): Call find_a_file with R_OK for the plugin,
+	with X_OK for the executables.
+	* collect2.c (main): Call find_a_file with X_OK.
+
 2013-06-19  Steve Ellcey  <sellcey@mips.com>
 
 	PR target/56942
