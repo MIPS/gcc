@@ -3044,6 +3044,32 @@ typedef struct melthook_st *melthook_ptr_t;
   #{melt_error_counter}#)
 
 
+(defprimitive melt_predefined_by_name (:cstring nam) :value
+  :doc #{Retrieve the predefined by a constant name string $NAM}#
+  #{/* melt_predefined_by_name */ melt_fetch_predefined
+        (melt_predefined_index_by_name ($NAM))}#)
+
+
+(defun melt_predefined_get (namv)
+  :doc #{Retrieve the predefined by a name value $NAMV. Use with caution, because some predefined are really internal.}#
+  (cond ( (is_string namv)
+	  (expr_chunk predefstr_chk :value #{ /*melt_predefined_get $PREDEFSTR_CHK */
+		     melt_fetch_predefined (melt_predefined_index_by_name (melt_string_str ((melt_ptr_t)($NAMV)))) }#))
+	( (is_a namv class_named)
+	  (let ( (namstr (get_field :named_name namv))
+		 )
+	  (expr_chunk predefnam_chk :value #{ /*melt_predefined_get $PREDEFNAM_CHK */
+		     melt_fetch_predefined (melt_predefined_index_by_name (melt_string_str ((melt_ptr_t)($NAMSTR)))) }#)
+	  ))
+	( (is_integerbox namv)
+	  (let ( (:long num (get_int namv))
+		 )
+	  (expr_chunk predefnam_chk :value #{ /*melt_predefined_get $PREDEFNAM_CHK */
+		     melt_fetch_predefined ($NUM) }#)))
+	(:else
+	 ())))
+
+
 (defun symbol_cname (sy) 
   :doc #{Give the cname of a symbol, keyword or else NULL}#
   (cond ( (is_a sy class_cloned_symbol)
@@ -3208,6 +3234,8 @@ typedef struct melthook_st *melthook_ptr_t;
  melt_increment_dbgcounter
  melt_is_bootstrapping
  melt_mode_reference
+ melt_predefined_by_name
+ melt_predefined_get
  melt_version_str
  melt_make_fresh_environment_reference
  message_dbg

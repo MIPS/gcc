@@ -3,6 +3,24 @@
 2013-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Unstable}}
+	* make-melt-predefh.awk: Emit MELT_HAS_PREDEFINED macro calls...
+
+	* melt-predef.list: Change eof comment.
+
+	* melt-runtime.h (enum melt_globalix_en): Use MELT_HAS_PREDEFINED.
+	(melt_predefined_index_by_name): Declare new function.
+
+	* melt-runtime.c (melt_predefined_index_by_name): Define new function.
+
+	* melt/warmelt-base.melt (melt_predefined_by_name, melt_predefined_get): New.
+
+	* melt/warmelt-hooks.melt (hook_exit_finalizer): Add debug.
+
+	* testsuite/melt/thook-6.melt: Improve.
+
+2013-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Unstable}}
 	* melt/warmelt-genobj.melt (compile2obj_hook): Don't really use
 	the nmapdata, but for each closed value, fetch it..
 

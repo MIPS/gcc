@@ -623,6 +623,7 @@ enum melt_globalix_en
 {
   MELTGLOB__NONE,
   /************************* wired predefined */
+#define MELT_HAS_PREDEFINED(Pred,Index) MELTGLOB_##Pred = Index,
 #include "melt-predef.h"
   /**************************** placeholder for last wired */
   MELTGLOB__LASTWIRED,
@@ -636,6 +637,8 @@ enum melt_globalix_en
 };
 #define BGLOB__LASTGLOB MELTGLOB__LASTGLOB
 
+/* get the predefined index by its name */
+MELT_EXTERN int melt_predefined_index_by_name(const char*);
 
 /* access or set a predefined */
 static inline melt_ptr_t melt_fetch_predefined(int);

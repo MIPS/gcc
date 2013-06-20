@@ -10,12 +10,15 @@
     -fmelt-debug meltbuild-empty-file.c
 |#
 
+(definstance my6ref class_reference)
 
 (defhook my6hook (:value v) () :void
   (debug "my6hook v=" v 
 	 " quo.1=" '1 
-	 ;" quo.x=" 'x 
-	 ;" :true=" :true
+	 " claroot=" class_root
+	 " my6ref=" my6ref
+	 " quo.x=" 'x 
+	 " :true=" :true
 	 )
 )
 

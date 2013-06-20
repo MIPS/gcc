@@ -2200,6 +2200,7 @@ attribute definition, in last place.}#
 ;;; exit hook 
 (defhook hook_exit_finalizer () () :void
   :predef HOOK_EXIT_FINALIZER
+  (debug "hook_exit_finalizer final_exit_delayed_queue=" final_exit_delayed_queue)
   (let ( (firstlist (get_field :delqu_first final_exit_delayed_queue))
 	 (lastlist (get_field :delqu_last final_exit_delayed_queue))
 	 (revlastlist (make_list discr_list))

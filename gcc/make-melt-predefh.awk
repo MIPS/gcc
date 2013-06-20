@@ -20,20 +20,29 @@
 # <http://www.gnu.org/licenses/>.
 BEGIN {
     predefcount = 0;
-    print "/* generated file melt-predef.h -- DO NOT EDIT */"
-    print "/* generated from melt-predef.list by make-melt-predefh.awk */"
+    print "/* generated file melt-predef.h -- DO NOT EDIT */";
+    print "/* generated from melt-predef.list by make-melt-predefh.awk */";
+    print "#ifndef MELT_HAS_PREDEFINED"
+    print "#error should define MELT_HAS_PREDEFINED before including melt-predef.h";
+    print "#endif /*MELT_HAS_PREDEFINED*/\n";
 }
 
 # Remove comment and blank lines.
-/^ *#/ || /^ *$/ {
-  next;
+/^#/ {
+    next;
+}
+/^ *$/ {
+    next;
 }
 
-{
+
+/^ *[A-Z_0-9]*/ {
     predefcount++;
-    printf("  MELTGLOB_%s=%d,\n", $1, predefcount);
+    printf("  MELT_HAS_PREDEFINED(%s,%d)\n", $1, predefcount);
 }
 
 END {
+    print;
+    print "#undef MELT_HAS_PREDEFINED";
     printf("/* end of generated file melt-predef.h for %d predefined */\n", predefcount);
 }

@@ -8519,6 +8519,16 @@ melt_attribute_callback (void *gcc_data ATTRIBUTE_UNUSED,
   register_attribute(&melt_attr_spec);
 }
 
+
+int 
+melt_predefined_index_by_name (const char* pname)
+{
+  if (!pname || !pname[0]) return 0;
+#define MELT_HAS_PREDEFINED(Nam,Ix) if (!strcasecmp (pname, #Nam)) return Ix;
+#include "melt-predef.h"
+  return 0;
+}
+
 /* We declare weak functions because they cannot be linked when we use lto (it
    loses langage specific informations).
    If you use one of those functions you must check them to be not NULL.
