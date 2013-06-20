@@ -30043,6 +30043,233 @@ emit_fusion_gpr_load (rtx addis_reg, rtx addis_value, rtx target, rtx mem)
 }
 
 
+/* Return the number of instructions it takes to do a single boolean
+   instruction (and, or, xor, andc, orc, eqv, nand), taking into account
+   whether we need to split the insns to handle separate sub-registers.  If we
+   have pseudo registers, return the length for splitting GPRs, since that
+   splits into the most instructions.  */
+
+int
+rs6000_num_insns_logical (rtx operands[3])
+{
+  rtx op0 = operands[0];
+  enum machine_mode mode = GET_MODE (op0);
+  HOST_WIDE_INT r = REGNO (op0);
+
+  if (r >= FIRST_PSEUDO_REGISTER)
+    r = FIRST_GPR_REGNO;
+
+  return rs6000_hard_regno_nregs[(int)mode][r];
+}
+
+/* Helper function for rs6000_split_logical to emit a logical instruction after
+   spliting the operation to single GPR registers.
+
+   DEST is the destination register.
+   OP1 and OP2 are the input source registers.
+   CODE is the base operation (AND, IOR, XOR, NOT).
+   MODE is the machine mode.
+   If COMPLEMENT_FINAL_P is true, wrap the whole operation with NOT.
+   If COMPLEMENT_OP1_P is true, wrap operand1 with NOT.
+   If COMPLEMENT_OP2_P is true, wrap operand2 with NOT.
+   CLOBBER_REG is either NULL or a scratch register of type CC to allow
+   formation of the AND instructions.  */
+
+static void
+rs6000_split_logical_inner (rtx dest,
+			    rtx op1,
+			    rtx op2,
+			    enum rtx_code code,
+			    enum machine_mode mode,
+			    bool complement_final_p,
+			    bool complement_op1_p,
+			    bool complement_op2_p,
+			    rtx clobber_reg)
+{
+  rtx bool_rtx;
+  rtx set_rtx;
+
+  /* Optimize AND of 0/0xffffffff and IOR/XOR of 0.  */
+  if (op2 && GET_CODE (op2) == CONST_INT && !complement_final_p
+      && !complement_op1_p && !complement_op2_p)
+    {
+      HOST_WIDE_INT value = INTVAL (op2);
+      HOST_WIDE_INT hi = (value & ~(HOST_WIDE_INT)0xffff);
+      HOST_WIDE_INT lo = value & 0xffff;
+
+      /* Optimize AND of 0 to just set 0.  */
+      if (code == AND && hi == 0 && lo == 0)
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, dest, const0_rtx));
+	  return;
+	}
+
+      /* AND of -1 and IOR/XOR of 0 is a simple move.  Skipping doing moves to
+	 the same register.  */
+      if ((code == AND && hi == 0xffff && lo == 0xffff)
+	  || ((code == IOR || code == XOR) && hi == 0 && lo == 0))
+	{
+	  if (REGNO (dest) != REGNO (op1))
+	    emit_insn (gen_rtx_SET (VOIDmode, dest, op1));
+	  return;
+	}
+
+      if ((code == IOR || code == XOR) && !logical_const_operand (op2, mode))
+	{
+	  rs6000_split_logical_inner (dest, op1, GEN_INT (hi), code, mode,
+				      false, false, false, NULL_RTX);
+
+	  rs6000_split_logical_inner (dest, dest, GEN_INT (lo), code, mode,
+				      false, false, false, NULL_RTX);
+	  return;
+	}
+    }
+
+  if (complement_op1_p)
+    op1 = gen_rtx_NOT (mode, op1);
+
+  if (complement_op2_p)
+    op2 = gen_rtx_NOT (mode, op2);
+
+  bool_rtx = ((code == NOT)
+	      ? gen_rtx_NOT (mode, op1)
+	      : gen_rtx_fmt_ee (code, mode, op1, op2));
+
+  if (complement_final_p)
+    bool_rtx = gen_rtx_NOT (mode, bool_rtx);
+
+  set_rtx = gen_rtx_SET (VOIDmode, dest, bool_rtx);
+
+  /* Is this AND with an explicit clobber?  */
+  if (clobber_reg)
+    {
+      rtx clobber = gen_rtx_CLOBBER (VOIDmode, clobber_reg);
+      set_rtx = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set_rtx, clobber));
+    }
+
+  emit_insn (set_rtx);
+}
+
+/* Split the insns that make up boolean operations operating on multiple GPR
+   registers.  The boolean MD patterns ensure that the inputs either are
+   exactly the same as the output registers, or there is no overlap.
+
+   OPERANDS is an array containing the destination and two input operands.
+   CODE is the base operation (AND, IOR, XOR, NOT).
+   MODE is the machine mode.
+   If COMPLEMENT_FINAL_P is true, wrap the whole operation with NOT.
+   If COMPLEMENT_OP1_P is true, wrap operand1 with NOT.
+   If COMPLEMENT_OP2_P is true, wrap operand2 with NOT.
+   CLOBBER_REG is either NULL or a scratch register of type CC to allow
+   formation of the AND instructions.  */
+
+void
+rs6000_split_logical (rtx operands[3],
+		      enum rtx_code code,
+		      bool complement_final_p,
+		      bool complement_op1_p,
+		      bool complement_op2_p,
+		      rtx clobber_reg)
+{
+  rtx op0 = operands[0];
+  rtx op1 = operands[1];
+  rtx op2 = (code == NOT) ? NULL_RTX : operands[2];
+  enum machine_mode mode = GET_MODE (op0);
+  enum machine_mode sub_mode = (TARGET_POWERPC64) ? DImode : SImode;
+  int sub_size = GET_MODE_SIZE (sub_mode);
+  int regno0 = REGNO (op0);
+  int regno1 = REGNO (op1);
+  int offset = 0;
+  int nregs, i;
+
+  gcc_assert (reload_completed);
+  gcc_assert (IN_RANGE (regno0, FIRST_GPR_REGNO, LAST_GPR_REGNO));
+  gcc_assert (IN_RANGE (regno1, FIRST_GPR_REGNO, LAST_GPR_REGNO));
+
+  nregs = rs6000_hard_regno_nregs[(int)mode][regno0];
+  gcc_assert (nregs > 1);
+
+  if (op2 && REG_P (op2))
+    {
+      int regno2 = REGNO (op2);
+
+      gcc_assert (IN_RANGE (regno2, FIRST_GPR_REGNO, LAST_GPR_REGNO));
+    }
+
+  for (i = 0; i < nregs; i++)
+    {
+      rtx sub_op0 = simplify_subreg (sub_mode, op0, mode, offset);
+      rtx sub_op1 = simplify_subreg (sub_mode, op1, mode, offset);
+      rtx sub_op2 = ((code == NOT)
+		     ? NULL_RTX
+		     : simplify_subreg (sub_mode, op2, mode, offset));
+
+      /* If this is AND of a constant, we might need to load the constant in
+	 the output operand before doing the instruction.  */
+      if (code == AND && mode == DImode && GET_CODE (sub_op2) == CONST_INT
+	  && !complement_final_p && !complement_op1_p && !complement_op2_p
+	  && !and_operand (sub_op2, SImode)
+	  && sub_op2 != constm1_rtx && INTVAL (sub_op2) != 0xffffffff
+	  && REGNO (sub_op0) != REGNO (sub_op1))
+	{
+	  HOST_WIDE_INT value = INTVAL (sub_op2);
+	  HOST_WIDE_INT hi = (value & ~(HOST_WIDE_INT)0xffff);
+	  HOST_WIDE_INT lo = value & 0xffff;
+
+	  emit_insn (gen_rtx_SET (VOIDmode, sub_op0, GEN_INT (hi)));
+	  rs6000_split_logical_inner (sub_op0, sub_op0, GEN_INT (lo), IOR,
+				      sub_mode, false, false, false,
+				      NULL_RTX);
+	  rs6000_split_logical_inner (sub_op0, sub_op1, sub_op0, AND,
+				      sub_mode, false, false, false,
+				      clobber_reg);
+	}
+      else
+	rs6000_split_logical_inner (sub_op0, sub_op1, sub_op2, code, sub_mode,
+				    complement_final_p, complement_op1_p,
+				    complement_op2_p, clobber_reg);
+      offset += sub_size;
+    }
+
+  return;
+}
+
+/* Split a DImode AND/IOR/XOR with a constant on a 32-bit system.  Unlike the
+   normal DI logical operations involving 2 input registers, we split these
+   operations early to allow for more optimizations of the AND/IOR/XOR.  */
+
+void
+rs6000_split_logical_di_constant (rtx operands[3], enum rtx_code code)
+{
+  rtx hi_op0 = gen_highpart_mode (SImode, DImode, operands[0]);
+  rtx hi_op1 = gen_highpart_mode (SImode, DImode, operands[1]);
+  rtx hi_op2 = gen_highpart_mode (SImode, DImode, operands[2]);
+  rtx lo_op0 = gen_lowpart (SImode, operands[0]);
+  rtx lo_op1 = gen_lowpart (SImode, operands[1]);
+  rtx lo_op2 = gen_lowpart (SImode, operands[2]);
+  rtx clobber_reg;
+
+  if (code == AND)
+    {
+      clobber_reg = gen_rtx_SCRATCH (CCmode);
+
+      if (!and_operand (hi_op2, SImode))
+	hi_op2 = force_reg (SImode, hi_op2);
+
+      if (!and_operand (lo_op2, SImode))
+	lo_op2 = force_reg (SImode, lo_op2);
+    }
+  else
+    clobber_reg = NULL_RTX;
+
+  rs6000_split_logical_inner (hi_op0, hi_op1, hi_op0, code, SImode, false,
+			      false, false, clobber_reg);
+
+  rs6000_split_logical_inner (lo_op0, lo_op1, lo_op0, code, SImode, false,
+			      false, false, clobber_reg);
+}
+
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-rs6000.h"

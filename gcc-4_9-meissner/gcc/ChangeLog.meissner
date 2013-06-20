@@ -1,3 +1,114 @@
+2013-06-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (xor<mode>3): Rework 128-bit boolean
+	support, move expanders to rs6000.md.
+	(ior<mode>3): Likewise.
+	(and<mode>3): Likewise.
+	(one_cmpl<mode>2): Likewise.
+	(nor<mode>3): Likewise.
+	(andc<mode>3): Likewise.
+	(eqv<mode>3): Likewise.
+	(nand<mode>3): Likewise.
+	(orc<mode>3): Likewise.
+
+	* config/rs6000/predicates.md (logical64_operand): New predicate
+	to recognize register or 64-bit integer constant.
+	(and64_operand): New predicate for 64-bit AND on 32-bit system.
+
+	* config/rs6000/rs6000-protos.h (rs6000_num_insns_logical): New
+	declaration.
+	(rs6000_split_logical_di_constant): Likewise.
+	(rs6000_split_logical): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_num_insns_logical): Return the
+	number of instructions it takes to do a boolean operation on a
+	wide type.
+	(rs6000_split_logical_inner): New functions.  Support handling and
+	splitting logical instructions that take more than 1 instruction.
+	(rs6000_split_logical): Likewise.
+	(rs6000_split_logical_di_constant): Likewise.
+
+	* config/rs6000/vsx.md (vsx_and<mode>3_32bit): Delete all boolean
+	insns in vsx.md, move code to rs6000.md.  Combine 32/64-bit insns
+	and add splitting to 32-bit registers.  Use boolean_operand and
+	boolean_or_operator like the GPR instructions use.
+	(vsx_and<mode>3_64bit): Likewise.
+	(vsx_ior<mode>3_32bit): Likewise.
+	(vsx_ior<mode>3_64bit): Likewise.
+	(vsx_xor<mode>3_32bit): Likewise.
+	(vsx_xor<mode>3_64bit): Likewise.
+	(vsx_one_cmpl<mode>3_32bit): Likewise.
+	(vsx_one_cmpl<mode>3_64bit): Likewise.
+	(vsx_nor<mode>3_32bit): Likewise.
+	(vsx_nor<mode>3_64bit): Likewise.
+	(vsx_andc<mode>3_32bit): Likewise.
+	(vsx_andc<mode>3_64bit): Likewise.
+	(vsx_eqv<mode>3_32bit): Likewise.
+	(vsx_eqv<mode>3_64bit): Likewise.
+	(vsx_nand<mode>3_32bit): Likewise.
+	(vsx_nand<mode>3_64bit): Likewise.
+	(vsx_orc<mode>3_32bit): Likewise.
+	(vsx_orc<mode>3_64bit): Likewise.
+
+	* config/rs6000/rs6000.h (VLOGICAL_REGNO_P): Always allow GPRs.
+
+	* config/rs6000/altivec.md (altivec_and<mode>3): Delete all
+	boolean insns in altivec.md, move code to rs6000.md.  Add support
+	for doing boolean operations on vectors if they live in the GPRS.
+	Use boolean_operand and boolean_or_operator like the GPR
+	instructions use.
+	(altivec_ior<mode>3): Likewise.
+	(altivec_xor<mode>3): Likewise.
+	(altivec_one_cmpl<mode>3): Likewise.
+	(altivec_nor<mode>3): Likewise.
+	(altivec_andc<mode>3): Likewise.
+
+	* config/rs6000/rs6000.md (BOOL): New mode iterators and mode
+	attributes to allow forming and combining multi-word boolean
+	operations.
+	(BOOL_SPLIT): Likewise.
+	(BOOL_128): Likewise.
+	(BOOL_REGS_OUTPUT): Likewise.
+	(BOOL_REGS_OP1): Likewise.
+	(BOOL_REGS_OP2): Likewise.
+	(BOOL_REGS_UNARY): Likewise.
+	(BOOL_REGS_AND_CR0): Likewise.
+	(BOOL_PRED): Likewise.
+	(BOOL_AND): Likewise.
+	(BOOL_IOR_XOR): Likewise.
+	(BOOL_TYPE): Likewise.
+	(one_coml<mode>2): Combine boolean instruction generators between
+	SI/DI/TImode and vector types, moving code here from vector.md,
+	vsx.md, and altivec.md.  Split wide boolean operations as needed
+	if a wide operation is done in GPRs.  Provide DImode versions of
+	the boolean instructions on 32-bit, which are split after reload.
+	Allow TImode logial operations in 32-bit.
+	(and<mode>3): Likewise.
+	(ior<mode>3): Likewise.
+	(xor<mode>3): Likewise.
+	(nor<mode>3): Likewise.
+	(andc<mode>3): Likewise.
+	(eqv<mode>3): Likewise.
+	(nand<mode>3): Likewise.
+	(orc<mode>3): Likewise.
+	(and<mode>3_wide): Likewise.
+	(bool<mode>3_wide): Likewise.
+	(boolc<mode>3_wide): Likewise.
+	(boolcc<mode>3_wide): Likewise.
+	(eqv<mode>3_wide): Likewise.
+	(wide boolean instruction splitters): Likewise.
+	(one_cmplsi2): Delete generators of boolean operations for a
+	single type in favor of using mode iterators to create the
+	generators.
+	(andsi3): Likewise.
+	(iorsi3): Likewise.
+	(xorsi3): Likewise.
+	(anddi3): Likewise.
+	(iordi3): Likewise.
+	(xordi3): Likewise.
+	(anddi3_split): Split wide boolean types as needed into their
+	component instructions.
+
 2013-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 200109.

@@ -1,3 +1,8 @@
+2013-06-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/bool2.c: New test to test splitting of wide
+	logical types.
+
 2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 200027.

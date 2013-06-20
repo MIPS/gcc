@@ -140,6 +140,10 @@ extern rtx rs6000_address_for_fpconvert (rtx);
 extern rtx rs6000_address_for_altivec (rtx);
 extern rtx rs6000_allocate_stack_temp (enum machine_mode, bool, bool);
 extern int rs6000_loop_align (rtx);
+extern int rs6000_num_insns_logical (rtx []);
+extern void rs6000_split_logical_di_constant (rtx [], enum rtx_code);
+extern void rs6000_split_logical (rtx [], enum rtx_code, bool, bool, bool,
+				  rtx);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE

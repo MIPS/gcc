@@ -747,6 +747,21 @@
        (and (not (match_operand 0 "logical_operand"))
 	    (match_operand 0 "reg_or_logical_cint_operand"))))
 
+
+;; Return 1 if the operand is a register or constant that can be used for
+;; 64-bit OR/XOR.
+(define_predicate "logical64_operand"
+  (match_code "reg,const_int")
+{
+  if (TARGET_POWERPC64 || mode != DImode)
+    return reg_or_logical_cint_operand (op, mode);
+
+  if (REG_P (op))
+    return int_reg_operand (op, mode);
+
+  return 1;
+})
+
 ;; Return 1 if op is a constant that can be encoded in a 32-bit mask,
 ;; suitable for use with rlwinm (no more than two 1->0 or 0->1
 ;; transitions).  Reject all ones and all zeros, since these should have
@@ -905,6 +920,13 @@
             (if_then_else (match_test "fixed_regs[CR0_REGNO]")
 	      (match_operand 0 "gpc_reg_operand")
 	      (match_operand 0 "logical_operand")))))
+
+;; Return 1 if the operand can be used as the operand of a 64-bit AND
+;; instruction in either 32-bit or 64-bit mode.
+(define_predicate "and64_operand"
+  (if_then_else (match_test "TARGET_POWERPC64")
+		(match_operand 0 "and64_2_operand")
+		(match_operand 0 "logical64_operand")))
 
 ;; Return 1 if the operand is either a logical operand or a short cint operand.
 (define_predicate "scc_eq_operand"

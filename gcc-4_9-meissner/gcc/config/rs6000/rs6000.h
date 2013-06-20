@@ -1125,14 +1125,11 @@ extern unsigned rs6000_pointer_size;
 #define VINT_REGNO_P(N) ALTIVEC_REGNO_P (N)
 
 /* Alternate name for any vector register supporting logical operations, no
-   matter which instruction set(s) are available.  For 64-bit mode, we also
-   allow logical operations in the GPRS.  This is to allow atomic quad word
-   builtins not to need the VSX registers for lqarx/stqcx.  It also helps with
-   __int128_t arguments that are passed in GPRs.  */
+   matter which instruction set(s) are available.  */
 #define VLOGICAL_REGNO_P(N)						\
-  (ALTIVEC_REGNO_P (N)							\
-   || (TARGET_VSX && FP_REGNO_P (N))					\
-   || (TARGET_VSX && TARGET_POWERPC64 && INT_REGNO_P (N)))
+  (INT_REGNO_P (N)							\
+   || (TARGET_ALTIVEC && ALTIVEC_REGNO_P (N))				\
+   || (TARGET_VSX && FP_REGNO_P (N)))
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.  */
