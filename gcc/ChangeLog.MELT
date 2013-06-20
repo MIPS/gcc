@@ -1,4 +1,61 @@
 
+2013-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Regenerated -with manual copy- and unstable and brittle}}
+	* melt/generated/warmelt-base+01.c: Regenerate and copy manually.
+	* melt/generated/warmelt-base+02.c: Regenerate and copy manually.
+	* melt/generated/warmelt-base+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-base+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-base.c: Regenerate and copy manually.
+	* melt/generated/warmelt-debug+01.c: Regenerate and copy manually.
+	* melt/generated/warmelt-debug+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-debug+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-debug.c: Regenerate and copy manually.
+	* melt/generated/warmelt-first+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-first+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-first.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+01.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+02.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+03.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+04.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+05.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+06.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+07.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-genobj.c: Regenerate and copy manually.
+	* melt/generated/warmelt-hooks+02.c: Regenerate and copy manually.
+	* melt/generated/warmelt-hooks+03.c: Regenerate and copy manually.
+	* melt/generated/warmelt-hooks+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-hooks+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-hooks.c: Regenerate and copy manually.
+	* melt/generated/warmelt-macro+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-macro+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-macro.c: Regenerate and copy manually.
+	* melt/generated/warmelt-modes+01.c: Regenerate and copy manually.
+	* melt/generated/warmelt-modes+02.c: Regenerate and copy manually.
+	* melt/generated/warmelt-modes+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-modes+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-modes.c: Regenerate and copy manually.
+	* melt/generated/warmelt-normal+02.c: Regenerate and copy manually.
+	* melt/generated/warmelt-normal+04.c: Regenerate and copy manually.
+	* melt/generated/warmelt-normal+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-normal+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-normal.c: Regenerate and copy manually.
+	* melt/generated/warmelt-normatch+05.c: Regenerate and copy manually.
+	* melt/generated/warmelt-normatch+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-normatch+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-normatch.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+01.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+02.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+03.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+04.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+05.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+06.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+07.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+meltdesc.c: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj+melttime.h: Regenerate and copy manually.
+	* melt/generated/warmelt-outobj.c: Regenerate and copy manually.
 
 2013-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
