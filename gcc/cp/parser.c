@@ -2210,8 +2210,6 @@ static void cp_parser_label_declaration
 
 /* Concept Extensions */
 
-static tree cp_parser_requires_clause
-  (cp_parser *);
 static tree cp_parser_requires_clause_opt
   (cp_parser *);
 
@@ -2418,52 +2416,21 @@ static cp_declarator * cp_parser_make_indirect_declarator
  (enum tree_code, tree, cp_cv_quals, cp_declarator *, tree);
 
 
-// A helper type for declaring rule pointers.
-typedef tree (*cp_rule)(cp_parser *);
-
 
 // -------------------------------------------------------------------------- //
-// Optional Parsing
+// Unevaluated Operand Guard
 //
-// The following functions will optionally parse a rule if the corresponding
-// criteria is satisfied. If not, the parser returns NULL indicating that
-// the optional parse taken.
-//
-// Note that an optional parse returning error_mark_node means that the
-// optional parse was taken, but failed due to some error in the following
-// token stream. 
-
-// Optionally parse RULE if the next token type matches TYPE.
-template<typename Rule>
-static inline tree
-cp_parser_optional_if_token (cp_parser *parser, Rule rule, cpp_ttype type)
+// Implementation of an RAII helper for unevaluated operand parsing.
+cp_unevaluated::cp_unevaluated ()
 {
-  if (cp_lexer_next_token_is (parser->lexer, type))
-    return rule (parser);
-  else
-    return NULL_TREE;
+  ++cp_unevaluated_operand;
+  ++c_inhibit_evaluation_warnings;
 }
 
-// Optionally parse RULE if the next token type does not match TYPE.
-template<typename Rule>
-static inline tree
-cp_parser_optional_if_not_token (cp_parser *parser, Rule rule, cpp_ttype type)
+cp_unevaluated::~cp_unevaluated ()
 {
-  if (cp_lexer_next_token_is_not (parser->lexer, type))
-    return rule (parser);
-  else
-    return NULL_TREE;
-}
-
-// Optionally parse RULE if the next token is the keyword KW.
-template<typename Rule>
-static inline tree
-cp_parser_optional_if_keyword (cp_parser *parser, Rule rule, rid kw)
-{
-  if (cp_lexer_next_token_is_keyword (parser->lexer, kw))
-    return rule (parser);
-  else
-    return NULL_TREE;
+  --c_inhibit_evaluation_warnings;
+  --cp_unevaluated_operand;
 }
 
 // -------------------------------------------------------------------------- //
@@ -12815,16 +12782,17 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	cp_parser_template_parameter_list (parser);
 	/* Look for the `>'.  */
 	cp_parser_require (parser, CPP_GREATER, RT_GREATER);
-	
+
+
         // If template requirements are present, parse them.
-        if (flag_concepts)
+          if (flag_concepts)
           {
             tree reqs = release (current_template_reqs);
             if (tree r = cp_parser_requires_clause_opt (parser))
               reqs = conjoin_requirements (reqs, r);
             current_template_reqs = finish_template_requirements (reqs);
           }
-
+	
         /* Look for the `class' keyword.  */
 	cp_parser_require_keyword (parser, RID_CLASS, RT_CLASS);
         /* If the next token is an ellipsis, we have a template
@@ -19885,11 +19853,11 @@ cp_parser_member_declaration (cp_parser* parser)
 
               // If we're looking at a function declaration, then a requires
               // clause may follow the declaration.
-              tree saved_template_reqs = current_template_reqs;
-              if (flag_concepts 
-                  && function_declarator_p (declarator)
-                  && cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
+              tree saved_template_reqs = release (current_template_reqs);
+              if (flag_concepts && function_declarator_p (declarator))
                 {
+                  // Because this is a non-template member, there are no
+                  // template requirements to conjoin.
                   if (tree r = cp_parser_requires_clause_opt (parser))
                     current_template_reqs = finish_template_requirements (r);
                 }
@@ -21423,37 +21391,25 @@ cp_parser_label_declaration (cp_parser* parser)
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 }
 
-// Parse a requires clause:
+// Optionally parse a requires clause:
 //
 //   requires-clause:
 //     'requires' constant-expression
 //
 // The constant expression is a logical-or-expression.
 static tree
-cp_parser_requires_clause (cp_parser *parser)
+cp_parser_requires_clause_opt (cp_parser *parser)
 {
-  gcc_assert (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES));
+  if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
+    return NULL_TREE;
   cp_lexer_consume_token (parser->lexer);
 
   // Parse a logical-or-expression as a constant expression.
   tree expr = 
     cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
-  if (!potential_rvalue_constant_expression (expr))
-    {
-      require_potential_rvalue_constant_expression (expr);
-      return error_mark_node;
-    }
+  if (!require_potential_rvalue_constant_expression (expr))
+    return error_mark_node;
   return expr;
-}
-
-// Parse an optional template requirement, returning NULL_TREE if no
-// 'requires' clause is found. The template requirement is required to
-// be a constant expression.
-static tree
-cp_parser_requires_clause_opt (cp_parser* parser)
-{
-  cp_rule p = cp_parser_requires_clause;
-  return cp_parser_optional_if_keyword (parser, p, RID_REQUIRES);
 }
 
 /* Support Functions */

@@ -42,9 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "bitmap.h"
 
-#include <algorithm>
 #include <list>
-  
+
 namespace {
 
 // Helper algorithms 
@@ -74,43 +73,79 @@ struct term_list : std::list<tree>
   term_list (const term_list &x);
   term_list& operator= (const term_list &x);
 
-  iterator cur;
+  tree       current_term ()       { return *current; }
+  const_tree current_term () const { return *current; }
+
+
+  void insert (tree t);
+  tree erase ();
+
+  void start ();
+  void next ();
+  bool done() const;
+
+  iterator current;
 };
 
 inline
 term_list::term_list ()
-  : std::list<tree> (), cur (end ())
+  : std::list<tree> (), current (end ())
 { }
 
 inline
 term_list::term_list (const term_list &x)
-  : std::list<tree> (x), cur (::next_by_distance (begin (), x.begin (), x.cur))
+  : std::list<tree> (x)
+  , current (next_by_distance (begin (), x.begin (), x.current))
 { }
 
 inline term_list&
 term_list::operator= (const term_list &x)
 {
   std::list<tree>::operator=(x);
-  cur = next_by_distance (begin (), x.begin (), x.cur);
+  current = next_by_distance (begin (), x.begin (), x.current);
   return *this;
 }
 
-// Insert the term t into the list at the current position, making
+// Insert the term T into the list before the current position, making
 // this term current.
 inline void
-insert_term (term_list& l, tree t)
+term_list::insert (tree t)
 {
-  l.cur = l.insert (l.cur, t);
+  current = std::list<tree>::insert (current, t);
 }
 
-// Remove the current term form the list, repositioning the current
-// position at the next term in the list.
+// Remove the current term form the list, repositioning to the term
+// following the removed term. Note that the new position could be past 
+// the end of the list.
+//
+// The removed term is returned.
 inline tree
-remove_term (term_list& l)
+term_list::erase ()
 {
-  tree t = *l.cur;
-  l.cur = l.erase (l.cur);
+  tree t = *current;
+  current = std::list<tree>::erase (current);
   return t;
+}
+
+// Initialize the current term to the first in the list.
+inline void
+term_list::start ()
+{
+  current = begin ();
+}
+
+// Advance to the next term in the list.
+inline void
+term_list::next ()
+{
+  ++current;
+}
+
+// Returns true when the current position is past the end.
+inline bool
+term_list::done () const
+{
+  return current == end ();
 }
 
 
@@ -122,23 +157,9 @@ remove_term (term_list& l)
 // constraint language (i.e., lists of trees).
 struct proof_goal
 {
-  term_list as; // Assumptions
-  term_list cs; // Conclusions   
+  term_list assumptions;
+  term_list conclusions;
 };
-
-// Return the list of assumed terms for the goal g.
-inline term_list &
-assumptions (proof_goal &g) { return g.as; }
-
-inline const term_list &
-assumptions (const proof_goal &g) { return g.as; }
-
-// Return the list of concluded terms for the goal g.
-inline term_list &
-conclusions (proof_goal &g) { return g.cs; }
-
-inline const term_list &
-conclusions (const proof_goal &g) { return g.cs; }
 
 
 // -------------------------------------------------------------------------- //
@@ -151,145 +172,26 @@ struct proof_state : std::list<proof_goal>
 {
   proof_state ();
 
-  iterator cur;
+  iterator branch (iterator i);
 };
 
-// Initialize the state with a single empty goal, and set
-// that goal as the current subgoal.
+// An alias for proof state iterators.
+typedef proof_state::iterator goal_iterator;
+
+// Initialize the state with a single empty goal, and set that goal as the
+// current subgoal.
 inline
 proof_state::proof_state ()
-  : std::list<proof_goal> (1), cur (begin ())
+  : std::list<proof_goal> (1)
 { }
 
 
-// Return the current goal. Provided for notational symmetry
-inline proof_goal &
-current_goal (proof_state &s) { return *s.cur; }
-
-inline const proof_goal &
-current_goal (const proof_state &s) { return *s.cur; }
-
-// Return the current list of assumed terms.
-inline term_list &
-assumptions (proof_state &s) { return assumptions (current_goal (s)); }
-
-inline const term_list &
-assumptions (const proof_state &s) { return assumptions (current_goal (s)); }
-
-// Return the current list of concluded terms.
-inline term_list &
-conclusions (proof_state &s) { return conclusions (current_goal (s)); }
-
-inline const term_list &
-conclusions (const proof_state &s) { return conclusions (current_goal (s)); }
-
-// Return the current assumption.
-inline tree
-assumption (const proof_state &s) { return *assumptions (s).cur; }
-
-// Return the current conclision.
-inline tree
-conclusion (const proof_state &s) { return *conclusions (s).cur; }
-
-// Move to the next goal.
-inline void
-next_goal (proof_state &s) { ++s.cur; }
-
-// Move to the next assumption.
-inline void
-next_assumption (proof_state &s) { ++assumptions (s).cur; }
-
-// Move to the next conclusion.
-inline void
-next_conclusion (proof_state &s) { ++conclusions (s).cur; }
-
-
-// -------------------------------------------------------------------------- //
-// Term List Manipulation
-//
-// The following functions are used to manage the insertation and removal
-// goals and terms in the proof state.
-
-// Assume the term e in the current goal. The current assumption is set to the
-// new term.
-inline void
-assume_term (proof_goal &g, tree e) { insert_term (assumptions (g), e); }
-
-inline void 
-assume_term (proof_state &s, tree e) { assume_term (current_goal (s), e); }
-
-// Forget the current assumption, removing it from the context of the current
-// goal. Returns the forgotten assumption.
-inline tree
-forget_term (proof_goal &g) { return remove_term (assumptions (g)); }
-
-inline tree
-forget_term (proof_state &s) { return forget_term (current_goal (s)); }
-
-// Conclude the term e in the current goal. The current conclusion is set to 
-// the new term.
-inline void
-conclude_term (proof_goal &g, tree e) { insert_term (conclusions (g), e); }
-
-inline void
-conclude_term (proof_state &s, tree e) { conclude_term (current_goal (s), e); }
-
-// Ignore the current conclusion, removing it from the conclusions
-// of the current goal. Returns the ignored conclusion.
-inline tree
-ignore_term (proof_goal &g) { return remove_term (conclusions (g)); }
-
-inline tree
-ignore_term (proof_state &s) { return ignore_term (current_goal (s)); }
-
 // Branch the current goal by creating a new subgoal, returning a reference to
-// the new objet. This does not update the current goal.
-inline proof_goal &
-branch_goal (proof_state &s)
+// the new object. This does not update the current goal.
+inline proof_state::iterator
+proof_state::branch (iterator i)
 {
-  proof_state::iterator p = s.cur;
-  p = s.insert (++p, *s.cur);
-  return *p;
-}
-
-
-// -------------------------------------------------------------------------- //
-// Debugging
-//
-// Helper functions for debugging the proof state.
-
-void
-debug (term_list &l)
-{
-  term_list::iterator i = l.begin ();
-  term_list::iterator last = --l.end ();
-  term_list::iterator end = l.end ();
-  for ( ; i != end; ++i)
-    {
-      debug (*i);
-      if (i != last)
-        fprintf (stderr, " ");
-    }
-}
-
-void
-debug (proof_goal &g)
-{
-  debug (g.as);
-  fprintf (stderr, " |- ");
-  debug (g.cs);
-}
-
-void
-debug (proof_state& s)
-{
-  proof_state::iterator i = s.begin ();
-  proof_state::iterator end = s.end ();
-  for ( ; i != end; ++i)
-    {
-      debug (*i);
-      fprintf (stderr, "\n");
-    }
+  return insert (++i, *i);
 }
 
 
@@ -299,64 +201,83 @@ debug (proof_state& s)
 // These functions modify the current state and goal by decomposing
 // logical expressions using the logical rules of sequent calculus for
 // first order logic.
-
-
-// And left logical rule.
-inline void 
-and_left (proof_state &s)
-{
-  gcc_assert (TREE_CODE (assumption (s)) == TRUTH_ANDIF_EXPR);
-  tree t = forget_term (s);
-  assume_term (s, TREE_OPERAND (t, 1));
-  assume_term (s, TREE_OPERAND (t, 0));
-}
-
-// And right logical rule.
-inline void
-and_right (proof_state &s)
-{
-  gcc_assert (TREE_CODE (conclusion (s)) == TRUTH_ANDIF_EXPR);
-  tree t = ignore_term (s);
-  conclude_term (branch_goal (s), TREE_OPERAND (t, 1));
-  conclude_term (current_goal (s), TREE_OPERAND (t, 0));
-}
-
-// Or left logical rule.
-inline void
-or_left (proof_state& s)
-{
-  gcc_assert (TREE_CODE (assumption (s)) == TRUTH_ORIF_EXPR);
-  tree t = forget_term (s);
-  assume_term (branch_goal (s), TREE_OPERAND (t, 1));
-  assume_term (current_goal (s), TREE_OPERAND (t, 0));
-}
-
-// Or right logical rule.
-inline void
-or_right (proof_state &s)
-{
-  gcc_assert (TREE_CODE (conclusion (s)) == TRUTH_ORIF_EXPR);
-  tree t = ignore_term (s);
-  conclude_term (s, TREE_OPERAND (t, 1));
-  conclude_term (s, TREE_OPERAND (t, 0));
-}
-
-
-// -------------------------------------------------------------------------- //
-// Algorithms
 //
-// Generic algorithms for querying or manipulating a proof state.
+// Note that in each decomposition rule, the term T has been erased
+// from term list before the specific rule is applied.
 
-// Apply fn for each goal and returns fn. The current goal is set prior to
-// calling fn.
-template<typename F>
-  inline F
-  for_each_goal (proof_state &s, F fn)
-  {
-    for (s.cur = s.begin (); s.cur != s.end (); ++s.cur)
-      fn (s);
-    return fn;
-  }
+// Left-and logical rule.
+//
+//  Gamma, P, Q |- Delta
+//  -------------------------
+//  Gamma, P and Q |- Delta
+inline void 
+left_and (proof_state &, goal_iterator i, tree t)
+{
+  gcc_assert (TREE_CODE (t) == TRUTH_ANDIF_EXPR);
+  
+  // Insert the operands into the current branch. Note that the
+  // final order of insertion is left-to-right.
+  term_list &l = i->assumptions;
+  l.insert (TREE_OPERAND (t, 1));
+  l.insert (TREE_OPERAND (t, 0));
+}
+
+// Left-or logical rule.
+//
+//  Gamma, P |- Delta    Gamma, Q |- Delta
+//  -----------------------------------------
+//  Gamma, P or Q |- Delta
+inline void
+left_or (proof_state &s, goal_iterator i, tree t)
+{
+  gcc_assert (TREE_CODE (t) == TRUTH_ORIF_EXPR);
+
+  // Branch the current subgoal.
+  goal_iterator j = s.branch (i);
+  term_list &l1 = i->assumptions;
+  term_list &l2 = j->assumptions;
+
+  // Insert operands into the different branches.
+  l1.insert (TREE_OPERAND (t, 0));
+  l2.insert (TREE_OPERAND (t, 1));
+}
+
+// Right-and logical rule.
+//
+//  Gamma |- P, Delta    Gamma |- Q, Delta
+//  -----------------------------------------
+//  Gamma |- P and Q, Delta
+inline void
+right_and (proof_state &s, goal_iterator i, tree t)
+{
+  gcc_assert (TREE_CODE (t) == TRUTH_ORIF_EXPR);
+
+  // Branch the current subgoal.
+  goal_iterator j = s.branch (i);
+  term_list &l1 = i->conclusions;
+  term_list &l2 = j->conclusions;
+
+  // Insert operands into the different branches.
+  l1.insert (TREE_OPERAND (t, 0));
+  l2.insert (TREE_OPERAND (t, 1));
+}
+
+// Right-or logical rule.
+//
+//  Gamma |- P, Q, Delta
+//  ------------------------
+//  Gamma |- P or Q, Delta
+inline void
+right_or (proof_state &, goal_iterator i, tree t)
+{
+  gcc_assert (TREE_CODE (t) == TRUTH_ANDIF_EXPR);
+  
+  // Insert the operands into the current branch. Note that the
+  // final order of insertion is left-to-right.
+  term_list &l = i->conclusions;
+  l.insert (TREE_OPERAND (t, 1));
+  l.insert (TREE_OPERAND (t, 0));
+}
 
 
 // -------------------------------------------------------------------------- //
@@ -375,60 +296,40 @@ template<typename F>
 // subgoal that can be further decomposed.
 
 void
-decompose_left_term (proof_state &s)
+decompose_left_term (proof_state &s, goal_iterator i)
 {
-  tree e = assumption (s);
-  if (TREE_CODE (e) == TRUTH_ANDIF_EXPR)
-    and_left (s);
-  else if (TREE_CODE (e) == TRUTH_ORIF_EXPR)
-    or_left (s);
-  else
-    next_assumption (s);
+  term_list &l = i->assumptions;
+  tree t = l.current_term ();
+  switch (TREE_CODE (t))
+    {
+    case TRUTH_ANDIF_EXPR:
+      left_and (s, i, l.erase ());
+      break;
+    case TRUTH_ORIF_EXPR:
+      left_or (s, i, l.erase ());
+      break;
+    default:
+      l.next ();
+      break;
+    }
 }
 
 void 
-decompose_left_goal (proof_state &s)
+decompose_left_goal (proof_state &s, goal_iterator i)
 {
-  term_list& l = assumptions (s);
-  for (l.cur = l.begin (); l.cur != l.end (); )
-    decompose_left_term (s);
+  term_list& l = i->assumptions;
+  l.start ();
+  while (!l.done ())
+    decompose_left_term (s, i);
 }
 
 inline void
 decompose_left (proof_state& s)
 {
-  for_each_goal (s, decompose_left_goal);
-}
-
-// Right decomposition.
-// Continually decompose conclusions until there are no terms in any
-// subgoal that can be further decomposed.
-
-void
-decompose_right_term (proof_state &s)
-{
-  tree e = conclusion (s);
-  if (TREE_CODE (e) == TRUTH_ANDIF_EXPR)
-    and_right (s);
-  else if (TREE_CODE (e) == TRUTH_ORIF_EXPR)
-    or_right (s);
-  else
-    next_conclusion (s);
-}
-
-void
-decompose_right_goal (proof_state &s)
-{
-  term_list& l = conclusions (s);
-  for (l.cur = l.begin (); l.cur != l.end (); )
-    decompose_right_term (s);
-}
-
-
-inline void
-decompose_right (proof_state& s)
-{
-  for_each_goal (s, decompose_right_goal);
+  goal_iterator iter = s.begin ();
+  goal_iterator end = s.end ();
+  for ( ; iter != end; ++iter)
+    decompose_left_goal (s, iter);
 }
 
 
@@ -436,74 +337,49 @@ decompose_right (proof_state& s)
 // Term Extraction
 //
 // Extract a list of term lists from a proof state, and return it as a
-// a tree (a vetor of vectors).
+// a tree (a vector of vectors).
 
 // Returns a vector of terms from the given term list.
 tree
 extract_terms (term_list& l)
 {
   tree result = make_tree_vec (l.size());
-  term_list::iterator i = l.begin();
-  term_list::iterator e = l.end();
-  for (int n = 0; i != e; ++i, ++n)
-    TREE_VEC_ELT (result, n) = *i;
+  term_list::iterator iter = l.begin();
+  term_list::iterator end = l.end();
+  for (int n = 0; iter != end; ++iter, ++n)
+    TREE_VEC_ELT (result, n) = *iter;
   return result;
 }
-
-// Extract a vector of term vectors from s. The selected set of terms is given
-// by the projection function proj. This is generally either assumptions or
-// conclusions.
-template<typename F>
-  tree
-  extract_goals (proof_state& s, F proj)
-  {
-    tree result = make_tree_vec (s.size ());
-    proof_state::iterator i = s.begin ();
-    proof_state::iterator e = s.end ();
-    for (int n = 0; i != e; ++i, ++n)
-      TREE_VEC_ELT (result, n) = extract_terms (proj (*i));
-    return result;
-  }
 
 // Extract the assumption vector from the proof state s.
 inline tree
 extract_assumptions (proof_state& s)
 {
-  term_list& (*proj)(proof_goal&) = assumptions;
-  return extract_goals (s, proj);
-}
-
-// Extract the conclusion vector from the proof state s.
-inline tree
-extract_conclusions (proof_state& s)
-{
-  term_list& (*proj)(proof_goal&) = conclusions;
-  return extract_goals (s, proj);
+  tree result = make_tree_vec (s.size ());
+  goal_iterator iter = s.begin ();
+  goal_iterator end = s.end ();
+  for (int n = 0; iter != end; ++iter, ++n)
+    TREE_VEC_ELT (result, n) = extract_terms (iter->assumptions);
+  return result;
 }
 
 } // namespace
 
 
-// Decompose the requirement R into a set of assumptions, returing a
-// vector of vectors containing atomic propositions.
+// Decompose the required expression T into a constraint set: a
+// vector of vectors containing only atomic propositions.
 tree
-decompose_assumptions (tree r)
+decompose_assumptions (tree t)
 {
+  // Create a proof state, and insert T as the sole assumption.
   proof_state s;
-  assume_term (s, r);
+  term_list &l = s.begin ()->assumptions;
+  l.insert (t);
+  
+  // Decompose the expression into a constraint set, and then
+  // extract the terms for the AST.
   decompose_left (s);
   return extract_assumptions (s);
-}
-
-// Decompose the requirement R into a set of conclusionss, returning a
-// vector of vectors containing atomic propositions.
-tree
-decompose_conclusions (tree r)
-{
-  proof_state s;
-  conclude_term (s, r);
-  decompose_right (s);
-  return extract_conclusions (s);
 }
 
 
@@ -515,11 +391,20 @@ decompose_conclusions (tree r)
 
 namespace {
 
-// Returns true if the assumed proposition A entails the conclusion C.
-// In general, this is the case when A has equivalent spelling to C,
-// although there will be some special cases.
+bool subsumes_prop(tree, tree);
+bool subsumes_atom(tree, tree);
+bool subsumes_and(tree, tree);
+bool subsumes_or(tree, tree);
+
+// Returns true if the assumption A matches the conclusion C. This
+// is generally the case when A and C have the same syntax.
+//
+// TODO: Implement special cases for:
+//    * __is_same_as |- __is_convertible_to
+//    * __is_same_as |- __is_derived_from
+//    * Any other built-in predicates?
 bool
-entails_atom (tree a, tree c)
+match_terms (tree a, tree c)
 {
   // TODO: Add special cases for __is_same, __is_convertible, 
   // and __is_base_of.
@@ -528,16 +413,33 @@ entails_atom (tree a, tree c)
 
 // Returns true if the list of assumptions AS subsume the atomic 
 // proposition C. This is the case when we can find a proposition in
-// HS that entails the conclusion C.
+// AS that entails the conclusion C.
 bool
 subsumes_atom (tree as, tree c)
 {
   for (int i = 0; i < TREE_VEC_LENGTH (as); ++i)
-    if (entails_atom (TREE_VEC_ELT (as, i), c))
+    if (match_terms (TREE_VEC_ELT (as, i), c))
       return true;
   return false;
 }
 
+// Returns true when both operands of C are subsumed by the assumptions AS.
+inline bool 
+subsumes_and (tree as, tree c)
+{
+  tree l = TREE_OPERAND (c, 0);
+  tree r = TREE_OPERAND (c, 1);
+  return subsumes_prop (as, l) && subsumes_prop (as, r);
+}
+
+// Returns true when either operand of C is subsumed by the assumptions AS.
+inline bool
+subsumes_or (tree as, tree c)
+{
+  tree l = TREE_OPERAND (c, 0);
+  tree r = TREE_OPERAND (c, 1);
+  return subsumes_prop (as, l) || subsumes_prop (as, r);
+}
 
 // Returns true when the list of assumptions AS subsumes the 
 // concluded proposition C.
@@ -550,11 +452,9 @@ subsumes_prop (tree as, tree c)
   switch (TREE_CODE (c))
     {
     case TRUTH_ANDIF_EXPR:
-      return subsumes_prop (as, TREE_OPERAND (c, 0)) 
-          && subsumes_prop (as, TREE_OPERAND (c, 1));
+      return subsumes_and (as, c);
     case TRUTH_ORIF_EXPR:
-      return subsumes_prop (as, TREE_OPERAND (c, 0)) 
-          || subsumes_prop (as, TREE_OPERAND (c, 1));
+      return subsumes_or (as, c);
     default:
       return subsumes_atom (as, c);
     }
@@ -566,11 +466,11 @@ subsumes_prop (tree as, tree c)
 bool
 subsumes_constraints (tree left, tree right)
 {
-  gcc_assert (constraint_info_p (left));
-  gcc_assert (constraint_info_p (right));
+  gcc_assert (check_constraint_info (left));
+  gcc_assert (check_constraint_info (right));
 
-  // Check that c is subsumed by each subproblem in h.
-  // If it is not, then h does not subsume c.
+  // Check that the required expression in RIGHT is subsumed by each
+  // subgoal in the assumptions of LEFT.
   tree as = CI_ASSUMPTIONS (left);
   tree c = reduce_requirements (CI_REQUIREMENTS (right));
   for (int i = 0; i < TREE_VEC_LENGTH (as); ++i)
@@ -583,7 +483,7 @@ subsumes_constraints (tree left, tree right)
 
 
 // Returns true the LEFT constraints subsume the RIGHT constraints. Note
-// that subsumption is a reflexive relation.
+// that subsumption is a reflexive relation (e.g., <=)
 bool
 subsumes (tree left, tree right)
 {
@@ -595,4 +495,5 @@ subsumes (tree left, tree right)
     return true;
   return subsumes_constraints (left, right);
 }
+
 

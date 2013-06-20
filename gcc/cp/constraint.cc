@@ -18,7 +18,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-// Components for process constraints and evaluating constraints.
+// Components for processing constraints and evaluating constraints.
 
 #include "config.h"
 #include "system.h"
@@ -47,31 +47,34 @@ along with GCC; see the file COPYING3.  If not see
 //
 // Facilities for building and manipulating template requirements. 
 //
-// TODO: Simply assinging boolean_type_node to the result type of the expression
-// seems right thing for constraints, but in the long-term we might want to be
-// more flexible (i.e., allow some form of overload resolution?).
+// TODO: Simply assigning boolean_type_node to the result type of the 
+// expression seems right for constraints, but in the long-term we might want
+// to be more flexible (i.e., allow some form of overload resolution?).
 
+// Create a new logical node joining the subexpressions a and b.
+static inline tree
+join_requirements (tree_code c, tree a, tree b)
+{
+  gcc_assert (a != NULL_TREE && b != NULL_TREE);
+  gcc_assert (c == TRUTH_ANDIF_EXPR || c == TRUTH_ORIF_EXPR);
+  return build_min (c, boolean_type_node, a, b);
+}
 
 // Returns the conjunction of two requirements A and B, where A and B are
-// reduced terms in the constraints languaage. Returns NULL_TREE if either A or
-// B are NULL_TREE.
+// reduced terms in the constraints language. Note that conjoining a non-null 
+// expression with  NULL_TREE is an identity operation. That is, for some 
+// non-null A,
+//
+//    conjoin_requirements(a, NULL_TREE) == a
+//
+// If both A and B are NULL_TREE, the result is also NULL_TREE.
 tree
 conjoin_requirements (tree a, tree b)
 {
-  if (a && b)
-    return build_min (TRUTH_ANDIF_EXPR, boolean_type_node, a, b);
-  else
-    return NULL_TREE;
-}
-
-// Returns the disjunction of two requirements A and B, where A and B are
-// reduced terms in the constraints languaage. Returns NULL_TREE if either A or
-// B are NULL_TREE.
-tree
-disjoin_requirements (tree a, tree b)
-{
-  if (a && b)
-    return build_min (TRUTH_ORIF_EXPR, boolean_type_node, a, b);
+  if (a)
+    return b ? join_requirements (TRUTH_ANDIF_EXPR, a, b) : a;
+  else if (b)
+    return b;
   else
     return NULL_TREE;
 }
@@ -81,9 +84,8 @@ disjoin_requirements (tree a, tree b)
 // Constraint Resolution
 //
 // This facility is used to resolve constraint checks from requirement
-// expressions. A constraint check is a call to a constraint predicate:
-// a constexpr, nullary function teplate whose result can be converted
-// to bool.
+// expressions. A constraint check is a call to a function template, declared
+// concept.
 //
 // The result of resolution is a pair (a list node) whose value is the
 // matched declaration, and whose purpose contains the coerced template
@@ -91,37 +93,10 @@ disjoin_requirements (tree a, tree b)
 
 namespace {
 
-// Returns true if the function decl F is a constraint predicate.
-// It must be a constexpr, nullary function with a boolean result
-// type.
-static bool
-is_constraint (tree f)
-{
-  gcc_assert (TREE_CODE (f) == FUNCTION_DECL);
-
-  // A constraint is nullary.
-  if (DECL_ARGUMENTS (f))
-    return false;
-
-  // A constraint is declared constexpr
-  if (!DECL_DECLARED_CONSTEXPR_P (f))
-    return false;
-
-  // Whose result must be convertible to bool.
-  if (!can_convert (TREE_TYPE (TREE_TYPE (f)), boolean_type_node, tf_none))
-    return false;
-
-  // A constraint can only be checked if it is defined.
-  if (!DECL_SAVED_TREE (f))
-    return false;
-
-  return true;
-}
-
-// Given an OVL set of constraint candidates, try to find a unique definition
-// satisfying the requirements of a constraint.
+// Given an overload set, try to find a unique definition that can be
+// instantiated by the template arguments.
 //
-// This function is not called for abitrary call expressions. In particul,
+// This function is not called for arbitrary call expressions. In particular,
 // the call expression must be written with explicit template arguments
 // and no function arguments. For example:
 //
@@ -142,50 +117,53 @@ resolve_constraint_check (tree ovl, tree args)
       tree parms = TREE_VALUE (DECL_TEMPLATE_PARMS (tmpl));
 
       // Remember the candidate if we can deduce a substitution.
-      if (tree subst = substitute_template_parameters (parms, args))
+      if (tree subst = coerce_template_parms (parms, args, tmpl))
         if (subst != error_mark_node)
           cands = tree_cons (subst, DECL_TEMPLATE_RESULT (tmpl), cands);
     }
 
-  // If there are multiple candidates, then we have not found
-  // a unique definition.
-  if (TREE_CHAIN (cands))
+  // If we didn't find a unique candidate, then this is
+  // not a constraint check.
+  if (!cands || TREE_CHAIN (cands))
     return NULL_TREE;
 
-  if (!is_constraint (TREE_VALUE (cands)))
+  // Constraints must be declared concepts.
+  tree decl = TREE_VALUE (cands);
+  if (!DECL_DECLARED_CONCEPT_P (decl))
     return NULL_TREE;
+
+  // Concept declarations must have a corresponding definition.
+  //
+  // TODO: This should be part of the up-front checking for 
+  // a concept declaration.
+  if (!DECL_SAVED_TREE (decl))
+    {
+      error_at (DECL_SOURCE_LOCATION (decl),
+                "concept %q#D has no definition", decl);
+      return NULL;
+    }
 
   return cands;
 }
 
-// If the call express T is a check expression, return a singleton tree
-// list whose VALUE is the checked constraint predicate, and whose
-// PURPOSE contains substitution arguments for the constraint. If the 
-// call does not denote a check, return NULL_TREE.
-//
-// Note that a call expression is a check expression if it refers to a
-// unique, nullary function template via lightweight overload resolution.
+// Determine if the the call expression CALL is a constraint check, and
+// return the concept declaration and arguments being checked. If CALL
+// does not denote a constraint check, return NULL.
 tree
-maybe_constraint_check (tree call)
+resolve_constraint_check (tree call)
 {
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
 
-  // A constraint check must be a call to a function template with 
-  // arguments given explicitly.
-  tree f = CALL_EXPR_FN (call);
-  if (TREE_CODE (f) != TEMPLATE_ID_EXPR)
+  // A constraint check must be only be a template-id expression.
+  tree target = CALL_EXPR_FN (call);
+  if (TREE_CODE (target) != TEMPLATE_ID_EXPR)
     return NULL_TREE;
 
-  // Also, make sure that there are no arguments to the call expression.
-  // If there are, then we are guaranteed that this is a regular call.
-  if (call_expr_nargs (call))
-    return NULL_TREE;
-
-  // Determine which constraint is actually referred to by the
-  // call expression.
-  tree tmpl = TREE_OPERAND (f, 0);
-  tree args = TREE_OPERAND (f, 1);
-  return resolve_constraint_check (tmpl, args);
+  // Get the overload set and template arguments and try to
+  // resolve the target.
+  tree ovl = TREE_OPERAND (target, 0);
+  tree args = TREE_OPERAND (target, 1);
+  return resolve_constraint_check (ovl, args);
 }
   
 } // end namespace
@@ -263,7 +241,7 @@ reduce_expr (tree t)
     case TEMPLATE_ID_EXPR: 
       return reduce_template_id (t);
 
-    case CAST_EXPR:        
+    case CAST_EXPR:
       return reduce_node (TREE_VALUE (TREE_OPERAND (t, 0)));
     
     case BIND_EXPR:        
@@ -360,13 +338,13 @@ reduce_logical (tree t)
 
 // Reduction rules for the call expression T.
 //
-// If T is a call to a constraint instantiate it's definition and
+// If T is a call to a constraint instantiate its definition and
 // recursively reduce its returned expression.
 tree
 reduce_call (tree t)
 {
   // Is the function call actually a constraint check?
-  tree check = maybe_constraint_check (t);
+  tree check = resolve_constraint_check (t);
   if (!check)
     return t;
 
@@ -406,8 +384,8 @@ reduce_template_id (tree t)
 {
   vec<tree, va_gc>* args = NULL;
   tree c = finish_call_expr (t, &args, true, false, 0);
-  error ("invalid requirement");
-  inform (input_location, "did you mean %qE", c);
+  error_at (EXPR_LOC_OR_HERE (t), "invalid requirement");
+  inform (EXPR_LOC_OR_HERE (t), "did you mean %qE", c);
   return NULL_TREE;
 }
 
@@ -441,7 +419,7 @@ reduce_stmt_list (tree stmts)
 } // end namespace
 
 
-// Reduce the requirement T into a logical formula written in terms of
+// Reduce the requirement REQS into a logical formula written in terms of
 // atomic propositions.
 tree
 reduce_requirements (tree reqs)
@@ -471,4 +449,156 @@ make_constraints (tree reqs)
   cinfo->assumptions = assume;
     
   return (tree)cinfo;
+}
+
+namespace {
+
+inline tree
+get_type_constraints (tree t)
+{
+  // Template template arguments may not have template info.
+  if (!TYPE_TEMPLATE_INFO (t))
+    return NULL_TREE;
+  return TYPE_TEMPLATE_CONSTRAINT (t);
+}
+
+inline tree
+get_decl_constraints (tree t)
+{
+  if (TREE_CODE (t) == TEMPLATE_DECL)
+    {
+      tree d = DECL_TEMPLATE_RESULT (t);
+      if (TREE_CODE (d) == TYPE_DECL)
+        return get_type_constraints (TREE_TYPE (t));
+      else
+        return get_decl_constraints (d);
+    }
+  return DECL_TEMPLATE_CONSTRAINT (t);
+}
+
+} // end namespace
+
+// Return constraint info for the node T, regardless of the
+// kind of node.
+tree
+get_constraints (tree t)
+{
+  if (TYPE_P (t))
+    return get_type_constraints (t);
+  else if (DECL_P (t))
+    return get_decl_constraints (t);
+  else
+    gcc_unreachable ();
+  return false;
+}
+
+// Returns true if the requirements expression REQS is satisfied, 
+// and false otherwise. The requirements are checked by simply 
+// evaluating REQS as a constant expression.
+static inline bool
+check_requirements (tree reqs)
+{
+  // Simplify the expression before evaluating it. This will
+  // cause TRAIT_EXPR nodes to be reduced before constexpr
+  // evaluation.
+  reqs = fold_non_dependent_expr (reqs);
+  
+  // Requirements are satisfied when REQS evaluates to true.
+  return cxx_constant_value (reqs) == boolean_true_node;
+}
+
+// Check the instantiated declaration constraints.
+bool
+check_constraints (tree cinfo)
+{
+  if (!cinfo)
+    return true;
+  return check_requirements (CI_REQUIREMENTS (cinfo));
+}
+
+// Check the constraints in CINFO against the given ARGS, returning
+// true when the constraints are satisfied and false otherwise.
+bool 
+check_constraints (tree cinfo, tree args)
+{
+  // No constraints? Satisfied.
+  if (!cinfo)
+    return true;
+
+  // Instantiate the requirements before checking.
+  tree reqs = instantiate_requirements (CI_REQUIREMENTS (cinfo), args);
+  if (reqs == error_mark_node)
+    return false;
+  return check_requirements (reqs);
+}
+
+static inline bool
+check_type_constraints (tree t, tree args)
+{
+  return check_constraints (CLASSTYPE_TEMPLATE_CONSTRAINT (t), args);
+}
+
+static inline bool
+check_decl_constraints (tree t, tree args)
+{
+  if (TREE_CODE (t) == TEMPLATE_DECL)
+    return check_decl_constraints (DECL_TEMPLATE_RESULT (t), args);
+  else
+    return check_constraints (DECL_TEMPLATE_CONSTRAINT (t), args);
+}
+
+// Check the constraints of the declaration or type T, against 
+// the specified arguments. Returns true if the constraints are 
+// satisfied and false otherwise.
+bool
+check_template_constraints (tree t, tree args)
+{
+  return check_constraints (get_constraints (t), args);
+}
+
+// Returns true when A and B are equivlent constraints.
+bool
+equivalent_constraints (tree a, tree b)
+{
+  return subsumes (a, b) && subsumes (b, a);
+}
+
+// Returns true if the template declarations A and B have equivalent
+// constraints. This is the case when A's constraints subsume B's and
+// when B's also constrain A's.
+bool 
+equivalently_constrained (tree a, tree b)
+{
+  gcc_assert (TREE_CODE (a) == TREE_CODE (b));
+  return equivalent_constraints (get_constraints (a), get_constraints (b));
+}
+
+// Returns true when the A contains more atomic properties than B.
+bool
+more_constraints (tree a, tree b)
+{
+  return subsumes (a, b);
+}
+
+// Returns true when the template declaration A's constraints subsume
+// those of the template declaration B.
+bool 
+more_constrained (tree a, tree b)
+{
+  gcc_assert (TREE_CODE (a) == TREE_CODE (b));
+  return more_constraints (get_constraints (a), get_constraints (b));
+}
+
+
+// -------------------------------------------------------------------------- //
+// Constraint Diagnostics
+
+// Emit diagnostics detailing the failure ARGS to satisfy the constraints
+// of the template declaration, TMPL.
+//
+// TODO: Implement actual diagnostics.
+void
+diagnose_constraint_failure (location_t loc, tree tmpl, tree args)
+{
+  inform (loc, "  constraints not satisfied:");
 }

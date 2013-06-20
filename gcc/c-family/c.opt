@@ -21,10 +21,6 @@
 
 ; Please try to keep this file in ASCII collating order.
 
-; Activate C++ concepts support.
-Variable
-bool flag_concepts
-
 Language
 C
 

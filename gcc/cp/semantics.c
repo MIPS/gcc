@@ -2567,12 +2567,18 @@ finish_template_type_parm (tree aggr, tree identifier)
 tree
 finish_template_template_parm (tree aggr, tree identifier)
 {
-  tree decl = build_decl (input_location,
+  tree decl = build_lang_decl_loc (input_location,
 			  TYPE_DECL, identifier, NULL_TREE);
   tree tmpl = build_lang_decl (TEMPLATE_DECL, identifier, NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = current_template_parms;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
   DECL_ARTIFICIAL (decl) = 1;
+
+  // Build template info and associate it with the parameter.
+  DECL_TEMPLATE_INFO (decl) = build_template_info (tmpl, 
+                                                   current_template_args (), 
+                                                   current_template_reqs);
+
   end_template_decl ();
 
   gcc_assert (DECL_TEMPLATE_PARMS (tmpl));
@@ -5517,6 +5523,22 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
   return true;
 }
 
+// Returns true if K denotes a unary type trait.
+inline bool
+is_unary_trait (cp_trait_kind k)
+{
+  if (k == CPTK_IS_CONVERTIBLE_TO || k == CPTK_IS_BASE_OF)
+    return false;
+  return true;
+}
+
+// Returns true if K denotes a binary type trait.
+bool
+is_binary_trait (cp_trait_kind k)
+{
+  return !is_unary_trait (k);
+}
+
 /* Actually evaluates the trait.  */
 
 static bool
@@ -5677,9 +5699,8 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
       return error_mark_node;
     }
 
-  if (type1 == error_mark_node
-      || ((kind == CPTK_IS_BASE_OF || kind == CPTK_IS_CONVERTIBLE_TO)
-	  && type2 == error_mark_node))
+  if (type1 == error_mark_node 
+      || (is_binary_trait (kind) && type2 == error_mark_node))
     return error_mark_node;
 
   if (processing_template_decl)

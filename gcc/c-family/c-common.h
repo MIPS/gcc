@@ -368,6 +368,9 @@ struct c_common_resword
 #define D_OBJC		0x080	/* In Objective C and neither C nor C++.  */
 #define D_CXX_OBJC	0x100	/* In Objective C, and C++, but not C.  */
 #define D_CXXWARN	0x200	/* In C warn with -Wcxx-compat.  */
+#define D_CXX_CONCEPTS  0x400   /* In C++, only with concepts. */
+
+#define D_CXX_CONCEPTS_FLAGS D_CXXONLY | D_CXX0X | D_CXX_CONCEPTS
 
 /* The reserved keyword table.  */
 extern const struct c_common_resword c_common_reswords[];

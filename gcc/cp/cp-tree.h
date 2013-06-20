@@ -800,7 +800,7 @@ struct GTY(()) tree_constraint_info {
 
 // Returns true iff T is non-null and represents constraint info.
 inline tree_constraint_info *
-constraint_info_p (tree t)
+check_constraint_info (tree t)
 {
   if (t && TREE_CODE (t) == CONSTRAINT_INFO)
     return (tree_constraint_info *)t;
@@ -809,7 +809,7 @@ constraint_info_p (tree t)
 
 // Returns true iff T is non-null and is a template info object.
 inline tree_template_info *
-template_info_p (tree t)
+check_template_info (tree t)
 {
   if (t && TREE_CODE (t) == TEMPLATE_INFO)
     return (tree_template_info *)t;
@@ -818,34 +818,34 @@ template_info_p (tree t)
 
 // Get the spelling of the requirements
 #define CI_SPELLING(NODE) \
-  check_nonnull (constraint_info_p (NODE))->spelling
+  check_nonnull (check_constraint_info (NODE))->spelling
 
 // Get the reduced requirements associated with the constraint info node
 #define CI_REQUIREMENTS(NODE) \
-  check_nonnull (constraint_info_p (NODE))->requirements
+  check_nonnull (check_constraint_info (NODE))->requirements
 
 // Get the set of assumptions associated with the constraint info node
 #define CI_ASSUMPTIONS(NODE) \
-  check_nonnull (constraint_info_p (NODE))->assumptions
+  check_nonnull (check_constraint_info (NODE))->assumptions
 
 // Get the constraint associated with the template info NODE.
 #define TI_CONSTRAINT(NODE) \
-  check_nonnull (template_info_p (NODE))->constraint
+  check_nonnull (check_template_info (NODE))->constraint
 
 // Get the spelling of constraints associated
 #define TI_SPELLING(NODE) \
-  check_nonnull (constraint_info_p (TI_CONSTRAINT (NODE)))->spelling
+  check_nonnull (check_constraint_info (TI_CONSTRAINT (NODE)))->spelling
 
 // Get requirements associated with the template info NODE.
 #define TI_REQUIREMENTS(NODE) \
-  check_nonnull (constraint_info_p (TI_CONSTRAINT (NODE)))->requirements
+  check_nonnull (check_constraint_info (TI_CONSTRAINT (NODE)))->requirements
 
 // Get assumptions associated with the template info NODE.
 #define TI_ASSUMPTIONS(NODE) \
-  check_nonnull (constraint_info_p (TI_CONSTRAINT (NODE)))->assumptions
+  check_nonnull (check_constraint_info (TI_CONSTRAINT (NODE)))->assumptions
 
 // Access constraint information for C++ declarations. Note that
-// NODE must be a lang-decl.
+// NODE must have DECL_LANG_SPECIFIC.
 #define DECL_TEMPLATE_CONSTRAINT(NODE) \
   TI_CONSTRAINT (DECL_TEMPLATE_INFO (NODE))
 
@@ -4409,6 +4409,15 @@ extern int cp_unevaluated_operand;
 extern tree cp_convert_range_for (tree, tree, tree);
 extern bool parsing_nsdmi (void);
 
+// An RAII class used to inhibit the evaluation of operands during parsing
+// and template instantiation. Evaluation warnings are also inhibited.
+class cp_unevaluated
+{
+public:
+  cp_unevaluated ();
+  ~cp_unevaluated ();
+};
+
 /* in pt.c  */
 
 /* These values are used for the `STRICT' parameter to type_unification and
@@ -4420,6 +4429,18 @@ typedef enum unification_kind_t {
   DEDUCE_CONV,
   DEDUCE_EXACT
 } unification_kind_t;
+
+// An RAII class used to create a new pointer map for local
+// specializations. When the stack goes out of scope, the
+// previous pointer map is restored.
+class local_specialization_stack
+{
+public:
+  local_specialization_stack ();
+  ~local_specialization_stack ();
+
+  struct pointer_map_t *saved;
+};
 
 /* in class.c */
 
@@ -5652,8 +5673,7 @@ extern tree get_template_argument_pack_elems	(const_tree);
 extern tree get_function_template_decl		(const_tree);
 extern tree resolve_nondeduced_context		(tree);
 extern hashval_t iterative_hash_template_arg (tree arg, hashval_t val);
-extern tree substitute_template_parameters      (tree, tree);
-extern tree substitute_requirements             (tree, tree);
+extern tree coerce_template_parms               (tree, tree, tree);
 extern tree instantiate_requirements            (tree, tree);
 extern tree tsubst_constraint                   (tree, tree);
 extern tree current_template_args               ();
@@ -5807,6 +5827,8 @@ extern bool is_sub_constant_expr (tree);
 extern bool reduced_constant_expression_p (tree);
 extern void explain_invalid_constexpr_fn (tree);
 extern vec<tree> cx_error_context (void);
+extern bool is_unary_trait                      (cp_trait_kind);
+extern bool is_binary_trait                     (cp_trait_kind);
 
 enum {
   BCS_NO_SCOPE = 1,
@@ -6250,6 +6272,16 @@ extern tree conjoin_requirements                (tree, tree);
 extern tree disjoin_requirements                (tree, tree);
 extern tree reduce_requirements                 (tree);
 extern tree make_constraints                    (tree);
+extern tree get_constraints                     (tree);
+extern bool check_constraints                   (tree);
+extern bool check_constraints                   (tree, tree);
+extern bool check_template_constraints          (tree, tree);
+extern tree subst_template_constraints          (tree, tree);
+extern bool equivalent_constraints              (tree, tree);
+extern bool equivalently_constrained            (tree, tree);
+extern bool more_constraints                    (tree, tree);
+extern bool more_constrained                    (tree, tree);
+extern void diagnose_constraint_failure         (location_t, tree, tree);
 
 /* in logic.cc */
 extern tree decompose_assumptions               (tree);

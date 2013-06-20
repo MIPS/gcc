@@ -934,6 +934,20 @@ modify_vtable_entry (tree t,
     }
 }
 
+// Returns true if NEW_FN and OLD_FN are non-template member functions
+// of a class template with with different constraints. The types of the 
+// functions are assumed to be equivalent.
+static inline bool
+are_constrained_member_overloads (tree new_fn, tree old_fn) 
+{
+  // Non-temploids cannot be constrained.
+  if (!DECL_TEMPLOID_INSTANTIATION (new_fn) 
+      && !DECL_TEMPLOID_INSTANTIATION (old_fn))
+    return false;
+  else 
+    return !equivalently_constrained (new_fn, old_fn);
+}
+
 
 /* Add method METHOD to class TYPE.  If USING_DECL is non-null, it is
    the USING_DECL naming METHOD.  Returns true if the method could be
@@ -1140,6 +1154,8 @@ add_method (tree type, tree method, tree using_decl)
 		/* Defer to the local function.  */
 		return false;
 	    }
+          else if (are_constrained_member_overloads (fn, method))
+            continue;
 	  else
 	    {
 	      error ("%q+#D cannot be overloaded", method);

@@ -77,6 +77,23 @@ static tree cur_stmt_expr;
    local variables.  */
 static struct pointer_map_t *local_specializations;
 
+// -------------------------------------------------------------------------- //
+// Local Specialization Stack
+//
+// Implementation of the RAII helper for creating new local
+// specializations.
+local_specialization_stack::local_specialization_stack ()
+  : saved (local_specializations)
+{
+  local_specializations = pointer_map_create ();
+}
+
+local_specialization_stack::~local_specialization_stack ()
+{
+  pointer_map_destroy (local_specializations);
+  local_specializations = saved;
+}
+
 /* True if we've recursed into fn_type_unification too many times.  */
 static bool excessive_deduction_depth;
 
@@ -301,9 +318,16 @@ finish_member_template_decl (tree decl)
 tree
 build_template_info (tree template_decl, tree template_args)
 {
+  return build_template_info (template_decl, template_args, NULL_TREE);
+}
+
+tree
+build_template_info (tree template_decl, tree template_args, tree template_reqs)
+{
   tree result = make_node (TEMPLATE_INFO);
   TI_TEMPLATE (result) = template_decl;
   TI_ARGS (result) = template_args;
+  TI_CONSTRAINT (result) = template_reqs;
   return result;
 }
 
@@ -1952,7 +1976,15 @@ determine_specialization (tree template_id,
 	       specialize TMPL will produce DECL.  */
 	    continue;
 
-	  /* Make sure that the deduced arguments actually work.  */
+	  // Make sure that the deduced arguments actually work. First,
+          // check that any template constraints are satisfied.
+          //
+          // TODO: Make sure that we get reasonable diagnostics for these
+          // kinds of failures.
+          if (!check_template_constraints (fn, targs))
+            continue;
+
+          // Then, try to form the new function type.
 	  insttype = tsubst (TREE_TYPE (fn), targs, tf_none, NULL_TREE);
 	  if (insttype == error_mark_node)
 	    continue;
@@ -2683,6 +2715,8 @@ check_explicit_specialization (tree declarator,
 	    }
 
 	  /* Set up the DECL_TEMPLATE_INFO for DECL.  */
+          tree fn = DECL_TEMPLATE_RESULT (tmpl);
+          tree cons = tsubst_constraint (DECL_TEMPLATE_CONSTRAINT (fn), targs);
 	  DECL_TEMPLATE_INFO (decl) = build_template_info (tmpl, targs);
 
 	  /* Inherit default function arguments from the template
@@ -4878,7 +4912,7 @@ template arguments to %qD do not match original template %qD",
   if (DECL_TEMPLATE_INFO (tmpl))
     args = add_outermost_template_args (DECL_TI_ARGS (tmpl), args);
 
-  info = build_template_info (tmpl, args);
+  info = build_template_info (tmpl, args, current_template_reqs);
 
   if (DECL_IMPLICIT_TYPEDEF_P (decl))
     SET_TYPE_TEMPLATE_INFO (TREE_TYPE (tmpl), info);
@@ -5027,6 +5061,17 @@ redeclare_class_template (tree type, tree parms, tree cons)
 	/* Update the new parameters, too; they'll be used as the
 	   parameters for any members.  */
 	TREE_PURPOSE (TREE_VEC_ELT (parms, i)) = tmpl_default;
+    }
+
+  // Cannot redeclare a class template with a different set of constraints. 
+  tree tmpl_type = TREE_TYPE (tmpl);
+  if (!equivalent_constraints (TYPE_TEMPLATE_CONSTRAINT (tmpl_type), cons))
+    {
+      // FIXME: This points to the wrong line.
+      error_at (input_location, "redeclaration %q#D with different "
+                                "constraints", tmpl);
+      inform (DECL_SOURCE_LOCATION (tmpl), 
+              "original declaration appeared here");
     }
 
     return true;
@@ -6160,6 +6205,47 @@ canonicalize_type_argument (tree arg, tsubst_flags_t complain)
   return arg;
 }
 
+// A template declaration can be substituted for a constrained
+// template template parameter only when the argument is more 
+// constrained than the parameter.
+static bool
+is_compatible_template_arg (tree parm, tree arg)
+{
+  // TODO: The argument may not have a decl result. This seems to
+  // happen in some classes with nested template template
+  // parameters (e.g., a rebind struct in a class taking a template
+  // template parameter. If this is the case, just return true and
+  // allow things to happen as they always did.
+  if (TREE_CODE (arg) == TEMPLATE_DECL)
+    {
+      if (!DECL_TEMPLATE_RESULT (arg))
+        return true;
+    }
+
+  // If the template parameter is constrained, we need to rewrite its
+  // constraints in terms of the ARG's template parameters. This ensures
+  // that all of the template parameter types will have the same depth.
+  //
+  // Note that this is only valid when coerce_template_template_parm is
+  // true for the innermost template parameters of PARM and ARG. In other
+  // words, because coercion is successful, conversion will be valid.
+  tree parmcons = DECL_TEMPLATE_CONSTRAINT (DECL_TEMPLATE_RESULT (parm));
+  if (parmcons)
+    {
+      tree args = template_parms_to_args (DECL_TEMPLATE_PARMS (arg));
+      ++processing_template_decl;
+      tree reqs = instantiate_requirements (CI_REQUIREMENTS (parmcons), args);
+      --processing_template_decl;
+      if (reqs == error_mark_node)
+        return false;
+      parmcons = make_constraints (reqs);
+    }
+
+  tree argtype = TREE_TYPE (arg);
+  tree argcons = get_constraints (argtype);
+  return more_constraints (argcons, parmcons);
+}
+
 /* Convert the indicated template ARG as necessary to match the
    indicated template PARM.  Returns the converted ARG, or
    error_mark_node if the conversion was unsuccessful.  Error and
@@ -6304,9 +6390,7 @@ convert_template_argument (tree parm,
 	  else
 	    {
 	      tree parmparm = DECL_INNERMOST_TEMPLATE_PARMS (parm);
-	      tree argparm;
-
-              argparm = DECL_INNERMOST_TEMPLATE_PARMS (arg);
+	      tree argparm = DECL_INNERMOST_TEMPLATE_PARMS (arg);
 
 	      if (coerce_template_template_parms (parmparm, argparm,
 						  complain, in_decl,
@@ -6337,6 +6421,22 @@ convert_template_argument (tree parm,
 
 		  val = error_mark_node;
 		}
+
+              // Check that the constraints are compatible before allowing the
+              // substitution.
+              if (val != error_mark_node)
+                if (!is_compatible_template_arg (parm, arg))
+                  {
+                      if (in_decl && (complain & tf_error))
+                      {
+                        error ("constraint mismatch at argument %d in "
+                               "template parameter list for %qD",
+                               i + 1, in_decl);
+                        inform (input_location, "  expected %qD but got %qD",
+                                parm, arg);
+                      }                      
+                      val = error_mark_node;
+                  }
 	    }
 	}
       else
@@ -6543,7 +6643,6 @@ any_pack_expanson_args_p (tree args)
   return false;
 }
 
-
 /* Convert all template arguments to their appropriate types, and
    return a vector containing the innermost resulting template
    arguments.  If any error occurs, return error_mark_node. Error and
@@ -6739,6 +6838,19 @@ coerce_template_parms (tree parms,
 #endif
 
   return new_inner_args;
+}
+
+// Convert all template arguments to their appropriate types, and
+// return a vector containing the innermost resulting template
+// arguments.  If any error occurs, return error_mark_node. Error and
+// warning messages are not issued.
+//
+// Note that no function argument deduction is performed, and default 
+// arguments are used to fill in unspecified arguments.
+tree
+coerce_template_parms (tree parms, tree args, tree in_decl)
+{
+  return coerce_template_parms (parms, args, in_decl, tf_none, true, true);
 }
 
 /* Like coerce_template_parms.  If PARMS represents all template
@@ -7371,6 +7483,10 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	}
       else if (DECL_ALIAS_TEMPLATE_P (gen_tmpl))
 	{
+          // Check the alias declaration's args. 
+          if (!check_template_constraints (gen_tmpl, arglist))
+            return error_mark_node;
+
 	  /* The user referred to a specialization of an alias
 	    template represented by GEN_TMPL.
 
@@ -7534,7 +7650,10 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	    : CLASSTYPE_TI_TEMPLATE (found);
 	}
 
-      SET_TYPE_TEMPLATE_INFO (t, build_template_info (found, arglist));
+      // Build the constraints for this type. 
+      tree type = TREE_TYPE (found);
+      tree cons = tsubst_constraint (TYPE_TEMPLATE_CONSTRAINT (type), arglist);
+       SET_TYPE_TEMPLATE_INFO (t, build_template_info (found, arglist, cons));
 
       elt.spec = t;
       slot = htab_find_slot_with_hash (type_specializations,
@@ -8376,7 +8495,7 @@ tsubst_friend_class (tree friend_tmpl, tree args)
           input_location = DECL_SOURCE_LOCATION (friend_tmpl);
           tree type = TREE_TYPE (tmpl);
           tree cons = CLASSTYPE_TEMPLATE_CONSTRAINT (type);
-	        redeclare_class_template (TREE_TYPE (tmpl), parms, cons);
+          redeclare_class_template (TREE_TYPE (tmpl), parms, cons);
           input_location = saved_input_location;
           
 	}
@@ -8600,6 +8719,12 @@ instantiate_class_template_1 (tree type)
     {
       pattern = TREE_TYPE (templ);
       args = CLASSTYPE_TI_ARGS (type);
+
+      // Check class template requirements. Note that constraints will 
+      // already have been checked when trying to find a most specialized 
+      // class among multiple specializations.
+      if (!check_template_constraints (pattern, args))
+        return error_mark_node;
     }
 
   /* If the template we're instantiating is incomplete, then clearly
@@ -9981,6 +10106,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* We can get here when processing a member function template,
 	   member class template, or template template parameter.  */
 	tree decl = DECL_TEMPLATE_RESULT (t);
+  tree type = TREE_TYPE (t);
 	tree spec;
 	tree tmpl_args;
 	tree full_args;
@@ -9988,7 +10114,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (DECL_TEMPLATE_TEMPLATE_PARM_P (t))
 	  {
 	    /* Template template parameter is treated here.  */
-	    tree new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
+	    tree new_type = tsubst (type, args, complain, in_decl);
 	    if (new_type == error_mark_node)
 	      RETURN (error_mark_node);
 	    /* If we get a real template back, return it.  This can happen in
@@ -10049,7 +10175,13 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	gcc_assert (DECL_LANG_SPECIFIC (r) != 0);
 	DECL_CHAIN (r) = NULL_TREE;
 
-	DECL_TEMPLATE_INFO (r) = build_template_info (t, args);
+        // Rebuild the constraints on the original template.
+        tree cons = get_constraints (t);
+        cons = tsubst_constraint (cons, args);
+ 
+        // Build new template info linking to the original template
+        // decl, but having these args and constraints.
+        DECL_TEMPLATE_INFO (r) = build_template_info (t, args, cons);	
 
 	if (TREE_CODE (decl) == TYPE_DECL
 	    && !TYPE_DECL_ALIAS_P (decl))
@@ -10286,8 +10418,11 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	   GEN_TMPL is NULL.  */
 	if (gen_tmpl)
 	  {
-	    DECL_TEMPLATE_INFO (r)
-	      = build_template_info (gen_tmpl, argvec);
+            // Rebuild the template constraint.
+            tree cons = tsubst_constraint (DECL_TEMPLATE_CONSTRAINT (t), args);
+	    
+            DECL_TEMPLATE_INFO (r)
+	      = build_template_info (gen_tmpl, argvec, cons);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 
 	    tree new_r
@@ -10426,12 +10561,14 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
               /* We're on the Ith parameter of the function parameter
                  pack.  */
               {
-		/* An argument of a function parameter pack is not a parameter
-		   pack.  */
-		FUNCTION_PARAMETER_PACK_P (r) = false;
-
                 /* Get the Ith type.  */
                 type = TREE_VEC_ELT (expanded_types, i);
+
+                // An argument of a function parameter pack is a function
+                // parameter pack if its type is also a pack. This can
+                // happen when instantiating templates with other template
+                // parameters.
+                FUNCTION_PARAMETER_PACK_P (r) = PACK_EXPANSION_P (type);
 
 		/* Rename the parameter to include the index.  */
 		DECL_NAME (r)
@@ -10512,7 +10649,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    DECL_INITIAL (r) = void_zero_node;
 	    gcc_assert (DECL_LANG_SPECIFIC (r) == NULL);
 	    retrofit_lang_decl (r);
-	    DECL_TEMPLATE_INFO (r) = build_template_info (t, args);
+	    DECL_TEMPLATE_INFO (r) = build_template_info (t, args, NULL_TREE);
 	  }
 	/* We don't have to set DECL_CONTEXT here; it is set by
 	   finish_member_declaration.  */
@@ -10743,7 +10880,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    DECL_EXTERNAL (r) = 1;
 
 	    register_specialization (r, gen_tmpl, argvec, false, hash);
-	    DECL_TEMPLATE_INFO (r) = build_template_info (tmpl, argvec);
+
+	    DECL_TEMPLATE_INFO (r) = 
+                build_template_info (tmpl, argvec, NULL_TREE);
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	  }
 	else if (cp_unevaluated_operand)
@@ -12526,6 +12665,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case UNION_TYPE:
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
+    case REAL_TYPE:
+    case BOOLEAN_TYPE:
     case TEMPLATE_TYPE_PARM:
     case TEMPLATE_TEMPLATE_PARM:
     case BOUND_TEMPLATE_TEMPLATE_PARM:
@@ -14493,6 +14634,12 @@ tsubst_copy_and_build (tree t,
 	  /* If the original type was a reference, we'll be wrapped in
 	     the appropriate INDIRECT_REF.  */
 	  r = convert_from_reference (r);
+
+        // If the type of the argument is a pack expansion, then
+        // the parameter must also be expanded.
+        if (PACK_EXPANSION_P (TREE_TYPE (r)))
+          r = make_pack_expansion (r);
+
 	RETURN (r);
       }
 
@@ -15202,6 +15349,15 @@ fn_type_unification (tree fn,
     {
       unify_inconsistent_template_template_parameters (explain_p);
       goto fail;
+    }
+
+  // All is well so far. Now, check that the template constraints
+  // are satisfied.
+  if (!check_template_constraints (fn, targs)) 
+    {
+      if (explain_p)
+        diagnose_constraint_failure (DECL_SOURCE_LOCATION (fn), fn, targs);
+      return error_mark_node;
     }
 
   /* All is well so far.  Now, check:
@@ -17709,6 +17865,13 @@ more_specialized_fn (tree pat1, tree pat2, int len)
       lose2 = TREE_CODE (TREE_VALUE (args2)) == TYPE_PACK_EXPANSION;
     }
 
+  // All things still being equal, determine if one is more constrained.
+  if (lose1 == lose2)
+    {
+      lose1 = !more_constrained (pat1, pat2);
+      lose2 = !more_constrained (pat2, pat1);
+    }
+
   if (lose1 == lose2)
     return 0;
   else if (!lose1)
@@ -17736,12 +17899,11 @@ static int
 more_specialized_class (tree main_tmpl, tree pat1, tree pat2)
 {
   tree targs;
-  tree tmpl1, tmpl2;
   int winner = 0;
   bool any_deductions = false;
 
-  tmpl1 = TREE_TYPE (pat1);
-  tmpl2 = TREE_TYPE (pat2);
+  tree tmpl1 = TREE_TYPE (pat1);
+  tree tmpl2 = TREE_TYPE (pat2);
 
   /* Just like what happens for functions, if we are ordering between
      different class template specializations, we may encounter dependent
@@ -20179,11 +20341,15 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
       }
 
     case TRAIT_EXPR:
-      if (dependent_type_p (TRAIT_EXPR_TYPE1 (*tp))
-	  || dependent_type_p (TRAIT_EXPR_TYPE2 (*tp)))
-	return *tp;
-      *walk_subtrees = false;
-      return NULL_TREE;
+      {
+        bool l = dependent_type_p (TRAIT_EXPR_TYPE1 (*tp));
+        bool r = is_binary_trait (TRAIT_EXPR_KIND (*tp))
+                   ? dependent_type_p (TRAIT_EXPR_TYPE1 (*tp)) : false;
+        if (l || r)
+          return *tp;
+        *walk_subtrees = false;
+        return NULL_TREE;
+      }
 
     case COMPONENT_REF:
       if (identifier_p (TREE_OPERAND (*tp, 1)))
@@ -21101,16 +21267,6 @@ print_template_statistics (void)
 	   htab_collisions (type_specializations));
 }
 
-
-// Try to substitute ARGS into PARMS, returning the actual list of
-// arguments that have been substituted. If ARGS cannot be substituted,
-// return error_mark_node.
-tree
-substitute_template_parameters (tree parms, tree args)
-{
-  return coerce_template_parms (parms, args, NULL_TREE, tf_none, true, true);
-}
-
 // Substitute the template arguments ARGS into the requirement
 // expression REQS. Errors resulting from substitution are not
 // diagnosed.
@@ -21120,5 +21276,17 @@ instantiate_requirements (tree reqs, tree args)
   return tsubst_expr (reqs, args, tf_none, NULL_TREE, true);
 }
 
+// Create a new constraint info block by substituting ARGS into
+// the requirements of CONS.
+//
+// Note that this does not require evaluation.
+tree
+tsubst_constraint (tree cons, tree args)
+{
+  if (!cons)
+    return NULL_TREE;
+  tree reqs = instantiate_requirements (CI_REQUIREMENTS (cons), args);
+  return make_constraints (reqs);
+}
 
 #include "gt-cp-pt.h"

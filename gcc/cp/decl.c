@@ -1063,8 +1063,10 @@ decls_match (tree newdecl, tree olddecl)
     }
   else if (TREE_CODE (newdecl) == TEMPLATE_DECL)
     {
-      if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl))
-	  != TREE_CODE (DECL_TEMPLATE_RESULT (olddecl)))
+      tree oldres = DECL_TEMPLATE_RESULT (olddecl);
+      tree newres = DECL_TEMPLATE_RESULT (newdecl);
+      
+      if (TREE_CODE (newres) != TREE_CODE (oldres))
 	return 0;
 
       if (!comp_template_parms (DECL_TEMPLATE_PARMS (newdecl),
@@ -1072,11 +1074,21 @@ decls_match (tree newdecl, tree olddecl)
 	return 0;
 
       if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
-	types_match = same_type_p (TREE_TYPE (DECL_TEMPLATE_RESULT (olddecl)),
-				   TREE_TYPE (DECL_TEMPLATE_RESULT (newdecl)));
+	types_match = same_type_p (TREE_TYPE (oldres), TREE_TYPE (newres));
       else
-	types_match = decls_match (DECL_TEMPLATE_RESULT (olddecl),
-				   DECL_TEMPLATE_RESULT (newdecl));
+	types_match = decls_match (oldres, newres);
+
+        // If the types of the underlying templates match, compare
+        // their constraints. The declarations could differ there.
+        //
+        // Note that NEWDECL may not have been fully configured (no template
+        // info). If not, use the current temnplate requirements as those
+        // that would be associated with decl.
+        tree oldreqs = DECL_TEMPLATE_CONSTRAINT (oldres);
+        tree newreqs = DECL_TEMPLATE_INFO (newres)
+            ? DECL_TEMPLATE_CONSTRAINT (newres) : current_template_reqs;
+        if (types_match)
+          types_match = equivalent_constraints (oldreqs, newreqs);
     }
   else
     {
@@ -1103,6 +1115,7 @@ decls_match (tree newdecl, tree olddecl)
 				 TREE_TYPE (olddecl),
 				 COMPARE_REDECLARATION);
     }
+
 
   return types_match;
 }
@@ -1214,6 +1227,39 @@ validate_constexpr_redeclaration (tree old_decl, tree new_decl)
   error ("from previous declaration %q+D", old_decl);
   return false;
 }
+
+// If OLDDECL and NEWDECL are concept declarations with the same type
+// (i.e., and template parameters), but different requirements,
+// emit diagnostics and return true. Otherwise, return false.
+static inline bool
+check_concept_refinement (tree olddecl, tree newdecl) 
+{
+  if (!DECL_DECLARED_CONCEPT_P (olddecl) || !DECL_DECLARED_CONCEPT_P (newdecl))
+    return false;
+
+  // TODO: This isn't currently possible, but it will almost certainly
+  // change with variable templates.
+  tree d1 = DECL_TEMPLATE_RESULT (olddecl);
+  tree d2 = DECL_TEMPLATE_RESULT (newdecl);
+  if (TREE_CODE (d1) != TREE_CODE (d2))
+    return false;
+
+  tree t1 = TREE_TYPE (d1);
+  tree t2 = TREE_TYPE (d2);
+  if (TREE_CODE (d1) == FUNCTION_DECL)
+    {
+      if (compparms (TYPE_ARG_TYPES (t1), TYPE_ARG_TYPES (t2))
+          && comp_template_parms (DECL_TEMPLATE_PARMS (olddecl),
+                                  DECL_TEMPLATE_PARMS (newdecl))
+          && !equivalently_constrained (olddecl, newdecl))
+        {
+          error ("cannot specialize concept %q#D", olddecl);
+          return true;
+        }
+    }
+  return false;
+}
+
 
 #define GNU_INLINE_P(fn) (DECL_DECLARED_INLINE_P (fn)			\
 			  && lookup_attribute ("gnu_inline",		\
@@ -1512,11 +1558,19 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		   /* Template functions can be disambiguated by
 		      return type.  */
 		   && same_type_p (TREE_TYPE (TREE_TYPE (newdecl)),
-				   TREE_TYPE (TREE_TYPE (olddecl))))
+				   TREE_TYPE (TREE_TYPE (olddecl)))
+                   // Template functions can also be disambiguated by
+                   // constraints.
+                   && equivalent_constraints (get_constraints (olddecl), 
+                                              current_template_reqs))
 	    {
 	      error ("new declaration %q#D", newdecl);
 	      error ("ambiguates old declaration %q+#D", olddecl);
 	    }
+          else if (check_concept_refinement (olddecl, newdecl))
+            {
+              return error_mark_node;
+            }
 	  return NULL_TREE;
 	}
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -7316,24 +7370,16 @@ check_static_quals (tree decl, cp_cv_quals quals)
 }
 
 // Check that FN takes no arguments and returns bool.
-static bool
+static void
 check_concept_fn (tree fn)
 {
   // A constraint is nullary.
   if (DECL_ARGUMENTS (fn))
-    {
-      error ("concept %q#D declared with function arguments", fn);
-      return false;
-    }
+    error ("concept %q#D declared with function parameters", fn);
 
   // The result type must be convertible to bool.
-  if (!can_convert (TREE_TYPE (TREE_TYPE (fn)), boolean_type_node, tf_none))
-    {
-      error ("concept %q#D result must be convertible to bool", fn);
-      return false;
-    }
-
-  return true;
+  if (!same_type_p (TREE_TYPE (TREE_TYPE (fn)), boolean_type_node))
+    error ("concept %q#D result must be bool", fn);
 }
 
 /* CTYPE is class type, or null if non-class.
@@ -7467,7 +7513,7 @@ grokfndecl (tree ctype,
 	      fns = TREE_OPERAND (fns, 1);
 	    }
 	  gcc_assert (identifier_p (fns) || TREE_CODE (fns) == OVERLOAD);
-	  DECL_TEMPLATE_INFO (decl) = build_template_info (fns, args);
+	  DECL_TEMPLATE_INFO (decl) = build_template_info (fns, args, NULL_TREE);
 
 	  for (t = TYPE_ARG_TYPES (TREE_TYPE (decl)); t; t = TREE_CHAIN (t))
 	    if (TREE_PURPOSE (t)
@@ -7593,8 +7639,7 @@ grokfndecl (tree ctype,
   if (inlinep & 4)
     {
       DECL_DECLARED_CONCEPT_P (decl) = true;
-      if (!check_concept_fn (decl))
-        return NULL_TREE;
+      check_concept_fn (decl);
     }
 
   DECL_EXTERNAL (decl) = 1;
@@ -14394,6 +14439,7 @@ cp_tree_node_structure (union lang_tree_node * t)
     case TRAIT_EXPR:		return TS_CP_TRAIT_EXPR;
     case LAMBDA_EXPR:		return TS_CP_LAMBDA_EXPR;
     case TEMPLATE_INFO:		return TS_CP_TEMPLATE_INFO;
+    case CONSTRAINT_INFO:       return TS_CP_CONSTRAINT_INFO;
     case USERDEF_LITERAL:	return TS_CP_USERDEF_LITERAL;
     default:			return TS_CP_GENERIC;
     }

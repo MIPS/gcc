@@ -2182,6 +2182,14 @@ pp_cxx_template_declaration (cxx_pretty_printer *pp, tree t)
       pp_cxx_end_template_argument_list (pp);
       pp_newline_and_indent (pp, 3);
     }
+
+  if (tree c = get_constraints (t))
+    {
+      pp_cxx_ws_string (pp, "requires");
+      pp_cxx_expression (pp, CI_REQUIREMENTS (c));
+      pp_newline_and_indent (pp, 6);
+    }
+
   if (TREE_CODE (t) == FUNCTION_DECL && DECL_SAVED_TREE (t))
     pp_cxx_function_definition (pp, t);
   else

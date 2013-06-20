@@ -449,7 +449,8 @@ enum rejection_reason_code {
   rr_arg_conversion,
   rr_bad_arg_conversion,
   rr_template_unification,
-  rr_invalid_copy
+  rr_invalid_copy,
+  rr_constraint_failure
 };
 
 struct conversion_info {
@@ -706,6 +707,15 @@ static struct rejection_reason *
 invalid_copy_with_fn_template_rejection (void)
 {
   struct rejection_reason *r = alloc_rejection (rr_invalid_copy);
+  return r;
+}
+
+static struct rejection_reason *
+template_constraint_failure (tree tmpl, tree targs)
+{
+  struct rejection_reason *r = alloc_rejection (rr_constraint_failure);
+  r->u.template_instantiation.tmpl = tmpl;
+  r->u.template_instantiation.targs = targs;
   return r;
 }
 
@@ -1858,6 +1868,25 @@ add_function_candidate (struct z_candidate **candidates,
   len = vec_safe_length (args) - skip + (first_arg != NULL_TREE ? 1 : 0);
   convs = alloc_conversions (len);
 
+  // Viable functions
+  //
+  // Functions whose constraints are not satisfied are non-viable.
+  //
+  // This only happens with constrained non-template members, which
+  // we've currently disabled.
+  if (DECL_USE_TEMPLATE (fn))
+    {
+      tree cons = DECL_TEMPLATE_CONSTRAINT (fn);
+      if (!check_constraints (cons))
+        {
+          tree tmpl = DECL_TI_TEMPLATE (fn);
+          tree args = DECL_TI_ARGS (fn);
+          reason = template_constraint_failure (tmpl, args);
+          viable = false;
+          goto out;          
+        }
+    }
+
   /* 13.3.2 - Viable functions [over.match.viable]
      First, to be a viable function, a candidate function shall have enough
      parameters to agree in number with the arguments in the list.
@@ -2924,8 +2953,8 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 
   if (fn == error_mark_node)
     {
-      /* Don't repeat unification later if it already resulted in errors.  */
       if (errorcount+sorrycount == errs)
+        /* Don't repeat unification later if it already resulted in errors.  */
 	reason = template_unification_rejection (tmpl, explicit_targs,
 						 targs, args_without_in_chrg,
 						 nargs_without_in_chrg,
@@ -2977,24 +3006,27 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
 				   first_arg, arglist, access_path,
 				   conversion_path, flags, complain);
   if (DECL_TI_TEMPLATE (fn) != tmpl)
-    /* This situation can occur if a member template of a template
-       class is specialized.  Then, instantiate_template might return
-       an instantiation of the specialization, in which case the
-       DECL_TI_TEMPLATE field will point at the original
-       specialization.  For example:
+    {
+      /* This situation can occur if a member template of a template
+         class is specialized.  Then, instantiate_template might return
+         an instantiation of the specialization, in which case the
+         DECL_TI_TEMPLATE field will point at the original
+         specialization.  For example:
 
-	 template <class T> struct S { template <class U> void f(U);
-				       template <> void f(int) {}; };
-	 S<double> sd;
-	 sd.f(3);
+  	   template <class T> struct S { template <class U> void f(U);
+  				       template <> void f(int) {}; };
+  	   S<double> sd;
+  	   sd.f(3);
 
-       Here, TMPL will be template <class U> S<double>::f(U).
-       And, instantiate template will give us the specialization
-       template <> S<double>::f(int).  But, the DECL_TI_TEMPLATE field
-       for this will point at template <class T> template <> S<T>::f(int),
-       so that we can find the definition.  For the purposes of
-       overload resolution, however, we want the original TMPL.  */
-    cand->template_decl = build_template_info (tmpl, targs);
+         Here, TMPL will be template <class U> S<double>::f(U).
+         And, instantiate template will give us the specialization
+         template <> S<double>::f(int).  But, the DECL_TI_TEMPLATE field
+         for this will point at template <class T> template <> S<T>::f(int),
+         so that we can find the definition.  For the purposes of
+         overload resolution, however, we want the original TMPL.  */
+      tree cons = tsubst_constraint (DECL_TEMPLATE_CONSTRAINT (fn), targs);
+      cand->template_decl = build_template_info (tmpl, targs, cons);
+    }
   else
     cand->template_decl = DECL_TEMPLATE_INFO (fn);
   cand->explicit_targs = explicit_targs;
@@ -3243,6 +3275,13 @@ print_z_candidate (location_t loc, const char *msgstr,
 		  "  a constructor taking a single argument of its own "
 		  "class type is invalid");
 	  break;
+        case rr_constraint_failure:
+          {
+            tree tmpl = r->u.template_instantiation.tmpl;
+            tree args = r->u.template_instantiation.targs;
+            diagnose_constraint_failure (cloc, tmpl, args);
+          }
+          break;
 	case rr_none:
 	default:
 	  /* This candidate didn't have any issues or we failed to
@@ -8353,6 +8392,22 @@ add_warning (struct z_candidate *winner, struct z_candidate *loser)
   winner->warnings = cw;
 }
 
+// Returns the template declaration associated with the candidate
+// function. For actual templates, this is directly associated
+// with the candidate. For temploids, we return the template
+// associated with the specialization.
+static inline tree
+template_decl_for_candidate (struct z_candidate *cand)
+{
+ tree r = cand->template_decl;
+  tree d = cand->fn;
+  if (!r && DECL_P (d) && DECL_USE_TEMPLATE (d))
+    r = DECL_TI_TEMPLATE (d);
+  if (r && TREE_CODE (r) == TEMPLATE_INFO)
+    r = TI_TEMPLATE (r);
+  return r;
+}
+
 /* Compare two candidates for overloading as described in
    [over.match.best].  Return values:
 
@@ -8368,6 +8423,10 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
   int off1 = 0, off2 = 0;
   size_t i;
   size_t len;
+
+  // Get the actual template decls associated with the candidates.
+  tree tmpl1 = template_decl_for_candidate (cand1);
+  tree tmpl2 = template_decl_for_candidate (cand2);
 
   /* Candidates that involve bad conversions are always worse than those
      that don't.  */
@@ -8571,16 +8630,14 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
      more specialized than the template for F2 according to the partial
      ordering rules.  */
 
-  if (cand1->template_decl && cand2->template_decl)
+  if (tmpl1 && tmpl2)
     {
-      winner = more_specialized_fn
-	(TI_TEMPLATE (cand1->template_decl),
-	 TI_TEMPLATE (cand2->template_decl),
-	 /* [temp.func.order]: The presence of unused ellipsis and default
-	    arguments has no effect on the partial ordering of function
-	    templates.   add_function_candidate() will not have
-	    counted the "this" argument for constructors.  */
-	 cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
+      /* [temp.func.order]: The presence of unused ellipsis and default
+         arguments has no effect on the partial ordering of function
+         templates.   add_function_candidate() will not have
+         counted the "this" argument for constructors.  */
+      int nparms = cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn);
+      winner = more_specialized_fn (tmpl1, tmpl2, nparms);
       if (winner)
 	return winner;
     }
