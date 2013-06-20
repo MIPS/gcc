@@ -3683,13 +3683,15 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    TEMPLATE_PARM_INDEX for the parameter is available as the
    DECL_INITIAL (for a PARM_DECL) or as the TREE_TYPE (for a
    TYPE_DECL).  */
-#define DECL_TEMPLATE_PARMS(NODE)       DECL_NON_COMMON_CHECK (NODE)->decl_non_common.arguments
+#define DECL_TEMPLATE_PARMS(NODE)       \
+  TEMPLATE_DECL_CHECK (NODE)->decl_non_common.arguments
 #define DECL_INNERMOST_TEMPLATE_PARMS(NODE) \
    INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (NODE))
 #define DECL_NTPARMS(NODE) \
    TREE_VEC_LENGTH (DECL_INNERMOST_TEMPLATE_PARMS (NODE))
 /* For function, method, class-data templates.  */
-#define DECL_TEMPLATE_RESULT(NODE)      DECL_RESULT_FLD (NODE)
+#define DECL_TEMPLATE_RESULT(NODE)      \
+  DECL_RESULT_FLD (TEMPLATE_DECL_CHECK (NODE))
 /* For a function template at namespace scope, DECL_TEMPLATE_INSTANTIATIONS
    lists all instantiations and specializations of the function so that
    tsubst_friend_function can reassign them to another template if we find
@@ -3718,19 +3720,21 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    <class U> struct S1<T>::S2'.
 
    This list is not used for other templates.  */
-#define DECL_TEMPLATE_INSTANTIATIONS(NODE) DECL_VINDEX (NODE)
+#define DECL_TEMPLATE_INSTANTIATIONS(NODE) \
+  DECL_VINDEX (TEMPLATE_DECL_CHECK (NODE))
+
 /* For a class template, this list contains the partial
    specializations of this template.  (Full specializations are not
    recorded on this list.)  The TREE_PURPOSE holds the arguments used
    in the partial specialization (e.g., for `template <class T> struct
-   S<T*, int>' this will be `T*'.)  The arguments will also include
-   any outer template arguments.  The TREE_VALUE holds the innermost
-   template parameters for the specialization (e.g., `T' in the
-   example above.)  The TREE_TYPE is the _TYPE node for the partial
-   specialization.
+   S<T*, int>' this will be `T*, int'.)  The arguments will also include
+   any outer template arguments.  The TREE_VALUE holds the TEMPLATE_DECL
+   for the partial specialization.  The TREE_TYPE is the _TYPE node for
+   the partial specialization.
 
    This list is not used for other templates.  */
-#define DECL_TEMPLATE_SPECIALIZATIONS(NODE)     DECL_SIZE (NODE)
+#define DECL_TEMPLATE_SPECIALIZATIONS(NODE)     \
+  DECL_SIZE (TEMPLATE_DECL_CHECK (NODE))
 
 /* Nonzero for a DECL which is actually a template parameter.  Keep
    these checks in ascending tree code order.   */
@@ -3796,9 +3800,10 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 #define SET_DECL_SELF_REFERENCE_P(NODE) \
   (DECL_LANG_FLAG_4 (NODE) = 1)
 
-/* A `primary' template is one that has its own template header.  A
-   member function of a class template is a template, but not primary.
-   A member template is primary.  Friend templates are primary, too.  */
+/* A `primary' template is one that has its own template header and is not
+   a partial specialization.  A member function of a class template is a
+   template, but not primary.  A member template is primary.  Friend
+   templates are primary, too.  */
 
 /* Returns the primary template corresponding to these parameters.  */
 #define DECL_PRIMARY_TEMPLATE(NODE) \
@@ -4345,8 +4350,6 @@ extern GTY(()) vec<tree, va_gc> *local_classes;
 #define VFIELD_NAME "_vptr."
 #define VFIELD_NAME_FORMAT "_vptr.%s"
 
-#define ANON_AGGRNAME_FORMAT "._%d"
-
 #else /* NO_DOT_IN_LABEL */
 
 #ifndef NO_DOLLAR_IN_LABEL
@@ -4357,7 +4360,6 @@ extern GTY(()) vec<tree, va_gc> *local_classes;
 #define VFIELD_BASE "$vf"
 #define VFIELD_NAME "_vptr$"
 #define VFIELD_NAME_FORMAT "_vptr$%s"
-#define ANON_AGGRNAME_FORMAT "$_%d"
 
 #else /* NO_DOLLAR_IN_LABEL */
 
@@ -4375,12 +4377,6 @@ extern GTY(()) vec<tree, va_gc> *local_classes;
   (!strncmp (IDENTIFIER_POINTER (ID_NODE), VFIELD_NAME, \
 	    sizeof (VFIELD_NAME) - 1))
 #define VFIELD_NAME_FORMAT "__vptr_%s"
-
-#define ANON_AGGRNAME_PREFIX "__anon_"
-#define ANON_AGGRNAME_P(ID_NODE) \
-  (!strncmp (IDENTIFIER_POINTER (ID_NODE), ANON_AGGRNAME_PREFIX, \
-	     sizeof (ANON_AGGRNAME_PREFIX) - 1))
-#define ANON_AGGRNAME_FORMAT "__anon_%d"
 
 #endif	/* NO_DOLLAR_IN_LABEL */
 #endif	/* NO_DOT_IN_LABEL */
@@ -4418,11 +4414,6 @@ extern GTY(()) vec<tree, va_gc> *local_classes;
 #define VFIELD_NAME_P(ID_NODE) \
   (!strncmp (IDENTIFIER_POINTER (ID_NODE), VFIELD_NAME, sizeof(VFIELD_NAME)-1))
 
-/* For anonymous aggregate types, we need some sort of name to
-   hold on to.  In practice, this should not appear, but it should
-   not be harmful if it does.  */
-#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == JOINER \
-				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
 #endif /* !defined(NO_DOLLAR_IN_LABEL) || !defined(NO_DOT_IN_LABEL) */
 
 

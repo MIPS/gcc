@@ -9264,7 +9264,15 @@ cp_parser_expression_statement (cp_parser* parser, tree in_statement_expr)
   /* If the next token is a ';', then there is no expression
      statement.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
-    statement = cp_parser_expression (parser, /*cast_p=*/false, NULL);
+    {
+      statement = cp_parser_expression (parser, /*cast_p=*/false, NULL);
+      if (statement == error_mark_node
+	  && !cp_parser_uncommitted_to_tentative_parse_p (parser))
+	{
+	  cp_parser_skip_to_end_of_block_or_statement (parser);
+	  return error_mark_node;
+	}
+    }
 
   /* Give a helpful message for "A<T>::type t;" and the like.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON)
@@ -9742,10 +9750,7 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl)
 	range_expr = error_mark_node;
       stmt = begin_range_for_stmt (scope, init);
       finish_range_for_decl (stmt, range_decl, range_expr);
-      if (range_expr != error_mark_node
-	  && !type_dependent_expression_p (range_expr)
-	  /* The length of an array might be dependent.  */
-	  && COMPLETE_TYPE_P (complete_type (TREE_TYPE (range_expr)))
+      if (!type_dependent_expression_p (range_expr)
 	  /* do_auto_deduction doesn't mess with template init-lists.  */
 	  && !BRACE_ENCLOSED_INITIALIZER_P (range_expr))
 	do_range_for_auto_deduction (range_decl, range_expr);

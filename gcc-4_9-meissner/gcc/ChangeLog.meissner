@@ -1,5 +1,9 @@
 2013-06-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 200268.
+	* REVISION: Update subversion id.
+
+	(checkpoint, power8.patch034)
 	* config/rs6000/vector.md (xor<mode>3): Rework 128-bit boolean
 	support, move expanders to rs6000.md.
 	(ior<mode>3): Likewise.
