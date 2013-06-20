@@ -1,3 +1,112 @@
+2013-06-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/class.c (are_constrained_member_overloads): New.
+	(add_method): Allow overloading of constrained member functions.
+	* gcc/cp/call.c (rejection_reason_code): New rr_constraint_failure.
+	(template_constraint_failure): New.
+	(add_function_candidate): Check for viability as a precondition to use.
+	(add_template_candidate_real): Integrate constraint diagnostics.
+	Provide constraint info for new template instantiations.
+	(print_z_candidate): Emit diagnostics for constraint failures.
+	(template_decl_for_candidate): New.
+	(joust): Allow non-member templates of class templates to be evaluated
+	in more_specialized_fn if they are constrained.
+	* gcc/cp/ptree.c (cxx_print_xnode): Dump constraint info.
+	* gcc/cp/semantics.c (finish_template_template_parm): Build template
+	info for template template parameters.
+	(is_unary_trait): New.
+	(is_binary_trait): New.
+	(finish_trait_expr): Check for binary traits using new function.
+	* gcc/cp/constraint.cc (join_requirements): New
+	(conjoin_requirements): Join expressions correctly. Fixed docs.
+	(disjoin_requirements): Removed.
+	(is_constriant): Removed.
+	(resolve_constraint_check): New. Replaces previous get_constraint
+	check and related functions.
+	(get_constraints): New, along with helper functions.
+	(suppress_template_processing): New. 
+	(check_template_constraints): New, along with helper functions.
+	(equivalent_constraints): New.
+	(equivalently_constrained): New.
+	(more_constraints): New.
+	(more_constrianed): New.
+	(diagnose_constraint_failure): New.
+	* gcc/cp/decl.c (decls_match): Check for constraint equivalence if
+	the types are the same.
+	(check_concept_refinement): New.
+	(are_constrained_overloads): New.
+	(duplicate_decls): Handle constraints for ambigous declarations. Check
+	and diagnose concept refinement.
+	(check_concept_fn): Don't fail completely just because the concept
+	isn't defined correctly. Allow analysis to continue as if declared
+	constexpr. Concepts must return bool.
+	* gcc/cp/tree.c (bind_template_template_parm): Provide empty 
+	constraints for bound template template parameters.
+	* gcc/cp/logic.cc: Rewrite of proof state and related structures and
+	decomposition logic. Removed right-decomposition logic, but retained
+	right-logical rules.
+	(match_terms): Renamed from entails.
+	(subsumes_prop): Cleanup, added specific handlers for and/or cases.
+	(subsumes_constraints): Update from interface change.
+	* gcc/cp/cp-tree.h (check_constraint_info): Renamed and applied
+	interface change.
+	(check_template_info): Renamed and applied interface change.
+	(cp_unevaluated): New
+	(local_specialization_stack): New.
+	(coerce_template_parms): New.
+	(is_unary_trait): New.
+	(is_binary_trait): New.
+	(get_constraints): New.
+	(check_constraints): New.
+	(check_template_constraints): New.
+	(subst_template_constraints): New.
+	(equivalent_constraints): New.
+	(equivalently_constrained): New.
+	(more_constraints): New.
+	(more_constrained): New.
+	(diagnose_constraints_failure): New.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_template_declaration): Print the
+	template requirements.
+	* gcc/cp/pt.c (local_specialization_stack): New.
+	(build_template_info): Refactor into 3-argument version and 
+	incorporate template requirements.
+	(check_explicit_specialization): Instantiate requirements for
+	template info.
+	(push_template_decl_real): Include constraints in template info.
+	(redeclare_class_template): Diagnose redeclaration with different
+	constraints.
+	(is_compatible_template_arg): New.
+	(convert_template_argument): Check constraints on template template
+	arguments and diagnose errors.
+	(lookup_template_class_1): Check constraints on alias templates.
+	Keep constraints with instantiated types.
+	(instantiate_class_template_1): Check constraints on class templates.
+	(tsubst_decl): Instantiate and keep constraints with template info.
+	Also, allow dependent pack arguments to produce neww parameter
+	packs when instantiated.
+	(coerce_template_parms): New overload.
+	(tsubst_copy): Handle REAL_TYPE and BOOLEAN_TYPE.
+	(tsubst_copy_and_build): PARM_DECLs can be instantiated as pack
+	expansions (used with requires expression).
+	(fn_type_unification): Check constraints for function templates.
+	(more_specialized_fn): Determine which candidate is more constrained.
+	(substitute_template_parameters): Removed.
+	(tsubst_constraint): New.
+	(substitute_requirements): New.
+	* gcc/cp/parser.c: (cp_parser_optional) Removed along with helper
+	functions, etc.
+	(cp_unevaluated): New.
+	(cp_parser_type_parameter): Check for requires kw explicitly, and
+	save/clear template requirements before parsing the requires clause.
+	(cp_parser_requires_clause): Removed.
+	(cp_parser_template_declaration_after_exp): Check for requires kw
+	explicitly.
+	* gcc/system.h (cstdlib): Removed include.
+	* gcc/c-family/c-common.h (D_CXX_CONCEPTS): New flag for disabling
+	concept keywords.
+	* gcc/c-family/c.opt (flag_concepts): Remove redundant declaration.
+	* gcc/c-family/c-common.c (c_common_r): Concept-specific keywords
+	are only enabled when concepts are enabled.
+
 2013-06-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/system.h (cstdlib): Include <cstdlib> to avoid poisoned
 	declaration errors.
@@ -9,8 +118,8 @@
 	(cp_requires_clause_opt): New.
 	(cp_rule): New.
 	(cp_parser_optional_if_token): New.
-        (cp_parser_optional_if_not_token): New.
-        (cp_parser_optional_if_keyword): New.
+	(cp_parser_optional_if_not_token): New.
+	(cp_parser_optional_if_keyword): New.
 	(cp_parser_decl_specifier_seq): Parse 'concept' as a declspec.
 	(cp_parser_type_parameter): Parse constrained template template parms.
 	(cp_parser_member_specification_opt): Parse member constraints after
