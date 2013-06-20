@@ -1,5 +1,14 @@
 
 
+2013-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Unstable}}
+	* melt/warmelt-genobj.melt (compile2obj_hook): Don't really use
+	the nmapdata, but for each closed value, fetch it..
+
+	* melt/warmelt-outobj.melt (outdeclinit_root): Give also an
+	explanatory error.
+
 2013-06-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

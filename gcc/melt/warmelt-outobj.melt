@@ -111,8 +111,12 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;;;;
 (defun outdeclinit_root (recv sbuf)
   (debug "outdeclinit_root recv=" recv)
-  (assert_msg "outdeclinit_root unimplemented catchall" ())
-  )
+  (let ( (dis (discrim recv))
+	 (disname (get_field :named_name dis))
+	 )
+    (errormsg_strv "unexpected object to output initial declaration for" disname)
+    (assert_msg "outdeclinit_root unimplemented catchall" ())
+    ))
 (install_method class_root output_c_declinit outdeclinit_root)
 
 

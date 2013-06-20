@@ -1281,30 +1281,47 @@
 	      "\n.. for nhook=" nhook)
        (shortbacktrace_dbg "compile2obj_hook updated compicache" 15)
        ;;
-       ;; associate each hookdata with its retrieval in the compicache
-       (debug "compile2obj_hook " nhookname " nmapdata=" nmapdata "\n.. hdataloc=" hdataloc
-	      "\n.. nclosvtup=" nclosvtup 
-	      "\n.. class_objhooknth=" class_objhooknth "\n")
+       ;; associate each closedvalue with its retrieval in the compicache
+       (debug "compile2obj_hook " nhookname " handling closvtup=" nclosvtup "\n")
+       (foreach_in_multiple
+	(nclosvtup)
+	(closv :long clix)
+	(debug "compile2obj_hook " nhookname " clix#" clix " closv=" closv)
+	(let ( (ofetchcdata (instance class_objhooknth
+				      :obv_type ctype_value
+				      :ohknth_hook hdataloc
+				      :ohknth_off (constant_box clix)))
+	       )
+	  (debug "compile2obj_hook " nhookname " ofetchcdata=" ofetchcdata)
+	  (mapobject_put compicache closv ofetchcdata)
+	  )
+	)
+       (debug "compile2obj_hook " nhookname " updated compicache=" compicache)
+       #|
+       (debug "compile2obj_hook " nhookname " handling nmapdata=" nmapdata "\n.. hdataloc=" hdataloc
+       "\n.. nclosvtup=" nclosvtup 
+       "\n.. class_objhooknth=" class_objhooknth "\n")
        (let ( (:long nbclosvm1 (-i (multiple_length nclosvtup) 1))
-	      )
-	 (foreach_in_mapobject
-	  (nmapdata)
-	  (curndata bxdix)
-	  (debug "compile2obj_hook " nhookname " curndata=" curndata "\n.. bxdix=" bxdix)
-	  (assert_msg "check curndata" (is_a curndata class_nrep_quasidata))
-	  (assert_msg "check bxdix" (is_integerbox bxdix))
-	  ;; compile_obj of curndata don't work here
-	  (let ( (:long dix (get_int bxdix))
-		 (ofetchdata (instance class_objhooknth
-				       :obv_type ctype_value
-				       :ohknth_hook hdataloc
-				       :ohknth_off (constant_box (-i dix 1)))
-			     )
-		 )
-	    (debug "compile2obj_hook " nhookname "\n ofetchdata=" ofetchdata)
-	    (mapobject_put compicache curndata ofetchdata)
-	    )
-	  )				; end foreach_in_mapobject
+       )
+       (foreach_in_mapobject
+       (nmapdata)
+       (curndata bxdix)
+       (debug "compile2obj_hook " nhookname " curndata=" curndata "\n.. bxdix=" bxdix)
+       (assert_msg "check curndata" (is_a curndata class_nrep_quasidata))
+       (assert_msg "check bxdix" (is_integerbox bxdix))
+	  ;; compile_obj of curndata don't work here ; ;
+       (let ( (:long dix (get_int bxdix))
+       (ofetchdata (instance class_objhooknth
+       :obv_type ctype_value
+       :ohknth_hook hdataloc
+       :ohknth_off (constant_box (-i dix 1)))
+       )
+       )
+       (debug "compile2obj_hook " nhookname "\n ofetchdata=" ofetchdata)
+       (mapobject_put compicache curndata ofetchdata)
+       )
+       )				; end foreach_in_mapobject ; ;
+       |#
 	 (debug "compile2obj_hook " nhookname " hookdataupdated compicache=" compicache
 		"\n.. obodylist=" obodylist "\n")
 	 )
@@ -1317,12 +1334,20 @@
 	 (debug "compile2obj_hook " nhookname " obody=" obody)
 	 (list_append obodylist obody)
 	 ;; forget the closed data
-	 (foreach_in_mapobject
-	  (nmapdata)
-	  (curndata bxdix)
-	  (debug "compile2obj_hook " nhookname " forgetting curndata=" curndata 
-		 " bxdix=" bxdix)
-	  (mapobject_remove compicache curndata))
+#|
+       (foreach_in_mapobject
+	 (nmapdata)
+	 (curndata bxdix)
+	 (debug "compile2obj_hook " nhookname " forgetting curndata=" curndata 
+	 " bxdix=" bxdix)
+	 (mapobject_remove compicache curndata))
+       |#
+       (foreach_in_multiple
+	(nclosvtup)
+	(closv :long clix)
+	(debug "compile2obj_hook " nhookname " forgetting closv=" closv)
+	(mapobject_remove compicache closv)
+	 )
 	 (debug "compile2obj_hook " nhookname " after forgethookdata compicache=" compicache)
 	 (debug "compile2obj_hook " nhookname " final obodylist=" obodylist "\n")
 	 ;;
@@ -1344,7 +1369,7 @@
 	 ;;
 	 (debug "compile2obj_hook " nhookname "oepiloglist=" oepiloglist)
 	 (debug "compile2obj_hook " nhookname " return hookrout=" hookrout)
-	 (return hookrout)))))
+	 (return hookrout))))
 
 
 
