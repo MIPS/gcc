@@ -904,13 +904,8 @@ output_zca_table (section *s)
   for (ii = 0; ii < length; ii++)
     {
       zca_entry = find_zca_data (ii);
-      if (TYPE_PRECISION (integer_type_node) == 32) 
-	{ 
-	  fputs (integer_asm_op (GET_MODE_SIZE (Pmode), 1), asm_out_file);
-	  fputs ("0\n", asm_out_file);
-	}
       /* This outputs the IP.  */
-      fputs (integer_asm_op (GET_MODE_SIZE (Pmode), 1), asm_out_file);
+      fputs (integer_asm_op (8, 0), asm_out_file);
       output_asm_label (zca_entry->label);
       fputc ('\n', asm_out_file);
 
@@ -1001,7 +996,7 @@ cilk_output_metadata (void)
   s = get_unnamed_section (0, output_section_asm_op,
 			   "\t.section .itt_notify_tab,\"a\"");
   switch_to_section (s);
-  assemble_align (BITS_PER_WORD);
+  assemble_align (32);
 
   st_label = create_metadata_label ("ZCA_START");
   str_table_label = create_metadata_label ("STRING_TABLE_START");

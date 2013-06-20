@@ -2135,6 +2135,15 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 		"have arrays with dimension greater than 1");
       return error_mark_node;
     }
+  else if (TREE_CODE (func_parm) == ARRAY_NOTATION_REF)
+    {
+      if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (func_parm)))
+	{
+	  error_at (location, "array notations in builtin functions must be"
+		    "arithmetic type");
+	  return error_mark_node;
+	}
+    }
   
   extract_array_notation_exprs (func_parm, true, &array_list);
   list_size = vec_safe_length (array_list);

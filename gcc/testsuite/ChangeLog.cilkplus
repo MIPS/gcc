@@ -1,3 +1,11 @@
+2013-06-20  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* gcc.dg/cilk-plus/array_notation_tests/errors/invalid_types.c: New
+	test.
+	* g++.dg/cilk-plus/cilk_keywords_test/execute/plus-equal-test.cc: Ditto.
+	* g++.dg/cilk-plus/cilk_keywords_test/compile/no_except.cc: Ditto.
+	* g++.dg/cilk-plus/array_notation_tests/errors/invalid_types.cc: Ditto.
+
 2013-04-05  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* gcc.dg/cilk-plus/cilk_keywords_test/execute/execute.exp: Added unique

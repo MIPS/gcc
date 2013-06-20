@@ -1,3 +1,15 @@
+2013-06-20  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cp-cilk.c (add_incr): Added CONVERT_EXPR case.
+	(compute_loop_var): Added an if statement to handle += case in
+	overloaded expressions.
+	(validate_cilk_for): Removed a type main variant check.  Also, added
+	a new error reporting.
+	(cp_install_body_with_frame_cleanup): Added support for exceptions in
+	_Cilk_spawn.
+	* cp-array-notation.c (fix_builtin_array_notation_fn): Added a check
+	for non-arithmetic types using array notations.
+
 2013-04-24  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cp/cp-array-notation.c (fix_builtin_array_notation_fn): Added

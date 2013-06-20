@@ -1,3 +1,12 @@
+2013-06-20  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cilk.c (output_zca_table): Hardcoded the mode size to 8.
+	(cilk_output_metadata): Hardcoded the alignment value to 32.
+	* c/c-array-notation.c (fix_builtin_array_notation_fn): Added a check
+	for array notation's type is of arithmetic type.
+	(fix_builtin_array_notation_fn): Converted less than and greater than
+	to include equal-to also.
+
 2013-04-24  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c/c-array-notation.c (fix_builtin_array_notation_fn): Added "equal-to"

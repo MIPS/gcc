@@ -1926,6 +1926,13 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 		" have arrays with dimension greater than 1.");
       return error_mark_node;
     }
+  else if (TREE_CODE (func_parm) == ARRAY_NOTATION_REF
+	   && RECORD_OR_UNION_TYPE_P (TREE_TYPE (func_parm)))
+    {
+      error_at (location, "array notations in builtin functions must be "
+		"arithmetic type");
+      return error_mark_node;
+    }
   
   extract_array_notation_exprs (func_parm, true, &array_list);
   list_size = vec_safe_length (array_list);
@@ -2270,7 +2277,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 location, func_parm, TREE_TYPE (*new_var));
       new_expr = build_conditional_expr
 	(location,
-	 build2 (LT_EXPR, TREE_TYPE (*new_var), *new_var, func_parm), false,
+	 build2 (LE_EXPR, TREE_TYPE (*new_var), *new_var, func_parm), false,
 	 new_yes_expr, TREE_TYPE (*new_var), new_no_expr, TREE_TYPE (*new_var));
       break;
     case REDUCE_MIN:
@@ -2290,7 +2297,7 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
 	 location, func_parm, TREE_TYPE (*new_var));
       new_expr = build_conditional_expr
 	(location,
-	 build2 (GT_EXPR, TREE_TYPE (*new_var), *new_var, func_parm), false,
+	 build2 (GE_EXPR, TREE_TYPE (*new_var), *new_var, func_parm), false,
 	 new_yes_expr, TREE_TYPE (*new_var), new_no_expr, TREE_TYPE (*new_var));
       break;
     case REDUCE_MAX_INDEX:

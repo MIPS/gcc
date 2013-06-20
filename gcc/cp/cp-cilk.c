@@ -202,6 +202,7 @@ add_incr (tree incr)
     case POSTDECREMENT_EXPR:
       return false;
     case CLEANUP_POINT_EXPR:
+    case CONVERT_EXPR:
     case NOP_EXPR:
       return add_incr (TREE_OPERAND (incr, 0));
     case MODIFY_EXPR:
@@ -379,7 +380,7 @@ cilk_outline (tree outer_fn, tree inner_fn, tree *stmt_p,
   /* See if this function can throw or calls something that should
      not be spawned.  The exception part is only necessary if
      flag_exceptions && !flag_non_call_exceptions. */
-  throws = cp_function_chain->can_throw;
+  throws = flag_exceptions ? cp_function_chain->can_throw : false;
   (void) walk_tree_without_duplicates (stmt_p, check_outlined_calls, &throws);
   cp_function_chain->can_throw = throws;
 
@@ -692,6 +693,7 @@ cp_build_cilk_for_body (struct cilk_for_desc *cfd)
 static tree
 compute_loop_var (struct cilk_for_desc *cfd, tree loop_var, tree lower_bound)
 {
+  tree new_var = NULL_TREE, new_stmt = NULL_TREE;
   tree incr = cfd->incr;
   tree count_type;
   tree scaled, adjusted;
@@ -737,6 +739,25 @@ compute_loop_var (struct cilk_for_desc *cfd, tree loop_var, tree lower_bound)
       low = lower_bound ? lower_bound : cfd->var;
       exp = build_new_op (UNKNOWN_LOCATION, add_op, 0, low, loop_var, 
 			  NULL_TREE, 0, 0);
+      if (exp == error_mark_node)
+	{
+	  /* If we are here, then operator+ or operator- couldn't be found.
+	     So, the other option is to use += and this requires storing values
+	     in a variable and then adding them one by one.  */
+	  new_var = cfd->var2;
+	  exp = alloc_stmt_list ();
+	  new_stmt = build_modify_expr (0, new_var, TREE_TYPE (new_var),
+					INIT_EXPR, 0,
+					build_zero_cst (TREE_TYPE (new_var)),
+					TREE_TYPE (new_var));
+	  append_to_statement_list_force (new_stmt, &exp);
+	  new_stmt = build_x_modify_expr (0, new_var, NOP_EXPR, low, 0);
+	  append_to_statement_list_force (new_stmt, &exp);
+	  new_stmt = build_x_modify_expr (0, new_var, add_op, loop_var,
+					  tf_warning_or_error);
+	  append_to_statement_list_force (new_stmt, &exp);
+	  return exp;
+	}
       gcc_assert (exp != error_mark_node);
  
       exp = build_modify_expr (UNKNOWN_LOCATION, cfd->var2,
@@ -975,7 +996,9 @@ callable (enum tree_code code, tree op0, tree op1, const char *what, bool cry)
 
   exp = build_new_op (UNKNOWN_LOCATION, code, flags, op0, op1, NULL_TREE, NULL,
 		      0); 
-  
+  if (exp == error_mark_node)
+    exp = build_x_modify_expr (UNKNOWN_LOCATION, op0, code, op1,
+			       tf_warning_or_error);
   if (exp && (exp != error_mark_node)) 
     return exp;
 
@@ -1292,7 +1315,8 @@ validate_for_scalar (tree c_for_stmt, tree var)
   return true;
 }
 
-/* This function will check if _Cilk_for loop is valid.  */
+/* Returns true of C_FOR_STMT, a CILK_FOR stmt tree with the induction variable
+   VAR, a VAR_DECL is valid.  */
 
 static bool
 validate_for_record (tree c_for_stmt, tree var)
@@ -1301,7 +1325,7 @@ validate_for_record (tree c_for_stmt, tree var)
   tree exp_cond = NULL_TREE;
   tree l_type = NULL_TREE, d_type = NULL_TREE, d_type_up = NULL_TREE;
   tree d_type_down = NULL_TREE;
-  tree var_type = NULL_TREE, cond = NULL_TREE, limit = NULL_TREE;
+  tree cond = NULL_TREE, limit = NULL_TREE;
   tree hack = NULL_TREE;
   int direction = 0;
   
@@ -1310,9 +1334,6 @@ validate_for_record (tree c_for_stmt, tree var)
   limit = check_limit_record (cond, var, &direction);
   if (!limit) 
     return false;
-
-  var_type = TREE_TYPE (var);
-
   l_type = TREE_TYPE (limit);
 
   hack = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier ("loop_bound"),
@@ -1349,14 +1370,8 @@ validate_for_record (tree c_for_stmt, tree var)
 		       " variable calculation", false);
   if (!exp_plus) 
     return false;
-
-  if (TYPE_MAIN_VARIANT (TREE_TYPE (exp_plus)) != var_type
-      && !can_convert_arg (var_type, TREE_TYPE (exp_plus), exp_plus, 0,
-			   tf_warning_or_error)) 
-    error ("result of operation%c(%T,%T) not convertable to type of loop var.", 
-	   (direction >= 0) ? '+' : '-', var_type, d_type);
-
-  if (cp_tree_uses_cilk (exp_plus)
+  
+    if (cp_tree_uses_cilk (exp_plus)
       || cp_tree_uses_cilk (callable (INIT_EXPR, NULL_TREE, var, 0, false))
       || cp_tree_uses_cilk (callable (PSEUDO_DTOR_EXPR, NULL_TREE, var, 0,
 	 false))) 
@@ -1369,8 +1384,12 @@ validate_for_record (tree c_for_stmt, tree var)
     return false;
 
   if (!can_convert_arg (boolean_type_node, TREE_TYPE (exp_cond), exp_cond,
-		       LOOKUP_NORMAL, tf_warning_or_error)) 
-    return false;
+			LOOKUP_NORMAL, tf_warning_or_error))
+    {
+      error_at (EXPR_LOCATION (c_for_stmt), "cannot convert %qE to boolean",
+		exp_cond);
+      return false;
+    }
 
   if (!check_incr (var, d_type, FOR_EXPR (c_for_stmt))) 
     return false;
@@ -2942,21 +2961,28 @@ cp_install_body_with_frame_cleanup (tree fndecl, tree body)
 
   DECL_SAVED_TREE (fndecl) = (list = alloc_stmt_list ());
 
-  catch_list = alloc_stmt_list ();
-  except_flag = set_cilk_except_flag (frame);
-  except_data = set_cilk_except_data (frame);
-  append_to_statement_list (except_flag, &catch_list);
-  append_to_statement_list (except_data, &catch_list);
-  append_to_statement_list (do_begin_catch (), &catch_list);
-  append_to_statement_list (build_throw (NULL_TREE), &catch_list);
-  catch_tf_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
-			      catch_list, do_end_catch (NULL_TREE));
-  catch_list = build2 (CATCH_EXPR, void_type_node, NULL_TREE, catch_tf_expr);
-
-  try_catch_expr = build_stmt (EXPR_LOCATION (body), TRY_CATCH_EXPR, body,
-			       catch_list);
-  try_finally_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
-				 try_catch_expr, dtor);
-  append_to_statement_list_force (try_finally_expr, &list);
+  if (flag_exceptions)
+    {
+      catch_list = alloc_stmt_list ();
+      except_flag = set_cilk_except_flag (frame);
+      except_data = set_cilk_except_data (frame);
+      append_to_statement_list (except_flag, &catch_list);
+      append_to_statement_list (except_data, &catch_list);
+      append_to_statement_list (do_begin_catch (), &catch_list);
+      append_to_statement_list (build_throw (NULL_TREE), &catch_list);
+      catch_tf_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
+				  catch_list, do_end_catch (NULL_TREE));
+      catch_list = build2 (CATCH_EXPR, void_type_node, NULL_TREE,
+			   catch_tf_expr);
+      try_catch_expr = build_stmt (EXPR_LOCATION (body), TRY_CATCH_EXPR, body,
+				   catch_list);
+      try_finally_expr = build_stmt (EXPR_LOCATION (body), TRY_FINALLY_EXPR,
+				     try_catch_expr, dtor);
+      append_to_statement_list_force (try_finally_expr, &list);
+    }
+  else
+    append_to_statement_list_force (build_stmt (EXPR_LOCATION (body),
+						TRY_FINALLY_EXPR, body, dtor),
+				    &list);
 }
 
