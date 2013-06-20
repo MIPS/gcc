@@ -1,7 +1,7 @@
 
 2013-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	{{Regenerated -with manual copy- and unstable and brittle}}
+	{{Regenerated -with manual copy- and unstable and brittle; fail to run checkruntime...}}
 	* melt/generated/warmelt-base+01.c: Regenerate and copy manually.
 	* melt/generated/warmelt-base+02.c: Regenerate and copy manually.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate and copy manually.
