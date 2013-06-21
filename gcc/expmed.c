@@ -46,19 +46,20 @@ static void store_fixed_bit_field (rtx, unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
-				   rtx);
+				   rtx, bool);
 static void store_split_bit_field (rtx, unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
 				   unsigned HOST_WIDE_INT,
-				   rtx);
+				   rtx, bool);
 static rtx extract_fixed_bit_field (enum machine_mode, rtx,
 				    unsigned HOST_WIDE_INT,
-				    unsigned HOST_WIDE_INT, rtx, int, bool);
+				    unsigned HOST_WIDE_INT,
+				    rtx, int, bool, bool);
 static rtx mask_rtx (enum machine_mode, int, int, int);
 static rtx lshift_value (enum machine_mode, rtx, int, int);
 static rtx extract_split_bit_field (rtx, unsigned HOST_WIDE_INT,
-				    unsigned HOST_WIDE_INT, int);
+				    unsigned HOST_WIDE_INT, int, bool);
 static void do_cmp_and_jump (rtx, rtx, enum rtx_code, enum machine_mode, rtx);
 static rtx expand_smod_pow2 (enum machine_mode, rtx, HOST_WIDE_INT);
 static rtx expand_sdiv_pow2 (enum machine_mode, rtx, HOST_WIDE_INT);
@@ -319,6 +320,38 @@ negate_rtx (enum machine_mode mode, rtx x)
   return result;
 }
 
+/* Return an rtx representing value of X with reverse storage order.
+   MODE is the intended mode of the result,
+   useful if X is a CONST_INT.  */
+
+rtx
+flip_storage_order (enum machine_mode mode, rtx x)
+{
+  enum machine_mode int_mode;
+  rtx result;
+
+  if (mode == QImode)
+    return x;
+
+  if (SCALAR_INT_MODE_P (mode))
+    int_mode = mode;
+  else
+    {
+      int_mode = int_mode_for_mode (mode);
+      gcc_assert (int_mode != BLKmode);
+      x = gen_lowpart (int_mode, x);
+    }
+
+  result = simplify_unary_operation (BSWAP, int_mode, x, int_mode);
+  if (result == 0)
+    result = expand_unop (int_mode, bswap_optab, x, NULL_RTX, 1);
+
+  if (int_mode != mode)
+    result = gen_lowpart (mode, result);
+
+  return result;
+}
+
 /* Adjust bitfield memory MEM so that it points to the first unit of mode
    MODE that contains a bitfield of size BITSIZE at bit position BITNUM.
    If MODE is BLKmode, return a reference to every byte in the bitfield.
@@ -555,7 +588,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		   unsigned HOST_WIDE_INT bitregion_start,
 		   unsigned HOST_WIDE_INT bitregion_end,
 		   enum machine_mode fieldmode,
-		   rtx value, bool fallback_p)
+		   rtx value, bool reverse, bool fallback_p)
 {
   rtx op0 = str_rtx;
   rtx orig_value;
@@ -629,6 +662,8 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 				     bitnum / BITS_PER_UNIT);
       if (sub)
 	{
+	  if (reverse)
+	    value = flip_storage_order (fieldmode, value);
 	  emit_move_insn (sub, value);
 	  return true;
 	}
@@ -640,6 +675,8 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (simple_mem_bitfield_p (op0, bitsize, bitnum, fieldmode))
     {
       op0 = adjust_bitfield_address (op0, fieldmode, bitnum / BITS_PER_UNIT);
+      if (reverse)
+	op0 = flip_storage_order (fieldmode, op0);
       emit_move_insn (op0, value);
       return true;
     }
@@ -709,7 +746,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	 be less than full.
 	 However, only do that if the value is not BLKmode.  */
 
-      unsigned int backwards = WORDS_BIG_ENDIAN && fieldmode != BLKmode;
+      const bool backwards = WORDS_BIG_ENDIAN && fieldmode != BLKmode;
       unsigned int nwords = (bitsize + (BITS_PER_WORD - 1)) / BITS_PER_WORD;
       unsigned int i;
       rtx last;
@@ -732,7 +769,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 				  ? GET_MODE_SIZE (fieldmode) / UNITS_PER_WORD
 				  - i - 1
 				  : i);
-	  unsigned int bit_offset = (backwards
+	  unsigned int bit_offset = (backwards ^ reverse
 				     ? MAX ((int) bitsize - ((int) i + 1)
 					    * BITS_PER_WORD,
 					    0)
@@ -756,7 +793,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 				  bitnum + bit_offset,
 				  bitregion_start, bitregion_end,
 				  word_mode,
-				  value_word, fallback_p))
+				  value_word, reverse, fallback_p))
 	    {
 	      delete_insns_since (last);
 	      return false;
@@ -792,7 +829,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	    return false;
 
 	  store_split_bit_field (op0, bitsize, bitnum, bitregion_start,
-				 bitregion_end, value);
+				 bitregion_end, value, reverse);
 	  return true;
 	}
     }
@@ -803,6 +840,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   extraction_insn insv;
   if (!MEM_P (op0)
+      && !reverse
       && get_best_reg_extraction_insn (&insv, EP_insv,
 				       GET_MODE_BITSIZE (GET_MODE (op0)),
 				       fieldmode)
@@ -811,7 +849,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   /* If OP0 is a memory, try copying it to a register and seeing if a
      cheap register alternative is available.  */
-  if (MEM_P (op0))
+  if (MEM_P (op0) && !reverse)
     {
       /* Do not use unaligned memory insvs for volatile bitfields when
 	 -fstrict-volatile-bitfields is in effect.  */
@@ -835,7 +873,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  rtx tempreg = copy_to_reg (xop0);
 	  if (store_bit_field_1 (tempreg, bitsize, bitpos,
 				 bitregion_start, bitregion_end,
-				 fieldmode, orig_value, false))
+				 fieldmode, orig_value, reverse, false))
 	    {
 	      emit_move_insn (xop0, tempreg);
 	      return true;
@@ -848,7 +886,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
     return false;
 
   store_fixed_bit_field (op0, bitsize, bitnum, bitregion_start,
-			 bitregion_end, value);
+			 bitregion_end, value, reverse);
   return true;
 }
 
@@ -861,7 +899,9 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
    These two fields are 0, if the C++ memory model does not apply,
    or we are not interested in keeping track of bitfield regions.
 
-   FIELDMODE is the machine-mode of the FIELD_DECL node for this field.  */
+   FIELDMODE is the machine-mode of the FIELD_DECL node for this field.
+
+   If REVERSE is true, the store is to be done in reverse order.  */
 
 void
 store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
@@ -869,7 +909,7 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		 unsigned HOST_WIDE_INT bitregion_start,
 		 unsigned HOST_WIDE_INT bitregion_end,
 		 enum machine_mode fieldmode,
-		 rtx value)
+		 rtx value, bool reverse)
 {
   /* Under the C++0x memory model, we must not touch bits outside the
      bit region.  Adjust the address to start at the beginning of the
@@ -895,19 +935,21 @@ store_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   if (!store_bit_field_1 (str_rtx, bitsize, bitnum,
 			  bitregion_start, bitregion_end,
-			  fieldmode, value, true))
+			  fieldmode, value, reverse, true))
     gcc_unreachable ();
 }
 
 /* Use shifts and boolean operations to store VALUE into a bit field of
-   width BITSIZE in OP0, starting at bit BITNUM.  */
+   width BITSIZE in OP0, starting at bit BITNUM.
+
+   If REVERSE is true, the store is to be done in reverse order.  */
 
 static void
 store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 		       unsigned HOST_WIDE_INT bitnum,
 		       unsigned HOST_WIDE_INT bitregion_start,
 		       unsigned HOST_WIDE_INT bitregion_end,
-		       rtx value)
+		       rtx value, bool reverse)
 {
   enum machine_mode mode;
   rtx temp;
@@ -952,7 +994,7 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	  /* The only way this should occur is if the field spans word
 	     boundaries.  */
 	  store_split_bit_field (op0, bitsize, bitnum, bitregion_start,
-				 bitregion_end, value);
+				 bitregion_end, value, reverse);
 	  return;
 	}
 
@@ -965,7 +1007,7 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
   /* Note that bitsize + bitnum can be greater than GET_MODE_BITSIZE (mode)
      for invalid input, such as f5 from gcc.dg/pr48335-2.c.  */
 
-  if (BYTES_BIG_ENDIAN)
+  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
     /* BITNUM is the distance between our msb
        and that of the containing datum.
        Convert it to the distance from the lsb.  */
@@ -1010,6 +1052,9 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 			      bitnum, NULL_RTX, 1);
     }
 
+  if (reverse)
+    value = flip_storage_order (mode, value);
+
   /* Now clear the chosen bits in OP0,
      except that if VALUE is -1 we need not bother.  */
   /* We keep the intermediates in registers to allow CSE to combine
@@ -1019,8 +1064,10 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 
   if (! all_one)
     {
-      temp = expand_binop (mode, and_optab, temp,
-			   mask_rtx (mode, bitnum, bitsize, 1),
+      rtx mask = mask_rtx (mode, bitnum, bitsize, 1);
+      if (reverse)
+	mask = flip_storage_order (mode, mask);
+      temp = expand_binop (mode, and_optab, temp, mask,
 			   NULL_RTX, 1, OPTAB_LIB_WIDEN);
       temp = force_reg (mode, temp);
     }
@@ -1048,6 +1095,8 @@ store_fixed_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
    (within the word).
    VALUE is the value to store.
 
+   If REVERSE is true, the store is to be done in reverse order.
+
    This does not yet handle fields wider than BITS_PER_WORD.  */
 
 static void
@@ -1055,10 +1104,9 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 		       unsigned HOST_WIDE_INT bitpos,
 		       unsigned HOST_WIDE_INT bitregion_start,
 		       unsigned HOST_WIDE_INT bitregion_end,
-		       rtx value)
+		       rtx value, bool reverse)
 {
-  unsigned int unit;
-  unsigned int bitsdone = 0;
+  unsigned int unit, total_bits, bitsdone = 0;
 
   /* Make sure UNIT isn't larger than BITS_PER_WORD, we can only handle that
      much at a time.  */
@@ -1083,12 +1131,14 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 					       : word_mode, value));
     }
 
+  total_bits = GET_MODE_BITSIZE (GET_MODE (value));
+
   while (bitsdone < bitsize)
     {
       unsigned HOST_WIDE_INT thissize;
-      rtx part, word;
       unsigned HOST_WIDE_INT thispos;
       unsigned HOST_WIDE_INT offset;
+      rtx part, word;
 
       offset = (bitpos + bitsdone) / unit;
       thispos = (bitpos + bitsdone) % unit;
@@ -1113,23 +1163,25 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
       thissize = MIN (bitsize - bitsdone, BITS_PER_WORD);
       thissize = MIN (thissize, unit - thispos);
 
-      if (BYTES_BIG_ENDIAN)
+      if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
 	{
 	  /* Fetch successively less significant portions.  */
 	  if (CONST_INT_P (value))
 	    part = GEN_INT (((unsigned HOST_WIDE_INT) (INTVAL (value))
 			     >> (bitsize - bitsdone - thissize))
 			    & (((HOST_WIDE_INT) 1 << thissize) - 1));
+          /* Likewise, but the source is little-endian.  */
+          else if (reverse)
+	    part = extract_fixed_bit_field (word_mode, value, thissize,
+					    bitsize - bitsdone - thissize,
+					    NULL_RTX, 1, false, false);
 	  else
-	    {
-	      int total_bits = GET_MODE_BITSIZE (GET_MODE (value));
-	      /* The args are chosen so that the last part includes the
-		 lsb.  Give extract_bit_field the value it needs (with
-		 endianness compensation) to fetch the piece we want.  */
-	      part = extract_fixed_bit_field (word_mode, value, thissize,
-					      total_bits - bitsize + bitsdone,
-					      NULL_RTX, 1, false);
-	    }
+	    /* The args are chosen so that the last part includes the
+	       lsb.  Give extract_bit_field the value it needs (with
+	       endianness compensation) to fetch the piece we want.  */
+	    part = extract_fixed_bit_field (word_mode, value, thissize,
+					    total_bits - bitsize + bitsdone,
+					    NULL_RTX, 1, false, false);
 	}
       else
 	{
@@ -1138,9 +1190,15 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	    part = GEN_INT (((unsigned HOST_WIDE_INT) (INTVAL (value))
 			     >> bitsdone)
 			    & (((HOST_WIDE_INT) 1 << thissize) - 1));
+	  /* Likewise, but the source is big-endian.  */
+          else if (reverse)
+	    part = extract_fixed_bit_field (word_mode, value, thissize,
+					    total_bits - bitsdone - thissize,
+					    NULL_RTX, 1, false, false);
 	  else
 	    part = extract_fixed_bit_field (word_mode, value, thissize,
-					    bitsdone, NULL_RTX, 1, false);
+					    bitsdone, NULL_RTX, 1, false,
+					    false);
 	}
 
       /* If OP0 is a register, then handle OFFSET here.
@@ -1178,7 +1236,8 @@ store_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	 it is just an out-of-bounds access.  Ignore it.  */
       if (word != const0_rtx)
 	store_fixed_bit_field (word, thissize, offset * unit + thispos,
-			       bitregion_start, bitregion_end, part);
+			       bitregion_start, bitregion_end, part,
+			       reverse);
       bitsdone += thissize;
     }
 }
@@ -1304,7 +1363,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 		     unsigned HOST_WIDE_INT bitnum,
 		     int unsignedp, bool packedp, rtx target,
 		     enum machine_mode mode, enum machine_mode tmode,
-		     bool fallback_p)
+		     bool reverse, bool fallback_p)
 {
   rtx op0 = str_rtx;
   enum machine_mode int_mode;
@@ -1464,7 +1523,11 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       rtx sub = simplify_gen_subreg (mode1, op0, GET_MODE (op0),
 				     bitnum / BITS_PER_UNIT);
       if (sub)
-	return convert_extracted_bit_field (sub, mode, tmode, unsignedp);
+	{
+	  if (reverse)
+	    sub = flip_storage_order (mode1, sub);
+	  return convert_extracted_bit_field (sub, mode, tmode, unsignedp);
+	}
     }
 
   /* Extraction of a full MODE1 value can be done with a load as long as
@@ -1472,6 +1535,8 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (simple_mem_bitfield_p (op0, bitsize, bitnum, mode1))
     {
       op0 = adjust_bitfield_address (op0, mode1, bitnum / BITS_PER_UNIT);
+      if (reverse)
+	op0 = flip_storage_order (mode1, op0);
       return convert_extracted_bit_field (op0, mode, tmode, unsignedp);
     }
 
@@ -1486,6 +1551,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	 This is because the most significant word is the one which may
 	 be less than full.  */
 
+      const bool backwards = WORDS_BIG_ENDIAN;
       unsigned int nwords = (bitsize + (BITS_PER_WORD - 1)) / BITS_PER_WORD;
       unsigned int i;
       rtx last;
@@ -1503,20 +1569,21 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	     if I is 1, use the next to lowest word; and so on.  */
 	  /* Word number in TARGET to use.  */
 	  unsigned int wordnum
-	    = (WORDS_BIG_ENDIAN
+	    = (backwards
 	       ? GET_MODE_SIZE (GET_MODE (target)) / UNITS_PER_WORD - i - 1
 	       : i);
 	  /* Offset from start of field in OP0.  */
-	  unsigned int bit_offset = (WORDS_BIG_ENDIAN
-				     ? MAX (0, ((int) bitsize - ((int) i + 1)
-						* (int) BITS_PER_WORD))
+	  unsigned int bit_offset = (backwards ^ reverse
+				     ? MAX ((int) bitsize - ((int) i + 1)
+					    * BITS_PER_WORD,
+					    0)
 				     : (int) i * BITS_PER_WORD);
 	  rtx target_part = operand_subword (target, wordnum, 1, VOIDmode);
 	  rtx result_part
 	    = extract_bit_field_1 (op0, MIN (BITS_PER_WORD,
 					     bitsize - i * BITS_PER_WORD),
 				   bitnum + bit_offset, 1, false, target_part,
-				   mode, word_mode, fallback_p);
+				   mode, word_mode, reverse, fallback_p);
 
 	  gcc_assert (target_part);
 	  if (!result_part)
@@ -1541,7 +1608,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	      for (i = nwords; i < total_words; i++)
 		emit_move_insn
 		  (operand_subword (target,
-				    WORDS_BIG_ENDIAN ? total_words - i - 1 : i,
+				    backwards ? total_words - i - 1 : i,
 				    1, VOIDmode),
 		   const0_rtx);
 	    }
@@ -1566,7 +1633,8 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	{
 	  if (!fallback_p)
 	    return NULL_RTX;
-	  target = extract_split_bit_field (op0, bitsize, bitnum, unsignedp);
+	  target = extract_split_bit_field (op0, bitsize, bitnum, unsignedp,
+					    reverse);
 	  return convert_extracted_bit_field (target, mode, tmode, unsignedp);
 	}
     }
@@ -1576,6 +1644,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   enum extraction_pattern pattern = unsignedp ? EP_extzv : EP_extv;
   extraction_insn extv;
   if (!MEM_P (op0)
+      && !reverse
       /* ??? We could limit the structure size to the part of OP0 that
 	 contains the field, with appropriate checks for endianness
 	 and TRULY_NOOP_TRUNCATION.  */
@@ -1592,7 +1661,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
   /* If OP0 is a memory, try copying it to a register and seeing if a
      cheap register alternative is available.  */
-  if (MEM_P (op0))
+  if (MEM_P (op0) & !reverse)
     {
       /* Do not use extv/extzv for volatile bitfields when
          -fstrict-volatile-bitfields is in effect.  */
@@ -1620,7 +1689,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  xop0 = copy_to_reg (xop0);
 	  rtx result = extract_bit_field_1 (xop0, bitsize, bitpos,
 					    unsignedp, packedp, target,
-					    mode, tmode, false);
+					    mode, tmode, reverse, false);
 	  if (result)
 	    return result;
 	  delete_insns_since (last);
@@ -1639,7 +1708,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   gcc_assert (int_mode != BLKmode);
 
   target = extract_fixed_bit_field (int_mode, op0, bitsize, bitnum,
-				    target, unsignedp, packedp);
+				    target, unsignedp, packedp, reverse);
   return convert_extracted_bit_field (target, mode, tmode, unsignedp);
 }
 
@@ -1655,6 +1724,8 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
    TMODE is the mode the caller would like the value to have;
    but the value may be returned with type MODE instead.
 
+   If REVERSE is true, the extraction is to be done in reverse order.
+
    If a TARGET is specified and we can store in it at no extra cost,
    we do so, and return TARGET.
    Otherwise, we return a REG of mode TMODE or MODE, with TMODE preferred
@@ -1662,11 +1733,12 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
 rtx
 extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
-		   unsigned HOST_WIDE_INT bitnum, int unsignedp, bool packedp,
-		   rtx target, enum machine_mode mode, enum machine_mode tmode)
+		   unsigned HOST_WIDE_INT bitnum, int unsignedp, 
+		   bool packedp, rtx target, enum machine_mode mode,
+		   enum machine_mode tmode, bool reverse)
 {
   return extract_bit_field_1 (str_rtx, bitsize, bitnum, unsignedp, packedp,
-			      target, mode, tmode, true);
+			      target, mode, tmode, reverse, true);
 }
 
 /* Use shifts and boolean operations to extract a field of BITSIZE bits
@@ -1674,6 +1746,8 @@ extract_bit_field (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 
    UNSIGNEDP is nonzero for an unsigned bit field (don't sign-extend value).
    PACKEDP is true if the field has the packed attribute.
+
+   If REVERSE is true, the extraction is to be done in reverse order.
 
    If TARGET is nonzero, attempts to store the value there
    and return TARGET, but this is not guaranteed.
@@ -1683,7 +1757,7 @@ static rtx
 extract_fixed_bit_field (enum machine_mode tmode, rtx op0,
 			 unsigned HOST_WIDE_INT bitsize,
 			 unsigned HOST_WIDE_INT bitnum, rtx target,
-			 int unsignedp, bool packedp)
+			 int unsignedp, bool packedp, bool reverse)
 {
   enum machine_mode mode;
 
@@ -1710,7 +1784,8 @@ extract_fixed_bit_field (enum machine_mode tmode, rtx op0,
       if (mode == VOIDmode)
 	/* The only way this should occur is if the field spans word
 	   boundaries.  */
-	return extract_split_bit_field (op0, bitsize, bitnum, unsignedp);
+	return extract_split_bit_field (op0, bitsize, bitnum, unsignedp,
+					reverse);
 
       unsigned int total_bits = GET_MODE_BITSIZE (mode);
       HOST_WIDE_INT bit_offset = bitnum - bitnum % total_bits;
@@ -1740,7 +1815,7 @@ extract_fixed_bit_field (enum machine_mode tmode, rtx op0,
 				" bitfield because of packed attribute");
 
 		  return extract_split_bit_field (op0, bitsize, bitnum,
-						  unsignedp);
+						  unsignedp, reverse);
 		}
 
 	      if (bitsize == total_bits)
@@ -1776,13 +1851,15 @@ extract_fixed_bit_field (enum machine_mode tmode, rtx op0,
      for invalid input, such as extract equivalent of f5 from
      gcc.dg/pr48335-2.c.  */
 
-  if (BYTES_BIG_ENDIAN)
+  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
     /* BITNUM is the distance between our msb and that of OP0.
        Convert it to the distance from the lsb.  */
     bitnum = GET_MODE_BITSIZE (mode) - bitsize - bitnum;
 
   /* Now BITNUM is always the distance between the field's lsb and that of OP0.
      We have reduced the big-endian case to the little-endian case.  */
+  if (reverse)
+    op0 = flip_storage_order (mode, op0);
 
   if (unsignedp)
     {
@@ -1878,11 +1955,14 @@ lshift_value (enum machine_mode mode, rtx value, int bitpos, int bitsize)
 
    OP0 is the REG, SUBREG or MEM rtx for the first of the two words.
    BITSIZE is the field width; BITPOS, position of its first bit, in the word.
-   UNSIGNEDP is 1 if should zero-extend the contents; else sign-extend.  */
+   UNSIGNEDP is 1 if should zero-extend the contents; else sign-extend.
+
+   If REVERSE is true, the extraction is to be done in reverse order.  */
 
 static rtx
 extract_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
-			 unsigned HOST_WIDE_INT bitpos, int unsignedp)
+			 unsigned HOST_WIDE_INT bitpos, int unsignedp,
+			 bool reverse)
 {
   unsigned int unit;
   unsigned int bitsdone = 0;
@@ -1937,11 +2017,12 @@ extract_split_bit_field (rtx op0, unsigned HOST_WIDE_INT bitsize,
 	 whose meaning is determined by BYTES_PER_UNIT.
 	 OFFSET is in UNITs, and UNIT is in bits.  */
       part = extract_fixed_bit_field (word_mode, word, thissize,
-				      offset * unit + thispos, 0, 1, false);
+				      offset * unit + thispos, 0, 1,
+				      false, reverse);
       bitsdone += thissize;
 
       /* Shift this part into place for the result.  */
-      if (BYTES_BIG_ENDIAN)
+      if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
 	{
 	  if (bitsize != bitsdone)
 	    part = expand_shift (LSHIFT_EXPR, word_mode, part,

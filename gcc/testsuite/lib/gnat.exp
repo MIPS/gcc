@@ -23,6 +23,7 @@
 load_lib prune.exp
 load_lib gcc-defs.exp
 load_lib gcc.exp
+load_lib target-supports.exp
 load_lib timeout.exp
 
 #
@@ -168,6 +169,79 @@ proc gnat_target_compile { source dest type options } {
     }
 
     return [target_compile $source $dest $type $options]
+}
+
+# Run testacase with options and compare the output with resultfile
+
+proc gnat_test { testcase options resultfile } {
+    global subdir
+    global tmpdir
+    global tool
+
+    set testname ${subdir}/[file tail $testcase]
+    set executable $tmpdir/[file tail [file rootname $testcase].x]
+
+    set comp_output [gnat_target_compile $testcase "$executable" executable $options]
+
+    if ![gnat_check_compile "$testname compilation" $options $executable $comp_output] {
+	unresolved "$testname execution $options"
+	unresolved "$testname output $options"
+	return 0
+    }
+
+    set result [gnat_load "$executable" "" ""]
+    set status [lindex $result 0]
+    set output [lindex $result 1]
+
+    $status "$testname execution $options"
+    if { $status != "pass" } {
+	unresolved "$testname output $options"
+	return 0
+    }
+
+    verbose "resultfile is $resultfile"
+    set id [open $resultfile r]
+    set expected ""
+    append expected [read $id]
+    regsub -all "\r" "$output" "" output
+    regsub "\n*$" $expected "" expected
+    regsub "\n*$" $output "" output
+    regsub "^\n*" $expected "" expected
+    regsub "^\n*" $output "" output
+    regsub -all "\[ \t\]\[ \t\]*" $expected " " expected
+    regsub -all "\[ \t\]*\n\n*" $expected "\n" expected
+    regsub -all "\[ \t\]\[ \t\]*" $output " " output
+    regsub -all "\[ \t\]*\n\n*" $output "\n" output
+    verbose "expected is $expected"
+    verbose "actual is $output"
+    set passed 0
+    if {[info exists opts(regexp_match)]} {
+	if [regexp $expected $output] {
+	    set passed 1
+	}
+    } else {
+	if { $expected == $output } {
+	    set passed 1
+	}
+    }
+    close $id
+
+    if { $passed == 1 } {
+	pass "$testname output $options"
+    } else {
+	fail "$testname output $options"
+    }
+
+    set clean_result [remote_exec host [find_gnatclean] "-c -q -n $testcase"]
+    if { [lindex $clean_result 0] != -1 } {
+	set clean_files [lindex $clean_result 1]
+	# Purge NL from clean_files.
+	regsub -all "\[\r\n\]+" $clean_files " " clean_files
+	eval file_on_host delete $clean_files
+	file_on_host delete $executable
+    }
+
+    return $passed
 }
 
 # Prune messages from GNAT that aren't useful.

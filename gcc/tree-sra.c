@@ -172,6 +172,9 @@ struct access
   /* Is this access an access to a non-addressable field? */
   unsigned non_addressable : 1;
 
+  /* Is this access made in reverse storage order? */
+  unsigned reverse : 1;
+
   /* Is this access currently in the work queue?  */
   unsigned grp_queued : 1;
 
@@ -860,9 +863,9 @@ create_access (tree expr, gimple stmt, bool write)
   struct access *access;
   HOST_WIDE_INT offset, size, max_size;
   tree base = expr;
-  bool ptr, unscalarizable_region = false;
+  bool reverse, ptr, unscalarizable_region = false;
 
-  base = get_ref_base_and_extent (expr, &offset, &size, &max_size);
+  base = get_ref_base_and_extent (expr, &offset, &size, &max_size, &reverse);
 
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (base) == MEM_REF)
@@ -916,6 +919,7 @@ create_access (tree expr, gimple stmt, bool write)
   access->write = write;
   access->grp_unscalarizable_region = unscalarizable_region;
   access->stmt = stmt;
+  access->reverse = reverse;
 
   if (TREE_CODE (expr) == COMPONENT_REF
       && DECL_NONADDRESSABLE_P (TREE_OPERAND (expr, 1)))
@@ -1047,7 +1051,7 @@ build_access_from_expr_1 (tree expr, gimple stmt, bool write)
      and not the result type.  Ada produces such statements.  We are also
      capable of handling the topmost V_C_E but not any of those buried in other
      handled components.  */
-  if (TREE_CODE (expr) == VIEW_CONVERT_EXPR)
+  if (TREE_CODE (expr) == VIEW_CONVERT_EXPR && !storage_order_barrier_p (expr))
     expr = TREE_OPERAND (expr, 0);
 
   if (contains_view_convert_expr_p (expr))
@@ -1451,21 +1455,19 @@ make_fancy_name (tree expr)
 }
 
 /* Construct a MEM_REF that would reference a part of aggregate BASE of type
-   EXP_TYPE at the given OFFSET.  If BASE is something for which
-   get_addr_base_and_unit_offset returns NULL, gsi must be non-NULL and is used
-   to insert new statements either before or below the current one as specified
-   by INSERT_AFTER.  This function is not capable of handling bitfields.
-
-   BASE must be either a declaration or a memory reference that has correct
-   alignment ifformation embeded in it (e.g. a pre-existing one in SRA).  */
+   EXP_TYPE at the given OFFSET and with storage order REVERSE.  If BASE is
+   something for which get_addr_base_and_unit_offset returns NULL, gsi must
+   be non-NULL and is used to insert new statements either before or below
+   the current one as specified by INSERT_AFTER.  This function is not capable
+   of handling bitfields.  */
 
 tree
 build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
-		      tree exp_type, gimple_stmt_iterator *gsi,
+		      bool reverse, tree exp_type, gimple_stmt_iterator *gsi,
 		      bool insert_after)
 {
   tree prev_base = base;
-  tree off;
+  tree off, t;
   HOST_WIDE_INT base_offset;
   unsigned HOST_WIDE_INT misalign;
   unsigned int align;
@@ -1516,7 +1518,9 @@ build_ref_for_offset (location_t loc, tree base, HOST_WIDE_INT offset,
   if (align < TYPE_ALIGN (exp_type))
     exp_type = build_aligned_type (exp_type, align);
 
-  return fold_build2_loc (loc, MEM_REF, exp_type, base, off);
+  t = fold_build2_loc (loc, MEM_REF, exp_type, base, off);
+  REF_REVERSE_STORAGE_ORDER (t) = reverse;
+  return t;
 }
 
 /* Construct a memory reference to a part of an aggregate BASE at the given
@@ -1538,13 +1542,17 @@ build_ref_for_model (location_t loc, tree base, HOST_WIDE_INT offset,
 
       offset -= int_bit_position (fld);
       exp_type = TREE_TYPE (TREE_OPERAND (model->expr, 0));
-      t = build_ref_for_offset (loc, base, offset, exp_type, gsi, insert_after);
+      t = build_ref_for_offset (loc, base, offset, model->reverse, exp_type,
+				gsi, insert_after);
+      /* The flag will be set on the record type.  */
+      REF_REVERSE_STORAGE_ORDER (t) = 0;
       return fold_build3_loc (loc, COMPONENT_REF, TREE_TYPE (fld), t, fld,
 			      NULL_TREE);
     }
   else
-    return build_ref_for_offset (loc, base, offset, model->type,
-				 gsi, insert_after);
+    return
+      build_ref_for_offset (loc, base, offset, model->reverse, model->type,
+			    gsi, insert_after);
 }
 
 /* Attempt to build a memory reference that we could but into a gimple
@@ -2197,8 +2205,8 @@ analyze_access_subtree (struct access *root, struct access *parent,
 		      && (root->size % BITS_PER_UNIT) == 0);
 	  root->type = build_nonstandard_integer_type (root->size,
 						       TYPE_UNSIGNED (rt));
-	  root->expr = build_ref_for_offset (UNKNOWN_LOCATION,
-					     root->base, root->offset,
+	  root->expr = build_ref_for_offset (UNKNOWN_LOCATION, root->base,
+					     root->offset, root->reverse,
 					     root->type, NULL, false);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2663,6 +2671,7 @@ get_access_for_expr (tree expr)
 {
   HOST_WIDE_INT offset, size, max_size;
   tree base;
+  bool reverse;
 
   /* FIXME: This should not be necessary but Ada produces V_C_Es with a type of
      a different size than the size of its argument and we need the latter
@@ -2670,7 +2679,7 @@ get_access_for_expr (tree expr)
   if (TREE_CODE (expr) == VIEW_CONVERT_EXPR)
     expr = TREE_OPERAND (expr, 0);
 
-  base = get_ref_base_and_extent (expr, &offset, &size, &max_size);
+  base = get_ref_base_and_extent (expr, &offset, &size, &max_size, &reverse);
   if (max_size == -1 || !DECL_P (base))
     return NULL;
 
@@ -4227,6 +4236,7 @@ turn_representatives_into_adjustments (vec<access_p> representatives,
 	      adj.type = repr->type;
 	      adj.alias_ptr_type = reference_alias_ptr_type (repr->expr);
 	      adj.offset = repr->offset;
+	      adj.reverse = repr->reverse;
 	      adj.by_ref = (POINTER_TYPE_P (TREE_TYPE (repr->base))
 			    && (repr->grp_maybe_modified
 				|| repr->grp_not_necessarilly_dereferenced));
@@ -4439,6 +4449,7 @@ sra_ipa_modify_expr (tree *expr, bool convert,
   struct ipa_parm_adjustment *adj, *cand = NULL;
   HOST_WIDE_INT offset, size, max_size;
   tree base, src;
+  bool reverse;
 
   len = adjustments.length ();
 
@@ -4450,7 +4461,7 @@ sra_ipa_modify_expr (tree *expr, bool convert,
       convert = true;
     }
 
-  base = get_ref_base_and_extent (*expr, &offset, &size, &max_size);
+  base = get_ref_base_and_extent (*expr, &offset, &size, &max_size, &reverse);
   if (!base || size == -1 || max_size == -1)
     return false;
 

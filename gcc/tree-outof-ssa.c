@@ -242,7 +242,7 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
   else if (src_mode == BLKmode)
     {
       x = SA.partition_to_pseudo[dest];
-      store_expr (src, x, 0, false);
+      store_expr (src, x, 0, false, false);
     }
   else
     x = expand_expr (src, SA.partition_to_pseudo[dest],

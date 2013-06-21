@@ -231,6 +231,10 @@ void expand_atomic_signal_fence (enum memmodel);
    May emit insns.  */
 extern rtx negate_rtx (enum machine_mode, rtx);
 
+/* Arguments MODE, RTX: return an rtx for the flipping of that value.
+   May emit insns.  */
+extern rtx flip_storage_order (enum machine_mode, rtx);
+
 /* Expand a logical AND operation.  */
 extern rtx expand_and (enum machine_mode, rtx, rtx, rtx);
 
@@ -419,7 +423,7 @@ extern void expand_assignment (tree, tree, bool);
    and storing the value into TARGET.
    If SUGGEST_REG is nonzero, copy the value through a register
    and return that register, if that is possible.  */
-extern rtx store_expr (tree, rtx, int, bool);
+extern rtx store_expr (tree, rtx, int, bool, bool);
 
 /* Given an rtx that may include add and multiply operations,
    generate them as insns and return a pseudo-reg containing the value.
@@ -702,10 +706,10 @@ extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
 			     unsigned HOST_WIDE_INT,
 			     unsigned HOST_WIDE_INT,
 			     unsigned HOST_WIDE_INT,
-			     enum machine_mode, rtx);
+			     enum machine_mode, rtx, bool);
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
 			      unsigned HOST_WIDE_INT, int, bool, rtx,
-			      enum machine_mode, enum machine_mode);
+			      enum machine_mode, enum machine_mode, bool);
 extern rtx extract_low_bits (enum machine_mode, enum machine_mode, rtx);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);
 extern rtx expand_mult_highpart_adjust (enum machine_mode, rtx, rtx, rtx, rtx, int);

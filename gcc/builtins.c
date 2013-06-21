@@ -286,14 +286,14 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   enum machine_mode mode;
-  int unsignedp, volatilep;
+  int unsignedp, reversep, volatilep;
   unsigned int inner, align = BITS_PER_UNIT;
   bool known_alignment = false;
 
   /* Get the innermost object and the constant (bitpos) and possibly
      variable (offset) offset of the access.  */
-  exp = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-			     &mode, &unsignedp, &volatilep, true);
+  exp = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode,
+			     &unsignedp, &reversep, &volatilep, true);
 
   /* Extract alignment information from the innermost object and
      possibly adjust bitpos and offset.  */
@@ -8798,13 +8798,14 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
 	      HOST_WIDE_INT src_offset = 0, dest_offset = 0;
 	      HOST_WIDE_INT size = -1;
 	      HOST_WIDE_INT maxsize = -1;
+	      bool reverse;
 
 	      srcvar = TREE_OPERAND (src, 0);
 	      src_base = get_ref_base_and_extent (srcvar, &src_offset,
-						  &size, &maxsize);
+						  &size, &maxsize, &reverse);
 	      destvar = TREE_OPERAND (dest, 0);
 	      dest_base = get_ref_base_and_extent (destvar, &dest_offset,
-						   &size, &maxsize);
+						   &size, &maxsize, &reverse);
 	      if (host_integerp (len, 1))
 		maxsize = tree_low_cst (len, 1);
 	      else

@@ -3672,6 +3672,7 @@ stabilize_reference (tree ref)
       result = build_nt (BIT_FIELD_REF,
 			 stabilize_reference (TREE_OPERAND (ref, 0)),
 			 TREE_OPERAND (ref, 1), TREE_OPERAND (ref, 2));
+      REF_REVERSE_STORAGE_ORDER (result) = REF_REVERSE_STORAGE_ORDER (ref);
       break;
 
     case ARRAY_REF:

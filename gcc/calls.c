@@ -1027,7 +1027,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 
 	    args[i].aligned_regs[j] = reg;
 	    word = extract_bit_field (word, bitsize, 0, 1, false, NULL_RTX,
-				      word_mode, word_mode);
+				      word_mode, word_mode, false);
 
 	    /* There is no need to restrict this code to loading items
 	       in TYPE_ALIGN sized hunks.  The bitfield instructions can
@@ -1044,7 +1044,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 
 	    bytes -= bitsize / BITS_PER_UNIT;
 	    store_bit_field (reg, bitsize, endian_correction, 0, 0,
-			     word_mode, word);
+			     word_mode, word, false);
 	  }
       }
 }
@@ -1253,7 +1253,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      else
 		copy = assign_temp (type, 1, 0);
 
-	      store_expr (args[i].tree_value, copy, 0, false);
+	      store_expr (args[i].tree_value, copy, 0, false, false);
 
 	      /* Just change the const function to pure and then let
 		 the next test clear the pure based on

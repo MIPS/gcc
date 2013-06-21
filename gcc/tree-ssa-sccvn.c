@@ -673,6 +673,9 @@ vn_reference_eq (const_vn_reference_t const vr1, const_vn_reference_t const vr2)
 	{
 	  if (vro1->opcode == MEM_REF)
 	    deref1 = true;
+	  /* Do not look through a storage order barrier.  */
+	  else if (vro1->opcode == VIEW_CONVERT_EXPR && vro1->reverse)
+	    return false;
 	  if (vro1->off == -1)
 	    break;
 	  off1 += vro1->off;
@@ -681,6 +684,9 @@ vn_reference_eq (const_vn_reference_t const vr1, const_vn_reference_t const vr2)
 	{
 	  if (vro2->opcode == MEM_REF)
 	    deref2 = true;
+	  /* Do not look through a storage order barrier.  */
+	  else if (vro2->opcode == VIEW_CONVERT_EXPR && vro2->reverse)
+	    return false;
 	  if (vro2->off == -1)
 	    break;
 	  off2 += vro2->off;
@@ -780,11 +786,13 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	  temp.op0 = TREE_OPERAND (ref, 1);
 	  if (host_integerp (TREE_OPERAND (ref, 1), 0))
 	    temp.off = TREE_INT_CST_LOW (TREE_OPERAND (ref, 1));
+	  temp.reverse = REF_REVERSE_STORAGE_ORDER (ref);
 	  break;
 	case BIT_FIELD_REF:
-	  /* Record bits and position.  */
+	  /* Record bits, position and storage order.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
 	  temp.op1 = TREE_OPERAND (ref, 2);
+	  temp.reverse = REF_REVERSE_STORAGE_ORDER (ref);
 	  break;
 	case COMPONENT_REF:
 	  /* The field decl is enough to unambiguously specify the field,
@@ -874,8 +882,11 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	     operand), so we don't have to put anything
 	     for op* as it will be handled by the iteration  */
 	case REALPART_EXPR:
+	  temp.off = 0;
+	  break;
 	case VIEW_CONVERT_EXPR:
 	  temp.off = 0;
+	  temp.reverse = storage_order_barrier_p (ref);
 	  break;
 	case IMAGPART_EXPR:
 	  /* This is only interesting for its constant offset.  */
@@ -1588,7 +1599,9 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
       tree ref2 = TREE_OPERAND (gimple_call_arg (def_stmt, 0), 0);
       tree base2;
       HOST_WIDE_INT offset2, size2, maxsize2;
-      base2 = get_ref_base_and_extent (ref2, &offset2, &size2, &maxsize2);
+      bool reverse;
+      base2 = get_ref_base_and_extent (ref2, &offset2, &size2, &maxsize2,
+				       &reverse);
       size2 = TREE_INT_CST_LOW (gimple_call_arg (def_stmt, 2)) * 8;
       if ((unsigned HOST_WIDE_INT)size2 / 8
 	  == TREE_INT_CST_LOW (gimple_call_arg (def_stmt, 2))
@@ -1611,8 +1624,9 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
     {
       tree base2;
       HOST_WIDE_INT offset2, size2, maxsize2;
+      bool reverse;
       base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
-				       &offset2, &size2, &maxsize2);
+				       &offset2, &size2, &maxsize2, &reverse);
       if (maxsize2 != -1
 	  && operand_equal_p (base, base2, 0)
 	  && offset2 <= offset
@@ -1637,8 +1651,9 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
     {
       tree base2;
       HOST_WIDE_INT offset2, size2, maxsize2;
+      bool reverse;
       base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
-				       &offset2, &size2, &maxsize2);
+				       &offset2, &size2, &maxsize2, &reverse);
       if (maxsize2 != -1
 	  && maxsize2 == size2
 	  && size2 % BITS_PER_UNIT == 0
@@ -1652,7 +1667,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	  int len;
 
 	  len = native_encode_expr (gimple_assign_rhs1 (def_stmt),
-				    buffer, sizeof (buffer));
+				    buffer, sizeof (buffer), reverse);
 	  if (len > 0)
 	    {
 	      tree val = native_interpret_expr (vr->type,
@@ -1683,8 +1698,10 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	{
 	  tree base2;
 	  HOST_WIDE_INT offset2, size2, maxsize2, off;
+	  bool reverse;
 	  base2 = get_ref_base_and_extent (gimple_assign_lhs (def_stmt),
-					   &offset2, &size2, &maxsize2);
+					   &offset2, &size2, &maxsize2,
+					   &reverse);
 	  off = offset - offset2;
 	  if (maxsize2 != -1
 	      && maxsize2 == size2

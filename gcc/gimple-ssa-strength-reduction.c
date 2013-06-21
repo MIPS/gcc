@@ -842,7 +842,7 @@ slsr_process_ref (gimple gs)
   tree ref_expr, base, offset, type;
   HOST_WIDE_INT bitsize, bitpos;
   enum machine_mode mode;
-  int unsignedp, volatilep;
+  int unsignedp, reversep, volatilep;
   double_int index;
   slsr_cand_t c;
 
@@ -858,7 +858,9 @@ slsr_process_ref (gimple gs)
     return;
 
   base = get_inner_reference (ref_expr, &bitsize, &bitpos, &offset, &mode,
-			      &unsignedp, &volatilep, false);
+			      &unsignedp, &reversep, &volatilep, false);
+  if (reversep)
+    return;
   index = double_int::from_uhwi (bitpos);
 
   if (!restructure_reference (&base, &offset, &index, &type))

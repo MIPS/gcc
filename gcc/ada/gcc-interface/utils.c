@@ -771,6 +771,7 @@ make_packable_type (tree type, bool in_record)
   TYPE_NAME (new_type) = TYPE_NAME (type);
   TYPE_JUSTIFIED_MODULAR_P (new_type) = TYPE_JUSTIFIED_MODULAR_P (type);
   TYPE_CONTAINS_TEMPLATE_P (new_type) = TYPE_CONTAINS_TEMPLATE_P (type);
+  TYPE_REVERSE_STORAGE_ORDER (new_type) = TYPE_REVERSE_STORAGE_ORDER (type);
   if (TREE_CODE (type) == RECORD_TYPE)
     TYPE_PADDING_P (new_type) = TYPE_PADDING_P (type);
 
@@ -5299,6 +5300,11 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       unsigned HOST_WIDE_INT prec = TREE_INT_CST_LOW (TYPE_RM_SIZE (type));
       tree field_type, field;
 
+      /* Preserve the storage order through the unchecked conversion.  */
+      if (AGGREGATE_TYPE_P (etype))
+	TYPE_REVERSE_STORAGE_ORDER (rec_type)
+	  = TYPE_REVERSE_STORAGE_ORDER (etype);
+
       if (TYPE_UNSIGNED (type))
 	field_type = make_unsigned_type (prec);
       else
@@ -5329,6 +5335,11 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       vec<constructor_elt, va_gc> *v;
       vec_alloc (v, 1);
       tree field_type, field;
+
+      /* Preserve the storage order through the unchecked conversion.  */
+      if (AGGREGATE_TYPE_P (type))
+	TYPE_REVERSE_STORAGE_ORDER (rec_type)
+	  = TYPE_REVERSE_STORAGE_ORDER (type);
 
       if (TYPE_UNSIGNED (etype))
 	field_type = make_unsigned_type (prec);

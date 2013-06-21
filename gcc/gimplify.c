@@ -7278,6 +7278,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			     TREE_OPERAND (*expr_p, 1));
 	  if (tmp)
 	    {
+	      REF_REVERSE_STORAGE_ORDER (tmp)
+	        = REF_REVERSE_STORAGE_ORDER (*expr_p);
 	      *expr_p = tmp;
 	      recalculate_side_effects (*expr_p);
 	      ret = GS_OK;

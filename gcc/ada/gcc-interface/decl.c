@@ -2240,9 +2240,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	for (index = ndim - 1; index >= 0; index--)
 	  {
 	    tem = build_nonshared_array_type (tem, gnu_index_types[index]);
-	    if (Reverse_Storage_Order (gnat_entity))
-	      sorry ("non-default Scalar_Storage_Order");
-	    TYPE_MULTI_ARRAY_P (tem) = (index > 0);
+	    if (index == 0)
+	      TYPE_REVERSE_STORAGE_ORDER (tem)
+		= Reverse_Storage_Order (gnat_entity);
+	    else
+	      TYPE_MULTI_ARRAY_P (tem) = 1;
 	    if (array_type_has_nonaliased_component (tem, gnat_entity))
 	      TYPE_NONALIASED_COMPONENT (tem) = 1;
 
@@ -2593,7 +2595,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    {
 	      gnu_type = build_nonshared_array_type (gnu_type,
 						     gnu_index_types[index]);
-	      TYPE_MULTI_ARRAY_P (gnu_type) = (index > 0);
+	      if (index == 0)
+		TYPE_REVERSE_STORAGE_ORDER (gnu_type)
+		  = Reverse_Storage_Order (gnat_entity);
+	      else
+		TYPE_MULTI_ARRAY_P (gnu_type) = 1;
 	      if (array_type_has_nonaliased_component (gnu_type, gnat_entity))
 		TYPE_NONALIASED_COMPONENT (gnu_type) = 1;
 
@@ -2962,8 +2968,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	gnu_type = make_node (tree_code_for_record_type (gnat_entity));
 	TYPE_NAME (gnu_type) = gnu_entity_name;
 	TYPE_PACKED (gnu_type) = (packed != 0) || has_rep;
-	if (Reverse_Storage_Order (gnat_entity))
-	  sorry ("non-default Scalar_Storage_Order");
+	TYPE_REVERSE_STORAGE_ORDER (gnu_type)
+	  = Reverse_Storage_Order (gnat_entity);
 	process_attributes (&gnu_type, &attr_list, true, gnat_entity);
 
 	if (!definition)
@@ -3355,6 +3361,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      gnu_type = make_node (RECORD_TYPE);
 	      TYPE_NAME (gnu_type) = gnu_entity_name;
 	      TYPE_PACKED (gnu_type) = TYPE_PACKED (gnu_base_type);
+	      TYPE_REVERSE_STORAGE_ORDER (gnu_type)
+		= Reverse_Storage_Order (gnat_entity);
 	      process_attributes (&gnu_type, &attr_list, true, gnat_entity);
 
 	      /* Set the size, alignment and alias set of the new type to
@@ -6259,10 +6267,11 @@ elaborate_expression_1 (tree gnu_expr, Entity_Id gnat_entity, tree gnu_name,
 	  HOST_WIDE_INT bitsize, bitpos;
 	  tree offset;
 	  enum machine_mode mode;
-	  int unsignedp, volatilep;
+	  int unsignedp, reversep, volatilep;
 
-	  inner = get_inner_reference (inner, &bitsize, &bitpos, &offset,
-				       &mode, &unsignedp, &volatilep, false);
+	  inner
+	    = get_inner_reference (inner, &bitsize, &bitpos, &offset, &mode,
+				   &unsignedp, &reversep, &volatilep, false);
 	  /* If the offset is variable, err on the side of caution.  */
 	  if (offset)
 	    inner = NULL_TREE;
@@ -7028,6 +7037,8 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 	  TYPE_NAME (gnu_union_type) = gnu_union_name;
 	  TYPE_ALIGN (gnu_union_type) = 0;
 	  TYPE_PACKED (gnu_union_type) = TYPE_PACKED (gnu_record_type);
+	  TYPE_REVERSE_STORAGE_ORDER (gnu_union_type)
+	    = TYPE_REVERSE_STORAGE_ORDER (gnu_record_type);
 	}
 
       /* If all the fields down to this level have a rep clause, find out
@@ -7079,6 +7090,8 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 	     record actually gets only the alignment required.  */
 	  TYPE_ALIGN (gnu_variant_type) = TYPE_ALIGN (gnu_record_type);
 	  TYPE_PACKED (gnu_variant_type) = TYPE_PACKED (gnu_record_type);
+	  TYPE_REVERSE_STORAGE_ORDER (gnu_variant_type)
+	    = TYPE_REVERSE_STORAGE_ORDER (gnu_record_type);
 
 	  /* Similarly, if the outer record has a size specified and all
 	     the fields have a rep clause, we can propagate the size.  */

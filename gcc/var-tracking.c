@@ -5058,9 +5058,10 @@ track_expr_p (tree expr, bool need_rtl)
 		  && TREE_CODE (TREE_OPERAND (realdecl, 0)) == ADDR_EXPR))
 	    {
 	      HOST_WIDE_INT bitsize, bitpos, maxsize;
+	      bool reverse;
 	      tree innerdecl
 		= get_ref_base_and_extent (realdecl, &bitpos, &bitsize,
-					   &maxsize);
+					   &maxsize, &reverse);
 	      if (!DECL_P (innerdecl)
 		  || DECL_IGNORED_P (innerdecl)
 		  || TREE_STATIC (innerdecl)

@@ -1292,11 +1292,11 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	      HOST_WIDE_INT bitpos;
 	      tree offset, inner;
 	      enum machine_mode mode;
-	      int unsignedp, volatilep;
+	      int unsignedp, reversep, volatilep;
 
 	      inner = get_inner_reference (operand, &bitsize, &bitpos, &offset,
-					   &mode, &unsignedp, &volatilep,
-					   false);
+					   &mode, &unsignedp, &reversep,
+					   &volatilep, false);
 
 	      /* If INNER is a padding type whose field has a self-referential
 		 size, convert to that inner type.  We know the offset is zero
@@ -2645,6 +2645,7 @@ gnat_stabilize_reference (tree ref, bool force, bool *success)
 		       gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
 						 success),
 		       TREE_OPERAND (ref, 1), TREE_OPERAND (ref, 2));
+      REF_REVERSE_STORAGE_ORDER (result) = REF_REVERSE_STORAGE_ORDER (ref);
       break;
 
     case ARRAY_REF:

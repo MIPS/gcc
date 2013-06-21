@@ -1586,7 +1586,12 @@ compute_record_mode (tree type)
      line.  */
   SET_TYPE_MODE (type, BLKmode);
 
-  if (! host_integerp (TYPE_SIZE (type), 1))
+  /* If the type has variable size, then it needs to have BLKmode.  */
+  if (!host_integerp (TYPE_SIZE (type), 1))
+    return;
+
+  /* Likewise if it has reverse storage order.  */
+  if (TYPE_REVERSE_STORAGE_ORDER (type))
     return;
 
   /* A record which has any BLKmode members must itself be
@@ -2256,7 +2261,9 @@ layout_type (tree type)
 	    /* BLKmode elements force BLKmode aggregate;
 	       else extract/store fields may lose.  */
 	    && (TYPE_MODE (TREE_TYPE (type)) != BLKmode
-		|| TYPE_NO_FORCE_BLK (TREE_TYPE (type))))
+		|| TYPE_NO_FORCE_BLK (TREE_TYPE (type)))
+	    /* Likewise if it has reverse storage order.  */
+	    && !TYPE_REVERSE_STORAGE_ORDER (type))
 	  {
 	    SET_TYPE_MODE (type, mode_for_array (TREE_TYPE (type),
 						 TYPE_SIZE (type)));

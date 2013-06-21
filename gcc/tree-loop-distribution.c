@@ -318,7 +318,7 @@ const_with_all_bytes_same (tree val)
   if (CHAR_BIT != 8 || BITS_PER_UNIT != 8)
     return -1;
 
-  len = native_encode_expr (val, buf, sizeof (buf));
+  len = native_encode_expr (val, buf, sizeof (buf), false);
   if (len == 0)
     return -1;
   for (i = 1; i < len; i++)

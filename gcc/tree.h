@@ -690,8 +690,14 @@ struct GTY(()) tree_base {
 
    saturating_flag:
 
+       TYPE_REVERSE_STORAGE_ORDER in
+           RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE
+
        TYPE_SATURATING in
-           all types
+           other types
+
+       REF_REVERSE_STORAGE_ORDER in
+           BIT_FIELD_REF, MEM_REF
 
        VAR_DECL_IS_VIRTUAL_OPERAND in
 	   VAR_DECL
@@ -1377,8 +1383,29 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define IDENTIFIER_TRANSPARENT_ALIAS(NODE) \
   (IDENTIFIER_NODE_CHECK (NODE)->base.deprecated_flag)
 
-/* In fixed-point types, means a saturating type.  */
-#define TYPE_SATURATING(NODE) (TYPE_CHECK (NODE)->base.u.bits.saturating_flag)
+/* In an aggregate type, indicates that the scalar fields of the type are
+   stored in reverse order from the target order.  This effectively
+   toggles BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN within the type.  */
+#define TYPE_REVERSE_STORAGE_ORDER(NODE) \
+  (TREE_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE)->base.u.bits.saturating_flag)
+
+/* In a non-aggregate type, indicates a saturating type.  */
+#define TYPE_SATURATING(NODE) \
+  (TREE_NOT_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE)->base.u.bits.saturating_flag)
+
+/* In a BIT_FIELD_REF and MEM_REF, indicates that the reference is to a group
+   of bits stored in reverse order from the target order.  This effectively
+   toggles both BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN for the reference.
+
+   The overall strategy is to preserve the invariant that every scalar in
+   memory is associated with a single storage order, i.e. all accesses to
+   this scalar are done with the same storage order.  This invariant makes
+   it possible to factor out the storage order in most transformations, as
+   only the address and/or the value (in target order) matter for them.
+   But, of course, the storage order must be preserved when the accesses
+   themselves are rewritten or transformed.  */
+#define REF_REVERSE_STORAGE_ORDER(NODE) \
+  (TREE_CHECK2 (NODE, BIT_FIELD_REF, MEM_REF)->base.u.bits.saturating_flag)
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) \
@@ -5489,7 +5516,7 @@ handled_component_p (const_tree t)
 
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
 				 tree *, enum machine_mode *, int *, int *,
-				 bool);
+				 int *, bool);
 
 /* Return a tree of sizetype representing the size, in bytes, of the element
    of EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */
@@ -5689,8 +5716,11 @@ struct_ptr_hash (const void *a)
 extern int folding_initializer;
 
 /* Convert between trees and native memory representation.  */
-extern int native_encode_expr (const_tree, unsigned char *, int);
+extern int native_encode_expr (const_tree, unsigned char *, int, bool);
 extern tree native_interpret_expr (tree, const unsigned char *, int);
+
+/* Flip storage order at compile time.  */
+extern tree fold_flip_storage_order (tree);
 
 /* Fold constants as much as possible in an expression.
    Returns the simplified expression.
@@ -5973,7 +6003,7 @@ extern tree block_ultimate_origin (const_tree);
 
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
-				     HOST_WIDE_INT *, HOST_WIDE_INT *);
+				     HOST_WIDE_INT *, HOST_WIDE_INT *, bool *);
 extern bool contains_bitfld_component_ref_p (const_tree);
 
 /* In tree-nested.c */

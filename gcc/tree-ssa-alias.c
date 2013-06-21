@@ -520,10 +520,12 @@ ao_ref_init (ao_ref *r, tree ref)
 tree
 ao_ref_base (ao_ref *ref)
 {
+  bool reverse;
+
   if (ref->base)
     return ref->base;
   ref->base = get_ref_base_and_extent (ref->ref, &ref->offset, &ref->size,
-				       &ref->max_size);
+				       &ref->max_size, &reverse);
   return ref->base;
 }
 
@@ -564,10 +566,11 @@ void
 ao_ref_init_from_ptr_and_size (ao_ref *ref, tree ptr, tree size)
 {
   HOST_WIDE_INT t1, t2;
+  bool reverse;
   ref->ref = NULL_TREE;
   if (TREE_CODE (ptr) == ADDR_EXPR)
     ref->base = get_ref_base_and_extent (TREE_OPERAND (ptr, 0),
-					 &ref->offset, &t1, &t2);
+					 &ref->offset, &t1, &t2, &reverse);
   else
     {
       ref->base = build2 (MEM_REF, char_type_node,
@@ -678,9 +681,10 @@ aliasing_component_refs_p (tree ref1,
   else if (same_p == 1)
     {
       HOST_WIDE_INT offadj, sztmp, msztmp;
-      get_ref_base_and_extent (*refp, &offadj, &sztmp, &msztmp);
+      bool reverse;
+      get_ref_base_and_extent (*refp, &offadj, &sztmp, &msztmp, &reverse);
       offset2 -= offadj;
-      get_ref_base_and_extent (base1, &offadj, &sztmp, &msztmp);
+      get_ref_base_and_extent (base1, &offadj, &sztmp, &msztmp, &reverse);
       offset1 -= offadj;
       return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
     }
@@ -696,9 +700,10 @@ aliasing_component_refs_p (tree ref1,
   else if (same_p == 1)
     {
       HOST_WIDE_INT offadj, sztmp, msztmp;
-      get_ref_base_and_extent (*refp, &offadj, &sztmp, &msztmp);
+      bool reverse;
+      get_ref_base_and_extent (*refp, &offadj, &sztmp, &msztmp, &reverse);
       offset1 -= offadj;
-      get_ref_base_and_extent (base2, &offadj, &sztmp, &msztmp);
+      get_ref_base_and_extent (base2, &offadj, &sztmp, &msztmp, &reverse);
       offset2 -= offadj;
       return ranges_overlap_p (offset1, max_size1, offset2, max_size2);
     }
@@ -1991,7 +1996,9 @@ stmt_kills_ref_p_1 (gimple stmt, ao_ref *ref)
     {
       tree base, lhs = gimple_get_lhs (stmt);
       HOST_WIDE_INT size, offset, max_size, ref_offset = ref->offset;
-      base = get_ref_base_and_extent (lhs, &offset, &size, &max_size);
+      bool reverse;
+      base
+	= get_ref_base_and_extent (lhs, &offset, &size, &max_size, &reverse);
       /* We can get MEM[symbol: sZ, index: D.8862_1] here,
 	 so base == ref->base does not always hold.  */
       if (base != ref->base)
