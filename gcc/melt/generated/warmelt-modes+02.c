@@ -11850,8 +11850,7 @@ r */\n";
 			/*^apply.arg */
 			argtab[14].meltbp_cstring =
 			  ";\n\t\t     if (dst) \n\t\t        resv = (melt_ptr_t) dst;\
-\n\t\t   };\n\t\t \
-  break;";
+\n\t\t   };\n\t\t   break;";
 			/*_.ADD2OUT__V48*/ meltfptr[30] =
 			  melt_apply ((meltclosure_ptr_t)
 				      (( /*!ADD2OUT */ meltfrout->tabval[1])),
