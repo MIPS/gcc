@@ -26,20 +26,5 @@
 ;; releases.  It is a playground for testing purposes.
 
 
-;; temporary code
-(defvar meltplay_var)
-(defhook hook_meltplay (:value v) () :value
-  :var meltplay_var
-  (debug "hook_meltplay v=" v " :long=" :long)
-  (foreach_in_multiple 
-   (v)
-   (curcomp :long ix)
-   (debug "hook_meltplay curcomp=" curcomp " ix#" ix " :true=" :true)
-   (void))
-  (return (tuple v :value))
-)
-
-(debug "hook_meltplay=" hook_meltplay)
-(export_values hook_meltplay)
 
 ;; eof xtramelt-playground.melt

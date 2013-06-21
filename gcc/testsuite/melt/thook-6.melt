@@ -2,7 +2,7 @@
 ;; file thook-6.melt
 
 #| run in buildir/gcc
- ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/thook-6.melt
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/thook-6.melt
  ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
     -fmelt-keep-temporary-files \
     -fmelt-init=@warmelt.quicklybuilt \

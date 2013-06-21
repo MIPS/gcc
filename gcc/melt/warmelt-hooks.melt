@@ -1781,7 +1781,7 @@ bool  melthk_pass_execution_registered_flag;
   :predef HOOK_GIMPLE_GATE
   (let ( (:long hasmodeflag 0)
 	 (:long okres 0)
-	 (passdict (get_field :sysdata_pass_dict initial_system_data))
+	 (passdict (unsafe_get_field :sysdata_pass_dict initial_system_data))
 	 (mypass ())
 	 (:long passnum 0)
 	 )
@@ -1794,11 +1794,14 @@ bool  melthk_pass_execution_registered_flag;
 		}#)
     (if (not hasmodeflag)
 	(return 0))
+    (debug "hook_gimple_gate passdict=" passdict "\n initial_system_data=" initial_system_data)
     (code_chunk 
      getmypass_chk
      #{ /* hook_gimple_gate $GETMYPASS_CHK */		
      gcc_assert(current_pass != NULL) ;
      gcc_assert(current_pass->name != NULL) ;
+     debugeprintf ("hook_gimple_gate current_pass %p named %s",
+		   (void*) current_pass->name, current_pass->name);
      gcc_assert(current_pass->type == GIMPLE_PASS) ;
      $MYPASS = melt_get_mapstrings ((struct meltmapstrings_st*) $PASSDICT, 
 				    current_pass->name)	;
@@ -1841,6 +1844,7 @@ bool  melthk_pass_execution_registered_flag;
 	 (passdict (get_field :sysdata_pass_dict initial_system_data))
 	 (mypass ())
 	 )
+    (debug "hook_gimple_execute start")
     (code_chunk gethasmode_chk 
 		#{ /* hook_gimple_execute $GETHASMODE_CHK */
 		static const char* $GETHASMODE_CHK#modstr ;
@@ -1848,17 +1852,18 @@ bool  melthk_pass_execution_registered_flag;
 		$GETHASMODE_CHK#modstr = melt_argument("mode") ;
 		$HASMODEFLAG = $GETHASMODE_CHK#modstr != NULL && $GETHASMODE_CHK#modstr[0] ;
 		}#)
-    (if (not hasmodeflag)
-	(return 0))
+    (when (not hasmodeflag)
+      (debug "hook_gimple_execute no mode")
+      (return 0))
     (code_chunk 
      getmypass_chk
      #{ /* hook_gimple_execute $GETMYPASS_CHK */		
-     gcc_assert(current_pass != NULL)		   ;
-     gcc_assert(current_pass->name != NULL)	   ;
+     gcc_assert(current_pass != NULL) ;
+     gcc_assert(current_pass->name != NULL) ;
      gcc_assert(current_pass->type == GIMPLE_PASS) ;
      $MYPASS = melt_get_mapstrings ((struct meltmapstrings_st*) $PASSDICT, 
 				    current_pass->name)	;
-     $PASSNUM = current_pass->static_pass_number	;
+     $PASSNUM = current_pass->static_pass_number ;
      }#)
     (debug "hook_gimple_execute mypass=" mypass "\n.. passnum=" passnum)
     (if (is_a mypass class_gcc_gimple_pass)

@@ -1,8 +1,6 @@
 
 /* run in build dir to check the meltframe mode
- ./cc1 -O -fmelt-module-path=melt-modules:. \
-    -fmelt-source-path=melt-sources:. \
-    -fmelt-tempdir=/tmp \
+ ./cc1 -O @meltbuild-common.args -fmelt-init=@melt-default-modules.quicklybuilt \
     -fmelt-mode=meltframe \
     -fmelt-debug $GCCMELT_SOURCE/gcc/testsuite/melt/t-meltgcnewint.c \
     -o /dev/null

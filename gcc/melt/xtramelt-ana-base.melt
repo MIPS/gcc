@@ -62,10 +62,16 @@ MELT_EXTERN unsigned int melthk_rtl_execute(void) MELT_MODULE_VISIBILITY;
  
 /* implementation of wrapping gate and exec functions from xtramelt-ana-base.melt */
 bool melthk_gimple_gate(void)
-{ return melthookproc_HOOK_GIMPLE_GATE () != 0L; }
+{ 
+  debugeprintf("melthk_gimple_gate start");
+  return melthookproc_HOOK_GIMPLE_GATE () != 0L; 
+}
 
 unsigned int melthk_gimple_execute(void) 
-{return (unsigned) melthookproc_HOOK_GIMPLE_EXECUTE (); }
+{
+  debugeprintf("melthk_gimple_execute start");
+  return (unsigned) melthookproc_HOOK_GIMPLE_EXECUTE (); 
+}
 
 
 bool melthk_simple_ipa_gate(void)

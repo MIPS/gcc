@@ -2,7 +2,7 @@
 ;; file xtramelt-ana-simple.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2009, 2011, 2012 Free Software Foundation, Inc.
+    (C) Copyright 2009 - 2013  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -241,6 +241,7 @@
 
 (defun meltframe_gate (pass)
   (debug "meltframe_gate at start pass=" pass)
+  (shortbacktrace_dbg "meltframe_gate" 15)
   (with_cfun_decl
    ()
    (:tree cfundecl)

@@ -1285,18 +1285,23 @@
        (debug "compile2obj_hook " nhookname " handling closvtup=" nclosvtup "\n")
        (foreach_in_multiple
 	(nclosvtup)
-	(closv :long clix)
-	(debug "compile2obj_hook " nhookname " clix#" clix " closv=" closv)
+	(nclosv :long clix)
+	(debug "compile2obj_hook " nhookname " clix#" clix " nclosv=" nclosv)
 	(let ( (ofetchcdata (instance class_objhooknth
 				      :obv_type ctype_value
 				      :ohknth_hook hdataloc
 				      :ohknth_off (constant_box clix)))
 	       )
-	  (debug "compile2obj_hook " nhookname " ofetchcdata=" ofetchcdata)
-	  (mapobject_put compicache closv ofetchcdata)
+	  (debug "compile2obj_hook " nhookname " ofetchcdata=" ofetchcdata "\n.. for nclosv=" nclosv)
+	  (mapobject_put compicache nclosv ofetchcdata)
 	  )
 	)
-       (debug "compile2obj_hook " nhookname " updated compicache=" compicache)
+       (debug "compile2obj_hook " nhookname " again updated compicache=" compicache "\n.. nmapdata=" nmapdata)
+       (foreach_in_mapobject
+	(nmapdata)
+	(curndata bxdix)
+	(debug "compile2obj_hook " nhookname " curndata=" curndata "\n.. bxdix=" bxdix)
+       )
        #|
        (debug "compile2obj_hook " nhookname " handling nmapdata=" nmapdata "\n.. hdataloc=" hdataloc
        "\n.. nclosvtup=" nclosvtup 
@@ -1322,7 +1327,7 @@
        )
        )				; end foreach_in_mapobject ; ;
        |#
-	 (debug "compile2obj_hook " nhookname " hookdataupdated compicache=" compicache
+	 (debug "compile2obj_hook " nhookname " hookdata updated compicache=" compicache
 		"\n.. obodylist=" obodylist "\n")
 	 )
        ;;

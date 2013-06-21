@@ -1,6 +1,23 @@
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compile2obj_hook): More debug.
+
+	* melt/warmelt-hooks.melt (hook_gimple_gate, hook_gimple_execute): More debug.
+
+	* melt/xtramelt-ana-base.melt (melthk_gimple_gate, melthk_gimple_execute): More debug.
+
+	* melt/xtramelt-ana-simple.melt: Improve copyright year.
+	(meltframe_gate): More debug.
+
+	* melt/xtramelt-playground.melt: Remove most useless code.
+
+	* testsuite/melt/t-meltgcnewint.c: Improve comment for running.
+
+	* testsuite/melt/thook-6.melt: Ditto.
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-hooks.melt (hook_gimple_gate, hook_gimple_execute):
 	Add debug.
 
