@@ -527,7 +527,6 @@ procedure in a module, defined with $DEFHOOK. }#
   :fields (nrhook_outb			;output arguments binding tuple
 	   nrhook_ctype			;ctype of result
 	   nrhook_datahook		;hook data object
-	   nrhook_mapdata		;mapping of data...
 	   ))
 
 ;; normal routine procedure
@@ -979,26 +978,6 @@ routine procedures.}#
 	 (ncurproc (unsafe_get_field :nctx_curproc nctx))
 	 )
     (debug "add_nctx_data ncurproc=" ncurproc)
-    ;; add into the hook data map, but not the hookproc itself or its
-    ;; datahook, otherwise compilobj_datahook could recur infinitely.
-    (if (and 
-	 (is_a ncurproc class_nrep_hookproc)
-	 (!= ncurproc ndata)
-	 (!= ndata (get_field :nrhook_datahook ncurproc))
-	 )
-	(let ( (datamap (get_field :nrhook_mapdata ncurproc))
-	       )
-	  (debug "add_nctx_data hookdatamap=" datamap "\n.. in ncurproc=" ncurproc)
-	  (when datamap
-	    (assert_msg "check datamap" (is_mapobject datamap))
-	    (when (null (mapobject_get datamap ndata))
-	      (let ( (newdix (+i 1 (mapobject_count datamap)))
-		     )
-		(debug "add_nctx_data newdix#" newdix " for ndata=" ndata)
-		(mapobject_put datamap ndata (constant_box newdix))
-		(shortbacktrace_dbg "add_nctx_data hooking" 12)
-		(debug "add_nctx_data updated  newdix#" newdix " with ndata=" ndata " datamap=" datamap)
-		)))))
     (debug "add_nctx_data datlis=" datlis)
     (assert_msg "check datlis" (is_list datlis))
     (let ( (lastdat (pair_head (list_last datlis)))  )
@@ -4990,7 +4969,6 @@ source location.}#
 	 (oldsymbcache (unsafe_get_field :nctx_symbcachemap ncx))
 	 (closbindlist (make_list discr_list))
 	 (constlist (make_list discr_list))
-	 (nmapdata (make_mapobject discr_map_objects 31))
 	 (nproc (instance class_nrep_hookproc
 			  :nrep_loc sloc
 			  :nproc_body ()
@@ -4999,7 +4977,6 @@ source location.}#
 			  :nrhook_outb ()
 			  :nrhook_ctype sctype
 			  :nrhook_datahook ()
-			  :nrhook_mapdata ()
 			  :nrclop_clobindlist closbindlist
 			  :nrclop_constlist constlist
 			  :nrclop_objconstcachemap (make_mapobject discr_map_objects 31)
@@ -5121,10 +5098,6 @@ source location.}#
 		:nrhook_outb soutformals)
     (put_fields newenv :env_proc nproc)
     (debug "normexp_defhook newenv=" newenv)
-    ;; We set nrhook_mapdata only here, because add_nctx_data is using
-    ;; it, and we dont bother about data unrelated to the hook body.
-    (put_fields nproc :nrhook_mapdata nmapdata)
-    (debug "normexp_defhook nproc=" nproc "\n with nmapdata=" nmapdata)
     ;;
     (multicall
      (nbody nbindings)

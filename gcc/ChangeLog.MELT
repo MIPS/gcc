@@ -2,6 +2,14 @@
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (class_nrep_hookproc): Remove field
+	nrhook_mapdata.
+	(add_nctx_data): Don't handle hooks particularily, because no more
+	nrhook_mapdata field.
+	(normexp_defhook): Don't create or fill the nmapdata, likewise.
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
