@@ -5266,7 +5266,7 @@ source location.}#
      (debug "normalize_lambda restored ncx=" ncx "\n.. updated nproc=" nproc)
      (let ( 
 	   ;; we make an anonymous constant for the routine unless in toplevel
-	   (:long insideflag (is_a oldproc class_nrep_routproc))
+	   (:long insideflag (is_a oldproc class_nrep_closproc))
 	   (krout (if insideflag
 		      (instance class_nrep_constant
 				:nrep_loc sloc
@@ -5287,6 +5287,9 @@ source location.}#
 		 nsy))))
 	   (constrout  (if insideflag krout ndatarout))
 	   )
+       (debug "normalize_lambda return nproc=" nproc
+	      "\n.. clocc=" clocc "\n.. constrout=" constrout
+	      "\n.. insideflag=" insideflag "\n")
        (return nproc csym clocc constrout clovtup sloc oldproc ndatarout insideflag)
        ))))
 
@@ -5323,8 +5326,11 @@ source location.}#
 	   )
        (unsafe_put_fields clocc :nocc_bind cbind)
        (list_append nbindlist cbind)
-       (if insideflag
-	   (list_append (get_field :nrclop_constlist oldproc) ndatarout))
+       (debug "normexp_lambda insideflag=" insideflag " oldproc=" oldproc)
+       (when insideflag
+	 (list_append (get_field :nrclop_constlist oldproc) ndatarout)
+	 (debug "normexp_lambda updated constlist in oldproc=" oldproc)
+	 )
        (debug "normexp_lambda return clocc=" clocc " nbindlist=" nbindlist)
        (return clocc nbindlist)
        ))))

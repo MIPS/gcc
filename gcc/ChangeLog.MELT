@@ -1,6 +1,13 @@
 
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tests t-meltgcmewint.c & thook-7.melt passing}}
+
+	* melt/warmelt-normal.melt (normalize_lambda): Set insideflag
+	correctly. More debug.
+	(normexp_lambda): More debug.
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/thook-7.melt: New test.
 
