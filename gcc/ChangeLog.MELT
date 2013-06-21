@@ -2,6 +2,12 @@
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/thook-7.melt: New test.
+
+	* melt/warmelt-normal.melt (normalize_lambda, normexp_lambda): More debug.
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (class_nrep_hookproc): Remove field
 	nrhook_mapdata.
 	(add_nctx_data): Don't handle hooks particularily, because no more

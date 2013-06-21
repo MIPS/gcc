@@ -1,0 +1,23 @@
+; -*- lisp -*-
+;; file thook-7.melt
+
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/thook-7.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=thook-7.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(defhook my7hook (:value v) () :void
+  (debug "my7hook v=" v 
+	 " lambdatu=" (lambda (y) (tuple v 'foo y))
+	 )
+)
+
+(debug "@@my7hook=" my7hook "\n")
+
+(my7hook '42)
+
+;; eof thook-7.melt

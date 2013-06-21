@@ -5149,6 +5149,7 @@ source location.}#
 	  ))				;end foreach closbindlist
        (debug "normexp_defhook after closbindloop ix=" ix " closvtup=" closvtup)
        ;;
+       (debug "normexp_defhook closing constlist=" constlist)
        (foreach_in_list
 	(constlist)
 	(curpair curconst)
@@ -5158,6 +5159,7 @@ source location.}#
 	(setq ix (+i ix 1))
 	)				;end foreach constlist
        (debug "normexp_defhook after constlistloop ix=" ix " closvtup=" closvtup)
+       (assert_msg "check final ix" (==i ix (+i nbclosbind nbconst)))
        ;;
        (debug "normexp_defhook nseq=" nseq "\n ..final closvtup=" closvtup)
        (put_fields nproc :nproc_body nseq)
@@ -5181,11 +5183,12 @@ source location.}#
 ;;; an internal routine useful for lambda inside letrec ... to share
 ;;; code between normexp_lambda and handling of lambda-s inside letrec
 (defun normalize_lambda (recv env newenv ncx psloc)
+  (debug "normalize_lambda recv=" recv " env=" env " newenv=" newenv)
+  (shortbacktrace_dbg "normalize_lambda" 15)
   (assert_msg "check lambda recv" (is_a recv class_source_lambda))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check newenv" (is_a newenv class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
-  (debug "normalize_lambda recv=" recv " env=" env " newenv=" newenv)
   (let ( (sloc (unsafe_get_field :loca_location recv))
 	 (sformalargs (unsafe_get_field :slam_argbind recv))
 	 (sbody (unsafe_get_field :slam_body recv))
@@ -5296,11 +5299,14 @@ source location.}#
   (let (
 	(newenv (fresh_env env))
 	)
-    (debug "normexp_lambda newenv=" newenv)
+    (debug "normexp_lambda before normalize_lambda newenv=" newenv)
     (multicall 
      (nproc csym clocc constrout clovtup sloc oldproc ndatarout :long insideflag)
      (normalize_lambda recv env newenv ncx psloc)
-     (debug "normexp_lambda after normalize_lambda nproc" nproc)
+     (debug "normexp_lambda after normalize_lambda nproc=" nproc "\n.. csym=" csym 
+	    "\n.. clocc=" clocc "\n.. constrout=" constrout "\n.. clovtup=" clovtup
+	    "\n.. sloc=" sloc "\n.. oldproc=" oldproc "\n.. ndatarout=" ndatarout
+	    "\n.. insideflag=" insideflag)
      (let (
 	   (nlambda (instance class_nrep_lambda 
 			      :nrep_loc sloc
