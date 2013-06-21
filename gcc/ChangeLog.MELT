@@ -1,6 +1,11 @@
 
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (autobox_normal_return): Handle :void
+	ctype by returning nil.
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.c: Regenerate.

@@ -7127,6 +7127,18 @@ if (1) return;
 	 (debug "autobox_normal_return long return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)
 	 ))
+     ;; autoboxing void
+     ( (== ctyp ctype_void)
+       (let ( (nilr (instance class_nrep_nil
+			      ))
+	      (nret (instance class_nrep_return
+			      :nret_main clocc))
+	      )
+	 (put_fields cbind :letbind_expr nilr)
+	 (list_append nbinds cbind)
+	 (debug "autobox_normal_return void return nret=" nret " nbinds=" nbinds)
+	 (return nret nbinds)		    
+       ))
      ;; autoboxing cstrings
      ( (== ctyp ctype_cstring)
        (let ( (nchk (instance 
