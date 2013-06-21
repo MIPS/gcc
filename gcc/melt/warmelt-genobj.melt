@@ -1144,7 +1144,6 @@
 	 (loc (get_field :nrep_loc nhook))
 	 (nbody (get_field :nproc_body nhook))
 	 (nhookname (get_field :nrclop_name nhook))
-	 (nmapdata (get_field :nrhook_mapdata nhook))
 	 (hookroutname (let (
 			     (namsbuf (make_strbuf discr_strbuf)) 
 			     )
@@ -1198,11 +1197,8 @@
 	 )
      (debug "compile2obj_hook " nhookname " empty hookrout=" hookrout 
 	    "\n nclosvtup=" nclosvtup)
-     (debug "compile2obj_hook " nhookname  " nmapdata=" nmapdata
-	    "\n resctype=" resctype "\n gcx=" gcx)
+     (debug "compile2obj_hook " nhookname " resctype=" resctype "\n.. gcx=" gcx)
      (assert_msg "check resctype" (is_a resctype class_ctype))
-     (assert_msg "check nmapdata" (is_mapobject nmapdata))
-     (debug "compile2obj_hook " nhookname " nmapdata=" nmapdata)
      (let ( (retloc (get_free_objloctyped gcx '_reshook_ resctype))
 	    (hdataloc (get_free_objloctyped gcx '_hookdata_ ctype_value))
 	    (ogetdata (make_objcompute loc ctype_value 
@@ -1296,39 +1292,8 @@
 	  (mapobject_put compicache nclosv ofetchcdata)
 	  )
 	)
-       (debug "compile2obj_hook " nhookname " again updated compicache=" compicache "\n.. nmapdata=" nmapdata)
-       (foreach_in_mapobject
-	(nmapdata)
-	(curndata bxdix)
-	(debug "compile2obj_hook " nhookname " curndata=" curndata "\n.. bxdix=" bxdix)
-       )
-       #|
-       (debug "compile2obj_hook " nhookname " handling nmapdata=" nmapdata "\n.. hdataloc=" hdataloc
-       "\n.. nclosvtup=" nclosvtup 
-       "\n.. class_objhooknth=" class_objhooknth "\n")
-       (let ( (:long nbclosvm1 (-i (multiple_length nclosvtup) 1))
-       )
-       (foreach_in_mapobject
-       (nmapdata)
-       (curndata bxdix)
-       (debug "compile2obj_hook " nhookname " curndata=" curndata "\n.. bxdix=" bxdix)
-       (assert_msg "check curndata" (is_a curndata class_nrep_quasidata))
-       (assert_msg "check bxdix" (is_integerbox bxdix))
-	  ;; compile_obj of curndata don't work here ; ;
-       (let ( (:long dix (get_int bxdix))
-       (ofetchdata (instance class_objhooknth
-       :obv_type ctype_value
-       :ohknth_hook hdataloc
-       :ohknth_off (constant_box (-i dix 1)))
-       )
-       )
-       (debug "compile2obj_hook " nhookname "\n ofetchdata=" ofetchdata)
-       (mapobject_put compicache curndata ofetchdata)
-       )
-       )				; end foreach_in_mapobject ; ;
-       |#
-	 (debug "compile2obj_hook " nhookname " hookdata updated compicache=" compicache
-		"\n.. obodylist=" obodylist "\n")
+       (debug "compile2obj_hook " nhookname " again updated compicache=" compicache
+	      "\n.. obodylist=" obodylist "\n")
 	 )
        ;;
        ;; compile the body
@@ -1339,14 +1304,6 @@
 	 (debug "compile2obj_hook " nhookname " obody=" obody)
 	 (list_append obodylist obody)
 	 ;; forget the closed data
-#|
-       (foreach_in_mapobject
-	 (nmapdata)
-	 (curndata bxdix)
-	 (debug "compile2obj_hook " nhookname " forgetting curndata=" curndata 
-	 " bxdix=" bxdix)
-	 (mapobject_remove compicache curndata))
-       |#
        (foreach_in_multiple
 	(nclosvtup)
 	(closv :long clix)
@@ -6106,26 +6063,6 @@
 	  (nmodvarbind (get_field :ndhook_modvarbind ndhook)) 
 					;a normal module variable binding or nil
 	  (nlocbind (get_field :ndata_locbind ndhook))
-	  (nmapdata (let ( (nmd (get_field :nrhook_mapdata nhpro)) 
-			   )
-		      (debug "compilobj_datahook nmapdata=" nmd)
-		      nmd))
-	  (:long nbdata (mapobject_count nmapdata))
-	  (ndatatup (let ( (ndt (make_multiple discr_multiple nbdata)) 
-			   )
-		      (foreach_in_mapobject
-		       (nmapdata)
-		       (curndata nbix)
-		       (debug "compilobj_datahook curndata=" curndata " nbix=" nbix)
-		       (assert_msg "check nbix" (is_integerbox nbix))
-		       (let ( (:long rawnbix (get_int nbix))
-			      )
-		       (assert_msg "check good rawnbix" (and (>i rawnbix 0) (<=i rawnbix nbdata)))
-		       (multiple_put_nth ndt (-i rawnbix 1) curndata)
-		       ))
-		      (debug "compilobj_datahook ndatatup=" ndt)
-		      ndt
-		      ))
 	  (ndisx (get_field :ndata_discrx ndhook))
 	  (ndhdata (get_field :ndhook_data ndhook))
 	  (odiscr (let ( (odi (compile_obj ndisx gcx)) )

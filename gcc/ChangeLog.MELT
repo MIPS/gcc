@@ -2,6 +2,11 @@
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{removing nrhook_mapdata field which is useless and confusing}}
+	* melt/warmelt-genobj.melt (compile2obj_hook, compilobj_datahook): Don't use nrhook_mapdata.
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{updated test thook-6 fails, and hook_gimple_gate from
 	warmelt-hooks.melt is miscompiled!}}
 	* melt/warmelt-debug.melt (dbgout_hook_method, dbgout_closure_method): Improve output.
