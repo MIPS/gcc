@@ -1,3 +1,58 @@
+2013-06-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55149
+	* decl.c (compute_array_index_type): Don't reject VLAs in SFINAE
+	context if we're in C++14 mode.
+	* tree.c (array_of_runtime_bound_p): Return true for a dependent
+	bound that is not potentually constant.
+	* cp-tree.h (DECL_VLA_CAPTURE_P, REFERENCE_VLA_OK): New.
+	* pt.c (tsubst) [REFERENCE_TYPE]: Check REFERENCE_VLA_OK.
+	* semantics.c (build_lambda_object): Don't rvalue a VLA capture.
+	(build_capture_proxy): Set REFERENCE_VLA_OK.
+	(vla_capture_type): Make it a proper C++ class.
+	(add_capture): Set DECL_VLA_CAPTURE_P.  Don't pre-digest the
+	initializer.
+
+	* decl.c (compute_array_index_type): Use size_one_node.
+
+	* pt.c (process_partial_specialization): Build a TEMPLATE_DECL for
+	a partial specialization.
+	(tsubst_decl): Don't clobber CLASSTYPE_TI_TEMPLATE of a partial
+	specialization.
+	(most_specialized_class): Adjust.
+
+	* cp-tree.h (DECL_TEMPLATE_PARMS, DECL_TEMPLATE_RESULT)
+	(DECL_TEMPLATE_INSTANTIATIONS, DECL_TEMPLATE_SPECIALIZATIONS): Use
+	TEMPLATE_DECL_CHECK.
+
+2013-06-19  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/57638
+	* pt.c (unify, [TEMPLATE_PARM_INDEX]): Pass to unify_type_mismatch
+	TREE_TYPE (arg), not arg itself.
+
+2013-06-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53211
+	* pt.c (type_dependent_expression_p): Handle an array of unknown
+	bound depending on a variadic parameter.
+	* parser.c (cp_parser_range_for): Revert PR56794 changes.
+
+2013-06-17  Richard Biener  <rguenther@suse.de>
+
+	* cp-tree.h (ANON_AGGRNAME_FORMAT, ANON_AGGRNAME_P): Move to tree.h.
+
+2013-06-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/16128
+	* parser.c (cp_parser_expression_statement): Check whether
+	cp_parser_expression returns error_mark_node.
+
+2013-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51413
+	* semantics.c (finish_offsetof): Handle INDIRECT_REF as expr.
+
 2013-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/57599
