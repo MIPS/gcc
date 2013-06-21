@@ -491,6 +491,7 @@
 		    ))
 	 )
     (debug "meltframe_docmd installing meltframepass=" meltframepass)
+    (debug "meltframe_docmd hook_gimple_gate predef is " (melt_predefined_get 'hook_gimple_gate))
     (install_melt_pass_in_gcc meltframepass :after '"ssa" 0)
     (at_exit_first 
      (lambda (x)

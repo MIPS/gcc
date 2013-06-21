@@ -19,6 +19,7 @@
 	 " my6ref=" my6ref
 	 " quo.x=" 'x 
 	 " :true=" :true
+	 " lambdatu=" (lambda (x) (tuple 'foo x))
 	 )
 )
 

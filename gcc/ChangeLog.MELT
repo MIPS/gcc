@@ -2,6 +2,18 @@
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{updated test thook-6 fails, and hook_gimple_gate from
+	warmelt-hooks.melt is miscompiled!}}
+	* melt/warmelt-debug.melt (dbgout_hook_method, dbgout_closure_method): Improve output.
+
+	* melt/warmelt-hooks.melt (hook_gimple_gate): Add debug.
+
+	* melt/xtramelt-ana-simple.melt (meltframe_docmd): Debug display the hook_gimple_gate.
+
+	* testsuite/melt/thook-6.melt: Add a lambda so crash MELT svn rev.200288....
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (autobox_normal_return): Handle :void
 	ctype by returning nil.
 

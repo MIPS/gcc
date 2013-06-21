@@ -1808,10 +1808,12 @@ bool  melthk_pass_execution_registered_flag;
      $PASSNUM = current_pass->static_pass_number ;
      }#)
     (debug "hook_gimple_gate mypass=" mypass "\n.. passnum=" passnum)
+    (debug "hook_gimple_gate class_gcc_gimple_pass=" class_gcc_gimple_pass)
     (if (is_a mypass class_gcc_gimple_pass)
 	(let ( (gatefun (get_field :gccpass_gate mypass))
 	       (:cstring curpassname (the_null_cstring))
 	       )
+	  (debug "hook_gimple_gate gatefun=" gatefun)
 	  (if (is_closure gatefun)
 	      (code_chunk 
 	       dogatefun_chk
@@ -1829,7 +1831,10 @@ bool  melthk_pass_execution_registered_flag;
 	       oldf = NULL ;
 	       }#)
 	    (setq okres 1)		;no closure
-	    )))
+	    ))
+      (debug "hook_gimple_gate strange mypass=" mypass "\n.. of discrim=" (discrim mypass))
+      )
+    (debug "hook_gimple_gate final okres=" okres)
     (return okres)
     ))
 

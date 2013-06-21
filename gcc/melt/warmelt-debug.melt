@@ -897,15 +897,11 @@ $TORANK}#
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
 	 )
-    (if (and (>i depth 0) (== dis DISCR_HOOK))
-	(add2sbuf_strconst sbuf " *hook[%")
-      (progn
-	(add2sbuf_strconst sbuf " |")
-	(add2sbuf_string sbuf (unsafe_get_field :named_name dis))
-	(add2sbuf_strconst sbuf "[%")))
-    (add2out sbuf (hook_name self))
+    (add2sbuf_strconst sbuf " *hook[%")
+    (add2sbuf_string sbuf (unsafe_get_field :named_name dis))
+    (add2out sbuf "|" (hook_name self) "!" (hook_size self))
     (when (<i depth 3)
-      (add2sbuf_indent sbuf (get_int boxdepthp1))
+      (add2sbuf_indentnl sbuf (get_int boxdepthp1))
       (add2out sbuf "hookdata: ")
       (dbg_out (hook_data self) dbgi (get_int boxdepthp1))
       (hook_every self 
@@ -924,6 +920,8 @@ $TORANK}#
 
 (install_method discr_hook dbg_output dbgout_hook_method)
 
+
+
 ;; closure debug out 
 (defun dbgout_closure_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
@@ -938,15 +936,15 @@ $TORANK}#
 	(add2sbuf_strconst sbuf " |")
 	(add2sbuf_string sbuf (unsafe_get_field :named_name dis))
 	(add2sbuf_strconst sbuf "*clo(<")))
-    (put_int (unsafe_get_field :dbgi_maxdepth dbgi) 3)
-    (dbg_out (closure_routine self) dbgi depth)
-    (put_int (unsafe_get_field :dbgi_maxdepth dbgi) oldmaxdepth)
     (if (and (<i depth 2)
 	     (or 
 	      (melt_really_need_dbglim depth maxdepth)
 	      (and (<i depth maxdepth) (is_a dbgi class_debug_output_information)))
 	     )
 	(let ((:long ix 0))
+	  (put_int (unsafe_get_field :dbgi_maxdepth dbgi) 3)
+	  (dbg_out (closure_routine self) dbgi depth)
+	  (put_int (unsafe_get_field :dbgi_maxdepth dbgi) oldmaxdepth)
 	  (add2sbuf_strconst sbuf "/")
 	  (add2sbuf_longdec sbuf (closure_size self))
 	  (forever outloop
@@ -959,8 +957,11 @@ $TORANK}#
 			 (add2sbuf_indentnl sbuf (+i 1 depth))))
 		   (setq ix (+i ix 1))
 		   ))
-      (add2sbuf_strconst sbuf "...")
-      )
+      (let ( (crout (closure_routine self))
+	     )
+	(add2sbuf_routinedescr sbuf crout)
+	(add2sbuf_strconst sbuf "...")
+	))
     (add2sbuf_strconst sbuf " >)")
     (add2sbuf_indentnl sbuf depth)
     ))
@@ -1147,7 +1148,7 @@ $TORANK}#
     (if (and
 	 (melt_really_need_dbglim (+i depth 2) maxdepth)
 	 (<i (+i depth 2) maxdepth) 
-	 (or (<i depth 2) (<i mapcount 20))
+	 (or (<i depth 3) (<i mapcount 20))
 	 (is_a dbgi class_debug_output_information))
 	(let (
 	      (aux (mapstring_aux self))
