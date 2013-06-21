@@ -1242,24 +1242,6 @@ Func_expression::do_traverse(Traverse* traverse)
 	  : Expression::traverse(&this->closure_, traverse));
 }
 
-// Lower a function reference.  If this reference is not called
-// directly, make sure there is a function descriptor.
-
-Expression*
-Func_expression::do_lower(Gogo* gogo, Named_object*, Statement_inserter*, int)
-{
-  // Make sure that the descriptor exists.  FIXME: If the function is
-  // only ever called, and is never referenced otherwise, then we
-  // don't need the descriptor.  We could do that with another pass
-  // over the tree.
-  if (this->closure_ == NULL
-      && this->function_->is_function()
-      && !this->function_->func_value()->is_method())
-    this->function_->func_value()->descriptor(gogo, this->function_);
-
-  return this;
-}
-
 // Return the type of a function expression.
 
 Type*
@@ -1385,62 +1367,24 @@ Expression::make_func_reference(Named_object* function, Expression* closure,
   return new Func_expression(function, closure, location);
 }
 
-// A function descriptor.  A function descriptor is a struct with a
-// single field pointing to the function code.  This is used for
-// functions without closures.
+// Class Func_descriptor_expression.
 
-class Func_descriptor_expression : public Expression
+// Constructor.
+
+Func_descriptor_expression::Func_descriptor_expression(Named_object* fn)
+  : Expression(EXPRESSION_FUNC_DESCRIPTOR, fn->location()),
+    fn_(fn), dfn_(NULL), dvar_(NULL)
 {
- public:
-  Func_descriptor_expression(Named_object* fn, Named_object* dfn)
-    : Expression(EXPRESSION_FUNC_DESCRIPTOR, fn->location()),
-      fn_(fn), dfn_(dfn), dvar_(NULL)
-  {
-    go_assert(!fn->is_function() || !fn->func_value()->needs_closure());
-  }
+  go_assert(!fn->is_function() || !fn->func_value()->needs_closure());
+}
 
-  // Make the function descriptor type, so that it can be converted.
-  static void
-  make_func_descriptor_type();
+// Traversal.
 
- protected:
-  int
-  do_traverse(Traverse*)
-  { return TRAVERSE_CONTINUE; }
-
-  Type*
-  do_type();
-
-  void
-  do_determine_type(const Type_context*)
-  { }
-
-  Expression*
-  do_copy()
-  { return Expression::make_func_descriptor(this->fn_, this->dfn_); }
-
-  bool
-  do_is_addressable() const
-  { return true; }
-
-  tree
-  do_get_tree(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context* context) const
-  { context->ostream() << "[descriptor " << this->fn_->name() << "]"; }
-
- private:
-  // The type of all function descriptors.
-  static Type* descriptor_type;
-
-  // The function for which this is the descriptor.
-  Named_object* fn_;
-  // The descriptor function.
-  Named_object* dfn_;
-  // The descriptor variable.
-  Bvariable* dvar_;
-};
+int
+Func_descriptor_expression::do_traverse(Traverse*)
+{
+  return TRAVERSE_CONTINUE;
+}
 
 // All function descriptors have the same type.
 
@@ -1462,6 +1406,18 @@ Func_descriptor_expression::do_type()
 {
   Func_descriptor_expression::make_func_descriptor_type();
   return Func_descriptor_expression::descriptor_type;
+}
+
+// Copy a Func_descriptor_expression;
+
+Expression*
+Func_descriptor_expression::do_copy()
+{
+  Func_descriptor_expression* fde =
+    Expression::make_func_descriptor(this->fn_);
+  if (this->dfn_ != NULL)
+    fde->set_descriptor_wrapper(this->dfn_);
+  return fde;
 }
 
 // The tree for a function descriptor.
@@ -1519,12 +1475,20 @@ Func_descriptor_expression::do_get_tree(Translate_context* context)
   return var_to_tree(bvar);
 }
 
+// Print a function descriptor expression.
+
+void
+Func_descriptor_expression::do_dump_expression(Ast_dump_context* context) const
+{
+  context->ostream() << "[descriptor " << this->fn_->name() << "]";
+}
+
 // Make a function descriptor expression.
 
-Expression*
-Expression::make_func_descriptor(Named_object* fn, Named_object* dfn)
+Func_descriptor_expression*
+Expression::make_func_descriptor(Named_object* fn)
 {
-  return new Func_descriptor_expression(fn, dfn);
+  return new Func_descriptor_expression(fn);
 }
 
 // Make the function descriptor type, so that it can be converted.
