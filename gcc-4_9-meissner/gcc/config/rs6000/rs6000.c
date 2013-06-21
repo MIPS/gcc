@@ -30304,10 +30304,10 @@ rs6000_split_logical_di_constant (rtx operands[3], enum rtx_code code)
   else
     clobber_reg = NULL_RTX;
 
-  rs6000_split_logical_inner (hi_op0, hi_op1, hi_op0, code, SImode, false,
+  rs6000_split_logical_inner (hi_op0, hi_op1, hi_op2, code, SImode, false,
 			      false, false, clobber_reg);
 
-  rs6000_split_logical_inner (lo_op0, lo_op1, lo_op0, code, SImode, false,
+  rs6000_split_logical_inner (lo_op0, lo_op1, lo_op2, code, SImode, false,
 			      false, false, clobber_reg);
 }
 
