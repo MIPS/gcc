@@ -39,7 +39,7 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-rc3p/warmelt-normatch";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="8f8e1303572ade2e9984d25b05e4f1fa";
+const char melt_prepromd5meltrun[]="c427c885694b9d934962b4ff00689696";
 /* hexmd5checksum of primary C file */
 const char melt_primaryhexmd5[]="9f4a17e3933f17dffc35622aca1d90c7";
 
