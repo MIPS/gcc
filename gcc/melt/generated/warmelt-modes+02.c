@@ -10660,8 +10660,7 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
 \n    goto end;\n  srcmagic = melt_magic_discr ((melt_ptr_t)srcvalv\
 );\n  newmagic = ((meltobject_ptr_t)newdiscrv)->meltobj_magic;\
 \n  if (srcmagic != newmagic) \n    goto end;\
-\n  switch (srcmagic) { /* end cloning heeade\
-r */\n";
+\n  switch (srcmagic) { /* end cloning heeader */\n";
       /*_.ADD2OUT__V14*/ meltfptr[12] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!ADD2OUT */ meltfrout->tabval[1])),
@@ -11752,8 +11751,7 @@ r */\n";
 		  argtab[14].meltbp_cstring =
 		    "), 0);\n\t\t     *dst = *src;\n\t\t     dst->discr = (meltobject_ptr_t\
 )newdiscrv;\n\t\t     resv = (melt_ptr_t) dst;\
-\n\t\t   }\n\t\t \
-  break; ";
+\n\t\t   }\n\t\t   break; ";
 		  /*_.ADD2OUT__V46*/ meltfptr[28] =
 		    melt_apply ((meltclosure_ptr_t)
 				(( /*!ADD2OUT */ meltfrout->tabval[1])),
@@ -11850,7 +11848,8 @@ r */\n";
 			/*^apply.arg */
 			argtab[14].meltbp_cstring =
 			  ";\n\t\t     if (dst) \n\t\t        resv = (melt_ptr_t) dst;\
-\n\t\t   };\n\t\t   break;";
+\n\t\t   };\n\t\t \
+  break;";
 			/*_.ADD2OUT__V48*/ meltfptr[30] =
 			  melt_apply ((meltclosure_ptr_t)
 				      (( /*!ADD2OUT */ meltfrout->tabval[1])),
@@ -26125,8 +26124,7 @@ meltlab_endgetargs:;
 		    argtab[8].meltbp_cstring =
 		      "*)map_p)->meltmap_aux = val_p;\n\t\t   meltgc_touch_dest (map_p, val_p\
 );\n                 }\n\t\t return NULL;\
-\n\t       }\n\t \
-      ";
+\n\t       }\n\t       ";
 		    /*_.ADD2OUT__V71*/ meltfptr[68] =
 		      melt_apply ((meltclosure_ptr_t)
 				  (( /*!ADD2OUT */ meltfrout->tabval[7])),
