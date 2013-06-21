@@ -45,8 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 
     There are few things to instrument:
 
-    a) Memory accesses - add MPX calls to check address of acessed memory
-    against against bounds of dereferened pointer.  Obviously safe memory
+    a) Memory accesses - add MPX calls to check address of accessed memory
+    against bounds of dereferenced pointer.  Obviously safe memory
     accesses like static variable access does not have to be instrumented
     with checks.
 
@@ -54,21 +54,28 @@ along with GCC; see the file COPYING3.  If not see
 
       val_2 = *p_1;
 
-      with 4 byte access it is transformed into:
+      with 4 bytes access is transformed into:
 
       __builtin___mpx_bndcl (__bound_tmp.1_3, p_1);
       D.1_4 = p_1 + 3;
       __builtin___mpx_bndcu (__bound_tmp.1_3, D.1_4);
       val_2 = *p_1;
 
-      where __bound_tmp.1_3 are bounds computed for pointer D.1751_5.
+      where __bound_tmp.1_3 are bounds computed for pointer p_1,
+      __builtin___mpx_bndcl is a lower bound check and
+      __builtin___mpx_bndcu is an upper bound check.
 
     b) Pointer stores.
 
     When pointer is stored in memory we need to store its bounds.  To
-    achieve compatibility of MPX instrumentated code with regular codes
+    achieve compatibility of MPX instrumented code with regular codes
     we have to keep data layout and store bounds in special bound tables
-    via special mpx call.
+    via special mpx call.  Implementation of bounds table may vary for
+    different platforms.  It has to associate pointer value and its
+    location (it is required because we may have two equal pointers
+    with different bounds stored in different places) with bounds.
+    Another MPX builtin allows to get bounds for specified pointer
+    loaded from specified location.
 
     Example:
 
@@ -80,20 +87,20 @@ along with GCC; see the file COPYING3.  If not see
       D.1_2 = &buf1[i_1];
       __builtin___mpx_bndstx (D.1_2, &buf2, __bound_tmp.1_2);
 
-      where __bound_tmp.1_2 are bounds of buf1.
+      where __bound_tmp.1_2 are bounds of &buf2.
 
     c) Static initialization.
 
     The special case of pointer store is static pointer initialization.
-    Bounds initialization is perfoemd in few steps:
+    Bounds initialization is performed in a few steps:
       - register all static initializations in front-end using
       mpx_register_var_initializer
-      - when file comilation finished we create functions with special
+      - when file compilation finishes we create functions with special
       attribute 'mpx ctor' and put explicit initialization code
       (assignments) for all statically initialized pointers.
-      - when MPX costructor is compiled MPX pass adds required bounds
-      initialization for all satically initilized pointers
-      - since we do not actually need excexx pointers initialization
+      - when MPX constructor is compiled MPX pass adds required bounds
+      initialization for all statically initialized pointers
+      - since we do not actually need excess pointers initialization
       in MPX constructor we remove such assignments from them
 
     d) Calls.
@@ -105,7 +112,7 @@ along with GCC; see the file COPYING3.  If not see
     function declaration is not available we use function type; otherwise
     (e.g. for unnamed arguments) we use type of passed value.
 
-    MPX instrumentation assumes binary compatibility with non instrumented
+    MPX instrumentation assumes binary compatibility with non-instrumented
     codes.  Expand pass is responsible for handling added bounds arguments
     correctly identifying them by type.
 
@@ -115,7 +122,7 @@ along with GCC; see the file COPYING3.  If not see
 
       is translated into:
 
-      val_1 = foo (&buf1, __bound_tmp.1_2, &buf2, __bound_tmp.1_3, &buf1, __bound_tmp.1_2);
+      val_1 = foo (&buf1, __bound_tmp.1_2, &buf2, __bound_tmp.1_3, &buf1, __bound_tmp.1_2, 0);
 
     e) Returns.
 
@@ -202,7 +209,8 @@ along with GCC; see the file COPYING3.  If not see
 
     Example:
 
-      Address of an object with incomplete type is returned.
+      Address of an object 'extern int buf[]' with incomplete type is
+      returned.
 
       foo ()
       {
@@ -225,8 +233,8 @@ along with GCC; see the file COPYING3.  If not see
     bounds of object's part (which are computed basing on its type).
 
     There may be some debatable questions about when narrowing should occur
-    and when it sohuld not.  To avoid false bound violations in correct
-    programms we do not perform narrowing when address of an array element is
+    and when it should not.  To avoid false bound violations in correct
+    programs we do not perform narrowing when address of an array element is
     obtained (it has address of the whole array) and when address of the first
     structure field is obtained (because it is guaranteed to be equal to
     address of the whole structure and it is legal to cast it back to structure).
@@ -4715,19 +4723,7 @@ mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom
       fprintf (dump_file, "\n");
     }
 
-  if (delta.pol.length () == 0)
-    {
-      gimple_stmt_iterator i = gsi_for_stmt (ci2->stmt);
-
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "    Action: delete the second check (same addresses)\n");
-
-      gsi_remove (&i, true);
-      unlink_stmt_vdef (ci2->stmt);
-      release_defs (ci2->stmt);
-      ci2->stmt = NULL;
-    }
-  else if (!mpx_is_constant_addr (delta, &sign))
+  if (!mpx_is_constant_addr (delta, &sign))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "    Action: skip (delta is not constant)\n");
@@ -4818,8 +4814,15 @@ mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom
 	}
       else
 	{
+	  gimple_stmt_iterator i = gsi_for_stmt (ci2->stmt);
+
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "    Action: skip (cannot compute sign of delta)\n");
+	    fprintf (dump_file, "    Action: delete the second check (same addresses)\n");
+
+	  gsi_remove (&i, true);
+	  unlink_stmt_vdef (ci2->stmt);
+	  release_defs (ci2->stmt);
+	  ci2->stmt = NULL;
 	}
     }
 
@@ -4981,7 +4984,8 @@ mpx_reduce_bounds_lifetime (void)
       bool deps = false;
 
       if (gimple_code (stmt) == GIMPLE_CALL
-	  && gimple_call_fndecl (stmt) == mpx_bndmk_fndecl)
+	  && (gimple_call_fndecl (stmt) == mpx_bndmk_fndecl
+	      || gimple_call_fndecl (stmt) == mpx_arg_bnd_fndecl))
 	want_move = true;
 
       if (gimple_code (stmt) == GIMPLE_ASSIGN

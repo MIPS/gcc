@@ -14949,7 +14949,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case '!':
-	  if (flag_mpx)
+	  if (flag_mpx
+	      && !lookup_attribute ("mpx_legacy", DECL_ATTRIBUTES (cfun->decl)))
 	    fputs ("bnd ", file);
 	  return;
 
@@ -42322,7 +42323,8 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
 bool
 ix86_bnd_prefixed_insn_p (rtx insn)
 {
-  return flag_mpx;
+  return flag_mpx
+    && !lookup_attribute ("mpx_legacy", DECL_ATTRIBUTES (cfun->decl));
 }
 
 /* Expand an insert into a vector register through pinsr insn.
