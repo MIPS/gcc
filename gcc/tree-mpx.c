@@ -402,7 +402,7 @@ static GTY ((if_marked ("tree_map_marked_p"),
 /* Static MPX constructors may become very large and their
    compilation with optimization may take too much time.
    Therefore we put a limit to number of statements in one
-   MOPX construcor. Tests with 100 000 statically initialized
+   MPX construcor.  Tests with 100 000 statically initialized
    pointers showed following compilation times on Sandy Bridge
    server (used -O2):
    limit    100 => ~18 sec.
@@ -436,12 +436,12 @@ mpx_unmark_stmt (gimple s)
 
 /* Return 1 if statement S should not be instrumented.  */
 static bool
-mpx_marked_stmt (gimple s)
+mpx_marked_stmt_p (gimple s)
 {
   return gimple_plf (s, GF_PLF_1);
 }
 
-/* Get var to be used for bound values.  */
+/* Get var to be used for bound temps.  */
 static tree
 mpx_get_tmp_var (void)
 {
@@ -451,7 +451,7 @@ mpx_get_tmp_var (void)
   return tmp_var;
 }
 
-/* Get var to be used for bound values.  */
+/* Get var to be used for size temps.  */
 static tree
 mpx_get_size_tmp_var (void)
 {
@@ -461,16 +461,16 @@ mpx_get_size_tmp_var (void)
   return size_tmp_var;
 }
 
-/* Register bounds BND for address of object PTR.  */
+/* Register bounds BND for address of OBJ.  */
 static void
-mpx_register_addr_bounds (tree ptr, tree bnd)
+mpx_register_addr_bounds (tree obj, tree bnd)
 {
   tree *slot;
 
   if (bnd == incomplete_bounds)
     return;
 
-  slot = (tree *)pointer_map_insert (mpx_reg_addr_bounds, ptr);
+  slot = (tree *)pointer_map_insert (mpx_reg_addr_bounds, obj);
   *slot = bnd;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -478,16 +478,16 @@ mpx_register_addr_bounds (tree ptr, tree bnd)
       fprintf (dump_file, "Regsitered bound ");
       print_generic_expr (dump_file, bnd, 0);
       fprintf (dump_file, " for address of ");
-      print_generic_expr (dump_file, ptr, 0);
+      print_generic_expr (dump_file, obj, 0);
       fprintf (dump_file, "\n");
     }
 }
 
-/* Return bounds registered for address of object PTR.  */
+/* Return bounds registered for address of OBJ.  */
 static tree
-mpx_get_registered_addr_bounds (tree ptr)
+mpx_get_registered_addr_bounds (tree obj)
 {
-  tree *slot = (tree *)pointer_map_contains (mpx_reg_addr_bounds, ptr);
+  tree *slot = (tree *)pointer_map_contains (mpx_reg_addr_bounds, obj);
   return slot ? *slot : NULL_TREE;
 }
 
@@ -562,13 +562,12 @@ mpx_erase_incomplete_bounds (void)
   mpx_incomplete_bounds_map = pointer_map_create ();
 }
 
-/* Split rtx RETURN_REG identifying slot for function value
-   into two parts RETURN_REG_VAL and RETURN_REG_BND.
+/* Split SLOT identifying slot for function value or
+   argument into two parts SLOT_VAL and SLOT_BND.
    First is the slot for regular value and the other one is
    for bounds.  */
 void
-mpx_split_returned_reg (rtx return_reg, rtx *return_reg_val,
-		       rtx *return_reg_bnd)
+mpx_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd)
 {
   int i;
   int val_num = 0;
@@ -576,21 +575,21 @@ mpx_split_returned_reg (rtx return_reg, rtx *return_reg_val,
   rtx *val_tmps;
   rtx *bnd_tmps;
 
-  *return_reg_bnd = 0;
+  *slot_bnd = 0;
 
-  if (!return_reg
-      || GET_CODE (return_reg) != PARALLEL)
+  if (!slot
+      || GET_CODE (slot) != PARALLEL)
     {
-      *return_reg_val = return_reg;
+      *slot_val = slot;
       return;
     }
 
-  val_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
-  bnd_tmps = XALLOCAVEC (rtx, XVECLEN (return_reg, 0));
+  val_tmps = XALLOCAVEC (rtx, XVECLEN (slot, 0));
+  bnd_tmps = XALLOCAVEC (rtx, XVECLEN (slot, 0));
 
-  for (i = 0; i < XVECLEN (return_reg, 0); i++)
+  for (i = 0; i < XVECLEN (slot, 0); i++)
     {
-      rtx elem = XVECEXP (return_reg, 0, i);
+      rtx elem = XVECEXP (slot, 0, i);
       rtx reg = GET_CODE (elem) == EXPR_LIST ? XEXP (elem, 0) : elem;
 
       if (!reg)
@@ -606,27 +605,27 @@ mpx_split_returned_reg (rtx return_reg, rtx *return_reg_val,
 
   if (!bnd_num)
     {
-      *return_reg_val = return_reg;
+      *slot_val = slot;
       return;
     }
 
   if ((GET_CODE (val_tmps[0]) == EXPR_LIST) || (val_num > 1))
-    *return_reg_val = gen_rtx_PARALLEL (GET_MODE (return_reg),
-					gen_rtvec_v (val_num, val_tmps));
+    *slot_val = gen_rtx_PARALLEL (GET_MODE (slot),
+				  gen_rtvec_v (val_num, val_tmps));
   else
-    *return_reg_val = val_tmps[0];
+    *slot_val = val_tmps[0];
 
   if ((GET_CODE (bnd_tmps[0]) == EXPR_LIST) || (bnd_num > 1))
-    *return_reg_bnd = gen_rtx_PARALLEL (VOIDmode,
-					gen_rtvec_v (bnd_num, bnd_tmps));
+    *slot_bnd = gen_rtx_PARALLEL (VOIDmode,
+				  gen_rtvec_v (bnd_num, bnd_tmps));
   else
-    *return_reg_bnd = bnd_tmps[0];
+    *slot_bnd = bnd_tmps[0];
 }
 
 /* Join previously splitted to VAL and BND rtx for function
-   value and return it.  */
+   value or argument and return it.  */
 rtx
-mpx_join_splitted_reg (rtx val, rtx bnd)
+mpx_join_splitted_slot (rtx val, rtx bnd)
 {
   rtx res;
   int i, n = 0;
@@ -682,8 +681,8 @@ mpx_put_regs_to_expr_list (rtx par)
 					     const0_rtx);
 }
 
-/* Return bndmk call which creates bounds for structure
-   pointed by PTR.  */
+/* Build and return bndmk call which creates bounds for structure
+   pointed by PTR.  Structure should have complete type.  */
 tree
 mpx_make_bounds_for_struct_addr (tree ptr)
 {
@@ -701,7 +700,10 @@ mpx_make_bounds_for_struct_addr (tree ptr)
 			  2, ptr, size);
 }
 
-/* Emit store of BOUNDS for pointer VALUE stored in MEM.  */
+/* Emit instructions to store BOUNDS for pointer VALUE
+   stored in MEM.
+   Function is used by expand to pass bounds for args
+   passed on stack.  */
 void
 mpx_emit_bounds_store (rtx bounds, rtx value, rtx mem)
 {
@@ -754,7 +756,10 @@ mpx_emit_bounds_store (rtx bounds, rtx value, rtx mem)
     }
 }
 
-/* Traversal function for mpx_may_finish_incomplete_bounds.  */
+/* Traversal function for mpx_may_finish_incomplete_bounds.
+   Set RES to 0 if at least one argument of phi statement
+   defining bounds (passed in KEY arg) is unknown.
+   Traversal stops when first unknown phi argument is found.  */
 static bool
 mpx_may_complete_phi_bounds (const void *key, void **slot ATTRIBUTE_UNUSED,
 			     void *res)
@@ -783,8 +788,8 @@ mpx_may_complete_phi_bounds (const void *key, void **slot ATTRIBUTE_UNUSED,
   return true;
 }
 
-/* Check if there is a phi node whose bounds computation
-   was not completed before but may be completed now.  */
+/* Return 1 if all phi nodes created for bounds have their
+   arguments computed.  */
 static bool
 mpx_may_finish_incomplete_bounds (void)
 {
@@ -864,9 +869,11 @@ mpx_valid_bounds (tree bounds)
 }
 
 /* Helper function for mpx_finish_incomplete_bounds.
-   Check if bounds phi node previously did not have
-   args allowing to determine value for phi but now
-   has.  */
+   Check all arguments of phi nodes trying to find
+   valid completed bounds.  If there is at least one
+   such arg then bounds produced by phi node are marked
+   as valid completed bounds and all phi args are
+   recomputed.  */
 static bool
 mpx_find_valid_phi_bounds (const void *key, void **slot, void *res)
 {
@@ -902,7 +909,7 @@ mpx_find_valid_phi_bounds (const void *key, void **slot, void *res)
 }
 
 /* Helper function for mpx_finish_incomplete_bounds.
-   Marks all found invalid bounds.  */
+   Marks all incompleted bounds as invalid.  */
 static bool
 mpx_mark_invalid_bounds_walker (const void *key, void **slot ATTRIBUTE_UNUSED,
 				void *res ATTRIBUTE_UNUSED)
@@ -917,8 +924,14 @@ mpx_mark_invalid_bounds_walker (const void *key, void **slot ATTRIBUTE_UNUSED,
   return true;
 }
 
-/* This function is called when we have enough info
-   for incomplete bounds to be finally computed.  */
+/* When all bound phi nodes have all their args computed
+   we have enough info to find valid bounds.  We iterate
+   through all incompleted bounds searching for valid
+   bounds.  Found valid bounds are marked as completed
+   and all remaining incompleted bounds are recomputed.
+   Process continues until no new valid bounds may be
+   found.  All remained incompleted bounds are marked as
+   invalid (i.e. have no valid source of bounds).  */
 static void
 mpx_finish_incomplete_bounds (void)
 {
@@ -1026,9 +1039,10 @@ mpx_register_var_initializer (tree var)
 
 /* Helper function for mpx_finish_file.
 
-   Add new modification statement into list of static initilizer
-   statementes.  If statements list becomes too big, emit MPX
-   contructor and start the new one.  */
+   Add new modification statement (RHS is assigned to LHS)
+   into list of static initilizer statementes (passed in ARG).
+   If statements list becomes too big, emit MPX contructor
+   and start the new one.  */
 static void
 mpx_add_modification_to_statements_list (tree lhs,
 					 tree rhs,
@@ -1054,19 +1068,23 @@ mpx_add_modification_to_statements_list (tree lhs,
     }
 }
 
-/* Build and return ADDR_EXPR for specified object T.  */
+/* Build and return ADDR_EXPR for specified object OBJ.  */
 static tree
-mpx_build_addr_expr (tree t)
+mpx_build_addr_expr (tree obj)
 {
-  return TREE_CODE (t) == TARGET_MEM_REF
-    ? tree_mem_ref_addr (ptr_type_node, t)
-    : build_fold_addr_expr (t);
+  return TREE_CODE (obj) == TARGET_MEM_REF
+    ? tree_mem_ref_addr (ptr_type_node, obj)
+    : build_fold_addr_expr (obj);
 }
 
 /* Helper function for mpx_finish_file.
-   Outputs one static bounds variable from mpx_static_var_bounds table.  */
+   Output bound variable VAR and also add its initialization code
+   with bounds of variable BND_VAR to statements list STMTS.
+   If statements list becomes too big, emit MPX contructor
+   and start the new one.  */
 static void
-mpx_output_static_bounds (tree var, tree bnd_var, struct mpx_ctor_stmt_list *stmts)
+mpx_output_static_bounds (tree var, tree bnd_var,
+			  struct mpx_ctor_stmt_list *stmts)
 {
   tree size_ptr = build_pointer_type (size_type_node);
   tree bnd_p = build1 (CONVERT_EXPR, size_ptr,
@@ -1131,7 +1149,7 @@ mpx_output_static_bounds (tree var, tree bnd_var, struct mpx_ctor_stmt_list *stm
 }
 
 /* Helper function for mpx_finish_file.
-   Outputs one variable from mpx_size_decls table.  */
+   Output one size variable.  */
 static int
 mpx_output_size_variable (void **slot, void *res ATTRIBUTE_UNUSED)
 {
@@ -1184,12 +1202,14 @@ mpx_add_tree_to_vec (void **slot, void *res)
   return 1;
 }
 
-/* Register bounds BND for object PTR in globa bounds table.  */
+/* Register bounds BND for object PTR in global bounds table.  */
 static void
 mpx_register_bounds (tree ptr, tree bnd)
 {
   tree *slot;
 
+  /* Do nothing if bounds are incomplete_bounds
+     because it means bounds will be recomputed.  */
   if (bnd == incomplete_bounds)
     return;
 
@@ -1327,7 +1347,9 @@ mpx_replace_address_check_builtin (gimple_stmt_iterator *gsi,
   gsi_remove (&call_iter, true);
 }
 
-/* Add bound arguments to call statement pointed by GSI.  */
+/* Add bound arguments to call statement pointed by GSI.
+   Also performs a replacement of user MPX builtins calls
+   with internal ones.  */
 
 static void
 mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
@@ -1763,7 +1785,7 @@ mpx_get_nonpointer_load_bounds (void)
   return mpx_get_zero_bounds ();
 }
 
-/* Return bounds to be used as a returned by CALL.  */
+/* Build bounds returned by CALL.  */
 static tree
 mpx_build_returned_bound (gimple call)
 {
@@ -1772,8 +1794,8 @@ mpx_build_returned_bound (gimple call)
   gimple stmt;
   tree fndecl = gimple_call_fndecl (call);
 
-  /* Currently we handle alloca separately.  May also fix
-     alloca expanding to obtain bounds on b0.  */
+  /* To avoid fixing alloca expands in targets we handle
+     it separately.  */
   if (fndecl
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_ALLOCA
@@ -1784,9 +1806,10 @@ mpx_build_returned_bound (gimple call)
       gimple_stmt_iterator iter = gsi_for_stmt (call);
       bounds = mpx_make_bounds (lb, size, &iter, true);
     }
+  /* Similarly handle next_arg builtin.  */
   else if (fndecl
-      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_NEXT_ARG)
+	   && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	   && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_NEXT_ARG)
     {
       tree size = targetm.fn_abi_va_list_bounds_size (cfun->decl);
       if (size == integer_zero_node)
@@ -1800,6 +1823,8 @@ mpx_build_returned_bound (gimple call)
     }
   else
     {
+      /* In general case build MPX builtin call to
+	 obtain returned bounds.  */
       stmt = gimple_build_call (mpx_ret_bnd_fndecl, 0);
       mpx_mark_stmt (stmt);
 
@@ -1825,8 +1850,7 @@ mpx_build_returned_bound (gimple call)
   return bounds;
 }
 
-/* Return bounds to be used for input argument PARM.
-   Build required bounds if required.  */
+/* Return bounds to be used for input argument PARM.  */
 static tree
 mpx_get_bound_for_parm (tree parm)
 {
@@ -1847,35 +1871,38 @@ mpx_get_bound_for_parm (tree parm)
       if (cfun->decl && DECL_STATIC_CHAIN (cfun->decl)
 	  && DECL_ARTIFICIAL (decl))
 	bounds = mpx_get_zero_bounds ();
-      /* On non-MPX systems main method does not receive correct
-	 bounds and we use zero bounds instead.  */
+      /* If non-MPX runtime is used then it may be useful
+	 to use zero bounds for input arguments of main
+	 function.  */
       else if (flag_mpx_zero_input_bounds_for_main
 	       && strcmp (IDENTIFIER_POINTER (DECL_NAME (cfun->decl)), "main") == 0)
 	bounds = mpx_get_zero_bounds ();
       else if (BOUNDED_P (parm))
 	{
-	    gimple_stmt_iterator gsi;
-	    gimple stmt;
+	  /* In general case we use MPX builtin to
+	     obtain bounds of input arg.  */
+	  gimple_stmt_iterator gsi;
+	  gimple stmt;
 
-	    stmt = gimple_build_call (mpx_arg_bnd_fndecl, 1, parm);
-	    mpx_mark_stmt (stmt);
+	  stmt = gimple_build_call (mpx_arg_bnd_fndecl, 1, parm);
+	  mpx_mark_stmt (stmt);
 
-	    gsi = gsi_start_bb (mpx_get_entry_block ());
-	    gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+	  gsi = gsi_start_bb (mpx_get_entry_block ());
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
 
-	    bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
-	    gimple_call_set_lhs (stmt, bounds);
+	  bounds = make_ssa_name (mpx_get_tmp_var (), stmt);
+	  gimple_call_set_lhs (stmt, bounds);
 
-	    update_stmt (stmt);
-	    mpx_register_bounds (decl, bounds);
+	  update_stmt (stmt);
+	  mpx_register_bounds (decl, bounds);
 
-	    if (dump_file && (dump_flags & TDF_DETAILS))
-	      {
-		fprintf (dump_file, "Built arg bounds (");
-		print_generic_expr (dump_file, bounds, 0);
-		fprintf (dump_file, ") for arg: ");
-		print_node (dump_file, "", decl, 0);
-	      }
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Built arg bounds (");
+	      print_generic_expr (dump_file, bounds, 0);
+	      fprintf (dump_file, ") for arg: ");
+	      print_node (dump_file, "", decl, 0);
+	    }
 	}
       else
 	bounds = mpx_get_zero_bounds ();
@@ -1908,7 +1935,7 @@ mpx_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
   gimple stmt;
   tree bounds;
 
-  seq = NULL;//gimple_seq_alloc ();
+  seq = NULL;
 
   addr = mpx_force_gimple_call_op (addr, &seq);
   ptr = mpx_force_gimple_call_op (ptr, &seq);
@@ -1982,12 +2009,7 @@ mpx_build_bndstx (tree addr, tree ptr, tree bounds,
   gimple_seq seq;
   gimple stmt;
 
-  /*
-  if (bounds == mpx_get_zero_bounds ())
-    return;
-  */
-
-  seq = NULL;//gimple_seq_alloc ();
+  seq = NULL;
 
   addr = mpx_force_gimple_call_op (addr, &seq);
   ptr = mpx_force_gimple_call_op (ptr, &seq);
@@ -2029,6 +2051,7 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
     case ARRAY_REF:
     case COMPONENT_REF:
     case TARGET_MEM_REF:
+      /* We need to load bounds from the bounds table.  */
       bounds = mpx_find_bounds_loaded (node, rhs1, &iter);
       break;
 
@@ -2039,15 +2062,18 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
     case NOP_EXPR:
     case CONVERT_EXPR:
     case INTEGER_CST:
+      /* Bounds are just propagated from RHS.  */
       bounds = mpx_find_bounds (rhs1, &iter);
       break;
 
     case VIEW_CONVERT_EXPR:
+      /* Bounds are just propagated from RHS.  */
       bounds = mpx_find_bounds (TREE_OPERAND (rhs1, 0), &iter);
       break;
 
     case PARM_DECL:
       gcc_assert (TREE_ADDRESSABLE (rhs1));
+      /* We need to load bounds from the bounds table.  */
       bounds = mpx_build_bndldx (mpx_build_addr_expr (rhs1),
 				node, &iter);
       break;
@@ -2063,7 +2089,13 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
 	tree bnd2 = mpx_find_bounds (rhs2, &iter);
 
 	/* First we try to check types of operands.  If it
-	   does not help then look at bound values.  */
+	   does not help then look at bound values.
+
+	   If some bounds are incomplete and other are
+	   not proven to be valid (i.e. also incomplete
+	   or invalid because value is not pointer) then
+	   resulting value is incomplete and will be
+	   recomputed later in mpx_finish_incomplete_bounds.  */
 	if (BOUNDED_P (rhs1)
 	    && !BOUNDED_P (rhs2))
 	  bounds = bnd1;
@@ -2093,8 +2125,9 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
 	else if (!mpx_valid_bounds (bnd2))
 	  bounds = bnd1;
 	else
-	  /* Seems both operands may have valid bounds.
-	     In such case use default invalid op bounds.  */
+	  /* Seems both operands may have valid bounds
+	     (e.g. pointer minus pointer).  In such case
+	     use default invalid op bounds.  */
 	  bounds = mpx_get_invalid_op_bounds ();
       }
       break;
@@ -2124,6 +2157,7 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
     case FLOAT_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+      /* No valid bounds may be produced by these exprs.  */
       bounds = mpx_get_invalid_op_bounds ();
       break;
 
@@ -2183,18 +2217,6 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
       }
       break;
 
-    case CONSTRUCTOR:
-      /*
-	    {
-	      unsigned int idx;
-	      tree purp, val;
-	      FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (rhs1), idx, purp, val)
-	      {
-	      }
-	    }
-      */
-      /* fall thru */
-
     default:
       internal_error ("mpx_compute_bounds_for_assignment: Unexpected RHS code %s",
 		      tree_code_name[rhs_code]);
@@ -2209,7 +2231,11 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
 }
 
 /* Compute bounds for ssa name NODE defined by DEF_STMT pointed by ITER.
-   Return computed bounds*/
+
+   There are just few statement codes allowed: NOP (for default ssa names),
+   ASSIGN, CALL, PHI, ASM.
+
+   Return computed bounds.  */
 static tree
 mpx_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *iter)
 {
@@ -2234,8 +2260,6 @@ mpx_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *
 	{
 	case PARM_DECL:
 	  bounds = mpx_get_bound_for_parm (node);
-	  /*bounds = mpx_find_bounds (var, iter);
-	    mpx_register_bounds (node, bounds);*/
 	  break;
 
 	case VAR_DECL:
@@ -2286,15 +2310,18 @@ mpx_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *
       *iter = gsi_for_stmt (stmt);
 
       mpx_register_bounds (node, bounds);
+
+      /* Created bounds do not have all phi args computed and
+	 therefore we do not know if there is a valid source
+	 of bounds for that node.  Therefore we mark bounds
+	 as incomplete and then recompute them when all phi
+	 args are computed.  */
       mpx_register_incomplete_bounds (bounds, node);
       break;
 
     case GIMPLE_ASM:
       bounds = mpx_get_zero_bounds ();
       mpx_register_bounds (node, bounds);
-      /*warning (0, "PL: inline assembler is a potential pointer producer; using zero bounds (%s:%d)",
-	       LOCATION_FILE (gimple_location (def_stmt)),
-	       LOCATION_LINE (gimple_location (def_stmt)));*/
       break;
 
     default:
@@ -2316,8 +2343,9 @@ mpx_build_make_bounds_call (tree lower_bound, tree size)
 			  call, 2, lower_bound, size);
 }
 
-/* Creates a static bounds var of specfified NAME initilized
-   with bounds of passe OBJ.  */
+/* Create static bounds var of specfified NAME initilized
+   with bounds of OBJ which is either VAR_DECL or string
+   constant.  */
 static tree
 mpx_make_static_bounds (tree obj)
 {
@@ -2425,9 +2453,11 @@ mpx_make_static_bounds (tree obj)
   return bnd_var;
 }
 
+static tree mpx_get_var_size_decl (tree var) ATTRIBUTE_UNUSED;
+
 /* Return var holding size relocation for given VAR.  */
 static tree
-mxp_get_var_size_decl (tree var)
+mpx_get_var_size_decl (tree var)
 {
   struct tree_map **slot, *map;
   const char *var_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (var));
@@ -2506,9 +2536,9 @@ mxp_get_var_size_decl (tree var)
   return size_decl;
 }
 
-/* When var has incomplete type we cannot get size to compute its bounds.
-   In such cases we generate code to compute var bounds using special
-   symbols pointing its begin and end.  */
+/* When var has incomplete type we cannot get size to
+   compute its bounds.  In such cases we use MPX builtin
+   call which determines object size at runtime.  */
 static tree
 mpx_generate_extern_var_bounds (tree var)
 {
@@ -2530,7 +2560,7 @@ mpx_generate_extern_var_bounds (tree var)
       fprintf (dump_file, "'\n");
     }
 
-  //size_reloc = mxp_get_var_size_decl (var);
+  //size_reloc = mpx_get_var_size_decl (var);
 
   stmt = gimple_build_call (mpx_sizeof_fndecl, 1, var);
 
@@ -3019,7 +3049,7 @@ mpx_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 
 static tree
 mpx_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
-		  bool always_narrow_fields)
+		   bool always_narrow_fields)
 {
   tree addr = NULL_TREE;
   tree bounds = NULL_TREE;
@@ -3067,7 +3097,7 @@ mpx_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 	  gimple def_stmt = SSA_NAME_DEF_STMT (ptr_src);
 	  gimple_stmt_iterator phi_iter;
 
-	  bounds = mpx_get_bounds_by_definition(ptr_src, def_stmt, &phi_iter);
+	  bounds = mpx_get_bounds_by_definition (ptr_src, def_stmt, &phi_iter);
 
 	  gcc_assert (bounds);
 
@@ -3096,6 +3126,9 @@ mpx_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 			       UNKNOWN_LOCATION);
 		}
 
+	      /* If all bound phi nodes have their arg computed
+		 then we may finish its computation.  See
+		 mpx_finish_incomplete_bounds for more details.  */
 	      if (mpx_may_finish_incomplete_bounds ())
 		mpx_finish_incomplete_bounds ();
 	    }
@@ -3156,7 +3189,9 @@ mpx_find_bounds_loaded (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
   return mpx_find_bounds_1 (ptr, ptr_src, iter, false);
 }
 
-/* Search for bounds for PTR to be used in abnormal PHI node.  */
+/* Search for bounds for PTR to be used in abnormal PHI node.
+   Similar to regular bounds search but create bound copy to
+   be used over abnormal edge.  */
 static tree
 mpx_find_bounds_abnormal (tree ptr, tree phi)
 {
@@ -3750,8 +3785,8 @@ mpx_fix_cfg ()
 }
 
 /* This function requests intrumentation for all statements
-   working with memory.  It also removes excess statements
-   from static initializers.  */
+   working with memory, calls and rets.  It also removes
+   excess statements from static initializers.  */
 static void
 mpx_instrument_function (void)
 {
@@ -3769,7 +3804,7 @@ mpx_instrument_function (void)
           gimple s = gsi_stmt (i);
 
 	  /* Skip statement marked to not be instrumented.  */
-	  if (mpx_marked_stmt (s))
+	  if (mpx_marked_stmt_p (s))
 	    {
 	      gsi_next (&i);
 	      continue;
@@ -4369,25 +4404,87 @@ mpx_get_check_result (struct check_info *ci, tree bounds)
       return 0;
     }
 
-  bnd_def = SSA_NAME_DEF_STMT (bounds);
-  if (gimple_code (bnd_def) != GIMPLE_CALL
-      || gimple_call_fndecl (bnd_def) != mpx_bndmk_fndecl)
+  if (bounds == zero_bounds)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "  result: cannot compute bounds value\n");
-      return 0;
+	fprintf (dump_file, "  result: always pass with zero bounds\n");
+      return 1;
     }
 
-  bound_val.pol.create (0);
-  mpx_collect_value (gimple_call_arg (bnd_def, 0), bound_val);
-  if (ci->type == CHECK_UPPER_BOUND)
+  if (bounds == none_bounds)
     {
-      address_t size_val;
-      size_val.pol.create (0);
-      mpx_collect_value (gimple_call_arg (bnd_def, 1), size_val);
-      mpx_add_addr_addr (bound_val, size_val);
-      size_val.pol.release ();
-      mpx_add_addr_item (bound_val, integer_minus_one_node, NULL);
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  result: always fails with none bounds\n");
+      return -1;
+    }
+
+  bnd_def = SSA_NAME_DEF_STMT (bounds);
+  /* Currently we handle cases when bounds are result of bndmk
+     or loaded static bounds var.  */
+  if (gimple_code (bnd_def) == GIMPLE_CALL
+      && gimple_call_fndecl (bnd_def) == mpx_bndmk_fndecl)
+    {
+      bound_val.pol.create (0);
+      mpx_collect_value (gimple_call_arg (bnd_def, 0), bound_val);
+      if (ci->type == CHECK_UPPER_BOUND)
+	{
+	  address_t size_val;
+	  size_val.pol.create (0);
+	  mpx_collect_value (gimple_call_arg (bnd_def, 1), size_val);
+	  mpx_add_addr_addr (bound_val, size_val);
+	  size_val.pol.release ();
+	  mpx_add_addr_item (bound_val, integer_minus_one_node, NULL);
+	}
+    }
+  else if (gimple_code (bnd_def) == GIMPLE_ASSIGN
+	   && TREE_CODE (gimple_assign_rhs1 (bnd_def)) == VAR_DECL)
+    {
+      struct tree_map *res, in;
+      tree var = gimple_assign_rhs1 (bnd_def);
+      tree size;
+      in.base.from = var;
+      in.hash = htab_hash_pointer (var);
+
+      res = (struct tree_map *) htab_find_with_hash (mpx_static_var_bounds_r,
+						     &in, in.hash);
+      gcc_assert (res);
+
+      bound_val.pol.create (0);
+      mpx_collect_value (mpx_build_addr_expr (res->to), bound_val);
+      if (ci->type == CHECK_UPPER_BOUND)
+	{
+	  if (TREE_CODE (res->to) == VAR_DECL)
+	    {
+	      if (DECL_SIZE (res->to)
+		  && !mpx_variable_size_type (TREE_TYPE (res->to)))
+		size = DECL_SIZE_UNIT (res->to);
+	      else
+		{
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    fprintf (dump_file, "  result: cannot compute bounds\n");
+		  return 0;
+		}
+	    }
+	  else
+	    {
+	      gcc_assert (TREE_CODE (res->to) == STRING_CST);
+	      size = build_int_cst (size_type_node,
+				    TREE_STRING_LENGTH (res->to));
+	    }
+
+	  address_t size_val;
+	  size_val.pol.create (0);
+	  mpx_collect_value (size, size_val);
+	  mpx_add_addr_addr (bound_val, size_val);
+	  size_val.pol.release ();
+	  mpx_add_addr_item (bound_val, integer_minus_one_node, NULL);
+	}
+    }
+  else
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "  result: cannot compute bounds\n");
+      return 0;
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4729,9 +4826,10 @@ mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom
   delta.pol.release ();
 }
 
-/* Find all pairs of checks where the first check dominates the
-   second one and call mpx_compare_checks to find and remove redundant
-   checks.  */
+/* Here we try to find checks which are covered by other checks
+   and thus can be removed.  To do it we simply find all pairs of
+   checks where the first check dominates the second one and
+   call mpx_compare_checks to find and remove redundant ones.  */
 void
 mpx_remove_redundant_checks (void)
 {
@@ -4863,8 +4961,8 @@ mpx_optimize_string_function_calls (void)
 /* MPX pass inserts most of bounds creation code in
    the header of the function.  We want to move bounds
    creation closer to bounds usage to reduce bounds
-   lifetime.  We also do not want to have bounds creation
-   code on paths which do not use them.  */
+   lifetime.  We also try to avoid bounds creation
+   code on paths where bounds are not used.  */
 void
 mpx_reduce_bounds_lifetime (void)
 {
@@ -5009,7 +5107,7 @@ mpx_reduce_bounds_lifetime (void)
     }
 }
 
-/* Initilize pass.  */
+/* Initilize MPX initialization pass.  */
 void
 mpxopt_init (void)
 {
@@ -5019,7 +5117,7 @@ mpxopt_init (void)
   calculate_dominance_info (CDI_POST_DOMINATORS);
 }
 
-/* Finalise pass.  */
+/* Finalise MPX optimization  pass.  */
 void
 mpxopt_fini (void)
 {
@@ -5029,7 +5127,7 @@ mpxopt_fini (void)
   free_dominance_info (CDI_POST_DOMINATORS);
 }
 
-/* Main pass function.  */
+/* MPX optimization pass function.  */
 unsigned int
 mpxopt_execute (void)
 {

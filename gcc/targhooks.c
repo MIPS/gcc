@@ -1601,7 +1601,7 @@ default_mpx_bound_mode (void)
 }
 
 tree
-default_builtin_mpx_function (unsigned int fcode)
+default_builtin_mpx_function (unsigned int fcode ATTRIBUTE_UNUSED)
 {
   error ("Target platform does not support MPX");
   return NULL_TREE;

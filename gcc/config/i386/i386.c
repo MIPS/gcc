@@ -8293,7 +8293,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 				       type, 0, X86_64_REGPARM_MAX,
 				       X86_64_SSE_REGPARM_MAX, intreg,
 				       0, 0, true);
-      mpx_split_returned_reg (container, &container, &bndcontainer);
+      mpx_split_slot (container, &container, &bndcontainer);
       break;
     }
 

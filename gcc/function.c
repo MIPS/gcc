@@ -2044,7 +2044,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
   reg = hard_function_value (type, 0, fntype, 0);
 
   /* Do not care about returned bounds here.  */
-  mpx_split_returned_reg (reg, &reg, &bnd);
+  mpx_split_slot (reg, &reg, &bnd);
 
   /* If we have something other than a REG (e.g. a PARALLEL), then assume
      it is OK.  */
@@ -2443,7 +2443,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 						    data->promoted_mode,
 						    data->passed_type,
 						    data->named_arg);
-  mpx_split_returned_reg (entry_parm, &entry_parm, &bound_parm);
+  mpx_split_slot (entry_parm, &entry_parm, &bound_parm);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -3671,7 +3671,7 @@ assign_parms (tree fndecl)
 
 	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
 							fndecl, true);
-	  mpx_split_returned_reg (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
+	  mpx_split_slot (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that crtl->return_rtx
 	     holds the hard register containing the return value, not a
@@ -4935,7 +4935,7 @@ expand_function_start (tree subr)
 	  rtx hard_reg = hard_function_value (return_type, subr, 0, 1);
 	  rtx bounds;
 
-	  mpx_split_returned_reg (hard_reg, &hard_reg, &bounds);
+	  mpx_split_slot (hard_reg, &hard_reg, &bounds);
 
 	  /* Structures that are returned in registers are not
 	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
@@ -5311,7 +5311,7 @@ expand_function_end (void)
 
       outgoing = targetm.calls.function_value (build_pointer_type (type),
 					       current_function_decl, true);
-      mpx_split_returned_reg (outgoing, &outgoing, &crtl->return_bnd);
+      mpx_split_slot (outgoing, &outgoing, &crtl->return_bnd);
 
       if (flag_mpx && GET_CODE (outgoing) == PARALLEL)
 	outgoing = XEXP (XVECEXP (outgoing, 0, 0), 0);

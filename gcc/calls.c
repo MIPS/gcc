@@ -1325,7 +1325,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
 						argpos < n_named_args);
-      mpx_split_returned_reg (args[i].reg, &args[i].reg, &args[i].bounds_slot);
+      mpx_split_slot (args[i].reg, &args[i].reg, &args[i].bounds_slot);
 
       /* If this is a sibling call and the machine has register windows, the
 	 register window has to be unwinded before calling the routine, so
@@ -3146,7 +3146,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  /* Returned bound registers are handled later.  Slit them right now and
 	     join back before rerurn.  */
-	  mpx_split_returned_reg (valreg, &valreg, &valbnd);
+	  mpx_split_slot (valreg, &valreg, &valbnd);
 
 	  /* If VALREG is a PARALLEL whose first member has a zero
 	     offset, use that.  This is for targets such as m68k that
@@ -3630,7 +3630,7 @@ expand_call (tree exp, rtx target, int ignore)
   free (stack_usage_map_buf);
 
   /* Join result with returned bounds so caller may use them if needed.  */
-  target = mpx_join_splitted_reg (target, valbnd);
+  target = mpx_join_splitted_slot (target, valbnd);
 
   return target;
 }
@@ -4394,7 +4394,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   /* Returned bound registers are handled later.  Slit them right now and
      join back before rerurn.  */
-  mpx_split_returned_reg (valreg, &valreg, &valbnd);
+  mpx_split_slot (valreg, &valreg, &valbnd);
 
   /* Copy the value to the right place.  */
   if (outmode != VOIDmode && retval)

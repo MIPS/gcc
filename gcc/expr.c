@@ -4933,7 +4933,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
       value = expand_normal (from);
 
       /* Split value and bounds to store them separately.  */
-      mpx_split_returned_reg (value, &value, &bounds);
+      mpx_split_slot (value, &value, &bounds);
 
       if (to_rtx == 0)
 	to_rtx = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
@@ -5191,7 +5191,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 
       /* Bounds returned by the call are atored separately.  */
       if (TREE_CODE (exp) == CALL_EXPR)
-	mpx_split_returned_reg (temp, &temp, &temp_bnd);
+	mpx_split_slot (temp, &temp, &temp_bnd);
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -5275,9 +5275,9 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl);
 
-      /* Bounds returned by the call are atored separately.  */
+      /* Bounds returned by the call are stored separately.  */
       if (TREE_CODE (exp) == CALL_EXPR)
-	mpx_split_returned_reg (temp, &temp, &temp_bnd);
+	mpx_split_slot (temp, &temp, &temp_bnd);
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not

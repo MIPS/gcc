@@ -6611,9 +6611,8 @@ extern bool mpx_register_var_initializer (tree var);
 extern void mpx_finish_file (void);
 extern tree mpx_get_registered_bounds (tree ptr);
 extern tree mpx_get_arg_bounds (tree arg);
-extern void mpx_split_returned_reg (rtx return_reg, rtx *return_reg_val,
-				   rtx *return_reg_bnd);
-extern rtx mpx_join_splitted_reg (rtx val, rtx bnd);
+extern void mpx_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd);
+extern rtx mpx_join_splitted_slot (rtx val, rtx bnd);
 extern rtx mpx_get_value_with_offs (rtx par, rtx offs);
 extern void mpx_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
 extern bool mpx_type_has_pointer (tree type);
