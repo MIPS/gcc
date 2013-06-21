@@ -102,6 +102,7 @@ static type_map& get_tree_2_type_map ();
 static shared_ptr<abigail::scope_decl> gen_scope_of (const_tree );
 static abigail::decl_base::visibility convert_visibility (symbol_visibility);
 static abigail::location convert_location (source_location);
+static abigail::qualified_type_def::CV convert_qualifiers (int);
 static abigail::decl_base::visibility get_decl_visibility (const_tree);
 static abigail::location get_location (const_tree);
 static abigail::decl_base::binding get_decl_binding (const_tree);
@@ -110,16 +111,19 @@ static string get_mangled_name (const_tree);
 static size_t get_int_constant_value (const_tree);
 static abigail::class_decl::access_specifier get_access (const_tree);
 static bool should_instr_function (const_tree);
+static bool should_instr_var (const_tree);
 static shared_ptr <abigail::scope_decl> gen_scope_decl
 (const_tree, shared_ptr <abigail::scope_decl>);
 static shared_ptr <abigail::function_type> gen_function_type
 (const_tree t,
  shared_ptr <abigail::class_decl> base_type =
- shared_ptr<abigail::class_decl> ());
+ shared_ptr <abigail::class_decl> ());
 static shared_ptr <abigail::function_decl> gen_function_decl
 (const_tree t,
- shared_ptr<abigail::class_decl> base_type =
- shared_ptr<abigail::class_decl> ());
+ shared_ptr <abigail::class_decl> base_type =
+ shared_ptr <abigail::class_decl> ());
+static shared_ptr <abigail::class_decl> gen_class_type_in_scope
+(const_tree, shared_ptr <abigail::scope_decl>);
 static shared_ptr<abigail::class_decl::data_member> gen_data_member
 (const_tree);
 static shared_ptr<abigail::class_decl::member_function> gen_member_function
@@ -228,6 +232,8 @@ gen_scope_of (const_tree t)
 
   result = gen_scope_decl (context, gen_scope_of (context));
 
+  m[t] = result;
+
   return result;
 }
 
@@ -261,6 +267,23 @@ convert_location (source_location l)
   return get_cur_tu ().get_loc_mgr ().create_new_location (e.file,
 							   e.line,
 							   e.column);
+}
+
+// Convert CV qualifiers into libabigail CV qualifiers.
+static abigail::qualified_type_def::CV
+convert_qualifiers (int quals)
+{
+  abigail::qualified_type_def::CV result =
+    abigail::qualified_type_def::CV_NONE;
+
+  if (quals & TYPE_QUAL_CONST)
+    result = result | abigail::qualified_type_def::CV_CONST;
+  if (quals & TYPE_QUAL_VOLATILE)
+    result = result | abigail::qualified_type_def::CV_VOLATILE;
+  if (quals & TYPE_QUAL_RESTRICT)
+    result = result | abigail::qualified_type_def::CV_RESTRICT;
+
+  return result;
 }
 
 // Return a libabigail visibility of the GCC DECL.
@@ -387,10 +410,33 @@ should_instr_function (const_tree fn)
   if (fn
       && TREE_CODE (fn) == FUNCTION_DECL
       && TREE_PUBLIC (fn)
-      && TREE_ASM_WRITTEN (fn)
-      // && !DECL_ABSTRACT (fn)
-      && !DECL_ARTIFICIAL (fn))
-    result = true;
+      && TREE_ASM_WRITTEN (fn))
+    {
+      if (DECL_LANG_SPECIFIC (fn)
+	  && (DECL_MAYBE_IN_CHARGE_DESTRUCTOR_P (fn)
+	      || DECL_MAYBE_IN_CHARGE_CONSTRUCTOR_P (fn)))
+	;// These entities are never emitted.
+      else
+	result = true;
+    }
+
+  return result;
+}
+
+// Return true iff the variable VAR should be instrumented.
+static bool
+should_instr_var (const_tree var)
+{
+  bool result = false;
+
+  if (var == NULL_TREE || TREE_CODE (var) != VAR_DECL)
+    return result;
+
+  if (varpool_node *n = varpool_get_node (var))
+    {
+      if (n->analyzed)
+	result = true;
+    }
 
   return result;
 }
@@ -484,10 +530,11 @@ gen_scope_decl (const_tree t,
 				      get_decl_visibility (t)));
       add_decl_to_scope (result, scope);
     }
+  else if (TREE_CODE (t) == RECORD_TYPE)
+    result = gen_class_type_in_scope (t, scope);
   else
-    {
-      // FIXME: Generate class declaration here.
-    }
+    gcc_unreachable ();
+
   return result;
 }
 
@@ -600,6 +647,69 @@ gen_function_decl(const_tree t, shared_ptr <abigail::class_decl> base_type)
   return result;
 }
 
+// Force the generation a libabigail representation for class T (a
+// tree of code RECORD_TYPE).  SCOPE is the libabigail scope into
+// which the final class_decl is to be put into.
+static shared_ptr <abigail::class_decl>
+gen_class_type_in_scope (const_tree t,
+			 shared_ptr <abigail::scope_decl> scope)
+{
+  shared_ptr <abigail::class_decl> result;
+
+  if (t == NULL_TREE || TREE_CODE (t) != RECORD_TYPE)
+    return result;
+
+  // If T has qualifiers or if it's a typedef, it should have been
+  // handled by gen_type_in_scope.
+  gcc_assert (!TYPE_QUALS (t) && !typedef_variant_p (t));
+
+  classes_wip_map::const_iterator c =
+    get_wip_classes_map ().find(t);
+  if (c != get_wip_classes_map ().end ())
+    {
+      // Someone is referring to this record type but the
+      // type is not defined yet -- it's currently being
+      // defined.  So we let's forward declare it a this point.
+
+      shared_ptr <abigail::class_decl> class_type
+	(new abigail::class_decl (get_tree_name (t)));
+      add_decl_to_scope (class_type, scope);
+      return class_type;
+    }
+
+  shared_ptr <abigail::class_decl> class_type
+    (new abigail::class_decl (get_tree_name (t),
+			      get_int_constant_value (TYPE_SIZE (t)),
+			      TYPE_ALIGN (t), get_location (t),
+			      get_decl_visibility (TYPE_NAME (t))));
+
+  get_wip_classes_map ()[t] = class_type;
+
+  for (tree m = TYPE_FIELDS (t); m; m = DECL_CHAIN (m))
+    {
+      shared_ptr <abigail::class_decl::data_member> member =
+	gen_data_member (m);
+      if (member)
+	class_type->add_data_member (member);
+    }
+
+  for (tree m = TYPE_METHODS (t); m; m = DECL_CHAIN (m))
+    {
+      if (should_instr_function (m))
+	{
+	  shared_ptr <abigail::class_decl::member_function> member =
+	    gen_member_function (m, class_type);
+	  if (member)
+	    class_type->add_member_function (member);
+	}
+    }
+
+  add_decl_to_scope(class_type, scope);
+  result = class_type;
+  get_wip_classes_map ().erase (t);
+
+  return result;
+}
 
 // Generate (if necessary) and return an instance of libabigail decl
 // for T that is supposed to be a GCC decl tree.  The resulting
@@ -683,153 +793,150 @@ gen_type_in_scope (const_tree t,
   if (i != m.end ())
     return i->second;
 
-  //FIXME: build qualified types.
-
-  switch (TREE_CODE (t))
+  // Handle qualified types.
+  if (int quals = TYPE_QUALS (t))
     {
-    case BOOLEAN_TYPE:
-    case INTEGER_TYPE:
-    case NULLPTR_TYPE:
-    case VOID_TYPE:
-      {
-	shared_ptr<abigail::type_decl> type_declaration
-	  (new abigail::type_decl (get_tree_name (t),
-				   get_int_constant_value (TYPE_SIZE (t)),
-				   TYPE_ALIGN (t), get_location (t),
-				   get_mangled_name (t),
-				   get_decl_visibility (TYPE_NAME (t))));
+      // First get the underlying non qualified type ...
+      int underlying_type_quals = quals;
+      if (TYPE_QUAL_CONST & quals)
+	underlying_type_quals &=  ~TYPE_QUAL_CONST;
+      if (TYPE_QUAL_VOLATILE & quals)
+	underlying_type_quals &= ~TYPE_QUAL_VOLATILE;
+      if (TYPE_QUAL_RESTRICT)
+	underlying_type_quals &= ~TYPE_QUAL_RESTRICT;
+      tree nt = get_qualified_type (CONST_CAST_TREE (t), underlying_type_quals);
+      gcc_assert (nt);
+      // ... build the abigail representation for it ...
+      shared_ptr <abigail::type_base> underlying_type =
+	gen_type (nt);
 
-	add_decl_to_scope (type_declaration, scope);
-	result = type_declaration;
-      }
-      break;
+      // ... and build the abigail representation for the qualified type.
+      if (underlying_type)
+	{
+	  shared_ptr <abigail::qualified_type_def> qualified_type
+	    (new abigail::qualified_type_def (underlying_type,
+					      convert_qualifiers (quals),
+					      get_location (t)));
+	  add_decl_to_scope (qualified_type, scope);
+	  result = qualified_type;
+	}
+    }
 
-    case ENUMERAL_TYPE:
-      {
-	shared_ptr <abigail::type_base> underlying_type;
-	if (ENUM_UNDERLYING_TYPE (t))
-	  underlying_type = gen_type (ENUM_UNDERLYING_TYPE (t));
-
-	list<abigail::enum_type_decl::enumerator> enumerators;
-	for (tree e = TYPE_VALUES (t); e ; e = TREE_CHAIN (e))
-	  enumerators.push_back
-	    (abigail::enum_type_decl::enumerator (get_tree_name
-						  (TREE_PURPOSE (e)),
-						  get_int_constant_value
-						  (DECL_INITIAL
-						   (TREE_VALUE (e)))));
-
-	abigail::location loc = get_location (t);
-
-	shared_ptr <abigail::enum_type_decl> enum_type_decl
-	  (new abigail::enum_type_decl (get_tree_name (t),
-					loc, underlying_type, enumerators,
+  // Handle typedef types.
+  if (typedef_variant_p (t))
+    {
+      shared_ptr <abigail::type_base> underlying_type =
+	gen_type (DECL_ORIGINAL_TYPE (TYPE_NAME (t)));
+      if (underlying_type)
+	{
+	  shared_ptr <abigail::typedef_decl> typedef_type
+	    (new abigail::typedef_decl (get_tree_name (t),
+					underlying_type,
+					get_location (t),
 					get_mangled_name (t),
 					get_decl_visibility (TYPE_NAME (t))));
-
-	add_decl_to_scope (enum_type_decl, scope);
-	result = enum_type_decl;
-      }
-      break;
-
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      {
-	shared_ptr <abigail::type_base> pointed_to = gen_type (TREE_TYPE (t));
-	if (pointed_to)
-	  {
-	    abigail::location loc = get_location (t);
-	    if (TREE_CODE (t) == POINTER_TYPE)
-	      {
-		shared_ptr <abigail::pointer_type_def> pointer_type
-		  (new abigail::pointer_type_def
-		   (pointed_to,
-		    get_int_constant_value (TYPE_SIZE (t)),
-		    TYPE_ALIGN (t), loc));
-
-		add_decl_to_scope (pointer_type, scope);
-		result = pointer_type;
-	      }
-	    else
-	      {
-		shared_ptr <abigail::reference_type_def> reference_type
-		  (new abigail::reference_type_def
-		   (pointed_to, !TYPE_REF_IS_RVALUE (t),
-		    get_int_constant_value (TYPE_SIZE (t)),
-		    TYPE_ALIGN (t), loc));
-
-		add_decl_to_scope (reference_type, scope);
-		result = reference_type;
-	      }
-	  }
-      }
-      break;
-
-    case FUNCTION_TYPE:
-      result = gen_function_type (t);
-      break;
-
-    case METHOD_TYPE:
-      // This must be handled by gen_function_type, called from within
-      // gen_type_in_scope.
-      gcc_unreachable ();
-
-    case RECORD_TYPE:
-      {
-	// FIXME: The fact that we are putting the TYPE_MAIN_VARIANT
-	// in the map is a hack until we have built support for
-	// variant types (typedefs, cv qual'ed type etc)
-	classes_wip_map::const_iterator c =
-	  get_wip_classes_map ().find(TYPE_MAIN_VARIANT (t));
-	if (c != get_wip_classes_map ().end ())
-	  {
-	    // Someone is referring to this record type but the
-	    // type is not defined yet -- it's currently being
-	    // defined.  So we let's forward declare it a this point.
-
-	    shared_ptr <abigail::class_decl> class_type
-	      (new abigail::class_decl (get_tree_name (t)));
-	    add_decl_to_scope (class_type, scope);
-	    result = class_type;
-	    break;
-	  }
-
-	shared_ptr <abigail::class_decl> class_type
-	  (new abigail::class_decl (get_tree_name (t),
-				    get_int_constant_value (TYPE_SIZE (t)),
-				    TYPE_ALIGN (t), get_location (t),
-				    get_decl_visibility (TYPE_NAME (t))));
-
-	get_wip_classes_map ()[TYPE_MAIN_VARIANT (t)] = class_type;
-
-	for (tree m = TYPE_FIELDS (t); m; m = DECL_CHAIN (m))
-	  {
-	    shared_ptr <abigail::class_decl::data_member> member =
-	      gen_data_member (m);
-	    if (member)
-	      class_type->add_data_member (member);
-	  }
-
-	for (tree m = TYPE_METHODS (t); m; m = DECL_CHAIN (m))
-	  {
-	    if (should_instr_function (m))
-	      {
-		shared_ptr <abigail::class_decl::member_function> member =
-		  gen_member_function (m, class_type);
-		if (member)
-		  class_type->add_member_function (member);
-	      }
-	  }
-
-	add_decl_to_scope(class_type, scope);
-	result = class_type;
-	get_wip_classes_map ().erase (t);
-      }
-      break;
-
-    default:
-      break;
+	  add_decl_to_scope (typedef_type, scope);
+	  result = typedef_type;
+	}
     }
+
+  if (!result)
+    switch (TREE_CODE (t))
+      {
+      case BOOLEAN_TYPE:
+      case INTEGER_TYPE:
+      case NULLPTR_TYPE:
+      case VOID_TYPE:
+	{
+	  shared_ptr<abigail::type_decl> type_declaration
+	    (new abigail::type_decl (get_tree_name (t),
+				     get_int_constant_value (TYPE_SIZE (t)),
+				     TYPE_ALIGN (t), get_location (t),
+				     get_mangled_name (t),
+				     get_decl_visibility (TYPE_NAME (t))));
+
+	  add_decl_to_scope (type_declaration, scope);
+	  result = type_declaration;
+	}
+	break;
+
+      case ENUMERAL_TYPE:
+	{
+	  shared_ptr <abigail::type_base> underlying_type;
+	  if (ENUM_UNDERLYING_TYPE (t))
+	    underlying_type = gen_type (ENUM_UNDERLYING_TYPE (t));
+
+	  list<abigail::enum_type_decl::enumerator> enumerators;
+	  for (tree e = TYPE_VALUES (t); e ; e = TREE_CHAIN (e))
+	    enumerators.push_back
+	      (abigail::enum_type_decl::enumerator (get_tree_name
+						    (TREE_PURPOSE (e)),
+						    get_int_constant_value
+						    (DECL_INITIAL
+						     (TREE_VALUE (e)))));
+
+	  abigail::location loc = get_location (t);
+
+	  shared_ptr <abigail::enum_type_decl> enum_type_decl
+	    (new abigail::enum_type_decl (get_tree_name (t),
+					  loc, underlying_type, enumerators,
+					  get_mangled_name (t),
+					  get_decl_visibility (TYPE_NAME (t))));
+
+	  add_decl_to_scope (enum_type_decl, scope);
+	  result = enum_type_decl;
+	}
+	break;
+
+      case POINTER_TYPE:
+      case REFERENCE_TYPE:
+	{
+	  shared_ptr <abigail::type_base> pointed_to = gen_type (TREE_TYPE (t));
+	  if (pointed_to)
+	    {
+	      abigail::location loc = get_location (t);
+	      if (TREE_CODE (t) == POINTER_TYPE)
+		{
+		  shared_ptr <abigail::pointer_type_def> pointer_type
+		    (new abigail::pointer_type_def
+		     (pointed_to,
+		      get_int_constant_value (TYPE_SIZE (t)),
+		      TYPE_ALIGN (t), loc));
+
+		  add_decl_to_scope (pointer_type, scope);
+		  result = pointer_type;
+		}
+	      else
+		{
+		  shared_ptr <abigail::reference_type_def> reference_type
+		    (new abigail::reference_type_def
+		     (pointed_to, !TYPE_REF_IS_RVALUE (t),
+		      get_int_constant_value (TYPE_SIZE (t)),
+		      TYPE_ALIGN (t), loc));
+
+		  add_decl_to_scope (reference_type, scope);
+		  result = reference_type;
+		}
+	    }
+	}
+	break;
+
+      case FUNCTION_TYPE:
+	result = gen_function_type (t);
+	break;
+
+      case METHOD_TYPE:
+	// This must be handled by gen_function_type, called from within
+	// gen_type_in_scope.
+	gcc_unreachable ();
+
+      case RECORD_TYPE:
+	result = gen_class_type_in_scope (t, scope);
+	break;
+
+      default:
+	break;
+      }
 
   if (result)
     m[t] = result;
@@ -900,34 +1007,24 @@ abi_instr_emit_type (const_tree t)
   return gen_type (t);
 }
 
-// Build a libabigail representation of the variables in the VARS
-// array and add them to the libabigail representation of the current
-// translation unit.  Return TRUE upon successful completion, false
-// otherwise.
-bool
-abi_instr_emit_vars (tree *vars, int len)
+// Build a libabigail representation of the variables or functions in
+// the VEC array and add them to the libabigail representation of the
+// current translation unit.
+void
+abi_instr_emit_vars_or_funs (tree *vec, int len)
 {
   for (int i = 0; i < len; ++i)
     {
-      tree var = vars[i];
-      if (var == NULL_TREE || TREE_CODE (var) != VAR_DECL)
+      tree decl = vec[i];
+      if (decl == NULL_TREE || (TREE_CODE (decl) != VAR_DECL
+				&& TREE_CODE (decl) != FUNCTION_DECL))
 	continue;
 
-      if (varpool_node *n = varpool_get_node (var))
-	{
-	  if (!n->analyzed)
-	    continue;
-	}
-      else
-	continue;
-
-      if (!gen_decl (var))
-	{
-	  ;//FIXME: log that the generation of this variable failed
-	   //somehow
-	}
+      if (TREE_CODE (decl) == VAR_DECL)
+	abi_instr_emit_variable (decl);
+      else if (TREE_CODE (decl) == FUNCTION_DECL)
+	abi_instr_emit_function (decl);
     }
-  return true;
 }
 
 // Build a libabigail representation of the function FN and add it to
@@ -943,7 +1040,22 @@ abi_instr_emit_function(const_tree fn)
 
   return result;
 }
-// Serialize the libabigail representation of the current translation
+
+// Build a libabigail representation of the variable VAR and add it to
+// the libabigail repesentation of the current translation unit.
+// Return TRUE upon successful completion, false otherwise.
+bool
+abi_instr_emit_variable(const_tree var)
+{
+  bool result = false;
+
+  if (should_instr_var (var))
+    result = gen_decl (var);
+
+  return result;
+}
+
+// Serialize the l4ibabigail representation of the current translation
 // unit into a file named after the name of the main input file.
 void
 abi_instr_dump_file ()

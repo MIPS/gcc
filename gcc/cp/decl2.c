@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
+#include "abi-instr.h"
 
 extern cpp_reader *parse_in;
 
@@ -4338,6 +4339,9 @@ cp_write_global_declarations (void)
 				 pending_statics->length ());
       emit_debug_global_declarations (pending_statics->address (),
 				      pending_statics->length ());
+      if (flag_dump_abi)
+	abi_instr_emit_vars_or_funs (pending_statics->address (),
+				     pending_statics->length ());
     }
 
   perform_deferred_noexcept_checks ();

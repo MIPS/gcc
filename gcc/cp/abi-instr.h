@@ -24,8 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 void abi_instr_init ();
 void abi_instr_finish ();
 bool abi_instr_emit_type (const_tree);
-bool abi_instr_emit_vars (tree *, int);
+void abi_instr_emit_vars_or_funs (tree *, int);
 bool abi_instr_emit_function(const_tree);
+bool abi_instr_emit_variable(const_tree);
 void abi_instr_dump_file ();
 
 #endif	/* ! GCC_ABI_INSTR_H */
