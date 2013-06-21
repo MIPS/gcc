@@ -1,5 +1,14 @@
 
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (hook_gimple_gate, hook_gimple_execute):
+	Add debug.
+
+	* melt/xtramelt-ana-base.melt: Update copyright year.
+
+	* melt/xtramelt-ana-simple.melt (meltframe_gate): Better.
+
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

@@ -244,27 +244,30 @@
   (with_cfun_decl
    ()
    (:tree cfundecl)
+   (debug "meltframe_gate cfundecl=" cfundecl)
    (match cfundecl
-	  ;; melt-runtime.c has has garbage collecting MELT functions starting with meltgc_
+	  ;; melt-runtime.c has some garbage collecting MELT functions starting with meltgc_
 	  ( ?(tree_function_decl_named ?(cstring_prefixed "meltgc_") ?_)
+	     (void)
 	     )
 	  ;; MELT generated routines start with meltrout_
 	  ( ?(tree_function_decl_named ?(cstring_prefixed "meltrout_") ?_)
+	     (void)
 	     )
 	  ( ?(tree_function_decl_named ?(cstring_same "melt_start_this_module") ?_)
+	     (void)
 	     )
 	  (?_
-	   (return)
+	   (return ())
 	   )
 	  )
    (let ( (meltdata (get_field :gccpass_data pass))
-	  (:long meltfuncount (get_int (get_field :meltfram_funcount meltdata)))
+	  (meltfuncountb (get_field :meltfram_funcount meltdata))
 	  )
-     (put_fields meltdata 
-		 :meltfram_funcount (make_integerbox discr_integer 
-						     (+i meltfuncount 1)))
+     (assert_msg "check meltfuncountb" (is_integerbox meltfuncountb))
+     (put_int meltfuncountb (+i 1 (get_int meltfuncountb)))
      )
-   (return pass)
+   (return :true)
    )
   )
 
@@ -475,7 +478,7 @@
 (defun meltframe_docmd (cmd moduldata)
   (let ( (meltframedata
 	  (instance class_melt_frame_data
-		    :meltfram_funcount (make_integerbox discr_integer 0)
+		    :meltfram_funcount (box 0)
 		    ))
 	(meltframepass
 	  (instance class_gcc_gimple_pass
@@ -486,10 +489,11 @@
 		    :gccpass_properties_required ()
 		    ))
 	 )
+    (debug "meltframe_docmd installing meltframepass=" meltframepass)
     (install_melt_pass_in_gcc meltframepass :after '"ssa" 0)
     (at_exit_first 
      (lambda (x)
-       (debug " at exit meltframedata=" meltframedata)
+       (debug "at exit meltframedata=" meltframedata)
        (let ( (:long nbmeltrout
 		     (get_int (get_field :meltfram_funcount meltframedata)))
 	      )
