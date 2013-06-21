@@ -789,9 +789,12 @@ gen_type_in_scope (const_tree t,
     return result;
 
   type_map& m = get_tree_2_type_map ();
-  type_map::const_iterator i = m.find (t);
-  if (i != m.end ())
-    return i->second;
+
+  {
+    type_map::const_iterator i = m.find (t);
+    if (i != m.end ())
+      return i->second;
+  }
 
   // Handle qualified types.
   if (int quals = TYPE_QUALS (t))
@@ -931,7 +934,18 @@ gen_type_in_scope (const_tree t,
 	gcc_unreachable ();
 
       case RECORD_TYPE:
-	result = gen_class_type_in_scope (t, scope);
+	{
+	  shared_ptr <abigail::class_decl> r =
+	    gen_class_type_in_scope (t, scope);
+	  if (r)
+	    {
+	      type_map::const_iterator i = m.find (t);
+	      if (i != m.end ())
+		// There was an earlier declaration for this class.
+		r->set_earlier_declaration (i->second);
+	      result = r;
+	    }
+	}
 	break;
 
       default:
