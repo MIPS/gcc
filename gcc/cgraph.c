@@ -568,6 +568,8 @@ cgraph_create_function_alias (tree alias, tree target)
   alias_node->symbol.alias_target = target;
   alias_node->symbol.definition = true;
   alias_node->symbol.alias = true;
+  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (alias)) != NULL)
+    alias_node->symbol.weakref = true;
   return alias_node;
 }
 
@@ -816,7 +818,8 @@ cgraph_create_edge_1 (struct cgraph_node *caller, struct cgraph_node *callee,
   pop_cfun ();
   if (call_stmt
       && callee && callee->symbol.decl
-      && !gimple_check_call_matching_types (call_stmt, callee->symbol.decl))
+      && !gimple_check_call_matching_types (call_stmt, callee->symbol.decl,
+					    false))
     edge->call_stmt_cannot_inline_p = true;
   else
     edge->call_stmt_cannot_inline_p = false;
@@ -1016,7 +1019,8 @@ cgraph_make_edge_direct (struct cgraph_edge *edge, struct cgraph_node *callee)
 
   if (edge->call_stmt)
     edge->call_stmt_cannot_inline_p
-      = !gimple_check_call_matching_types (edge->call_stmt, callee->symbol.decl);
+      = !gimple_check_call_matching_types (edge->call_stmt, callee->symbol.decl,
+					   false);
 
   /* We need to re-determine the inlining status of the edge.  */
   initialize_inline_failed (edge);
@@ -2288,6 +2292,8 @@ verify_edge_corresponds_to_fndecl (struct cgraph_edge *e, tree decl)
   struct cgraph_node *node;
 
   if (!decl || e->callee->global.inlined_to)
+    return false;
+  if (cgraph_state == CGRAPH_LTO_STREAMING)
     return false;
   node = cgraph_get_node (decl);
 

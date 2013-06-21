@@ -145,7 +145,9 @@ process_references (struct ipa_ref_list *list,
 		     constant folding.  Keep references alive so partitioning
 		     knows about potential references.  */
 		  || (TREE_CODE (node->symbol.decl) == VAR_DECL
-		      && flag_wpa && const_value_known_p (node->symbol.decl)))))
+		      && flag_wpa
+		      && ctor_for_folding (node->symbol.decl)
+		         != error_mark_node))))
 	pointer_set_insert (reachable, node);
       enqueue_node ((symtab_node) node, first, reachable);
     }
@@ -400,6 +402,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	}
       else if (!pointer_set_contains (reachable, vnode))
         {
+	  tree init;
 	  if (vnode->symbol.definition)
 	    {
 	      if (file)
@@ -411,8 +414,10 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  vnode->symbol.aux = NULL;
 
 	  /* Keep body if it may be useful for constant folding.  */
-	  if (!const_value_known_p (vnode->symbol.decl))
+	  if ((init = ctor_for_folding (vnode->symbol.decl)) == error_mark_node)
 	    varpool_remove_initializer (vnode);
+	  else
+	    DECL_INITIAL (vnode->symbol.decl) = init;
 	  ipa_remove_all_references (&vnode->symbol.ref_list);
 	}
       else
@@ -606,9 +611,8 @@ cgraph_externally_visible_p (struct cgraph_node *node,
 {
   if (!node->symbol.definition)
     return false;
-  if (!DECL_COMDAT (node->symbol.decl)
-      && (!TREE_PUBLIC (node->symbol.decl)
-	  || DECL_EXTERNAL (node->symbol.decl)))
+  if (!TREE_PUBLIC (node->symbol.decl)
+      || DECL_EXTERNAL (node->symbol.decl))
     return false;
 
   /* Do not try to localize built-in functions yet.  One of problems is that we
@@ -664,16 +668,10 @@ cgraph_externally_visible_p (struct cgraph_node *node,
 bool
 varpool_externally_visible_p (struct varpool_node *vnode)
 {
-  /* Do not touch weakrefs; while they are not externally visible,
-     dropping their DECL_EXTERNAL flags confuse most
-     of code handling them.  */
-  if (vnode->symbol.alias && DECL_EXTERNAL (vnode->symbol.decl))
-    return true;
-
   if (DECL_EXTERNAL (vnode->symbol.decl))
     return true;
 
-  if (!DECL_COMDAT (vnode->symbol.decl) && !TREE_PUBLIC (vnode->symbol.decl))
+  if (!TREE_PUBLIC (vnode->symbol.decl))
     return false;
 
   /* If linker counts on us, we must preserve the function.  */
@@ -784,9 +782,9 @@ function_and_variable_visibility (bool whole_program)
 	 happy.  Clear the flag here to avoid confusion in middle-end.  */
       if (DECL_COMDAT (node->symbol.decl) && !TREE_PUBLIC (node->symbol.decl))
         DECL_COMDAT (node->symbol.decl) = 0;
-      /* For external decls stop tracking same_comdat_group, it doesn't matter
-	 what comdat group they are in when they won't be emitted in this TU,
-	 and simplifies later passes.  */
+
+      /* For external decls stop tracking same_comdat_group. It doesn't matter
+	 what comdat group they are in when they won't be emitted in this TU.  */
       if (node->symbol.same_comdat_group && DECL_EXTERNAL (node->symbol.decl))
 	{
 #ifdef ENABLE_CHECKING
@@ -804,6 +802,7 @@ function_and_variable_visibility (bool whole_program)
       gcc_assert ((!DECL_WEAK (node->symbol.decl)
 		  && !DECL_COMDAT (node->symbol.decl))
       	          || TREE_PUBLIC (node->symbol.decl)
+		  || node->symbol.weakref
 		  || DECL_EXTERNAL (node->symbol.decl));
       if (cgraph_externally_visible_p (node, whole_program))
         {
@@ -815,7 +814,8 @@ function_and_variable_visibility (bool whole_program)
 	  node->symbol.externally_visible = false;
 	  node->symbol.forced_by_abi = false;
 	}
-      if (!node->symbol.externally_visible && node->symbol.definition
+      if (!node->symbol.externally_visible
+	  && node->symbol.definition && !node->symbol.weakref
 	  && !DECL_EXTERNAL (node->symbol.decl))
 	{
 	  gcc_assert (whole_program || in_lto_p
@@ -860,6 +860,7 @@ function_and_variable_visibility (bool whole_program)
     {
       /* weak flag makes no sense on local variables.  */
       gcc_assert (!DECL_WEAK (vnode->symbol.decl)
+		  || vnode->symbol.weakref
       		  || TREE_PUBLIC (vnode->symbol.decl)
 		  || DECL_EXTERNAL (vnode->symbol.decl));
       /* In several cases declarations can not be common:
@@ -897,7 +898,8 @@ function_and_variable_visibility (bool whole_program)
           vnode->symbol.externally_visible = false;
 	  vnode->symbol.forced_by_abi = false;
 	}
-      if (!vnode->symbol.externally_visible)
+      if (!vnode->symbol.externally_visible
+	  && !vnode->symbol.weakref)
 	{
 	  gcc_assert (in_lto_p || whole_program || !TREE_PUBLIC (vnode->symbol.decl));
 	  symtab_make_decl_local (vnode->symbol.decl);
