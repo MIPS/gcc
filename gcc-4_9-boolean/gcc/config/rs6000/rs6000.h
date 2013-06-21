@@ -202,14 +202,20 @@
 #if defined(__powerpc__) || defined(__POWERPC__) || defined(_AIX)
 /* In driver-rs6000.c.  */
 extern const char *host_detect_local_cpu (int argc, const char **argv);
-#define EXTRA_SPEC_FUNCTIONS \
+#define LOCAL_CPU_EXTRA_SPEC_FUNCTIONS \
   { "local_cpu_detect", host_detect_local_cpu },
 #define HAVE_LOCAL_CPU_DETECT
 #define ASM_CPU_NATIVE_SPEC "%:local_cpu_detect(asm)"
 
 #else
 #define ASM_CPU_NATIVE_SPEC "%(asm_default)"
+#define LOCAL_CPU_EXTRA_SPEC_FUNCTIONS
 #endif
+
+#define SUBTARGET_EXTRA_SPEC_FUNCTIONS
+#define EXTRA_SPEC_FUNCTIONS						\
+  SUBTARGET_EXTRA_SPEC_FUNCTIONS					\
+  LOCAL_CPU_EXTRA_SPEC_FUNCTIONS
 
 #ifndef CC1_CPU_SPEC
 #ifdef HAVE_LOCAL_CPU_DETECT
