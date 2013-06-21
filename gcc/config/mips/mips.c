@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "ggc.h"
 #include "gstab.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "debug.h"
 #include "target.h"
 #include "target-def.h"
@@ -1029,6 +1029,19 @@ static const struct mips_rtx_cost_data
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
+  { /* R5900 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (256),          /* fp_mult_df */
+    COSTS_N_INSNS (8),            /* fp_div_sf */
+    COSTS_N_INSNS (256),          /* fp_div_df */
+    COSTS_N_INSNS (4),            /* int_mult_si */
+    COSTS_N_INSNS (256),          /* int_mult_di */
+    COSTS_N_INSNS (37),           /* int_div_si */
+    COSTS_N_INSNS (256),          /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
   { /* R7000 */
     /* The only costs that are changed here are
        integer multiplication.  */
@@ -1425,6 +1438,16 @@ mips_merge_decl_attributes (tree olddecl, tree newdecl)
 
   return merge_attributes (DECL_ATTRIBUTES (olddecl),
 			   DECL_ATTRIBUTES (newdecl));
+}
+
+/* Implement TARGET_CAN_INLINE_P.  */
+
+static bool
+mips_can_inline_p (tree caller, tree callee)
+{
+  if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller))
+    return false;
+  return default_target_can_inline_p (caller, callee);
 }
 
 /* If X is a PLUS of a CONST_INT, return the two terms in *BASE_PTR
@@ -2007,7 +2030,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, enum machine_mode mode)
    values of mode MODE to or from addresses of type TYPE.  Return 0 if
    the given type of symbol is not valid in addresses.
 
-   In both cases, treat extended MIPS16 instructions as two instructions.  */
+   In both cases, instruction counts are based off BASE_INSN_LENGTH.  */
 
 static int
 mips_symbol_insns (enum mips_symbol_type type, enum machine_mode mode)
@@ -2334,12 +2357,11 @@ mips16_unextended_reference_p (enum machine_mode mode, rtx base,
 }
 
 /* Return the number of instructions needed to load or store a value
-   of mode MODE at address X.  Return 0 if X isn't valid for MODE.
+   of mode MODE at address X, assuming that BASE_INSN_LENGTH is the
+   length of one instruction.  Return 0 if X isn't valid for MODE.
    Assume that multiword moves may need to be split into word moves
    if MIGHT_SPLIT_P, otherwise assume that a single load or store is
-   enough.
-
-   For MIPS16 code, count extended instructions as two instructions.  */
+   enough.  */
 
 int
 mips_address_insns (rtx x, enum machine_mode mode, bool might_split_p)
@@ -2441,7 +2463,8 @@ umips_12bit_offset_address_p (rtx x, enum machine_mode mode)
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
-/* Return the number of instructions needed to load constant X.
+/* Return the number of instructions needed to load constant X,
+   assuming that BASE_INSN_LENGTH is the length of one instruction.
    Return 0 if X isn't a valid constant.  */
 
 int
@@ -2524,7 +2547,8 @@ mips_const_insns (rtx x)
 
 /* X is a doubleword constant that can be handled by splitting it into
    two words and loading each word separately.  Return the number of
-   instructions required to do this.  */
+   instructions required to do this, assuming that BASE_INSN_LENGTH
+   is the length of one instruction.  */
 
 int
 mips_split_const_insns (rtx x)
@@ -2538,8 +2562,8 @@ mips_split_const_insns (rtx x)
 }
 
 /* Return the number of instructions needed to implement INSN,
-   given that it loads from or stores to MEM.  Count extended
-   MIPS16 instructions as two instructions.  */
+   given that it loads from or stores to MEM.  Assume that
+   BASE_INSN_LENGTH is the length of one instruction.  */
 
 int
 mips_load_store_insns (rtx mem, rtx insn)
@@ -2563,7 +2587,8 @@ mips_load_store_insns (rtx mem, rtx insn)
   return mips_address_insns (XEXP (mem, 0), mode, might_split_p);
 }
 
-/* Return the number of instructions needed for an integer division.  */
+/* Return the number of instructions needed for an integer division,
+   assuming that BASE_INSN_LENGTH is the length of one instruction.  */
 
 int
 mips_idiv_insns (void)
@@ -12273,16 +12298,18 @@ mips_adjust_insn_length (rtx insn, int length)
 	 is a conditional branch.  */
       length = simplejump_p (insn) ? 0 : 8;
 
-      /* Load the label into $AT and jump to it.  Ignore the delay
-	 slot of the jump.  */
-      length += 4 * mips_load_label_num_insns() + 4;
+      /* Add the size of a load into $AT.  */
+      length += BASE_INSN_LENGTH * mips_load_label_num_insns ();
+
+      /* Add the length of an indirect jump, ignoring the delay slot.  */
+      length += TARGET_COMPRESSION ? 2 : 4;
     }
 
   /* A unconditional jump has an unfilled delay slot if it is not part
      of a sequence.  A conditional jump normally has a delay slot, but
      does not on MIPS16.  */
   if (CALL_P (insn) || (TARGET_MIPS16 ? simplejump_p (insn) : JUMP_P (insn)))
-    length += 4;
+    length += TARGET_MIPS16 ? 2 : 4;
 
   /* See how many nops might be needed to avoid hardware hazards.  */
   if (!cfun->machine->ignore_hazard_length_p && INSN_CODE (insn) >= 0)
@@ -12292,19 +12319,13 @@ mips_adjust_insn_length (rtx insn, int length)
 	break;
 
       case HAZARD_DELAY:
-	length += 4;
+	length += NOP_INSN_LENGTH;
 	break;
 
       case HAZARD_HILO:
-	length += 8;
+	length += NOP_INSN_LENGTH * 2;
 	break;
       }
-
-  /* In order to make it easier to share MIPS16 and non-MIPS16 patterns,
-     the .md file length attributes are 4-based for both modes.
-     Adjust the MIPS16 ones here.  */
-  if (TARGET_MIPS16)
-    length /= 2;
 
   return length;
 }
@@ -12442,7 +12463,10 @@ mips_start_ll_sc_sync_block (void)
   if (!ISA_HAS_LL_SC)
     {
       output_asm_insn (".set\tpush", 0);
-      output_asm_insn (".set\tmips2", 0);
+      if (TARGET_64BIT)
+	output_asm_insn (".set\tmips3", 0);
+      else
+	output_asm_insn (".set\tmips2", 0);
     }
 }
 
@@ -12997,6 +13021,7 @@ mips_issue_rate (void)
     case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
+    case PROCESSOR_R5900:
     case PROCESSOR_R7000:
     case PROCESSOR_R9000:
     case PROCESSOR_OCTEON:
@@ -15798,30 +15823,43 @@ mips_hash_base (rtx base)
   return hash_rtx (base, GET_MODE (base), &do_not_record_p, NULL, false);
 }
 
+/* Hashtable helpers.  */
+
+struct mips_lo_sum_offset_hasher : typed_free_remove <mips_lo_sum_offset>
+{
+  typedef mips_lo_sum_offset value_type;
+  typedef rtx_def compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
 /* Hash-table callbacks for mips_lo_sum_offsets.  */
 
-static hashval_t
-mips_lo_sum_offset_hash (const void *entry)
+inline hashval_t
+mips_lo_sum_offset_hasher::hash (const value_type *entry)
 {
-  return mips_hash_base (((const struct mips_lo_sum_offset *) entry)->base);
+  return mips_hash_base (entry->base);
 }
 
-static int
-mips_lo_sum_offset_eq (const void *entry, const void *value)
+inline bool
+mips_lo_sum_offset_hasher::equal (const value_type *entry,
+				  const compare_type *value)
 {
-  return rtx_equal_p (((const struct mips_lo_sum_offset *) entry)->base,
-		      (const_rtx) value);
+  return rtx_equal_p (entry->base, value);
 }
+
+typedef hash_table <mips_lo_sum_offset_hasher> mips_offset_table;
 
 /* Look up symbolic constant X in HTAB, which is a hash table of
    mips_lo_sum_offsets.  If OPTION is NO_INSERT, return true if X can be
    paired with a recorded LO_SUM, otherwise record X in the table.  */
 
 static bool
-mips_lo_sum_offset_lookup (htab_t htab, rtx x, enum insert_option option)
+mips_lo_sum_offset_lookup (mips_offset_table htab, rtx x,
+			   enum insert_option option)
 {
   rtx base, offset;
-  void **slot;
+  mips_lo_sum_offset **slot;
   struct mips_lo_sum_offset *entry;
 
   /* Split X into a base and offset.  */
@@ -15830,7 +15868,7 @@ mips_lo_sum_offset_lookup (htab_t htab, rtx x, enum insert_option option)
     base = UNSPEC_ADDRESS (base);
 
   /* Look up the base in the hash table.  */
-  slot = htab_find_slot_with_hash (htab, base, mips_hash_base (base), option);
+  slot = htab.find_slot_with_hash (base, mips_hash_base (base), option);
   if (slot == NULL)
     return false;
 
@@ -15860,7 +15898,8 @@ static int
 mips_record_lo_sum (rtx *loc, void *data)
 {
   if (GET_CODE (*loc) == LO_SUM)
-    mips_lo_sum_offset_lookup ((htab_t) data, XEXP (*loc, 1), INSERT);
+    mips_lo_sum_offset_lookup (*(mips_offset_table*) data,
+			       XEXP (*loc, 1), INSERT);
   return 0;
 }
 
@@ -15869,7 +15908,7 @@ mips_record_lo_sum (rtx *loc, void *data)
    LO_SUMs in the current function.  */
 
 static bool
-mips_orphaned_high_part_p (htab_t htab, rtx insn)
+mips_orphaned_high_part_p (mips_offset_table htab, rtx insn)
 {
   enum mips_symbol_type type;
   rtx x, set;
@@ -15977,7 +16016,7 @@ mips_reorg_process_insns (void)
 {
   rtx insn, last_insn, subinsn, next_insn, lo_reg, delayed_reg;
   int hilo_delay;
-  htab_t htab;
+  mips_offset_table htab;
 
   /* Force all instructions to be split into their final form.  */
   split_all_insns_noflow ();
@@ -16003,8 +16042,9 @@ mips_reorg_process_insns (void)
     cfun->machine->all_noreorder_p = false;
 
   /* Code compiled with -mfix-vr4120 or -mfix-24k can't be all noreorder
-     because we rely on the assembler to work around some errata.  */
-  if (TARGET_FIX_VR4120 || TARGET_FIX_24K)
+     because we rely on the assembler to work around some errata.
+     The r5900 too has several bugs.  */
+  if (TARGET_FIX_VR4120 || TARGET_FIX_24K || TARGET_MIPS5900)
     cfun->machine->all_noreorder_p = false;
 
   /* The same is true for -mfix-vr4130 if we might generate MFLO or
@@ -16014,14 +16054,13 @@ mips_reorg_process_insns (void)
   if (TARGET_FIX_VR4130 && !ISA_HAS_MACCHI)
     cfun->machine->all_noreorder_p = false;
 
-  htab = htab_create (37, mips_lo_sum_offset_hash,
-		      mips_lo_sum_offset_eq, free);
+  htab.create (37);
 
   /* Make a first pass over the instructions, recording all the LO_SUMs.  */
   for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
     FOR_EACH_SUBINSN (subinsn, insn)
       if (USEFUL_INSN_P (subinsn))
-	for_each_rtx (&PATTERN (subinsn), mips_record_lo_sum, htab);
+	for_each_rtx (&PATTERN (subinsn), mips_record_lo_sum, &htab);
 
   last_insn = 0;
   hilo_delay = 2;
@@ -16078,7 +16117,7 @@ mips_reorg_process_insns (void)
 	}
     }
 
-  htab_delete (htab);
+  htab.dispose ();
 }
 
 /* Return true if the function has a long branch instruction.  */
@@ -16201,7 +16240,7 @@ mips16_split_long_branches (void)
       something_changed = false;
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
 	if (JUMP_P (insn)
-	    && get_attr_length (insn) > 8
+	    && get_attr_length (insn) > 4
 	    && (any_condjump_p (insn) || any_uncondjump_p (insn)))
 	  {
 	    rtx old_label, new_label, temp, saved_temp;
@@ -18602,6 +18641,8 @@ mips_expand_vec_minmax (rtx target, rtx op0, rtx op1,
 #define TARGET_INSERT_ATTRIBUTES mips_insert_attributes
 #undef TARGET_MERGE_DECL_ATTRIBUTES
 #define TARGET_MERGE_DECL_ATTRIBUTES mips_merge_decl_attributes
+#undef TARGET_CAN_INLINE_P
+#define TARGET_CAN_INLINE_P mips_can_inline_p
 #undef TARGET_SET_CURRENT_FUNCTION
 #define TARGET_SET_CURRENT_FUNCTION mips_set_current_function
 

@@ -4279,8 +4279,16 @@ process_partial_specialization (tree decl)
   /* We should only get here once.  */
   gcc_assert (!COMPLETE_TYPE_P (type));
 
+  tree tmpl = build_template_decl (decl, current_template_parms,
+				   DECL_MEMBER_TEMPLATE_P (maintmpl));
+  TREE_TYPE (tmpl) = type;
+  DECL_TEMPLATE_RESULT (tmpl) = decl;
+  SET_DECL_TEMPLATE_SPECIALIZATION (tmpl);
+  DECL_TEMPLATE_INFO (tmpl) = build_template_info (maintmpl, specargs);
+  DECL_PRIMARY_TEMPLATE (tmpl) = maintmpl;
+
   DECL_TEMPLATE_SPECIALIZATIONS (maintmpl)
-    = tree_cons (specargs, inner_parms,
+    = tree_cons (specargs, tmpl,
                  DECL_TEMPLATE_SPECIALIZATIONS (maintmpl));
   TREE_TYPE (DECL_TEMPLATE_SPECIALIZATIONS (maintmpl)) = type;
 
@@ -5420,7 +5428,7 @@ unify_no_common_base (bool explain_p, enum template_base_result r,
       {
       case tbr_ambiguous_baseclass:
 	inform (input_location, "  %qT is an ambiguous base class of %qT",
-		arg, parm);
+		parm, arg);
 	break;
       default:
 	inform (input_location, "  %qT is not derived from %qT", arg, parm);
@@ -7681,7 +7689,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       if (CLASS_TYPE_P (template_type) && is_dependent_type)
 	/* If the type makes use of template parameters, the
 	   code that generates debugging information will crash.  */
-	DECL_IGNORED_P (TYPE_STUB_DECL (t)) = 1;
+	DECL_IGNORED_P (TYPE_MAIN_DECL (t)) = 1;
 
       /* Possibly limit visibility based on template args.  */
       TREE_PUBLIC (type_decl) = 1;
@@ -8991,9 +8999,8 @@ instantiate_class_template_1 (tree type)
 		  else if (TREE_CODE (r) == FIELD_DECL)
 		    {
 		      /* Determine whether R has a valid type and can be
-			 completed later.  If R is invalid, then it is
-			 replaced by error_mark_node so that it will not be
-			 added to TYPE_FIELDS.  */
+			 completed later.  If R is invalid, then its type is
+			 replaced by error_mark_node.  */
 		      tree rtype = TREE_TYPE (r);
 		      if (can_complete_type_without_circularity (rtype))
 			complete_type (rtype);
@@ -9001,7 +9008,7 @@ instantiate_class_template_1 (tree type)
 		      if (!COMPLETE_TYPE_P (rtype))
 			{
 			  cxx_incomplete_type_error (r, rtype);
-			  r = error_mark_node;
+			  TREE_TYPE (r) = error_mark_node;
 			}
 		    }
 
@@ -10194,7 +10201,10 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      RETURN (error_mark_node);
 
 	    TREE_TYPE (r) = new_type;
-	    CLASSTYPE_TI_TEMPLATE (new_type) = r;
+	    /* For a partial specialization, we need to keep pointing to
+	       the primary template.  */
+	    if (!DECL_TEMPLATE_SPECIALIZATION (t))
+	      CLASSTYPE_TI_TEMPLATE (new_type) = r;
 	    DECL_TEMPLATE_RESULT (r) = TYPE_MAIN_DECL (new_type);
 	    DECL_TI_ARGS (r) = CLASSTYPE_TI_ARGS (new_type);
 	    DECL_CONTEXT (r) = TYPE_CONTEXT (new_type);
@@ -10654,8 +10664,6 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* We don't have to set DECL_CONTEXT here; it is set by
 	   finish_member_declaration.  */
 	DECL_CHAIN (r) = NULL_TREE;
-	if (VOID_TYPE_P (type))
-	  error ("instantiation of %q+D as type %qT", r, type);
 
 	apply_late_template_attributes (&r, DECL_ATTRIBUTES (r), 0,
 					args, complain, in_decl);
@@ -11709,7 +11717,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	  r = cp_build_reference_type (type, TYPE_REF_IS_RVALUE (t));
 	r = cp_build_qualified_type_real (r, cp_type_quals (t), complain);
 
-	if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+	if (cxx_dialect >= cxx1y
+	    && !(TREE_CODE (t) == REFERENCE_TYPE && REFERENCE_VLA_OK (t))
+	    && array_of_runtime_bound_p (type))
 	  {
 	    if (complain & tf_warning_or_error)
 	      pedwarn
@@ -17123,7 +17133,7 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict,
 	   later.  */
 	return unify_success (explain_p);
       else
-	return unify_type_mismatch (explain_p, tparm, arg);
+	return unify_type_mismatch (explain_p, tparm, TREE_TYPE (arg));
 
       /* If ARG is a parameter pack or an expansion, we cannot unify
 	 against it unless PARM is also a parameter pack.  */
@@ -17560,6 +17570,13 @@ mark_decl_instantiated (tree result, int extern_p)
      make any modifications.  */
   if (TREE_ASM_WRITTEN (result))
     return;
+
+  /* For anonymous namespace we don't need to do anything.  */
+  if (decl_anon_ns_mem_p (result))
+    {
+      gcc_assert (!TREE_PUBLIC (result));
+      return;
+    }
 
   if (TREE_CODE (result) != FUNCTION_DECL)
     /* The TREE_PUBLIC flag for function declarations will have been
@@ -18241,7 +18258,8 @@ most_specialized_class (tree type, tree tmpl, tsubst_flags_t complain)
     {
       tree partial_spec_args;
       tree spec_args;
-      tree parms = TREE_VALUE (t);
+      tree spec_tmpl = TREE_VALUE (t);
+      tree orig_parms = DECL_INNERMOST_TEMPLATE_PARMS (spec_tmpl);
 
       partial_spec_args = CLASSTYPE_TI_ARGS (TREE_TYPE (t));
 
@@ -18249,24 +18267,14 @@ most_specialized_class (tree type, tree tmpl, tsubst_flags_t complain)
 
       if (outer_args)
 	{
-	  int i;
-
 	  /* Discard the outer levels of args, and then substitute in the
 	     template args from the enclosing class.  */
 	  partial_spec_args = INNERMOST_TEMPLATE_ARGS (partial_spec_args);
 	  partial_spec_args = tsubst_template_args
 	    (partial_spec_args, outer_args, tf_none, NULL_TREE);
 
-	  /* PARMS already refers to just the innermost parms, but the
-	     template parms in partial_spec_args had their levels lowered
-	     by tsubst, so we need to do the same for the parm list.  We
-	     can't just tsubst the TREE_VEC itself, as tsubst wants to
-	     treat a TREE_VEC as an argument vector.  */
-	  parms = copy_node (parms);
-	  for (i = TREE_VEC_LENGTH (parms) - 1; i >= 0; --i)
-	    TREE_VEC_ELT (parms, i) =
-	      tsubst (TREE_VEC_ELT (parms, i), outer_args, tf_none, NULL_TREE);
-
+	  /* And the same for the partial specialization TEMPLATE_DECL.  */
+	  spec_tmpl = tsubst (spec_tmpl, outer_args, tf_none, NULL_TREE);
 	}
 
       partial_spec_args =
@@ -18281,7 +18289,10 @@ most_specialized_class (tree type, tree tmpl, tsubst_flags_t complain)
 
       if (partial_spec_args == error_mark_node)
 	return error_mark_node;
+      if (spec_tmpl == error_mark_node)
+	return error_mark_node;
 
+      tree parms = DECL_INNERMOST_TEMPLATE_PARMS (spec_tmpl);
       spec_args = get_class_bindings (tmpl, parms,
 				      partial_spec_args,
 				      args);
@@ -18289,7 +18300,7 @@ most_specialized_class (tree type, tree tmpl, tsubst_flags_t complain)
 	{
 	  if (outer_args)
 	    spec_args = add_to_template_args (outer_args, spec_args);
-	  list = tree_cons (spec_args, TREE_VALUE (t), list);
+	  list = tree_cons (spec_args, orig_parms, list);
 	  TREE_TYPE (list) = TREE_TYPE (t);
 	}
     }
@@ -20240,6 +20251,29 @@ type_dependent_expression_p (tree expression)
       && VAR_HAD_UNKNOWN_BOUND (expression))
     return true;
 
+  /* An array of unknown bound depending on a variadic parameter, eg:
+
+     template<typename... Args>
+       void foo (Args... args)
+       {
+         int arr[] = { args... };
+       }
+
+     template<int... vals>
+       void bar ()
+       {
+         int arr[] = { vals... };
+       }
+
+     If the array has no length and has an initializer, it must be that
+     we couldn't determine its length in cp_complete_array_type because
+     it is dependent.  */
+  if (VAR_P (expression)
+      && TREE_CODE (TREE_TYPE (expression)) == ARRAY_TYPE
+      && !TYPE_DOMAIN (TREE_TYPE (expression))
+      && DECL_INITIAL (expression))
+   return true;
+
   if (TREE_TYPE (expression) == unknown_type_node)
     {
       if (TREE_CODE (expression) == ADDR_EXPR)
@@ -20535,8 +20569,7 @@ any_template_arguments_need_structural_equality_p (tree args)
 
 	      if (error_operand_p (arg))
 		return true;
-	      else if (TREE_CODE (arg) == TEMPLATE_DECL
-		       || TREE_CODE (arg) == TEMPLATE_TEMPLATE_PARM)
+	      else if (TREE_CODE (arg) == TEMPLATE_DECL)
 		continue;
 	      else if (TYPE_P (arg) && TYPE_STRUCTURAL_EQUALITY_P (arg))
 		return true;
