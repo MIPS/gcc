@@ -2899,7 +2899,7 @@ subst_to_string (tree p)
 {
   tree decl = TREE_PURPOSE (p);
   tree targs = TREE_VALUE (p);
-  tree tparms = DECL_TEMPLATE_PARMS (decl);
+  tree tparms = decl ? DECL_TEMPLATE_PARMS (decl) : TREE_TYPE (p);
   int flags = (TFF_DECL_SPECIFIERS|TFF_TEMPLATE_HEADER
 	       |TFF_NO_TEMPLATE_BINDINGS);
 
@@ -2907,8 +2907,11 @@ subst_to_string (tree p)
     return "";
 
   reinit_cxx_pp ();
-  dump_template_decl (TREE_PURPOSE (p), flags);
+  if (decl)
+    {
+      dump_template_decl (decl, flags);
   pp_cxx_whitespace (cxx_pp);
+    }
   pp_cxx_left_bracket (cxx_pp);
   pp_cxx_ws_string (cxx_pp, M_("with"));
   pp_cxx_whitespace (cxx_pp);
@@ -2925,6 +2928,7 @@ cv_to_string (tree p, int v)
   pp_cxx_cv_qualifier_seq (cxx_pp, p);
   return pp_formatted_text (cxx_pp);
 }
+
 
 /* Langhook for print_error_function.  */
 void

@@ -492,7 +492,7 @@ get_constraints (tree t)
   return false;
 }
 
-// Returns true if the requirements expression REQS is satisfied, 
+// Returns true if the requirements expression REQS is satisfied
 // and false otherwise. The requirements are checked by simply 
 // evaluating REQS as a constant expression.
 static inline bool
@@ -505,6 +505,18 @@ check_requirements (tree reqs)
   
   // Requirements are satisfied when REQS evaluates to true.
   return cxx_constant_value (reqs) == boolean_true_node;
+}
+
+// Returns true if the requirements expression REQS is satisfied 
+// and false otherwise. The requirements are checked by first
+// instantiating REQS and then evaluating it as a constant expression.
+static inline bool
+check_requirements (tree reqs, tree args)
+{
+  reqs = instantiate_requirements (reqs, args);
+  if (reqs == error_mark_node)
+    return false;
+  return check_requirements (reqs);
 }
 
 // Check the instantiated declaration constraints.
@@ -524,12 +536,7 @@ check_constraints (tree cinfo, tree args)
   // No constraints? Satisfied.
   if (!cinfo)
     return true;
-
-  // Instantiate the requirements before checking.
-  tree reqs = instantiate_requirements (CI_REQUIREMENTS (cinfo), args);
-  if (reqs == error_mark_node)
-    return false;
-  return check_requirements (reqs);
+  return check_requirements (CI_REQUIREMENTS (cinfo), args);
 }
 
 static inline bool
@@ -556,7 +563,7 @@ check_template_constraints (tree t, tree args)
   return check_constraints (get_constraints (t), args);
 }
 
-// Returns true when A and B are equivlent constraints.
+// Returns true when A and B are equivalent constraints.
 bool
 equivalent_constraints (tree a, tree b)
 {
@@ -593,12 +600,207 @@ more_constrained (tree a, tree b)
 // -------------------------------------------------------------------------- //
 // Constraint Diagnostics
 
+namespace {
+
+void diagnose_node (location_t, tree, tree);
+
+// Diagnose a constraint failure for type trait expressions.
+void
+diagnose_trait (location_t loc, tree t, tree args)
+{
+  if (check_requirements (t, args))
+    return;
+
+  ++processing_template_decl;
+  tree subst = instantiate_requirements (t, args);
+  --processing_template_decl;
+
+  if (subst == error_mark_node)
+    {
+      inform (input_location, "  substitution failure in %qE", t);
+      return;
+    }
+
+  tree t1 = TRAIT_EXPR_TYPE1 (subst);
+  tree t2 = TRAIT_EXPR_TYPE2 (subst);
+  switch (TRAIT_EXPR_KIND (t))
+    {
+      case CPTK_HAS_NOTHROW_ASSIGN:
+        inform (loc, "  %qT is not nothrow assignable", t1);
+        break;
+      case CPTK_HAS_NOTHROW_CONSTRUCTOR:
+        inform (loc, "  %qT is not nothrow constructible", t1);
+        break;
+      case CPTK_HAS_NOTHROW_COPY:
+        inform (loc, "  %qT is not nothrow copyable", t1);
+        break;
+      case CPTK_HAS_TRIVIAL_ASSIGN:
+        inform (loc, "  %qT is not trivially assignable", t1);
+        break;
+      case CPTK_HAS_TRIVIAL_CONSTRUCTOR:
+        inform (loc, "  %qT is not trivially constructible", t1);
+        break;
+      case CPTK_HAS_TRIVIAL_COPY:
+        inform (loc, "  %qT is not trivially copyable", t1);
+        break;
+      case CPTK_HAS_TRIVIAL_DESTRUCTOR:
+        inform (loc, "  %qT is not trivially destructible", t1);
+        break;
+      case CPTK_HAS_VIRTUAL_DESTRUCTOR:
+        inform (loc, "  %qT does not have a virtual destructor", t1);
+        break;
+      case CPTK_IS_ABSTRACT:
+        inform (loc, "  %qT is not an abstract class", t1);
+        break;
+      case CPTK_IS_BASE_OF:
+        inform (loc, "  %qT is not a base of %qT", t1, t2);
+        break;
+      case CPTK_IS_CLASS:
+        inform (loc, "  %qT is not a class", t1);
+        break;
+      case CPTK_IS_EMPTY:
+        inform (loc, "  %qT is not an empty class", t1);
+        break;
+      case CPTK_IS_ENUM:
+        inform (loc, "  %qT is not an enum", t1);
+        break;
+      case CPTK_IS_FINAL:
+        inform (loc, "  %qT is not a final class", t1);
+        break;
+      case CPTK_IS_LITERAL_TYPE:
+        inform (loc, "  %qT is not a literal type", t1);
+        break;
+      case CPTK_IS_POD:
+        inform (loc, "  %qT is not a POD type", t1);
+        break;
+      case CPTK_IS_POLYMORPHIC:
+        inform (loc, "  %qT is not a polymorphic type", t1);
+        break;
+      case CPTK_IS_STD_LAYOUT:
+        inform (loc, "  %qT is not an standard layout type", t1);
+        break;
+      case CPTK_IS_TRIVIAL:
+        inform (loc, "  %qT is not a trivial type", t1);
+        break;
+      case CPTK_IS_UNION:
+        inform (loc, "  %qT is not a union", t1);
+        break;
+      default:
+        gcc_unreachable ();
+    }
+}
+
+// Diagnose a failed concept check in concept indicated by T, where
+// T is the result of resolve_constraint_check. Recursively analyze
+// the nested requiremets for details.
+void
+diagnose_check (location_t loc, tree t, tree args)
+{
+  tree fn = TREE_VALUE (t);
+  tree targs = TREE_PURPOSE (t);
+  tree body = DECL_SAVED_TREE (fn);
+  if (!body)
+    return;
+  
+  inform (loc, "  failure in constraint %q#D", DECL_TI_TEMPLATE (fn));
+
+  // Perform a mini-reduction on the constraint.
+  if (TREE_CODE (body) == BIND_EXPR)
+    body = BIND_EXPR_BODY (body);
+  if (TREE_CODE (body) == RETURN_EXPR)
+    body = TREE_OPERAND (body, 0);
+
+  // Locally instantiate the body with the call's template args, 
+  // and recursively diagnose.
+  ++processing_template_decl;
+  body = instantiate_requirements (body, targs);
+  --processing_template_decl;
+  
+  diagnose_node (loc, body, args);
+}
+
+// Diagnose constraint failures from the call expression T.
+void
+diagnose_call (location_t loc, tree t, tree args)
+{
+  if (check_requirements (t, args))
+    return;
+
+  // If this is a concept, we're going to recurse.
+  // If it's just a call, then we can emit a simple message.
+  if (tree check = resolve_constraint_check (t))
+    diagnose_check (loc, check, args);
+  else
+    inform (loc, "  %qE evaluated to false", t);
+}
+
+// Diagnose a constraint failure in the expression T.
+void
+diagnose_other (location_t loc, tree t, tree args)
+{
+  if (check_requirements (t, args))
+    return;
+  inform (loc, "  %qE evaluated to false", t);
+}
+
+// Diagnose a constraint failure in the subtree T.
+void
+diagnose_node (location_t loc, tree t, tree args)
+{
+  switch (TREE_CODE (t))
+    {
+    case TRUTH_ANDIF_EXPR:
+      diagnose_node (loc, TREE_OPERAND (t, 0), args);
+      diagnose_node (loc, TREE_OPERAND (t, 1), args);
+      break;
+
+    case TRUTH_ORIF_EXPR:
+      sorry ("cannot diagnose disjunctions just yet");
+      break;
+
+    case TRAIT_EXPR:
+      diagnose_trait (loc, t, args);
+      break;
+    case CALL_EXPR:
+      diagnose_call (loc, t, args);
+      break;
+    default:
+      diagnose_other (loc, t, args);
+      break;
+    }
+}
+
+// Diagnose a constraint failure in the requirements expression REQS.
+inline void 
+diagnose_requirements (location_t loc, tree reqs, tree args)
+{
+  diagnose_node (loc, reqs, args);
+}
+
+// Create a tree node representing the substitution of ARGS into
+// the parameters of TMPL. The resulting structure is passed as an
+// for diagnosing substitutions.
+inline tree
+make_subst (tree tmpl, tree args)
+{
+  tree subst = tree_cons (NULL_TREE, args, NULL_TREE);
+  TREE_TYPE (subst) = DECL_TEMPLATE_PARMS (tmpl);
+  return subst;
+}
+
+} // namesapce
+
 // Emit diagnostics detailing the failure ARGS to satisfy the constraints
 // of the template declaration, TMPL.
-//
-// TODO: Implement actual diagnostics.
 void
 diagnose_constraint_failure (location_t loc, tree tmpl, tree args)
 {
-  inform (loc, "  constraints not satisfied:");
+  inform (loc, "  constraints not satisfied %S", make_subst (tmpl, args));
+
+  // Diagnose the constraints by recursively decomposing and
+  // evaluating the template requirements.
+  tree reqs = CI_SPELLING (get_constraints (tmpl));
+  diagnose_requirements (loc, reqs, args);
 }
+
+
