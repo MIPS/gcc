@@ -634,7 +634,8 @@ verify_bb_vtables (basic_block bb)
               gcc_assert (vtbl_var_decl);
 
               vtbl_decl = vtbl_var_decl;
-              vtable_map_node = vtbl_map_get_node (class_type);
+              vtable_map_node = vtbl_map_get_node
+                                               (TYPE_MAIN_VARIANT (class_type));
 
               gcc_assert (verify_vtbl_ptr_fndecl);
 

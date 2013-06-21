@@ -58,6 +58,7 @@ std_headers = \
 	${std_srcdir}/regex \
 	${std_srcdir}/scoped_allocator \
 	${std_srcdir}/set \
+	${std_srcdir}/shared_mutex \
 	${std_srcdir}/sstream \
 	${std_srcdir}/stack \
 	${std_srcdir}/stdexcept \
@@ -87,6 +88,7 @@ bits_headers = \
 	${bits_srcdir}/basic_string.tcc \
 	${bits_srcdir}/boost_concept_check.h \
 	${bits_srcdir}/c++0x_warning.h \
+	${bits_srcdir}/c++14_warning.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
@@ -117,6 +119,7 @@ bits_headers = \
 	${bits_srcdir}/move.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
+	${bits_srcdir}/parse_numbers.h \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/ptr_traits.h \
 	${bits_srcdir}/random.h \

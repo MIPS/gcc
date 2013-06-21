@@ -1,0 +1,37 @@
+2013-06-16  Caroline Tice  <cmtice@google.com>
+
+	* class.c (finish_struct_1):  Add call to vtv_save_class_info if vtable
+	verification is turned on.
+	* config-lang.in: Add vtable-class-hierarchy.c to the list of files
+	that use GCC's garbage collector.
+	* g++spec.c (VTABLE_LOAD_MODULE_UNIT): New macro for link option needed
+	with vtable verification.
+	(lang_specific_driver): Added variable to indicate if vtable
+	verification option is used, and which flavor. Process -fvtable-verify
+	option, update num_args if option is present, and add appropriate
+	driver options if fvtable-verify is present.
+	* vtable-class-hierarchy.c:  New file, containing the bulk of vtable
+	verification's front-end work.
+	* mangle.c (get_mangled_vtable_map_var_name): New function.
+	* decl2.c (start_objects):  Update function comment.
+	(cp_write_global_declarations):  If vtable verification is turned on,
+	call vtv_recover_class_info and
+	vtv_compute_class_hierarchy_transitive_closure before calling
+	finalize_compilation_unit.  Call vtv_generate_init_routine after.
+	(vtv_start_verification_constructor_init_function): New externally
+	visible wrapper function to call start_objects for vtable verification.
+	(vtv_finish_verification_constructor_init_function):  New function.
+	* init.c (build_vtbl_address):  Make function not static (externally
+	visible).
+	* Make-lang.in: (CXX_AND_OBJCXX_OBJS):  Add vtable-class-hierarchy.o to
+	list of object files.
+	(vtable-class-hierarchy.o):  Add rule for building object file.
+	* pt.c (mark_class_instantiated):  Add call to vtv_save_class_info if
+	vtable verification is turned on.
+	* cp-tree.h: Add extern function declarations for
+	vtv_start_verification_constructor_init_function,
+	vtv_finish_verification_constructor_init_function, build_vtbl_address,
+	vtv_compute_class_hierarchy_transitive_closure,
+	vtv_generate_init_routine, vtv_save_class_info,
+	vtv_recover_class_info and get_mangled_vtable_map_var_name.
+

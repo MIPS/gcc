@@ -722,6 +722,12 @@ proper position among the other output files.  */
     %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}}}"
 #endif
 
+#ifndef VTABLE_VERIFICATION_SPEC
+#define VTABLE_VERIFICATION_SPEC "\
+%{!nostdlib:%{fvtable-verify=std: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}\
+    %{fvtable-verify=preinit: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}}"
+#endif
+
 /* -u* was put back because both BSD and SysV seem to support it.  */
 /* %{static:} simply prevents an error message if the target machine
    doesn't handle -static.  */
@@ -740,11 +746,11 @@ proper position among the other output files.  */
     %{flto} %{flto=*} %l " LINK_PIE_SPEC \
    "%{fuse-ld=*:-fuse-ld=%*}\
     %X %{o*} %{e*} %{N} %{n} %{r}\
-    %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}}\
+    %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}} " VTABLE_VERIFICATION_SPEC " \
     %{static:} %{L*} %(mfwrap) %(link_libgcc) " SANITIZER_EARLY_SPEC " %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
-    %(mflib) " STACK_SPLIT_SPEC "\
+    %(mflib) " STACK_SPLIT_SPEC " \
     %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} " SANITIZER_SPEC " \
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!nostdlib:%{!nostartfiles:%E}} %{T*} }}}}}}"

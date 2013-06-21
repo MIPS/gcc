@@ -377,6 +377,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   struct cgraph_node *clone_of;
   struct ipa_opt_pass_d *pass;
   int i;
+  bool alias_p;
 
   boundary_p = !lto_symtab_encoder_in_partition_p (encoder, (symtab_node)node);
 
@@ -468,6 +469,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->local.can_change_signature, 1);
   bp_pack_value (&bp, node->local.redefined_extern_inline, 1);
   bp_pack_value (&bp, node->symbol.force_output, 1);
+  bp_pack_value (&bp, node->symbol.forced_by_abi, 1);
   bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->symbol.address_taken, 1);
   bp_pack_value (&bp, node->abstract_and_needed, 1);
@@ -485,7 +487,9 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
      defined in other unit, we may use the info on aliases to resolve 
      symbol1 != symbol2 type tests that we can do only for locally defined objects
      otherwise.  */
-  bp_pack_value (&bp, node->symbol.alias && (!boundary_p || DECL_EXTERNAL (node->symbol.decl)), 1);
+  alias_p = node->symbol.alias && (!boundary_p || node->symbol.weakref);
+  bp_pack_value (&bp, alias_p, 1);
+  bp_pack_value (&bp, node->symbol.weakref, 1);
   bp_pack_value (&bp, node->frequency, 2);
   bp_pack_value (&bp, node->only_called_at_startup, 1);
   bp_pack_value (&bp, node->only_called_at_exit, 1);
@@ -504,15 +508,6 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.fixed_offset);
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.virtual_value);
     }
-  if ((node->symbol.alias || node->thunk.thunk_p)
-      && (!boundary_p || (node->symbol.alias && DECL_EXTERNAL (node->symbol.decl))))
-    {
-      streamer_write_hwi_in_range (ob->main_stream, 0, 1,
-					node->thunk.alias != NULL);
-      if (node->thunk.alias != NULL)
-        lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
-			          node->thunk.alias);
-    }
 }
 
 /* Output the varpool NODE to OB. 
@@ -522,10 +517,10 @@ static void
 lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node *node,
 			 lto_symtab_encoder_t encoder)
 {
-  bool boundary_p = (node->symbol.definition
-		     && !lto_symtab_encoder_in_partition_p (encoder, (symtab_node)node));
+  bool boundary_p = !lto_symtab_encoder_in_partition_p (encoder, (symtab_node)node);
   struct bitpack_d bp;
   int ref;
+  bool alias_p;
 
   streamer_write_enum (ob->main_stream, LTO_symtab_tags, LTO_symtab_last_tag,
 		       LTO_symtab_variable);
@@ -534,10 +529,13 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, node->symbol.externally_visible, 1);
   bp_pack_value (&bp, node->symbol.force_output, 1);
+  bp_pack_value (&bp, node->symbol.forced_by_abi, 1);
   bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->symbol.definition, 1);
-  bp_pack_value (&bp, node->symbol.alias, 1);
-  bp_pack_value (&bp, node->alias_of != NULL, 1);
+  alias_p = node->symbol.alias && (!boundary_p || node->symbol.weakref);
+  bp_pack_value (&bp, alias_p, 1);
+  bp_pack_value (&bp, node->symbol.weakref, 1);
+  bp_pack_value (&bp, node->symbol.analyzed && !boundary_p, 1);
   gcc_assert (node->symbol.definition || !node->symbol.analyzed);
   /* Constant pool initializers can be de-unified into individual ltrans units.
      FIXME: Alternatively at -Os we may want to avoid generating for them the local
@@ -554,12 +552,11 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
       bp_pack_value (&bp, node->symbol.definition
 		     && referenced_from_other_partition_p (&node->symbol.ref_list,
 							   encoder), 1);
-      bp_pack_value (&bp, boundary_p && !DECL_EXTERNAL (node->symbol.decl), 1);
+      bp_pack_value (&bp, node->symbol.analyzed
+		     && boundary_p && !DECL_EXTERNAL (node->symbol.decl), 1);
 	  /* in_other_partition.  */
     }
   streamer_write_bitpack (&bp);
-  if (node->alias_of)
-    lto_output_var_decl_index (ob->decl_state, ob->main_stream, node->alias_of);
   if (node->symbol.same_comdat_group && !boundary_p)
     {
       ref = lto_symtab_encoder_lookup (encoder,
@@ -679,7 +676,7 @@ output_refs (lto_symtab_encoder_t encoder)
       count = ipa_ref_list_nreferences (&node->symbol.ref_list);
       if (count)
 	{
-	  streamer_write_uhwi_stream (ob->main_stream, count);
+	  streamer_write_gcov_count_stream (ob->main_stream, count);
 	  streamer_write_uhwi_stream (ob->main_stream,
 				     lto_symtab_encoder_lookup (encoder, node));
 	  for (i = 0; ipa_ref_list_reference_iterate (&node->symbol.ref_list,
@@ -756,7 +753,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
        !lsei_end_p (lsei); lsei_next_variable_in_partition (&lsei))
     {
       struct varpool_node *vnode = lsei_varpool_node (lsei);
-      gcc_assert (!vnode->symbol.alias || vnode->alias_of);
+
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
       add_references (encoder, &vnode->symbol.ref_list);
@@ -888,6 +885,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->local.can_change_signature = bp_unpack_value (bp, 1);
   node->local.redefined_extern_inline = bp_unpack_value (bp, 1);
   node->symbol.force_output = bp_unpack_value (bp, 1);
+  node->symbol.forced_by_abi = bp_unpack_value (bp, 1);
   node->symbol.unique_name = bp_unpack_value (bp, 1);
   node->symbol.address_taken = bp_unpack_value (bp, 1);
   node->abstract_and_needed = bp_unpack_value (bp, 1);
@@ -910,6 +908,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
       TREE_STATIC (node->symbol.decl) = 0;
     }
   node->symbol.alias = bp_unpack_value (bp, 1);
+  node->symbol.weakref = bp_unpack_value (bp, 1);
   node->frequency = (enum node_frequency)bp_unpack_value (bp, 2);
   node->only_called_at_startup = bp_unpack_value (bp, 1);
   node->only_called_at_exit = bp_unpack_value (bp, 1);
@@ -917,6 +916,16 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
   node->symbol.resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);
+}
+
+/* Return string alias is alias of.  */
+
+static tree
+get_alias_symbol (tree decl)
+{
+  tree alias = lookup_attribute ("alias", DECL_ATTRIBUTES (decl));
+  return get_identifier (TREE_STRING_POINTER
+			  (TREE_VALUE (TREE_VALUE (alias))));
 }
 
 /* Read a node from input_block IB.  TAG is the node's tag just read.
@@ -950,7 +959,14 @@ input_node (struct lto_file_decl_data *file_data,
 				vNULL, false);
     }
   else
-    node = cgraph_get_create_node (fn_decl);
+    {
+      /* Declaration of functions can be already merged with a declaration
+	 from other input file.  We keep cgraph unmerged until after streaming
+	 of ipa passes is done.  Alays forcingly create a fresh node.  */
+      node = cgraph_create_empty_node ();
+      node->symbol.decl = fn_decl;
+      symtab_register_node ((symtab_node)node);
+    }
 
   node->symbol.order = order;
   if (order >= symtab_order)
@@ -1004,15 +1020,8 @@ input_node (struct lto_file_decl_data *file_data,
       node->thunk.virtual_value = virtual_value;
       node->thunk.virtual_offset_p = (type & 4);
     }
-  if (node->thunk.thunk_p || node->symbol.alias)
-    {
-      if (streamer_read_hwi_in_range (ib, "alias nonzero flag", 0, 1))
-	{
-          decl_index = streamer_read_uhwi (ib);
-          node->thunk.alias = lto_file_decl_data_get_fn_decl (file_data,
-							      decl_index);
-	}
-    }
+  if (node->symbol.alias && !node->symbol.analyzed && node->symbol.weakref)
+    node->symbol.alias_target = get_alias_symbol (node->symbol.decl);
   return node;
 }
 
@@ -1028,13 +1037,19 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   struct varpool_node *node;
   struct bitpack_d bp;
   int ref = LCC_NOT_FOUND;
-  bool non_null_aliasof;
   int order;
 
   order = streamer_read_hwi (ib) + order_base;
   decl_index = streamer_read_uhwi (ib);
   var_decl = lto_file_decl_data_get_var_decl (file_data, decl_index);
-  node = varpool_node_for_decl (var_decl);
+
+  /* Declaration of functions can be already merged with a declaration
+     from other input file.  We keep cgraph unmerged until after streaming
+     of ipa passes is done.  Alays forcingly create a fresh node.  */
+  node = varpool_create_empty_node ();
+  node->symbol.decl = var_decl;
+  symtab_register_node ((symtab_node)node);
+
   node->symbol.order = order;
   if (order >= symtab_order)
     symtab_order = order + 1;
@@ -1043,23 +1058,21 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   bp = streamer_read_bitpack (ib);
   node->symbol.externally_visible = bp_unpack_value (&bp, 1);
   node->symbol.force_output = bp_unpack_value (&bp, 1);
+  node->symbol.forced_by_abi = bp_unpack_value (&bp, 1);
   node->symbol.unique_name = bp_unpack_value (&bp, 1);
   node->symbol.definition = bp_unpack_value (&bp, 1);
   node->symbol.alias = bp_unpack_value (&bp, 1);
-  non_null_aliasof = bp_unpack_value (&bp, 1);
+  node->symbol.weakref = bp_unpack_value (&bp, 1);
+  node->symbol.analyzed = bp_unpack_value (&bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (&bp, 1);
   node->symbol.in_other_partition = bp_unpack_value (&bp, 1);
-  node->symbol.analyzed = (node->symbol.definition && (!node->symbol.alias || !node->symbol.in_other_partition)); 
   if (node->symbol.in_other_partition)
     {
       DECL_EXTERNAL (node->symbol.decl) = 1;
       TREE_STATIC (node->symbol.decl) = 0;
     }
-  if (non_null_aliasof)
-    {
-      decl_index = streamer_read_uhwi (ib);
-      node->alias_of = lto_file_decl_data_get_var_decl (file_data, decl_index);
-    }
+  if (node->symbol.alias && !node->symbol.analyzed && node->symbol.weakref)
+    node->symbol.alias_target = get_alias_symbol (node->symbol.decl);
   ref = streamer_read_hwi (ib);
   /* Store a reference for now, and fix up later to be a pointer.  */
   node->symbol.same_comdat_group = (symtab_node) (intptr_t) ref;

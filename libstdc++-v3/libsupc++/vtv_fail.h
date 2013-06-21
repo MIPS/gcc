@@ -50,4 +50,9 @@ extern void
 __vtv_verify_fail (void **data_set_ptr, const void *vtbl_pointer)
                                  __attribute__((visibility ("default")));
 
+extern void
+__vtv_verify_fail_debug (void **data_set_ptr, const void *vtbl_pointer,
+			 const char *debug_msg)
+                                 __attribute__((visibility ("default")));
+
 #endif /* _VTV_FAIL_H */

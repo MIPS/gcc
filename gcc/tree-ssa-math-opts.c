@@ -1447,9 +1447,7 @@ execute_cse_sincos (void)
 		  arg1 = gimple_call_arg (stmt, 1);
 		  loc = gimple_location (stmt);
 
-		  if (real_minus_onep (arg0)
-		      && TREE_CODE (TREE_TYPE (arg1)) == INTEGER_TYPE
-		      && !host_integerp (arg1,0))
+		  if (real_minus_onep (arg0))
 		    {
                       tree t0, t1, cond, one, minus_one;
 		      gimple stmt;

@@ -67,22 +67,8 @@ libstdc___la_DEPENDENCIES = \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-#if ENABLE_VTABLE_VERIFY
-#libstdc___la_LDFLAGS = \
-#	-version-info $(libtool_VERSION) ${version_arg} -lm -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
-#
-#libvtv___la_LIBADD = \
-#	$(top_builddir)/libsupc++/.libs
-#LIBVTV_FLAGS = \
-#	-L$(libvtv___la_LIBADD) --whole-archive -lvtv_init --no-whole-archive
-#VTV_CXXFLAGS = -fvtable-verify=std
-#else
 libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm
-#libvtv___la_LIBADD = 
-#LIBVTV_FLAGS =
-#VTV_CXXFLAGS =
-#endif
 
 libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 
@@ -194,14 +180,6 @@ CXXLINK = \
 	--mode=link $(CXX) \
 	$(VTV_CXXLINKFLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
-
-#CXXLINK = \
-#	$(LIBTOOL) --tag CXX \
-#	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-#	--mode=link $(CXX) \
-#	$(LIBVTV_FLAGS) \
-#	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
-
 
 # Symbol versioning for shared libraries.
 if ENABLE_SYMVERS

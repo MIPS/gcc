@@ -26,7 +26,7 @@ include $(top_srcdir)/fragment.am
 # separately too.
 # 1) separate libsupc++.la
 if ENABLE_VTABLE_VERIFY
-toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
+toolexeclib_LTLIBRARIES = libsupc++.la libvtv.la libvtv_stubs.la
 else
 toolexeclib_LTLIBRARIES = libsupc++.la
 endif
@@ -101,18 +101,19 @@ sources = \
 	vterminate.cc
 
 if ENABLE_VTABLE_VERIFY
+
     sources += \
+	vtv_fail.cc
+
+    vtv_sources = \
         vtv_rts.cc \
         vtv_malloc.cc \
         vtv_utils.cc
 
-    vtv_init_sources = \
-        vtv_init.cc
-
     vtv_stubs_sources = \
         vtv_stubs.cc
 
-    libvtv_init_la_SOURCES = $(vtv_init_sources)
+    libvtv_la_SOURCES = $(vtv_sources)
     libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 endif
 

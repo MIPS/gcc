@@ -4925,7 +4925,7 @@ gfc_trans_allocate (gfc_code * code)
 
       nelems = NULL_TREE;
       if (!gfc_array_allocate (&se, expr, stat, errmsg, errlen, label_finish,
-			       memsz, &nelems, code->expr3))
+			       memsz, &nelems, code->expr3, &code->ext.alloc.ts))
 	{
 	  bool unlimited_char;
 
@@ -5398,7 +5398,8 @@ gfc_trans_deallocate (gfc_code *code)
 
       if (expr->rank || gfc_is_coarray (expr))
 	{
-	  if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->attr.alloc_comp)
+	  if (expr->ts.type == BT_DERIVED && expr->ts.u.derived->attr.alloc_comp
+	      && !gfc_is_finalizable (expr->ts.u.derived, NULL))
 	    {
 	      gfc_ref *ref;
 	      gfc_ref *last = NULL;

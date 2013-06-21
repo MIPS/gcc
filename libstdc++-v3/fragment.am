@@ -26,7 +26,7 @@ XTEMPLATE_FLAGS =
 endif
 
 if ENABLE_VTABLE_VERIFY
-VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs -Wl,-lvtv
 VTV_CXXFLAGS =  -fvtable-verify=std \
 		-Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
 else

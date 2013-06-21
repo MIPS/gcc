@@ -47,6 +47,12 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "vtv-change-permission.h"
 
+__attribute__ ((constructor(98))) void
+__VLTunprotect (void)
+{
+  __VLTChangePermission (__VLTP_READ_WRITE);
+}
+
 /* Page-aligned symbol to mark beginning of .vtable_map_vars section.  */
 char _vtable_map_vars_start []
 __attribute__ ((__visibility__ ("protected"), used, aligned(VTV_PAGE_SIZE),

@@ -36,18 +36,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "flags.h"
 
+/* Allocate new callgraph node and insert it into basic data structures.  */
+
+struct varpool_node *
+varpool_create_empty_node (void)
+{   
+  struct varpool_node *node = ggc_alloc_cleared_varpool_node ();
+  node->symbol.type = SYMTAB_VARIABLE;
+  return node;
+}   
+
 /* Return varpool node assigned to DECL.  Create new one when needed.  */
 struct varpool_node *
 varpool_node_for_decl (tree decl)
 {
   struct varpool_node *node = varpool_get_node (decl);
-  gcc_assert (TREE_CODE (decl) == VAR_DECL
-	      && (TREE_STATIC (decl) || DECL_EXTERNAL (decl) || in_lto_p));
+  gcc_checking_assert (TREE_CODE (decl) == VAR_DECL);
   if (node)
     return node;
 
-  node = ggc_alloc_cleared_varpool_node ();
-  node->symbol.type = SYMTAB_VARIABLE;
+  node = varpool_create_empty_node ();
   node->symbol.decl = decl;
   symtab_register_node ((symtab_node)node);
   return node;
@@ -128,28 +136,6 @@ varpool_node_for_asm (tree asmname)
     return dyn_cast <varpool_node> (node);
   else
     return NULL;
-}
-
-/* Determine if variable DECL is needed.  That is, visible to something
-   either outside this translation unit, something magic in the system
-   configury */
-bool
-decide_is_variable_needed (struct varpool_node *node, tree decl)
-{
-  if (DECL_EXTERNAL (decl))
-    return false;
-
-  /* If the user told us it is used, then it must be so.  */
-  if (node->symbol.force_output)
-    return true;
-
-  /* Externally visible variables must be output.  The exception is
-     COMDAT variables that must be output only when they are needed.  */
-  if (TREE_PUBLIC (decl)
-      && !DECL_COMDAT (decl))
-    return true;
-
-  return false;
 }
 
 /* Return if DECL is constant and its initial value is known (so we can do
@@ -240,30 +226,9 @@ varpool_analyze_node (struct varpool_node *node)
 	 already informed about increased alignment.  */
       align_variable (decl, 0);
     }
-  if (node->symbol.alias && node->alias_of)
-    {
-      struct varpool_node *tgt = varpool_node_for_decl (node->alias_of);
-      struct varpool_node *n;
-
-      for (n = tgt; n && n->symbol.alias;
-	   n = n->symbol.analyzed ? varpool_alias_target (n) : NULL)
-	if (n == node)
-	  {
-	    error ("variable %q+D part of alias cycle", node->symbol.decl);
-	    node->symbol.alias = false;
-	    continue;
-	  }
-      if (!vec_safe_length (node->symbol.ref_list.references))
-	ipa_record_reference ((symtab_node)node, (symtab_node)tgt, IPA_REF_ALIAS, NULL);
-      if (node->extra_name_alias)
-	{
-	  DECL_WEAK (node->symbol.decl) = DECL_WEAK (node->alias_of);
-	  DECL_EXTERNAL (node->symbol.decl) = DECL_EXTERNAL (node->alias_of);
-	  DECL_VISIBILITY (node->symbol.decl) = DECL_VISIBILITY (node->alias_of);
-	  fixup_same_cpp_alias_visibility ((symtab_node) node,
-					   (symtab_node) tgt, node->alias_of);
-	}
-    }
+  if (node->symbol.alias)
+    symtab_resolve_alias
+       ((symtab_node) node, (symtab_node) varpool_get_node (node->symbol.alias_target));
   else if (DECL_INITIAL (decl))
     record_references_in_initializer (decl, node->symbol.analyzed);
   node->symbol.analyzed = true;
@@ -281,7 +246,7 @@ assemble_aliases (struct varpool_node *node)
       {
 	struct varpool_node *alias = ipa_ref_referring_varpool_node (ref);
 	do_assemble_alias (alias->symbol.decl,
-			DECL_ASSEMBLER_NAME (alias->alias_of));
+			   DECL_ASSEMBLER_NAME (node->symbol.decl));
 	assemble_aliases (alias);
       }
 }
@@ -494,18 +459,9 @@ varpool_create_variable_alias (tree alias, tree decl)
   alias_node = varpool_node_for_decl (alias);
   alias_node->symbol.alias = true;
   alias_node->symbol.definition = true;
-  alias_node->alias_of = decl;
-
-  /* Extra name alias mechanizm creates aliases really late
-     via DECL_ASSEMBLER_NAME mechanizm.
-     This is unfortunate because they are not going through the
-     standard channels.  Ensure they get output.  */
-  if (cgraph_state >= CGRAPH_STATE_IPA)
-    {
-      varpool_analyze_node (alias_node);
-      if (TREE_PUBLIC (alias))
-	alias_node->symbol.externally_visible = true;
-    }
+  alias_node->symbol.alias_target = decl;
+  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (alias)) != NULL)
+    alias_node->symbol.weakref = true;
   return alias_node;
 }
 
@@ -522,7 +478,15 @@ varpool_extra_name_alias (tree alias, tree decl)
   return NULL;
 #endif
   alias_node = varpool_create_variable_alias (alias, decl);
-  alias_node->extra_name_alias = true;
+  alias_node->symbol.cpp_implicit_alias = true;
+
+  /* Extra name alias mechanizm creates aliases really late
+     via DECL_ASSEMBLER_NAME mechanizm.
+     This is unfortunate because they are not going through the
+     standard channels.  Ensure they get output.  */
+  if (cpp_implicit_aliases_done)
+    symtab_resolve_alias ((symtab_node)alias_node,
+			  (symtab_node)varpool_node_for_decl (decl));
   return alias_node;
 }
 

@@ -333,6 +333,7 @@ enum ix86_tune_indices {
   X86_TUNE_REASSOC_FP_TO_PARALLEL,
   X86_TUNE_GENERAL_REGS_SSE_SPILL,
   X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE,
+  X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS,
 
   X86_TUNE_LAST
 };
@@ -443,6 +444,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_GENERAL_REGS_SSE_SPILL]
 #define TARGET_AVOID_MEM_OPND_FOR_CMOVE \
 	ix86_tune_features[X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE]
+#define TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS \
+	ix86_tune_features[X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -856,7 +859,18 @@ enum target_cpu_default
    cause character arrays to be word-aligned so that `strcpy' calls
    that copy constants to character arrays can be done inline.  */
 
-#define DATA_ALIGNMENT(TYPE, ALIGN) ix86_data_alignment ((TYPE), (ALIGN))
+#define DATA_ALIGNMENT(TYPE, ALIGN) \
+  ix86_data_alignment ((TYPE), (ALIGN), true)
+
+/* Similar to DATA_ALIGNMENT, but for the cases where the ABI mandates
+   some alignment increase, instead of optimization only purposes.  E.g.
+   AMD x86-64 psABI says that variables with array type larger than 15 bytes
+   must be aligned to 16 byte boundaries.
+
+   If this macro is not defined, then ALIGN is used.  */
+
+#define DATA_ABI_ALIGNMENT(TYPE, ALIGN) \
+  ix86_data_alignment ((TYPE), (ALIGN), false)
 
 /* If defined, a C expression to compute the alignment for a local
    variable.  TYPE is the data type, and ALIGN is the alignment that

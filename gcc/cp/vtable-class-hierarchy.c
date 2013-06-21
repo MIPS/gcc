@@ -465,9 +465,12 @@ check_and_record_registered_pairs (tree vtable_decl, tree vptr_address,
       && TREE_CODE (TREE_OPERAND (vptr_address, 0)) == MEM_REF)
     vptr_address = TREE_OPERAND (vptr_address, 0);
 
-  offset = TREE_INT_CST_LOW (TREE_OPERAND (vptr_address, 1));
+  if (TREE_OPERAND_LENGTH (vptr_address) > 1)
+    offset = TREE_INT_CST_LOW (TREE_OPERAND (vptr_address, 1));
+  else
+    offset = 0;
 
-  base_vtable_map_node = vtbl_map_get_node (base_class);
+  base_vtable_map_node = vtbl_map_get_node (TYPE_MAIN_VARIANT (base_class));
 
   inserted_something = vtbl_map_node_registration_insert
                                                         (base_vtable_map_node,
@@ -627,9 +630,7 @@ register_other_binfo_vtables (tree binfo, tree base_class,
     {
       if ((!BINFO_PRIMARY_P (base_binfo)
            || BINFO_VIRTUAL_P (base_binfo))
-          && (vtable_decl = get_vtbl_decl_for_binfo (base_binfo))
-          && !(DECL_VTABLE_OR_VTT_P (vtable_decl)
-	       && DECL_CONSTRUCTION_VTABLE_P (vtable_decl)))
+          && (vtable_decl = get_vtbl_decl_for_binfo (base_binfo)))
         {
           tree vtable_address = build_vtbl_address (base_binfo);
 
@@ -835,6 +836,49 @@ insert_call_to_register_pair (tree vtable_address, int num_args, tree arg1,
   num_calls_to_regpair++;
 }
 
+static void
+output_set_info (tree record_type, tree *vtbl_ptr_array, int array_size)
+{
+  static int vtv_debug_log_fd = -1;
+  char buffer[1024];
+  int bytes_written __attribute__ ((unused));
+  int i;
+  const char *class_name =
+              IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (TYPE_NAME (record_type)));
+
+  if (vtv_debug_log_fd == -1)
+    vtv_debug_log_fd = open ("/tmp/vtv_set_ptr_data.log",
+                             O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
+  if (vtv_debug_log_fd == -1)
+    return;
+
+  for (int i = 0; i < array_size; ++i)
+    {
+      const char *vptr_name = "unknown";
+      int vptr_offset = 0;
+      
+      if (TREE_CODE (vtbl_ptr_array[i]) == POINTER_PLUS_EXPR)
+	{
+	  tree arg0 = TREE_OPERAND (vtbl_ptr_array[i], 0);
+	  tree arg1 = TREE_OPERAND (vtbl_ptr_array[i], 1);
+
+	  if (TREE_CODE (arg0) == ADDR_EXPR)
+	    arg0 = TREE_OPERAND (arg0, 0);
+
+	  if (TREE_CODE (arg0) == VAR_DECL)
+	    vptr_name = IDENTIFIER_POINTER (DECL_NAME (arg0));
+
+	  if (TREE_CODE (arg1) == INTEGER_CST)
+	    vptr_offset = TREE_INT_CST_LOW (arg1);
+	}
+
+      snprintf (buffer, sizeof (buffer), "%s %s %s + %d\n",
+		main_input_filename, class_name, vptr_name, vptr_offset);
+      bytes_written = write (vtv_debug_log_fd, buffer, strlen(buffer));
+    }
+
+}
+
 /* This function goes through our internal class hierarchy & vtable
    pointer data structure and outputs calls to __VLTRegisterPair for
    every class-vptr pair (for those classes whose vtable would be
@@ -957,6 +1001,10 @@ register_all_pairs (tree body)
 	str2 = build_string_literal (strlen ("unknown") + 1,
 				     "unknown");
 
+      if (flag_vtv_debug)
+	output_set_info (current->class_info->class_type,
+			 vtbl_ptr_array, num_vtable_args);
+
       if (num_vtable_args > 1)
         {
           insert_call_to_register_set (current->class_name, num_vtable_args,
@@ -995,7 +1043,7 @@ find_graph_node (tree class_type)
 {
   struct vtbl_map_node *vtbl_node;
 
-  vtbl_node = vtbl_map_get_node (class_type);
+  vtbl_node = vtbl_map_get_node (TYPE_MAIN_VARIANT (class_type));
   if (vtbl_node)
     return vtbl_node->class_info;
 
@@ -1031,45 +1079,6 @@ update_class_hierarchy_information (tree base_class,
   add_hierarchy_pair (base_node, derived_node);
 }
 
-/* Generate an undefined variable (a reference) to a varible defined
-   in the vtv_init libraty. In that way, if the a module is not linked
-   with the vtv_init library, the linker will generate an undefined
-   symbol error.  Which is much better that getting a segmentation
-   violation at runtime.  The parameter, INIT_ROUTINE_BODY, is the
-   function body of our constructor initialization function, to which
-   we add the reference to this symbol (and all of our calls to
-   __VLTRegisterPair).
-
-   For more information, see comments in
-   libstdc++-v3/libsupc++/vtv_init.cc.  */
-
-static void
-create_undef_reference_to_vtv_init (tree init_routine_body)
-{
-  const char *vtv_init_undef_var = "__vtv_defined_in_vtv_init_lib";
-  tree var_decl;
-  tree init_zero;
-
-  var_decl  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-                          get_identifier (vtv_init_undef_var),
-                          int32_type_node);
-  TREE_PUBLIC (var_decl) = 1;
-  DECL_EXTERNAL (var_decl) = 1;
-  TREE_STATIC (var_decl) = 1;
-  SET_DECL_ASSEMBLER_NAME (var_decl, get_identifier (vtv_init_undef_var));
-  DECL_ARTIFICIAL (var_decl) = 1;
-  TREE_READONLY (var_decl) = 0;
-  DECL_IGNORED_P (var_decl) = 1;
-  DECL_PRESERVE_P (var_decl) = 1;
-  varpool_finalize_decl (var_decl);
-
-  /* Store a value in the undefined variable to force the creation of a
-     a reference.  */
-  init_zero = build2 (MODIFY_EXPR, TREE_TYPE (var_decl), var_decl,
-                      integer_zero_node);
-  append_to_statement_list (init_zero, &init_routine_body);
-
-}
 
 static void
 write_out_vtv_count_data (void)
@@ -1085,7 +1094,6 @@ write_out_vtv_count_data (void)
   if (vtv_count_log_fd == -1)
     return;
 
-  /* for (current = vtbl_map_nodes; current; current = current->next) */
   for (unsigned i = 0; i < num_vtable_map_nodes; ++i)
     {
       struct vtbl_map_node *current = vtbl_map_nodes_vec[i];
@@ -1123,10 +1131,6 @@ vtv_register_class_hierarchy_information (tree init_routine_body)
   /* Add class hierarchy pairs to the vtable map data structure.  */
   registered_something = register_all_pairs (init_routine_body);
 
-  if (registered_something
-      && flag_vtable_verify == VTV_STANDARD_PRIORITY)
-    create_undef_reference_to_vtv_init (init_routine_body);
-
   if (flag_vtv_counts)
     write_out_vtv_count_data ();
 
@@ -1157,20 +1161,19 @@ vtv_generate_init_routine (void)
 
   if (vtable_classes_found)
     {
-      current_function_decl =
-       vtv_finish_verification_constructor_init_function (init_routine_body);
-      allocate_struct_function (current_function_decl, false);
-      TREE_STATIC (current_function_decl) = 1;
-      TREE_USED (current_function_decl) = 1;
-      DECL_PRESERVE_P (current_function_decl) = 1;
+      tree vtv_fndecl =
+	vtv_finish_verification_constructor_init_function (init_routine_body);
+      TREE_STATIC (vtv_fndecl) = 1;
+      TREE_USED (vtv_fndecl) = 1;
+      DECL_PRESERVE_P (vtv_fndecl) = 1;
       if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
         {
-          DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
-          assemble_vtv_preinit_initializer (current_function_decl);
+          DECL_STATIC_CONSTRUCTOR (vtv_fndecl) = 0;
+          assemble_vtv_preinit_initializer (vtv_fndecl);
         }
 
-      gimplify_function_tree (current_function_decl);
-      cgraph_add_new_function (current_function_decl, false);
+      gimplify_function_tree (vtv_fndecl);
+      cgraph_add_new_function (vtv_fndecl, false);
 
       cgraph_process_new_functions ();
     }
@@ -1198,7 +1201,7 @@ vtable_find_or_create_map_decl (tree base_type)
   var_name = get_mangled_vtable_map_var_name (base_type);
 
   /* We've already created the variable; just look it.  */
-  vtable_map_node = vtbl_map_get_node (base_type);
+  vtable_map_node = vtbl_map_get_node (TYPE_MAIN_VARIANT (base_type));
 
   if (!vtable_map_node || (vtable_map_node->vtbl_map_decl == NULL_TREE))
     {
@@ -1236,7 +1239,8 @@ vtable_find_or_create_map_decl (tree base_type)
 
       varpool_finalize_decl (var_decl);
       if (!vtable_map_node)
-        vtable_map_node = find_or_create_vtbl_map_node (base_type);
+        vtable_map_node =
+                   find_or_create_vtbl_map_node (TYPE_MAIN_VARIANT (base_type));
       if (vtable_map_node->vtbl_map_decl == NULL_TREE)
         vtable_map_node->vtbl_map_decl = var_decl;
     }

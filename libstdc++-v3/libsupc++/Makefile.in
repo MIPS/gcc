@@ -39,9 +39,7 @@ target_triplet = @target@
 DIST_COMMON = $(top_srcdir)/fragment.am $(srcdir)/Makefile.in \
 	$(srcdir)/Makefile.am $(bits_HEADERS) $(std_HEADERS)
 @ENABLE_VTABLE_VERIFY_TRUE@am__append_1 = \
-@ENABLE_VTABLE_VERIFY_TRUE@        vtv_rts.cc \
-@ENABLE_VTABLE_VERIFY_TRUE@        vtv_malloc.cc \
-@ENABLE_VTABLE_VERIFY_TRUE@        vtv_utils.cc
+@ENABLE_VTABLE_VERIFY_TRUE@	vtv_fail.cc
 
 subdir = libsupc++
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -96,8 +94,7 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bitsdir)" \
 	"$(DESTDIR)$(stddir)"
 LTLIBRARIES = $(noinst_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 libsupc___la_LIBADD =
-@ENABLE_VTABLE_VERIFY_TRUE@am__objects_1 = vtv_rts.lo vtv_malloc.lo \
-@ENABLE_VTABLE_VERIFY_TRUE@	vtv_utils.lo
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_1 = vtv_fail.lo
 am__objects_2 = array_type_info.lo atexit_arm.lo atexit_thread.lo \
 	bad_alloc.lo bad_array_length.lo bad_array_new.lo bad_cast.lo \
 	bad_typeid.lo class_type_info.lo del_op.lo del_opnt.lo \
@@ -123,12 +120,12 @@ libsupc__convenience_la_LIBADD =
 am_libsupc__convenience_la_OBJECTS = $(am__objects_2) $(am__objects_3)
 libsupc__convenience_la_OBJECTS =  \
 	$(am_libsupc__convenience_la_OBJECTS)
-libvtv_init_la_LIBADD =
-@ENABLE_VTABLE_VERIFY_TRUE@am__objects_4 = vtv_init.lo
-@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_init_la_OBJECTS =  \
-@ENABLE_VTABLE_VERIFY_TRUE@	$(am__objects_4)
-libvtv_init_la_OBJECTS = $(am_libvtv_init_la_OBJECTS)
-@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_init_la_rpath = -rpath \
+libvtv_la_LIBADD =
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_4 = vtv_rts.lo vtv_malloc.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	vtv_utils.lo
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_la_OBJECTS = $(am__objects_4)
+libvtv_la_OBJECTS = $(am_libvtv_la_OBJECTS)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_la_rpath = -rpath \
 @ENABLE_VTABLE_VERIFY_TRUE@	$(toolexeclibdir)
 libvtv_stubs_la_LIBADD =
 @ENABLE_VTABLE_VERIFY_TRUE@am__objects_5 = vtv_stubs.lo
@@ -150,7 +147,7 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
 SOURCES = $(libsupc___la_SOURCES) $(libsupc__convenience_la_SOURCES) \
-	$(libvtv_init_la_SOURCES) $(libvtv_stubs_la_SOURCES)
+	$(libvtv_la_SOURCES) $(libvtv_stubs_la_SOURCES)
 HEADERS = $(bits_HEADERS) $(std_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -361,7 +358,7 @@ toolexeclibdir = $(glibcxx_toolexeclibdir)
 @ENABLE_EXTERN_TEMPLATE_FALSE@XTEMPLATE_FLAGS = 
 @ENABLE_EXTERN_TEMPLATE_TRUE@XTEMPLATE_FLAGS = -fno-implicit-templates
 @ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXLINKFLAGS = 
-@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXLINKFLAGS = "-Wl,-lvtv"
 @ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXFLAGS = 
 @ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXFLAGS = -fvtable-verify=std \
 @ENABLE_VTABLE_VERIFY_TRUE@		-Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
@@ -383,7 +380,7 @@ AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
 # Need this library to both be part of libstdc++.a, and installed
 # separately too.
 # 1) separate libsupc++.la
-@ENABLE_VTABLE_VERIFY_TRUE@toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
+@ENABLE_VTABLE_VERIFY_TRUE@toolexeclib_LTLIBRARIES = libsupc++.la libvtv.la libvtv_stubs.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 std_HEADERS = \
@@ -411,13 +408,15 @@ sources = array_type_info.cc atexit_arm.cc atexit_thread.cc \
 	pointer_type_info.cc pure.cc si_class_type_info.cc tinfo.cc \
 	tinfo2.cc vec.cc vmi_class_type_info.cc vterminate.cc \
 	$(am__append_1)
-@ENABLE_VTABLE_VERIFY_TRUE@vtv_init_sources = \
-@ENABLE_VTABLE_VERIFY_TRUE@        vtv_init.cc
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_sources = \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_rts.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_malloc.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_utils.cc
 
 @ENABLE_VTABLE_VERIFY_TRUE@vtv_stubs_sources = \
 @ENABLE_VTABLE_VERIFY_TRUE@        vtv_stubs.cc
 
-@ENABLE_VTABLE_VERIFY_TRUE@libvtv_init_la_SOURCES = $(vtv_init_sources)
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv_la_SOURCES = $(vtv_sources)
 @ENABLE_VTABLE_VERIFY_TRUE@libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 libsupc___la_SOURCES = $(sources) $(c_sources)
 libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
@@ -582,8 +581,8 @@ libsupc++.la: $(libsupc___la_OBJECTS) $(libsupc___la_DEPENDENCIES)
 	$(CXXLINK) $(am_libsupc___la_rpath) $(libsupc___la_OBJECTS) $(libsupc___la_LIBADD) $(LIBS)
 libsupc++convenience.la: $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_DEPENDENCIES) 
 	$(CXXLINK)  $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_LIBADD) $(LIBS)
-libvtv_init.la: $(libvtv_init_la_OBJECTS) $(libvtv_init_la_DEPENDENCIES) 
-	$(CXXLINK) $(am_libvtv_init_la_rpath) $(libvtv_init_la_OBJECTS) $(libvtv_init_la_LIBADD) $(LIBS)
+libvtv.la: $(libvtv_la_OBJECTS) $(libvtv_la_DEPENDENCIES) 
+	$(CXXLINK) $(am_libvtv_la_rpath) $(libvtv_la_OBJECTS) $(libvtv_la_LIBADD) $(LIBS)
 libvtv_stubs.la: $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_DEPENDENCIES) 
 	$(CXXLINK) $(am_libvtv_stubs_la_rpath) $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_LIBADD) $(LIBS)
 
