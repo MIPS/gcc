@@ -1,4 +1,9 @@
 
+2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-hooks.melt (hook_exit_finalizer): Simplified, so
+	works again...
+
 2013-06-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerated -with manual copy- and unstable and brittle; fail to run checkruntime...}}
