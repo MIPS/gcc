@@ -2329,7 +2329,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       reg_valid[(int)DImode].multiple = valid_gpr32;
       reg_valid[(int)DImode].offset_info = bottom_0bits;
 
-      reg_valid[(int)TImode].indirect = valid_gpr | valid_altivec | valid_vsx;
+      reg_valid[(int)TImode].indirect = ((TARGET_VSX && TARGET_VSX_TIMODE)
+					 ? (valid_gpr | valid_vsx) : valid_gpr);
       reg_valid[(int)TImode].indexed = valid_vector;
       reg_valid[(int)TImode].offsettable = valid_gpr_fpr;
       reg_valid[(int)TImode].update = 0;
