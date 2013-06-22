@@ -1634,8 +1634,6 @@
 		       ##{ /* compile2obj_initproc emitted initialization of environment reference for $RAWMODNAM */
 		       if ($OPREVENV) 
 		         {
-		          if (!melt_flag_bootstrapping)
-		            warning(0, "MELT is creating a fresh environment reference for $RAWMODNAM") ;
 		          $BOXLOC = melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER 
 		               ((melt_ptr_t) $OPREVENV, "$RAWMODNAM") ;
 		         }

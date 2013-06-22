@@ -8549,7 +8549,7 @@ source location.}#
     (assert_msg "check mcheadlist" (is_list mcheadlist))
     (list_append mcheadlist recv)
     (debug "normexp_cheader updated mcheadlist=" mcheadlist "\n modctx=" modctx "\n")
-    (return)
+    (return () ())
 ))
 (install_method class_source_cheader normal_exp normexp_cheader)
 
@@ -8570,7 +8570,7 @@ source location.}#
     (assert_msg "check mcimplemlist" (is_list mcimplemlist))
     (list_append mcimplemlist recv)
     (debug "normexp_cimplement updated mcimplemlist=" mcimplemlist "\n modctx=" modctx "\n")
-    (return)
+    (return () ())
 ))
 (install_method class_source_cimplement normal_exp normexp_cimplement)
 

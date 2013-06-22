@@ -22,8 +22,10 @@
 ## <http://www.gnu.org/licenses/>.
 
 ### Notice that the MELT plugin should be rebuilt even for very minor
-### GCC changes, like a patchlevel upgrade, e.g. from GCC 4.6.0 to
-### 4.6.1
+### GCC changes, like a patchlevel upgrade, e.g. from GCC 4.7.2 to
+### 4.7.3
+
+$(info building MELT: see http://gcc-melt.org/ for more)
 
 ## the command to remove files
 RM ?= rm -vf
@@ -43,9 +45,27 @@ ifndef MELTGXX
 MELTGXX = $(or $(GXX),g++)
 endif
 
-## gives yes if MELTGCC has been built with C++ or else the empty string
-MELTGCC_BUILD_WITH_CXX = $(shell grep -q 'define[[:space:]]\+ENABLE_BUILD_WITH_CXX[[:space:]]\+1' \
+
+### Our awk (GNU awk is prefered)
+AWK?= gawk
+
+## the version of our GCC getting melt.so, e.g. 4.7.0
+MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
+$(info building MELT: GCC version $(MELTGCC_VERSION))
+
+## check that we have a gcc 4.6 or 4.7 or 4.8
+ifeq ($(filter 4.6.% 4.7.% 4.8.%, $(MELTGCC_VERSION)),)
+$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.6 or 4.7 or 4.8)
+endif
+
+## gives yes if MELTGCC has been built with C++ or else the empty
+## string; notice that GCC 4.8 is always in C++
+ifeq ($(filter-out 4.8.%,$(MELTGCC_VERSION)),)
+MELTGCC_BUILD_WITH_CXX := yes
+else
+MELTGCC_BUILD_WITH_CXX := $(shell grep -q 'define[[:space:]]\+ENABLE_BUILD_WITH_CXX[[:space:]]\+1' \
   `$(MELTGCC) -print-file-name=plugin/include/auto-host.h` && echo yes)
+endif
 
 ## You may want to set MELTGCC_NO_CHECK_RUNTIME environment variable
 ## when cross-compiling (since you cannot compile melt-runtime.c with
@@ -59,20 +79,21 @@ MELTGCC_BUILD_WITH_CXX = $(shell grep -q 'define[[:space:]]\+ENABLE_BUILD_WITH_C
 ##   make MELTGCC=gcc-4.7 GCCMELT_CC=g++-4.7
 ## hence we add a test if $(MELTGCC) was built with C++ or with C
 ifndef GCCMELT_CC
+$(info building MELT: $(MELTGCC) is built with C++ $(or $(MELTGCC_BUILD_WITH_CXX),no))
 ifeq ($(strip $(MELTGCC_BUILD_WITH_CXX)),)
 GCCMELT_CC = $(or $(CC),gcc) -Wc++-compat
-$(info GCCMELT_CC= $(GCCMELT_CC) is a C compiler)
+$(info building MELT: GCCMELT_CC= $(GCCMELT_CC) is a C compiler)
 else
 GCCMELT_CC = $(or $(CXX),g++)
-$(info GCCMELT_CC= $(GCCMELT_CC) is a C++ compiler)
+$(info building MELT: GCCMELT_CC= $(GCCMELT_CC) is a C++ compiler)
 endif
 else
-$(info GCCMELT_CC= $(GCCMELT_CC) is explicitly given $(origin GCCMELT_CC))
+$(info building MELT: GCCMELT_CC= $(GCCMELT_CC) is explicitly given $(origin GCCMELT_CC))
 endif
 
 GCCMELT_CFLAGS ?= -g -O -Wall
 
-$(info MELT plugin for MELTGCC= $(MELTGCC) to be compiled with GCCMELT_CC= $(GCCMELT_CC) flags $(GCCMELT_CFLAGS) $(if $(MELTGCC_BUILD_WITH_CXX),built with C++ $(MELTGCC_BUILD_WITH_CXX)))
+$(info building MELT: MELT plugin for MELTGCC= $(MELTGCC) to be compiled with GCCMELT_CC= $(GCCMELT_CC) flags $(GCCMELT_CFLAGS) $(if $(MELTGCC_BUILD_WITH_CXX),built with C++ $(MELTGCC_BUILD_WITH_CXX)))
 
 # Some versions of `touch' (such as the version on Solaris 2.8)
 # do not correctly set the timestamp due to buggy versions of `utime'
@@ -94,9 +115,6 @@ MELTGCC_GTYPESTATE := $(or $(wildcard $(shell $(MELTGCC) -print-file-name=gtype.
 
 ## MELT plugin extra libraries and flags for melt.so
 MELTGCC_LIBES = 
-
-### Our awk (GNU awk is prefered)
-AWK?= gawk
 
 ### the GNU sed utility
 SED?= sed
@@ -150,19 +168,11 @@ MELT_RUNTIME_H= melt-runtime.h
 melt_version_string:=$(shell $(AWK) -F\" '/^.define +MELT_VERSION_STRING/{print $$2}' $(MELT_RUNTIME_H))
 
 ifeq ($(wildcard $(MELTGCC_PLUGIN_DIR)/include/gimple*),)
-$(error incorrect MELT GCC plugin directory $(MELTGCC_PLUGIN_DIR))
+$(error building MELT: incorrect MELT GCC plugin directory $(MELTGCC_PLUGIN_DIR))
 endif
 
 ifeq ($(wildcard $(MELTGCC_GTYPESTATE)),)
-$(error missing MELT GCC gengtype state file)
-endif
-
-## the version of our GCC getting melt.so, e.g. 4.7.0
-MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
-
-## check that we have a gcc 4.6 or 4.7 or 4.8
-ifeq ($(filter 4.6.% 4.7.% 4.8.%, $(MELTGCC_VERSION)),)
-$(error bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.6 or 4.7 or 4.8)
+$(error building MELT: missing MELT GCC gengtype state file)
 endif
 
 ## our included files from melt-runtime.c

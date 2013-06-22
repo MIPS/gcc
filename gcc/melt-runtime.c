@@ -1310,14 +1310,14 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
   meltmarkingcount++;
   dbgprintf ("start of melt_marking_callback %ld", meltmarkingcount);
   /* Call the marking of every module and extension */
-  for (ix = 1; ix <= melt_modulinfo.modi_count; ix++) 
+  for (ix = 1; ix <= (int) melt_modulinfo.modi_count; ix++) 
     {
       melt_module_info_t* mod = melt_modulinfo.modi_array + ix;
       gcc_assert (mod->mmi_magic == MELT_MODULE_MAGIC);
       if (mod->mmi_markingrout)
 	(*mod->mmi_markingrout) ();
     }
-  for (ix = 1; ix <= melt_extinfo.mxi_count; ix++) 
+  for (ix = 1; ix <= (int) melt_extinfo.mxi_count; ix++) 
     {
       melt_extension_info_t* mex = melt_extinfo.mxi_array + ix;
       gcc_assert (mex->mmx_magic == MELT_EXTENSION_MAGIC);
@@ -1466,14 +1466,14 @@ melt_minor_copying_garbage_collector (size_t wanted)
     };
 
   /* Call the forwarding of every module and extension */
-  for (ix = 1; ix <= melt_modulinfo.modi_count; ix++) 
+  for (ix = 1; ix <= (int) melt_modulinfo.modi_count; ix++) 
     {
       melt_module_info_t* mod = melt_modulinfo.modi_array + ix;
       gcc_assert (mod->mmi_magic == MELT_MODULE_MAGIC);
       if (mod->mmi_forwardrout)
 	(*mod->mmi_forwardrout) ();
     }
-  for (ix = 1; ix <= melt_extinfo.mxi_count; ix++) 
+  for (ix = 1; ix <= (int) melt_extinfo.mxi_count; ix++) 
     {
       melt_extension_info_t* mex = melt_extinfo.mxi_array + ix;
       gcc_assert (mex->mmx_magic == MELT_EXTENSION_MAGIC);
@@ -1684,18 +1684,18 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   if (melt_fullthresholdkilow == 0) {
     const char* fullthstr = melt_argument ("full-threshold");
     melt_fullthresholdkilow = fullthstr ? (atol (fullthstr)) : 8*1024;
-    if (melt_fullthresholdkilow < 8*1024)
-      melt_fullthresholdkilow = 8*1024;
-    if (melt_fullthresholdkilow < 16*melt_minorsizekilow)
-      melt_fullthresholdkilow =  16*melt_minorsizekilow;
-    if (melt_fullthresholdkilow > 512*1024)
-      melt_fullthresholdkilow  = 512*1024;
+    if (melt_fullthresholdkilow < 16*1024)
+      melt_fullthresholdkilow = 16*1024;
+    if (melt_fullthresholdkilow < 32*melt_minorsizekilow)
+      melt_fullthresholdkilow =  32*melt_minorsizekilow;
+    if (melt_fullthresholdkilow > 1024*1024)
+      melt_fullthresholdkilow  = 1024*1024;
   }
   if (melt_fullperiod == 0) {
     const char* fullperstr = melt_argument ("full-period");
-    melt_fullperiod = fullperstr ? (atoi (fullperstr)) : 1024;
+    melt_fullperiod = fullperstr ? (atoi (fullperstr)) : 2048;
     if (melt_fullperiod < 256) melt_fullperiod = 256;
-    else if (melt_fullperiod > 8192) melt_fullperiod = 8192;
+    else if (melt_fullperiod > 32768) melt_fullperiod = 32768;
   }
 
   if (!needfullreason &&  gckd > MELT_ONLY_MINOR 
@@ -1719,7 +1719,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   melt_debuggc_eprintf ("melt_garbcoll melt_forwarded_copy_byte_count=%ld", 
 			melt_forwarded_copy_byte_count);
   if (!needfullreason && gckd > MELT_ONLY_MINOR 
-      && melt_forwarded_copy_byte_count > 4*melt_minorsizekilow*(1024*sizeof(void*)))
+      && melt_forwarded_copy_byte_count > (long) 4*melt_minorsizekilow*(1024*sizeof(void*)))
     {
       melt_kilowords_forwarded += melt_forwarded_copy_byte_count/(1024*sizeof(void*));
       melt_debuggc_eprintf ("melt_kilowords_forwarded %ld", melt_kilowords_forwarded);
@@ -10917,6 +10917,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
     }
     fprintf (setfil, "## MELT builtin settings %s\n",
              printset[0]?printset:"-");
+    fprintf (setfil, "### see http://gcc-melt.org/\n");
     /* Print the information with a # prefix, so a shell would ignore it.  */
     melt_print_version_info (setfil, "# ");
     /* We don't quote or escape builtin directories path, since they
@@ -11004,6 +11005,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 
   /* Return immediately if no mode is given.  */
   if (!modstr || *modstr=='\0') {
+    if (!melt_flag_bootstrapping)
+      inform  (UNKNOWN_LOCATION, "MELT don't do anything without a mode.");
     debugeprintf ("melt_really_initialize return immediately since no mode (inistr=%s)",
                   inistr);
     return;
@@ -11895,7 +11898,7 @@ void melt_warn_for_no_expected_secondary_results_at (const char*fil, int lin)
   /* This warning is emitted when a MELT function caller expects
      secondary results, but none are returned.  */
   warning(0, 
-	  "MELT RUNTIME WARNING [#%ld]: Secondary results are exepected at %s line %d",
+	  "MELT RUNTIME WARNING [#%ld]: Secondary results are expected at %s line %d",
 	  melt_dbgcounter, fil, lin);
   if (melt_flag_bootstrapping || melt_flag_debug)
     melt_dbgshortbacktrace("MELT caller expected secondary result[s] but got none", 10);
@@ -13223,9 +13226,6 @@ void
 melt_handle_melt_attribute (tree decl, tree name, const char *attrstr,
                             location_t loch)
 {
-#if MELT_HAVE_DEBUG
-  char curlocbuf[120];
-#endif
   MELT_ENTERFRAME (1, NULL);
 #define seqv       meltfram__.mcfr_varptr[0]
   if (!attrstr || !attrstr[0])

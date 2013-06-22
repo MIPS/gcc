@@ -1,5 +1,26 @@
 
 
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{REPL mode does not seems to work correctly}}
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-pre.
+
+	* melt-runtime.c (melt_marking_callback): Add casts to reduce
+	warnings.
+	(melt_garbcoll): Increase default and min,max threshold numbers to
+	reduce spurious full GC... Add casts.
+	(melt_warn_for_no_expected_secondary_results): Spelling typo.
+	(melt_handle_melt_attribute): Remove curlocbuf.
+
+	* params.def (PARAM_MELT_FULL_THRESHOLD, PARAM_MELT_FULL_PERIOD):
+	Increase.
+
+	* melt/warmelt-normal.melt (normexp_cheader, normexp_cimplement):
+	Returns twice nil.
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc) Don't warn about
+	creating a fresh environment.
+
 2013-06-21  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.

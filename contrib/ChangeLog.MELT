@@ -1,4 +1,12 @@
 
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile: More informational messages.
+	(MELTGCC_BUILD_WITH_CXX) GCC 4.8 is always built with C++.
+
+	* make-melt-plugin-source-tar.sh: Generated file
+	GCCMELT-SOURCE-DATE may contain the svn revision.
+
 2013-06-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* make-melt-plugin-source-tar.sh: Improve copy into testmelt/ directory.

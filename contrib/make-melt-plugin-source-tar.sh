@@ -92,7 +92,10 @@ rm -rf $gccmelt_tarbase
 
 mkdir -p $gccmelt_tarbase/melt/generated
 
-date +"source tar timestamp %c" > $gccmelt_tarbase/GCCMELT-SOURCE-DATE
+date +"source tar timestamp %c %Z" > $gccmelt_tarbase/GCCMELT-SOURCE-DATE
+if [ -n "$gccmelt_svnrev" ]; then
+    echo "from $gccmelt_svnrev" >> $gccmelt_tarbase/GCCMELT-SOURCE-DATE
+fi
 
 copymelt() {
     if [ -f $gccmelt_source_tree/$1 ]; then
