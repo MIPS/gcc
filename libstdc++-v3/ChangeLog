@@ -1,3 +1,22 @@
+2013-06-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57674
+	* include/bits/random.h (binomial_distribution<>::_M_waiting):
+	Add double parameter.
+	* include/bits/random.tcc (binomial_distribution<>::operator()
+	(_UniformRandomNumberGenerator&, const param_type&)): Pass
+	__param._M_q to _M_waiting.
+	(_M_waiting): Adjust.
+	* testsuite/26_numerics/random/binomial_distribution/
+	operators/values.cc: Add tests.
+
+2013-06-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57666
+	* include/std/valarray (valarray<>::operator=(const _Expr<>&)):
+	Implement correctly C++11 26.6.2.3/1.
+	* testsuite/26_numerics/valarray/dr630-3.C: New.
+
 2013-06-18  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	PR libstdc++/57641
