@@ -1529,7 +1529,7 @@ ipa_compute_jump_functions (struct cgraph_node *node,
 								  NULL);
       /* We do not need to bother analyzing calls to unknown
 	 functions unless they may become known during lto/whopr.  */
-      if (!callee->analyzed && !flag_lto)
+      if (!callee->symbol.definition && !flag_lto)
 	continue;
       ipa_compute_jump_functions_for_edge (parms_ainfo, cs);
     }
@@ -2476,8 +2476,9 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 	  new_direct_edge->indirect_inlining_edge = 1;
 	  if (new_direct_edge->call_stmt)
 	    new_direct_edge->call_stmt_cannot_inline_p
-	      = !gimple_check_call_matching_types (new_direct_edge->call_stmt,
-						   new_direct_edge->callee->symbol.decl);
+	      = !gimple_check_call_matching_types (
+		  new_direct_edge->call_stmt,
+		  new_direct_edge->callee->symbol.decl, false);
 	  if (new_edges)
 	    {
 	      new_edges->safe_push (new_direct_edge);
@@ -2986,7 +2987,7 @@ ipa_print_node_params (FILE *f, struct cgraph_node *node)
   tree temp;
   struct ipa_node_params *info;
 
-  if (!node->analyzed)
+  if (!node->symbol.definition)
     return;
   info = IPA_NODE_REF (node);
   fprintf (f, "  function  %s/%i parameter descriptors:\n",
@@ -3982,7 +3983,7 @@ ipa_prop_read_section (struct lto_file_decl_data *file_data, const char *data,
       index = streamer_read_uhwi (&ib_main);
       encoder = file_data->symtab_node_encoder;
       node = cgraph (lto_symtab_encoder_deref (encoder, index));
-      gcc_assert (node->analyzed);
+      gcc_assert (node->symbol.definition);
       ipa_read_node_info (&ib_main, node, data_in);
     }
   lto_free_section_data (file_data, LTO_section_jump_functions, NULL, data,
@@ -4026,8 +4027,7 @@ ipa_update_after_lto_read (void)
   ipa_check_create_edge_args ();
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (node->analyzed)
-      ipa_initialize_node_params (node);
+    ipa_initialize_node_params (node);
 }
 
 void
@@ -4164,7 +4164,7 @@ read_replacements_section (struct lto_file_decl_data *file_data,
       index = streamer_read_uhwi (&ib_main);
       encoder = file_data->symtab_node_encoder;
       node = cgraph (lto_symtab_encoder_deref (encoder, index));
-      gcc_assert (node->analyzed);
+      gcc_assert (node->symbol.definition);
       read_agg_replacement_chain (&ib_main, node, data_in);
     }
   lto_free_section_data (file_data, LTO_section_jump_functions, NULL, data,

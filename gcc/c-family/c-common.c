@@ -7576,13 +7576,7 @@ handle_alias_ifunc_attribute (bool is_alias, tree *node, tree name, tree args,
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	DECL_INITIAL (decl) = error_mark_node;
       else
-	{
-	  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
-	    DECL_EXTERNAL (decl) = 1;
-	  else
-	    DECL_EXTERNAL (decl) = 0;
-	  TREE_STATIC (decl) = 1;
-	}
+	TREE_STATIC (decl) = 1;
 
       if (!is_alias)
 	/* ifuncs are also aliases, so set that attribute too. */
@@ -11424,6 +11418,7 @@ c_common_init_ts (void)
 {
   MARK_TS_TYPED (C_MAYBE_CONST_EXPR);
   MARK_TS_TYPED (EXCESS_PRECISION_EXPR);
+  MARK_TS_TYPED (ARRAY_NOTATION_REF);
 }
 
 /* Build a user-defined numeric literal out of an integer constant type VALUE

@@ -7389,7 +7389,22 @@ struct external_ref_hasher : typed_free_remove <external_ref>
 inline hashval_t
 external_ref_hasher::hash (const value_type *r)
 {
-  return htab_hash_pointer (r->type);
+  dw_die_ref die = r->type;
+  hashval_t h = 0;
+
+  /* We can't use the address of the DIE for hashing, because
+     that will make the order of the stub DIEs non-deterministic.  */
+  if (! die->comdat_type_p)
+    /* We have a symbol; use it to compute a hash.  */
+    h = htab_hash_string (die->die_id.die_symbol);
+  else
+    {
+      /* We have a type signature; use a subset of the bits as the hash.
+	 The 8-byte signature is at least as large as hashval_t.  */
+      comdat_type_node_ref type_node = die->die_id.die_type_node;
+      memcpy (&h, type_node->signature, sizeof (h));
+    }
+  return h;
 }
 
 inline bool
@@ -14920,7 +14935,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   else if (TREE_CODE (*tp) == VAR_DECL)
     {
       struct varpool_node *node = varpool_get_node (*tp);
-      if (!node || !node->analyzed)
+      if (!node || !node->symbol.definition)
 	return *tp;
     }
   else if (TREE_CODE (*tp) == FUNCTION_DECL
@@ -17598,7 +17613,7 @@ premark_types_used_by_global_vars_helper (void **slot,
       /* Ask cgraph if the global variable really is to be emitted.
          If yes, then we'll keep the DIE of ENTRY->TYPE.  */
       struct varpool_node *node = varpool_get_node (entry->var_decl);
-      if (node && node->analyzed)
+      if (node && node->symbol.definition)
 	{
 	  die->die_perennial_p = 1;
 	  /* Keep the parent DIEs as well.  */

@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "ggc.h"
 #include "gstab.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "debug.h"
 #include "target.h"
 #include "target-def.h"
@@ -1026,6 +1026,19 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (9),            /* int_mult_di */
     COSTS_N_INSNS (42),           /* int_div_si */
     COSTS_N_INSNS (74),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* R5900 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (256),          /* fp_mult_df */
+    COSTS_N_INSNS (8),            /* fp_div_sf */
+    COSTS_N_INSNS (256),          /* fp_div_df */
+    COSTS_N_INSNS (4),            /* int_mult_si */
+    COSTS_N_INSNS (256),          /* int_mult_di */
+    COSTS_N_INSNS (37),           /* int_div_si */
+    COSTS_N_INSNS (256),          /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   },
@@ -12450,7 +12463,10 @@ mips_start_ll_sc_sync_block (void)
   if (!ISA_HAS_LL_SC)
     {
       output_asm_insn (".set\tpush", 0);
-      output_asm_insn (".set\tmips2", 0);
+      if (TARGET_64BIT)
+	output_asm_insn (".set\tmips3", 0);
+      else
+	output_asm_insn (".set\tmips2", 0);
     }
 }
 
@@ -13005,6 +13021,7 @@ mips_issue_rate (void)
     case PROCESSOR_R4130:
     case PROCESSOR_R5400:
     case PROCESSOR_R5500:
+    case PROCESSOR_R5900:
     case PROCESSOR_R7000:
     case PROCESSOR_R9000:
     case PROCESSOR_OCTEON:
@@ -15806,30 +15823,43 @@ mips_hash_base (rtx base)
   return hash_rtx (base, GET_MODE (base), &do_not_record_p, NULL, false);
 }
 
+/* Hashtable helpers.  */
+
+struct mips_lo_sum_offset_hasher : typed_free_remove <mips_lo_sum_offset>
+{
+  typedef mips_lo_sum_offset value_type;
+  typedef rtx_def compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
 /* Hash-table callbacks for mips_lo_sum_offsets.  */
 
-static hashval_t
-mips_lo_sum_offset_hash (const void *entry)
+inline hashval_t
+mips_lo_sum_offset_hasher::hash (const value_type *entry)
 {
-  return mips_hash_base (((const struct mips_lo_sum_offset *) entry)->base);
+  return mips_hash_base (entry->base);
 }
 
-static int
-mips_lo_sum_offset_eq (const void *entry, const void *value)
+inline bool
+mips_lo_sum_offset_hasher::equal (const value_type *entry,
+				  const compare_type *value)
 {
-  return rtx_equal_p (((const struct mips_lo_sum_offset *) entry)->base,
-		      (const_rtx) value);
+  return rtx_equal_p (entry->base, value);
 }
+
+typedef hash_table <mips_lo_sum_offset_hasher> mips_offset_table;
 
 /* Look up symbolic constant X in HTAB, which is a hash table of
    mips_lo_sum_offsets.  If OPTION is NO_INSERT, return true if X can be
    paired with a recorded LO_SUM, otherwise record X in the table.  */
 
 static bool
-mips_lo_sum_offset_lookup (htab_t htab, rtx x, enum insert_option option)
+mips_lo_sum_offset_lookup (mips_offset_table htab, rtx x,
+			   enum insert_option option)
 {
   rtx base, offset;
-  void **slot;
+  mips_lo_sum_offset **slot;
   struct mips_lo_sum_offset *entry;
 
   /* Split X into a base and offset.  */
@@ -15838,7 +15868,7 @@ mips_lo_sum_offset_lookup (htab_t htab, rtx x, enum insert_option option)
     base = UNSPEC_ADDRESS (base);
 
   /* Look up the base in the hash table.  */
-  slot = htab_find_slot_with_hash (htab, base, mips_hash_base (base), option);
+  slot = htab.find_slot_with_hash (base, mips_hash_base (base), option);
   if (slot == NULL)
     return false;
 
@@ -15868,7 +15898,8 @@ static int
 mips_record_lo_sum (rtx *loc, void *data)
 {
   if (GET_CODE (*loc) == LO_SUM)
-    mips_lo_sum_offset_lookup ((htab_t) data, XEXP (*loc, 1), INSERT);
+    mips_lo_sum_offset_lookup (*(mips_offset_table*) data,
+			       XEXP (*loc, 1), INSERT);
   return 0;
 }
 
@@ -15877,7 +15908,7 @@ mips_record_lo_sum (rtx *loc, void *data)
    LO_SUMs in the current function.  */
 
 static bool
-mips_orphaned_high_part_p (htab_t htab, rtx insn)
+mips_orphaned_high_part_p (mips_offset_table htab, rtx insn)
 {
   enum mips_symbol_type type;
   rtx x, set;
@@ -15985,7 +16016,7 @@ mips_reorg_process_insns (void)
 {
   rtx insn, last_insn, subinsn, next_insn, lo_reg, delayed_reg;
   int hilo_delay;
-  htab_t htab;
+  mips_offset_table htab;
 
   /* Force all instructions to be split into their final form.  */
   split_all_insns_noflow ();
@@ -16011,8 +16042,9 @@ mips_reorg_process_insns (void)
     cfun->machine->all_noreorder_p = false;
 
   /* Code compiled with -mfix-vr4120 or -mfix-24k can't be all noreorder
-     because we rely on the assembler to work around some errata.  */
-  if (TARGET_FIX_VR4120 || TARGET_FIX_24K)
+     because we rely on the assembler to work around some errata.
+     The r5900 too has several bugs.  */
+  if (TARGET_FIX_VR4120 || TARGET_FIX_24K || TARGET_MIPS5900)
     cfun->machine->all_noreorder_p = false;
 
   /* The same is true for -mfix-vr4130 if we might generate MFLO or
@@ -16022,14 +16054,13 @@ mips_reorg_process_insns (void)
   if (TARGET_FIX_VR4130 && !ISA_HAS_MACCHI)
     cfun->machine->all_noreorder_p = false;
 
-  htab = htab_create (37, mips_lo_sum_offset_hash,
-		      mips_lo_sum_offset_eq, free);
+  htab.create (37);
 
   /* Make a first pass over the instructions, recording all the LO_SUMs.  */
   for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
     FOR_EACH_SUBINSN (subinsn, insn)
       if (USEFUL_INSN_P (subinsn))
-	for_each_rtx (&PATTERN (subinsn), mips_record_lo_sum, htab);
+	for_each_rtx (&PATTERN (subinsn), mips_record_lo_sum, &htab);
 
   last_insn = 0;
   hilo_delay = 2;
@@ -16086,7 +16117,7 @@ mips_reorg_process_insns (void)
 	}
     }
 
-  htab_delete (htab);
+  htab.dispose ();
 }
 
 /* Return true if the function has a long branch instruction.  */
