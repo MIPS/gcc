@@ -299,9 +299,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		       #{ /* repl_processor $EOFREPL_CHK */ 
 		       printf ("\n;;; End of Input on Read-Eval-Print-Loop #%ld\n",
 			       $REPLCOUNT) ;
-		       fflush (NULL)	   ;
+		       fflush (NULL) ;
 		       }#)
-	   (set_ref replcontref :true)
+	   (set_ref replcontref ())
 	   )
 	  (:else
 	   (assert_msg "check inlist" (is_list inlist))
@@ -317,7 +317,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 			 #{ /* repl_processor $BEFOREVALREPL_CHK */
 			 printf ("\n;; MELT REPL evaluation #%ld of %ld expressions\n",
 				 $REPLCOUNT, $INLISTLEN) ;
-			 fflush (NULL)			 ; 
+			 fflush (NULL) ; 
 			 }#)
 	     (set_ref replcontref ())
 	     (let ( (res ())
@@ -343,17 +343,18 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	     )
 	   ))))
 
+
 (defun repl_docmd (cmd moduldata)
   (assert_msg "check moduldata" (is_a moduldata class_environment))
   (debug "repl_docmd cmd=" cmd " moduldata=" moduldata)
   (code_chunk replwelcome_chk 
 	      #{ /* repl_docmd $REPLWELCOME_CHK */
-	      printf ("; Welcome to the MELT interactive Read-Eval-Print-Loop [=REPL]; see gcc-melt.org\n");
-	      printf ("; Type a sequence of MELT expressions to be evaluated\n");
-	      printf ("; End that sequence with two (2) consecutive newlines.\n");
-	      printf ("; Call the CONTINUE function like (CONTINUE) to exit this REPL, or give an end-of-file thru ^D\n");
-	      printf ("; Call (WAIT-REPL [welcome-string-value]) from a hook to wait for more input and exit of the REPL\n");
-	      fflush (NULL);
+	      printf ("; Welcome to the MELT interactive Read-Eval-Print-Loop [=REPL]; see gcc-melt.org\n") ;
+	      printf ("; Type a sequence of MELT expressions to be evaluated\n") ;
+	      printf ("; End that sequence with two (2) consecutive newlines.\n") ;
+	      printf ("; Call the CONTINUE function like (CONTINUE) to exit this REPL, or give an end-of-file thru ^D\n") ;
+	      printf ("; Call (WAIT-REPL [welcome-string-value]) from a hook to wait for more input and exit of the REPL\n") ;
+	      fflush (NULL)		;
 	      }#)
   (let ( (newenv (fresh_env moduldata '"the interactive Read-Eval-Print-Loop environment"))
 	 (refcont (instance class_reference))
@@ -367,26 +368,32 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	 (waitfun (lambda (msgv)
 		    (debug "repl_docmd/waitfun start refcont=" refcont 
 			   " evalcounter=" evalcounter "\n msgv=" msgv)
-		    (forever waitfunloop
-			     (let ( (:long evalcount (get_int evalcounter)) 
-				    )
-			       (if (!refcont) (exit waitfunloop))
-			       (code_chunk waitfunloop_chk
-					   #{ /* repl_docmd $WAITFUNLOOP_CHK */
-					   const char* $WAITFUNLOOP_CHK#_msg = 
-					   melt_string_str ($MSGV) ;
-					   if ($WAITFUNLOOP_CHK#_msg)
-					   printf ("\n;; MELT REPL#%ld waiting: %s\n", 
-						   $EVALCOUNT, $WAITFUNLOOP_CHK#_msg) ;
-					   else
-					   printf ("\n;; MELT REPL#%ld waiting ?\n", 
-						   $EVALCOUNT) ;
-					   fflush (NULL)       ;
-					   }#)
-			       (hook_poll_inputs 60000))
-			     (debug "repl_docmd/waitfun end refcont=" refcont 
-				    " evalcounter=" evalcounter)
-			     )))
+		    (forever
+		     waitfunloop
+		     (let ( (:long evalcount (get_int evalcounter)) 
+			    )
+		       (if (!refcont) (exit waitfunloop))
+		       (if (null (get_polling_input '0)) 
+					;0 is stdin fd so we exit if
+					;not polling it anymore,
+					;e.g. because got eof
+			   (exit waitfunloop))
+		       (code_chunk waitfunloop_chk
+				   #{ /* repl_docmd $WAITFUNLOOP_CHK */
+				   const char* $WAITFUNLOOP_CHK#_msg = 
+				   melt_string_str ($MSGV) ;
+				   if ($WAITFUNLOOP_CHK#_msg)
+				   printf ("\n;; MELT REPL#%ld waiting: %s\n", 
+					   $EVALCOUNT, $WAITFUNLOOP_CHK#_msg) ;
+				   else
+				   printf ("\n;; MELT REPL#%ld waiting ?\n", 
+					   $EVALCOUNT)	 ;
+				   fflush (NULL)	 ;
+				   }#)
+		       (hook_poll_inputs 60000)) ;60 seconds wait
+		     (debug "repl_docmd/waitfun end refcont=" refcont 
+			    " evalcounter=" evalcounter)
+		     )))
 	 (contvalbind (instance class_value_binding
 				:binder 'continue
 				:vbind_value contfun))

@@ -1,6 +1,22 @@
 
 
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{REPL mode works, even with a piped input like from shell command
+	printf "(list 'a 'b)\n\n" ....}}
+
+	* melt/warmelt-macro.melt (mexpand_debug_msg): Should fail unless
+	bootstrapping.
+
+	* melt/warmelt-hooks.melt (hook_poll_inputs): Calls poll -for
+	sleeping- even without any listening input channel.
+	(is_polling_inputs, every_polling_input, get_polling_input): New
+	functions.
+	* melt/warmelt-modes.melt (repl_processor, repl_docmd): Stops on
+	eof on stdin.
+
+	* testsuite/melt/ttuplist.melt: Improve to make it work again.
+
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{REPL mode works, but LIST macro don't work well in it}}
 
 	* melt/warmelt-debug.melt (dbg_out): Simplified test to output.

@@ -2438,6 +2438,11 @@ exit, in last place.}#
     (debug "hook_poll_inputs inchbuck=" inchbuck " delayms=" delayms)
     (when (==i nbinch 0)
       (debug "hook_poll_inputs empty inchbuck")
+      (code_chunk 
+       pollsleep_chk 
+       #{/* hook_poll_inputs $POLLSLEEP_CHK do the poll */
+       $RESPOLL = poll (NULL, 0, $DELAYMS);
+       }#)
       (return))
     (let (
 	  (tupinch (make_multiple discr_multiple nbinch))
@@ -2520,6 +2525,55 @@ exit, in last place.}#
 )
 
 
+(defun is_polling_inputs ()
+  :doc #{$IS_POLLING_INPUTS return :TRUE with secondarily the number of input channels 
+  if some channels are polling, or nil otherwise}# 
+  (let ( (inchbuck melt_inpchanbuck)
+	 (:long nbinch (bucketlong_count inchbuck))
+	 )
+    (if nbinch (return :true nbinch)
+      (return () 0))
+))
+
+(defun every_polling_input (f)
+  :doc #{$EVERY_POLLING_INPUTS applies the given closure $F to every
+  input channel. Iteration is stopped if that application returns nil.}# 
+  (let ( (inchbuck melt_inpchanbuck)
+	 (:long nbinch (bucketlong_count inchbuck))
+	 (lischan (make_list discr_list))
+	 )
+    (when nbinch 
+      (block_signals 
+       () ()
+       (foreach_in_bucketlong
+	(inchbuck)
+	(:long fd :value chv)
+	(if (is_a chv class_input_channel_handler)
+	    (list_append lischan chv))
+	))
+      (when (is_closure f)
+	(foreach_in_list 
+	 (lischan)
+	 (curpair curchan)
+	 (debug "every_polling_input curchan=" curchan)
+	 (if (null (f curchan))
+	     (setq curpair ())))))))
+
+(defun get_polling_input (bi)
+  :doc #{The function $GET_POLLING_INPUT gets the polling input associated to integer in $BI.}#
+  (let ( (inchbuck melt_inpchanbuck)
+	 (:long nbinch (bucketlong_count inchbuck))
+	 (:long i (get_int bi))
+	 )
+    (when nbinch 
+      (block_signals 
+       () ()
+       (let ( (curb (bucketlong_get inchbuck i))
+	      )
+	 (if (is_a curb class_input_channel_handler)
+	     (return curb)))))
+    (return ())
+  ))
 
 ;;;;;;;;;;;;;;;;
 (defun register_input_channel_handler (clos data :long inchfd)
@@ -2587,7 +2641,14 @@ exit, in last place.}#
   (hook_poll_inputs 250)
 )
 
-(export_values hook_handle_sigio hook_poll_inputs melt_invoke_input_callbacks)
+(export_values
+ every_polling_input
+ get_polling_input
+ hook_handle_sigio 
+ hook_poll_inputs 
+ is_polling_inputs
+ melt_invoke_input_callbacks
+)
 
 
 

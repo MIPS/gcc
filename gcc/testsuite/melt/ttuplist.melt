@@ -2,24 +2,25 @@
 ;; file ttuplist.melt
 
 #| run in buildir/gcc
- ./cc1 -fmelt=runfile  -fmelt-module-path=.    \
-    -fmelt-source-path=.:$GCCMELTSOURCE/gcc/melt \
-    -fmelt-tempdir=/tmp -fmelt-init=@warmelt2 \
-    -fmelt-arg=$GCCMELTSOURCE/gcc/testsuite/melt/ttuplist.melt \
-    -fmelt-debug empty-file-for-melt.c
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/ttuplist.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=ttuplist.melt \
+    -fmelt-debug meltbuild-empty-file.c
 |#
 
 
 (defun ftuple (x y z)
-       (tuple x y (make_box discr_box z)))
-(debug_msg (ftuple 'xx 'yy 'zz) "test ftuple")
+       (tuple x y  z))
+(debug  "test ftuple=" (ftuple 'xx 'yy 'zz))
 
 
 (defun flist3 (x y z) (list x y z))
-(debug_msg (flist3 'xx 'yy 'zz) "test flist3")
+(debug  "test flist3=" (flist3 'xxx 'yyy 'zzz))
 
 (defun flistu (u v w)
-       (list u (make_box discr_box v) (tuple u w)))
-(debug_msg (flistu 'uu 'vv 'ww) "test flistu")
+       (list u v (tuple u w)))
+(debug  "test flistu=" (flistu 'uu 'vv 'ww))
 
 ;;eof ttuplist.melt

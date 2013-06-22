@@ -7139,7 +7139,7 @@ remain.}#)
 ;;; where count is (melt_callcount) if not given
 
 (defun mexpand_debug_msg (sexpr env mexpander modctx)
-  (debug "mexpand_debug_msg sexpr" sexpr)
+  (debug "mexpand_debug_msg sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
@@ -7152,7 +7152,9 @@ remain.}#)
 	(xmsg ())
 	(xcount ())
 	)
-    (warning_plain loc "(DEBUG_MSG ....) is obsolete, use (DEBUG ...) variadically")
+    (if (melt_is_bootstrapping)
+	(warning_plain loc "(DEBUG_MSG ....) is obsolete, use (DEBUG ...) variadically")
+      (error_plain loc "(DEBUG_MSG ....) should not be used. Use (DEBUG ....) variadically instead."))
     (setq curpair (pair_tail curpair))
     (if (not (is_pair curpair))
 	(error_plain loc "missing message in DEBUG_MSG"_))
@@ -7199,7 +7201,7 @@ remain.}#)
       )))
 (install_initial_macro 'debug_msg mexpand_debug_msg)
 (export_macro debug_msg mexpand_debug_msg
-	      :doc #{$DEBUG_MSG is obsolete and should not be used. Use $DEBUG instead.}#)
+	      :doc #{$DEBUG_MSG should not be used. Use $DEBUG instead.}#)
 
 
 
