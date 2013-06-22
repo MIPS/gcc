@@ -295,7 +295,12 @@ void (*rs6000_target_modify_macros_ptr) (bool, HOST_WIDE_INT, HOST_WIDE_INT);
 /* Simplfy register classes into simpler classifications.  We assume
    GPR_REG_TYPE - FPR_REG_TYPE are ordered so that we can use a simple range
    check for standard register classes (gpr/floating/altivec/vsx) and
-   floating/vector classes (float/altivec/vsx).  */
+   floating/vector classes (float/altivec/vsx).
+
+   In addition, it is assumed that the register types for registers we load
+   (gpr, vsx, altivec, and fpr), plus pseudo registers are each less than 8, so
+   that we can use register type bitmasks in unsigned char fields the type of
+   addressing that the register type supports.  */
 
 enum rs6000_reg_type {
   NO_REG_TYPE,
@@ -318,6 +323,28 @@ static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 #define IS_STD_REG_TYPE(RTYPE) IN_RANGE(RTYPE, GPR_REG_TYPE, FPR_REG_TYPE)
 
 #define IS_FP_VECT_REG_TYPE(RTYPE) IN_RANGE(RTYPE, VSX_REG_TYPE, FPR_REG_TYPE)
+
+/* Register type masks.  */
+#define REG_VALID_GPR	  (1 << (int)GPR_REG_TYPE)	/* GPR regs.  */
+#define REG_VALID_FPR	  (1 << (int)FPR_REG_TYPE)	/* FPR regs.  */
+#define REG_VALID_ALTIVEC (1 << (int)ALTIVEC_REG_TYPE)	/* Altivec regs. */
+#define REG_VALID_VSX	  (1 << (int)VSX_REG_TYPE)	/* VSX regs.  */
+
+/* Masks that describe the offset.  */
+#define OFFSET_0BITS	0x0001		/* bottom 2 bits must be 0 for GPR.  */
+#define OFFSET_SPE	0x0002		/* Spe vector offsets are 5 bits.  */
+
+/* Register type masks based on the type, of valid addressing modes.  */
+struct rs6000_reg_valid {
+  unsigned char indirect;	/* Indirect addressing *(reg).  */
+  unsigned char indexed;	/* Indexed addressing *(reg+reg).  */
+  unsigned char offsettable;	/* Offset addressing *(reg+offset). */
+  unsigned char update;		/* Base register updated after memory.  */
+  unsigned char multiple;	/* Type takes multiple registers.  */
+  unsigned char offset_info;	/* Information about offset.  */
+};
+
+static struct rs6000_reg_valid reg_valid[NUM_MACHINE_MODES];
 
 /* Direct moves to/from vsx/gpr registers that need an additional register to
    do the move.  */
@@ -1759,6 +1786,23 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
     }
 }
 
+/* Helper function for rs6000_debug_reg_global, to print the valid addressing
+   modes for each register class if -mdebug=reg.  */
+static void
+rs6000_debug_print_register_valid (int m, const char *name, unsigned int mask)
+{
+  if ((reg_valid[m].indirect & mask) == 0)
+    fprintf (stderr, "%*s",
+	     (int)(strlen (name) + sizeof (": * r+r r+o ++ m  ") - 1), "");
+  else
+    fprintf (stderr, "%s: %s %s %s %s %s  ", name,
+	     (reg_valid[m].indirect & mask) != 0 ? "*" : " ",
+	     (reg_valid[m].indexed & mask) != 0 ? "r+r" : "   ",
+	     (reg_valid[m].offsettable & mask) != 0 ? "r+o" : "   ",
+	     (reg_valid[m].update & mask) != 0 ? "++" : "  ",
+	     (reg_valid[m].multiple & mask) != 0 ? "m" : " ");
+}
+
 #define DEBUG_FMT_ID "%-32s= "
 #define DEBUG_FMT_D   DEBUG_FMT_ID "%d\n"
 #define DEBUG_FMT_WX  DEBUG_FMT_ID "%#.12" HOST_WIDE_INT_PRINT "x: "
@@ -1972,6 +2016,29 @@ rs6000_debug_reg_global (void)
 
       fputs ("\n", stderr);
     }
+
+
+  for (m = 0; m < NUM_MACHINE_MODES; ++m)
+    if (reg_valid[m].indirect)
+      {
+	nl = "\n";
+	fprintf (stderr,"Mode: %-5s ", GET_MODE_NAME (m));
+
+	rs6000_debug_print_register_valid (m, "GPR", REG_VALID_GPR);
+	rs6000_debug_print_register_valid (m, "FPR", REG_VALID_FPR);
+	rs6000_debug_print_register_valid (m, "AV", REG_VALID_ALTIVEC);
+	rs6000_debug_print_register_valid (m, "VSX", REG_VALID_VSX);
+
+	if (reg_valid[m].offset_info & OFFSET_0BITS)
+	  fputs ("bottom 2 GPR bits must be 0", stderr);
+	else if (reg_valid[m].offset_info & OFFSET_SPE)
+	  fputs ("offset is 5 bits", stderr);
+
+	fputs ("\n", stderr);
+      }
+
+  if (nl)
+    fputs (nl, stderr);
 
   if (rs6000_cpu_index >= 0)
     {
@@ -2221,6 +2288,119 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     {
       reg_class_to_reg_type[(int)FLOAT_REGS] = FPR_REG_TYPE;
       reg_class_to_reg_type[(int)ALTIVEC_REGS] = ALTIVEC_REG_TYPE;
+    }
+
+  /* Unless we are disabling it, precalculate all of the valid memory address
+     forms.  */
+  memset ((void *) &reg_valid, '\0', sizeof (reg_valid));
+  if (!TARGET_OLD_LEGITIMATE_ADDRESS)
+    {
+      unsigned char valid_gpr = REG_VALID_GPR;
+      unsigned char valid_fpr = ((TARGET_HARD_FLOAT && TARGET_FPRS)
+				 ? REG_VALID_FPR : 0);
+      unsigned char valid_altivec = (TARGET_ALTIVEC) ? REG_VALID_ALTIVEC : 0;
+      unsigned char valid_vsx = (TARGET_VSX) ? REG_VALID_VSX : 0;
+      unsigned char valid_gpr_fpr = (valid_gpr | valid_fpr);
+      unsigned char valid_vector = (valid_altivec | valid_vsx);
+      unsigned char valid_p8 = (TARGET_P8_VECTOR) ? valid_vsx : 0;
+      unsigned char valid_gpr64 = (TARGET_POWERPC64) ? valid_gpr : 0;
+      unsigned char valid_gpr32 = (!TARGET_POWERPC64) ? valid_gpr : 0;
+      unsigned char valid_all = (valid_gpr | valid_fpr | valid_altivec
+				 | valid_vsx);
+      unsigned char update_mask = (TARGET_UPDATE) ? (valid_gpr | valid_fpr) : 0;
+      unsigned char indexed_mask = (!TARGET_AVOID_XFORM) ? valid_all : 0;
+      unsigned char bottom_0bits = (TARGET_POWERPC64) ? OFFSET_0BITS : 0;
+
+      reg_valid[(int)QImode].indirect = valid_gpr;
+      reg_valid[(int)QImode].indexed = (valid_gpr & indexed_mask);
+      reg_valid[(int)QImode].offsettable = valid_gpr;
+      reg_valid[(int)QImode].update = (valid_gpr & update_mask);
+      reg_valid[(int)QImode].multiple = 0;
+      reg_valid[(int)QImode].offset_info = 0;
+
+      reg_valid[(int)HImode] = reg_valid[(int)QImode];
+      reg_valid[(int)SImode] = reg_valid[(int)QImode];
+
+      reg_valid[(int)DImode].indirect = valid_gpr_fpr | valid_vsx;
+      reg_valid[(int)DImode].indexed = ((valid_gpr64 | valid_fpr | valid_vsx)
+					& indexed_mask);
+      reg_valid[(int)DImode].offsettable = valid_gpr_fpr;
+      reg_valid[(int)DImode].update = ((valid_gpr64 | valid_fpr) & update_mask);
+      reg_valid[(int)DImode].multiple = valid_gpr32;
+      reg_valid[(int)DImode].offset_info = bottom_0bits;
+
+      reg_valid[(int)TImode].indirect = valid_gpr | valid_altivec | valid_vsx;
+      reg_valid[(int)TImode].indexed = valid_vector;
+      reg_valid[(int)TImode].offsettable = valid_gpr_fpr;
+      reg_valid[(int)TImode].update = 0;
+      reg_valid[(int)DImode].multiple = valid_gpr;
+      reg_valid[(int)TImode].offset_info = bottom_0bits;
+
+      reg_valid[(int)PTImode].indirect = valid_gpr;
+      reg_valid[(int)PTImode].indexed = 0;
+      reg_valid[(int)PTImode].offsettable = valid_gpr_fpr;
+      reg_valid[(int)PTImode].update = 0;
+      reg_valid[(int)PTImode].multiple = valid_gpr;
+      reg_valid[(int)PTImode].offset_info = bottom_0bits;
+
+      reg_valid[(int)SFmode].indirect = valid_gpr_fpr | valid_p8;
+      reg_valid[(int)SFmode].indexed = ((valid_gpr_fpr | valid_p8)
+					& indexed_mask);
+      reg_valid[(int)SFmode].offsettable = valid_gpr_fpr;
+      reg_valid[(int)SFmode].update = (valid_gpr_fpr & update_mask);
+      reg_valid[(int)SFmode].multiple = 0;
+      reg_valid[(int)SFmode].offset_info = 0;
+
+      reg_valid[(int)DFmode].indirect = valid_gpr_fpr | valid_vsx;
+      reg_valid[(int)DFmode].indexed = ((valid_gpr64 | valid_fpr | valid_vsx)
+					& indexed_mask);
+      reg_valid[(int)DFmode].offsettable = valid_gpr_fpr;
+      reg_valid[(int)DFmode].update = (valid_gpr_fpr & update_mask);
+      reg_valid[(int)DFmode].multiple = valid_gpr32;
+      reg_valid[(int)DFmode].offset_info = bottom_0bits;
+
+      reg_valid[(int)TFmode].indirect = valid_gpr_fpr;
+      reg_valid[(int)TFmode].indexed = ((valid_gpr64 | valid_fpr)
+					& indexed_mask);
+      reg_valid[(int)TFmode].offsettable = valid_gpr_fpr;
+      reg_valid[(int)TFmode].update = 0;
+      reg_valid[(int)TFmode].multiple = valid_all;
+      reg_valid[(int)TFmode].offset_info = bottom_0bits;
+
+      reg_valid[(int)DDmode] = reg_valid[(int)DFmode];
+      reg_valid[(int)TDmode] = reg_valid[(int)TFmode];
+
+      if (TARGET_ALTIVEC)
+	{
+	  reg_valid[(int)V16QImode].indirect = valid_gpr | valid_vector;
+	  reg_valid[(int)V16QImode].indexed = valid_gpr | valid_vector;
+	  reg_valid[(int)V16QImode].offsettable = 0;
+	  reg_valid[(int)V16QImode].update = 0;
+	  reg_valid[(int)V16QImode].offset_info = bottom_0bits;
+
+	  reg_valid[(int)V8HImode] = reg_valid[(int)V16QImode];
+	  reg_valid[(int)V4SImode] = reg_valid[(int)V16QImode];
+	  reg_valid[(int)V4SImode] = reg_valid[(int)V16QImode];
+
+	  if (TARGET_VSX)
+	    {
+	      reg_valid[(int)V2DImode] = reg_valid[(int)V16QImode];
+	      reg_valid[(int)V2DFmode] = reg_valid[(int)V16QImode];
+	    }
+	}
+
+      if (TARGET_SPE)
+	{
+	  reg_valid[(int)V1DImode].indirect = valid_gpr | valid_vector;
+	  reg_valid[(int)V1DImode].indexed = valid_gpr | valid_vector;
+	  reg_valid[(int)V1DImode].offsettable = 0;
+	  reg_valid[(int)V1DImode].update = 0;
+	  reg_valid[(int)V1DImode].offset_info = OFFSET_SPE;
+
+	  reg_valid[(int)V4HImode] = reg_valid[(int)V1DImode];
+	  reg_valid[(int)V2SImode] = reg_valid[(int)V1DImode];
+	  reg_valid[(int)V2SFmode] = reg_valid[(int)V1DImode];
+	}
     }
 
   /* Precalculate vector information, this must be set up before the
