@@ -14413,21 +14413,20 @@ meltlab_endgetargs:;
 
 #endif /*MELT_HAVE_DEBUG */
     ;
+
+    MELT_CHECK_SIGNAL ();
+    ;
     MELT_LOCATION ("warmelt-normal.melt:8552:/ quasiblock");
 
 
- /*_._RETVAL___V1*/ meltfptr[0] = NULL;;
-
-    {
-      MELT_LOCATION ("warmelt-normal.melt:8552:/ locexp");
-      /*ochecknores compilobj_nrep_return */
-#if MELT_HAVE_DEBUG
-      if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
-	melt_warn_for_no_expected_secondary_results ();
-/* we warned when secondary results are expected but not returned. */
-#endif /*MELT_HAVE_DEBUG */
-      ;
-    }
+    /*_._RETVAL___V1*/ meltfptr[0] = ( /*nil */ NULL);;
+    MELT_LOCATION ("warmelt-normal.melt:8552:/ putxtraresult");
+    if (!meltxrestab_ || !meltxresdescr_)
+      goto meltlabend_rout;
+    if (meltxresdescr_[0] != MELTBPAR_PTR)
+      goto meltlabend_rout;
+    if (meltxrestab_[0].meltbp_aptr)
+      *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) (( /*nil */ NULL));
     ;
     /*^finalreturn */
     ;
@@ -15381,21 +15380,20 @@ meltlab_endgetargs:;
 
 #endif /*MELT_HAVE_DEBUG */
     ;
+
+    MELT_CHECK_SIGNAL ();
+    ;
     MELT_LOCATION ("warmelt-normal.melt:8573:/ quasiblock");
 
 
- /*_._RETVAL___V1*/ meltfptr[0] = NULL;;
-
-    {
-      MELT_LOCATION ("warmelt-normal.melt:8573:/ locexp");
-      /*ochecknores compilobj_nrep_return */
-#if MELT_HAVE_DEBUG
-      if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
-	melt_warn_for_no_expected_secondary_results ();
-/* we warned when secondary results are expected but not returned. */
-#endif /*MELT_HAVE_DEBUG */
-      ;
-    }
+    /*_._RETVAL___V1*/ meltfptr[0] = ( /*nil */ NULL);;
+    MELT_LOCATION ("warmelt-normal.melt:8573:/ putxtraresult");
+    if (!meltxrestab_ || !meltxresdescr_)
+      goto meltlabend_rout;
+    if (meltxresdescr_[0] != MELTBPAR_PTR)
+      goto meltlabend_rout;
+    if (meltxrestab_[0].meltbp_aptr)
+      *(meltxrestab_[0].meltbp_aptr) = (melt_ptr_t) (( /*nil */ NULL));
     ;
     /*^finalreturn */
     ;
