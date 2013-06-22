@@ -110,6 +110,7 @@ static string get_tree_name (const_tree);
 static string get_mangled_name (const_tree);
 static size_t get_int_constant_value (const_tree);
 static abigail::class_decl::access_specifier get_access (const_tree);
+static abigail::class_decl::access_specifier get_base_access (const_tree, int);
 static bool should_instr_function (const_tree);
 static bool should_instr_var (const_tree);
 static shared_ptr <abigail::scope_decl> gen_scope_decl
@@ -401,6 +402,26 @@ get_access(const_tree t)
   return result;
 }
 
+// Get the access of the INDEXth base of the class that is described
+// by BINFO.
+static abigail::class_decl::access_specifier
+get_base_access (const_tree binfo, int index)
+{
+  abigail::class_decl::access_specifier a = abigail::class_decl::public_access;
+
+  tree access = BINFO_BASE_ACCESS (binfo, index);
+  if (access == access_public_node)
+    a = abigail::class_decl::public_access;
+  else if (access == access_protected_node)
+    a =abigail::class_decl::protected_access;
+  else if (access == access_private_node)
+    a = abigail::class_decl::private_access;
+  else
+    gcc_unreachable ();
+
+  return a;
+}
+
 // Return true iff the function FN should be instrumented.
 static bool
 should_instr_function (const_tree fn)
@@ -684,6 +705,23 @@ gen_class_type_in_scope (const_tree t,
 			      get_decl_visibility (TYPE_NAME (t))));
 
   get_wip_classes_map ()[t] = class_type;
+
+  {
+    tree binfo = TYPE_BINFO (t), base_binfo;
+    for (int i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
+      {
+	shared_ptr <abigail::type_base> base_type =
+	  gen_type (BINFO_TYPE (base_binfo));
+	if (!base_type)
+	  // FIXME: log that we couldn't generate this type.
+	  continue;
+
+	shared_ptr <abigail::class_decl::base_spec> b
+	  (new abigail::class_decl::base_spec (base_type,
+					       get_base_access (binfo, i)));
+	class_type->add_base_specifier (b);
+      }
+  }
 
   for (tree m = TYPE_FIELDS (t); m; m = DECL_CHAIN (m))
     {
