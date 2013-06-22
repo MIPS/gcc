@@ -1,6 +1,12 @@
 
 
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin release 0.9.9}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9 release.
+
+	* melt-module.mk (GCCMELT_OPTIMIZED_FLAGS): Use -O2, not -O1.
+
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate, for 0.9.9 release}}
 	* melt/generated/meltrunsup-inc.c: Regenerate.

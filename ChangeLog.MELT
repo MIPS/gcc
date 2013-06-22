@@ -1,4 +1,8 @@
 
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT plugin 0.9.9 release}}
+	* INSTALL/README-MELT-PLUGIN: slightly improved instructions.
+
 2013-06-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	* INSTALL/README-MELT-PLUGIN: Mention GC improvements.
 

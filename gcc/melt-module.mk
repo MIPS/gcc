@@ -142,7 +142,7 @@ GCCMELT_HEADER_DIR=.
 
 ## these flags should only affect the quality of the generated
 ## binaries. No preprocessor flags please here!
-GCCMELT_OPTIMIZED_FLAGS ?= -O1
+GCCMELT_OPTIMIZED_FLAGS ?= -O2
 #could add -Wc++-compat in GCCMELT_QUICKLYBUILT_FLAGS below
 GCCMELT_QUICKLYBUILT_FLAGS ?= -O0 -Wall
 GCCMELT_DYNAMIC_FLAGS ?= -O0

@@ -1,5 +1,5 @@
 Short installation instructions for MELT as a plugin to an installed
-gcc-4.7 enabled for plugins.
+gcc-4.7 or gcc-4.8 enabled for plugins.
 
 See also http://gcc-melt.org/
 
@@ -39,7 +39,7 @@ tree, with the support of plugins enabled.
 ## dependencies even to run it..
 
 ## You need to rebuild & reinstall MELT even for minor GCC release
-##   upgrades (ie. from GCC 4.6.2 to 4.6.3).
+##   upgrades (ie. from GCC 4.7.2 to 4.7.3).
 
 
 #########################################################################
@@ -47,27 +47,17 @@ tree, with the support of plugins enabled.
 
 ################ step 1
 
-First, ensure that GCC 4.6 or 4.7 is correctly installed and has been built
-with plugins enabled, for example (on a Debian Unstable, package gcc-4.6):
+First, ensure that GCC 4.6 or 4.7 or 4.8 is correctly installed and has been built
+with plugins enabled, for example (on a Debian Unstable, package gcc-4.8):
 
- % gcc-4.6 -v
+ % gcc-4.8 -v
 Using built-in specs.
-COLLECT_GCC=/usr/bin/gcc-4.6
-COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/4.6/lto-wrapper
+COLLECT_GCC=gcc
+COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/4.8/lto-wrapper
 Target: x86_64-linux-gnu
-Configured with: ../src/configure -v --with-pkgversion='Debian 4.6.3-1' 
- --with-bugurl=file:///usr/share/doc/gcc-4.6/README.Bugs 
- --enable-languages=c,c++,fortran,objc,obj-c++,go --prefix=/usr 
- --program-suffix=-4.6 --enable-shared --enable-linker-build-id 
- --with-system-zlib --libexecdir=/usr/lib --without-included-gettext 
- --enable-threads=posix --with-gxx-include-dir=/usr/include/c++/4.6 
- --libdir=/usr/lib --enable-nls --with-sysroot=/ --enable-clocale=gnu 
- --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-plugin 
- --enable-objc-gc --with-arch-32=i586 --with-tune=generic 
- --enable-checking=release --build=x86_64-linux-gnu 
- --host=x86_64-linux-gnu --target=x86_64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Debian 4.8.1-3' --with-bugurl=file:///usr/share/doc/gcc-4.8/README.Bugs --enable-languages=c,c++,java,go,d,fortran,objc,obj-c++ --prefix=/usr --program-suffix=-4.8 --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --with-gxx-include-dir=/usr/include/c++/4.8 --libdir=/usr/lib --enable-nls --with-sysroot=/ --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-gnu-unique-object --enable-plugin --with-system-zlib --disable-browser-plugin --enable-java-awt=gtk --enable-gtk-cairo --with-java-home=/usr/lib/jvm/java-1.5.0-gcj-4.8-amd64/jre --enable-java-home --with-jvm-root-dir=/usr/lib/jvm/java-1.5.0-gcj-4.8-amd64 --with-jvm-jar-dir=/usr/lib/jvm-exports/java-1.5.0-gcj-4.8-amd64 --with-arch-directory=amd64 --with-ecj-jar=/usr/share/java/eclipse-ecj.jar --enable-objc-gc --enable-multiarch --with-arch-32=i586 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --with-tune=generic --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
 Thread model: posix
-gcc version 4.6.3 (Debian 4.6.3-1) 
+gcc version 4.8.1 (Debian 4.8.1-3) 
 
 Be sure that you have all the development packages for all libraries
 used by GCC (e.g. run 'apt-get build-dep gcc' on Debian). In
@@ -80,7 +70,7 @@ texi2html utilities
 ################ step 2
 
 Then, be sure that the GCC plugin development support has been
-installed. (On Debian, you'll need the gcc-4.6-plugin-dev package).
+installed. (On Debian, you'll need e.g. the gcc-4.8-plugin-dev package).
 
 So you should have something like
 % gcc-4.6 -print-file-name=plugin 
@@ -191,7 +181,7 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 ################################################################
 NEWS for 0.9.9 MELT plugin for GCC 4.6 & 4.7 & 4.8
-[[june, XX, 2013]]
+[[june, 22nd, 2013]]
 
 This is a significant release. A lot of new features are
 appearing. Much more ability to mix arbitrary C/C++ & MELT code in any
@@ -339,7 +329,7 @@ code), for GCC 4.7 & 4.8
 
    ***
    * Many bug fixes and internal improvements... Emitted C/C++ code 
-     contains more checks..
+     contains more checks.. REPL and EVAL modes are working much better.
 
 
    ***
