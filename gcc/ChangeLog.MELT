@@ -1,6 +1,9 @@
 
 
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-debug.melt (dbgout_list_method): Works better.
+
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{REPL mode works, even with a piped input like from shell command
 	printf "(list 'a 'b)\n\n" ....}}
 
