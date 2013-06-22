@@ -1,3 +1,13 @@
+2013-06-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/error.c (subst_to_string): Allow this to be called explicitly
+	passing template parameters in the TREE_TYPE and with a null TREE_PURPOSE.
+	* constraint.cc (check_requirements): New overload taking template
+	arguments.
+	(check_constraints.cc): Move instantiation and checking into the
+	new check_requirements overload.
+	(diagnose_requirements): New family of functions for diagnosing constraint
+	failures.
+
 2013-06-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/class.c (are_constrained_member_overloads): New.
 	(add_method): Allow overloading of constrained member functions.
