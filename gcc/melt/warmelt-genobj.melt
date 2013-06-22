@@ -1624,26 +1624,29 @@
 	   ;; cond to test boxloc & call the hook_fresh_environment_reference_maker if it if null
 
 	   (otestcomputboxloc 
-	    (instance class_objcond
-		      :obcond_test boxloc
-		      :obcond_then ()
-		      :obcond_else
-		      (make_objcompute
-		       ()
-		       ctype_void
-		       ##{ /* compile2obj_initproc emitted initialization of environment reference for $RAWMODNAM */
-		       if ($OPREVENV) 
-		         {
-		          $BOXLOC = melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER 
-		               ((melt_ptr_t) $OPREVENV, "$RAWMODNAM") ;
-		         }
-		       else /* no prevenv */
-		         {
-		           if (!melt_flag_bootstrapping)
-		             warning(0, "MELT is not creating a fresh environment reference for $RAWMODNAM without parent env.") ;
-		          }
-		       }#
-		       )))
+	    (instance
+	     class_objcond
+	     :obcond_test boxloc
+	     :obcond_then ()
+	     :obcond_else
+	     (make_objcompute
+	      ()
+	      ctype_void
+	      ##{ /* compile2obj_initproc emitted initialization of environment reference for $RAWMODNAM */
+	      if ($OPREVENV) 
+	        {
+	          $BOXLOC = melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER 
+	                         ((melt_ptr_t) $OPREVENV, "$RAWMODNAM") ;
+	        }
+	      else /* no prevenv */
+	        {
+#if MELT_HAS_INITIAL_ENVIRONMENT>0
+	      if (!melt_flag_bootstrapping)
+	        warning(0, "MELT is not creating a fresh environment reference for $RAWMODNAM without parent env.") ;
+#endif /* MELT_HAS_INITIAL_ENVIRONMENT>0 */
+	      }
+	      }#
+	      )))
 	   ;;
 	   (limplocv
 	    (list_map 

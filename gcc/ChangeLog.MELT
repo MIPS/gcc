@@ -1,6 +1,12 @@
 
 
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-genobj.melt (compile2obj_initproc): The emitted
+	warning for no parent environment is meaningful only when
+	MELT_HAS_INITIAL_ENVIRONMENT.
+
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/meltrunsup-inc.c: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+01.c: Regenerate.
