@@ -5838,6 +5838,12 @@ extern void explain_invalid_constexpr_fn (tree);
 extern vec<tree> cx_error_context (void);
 extern bool is_unary_trait                      (cp_trait_kind);
 extern bool is_binary_trait                     (cp_trait_kind);
+extern tree finish_requires_expr                (tree, tree);
+extern tree finish_syntax_requirement           (tree, tree, tree);
+extern tree finish_syntax_requirement           (tree);
+extern tree finish_type_requirement             (tree);
+extern tree finish_constexpr_requirement        (tree);
+extern tree finish_noexcept_requirement         (tree);
 
 enum {
   BCS_NO_SCOPE = 1,

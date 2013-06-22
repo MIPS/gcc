@@ -1,12 +1,30 @@
 2013-06-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/parser.c (cp_parser_requires_clause): Pulled out of
+	cp_parser_requires_clause_opt for reuse in the requires expr parser.
+	(cp_parser_requires_expression): New, along with a family of
+	sub-expression parsers for the new feature.
+	* gcc/cp/semantics.c (finish_requires_expr): Stub.
+	(finish_syntax_requirement): Stub.
+	(finish_type_requirement): Stub.
+	(finish_constexpr_requirement): Stub.
+	(finish_noexcept_requirement): Stub.
+	(finish_requires_expr): Stub.
+	* gcc/cp/cp-tree.h: (finish_requires_expr): New.
+	(finish_syntax_requirement): New.
+	(finsih_type_requirement): New.
+	(finish_constexpr_requirement): New.
+	(finish_noexcept_requirement): New.
+
+2013-06-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/error.c (subst_to_string): Allow this to be called explicitly
-	passing template parameters in the TREE_TYPE and with a null TREE_PURPOSE.
+	passing template parameters in the TREE_TYPE and with a null 
+	TREE_PURPOSE.
 	* constraint.cc (check_requirements): New overload taking template
 	arguments.
 	(check_constraints.cc): Move instantiation and checking into the
 	new check_requirements overload.
-	(diagnose_requirements): New family of functions for diagnosing constraint
-	failures.
+	(diagnose_requirements): New family of functions for diagnosing 
+	constraint failures.
 
 2013-06-18  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/class.c (are_constrained_member_overloads): New.

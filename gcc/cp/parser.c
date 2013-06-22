@@ -2210,8 +2210,36 @@ static void cp_parser_label_declaration
 
 /* Concept Extensions */
 
+static tree cp_parser_requires_clause
+  (cp_parser *);
 static tree cp_parser_requires_clause_opt
   (cp_parser *);
+static tree cp_parser_requires_expression
+  (cp_parser *);
+static tree cp_parser_requires_expression_parameter_list
+  (cp_parser *);
+static tree cp_parser_requires_expression_body
+  (cp_parser *);
+static tree cp_parser_requirement_list
+  (cp_parser *);
+static tree cp_parser_requirement
+  (cp_parser *);
+static tree cp_parser_simple_requirement
+  (cp_parser *);
+static tree cp_parser_syntax_requirement
+  (cp_parser *);
+static tree cp_parser_type_requirement
+  (cp_parser *);
+static tree cp_parser_nested_requirement
+  (cp_parser *);
+static tree cp_parser_constexpr_constraint_spec
+  (cp_parser *, tree);
+static tree cp_parser_noexcept_constraint_spec
+  (cp_parser *, tree);
+static tree cp_parser_constraint_spec
+  (cp_parser *, tree);
+static tree cp_parser_constraint_specifier_seq
+  (cp_parser *, tree);
 
 /* Transactional Memory Extensions */
 
@@ -4404,6 +4432,10 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_IS_TRIVIAL:
 	case RID_IS_UNION:
 	  return cp_parser_trait_expr (parser, token->keyword);
+
+  // C++ concepts
+  case RID_REQUIRES:
+    return cp_parser_requires_expression (parser);
 
 	/* Objective-C++ expressions.  */
 	case RID_AT_ENCODE:
@@ -21417,25 +21449,309 @@ cp_parser_label_declaration (cp_parser* parser)
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 }
 
+// -------------------------------------------------------------------------- //
+// Requires Clause
+
+// Parse a requires clause. 
+//
+//    requires-clause:
+//      'requires' logical-or-expression
+//
+// The required logical-or-expression must be a constant expression.
+static tree
+cp_parser_requires_clause (cp_parser *parser)
+{
+  // Parse the constant expression.
+  tree expr = 
+    cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
+  if (!require_potential_rvalue_constant_expression (expr))
+    return error_mark_node;
+  return expr;
+}
+
 // Optionally parse a requires clause:
 //
 //   requires-clause:
-//     'requires' constant-expression
+//     'requires' logical-or-expression
 //
-// The constant expression is a logical-or-expression.
+// The required logical-or-expression must be a constant expression.
 static tree
 cp_parser_requires_clause_opt (cp_parser *parser)
 {
   if (!cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
     return NULL_TREE;
   cp_lexer_consume_token (parser->lexer);
+  return cp_parser_requires_clause (parser);
+}
 
-  // Parse a logical-or-expression as a constant expression.
-  tree expr = 
-    cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
-  if (!require_potential_rvalue_constant_expression (expr))
+
+// -------------------------------------------------------------------------- //
+// Requires Expression
+
+// Parse a requires expression
+//
+//    requirement-expression:
+//        'requires' requirement-parameter-list[opt] requirement-body
+static tree
+cp_parser_requires_expression (cp_parser *parser)
+{
+  gcc_assert (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES));
+  cp_lexer_consume_token (parser->lexer);
+
+  // TODO: Check that requires expressions are only written inside of
+  // template declarations. They don't need to be concepts, just templates.
+
+  // Parse the optional parameter list.
+  tree parms = cp_parser_requires_expression_parameter_list (parser);
+  if (parms == error_mark_node)
     return error_mark_node;
-  return expr;
+
+  // Parse the requirement body.
+  tree reqs = cp_parser_requires_expression_body (parser);
+  if (reqs == error_mark_node)
+    return error_mark_node;
+
+  return finish_requires_expr (parms, reqs);
+}
+
+// Parse a parameterized requirement.
+//
+//    requirement-parameter-list:
+//        '(' parameter-declaration-clause ')'
+static tree
+cp_parser_requires_expression_parameter_list (cp_parser *parser)
+{
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    return error_mark_node;
+
+  // Parse the nested parameter declaration clause.
+  tree parms = cp_parser_parameter_declaration_clause (parser);
+  if (parms == error_mark_node)
+    return error_mark_node;
+
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+    return error_mark_node;
+
+  return parms;
+}
+
+// Parse the body of a requirement.
+//
+//    requirement-body:
+//        '{' requirement-list '}'
+static tree
+cp_parser_requires_expression_body (cp_parser *parser)
+{
+  if (!cp_parser_require (parser, CPP_OPEN_BRACE, RT_OPEN_BRACE))
+    return error_mark_node;
+
+  tree reqs = cp_parser_requirement_list (parser);
+
+  if (!cp_parser_require (parser, CPP_CLOSE_BRACE, RT_CLOSE_BRACE))
+    return error_mark_node;
+
+  return reqs;
+}
+
+// Parse a list of requirements.
+//
+//    requirement-list:
+//        requirement
+//        requirement-list ';' requirement[opt]static tree
+static tree
+cp_parser_requirement_list (cp_parser *parser)
+{
+  tree result = NULL_TREE;
+  while (true)
+    {
+      tree req = cp_parser_requirement (parser);
+      if (req == error_mark_node)
+        return req;
+
+      result = tree_cons (NULL_TREE, req, result);
+
+      // If we see a semi-colon, consume it.
+      if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+          cp_lexer_consume_token (parser->lexer);
+
+      // If we've found the end of the list, stop processing
+      // the list.
+      if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
+        break;
+    }
+
+  // Reverse the order of requirements so they are analyzed in
+  // declaration order.
+  return nreverse (result);
+}
+
+// Parse a syntactic requirement or type requirement.
+//
+//    requirement:
+//        simple-requirement
+//        syntax-requirement
+//        type-requirement
+//        nested-requirement
+static tree
+cp_parser_requirement (cp_parser *parser)
+{
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_REQUIRES))
+    return cp_parser_nested_requirement (parser);
+
+  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+    return cp_parser_syntax_requirement (parser);
+
+  // Try parsing a type requirement first.
+  cp_parser_parse_tentatively (parser);
+  tree req = cp_parser_type_requirement (parser);
+  if (req == error_mark_node)
+    cp_parser_abort_tentative_parse (parser);
+  else
+    cp_parser_commit_to_tentative_parse (parser);
+
+  // If that failed, then we must have a simple requirement.
+  if (req == error_mark_node)
+    req = cp_parser_simple_requirement (parser);
+
+  return req;
+}
+
+// Parse a nested requirement. This is the same as a requires clause.
+//
+//    nested-requirement:
+//      requires-clause
+static tree
+cp_parser_nested_requirement (cp_parser *parser)
+{
+  cp_lexer_consume_token (parser->lexer);
+  return cp_parser_requires_clause (parser);
+}
+
+// Parse a simple requirement.
+//
+//    simple-requirement:
+//      expression
+static tree
+cp_parser_simple_requirement (cp_parser *parser)
+{
+  tree expr = cp_parser_expression (parser, false, false, NULL);
+  if (!expr || expr == error_mark_node)
+    return error_mark_node;
+  return finish_syntax_requirement (expr);
+}
+
+// Parse a syntax requirement
+//
+//    syntax-requirement:
+//        '{' expression '}' trailing-constraint-specifiers
+//
+//    trailing-constraint-specifiers:
+//      constraint-specifiers-seq[opt] result-type-requirement[opt]
+//
+//    result-type-requirement:
+//       '->' type-id
+static tree
+cp_parser_syntax_requirement (cp_parser *parser)
+{
+  // Parse an expression enclosed in '{ }'s.
+  if (!cp_parser_require (parser, CPP_OPEN_BRACE, RT_OPEN_BRACE))
+    return error_mark_node;
+
+  tree expr = cp_parser_expression (parser, false, false, NULL);
+  if (!expr || expr == error_mark_node)
+    return error_mark_node;
+
+  if (!cp_parser_require (parser, CPP_CLOSE_BRACE, RT_CLOSE_BRACE))
+    return error_mark_node;
+
+  // Parse trailing expression specifiers.
+  tree cs = cp_parser_constraint_specifier_seq (parser, expr);
+
+  // Parse the optional trailing type requirement.
+  tree type = NULL_TREE;
+  if (cp_lexer_next_token_is (parser->lexer, CPP_DEREF))
+    {
+      cp_lexer_consume_token (parser->lexer);
+      type = cp_parser_type_id (parser);
+      if (type == error_mark_node)
+        return error_mark_node;
+    }
+
+  return finish_syntax_requirement (expr, type, cs);
+}
+
+// Parse a type requirement
+//
+//    type-requirement
+//        type-id
+static tree
+cp_parser_type_requirement (cp_parser *parser)
+{
+  // Try parsing the type-id
+  tree type = cp_parser_type_id (parser);
+  if (type == error_mark_node)
+    return error_mark_node;
+
+  // It can only be a type requirement if nothing comes after it.
+  // For example, this:
+  //
+  //    typename T::value_type x = a;
+  //
+  // Is not a type requirement even though it stars with a type-id.
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
+    return error_mark_node;
+
+  return finish_type_requirement (type);
+}
+
+// Parse an optional constexpr specifier in a constraint expression.
+static tree
+cp_parser_constexpr_constraint_spec (cp_parser *parser, tree expr)
+{
+  cp_lexer_consume_token (parser->lexer);
+  return NULL_TREE;
+  // return finish_constexpr_requirement (expr);
+}
+
+// Parse an optional noexcept specifier in a constraint expression.
+static tree
+cp_parser_noexcept_constraint_spec (cp_parser *parser, tree expr)
+{
+  cp_lexer_consume_token (parser->lexer);
+  return NULL_TREE;
+  // return finish_noexcept_requirement (expr);
+}
+
+static tree
+cp_parser_constraint_spec (cp_parser *parser, tree expr)
+{
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_CONSTEXPR))
+    return cp_parser_constexpr_constraint_spec (parser, expr);
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_NOEXCEPT))
+    return cp_parser_noexcept_constraint_spec (parser, expr);
+  return NULL_TREE;    
+}
+
+// Parse an optional expression specifier sequence.
+//
+//    constraint-specifier-sequence:
+//        constexpr [opt] noexcept [opt]
+static tree
+cp_parser_constraint_specifier_seq (cp_parser *parser, tree expr)
+{
+  tree result = NULL_TREE;
+  while (1)
+    {
+      // If we can parse a constraint specifier, insert it into
+      // the list of requirements.
+      if (tree spec = cp_parser_constraint_spec (parser, expr))
+        {
+          result = tree_cons (NULL_TREE, spec, result);
+          continue;
+        }
+      break;
+    }
+  return result;
 }
 
 /* Support Functions */

@@ -9988,7 +9988,6 @@ is_lambda_ignored_entity (tree val)
 
 // Semantics for constraints.
 
-
 // Finish the template requirement, EXPR, by translating it into
 // a constraint information record.
 tree
@@ -9999,5 +9998,52 @@ finish_template_requirements (tree expr)
   else
     return make_constraints (expr);
 }
+
+// TODO: Implement semantics for requires expressions.
+tree
+finish_requires_expr (tree, tree)
+{
+  return NULL_TREE;
+}
+
+// TODO: Implement syntax requirements.
+tree
+finish_syntax_requirement (tree, tree, tree)
+{
+  return NULL_TREE;
+}
+
+// Finish the simple syntax requirement by constructing a new
+// syntax requirement that has no result type requirements nor
+// constraint specifiers.
+tree
+finish_syntax_requirement (tree expr)
+{
+  return finish_syntax_requirement (expr, NULL_TREE, NULL_TREE);
+}
+
+// TODO: Implement type requirements.
+tree
+finish_type_requirement (tree)
+{
+  return NULL_TREE;
+}
+
+// TODO: Implement constexpr requirements.
+tree
+finish_constexpr_requirement (tree)
+{
+  return NULL_TREE;
+}
+
+// Finish the noexcept requirement by constructing a noexcept 
+// expression evaluating EXPR.
+tree
+finish_noexcept_requirement (tree expr)
+{
+  return finish_noexcept_expr (expr, tf_none);
+}
+
+
 
 #include "gt-cp-semantics.h"
