@@ -21,7 +21,7 @@
 	     
 /* version of the GCC compiler & MELT runtime generating this */
 const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revision 200300] MELT_0\
-.9.9-pre"
+.9.9-quasi"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-pre [melt-branch_revision_200300]";
+const char melt_versionmeltstr[]="0.9.9-quasi [melt-branch_revision_200300]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-debug */
@@ -39,14 +39,14 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc-melt/gcc/x86_64-unknown
 -modules/0.9.9-pre/warmelt-debug";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="48da474ab8fc459c4e0c1d1e40788d9f";
+const char melt_prepromd5meltrun[]="cb7771cac15a221a366b6fc024a4cb6a";
 /* hexmd5checksum of primary C file */
-const char melt_primaryhexmd5[]="f4c511e77e0eb54abf2e1739f078e356";
+const char melt_primaryhexmd5[]="1538ad4078c24da51629279ffb57e68b";
 
 /* hexmd5checksum of secondary C files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-debug+01.c #1 */ "260ab5b4092aa20584b4fd2c4695b74f",
+ /*sechexmd5checksum meltbuild-sources/warmelt-debug+01.c #1 */ "9e6b1a1016d4fca1d43cff8914272cd4",
  /*sechexmd5checksum meltbuild-sources/warmelt-debug+02.c #2 */ "e68e4a7bb677cc7735f77674a28bfb8e",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="38cd0181841b66281fc2e71ee57f17b0" ;
+const char melt_cumulated_hexmd5[]="431f0ef8bb3ca55288e63496fdd42d38" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiDEBUG_mds__38CD0181841B66281FC2E71EE57F17B0 1
+#define meltmod_WARMELTmiDEBUG_mds__431F0EF8BB3CA55288E63496FDD42D38 1
 #include "warmelt-debug+melttime.h"
 	 
 
