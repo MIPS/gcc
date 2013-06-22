@@ -44,8 +44,13 @@
 }#)
 
 
-;;; Avoid using debug_msg or debug here.  See comments around
-;;; debug_msg_fun private function near end of this file.
+;;; Avoid using debug_msg or debug here.  If needed, use the following
+(defprimitive melt_low_debug (:cstring msg :value val) :void
+  :doc #{Low level macro for debugging, only useful in file
+  warmelt-first.melt only. Use $DEBUG instead.}#
+  #{/* melt_low_debug */ melt_low_debug_value($MSG,(melt_ptr_t)$VAL)}#
+  )
+
 
 ;;****************************************************************
 ;;       C L A S S E S 
@@ -4047,6 +4052,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  mapstring_nth_val
  mapstring_putstr
  mapstring_removestr
+ melt_low_debug
  melt_need_dbg
  melt_need_dbglim
  melt_callcount
@@ -4211,16 +4217,6 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
 
 (let ( ( truekeyword :true) )
   (code_chunk storetruekeyword #{MELT_STORE_PREDEF(TRUE, (melt_ptr_t) $TRUEKEYWORD)}#))
-
-;;; this definition is internal to this first file. It is here only to
-;;; allow debug_msg macros in this warmelt-first.melt file. The real
-;;; function is inside warmelt-debug.melt. It should not be exported
-;;; (because it is exported in warmelt-debug.melt). This is a dirty
-;;; trick to implement a circular reference.
-(defun debug_msg_fun (val :cstring msgstr :long count :cstring filenam :long lineno)
-  (let ( (dbgmsgfun (unsafe_get_field :sysdata_debugmsg initial_system_data)) )
-    (if (is_closure dbgmsgfun)
-	(dbgmsgfun val msgstr count filenam lineno))))
 
 
 ;; support for named_symbol hook

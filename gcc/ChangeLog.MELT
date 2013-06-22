@@ -2,6 +2,13 @@
 
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-quasi...
+
+	* melt/warmelt-first.melt (debug_msg_fun): Remove.
+	(melt_low_debug): New primitive.
+
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-genobj.melt (compile2obj_initproc): The emitted
 	warning for no parent environment is meaningful only when
 	MELT_HAS_INITIAL_ENVIRONMENT.
