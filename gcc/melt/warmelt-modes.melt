@@ -311,6 +311,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		 (:long inlistlen (list_length inlist))
 		 (stdout (get_field :sysdata_stdout initial_system_data))
 		 )
+	     (debug "repl_processor stdout=" stdout)
+	     (assert_msg "check stdout" (is_out stdout))
 	     (code_chunk beforevalrepl_chk
 			 #{ /* repl_processor $BEFOREVALREPL_CHK */
 			 printf ("\n;; MELT REPL evaluation #%ld of %ld expressions\n",
@@ -323,11 +325,10 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		    (dbgi (instance class_debug_information
 				    :dbgi_out stdout
 				    :dbgi_occmap occmap
-				    :dbgi_maxdepth (make_integerbox 
-						    discr_constant_integer (debug_depth))))
+				    :dbgi_maxdepth (constant_box (+i 3 (debug_depth)))))
 		    )
 	       (debug "repl_processor before translate&run inlist=" inlist
-		      "\n replenv=" replenv)
+		      "\n.. replenv=" replenv "\n.. dbgi=" dbgi "\n")
 	       (block_signals 
 		() ()
 		(setq res (translate_run_melt_expressions inlist replenv)))
@@ -382,7 +383,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 						   $EVALCOUNT) ;
 					   fflush (NULL)       ;
 					   }#)
-			       (hook_poll_inputs 30000))
+			       (hook_poll_inputs 60000))
 			     (debug "repl_docmd/waitfun end refcont=" refcont 
 				    " evalcounter=" evalcounter)
 			     )))

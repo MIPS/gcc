@@ -2342,7 +2342,7 @@ exit, in last place.}#
 	(debug "melt_invoke_input_callbacks ix#" ix " curfd#" curfd
 	       " curinch=" curinch "\n.. curstate=" curstate)
 	(assert_msg "check curinch" (is_a curinch class_input_channel_handler))
-	(assert_msg "check curfd" (>i curfd 0))
+	(assert_msg "check curfd" (>=i curfd 0))
 	(if curstate
 	    (progn ;; should read and callback if got entire message
 	      (code_chunk 

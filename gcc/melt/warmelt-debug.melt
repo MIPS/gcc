@@ -471,7 +471,7 @@ $DBGI at given $DEPTH}#
 	      )))))
   )
 
-(defun dbg_out (obj dbgi  :long depth) 
+(defun dbg_out (obj dbgi :long depth) 
   :doc #{Output for debugging value $OBJ using debug information
   $DBGI at given $DEPTH}#
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
@@ -481,9 +481,8 @@ $DBGI at given $DEPTH}#
 	 (:long maxdepth (get_int (unsafe_get_field :dbgi_maxdepth dbgi)))
 	 )
     (if (null out)      
-      (return))
-    (if (or (melt_really_need_dbglim  depth maxdepth) 
-	    (and (<i depth maxdepth) (is_a dbgi class_debug_output_information)))
+	(return))
+    (if  (<i depth maxdepth) 
 	(progn
 	  (cond
 	   ( (is_object obj)

@@ -1,6 +1,20 @@
 
 
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{REPL mode works, but LIST macro don't work well in it}}
+
+	* melt/warmelt-debug.melt (dbg_out): Simplified test to output.
+
+	* melt/warmelt-outobj.melt (translate_run_melt_expressions): The
+	temporary raw fileprefix contains the pid to ensure unicity.
+
+	* melt/warmelt-hooks.melt (melt_invoke_input_callbacks): 0
+	i.e. stdin is a permissible file descriptor, useful for REPL.
+
+	* melt/warmelt-modes.melt (repl_processor, repl_docmd): More debug
+	and increase poll time to 60 seconds.
+
+2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{REPL mode does not seems to work correctly}}
 
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-pre.
