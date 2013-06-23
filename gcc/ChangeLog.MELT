@@ -1,5 +1,8 @@
 
 
+2013-06-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-post.
+
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin release 0.9.9}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9 release.
