@@ -27,7 +27,7 @@ meltsource_dir=$2
 ## should be single word programs
 melt_unifdef=unifdef
 melt_astyle=astyle
-melt_tempsuffix=tmp$$
+melt_tempsuffix=tmp.$$
 
 if [ ! -d $meltbuild_sourcedir ]; then
     echo MELT-upgrade bad generated source directory $meltbuild_sourcedir 1>&2
@@ -82,7 +82,7 @@ for f in $meltbuild_sourcedir/generated/meltrunsup.h  $meltbuild_sourcedir/gener
 	exit 1
     fi
     $melt_astyle --style=gnu < "$bf-unif-$melt_tempsuffix"  > "$meltsource_dir/melt/generated/$bf-$melt_tempsuffix"
-    if [ ! -s "$meltsource_dir/$bf-$melt_tempsuffix" ]; then
+    if [ ! -s "$meltsource_dir/melt/generated/$bf-$melt_tempsuffix" ]; then
 	echo MELT-upgrade failed to upgrade runtime file $f 1>&2
 	exit 1
     else
@@ -90,7 +90,8 @@ for f in $meltbuild_sourcedir/generated/meltrunsup.h  $meltbuild_sourcedir/gener
 	mv "$meltsource_dir/melt/generated/$bf-$melt_tempsuffix"  "$meltsource_dir/melt/generated/$bf"
     fi
 done
-
+#
+################
 ## upgrade the translator
 for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
     if [ ! -s "$df" ]; then
@@ -108,7 +109,7 @@ for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
     for f in $meltbuild_sourcedir/$bs.cc $meltbuild_sourcedir/$bs+[0-9][0-9].cc ; do
 	bf=$(basename $f)
 	$melt_unifdef -DMELTGCC_NOLINENUMBERING < $f > "$bf-unif-$melt_tempsuffix"
-	if | ! -s  "$bf-unif-$melt_tempsuffix" ]; then
+	if [ ! -s  "$bf-unif-$melt_tempsuffix" ]; then
 	    echo MELT-upgrade failed to unifdef translator file $f 1>&2
 	    exit 1
 	fi
@@ -128,17 +129,17 @@ for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
 	exit 1
     else
 	echo MELT-upgrade is upgrading descriptor $meltsource_dir/melt/generated/$bf+meltdesc.c
-	mv  "$meltsource_dir/melt/generated/$bf+meltdesc.c-$melt_tempsuffix" "$meltsource_dir/melt/generated/$bf+meltdesc.c"
+	mv  "$meltsource_dir/melt/generated/$bf+meltdesc.c-$melt_tempsuffix" "$meltsource_dir/melt/generated/$bs+meltdesc.c"
     fi
-    cp $tf "$meltsource_dir/melt/generated/$bf+melttime.h-$melt_tempsuffix"
-    if [ ! -s "$meltsource_dir/melt/generated/$bf+melttime.h-$melt_tempsuffix"  ]; then
+    cp $tf "$meltsource_dir/melt/generated/$bs+melttime.h-$melt_tempsuffix"
+    if [ ! -s "$meltsource_dir/melt/generated/$bs+melttime.h-$melt_tempsuffix"  ]; then
 	echo MELT-upgrade failed to upgrade timestamp file "$meltsource_dir/melt/generated/$bf+melttime.h" 1>&2
 	exit 1
     else
-	echo MELT-upgrade is upgrading timestamp file "$meltsource_dir/melt/generated/$bf+melttime.h"
-	mv "$meltsource_dir/melt/generated/$bf+melttime.h-$melt_tempsuffix"  "$meltsource_dir/melt/generated/$bf+melttime.h"
+	echo MELT-upgrade is upgrading timestamp file "$meltsource_dir/melt/generated/$bs+melttime.h"
+	mv "$meltsource_dir/melt/generated/$bs+melttime.h-$melt_tempsuffix"  "$meltsource_dir/melt/generated/$bs+melttime.h"
     fi
 done
 
-date + "MELT-upgrade completed upgrade from $meltbuild_sourcedir to $meltsource_dir/melt/ at %D %T %Z %n"
+date +"MELT-upgrade completed upgrade from $meltbuild_sourcedir to $meltsource_dir/melt/ at %D %T %Z %n"
 # eof melt-upgrade.sh
