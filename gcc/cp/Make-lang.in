@@ -274,7 +274,7 @@ cp/decl.o: cp/decl.c $(CXX_TREE_H) $(TM_H) $(FLAGS_H) cp/decl.h \
   cp/operators.def $(TM_P_H) $(TREE_INLINE_H) $(DIAGNOSTIC_H) $(C_PRAGMA_H) \
   debug.h gt-cp-decl.h $(TIMEVAR_H) $(TARGET_H) $(PLUGIN_H) \
   intl.h tree-iterator.h pointer-set.h $(SPLAY_TREE_H) \
-  c-family/c-objc.h cp/abi-instr.h
+  c-family/c-objc.h
 cp/decl2.o: cp/decl2.c $(CXX_TREE_H) $(TM_H) $(FLAGS_H) cp/decl.h \
   toplev.h $(C_COMMON_H) gt-cp-decl2.h $(CGRAPH_H) \
   $(C_PRAGMA_H) dumpfile.h intl.h $(TARGET_H) $(GIMPLE_H) pointer-set.h \

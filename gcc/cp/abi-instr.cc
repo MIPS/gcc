@@ -42,6 +42,7 @@ using std::string;
 using std::list;
 using std::vector;
 
+// Hashing functor for hash maps that take a type or decl as keys.
 struct type_or_decl_hash
 {
   size_t
@@ -58,11 +59,17 @@ struct type_or_decl_hash
   }
 };
 
+// Comparison functor for hash maps that take either types or decls as
+// keys.
 struct type_or_decl_equal
 {
   bool
   operator () (const_tree t0, const_tree t1) const
   {
+    if ((!!t0 != !! t1)
+	|| (TREE_CODE (t0) != TREE_CODE (t1)))
+      return false;
+
     if (TYPE_P (t0))
       return same_type_p (CONST_CAST_TREE (t0), CONST_CAST_TREE (t1));
     return operand_equal_p (t0, t1, 0);
@@ -71,7 +78,12 @@ struct type_or_decl_equal
 typedef unordered_map <const_tree,
 		       shared_ptr <abigail::class_decl>,
 		       type_or_decl_hash,
-		       type_or_decl_equal> classes_wip_map;
+		       type_or_decl_equal> class_map;
+
+typedef unordered_map <const_tree,
+		       shared_ptr <abigail::function_type>,
+		       type_or_decl_hash,
+		       type_or_decl_equal> function_type_map;
 
 typedef unordered_map <const_tree,
 		       shared_ptr <abigail::scope_decl>,
@@ -90,15 +102,20 @@ typedef unordered_map <const_tree,
 static abigail::translation_unit	*tu;
 static abigail::config			*conf;
 static scope_map			*tree_2_scope_map;
-static classes_wip_map			*wip_classes_map;
+static class_map			*wip_classes_map;
 static type_map			*tree_2_type_map;
 static decl_map			*tree_2_decl_map;
+static class_map			*tree_2_class_map;
+static function_type_map		*tree_2_function_type_map;
 
 static void deallocate_stuff ();
 static abigail::translation_unit& get_cur_tu ();
 static const abigail::config& get_conf ();
 static scope_map& get_tree_2_scope_map ();
 static type_map& get_tree_2_type_map ();
+static decl_map& get_tree_2_decl_map ();
+static class_map& get_tree_2_class_map ();
+static function_type_map& get_tree_2_function_type_map ();
 static shared_ptr<abigail::scope_decl> gen_scope_of (const_tree );
 static abigail::decl_base::visibility convert_visibility (symbol_visibility);
 static abigail::location convert_location (source_location);
@@ -124,7 +141,8 @@ static shared_ptr <abigail::function_decl> gen_function_decl
  shared_ptr <abigail::class_decl> base_type =
  shared_ptr <abigail::class_decl> ());
 static shared_ptr <abigail::class_decl> gen_class_type_in_scope
-(const_tree, shared_ptr <abigail::scope_decl>);
+(const_tree,
+ shared_ptr <abigail::scope_decl> scope = shared_ptr <abigail::scope_decl> ());
 static shared_ptr<abigail::class_decl::data_member> gen_data_member
 (const_tree);
 static shared_ptr<abigail::class_decl::member_function> gen_member_function
@@ -146,6 +164,8 @@ deallocate_stuff ()
   delete wip_classes_map; wip_classes_map = 0;
   delete tree_2_type_map; tree_2_type_map = 0;
   delete tree_2_decl_map; tree_2_decl_map = 0;
+  delete tree_2_class_map; tree_2_class_map = 0;
+  delete tree_2_function_type_map; tree_2_function_type_map = 0;
 }
 
 // Returns the current translation unit.  This function allocates it,
@@ -194,13 +214,47 @@ get_tree_2_type_map ()
 }
 
 // Allocates (if necessary) and return the map that associates trees
+// representing a decl and their matching isntance of libabigail type.
+static decl_map&
+get_tree_2_decl_map ()
+{
+  if (!tree_2_decl_map)
+    tree_2_decl_map = new decl_map;
+
+  return *tree_2_decl_map;
+}
+
+// Allocates (if necessary) and return the map that associates trees
+// representing a decl and their matching isntance of libabigail type.
+static class_map&
+get_tree_2_class_map ()
+{
+  if (!tree_2_class_map)
+    tree_2_class_map = new class_map;
+
+  return *tree_2_class_map;
+}
+
+// Allocates (if necessary) and return the map that associates trees
+// representing a function type and their matching isntance of
+// libabigail type.
+static function_type_map&
+get_tree_2_function_type_map ()
+{
+  if (!tree_2_function_type_map)
+    tree_2_function_type_map = new function_type_map;
+
+  return *tree_2_function_type_map;
+}
+
+// Allocates (if necessary) and return the map that associates trees
 // representing a class that is currently being instrumented, and the
 // matching abigail class_decl.
-static classes_wip_map&
+static class_map&
 get_wip_classes_map ()
 {
   if (!wip_classes_map)
-    wip_classes_map = new classes_wip_map;
+    wip_classes_map = new class_map;
 
   return *wip_classes_map;
 }
@@ -576,8 +630,20 @@ gen_function_type (const_tree t,
 			 && TREE_CODE (t) != METHOD_TYPE))
     return result;
 
-  if (TREE_CODE (t) == METHOD_TYPE && !base_type)
-    return result;
+  if (TREE_CODE (t) == METHOD_TYPE)
+    {
+      if (!base_type)
+	base_type = gen_class_type_in_scope (TYPE_METHOD_BASETYPE (t));
+      gcc_assert (base_type);
+    }
+
+  {
+    function_type_map::const_iterator i =
+      get_tree_2_function_type_map ().find (t);
+    if (i != get_tree_2_function_type_map ().end ())
+      return i->second;
+  }
+
 
   vector<shared_ptr <abigail::function_decl::parameter> > parms;
   tree parm_desc = TYPE_ARG_TYPES (t);
@@ -625,6 +691,8 @@ gen_function_type (const_tree t,
 				 parms,
 				 get_int_constant_value (TYPE_SIZE (t)),
 				 TYPE_ALIGN (t)));
+
+  get_tree_2_function_type_map ()[t] = result;
 
   return result;
 }
@@ -684,19 +752,28 @@ gen_class_type_in_scope (const_tree t,
   // handled by gen_type_in_scope.
   gcc_assert (!TYPE_QUALS (t) && !typedef_variant_p (t));
 
-  classes_wip_map::const_iterator c =
-    get_wip_classes_map ().find(t);
-  if (c != get_wip_classes_map ().end ())
-    {
-      // Someone is referring to this record type but the
-      // type is not defined yet -- it's currently being
-      // defined.  So we let's forward declare it a this point.
+  {
+    class_map::const_iterator i = get_tree_2_class_map ().find (t);
+    if (i != get_tree_2_class_map ().end ())
+      return i->second;
+  }
 
-      shared_ptr <abigail::class_decl> class_type
-	(new abigail::class_decl (get_tree_name (t)));
-      add_decl_to_scope (class_type, scope);
-      return class_type;
-    }
+  {
+    class_map::const_iterator i =
+      get_wip_classes_map ().find(t);
+    if (i != get_wip_classes_map ().end ())
+      {
+	// Someone is referring to this record type but the
+	// type is not defined yet -- it's currently being
+	// defined.  So let's forward declare it a this point.
+
+	shared_ptr <abigail::class_decl> class_type
+	  (new abigail::class_decl (get_tree_name (t)));
+	add_decl_to_scope (class_type, scope);
+	get_tree_2_class_map ()[t] = class_type;
+	return class_type;
+      }
+  }
 
   shared_ptr <abigail::class_decl> class_type
     (new abigail::class_decl (get_tree_name (t),
@@ -705,6 +782,9 @@ gen_class_type_in_scope (const_tree t,
 			      get_decl_visibility (TYPE_NAME (t))));
 
   get_wip_classes_map ()[t] = class_type;
+
+  if (!scope)
+    scope = gen_scope_of (t);
 
   {
     tree binfo = TYPE_BINFO (t), base_binfo;
@@ -746,6 +826,8 @@ gen_class_type_in_scope (const_tree t,
   result = class_type;
   get_wip_classes_map ().erase (t);
 
+  get_tree_2_class_map ()[t] = result;
+
   return result;
 }
 
@@ -759,6 +841,12 @@ gen_decl_in_scope (const_tree t,
   shared_ptr <abigail::decl_base> result;
   if (t == NULL_TREE || !DECL_P (t))
     return result;
+
+    {
+      decl_map::const_iterator i = get_tree_2_decl_map ().find (t);
+      if (i != get_tree_2_decl_map ().end ())
+	return i->second;
+    }
 
   switch (TREE_CODE (t))
     {
@@ -812,6 +900,10 @@ gen_decl_in_scope (const_tree t,
     default:
       break;
     }
+
+   if (result)
+    get_tree_2_decl_map ()[t] = result;
+
   return result;
 }
 
@@ -963,13 +1055,9 @@ gen_type_in_scope (const_tree t,
 	break;
 
       case FUNCTION_TYPE:
+      case METHOD_TYPE:
 	result = gen_function_type (t);
 	break;
-
-      case METHOD_TYPE:
-	// This must be handled by gen_function_type, called from within
-	// gen_type_in_scope.
-	gcc_unreachable ();
 
       case RECORD_TYPE:
 	{
@@ -1057,26 +1145,6 @@ abi_instr_emit_type (const_tree t)
   gcc_assert (TYPE_P (t));
 
   return gen_type (t);
-}
-
-// Build a libabigail representation of the variables or functions in
-// the VEC array and add them to the libabigail representation of the
-// current translation unit.
-void
-abi_instr_emit_vars_or_funs (tree *vec, int len)
-{
-  for (int i = 0; i < len; ++i)
-    {
-      tree decl = vec[i];
-      if (decl == NULL_TREE || (TREE_CODE (decl) != VAR_DECL
-				&& TREE_CODE (decl) != FUNCTION_DECL))
-	continue;
-
-      if (TREE_CODE (decl) == VAR_DECL)
-	abi_instr_emit_variable (decl);
-      else if (TREE_CODE (decl) == FUNCTION_DECL)
-	abi_instr_emit_function (decl);
-    }
 }
 
 // Build a libabigail representation of the function FN and add it to

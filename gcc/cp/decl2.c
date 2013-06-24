@@ -4339,9 +4339,6 @@ cp_write_global_declarations (void)
 				 pending_statics->length ());
       emit_debug_global_declarations (pending_statics->address (),
 				      pending_statics->length ());
-      if (flag_dump_abi)
-	abi_instr_emit_vars_or_funs (pending_statics->address (),
-				     pending_statics->length ());
     }
 
   perform_deferred_noexcept_checks ();
@@ -4354,6 +4351,17 @@ cp_write_global_declarations (void)
     }
 
   finish_repo ();
+
+  if (flag_dump_abi)
+    {
+      cgraph_node *fun_node;
+      FOR_EACH_DEFINED_FUNCTION (fun_node)
+	abi_instr_emit_function (fun_node->symbol.decl);
+
+      varpool_node *var_node;
+      FOR_EACH_DEFINED_VARIABLE (var_node)
+	abi_instr_emit_variable (var_node->symbol.decl);
+    }
 
   /* The entire file is now complete.  If requested, dump everything
      to a file.  */
