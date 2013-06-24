@@ -7211,7 +7211,7 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
       argtab[0].meltbp_aptr =
 	(melt_ptr_t *) & /*_.MODNAMSTR__V2*/ meltfptr[1];
       /*^apply.arg */
-      argtab[1].meltbp_cstring = ".c";
+      argtab[1].meltbp_cstring = ".cc";
       /*_.PRIMPATH__V42*/ meltfptr[41] =
 	melt_apply ((meltclosure_ptr_t)
 		    (( /*!STRING4OUT */ meltfrout->tabval[7])),
@@ -8677,7 +8677,7 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
 			argtab[12].meltbp_long =
 			  /*_#FILIX__L18*/ meltfnum[16];
 			/*^apply.arg */
-			argtab[13].meltbp_cstring = ".c";
+			argtab[13].meltbp_cstring = ".cc";
 			/*^apply.arg */
 			argtab[14].meltbp_cstring = "\n";
 			/*_.ADD2OUT__V84*/ meltfptr[83] =
@@ -28614,7 +28614,7 @@ meltlab_endgetargs:;
    /*_#STRING_SUFFIXED__L12*/ meltfnum[0] =
 	/*string_suffixed: */
 	(melt_string_is_ending
-	 ((melt_ptr_t) /*_.MODNAMSTR__V3*/ meltfptr[2], ".c"));;
+	 ((melt_ptr_t) /*_.MODNAMSTR__V3*/ meltfptr[2], ".cc"));;
       /*^compute */
    /*_#NOT__L13*/ meltfnum[1] =
 	(!( /*_#STRING_SUFFIXED__L12*/ meltfnum[0]));;
@@ -41297,7 +41297,7 @@ meltlab_endgetargs:;
    /*_#STRING_SUFFIXED__L12*/ meltfnum[1] =
 	/*string_suffixed: */
 	(melt_string_is_ending
-	 ((melt_ptr_t) /*_.MODNAMSTR__V4*/ meltfptr[3], ".c"));;
+	 ((melt_ptr_t) /*_.MODNAMSTR__V4*/ meltfptr[3], ".cc"));;
       /*^compute */
    /*_#NOT__L13*/ meltfnum[0] =
 	(!( /*_#STRING_SUFFIXED__L12*/ meltfnum[1]));;

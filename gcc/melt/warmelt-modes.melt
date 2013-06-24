@@ -22,7 +22,7 @@
 ***")
 
 ;; the copyright notice above apply both to warmelt-modes.melt and 
-;; to the generated files  warmelt-modes*.c
+;; to the generated files  warmelt-modes*.cc
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;    This file is part of a bootstrapping compiler for the MELT lisp
@@ -67,7 +67,7 @@
 	     ( (is_string outarg) 
 	       (setq modulnam outarg)
 	       (setq modulnam
-		     (make_string_without_suffix discr_string modulnam ".c"))
+		     (make_string_without_suffix discr_string modulnam ".cc"))
 	       (setq modulnam
 		     (make_string_without_dynloaded_suffix discr_string modulnam))
 	       (debug "runfile_docmd sets modulnam=" modulnam " with outarg")
@@ -75,18 +75,18 @@
 	     ( (is_string inarg) 
 	       (setq modulnam (make_string_nakedbasename discr_string inarg))
 	       (debug "runfile_docmd sets modulnam=" modulnam " with inarg")
-	       (make_string_tempname_suffixed discr_string inarg ".c"))
+	       (make_string_tempname_suffixed discr_string inarg ".cc"))
 	     (:else
 	      (errormsg_plain "invalid runfile mode")
 	      (return)
 	      )))
 	   )
-      (let ( (modsrcbase (make_string_without_suffix discr_string modsrcname ".c")) 
+      (let ( (modsrcbase (make_string_without_suffix discr_string modsrcname ".cc")) 
 	     )
       (debug "runfile_docmd before translation inarg=" inarg " modulnam=" modulnam
 	     " modsrcname=" modsrcname
 	     " modsrcbase=" modsrcbase)
-      (translate_to_c_module_melt_sources inarg modsrcbase curenv)
+      (translate_to_cc_module_melt_sources inarg modsrcbase curenv)
       (debug "runfile_docmd after translation modsrcname=" modsrcname
 	     " modulnam=" modulnam)
       (generate_flavored_melt_module modsrcbase modulnam '"quicklybuilt")
@@ -130,7 +130,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	     ( (is_string outarg) 
 	       (setq modulnam outarg)
 	       (setq modulnam
-		     (make_string_without_suffix discr_string modulnam ".c"))
+		     (make_string_without_suffix discr_string modulnam ".cc"))
 	       (setq modulnam
 		     (make_string_without_dynloaded_suffix discr_string modulnam))
 	       (debug "rundebug_docmd sets modulnam=" modulnam " with outarg")
@@ -138,18 +138,18 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	     ( (is_string inarg) 
 	       (setq modulnam (make_string_nakedbasename discr_string inarg))
 	       (debug "rundebug_docmd sets modulnam=" modulnam " with inarg")
-	       (make_string_tempname_suffixed discr_string inarg ".c"))
+	       (make_string_tempname_suffixed discr_string inarg ".cc"))
 	     (:else
 	      (errormsg_plain "invalid rundebug mode")
 	      (return)
 	      )))
 	   )
-      (let ( (modsrcbase (make_string_without_suffix discr_string modsrcname ".c")) 
+      (let ( (modsrcbase (make_string_without_suffix discr_string modsrcname ".cc")) 
 	     )
       (debug "rundebug_docmd before translation inarg=" inarg " modulnam=" modulnam
 	     " modsrcname=" modsrcname
 	     " modsrcbase=" modsrcbase)
-      (translate_to_c_module_melt_sources inarg modsrcbase curenv)
+      (translate_to_cc_module_melt_sources inarg modsrcbase curenv)
       (debug "rundebug_docmd after translation modsrcname=" modsrcname
 	     " modulnam=" modulnam)
       (generate_flavored_melt_module modsrcbase modulnam '"debugnoline")
@@ -4008,13 +4008,13 @@ melt_scanning (melt_ptr_t p)
 	(outdeclname (let ( (nambuf (make_strbuf discr_strbuf))
 			    )
 		       (add2sbuf_string nambuf outarg)
-		       (add2sbuf_strconst nambuf ".h")
+		       (add2sbuf_strconst nambuf ".hh")
 		       (strbuf2string discr_string nambuf)
 		       ))
 	(outcodename  (let ( (nambuf (make_strbuf discr_strbuf))
 			     )
 			(add2sbuf_string nambuf outarg)
-			(add2sbuf_strconst nambuf "-inc.c")
+			(add2sbuf_strconst nambuf "-inc.cc")
 			(strbuf2string discr_string nambuf)
 			))
 	(dictypgty (retrieve_dictionnary_ctype_gty))
@@ -4160,7 +4160,7 @@ melt_scanning (melt_ptr_t p)
 	(basnam
 	 (cond
 	  ( (is_string outarg)
-	    (make_string_without_suffix discr_string outarg ".c"))
+	    (make_string_without_suffix discr_string outarg ".cc"))
 	  ( (is_string inarg) 
 	    (make_string_nakedbasename discr_string inarg))
 	  (:else 
@@ -4168,14 +4168,14 @@ melt_scanning (melt_ptr_t p)
 	   (return)))
 	 )
 	(outnam (or outarg basnam))
-	(rawsrcnam (or (make_string_without_suffix discr_string carg ".c")
+	(rawsrcnam (or (make_string_without_suffix discr_string carg ".cc")
 		       (make_string_nakedbasename discr_string outnam)))
-	(outbase (make_string_without_suffix discr_string outnam  ".c"))
+	(outbase (make_string_without_suffix discr_string outnam  ".cc"))
 	)
     (assert_msg "check curenv" (is_a curenv class_environment))
     (debug "translate_to_flavored_module basnam=" basnam 
 	   " rawsrcnam=" rawsrcnam " outbase=" outbase)
-    (translate_to_c_module_melt_sources inarg outbase curenv)
+    (translate_to_cc_module_melt_sources inarg outbase curenv)
     (cond 
      ( (is_string flavors)
        (debug "before generate_flavored_melt_module rawsrcnam=" rawsrcnam " outnam=" outnam
@@ -4223,7 +4223,7 @@ melt_scanning (melt_ptr_t p)
   class_melt_mode
   :named_name '"translatetomodule"
   :meltmode_help '"translate a .melt file to MELT_DYNLOADED_SUFFIX modules in quicklybuilt, optimized, debugnoline flavors;\n
-\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; OUTPUTC= generated *.c file."
+\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; OUTPUTC= generated *.cc file."
   :meltmode_fun translatetomodule_docmd
 )
 (install_melt_mode translatetomodule_mode)
@@ -4250,8 +4250,8 @@ melt_scanning (melt_ptr_t p)
   :named_name '"translatedebug"
   :meltmode_help '"translate a .melt file to .debugnoline module for low-level
 debug, including gdb;\n
-\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.c file\n
-\t generates also *.c and no MELT line number;\n
+\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.cc file\n
+\t generates also *.cc and no MELT line number;\n
 \t Useful for running gdb on the module. MELT debugging (DEBUG,
 ASSERT_MSG) is enabled"
   :meltmode_fun translatedebug_docmd
@@ -4280,7 +4280,7 @@ ASSERT_MSG) is enabled"
   class_melt_mode
   :named_name '"translatequickly"
   :meltmode_help '"translate quickly a .melt file to .quicklybuilt module with MELT debugging enabled (DEBUG, ASSERT_MSG...);\n
-\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.c file\n."
+\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.cc file\n."
   :meltmode_fun translatequickly_docmd
 )
 (install_melt_mode translatequickly_mode)
@@ -4308,7 +4308,7 @@ ASSERT_MSG) is enabled"
   class_melt_mode
   :named_name '"translateoptimized"
   :meltmode_help '"translate  a .melt file to an .optimized module without MELT debugging\n
-\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.c file\n."
+\t ARGUMENT= input file; OUTPUT= generated module with MELT_DYNLOADED_SUFFIX; COUTPUT= generated *.cc file\n."
   :meltmode_fun translateoptimized_docmd
 )
 (install_melt_mode translateoptimized_mode)
@@ -4331,7 +4331,7 @@ ASSERT_MSG) is enabled"
     (assert_msg "check curenv" (is_a curenv class_environment))
     (let ( (basnam (cond
 		    ( (is_string outarg) 
-		      (make_string_without_suffix discr_string outarg ".c")
+		      (make_string_without_suffix discr_string outarg ".cc")
 		      )
 		    ( (is_string inarg)
 		      (if (not (string_suffixed inarg ".melt"))
@@ -4347,13 +4347,14 @@ ASSERT_MSG) is enabled"
     (if (or (string_dynloaded_suffixed basnam)
 	    (string_suffixed basnam ".melt")
 	    (string_suffixed basnam ".o")
-	    (string_suffixed basnam ".c"))
+	    (string_suffixed basnam ".c")
+	    (string_suffixed basnam ".cc"))
 	(progn 	  
 	  (errormsg_strv "tranlatefile mode needs a base name without suffix" 
 		       basnam)
 	  (return)			;fail the mode
 	  ))
-      (translate_to_c_module_melt_sources inarg basnam curenv)
+      (translate_to_cc_module_melt_sources inarg basnam curenv)
       (return :true)			;succeed the mode
       )))
 
@@ -4361,8 +4362,8 @@ ASSERT_MSG) is enabled"
 (definstance translatefile_mode
   class_melt_mode
   :named_name '"translatefile"
-  :meltmode_help '"translate a .melt file to .c;\n
-\t ARGUMENT= input file; OUTPUT= generated C file"
+  :meltmode_help '"translate a .melt file to .cc;\n
+\t ARGUMENT= input file; OUTPUT= generated C++ file"
   :meltmode_fun translatefile_docmd
 )
 (install_melt_mode translatefile_mode)
@@ -4402,7 +4403,8 @@ ASSERT_MSG) is enabled"
     (debug "translateinit_mode basnam=" basnam)
     (if (or (string_dynloaded_suffixed basnam)
 	    (string_suffixed basnam ".melt")
-	    (string_suffixed basnam ".c"))
+	    (string_suffixed basnam ".c")
+	    (string_suffixed basnam ".cc"))
 	(progn 
 	  (errormsg_strv "tranlateinit mode needs a base name without suffix" 
 			 basnam)
@@ -4479,7 +4481,8 @@ ASSERT_MSG) is enabled"
     (debug "translateinitmodule_flavored basnam=" basnam " flavor=" flavor)
     (if (or (string_dynloaded_suffixed basnam)
 	    (string_suffixed basnam ".melt")
-	    (string_suffixed basnam ".c"))
+	    (string_suffixed basnam ".c")
+	    (string_suffixed basnam ".cc"))
 	(progn 
 	  (errormsg_strv "tranlateinit mode needs a base name without suffix" 
 			 basnam)

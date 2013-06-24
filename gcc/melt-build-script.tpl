@@ -160,15 +160,17 @@ meltbuild_notice STAGE0+  [+(.(fromline))+] starting stage zero
   fi
 
 ##  stage0 [+(.(fromline))+] symlink melt/generated source code [+base+]
-  if [ ! -f "$GCCMELT_STAGE_ZERO/[+base+].c" ]; then
-      meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/[+base+].c $GCCMELT_STAGE_ZERO/ 
-      for f in $GCCMELT_MELTSOURCEDIR/generated/[+base+]+[0-9][0-9].c ; do
+  if [ ! -f "$GCCMELT_STAGE_ZERO/[+base+].cc" ]; then
+      meltbuild_info making stage0 [+base+] symlinking sources [+(.(fromline))+]
+      meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/[+base+].cc $GCCMELT_STAGE_ZERO/ 
+      for f in $GCCMELT_MELTSOURCEDIR/generated/[+base+]+[0-9][0-9].cc ; do
 	  meltbuild_symlink $f $GCCMELT_STAGE_ZERO/`basename $f`
       done
   fi
 
 ##  stage0 [+(.(fromline))+] symlink stamp [+base+]
   if  [ ! -f "$GCCMELT_STAGE_ZERO/[+base+]+melttime.h" ]; then
+      meltbuild_info making stage0 [+base+] symlinking timestamp [+(.(fromline))+]
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/generated/[+base+]+melttime.h $GCCMELT_STAGE_ZERO/[+base+]+melttime.h 
   fi
 
@@ -185,17 +187,17 @@ meltbuild_notice STAGE0+  [+(.(fromline))+] starting stage zero
 
   echo '# zerostage objects of [+base+] [+(.(fromline))+]' >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/[+base+].$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5.descriptor.meltpic.o: $GCCMELT_STAGE_ZERO/[+base+]+meltdesc.c  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
-  for f in $GCCMELT_STAGE_ZERO/[+base+].c $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].c; do
+  for f in $GCCMELT_STAGE_ZERO/[+base+].cc $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].cc; do
       echo >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
-      echo $GCCMELT_STAGE_ZERO/`basename $f .c`._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o: $f >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
+      echo $GCCMELT_STAGE_ZERO/`basename $f .cc`._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o: $f >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   done
 
   echo >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo '# zerostage module of [+base+] [+(.(fromline))+]'  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo $GCCMELT_STAGE_ZERO/[+base+].meltmod-$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so: \\  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo " " $GCCMELT_STAGE_ZERO/[+base+].$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5.descriptor.meltpic.o \\  >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
-  for f in $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].c; do
-      echo " " $GCCMELT_STAGE_ZERO/`basename $f .c`._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o \\ >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
+  for f in $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].cc; do
+      echo " " $GCCMELT_STAGE_ZERO/`basename $f .cc`._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o \\ >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   done
   echo " " $GCCMELT_STAGE_ZERO/[+base+]._NOMDFIVESUM_.$GCCMELT_ZERO_FLAVOR.meltpic.o >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
   echo >> $MELT_ZERO_GENERATED_[+varsuf+]_BUILDMK-tmp$$
@@ -242,7 +244,7 @@ if [ ! -f "$melt_stagezero_stamp" -o "$melt_stagezero_stamp" -ot "$GCCMELT_RUNTI
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >> $melt_stagezero_stamptemp
 [+FOR melt_translator_file+]
 #  stagezero stamp [+(.(fromline))+] base  [+base+]
-    $MD5SUM $GCCMELT_STAGE_ZERO/[+base+].c $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].c >> $melt_stagezero_stamptemp
+    $MD5SUM $GCCMELT_STAGE_ZERO/[+base+].cc $GCCMELT_STAGE_ZERO/[+base+]+[0-9][0-9].cc >> $melt_stagezero_stamptemp
     $MD5SUM $GCCMELT_STAGE_ZERO/[+base+].meltmod-$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5.$GCCMELT_ZERO_FLAVOR.so  >> $melt_stagezero_stamptemp
 [+ENDFOR melt_translator_file+]
     $GCCMELT_MOVE_IF_CHANGE $melt_stagezero_stamptemp $melt_stagezero_stamp
@@ -304,7 +306,7 @@ function meltbuild_emit () {
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
 	$GCCMELT_CC1_PREFIX $GCCMELT_CC1 @$meltargs || meltbuild_error $meltfrom failed with arguments @$meltargs
         ## remove obsolete secondary C files left previously in $meltstage 
-	for meltcsecfil in $meltstage/$meltbase+[0-9][0-9].c ; do
+	for meltcsecfil in $meltstage/$meltbase+[0-9][0-9].cc ; do
 	    if grep -q `basename $meltcsecfil` "$meltstage/$meltbase.cfilist" ; then
 		: # at  [+(.(fromline))+]
 	    else
@@ -313,12 +315,13 @@ function meltbuild_emit () {
 	    fi
 	done
     else
-	meltbuild_info $meltfrom skips emission of C code with  @$meltargs stage $meltstage prevstage $meltprevstage skipreason $GCCMELT_SKIPEMITC
+	meltbuild_info $meltfrom skips emission of C code with  @$meltargs stage $meltstage prevstage $meltprevstage skipreason $GCCMELT_SKIPEMITC  [+(.(fromline))+] 
 	ls -l $meltprevstage/$meltbase*
-	for meltprevf in $meltprevstage/$meltbase.c  $meltprevstage/$meltbase+[0-9][0-9].c  $meltprevstage/$meltbase+meltdesc.c  $meltprevstage/$meltbase+melttime.h   $meltprevstage/$meltbase+meltbuild.mk ; do
+	meltbuild_info $meltfrom symlinking previous stage $meltprevstage  [+(.(fromline))+] 
+	for meltprevf in $meltprevstage/$meltbase.cc  $meltprevstage/$meltbase+[0-9][0-9].cc  $meltprevstage/$meltbase+meltdesc.c  $meltprevstage/$meltbase+melttime.h   $meltprevstage/$meltbase+meltbuild.mk ; do
 	    meltbuild_symlink $meltprevf $meltstage/`basename $meltprevf`
 	done
-	meltbuild_info $meltfrom symlinked previous stage $meltprevstage/$meltbase
+	meltbuild_info $meltfrom symlinked previous stage $meltprevstage/$meltbase [+(.(fromline))+] 
     fi
     GCCMELT_STAGE=$meltstage
     GCCMELT_BASE=$meltbase
@@ -376,7 +379,7 @@ function meltbuild_do_stage () {
     "[+FOR includeload " "+][+includeload+][+ENDFOR includeload+]"
 
     #in meltbuild_do_stage [+(.(fromline))+] checksum C code for [+base+]
-    meltchecksum_cumul_[+varsuf+]=$(cat "$meltcurstagedir"/[+base+].c "$meltcurstagedir"/[+base+]+[0-9][0-9].c | $MD5SUM | cut -b 1-32)
+    meltchecksum_cumul_[+varsuf+]=$(cat "$meltcurstagedir"/[+base+].cc "$meltcurstagedir"/[+base+]+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
 
     #in meltbuild_do_stage [+(.(fromline))+] perhaps compiling C code for [+base+]
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
@@ -406,7 +409,7 @@ function meltbuild_do_stage () {
     echo "///timestamp file $meltstamp" > $meltstamptmp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >> $meltstamptmp
 [+FOR melt_translator_file+]
-    $MD5SUM $meltcurstagedir/[+base+].c $meltcurstagedir/[+base+]+[0-9][0-9].c  >> $meltstamptmp
+    $MD5SUM $meltcurstagedir/[+base+].cc $meltcurstagedir/[+base+]+[0-9][0-9].cc  >> $meltstamptmp
     $MD5SUM "$meltcurstagedir/[+base+].meltmod-$meltchecksum_cumul_[+varsuf+].$meltcurflavor.so"  >> $meltstamptmp
 [+ENDFOR melt_translator_file+]
     echo "///end timestamp file $meltstamp"
@@ -534,8 +537,8 @@ if [ ! -f $melt_final_translator_stamp -o $melt_final_translator_stamp -ot $GCCM
   [+FOR includeload+]
     $MD5SUM meltbuild-sources/[+includeload+]  >>  $melt_final_translator_stamptemp
   [+ENDFOR includeload+]
-    $MD5SUM meltbuild-sources/[+base+].c meltbuild-sources/[+base+]+[0-9][0-9].c  >> $melt_final_translator_stamptemp
-    melt_translator_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].c meltbuild-sources/[+base+]+[0-9][0-9].c  | $MD5SUM | cut -b 1-32)
+    $MD5SUM meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  >> $melt_final_translator_stamptemp
+    melt_translator_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
 [+ENDFOR melt_translator_file+]
     echo "///end timestamp file $melt_final_translator_stamp"
     $GCCMELT_MOVE_IF_CHANGE $melt_final_translator_stamptemp $melt_final_translator_stamp
@@ -569,7 +572,7 @@ meltbuild_notice 'doing applications'  [+(.(fromline))+] doing applications
       meltbuild_symlink $GCCMELT_MELTSOURCEDIR/[+base+].melt meltbuild-sources/[+base+].melt
   fi
   ## meltbuild_do_applications [+base+] [+(.(fromline))+]
-  if [ ! -f meltbuild-sources/[+base+].c -o  ! -f meltbuild-sources/[+base+]+meltdesc.c \
+  if [ ! -f meltbuild-sources/[+base+].cc -o  ! -f meltbuild-sources/[+base+]+meltdesc.c \
        -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-final-translator.stamp \
        -o meltbuild-sources/[+base+]+meltdesc.c -ot  meltbuild-sources/[+base+].melt \
 [+FOR melt_application_file+][+IF (< (for-index) apindex)+] -o meltbuild-sources/[+base+]+meltdesc.c -ot meltbuild-sources/[+(. apbase)+]+meltdesc.c \
@@ -586,11 +589,11 @@ meltbuild_notice 'doing applications'  [+(.(fromline))+] doing applications
   else
       meltbuild_info [+(.(fromline))+] DONT emit application C code for [+base+]
   fi
-  local meltapp_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].c meltbuild-sources/[+base+]+[0-9][0-9].c  | $MD5SUM | cut -b 1-32)
+  local meltapp_[+varsuf+]_cumulmd5=$(cat  meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  | $MD5SUM | cut -b 1-32)
  [+FOR flavor IN quicklybuilt optimized debugnoline+]
   if [ ! -f meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so \
       -o meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-final-translator.stamp \
-      -o  meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+].c \
+      -o  meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+].cc \
       -o  meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so -ot  meltbuild-sources/[+base+]+meltdesc.c ]; then
       meltbuild_info [+(.(fromline))+] compiling application module for [+base+] [+flavor+]
       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
@@ -613,7 +616,7 @@ meltbuild_notice 'doing applications'  [+(.(fromline))+] doing applications
   echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >>  $meltappstamptemp
 [+FOR melt_application_file+]
   $MD5SUM meltbuild-sources/[+base+].melt >>  $meltappstamptemp
-  $MD5SUM meltbuild-sources/[+base+].c meltbuild-sources/[+base+]+[0-9][0-9].c  >> $meltappstamptemp
+  $MD5SUM meltbuild-sources/[+base+].cc meltbuild-sources/[+base+]+[0-9][0-9].cc  >> $meltappstamptemp
  [+FOR flavor IN quicklybuilt optimized debugnoline+]
   $MD5SUM meltbuild-modules/[+base+].meltmod-$meltapp_[+varsuf+]_cumulmd5.[+flavor+].so >> $meltappstamptemp
  [+ENDFOR flavor+]

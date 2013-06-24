@@ -1863,7 +1863,7 @@
 		   (instance class_initial_extension_routineobj
 			     ;; change carefully the name, since the runtime
 			     ;; should know it, notably its
-			     ;; meltgc_run_c_extension function
+			     ;; meltgc_run_cc_extension function
 			     :named_name '"melt_start_run_extension"
 			     :obrout_proc ipro
 			     :obrout_body oinibody

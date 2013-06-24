@@ -119,14 +119,14 @@ const int melt_is_plugin = 0;
 #MELT Gcc version and Building Gcc version does not match
 #endif /*BUILDING_GCC_VERSION != MELT_GCC_VERSION */
 
-#if MELT_GCC_VERSION < 4006
-#error MELT is for GCC 4.6 or newer
+#if MELT_GCC_VERSION < 4007
+#error MELT is for GCC 4.7 or newer
 #endif
 
-/* GCC 4.6 has realmpfr.h which includes <mpfr.h>  */
+/* GCC 4.7 has realmpfr.h which includes <mpfr.h>  */
 #include "realmpfr.h"
 
-/* GCC 4.6 has it: */
+/* GCC 4.7 has it: */
 #include "gimple-pretty-print.h"
 
 
@@ -4935,7 +4935,7 @@ end:
 
 
 melt_ptr_t
-meltgc_new_string_generated_c_filename  (meltobject_ptr_t discr_p,
+meltgc_new_string_generated_cc_filename  (meltobject_ptr_t discr_p,
     const char* basepath,
     const char* dirpath,
     int num)
@@ -4991,6 +4991,11 @@ meltgc_new_string_generated_c_filename  (meltobject_ptr_t discr_p,
     strcop[spos-2] = strcop[spos-1] = (char)0;
     spos -= 2;
   }
+  /* if strcop ends with .cc, remove that suffix */
+  if (spos>3 && strcop[spos-1] == 'c' && strcop[spos-2] == 'c' && strcop[spos-3] == '.') {
+    strcop[spos-3] = strcop[spos-2] = strcop[spos-1] = (char)0;
+    spos -= 3;
+  }
   /* remove the MELT_DYNLOADED_SUFFIX suffix [often .so] if given */
   else if (spos >= (int) sizeof(MELT_DYNLOADED_SUFFIX)
            && !strcmp (strcop+spos-(sizeof(MELT_DYNLOADED_SUFFIX)-1),
@@ -5005,7 +5010,7 @@ meltgc_new_string_generated_c_filename  (meltobject_ptr_t discr_p,
     spos -= strlen(".melt");
   }
   strcpy (strcop + spos, numbuf);
-  strcat (strcop + spos, ".c");
+  strcat (strcop + spos, ".cc");
   spos = strlen (strcop);
   gcc_assert (spos < slen-1);
   strv = meltgc_new_string_raw_len (obj_discrv, strcop, spos);
@@ -9422,7 +9427,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
       if (MELTDESCR_REQUIRED(melt_secondaryhexmd5tab)[cursecix] == NULL)
         continue;
       memset (suffixbuf, 0, sizeof(suffixbuf));
-      snprintf (suffixbuf, sizeof(suffixbuf)-1, "+%02d.c", cursecix);
+      snprintf (suffixbuf, sizeof(suffixbuf)-1, "+%02d.cc", cursecix);
       srcpath = concat (descmodulename, suffixbuf, NULL);
       curpath =
         MELT_FIND_FILE (srcpath,
@@ -9520,7 +9525,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 
 
 melt_ptr_t
-meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litvaltup_p)
+meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litvaltup_p)
 {
   /* list of required dynamic symbols (dlsymed in the FOO module,
      provided in the FOO+meltdesc.c or FOO+melttime.h or FOO.c
@@ -9595,9 +9600,9 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
 	goto end;
       }
   }
-  debugeprintf ("meltgc_run_c_extension basenamebuf=%s", basenamebuf);
+  debugeprintf ("meltgc_run_cc_extension basenamebuf=%s", basenamebuf);
   descpath = melt_tempdir_path (basenamebuf, "+meltdesc.c");
-  debugeprintf ("meltgc_run_c_extension descpath=%s", descpath);
+  debugeprintf ("meltgc_run_cc_extension descpath=%s", descpath);
   descfile = fopen (descpath, "r");
   if (!descfile)
     {
@@ -9626,7 +9631,7 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
       /* ignore lines with extern "C" */
       if (strstr(descline, "extern") && strstr(descline, "\"C\""))
 	continue;
-      debugeprintf ("meltgc_run_c_extension (%s) #%d,len%d: %s",
+      debugeprintf ("meltgc_run_cc_extension (%s) #%d,len%d: %s",
 		    basenamebuf, desclinenum, (int) desclinlen, descline);
       /* parse the melt_versionmeltstr */
       if (descversionmelt == NULL
@@ -9636,7 +9641,7 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
 	  && pqu2 > pqu1 + 10 /*actually should be more than 10*/) 
 	{
 	  descversionmelt = melt_c_string_in_descr (pqu1);
-	  debugeprintf ("meltgc_run_c_extension found descversionmelt %s", descversionmelt);
+	  debugeprintf ("meltgc_run_cc_extension found descversionmelt %s", descversionmelt);
 	};
       /* check that melt_lastsecfileindex is 0 */
       if (nbsecfileindex < 0 && (pc = strstr(descline, "melt_lastsecfileindex"))!= NULL
@@ -9659,9 +9664,9 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
 				   terminating null char. */
     char* cpath = NULL;
     memset (compmd5buf, 0, sizeof(compmd5buf));
-    cpath = concat (basenamebuf, ".c", NULL);
+    cpath = concat (basenamebuf, ".cc", NULL);
     if (access (cpath, R_OK))
-      melt_fatal_error ("cannot access runtime extension primary C file %s - %s",
+      melt_fatal_error ("cannot access runtime extension primary C++ file %s - %s",
 			cpath, xstrerror (errno));
     melt_string_hex_md5sum_file_to_hexbuf (cpath, compmd5buf);
     if (strcmp (compmd5buf, descmd5hex))
@@ -9675,16 +9680,16 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
 		   ".runextend",
 		   MELT_DYNLOADED_SUFFIX,
 		   NULL);
-  debugeprintf ("meltgc_run_c_extension sopath=%s", sopath);
+  debugeprintf ("meltgc_run_cc_extension sopath=%s", sopath);
   if (access (sopath, R_OK))
     melt_fatal_error ("runtime extension module %s not accessible - %s",
 		      sopath, xstrerror(errno));
-  debugeprintf("meltgc_run_c_extension sopath %s before dlopen", sopath);
+  debugeprintf("meltgc_run_cc_extension sopath %s before dlopen", sopath);
   dlh = dlopen (sopath, RTLD_NOW | RTLD_GLOBAL);
   if (!dlh)
     melt_fatal_error ("failed to dlopen runtime extension %s - %s",
 		      sopath, dlerror ());
-  MELT_LOCATION_HERE ("meltgc_run_c_extension after dlopen");
+  MELT_LOCATION_HERE ("meltgc_run_cc_extension after dlopen");
 
   /* grow the melt_extinfo array if needed */
   if (MELT_UNLIKELY(melt_extinfo.mxi_count + 2 >= melt_extinfo.mxi_size))
@@ -9744,11 +9749,11 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
     mext.mmx_magic = MELT_EXTENSION_MAGIC;
     melt_extinfo.mxi_array[ix] = mext;
     melt_extinfo.mxi_count = ix;
-    debugeprintf ("meltgc_run_c_extension %s has index %d forwardrout=%p markingrout=%p", 
+    debugeprintf ("meltgc_run_cc_extension %s has index %d forwardrout=%p markingrout=%p", 
 		  basenamebuf, ix, (void*) mext.mmx_forwardrout, (void*) mext.mmx_markingrout);
   }
   envrefv = meltgc_new_reference ((melt_ptr_t) environv);
-  debugeprintf ("meltgc_run_c_extension envrefv@%p", (void*)envrefv);
+  debugeprintf ("meltgc_run_cc_extension envrefv@%p", (void*)envrefv);
   {
 #if MELT_HAVE_DEBUG
     char locbuf[80];
@@ -9756,11 +9761,11 @@ meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litv
     MELT_LOCATION_HERE_PRINTF (locbuf, 
 			       "run-c-ext.. basename %s", basenamebuf);
 #endif
-    debugeprintf ("meltgc_run_c_extension before calling dynr_melt_start_run_extension@%p", (void*) dynr_melt_start_run_extension);
+    debugeprintf ("meltgc_run_cc_extension before calling dynr_melt_start_run_extension@%p", (void*) dynr_melt_start_run_extension);
     resv = (*dynr_melt_start_run_extension) ((melt_ptr_t)envrefv,
 					     (melt_ptr_t)litvaltupv);
-    debugeprintf ("meltgc_run_c_extension after call resv=%p", (void*)resv);
-    MELT_LOCATION_HERE ("meltgc_run_c_extension ending");
+    debugeprintf ("meltgc_run_cc_extension after call resv=%p", (void*)resv);
+    MELT_LOCATION_HERE ("meltgc_run_cc_extension ending");
   }
  end:
   if (descpath)
@@ -12449,8 +12454,8 @@ melt_output_strbuf_to_file_no_overwrite (melt_ptr_t sbufv, const char*filnam)
 
 
 /***********************************************************
- * generate C code for a melt unit name; take care to avoid touching
- * the generated C file when it happens to be the same as what existed
+ * generate C++ code for a melt unit name; take care to avoid touching
+ * the generated C++ file when it happens to be the same as what existed
  * on disk before, to help the "make" utility.
  ***********************************************************/
 void
@@ -12488,14 +12493,14 @@ melt_output_cfile_decl_impl_secondary_option (melt_ptr_t unitnam,
     memset (bufpid, 0, sizeof(bufpid));
     snprintf (bufpid, sizeof(bufpid)-1, "_p%d_n%d_r%x_c%u",
               (int) getpid(), (int) (now%100000), (int)((melt_lrand()) & 0xffff), cnt);
-    if (slen>2 && (s[slen-2]!='.' || s[slen-1]!='c')) {
-      dotcnam = concat (s, ".c", NULL);
-      dotcpercentnam = concat (s, ".c%", NULL);
+    if (slen>3 && (s[slen-3]!='.' || s[slen-2]!='c' || s[slen-1]!='c')) {
+      dotcnam = concat (s, ".cc", NULL);
+      dotcpercentnam = concat (s, ".cc%", NULL);
       if (workdir && !strcmp(workdir, ".") && melt_flag_generate_work_link)
         dotempnam = concat (workdir, /*DIR_SEPARATOR here*/ "/",  melt_basename (s),
-                            ".c%", bufpid, NULL);
+                            ".cc%", bufpid, NULL);
       else
-        dotempnam = concat (s, ".c%", bufpid, NULL);
+        dotempnam = concat (s, ".cc%", bufpid, NULL);
     } else {
       dotcnam = xstrdup (s);
       dotcpercentnam = concat (s, "%", NULL);
@@ -12624,9 +12629,9 @@ melt_output_cfile_decl_impl_secondary_option (melt_ptr_t unitnam,
 			   melt_basename (dotcnam), NULL);
 	  free (realworkdir), realworkdir = NULL;
 	  mln = strlen (md5nam);
-	  if (mln>3 && !strcmp(md5nam + mln -2, ".c"))
+	  if (mln>4 && !strcmp(md5nam + mln -3, ".cc"))
 	    md5nam[mln-2] = (char)0;
-	  md5nam = reconcat (md5nam, md5nam, ".", md5hexbuf, ".mdsumed.c", NULL);
+	  md5nam = reconcat (md5nam, md5nam, ".", md5hexbuf, ".mdsumed.cc", NULL);
 	  mdfil = fopen (md5nam, "r");
 	  if (mdfil)
 	    {

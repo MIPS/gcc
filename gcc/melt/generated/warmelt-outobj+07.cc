@@ -12415,7 +12415,7 @@ meltlab_endgetargs:;
      /*_#STRING_SUFFIXED__L9*/ meltfnum[8] =
 		  /*string_suffixed: */
 		  (melt_string_is_ending
-		   ((melt_ptr_t) /*_.MODSRCNAME__V3*/ meltfptr[2], ".c"));;
+		   ((melt_ptr_t) /*_.MODSRCNAME__V3*/ meltfptr[2], ".cc"));;
 		/*^compute */
 		/*_#OR___L8*/ meltfnum[7] =
 		  /*_#STRING_SUFFIXED__L9*/ meltfnum[8];;
@@ -12601,7 +12601,7 @@ UFFIX"), ("warmelt-outobj.melt") ? ("warmelt-outobj.melt") : __FILE__,
    /*_#STRING_SUFFIXED__L14*/ meltfnum[6] =
 	/*string_suffixed: */
 	(melt_string_is_ending
-	 ((melt_ptr_t) /*_.MODSRCNAME__V3*/ meltfptr[2], ".c"));;
+	 ((melt_ptr_t) /*_.MODSRCNAME__V3*/ meltfptr[2], ".cc"));;
       /*^compute */
    /*_#NOT__L15*/ meltfnum[7] =
 	(!( /*_#STRING_SUFFIXED__L14*/ meltfnum[6]));;

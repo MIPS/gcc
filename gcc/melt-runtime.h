@@ -1684,18 +1684,21 @@ melt_ptr_t
 meltgc_string_hex_md5sum_file_sequence (melt_ptr_t pathtup_p);
 
 
-/* Return as string value the name of a generated C file; if dirname
+/* Return as string value the name of a generated C++ file; if dirname
    is given and non-empty, it is used as the directory name using the
    basename of basepath, otherwise basepath is used. Any .melt or .so
    or .c suffix is removed, and if the num is positive it is
-   appended. The result string is dirpath/basename+num.c, eg
-   /foo/dir/mybase+3.c if dirpath is /foo/dir and basepath is
+   appended. The result string is dirpath/basename+num.cc, e.g.
+   /foo/dir/mybase+3.cc if dirpath is /foo/dir and basepath is
    /bar/mybase.c or mybase.melt etc...  and num is 3. If num is
    non-positive it is ignored. */
-melt_ptr_t meltgc_new_string_generated_c_filename  (meltobject_ptr_t discr_p,
-						    const char* basepath,
-						    const char* dirpath,
-						    int num);
+melt_ptr_t meltgc_new_string_generated_cc_filename  (meltobject_ptr_t discr_p,
+						     const char* basepath,
+						     const char* dirpath,
+						     int num);
+/* for old compatibility */
+#define meltgc_new_string_generated_c_filename meltgc_new_string_generated_cc_filename
+
 
 /* Return true if we don't want to generate several C files for a
    given MELT module */
@@ -2599,7 +2602,9 @@ melt_ptr_t meltgc_start_all_new_modules (melt_ptr_t env_p);
    literal tuple value LITVALTUP_P. Only called from
    translate_run_melt_expressions MELT function. */
 melt_ptr_t
-meltgc_run_c_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litvaltup_p);
+meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t litvaltup_p);
+/* for compatibility */
+#define meltgc_run_c_extension meltgc_run_cc_extension
 
 /* Compile a SRCBASE file (without .c) into a BINBASE file (without
    .so) in a WORKDIR (or the tempdir) with given FLAVOR. See

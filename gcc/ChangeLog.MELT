@@ -1,6 +1,43 @@
 
 
 2013-06-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Fully switching to C++; first, emit C++ file names; the
+	generated *+meltdesc.c file stays in plain C}}
+
+	* melt/generated/: Rename all warmelt*.c files as warmelt*.cc
+	files. Also hand-replaced some ".c" with ".cc" in
+	warmelt-outobj*.cc files.
+
+	* Makefile.in (upgrade-warmelt): Process *.cc files and use astyle, not indent.
+
+	* melt-module.mk: Handle *.cc files not *.c ones.
+	* melt-build-script.tpl: Likewise.
+	* melt-build-script.sh: Regenerate.
+	* melt-module.mk: Handle *.cc files not *.c ones.
+	* melt-runtime.h (meltgc_new_string_generated_c_filename) Rename as...
+	(meltgc_new_string_generated_cc_filename): Rename, also add macro
+	meltgc_new_string_generated_c_filename for compatibility.
+	* melt-runtime.c: Ensure that we have GCC 4.7 at least.
+	(meltgc_new_string_generated_c_filename) Rename as...
+	(meltgc_new_string_generated_cc_filename): Rename.
+	(meltgc_run_c_extension): Renamse as...
+	(meltgc_run_cc_extension): Rename, also add macro
+	meltgc_run_c_extension for compatibility
+	(melt_load_module_index): Wants *.cc.
+	(melt_output_cfile_decl_impl_secondary_option): Likewise.
+	* melt/warmelt-base.melt (make_string_generated_c_filename):
+	Rename as ...
+	(make_string_generated_cc_filename): Renamed.
+	* melt/warmelt-genobj.melt (compile2obj_initextendproc): Change comment.
+	* melt/warmelt-outobj.melt (class_secondary_c_file)
+	(translate_to_c_module_melt_sources): Rename as..
+	(class_secondary_cc_file, translate_to_cc_module_melt_sources):
+	New. Adapt for *.cc emission.
+	(output_melt_descriptor): Adapt for *.cc emission.
+	* melt/warmelt-modes.melt (runfile_docmd, runtypesupport_docmd): Likewise.
+
+
+2013-06-23  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 0.9.9-post.
 
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>

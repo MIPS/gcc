@@ -865,10 +865,10 @@ removing the MELT_DYNLOADED_SUFFIX if it ends with it, or else a copy of $STR.}#
 				     MELT_DYNLOADED_SUFFIX))}#
 )
 
-;; compute a generated C source file
-(defprimitive make_string_generated_c_filename (dis basestr dirstr) :value
-  :doc #{make a generated C file path of discriminant $DIS with base $BASESTR and directory $DIRSTR adding a .c suffix.}#
-  #{(meltgc_new_string_generated_c_filename((meltobject_ptr_t)($DIS),
+;; compute a generated C++ source file
+(defprimitive make_string_generated_cc_filename (dis basestr dirstr) :value
+  :doc #{make a generated C++ file path of discriminant $DIS with base $BASESTR and directory $DIRSTR adding a .c suffix.}#
+  #{(meltgc_new_string_generated_cc_filename((meltobject_ptr_t)($DIS),
 					    melt_string_str ((melt_ptr_t)($BASESTR)),
 					    melt_string_str ((melt_ptr_t)($DIRSTR)),
 					    0))}#)
@@ -3210,7 +3210,7 @@ typedef struct melthook_st *melthook_ptr_t;
  make_pair
  make_strbuf
  make_string
- make_string_generated_c_filename
+ make_string_generated_cc_filename
  make_string_mixloc_file
  make_string_nakedbasename
  make_string_real_access_path

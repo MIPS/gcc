@@ -5323,8 +5323,8 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     ))
 
 
-;;; the internal class for secondary generated C files
-(defclass class_secondary_c_file
+;;; the internal class for secondary generated C++ files
+(defclass class_secondary_cc_file
   :super class_root
   :fields (secfil_modnam 		;the module name
 	   secfil_path			;the file path
@@ -5332,9 +5332,9 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 	   secfil_implbuf		;the implementation buffer
 	   ))
 
-;; internal primitive to generate a C name
-(defprimitive generated_c_filename (discr base dir :long num) :value
-  #{meltgc_new_string_generated_c_filename /*  generated_c_filename */
+;; internal primitive to generate a C++ name
+(defprimitive generated_cc_filename (discr base dir :long num) :value
+  #{meltgc_new_string_generated_cc_filename /*  generated_cc_filename */
      ((meltobject_ptr_t) ($DISCR),
       melt_string_str((melt_ptr_t) ($BASE)), melt_string_str((melt_ptr_t) ($DIR)), 
       ($NUM))}#)
@@ -5354,12 +5354,12 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
       (if (>=i ix nbfiles) (return))
       (compile_warning "nth_secundary_file incomplete")
       (let ( 	 
-	    (path (generated_c_filename discr_string
+	    (path (generated_cc_filename discr_string
 					modnamstr
 					()
 					ix))
 	    (implbuf (make_strbuf discr_strbuf))
-	    (newfile (instance class_secondary_c_file
+	    (newfile (instance class_secondary_cc_file
 			       :secfil_modnam modnamstr
 			       :secfil_path path 
 			       :secfil_declbuf declbuf
@@ -5490,17 +5490,17 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
      #{ /* output_melt_descriptor $GENRPATHCH + */ {
      char* lrp = lrealpath (melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
      if (!melt_flag_bootstrapping && !IS_ABSOLUTE_PATH(lrp)) {
-     meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, getpwd()) ;
-     meltgc_add_strbuf ((melt_ptr_t) $DEBUF, "/")	    ;
-     meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, lrp)      ;
+       meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, getpwd()) ;
+       meltgc_add_strbuf ((melt_ptr_t) $DEBUF, "/") ;
+       meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, lrp) ;
      }
      else if (melt_flag_bootstrapping) {
-     meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, melt_module_dir) ;
-     meltgc_add_strbuf ((melt_ptr_t) $DEBUF, "/")		   ;
-     meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, lbasename (lrp)) ;
+       meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, melt_module_dir) ;
+       meltgc_add_strbuf ((melt_ptr_t) $DEBUF, "/") ;
+       meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, lbasename (lrp)) ;
      }
      else      
-     meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, lrp) ;
+       meltgc_add_strbuf_cstr ((melt_ptr_t) $DEBUF, lrp) ;
      free (lrp)					       ;
      } /* end output_melt_descriptor $GENRPATHCH */}#)
     (add2sbuf_strconst debuf "\";")
@@ -5517,11 +5517,11 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
     (add2sbuf_strconst debuf "\";")
     (add2sbuf_indentnl debuf 0)
     ;;
-    (add2sbuf_strconst debuf "/* hexmd5checksum of primary C file */")
+    (add2sbuf_strconst debuf "/* hexmd5checksum of primary C++ file */")
     (add2sbuf_indentnl debuf 0)
     (add2sbuf_strconst debuf "const char melt_primaryhexmd5[]=\"")
     (let ( 
-	  (primpath (string4out discr_string modnamstr ".c")) 
+	  (primpath (string4out discr_string modnamstr ".cc")) 
 	  (primmd5s (string_hex_md5sum_pathstrv primpath))
 	  (mkrulebuf (make_strbuf discr_strbuf))
 	  (secmd5buf (make_strbuf discr_strbuf))
@@ -5565,7 +5565,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
       (add2sbuf_indentnl debuf 0)
       ;;
       (add2sbuf_indentnl debuf 0) 
-      (add2sbuf_strconst debuf "/* hexmd5checksum of secondary C files */")
+      (add2sbuf_strconst debuf "/* hexmd5checksum of secondary C++ files */")
       (add2sbuf_indentnl debuf 0)
       (add2sbuf_strconst debuf "const char* const melt_secondaryhexmd5tab[]={")
       ;;
@@ -5578,7 +5578,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
        (if curfil
 	   (progn
 	     (assert_msg "output_melt_descriptor check curfil" 
-			 (is_a curfil class_secondary_c_file))
+			 (is_a curfil class_secondary_cc_file))
 	     (setq lastsecfileix filix)
 	     (let ( (secpath (get_field :secfil_path curfil)) 
 		    (secmd5s (string_hex_md5sum_pathstrv secpath))
@@ -5603,7 +5603,7 @@ meltmarking_$ONAME (struct melt_callframe_st*fp, int marking) {
 			 (if (<i filix 10) "0" "") 
 			 filix "." secmd5s "." curflav ".meltpic.o: " modnamstr "+" 
 			 (if (<i filix 10) "0" "") 
-			 filix ".c" "\n")
+			 filix ".cc" "\n")
 		)
 	       ))
 	 (add2sbuf_strconst debuf "/*nosecfile*/ (const char*)0,")
@@ -5793,7 +5793,7 @@ extern "C" {
 ;;;
 (defselector syntax_test_generator
   class_selector
-  :doc #{Selector to emit C syntax for testing purposes of a generator
+  :doc #{Selector to emit C++ syntax for testing purposes of a generator
 device.  Reciever is the representation -e.g. $CLASS_PRIMITIVE,
 ... $GENDEV is the generator device, $SBUF is the string buffer,
 $MODCTX is the module context, and $IX is the index.}#
@@ -6185,11 +6185,11 @@ if (1) return;
 		#endif /*HAVE_CLOCK */
 		#if MELT_HAVE_DEBUG
 		inform  (UNKNOWN_LOCATION, 
-			 "MELT [#%ld] generating C code of module %s", 
+			 "MELT [#%ld] generating C++ code of module %s", 
 			 melt_dbgcounter, melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
 		#else
 		inform  (UNKNOWN_LOCATION, 
-			 "MELT generating C code of module %s", 
+			 "MELT generating C++ code of module %s", 
 			 melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
 		#endif /* MELT_HAVE_DEBUG */
 		}#)
@@ -6409,6 +6409,8 @@ if (1) return;
 	      (not (string_dynloaded_suffixed modnamstr)))
   (assert_msg "translate_macroexpanded_list modulename not ended with .melt"
 	      (not (string_suffixed modnamstr ".melt")))
+  (assert_msg "translate_macroexpanded_list modulename not ended with .cc"
+	      (not (string_suffixed modnamstr ".cc")))
   (assert_msg "translate_macroexpanded_list modulename not ended with .c"
 	      (not (string_suffixed modnamstr ".c")))
   (let (
@@ -6867,7 +6869,7 @@ if (1) return;
 	      (if curfil
 		  (progn
 		    (assert_msg "check curfil" 
-				(is_a curfil class_secondary_c_file))
+				(is_a curfil class_secondary_cc_file))
 		    (assert_msg "check curfil index" 
 				(==i (get_int curfil) filix))
 		    (setq hisecfilerk filix)
@@ -6904,7 +6906,7 @@ if (1) return;
 	      ((+i hisecfilerk 1) (+i hisecfilerk 25))
 	      (:long delfilix)
 	      (if (>i delfilix 0)
-		  (let ( (delfilnam (generated_c_filename discr_string modnamstr () delfilix))
+		  (let ( (delfilnam (generated_cc_filename discr_string modnamstr () delfilix))
 			 (baksbuf (make_strbuf discr_strbuf))
 			 )
 		    (add2out baksbuf delfilnam "~")
@@ -7001,6 +7003,8 @@ if (1) return;
 	      (not (string_suffixed modnamstr ".melt")))
   (assert_msg "compile_list_sexpr modulename not ended with .c"
 	      (not (string_suffixed modnamstr ".c")))
+  (assert_msg "compile_list_sexpr modulename not ended with .cc"
+	      (not (string_suffixed modnamstr ".cc")))
   (let (
 	(modnakedname (make_string_nakedbasename discr_string modnamstr))
 	(modctx (instance class_module_context
@@ -7064,7 +7068,7 @@ if (1) return;
 ;; an internal primitive to run an extension file with a basename, an
 ;; environment, and a tuple of literals
 (defprimitive melt_run_extension (basename env litval) :value
-  #{ /* melt_run_extension */ meltgc_run_c_extension
+  #{ /* melt_run_extension */ meltgc_run_cc_extension
       ((melt_ptr_t) $BASENAME,
        (melt_ptr_t) $ENV,
        (melt_ptr_t) $LITVAL) }#
@@ -7538,50 +7542,53 @@ if (1) return;
    ))
     
 ;;;;;;;;;;;;;;;;
-;;;;; utility function to translate to C some MELT sources
+;;;;; utility function to translate to C++ some MELT sources
 ;;; modsrcname is the string for the module source file path; its
 ;;; basename should not contains any dots
-(defun translate_to_c_module_melt_sources (sources modsrcname curenv)
-  (debug  "translate_to_c_module_melt_sources sources=" sources " modsrcname=" modsrcname)
+(defun translate_to_cc_module_melt_sources (sources modsrcname curenv)
+  (debug  "translate_to_cc_module_melt_sources sources=" sources " modsrcname=" modsrcname)
   (assert_msg "check curenv" (is_a curenv class_environment))
   (assert_msg "check modsrcname" (is_string modsrcname))
   (if (or (string_dynloaded_suffixed modsrcname)
 	  (string_suffixed modsrcname ".melt")
-	  (string_suffixed modsrcname ".c"))
+	  (string_suffixed modsrcname ".c")
+	  (string_suffixed modsrcname ".cc"))
       (errormsg_strv "invalid MELT source name - should not be suffixed"
 		     modsrcname))
-  (assert_msg "translate_to_c_module_melt_sources modsrcname not ended with MELT_DYNLOADED_SUFFIX"
+  (assert_msg "translate_to_cc_module_melt_sources modsrcname not ended with MELT_DYNLOADED_SUFFIX"
 	      (not (string_dynloaded_suffixed modsrcname)))
-  (assert_msg "translate_to_c_module_melt_sources modulename not ended with .melt"
+  (assert_msg "translate_to_cc_module_melt_sources modulename not ended with .melt"
 	      (not (string_suffixed modsrcname ".melt")))
-  (assert_msg "translate_to_c_module_melt_sources modulename not ended with .c"
+  (assert_msg "translate_to_cc_module_melt_sources modulename not ended with .c"
 	      (not (string_suffixed modsrcname ".c")))
+  (assert_msg "translate_to_cc_module_melt_sources modulename not ended with .cc"
+	      (not (string_suffixed modsrcname ".cc")))
   (let ( (:long isvalidmodsrc 0)
 	 (rlist (make_list discr_list)) 
 	 )
     (code_chunk 
      setisvalidmodsrcch 
-     #{ /* translate_to_c_module_melt_sources $SETISVALIDMODSRCCH */ {
+     #{ /* translate_to_cc_module_melt_sources $SETISVALIDMODSRCCH */ {
      const char* modsrcstr = melt_string_str ((melt_ptr_t) $MODSRCNAME);
      const char* modsrcbase = modsrcstr ? (lbasename (modsrcstr)) : NULL;
      if (modsrcbase)
        $ISVALIDMODSRC =
        (strchr(modsrcbase,'.') == NULL) && (strchr(modsrcbase,'+') == NULL);
-       } /* end translate_to_c_module_melt_sources $SETISVALIDMODSRCCH */
+       } /* end translate_to_cc_module_melt_sources $SETISVALIDMODSRCCH */
      }#)
     (if (not isvalidmodsrc)
 	(progn
-	  (debug "translate_to_c_module_melt_sources bad generated modsrcname=" modsrcname)
+	  (debug "translate_to_cc_module_melt_sources bad generated modsrcname=" modsrcname)
 	  (errormsg_strv 
 	   "invalid generated source name [basename should have no dot or plus]" 
 	   modsrcname)
 	  (return)
 	  ))
     (read_melt_expressions sources rlist 0)
-    (debug "after read translate_to_c_module_melt_sources rlist=" rlist)
+    (debug "after read translate_to_cc_module_melt_sources rlist=" rlist)
     (assert_msg "check non empty rlist" (>i (list_length rlist) 0))
     (compile_list_sexpr rlist curenv modsrcname)
-    (debug "translate_to_c_module_melt_sources done modsrcname=" modsrcname "\n")
+    (debug "translate_to_cc_module_melt_sources done modsrcname=" modsrcname "\n")
     ))
 
 ;;;;;;;;;;;;;;;;
@@ -7682,11 +7689,14 @@ notice for file named $NAME.}#
  put_code_buffer_limit
  syntax_test_generator
  translate_run_melt_expressions
- translate_to_c_module_melt_sources
+ translate_to_cc_module_melt_sources
  )
 
-(export_class class_secondary_c_file)
+(export_class class_secondary_cc_file)
 
+;; compatibility with old
+(export_synonym class_secondary_c_file class_secondary_cc_file)
+(export_synonym translate_to_c_module_melt_sources translate_to_cc_module_melt_sources)
 
 
 ;;;;;;;;;;;;;;;;
