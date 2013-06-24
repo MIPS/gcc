@@ -1081,17 +1081,10 @@ decls_match (tree newdecl, tree olddecl)
       else
 	types_match = decls_match (oldres, newres);
 
-        // If the types of the underlying templates match, compare
-        // their constraints. The declarations could differ there.
-        //
-        // Note that NEWDECL may not have been fully configured (no template
-        // info). If not, use the current temnplate requirements as those
-        // that would be associated with decl.
-        tree oldreqs = DECL_TEMPLATE_CONSTRAINT (oldres);
-        tree newreqs = DECL_TEMPLATE_INFO (newres)
-            ? DECL_TEMPLATE_CONSTRAINT (newres) : current_template_reqs;
-        if (types_match)
-          types_match = equivalent_constraints (oldreqs, newreqs);
+      // If the types of the underlying templates match, compare
+      // the template constraints. The declarations could differ there.
+      if (types_match) 
+        types_match = equivalently_constrained (olddecl, newdecl);
     }
   else
     {
@@ -1564,8 +1557,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 				   TREE_TYPE (TREE_TYPE (olddecl)))
                    // Template functions can also be disambiguated by
                    // constraints.
-                   && equivalent_constraints (get_constraints (olddecl), 
-                                              current_template_reqs))
+                   && equivalently_constrained (olddecl, newdecl))
 	    {
 	      error ("new declaration %q#D", newdecl);
 	      error ("ambiguates old declaration %q+#D", olddecl);
@@ -7516,7 +7508,7 @@ grokfndecl (tree ctype,
 	      fns = TREE_OPERAND (fns, 1);
 	    }
 	  gcc_assert (identifier_p (fns) || TREE_CODE (fns) == OVERLOAD);
-	  DECL_TEMPLATE_INFO (decl) = build_template_info (fns, args, NULL_TREE);
+	  DECL_TEMPLATE_INFO (decl) = build_template_info (fns, args);
 
 	  for (t = TYPE_ARG_TYPES (TREE_TYPE (decl)); t; t = TREE_CHAIN (t))
 	    if (TREE_PURPOSE (t)

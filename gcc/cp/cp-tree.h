@@ -785,14 +785,13 @@ typedef struct qualified_typedef_usage_s qualified_typedef_usage_t;
 
 struct GTY(()) tree_template_info {
   struct tree_common common;
-  tree constraint;
   vec<qualified_typedef_usage_t, va_gc> *typedefs_needing_access_checking;
 };
 
 /* Constraint information for a C++ declaration. This includes the
    requirements (as a constant expression) and the decomposed assumptions
    and conclusions. The assumptions and conclusions are cached for the
-   purposes of overlaod resolution and diagnostics. */
+   purposes of overload resolution and diagnostics. */
 struct GTY(()) tree_constraint_info {
   struct tree_base base;
   tree spelling;
@@ -809,15 +808,6 @@ check_constraint_info (tree t)
   return NULL;
 }
 
-// Returns true iff T is non-null and is a template info object.
-inline tree_template_info *
-check_template_info (tree t)
-{
-  if (t && TREE_CODE (t) == TEMPLATE_INFO)
-    return (tree_template_info *)t;
-  return NULL;
-}
-
 // Get the spelling of the requirements
 #define CI_SPELLING(NODE) \
   check_nonnull (check_constraint_info (NODE))->spelling
@@ -830,42 +820,15 @@ check_template_info (tree t)
 #define CI_ASSUMPTIONS(NODE) \
   check_nonnull (check_constraint_info (NODE))->assumptions
 
-// Get the constraint associated with the template info NODE.
-#define TI_CONSTRAINT(NODE) \
-  check_nonnull (check_template_info (NODE))->constraint
-
-// Get the spelling of constraints associated
-#define TI_SPELLING(NODE) \
-  check_nonnull (check_constraint_info (TI_CONSTRAINT (NODE)))->spelling
-
-// Get requirements associated with the template info NODE.
-#define TI_REQUIREMENTS(NODE) \
-  check_nonnull (check_constraint_info (TI_CONSTRAINT (NODE)))->requirements
-
-// Get assumptions associated with the template info NODE.
-#define TI_ASSUMPTIONS(NODE) \
-  check_nonnull (check_constraint_info (TI_CONSTRAINT (NODE)))->assumptions
-
-// Access constraint information for C++ declarations. Note that
-// NODE must have DECL_LANG_SPECIFIC.
-#define DECL_TEMPLATE_CONSTRAINT(NODE) \
-  TI_CONSTRAINT (DECL_TEMPLATE_INFO (NODE))
-
-// Access constraint information for class types.
-#define CLASSTYPE_TEMPLATE_CONSTRAINT(NODE) \
-  TI_CONSTRAINT (CLASSTYPE_TEMPLATE_INFO (NODE))
-
-// Access constraint information for enum types.
-#define ENUM_TEMPLATE_CONSTRAINT(NODE) \
-  TI_CONSTRAINT (ENUM_TEMPLATE_INFO (NODE))
-
-// Access constraint information for template template parameters.
-#define TEMPLATE_TEMPLATE_PARM_TEMPLATE_CONSTRAINT(NODE) \
-  TI_CONSTRAINT (TEMPLATE_TEMPLATE_PARM_TEMPLATE_INFO (NODE))
-
-// Access constraint information for any type.
-#define TYPE_TEMPLATE_CONSTRAINT(NODE) \
-  TI_CONSTRAINT (TYPE_TEMPLATE_INFO (NODE))
+// Access constraints for the declaration, NODE.
+//
+// For TEMPLATE_DECL nodes, the constraints are stored in the
+// DECL_SIZE_UNIT node.
+//
+// TODO: This will need to be updated for shorthand constraints and
+// constrained auto declarations.
+#define DECL_CONSTRAINTS(NODE) \
+  (DECL_SIZE_UNIT (TEMPLATE_DECL_CHECK (NODE)))
 
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
@@ -5621,7 +5584,6 @@ extern bool function_parameter_expanded_from_pack_p (tree, tree);
 extern tree make_pack_expansion                 (tree);
 extern bool check_for_bare_parameter_packs      (tree);
 extern tree build_template_info			(tree, tree);
-extern tree build_template_info                 (tree, tree, tree);
 extern tree get_template_info			(const_tree);
 extern vec<qualified_typedef_usage_t, va_gc> *get_types_needing_access_check (tree);
 extern int template_class_depth			(tree);

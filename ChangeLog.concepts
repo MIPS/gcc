@@ -1,3 +1,51 @@
+2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/cp-tree.h (tree_template_info). Remove constraint from 
+	template info.
+	(check_template_info): Removed (unused).
+	(TI_CONSTRAINT): Removed (no longer needed) along with related macros.
+	(DECL_CONSTRAINTS): New. Get constraints from DECL_SIZE_UNIT for 
+	template decls.
+	(build_template_info): Removed overload taking constraints.
+	(get_constraints): Removed (no longer needed).
+	* gcc/cp/class.c (are_constrained_member_overlaods): Allow constrained 
+	member function templates to be differentiated as overloads.
+	* gcc/cp/decl.c (decls_match): Only compare constraints on 
+	declarations.
+	(grokfndecl): Don't pass constraints to build_template_info.
+	* gcc/cp/tree.c (bind_template_template_parm): Don't pass constraints 
+	to build_template_info.
+	* gcc/cp/pt.c (build_template_info): Removed overload taking 
+	constraints.
+	(check_explicit_specialization): Don't build new constraints for 
+	template info.
+	(build_template_decl): Pass constraints. Update docs.
+	(process_partial_specialization): Stub out support for constrained
+	partial specialiations.
+	(push_template_decl_real): Build template decls with current template 
+	reqs. Don't pass constraints to build_template_info.
+	(add_inherited_template_parms): Build new constraints from inherited
+	template constructors.
+	(redeclare_class_template): Update to new constraint interface.
+	(is_compatible_template_arg): Update to new constraint interface.
+	(lookup_template_class_1): Don't build new constraints or pass them to
+	build_template_info.
+	(instantiate_class_template_1): Update to new constraints interface.
+	(tsubst_decl): Don't build new constraints or pass them to
+	build_template_info. For function templates, explicitly instantiate
+	new constraints for member functions of class templates.
+	* gcc/cp/semantics.c: Associate constraints with template template 
+	parms directly, not through template info.
+	* gcc/cp/constraint.cc (get_constraints): Simplified to use new constraints
+	interface.
+	(check_constraints): Update to use new constraints interface.
+	(equivalently_constrained): Update to use new constraints interface.
+	(more_constrained): Update to use new constraints interface.
+	* gcc/cp/parser.cpp (cp_parser_late_parsing_for_member): Update to use 
+	new constraints interface.
+	* gcc/cp/call.c (is_non_template_member_fn): New.
+	(add_function_candidate): Only check constraints for non-template member
+	functions.
+
 2013-06-21  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_parser_requires_clause): Pulled out of
 	cp_parser_requires_clause_opt for reuse in the requires expr parser.

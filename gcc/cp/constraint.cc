@@ -451,46 +451,29 @@ make_constraints (tree reqs)
   return (tree)cinfo;
 }
 
-namespace {
 
-inline tree
-get_type_constraints (tree t)
-{
-  // Template template arguments may not have template info.
-  if (!TYPE_TEMPLATE_INFO (t))
-    return NULL_TREE;
-  return TYPE_TEMPLATE_CONSTRAINT (t);
-}
+// -------------------------------------------------------------------------- //
+// Get Constraints
 
-inline tree
-get_decl_constraints (tree t)
-{
-  if (TREE_CODE (t) == TEMPLATE_DECL)
-    {
-      tree d = DECL_TEMPLATE_RESULT (t);
-      if (TREE_CODE (d) == TYPE_DECL)
-        return get_type_constraints (TREE_TYPE (t));
-      else
-        return get_decl_constraints (d);
-    }
-  return DECL_TEMPLATE_CONSTRAINT (t);
-}
-
-} // end namespace
-
-// Return constraint info for the node T, regardless of the
-// kind of node.
+// Returns the template constraints of declaration T. If T is not a
+// template, this return NULL_TREE. Note that T must be non-null.
 tree
 get_constraints (tree t)
 {
-  if (TYPE_P (t))
-    return get_type_constraints (t);
-  else if (DECL_P (t))
-    return get_decl_constraints (t);
-  else
-    gcc_unreachable ();
-  return false;
+  gcc_assert (DECL_P (t));
+  if (TREE_CODE (t) != TEMPLATE_DECL)
+    {
+      if (!DECL_TEMPLATE_INFO (t))
+        return NULL_TREE;
+      else
+        return DECL_CONSTRAINTS (DECL_TI_TEMPLATE (t));
+    }
+  return DECL_CONSTRAINTS (t);
 }
+
+
+// -------------------------------------------------------------------------- //
+// Check Constraints
 
 // Returns true if the requirements expression REQS is satisfied
 // and false otherwise. The requirements are checked by simply 
@@ -539,28 +522,13 @@ check_constraints (tree cinfo, tree args)
   return check_requirements (CI_REQUIREMENTS (cinfo), args);
 }
 
-static inline bool
-check_type_constraints (tree t, tree args)
-{
-  return check_constraints (CLASSTYPE_TEMPLATE_CONSTRAINT (t), args);
-}
-
-static inline bool
-check_decl_constraints (tree t, tree args)
-{
-  if (TREE_CODE (t) == TEMPLATE_DECL)
-    return check_decl_constraints (DECL_TEMPLATE_RESULT (t), args);
-  else
-    return check_constraints (DECL_TEMPLATE_CONSTRAINT (t), args);
-}
-
 // Check the constraints of the declaration or type T, against 
 // the specified arguments. Returns true if the constraints are 
 // satisfied and false otherwise.
 bool
 check_template_constraints (tree t, tree args)
 {
-  return check_constraints (get_constraints (t), args);
+  return check_constraints (DECL_CONSTRAINTS (t), args);
 }
 
 // Returns true when A and B are equivalent constraints.
@@ -577,7 +545,7 @@ bool
 equivalently_constrained (tree a, tree b)
 {
   gcc_assert (TREE_CODE (a) == TREE_CODE (b));
-  return equivalent_constraints (get_constraints (a), get_constraints (b));
+  return equivalent_constraints (DECL_CONSTRAINTS (a), DECL_CONSTRAINTS (b));
 }
 
 // Returns true when the A contains more atomic properties than B.
@@ -593,7 +561,7 @@ bool
 more_constrained (tree a, tree b)
 {
   gcc_assert (TREE_CODE (a) == TREE_CODE (b));
-  return more_constraints (get_constraints (a), get_constraints (b));
+  return more_constraints (DECL_CONSTRAINTS (a), DECL_CONSTRAINTS (b));
 }
 
 
@@ -799,7 +767,7 @@ diagnose_constraint_failure (location_t loc, tree tmpl, tree args)
 
   // Diagnose the constraints by recursively decomposing and
   // evaluating the template requirements.
-  tree reqs = CI_SPELLING (get_constraints (tmpl));
+  tree reqs = CI_SPELLING (DECL_CONSTRAINTS (tmpl));
   diagnose_requirements (loc, reqs, args);
 }
 

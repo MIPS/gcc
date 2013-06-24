@@ -23421,9 +23421,9 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 
   // Restore the declaration's requirements for the parsing of
   // the definition.
+  //
   tree saved_template_reqs = release (current_template_reqs);
-  if (tree tinfo = DECL_TEMPLATE_INFO (member_function))
-    current_template_reqs = TI_CONSTRAINT (tinfo);
+  current_template_reqs = get_constraints (member_function);
 
   /* If the body of the function has not yet been parsed, parse it
      now.  */

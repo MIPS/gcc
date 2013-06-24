@@ -1820,6 +1820,15 @@ remaining_arguments (tree arg)
   return n;
 }
 
+// Returns true if fn is a non-template member function.
+static bool
+is_non_template_member_fn (tree fn)
+{
+  return DECL_FUNCTION_MEMBER_P (fn) &&
+         DECL_TEMPLATE_INFO (fn) &&
+         !DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (fn));
+}
+
 /* Create an overload candidate for the function or method FN called
    with the argument list FIRST_ARG/ARGS and add it to CANDIDATES.
    FLAGS is passed on to implicit_conversion.
@@ -1872,15 +1881,23 @@ add_function_candidate (struct z_candidate **candidates,
   //
   // Functions whose constraints are not satisfied are non-viable.
   //
-  // This only happens with constrained non-template members, which
-  // we've currently disabled.
-  if (DECL_USE_TEMPLATE (fn))
+  // For function templates, constraints are checked as part of template
+  // argument deduction. A failure there means that the template is
+  // already added as a non-viable candidate. For non-template member 
+  // functions, however, the declaration declaration has already been
+  // synthesized, but its constraints have not actually been checked.
+  // We should do that now.
+  //
+  // TODO: Consider checking constrained non-template members during
+  // class template instantiation and setting a flag indicating whether
+  // or not the declaration is viable. This could be set as a flag in
+  // TEMPLATE_INFO (there should be a bunch of unused bits there).
+  if (is_non_template_member_fn (fn)) 
     {
-      tree cons = DECL_TEMPLATE_CONSTRAINT (fn);
-      if (!check_constraints (cons))
+      tree tmpl = DECL_TI_TEMPLATE (fn);
+      tree args = DECL_TI_ARGS (fn);
+      if (!check_template_constraints (tmpl, args))
         {
-          tree tmpl = DECL_TI_TEMPLATE (fn);
-          tree args = DECL_TI_ARGS (fn);
           reason = template_constraint_failure (tmpl, args);
           viable = false;
           goto out;          
@@ -3024,8 +3041,7 @@ add_template_candidate_real (struct z_candidate **candidates, tree tmpl,
          for this will point at template <class T> template <> S<T>::f(int),
          so that we can find the definition.  For the purposes of
          overload resolution, however, we want the original TMPL.  */
-      tree cons = tsubst_constraint (DECL_TEMPLATE_CONSTRAINT (fn), targs);
-      cand->template_decl = build_template_info (tmpl, targs, cons);
+      cand->template_decl = build_template_info (tmpl, targs);
     }
   else
     cand->template_decl = DECL_TEMPLATE_INFO (fn);

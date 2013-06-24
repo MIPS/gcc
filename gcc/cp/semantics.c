@@ -2586,15 +2586,12 @@ finish_template_template_parm (tree aggr, tree identifier)
 {
   tree decl = build_lang_decl_loc (input_location,
 			  TYPE_DECL, identifier, NULL_TREE);
+
   tree tmpl = build_lang_decl (TEMPLATE_DECL, identifier, NULL_TREE);
   DECL_TEMPLATE_PARMS (tmpl) = current_template_parms;
+  DECL_CONSTRAINTS (tmpl) = current_template_reqs;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
   DECL_ARTIFICIAL (decl) = 1;
-
-  // Build template info and associate it with the parameter.
-  DECL_TEMPLATE_INFO (decl) = build_template_info (tmpl, 
-                                                   current_template_args (), 
-                                                   current_template_reqs);
 
   end_template_decl ();
 

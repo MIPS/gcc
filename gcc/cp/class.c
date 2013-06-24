@@ -934,18 +934,26 @@ modify_vtable_entry (tree t,
     }
 }
 
-// Returns true if NEW_FN and OLD_FN are non-template member functions
-// of a class template with with different constraints. The types of the 
-// functions are assumed to be equivalent.
+// Returns true if NEWDECL and OLDDEC are member functions with with 
+// different constraints. If NEWDECL and OLDDECL are non-template members
+// or specializations of non-template members, they overloads are 
+// differentiated by the template constraints.
+//
+// Note that the types of the functions are assumed to be equivalent.
 static inline bool
-are_constrained_member_overloads (tree new_fn, tree old_fn) 
+are_constrained_member_overloads (tree newdecl, tree olddecl) 
 {
-  // Non-temploids cannot be constrained.
-  if (!DECL_TEMPLOID_INSTANTIATION (new_fn) 
-      && !DECL_TEMPLOID_INSTANTIATION (old_fn))
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
+    newdecl = DECL_TI_TEMPLATE (newdecl);
+  if (TREE_CODE (olddecl) == FUNCTION_DECL)
+    olddecl = DECL_TI_TEMPLATE (olddecl);
+
+  // If neither is a template or temploid, then they cannot
+  // be constrained declarations.
+  if (!newdecl && !olddecl)
     return false;
-  else 
-    return !equivalently_constrained (new_fn, old_fn);
+  else
+    return !equivalently_constrained (newdecl, olddecl);
 }
 
 
