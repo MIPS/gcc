@@ -2724,7 +2724,7 @@ melt-runtime.args:  $(MELT_RUNTIME_C) melt-run-md5.h melt-runtime-params-inc.c $
     $(GGC_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(CFGLOOP_H) \
     tree-pass.h $(MELT_H) \
     $(srcdir)/melt/generated/meltrunsup.h \
-    $(srcdir)/melt/generated/meltrunsup-inc.c \
+    $(srcdir)/melt/generated/meltrunsup-inc.cc \
     gt-melt-runtime.h $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) \
      Makefile
 	@echo '@@**@@' building melt-runtime.args
@@ -2742,7 +2742,7 @@ melt-runtime.o:  $(MELT_RUNTIME_C) melt-run-md5.h melt-runtime-params-inc.c  $(C
     $(GGC_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(CFGLOOP_H) \
     tree-pass.h $(MELT_H) \
     $(srcdir)/melt/generated/meltrunsup.h \
-    $(srcdir)/melt/generated/meltrunsup-inc.c \
+    $(srcdir)/melt/generated/meltrunsup-inc.cc \
     gt-melt-runtime.h $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) \
 	| melt-runtime.args
 	ls -l melt-runtime.args
@@ -3857,7 +3857,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssa-alias.h \
   $(srcdir)/ipa-prop.h \
   $(MELT_RUNTIME_C) \
-  $(srcdir)/melt/generated/meltrunsup-inc.c \
+  $(srcdir)/melt/generated/meltrunsup-inc.cc \
   $(srcdir)/trans-mem.c \
   $(srcdir)/lto-streamer.h \
   $(srcdir)/target-globals.h \
@@ -4725,7 +4725,7 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
 
 ## extra MELT required plugin headers
 MELT_PLUGIN_HEADERS= melt-runtime.h melt-run.h melt-predef.h melt-run-md5.h \
-                     melt/generated/meltrunsup.h 
+                     melt/generated/meltrunsup.h
 
 
 # generate the 'build fragment' b-header-vars
@@ -5664,7 +5664,7 @@ upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-buil
 	@echo upgrade-warmelt rebuild runtime with the newly generated meltrunsup files
 	$(COMPILER) -H -I meltbuild-sources/generated/ -c  $(shell cat melt-runtime.args) -o /dev/null
 	@echo upgrade-warmelt installing generated meltrunsup files into source tree
-	for f in meltbuild-sources/generated/meltrunsup*.[ch] ; do \
+	for f in meltbuild-sources/generated/meltrunsup*.{cc,h} ; do \
 	   astyle -gnu $$f ; \
 	   bf=`basename $$f` ; \
 	   [ -f "$(srcdir)/melt/generated/$$bf" ]  \

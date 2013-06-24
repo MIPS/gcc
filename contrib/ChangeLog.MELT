@@ -1,4 +1,10 @@
 
+2013-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT is now C++ only}}
+	* MELT-Plugin-Makefile: Use meltrunsup-inc.cc and only a C++
+	compiler.
+
+
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: More informational messages.

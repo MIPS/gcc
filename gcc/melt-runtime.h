@@ -648,7 +648,8 @@ static inline void melt_store_predefined(int, melt_ptr_t);
 
 
 
-/* forward declarations of touching functions; they can appear in meltrunsup.h */
+/* forward declarations of touching functions; they can appear in
+   meltrunsup.h generated file.  */
 static inline void meltgc_touch_dest (void *touchedptr, void *destptr);
 static inline void meltgc_touch (void* touchedptr);
 
@@ -2567,7 +2568,7 @@ void* melt_dlsym_all (const char*nam);
 char* melt_tempdir_path (const char* basnam, const char* suffix);
 
 /* Clone a source value with a new discriminant. When the cloning can't be
-   done, return the original source value. Generated code in meltrunsup-inc.c */
+   done, return the original source value. Generated code in meltrunsup-inc.cc */
 melt_ptr_t
 meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p);
 

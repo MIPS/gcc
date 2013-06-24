@@ -1,6 +1,23 @@
 
 
-2013-06-23  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{The header meltrunsup.h cannot be renamed as meltrunsup.hh
+	because gengtype don't allow that. But we rename the generated
+	meltrunsup-inc.c as meltrunsup-inc.cc...}}
+	* Makefile.in (melt-runtime.args, GTFILES, upgrade-warmelt): Use
+	meltrunsup-inc.cc file.
+
+	* melt/generated/meltrunsup-inc.c: Rename as...
+	* melt/generated/meltrunsup-inc.cc: New name for this file.
+
+	* melt-runtime.h: Mention meltrunsup-inc.cc in comments.
+	* melt-runtime.c: Include "meltrunsup-inc.cc".
+
+	* melt/warmelt-modes.melt (runtypesupport_docmd): Generate
+	meltrunsup.h & meltrunsup-inc.cc files.
+
+
+2013-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Fully switching to C++; first, emit C++ file names; the
 	generated *+meltdesc.c file stays in plain C}}
 

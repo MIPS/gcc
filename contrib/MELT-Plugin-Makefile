@@ -53,20 +53,10 @@ AWK?= gawk
 MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
 $(info building MELT: GCC version $(MELTGCC_VERSION))
 
-## check that we have a gcc 4.6 or 4.7 or 4.8
-ifeq ($(filter 4.6.% 4.7.% 4.8.%, $(MELTGCC_VERSION)),)
-$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.6 or 4.7 or 4.8)
+## check that we have a gcc 4.7 or 4.8 
+ifeq ($(filter 4.7.% 4.8.% '.9.%, $(MELTGCC_VERSION)),)
+$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.7 or 4.8 or 4.9)
 endif
-
-## gives yes if MELTGCC has been built with C++ or else the empty
-## string; notice that GCC 4.8 is always in C++
-ifeq ($(filter-out 4.8.%,$(MELTGCC_VERSION)),)
-MELTGCC_BUILD_WITH_CXX := yes
-else
-MELTGCC_BUILD_WITH_CXX := $(shell grep -q 'define[[:space:]]\+ENABLE_BUILD_WITH_CXX[[:space:]]\+1' \
-  `$(MELTGCC) -print-file-name=plugin/include/auto-host.h` && echo yes)
-endif
-
 ## You may want to set MELTGCC_NO_CHECK_RUNTIME environment variable
 ## when cross-compiling (since you cannot compile melt-runtime.c with
 ## a MELT augmented GCC in that case). See file melt-build-script.tpl
@@ -75,15 +65,9 @@ endif
 ## The compiler and flags used to build the melt.so plugin and to
 ## compile MELT generated code.  Notice that melt-module.mk use the
 ## same Make variables.  For a melt plugin to GCC 4.7 or later, that
-## could be a C++ compiler! eg
+## should be a C++ compiler! eg
 ##   make MELTGCC=gcc-4.7 GCCMELT_CC=g++-4.7
-## hence we add a test if $(MELTGCC) was built with C++ or with C
 ifndef GCCMELT_CC
-$(info building MELT: $(MELTGCC) is built with C++ $(or $(MELTGCC_BUILD_WITH_CXX),no))
-ifeq ($(strip $(MELTGCC_BUILD_WITH_CXX)),)
-GCCMELT_CC = $(or $(CC),gcc) -Wc++-compat
-$(info building MELT: GCCMELT_CC= $(GCCMELT_CC) is a C compiler)
-else
 GCCMELT_CC = $(or $(CXX),g++)
 $(info building MELT: GCCMELT_CC= $(GCCMELT_CC) is a C++ compiler)
 endif
@@ -192,7 +176,7 @@ MELTGCC_MAKE= $(MAKE)
 # the GCC compiler into which we plug the MELT metaplugin
 melt_make_cc1= $(MELTGCC) -c
 # the make dependencies related to using MELT
-melt_make_cc1_dependency= melt-runtime.h melt-run.h melt/generated/meltrunsup.h melt/generated/meltrunsup-inc.c melt.so
+melt_make_cc1_dependency= melt-runtime.h melt-run.h melt/generated/meltrunsup.h melt/generated/meltrunsup-inc.cc melt.so
 melt_make_gencdeps= $(melt_make_cc1)
 melt_make_module_makefile= melt-module.mk
 
@@ -257,10 +241,10 @@ all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 
 
 gt-melt-runtime.h:  $(MELTGCC_RUNTIME_INCLUDES) $(MELTGCC_GTYPESTATE) \
-   melt-runtime.c melt/generated/meltrunsup-inc.c
+   melt-runtime.c melt/generated/meltrunsup-inc.cc
 	$(MELTGCC_GENGTYPE) $(MELTGCC_GENGTYPEFLAGS) \
 	   -r  $(MELTGCC_GTYPESTATE) -P $@  $(MELTGCC_RUNTIME_INCLUDES) \
-	   melt-runtime.c melt/generated/meltrunsup-inc.c
+	   melt-runtime.c melt/generated/meltrunsup-inc.cc
 
 melt-predef.h:  make-melt-predefh.awk melt-predef.list
 	$(AWK) -f $^ > $@-tmp
