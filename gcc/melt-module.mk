@@ -208,9 +208,9 @@ $(GCCMELTGEN_BUILD)%.quicklybuilt.meltmdsumedpic.o: $(GCCMELTGEN_BUILD)%.mdsumed
 	$(GCCMELT_COMPILER) $(GCCMELT_QUICKLYBUILT_PREPROFLAGS)  $(GCCMELT_PREPROFLAGS) \
            $(GCCMELT_QUICKLYBUILT_FLAGS) $(GCCMELT_CFLAGS)  $(GCCMELT_PACKAGES_CFLAGS) \
 	   -fPIC -c -o $@ $< || \
-	( echo; echo '====' recompiling $^ quickly noline mdsumpedpic ; \
-	  $(GCCMELT_VERBOSE_ECHO) @+@melt-module quicklybuilt-noline.meltmdsumedpic ; \
-          $(GCCMELT_COMPILER) -DMELTGCC_RECOMPILE_QUICKLY_NOLINE -DMELTGCC_NOLINENUMBERING \
+	( echo; echo '====' recompiling $^ quicklybuilt mdsumpedpic ; \
+	  $(GCCMELT_VERBOSE_ECHO) @+@melt-module quicklybuilt.meltmdsumedpic ; \
+          $(GCCMELT_COMPILER) -DMELTGCC_RECOMPILE_QUICKLYBUILT -DMELTGCC_NOLINENUMBERING \
            $(GCCMELT_QUICKLYBUILT_PREPROFLAGS)  $(GCCMELT_PREPROFLAGS) \
            $(GCCMELT_QUICKLYBUILT_FLAGS) $(GCCMELT_CFLAGS)  $(GCCMELT_PACKAGES_CFLAGS) \
 	   -fPIC -c -o /dev/null $< ; exit 1)

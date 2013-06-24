@@ -5665,7 +5665,7 @@ upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-buil
 	$(COMPILER) -H -I meltbuild-sources/generated/ -c  $(shell cat melt-runtime.args) -o /dev/null
 	@echo upgrade-warmelt installing generated meltrunsup files into source tree
 	for f in meltbuild-sources/generated/meltrunsup*.{cc,h} ; do \
-	   astyle -gnu $$f ; \
+	   astyle --style=gnu $$f ; \
 	   bf=`basename $$f` ; \
 	   [ -f "$(srcdir)/melt/generated/$$bf" ]  \
               && cp $(srcdir)/melt/generated/$$bf  $(srcdir)/melt/generated/$$bf~ ; \
@@ -5676,8 +5676,8 @@ upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-buil
 	   cp $(srcdir)/melt/generated/$$bf  $(srcdir)/melt/generated/$$bf~ ; \
            case $$bf in \
              *+melt*) cp $$f  $(srcdir)/melt/generated/$$bf-tmp;; \
-	     *.[ch]) unifdef -DMELTGCC_NOLINENUMBERING $$f | astyle -gnu > $(srcdir)/melt/generated/$$bf-tmp ;; \
-	     *.[ch][ch]) unifdef -DMELTGCC_NOLINENUMBERING $$f | astyle -gnu > $(srcdir)/melt/generated/$$bf-tmp ;; \
+	     *.[ch]) unifdef -DMELTGCC_NOLINENUMBERING $$f | astyle --style=gnu > $(srcdir)/melt/generated/$$bf-tmp ;; \
+	     *.[ch][ch]) unifdef -DMELTGCC_NOLINENUMBERING $$f | astyle --style=gnu > $(srcdir)/melt/generated/$$bf-tmp ;; \
 	     *)  cp $$f  $(srcdir)/melt/generated/$$bf-tmp;; \
 	   esac; \
 	   mv $(srcdir)/melt/generated/$$bf-tmp  $(srcdir)/melt/generated/$$bf ; \

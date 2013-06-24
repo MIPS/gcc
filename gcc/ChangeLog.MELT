@@ -1,6 +1,17 @@
 
 
 2013-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* Makefile.in (upgrade-warmelt): Use "astyle --style=gnu" instead
+	of "astyle -gnu" ...
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit
+	better the forward declaration of melt_start_this_module & struct
+	melt_initial_frame_st...
+
+	* melt-module.mk ($(GCCMELTGEN_BUILD)%.quicklybuilt.meltmdsumedpic.o): Correct typo.
+
+2013-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{The header meltrunsup.h cannot be renamed as meltrunsup.hh
 	because gengtype don't allow that. But we rename the generated
 	meltrunsup-inc.c as meltrunsup-inc.cc...}}
