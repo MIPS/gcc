@@ -42321,7 +42321,7 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
    should be encoded with bnd prefix.  */
 
 bool
-ix86_bnd_prefixed_insn_p (rtx insn)
+ix86_bnd_prefixed_insn_p (rtx insn ATTRIBUTE_UNUSED)
 {
   return flag_mpx
     && !lookup_attribute ("mpx_legacy", DECL_ATTRIBUTES (cfun->decl));

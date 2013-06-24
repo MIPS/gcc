@@ -815,7 +815,7 @@ mpx_may_finish_incomplete_bounds (void)
 static bool
 mpx_recompute_phi_bounds (const void *key, void **slot, void *res ATTRIBUTE_UNUSED)
 {
-  tree bounds = (tree)key;
+  tree bounds = const_cast<tree> ((const_tree)key);
   tree ptr = *(tree *)slot;
   gimple bounds_phi;
   gimple ptr_phi;
@@ -885,7 +885,7 @@ mpx_valid_bounds (tree bounds)
 static bool
 mpx_find_valid_phi_bounds (const void *key, void **slot, void *res)
 {
-  tree bounds = (tree)key;
+  tree bounds = const_cast<tree> ((const_tree)key);
   gimple phi;
   unsigned i;
 
@@ -922,7 +922,7 @@ static bool
 mpx_mark_invalid_bounds_walker (const void *key, void **slot ATTRIBUTE_UNUSED,
 				void *res ATTRIBUTE_UNUSED)
 {
-  tree bounds = (tree)key;
+  tree bounds = const_cast<tree> ((const_tree)key);
 
   if (!mpx_completed_bounds (bounds))
     {
