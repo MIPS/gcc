@@ -788,7 +788,7 @@ gen_class_type_in_scope (const_tree t,
 
   {
     tree binfo = TYPE_BINFO (t), base_binfo;
-    for (int i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
+    for (int i = 0; binfo && BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
       {
 	shared_ptr <abigail::type_base> base_type =
 	  gen_type (BINFO_TYPE (base_binfo));
@@ -796,9 +796,15 @@ gen_class_type_in_scope (const_tree t,
 	  // FIXME: log that we couldn't generate this type.
 	  continue;
 
+	long base_offset_in_bits = BINFO_OFFSET (base_binfo)
+	  ? get_int_constant_value (BINFO_OFFSET (base_binfo)) * BITS_PER_UNIT
+	  : -1;
+
 	shared_ptr <abigail::class_decl::base_spec> b
 	  (new abigail::class_decl::base_spec (base_type,
-					       get_base_access (binfo, i)));
+					       get_base_access (binfo, i),
+					       base_offset_in_bits,
+					       BINFO_VIRTUAL_P (base_binfo)));
 	class_type->add_base_specifier (b);
       }
   }
