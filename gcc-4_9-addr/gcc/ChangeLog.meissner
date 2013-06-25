@@ -1,24 +1,62 @@
-2013-06-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2013-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/rs6000.c (REG_VALID_GPR): Add tables to describe
-	exactly what addressing modes are valid for each type in different
-	register classes.
-	(REG_VALID_FPR): Likewise.
-	(REG_VALID_ALTIVEC): Likewise.
-	(REG_VALID_VSX): Likewise.
+	* config/rs6000/vector.md (VEC_R):Move reload insns to
+	rs6000.md.  Delete VEC_R iterator.
+	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+	(vec_reload_and_reg_<mptrsize>): Likewise.
+
+	* config/rs6000/rs6000.opt (-mgeneral-addr-vector): New debug
+	switches for enabling general addresses before reload.
+	(-mgeneral-addr-scalar): Likewise.
+	(-mold-legitimate-address): Delete.
+
+	* config/rs6000/rs6000.c (rs6000_vector_reload): Move reload
+	helper INSN fields into reg_addr structure.
+	(GPR_ADDRESS): Add tables to describe exactly what addressing
+	modes are valid for each type in different register classes.
+	(FPR_ADDRESS): Likewise.
+	(ALTIVEC_ADDRESS): Likewise.
+	(VSX_ADDRESS): Likewise.
 	(OFFSET_0BITS): Likewise.
 	(OFFSET_SPE): Likewise.
-	(struct rs6000_reg_valid): Likewise.
-	(reg_valid): Likewise.
+	(struct rs6000_reg_addr): Likewise.
+	(reg_addr): Likewise.
 	(rs6000_debug_print_register_valid): Helper function to print
 	valid addressing modes.
 	(rs6000_debug_reg_global): If -mdebug=reg, print valid addressing
-	modes.
-	(rs6000_init_hard_regno_mode_ok): Setup tables for the valid
-	address modes.
+	modes.  Print if -mgeneral-addr-{vector,scalar} used.
+	(rs6000_init_address_modes): Setup tables for the valid address
+	modes.  Setup reload helper INSNS for secondary reload.
+	(rs6000_init_direct_move): Setup tables for direct move support.
+	(rs6000_init_hard_regno_mode_ok): Move code for setting up direct
+	move and reload helper INSNS to rs6000_init_address_modes and
+	rs6000_init_direct_move.  Call those functions.  Use ssize_t
+	instead of int on loop iterators.
+	(reg_offset_addressing_ok_p): Take strict argument.  Change
+	callers.  If before reload, and general addressing is enabled for
+	the mode, allow offset addresses.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_debug_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Use reg_addr tables to see if the
+	mode supports PRE_INC/PRE_DEC/PRE_MODIFY.  Allow more general
+	addresses for TImode.
+	(rs6000_secondary_reload): Move rs6000_vector_reload array into
+	reg_addr.
+	(rs6000_output_move_128bit): Do not use %y on ls/stq
+	instructions.
 
-	* config/rs6000/rs6000.opt (-mold-legitimate-address): New debug
-	switch to disable new table driven addressing modes.
+	* config/rs6000/rs6000.md (RELOAD): Move vector reload helper
+	functions from vector.md to rs6000.md.  Make them more general,
+	and support scalar types.
+	(reload_<RELOAD:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+	(vec_reload_and_reg_<mptrsize>): Likewise.
+
+2013-06-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 200307.
 	* REVISION: Update subversion id.
