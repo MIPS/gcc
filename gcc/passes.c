@@ -136,8 +136,8 @@ rest_of_decl_compilation (tree decl,
 	/* A quirk of the initial implementation of aliases required that the
 	   user add "extern" to all of them.  Which is silly, but now
 	   historical.  Do note that the symbol is in fact locally defined.  */
-	if (!lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
-	  DECL_EXTERNAL (decl) = 0;
+	DECL_EXTERNAL (decl) = 0;
+	TREE_STATIC (decl) = 1;
 	assemble_alias (decl, alias);
       }
   }
@@ -1536,15 +1536,15 @@ init_optimization_passes (void)
       /* Perform simple scalar cleanup which is constant/copy propagation.  */
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_object_sizes);
+      /* Fold remaining builtins.  */
+      NEXT_PASS (pass_fold_builtins);
       /* Copy propagation also copy-propagates constants, this is necessary
-         to forward object-size results properly.  */
+         to forward object-size and builtin folding results properly.  */
       NEXT_PASS (pass_copy_prop);
+      NEXT_PASS (pass_dce);
       NEXT_PASS (pass_asan);
       NEXT_PASS (pass_tsan);
       NEXT_PASS (pass_rename_ssa_copies);
-      NEXT_PASS (pass_dce);
-      /* Fold remaining builtins.  */
-      NEXT_PASS (pass_fold_builtins);
       /* ???  We do want some kind of loop invariant motion, but we possibly
          need to adjust LIM to be more friendly towards preserving accurate
 	 debug information here.  */

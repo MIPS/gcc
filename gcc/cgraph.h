@@ -56,6 +56,8 @@ struct GTY(()) symtab_node_base
   /* True when symbol is an alias.  
      Set by assemble_alias.  */
   unsigned alias : 1;
+  /* True when alias is a weakref.  */
+  unsigned weakref : 1;
   /* C++ frontend produce same body aliases and extra name aliases for
      virutal functions and vtables that are obviously equivalent.
      Those aliases are bit special, especially because C++ frontend
@@ -438,6 +440,8 @@ struct GTY(()) cgraph_indirect_call_info
   /* Set when the call is a call of a pointer loaded from contents of an
      aggregate at offset.  */
   unsigned agg_contents : 1;
+  /* Set when this is a call through a member pointer.  */
+  unsigned member_ptr : 1;
   /* When the previous bit is set, this one determines whether the destination
      is loaded from a parameter passed by reference. */
   unsigned by_ref : 1;
@@ -549,6 +553,8 @@ enum cgraph_state
   CGRAPH_STATE_PARSING,
   /* Callgraph is being constructed.  It is safe to add new functions.  */
   CGRAPH_STATE_CONSTRUCTION,
+  /* Callgraph is being at LTO time.  */
+  CGRAPH_LTO_STREAMING,
   /* Callgraph is built and IPA passes are being run.  */
   CGRAPH_STATE_IPA,
   /* Callgraph is built and all functions are transformed to SSA form.  */
@@ -711,7 +717,7 @@ struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *,
 					unsigned, gcov_type, int, bool);
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *, tree, gcov_type,
 					int, bool, vec<cgraph_edge_p>,
-					bool);
+					bool, struct cgraph_node *);
 tree clone_function_name (tree decl, const char *);
 struct cgraph_node * cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			                          vec<cgraph_edge_p>,
@@ -771,6 +777,7 @@ bool cgraph_maybe_hot_edge_p (struct cgraph_edge *e);
 bool cgraph_optimize_for_size_p (struct cgraph_node *);
 
 /* In varpool.c  */
+struct varpool_node *varpool_create_empty_node (void);
 struct varpool_node *varpool_node_for_decl (tree);
 struct varpool_node *varpool_node_for_asm (tree asmname);
 void varpool_mark_needed_node (struct varpool_node *);
@@ -792,7 +799,7 @@ void varpool_analyze_node (struct varpool_node *);
 struct varpool_node * varpool_extra_name_alias (tree, tree);
 struct varpool_node * varpool_create_variable_alias (tree, tree);
 void varpool_reset_queue (void);
-bool const_value_known_p (tree);
+tree ctor_for_folding (tree);
 bool varpool_for_node_and_aliases (struct varpool_node *,
 		                   bool (*) (struct varpool_node *, void *),
 			           void *, bool);

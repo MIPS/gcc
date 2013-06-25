@@ -241,8 +241,8 @@
 })
 
 (define_expand "movmisalign<mode>"
-  [(set (match_operand:VDQX 0 "neon_struct_or_register_operand")
-	(unspec:VDQX [(match_operand:VDQX 1 "neon_struct_or_register_operand")]
+  [(set (match_operand:VDQX 0 "neon_perm_struct_or_reg_operand")
+	(unspec:VDQX [(match_operand:VDQX 1 "neon_perm_struct_or_reg_operand")]
 		     UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
 {
@@ -255,7 +255,7 @@
 })
 
 (define_insn "*movmisalign<mode>_neon_store"
-  [(set (match_operand:VDX 0 "neon_struct_operand"	       "=Um")
+  [(set (match_operand:VDX 0 "neon_permissive_struct_operand"	"=Um")
 	(unspec:VDX [(match_operand:VDX 1 "s_register_operand" " w")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
@@ -263,15 +263,16 @@
   [(set_attr "neon_type" "neon_vst1_1_2_regs_vst2_2_regs")])
 
 (define_insn "*movmisalign<mode>_neon_load"
-  [(set (match_operand:VDX 0 "s_register_operand"		"=w")
-	(unspec:VDX [(match_operand:VDX 1 "neon_struct_operand" " Um")]
+  [(set (match_operand:VDX 0 "s_register_operand"			"=w")
+	(unspec:VDX [(match_operand:VDX 1 "neon_permissive_struct_operand"
+									" Um")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
   "vld1.<V_sz_elem>\t{%P0}, %A1"
   [(set_attr "neon_type" "neon_vld1_1_2_regs")])
 
 (define_insn "*movmisalign<mode>_neon_store"
-  [(set (match_operand:VQX 0 "neon_struct_operand"	       "=Um")
+  [(set (match_operand:VQX 0 "neon_permissive_struct_operand"  "=Um")
 	(unspec:VQX [(match_operand:VQX 1 "s_register_operand" " w")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
@@ -279,8 +280,9 @@
   [(set_attr "neon_type" "neon_vst1_1_2_regs_vst2_2_regs")])
 
 (define_insn "*movmisalign<mode>_neon_load"
-  [(set (match_operand:VQX 0 "s_register_operand"	         "=w")
-	(unspec:VQX [(match_operand:VQX 1 "neon_struct_operand" " Um")]
+  [(set (match_operand:VQX 0 "s_register_operand"			"=w")
+	(unspec:VQX [(match_operand:VQX 1 "neon_permissive_struct_operand"
+									" Um")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
   "vld1.<V_sz_elem>\t{%q0}, %A1"
@@ -780,21 +782,6 @@
   "TARGET_NEON"
   "veor\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "neon_type" "neon_int_1")]
-)
-
-(define_insn "xordi3_neon"
-  [(set (match_operand:DI 0 "s_register_operand" "=w,?&r,?&r,?w")
-        (xor:DI (match_operand:DI 1 "s_register_operand" "%w,0,r,w")
-	        (match_operand:DI 2 "s_register_operand" "w,r,r,w")))]
-  "TARGET_NEON"
-  "@
-   veor\t%P0, %P1, %P2
-   #
-   #
-   veor\t%P0, %P1, %P2"
-  [(set_attr "neon_type" "neon_int_1,*,*,neon_int_1")
-   (set_attr "length" "*,8,8,*")
-   (set_attr "arch" "neon_for_64bits,*,*,avoid_neon_for_64bits")]
 )
 
 (define_insn "one_cmpl<mode>2"
@@ -5605,7 +5592,7 @@
    (match_operand:SI 3 "immediate_operand" "")]
   "TARGET_NEON"
 {
-  emit_insn (gen_xor<mode>3<V_suf64> (operands[0], operands[1], operands[2]));
+  emit_insn (gen_xor<mode>3 (operands[0], operands[1], operands[2]));
   DONE;
 })
 

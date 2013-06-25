@@ -192,6 +192,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "lto-streamer.h"
 #include "except.h"
+#include "cfgloop.h"
 #include "regset.h"     /* FIXME: For reg_obstack.  */
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
@@ -379,6 +380,7 @@ cgraph_reset_node (struct cgraph_node *node)
   node->symbol.analyzed = false;
   node->symbol.definition = false;
   node->symbol.alias = false;
+  node->symbol.weakref = false;
   node->symbol.cpp_implicit_alias = false;
 
   cgraph_node_remove_callees (node);
@@ -760,8 +762,7 @@ process_function_and_variable_attributes (struct cgraph_node *first,
     {
       tree decl = vnode->symbol.decl;
       if (DECL_EXTERNAL (decl)
-	  && DECL_INITIAL (decl)
-	  && const_value_known_p (decl))
+	  && DECL_INITIAL (decl))
 	varpool_finalize_decl (decl);
       if (DECL_PRESERVE_P (decl))
 	vnode->symbol.force_output = true;
@@ -1021,9 +1022,9 @@ handle_alias_pairs (void)
 	  if (node)
 	    {
 	      node->symbol.alias_target = p->target;
+	      node->symbol.weakref = true;
 	      node->symbol.alias = true;
 	    }
-	  DECL_EXTERNAL (p->decl) = 1;
 	  alias_pairs->unordered_remove (i);
 	  continue;
 	}
@@ -1033,16 +1034,6 @@ handle_alias_pairs (void)
 	  alias_pairs->unordered_remove (i);
 	  continue;
 	}
-
-      /* Normally EXTERNAL flag is used to mark external inlines,
-	 however for aliases it seems to be allowed to use it w/o
-	 any meaning. See gcc.dg/attr-alias-3.c  
-	 However for weakref we insist on EXTERNAL flag being set.
-	 See gcc.dg/attr-alias-5.c  */
-      if (DECL_EXTERNAL (p->decl))
-	DECL_EXTERNAL (p->decl)
-	  = lookup_attribute ("weakref",
-			      DECL_ATTRIBUTES (p->decl)) != NULL;
 
       if (DECL_EXTERNAL (target_node->symbol.decl)
 	  /* We use local aliases for C++ thunks to force the tailcall
@@ -1205,18 +1196,24 @@ init_lowered_empty_function (tree decl, bool in_ssa)
       init_tree_ssa (cfun);
       init_ssa_operands (cfun);
       cfun->gimple_df->in_ssa_p = true;
+      cfun->curr_properties |= PROP_ssa;
     }
 
   DECL_INITIAL (decl) = make_node (BLOCK);
 
   DECL_SAVED_TREE (decl) = error_mark_node;
-  cfun->curr_properties |=
-    (PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg | PROP_ssa | PROP_gimple_any);
+  cfun->curr_properties |= (PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_any
+			    | PROP_cfg | PROP_loops);
+
+  set_loops_for_fn (cfun, ggc_alloc_cleared_loops ());
+  init_loops_structure (cfun, loops_for_fn (cfun), 1);
+  loops_for_fn (cfun)->state |= LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
 
   /* Create BB for body of the function and connect it properly.  */
   bb = create_basic_block (NULL, (void *) 0, ENTRY_BLOCK_PTR);
-  make_edge (ENTRY_BLOCK_PTR, bb, 0);
+  make_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
   make_edge (bb, EXIT_BLOCK_PTR, 0);
+  add_bb_to_loop (bb, ENTRY_BLOCK_PTR->loop_father);
 
   return bb;
 }
@@ -1461,6 +1458,9 @@ assemble_thunk (struct cgraph_node *node)
 	      then_bb = create_basic_block (NULL, (void *) 0, bb);
 	      return_bb = create_basic_block (NULL, (void *) 0, then_bb);
 	      else_bb = create_basic_block (NULL, (void *) 0, else_bb);
+	      add_bb_to_loop (then_bb, bb->loop_father);
+	      add_bb_to_loop (return_bb, bb->loop_father);
+	      add_bb_to_loop (else_bb, bb->loop_father);
 	      remove_edge (single_succ_edge (bb));
 	      true_label = gimple_block_label (then_bb);
 	      stmt = gimple_build_cond (NE_EXPR, restmp,
@@ -1885,9 +1885,9 @@ output_weakrefs (void)
 {
   symtab_node node;
   FOR_EACH_SYMBOL (node)
-    if (node->symbol.alias && DECL_EXTERNAL (node->symbol.decl)
+    if (node->symbol.alias
         && !TREE_ASM_WRITTEN (node->symbol.decl)
-	&& lookup_attribute ("weakref", DECL_ATTRIBUTES (node->symbol.decl)))
+	&& node->symbol.weakref)
       {
 	tree target;
 

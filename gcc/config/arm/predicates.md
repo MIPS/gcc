@@ -179,6 +179,11 @@
 	    (match_test "const_ok_for_dimode_op (INTVAL (op), IOR)"))
        (match_operand 0 "neon_logic_op2")))
 
+(define_predicate "arm_xordi_operand"
+  (ior (match_operand 0 "s_register_operand")
+       (and (match_code "const_int")
+	    (match_test "const_ok_for_dimode_op (INTVAL (op), XOR)"))))
+
 (define_predicate "arm_adddi_operand"
   (ior (match_operand 0 "s_register_operand")
        (and (match_code "const_int")
@@ -629,10 +634,14 @@
 
 (define_predicate "neon_struct_operand"
   (and (match_code "mem")
-       (match_test "TARGET_32BIT && neon_vector_mem_operand (op, 2)")))
+       (match_test "TARGET_32BIT && neon_vector_mem_operand (op, 2, true)")))
 
-(define_predicate "neon_struct_or_register_operand"
-  (ior (match_operand 0 "neon_struct_operand")
+(define_predicate "neon_permissive_struct_operand"
+  (and (match_code "mem")
+       (match_test "TARGET_32BIT && neon_vector_mem_operand (op, 2, false)")))
+
+(define_predicate "neon_perm_struct_or_reg_operand"
+  (ior (match_operand 0 "neon_permissive_struct_operand")
        (match_operand 0 "s_register_operand")))
 
 (define_special_predicate "add_operator"

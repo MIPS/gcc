@@ -1314,7 +1314,7 @@ recursive_inlining (struct cgraph_edge *edge,
 	  /* We need original clone to copy around.  */
 	  master_clone = cgraph_clone_node (node, node->symbol.decl,
 					    node->count, CGRAPH_FREQ_BASE,
-					    false, vNULL, true);
+					    false, vNULL, true, NULL);
 	  for (e = master_clone->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
 	      clone_inlined_nodes (e, true, false, NULL);
@@ -1911,7 +1911,15 @@ inline_always_inline_functions (struct cgraph_node *node)
 	}
 
       if (!can_early_inline_edge_p (e))
-	continue;
+	{
+	  /* Set inlined to true if the callee is marked "always_inline" but
+	     is not inlinable.  This will allow flagging an error later in
+	     expand_call_inline in tree-inline.c.  */
+	  if (lookup_attribute ("always_inline",
+				 DECL_ATTRIBUTES (callee->symbol.decl)) != NULL)
+	    inlined = true;
+	  continue;
+	}
 
       if (dump_file)
 	fprintf (dump_file, "  Inlining %s into %s (always_inline).\n",
@@ -2054,8 +2062,8 @@ early_inliner (void)
 	      es->call_stmt_time
 		= estimate_num_insns (edge->call_stmt, &eni_time_weights);
 	      if (edge->callee->symbol.decl
-		  && !gimple_check_call_matching_types (edge->call_stmt,
-							edge->callee->symbol.decl))
+		  && !gimple_check_call_matching_types (
+		      edge->call_stmt, edge->callee->symbol.decl, false))
 		edge->call_stmt_cannot_inline_p = true;
 	    }
 	  timevar_pop (TV_INTEGRATION);

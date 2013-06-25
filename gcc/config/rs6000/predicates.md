@@ -207,7 +207,7 @@
   if (!REG_P (op))
     return 0;
 
-  if (REGNO (op) >= ARG_POINTER_REGNUM && !CA_REGNO_P (REGNO (op)))
+  if (REGNO (op) >= FIRST_PSEUDO_REGISTER)
     return 1;
 
   return INT_REGNO_P (REGNO (op));
@@ -527,9 +527,11 @@
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
   HOST_WIDE_INT val;
+  int elt;
   if (mode == V2DImode || mode == V2DFmode)
     return 0;
-  val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  elt = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (mode) - 1 : 0;
+  val = const_vector_elt_as_int (op, elt);
   val = ((val & 0xff) ^ 0x80) - 0x80;
   return EASY_VECTOR_15_ADD_SELF (val);
 })
@@ -541,9 +543,11 @@
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
   HOST_WIDE_INT val;
+  int elt;
   if (mode == V2DImode || mode == V2DFmode)
     return 0;
-  val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  elt = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (mode) - 1 : 0;
+  val = const_vector_elt_as_int (op, elt);
   return EASY_VECTOR_MSB (val, GET_MODE_INNER (mode));
 })
 

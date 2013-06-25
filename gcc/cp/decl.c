@@ -622,17 +622,20 @@ poplevel (int keep, int reverse, int functionbody)
 	   push_local_binding where the list of decls returned by
 	   getdecls is built.  */
 	decl = TREE_CODE (d) == TREE_LIST ? TREE_VALUE (d) : d;
+	// See through references for improved -Wunused-variable (PR 38958).
+	tree type = non_reference (TREE_TYPE (decl));
 	if (VAR_P (decl)
 	    && (! TREE_USED (decl) || !DECL_READ_P (decl))
 	    && ! DECL_IN_SYSTEM_HEADER (decl)
 	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl)
-	    && TREE_TYPE (decl) != error_mark_node
-	    && (!CLASS_TYPE_P (TREE_TYPE (decl))
-		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl))))
+	    && type != error_mark_node
+	    && (!CLASS_TYPE_P (type)
+		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)))
 	  {
 	    if (! TREE_USED (decl))
 	      warning (OPT_Wunused_variable, "unused variable %q+D", decl);
 	    else if (DECL_CONTEXT (decl) == current_function_decl
+		     // For -Wunused-but-set-variable leave references alone.
 		     && TREE_CODE (TREE_TYPE (decl)) != REFERENCE_TYPE
 		     && errorcount == unused_but_set_errorcount)
 	      {
@@ -649,7 +652,7 @@ poplevel (int keep, int reverse, int functionbody)
       if (leaving_for_scope && VAR_P (link)
 	  /* It's hard to make this ARM compatibility hack play nicely with
 	     lambdas, and it really isn't necessary in C++11 mode.  */
-	  && cxx_dialect < cxx0x
+	  && cxx_dialect < cxx11
 	  && DECL_NAME (link))
 	{
 	  tree name = DECL_NAME (link);
@@ -3087,7 +3090,7 @@ case_conversion (tree type, tree value)
   if (value == NULL_TREE)
     return value;
 
-  if (cxx_dialect >= cxx0x
+  if (cxx_dialect >= cxx11
       && (SCOPED_ENUM_P (type)
 	  || !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (value))))
     {
@@ -5754,7 +5757,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
     {
       static int explained = 0;
 
-      if (cxx_dialect < cxx0x)
+      if (cxx_dialect < cxx11)
 	error ("initializer invalid for static member with constructor");
       else
 	error ("non-constant in-class initialization invalid for static "
@@ -7655,7 +7658,7 @@ grokfndecl (tree ctype,
     grokclassfn (ctype, decl, flags);
 
   /* 12.4/3  */
-  if (cxx_dialect >= cxx0x
+  if (cxx_dialect >= cxx11
       && DECL_DESTRUCTOR_P (decl)
       && !TYPE_BEING_DEFINED (DECL_CONTEXT (decl))
       && !processing_template_decl)
@@ -8055,7 +8058,7 @@ check_static_variable_definition (tree decl, tree type)
      in check_initializer.  */
   if (DECL_P (decl) && DECL_DECLARED_CONSTEXPR_P (decl))
     return 0;
-  else if (cxx_dialect >= cxx0x && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
+  else if (cxx_dialect >= cxx11 && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       if (!COMPLETE_TYPE_P (type))
 	error ("in-class initialization of static data member %q#D of "
@@ -8177,7 +8180,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 
       mark_rvalue_use (size);
 
-      if (cxx_dialect < cxx0x && TREE_CODE (size) == NOP_EXPR
+      if (cxx_dialect < cxx11 && TREE_CODE (size) == NOP_EXPR
 	  && TREE_SIDE_EFFECTS (size))
 	/* In C++98, we mark a non-constant array bound with a magic
 	   NOP_EXPR with TREE_SIDE_EFFECTS; don't fold in that case.  */;
@@ -8243,7 +8246,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	 constant. Just build the index type and mark that it requires
 	 structural equality checks.  */
       itype = build_index_type (build_min (MINUS_EXPR, sizetype,
-					   size, integer_one_node));
+					   size, size_one_node));
       TYPE_DEPENDENT_P (itype) = 1;
       TYPE_DEPENDENT_P_VALID (itype) = 1;
       SET_TYPE_STRUCTURAL_EQUALITY (itype);
@@ -8298,7 +8301,8 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
   else if (TREE_CONSTANT (size)
 	   /* We don't allow VLAs at non-function scopes, or during
 	      tentative template substitution.  */
-	   || !at_function_scope_p () || !(complain & tf_error))
+	   || !at_function_scope_p ()
+	   || (cxx_dialect < cxx1y && !(complain & tf_error)))
     {
       if (!(complain & tf_error))
 	return error_mark_node;
@@ -9535,7 +9539,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 		else if (declarator->u.function.late_return_type)
 		  {
-		    if (cxx_dialect < cxx0x)
+		    if (cxx_dialect < cxx11)
 		      /* Not using maybe_warn_cpp0x because this should
 			 always be an error.  */
 		      error ("trailing return type only available with "
@@ -10535,21 +10539,13 @@ grokdeclarator (const cp_declarator *declarator,
 		 && (TREE_CODE (type) != ARRAY_TYPE || initialized == 0))
 	  {
 	    if (unqualified_id)
-	      error ("field %qD has incomplete type", unqualified_id);
+	      error ("field %qD has incomplete type %qT",
+		     unqualified_id, type);
 	    else
 	      error ("name %qT has incomplete type", type);
 
-	    /* If we're instantiating a template, tell them which
-	       instantiation made the field's type be incomplete.  */
-	    if (current_class_type
-		&& TYPE_NAME (current_class_type)
-		&& IDENTIFIER_TEMPLATE (current_class_name)
-		&& declspecs->type
-		&& declspecs->type == type)
-	      error ("  in instantiation of template %qT",
-		     current_class_type);
-
-	    return error_mark_node;
+	    type = error_mark_node;
+	    decl = NULL_TREE;
 	  }
 	else
 	  {
@@ -12851,7 +12847,7 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
 				  && double_int_fits_to_tree_p (type, di))
 				break;
 			    }
-			  if (type && cxx_dialect < cxx0x
+			  if (type && cxx_dialect < cxx11
 			      && itk > itk_unsigned_long)
 			    pedwarn (input_location, OPT_Wlong_long, pos ? "\
 incremented enumerator value is too large for %<unsigned long%>" :  "\
