@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "output.h"
 #include "gimple-pretty-print.h"
+#include "cfgloop.h"
 
 /*  MPX pass instruments code with memory checks to find out-of-bounds
     memory accesses.  Checks are performed by computing bounds for each
@@ -4884,6 +4885,10 @@ mpx_remove_redundant_checks (void)
 tree
 mpx_get_nobnd_fndecl (enum built_in_function fncode)
 {
+  /* Check if we are allowed to use fast string functions.  */
+  if (!flag_mpx_use_fast_string_functions)
+    return NULL_TREE;
+
   switch (fncode)
     {
     case BUILT_IN_MEMCPY:
@@ -4898,22 +4903,75 @@ mpx_get_nobnd_fndecl (enum built_in_function fncode)
     case BUILT_IN_MEMSET:
       return builtin_decl_implicit (BUILT_IN_MPX_MEMSET_NOBND);
 
+    case BUILT_IN_MPX_MEMCPY_NOCHK:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMCPY_NOBND_NOCHK);
+
+    case BUILT_IN_MPX_MEMPCPY_NOCHK:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMPCPY_NOBND_NOCHK);
+
+    case BUILT_IN_MPX_MEMMOVE_NOCHK:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMMOVE_NOBND_NOCHK);
+
+    case BUILT_IN_MPX_MEMSET_NOCHK:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMSET_NOBND_NOCHK);
+
     default:
       return NULL_TREE;
     }
 }
 
-/* Try to find memcpy, mempcpy, memmove and memset calls which
-   are known to not write pointers to memory and use faster
-   function versions for them.  */
+
+/* Return no-check version of string function FNCODE.  */
+tree
+mpx_get_nochk_fndecl (enum built_in_function fncode)
+{
+  /* Check if we are allowed to use fast string functions.  */
+  if (!flag_mpx_use_nochk_string_functions)
+    return NULL_TREE;
+
+  switch (fncode)
+    {
+    case BUILT_IN_MEMCPY:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMCPY_NOCHK);
+
+    case BUILT_IN_MEMPCPY:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMPCPY_NOCHK);
+
+    case BUILT_IN_MEMMOVE:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMMOVE_NOCHK);
+
+    case BUILT_IN_MEMSET:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMSET_NOCHK);
+
+    case BUILT_IN_MPX_MEMCPY_NOBND:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMCPY_NOBND_NOCHK);
+
+    case BUILT_IN_MPX_MEMPCPY_NOBND:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMPCPY_NOBND_NOCHK);
+
+    case BUILT_IN_MPX_MEMMOVE_NOBND:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMMOVE_NOBND_NOCHK);
+
+    case BUILT_IN_MPX_MEMSET_NOBND:
+      return builtin_decl_implicit (BUILT_IN_MPX_MEMSET_NOBND_NOCHK);
+
+    default:
+      return NULL_TREE;
+    }
+}
+
+/* Find memcpy, mempcpy, memmove and memset calls, perform
+   checks before call and then call no_chk version of
+   functions.  We do it on O2 to enable inlining of these
+   functions during expand.
+
+   Also try to find memcpy, mempcpy, memmove and memset calls
+   which are known to not write pointers to memory and use
+   faster function versions for them.  */
 void
 mpx_optimize_string_function_calls (void)
 {
   basic_block bb;
-
-  /* Check if we are allowed to use fast string functions.  */
-  if (!flag_mpx_use_fast_string_functions)
-    return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Searching for replacable string function calls...\n");
@@ -4942,9 +5000,19 @@ mpx_optimize_string_function_calls (void)
 	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMSET)
 	    {
 	      tree dst = gimple_call_arg (stmt, 0);
+	      tree dst_bnd = gimple_call_arg (stmt, 1);
+	      bool is_memset = DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMSET;
+	      tree size = gimple_call_arg (stmt, is_memset ? 3 : 4);
+	      tree fndecl_nochk;
+	      gimple_stmt_iterator j;
+	      basic_block check_bb;
+	      edge fall;
+	      address_t size_val;
+	      int sign;
+	      bool known;
 
-	      /* We may replace call corresponding __mpx_*_nobnd call
-		 in case destination pointer base type is not
+	      /* We may replace call with corresponding __mpx_*_nobnd
+		 call in case destination pointer base type is not
 		 void or pointer.  */
 	      if (POINTER_TYPE_P (TREE_TYPE (dst))
 		  && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (dst)))
@@ -4954,8 +5022,103 @@ mpx_optimize_string_function_calls (void)
 		    = mpx_get_nobnd_fndecl (DECL_FUNCTION_CODE (fndecl));
 
 		  if (fndecl_nobnd)
-		    gimple_call_set_fndecl (stmt, fndecl_nobnd);
+		    fndecl = fndecl_nobnd;
 		}
+
+	      fndecl_nochk = mpx_get_nochk_fndecl (DECL_FUNCTION_CODE (fndecl));
+
+	      if (fndecl_nochk)
+		fndecl = fndecl_nochk;
+
+	      gimple_call_set_fndecl (stmt, fndecl);
+
+	      /* If there is no nochk version of function then
+		 do nothing.  Otherwise insert checks before
+		 the call.  */
+	      if (!fndecl_nochk)
+		continue;
+
+	      /* If size passed to call is known and > 0
+		 then we may insert checks unconditionally.  */
+	      size_val.pol.create (0);
+	      mpx_collect_value (size, size_val);
+	      known = mpx_is_constant_addr (size_val, &sign);
+	      size_val.pol.release ();
+
+	      /* If we are not sure size is not zero then we have
+		 to perform runtiome check for size and perform
+		 MPX checks only when size is not zero.  */
+	      if (!known)
+		{
+		  gimple check = gimple_build_cond (NE_EXPR,
+						    size,
+						    size_zero_node,
+						    NULL_TREE,
+						    NULL_TREE);
+
+		  /* Split block before string function call.  */
+		  j = i;
+		  gsi_prev (&j);
+		  fall = split_block (bb, gsi_stmt (j));
+		  bb = fall->src;
+
+		  /* Add size check.  */
+		  j = gsi_last_bb (bb);
+		  if (gsi_end_p (j))
+		    gsi_insert_before (&j, check, GSI_SAME_STMT);
+		  else
+		    gsi_insert_after (&j, check, GSI_SAME_STMT);
+
+		  /* Create basic block for checks.  */
+		  check_bb = create_empty_bb (bb);
+		  make_edge (bb, check_bb, EDGE_TRUE_VALUE);
+		  make_single_succ_edge (check_bb, fall->dest, EDGE_FALLTHRU);
+
+		  /* Fix edge for splitted bb.  */
+		  fall->flags = EDGE_FALSE_VALUE;
+		  fall->count = bb->count;
+		  fall->probability = REG_BR_PROB_BASE;
+
+		  /* Update dominance info.  */
+		  if (dom_info_available_p (CDI_DOMINATORS))
+		    {
+		      set_immediate_dominator (CDI_DOMINATORS, check_bb, bb);
+		      set_immediate_dominator (CDI_DOMINATORS, fall->dest, bb);
+		    }
+
+		  /* Update loop info.  */
+		  if (current_loops)
+		    add_bb_to_loop (check_bb, bb->loop_father);
+
+		  /* Set position for checks.  */
+		  j = gsi_last_bb (check_bb);
+
+		  /* The block was splitted and therefore we
+		     need to set iterator to its end.   */
+		  i = gsi_last_bb (bb);
+		}
+	      /* If size is known to be zero then no MPX checks
+		 should be performed.  */
+	      else if (!sign)
+		continue;
+	      else
+		j = i;
+
+	      size = size_binop (MINUS_EXPR, size, size_one_node);
+	      if (!is_memset)
+		{
+		  tree src = gimple_call_arg (stmt, 2);
+		  tree src_bnd = gimple_call_arg (stmt, 3);
+
+		  mpx_check_mem_access (src, fold_build_pointer_plus (src, size),
+					src_bnd, j, gimple_location (stmt),
+					integer_zero_node);
+		}
+
+	      mpx_check_mem_access (dst, fold_build_pointer_plus (dst, size),
+				    dst_bnd, j, gimple_location (stmt),
+				    integer_one_node);
+
 	    }
 	}
     }
@@ -4985,7 +5148,7 @@ mpx_reduce_bounds_lifetime (void)
 
       if (gimple_code (stmt) == GIMPLE_CALL
 	  && (gimple_call_fndecl (stmt) == mpx_bndmk_fndecl
-	      || gimple_call_fndecl (stmt) == mpx_arg_bnd_fndecl))
+	      || (gimple_call_fndecl (stmt) == mpx_arg_bnd_fndecl && 0 /* ICE in IRA */)))
 	want_move = true;
 
       if (gimple_code (stmt) == GIMPLE_ASSIGN
@@ -5137,6 +5300,10 @@ mpxopt_execute (void)
 {
   mpxopt_init();
 
+  /* This optimization may introduce new checks
+     and thus we put it before checks search.  */
+  mpx_optimize_string_function_calls ();
+
   mpx_gather_checks_info ();
 
   mpx_remove_excess_intersections ();
@@ -5144,8 +5311,6 @@ mpxopt_execute (void)
   mpx_remove_constant_checks ();
 
   mpx_remove_redundant_checks ();
-
-  mpx_optimize_string_function_calls ();
 
   mpx_reduce_bounds_lifetime ();
 

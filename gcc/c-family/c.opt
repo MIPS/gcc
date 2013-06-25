@@ -1120,6 +1120,10 @@ fmpx-use-fast-string-functions
 C ObjC C++ ObjC++ Report Var(flag_mpx_use_fast_string_functions) Init(1)
 Allow to use *_nobnd versions of string functions by MPX pass.
 
+fmpx-use-nochk-string-functions
+C ObjC C++ ObjC++ Report Var(flag_mpx_use_nochk_string_functions) Init(1)
+Allow to use *_nochk versions of string functions by MPX pass.
+
 fmpx-use-static-bounds
 C ObjC C++ ObjC++ Report Var(flag_mpx_use_static_bounds) Init(1)
 Use statically initialized variable for vars bounds instead of
