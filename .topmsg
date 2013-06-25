@@ -1,33 +1,3 @@
 Subject: [PATCH] Hurd port for GCC Go
 
-id:"1370596471.4596.25.camel@PackardBell-PC"
-
-patch1.diff: src/libgo/runtime/proc.c: Workaround: enable code for
-!SETCONTEXT_CLOBBERS_TLS
-
-patch2.diff: src/libgo/configure.ac: add support for gnu, new variable
-LIBGO_IS_GNU
-
-id:"1370597304.4596.35.camel@PackardBell-PC"
-
-patch3.diff: src/libgo/Makefile.am: Use variable LIBGO_IS_GNU to add
-functions for GNU/Hurd.
-
-patch4.diff: src/libgo/go/syscall/libcall_gnu.go: New file, copied
-from libcall_posix.go with the mount function removed.
-
-patch5.diff: src/libgo/go/net/sock_gnu.go: New file, copied from
-sock_bsd.go, with function maxListenerBacklog() empty (to be
-reimplemented)
-
-id:"1370598609.4596.50.camel@PackardBell-PC"
-
-patch6.diff: src/libgo/go/syscall/exec_gnu.go: New file, copied from
-exec_bsd.go, with function raw_ptrace returning ENOSYS.
-
-patch7.diff: src/libgo/go/syscall/wait.c: Define WCONTINUED empty as a
-workaround for now.
-
-patch8.diff: src/libgo/mksysinfo.sh: Fix problems for gcc -fdump-go-spec
-not catching #define EWOULDBLOCK EAGAIN. For #define st_dev st_fsid
-likewise.
+<http://www.gnu.org/software/hurd/open_issues/gccgo.html>
