@@ -1,5 +1,5 @@
-/* GCC MELT GENERATED FILE warmelt-genobj+04.cc - DO NOT EDIT */
-/* secondary MELT generated C file of rank #4 */
+/* GCC MELT GENERATED C++ FILE warmelt-genobj+04.cc - DO NOT EDIT - see http://gcc-melt.org/ */
+/* secondary MELT generated C++ file of rank #4 */
 #include "melt-run.h"
 
 
@@ -43,13 +43,13 @@ MELT_EXTERN const char meltrun_used_md5_melt_f4[] = MELT_RUN_HASHMD5 /* from mel
 /*** 3 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
-MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdata, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
+MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
 
 /*declare MELT called hook #1 HOOK_SYMBOL_IMPORTER **/
-MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata, const char* meltinp0_SYMNAMESTR, const char* meltinp1_MODULENAMESTR, melt_ptr_t meltinp2_PARENV);
+MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, const char* meltinp0_SYMNAMESTR, const char* meltinp1_MODULENAMESTR, melt_ptr_t meltinp2_PARENV);
 
 /*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
-MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
+MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
 
 /*** end of 3 MELT called hook declarations ***/
 
@@ -1111,7 +1111,28 @@ meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING(meltclosure_ptr_t meltclosp
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING
+        : public Melt_CallFrameWithValues<18>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[7];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<18> (sizeof(MeltFrame_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING), clos) {};
+    } // end  class MeltFrame_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -1129,9 +1150,14 @@ meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING(meltclosure_ptr_t meltclosp
 #define MELTFRAM_NBVARNUM 7
         long mcfr_varnum[7];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -1139,12 +1165,12 @@ meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING(meltclosure_ptr_t meltclosp
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING_st*) meltfirstargp_;
             /* use arguments meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<18; meltix++)
@@ -1156,7 +1182,7 @@ meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING(meltclosure_ptr_t meltclosp
     /* declstructinit plain routine meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING nbval 18*/
     meltfram__.mcfr_nbvar = 18/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_VALUE_BINDING", meltcallcount);
     /*getargs*/
@@ -1708,7 +1734,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_VALUE_BINDING", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_102_WARMELTmiGENOBJ_COMPILOBJ_VALUE_BINDING_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -1736,7 +1762,28 @@ meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING(meltclosure_ptr_t meltclosp
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING
+        : public Melt_CallFrameWithValues<15>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[6];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING), clos) {};
+    } // end  class MeltFrame_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -1754,9 +1801,14 @@ meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING(meltclosure_ptr_t meltclosp
 #define MELTFRAM_NBVARNUM 6
         long mcfr_varnum[6];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -1764,12 +1816,12 @@ meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING(meltclosure_ptr_t meltclosp
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING_st*) meltfirstargp_;
             /* use arguments meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<15; meltix++)
@@ -1781,7 +1833,7 @@ meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING(meltclosure_ptr_t meltclosp
     /* declstructinit plain routine meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING nbval 15*/
     meltfram__.mcfr_nbvar = 15/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_FIXED_BINDING", meltcallcount);
     /*getargs*/
@@ -2245,7 +2297,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_FIXED_BINDING", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_103_WARMELTmiGENOBJ_COMPILOBJ_FIXED_BINDING_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2273,7 +2325,28 @@ meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING(meltclosure_ptr_t melt
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING
+        : public Melt_CallFrameWithValues<19>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[6];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING), clos) {};
+    } // end  class MeltFrame_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -2291,9 +2364,14 @@ meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING(meltclosure_ptr_t melt
 #define MELTFRAM_NBVARNUM 6
         long mcfr_varnum[6];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -2301,12 +2379,12 @@ meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING(meltclosure_ptr_t melt
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING_st*) meltfirstargp_;
             /* use arguments meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<19; meltix++)
@@ -2318,7 +2396,7 @@ meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING(meltclosure_ptr_t melt
     /* declstructinit plain routine meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING nbval 19*/
     meltfram__.mcfr_nbvar = 19/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_NORMAL_LET_BINDING", meltcallcount);
     /*getargs*/
@@ -2853,7 +2931,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_NORMAL_LET_BINDING", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_104_WARMELTmiGENOBJ_COMPILOBJ_NORMAL_LET_BINDING_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2881,7 +2959,28 @@ meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND(meltclosure_ptr_t meltclos
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND
+        : public Melt_CallFrameWithValues<32>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[10];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<32> (sizeof(MeltFrame_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND), clos) {};
+    } // end  class MeltFrame_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -2899,9 +2998,14 @@ meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND(meltclosure_ptr_t meltclos
 #define MELTFRAM_NBVARNUM 10
         long mcfr_varnum[10];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -2909,12 +3013,12 @@ meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND(meltclosure_ptr_t meltclos
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND_st*) meltfirstargp_;
             /* use arguments meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<32; meltix++)
@@ -2926,7 +3030,7 @@ meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND(meltclosure_ptr_t meltclos
     /* declstructinit plain routine meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND nbval 32*/
     meltfram__.mcfr_nbvar = 32/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_CONSLAMBDABIND", meltcallcount);
     /*getargs*/
@@ -3666,7 +3770,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_CONSLAMBDABIND", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_105_WARMELTmiGENOBJ_COMPILOBJ_CONSLAMBDABIND_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3694,7 +3798,28 @@ meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND(meltclosure_ptr_t meltclosp
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND
+        : public Melt_CallFrameWithValues<30>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[10];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<30> (sizeof(MeltFrame_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND), clos) {};
+    } // end  class MeltFrame_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -3712,9 +3837,14 @@ meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND(meltclosure_ptr_t meltclosp
 #define MELTFRAM_NBVARNUM 10
         long mcfr_varnum[10];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -3722,12 +3852,12 @@ meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND(meltclosure_ptr_t meltclosp
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND_st*) meltfirstargp_;
             /* use arguments meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<30; meltix++)
@@ -3739,7 +3869,7 @@ meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND(meltclosure_ptr_t meltclosp
     /* declstructinit plain routine meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND nbval 30*/
     meltfram__.mcfr_nbvar = 30/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_CONSTUPLEBIND", meltcallcount);
     /*getargs*/
@@ -4452,7 +4582,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_CONSTUPLEBIND", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_106_WARMELTmiGENOBJ_COMPILOBJ_CONSTUPLEBIND_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -4480,7 +4610,28 @@ meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND(meltclosure_ptr_t meltclosp_
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND
+        : public Melt_CallFrameWithValues<32>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[9];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<32> (sizeof(MeltFrame_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND), clos) {};
+    } // end  class MeltFrame_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -4498,9 +4649,14 @@ meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND(meltclosure_ptr_t meltclosp_
 #define MELTFRAM_NBVARNUM 9
         long mcfr_varnum[9];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -4508,12 +4664,12 @@ meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND(meltclosure_ptr_t meltclosp_
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND_st*) meltfirstargp_;
             /* use arguments meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<32; meltix++)
@@ -4525,7 +4681,7 @@ meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND(meltclosure_ptr_t meltclosp_
     /* declstructinit plain routine meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND nbval 32*/
     meltfram__.mcfr_nbvar = 32/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_CONSPAIRBIND", meltcallcount);
     /*getargs*/
@@ -5296,7 +5452,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_CONSPAIRBIND", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_107_WARMELTmiGENOBJ_COMPILOBJ_CONSPAIRBIND_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -5324,7 +5480,28 @@ meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND(meltclosure_ptr_t meltclosp_
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND
+        : public Melt_CallFrameWithValues<29>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[7];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<29> (sizeof(MeltFrame_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND), clos) {};
+    } // end  class MeltFrame_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -5342,9 +5519,14 @@ meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND(meltclosure_ptr_t meltclosp_
 #define MELTFRAM_NBVARNUM 7
         long mcfr_varnum[7];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -5352,12 +5534,12 @@ meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND(meltclosure_ptr_t meltclosp_
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND_st*) meltfirstargp_;
             /* use arguments meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<29; meltix++)
@@ -5369,7 +5551,7 @@ meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND(meltclosure_ptr_t meltclosp_
     /* declstructinit plain routine meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND nbval 29*/
     meltfram__.mcfr_nbvar = 29/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_CONSLISTBIND", meltcallcount);
     /*getargs*/
@@ -6020,7 +6202,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_CONSLISTBIND", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_108_WARMELTmiGENOBJ_COMPILOBJ_CONSLISTBIND_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -6048,7 +6230,28 @@ meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND(meltclosure_ptr_t meltcl
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND
+        : public Melt_CallFrameWithValues<39>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[12];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<39> (sizeof(MeltFrame_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND), clos) {};
+    } // end  class MeltFrame_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -6066,9 +6269,14 @@ meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND(meltclosure_ptr_t meltcl
 #define MELTFRAM_NBVARNUM 12
         long mcfr_varnum[12];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -6076,12 +6284,12 @@ meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND(meltclosure_ptr_t meltcl
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND_st*) meltfirstargp_;
             /* use arguments meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<39; meltix++)
@@ -6093,7 +6301,7 @@ meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND(meltclosure_ptr_t meltcl
     /* declstructinit plain routine meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND nbval 39*/
     meltfram__.mcfr_nbvar = 39/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_CONSINSTANCEBIND", meltcallcount);
     /*getargs*/
@@ -7069,7 +7277,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_CONSINSTANCEBIND", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_109_WARMELTmiGENOBJ_COMPILOBJ_CONSINSTANCEBIND_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -7097,7 +7305,28 @@ meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE(meltclosure_ptr_t meltclosp_, m
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE
+        : public Melt_CallFrameWithValues<40>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[8];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<40> (sizeof(MeltFrame_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE), clos) {};
+    } // end  class MeltFrame_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -7115,9 +7344,14 @@ meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE(meltclosure_ptr_t meltclosp_, m
 #define MELTFRAM_NBVARNUM 8
         long mcfr_varnum[8];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -7125,12 +7359,12 @@ meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE(meltclosure_ptr_t meltclosp_, m
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE_st*) meltfirstargp_;
             /* use arguments meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<40; meltix++)
@@ -7142,7 +7376,7 @@ meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE(meltclosure_ptr_t meltclosp_, m
     /* declstructinit plain routine meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE nbval 40*/
     meltfram__.mcfr_nbvar = 40/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_OBJVALUE", meltcallcount);
     /*getargs*/
@@ -8045,7 +8279,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_OBJVALUE", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_110_WARMELTmiGENOBJ_PUTOBJDEST_OBJVALUE_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -8073,7 +8307,28 @@ meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER(meltclosure_ptr_t meltclosp_, me
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER
+        : public Melt_CallFrameWithValues<20>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[7];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<20> (sizeof(MeltFrame_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER), clos) {};
+    } // end  class MeltFrame_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -8091,9 +8346,14 @@ meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER(meltclosure_ptr_t meltclosp_, me
 #define MELTFRAM_NBVARNUM 7
         long mcfr_varnum[7];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -8101,12 +8361,12 @@ meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER(meltclosure_ptr_t meltclosp_, me
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER_st*) meltfirstargp_;
             /* use arguments meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<20; meltix++)
@@ -8118,7 +8378,7 @@ meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER(meltclosure_ptr_t meltclosp_, me
     /* declstructinit plain routine meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER nbval 20*/
     meltfram__.mcfr_nbvar = 20/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_INTEGER", meltcallcount);
     /*getargs*/
@@ -8687,7 +8947,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_INTEGER", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_111_WARMELTmiGENOBJ_PUTOBJDEST_INTEGER_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -8715,7 +8975,28 @@ meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING(meltclosure_ptr_t meltclosp_, mel
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING
+        : public Melt_CallFrameWithValues<19>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[7];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING), clos) {};
+    } // end  class MeltFrame_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -8733,9 +9014,14 @@ meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING(meltclosure_ptr_t meltclosp_, mel
 #define MELTFRAM_NBVARNUM 7
         long mcfr_varnum[7];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -8743,12 +9029,12 @@ meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING(meltclosure_ptr_t meltclosp_, mel
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING_st*) meltfirstargp_;
             /* use arguments meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<19; meltix++)
@@ -8760,7 +9046,7 @@ meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING(meltclosure_ptr_t meltclosp_, mel
     /* declstructinit plain routine meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING nbval 19*/
     meltfram__.mcfr_nbvar = 19/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_STRING", meltcallcount);
     /*getargs*/
@@ -9302,7 +9588,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_STRING", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_112_WARMELTmiGENOBJ_PUTOBJDEST_STRING_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -9330,7 +9616,28 @@ meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL(meltclosure_ptr_t meltclosp_, melt_
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL
+        : public Melt_CallFrameWithValues<18>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[8];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<18> (sizeof(MeltFrame_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL), clos) {};
+    } // end  class MeltFrame_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -9348,9 +9655,14 @@ meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL(meltclosure_ptr_t meltclosp_, melt_
 #define MELTFRAM_NBVARNUM 8
         long mcfr_varnum[8];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -9358,12 +9670,12 @@ meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL(meltclosure_ptr_t meltclosp_, melt_
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL_st*) meltfirstargp_;
             /* use arguments meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<18; meltix++)
@@ -9375,7 +9687,7 @@ meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL(meltclosure_ptr_t meltclosp_, melt_
     /* declstructinit plain routine meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL nbval 18*/
     meltfram__.mcfr_nbvar = 18/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_NULL", meltcallcount);
     /*getargs*/
@@ -9937,7 +10249,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_NULL", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_113_WARMELTmiGENOBJ_PUTOBJDEST_NULL_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -9965,7 +10277,28 @@ meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK(meltclosure_ptr_t meltclosp_
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK
+        : public Melt_CallFrameWithValues<17>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[4];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<17> (sizeof(MeltFrame_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK), clos) {};
+    } // end  class MeltFrame_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -9983,9 +10316,14 @@ meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK(meltclosure_ptr_t meltclosp_
 #define MELTFRAM_NBVARNUM 4
         long mcfr_varnum[4];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -9993,12 +10331,12 @@ meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK(meltclosure_ptr_t meltclosp_
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK_st*) meltfirstargp_;
             /* use arguments meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<17; meltix++)
@@ -10010,7 +10348,7 @@ meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK(meltclosure_ptr_t meltclosp_
     /* declstructinit plain routine meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK nbval 17*/
     meltfram__.mcfr_nbvar = 17/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_OBJANYBLOCK", meltcallcount);
     /*getargs*/
@@ -10385,7 +10723,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_OBJANYBLOCK", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_114_WARMELTmiGENOBJ_PUTOBJDEST_OBJANYBLOCK_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -10413,7 +10751,28 @@ meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK(meltclosure_ptr_t meltclos
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK
+        : public Melt_CallFrameWithValues<14>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[7];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK), clos) {};
+    } // end  class MeltFrame_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -10431,9 +10790,14 @@ meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK(meltclosure_ptr_t meltclos
 #define MELTFRAM_NBVARNUM 7
         long mcfr_varnum[7];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -10441,12 +10805,12 @@ meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK(meltclosure_ptr_t meltclos
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK_st*) meltfirstargp_;
             /* use arguments meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<14; meltix++)
@@ -10458,7 +10822,7 @@ meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK(meltclosure_ptr_t meltclos
     /* declstructinit plain routine meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK nbval 14*/
     meltfram__.mcfr_nbvar = 14/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_OBJMULTIBLOCK", meltcallcount);
     /*getargs*/
@@ -10899,7 +11263,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_OBJMULTIBLOCK", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_115_WARMELTmiGENOBJ_PUTOBJDEST_OBJMULTIBLOCK_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -10927,7 +11291,28 @@ meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP(meltclosure_ptr_t meltclosp_, me
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP
+        : public Melt_CallFrameWithValues<18>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[6];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<18> (sizeof(MeltFrame_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP), clos) {};
+    } // end  class MeltFrame_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -10945,9 +11330,14 @@ meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP(meltclosure_ptr_t meltclosp_, me
 #define MELTFRAM_NBVARNUM 6
         long mcfr_varnum[6];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -10955,12 +11345,12 @@ meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP(meltclosure_ptr_t meltclosp_, me
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP_st*) meltfirstargp_;
             /* use arguments meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<18; meltix++)
@@ -10972,7 +11362,7 @@ meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP(meltclosure_ptr_t meltclosp_, me
     /* declstructinit plain routine meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP nbval 18*/
     meltfram__.mcfr_nbvar = 18/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_OBJLOOP", meltcallcount);
     /*getargs*/
@@ -11456,7 +11846,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_OBJLOOP", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_116_WARMELTmiGENOBJ_PUTOBJDEST_OBJLOOP_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -11484,7 +11874,28 @@ meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT(meltclosure_ptr_t meltclosp_, me
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT
+        : public Melt_CallFrameWithValues<7>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[2];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<7> (sizeof(MeltFrame_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT), clos) {};
+    } // end  class MeltFrame_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -11502,9 +11913,14 @@ meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT(meltclosure_ptr_t meltclosp_, me
 #define MELTFRAM_NBVARNUM 2
         long mcfr_varnum[2];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -11512,12 +11928,12 @@ meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT(meltclosure_ptr_t meltclosp_, me
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT_st*) meltfirstargp_;
             /* use arguments meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<7; meltix++)
@@ -11529,7 +11945,7 @@ meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT(meltclosure_ptr_t meltclosp_, me
     /* declstructinit plain routine meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT nbval 7*/
     meltfram__.mcfr_nbvar = 7/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("PUTOBJDEST_OBJEXIT", meltcallcount);
     /*getargs*/
@@ -11703,7 +12119,7 @@ meltlabend_rout:
     melt_trace_end("PUTOBJDEST_OBJEXIT", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_117_WARMELTmiGENOBJ_PUTOBJDEST_OBJEXIT_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -11731,7 +12147,28 @@ meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF(meltclosure_ptr_t meltclosp_, mel
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF
+        : public Melt_CallFrameWithValues<34>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[15];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<34> (sizeof(MeltFrame_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF), clos) {};
+    } // end  class MeltFrame_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -11749,9 +12186,14 @@ meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF(meltclosure_ptr_t meltclosp_, mel
 #define MELTFRAM_NBVARNUM 15
         long mcfr_varnum[15];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -11759,12 +12201,12 @@ meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF(meltclosure_ptr_t meltclosp_, mel
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF_st*) meltfirstargp_;
             /* use arguments meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<34; meltix++)
@@ -11776,7 +12218,7 @@ meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF(meltclosure_ptr_t meltclosp_, mel
     /* declstructinit plain routine meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF nbval 34*/
     meltfram__.mcfr_nbvar = 34/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_NREP_IF", meltcallcount);
     /*getargs*/
@@ -12836,7 +13278,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_NREP_IF", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_118_WARMELTmiGENOBJ_COMPILOBJ_NREP_IF_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -12864,7 +13306,28 @@ meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA(meltclosure_ptr_t meltclosp_, 
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA
+        : public Melt_CallFrameWithValues<29>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[8];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<29> (sizeof(MeltFrame_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA), clos) {};
+    } // end  class MeltFrame_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -12882,9 +13345,14 @@ meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA(meltclosure_ptr_t meltclosp_, 
 #define MELTFRAM_NBVARNUM 8
         long mcfr_varnum[8];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -12892,12 +13360,12 @@ meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA(meltclosure_ptr_t meltclosp_, 
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA_st*) meltfirstargp_;
             /* use arguments meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<29; meltix++)
@@ -12909,7 +13377,7 @@ meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA(meltclosure_ptr_t meltclosp_, 
     /* declstructinit plain routine meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA nbval 29*/
     meltfram__.mcfr_nbvar = 29/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_NREP_IFISA", meltcallcount);
     /*getargs*/
@@ -13617,7 +14085,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_NREP_IFISA", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_119_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFISA_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -13645,7 +14113,28 @@ meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME(meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME
+        : public Melt_CallFrameWithValues<25>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[6];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<25> (sizeof(MeltFrame_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME), clos) {};
+    } // end  class MeltFrame_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -13663,9 +14152,14 @@ meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME(meltclosure_ptr_t meltclosp_,
 #define MELTFRAM_NBVARNUM 6
         long mcfr_varnum[6];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -13673,12 +14167,12 @@ meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME(meltclosure_ptr_t meltclosp_,
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME_st*) meltfirstargp_;
             /* use arguments meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<25; meltix++)
@@ -13690,7 +14184,7 @@ meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME(meltclosure_ptr_t meltclosp_,
     /* declstructinit plain routine meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME nbval 25*/
     meltfram__.mcfr_nbvar = 25/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_NREP_IFSAME", meltcallcount);
     /*getargs*/
@@ -14353,7 +14847,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_NREP_IFSAME", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_120_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFSAME_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -14381,7 +14875,28 @@ meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED(meltclosure_ptr_t meltc
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED
+        : public Melt_CallFrameWithValues<28>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[8];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<28> (sizeof(MeltFrame_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED), clos) {};
+    } // end  class MeltFrame_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -14399,9 +14914,14 @@ meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED(meltclosure_ptr_t meltc
 #define MELTFRAM_NBVARNUM 8
         long mcfr_varnum[8];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -14409,12 +14929,12 @@ meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED(meltclosure_ptr_t meltc
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED_st*) meltfirstargp_;
             /* use arguments meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<28; meltix++)
@@ -14426,7 +14946,7 @@ meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED(meltclosure_ptr_t meltc
     /* declstructinit plain routine meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED nbval 28*/
     meltfram__.mcfr_nbvar = 28/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("COMPILOBJ_NREP_IFTUPLESIZED", meltcallcount);
     /*getargs*/
@@ -15187,7 +15707,7 @@ meltlabend_rout:
     melt_trace_end("COMPILOBJ_NREP_IFTUPLESIZED", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_121_WARMELTmiGENOBJ_COMPILOBJ_NREP_IFTUPLESIZED_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__

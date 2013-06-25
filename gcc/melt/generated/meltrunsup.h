@@ -834,6 +834,178 @@ typedef union
     struct meltstring_st GTY ((tag("MELTOBMAG_STRING"))) u_string; /* generated value union member */
 
 } melt_un_t /*end generated melt_un*/;
+
+
+/* cast.valdesc #1 meltbucketlongs_st*/
+static inline struct meltbucketlongs_st* meltcast_meltbucketlongs_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_BUCKETLONGS)
+        return (struct meltbucketlongs_st*) p;
+    return NULL;
+} /* end meltcast_meltbucketlongs_st*/
+
+
+/* cast.valdesc #2 meltclosure_st*/
+static inline struct meltclosure_st* meltcast_meltclosure_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_CLOSURE)
+        return (struct meltclosure_st*) p;
+    return NULL;
+} /* end meltcast_meltclosure_st*/
+
+
+/* cast.valdesc #3 meltdecay_st*/
+static inline struct meltdecay_st* meltcast_meltdecay_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_DECAY)
+        return (struct meltdecay_st*) p;
+    return NULL;
+} /* end meltcast_meltdecay_st*/
+
+
+/* cast.valdesc #4 melthook_st*/
+static inline struct melthook_st* meltcast_melthook_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_HOOK)
+        return (struct melthook_st*) p;
+    return NULL;
+} /* end meltcast_melthook_st*/
+
+
+/* cast.valdesc #5 meltint_st*/
+static inline struct meltint_st* meltcast_meltint_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_INT)
+        return (struct meltint_st*) p;
+    return NULL;
+} /* end meltcast_meltint_st*/
+
+
+/* cast.valdesc #6 meltlist_st*/
+static inline struct meltlist_st* meltcast_meltlist_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_LIST)
+        return (struct meltlist_st*) p;
+    return NULL;
+} /* end meltcast_meltlist_st*/
+
+
+/* cast.valdesc #7 meltmapobjects_st*/
+static inline struct meltmapobjects_st* meltcast_meltmapobjects_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_MAPOBJECTS)
+        return (struct meltmapobjects_st*) p;
+    return NULL;
+} /* end meltcast_meltmapobjects_st*/
+
+
+/* cast.valdesc #8 meltmapstrings_st*/
+static inline struct meltmapstrings_st* meltcast_meltmapstrings_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_MAPSTRINGS)
+        return (struct meltmapstrings_st*) p;
+    return NULL;
+} /* end meltcast_meltmapstrings_st*/
+
+
+/* cast.valdesc #9 meltmixbigint_st*/
+static inline struct meltmixbigint_st* meltcast_meltmixbigint_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_MIXBIGINT)
+        return (struct meltmixbigint_st*) p;
+    return NULL;
+} /* end meltcast_meltmixbigint_st*/
+
+
+/* cast.valdesc #10 meltmixint_st*/
+static inline struct meltmixint_st* meltcast_meltmixint_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_MIXINT)
+        return (struct meltmixint_st*) p;
+    return NULL;
+} /* end meltcast_meltmixint_st*/
+
+
+/* cast.valdesc #11 meltmixloc_st*/
+static inline struct meltmixloc_st* meltcast_meltmixloc_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_MIXLOC)
+        return (struct meltmixloc_st*) p;
+    return NULL;
+} /* end meltcast_meltmixloc_st*/
+
+
+/* cast.valdesc #12 meltmultiple_st*/
+static inline struct meltmultiple_st* meltcast_meltmultiple_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_MULTIPLE)
+        return (struct meltmultiple_st*) p;
+    return NULL;
+} /* end meltcast_meltmultiple_st*/
+
+
+/* cast.valdesc #13 meltobject_st*/
+static inline struct meltobject_st* meltcast_meltobject_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_OBJECT)
+        return (struct meltobject_st*) p;
+    return NULL;
+} /* end meltcast_meltobject_st*/
+
+
+/* cast.valdesc #14 meltpair_st*/
+static inline struct meltpair_st* meltcast_meltpair_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_PAIR)
+        return (struct meltpair_st*) p;
+    return NULL;
+} /* end meltcast_meltpair_st*/
+
+
+/* cast.valdesc #15 meltreal_st*/
+static inline struct meltreal_st* meltcast_meltreal_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_REAL)
+        return (struct meltreal_st*) p;
+    return NULL;
+} /* end meltcast_meltreal_st*/
+
+
+/* cast.valdesc #16 meltroutine_st*/
+static inline struct meltroutine_st* meltcast_meltroutine_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_ROUTINE)
+        return (struct meltroutine_st*) p;
+    return NULL;
+} /* end meltcast_meltroutine_st*/
+
+
+/* cast.valdesc #17 meltspecialdata_st*/
+static inline struct meltspecialdata_st* meltcast_meltspecialdata_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_SPECIAL_DATA)
+        return (struct meltspecialdata_st*) p;
+    return NULL;
+} /* end meltcast_meltspecialdata_st*/
+
+
+/* cast.valdesc #18 meltstrbuf_st*/
+static inline struct meltstrbuf_st* meltcast_meltstrbuf_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_STRBUF)
+        return (struct meltstrbuf_st*) p;
+    return NULL;
+} /* end meltcast_meltstrbuf_st*/
+
+
+/* cast.valdesc #19 meltstring_st*/
+static inline struct meltstring_st* meltcast_meltstring_st(melt_ptr_t p)
+{
+    if (p && melt_magic_discr(p) == MELTOBMAG_STRING)
+        return (struct meltstring_st*) p;
+    return NULL;
+} /* end meltcast_meltstring_st*/
+
 /** end generated by generate_runtypesupport_gty **/
 
 
@@ -2281,5 +2453,5 @@ MELT_EXTERN void melthookproc_HOOK_MACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt
 MELT_EXTERN void melthookproc_HOOK_PATMACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t meltin_MACVAL_p1, melt_ptr_t meltin_PATVAL_p2, melt_ptr_t meltin_CONTENV_p3);
 /* end of declarations generated by generate_runtypesupport_predefined_hooks for 146 predefined */
 
-/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2013 Jun 24
- * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 200372] MELT_0.9.9-post . ***/
+/*** End of declaration file meltbuild-sources/generated/meltrunsup.h generated on 2013 Jun 25
+ * by GCC MELT 4.8.0 20130314 (experimental) [melt-branch revision 200402] MELT_0.9.9-post . ***/

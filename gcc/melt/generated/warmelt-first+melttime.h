@@ -5,7 +5,7 @@
 
 
 /* This warmelt-first+melttime.h is included from warmelt-first+meltdesc.c only. */
-#if meltmod_WARMELTmiFIRST_mds__B332EA997C54B52E96216D63E28956FE
+#if meltmod_WARMELTmiFIRST_mds__49B3930B278A25489DEAD17D6B20F537
 /* MELT generation timestamp for meltbuild-sources/warmelt-first */
 
 #ifdef __cplusplus
@@ -18,8 +18,8 @@ extern "C" {
 
 		 
 /*MELT BOOTSTRAP*/
-const char melt_gen_timestamp[]="Mon Jun 24 18:47:21 2013 MEST";
-const long long melt_gen_timenum=1372092441;
+const char melt_gen_timestamp[]="Tue Jun 25 21:23:34 2013 MEST";
+const long long melt_gen_timenum=1372188214;
 
 		 const char melt_build_timestamp[]= __DATE__ "@" __TIME__
 		 #ifdef __cplusplus
@@ -34,7 +34,7 @@ const long long melt_gen_timenum=1372092441;
 		 }  /* end extern C timestamp */
 		 #endif /*__cplusplus */
 
-		 #else /* ! meltmod_WARMELTmiFIRST_mds__B332EA997C54B52E96216D63E28956FE */
+		 #else /* ! meltmod_WARMELTmiFIRST_mds__49B3930B278A25489DEAD17D6B20F537 */
 		 #error invalid timestamp file for meltbuild-sources/warmelt-first 
-		 #endif /* meltmod_WARMELTmiFIRST_mds__B332EA997C54B52E96216D63E28956FE */
+		 #endif /* meltmod_WARMELTmiFIRST_mds__49B3930B278A25489DEAD17D6B20F537 */
 		 

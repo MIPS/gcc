@@ -1,4 +1,4 @@
-/* GCC MELT GENERATED FILE warmelt-macro.cc - DO NOT EDIT */
+/* GCC MELT GENERATED C++ FILE warmelt-macro.cc - DO NOT EDIT - see http://gcc-melt.org/ */
 
 /***+ warmelt-macro without options +***/
 #include "melt-run.h"
@@ -44,19 +44,19 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 /*** 5 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
-MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdata, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
+MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
 
 /*declare MELT called hook #1 HOOK_MACRO_EXPORTER **/
-MELT_EXTERN void melthook_HOOK_MACRO_EXPORTER (melt_ptr_t melthookdata, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
+MELT_EXTERN void melthook_HOOK_MACRO_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
 
 /*declare MELT called hook #2 HOOK_PATMACRO_EXPORTER **/
-MELT_EXTERN void melthook_HOOK_PATMACRO_EXPORTER (melt_ptr_t melthookdata, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_MACVAL, melt_ptr_t meltinp2_PATVAL, melt_ptr_t meltinp3_CONTENV);
+MELT_EXTERN void melthook_HOOK_PATMACRO_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_MACVAL, melt_ptr_t meltinp2_PATVAL, melt_ptr_t meltinp3_CONTENV);
 
 /*declare MELT called hook #3 HOOK_SYMBOL_IMPORTER **/
-MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdata, const char* meltinp0_SYMNAMESTR, const char* meltinp1_MODULENAMESTR, melt_ptr_t meltinp2_PARENV);
+MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, const char* meltinp0_SYMNAMESTR, const char* meltinp1_MODULENAMESTR, melt_ptr_t meltinp2_PARENV);
 
 /*declare MELT called hook #4 HOOK_VALUE_EXPORTER **/
-MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdata, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
+MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
 
 /*** end of 5 MELT called hook declarations ***/
 
@@ -965,7 +965,28 @@ meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT
+        : public Melt_CallFrameWithValues<8>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[1];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<8> (sizeof(MeltFrame_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT), clos) {};
+    } // end  class MeltFrame_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -983,9 +1004,14 @@ meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #define MELTFRAM_NBVARNUM 1
         long mcfr_varnum[1];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -993,12 +1019,12 @@ meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT(meltclosure_ptr_t meltclosp_, melt_ptr_t
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT_st*) meltfirstargp_;
             /* use arguments meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<8; meltix++)
@@ -1010,7 +1036,7 @@ meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT(meltclosure_ptr_t meltclosp_, melt_ptr_t
     /* declstructinit plain routine meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT nbval 8*/
     meltfram__.mcfr_nbvar = 8/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("S_EXPR_WEIGHT", meltcallcount);
     /*getargs*/
@@ -1166,7 +1192,7 @@ meltlabend_rout:
     melt_trace_end("S_EXPR_WEIGHT", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_1_WARMELTmiMACRO_S_EXPR_WEIGHT_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -1194,7 +1220,28 @@ meltrout_2_WARMELTmiMACRO_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1
+        : public Melt_CallFrameWithValues<16>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[10];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1), clos) {};
+    } // end  class MeltFrame_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -1212,9 +1259,14 @@ meltrout_2_WARMELTmiMACRO_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
 #define MELTFRAM_NBVARNUM 10
         long mcfr_varnum[10];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_2_WARMELTmiMACRO_LAMBDA_cl1 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -1222,12 +1274,12 @@ meltrout_2_WARMELTmiMACRO_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1_st*) meltfirstargp_;
             /* use arguments meltrout_2_WARMELTmiMACRO_LAMBDA_cl1 output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<16; meltix++)
@@ -1239,7 +1291,7 @@ meltrout_2_WARMELTmiMACRO_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* declstructinit plain routine meltrout_2_WARMELTmiMACRO_LAMBDA_cl1 nbval 16*/
     meltfram__.mcfr_nbvar = 16/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("LAMBDA_cl1", meltcallcount);
     /*getargs*/
@@ -1584,7 +1636,7 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl1", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_2_WARMELTmiMACRO_LAMBDA_cl1_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -1612,7 +1664,28 @@ meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST
+        : public Melt_CallFrameWithValues<29>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[11];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<29> (sizeof(MeltFrame_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST), clos) {};
+    } // end  class MeltFrame_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -1630,9 +1703,14 @@ meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
 #define MELTFRAM_NBVARNUM 11
         long mcfr_varnum[11];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -1640,12 +1718,12 @@ meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST_st*) meltfirstargp_;
             /* use arguments meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<29; meltix++)
@@ -1657,7 +1735,7 @@ meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
     /* declstructinit plain routine meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST nbval 29*/
     meltfram__.mcfr_nbvar = 29/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("EXPAND_RESTLIST_AS_LIST", meltcallcount);
     /*getargs*/
@@ -2292,7 +2370,7 @@ meltlabend_rout:
     melt_trace_end("EXPAND_RESTLIST_AS_LIST", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_3_WARMELTmiMACRO_EXPAND_RESTLIST_AS_LIST_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2320,7 +2398,28 @@ meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE
+        : public Melt_CallFrameWithValues<16>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[4];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE), clos) {};
+    } // end  class MeltFrame_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -2338,9 +2437,14 @@ meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
 #define MELTFRAM_NBVARNUM 4
         long mcfr_varnum[4];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -2348,12 +2452,12 @@ meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE_st*) meltfirstargp_;
             /* use arguments meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<16; meltix++)
@@ -2365,7 +2469,7 @@ meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
     /* declstructinit plain routine meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE nbval 16*/
     meltfram__.mcfr_nbvar = 16/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("EXPAND_RESTLIST_AS_TUPLE", meltcallcount);
     /*getargs*/
@@ -2712,7 +2816,7 @@ meltlabend_rout:
     melt_trace_end("EXPAND_RESTLIST_AS_TUPLE", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_4_WARMELTmiMACRO_EXPAND_RESTLIST_AS_TUPLE_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2740,7 +2844,28 @@ meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST
+        : public Melt_CallFrameWithValues<30>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[8];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<30> (sizeof(MeltFrame_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST), clos) {};
+    } // end  class MeltFrame_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -2758,9 +2883,14 @@ meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
 #define MELTFRAM_NBVARNUM 8
         long mcfr_varnum[8];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -2768,12 +2898,12 @@ meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST_st*) meltfirstargp_;
             /* use arguments meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<30; meltix++)
@@ -2785,7 +2915,7 @@ meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST(meltclosure_ptr_t meltclosp_, 
     /* declstructinit plain routine meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST nbval 30*/
     meltfram__.mcfr_nbvar = 30/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("EXPAND_PAIRLIST_AS_LIST", meltcallcount);
     /*getargs*/
@@ -3382,7 +3512,7 @@ meltlabend_rout:
     melt_trace_end("EXPAND_PAIRLIST_AS_LIST", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_5_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_LIST_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3410,7 +3540,28 @@ meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE
+        : public Melt_CallFrameWithValues<15>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[4];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE), clos) {};
+    } // end  class MeltFrame_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -3428,9 +3579,14 @@ meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
 #define MELTFRAM_NBVARNUM 4
         long mcfr_varnum[4];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -3438,12 +3594,12 @@ meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE_st*) meltfirstargp_;
             /* use arguments meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<15; meltix++)
@@ -3455,7 +3611,7 @@ meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE(meltclosure_ptr_t meltclosp_,
     /* declstructinit plain routine meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE nbval 15*/
     meltfram__.mcfr_nbvar = 15/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("EXPAND_PAIRLIST_AS_TUPLE", meltcallcount);
     /*getargs*/
@@ -3773,7 +3929,7 @@ meltlabend_rout:
     melt_trace_end("EXPAND_PAIRLIST_AS_TUPLE", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_6_WARMELTmiMACRO_EXPAND_PAIRLIST_AS_TUPLE_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3801,7 +3957,28 @@ meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE(meltclosure_ptr_t meltclosp_
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE
+        : public Melt_CallFrameWithValues<18>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[8];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<18> (sizeof(MeltFrame_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE), clos) {};
+    } // end  class MeltFrame_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -3819,9 +3996,14 @@ meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE(meltclosure_ptr_t meltclosp_
 #define MELTFRAM_NBVARNUM 8
         long mcfr_varnum[8];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -3829,12 +4011,12 @@ meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE(meltclosure_ptr_t meltclosp_
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE_st*) meltfirstargp_;
             /* use arguments meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<18; meltix++)
@@ -3846,7 +4028,7 @@ meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE(meltclosure_ptr_t meltclosp_
     /* declstructinit plain routine meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE nbval 18*/
     meltfram__.mcfr_nbvar = 18/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("REGISTER_GENERATOR_DEVICE", meltcallcount);
     /*getargs*/
@@ -4427,7 +4609,7 @@ meltlabend_rout:
     melt_trace_end("REGISTER_GENERATOR_DEVICE", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_7_WARMELTmiMACRO_REGISTER_GENERATOR_DEVICE_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -4455,7 +4637,28 @@ meltrout_8_WARMELTmiMACRO_EXPAND_APPLY(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 #define meltcallcount 0L
 #endif
 
-    struct meltframe_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY_st
+#if MELT_HAVE_CLASSY_FRAME
+    /*curframdeclclassy*/ class MeltFrame_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY
+        : public Melt_CallFrameWithValues<23>
+    {
+    public: /*inframedeclclassy*/
+        long _meltcf_longtab[5];
+        /*classy others*/
+        long _meltsparel;
+        void melt_mark_stuff (void)
+        {
+        } /*end melt_mark_stuff*/
+        virtual void melt_mark_ggc_data (void)
+        {
+            melt_mark_values ();
+            melt_mark_stuff ();
+        }; /*end melt_mark_ggc_data*/
+        MeltFrame_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY(meltclosure_ptr_t clos=NULL) //the constructor
+            : Melt_CallFrameWithValues<23> (sizeof(MeltFrame_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY), clos) {};
+    } // end  class MeltFrame_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+    /*curframdeclstruct*/ struct meltframe_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY_st
     {
         int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -4473,9 +4676,14 @@ meltrout_8_WARMELTmiMACRO_EXPAND_APPLY(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 #define MELTFRAM_NBVARNUM 5
         long mcfr_varnum[5];
         /*others*/
-        long _spare_;
+        long _meltspare_;
     }
-    *meltframptr_=0,    meltfram__; /*declfrastruct*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyproc*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
     /*meltrout_8_WARMELTmiMACRO_EXPAND_APPLY is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
@@ -4483,12 +4691,12 @@ meltrout_8_WARMELTmiMACRO_EXPAND_APPLY(meltclosure_ptr_t meltclosp_, melt_ptr_t 
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY_st*) meltfirstargp_;
             /* use arguments meltrout_8_WARMELTmiMACRO_EXPAND_APPLY output_curframe_declstruct_init */
-            (void) meltclosp_	;
-            (void) meltfirstargp_	;
-            (void) meltxargdescr_	;
-            (void) meltxargtab_	;
-            (void) meltxresdescr_	;
-            (void) meltxrestab_	;
+            (void) meltclosp_;
+            (void) meltfirstargp_;
+            (void) meltxargdescr_;
+            (void) meltxargtab_;
+            (void) meltxresdescr_;
+            (void) meltxrestab_;
             /* marking closure */
             gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
             for(meltix=0; meltix<23; meltix++)
@@ -4500,7 +4708,7 @@ meltrout_8_WARMELTmiMACRO_EXPAND_APPLY(meltclosure_ptr_t meltclosp_, melt_ptr_t 
     /* declstructinit plain routine meltrout_8_WARMELTmiMACRO_EXPAND_APPLY nbval 23*/
     meltfram__.mcfr_nbvar = 23/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     melt_trace_start("EXPAND_APPLY", meltcallcount);
     /*getargs*/
@@ -4947,7 +5155,7 @@ meltlabend_rout:
     melt_trace_end("EXPAND_APPLY", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_8_WARMELTmiMACRO_EXPAND_APPLY_melt;
-    melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -4988,7 +5196,28 @@ melt_syntax_tester_WARMELTmiMACRO (void)
 
 
 /* the frame for initial routine */
-struct melt_initial_frame_st
+#if MELT_HAVE_CLASSY_FRAME
+/*curframdeclclassy*/ class Melt_InitialFrame
+    : public Melt_CallFrameWithValues<2005>
+{
+public: /*inframedeclclassy*/
+// no classy longs
+    /*classy others*/
+    long _meltsparel;
+    void melt_mark_stuff (void)
+    {
+    } /*end melt_mark_stuff*/
+    virtual void melt_mark_ggc_data (void)
+    {
+        melt_mark_values ();
+        melt_mark_stuff ();
+    }; /*end melt_mark_ggc_data*/
+    Melt_InitialFrame(meltclosure_ptr_t clos=NULL) //the constructor
+        : Melt_CallFrameWithValues<2005> (sizeof(Melt_InitialFrame), clos) {};
+} // end  class Melt_InitialFrame
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+
+/*curframdeclstruct*/ struct melt_initial_frame_st
 {
     int mcfr_nbvar;
 #if MELT_HAVE_DEBUG
@@ -5006,8 +5235,9 @@ struct melt_initial_frame_st
     /*no varnum*/
 #define MELTFRAM_NBVARNUM /*none*/0
     /*others*/
-    long _spare_;
+    long _meltspare_;
 }
+#endif /*MELT_HAVE_CLASSY_FRAME*/
 ;
 
 
@@ -6879,8 +7109,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V87*/ meltfptr[86] = (melt_ptr_t) &meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R;
     meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R.val, "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER", sizeof (meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R.val)-1);
-    meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R.val[38] = (char)0;
-    meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R.slen = 38;
+    meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R.val[38] = (char)0 ;
+    meltcdat->dstr_2__HOOK_FRESH_ENVIRONMENT_R.slen = 38 ;
 
 
     /*iniobj dsym_3__IS_RECURSIVELY_CONSTRUCTIBLE*/
@@ -6897,8 +7127,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V89*/ meltfptr[88] = (melt_ptr_t) &meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT;
     meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT.val, "IS_RECURSIVELY_CONSTRUCTIBLE", sizeof (meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT.val)-1);
-    meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT.val[28] = (char)0;
-    meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT.slen = 28;
+    meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT.val[28] = (char)0 ;
+    meltcdat->dstr_4__IS_RECURSIVELY_CONSTRUCT.slen = 28 ;
 
 
     /*iniobj dsym_5__CLASS_SELECTOR*/
@@ -6915,8 +7145,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V91*/ meltfptr[90] = (melt_ptr_t) &meltcdat->dstr_6__CLASS_SELECTOR;
     meltcdat->dstr_6__CLASS_SELECTOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_6__CLASS_SELECTOR.val, "CLASS_SELECTOR", sizeof (meltcdat->dstr_6__CLASS_SELECTOR.val)-1);
-    meltcdat->dstr_6__CLASS_SELECTOR.val[14] = (char)0;
-    meltcdat->dstr_6__CLASS_SELECTOR.slen = 14;
+    meltcdat->dstr_6__CLASS_SELECTOR.val[14] = (char)0 ;
+    meltcdat->dstr_6__CLASS_SELECTOR.slen = 14 ;
 
 
     /*iniobj dsym_7__RECV*/
@@ -6933,8 +7163,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V93*/ meltfptr[92] = (melt_ptr_t) &meltcdat->dstr_8__RECV;
     meltcdat->dstr_8__RECV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_8__RECV.val, "RECV", sizeof (meltcdat->dstr_8__RECV.val)-1);
-    meltcdat->dstr_8__RECV.val[4] = (char)0;
-    meltcdat->dstr_8__RECV.slen = 4;
+    meltcdat->dstr_8__RECV.val[4] = (char)0 ;
+    meltcdat->dstr_8__RECV.slen = 4 ;
 
     MELT_LOCATION("warmelt-macro.melt:39:/ iniobj");
 
@@ -6966,8 +7196,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V97*/ meltfptr[96] = (melt_ptr_t) &meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT;
     meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT.val, "IS_RECURSIVELY_CONSTRUCTIBLE", sizeof (meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT.val)-1);
-    meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT.val[28] = (char)0;
-    meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT.slen = 28;
+    meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT.val[28] = (char)0 ;
+    meltcdat->dstr_12__IS_RECURSIVELY_CONSTRUCT.slen = 28 ;
 
 
     /*iniobj dsym_13__CLASS_SOURCE_GENERATOR_DEVICE*/
@@ -6984,8 +7214,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V99*/ meltfptr[98] = (melt_ptr_t) &meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D;
     meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D.val, "CLASS_SOURCE_GENERATOR_DEVICE", sizeof (meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D.val)-1);
-    meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D.val[29] = (char)0;
-    meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D.slen = 29;
+    meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D.val[29] = (char)0 ;
+    meltcdat->dstr_14__CLASS_SOURCE_GENERATOR_D.slen = 29 ;
 
 
     /*iniobj dsym_15__CLASS_SOURCE*/
@@ -7002,8 +7232,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V101*/ meltfptr[100] = (melt_ptr_t) &meltcdat->dstr_16__CLASS_SOURCE;
     meltcdat->dstr_16__CLASS_SOURCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_16__CLASS_SOURCE.val, "CLASS_SOURCE", sizeof (meltcdat->dstr_16__CLASS_SOURCE.val)-1);
-    meltcdat->dstr_16__CLASS_SOURCE.val[12] = (char)0;
-    meltcdat->dstr_16__CLASS_SOURCE.slen = 12;
+    meltcdat->dstr_16__CLASS_SOURCE.val[12] = (char)0 ;
+    meltcdat->dstr_16__CLASS_SOURCE.slen = 12 ;
 
     MELT_LOCATION("warmelt-macro.melt:44:/ iniobj");
 
@@ -7021,8 +7251,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V103*/ meltfptr[102] = (melt_ptr_t) &meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D;
     meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D.val, "CLASS_SOURCE_GENERATOR_DEVICE", sizeof (meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D.val)-1);
-    meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D.val[29] = (char)0;
-    meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D.slen = 29;
+    meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D.val[29] = (char)0 ;
+    meltcdat->dstr_18__CLASS_SOURCE_GENERATOR_D.slen = 29 ;
 
     /*inimult dtup_19_syCLASS_SOURCE_GENERATOR_DEVICE*/
     /*_._VALTUP___V104*/ meltfptr[103] = (melt_ptr_t) &meltcdat->dtup_19_syCLASS_SOURCE_GENERATOR_DEVICE;
@@ -7047,8 +7277,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V111*/ meltfptr[110] = (melt_ptr_t) &meltcdat->dstr_22__SRCGEN_DEFIN;
     meltcdat->dstr_22__SRCGEN_DEFIN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_22__SRCGEN_DEFIN.val, "SRCGEN_DEFIN", sizeof (meltcdat->dstr_22__SRCGEN_DEFIN.val)-1);
-    meltcdat->dstr_22__SRCGEN_DEFIN.val[12] = (char)0;
-    meltcdat->dstr_22__SRCGEN_DEFIN.slen = 12;
+    meltcdat->dstr_22__SRCGEN_DEFIN.val[12] = (char)0 ;
+    meltcdat->dstr_22__SRCGEN_DEFIN.slen = 12 ;
 
     /*^iniobj*/
 
@@ -7066,8 +7296,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V106*/ meltfptr[105] = (melt_ptr_t) &meltcdat->dstr_24__SRCGEN_DEFIN;
     meltcdat->dstr_24__SRCGEN_DEFIN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_24__SRCGEN_DEFIN.val, "SRCGEN_DEFIN", sizeof (meltcdat->dstr_24__SRCGEN_DEFIN.val)-1);
-    meltcdat->dstr_24__SRCGEN_DEFIN.val[12] = (char)0;
-    meltcdat->dstr_24__SRCGEN_DEFIN.slen = 12;
+    meltcdat->dstr_24__SRCGEN_DEFIN.val[12] = (char)0 ;
+    meltcdat->dstr_24__SRCGEN_DEFIN.slen = 12 ;
 
 
     /*iniobj dsym_25__SRCGEN_REPR*/
@@ -7084,8 +7314,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V113*/ meltfptr[112] = (melt_ptr_t) &meltcdat->dstr_26__SRCGEN_REPR;
     meltcdat->dstr_26__SRCGEN_REPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_26__SRCGEN_REPR.val, "SRCGEN_REPR", sizeof (meltcdat->dstr_26__SRCGEN_REPR.val)-1);
-    meltcdat->dstr_26__SRCGEN_REPR.val[11] = (char)0;
-    meltcdat->dstr_26__SRCGEN_REPR.slen = 11;
+    meltcdat->dstr_26__SRCGEN_REPR.val[11] = (char)0 ;
+    meltcdat->dstr_26__SRCGEN_REPR.slen = 11 ;
 
     /*^iniobj*/
 
@@ -7103,8 +7333,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V108*/ meltfptr[107] = (melt_ptr_t) &meltcdat->dstr_28__SRCGEN_REPR;
     meltcdat->dstr_28__SRCGEN_REPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_28__SRCGEN_REPR.val, "SRCGEN_REPR", sizeof (meltcdat->dstr_28__SRCGEN_REPR.val)-1);
-    meltcdat->dstr_28__SRCGEN_REPR.val[11] = (char)0;
-    meltcdat->dstr_28__SRCGEN_REPR.slen = 11;
+    meltcdat->dstr_28__SRCGEN_REPR.val[11] = (char)0 ;
+    meltcdat->dstr_28__SRCGEN_REPR.slen = 11 ;
 
 
     /*iniobj dsym_29__CLASS_SOURCE_LAZY_MACRO_EXPANSION*/
@@ -7121,8 +7351,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V115*/ meltfptr[114] = (melt_ptr_t) &meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_;
     meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_.val, "CLASS_SOURCE_LAZY_MACRO_EXPANSION", sizeof (meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_.val)-1);
-    meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_.val[33] = (char)0;
-    meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_.slen = 33;
+    meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_.val[33] = (char)0 ;
+    meltcdat->dstr_30__CLASS_SOURCE_LAZY_MACRO_.slen = 33 ;
 
     MELT_LOCATION("warmelt-macro.melt:53:/ iniobj");
 
@@ -7140,8 +7370,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V117*/ meltfptr[116] = (melt_ptr_t) &meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_;
     meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_.val, "CLASS_SOURCE_LAZY_MACRO_EXPANSION", sizeof (meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_.val)-1);
-    meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_.val[33] = (char)0;
-    meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_.slen = 33;
+    meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_.val[33] = (char)0 ;
+    meltcdat->dstr_32__CLASS_SOURCE_LAZY_MACRO_.slen = 33 ;
 
     /*inimult dtup_33_syCLASS_SOURCE_LAZY_MACRO_EXPANSION*/
     /*_._VALTUP___V118*/ meltfptr[117] = (melt_ptr_t) &meltcdat->dtup_33_syCLASS_SOURCE_LAZY_MACRO_EXPANSION;
@@ -7166,8 +7396,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V125*/ meltfptr[124] = (melt_ptr_t) &meltcdat->dstr_36__SLAZYMACRO_FUN;
     meltcdat->dstr_36__SLAZYMACRO_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_36__SLAZYMACRO_FUN.val, "SLAZYMACRO_FUN", sizeof (meltcdat->dstr_36__SLAZYMACRO_FUN.val)-1);
-    meltcdat->dstr_36__SLAZYMACRO_FUN.val[14] = (char)0;
-    meltcdat->dstr_36__SLAZYMACRO_FUN.slen = 14;
+    meltcdat->dstr_36__SLAZYMACRO_FUN.val[14] = (char)0 ;
+    meltcdat->dstr_36__SLAZYMACRO_FUN.slen = 14 ;
 
     /*^iniobj*/
 
@@ -7185,8 +7415,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V120*/ meltfptr[119] = (melt_ptr_t) &meltcdat->dstr_38__SLAZYMACRO_FUN;
     meltcdat->dstr_38__SLAZYMACRO_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_38__SLAZYMACRO_FUN.val, "SLAZYMACRO_FUN", sizeof (meltcdat->dstr_38__SLAZYMACRO_FUN.val)-1);
-    meltcdat->dstr_38__SLAZYMACRO_FUN.val[14] = (char)0;
-    meltcdat->dstr_38__SLAZYMACRO_FUN.slen = 14;
+    meltcdat->dstr_38__SLAZYMACRO_FUN.val[14] = (char)0 ;
+    meltcdat->dstr_38__SLAZYMACRO_FUN.slen = 14 ;
 
 
     /*iniobj dsym_39__SLAZYMACRO_OPER*/
@@ -7203,8 +7433,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V127*/ meltfptr[126] = (melt_ptr_t) &meltcdat->dstr_40__SLAZYMACRO_OPER;
     meltcdat->dstr_40__SLAZYMACRO_OPER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_40__SLAZYMACRO_OPER.val, "SLAZYMACRO_OPER", sizeof (meltcdat->dstr_40__SLAZYMACRO_OPER.val)-1);
-    meltcdat->dstr_40__SLAZYMACRO_OPER.val[15] = (char)0;
-    meltcdat->dstr_40__SLAZYMACRO_OPER.slen = 15;
+    meltcdat->dstr_40__SLAZYMACRO_OPER.val[15] = (char)0 ;
+    meltcdat->dstr_40__SLAZYMACRO_OPER.slen = 15 ;
 
     /*^iniobj*/
 
@@ -7222,8 +7452,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V122*/ meltfptr[121] = (melt_ptr_t) &meltcdat->dstr_42__SLAZYMACRO_OPER;
     meltcdat->dstr_42__SLAZYMACRO_OPER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_42__SLAZYMACRO_OPER.val, "SLAZYMACRO_OPER", sizeof (meltcdat->dstr_42__SLAZYMACRO_OPER.val)-1);
-    meltcdat->dstr_42__SLAZYMACRO_OPER.val[15] = (char)0;
-    meltcdat->dstr_42__SLAZYMACRO_OPER.slen = 15;
+    meltcdat->dstr_42__SLAZYMACRO_OPER.val[15] = (char)0 ;
+    meltcdat->dstr_42__SLAZYMACRO_OPER.slen = 15 ;
 
 
     /*iniobj dsym_43__CLASS_SOURCE_ARGUMENTED_OPERATOR*/
@@ -7240,8 +7470,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V129*/ meltfptr[128] = (melt_ptr_t) &meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_;
     meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_.val, "CLASS_SOURCE_ARGUMENTED_OPERATOR", sizeof (meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_.val)-1);
-    meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_.val[32] = (char)0;
-    meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_.slen = 32;
+    meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_.val[32] = (char)0 ;
+    meltcdat->dstr_44__CLASS_SOURCE_ARGUMENTED_.slen = 32 ;
 
     MELT_LOCATION("warmelt-macro.melt:66:/ iniobj");
 
@@ -7259,8 +7489,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V131*/ meltfptr[130] = (melt_ptr_t) &meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_;
     meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_.val, "CLASS_SOURCE_ARGUMENTED_OPERATOR", sizeof (meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_.val)-1);
-    meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_.val[32] = (char)0;
-    meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_.slen = 32;
+    meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_.val[32] = (char)0 ;
+    meltcdat->dstr_46__CLASS_SOURCE_ARGUMENTED_.slen = 32 ;
 
     /*inimult dtup_47_syCLASS_SOURCE_ARGUMENTED_OPERATOR*/
     /*_._VALTUP___V132*/ meltfptr[131] = (melt_ptr_t) &meltcdat->dtup_47_syCLASS_SOURCE_ARGUMENTED_OPERATOR;
@@ -7285,8 +7515,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V137*/ meltfptr[136] = (melt_ptr_t) &meltcdat->dstr_50__SARGOP_ARGS;
     meltcdat->dstr_50__SARGOP_ARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_50__SARGOP_ARGS.val, "SARGOP_ARGS", sizeof (meltcdat->dstr_50__SARGOP_ARGS.val)-1);
-    meltcdat->dstr_50__SARGOP_ARGS.val[11] = (char)0;
-    meltcdat->dstr_50__SARGOP_ARGS.slen = 11;
+    meltcdat->dstr_50__SARGOP_ARGS.val[11] = (char)0 ;
+    meltcdat->dstr_50__SARGOP_ARGS.slen = 11 ;
 
     /*^iniobj*/
 
@@ -7304,8 +7534,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V134*/ meltfptr[133] = (melt_ptr_t) &meltcdat->dstr_52__SARGOP_ARGS;
     meltcdat->dstr_52__SARGOP_ARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_52__SARGOP_ARGS.val, "SARGOP_ARGS", sizeof (meltcdat->dstr_52__SARGOP_ARGS.val)-1);
-    meltcdat->dstr_52__SARGOP_ARGS.val[11] = (char)0;
-    meltcdat->dstr_52__SARGOP_ARGS.slen = 11;
+    meltcdat->dstr_52__SARGOP_ARGS.val[11] = (char)0 ;
+    meltcdat->dstr_52__SARGOP_ARGS.slen = 11 ;
 
 
     /*iniobj dsym_53__CLASS_SOURCE_APPLY*/
@@ -7322,8 +7552,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V139*/ meltfptr[138] = (melt_ptr_t) &meltcdat->dstr_54__CLASS_SOURCE_APPLY;
     meltcdat->dstr_54__CLASS_SOURCE_APPLY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_54__CLASS_SOURCE_APPLY.val, "CLASS_SOURCE_APPLY", sizeof (meltcdat->dstr_54__CLASS_SOURCE_APPLY.val)-1);
-    meltcdat->dstr_54__CLASS_SOURCE_APPLY.val[18] = (char)0;
-    meltcdat->dstr_54__CLASS_SOURCE_APPLY.slen = 18;
+    meltcdat->dstr_54__CLASS_SOURCE_APPLY.val[18] = (char)0 ;
+    meltcdat->dstr_54__CLASS_SOURCE_APPLY.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:74:/ iniobj");
 
@@ -7341,8 +7571,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V141*/ meltfptr[140] = (melt_ptr_t) &meltcdat->dstr_56__CLASS_SOURCE_APPLY;
     meltcdat->dstr_56__CLASS_SOURCE_APPLY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_56__CLASS_SOURCE_APPLY.val, "CLASS_SOURCE_APPLY", sizeof (meltcdat->dstr_56__CLASS_SOURCE_APPLY.val)-1);
-    meltcdat->dstr_56__CLASS_SOURCE_APPLY.val[18] = (char)0;
-    meltcdat->dstr_56__CLASS_SOURCE_APPLY.slen = 18;
+    meltcdat->dstr_56__CLASS_SOURCE_APPLY.val[18] = (char)0 ;
+    meltcdat->dstr_56__CLASS_SOURCE_APPLY.slen = 18 ;
 
     /*inimult dtup_57_syCLASS_SOURCE_APPLY*/
     /*_._VALTUP___V142*/ meltfptr[141] = (melt_ptr_t) &meltcdat->dtup_57_syCLASS_SOURCE_APPLY;
@@ -7367,8 +7597,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V147*/ meltfptr[146] = (melt_ptr_t) &meltcdat->dstr_60__SAPP_FUN;
     meltcdat->dstr_60__SAPP_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_60__SAPP_FUN.val, "SAPP_FUN", sizeof (meltcdat->dstr_60__SAPP_FUN.val)-1);
-    meltcdat->dstr_60__SAPP_FUN.val[8] = (char)0;
-    meltcdat->dstr_60__SAPP_FUN.slen = 8;
+    meltcdat->dstr_60__SAPP_FUN.val[8] = (char)0 ;
+    meltcdat->dstr_60__SAPP_FUN.slen = 8 ;
 
     /*^iniobj*/
 
@@ -7386,8 +7616,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V144*/ meltfptr[143] = (melt_ptr_t) &meltcdat->dstr_62__SAPP_FUN;
     meltcdat->dstr_62__SAPP_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_62__SAPP_FUN.val, "SAPP_FUN", sizeof (meltcdat->dstr_62__SAPP_FUN.val)-1);
-    meltcdat->dstr_62__SAPP_FUN.val[8] = (char)0;
-    meltcdat->dstr_62__SAPP_FUN.slen = 8;
+    meltcdat->dstr_62__SAPP_FUN.val[8] = (char)0 ;
+    meltcdat->dstr_62__SAPP_FUN.slen = 8 ;
 
 
     /*iniobj dsym_63__CLASS_SOURCE_MSEND*/
@@ -7404,8 +7634,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V149*/ meltfptr[148] = (melt_ptr_t) &meltcdat->dstr_64__CLASS_SOURCE_MSEND;
     meltcdat->dstr_64__CLASS_SOURCE_MSEND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_64__CLASS_SOURCE_MSEND.val, "CLASS_SOURCE_MSEND", sizeof (meltcdat->dstr_64__CLASS_SOURCE_MSEND.val)-1);
-    meltcdat->dstr_64__CLASS_SOURCE_MSEND.val[18] = (char)0;
-    meltcdat->dstr_64__CLASS_SOURCE_MSEND.slen = 18;
+    meltcdat->dstr_64__CLASS_SOURCE_MSEND.val[18] = (char)0 ;
+    meltcdat->dstr_64__CLASS_SOURCE_MSEND.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:84:/ iniobj");
 
@@ -7423,8 +7653,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V151*/ meltfptr[150] = (melt_ptr_t) &meltcdat->dstr_66__CLASS_SOURCE_MSEND;
     meltcdat->dstr_66__CLASS_SOURCE_MSEND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_66__CLASS_SOURCE_MSEND.val, "CLASS_SOURCE_MSEND", sizeof (meltcdat->dstr_66__CLASS_SOURCE_MSEND.val)-1);
-    meltcdat->dstr_66__CLASS_SOURCE_MSEND.val[18] = (char)0;
-    meltcdat->dstr_66__CLASS_SOURCE_MSEND.slen = 18;
+    meltcdat->dstr_66__CLASS_SOURCE_MSEND.val[18] = (char)0 ;
+    meltcdat->dstr_66__CLASS_SOURCE_MSEND.slen = 18 ;
 
     /*inimult dtup_67_syCLASS_SOURCE_MSEND*/
     /*_._VALTUP___V152*/ meltfptr[151] = (melt_ptr_t) &meltcdat->dtup_67_syCLASS_SOURCE_MSEND;
@@ -7449,8 +7679,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V159*/ meltfptr[158] = (melt_ptr_t) &meltcdat->dstr_70__MSEND_SELSYMB;
     meltcdat->dstr_70__MSEND_SELSYMB.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_70__MSEND_SELSYMB.val, "MSEND_SELSYMB", sizeof (meltcdat->dstr_70__MSEND_SELSYMB.val)-1);
-    meltcdat->dstr_70__MSEND_SELSYMB.val[13] = (char)0;
-    meltcdat->dstr_70__MSEND_SELSYMB.slen = 13;
+    meltcdat->dstr_70__MSEND_SELSYMB.val[13] = (char)0 ;
+    meltcdat->dstr_70__MSEND_SELSYMB.slen = 13 ;
 
     /*^iniobj*/
 
@@ -7468,8 +7698,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V154*/ meltfptr[153] = (melt_ptr_t) &meltcdat->dstr_72__MSEND_SELSYMB;
     meltcdat->dstr_72__MSEND_SELSYMB.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_72__MSEND_SELSYMB.val, "MSEND_SELSYMB", sizeof (meltcdat->dstr_72__MSEND_SELSYMB.val)-1);
-    meltcdat->dstr_72__MSEND_SELSYMB.val[13] = (char)0;
-    meltcdat->dstr_72__MSEND_SELSYMB.slen = 13;
+    meltcdat->dstr_72__MSEND_SELSYMB.val[13] = (char)0 ;
+    meltcdat->dstr_72__MSEND_SELSYMB.slen = 13 ;
 
 
     /*iniobj dsym_73__MSEND_RECV*/
@@ -7486,8 +7716,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V161*/ meltfptr[160] = (melt_ptr_t) &meltcdat->dstr_74__MSEND_RECV;
     meltcdat->dstr_74__MSEND_RECV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_74__MSEND_RECV.val, "MSEND_RECV", sizeof (meltcdat->dstr_74__MSEND_RECV.val)-1);
-    meltcdat->dstr_74__MSEND_RECV.val[10] = (char)0;
-    meltcdat->dstr_74__MSEND_RECV.slen = 10;
+    meltcdat->dstr_74__MSEND_RECV.val[10] = (char)0 ;
+    meltcdat->dstr_74__MSEND_RECV.slen = 10 ;
 
     /*^iniobj*/
 
@@ -7505,8 +7735,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V156*/ meltfptr[155] = (melt_ptr_t) &meltcdat->dstr_76__MSEND_RECV;
     meltcdat->dstr_76__MSEND_RECV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_76__MSEND_RECV.val, "MSEND_RECV", sizeof (meltcdat->dstr_76__MSEND_RECV.val)-1);
-    meltcdat->dstr_76__MSEND_RECV.val[10] = (char)0;
-    meltcdat->dstr_76__MSEND_RECV.slen = 10;
+    meltcdat->dstr_76__MSEND_RECV.val[10] = (char)0 ;
+    meltcdat->dstr_76__MSEND_RECV.slen = 10 ;
 
 
     /*iniobj dsym_77__CLASS_SOURCE_PRIMITIVE*/
@@ -7523,8 +7753,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V163*/ meltfptr[162] = (melt_ptr_t) &meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE;
     meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE.val, "CLASS_SOURCE_PRIMITIVE", sizeof (meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE.val)-1);
-    meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE.val[22] = (char)0;
-    meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE.slen = 22;
+    meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE.val[22] = (char)0 ;
+    meltcdat->dstr_78__CLASS_SOURCE_PRIMITIVE.slen = 22 ;
 
     MELT_LOCATION("warmelt-macro.melt:95:/ iniobj");
 
@@ -7542,8 +7772,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V165*/ meltfptr[164] = (melt_ptr_t) &meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE;
     meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE.val, "CLASS_SOURCE_PRIMITIVE", sizeof (meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE.val)-1);
-    meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE.val[22] = (char)0;
-    meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE.slen = 22;
+    meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE.val[22] = (char)0 ;
+    meltcdat->dstr_80__CLASS_SOURCE_PRIMITIVE.slen = 22 ;
 
     /*inimult dtup_81_syCLASS_SOURCE_PRIMITIVE*/
     /*_._VALTUP___V166*/ meltfptr[165] = (melt_ptr_t) &meltcdat->dtup_81_syCLASS_SOURCE_PRIMITIVE;
@@ -7568,8 +7798,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V171*/ meltfptr[170] = (melt_ptr_t) &meltcdat->dstr_84__SPRIM_OPER;
     meltcdat->dstr_84__SPRIM_OPER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_84__SPRIM_OPER.val, "SPRIM_OPER", sizeof (meltcdat->dstr_84__SPRIM_OPER.val)-1);
-    meltcdat->dstr_84__SPRIM_OPER.val[10] = (char)0;
-    meltcdat->dstr_84__SPRIM_OPER.slen = 10;
+    meltcdat->dstr_84__SPRIM_OPER.val[10] = (char)0 ;
+    meltcdat->dstr_84__SPRIM_OPER.slen = 10 ;
 
     /*^iniobj*/
 
@@ -7587,8 +7817,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V168*/ meltfptr[167] = (melt_ptr_t) &meltcdat->dstr_86__SPRIM_OPER;
     meltcdat->dstr_86__SPRIM_OPER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_86__SPRIM_OPER.val, "SPRIM_OPER", sizeof (meltcdat->dstr_86__SPRIM_OPER.val)-1);
-    meltcdat->dstr_86__SPRIM_OPER.val[10] = (char)0;
-    meltcdat->dstr_86__SPRIM_OPER.slen = 10;
+    meltcdat->dstr_86__SPRIM_OPER.val[10] = (char)0 ;
+    meltcdat->dstr_86__SPRIM_OPER.slen = 10 ;
 
 
     /*iniobj dsym_87__CLASS_SOURCE_HOOK_CALL*/
@@ -7605,8 +7835,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V173*/ meltfptr[172] = (melt_ptr_t) &meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL;
     meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL.val, "CLASS_SOURCE_HOOK_CALL", sizeof (meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL.val)-1);
-    meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL.val[22] = (char)0;
-    meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL.slen = 22;
+    meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL.val[22] = (char)0 ;
+    meltcdat->dstr_88__CLASS_SOURCE_HOOK_CALL.slen = 22 ;
 
     MELT_LOCATION("warmelt-macro.melt:103:/ iniobj");
 
@@ -7624,8 +7854,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V175*/ meltfptr[174] = (melt_ptr_t) &meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL;
     meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL.val, "CLASS_SOURCE_HOOK_CALL", sizeof (meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL.val)-1);
-    meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL.val[22] = (char)0;
-    meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL.slen = 22;
+    meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL.val[22] = (char)0 ;
+    meltcdat->dstr_90__CLASS_SOURCE_HOOK_CALL.slen = 22 ;
 
     /*inimult dtup_91_syCLASS_SOURCE_HOOK_CALL*/
     /*_._VALTUP___V176*/ meltfptr[175] = (melt_ptr_t) &meltcdat->dtup_91_syCLASS_SOURCE_HOOK_CALL;
@@ -7650,8 +7880,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V181*/ meltfptr[180] = (melt_ptr_t) &meltcdat->dstr_94__SHOOK_CALLED;
     meltcdat->dstr_94__SHOOK_CALLED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_94__SHOOK_CALLED.val, "SHOOK_CALLED", sizeof (meltcdat->dstr_94__SHOOK_CALLED.val)-1);
-    meltcdat->dstr_94__SHOOK_CALLED.val[12] = (char)0;
-    meltcdat->dstr_94__SHOOK_CALLED.slen = 12;
+    meltcdat->dstr_94__SHOOK_CALLED.val[12] = (char)0 ;
+    meltcdat->dstr_94__SHOOK_CALLED.slen = 12 ;
 
     /*^iniobj*/
 
@@ -7669,8 +7899,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V178*/ meltfptr[177] = (melt_ptr_t) &meltcdat->dstr_96__SHOOK_CALLED;
     meltcdat->dstr_96__SHOOK_CALLED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_96__SHOOK_CALLED.val, "SHOOK_CALLED", sizeof (meltcdat->dstr_96__SHOOK_CALLED.val)-1);
-    meltcdat->dstr_96__SHOOK_CALLED.val[12] = (char)0;
-    meltcdat->dstr_96__SHOOK_CALLED.slen = 12;
+    meltcdat->dstr_96__SHOOK_CALLED.val[12] = (char)0 ;
+    meltcdat->dstr_96__SHOOK_CALLED.slen = 12 ;
 
 
     /*iniobj dsym_97__CLASS_SOURCE_ARITHMETIC_VARIADIC_OPERATION*/
@@ -7687,8 +7917,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V183*/ meltfptr[182] = (melt_ptr_t) &meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_;
     meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_.val, "CLASS_SOURCE_ARITHMETIC_VARIADIC_OPERATION", sizeof (meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_.val)-1);
-    meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_.val[42] = (char)0;
-    meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_.slen = 42;
+    meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_.val[42] = (char)0 ;
+    meltcdat->dstr_98__CLASS_SOURCE_ARITHMETIC_.slen = 42 ;
 
     MELT_LOCATION("warmelt-macro.melt:113:/ iniobj");
 
@@ -7706,8 +7936,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V185*/ meltfptr[184] = (melt_ptr_t) &meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_;
     meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_.val, "CLASS_SOURCE_ARITHMETIC_VARIADIC_OPERATION", sizeof (meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_.val)-1);
-    meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_.val[42] = (char)0;
-    meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_.slen = 42;
+    meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_.val[42] = (char)0 ;
+    meltcdat->dstr_100__CLASS_SOURCE_ARITHMETIC_.slen = 42 ;
 
     /*inimult dtup_101_syCLASS_SOURCE_ARITHMETIC_VARIADIC_OPERATION*/
     /*_._VALTUP___V186*/ meltfptr[185] = (melt_ptr_t) &meltcdat->dtup_101_syCLASS_SOURCE_ARITHMETIC_VARIADIC_OPERATION;
@@ -7732,8 +7962,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V193*/ meltfptr[192] = (melt_ptr_t) &meltcdat->dstr_104__SARITHVAR_NEUTRAL;
     meltcdat->dstr_104__SARITHVAR_NEUTRAL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_104__SARITHVAR_NEUTRAL.val, "SARITHVAR_NEUTRAL", sizeof (meltcdat->dstr_104__SARITHVAR_NEUTRAL.val)-1);
-    meltcdat->dstr_104__SARITHVAR_NEUTRAL.val[17] = (char)0;
-    meltcdat->dstr_104__SARITHVAR_NEUTRAL.slen = 17;
+    meltcdat->dstr_104__SARITHVAR_NEUTRAL.val[17] = (char)0 ;
+    meltcdat->dstr_104__SARITHVAR_NEUTRAL.slen = 17 ;
 
     /*^iniobj*/
 
@@ -7751,8 +7981,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V188*/ meltfptr[187] = (melt_ptr_t) &meltcdat->dstr_106__SARITHVAR_NEUTRAL;
     meltcdat->dstr_106__SARITHVAR_NEUTRAL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_106__SARITHVAR_NEUTRAL.val, "SARITHVAR_NEUTRAL", sizeof (meltcdat->dstr_106__SARITHVAR_NEUTRAL.val)-1);
-    meltcdat->dstr_106__SARITHVAR_NEUTRAL.val[17] = (char)0;
-    meltcdat->dstr_106__SARITHVAR_NEUTRAL.slen = 17;
+    meltcdat->dstr_106__SARITHVAR_NEUTRAL.val[17] = (char)0 ;
+    meltcdat->dstr_106__SARITHVAR_NEUTRAL.slen = 17 ;
 
 
     /*iniobj dsym_107__SARITHVAR_PRIMITIVE*/
@@ -7769,8 +7999,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V195*/ meltfptr[194] = (melt_ptr_t) &meltcdat->dstr_108__SARITHVAR_PRIMITIVE;
     meltcdat->dstr_108__SARITHVAR_PRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_108__SARITHVAR_PRIMITIVE.val, "SARITHVAR_PRIMITIVE", sizeof (meltcdat->dstr_108__SARITHVAR_PRIMITIVE.val)-1);
-    meltcdat->dstr_108__SARITHVAR_PRIMITIVE.val[19] = (char)0;
-    meltcdat->dstr_108__SARITHVAR_PRIMITIVE.slen = 19;
+    meltcdat->dstr_108__SARITHVAR_PRIMITIVE.val[19] = (char)0 ;
+    meltcdat->dstr_108__SARITHVAR_PRIMITIVE.slen = 19 ;
 
     /*^iniobj*/
 
@@ -7788,8 +8018,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V190*/ meltfptr[189] = (melt_ptr_t) &meltcdat->dstr_110__SARITHVAR_PRIMITIVE;
     meltcdat->dstr_110__SARITHVAR_PRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_110__SARITHVAR_PRIMITIVE.val, "SARITHVAR_PRIMITIVE", sizeof (meltcdat->dstr_110__SARITHVAR_PRIMITIVE.val)-1);
-    meltcdat->dstr_110__SARITHVAR_PRIMITIVE.val[19] = (char)0;
-    meltcdat->dstr_110__SARITHVAR_PRIMITIVE.slen = 19;
+    meltcdat->dstr_110__SARITHVAR_PRIMITIVE.val[19] = (char)0 ;
+    meltcdat->dstr_110__SARITHVAR_PRIMITIVE.slen = 19 ;
 
 
     /*iniobj dsym_111__CLASS_SOURCE_CITERATION*/
@@ -7806,8 +8036,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V197*/ meltfptr[196] = (melt_ptr_t) &meltcdat->dstr_112__CLASS_SOURCE_CITERATION;
     meltcdat->dstr_112__CLASS_SOURCE_CITERATION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_112__CLASS_SOURCE_CITERATION.val, "CLASS_SOURCE_CITERATION", sizeof (meltcdat->dstr_112__CLASS_SOURCE_CITERATION.val)-1);
-    meltcdat->dstr_112__CLASS_SOURCE_CITERATION.val[23] = (char)0;
-    meltcdat->dstr_112__CLASS_SOURCE_CITERATION.slen = 23;
+    meltcdat->dstr_112__CLASS_SOURCE_CITERATION.val[23] = (char)0 ;
+    meltcdat->dstr_112__CLASS_SOURCE_CITERATION.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:122:/ iniobj");
 
@@ -7825,8 +8055,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V199*/ meltfptr[198] = (melt_ptr_t) &meltcdat->dstr_114__CLASS_SOURCE_CITERATION;
     meltcdat->dstr_114__CLASS_SOURCE_CITERATION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_114__CLASS_SOURCE_CITERATION.val, "CLASS_SOURCE_CITERATION", sizeof (meltcdat->dstr_114__CLASS_SOURCE_CITERATION.val)-1);
-    meltcdat->dstr_114__CLASS_SOURCE_CITERATION.val[23] = (char)0;
-    meltcdat->dstr_114__CLASS_SOURCE_CITERATION.slen = 23;
+    meltcdat->dstr_114__CLASS_SOURCE_CITERATION.val[23] = (char)0 ;
+    meltcdat->dstr_114__CLASS_SOURCE_CITERATION.slen = 23 ;
 
     /*inimult dtup_115_syCLASS_SOURCE_CITERATION*/
     /*_._VALTUP___V200*/ meltfptr[199] = (melt_ptr_t) &meltcdat->dtup_115_syCLASS_SOURCE_CITERATION;
@@ -7851,8 +8081,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V209*/ meltfptr[208] = (melt_ptr_t) &meltcdat->dstr_118__SCITER_OPER;
     meltcdat->dstr_118__SCITER_OPER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_118__SCITER_OPER.val, "SCITER_OPER", sizeof (meltcdat->dstr_118__SCITER_OPER.val)-1);
-    meltcdat->dstr_118__SCITER_OPER.val[11] = (char)0;
-    meltcdat->dstr_118__SCITER_OPER.slen = 11;
+    meltcdat->dstr_118__SCITER_OPER.val[11] = (char)0 ;
+    meltcdat->dstr_118__SCITER_OPER.slen = 11 ;
 
     /*^iniobj*/
 
@@ -7870,8 +8100,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V202*/ meltfptr[201] = (melt_ptr_t) &meltcdat->dstr_120__SCITER_OPER;
     meltcdat->dstr_120__SCITER_OPER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_120__SCITER_OPER.val, "SCITER_OPER", sizeof (meltcdat->dstr_120__SCITER_OPER.val)-1);
-    meltcdat->dstr_120__SCITER_OPER.val[11] = (char)0;
-    meltcdat->dstr_120__SCITER_OPER.slen = 11;
+    meltcdat->dstr_120__SCITER_OPER.val[11] = (char)0 ;
+    meltcdat->dstr_120__SCITER_OPER.slen = 11 ;
 
 
     /*iniobj dsym_121__SCITER_VARBIND*/
@@ -7888,8 +8118,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V211*/ meltfptr[210] = (melt_ptr_t) &meltcdat->dstr_122__SCITER_VARBIND;
     meltcdat->dstr_122__SCITER_VARBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_122__SCITER_VARBIND.val, "SCITER_VARBIND", sizeof (meltcdat->dstr_122__SCITER_VARBIND.val)-1);
-    meltcdat->dstr_122__SCITER_VARBIND.val[14] = (char)0;
-    meltcdat->dstr_122__SCITER_VARBIND.slen = 14;
+    meltcdat->dstr_122__SCITER_VARBIND.val[14] = (char)0 ;
+    meltcdat->dstr_122__SCITER_VARBIND.slen = 14 ;
 
     /*^iniobj*/
 
@@ -7907,8 +8137,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V204*/ meltfptr[203] = (melt_ptr_t) &meltcdat->dstr_124__SCITER_VARBIND;
     meltcdat->dstr_124__SCITER_VARBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_124__SCITER_VARBIND.val, "SCITER_VARBIND", sizeof (meltcdat->dstr_124__SCITER_VARBIND.val)-1);
-    meltcdat->dstr_124__SCITER_VARBIND.val[14] = (char)0;
-    meltcdat->dstr_124__SCITER_VARBIND.slen = 14;
+    meltcdat->dstr_124__SCITER_VARBIND.val[14] = (char)0 ;
+    meltcdat->dstr_124__SCITER_VARBIND.slen = 14 ;
 
 
     /*iniobj dsym_125__SCITER_BODY*/
@@ -7925,8 +8155,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V213*/ meltfptr[212] = (melt_ptr_t) &meltcdat->dstr_126__SCITER_BODY;
     meltcdat->dstr_126__SCITER_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_126__SCITER_BODY.val, "SCITER_BODY", sizeof (meltcdat->dstr_126__SCITER_BODY.val)-1);
-    meltcdat->dstr_126__SCITER_BODY.val[11] = (char)0;
-    meltcdat->dstr_126__SCITER_BODY.slen = 11;
+    meltcdat->dstr_126__SCITER_BODY.val[11] = (char)0 ;
+    meltcdat->dstr_126__SCITER_BODY.slen = 11 ;
 
     /*^iniobj*/
 
@@ -7944,8 +8174,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V206*/ meltfptr[205] = (melt_ptr_t) &meltcdat->dstr_128__SCITER_BODY;
     meltcdat->dstr_128__SCITER_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_128__SCITER_BODY.val, "SCITER_BODY", sizeof (meltcdat->dstr_128__SCITER_BODY.val)-1);
-    meltcdat->dstr_128__SCITER_BODY.val[11] = (char)0;
-    meltcdat->dstr_128__SCITER_BODY.slen = 11;
+    meltcdat->dstr_128__SCITER_BODY.val[11] = (char)0 ;
+    meltcdat->dstr_128__SCITER_BODY.slen = 11 ;
 
 
     /*iniobj dsym_129__CLASS_SOURCE_CMATCHEXPR*/
@@ -7962,8 +8192,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V215*/ meltfptr[214] = (melt_ptr_t) &meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR;
     meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR.val, "CLASS_SOURCE_CMATCHEXPR", sizeof (meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR.val)-1);
-    meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR.val[23] = (char)0;
-    meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR.slen = 23;
+    meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR.val[23] = (char)0 ;
+    meltcdat->dstr_130__CLASS_SOURCE_CMATCHEXPR.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:134:/ iniobj");
 
@@ -7981,8 +8211,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V217*/ meltfptr[216] = (melt_ptr_t) &meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR;
     meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR.val, "CLASS_SOURCE_CMATCHEXPR", sizeof (meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR.val)-1);
-    meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR.val[23] = (char)0;
-    meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR.slen = 23;
+    meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR.val[23] = (char)0 ;
+    meltcdat->dstr_132__CLASS_SOURCE_CMATCHEXPR.slen = 23 ;
 
     /*inimult dtup_133_syCLASS_SOURCE_CMATCHEXPR*/
     /*_._VALTUP___V218*/ meltfptr[217] = (melt_ptr_t) &meltcdat->dtup_133_syCLASS_SOURCE_CMATCHEXPR;
@@ -8007,8 +8237,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V223*/ meltfptr[222] = (melt_ptr_t) &meltcdat->dstr_136__SCMATX_CMATCHER;
     meltcdat->dstr_136__SCMATX_CMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_136__SCMATX_CMATCHER.val, "SCMATX_CMATCHER", sizeof (meltcdat->dstr_136__SCMATX_CMATCHER.val)-1);
-    meltcdat->dstr_136__SCMATX_CMATCHER.val[15] = (char)0;
-    meltcdat->dstr_136__SCMATX_CMATCHER.slen = 15;
+    meltcdat->dstr_136__SCMATX_CMATCHER.val[15] = (char)0 ;
+    meltcdat->dstr_136__SCMATX_CMATCHER.slen = 15 ;
 
     /*^iniobj*/
 
@@ -8026,8 +8256,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V220*/ meltfptr[219] = (melt_ptr_t) &meltcdat->dstr_138__SCMATX_CMATCHER;
     meltcdat->dstr_138__SCMATX_CMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_138__SCMATX_CMATCHER.val, "SCMATX_CMATCHER", sizeof (meltcdat->dstr_138__SCMATX_CMATCHER.val)-1);
-    meltcdat->dstr_138__SCMATX_CMATCHER.val[15] = (char)0;
-    meltcdat->dstr_138__SCMATX_CMATCHER.slen = 15;
+    meltcdat->dstr_138__SCMATX_CMATCHER.val[15] = (char)0 ;
+    meltcdat->dstr_138__SCMATX_CMATCHER.slen = 15 ;
 
 
     /*iniobj dsym_139__CLASS_SOURCE_FUNMATCHEXPR*/
@@ -8044,8 +8274,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V225*/ meltfptr[224] = (melt_ptr_t) &meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP;
     meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP.val, "CLASS_SOURCE_FUNMATCHEXPR", sizeof (meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP.val)-1);
-    meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP.val[25] = (char)0;
-    meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP.slen = 25;
+    meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP.val[25] = (char)0 ;
+    meltcdat->dstr_140__CLASS_SOURCE_FUNMATCHEXP.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:143:/ iniobj");
 
@@ -8063,8 +8293,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V227*/ meltfptr[226] = (melt_ptr_t) &meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP;
     meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP.val, "CLASS_SOURCE_FUNMATCHEXPR", sizeof (meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP.val)-1);
-    meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP.val[25] = (char)0;
-    meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP.slen = 25;
+    meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP.val[25] = (char)0 ;
+    meltcdat->dstr_142__CLASS_SOURCE_FUNMATCHEXP.slen = 25 ;
 
     /*inimult dtup_143_syCLASS_SOURCE_FUNMATCHEXPR*/
     /*_._VALTUP___V228*/ meltfptr[227] = (melt_ptr_t) &meltcdat->dtup_143_syCLASS_SOURCE_FUNMATCHEXPR;
@@ -8089,8 +8319,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V235*/ meltfptr[234] = (melt_ptr_t) &meltcdat->dstr_146__SFMATX_FMATCHER;
     meltcdat->dstr_146__SFMATX_FMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_146__SFMATX_FMATCHER.val, "SFMATX_FMATCHER", sizeof (meltcdat->dstr_146__SFMATX_FMATCHER.val)-1);
-    meltcdat->dstr_146__SFMATX_FMATCHER.val[15] = (char)0;
-    meltcdat->dstr_146__SFMATX_FMATCHER.slen = 15;
+    meltcdat->dstr_146__SFMATX_FMATCHER.val[15] = (char)0 ;
+    meltcdat->dstr_146__SFMATX_FMATCHER.slen = 15 ;
 
     /*^iniobj*/
 
@@ -8108,8 +8338,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V230*/ meltfptr[229] = (melt_ptr_t) &meltcdat->dstr_148__SFMATX_FMATCHER;
     meltcdat->dstr_148__SFMATX_FMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_148__SFMATX_FMATCHER.val, "SFMATX_FMATCHER", sizeof (meltcdat->dstr_148__SFMATX_FMATCHER.val)-1);
-    meltcdat->dstr_148__SFMATX_FMATCHER.val[15] = (char)0;
-    meltcdat->dstr_148__SFMATX_FMATCHER.slen = 15;
+    meltcdat->dstr_148__SFMATX_FMATCHER.val[15] = (char)0 ;
+    meltcdat->dstr_148__SFMATX_FMATCHER.slen = 15 ;
 
 
     /*iniobj dsym_149__SFMATX_FMATBIND*/
@@ -8126,8 +8356,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V237*/ meltfptr[236] = (melt_ptr_t) &meltcdat->dstr_150__SFMATX_FMATBIND;
     meltcdat->dstr_150__SFMATX_FMATBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_150__SFMATX_FMATBIND.val, "SFMATX_FMATBIND", sizeof (meltcdat->dstr_150__SFMATX_FMATBIND.val)-1);
-    meltcdat->dstr_150__SFMATX_FMATBIND.val[15] = (char)0;
-    meltcdat->dstr_150__SFMATX_FMATBIND.slen = 15;
+    meltcdat->dstr_150__SFMATX_FMATBIND.val[15] = (char)0 ;
+    meltcdat->dstr_150__SFMATX_FMATBIND.slen = 15 ;
 
     /*^iniobj*/
 
@@ -8145,8 +8375,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V232*/ meltfptr[231] = (melt_ptr_t) &meltcdat->dstr_152__SFMATX_FMATBIND;
     meltcdat->dstr_152__SFMATX_FMATBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_152__SFMATX_FMATBIND.val, "SFMATX_FMATBIND", sizeof (meltcdat->dstr_152__SFMATX_FMATBIND.val)-1);
-    meltcdat->dstr_152__SFMATX_FMATBIND.val[15] = (char)0;
-    meltcdat->dstr_152__SFMATX_FMATBIND.slen = 15;
+    meltcdat->dstr_152__SFMATX_FMATBIND.val[15] = (char)0 ;
+    meltcdat->dstr_152__SFMATX_FMATBIND.slen = 15 ;
 
 
     /*iniobj dsym_153__CLASS_SOURCE_TUPLE*/
@@ -8163,8 +8393,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V239*/ meltfptr[238] = (melt_ptr_t) &meltcdat->dstr_154__CLASS_SOURCE_TUPLE;
     meltcdat->dstr_154__CLASS_SOURCE_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_154__CLASS_SOURCE_TUPLE.val, "CLASS_SOURCE_TUPLE", sizeof (meltcdat->dstr_154__CLASS_SOURCE_TUPLE.val)-1);
-    meltcdat->dstr_154__CLASS_SOURCE_TUPLE.val[18] = (char)0;
-    meltcdat->dstr_154__CLASS_SOURCE_TUPLE.slen = 18;
+    meltcdat->dstr_154__CLASS_SOURCE_TUPLE.val[18] = (char)0 ;
+    meltcdat->dstr_154__CLASS_SOURCE_TUPLE.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:154:/ iniobj");
 
@@ -8182,8 +8412,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V241*/ meltfptr[240] = (melt_ptr_t) &meltcdat->dstr_156__CLASS_SOURCE_TUPLE;
     meltcdat->dstr_156__CLASS_SOURCE_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_156__CLASS_SOURCE_TUPLE.val, "CLASS_SOURCE_TUPLE", sizeof (meltcdat->dstr_156__CLASS_SOURCE_TUPLE.val)-1);
-    meltcdat->dstr_156__CLASS_SOURCE_TUPLE.val[18] = (char)0;
-    meltcdat->dstr_156__CLASS_SOURCE_TUPLE.slen = 18;
+    meltcdat->dstr_156__CLASS_SOURCE_TUPLE.val[18] = (char)0 ;
+    meltcdat->dstr_156__CLASS_SOURCE_TUPLE.slen = 18 ;
 
     /*inimult dtup_157_syCLASS_SOURCE_TUPLE*/
     /*_._VALTUP___V242*/ meltfptr[241] = (melt_ptr_t) &meltcdat->dtup_157_syCLASS_SOURCE_TUPLE;
@@ -8208,8 +8438,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V245*/ meltfptr[244] = (melt_ptr_t) &meltcdat->dstr_160__CLASS_SOURCE_LIST;
     meltcdat->dstr_160__CLASS_SOURCE_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_160__CLASS_SOURCE_LIST.val, "CLASS_SOURCE_LIST", sizeof (meltcdat->dstr_160__CLASS_SOURCE_LIST.val)-1);
-    meltcdat->dstr_160__CLASS_SOURCE_LIST.val[17] = (char)0;
-    meltcdat->dstr_160__CLASS_SOURCE_LIST.slen = 17;
+    meltcdat->dstr_160__CLASS_SOURCE_LIST.val[17] = (char)0 ;
+    meltcdat->dstr_160__CLASS_SOURCE_LIST.slen = 17 ;
 
     MELT_LOCATION("warmelt-macro.melt:161:/ iniobj");
 
@@ -8227,8 +8457,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V247*/ meltfptr[246] = (melt_ptr_t) &meltcdat->dstr_162__CLASS_SOURCE_LIST;
     meltcdat->dstr_162__CLASS_SOURCE_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_162__CLASS_SOURCE_LIST.val, "CLASS_SOURCE_LIST", sizeof (meltcdat->dstr_162__CLASS_SOURCE_LIST.val)-1);
-    meltcdat->dstr_162__CLASS_SOURCE_LIST.val[17] = (char)0;
-    meltcdat->dstr_162__CLASS_SOURCE_LIST.slen = 17;
+    meltcdat->dstr_162__CLASS_SOURCE_LIST.val[17] = (char)0 ;
+    meltcdat->dstr_162__CLASS_SOURCE_LIST.slen = 17 ;
 
     /*inimult dtup_163_syCLASS_SOURCE_LIST*/
     /*_._VALTUP___V248*/ meltfptr[247] = (melt_ptr_t) &meltcdat->dtup_163_syCLASS_SOURCE_LIST;
@@ -8253,8 +8483,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V251*/ meltfptr[250] = (melt_ptr_t) &meltcdat->dstr_166__CLASS_SOURCE_PROGN;
     meltcdat->dstr_166__CLASS_SOURCE_PROGN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_166__CLASS_SOURCE_PROGN.val, "CLASS_SOURCE_PROGN", sizeof (meltcdat->dstr_166__CLASS_SOURCE_PROGN.val)-1);
-    meltcdat->dstr_166__CLASS_SOURCE_PROGN.val[18] = (char)0;
-    meltcdat->dstr_166__CLASS_SOURCE_PROGN.slen = 18;
+    meltcdat->dstr_166__CLASS_SOURCE_PROGN.val[18] = (char)0 ;
+    meltcdat->dstr_166__CLASS_SOURCE_PROGN.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:168:/ iniobj");
 
@@ -8272,8 +8502,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V253*/ meltfptr[252] = (melt_ptr_t) &meltcdat->dstr_168__CLASS_SOURCE_PROGN;
     meltcdat->dstr_168__CLASS_SOURCE_PROGN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_168__CLASS_SOURCE_PROGN.val, "CLASS_SOURCE_PROGN", sizeof (meltcdat->dstr_168__CLASS_SOURCE_PROGN.val)-1);
-    meltcdat->dstr_168__CLASS_SOURCE_PROGN.val[18] = (char)0;
-    meltcdat->dstr_168__CLASS_SOURCE_PROGN.slen = 18;
+    meltcdat->dstr_168__CLASS_SOURCE_PROGN.val[18] = (char)0 ;
+    meltcdat->dstr_168__CLASS_SOURCE_PROGN.slen = 18 ;
 
     /*inimult dtup_169_syCLASS_SOURCE_PROGN*/
     /*_._VALTUP___V254*/ meltfptr[253] = (melt_ptr_t) &meltcdat->dtup_169_syCLASS_SOURCE_PROGN;
@@ -8298,8 +8528,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V259*/ meltfptr[258] = (melt_ptr_t) &meltcdat->dstr_172__SPROGN_BODY;
     meltcdat->dstr_172__SPROGN_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_172__SPROGN_BODY.val, "SPROGN_BODY", sizeof (meltcdat->dstr_172__SPROGN_BODY.val)-1);
-    meltcdat->dstr_172__SPROGN_BODY.val[11] = (char)0;
-    meltcdat->dstr_172__SPROGN_BODY.slen = 11;
+    meltcdat->dstr_172__SPROGN_BODY.val[11] = (char)0 ;
+    meltcdat->dstr_172__SPROGN_BODY.slen = 11 ;
 
     /*^iniobj*/
 
@@ -8317,8 +8547,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V256*/ meltfptr[255] = (melt_ptr_t) &meltcdat->dstr_174__SPROGN_BODY;
     meltcdat->dstr_174__SPROGN_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_174__SPROGN_BODY.val, "SPROGN_BODY", sizeof (meltcdat->dstr_174__SPROGN_BODY.val)-1);
-    meltcdat->dstr_174__SPROGN_BODY.val[11] = (char)0;
-    meltcdat->dstr_174__SPROGN_BODY.slen = 11;
+    meltcdat->dstr_174__SPROGN_BODY.val[11] = (char)0 ;
+    meltcdat->dstr_174__SPROGN_BODY.slen = 11 ;
 
 
     /*iniobj dsym_175__CLASS_SOURCE_RETURN*/
@@ -8335,8 +8565,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V261*/ meltfptr[260] = (melt_ptr_t) &meltcdat->dstr_176__CLASS_SOURCE_RETURN;
     meltcdat->dstr_176__CLASS_SOURCE_RETURN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_176__CLASS_SOURCE_RETURN.val, "CLASS_SOURCE_RETURN", sizeof (meltcdat->dstr_176__CLASS_SOURCE_RETURN.val)-1);
-    meltcdat->dstr_176__CLASS_SOURCE_RETURN.val[19] = (char)0;
-    meltcdat->dstr_176__CLASS_SOURCE_RETURN.slen = 19;
+    meltcdat->dstr_176__CLASS_SOURCE_RETURN.val[19] = (char)0 ;
+    meltcdat->dstr_176__CLASS_SOURCE_RETURN.slen = 19 ;
 
     MELT_LOCATION("warmelt-macro.melt:176:/ iniobj");
 
@@ -8354,8 +8584,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V263*/ meltfptr[262] = (melt_ptr_t) &meltcdat->dstr_178__CLASS_SOURCE_RETURN;
     meltcdat->dstr_178__CLASS_SOURCE_RETURN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_178__CLASS_SOURCE_RETURN.val, "CLASS_SOURCE_RETURN", sizeof (meltcdat->dstr_178__CLASS_SOURCE_RETURN.val)-1);
-    meltcdat->dstr_178__CLASS_SOURCE_RETURN.val[19] = (char)0;
-    meltcdat->dstr_178__CLASS_SOURCE_RETURN.slen = 19;
+    meltcdat->dstr_178__CLASS_SOURCE_RETURN.val[19] = (char)0 ;
+    meltcdat->dstr_178__CLASS_SOURCE_RETURN.slen = 19 ;
 
     /*inimult dtup_179_syCLASS_SOURCE_RETURN*/
     /*_._VALTUP___V264*/ meltfptr[263] = (melt_ptr_t) &meltcdat->dtup_179_syCLASS_SOURCE_RETURN;
@@ -8380,8 +8610,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V267*/ meltfptr[266] = (melt_ptr_t) &meltcdat->dstr_182__CLASS_SOURCE_SETQ;
     meltcdat->dstr_182__CLASS_SOURCE_SETQ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_182__CLASS_SOURCE_SETQ.val, "CLASS_SOURCE_SETQ", sizeof (meltcdat->dstr_182__CLASS_SOURCE_SETQ.val)-1);
-    meltcdat->dstr_182__CLASS_SOURCE_SETQ.val[17] = (char)0;
-    meltcdat->dstr_182__CLASS_SOURCE_SETQ.slen = 17;
+    meltcdat->dstr_182__CLASS_SOURCE_SETQ.val[17] = (char)0 ;
+    meltcdat->dstr_182__CLASS_SOURCE_SETQ.slen = 17 ;
 
     MELT_LOCATION("warmelt-macro.melt:183:/ iniobj");
 
@@ -8399,8 +8629,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V269*/ meltfptr[268] = (melt_ptr_t) &meltcdat->dstr_184__CLASS_SOURCE_SETQ;
     meltcdat->dstr_184__CLASS_SOURCE_SETQ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_184__CLASS_SOURCE_SETQ.val, "CLASS_SOURCE_SETQ", sizeof (meltcdat->dstr_184__CLASS_SOURCE_SETQ.val)-1);
-    meltcdat->dstr_184__CLASS_SOURCE_SETQ.val[17] = (char)0;
-    meltcdat->dstr_184__CLASS_SOURCE_SETQ.slen = 17;
+    meltcdat->dstr_184__CLASS_SOURCE_SETQ.val[17] = (char)0 ;
+    meltcdat->dstr_184__CLASS_SOURCE_SETQ.slen = 17 ;
 
     /*inimult dtup_185_syCLASS_SOURCE_SETQ*/
     /*_._VALTUP___V270*/ meltfptr[269] = (melt_ptr_t) &meltcdat->dtup_185_syCLASS_SOURCE_SETQ;
@@ -8425,8 +8655,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V277*/ meltfptr[276] = (melt_ptr_t) &meltcdat->dstr_188__SSTQ_VAR;
     meltcdat->dstr_188__SSTQ_VAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_188__SSTQ_VAR.val, "SSTQ_VAR", sizeof (meltcdat->dstr_188__SSTQ_VAR.val)-1);
-    meltcdat->dstr_188__SSTQ_VAR.val[8] = (char)0;
-    meltcdat->dstr_188__SSTQ_VAR.slen = 8;
+    meltcdat->dstr_188__SSTQ_VAR.val[8] = (char)0 ;
+    meltcdat->dstr_188__SSTQ_VAR.slen = 8 ;
 
     /*^iniobj*/
 
@@ -8444,8 +8674,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V272*/ meltfptr[271] = (melt_ptr_t) &meltcdat->dstr_190__SSTQ_VAR;
     meltcdat->dstr_190__SSTQ_VAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_190__SSTQ_VAR.val, "SSTQ_VAR", sizeof (meltcdat->dstr_190__SSTQ_VAR.val)-1);
-    meltcdat->dstr_190__SSTQ_VAR.val[8] = (char)0;
-    meltcdat->dstr_190__SSTQ_VAR.slen = 8;
+    meltcdat->dstr_190__SSTQ_VAR.val[8] = (char)0 ;
+    meltcdat->dstr_190__SSTQ_VAR.slen = 8 ;
 
 
     /*iniobj dsym_191__SSTQ_EXPR*/
@@ -8462,8 +8692,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V279*/ meltfptr[278] = (melt_ptr_t) &meltcdat->dstr_192__SSTQ_EXPR;
     meltcdat->dstr_192__SSTQ_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_192__SSTQ_EXPR.val, "SSTQ_EXPR", sizeof (meltcdat->dstr_192__SSTQ_EXPR.val)-1);
-    meltcdat->dstr_192__SSTQ_EXPR.val[9] = (char)0;
-    meltcdat->dstr_192__SSTQ_EXPR.slen = 9;
+    meltcdat->dstr_192__SSTQ_EXPR.val[9] = (char)0 ;
+    meltcdat->dstr_192__SSTQ_EXPR.slen = 9 ;
 
     /*^iniobj*/
 
@@ -8481,8 +8711,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V274*/ meltfptr[273] = (melt_ptr_t) &meltcdat->dstr_194__SSTQ_EXPR;
     meltcdat->dstr_194__SSTQ_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_194__SSTQ_EXPR.val, "SSTQ_EXPR", sizeof (meltcdat->dstr_194__SSTQ_EXPR.val)-1);
-    meltcdat->dstr_194__SSTQ_EXPR.val[9] = (char)0;
-    meltcdat->dstr_194__SSTQ_EXPR.slen = 9;
+    meltcdat->dstr_194__SSTQ_EXPR.val[9] = (char)0 ;
+    meltcdat->dstr_194__SSTQ_EXPR.slen = 9 ;
 
 
     /*iniobj dsym_195__CLASS_SOURCE_COMMENT*/
@@ -8499,8 +8729,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V281*/ meltfptr[280] = (melt_ptr_t) &meltcdat->dstr_196__CLASS_SOURCE_COMMENT;
     meltcdat->dstr_196__CLASS_SOURCE_COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_196__CLASS_SOURCE_COMMENT.val, "CLASS_SOURCE_COMMENT", sizeof (meltcdat->dstr_196__CLASS_SOURCE_COMMENT.val)-1);
-    meltcdat->dstr_196__CLASS_SOURCE_COMMENT.val[20] = (char)0;
-    meltcdat->dstr_196__CLASS_SOURCE_COMMENT.slen = 20;
+    meltcdat->dstr_196__CLASS_SOURCE_COMMENT.val[20] = (char)0 ;
+    meltcdat->dstr_196__CLASS_SOURCE_COMMENT.slen = 20 ;
 
     MELT_LOCATION("warmelt-macro.melt:192:/ iniobj");
 
@@ -8518,8 +8748,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V283*/ meltfptr[282] = (melt_ptr_t) &meltcdat->dstr_198__CLASS_SOURCE_COMMENT;
     meltcdat->dstr_198__CLASS_SOURCE_COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_198__CLASS_SOURCE_COMMENT.val, "CLASS_SOURCE_COMMENT", sizeof (meltcdat->dstr_198__CLASS_SOURCE_COMMENT.val)-1);
-    meltcdat->dstr_198__CLASS_SOURCE_COMMENT.val[20] = (char)0;
-    meltcdat->dstr_198__CLASS_SOURCE_COMMENT.slen = 20;
+    meltcdat->dstr_198__CLASS_SOURCE_COMMENT.val[20] = (char)0 ;
+    meltcdat->dstr_198__CLASS_SOURCE_COMMENT.slen = 20 ;
 
     /*inimult dtup_199_syCLASS_SOURCE_COMMENT*/
     /*_._VALTUP___V284*/ meltfptr[283] = (melt_ptr_t) &meltcdat->dtup_199_syCLASS_SOURCE_COMMENT;
@@ -8544,8 +8774,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V289*/ meltfptr[288] = (melt_ptr_t) &meltcdat->dstr_202__SCOMM_STR;
     meltcdat->dstr_202__SCOMM_STR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_202__SCOMM_STR.val, "SCOMM_STR", sizeof (meltcdat->dstr_202__SCOMM_STR.val)-1);
-    meltcdat->dstr_202__SCOMM_STR.val[9] = (char)0;
-    meltcdat->dstr_202__SCOMM_STR.slen = 9;
+    meltcdat->dstr_202__SCOMM_STR.val[9] = (char)0 ;
+    meltcdat->dstr_202__SCOMM_STR.slen = 9 ;
 
     /*^iniobj*/
 
@@ -8563,8 +8793,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V286*/ meltfptr[285] = (melt_ptr_t) &meltcdat->dstr_204__SCOMM_STR;
     meltcdat->dstr_204__SCOMM_STR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_204__SCOMM_STR.val, "SCOMM_STR", sizeof (meltcdat->dstr_204__SCOMM_STR.val)-1);
-    meltcdat->dstr_204__SCOMM_STR.val[9] = (char)0;
-    meltcdat->dstr_204__SCOMM_STR.slen = 9;
+    meltcdat->dstr_204__SCOMM_STR.val[9] = (char)0 ;
+    meltcdat->dstr_204__SCOMM_STR.slen = 9 ;
 
 
     /*iniobj dsym_205__CLASS_SOURCE_CODE_STRING*/
@@ -8581,8 +8811,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V291*/ meltfptr[290] = (melt_ptr_t) &meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING;
     meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING.val, "CLASS_SOURCE_CODE_STRING", sizeof (meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING.val)-1);
-    meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING.val[24] = (char)0;
-    meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING.slen = 24;
+    meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING.val[24] = (char)0 ;
+    meltcdat->dstr_206__CLASS_SOURCE_CODE_STRING.slen = 24 ;
 
     MELT_LOCATION("warmelt-macro.melt:199:/ iniobj");
 
@@ -8600,8 +8830,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V293*/ meltfptr[292] = (melt_ptr_t) &meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING;
     meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING.val, "CLASS_SOURCE_CODE_STRING", sizeof (meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING.val)-1);
-    meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING.val[24] = (char)0;
-    meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING.slen = 24;
+    meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING.val[24] = (char)0 ;
+    meltcdat->dstr_208__CLASS_SOURCE_CODE_STRING.slen = 24 ;
 
     /*inimult dtup_209_syCLASS_SOURCE_CODE_STRING*/
     /*_._VALTUP___V294*/ meltfptr[293] = (melt_ptr_t) &meltcdat->dtup_209_syCLASS_SOURCE_CODE_STRING;
@@ -8626,8 +8856,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V299*/ meltfptr[298] = (melt_ptr_t) &meltcdat->dstr_212__SC_CODESTRING;
     meltcdat->dstr_212__SC_CODESTRING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_212__SC_CODESTRING.val, "SC_CODESTRING", sizeof (meltcdat->dstr_212__SC_CODESTRING.val)-1);
-    meltcdat->dstr_212__SC_CODESTRING.val[13] = (char)0;
-    meltcdat->dstr_212__SC_CODESTRING.slen = 13;
+    meltcdat->dstr_212__SC_CODESTRING.val[13] = (char)0 ;
+    meltcdat->dstr_212__SC_CODESTRING.slen = 13 ;
 
     /*^iniobj*/
 
@@ -8645,8 +8875,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V296*/ meltfptr[295] = (melt_ptr_t) &meltcdat->dstr_214__SC_CODESTRING;
     meltcdat->dstr_214__SC_CODESTRING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_214__SC_CODESTRING.val, "SC_CODESTRING", sizeof (meltcdat->dstr_214__SC_CODESTRING.val)-1);
-    meltcdat->dstr_214__SC_CODESTRING.val[13] = (char)0;
-    meltcdat->dstr_214__SC_CODESTRING.slen = 13;
+    meltcdat->dstr_214__SC_CODESTRING.val[13] = (char)0 ;
+    meltcdat->dstr_214__SC_CODESTRING.slen = 13 ;
 
 
     /*iniobj dsym_215__CLASS_SOURCE_CHEADER*/
@@ -8663,8 +8893,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V301*/ meltfptr[300] = (melt_ptr_t) &meltcdat->dstr_216__CLASS_SOURCE_CHEADER;
     meltcdat->dstr_216__CLASS_SOURCE_CHEADER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_216__CLASS_SOURCE_CHEADER.val, "CLASS_SOURCE_CHEADER", sizeof (meltcdat->dstr_216__CLASS_SOURCE_CHEADER.val)-1);
-    meltcdat->dstr_216__CLASS_SOURCE_CHEADER.val[20] = (char)0;
-    meltcdat->dstr_216__CLASS_SOURCE_CHEADER.slen = 20;
+    meltcdat->dstr_216__CLASS_SOURCE_CHEADER.val[20] = (char)0 ;
+    meltcdat->dstr_216__CLASS_SOURCE_CHEADER.slen = 20 ;
 
     MELT_LOCATION("warmelt-macro.melt:207:/ iniobj");
 
@@ -8682,8 +8912,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V303*/ meltfptr[302] = (melt_ptr_t) &meltcdat->dstr_218__CLASS_SOURCE_CHEADER;
     meltcdat->dstr_218__CLASS_SOURCE_CHEADER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_218__CLASS_SOURCE_CHEADER.val, "CLASS_SOURCE_CHEADER", sizeof (meltcdat->dstr_218__CLASS_SOURCE_CHEADER.val)-1);
-    meltcdat->dstr_218__CLASS_SOURCE_CHEADER.val[20] = (char)0;
-    meltcdat->dstr_218__CLASS_SOURCE_CHEADER.slen = 20;
+    meltcdat->dstr_218__CLASS_SOURCE_CHEADER.val[20] = (char)0 ;
+    meltcdat->dstr_218__CLASS_SOURCE_CHEADER.slen = 20 ;
 
     /*inimult dtup_219_syCLASS_SOURCE_CHEADER*/
     /*_._VALTUP___V304*/ meltfptr[303] = (melt_ptr_t) &meltcdat->dtup_219_syCLASS_SOURCE_CHEADER;
@@ -8708,8 +8938,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V307*/ meltfptr[306] = (melt_ptr_t) &meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT;
     meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT.val, "CLASS_SOURCE_CIMPLEMENT", sizeof (meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT.val)-1);
-    meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT.val[23] = (char)0;
-    meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT.slen = 23;
+    meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT.val[23] = (char)0 ;
+    meltcdat->dstr_222__CLASS_SOURCE_CIMPLEMENT.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:215:/ iniobj");
 
@@ -8727,8 +8957,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V309*/ meltfptr[308] = (melt_ptr_t) &meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT;
     meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT.val, "CLASS_SOURCE_CIMPLEMENT", sizeof (meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT.val)-1);
-    meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT.val[23] = (char)0;
-    meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT.slen = 23;
+    meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT.val[23] = (char)0 ;
+    meltcdat->dstr_224__CLASS_SOURCE_CIMPLEMENT.slen = 23 ;
 
     /*inimult dtup_225_syCLASS_SOURCE_CIMPLEMENT*/
     /*_._VALTUP___V310*/ meltfptr[309] = (melt_ptr_t) &meltcdat->dtup_225_syCLASS_SOURCE_CIMPLEMENT;
@@ -8753,8 +8983,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V313*/ meltfptr[312] = (melt_ptr_t) &meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE;
     meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE.val, "CLASS_SOURCE_USE_PACKAGE_FROM_PKG_CONFIG", sizeof (meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE.val)-1);
-    meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE.val[40] = (char)0;
-    meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE.slen = 40;
+    meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE.val[40] = (char)0 ;
+    meltcdat->dstr_228__CLASS_SOURCE_USE_PACKAGE.slen = 40 ;
 
     MELT_LOCATION("warmelt-macro.melt:225:/ iniobj");
 
@@ -8772,8 +9002,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V315*/ meltfptr[314] = (melt_ptr_t) &meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE;
     meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE.val, "CLASS_SOURCE_USE_PACKAGE_FROM_PKG_CONFIG", sizeof (meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE.val)-1);
-    meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE.val[40] = (char)0;
-    meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE.slen = 40;
+    meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE.val[40] = (char)0 ;
+    meltcdat->dstr_230__CLASS_SOURCE_USE_PACKAGE.slen = 40 ;
 
     /*inimult dtup_231_syCLASS_SOURCE_USE_PACKAGE_FROM_PKG_CONFIG*/
     /*_._VALTUP___V316*/ meltfptr[315] = (melt_ptr_t) &meltcdat->dtup_231_syCLASS_SOURCE_USE_PACKAGE_FROM_PKG_CONFIG;
@@ -8798,8 +9028,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V321*/ meltfptr[320] = (melt_ptr_t) &meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE;
     meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE.val, "SUSEPACKAGE_PKGTUPLE", sizeof (meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE.val)-1);
-    meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE.val[20] = (char)0;
-    meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE.slen = 20;
+    meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE.val[20] = (char)0 ;
+    meltcdat->dstr_234__SUSEPACKAGE_PKGTUPLE.slen = 20 ;
 
     /*^iniobj*/
 
@@ -8817,8 +9047,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V318*/ meltfptr[317] = (melt_ptr_t) &meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE;
     meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE.val, "SUSEPACKAGE_PKGTUPLE", sizeof (meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE.val)-1);
-    meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE.val[20] = (char)0;
-    meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE.slen = 20;
+    meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE.val[20] = (char)0 ;
+    meltcdat->dstr_236__SUSEPACKAGE_PKGTUPLE.slen = 20 ;
 
 
     /*iniobj dsym_237__CLASS_SOURCE_QUOTE*/
@@ -8835,8 +9065,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V323*/ meltfptr[322] = (melt_ptr_t) &meltcdat->dstr_238__CLASS_SOURCE_QUOTE;
     meltcdat->dstr_238__CLASS_SOURCE_QUOTE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_238__CLASS_SOURCE_QUOTE.val, "CLASS_SOURCE_QUOTE", sizeof (meltcdat->dstr_238__CLASS_SOURCE_QUOTE.val)-1);
-    meltcdat->dstr_238__CLASS_SOURCE_QUOTE.val[18] = (char)0;
-    meltcdat->dstr_238__CLASS_SOURCE_QUOTE.slen = 18;
+    meltcdat->dstr_238__CLASS_SOURCE_QUOTE.val[18] = (char)0 ;
+    meltcdat->dstr_238__CLASS_SOURCE_QUOTE.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:235:/ iniobj");
 
@@ -8854,8 +9084,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V325*/ meltfptr[324] = (melt_ptr_t) &meltcdat->dstr_240__CLASS_SOURCE_QUOTE;
     meltcdat->dstr_240__CLASS_SOURCE_QUOTE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_240__CLASS_SOURCE_QUOTE.val, "CLASS_SOURCE_QUOTE", sizeof (meltcdat->dstr_240__CLASS_SOURCE_QUOTE.val)-1);
-    meltcdat->dstr_240__CLASS_SOURCE_QUOTE.val[18] = (char)0;
-    meltcdat->dstr_240__CLASS_SOURCE_QUOTE.slen = 18;
+    meltcdat->dstr_240__CLASS_SOURCE_QUOTE.val[18] = (char)0 ;
+    meltcdat->dstr_240__CLASS_SOURCE_QUOTE.slen = 18 ;
 
     /*inimult dtup_241_syCLASS_SOURCE_QUOTE*/
     /*_._VALTUP___V326*/ meltfptr[325] = (melt_ptr_t) &meltcdat->dtup_241_syCLASS_SOURCE_QUOTE;
@@ -8880,8 +9110,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V331*/ meltfptr[330] = (melt_ptr_t) &meltcdat->dstr_244__SQUOTED;
     meltcdat->dstr_244__SQUOTED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_244__SQUOTED.val, "SQUOTED", sizeof (meltcdat->dstr_244__SQUOTED.val)-1);
-    meltcdat->dstr_244__SQUOTED.val[7] = (char)0;
-    meltcdat->dstr_244__SQUOTED.slen = 7;
+    meltcdat->dstr_244__SQUOTED.val[7] = (char)0 ;
+    meltcdat->dstr_244__SQUOTED.slen = 7 ;
 
     /*^iniobj*/
 
@@ -8899,8 +9129,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V328*/ meltfptr[327] = (melt_ptr_t) &meltcdat->dstr_246__SQUOTED;
     meltcdat->dstr_246__SQUOTED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_246__SQUOTED.val, "SQUOTED", sizeof (meltcdat->dstr_246__SQUOTED.val)-1);
-    meltcdat->dstr_246__SQUOTED.val[7] = (char)0;
-    meltcdat->dstr_246__SQUOTED.slen = 7;
+    meltcdat->dstr_246__SQUOTED.val[7] = (char)0 ;
+    meltcdat->dstr_246__SQUOTED.slen = 7 ;
 
 
     /*iniobj dsym_247__CLASS_SOURCE_QUASI_BOX*/
@@ -8917,8 +9147,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V333*/ meltfptr[332] = (melt_ptr_t) &meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX;
     meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX.val, "CLASS_SOURCE_QUASI_BOX", sizeof (meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX.val)-1);
-    meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX.val[22] = (char)0;
-    meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX.slen = 22;
+    meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX.val[22] = (char)0 ;
+    meltcdat->dstr_248__CLASS_SOURCE_QUASI_BOX.slen = 22 ;
 
     MELT_LOCATION("warmelt-macro.melt:242:/ iniobj");
 
@@ -8936,8 +9166,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V335*/ meltfptr[334] = (melt_ptr_t) &meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX;
     meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX.val, "CLASS_SOURCE_QUASI_BOX", sizeof (meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX.val)-1);
-    meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX.val[22] = (char)0;
-    meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX.slen = 22;
+    meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX.val[22] = (char)0 ;
+    meltcdat->dstr_250__CLASS_SOURCE_QUASI_BOX.slen = 22 ;
 
     /*inimult dtup_251_syCLASS_SOURCE_QUASI_BOX*/
     /*_._VALTUP___V336*/ meltfptr[335] = (melt_ptr_t) &meltcdat->dtup_251_syCLASS_SOURCE_QUASI_BOX;
@@ -8962,8 +9192,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V341*/ meltfptr[340] = (melt_ptr_t) &meltcdat->dstr_254__SBOXED;
     meltcdat->dstr_254__SBOXED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_254__SBOXED.val, "SBOXED", sizeof (meltcdat->dstr_254__SBOXED.val)-1);
-    meltcdat->dstr_254__SBOXED.val[6] = (char)0;
-    meltcdat->dstr_254__SBOXED.slen = 6;
+    meltcdat->dstr_254__SBOXED.val[6] = (char)0 ;
+    meltcdat->dstr_254__SBOXED.slen = 6 ;
 
     /*^iniobj*/
 
@@ -8981,8 +9211,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V338*/ meltfptr[337] = (melt_ptr_t) &meltcdat->dstr_256__SBOXED;
     meltcdat->dstr_256__SBOXED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_256__SBOXED.val, "SBOXED", sizeof (meltcdat->dstr_256__SBOXED.val)-1);
-    meltcdat->dstr_256__SBOXED.val[6] = (char)0;
-    meltcdat->dstr_256__SBOXED.slen = 6;
+    meltcdat->dstr_256__SBOXED.val[6] = (char)0 ;
+    meltcdat->dstr_256__SBOXED.slen = 6 ;
 
 
     /*iniobj dsym_257__CLASS_SOURCE_BOX*/
@@ -8999,8 +9229,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V343*/ meltfptr[342] = (melt_ptr_t) &meltcdat->dstr_258__CLASS_SOURCE_BOX;
     meltcdat->dstr_258__CLASS_SOURCE_BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_258__CLASS_SOURCE_BOX.val, "CLASS_SOURCE_BOX", sizeof (meltcdat->dstr_258__CLASS_SOURCE_BOX.val)-1);
-    meltcdat->dstr_258__CLASS_SOURCE_BOX.val[16] = (char)0;
-    meltcdat->dstr_258__CLASS_SOURCE_BOX.slen = 16;
+    meltcdat->dstr_258__CLASS_SOURCE_BOX.val[16] = (char)0 ;
+    meltcdat->dstr_258__CLASS_SOURCE_BOX.slen = 16 ;
 
     MELT_LOCATION("warmelt-macro.melt:248:/ iniobj");
 
@@ -9018,8 +9248,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V345*/ meltfptr[344] = (melt_ptr_t) &meltcdat->dstr_260__CLASS_SOURCE_BOX;
     meltcdat->dstr_260__CLASS_SOURCE_BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_260__CLASS_SOURCE_BOX.val, "CLASS_SOURCE_BOX", sizeof (meltcdat->dstr_260__CLASS_SOURCE_BOX.val)-1);
-    meltcdat->dstr_260__CLASS_SOURCE_BOX.val[16] = (char)0;
-    meltcdat->dstr_260__CLASS_SOURCE_BOX.slen = 16;
+    meltcdat->dstr_260__CLASS_SOURCE_BOX.val[16] = (char)0 ;
+    meltcdat->dstr_260__CLASS_SOURCE_BOX.slen = 16 ;
 
     /*inimult dtup_261_syCLASS_SOURCE_BOX*/
     /*_._VALTUP___V346*/ meltfptr[345] = (melt_ptr_t) &meltcdat->dtup_261_syCLASS_SOURCE_BOX;
@@ -9044,8 +9274,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V349*/ meltfptr[348] = (melt_ptr_t) &meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO;
     meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO.val, "CLASS_SOURCE_CONSTANT_BOX", sizeof (meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO.val)-1);
-    meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO.val[25] = (char)0;
-    meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO.slen = 25;
+    meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO.val[25] = (char)0 ;
+    meltcdat->dstr_264__CLASS_SOURCE_CONSTANT_BO.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:253:/ iniobj");
 
@@ -9063,8 +9293,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V351*/ meltfptr[350] = (melt_ptr_t) &meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO;
     meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO.val, "CLASS_SOURCE_CONSTANT_BOX", sizeof (meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO.val)-1);
-    meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO.val[25] = (char)0;
-    meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO.slen = 25;
+    meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO.val[25] = (char)0 ;
+    meltcdat->dstr_266__CLASS_SOURCE_CONSTANT_BO.slen = 25 ;
 
     /*inimult dtup_267_syCLASS_SOURCE_CONSTANT_BOX*/
     /*_._VALTUP___V352*/ meltfptr[351] = (melt_ptr_t) &meltcdat->dtup_267_syCLASS_SOURCE_CONSTANT_BOX;
@@ -9089,8 +9319,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V355*/ meltfptr[354] = (melt_ptr_t) &meltcdat->dstr_270__CLASS_SOURCE_UNBOX;
     meltcdat->dstr_270__CLASS_SOURCE_UNBOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_270__CLASS_SOURCE_UNBOX.val, "CLASS_SOURCE_UNBOX", sizeof (meltcdat->dstr_270__CLASS_SOURCE_UNBOX.val)-1);
-    meltcdat->dstr_270__CLASS_SOURCE_UNBOX.val[18] = (char)0;
-    meltcdat->dstr_270__CLASS_SOURCE_UNBOX.slen = 18;
+    meltcdat->dstr_270__CLASS_SOURCE_UNBOX.val[18] = (char)0 ;
+    meltcdat->dstr_270__CLASS_SOURCE_UNBOX.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:260:/ iniobj");
 
@@ -9108,8 +9338,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V357*/ meltfptr[356] = (melt_ptr_t) &meltcdat->dstr_272__CLASS_SOURCE_UNBOX;
     meltcdat->dstr_272__CLASS_SOURCE_UNBOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_272__CLASS_SOURCE_UNBOX.val, "CLASS_SOURCE_UNBOX", sizeof (meltcdat->dstr_272__CLASS_SOURCE_UNBOX.val)-1);
-    meltcdat->dstr_272__CLASS_SOURCE_UNBOX.val[18] = (char)0;
-    meltcdat->dstr_272__CLASS_SOURCE_UNBOX.slen = 18;
+    meltcdat->dstr_272__CLASS_SOURCE_UNBOX.val[18] = (char)0 ;
+    meltcdat->dstr_272__CLASS_SOURCE_UNBOX.slen = 18 ;
 
     /*inimult dtup_273_syCLASS_SOURCE_UNBOX*/
     /*_._VALTUP___V358*/ meltfptr[357] = (melt_ptr_t) &meltcdat->dtup_273_syCLASS_SOURCE_UNBOX;
@@ -9134,8 +9364,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V365*/ meltfptr[364] = (melt_ptr_t) &meltcdat->dstr_276__SUNBOX_CTYPE;
     meltcdat->dstr_276__SUNBOX_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_276__SUNBOX_CTYPE.val, "SUNBOX_CTYPE", sizeof (meltcdat->dstr_276__SUNBOX_CTYPE.val)-1);
-    meltcdat->dstr_276__SUNBOX_CTYPE.val[12] = (char)0;
-    meltcdat->dstr_276__SUNBOX_CTYPE.slen = 12;
+    meltcdat->dstr_276__SUNBOX_CTYPE.val[12] = (char)0 ;
+    meltcdat->dstr_276__SUNBOX_CTYPE.slen = 12 ;
 
     /*^iniobj*/
 
@@ -9153,8 +9383,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V360*/ meltfptr[359] = (melt_ptr_t) &meltcdat->dstr_278__SUNBOX_CTYPE;
     meltcdat->dstr_278__SUNBOX_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_278__SUNBOX_CTYPE.val, "SUNBOX_CTYPE", sizeof (meltcdat->dstr_278__SUNBOX_CTYPE.val)-1);
-    meltcdat->dstr_278__SUNBOX_CTYPE.val[12] = (char)0;
-    meltcdat->dstr_278__SUNBOX_CTYPE.slen = 12;
+    meltcdat->dstr_278__SUNBOX_CTYPE.val[12] = (char)0 ;
+    meltcdat->dstr_278__SUNBOX_CTYPE.slen = 12 ;
 
 
     /*iniobj dsym_279__SUNBOX_EXPR*/
@@ -9171,8 +9401,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V367*/ meltfptr[366] = (melt_ptr_t) &meltcdat->dstr_280__SUNBOX_EXPR;
     meltcdat->dstr_280__SUNBOX_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_280__SUNBOX_EXPR.val, "SUNBOX_EXPR", sizeof (meltcdat->dstr_280__SUNBOX_EXPR.val)-1);
-    meltcdat->dstr_280__SUNBOX_EXPR.val[11] = (char)0;
-    meltcdat->dstr_280__SUNBOX_EXPR.slen = 11;
+    meltcdat->dstr_280__SUNBOX_EXPR.val[11] = (char)0 ;
+    meltcdat->dstr_280__SUNBOX_EXPR.slen = 11 ;
 
     /*^iniobj*/
 
@@ -9190,8 +9420,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V362*/ meltfptr[361] = (melt_ptr_t) &meltcdat->dstr_282__SUNBOX_EXPR;
     meltcdat->dstr_282__SUNBOX_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_282__SUNBOX_EXPR.val, "SUNBOX_EXPR", sizeof (meltcdat->dstr_282__SUNBOX_EXPR.val)-1);
-    meltcdat->dstr_282__SUNBOX_EXPR.val[11] = (char)0;
-    meltcdat->dstr_282__SUNBOX_EXPR.slen = 11;
+    meltcdat->dstr_282__SUNBOX_EXPR.val[11] = (char)0 ;
+    meltcdat->dstr_282__SUNBOX_EXPR.slen = 11 ;
 
 
     /*iniobj dsym_283__CLASS_SOURCE_EXPORTCOMMON*/
@@ -9208,8 +9438,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V369*/ meltfptr[368] = (melt_ptr_t) &meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO;
     meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO.val, "CLASS_SOURCE_EXPORTCOMMON", sizeof (meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO.val)-1);
-    meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO.val[25] = (char)0;
-    meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO.slen = 25;
+    meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO.val[25] = (char)0 ;
+    meltcdat->dstr_284__CLASS_SOURCE_EXPORTCOMMO.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:273:/ iniobj");
 
@@ -9227,8 +9457,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V371*/ meltfptr[370] = (melt_ptr_t) &meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO;
     meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO.val, "CLASS_SOURCE_EXPORTCOMMON", sizeof (meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO.val)-1);
-    meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO.val[25] = (char)0;
-    meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO.slen = 25;
+    meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO.val[25] = (char)0 ;
+    meltcdat->dstr_286__CLASS_SOURCE_EXPORTCOMMO.slen = 25 ;
 
     /*inimult dtup_287_syCLASS_SOURCE_EXPORTCOMMON*/
     /*_._VALTUP___V372*/ meltfptr[371] = (melt_ptr_t) &meltcdat->dtup_287_syCLASS_SOURCE_EXPORTCOMMON;
@@ -9253,8 +9483,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V377*/ meltfptr[376] = (melt_ptr_t) &meltcdat->dstr_290__SEXPORT_NAMES;
     meltcdat->dstr_290__SEXPORT_NAMES.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_290__SEXPORT_NAMES.val, "SEXPORT_NAMES", sizeof (meltcdat->dstr_290__SEXPORT_NAMES.val)-1);
-    meltcdat->dstr_290__SEXPORT_NAMES.val[13] = (char)0;
-    meltcdat->dstr_290__SEXPORT_NAMES.slen = 13;
+    meltcdat->dstr_290__SEXPORT_NAMES.val[13] = (char)0 ;
+    meltcdat->dstr_290__SEXPORT_NAMES.slen = 13 ;
 
     /*^iniobj*/
 
@@ -9272,8 +9502,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V374*/ meltfptr[373] = (melt_ptr_t) &meltcdat->dstr_292__SEXPORT_NAMES;
     meltcdat->dstr_292__SEXPORT_NAMES.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_292__SEXPORT_NAMES.val, "SEXPORT_NAMES", sizeof (meltcdat->dstr_292__SEXPORT_NAMES.val)-1);
-    meltcdat->dstr_292__SEXPORT_NAMES.val[13] = (char)0;
-    meltcdat->dstr_292__SEXPORT_NAMES.slen = 13;
+    meltcdat->dstr_292__SEXPORT_NAMES.val[13] = (char)0 ;
+    meltcdat->dstr_292__SEXPORT_NAMES.slen = 13 ;
 
 
     /*iniobj dsym_293__CLASS_SOURCE_EXPORT_VALUES*/
@@ -9290,8 +9520,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V379*/ meltfptr[378] = (melt_ptr_t) &meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU;
     meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU.val, "CLASS_SOURCE_EXPORT_VALUES", sizeof (meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU.val)-1);
-    meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU.val[26] = (char)0;
-    meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU.slen = 26;
+    meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU.val[26] = (char)0 ;
+    meltcdat->dstr_294__CLASS_SOURCE_EXPORT_VALU.slen = 26 ;
 
     MELT_LOCATION("warmelt-macro.melt:282:/ iniobj");
 
@@ -9309,8 +9539,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V381*/ meltfptr[380] = (melt_ptr_t) &meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU;
     meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU.val, "CLASS_SOURCE_EXPORT_VALUES", sizeof (meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU.val)-1);
-    meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU.val[26] = (char)0;
-    meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU.slen = 26;
+    meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU.val[26] = (char)0 ;
+    meltcdat->dstr_296__CLASS_SOURCE_EXPORT_VALU.slen = 26 ;
 
     /*inimult dtup_297_syCLASS_SOURCE_EXPORT_VALUES*/
     /*_._VALTUP___V382*/ meltfptr[381] = (melt_ptr_t) &meltcdat->dtup_297_syCLASS_SOURCE_EXPORT_VALUES;
@@ -9335,8 +9565,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V385*/ meltfptr[384] = (melt_ptr_t) &meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS;
     meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS.val, "CLASS_SOURCE_EXPORT_CLASS", sizeof (meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS.val)-1);
-    meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS.val[25] = (char)0;
-    meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS.slen = 25;
+    meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS.val[25] = (char)0 ;
+    meltcdat->dstr_300__CLASS_SOURCE_EXPORT_CLAS.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:289:/ iniobj");
 
@@ -9354,8 +9584,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V387*/ meltfptr[386] = (melt_ptr_t) &meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS;
     meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS.val, "CLASS_SOURCE_EXPORT_CLASS", sizeof (meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS.val)-1);
-    meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS.val[25] = (char)0;
-    meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS.slen = 25;
+    meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS.val[25] = (char)0 ;
+    meltcdat->dstr_302__CLASS_SOURCE_EXPORT_CLAS.slen = 25 ;
 
     /*inimult dtup_303_syCLASS_SOURCE_EXPORT_CLASS*/
     /*_._VALTUP___V388*/ meltfptr[387] = (melt_ptr_t) &meltcdat->dtup_303_syCLASS_SOURCE_EXPORT_CLASS;
@@ -9380,8 +9610,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V391*/ meltfptr[390] = (melt_ptr_t) &meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR;
     meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR.val, "CLASS_SOURCE_EXPORT_MACRO", sizeof (meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR.val)-1);
-    meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR.val[25] = (char)0;
-    meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR.slen = 25;
+    meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR.val[25] = (char)0 ;
+    meltcdat->dstr_306__CLASS_SOURCE_EXPORT_MACR.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:298:/ iniobj");
 
@@ -9399,8 +9629,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V393*/ meltfptr[392] = (melt_ptr_t) &meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR;
     meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR.val, "CLASS_SOURCE_EXPORT_MACRO", sizeof (meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR.val)-1);
-    meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR.val[25] = (char)0;
-    meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR.slen = 25;
+    meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR.val[25] = (char)0 ;
+    meltcdat->dstr_308__CLASS_SOURCE_EXPORT_MACR.slen = 25 ;
 
     /*inimult dtup_309_syCLASS_SOURCE_EXPORT_MACRO*/
     /*_._VALTUP___V394*/ meltfptr[393] = (melt_ptr_t) &meltcdat->dtup_309_syCLASS_SOURCE_EXPORT_MACRO;
@@ -9425,8 +9655,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V403*/ meltfptr[402] = (melt_ptr_t) &meltcdat->dstr_312__SEXPMAC_MNAME;
     meltcdat->dstr_312__SEXPMAC_MNAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_312__SEXPMAC_MNAME.val, "SEXPMAC_MNAME", sizeof (meltcdat->dstr_312__SEXPMAC_MNAME.val)-1);
-    meltcdat->dstr_312__SEXPMAC_MNAME.val[13] = (char)0;
-    meltcdat->dstr_312__SEXPMAC_MNAME.slen = 13;
+    meltcdat->dstr_312__SEXPMAC_MNAME.val[13] = (char)0 ;
+    meltcdat->dstr_312__SEXPMAC_MNAME.slen = 13 ;
 
     /*^iniobj*/
 
@@ -9444,8 +9674,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V396*/ meltfptr[395] = (melt_ptr_t) &meltcdat->dstr_314__SEXPMAC_MNAME;
     meltcdat->dstr_314__SEXPMAC_MNAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_314__SEXPMAC_MNAME.val, "SEXPMAC_MNAME", sizeof (meltcdat->dstr_314__SEXPMAC_MNAME.val)-1);
-    meltcdat->dstr_314__SEXPMAC_MNAME.val[13] = (char)0;
-    meltcdat->dstr_314__SEXPMAC_MNAME.slen = 13;
+    meltcdat->dstr_314__SEXPMAC_MNAME.val[13] = (char)0 ;
+    meltcdat->dstr_314__SEXPMAC_MNAME.slen = 13 ;
 
 
     /*iniobj dsym_315__SEXPMAC_MVAL*/
@@ -9462,8 +9692,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V405*/ meltfptr[404] = (melt_ptr_t) &meltcdat->dstr_316__SEXPMAC_MVAL;
     meltcdat->dstr_316__SEXPMAC_MVAL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_316__SEXPMAC_MVAL.val, "SEXPMAC_MVAL", sizeof (meltcdat->dstr_316__SEXPMAC_MVAL.val)-1);
-    meltcdat->dstr_316__SEXPMAC_MVAL.val[12] = (char)0;
-    meltcdat->dstr_316__SEXPMAC_MVAL.slen = 12;
+    meltcdat->dstr_316__SEXPMAC_MVAL.val[12] = (char)0 ;
+    meltcdat->dstr_316__SEXPMAC_MVAL.slen = 12 ;
 
     /*^iniobj*/
 
@@ -9481,8 +9711,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V398*/ meltfptr[397] = (melt_ptr_t) &meltcdat->dstr_318__SEXPMAC_MVAL;
     meltcdat->dstr_318__SEXPMAC_MVAL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_318__SEXPMAC_MVAL.val, "SEXPMAC_MVAL", sizeof (meltcdat->dstr_318__SEXPMAC_MVAL.val)-1);
-    meltcdat->dstr_318__SEXPMAC_MVAL.val[12] = (char)0;
-    meltcdat->dstr_318__SEXPMAC_MVAL.slen = 12;
+    meltcdat->dstr_318__SEXPMAC_MVAL.val[12] = (char)0 ;
+    meltcdat->dstr_318__SEXPMAC_MVAL.slen = 12 ;
 
 
     /*iniobj dsym_319__SEXPMAC_DOC*/
@@ -9499,8 +9729,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V407*/ meltfptr[406] = (melt_ptr_t) &meltcdat->dstr_320__SEXPMAC_DOC;
     meltcdat->dstr_320__SEXPMAC_DOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_320__SEXPMAC_DOC.val, "SEXPMAC_DOC", sizeof (meltcdat->dstr_320__SEXPMAC_DOC.val)-1);
-    meltcdat->dstr_320__SEXPMAC_DOC.val[11] = (char)0;
-    meltcdat->dstr_320__SEXPMAC_DOC.slen = 11;
+    meltcdat->dstr_320__SEXPMAC_DOC.val[11] = (char)0 ;
+    meltcdat->dstr_320__SEXPMAC_DOC.slen = 11 ;
 
     /*^iniobj*/
 
@@ -9518,8 +9748,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V400*/ meltfptr[399] = (melt_ptr_t) &meltcdat->dstr_322__SEXPMAC_DOC;
     meltcdat->dstr_322__SEXPMAC_DOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_322__SEXPMAC_DOC.val, "SEXPMAC_DOC", sizeof (meltcdat->dstr_322__SEXPMAC_DOC.val)-1);
-    meltcdat->dstr_322__SEXPMAC_DOC.val[11] = (char)0;
-    meltcdat->dstr_322__SEXPMAC_DOC.slen = 11;
+    meltcdat->dstr_322__SEXPMAC_DOC.val[11] = (char)0 ;
+    meltcdat->dstr_322__SEXPMAC_DOC.slen = 11 ;
 
 
     /*iniobj dsym_323__CLASS_SOURCE_EXPORT_PATMACRO*/
@@ -9536,8 +9766,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V409*/ meltfptr[408] = (melt_ptr_t) &meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM;
     meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM.val, "CLASS_SOURCE_EXPORT_PATMACRO", sizeof (meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM.val)-1);
-    meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM.val[28] = (char)0;
-    meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM.slen = 28;
+    meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM.val[28] = (char)0 ;
+    meltcdat->dstr_324__CLASS_SOURCE_EXPORT_PATM.slen = 28 ;
 
     MELT_LOCATION("warmelt-macro.melt:311:/ iniobj");
 
@@ -9555,8 +9785,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V411*/ meltfptr[410] = (melt_ptr_t) &meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM;
     meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM.val, "CLASS_SOURCE_EXPORT_PATMACRO", sizeof (meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM.val)-1);
-    meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM.val[28] = (char)0;
-    meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM.slen = 28;
+    meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM.val[28] = (char)0 ;
+    meltcdat->dstr_326__CLASS_SOURCE_EXPORT_PATM.slen = 28 ;
 
     /*inimult dtup_327_syCLASS_SOURCE_EXPORT_PATMACRO*/
     /*_._VALTUP___V412*/ meltfptr[411] = (melt_ptr_t) &meltcdat->dtup_327_syCLASS_SOURCE_EXPORT_PATMACRO;
@@ -9581,8 +9811,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V417*/ meltfptr[416] = (melt_ptr_t) &meltcdat->dstr_330__SEXPPAT_PVAL;
     meltcdat->dstr_330__SEXPPAT_PVAL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_330__SEXPPAT_PVAL.val, "SEXPPAT_PVAL", sizeof (meltcdat->dstr_330__SEXPPAT_PVAL.val)-1);
-    meltcdat->dstr_330__SEXPPAT_PVAL.val[12] = (char)0;
-    meltcdat->dstr_330__SEXPPAT_PVAL.slen = 12;
+    meltcdat->dstr_330__SEXPPAT_PVAL.val[12] = (char)0 ;
+    meltcdat->dstr_330__SEXPPAT_PVAL.slen = 12 ;
 
     /*^iniobj*/
 
@@ -9600,8 +9830,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V414*/ meltfptr[413] = (melt_ptr_t) &meltcdat->dstr_332__SEXPPAT_PVAL;
     meltcdat->dstr_332__SEXPPAT_PVAL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_332__SEXPPAT_PVAL.val, "SEXPPAT_PVAL", sizeof (meltcdat->dstr_332__SEXPPAT_PVAL.val)-1);
-    meltcdat->dstr_332__SEXPPAT_PVAL.val[12] = (char)0;
-    meltcdat->dstr_332__SEXPPAT_PVAL.slen = 12;
+    meltcdat->dstr_332__SEXPPAT_PVAL.val[12] = (char)0 ;
+    meltcdat->dstr_332__SEXPPAT_PVAL.slen = 12 ;
 
 
     /*iniobj dsym_333__CLASS_SOURCE_EXPORT_SYNONYM*/
@@ -9618,8 +9848,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V419*/ meltfptr[418] = (melt_ptr_t) &meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO;
     meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO.val, "CLASS_SOURCE_EXPORT_SYNONYM", sizeof (meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO.val)-1);
-    meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO.val[27] = (char)0;
-    meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO.slen = 27;
+    meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO.val[27] = (char)0 ;
+    meltcdat->dstr_334__CLASS_SOURCE_EXPORT_SYNO.slen = 27 ;
 
     MELT_LOCATION("warmelt-macro.melt:323:/ iniobj");
 
@@ -9637,8 +9867,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V421*/ meltfptr[420] = (melt_ptr_t) &meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO;
     meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO.val, "CLASS_SOURCE_EXPORT_SYNONYM", sizeof (meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO.val)-1);
-    meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO.val[27] = (char)0;
-    meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO.slen = 27;
+    meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO.val[27] = (char)0 ;
+    meltcdat->dstr_336__CLASS_SOURCE_EXPORT_SYNO.slen = 27 ;
 
     /*inimult dtup_337_syCLASS_SOURCE_EXPORT_SYNONYM*/
     /*_._VALTUP___V422*/ meltfptr[421] = (melt_ptr_t) &meltcdat->dtup_337_syCLASS_SOURCE_EXPORT_SYNONYM;
@@ -9663,8 +9893,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V431*/ meltfptr[430] = (melt_ptr_t) &meltcdat->dstr_340__SEXPSYN_NEWNAME;
     meltcdat->dstr_340__SEXPSYN_NEWNAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_340__SEXPSYN_NEWNAME.val, "SEXPSYN_NEWNAME", sizeof (meltcdat->dstr_340__SEXPSYN_NEWNAME.val)-1);
-    meltcdat->dstr_340__SEXPSYN_NEWNAME.val[15] = (char)0;
-    meltcdat->dstr_340__SEXPSYN_NEWNAME.slen = 15;
+    meltcdat->dstr_340__SEXPSYN_NEWNAME.val[15] = (char)0 ;
+    meltcdat->dstr_340__SEXPSYN_NEWNAME.slen = 15 ;
 
     /*^iniobj*/
 
@@ -9682,8 +9912,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V424*/ meltfptr[423] = (melt_ptr_t) &meltcdat->dstr_342__SEXPSYN_NEWNAME;
     meltcdat->dstr_342__SEXPSYN_NEWNAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_342__SEXPSYN_NEWNAME.val, "SEXPSYN_NEWNAME", sizeof (meltcdat->dstr_342__SEXPSYN_NEWNAME.val)-1);
-    meltcdat->dstr_342__SEXPSYN_NEWNAME.val[15] = (char)0;
-    meltcdat->dstr_342__SEXPSYN_NEWNAME.slen = 15;
+    meltcdat->dstr_342__SEXPSYN_NEWNAME.val[15] = (char)0 ;
+    meltcdat->dstr_342__SEXPSYN_NEWNAME.slen = 15 ;
 
 
     /*iniobj dsym_343__SEXPSYN_OLDNAME*/
@@ -9700,8 +9930,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V433*/ meltfptr[432] = (melt_ptr_t) &meltcdat->dstr_344__SEXPSYN_OLDNAME;
     meltcdat->dstr_344__SEXPSYN_OLDNAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_344__SEXPSYN_OLDNAME.val, "SEXPSYN_OLDNAME", sizeof (meltcdat->dstr_344__SEXPSYN_OLDNAME.val)-1);
-    meltcdat->dstr_344__SEXPSYN_OLDNAME.val[15] = (char)0;
-    meltcdat->dstr_344__SEXPSYN_OLDNAME.slen = 15;
+    meltcdat->dstr_344__SEXPSYN_OLDNAME.val[15] = (char)0 ;
+    meltcdat->dstr_344__SEXPSYN_OLDNAME.slen = 15 ;
 
     /*^iniobj*/
 
@@ -9719,8 +9949,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V426*/ meltfptr[425] = (melt_ptr_t) &meltcdat->dstr_346__SEXPSYN_OLDNAME;
     meltcdat->dstr_346__SEXPSYN_OLDNAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_346__SEXPSYN_OLDNAME.val, "SEXPSYN_OLDNAME", sizeof (meltcdat->dstr_346__SEXPSYN_OLDNAME.val)-1);
-    meltcdat->dstr_346__SEXPSYN_OLDNAME.val[15] = (char)0;
-    meltcdat->dstr_346__SEXPSYN_OLDNAME.slen = 15;
+    meltcdat->dstr_346__SEXPSYN_OLDNAME.val[15] = (char)0 ;
+    meltcdat->dstr_346__SEXPSYN_OLDNAME.slen = 15 ;
 
 
     /*iniobj dsym_347__SEXPSYN_DOC*/
@@ -9737,8 +9967,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V435*/ meltfptr[434] = (melt_ptr_t) &meltcdat->dstr_348__SEXPSYN_DOC;
     meltcdat->dstr_348__SEXPSYN_DOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_348__SEXPSYN_DOC.val, "SEXPSYN_DOC", sizeof (meltcdat->dstr_348__SEXPSYN_DOC.val)-1);
-    meltcdat->dstr_348__SEXPSYN_DOC.val[11] = (char)0;
-    meltcdat->dstr_348__SEXPSYN_DOC.slen = 11;
+    meltcdat->dstr_348__SEXPSYN_DOC.val[11] = (char)0 ;
+    meltcdat->dstr_348__SEXPSYN_DOC.slen = 11 ;
 
     /*^iniobj*/
 
@@ -9756,8 +9986,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V428*/ meltfptr[427] = (melt_ptr_t) &meltcdat->dstr_350__SEXPSYN_DOC;
     meltcdat->dstr_350__SEXPSYN_DOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_350__SEXPSYN_DOC.val, "SEXPSYN_DOC", sizeof (meltcdat->dstr_350__SEXPSYN_DOC.val)-1);
-    meltcdat->dstr_350__SEXPSYN_DOC.val[11] = (char)0;
-    meltcdat->dstr_350__SEXPSYN_DOC.slen = 11;
+    meltcdat->dstr_350__SEXPSYN_DOC.val[11] = (char)0 ;
+    meltcdat->dstr_350__SEXPSYN_DOC.slen = 11 ;
 
 
     /*iniobj dsym_351__CLASS_SOURCE_DEFINITION*/
@@ -9774,8 +10004,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V437*/ meltfptr[436] = (melt_ptr_t) &meltcdat->dstr_352__CLASS_SOURCE_DEFINITION;
     meltcdat->dstr_352__CLASS_SOURCE_DEFINITION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_352__CLASS_SOURCE_DEFINITION.val, "CLASS_SOURCE_DEFINITION", sizeof (meltcdat->dstr_352__CLASS_SOURCE_DEFINITION.val)-1);
-    meltcdat->dstr_352__CLASS_SOURCE_DEFINITION.val[23] = (char)0;
-    meltcdat->dstr_352__CLASS_SOURCE_DEFINITION.slen = 23;
+    meltcdat->dstr_352__CLASS_SOURCE_DEFINITION.val[23] = (char)0 ;
+    meltcdat->dstr_352__CLASS_SOURCE_DEFINITION.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:334:/ iniobj");
 
@@ -9793,8 +10023,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V439*/ meltfptr[438] = (melt_ptr_t) &meltcdat->dstr_354__CLASS_SOURCE_DEFINITION;
     meltcdat->dstr_354__CLASS_SOURCE_DEFINITION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_354__CLASS_SOURCE_DEFINITION.val, "CLASS_SOURCE_DEFINITION", sizeof (meltcdat->dstr_354__CLASS_SOURCE_DEFINITION.val)-1);
-    meltcdat->dstr_354__CLASS_SOURCE_DEFINITION.val[23] = (char)0;
-    meltcdat->dstr_354__CLASS_SOURCE_DEFINITION.slen = 23;
+    meltcdat->dstr_354__CLASS_SOURCE_DEFINITION.val[23] = (char)0 ;
+    meltcdat->dstr_354__CLASS_SOURCE_DEFINITION.slen = 23 ;
 
     /*inimult dtup_355_syCLASS_SOURCE_DEFINITION*/
     /*_._VALTUP___V440*/ meltfptr[439] = (melt_ptr_t) &meltcdat->dtup_355_syCLASS_SOURCE_DEFINITION;
@@ -9819,8 +10049,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V447*/ meltfptr[446] = (melt_ptr_t) &meltcdat->dstr_358__SDEF_NAME;
     meltcdat->dstr_358__SDEF_NAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_358__SDEF_NAME.val, "SDEF_NAME", sizeof (meltcdat->dstr_358__SDEF_NAME.val)-1);
-    meltcdat->dstr_358__SDEF_NAME.val[9] = (char)0;
-    meltcdat->dstr_358__SDEF_NAME.slen = 9;
+    meltcdat->dstr_358__SDEF_NAME.val[9] = (char)0 ;
+    meltcdat->dstr_358__SDEF_NAME.slen = 9 ;
 
     /*^iniobj*/
 
@@ -9838,8 +10068,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V442*/ meltfptr[441] = (melt_ptr_t) &meltcdat->dstr_360__SDEF_NAME;
     meltcdat->dstr_360__SDEF_NAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_360__SDEF_NAME.val, "SDEF_NAME", sizeof (meltcdat->dstr_360__SDEF_NAME.val)-1);
-    meltcdat->dstr_360__SDEF_NAME.val[9] = (char)0;
-    meltcdat->dstr_360__SDEF_NAME.slen = 9;
+    meltcdat->dstr_360__SDEF_NAME.val[9] = (char)0 ;
+    meltcdat->dstr_360__SDEF_NAME.slen = 9 ;
 
 
     /*iniobj dsym_361__SDEF_DOC*/
@@ -9856,8 +10086,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V449*/ meltfptr[448] = (melt_ptr_t) &meltcdat->dstr_362__SDEF_DOC;
     meltcdat->dstr_362__SDEF_DOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_362__SDEF_DOC.val, "SDEF_DOC", sizeof (meltcdat->dstr_362__SDEF_DOC.val)-1);
-    meltcdat->dstr_362__SDEF_DOC.val[8] = (char)0;
-    meltcdat->dstr_362__SDEF_DOC.slen = 8;
+    meltcdat->dstr_362__SDEF_DOC.val[8] = (char)0 ;
+    meltcdat->dstr_362__SDEF_DOC.slen = 8 ;
 
     /*^iniobj*/
 
@@ -9875,8 +10105,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V444*/ meltfptr[443] = (melt_ptr_t) &meltcdat->dstr_364__SDEF_DOC;
     meltcdat->dstr_364__SDEF_DOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_364__SDEF_DOC.val, "SDEF_DOC", sizeof (meltcdat->dstr_364__SDEF_DOC.val)-1);
-    meltcdat->dstr_364__SDEF_DOC.val[8] = (char)0;
-    meltcdat->dstr_364__SDEF_DOC.slen = 8;
+    meltcdat->dstr_364__SDEF_DOC.val[8] = (char)0 ;
+    meltcdat->dstr_364__SDEF_DOC.slen = 8 ;
 
 
     /*iniobj dsym_365__CLASS_SOURCE_DEFVAR*/
@@ -9893,8 +10123,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V451*/ meltfptr[450] = (melt_ptr_t) &meltcdat->dstr_366__CLASS_SOURCE_DEFVAR;
     meltcdat->dstr_366__CLASS_SOURCE_DEFVAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_366__CLASS_SOURCE_DEFVAR.val, "CLASS_SOURCE_DEFVAR", sizeof (meltcdat->dstr_366__CLASS_SOURCE_DEFVAR.val)-1);
-    meltcdat->dstr_366__CLASS_SOURCE_DEFVAR.val[19] = (char)0;
-    meltcdat->dstr_366__CLASS_SOURCE_DEFVAR.slen = 19;
+    meltcdat->dstr_366__CLASS_SOURCE_DEFVAR.val[19] = (char)0 ;
+    meltcdat->dstr_366__CLASS_SOURCE_DEFVAR.slen = 19 ;
 
     MELT_LOCATION("warmelt-macro.melt:344:/ iniobj");
 
@@ -9912,8 +10142,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V453*/ meltfptr[452] = (melt_ptr_t) &meltcdat->dstr_368__CLASS_SOURCE_DEFVAR;
     meltcdat->dstr_368__CLASS_SOURCE_DEFVAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_368__CLASS_SOURCE_DEFVAR.val, "CLASS_SOURCE_DEFVAR", sizeof (meltcdat->dstr_368__CLASS_SOURCE_DEFVAR.val)-1);
-    meltcdat->dstr_368__CLASS_SOURCE_DEFVAR.val[19] = (char)0;
-    meltcdat->dstr_368__CLASS_SOURCE_DEFVAR.slen = 19;
+    meltcdat->dstr_368__CLASS_SOURCE_DEFVAR.val[19] = (char)0 ;
+    meltcdat->dstr_368__CLASS_SOURCE_DEFVAR.slen = 19 ;
 
     /*inimult dtup_369_syCLASS_SOURCE_DEFVAR*/
     /*_._VALTUP___V454*/ meltfptr[453] = (melt_ptr_t) &meltcdat->dtup_369_syCLASS_SOURCE_DEFVAR;
@@ -9938,8 +10168,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V457*/ meltfptr[456] = (melt_ptr_t) &meltcdat->dstr_372__CLASS_SOURCE_DEFINE;
     meltcdat->dstr_372__CLASS_SOURCE_DEFINE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_372__CLASS_SOURCE_DEFINE.val, "CLASS_SOURCE_DEFINE", sizeof (meltcdat->dstr_372__CLASS_SOURCE_DEFINE.val)-1);
-    meltcdat->dstr_372__CLASS_SOURCE_DEFINE.val[19] = (char)0;
-    meltcdat->dstr_372__CLASS_SOURCE_DEFINE.slen = 19;
+    meltcdat->dstr_372__CLASS_SOURCE_DEFINE.val[19] = (char)0 ;
+    meltcdat->dstr_372__CLASS_SOURCE_DEFINE.slen = 19 ;
 
     MELT_LOCATION("warmelt-macro.melt:350:/ iniobj");
 
@@ -9957,8 +10187,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V459*/ meltfptr[458] = (melt_ptr_t) &meltcdat->dstr_374__CLASS_SOURCE_DEFINE;
     meltcdat->dstr_374__CLASS_SOURCE_DEFINE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_374__CLASS_SOURCE_DEFINE.val, "CLASS_SOURCE_DEFINE", sizeof (meltcdat->dstr_374__CLASS_SOURCE_DEFINE.val)-1);
-    meltcdat->dstr_374__CLASS_SOURCE_DEFINE.val[19] = (char)0;
-    meltcdat->dstr_374__CLASS_SOURCE_DEFINE.slen = 19;
+    meltcdat->dstr_374__CLASS_SOURCE_DEFINE.val[19] = (char)0 ;
+    meltcdat->dstr_374__CLASS_SOURCE_DEFINE.slen = 19 ;
 
     /*inimult dtup_375_syCLASS_SOURCE_DEFINE*/
     /*_._VALTUP___V460*/ meltfptr[459] = (melt_ptr_t) &meltcdat->dtup_375_syCLASS_SOURCE_DEFINE;
@@ -9983,8 +10213,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V465*/ meltfptr[464] = (melt_ptr_t) &meltcdat->dstr_378__SDEFINE_BODY;
     meltcdat->dstr_378__SDEFINE_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_378__SDEFINE_BODY.val, "SDEFINE_BODY", sizeof (meltcdat->dstr_378__SDEFINE_BODY.val)-1);
-    meltcdat->dstr_378__SDEFINE_BODY.val[12] = (char)0;
-    meltcdat->dstr_378__SDEFINE_BODY.slen = 12;
+    meltcdat->dstr_378__SDEFINE_BODY.val[12] = (char)0 ;
+    meltcdat->dstr_378__SDEFINE_BODY.slen = 12 ;
 
     /*^iniobj*/
 
@@ -10002,8 +10232,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V462*/ meltfptr[461] = (melt_ptr_t) &meltcdat->dstr_380__SDEFINE_BODY;
     meltcdat->dstr_380__SDEFINE_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_380__SDEFINE_BODY.val, "SDEFINE_BODY", sizeof (meltcdat->dstr_380__SDEFINE_BODY.val)-1);
-    meltcdat->dstr_380__SDEFINE_BODY.val[12] = (char)0;
-    meltcdat->dstr_380__SDEFINE_BODY.slen = 12;
+    meltcdat->dstr_380__SDEFINE_BODY.val[12] = (char)0 ;
+    meltcdat->dstr_380__SDEFINE_BODY.slen = 12 ;
 
 
     /*iniobj dsym_381__CLASS_SOURCE_DEFINITION_FORMAL*/
@@ -10020,8 +10250,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V467*/ meltfptr[466] = (melt_ptr_t) &meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_;
     meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_.val, "CLASS_SOURCE_DEFINITION_FORMAL", sizeof (meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_.val)-1);
-    meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_.val[30] = (char)0;
-    meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_.slen = 30;
+    meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_.val[30] = (char)0 ;
+    meltcdat->dstr_382__CLASS_SOURCE_DEFINITION_.slen = 30 ;
 
     MELT_LOCATION("warmelt-macro.melt:358:/ iniobj");
 
@@ -10039,8 +10269,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V469*/ meltfptr[468] = (melt_ptr_t) &meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_;
     meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_.val, "CLASS_SOURCE_DEFINITION_FORMAL", sizeof (meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_.val)-1);
-    meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_.val[30] = (char)0;
-    meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_.slen = 30;
+    meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_.val[30] = (char)0 ;
+    meltcdat->dstr_384__CLASS_SOURCE_DEFINITION_.slen = 30 ;
 
     /*inimult dtup_385_syCLASS_SOURCE_DEFINITION_FORMAL*/
     /*_._VALTUP___V470*/ meltfptr[469] = (melt_ptr_t) &meltcdat->dtup_385_syCLASS_SOURCE_DEFINITION_FORMAL;
@@ -10065,8 +10295,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V475*/ meltfptr[474] = (melt_ptr_t) &meltcdat->dstr_388__SFORMAL_ARGS;
     meltcdat->dstr_388__SFORMAL_ARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_388__SFORMAL_ARGS.val, "SFORMAL_ARGS", sizeof (meltcdat->dstr_388__SFORMAL_ARGS.val)-1);
-    meltcdat->dstr_388__SFORMAL_ARGS.val[12] = (char)0;
-    meltcdat->dstr_388__SFORMAL_ARGS.slen = 12;
+    meltcdat->dstr_388__SFORMAL_ARGS.val[12] = (char)0 ;
+    meltcdat->dstr_388__SFORMAL_ARGS.slen = 12 ;
 
     /*^iniobj*/
 
@@ -10084,8 +10314,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V472*/ meltfptr[471] = (melt_ptr_t) &meltcdat->dstr_390__SFORMAL_ARGS;
     meltcdat->dstr_390__SFORMAL_ARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_390__SFORMAL_ARGS.val, "SFORMAL_ARGS", sizeof (meltcdat->dstr_390__SFORMAL_ARGS.val)-1);
-    meltcdat->dstr_390__SFORMAL_ARGS.val[12] = (char)0;
-    meltcdat->dstr_390__SFORMAL_ARGS.slen = 12;
+    meltcdat->dstr_390__SFORMAL_ARGS.val[12] = (char)0 ;
+    meltcdat->dstr_390__SFORMAL_ARGS.slen = 12 ;
 
 
     /*iniobj dsym_391__CLASS_SOURCE_DEFUN*/
@@ -10102,8 +10332,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V477*/ meltfptr[476] = (melt_ptr_t) &meltcdat->dstr_392__CLASS_SOURCE_DEFUN;
     meltcdat->dstr_392__CLASS_SOURCE_DEFUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_392__CLASS_SOURCE_DEFUN.val, "CLASS_SOURCE_DEFUN", sizeof (meltcdat->dstr_392__CLASS_SOURCE_DEFUN.val)-1);
-    meltcdat->dstr_392__CLASS_SOURCE_DEFUN.val[18] = (char)0;
-    meltcdat->dstr_392__CLASS_SOURCE_DEFUN.slen = 18;
+    meltcdat->dstr_392__CLASS_SOURCE_DEFUN.val[18] = (char)0 ;
+    meltcdat->dstr_392__CLASS_SOURCE_DEFUN.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:366:/ iniobj");
 
@@ -10121,8 +10351,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V479*/ meltfptr[478] = (melt_ptr_t) &meltcdat->dstr_394__CLASS_SOURCE_DEFUN;
     meltcdat->dstr_394__CLASS_SOURCE_DEFUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_394__CLASS_SOURCE_DEFUN.val, "CLASS_SOURCE_DEFUN", sizeof (meltcdat->dstr_394__CLASS_SOURCE_DEFUN.val)-1);
-    meltcdat->dstr_394__CLASS_SOURCE_DEFUN.val[18] = (char)0;
-    meltcdat->dstr_394__CLASS_SOURCE_DEFUN.slen = 18;
+    meltcdat->dstr_394__CLASS_SOURCE_DEFUN.val[18] = (char)0 ;
+    meltcdat->dstr_394__CLASS_SOURCE_DEFUN.slen = 18 ;
 
     /*inimult dtup_395_syCLASS_SOURCE_DEFUN*/
     /*_._VALTUP___V480*/ meltfptr[479] = (melt_ptr_t) &meltcdat->dtup_395_syCLASS_SOURCE_DEFUN;
@@ -10147,8 +10377,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V485*/ meltfptr[484] = (melt_ptr_t) &meltcdat->dstr_398__SFUN_BODY;
     meltcdat->dstr_398__SFUN_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_398__SFUN_BODY.val, "SFUN_BODY", sizeof (meltcdat->dstr_398__SFUN_BODY.val)-1);
-    meltcdat->dstr_398__SFUN_BODY.val[9] = (char)0;
-    meltcdat->dstr_398__SFUN_BODY.slen = 9;
+    meltcdat->dstr_398__SFUN_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_398__SFUN_BODY.slen = 9 ;
 
     /*^iniobj*/
 
@@ -10166,8 +10396,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V482*/ meltfptr[481] = (melt_ptr_t) &meltcdat->dstr_400__SFUN_BODY;
     meltcdat->dstr_400__SFUN_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_400__SFUN_BODY.val, "SFUN_BODY", sizeof (meltcdat->dstr_400__SFUN_BODY.val)-1);
-    meltcdat->dstr_400__SFUN_BODY.val[9] = (char)0;
-    meltcdat->dstr_400__SFUN_BODY.slen = 9;
+    meltcdat->dstr_400__SFUN_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_400__SFUN_BODY.slen = 9 ;
 
 
     /*iniobj dsym_401__CLASS_SOURCE_DEFPRIMITIVE*/
@@ -10184,8 +10414,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V487*/ meltfptr[486] = (melt_ptr_t) &meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV;
     meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV.val, "CLASS_SOURCE_DEFPRIMITIVE", sizeof (meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV.val)-1);
-    meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV.val[25] = (char)0;
-    meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV.slen = 25;
+    meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV.val[25] = (char)0 ;
+    meltcdat->dstr_402__CLASS_SOURCE_DEFPRIMITIV.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:373:/ iniobj");
 
@@ -10203,8 +10433,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V489*/ meltfptr[488] = (melt_ptr_t) &meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV;
     meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV.val, "CLASS_SOURCE_DEFPRIMITIVE", sizeof (meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV.val)-1);
-    meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV.val[25] = (char)0;
-    meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV.slen = 25;
+    meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV.val[25] = (char)0 ;
+    meltcdat->dstr_404__CLASS_SOURCE_DEFPRIMITIV.slen = 25 ;
 
     /*inimult dtup_405_syCLASS_SOURCE_DEFPRIMITIVE*/
     /*_._VALTUP___V490*/ meltfptr[489] = (melt_ptr_t) &meltcdat->dtup_405_syCLASS_SOURCE_DEFPRIMITIVE;
@@ -10229,8 +10459,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V499*/ meltfptr[498] = (melt_ptr_t) &meltcdat->dstr_408__SPRIM_TYPE;
     meltcdat->dstr_408__SPRIM_TYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_408__SPRIM_TYPE.val, "SPRIM_TYPE", sizeof (meltcdat->dstr_408__SPRIM_TYPE.val)-1);
-    meltcdat->dstr_408__SPRIM_TYPE.val[10] = (char)0;
-    meltcdat->dstr_408__SPRIM_TYPE.slen = 10;
+    meltcdat->dstr_408__SPRIM_TYPE.val[10] = (char)0 ;
+    meltcdat->dstr_408__SPRIM_TYPE.slen = 10 ;
 
     /*^iniobj*/
 
@@ -10248,8 +10478,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V492*/ meltfptr[491] = (melt_ptr_t) &meltcdat->dstr_410__SPRIM_TYPE;
     meltcdat->dstr_410__SPRIM_TYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_410__SPRIM_TYPE.val, "SPRIM_TYPE", sizeof (meltcdat->dstr_410__SPRIM_TYPE.val)-1);
-    meltcdat->dstr_410__SPRIM_TYPE.val[10] = (char)0;
-    meltcdat->dstr_410__SPRIM_TYPE.slen = 10;
+    meltcdat->dstr_410__SPRIM_TYPE.val[10] = (char)0 ;
+    meltcdat->dstr_410__SPRIM_TYPE.slen = 10 ;
 
 
     /*iniobj dsym_411__SPRIM_EXPANSION*/
@@ -10266,8 +10496,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V501*/ meltfptr[500] = (melt_ptr_t) &meltcdat->dstr_412__SPRIM_EXPANSION;
     meltcdat->dstr_412__SPRIM_EXPANSION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_412__SPRIM_EXPANSION.val, "SPRIM_EXPANSION", sizeof (meltcdat->dstr_412__SPRIM_EXPANSION.val)-1);
-    meltcdat->dstr_412__SPRIM_EXPANSION.val[15] = (char)0;
-    meltcdat->dstr_412__SPRIM_EXPANSION.slen = 15;
+    meltcdat->dstr_412__SPRIM_EXPANSION.val[15] = (char)0 ;
+    meltcdat->dstr_412__SPRIM_EXPANSION.slen = 15 ;
 
     /*^iniobj*/
 
@@ -10285,8 +10515,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V494*/ meltfptr[493] = (melt_ptr_t) &meltcdat->dstr_414__SPRIM_EXPANSION;
     meltcdat->dstr_414__SPRIM_EXPANSION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_414__SPRIM_EXPANSION.val, "SPRIM_EXPANSION", sizeof (meltcdat->dstr_414__SPRIM_EXPANSION.val)-1);
-    meltcdat->dstr_414__SPRIM_EXPANSION.val[15] = (char)0;
-    meltcdat->dstr_414__SPRIM_EXPANSION.slen = 15;
+    meltcdat->dstr_414__SPRIM_EXPANSION.val[15] = (char)0 ;
+    meltcdat->dstr_414__SPRIM_EXPANSION.slen = 15 ;
 
 
     /*iniobj dsym_415__SPRIM_EXPLOC*/
@@ -10303,8 +10533,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V503*/ meltfptr[502] = (melt_ptr_t) &meltcdat->dstr_416__SPRIM_EXPLOC;
     meltcdat->dstr_416__SPRIM_EXPLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_416__SPRIM_EXPLOC.val, "SPRIM_EXPLOC", sizeof (meltcdat->dstr_416__SPRIM_EXPLOC.val)-1);
-    meltcdat->dstr_416__SPRIM_EXPLOC.val[12] = (char)0;
-    meltcdat->dstr_416__SPRIM_EXPLOC.slen = 12;
+    meltcdat->dstr_416__SPRIM_EXPLOC.val[12] = (char)0 ;
+    meltcdat->dstr_416__SPRIM_EXPLOC.slen = 12 ;
 
     /*^iniobj*/
 
@@ -10322,8 +10552,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V496*/ meltfptr[495] = (melt_ptr_t) &meltcdat->dstr_418__SPRIM_EXPLOC;
     meltcdat->dstr_418__SPRIM_EXPLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_418__SPRIM_EXPLOC.val, "SPRIM_EXPLOC", sizeof (meltcdat->dstr_418__SPRIM_EXPLOC.val)-1);
-    meltcdat->dstr_418__SPRIM_EXPLOC.val[12] = (char)0;
-    meltcdat->dstr_418__SPRIM_EXPLOC.slen = 12;
+    meltcdat->dstr_418__SPRIM_EXPLOC.val[12] = (char)0 ;
+    meltcdat->dstr_418__SPRIM_EXPLOC.slen = 12 ;
 
 
     /*iniobj dsym_419__CLASS_SOURCE_DEFHOOK*/
@@ -10340,8 +10570,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V505*/ meltfptr[504] = (melt_ptr_t) &meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK;
     meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK.val, "CLASS_SOURCE_DEFHOOK", sizeof (meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK.val)-1);
-    meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK.val[20] = (char)0;
-    meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK.slen = 20;
+    meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK.val[20] = (char)0 ;
+    meltcdat->dstr_420__CLASS_SOURCE_DEFHOOK.slen = 20 ;
 
     MELT_LOCATION("warmelt-macro.melt:385:/ iniobj");
 
@@ -10359,8 +10589,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V507*/ meltfptr[506] = (melt_ptr_t) &meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK;
     meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK.val, "CLASS_SOURCE_DEFHOOK", sizeof (meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK.val)-1);
-    meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK.val[20] = (char)0;
-    meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK.slen = 20;
+    meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK.val[20] = (char)0 ;
+    meltcdat->dstr_422__CLASS_SOURCE_DEFHOOK.slen = 20 ;
 
     /*inimult dtup_423_syCLASS_SOURCE_DEFHOOK*/
     /*_._VALTUP___V508*/ meltfptr[507] = (melt_ptr_t) &meltcdat->dtup_423_syCLASS_SOURCE_DEFHOOK;
@@ -10385,8 +10615,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V521*/ meltfptr[520] = (melt_ptr_t) &meltcdat->dstr_426__SHOOK_OUT_FORMALS;
     meltcdat->dstr_426__SHOOK_OUT_FORMALS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_426__SHOOK_OUT_FORMALS.val, "SHOOK_OUT_FORMALS", sizeof (meltcdat->dstr_426__SHOOK_OUT_FORMALS.val)-1);
-    meltcdat->dstr_426__SHOOK_OUT_FORMALS.val[17] = (char)0;
-    meltcdat->dstr_426__SHOOK_OUT_FORMALS.slen = 17;
+    meltcdat->dstr_426__SHOOK_OUT_FORMALS.val[17] = (char)0 ;
+    meltcdat->dstr_426__SHOOK_OUT_FORMALS.slen = 17 ;
 
     /*^iniobj*/
 
@@ -10404,8 +10634,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V510*/ meltfptr[509] = (melt_ptr_t) &meltcdat->dstr_428__SHOOK_OUT_FORMALS;
     meltcdat->dstr_428__SHOOK_OUT_FORMALS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_428__SHOOK_OUT_FORMALS.val, "SHOOK_OUT_FORMALS", sizeof (meltcdat->dstr_428__SHOOK_OUT_FORMALS.val)-1);
-    meltcdat->dstr_428__SHOOK_OUT_FORMALS.val[17] = (char)0;
-    meltcdat->dstr_428__SHOOK_OUT_FORMALS.slen = 17;
+    meltcdat->dstr_428__SHOOK_OUT_FORMALS.val[17] = (char)0 ;
+    meltcdat->dstr_428__SHOOK_OUT_FORMALS.slen = 17 ;
 
 
     /*iniobj dsym_429__SHOOK_CTYPE*/
@@ -10422,8 +10652,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V523*/ meltfptr[522] = (melt_ptr_t) &meltcdat->dstr_430__SHOOK_CTYPE;
     meltcdat->dstr_430__SHOOK_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_430__SHOOK_CTYPE.val, "SHOOK_CTYPE", sizeof (meltcdat->dstr_430__SHOOK_CTYPE.val)-1);
-    meltcdat->dstr_430__SHOOK_CTYPE.val[11] = (char)0;
-    meltcdat->dstr_430__SHOOK_CTYPE.slen = 11;
+    meltcdat->dstr_430__SHOOK_CTYPE.val[11] = (char)0 ;
+    meltcdat->dstr_430__SHOOK_CTYPE.slen = 11 ;
 
     /*^iniobj*/
 
@@ -10441,8 +10671,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V512*/ meltfptr[511] = (melt_ptr_t) &meltcdat->dstr_432__SHOOK_CTYPE;
     meltcdat->dstr_432__SHOOK_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_432__SHOOK_CTYPE.val, "SHOOK_CTYPE", sizeof (meltcdat->dstr_432__SHOOK_CTYPE.val)-1);
-    meltcdat->dstr_432__SHOOK_CTYPE.val[11] = (char)0;
-    meltcdat->dstr_432__SHOOK_CTYPE.slen = 11;
+    meltcdat->dstr_432__SHOOK_CTYPE.val[11] = (char)0 ;
+    meltcdat->dstr_432__SHOOK_CTYPE.slen = 11 ;
 
 
     /*iniobj dsym_433__SHOOK_PREDEF*/
@@ -10459,8 +10689,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V525*/ meltfptr[524] = (melt_ptr_t) &meltcdat->dstr_434__SHOOK_PREDEF;
     meltcdat->dstr_434__SHOOK_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_434__SHOOK_PREDEF.val, "SHOOK_PREDEF", sizeof (meltcdat->dstr_434__SHOOK_PREDEF.val)-1);
-    meltcdat->dstr_434__SHOOK_PREDEF.val[12] = (char)0;
-    meltcdat->dstr_434__SHOOK_PREDEF.slen = 12;
+    meltcdat->dstr_434__SHOOK_PREDEF.val[12] = (char)0 ;
+    meltcdat->dstr_434__SHOOK_PREDEF.slen = 12 ;
 
     /*^iniobj*/
 
@@ -10478,8 +10708,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V514*/ meltfptr[513] = (melt_ptr_t) &meltcdat->dstr_436__SHOOK_PREDEF;
     meltcdat->dstr_436__SHOOK_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_436__SHOOK_PREDEF.val, "SHOOK_PREDEF", sizeof (meltcdat->dstr_436__SHOOK_PREDEF.val)-1);
-    meltcdat->dstr_436__SHOOK_PREDEF.val[12] = (char)0;
-    meltcdat->dstr_436__SHOOK_PREDEF.slen = 12;
+    meltcdat->dstr_436__SHOOK_PREDEF.val[12] = (char)0 ;
+    meltcdat->dstr_436__SHOOK_PREDEF.slen = 12 ;
 
 
     /*iniobj dsym_437__SHOOK_VARIABLE*/
@@ -10496,8 +10726,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V527*/ meltfptr[526] = (melt_ptr_t) &meltcdat->dstr_438__SHOOK_VARIABLE;
     meltcdat->dstr_438__SHOOK_VARIABLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_438__SHOOK_VARIABLE.val, "SHOOK_VARIABLE", sizeof (meltcdat->dstr_438__SHOOK_VARIABLE.val)-1);
-    meltcdat->dstr_438__SHOOK_VARIABLE.val[14] = (char)0;
-    meltcdat->dstr_438__SHOOK_VARIABLE.slen = 14;
+    meltcdat->dstr_438__SHOOK_VARIABLE.val[14] = (char)0 ;
+    meltcdat->dstr_438__SHOOK_VARIABLE.slen = 14 ;
 
     /*^iniobj*/
 
@@ -10515,8 +10745,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V516*/ meltfptr[515] = (melt_ptr_t) &meltcdat->dstr_440__SHOOK_VARIABLE;
     meltcdat->dstr_440__SHOOK_VARIABLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_440__SHOOK_VARIABLE.val, "SHOOK_VARIABLE", sizeof (meltcdat->dstr_440__SHOOK_VARIABLE.val)-1);
-    meltcdat->dstr_440__SHOOK_VARIABLE.val[14] = (char)0;
-    meltcdat->dstr_440__SHOOK_VARIABLE.slen = 14;
+    meltcdat->dstr_440__SHOOK_VARIABLE.val[14] = (char)0 ;
+    meltcdat->dstr_440__SHOOK_VARIABLE.slen = 14 ;
 
 
     /*iniobj dsym_441__SHOOK_BODY*/
@@ -10533,8 +10763,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V529*/ meltfptr[528] = (melt_ptr_t) &meltcdat->dstr_442__SHOOK_BODY;
     meltcdat->dstr_442__SHOOK_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_442__SHOOK_BODY.val, "SHOOK_BODY", sizeof (meltcdat->dstr_442__SHOOK_BODY.val)-1);
-    meltcdat->dstr_442__SHOOK_BODY.val[10] = (char)0;
-    meltcdat->dstr_442__SHOOK_BODY.slen = 10;
+    meltcdat->dstr_442__SHOOK_BODY.val[10] = (char)0 ;
+    meltcdat->dstr_442__SHOOK_BODY.slen = 10 ;
 
     /*^iniobj*/
 
@@ -10552,8 +10782,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V518*/ meltfptr[517] = (melt_ptr_t) &meltcdat->dstr_444__SHOOK_BODY;
     meltcdat->dstr_444__SHOOK_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_444__SHOOK_BODY.val, "SHOOK_BODY", sizeof (meltcdat->dstr_444__SHOOK_BODY.val)-1);
-    meltcdat->dstr_444__SHOOK_BODY.val[10] = (char)0;
-    meltcdat->dstr_444__SHOOK_BODY.slen = 10;
+    meltcdat->dstr_444__SHOOK_BODY.val[10] = (char)0 ;
+    meltcdat->dstr_444__SHOOK_BODY.slen = 10 ;
 
 
     /*iniobj dsym_445__CLASS_SOURCE_DEFCITERATOR*/
@@ -10570,8 +10800,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V531*/ meltfptr[530] = (melt_ptr_t) &meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO;
     meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO.val, "CLASS_SOURCE_DEFCITERATOR", sizeof (meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO.val)-1);
-    meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO.val[25] = (char)0;
-    meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO.slen = 25;
+    meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO.val[25] = (char)0 ;
+    meltcdat->dstr_446__CLASS_SOURCE_DEFCITERATO.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:396:/ iniobj");
 
@@ -10589,8 +10819,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V533*/ meltfptr[532] = (melt_ptr_t) &meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO;
     meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO.val, "CLASS_SOURCE_DEFCITERATOR", sizeof (meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO.val)-1);
-    meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO.val[25] = (char)0;
-    meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO.slen = 25;
+    meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO.val[25] = (char)0 ;
+    meltcdat->dstr_448__CLASS_SOURCE_DEFCITERATO.slen = 25 ;
 
     /*inimult dtup_449_syCLASS_SOURCE_DEFCITERATOR*/
     /*_._VALTUP___V534*/ meltfptr[533] = (melt_ptr_t) &meltcdat->dtup_449_syCLASS_SOURCE_DEFCITERATOR;
@@ -10615,8 +10845,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V543*/ meltfptr[542] = (melt_ptr_t) &meltcdat->dstr_452__SCITERDEF_CITERATOR;
     meltcdat->dstr_452__SCITERDEF_CITERATOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_452__SCITERDEF_CITERATOR.val, "SCITERDEF_CITERATOR", sizeof (meltcdat->dstr_452__SCITERDEF_CITERATOR.val)-1);
-    meltcdat->dstr_452__SCITERDEF_CITERATOR.val[19] = (char)0;
-    meltcdat->dstr_452__SCITERDEF_CITERATOR.slen = 19;
+    meltcdat->dstr_452__SCITERDEF_CITERATOR.val[19] = (char)0 ;
+    meltcdat->dstr_452__SCITERDEF_CITERATOR.slen = 19 ;
 
     /*^iniobj*/
 
@@ -10634,8 +10864,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V536*/ meltfptr[535] = (melt_ptr_t) &meltcdat->dstr_454__SCITERDEF_CITERATOR;
     meltcdat->dstr_454__SCITERDEF_CITERATOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_454__SCITERDEF_CITERATOR.val, "SCITERDEF_CITERATOR", sizeof (meltcdat->dstr_454__SCITERDEF_CITERATOR.val)-1);
-    meltcdat->dstr_454__SCITERDEF_CITERATOR.val[19] = (char)0;
-    meltcdat->dstr_454__SCITERDEF_CITERATOR.slen = 19;
+    meltcdat->dstr_454__SCITERDEF_CITERATOR.val[19] = (char)0 ;
+    meltcdat->dstr_454__SCITERDEF_CITERATOR.slen = 19 ;
 
 
     /*iniobj dsym_455__SCITERDEF_BEFORELOC*/
@@ -10652,8 +10882,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V545*/ meltfptr[544] = (melt_ptr_t) &meltcdat->dstr_456__SCITERDEF_BEFORELOC;
     meltcdat->dstr_456__SCITERDEF_BEFORELOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_456__SCITERDEF_BEFORELOC.val, "SCITERDEF_BEFORELOC", sizeof (meltcdat->dstr_456__SCITERDEF_BEFORELOC.val)-1);
-    meltcdat->dstr_456__SCITERDEF_BEFORELOC.val[19] = (char)0;
-    meltcdat->dstr_456__SCITERDEF_BEFORELOC.slen = 19;
+    meltcdat->dstr_456__SCITERDEF_BEFORELOC.val[19] = (char)0 ;
+    meltcdat->dstr_456__SCITERDEF_BEFORELOC.slen = 19 ;
 
     /*^iniobj*/
 
@@ -10671,8 +10901,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V538*/ meltfptr[537] = (melt_ptr_t) &meltcdat->dstr_458__SCITERDEF_BEFORELOC;
     meltcdat->dstr_458__SCITERDEF_BEFORELOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_458__SCITERDEF_BEFORELOC.val, "SCITERDEF_BEFORELOC", sizeof (meltcdat->dstr_458__SCITERDEF_BEFORELOC.val)-1);
-    meltcdat->dstr_458__SCITERDEF_BEFORELOC.val[19] = (char)0;
-    meltcdat->dstr_458__SCITERDEF_BEFORELOC.slen = 19;
+    meltcdat->dstr_458__SCITERDEF_BEFORELOC.val[19] = (char)0 ;
+    meltcdat->dstr_458__SCITERDEF_BEFORELOC.slen = 19 ;
 
 
     /*iniobj dsym_459__SCITERDEF_AFTERLOC*/
@@ -10689,8 +10919,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V547*/ meltfptr[546] = (melt_ptr_t) &meltcdat->dstr_460__SCITERDEF_AFTERLOC;
     meltcdat->dstr_460__SCITERDEF_AFTERLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_460__SCITERDEF_AFTERLOC.val, "SCITERDEF_AFTERLOC", sizeof (meltcdat->dstr_460__SCITERDEF_AFTERLOC.val)-1);
-    meltcdat->dstr_460__SCITERDEF_AFTERLOC.val[18] = (char)0;
-    meltcdat->dstr_460__SCITERDEF_AFTERLOC.slen = 18;
+    meltcdat->dstr_460__SCITERDEF_AFTERLOC.val[18] = (char)0 ;
+    meltcdat->dstr_460__SCITERDEF_AFTERLOC.slen = 18 ;
 
     /*^iniobj*/
 
@@ -10708,8 +10938,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V540*/ meltfptr[539] = (melt_ptr_t) &meltcdat->dstr_462__SCITERDEF_AFTERLOC;
     meltcdat->dstr_462__SCITERDEF_AFTERLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_462__SCITERDEF_AFTERLOC.val, "SCITERDEF_AFTERLOC", sizeof (meltcdat->dstr_462__SCITERDEF_AFTERLOC.val)-1);
-    meltcdat->dstr_462__SCITERDEF_AFTERLOC.val[18] = (char)0;
-    meltcdat->dstr_462__SCITERDEF_AFTERLOC.slen = 18;
+    meltcdat->dstr_462__SCITERDEF_AFTERLOC.val[18] = (char)0 ;
+    meltcdat->dstr_462__SCITERDEF_AFTERLOC.slen = 18 ;
 
 
     /*iniobj dsym_463__CLASS_SOURCE_DEFCMATCHER*/
@@ -10726,8 +10956,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V549*/ meltfptr[548] = (melt_ptr_t) &meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER;
     meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER.val, "CLASS_SOURCE_DEFCMATCHER", sizeof (meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER.val)-1);
-    meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER.val[24] = (char)0;
-    meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER.slen = 24;
+    meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER.val[24] = (char)0 ;
+    meltcdat->dstr_464__CLASS_SOURCE_DEFCMATCHER.slen = 24 ;
 
     MELT_LOCATION("warmelt-macro.melt:406:/ iniobj");
 
@@ -10745,8 +10975,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V551*/ meltfptr[550] = (melt_ptr_t) &meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER;
     meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER.val, "CLASS_SOURCE_DEFCMATCHER", sizeof (meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER.val)-1);
-    meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER.val[24] = (char)0;
-    meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER.slen = 24;
+    meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER.val[24] = (char)0 ;
+    meltcdat->dstr_466__CLASS_SOURCE_DEFCMATCHER.slen = 24 ;
 
     /*inimult dtup_467_syCLASS_SOURCE_DEFCMATCHER*/
     /*_._VALTUP___V552*/ meltfptr[551] = (melt_ptr_t) &meltcdat->dtup_467_syCLASS_SOURCE_DEFCMATCHER;
@@ -10771,8 +11001,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V563*/ meltfptr[562] = (melt_ptr_t) &meltcdat->dstr_470__SCMATDEF_CMATCHER;
     meltcdat->dstr_470__SCMATDEF_CMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_470__SCMATDEF_CMATCHER.val, "SCMATDEF_CMATCHER", sizeof (meltcdat->dstr_470__SCMATDEF_CMATCHER.val)-1);
-    meltcdat->dstr_470__SCMATDEF_CMATCHER.val[17] = (char)0;
-    meltcdat->dstr_470__SCMATDEF_CMATCHER.slen = 17;
+    meltcdat->dstr_470__SCMATDEF_CMATCHER.val[17] = (char)0 ;
+    meltcdat->dstr_470__SCMATDEF_CMATCHER.slen = 17 ;
 
     /*^iniobj*/
 
@@ -10790,8 +11020,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V554*/ meltfptr[553] = (melt_ptr_t) &meltcdat->dstr_472__SCMATDEF_CMATCHER;
     meltcdat->dstr_472__SCMATDEF_CMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_472__SCMATDEF_CMATCHER.val, "SCMATDEF_CMATCHER", sizeof (meltcdat->dstr_472__SCMATDEF_CMATCHER.val)-1);
-    meltcdat->dstr_472__SCMATDEF_CMATCHER.val[17] = (char)0;
-    meltcdat->dstr_472__SCMATDEF_CMATCHER.slen = 17;
+    meltcdat->dstr_472__SCMATDEF_CMATCHER.val[17] = (char)0 ;
+    meltcdat->dstr_472__SCMATDEF_CMATCHER.slen = 17 ;
 
 
     /*iniobj dsym_473__SCMATDEF_TESTLOC*/
@@ -10808,8 +11038,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V565*/ meltfptr[564] = (melt_ptr_t) &meltcdat->dstr_474__SCMATDEF_TESTLOC;
     meltcdat->dstr_474__SCMATDEF_TESTLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_474__SCMATDEF_TESTLOC.val, "SCMATDEF_TESTLOC", sizeof (meltcdat->dstr_474__SCMATDEF_TESTLOC.val)-1);
-    meltcdat->dstr_474__SCMATDEF_TESTLOC.val[16] = (char)0;
-    meltcdat->dstr_474__SCMATDEF_TESTLOC.slen = 16;
+    meltcdat->dstr_474__SCMATDEF_TESTLOC.val[16] = (char)0 ;
+    meltcdat->dstr_474__SCMATDEF_TESTLOC.slen = 16 ;
 
     /*^iniobj*/
 
@@ -10827,8 +11057,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V556*/ meltfptr[555] = (melt_ptr_t) &meltcdat->dstr_476__SCMATDEF_TESTLOC;
     meltcdat->dstr_476__SCMATDEF_TESTLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_476__SCMATDEF_TESTLOC.val, "SCMATDEF_TESTLOC", sizeof (meltcdat->dstr_476__SCMATDEF_TESTLOC.val)-1);
-    meltcdat->dstr_476__SCMATDEF_TESTLOC.val[16] = (char)0;
-    meltcdat->dstr_476__SCMATDEF_TESTLOC.slen = 16;
+    meltcdat->dstr_476__SCMATDEF_TESTLOC.val[16] = (char)0 ;
+    meltcdat->dstr_476__SCMATDEF_TESTLOC.slen = 16 ;
 
 
     /*iniobj dsym_477__SCMATDEF_FILLLOC*/
@@ -10845,8 +11075,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V567*/ meltfptr[566] = (melt_ptr_t) &meltcdat->dstr_478__SCMATDEF_FILLLOC;
     meltcdat->dstr_478__SCMATDEF_FILLLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_478__SCMATDEF_FILLLOC.val, "SCMATDEF_FILLLOC", sizeof (meltcdat->dstr_478__SCMATDEF_FILLLOC.val)-1);
-    meltcdat->dstr_478__SCMATDEF_FILLLOC.val[16] = (char)0;
-    meltcdat->dstr_478__SCMATDEF_FILLLOC.slen = 16;
+    meltcdat->dstr_478__SCMATDEF_FILLLOC.val[16] = (char)0 ;
+    meltcdat->dstr_478__SCMATDEF_FILLLOC.slen = 16 ;
 
     /*^iniobj*/
 
@@ -10864,8 +11094,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V558*/ meltfptr[557] = (melt_ptr_t) &meltcdat->dstr_480__SCMATDEF_FILLLOC;
     meltcdat->dstr_480__SCMATDEF_FILLLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_480__SCMATDEF_FILLLOC.val, "SCMATDEF_FILLLOC", sizeof (meltcdat->dstr_480__SCMATDEF_FILLLOC.val)-1);
-    meltcdat->dstr_480__SCMATDEF_FILLLOC.val[16] = (char)0;
-    meltcdat->dstr_480__SCMATDEF_FILLLOC.slen = 16;
+    meltcdat->dstr_480__SCMATDEF_FILLLOC.val[16] = (char)0 ;
+    meltcdat->dstr_480__SCMATDEF_FILLLOC.slen = 16 ;
 
 
     /*iniobj dsym_481__SCMATDEF_OPERLOC*/
@@ -10882,8 +11112,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V569*/ meltfptr[568] = (melt_ptr_t) &meltcdat->dstr_482__SCMATDEF_OPERLOC;
     meltcdat->dstr_482__SCMATDEF_OPERLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_482__SCMATDEF_OPERLOC.val, "SCMATDEF_OPERLOC", sizeof (meltcdat->dstr_482__SCMATDEF_OPERLOC.val)-1);
-    meltcdat->dstr_482__SCMATDEF_OPERLOC.val[16] = (char)0;
-    meltcdat->dstr_482__SCMATDEF_OPERLOC.slen = 16;
+    meltcdat->dstr_482__SCMATDEF_OPERLOC.val[16] = (char)0 ;
+    meltcdat->dstr_482__SCMATDEF_OPERLOC.slen = 16 ;
 
     /*^iniobj*/
 
@@ -10901,8 +11131,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V560*/ meltfptr[559] = (melt_ptr_t) &meltcdat->dstr_484__SCMATDEF_OPERLOC;
     meltcdat->dstr_484__SCMATDEF_OPERLOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_484__SCMATDEF_OPERLOC.val, "SCMATDEF_OPERLOC", sizeof (meltcdat->dstr_484__SCMATDEF_OPERLOC.val)-1);
-    meltcdat->dstr_484__SCMATDEF_OPERLOC.val[16] = (char)0;
-    meltcdat->dstr_484__SCMATDEF_OPERLOC.slen = 16;
+    meltcdat->dstr_484__SCMATDEF_OPERLOC.val[16] = (char)0 ;
+    meltcdat->dstr_484__SCMATDEF_OPERLOC.slen = 16 ;
 
 
     /*iniobj dsym_485__CLASS_SOURCE_DEFUNMATCHER*/
@@ -10919,8 +11149,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V571*/ meltfptr[570] = (melt_ptr_t) &meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE;
     meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE.val, "CLASS_SOURCE_DEFUNMATCHER", sizeof (meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE.val)-1);
-    meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE.val[25] = (char)0;
-    meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE.slen = 25;
+    meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE.val[25] = (char)0 ;
+    meltcdat->dstr_486__CLASS_SOURCE_DEFUNMATCHE.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:425:/ iniobj");
 
@@ -10938,8 +11168,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V573*/ meltfptr[572] = (melt_ptr_t) &meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE;
     meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE.val, "CLASS_SOURCE_DEFUNMATCHER", sizeof (meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE.val)-1);
-    meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE.val[25] = (char)0;
-    meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE.slen = 25;
+    meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE.val[25] = (char)0 ;
+    meltcdat->dstr_488__CLASS_SOURCE_DEFUNMATCHE.slen = 25 ;
 
     /*inimult dtup_489_syCLASS_SOURCE_DEFUNMATCHER*/
     /*_._VALTUP___V574*/ meltfptr[573] = (melt_ptr_t) &meltcdat->dtup_489_syCLASS_SOURCE_DEFUNMATCHER;
@@ -10964,8 +11194,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V587*/ meltfptr[586] = (melt_ptr_t) &meltcdat->dstr_492__SFUMATDEF_INS;
     meltcdat->dstr_492__SFUMATDEF_INS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_492__SFUMATDEF_INS.val, "SFUMATDEF_INS", sizeof (meltcdat->dstr_492__SFUMATDEF_INS.val)-1);
-    meltcdat->dstr_492__SFUMATDEF_INS.val[13] = (char)0;
-    meltcdat->dstr_492__SFUMATDEF_INS.slen = 13;
+    meltcdat->dstr_492__SFUMATDEF_INS.val[13] = (char)0 ;
+    meltcdat->dstr_492__SFUMATDEF_INS.slen = 13 ;
 
     /*^iniobj*/
 
@@ -10983,8 +11213,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V576*/ meltfptr[575] = (melt_ptr_t) &meltcdat->dstr_494__SFUMATDEF_INS;
     meltcdat->dstr_494__SFUMATDEF_INS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_494__SFUMATDEF_INS.val, "SFUMATDEF_INS", sizeof (meltcdat->dstr_494__SFUMATDEF_INS.val)-1);
-    meltcdat->dstr_494__SFUMATDEF_INS.val[13] = (char)0;
-    meltcdat->dstr_494__SFUMATDEF_INS.slen = 13;
+    meltcdat->dstr_494__SFUMATDEF_INS.val[13] = (char)0 ;
+    meltcdat->dstr_494__SFUMATDEF_INS.slen = 13 ;
 
 
     /*iniobj dsym_495__SFUMATDEF_OUTS*/
@@ -11001,8 +11231,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V589*/ meltfptr[588] = (melt_ptr_t) &meltcdat->dstr_496__SFUMATDEF_OUTS;
     meltcdat->dstr_496__SFUMATDEF_OUTS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_496__SFUMATDEF_OUTS.val, "SFUMATDEF_OUTS", sizeof (meltcdat->dstr_496__SFUMATDEF_OUTS.val)-1);
-    meltcdat->dstr_496__SFUMATDEF_OUTS.val[14] = (char)0;
-    meltcdat->dstr_496__SFUMATDEF_OUTS.slen = 14;
+    meltcdat->dstr_496__SFUMATDEF_OUTS.val[14] = (char)0 ;
+    meltcdat->dstr_496__SFUMATDEF_OUTS.slen = 14 ;
 
     /*^iniobj*/
 
@@ -11020,8 +11250,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V578*/ meltfptr[577] = (melt_ptr_t) &meltcdat->dstr_498__SFUMATDEF_OUTS;
     meltcdat->dstr_498__SFUMATDEF_OUTS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_498__SFUMATDEF_OUTS.val, "SFUMATDEF_OUTS", sizeof (meltcdat->dstr_498__SFUMATDEF_OUTS.val)-1);
-    meltcdat->dstr_498__SFUMATDEF_OUTS.val[14] = (char)0;
-    meltcdat->dstr_498__SFUMATDEF_OUTS.slen = 14;
+    meltcdat->dstr_498__SFUMATDEF_OUTS.val[14] = (char)0 ;
+    meltcdat->dstr_498__SFUMATDEF_OUTS.slen = 14 ;
 
 
     /*iniobj dsym_499__SFUMATDEF_MATCHF*/
@@ -11038,8 +11268,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V591*/ meltfptr[590] = (melt_ptr_t) &meltcdat->dstr_500__SFUMATDEF_MATCHF;
     meltcdat->dstr_500__SFUMATDEF_MATCHF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_500__SFUMATDEF_MATCHF.val, "SFUMATDEF_MATCHF", sizeof (meltcdat->dstr_500__SFUMATDEF_MATCHF.val)-1);
-    meltcdat->dstr_500__SFUMATDEF_MATCHF.val[16] = (char)0;
-    meltcdat->dstr_500__SFUMATDEF_MATCHF.slen = 16;
+    meltcdat->dstr_500__SFUMATDEF_MATCHF.val[16] = (char)0 ;
+    meltcdat->dstr_500__SFUMATDEF_MATCHF.slen = 16 ;
 
     /*^iniobj*/
 
@@ -11057,8 +11287,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V580*/ meltfptr[579] = (melt_ptr_t) &meltcdat->dstr_502__SFUMATDEF_MATCHF;
     meltcdat->dstr_502__SFUMATDEF_MATCHF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_502__SFUMATDEF_MATCHF.val, "SFUMATDEF_MATCHF", sizeof (meltcdat->dstr_502__SFUMATDEF_MATCHF.val)-1);
-    meltcdat->dstr_502__SFUMATDEF_MATCHF.val[16] = (char)0;
-    meltcdat->dstr_502__SFUMATDEF_MATCHF.slen = 16;
+    meltcdat->dstr_502__SFUMATDEF_MATCHF.val[16] = (char)0 ;
+    meltcdat->dstr_502__SFUMATDEF_MATCHF.slen = 16 ;
 
 
     /*iniobj dsym_503__SFUMATDEF_APPLYF*/
@@ -11075,8 +11305,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V593*/ meltfptr[592] = (melt_ptr_t) &meltcdat->dstr_504__SFUMATDEF_APPLYF;
     meltcdat->dstr_504__SFUMATDEF_APPLYF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_504__SFUMATDEF_APPLYF.val, "SFUMATDEF_APPLYF", sizeof (meltcdat->dstr_504__SFUMATDEF_APPLYF.val)-1);
-    meltcdat->dstr_504__SFUMATDEF_APPLYF.val[16] = (char)0;
-    meltcdat->dstr_504__SFUMATDEF_APPLYF.slen = 16;
+    meltcdat->dstr_504__SFUMATDEF_APPLYF.val[16] = (char)0 ;
+    meltcdat->dstr_504__SFUMATDEF_APPLYF.slen = 16 ;
 
     /*^iniobj*/
 
@@ -11094,8 +11324,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V582*/ meltfptr[581] = (melt_ptr_t) &meltcdat->dstr_506__SFUMATDEF_APPLYF;
     meltcdat->dstr_506__SFUMATDEF_APPLYF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_506__SFUMATDEF_APPLYF.val, "SFUMATDEF_APPLYF", sizeof (meltcdat->dstr_506__SFUMATDEF_APPLYF.val)-1);
-    meltcdat->dstr_506__SFUMATDEF_APPLYF.val[16] = (char)0;
-    meltcdat->dstr_506__SFUMATDEF_APPLYF.slen = 16;
+    meltcdat->dstr_506__SFUMATDEF_APPLYF.val[16] = (char)0 ;
+    meltcdat->dstr_506__SFUMATDEF_APPLYF.slen = 16 ;
 
 
     /*iniobj dsym_507__SFUMATDEF_DATA*/
@@ -11112,8 +11342,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V595*/ meltfptr[594] = (melt_ptr_t) &meltcdat->dstr_508__SFUMATDEF_DATA;
     meltcdat->dstr_508__SFUMATDEF_DATA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_508__SFUMATDEF_DATA.val, "SFUMATDEF_DATA", sizeof (meltcdat->dstr_508__SFUMATDEF_DATA.val)-1);
-    meltcdat->dstr_508__SFUMATDEF_DATA.val[14] = (char)0;
-    meltcdat->dstr_508__SFUMATDEF_DATA.slen = 14;
+    meltcdat->dstr_508__SFUMATDEF_DATA.val[14] = (char)0 ;
+    meltcdat->dstr_508__SFUMATDEF_DATA.slen = 14 ;
 
     /*^iniobj*/
 
@@ -11131,8 +11361,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V584*/ meltfptr[583] = (melt_ptr_t) &meltcdat->dstr_510__SFUMATDEF_DATA;
     meltcdat->dstr_510__SFUMATDEF_DATA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_510__SFUMATDEF_DATA.val, "SFUMATDEF_DATA", sizeof (meltcdat->dstr_510__SFUMATDEF_DATA.val)-1);
-    meltcdat->dstr_510__SFUMATDEF_DATA.val[14] = (char)0;
-    meltcdat->dstr_510__SFUMATDEF_DATA.slen = 14;
+    meltcdat->dstr_510__SFUMATDEF_DATA.val[14] = (char)0 ;
+    meltcdat->dstr_510__SFUMATDEF_DATA.slen = 14 ;
 
 
     /*iniobj dsym_511__CLASS_SOURCE_DEFOBJCOMMON*/
@@ -11149,8 +11379,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V597*/ meltfptr[596] = (melt_ptr_t) &meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO;
     meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO.val, "CLASS_SOURCE_DEFOBJCOMMON", sizeof (meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO.val)-1);
-    meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO.val[25] = (char)0;
-    meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO.slen = 25;
+    meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO.val[25] = (char)0 ;
+    meltcdat->dstr_512__CLASS_SOURCE_DEFOBJCOMMO.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:445:/ iniobj");
 
@@ -11168,8 +11398,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V599*/ meltfptr[598] = (melt_ptr_t) &meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO;
     meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO.val, "CLASS_SOURCE_DEFOBJCOMMON", sizeof (meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO.val)-1);
-    meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO.val[25] = (char)0;
-    meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO.slen = 25;
+    meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO.val[25] = (char)0 ;
+    meltcdat->dstr_514__CLASS_SOURCE_DEFOBJCOMMO.slen = 25 ;
 
     /*inimult dtup_515_syCLASS_SOURCE_DEFOBJCOMMON*/
     /*_._VALTUP___V600*/ meltfptr[599] = (melt_ptr_t) &meltcdat->dtup_515_syCLASS_SOURCE_DEFOBJCOMMON;
@@ -11194,8 +11424,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V605*/ meltfptr[604] = (melt_ptr_t) &meltcdat->dstr_518__SOBJ_PREDEF;
     meltcdat->dstr_518__SOBJ_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_518__SOBJ_PREDEF.val, "SOBJ_PREDEF", sizeof (meltcdat->dstr_518__SOBJ_PREDEF.val)-1);
-    meltcdat->dstr_518__SOBJ_PREDEF.val[11] = (char)0;
-    meltcdat->dstr_518__SOBJ_PREDEF.slen = 11;
+    meltcdat->dstr_518__SOBJ_PREDEF.val[11] = (char)0 ;
+    meltcdat->dstr_518__SOBJ_PREDEF.slen = 11 ;
 
     /*^iniobj*/
 
@@ -11213,8 +11443,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V602*/ meltfptr[601] = (melt_ptr_t) &meltcdat->dstr_520__SOBJ_PREDEF;
     meltcdat->dstr_520__SOBJ_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_520__SOBJ_PREDEF.val, "SOBJ_PREDEF", sizeof (meltcdat->dstr_520__SOBJ_PREDEF.val)-1);
-    meltcdat->dstr_520__SOBJ_PREDEF.val[11] = (char)0;
-    meltcdat->dstr_520__SOBJ_PREDEF.slen = 11;
+    meltcdat->dstr_520__SOBJ_PREDEF.val[11] = (char)0 ;
+    meltcdat->dstr_520__SOBJ_PREDEF.slen = 11 ;
 
 
     /*iniobj dsym_521__CLASS_SOURCE_DEFCLASS*/
@@ -11231,8 +11461,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V607*/ meltfptr[606] = (melt_ptr_t) &meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS;
     meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS.val, "CLASS_SOURCE_DEFCLASS", sizeof (meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS.val)-1);
-    meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS.val[21] = (char)0;
-    meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS.slen = 21;
+    meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS.val[21] = (char)0 ;
+    meltcdat->dstr_522__CLASS_SOURCE_DEFCLASS.slen = 21 ;
 
     MELT_LOCATION("warmelt-macro.melt:455:/ iniobj");
 
@@ -11250,8 +11480,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V609*/ meltfptr[608] = (melt_ptr_t) &meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS;
     meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS.val, "CLASS_SOURCE_DEFCLASS", sizeof (meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS.val)-1);
-    meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS.val[21] = (char)0;
-    meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS.slen = 21;
+    meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS.val[21] = (char)0 ;
+    meltcdat->dstr_524__CLASS_SOURCE_DEFCLASS.slen = 21 ;
 
     /*inimult dtup_525_syCLASS_SOURCE_DEFCLASS*/
     /*_._VALTUP___V610*/ meltfptr[609] = (melt_ptr_t) &meltcdat->dtup_525_syCLASS_SOURCE_DEFCLASS;
@@ -11276,8 +11506,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V619*/ meltfptr[618] = (melt_ptr_t) &meltcdat->dstr_528__SCLASS_CLABIND;
     meltcdat->dstr_528__SCLASS_CLABIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_528__SCLASS_CLABIND.val, "SCLASS_CLABIND", sizeof (meltcdat->dstr_528__SCLASS_CLABIND.val)-1);
-    meltcdat->dstr_528__SCLASS_CLABIND.val[14] = (char)0;
-    meltcdat->dstr_528__SCLASS_CLABIND.slen = 14;
+    meltcdat->dstr_528__SCLASS_CLABIND.val[14] = (char)0 ;
+    meltcdat->dstr_528__SCLASS_CLABIND.slen = 14 ;
 
     /*^iniobj*/
 
@@ -11295,8 +11525,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V612*/ meltfptr[611] = (melt_ptr_t) &meltcdat->dstr_530__SCLASS_CLABIND;
     meltcdat->dstr_530__SCLASS_CLABIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_530__SCLASS_CLABIND.val, "SCLASS_CLABIND", sizeof (meltcdat->dstr_530__SCLASS_CLABIND.val)-1);
-    meltcdat->dstr_530__SCLASS_CLABIND.val[14] = (char)0;
-    meltcdat->dstr_530__SCLASS_CLABIND.slen = 14;
+    meltcdat->dstr_530__SCLASS_CLABIND.val[14] = (char)0 ;
+    meltcdat->dstr_530__SCLASS_CLABIND.slen = 14 ;
 
 
     /*iniobj dsym_531__SCLASS_SUPERBIND*/
@@ -11313,8 +11543,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V621*/ meltfptr[620] = (melt_ptr_t) &meltcdat->dstr_532__SCLASS_SUPERBIND;
     meltcdat->dstr_532__SCLASS_SUPERBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_532__SCLASS_SUPERBIND.val, "SCLASS_SUPERBIND", sizeof (meltcdat->dstr_532__SCLASS_SUPERBIND.val)-1);
-    meltcdat->dstr_532__SCLASS_SUPERBIND.val[16] = (char)0;
-    meltcdat->dstr_532__SCLASS_SUPERBIND.slen = 16;
+    meltcdat->dstr_532__SCLASS_SUPERBIND.val[16] = (char)0 ;
+    meltcdat->dstr_532__SCLASS_SUPERBIND.slen = 16 ;
 
     /*^iniobj*/
 
@@ -11332,8 +11562,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V614*/ meltfptr[613] = (melt_ptr_t) &meltcdat->dstr_534__SCLASS_SUPERBIND;
     meltcdat->dstr_534__SCLASS_SUPERBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_534__SCLASS_SUPERBIND.val, "SCLASS_SUPERBIND", sizeof (meltcdat->dstr_534__SCLASS_SUPERBIND.val)-1);
-    meltcdat->dstr_534__SCLASS_SUPERBIND.val[16] = (char)0;
-    meltcdat->dstr_534__SCLASS_SUPERBIND.slen = 16;
+    meltcdat->dstr_534__SCLASS_SUPERBIND.val[16] = (char)0 ;
+    meltcdat->dstr_534__SCLASS_SUPERBIND.slen = 16 ;
 
 
     /*iniobj dsym_535__SCLASS_FLDBINDS*/
@@ -11350,8 +11580,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V623*/ meltfptr[622] = (melt_ptr_t) &meltcdat->dstr_536__SCLASS_FLDBINDS;
     meltcdat->dstr_536__SCLASS_FLDBINDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_536__SCLASS_FLDBINDS.val, "SCLASS_FLDBINDS", sizeof (meltcdat->dstr_536__SCLASS_FLDBINDS.val)-1);
-    meltcdat->dstr_536__SCLASS_FLDBINDS.val[15] = (char)0;
-    meltcdat->dstr_536__SCLASS_FLDBINDS.slen = 15;
+    meltcdat->dstr_536__SCLASS_FLDBINDS.val[15] = (char)0 ;
+    meltcdat->dstr_536__SCLASS_FLDBINDS.slen = 15 ;
 
     /*^iniobj*/
 
@@ -11369,8 +11599,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V616*/ meltfptr[615] = (melt_ptr_t) &meltcdat->dstr_538__SCLASS_FLDBINDS;
     meltcdat->dstr_538__SCLASS_FLDBINDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_538__SCLASS_FLDBINDS.val, "SCLASS_FLDBINDS", sizeof (meltcdat->dstr_538__SCLASS_FLDBINDS.val)-1);
-    meltcdat->dstr_538__SCLASS_FLDBINDS.val[15] = (char)0;
-    meltcdat->dstr_538__SCLASS_FLDBINDS.slen = 15;
+    meltcdat->dstr_538__SCLASS_FLDBINDS.val[15] = (char)0 ;
+    meltcdat->dstr_538__SCLASS_FLDBINDS.slen = 15 ;
 
 
     /*iniobj dsym_539__CLASS_SOURCE_DEFINSTANCE*/
@@ -11387,8 +11617,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V625*/ meltfptr[624] = (melt_ptr_t) &meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE;
     meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE.val, "CLASS_SOURCE_DEFINSTANCE", sizeof (meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE.val)-1);
-    meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE.val[24] = (char)0;
-    meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE.slen = 24;
+    meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE.val[24] = (char)0 ;
+    meltcdat->dstr_540__CLASS_SOURCE_DEFINSTANCE.slen = 24 ;
 
     MELT_LOCATION("warmelt-macro.melt:468:/ iniobj");
 
@@ -11406,8 +11636,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V627*/ meltfptr[626] = (melt_ptr_t) &meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE;
     meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE.val, "CLASS_SOURCE_DEFINSTANCE", sizeof (meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE.val)-1);
-    meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE.val[24] = (char)0;
-    meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE.slen = 24;
+    meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE.val[24] = (char)0 ;
+    meltcdat->dstr_542__CLASS_SOURCE_DEFINSTANCE.slen = 24 ;
 
     /*inimult dtup_543_syCLASS_SOURCE_DEFINSTANCE*/
     /*_._VALTUP___V628*/ meltfptr[627] = (melt_ptr_t) &meltcdat->dtup_543_syCLASS_SOURCE_DEFINSTANCE;
@@ -11432,8 +11662,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V639*/ meltfptr[638] = (melt_ptr_t) &meltcdat->dstr_546__SINST_CLASS;
     meltcdat->dstr_546__SINST_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_546__SINST_CLASS.val, "SINST_CLASS", sizeof (meltcdat->dstr_546__SINST_CLASS.val)-1);
-    meltcdat->dstr_546__SINST_CLASS.val[11] = (char)0;
-    meltcdat->dstr_546__SINST_CLASS.slen = 11;
+    meltcdat->dstr_546__SINST_CLASS.val[11] = (char)0 ;
+    meltcdat->dstr_546__SINST_CLASS.slen = 11 ;
 
     /*^iniobj*/
 
@@ -11451,8 +11681,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V630*/ meltfptr[629] = (melt_ptr_t) &meltcdat->dstr_548__SINST_CLASS;
     meltcdat->dstr_548__SINST_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_548__SINST_CLASS.val, "SINST_CLASS", sizeof (meltcdat->dstr_548__SINST_CLASS.val)-1);
-    meltcdat->dstr_548__SINST_CLASS.val[11] = (char)0;
-    meltcdat->dstr_548__SINST_CLASS.slen = 11;
+    meltcdat->dstr_548__SINST_CLASS.val[11] = (char)0 ;
+    meltcdat->dstr_548__SINST_CLASS.slen = 11 ;
 
 
     /*iniobj dsym_549__SINST_CLABIND*/
@@ -11469,8 +11699,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V641*/ meltfptr[640] = (melt_ptr_t) &meltcdat->dstr_550__SINST_CLABIND;
     meltcdat->dstr_550__SINST_CLABIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_550__SINST_CLABIND.val, "SINST_CLABIND", sizeof (meltcdat->dstr_550__SINST_CLABIND.val)-1);
-    meltcdat->dstr_550__SINST_CLABIND.val[13] = (char)0;
-    meltcdat->dstr_550__SINST_CLABIND.slen = 13;
+    meltcdat->dstr_550__SINST_CLABIND.val[13] = (char)0 ;
+    meltcdat->dstr_550__SINST_CLABIND.slen = 13 ;
 
     /*^iniobj*/
 
@@ -11488,8 +11718,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V632*/ meltfptr[631] = (melt_ptr_t) &meltcdat->dstr_552__SINST_CLABIND;
     meltcdat->dstr_552__SINST_CLABIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_552__SINST_CLABIND.val, "SINST_CLABIND", sizeof (meltcdat->dstr_552__SINST_CLABIND.val)-1);
-    meltcdat->dstr_552__SINST_CLABIND.val[13] = (char)0;
-    meltcdat->dstr_552__SINST_CLABIND.slen = 13;
+    meltcdat->dstr_552__SINST_CLABIND.val[13] = (char)0 ;
+    meltcdat->dstr_552__SINST_CLABIND.slen = 13 ;
 
 
     /*iniobj dsym_553__SINST_OBJNUM*/
@@ -11506,8 +11736,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V643*/ meltfptr[642] = (melt_ptr_t) &meltcdat->dstr_554__SINST_OBJNUM;
     meltcdat->dstr_554__SINST_OBJNUM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_554__SINST_OBJNUM.val, "SINST_OBJNUM", sizeof (meltcdat->dstr_554__SINST_OBJNUM.val)-1);
-    meltcdat->dstr_554__SINST_OBJNUM.val[12] = (char)0;
-    meltcdat->dstr_554__SINST_OBJNUM.slen = 12;
+    meltcdat->dstr_554__SINST_OBJNUM.val[12] = (char)0 ;
+    meltcdat->dstr_554__SINST_OBJNUM.slen = 12 ;
 
     /*^iniobj*/
 
@@ -11525,8 +11755,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V634*/ meltfptr[633] = (melt_ptr_t) &meltcdat->dstr_556__SINST_OBJNUM;
     meltcdat->dstr_556__SINST_OBJNUM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_556__SINST_OBJNUM.val, "SINST_OBJNUM", sizeof (meltcdat->dstr_556__SINST_OBJNUM.val)-1);
-    meltcdat->dstr_556__SINST_OBJNUM.val[12] = (char)0;
-    meltcdat->dstr_556__SINST_OBJNUM.slen = 12;
+    meltcdat->dstr_556__SINST_OBJNUM.val[12] = (char)0 ;
+    meltcdat->dstr_556__SINST_OBJNUM.slen = 12 ;
 
 
     /*iniobj dsym_557__SINST_FIELDS*/
@@ -11543,8 +11773,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V645*/ meltfptr[644] = (melt_ptr_t) &meltcdat->dstr_558__SINST_FIELDS;
     meltcdat->dstr_558__SINST_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_558__SINST_FIELDS.val, "SINST_FIELDS", sizeof (meltcdat->dstr_558__SINST_FIELDS.val)-1);
-    meltcdat->dstr_558__SINST_FIELDS.val[12] = (char)0;
-    meltcdat->dstr_558__SINST_FIELDS.slen = 12;
+    meltcdat->dstr_558__SINST_FIELDS.val[12] = (char)0 ;
+    meltcdat->dstr_558__SINST_FIELDS.slen = 12 ;
 
     /*^iniobj*/
 
@@ -11562,8 +11792,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V636*/ meltfptr[635] = (melt_ptr_t) &meltcdat->dstr_560__SINST_FIELDS;
     meltcdat->dstr_560__SINST_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_560__SINST_FIELDS.val, "SINST_FIELDS", sizeof (meltcdat->dstr_560__SINST_FIELDS.val)-1);
-    meltcdat->dstr_560__SINST_FIELDS.val[12] = (char)0;
-    meltcdat->dstr_560__SINST_FIELDS.slen = 12;
+    meltcdat->dstr_560__SINST_FIELDS.val[12] = (char)0 ;
+    meltcdat->dstr_560__SINST_FIELDS.slen = 12 ;
 
 
     /*iniobj dsym_561__CLASS_SOURCE_DEFSELECTOR*/
@@ -11580,8 +11810,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V647*/ meltfptr[646] = (melt_ptr_t) &meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR;
     meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR.val, "CLASS_SOURCE_DEFSELECTOR", sizeof (meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR.val)-1);
-    meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR.val[24] = (char)0;
-    meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR.slen = 24;
+    meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR.val[24] = (char)0 ;
+    meltcdat->dstr_562__CLASS_SOURCE_DEFSELECTOR.slen = 24 ;
 
     MELT_LOCATION("warmelt-macro.melt:482:/ iniobj");
 
@@ -11599,8 +11829,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V649*/ meltfptr[648] = (melt_ptr_t) &meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR;
     meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR.val, "CLASS_SOURCE_DEFSELECTOR", sizeof (meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR.val)-1);
-    meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR.val[24] = (char)0;
-    meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR.slen = 24;
+    meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR.val[24] = (char)0 ;
+    meltcdat->dstr_564__CLASS_SOURCE_DEFSELECTOR.slen = 24 ;
 
     /*inimult dtup_565_syCLASS_SOURCE_DEFSELECTOR*/
     /*_._VALTUP___V650*/ meltfptr[649] = (melt_ptr_t) &meltcdat->dtup_565_syCLASS_SOURCE_DEFSELECTOR;
@@ -11625,8 +11855,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V655*/ meltfptr[654] = (melt_ptr_t) &meltcdat->dstr_568__SDEFSEL_FORMALS;
     meltcdat->dstr_568__SDEFSEL_FORMALS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_568__SDEFSEL_FORMALS.val, "SDEFSEL_FORMALS", sizeof (meltcdat->dstr_568__SDEFSEL_FORMALS.val)-1);
-    meltcdat->dstr_568__SDEFSEL_FORMALS.val[15] = (char)0;
-    meltcdat->dstr_568__SDEFSEL_FORMALS.slen = 15;
+    meltcdat->dstr_568__SDEFSEL_FORMALS.val[15] = (char)0 ;
+    meltcdat->dstr_568__SDEFSEL_FORMALS.slen = 15 ;
 
     /*^iniobj*/
 
@@ -11644,8 +11874,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V652*/ meltfptr[651] = (melt_ptr_t) &meltcdat->dstr_570__SDEFSEL_FORMALS;
     meltcdat->dstr_570__SDEFSEL_FORMALS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_570__SDEFSEL_FORMALS.val, "SDEFSEL_FORMALS", sizeof (meltcdat->dstr_570__SDEFSEL_FORMALS.val)-1);
-    meltcdat->dstr_570__SDEFSEL_FORMALS.val[15] = (char)0;
-    meltcdat->dstr_570__SDEFSEL_FORMALS.slen = 15;
+    meltcdat->dstr_570__SDEFSEL_FORMALS.val[15] = (char)0 ;
+    meltcdat->dstr_570__SDEFSEL_FORMALS.slen = 15 ;
 
 
     /*iniobj dsym_571__CLASS_SOURCE_FIELDASSIGN*/
@@ -11662,8 +11892,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V657*/ meltfptr[656] = (melt_ptr_t) &meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN;
     meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN.val, "CLASS_SOURCE_FIELDASSIGN", sizeof (meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN.val)-1);
-    meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN.val[24] = (char)0;
-    meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN.slen = 24;
+    meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN.val[24] = (char)0 ;
+    meltcdat->dstr_572__CLASS_SOURCE_FIELDASSIGN.slen = 24 ;
 
     MELT_LOCATION("warmelt-macro.melt:491:/ iniobj");
 
@@ -11681,8 +11911,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V659*/ meltfptr[658] = (melt_ptr_t) &meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN;
     meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN.val, "CLASS_SOURCE_FIELDASSIGN", sizeof (meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN.val)-1);
-    meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN.val[24] = (char)0;
-    meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN.slen = 24;
+    meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN.val[24] = (char)0 ;
+    meltcdat->dstr_574__CLASS_SOURCE_FIELDASSIGN.slen = 24 ;
 
     /*inimult dtup_575_syCLASS_SOURCE_FIELDASSIGN*/
     /*_._VALTUP___V660*/ meltfptr[659] = (melt_ptr_t) &meltcdat->dtup_575_syCLASS_SOURCE_FIELDASSIGN;
@@ -11707,8 +11937,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V667*/ meltfptr[666] = (melt_ptr_t) &meltcdat->dstr_578__SFLA_FIELD;
     meltcdat->dstr_578__SFLA_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_578__SFLA_FIELD.val, "SFLA_FIELD", sizeof (meltcdat->dstr_578__SFLA_FIELD.val)-1);
-    meltcdat->dstr_578__SFLA_FIELD.val[10] = (char)0;
-    meltcdat->dstr_578__SFLA_FIELD.slen = 10;
+    meltcdat->dstr_578__SFLA_FIELD.val[10] = (char)0 ;
+    meltcdat->dstr_578__SFLA_FIELD.slen = 10 ;
 
     /*^iniobj*/
 
@@ -11726,8 +11956,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V662*/ meltfptr[661] = (melt_ptr_t) &meltcdat->dstr_580__SFLA_FIELD;
     meltcdat->dstr_580__SFLA_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_580__SFLA_FIELD.val, "SFLA_FIELD", sizeof (meltcdat->dstr_580__SFLA_FIELD.val)-1);
-    meltcdat->dstr_580__SFLA_FIELD.val[10] = (char)0;
-    meltcdat->dstr_580__SFLA_FIELD.slen = 10;
+    meltcdat->dstr_580__SFLA_FIELD.val[10] = (char)0 ;
+    meltcdat->dstr_580__SFLA_FIELD.slen = 10 ;
 
 
     /*iniobj dsym_581__SFLA_EXPR*/
@@ -11744,8 +11974,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V669*/ meltfptr[668] = (melt_ptr_t) &meltcdat->dstr_582__SFLA_EXPR;
     meltcdat->dstr_582__SFLA_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_582__SFLA_EXPR.val, "SFLA_EXPR", sizeof (meltcdat->dstr_582__SFLA_EXPR.val)-1);
-    meltcdat->dstr_582__SFLA_EXPR.val[9] = (char)0;
-    meltcdat->dstr_582__SFLA_EXPR.slen = 9;
+    meltcdat->dstr_582__SFLA_EXPR.val[9] = (char)0 ;
+    meltcdat->dstr_582__SFLA_EXPR.slen = 9 ;
 
     /*^iniobj*/
 
@@ -11763,8 +11993,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V664*/ meltfptr[663] = (melt_ptr_t) &meltcdat->dstr_584__SFLA_EXPR;
     meltcdat->dstr_584__SFLA_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_584__SFLA_EXPR.val, "SFLA_EXPR", sizeof (meltcdat->dstr_584__SFLA_EXPR.val)-1);
-    meltcdat->dstr_584__SFLA_EXPR.val[9] = (char)0;
-    meltcdat->dstr_584__SFLA_EXPR.slen = 9;
+    meltcdat->dstr_584__SFLA_EXPR.val[9] = (char)0 ;
+    meltcdat->dstr_584__SFLA_EXPR.slen = 9 ;
 
 
     /*iniobj dsym_585__CLASS_SOURCE_INSTANCE*/
@@ -11781,8 +12011,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V671*/ meltfptr[670] = (melt_ptr_t) &meltcdat->dstr_586__CLASS_SOURCE_INSTANCE;
     meltcdat->dstr_586__CLASS_SOURCE_INSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_586__CLASS_SOURCE_INSTANCE.val, "CLASS_SOURCE_INSTANCE", sizeof (meltcdat->dstr_586__CLASS_SOURCE_INSTANCE.val)-1);
-    meltcdat->dstr_586__CLASS_SOURCE_INSTANCE.val[21] = (char)0;
-    meltcdat->dstr_586__CLASS_SOURCE_INSTANCE.slen = 21;
+    meltcdat->dstr_586__CLASS_SOURCE_INSTANCE.val[21] = (char)0 ;
+    meltcdat->dstr_586__CLASS_SOURCE_INSTANCE.slen = 21 ;
 
     MELT_LOCATION("warmelt-macro.melt:502:/ iniobj");
 
@@ -11800,8 +12030,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V673*/ meltfptr[672] = (melt_ptr_t) &meltcdat->dstr_588__CLASS_SOURCE_INSTANCE;
     meltcdat->dstr_588__CLASS_SOURCE_INSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_588__CLASS_SOURCE_INSTANCE.val, "CLASS_SOURCE_INSTANCE", sizeof (meltcdat->dstr_588__CLASS_SOURCE_INSTANCE.val)-1);
-    meltcdat->dstr_588__CLASS_SOURCE_INSTANCE.val[21] = (char)0;
-    meltcdat->dstr_588__CLASS_SOURCE_INSTANCE.slen = 21;
+    meltcdat->dstr_588__CLASS_SOURCE_INSTANCE.val[21] = (char)0 ;
+    meltcdat->dstr_588__CLASS_SOURCE_INSTANCE.slen = 21 ;
 
     /*inimult dtup_589_syCLASS_SOURCE_INSTANCE*/
     /*_._VALTUP___V674*/ meltfptr[673] = (melt_ptr_t) &meltcdat->dtup_589_syCLASS_SOURCE_INSTANCE;
@@ -11826,8 +12056,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V683*/ meltfptr[682] = (melt_ptr_t) &meltcdat->dstr_592__SMINS_CLASS;
     meltcdat->dstr_592__SMINS_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_592__SMINS_CLASS.val, "SMINS_CLASS", sizeof (meltcdat->dstr_592__SMINS_CLASS.val)-1);
-    meltcdat->dstr_592__SMINS_CLASS.val[11] = (char)0;
-    meltcdat->dstr_592__SMINS_CLASS.slen = 11;
+    meltcdat->dstr_592__SMINS_CLASS.val[11] = (char)0 ;
+    meltcdat->dstr_592__SMINS_CLASS.slen = 11 ;
 
     /*^iniobj*/
 
@@ -11845,8 +12075,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V676*/ meltfptr[675] = (melt_ptr_t) &meltcdat->dstr_594__SMINS_CLASS;
     meltcdat->dstr_594__SMINS_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_594__SMINS_CLASS.val, "SMINS_CLASS", sizeof (meltcdat->dstr_594__SMINS_CLASS.val)-1);
-    meltcdat->dstr_594__SMINS_CLASS.val[11] = (char)0;
-    meltcdat->dstr_594__SMINS_CLASS.slen = 11;
+    meltcdat->dstr_594__SMINS_CLASS.val[11] = (char)0 ;
+    meltcdat->dstr_594__SMINS_CLASS.slen = 11 ;
 
 
     /*iniobj dsym_595__SMINS_CLABIND*/
@@ -11863,8 +12093,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V685*/ meltfptr[684] = (melt_ptr_t) &meltcdat->dstr_596__SMINS_CLABIND;
     meltcdat->dstr_596__SMINS_CLABIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_596__SMINS_CLABIND.val, "SMINS_CLABIND", sizeof (meltcdat->dstr_596__SMINS_CLABIND.val)-1);
-    meltcdat->dstr_596__SMINS_CLABIND.val[13] = (char)0;
-    meltcdat->dstr_596__SMINS_CLABIND.slen = 13;
+    meltcdat->dstr_596__SMINS_CLABIND.val[13] = (char)0 ;
+    meltcdat->dstr_596__SMINS_CLABIND.slen = 13 ;
 
     /*^iniobj*/
 
@@ -11882,8 +12112,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V678*/ meltfptr[677] = (melt_ptr_t) &meltcdat->dstr_598__SMINS_CLABIND;
     meltcdat->dstr_598__SMINS_CLABIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_598__SMINS_CLABIND.val, "SMINS_CLABIND", sizeof (meltcdat->dstr_598__SMINS_CLABIND.val)-1);
-    meltcdat->dstr_598__SMINS_CLABIND.val[13] = (char)0;
-    meltcdat->dstr_598__SMINS_CLABIND.slen = 13;
+    meltcdat->dstr_598__SMINS_CLABIND.val[13] = (char)0 ;
+    meltcdat->dstr_598__SMINS_CLABIND.slen = 13 ;
 
 
     /*iniobj dsym_599__SMINS_FIELDS*/
@@ -11900,8 +12130,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V687*/ meltfptr[686] = (melt_ptr_t) &meltcdat->dstr_600__SMINS_FIELDS;
     meltcdat->dstr_600__SMINS_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_600__SMINS_FIELDS.val, "SMINS_FIELDS", sizeof (meltcdat->dstr_600__SMINS_FIELDS.val)-1);
-    meltcdat->dstr_600__SMINS_FIELDS.val[12] = (char)0;
-    meltcdat->dstr_600__SMINS_FIELDS.slen = 12;
+    meltcdat->dstr_600__SMINS_FIELDS.val[12] = (char)0 ;
+    meltcdat->dstr_600__SMINS_FIELDS.slen = 12 ;
 
     /*^iniobj*/
 
@@ -11919,8 +12149,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V680*/ meltfptr[679] = (melt_ptr_t) &meltcdat->dstr_602__SMINS_FIELDS;
     meltcdat->dstr_602__SMINS_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_602__SMINS_FIELDS.val, "SMINS_FIELDS", sizeof (meltcdat->dstr_602__SMINS_FIELDS.val)-1);
-    meltcdat->dstr_602__SMINS_FIELDS.val[12] = (char)0;
-    meltcdat->dstr_602__SMINS_FIELDS.slen = 12;
+    meltcdat->dstr_602__SMINS_FIELDS.val[12] = (char)0 ;
+    meltcdat->dstr_602__SMINS_FIELDS.slen = 12 ;
 
 
     /*iniobj dsym_603__CLASS_SOURCE_GET_FIELD*/
@@ -11937,8 +12167,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V689*/ meltfptr[688] = (melt_ptr_t) &meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD;
     meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD.val, "CLASS_SOURCE_GET_FIELD", sizeof (meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD.val)-1);
-    meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD.val[22] = (char)0;
-    meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD.slen = 22;
+    meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD.val[22] = (char)0 ;
+    meltcdat->dstr_604__CLASS_SOURCE_GET_FIELD.slen = 22 ;
 
     MELT_LOCATION("warmelt-macro.melt:514:/ iniobj");
 
@@ -11956,8 +12186,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V691*/ meltfptr[690] = (melt_ptr_t) &meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD;
     meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD.val, "CLASS_SOURCE_GET_FIELD", sizeof (meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD.val)-1);
-    meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD.val[22] = (char)0;
-    meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD.slen = 22;
+    meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD.val[22] = (char)0 ;
+    meltcdat->dstr_606__CLASS_SOURCE_GET_FIELD.slen = 22 ;
 
     /*inimult dtup_607_syCLASS_SOURCE_GET_FIELD*/
     /*_._VALTUP___V692*/ meltfptr[691] = (melt_ptr_t) &meltcdat->dtup_607_syCLASS_SOURCE_GET_FIELD;
@@ -11982,8 +12212,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V699*/ meltfptr[698] = (melt_ptr_t) &meltcdat->dstr_610__SUGET_OBJ;
     meltcdat->dstr_610__SUGET_OBJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_610__SUGET_OBJ.val, "SUGET_OBJ", sizeof (meltcdat->dstr_610__SUGET_OBJ.val)-1);
-    meltcdat->dstr_610__SUGET_OBJ.val[9] = (char)0;
-    meltcdat->dstr_610__SUGET_OBJ.slen = 9;
+    meltcdat->dstr_610__SUGET_OBJ.val[9] = (char)0 ;
+    meltcdat->dstr_610__SUGET_OBJ.slen = 9 ;
 
     /*^iniobj*/
 
@@ -12001,8 +12231,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V694*/ meltfptr[693] = (melt_ptr_t) &meltcdat->dstr_612__SUGET_OBJ;
     meltcdat->dstr_612__SUGET_OBJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_612__SUGET_OBJ.val, "SUGET_OBJ", sizeof (meltcdat->dstr_612__SUGET_OBJ.val)-1);
-    meltcdat->dstr_612__SUGET_OBJ.val[9] = (char)0;
-    meltcdat->dstr_612__SUGET_OBJ.slen = 9;
+    meltcdat->dstr_612__SUGET_OBJ.val[9] = (char)0 ;
+    meltcdat->dstr_612__SUGET_OBJ.slen = 9 ;
 
 
     /*iniobj dsym_613__SUGET_FIELD*/
@@ -12019,8 +12249,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V701*/ meltfptr[700] = (melt_ptr_t) &meltcdat->dstr_614__SUGET_FIELD;
     meltcdat->dstr_614__SUGET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_614__SUGET_FIELD.val, "SUGET_FIELD", sizeof (meltcdat->dstr_614__SUGET_FIELD.val)-1);
-    meltcdat->dstr_614__SUGET_FIELD.val[11] = (char)0;
-    meltcdat->dstr_614__SUGET_FIELD.slen = 11;
+    meltcdat->dstr_614__SUGET_FIELD.val[11] = (char)0 ;
+    meltcdat->dstr_614__SUGET_FIELD.slen = 11 ;
 
     /*^iniobj*/
 
@@ -12038,8 +12268,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V696*/ meltfptr[695] = (melt_ptr_t) &meltcdat->dstr_616__SUGET_FIELD;
     meltcdat->dstr_616__SUGET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_616__SUGET_FIELD.val, "SUGET_FIELD", sizeof (meltcdat->dstr_616__SUGET_FIELD.val)-1);
-    meltcdat->dstr_616__SUGET_FIELD.val[11] = (char)0;
-    meltcdat->dstr_616__SUGET_FIELD.slen = 11;
+    meltcdat->dstr_616__SUGET_FIELD.val[11] = (char)0 ;
+    meltcdat->dstr_616__SUGET_FIELD.slen = 11 ;
 
 
     /*iniobj dsym_617__CLASS_SOURCE_UNSAFE_GET_FIELD*/
@@ -12056,8 +12286,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V703*/ meltfptr[702] = (melt_ptr_t) &meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_;
     meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_.val, "CLASS_SOURCE_UNSAFE_GET_FIELD", sizeof (meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_.val)-1);
-    meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_.val[29] = (char)0;
-    meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_.slen = 29;
+    meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_.val[29] = (char)0 ;
+    meltcdat->dstr_618__CLASS_SOURCE_UNSAFE_GET_.slen = 29 ;
 
     MELT_LOCATION("warmelt-macro.melt:525:/ iniobj");
 
@@ -12075,8 +12305,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V705*/ meltfptr[704] = (melt_ptr_t) &meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_;
     meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_.val, "CLASS_SOURCE_UNSAFE_GET_FIELD", sizeof (meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_.val)-1);
-    meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_.val[29] = (char)0;
-    meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_.slen = 29;
+    meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_.val[29] = (char)0 ;
+    meltcdat->dstr_620__CLASS_SOURCE_UNSAFE_GET_.slen = 29 ;
 
     /*inimult dtup_621_syCLASS_SOURCE_UNSAFE_GET_FIELD*/
     /*_._VALTUP___V706*/ meltfptr[705] = (melt_ptr_t) &meltcdat->dtup_621_syCLASS_SOURCE_UNSAFE_GET_FIELD;
@@ -12101,8 +12331,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V709*/ meltfptr[708] = (melt_ptr_t) &meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS;
     meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS.val, "CLASS_SOURCE_PUT_FIELDS", sizeof (meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS.val)-1);
-    meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS.val[23] = (char)0;
-    meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS.slen = 23;
+    meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS.val[23] = (char)0 ;
+    meltcdat->dstr_624__CLASS_SOURCE_PUT_FIELDS.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:534:/ iniobj");
 
@@ -12120,8 +12350,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V711*/ meltfptr[710] = (melt_ptr_t) &meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS;
     meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS.val, "CLASS_SOURCE_PUT_FIELDS", sizeof (meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS.val)-1);
-    meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS.val[23] = (char)0;
-    meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS.slen = 23;
+    meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS.val[23] = (char)0 ;
+    meltcdat->dstr_626__CLASS_SOURCE_PUT_FIELDS.slen = 23 ;
 
     /*inimult dtup_627_syCLASS_SOURCE_PUT_FIELDS*/
     /*_._VALTUP___V712*/ meltfptr[711] = (melt_ptr_t) &meltcdat->dtup_627_syCLASS_SOURCE_PUT_FIELDS;
@@ -12146,8 +12376,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V719*/ meltfptr[718] = (melt_ptr_t) &meltcdat->dstr_630__SUPUT_OBJ;
     meltcdat->dstr_630__SUPUT_OBJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_630__SUPUT_OBJ.val, "SUPUT_OBJ", sizeof (meltcdat->dstr_630__SUPUT_OBJ.val)-1);
-    meltcdat->dstr_630__SUPUT_OBJ.val[9] = (char)0;
-    meltcdat->dstr_630__SUPUT_OBJ.slen = 9;
+    meltcdat->dstr_630__SUPUT_OBJ.val[9] = (char)0 ;
+    meltcdat->dstr_630__SUPUT_OBJ.slen = 9 ;
 
     /*^iniobj*/
 
@@ -12165,8 +12395,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V714*/ meltfptr[713] = (melt_ptr_t) &meltcdat->dstr_632__SUPUT_OBJ;
     meltcdat->dstr_632__SUPUT_OBJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_632__SUPUT_OBJ.val, "SUPUT_OBJ", sizeof (meltcdat->dstr_632__SUPUT_OBJ.val)-1);
-    meltcdat->dstr_632__SUPUT_OBJ.val[9] = (char)0;
-    meltcdat->dstr_632__SUPUT_OBJ.slen = 9;
+    meltcdat->dstr_632__SUPUT_OBJ.val[9] = (char)0 ;
+    meltcdat->dstr_632__SUPUT_OBJ.slen = 9 ;
 
 
     /*iniobj dsym_633__SUPUT_FIELDS*/
@@ -12183,8 +12413,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V721*/ meltfptr[720] = (melt_ptr_t) &meltcdat->dstr_634__SUPUT_FIELDS;
     meltcdat->dstr_634__SUPUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_634__SUPUT_FIELDS.val, "SUPUT_FIELDS", sizeof (meltcdat->dstr_634__SUPUT_FIELDS.val)-1);
-    meltcdat->dstr_634__SUPUT_FIELDS.val[12] = (char)0;
-    meltcdat->dstr_634__SUPUT_FIELDS.slen = 12;
+    meltcdat->dstr_634__SUPUT_FIELDS.val[12] = (char)0 ;
+    meltcdat->dstr_634__SUPUT_FIELDS.slen = 12 ;
 
     /*^iniobj*/
 
@@ -12202,8 +12432,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V716*/ meltfptr[715] = (melt_ptr_t) &meltcdat->dstr_636__SUPUT_FIELDS;
     meltcdat->dstr_636__SUPUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_636__SUPUT_FIELDS.val, "SUPUT_FIELDS", sizeof (meltcdat->dstr_636__SUPUT_FIELDS.val)-1);
-    meltcdat->dstr_636__SUPUT_FIELDS.val[12] = (char)0;
-    meltcdat->dstr_636__SUPUT_FIELDS.slen = 12;
+    meltcdat->dstr_636__SUPUT_FIELDS.val[12] = (char)0 ;
+    meltcdat->dstr_636__SUPUT_FIELDS.slen = 12 ;
 
 
     /*iniobj dsym_637__CLASS_SOURCE_UNSAFE_PUT_FIELDS*/
@@ -12220,8 +12450,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V723*/ meltfptr[722] = (melt_ptr_t) &meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_;
     meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_.val, "CLASS_SOURCE_UNSAFE_PUT_FIELDS", sizeof (meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_.val)-1);
-    meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_.val[30] = (char)0;
-    meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_.slen = 30;
+    meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_.val[30] = (char)0 ;
+    meltcdat->dstr_638__CLASS_SOURCE_UNSAFE_PUT_.slen = 30 ;
 
     MELT_LOCATION("warmelt-macro.melt:544:/ iniobj");
 
@@ -12239,8 +12469,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V725*/ meltfptr[724] = (melt_ptr_t) &meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_;
     meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_.val, "CLASS_SOURCE_UNSAFE_PUT_FIELDS", sizeof (meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_.val)-1);
-    meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_.val[30] = (char)0;
-    meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_.slen = 30;
+    meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_.val[30] = (char)0 ;
+    meltcdat->dstr_640__CLASS_SOURCE_UNSAFE_PUT_.slen = 30 ;
 
     /*inimult dtup_641_syCLASS_SOURCE_UNSAFE_PUT_FIELDS*/
     /*_._VALTUP___V726*/ meltfptr[725] = (melt_ptr_t) &meltcdat->dtup_641_syCLASS_SOURCE_UNSAFE_PUT_FIELDS;
@@ -12265,8 +12495,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V729*/ meltfptr[728] = (melt_ptr_t) &meltcdat->dstr_644__CLASS_SOURCE_IF;
     meltcdat->dstr_644__CLASS_SOURCE_IF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_644__CLASS_SOURCE_IF.val, "CLASS_SOURCE_IF", sizeof (meltcdat->dstr_644__CLASS_SOURCE_IF.val)-1);
-    meltcdat->dstr_644__CLASS_SOURCE_IF.val[15] = (char)0;
-    meltcdat->dstr_644__CLASS_SOURCE_IF.slen = 15;
+    meltcdat->dstr_644__CLASS_SOURCE_IF.val[15] = (char)0 ;
+    meltcdat->dstr_644__CLASS_SOURCE_IF.slen = 15 ;
 
     MELT_LOCATION("warmelt-macro.melt:553:/ iniobj");
 
@@ -12284,8 +12514,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V731*/ meltfptr[730] = (melt_ptr_t) &meltcdat->dstr_646__CLASS_SOURCE_IF;
     meltcdat->dstr_646__CLASS_SOURCE_IF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_646__CLASS_SOURCE_IF.val, "CLASS_SOURCE_IF", sizeof (meltcdat->dstr_646__CLASS_SOURCE_IF.val)-1);
-    meltcdat->dstr_646__CLASS_SOURCE_IF.val[15] = (char)0;
-    meltcdat->dstr_646__CLASS_SOURCE_IF.slen = 15;
+    meltcdat->dstr_646__CLASS_SOURCE_IF.val[15] = (char)0 ;
+    meltcdat->dstr_646__CLASS_SOURCE_IF.slen = 15 ;
 
     /*inimult dtup_647_syCLASS_SOURCE_IF*/
     /*_._VALTUP___V732*/ meltfptr[731] = (melt_ptr_t) &meltcdat->dtup_647_syCLASS_SOURCE_IF;
@@ -12310,8 +12540,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V739*/ meltfptr[738] = (melt_ptr_t) &meltcdat->dstr_650__SIF_TEST;
     meltcdat->dstr_650__SIF_TEST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_650__SIF_TEST.val, "SIF_TEST", sizeof (meltcdat->dstr_650__SIF_TEST.val)-1);
-    meltcdat->dstr_650__SIF_TEST.val[8] = (char)0;
-    meltcdat->dstr_650__SIF_TEST.slen = 8;
+    meltcdat->dstr_650__SIF_TEST.val[8] = (char)0 ;
+    meltcdat->dstr_650__SIF_TEST.slen = 8 ;
 
     /*^iniobj*/
 
@@ -12329,8 +12559,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V734*/ meltfptr[733] = (melt_ptr_t) &meltcdat->dstr_652__SIF_TEST;
     meltcdat->dstr_652__SIF_TEST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_652__SIF_TEST.val, "SIF_TEST", sizeof (meltcdat->dstr_652__SIF_TEST.val)-1);
-    meltcdat->dstr_652__SIF_TEST.val[8] = (char)0;
-    meltcdat->dstr_652__SIF_TEST.slen = 8;
+    meltcdat->dstr_652__SIF_TEST.val[8] = (char)0 ;
+    meltcdat->dstr_652__SIF_TEST.slen = 8 ;
 
 
     /*iniobj dsym_653__SIF_THEN*/
@@ -12347,8 +12577,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V741*/ meltfptr[740] = (melt_ptr_t) &meltcdat->dstr_654__SIF_THEN;
     meltcdat->dstr_654__SIF_THEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_654__SIF_THEN.val, "SIF_THEN", sizeof (meltcdat->dstr_654__SIF_THEN.val)-1);
-    meltcdat->dstr_654__SIF_THEN.val[8] = (char)0;
-    meltcdat->dstr_654__SIF_THEN.slen = 8;
+    meltcdat->dstr_654__SIF_THEN.val[8] = (char)0 ;
+    meltcdat->dstr_654__SIF_THEN.slen = 8 ;
 
     /*^iniobj*/
 
@@ -12366,8 +12596,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V736*/ meltfptr[735] = (melt_ptr_t) &meltcdat->dstr_656__SIF_THEN;
     meltcdat->dstr_656__SIF_THEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_656__SIF_THEN.val, "SIF_THEN", sizeof (meltcdat->dstr_656__SIF_THEN.val)-1);
-    meltcdat->dstr_656__SIF_THEN.val[8] = (char)0;
-    meltcdat->dstr_656__SIF_THEN.slen = 8;
+    meltcdat->dstr_656__SIF_THEN.val[8] = (char)0 ;
+    meltcdat->dstr_656__SIF_THEN.slen = 8 ;
 
 
     /*iniobj dsym_657__CLASS_SOURCE_IFELSE*/
@@ -12384,8 +12614,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V743*/ meltfptr[742] = (melt_ptr_t) &meltcdat->dstr_658__CLASS_SOURCE_IFELSE;
     meltcdat->dstr_658__CLASS_SOURCE_IFELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_658__CLASS_SOURCE_IFELSE.val, "CLASS_SOURCE_IFELSE", sizeof (meltcdat->dstr_658__CLASS_SOURCE_IFELSE.val)-1);
-    meltcdat->dstr_658__CLASS_SOURCE_IFELSE.val[19] = (char)0;
-    meltcdat->dstr_658__CLASS_SOURCE_IFELSE.slen = 19;
+    meltcdat->dstr_658__CLASS_SOURCE_IFELSE.val[19] = (char)0 ;
+    meltcdat->dstr_658__CLASS_SOURCE_IFELSE.slen = 19 ;
 
     MELT_LOCATION("warmelt-macro.melt:562:/ iniobj");
 
@@ -12403,8 +12633,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V745*/ meltfptr[744] = (melt_ptr_t) &meltcdat->dstr_660__CLASS_SOURCE_IFELSE;
     meltcdat->dstr_660__CLASS_SOURCE_IFELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_660__CLASS_SOURCE_IFELSE.val, "CLASS_SOURCE_IFELSE", sizeof (meltcdat->dstr_660__CLASS_SOURCE_IFELSE.val)-1);
-    meltcdat->dstr_660__CLASS_SOURCE_IFELSE.val[19] = (char)0;
-    meltcdat->dstr_660__CLASS_SOURCE_IFELSE.slen = 19;
+    meltcdat->dstr_660__CLASS_SOURCE_IFELSE.val[19] = (char)0 ;
+    meltcdat->dstr_660__CLASS_SOURCE_IFELSE.slen = 19 ;
 
     /*inimult dtup_661_syCLASS_SOURCE_IFELSE*/
     /*_._VALTUP___V746*/ meltfptr[745] = (melt_ptr_t) &meltcdat->dtup_661_syCLASS_SOURCE_IFELSE;
@@ -12429,8 +12659,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V751*/ meltfptr[750] = (melt_ptr_t) &meltcdat->dstr_664__SIF_ELSE;
     meltcdat->dstr_664__SIF_ELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_664__SIF_ELSE.val, "SIF_ELSE", sizeof (meltcdat->dstr_664__SIF_ELSE.val)-1);
-    meltcdat->dstr_664__SIF_ELSE.val[8] = (char)0;
-    meltcdat->dstr_664__SIF_ELSE.slen = 8;
+    meltcdat->dstr_664__SIF_ELSE.val[8] = (char)0 ;
+    meltcdat->dstr_664__SIF_ELSE.slen = 8 ;
 
     /*^iniobj*/
 
@@ -12448,8 +12678,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V748*/ meltfptr[747] = (melt_ptr_t) &meltcdat->dstr_666__SIF_ELSE;
     meltcdat->dstr_666__SIF_ELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_666__SIF_ELSE.val, "SIF_ELSE", sizeof (meltcdat->dstr_666__SIF_ELSE.val)-1);
-    meltcdat->dstr_666__SIF_ELSE.val[8] = (char)0;
-    meltcdat->dstr_666__SIF_ELSE.slen = 8;
+    meltcdat->dstr_666__SIF_ELSE.val[8] = (char)0 ;
+    meltcdat->dstr_666__SIF_ELSE.slen = 8 ;
 
 
     /*iniobj dsym_667__CLASS_SOURCE_OR*/
@@ -12466,8 +12696,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V753*/ meltfptr[752] = (melt_ptr_t) &meltcdat->dstr_668__CLASS_SOURCE_OR;
     meltcdat->dstr_668__CLASS_SOURCE_OR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_668__CLASS_SOURCE_OR.val, "CLASS_SOURCE_OR", sizeof (meltcdat->dstr_668__CLASS_SOURCE_OR.val)-1);
-    meltcdat->dstr_668__CLASS_SOURCE_OR.val[15] = (char)0;
-    meltcdat->dstr_668__CLASS_SOURCE_OR.slen = 15;
+    meltcdat->dstr_668__CLASS_SOURCE_OR.val[15] = (char)0 ;
+    meltcdat->dstr_668__CLASS_SOURCE_OR.slen = 15 ;
 
     MELT_LOCATION("warmelt-macro.melt:573:/ iniobj");
 
@@ -12485,8 +12715,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V755*/ meltfptr[754] = (melt_ptr_t) &meltcdat->dstr_670__CLASS_SOURCE_OR;
     meltcdat->dstr_670__CLASS_SOURCE_OR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_670__CLASS_SOURCE_OR.val, "CLASS_SOURCE_OR", sizeof (meltcdat->dstr_670__CLASS_SOURCE_OR.val)-1);
-    meltcdat->dstr_670__CLASS_SOURCE_OR.val[15] = (char)0;
-    meltcdat->dstr_670__CLASS_SOURCE_OR.slen = 15;
+    meltcdat->dstr_670__CLASS_SOURCE_OR.val[15] = (char)0 ;
+    meltcdat->dstr_670__CLASS_SOURCE_OR.slen = 15 ;
 
     /*inimult dtup_671_syCLASS_SOURCE_OR*/
     /*_._VALTUP___V756*/ meltfptr[755] = (melt_ptr_t) &meltcdat->dtup_671_syCLASS_SOURCE_OR;
@@ -12511,8 +12741,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V761*/ meltfptr[760] = (melt_ptr_t) &meltcdat->dstr_674__SOR_DISJ;
     meltcdat->dstr_674__SOR_DISJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_674__SOR_DISJ.val, "SOR_DISJ", sizeof (meltcdat->dstr_674__SOR_DISJ.val)-1);
-    meltcdat->dstr_674__SOR_DISJ.val[8] = (char)0;
-    meltcdat->dstr_674__SOR_DISJ.slen = 8;
+    meltcdat->dstr_674__SOR_DISJ.val[8] = (char)0 ;
+    meltcdat->dstr_674__SOR_DISJ.slen = 8 ;
 
     /*^iniobj*/
 
@@ -12530,8 +12760,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V758*/ meltfptr[757] = (melt_ptr_t) &meltcdat->dstr_676__SOR_DISJ;
     meltcdat->dstr_676__SOR_DISJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_676__SOR_DISJ.val, "SOR_DISJ", sizeof (meltcdat->dstr_676__SOR_DISJ.val)-1);
-    meltcdat->dstr_676__SOR_DISJ.val[8] = (char)0;
-    meltcdat->dstr_676__SOR_DISJ.slen = 8;
+    meltcdat->dstr_676__SOR_DISJ.val[8] = (char)0 ;
+    meltcdat->dstr_676__SOR_DISJ.slen = 8 ;
 
 
     /*iniobj dsym_677__CLASS_SOURCE_CPPIF*/
@@ -12548,8 +12778,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V763*/ meltfptr[762] = (melt_ptr_t) &meltcdat->dstr_678__CLASS_SOURCE_CPPIF;
     meltcdat->dstr_678__CLASS_SOURCE_CPPIF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_678__CLASS_SOURCE_CPPIF.val, "CLASS_SOURCE_CPPIF", sizeof (meltcdat->dstr_678__CLASS_SOURCE_CPPIF.val)-1);
-    meltcdat->dstr_678__CLASS_SOURCE_CPPIF.val[18] = (char)0;
-    meltcdat->dstr_678__CLASS_SOURCE_CPPIF.slen = 18;
+    meltcdat->dstr_678__CLASS_SOURCE_CPPIF.val[18] = (char)0 ;
+    meltcdat->dstr_678__CLASS_SOURCE_CPPIF.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:585:/ iniobj");
 
@@ -12567,8 +12797,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V765*/ meltfptr[764] = (melt_ptr_t) &meltcdat->dstr_680__CLASS_SOURCE_CPPIF;
     meltcdat->dstr_680__CLASS_SOURCE_CPPIF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_680__CLASS_SOURCE_CPPIF.val, "CLASS_SOURCE_CPPIF", sizeof (meltcdat->dstr_680__CLASS_SOURCE_CPPIF.val)-1);
-    meltcdat->dstr_680__CLASS_SOURCE_CPPIF.val[18] = (char)0;
-    meltcdat->dstr_680__CLASS_SOURCE_CPPIF.slen = 18;
+    meltcdat->dstr_680__CLASS_SOURCE_CPPIF.val[18] = (char)0 ;
+    meltcdat->dstr_680__CLASS_SOURCE_CPPIF.slen = 18 ;
 
     /*inimult dtup_681_syCLASS_SOURCE_CPPIF*/
     /*_._VALTUP___V766*/ meltfptr[765] = (melt_ptr_t) &meltcdat->dtup_681_syCLASS_SOURCE_CPPIF;
@@ -12593,8 +12823,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V775*/ meltfptr[774] = (melt_ptr_t) &meltcdat->dstr_684__SIFP_COND;
     meltcdat->dstr_684__SIFP_COND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_684__SIFP_COND.val, "SIFP_COND", sizeof (meltcdat->dstr_684__SIFP_COND.val)-1);
-    meltcdat->dstr_684__SIFP_COND.val[9] = (char)0;
-    meltcdat->dstr_684__SIFP_COND.slen = 9;
+    meltcdat->dstr_684__SIFP_COND.val[9] = (char)0 ;
+    meltcdat->dstr_684__SIFP_COND.slen = 9 ;
 
     /*^iniobj*/
 
@@ -12612,8 +12842,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V768*/ meltfptr[767] = (melt_ptr_t) &meltcdat->dstr_686__SIFP_COND;
     meltcdat->dstr_686__SIFP_COND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_686__SIFP_COND.val, "SIFP_COND", sizeof (meltcdat->dstr_686__SIFP_COND.val)-1);
-    meltcdat->dstr_686__SIFP_COND.val[9] = (char)0;
-    meltcdat->dstr_686__SIFP_COND.slen = 9;
+    meltcdat->dstr_686__SIFP_COND.val[9] = (char)0 ;
+    meltcdat->dstr_686__SIFP_COND.slen = 9 ;
 
 
     /*iniobj dsym_687__SIFP_THEN*/
@@ -12630,8 +12860,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V777*/ meltfptr[776] = (melt_ptr_t) &meltcdat->dstr_688__SIFP_THEN;
     meltcdat->dstr_688__SIFP_THEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_688__SIFP_THEN.val, "SIFP_THEN", sizeof (meltcdat->dstr_688__SIFP_THEN.val)-1);
-    meltcdat->dstr_688__SIFP_THEN.val[9] = (char)0;
-    meltcdat->dstr_688__SIFP_THEN.slen = 9;
+    meltcdat->dstr_688__SIFP_THEN.val[9] = (char)0 ;
+    meltcdat->dstr_688__SIFP_THEN.slen = 9 ;
 
     /*^iniobj*/
 
@@ -12649,8 +12879,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V770*/ meltfptr[769] = (melt_ptr_t) &meltcdat->dstr_690__SIFP_THEN;
     meltcdat->dstr_690__SIFP_THEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_690__SIFP_THEN.val, "SIFP_THEN", sizeof (meltcdat->dstr_690__SIFP_THEN.val)-1);
-    meltcdat->dstr_690__SIFP_THEN.val[9] = (char)0;
-    meltcdat->dstr_690__SIFP_THEN.slen = 9;
+    meltcdat->dstr_690__SIFP_THEN.val[9] = (char)0 ;
+    meltcdat->dstr_690__SIFP_THEN.slen = 9 ;
 
 
     /*iniobj dsym_691__SIFP_ELSE*/
@@ -12667,8 +12897,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V779*/ meltfptr[778] = (melt_ptr_t) &meltcdat->dstr_692__SIFP_ELSE;
     meltcdat->dstr_692__SIFP_ELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_692__SIFP_ELSE.val, "SIFP_ELSE", sizeof (meltcdat->dstr_692__SIFP_ELSE.val)-1);
-    meltcdat->dstr_692__SIFP_ELSE.val[9] = (char)0;
-    meltcdat->dstr_692__SIFP_ELSE.slen = 9;
+    meltcdat->dstr_692__SIFP_ELSE.val[9] = (char)0 ;
+    meltcdat->dstr_692__SIFP_ELSE.slen = 9 ;
 
     /*^iniobj*/
 
@@ -12686,8 +12916,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V772*/ meltfptr[771] = (melt_ptr_t) &meltcdat->dstr_694__SIFP_ELSE;
     meltcdat->dstr_694__SIFP_ELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_694__SIFP_ELSE.val, "SIFP_ELSE", sizeof (meltcdat->dstr_694__SIFP_ELSE.val)-1);
-    meltcdat->dstr_694__SIFP_ELSE.val[9] = (char)0;
-    meltcdat->dstr_694__SIFP_ELSE.slen = 9;
+    meltcdat->dstr_694__SIFP_ELSE.val[9] = (char)0 ;
+    meltcdat->dstr_694__SIFP_ELSE.slen = 9 ;
 
 
     /*iniobj dsym_695__CLASS_SOURCE_MATCH*/
@@ -12704,8 +12934,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V781*/ meltfptr[780] = (melt_ptr_t) &meltcdat->dstr_696__CLASS_SOURCE_MATCH;
     meltcdat->dstr_696__CLASS_SOURCE_MATCH.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_696__CLASS_SOURCE_MATCH.val, "CLASS_SOURCE_MATCH", sizeof (meltcdat->dstr_696__CLASS_SOURCE_MATCH.val)-1);
-    meltcdat->dstr_696__CLASS_SOURCE_MATCH.val[18] = (char)0;
-    meltcdat->dstr_696__CLASS_SOURCE_MATCH.slen = 18;
+    meltcdat->dstr_696__CLASS_SOURCE_MATCH.val[18] = (char)0 ;
+    meltcdat->dstr_696__CLASS_SOURCE_MATCH.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:596:/ iniobj");
 
@@ -12723,8 +12953,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V783*/ meltfptr[782] = (melt_ptr_t) &meltcdat->dstr_698__CLASS_SOURCE_MATCH;
     meltcdat->dstr_698__CLASS_SOURCE_MATCH.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_698__CLASS_SOURCE_MATCH.val, "CLASS_SOURCE_MATCH", sizeof (meltcdat->dstr_698__CLASS_SOURCE_MATCH.val)-1);
-    meltcdat->dstr_698__CLASS_SOURCE_MATCH.val[18] = (char)0;
-    meltcdat->dstr_698__CLASS_SOURCE_MATCH.slen = 18;
+    meltcdat->dstr_698__CLASS_SOURCE_MATCH.val[18] = (char)0 ;
+    meltcdat->dstr_698__CLASS_SOURCE_MATCH.slen = 18 ;
 
     /*inimult dtup_699_syCLASS_SOURCE_MATCH*/
     /*_._VALTUP___V784*/ meltfptr[783] = (melt_ptr_t) &meltcdat->dtup_699_syCLASS_SOURCE_MATCH;
@@ -12749,8 +12979,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V791*/ meltfptr[790] = (melt_ptr_t) &meltcdat->dstr_702__SMAT_MATCHEDX;
     meltcdat->dstr_702__SMAT_MATCHEDX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_702__SMAT_MATCHEDX.val, "SMAT_MATCHEDX", sizeof (meltcdat->dstr_702__SMAT_MATCHEDX.val)-1);
-    meltcdat->dstr_702__SMAT_MATCHEDX.val[13] = (char)0;
-    meltcdat->dstr_702__SMAT_MATCHEDX.slen = 13;
+    meltcdat->dstr_702__SMAT_MATCHEDX.val[13] = (char)0 ;
+    meltcdat->dstr_702__SMAT_MATCHEDX.slen = 13 ;
 
     /*^iniobj*/
 
@@ -12768,8 +12998,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V786*/ meltfptr[785] = (melt_ptr_t) &meltcdat->dstr_704__SMAT_MATCHEDX;
     meltcdat->dstr_704__SMAT_MATCHEDX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_704__SMAT_MATCHEDX.val, "SMAT_MATCHEDX", sizeof (meltcdat->dstr_704__SMAT_MATCHEDX.val)-1);
-    meltcdat->dstr_704__SMAT_MATCHEDX.val[13] = (char)0;
-    meltcdat->dstr_704__SMAT_MATCHEDX.slen = 13;
+    meltcdat->dstr_704__SMAT_MATCHEDX.val[13] = (char)0 ;
+    meltcdat->dstr_704__SMAT_MATCHEDX.slen = 13 ;
 
 
     /*iniobj dsym_705__SMAT_CASES*/
@@ -12786,8 +13016,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V793*/ meltfptr[792] = (melt_ptr_t) &meltcdat->dstr_706__SMAT_CASES;
     meltcdat->dstr_706__SMAT_CASES.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_706__SMAT_CASES.val, "SMAT_CASES", sizeof (meltcdat->dstr_706__SMAT_CASES.val)-1);
-    meltcdat->dstr_706__SMAT_CASES.val[10] = (char)0;
-    meltcdat->dstr_706__SMAT_CASES.slen = 10;
+    meltcdat->dstr_706__SMAT_CASES.val[10] = (char)0 ;
+    meltcdat->dstr_706__SMAT_CASES.slen = 10 ;
 
     /*^iniobj*/
 
@@ -12805,8 +13035,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V788*/ meltfptr[787] = (melt_ptr_t) &meltcdat->dstr_708__SMAT_CASES;
     meltcdat->dstr_708__SMAT_CASES.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_708__SMAT_CASES.val, "SMAT_CASES", sizeof (meltcdat->dstr_708__SMAT_CASES.val)-1);
-    meltcdat->dstr_708__SMAT_CASES.val[10] = (char)0;
-    meltcdat->dstr_708__SMAT_CASES.slen = 10;
+    meltcdat->dstr_708__SMAT_CASES.val[10] = (char)0 ;
+    meltcdat->dstr_708__SMAT_CASES.slen = 10 ;
 
 
     /*iniobj dsym_709__CLASS_SOURCE_MATCHALT*/
@@ -12823,8 +13053,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V795*/ meltfptr[794] = (melt_ptr_t) &meltcdat->dstr_710__CLASS_SOURCE_MATCHALT;
     meltcdat->dstr_710__CLASS_SOURCE_MATCHALT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_710__CLASS_SOURCE_MATCHALT.val, "CLASS_SOURCE_MATCHALT", sizeof (meltcdat->dstr_710__CLASS_SOURCE_MATCHALT.val)-1);
-    meltcdat->dstr_710__CLASS_SOURCE_MATCHALT.val[21] = (char)0;
-    meltcdat->dstr_710__CLASS_SOURCE_MATCHALT.slen = 21;
+    meltcdat->dstr_710__CLASS_SOURCE_MATCHALT.val[21] = (char)0 ;
+    meltcdat->dstr_710__CLASS_SOURCE_MATCHALT.slen = 21 ;
 
     MELT_LOCATION("warmelt-macro.melt:612:/ iniobj");
 
@@ -12842,8 +13072,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V797*/ meltfptr[796] = (melt_ptr_t) &meltcdat->dstr_712__CLASS_SOURCE_MATCHALT;
     meltcdat->dstr_712__CLASS_SOURCE_MATCHALT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_712__CLASS_SOURCE_MATCHALT.val, "CLASS_SOURCE_MATCHALT", sizeof (meltcdat->dstr_712__CLASS_SOURCE_MATCHALT.val)-1);
-    meltcdat->dstr_712__CLASS_SOURCE_MATCHALT.val[21] = (char)0;
-    meltcdat->dstr_712__CLASS_SOURCE_MATCHALT.slen = 21;
+    meltcdat->dstr_712__CLASS_SOURCE_MATCHALT.val[21] = (char)0 ;
+    meltcdat->dstr_712__CLASS_SOURCE_MATCHALT.slen = 21 ;
 
     /*inimult dtup_713_syCLASS_SOURCE_MATCHALT*/
     /*_._VALTUP___V798*/ meltfptr[797] = (melt_ptr_t) &meltcdat->dtup_713_syCLASS_SOURCE_MATCHALT;
@@ -12868,8 +13098,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V801*/ meltfptr[800] = (melt_ptr_t) &meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE;
     meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE.val, "CLASS_SOURCE_MATCH_CASE", sizeof (meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE.val)-1);
-    meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE.val[23] = (char)0;
-    meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE.slen = 23;
+    meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE.val[23] = (char)0 ;
+    meltcdat->dstr_716__CLASS_SOURCE_MATCH_CASE.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:622:/ iniobj");
 
@@ -12887,8 +13117,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V803*/ meltfptr[802] = (melt_ptr_t) &meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE;
     meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE.val, "CLASS_SOURCE_MATCH_CASE", sizeof (meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE.val)-1);
-    meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE.val[23] = (char)0;
-    meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE.slen = 23;
+    meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE.val[23] = (char)0 ;
+    meltcdat->dstr_718__CLASS_SOURCE_MATCH_CASE.slen = 23 ;
 
     /*inimult dtup_719_syCLASS_SOURCE_MATCH_CASE*/
     /*_._VALTUP___V804*/ meltfptr[803] = (melt_ptr_t) &meltcdat->dtup_719_syCLASS_SOURCE_MATCH_CASE;
@@ -12913,8 +13143,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V811*/ meltfptr[810] = (melt_ptr_t) &meltcdat->dstr_722__SCAM_PATT;
     meltcdat->dstr_722__SCAM_PATT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_722__SCAM_PATT.val, "SCAM_PATT", sizeof (meltcdat->dstr_722__SCAM_PATT.val)-1);
-    meltcdat->dstr_722__SCAM_PATT.val[9] = (char)0;
-    meltcdat->dstr_722__SCAM_PATT.slen = 9;
+    meltcdat->dstr_722__SCAM_PATT.val[9] = (char)0 ;
+    meltcdat->dstr_722__SCAM_PATT.slen = 9 ;
 
     /*^iniobj*/
 
@@ -12932,8 +13162,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V806*/ meltfptr[805] = (melt_ptr_t) &meltcdat->dstr_724__SCAM_PATT;
     meltcdat->dstr_724__SCAM_PATT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_724__SCAM_PATT.val, "SCAM_PATT", sizeof (meltcdat->dstr_724__SCAM_PATT.val)-1);
-    meltcdat->dstr_724__SCAM_PATT.val[9] = (char)0;
-    meltcdat->dstr_724__SCAM_PATT.slen = 9;
+    meltcdat->dstr_724__SCAM_PATT.val[9] = (char)0 ;
+    meltcdat->dstr_724__SCAM_PATT.slen = 9 ;
 
 
     /*iniobj dsym_725__SCAM_BODY*/
@@ -12950,8 +13180,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V813*/ meltfptr[812] = (melt_ptr_t) &meltcdat->dstr_726__SCAM_BODY;
     meltcdat->dstr_726__SCAM_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_726__SCAM_BODY.val, "SCAM_BODY", sizeof (meltcdat->dstr_726__SCAM_BODY.val)-1);
-    meltcdat->dstr_726__SCAM_BODY.val[9] = (char)0;
-    meltcdat->dstr_726__SCAM_BODY.slen = 9;
+    meltcdat->dstr_726__SCAM_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_726__SCAM_BODY.slen = 9 ;
 
     /*^iniobj*/
 
@@ -12969,8 +13199,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V808*/ meltfptr[807] = (melt_ptr_t) &meltcdat->dstr_728__SCAM_BODY;
     meltcdat->dstr_728__SCAM_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_728__SCAM_BODY.val, "SCAM_BODY", sizeof (meltcdat->dstr_728__SCAM_BODY.val)-1);
-    meltcdat->dstr_728__SCAM_BODY.val[9] = (char)0;
-    meltcdat->dstr_728__SCAM_BODY.slen = 9;
+    meltcdat->dstr_728__SCAM_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_728__SCAM_BODY.slen = 9 ;
 
 
     /*iniobj dsym_729__CLASS_SOURCE_LET_BINDING*/
@@ -12987,8 +13217,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V815*/ meltfptr[814] = (melt_ptr_t) &meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING;
     meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING.val, "CLASS_SOURCE_LET_BINDING", sizeof (meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING.val)-1);
-    meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING.val[24] = (char)0;
-    meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING.slen = 24;
+    meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING.val[24] = (char)0 ;
+    meltcdat->dstr_730__CLASS_SOURCE_LET_BINDING.slen = 24 ;
 
     MELT_LOCATION("warmelt-macro.melt:632:/ iniobj");
 
@@ -13006,8 +13236,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V817*/ meltfptr[816] = (melt_ptr_t) &meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING;
     meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING.val, "CLASS_SOURCE_LET_BINDING", sizeof (meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING.val)-1);
-    meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING.val[24] = (char)0;
-    meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING.slen = 24;
+    meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING.val[24] = (char)0 ;
+    meltcdat->dstr_732__CLASS_SOURCE_LET_BINDING.slen = 24 ;
 
     /*inimult dtup_733_syCLASS_SOURCE_LET_BINDING*/
     /*_._VALTUP___V818*/ meltfptr[817] = (melt_ptr_t) &meltcdat->dtup_733_syCLASS_SOURCE_LET_BINDING;
@@ -13032,8 +13262,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V827*/ meltfptr[826] = (melt_ptr_t) &meltcdat->dstr_736__SLETB_TYPE;
     meltcdat->dstr_736__SLETB_TYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_736__SLETB_TYPE.val, "SLETB_TYPE", sizeof (meltcdat->dstr_736__SLETB_TYPE.val)-1);
-    meltcdat->dstr_736__SLETB_TYPE.val[10] = (char)0;
-    meltcdat->dstr_736__SLETB_TYPE.slen = 10;
+    meltcdat->dstr_736__SLETB_TYPE.val[10] = (char)0 ;
+    meltcdat->dstr_736__SLETB_TYPE.slen = 10 ;
 
     /*^iniobj*/
 
@@ -13051,8 +13281,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V820*/ meltfptr[819] = (melt_ptr_t) &meltcdat->dstr_738__SLETB_TYPE;
     meltcdat->dstr_738__SLETB_TYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_738__SLETB_TYPE.val, "SLETB_TYPE", sizeof (meltcdat->dstr_738__SLETB_TYPE.val)-1);
-    meltcdat->dstr_738__SLETB_TYPE.val[10] = (char)0;
-    meltcdat->dstr_738__SLETB_TYPE.slen = 10;
+    meltcdat->dstr_738__SLETB_TYPE.val[10] = (char)0 ;
+    meltcdat->dstr_738__SLETB_TYPE.slen = 10 ;
 
 
     /*iniobj dsym_739__SLETB_BINDER*/
@@ -13069,8 +13299,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V829*/ meltfptr[828] = (melt_ptr_t) &meltcdat->dstr_740__SLETB_BINDER;
     meltcdat->dstr_740__SLETB_BINDER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_740__SLETB_BINDER.val, "SLETB_BINDER", sizeof (meltcdat->dstr_740__SLETB_BINDER.val)-1);
-    meltcdat->dstr_740__SLETB_BINDER.val[12] = (char)0;
-    meltcdat->dstr_740__SLETB_BINDER.slen = 12;
+    meltcdat->dstr_740__SLETB_BINDER.val[12] = (char)0 ;
+    meltcdat->dstr_740__SLETB_BINDER.slen = 12 ;
 
     /*^iniobj*/
 
@@ -13088,8 +13318,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V822*/ meltfptr[821] = (melt_ptr_t) &meltcdat->dstr_742__SLETB_BINDER;
     meltcdat->dstr_742__SLETB_BINDER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_742__SLETB_BINDER.val, "SLETB_BINDER", sizeof (meltcdat->dstr_742__SLETB_BINDER.val)-1);
-    meltcdat->dstr_742__SLETB_BINDER.val[12] = (char)0;
-    meltcdat->dstr_742__SLETB_BINDER.slen = 12;
+    meltcdat->dstr_742__SLETB_BINDER.val[12] = (char)0 ;
+    meltcdat->dstr_742__SLETB_BINDER.slen = 12 ;
 
 
     /*iniobj dsym_743__SLETB_EXPR*/
@@ -13106,8 +13336,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V831*/ meltfptr[830] = (melt_ptr_t) &meltcdat->dstr_744__SLETB_EXPR;
     meltcdat->dstr_744__SLETB_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_744__SLETB_EXPR.val, "SLETB_EXPR", sizeof (meltcdat->dstr_744__SLETB_EXPR.val)-1);
-    meltcdat->dstr_744__SLETB_EXPR.val[10] = (char)0;
-    meltcdat->dstr_744__SLETB_EXPR.slen = 10;
+    meltcdat->dstr_744__SLETB_EXPR.val[10] = (char)0 ;
+    meltcdat->dstr_744__SLETB_EXPR.slen = 10 ;
 
     /*^iniobj*/
 
@@ -13125,8 +13355,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V824*/ meltfptr[823] = (melt_ptr_t) &meltcdat->dstr_746__SLETB_EXPR;
     meltcdat->dstr_746__SLETB_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_746__SLETB_EXPR.val, "SLETB_EXPR", sizeof (meltcdat->dstr_746__SLETB_EXPR.val)-1);
-    meltcdat->dstr_746__SLETB_EXPR.val[10] = (char)0;
-    meltcdat->dstr_746__SLETB_EXPR.slen = 10;
+    meltcdat->dstr_746__SLETB_EXPR.val[10] = (char)0 ;
+    meltcdat->dstr_746__SLETB_EXPR.slen = 10 ;
 
 
     /*iniobj dsym_747__CLASS_SOURCE_LETREC_BINDING*/
@@ -13143,8 +13373,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V833*/ meltfptr[832] = (melt_ptr_t) &meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND;
     meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND.val, "CLASS_SOURCE_LETREC_BINDING", sizeof (meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND.val)-1);
-    meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND.val[27] = (char)0;
-    meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND.slen = 27;
+    meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND.val[27] = (char)0 ;
+    meltcdat->dstr_748__CLASS_SOURCE_LETREC_BIND.slen = 27 ;
 
     MELT_LOCATION("warmelt-macro.melt:643:/ iniobj");
 
@@ -13162,8 +13392,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V835*/ meltfptr[834] = (melt_ptr_t) &meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND;
     meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND.val, "CLASS_SOURCE_LETREC_BINDING", sizeof (meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND.val)-1);
-    meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND.val[27] = (char)0;
-    meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND.slen = 27;
+    meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND.val[27] = (char)0 ;
+    meltcdat->dstr_750__CLASS_SOURCE_LETREC_BIND.slen = 27 ;
 
     /*inimult dtup_751_syCLASS_SOURCE_LETREC_BINDING*/
     /*_._VALTUP___V836*/ meltfptr[835] = (melt_ptr_t) &meltcdat->dtup_751_syCLASS_SOURCE_LETREC_BINDING;
@@ -13188,8 +13418,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V839*/ meltfptr[838] = (melt_ptr_t) &meltcdat->dstr_754__CLASS_SOURCE_LET;
     meltcdat->dstr_754__CLASS_SOURCE_LET.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_754__CLASS_SOURCE_LET.val, "CLASS_SOURCE_LET", sizeof (meltcdat->dstr_754__CLASS_SOURCE_LET.val)-1);
-    meltcdat->dstr_754__CLASS_SOURCE_LET.val[16] = (char)0;
-    meltcdat->dstr_754__CLASS_SOURCE_LET.slen = 16;
+    meltcdat->dstr_754__CLASS_SOURCE_LET.val[16] = (char)0 ;
+    meltcdat->dstr_754__CLASS_SOURCE_LET.slen = 16 ;
 
     MELT_LOCATION("warmelt-macro.melt:649:/ iniobj");
 
@@ -13207,8 +13437,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V841*/ meltfptr[840] = (melt_ptr_t) &meltcdat->dstr_756__CLASS_SOURCE_LET;
     meltcdat->dstr_756__CLASS_SOURCE_LET.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_756__CLASS_SOURCE_LET.val, "CLASS_SOURCE_LET", sizeof (meltcdat->dstr_756__CLASS_SOURCE_LET.val)-1);
-    meltcdat->dstr_756__CLASS_SOURCE_LET.val[16] = (char)0;
-    meltcdat->dstr_756__CLASS_SOURCE_LET.slen = 16;
+    meltcdat->dstr_756__CLASS_SOURCE_LET.val[16] = (char)0 ;
+    meltcdat->dstr_756__CLASS_SOURCE_LET.slen = 16 ;
 
     /*inimult dtup_757_syCLASS_SOURCE_LET*/
     /*_._VALTUP___V842*/ meltfptr[841] = (melt_ptr_t) &meltcdat->dtup_757_syCLASS_SOURCE_LET;
@@ -13233,8 +13463,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V849*/ meltfptr[848] = (melt_ptr_t) &meltcdat->dstr_760__SLET_BINDINGS;
     meltcdat->dstr_760__SLET_BINDINGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_760__SLET_BINDINGS.val, "SLET_BINDINGS", sizeof (meltcdat->dstr_760__SLET_BINDINGS.val)-1);
-    meltcdat->dstr_760__SLET_BINDINGS.val[13] = (char)0;
-    meltcdat->dstr_760__SLET_BINDINGS.slen = 13;
+    meltcdat->dstr_760__SLET_BINDINGS.val[13] = (char)0 ;
+    meltcdat->dstr_760__SLET_BINDINGS.slen = 13 ;
 
     /*^iniobj*/
 
@@ -13252,8 +13482,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V844*/ meltfptr[843] = (melt_ptr_t) &meltcdat->dstr_762__SLET_BINDINGS;
     meltcdat->dstr_762__SLET_BINDINGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_762__SLET_BINDINGS.val, "SLET_BINDINGS", sizeof (meltcdat->dstr_762__SLET_BINDINGS.val)-1);
-    meltcdat->dstr_762__SLET_BINDINGS.val[13] = (char)0;
-    meltcdat->dstr_762__SLET_BINDINGS.slen = 13;
+    meltcdat->dstr_762__SLET_BINDINGS.val[13] = (char)0 ;
+    meltcdat->dstr_762__SLET_BINDINGS.slen = 13 ;
 
 
     /*iniobj dsym_763__SLET_BODY*/
@@ -13270,8 +13500,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V851*/ meltfptr[850] = (melt_ptr_t) &meltcdat->dstr_764__SLET_BODY;
     meltcdat->dstr_764__SLET_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_764__SLET_BODY.val, "SLET_BODY", sizeof (meltcdat->dstr_764__SLET_BODY.val)-1);
-    meltcdat->dstr_764__SLET_BODY.val[9] = (char)0;
-    meltcdat->dstr_764__SLET_BODY.slen = 9;
+    meltcdat->dstr_764__SLET_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_764__SLET_BODY.slen = 9 ;
 
     /*^iniobj*/
 
@@ -13289,8 +13519,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V846*/ meltfptr[845] = (melt_ptr_t) &meltcdat->dstr_766__SLET_BODY;
     meltcdat->dstr_766__SLET_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_766__SLET_BODY.val, "SLET_BODY", sizeof (meltcdat->dstr_766__SLET_BODY.val)-1);
-    meltcdat->dstr_766__SLET_BODY.val[9] = (char)0;
-    meltcdat->dstr_766__SLET_BODY.slen = 9;
+    meltcdat->dstr_766__SLET_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_766__SLET_BODY.slen = 9 ;
 
 
     /*iniobj dsym_767__CLASS_SOURCE_LETREC*/
@@ -13307,8 +13537,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V853*/ meltfptr[852] = (melt_ptr_t) &meltcdat->dstr_768__CLASS_SOURCE_LETREC;
     meltcdat->dstr_768__CLASS_SOURCE_LETREC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_768__CLASS_SOURCE_LETREC.val, "CLASS_SOURCE_LETREC", sizeof (meltcdat->dstr_768__CLASS_SOURCE_LETREC.val)-1);
-    meltcdat->dstr_768__CLASS_SOURCE_LETREC.val[19] = (char)0;
-    meltcdat->dstr_768__CLASS_SOURCE_LETREC.slen = 19;
+    meltcdat->dstr_768__CLASS_SOURCE_LETREC.val[19] = (char)0 ;
+    meltcdat->dstr_768__CLASS_SOURCE_LETREC.slen = 19 ;
 
     MELT_LOCATION("warmelt-macro.melt:659:/ iniobj");
 
@@ -13326,8 +13556,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V855*/ meltfptr[854] = (melt_ptr_t) &meltcdat->dstr_770__CLASS_SOURCE_LETREC;
     meltcdat->dstr_770__CLASS_SOURCE_LETREC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_770__CLASS_SOURCE_LETREC.val, "CLASS_SOURCE_LETREC", sizeof (meltcdat->dstr_770__CLASS_SOURCE_LETREC.val)-1);
-    meltcdat->dstr_770__CLASS_SOURCE_LETREC.val[19] = (char)0;
-    meltcdat->dstr_770__CLASS_SOURCE_LETREC.slen = 19;
+    meltcdat->dstr_770__CLASS_SOURCE_LETREC.val[19] = (char)0 ;
+    meltcdat->dstr_770__CLASS_SOURCE_LETREC.slen = 19 ;
 
     /*inimult dtup_771_syCLASS_SOURCE_LETREC*/
     /*_._VALTUP___V856*/ meltfptr[855] = (melt_ptr_t) &meltcdat->dtup_771_syCLASS_SOURCE_LETREC;
@@ -13352,8 +13582,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V859*/ meltfptr[858] = (melt_ptr_t) &meltcdat->dstr_774__CLASS_SOURCE_LAMBDA;
     meltcdat->dstr_774__CLASS_SOURCE_LAMBDA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_774__CLASS_SOURCE_LAMBDA.val, "CLASS_SOURCE_LAMBDA", sizeof (meltcdat->dstr_774__CLASS_SOURCE_LAMBDA.val)-1);
-    meltcdat->dstr_774__CLASS_SOURCE_LAMBDA.val[19] = (char)0;
-    meltcdat->dstr_774__CLASS_SOURCE_LAMBDA.slen = 19;
+    meltcdat->dstr_774__CLASS_SOURCE_LAMBDA.val[19] = (char)0 ;
+    meltcdat->dstr_774__CLASS_SOURCE_LAMBDA.slen = 19 ;
 
     MELT_LOCATION("warmelt-macro.melt:667:/ iniobj");
 
@@ -13371,8 +13601,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V861*/ meltfptr[860] = (melt_ptr_t) &meltcdat->dstr_776__CLASS_SOURCE_LAMBDA;
     meltcdat->dstr_776__CLASS_SOURCE_LAMBDA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_776__CLASS_SOURCE_LAMBDA.val, "CLASS_SOURCE_LAMBDA", sizeof (meltcdat->dstr_776__CLASS_SOURCE_LAMBDA.val)-1);
-    meltcdat->dstr_776__CLASS_SOURCE_LAMBDA.val[19] = (char)0;
-    meltcdat->dstr_776__CLASS_SOURCE_LAMBDA.slen = 19;
+    meltcdat->dstr_776__CLASS_SOURCE_LAMBDA.val[19] = (char)0 ;
+    meltcdat->dstr_776__CLASS_SOURCE_LAMBDA.slen = 19 ;
 
     /*inimult dtup_777_syCLASS_SOURCE_LAMBDA*/
     /*_._VALTUP___V862*/ meltfptr[861] = (melt_ptr_t) &meltcdat->dtup_777_syCLASS_SOURCE_LAMBDA;
@@ -13397,8 +13627,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V869*/ meltfptr[868] = (melt_ptr_t) &meltcdat->dstr_780__SLAM_ARGBIND;
     meltcdat->dstr_780__SLAM_ARGBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_780__SLAM_ARGBIND.val, "SLAM_ARGBIND", sizeof (meltcdat->dstr_780__SLAM_ARGBIND.val)-1);
-    meltcdat->dstr_780__SLAM_ARGBIND.val[12] = (char)0;
-    meltcdat->dstr_780__SLAM_ARGBIND.slen = 12;
+    meltcdat->dstr_780__SLAM_ARGBIND.val[12] = (char)0 ;
+    meltcdat->dstr_780__SLAM_ARGBIND.slen = 12 ;
 
     /*^iniobj*/
 
@@ -13416,8 +13646,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V864*/ meltfptr[863] = (melt_ptr_t) &meltcdat->dstr_782__SLAM_ARGBIND;
     meltcdat->dstr_782__SLAM_ARGBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_782__SLAM_ARGBIND.val, "SLAM_ARGBIND", sizeof (meltcdat->dstr_782__SLAM_ARGBIND.val)-1);
-    meltcdat->dstr_782__SLAM_ARGBIND.val[12] = (char)0;
-    meltcdat->dstr_782__SLAM_ARGBIND.slen = 12;
+    meltcdat->dstr_782__SLAM_ARGBIND.val[12] = (char)0 ;
+    meltcdat->dstr_782__SLAM_ARGBIND.slen = 12 ;
 
 
     /*iniobj dsym_783__SLAM_BODY*/
@@ -13434,8 +13664,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V871*/ meltfptr[870] = (melt_ptr_t) &meltcdat->dstr_784__SLAM_BODY;
     meltcdat->dstr_784__SLAM_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_784__SLAM_BODY.val, "SLAM_BODY", sizeof (meltcdat->dstr_784__SLAM_BODY.val)-1);
-    meltcdat->dstr_784__SLAM_BODY.val[9] = (char)0;
-    meltcdat->dstr_784__SLAM_BODY.slen = 9;
+    meltcdat->dstr_784__SLAM_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_784__SLAM_BODY.slen = 9 ;
 
     /*^iniobj*/
 
@@ -13453,8 +13683,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V866*/ meltfptr[865] = (melt_ptr_t) &meltcdat->dstr_786__SLAM_BODY;
     meltcdat->dstr_786__SLAM_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_786__SLAM_BODY.val, "SLAM_BODY", sizeof (meltcdat->dstr_786__SLAM_BODY.val)-1);
-    meltcdat->dstr_786__SLAM_BODY.val[9] = (char)0;
-    meltcdat->dstr_786__SLAM_BODY.slen = 9;
+    meltcdat->dstr_786__SLAM_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_786__SLAM_BODY.slen = 9 ;
 
 
     /*iniobj dsym_787__CLASS_SOURCE_IFVARIADIC*/
@@ -13471,8 +13701,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V873*/ meltfptr[872] = (melt_ptr_t) &meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC;
     meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC.val, "CLASS_SOURCE_IFVARIADIC", sizeof (meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC.val)-1);
-    meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC.val[23] = (char)0;
-    meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC.slen = 23;
+    meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC.val[23] = (char)0 ;
+    meltcdat->dstr_788__CLASS_SOURCE_IFVARIADIC.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:677:/ iniobj");
 
@@ -13490,8 +13720,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V875*/ meltfptr[874] = (melt_ptr_t) &meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC;
     meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC.val, "CLASS_SOURCE_IFVARIADIC", sizeof (meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC.val)-1);
-    meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC.val[23] = (char)0;
-    meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC.slen = 23;
+    meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC.val[23] = (char)0 ;
+    meltcdat->dstr_790__CLASS_SOURCE_IFVARIADIC.slen = 23 ;
 
     /*inimult dtup_791_syCLASS_SOURCE_IFVARIADIC*/
     /*_._VALTUP___V876*/ meltfptr[875] = (melt_ptr_t) &meltcdat->dtup_791_syCLASS_SOURCE_IFVARIADIC;
@@ -13516,8 +13746,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V885*/ meltfptr[884] = (melt_ptr_t) &meltcdat->dstr_794__SIFVARIADIC_ARGBIND;
     meltcdat->dstr_794__SIFVARIADIC_ARGBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_794__SIFVARIADIC_ARGBIND.val, "SIFVARIADIC_ARGBIND", sizeof (meltcdat->dstr_794__SIFVARIADIC_ARGBIND.val)-1);
-    meltcdat->dstr_794__SIFVARIADIC_ARGBIND.val[19] = (char)0;
-    meltcdat->dstr_794__SIFVARIADIC_ARGBIND.slen = 19;
+    meltcdat->dstr_794__SIFVARIADIC_ARGBIND.val[19] = (char)0 ;
+    meltcdat->dstr_794__SIFVARIADIC_ARGBIND.slen = 19 ;
 
     /*^iniobj*/
 
@@ -13535,8 +13765,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V878*/ meltfptr[877] = (melt_ptr_t) &meltcdat->dstr_796__SIFVARIADIC_ARGBIND;
     meltcdat->dstr_796__SIFVARIADIC_ARGBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_796__SIFVARIADIC_ARGBIND.val, "SIFVARIADIC_ARGBIND", sizeof (meltcdat->dstr_796__SIFVARIADIC_ARGBIND.val)-1);
-    meltcdat->dstr_796__SIFVARIADIC_ARGBIND.val[19] = (char)0;
-    meltcdat->dstr_796__SIFVARIADIC_ARGBIND.slen = 19;
+    meltcdat->dstr_796__SIFVARIADIC_ARGBIND.val[19] = (char)0 ;
+    meltcdat->dstr_796__SIFVARIADIC_ARGBIND.slen = 19 ;
 
 
     /*iniobj dsym_797__SIFVARIADIC_THEN*/
@@ -13553,8 +13783,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V887*/ meltfptr[886] = (melt_ptr_t) &meltcdat->dstr_798__SIFVARIADIC_THEN;
     meltcdat->dstr_798__SIFVARIADIC_THEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_798__SIFVARIADIC_THEN.val, "SIFVARIADIC_THEN", sizeof (meltcdat->dstr_798__SIFVARIADIC_THEN.val)-1);
-    meltcdat->dstr_798__SIFVARIADIC_THEN.val[16] = (char)0;
-    meltcdat->dstr_798__SIFVARIADIC_THEN.slen = 16;
+    meltcdat->dstr_798__SIFVARIADIC_THEN.val[16] = (char)0 ;
+    meltcdat->dstr_798__SIFVARIADIC_THEN.slen = 16 ;
 
     /*^iniobj*/
 
@@ -13572,8 +13802,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V880*/ meltfptr[879] = (melt_ptr_t) &meltcdat->dstr_800__SIFVARIADIC_THEN;
     meltcdat->dstr_800__SIFVARIADIC_THEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_800__SIFVARIADIC_THEN.val, "SIFVARIADIC_THEN", sizeof (meltcdat->dstr_800__SIFVARIADIC_THEN.val)-1);
-    meltcdat->dstr_800__SIFVARIADIC_THEN.val[16] = (char)0;
-    meltcdat->dstr_800__SIFVARIADIC_THEN.slen = 16;
+    meltcdat->dstr_800__SIFVARIADIC_THEN.val[16] = (char)0 ;
+    meltcdat->dstr_800__SIFVARIADIC_THEN.slen = 16 ;
 
 
     /*iniobj dsym_801__SIFVARIADIC_ELSE*/
@@ -13590,8 +13820,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V889*/ meltfptr[888] = (melt_ptr_t) &meltcdat->dstr_802__SIFVARIADIC_ELSE;
     meltcdat->dstr_802__SIFVARIADIC_ELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_802__SIFVARIADIC_ELSE.val, "SIFVARIADIC_ELSE", sizeof (meltcdat->dstr_802__SIFVARIADIC_ELSE.val)-1);
-    meltcdat->dstr_802__SIFVARIADIC_ELSE.val[16] = (char)0;
-    meltcdat->dstr_802__SIFVARIADIC_ELSE.slen = 16;
+    meltcdat->dstr_802__SIFVARIADIC_ELSE.val[16] = (char)0 ;
+    meltcdat->dstr_802__SIFVARIADIC_ELSE.slen = 16 ;
 
     /*^iniobj*/
 
@@ -13609,8 +13839,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V882*/ meltfptr[881] = (melt_ptr_t) &meltcdat->dstr_804__SIFVARIADIC_ELSE;
     meltcdat->dstr_804__SIFVARIADIC_ELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_804__SIFVARIADIC_ELSE.val, "SIFVARIADIC_ELSE", sizeof (meltcdat->dstr_804__SIFVARIADIC_ELSE.val)-1);
-    meltcdat->dstr_804__SIFVARIADIC_ELSE.val[16] = (char)0;
-    meltcdat->dstr_804__SIFVARIADIC_ELSE.slen = 16;
+    meltcdat->dstr_804__SIFVARIADIC_ELSE.val[16] = (char)0 ;
+    meltcdat->dstr_804__SIFVARIADIC_ELSE.slen = 16 ;
 
 
     /*iniobj dsym_805__CLASS_SOURCE_MULTICALL*/
@@ -13627,8 +13857,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V891*/ meltfptr[890] = (melt_ptr_t) &meltcdat->dstr_806__CLASS_SOURCE_MULTICALL;
     meltcdat->dstr_806__CLASS_SOURCE_MULTICALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_806__CLASS_SOURCE_MULTICALL.val, "CLASS_SOURCE_MULTICALL", sizeof (meltcdat->dstr_806__CLASS_SOURCE_MULTICALL.val)-1);
-    meltcdat->dstr_806__CLASS_SOURCE_MULTICALL.val[22] = (char)0;
-    meltcdat->dstr_806__CLASS_SOURCE_MULTICALL.slen = 22;
+    meltcdat->dstr_806__CLASS_SOURCE_MULTICALL.val[22] = (char)0 ;
+    meltcdat->dstr_806__CLASS_SOURCE_MULTICALL.slen = 22 ;
 
     MELT_LOCATION("warmelt-macro.melt:689:/ iniobj");
 
@@ -13646,8 +13876,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V893*/ meltfptr[892] = (melt_ptr_t) &meltcdat->dstr_808__CLASS_SOURCE_MULTICALL;
     meltcdat->dstr_808__CLASS_SOURCE_MULTICALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_808__CLASS_SOURCE_MULTICALL.val, "CLASS_SOURCE_MULTICALL", sizeof (meltcdat->dstr_808__CLASS_SOURCE_MULTICALL.val)-1);
-    meltcdat->dstr_808__CLASS_SOURCE_MULTICALL.val[22] = (char)0;
-    meltcdat->dstr_808__CLASS_SOURCE_MULTICALL.slen = 22;
+    meltcdat->dstr_808__CLASS_SOURCE_MULTICALL.val[22] = (char)0 ;
+    meltcdat->dstr_808__CLASS_SOURCE_MULTICALL.slen = 22 ;
 
     /*inimult dtup_809_syCLASS_SOURCE_MULTICALL*/
     /*_._VALTUP___V894*/ meltfptr[893] = (melt_ptr_t) &meltcdat->dtup_809_syCLASS_SOURCE_MULTICALL;
@@ -13672,8 +13902,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V903*/ meltfptr[902] = (melt_ptr_t) &meltcdat->dstr_812__SMULC_RESBIND;
     meltcdat->dstr_812__SMULC_RESBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_812__SMULC_RESBIND.val, "SMULC_RESBIND", sizeof (meltcdat->dstr_812__SMULC_RESBIND.val)-1);
-    meltcdat->dstr_812__SMULC_RESBIND.val[13] = (char)0;
-    meltcdat->dstr_812__SMULC_RESBIND.slen = 13;
+    meltcdat->dstr_812__SMULC_RESBIND.val[13] = (char)0 ;
+    meltcdat->dstr_812__SMULC_RESBIND.slen = 13 ;
 
     /*^iniobj*/
 
@@ -13691,8 +13921,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V896*/ meltfptr[895] = (melt_ptr_t) &meltcdat->dstr_814__SMULC_RESBIND;
     meltcdat->dstr_814__SMULC_RESBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_814__SMULC_RESBIND.val, "SMULC_RESBIND", sizeof (meltcdat->dstr_814__SMULC_RESBIND.val)-1);
-    meltcdat->dstr_814__SMULC_RESBIND.val[13] = (char)0;
-    meltcdat->dstr_814__SMULC_RESBIND.slen = 13;
+    meltcdat->dstr_814__SMULC_RESBIND.val[13] = (char)0 ;
+    meltcdat->dstr_814__SMULC_RESBIND.slen = 13 ;
 
 
     /*iniobj dsym_815__SMULC_CALL*/
@@ -13709,8 +13939,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V905*/ meltfptr[904] = (melt_ptr_t) &meltcdat->dstr_816__SMULC_CALL;
     meltcdat->dstr_816__SMULC_CALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_816__SMULC_CALL.val, "SMULC_CALL", sizeof (meltcdat->dstr_816__SMULC_CALL.val)-1);
-    meltcdat->dstr_816__SMULC_CALL.val[10] = (char)0;
-    meltcdat->dstr_816__SMULC_CALL.slen = 10;
+    meltcdat->dstr_816__SMULC_CALL.val[10] = (char)0 ;
+    meltcdat->dstr_816__SMULC_CALL.slen = 10 ;
 
     /*^iniobj*/
 
@@ -13728,8 +13958,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V898*/ meltfptr[897] = (melt_ptr_t) &meltcdat->dstr_818__SMULC_CALL;
     meltcdat->dstr_818__SMULC_CALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_818__SMULC_CALL.val, "SMULC_CALL", sizeof (meltcdat->dstr_818__SMULC_CALL.val)-1);
-    meltcdat->dstr_818__SMULC_CALL.val[10] = (char)0;
-    meltcdat->dstr_818__SMULC_CALL.slen = 10;
+    meltcdat->dstr_818__SMULC_CALL.val[10] = (char)0 ;
+    meltcdat->dstr_818__SMULC_CALL.slen = 10 ;
 
 
     /*iniobj dsym_819__SMULC_BODY*/
@@ -13746,8 +13976,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V907*/ meltfptr[906] = (melt_ptr_t) &meltcdat->dstr_820__SMULC_BODY;
     meltcdat->dstr_820__SMULC_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_820__SMULC_BODY.val, "SMULC_BODY", sizeof (meltcdat->dstr_820__SMULC_BODY.val)-1);
-    meltcdat->dstr_820__SMULC_BODY.val[10] = (char)0;
-    meltcdat->dstr_820__SMULC_BODY.slen = 10;
+    meltcdat->dstr_820__SMULC_BODY.val[10] = (char)0 ;
+    meltcdat->dstr_820__SMULC_BODY.slen = 10 ;
 
     /*^iniobj*/
 
@@ -13765,8 +13995,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V900*/ meltfptr[899] = (melt_ptr_t) &meltcdat->dstr_822__SMULC_BODY;
     meltcdat->dstr_822__SMULC_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_822__SMULC_BODY.val, "SMULC_BODY", sizeof (meltcdat->dstr_822__SMULC_BODY.val)-1);
-    meltcdat->dstr_822__SMULC_BODY.val[10] = (char)0;
-    meltcdat->dstr_822__SMULC_BODY.slen = 10;
+    meltcdat->dstr_822__SMULC_BODY.val[10] = (char)0 ;
+    meltcdat->dstr_822__SMULC_BODY.slen = 10 ;
 
 
     /*iniobj dsym_823__CLASS_SOURCE_LABELLED*/
@@ -13783,8 +14013,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V909*/ meltfptr[908] = (melt_ptr_t) &meltcdat->dstr_824__CLASS_SOURCE_LABELLED;
     meltcdat->dstr_824__CLASS_SOURCE_LABELLED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_824__CLASS_SOURCE_LABELLED.val, "CLASS_SOURCE_LABELLED", sizeof (meltcdat->dstr_824__CLASS_SOURCE_LABELLED.val)-1);
-    meltcdat->dstr_824__CLASS_SOURCE_LABELLED.val[21] = (char)0;
-    meltcdat->dstr_824__CLASS_SOURCE_LABELLED.slen = 21;
+    meltcdat->dstr_824__CLASS_SOURCE_LABELLED.val[21] = (char)0 ;
+    meltcdat->dstr_824__CLASS_SOURCE_LABELLED.slen = 21 ;
 
     MELT_LOCATION("warmelt-macro.melt:701:/ iniobj");
 
@@ -13802,8 +14032,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V911*/ meltfptr[910] = (melt_ptr_t) &meltcdat->dstr_826__CLASS_SOURCE_LABELLED;
     meltcdat->dstr_826__CLASS_SOURCE_LABELLED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_826__CLASS_SOURCE_LABELLED.val, "CLASS_SOURCE_LABELLED", sizeof (meltcdat->dstr_826__CLASS_SOURCE_LABELLED.val)-1);
-    meltcdat->dstr_826__CLASS_SOURCE_LABELLED.val[21] = (char)0;
-    meltcdat->dstr_826__CLASS_SOURCE_LABELLED.slen = 21;
+    meltcdat->dstr_826__CLASS_SOURCE_LABELLED.val[21] = (char)0 ;
+    meltcdat->dstr_826__CLASS_SOURCE_LABELLED.slen = 21 ;
 
     /*inimult dtup_827_syCLASS_SOURCE_LABELLED*/
     /*_._VALTUP___V912*/ meltfptr[911] = (melt_ptr_t) &meltcdat->dtup_827_syCLASS_SOURCE_LABELLED;
@@ -13828,8 +14058,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V917*/ meltfptr[916] = (melt_ptr_t) &meltcdat->dstr_830__SLABEL_BIND;
     meltcdat->dstr_830__SLABEL_BIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_830__SLABEL_BIND.val, "SLABEL_BIND", sizeof (meltcdat->dstr_830__SLABEL_BIND.val)-1);
-    meltcdat->dstr_830__SLABEL_BIND.val[11] = (char)0;
-    meltcdat->dstr_830__SLABEL_BIND.slen = 11;
+    meltcdat->dstr_830__SLABEL_BIND.val[11] = (char)0 ;
+    meltcdat->dstr_830__SLABEL_BIND.slen = 11 ;
 
     /*^iniobj*/
 
@@ -13847,8 +14077,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V914*/ meltfptr[913] = (melt_ptr_t) &meltcdat->dstr_832__SLABEL_BIND;
     meltcdat->dstr_832__SLABEL_BIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_832__SLABEL_BIND.val, "SLABEL_BIND", sizeof (meltcdat->dstr_832__SLABEL_BIND.val)-1);
-    meltcdat->dstr_832__SLABEL_BIND.val[11] = (char)0;
-    meltcdat->dstr_832__SLABEL_BIND.slen = 11;
+    meltcdat->dstr_832__SLABEL_BIND.val[11] = (char)0 ;
+    meltcdat->dstr_832__SLABEL_BIND.slen = 11 ;
 
 
     /*iniobj dsym_833__CLASS_SOURCE_FOREVER*/
@@ -13865,8 +14095,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V919*/ meltfptr[918] = (melt_ptr_t) &meltcdat->dstr_834__CLASS_SOURCE_FOREVER;
     meltcdat->dstr_834__CLASS_SOURCE_FOREVER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_834__CLASS_SOURCE_FOREVER.val, "CLASS_SOURCE_FOREVER", sizeof (meltcdat->dstr_834__CLASS_SOURCE_FOREVER.val)-1);
-    meltcdat->dstr_834__CLASS_SOURCE_FOREVER.val[20] = (char)0;
-    meltcdat->dstr_834__CLASS_SOURCE_FOREVER.slen = 20;
+    meltcdat->dstr_834__CLASS_SOURCE_FOREVER.val[20] = (char)0 ;
+    meltcdat->dstr_834__CLASS_SOURCE_FOREVER.slen = 20 ;
 
     MELT_LOCATION("warmelt-macro.melt:710:/ iniobj");
 
@@ -13884,8 +14114,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V921*/ meltfptr[920] = (melt_ptr_t) &meltcdat->dstr_836__CLASS_SOURCE_FOREVER;
     meltcdat->dstr_836__CLASS_SOURCE_FOREVER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_836__CLASS_SOURCE_FOREVER.val, "CLASS_SOURCE_FOREVER", sizeof (meltcdat->dstr_836__CLASS_SOURCE_FOREVER.val)-1);
-    meltcdat->dstr_836__CLASS_SOURCE_FOREVER.val[20] = (char)0;
-    meltcdat->dstr_836__CLASS_SOURCE_FOREVER.slen = 20;
+    meltcdat->dstr_836__CLASS_SOURCE_FOREVER.val[20] = (char)0 ;
+    meltcdat->dstr_836__CLASS_SOURCE_FOREVER.slen = 20 ;
 
     /*inimult dtup_837_syCLASS_SOURCE_FOREVER*/
     /*_._VALTUP___V922*/ meltfptr[921] = (melt_ptr_t) &meltcdat->dtup_837_syCLASS_SOURCE_FOREVER;
@@ -13910,8 +14140,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V927*/ meltfptr[926] = (melt_ptr_t) &meltcdat->dstr_840__SFRV_BODY;
     meltcdat->dstr_840__SFRV_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_840__SFRV_BODY.val, "SFRV_BODY", sizeof (meltcdat->dstr_840__SFRV_BODY.val)-1);
-    meltcdat->dstr_840__SFRV_BODY.val[9] = (char)0;
-    meltcdat->dstr_840__SFRV_BODY.slen = 9;
+    meltcdat->dstr_840__SFRV_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_840__SFRV_BODY.slen = 9 ;
 
     /*^iniobj*/
 
@@ -13929,8 +14159,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V924*/ meltfptr[923] = (melt_ptr_t) &meltcdat->dstr_842__SFRV_BODY;
     meltcdat->dstr_842__SFRV_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_842__SFRV_BODY.val, "SFRV_BODY", sizeof (meltcdat->dstr_842__SFRV_BODY.val)-1);
-    meltcdat->dstr_842__SFRV_BODY.val[9] = (char)0;
-    meltcdat->dstr_842__SFRV_BODY.slen = 9;
+    meltcdat->dstr_842__SFRV_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_842__SFRV_BODY.slen = 9 ;
 
 
     /*iniobj dsym_843__CLASS_SOURCE_AGAIN*/
@@ -13947,8 +14177,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V929*/ meltfptr[928] = (melt_ptr_t) &meltcdat->dstr_844__CLASS_SOURCE_AGAIN;
     meltcdat->dstr_844__CLASS_SOURCE_AGAIN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_844__CLASS_SOURCE_AGAIN.val, "CLASS_SOURCE_AGAIN", sizeof (meltcdat->dstr_844__CLASS_SOURCE_AGAIN.val)-1);
-    meltcdat->dstr_844__CLASS_SOURCE_AGAIN.val[18] = (char)0;
-    meltcdat->dstr_844__CLASS_SOURCE_AGAIN.slen = 18;
+    meltcdat->dstr_844__CLASS_SOURCE_AGAIN.val[18] = (char)0 ;
+    meltcdat->dstr_844__CLASS_SOURCE_AGAIN.slen = 18 ;
 
     MELT_LOCATION("warmelt-macro.melt:718:/ iniobj");
 
@@ -13966,8 +14196,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V931*/ meltfptr[930] = (melt_ptr_t) &meltcdat->dstr_846__CLASS_SOURCE_AGAIN;
     meltcdat->dstr_846__CLASS_SOURCE_AGAIN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_846__CLASS_SOURCE_AGAIN.val, "CLASS_SOURCE_AGAIN", sizeof (meltcdat->dstr_846__CLASS_SOURCE_AGAIN.val)-1);
-    meltcdat->dstr_846__CLASS_SOURCE_AGAIN.val[18] = (char)0;
-    meltcdat->dstr_846__CLASS_SOURCE_AGAIN.slen = 18;
+    meltcdat->dstr_846__CLASS_SOURCE_AGAIN.val[18] = (char)0 ;
+    meltcdat->dstr_846__CLASS_SOURCE_AGAIN.slen = 18 ;
 
     /*inimult dtup_847_syCLASS_SOURCE_AGAIN*/
     /*_._VALTUP___V932*/ meltfptr[931] = (melt_ptr_t) &meltcdat->dtup_847_syCLASS_SOURCE_AGAIN;
@@ -13992,8 +14222,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V935*/ meltfptr[934] = (melt_ptr_t) &meltcdat->dstr_850__CLASS_SOURCE_EXIT;
     meltcdat->dstr_850__CLASS_SOURCE_EXIT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_850__CLASS_SOURCE_EXIT.val, "CLASS_SOURCE_EXIT", sizeof (meltcdat->dstr_850__CLASS_SOURCE_EXIT.val)-1);
-    meltcdat->dstr_850__CLASS_SOURCE_EXIT.val[17] = (char)0;
-    meltcdat->dstr_850__CLASS_SOURCE_EXIT.slen = 17;
+    meltcdat->dstr_850__CLASS_SOURCE_EXIT.val[17] = (char)0 ;
+    meltcdat->dstr_850__CLASS_SOURCE_EXIT.slen = 17 ;
 
     MELT_LOCATION("warmelt-macro.melt:725:/ iniobj");
 
@@ -14011,8 +14241,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V937*/ meltfptr[936] = (melt_ptr_t) &meltcdat->dstr_852__CLASS_SOURCE_EXIT;
     meltcdat->dstr_852__CLASS_SOURCE_EXIT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_852__CLASS_SOURCE_EXIT.val, "CLASS_SOURCE_EXIT", sizeof (meltcdat->dstr_852__CLASS_SOURCE_EXIT.val)-1);
-    meltcdat->dstr_852__CLASS_SOURCE_EXIT.val[17] = (char)0;
-    meltcdat->dstr_852__CLASS_SOURCE_EXIT.slen = 17;
+    meltcdat->dstr_852__CLASS_SOURCE_EXIT.val[17] = (char)0 ;
+    meltcdat->dstr_852__CLASS_SOURCE_EXIT.slen = 17 ;
 
     /*inimult dtup_853_syCLASS_SOURCE_EXIT*/
     /*_._VALTUP___V938*/ meltfptr[937] = (melt_ptr_t) &meltcdat->dtup_853_syCLASS_SOURCE_EXIT;
@@ -14037,8 +14267,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V943*/ meltfptr[942] = (melt_ptr_t) &meltcdat->dstr_856__SEXI_BODY;
     meltcdat->dstr_856__SEXI_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_856__SEXI_BODY.val, "SEXI_BODY", sizeof (meltcdat->dstr_856__SEXI_BODY.val)-1);
-    meltcdat->dstr_856__SEXI_BODY.val[9] = (char)0;
-    meltcdat->dstr_856__SEXI_BODY.slen = 9;
+    meltcdat->dstr_856__SEXI_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_856__SEXI_BODY.slen = 9 ;
 
     /*^iniobj*/
 
@@ -14056,8 +14286,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V940*/ meltfptr[939] = (melt_ptr_t) &meltcdat->dstr_858__SEXI_BODY;
     meltcdat->dstr_858__SEXI_BODY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_858__SEXI_BODY.val, "SEXI_BODY", sizeof (meltcdat->dstr_858__SEXI_BODY.val)-1);
-    meltcdat->dstr_858__SEXI_BODY.val[9] = (char)0;
-    meltcdat->dstr_858__SEXI_BODY.slen = 9;
+    meltcdat->dstr_858__SEXI_BODY.val[9] = (char)0 ;
+    meltcdat->dstr_858__SEXI_BODY.slen = 9 ;
 
 
     /*iniobj dsym_859__CLASS_SOURCE_COMPILEWARNING*/
@@ -14074,8 +14304,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V945*/ meltfptr[944] = (melt_ptr_t) &meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN;
     meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN.val, "CLASS_SOURCE_COMPILEWARNING", sizeof (meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN.val)-1);
-    meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN.val[27] = (char)0;
-    meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN.slen = 27;
+    meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN.val[27] = (char)0 ;
+    meltcdat->dstr_860__CLASS_SOURCE_COMPILEWARN.slen = 27 ;
 
     MELT_LOCATION("warmelt-macro.melt:734:/ iniobj");
 
@@ -14093,8 +14323,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V947*/ meltfptr[946] = (melt_ptr_t) &meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN;
     meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN.val, "CLASS_SOURCE_COMPILEWARNING", sizeof (meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN.val)-1);
-    meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN.val[27] = (char)0;
-    meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN.slen = 27;
+    meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN.val[27] = (char)0 ;
+    meltcdat->dstr_862__CLASS_SOURCE_COMPILEWARN.slen = 27 ;
 
     /*inimult dtup_863_syCLASS_SOURCE_COMPILEWARNING*/
     /*_._VALTUP___V948*/ meltfptr[947] = (melt_ptr_t) &meltcdat->dtup_863_syCLASS_SOURCE_COMPILEWARNING;
@@ -14119,8 +14349,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V955*/ meltfptr[954] = (melt_ptr_t) &meltcdat->dstr_866__SCWARN_MSG;
     meltcdat->dstr_866__SCWARN_MSG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_866__SCWARN_MSG.val, "SCWARN_MSG", sizeof (meltcdat->dstr_866__SCWARN_MSG.val)-1);
-    meltcdat->dstr_866__SCWARN_MSG.val[10] = (char)0;
-    meltcdat->dstr_866__SCWARN_MSG.slen = 10;
+    meltcdat->dstr_866__SCWARN_MSG.val[10] = (char)0 ;
+    meltcdat->dstr_866__SCWARN_MSG.slen = 10 ;
 
     /*^iniobj*/
 
@@ -14138,8 +14368,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V950*/ meltfptr[949] = (melt_ptr_t) &meltcdat->dstr_868__SCWARN_MSG;
     meltcdat->dstr_868__SCWARN_MSG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_868__SCWARN_MSG.val, "SCWARN_MSG", sizeof (meltcdat->dstr_868__SCWARN_MSG.val)-1);
-    meltcdat->dstr_868__SCWARN_MSG.val[10] = (char)0;
-    meltcdat->dstr_868__SCWARN_MSG.slen = 10;
+    meltcdat->dstr_868__SCWARN_MSG.val[10] = (char)0 ;
+    meltcdat->dstr_868__SCWARN_MSG.slen = 10 ;
 
 
     /*iniobj dsym_869__SCWARN_EXPR*/
@@ -14156,8 +14386,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V957*/ meltfptr[956] = (melt_ptr_t) &meltcdat->dstr_870__SCWARN_EXPR;
     meltcdat->dstr_870__SCWARN_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_870__SCWARN_EXPR.val, "SCWARN_EXPR", sizeof (meltcdat->dstr_870__SCWARN_EXPR.val)-1);
-    meltcdat->dstr_870__SCWARN_EXPR.val[11] = (char)0;
-    meltcdat->dstr_870__SCWARN_EXPR.slen = 11;
+    meltcdat->dstr_870__SCWARN_EXPR.val[11] = (char)0 ;
+    meltcdat->dstr_870__SCWARN_EXPR.slen = 11 ;
 
     /*^iniobj*/
 
@@ -14175,8 +14405,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V952*/ meltfptr[951] = (melt_ptr_t) &meltcdat->dstr_872__SCWARN_EXPR;
     meltcdat->dstr_872__SCWARN_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_872__SCWARN_EXPR.val, "SCWARN_EXPR", sizeof (meltcdat->dstr_872__SCWARN_EXPR.val)-1);
-    meltcdat->dstr_872__SCWARN_EXPR.val[11] = (char)0;
-    meltcdat->dstr_872__SCWARN_EXPR.slen = 11;
+    meltcdat->dstr_872__SCWARN_EXPR.val[11] = (char)0 ;
+    meltcdat->dstr_872__SCWARN_EXPR.slen = 11 ;
 
 
     /*iniobj dsym_873__CLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_REFERENCE*/
@@ -14193,8 +14423,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V959*/ meltfptr[958] = (melt_ptr_t) &meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD;
     meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD.val, "CLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_REFERENCE", sizeof (meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD.val)-1);
-    meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD.val[49] = (char)0;
-    meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD.slen = 49;
+    meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD.val[49] = (char)0 ;
+    meltcdat->dstr_874__CLASS_SOURCE_CURRENT_MOD.slen = 49 ;
 
     MELT_LOCATION("warmelt-macro.melt:741:/ iniobj");
 
@@ -14212,8 +14442,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V961*/ meltfptr[960] = (melt_ptr_t) &meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD;
     meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD.val, "CLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_REFERENCE", sizeof (meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD.val)-1);
-    meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD.val[49] = (char)0;
-    meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD.slen = 49;
+    meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD.val[49] = (char)0 ;
+    meltcdat->dstr_876__CLASS_SOURCE_CURRENT_MOD.slen = 49 ;
 
     /*inimult dtup_877_syCLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_REFERENCE*/
     /*_._VALTUP___V962*/ meltfptr[961] = (melt_ptr_t) &meltcdat->dtup_877_syCLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_REFERENCE;
@@ -14238,8 +14468,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V967*/ meltfptr[966] = (melt_ptr_t) &meltcdat->dstr_880__CMEC_COMMENT;
     meltcdat->dstr_880__CMEC_COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_880__CMEC_COMMENT.val, "CMEC_COMMENT", sizeof (meltcdat->dstr_880__CMEC_COMMENT.val)-1);
-    meltcdat->dstr_880__CMEC_COMMENT.val[12] = (char)0;
-    meltcdat->dstr_880__CMEC_COMMENT.slen = 12;
+    meltcdat->dstr_880__CMEC_COMMENT.val[12] = (char)0 ;
+    meltcdat->dstr_880__CMEC_COMMENT.slen = 12 ;
 
     /*^iniobj*/
 
@@ -14257,8 +14487,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V964*/ meltfptr[963] = (melt_ptr_t) &meltcdat->dstr_882__CMEC_COMMENT;
     meltcdat->dstr_882__CMEC_COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_882__CMEC_COMMENT.val, "CMEC_COMMENT", sizeof (meltcdat->dstr_882__CMEC_COMMENT.val)-1);
-    meltcdat->dstr_882__CMEC_COMMENT.val[12] = (char)0;
-    meltcdat->dstr_882__CMEC_COMMENT.slen = 12;
+    meltcdat->dstr_882__CMEC_COMMENT.val[12] = (char)0 ;
+    meltcdat->dstr_882__CMEC_COMMENT.slen = 12 ;
 
 
     /*iniobj dsym_883__CLASS_SOURCE_PARENT_MODULE_ENVIRONMENT*/
@@ -14275,8 +14505,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V969*/ meltfptr[968] = (melt_ptr_t) &meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU;
     meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU.val, "CLASS_SOURCE_PARENT_MODULE_ENVIRONMENT", sizeof (meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU.val)-1);
-    meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU.val[38] = (char)0;
-    meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU.slen = 38;
+    meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU.val[38] = (char)0 ;
+    meltcdat->dstr_884__CLASS_SOURCE_PARENT_MODU.slen = 38 ;
 
     MELT_LOCATION("warmelt-macro.melt:749:/ iniobj");
 
@@ -14294,8 +14524,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V971*/ meltfptr[970] = (melt_ptr_t) &meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU;
     meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU.val, "CLASS_SOURCE_PARENT_MODULE_ENVIRONMENT", sizeof (meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU.val)-1);
-    meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU.val[38] = (char)0;
-    meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU.slen = 38;
+    meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU.val[38] = (char)0 ;
+    meltcdat->dstr_886__CLASS_SOURCE_PARENT_MODU.slen = 38 ;
 
     /*inimult dtup_887_syCLASS_SOURCE_PARENT_MODULE_ENVIRONMENT*/
     /*_._VALTUP___V972*/ meltfptr[971] = (melt_ptr_t) &meltcdat->dtup_887_syCLASS_SOURCE_PARENT_MODULE_ENVIRONMENT;
@@ -14320,8 +14550,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V975*/ meltfptr[974] = (melt_ptr_t) &meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR;
     meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR.val, "CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE", sizeof (meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR.val)-1);
-    meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR.val[56] = (char)0;
-    meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR.slen = 56;
+    meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR.val[56] = (char)0 ;
+    meltcdat->dstr_890__CLASS_SOURCE_UPDATE_CURR.slen = 56 ;
 
     MELT_LOCATION("warmelt-macro.melt:757:/ iniobj");
 
@@ -14339,8 +14569,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V977*/ meltfptr[976] = (melt_ptr_t) &meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR;
     meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR.val, "CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE", sizeof (meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR.val)-1);
-    meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR.val[56] = (char)0;
-    meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR.slen = 56;
+    meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR.val[56] = (char)0 ;
+    meltcdat->dstr_892__CLASS_SOURCE_UPDATE_CURR.slen = 56 ;
 
     /*inimult dtup_893_syCLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE*/
     /*_._VALTUP___V978*/ meltfptr[977] = (melt_ptr_t) &meltcdat->dtup_893_syCLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE;
@@ -14365,8 +14595,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V983*/ meltfptr[982] = (melt_ptr_t) &meltcdat->dstr_896__SUCME_COMMENT;
     meltcdat->dstr_896__SUCME_COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_896__SUCME_COMMENT.val, "SUCME_COMMENT", sizeof (meltcdat->dstr_896__SUCME_COMMENT.val)-1);
-    meltcdat->dstr_896__SUCME_COMMENT.val[13] = (char)0;
-    meltcdat->dstr_896__SUCME_COMMENT.slen = 13;
+    meltcdat->dstr_896__SUCME_COMMENT.val[13] = (char)0 ;
+    meltcdat->dstr_896__SUCME_COMMENT.slen = 13 ;
 
     /*^iniobj*/
 
@@ -14384,8 +14614,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V980*/ meltfptr[979] = (melt_ptr_t) &meltcdat->dstr_898__SUCME_COMMENT;
     meltcdat->dstr_898__SUCME_COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_898__SUCME_COMMENT.val, "SUCME_COMMENT", sizeof (meltcdat->dstr_898__SUCME_COMMENT.val)-1);
-    meltcdat->dstr_898__SUCME_COMMENT.val[13] = (char)0;
-    meltcdat->dstr_898__SUCME_COMMENT.slen = 13;
+    meltcdat->dstr_898__SUCME_COMMENT.val[13] = (char)0 ;
+    meltcdat->dstr_898__SUCME_COMMENT.slen = 13 ;
 
 
     /*iniobj dsym_899__CLASS_SOURCE_FETCH_PREDEFINED*/
@@ -14402,8 +14632,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V985*/ meltfptr[984] = (melt_ptr_t) &meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE;
     meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE.val, "CLASS_SOURCE_FETCH_PREDEFINED", sizeof (meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE.val)-1);
-    meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE.val[29] = (char)0;
-    meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE.slen = 29;
+    meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE.val[29] = (char)0 ;
+    meltcdat->dstr_900__CLASS_SOURCE_FETCH_PREDE.slen = 29 ;
 
     MELT_LOCATION("warmelt-macro.melt:766:/ iniobj");
 
@@ -14421,8 +14651,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V987*/ meltfptr[986] = (melt_ptr_t) &meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE;
     meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE.val, "CLASS_SOURCE_FETCH_PREDEFINED", sizeof (meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE.val)-1);
-    meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE.val[29] = (char)0;
-    meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE.slen = 29;
+    meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE.val[29] = (char)0 ;
+    meltcdat->dstr_902__CLASS_SOURCE_FETCH_PREDE.slen = 29 ;
 
     /*inimult dtup_903_syCLASS_SOURCE_FETCH_PREDEFINED*/
     /*_._VALTUP___V988*/ meltfptr[987] = (melt_ptr_t) &meltcdat->dtup_903_syCLASS_SOURCE_FETCH_PREDEFINED;
@@ -14447,8 +14677,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V993*/ meltfptr[992] = (melt_ptr_t) &meltcdat->dstr_906__SFEPD_PREDEF;
     meltcdat->dstr_906__SFEPD_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_906__SFEPD_PREDEF.val, "SFEPD_PREDEF", sizeof (meltcdat->dstr_906__SFEPD_PREDEF.val)-1);
-    meltcdat->dstr_906__SFEPD_PREDEF.val[12] = (char)0;
-    meltcdat->dstr_906__SFEPD_PREDEF.slen = 12;
+    meltcdat->dstr_906__SFEPD_PREDEF.val[12] = (char)0 ;
+    meltcdat->dstr_906__SFEPD_PREDEF.slen = 12 ;
 
     /*^iniobj*/
 
@@ -14466,8 +14696,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V990*/ meltfptr[989] = (melt_ptr_t) &meltcdat->dstr_908__SFEPD_PREDEF;
     meltcdat->dstr_908__SFEPD_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_908__SFEPD_PREDEF.val, "SFEPD_PREDEF", sizeof (meltcdat->dstr_908__SFEPD_PREDEF.val)-1);
-    meltcdat->dstr_908__SFEPD_PREDEF.val[12] = (char)0;
-    meltcdat->dstr_908__SFEPD_PREDEF.slen = 12;
+    meltcdat->dstr_908__SFEPD_PREDEF.val[12] = (char)0 ;
+    meltcdat->dstr_908__SFEPD_PREDEF.slen = 12 ;
 
 
     /*iniobj dsym_909__CLASS_SOURCE_STORE_PREDEFINED*/
@@ -14484,8 +14714,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V995*/ meltfptr[994] = (melt_ptr_t) &meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE;
     meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE.val, "CLASS_SOURCE_STORE_PREDEFINED", sizeof (meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE.val)-1);
-    meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE.val[29] = (char)0;
-    meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE.slen = 29;
+    meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE.val[29] = (char)0 ;
+    meltcdat->dstr_910__CLASS_SOURCE_STORE_PREDE.slen = 29 ;
 
     MELT_LOCATION("warmelt-macro.melt:772:/ iniobj");
 
@@ -14503,8 +14733,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V997*/ meltfptr[996] = (melt_ptr_t) &meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE;
     meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE.val, "CLASS_SOURCE_STORE_PREDEFINED", sizeof (meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE.val)-1);
-    meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE.val[29] = (char)0;
-    meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE.slen = 29;
+    meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE.val[29] = (char)0 ;
+    meltcdat->dstr_912__CLASS_SOURCE_STORE_PREDE.slen = 29 ;
 
     /*inimult dtup_913_syCLASS_SOURCE_STORE_PREDEFINED*/
     /*_._VALTUP___V998*/ meltfptr[997] = (melt_ptr_t) &meltcdat->dtup_913_syCLASS_SOURCE_STORE_PREDEFINED;
@@ -14529,8 +14759,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1005*/ meltfptr[1004] = (melt_ptr_t) &meltcdat->dstr_916__SSTPD_PREDEF;
     meltcdat->dstr_916__SSTPD_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_916__SSTPD_PREDEF.val, "SSTPD_PREDEF", sizeof (meltcdat->dstr_916__SSTPD_PREDEF.val)-1);
-    meltcdat->dstr_916__SSTPD_PREDEF.val[12] = (char)0;
-    meltcdat->dstr_916__SSTPD_PREDEF.slen = 12;
+    meltcdat->dstr_916__SSTPD_PREDEF.val[12] = (char)0 ;
+    meltcdat->dstr_916__SSTPD_PREDEF.slen = 12 ;
 
     /*^iniobj*/
 
@@ -14548,8 +14778,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1000*/ meltfptr[999] = (melt_ptr_t) &meltcdat->dstr_918__SSTPD_PREDEF;
     meltcdat->dstr_918__SSTPD_PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_918__SSTPD_PREDEF.val, "SSTPD_PREDEF", sizeof (meltcdat->dstr_918__SSTPD_PREDEF.val)-1);
-    meltcdat->dstr_918__SSTPD_PREDEF.val[12] = (char)0;
-    meltcdat->dstr_918__SSTPD_PREDEF.slen = 12;
+    meltcdat->dstr_918__SSTPD_PREDEF.val[12] = (char)0 ;
+    meltcdat->dstr_918__SSTPD_PREDEF.slen = 12 ;
 
 
     /*iniobj dsym_919__SSTPD_VALUE*/
@@ -14566,8 +14796,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1007*/ meltfptr[1006] = (melt_ptr_t) &meltcdat->dstr_920__SSTPD_VALUE;
     meltcdat->dstr_920__SSTPD_VALUE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_920__SSTPD_VALUE.val, "SSTPD_VALUE", sizeof (meltcdat->dstr_920__SSTPD_VALUE.val)-1);
-    meltcdat->dstr_920__SSTPD_VALUE.val[11] = (char)0;
-    meltcdat->dstr_920__SSTPD_VALUE.slen = 11;
+    meltcdat->dstr_920__SSTPD_VALUE.val[11] = (char)0 ;
+    meltcdat->dstr_920__SSTPD_VALUE.slen = 11 ;
 
     /*^iniobj*/
 
@@ -14585,8 +14815,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1002*/ meltfptr[1001] = (melt_ptr_t) &meltcdat->dstr_922__SSTPD_VALUE;
     meltcdat->dstr_922__SSTPD_VALUE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_922__SSTPD_VALUE.val, "SSTPD_VALUE", sizeof (meltcdat->dstr_922__SSTPD_VALUE.val)-1);
-    meltcdat->dstr_922__SSTPD_VALUE.val[11] = (char)0;
-    meltcdat->dstr_922__SSTPD_VALUE.slen = 11;
+    meltcdat->dstr_922__SSTPD_VALUE.val[11] = (char)0 ;
+    meltcdat->dstr_922__SSTPD_VALUE.slen = 11 ;
 
 
     /*iniobj dsym_923__CLASS_SOURCE_PROTOCHUNK*/
@@ -14603,8 +14833,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1009*/ meltfptr[1008] = (melt_ptr_t) &meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK;
     meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK.val, "CLASS_SOURCE_PROTOCHUNK", sizeof (meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK.val)-1);
-    meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK.val[23] = (char)0;
-    meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK.slen = 23;
+    meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK.val[23] = (char)0 ;
+    meltcdat->dstr_924__CLASS_SOURCE_PROTOCHUNK.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:780:/ iniobj");
 
@@ -14622,8 +14852,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1011*/ meltfptr[1010] = (melt_ptr_t) &meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK;
     meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK.val, "CLASS_SOURCE_PROTOCHUNK", sizeof (meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK.val)-1);
-    meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK.val[23] = (char)0;
-    meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK.slen = 23;
+    meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK.val[23] = (char)0 ;
+    meltcdat->dstr_926__CLASS_SOURCE_PROTOCHUNK.slen = 23 ;
 
     /*inimult dtup_927_syCLASS_SOURCE_PROTOCHUNK*/
     /*_._VALTUP___V1012*/ meltfptr[1011] = (melt_ptr_t) &meltcdat->dtup_927_syCLASS_SOURCE_PROTOCHUNK;
@@ -14648,8 +14878,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1019*/ meltfptr[1018] = (melt_ptr_t) &meltcdat->dstr_930__SCH_GENSYM;
     meltcdat->dstr_930__SCH_GENSYM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_930__SCH_GENSYM.val, "SCH_GENSYM", sizeof (meltcdat->dstr_930__SCH_GENSYM.val)-1);
-    meltcdat->dstr_930__SCH_GENSYM.val[10] = (char)0;
-    meltcdat->dstr_930__SCH_GENSYM.slen = 10;
+    meltcdat->dstr_930__SCH_GENSYM.val[10] = (char)0 ;
+    meltcdat->dstr_930__SCH_GENSYM.slen = 10 ;
 
     /*^iniobj*/
 
@@ -14667,8 +14897,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1014*/ meltfptr[1013] = (melt_ptr_t) &meltcdat->dstr_932__SCH_GENSYM;
     meltcdat->dstr_932__SCH_GENSYM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_932__SCH_GENSYM.val, "SCH_GENSYM", sizeof (meltcdat->dstr_932__SCH_GENSYM.val)-1);
-    meltcdat->dstr_932__SCH_GENSYM.val[10] = (char)0;
-    meltcdat->dstr_932__SCH_GENSYM.slen = 10;
+    meltcdat->dstr_932__SCH_GENSYM.val[10] = (char)0 ;
+    meltcdat->dstr_932__SCH_GENSYM.slen = 10 ;
 
 
     /*iniobj dsym_933__SCH_CHUNKS*/
@@ -14685,8 +14915,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1021*/ meltfptr[1020] = (melt_ptr_t) &meltcdat->dstr_934__SCH_CHUNKS;
     meltcdat->dstr_934__SCH_CHUNKS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_934__SCH_CHUNKS.val, "SCH_CHUNKS", sizeof (meltcdat->dstr_934__SCH_CHUNKS.val)-1);
-    meltcdat->dstr_934__SCH_CHUNKS.val[10] = (char)0;
-    meltcdat->dstr_934__SCH_CHUNKS.slen = 10;
+    meltcdat->dstr_934__SCH_CHUNKS.val[10] = (char)0 ;
+    meltcdat->dstr_934__SCH_CHUNKS.slen = 10 ;
 
     /*^iniobj*/
 
@@ -14704,8 +14934,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1016*/ meltfptr[1015] = (melt_ptr_t) &meltcdat->dstr_936__SCH_CHUNKS;
     meltcdat->dstr_936__SCH_CHUNKS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_936__SCH_CHUNKS.val, "SCH_CHUNKS", sizeof (meltcdat->dstr_936__SCH_CHUNKS.val)-1);
-    meltcdat->dstr_936__SCH_CHUNKS.val[10] = (char)0;
-    meltcdat->dstr_936__SCH_CHUNKS.slen = 10;
+    meltcdat->dstr_936__SCH_CHUNKS.val[10] = (char)0 ;
+    meltcdat->dstr_936__SCH_CHUNKS.slen = 10 ;
 
 
     /*iniobj dsym_937__CLASS_SOURCE_CODECHUNK*/
@@ -14722,8 +14952,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1023*/ meltfptr[1022] = (melt_ptr_t) &meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK;
     meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK.val, "CLASS_SOURCE_CODECHUNK", sizeof (meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK.val)-1);
-    meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK.val[22] = (char)0;
-    meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK.slen = 22;
+    meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK.val[22] = (char)0 ;
+    meltcdat->dstr_938__CLASS_SOURCE_CODECHUNK.slen = 22 ;
 
     MELT_LOCATION("warmelt-macro.melt:788:/ iniobj");
 
@@ -14741,8 +14971,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1025*/ meltfptr[1024] = (melt_ptr_t) &meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK;
     meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK.val, "CLASS_SOURCE_CODECHUNK", sizeof (meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK.val)-1);
-    meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK.val[22] = (char)0;
-    meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK.slen = 22;
+    meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK.val[22] = (char)0 ;
+    meltcdat->dstr_940__CLASS_SOURCE_CODECHUNK.slen = 22 ;
 
     /*inimult dtup_941_syCLASS_SOURCE_CODECHUNK*/
     /*_._VALTUP___V1026*/ meltfptr[1025] = (melt_ptr_t) &meltcdat->dtup_941_syCLASS_SOURCE_CODECHUNK;
@@ -14767,8 +14997,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1029*/ meltfptr[1028] = (melt_ptr_t) &meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK;
     meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK.val, "CLASS_SOURCE_EXPRCHUNK", sizeof (meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK.val)-1);
-    meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK.val[22] = (char)0;
-    meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK.slen = 22;
+    meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK.val[22] = (char)0 ;
+    meltcdat->dstr_944__CLASS_SOURCE_EXPRCHUNK.slen = 22 ;
 
     MELT_LOCATION("warmelt-macro.melt:794:/ iniobj");
 
@@ -14786,8 +15016,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1031*/ meltfptr[1030] = (melt_ptr_t) &meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK;
     meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK.val, "CLASS_SOURCE_EXPRCHUNK", sizeof (meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK.val)-1);
-    meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK.val[22] = (char)0;
-    meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK.slen = 22;
+    meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK.val[22] = (char)0 ;
+    meltcdat->dstr_946__CLASS_SOURCE_EXPRCHUNK.slen = 22 ;
 
     /*inimult dtup_947_syCLASS_SOURCE_EXPRCHUNK*/
     /*_._VALTUP___V1032*/ meltfptr[1031] = (melt_ptr_t) &meltcdat->dtup_947_syCLASS_SOURCE_EXPRCHUNK;
@@ -14812,8 +15042,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1037*/ meltfptr[1036] = (melt_ptr_t) &meltcdat->dstr_950__SXCH_CTYPE;
     meltcdat->dstr_950__SXCH_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_950__SXCH_CTYPE.val, "SXCH_CTYPE", sizeof (meltcdat->dstr_950__SXCH_CTYPE.val)-1);
-    meltcdat->dstr_950__SXCH_CTYPE.val[10] = (char)0;
-    meltcdat->dstr_950__SXCH_CTYPE.slen = 10;
+    meltcdat->dstr_950__SXCH_CTYPE.val[10] = (char)0 ;
+    meltcdat->dstr_950__SXCH_CTYPE.slen = 10 ;
 
     /*^iniobj*/
 
@@ -14831,8 +15061,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1034*/ meltfptr[1033] = (melt_ptr_t) &meltcdat->dstr_952__SXCH_CTYPE;
     meltcdat->dstr_952__SXCH_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_952__SXCH_CTYPE.val, "SXCH_CTYPE", sizeof (meltcdat->dstr_952__SXCH_CTYPE.val)-1);
-    meltcdat->dstr_952__SXCH_CTYPE.val[10] = (char)0;
-    meltcdat->dstr_952__SXCH_CTYPE.slen = 10;
+    meltcdat->dstr_952__SXCH_CTYPE.val[10] = (char)0 ;
+    meltcdat->dstr_952__SXCH_CTYPE.slen = 10 ;
 
 
     /*iniobj dsym_953__CLASS_SOURCE_PATTERN*/
@@ -14849,8 +15079,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1039*/ meltfptr[1038] = (melt_ptr_t) &meltcdat->dstr_954__CLASS_SOURCE_PATTERN;
     meltcdat->dstr_954__CLASS_SOURCE_PATTERN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_954__CLASS_SOURCE_PATTERN.val, "CLASS_SOURCE_PATTERN", sizeof (meltcdat->dstr_954__CLASS_SOURCE_PATTERN.val)-1);
-    meltcdat->dstr_954__CLASS_SOURCE_PATTERN.val[20] = (char)0;
-    meltcdat->dstr_954__CLASS_SOURCE_PATTERN.slen = 20;
+    meltcdat->dstr_954__CLASS_SOURCE_PATTERN.val[20] = (char)0 ;
+    meltcdat->dstr_954__CLASS_SOURCE_PATTERN.slen = 20 ;
 
     MELT_LOCATION("warmelt-macro.melt:801:/ iniobj");
 
@@ -14868,8 +15098,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1041*/ meltfptr[1040] = (melt_ptr_t) &meltcdat->dstr_956__CLASS_SOURCE_PATTERN;
     meltcdat->dstr_956__CLASS_SOURCE_PATTERN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_956__CLASS_SOURCE_PATTERN.val, "CLASS_SOURCE_PATTERN", sizeof (meltcdat->dstr_956__CLASS_SOURCE_PATTERN.val)-1);
-    meltcdat->dstr_956__CLASS_SOURCE_PATTERN.val[20] = (char)0;
-    meltcdat->dstr_956__CLASS_SOURCE_PATTERN.slen = 20;
+    meltcdat->dstr_956__CLASS_SOURCE_PATTERN.val[20] = (char)0 ;
+    meltcdat->dstr_956__CLASS_SOURCE_PATTERN.slen = 20 ;
 
     /*inimult dtup_957_syCLASS_SOURCE_PATTERN*/
     /*_._VALTUP___V1042*/ meltfptr[1041] = (melt_ptr_t) &meltcdat->dtup_957_syCLASS_SOURCE_PATTERN;
@@ -14894,8 +15124,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1047*/ meltfptr[1046] = (melt_ptr_t) &meltcdat->dstr_960__PAT_WEIGHT;
     meltcdat->dstr_960__PAT_WEIGHT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_960__PAT_WEIGHT.val, "PAT_WEIGHT", sizeof (meltcdat->dstr_960__PAT_WEIGHT.val)-1);
-    meltcdat->dstr_960__PAT_WEIGHT.val[10] = (char)0;
-    meltcdat->dstr_960__PAT_WEIGHT.slen = 10;
+    meltcdat->dstr_960__PAT_WEIGHT.val[10] = (char)0 ;
+    meltcdat->dstr_960__PAT_WEIGHT.slen = 10 ;
 
     /*^iniobj*/
 
@@ -14913,8 +15143,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1044*/ meltfptr[1043] = (melt_ptr_t) &meltcdat->dstr_962__PAT_WEIGHT;
     meltcdat->dstr_962__PAT_WEIGHT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_962__PAT_WEIGHT.val, "PAT_WEIGHT", sizeof (meltcdat->dstr_962__PAT_WEIGHT.val)-1);
-    meltcdat->dstr_962__PAT_WEIGHT.val[10] = (char)0;
-    meltcdat->dstr_962__PAT_WEIGHT.slen = 10;
+    meltcdat->dstr_962__PAT_WEIGHT.val[10] = (char)0 ;
+    meltcdat->dstr_962__PAT_WEIGHT.slen = 10 ;
 
 
     /*iniobj dsym_963__CLASS_SOURCE_PATTERN_OR*/
@@ -14931,8 +15161,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1049*/ meltfptr[1048] = (melt_ptr_t) &meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR;
     meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR.val, "CLASS_SOURCE_PATTERN_OR", sizeof (meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR.val)-1);
-    meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR.val[23] = (char)0;
-    meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR.slen = 23;
+    meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR.val[23] = (char)0 ;
+    meltcdat->dstr_964__CLASS_SOURCE_PATTERN_OR.slen = 23 ;
 
     MELT_LOCATION("warmelt-macro.melt:810:/ iniobj");
 
@@ -14950,8 +15180,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1051*/ meltfptr[1050] = (melt_ptr_t) &meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR;
     meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR.val, "CLASS_SOURCE_PATTERN_OR", sizeof (meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR.val)-1);
-    meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR.val[23] = (char)0;
-    meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR.slen = 23;
+    meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR.val[23] = (char)0 ;
+    meltcdat->dstr_966__CLASS_SOURCE_PATTERN_OR.slen = 23 ;
 
     /*inimult dtup_967_syCLASS_SOURCE_PATTERN_OR*/
     /*_._VALTUP___V1052*/ meltfptr[1051] = (melt_ptr_t) &meltcdat->dtup_967_syCLASS_SOURCE_PATTERN_OR;
@@ -14976,8 +15206,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1057*/ meltfptr[1056] = (melt_ptr_t) &meltcdat->dstr_970__ORPAT_DISJ;
     meltcdat->dstr_970__ORPAT_DISJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_970__ORPAT_DISJ.val, "ORPAT_DISJ", sizeof (meltcdat->dstr_970__ORPAT_DISJ.val)-1);
-    meltcdat->dstr_970__ORPAT_DISJ.val[10] = (char)0;
-    meltcdat->dstr_970__ORPAT_DISJ.slen = 10;
+    meltcdat->dstr_970__ORPAT_DISJ.val[10] = (char)0 ;
+    meltcdat->dstr_970__ORPAT_DISJ.slen = 10 ;
 
     /*^iniobj*/
 
@@ -14995,8 +15225,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1054*/ meltfptr[1053] = (melt_ptr_t) &meltcdat->dstr_972__ORPAT_DISJ;
     meltcdat->dstr_972__ORPAT_DISJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_972__ORPAT_DISJ.val, "ORPAT_DISJ", sizeof (meltcdat->dstr_972__ORPAT_DISJ.val)-1);
-    meltcdat->dstr_972__ORPAT_DISJ.val[10] = (char)0;
-    meltcdat->dstr_972__ORPAT_DISJ.slen = 10;
+    meltcdat->dstr_972__ORPAT_DISJ.val[10] = (char)0 ;
+    meltcdat->dstr_972__ORPAT_DISJ.slen = 10 ;
 
 
     /*iniobj dsym_973__CLASS_SOURCE_PATTERN_AND*/
@@ -15013,8 +15243,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1059*/ meltfptr[1058] = (melt_ptr_t) &meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND;
     meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND.val, "CLASS_SOURCE_PATTERN_AND", sizeof (meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND.val)-1);
-    meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND.val[24] = (char)0;
-    meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND.slen = 24;
+    meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND.val[24] = (char)0 ;
+    meltcdat->dstr_974__CLASS_SOURCE_PATTERN_AND.slen = 24 ;
 
     MELT_LOCATION("warmelt-macro.melt:819:/ iniobj");
 
@@ -15032,8 +15262,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1061*/ meltfptr[1060] = (melt_ptr_t) &meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND;
     meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND.val, "CLASS_SOURCE_PATTERN_AND", sizeof (meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND.val)-1);
-    meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND.val[24] = (char)0;
-    meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND.slen = 24;
+    meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND.val[24] = (char)0 ;
+    meltcdat->dstr_976__CLASS_SOURCE_PATTERN_AND.slen = 24 ;
 
     /*inimult dtup_977_syCLASS_SOURCE_PATTERN_AND*/
     /*_._VALTUP___V1062*/ meltfptr[1061] = (melt_ptr_t) &meltcdat->dtup_977_syCLASS_SOURCE_PATTERN_AND;
@@ -15058,8 +15288,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1067*/ meltfptr[1066] = (melt_ptr_t) &meltcdat->dstr_980__ANDPAT_CONJ;
     meltcdat->dstr_980__ANDPAT_CONJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_980__ANDPAT_CONJ.val, "ANDPAT_CONJ", sizeof (meltcdat->dstr_980__ANDPAT_CONJ.val)-1);
-    meltcdat->dstr_980__ANDPAT_CONJ.val[11] = (char)0;
-    meltcdat->dstr_980__ANDPAT_CONJ.slen = 11;
+    meltcdat->dstr_980__ANDPAT_CONJ.val[11] = (char)0 ;
+    meltcdat->dstr_980__ANDPAT_CONJ.slen = 11 ;
 
     /*^iniobj*/
 
@@ -15077,8 +15307,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1064*/ meltfptr[1063] = (melt_ptr_t) &meltcdat->dstr_982__ANDPAT_CONJ;
     meltcdat->dstr_982__ANDPAT_CONJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_982__ANDPAT_CONJ.val, "ANDPAT_CONJ", sizeof (meltcdat->dstr_982__ANDPAT_CONJ.val)-1);
-    meltcdat->dstr_982__ANDPAT_CONJ.val[11] = (char)0;
-    meltcdat->dstr_982__ANDPAT_CONJ.slen = 11;
+    meltcdat->dstr_982__ANDPAT_CONJ.val[11] = (char)0 ;
+    meltcdat->dstr_982__ANDPAT_CONJ.slen = 11 ;
 
 
     /*iniobj dsym_983__CLASS_SOURCE_PATTERN_WHEN*/
@@ -15095,8 +15325,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1069*/ meltfptr[1068] = (melt_ptr_t) &meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE;
     meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE.val, "CLASS_SOURCE_PATTERN_WHEN", sizeof (meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE.val)-1);
-    meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE.val[25] = (char)0;
-    meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE.slen = 25;
+    meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE.val[25] = (char)0 ;
+    meltcdat->dstr_984__CLASS_SOURCE_PATTERN_WHE.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:828:/ iniobj");
 
@@ -15114,8 +15344,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1071*/ meltfptr[1070] = (melt_ptr_t) &meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE;
     meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE.val, "CLASS_SOURCE_PATTERN_WHEN", sizeof (meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE.val)-1);
-    meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE.val[25] = (char)0;
-    meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE.slen = 25;
+    meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE.val[25] = (char)0 ;
+    meltcdat->dstr_986__CLASS_SOURCE_PATTERN_WHE.slen = 25 ;
 
     /*inimult dtup_987_syCLASS_SOURCE_PATTERN_WHEN*/
     /*_._VALTUP___V1072*/ meltfptr[1071] = (melt_ptr_t) &meltcdat->dtup_987_syCLASS_SOURCE_PATTERN_WHEN;
@@ -15140,8 +15370,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1079*/ meltfptr[1078] = (melt_ptr_t) &meltcdat->dstr_990__WHENPAT_SUBPAT;
     meltcdat->dstr_990__WHENPAT_SUBPAT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_990__WHENPAT_SUBPAT.val, "WHENPAT_SUBPAT", sizeof (meltcdat->dstr_990__WHENPAT_SUBPAT.val)-1);
-    meltcdat->dstr_990__WHENPAT_SUBPAT.val[14] = (char)0;
-    meltcdat->dstr_990__WHENPAT_SUBPAT.slen = 14;
+    meltcdat->dstr_990__WHENPAT_SUBPAT.val[14] = (char)0 ;
+    meltcdat->dstr_990__WHENPAT_SUBPAT.slen = 14 ;
 
     /*^iniobj*/
 
@@ -15159,8 +15389,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1074*/ meltfptr[1073] = (melt_ptr_t) &meltcdat->dstr_992__WHENPAT_SUBPAT;
     meltcdat->dstr_992__WHENPAT_SUBPAT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_992__WHENPAT_SUBPAT.val, "WHENPAT_SUBPAT", sizeof (meltcdat->dstr_992__WHENPAT_SUBPAT.val)-1);
-    meltcdat->dstr_992__WHENPAT_SUBPAT.val[14] = (char)0;
-    meltcdat->dstr_992__WHENPAT_SUBPAT.slen = 14;
+    meltcdat->dstr_992__WHENPAT_SUBPAT.val[14] = (char)0 ;
+    meltcdat->dstr_992__WHENPAT_SUBPAT.slen = 14 ;
 
 
     /*iniobj dsym_993__WHENPAT_COND*/
@@ -15177,8 +15407,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1081*/ meltfptr[1080] = (melt_ptr_t) &meltcdat->dstr_994__WHENPAT_COND;
     meltcdat->dstr_994__WHENPAT_COND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_994__WHENPAT_COND.val, "WHENPAT_COND", sizeof (meltcdat->dstr_994__WHENPAT_COND.val)-1);
-    meltcdat->dstr_994__WHENPAT_COND.val[12] = (char)0;
-    meltcdat->dstr_994__WHENPAT_COND.slen = 12;
+    meltcdat->dstr_994__WHENPAT_COND.val[12] = (char)0 ;
+    meltcdat->dstr_994__WHENPAT_COND.slen = 12 ;
 
     /*^iniobj*/
 
@@ -15196,8 +15426,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1076*/ meltfptr[1075] = (melt_ptr_t) &meltcdat->dstr_996__WHENPAT_COND;
     meltcdat->dstr_996__WHENPAT_COND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_996__WHENPAT_COND.val, "WHENPAT_COND", sizeof (meltcdat->dstr_996__WHENPAT_COND.val)-1);
-    meltcdat->dstr_996__WHENPAT_COND.val[12] = (char)0;
-    meltcdat->dstr_996__WHENPAT_COND.slen = 12;
+    meltcdat->dstr_996__WHENPAT_COND.val[12] = (char)0 ;
+    meltcdat->dstr_996__WHENPAT_COND.slen = 12 ;
 
 
     /*iniobj dsym_997__CLASS_SOURCE_PATTERN_VARIABLE*/
@@ -15214,8 +15444,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1083*/ meltfptr[1082] = (melt_ptr_t) &meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR;
     meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR.val, "CLASS_SOURCE_PATTERN_VARIABLE", sizeof (meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR.val)-1);
-    meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR.val[29] = (char)0;
-    meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR.slen = 29;
+    meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR.val[29] = (char)0 ;
+    meltcdat->dstr_998__CLASS_SOURCE_PATTERN_VAR.slen = 29 ;
 
     MELT_LOCATION("warmelt-macro.melt:840:/ iniobj");
 
@@ -15233,8 +15463,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1085*/ meltfptr[1084] = (melt_ptr_t) &meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR;
     meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR.val, "CLASS_SOURCE_PATTERN_VARIABLE", sizeof (meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR.val)-1);
-    meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR.val[29] = (char)0;
-    meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR.slen = 29;
+    meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR.val[29] = (char)0 ;
+    meltcdat->dstr_1000__CLASS_SOURCE_PATTERN_VAR.slen = 29 ;
 
     /*inimult dtup_1001_syCLASS_SOURCE_PATTERN_VARIABLE*/
     /*_._VALTUP___V1086*/ meltfptr[1085] = (melt_ptr_t) &meltcdat->dtup_1001_syCLASS_SOURCE_PATTERN_VARIABLE;
@@ -15259,8 +15489,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1093*/ meltfptr[1092] = (melt_ptr_t) &meltcdat->dstr_1004__SPATVAR_SYMB;
     meltcdat->dstr_1004__SPATVAR_SYMB.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1004__SPATVAR_SYMB.val, "SPATVAR_SYMB", sizeof (meltcdat->dstr_1004__SPATVAR_SYMB.val)-1);
-    meltcdat->dstr_1004__SPATVAR_SYMB.val[12] = (char)0;
-    meltcdat->dstr_1004__SPATVAR_SYMB.slen = 12;
+    meltcdat->dstr_1004__SPATVAR_SYMB.val[12] = (char)0 ;
+    meltcdat->dstr_1004__SPATVAR_SYMB.slen = 12 ;
 
     /*^iniobj*/
 
@@ -15278,8 +15508,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1088*/ meltfptr[1087] = (melt_ptr_t) &meltcdat->dstr_1006__SPATVAR_SYMB;
     meltcdat->dstr_1006__SPATVAR_SYMB.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1006__SPATVAR_SYMB.val, "SPATVAR_SYMB", sizeof (meltcdat->dstr_1006__SPATVAR_SYMB.val)-1);
-    meltcdat->dstr_1006__SPATVAR_SYMB.val[12] = (char)0;
-    meltcdat->dstr_1006__SPATVAR_SYMB.slen = 12;
+    meltcdat->dstr_1006__SPATVAR_SYMB.val[12] = (char)0 ;
+    meltcdat->dstr_1006__SPATVAR_SYMB.slen = 12 ;
 
 
     /*iniobj dsym_1007__SPATVAR_NBOCC*/
@@ -15296,8 +15526,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1095*/ meltfptr[1094] = (melt_ptr_t) &meltcdat->dstr_1008__SPATVAR_NBOCC;
     meltcdat->dstr_1008__SPATVAR_NBOCC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1008__SPATVAR_NBOCC.val, "SPATVAR_NBOCC", sizeof (meltcdat->dstr_1008__SPATVAR_NBOCC.val)-1);
-    meltcdat->dstr_1008__SPATVAR_NBOCC.val[13] = (char)0;
-    meltcdat->dstr_1008__SPATVAR_NBOCC.slen = 13;
+    meltcdat->dstr_1008__SPATVAR_NBOCC.val[13] = (char)0 ;
+    meltcdat->dstr_1008__SPATVAR_NBOCC.slen = 13 ;
 
     /*^iniobj*/
 
@@ -15315,8 +15545,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1090*/ meltfptr[1089] = (melt_ptr_t) &meltcdat->dstr_1010__SPATVAR_NBOCC;
     meltcdat->dstr_1010__SPATVAR_NBOCC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1010__SPATVAR_NBOCC.val, "SPATVAR_NBOCC", sizeof (meltcdat->dstr_1010__SPATVAR_NBOCC.val)-1);
-    meltcdat->dstr_1010__SPATVAR_NBOCC.val[13] = (char)0;
-    meltcdat->dstr_1010__SPATVAR_NBOCC.slen = 13;
+    meltcdat->dstr_1010__SPATVAR_NBOCC.val[13] = (char)0 ;
+    meltcdat->dstr_1010__SPATVAR_NBOCC.slen = 13 ;
 
 
     /*iniobj dsym_1011__SPAT_VAR*/
@@ -15333,8 +15563,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1097*/ meltfptr[1096] = (melt_ptr_t) &meltcdat->dstr_1012__SPAT_VAR;
     meltcdat->dstr_1012__SPAT_VAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1012__SPAT_VAR.val, "SPAT_VAR", sizeof (meltcdat->dstr_1012__SPAT_VAR.val)-1);
-    meltcdat->dstr_1012__SPAT_VAR.val[8] = (char)0;
-    meltcdat->dstr_1012__SPAT_VAR.slen = 8;
+    meltcdat->dstr_1012__SPAT_VAR.val[8] = (char)0 ;
+    meltcdat->dstr_1012__SPAT_VAR.slen = 8 ;
 
 
     /*iniobj dsym_1013__CLASS_SOURCE_PATTERN_JOKER_VARIABLE*/
@@ -15351,8 +15581,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1099*/ meltfptr[1098] = (melt_ptr_t) &meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK;
     meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK.val, "CLASS_SOURCE_PATTERN_JOKER_VARIABLE", sizeof (meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK.val)-1);
-    meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK.val[35] = (char)0;
-    meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK.slen = 35;
+    meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK.val[35] = (char)0 ;
+    meltcdat->dstr_1014__CLASS_SOURCE_PATTERN_JOK.slen = 35 ;
 
     MELT_LOCATION("warmelt-macro.melt:851:/ iniobj");
 
@@ -15370,8 +15600,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1101*/ meltfptr[1100] = (melt_ptr_t) &meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK;
     meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK.val, "CLASS_SOURCE_PATTERN_JOKER_VARIABLE", sizeof (meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK.val)-1);
-    meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK.val[35] = (char)0;
-    meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK.slen = 35;
+    meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK.val[35] = (char)0 ;
+    meltcdat->dstr_1016__CLASS_SOURCE_PATTERN_JOK.slen = 35 ;
 
     /*inimult dtup_1017_syCLASS_SOURCE_PATTERN_JOKER_VARIABLE*/
     /*_._VALTUP___V1102*/ meltfptr[1101] = (melt_ptr_t) &meltcdat->dtup_1017_syCLASS_SOURCE_PATTERN_JOKER_VARIABLE;
@@ -15396,8 +15626,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1105*/ meltfptr[1104] = (melt_ptr_t) &meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON;
     meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON.val, "CLASS_SOURCE_PATTERN_CONSTANT", sizeof (meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON.val)-1);
-    meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON.val[29] = (char)0;
-    meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON.slen = 29;
+    meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON.val[29] = (char)0 ;
+    meltcdat->dstr_1020__CLASS_SOURCE_PATTERN_CON.slen = 29 ;
 
     MELT_LOCATION("warmelt-macro.melt:858:/ iniobj");
 
@@ -15415,8 +15645,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1107*/ meltfptr[1106] = (melt_ptr_t) &meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON;
     meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON.val, "CLASS_SOURCE_PATTERN_CONSTANT", sizeof (meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON.val)-1);
-    meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON.val[29] = (char)0;
-    meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON.slen = 29;
+    meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON.val[29] = (char)0 ;
+    meltcdat->dstr_1022__CLASS_SOURCE_PATTERN_CON.slen = 29 ;
 
     /*inimult dtup_1023_syCLASS_SOURCE_PATTERN_CONSTANT*/
     /*_._VALTUP___V1108*/ meltfptr[1107] = (melt_ptr_t) &meltcdat->dtup_1023_syCLASS_SOURCE_PATTERN_CONSTANT;
@@ -15441,8 +15671,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1113*/ meltfptr[1112] = (melt_ptr_t) &meltcdat->dstr_1026__SPAT_CONSTX;
     meltcdat->dstr_1026__SPAT_CONSTX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1026__SPAT_CONSTX.val, "SPAT_CONSTX", sizeof (meltcdat->dstr_1026__SPAT_CONSTX.val)-1);
-    meltcdat->dstr_1026__SPAT_CONSTX.val[11] = (char)0;
-    meltcdat->dstr_1026__SPAT_CONSTX.slen = 11;
+    meltcdat->dstr_1026__SPAT_CONSTX.val[11] = (char)0 ;
+    meltcdat->dstr_1026__SPAT_CONSTX.slen = 11 ;
 
     /*^iniobj*/
 
@@ -15460,8 +15690,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1110*/ meltfptr[1109] = (melt_ptr_t) &meltcdat->dstr_1028__SPAT_CONSTX;
     meltcdat->dstr_1028__SPAT_CONSTX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1028__SPAT_CONSTX.val, "SPAT_CONSTX", sizeof (meltcdat->dstr_1028__SPAT_CONSTX.val)-1);
-    meltcdat->dstr_1028__SPAT_CONSTX.val[11] = (char)0;
-    meltcdat->dstr_1028__SPAT_CONSTX.slen = 11;
+    meltcdat->dstr_1028__SPAT_CONSTX.val[11] = (char)0 ;
+    meltcdat->dstr_1028__SPAT_CONSTX.slen = 11 ;
 
 
     /*iniobj dsym_1029__CLASS_SOURCE_PATTERN_CONSTRUCT*/
@@ -15478,8 +15708,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1115*/ meltfptr[1114] = (melt_ptr_t) &meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON;
     meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON.val, "CLASS_SOURCE_PATTERN_CONSTRUCT", sizeof (meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON.val)-1);
-    meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON.val[30] = (char)0;
-    meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON.slen = 30;
+    meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON.val[30] = (char)0 ;
+    meltcdat->dstr_1030__CLASS_SOURCE_PATTERN_CON.slen = 30 ;
 
     MELT_LOCATION("warmelt-macro.melt:867:/ iniobj");
 
@@ -15497,8 +15727,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1117*/ meltfptr[1116] = (melt_ptr_t) &meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON;
     meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON.val, "CLASS_SOURCE_PATTERN_CONSTRUCT", sizeof (meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON.val)-1);
-    meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON.val[30] = (char)0;
-    meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON.slen = 30;
+    meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON.val[30] = (char)0 ;
+    meltcdat->dstr_1032__CLASS_SOURCE_PATTERN_CON.slen = 30 ;
 
     /*inimult dtup_1033_syCLASS_SOURCE_PATTERN_CONSTRUCT*/
     /*_._VALTUP___V1118*/ meltfptr[1117] = (melt_ptr_t) &meltcdat->dtup_1033_syCLASS_SOURCE_PATTERN_CONSTRUCT;
@@ -15523,8 +15753,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1123*/ meltfptr[1122] = (melt_ptr_t) &meltcdat->dstr_1036__CTPAT_SUBPA;
     meltcdat->dstr_1036__CTPAT_SUBPA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1036__CTPAT_SUBPA.val, "CTPAT_SUBPA", sizeof (meltcdat->dstr_1036__CTPAT_SUBPA.val)-1);
-    meltcdat->dstr_1036__CTPAT_SUBPA.val[11] = (char)0;
-    meltcdat->dstr_1036__CTPAT_SUBPA.slen = 11;
+    meltcdat->dstr_1036__CTPAT_SUBPA.val[11] = (char)0 ;
+    meltcdat->dstr_1036__CTPAT_SUBPA.slen = 11 ;
 
     /*^iniobj*/
 
@@ -15542,8 +15772,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1120*/ meltfptr[1119] = (melt_ptr_t) &meltcdat->dstr_1038__CTPAT_SUBPA;
     meltcdat->dstr_1038__CTPAT_SUBPA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1038__CTPAT_SUBPA.val, "CTPAT_SUBPA", sizeof (meltcdat->dstr_1038__CTPAT_SUBPA.val)-1);
-    meltcdat->dstr_1038__CTPAT_SUBPA.val[11] = (char)0;
-    meltcdat->dstr_1038__CTPAT_SUBPA.slen = 11;
+    meltcdat->dstr_1038__CTPAT_SUBPA.val[11] = (char)0 ;
+    meltcdat->dstr_1038__CTPAT_SUBPA.slen = 11 ;
 
 
     /*iniobj dsym_1039__CLASS_SOURCE_PATTERN_TUPLE*/
@@ -15560,8 +15790,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1125*/ meltfptr[1124] = (melt_ptr_t) &meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP;
     meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP.val, "CLASS_SOURCE_PATTERN_TUPLE", sizeof (meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP.val)-1);
-    meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP.val[26] = (char)0;
-    meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP.slen = 26;
+    meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP.val[26] = (char)0 ;
+    meltcdat->dstr_1040__CLASS_SOURCE_PATTERN_TUP.slen = 26 ;
 
     MELT_LOCATION("warmelt-macro.melt:876:/ iniobj");
 
@@ -15579,8 +15809,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1127*/ meltfptr[1126] = (melt_ptr_t) &meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP;
     meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP.val, "CLASS_SOURCE_PATTERN_TUPLE", sizeof (meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP.val)-1);
-    meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP.val[26] = (char)0;
-    meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP.slen = 26;
+    meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP.val[26] = (char)0 ;
+    meltcdat->dstr_1042__CLASS_SOURCE_PATTERN_TUP.slen = 26 ;
 
     /*inimult dtup_1043_syCLASS_SOURCE_PATTERN_TUPLE*/
     /*_._VALTUP___V1128*/ meltfptr[1127] = (melt_ptr_t) &meltcdat->dtup_1043_syCLASS_SOURCE_PATTERN_TUPLE;
@@ -15605,8 +15835,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1131*/ meltfptr[1130] = (melt_ptr_t) &meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS;
     meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS.val, "CLASS_SOURCE_PATTERN_LIST", sizeof (meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS.val)-1);
-    meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS.val[25] = (char)0;
-    meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS.slen = 25;
+    meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS.val[25] = (char)0 ;
+    meltcdat->dstr_1046__CLASS_SOURCE_PATTERN_LIS.slen = 25 ;
 
     MELT_LOCATION("warmelt-macro.melt:883:/ iniobj");
 
@@ -15624,8 +15854,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1133*/ meltfptr[1132] = (melt_ptr_t) &meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS;
     meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS.val, "CLASS_SOURCE_PATTERN_LIST", sizeof (meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS.val)-1);
-    meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS.val[25] = (char)0;
-    meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS.slen = 25;
+    meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS.val[25] = (char)0 ;
+    meltcdat->dstr_1048__CLASS_SOURCE_PATTERN_LIS.slen = 25 ;
 
     /*inimult dtup_1049_syCLASS_SOURCE_PATTERN_LIST*/
     /*_._VALTUP___V1134*/ meltfptr[1133] = (melt_ptr_t) &meltcdat->dtup_1049_syCLASS_SOURCE_PATTERN_LIST;
@@ -15650,8 +15880,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1137*/ meltfptr[1136] = (melt_ptr_t) &meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ;
     meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ.val, "CLASS_SOURCE_PATTERN_OBJECT", sizeof (meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ.val)-1);
-    meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ.val[27] = (char)0;
-    meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ.slen = 27;
+    meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ.val[27] = (char)0 ;
+    meltcdat->dstr_1052__CLASS_SOURCE_PATTERN_OBJ.slen = 27 ;
 
     MELT_LOCATION("warmelt-macro.melt:891:/ iniobj");
 
@@ -15669,8 +15899,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1139*/ meltfptr[1138] = (melt_ptr_t) &meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ;
     meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ.val, "CLASS_SOURCE_PATTERN_OBJECT", sizeof (meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ.val)-1);
-    meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ.val[27] = (char)0;
-    meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ.slen = 27;
+    meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ.val[27] = (char)0 ;
+    meltcdat->dstr_1054__CLASS_SOURCE_PATTERN_OBJ.slen = 27 ;
 
     /*inimult dtup_1055_syCLASS_SOURCE_PATTERN_OBJECT*/
     /*_._VALTUP___V1140*/ meltfptr[1139] = (melt_ptr_t) &meltcdat->dtup_1055_syCLASS_SOURCE_PATTERN_OBJECT;
@@ -15695,8 +15925,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1147*/ meltfptr[1146] = (melt_ptr_t) &meltcdat->dstr_1058__SPAT_CLASS;
     meltcdat->dstr_1058__SPAT_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1058__SPAT_CLASS.val, "SPAT_CLASS", sizeof (meltcdat->dstr_1058__SPAT_CLASS.val)-1);
-    meltcdat->dstr_1058__SPAT_CLASS.val[10] = (char)0;
-    meltcdat->dstr_1058__SPAT_CLASS.slen = 10;
+    meltcdat->dstr_1058__SPAT_CLASS.val[10] = (char)0 ;
+    meltcdat->dstr_1058__SPAT_CLASS.slen = 10 ;
 
     /*^iniobj*/
 
@@ -15714,8 +15944,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1142*/ meltfptr[1141] = (melt_ptr_t) &meltcdat->dstr_1060__SPAT_CLASS;
     meltcdat->dstr_1060__SPAT_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1060__SPAT_CLASS.val, "SPAT_CLASS", sizeof (meltcdat->dstr_1060__SPAT_CLASS.val)-1);
-    meltcdat->dstr_1060__SPAT_CLASS.val[10] = (char)0;
-    meltcdat->dstr_1060__SPAT_CLASS.slen = 10;
+    meltcdat->dstr_1060__SPAT_CLASS.val[10] = (char)0 ;
+    meltcdat->dstr_1060__SPAT_CLASS.slen = 10 ;
 
 
     /*iniobj dsym_1061__SPAT_FIELDS*/
@@ -15732,8 +15962,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1149*/ meltfptr[1148] = (melt_ptr_t) &meltcdat->dstr_1062__SPAT_FIELDS;
     meltcdat->dstr_1062__SPAT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1062__SPAT_FIELDS.val, "SPAT_FIELDS", sizeof (meltcdat->dstr_1062__SPAT_FIELDS.val)-1);
-    meltcdat->dstr_1062__SPAT_FIELDS.val[11] = (char)0;
-    meltcdat->dstr_1062__SPAT_FIELDS.slen = 11;
+    meltcdat->dstr_1062__SPAT_FIELDS.val[11] = (char)0 ;
+    meltcdat->dstr_1062__SPAT_FIELDS.slen = 11 ;
 
     /*^iniobj*/
 
@@ -15751,8 +15981,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1144*/ meltfptr[1143] = (melt_ptr_t) &meltcdat->dstr_1064__SPAT_FIELDS;
     meltcdat->dstr_1064__SPAT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1064__SPAT_FIELDS.val, "SPAT_FIELDS", sizeof (meltcdat->dstr_1064__SPAT_FIELDS.val)-1);
-    meltcdat->dstr_1064__SPAT_FIELDS.val[11] = (char)0;
-    meltcdat->dstr_1064__SPAT_FIELDS.slen = 11;
+    meltcdat->dstr_1064__SPAT_FIELDS.val[11] = (char)0 ;
+    meltcdat->dstr_1064__SPAT_FIELDS.slen = 11 ;
 
 
     /*iniobj dsym_1065__CLASS_SOURCE_PATTERN_INSTANCE*/
@@ -15769,8 +15999,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1151*/ meltfptr[1150] = (melt_ptr_t) &meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS;
     meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS.val, "CLASS_SOURCE_PATTERN_INSTANCE", sizeof (meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS.val)-1);
-    meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS.val[29] = (char)0;
-    meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS.slen = 29;
+    meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS.val[29] = (char)0 ;
+    meltcdat->dstr_1066__CLASS_SOURCE_PATTERN_INS.slen = 29 ;
 
     MELT_LOCATION("warmelt-macro.melt:903:/ iniobj");
 
@@ -15788,8 +16018,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1153*/ meltfptr[1152] = (melt_ptr_t) &meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS;
     meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS.val, "CLASS_SOURCE_PATTERN_INSTANCE", sizeof (meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS.val)-1);
-    meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS.val[29] = (char)0;
-    meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS.slen = 29;
+    meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS.val[29] = (char)0 ;
+    meltcdat->dstr_1068__CLASS_SOURCE_PATTERN_INS.slen = 29 ;
 
     /*inimult dtup_1069_syCLASS_SOURCE_PATTERN_INSTANCE*/
     /*_._VALTUP___V1154*/ meltfptr[1153] = (melt_ptr_t) &meltcdat->dtup_1069_syCLASS_SOURCE_PATTERN_INSTANCE;
@@ -15814,8 +16044,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1157*/ meltfptr[1156] = (melt_ptr_t) &meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE;
     meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE.val, "CLASS_SOURCE_FIELD_PATTERN", sizeof (meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE.val)-1);
-    meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE.val[26] = (char)0;
-    meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE.slen = 26;
+    meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE.val[26] = (char)0 ;
+    meltcdat->dstr_1072__CLASS_SOURCE_FIELD_PATTE.slen = 26 ;
 
     MELT_LOCATION("warmelt-macro.melt:911:/ iniobj");
 
@@ -15833,8 +16063,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1159*/ meltfptr[1158] = (melt_ptr_t) &meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE;
     meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE.val, "CLASS_SOURCE_FIELD_PATTERN", sizeof (meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE.val)-1);
-    meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE.val[26] = (char)0;
-    meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE.slen = 26;
+    meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE.val[26] = (char)0 ;
+    meltcdat->dstr_1074__CLASS_SOURCE_FIELD_PATTE.slen = 26 ;
 
     /*inimult dtup_1075_syCLASS_SOURCE_FIELD_PATTERN*/
     /*_._VALTUP___V1160*/ meltfptr[1159] = (melt_ptr_t) &meltcdat->dtup_1075_syCLASS_SOURCE_FIELD_PATTERN;
@@ -15859,8 +16089,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1167*/ meltfptr[1166] = (melt_ptr_t) &meltcdat->dstr_1078__SPAF_FIELD;
     meltcdat->dstr_1078__SPAF_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1078__SPAF_FIELD.val, "SPAF_FIELD", sizeof (meltcdat->dstr_1078__SPAF_FIELD.val)-1);
-    meltcdat->dstr_1078__SPAF_FIELD.val[10] = (char)0;
-    meltcdat->dstr_1078__SPAF_FIELD.slen = 10;
+    meltcdat->dstr_1078__SPAF_FIELD.val[10] = (char)0 ;
+    meltcdat->dstr_1078__SPAF_FIELD.slen = 10 ;
 
     /*^iniobj*/
 
@@ -15878,8 +16108,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1162*/ meltfptr[1161] = (melt_ptr_t) &meltcdat->dstr_1080__SPAF_FIELD;
     meltcdat->dstr_1080__SPAF_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1080__SPAF_FIELD.val, "SPAF_FIELD", sizeof (meltcdat->dstr_1080__SPAF_FIELD.val)-1);
-    meltcdat->dstr_1080__SPAF_FIELD.val[10] = (char)0;
-    meltcdat->dstr_1080__SPAF_FIELD.slen = 10;
+    meltcdat->dstr_1080__SPAF_FIELD.val[10] = (char)0 ;
+    meltcdat->dstr_1080__SPAF_FIELD.slen = 10 ;
 
 
     /*iniobj dsym_1081__SPAF_PATTERN*/
@@ -15896,8 +16126,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1169*/ meltfptr[1168] = (melt_ptr_t) &meltcdat->dstr_1082__SPAF_PATTERN;
     meltcdat->dstr_1082__SPAF_PATTERN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1082__SPAF_PATTERN.val, "SPAF_PATTERN", sizeof (meltcdat->dstr_1082__SPAF_PATTERN.val)-1);
-    meltcdat->dstr_1082__SPAF_PATTERN.val[12] = (char)0;
-    meltcdat->dstr_1082__SPAF_PATTERN.slen = 12;
+    meltcdat->dstr_1082__SPAF_PATTERN.val[12] = (char)0 ;
+    meltcdat->dstr_1082__SPAF_PATTERN.slen = 12 ;
 
     /*^iniobj*/
 
@@ -15915,8 +16145,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1164*/ meltfptr[1163] = (melt_ptr_t) &meltcdat->dstr_1084__SPAF_PATTERN;
     meltcdat->dstr_1084__SPAF_PATTERN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1084__SPAF_PATTERN.val, "SPAF_PATTERN", sizeof (meltcdat->dstr_1084__SPAF_PATTERN.val)-1);
-    meltcdat->dstr_1084__SPAF_PATTERN.val[12] = (char)0;
-    meltcdat->dstr_1084__SPAF_PATTERN.slen = 12;
+    meltcdat->dstr_1084__SPAF_PATTERN.val[12] = (char)0 ;
+    meltcdat->dstr_1084__SPAF_PATTERN.slen = 12 ;
 
 
     /*iniobj dsym_1085__CLASS_SOURCE_PATTERN_COMPOSITE*/
@@ -15933,8 +16163,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1171*/ meltfptr[1170] = (melt_ptr_t) &meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM;
     meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM.val, "CLASS_SOURCE_PATTERN_COMPOSITE", sizeof (meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM.val)-1);
-    meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM.val[30] = (char)0;
-    meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM.slen = 30;
+    meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM.val[30] = (char)0 ;
+    meltcdat->dstr_1086__CLASS_SOURCE_PATTERN_COM.slen = 30 ;
 
     MELT_LOCATION("warmelt-macro.melt:922:/ iniobj");
 
@@ -15952,8 +16182,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1173*/ meltfptr[1172] = (melt_ptr_t) &meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM;
     meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM.val, "CLASS_SOURCE_PATTERN_COMPOSITE", sizeof (meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM.val)-1);
-    meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM.val[30] = (char)0;
-    meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM.slen = 30;
+    meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM.val[30] = (char)0 ;
+    meltcdat->dstr_1088__CLASS_SOURCE_PATTERN_COM.slen = 30 ;
 
     /*inimult dtup_1089_syCLASS_SOURCE_PATTERN_COMPOSITE*/
     /*_._VALTUP___V1174*/ meltfptr[1173] = (melt_ptr_t) &meltcdat->dtup_1089_syCLASS_SOURCE_PATTERN_COMPOSITE;
@@ -15978,8 +16208,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1185*/ meltfptr[1184] = (melt_ptr_t) &meltcdat->dstr_1092__SPAC_OPERATOR;
     meltcdat->dstr_1092__SPAC_OPERATOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1092__SPAC_OPERATOR.val, "SPAC_OPERATOR", sizeof (meltcdat->dstr_1092__SPAC_OPERATOR.val)-1);
-    meltcdat->dstr_1092__SPAC_OPERATOR.val[13] = (char)0;
-    meltcdat->dstr_1092__SPAC_OPERATOR.slen = 13;
+    meltcdat->dstr_1092__SPAC_OPERATOR.val[13] = (char)0 ;
+    meltcdat->dstr_1092__SPAC_OPERATOR.slen = 13 ;
 
     /*^iniobj*/
 
@@ -15997,8 +16227,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1176*/ meltfptr[1175] = (melt_ptr_t) &meltcdat->dstr_1094__SPAC_OPERATOR;
     meltcdat->dstr_1094__SPAC_OPERATOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1094__SPAC_OPERATOR.val, "SPAC_OPERATOR", sizeof (meltcdat->dstr_1094__SPAC_OPERATOR.val)-1);
-    meltcdat->dstr_1094__SPAC_OPERATOR.val[13] = (char)0;
-    meltcdat->dstr_1094__SPAC_OPERATOR.slen = 13;
+    meltcdat->dstr_1094__SPAC_OPERATOR.val[13] = (char)0 ;
+    meltcdat->dstr_1094__SPAC_OPERATOR.slen = 13 ;
 
 
     /*iniobj dsym_1095__SPAC_OPERBIND*/
@@ -16015,8 +16245,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1187*/ meltfptr[1186] = (melt_ptr_t) &meltcdat->dstr_1096__SPAC_OPERBIND;
     meltcdat->dstr_1096__SPAC_OPERBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1096__SPAC_OPERBIND.val, "SPAC_OPERBIND", sizeof (meltcdat->dstr_1096__SPAC_OPERBIND.val)-1);
-    meltcdat->dstr_1096__SPAC_OPERBIND.val[13] = (char)0;
-    meltcdat->dstr_1096__SPAC_OPERBIND.slen = 13;
+    meltcdat->dstr_1096__SPAC_OPERBIND.val[13] = (char)0 ;
+    meltcdat->dstr_1096__SPAC_OPERBIND.slen = 13 ;
 
     /*^iniobj*/
 
@@ -16034,8 +16264,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1178*/ meltfptr[1177] = (melt_ptr_t) &meltcdat->dstr_1098__SPAC_OPERBIND;
     meltcdat->dstr_1098__SPAC_OPERBIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1098__SPAC_OPERBIND.val, "SPAC_OPERBIND", sizeof (meltcdat->dstr_1098__SPAC_OPERBIND.val)-1);
-    meltcdat->dstr_1098__SPAC_OPERBIND.val[13] = (char)0;
-    meltcdat->dstr_1098__SPAC_OPERBIND.slen = 13;
+    meltcdat->dstr_1098__SPAC_OPERBIND.val[13] = (char)0 ;
+    meltcdat->dstr_1098__SPAC_OPERBIND.slen = 13 ;
 
 
     /*iniobj dsym_1099__SPAC_INARGS*/
@@ -16052,8 +16282,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1189*/ meltfptr[1188] = (melt_ptr_t) &meltcdat->dstr_1100__SPAC_INARGS;
     meltcdat->dstr_1100__SPAC_INARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1100__SPAC_INARGS.val, "SPAC_INARGS", sizeof (meltcdat->dstr_1100__SPAC_INARGS.val)-1);
-    meltcdat->dstr_1100__SPAC_INARGS.val[11] = (char)0;
-    meltcdat->dstr_1100__SPAC_INARGS.slen = 11;
+    meltcdat->dstr_1100__SPAC_INARGS.val[11] = (char)0 ;
+    meltcdat->dstr_1100__SPAC_INARGS.slen = 11 ;
 
     /*^iniobj*/
 
@@ -16071,8 +16301,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1180*/ meltfptr[1179] = (melt_ptr_t) &meltcdat->dstr_1102__SPAC_INARGS;
     meltcdat->dstr_1102__SPAC_INARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1102__SPAC_INARGS.val, "SPAC_INARGS", sizeof (meltcdat->dstr_1102__SPAC_INARGS.val)-1);
-    meltcdat->dstr_1102__SPAC_INARGS.val[11] = (char)0;
-    meltcdat->dstr_1102__SPAC_INARGS.slen = 11;
+    meltcdat->dstr_1102__SPAC_INARGS.val[11] = (char)0 ;
+    meltcdat->dstr_1102__SPAC_INARGS.slen = 11 ;
 
 
     /*iniobj dsym_1103__SPAC_OUTARGS*/
@@ -16089,8 +16319,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1191*/ meltfptr[1190] = (melt_ptr_t) &meltcdat->dstr_1104__SPAC_OUTARGS;
     meltcdat->dstr_1104__SPAC_OUTARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1104__SPAC_OUTARGS.val, "SPAC_OUTARGS", sizeof (meltcdat->dstr_1104__SPAC_OUTARGS.val)-1);
-    meltcdat->dstr_1104__SPAC_OUTARGS.val[12] = (char)0;
-    meltcdat->dstr_1104__SPAC_OUTARGS.slen = 12;
+    meltcdat->dstr_1104__SPAC_OUTARGS.val[12] = (char)0 ;
+    meltcdat->dstr_1104__SPAC_OUTARGS.slen = 12 ;
 
     /*^iniobj*/
 
@@ -16108,8 +16338,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1182*/ meltfptr[1181] = (melt_ptr_t) &meltcdat->dstr_1106__SPAC_OUTARGS;
     meltcdat->dstr_1106__SPAC_OUTARGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1106__SPAC_OUTARGS.val, "SPAC_OUTARGS", sizeof (meltcdat->dstr_1106__SPAC_OUTARGS.val)-1);
-    meltcdat->dstr_1106__SPAC_OUTARGS.val[12] = (char)0;
-    meltcdat->dstr_1106__SPAC_OUTARGS.slen = 12;
+    meltcdat->dstr_1106__SPAC_OUTARGS.val[12] = (char)0 ;
+    meltcdat->dstr_1106__SPAC_OUTARGS.slen = 12 ;
 
 
     /*iniobj dsym_1107__CLASS_SOURCE_PATTERN_MATCHER*/
@@ -16126,8 +16356,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1193*/ meltfptr[1192] = (melt_ptr_t) &meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT;
     meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT.val, "CLASS_SOURCE_PATTERN_MATCHER", sizeof (meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT.val)-1);
-    meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT.val[28] = (char)0;
-    meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT.slen = 28;
+    meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT.val[28] = (char)0 ;
+    meltcdat->dstr_1108__CLASS_SOURCE_PATTERN_MAT.slen = 28 ;
 
     MELT_LOCATION("warmelt-macro.melt:939:/ iniobj");
 
@@ -16145,8 +16375,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1195*/ meltfptr[1194] = (melt_ptr_t) &meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT;
     meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT.val, "CLASS_SOURCE_PATTERN_MATCHER", sizeof (meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT.val)-1);
-    meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT.val[28] = (char)0;
-    meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT.slen = 28;
+    meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT.val[28] = (char)0 ;
+    meltcdat->dstr_1110__CLASS_SOURCE_PATTERN_MAT.slen = 28 ;
 
     /*inimult dtup_1111_syCLASS_SOURCE_PATTERN_MATCHER*/
     /*_._VALTUP___V1196*/ meltfptr[1195] = (melt_ptr_t) &meltcdat->dtup_1111_syCLASS_SOURCE_PATTERN_MATCHER;
@@ -16171,8 +16401,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1199*/ meltfptr[1198] = (melt_ptr_t) &meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M;
     meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M.val, "CLASS_SOURCE_PATTERN_C_MATCH", sizeof (meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M.val)-1);
-    meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M.val[28] = (char)0;
-    meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M.slen = 28;
+    meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M.val[28] = (char)0 ;
+    meltcdat->dstr_1114__CLASS_SOURCE_PATTERN_C_M.slen = 28 ;
 
     MELT_LOCATION("warmelt-macro.melt:945:/ iniobj");
 
@@ -16190,8 +16420,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1201*/ meltfptr[1200] = (melt_ptr_t) &meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M;
     meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M.val, "CLASS_SOURCE_PATTERN_C_MATCH", sizeof (meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M.val)-1);
-    meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M.val[28] = (char)0;
-    meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M.slen = 28;
+    meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M.val[28] = (char)0 ;
+    meltcdat->dstr_1116__CLASS_SOURCE_PATTERN_C_M.slen = 28 ;
 
     /*inimult dtup_1117_syCLASS_SOURCE_PATTERN_C_MATCH*/
     /*_._VALTUP___V1202*/ meltfptr[1201] = (melt_ptr_t) &meltcdat->dtup_1117_syCLASS_SOURCE_PATTERN_C_MATCH;
@@ -16216,8 +16446,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1205*/ meltfptr[1204] = (melt_ptr_t) &meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN;
     meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN.val, "CLASS_SOURCE_PATTERN_FUN_MATCH", sizeof (meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN.val)-1);
-    meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN.val[30] = (char)0;
-    meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN.slen = 30;
+    meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN.val[30] = (char)0 ;
+    meltcdat->dstr_1120__CLASS_SOURCE_PATTERN_FUN.slen = 30 ;
 
     MELT_LOCATION("warmelt-macro.melt:951:/ iniobj");
 
@@ -16235,8 +16465,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1207*/ meltfptr[1206] = (melt_ptr_t) &meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN;
     meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN.val, "CLASS_SOURCE_PATTERN_FUN_MATCH", sizeof (meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN.val)-1);
-    meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN.val[30] = (char)0;
-    meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN.slen = 30;
+    meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN.val[30] = (char)0 ;
+    meltcdat->dstr_1122__CLASS_SOURCE_PATTERN_FUN.slen = 30 ;
 
     /*inimult dtup_1123_syCLASS_SOURCE_PATTERN_FUN_MATCH*/
     /*_._VALTUP___V1208*/ meltfptr[1207] = (melt_ptr_t) &meltcdat->dtup_1123_syCLASS_SOURCE_PATTERN_FUN_MATCH;
@@ -16247,7 +16477,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dtup_1124_syCLASS_SOURCE_PATTERN_FUN_MATCH.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_FIELD_SEQUENCE))));
     meltcdat->dtup_1124_syCLASS_SOURCE_PATTERN_FUN_MATCH.nbval = 9;
     /*inirout drout_1125__S_EXPR_WEIGHT*/
-    /*_._VALROUT___V1210*/ meltfptr[1209] = (melt_ptr_t) &meltcdat->drout_1125__S_EXPR_WEIGHT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1210*/ meltfptr[1209] = (melt_ptr_t) &meltcdat->drout_1125__S_EXPR_WEIGHT;
     meltcdat->drout_1125__S_EXPR_WEIGHT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1125__S_EXPR_WEIGHT.routdescr, "S_EXPR_WEIGHT @warmelt-macro.melt:959",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1125__S_EXPR_WEIGHT.nbval = 3;
@@ -16259,7 +16489,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1126__S_EXPR_WEIGHT.nbval = 0;
 
     /*inirout drout_1127__LAMBDA_*/
-    /*_._VALROUT___V1211*/ meltfptr[1210] = (melt_ptr_t) &meltcdat->drout_1127__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1211*/ meltfptr[1210] = (melt_ptr_t) &meltcdat->drout_1127__LAMBDA_;
     meltcdat->drout_1127__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1127__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:962",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1127__LAMBDA_.nbval = 2;
@@ -16280,8 +16510,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1216*/ meltfptr[1215] = (melt_ptr_t) &meltcdat->dstr_1129__CLASS_SEXPR;
     meltcdat->dstr_1129__CLASS_SEXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1129__CLASS_SEXPR.val, "CLASS_SEXPR", sizeof (meltcdat->dstr_1129__CLASS_SEXPR.val)-1);
-    meltcdat->dstr_1129__CLASS_SEXPR.val[11] = (char)0;
-    meltcdat->dstr_1129__CLASS_SEXPR.slen = 11;
+    meltcdat->dstr_1129__CLASS_SEXPR.val[11] = (char)0 ;
+    meltcdat->dstr_1129__CLASS_SEXPR.slen = 11 ;
 
 
     /*iniobj dsym_1130__TRUE*/
@@ -16298,8 +16528,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1213*/ meltfptr[1212] = (melt_ptr_t) &meltcdat->dstr_1131__TRUE;
     meltcdat->dstr_1131__TRUE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1131__TRUE.val, "TRUE", sizeof (meltcdat->dstr_1131__TRUE.val)-1);
-    meltcdat->dstr_1131__TRUE.val[4] = (char)0;
-    meltcdat->dstr_1131__TRUE.slen = 4;
+    meltcdat->dstr_1131__TRUE.val[4] = (char)0 ;
+    meltcdat->dstr_1131__TRUE.slen = 4 ;
 
 
     /*iniobj dsym_1132__DISCR_CONSTANT_INTEGER*/
@@ -16316,11 +16546,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1218*/ meltfptr[1217] = (melt_ptr_t) &meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER;
     meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER.val, "DISCR_CONSTANT_INTEGER", sizeof (meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER.val)-1);
-    meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER.val[22] = (char)0;
-    meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER.slen = 22;
+    meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER.val[22] = (char)0 ;
+    meltcdat->dstr_1133__DISCR_CONSTANT_INTEGER.slen = 22 ;
 
     /*inirout drout_1134__EXPAND_RESTLIST_AS_LIST*/
-    /*_._VALROUT___V1219*/ meltfptr[1218] = (melt_ptr_t) &meltcdat->drout_1134__EXPAND_RESTLIST_AS_LIST;
+    /*iniroutlocvar*/ /*_._VALROUT___V1219*/ meltfptr[1218] = (melt_ptr_t) &meltcdat->drout_1134__EXPAND_RESTLIST_AS_LIST;
     meltcdat->drout_1134__EXPAND_RESTLIST_AS_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1134__EXPAND_RESTLIST_AS_LIST.routdescr, "EXPAND_RESTLIST_AS_LIST @warmelt-macro.melt:994",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1134__EXPAND_RESTLIST_AS_LIST.nbval = 1;
@@ -16346,11 +16576,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1222*/ meltfptr[1221] = (melt_ptr_t) &meltcdat->dstr_1137__CLASS_ENVIRONMENT;
     meltcdat->dstr_1137__CLASS_ENVIRONMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1137__CLASS_ENVIRONMENT.val, "CLASS_ENVIRONMENT", sizeof (meltcdat->dstr_1137__CLASS_ENVIRONMENT.val)-1);
-    meltcdat->dstr_1137__CLASS_ENVIRONMENT.val[17] = (char)0;
-    meltcdat->dstr_1137__CLASS_ENVIRONMENT.slen = 17;
+    meltcdat->dstr_1137__CLASS_ENVIRONMENT.val[17] = (char)0 ;
+    meltcdat->dstr_1137__CLASS_ENVIRONMENT.slen = 17 ;
 
     /*inirout drout_1138__EXPAND_RESTLIST_AS_TUPLE*/
-    /*_._VALROUT___V1223*/ meltfptr[1222] = (melt_ptr_t) &meltcdat->drout_1138__EXPAND_RESTLIST_AS_TUPLE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1223*/ meltfptr[1222] = (melt_ptr_t) &meltcdat->drout_1138__EXPAND_RESTLIST_AS_TUPLE;
     meltcdat->drout_1138__EXPAND_RESTLIST_AS_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1138__EXPAND_RESTLIST_AS_TUPLE.routdescr, "EXPAND_RESTLIST_AS_TUPLE @warmelt-macro.melt:1038",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1138__EXPAND_RESTLIST_AS_TUPLE.nbval = 4;
@@ -16376,8 +16606,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1226*/ meltfptr[1225] = (melt_ptr_t) &meltcdat->dstr_1141__LIST_TO_MULTIPLE;
     meltcdat->dstr_1141__LIST_TO_MULTIPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1141__LIST_TO_MULTIPLE.val, "LIST_TO_MULTIPLE", sizeof (meltcdat->dstr_1141__LIST_TO_MULTIPLE.val)-1);
-    meltcdat->dstr_1141__LIST_TO_MULTIPLE.val[16] = (char)0;
-    meltcdat->dstr_1141__LIST_TO_MULTIPLE.slen = 16;
+    meltcdat->dstr_1141__LIST_TO_MULTIPLE.val[16] = (char)0 ;
+    meltcdat->dstr_1141__LIST_TO_MULTIPLE.slen = 16 ;
 
 
     /*iniobj dsym_1142__DISCR_MULTIPLE*/
@@ -16394,11 +16624,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1228*/ meltfptr[1227] = (melt_ptr_t) &meltcdat->dstr_1143__DISCR_MULTIPLE;
     meltcdat->dstr_1143__DISCR_MULTIPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1143__DISCR_MULTIPLE.val, "DISCR_MULTIPLE", sizeof (meltcdat->dstr_1143__DISCR_MULTIPLE.val)-1);
-    meltcdat->dstr_1143__DISCR_MULTIPLE.val[14] = (char)0;
-    meltcdat->dstr_1143__DISCR_MULTIPLE.slen = 14;
+    meltcdat->dstr_1143__DISCR_MULTIPLE.val[14] = (char)0 ;
+    meltcdat->dstr_1143__DISCR_MULTIPLE.slen = 14 ;
 
     /*inirout drout_1144__EXPAND_PAIRLIST_AS_LIST*/
-    /*_._VALROUT___V1229*/ meltfptr[1228] = (melt_ptr_t) &meltcdat->drout_1144__EXPAND_PAIRLIST_AS_LIST;
+    /*iniroutlocvar*/ /*_._VALROUT___V1229*/ meltfptr[1228] = (melt_ptr_t) &meltcdat->drout_1144__EXPAND_PAIRLIST_AS_LIST;
     meltcdat->drout_1144__EXPAND_PAIRLIST_AS_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1144__EXPAND_PAIRLIST_AS_LIST.routdescr, "EXPAND_PAIRLIST_AS_LIST @warmelt-macro.melt:1050",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1144__EXPAND_PAIRLIST_AS_LIST.nbval = 1;
@@ -16410,7 +16640,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1145__EXPAND_PAIRLIST_AS_LIST.nbval = 0;
 
     /*inirout drout_1146__EXPAND_PAIRLIST_AS_TUPLE*/
-    /*_._VALROUT___V1231*/ meltfptr[1230] = (melt_ptr_t) &meltcdat->drout_1146__EXPAND_PAIRLIST_AS_TUPLE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1231*/ meltfptr[1230] = (melt_ptr_t) &meltcdat->drout_1146__EXPAND_PAIRLIST_AS_TUPLE;
     meltcdat->drout_1146__EXPAND_PAIRLIST_AS_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1146__EXPAND_PAIRLIST_AS_TUPLE.routdescr, "EXPAND_PAIRLIST_AS_TUPLE @warmelt-macro.melt:1089",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1146__EXPAND_PAIRLIST_AS_TUPLE.nbval = 4;
@@ -16422,7 +16652,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1147__EXPAND_PAIRLIST_AS_TUPLE.nbval = 0;
 
     /*inirout drout_1148__REGISTER_GENERATOR_DEVICE*/
-    /*_._VALROUT___V1233*/ meltfptr[1232] = (melt_ptr_t) &meltcdat->drout_1148__REGISTER_GENERATOR_DEVICE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1233*/ meltfptr[1232] = (melt_ptr_t) &meltcdat->drout_1148__REGISTER_GENERATOR_DEVICE;
     meltcdat->drout_1148__REGISTER_GENERATOR_DEVICE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1148__REGISTER_GENERATOR_DEVICE.routdescr, "REGISTER_GENERATOR_DEVICE @warmelt-macro.melt:1100",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1148__REGISTER_GENERATOR_DEVICE.nbval = 5;
@@ -16448,8 +16678,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1236*/ meltfptr[1235] = (melt_ptr_t) &meltcdat->dstr_1151__MELT_DEBUG_FUN;
     meltcdat->dstr_1151__MELT_DEBUG_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1151__MELT_DEBUG_FUN.val, "MELT_DEBUG_FUN", sizeof (meltcdat->dstr_1151__MELT_DEBUG_FUN.val)-1);
-    meltcdat->dstr_1151__MELT_DEBUG_FUN.val[14] = (char)0;
-    meltcdat->dstr_1151__MELT_DEBUG_FUN.slen = 14;
+    meltcdat->dstr_1151__MELT_DEBUG_FUN.val[14] = (char)0 ;
+    meltcdat->dstr_1151__MELT_DEBUG_FUN.slen = 14 ;
 
 
     /*iniobj dsym_1152__CLASS_ANY_MODULE_CONTEXT*/
@@ -16466,8 +16696,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1238*/ meltfptr[1237] = (melt_ptr_t) &meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT;
     meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT.val, "CLASS_ANY_MODULE_CONTEXT", sizeof (meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT.val)-1);
-    meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT.val[24] = (char)0;
-    meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT.slen = 24;
+    meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT.val[24] = (char)0 ;
+    meltcdat->dstr_1153__CLASS_ANY_MODULE_CONTEXT.slen = 24 ;
 
 
     /*iniobj dsym_1154__CLASS_LOCATED*/
@@ -16484,11 +16714,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1240*/ meltfptr[1239] = (melt_ptr_t) &meltcdat->dstr_1155__CLASS_LOCATED;
     meltcdat->dstr_1155__CLASS_LOCATED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1155__CLASS_LOCATED.val, "CLASS_LOCATED", sizeof (meltcdat->dstr_1155__CLASS_LOCATED.val)-1);
-    meltcdat->dstr_1155__CLASS_LOCATED.val[13] = (char)0;
-    meltcdat->dstr_1155__CLASS_LOCATED.slen = 13;
+    meltcdat->dstr_1155__CLASS_LOCATED.val[13] = (char)0 ;
+    meltcdat->dstr_1155__CLASS_LOCATED.slen = 13 ;
 
     /*inirout drout_1156__EXPAND_APPLY*/
-    /*_._VALROUT___V1241*/ meltfptr[1240] = (melt_ptr_t) &meltcdat->drout_1156__EXPAND_APPLY;
+    /*iniroutlocvar*/ /*_._VALROUT___V1241*/ meltfptr[1240] = (melt_ptr_t) &meltcdat->drout_1156__EXPAND_APPLY;
     meltcdat->drout_1156__EXPAND_APPLY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1156__EXPAND_APPLY.routdescr, "EXPAND_APPLY @warmelt-macro.melt:1125",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1156__EXPAND_APPLY.nbval = 4;
@@ -16500,7 +16730,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1157__EXPAND_APPLY.nbval = 0;
 
     /*inirout drout_1158__EXPAND_MSEND*/
-    /*_._VALROUT___V1243*/ meltfptr[1242] = (melt_ptr_t) &meltcdat->drout_1158__EXPAND_MSEND;
+    /*iniroutlocvar*/ /*_._VALROUT___V1243*/ meltfptr[1242] = (melt_ptr_t) &meltcdat->drout_1158__EXPAND_MSEND;
     meltcdat->drout_1158__EXPAND_MSEND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1158__EXPAND_MSEND.routdescr, "EXPAND_MSEND @warmelt-macro.melt:1145",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1158__EXPAND_MSEND.nbval = 7;
@@ -16526,11 +16756,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1269*/ meltfptr[1268] = (melt_ptr_t) &meltcdat->dstr_1161__CLASS_SYMBOL;
     meltcdat->dstr_1161__CLASS_SYMBOL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1161__CLASS_SYMBOL.val, "CLASS_SYMBOL", sizeof (meltcdat->dstr_1161__CLASS_SYMBOL.val)-1);
-    meltcdat->dstr_1161__CLASS_SYMBOL.val[12] = (char)0;
-    meltcdat->dstr_1161__CLASS_SYMBOL.slen = 12;
+    meltcdat->dstr_1161__CLASS_SYMBOL.val[12] = (char)0 ;
+    meltcdat->dstr_1161__CLASS_SYMBOL.slen = 12 ;
 
     /*inirout drout_1162__EXPAND_FIELDEXPR*/
-    /*_._VALROUT___V1266*/ meltfptr[1265] = (melt_ptr_t) &meltcdat->drout_1162__EXPAND_FIELDEXPR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1266*/ meltfptr[1265] = (melt_ptr_t) &meltcdat->drout_1162__EXPAND_FIELDEXPR;
     meltcdat->drout_1162__EXPAND_FIELDEXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1162__EXPAND_FIELDEXPR.routdescr, "EXPAND_FIELDEXPR @warmelt-macro.melt:1177",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1162__EXPAND_FIELDEXPR.nbval = 9;
@@ -16556,8 +16786,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1271*/ meltfptr[1270] = (melt_ptr_t) &meltcdat->dstr_1165__CLASS_FIELD;
     meltcdat->dstr_1165__CLASS_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1165__CLASS_FIELD.val, "CLASS_FIELD", sizeof (meltcdat->dstr_1165__CLASS_FIELD.val)-1);
-    meltcdat->dstr_1165__CLASS_FIELD.val[11] = (char)0;
-    meltcdat->dstr_1165__CLASS_FIELD.slen = 11;
+    meltcdat->dstr_1165__CLASS_FIELD.val[11] = (char)0 ;
+    meltcdat->dstr_1165__CLASS_FIELD.slen = 11 ;
 
 
     /*iniobj dsym_1166__CLASS_KEYWORD*/
@@ -16574,8 +16804,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1273*/ meltfptr[1272] = (melt_ptr_t) &meltcdat->dstr_1167__CLASS_KEYWORD;
     meltcdat->dstr_1167__CLASS_KEYWORD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1167__CLASS_KEYWORD.val, "CLASS_KEYWORD", sizeof (meltcdat->dstr_1167__CLASS_KEYWORD.val)-1);
-    meltcdat->dstr_1167__CLASS_KEYWORD.val[13] = (char)0;
-    meltcdat->dstr_1167__CLASS_KEYWORD.slen = 13;
+    meltcdat->dstr_1167__CLASS_KEYWORD.val[13] = (char)0 ;
+    meltcdat->dstr_1167__CLASS_KEYWORD.slen = 13 ;
 
 
     /*iniobj dsym_1168__CLASS_NAMED*/
@@ -16592,11 +16822,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1275*/ meltfptr[1274] = (melt_ptr_t) &meltcdat->dstr_1169__CLASS_NAMED;
     meltcdat->dstr_1169__CLASS_NAMED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1169__CLASS_NAMED.val, "CLASS_NAMED", sizeof (meltcdat->dstr_1169__CLASS_NAMED.val)-1);
-    meltcdat->dstr_1169__CLASS_NAMED.val[11] = (char)0;
-    meltcdat->dstr_1169__CLASS_NAMED.slen = 11;
+    meltcdat->dstr_1169__CLASS_NAMED.val[11] = (char)0 ;
+    meltcdat->dstr_1169__CLASS_NAMED.slen = 11 ;
 
     /*inirout drout_1170__EXPAND_CITERATION*/
-    /*_._VALROUT___V1252*/ meltfptr[1251] = (melt_ptr_t) &meltcdat->drout_1170__EXPAND_CITERATION;
+    /*iniroutlocvar*/ /*_._VALROUT___V1252*/ meltfptr[1251] = (melt_ptr_t) &meltcdat->drout_1170__EXPAND_CITERATION;
     meltcdat->drout_1170__EXPAND_CITERATION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1170__EXPAND_CITERATION.routdescr, "EXPAND_CITERATION @warmelt-macro.melt:1235",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1170__EXPAND_CITERATION.nbval = 9;
@@ -16622,8 +16852,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1277*/ meltfptr[1276] = (melt_ptr_t) &meltcdat->dstr_1173__CLASS_CITERATOR;
     meltcdat->dstr_1173__CLASS_CITERATOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1173__CLASS_CITERATOR.val, "CLASS_CITERATOR", sizeof (meltcdat->dstr_1173__CLASS_CITERATOR.val)-1);
-    meltcdat->dstr_1173__CLASS_CITERATOR.val[15] = (char)0;
-    meltcdat->dstr_1173__CLASS_CITERATOR.slen = 15;
+    meltcdat->dstr_1173__CLASS_CITERATOR.val[15] = (char)0 ;
+    meltcdat->dstr_1173__CLASS_CITERATOR.slen = 15 ;
 
 
     /*iniobj dsym_1174__FRESH_ENV*/
@@ -16640,8 +16870,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1279*/ meltfptr[1278] = (melt_ptr_t) &meltcdat->dstr_1175__FRESH_ENV;
     meltcdat->dstr_1175__FRESH_ENV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1175__FRESH_ENV.val, "FRESH_ENV", sizeof (meltcdat->dstr_1175__FRESH_ENV.val)-1);
-    meltcdat->dstr_1175__FRESH_ENV.val[9] = (char)0;
-    meltcdat->dstr_1175__FRESH_ENV.slen = 9;
+    meltcdat->dstr_1175__FRESH_ENV.val[9] = (char)0 ;
+    meltcdat->dstr_1175__FRESH_ENV.slen = 9 ;
 
 
     /*iniobj dsym_1176__PUT_ENV*/
@@ -16658,11 +16888,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1281*/ meltfptr[1280] = (melt_ptr_t) &meltcdat->dstr_1177__PUT_ENV;
     meltcdat->dstr_1177__PUT_ENV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1177__PUT_ENV.val, "PUT_ENV", sizeof (meltcdat->dstr_1177__PUT_ENV.val)-1);
-    meltcdat->dstr_1177__PUT_ENV.val[7] = (char)0;
-    meltcdat->dstr_1177__PUT_ENV.slen = 7;
+    meltcdat->dstr_1177__PUT_ENV.val[7] = (char)0 ;
+    meltcdat->dstr_1177__PUT_ENV.slen = 7 ;
 
     /*inirout drout_1178__EXPAND_CMATCHEXPR*/
-    /*_._VALROUT___V1262*/ meltfptr[1261] = (melt_ptr_t) &meltcdat->drout_1178__EXPAND_CMATCHEXPR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1262*/ meltfptr[1261] = (melt_ptr_t) &meltcdat->drout_1178__EXPAND_CMATCHEXPR;
     meltcdat->drout_1178__EXPAND_CMATCHEXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1178__EXPAND_CMATCHEXPR.routdescr, "EXPAND_CMATCHEXPR @warmelt-macro.melt:1299",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1178__EXPAND_CMATCHEXPR.nbval = 8;
@@ -16688,8 +16918,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1283*/ meltfptr[1282] = (melt_ptr_t) &meltcdat->dstr_1181__CLASS_CMATCHER;
     meltcdat->dstr_1181__CLASS_CMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1181__CLASS_CMATCHER.val, "CLASS_CMATCHER", sizeof (meltcdat->dstr_1181__CLASS_CMATCHER.val)-1);
-    meltcdat->dstr_1181__CLASS_CMATCHER.val[14] = (char)0;
-    meltcdat->dstr_1181__CLASS_CMATCHER.slen = 14;
+    meltcdat->dstr_1181__CLASS_CMATCHER.val[14] = (char)0 ;
+    meltcdat->dstr_1181__CLASS_CMATCHER.slen = 14 ;
 
 
     /*iniobj dsym_1182__CLASS_ANY_MATCHER*/
@@ -16706,11 +16936,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1285*/ meltfptr[1284] = (melt_ptr_t) &meltcdat->dstr_1183__CLASS_ANY_MATCHER;
     meltcdat->dstr_1183__CLASS_ANY_MATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1183__CLASS_ANY_MATCHER.val, "CLASS_ANY_MATCHER", sizeof (meltcdat->dstr_1183__CLASS_ANY_MATCHER.val)-1);
-    meltcdat->dstr_1183__CLASS_ANY_MATCHER.val[17] = (char)0;
-    meltcdat->dstr_1183__CLASS_ANY_MATCHER.slen = 17;
+    meltcdat->dstr_1183__CLASS_ANY_MATCHER.val[17] = (char)0 ;
+    meltcdat->dstr_1183__CLASS_ANY_MATCHER.slen = 17 ;
 
     /*inirout drout_1184__EXPAND_FUNMATCHEXPR*/
-    /*_._VALROUT___V1264*/ meltfptr[1263] = (melt_ptr_t) &meltcdat->drout_1184__EXPAND_FUNMATCHEXPR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1264*/ meltfptr[1263] = (melt_ptr_t) &meltcdat->drout_1184__EXPAND_FUNMATCHEXPR;
     meltcdat->drout_1184__EXPAND_FUNMATCHEXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1184__EXPAND_FUNMATCHEXPR.routdescr, "EXPAND_FUNMATCHEXPR @warmelt-macro.melt:1347",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1184__EXPAND_FUNMATCHEXPR.nbval = 6;
@@ -16736,11 +16966,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1287*/ meltfptr[1286] = (melt_ptr_t) &meltcdat->dstr_1187__CLASS_FUNMATCHER;
     meltcdat->dstr_1187__CLASS_FUNMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1187__CLASS_FUNMATCHER.val, "CLASS_FUNMATCHER", sizeof (meltcdat->dstr_1187__CLASS_FUNMATCHER.val)-1);
-    meltcdat->dstr_1187__CLASS_FUNMATCHER.val[16] = (char)0;
-    meltcdat->dstr_1187__CLASS_FUNMATCHER.slen = 16;
+    meltcdat->dstr_1187__CLASS_FUNMATCHER.val[16] = (char)0 ;
+    meltcdat->dstr_1187__CLASS_FUNMATCHER.slen = 16 ;
 
     /*inirout drout_1188__EXPAND_KEYWORDFUN*/
-    /*_._VALROUT___V1247*/ meltfptr[1246] = (melt_ptr_t) &meltcdat->drout_1188__EXPAND_KEYWORDFUN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1247*/ meltfptr[1246] = (melt_ptr_t) &meltcdat->drout_1188__EXPAND_KEYWORDFUN;
     meltcdat->drout_1188__EXPAND_KEYWORDFUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1188__EXPAND_KEYWORDFUN.routdescr, "EXPAND_KEYWORDFUN @warmelt-macro.melt:1379",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1188__EXPAND_KEYWORDFUN.nbval = 5;
@@ -16752,7 +16982,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1189__EXPAND_KEYWORDFUN.nbval = 0;
 
     /*inirout drout_1190__MACROEXPAND_1*/
-    /*_._VALROUT___V1245*/ meltfptr[1244] = (melt_ptr_t) &meltcdat->drout_1190__MACROEXPAND_1;
+    /*iniroutlocvar*/ /*_._VALROUT___V1245*/ meltfptr[1244] = (melt_ptr_t) &meltcdat->drout_1190__MACROEXPAND_1;
     meltcdat->drout_1190__MACROEXPAND_1.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1190__MACROEXPAND_1.routdescr, "MACROEXPAND_1 @warmelt-macro.melt:1397",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1190__MACROEXPAND_1.nbval = 36;
@@ -16778,8 +17008,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1289*/ meltfptr[1288] = (melt_ptr_t) &meltcdat->dstr_1193__FIND_ENV;
     meltcdat->dstr_1193__FIND_ENV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1193__FIND_ENV.val, "FIND_ENV", sizeof (meltcdat->dstr_1193__FIND_ENV.val)-1);
-    meltcdat->dstr_1193__FIND_ENV.val[8] = (char)0;
-    meltcdat->dstr_1193__FIND_ENV.slen = 8;
+    meltcdat->dstr_1193__FIND_ENV.val[8] = (char)0 ;
+    meltcdat->dstr_1193__FIND_ENV.slen = 8 ;
 
 
     /*iniobj dsym_1194__CLASS_MACRO_BINDING*/
@@ -16796,8 +17026,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1291*/ meltfptr[1290] = (melt_ptr_t) &meltcdat->dstr_1195__CLASS_MACRO_BINDING;
     meltcdat->dstr_1195__CLASS_MACRO_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1195__CLASS_MACRO_BINDING.val, "CLASS_MACRO_BINDING", sizeof (meltcdat->dstr_1195__CLASS_MACRO_BINDING.val)-1);
-    meltcdat->dstr_1195__CLASS_MACRO_BINDING.val[19] = (char)0;
-    meltcdat->dstr_1195__CLASS_MACRO_BINDING.slen = 19;
+    meltcdat->dstr_1195__CLASS_MACRO_BINDING.val[19] = (char)0 ;
+    meltcdat->dstr_1195__CLASS_MACRO_BINDING.slen = 19 ;
 
 
     /*iniobj dsym_1196__CLASS_SELECTOR_BINDING*/
@@ -16814,8 +17044,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1293*/ meltfptr[1292] = (melt_ptr_t) &meltcdat->dstr_1197__CLASS_SELECTOR_BINDING;
     meltcdat->dstr_1197__CLASS_SELECTOR_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1197__CLASS_SELECTOR_BINDING.val, "CLASS_SELECTOR_BINDING", sizeof (meltcdat->dstr_1197__CLASS_SELECTOR_BINDING.val)-1);
-    meltcdat->dstr_1197__CLASS_SELECTOR_BINDING.val[22] = (char)0;
-    meltcdat->dstr_1197__CLASS_SELECTOR_BINDING.slen = 22;
+    meltcdat->dstr_1197__CLASS_SELECTOR_BINDING.val[22] = (char)0 ;
+    meltcdat->dstr_1197__CLASS_SELECTOR_BINDING.slen = 22 ;
 
 
     /*iniobj dsym_1198__CLASS_PRIMITIVE_BINDING*/
@@ -16832,8 +17062,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1295*/ meltfptr[1294] = (melt_ptr_t) &meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING;
     meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING.val, "CLASS_PRIMITIVE_BINDING", sizeof (meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING.val)-1);
-    meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING.val[23] = (char)0;
-    meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING.slen = 23;
+    meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING.val[23] = (char)0 ;
+    meltcdat->dstr_1199__CLASS_PRIMITIVE_BINDING.slen = 23 ;
 
 
     /*iniobj dsym_1200__CLASS_CITERATOR_BINDING*/
@@ -16850,8 +17080,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1297*/ meltfptr[1296] = (melt_ptr_t) &meltcdat->dstr_1201__CLASS_CITERATOR_BINDING;
     meltcdat->dstr_1201__CLASS_CITERATOR_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1201__CLASS_CITERATOR_BINDING.val, "CLASS_CITERATOR_BINDING", sizeof (meltcdat->dstr_1201__CLASS_CITERATOR_BINDING.val)-1);
-    meltcdat->dstr_1201__CLASS_CITERATOR_BINDING.val[23] = (char)0;
-    meltcdat->dstr_1201__CLASS_CITERATOR_BINDING.slen = 23;
+    meltcdat->dstr_1201__CLASS_CITERATOR_BINDING.val[23] = (char)0 ;
+    meltcdat->dstr_1201__CLASS_CITERATOR_BINDING.slen = 23 ;
 
 
     /*iniobj dsym_1202__CLASS_HOOK_BINDING*/
@@ -16868,8 +17098,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1299*/ meltfptr[1298] = (melt_ptr_t) &meltcdat->dstr_1203__CLASS_HOOK_BINDING;
     meltcdat->dstr_1203__CLASS_HOOK_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1203__CLASS_HOOK_BINDING.val, "CLASS_HOOK_BINDING", sizeof (meltcdat->dstr_1203__CLASS_HOOK_BINDING.val)-1);
-    meltcdat->dstr_1203__CLASS_HOOK_BINDING.val[18] = (char)0;
-    meltcdat->dstr_1203__CLASS_HOOK_BINDING.slen = 18;
+    meltcdat->dstr_1203__CLASS_HOOK_BINDING.val[18] = (char)0 ;
+    meltcdat->dstr_1203__CLASS_HOOK_BINDING.slen = 18 ;
 
 
     /*iniobj dsym_1204__CLASS_CMATCHER_BINDING*/
@@ -16886,8 +17116,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1301*/ meltfptr[1300] = (melt_ptr_t) &meltcdat->dstr_1205__CLASS_CMATCHER_BINDING;
     meltcdat->dstr_1205__CLASS_CMATCHER_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1205__CLASS_CMATCHER_BINDING.val, "CLASS_CMATCHER_BINDING", sizeof (meltcdat->dstr_1205__CLASS_CMATCHER_BINDING.val)-1);
-    meltcdat->dstr_1205__CLASS_CMATCHER_BINDING.val[22] = (char)0;
-    meltcdat->dstr_1205__CLASS_CMATCHER_BINDING.slen = 22;
+    meltcdat->dstr_1205__CLASS_CMATCHER_BINDING.val[22] = (char)0 ;
+    meltcdat->dstr_1205__CLASS_CMATCHER_BINDING.slen = 22 ;
 
 
     /*iniobj dsym_1206__CLASS_FUNMATCHER_BINDING*/
@@ -16904,8 +17134,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1303*/ meltfptr[1302] = (melt_ptr_t) &meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING;
     meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING.val, "CLASS_FUNMATCHER_BINDING", sizeof (meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING.val)-1);
-    meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING.val[24] = (char)0;
-    meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING.slen = 24;
+    meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING.val[24] = (char)0 ;
+    meltcdat->dstr_1207__CLASS_FUNMATCHER_BINDING.slen = 24 ;
 
 
     /*iniobj dsym_1208__CLASS_FIELD_BINDING*/
@@ -16922,8 +17152,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1305*/ meltfptr[1304] = (melt_ptr_t) &meltcdat->dstr_1209__CLASS_FIELD_BINDING;
     meltcdat->dstr_1209__CLASS_FIELD_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1209__CLASS_FIELD_BINDING.val, "CLASS_FIELD_BINDING", sizeof (meltcdat->dstr_1209__CLASS_FIELD_BINDING.val)-1);
-    meltcdat->dstr_1209__CLASS_FIELD_BINDING.val[19] = (char)0;
-    meltcdat->dstr_1209__CLASS_FIELD_BINDING.slen = 19;
+    meltcdat->dstr_1209__CLASS_FIELD_BINDING.val[19] = (char)0 ;
+    meltcdat->dstr_1209__CLASS_FIELD_BINDING.slen = 19 ;
 
 
     /*iniobj dsym_1210__CLASS_FORMAL_BINDING*/
@@ -16940,8 +17170,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1307*/ meltfptr[1306] = (melt_ptr_t) &meltcdat->dstr_1211__CLASS_FORMAL_BINDING;
     meltcdat->dstr_1211__CLASS_FORMAL_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1211__CLASS_FORMAL_BINDING.val, "CLASS_FORMAL_BINDING", sizeof (meltcdat->dstr_1211__CLASS_FORMAL_BINDING.val)-1);
-    meltcdat->dstr_1211__CLASS_FORMAL_BINDING.val[20] = (char)0;
-    meltcdat->dstr_1211__CLASS_FORMAL_BINDING.slen = 20;
+    meltcdat->dstr_1211__CLASS_FORMAL_BINDING.val[20] = (char)0 ;
+    meltcdat->dstr_1211__CLASS_FORMAL_BINDING.slen = 20 ;
 
 
     /*iniobj dsym_1212__CLASS_LET_BINDING*/
@@ -16958,8 +17188,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1309*/ meltfptr[1308] = (melt_ptr_t) &meltcdat->dstr_1213__CLASS_LET_BINDING;
     meltcdat->dstr_1213__CLASS_LET_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1213__CLASS_LET_BINDING.val, "CLASS_LET_BINDING", sizeof (meltcdat->dstr_1213__CLASS_LET_BINDING.val)-1);
-    meltcdat->dstr_1213__CLASS_LET_BINDING.val[17] = (char)0;
-    meltcdat->dstr_1213__CLASS_LET_BINDING.slen = 17;
+    meltcdat->dstr_1213__CLASS_LET_BINDING.val[17] = (char)0 ;
+    meltcdat->dstr_1213__CLASS_LET_BINDING.slen = 17 ;
 
 
     /*iniobj dsym_1214__CLASS_VALUE_BINDING*/
@@ -16976,8 +17206,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1311*/ meltfptr[1310] = (melt_ptr_t) &meltcdat->dstr_1215__CLASS_VALUE_BINDING;
     meltcdat->dstr_1215__CLASS_VALUE_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1215__CLASS_VALUE_BINDING.val, "CLASS_VALUE_BINDING", sizeof (meltcdat->dstr_1215__CLASS_VALUE_BINDING.val)-1);
-    meltcdat->dstr_1215__CLASS_VALUE_BINDING.val[19] = (char)0;
-    meltcdat->dstr_1215__CLASS_VALUE_BINDING.slen = 19;
+    meltcdat->dstr_1215__CLASS_VALUE_BINDING.val[19] = (char)0 ;
+    meltcdat->dstr_1215__CLASS_VALUE_BINDING.slen = 19 ;
 
 
     /*iniobj dsym_1216__CLASS_PRIMITIVE*/
@@ -16994,18 +17224,18 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1313*/ meltfptr[1312] = (melt_ptr_t) &meltcdat->dstr_1217__CLASS_PRIMITIVE;
     meltcdat->dstr_1217__CLASS_PRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1217__CLASS_PRIMITIVE.val, "CLASS_PRIMITIVE", sizeof (meltcdat->dstr_1217__CLASS_PRIMITIVE.val)-1);
-    meltcdat->dstr_1217__CLASS_PRIMITIVE.val[15] = (char)0;
-    meltcdat->dstr_1217__CLASS_PRIMITIVE.slen = 15;
+    meltcdat->dstr_1217__CLASS_PRIMITIVE.val[15] = (char)0 ;
+    meltcdat->dstr_1217__CLASS_PRIMITIVE.slen = 15 ;
 
     /*inirout drout_1218__LAMBDA_*/
-    /*_._VALROUT___V1267*/ meltfptr[1266] = (melt_ptr_t) &meltcdat->drout_1218__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1267*/ meltfptr[1266] = (melt_ptr_t) &meltcdat->drout_1218__LAMBDA_;
     meltcdat->drout_1218__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1218__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:1531",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1218__LAMBDA_.nbval = 0;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1218__LAMBDA_, meltrout_16_WARMELTmiMACRO_LAMBDA_cl2);
 
     /*inirout drout_1219__EXPAND_PRIMITIVE*/
-    /*_._VALROUT___V1250*/ meltfptr[1249] = (melt_ptr_t) &meltcdat->drout_1219__EXPAND_PRIMITIVE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1250*/ meltfptr[1249] = (melt_ptr_t) &meltcdat->drout_1219__EXPAND_PRIMITIVE;
     meltcdat->drout_1219__EXPAND_PRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1219__EXPAND_PRIMITIVE.routdescr, "EXPAND_PRIMITIVE @warmelt-macro.melt:1571",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1219__EXPAND_PRIMITIVE.nbval = 5;
@@ -17017,7 +17247,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1220__EXPAND_PRIMITIVE.nbval = 0;
 
     /*inirout drout_1221__EXPAND_HOOK*/
-    /*_._VALROUT___V1260*/ meltfptr[1259] = (melt_ptr_t) &meltcdat->drout_1221__EXPAND_HOOK;
+    /*iniroutlocvar*/ /*_._VALROUT___V1260*/ meltfptr[1259] = (melt_ptr_t) &meltcdat->drout_1221__EXPAND_HOOK;
     meltcdat->drout_1221__EXPAND_HOOK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1221__EXPAND_HOOK.routdescr, "EXPAND_HOOK @warmelt-macro.melt:1588",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1221__EXPAND_HOOK.nbval = 6;
@@ -17043,8 +17273,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1315*/ meltfptr[1314] = (melt_ptr_t) &meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_;
     meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_.val, "CLASS_PATTERN_EXPANSION_CONTEXT", sizeof (meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_.val)-1);
-    meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_.val[31] = (char)0;
-    meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_.slen = 31;
+    meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_.val[31] = (char)0 ;
+    meltcdat->dstr_1224__CLASS_PATTERN_EXPANSION_.slen = 31 ;
 
 
     /*iniobj dsym_1225__CLASS_ROOT*/
@@ -17061,8 +17291,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1317*/ meltfptr[1316] = (melt_ptr_t) &meltcdat->dstr_1226__CLASS_ROOT;
     meltcdat->dstr_1226__CLASS_ROOT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1226__CLASS_ROOT.val, "CLASS_ROOT", sizeof (meltcdat->dstr_1226__CLASS_ROOT.val)-1);
-    meltcdat->dstr_1226__CLASS_ROOT.val[10] = (char)0;
-    meltcdat->dstr_1226__CLASS_ROOT.slen = 10;
+    meltcdat->dstr_1226__CLASS_ROOT.val[10] = (char)0 ;
+    meltcdat->dstr_1226__CLASS_ROOT.slen = 10 ;
 
     MELT_LOCATION("warmelt-macro.melt:1610:/ iniobj");
 
@@ -17080,8 +17310,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1319*/ meltfptr[1318] = (melt_ptr_t) &meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_;
     meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_.val, "CLASS_PATTERN_EXPANSION_CONTEXT", sizeof (meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_.val)-1);
-    meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_.val[31] = (char)0;
-    meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_.slen = 31;
+    meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_.val[31] = (char)0 ;
+    meltcdat->dstr_1228__CLASS_PATTERN_EXPANSION_.slen = 31 ;
 
     /*inimult dtup_1229_syCLASS_PATTERN_EXPANSION_CONTEXT*/
     /*_._VALTUP___V1320*/ meltfptr[1319] = (melt_ptr_t) &meltcdat->dtup_1229_syCLASS_PATTERN_EXPANSION_CONTEXT;
@@ -17106,8 +17336,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1331*/ meltfptr[1330] = (melt_ptr_t) &meltcdat->dstr_1232__PCTX_MEXPANDER;
     meltcdat->dstr_1232__PCTX_MEXPANDER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1232__PCTX_MEXPANDER.val, "PCTX_MEXPANDER", sizeof (meltcdat->dstr_1232__PCTX_MEXPANDER.val)-1);
-    meltcdat->dstr_1232__PCTX_MEXPANDER.val[14] = (char)0;
-    meltcdat->dstr_1232__PCTX_MEXPANDER.slen = 14;
+    meltcdat->dstr_1232__PCTX_MEXPANDER.val[14] = (char)0 ;
+    meltcdat->dstr_1232__PCTX_MEXPANDER.slen = 14 ;
 
     /*^iniobj*/
 
@@ -17125,8 +17355,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1322*/ meltfptr[1321] = (melt_ptr_t) &meltcdat->dstr_1234__PCTX_MEXPANDER;
     meltcdat->dstr_1234__PCTX_MEXPANDER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1234__PCTX_MEXPANDER.val, "PCTX_MEXPANDER", sizeof (meltcdat->dstr_1234__PCTX_MEXPANDER.val)-1);
-    meltcdat->dstr_1234__PCTX_MEXPANDER.val[14] = (char)0;
-    meltcdat->dstr_1234__PCTX_MEXPANDER.slen = 14;
+    meltcdat->dstr_1234__PCTX_MEXPANDER.val[14] = (char)0 ;
+    meltcdat->dstr_1234__PCTX_MEXPANDER.slen = 14 ;
 
 
     /*iniobj dsym_1235__PCTX_PEXPANDER*/
@@ -17143,8 +17373,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1333*/ meltfptr[1332] = (melt_ptr_t) &meltcdat->dstr_1236__PCTX_PEXPANDER;
     meltcdat->dstr_1236__PCTX_PEXPANDER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1236__PCTX_PEXPANDER.val, "PCTX_PEXPANDER", sizeof (meltcdat->dstr_1236__PCTX_PEXPANDER.val)-1);
-    meltcdat->dstr_1236__PCTX_PEXPANDER.val[14] = (char)0;
-    meltcdat->dstr_1236__PCTX_PEXPANDER.slen = 14;
+    meltcdat->dstr_1236__PCTX_PEXPANDER.val[14] = (char)0 ;
+    meltcdat->dstr_1236__PCTX_PEXPANDER.slen = 14 ;
 
     /*^iniobj*/
 
@@ -17162,8 +17392,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1324*/ meltfptr[1323] = (melt_ptr_t) &meltcdat->dstr_1238__PCTX_PEXPANDER;
     meltcdat->dstr_1238__PCTX_PEXPANDER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1238__PCTX_PEXPANDER.val, "PCTX_PEXPANDER", sizeof (meltcdat->dstr_1238__PCTX_PEXPANDER.val)-1);
-    meltcdat->dstr_1238__PCTX_PEXPANDER.val[14] = (char)0;
-    meltcdat->dstr_1238__PCTX_PEXPANDER.slen = 14;
+    meltcdat->dstr_1238__PCTX_PEXPANDER.val[14] = (char)0 ;
+    meltcdat->dstr_1238__PCTX_PEXPANDER.slen = 14 ;
 
 
     /*iniobj dsym_1239__PCTX_VARMAP*/
@@ -17180,8 +17410,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1335*/ meltfptr[1334] = (melt_ptr_t) &meltcdat->dstr_1240__PCTX_VARMAP;
     meltcdat->dstr_1240__PCTX_VARMAP.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1240__PCTX_VARMAP.val, "PCTX_VARMAP", sizeof (meltcdat->dstr_1240__PCTX_VARMAP.val)-1);
-    meltcdat->dstr_1240__PCTX_VARMAP.val[11] = (char)0;
-    meltcdat->dstr_1240__PCTX_VARMAP.slen = 11;
+    meltcdat->dstr_1240__PCTX_VARMAP.val[11] = (char)0 ;
+    meltcdat->dstr_1240__PCTX_VARMAP.slen = 11 ;
 
     /*^iniobj*/
 
@@ -17199,8 +17429,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1326*/ meltfptr[1325] = (melt_ptr_t) &meltcdat->dstr_1242__PCTX_VARMAP;
     meltcdat->dstr_1242__PCTX_VARMAP.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1242__PCTX_VARMAP.val, "PCTX_VARMAP", sizeof (meltcdat->dstr_1242__PCTX_VARMAP.val)-1);
-    meltcdat->dstr_1242__PCTX_VARMAP.val[11] = (char)0;
-    meltcdat->dstr_1242__PCTX_VARMAP.slen = 11;
+    meltcdat->dstr_1242__PCTX_VARMAP.val[11] = (char)0 ;
+    meltcdat->dstr_1242__PCTX_VARMAP.slen = 11 ;
 
 
     /*iniobj dsym_1243__PCTX_MODCTX*/
@@ -17217,8 +17447,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1337*/ meltfptr[1336] = (melt_ptr_t) &meltcdat->dstr_1244__PCTX_MODCTX;
     meltcdat->dstr_1244__PCTX_MODCTX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1244__PCTX_MODCTX.val, "PCTX_MODCTX", sizeof (meltcdat->dstr_1244__PCTX_MODCTX.val)-1);
-    meltcdat->dstr_1244__PCTX_MODCTX.val[11] = (char)0;
-    meltcdat->dstr_1244__PCTX_MODCTX.slen = 11;
+    meltcdat->dstr_1244__PCTX_MODCTX.val[11] = (char)0 ;
+    meltcdat->dstr_1244__PCTX_MODCTX.slen = 11 ;
 
     /*^iniobj*/
 
@@ -17236,11 +17466,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1328*/ meltfptr[1327] = (melt_ptr_t) &meltcdat->dstr_1246__PCTX_MODCTX;
     meltcdat->dstr_1246__PCTX_MODCTX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1246__PCTX_MODCTX.val, "PCTX_MODCTX", sizeof (meltcdat->dstr_1246__PCTX_MODCTX.val)-1);
-    meltcdat->dstr_1246__PCTX_MODCTX.val[11] = (char)0;
-    meltcdat->dstr_1246__PCTX_MODCTX.slen = 11;
+    meltcdat->dstr_1246__PCTX_MODCTX.val[11] = (char)0 ;
+    meltcdat->dstr_1246__PCTX_MODCTX.slen = 11 ;
 
     /*inirout drout_1247__PATTERNEXPAND_PAIRLIST_AS_TUPLE*/
-    /*_._VALROUT___V1338*/ meltfptr[1337] = (melt_ptr_t) &meltcdat->drout_1247__PATTERNEXPAND_PAIRLIST_AS_TUPLE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1338*/ meltfptr[1337] = (melt_ptr_t) &meltcdat->drout_1247__PATTERNEXPAND_PAIRLIST_AS_TUPLE;
     meltcdat->drout_1247__PATTERNEXPAND_PAIRLIST_AS_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1247__PATTERNEXPAND_PAIRLIST_AS_TUPLE.routdescr, "PATTERNEXPAND_PAIRLIST_AS_TUPLE @warmelt-macro.melt:1623",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1247__PATTERNEXPAND_PAIRLIST_AS_TUPLE.nbval = 5;
@@ -17266,18 +17496,18 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1361*/ meltfptr[1360] = (melt_ptr_t) &meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE;
     meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE.val, "PAIRLIST_TO_MULTIPLE", sizeof (meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE.val)-1);
-    meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE.val[20] = (char)0;
-    meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE.slen = 20;
+    meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE.val[20] = (char)0 ;
+    meltcdat->dstr_1250__PAIRLIST_TO_MULTIPLE.slen = 20 ;
 
     /*inirout drout_1251__LAMBDA_*/
-    /*_._VALROUT___V1358*/ meltfptr[1357] = (melt_ptr_t) &meltcdat->drout_1251__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1358*/ meltfptr[1357] = (melt_ptr_t) &meltcdat->drout_1251__LAMBDA_;
     meltcdat->drout_1251__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1251__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:1627",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1251__LAMBDA_.nbval = 1;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1251__LAMBDA_, meltrout_20_WARMELTmiMACRO_LAMBDA_cl3);
 
     /*inirout drout_1252__PATMACEXPAND_FOR_MATCHER*/
-    /*_._VALROUT___V1351*/ meltfptr[1350] = (melt_ptr_t) &meltcdat->drout_1252__PATMACEXPAND_FOR_MATCHER;
+    /*iniroutlocvar*/ /*_._VALROUT___V1351*/ meltfptr[1350] = (melt_ptr_t) &meltcdat->drout_1252__PATMACEXPAND_FOR_MATCHER;
     meltcdat->drout_1252__PATMACEXPAND_FOR_MATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1252__PATMACEXPAND_FOR_MATCHER.routdescr, "PATMACEXPAND_FOR_MATCHER @warmelt-macro.melt:1637",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1252__PATMACEXPAND_FOR_MATCHER.nbval = 15;
@@ -17303,8 +17533,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1363*/ meltfptr[1362] = (melt_ptr_t) &meltcdat->dstr_1255__CLASS_REFERENCE;
     meltcdat->dstr_1255__CLASS_REFERENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1255__CLASS_REFERENCE.val, "CLASS_REFERENCE", sizeof (meltcdat->dstr_1255__CLASS_REFERENCE.val)-1);
-    meltcdat->dstr_1255__CLASS_REFERENCE.val[15] = (char)0;
-    meltcdat->dstr_1255__CLASS_REFERENCE.slen = 15;
+    meltcdat->dstr_1255__CLASS_REFERENCE.val[15] = (char)0 ;
+    meltcdat->dstr_1255__CLASS_REFERENCE.slen = 15 ;
 
 
     /*iniobj dsym_1256__MULTIPLE_MAP*/
@@ -17321,25 +17551,25 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1365*/ meltfptr[1364] = (melt_ptr_t) &meltcdat->dstr_1257__MULTIPLE_MAP;
     meltcdat->dstr_1257__MULTIPLE_MAP.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1257__MULTIPLE_MAP.val, "MULTIPLE_MAP", sizeof (meltcdat->dstr_1257__MULTIPLE_MAP.val)-1);
-    meltcdat->dstr_1257__MULTIPLE_MAP.val[12] = (char)0;
-    meltcdat->dstr_1257__MULTIPLE_MAP.slen = 12;
+    meltcdat->dstr_1257__MULTIPLE_MAP.val[12] = (char)0 ;
+    meltcdat->dstr_1257__MULTIPLE_MAP.slen = 12 ;
 
     /*inirout drout_1258__LAMBDA_*/
-    /*_._VALROUT___V1352*/ meltfptr[1351] = (melt_ptr_t) &meltcdat->drout_1258__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1352*/ meltfptr[1351] = (melt_ptr_t) &meltcdat->drout_1258__LAMBDA_;
     meltcdat->drout_1258__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1258__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:1650",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1258__LAMBDA_.nbval = 3;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1258__LAMBDA_, meltrout_22_WARMELTmiMACRO_LAMBDA_cl4);
 
     /*inirout drout_1259__LAMBDA_*/
-    /*_._VALROUT___V1353*/ meltfptr[1352] = (melt_ptr_t) &meltcdat->drout_1259__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1353*/ meltfptr[1352] = (melt_ptr_t) &meltcdat->drout_1259__LAMBDA_;
     meltcdat->drout_1259__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1259__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:1662",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1259__LAMBDA_.nbval = 3;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1259__LAMBDA_, meltrout_23_WARMELTmiMACRO_LAMBDA_cl5);
 
     /*inirout drout_1260__PATTERN_WEIGHT_TUPLE*/
-    /*_._VALROUT___V1355*/ meltfptr[1354] = (melt_ptr_t) &meltcdat->drout_1260__PATTERN_WEIGHT_TUPLE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1355*/ meltfptr[1354] = (melt_ptr_t) &meltcdat->drout_1260__PATTERN_WEIGHT_TUPLE;
     meltcdat->drout_1260__PATTERN_WEIGHT_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1260__PATTERN_WEIGHT_TUPLE.routdescr, "PATTERN_WEIGHT_TUPLE @warmelt-macro.melt:1681",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1260__PATTERN_WEIGHT_TUPLE.nbval = 5;
@@ -17365,18 +17595,18 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1367*/ meltfptr[1366] = (melt_ptr_t) &meltcdat->dstr_1263__DISCR_INTEGER;
     meltcdat->dstr_1263__DISCR_INTEGER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1263__DISCR_INTEGER.val, "DISCR_INTEGER", sizeof (meltcdat->dstr_1263__DISCR_INTEGER.val)-1);
-    meltcdat->dstr_1263__DISCR_INTEGER.val[13] = (char)0;
-    meltcdat->dstr_1263__DISCR_INTEGER.slen = 13;
+    meltcdat->dstr_1263__DISCR_INTEGER.val[13] = (char)0 ;
+    meltcdat->dstr_1263__DISCR_INTEGER.slen = 13 ;
 
     /*inirout drout_1264__LAMBDA_*/
-    /*_._VALROUT___V1356*/ meltfptr[1355] = (melt_ptr_t) &meltcdat->drout_1264__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1356*/ meltfptr[1355] = (melt_ptr_t) &meltcdat->drout_1264__LAMBDA_;
     meltcdat->drout_1264__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1264__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:1694",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1264__LAMBDA_.nbval = 2;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1264__LAMBDA_, meltrout_25_WARMELTmiMACRO_LAMBDA_cl6);
 
     /*inirout drout_1265__PATTERNEXPAND_EXPR*/
-    /*_._VALROUT___V1349*/ meltfptr[1348] = (melt_ptr_t) &meltcdat->drout_1265__PATTERNEXPAND_EXPR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1349*/ meltfptr[1348] = (melt_ptr_t) &meltcdat->drout_1265__PATTERNEXPAND_EXPR;
     meltcdat->drout_1265__PATTERNEXPAND_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1265__PATTERNEXPAND_EXPR.routdescr, "PATTERNEXPAND_EXPR @warmelt-macro.melt:1715",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1265__PATTERNEXPAND_EXPR.nbval = 19;
@@ -17402,11 +17632,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1369*/ meltfptr[1368] = (melt_ptr_t) &meltcdat->dstr_1268__CLASS_PATMACRO_BINDING;
     meltcdat->dstr_1268__CLASS_PATMACRO_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1268__CLASS_PATMACRO_BINDING.val, "CLASS_PATMACRO_BINDING", sizeof (meltcdat->dstr_1268__CLASS_PATMACRO_BINDING.val)-1);
-    meltcdat->dstr_1268__CLASS_PATMACRO_BINDING.val[22] = (char)0;
-    meltcdat->dstr_1268__CLASS_PATMACRO_BINDING.slen = 22;
+    meltcdat->dstr_1268__CLASS_PATMACRO_BINDING.val[22] = (char)0 ;
+    meltcdat->dstr_1268__CLASS_PATMACRO_BINDING.slen = 22 ;
 
     /*inirout drout_1269__PATTERNEXPAND_1*/
-    /*_._VALROUT___V1340*/ meltfptr[1339] = (melt_ptr_t) &meltcdat->drout_1269__PATTERNEXPAND_1;
+    /*iniroutlocvar*/ /*_._VALROUT___V1340*/ meltfptr[1339] = (melt_ptr_t) &meltcdat->drout_1269__PATTERNEXPAND_1;
     meltcdat->drout_1269__PATTERNEXPAND_1.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1269__PATTERNEXPAND_1.routdescr, "PATTERNEXPAND_1 @warmelt-macro.melt:1868",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1269__PATTERNEXPAND_1.nbval = 16;
@@ -17432,8 +17662,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1342*/ meltfptr[1341] = (melt_ptr_t) &meltcdat->dstr_1272__QUESTION;
     meltcdat->dstr_1272__QUESTION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1272__QUESTION.val, "QUESTION", sizeof (meltcdat->dstr_1272__QUESTION.val)-1);
-    meltcdat->dstr_1272__QUESTION.val[8] = (char)0;
-    meltcdat->dstr_1272__QUESTION.slen = 8;
+    meltcdat->dstr_1272__QUESTION.val[8] = (char)0 ;
+    meltcdat->dstr_1272__QUESTION.slen = 8 ;
 
     /*iniboxint dint_1273__*/
     /*_._VALBXINT___V1343*/ meltfptr[1342] = (melt_ptr_t) &meltcdat->dint_1273__;
@@ -17455,8 +17685,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1345*/ meltfptr[1344] = (melt_ptr_t) &meltcdat->dstr_1275__;
     meltcdat->dstr_1275__.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1275__.val, "_", sizeof (meltcdat->dstr_1275__.val)-1);
-    meltcdat->dstr_1275__.val[1] = (char)0;
-    meltcdat->dstr_1275__.slen = 1;
+    meltcdat->dstr_1275__.val[1] = (char)0 ;
+    meltcdat->dstr_1275__.slen = 1 ;
 
     /*iniboxint dint_1276__*/
     /*_._VALBXINT___V1346*/ meltfptr[1345] = (melt_ptr_t) &meltcdat->dint_1276__;
@@ -17474,7 +17704,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dint_1278__.val = 1;
 
     /*inirout drout_1279__MACROEXPAND_TOPLEVEL_LIST*/
-    /*_._VALROUT___V1370*/ meltfptr[1369] = (melt_ptr_t) &meltcdat->drout_1279__MACROEXPAND_TOPLEVEL_LIST;
+    /*iniroutlocvar*/ /*_._VALROUT___V1370*/ meltfptr[1369] = (melt_ptr_t) &meltcdat->drout_1279__MACROEXPAND_TOPLEVEL_LIST;
     meltcdat->drout_1279__MACROEXPAND_TOPLEVEL_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1279__MACROEXPAND_TOPLEVEL_LIST.routdescr, "MACROEXPAND_TOPLEVEL_LIST @warmelt-macro.melt:1959",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1279__MACROEXPAND_TOPLEVEL_LIST.nbval = 5;
@@ -17500,11 +17730,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1373*/ meltfptr[1372] = (melt_ptr_t) &meltcdat->dstr_1282__DISCR_LIST;
     meltcdat->dstr_1282__DISCR_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1282__DISCR_LIST.val, "DISCR_LIST", sizeof (meltcdat->dstr_1282__DISCR_LIST.val)-1);
-    meltcdat->dstr_1282__DISCR_LIST.val[10] = (char)0;
-    meltcdat->dstr_1282__DISCR_LIST.slen = 10;
+    meltcdat->dstr_1282__DISCR_LIST.val[10] = (char)0 ;
+    meltcdat->dstr_1282__DISCR_LIST.slen = 10 ;
 
     /*inirout drout_1283__LAMBDA_ARG_BINDINGS*/
-    /*_._VALROUT___V1254*/ meltfptr[1253] = (melt_ptr_t) &meltcdat->drout_1283__LAMBDA_ARG_BINDINGS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1254*/ meltfptr[1253] = (melt_ptr_t) &meltcdat->drout_1283__LAMBDA_ARG_BINDINGS;
     meltcdat->drout_1283__LAMBDA_ARG_BINDINGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1283__LAMBDA_ARG_BINDINGS.routdescr, "LAMBDA_ARG_BINDINGS @warmelt-macro.melt:2032",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1283__LAMBDA_ARG_BINDINGS.nbval = 17;
@@ -17530,8 +17760,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1375*/ meltfptr[1374] = (melt_ptr_t) &meltcdat->dstr_1286__CTYPE_VALUE;
     meltcdat->dstr_1286__CTYPE_VALUE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1286__CTYPE_VALUE.val, "CTYPE_VALUE", sizeof (meltcdat->dstr_1286__CTYPE_VALUE.val)-1);
-    meltcdat->dstr_1286__CTYPE_VALUE.val[11] = (char)0;
-    meltcdat->dstr_1286__CTYPE_VALUE.slen = 11;
+    meltcdat->dstr_1286__CTYPE_VALUE.val[11] = (char)0 ;
+    meltcdat->dstr_1286__CTYPE_VALUE.slen = 11 ;
 
 
     /*iniobj dsym_1287__DISCR_MAP_OBJECTS*/
@@ -17548,8 +17778,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1377*/ meltfptr[1376] = (melt_ptr_t) &meltcdat->dstr_1288__DISCR_MAP_OBJECTS;
     meltcdat->dstr_1288__DISCR_MAP_OBJECTS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1288__DISCR_MAP_OBJECTS.val, "DISCR_MAP_OBJECTS", sizeof (meltcdat->dstr_1288__DISCR_MAP_OBJECTS.val)-1);
-    meltcdat->dstr_1288__DISCR_MAP_OBJECTS.val[17] = (char)0;
-    meltcdat->dstr_1288__DISCR_MAP_OBJECTS.slen = 17;
+    meltcdat->dstr_1288__DISCR_MAP_OBJECTS.val[17] = (char)0 ;
+    meltcdat->dstr_1288__DISCR_MAP_OBJECTS.slen = 17 ;
 
 
     /*iniobj dsym_1289__DISCR_FORMAL_SEQUENCE*/
@@ -17566,8 +17796,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1379*/ meltfptr[1378] = (melt_ptr_t) &meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE;
     meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE.val, "DISCR_FORMAL_SEQUENCE", sizeof (meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE.val)-1);
-    meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE.val[21] = (char)0;
-    meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE.slen = 21;
+    meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE.val[21] = (char)0 ;
+    meltcdat->dstr_1290__DISCR_FORMAL_SEQUENCE.slen = 21 ;
 
 
     /*iniobj dsym_1291__REST*/
@@ -17584,8 +17814,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1256*/ meltfptr[1255] = (melt_ptr_t) &meltcdat->dstr_1292__REST;
     meltcdat->dstr_1292__REST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1292__REST.val, "REST", sizeof (meltcdat->dstr_1292__REST.val)-1);
-    meltcdat->dstr_1292__REST.val[4] = (char)0;
-    meltcdat->dstr_1292__REST.slen = 4;
+    meltcdat->dstr_1292__REST.val[4] = (char)0 ;
+    meltcdat->dstr_1292__REST.slen = 4 ;
 
 
     /*iniobj dsym_1293__DISCR_VARIADIC_FORMAL_SEQUENCE*/
@@ -17602,8 +17832,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1381*/ meltfptr[1380] = (melt_ptr_t) &meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE;
     meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE.val, "DISCR_VARIADIC_FORMAL_SEQUENCE", sizeof (meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE.val)-1);
-    meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE.val[30] = (char)0;
-    meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE.slen = 30;
+    meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE.val[30] = (char)0 ;
+    meltcdat->dstr_1294__DISCR_VARIADIC_FORMAL_SE.slen = 30 ;
 
 
     /*iniobj dsym_1295__AUTO*/
@@ -17620,8 +17850,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1258*/ meltfptr[1257] = (melt_ptr_t) &meltcdat->dstr_1296__AUTO;
     meltcdat->dstr_1296__AUTO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1296__AUTO.val, "AUTO", sizeof (meltcdat->dstr_1296__AUTO.val)-1);
-    meltcdat->dstr_1296__AUTO.val[4] = (char)0;
-    meltcdat->dstr_1296__AUTO.slen = 4;
+    meltcdat->dstr_1296__AUTO.val[4] = (char)0 ;
+    meltcdat->dstr_1296__AUTO.slen = 4 ;
 
 
     /*iniobj dsym_1297__CLASS_CTYPE*/
@@ -17638,8 +17868,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1383*/ meltfptr[1382] = (melt_ptr_t) &meltcdat->dstr_1298__CLASS_CTYPE;
     meltcdat->dstr_1298__CLASS_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1298__CLASS_CTYPE.val, "CLASS_CTYPE", sizeof (meltcdat->dstr_1298__CLASS_CTYPE.val)-1);
-    meltcdat->dstr_1298__CLASS_CTYPE.val[11] = (char)0;
-    meltcdat->dstr_1298__CLASS_CTYPE.slen = 11;
+    meltcdat->dstr_1298__CLASS_CTYPE.val[11] = (char)0 ;
+    meltcdat->dstr_1298__CLASS_CTYPE.slen = 11 ;
 
 
     /*iniobj dsym_1299__CLASS_QUASI_CTYPE*/
@@ -17656,8 +17886,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1385*/ meltfptr[1384] = (melt_ptr_t) &meltcdat->dstr_1300__CLASS_QUASI_CTYPE;
     meltcdat->dstr_1300__CLASS_QUASI_CTYPE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1300__CLASS_QUASI_CTYPE.val, "CLASS_QUASI_CTYPE", sizeof (meltcdat->dstr_1300__CLASS_QUASI_CTYPE.val)-1);
-    meltcdat->dstr_1300__CLASS_QUASI_CTYPE.val[17] = (char)0;
-    meltcdat->dstr_1300__CLASS_QUASI_CTYPE.slen = 17;
+    meltcdat->dstr_1300__CLASS_QUASI_CTYPE.val[17] = (char)0 ;
+    meltcdat->dstr_1300__CLASS_QUASI_CTYPE.slen = 17 ;
 
 
     /*iniobj dsym_1301__CLASS_ANY_BINDING*/
@@ -17674,11 +17904,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1387*/ meltfptr[1386] = (melt_ptr_t) &meltcdat->dstr_1302__CLASS_ANY_BINDING;
     meltcdat->dstr_1302__CLASS_ANY_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1302__CLASS_ANY_BINDING.val, "CLASS_ANY_BINDING", sizeof (meltcdat->dstr_1302__CLASS_ANY_BINDING.val)-1);
-    meltcdat->dstr_1302__CLASS_ANY_BINDING.val[17] = (char)0;
-    meltcdat->dstr_1302__CLASS_ANY_BINDING.slen = 17;
+    meltcdat->dstr_1302__CLASS_ANY_BINDING.val[17] = (char)0 ;
+    meltcdat->dstr_1302__CLASS_ANY_BINDING.slen = 17 ;
 
     /*inirout drout_1303__INSTALL_INITIAL_MACRO*/
-    /*_._VALROUT___V1388*/ meltfptr[1387] = (melt_ptr_t) &meltcdat->drout_1303__INSTALL_INITIAL_MACRO;
+    /*iniroutlocvar*/ /*_._VALROUT___V1388*/ meltfptr[1387] = (melt_ptr_t) &meltcdat->drout_1303__INSTALL_INITIAL_MACRO;
     meltcdat->drout_1303__INSTALL_INITIAL_MACRO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1303__INSTALL_INITIAL_MACRO.routdescr, "INSTALL_INITIAL_MACRO @warmelt-macro.melt:2140",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1303__INSTALL_INITIAL_MACRO.nbval = 5;
@@ -17704,11 +17934,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1391*/ meltfptr[1390] = (melt_ptr_t) &meltcdat->dstr_1306__INITIAL_ENVIRONMENT;
     meltcdat->dstr_1306__INITIAL_ENVIRONMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1306__INITIAL_ENVIRONMENT.val, "INITIAL_ENVIRONMENT", sizeof (meltcdat->dstr_1306__INITIAL_ENVIRONMENT.val)-1);
-    meltcdat->dstr_1306__INITIAL_ENVIRONMENT.val[19] = (char)0;
-    meltcdat->dstr_1306__INITIAL_ENVIRONMENT.slen = 19;
+    meltcdat->dstr_1306__INITIAL_ENVIRONMENT.val[19] = (char)0 ;
+    meltcdat->dstr_1306__INITIAL_ENVIRONMENT.slen = 19 ;
 
     /*inirout drout_1307__INSTALL_INITIAL_PATMACRO*/
-    /*_._VALROUT___V1392*/ meltfptr[1391] = (melt_ptr_t) &meltcdat->drout_1307__INSTALL_INITIAL_PATMACRO;
+    /*iniroutlocvar*/ /*_._VALROUT___V1392*/ meltfptr[1391] = (melt_ptr_t) &meltcdat->drout_1307__INSTALL_INITIAL_PATMACRO;
     meltcdat->drout_1307__INSTALL_INITIAL_PATMACRO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1307__INSTALL_INITIAL_PATMACRO.routdescr, "INSTALL_INITIAL_PATMACRO @warmelt-macro.melt:2153",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1307__INSTALL_INITIAL_PATMACRO.nbval = 5;
@@ -17734,8 +17964,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1395*/ meltfptr[1394] = (melt_ptr_t) &meltcdat->dstr_1310__WARN_SHADOW;
     meltcdat->dstr_1310__WARN_SHADOW.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1310__WARN_SHADOW.val, "WARN_SHADOW", sizeof (meltcdat->dstr_1310__WARN_SHADOW.val)-1);
-    meltcdat->dstr_1310__WARN_SHADOW.val[11] = (char)0;
-    meltcdat->dstr_1310__WARN_SHADOW.slen = 11;
+    meltcdat->dstr_1310__WARN_SHADOW.val[11] = (char)0 ;
+    meltcdat->dstr_1310__WARN_SHADOW.slen = 11 ;
 
     MELT_LOCATION("warmelt-macro.melt:2171:/ iniobj");
 
@@ -17760,19 +17990,19 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1399*/ meltfptr[1398] = (melt_ptr_t) &meltcdat->dstr_1314__warn_shadow;
     meltcdat->dstr_1314__warn_shadow.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_VERBATIM_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1314__warn_shadow.val, "warn_shadow", sizeof (meltcdat->dstr_1314__warn_shadow.val)-1);
-    meltcdat->dstr_1314__warn_shadow.val[11] = (char)0;
-    meltcdat->dstr_1314__warn_shadow.slen = 11;
+    meltcdat->dstr_1314__warn_shadow.val[11] = (char)0 ;
+    meltcdat->dstr_1314__warn_shadow.slen = 11 ;
 
 
     /*inistring dstr_1315__WARN_SHADOW*/
     /*_._VALSTR___V1397*/ meltfptr[1396] = (melt_ptr_t) &meltcdat->dstr_1315__WARN_SHADOW;
     meltcdat->dstr_1315__WARN_SHADOW.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1315__WARN_SHADOW.val, "WARN_SHADOW", sizeof (meltcdat->dstr_1315__WARN_SHADOW.val)-1);
-    meltcdat->dstr_1315__WARN_SHADOW.val[11] = (char)0;
-    meltcdat->dstr_1315__WARN_SHADOW.slen = 11;
+    meltcdat->dstr_1315__WARN_SHADOW.val[11] = (char)0 ;
+    meltcdat->dstr_1315__WARN_SHADOW.slen = 11 ;
 
     /*inirout drout_1316__WARN_IF_REDEFINED*/
-    /*_._VALROUT___V1401*/ meltfptr[1400] = (melt_ptr_t) &meltcdat->drout_1316__WARN_IF_REDEFINED;
+    /*iniroutlocvar*/ /*_._VALROUT___V1401*/ meltfptr[1400] = (melt_ptr_t) &meltcdat->drout_1316__WARN_IF_REDEFINED;
     meltcdat->drout_1316__WARN_IF_REDEFINED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1316__WARN_IF_REDEFINED.routdescr, "WARN_IF_REDEFINED @warmelt-macro.melt:2175",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1316__WARN_IF_REDEFINED.nbval = 3;
@@ -17784,7 +18014,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1317__WARN_IF_REDEFINED.nbval = 0;
 
     /*inirout drout_1318__FLATTEN_FOR_C_CODE_EXPANSION*/
-    /*_._VALROUT___V1403*/ meltfptr[1402] = (melt_ptr_t) &meltcdat->drout_1318__FLATTEN_FOR_C_CODE_EXPANSION;
+    /*iniroutlocvar*/ /*_._VALROUT___V1403*/ meltfptr[1402] = (melt_ptr_t) &meltcdat->drout_1318__FLATTEN_FOR_C_CODE_EXPANSION;
     meltcdat->drout_1318__FLATTEN_FOR_C_CODE_EXPANSION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1318__FLATTEN_FOR_C_CODE_EXPANSION.routdescr, "FLATTEN_FOR_C_CODE_EXPANSION @warmelt-macro.melt:2188",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1318__FLATTEN_FOR_C_CODE_EXPANSION.nbval = 6;
@@ -17810,11 +18040,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1406*/ meltfptr[1405] = (melt_ptr_t) &meltcdat->dstr_1321__DISCR_VERBATIM_STRING;
     meltcdat->dstr_1321__DISCR_VERBATIM_STRING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1321__DISCR_VERBATIM_STRING.val, "DISCR_VERBATIM_STRING", sizeof (meltcdat->dstr_1321__DISCR_VERBATIM_STRING.val)-1);
-    meltcdat->dstr_1321__DISCR_VERBATIM_STRING.val[21] = (char)0;
-    meltcdat->dstr_1321__DISCR_VERBATIM_STRING.slen = 21;
+    meltcdat->dstr_1321__DISCR_VERBATIM_STRING.val[21] = (char)0 ;
+    meltcdat->dstr_1321__DISCR_VERBATIM_STRING.slen = 21 ;
 
     /*inirout drout_1322__PARSE_PAIRLIST_C_CODE_EXPANSION*/
-    /*_._VALROUT___V1407*/ meltfptr[1406] = (melt_ptr_t) &meltcdat->drout_1322__PARSE_PAIRLIST_C_CODE_EXPANSION;
+    /*iniroutlocvar*/ /*_._VALROUT___V1407*/ meltfptr[1406] = (melt_ptr_t) &meltcdat->drout_1322__PARSE_PAIRLIST_C_CODE_EXPANSION;
     meltcdat->drout_1322__PARSE_PAIRLIST_C_CODE_EXPANSION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1322__PARSE_PAIRLIST_C_CODE_EXPANSION.routdescr, "PARSE_PAIRLIST_C_CODE_EXPANSION @warmelt-macro.melt:2234",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1322__PARSE_PAIRLIST_C_CODE_EXPANSION.nbval = 5;
@@ -17826,7 +18056,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1323__PARSE_PAIRLIST_C_CODE_EXPANSION.nbval = 0;
 
     /*inirout drout_1324__CHECK_C_EXPANSION*/
-    /*_._VALROUT___V1409*/ meltfptr[1408] = (melt_ptr_t) &meltcdat->drout_1324__CHECK_C_EXPANSION;
+    /*iniroutlocvar*/ /*_._VALROUT___V1409*/ meltfptr[1408] = (melt_ptr_t) &meltcdat->drout_1324__CHECK_C_EXPANSION;
     meltcdat->drout_1324__CHECK_C_EXPANSION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1324__CHECK_C_EXPANSION.routdescr, "CHECK_C_EXPANSION @warmelt-macro.melt:2255",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1324__CHECK_C_EXPANSION.nbval = 4;
@@ -17838,7 +18068,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1325__CHECK_C_EXPANSION.nbval = 0;
 
     /*inirout drout_1326__MEXPAND_DEFPRIMITIVE*/
-    /*_._VALROUT___V1411*/ meltfptr[1410] = (melt_ptr_t) &meltcdat->drout_1326__MEXPAND_DEFPRIMITIVE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1411*/ meltfptr[1410] = (melt_ptr_t) &meltcdat->drout_1326__MEXPAND_DEFPRIMITIVE;
     meltcdat->drout_1326__MEXPAND_DEFPRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1326__MEXPAND_DEFPRIMITIVE.routdescr, "MEXPAND_DEFPRIMITIVE @warmelt-macro.melt:2290",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1326__MEXPAND_DEFPRIMITIVE.nbval = 23;
@@ -17864,8 +18094,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1413*/ meltfptr[1412] = (melt_ptr_t) &meltcdat->dstr_1329__DOC;
     meltcdat->dstr_1329__DOC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1329__DOC.val, "DOC", sizeof (meltcdat->dstr_1329__DOC.val)-1);
-    meltcdat->dstr_1329__DOC.val[3] = (char)0;
-    meltcdat->dstr_1329__DOC.slen = 3;
+    meltcdat->dstr_1329__DOC.val[3] = (char)0 ;
+    meltcdat->dstr_1329__DOC.slen = 3 ;
 
 
     /*iniobj dsym_1330__DEFPRIMITIVE*/
@@ -17882,11 +18112,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1416*/ meltfptr[1415] = (melt_ptr_t) &meltcdat->dstr_1331__DEFPRIMITIVE;
     meltcdat->dstr_1331__DEFPRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1331__DEFPRIMITIVE.val, "DEFPRIMITIVE", sizeof (meltcdat->dstr_1331__DEFPRIMITIVE.val)-1);
-    meltcdat->dstr_1331__DEFPRIMITIVE.val[12] = (char)0;
-    meltcdat->dstr_1331__DEFPRIMITIVE.slen = 12;
+    meltcdat->dstr_1331__DEFPRIMITIVE.val[12] = (char)0 ;
+    meltcdat->dstr_1331__DEFPRIMITIVE.slen = 12 ;
 
     /*inirout drout_1332__MEXPAND_DEFCITERATOR*/
-    /*_._VALROUT___V1417*/ meltfptr[1416] = (melt_ptr_t) &meltcdat->drout_1332__MEXPAND_DEFCITERATOR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1417*/ meltfptr[1416] = (melt_ptr_t) &meltcdat->drout_1332__MEXPAND_DEFCITERATOR;
     meltcdat->drout_1332__MEXPAND_DEFCITERATOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1332__MEXPAND_DEFCITERATOR.routdescr, "MEXPAND_DEFCITERATOR @warmelt-macro.melt:2413",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1332__MEXPAND_DEFCITERATOR.nbval = 18;
@@ -17912,11 +18142,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1420*/ meltfptr[1419] = (melt_ptr_t) &meltcdat->dstr_1335__DEFCITERATOR;
     meltcdat->dstr_1335__DEFCITERATOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1335__DEFCITERATOR.val, "DEFCITERATOR", sizeof (meltcdat->dstr_1335__DEFCITERATOR.val)-1);
-    meltcdat->dstr_1335__DEFCITERATOR.val[12] = (char)0;
-    meltcdat->dstr_1335__DEFCITERATOR.slen = 12;
+    meltcdat->dstr_1335__DEFCITERATOR.val[12] = (char)0 ;
+    meltcdat->dstr_1335__DEFCITERATOR.slen = 12 ;
 
     /*inirout drout_1336__MEXPAND_DEFCMATCHER*/
-    /*_._VALROUT___V1421*/ meltfptr[1420] = (melt_ptr_t) &meltcdat->drout_1336__MEXPAND_DEFCMATCHER;
+    /*iniroutlocvar*/ /*_._VALROUT___V1421*/ meltfptr[1420] = (melt_ptr_t) &meltcdat->drout_1336__MEXPAND_DEFCMATCHER;
     meltcdat->drout_1336__MEXPAND_DEFCMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1336__MEXPAND_DEFCMATCHER.routdescr, "MEXPAND_DEFCMATCHER @warmelt-macro.melt:2561",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1336__MEXPAND_DEFCMATCHER.nbval = 21;
@@ -17942,11 +18172,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1425*/ meltfptr[1424] = (melt_ptr_t) &meltcdat->dstr_1339__MULTIPLE_EVERY;
     meltcdat->dstr_1339__MULTIPLE_EVERY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1339__MULTIPLE_EVERY.val, "MULTIPLE_EVERY", sizeof (meltcdat->dstr_1339__MULTIPLE_EVERY.val)-1);
-    meltcdat->dstr_1339__MULTIPLE_EVERY.val[14] = (char)0;
-    meltcdat->dstr_1339__MULTIPLE_EVERY.slen = 14;
+    meltcdat->dstr_1339__MULTIPLE_EVERY.val[14] = (char)0 ;
+    meltcdat->dstr_1339__MULTIPLE_EVERY.slen = 14 ;
 
     /*inirout drout_1340__LAMBDA_*/
-    /*_._VALROUT___V1422*/ meltfptr[1421] = (melt_ptr_t) &meltcdat->drout_1340__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1422*/ meltfptr[1421] = (melt_ptr_t) &meltcdat->drout_1340__LAMBDA_;
     meltcdat->drout_1340__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1340__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:2612",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1340__LAMBDA_.nbval = 0;
@@ -17967,11 +18197,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1427*/ meltfptr[1426] = (melt_ptr_t) &meltcdat->dstr_1342__DEFCMATCHER;
     meltcdat->dstr_1342__DEFCMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1342__DEFCMATCHER.val, "DEFCMATCHER", sizeof (meltcdat->dstr_1342__DEFCMATCHER.val)-1);
-    meltcdat->dstr_1342__DEFCMATCHER.val[11] = (char)0;
-    meltcdat->dstr_1342__DEFCMATCHER.slen = 11;
+    meltcdat->dstr_1342__DEFCMATCHER.val[11] = (char)0 ;
+    meltcdat->dstr_1342__DEFCMATCHER.slen = 11 ;
 
     /*inirout drout_1343__MEXPAND_DEFUNMATCHER*/
-    /*_._VALROUT___V1428*/ meltfptr[1427] = (melt_ptr_t) &meltcdat->drout_1343__MEXPAND_DEFUNMATCHER;
+    /*iniroutlocvar*/ /*_._VALROUT___V1428*/ meltfptr[1427] = (melt_ptr_t) &meltcdat->drout_1343__MEXPAND_DEFUNMATCHER;
     meltcdat->drout_1343__MEXPAND_DEFUNMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1343__MEXPAND_DEFUNMATCHER.routdescr, "MEXPAND_DEFUNMATCHER @warmelt-macro.melt:2757",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1343__MEXPAND_DEFUNMATCHER.nbval = 15;
@@ -17983,7 +18213,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1344__MEXPAND_DEFUNMATCHER.nbval = 0;
 
     /*inirout drout_1345__LAMBDA_*/
-    /*_._VALROUT___V1429*/ meltfptr[1428] = (melt_ptr_t) &meltcdat->drout_1345__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1429*/ meltfptr[1428] = (melt_ptr_t) &meltcdat->drout_1345__LAMBDA_;
     meltcdat->drout_1345__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1345__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:2804",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1345__LAMBDA_.nbval = 0;
@@ -18004,11 +18234,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1432*/ meltfptr[1431] = (melt_ptr_t) &meltcdat->dstr_1347__DEFUNMATCHER;
     meltcdat->dstr_1347__DEFUNMATCHER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1347__DEFUNMATCHER.val, "DEFUNMATCHER", sizeof (meltcdat->dstr_1347__DEFUNMATCHER.val)-1);
-    meltcdat->dstr_1347__DEFUNMATCHER.val[12] = (char)0;
-    meltcdat->dstr_1347__DEFUNMATCHER.slen = 12;
+    meltcdat->dstr_1347__DEFUNMATCHER.val[12] = (char)0 ;
+    meltcdat->dstr_1347__DEFUNMATCHER.slen = 12 ;
 
     /*inirout drout_1348__MEXPAND_DEFUN*/
-    /*_._VALROUT___V1433*/ meltfptr[1432] = (melt_ptr_t) &meltcdat->drout_1348__MEXPAND_DEFUN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1433*/ meltfptr[1432] = (melt_ptr_t) &meltcdat->drout_1348__MEXPAND_DEFUN;
     meltcdat->drout_1348__MEXPAND_DEFUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1348__MEXPAND_DEFUN.routdescr, "MEXPAND_DEFUN @warmelt-macro.melt:2904",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1348__MEXPAND_DEFUN.nbval = 14;
@@ -18034,8 +18264,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1436*/ meltfptr[1435] = (melt_ptr_t) &meltcdat->dstr_1351__CLASS_FUNCTION_BINDING;
     meltcdat->dstr_1351__CLASS_FUNCTION_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1351__CLASS_FUNCTION_BINDING.val, "CLASS_FUNCTION_BINDING", sizeof (meltcdat->dstr_1351__CLASS_FUNCTION_BINDING.val)-1);
-    meltcdat->dstr_1351__CLASS_FUNCTION_BINDING.val[22] = (char)0;
-    meltcdat->dstr_1351__CLASS_FUNCTION_BINDING.slen = 22;
+    meltcdat->dstr_1351__CLASS_FUNCTION_BINDING.val[22] = (char)0 ;
+    meltcdat->dstr_1351__CLASS_FUNCTION_BINDING.slen = 22 ;
 
 
     /*iniobj dsym_1352__DEFUN*/
@@ -18052,11 +18282,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1438*/ meltfptr[1437] = (melt_ptr_t) &meltcdat->dstr_1353__DEFUN;
     meltcdat->dstr_1353__DEFUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1353__DEFUN.val, "DEFUN", sizeof (meltcdat->dstr_1353__DEFUN.val)-1);
-    meltcdat->dstr_1353__DEFUN.val[5] = (char)0;
-    meltcdat->dstr_1353__DEFUN.slen = 5;
+    meltcdat->dstr_1353__DEFUN.val[5] = (char)0 ;
+    meltcdat->dstr_1353__DEFUN.slen = 5 ;
 
     /*inirout drout_1354__MEXPAND_DEFVAR*/
-    /*_._VALROUT___V1439*/ meltfptr[1438] = (melt_ptr_t) &meltcdat->drout_1354__MEXPAND_DEFVAR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1439*/ meltfptr[1438] = (melt_ptr_t) &meltcdat->drout_1354__MEXPAND_DEFVAR;
     meltcdat->drout_1354__MEXPAND_DEFVAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1354__MEXPAND_DEFVAR.routdescr, "MEXPAND_DEFVAR @warmelt-macro.melt:2981",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1354__MEXPAND_DEFVAR.nbval = 11;
@@ -18082,8 +18312,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1442*/ meltfptr[1441] = (melt_ptr_t) &meltcdat->dstr_1357__CLASS_VARIABLE_BINDING;
     meltcdat->dstr_1357__CLASS_VARIABLE_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1357__CLASS_VARIABLE_BINDING.val, "CLASS_VARIABLE_BINDING", sizeof (meltcdat->dstr_1357__CLASS_VARIABLE_BINDING.val)-1);
-    meltcdat->dstr_1357__CLASS_VARIABLE_BINDING.val[22] = (char)0;
-    meltcdat->dstr_1357__CLASS_VARIABLE_BINDING.slen = 22;
+    meltcdat->dstr_1357__CLASS_VARIABLE_BINDING.val[22] = (char)0 ;
+    meltcdat->dstr_1357__CLASS_VARIABLE_BINDING.slen = 22 ;
 
 
     /*iniobj dsym_1358__DEFVAR*/
@@ -18100,11 +18330,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1444*/ meltfptr[1443] = (melt_ptr_t) &meltcdat->dstr_1359__DEFVAR;
     meltcdat->dstr_1359__DEFVAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1359__DEFVAR.val, "DEFVAR", sizeof (meltcdat->dstr_1359__DEFVAR.val)-1);
-    meltcdat->dstr_1359__DEFVAR.val[6] = (char)0;
-    meltcdat->dstr_1359__DEFVAR.slen = 6;
+    meltcdat->dstr_1359__DEFVAR.val[6] = (char)0 ;
+    meltcdat->dstr_1359__DEFVAR.slen = 6 ;
 
     /*inirout drout_1360__MEXPAND_DEFHOOK*/
-    /*_._VALROUT___V1445*/ meltfptr[1444] = (melt_ptr_t) &meltcdat->drout_1360__MEXPAND_DEFHOOK;
+    /*iniroutlocvar*/ /*_._VALROUT___V1445*/ meltfptr[1444] = (melt_ptr_t) &meltcdat->drout_1360__MEXPAND_DEFHOOK;
     meltcdat->drout_1360__MEXPAND_DEFHOOK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1360__MEXPAND_DEFHOOK.routdescr, "MEXPAND_DEFHOOK @warmelt-macro.melt:3034",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1360__MEXPAND_DEFHOOK.nbval = 22;
@@ -18130,8 +18360,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1452*/ meltfptr[1451] = (melt_ptr_t) &meltcdat->dstr_1363__SYMBOL_CNAME;
     meltcdat->dstr_1363__SYMBOL_CNAME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1363__SYMBOL_CNAME.val, "SYMBOL_CNAME", sizeof (meltcdat->dstr_1363__SYMBOL_CNAME.val)-1);
-    meltcdat->dstr_1363__SYMBOL_CNAME.val[12] = (char)0;
-    meltcdat->dstr_1363__SYMBOL_CNAME.slen = 12;
+    meltcdat->dstr_1363__SYMBOL_CNAME.val[12] = (char)0 ;
+    meltcdat->dstr_1363__SYMBOL_CNAME.slen = 12 ;
 
 
     /*iniobj dsym_1364__PREDEF*/
@@ -18148,8 +18378,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1447*/ meltfptr[1446] = (melt_ptr_t) &meltcdat->dstr_1365__PREDEF;
     meltcdat->dstr_1365__PREDEF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1365__PREDEF.val, "PREDEF", sizeof (meltcdat->dstr_1365__PREDEF.val)-1);
-    meltcdat->dstr_1365__PREDEF.val[6] = (char)0;
-    meltcdat->dstr_1365__PREDEF.slen = 6;
+    meltcdat->dstr_1365__PREDEF.val[6] = (char)0 ;
+    meltcdat->dstr_1365__PREDEF.slen = 6 ;
 
 
     /*iniobj dsym_1366__VAR*/
@@ -18166,8 +18396,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1449*/ meltfptr[1448] = (melt_ptr_t) &meltcdat->dstr_1367__VAR;
     meltcdat->dstr_1367__VAR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1367__VAR.val, "VAR", sizeof (meltcdat->dstr_1367__VAR.val)-1);
-    meltcdat->dstr_1367__VAR.val[3] = (char)0;
-    meltcdat->dstr_1367__VAR.slen = 3;
+    meltcdat->dstr_1367__VAR.val[3] = (char)0 ;
+    meltcdat->dstr_1367__VAR.slen = 3 ;
 
 
     /*iniobj dsym_1368__DEFHOOK*/
@@ -18184,11 +18414,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1454*/ meltfptr[1453] = (melt_ptr_t) &meltcdat->dstr_1369__DEFHOOK;
     meltcdat->dstr_1369__DEFHOOK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1369__DEFHOOK.val, "DEFHOOK", sizeof (meltcdat->dstr_1369__DEFHOOK.val)-1);
-    meltcdat->dstr_1369__DEFHOOK.val[7] = (char)0;
-    meltcdat->dstr_1369__DEFHOOK.slen = 7;
+    meltcdat->dstr_1369__DEFHOOK.val[7] = (char)0 ;
+    meltcdat->dstr_1369__DEFHOOK.slen = 7 ;
 
     /*inirout drout_1370__MEXPAND_DEFINE*/
-    /*_._VALROUT___V1455*/ meltfptr[1454] = (melt_ptr_t) &meltcdat->drout_1370__MEXPAND_DEFINE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1455*/ meltfptr[1454] = (melt_ptr_t) &meltcdat->drout_1370__MEXPAND_DEFINE;
     meltcdat->drout_1370__MEXPAND_DEFINE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1370__MEXPAND_DEFINE.routdescr, "MEXPAND_DEFINE @warmelt-macro.melt:3207",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1370__MEXPAND_DEFINE.nbval = 21;
@@ -18214,11 +18444,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1459*/ meltfptr[1458] = (melt_ptr_t) &meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND;
     meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND.val, "CLASS_DEFINED_VALUE_BINDING", sizeof (meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND.val)-1);
-    meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND.val[27] = (char)0;
-    meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND.slen = 27;
+    meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND.val[27] = (char)0 ;
+    meltcdat->dstr_1373__CLASS_DEFINED_VALUE_BIND.slen = 27 ;
 
     /*inirout drout_1374__LAMBDA_*/
-    /*_._VALROUT___V1456*/ meltfptr[1455] = (melt_ptr_t) &meltcdat->drout_1374__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1456*/ meltfptr[1455] = (melt_ptr_t) &meltcdat->drout_1374__LAMBDA_;
     meltcdat->drout_1374__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1374__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:3302",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1374__LAMBDA_.nbval = 1;
@@ -18239,11 +18469,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1461*/ meltfptr[1460] = (melt_ptr_t) &meltcdat->dstr_1376__DEFINE;
     meltcdat->dstr_1376__DEFINE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1376__DEFINE.val, "DEFINE", sizeof (meltcdat->dstr_1376__DEFINE.val)-1);
-    meltcdat->dstr_1376__DEFINE.val[6] = (char)0;
-    meltcdat->dstr_1376__DEFINE.slen = 6;
+    meltcdat->dstr_1376__DEFINE.val[6] = (char)0 ;
+    meltcdat->dstr_1376__DEFINE.slen = 6 ;
 
     /*inirout drout_1377__SCAN_DEFCLASS*/
-    /*_._VALROUT___V1462*/ meltfptr[1461] = (melt_ptr_t) &meltcdat->drout_1377__SCAN_DEFCLASS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1462*/ meltfptr[1461] = (melt_ptr_t) &meltcdat->drout_1377__SCAN_DEFCLASS;
     meltcdat->drout_1377__SCAN_DEFCLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1377__SCAN_DEFCLASS.routdescr, "SCAN_DEFCLASS @warmelt-macro.melt:3328",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1377__SCAN_DEFCLASS.nbval = 14;
@@ -18269,8 +18499,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1464*/ meltfptr[1463] = (melt_ptr_t) &meltcdat->dstr_1380__SUPER;
     meltcdat->dstr_1380__SUPER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1380__SUPER.val, "SUPER", sizeof (meltcdat->dstr_1380__SUPER.val)-1);
-    meltcdat->dstr_1380__SUPER.val[5] = (char)0;
-    meltcdat->dstr_1380__SUPER.slen = 5;
+    meltcdat->dstr_1380__SUPER.val[5] = (char)0 ;
+    meltcdat->dstr_1380__SUPER.slen = 5 ;
 
 
     /*iniobj dsym_1381__CLASS_CLASS_BINDING*/
@@ -18287,8 +18517,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1469*/ meltfptr[1468] = (melt_ptr_t) &meltcdat->dstr_1382__CLASS_CLASS_BINDING;
     meltcdat->dstr_1382__CLASS_CLASS_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1382__CLASS_CLASS_BINDING.val, "CLASS_CLASS_BINDING", sizeof (meltcdat->dstr_1382__CLASS_CLASS_BINDING.val)-1);
-    meltcdat->dstr_1382__CLASS_CLASS_BINDING.val[19] = (char)0;
-    meltcdat->dstr_1382__CLASS_CLASS_BINDING.slen = 19;
+    meltcdat->dstr_1382__CLASS_CLASS_BINDING.val[19] = (char)0 ;
+    meltcdat->dstr_1382__CLASS_CLASS_BINDING.slen = 19 ;
 
 
     /*iniobj dsym_1383__CLASS_CLASS*/
@@ -18305,8 +18535,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1471*/ meltfptr[1470] = (melt_ptr_t) &meltcdat->dstr_1384__CLASS_CLASS;
     meltcdat->dstr_1384__CLASS_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1384__CLASS_CLASS.val, "CLASS_CLASS", sizeof (meltcdat->dstr_1384__CLASS_CLASS.val)-1);
-    meltcdat->dstr_1384__CLASS_CLASS.val[11] = (char)0;
-    meltcdat->dstr_1384__CLASS_CLASS.slen = 11;
+    meltcdat->dstr_1384__CLASS_CLASS.val[11] = (char)0 ;
+    meltcdat->dstr_1384__CLASS_CLASS.slen = 11 ;
 
 
     /*iniobj dsym_1385__FIELDS*/
@@ -18323,11 +18553,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1466*/ meltfptr[1465] = (melt_ptr_t) &meltcdat->dstr_1386__FIELDS;
     meltcdat->dstr_1386__FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1386__FIELDS.val, "FIELDS", sizeof (meltcdat->dstr_1386__FIELDS.val)-1);
-    meltcdat->dstr_1386__FIELDS.val[6] = (char)0;
-    meltcdat->dstr_1386__FIELDS.slen = 6;
+    meltcdat->dstr_1386__FIELDS.val[6] = (char)0 ;
+    meltcdat->dstr_1386__FIELDS.slen = 6 ;
 
     /*inirout drout_1387__MEXPAND_DEFCLASS*/
-    /*_._VALROUT___V1472*/ meltfptr[1471] = (melt_ptr_t) &meltcdat->drout_1387__MEXPAND_DEFCLASS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1472*/ meltfptr[1471] = (melt_ptr_t) &meltcdat->drout_1387__MEXPAND_DEFCLASS;
     meltcdat->drout_1387__MEXPAND_DEFCLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1387__MEXPAND_DEFCLASS.routdescr, "MEXPAND_DEFCLASS @warmelt-macro.melt:3448",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1387__MEXPAND_DEFCLASS.nbval = 27;
@@ -18353,8 +18583,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1477*/ meltfptr[1476] = (melt_ptr_t) &meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE;
     meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE.val, "DISCR_CLASS_SEQUENCE", sizeof (meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE.val)-1);
-    meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE.val[20] = (char)0;
-    meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE.slen = 20;
+    meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE.val[20] = (char)0 ;
+    meltcdat->dstr_1390__DISCR_CLASS_SEQUENCE.slen = 20 ;
 
 
     /*iniobj dsym_1391__DISCR_MAP_STRINGS*/
@@ -18371,8 +18601,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1479*/ meltfptr[1478] = (melt_ptr_t) &meltcdat->dstr_1392__DISCR_MAP_STRINGS;
     meltcdat->dstr_1392__DISCR_MAP_STRINGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1392__DISCR_MAP_STRINGS.val, "DISCR_MAP_STRINGS", sizeof (meltcdat->dstr_1392__DISCR_MAP_STRINGS.val)-1);
-    meltcdat->dstr_1392__DISCR_MAP_STRINGS.val[17] = (char)0;
-    meltcdat->dstr_1392__DISCR_MAP_STRINGS.slen = 17;
+    meltcdat->dstr_1392__DISCR_MAP_STRINGS.val[17] = (char)0 ;
+    meltcdat->dstr_1392__DISCR_MAP_STRINGS.slen = 17 ;
 
 
     /*iniobj dsym_1393__DISCR_FIELD_SEQUENCE*/
@@ -18389,18 +18619,18 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1481*/ meltfptr[1480] = (melt_ptr_t) &meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE;
     meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE.val, "DISCR_FIELD_SEQUENCE", sizeof (meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE.val)-1);
-    meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE.val[20] = (char)0;
-    meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE.slen = 20;
+    meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE.val[20] = (char)0 ;
+    meltcdat->dstr_1394__DISCR_FIELD_SEQUENCE.slen = 20 ;
 
     /*inirout drout_1395__LAMBDA_*/
-    /*_._VALROUT___V1473*/ meltfptr[1472] = (melt_ptr_t) &meltcdat->drout_1395__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1473*/ meltfptr[1472] = (melt_ptr_t) &meltcdat->drout_1395__LAMBDA_;
     meltcdat->drout_1395__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1395__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:3510",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1395__LAMBDA_.nbval = 1;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1395__LAMBDA_, meltrout_49_WARMELTmiMACRO_LAMBDA_cl10);
 
     /*inirout drout_1396__LAMBDA_*/
-    /*_._VALROUT___V1474*/ meltfptr[1473] = (melt_ptr_t) &meltcdat->drout_1396__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1474*/ meltfptr[1473] = (melt_ptr_t) &meltcdat->drout_1396__LAMBDA_;
     meltcdat->drout_1396__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1396__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:3519",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1396__LAMBDA_.nbval = 9;
@@ -18421,11 +18651,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1483*/ meltfptr[1482] = (melt_ptr_t) &meltcdat->dstr_1398__DEFCLASS;
     meltcdat->dstr_1398__DEFCLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1398__DEFCLASS.val, "DEFCLASS", sizeof (meltcdat->dstr_1398__DEFCLASS.val)-1);
-    meltcdat->dstr_1398__DEFCLASS.val[8] = (char)0;
-    meltcdat->dstr_1398__DEFCLASS.slen = 8;
+    meltcdat->dstr_1398__DEFCLASS.val[8] = (char)0 ;
+    meltcdat->dstr_1398__DEFCLASS.slen = 8 ;
 
     /*inirout drout_1399__PARSE_FIELD_ASSIGNMENT*/
-    /*_._VALROUT___V1484*/ meltfptr[1483] = (melt_ptr_t) &meltcdat->drout_1399__PARSE_FIELD_ASSIGNMENT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1484*/ meltfptr[1483] = (melt_ptr_t) &meltcdat->drout_1399__PARSE_FIELD_ASSIGNMENT;
     meltcdat->drout_1399__PARSE_FIELD_ASSIGNMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1399__PARSE_FIELD_ASSIGNMENT.routdescr, "PARSE_FIELD_ASSIGNMENT @warmelt-macro.melt:3597",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1399__PARSE_FIELD_ASSIGNMENT.nbval = 14;
@@ -18451,18 +18681,18 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1488*/ meltfptr[1487] = (melt_ptr_t) &meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST;
     meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST.val, "MULTIPLE_ITERATE_TEST", sizeof (meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST.val)-1);
-    meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST.val[21] = (char)0;
-    meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST.slen = 21;
+    meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST.val[21] = (char)0 ;
+    meltcdat->dstr_1402__MULTIPLE_ITERATE_TEST.slen = 21 ;
 
     /*inirout drout_1403__LAMBDA_*/
-    /*_._VALROUT___V1485*/ meltfptr[1484] = (melt_ptr_t) &meltcdat->drout_1403__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1485*/ meltfptr[1484] = (melt_ptr_t) &meltcdat->drout_1403__LAMBDA_;
     meltcdat->drout_1403__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1403__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:3621",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1403__LAMBDA_.nbval = 3;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1403__LAMBDA_, meltrout_52_WARMELTmiMACRO_LAMBDA_cl12);
 
     /*inirout drout_1404__MEXPAND_DEFINSTANCE*/
-    /*_._VALROUT___V1489*/ meltfptr[1488] = (melt_ptr_t) &meltcdat->drout_1404__MEXPAND_DEFINSTANCE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1489*/ meltfptr[1488] = (melt_ptr_t) &meltcdat->drout_1404__MEXPAND_DEFINSTANCE;
     meltcdat->drout_1404__MEXPAND_DEFINSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1404__MEXPAND_DEFINSTANCE.routdescr, "MEXPAND_DEFINSTANCE @warmelt-macro.melt:3694",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1404__MEXPAND_DEFINSTANCE.nbval = 20;
@@ -18488,8 +18718,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1494*/ meltfptr[1493] = (melt_ptr_t) &meltcdat->dstr_1407__CLASS_INSTANCE_BINDING;
     meltcdat->dstr_1407__CLASS_INSTANCE_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1407__CLASS_INSTANCE_BINDING.val, "CLASS_INSTANCE_BINDING", sizeof (meltcdat->dstr_1407__CLASS_INSTANCE_BINDING.val)-1);
-    meltcdat->dstr_1407__CLASS_INSTANCE_BINDING.val[22] = (char)0;
-    meltcdat->dstr_1407__CLASS_INSTANCE_BINDING.slen = 22;
+    meltcdat->dstr_1407__CLASS_INSTANCE_BINDING.val[22] = (char)0 ;
+    meltcdat->dstr_1407__CLASS_INSTANCE_BINDING.slen = 22 ;
 
 
     /*iniobj dsym_1408__OBJ_NUM*/
@@ -18506,8 +18736,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1491*/ meltfptr[1490] = (melt_ptr_t) &meltcdat->dstr_1409__OBJ_NUM;
     meltcdat->dstr_1409__OBJ_NUM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1409__OBJ_NUM.val, "OBJ_NUM", sizeof (meltcdat->dstr_1409__OBJ_NUM.val)-1);
-    meltcdat->dstr_1409__OBJ_NUM.val[7] = (char)0;
-    meltcdat->dstr_1409__OBJ_NUM.slen = 7;
+    meltcdat->dstr_1409__OBJ_NUM.val[7] = (char)0 ;
+    meltcdat->dstr_1409__OBJ_NUM.slen = 7 ;
 
 
     /*iniobj dsym_1410__DEFINSTANCE*/
@@ -18524,11 +18754,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1496*/ meltfptr[1495] = (melt_ptr_t) &meltcdat->dstr_1411__DEFINSTANCE;
     meltcdat->dstr_1411__DEFINSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1411__DEFINSTANCE.val, "DEFINSTANCE", sizeof (meltcdat->dstr_1411__DEFINSTANCE.val)-1);
-    meltcdat->dstr_1411__DEFINSTANCE.val[11] = (char)0;
-    meltcdat->dstr_1411__DEFINSTANCE.slen = 11;
+    meltcdat->dstr_1411__DEFINSTANCE.val[11] = (char)0 ;
+    meltcdat->dstr_1411__DEFINSTANCE.slen = 11 ;
 
     /*inirout drout_1412__MEXPAND_DEFSELECTOR*/
-    /*_._VALROUT___V1497*/ meltfptr[1496] = (melt_ptr_t) &meltcdat->drout_1412__MEXPAND_DEFSELECTOR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1497*/ meltfptr[1496] = (melt_ptr_t) &meltcdat->drout_1412__MEXPAND_DEFSELECTOR;
     meltcdat->drout_1412__MEXPAND_DEFSELECTOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1412__MEXPAND_DEFSELECTOR.routdescr, "MEXPAND_DEFSELECTOR @warmelt-macro.melt:3808",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1412__MEXPAND_DEFSELECTOR.nbval = 28;
@@ -18554,8 +18784,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1502*/ meltfptr[1501] = (melt_ptr_t) &meltcdat->dstr_1415__MELT_MODE_REFERENCE;
     meltcdat->dstr_1415__MELT_MODE_REFERENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1415__MELT_MODE_REFERENCE.val, "MELT_MODE_REFERENCE", sizeof (meltcdat->dstr_1415__MELT_MODE_REFERENCE.val)-1);
-    meltcdat->dstr_1415__MELT_MODE_REFERENCE.val[19] = (char)0;
-    meltcdat->dstr_1415__MELT_MODE_REFERENCE.slen = 19;
+    meltcdat->dstr_1415__MELT_MODE_REFERENCE.val[19] = (char)0 ;
+    meltcdat->dstr_1415__MELT_MODE_REFERENCE.slen = 19 ;
 
 
     /*iniobj dsym_1416__FORMALS*/
@@ -18572,8 +18802,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1499*/ meltfptr[1498] = (melt_ptr_t) &meltcdat->dstr_1417__FORMALS;
     meltcdat->dstr_1417__FORMALS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1417__FORMALS.val, "FORMALS", sizeof (meltcdat->dstr_1417__FORMALS.val)-1);
-    meltcdat->dstr_1417__FORMALS.val[7] = (char)0;
-    meltcdat->dstr_1417__FORMALS.slen = 7;
+    meltcdat->dstr_1417__FORMALS.val[7] = (char)0 ;
+    meltcdat->dstr_1417__FORMALS.slen = 7 ;
 
 
     /*iniobj dsym_1418__DEFSELECTOR*/
@@ -18590,11 +18820,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1504*/ meltfptr[1503] = (melt_ptr_t) &meltcdat->dstr_1419__DEFSELECTOR;
     meltcdat->dstr_1419__DEFSELECTOR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1419__DEFSELECTOR.val, "DEFSELECTOR", sizeof (meltcdat->dstr_1419__DEFSELECTOR.val)-1);
-    meltcdat->dstr_1419__DEFSELECTOR.val[11] = (char)0;
-    meltcdat->dstr_1419__DEFSELECTOR.slen = 11;
+    meltcdat->dstr_1419__DEFSELECTOR.val[11] = (char)0 ;
+    meltcdat->dstr_1419__DEFSELECTOR.slen = 11 ;
 
     /*inirout drout_1420__MEXPAND_INSTANCE*/
-    /*_._VALROUT___V1505*/ meltfptr[1504] = (melt_ptr_t) &meltcdat->drout_1420__MEXPAND_INSTANCE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1505*/ meltfptr[1504] = (melt_ptr_t) &meltcdat->drout_1420__MEXPAND_INSTANCE;
     meltcdat->drout_1420__MEXPAND_INSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1420__MEXPAND_INSTANCE.routdescr, "MEXPAND_INSTANCE @warmelt-macro.melt:3955",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1420__MEXPAND_INSTANCE.nbval = 14;
@@ -18620,11 +18850,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1508*/ meltfptr[1507] = (melt_ptr_t) &meltcdat->dstr_1423__INSTANCE;
     meltcdat->dstr_1423__INSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1423__INSTANCE.val, "INSTANCE", sizeof (meltcdat->dstr_1423__INSTANCE.val)-1);
-    meltcdat->dstr_1423__INSTANCE.val[8] = (char)0;
-    meltcdat->dstr_1423__INSTANCE.slen = 8;
+    meltcdat->dstr_1423__INSTANCE.val[8] = (char)0 ;
+    meltcdat->dstr_1423__INSTANCE.slen = 8 ;
 
     /*inirout drout_1424__MEXPAND_LOAD*/
-    /*_._VALROUT___V1509*/ meltfptr[1508] = (melt_ptr_t) &meltcdat->drout_1424__MEXPAND_LOAD;
+    /*iniroutlocvar*/ /*_._VALROUT___V1509*/ meltfptr[1508] = (melt_ptr_t) &meltcdat->drout_1424__MEXPAND_LOAD;
     meltcdat->drout_1424__MEXPAND_LOAD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1424__MEXPAND_LOAD.routdescr, "MEXPAND_LOAD @warmelt-macro.melt:4023",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1424__MEXPAND_LOAD.nbval = 8;
@@ -18650,11 +18880,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1512*/ meltfptr[1511] = (melt_ptr_t) &meltcdat->dstr_1427__LOAD;
     meltcdat->dstr_1427__LOAD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1427__LOAD.val, "LOAD", sizeof (meltcdat->dstr_1427__LOAD.val)-1);
-    meltcdat->dstr_1427__LOAD.val[4] = (char)0;
-    meltcdat->dstr_1427__LOAD.slen = 4;
+    meltcdat->dstr_1427__LOAD.val[4] = (char)0 ;
+    meltcdat->dstr_1427__LOAD.slen = 4 ;
 
     /*inirout drout_1428__PARSE_FIELD_PATTERN*/
-    /*_._VALROUT___V1513*/ meltfptr[1512] = (melt_ptr_t) &meltcdat->drout_1428__PARSE_FIELD_PATTERN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1513*/ meltfptr[1512] = (melt_ptr_t) &meltcdat->drout_1428__PARSE_FIELD_PATTERN;
     meltcdat->drout_1428__PARSE_FIELD_PATTERN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1428__PARSE_FIELD_PATTERN.routdescr, "PARSE_FIELD_PATTERN @warmelt-macro.melt:4064",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1428__PARSE_FIELD_PATTERN.nbval = 13;
@@ -18666,14 +18896,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1429__PARSE_FIELD_PATTERN.nbval = 0;
 
     /*inirout drout_1430__LAMBDA_*/
-    /*_._VALROUT___V1514*/ meltfptr[1513] = (melt_ptr_t) &meltcdat->drout_1430__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1514*/ meltfptr[1513] = (melt_ptr_t) &meltcdat->drout_1430__LAMBDA_;
     meltcdat->drout_1430__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1430__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:4079",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1430__LAMBDA_.nbval = 2;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1430__LAMBDA_, meltrout_58_WARMELTmiMACRO_LAMBDA_cl13);
 
     /*inirout drout_1431__PATEXPAND_INSTANCE*/
-    /*_._VALROUT___V1516*/ meltfptr[1515] = (melt_ptr_t) &meltcdat->drout_1431__PATEXPAND_INSTANCE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1516*/ meltfptr[1515] = (melt_ptr_t) &meltcdat->drout_1431__PATEXPAND_INSTANCE;
     meltcdat->drout_1431__PATEXPAND_INSTANCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1431__PATEXPAND_INSTANCE.routdescr, "PATEXPAND_INSTANCE @warmelt-macro.melt:4108",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1431__PATEXPAND_INSTANCE.nbval = 20;
@@ -18685,14 +18915,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1432__PATEXPAND_INSTANCE.nbval = 0;
 
     /*inirout drout_1433__LAMBDA_*/
-    /*_._VALROUT___V1517*/ meltfptr[1516] = (melt_ptr_t) &meltcdat->drout_1433__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1517*/ meltfptr[1516] = (melt_ptr_t) &meltcdat->drout_1433__LAMBDA_;
     meltcdat->drout_1433__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1433__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:4166",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1433__LAMBDA_.nbval = 1;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1433__LAMBDA_, meltrout_60_WARMELTmiMACRO_LAMBDA_cl14);
 
     /*inirout drout_1434__PATEXPAND_OBJECT*/
-    /*_._VALROUT___V1519*/ meltfptr[1518] = (melt_ptr_t) &meltcdat->drout_1434__PATEXPAND_OBJECT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1519*/ meltfptr[1518] = (melt_ptr_t) &meltcdat->drout_1434__PATEXPAND_OBJECT;
     meltcdat->drout_1434__PATEXPAND_OBJECT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1434__PATEXPAND_OBJECT.routdescr, "PATEXPAND_OBJECT @warmelt-macro.melt:4203",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1434__PATEXPAND_OBJECT.nbval = 20;
@@ -18704,14 +18934,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1435__PATEXPAND_OBJECT.nbval = 0;
 
     /*inirout drout_1436__LAMBDA_*/
-    /*_._VALROUT___V1520*/ meltfptr[1519] = (melt_ptr_t) &meltcdat->drout_1436__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1520*/ meltfptr[1519] = (melt_ptr_t) &meltcdat->drout_1436__LAMBDA_;
     meltcdat->drout_1436__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1436__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:4261",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1436__LAMBDA_.nbval = 1;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1436__LAMBDA_, meltrout_62_WARMELTmiMACRO_LAMBDA_cl15);
 
     /*inirout drout_1437__MEXPAND_OBJECT*/
-    /*_._VALROUT___V1522*/ meltfptr[1521] = (melt_ptr_t) &meltcdat->drout_1437__MEXPAND_OBJECT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1522*/ meltfptr[1521] = (melt_ptr_t) &meltcdat->drout_1437__MEXPAND_OBJECT;
     meltcdat->drout_1437__MEXPAND_OBJECT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1437__MEXPAND_OBJECT.routdescr, "MEXPAND_OBJECT @warmelt-macro.melt:4280",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1437__MEXPAND_OBJECT.nbval = 3;
@@ -18737,11 +18967,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1525*/ meltfptr[1524] = (melt_ptr_t) &meltcdat->dstr_1440__OBJECT;
     meltcdat->dstr_1440__OBJECT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1440__OBJECT.val, "OBJECT", sizeof (meltcdat->dstr_1440__OBJECT.val)-1);
-    meltcdat->dstr_1440__OBJECT.val[6] = (char)0;
-    meltcdat->dstr_1440__OBJECT.slen = 6;
+    meltcdat->dstr_1440__OBJECT.val[6] = (char)0 ;
+    meltcdat->dstr_1440__OBJECT.slen = 6 ;
 
     /*inirout drout_1441__EXPAND_MACROSTRING_PAIRS*/
-    /*_._VALROUT___V1526*/ meltfptr[1525] = (melt_ptr_t) &meltcdat->drout_1441__EXPAND_MACROSTRING_PAIRS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1526*/ meltfptr[1525] = (melt_ptr_t) &meltcdat->drout_1441__EXPAND_MACROSTRING_PAIRS;
     meltcdat->drout_1441__EXPAND_MACROSTRING_PAIRS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1441__EXPAND_MACROSTRING_PAIRS.routdescr, "EXPAND_MACROSTRING_PAIRS @warmelt-macro.melt:4305",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1441__EXPAND_MACROSTRING_PAIRS.nbval = 11;
@@ -18753,7 +18983,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1442__EXPAND_MACROSTRING_PAIRS.nbval = 0;
 
     /*inirout drout_1443__LAMBDA_*/
-    /*_._VALROUT___V1527*/ meltfptr[1526] = (melt_ptr_t) &meltcdat->drout_1443__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1527*/ meltfptr[1526] = (melt_ptr_t) &meltcdat->drout_1443__LAMBDA_;
     meltcdat->drout_1443__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1443__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:4313",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1443__LAMBDA_.nbval = 5;
@@ -18774,11 +19004,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1530*/ meltfptr[1529] = (melt_ptr_t) &meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING;
     meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING.val, "CLASS_SEXPR_MACROSTRING", sizeof (meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING.val)-1);
-    meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING.val[23] = (char)0;
-    meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING.slen = 23;
+    meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING.val[23] = (char)0 ;
+    meltcdat->dstr_1445__CLASS_SEXPR_MACROSTRING.slen = 23 ;
 
     /*inirout drout_1446__MEXPAND_CODE_CHUNK*/
-    /*_._VALROUT___V1531*/ meltfptr[1530] = (melt_ptr_t) &meltcdat->drout_1446__MEXPAND_CODE_CHUNK;
+    /*iniroutlocvar*/ /*_._VALROUT___V1531*/ meltfptr[1530] = (melt_ptr_t) &meltcdat->drout_1446__MEXPAND_CODE_CHUNK;
     meltcdat->drout_1446__MEXPAND_CODE_CHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1446__MEXPAND_CODE_CHUNK.routdescr, "MEXPAND_CODE_CHUNK @warmelt-macro.melt:4355",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1446__MEXPAND_CODE_CHUNK.nbval = 6;
@@ -18804,11 +19034,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1534*/ meltfptr[1533] = (melt_ptr_t) &meltcdat->dstr_1449__CODE_CHUNK;
     meltcdat->dstr_1449__CODE_CHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1449__CODE_CHUNK.val, "CODE_CHUNK", sizeof (meltcdat->dstr_1449__CODE_CHUNK.val)-1);
-    meltcdat->dstr_1449__CODE_CHUNK.val[10] = (char)0;
-    meltcdat->dstr_1449__CODE_CHUNK.slen = 10;
+    meltcdat->dstr_1449__CODE_CHUNK.val[10] = (char)0 ;
+    meltcdat->dstr_1449__CODE_CHUNK.slen = 10 ;
 
     /*inirout drout_1450__MEXPAND_EXPR_CHUNK*/
-    /*_._VALROUT___V1535*/ meltfptr[1534] = (melt_ptr_t) &meltcdat->drout_1450__MEXPAND_EXPR_CHUNK;
+    /*iniroutlocvar*/ /*_._VALROUT___V1535*/ meltfptr[1534] = (melt_ptr_t) &meltcdat->drout_1450__MEXPAND_EXPR_CHUNK;
     meltcdat->drout_1450__MEXPAND_EXPR_CHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1450__MEXPAND_EXPR_CHUNK.routdescr, "MEXPAND_EXPR_CHUNK @warmelt-macro.melt:4394",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1450__MEXPAND_EXPR_CHUNK.nbval = 10;
@@ -18834,11 +19064,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1538*/ meltfptr[1537] = (melt_ptr_t) &meltcdat->dstr_1453__EXPR_CHUNK;
     meltcdat->dstr_1453__EXPR_CHUNK.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1453__EXPR_CHUNK.val, "EXPR_CHUNK", sizeof (meltcdat->dstr_1453__EXPR_CHUNK.val)-1);
-    meltcdat->dstr_1453__EXPR_CHUNK.val[10] = (char)0;
-    meltcdat->dstr_1453__EXPR_CHUNK.slen = 10;
+    meltcdat->dstr_1453__EXPR_CHUNK.val[10] = (char)0 ;
+    meltcdat->dstr_1453__EXPR_CHUNK.slen = 10 ;
 
     /*inirout drout_1454__MEXPAND_UNSAFE_PUT_FIELDS*/
-    /*_._VALROUT___V1539*/ meltfptr[1538] = (melt_ptr_t) &meltcdat->drout_1454__MEXPAND_UNSAFE_PUT_FIELDS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1539*/ meltfptr[1538] = (melt_ptr_t) &meltcdat->drout_1454__MEXPAND_UNSAFE_PUT_FIELDS;
     meltcdat->drout_1454__MEXPAND_UNSAFE_PUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1454__MEXPAND_UNSAFE_PUT_FIELDS.routdescr, "MEXPAND_UNSAFE_PUT_FIELDS @warmelt-macro.melt:4463",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1454__MEXPAND_UNSAFE_PUT_FIELDS.nbval = 9;
@@ -18864,11 +19094,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1542*/ meltfptr[1541] = (melt_ptr_t) &meltcdat->dstr_1457__UNSAFE_PUT_FIELDS;
     meltcdat->dstr_1457__UNSAFE_PUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1457__UNSAFE_PUT_FIELDS.val, "UNSAFE_PUT_FIELDS", sizeof (meltcdat->dstr_1457__UNSAFE_PUT_FIELDS.val)-1);
-    meltcdat->dstr_1457__UNSAFE_PUT_FIELDS.val[17] = (char)0;
-    meltcdat->dstr_1457__UNSAFE_PUT_FIELDS.slen = 17;
+    meltcdat->dstr_1457__UNSAFE_PUT_FIELDS.val[17] = (char)0 ;
+    meltcdat->dstr_1457__UNSAFE_PUT_FIELDS.slen = 17 ;
 
     /*inirout drout_1458__MEXPAND_PUT_FIELDS*/
-    /*_._VALROUT___V1543*/ meltfptr[1542] = (melt_ptr_t) &meltcdat->drout_1458__MEXPAND_PUT_FIELDS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1543*/ meltfptr[1542] = (melt_ptr_t) &meltcdat->drout_1458__MEXPAND_PUT_FIELDS;
     meltcdat->drout_1458__MEXPAND_PUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1458__MEXPAND_PUT_FIELDS.routdescr, "MEXPAND_PUT_FIELDS @warmelt-macro.melt:4511",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1458__MEXPAND_PUT_FIELDS.nbval = 9;
@@ -18894,11 +19124,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1546*/ meltfptr[1545] = (melt_ptr_t) &meltcdat->dstr_1461__PUT_FIELDS;
     meltcdat->dstr_1461__PUT_FIELDS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1461__PUT_FIELDS.val, "PUT_FIELDS", sizeof (meltcdat->dstr_1461__PUT_FIELDS.val)-1);
-    meltcdat->dstr_1461__PUT_FIELDS.val[10] = (char)0;
-    meltcdat->dstr_1461__PUT_FIELDS.slen = 10;
+    meltcdat->dstr_1461__PUT_FIELDS.val[10] = (char)0 ;
+    meltcdat->dstr_1461__PUT_FIELDS.slen = 10 ;
 
     /*inirout drout_1462__MEXPAND_UNSAFE_GET_FIELD*/
-    /*_._VALROUT___V1547*/ meltfptr[1546] = (melt_ptr_t) &meltcdat->drout_1462__MEXPAND_UNSAFE_GET_FIELD;
+    /*iniroutlocvar*/ /*_._VALROUT___V1547*/ meltfptr[1546] = (melt_ptr_t) &meltcdat->drout_1462__MEXPAND_UNSAFE_GET_FIELD;
     meltcdat->drout_1462__MEXPAND_UNSAFE_GET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1462__MEXPAND_UNSAFE_GET_FIELD.routdescr, "MEXPAND_UNSAFE_GET_FIELD @warmelt-macro.melt:4558",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1462__MEXPAND_UNSAFE_GET_FIELD.nbval = 6;
@@ -18924,11 +19154,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1550*/ meltfptr[1549] = (melt_ptr_t) &meltcdat->dstr_1465__UNSAFE_GET_FIELD;
     meltcdat->dstr_1465__UNSAFE_GET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1465__UNSAFE_GET_FIELD.val, "UNSAFE_GET_FIELD", sizeof (meltcdat->dstr_1465__UNSAFE_GET_FIELD.val)-1);
-    meltcdat->dstr_1465__UNSAFE_GET_FIELD.val[16] = (char)0;
-    meltcdat->dstr_1465__UNSAFE_GET_FIELD.slen = 16;
+    meltcdat->dstr_1465__UNSAFE_GET_FIELD.val[16] = (char)0 ;
+    meltcdat->dstr_1465__UNSAFE_GET_FIELD.slen = 16 ;
 
     /*inirout drout_1466__MEXPAND_GET_FIELD*/
-    /*_._VALROUT___V1551*/ meltfptr[1550] = (melt_ptr_t) &meltcdat->drout_1466__MEXPAND_GET_FIELD;
+    /*iniroutlocvar*/ /*_._VALROUT___V1551*/ meltfptr[1550] = (melt_ptr_t) &meltcdat->drout_1466__MEXPAND_GET_FIELD;
     meltcdat->drout_1466__MEXPAND_GET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1466__MEXPAND_GET_FIELD.routdescr, "MEXPAND_GET_FIELD @warmelt-macro.melt:4599",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1466__MEXPAND_GET_FIELD.nbval = 6;
@@ -18954,11 +19184,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1554*/ meltfptr[1553] = (melt_ptr_t) &meltcdat->dstr_1469__GET_FIELD;
     meltcdat->dstr_1469__GET_FIELD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1469__GET_FIELD.val, "GET_FIELD", sizeof (meltcdat->dstr_1469__GET_FIELD.val)-1);
-    meltcdat->dstr_1469__GET_FIELD.val[9] = (char)0;
-    meltcdat->dstr_1469__GET_FIELD.slen = 9;
+    meltcdat->dstr_1469__GET_FIELD.val[9] = (char)0 ;
+    meltcdat->dstr_1469__GET_FIELD.slen = 9 ;
 
     /*inirout drout_1470__PAIRLIST_TO_PROGN*/
-    /*_._VALROUT___V1555*/ meltfptr[1554] = (melt_ptr_t) &meltcdat->drout_1470__PAIRLIST_TO_PROGN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1555*/ meltfptr[1554] = (melt_ptr_t) &meltcdat->drout_1470__PAIRLIST_TO_PROGN;
     meltcdat->drout_1470__PAIRLIST_TO_PROGN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1470__PAIRLIST_TO_PROGN.routdescr, "PAIRLIST_TO_PROGN @warmelt-macro.melt:4640",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1470__PAIRLIST_TO_PROGN.nbval = 6;
@@ -18970,14 +19200,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1471__PAIRLIST_TO_PROGN.nbval = 0;
 
     /*inirout drout_1472__LAMBDA_*/
-    /*_._VALROUT___V1556*/ meltfptr[1555] = (melt_ptr_t) &meltcdat->drout_1472__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1556*/ meltfptr[1555] = (melt_ptr_t) &meltcdat->drout_1472__LAMBDA_;
     meltcdat->drout_1472__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1472__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:4648",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1472__LAMBDA_.nbval = 0;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1472__LAMBDA_, meltrout_73_WARMELTmiMACRO_LAMBDA_cl17);
 
     /*inirout drout_1473__MEXPAND_SETQ*/
-    /*_._VALROUT___V1558*/ meltfptr[1557] = (melt_ptr_t) &meltcdat->drout_1473__MEXPAND_SETQ;
+    /*iniroutlocvar*/ /*_._VALROUT___V1558*/ meltfptr[1557] = (melt_ptr_t) &meltcdat->drout_1473__MEXPAND_SETQ;
     meltcdat->drout_1473__MEXPAND_SETQ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1473__MEXPAND_SETQ.routdescr, "MEXPAND_SETQ @warmelt-macro.melt:4659",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1473__MEXPAND_SETQ.nbval = 5;
@@ -19003,11 +19233,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1561*/ meltfptr[1560] = (melt_ptr_t) &meltcdat->dstr_1476__SETQ;
     meltcdat->dstr_1476__SETQ.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1476__SETQ.val, "SETQ", sizeof (meltcdat->dstr_1476__SETQ.val)-1);
-    meltcdat->dstr_1476__SETQ.val[4] = (char)0;
-    meltcdat->dstr_1476__SETQ.slen = 4;
+    meltcdat->dstr_1476__SETQ.val[4] = (char)0 ;
+    meltcdat->dstr_1476__SETQ.slen = 4 ;
 
     /*inirout drout_1477__MEXPAND_IF*/
-    /*_._VALROUT___V1562*/ meltfptr[1561] = (melt_ptr_t) &meltcdat->drout_1477__MEXPAND_IF;
+    /*iniroutlocvar*/ /*_._VALROUT___V1562*/ meltfptr[1561] = (melt_ptr_t) &meltcdat->drout_1477__MEXPAND_IF;
     meltcdat->drout_1477__MEXPAND_IF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1477__MEXPAND_IF.routdescr, "MEXPAND_IF @warmelt-macro.melt:4690",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1477__MEXPAND_IF.nbval = 6;
@@ -19033,11 +19263,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1565*/ meltfptr[1564] = (melt_ptr_t) &meltcdat->dstr_1480__IF;
     meltcdat->dstr_1480__IF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1480__IF.val, "IF", sizeof (meltcdat->dstr_1480__IF.val)-1);
-    meltcdat->dstr_1480__IF.val[2] = (char)0;
-    meltcdat->dstr_1480__IF.slen = 2;
+    meltcdat->dstr_1480__IF.val[2] = (char)0 ;
+    meltcdat->dstr_1480__IF.slen = 2 ;
 
     /*inirout drout_1481__MEXPAND_WHEN*/
-    /*_._VALROUT___V1566*/ meltfptr[1565] = (melt_ptr_t) &meltcdat->drout_1481__MEXPAND_WHEN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1566*/ meltfptr[1565] = (melt_ptr_t) &meltcdat->drout_1481__MEXPAND_WHEN;
     meltcdat->drout_1481__MEXPAND_WHEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1481__MEXPAND_WHEN.routdescr, "MEXPAND_WHEN @warmelt-macro.melt:4744",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1481__MEXPAND_WHEN.nbval = 6;
@@ -19063,11 +19293,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1569*/ meltfptr[1568] = (melt_ptr_t) &meltcdat->dstr_1484__WHEN;
     meltcdat->dstr_1484__WHEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1484__WHEN.val, "WHEN", sizeof (meltcdat->dstr_1484__WHEN.val)-1);
-    meltcdat->dstr_1484__WHEN.val[4] = (char)0;
-    meltcdat->dstr_1484__WHEN.slen = 4;
+    meltcdat->dstr_1484__WHEN.val[4] = (char)0 ;
+    meltcdat->dstr_1484__WHEN.slen = 4 ;
 
     /*inirout drout_1485__MEXPAND_UNLESS*/
-    /*_._VALROUT___V1570*/ meltfptr[1569] = (melt_ptr_t) &meltcdat->drout_1485__MEXPAND_UNLESS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1570*/ meltfptr[1569] = (melt_ptr_t) &meltcdat->drout_1485__MEXPAND_UNLESS;
     meltcdat->drout_1485__MEXPAND_UNLESS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1485__MEXPAND_UNLESS.routdescr, "MEXPAND_UNLESS @warmelt-macro.melt:4780",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1485__MEXPAND_UNLESS.nbval = 6;
@@ -19093,11 +19323,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1573*/ meltfptr[1572] = (melt_ptr_t) &meltcdat->dstr_1488__UNLESS;
     meltcdat->dstr_1488__UNLESS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1488__UNLESS.val, "UNLESS", sizeof (meltcdat->dstr_1488__UNLESS.val)-1);
-    meltcdat->dstr_1488__UNLESS.val[6] = (char)0;
-    meltcdat->dstr_1488__UNLESS.slen = 6;
+    meltcdat->dstr_1488__UNLESS.val[6] = (char)0 ;
+    meltcdat->dstr_1488__UNLESS.slen = 6 ;
 
     /*inirout drout_1489__MEXPAND_CPPIF*/
-    /*_._VALROUT___V1574*/ meltfptr[1573] = (melt_ptr_t) &meltcdat->drout_1489__MEXPAND_CPPIF;
+    /*iniroutlocvar*/ /*_._VALROUT___V1574*/ meltfptr[1573] = (melt_ptr_t) &meltcdat->drout_1489__MEXPAND_CPPIF;
     meltcdat->drout_1489__MEXPAND_CPPIF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1489__MEXPAND_CPPIF.routdescr, "MEXPAND_CPPIF @warmelt-macro.melt:4816",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1489__MEXPAND_CPPIF.nbval = 6;
@@ -19123,11 +19353,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1577*/ meltfptr[1576] = (melt_ptr_t) &meltcdat->dstr_1492__CPPIF;
     meltcdat->dstr_1492__CPPIF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1492__CPPIF.val, "CPPIF", sizeof (meltcdat->dstr_1492__CPPIF.val)-1);
-    meltcdat->dstr_1492__CPPIF.val[5] = (char)0;
-    meltcdat->dstr_1492__CPPIF.slen = 5;
+    meltcdat->dstr_1492__CPPIF.val[5] = (char)0 ;
+    meltcdat->dstr_1492__CPPIF.slen = 5 ;
 
     /*inirout drout_1493__FILTERGCCVERSION*/
-    /*_._VALROUT___V1578*/ meltfptr[1577] = (melt_ptr_t) &meltcdat->drout_1493__FILTERGCCVERSION;
+    /*iniroutlocvar*/ /*_._VALROUT___V1578*/ meltfptr[1577] = (melt_ptr_t) &meltcdat->drout_1493__FILTERGCCVERSION;
     meltcdat->drout_1493__FILTERGCCVERSION.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1493__FILTERGCCVERSION.routdescr, "FILTERGCCVERSION @warmelt-macro.melt:4873",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1493__FILTERGCCVERSION.nbval = 0;
@@ -19139,7 +19369,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1494__FILTERGCCVERSION.nbval = 0;
 
     /*inirout drout_1495__MEXPAND_GCCIF*/
-    /*_._VALROUT___V1580*/ meltfptr[1579] = (melt_ptr_t) &meltcdat->drout_1495__MEXPAND_GCCIF;
+    /*iniroutlocvar*/ /*_._VALROUT___V1580*/ meltfptr[1579] = (melt_ptr_t) &meltcdat->drout_1495__MEXPAND_GCCIF;
     meltcdat->drout_1495__MEXPAND_GCCIF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1495__MEXPAND_GCCIF.routdescr, "MEXPAND_GCCIF @warmelt-macro.melt:4888",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1495__MEXPAND_GCCIF.nbval = 6;
@@ -19165,11 +19395,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1583*/ meltfptr[1582] = (melt_ptr_t) &meltcdat->dstr_1498__GCCIF;
     meltcdat->dstr_1498__GCCIF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1498__GCCIF.val, "GCCIF", sizeof (meltcdat->dstr_1498__GCCIF.val)-1);
-    meltcdat->dstr_1498__GCCIF.val[5] = (char)0;
-    meltcdat->dstr_1498__GCCIF.slen = 5;
+    meltcdat->dstr_1498__GCCIF.val[5] = (char)0 ;
+    meltcdat->dstr_1498__GCCIF.slen = 5 ;
 
     /*inirout drout_1499__MEXPAND_COND*/
-    /*_._VALROUT___V1584*/ meltfptr[1583] = (melt_ptr_t) &meltcdat->drout_1499__MEXPAND_COND;
+    /*iniroutlocvar*/ /*_._VALROUT___V1584*/ meltfptr[1583] = (melt_ptr_t) &meltcdat->drout_1499__MEXPAND_COND;
     meltcdat->drout_1499__MEXPAND_COND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1499__MEXPAND_COND.routdescr, "MEXPAND_COND @warmelt-macro.melt:4951",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1499__MEXPAND_COND.nbval = 11;
@@ -19181,7 +19411,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1500__MEXPAND_COND.nbval = 0;
 
     /*inirout drout_1501__LAMBDA_*/
-    /*_._VALROUT___V1585*/ meltfptr[1584] = (melt_ptr_t) &meltcdat->drout_1501__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1585*/ meltfptr[1584] = (melt_ptr_t) &meltcdat->drout_1501__LAMBDA_;
     meltcdat->drout_1501__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1501__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:4961",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1501__LAMBDA_.nbval = 1;
@@ -19202,8 +19432,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1587*/ meltfptr[1586] = (melt_ptr_t) &meltcdat->dstr_1503__ELSE;
     meltcdat->dstr_1503__ELSE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1503__ELSE.val, "ELSE", sizeof (meltcdat->dstr_1503__ELSE.val)-1);
-    meltcdat->dstr_1503__ELSE.val[4] = (char)0;
-    meltcdat->dstr_1503__ELSE.slen = 4;
+    meltcdat->dstr_1503__ELSE.val[4] = (char)0 ;
+    meltcdat->dstr_1503__ELSE.slen = 4 ;
 
 
     /*iniobj dsym_1504__COND*/
@@ -19220,11 +19450,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1590*/ meltfptr[1589] = (melt_ptr_t) &meltcdat->dstr_1505__COND;
     meltcdat->dstr_1505__COND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1505__COND.val, "COND", sizeof (meltcdat->dstr_1505__COND.val)-1);
-    meltcdat->dstr_1505__COND.val[4] = (char)0;
-    meltcdat->dstr_1505__COND.slen = 4;
+    meltcdat->dstr_1505__COND.val[4] = (char)0 ;
+    meltcdat->dstr_1505__COND.slen = 4 ;
 
     /*inirout drout_1506__MEXPAND_AND*/
-    /*_._VALROUT___V1591*/ meltfptr[1590] = (melt_ptr_t) &meltcdat->drout_1506__MEXPAND_AND;
+    /*iniroutlocvar*/ /*_._VALROUT___V1591*/ meltfptr[1590] = (melt_ptr_t) &meltcdat->drout_1506__MEXPAND_AND;
     meltcdat->drout_1506__MEXPAND_AND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1506__MEXPAND_AND.routdescr, "MEXPAND_AND @warmelt-macro.melt:5056",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1506__MEXPAND_AND.nbval = 8;
@@ -19236,14 +19466,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1507__MEXPAND_AND.nbval = 0;
 
     /*inirout drout_1508__LAMBDA_*/
-    /*_._VALROUT___V1592*/ meltfptr[1591] = (melt_ptr_t) &meltcdat->drout_1508__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1592*/ meltfptr[1591] = (melt_ptr_t) &meltcdat->drout_1508__LAMBDA_;
     meltcdat->drout_1508__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1508__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:5069",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1508__LAMBDA_.nbval = 0;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1508__LAMBDA_, meltrout_84_WARMELTmiMACRO_LAMBDA_cl19);
 
     /*inirout drout_1509__PATEXPAND_AS*/
-    /*_._VALROUT___V1594*/ meltfptr[1593] = (melt_ptr_t) &meltcdat->drout_1509__PATEXPAND_AS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1594*/ meltfptr[1593] = (melt_ptr_t) &meltcdat->drout_1509__PATEXPAND_AS;
     meltcdat->drout_1509__PATEXPAND_AS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1509__PATEXPAND_AS.routdescr, "PATEXPAND_AS @warmelt-macro.melt:5097",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1509__PATEXPAND_AS.nbval = 10;
@@ -19255,7 +19485,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1510__PATEXPAND_AS.nbval = 0;
 
     /*inirout drout_1511__MEXPAND_AS*/
-    /*_._VALROUT___V1596*/ meltfptr[1595] = (melt_ptr_t) &meltcdat->drout_1511__MEXPAND_AS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1596*/ meltfptr[1595] = (melt_ptr_t) &meltcdat->drout_1511__MEXPAND_AS;
     meltcdat->drout_1511__MEXPAND_AS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1511__MEXPAND_AS.routdescr, "MEXPAND_AS @warmelt-macro.melt:5135",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1511__MEXPAND_AS.nbval = 3;
@@ -19281,11 +19511,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1599*/ meltfptr[1598] = (melt_ptr_t) &meltcdat->dstr_1514__AS;
     meltcdat->dstr_1514__AS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1514__AS.val, "AS", sizeof (meltcdat->dstr_1514__AS.val)-1);
-    meltcdat->dstr_1514__AS.val[2] = (char)0;
-    meltcdat->dstr_1514__AS.slen = 2;
+    meltcdat->dstr_1514__AS.val[2] = (char)0 ;
+    meltcdat->dstr_1514__AS.slen = 2 ;
 
     /*inirout drout_1515__PATEXPAND_WHEN*/
-    /*_._VALROUT___V1600*/ meltfptr[1599] = (melt_ptr_t) &meltcdat->drout_1515__PATEXPAND_WHEN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1600*/ meltfptr[1599] = (melt_ptr_t) &meltcdat->drout_1515__PATEXPAND_WHEN;
     meltcdat->drout_1515__PATEXPAND_WHEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1515__PATEXPAND_WHEN.routdescr, "PATEXPAND_WHEN @warmelt-macro.melt:5149",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1515__PATEXPAND_WHEN.nbval = 4;
@@ -19297,7 +19527,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1516__PATEXPAND_WHEN.nbval = 0;
 
     /*inirout drout_1517__PATEXPAND_AND*/
-    /*_._VALROUT___V1602*/ meltfptr[1601] = (melt_ptr_t) &meltcdat->drout_1517__PATEXPAND_AND;
+    /*iniroutlocvar*/ /*_._VALROUT___V1602*/ meltfptr[1601] = (melt_ptr_t) &meltcdat->drout_1517__PATEXPAND_AND;
     meltcdat->drout_1517__PATEXPAND_AND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1517__PATEXPAND_AND.routdescr, "PATEXPAND_AND @warmelt-macro.melt:5169",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1517__PATEXPAND_AND.nbval = 8;
@@ -19323,11 +19553,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1605*/ meltfptr[1604] = (melt_ptr_t) &meltcdat->dstr_1520__AND;
     meltcdat->dstr_1520__AND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1520__AND.val, "AND", sizeof (meltcdat->dstr_1520__AND.val)-1);
-    meltcdat->dstr_1520__AND.val[3] = (char)0;
-    meltcdat->dstr_1520__AND.slen = 3;
+    meltcdat->dstr_1520__AND.val[3] = (char)0 ;
+    meltcdat->dstr_1520__AND.slen = 3 ;
 
     /*inirout drout_1521__MEXPAND_OR*/
-    /*_._VALROUT___V1606*/ meltfptr[1605] = (melt_ptr_t) &meltcdat->drout_1521__MEXPAND_OR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1606*/ meltfptr[1605] = (melt_ptr_t) &meltcdat->drout_1521__MEXPAND_OR;
     meltcdat->drout_1521__MEXPAND_OR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1521__MEXPAND_OR.routdescr, "MEXPAND_OR @warmelt-macro.melt:5206",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1521__MEXPAND_OR.nbval = 8;
@@ -19339,14 +19569,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1522__MEXPAND_OR.nbval = 0;
 
     /*inirout drout_1523__LAMBDA_*/
-    /*_._VALROUT___V1607*/ meltfptr[1606] = (melt_ptr_t) &meltcdat->drout_1523__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1607*/ meltfptr[1606] = (melt_ptr_t) &meltcdat->drout_1523__LAMBDA_;
     meltcdat->drout_1523__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1523__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:5218",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1523__LAMBDA_.nbval = 0;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1523__LAMBDA_, meltrout_90_WARMELTmiMACRO_LAMBDA_cl20);
 
     /*inirout drout_1524__PATEXPAND_OR*/
-    /*_._VALROUT___V1609*/ meltfptr[1608] = (melt_ptr_t) &meltcdat->drout_1524__PATEXPAND_OR;
+    /*iniroutlocvar*/ /*_._VALROUT___V1609*/ meltfptr[1608] = (melt_ptr_t) &meltcdat->drout_1524__PATEXPAND_OR;
     meltcdat->drout_1524__PATEXPAND_OR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1524__PATEXPAND_OR.routdescr, "PATEXPAND_OR @warmelt-macro.melt:5236",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1524__PATEXPAND_OR.nbval = 8;
@@ -19372,11 +19602,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1612*/ meltfptr[1611] = (melt_ptr_t) &meltcdat->dstr_1527__OR;
     meltcdat->dstr_1527__OR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1527__OR.val, "OR", sizeof (meltcdat->dstr_1527__OR.val)-1);
-    meltcdat->dstr_1527__OR.val[2] = (char)0;
-    meltcdat->dstr_1527__OR.slen = 2;
+    meltcdat->dstr_1527__OR.val[2] = (char)0 ;
+    meltcdat->dstr_1527__OR.slen = 2 ;
 
     /*inirout drout_1528__MEXPAND_REFERENCE*/
-    /*_._VALROUT___V1613*/ meltfptr[1612] = (melt_ptr_t) &meltcdat->drout_1528__MEXPAND_REFERENCE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1613*/ meltfptr[1612] = (melt_ptr_t) &meltcdat->drout_1528__MEXPAND_REFERENCE;
     meltcdat->drout_1528__MEXPAND_REFERENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1528__MEXPAND_REFERENCE.routdescr, "MEXPAND_REFERENCE @warmelt-macro.melt:5274",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1528__MEXPAND_REFERENCE.nbval = 14;
@@ -19402,11 +19632,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1615*/ meltfptr[1614] = (melt_ptr_t) &meltcdat->dstr_1531__REFERENCED_VALUE;
     meltcdat->dstr_1531__REFERENCED_VALUE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1531__REFERENCED_VALUE.val, "REFERENCED_VALUE", sizeof (meltcdat->dstr_1531__REFERENCED_VALUE.val)-1);
-    meltcdat->dstr_1531__REFERENCED_VALUE.val[16] = (char)0;
-    meltcdat->dstr_1531__REFERENCED_VALUE.slen = 16;
+    meltcdat->dstr_1531__REFERENCED_VALUE.val[16] = (char)0 ;
+    meltcdat->dstr_1531__REFERENCED_VALUE.slen = 16 ;
 
     /*inirout drout_1532__PATEXPAND_REFERENCE*/
-    /*_._VALROUT___V1617*/ meltfptr[1616] = (melt_ptr_t) &meltcdat->drout_1532__PATEXPAND_REFERENCE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1617*/ meltfptr[1616] = (melt_ptr_t) &meltcdat->drout_1532__PATEXPAND_REFERENCE;
     meltcdat->drout_1532__PATEXPAND_REFERENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1532__PATEXPAND_REFERENCE.routdescr, "PATEXPAND_REFERENCE @warmelt-macro.melt:5316",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1532__PATEXPAND_REFERENCE.nbval = 10;
@@ -19437,11 +19667,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1621*/ meltfptr[1620] = (melt_ptr_t) &meltcdat->dstr_1536__REFERENCE;
     meltcdat->dstr_1536__REFERENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1536__REFERENCE.val, "REFERENCE", sizeof (meltcdat->dstr_1536__REFERENCE.val)-1);
-    meltcdat->dstr_1536__REFERENCE.val[9] = (char)0;
-    meltcdat->dstr_1536__REFERENCE.slen = 9;
+    meltcdat->dstr_1536__REFERENCE.val[9] = (char)0 ;
+    meltcdat->dstr_1536__REFERENCE.slen = 9 ;
 
     /*inirout drout_1537__MEXPANDOBSOLETE_CONTAINER*/
-    /*_._VALROUT___V1622*/ meltfptr[1621] = (melt_ptr_t) &meltcdat->drout_1537__MEXPANDOBSOLETE_CONTAINER;
+    /*iniroutlocvar*/ /*_._VALROUT___V1622*/ meltfptr[1621] = (melt_ptr_t) &meltcdat->drout_1537__MEXPANDOBSOLETE_CONTAINER;
     meltcdat->drout_1537__MEXPANDOBSOLETE_CONTAINER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1537__MEXPANDOBSOLETE_CONTAINER.routdescr, "MEXPANDOBSOLETE_CONTAINER @warmelt-macro.melt:5356",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1537__MEXPANDOBSOLETE_CONTAINER.nbval = 4;
@@ -19453,7 +19683,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1538__MEXPANDOBSOLETE_CONTAINER.nbval = 0;
 
     /*inirout drout_1539__PATEXPANDOBSOLETE_CONTAINER*/
-    /*_._VALROUT___V1624*/ meltfptr[1623] = (melt_ptr_t) &meltcdat->drout_1539__PATEXPANDOBSOLETE_CONTAINER;
+    /*iniroutlocvar*/ /*_._VALROUT___V1624*/ meltfptr[1623] = (melt_ptr_t) &meltcdat->drout_1539__PATEXPANDOBSOLETE_CONTAINER;
     meltcdat->drout_1539__PATEXPANDOBSOLETE_CONTAINER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1539__PATEXPANDOBSOLETE_CONTAINER.routdescr, "PATEXPANDOBSOLETE_CONTAINER @warmelt-macro.melt:5363",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1539__PATEXPANDOBSOLETE_CONTAINER.nbval = 3;
@@ -19479,11 +19709,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1627*/ meltfptr[1626] = (melt_ptr_t) &meltcdat->dstr_1542__CONTAINER;
     meltcdat->dstr_1542__CONTAINER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1542__CONTAINER.val, "CONTAINER", sizeof (meltcdat->dstr_1542__CONTAINER.val)-1);
-    meltcdat->dstr_1542__CONTAINER.val[9] = (char)0;
-    meltcdat->dstr_1542__CONTAINER.slen = 9;
+    meltcdat->dstr_1542__CONTAINER.val[9] = (char)0 ;
+    meltcdat->dstr_1542__CONTAINER.slen = 9 ;
 
     /*inirout drout_1543__MEXPAND_DEREF*/
-    /*_._VALROUT___V1628*/ meltfptr[1627] = (melt_ptr_t) &meltcdat->drout_1543__MEXPAND_DEREF;
+    /*iniroutlocvar*/ /*_._VALROUT___V1628*/ meltfptr[1627] = (melt_ptr_t) &meltcdat->drout_1543__MEXPAND_DEREF;
     meltcdat->drout_1543__MEXPAND_DEREF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1543__MEXPAND_DEREF.routdescr, "MEXPAND_DEREF @warmelt-macro.melt:5377",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1543__MEXPAND_DEREF.nbval = 13;
@@ -19509,8 +19739,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1631*/ meltfptr[1630] = (melt_ptr_t) &meltcdat->dstr_1546__REFERENCED_VALUE;
     meltcdat->dstr_1546__REFERENCED_VALUE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1546__REFERENCED_VALUE.val, "REFERENCED_VALUE", sizeof (meltcdat->dstr_1546__REFERENCED_VALUE.val)-1);
-    meltcdat->dstr_1546__REFERENCED_VALUE.val[16] = (char)0;
-    meltcdat->dstr_1546__REFERENCED_VALUE.slen = 16;
+    meltcdat->dstr_1546__REFERENCED_VALUE.val[16] = (char)0 ;
+    meltcdat->dstr_1546__REFERENCED_VALUE.slen = 16 ;
 
 
     /*iniobj dsym_1547__DEREF*/
@@ -19527,11 +19757,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1633*/ meltfptr[1632] = (melt_ptr_t) &meltcdat->dstr_1548__DEREF;
     meltcdat->dstr_1548__DEREF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1548__DEREF.val, "DEREF", sizeof (meltcdat->dstr_1548__DEREF.val)-1);
-    meltcdat->dstr_1548__DEREF.val[5] = (char)0;
-    meltcdat->dstr_1548__DEREF.slen = 5;
+    meltcdat->dstr_1548__DEREF.val[5] = (char)0 ;
+    meltcdat->dstr_1548__DEREF.slen = 5 ;
 
     /*inirout drout_1549__MEXPANDOBSOLETE_CONTENT*/
-    /*_._VALROUT___V1634*/ meltfptr[1633] = (melt_ptr_t) &meltcdat->drout_1549__MEXPANDOBSOLETE_CONTENT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1634*/ meltfptr[1633] = (melt_ptr_t) &meltcdat->drout_1549__MEXPANDOBSOLETE_CONTENT;
     meltcdat->drout_1549__MEXPANDOBSOLETE_CONTENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1549__MEXPANDOBSOLETE_CONTENT.routdescr, "MEXPANDOBSOLETE_CONTENT @warmelt-macro.melt:5421",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1549__MEXPANDOBSOLETE_CONTENT.nbval = 4;
@@ -19557,8 +19787,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1637*/ meltfptr[1636] = (melt_ptr_t) &meltcdat->dstr_1552__CONTENT;
     meltcdat->dstr_1552__CONTENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1552__CONTENT.val, "CONTENT", sizeof (meltcdat->dstr_1552__CONTENT.val)-1);
-    meltcdat->dstr_1552__CONTENT.val[7] = (char)0;
-    meltcdat->dstr_1552__CONTENT.slen = 7;
+    meltcdat->dstr_1552__CONTENT.val[7] = (char)0 ;
+    meltcdat->dstr_1552__CONTENT.slen = 7 ;
 
 
     /*iniobj dsym_1553__EXCLAIM*/
@@ -19575,11 +19805,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1639*/ meltfptr[1638] = (melt_ptr_t) &meltcdat->dstr_1554__EXCLAIM;
     meltcdat->dstr_1554__EXCLAIM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1554__EXCLAIM.val, "EXCLAIM", sizeof (meltcdat->dstr_1554__EXCLAIM.val)-1);
-    meltcdat->dstr_1554__EXCLAIM.val[7] = (char)0;
-    meltcdat->dstr_1554__EXCLAIM.slen = 7;
+    meltcdat->dstr_1554__EXCLAIM.val[7] = (char)0 ;
+    meltcdat->dstr_1554__EXCLAIM.slen = 7 ;
 
     /*inirout drout_1555__MEXPAND_SET_REF*/
-    /*_._VALROUT___V1640*/ meltfptr[1639] = (melt_ptr_t) &meltcdat->drout_1555__MEXPAND_SET_REF;
+    /*iniroutlocvar*/ /*_._VALROUT___V1640*/ meltfptr[1639] = (melt_ptr_t) &meltcdat->drout_1555__MEXPAND_SET_REF;
     meltcdat->drout_1555__MEXPAND_SET_REF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1555__MEXPAND_SET_REF.routdescr, "MEXPAND_SET_REF @warmelt-macro.melt:5443",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1555__MEXPAND_SET_REF.nbval = 14;
@@ -19605,11 +19835,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1643*/ meltfptr[1642] = (melt_ptr_t) &meltcdat->dstr_1558__SET_REF;
     meltcdat->dstr_1558__SET_REF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1558__SET_REF.val, "SET_REF", sizeof (meltcdat->dstr_1558__SET_REF.val)-1);
-    meltcdat->dstr_1558__SET_REF.val[7] = (char)0;
-    meltcdat->dstr_1558__SET_REF.slen = 7;
+    meltcdat->dstr_1558__SET_REF.val[7] = (char)0 ;
+    meltcdat->dstr_1558__SET_REF.slen = 7 ;
 
     /*inirout drout_1559__MEXPAND_PLUS*/
-    /*_._VALROUT___V1644*/ meltfptr[1643] = (melt_ptr_t) &meltcdat->drout_1559__MEXPAND_PLUS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1644*/ meltfptr[1643] = (melt_ptr_t) &meltcdat->drout_1559__MEXPAND_PLUS;
     meltcdat->drout_1559__MEXPAND_PLUS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1559__MEXPAND_PLUS.routdescr, "MEXPAND_PLUS @warmelt-macro.melt:5495",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1559__MEXPAND_PLUS.nbval = 7;
@@ -19640,8 +19870,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1648*/ meltfptr[1647] = (melt_ptr_t) &meltcdat->dstr_1563__I;
     meltcdat->dstr_1563__I.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1563__I.val, "+I", sizeof (meltcdat->dstr_1563__I.val)-1);
-    meltcdat->dstr_1563__I.val[2] = (char)0;
-    meltcdat->dstr_1563__I.slen = 2;
+    meltcdat->dstr_1563__I.val[2] = (char)0 ;
+    meltcdat->dstr_1563__I.slen = 2 ;
 
 
     /*iniobj dsym_1564__pl*/
@@ -19658,11 +19888,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1650*/ meltfptr[1649] = (melt_ptr_t) &meltcdat->dstr_1565__;
     meltcdat->dstr_1565__.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1565__.val, "+", sizeof (meltcdat->dstr_1565__.val)-1);
-    meltcdat->dstr_1565__.val[1] = (char)0;
-    meltcdat->dstr_1565__.slen = 1;
+    meltcdat->dstr_1565__.val[1] = (char)0 ;
+    meltcdat->dstr_1565__.slen = 1 ;
 
     /*inirout drout_1566__MEXPAND_MINUS*/
-    /*_._VALROUT___V1651*/ meltfptr[1650] = (melt_ptr_t) &meltcdat->drout_1566__MEXPAND_MINUS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1651*/ meltfptr[1650] = (melt_ptr_t) &meltcdat->drout_1566__MEXPAND_MINUS;
     meltcdat->drout_1566__MEXPAND_MINUS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1566__MEXPAND_MINUS.routdescr, "MEXPAND_MINUS @warmelt-macro.melt:5524",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1566__MEXPAND_MINUS.nbval = 7;
@@ -19693,8 +19923,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1655*/ meltfptr[1654] = (melt_ptr_t) &meltcdat->dstr_1570__I;
     meltcdat->dstr_1570__I.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1570__I.val, "-I", sizeof (meltcdat->dstr_1570__I.val)-1);
-    meltcdat->dstr_1570__I.val[2] = (char)0;
-    meltcdat->dstr_1570__I.slen = 2;
+    meltcdat->dstr_1570__I.val[2] = (char)0 ;
+    meltcdat->dstr_1570__I.slen = 2 ;
 
 
     /*iniobj dsym_1571__mi*/
@@ -19711,11 +19941,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1657*/ meltfptr[1656] = (melt_ptr_t) &meltcdat->dstr_1572__;
     meltcdat->dstr_1572__.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1572__.val, "-", sizeof (meltcdat->dstr_1572__.val)-1);
-    meltcdat->dstr_1572__.val[1] = (char)0;
-    meltcdat->dstr_1572__.slen = 1;
+    meltcdat->dstr_1572__.val[1] = (char)0 ;
+    meltcdat->dstr_1572__.slen = 1 ;
 
     /*inirout drout_1573__MEXPAND_TIMES*/
-    /*_._VALROUT___V1658*/ meltfptr[1657] = (melt_ptr_t) &meltcdat->drout_1573__MEXPAND_TIMES;
+    /*iniroutlocvar*/ /*_._VALROUT___V1658*/ meltfptr[1657] = (melt_ptr_t) &meltcdat->drout_1573__MEXPAND_TIMES;
     meltcdat->drout_1573__MEXPAND_TIMES.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1573__MEXPAND_TIMES.routdescr, "MEXPAND_TIMES @warmelt-macro.melt:5553",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1573__MEXPAND_TIMES.nbval = 7;
@@ -19746,8 +19976,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1662*/ meltfptr[1661] = (melt_ptr_t) &meltcdat->dstr_1577__I;
     meltcdat->dstr_1577__I.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1577__I.val, "*I", sizeof (meltcdat->dstr_1577__I.val)-1);
-    meltcdat->dstr_1577__I.val[2] = (char)0;
-    meltcdat->dstr_1577__I.slen = 2;
+    meltcdat->dstr_1577__I.val[2] = (char)0 ;
+    meltcdat->dstr_1577__I.slen = 2 ;
 
 
     /*iniobj dsym_1578__st*/
@@ -19764,11 +19994,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1664*/ meltfptr[1663] = (melt_ptr_t) &meltcdat->dstr_1579__;
     meltcdat->dstr_1579__.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1579__.val, "*", sizeof (meltcdat->dstr_1579__.val)-1);
-    meltcdat->dstr_1579__.val[1] = (char)0;
-    meltcdat->dstr_1579__.slen = 1;
+    meltcdat->dstr_1579__.val[1] = (char)0 ;
+    meltcdat->dstr_1579__.slen = 1 ;
 
     /*inirout drout_1580__MEXPAND_DIV*/
-    /*_._VALROUT___V1665*/ meltfptr[1664] = (melt_ptr_t) &meltcdat->drout_1580__MEXPAND_DIV;
+    /*iniroutlocvar*/ /*_._VALROUT___V1665*/ meltfptr[1664] = (melt_ptr_t) &meltcdat->drout_1580__MEXPAND_DIV;
     meltcdat->drout_1580__MEXPAND_DIV.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1580__MEXPAND_DIV.routdescr, "MEXPAND_DIV @warmelt-macro.melt:5582",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1580__MEXPAND_DIV.nbval = 7;
@@ -19799,8 +20029,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1669*/ meltfptr[1668] = (melt_ptr_t) &meltcdat->dstr_1584__I;
     meltcdat->dstr_1584__I.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1584__I.val, "/I", sizeof (meltcdat->dstr_1584__I.val)-1);
-    meltcdat->dstr_1584__I.val[2] = (char)0;
-    meltcdat->dstr_1584__I.slen = 2;
+    meltcdat->dstr_1584__I.val[2] = (char)0 ;
+    meltcdat->dstr_1584__I.slen = 2 ;
 
 
     /*iniobj dsym_1585__di*/
@@ -19817,11 +20047,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1671*/ meltfptr[1670] = (melt_ptr_t) &meltcdat->dstr_1586__;
     meltcdat->dstr_1586__.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1586__.val, "/", sizeof (meltcdat->dstr_1586__.val)-1);
-    meltcdat->dstr_1586__.val[1] = (char)0;
-    meltcdat->dstr_1586__.slen = 1;
+    meltcdat->dstr_1586__.val[1] = (char)0 ;
+    meltcdat->dstr_1586__.slen = 1 ;
 
     /*inirout drout_1587__MEXPAND_TUPLE*/
-    /*_._VALROUT___V1672*/ meltfptr[1671] = (melt_ptr_t) &meltcdat->drout_1587__MEXPAND_TUPLE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1672*/ meltfptr[1671] = (melt_ptr_t) &meltcdat->drout_1587__MEXPAND_TUPLE;
     meltcdat->drout_1587__MEXPAND_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1587__MEXPAND_TUPLE.routdescr, "MEXPAND_TUPLE @warmelt-macro.melt:5611",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1587__MEXPAND_TUPLE.nbval = 5;
@@ -19833,7 +20063,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1588__MEXPAND_TUPLE.nbval = 0;
 
     /*inirout drout_1589__PATEXPAND_TUPLE*/
-    /*_._VALROUT___V1674*/ meltfptr[1673] = (melt_ptr_t) &meltcdat->drout_1589__PATEXPAND_TUPLE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1674*/ meltfptr[1673] = (melt_ptr_t) &meltcdat->drout_1589__PATEXPAND_TUPLE;
     meltcdat->drout_1589__PATEXPAND_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1589__PATEXPAND_TUPLE.routdescr, "PATEXPAND_TUPLE @warmelt-macro.melt:5628",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1589__PATEXPAND_TUPLE.nbval = 6;
@@ -19859,11 +20089,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1677*/ meltfptr[1676] = (melt_ptr_t) &meltcdat->dstr_1592__TUPLE;
     meltcdat->dstr_1592__TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1592__TUPLE.val, "TUPLE", sizeof (meltcdat->dstr_1592__TUPLE.val)-1);
-    meltcdat->dstr_1592__TUPLE.val[5] = (char)0;
-    meltcdat->dstr_1592__TUPLE.slen = 5;
+    meltcdat->dstr_1592__TUPLE.val[5] = (char)0 ;
+    meltcdat->dstr_1592__TUPLE.slen = 5 ;
 
     /*inirout drout_1593__MEXPAND_LIST*/
-    /*_._VALROUT___V1678*/ meltfptr[1677] = (melt_ptr_t) &meltcdat->drout_1593__MEXPAND_LIST;
+    /*iniroutlocvar*/ /*_._VALROUT___V1678*/ meltfptr[1677] = (melt_ptr_t) &meltcdat->drout_1593__MEXPAND_LIST;
     meltcdat->drout_1593__MEXPAND_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1593__MEXPAND_LIST.routdescr, "MEXPAND_LIST @warmelt-macro.melt:5658",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1593__MEXPAND_LIST.nbval = 5;
@@ -19875,7 +20105,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1594__MEXPAND_LIST.nbval = 0;
 
     /*inirout drout_1595__PATEXPAND_LIST*/
-    /*_._VALROUT___V1680*/ meltfptr[1679] = (melt_ptr_t) &meltcdat->drout_1595__PATEXPAND_LIST;
+    /*iniroutlocvar*/ /*_._VALROUT___V1680*/ meltfptr[1679] = (melt_ptr_t) &meltcdat->drout_1595__PATEXPAND_LIST;
     meltcdat->drout_1595__PATEXPAND_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1595__PATEXPAND_LIST.routdescr, "PATEXPAND_LIST @warmelt-macro.melt:5675",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1595__PATEXPAND_LIST.nbval = 6;
@@ -19901,11 +20131,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1683*/ meltfptr[1682] = (melt_ptr_t) &meltcdat->dstr_1598__LIST;
     meltcdat->dstr_1598__LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1598__LIST.val, "LIST", sizeof (meltcdat->dstr_1598__LIST.val)-1);
-    meltcdat->dstr_1598__LIST.val[4] = (char)0;
-    meltcdat->dstr_1598__LIST.slen = 4;
+    meltcdat->dstr_1598__LIST.val[4] = (char)0 ;
+    meltcdat->dstr_1598__LIST.slen = 4 ;
 
     /*inirout drout_1599__MEXPAND_MATCH*/
-    /*_._VALROUT___V1684*/ meltfptr[1683] = (melt_ptr_t) &meltcdat->drout_1599__MEXPAND_MATCH;
+    /*iniroutlocvar*/ /*_._VALROUT___V1684*/ meltfptr[1683] = (melt_ptr_t) &meltcdat->drout_1599__MEXPAND_MATCH;
     meltcdat->drout_1599__MEXPAND_MATCH.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1599__MEXPAND_MATCH.routdescr, "MEXPAND_MATCH @warmelt-macro.melt:5706",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1599__MEXPAND_MATCH.nbval = 17;
@@ -19917,7 +20147,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1600__MEXPAND_MATCH.nbval = 0;
 
     /*inirout drout_1601__LAMBDA_*/
-    /*_._VALROUT___V1685*/ meltfptr[1684] = (melt_ptr_t) &meltcdat->drout_1601__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1685*/ meltfptr[1684] = (melt_ptr_t) &meltcdat->drout_1601__LAMBDA_;
     meltcdat->drout_1601__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1601__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:5720",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1601__LAMBDA_.nbval = 1;
@@ -19938,11 +20168,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1688*/ meltfptr[1687] = (melt_ptr_t) &meltcdat->dstr_1603__MATCH;
     meltcdat->dstr_1603__MATCH.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1603__MATCH.val, "MATCH", sizeof (meltcdat->dstr_1603__MATCH.val)-1);
-    meltcdat->dstr_1603__MATCH.val[5] = (char)0;
-    meltcdat->dstr_1603__MATCH.slen = 5;
+    meltcdat->dstr_1603__MATCH.val[5] = (char)0 ;
+    meltcdat->dstr_1603__MATCH.slen = 5 ;
 
     /*inirout drout_1604__MEXPAND_MATCHALT*/
-    /*_._VALROUT___V1689*/ meltfptr[1688] = (melt_ptr_t) &meltcdat->drout_1604__MEXPAND_MATCHALT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1689*/ meltfptr[1688] = (melt_ptr_t) &meltcdat->drout_1604__MEXPAND_MATCHALT;
     meltcdat->drout_1604__MEXPAND_MATCHALT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1604__MEXPAND_MATCHALT.routdescr, "MEXPAND_MATCHALT @warmelt-macro.melt:5800",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1604__MEXPAND_MATCHALT.nbval = 17;
@@ -19954,7 +20184,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1605__MEXPAND_MATCHALT.nbval = 0;
 
     /*inirout drout_1606__LAMBDA_*/
-    /*_._VALROUT___V1690*/ meltfptr[1689] = (melt_ptr_t) &meltcdat->drout_1606__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1690*/ meltfptr[1689] = (melt_ptr_t) &meltcdat->drout_1606__LAMBDA_;
     meltcdat->drout_1606__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1606__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:5814",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1606__LAMBDA_.nbval = 1;
@@ -19975,11 +20205,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1693*/ meltfptr[1692] = (melt_ptr_t) &meltcdat->dstr_1608__MATCHALT;
     meltcdat->dstr_1608__MATCHALT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1608__MATCHALT.val, "MATCHALT", sizeof (meltcdat->dstr_1608__MATCHALT.val)-1);
-    meltcdat->dstr_1608__MATCHALT.val[8] = (char)0;
-    meltcdat->dstr_1608__MATCHALT.slen = 8;
+    meltcdat->dstr_1608__MATCHALT.val[8] = (char)0 ;
+    meltcdat->dstr_1608__MATCHALT.slen = 8 ;
 
     /*inirout drout_1609__MEXPAND_LETBINDING*/
-    /*_._VALROUT___V1694*/ meltfptr[1693] = (melt_ptr_t) &meltcdat->drout_1609__MEXPAND_LETBINDING;
+    /*iniroutlocvar*/ /*_._VALROUT___V1694*/ meltfptr[1693] = (melt_ptr_t) &meltcdat->drout_1609__MEXPAND_LETBINDING;
     meltcdat->drout_1609__MEXPAND_LETBINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1609__MEXPAND_LETBINDING.routdescr, "MEXPAND_LETBINDING @warmelt-macro.melt:5892",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1609__MEXPAND_LETBINDING.nbval = 14;
@@ -20005,8 +20235,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1697*/ meltfptr[1696] = (melt_ptr_t) &meltcdat->dstr_1612__QUASI_CTYPE_AUTO;
     meltcdat->dstr_1612__QUASI_CTYPE_AUTO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1612__QUASI_CTYPE_AUTO.val, "QUASI_CTYPE_AUTO", sizeof (meltcdat->dstr_1612__QUASI_CTYPE_AUTO.val)-1);
-    meltcdat->dstr_1612__QUASI_CTYPE_AUTO.val[16] = (char)0;
-    meltcdat->dstr_1612__QUASI_CTYPE_AUTO.slen = 16;
+    meltcdat->dstr_1612__QUASI_CTYPE_AUTO.val[16] = (char)0 ;
+    meltcdat->dstr_1612__QUASI_CTYPE_AUTO.slen = 16 ;
 
 
     /*iniobj dsym_1613__CLASS_FIXED_BINDING*/
@@ -20023,11 +20253,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1699*/ meltfptr[1698] = (melt_ptr_t) &meltcdat->dstr_1614__CLASS_FIXED_BINDING;
     meltcdat->dstr_1614__CLASS_FIXED_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1614__CLASS_FIXED_BINDING.val, "CLASS_FIXED_BINDING", sizeof (meltcdat->dstr_1614__CLASS_FIXED_BINDING.val)-1);
-    meltcdat->dstr_1614__CLASS_FIXED_BINDING.val[19] = (char)0;
-    meltcdat->dstr_1614__CLASS_FIXED_BINDING.slen = 19;
+    meltcdat->dstr_1614__CLASS_FIXED_BINDING.val[19] = (char)0 ;
+    meltcdat->dstr_1614__CLASS_FIXED_BINDING.slen = 19 ;
 
     /*inirout drout_1615__MEXPAND_LET*/
-    /*_._VALROUT___V1700*/ meltfptr[1699] = (melt_ptr_t) &meltcdat->drout_1615__MEXPAND_LET;
+    /*iniroutlocvar*/ /*_._VALROUT___V1700*/ meltfptr[1699] = (melt_ptr_t) &meltcdat->drout_1615__MEXPAND_LET;
     meltcdat->drout_1615__MEXPAND_LET.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1615__MEXPAND_LET.routdescr, "MEXPAND_LET @warmelt-macro.melt:5976",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1615__MEXPAND_LET.nbval = 17;
@@ -20039,21 +20269,21 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1616__MEXPAND_LET.nbval = 0;
 
     /*inirout drout_1617__LAMBDA_*/
-    /*_._VALROUT___V1701*/ meltfptr[1700] = (melt_ptr_t) &meltcdat->drout_1617__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1701*/ meltfptr[1700] = (melt_ptr_t) &meltcdat->drout_1617__LAMBDA_;
     meltcdat->drout_1617__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1617__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:5998",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1617__LAMBDA_.nbval = 2;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1617__LAMBDA_, meltrout_113_WARMELTmiMACRO_LAMBDA_cl23);
 
     /*inirout drout_1618__LAMBDA_*/
-    /*_._VALROUT___V1702*/ meltfptr[1701] = (melt_ptr_t) &meltcdat->drout_1618__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1702*/ meltfptr[1701] = (melt_ptr_t) &meltcdat->drout_1618__LAMBDA_;
     meltcdat->drout_1618__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1618__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6006",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1618__LAMBDA_.nbval = 3;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1618__LAMBDA_, meltrout_114_WARMELTmiMACRO_LAMBDA_cl24);
 
     /*inirout drout_1619__LAMBDA_*/
-    /*_._VALROUT___V1703*/ meltfptr[1702] = (melt_ptr_t) &meltcdat->drout_1619__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1703*/ meltfptr[1702] = (melt_ptr_t) &meltcdat->drout_1619__LAMBDA_;
     meltcdat->drout_1619__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1619__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6019",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1619__LAMBDA_.nbval = 0;
@@ -20074,11 +20304,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1706*/ meltfptr[1705] = (melt_ptr_t) &meltcdat->dstr_1621__LET;
     meltcdat->dstr_1621__LET.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1621__LET.val, "LET", sizeof (meltcdat->dstr_1621__LET.val)-1);
-    meltcdat->dstr_1621__LET.val[3] = (char)0;
-    meltcdat->dstr_1621__LET.slen = 3;
+    meltcdat->dstr_1621__LET.val[3] = (char)0 ;
+    meltcdat->dstr_1621__LET.slen = 3 ;
 
     /*inirout drout_1622__YES_RECURSIVELY_CONSTRUCTIBLE*/
-    /*_._VALROUT___V1707*/ meltfptr[1706] = (melt_ptr_t) &meltcdat->drout_1622__YES_RECURSIVELY_CONSTRUCTIBLE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1707*/ meltfptr[1706] = (melt_ptr_t) &meltcdat->drout_1622__YES_RECURSIVELY_CONSTRUCTIBLE;
     meltcdat->drout_1622__YES_RECURSIVELY_CONSTRUCTIBLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1622__YES_RECURSIVELY_CONSTRUCTIBLE.routdescr, "YES_RECURSIVELY_CONSTRUCTIBLE @warmelt-macro.melt:6044",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1622__YES_RECURSIVELY_CONSTRUCTIBLE.nbval = 1;
@@ -20104,11 +20334,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1710*/ meltfptr[1709] = (melt_ptr_t) &meltcdat->dstr_1625__INSTALL_METHOD;
     meltcdat->dstr_1625__INSTALL_METHOD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1625__INSTALL_METHOD.val, "INSTALL_METHOD", sizeof (meltcdat->dstr_1625__INSTALL_METHOD.val)-1);
-    meltcdat->dstr_1625__INSTALL_METHOD.val[14] = (char)0;
-    meltcdat->dstr_1625__INSTALL_METHOD.slen = 14;
+    meltcdat->dstr_1625__INSTALL_METHOD.val[14] = (char)0 ;
+    meltcdat->dstr_1625__INSTALL_METHOD.slen = 14 ;
 
     /*inirout drout_1626__MEXPAND_LETREC*/
-    /*_._VALROUT___V1711*/ meltfptr[1710] = (melt_ptr_t) &meltcdat->drout_1626__MEXPAND_LETREC;
+    /*iniroutlocvar*/ /*_._VALROUT___V1711*/ meltfptr[1710] = (melt_ptr_t) &meltcdat->drout_1626__MEXPAND_LETREC;
     meltcdat->drout_1626__MEXPAND_LETREC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1626__MEXPAND_LETREC.routdescr, "MEXPAND_LETREC @warmelt-macro.melt:6057",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1626__MEXPAND_LETREC.nbval = 20;
@@ -20120,7 +20350,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1627__MEXPAND_LETREC.nbval = 0;
 
     /*inirout drout_1628__LAMBDA_*/
-    /*_._VALROUT___V1712*/ meltfptr[1711] = (melt_ptr_t) &meltcdat->drout_1628__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1712*/ meltfptr[1711] = (melt_ptr_t) &meltcdat->drout_1628__LAMBDA_;
     meltcdat->drout_1628__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1628__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6084",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1628__LAMBDA_.nbval = 1;
@@ -20141,11 +20371,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1716*/ meltfptr[1715] = (melt_ptr_t) &meltcdat->dstr_1630__CLASS_LETREC_BINDING;
     meltcdat->dstr_1630__CLASS_LETREC_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1630__CLASS_LETREC_BINDING.val, "CLASS_LETREC_BINDING", sizeof (meltcdat->dstr_1630__CLASS_LETREC_BINDING.val)-1);
-    meltcdat->dstr_1630__CLASS_LETREC_BINDING.val[20] = (char)0;
-    meltcdat->dstr_1630__CLASS_LETREC_BINDING.slen = 20;
+    meltcdat->dstr_1630__CLASS_LETREC_BINDING.val[20] = (char)0 ;
+    meltcdat->dstr_1630__CLASS_LETREC_BINDING.slen = 20 ;
 
     /*inirout drout_1631__LAMBDA_*/
-    /*_._VALROUT___V1713*/ meltfptr[1712] = (melt_ptr_t) &meltcdat->drout_1631__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1713*/ meltfptr[1712] = (melt_ptr_t) &meltcdat->drout_1631__LAMBDA_;
     meltcdat->drout_1631__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1631__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6190",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1631__LAMBDA_.nbval = 0;
@@ -20166,11 +20396,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1718*/ meltfptr[1717] = (melt_ptr_t) &meltcdat->dstr_1633__LETREC;
     meltcdat->dstr_1633__LETREC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1633__LETREC.val, "LETREC", sizeof (meltcdat->dstr_1633__LETREC.val)-1);
-    meltcdat->dstr_1633__LETREC.val[6] = (char)0;
-    meltcdat->dstr_1633__LETREC.slen = 6;
+    meltcdat->dstr_1633__LETREC.val[6] = (char)0 ;
+    meltcdat->dstr_1633__LETREC.slen = 6 ;
 
     /*inirout drout_1634__MEXPAND_LAMBDA*/
-    /*_._VALROUT___V1719*/ meltfptr[1718] = (melt_ptr_t) &meltcdat->drout_1634__MEXPAND_LAMBDA;
+    /*iniroutlocvar*/ /*_._VALROUT___V1719*/ meltfptr[1718] = (melt_ptr_t) &meltcdat->drout_1634__MEXPAND_LAMBDA;
     meltcdat->drout_1634__MEXPAND_LAMBDA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1634__MEXPAND_LAMBDA.routdescr, "MEXPAND_LAMBDA @warmelt-macro.melt:6212",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1634__MEXPAND_LAMBDA.nbval = 10;
@@ -20182,7 +20412,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1635__MEXPAND_LAMBDA.nbval = 0;
 
     /*inirout drout_1636__LAMBDA_*/
-    /*_._VALROUT___V1720*/ meltfptr[1719] = (melt_ptr_t) &meltcdat->drout_1636__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1720*/ meltfptr[1719] = (melt_ptr_t) &meltcdat->drout_1636__LAMBDA_;
     meltcdat->drout_1636__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1636__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6235",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1636__LAMBDA_.nbval = 0;
@@ -20203,11 +20433,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1723*/ meltfptr[1722] = (melt_ptr_t) &meltcdat->dstr_1638__LAMBDA;
     meltcdat->dstr_1638__LAMBDA.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1638__LAMBDA.val, "LAMBDA", sizeof (meltcdat->dstr_1638__LAMBDA.val)-1);
-    meltcdat->dstr_1638__LAMBDA.val[6] = (char)0;
-    meltcdat->dstr_1638__LAMBDA.slen = 6;
+    meltcdat->dstr_1638__LAMBDA.val[6] = (char)0 ;
+    meltcdat->dstr_1638__LAMBDA.slen = 6 ;
 
     /*inirout drout_1639__MEXPAND_VARIADIC*/
-    /*_._VALROUT___V1724*/ meltfptr[1723] = (melt_ptr_t) &meltcdat->drout_1639__MEXPAND_VARIADIC;
+    /*iniroutlocvar*/ /*_._VALROUT___V1724*/ meltfptr[1723] = (melt_ptr_t) &meltcdat->drout_1639__MEXPAND_VARIADIC;
     meltcdat->drout_1639__MEXPAND_VARIADIC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1639__MEXPAND_VARIADIC.routdescr, "MEXPAND_VARIADIC @warmelt-macro.melt:6263",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1639__MEXPAND_VARIADIC.nbval = 25;
@@ -20219,28 +20449,28 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1640__MEXPAND_VARIADIC.nbval = 0;
 
     /*inirout drout_1641__LAMBDA_*/
-    /*_._VALROUT___V1725*/ meltfptr[1724] = (melt_ptr_t) &meltcdat->drout_1641__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1725*/ meltfptr[1724] = (melt_ptr_t) &meltcdat->drout_1641__LAMBDA_;
     meltcdat->drout_1641__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1641__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6272",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1641__LAMBDA_.nbval = 2;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1641__LAMBDA_, meltrout_123_WARMELTmiMACRO_LAMBDA_cl29);
 
     /*inirout drout_1642__LAMBDA_*/
-    /*_._VALROUT___V1726*/ meltfptr[1725] = (melt_ptr_t) &meltcdat->drout_1642__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1726*/ meltfptr[1725] = (melt_ptr_t) &meltcdat->drout_1642__LAMBDA_;
     meltcdat->drout_1642__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1642__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6302",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1642__LAMBDA_.nbval = 0;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1642__LAMBDA_, meltrout_124_WARMELTmiMACRO_LAMBDA_cl30);
 
     /*inirout drout_1643__LAMBDA_*/
-    /*_._VALROUT___V1727*/ meltfptr[1726] = (melt_ptr_t) &meltcdat->drout_1643__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1727*/ meltfptr[1726] = (melt_ptr_t) &meltcdat->drout_1643__LAMBDA_;
     meltcdat->drout_1643__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1643__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6333",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1643__LAMBDA_.nbval = 0;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1643__LAMBDA_, meltrout_125_WARMELTmiMACRO_LAMBDA_cl31);
 
     /*inirout drout_1644__LAMBDA_*/
-    /*_._VALROUT___V1728*/ meltfptr[1727] = (melt_ptr_t) &meltcdat->drout_1644__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1728*/ meltfptr[1727] = (melt_ptr_t) &meltcdat->drout_1644__LAMBDA_;
     meltcdat->drout_1644__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1644__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6344",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1644__LAMBDA_.nbval = 2;
@@ -20261,11 +20491,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1731*/ meltfptr[1730] = (melt_ptr_t) &meltcdat->dstr_1646__VARIADIC;
     meltcdat->dstr_1646__VARIADIC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1646__VARIADIC.val, "VARIADIC", sizeof (meltcdat->dstr_1646__VARIADIC.val)-1);
-    meltcdat->dstr_1646__VARIADIC.val[8] = (char)0;
-    meltcdat->dstr_1646__VARIADIC.slen = 8;
+    meltcdat->dstr_1646__VARIADIC.val[8] = (char)0 ;
+    meltcdat->dstr_1646__VARIADIC.slen = 8 ;
 
     /*inirout drout_1647__MEXPAND_MULTICALL*/
-    /*_._VALROUT___V1732*/ meltfptr[1731] = (melt_ptr_t) &meltcdat->drout_1647__MEXPAND_MULTICALL;
+    /*iniroutlocvar*/ /*_._VALROUT___V1732*/ meltfptr[1731] = (melt_ptr_t) &meltcdat->drout_1647__MEXPAND_MULTICALL;
     meltcdat->drout_1647__MEXPAND_MULTICALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1647__MEXPAND_MULTICALL.routdescr, "MEXPAND_MULTICALL @warmelt-macro.melt:6386",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1647__MEXPAND_MULTICALL.nbval = 15;
@@ -20277,14 +20507,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1648__MEXPAND_MULTICALL.nbval = 0;
 
     /*inirout drout_1649__LAMBDA_*/
-    /*_._VALROUT___V1733*/ meltfptr[1732] = (melt_ptr_t) &meltcdat->drout_1649__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1733*/ meltfptr[1732] = (melt_ptr_t) &meltcdat->drout_1649__LAMBDA_;
     meltcdat->drout_1649__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1649__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6419",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1649__LAMBDA_.nbval = 1;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1649__LAMBDA_, meltrout_128_WARMELTmiMACRO_LAMBDA_cl33);
 
     /*inirout drout_1650__LAMBDA_*/
-    /*_._VALROUT___V1734*/ meltfptr[1733] = (melt_ptr_t) &meltcdat->drout_1650__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1734*/ meltfptr[1733] = (melt_ptr_t) &meltcdat->drout_1650__LAMBDA_;
     meltcdat->drout_1650__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1650__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6423",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1650__LAMBDA_.nbval = 0;
@@ -20305,11 +20535,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1737*/ meltfptr[1736] = (melt_ptr_t) &meltcdat->dstr_1652__MULTICALL;
     meltcdat->dstr_1652__MULTICALL.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1652__MULTICALL.val, "MULTICALL", sizeof (meltcdat->dstr_1652__MULTICALL.val)-1);
-    meltcdat->dstr_1652__MULTICALL.val[9] = (char)0;
-    meltcdat->dstr_1652__MULTICALL.slen = 9;
+    meltcdat->dstr_1652__MULTICALL.val[9] = (char)0 ;
+    meltcdat->dstr_1652__MULTICALL.slen = 9 ;
 
     /*inirout drout_1653__MEXPAND_QUOTE*/
-    /*_._VALROUT___V1738*/ meltfptr[1737] = (melt_ptr_t) &meltcdat->drout_1653__MEXPAND_QUOTE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1738*/ meltfptr[1737] = (melt_ptr_t) &meltcdat->drout_1653__MEXPAND_QUOTE;
     meltcdat->drout_1653__MEXPAND_QUOTE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1653__MEXPAND_QUOTE.routdescr, "MEXPAND_QUOTE @warmelt-macro.melt:6447",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1653__MEXPAND_QUOTE.nbval = 5;
@@ -20335,11 +20565,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1741*/ meltfptr[1740] = (melt_ptr_t) &meltcdat->dstr_1656__QUOTE;
     meltcdat->dstr_1656__QUOTE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1656__QUOTE.val, "QUOTE", sizeof (meltcdat->dstr_1656__QUOTE.val)-1);
-    meltcdat->dstr_1656__QUOTE.val[5] = (char)0;
-    meltcdat->dstr_1656__QUOTE.slen = 5;
+    meltcdat->dstr_1656__QUOTE.val[5] = (char)0 ;
+    meltcdat->dstr_1656__QUOTE.slen = 5 ;
 
     /*inirout drout_1657__MEXPAND_BOX*/
-    /*_._VALROUT___V1742*/ meltfptr[1741] = (melt_ptr_t) &meltcdat->drout_1657__MEXPAND_BOX;
+    /*iniroutlocvar*/ /*_._VALROUT___V1742*/ meltfptr[1741] = (melt_ptr_t) &meltcdat->drout_1657__MEXPAND_BOX;
     meltcdat->drout_1657__MEXPAND_BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1657__MEXPAND_BOX.routdescr, "MEXPAND_BOX @warmelt-macro.melt:6488",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1657__MEXPAND_BOX.nbval = 4;
@@ -20365,11 +20595,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1745*/ meltfptr[1744] = (melt_ptr_t) &meltcdat->dstr_1660__BOX;
     meltcdat->dstr_1660__BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1660__BOX.val, "BOX", sizeof (meltcdat->dstr_1660__BOX.val)-1);
-    meltcdat->dstr_1660__BOX.val[3] = (char)0;
-    meltcdat->dstr_1660__BOX.slen = 3;
+    meltcdat->dstr_1660__BOX.val[3] = (char)0 ;
+    meltcdat->dstr_1660__BOX.slen = 3 ;
 
     /*inirout drout_1661__MEXPAND_CONSTANT_BOX*/
-    /*_._VALROUT___V1746*/ meltfptr[1745] = (melt_ptr_t) &meltcdat->drout_1661__MEXPAND_CONSTANT_BOX;
+    /*iniroutlocvar*/ /*_._VALROUT___V1746*/ meltfptr[1745] = (melt_ptr_t) &meltcdat->drout_1661__MEXPAND_CONSTANT_BOX;
     meltcdat->drout_1661__MEXPAND_CONSTANT_BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1661__MEXPAND_CONSTANT_BOX.routdescr, "MEXPAND_CONSTANT_BOX @warmelt-macro.melt:6520",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1661__MEXPAND_CONSTANT_BOX.nbval = 4;
@@ -20395,11 +20625,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1749*/ meltfptr[1748] = (melt_ptr_t) &meltcdat->dstr_1664__CONSTANT_BOX;
     meltcdat->dstr_1664__CONSTANT_BOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1664__CONSTANT_BOX.val, "CONSTANT_BOX", sizeof (meltcdat->dstr_1664__CONSTANT_BOX.val)-1);
-    meltcdat->dstr_1664__CONSTANT_BOX.val[12] = (char)0;
-    meltcdat->dstr_1664__CONSTANT_BOX.slen = 12;
+    meltcdat->dstr_1664__CONSTANT_BOX.val[12] = (char)0 ;
+    meltcdat->dstr_1664__CONSTANT_BOX.slen = 12 ;
 
     /*inirout drout_1665__MEXPAND_UNBOX*/
-    /*_._VALROUT___V1750*/ meltfptr[1749] = (melt_ptr_t) &meltcdat->drout_1665__MEXPAND_UNBOX;
+    /*iniroutlocvar*/ /*_._VALROUT___V1750*/ meltfptr[1749] = (melt_ptr_t) &meltcdat->drout_1665__MEXPAND_UNBOX;
     meltcdat->drout_1665__MEXPAND_UNBOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1665__MEXPAND_UNBOX.routdescr, "MEXPAND_UNBOX @warmelt-macro.melt:6552",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1665__MEXPAND_UNBOX.nbval = 7;
@@ -20425,11 +20655,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1753*/ meltfptr[1752] = (melt_ptr_t) &meltcdat->dstr_1668__UNBOX;
     meltcdat->dstr_1668__UNBOX.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1668__UNBOX.val, "UNBOX", sizeof (meltcdat->dstr_1668__UNBOX.val)-1);
-    meltcdat->dstr_1668__UNBOX.val[5] = (char)0;
-    meltcdat->dstr_1668__UNBOX.slen = 5;
+    meltcdat->dstr_1668__UNBOX.val[5] = (char)0 ;
+    meltcdat->dstr_1668__UNBOX.slen = 5 ;
 
     /*inirout drout_1669__MEXPAND_COMMENT*/
-    /*_._VALROUT___V1754*/ meltfptr[1753] = (melt_ptr_t) &meltcdat->drout_1669__MEXPAND_COMMENT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1754*/ meltfptr[1753] = (melt_ptr_t) &meltcdat->drout_1669__MEXPAND_COMMENT;
     meltcdat->drout_1669__MEXPAND_COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1669__MEXPAND_COMMENT.routdescr, "MEXPAND_COMMENT @warmelt-macro.melt:6598",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1669__MEXPAND_COMMENT.nbval = 3;
@@ -20455,11 +20685,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1757*/ meltfptr[1756] = (melt_ptr_t) &meltcdat->dstr_1672__COMMENT;
     meltcdat->dstr_1672__COMMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1672__COMMENT.val, "COMMENT", sizeof (meltcdat->dstr_1672__COMMENT.val)-1);
-    meltcdat->dstr_1672__COMMENT.val[7] = (char)0;
-    meltcdat->dstr_1672__COMMENT.slen = 7;
+    meltcdat->dstr_1672__COMMENT.val[7] = (char)0 ;
+    meltcdat->dstr_1672__COMMENT.slen = 7 ;
 
     /*inirout drout_1673__MEXPAND_CHEADER*/
-    /*_._VALROUT___V1758*/ meltfptr[1757] = (melt_ptr_t) &meltcdat->drout_1673__MEXPAND_CHEADER;
+    /*iniroutlocvar*/ /*_._VALROUT___V1758*/ meltfptr[1757] = (melt_ptr_t) &meltcdat->drout_1673__MEXPAND_CHEADER;
     meltcdat->drout_1673__MEXPAND_CHEADER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1673__MEXPAND_CHEADER.routdescr, "MEXPAND_CHEADER @warmelt-macro.melt:6628",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1673__MEXPAND_CHEADER.nbval = 9;
@@ -20485,8 +20715,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1761*/ meltfptr[1760] = (melt_ptr_t) &meltcdat->dstr_1676__DISCR_STRBUF;
     meltcdat->dstr_1676__DISCR_STRBUF.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1676__DISCR_STRBUF.val, "DISCR_STRBUF", sizeof (meltcdat->dstr_1676__DISCR_STRBUF.val)-1);
-    meltcdat->dstr_1676__DISCR_STRBUF.val[12] = (char)0;
-    meltcdat->dstr_1676__DISCR_STRBUF.slen = 12;
+    meltcdat->dstr_1676__DISCR_STRBUF.val[12] = (char)0 ;
+    meltcdat->dstr_1676__DISCR_STRBUF.slen = 12 ;
 
 
     /*iniobj dsym_1677__ADD2OUT*/
@@ -20503,8 +20733,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1763*/ meltfptr[1762] = (melt_ptr_t) &meltcdat->dstr_1678__ADD2OUT;
     meltcdat->dstr_1678__ADD2OUT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1678__ADD2OUT.val, "ADD2OUT", sizeof (meltcdat->dstr_1678__ADD2OUT.val)-1);
-    meltcdat->dstr_1678__ADD2OUT.val[7] = (char)0;
-    meltcdat->dstr_1678__ADD2OUT.slen = 7;
+    meltcdat->dstr_1678__ADD2OUT.val[7] = (char)0 ;
+    meltcdat->dstr_1678__ADD2OUT.slen = 7 ;
 
 
     /*iniobj dsym_1679__CHEADER*/
@@ -20521,11 +20751,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1765*/ meltfptr[1764] = (melt_ptr_t) &meltcdat->dstr_1680__CHEADER;
     meltcdat->dstr_1680__CHEADER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1680__CHEADER.val, "CHEADER", sizeof (meltcdat->dstr_1680__CHEADER.val)-1);
-    meltcdat->dstr_1680__CHEADER.val[7] = (char)0;
-    meltcdat->dstr_1680__CHEADER.slen = 7;
+    meltcdat->dstr_1680__CHEADER.val[7] = (char)0 ;
+    meltcdat->dstr_1680__CHEADER.slen = 7 ;
 
     /*inirout drout_1681__MEXPAND_CIMPLEMENT*/
-    /*_._VALROUT___V1766*/ meltfptr[1765] = (melt_ptr_t) &meltcdat->drout_1681__MEXPAND_CIMPLEMENT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1766*/ meltfptr[1765] = (melt_ptr_t) &meltcdat->drout_1681__MEXPAND_CIMPLEMENT;
     meltcdat->drout_1681__MEXPAND_CIMPLEMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1681__MEXPAND_CIMPLEMENT.routdescr, "MEXPAND_CIMPLEMENT @warmelt-macro.melt:6676",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1681__MEXPAND_CIMPLEMENT.nbval = 9;
@@ -20551,11 +20781,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1769*/ meltfptr[1768] = (melt_ptr_t) &meltcdat->dstr_1684__CIMPLEMENT;
     meltcdat->dstr_1684__CIMPLEMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1684__CIMPLEMENT.val, "CIMPLEMENT", sizeof (meltcdat->dstr_1684__CIMPLEMENT.val)-1);
-    meltcdat->dstr_1684__CIMPLEMENT.val[10] = (char)0;
-    meltcdat->dstr_1684__CIMPLEMENT.slen = 10;
+    meltcdat->dstr_1684__CIMPLEMENT.val[10] = (char)0 ;
+    meltcdat->dstr_1684__CIMPLEMENT.slen = 10 ;
 
     /*inirout drout_1685__MEXPAND_USE_PACKAGE_FROM_PKG_CONFIG*/
-    /*_._VALROUT___V1770*/ meltfptr[1769] = (melt_ptr_t) &meltcdat->drout_1685__MEXPAND_USE_PACKAGE_FROM_PKG_CONFIG;
+    /*iniroutlocvar*/ /*_._VALROUT___V1770*/ meltfptr[1769] = (melt_ptr_t) &meltcdat->drout_1685__MEXPAND_USE_PACKAGE_FROM_PKG_CONFIG;
     meltcdat->drout_1685__MEXPAND_USE_PACKAGE_FROM_PKG_CONFIG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1685__MEXPAND_USE_PACKAGE_FROM_PKG_CONFIG.routdescr, "MEXPAND_USE_PACKAGE_FROM_PKG_CONFIG @warmelt-macro.melt:6725",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1685__MEXPAND_USE_PACKAGE_FROM_PKG_CONFIG.nbval = 8;
@@ -20581,8 +20811,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1773*/ meltfptr[1772] = (melt_ptr_t) &meltcdat->dstr_1688__DISCR_STRING;
     meltcdat->dstr_1688__DISCR_STRING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1688__DISCR_STRING.val, "DISCR_STRING", sizeof (meltcdat->dstr_1688__DISCR_STRING.val)-1);
-    meltcdat->dstr_1688__DISCR_STRING.val[12] = (char)0;
-    meltcdat->dstr_1688__DISCR_STRING.slen = 12;
+    meltcdat->dstr_1688__DISCR_STRING.val[12] = (char)0 ;
+    meltcdat->dstr_1688__DISCR_STRING.slen = 12 ;
 
 
     /*iniobj dsym_1689__USE_PACKAGE_FROM_PKG_CONFIG*/
@@ -20599,8 +20829,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1775*/ meltfptr[1774] = (melt_ptr_t) &meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON;
     meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON.val, "USE_PACKAGE_FROM_PKG_CONFIG", sizeof (meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON.val)-1);
-    meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON.val[27] = (char)0;
-    meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON.slen = 27;
+    meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON.val[27] = (char)0 ;
+    meltcdat->dstr_1690__USE_PACKAGE_FROM_PKG_CON.slen = 27 ;
 
 
     /*iniobj dsym_1691__USEmiPACKAGEmiFROMmiPKGmiCONFIG*/
@@ -20617,11 +20847,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1777*/ meltfptr[1776] = (melt_ptr_t) &meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON;
     meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON.val, "USE-PACKAGE-FROM-PKG-CONFIG", sizeof (meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON.val)-1);
-    meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON.val[27] = (char)0;
-    meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON.slen = 27;
+    meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON.val[27] = (char)0 ;
+    meltcdat->dstr_1692__USE_PACKAGE_FROM_PKG_CON.slen = 27 ;
 
     /*inirout drout_1693__PAIRLIST_TO_RETURN*/
-    /*_._VALROUT___V1778*/ meltfptr[1777] = (melt_ptr_t) &meltcdat->drout_1693__PAIRLIST_TO_RETURN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1778*/ meltfptr[1777] = (melt_ptr_t) &meltcdat->drout_1693__PAIRLIST_TO_RETURN;
     meltcdat->drout_1693__PAIRLIST_TO_RETURN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1693__PAIRLIST_TO_RETURN.routdescr, "PAIRLIST_TO_RETURN @warmelt-macro.melt:6815",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1693__PAIRLIST_TO_RETURN.nbval = 5;
@@ -20633,14 +20863,14 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1694__PAIRLIST_TO_RETURN.nbval = 0;
 
     /*inirout drout_1695__LAMBDA_*/
-    /*_._VALROUT___V1779*/ meltfptr[1778] = (melt_ptr_t) &meltcdat->drout_1695__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1779*/ meltfptr[1778] = (melt_ptr_t) &meltcdat->drout_1695__LAMBDA_;
     meltcdat->drout_1695__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1695__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6823",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1695__LAMBDA_.nbval = 0;
     MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_1695__LAMBDA_, meltrout_139_WARMELTmiMACRO_LAMBDA_cl35);
 
     /*inirout drout_1696__MEXPAND_PROGN*/
-    /*_._VALROUT___V1781*/ meltfptr[1780] = (melt_ptr_t) &meltcdat->drout_1696__MEXPAND_PROGN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1781*/ meltfptr[1780] = (melt_ptr_t) &meltcdat->drout_1696__MEXPAND_PROGN;
     meltcdat->drout_1696__MEXPAND_PROGN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1696__MEXPAND_PROGN.routdescr, "MEXPAND_PROGN @warmelt-macro.melt:6831",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1696__MEXPAND_PROGN.nbval = 2;
@@ -20666,11 +20896,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1784*/ meltfptr[1783] = (melt_ptr_t) &meltcdat->dstr_1699__PROGN;
     meltcdat->dstr_1699__PROGN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1699__PROGN.val, "PROGN", sizeof (meltcdat->dstr_1699__PROGN.val)-1);
-    meltcdat->dstr_1699__PROGN.val[5] = (char)0;
-    meltcdat->dstr_1699__PROGN.slen = 5;
+    meltcdat->dstr_1699__PROGN.val[5] = (char)0 ;
+    meltcdat->dstr_1699__PROGN.slen = 5 ;
 
     /*inirout drout_1700__MEXPAND_RETURN*/
-    /*_._VALROUT___V1785*/ meltfptr[1784] = (melt_ptr_t) &meltcdat->drout_1700__MEXPAND_RETURN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1785*/ meltfptr[1784] = (melt_ptr_t) &meltcdat->drout_1700__MEXPAND_RETURN;
     meltcdat->drout_1700__MEXPAND_RETURN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1700__MEXPAND_RETURN.routdescr, "MEXPAND_RETURN @warmelt-macro.melt:6856",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1700__MEXPAND_RETURN.nbval = 3;
@@ -20696,11 +20926,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1788*/ meltfptr[1787] = (melt_ptr_t) &meltcdat->dstr_1703__RETURN;
     meltcdat->dstr_1703__RETURN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1703__RETURN.val, "RETURN", sizeof (meltcdat->dstr_1703__RETURN.val)-1);
-    meltcdat->dstr_1703__RETURN.val[6] = (char)0;
-    meltcdat->dstr_1703__RETURN.slen = 6;
+    meltcdat->dstr_1703__RETURN.val[6] = (char)0 ;
+    meltcdat->dstr_1703__RETURN.slen = 6 ;
 
     /*inirout drout_1704__MEXPAND_FOREVER*/
-    /*_._VALROUT___V1789*/ meltfptr[1788] = (melt_ptr_t) &meltcdat->drout_1704__MEXPAND_FOREVER;
+    /*iniroutlocvar*/ /*_._VALROUT___V1789*/ meltfptr[1788] = (melt_ptr_t) &meltcdat->drout_1704__MEXPAND_FOREVER;
     meltcdat->drout_1704__MEXPAND_FOREVER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1704__MEXPAND_FOREVER.routdescr, "MEXPAND_FOREVER @warmelt-macro.melt:6879",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1704__MEXPAND_FOREVER.nbval = 10;
@@ -20726,11 +20956,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1793*/ meltfptr[1792] = (melt_ptr_t) &meltcdat->dstr_1707__CLASS_LABEL_BINDING;
     meltcdat->dstr_1707__CLASS_LABEL_BINDING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1707__CLASS_LABEL_BINDING.val, "CLASS_LABEL_BINDING", sizeof (meltcdat->dstr_1707__CLASS_LABEL_BINDING.val)-1);
-    meltcdat->dstr_1707__CLASS_LABEL_BINDING.val[19] = (char)0;
-    meltcdat->dstr_1707__CLASS_LABEL_BINDING.slen = 19;
+    meltcdat->dstr_1707__CLASS_LABEL_BINDING.val[19] = (char)0 ;
+    meltcdat->dstr_1707__CLASS_LABEL_BINDING.slen = 19 ;
 
     /*inirout drout_1708__LAMBDA_*/
-    /*_._VALROUT___V1790*/ meltfptr[1789] = (melt_ptr_t) &meltcdat->drout_1708__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1790*/ meltfptr[1789] = (melt_ptr_t) &meltcdat->drout_1708__LAMBDA_;
     meltcdat->drout_1708__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1708__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6903",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1708__LAMBDA_.nbval = 0;
@@ -20751,11 +20981,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1795*/ meltfptr[1794] = (melt_ptr_t) &meltcdat->dstr_1710__FOREVER;
     meltcdat->dstr_1710__FOREVER.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1710__FOREVER.val, "FOREVER", sizeof (meltcdat->dstr_1710__FOREVER.val)-1);
-    meltcdat->dstr_1710__FOREVER.val[7] = (char)0;
-    meltcdat->dstr_1710__FOREVER.slen = 7;
+    meltcdat->dstr_1710__FOREVER.val[7] = (char)0 ;
+    meltcdat->dstr_1710__FOREVER.slen = 7 ;
 
     /*inirout drout_1711__MEXPAND_EXIT*/
-    /*_._VALROUT___V1796*/ meltfptr[1795] = (melt_ptr_t) &meltcdat->drout_1711__MEXPAND_EXIT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1796*/ meltfptr[1795] = (melt_ptr_t) &meltcdat->drout_1711__MEXPAND_EXIT;
     meltcdat->drout_1711__MEXPAND_EXIT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1711__MEXPAND_EXIT.routdescr, "MEXPAND_EXIT @warmelt-macro.melt:6922",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1711__MEXPAND_EXIT.nbval = 10;
@@ -20767,7 +20997,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1712__MEXPAND_EXIT.nbval = 0;
 
     /*inirout drout_1713__LAMBDA_*/
-    /*_._VALROUT___V1797*/ meltfptr[1796] = (melt_ptr_t) &meltcdat->drout_1713__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1797*/ meltfptr[1796] = (melt_ptr_t) &meltcdat->drout_1713__LAMBDA_;
     meltcdat->drout_1713__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1713__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:6948",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1713__LAMBDA_.nbval = 0;
@@ -20788,11 +21018,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1800*/ meltfptr[1799] = (melt_ptr_t) &meltcdat->dstr_1715__EXIT;
     meltcdat->dstr_1715__EXIT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1715__EXIT.val, "EXIT", sizeof (meltcdat->dstr_1715__EXIT.val)-1);
-    meltcdat->dstr_1715__EXIT.val[4] = (char)0;
-    meltcdat->dstr_1715__EXIT.slen = 4;
+    meltcdat->dstr_1715__EXIT.val[4] = (char)0 ;
+    meltcdat->dstr_1715__EXIT.slen = 4 ;
 
     /*inirout drout_1716__MEXPAND_AGAIN*/
-    /*_._VALROUT___V1801*/ meltfptr[1800] = (melt_ptr_t) &meltcdat->drout_1716__MEXPAND_AGAIN;
+    /*iniroutlocvar*/ /*_._VALROUT___V1801*/ meltfptr[1800] = (melt_ptr_t) &meltcdat->drout_1716__MEXPAND_AGAIN;
     meltcdat->drout_1716__MEXPAND_AGAIN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1716__MEXPAND_AGAIN.routdescr, "MEXPAND_AGAIN @warmelt-macro.melt:6965",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1716__MEXPAND_AGAIN.nbval = 6;
@@ -20818,11 +21048,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1804*/ meltfptr[1803] = (melt_ptr_t) &meltcdat->dstr_1719__AGAIN;
     meltcdat->dstr_1719__AGAIN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1719__AGAIN.val, "AGAIN", sizeof (meltcdat->dstr_1719__AGAIN.val)-1);
-    meltcdat->dstr_1719__AGAIN.val[5] = (char)0;
-    meltcdat->dstr_1719__AGAIN.slen = 5;
+    meltcdat->dstr_1719__AGAIN.val[5] = (char)0 ;
+    meltcdat->dstr_1719__AGAIN.slen = 5 ;
 
     /*inirout drout_1720__MEXPAND_COMPILE_WARNING*/
-    /*_._VALROUT___V1805*/ meltfptr[1804] = (melt_ptr_t) &meltcdat->drout_1720__MEXPAND_COMPILE_WARNING;
+    /*iniroutlocvar*/ /*_._VALROUT___V1805*/ meltfptr[1804] = (melt_ptr_t) &meltcdat->drout_1720__MEXPAND_COMPILE_WARNING;
     meltcdat->drout_1720__MEXPAND_COMPILE_WARNING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1720__MEXPAND_COMPILE_WARNING.routdescr, "MEXPAND_COMPILE_WARNING @warmelt-macro.melt:7009",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1720__MEXPAND_COMPILE_WARNING.nbval = 4;
@@ -20848,11 +21078,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1808*/ meltfptr[1807] = (melt_ptr_t) &meltcdat->dstr_1723__COMPILE_WARNING;
     meltcdat->dstr_1723__COMPILE_WARNING.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1723__COMPILE_WARNING.val, "COMPILE_WARNING", sizeof (meltcdat->dstr_1723__COMPILE_WARNING.val)-1);
-    meltcdat->dstr_1723__COMPILE_WARNING.val[15] = (char)0;
-    meltcdat->dstr_1723__COMPILE_WARNING.slen = 15;
+    meltcdat->dstr_1723__COMPILE_WARNING.val[15] = (char)0 ;
+    meltcdat->dstr_1723__COMPILE_WARNING.slen = 15 ;
 
     /*inirout drout_1724__MEXPAND_ASSERT_MSG*/
-    /*_._VALROUT___V1809*/ meltfptr[1808] = (melt_ptr_t) &meltcdat->drout_1724__MEXPAND_ASSERT_MSG;
+    /*iniroutlocvar*/ /*_._VALROUT___V1809*/ meltfptr[1808] = (melt_ptr_t) &meltcdat->drout_1724__MEXPAND_ASSERT_MSG;
     meltcdat->drout_1724__MEXPAND_ASSERT_MSG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1724__MEXPAND_ASSERT_MSG.routdescr, "MEXPAND_ASSERT_MSG @warmelt-macro.melt:7052",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1724__MEXPAND_ASSERT_MSG.nbval = 15;
@@ -20878,8 +21108,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1811*/ meltfptr[1810] = (melt_ptr_t) &meltcdat->dstr_1727__ASSERT_FAILED;
     meltcdat->dstr_1727__ASSERT_FAILED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1727__ASSERT_FAILED.val, "ASSERT_FAILED", sizeof (meltcdat->dstr_1727__ASSERT_FAILED.val)-1);
-    meltcdat->dstr_1727__ASSERT_FAILED.val[13] = (char)0;
-    meltcdat->dstr_1727__ASSERT_FAILED.slen = 13;
+    meltcdat->dstr_1727__ASSERT_FAILED.val[13] = (char)0 ;
+    meltcdat->dstr_1727__ASSERT_FAILED.slen = 13 ;
 
 
     /*iniobj dsym_1728__FIND_ENV_DEBUG*/
@@ -20896,8 +21126,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1816*/ meltfptr[1815] = (melt_ptr_t) &meltcdat->dstr_1729__FIND_ENV_DEBUG;
     meltcdat->dstr_1729__FIND_ENV_DEBUG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1729__FIND_ENV_DEBUG.val, "FIND_ENV_DEBUG", sizeof (meltcdat->dstr_1729__FIND_ENV_DEBUG.val)-1);
-    meltcdat->dstr_1729__FIND_ENV_DEBUG.val[14] = (char)0;
-    meltcdat->dstr_1729__FIND_ENV_DEBUG.slen = 14;
+    meltcdat->dstr_1729__FIND_ENV_DEBUG.val[14] = (char)0 ;
+    meltcdat->dstr_1729__FIND_ENV_DEBUG.slen = 14 ;
 
 
     /*iniobj dsym_1730__MELT_HAVE_DEBUG*/
@@ -20914,8 +21144,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1813*/ meltfptr[1812] = (melt_ptr_t) &meltcdat->dstr_1731__MELT_HAVE_DEBUG;
     meltcdat->dstr_1731__MELT_HAVE_DEBUG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1731__MELT_HAVE_DEBUG.val, "MELT_HAVE_DEBUG", sizeof (meltcdat->dstr_1731__MELT_HAVE_DEBUG.val)-1);
-    meltcdat->dstr_1731__MELT_HAVE_DEBUG.val[15] = (char)0;
-    meltcdat->dstr_1731__MELT_HAVE_DEBUG.slen = 15;
+    meltcdat->dstr_1731__MELT_HAVE_DEBUG.val[15] = (char)0 ;
+    meltcdat->dstr_1731__MELT_HAVE_DEBUG.slen = 15 ;
 
 
     /*iniobj dsym_1732__ASSERT_MSG*/
@@ -20932,11 +21162,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1818*/ meltfptr[1817] = (melt_ptr_t) &meltcdat->dstr_1733__ASSERT_MSG;
     meltcdat->dstr_1733__ASSERT_MSG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1733__ASSERT_MSG.val, "ASSERT_MSG", sizeof (meltcdat->dstr_1733__ASSERT_MSG.val)-1);
-    meltcdat->dstr_1733__ASSERT_MSG.val[10] = (char)0;
-    meltcdat->dstr_1733__ASSERT_MSG.slen = 10;
+    meltcdat->dstr_1733__ASSERT_MSG.val[10] = (char)0 ;
+    meltcdat->dstr_1733__ASSERT_MSG.slen = 10 ;
 
     /*inirout drout_1734__MEXPAND_DEBUG_MSG*/
-    /*_._VALROUT___V1819*/ meltfptr[1818] = (melt_ptr_t) &meltcdat->drout_1734__MEXPAND_DEBUG_MSG;
+    /*iniroutlocvar*/ /*_._VALROUT___V1819*/ meltfptr[1818] = (melt_ptr_t) &meltcdat->drout_1734__MEXPAND_DEBUG_MSG;
     meltcdat->drout_1734__MEXPAND_DEBUG_MSG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1734__MEXPAND_DEBUG_MSG.routdescr, "MEXPAND_DEBUG_MSG @warmelt-macro.melt:7141",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1734__MEXPAND_DEBUG_MSG.nbval = 11;
@@ -20962,8 +21192,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1821*/ meltfptr[1820] = (melt_ptr_t) &meltcdat->dstr_1737__MELT_CALLCOUNT;
     meltcdat->dstr_1737__MELT_CALLCOUNT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1737__MELT_CALLCOUNT.val, "MELT_CALLCOUNT", sizeof (meltcdat->dstr_1737__MELT_CALLCOUNT.val)-1);
-    meltcdat->dstr_1737__MELT_CALLCOUNT.val[14] = (char)0;
-    meltcdat->dstr_1737__MELT_CALLCOUNT.slen = 14;
+    meltcdat->dstr_1737__MELT_CALLCOUNT.val[14] = (char)0 ;
+    meltcdat->dstr_1737__MELT_CALLCOUNT.slen = 14 ;
 
 
     /*iniobj dsym_1738__DEBUG_MSG_FUN*/
@@ -20980,8 +21210,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1823*/ meltfptr[1822] = (melt_ptr_t) &meltcdat->dstr_1739__DEBUG_MSG_FUN;
     meltcdat->dstr_1739__DEBUG_MSG_FUN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1739__DEBUG_MSG_FUN.val, "DEBUG_MSG_FUN", sizeof (meltcdat->dstr_1739__DEBUG_MSG_FUN.val)-1);
-    meltcdat->dstr_1739__DEBUG_MSG_FUN.val[13] = (char)0;
-    meltcdat->dstr_1739__DEBUG_MSG_FUN.slen = 13;
+    meltcdat->dstr_1739__DEBUG_MSG_FUN.val[13] = (char)0 ;
+    meltcdat->dstr_1739__DEBUG_MSG_FUN.slen = 13 ;
 
 
     /*iniobj dsym_1740__DEBUG_MSG*/
@@ -20998,11 +21228,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1826*/ meltfptr[1825] = (melt_ptr_t) &meltcdat->dstr_1741__DEBUG_MSG;
     meltcdat->dstr_1741__DEBUG_MSG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1741__DEBUG_MSG.val, "DEBUG_MSG", sizeof (meltcdat->dstr_1741__DEBUG_MSG.val)-1);
-    meltcdat->dstr_1741__DEBUG_MSG.val[9] = (char)0;
-    meltcdat->dstr_1741__DEBUG_MSG.slen = 9;
+    meltcdat->dstr_1741__DEBUG_MSG.val[9] = (char)0 ;
+    meltcdat->dstr_1741__DEBUG_MSG.slen = 9 ;
 
     /*inirout drout_1742__MEXPAND_DEBUG*/
-    /*_._VALROUT___V1827*/ meltfptr[1826] = (melt_ptr_t) &meltcdat->drout_1742__MEXPAND_DEBUG;
+    /*iniroutlocvar*/ /*_._VALROUT___V1827*/ meltfptr[1826] = (melt_ptr_t) &meltcdat->drout_1742__MEXPAND_DEBUG;
     meltcdat->drout_1742__MEXPAND_DEBUG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1742__MEXPAND_DEBUG.routdescr, "MEXPAND_DEBUG @warmelt-macro.melt:7216",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1742__MEXPAND_DEBUG.nbval = 28;
@@ -21028,8 +21258,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1829*/ meltfptr[1828] = (melt_ptr_t) &meltcdat->dstr_1745__MELT_NEED_DBG;
     meltcdat->dstr_1745__MELT_NEED_DBG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1745__MELT_NEED_DBG.val, "MELT_NEED_DBG", sizeof (meltcdat->dstr_1745__MELT_NEED_DBG.val)-1);
-    meltcdat->dstr_1745__MELT_NEED_DBG.val[13] = (char)0;
-    meltcdat->dstr_1745__MELT_NEED_DBG.slen = 13;
+    meltcdat->dstr_1745__MELT_NEED_DBG.val[13] = (char)0 ;
+    meltcdat->dstr_1745__MELT_NEED_DBG.slen = 13 ;
 
 
     /*iniobj dsym_1746__MELT_INCREMENT_DBGCOUNTER*/
@@ -21046,8 +21276,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1831*/ meltfptr[1830] = (melt_ptr_t) &meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE;
     meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE.val, "MELT_INCREMENT_DBGCOUNTER", sizeof (meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE.val)-1);
-    meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE.val[25] = (char)0;
-    meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE.slen = 25;
+    meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE.val[25] = (char)0 ;
+    meltcdat->dstr_1747__MELT_INCREMENT_DBGCOUNTE.slen = 25 ;
 
 
     /*iniobj dsym_1748__STRING4OUT*/
@@ -21064,8 +21294,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1835*/ meltfptr[1834] = (melt_ptr_t) &meltcdat->dstr_1749__STRING4OUT;
     meltcdat->dstr_1749__STRING4OUT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1749__STRING4OUT.val, "STRING4OUT", sizeof (meltcdat->dstr_1749__STRING4OUT.val)-1);
-    meltcdat->dstr_1749__STRING4OUT.val[10] = (char)0;
-    meltcdat->dstr_1749__STRING4OUT.slen = 10;
+    meltcdat->dstr_1749__STRING4OUT.val[10] = (char)0 ;
+    meltcdat->dstr_1749__STRING4OUT.slen = 10 ;
 
 
     /*iniobj dsym_1750__LIST_APPEND2LIST*/
@@ -21082,8 +21312,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1837*/ meltfptr[1836] = (melt_ptr_t) &meltcdat->dstr_1751__LIST_APPEND2LIST;
     meltcdat->dstr_1751__LIST_APPEND2LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1751__LIST_APPEND2LIST.val, "LIST_APPEND2LIST", sizeof (meltcdat->dstr_1751__LIST_APPEND2LIST.val)-1);
-    meltcdat->dstr_1751__LIST_APPEND2LIST.val[16] = (char)0;
-    meltcdat->dstr_1751__LIST_APPEND2LIST.slen = 16;
+    meltcdat->dstr_1751__LIST_APPEND2LIST.val[16] = (char)0 ;
+    meltcdat->dstr_1751__LIST_APPEND2LIST.slen = 16 ;
 
     /*iniboxint dint_1752__*/
     /*_._VALBXINT___V1832*/ meltfptr[1831] = (melt_ptr_t) &meltcdat->dint_1752__;
@@ -21105,8 +21335,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1839*/ meltfptr[1838] = (melt_ptr_t) &meltcdat->dstr_1754__VOID;
     meltcdat->dstr_1754__VOID.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1754__VOID.val, "VOID", sizeof (meltcdat->dstr_1754__VOID.val)-1);
-    meltcdat->dstr_1754__VOID.val[4] = (char)0;
-    meltcdat->dstr_1754__VOID.slen = 4;
+    meltcdat->dstr_1754__VOID.val[4] = (char)0 ;
+    meltcdat->dstr_1754__VOID.slen = 4 ;
 
 
     /*iniobj dsym_1755__DEBUG*/
@@ -21123,11 +21353,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1841*/ meltfptr[1840] = (melt_ptr_t) &meltcdat->dstr_1756__DEBUG;
     meltcdat->dstr_1756__DEBUG.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1756__DEBUG.val, "DEBUG", sizeof (meltcdat->dstr_1756__DEBUG.val)-1);
-    meltcdat->dstr_1756__DEBUG.val[5] = (char)0;
-    meltcdat->dstr_1756__DEBUG.slen = 5;
+    meltcdat->dstr_1756__DEBUG.val[5] = (char)0 ;
+    meltcdat->dstr_1756__DEBUG.slen = 5 ;
 
     /*inirout drout_1757__MEXPAND_EXPORT_VALUES*/
-    /*_._VALROUT___V1842*/ meltfptr[1841] = (melt_ptr_t) &meltcdat->drout_1757__MEXPAND_EXPORT_VALUES;
+    /*iniroutlocvar*/ /*_._VALROUT___V1842*/ meltfptr[1841] = (melt_ptr_t) &meltcdat->drout_1757__MEXPAND_EXPORT_VALUES;
     meltcdat->drout_1757__MEXPAND_EXPORT_VALUES.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1757__MEXPAND_EXPORT_VALUES.routdescr, "MEXPAND_EXPORT_VALUES @warmelt-macro.melt:7361",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1757__MEXPAND_EXPORT_VALUES.nbval = 9;
@@ -21139,7 +21369,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1758__MEXPAND_EXPORT_VALUES.nbval = 0;
 
     /*inirout drout_1759__LAMBDA_*/
-    /*_._VALROUT___V1843*/ meltfptr[1842] = (melt_ptr_t) &meltcdat->drout_1759__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1843*/ meltfptr[1842] = (melt_ptr_t) &meltcdat->drout_1759__LAMBDA_;
     meltcdat->drout_1759__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1759__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:7373",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1759__LAMBDA_.nbval = 2;
@@ -21160,11 +21390,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1846*/ meltfptr[1845] = (melt_ptr_t) &meltcdat->dstr_1761__EXPORT_VALUES;
     meltcdat->dstr_1761__EXPORT_VALUES.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1761__EXPORT_VALUES.val, "EXPORT_VALUES", sizeof (meltcdat->dstr_1761__EXPORT_VALUES.val)-1);
-    meltcdat->dstr_1761__EXPORT_VALUES.val[13] = (char)0;
-    meltcdat->dstr_1761__EXPORT_VALUES.slen = 13;
+    meltcdat->dstr_1761__EXPORT_VALUES.val[13] = (char)0 ;
+    meltcdat->dstr_1761__EXPORT_VALUES.slen = 13 ;
 
     /*inirout drout_1762__MEXPAND_EXPORT_MACRO*/
-    /*_._VALROUT___V1847*/ meltfptr[1846] = (melt_ptr_t) &meltcdat->drout_1762__MEXPAND_EXPORT_MACRO;
+    /*iniroutlocvar*/ /*_._VALROUT___V1847*/ meltfptr[1846] = (melt_ptr_t) &meltcdat->drout_1762__MEXPAND_EXPORT_MACRO;
     meltcdat->drout_1762__MEXPAND_EXPORT_MACRO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1762__MEXPAND_EXPORT_MACRO.routdescr, "MEXPAND_EXPORT_MACRO @warmelt-macro.melt:7399",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1762__MEXPAND_EXPORT_MACRO.nbval = 6;
@@ -21190,11 +21420,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1850*/ meltfptr[1849] = (melt_ptr_t) &meltcdat->dstr_1765__EXPORT_MACRO;
     meltcdat->dstr_1765__EXPORT_MACRO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1765__EXPORT_MACRO.val, "EXPORT_MACRO", sizeof (meltcdat->dstr_1765__EXPORT_MACRO.val)-1);
-    meltcdat->dstr_1765__EXPORT_MACRO.val[12] = (char)0;
-    meltcdat->dstr_1765__EXPORT_MACRO.slen = 12;
+    meltcdat->dstr_1765__EXPORT_MACRO.val[12] = (char)0 ;
+    meltcdat->dstr_1765__EXPORT_MACRO.slen = 12 ;
 
     /*inirout drout_1766__MEXPAND_EXPORT_PATMACRO*/
-    /*_._VALROUT___V1851*/ meltfptr[1850] = (melt_ptr_t) &meltcdat->drout_1766__MEXPAND_EXPORT_PATMACRO;
+    /*iniroutlocvar*/ /*_._VALROUT___V1851*/ meltfptr[1850] = (melt_ptr_t) &meltcdat->drout_1766__MEXPAND_EXPORT_PATMACRO;
     meltcdat->drout_1766__MEXPAND_EXPORT_PATMACRO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1766__MEXPAND_EXPORT_PATMACRO.routdescr, "MEXPAND_EXPORT_PATMACRO @warmelt-macro.melt:7443",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1766__MEXPAND_EXPORT_PATMACRO.nbval = 6;
@@ -21220,11 +21450,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1854*/ meltfptr[1853] = (melt_ptr_t) &meltcdat->dstr_1769__EXPORT_PATMACRO;
     meltcdat->dstr_1769__EXPORT_PATMACRO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1769__EXPORT_PATMACRO.val, "EXPORT_PATMACRO", sizeof (meltcdat->dstr_1769__EXPORT_PATMACRO.val)-1);
-    meltcdat->dstr_1769__EXPORT_PATMACRO.val[15] = (char)0;
-    meltcdat->dstr_1769__EXPORT_PATMACRO.slen = 15;
+    meltcdat->dstr_1769__EXPORT_PATMACRO.val[15] = (char)0 ;
+    meltcdat->dstr_1769__EXPORT_PATMACRO.slen = 15 ;
 
     /*inirout drout_1770__MEXPAND_EXPORT_CLASS*/
-    /*_._VALROUT___V1855*/ meltfptr[1854] = (melt_ptr_t) &meltcdat->drout_1770__MEXPAND_EXPORT_CLASS;
+    /*iniroutlocvar*/ /*_._VALROUT___V1855*/ meltfptr[1854] = (melt_ptr_t) &meltcdat->drout_1770__MEXPAND_EXPORT_CLASS;
     meltcdat->drout_1770__MEXPAND_EXPORT_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1770__MEXPAND_EXPORT_CLASS.routdescr, "MEXPAND_EXPORT_CLASS @warmelt-macro.melt:7493",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1770__MEXPAND_EXPORT_CLASS.nbval = 9;
@@ -21236,7 +21466,7 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     meltcdat->dclo_1771__MEXPAND_EXPORT_CLASS.nbval = 0;
 
     /*inirout drout_1772__LAMBDA_*/
-    /*_._VALROUT___V1856*/ meltfptr[1855] = (melt_ptr_t) &meltcdat->drout_1772__LAMBDA_;
+    /*iniroutlocvar*/ /*_._VALROUT___V1856*/ meltfptr[1855] = (melt_ptr_t) &meltcdat->drout_1772__LAMBDA_;
     meltcdat->drout_1772__LAMBDA_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1772__LAMBDA_.routdescr, "LAMBDA_ @warmelt-macro.melt:7505",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1772__LAMBDA_.nbval = 1;
@@ -21257,11 +21487,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1859*/ meltfptr[1858] = (melt_ptr_t) &meltcdat->dstr_1774__EXPORT_CLASS;
     meltcdat->dstr_1774__EXPORT_CLASS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1774__EXPORT_CLASS.val, "EXPORT_CLASS", sizeof (meltcdat->dstr_1774__EXPORT_CLASS.val)-1);
-    meltcdat->dstr_1774__EXPORT_CLASS.val[12] = (char)0;
-    meltcdat->dstr_1774__EXPORT_CLASS.slen = 12;
+    meltcdat->dstr_1774__EXPORT_CLASS.val[12] = (char)0 ;
+    meltcdat->dstr_1774__EXPORT_CLASS.slen = 12 ;
 
     /*inirout drout_1775__MEXPAND_EXPORT_SYNONYM*/
-    /*_._VALROUT___V1860*/ meltfptr[1859] = (melt_ptr_t) &meltcdat->drout_1775__MEXPAND_EXPORT_SYNONYM;
+    /*iniroutlocvar*/ /*_._VALROUT___V1860*/ meltfptr[1859] = (melt_ptr_t) &meltcdat->drout_1775__MEXPAND_EXPORT_SYNONYM;
     meltcdat->drout_1775__MEXPAND_EXPORT_SYNONYM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1775__MEXPAND_EXPORT_SYNONYM.routdescr, "MEXPAND_EXPORT_SYNONYM @warmelt-macro.melt:7525",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1775__MEXPAND_EXPORT_SYNONYM.nbval = 7;
@@ -21287,11 +21517,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1863*/ meltfptr[1862] = (melt_ptr_t) &meltcdat->dstr_1778__EXPORT_SYNONYM;
     meltcdat->dstr_1778__EXPORT_SYNONYM.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1778__EXPORT_SYNONYM.val, "EXPORT_SYNONYM", sizeof (meltcdat->dstr_1778__EXPORT_SYNONYM.val)-1);
-    meltcdat->dstr_1778__EXPORT_SYNONYM.val[14] = (char)0;
-    meltcdat->dstr_1778__EXPORT_SYNONYM.slen = 14;
+    meltcdat->dstr_1778__EXPORT_SYNONYM.val[14] = (char)0 ;
+    meltcdat->dstr_1778__EXPORT_SYNONYM.slen = 14 ;
 
     /*inirout drout_1779__MEXPAND_CURRENT_MODULE_ENVIRONMENT_REFERENCE*/
-    /*_._VALROUT___V1864*/ meltfptr[1863] = (melt_ptr_t) &meltcdat->drout_1779__MEXPAND_CURRENT_MODULE_ENVIRONMENT_REFERENCE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1864*/ meltfptr[1863] = (melt_ptr_t) &meltcdat->drout_1779__MEXPAND_CURRENT_MODULE_ENVIRONMENT_REFERENCE;
     meltcdat->drout_1779__MEXPAND_CURRENT_MODULE_ENVIRONMENT_REFERENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1779__MEXPAND_CURRENT_MODULE_ENVIRONMENT_REFERENCE.routdescr, "MEXPAND_CURRENT_MODULE_ENVIRONMENT_REFERENCE @warmelt-macro.melt:7577",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1779__MEXPAND_CURRENT_MODULE_ENVIRONMENT_REFERENCE.nbval = 4;
@@ -21317,8 +21547,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1867*/ meltfptr[1866] = (melt_ptr_t) &meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME;
     meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME.val, "CURRENT_MODULE_ENVIRONMENT_REFERENCE", sizeof (meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME.val)-1);
-    meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME.val[36] = (char)0;
-    meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME.slen = 36;
+    meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME.val[36] = (char)0 ;
+    meltcdat->dstr_1782__CURRENT_MODULE_ENVIRONME.slen = 36 ;
 
 
     /*iniobj dsym_1783__CURRENT_MODULE_ENVIRONMENT_CONTAINER*/
@@ -21335,11 +21565,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1869*/ meltfptr[1868] = (melt_ptr_t) &meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME;
     meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME.val, "CURRENT_MODULE_ENVIRONMENT_CONTAINER", sizeof (meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME.val)-1);
-    meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME.val[36] = (char)0;
-    meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME.slen = 36;
+    meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME.val[36] = (char)0 ;
+    meltcdat->dstr_1784__CURRENT_MODULE_ENVIRONME.slen = 36 ;
 
     /*inirout drout_1785__MEXPAND_PARENT_MODULE_ENVIRONMENT*/
-    /*_._VALROUT___V1870*/ meltfptr[1869] = (melt_ptr_t) &meltcdat->drout_1785__MEXPAND_PARENT_MODULE_ENVIRONMENT;
+    /*iniroutlocvar*/ /*_._VALROUT___V1870*/ meltfptr[1869] = (melt_ptr_t) &meltcdat->drout_1785__MEXPAND_PARENT_MODULE_ENVIRONMENT;
     meltcdat->drout_1785__MEXPAND_PARENT_MODULE_ENVIRONMENT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1785__MEXPAND_PARENT_MODULE_ENVIRONMENT.routdescr, "MEXPAND_PARENT_MODULE_ENVIRONMENT @warmelt-macro.melt:7611",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1785__MEXPAND_PARENT_MODULE_ENVIRONMENT.nbval = 5;
@@ -21365,11 +21595,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1873*/ meltfptr[1872] = (melt_ptr_t) &meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN;
     meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN.val, "PARENT_MODULE_ENVIRONMENT", sizeof (meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN.val)-1);
-    meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN.val[25] = (char)0;
-    meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN.slen = 25;
+    meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN.val[25] = (char)0 ;
+    meltcdat->dstr_1788__PARENT_MODULE_ENVIRONMEN.slen = 25 ;
 
     /*inirout drout_1789__MEXPAND_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE*/
-    /*_._VALROUT___V1874*/ meltfptr[1873] = (melt_ptr_t) &meltcdat->drout_1789__MEXPAND_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE;
+    /*iniroutlocvar*/ /*_._VALROUT___V1874*/ meltfptr[1873] = (melt_ptr_t) &meltcdat->drout_1789__MEXPAND_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE;
     meltcdat->drout_1789__MEXPAND_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1789__MEXPAND_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE.routdescr, "MEXPAND_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE @warmelt-macro.melt:7641",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1789__MEXPAND_UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE.nbval = 4;
@@ -21395,8 +21625,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1877*/ meltfptr[1876] = (melt_ptr_t) &meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN;
     meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN.val, "UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE", sizeof (meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN.val)-1);
-    meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN.val[43] = (char)0;
-    meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN.slen = 43;
+    meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN.val[43] = (char)0 ;
+    meltcdat->dstr_1792__UPDATE_CURRENT_MODULE_EN.slen = 43 ;
 
 
     /*iniobj dsym_1793__UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER*/
@@ -21413,11 +21643,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1879*/ meltfptr[1878] = (melt_ptr_t) &meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN;
     meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN.val, "UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER", sizeof (meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN.val)-1);
-    meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN.val[43] = (char)0;
-    meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN.slen = 43;
+    meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN.val[43] = (char)0 ;
+    meltcdat->dstr_1794__UPDATE_CURRENT_MODULE_EN.slen = 43 ;
 
     /*inirout drout_1795__MEXPAND_FETCH_PREDEFINED*/
-    /*_._VALROUT___V1880*/ meltfptr[1879] = (melt_ptr_t) &meltcdat->drout_1795__MEXPAND_FETCH_PREDEFINED;
+    /*iniroutlocvar*/ /*_._VALROUT___V1880*/ meltfptr[1879] = (melt_ptr_t) &meltcdat->drout_1795__MEXPAND_FETCH_PREDEFINED;
     meltcdat->drout_1795__MEXPAND_FETCH_PREDEFINED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1795__MEXPAND_FETCH_PREDEFINED.routdescr, "MEXPAND_FETCH_PREDEFINED @warmelt-macro.melt:7676",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1795__MEXPAND_FETCH_PREDEFINED.nbval = 6;
@@ -21443,11 +21673,11 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1883*/ meltfptr[1882] = (melt_ptr_t) &meltcdat->dstr_1798__FETCH_PREDEFINED;
     meltcdat->dstr_1798__FETCH_PREDEFINED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1798__FETCH_PREDEFINED.val, "FETCH_PREDEFINED", sizeof (meltcdat->dstr_1798__FETCH_PREDEFINED.val)-1);
-    meltcdat->dstr_1798__FETCH_PREDEFINED.val[16] = (char)0;
-    meltcdat->dstr_1798__FETCH_PREDEFINED.slen = 16;
+    meltcdat->dstr_1798__FETCH_PREDEFINED.val[16] = (char)0 ;
+    meltcdat->dstr_1798__FETCH_PREDEFINED.slen = 16 ;
 
     /*inirout drout_1799__MEXPAND_STORE_PREDEFINED*/
-    /*_._VALROUT___V1884*/ meltfptr[1883] = (melt_ptr_t) &meltcdat->drout_1799__MEXPAND_STORE_PREDEFINED;
+    /*iniroutlocvar*/ /*_._VALROUT___V1884*/ meltfptr[1883] = (melt_ptr_t) &meltcdat->drout_1799__MEXPAND_STORE_PREDEFINED;
     meltcdat->drout_1799__MEXPAND_STORE_PREDEFINED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
     strncpy (meltcdat->drout_1799__MEXPAND_STORE_PREDEFINED.routdescr, "MEXPAND_STORE_PREDEFINED @warmelt-macro.melt:7705",  MELT_ROUTDESCR_LEN - 1);
     meltcdat->drout_1799__MEXPAND_STORE_PREDEFINED.nbval = 6;
@@ -21473,8 +21703,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1887*/ meltfptr[1886] = (melt_ptr_t) &meltcdat->dstr_1802__STORE_PREDEFINED;
     meltcdat->dstr_1802__STORE_PREDEFINED.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1802__STORE_PREDEFINED.val, "STORE_PREDEFINED", sizeof (meltcdat->dstr_1802__STORE_PREDEFINED.val)-1);
-    meltcdat->dstr_1802__STORE_PREDEFINED.val[16] = (char)0;
-    meltcdat->dstr_1802__STORE_PREDEFINED.slen = 16;
+    meltcdat->dstr_1802__STORE_PREDEFINED.val[16] = (char)0 ;
+    meltcdat->dstr_1802__STORE_PREDEFINED.slen = 16 ;
 
 
     /*iniobj dsym_1803__CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER*/
@@ -21491,8 +21721,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1889*/ meltfptr[1888] = (melt_ptr_t) &meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR;
     meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR.val, "CLASS_SOURCE_UPDATE_CURRENT_MODULE_ENVIRONMENT_CONTAINER", sizeof (meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR.val)-1);
-    meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR.val[56] = (char)0;
-    meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR.slen = 56;
+    meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR.val[56] = (char)0 ;
+    meltcdat->dstr_1804__CLASS_SOURCE_UPDATE_CURR.slen = 56 ;
 
 
     /*iniobj dsym_1805__CLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_CONTAINER*/
@@ -21509,8 +21739,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1891*/ meltfptr[1890] = (melt_ptr_t) &meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD;
     meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD.val, "CLASS_SOURCE_CURRENT_MODULE_ENVIRONMENT_CONTAINER", sizeof (meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD.val)-1);
-    meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD.val[49] = (char)0;
-    meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD.slen = 49;
+    meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD.val[49] = (char)0 ;
+    meltcdat->dstr_1806__CLASS_SOURCE_CURRENT_MOD.slen = 49 ;
 
 
     /*iniobj dsym_1807__EXPAND_APPLY*/
@@ -21527,8 +21757,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1893*/ meltfptr[1892] = (melt_ptr_t) &meltcdat->dstr_1808__EXPAND_APPLY;
     meltcdat->dstr_1808__EXPAND_APPLY.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1808__EXPAND_APPLY.val, "EXPAND_APPLY", sizeof (meltcdat->dstr_1808__EXPAND_APPLY.val)-1);
-    meltcdat->dstr_1808__EXPAND_APPLY.val[12] = (char)0;
-    meltcdat->dstr_1808__EXPAND_APPLY.slen = 12;
+    meltcdat->dstr_1808__EXPAND_APPLY.val[12] = (char)0 ;
+    meltcdat->dstr_1808__EXPAND_APPLY.slen = 12 ;
 
 
     /*iniobj dsym_1809__EXPAND_MSEND*/
@@ -21545,8 +21775,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1895*/ meltfptr[1894] = (melt_ptr_t) &meltcdat->dstr_1810__EXPAND_MSEND;
     meltcdat->dstr_1810__EXPAND_MSEND.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1810__EXPAND_MSEND.val, "EXPAND_MSEND", sizeof (meltcdat->dstr_1810__EXPAND_MSEND.val)-1);
-    meltcdat->dstr_1810__EXPAND_MSEND.val[12] = (char)0;
-    meltcdat->dstr_1810__EXPAND_MSEND.slen = 12;
+    meltcdat->dstr_1810__EXPAND_MSEND.val[12] = (char)0 ;
+    meltcdat->dstr_1810__EXPAND_MSEND.slen = 12 ;
 
 
     /*iniobj dsym_1811__EXPAND_PAIRLIST_AS_TUPLE*/
@@ -21563,8 +21793,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1897*/ meltfptr[1896] = (melt_ptr_t) &meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE;
     meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE.val, "EXPAND_PAIRLIST_AS_TUPLE", sizeof (meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE.val)-1);
-    meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE.val[24] = (char)0;
-    meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE.slen = 24;
+    meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE.val[24] = (char)0 ;
+    meltcdat->dstr_1812__EXPAND_PAIRLIST_AS_TUPLE.slen = 24 ;
 
 
     /*iniobj dsym_1813__EXPAND_PRIMITIVE*/
@@ -21581,8 +21811,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1899*/ meltfptr[1898] = (melt_ptr_t) &meltcdat->dstr_1814__EXPAND_PRIMITIVE;
     meltcdat->dstr_1814__EXPAND_PRIMITIVE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1814__EXPAND_PRIMITIVE.val, "EXPAND_PRIMITIVE", sizeof (meltcdat->dstr_1814__EXPAND_PRIMITIVE.val)-1);
-    meltcdat->dstr_1814__EXPAND_PRIMITIVE.val[16] = (char)0;
-    meltcdat->dstr_1814__EXPAND_PRIMITIVE.slen = 16;
+    meltcdat->dstr_1814__EXPAND_PRIMITIVE.val[16] = (char)0 ;
+    meltcdat->dstr_1814__EXPAND_PRIMITIVE.slen = 16 ;
 
 
     /*iniobj dsym_1815__INSTALL_INITIAL_MACRO*/
@@ -21599,8 +21829,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1901*/ meltfptr[1900] = (melt_ptr_t) &meltcdat->dstr_1816__INSTALL_INITIAL_MACRO;
     meltcdat->dstr_1816__INSTALL_INITIAL_MACRO.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1816__INSTALL_INITIAL_MACRO.val, "INSTALL_INITIAL_MACRO", sizeof (meltcdat->dstr_1816__INSTALL_INITIAL_MACRO.val)-1);
-    meltcdat->dstr_1816__INSTALL_INITIAL_MACRO.val[21] = (char)0;
-    meltcdat->dstr_1816__INSTALL_INITIAL_MACRO.slen = 21;
+    meltcdat->dstr_1816__INSTALL_INITIAL_MACRO.val[21] = (char)0 ;
+    meltcdat->dstr_1816__INSTALL_INITIAL_MACRO.slen = 21 ;
 
 
     /*iniobj dsym_1817__LAMBDA_ARG_BINDINGS*/
@@ -21617,8 +21847,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1903*/ meltfptr[1902] = (melt_ptr_t) &meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS;
     meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS.val, "LAMBDA_ARG_BINDINGS", sizeof (meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS.val)-1);
-    meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS.val[19] = (char)0;
-    meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS.slen = 19;
+    meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS.val[19] = (char)0 ;
+    meltcdat->dstr_1818__LAMBDA_ARG_BINDINGS.slen = 19 ;
 
 
     /*iniobj dsym_1819__MACROEXPAND_1*/
@@ -21635,8 +21865,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1905*/ meltfptr[1904] = (melt_ptr_t) &meltcdat->dstr_1820__MACROEXPAND_1;
     meltcdat->dstr_1820__MACROEXPAND_1.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1820__MACROEXPAND_1.val, "MACROEXPAND_1", sizeof (meltcdat->dstr_1820__MACROEXPAND_1.val)-1);
-    meltcdat->dstr_1820__MACROEXPAND_1.val[13] = (char)0;
-    meltcdat->dstr_1820__MACROEXPAND_1.slen = 13;
+    meltcdat->dstr_1820__MACROEXPAND_1.val[13] = (char)0 ;
+    meltcdat->dstr_1820__MACROEXPAND_1.slen = 13 ;
 
 
     /*iniobj dsym_1821__MACROEXPAND_TOPLEVEL_LIST*/
@@ -21653,8 +21883,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1907*/ meltfptr[1906] = (melt_ptr_t) &meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS;
     meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS.val, "MACROEXPAND_TOPLEVEL_LIST", sizeof (meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS.val)-1);
-    meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS.val[25] = (char)0;
-    meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS.slen = 25;
+    meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS.val[25] = (char)0 ;
+    meltcdat->dstr_1822__MACROEXPAND_TOPLEVEL_LIS.slen = 25 ;
 
 
     /*iniobj dsym_1823__PATTERNEXPAND_1*/
@@ -21671,8 +21901,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1909*/ meltfptr[1908] = (melt_ptr_t) &meltcdat->dstr_1824__PATTERNEXPAND_1;
     meltcdat->dstr_1824__PATTERNEXPAND_1.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1824__PATTERNEXPAND_1.val, "PATTERNEXPAND_1", sizeof (meltcdat->dstr_1824__PATTERNEXPAND_1.val)-1);
-    meltcdat->dstr_1824__PATTERNEXPAND_1.val[15] = (char)0;
-    meltcdat->dstr_1824__PATTERNEXPAND_1.slen = 15;
+    meltcdat->dstr_1824__PATTERNEXPAND_1.val[15] = (char)0 ;
+    meltcdat->dstr_1824__PATTERNEXPAND_1.slen = 15 ;
 
 
     /*iniobj dsym_1825__PATTERNEXPAND_EXPR*/
@@ -21689,8 +21919,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1911*/ meltfptr[1910] = (melt_ptr_t) &meltcdat->dstr_1826__PATTERNEXPAND_EXPR;
     meltcdat->dstr_1826__PATTERNEXPAND_EXPR.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1826__PATTERNEXPAND_EXPR.val, "PATTERNEXPAND_EXPR", sizeof (meltcdat->dstr_1826__PATTERNEXPAND_EXPR.val)-1);
-    meltcdat->dstr_1826__PATTERNEXPAND_EXPR.val[18] = (char)0;
-    meltcdat->dstr_1826__PATTERNEXPAND_EXPR.slen = 18;
+    meltcdat->dstr_1826__PATTERNEXPAND_EXPR.val[18] = (char)0 ;
+    meltcdat->dstr_1826__PATTERNEXPAND_EXPR.slen = 18 ;
 
 
     /*iniobj dsym_1827__PATTERNEXPAND_PAIRLIST_AS_TUPLE*/
@@ -21707,8 +21937,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1913*/ meltfptr[1912] = (melt_ptr_t) &meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A;
     meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A.val, "PATTERNEXPAND_PAIRLIST_AS_TUPLE", sizeof (meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A.val)-1);
-    meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A.val[31] = (char)0;
-    meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A.slen = 31;
+    meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A.val[31] = (char)0 ;
+    meltcdat->dstr_1828__PATTERNEXPAND_PAIRLIST_A.slen = 31 ;
 
 
     /*iniobj dsym_1829__PATTERN_WEIGHT_TUPLE*/
@@ -21725,8 +21955,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1915*/ meltfptr[1914] = (melt_ptr_t) &meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE;
     meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE.val, "PATTERN_WEIGHT_TUPLE", sizeof (meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE.val)-1);
-    meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE.val[20] = (char)0;
-    meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE.slen = 20;
+    meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE.val[20] = (char)0 ;
+    meltcdat->dstr_1830__PATTERN_WEIGHT_TUPLE.slen = 20 ;
 
 
     /*iniobj dsym_1831__REGISTER_GENERATOR_DEVICE*/
@@ -21743,8 +21973,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1917*/ meltfptr[1916] = (melt_ptr_t) &meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC;
     meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC.val, "REGISTER_GENERATOR_DEVICE", sizeof (meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC.val)-1);
-    meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC.val[25] = (char)0;
-    meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC.slen = 25;
+    meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC.val[25] = (char)0 ;
+    meltcdat->dstr_1832__REGISTER_GENERATOR_DEVIC.slen = 25 ;
 
 
     /*iniobj dsym_1833__S_EXPR_WEIGHT*/
@@ -21761,8 +21991,8 @@ static void initialize_module_meltdata_WARMELTmiMACRO (meltinitial_frame_t *inif
     /*_._VALSTR___V1919*/ meltfptr[1918] = (melt_ptr_t) &meltcdat->dstr_1834__S_EXPR_WEIGHT;
     meltcdat->dstr_1834__S_EXPR_WEIGHT.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_1834__S_EXPR_WEIGHT.val, "S_EXPR_WEIGHT", sizeof (meltcdat->dstr_1834__S_EXPR_WEIGHT.val)-1);
-    meltcdat->dstr_1834__S_EXPR_WEIGHT.val[13] = (char)0;
-    meltcdat->dstr_1834__S_EXPR_WEIGHT.slen = 13;
+    meltcdat->dstr_1834__S_EXPR_WEIGHT.val[13] = (char)0 ;
+    meltcdat->dstr_1834__S_EXPR_WEIGHT.slen = 13 ;
     meltcdat = NULL;
     melt_prohibit_garbcoll = FALSE;
 
@@ -21792,14 +22022,18 @@ void* melt_start_this_module (void* modargp_)
 #define meltcallcount 0L
 #endif
 
-    struct /*startiniframdecl*/ melt_initial_frame_st     meltfram__; /*declfrastruct*/
+    struct /*startiniframdecl*/ melt_initial_frame_st     meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+(/*classyinitroutine*/)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    ;
 #define meltframe meltfram__
 
     /*melt_start_this_module is initial declstructinit*/
     memset(&meltfram__, 0, sizeof(meltfram__));
     /* declstructinit initial routine melt_start_this_module minihash 2926*/
 
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;
+    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = (struct melt_callframe_st *) &meltfram__;
     /**initial routine prologue**/
     /* set initial frame marking */
@@ -27713,7 +27947,7 @@ void* melt_start_this_module (void* modargp_)
     goto meltlabend_rout;
 meltlabend_rout:
     ;
-    melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
+    melt_topframe = /*endinitrout*/ (struct melt_callframe_st *) meltfram__.mcfr_prev;
     /* popped initial frame */
     {
         /* clear initial frame & return */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
