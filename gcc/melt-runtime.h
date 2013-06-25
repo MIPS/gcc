@@ -1,4 +1,4 @@
-/**
+/** -*- C++ -*-
    MELT header melt-runtime.h
    [[middle end lisp translator, see http://gcc-melt.org/ for more.]]
    Copyright (C)  2008 - 2013 Free Software Foundation, Inc.
@@ -2831,6 +2831,48 @@ melt_put_int (melt_ptr_t v, long x)
  * CALL FRAMES 
  ***/
 
+#if MELT_HAVE_CLASSY_FRAME
+
+class Melt_CallFrame {
+  friend void melt_minor_copying_garbage_collector (size_t wanted);
+  friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
+  static Melt_CallFrame* _top_call_frame_;
+  virtual void melt_forward_values (void) =0;
+  virtual void melt_mark_ggc_data (void) =0;
+protected:
+  Melt_CallFrame*_meltcf_prev;
+  const char* _meltcf_filocs;
+  melt_ptr_t _meltcf_clos;
+  intptr_t _meltcf_start[0];
+  Melt_CallFrame(size_t sz, melt_ptr_t clos=NULL) : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_clos(clos) {
+    memset (_meltcf_start, sz - offsetof(Melt_CallFrame,  _meltcf_start));
+    _top_call_frame = this;
+  }
+  ~Melt_CallFrame() { 
+    _meltcf_filocs = NULL; 
+    _top_call_frame = _meltcf_prev; 
+  };
+};				// end class Melt_CallFrame.
+
+template<unsigned Nbval> class Melt_CallFrameWithValues 
+  : public class Melt_CallFrame {
+public:
+  melt_ptr_t _meltcf_valtab[NbVal];
+  virtual void melt_forward_values (void) { 
+    for (unsigned ix=0; ix<NbVal; ix++)
+      MELT_FORWARDED(_meltcf_baltab[ix]);
+  };
+  void melt_mark_values (void) {
+    for (unsigned ix=0; ix<NbVal; ix++)
+      if (_meltcf_baltab[ix] != NULL)
+	gt_ggc_mx_melt_un (_meltcf_baltab[ix]);
+  };
+  virtual void melt_mark_ggc_data (void) { melt_mark_values (); };
+  Melt_CallFrameWithValues(melt_ptr_t clos=NULL) : public Melt_CallFrame(sizeof(*this),clos) {};
+  ~Melt_CallFrameWithValues() {};
+};				// end template class Melt_CallFrameWithValues
+
+#else /* ! MELT_HAVE_CLASSY_FRAME */
 
 /* call frames for our copying garbage collector cannot be GTY-ed
    because they are inside the C call stack; in reality, MELT call
@@ -2863,7 +2905,6 @@ struct melt_callframe_st
   melt_ptr_t mcfr_varptr[MELT_FLEXIBLE_DIM];
 };
 
-
 /* maximal number of local variables per frame */
 #define MELT_MAXNBLOCALVAR 16384
 
@@ -2877,11 +2918,6 @@ static inline int melt_curframdepth (void) {
   return cnt;
 }
 
-#if 0
-/* the jmpbuf for our catch & throw */
-extern jmp_buf *melt_jmpbuf;
-extern melt_ptr_t melt_jmpval;
-#endif
 
 
 /* declare the current callframe */
@@ -3037,24 +3073,7 @@ MELT_EXTERN FILE* melt_loctrace_file;
       = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
 } while(0)
 
-/****
-#define MELT_CATCH(Vcod,Vptr) do {
-  jmp_buf __jbuf;
-  int __jcod;
-  jmp_buf* __prevj = melt_jmpbuf;
-  memset(&__jbuf, 0, sizeof(jmp_buf));
-  melt_jmpbuf = &__jbuf;
-  __jcod = setjmp(&__jbuf);
-  Vcod = __jcod;
-  if (__jcod) {
-    melt_topframe = ((void*)&meltfram__);
-    Vptr = melt_jmpval;
-  };
-} while(0)
-
-#define MELT_THROW(Cod,Ptr) do {
-} while(0)
-***/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
 
 /* Internal unction to be called by MELT code when the
    :sysdata_inchannel_data is changed.  Called by code_chunk-s inside

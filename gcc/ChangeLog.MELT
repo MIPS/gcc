@@ -1,5 +1,18 @@
 
 
+2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{begin having classy frames, ie. MELT frames which are C++ classes}}
+	* melt-runtime.h (Melt_CallFrame, Melt_CallFrameWithValues): New
+	classes, when MELT_HAVE_CLASSY_FRAME
+	(MELT_CATCH, MELT_THROW): Remove those commented macros.
+	* melt-runtime.c (Melt_CallFrame::_top_call_frame_): Define, when
+	MELT_HAVE_CLASSY_FRAME.
+	(melt_minor_copying_garbage_collector): Made non-static.
+	(melt_output_cfile_decl_impl_secondary_option): Mention C++ in and
+	gcc-melt.org in emitted comment.
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): Also emit
+	code when MELT_HAVE_CLASSY_FRAME.
+
 2013-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{regenerated, as C++ files only}}
 	* melt-upgrade.sh: Work ok...

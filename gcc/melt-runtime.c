@@ -374,9 +374,11 @@ static struct meltextinfovec_st {
 } melt_extinfo;
 
 
-
+#if MELT_HAVE_CLASSY_FRAME
+Melt_CallFrame* Melt_CallFrame::_top_call_frame_;
+#else /* ! MELT_HAVE_CLASSY_FRAME */
 struct melt_callframe_st* melt_topframe =0;
-
+#endif /* MELT_HAVE_CLASSY_FRAME */
 
 /* The start routine of every MELT extension (dynamically loaded
    shared object to evaluate at runtime some expressions in a given
@@ -1422,7 +1424,7 @@ melt_delete_unmarked_new_specialdata (void)
 
 /* The minor MELT GC is a copying generational garbage collector whose
    old space is the GGC heap.  */
-static void
+void
 melt_minor_copying_garbage_collector (size_t wanted)
 {
   struct melt_callframe_st *cfram = NULL;
@@ -12516,9 +12518,9 @@ melt_output_cfile_decl_impl_secondary_option (melt_ptr_t unitnam,
   /* we first write in the temporary name */
   cfil = fopen (dotempnam, "w");
   if (!cfil)
-    melt_fatal_error ("failed to open melt generated file %s - %m", dotempnam);
+    melt_fatal_error ("failed to open MELT generated file %s - %m", dotempnam);
   fprintf (cfil,
-           "/* GCC MELT GENERATED FILE %s - DO NOT EDIT */\n",
+           "/* GCC MELT GENERATED C++ FILE %s - DO NOT EDIT - see http://gcc-melt.org/ */\n",
            melt_basename (dotcnam));
   if (filrank <= 0) 
     {
@@ -12532,7 +12534,7 @@ melt_output_cfile_decl_impl_secondary_option (melt_ptr_t unitnam,
 	fprintf (cfil, "\n/***+ %s without options +***/\n",
 		 melt_basename (melt_string_str (unitnam)));
     } else
-    fprintf (cfil, "/* secondary MELT generated C file of rank #%d */\n",
+    fprintf (cfil, "/* secondary MELT generated C++ file of rank #%d */\n",
              filrank);
   fprintf (cfil, "#include \"melt-run.h\"\n\n");;
   if (filrank <= 0)
