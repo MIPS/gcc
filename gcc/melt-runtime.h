@@ -2841,10 +2841,19 @@ class Melt_CallFrame {
   virtual void melt_mark_ggc_data (void) =0;
 protected:
   Melt_CallFrame*_meltcf_prev;
+public:
   const char* _meltcf_filocs;
-  melt_ptr_t _meltcf_clos;
+  union {
+    meltclosure_ptr_t _meltcf_clos;
+    melthook_ptr_t _meltcf_hook;
+  };
+protected:
   intptr_t _meltcf_start[0];
-  Melt_CallFrame(size_t sz, melt_ptr_t clos=NULL) : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_clos(clos) {
+  Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_clos(clos) {
+    memset (_meltcf_start, sz - offsetof(Melt_CallFrame,  _meltcf_start));
+    _top_call_frame = this;
+  }
+  Melt_CallFrame(size_t sz, melthook_ptr_t hook) : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_hook(hook) {
     memset (_meltcf_start, sz - offsetof(Melt_CallFrame,  _meltcf_start));
     _top_call_frame = this;
   }
@@ -2868,7 +2877,8 @@ public:
 	gt_ggc_mx_melt_un (_meltcf_baltab[ix]);
   };
   virtual void melt_mark_ggc_data (void) { melt_mark_values (); };
-  Melt_CallFrameWithValues(melt_ptr_t clos=NULL) : public Melt_CallFrame(sizeof(*this),clos) {};
+  Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL) : public Melt_CallFrame(sz,clos) {};
+  Melt_CallFrameWithValues(size_t sz, melthook_ptr_t hook) : public Melt_CallFrame(sz,hook) {};
   ~Melt_CallFrameWithValues() {};
 };				// end template class Melt_CallFrameWithValues
 

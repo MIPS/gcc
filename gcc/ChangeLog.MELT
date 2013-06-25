@@ -1,6 +1,27 @@
 
 
 2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (Melt_CallFrame): Has also a melthook_ptr_t.
+	(Melt_CallFrameWithValues): Add constructor for hook.
+
+	* melt-run.proto.h (meltfptr, meltfnum, meltfclos, meltfrout):
+	Give definition when MELT_HAVE_CLASSY_FRAME.
+
+	* melt/warmelt-genobj.melt (compile2obj_hook): The hook data
+	parameter is named melthookdatap.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinitroutine): Improve.
+	(outcinitfill_objinithook): Improve.
+	(output_curframe_declstruct): Emit variant for MELT_HAVE_CLASSY_FRAME.
+	(output_curframe_declstruct_init): Ditto.
+	(outpucod_procroutine): Slighty improved emission.
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Emit
+	generation of safe casting functions.
+
+
+2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{begin having classy frames, ie. MELT frames which are C++ classes}}
 	* melt-runtime.h (Melt_CallFrame, Melt_CallFrameWithValues): New
 	classes, when MELT_HAVE_CLASSY_FRAME

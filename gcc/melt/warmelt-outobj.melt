@@ -778,17 +778,16 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_string sbuf cnam)
     (add2sbuf_strconst sbuf "*/")
     (add2sbuf_indentnl sbuf 1)
-    (if olocvar
-	(progn
-					; (add2sbuf_strconst sbuf "/*iniroutlocvar*/ ")
-	  (output_c_code olocvar () sbuf 1)
-	  (add2sbuf_strconst sbuf " = (melt_ptr_t) &")
-	  (add2sbuf_string sbuf ptrstr)
-	  (add2sbuf_strconst sbuf "->")
-	  (add2sbuf_string sbuf cnam)
-	  (add2sbuf_strconst sbuf ";")
-	  (add2sbuf_indentnl sbuf 1)
-	  ))
+    (when olocvar
+      (add2sbuf_strconst sbuf "/*iniroutlocvar*/ ")
+      (output_c_code olocvar () sbuf 1)
+      (add2sbuf_strconst sbuf " = (melt_ptr_t) &")
+      (add2sbuf_string sbuf ptrstr)
+      (add2sbuf_strconst sbuf "->")
+      (add2sbuf_string sbuf cnam)
+      (add2sbuf_strconst sbuf ";")
+      (add2sbuf_indentnl sbuf 1)
+      )
     (add2sbuf_strconst sbuf " ")
     (add2sbuf_string sbuf ptrstr)
     (add2sbuf_strconst sbuf "->")
@@ -858,7 +857,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (debug "outcinitfill_objinitroutine huge sbuf=" sbuf)
 	  (shortbacktrace_dbg "outcinitfill_objinitroutine huge sbuf" 12)
 	  (assert_msg "check limited sbuf" 
-	      (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+		      (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
   )
 (install_method class_objinitroutine output_c_initial_fill outcinitfill_objinitroutine)
 
@@ -903,41 +902,41 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      ##{ $PTRSTR->$CNAME.discr = (meltobject_ptr_t)(}#)
      (output_c_code (get_field :oie_discr recv) () sbuf (+i depth 1))
      (add2out sbuf ");")
-    (add2sbuf_indentnl sbuf (+i depth 1))
-    (add2out 
-     sbuf 
-     ##{   /*inihook $HKNAME data*/
-     $PTRSTR->$CNAME.nbval = $NBCLOVAL;
-     MELT_HOOK_SET_ROUTCODE (&$PTRSTR->$CNAME, melthook_$HKNAME);
-     $PTRSTR->$CNAME.hookdata = }#
-     )
-    (output_c_code hkdata () sbuf 1)
-    (add2out sbuf ";")
-    (add2sbuf_indentnl sbuf (+i depth 1))    
-    (add2out sbuf "strncpy (" ptrstr "->" cname ".hookname, \"")
-    (add2sbuf_cencstring sbuf hkname)
-    (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
-    (add2sbuf_indentnl sbuf depth)
-    (when opredef
-      (add2out 
-       sbuf 
-       ##{/*predefinedhook $OPREDEF for $CNAME*/
-       if (!MELT_PREDEF($OPREDEF))
-          MELT_STORE_PREDEF($OPREDEF, (melt_ptr_t) &$PTRSTR->$CNAME);
-       }#)
-      (add2sbuf_indentnl sbuf depth)
+     (add2sbuf_indentnl sbuf (+i depth 1))
+     (add2out 
+      sbuf 
+      ##{   /*inihook $HKNAME data*/
+      $PTRSTR->$CNAME.nbval = $NBCLOVAL				  ;
+      MELT_HOOK_SET_ROUTCODE (&$PTRSTR->$CNAME, melthook_$HKNAME) ;
+      $PTRSTR->$CNAME.hookdata = }#
       )
-    (when olocvar
-      (output_c_code olocvar () sbuf 1)
-      (add2out sbuf 
-	       ##{ = /*inihooklocvar $HKNAME*/ (melt_ptr_t) &$PTRSTR->$CNAME;
-	       }#)
-      (add2sbuf_indentnl sbuf 1)
-      )
-    (add2out sbuf ##{/*done inihook $CNAME */}#)
-    (add2sbuf_indentnl sbuf depth)
-    ))
-(install_method class_objinithook  output_c_initial_fill outcinitfill_objinithook)
+     (output_c_code hkdata () sbuf 1)
+     (add2out sbuf ";")
+     (add2sbuf_indentnl sbuf (+i depth 1))    
+     (add2out sbuf "strncpy (" ptrstr "->" cname ".hookname, \"")
+     (add2sbuf_cencstring sbuf hkname)
+     (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
+     (add2sbuf_indentnl sbuf depth)
+     (when opredef
+       (add2out 
+	sbuf 
+	##{/*predefinedhook $OPREDEF for $CNAME*/
+	if (!MELT_PREDEF($OPREDEF))
+	MELT_STORE_PREDEF($OPREDEF, (melt_ptr_t) &$PTRSTR->$CNAME) ;
+	}#)
+       (add2sbuf_indentnl sbuf depth)
+       )
+     (when olocvar
+       (output_c_code olocvar () sbuf 1)
+       (add2out sbuf 
+		##{ = /*inihooklocvar $HKNAME*/ (melt_ptr_t) &$PTRSTR->$CNAME ;
+		}#)
+       (add2sbuf_indentnl sbuf 1)
+       )
+     (add2out sbuf ##{/*done inihook $CNAME */}#)
+     (add2sbuf_indentnl sbuf depth)
+     )))
+  (install_method class_objinithook  output_c_initial_fill outcinitfill_objinithook)
 
 
 
@@ -967,14 +966,14 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst sbuf "*/")
     (add2sbuf_indentnl sbuf (+i depth 1))
     (when olocvar
-	  (output_c_code olocvar () sbuf 1)
-	  (add2sbuf_strconst sbuf " = (melt_ptr_t) &")
-	  (add2sbuf_string sbuf ptrstr)
-	  (add2sbuf_strconst sbuf "->")
-	  (add2sbuf_string sbuf cnam)
-	  (add2sbuf_strconst sbuf ";")
-	  (add2sbuf_indentnl sbuf 1)
-	  )
+      (output_c_code olocvar () sbuf 1)
+      (add2sbuf_strconst sbuf " = (melt_ptr_t) &")
+      (add2sbuf_string sbuf ptrstr)
+      (add2sbuf_strconst sbuf "->")
+      (add2sbuf_string sbuf cnam)
+      (add2sbuf_strconst sbuf ";")
+      (add2sbuf_indentnl sbuf 1)
+      )
     (add2sbuf_strconst sbuf " ")
     (add2sbuf_string sbuf ptrstr)
     (add2sbuf_strconst sbuf "->")
@@ -1139,13 +1138,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		(assert_msg "check limited sbuf" 
 			    (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
 	))
-	(add2sbuf_indentnl sbuf 1)
-	(add2out sbuf ##{$PTRSTR->$CNAM.val[$DATALEN] = (char)0; }#
-		 )
-	(add2sbuf_indentnl sbuf 1)
-	(add2out sbuf ##{$PTRSTR->$CNAM.slen = $DATALEN; }#
-		 )
-	(add2sbuf_indentnl sbuf 1)
+    (add2sbuf_indentnl sbuf 1)
+    (add2out sbuf ##{$PTRSTR->$CNAM.val[$DATALEN] = (char)0 ; }#
+	     )
+    (add2sbuf_indentnl sbuf 1)
+    (add2out sbuf ##{$PTRSTR->$CNAM.slen = $DATALEN ; }#
+	     )
+    (add2sbuf_indentnl sbuf 1)
     ))
 (install_method class_objinitstring output_c_initial_fill outcinitfill_objinitstring)
 
@@ -1205,7 +1204,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (assert_msg "check limited sbuf" 
 			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
     ))
-(install_method class_objinitboxinteger output_c_initial_fill outcinitfill_objinitboxedinteger)
+  (install_method class_objinitboxinteger output_c_initial_fill outcinitfill_objinitboxedinteger)
 
 
 
@@ -1254,7 +1253,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outcinitfill_objinitpair huge sbuf" 10)
 	    (debug "outcinitfill_objinitpair huge sbuf=" sbuf)
 	    (assert_msg "check limited sbuf" 
-		      (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
     ))
 (install_method class_objinitpair output_c_initial_fill outcinitfill_objinitpair)
 ;;;;;;;;;;;;;;;;
@@ -1303,7 +1302,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outcinitfill_objinitlist huge sbuf" 10)
 	    (debug "outcinitfill_objinitlist huge sbuf=" sbuf)
 	    (assert_msg "check limited sbuf" 
-		      (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
     )
   )
 (install_method class_objinitlist output_c_initial_fill outcinitfill_objinitlist)
@@ -1314,16 +1313,16 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (outcstring_err "* output_c_code unimplemented receiver discriminator ")
   (let ( (discr (discrim any)) ) 
     (outstr_err (unsafe_get_field :named_name discr))
-       (outnewline_err)
-       (debug  "outpucod_anydiscr discr=" discr))
+    (outnewline_err)
+    (debug  "outpucod_anydiscr discr=" discr))
   (assert_msg "@@ outpucod_anydiscr not able to output" ())
   )
 (install_method discr_any_receiver output_c_code outpucod_anydiscr)
 
 
-;;
+  ;;
 (defun outpucod_null (nul declbuf implbuf :long depth)
-     ;(assert_msg "@$@unexpected call to outpucod_null")
+					;(assert_msg "@$@unexpected call to outpucod_null")
   (shortbacktrace_dbg "outpucod_null" 12)
   (add2out implbuf 
 	   ##{ NULL }#)
@@ -1385,13 +1384,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 			    (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
 	)))
 
-;; we really want to avoid outputing the same location twice, so we
-;; keep the previous location and implbuf
+  ;; we really want to avoid outputing the same location twice, so we
+  ;; keep the previous location and implbuf
 
 (definstance prevloc_container class_reference)
 (definstance previmplbuf_container class_reference)
 
-;; return the line number and file name of a location
+  ;; return the line number and file name of a location
 (defun line_and_file_of_location (loc)
   (cond
    ( (is_mixint loc) 
@@ -1406,7 +1405,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
    )
   )
 
-;; output the location & set the frame's location
+  ;; output the location & set the frame's location
 (defun output_location (loc implbuf :long depth :cstring msg)
   (let ( (prevloc (unsafe_get_field :referenced_value prevloc_container))
 	 (prevbuf (unsafe_get_field :referenced_value previmplbuf_container))
@@ -1482,6 +1481,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     ))
 
 
+
+
+
 ;;; output the code for declaring the current frame struct
 (defun output_curframe_declstruct (rou dsbuf)
   (debug "output_curframe_declstruct rou=" rou)
@@ -1502,48 +1504,58 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;;;
     (add2out dsbuf "#if MELT_HAVE_CLASSY_FRAME")
     (add2sbuf_indentnl dsbuf 0)
-    (add2sbuf_strconst dsbuf " /*curframdeclclassy*/ class ")
-    (cond
-     ((is_a rou class_initialroutineobj)
-      (add2sbuf_strconst dsbuf "Melt_InitialFrame")
-      )
-     ((is_a rou class_named)
-      (add2sbuf_strconst dsbuf "MeltFrame_")
-      (add2sbuf_string dsbuf (unsafe_get_field :named_name rou))
-      )
-     (:else
-      (assert_msg "unexpected routine")
-      ))
-    (add2sbuf_indentnl dsbuf 1)
-    (add2out dsbuf " : public Melt_CallFrameWithValues<" nbval "> {")
-    (add2sbuf_indentnl dsbuf 1)
-    (add2out dsbuf "public: /*inframedeclclassy*/")
-    (add2sbuf_indentnl dsbuf 1)
-    (when nblong 
-      (add2out dsbuf "long _melt_longtab[" nblong "];")
-      (add2sbuf_indentnl dsbuf 1))
-    (when others
-      (add2out dsbuf "/*classy others*/")
+    (let ( (classyframename 
+	    (cond
+	     ((is_a rou class_initialroutineobj)
+	      '"Melt_InitialFrame")
+	     ((is_a rou class_named)
+	      (string4out discr_verbatim_string "MeltFrame_" (unsafe_get_field :named_name rou)))
+	     (:else
+	      (debug "output_curframe_declstruct bad routine rou=" rou)
+	      (assert_msg "unexpected routine" ())
+	      )))
+	   )
+      (add2out dsbuf " /*curframdeclclassy*/ class " classyframename)
       (add2sbuf_indentnl dsbuf 1)
-      (foreach_in_list
-       (others)
-       (curpair oloc)
-       (assert_msg "check other oloc" (is_a oloc class_objlocv))
-       (let ( (octyp (unsafe_get_field :obv_type oloc))
-	      (oname (unsafe_get_field :obl_cname oloc))
-	      )
-	 (assert_msg "check octyp" (is_a octyp class_ctype))
-	 (add2sbuf_string dsbuf (unsafe_get_field :ctype_cname octyp))
-	 (add2sbuf_strconst dsbuf " ")
-	 (add2sbuf_string dsbuf oname)
-	 (add2sbuf_strconst dsbuf ";")
-	 (add2sbuf_indentnl dsbuf 1)))
+      (add2out dsbuf " : public Melt_CallFrameWithValues<" nbval "> {")
+      (add2sbuf_indentnl dsbuf 1)
+      (add2out dsbuf "public: /*inframedeclclassy*/")
+      (add2sbuf_indentnl dsbuf 1)
+      (when nblong 
+	(add2out dsbuf "long _meltcf_longtab[" nblong "];")
+	(add2sbuf_indentnl dsbuf 1))
+      (when (not nblong)
+	(add2out dsbuf "// no classy longs")
+	(add2sbuf_indentnl dsbuf 1))
+      (when others
+	(add2out dsbuf "/*classy others*/")
+	(add2sbuf_indentnl dsbuf 1)
+	(foreach_in_list
+	 (others)
+	 (curpair oloc)
+	 (assert_msg "check other oloc" (is_a oloc class_objlocv))
+	 (let ( (octyp (unsafe_get_field :obv_type oloc))
+		(oname (unsafe_get_field :obl_cname oloc))
+		)
+	   (assert_msg "check octyp" (is_a octyp class_ctype))
+	   (add2sbuf_string dsbuf (unsafe_get_field :ctype_cname octyp))
+	   (add2sbuf_strconst dsbuf " ")
+	   (add2sbuf_string dsbuf oname)
+	   (add2sbuf_strconst dsbuf ";")
+	   (add2sbuf_indentnl dsbuf 1))))
+      ;;
+      (when (null others)
+	(add2out dsbuf "// no classy others")
+	(add2sbuf_indentnl dsbuf 1))
+      (add2out dsbuf "long _meltsparel;")
+      (add2sbuf_indentnl dsbuf 1)
+      ;;
       (add2out dsbuf "void melt_mark_stuff (void) {")
       (add2sbuf_indentnl dsbuf 2)
       (foreach_in_list
        (others)
        (curpair oloc)
-       ;(assert_msg "check other oloc" (is_a oloc class_objlocv))
+					;(assert_msg "check other oloc" (is_a oloc class_objlocv))
        (let ( (octyp (unsafe_get_field :obv_type oloc))
 	      (oname (unsafe_get_field :obl_cname oloc))
 	      )
@@ -1566,6 +1578,20 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2sbuf_indentnl dsbuf 1)
       (add2out dsbuf "}; /*end melt_mark_ggc_data*/")
       (add2sbuf_indentnl dsbuf 1)
+      (add2out dsbuf classyframename "(meltclosure_ptr_t clos=NULL) //the constructor")
+      (add2sbuf_indentnl dsbuf 2)
+      (add2out dsbuf " : Melt_CallFrameWithValues<" nbval ">" 
+	       " (sizeof(" classyframename "), clos) {};")
+      (when (is_a rou class_hookroutineobj)
+	(add2sbuf_indentnl dsbuf 1)
+	(add2out dsbuf classyframename "(melthook_ptr_t hook) //the hook constructor")
+	(add2sbuf_indentnl dsbuf 2)
+	(add2out dsbuf " : Melt_CallFrameWithValues<" nbval ">" 
+		 " (sizeof(" classyframename "), hook) {};")
+	)
+      (add2sbuf_indentnl dsbuf 0)
+      (add2out dsbuf "} // end  class " classyframename)
+      (add2sbuf_indentnl dsbuf 0)
       )
 ;;;;
 ;;;;; CLASSY FRAME END
@@ -1786,7 +1812,33 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (declstruct rou implbuf)
     (if (not isinitial)
 	(add2sbuf_strconst implbuf "    *meltframptr_=0,"))
-    (add2sbuf_strconst implbuf "    meltfram__; /*declfrastruct*/")
+    (add2sbuf_strconst implbuf "    meltfram__ /*declfrastruct*/")
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#if MELT_HAVE_CLASSY_FRAME")
+    (add2sbuf_indentnl implbuf 0)
+    (debug "output_curframe_declstruct_init classy rou=" rou)
+    (cond 
+     ( (is_a rou class_procroutineobj)
+       (add2out implbuf "/*classyproc*/ (meltclosp_)")
+       (void)
+       )
+     ( (is_a rou class_hookroutineobj)
+       (add2out implbuf "/*classyhook*/ (meltcast_melthook_st(melthookdatap))")
+       (void)
+       )
+     ( (is_a rou class_initial_extension_routineobj)
+       (add2out implbuf "(/*classyinitextension*/)")
+       (void)
+       )
+     ( (is_a rou class_initialroutineobj)
+       (add2out implbuf "(/*classyinitroutine*/)")
+       (void)
+       )
+     )
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#endif /*MELT_HAVE_CLASSY_FRAME*/")
+    (add2sbuf_indentnl implbuf 0)
+    (add2sbuf_strconst implbuf ";")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf "#define meltframe meltfram__")
     (add2sbuf_indentnl implbuf 1)
@@ -1828,14 +1880,14 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (add2out implbuf "meltframptr_ = (struct meltframe_" rouname "_st*) meltfirstargp_;")
 	(add2sbuf_strconst implbuf "meltframptr_ = (void*)meltfirstargp_;"))
       (add2sbuf_indentnl implbuf 3)
-      (add2out implbuf ##{  /* use arguments $ROUNAME output_curframe_declstruct_init */
-	       (void) meltclosp_	;
-	       (void) meltfirstargp_	;
-	       (void) meltxargdescr_	;
-	       (void) meltxargtab_	;
-	       (void) meltxresdescr_	;
-	       (void) meltxrestab_	;
-	       }#)
+      (add2out implbuf "/* use arguments " rouname " output_curframe_declstruct_init */" "\n"
+	       "  (void) meltclosp_;\n"
+	       "  (void) meltfirstargp_;\n"
+	       "  (void) meltxargdescr_;\n"
+	       "  (void) meltxargtab_;\n"
+	       "  (void) meltxresdescr_;\n"
+	       "  (void) meltxrestab_;\n"
+	       )
       (outpucod_marker rou implbuf)
       (add2sbuf_strconst implbuf "return NULL;")
       (add2sbuf_indentnl implbuf 2)
@@ -1859,13 +1911,16 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       ))
     (add2sbuf_indentnl implbuf 0)
 ;;;
-    (add2sbuf_strconst implbuf " meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe;")
+    (add2sbuf_strconst implbuf " meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf " melt_topframe = (struct melt_callframe_st *) &meltfram__;")
     (add2sbuf_indentnl implbuf 0)
     (assert_msg "check limited implbuf" 
 		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
     ))
+
+
+
 
 ;;; output code for a procroutine
 (defun outpucod_procroutine (prou declbuf implbuf :long depth)
@@ -2007,7 +2062,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl implbuf 1)
     (add2out implbuf " melt_blocklevel_signals = current_blocklevel_signals_" onam "_melt;")
     (add2sbuf_indentnl implbuf 1)
-    (add2sbuf_strconst implbuf " melt_topframe = (struct melt_callframe_st*) meltfram__.mcfr_prev;")
+    (add2sbuf_strconst implbuf " melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf " return (melt_ptr_t)(")
     (if oretval 
@@ -2372,7 +2427,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf "meltlabend_rout:;")
 	(add2sbuf_indentnl implbuf 0)
-	(add2sbuf_strconst implbuf " melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;")
+	(add2sbuf_strconst implbuf " melt_topframe = /*endinitrout*/ (struct melt_callframe_st *) meltfram__.mcfr_prev;")
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf "/* popped initial frame */")
 	(add2sbuf_indentnl implbuf 0)
@@ -2632,10 +2687,10 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 #define meltframe meltfram__
        meltframe.mcfr_nbvar = -$MINIHASH /*hook minihash*/ ;
        ((struct melt_callframe_st*)&meltframe)->mcfr_forwmarkrout
-       = melthookmark_$NRAWHOOKNAME#_rout			    ;
+          = melthookmark_$NRAWHOOKNAME#_rout ;
        meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe	;
-       melt_topframe = (struct melt_callframe_st*)
-           &meltfram__;}#
+       melt_topframe = /*starthookrout*/ (struct melt_callframe_st*) &meltfram__;
+   }#
        )
       (add2sbuf_indentnl implbuf 0)
       (add2out implbuf "#define meltfhook /*hook data of " nrawhookname "*/ ((melthook_ptr_t) (")
@@ -2684,7 +2739,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2out 
        implbuf 
        ##{/* final of $HOOKNAME hook */
-       melt_topframe = meltfram__.mcfr_prev ;
+       melt_topframe = /* endhookrout*/ meltfram__.mcfr_prev ;
        return }#)
       (add2sbuf_indentnl implbuf 3)
       (if oretval
@@ -2882,7 +2937,7 @@ $ONAME (melt_ptr_t meltarg_curenvbox_p, melt_ptr_t meltarg_tuplitval_p)
       (add2out implbuf  ##{ /*-- ending run extension $OMODNAM  --*/}#)
       (add2out implbuf ##{
  goto meltlabend_rout;
-meltlabend_rout: melt_topframe = meltfram__.mcfr_prev;
+meltlabend_rout: melt_topframe = /* endrunext */ meltfram__.mcfr_prev;
   return (melt_ptr_t)}#)
       (output_c_code oretval declbuf implbuf 1)
       (add2out implbuf ##{; /*return value of extension $OMODNAM */
@@ -6795,7 +6850,7 @@ if (1) return;
 			   (hkctypename (get_field :ctype_cname hkctype))
 			   )
 		    (add2out declbuf "\n/*declare MELT called hook #" hkix " " hkname " **/\n")
-		    (add2out declbuf "MELT_EXTERN " hkctypename " melthook_" hkname " (melt_ptr_t melthookdata")
+		    (add2out declbuf "MELT_EXTERN " hkctypename " melthook_" hkname " (melt_ptr_t melthookdatap")
 		    (foreach_in_multiple
 		     (hkins)
 		     (curinsb :long inix)

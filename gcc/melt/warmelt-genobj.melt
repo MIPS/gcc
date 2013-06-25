@@ -1162,7 +1162,7 @@
 	 (ooutargs (make_multiple discr_multiple (multiple_length noutbinds)))
 	 (odatarg (instance class_objcformal
 			    :obv_type ctype_value
-			    :oformal_name '"melthookdata"
+			    :oformal_name '"melthookdatap"
 			    :oformal_proc nhook
 			    :oformal_bind ()
 			    :oformal_locv ()
