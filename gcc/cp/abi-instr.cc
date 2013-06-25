@@ -832,6 +832,13 @@ gen_class_type_in_scope (const_tree t,
   result = class_type;
   get_wip_classes_map ().erase (t);
 
+  // Handle definition of earlier declaration-only
+  {
+    class_map::const_iterator i = get_tree_2_class_map ().find (t);
+    if (i != get_tree_2_class_map ().end ())
+      result->set_earlier_declaration (i->second);
+  }
+
   get_tree_2_class_map ()[t] = result;
 
   return result;
@@ -1066,18 +1073,7 @@ gen_type_in_scope (const_tree t,
 	break;
 
       case RECORD_TYPE:
-	{
-	  shared_ptr <abigail::class_decl> r =
-	    gen_class_type_in_scope (t, scope);
-	  if (r)
-	    {
-	      type_map::const_iterator i = m.find (t);
-	      if (i != m.end ())
-		// There was an earlier declaration for this class.
-		r->set_earlier_declaration (i->second);
-	      result = r;
-	    }
-	}
+	result = gen_class_type_in_scope (t, scope);
 	break;
 
       default:
