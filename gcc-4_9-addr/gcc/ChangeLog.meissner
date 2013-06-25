@@ -1,6 +1,6 @@
 2013-06-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* config/rs6000/vector.md (VEC_R):Move reload insns to
+	* config/rs6000/vector.md (VEC_R): Move reload insns to
 	rs6000.md.  Delete VEC_R iterator.
 	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
 	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
@@ -10,7 +10,6 @@
 	* config/rs6000/rs6000.opt (-mgeneral-addr-vector): New debug
 	switches for enabling general addresses before reload.
 	(-mgeneral-addr-scalar): Likewise.
-	(-mold-legitimate-address): Delete.
 
 	* config/rs6000/rs6000.c (rs6000_vector_reload): Move reload
 	helper INSN fields into reg_addr structure.
@@ -50,7 +49,7 @@
 
 	* config/rs6000/rs6000.md (RELOAD): Move vector reload helper
 	functions from vector.md to rs6000.md.  Make them more general,
-	and support scalar types.
+	and support for scalar types.
 	(reload_<RELOAD:mode>_<P:mptrsize>_store): Likewise.
 	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
 	(vec_reload_and_plus_<mptrsize>): Likewise.
