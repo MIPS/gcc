@@ -902,41 +902,41 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      ##{ $PTRSTR->$CNAME.discr = (meltobject_ptr_t)(}#)
      (output_c_code (get_field :oie_discr recv) () sbuf (+i depth 1))
      (add2out sbuf ");")
-     (add2sbuf_indentnl sbuf (+i depth 1))
-     (add2out 
-      sbuf 
-      ##{   /*inihook $HKNAME data*/
-      $PTRSTR->$CNAME.nbval = $NBCLOVAL				  ;
-      MELT_HOOK_SET_ROUTCODE (&$PTRSTR->$CNAME, melthook_$HKNAME) ;
-      $PTRSTR->$CNAME.hookdata = }#
+    (add2sbuf_indentnl sbuf (+i depth 1))
+    (add2out 
+     sbuf 
+     ##{   /*inihook $HKNAME data*/
+     $PTRSTR->$CNAME.nbval = $NBCLOVAL;
+     MELT_HOOK_SET_ROUTCODE (&$PTRSTR->$CNAME, melthook_$HKNAME);
+     $PTRSTR->$CNAME.hookdata = }#
+     )
+    (output_c_code hkdata () sbuf 1)
+    (add2out sbuf ";")
+    (add2sbuf_indentnl sbuf (+i depth 1))    
+    (add2out sbuf "strncpy (" ptrstr "->" cname ".hookname, \"")
+    (add2sbuf_cencstring sbuf hkname)
+    (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
+    (add2sbuf_indentnl sbuf depth)
+    (when opredef
+      (add2out 
+       sbuf 
+       ##{/*predefinedhook $OPREDEF for $CNAME*/
+       if (!MELT_PREDEF($OPREDEF))
+          MELT_STORE_PREDEF($OPREDEF, (melt_ptr_t) &$PTRSTR->$CNAME);
+       }#)
+      (add2sbuf_indentnl sbuf depth)
       )
-     (output_c_code hkdata () sbuf 1)
-     (add2out sbuf ";")
-     (add2sbuf_indentnl sbuf (+i depth 1))    
-     (add2out sbuf "strncpy (" ptrstr "->" cname ".hookname, \"")
-     (add2sbuf_cencstring sbuf hkname)
-     (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
-     (add2sbuf_indentnl sbuf depth)
-     (when opredef
-       (add2out 
-	sbuf 
-	##{/*predefinedhook $OPREDEF for $CNAME*/
-	if (!MELT_PREDEF($OPREDEF))
-	MELT_STORE_PREDEF($OPREDEF, (melt_ptr_t) &$PTRSTR->$CNAME) ;
-	}#)
-       (add2sbuf_indentnl sbuf depth)
-       )
-     (when olocvar
-       (output_c_code olocvar () sbuf 1)
-       (add2out sbuf 
-		##{ = /*inihooklocvar $HKNAME*/ (melt_ptr_t) &$PTRSTR->$CNAME ;
-		}#)
-       (add2sbuf_indentnl sbuf 1)
-       )
-     (add2out sbuf ##{/*done inihook $CNAME */}#)
-     (add2sbuf_indentnl sbuf depth)
-     )))
-  (install_method class_objinithook  output_c_initial_fill outcinitfill_objinithook)
+    (when olocvar
+      (output_c_code olocvar () sbuf 1)
+      (add2out sbuf 
+	       ##{ = /*inihooklocvar $HKNAME*/ (melt_ptr_t) &$PTRSTR->$CNAME;
+	       }#)
+      (add2sbuf_indentnl sbuf 1)
+      )
+    (add2out sbuf ##{/*done inihook $CNAME */}#)
+    (add2sbuf_indentnl sbuf depth)
+    ))
+(install_method class_objinithook  output_c_initial_fill outcinitfill_objinithook)
 
 
 

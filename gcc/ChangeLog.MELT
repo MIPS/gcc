@@ -1,6 +1,9 @@
 
 
 2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook): Partly reverted change.
+
+2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (Melt_CallFrame): Has also a melthook_ptr_t.
 	(Melt_CallFrameWithValues): Add constructor for hook.
