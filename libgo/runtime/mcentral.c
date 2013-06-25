@@ -200,7 +200,7 @@ MCentral_Grow(MCentral *c)
 
 	runtime_unlock(c);
 	runtime_MGetSizeClassInfo(c->sizeclass, &size, &npages, &n);
-	s = runtime_MHeap_Alloc(&runtime_mheap, npages, c->sizeclass, 0, 1);
+	s = runtime_MHeap_Alloc(&runtime_mheap, npages, 0, c->sizeclass, 0, 1);
 	if(s == nil) {
 		// TODO(rsc): Log out of memory
 		runtime_lock(c);

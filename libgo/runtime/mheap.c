@@ -16,11 +16,11 @@
 #include "arch.h"
 #include "malloc.h"
 
-static MSpan *MHeap_AllocLocked(MHeap*, uintptr, int32);
-static bool MHeap_Grow(MHeap*, uintptr);
+static MSpan *MHeap_AllocLocked(MHeap*, uintptr, uintptr, int32);
+static bool MHeap_Grow(MHeap*, uintptr, uintptr);
 static void MHeap_FreeLocked(MHeap*, MSpan*);
-static MSpan *MHeap_AllocLarge(MHeap*, uintptr);
-static MSpan *BestFit(MSpan*, uintptr, MSpan*);
+static MSpan *MHeap_AllocLarge(MHeap*, uintptr, uintptr);
+static MSpan *BestFit(MSpan*, uintptr, uintptr, MSpan*);
 
 static void
 RecordSpan(void *vh, byte *p)
@@ -66,13 +66,13 @@ runtime_MHeap_Init(MHeap *h, void *(*alloc)(uintptr))
 // Allocate a new span of npage pages from the heap
 // and record its size class in the HeapMap and HeapMapCache.
 MSpan*
-runtime_MHeap_Alloc(MHeap *h, uintptr npage, int32 sizeclass, int32 acct, int32 zeroed)
+runtime_MHeap_Alloc(MHeap *h, uintptr npage, uintptr align, int32 sizeclass, int32 acct, int32 zeroed)
 {
 	MSpan *s;
 
 	runtime_lock(h);
 	runtime_purgecachedstats(runtime_m()->mcache);
-	s = MHeap_AllocLocked(h, npage, sizeclass);
+	s = MHeap_AllocLocked(h, npage, align, sizeclass);
 	if(s != nil) {
 		mstats.heap_inuse += npage<<PageShift;
 		if(acct) {
@@ -87,7 +87,7 @@ runtime_MHeap_Alloc(MHeap *h, uintptr npage, int32 sizeclass, int32 acct, int32 
 }
 
 static MSpan*
-MHeap_AllocLocked(MHeap *h, uintptr npage, int32 sizeclass)
+MHeap_AllocLocked(MHeap *h, uintptr npage, uintptr align, int32 sizeclass)
 {
 	uintptr n;
 	MSpan *s, *t;
@@ -97,15 +97,34 @@ MHeap_AllocLocked(MHeap *h, uintptr npage, int32 sizeclass)
 	for(n=npage; n < nelem(h->free); n++) {
 		if(!runtime_MSpanList_IsEmpty(&h->free[n])) {
 			s = h->free[n].next;
-			goto HaveSpan;
+			if (align == 0) {
+				goto HaveSpan;
+			} else {
+#if 0
+				// Does it fit in with our alignment requirements, too?
+				uintptr padding = align - ((s->start << PageShift) & (align - 1));
+				// This does not have to consider any
+				// sub-PageSize padding amounts, that is, we
+				// don't have to round up to the next page, as
+				// we're just interested in snipping off a
+				// region so that the following page matches
+				// the required alignment.
+				uintptr npage_snip = padding >> PageShift;
+				if (s->npages >= (npage_snip + npage)) {
+					goto HaveSpan;
+				}
+#else
+				runtime_throw("untested");
+#endif
+			}
 		}
 	}
 
 	// Best fit in list of large spans.
-	if((s = MHeap_AllocLarge(h, npage)) == nil) {
-		if(!MHeap_Grow(h, npage))
+	if((s = MHeap_AllocLarge(h, npage, align)) == nil) {
+		if(!MHeap_Grow(h, npage, align))
 			return nil;
-		if((s = MHeap_AllocLarge(h, npage)) == nil)
+		if((s = MHeap_AllocLarge(h, npage, align)) == nil)
 			return nil;
 	}
 
@@ -120,6 +139,36 @@ HaveSpan:
 	mstats.heap_idle -= s->npages<<PageShift;
 	mstats.heap_released -= s->npreleased<<PageShift;
 	s->npreleased = 0;
+
+	// Snip off a region at the beginning if so required.
+	if ((align != 0) && (((s->start << PageShift) & (align - 1)) != 0)) {
+		uintptr padding = align - ((s->start << PageShift) & (align - 1));
+		// This does not have to consider any sub-PageSize padding
+		// amounts, that is, we don't have to round up to the next
+		// page, as we're just interested in snipping off a region so
+		// that the following page matches the required alignment.
+		uintptr npage_snip = padding >> PageShift;
+		if (npage_snip > 0) {
+			t = runtime_FixAlloc_Alloc(&h->spanalloc);
+			mstats.mspan_inuse = h->spanalloc.inuse;
+			mstats.mspan_sys = h->spanalloc.sys;
+			runtime_MSpan_Init(t, s->start, npage_snip);
+			s->start += npage_snip;
+			s->npages -= npage_snip;
+			p = t->start;
+			if(sizeof(void*) == 8)
+				p -= ((uintptr)h->arena_start>>PageShift);
+			h->map[p] = t;
+			h->map[p+t->npages-1] = t;
+			h->map[p+t->npages] = s;
+			*(uintptr*)(t->start<<PageShift) = *(uintptr*)(s->start<<PageShift);  // copy "needs zeroing" mark
+			t->state = MSpanInUse;
+			MHeap_FreeLocked(h, t);
+			t->unusedsince = s->unusedsince; // preserve age
+		}
+	}
+	if(s->npages < npage)
+		runtime_throw("MHeap_AllocLocked - bad npages after alignment");
 
 	if(s->npages > npage) {
 		// Trim extra and put it back in the heap.
@@ -157,22 +206,33 @@ HaveSpan:
 
 // Allocate a span of exactly npage pages from the list of large spans.
 static MSpan*
-MHeap_AllocLarge(MHeap *h, uintptr npage)
+MHeap_AllocLarge(MHeap *h, uintptr npage, uintptr align)
 {
-	return BestFit(&h->large, npage, nil);
+	return BestFit(&h->large, npage, align, nil);
 }
 
 // Search list for smallest span with >= npage pages.
 // If there are multiple smallest spans, take the one
 // with the earliest starting address.
 static MSpan*
-BestFit(MSpan *list, uintptr npage, MSpan *best)
+BestFit(MSpan *list, uintptr npage, uintptr align, MSpan *best)
 {
 	MSpan *s;
 
 	for(s=list->next; s != list; s=s->next) {
-		if(s->npages < npage)
+		uintptr npage_snip = 0;
+		if (align != 0) {
+			uintptr padding = align - ((s->start << PageShift) & (align - 1));
+			// This does not have to consider any sub-PageSize
+			// padding amounts, that is, we don't have to round up
+			// to the next page, as we're just interested in
+			// snipping off a region so that the following page
+			// matches the required alignment.
+			npage_snip = padding >> PageShift;
+		}
+		if(s->npages < (npage_snip + npage))
 			continue;
+		// TODO: Need more tuning for align != 0?
 		if(best == nil
 		|| s->npages < best->npages
 		|| (s->npages == best->npages && s->start < best->start))
@@ -184,7 +244,7 @@ BestFit(MSpan *list, uintptr npage, MSpan *best)
 // Try to add at least npage pages of memory to the heap,
 // returning whether it worked.
 static bool
-MHeap_Grow(MHeap *h, uintptr npage)
+MHeap_Grow(MHeap *h, uintptr npage, uintptr align)
 {
 	uintptr ask;
 	void *v;
@@ -197,17 +257,24 @@ MHeap_Grow(MHeap *h, uintptr npage)
 	// Allocate a multiple of 64kB (16 pages).
 	npage = (npage+15)&~15;
 	ask = npage<<PageShift;
+	if (align != 0) {
+		// Allocate more than the caller requested: add as much as the
+		// size of the alignment requested, to be prepared for the
+		// operating system returning a memory region with the most
+		// unsuitable alignment.
+		ask += align;
+	}
 	if(ask < HeapAllocChunk)
 		ask = HeapAllocChunk;
 
 	v = runtime_MHeap_SysAlloc(h, ask);
 	if(v == nil) {
-		if(ask > (npage<<PageShift)) {
+		if((align == 0) && (ask > (npage<<PageShift))) {
 			ask = npage<<PageShift;
 			v = runtime_MHeap_SysAlloc(h, ask);
 		}
 		if(v == nil) {
-			runtime_printf("runtime: out of memory: cannot allocate %D-byte block (%D in use)\n", (uint64)ask, mstats.heap_sys);
+			runtime_printf("runtime: out of memory: cannot allocate %D-byte block with %D-byte alignment (%D in use)\n", (uint64)ask, (uint64) align, mstats.heap_sys);
 			return false;
 		}
 	}
