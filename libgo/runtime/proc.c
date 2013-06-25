@@ -73,8 +73,7 @@ G	runtime_g0;	// idle goroutine for m0
 static __thread G *g;
 static __thread M *m;
 
-/* #ifndef SETCONTEXT_CLOBBERS_TLS */
-#if !defined(SETCONTEXT_CLOBBERS_TLS) || defined(__GNU__)
+#ifndef SETCONTEXT_CLOBBERS_TLS
 
 static inline void
 initcontext(void)
