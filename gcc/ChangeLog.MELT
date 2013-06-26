@@ -2,6 +2,18 @@
 
 2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_ENTERFRAME, MELT_ENTEREMPTYFRAME)
+	(MELT_EXITFRAME, MELT_LOCATION, MELT_LOCATION_HERE)
+	(MELT_LOCATION_HERE_PRINTF): Define macros when
+	MELT_HAVE_CLASSY_FRAME.
+
+	* melt-runtime.c (Melt_CallFrame::_top_call_frame_): Initialize to
+	NULL.
+	(melt_marking_callback, melt_minor_copying_garbage_collector):
+	Code when MELT_HAVE_CLASSY_FRAME.
+
+2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

@@ -2846,20 +2846,23 @@ public:
   union {
     meltclosure_ptr_t _meltcf_clos;
     melthook_ptr_t _meltcf_hook;
+    melt_ptr_t _meltcf_current;
   };
 protected:
   intptr_t _meltcf_start[0];
-  Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_clos(clos) {
+  Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
+    : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_clos(clos) {
     memset (_meltcf_start, sz - offsetof(Melt_CallFrame,  _meltcf_start));
-    _top_call_frame = this;
+    _top_call_frame_ = this;
   }
-  Melt_CallFrame(size_t sz, melthook_ptr_t hook) : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_hook(hook) {
+  Melt_CallFrame(size_t sz, melthook_ptr_t hook) 
+    : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_hook(hook) {
     memset (_meltcf_start, sz - offsetof(Melt_CallFrame,  _meltcf_start));
-    _top_call_frame = this;
+    _top_call_frame_ = this;
   }
   ~Melt_CallFrame() { 
     _meltcf_filocs = NULL; 
-    _top_call_frame = _meltcf_prev; 
+    _top_call_frame_ = _meltcf_prev; 
   };
 };				// end class Melt_CallFrame.
 
@@ -2943,6 +2946,65 @@ MELT_EXTERN FILE* melt_loctrace_file;
     fputs((S), melt_loctrace_file);			\
     putc('\n', melt_loctrace_file);			\
   }}while(0)
+
+
+////////////////////////////////////////////////////////////////
+#if MELT_HAVE_CLASSY_FRAME
+
+#define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
+  Melt_CallFrameWithValues<NbVar> meltfram__			\
+    (meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
+  static char meltlocbuf_##Lin [92];				\
+  if (MELT_UNLIKELY(!meltlocbuf_##Lin [0]))			\
+    snprintf (meltlocbuf_##Lin, sizeof(meltlocbuf_##Lin),	\
+	      "%s:%d ~%s", melt_basename (__FILE__),		\
+	      Lin, __func__);					\
+  meltfram__._meltcf_filocs = meltlocbuf_##Lin;
+
+#define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
+#define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
+#define MELT_EXITFRAME() meltfram__._meltcf_filocs = NULL;
+
+#define MELT_LOCATION(LOCS) do{			\
+  meltfram__._meltcf_filocs = LOCS;		\
+}while(0)
+
+#define MELT_LOCATION_HERE_AT(FIL,LIN,MSG) do {		\
+  static char locbuf_##LIN[92];				\
+    if (!MELT_UNLIKELY(locbuf_##LIN[0]))		\
+    snprintf(locbuf_##LIN, sizeof(locbuf_##LIN),	\
+             "%s:%d <%s>",				\
+	     melt_basename (FIL), (int)LIN, MSG);	\
+    meltfram__._meltcf_filocs = locbuf;			\
+} while(0)
+/* We need several indirections of macro to have the ##LIN trick above
+   working!  */
+#define MELT_LOCATION_HERE_AT_MACRO(FIL,LIN,MSG) \
+  MELT_LOCATION_HERE_AT(FIL,LIN,MSG)
+#define MELT_LOCATION_HERE_MACRO(MSG)  \
+  MELT_LOCATION_HERE_AT_MACRO(__FILE__,__LINE__,MSG)
+#define MELT_LOCATION_HERE(MSG)  MELT_LOCATION_HERE_MACRO(MSG)
+
+/* SBUF should be a local array of char */
+#define MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,...) do {	\
+  memset (SBUF, 0, sizeof(SBUF));				\
+  snprintf (SBUF, sizeof(SBUF),					\
+	    "%s:%d:: " FMT,					\
+	    melt_basename (FIL),				\
+            (int)LIN, __VA_ARGS__);				\
+  meltfram__._meltcf_filocs = SBUF;				\
+} while(0)
+/* We need several indirections of macro to have the ##LIN trick above
+   working!  */
+#define MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,FIL,LIN,FMT,...)	\
+  MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,__VA_ARGS__)
+#define MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT,...)			\
+  MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,__FILE__,__LINE__,FMT,__VA_ARGS__)
+#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...)		\
+  MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT, __VA_ARGS__)
+
+
+#else /*!MELT_HAVE_CLASSY_FRAME -------------*/
 
 #define MELT_DECLFRAME(NBVAR) struct {		\
   int mcfr_nbvar;				\
@@ -3030,7 +3092,41 @@ MELT_EXTERN FILE* melt_loctrace_file;
 #define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...)		\
   MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT, __VA_ARGS__)
 
+
+/* declare and initialize the current callframe */
+#define MELT_ENTERFRAME(NBVAR,CLOS) \
+  MELT_DECLFRAME(NBVAR); MELT_INITFRAME(NBVAR,CLOS)
+
+/* declare and initialize the current callframe */
+#define MELT_ENTEREMPTYFRAME(CLOS) \
+  MELT_DECLEMPTYFRAME(); MELT_INITFRAME(0,CLOS)
+
+/* exit the current frame and return */
+#define MELT_EXITFRAME() do {					\
+    MELT_TRACE_EXIT_LOCATION ();				\
+    melt_topframe						\
+      = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
+} while(0)
+
+#endif /*MELT_HAVE_CLASSY_FRAME!!!!!!!!!!!!*/
+
 #else /*!MELT_HAVE_DEBUG*/
+
+#if MELT_HAVE_CLASSY_FRAME
+
+#define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)		\
+  Melt_CallFrameWithValues<NbVar> meltfram__		\
+    (meltcast_meltclosure_st((melt_ptr_t)(Clos)));     
+
+#define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
+#define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
+#define MELT_EXITFRAME() do{}while(0)
+
+#define MELT_LOCATION(LOCS) do{/*classylocation without MELT_HAVE_DEBUG*/}while(0)
+#define MELT_LOCATION_HERE(MSG) do{/*classylocationhere without MELT_HAVE_DEBUG*/}while(0)
+#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...) do{/*classylocationhereprintf without MELT_HAVE_DEBUG*/}while(0)
+
+#else /*!MELT_HAVE_CLASSY_FRAME ----------------*/
 
 #define MELT_DECLFRAME(NBVAR) struct {			\
 /*declframe without MELT_HAVE_DEBUG*/			\
@@ -3065,8 +3161,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
   melt_topframe = ((void*)&meltfram__);					\
 } while(0)
 
-#endif /*!MELT_HAVE_DEBUG*/
-
 
 /* declare and initialize the current callframe */
 #define MELT_ENTERFRAME(NBVAR,CLOS) \
@@ -3082,6 +3176,9 @@ MELT_EXTERN FILE* melt_loctrace_file;
     melt_topframe						\
       = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
 } while(0)
+
+#endif /*MELT_HAVE_CLASSY_FRAME */
+#endif /*!MELT_HAVE_DEBUG*/
 
 #endif /*MELT_HAVE_CLASSY_FRAME*/
 
