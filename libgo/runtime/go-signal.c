@@ -434,7 +434,10 @@ runtime_setsig (int32 i, bool def __attribute__ ((unused)), bool restart)
 
   if ((t->flags & SigPanic) == 0)
     {
+      /* <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>.  */
+#ifndef __GNU__
       sa.sa_flags = SA_ONSTACK;
+#endif
       sa.sa_handler = sig_tramp;
     }
   else
