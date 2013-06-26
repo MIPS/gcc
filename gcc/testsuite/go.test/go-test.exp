@@ -352,12 +352,6 @@ proc go-gc-tests { } {
 	    continue
 	}
 
-	if { [file tail $test] == "sigchld.go" } {
-	    # Busy-loops on GNU/Hurd, causing the test harness to hang.
-	    untested $name
-	    continue
-	}
-
 	if { [file tail $test] == "bug347.go" \
 		 || [file tail $test] == "bug348.go" } {
 	    # These tests don't work if the functions are inlined.
