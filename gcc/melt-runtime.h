@@ -3165,10 +3165,6 @@ static inline int melt_curframdepth (void) {
 
 #endif /*MELT_HAVE_CLASSY_FRAME*/
 
-#warning temporary MELT_TRACE_LOCATION & MELT_TRACE_EXIT_LOCATION
-#define MELT_TRACE_LOCATION(S) do{}while(0)
-#define MELT_TRACE_EXIT_LOCATION() do{}while(0)
-
 /* Internal unction to be called by MELT code when the
    :sysdata_inchannel_data is changed.  Called by code_chunk-s inside
    MELT file melt/warmelt-base.melt.  */

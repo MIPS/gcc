@@ -1,6 +1,10 @@
 
 
 2013-06-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_TRACE_LOCATION, MELT_TRACE_EXIT_LOCATION):
+	Completely remove.
+
+2013-06-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
