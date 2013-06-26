@@ -116,7 +116,7 @@ static rtx builtin_memcpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 static rtx expand_builtin_memcpy (tree, rtx);
 static rtx expand_builtin_mempcpy (tree, rtx, enum machine_mode);
 static rtx expand_builtin_mempcpy_args (tree, tree, tree, rtx,
-					enum machine_mode, int);
+					enum machine_mode, int, tree);
 static rtx expand_builtin_strcpy (tree, rtx);
 static rtx expand_builtin_strcpy_args (tree, tree, rtx);
 static rtx expand_builtin_stpcpy (tree, rtx, enum machine_mode);
@@ -3155,7 +3155,8 @@ expand_builtin_mempcpy (tree exp, rtx target, enum machine_mode mode)
       tree src = CALL_EXPR_ARG (exp, 1);
       tree len = CALL_EXPR_ARG (exp, 2);
       return expand_builtin_mempcpy_args (dest, src, len,
-					  target, mode, /*endp=*/ 1);
+					  target, mode, /*endp=*/ 1,
+					  exp);
     }
 }
 
@@ -3167,10 +3168,23 @@ expand_builtin_mempcpy (tree exp, rtx target, enum machine_mode mode)
 
 static rtx
 expand_builtin_mempcpy_args (tree dest, tree src, tree len,
-			     rtx target, enum machine_mode mode, int endp)
+			     rtx target, enum machine_mode mode, int endp,
+			     tree orig_exp)
 {
+  tree fndecl = get_callee_fndecl (orig_exp);
+
     /* If return value is ignored, transform mempcpy into memcpy.  */
-  if (target == const0_rtx && builtin_decl_implicit_p (BUILT_IN_MEMCPY))
+  if (target == const0_rtx
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_MEMPCPY_NOBND_NOCHK
+      && builtin_decl_implicit_p (BUILT_IN_MPX_MEMCPY_NOBND_NOCHK))
+    {
+      tree fn = builtin_decl_implicit (BUILT_IN_MPX_MEMCPY_NOBND_NOCHK);
+      tree result = build_call_nofold_loc (UNKNOWN_LOCATION, fn, 3,
+					   dest, src, len);
+      return expand_expr (result, target, mode, EXPAND_NORMAL);
+    }
+  else if (target == const0_rtx
+	   && builtin_decl_implicit_p (BUILT_IN_MEMCPY))
     {
       tree fn = builtin_decl_implicit (BUILT_IN_MEMCPY);
       tree result = build_call_nofold_loc (UNKNOWN_LOCATION, fn, 3,
@@ -3354,7 +3368,8 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 
       lenp1 = size_binop_loc (loc, PLUS_EXPR, len, ssize_int (1));
       ret = expand_builtin_mempcpy_args (dst, src, lenp1,
- 					 target, mode, /*endp=*/2);
+					 target, mode, /*endp=*/2,
+					 exp);
 
       if (ret)
 	return ret;
@@ -3639,7 +3654,8 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
  do_libcall:
   fndecl = get_callee_fndecl (orig_exp);
   fcode = DECL_FUNCTION_CODE (fndecl);
-  if (fcode == BUILT_IN_MEMSET)
+  if (fcode == BUILT_IN_MEMSET
+      || fcode == BUILT_IN_MPX_MEMSET_NOBND_NOCHK)
     fn = build_call_nofold_loc (EXPR_LOCATION (orig_exp), fndecl, 3,
 				dest, val, len);
   else if (fcode == BUILT_IN_BZERO)
@@ -4517,7 +4533,7 @@ expand_builtin_frame_address (tree fndecl, tree exp)
 {
   /*  Set zero bounds for returned value.  */
   if (flag_mpx)
-    targetm.calls.init_returned_bounds ();
+    targetm.calls.init_returned_bounds (NULL_TREE);
 
   /* The argument must be a nonnegative integer constant.
      It counts the number of frames to scan up the stack.
@@ -6249,27 +6265,44 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_MEMCPY:
-      if (flag_mpx)
+    case BUILT_IN_MPX_MEMCPY_NOBND_NOCHK:
+      if (flag_mpx && fcode == BUILT_IN_MEMCPY)
 	break;
       target = expand_builtin_memcpy (exp, target);
       if (target)
-	return target;
+	{
+	  /* We need to set returned bounds in MPX mode.  */
+	  if (flag_mpx)
+	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
+	  return target;
+	}
       break;
 
     case BUILT_IN_MEMPCPY:
-      if (flag_mpx)
+      case BUILT_IN_MPX_MEMPCPY_NOBND_NOCHK:
+      if (flag_mpx && fcode == BUILT_IN_MEMPCPY)
 	break;
       target = expand_builtin_mempcpy (exp, target, mode);
       if (target)
-	return target;
+	{
+	  if (flag_mpx)
+	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
+	  return target;
+	}
       break;
 
     case BUILT_IN_MEMSET:
-      if (flag_mpx)
+    case BUILT_IN_MPX_MEMSET_NOBND_NOCHK:
+      if (flag_mpx && fcode == BUILT_IN_MEMSET)
 	break;
       target = expand_builtin_memset (exp, target, mode);
       if (target)
-	return target;
+	{
+	  /* We need to set returned bounds in MPX mode.  */
+	  if (flag_mpx)
+	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
+	  return target;
+	}
       break;
 
     case BUILT_IN_BZERO:

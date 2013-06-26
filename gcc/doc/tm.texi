@@ -5165,8 +5165,8 @@ Extend pass uses this hook to emit insn for arg
 bounds in case bounds are not passed on register.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_INIT_RETURNED_BOUNDS (void)
-Put zero bounds into place where returned bounds are expected
+@deftypefn {Target Hook} void TARGET_INIT_RETURNED_BOUNDS (tree)
+Put bounds into place where returned bounds are expected.
 @end deftypefn
 
 @node Trampolines

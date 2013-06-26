@@ -33623,15 +33623,23 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
 
 /* Put zero bounds into bound register used to return bounds.  */
 static void
-ix86_init_returned_bounds (void)
+ix86_init_returned_bounds (tree bounds)
 {
-  rtx lb = force_reg (Pmode, GEN_INT (0));
-  rtx size = force_reg (Pmode, GEN_INT (-1));
-  emit_insn( TARGET_64BIT
-	     ? gen_bnd64_mk (gen_rtx_REG (BND64mode, FIRST_BND_REG),
-			     lb, size)
-	     : gen_bnd32_mk (gen_rtx_REG (BND32mode, FIRST_BND_REG),
-			     lb, size));
+  if (bounds)
+    {
+      rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
+      emit_move_insn (b0, expand_normal (bounds));
+    }
+  else
+    {
+      rtx lb = force_reg (Pmode, GEN_INT (0));
+      rtx size = force_reg (Pmode, GEN_INT (-1));
+      emit_insn( TARGET_64BIT
+		 ? gen_bnd64_mk (gen_rtx_REG (BND64mode, FIRST_BND_REG),
+				 lb, size)
+		 : gen_bnd32_mk (gen_rtx_REG (BND32mode, FIRST_BND_REG),
+				 lb, size));
+    }
 }
 
 /* Returns a function decl for a vectorized version of the builtin function

@@ -2203,8 +2203,8 @@ bounds in case bounds are not passed on register.",
 bounds are expected.  */
 DEFHOOK
 (init_returned_bounds,
- "Put zero bounds into place where returned bounds are expected",
- void, (void), default_init_returned_bounds)
+ "Put bounds into place where returned bounds are expected.",
+ void, (tree), default_init_returned_bounds)
 
 DEFHOOK
 (strict_argument_naming,

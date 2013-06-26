@@ -1576,7 +1576,7 @@ default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
-extern void default_init_returned_bounds (void)
+extern void default_init_returned_bounds (tree bounds ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }

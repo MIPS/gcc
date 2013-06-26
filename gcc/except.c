@@ -2058,7 +2058,7 @@ expand_builtin_eh_pointer (tree exp)
   /* Currently bounds are not passed in exception
      context.  Set them to zero.  */
   if (flag_mpx)
-    targetm.calls.init_returned_bounds ();
+    targetm.calls.init_returned_bounds (NULL_TREE);
 
   return region->exc_ptr_reg;
 }
