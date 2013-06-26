@@ -98,17 +98,10 @@ along with GCC; see the file COPYING3.   If not see
 
 #define meltcallcount -1
 
-#if MELT_HAVE_CLASSY_FRAME
-#define meltfptr  meltfram__._meltcf_valtab
-#define meltfnum  meltfram__._meltcf_longtab
-#define meltfclos meltfram__._meltcf_clos
-#define meltfrout meltfram__._meltcf_clos->rout
-#else /*!MELT_HAVE_CLASSY_FRAME*/
 #define meltfptr  meltfram__.mcfr_varptr
 #define meltfnum  meltfram__.mcfr_varnum
 #define meltfclos meltfram__.mcfr_clos
 #define meltfrout meltfram__.mcfr_clos->rout
-#endif /*MELT_HAVE_CLASSY_FRAME*/
 
 /* these are added by the melt-module.mk file & make */
 extern const char melt_compiled_timestamp[];

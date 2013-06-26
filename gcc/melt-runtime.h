@@ -2839,29 +2839,34 @@ class Melt_CallFrame {
   static Melt_CallFrame* _top_call_frame_;
   virtual void melt_forward_values (void) =0;
   virtual void melt_mark_ggc_data (void) =0;
+private:
+  // this is tricky but essential; we need to explicitly zero the rest of the frame.
+  void melt_clear_rest_of_frame (size_t sz) {
+    if (sz > sizeof(Melt_CallFrame))
+      memset ((Melt_CallFrame*)this+1, 0, sz - sizeof(Melt_CallFrame));
+  };
 protected:
   Melt_CallFrame*_meltcf_prev;
 public:
-  const char* _meltcf_filocs;
+  const char* mcfr_flocs;
   union {
-    meltclosure_ptr_t _meltcf_clos;
-    melthook_ptr_t _meltcf_hook;
-    melt_ptr_t _meltcf_current;
+    meltclosure_ptr_t mcfr_clos;
+    melthook_ptr_t mcfr_hook;
+    melt_ptr_t mcfr_current;
   };
 protected:
-  intptr_t _meltcf_start[0];
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
-    : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_clos(clos) {
-    memset (_meltcf_start, sz - offsetof(Melt_CallFrame,  _meltcf_start));
+    : _meltcf_prev (_top_call_frame_), mcfr_flocs(NULL), mcfr_clos(clos) {
+    melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
   Melt_CallFrame(size_t sz, melthook_ptr_t hook) 
-    : _meltcf_prev (_top_call_frame_), _meltcf_filocs(NULL), _meltcf_hook(hook) {
-    memset (_meltcf_start, sz - offsetof(Melt_CallFrame,  _meltcf_start));
+    : _meltcf_prev (_top_call_frame_), mcfr_flocs(NULL), mcfr_hook(hook) {
+    melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
   ~Melt_CallFrame() { 
-    _meltcf_filocs = NULL; 
+    mcfr_flocs = NULL; 
     _top_call_frame_ = _meltcf_prev; 
   };
 };				// end class Melt_CallFrame.
@@ -2869,15 +2874,15 @@ protected:
 template<unsigned Nbval> class Melt_CallFrameWithValues 
   : public class Melt_CallFrame {
 public:
-  melt_ptr_t _meltcf_valtab[NbVal];
+  melt_ptr_t mcfr_varptr[NbVal];
   virtual void melt_forward_values (void) { 
     for (unsigned ix=0; ix<NbVal; ix++)
-      MELT_FORWARDED(_meltcf_baltab[ix]);
+      MELT_FORWARDED(mcfr_varptr[ix]);
   };
   void melt_mark_values (void) {
     for (unsigned ix=0; ix<NbVal; ix++)
       if (_meltcf_baltab[ix] != NULL)
-	gt_ggc_mx_melt_un (_meltcf_baltab[ix]);
+	gt_ggc_mx_melt_un (mcfr_varptr[ix]);
   };
   virtual void melt_mark_ggc_data (void) { melt_mark_values (); };
   Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL) : public Melt_CallFrame(sz,clos) {};
@@ -2959,24 +2964,25 @@ MELT_EXTERN FILE* melt_loctrace_file;
     snprintf (meltlocbuf_##Lin, sizeof(meltlocbuf_##Lin),	\
 	      "%s:%d ~%s", melt_basename (__FILE__),		\
 	      Lin, __func__);					\
-  meltfram__._meltcf_filocs = meltlocbuf_##Lin;
+  meltfram__.mcfr_flocs = meltlocbuf_##Lin;
 
 #define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
 #define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
-#define MELT_EXITFRAME() meltfram__._meltcf_filocs = NULL;
+#define MELT_EXITFRAME() do {meltfram__.mcfr_flocs = NULL;}while(0)
 
 #define MELT_LOCATION(LOCS) do{			\
-  meltfram__._meltcf_filocs = LOCS;		\
+  meltfram__.mcfr_flocs = LOCS;			\
 }while(0)
 
 #define MELT_LOCATION_HERE_AT(FIL,LIN,MSG) do {		\
   static char locbuf_##LIN[92];				\
-    if (!MELT_UNLIKELY(locbuf_##LIN[0]))		\
+  if (!MELT_UNLIKELY(locbuf_##LIN[0]))			\
     snprintf(locbuf_##LIN, sizeof(locbuf_##LIN),	\
              "%s:%d <%s>",				\
 	     melt_basename (FIL), (int)LIN, MSG);	\
-    meltfram__._meltcf_filocs = locbuf;			\
+  meltfram__.mcfr_flocs = locbuf;			\
 } while(0)
+
 /* We need several indirections of macro to have the ##LIN trick above
    working!  */
 #define MELT_LOCATION_HERE_AT_MACRO(FIL,LIN,MSG) \
@@ -2992,7 +2998,7 @@ MELT_EXTERN FILE* melt_loctrace_file;
 	    "%s:%d:: " FMT,					\
 	    melt_basename (FIL),				\
             (int)LIN, __VA_ARGS__);				\
-  meltfram__._meltcf_filocs = SBUF;				\
+  meltfram__.mcfr_flocs = SBUF;					\
 } while(0)
 /* We need several indirections of macro to have the ##LIN trick above
    working!  */

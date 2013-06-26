@@ -2,6 +2,16 @@
 
 2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallFrame): Add melt_clear_rest_of_frame
+	member private function. Rename some fields to be compatible with
+	old practice.
+	(Melt_CallFrameWithValues): Rename _meltcf_valtab as mcfr_varptr.
+
+	* melt-run.proto.h (meltfptr,meltfnum,meltfclos,meltfrout): Same
+	for classy and old frames.
+
+2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_ENTERFRAME, MELT_ENTEREMPTYFRAME)
 	(MELT_EXITFRAME, MELT_LOCATION, MELT_LOCATION_HERE)
 	(MELT_LOCATION_HERE_PRINTF): Define macros when
