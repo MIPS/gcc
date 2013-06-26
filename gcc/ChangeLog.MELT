@@ -1,4 +1,9 @@
 
+2013-06-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init)
+	(outpucod_procroutine): Emit code when MELT_HAVE_CLASSY_FRAME.
+
 2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

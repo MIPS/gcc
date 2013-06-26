@@ -1841,7 +1841,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst implbuf ";")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf "#define meltframe meltfram__")
-    (add2sbuf_indentnl implbuf 1)
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME")
+    (add2sbuf_indentnl implbuf 0)
     (cond 
      ( (is_a rou class_initial_extension_routineobj)
        (add2out implbuf ##{/*$ROUNAME is extension declstructinit*/}#)
@@ -1913,7 +1915,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;
     (add2sbuf_strconst implbuf " meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;")
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf " melt_topframe = (struct melt_callframe_st *) &meltfram__;")
+    (add2sbuf_strconst implbuf " melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;")
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/")
     (add2sbuf_indentnl implbuf 0)
     (assert_msg "check limited implbuf" 
 		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
@@ -2037,16 +2041,16 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (assert_msg "check obody" (is_list obody))
     (add2sbuf_strconst implbuf "/*body*/")
     (add2sbuf_indentnl implbuf 0)
-    (list_every
-     obody
-     (lambda (curbody)
-       (if (and curbody (not (is_a curbody class_objpurevalue)))
-	   (progn
-	     (output_c_code curbody declbuf implbuf 0)
-	     (add2sbuf_indentnl implbuf 0)))
-       (assert_msg "check limited implbuf" 
-		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-       ))
+    (foreach_in_list
+     (obody)
+     (curpair curbody)
+     (if (and curbody (not (is_a curbody class_objpurevalue)))
+	 (progn
+	   (output_c_code curbody declbuf implbuf 0)
+	   (add2sbuf_indentnl implbuf 0)))
+     (assert_msg "check limited implbuf" 
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+     )
     ;; end of implementation
     (add2sbuf_strconst implbuf ";")
     (add2sbuf_indentnl implbuf 0)
@@ -2061,8 +2065,12 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst implbuf "MELT_TRACE_EXIT_LOCATION ();")
     (add2sbuf_indentnl implbuf 1)
     (add2out implbuf " melt_blocklevel_signals = current_blocklevel_signals_" onam "_melt;")
-    (add2sbuf_indentnl implbuf 1)
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME")
+    (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf " melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;")
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf " return (melt_ptr_t)(")
     (if oretval 
@@ -2318,6 +2326,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;; output the prologue
 ;;;
     (add2sbuf_strconst implbuf "/**initial routine prologue**/")
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME")
     (add2sbuf_indentnl implbuf 1)
     (add2sbuf_strconst implbuf "/* set initial frame marking */")
     (add2sbuf_indentnl implbuf 1)
@@ -2328,6 +2338,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst implbuf "((struct melt_callframe_st*)&meltfram__)->mcfr_forwmarkrout = meltmod__")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf "__forward_or_mark_module_start_frame;")
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/")
     (add2sbuf_indentnl implbuf 1)
     (foreach_in_list
      (iprolog)
@@ -2427,9 +2439,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf "meltlabend_rout:;")
 	(add2sbuf_indentnl implbuf 0)
+	(add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME")
+	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf " melt_topframe = /*endinitrout*/ (struct melt_callframe_st *) meltfram__.mcfr_prev;")
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf "/* popped initial frame */")
+	(add2sbuf_indentnl implbuf 0)
+	(add2out implbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/")
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf "{ /* clear initial frame & return */")
 	(add2sbuf_strconst implbuf " melt_ptr_t retval = ")
@@ -2493,11 +2509,19 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	)
       )
     (add2sbuf_indentnl implbuf 0)
+    (add2sbuf_indentnl declbuf 0)
+    (add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME")
+    (add2sbuf_indentnl declbuf 0)
     (add2sbuf_strconst declbuf "void MELT_MODULE_VISIBILITY meltmod__")
     (add2sbuf_cident declbuf omodnam)
     (add2sbuf_strconst declbuf "__forward_or_mark_module_start_frame (struct melt_callframe_st* fp, int marking);")
     (add2sbuf_indentnl declbuf 0)
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/")
     (add2sbuf_indentnl declbuf 0)
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME")
+    (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf "void meltmod__")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf "__forward_or_mark_module_start_frame (struct melt_callframe_st* fp, int marking)")
@@ -2539,6 +2563,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst implbuf "} /* end meltmod__")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf "__forward_or_mark_module_start_frame */") 
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (assert_msg "check limited implbuf" 
@@ -2681,6 +2707,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 #else
 #define meltcallcount 0L
 #endif
+#if MELT_HAVE_CLASSY_FRAME
+       melthookframe_$NRAWHOOKNAME#_t meltfram__(meltcast_melthook_st(melthookdatap));
+#else /*no MELT_HAVE_CLASSY_FRAME*/
        melthookframe_$NRAWHOOKNAME#_t meltfram__;
        /* clear and push the new call frame for hook $HOOKNAME */
        memset (&meltfram__, 0, sizeof(meltfram__)) ;
@@ -2690,6 +2719,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
           = melthookmark_$NRAWHOOKNAME#_rout ;
        meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe	;
        melt_topframe = /*starthookrout*/ (struct melt_callframe_st*) &meltfram__;
+#endif /*MELT_HAVE_CLASSY_FRAME*/
    }#
        )
       (add2sbuf_indentnl implbuf 0)
@@ -2739,7 +2769,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2out 
        implbuf 
        ##{/* final of $HOOKNAME hook */
-       melt_topframe = /* endhookrout*/ meltfram__.mcfr_prev ;
+#if !MELT_HAVE_CLASSY_FRAME
+       melt_topframe = /* endhookrout*/ meltfram__.mcfr_prev;
+#endif /*MELT_HAVE_CLASSY_FRAME*/
        return }#)
       (add2sbuf_indentnl implbuf 3)
       (if oretval
