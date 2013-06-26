@@ -48,7 +48,8 @@ extern void __splitstack_block_signals_context (void *context[10], int *,
 # define PTHREAD_STACK_MIN 8192
 #endif
 
-#if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK)
+// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
+#if defined(USING_SPLIT_STACK) && defined(LINKER_SUPPORTS_SPLIT_STACK) && !defined(__GNU__)
 # define StackMin PTHREAD_STACK_MIN
 #else
 # define StackMin 2 * 1024 * 1024
@@ -1241,6 +1242,10 @@ runtime_newm(void)
 	if(pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0)
 		runtime_throw("pthread_attr_setdetachstate");
 
+	// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
+#ifdef __GNU__
+	stacksize = StackMin;
+#else
 	stacksize = PTHREAD_STACK_MIN;
 
 	// With glibc before version 2.16 the static TLS size is taken
@@ -1250,6 +1255,7 @@ runtime_newm(void)
 	// This can be disabled in glibc 2.16 and later, if the bug is
 	// indeed fixed then.
 	stacksize += tlssize;
+#endif
 
 	if(pthread_attr_setstacksize(&attr, stacksize) != 0)
 		runtime_throw("pthread_attr_setstacksize");
@@ -1519,7 +1525,7 @@ runtime_malg(int32 stacksize, byte** ret_stack, size_t* ret_stacksize)
 		__splitstack_block_signals_context(&newg->stack_context[0],
 						   &dont_block_signals, nil);
 #else
-		*ret_stack = runtime_mallocgc(stacksize, FlagNoProfiling|FlagNoGC, 0, 0);
+		*ret_stack = runtime_mallocgc(stacksize, FlagStack|FlagNoProfiling|FlagNoGC, 0, 0);
 		*ret_stacksize = stacksize;
 		newg->gcinitial_sp = *ret_stack;
 		newg->gcstack_size = stacksize;

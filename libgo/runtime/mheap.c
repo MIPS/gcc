@@ -114,6 +114,10 @@ MHeap_AllocLocked(MHeap *h, uintptr npage, uintptr align, int32 sizeclass)
 					goto HaveSpan;
 				}
 #else
+				// As it turns out, the fixed-size spans have a
+				// maximum size of 1 MiB, so this code path is
+				// unreachable in context of
+				// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>.
 				runtime_throw("untested");
 #endif
 			}

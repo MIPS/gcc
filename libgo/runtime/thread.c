@@ -143,7 +143,12 @@ runtime_minit(void)
 	sigset_t sigs;
 
 	// Initialize signal handling.
+	// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
+#ifdef __GNU__
+	runtime_m()->gsignal = runtime_malg(2 * 1024 * 1024, &stack, &stacksize);
+#else
 	runtime_m()->gsignal = runtime_malg(32*1024, &stack, &stacksize);	// OS X wants >=8K, Linux >=2K
+#endif
 	ss.ss_sp = stack;
 	ss.ss_flags = 0;
 	ss.ss_size = stacksize;

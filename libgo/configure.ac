@@ -686,7 +686,13 @@ AC_RUN_IFELSE(
 
 __thread int tls;
 
+/* <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html> */
+#ifdef __GNU__
+static char __attribute__ ((aligned (2 * 1024 * 1024)))
+stack[[2 * 1024 * 1024]];
+#else
 static char stack[[10 * 1024 * 1024]];
+#endif
 static ucontext_t c;
 
 /* Called via makecontext/setcontext.  */

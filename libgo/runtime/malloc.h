@@ -466,6 +466,8 @@ enum
 	FlagNoPointers = 1<<0,	// no pointers here
 	FlagNoProfiling = 1<<1,	// must not profile
 	FlagNoGC = 1<<2,	// must not free or scan for pointers
+	// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
+	FlagStack = 1<<3,	// To be used as a stack.
 };
 
 typedef struct Obj Obj;

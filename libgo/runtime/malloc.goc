@@ -42,6 +42,14 @@ runtime_mallocgc(uintptr size, uint32 flag, int32 dogc, int32 zeroed)
 	MSpan *s;
 	void *v;
 
+	// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
+#ifdef __GNU__
+	if (((flag & FlagStack) != 0) && (size != 2 * 1024 * 1024)) {
+		runtime_printf("stack allocation with size %D requested\n", (uint64) size);
+		runtime_throw("unusable size for a stack");
+	}
+#endif
+
 	m = runtime_m();
 	g = runtime_g();
 	if(g->status == Gsyscall)
@@ -62,6 +70,13 @@ runtime_mallocgc(uintptr size, uint32 flag, int32 dogc, int32 zeroed)
 	c = m->mcache;
 	c->local_nmalloc++;
 	if(size <= MaxSmallSize) {
+		// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
+#ifdef __GNU__
+		if ((flag & FlagStack) != 0) {
+			runtime_throw("unexpected and unsupported case for allocating a stack");
+		}
+#endif
+
 		// Allocate from mcache free lists.
 		sizeclass = runtime_SizeToClass(size);
 		size = runtime_class_to_size[sizeclass];
@@ -75,10 +90,17 @@ runtime_mallocgc(uintptr size, uint32 flag, int32 dogc, int32 zeroed)
 		// TODO(rsc): Report tracebacks for very large allocations.
 
 		// Allocate directly from heap.
+		uintptr align = 0;
+		// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
+#ifdef __GNU__
+		if ((flag & FlagStack) != 0) {
+			align = 2 * 1024 * 1024;
+		}
+#endif
 		npages = size >> PageShift;
 		if((size & PageMask) != 0)
 			npages++;
-		s = runtime_MHeap_Alloc(&runtime_mheap, npages, 0, 0, 1, zeroed);
+		s = runtime_MHeap_Alloc(&runtime_mheap, npages, align, 0, 1, zeroed);
 		if(s == nil)
 			runtime_throw("out of memory");
 		size = npages<<PageShift;
