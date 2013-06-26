@@ -257,6 +257,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_BTVER1 (ix86_tune == PROCESSOR_BTVER1)
 #define TARGET_BTVER2 (ix86_tune == PROCESSOR_BTVER2)
 #define TARGET_ATOM (ix86_tune == PROCESSOR_ATOM)
+#define TARGET_SLM (ix86_tune == PROCESSOR_SLM)
 
 /* Feature tests against the various tunings.  */
 enum ix86_tune_indices {
@@ -304,7 +305,8 @@ enum ix86_tune_indices {
   X86_TUNE_EPILOGUE_USING_MOVE,
   X86_TUNE_SHIFT1,
   X86_TUNE_USE_FFREEP,
-  X86_TUNE_INTER_UNIT_MOVES,
+  X86_TUNE_INTER_UNIT_MOVES_TO_VEC,
+  X86_TUNE_INTER_UNIT_MOVES_FROM_VEC,
   X86_TUNE_INTER_UNIT_CONVERSIONS,
   X86_TUNE_FOUR_JUMP_LIMIT,
   X86_TUNE_SCHEDULE,
@@ -331,6 +333,7 @@ enum ix86_tune_indices {
   X86_TUNE_REASSOC_FP_TO_PARALLEL,
   X86_TUNE_GENERAL_REGS_SSE_SPILL,
   X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE,
+  X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS,
 
   X86_TUNE_LAST
 };
@@ -395,8 +398,11 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_EPILOGUE_USING_MOVE]
 #define TARGET_SHIFT1		ix86_tune_features[X86_TUNE_SHIFT1]
 #define TARGET_USE_FFREEP	ix86_tune_features[X86_TUNE_USE_FFREEP]
-#define TARGET_INTER_UNIT_MOVES	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES]
-#define TARGET_INTER_UNIT_CONVERSIONS\
+#define TARGET_INTER_UNIT_MOVES_TO_VEC \
+	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES_TO_VEC]
+#define TARGET_INTER_UNIT_MOVES_FROM_VEC \
+	ix86_tune_features[X86_TUNE_INTER_UNIT_MOVES_FROM_VEC]
+#define TARGET_INTER_UNIT_CONVERSIONS \
 	ix86_tune_features[X86_TUNE_INTER_UNIT_CONVERSIONS]
 #define TARGET_FOUR_JUMP_LIMIT	ix86_tune_features[X86_TUNE_FOUR_JUMP_LIMIT]
 #define TARGET_SCHEDULE		ix86_tune_features[X86_TUNE_SCHEDULE]
@@ -438,6 +444,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_GENERAL_REGS_SSE_SPILL]
 #define TARGET_AVOID_MEM_OPND_FOR_CMOVE \
 	ix86_tune_features[X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE]
+#define TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS \
+	ix86_tune_features[X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -486,6 +494,9 @@ extern unsigned char x86_prefetch_sse;
 #define TARGET_TLS_DIRECT_SEG_REFS_DEFAULT 0
 #endif
 
+#define TARGET_SSP_GLOBAL_GUARD (ix86_stack_protector_guard == SSP_GLOBAL)
+#define TARGET_SSP_TLS_GUARD    (ix86_stack_protector_guard == SSP_TLS)
+
 /* Fence to use after loop using storent.  */
 
 extern tree x86_mfence;
@@ -530,8 +541,14 @@ extern tree x86_mfence;
 /* This is re-defined by cygming.h.  */
 #define TARGET_SEH 0
 
+/* This is re-defined by cygming.h.  */
+#define TARGET_PECOFF 0
+
 /* The default abi used by target.  */
 #define DEFAULT_ABI SYSV_ABI
+
+/* The default TLS segment register used by target.  */
+#define DEFAULT_TLS_SEG_REG (TARGET_64BIT ? SEG_FS : SEG_GS)
 
 /* Subtargets may reset this to 1 in order to enable 96-bit long double
    with the rounding mode forced to 53 bits.  */
@@ -610,6 +627,7 @@ enum target_cpu_default
   TARGET_CPU_DEFAULT_corei7,
   TARGET_CPU_DEFAULT_haswell,
   TARGET_CPU_DEFAULT_atom,
+  TARGET_CPU_DEFAULT_slm,
 
   TARGET_CPU_DEFAULT_geode,
   TARGET_CPU_DEFAULT_k6,
@@ -841,7 +859,18 @@ enum target_cpu_default
    cause character arrays to be word-aligned so that `strcpy' calls
    that copy constants to character arrays can be done inline.  */
 
-#define DATA_ALIGNMENT(TYPE, ALIGN) ix86_data_alignment ((TYPE), (ALIGN))
+#define DATA_ALIGNMENT(TYPE, ALIGN) \
+  ix86_data_alignment ((TYPE), (ALIGN), true)
+
+/* Similar to DATA_ALIGNMENT, but for the cases where the ABI mandates
+   some alignment increase, instead of optimization only purposes.  E.g.
+   AMD x86-64 psABI says that variables with array type larger than 15 bytes
+   must be aligned to 16 byte boundaries.
+
+   If this macro is not defined, then ALIGN is used.  */
+
+#define DATA_ABI_ALIGNMENT(TYPE, ALIGN) \
+  ix86_data_alignment ((TYPE), (ALIGN), false)
 
 /* If defined, a C expression to compute the alignment for a local
    variable.  TYPE is the data type, and ALIGN is the alignment that
@@ -1179,7 +1208,8 @@ enum target_cpu_default
 #define REAL_PIC_OFFSET_TABLE_REGNUM  BX_REG
 
 #define PIC_OFFSET_TABLE_REGNUM				\
-  ((TARGET_64BIT && ix86_cmodel == CM_SMALL_PIC)	\
+  ((TARGET_64BIT && (ix86_cmodel == CM_SMALL_PIC	\
+                     || TARGET_PECOFF))		\
    || !flag_pic ? INVALID_REGNUM			\
    : reload_completed ? REGNO (pic_offset_table_rtx)	\
    : REAL_PIC_OFFSET_TABLE_REGNUM)
@@ -1959,6 +1989,8 @@ extern int const dbx_register_map[FIRST_PSEUDO_REGISTER];
 extern int const dbx64_register_map[FIRST_PSEUDO_REGISTER];
 extern int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER];
 
+extern int const x86_64_ms_sysv_extra_clobbered_registers[12];
+
 /* Before the prologue, RA is at 0(%esp).  */
 #define INCOMING_RETURN_ADDR_RTX \
   gen_rtx_MEM (VOIDmode, gen_rtx_REG (VOIDmode, STACK_POINTER_REGNUM))
@@ -2115,6 +2147,7 @@ enum processor_type
   PROCESSOR_BTVER1,
   PROCESSOR_BTVER2,
   PROCESSOR_ATOM,
+  PROCESSOR_SLM,
   PROCESSOR_max
 };
 
@@ -2378,6 +2411,10 @@ struct GTY(()) machine_function {
 #define SYMBOL_FLAG_DLLEXPORT		(SYMBOL_FLAG_MACH_DEP << 2)
 #define SYMBOL_REF_DLLEXPORT_P(X) \
 	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_DLLEXPORT) != 0)
+
+#define SYMBOL_FLAG_STUBVAR	(SYMBOL_FLAG_MACH_DEP << 4)
+#define SYMBOL_REF_STUBVAR_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_STUBVAR) != 0)
 
 extern void debug_ready_dispatch (void);
 extern void debug_dispatch_window (int);

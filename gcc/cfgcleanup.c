@@ -456,7 +456,7 @@ try_forward_edges (int mode, basic_block b)
 
       if (first != EXIT_BLOCK_PTR
 	  && find_reg_note (BB_END (first), REG_CROSSING_JUMP, NULL_RTX))
-	return false;
+	return changed;
 
       while (counter < n_basic_blocks)
 	{
@@ -595,9 +595,7 @@ try_forward_edges (int mode, basic_block b)
 	  /* We successfully forwarded the edge.  Now update profile
 	     data: for each edge we traversed in the chain, remove
 	     the original edge's execution count.  */
-	  edge_frequency = ((edge_probability * b->frequency
-			     + REG_BR_PROB_BASE / 2)
-			    / REG_BR_PROB_BASE);
+	  edge_frequency = apply_probability (b->frequency, edge_probability);
 
 	  do
 	    {
@@ -1866,7 +1864,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
      partition boundaries).  See the comments at the top of
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition && reload_completed)
+  if (crtl->has_bb_partition && reload_completed)
     return false;
 
   /* Search backward through forwarder blocks.  We don't need to worry
@@ -3057,7 +3055,7 @@ struct rtl_opt_pass pass_jump =
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_ggc_collect,			/* todo_flags_start */
+  0,					/* todo_flags_start */
   TODO_verify_rtl_sharing,		/* todo_flags_finish */
  }
 };
@@ -3084,7 +3082,7 @@ struct rtl_opt_pass pass_jump2 =
   0,					/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
-  TODO_ggc_collect,			/* todo_flags_start */
+  0,					/* todo_flags_start */
   TODO_verify_rtl_sharing,		/* todo_flags_finish */
  }
 };

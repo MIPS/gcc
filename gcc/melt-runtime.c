@@ -12936,7 +12936,12 @@ melt_val2passflag(melt_ptr_t val_p)
 #ifdef TODO_dump_func
     WHENFLAG(TODO_dump_func); /* not defined in GCC 4.8 */
 #endif /*TODO_dump_func*/
-    WHENFLAG(TODO_ggc_collect);
+#ifdef TODO_ggc_collect
+    WHENFLAG(TODO_ggc_collect); /* not defined in GCC 4.9 */
+#endif /* TODO_ggc_collect */
+#ifdef TODO_do_not_ggc_collect /* defined in GCC 4.9 */
+    WHENFLAG(TODO_do_not_ggc_collect);
+#endif /* TODO_do_not_ggc_collect */
     WHENFLAG(TODO_verify_ssa);
     WHENFLAG(TODO_verify_flow);
     WHENFLAG(TODO_verify_stmts);

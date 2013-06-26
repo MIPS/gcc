@@ -19,8 +19,8 @@
    <http://www.gnu.org/licenses/>.  */
 
 #define _FP_W_TYPE_SIZE		64
-#define _FP_W_TYPE		unsigned long
-#define _FP_WS_TYPE		signed long
+#define _FP_W_TYPE		unsigned long long
+#define _FP_WS_TYPE		signed long long
 #define _FP_I_TYPE		int
 
 typedef int TItype __attribute__ ((mode (TI)));
@@ -45,6 +45,7 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
 #define _FP_NANSIGN_Q		0
 
 #define _FP_KEEPNANFRACP 1
+#define _FP_QNANNEGATEDP 0
 
 /* This appears to be in line with the VFP conventions in the v7-a
    ARM-ARM. Need to check with the v8 version.  */

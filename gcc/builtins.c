@@ -75,6 +75,9 @@ const char * built_in_names[(int) END_BUILTINS] =
    initialized to NULL_TREE.  */
 builtin_info_type builtin_info;
 
+/* Non-zero if __builtin_constant_p should be folded right away.  */
+bool force_folding_builtin_constant_p;
+
 static const char *c_getstr (tree);
 static rtx c_readstr (const char *, enum machine_mode);
 static int target_char_cast (tree, char *);
@@ -1958,6 +1961,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   tree fndecl = get_callee_fndecl (exp);
   enum machine_mode mode;
   bool errno_set = false;
+  bool try_widening = false;
   tree arg;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
@@ -1969,6 +1973,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     {
     CASE_FLT_FN (BUILT_IN_SQRT):
       errno_set = ! tree_expr_nonnegative_p (arg);
+      try_widening = true;
       builtin_optab = sqrt_optab;
       break;
     CASE_FLT_FN (BUILT_IN_EXP):
@@ -2025,8 +2030,10 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   if (! flag_errno_math || ! HONOR_NANS (mode))
     errno_set = false;
 
-  /* Before working hard, check whether the instruction is available.  */
-  if (optab_handler (builtin_optab, mode) != CODE_FOR_nothing
+  /* Before working hard, check whether the instruction is available, but try
+     to widen the mode for specific operations.  */
+  if ((optab_handler (builtin_optab, mode) != CODE_FOR_nothing
+       || (try_widening && !excess_precision_type (TREE_TYPE (exp))))
       && (!errno_set || !optimize_insn_for_size_p ()))
     {
       rtx result = gen_reg_rtx (mode);
@@ -6974,7 +6981,8 @@ fold_builtin_constant_p (tree arg)
       || AGGREGATE_TYPE_P (TREE_TYPE (arg))
       || POINTER_TYPE_P (TREE_TYPE (arg))
       || cfun == 0
-      || folding_initializer)
+      || folding_initializer
+      || force_folding_builtin_constant_p)
     return integer_zero_node;
 
   return NULL_TREE;
@@ -9694,7 +9702,16 @@ fold_builtin_logb (location_t loc, tree arg, tree rettype)
       case rvc_inf:
 	/* If arg is Inf or NaN and we're logb, return it.  */
 	if (TREE_CODE (rettype) == REAL_TYPE)
-	  return fold_convert_loc (loc, rettype, arg);
+	  {
+	    /* For logb(-Inf) we have to return +Inf.  */
+	    if (real_isinf (value) && real_isneg (value))
+	      {
+		REAL_VALUE_TYPE tem;
+		real_inf (&tem);
+		return build_real (rettype, tem);
+	      }
+	    return fold_convert_loc (loc, rettype, arg);
+	  }
 	/* Fall through... */
       case rvc_zero:
 	/* Zero may set errno and/or raise an exception for logb, also

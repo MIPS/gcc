@@ -512,7 +512,13 @@ unsigned int melthk_rtl_execute(void)
 
 (defprimitive number_of_loops () :long 
   :doc #{Return the number of loops in current_loops.}#
-  #{number_of_loops ()}#)
+  #{ /* number_of_loops primitive */
+#if MELT_GCC_VERSION >= 4009 /* GCC 4.9 */
+  number_of_loops (cfun)
+#else /* GCC 4.7 or 4.8 */
+  number_of_loops ()
+#endif /*GCC 4.9*/
+  }#)
 
 (defprimitive superloop_at_depth (:loop lo :long depth) :loop
   :doc #{Return the containing superloop of loop $LO at given $DEPTH or else null.}#

@@ -1,6 +1,16 @@
 
 
 2013-06-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge with trunk [4.9] svn rev. 196654-200426}}
+	* melt-runtime.c (melt_val2passflag): TODO_ggc_collect &
+	TODO_do_not_ggc_collect are conditionalized.
+
+	* melt/generated/warmelt-first+03.cc: Manually remove calls to
+	MELT_TRACE_EXIT_LOCATION macro.
+
+	* melt/generated/warmelt-base+03.cc: Ditto.
+
+2013-06-26  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_TRACE_LOCATION, MELT_TRACE_EXIT_LOCATION):
 	Completely remove.
 

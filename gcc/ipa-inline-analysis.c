@@ -1291,7 +1291,7 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
       fprintf (f,
 	       "%*s%s/%i %s\n%*s  loop depth:%2i freq:%4i size:%2i"
 	       " time: %2i callee size:%2i stack:%2i",
-	       indent, "", cgraph_node_name (callee), callee->uid,
+	       indent, "", cgraph_node_name (callee), callee->symbol.order,
 	       !edge->inline_failed
 	       ? "inlined" : cgraph_inline_failed_string (edge-> inline_failed),
 	       indent, "", es->loop_depth, edge->frequency,
@@ -1351,13 +1351,13 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
 void
 dump_inline_summary (FILE *f, struct cgraph_node *node)
 {
-  if (node->analyzed)
+  if (node->symbol.definition)
     {
       struct inline_summary *s = inline_summary (node);
       size_time_entry *e;
       int i;
       fprintf (f, "Inline summary for %s/%i", cgraph_node_name (node),
-	       node->uid);
+	       node->symbol.order);
       if (DECL_DISREGARD_INLINE_LIMITS (node->symbol.decl))
 	fprintf (f, " always_inline");
       if (s->inlinable)
@@ -1427,7 +1427,7 @@ initialize_inline_failed (struct cgraph_edge *e)
 
   if (e->indirect_unknown_callee)
     e->inline_failed = CIF_INDIRECT_UNKNOWN_CALL;
-  else if (!callee->analyzed)
+  else if (!callee->symbol.definition)
     e->inline_failed = CIF_BODY_NOT_AVAILABLE;
   else if (callee->local.redefined_extern_inline)
     e->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
@@ -2093,8 +2093,7 @@ param_change_prob (gimple stmt, int i)
       if (!init_freq)
 	init_freq = 1;
       if (init_freq < bb->frequency)
-	return MAX ((init_freq * REG_BR_PROB_BASE +
-		     bb->frequency / 2) / bb->frequency, 1);
+	return MAX (GCOV_COMPUTE_SCALE (init_freq, bb->frequency), 1);
       else
 	return REG_BR_PROB_BASE;
     }
@@ -2107,8 +2106,9 @@ param_change_prob (gimple stmt, int i)
       struct record_modified_bb_info info;
       bitmap_iterator bi;
       unsigned index;
+      tree init = ctor_for_folding (base);
 
-      if (const_value_known_p (base))
+      if (init != error_mark_node)
 	return 0;
       if (!bb->frequency)
 	return REG_BR_PROB_BASE;
@@ -2136,8 +2136,7 @@ param_change_prob (gimple stmt, int i)
 
       BITMAP_FREE (info.bb_set);
       if (max < bb->frequency)
-	return MAX ((max * REG_BR_PROB_BASE +
-		     bb->frequency / 2) / bb->frequency, 1);
+	return MAX (GCOV_COMPUTE_SCALE (max, bb->frequency), 1);
       else
 	return REG_BR_PROB_BASE;
     }
@@ -2767,7 +2766,7 @@ estimate_edge_devirt_benefit (struct cgraph_edge *ie,
   gcc_checking_assert (*size >= 0);
 
   callee = cgraph_get_node (target);
-  if (!callee || !callee->analyzed)
+  if (!callee || !callee->symbol.definition)
     return false;
   isummary = inline_summary (callee);
   return isummary->inlinable;
@@ -2792,7 +2791,7 @@ estimate_edge_size_and_time (struct cgraph_edge *e, int *size, int *time,
       && hints && cgraph_maybe_hot_edge_p (e))
     *hints |= INLINE_HINT_indirect_call;
   *size += call_size * INLINE_SIZE_SCALE;
-  *time += call_time * prob / REG_BR_PROB_BASE
+  *time += apply_probability ((gcov_type) call_time, prob)
     * e->frequency * (INLINE_TIME_SCALE / CGRAPH_FREQ_BASE);
   if (*time > MAX_TIME * INLINE_TIME_SCALE)
     *time = MAX_TIME * INLINE_TIME_SCALE;
@@ -2872,7 +2871,8 @@ estimate_node_size_and_time (struct cgraph_node *node,
     {
       bool found = false;
       fprintf (dump_file, "   Estimating body: %s/%i\n"
-	       "   Known to be false: ", cgraph_node_name (node), node->uid);
+	       "   Known to be false: ", cgraph_node_name (node),
+	       node->symbol.order);
 
       for (i = predicate_not_inlined_condition;
 	   i < (predicate_first_dynamic_condition
@@ -2902,7 +2902,7 @@ estimate_node_size_and_time (struct cgraph_node *node,
 					      inline_param_summary);
 	    gcc_checking_assert (prob >= 0);
 	    gcc_checking_assert (prob <= REG_BR_PROB_BASE);
-	    time += ((gcov_type) e->time * prob) / REG_BR_PROB_BASE;
+	    time += apply_probability ((gcov_type) e->time, prob);
 	  }
 	if (time > MAX_TIME * INLINE_TIME_SCALE)
 	  time = MAX_TIME * INLINE_TIME_SCALE;
@@ -3120,8 +3120,7 @@ remap_edge_change_prob (struct cgraph_edge *inlined_edge,
 	      int jf_formal_id = ipa_get_jf_pass_through_formal_id (jfunc);
 	      int prob1 = es->param[i].change_prob;
 	      int prob2 = inlined_es->param[jf_formal_id].change_prob;
-	      int prob = ((prob1 * prob2 + REG_BR_PROB_BASE / 2)
-			  / REG_BR_PROB_BASE);
+	      int prob = combine_probabilities (prob1, prob2);
 
 	      if (prob1 && prob2 && !prob)
 		prob = 1;
@@ -3312,7 +3311,7 @@ inline_merge_summary (struct cgraph_edge *edge)
 	  int prob = predicate_probability (callee_info->conds,
 					    &e->predicate,
 					    clause, es->param);
-	  add_time = ((gcov_type) add_time * prob) / REG_BR_PROB_BASE;
+	  add_time = apply_probability ((gcov_type) add_time, prob);
 	  if (add_time > MAX_TIME * INLINE_TIME_SCALE)
 	    add_time = MAX_TIME * INLINE_TIME_SCALE;
 	  if (prob != REG_BR_PROB_BASE
@@ -3653,7 +3652,7 @@ inline_analyze_function (struct cgraph_node *node)
 
   if (dump_file)
     fprintf (dump_file, "\nAnalyzing function: %s/%u\n",
-	     cgraph_node_name (node), node->uid);
+	     cgraph_node_name (node), node->symbol.order);
   if (optimize && !node->thunk.thunk_p)
     inline_indirect_intraprocedural_analysis (node);
   compute_inline_parameters (node, false);
@@ -3685,7 +3684,7 @@ inline_generate_summary (void)
   inline_free_summary ();
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (!node->alias)
+    if (!node->symbol.alias)
       inline_analyze_function (node);
 }
 
@@ -3919,7 +3918,7 @@ inline_write_summary (void)
     {
       symtab_node snode = lto_symtab_encoder_deref (encoder, i);
       cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-      if (cnode && cnode->analyzed)
+      if (cnode && cnode->symbol.definition && !cnode->symbol.alias)
 	count++;
     }
   streamer_write_uhwi (ob, count);
@@ -3928,7 +3927,7 @@ inline_write_summary (void)
     {
       symtab_node snode = lto_symtab_encoder_deref (encoder, i);
       cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-      if (cnode && (node = cnode)->analyzed)
+      if (cnode && (node = cnode)->symbol.definition && !node->symbol.alias)
 	{
 	  struct inline_summary *info = inline_summary (node);
 	  struct bitpack_d bp;

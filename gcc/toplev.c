@@ -74,6 +74,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "tree-ssa-alias.h"
 #include "plugin.h"
+#include "diagnostic-color.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -404,15 +405,15 @@ wrapup_global_declaration_2 (tree decl)
 
       if (!node && flag_ltrans)
 	needed = false;
-      else if (node && node->finalized)
+      else if (node && node->symbol.definition)
 	needed = false;
-      else if (node && node->alias)
+      else if (node && node->symbol.alias)
 	needed = false;
       else if (!cgraph_global_info_ready
 	       && (TREE_USED (decl)
 		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 	/* needed */;
-      else if (node && node->analyzed)
+      else if (node && node->symbol.analyzed)
 	/* needed */;
       else if (DECL_COMDAT (decl))
 	needed = false;
@@ -1233,6 +1234,13 @@ process_options (void)
 
   maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
+  /* Default to -fdiagnostics-color=auto if GCC_COLORS is in the environment,
+     otherwise default to -fdiagnostics-color=never.  */
+  if (!global_options_set.x_flag_diagnostics_show_color
+      && getenv ("GCC_COLORS"))
+    pp_show_color (global_dc->printer)
+      = colorize_init (DIAGNOSTICS_COLOR_AUTO);
+
   /* Allow the front end to perform consistency checks and do further
      initialization based on the command line options.  This hook also
      sets the original filename if appropriate (e.g. foo.i -> foo.c)
@@ -1550,18 +1558,6 @@ process_options (void)
     }
   if (!flag_stack_protect)
     warn_stack_protect = 0;
-
-  /* ??? Unwind info is not correct around the CFG unless either a frame
-     pointer is present or A_O_A is set.  Fixing this requires rewriting
-     unwind info generation to be aware of the CFG and propagating states
-     around edges.  */
-  if (flag_unwind_tables && !ACCUMULATE_OUTGOING_ARGS
-      && flag_omit_frame_pointer)
-    {
-      warning (0, "unwind tables currently require a frame pointer "
-	       "for correctness");
-      flag_omit_frame_pointer = 0;
-    }
 
   /* Address Sanitizer needs porting to each target architecture.  */
   if (flag_asan
@@ -1984,8 +1980,7 @@ toplev_main (int argc, char **argv)
   if ((melt_mode_string && melt_mode_string[0])
       || melt_print_settings_string)
     melt_finalize();
-
-  if (warningcount || errorcount)
+  if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
   diagnostic_finish (global_dc);
 
@@ -1994,7 +1989,7 @@ toplev_main (int argc, char **argv)
 
   finalize_plugins ();
   location_adhoc_data_fini (line_table);
-  if (seen_error ())
+  if (seen_error () || werrorcount)
     return (FATAL_EXIT_CODE);
 
   return (SUCCESS_EXIT_CODE);

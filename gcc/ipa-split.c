@@ -90,6 +90,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
+#include "cfgloop.h"
 
 /* Per basic block info.  */
 
@@ -366,23 +367,46 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   unsigned int i;
   int incoming_freq = 0;
   tree retval;
+  bool back_edge = false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_split_point (dump_file, current);
 
   FOR_EACH_EDGE (e, ei, current->entry_bb->preds)
-    if (!bitmap_bit_p (current->split_bbs, e->src->index))
-      incoming_freq += EDGE_FREQUENCY (e);
+    {
+      if (e->flags & EDGE_DFS_BACK)
+	back_edge = true;
+      if (!bitmap_bit_p (current->split_bbs, e->src->index))
+        incoming_freq += EDGE_FREQUENCY (e);
+    }
 
   /* Do not split when we would end up calling function anyway.  */
   if (incoming_freq
       >= (ENTRY_BLOCK_PTR->frequency
 	  * PARAM_VALUE (PARAM_PARTIAL_INLINING_ENTRY_PROBABILITY) / 100))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,
-		 "  Refused: incoming frequency is too large.\n");
-      return;
+      /* When profile is guessed, we can not expect it to give us
+	 realistic estimate on likelyness of function taking the
+	 complex path.  As a special case, when tail of the function is
+	 a loop, enable splitting since inlining code skipping the loop
+	 is likely noticeable win.  */
+      if (back_edge
+	  && profile_status != PROFILE_READ
+	  && incoming_freq < ENTRY_BLOCK_PTR->frequency)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "  Split before loop, accepting despite low frequencies %i %i.\n",
+		     incoming_freq,
+		     ENTRY_BLOCK_PTR->frequency);
+	}
+      else
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "  Refused: incoming frequency is too large.\n");
+	  return;
+	}
     }
 
   if (!current->header_size)
@@ -1131,6 +1155,8 @@ split_function (struct split_point *split_point)
       e = make_edge (new_return_bb, EXIT_BLOCK_PTR, 0);
       e->probability = REG_BR_PROB_BASE;
       e->count = new_return_bb->count;
+      if (current_loops)
+	add_bb_to_loop (new_return_bb, current_loops->tree_root);
       bitmap_set_bit (split_point->split_bbs, new_return_bb->index);
     }
   /* When we pass around the value, use existing return block.  */
@@ -1529,6 +1555,11 @@ execute_split_functions (void)
 		 " is not inline.\n");
       return 0;
     }
+
+  /* We enforce splitting after loop headers when profile info is not
+     available.  */
+  if (profile_status != PROFILE_READ)
+    mark_dfs_back_edges ();
 
   /* Initialize bitmap to track forbidden calls.  */
   forbidden_dominators = BITMAP_ALLOC (NULL);

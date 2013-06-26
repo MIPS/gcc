@@ -1717,7 +1717,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("OVERWRITE_ENV", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_61_warmelt_first_OVERWRITE_ENV_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -2105,7 +2104,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("POST_INITIALIZATION", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_62_warmelt_first_POST_INITIALIZATION_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -2267,7 +2265,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("RETRIEVE_DICTIONNARY_CTYPE_GTY", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_63_warmelt_first_RETRIEVE_DICTIONNARY_CTYPE_GTY_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -2429,7 +2426,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("RETRIEVE_DICTIONNARY_CTYPE", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_64_warmelt_first_RETRIEVE_DICTIONNARY_CTYPE_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -2660,7 +2656,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("DEBUG_MSG_FUN", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_65_warmelt_first_DEBUG_MSG_FUN_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;

@@ -964,6 +964,8 @@ end_ifcvt_sequence (struct noce_if_info *if_info)
 
   set_used_flags (if_info->x);
   set_used_flags (if_info->cond);
+  set_used_flags (if_info->a);
+  set_used_flags (if_info->b);
   unshare_all_rtl_in_chain (seq);
   end_sequence ();
 
@@ -3473,7 +3475,7 @@ cond_exec_find_if_block (struct ce_if_block * ce_info)
      code processing.  ??? we should fix this in the future.  */
   if (EDGE_COUNT (then_bb->succs) == 0)
     {
-      if (single_pred_p (else_bb))
+      if (single_pred_p (else_bb) && else_bb != EXIT_BLOCK_PTR)
 	{
 	  rtx last_insn = BB_END (then_bb);
 
@@ -3903,10 +3905,9 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
   if (new_bb)
     {
       df_bb_replace (then_bb_index, new_bb);
-      /* Since the fallthru edge was redirected from test_bb to new_bb,
-         we need to ensure that new_bb is in the same partition as
-         test bb (you can not fall through across section boundaries).  */
-      BB_COPY_PARTITION (new_bb, test_bb);
+      /* This should have been done above via force_nonfallthru_and_redirect
+         (possibly called from redirect_edge_and_branch_force).  */
+      gcc_checking_assert (BB_PARTITION (new_bb) == BB_PARTITION (test_bb));
     }
 
   num_true_changes++;
@@ -4514,8 +4515,7 @@ struct rtl_opt_pass pass_if_after_combine =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect                      /* todo_flags_finish */
+  TODO_df_finish | TODO_verify_rtl_sharing /* todo_flags_finish */
  }
 };
 
@@ -4551,7 +4551,6 @@ struct rtl_opt_pass pass_if_after_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect                      /* todo_flags_finish */
+  TODO_df_finish | TODO_verify_rtl_sharing /* todo_flags_finish */
  }
 };

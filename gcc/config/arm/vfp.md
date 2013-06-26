@@ -18,31 +18,6 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.  */
 
-;; The VFP "type" attributes differ from those used in the FPA model.
-;; fcpys	Single precision cpy.
-;; ffariths	Single precision abs, neg.
-;; ffarithd	Double precision abs, neg, cpy.
-;; fadds	Single precision add/sub.
-;; faddd	Double precision add/sub.
-;; fconsts	Single precision load immediate.
-;; fconstd	Double precision load immediate.
-;; fcmps	Single precision comparison.
-;; fcmpd	Double precision comparison.
-;; fmuls	Single precision multiply.
-;; fmuld	Double precision multiply.
-;; fmacs	Single precision multiply-accumulate.
-;; fmacd	Double precision multiply-accumulate.
-;; ffmas	Single precision fused multiply-accumulate.
-;; ffmad	Double precision fused multiply-accumulate.
-;; fdivs	Single precision sqrt or division.
-;; fdivd	Double precision sqrt or division.
-;; f_flag	fmstat operation
-;; f_load[sd]	Floating point load from memory.
-;; f_store[sd]	Floating point store to memory.
-;; f_2_r	Transfer vfp to arm reg.
-;; r_2_f	Transfer arm to vfp reg.
-;; f_cvt	Convert floating<->integral
-
 ;; SImode moves
 ;; ??? For now do not allow loading constants into vfp regs.  This causes
 ;; problems because small constants get converted into adds.
@@ -132,8 +107,8 @@
 ;; DImode moves
 
 (define_insn "*movdi_vfp"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,r,r,m,w,r,w,w, Uv")
-       (match_operand:DI 1 "di_operand"              "r,rDa,Db,Dc,mi,mi,r,r,w,w,Uvi,w"))]
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,q,q,m,w,r,w,w, Uv")
+       (match_operand:DI 1 "di_operand"              "r,rDa,Db,Dc,mi,mi,q,r,w,w,Uvi,w"))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP && arm_tune != cortexa8
    && (   register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))

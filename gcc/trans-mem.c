@@ -20,6 +20,7 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-table.h"
 #include "tree.h"
 #include "gimple.h"
 #include "tree-flow.h"
@@ -879,47 +880,29 @@ typedef struct tm_log_entry
   tree save_var;
 } *tm_log_entry_t;
 
-/* The actual log.  */
-static htab_t tm_log;
 
-/* Addresses to log with a save/restore sequence.  These should be in
-   dominator order.  */
-static vec<tree> tm_log_save_addresses;
+/* Log entry hashtable helpers.  */
 
-/* Map for an SSA_NAME originally pointing to a non aliased new piece
-   of memory (malloc, alloc, etc).  */
-static htab_t tm_new_mem_hash;
-
-enum thread_memory_type
-  {
-    mem_non_local = 0,
-    mem_thread_local,
-    mem_transaction_local,
-    mem_max
-  };
-
-typedef struct tm_new_mem_map
+struct log_entry_hasher
 {
-  /* SSA_NAME being dereferenced.  */
-  tree val;
-  enum thread_memory_type local_new_memory;
-} tm_new_mem_map_t;
+  typedef tm_log_entry value_type;
+  typedef tm_log_entry compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+  static inline void remove (value_type *);
+};
 
 /* Htab support.  Return hash value for a `tm_log_entry'.  */
-static hashval_t
-tm_log_hash (const void *p)
+inline hashval_t
+log_entry_hasher::hash (const value_type *log)
 {
-  const struct tm_log_entry *log = (const struct tm_log_entry *) p;
   return iterative_hash_expr (log->addr, 0);
 }
 
 /* Htab support.  Return true if two log entries are the same.  */
-static int
-tm_log_eq (const void *p1, const void *p2)
+inline bool
+log_entry_hasher::equal (const value_type *log1, const compare_type *log2)
 {
-  const struct tm_log_entry *log1 = (const struct tm_log_entry *) p1;
-  const struct tm_log_entry *log2 = (const struct tm_log_entry *) p2;
-
   /* FIXME:
 
      rth: I suggest that we get rid of the component refs etc.
@@ -943,20 +926,68 @@ tm_log_eq (const void *p1, const void *p2)
 }
 
 /* Htab support.  Free one tm_log_entry.  */
-static void
-tm_log_free (void *p)
+inline void
+log_entry_hasher::remove (value_type *lp)
 {
-  struct tm_log_entry *lp = (struct tm_log_entry *) p;
   lp->stmts.release ();
   free (lp);
 }
+
+
+/* The actual log.  */
+static hash_table <log_entry_hasher> tm_log;
+
+/* Addresses to log with a save/restore sequence.  These should be in
+   dominator order.  */
+static vec<tree> tm_log_save_addresses;
+
+enum thread_memory_type
+  {
+    mem_non_local = 0,
+    mem_thread_local,
+    mem_transaction_local,
+    mem_max
+  };
+
+typedef struct tm_new_mem_map
+{
+  /* SSA_NAME being dereferenced.  */
+  tree val;
+  enum thread_memory_type local_new_memory;
+} tm_new_mem_map_t;
+
+/* Hashtable helpers.  */
+
+struct tm_mem_map_hasher : typed_free_remove <tm_new_mem_map_t>
+{
+  typedef tm_new_mem_map_t value_type;
+  typedef tm_new_mem_map_t compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+tm_mem_map_hasher::hash (const value_type *v)
+{
+  return (intptr_t)v->val >> 4;
+}
+
+inline bool
+tm_mem_map_hasher::equal (const value_type *v, const compare_type *c)
+{
+  return v->val == c->val;
+}
+
+/* Map for an SSA_NAME originally pointing to a non aliased new piece
+   of memory (malloc, alloc, etc).  */
+static hash_table <tm_mem_map_hasher> tm_new_mem_hash;
 
 /* Initialize logging data structures.  */
 static void
 tm_log_init (void)
 {
-  tm_log = htab_create (10, tm_log_hash, tm_log_eq, tm_log_free);
-  tm_new_mem_hash = htab_create (5, struct_ptr_hash, struct_ptr_eq, free);
+  tm_log.create (10);
+  tm_new_mem_hash.create (5);
   tm_log_save_addresses.create (5);
 }
 
@@ -964,8 +995,8 @@ tm_log_init (void)
 static void
 tm_log_delete (void)
 {
-  htab_delete (tm_log);
-  htab_delete (tm_new_mem_hash);
+  tm_log.dispose ();
+  tm_new_mem_hash.dispose ();
   tm_log_save_addresses.release ();
 }
 
@@ -1006,11 +1037,11 @@ transaction_invariant_address_p (const_tree mem, basic_block region_entry_block)
 static void
 tm_log_add (basic_block entry_block, tree addr, gimple stmt)
 {
-  void **slot;
+  tm_log_entry **slot;
   struct tm_log_entry l, *lp;
 
   l.addr = addr;
-  slot = htab_find_slot (tm_log, &l, INSERT);
+  slot = tm_log.find_slot (&l, INSERT);
   if (!*slot)
     {
       tree type = TREE_TYPE (addr);
@@ -1051,7 +1082,7 @@ tm_log_add (basic_block entry_block, tree addr, gimple stmt)
       size_t i;
       gimple oldstmt;
 
-      lp = (struct tm_log_entry *) *slot;
+      lp = *slot;
 
       /* If we're generating a save/restore sequence, we don't care
 	 about statements.  */
@@ -1153,10 +1184,10 @@ tm_log_emit_stmt (tree addr, gimple stmt)
 static void
 tm_log_emit (void)
 {
-  htab_iterator hi;
+  hash_table <log_entry_hasher>::iterator hi;
   struct tm_log_entry *lp;
 
-  FOR_EACH_HTAB_ELEMENT (tm_log, lp, tm_log_entry_t, hi)
+  FOR_EACH_HASH_TABLE_ELEMENT (tm_log, lp, tm_log_entry_t, hi)
     {
       size_t i;
       gimple stmt;
@@ -1198,7 +1229,7 @@ tm_log_emit_saves (basic_block entry_block, basic_block bb)
   for (i = 0; i < tm_log_save_addresses.length (); ++i)
     {
       l.addr = tm_log_save_addresses[i];
-      lp = (struct tm_log_entry *) *htab_find_slot (tm_log, &l, NO_INSERT);
+      lp = *(tm_log.find_slot (&l, NO_INSERT));
       gcc_assert (lp->save_var != NULL);
 
       /* We only care about variables in the current transaction.  */
@@ -1234,7 +1265,7 @@ tm_log_emit_restores (basic_block entry_block, basic_block bb)
   for (i = tm_log_save_addresses.length () - 1; i >= 0; i--)
     {
       l.addr = tm_log_save_addresses[i];
-      lp = (struct tm_log_entry *) *htab_find_slot (tm_log, &l, NO_INSERT);
+      lp = *(tm_log.find_slot (&l, NO_INSERT));
       gcc_assert (lp->save_var != NULL);
 
       /* We only care about variables in the current transaction.  */
@@ -1271,7 +1302,7 @@ thread_private_new_memory (basic_block entry_block, tree x)
 {
   gimple stmt = NULL;
   enum tree_code code;
-  void **slot;
+  tm_new_mem_map_t **slot;
   tm_new_mem_map_t elt, *elt_p;
   tree val = x;
   enum thread_memory_type retval = mem_transaction_local;
@@ -1285,8 +1316,8 @@ thread_private_new_memory (basic_block entry_block, tree x)
 
   /* Look in cache first.  */
   elt.val = x;
-  slot = htab_find_slot (tm_new_mem_hash, &elt, INSERT);
-  elt_p = (tm_new_mem_map_t *) *slot;
+  slot = tm_new_mem_hash.find_slot (&elt, INSERT);
+  elt_p = *slot;
   if (elt_p)
     return elt_p->local_new_memory;
 
@@ -3146,6 +3177,35 @@ typedef struct tm_memop
   tree addr;
 } *tm_memop_t;
 
+/* TM memory operation hashtable helpers.  */
+
+struct tm_memop_hasher : typed_free_remove <tm_memop>
+{
+  typedef tm_memop value_type;
+  typedef tm_memop compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+/* Htab support.  Return a hash value for a `tm_memop'.  */
+inline hashval_t
+tm_memop_hasher::hash (const value_type *mem)
+{
+  tree addr = mem->addr;
+  /* We drill down to the SSA_NAME/DECL for the hash, but equality is
+     actually done with operand_equal_p (see tm_memop_eq).  */
+  if (TREE_CODE (addr) == ADDR_EXPR)
+    addr = TREE_OPERAND (addr, 0);
+  return iterative_hash_expr (addr, 0);
+}
+
+/* Htab support.  Return true if two tm_memop's are the same.  */
+inline bool
+tm_memop_hasher::equal (const value_type *mem1, const compare_type *mem2)
+{
+  return operand_equal_p (mem1->addr, mem2->addr, 0);
+}
+
 /* Sets for solving data flow equations in the memory optimization pass.  */
 struct tm_memopt_bitmaps
 {
@@ -3178,7 +3238,7 @@ static bitmap_obstack tm_memopt_obstack;
 /* Unique counter for TM loads and stores. Loads and stores of the
    same address get the same ID.  */
 static unsigned int tm_memopt_value_id;
-static htab_t tm_memopt_value_numbers;
+static hash_table <tm_memop_hasher> tm_memopt_value_numbers;
 
 #define STORE_AVAIL_IN(BB) \
   ((struct tm_memopt_bitmaps *) ((BB)->aux))->store_avail_in
@@ -3201,29 +3261,6 @@ static htab_t tm_memopt_value_numbers;
 #define BB_VISITED_P(BB) \
   ((struct tm_memopt_bitmaps *) ((BB)->aux))->visited_p
 
-/* Htab support.  Return a hash value for a `tm_memop'.  */
-static hashval_t
-tm_memop_hash (const void *p)
-{
-  const struct tm_memop *mem = (const struct tm_memop *) p;
-  tree addr = mem->addr;
-  /* We drill down to the SSA_NAME/DECL for the hash, but equality is
-     actually done with operand_equal_p (see tm_memop_eq).  */
-  if (TREE_CODE (addr) == ADDR_EXPR)
-    addr = TREE_OPERAND (addr, 0);
-  return iterative_hash_expr (addr, 0);
-}
-
-/* Htab support.  Return true if two tm_memop's are the same.  */
-static int
-tm_memop_eq (const void *p1, const void *p2)
-{
-  const struct tm_memop *mem1 = (const struct tm_memop *) p1;
-  const struct tm_memop *mem2 = (const struct tm_memop *) p2;
-
-  return operand_equal_p (mem1->addr, mem2->addr, 0);
-}
-
 /* Given a TM load/store in STMT, return the value number for the address
    it accesses.  */
 
@@ -3231,13 +3268,13 @@ static unsigned int
 tm_memopt_value_number (gimple stmt, enum insert_option op)
 {
   struct tm_memop tmpmem, *mem;
-  void **slot;
+  tm_memop **slot;
 
   gcc_assert (is_tm_load (stmt) || is_tm_store (stmt));
   tmpmem.addr = gimple_call_arg (stmt, 0);
-  slot = htab_find_slot (tm_memopt_value_numbers, &tmpmem, op);
+  slot = tm_memopt_value_numbers.find_slot (&tmpmem, op);
   if (*slot)
-    mem = (struct tm_memop *) *slot;
+    mem = *slot;
   else if (op == INSERT)
     {
       mem = XNEW (struct tm_memop);
@@ -3295,11 +3332,11 @@ dump_tm_memopt_set (const char *set_name, bitmap bits)
   fprintf (dump_file, "TM memopt: %s: [", set_name);
   EXECUTE_IF_SET_IN_BITMAP (bits, 0, i, bi)
     {
-      htab_iterator hi;
-      struct tm_memop *mem;
+      hash_table <tm_memop_hasher>::iterator hi;
+      struct tm_memop *mem = NULL;
 
       /* Yeah, yeah, yeah.  Whatever.  This is just for debugging.  */
-      FOR_EACH_HTAB_ELEMENT (tm_memopt_value_numbers, mem, tm_memop_t, hi)
+      FOR_EACH_HASH_TABLE_ELEMENT (tm_memopt_value_numbers, mem, tm_memop_t, hi)
 	if (mem->value_id == i)
 	  break;
       gcc_assert (mem->value_id == i);
@@ -3734,7 +3771,7 @@ execute_tm_memopt (void)
   vec<basic_block> bbs;
 
   tm_memopt_value_id = 0;
-  tm_memopt_value_numbers = htab_create (10, tm_memop_hash, tm_memop_eq, free);
+  tm_memopt_value_numbers.create (10);
 
   for (region = all_tm_regions; region; region = region->next)
     {
@@ -3768,10 +3805,10 @@ execute_tm_memopt (void)
       tm_memopt_free_sets (bbs);
       bbs.release ();
       bitmap_obstack_release (&tm_memopt_obstack);
-      htab_empty (tm_memopt_value_numbers);
+      tm_memopt_value_numbers.empty ();
     }
 
-  htab_delete (tm_memopt_value_numbers);
+  tm_memopt_value_numbers.dispose ();
   return 0;
 }
 
@@ -3895,8 +3932,8 @@ get_cg_data (struct cgraph_node **node, bool traverse_aliases)
 {
   struct tm_ipa_cg_data *d;
 
-  if (traverse_aliases && (*node)->alias)
-    *node = cgraph_get_node ((*node)->thunk.alias);
+  if (traverse_aliases && (*node)->symbol.alias)
+    *node = cgraph_alias_target (*node);
 
   d = (struct tm_ipa_cg_data *) (*node)->symbol.aux;
 
@@ -3941,7 +3978,8 @@ ipa_uninstrument_transaction (struct tm_region *region,
   int n = queue.length ();
   basic_block *new_bbs = XNEWVEC (basic_block, n);
 
-  copy_bbs (queue.address (), n, new_bbs, NULL, 0, NULL, NULL, transaction_bb);
+  copy_bbs (queue.address (), n, new_bbs, NULL, 0, NULL, NULL, transaction_bb,
+	    true);
   edge e = make_edge (transaction_bb, new_bbs[0], EDGE_TM_UNINSTRUMENTED);
   add_phi_args_after_copy (new_bbs, n, e);
 
@@ -4480,7 +4518,7 @@ ipa_tm_mayenterirr_function (struct cgraph_node *node)
   /* Recurse on the main body for aliases.  In general, this will
      result in one of the bits above being set so that we will not
      have to recurse next time.  */
-  if (node->alias)
+  if (node->symbol.alias)
     return ipa_tm_mayenterirr_function (cgraph_get_node (node->thunk.alias));
 
   /* What remains is unmarked local functions without items that force
@@ -4640,9 +4678,14 @@ static inline void
 ipa_tm_mark_force_output_node (struct cgraph_node *node)
 {
   cgraph_mark_force_output_node (node);
-  /* ??? function_and_variable_visibility will reset
-     the needed bit, without actually checking.  */
-  node->analyzed = 1;
+  node->symbol.analyzed = true;
+}
+
+static inline void
+ipa_tm_mark_forced_by_abi_node (struct cgraph_node *node)
+{
+  node->symbol.forced_by_abi = true;
+  node->symbol.analyzed = true;
 }
 
 /* Callback data for ipa_tm_create_version_alias.  */
@@ -4663,7 +4706,7 @@ ipa_tm_create_version_alias (struct cgraph_node *node, void *data)
   tree old_decl, new_decl, tm_name;
   struct cgraph_node *new_node;
 
-  if (!node->same_body_alias)
+  if (!node->symbol.cpp_implicit_alias)
     return false;
 
   old_decl = node->symbol.decl;
@@ -4701,6 +4744,8 @@ ipa_tm_create_version_alias (struct cgraph_node *node, void *data)
   if (info->old_node->symbol.force_output
       || ipa_ref_list_first_referring (&info->old_node->symbol.ref_list))
     ipa_tm_mark_force_output_node (new_node);
+  if (info->old_node->symbol.forced_by_abi)
+    ipa_tm_mark_forced_by_abi_node (new_node);
   return false;
 }
 
@@ -4756,6 +4801,8 @@ ipa_tm_create_version (struct cgraph_node *old_node)
   if (old_node->symbol.force_output
       || ipa_ref_list_first_referring (&old_node->symbol.ref_list))
     ipa_tm_mark_force_output_node (new_node);
+  if (old_node->symbol.forced_by_abi)
+    ipa_tm_mark_forced_by_abi_node (new_node);
 
   /* Do the same thing, but for any aliases of the original node.  */
   {
@@ -5212,7 +5259,7 @@ ipa_tm_execute (void)
 	    {
 	      /* If this is an alias, make sure its base is queued as well.
 		 we need not scan the callees now, as the base will do.  */
-	      if (node->alias)
+	      if (node->symbol.alias)
 		{
 		  node = cgraph_get_node (node->thunk.alias);
 		  d = get_cg_data (&node, true);
@@ -5333,7 +5380,7 @@ ipa_tm_execute (void)
       bool doit = false;
 
       node = tm_callees[i];
-      if (node->same_body_alias)
+      if (node->symbol.cpp_implicit_alias)
 	continue;
 
       a = cgraph_function_body_availability (node);
@@ -5355,7 +5402,7 @@ ipa_tm_execute (void)
   for (i = 0; i < tm_callees.length (); ++i)
     {
       node = tm_callees[i];
-      if (node->analyzed)
+      if (node->symbol.analyzed)
 	{
 	  d = get_cg_data (&node, true);
 	  if (d->clone)

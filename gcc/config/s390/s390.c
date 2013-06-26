@@ -2017,14 +2017,18 @@ s390_decompose_address (rtx addr, struct s390_address *out)
 	 Thus we don't check the displacement for validity here.  If after
 	 elimination the displacement turns out to be invalid after all,
 	 this is fixed up by reload in any case.  */
-      if (base != arg_pointer_rtx
-	  && indx != arg_pointer_rtx
-	  && base != return_address_pointer_rtx
-	  && indx != return_address_pointer_rtx
-	  && base != frame_pointer_rtx
-	  && indx != frame_pointer_rtx
-	  && base != virtual_stack_vars_rtx
-	  && indx != virtual_stack_vars_rtx)
+      /* LRA maintains always displacements up to date and we need to
+	 know the displacement is right during all LRA not only at the
+	 final elimination.  */
+      if (lra_in_progress
+	  || (base != arg_pointer_rtx
+	      && indx != arg_pointer_rtx
+	      && base != return_address_pointer_rtx
+	      && indx != return_address_pointer_rtx
+	      && base != frame_pointer_rtx
+	      && indx != frame_pointer_rtx
+	      && base != virtual_stack_vars_rtx
+	      && indx != virtual_stack_vars_rtx))
 	if (!DISP_IN_RANGE (offset))
 	  return false;
     }
@@ -2432,11 +2436,13 @@ static int
 s390_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
                          reg_class_t from, reg_class_t to)
 {
-/* On s390, copy between fprs and gprs is expensive.  */
-  if ((reg_classes_intersect_p (from, GENERAL_REGS)
-       && reg_classes_intersect_p (to, FP_REGS))
-      || (reg_classes_intersect_p (from, FP_REGS)
-	  && reg_classes_intersect_p (to, GENERAL_REGS)))
+  /* On s390, copy between fprs and gprs is expensive as long as no
+     ldgr/lgdr can be used.  */
+  if ((!TARGET_Z10 || GET_MODE_SIZE (mode) != 8)
+      && ((reg_classes_intersect_p (from, GENERAL_REGS)
+	   && reg_classes_intersect_p (to, FP_REGS))
+	  || (reg_classes_intersect_p (from, FP_REGS)
+	      && reg_classes_intersect_p (to, GENERAL_REGS))))
     return 10;
 
   return 1;
@@ -3187,7 +3193,9 @@ s390_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
 
   /* We need a scratch register when loading a PLUS expression which
      is not a legitimate operand of the LOAD ADDRESS instruction.  */
-  if (in_p && s390_plus_operand (x, mode))
+  /* LRA can deal with transformation of plus op very well -- so we
+     don't need to prompt LRA in this case.  */
+  if (! lra_in_progress && in_p && s390_plus_operand (x, mode))
     sri->icode = (TARGET_64BIT ?
 		  CODE_FOR_reloaddi_plus : CODE_FOR_reloadsi_plus);
 
@@ -4647,6 +4655,9 @@ s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
   int smode_bsize, mode_bsize;
   rtx op, clobber;
 
+  if (bitsize + bitpos > GET_MODE_SIZE (mode))
+    return false;
+
   /* Generate INSERT IMMEDIATE (IILL et al).  */
   /* (set (ze (reg)) (const_int)).  */
   if (TARGET_ZARCH
@@ -5738,8 +5749,8 @@ addr_generation_dependency_p (rtx dep_rtx, rtx insn)
 {
   rtx target, pat;
 
-  if (GET_CODE (dep_rtx) == INSN)
-      dep_rtx = PATTERN (dep_rtx);
+  if (NONJUMP_INSN_P (dep_rtx))
+    dep_rtx = PATTERN (dep_rtx);
 
   if (GET_CODE (dep_rtx) == SET)
     {
@@ -5978,7 +5989,7 @@ s390_split_branches (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) != JUMP_INSN)
+      if (! JUMP_P (insn))
 	continue;
 
       pat = PATTERN (insn);
@@ -6398,7 +6409,7 @@ s390_find_constant (struct constant_pool *pool, rtx val,
 static rtx
 s390_execute_label (rtx insn)
 {
-  if (GET_CODE (insn) == INSN
+  if (NONJUMP_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) == PARALLEL
       && GET_CODE (XVECEXP (PATTERN (insn), 0, 0)) == UNSPEC
       && XINT (XVECEXP (PATTERN (insn), 0, 0), 1) == UNSPEC_EXECUTE)
@@ -6603,7 +6614,7 @@ s390_mainpool_start (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (GET_CODE (insn) == INSN
+      if (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == UNSPEC_VOLATILE
 	  && XINT (SET_SRC (PATTERN (insn)), 1) == UNSPECV_MAIN_POOL)
@@ -6616,7 +6627,7 @@ s390_mainpool_start (void)
 	{
 	  s390_add_execute (pool, insn);
 	}
-      else if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+      else if (NONJUMP_INSN_P (insn) || CALL_P (insn))
 	{
 	  rtx pool_ref = NULL_RTX;
 	  find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -6758,7 +6769,7 @@ s390_mainpool_finish (struct constant_pool *pool)
       if (INSN_P (insn))
 	replace_ltrel_base (&PATTERN (insn));
 
-      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+      if (NONJUMP_INSN_P (insn) || CALL_P (insn))
         {
           rtx addr, pool_ref = NULL_RTX;
           find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -6840,7 +6851,7 @@ s390_chunkify_start (void)
 	  s390_add_execute (curr_pool, insn);
 	  s390_add_pool_insn (curr_pool, insn);
 	}
-      else if (GET_CODE (insn) == INSN || CALL_P (insn))
+      else if (NONJUMP_INSN_P (insn) || CALL_P (insn))
 	{
 	  rtx pool_ref = NULL_RTX;
 	  find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -6867,7 +6878,7 @@ s390_chunkify_start (void)
 	    }
 	}
 
-      if (GET_CODE (insn) == JUMP_INSN || GET_CODE (insn) == CODE_LABEL)
+      if (JUMP_P (insn) || JUMP_TABLE_DATA_P (insn) || LABEL_P (insn))
 	{
 	  if (curr_pool)
 	    s390_add_pool_insn (curr_pool, insn);
@@ -6911,7 +6922,7 @@ s390_chunkify_start (void)
 	     Those will have an effect on code size, which we need to
 	     consider here.  This calculation makes rather pessimistic
 	     worst-case assumptions.  */
-	  if (GET_CODE (insn) == CODE_LABEL)
+	  if (LABEL_P (insn))
 	    extra_size += 6;
 
 	  if (chunk_size < S390_POOL_CHUNK_MIN
@@ -6920,7 +6931,7 @@ s390_chunkify_start (void)
 	    continue;
 
 	  /* Pool chunks can only be inserted after BARRIERs ...  */
-	  if (GET_CODE (insn) == BARRIER)
+	  if (BARRIER_P (insn))
 	    {
 	      s390_end_pool (curr_pool, insn);
 	      curr_pool = NULL;
@@ -6937,7 +6948,7 @@ s390_chunkify_start (void)
 	      if (!section_switch_p)
 		{
 		  /* We can insert the barrier only after a 'real' insn.  */
-		  if (GET_CODE (insn) != INSN && GET_CODE (insn) != CALL_INSN)
+		  if (! NONJUMP_INSN_P (insn) && ! CALL_P (insn))
 		    continue;
 		  if (get_attr_length (insn) == 0)
 		    continue;
@@ -7009,23 +7020,21 @@ s390_chunkify_start (void)
 	 Don't do that, however, if it is the label before
 	 a jump table.  */
 
-      if (GET_CODE (insn) == CODE_LABEL
+      if (LABEL_P (insn)
 	  && (LABEL_PRESERVE_P (insn) || LABEL_NAME (insn)))
 	{
-	  rtx vec_insn = next_real_insn (insn);
-	  rtx vec_pat = vec_insn && GET_CODE (vec_insn) == JUMP_INSN ?
-			PATTERN (vec_insn) : NULL_RTX;
-	  if (!vec_pat
-	      || !(GET_CODE (vec_pat) == ADDR_VEC
-		   || GET_CODE (vec_pat) == ADDR_DIFF_VEC))
+	  rtx vec_insn = NEXT_INSN (insn);
+	  if (! vec_insn || ! JUMP_TABLE_DATA_P (vec_insn))
 	    bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (insn));
 	}
 
       /* If we have a direct jump (conditional or unconditional)
 	 or a casesi jump, check all potential targets.  */
-      else if (GET_CODE (insn) == JUMP_INSN)
+      else if (JUMP_P (insn))
 	{
           rtx pat = PATTERN (insn);
+          rtx table;
+
 	  if (GET_CODE (pat) == PARALLEL && XVECLEN (pat, 0) > 2)
 	    pat = XVECEXP (pat, 0, 0);
 
@@ -7039,31 +7048,18 @@ s390_chunkify_start (void)
 		    bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (label));
 		}
             }
-	  else if (GET_CODE (pat) == PARALLEL
-		   && XVECLEN (pat, 0) == 2
-		   && GET_CODE (XVECEXP (pat, 0, 0)) == SET
-		   && GET_CODE (XVECEXP (pat, 0, 1)) == USE
-		   && GET_CODE (XEXP (XVECEXP (pat, 0, 1), 0)) == LABEL_REF)
-	    {
-	      /* Find the jump table used by this casesi jump.  */
-	      rtx vec_label = XEXP (XEXP (XVECEXP (pat, 0, 1), 0), 0);
-	      rtx vec_insn = next_real_insn (vec_label);
-	      rtx vec_pat = vec_insn && GET_CODE (vec_insn) == JUMP_INSN ?
-			    PATTERN (vec_insn) : NULL_RTX;
-	      if (vec_pat
-		  && (GET_CODE (vec_pat) == ADDR_VEC
-		      || GET_CODE (vec_pat) == ADDR_DIFF_VEC))
-		{
-		  int i, diff_p = GET_CODE (vec_pat) == ADDR_DIFF_VEC;
+         else if (tablejump_p (insn, NULL, &table))
+           {
+             rtx vec_pat = PATTERN (table);
+             int i, diff_p = GET_CODE (vec_pat) == ADDR_DIFF_VEC;
 
-		  for (i = 0; i < XVECLEN (vec_pat, diff_p); i++)
-		    {
-		      rtx label = XEXP (XVECEXP (vec_pat, diff_p, i), 0);
+             for (i = 0; i < XVECLEN (vec_pat, diff_p); i++)
+               {
+                 rtx label = XEXP (XVECEXP (vec_pat, diff_p, i), 0);
 
-		      if (s390_find_pool (pool_list, label)
-			  != s390_find_pool (pool_list, insn))
-			bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (label));
-		    }
+                 if (s390_find_pool (pool_list, label)
+                     != s390_find_pool (pool_list, insn))
+                   bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (label));
 		}
 	    }
         }
@@ -7082,7 +7078,7 @@ s390_chunkify_start (void)
   /* Insert base register reload insns at every far label.  */
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (GET_CODE (insn) == CODE_LABEL
+    if (LABEL_P (insn)
         && bitmap_bit_p (far_labels, CODE_LABEL_NUMBER (insn)))
       {
 	struct constant_pool *pool = s390_find_pool (pool_list, insn);
@@ -7128,7 +7124,7 @@ s390_chunkify_finish (struct constant_pool *pool_list)
       if (!curr_pool)
 	continue;
 
-      if (GET_CODE (insn) == INSN || GET_CODE (insn) == CALL_INSN)
+      if (NONJUMP_INSN_P (insn) || CALL_P (insn))
         {
           rtx addr, pool_ref = NULL_RTX;
           find_constant_pool_ref (PATTERN (insn), &pool_ref);
@@ -7181,9 +7177,9 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
       rtx jump = barrier? PREV_INSN (barrier) : NULL_RTX;
       rtx label = NEXT_INSN (curr_pool->pool_insn);
 
-      if (jump && GET_CODE (jump) == JUMP_INSN
-	  && barrier && GET_CODE (barrier) == BARRIER
-	  && label && GET_CODE (label) == CODE_LABEL
+      if (jump && JUMP_P (jump)
+	  && barrier && BARRIER_P (barrier)
+	  && label && LABEL_P (label)
 	  && GET_CODE (PATTERN (jump)) == SET
 	  && SET_DEST (PATTERN (jump)) == pc_rtx
 	  && GET_CODE (SET_SRC (PATTERN (jump))) == LABEL_REF
@@ -7203,7 +7199,7 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
     {
       rtx next_insn = NEXT_INSN (insn);
 
-      if (GET_CODE (insn) == INSN
+      if (NONJUMP_INSN_P (insn)
 	  && GET_CODE (PATTERN (insn)) == SET
 	  && GET_CODE (SET_SRC (PATTERN (insn))) == UNSPEC
 	  && XINT (SET_SRC (PATTERN (insn)), 1) == UNSPEC_RELOAD_BASE)
@@ -7868,6 +7864,13 @@ s390_class_max_nregs (enum reg_class rclass, enum machine_mode mode)
       break;
     }
   return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
+}
+
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+s390_lra_p (void)
+{
+  return s390_lra_flag;
 }
 
 /* Return true if register FROM can be eliminated via register TO.  */
@@ -10080,7 +10083,7 @@ s390_optimize_prologue (void)
 
       next_insn = NEXT_INSN (insn);
 
-      if (GET_CODE (insn) != INSN)
+      if (! NONJUMP_INSN_P (insn))
 	continue;
 
       if (GET_CODE (PATTERN (insn)) == PARALLEL
@@ -11106,6 +11109,9 @@ s390_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P s390_legitimate_constant_p
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P s390_lra_p
 
 #undef TARGET_CAN_ELIMINATE
 #define TARGET_CAN_ELIMINATE s390_can_eliminate

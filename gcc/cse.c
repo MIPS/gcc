@@ -1824,7 +1824,7 @@ flush_hash_table (void)
       }
 }
 
-/* Function called for each rtx to check whether true dependence exist.  */
+/* Function called for each rtx to check whether an anti dependence exist.  */
 struct check_dependence_data
 {
   enum machine_mode mode;
@@ -1837,7 +1837,7 @@ check_dependence (rtx *x, void *data)
 {
   struct check_dependence_data *d = (struct check_dependence_data *) data;
   if (*x && MEM_P (*x))
-    return canon_true_dependence (d->exp, d->mode, d->addr, *x, NULL_RTX);
+    return canon_anti_dependence (*x, true, d->exp, d->mode, d->addr);
   else
     return 0;
 }
@@ -7466,8 +7466,7 @@ struct rtl_opt_pass pass_cse =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect |
-  TODO_verify_flow,                     /* todo_flags_finish */
+  TODO_verify_flow                      /* todo_flags_finish */
  }
 };
 
@@ -7529,7 +7528,6 @@ struct rtl_opt_pass pass_cse2 =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect |
   TODO_verify_flow                      /* todo_flags_finish */
  }
 };
@@ -7590,7 +7588,6 @@ struct rtl_opt_pass pass_cse_after_global_opts =
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
   TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect |
   TODO_verify_flow                      /* todo_flags_finish */
  }
 };

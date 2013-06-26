@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 #include "cfgloop.h"
+#include "tree-scalar-evolution.h"
 
 /* This file implements the copy propagation pass and provides a
    handful of interfaces for performing const/copy propagation and
@@ -72,14 +73,10 @@ may_propagate_copy (tree dest, tree orig)
   if (!useless_type_conversion_p (type_d, type_o))
     return false;
 
-  /* Propagating virtual operands is always ok.  */
+  /* Generally propagating virtual operands is not ok as that may
+     create overlapping life-ranges.  */
   if (TREE_CODE (dest) == SSA_NAME && virtual_operand_p (dest))
-    {
-      /* But only between virtual operands.  */
-      gcc_assert (TREE_CODE (orig) == SSA_NAME && virtual_operand_p (orig));
-
-      return true;
-    }
+    return false;
 
   /* Anything else is OK.  */
   return true;
@@ -163,7 +160,7 @@ replace_exp_1 (use_operand_p op_p, tree val,
   if (TREE_CODE (val) == SSA_NAME)
     SET_USE (op_p, val);
   else
-    SET_USE (op_p, unsave_expr_now (val));
+    SET_USE (op_p, unshare_expr (val));
 }
 
 
@@ -214,7 +211,7 @@ propagate_tree_value (tree *op_p, tree val)
   if (TREE_CODE (val) == SSA_NAME)
     *op_p = val;
   else
-    *op_p = unsave_expr_now (val);
+    *op_p = unshare_expr (val);
 }
 
 
@@ -771,9 +768,8 @@ fini_copy_prop (void)
 	duplicate_ssa_name_ptr_info (copy_of[i].value, SSA_NAME_PTR_INFO (var));
     }
 
-  /* Don't do DCE if we have loops.  That's the simplest way to not
-     destroy the scev cache.  */
-  substitute_and_fold (get_value, NULL, !current_loops);
+  /* Don't do DCE if SCEV is initialized.  It would destroy the scev cache.  */
+  substitute_and_fold (get_value, NULL, !scev_initialized_p ());
 
   free (copy_of);
 }
@@ -844,7 +840,6 @@ struct gimple_opt_pass pass_copy_prop =
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
   TODO_cleanup_cfg
-    | TODO_ggc_collect
     | TODO_verify_ssa
     | TODO_update_ssa			/* todo_flags_finish */
  }

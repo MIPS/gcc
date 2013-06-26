@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "dbgcnt.h"
 #include "domwalk.h"
+#include "ipa-prop.h"
 
 /* TODO:
 
@@ -3664,6 +3665,12 @@ insert (void)
       if (dump_file && dump_flags & TDF_DETAILS)
 	fprintf (dump_file, "Starting insert iteration %d\n", num_iterations);
       new_stuff = insert_aux (ENTRY_BLOCK_PTR);
+
+      /* Clear the NEW sets before the next iteration.  We have already
+         fully propagated its contents.  */
+      if (new_stuff)
+	FOR_ALL_BB (bb)
+	  bitmap_set_free (NEW_SETS (bb));
     }
   statistics_histogram_event (cfun, "insert iterations", num_iterations);
 }
@@ -4326,7 +4333,15 @@ eliminate_bb (dom_walk_data *, basic_block b)
 	    fn = VN_INFO (orig_fn)->valnum;
 	  else if (TREE_CODE (orig_fn) == OBJ_TYPE_REF
 		   && TREE_CODE (OBJ_TYPE_REF_EXPR (orig_fn)) == SSA_NAME)
-	    fn = VN_INFO (OBJ_TYPE_REF_EXPR (orig_fn))->valnum;
+	    {
+	      fn = VN_INFO (OBJ_TYPE_REF_EXPR (orig_fn))->valnum;
+	      if (!gimple_call_addr_fndecl (fn))
+		{
+		  fn = ipa_intraprocedural_devirtualization (stmt);
+		  if (fn)
+		    fn = build_fold_addr_expr (fn);
+		}
+	    }
 	  else
 	    continue;
 	  if (gimple_call_addr_fndecl (fn) != NULL_TREE
@@ -4788,7 +4803,7 @@ struct gimple_opt_pass pass_pre =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   TODO_rebuild_alias,			/* todo_flags_start */
-  TODO_ggc_collect | TODO_verify_ssa	/* todo_flags_finish */
+  TODO_verify_ssa			/* todo_flags_finish */
  }
 };
 
@@ -4840,6 +4855,6 @@ struct gimple_opt_pass pass_fre =
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  TODO_ggc_collect | TODO_verify_ssa /* todo_flags_finish */
+  TODO_verify_ssa			/* todo_flags_finish */
  }
 };

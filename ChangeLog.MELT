@@ -1,4 +1,8 @@
 
+2013-06-26  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merged with  trunk [4.9] svn rev. 196654-200426}}
+	MELT branch merged with trunk rev. 200426 using svnmerge.py
+
 2013-06-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin 0.9.9 release}}
 	* INSTALL/README-MELT-PLUGIN: slightly improved instructions.

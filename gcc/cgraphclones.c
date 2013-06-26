@@ -102,7 +102,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 		   int freq_scale, bool update_original)
 {
   struct cgraph_edge *new_edge;
-  gcov_type count = e->count * count_scale / REG_BR_PROB_BASE;
+  gcov_type count = apply_probability (e->count, count_scale);
   gcov_type freq;
 
   /* We do not want to ignore loop nest after frequency drops to 0.  */
@@ -167,13 +167,19 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
    function's profile to reflect the fact that part of execution is handled
    by node.  
    When CALL_DUPLICATOIN_HOOK is true, the ipa passes are acknowledged about
-   the new clone. Otherwise the caller is responsible for doing so later.  */
+   the new clone. Otherwise the caller is responsible for doing so later.
+
+   If the new node is being inlined into another one, NEW_INLINED_TO should be
+   the outline function the new one is (even indirectly) inlined to.  All hooks
+   will see this in node's global.inlined_to, when invoked.  Can be NULL if the
+   node is not inlined.  */
 
 struct cgraph_node *
 cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
 		   bool update_original,
 		   vec<cgraph_edge_p> redirect_callers,
-		   bool call_duplication_hook)
+		   bool call_duplication_hook,
+		   struct cgraph_node *new_inlined_to)
 {
   struct cgraph_node *new_node = cgraph_create_empty_node ();
   struct cgraph_edge *e;
@@ -189,11 +195,13 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
       new_node->next_nested = new_node->origin->nested;
       new_node->origin->nested = new_node;
     }
-  new_node->analyzed = n->analyzed;
+  new_node->symbol.analyzed = n->symbol.analyzed;
+  new_node->symbol.definition = n->symbol.definition;
   new_node->local = n->local;
   new_node->symbol.externally_visible = false;
   new_node->local.local = true;
   new_node->global = n->global;
+  new_node->global.inlined_to = new_inlined_to;
   new_node->rtl = n->rtl;
   new_node->count = count;
   new_node->frequency = n->frequency;
@@ -204,7 +212,7 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
       if (new_node->count > n->count)
         count_scale = REG_BR_PROB_BASE;
       else
-        count_scale = new_node->count * REG_BR_PROB_BASE / n->count;
+        count_scale = GCOV_COMPUTE_SCALE (new_node->count, n->count);
     }
   else
     count_scale = 0;
@@ -306,7 +314,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
 
   new_node = cgraph_clone_node (old_node, new_decl, old_node->count,
 				CGRAPH_FREQ_BASE, false,
-				redirect_callers, false);
+				redirect_callers, false, NULL);
   /* Update the properties.
      Make clone visible only within this translation unit.  Make sure
      that is not weak also.
@@ -324,6 +332,14 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   DECL_STATIC_DESTRUCTOR (new_node->symbol.decl) = 0;
   new_node->clone.tree_map = tree_map;
   new_node->clone.args_to_skip = args_to_skip;
+
+  /* Clones of global symbols or symbols with unique names are unique.  */
+  if ((TREE_PUBLIC (old_decl)
+       && !DECL_EXTERNAL (old_decl)
+       && !DECL_WEAK (old_decl)
+       && !DECL_COMDAT (old_decl))
+      || in_lto_p)
+    new_node->symbol.unique_name = true;
   FOR_EACH_VEC_SAFE_ELT (tree_map, i, map)
     {
       tree var = map->new_tree;
@@ -630,10 +646,11 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 
    new_version = cgraph_create_node (new_decl);
 
-   new_version->analyzed = old_version->analyzed;
+   new_version->symbol.analyzed = old_version->symbol.analyzed;
+   new_version->symbol.definition = old_version->symbol.definition;
    new_version->local = old_version->local;
    new_version->symbol.externally_visible = false;
-   new_version->local.local = old_version->analyzed;
+   new_version->local.local = new_version->symbol.definition;
    new_version->global = old_version->global;
    new_version->rtl = old_version->rtl;
    new_version->count = old_version->count;
@@ -739,6 +756,13 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   new_version_node->symbol.externally_visible = 0;
   new_version_node->local.local = 1;
   new_version_node->lowered = true;
+  /* Clones of global symbols or symbols with unique names are unique.  */
+  if ((TREE_PUBLIC (old_decl)
+       && !DECL_EXTERNAL (old_decl)
+       && !DECL_WEAK (old_decl)
+       && !DECL_COMDAT (old_decl))
+      || in_lto_p)
+    new_version_node->symbol.unique_name = true;
 
   /* Update the call_expr on the edges to call the new version node. */
   update_call_expr (new_version_node);
@@ -776,7 +800,7 @@ cgraph_materialize_clone (struct cgraph_node *node)
     node->clone_of->clones = node->next_sibling_clone;
   node->next_sibling_clone = NULL;
   node->prev_sibling_clone = NULL;
-  if (!node->clone_of->analyzed && !node->clone_of->clones)
+  if (!node->clone_of->symbol.analyzed && !node->clone_of->clones)
     {
       cgraph_release_function_body (node->clone_of);
       cgraph_node_remove_callees (node->clone_of);
@@ -859,7 +883,7 @@ cgraph_materialize_all_clones (void)
 	}
     }
   FOR_EACH_FUNCTION (node)
-    if (!node->analyzed && node->callees)
+    if (!node->symbol.analyzed && node->callees)
       cgraph_node_remove_callees (node);
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materialization Call site updates done.\n");

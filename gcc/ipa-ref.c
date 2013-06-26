@@ -198,3 +198,34 @@ ipa_ref_has_aliases_p (struct ipa_ref_list *ref_list)
       return true;
   return false;
 }
+
+/* Find the structure describing a reference in REFERRING_NODE to REFERRED_NODE
+   and associated with statement STMT.  */
+
+struct ipa_ref *
+ipa_find_reference (symtab_node referring_node, symtab_node referred_node,
+		    gimple stmt)
+{
+  struct ipa_ref *r = NULL;
+  int i;
+
+  FOR_EACH_VEC_SAFE_ELT (referring_node->symbol.ref_list.references, i, r)
+    if (r->referred == referred_node
+	&& (in_lto_p || r->stmt == stmt))
+      return r;
+  return NULL;
+}
+
+/* Remove all references from REFERRING_NODE that are associated with statement
+   STMT.  */
+
+void
+ipa_remove_stmt_references (symtab_node referring_node, gimple stmt)
+{
+  struct ipa_ref *r = NULL;
+  int i;
+
+  FOR_EACH_VEC_SAFE_ELT (referring_node->symbol.ref_list.references, i, r)
+    if (r->stmt == stmt)
+      ipa_remove_reference (r);
+}

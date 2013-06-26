@@ -1148,7 +1148,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("INSTALL_VALUE_DESCRIPTOR", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_50_warmelt_base_INSTALL_VALUE_DESCRIPTOR_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -1309,7 +1308,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("RETRIEVE_VALUE_DESCRIPTOR_LIST", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_51_warmelt_base_RETRIEVE_VALUE_DESCRIPTOR_LIST_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -1811,7 +1809,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("LIST_REMOVE_LAST_ELEMENT", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_52_warmelt_base_LIST_REMOVE_LAST_ELEMENT_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -2406,7 +2403,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("COMPLETE_SEQUENCE_AS_TUPLE", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_53_warmelt_base_COMPLETE_SEQUENCE_AS_TUPLE_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;
@@ -2977,7 +2973,6 @@ meltlab_endgetargs:;
   goto meltlabend_rout;
 meltlabend_rout:
   melt_trace_end ("COMPLETE_SEQUENCE_AS_LIST", meltcallcount);
-  MELT_TRACE_EXIT_LOCATION ();
   melt_blocklevel_signals =
     current_blocklevel_signals_meltrout_54_warmelt_base_COMPLETE_SEQUENCE_AS_LIST_melt;
   melt_topframe = (struct melt_callframe_st *) meltfram__.mcfr_prev;

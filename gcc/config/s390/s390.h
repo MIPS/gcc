@@ -164,6 +164,11 @@ enum processor_flags
 #define S390_TDC_INFINITY (S390_TDC_POSITIVE_INFINITY \
 			  | S390_TDC_NEGATIVE_INFINITY )
 
+/* This is used by float.h to define the float_t and double_t data
+   types.  For historical reasons both are double on s390 what cannot
+   be changed anymore.  */
+#define TARGET_FLT_EVAL_METHOD 1
+
 /* Target machine storage layout.  */
 
 /* Everything is big-endian.  */
@@ -216,7 +221,7 @@ enum processor_flags
 
 /* Alignment on even addresses for LARL instruction.  */
 #define CONSTANT_ALIGNMENT(EXP, ALIGN) (ALIGN) < 16 ? 16 : (ALIGN)
-#define DATA_ALIGNMENT(TYPE, ALIGN) (ALIGN) < 16 ? 16 : (ALIGN)
+#define DATA_ABI_ALIGNMENT(TYPE, ALIGN) (ALIGN) < 16 ? 16 : (ALIGN)
 
 /* Alignment is not required by the hardware.  */
 #define STRICT_ALIGNMENT 0

@@ -2227,7 +2227,7 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
   convertible_lax =
     (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
      && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE ||
-	 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
+	 TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2))
      && (INTEGRAL_TYPE_P (TREE_TYPE (t1))
 	 == INTEGRAL_TYPE_P (TREE_TYPE (t2))));
 
@@ -3032,6 +3032,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
   switch (code)
     {
     case CONSTRUCTOR:
+    case SIZEOF_EXPR:
       return;
 
     case COMPOUND_EXPR:
@@ -4280,20 +4281,14 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
-      pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+      pedwarn (loc, OPT_Wpointer_arith,
 	       "pointer of type %<void *%> used in arithmetic");
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
     {
-      pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+      pedwarn (loc, OPT_Wpointer_arith,
 	       "pointer to a function used in arithmetic");
-      size_exp = integer_one_node;
-    }
-  else if (TREE_CODE (TREE_TYPE (result_type)) == METHOD_TYPE)
-    {
-      pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
-	       "pointer to member function used in arithmetic");
       size_exp = integer_one_node;
     }
   else
@@ -4870,8 +4865,8 @@ c_sizeof_or_alignof_type (location_t loc,
     {
       if (is_sizeof)
 	{
-	  if (complain && (pedantic || warn_pointer_arith))
-	    pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+	  if (complain && warn_pointer_arith)
+	    pedwarn (loc, OPT_Wpointer_arith,
 		     "invalid application of %<sizeof%> to a function type");
           else if (!complain)
             return error_mark_node;
@@ -4894,8 +4889,8 @@ c_sizeof_or_alignof_type (location_t loc,
   else if (type_code == VOID_TYPE || type_code == ERROR_MARK)
     {
       if (type_code == VOID_TYPE
-	  && complain && (pedantic || warn_pointer_arith))
-	pedwarn (loc, pedantic ? OPT_Wpedantic : OPT_Wpointer_arith,
+	  && complain && warn_pointer_arith)
+	pedwarn (loc, OPT_Wpointer_arith,
 		 "invalid application of %qs to a void type", op_name);
       else if (!complain)
         return error_mark_node;
@@ -5459,7 +5454,7 @@ c_common_nodes_and_builtins (void)
     {
       char16_type_node = make_unsigned_type (char16_type_size);
 
-      if (cxx_dialect >= cxx0x)
+      if (cxx_dialect >= cxx11)
 	record_builtin_type (RID_CHAR16, "char16_t", char16_type_node);
     }
 
@@ -5475,7 +5470,7 @@ c_common_nodes_and_builtins (void)
     {
       char32_type_node = make_unsigned_type (char32_type_size);
 
-      if (cxx_dialect >= cxx0x)
+      if (cxx_dialect >= cxx11)
 	record_builtin_type (RID_CHAR32, "char32_t", char32_type_node);
     }
 
@@ -7308,9 +7303,10 @@ check_user_alignment (const_tree align, bool allow_zero)
     }
   else if (allow_zero && integer_zerop (align))
     return -1;
-  else if ((i = tree_log2 (align)) == -1)
+  else if (tree_int_cst_sgn (align) == -1
+           || (i = tree_log2 (align)) == -1)
     {
-      error ("requested alignment is not a power of 2");
+      error ("requested alignment is not a positive power of 2");
       return -1;
     }
   else if (i >= HOST_BITS_PER_INT - BITS_PER_UNIT_LOG)
@@ -7580,13 +7576,7 @@ handle_alias_ifunc_attribute (bool is_alias, tree *node, tree name, tree args,
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	DECL_INITIAL (decl) = error_mark_node;
       else
-	{
-	  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
-	    DECL_EXTERNAL (decl) = 1;
-	  else
-	    DECL_EXTERNAL (decl) = 0;
-	  TREE_STATIC (decl) = 1;
-	}
+	TREE_STATIC (decl) = 1;
 
       if (!is_alias)
 	/* ifuncs are also aliases, so set that attribute too. */
@@ -11428,6 +11418,7 @@ c_common_init_ts (void)
 {
   MARK_TS_TYPED (C_MAYBE_CONST_EXPR);
   MARK_TS_TYPED (EXCESS_PRECISION_EXPR);
+  MARK_TS_TYPED (ARRAY_NOTATION_REF);
 }
 
 /* Build a user-defined numeric literal out of an integer constant type VALUE

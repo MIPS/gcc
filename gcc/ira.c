@@ -2188,7 +2188,7 @@ ira_update_equiv_info_by_shuffle_insn (int to_regno, int from_regno, rtx insns)
       && (! ira_reg_equiv[to_regno].defined_p
 	  || ((x = ira_reg_equiv[to_regno].memory) != NULL_RTX
 	      && ! MEM_READONLY_P (x))))
-      return;
+    return;
   insn = insns;
   if (NEXT_INSN (insn) != NULL_RTX)
     {
@@ -2520,7 +2520,7 @@ validate_equiv_mem_from_store (rtx dest, const_rtx set ATTRIBUTE_UNUSED,
   if ((REG_P (dest)
        && reg_overlap_mentioned_p (dest, equiv_mem))
       || (MEM_P (dest)
-	  && true_dependence (dest, VOIDmode, equiv_mem)))
+	  && anti_dependence (equiv_mem, dest)))
     equiv_mem_modified = 1;
 }
 
@@ -2863,6 +2863,28 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
     }
 }
 
+/* Check whether the SUBREG is a paradoxical subreg and set the result
+   in PDX_SUBREGS.  */
+
+static int
+set_paradoxical_subreg (rtx *subreg, void *pdx_subregs)
+{
+  rtx reg;
+
+  if ((*subreg) == NULL_RTX)
+    return 1;
+  if (GET_CODE (*subreg) != SUBREG)
+    return 0;
+  reg = SUBREG_REG (*subreg);
+  if (!REG_P (reg))
+    return 0;
+
+  if (paradoxical_subreg_p (*subreg))
+    ((bool *)pdx_subregs)[REGNO (reg)] = true;
+
+  return 0;
+}
+
 /* In DEBUG_INSN location adjust REGs from CLEARED_REGS bitmap to the
    equivalent replacement.  */
 
@@ -2901,15 +2923,32 @@ update_equiv_regs (void)
   basic_block bb;
   int loop_depth;
   bitmap cleared_regs;
+  bool *pdx_subregs;
 
   /* We need to keep track of whether or not we recorded a LABEL_REF so
      that we know if the jump optimizer needs to be rerun.  */
   recorded_label_ref = 0;
 
+  /* Use pdx_subregs to show whether a reg is used in a paradoxical
+     subreg.  */
+  pdx_subregs = XCNEWVEC (bool, max_regno);
+
   reg_equiv = XCNEWVEC (struct equivalence, max_regno);
   grow_reg_equivs ();
 
   init_alias_analysis ();
+
+  /* Scan insns and set pdx_subregs[regno] if the reg is used in a
+     paradoxical subreg. Don't set such reg sequivalent to a mem,
+     because lra will not substitute such equiv memory in order to
+     prevent access beyond allocated memory for paradoxical memory subreg.  */
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      {
+	if (! INSN_P (insn))
+	  continue;
+	for_each_rtx (&insn, set_paradoxical_subreg, (void *)pdx_subregs);
+      }
 
   /* Scan the insns and find which registers have equivalences.  Do this
      in a separate scan of the insns because (due to -fcse-follow-jumps)
@@ -2971,8 +3010,12 @@ update_equiv_regs (void)
 		 register.  */
 	      reg_equiv[regno].is_arg_equivalence = 1;
 
-	      /* Record for reload that this is an equivalencing insn.  */
-	      if (rtx_equal_p (src, XEXP (note, 0)))
+	      /* The insn result can have equivalence memory although
+		 the equivalence is not set up by the insn.  We add
+		 this insn to init insns as it is a flag for now that
+		 regno has an equivalence.  We will remove the insn
+		 from init insn list later.  */
+	      if (rtx_equal_p (src, XEXP (note, 0)) || MEM_P (XEXP (note, 0)))
 		ira_reg_equiv[regno].init_insns
 		  = gen_rtx_INSN_LIST (VOIDmode, insn,
 				       ira_reg_equiv[regno].init_insns);
@@ -3004,6 +3047,13 @@ update_equiv_regs (void)
 	    {
 	      /* This might be setting a SUBREG of a pseudo, a pseudo that is
 		 also set somewhere else to a constant.  */
+	      note_stores (set, no_equiv, NULL);
+	      continue;
+	    }
+
+	  /* Don't set reg (if pdx_subregs[regno] == true) equivalent to a mem.  */
+	  if (MEM_P (src) && pdx_subregs[regno])
+	    {
 	      note_stores (set, no_equiv, NULL);
 	      continue;
 	    }
@@ -3166,7 +3216,8 @@ update_equiv_regs (void)
 	  && reg_equiv[regno].init_insns != const0_rtx
 	  && ! find_reg_note (XEXP (reg_equiv[regno].init_insns, 0),
 			      REG_EQUIV, NULL_RTX)
-	  && ! contains_replace_regs (XEXP (dest, 0)))
+	  && ! contains_replace_regs (XEXP (dest, 0))
+	  && ! pdx_subregs[regno])
 	{
 	  rtx init_insn = XEXP (reg_equiv[regno].init_insns, 0);
 	  if (validate_equiv_mem (init_insn, src, dest)
@@ -3357,6 +3408,7 @@ update_equiv_regs (void)
 
   end_alias_analysis ();
   free (reg_equiv);
+  free (pdx_subregs);
   return recorded_label_ref;
 }
 
@@ -3368,11 +3420,14 @@ static void
 setup_reg_equiv (void)
 {
   int i;
-  rtx elem, insn, set, x;
+  rtx elem, prev_elem, next_elem, insn, set, x;
 
   for (i = FIRST_PSEUDO_REGISTER; i < ira_reg_equiv_len; i++)
-    for (elem = ira_reg_equiv[i].init_insns; elem; elem = XEXP (elem, 1))
+    for (prev_elem = NULL, elem = ira_reg_equiv[i].init_insns;
+	 elem;
+	 prev_elem = elem, elem = next_elem)
       {
+	next_elem = XEXP (elem, 1);
 	insn = XEXP (elem, 0);
 	set = single_set (insn);
 	
@@ -3381,7 +3436,22 @@ setup_reg_equiv (void)
 	if (set != 0 && (REG_P (SET_DEST (set)) || REG_P (SET_SRC (set))))
 	  {
 	    if ((x = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != NULL)
-	      x = XEXP (x, 0);
+	      {
+		x = XEXP (x, 0);
+		if (REG_P (SET_DEST (set))
+		    && REGNO (SET_DEST (set)) == (unsigned int) i
+		    && ! rtx_equal_p (SET_SRC (set), x) && MEM_P (x))
+		  {
+		    /* This insn reporting the equivalence but
+		       actually not setting it.  Remove it from the
+		       list.  */
+		    if (prev_elem == NULL)
+		      ira_reg_equiv[i].init_insns = next_elem;
+		    else
+		      XEXP (prev_elem, 1) = next_elem;
+		    elem = prev_elem;
+		  }
+	      }
 	    else if (REG_P (SET_DEST (set))
 		     && REGNO (SET_DEST (set)) == (unsigned int) i)
 	      x = SET_SRC (set);
@@ -4721,7 +4791,7 @@ struct rtl_opt_pass pass_ira =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
+  TODO_do_not_ggc_collect               /* todo_flags_finish */
  }
 };
 
@@ -4748,6 +4818,6 @@ struct rtl_opt_pass pass_reload =
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
   0,                                    /* todo_flags_start */
-  TODO_ggc_collect                      /* todo_flags_finish */
+  0					/* todo_flags_finish */
  }
 };
