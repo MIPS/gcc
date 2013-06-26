@@ -2943,17 +2943,6 @@ static inline int melt_curframdepth (void) {
 /* declare the current callframe */
 #if MELT_HAVE_DEBUG>0
 
-/* this file is set thru the GCCMELT_TRACE_LOCATION environment
-   variable.  You almost never need that, except for low level
-   debugging. */
-MELT_EXTERN FILE* melt_loctrace_file;
-
-#define MELT_TRACE_LOCATION(S) do{			\
-  if (MELT_UNLIKELY(melt_loctrace_file != NULL)) {	\
-    fputs((S), melt_loctrace_file);			\
-    putc('\n', melt_loctrace_file);			\
-  }}while(0)
-
 
 ////////////////////////////////////////////////////////////////
 #if MELT_HAVE_CLASSY_FRAME
@@ -3044,7 +3033,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
   meltfram__.mcfr_prev						\
     = (struct melt_callframe_st*) melt_topframe;		\
   melt_topframe = ((struct melt_callframe_st*)&meltfram__);	\
-  MELT_TRACE_LOCATION (meltfram__.mcfr_flocs);                  \
 } while(0)
 
 #define MELT_INITFRAME_AT_MACRO(NBVAR,CLOS,FIL,LIN) \
@@ -3054,7 +3042,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
 
 #define MELT_LOCATION(LOCS) do{			\
   meltfram__.mcfr_flocs = LOCS;			\
-  MELT_TRACE_LOCATION (meltfram__.mcfr_flocs);	\
 }while(0)
 
 #define MELT_LOCATION_HERE_AT(FIL,LIN,MSG) do {		\
@@ -3064,7 +3051,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
              "%s:%d <%s>",				\
 	     basename (FIL), (int)LIN, MSG);		\
   meltfram__.mcfr_flocs =  locbuf_##LIN;		\
-  MELT_TRACE_LOCATION (meltfram__.mcfr_flocs);		\
 } while(0)
 /* We need several indirections of macro to have the ##LIN trick above
    working!  */
@@ -3075,13 +3061,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
 #define MELT_LOCATION_HERE(MSG)  MELT_LOCATION_HERE_MACRO(MSG)
 
 
-#define MELT_TRACE_EXIT_LOCATION_AT(FIL,LIN) do {	\
- if (MELT_UNLIKELY(melt_loctrace_file != NULL))		\
-   fprintf (melt_loctrace_file, "%s:%d -%s\n",		\
-	    melt_basename (FIL), LIN, __func__);	\
-} while(0)
-#define MELT_TRACE_EXIT_LOCATION() MELT_TRACE_EXIT_LOCATION_AT(__FILE__,__LINE__)
-
 /* SBUF should be a local array of char */
 #define MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,...) do {	\
   memset (SBUF, 0, sizeof(SBUF));				\
@@ -3090,7 +3069,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
 	    melt_basename (FIL),				\
             (int)LIN, __VA_ARGS__);				\
   meltfram__.mcfr_flocs = SBUF;					\
-  MELT_TRACE_LOCATION (meltfram__.mcfr_flocs);			\
 } while(0)
 /* We need several indirections of macro to have the ##LIN trick above
    working!  */
@@ -3112,7 +3090,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
 
 /* exit the current frame and return */
 #define MELT_EXITFRAME() do { /*oldstyle exitframe*/		\
-    MELT_TRACE_EXIT_LOCATION ();				\
     melt_topframe						\
       = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
 } while(0)
@@ -3158,8 +3135,6 @@ MELT_EXTERN FILE* melt_loctrace_file;
 #define MELT_LOCATION(LOCS) do{/*location without MELT_HAVE_DEBUG*/}while(0)
 #define MELT_LOCATION_HERE(MSG) do{/*locationhere without MELT_HAVE_DEBUG*/}while(0)
 #define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...) do{/*locationhereprintf without MELT_HAVE_DEBUG*/}while(0)
-#define MELT_TRACE_LOCATION(S) do{/*trace location without MELT_HAVE_DEBUG*/}while(0)
-#define MELT_TRACE_EXIT_LOCATION() do {/*trace exit location without MELT_HAVE_DEBUG*/}while(0)
 
 /* initialize the current callframe and link it at top */
 #define MELT_INITFRAME(NBVAR,CLOS) do {	 /*initframe without MELT_HAVE_DEBUG*/ \
@@ -3172,16 +3147,15 @@ MELT_EXTERN FILE* melt_loctrace_file;
 
 
 /* declare and initialize the current callframe */
-#define MELT_ENTERFRAME(NBVAR,CLOS) \
+#define MELT_ENTERFRAME(NBVAR,CLOS) /*oldcallframe*/ 	\
   MELT_DECLFRAME(NBVAR); MELT_INITFRAME(NBVAR,CLOS)
 
 /* declare and initialize the current callframe */
-#define MELT_ENTEREMPTYFRAME(CLOS) \
+#define MELT_ENTEREMPTYFRAME(CLOS) /*oldemptycallframe */ \
   MELT_DECLEMPTYFRAME(); MELT_INITFRAME(0,CLOS)
 
 /* exit the current frame and return */
-#define MELT_EXITFRAME() do {					\
-    MELT_TRACE_EXIT_LOCATION ();				\
+#define MELT_EXITFRAME() do { /*oldexitframe*/			\
     melt_topframe						\
       = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
 } while(0)
@@ -3190,6 +3164,10 @@ MELT_EXTERN FILE* melt_loctrace_file;
 #endif /*!MELT_HAVE_DEBUG*/
 
 #endif /*MELT_HAVE_CLASSY_FRAME*/
+
+#warning temporary MELT_TRACE_LOCATION & MELT_TRACE_EXIT_LOCATION
+#define MELT_TRACE_LOCATION(S) do{}while(0)
+#define MELT_TRACE_EXIT_LOCATION() do{}while(0)
 
 /* Internal unction to be called by MELT code when the
    :sysdata_inchannel_data is changed.  Called by code_chunk-s inside

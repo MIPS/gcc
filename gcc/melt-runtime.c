@@ -314,9 +314,6 @@ static FILE* melt_trace_module_fil;
    the GCCMELT_TRACE_SOURCE environment variable. */
 static FILE* melt_trace_source_fil;
 
-#if MELT_HAVE_DEBUG
-FILE* melt_loctrace_file; /* thru GCCMELT_TRACE_LOCATION env.var. */
-#endif
 
 #define MELT_MODULE_MAGIC  0x5cc065cf  /*1556112847*/
 
@@ -10845,33 +10842,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 #endif  /* MELT_IS_PLUGIN */
 
 
-  /* Additional debug specific code.  */
-#if MELT_HAVE_DEBUG
-  {
-    char* tracepath = getenv ("GCCMELT_TRACE_LOCATION");
-    if (tracepath) 
-      {
-	melt_loctrace_file = fopen (tracepath, "w");
-	if (melt_loctrace_file) 
-	  {
-	    time_t now = 0;
-	    time (&now);
-	    fprintf (melt_loctrace_file, 
-		     "#MELT debug location trace file %s for pid %d version %s at %s",
-		     tracepath, (int)getpid(), melt_version_str(), ctime (&now));
-	    inform (UNKNOWN_LOCATION,
-		    "MELT debug tracing location in file %s"
-		    " from GCCMELT_TRACE_LOCATION env.var", 
-		    tracepath);
-	  }
-	else
-	  warning (0, 
-		   "MELT failed to open tracing location file %s"
-		   " from GCCMELT_TRACE_LOCATION env.var - %s",
-		   tracepath, xstrerror (errno));
-      }
-  }
-#endif /*MELT_HAVE_DEBUG*/
 
   /* Ensure that melt_source_dir & melt_module_dir are non-empty paths
      and accessible directories.  Otherwise, this file has been
@@ -11327,21 +11297,6 @@ melt_do_finalize (void)
       fclose (melt_trace_source_fil);
       melt_trace_source_fil = NULL;
     }
-#if MELT_HAVE_DEBUG
-  if (melt_loctrace_file)
-    {
-      long l = 0;
-      fprintf (melt_loctrace_file,
-	       "\n##*## end of MELT debug location trace file MELT version %s\n",
-	       melt_version_str ());
-      fflush (melt_loctrace_file);
-      l = ftell (melt_loctrace_file);
-      fclose (melt_loctrace_file), melt_loctrace_file = NULL;
-      inform (UNKNOWN_LOCATION, 
-	      "MELT wrote trace location file of %ld Kbytes with GCCMELT_TRACE_LOCATION=%s\n",
-	      l>>10, getenv ("GCCMELT_TRACE_LOCATION"));
-    }
-#endif
   dbgprintf ("melt_do_finalize ended melt_nb_modules=%d", melt_nb_modules);
   if (!quiet_flag)
     { /* when not quiet, the GGC collector displays data, so we show

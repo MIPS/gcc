@@ -2,6 +2,19 @@
 
 2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_TRACE_LOCATION, MELT_TRACE_EXIT_LOCATION):
+	Removing them, temporarily defined as a no-op.
+
+	* melt-runtime.c (melt_loctrace_file): Remove variable.
+	(melt_really_initialize): Ditto, and remove usage of
+	GCCMELT_TRACE_LOCATION environment variable.
+	(melt_do_finalize): Likewise.
+
+	* melt/warmelt-outobj.melt (outpucod_procroutine): Remove emission
+	of MELT_TRACE_EXIT_LOCATION.
+
+2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h: Requires a C++ compiler.
 	(MELT_HAVE_CLASSY_FRAME): Default to 0 if not defined.
 	(Melt_CallFrameWithValues): Minor improvements.
