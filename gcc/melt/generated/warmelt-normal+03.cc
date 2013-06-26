@@ -952,6 +952,8 @@ void MELT_MODULE_VISIBILITY meltmod__WARMELTmiNORMAL__initialmeltchunk_53 (melti
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiNORMAL__initialmeltchunk_54 (meltinitial_frame_t*, char*);
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiNORMAL__initialmeltchunk_55 (meltinitial_frame_t*, char*);
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiNORMAL__initialmeltchunk_56 (meltinitial_frame_t*, char*);
+
+
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiNORMAL__forward_or_mark_module_start_frame (struct melt_callframe_st* fp, int marking);
 
 
@@ -1025,6 +1027,7 @@ meltrout_59_WARMELTmiNORMAL_LAMBDA_cl12(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_59_WARMELTmiNORMAL_LAMBDA_cl12 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -1049,7 +1052,8 @@ meltrout_59_WARMELTmiNORMAL_LAMBDA_cl12(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 36/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl12", meltcallcount);
     /*getargs*/
 
@@ -2079,7 +2083,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl12", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_59_WARMELTmiNORMAL_LAMBDA_cl12_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2155,6 +2161,7 @@ meltrout_60_WARMELTmiNORMAL_LAMBDA_cl13(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_60_WARMELTmiNORMAL_LAMBDA_cl13 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -2179,7 +2186,8 @@ meltrout_60_WARMELTmiNORMAL_LAMBDA_cl13(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 3/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl13", meltcallcount);
     /*getargs*/
 
@@ -2239,7 +2247,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl13", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_60_WARMELTmiNORMAL_LAMBDA_cl13_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2315,6 +2325,7 @@ meltrout_61_WARMELTmiNORMAL_NORMEXP_PROGN(meltclosure_ptr_t meltclosp_, melt_ptr
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_61_WARMELTmiNORMAL_NORMEXP_PROGN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -2339,7 +2350,8 @@ meltrout_61_WARMELTmiNORMAL_NORMEXP_PROGN(meltclosure_ptr_t meltclosp_, melt_ptr
     meltfram__.mcfr_nbvar = 54/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_PROGN", meltcallcount);
     /*getargs*/
 
@@ -3695,7 +3707,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_PROGN", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_61_WARMELTmiNORMAL_NORMEXP_PROGN_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3771,6 +3785,7 @@ meltrout_62_WARMELTmiNORMAL_LAMBDA_cl14(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_62_WARMELTmiNORMAL_LAMBDA_cl14 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -3795,7 +3810,8 @@ meltrout_62_WARMELTmiNORMAL_LAMBDA_cl14(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 5/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl14", meltcallcount);
     /*getargs*/
 
@@ -3872,7 +3888,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl14", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_62_WARMELTmiNORMAL_LAMBDA_cl14_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3948,6 +3966,7 @@ meltrout_63_WARMELTmiNORMAL_NORMEXP_LET(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_63_WARMELTmiNORMAL_NORMEXP_LET is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -3972,7 +3991,8 @@ meltrout_63_WARMELTmiNORMAL_NORMEXP_LET(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 100/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_LET", meltcallcount);
     /*getargs*/
 
@@ -6111,7 +6131,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_LET", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_63_WARMELTmiNORMAL_NORMEXP_LET_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -6187,6 +6209,7 @@ meltrout_64_WARMELTmiNORMAL_LAMBDA_cl15(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_64_WARMELTmiNORMAL_LAMBDA_cl15 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -6211,7 +6234,8 @@ meltrout_64_WARMELTmiNORMAL_LAMBDA_cl15(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 2/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl15", meltcallcount);
     /*getargs*/
 
@@ -6263,7 +6287,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl15", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_64_WARMELTmiNORMAL_LAMBDA_cl15_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -6339,6 +6365,7 @@ meltrout_65_WARMELTmiNORMAL_LAMBDA_cl16(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_65_WARMELTmiNORMAL_LAMBDA_cl16 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -6363,7 +6390,8 @@ meltrout_65_WARMELTmiNORMAL_LAMBDA_cl16(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 8/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl16", meltcallcount);
     /*getargs*/
 
@@ -6491,7 +6519,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl16", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_65_WARMELTmiNORMAL_LAMBDA_cl16_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -6567,6 +6597,7 @@ meltrout_66_WARMELTmiNORMAL_NORMEXP_UNSAFE_GET_FIELD(meltclosure_ptr_t meltclosp
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_66_WARMELTmiNORMAL_NORMEXP_UNSAFE_GET_FIELD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -6591,7 +6622,8 @@ meltrout_66_WARMELTmiNORMAL_NORMEXP_UNSAFE_GET_FIELD(meltclosure_ptr_t meltclosp
     meltfram__.mcfr_nbvar = 37/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_UNSAFE_GET_FIELD", meltcallcount);
     /*getargs*/
 
@@ -7411,7 +7443,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_UNSAFE_GET_FIELD", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_66_WARMELTmiNORMAL_NORMEXP_UNSAFE_GET_FIELD_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -7487,6 +7521,7 @@ meltrout_67_WARMELTmiNORMAL_NORMEXP_GET_FIELD(meltclosure_ptr_t meltclosp_, melt
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_67_WARMELTmiNORMAL_NORMEXP_GET_FIELD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -7511,7 +7546,8 @@ meltrout_67_WARMELTmiNORMAL_NORMEXP_GET_FIELD(meltclosure_ptr_t meltclosp_, melt
     meltfram__.mcfr_nbvar = 47/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_GET_FIELD", meltcallcount);
     /*getargs*/
 
@@ -8647,7 +8683,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_GET_FIELD", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_67_WARMELTmiNORMAL_NORMEXP_GET_FIELD_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -8723,6 +8761,7 @@ meltrout_68_WARMELTmiNORMAL_NORMEXP_UNSAFE_PUT_FIELDS(meltclosure_ptr_t meltclos
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_68_WARMELTmiNORMAL_NORMEXP_UNSAFE_PUT_FIELDS is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -8747,7 +8786,8 @@ meltrout_68_WARMELTmiNORMAL_NORMEXP_UNSAFE_PUT_FIELDS(meltclosure_ptr_t meltclos
     meltfram__.mcfr_nbvar = 44/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_UNSAFE_PUT_FIELDS", meltcallcount);
     /*getargs*/
 
@@ -9687,7 +9727,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_UNSAFE_PUT_FIELDS", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_68_WARMELTmiNORMAL_NORMEXP_UNSAFE_PUT_FIELDS_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -9763,6 +9805,7 @@ meltrout_69_WARMELTmiNORMAL_LAMBDA_cl17(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_69_WARMELTmiNORMAL_LAMBDA_cl17 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -9787,7 +9830,8 @@ meltrout_69_WARMELTmiNORMAL_LAMBDA_cl17(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 19/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl17", meltcallcount);
     /*getargs*/
 
@@ -10267,7 +10311,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl17", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_69_WARMELTmiNORMAL_LAMBDA_cl17_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -10343,6 +10389,7 @@ meltrout_70_WARMELTmiNORMAL_LAMBDA_cl18(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_70_WARMELTmiNORMAL_LAMBDA_cl18 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -10367,7 +10414,8 @@ meltrout_70_WARMELTmiNORMAL_LAMBDA_cl18(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 3/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl18", meltcallcount);
     /*getargs*/
 
@@ -10414,7 +10462,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl18", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_70_WARMELTmiNORMAL_LAMBDA_cl18_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -10490,6 +10540,7 @@ meltrout_71_WARMELTmiNORMAL_NORMEXP_PUT_FIELDS(meltclosure_ptr_t meltclosp_, mel
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_71_WARMELTmiNORMAL_NORMEXP_PUT_FIELDS is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -10514,7 +10565,8 @@ meltrout_71_WARMELTmiNORMAL_NORMEXP_PUT_FIELDS(meltclosure_ptr_t meltclosp_, mel
     meltfram__.mcfr_nbvar = 76/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_PUT_FIELDS", meltcallcount);
     /*getargs*/
 
@@ -12423,7 +12475,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_PUT_FIELDS", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_71_WARMELTmiNORMAL_NORMEXP_PUT_FIELDS_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -12499,6 +12553,7 @@ meltrout_72_WARMELTmiNORMAL_NORMEXP_SETQ(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_72_WARMELTmiNORMAL_NORMEXP_SETQ is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -12523,7 +12578,8 @@ meltrout_72_WARMELTmiNORMAL_NORMEXP_SETQ(meltclosure_ptr_t meltclosp_, melt_ptr_
     meltfram__.mcfr_nbvar = 64/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_SETQ", meltcallcount);
     /*getargs*/
 
@@ -14127,7 +14183,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_SETQ", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_72_WARMELTmiNORMAL_NORMEXP_SETQ_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -14203,6 +14261,7 @@ meltrout_73_WARMELTmiNORMAL_LAMBDA_cl19(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_73_WARMELTmiNORMAL_LAMBDA_cl19 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -14227,7 +14286,8 @@ meltrout_73_WARMELTmiNORMAL_LAMBDA_cl19(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 5/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl19", meltcallcount);
     /*getargs*/
 
@@ -14304,7 +14364,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl19", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_73_WARMELTmiNORMAL_LAMBDA_cl19_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -14380,6 +14442,7 @@ meltrout_74_WARMELTmiNORMAL_NORMEXP_INSTANCE(meltclosure_ptr_t meltclosp_, melt_
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_74_WARMELTmiNORMAL_NORMEXP_INSTANCE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -14404,7 +14467,8 @@ meltrout_74_WARMELTmiNORMAL_NORMEXP_INSTANCE(meltclosure_ptr_t meltclosp_, melt_
     meltfram__.mcfr_nbvar = 55/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_INSTANCE", meltcallcount);
     /*getargs*/
 
@@ -15764,7 +15828,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_INSTANCE", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_74_WARMELTmiNORMAL_NORMEXP_INSTANCE_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -15840,6 +15906,7 @@ meltrout_75_WARMELTmiNORMAL_LAMBDA_cl20(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_75_WARMELTmiNORMAL_LAMBDA_cl20 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -15864,7 +15931,8 @@ meltrout_75_WARMELTmiNORMAL_LAMBDA_cl20(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 40/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl20", meltcallcount);
     /*getargs*/
 
@@ -17001,7 +17069,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl20", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_75_WARMELTmiNORMAL_LAMBDA_cl20_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -17077,6 +17147,7 @@ meltrout_76_WARMELTmiNORMAL_LAMBDA_cl21(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_76_WARMELTmiNORMAL_LAMBDA_cl21 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -17101,7 +17172,8 @@ meltrout_76_WARMELTmiNORMAL_LAMBDA_cl21(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 3/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl21", meltcallcount);
     /*getargs*/
 
@@ -17148,7 +17220,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl21", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_76_WARMELTmiNORMAL_LAMBDA_cl21_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -17224,6 +17298,7 @@ meltrout_77_WARMELTmiNORMAL_NORMEXP_FOREVER(meltclosure_ptr_t meltclosp_, melt_p
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_77_WARMELTmiNORMAL_NORMEXP_FOREVER is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -17248,7 +17323,8 @@ meltrout_77_WARMELTmiNORMAL_NORMEXP_FOREVER(meltclosure_ptr_t meltclosp_, melt_p
     meltfram__.mcfr_nbvar = 76/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_FOREVER", meltcallcount);
     /*getargs*/
 
@@ -19210,7 +19286,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_FOREVER", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_77_WARMELTmiNORMAL_NORMEXP_FOREVER_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -19286,6 +19364,7 @@ meltrout_78_WARMELTmiNORMAL_NORMEXP_EXIT(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_78_WARMELTmiNORMAL_NORMEXP_EXIT is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -19310,7 +19389,8 @@ meltrout_78_WARMELTmiNORMAL_NORMEXP_EXIT(meltclosure_ptr_t meltclosp_, melt_ptr_
     meltfram__.mcfr_nbvar = 39/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_EXIT", meltcallcount);
     /*getargs*/
 
@@ -20162,7 +20242,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_EXIT", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_78_WARMELTmiNORMAL_NORMEXP_EXIT_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -20238,6 +20320,7 @@ meltrout_79_WARMELTmiNORMAL_NORMEXP_AGAIN(meltclosure_ptr_t meltclosp_, melt_ptr
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_79_WARMELTmiNORMAL_NORMEXP_AGAIN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -20262,7 +20345,8 @@ meltrout_79_WARMELTmiNORMAL_NORMEXP_AGAIN(meltclosure_ptr_t meltclosp_, melt_ptr
     meltfram__.mcfr_nbvar = 31/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_AGAIN", meltcallcount);
     /*getargs*/
 
@@ -21025,7 +21109,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_AGAIN", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_79_WARMELTmiNORMAL_NORMEXP_AGAIN_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -21101,6 +21187,7 @@ meltrout_80_WARMELTmiNORMAL_NORMEXP_IFVARIADIC(meltclosure_ptr_t meltclosp_, mel
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_80_WARMELTmiNORMAL_NORMEXP_IFVARIADIC is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -21125,7 +21212,8 @@ meltrout_80_WARMELTmiNORMAL_NORMEXP_IFVARIADIC(meltclosure_ptr_t meltclosp_, mel
     meltfram__.mcfr_nbvar = 112/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_IFVARIADIC", meltcallcount);
     /*getargs*/
 
@@ -24563,7 +24651,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_IFVARIADIC", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_80_WARMELTmiNORMAL_NORMEXP_IFVARIADIC_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -24639,6 +24729,7 @@ meltrout_81_WARMELTmiNORMAL_NORMEXP_COMPILEWARNING(meltclosure_ptr_t meltclosp_,
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_81_WARMELTmiNORMAL_NORMEXP_COMPILEWARNING is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -24663,7 +24754,8 @@ meltrout_81_WARMELTmiNORMAL_NORMEXP_COMPILEWARNING(meltclosure_ptr_t meltclosp_,
     meltfram__.mcfr_nbvar = 23/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_COMPILEWARNING", meltcallcount);
     /*getargs*/
 
@@ -25238,7 +25330,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_COMPILEWARNING", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_81_WARMELTmiNORMAL_NORMEXP_COMPILEWARNING_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -25314,6 +25408,7 @@ meltrout_82_WARMELTmiNORMAL_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_82_WARMELTmiNORMAL_LAMBDA_cl22 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -25338,7 +25433,8 @@ meltrout_82_WARMELTmiNORMAL_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 5/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl22", meltcallcount);
     /*getargs*/
 
@@ -25415,7 +25511,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl22", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_82_WARMELTmiNORMAL_LAMBDA_cl22_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -25491,6 +25589,7 @@ meltrout_83_WARMELTmiNORMAL_REPLACE_LAST_BY_RETURN(meltclosure_ptr_t meltclosp_,
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_83_WARMELTmiNORMAL_REPLACE_LAST_BY_RETURN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -25515,7 +25614,8 @@ meltrout_83_WARMELTmiNORMAL_REPLACE_LAST_BY_RETURN(meltclosure_ptr_t meltclosp_,
     meltfram__.mcfr_nbvar = 59/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("REPLACE_LAST_BY_RETURN", meltcallcount);
     /*getargs*/
 
@@ -26713,7 +26813,9 @@ meltlabend_rout:
     melt_trace_end("REPLACE_LAST_BY_RETURN", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_83_WARMELTmiNORMAL_REPLACE_LAST_BY_RETURN_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -26789,6 +26891,7 @@ meltrout_84_WARMELTmiNORMAL_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_84_WARMELTmiNORMAL_LAMBDA_cl23 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -26813,7 +26916,8 @@ meltrout_84_WARMELTmiNORMAL_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 3/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl23", meltcallcount);
     /*getargs*/
 
@@ -26878,7 +26982,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl23", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_84_WARMELTmiNORMAL_LAMBDA_cl23_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -26954,6 +27060,7 @@ meltrout_85_WARMELTmiNORMAL_NORMEXP_DEFUN(meltclosure_ptr_t meltclosp_, melt_ptr
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_85_WARMELTmiNORMAL_NORMEXP_DEFUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -26978,7 +27085,8 @@ meltrout_85_WARMELTmiNORMAL_NORMEXP_DEFUN(meltclosure_ptr_t meltclosp_, melt_ptr
     meltfram__.mcfr_nbvar = 76/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_DEFUN", meltcallcount);
     /*getargs*/
 
@@ -29329,7 +29437,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_DEFUN", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_85_WARMELTmiNORMAL_NORMEXP_DEFUN_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -29405,6 +29515,7 @@ meltrout_86_WARMELTmiNORMAL_LAMBDA_cl24(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_86_WARMELTmiNORMAL_LAMBDA_cl24 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -29429,7 +29540,8 @@ meltrout_86_WARMELTmiNORMAL_LAMBDA_cl24(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 3/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl24", meltcallcount);
     /*getargs*/
 
@@ -29494,7 +29606,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl24", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_86_WARMELTmiNORMAL_LAMBDA_cl24_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -29570,6 +29684,7 @@ meltrout_87_WARMELTmiNORMAL_LAMBDA_cl25(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_87_WARMELTmiNORMAL_LAMBDA_cl25 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -29594,7 +29709,8 @@ meltrout_87_WARMELTmiNORMAL_LAMBDA_cl25(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 7/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl25", meltcallcount);
     /*getargs*/
 
@@ -29737,7 +29853,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl25", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_87_WARMELTmiNORMAL_LAMBDA_cl25_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -29813,6 +29931,7 @@ meltrout_88_WARMELTmiNORMAL_NORMEXP_DEFHOOK(meltclosure_ptr_t meltclosp_, melt_p
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_88_WARMELTmiNORMAL_NORMEXP_DEFHOOK is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -29837,7 +29956,8 @@ meltrout_88_WARMELTmiNORMAL_NORMEXP_DEFHOOK(meltclosure_ptr_t meltclosp_, melt_p
     meltfram__.mcfr_nbvar = 175/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_DEFHOOK", meltcallcount);
     /*getargs*/
 
@@ -36217,7 +36337,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_DEFHOOK", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_88_WARMELTmiNORMAL_NORMEXP_DEFHOOK_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -36293,6 +36415,7 @@ meltrout_89_WARMELTmiNORMAL_NORMALIZE_LAMBDA(meltclosure_ptr_t meltclosp_, melt_
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_89_WARMELTmiNORMAL_NORMALIZE_LAMBDA is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -36317,7 +36440,8 @@ meltrout_89_WARMELTmiNORMAL_NORMALIZE_LAMBDA(meltclosure_ptr_t meltclosp_, melt_
     meltfram__.mcfr_nbvar = 71/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMALIZE_LAMBDA", meltcallcount);
     /*getargs*/
 
@@ -38538,7 +38662,9 @@ meltlabend_rout:
     melt_trace_end("NORMALIZE_LAMBDA", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_89_WARMELTmiNORMAL_NORMALIZE_LAMBDA_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -38614,6 +38740,7 @@ meltrout_90_WARMELTmiNORMAL_LAMBDA_cl26(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_90_WARMELTmiNORMAL_LAMBDA_cl26 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -38638,7 +38765,8 @@ meltrout_90_WARMELTmiNORMAL_LAMBDA_cl26(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 7/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl26", meltcallcount);
     /*getargs*/
 
@@ -38781,7 +38909,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl26", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_90_WARMELTmiNORMAL_LAMBDA_cl26_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -38857,6 +38987,7 @@ meltrout_91_WARMELTmiNORMAL_NORMEXP_LAMBDA(meltclosure_ptr_t meltclosp_, melt_pt
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_91_WARMELTmiNORMAL_NORMEXP_LAMBDA is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -38881,7 +39012,8 @@ meltrout_91_WARMELTmiNORMAL_NORMEXP_LAMBDA(meltclosure_ptr_t meltclosp_, melt_pt
     meltfram__.mcfr_nbvar = 42/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_LAMBDA", meltcallcount);
     /*getargs*/
 
@@ -40137,7 +40269,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_LAMBDA", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_91_WARMELTmiNORMAL_NORMEXP_LAMBDA_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -40213,6 +40347,7 @@ meltrout_92_WARMELTmiNORMAL_NORMEXP_MULTICALL(meltclosure_ptr_t meltclosp_, melt
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_92_WARMELTmiNORMAL_NORMEXP_MULTICALL is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -40237,7 +40372,8 @@ meltrout_92_WARMELTmiNORMAL_NORMEXP_MULTICALL(meltclosure_ptr_t meltclosp_, melt
     meltfram__.mcfr_nbvar = 98/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_MULTICALL", meltcallcount);
     /*getargs*/
 
@@ -42665,7 +42801,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_MULTICALL", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_92_WARMELTmiNORMAL_NORMEXP_MULTICALL_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -42741,6 +42879,7 @@ meltrout_93_WARMELTmiNORMAL_LAMBDA_cl27(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_93_WARMELTmiNORMAL_LAMBDA_cl27 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -42765,7 +42904,8 @@ meltrout_93_WARMELTmiNORMAL_LAMBDA_cl27(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 11/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl27", meltcallcount);
     /*getargs*/
 
@@ -43014,7 +43154,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl27", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_93_WARMELTmiNORMAL_LAMBDA_cl27_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -43090,6 +43232,7 @@ meltrout_94_WARMELTmiNORMAL_LAMBDA_cl28(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_94_WARMELTmiNORMAL_LAMBDA_cl28 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -43114,7 +43257,8 @@ meltrout_94_WARMELTmiNORMAL_LAMBDA_cl28(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 3/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl28", meltcallcount);
     /*getargs*/
 
@@ -43179,7 +43323,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl28", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_94_WARMELTmiNORMAL_LAMBDA_cl28_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -43255,6 +43401,7 @@ meltrout_95_WARMELTmiNORMAL_LAMBDA_cl29(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_95_WARMELTmiNORMAL_LAMBDA_cl29 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -43279,7 +43426,8 @@ meltrout_95_WARMELTmiNORMAL_LAMBDA_cl29(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_nbvar = 3/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("LAMBDA_cl29", meltcallcount);
     /*getargs*/
 
@@ -43322,7 +43470,9 @@ meltlabend_rout:
     melt_trace_end("LAMBDA_cl29", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_95_WARMELTmiNORMAL_LAMBDA_cl29_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -43398,6 +43548,7 @@ meltrout_96_WARMELTmiNORMAL_NORMEXP_TUPLE(meltclosure_ptr_t meltclosp_, melt_ptr
 #endif /*MELT_HAVE_CLASSY_FRAME*/
                   ;
 #define meltframe meltfram__
+#if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_96_WARMELTmiNORMAL_NORMEXP_TUPLE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -43422,7 +43573,8 @@ meltrout_96_WARMELTmiNORMAL_NORMEXP_TUPLE(meltclosure_ptr_t meltclosp_, melt_ptr
     meltfram__.mcfr_nbvar = 55/*nbval*/;
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = (struct melt_callframe_st *) &meltfram__;
+    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     melt_trace_start("NORMEXP_TUPLE", meltcallcount);
     /*getargs*/
 
@@ -44993,7 +45145,9 @@ meltlabend_rout:
     melt_trace_end("NORMEXP_TUPLE", meltcallcount);
     MELT_TRACE_EXIT_LOCATION ();
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_96_WARMELTmiNORMAL_NORMEXP_TUPLE_melt;
+#if !MELT_HAVE_CLASSY_FRAME
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__

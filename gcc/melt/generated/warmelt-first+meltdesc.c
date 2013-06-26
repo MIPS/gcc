@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-post ";
+const char melt_versionmeltstr[]="0.9.9-post [melt-branch_revision_200402]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-first */
@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /0.9.9-post/warmelt-first";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="6778fa745adb4a8025c1e39befd76f96";
+const char melt_prepromd5meltrun[]="faa91d82c011042e2109aadc1a83c9f4";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="c1a005c9e577fd88791513b69e33fb8f";
+const char melt_primaryhexmd5[]="92876ee8575574ab82c1586eebc3e6cd";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "92f580ff138c6c8fb383417bcb9027ca",
- /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "56381fa210c5ab8b373d9c337881e78c",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "b3c7a8944b8800505b49b86cc7aaca73",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "a3f99e8942415cd8c2ede80a446b26f5",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="49b3930b278a25489dead17d6b20f537" ;
+const char melt_cumulated_hexmd5[]="6e7c56c9c6bd50d5535898a3710b3d56" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiFIRST_mds__49B3930B278A25489DEAD17D6B20F537 1
+#define meltmod_WARMELTmiFIRST_mds__6E7C56C9C6BD50D5535898A3710B3D56 1
 #include "warmelt-first+melttime.h"
 	 
 

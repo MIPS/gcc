@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.8.0 20130314 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-post ";
+const char melt_versionmeltstr[]="0.9.9-post [melt-branch_revision_200402]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-macro */
@@ -39,32 +39,32 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /0.9.9-post/warmelt-macro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="6778fa745adb4a8025c1e39befd76f96";
+const char melt_prepromd5meltrun[]="faa91d82c011042e2109aadc1a83c9f4";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="ba3ee47f7fa5efbd0ae18db699769d15";
+const char melt_primaryhexmd5[]="95405ca7834a2f2d83a637635835e327";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-macro+01.cc #1 */ "dbf155c63974b8c32ea70384d0df367f",
- /*sechexmd5checksum meltbuild-sources/warmelt-macro+02.cc #2 */ "f031dbd05e85e11ad7ef7bfdbb3fb1de",
- /*sechexmd5checksum meltbuild-sources/warmelt-macro+03.cc #3 */ "35bc1c748fc848b5cb1f4d06097e92c4",
- /*sechexmd5checksum meltbuild-sources/warmelt-macro+04.cc #4 */ "7a458faedebee36de88aae9d78f090aa",
- /*sechexmd5checksum meltbuild-sources/warmelt-macro+05.cc #5 */ "b35b0481dd1357988356f3ed979627f8",
- /*sechexmd5checksum meltbuild-sources/warmelt-macro+06.cc #6 */ "a27fb31cfa4c767fe0cb8b1ea04ce347",
+ /*sechexmd5checksum meltbuild-sources/warmelt-macro+01.cc #1 */ "96508f7b4d49724c72338f678eb368ed",
+ /*sechexmd5checksum meltbuild-sources/warmelt-macro+02.cc #2 */ "965e3dfa4e0d62ed68c747153536b4ea",
+ /*sechexmd5checksum meltbuild-sources/warmelt-macro+03.cc #3 */ "19f77a5da28d7bb3a51ba67485bd6c2d",
+ /*sechexmd5checksum meltbuild-sources/warmelt-macro+04.cc #4 */ "116b6ce15161b0c90368f80720128c34",
+ /*sechexmd5checksum meltbuild-sources/warmelt-macro+05.cc #5 */ "2464a919bc9ba766132339106386c18b",
+ /*sechexmd5checksum meltbuild-sources/warmelt-macro+06.cc #6 */ "5d01adf8ad8833e237f598887333f72b",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="c2e94d97e9685385623454a195f9e869" ;
+const char melt_cumulated_hexmd5[]="44235e435b9830ea3e768269f09cec91" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMACRO_mds__C2E94D97E9685385623454A195F9E869 1
+#define meltmod_WARMELTmiMACRO_mds__44235E435B9830EA3E768269F09CEC91 1
 #include "warmelt-macro+melttime.h"
 	 
 
