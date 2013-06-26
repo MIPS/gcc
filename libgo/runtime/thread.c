@@ -137,23 +137,25 @@ __sync_add_and_fetch_8 (uint64* ptr, uint64 add)
 void
 runtime_minit(void)
 {
+#ifndef __GNU__
 	byte* stack;
 	size_t stacksize;
 	stack_t ss;
+#endif
 	sigset_t sigs;
 
 	// Initialize signal handling.
 	// <http://www.gnu.org/software/hurd/open_issues/libpthread_set_stack_size.html>
 #ifdef __GNU__
-	runtime_m()->gsignal = runtime_malg(2 * 1024 * 1024, &stack, &stacksize);
+	runtime_m()->gsignal = nil;
 #else
 	runtime_m()->gsignal = runtime_malg(32*1024, &stack, &stacksize);	// OS X wants >=8K, Linux >=2K
-#endif
 	ss.ss_sp = stack;
 	ss.ss_flags = 0;
 	ss.ss_size = stacksize;
 	if(sigaltstack(&ss, nil) < 0)
 		*(int *)0xf1 = 0xf1;
+#endif
 	if (sigemptyset(&sigs) != 0)
 		runtime_throw("sigemptyset");
 	sigprocmask(SIG_SETMASK, &sigs, nil);
