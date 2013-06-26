@@ -144,6 +144,11 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 #error should be given a MELT_GCC_VERSION
 #endif
 
+#ifndef MELT_ENTERFRAME
+#error MELT runtime needs a MELT_ENTERFRAME macro
+#endif
+
+
 struct plugin_gcc_version *melt_plugin_gcc_version;
 
 #if defined (GCCPLUGIN_VERSION)

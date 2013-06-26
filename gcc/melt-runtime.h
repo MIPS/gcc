@@ -24,6 +24,10 @@ along with GCC; see the file COPYING3.   If not see
 #ifndef MELT_INCLUDED_
 #define MELT_INCLUDED_
 
+#ifndef __cplusplus
+#error MELT runtime requires a C++ compiler
+#endif	/*__cplusplus*/
+
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -37,16 +41,12 @@ extern void fatal_error (const char *, ...);
 #if __GNUC__ >= 4
 #define MELT_MODULE_VISIBILITY  __attribute__ ((visibility ("hidden")))
 #define MELT_PUBLIC_VISIBILITY  __attribute__ ((visibility ("default")))
-#else
+#else /* not GCC 4*/
 #define MELT_MODULE_VISIBILITY
 #define MELT_PUBLIC_VISIBILITY
-#endif
+#endif /*GCC 4*/
 
-#ifdef __cplusplus
 #define MELT_EXTERN extern "C"
-#else
-#define MELT_EXTERN extern
-#endif
 
 /* MELTGCC_DYNAMIC_OBJSTRUCT is a cute hack to "dynamically" compute field
    positions; this is only used to compile warmelt-*-0.c files notably
@@ -54,7 +54,7 @@ extern void fatal_error (const char *, ...);
    enabled, slows down significantly MELT. */
 #ifndef MELTGCC_DYNAMIC_OBJSTRUCT
 #define MELTGCC_DYNAMIC_OBJSTRUCT 0
-#endif
+#endif /*MELTGCC_DYNAMIC_OBJSTRUCT*/
 
 /***** 
        if GGC-collected data, e.g. tree-s, edge-s, ... is computed by
@@ -99,6 +99,10 @@ extern void melt_fatal_info (const char*filename, int lineno);
 /* the version string of GCC when MELT was initialized */
 MELT_EXTERN char* melt_gccversionstr;
 
+#ifndef MELT_HAVE_CLASSY_FRAME
+#define MELT_HAVE_CLASSY_FRAME 0
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+
 /* The version number of GCC, at MELT build time. So 4006 is for 4.6,
    4007 is for 4.7.  Same as MELT_GCC_VERSION constant macro.  */
 MELT_EXTERN const int melt_gcc_version;
@@ -133,8 +137,9 @@ extern const char melt_default_probe[];
 /* Set to 1 iff MELT is a plugin, otherwise 0 */
 extern const int melt_is_plugin;
 
+#if !MELT_HAVE_CLASSY_FRAME
 struct melt_callframe_st /* forward declaration */;
-
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 /* the system dynamically loaded [thru dlopen] library suffix, often
    .so for ELF shared objects; it should be a constant string (so its
@@ -214,16 +219,11 @@ void melt_set_real_timer_millisec (long millisec);
 int melt_debug_depth(void);
 
 #ifdef MELT_IS_PLUGIN
-#ifdef __cplusplus
 extern "C" int melt_flag_debug;
 extern "C" int melt_flag_bootstrapping;
-#else /* not C++ but plain C */
-extern int melt_flag_debug;
-extern int melt_flag_bootstrapping;
-#endif /*__cplusplus*/
 /* in the MELT branch melt_flag_debug is #define-d as
    global_options.x_melt_flag_debug in generated file options.h */
-#endif
+#endif /*MELT_IS_PLUGIN*/
 
 #if MELT_HAVE_DEBUG
 
@@ -2871,7 +2871,7 @@ protected:
   };
 };				// end class Melt_CallFrame.
 
-template<unsigned Nbval> class Melt_CallFrameWithValues 
+template<unsigned NbVal> class Melt_CallFrameWithValues 
   : public class Melt_CallFrame {
 public:
   melt_ptr_t mcfr_varptr[NbVal];
@@ -2885,8 +2885,10 @@ public:
 	gt_ggc_mx_melt_un (mcfr_varptr[ix]);
   };
   virtual void melt_mark_ggc_data (void) { melt_mark_values (); };
-  Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL) : public Melt_CallFrame(sz,clos) {};
-  Melt_CallFrameWithValues(size_t sz, melthook_ptr_t hook) : public Melt_CallFrame(sz,hook) {};
+  Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL) 
+    : Melt_CallFrame(sz,clos) {};
+  Melt_CallFrameWithValues(size_t sz, melthook_ptr_t hook) 
+    : Melt_CallFrame(sz,hook) {};
   ~Melt_CallFrameWithValues() {};
 };				// end template class Melt_CallFrameWithValues
 
@@ -2957,6 +2959,7 @@ MELT_EXTERN FILE* melt_loctrace_file;
 #if MELT_HAVE_CLASSY_FRAME
 
 #define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
+  /* classy enter frame */					\
   Melt_CallFrameWithValues<NbVar> meltfram__			\
     (meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
   static char meltlocbuf_##Lin [92];				\
@@ -3100,15 +3103,15 @@ MELT_EXTERN FILE* melt_loctrace_file;
 
 
 /* declare and initialize the current callframe */
-#define MELT_ENTERFRAME(NBVAR,CLOS) \
+#define MELT_ENTERFRAME(NBVAR,CLOS) /*oldstyle enterframe */ 	\
   MELT_DECLFRAME(NBVAR); MELT_INITFRAME(NBVAR,CLOS)
 
 /* declare and initialize the current callframe */
-#define MELT_ENTEREMPTYFRAME(CLOS) \
+#define MELT_ENTEREMPTYFRAME(CLOS)  /*oldstyle emptyenterframe */ \
   MELT_DECLEMPTYFRAME(); MELT_INITFRAME(0,CLOS)
 
 /* exit the current frame and return */
-#define MELT_EXITFRAME() do {					\
+#define MELT_EXITFRAME() do { /*oldstyle exitframe*/		\
     MELT_TRACE_EXIT_LOCATION ();				\
     melt_topframe						\
       = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\

@@ -2,6 +2,14 @@
 
 2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h: Requires a C++ compiler.
+	(MELT_HAVE_CLASSY_FRAME): Default to 0 if not defined.
+	(Melt_CallFrameWithValues): Minor improvements.
+
+	* melt-runtime.c: Requires MELT_ENTERFRAME to be defined.
+
+2013-06-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (Melt_CallFrame): Add melt_clear_rest_of_frame
 	member private function. Rename some fields to be compatible with
 	old practice.
