@@ -2,6 +2,26 @@
 
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (Melt_CallFrame): The melt_marking_callback is a
+	friend.
+
+	* melt-runtime.c (meltgc_make_special, meltgc_make_specialdata)
+	(meltgc_new_int, meltgc_new_mixint, meltgc_new_mixloc)
+	(meltgc_new_mixbigint_mpz, meltgc_new_routine, meltgc_new_closure)
+	(meltgc_new_strbuf, meltgc_new_raw_object, meltgc_new_multiple)
+	(meltgc_new_subseq_multiple, meltgc_new_mult1, meltgc_new_mult2)
+	(meltgc_new_mult3, meltgc_new_mult4, meltgc_new_mult5)
+	(meltgc_new_mult6, meltgc_new_mult7, meltgc_new_list)
+	(meltgc_new_pair, meltgc_prepend_list, meltgc_new_mapobjects)
+	(meltgc_new_mapstrings, meltgc_raw_new_mappointers)
+	(meltgc_new_string_raw_len, meltgc_new_longsbucket): Calls to
+	meltgc_allocate are casted.
+
+	* melt/warmelt-base.melt (valdesc_mapobjects, valdesc_mapstrings)
+	(valdesc_multiple, valdesc_string, valdesc_list): Add casts in
+	cloning part.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

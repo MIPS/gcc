@@ -1176,7 +1176,7 @@ meltgc_make_special (melt_ptr_t discr_p)
     /* our new special data */
   case MELTOBMAG_SPECIAL_DATA:
     {
-      specv = meltgc_allocate (sizeof(struct meltspecialdata_st), 0);
+      specv = (melt_ptr_t) meltgc_allocate (sizeof(struct meltspecialdata_st), 0);
       memset (specv, 0, sizeof(struct meltspecialdata_st));
       spda_specv->discr = (meltobject_ptr_t) discrv;
       spda_specv->meltspec_mark = 0;
@@ -1228,7 +1228,7 @@ meltgc_make_specialdata (melt_ptr_t discr_p)
   magic = ((meltobject_ptr_t)discrv)->meltobj_magic;
   if (magic != MELTOBMAG_SPECIAL_DATA)
     goto end;
-  specv = meltgc_allocate (sizeof(struct meltspecialdata_st), 0);
+  specv = (melt_ptr_t) meltgc_allocate (sizeof(struct meltspecialdata_st), 0);
   memset (specv, 0, sizeof(struct meltspecialdata_st));
   spda_specv->discr = (meltobject_ptr_t) discrv;
   spda_specv->meltspec_mark = 0;
@@ -2028,7 +2028,7 @@ meltgc_new_int (meltobject_ptr_t discr_p, long num)
     goto end;
   if (object_discrv->meltobj_magic != MELTOBMAG_INT)
     goto end;
-  newintv = meltgc_allocate (sizeof (struct meltint_st), 0);
+  newintv = (melt_ptr_t) meltgc_allocate (sizeof (struct meltint_st), 0);
   int_newintv->discr = object_discrv;
   int_newintv->val = num;
 end:
@@ -2060,7 +2060,7 @@ meltgc_new_mixint (meltobject_ptr_t discr_p,
     goto end;
   if (object_discrv->meltobj_magic != MELTOBMAG_MIXINT)
     goto end;
-  newmix = meltgc_allocate (sizeof (struct meltmixint_st), 0);
+  newmix = (melt_ptr_t) meltgc_allocate (sizeof (struct meltmixint_st), 0);
   mix_newmix->discr = object_discrv;
   mix_newmix->intval = num;
   mix_newmix->ptrval = (melt_ptr_t) valv;
@@ -2095,7 +2095,7 @@ meltgc_new_mixloc (meltobject_ptr_t discr_p,
     goto end;
   if (object_discrv->meltobj_magic != MELTOBMAG_MIXLOC)
     goto end;
-  newmix = meltgc_allocate (sizeof (struct meltmixloc_st), 0);
+  newmix = (melt_ptr_t) meltgc_allocate (sizeof (struct meltmixloc_st), 0);
   mix_newmix->discr = object_discrv;
   mix_newmix->intval = num;
   mix_newmix->ptrval = (melt_ptr_t) valv;
@@ -2136,7 +2136,7 @@ meltgc_new_mixbigint_mpz (meltobject_ptr_t discr_p,
     goto end;
   numb = 8*sizeof(mix_newbig->tabig[0]);
   blen = (mpz_sizeinbase (mp, 2) + numb-1) / numb;
-  newbig = meltgc_allocate (sizeof (struct meltmixbigint_st),
+  newbig = (melt_ptr_t) meltgc_allocate (sizeof (struct meltmixbigint_st),
                             blen*sizeof(mix_newbig->tabig[0]));
   mix_newbig->discr = object_discrv;
   mix_newbig->ptrval = (melt_ptr_t) valv;
@@ -2173,7 +2173,7 @@ meltgc_new_real (meltobject_ptr_t discr_p, REAL_VALUE_TYPE r)
     discrv = (meltobject_ptr_t) MELT_PREDEF (DISCR_REAL);
   if (object_discrv->meltobj_magic != MELTOBMAG_REAL)
     goto end;
-  resv = meltgc_allocate (sizeof (struct meltreal_st), 0);
+  resv = (melt_ptr_t) meltgc_allocate (sizeof (struct meltreal_st), 0);
   real_resv->discr = object_discrv;
   real_resv->val = r;
 end:
@@ -2204,8 +2204,8 @@ meltgc_new_routine (meltobject_ptr_t discr_p,
       || !proc || len > MELT_MAXLEN)
     goto end;
   newroutv =
-    meltgc_allocate (sizeof (struct meltroutine_st),
-                     len * sizeof (void *));
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltroutine_st),
+				  len * sizeof (void *));
   rou_newroutv->discr = (meltobject_ptr_t) discrv;
   rou_newroutv->nbval = len;
   rou_newroutv->routfunad = proc;
@@ -2300,8 +2300,8 @@ meltgc_new_closure (meltobject_ptr_t discr_p,
       || len > MELT_MAXLEN)
     goto end;
   newclosv =
-    meltgc_allocate (sizeof (struct meltclosure_st),
-                     sizeof (void *) * len);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltclosure_st),
+				  sizeof (void *) * len);
   clo_newclosv->discr = (meltobject_ptr_t) discrv;
   clo_newclosv->rout = (meltroutine_ptr_t) routv;
   clo_newclosv->nbval = len;
@@ -2338,8 +2338,8 @@ meltgc_new_strbuf (meltobject_ptr_t discr_p, const char *str) {
   for (ix = 2; (blen = melt_primtab[ix]) != 0 && blen < slen; ix++);
   gcc_assert (blen != 0);
   newbufv =
-    meltgc_allocate (offsetof
-                     (struct meltstrbuf_st, buf_space), blen + 1);
+    (melt_ptr_t) meltgc_allocate (offsetof
+				  (struct meltstrbuf_st, buf_space), blen + 1);
   buf_newbufv->discr = (meltobject_ptr_t) discrv;
   buf_newbufv->bufzn = buf_newbufv->buf_space;
   buf_newbufv->buflenix = ix;
@@ -3045,8 +3045,8 @@ meltgc_new_raw_object (meltobject_ptr_t klass_p, unsigned len)
     goto end;
   /* the sizeof below could be the offsetof obj__tabfields */
   newobjv =
-    meltgc_allocate (sizeof (struct meltobject_st),
-                     len * sizeof (void *));
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltobject_st),
+				  len * sizeof (void *));
   obj_newobjv->meltobj_class = (meltobject_ptr_t) klassv;
   do {
     h = melt_lrand () & MELT_MAXHASH;
@@ -3090,8 +3090,8 @@ meltgc_new_multiple (meltobject_ptr_t discr_p, unsigned len)
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * len);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * len);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = len;
 end:
@@ -3131,8 +3131,8 @@ meltgc_new_subseq_multiple (melt_ptr_t oldmul_p, int startix, int endix)
     goto end;
   newlen = endix - startix;
   newmulv =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * newlen);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * newlen);
   mult_newmulv->discr = mult_oldmulv->discr;
   mult_newmulv->nbval = newlen;
   for (i=0; i<newlen; i++)
@@ -3393,8 +3393,8 @@ meltgc_new_mult1 (meltobject_ptr_t discr_p, melt_ptr_t v0_p)
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * 1);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * 1);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = 1;
   mult_newmul->tabval[0] = (melt_ptr_t) v0;
@@ -3428,8 +3428,8 @@ meltgc_new_mult2 (meltobject_ptr_t discr_p,
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * 2);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * 2);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = 2;
   mult_newmul->tabval[0] = (melt_ptr_t) v0;
@@ -3468,8 +3468,8 @@ meltgc_new_mult3 (meltobject_ptr_t discr_p,
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * 3);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * 3);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = 3;
   mult_newmul->tabval[0] = (melt_ptr_t) v0;
@@ -3512,8 +3512,8 @@ meltgc_new_mult4 (meltobject_ptr_t discr_p,
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * 4);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * 4);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = 4;
   mult_newmul->tabval[0] = (melt_ptr_t) v0;
@@ -3562,8 +3562,8 @@ meltgc_new_mult5 (meltobject_ptr_t discr_p,
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * 5);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * 5);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = 5;
   mult_newmul->tabval[0] = (melt_ptr_t) v0;
@@ -3616,8 +3616,8 @@ meltgc_new_mult6 (meltobject_ptr_t discr_p,
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * 6);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * 6);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = 6;
   mult_newmul->tabval[0] = (melt_ptr_t) v0;
@@ -3674,8 +3674,8 @@ meltgc_new_mult7 (meltobject_ptr_t discr_p,
   if (object_discrv->meltobj_magic != MELTOBMAG_MULTIPLE)
     goto end;
   newmul =
-    meltgc_allocate (sizeof (struct meltmultiple_st),
-                     sizeof (void *) * 7);
+    (melt_ptr_t) meltgc_allocate (sizeof (struct meltmultiple_st),
+				  sizeof (void *) * 7);
   mult_newmul->discr = object_discrv;
   mult_newmul->nbval = 7;
   mult_newmul->tabval[0] = (melt_ptr_t) v0;
@@ -3716,7 +3716,7 @@ meltgc_new_list (meltobject_ptr_t discr_p)
     goto end;
   if (object_discrv->meltobj_magic != MELTOBMAG_LIST)
     goto end;
-  newlist = meltgc_allocate (sizeof (struct meltlist_st), 0);
+  newlist = (melt_ptr_t) meltgc_allocate (sizeof (struct meltlist_st), 0);
   list_newlist->discr = object_discrv;
   list_newlist->first = NULL;
   list_newlist->last = NULL;
@@ -3746,7 +3746,7 @@ meltgc_new_pair (meltobject_ptr_t discr_p, void *head_p, void *tail_p)
     goto end;
   if (melt_magic_discr ((melt_ptr_t) tailv) != MELTOBMAG_PAIR)
     tailv = NULL;
-  pairv = meltgc_allocate (sizeof (struct meltpair_st), 0);
+  pairv = (melt_ptr_t) meltgc_allocate (sizeof (struct meltpair_st), 0);
   ((struct meltpair_st *) (pairv))->discr = (meltobject_ptr_t) discrv;
   ((struct meltpair_st *) (pairv))->hd = (melt_ptr_t) headv;
   ((struct meltpair_st *) (pairv))->tl = (struct meltpair_st *) tailv;
@@ -3794,7 +3794,7 @@ meltgc_append_list (melt_ptr_t list_p, melt_ptr_t valu_p)
   if (melt_magic_discr ((melt_ptr_t) list) != MELTOBMAG_LIST
       || ! MELT_PREDEF (DISCR_PAIR))
     goto end;
-  pairv = meltgc_allocate (sizeof (struct meltpair_st), 0);
+  pairv = (melt_ptr_t) meltgc_allocate (sizeof (struct meltpair_st), 0);
   pai_pairv->discr = (meltobject_ptr_t) MELT_PREDEF (DISCR_PAIR);
   pai_pairv->hd = (melt_ptr_t) valu;
   pai_pairv->tl = NULL;
@@ -3833,7 +3833,7 @@ meltgc_prepend_list (melt_ptr_t list_p, melt_ptr_t valu_p)
   if (melt_magic_discr ((melt_ptr_t) list) != MELTOBMAG_LIST
       || ! MELT_PREDEF (DISCR_PAIR))
     goto end;
-  pairv = meltgc_allocate (sizeof (struct meltpair_st), 0);
+  pairv = (melt_ptr_t) meltgc_allocate (sizeof (struct meltpair_st), 0);
   pai_pairv->discr = (meltobject_ptr_t) MELT_PREDEF (DISCR_PAIR);
   pai_pairv->hd = (melt_ptr_t) valu;
   pai_pairv->tl = NULL;
@@ -3936,7 +3936,7 @@ meltgc_new_mapobjects (meltobject_ptr_t discr_p, unsigned len)
   meltgc_reserve (sizeof(struct meltmapobjects_st)
                   + maplen * sizeof (struct entryobjectsmelt_st)
                   + 8 * sizeof(void*));
-  newmapv =
+  newmapv = (melt_ptr_t)
     meltgc_allocate (offsetof
                      (struct meltmapobjects_st, map_space),
                      maplen * sizeof (struct entryobjectsmelt_st));
@@ -4242,7 +4242,8 @@ meltgc_new_mapstrings (meltobject_ptr_t discr_p, unsigned len)
   meltgc_reserve (sizeof (struct meltmapstrings_st)
                   + primlen * sizeof (struct entrystringsmelt_st)
                   + 8 * sizeof(void*));
-  newmapv = meltgc_allocate (sizeof (struct meltmapstrings_st), 0);
+  newmapv = (melt_ptr_t) 
+    meltgc_allocate (sizeof (struct meltmapstrings_st), 0);
   mapstring_newmapv->discr = object_discrv;
   mapstring_newmapv->meltmap_aux = NULL;
   if (len > 0) {
@@ -4589,7 +4590,7 @@ meltgc_raw_new_mappointers (meltobject_ptr_t discr_p, unsigned len)
   meltgc_reserve (sizeof (struct meltmappointers_st)
                   + primlen * sizeof (struct entrypointermelt_st)
                   + 8 * sizeof(void*));
-  newmapv =
+  newmapv = (melt_ptr_t)
     meltgc_allocate (offsetof
                      (struct meltmappointers_st,
                       map_space),
@@ -4851,7 +4852,7 @@ meltgc_new_string_raw_len (meltobject_ptr_t discr_p, const char *str, int slen)
     goto end;
   if (obj_discrv->meltobj_magic != MELTOBMAG_STRING)
     goto end;
-  strv = meltgc_allocate (sizeof (struct meltstring_st), slen + 1);
+  strv = (melt_ptr_t) meltgc_allocate (sizeof (struct meltstring_st), slen + 1);
   str_strv->discr = obj_discrv;
   memcpy (str_strv->val, str, slen);
   str_strv->val[slen] = (char)0;
@@ -13335,7 +13336,7 @@ meltgc_new_longsbucket (meltobject_ptr_t discr_p,
     melt_fatal_error("meltgc_new_longsbucket: too big bucket length %u",
                      len);
   gcc_assert (lenix>0);
-  buckv =
+  buckv = (melt_ptr_t)
     meltgc_allocate (sizeof (struct meltbucketlongs_st),
                      sizeof (struct melt_bucketlongentry_st)*bucklen);
   ((struct meltbucketlongs_st*)(buckv))->discr = (meltobject_ptr_t) discrv;

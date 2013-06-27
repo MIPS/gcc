@@ -2846,6 +2846,7 @@ melt_put_int (melt_ptr_t v, long x)
 class Melt_CallFrame {
   friend void melt_minor_copying_garbage_collector (size_t wanted);
   friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
+  friend void melt_marking_callback (void *, void*);
   static Melt_CallFrame* _top_call_frame_;
   virtual void melt_forward_values (void) =0;
   virtual void melt_mark_ggc_data (void) =0;
