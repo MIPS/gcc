@@ -1910,7 +1910,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      && ref->next == NULL && (se->descriptor_only))
 	    return;
 
-	  gfc_conv_array_ref (se, &ref->u.ar, sym, &expr->where);
+	  gfc_conv_array_ref (se, &ref->u.ar, expr, &expr->where);
 	  /* Return a pointer to an element.  */
 	  break;
 
@@ -7573,6 +7573,9 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
       size = TYPE_SIZE_UNIT (gfc_typenode_for_spec (&expr1->ts));
       size_in_bytes = size;
     }
+
+  size_in_bytes = fold_build2_loc (input_location, MAX_EXPR, size_type_node,
+				   size_in_bytes, size_one_node);
 
   if (expr1->ts.type == BT_DERIVED && expr1->ts.u.derived->attr.alloc_comp)
     {

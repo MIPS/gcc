@@ -779,6 +779,22 @@ finish_return_stmt (tree expr)
   tree r;
   bool no_warning;
 
+  if (flag_enable_cilkplus && contains_array_notation_expr (expr))
+    {
+      size_t rank = 0;
+      
+      if (!find_rank (input_location, expr, expr, false, &rank))
+	return error_mark_node;
+
+      /* If the return expression contains array notations, then flag it as
+	 error.  */
+      if (rank >= 1)
+	{
+	  error_at (input_location, "array notation expression cannot be "
+		    "used as a return value");
+	  return error_mark_node;
+	}
+    }
   expr = check_return_expr (expr, &no_warning);
 
   if (flag_openmp && !check_omp_return ())
@@ -7774,7 +7790,7 @@ non_const_var_error (tree r)
     }
   else
     {
-      if (cxx_dialect >= cxx0x && !DECL_DECLARED_CONSTEXPR_P (r))
+      if (cxx_dialect >= cxx11 && !DECL_DECLARED_CONSTEXPR_P (r))
 	inform (DECL_SOURCE_LOCATION (r),
 		"%qD was not declared %<constexpr%>", r);
       else
@@ -8073,6 +8089,7 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
 				       non_constant_p, overflow_p);
       break;
 
+    case ARRAY_NOTATION_REF:
     case ARRAY_REF:
       r = cxx_eval_array_reference (call, t, allow_non_constant, addr,
 				    non_constant_p, overflow_p);
@@ -8724,7 +8741,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case STATIC_CAST_EXPR:
     case REINTERPRET_CAST_EXPR:
     case IMPLICIT_CONV_EXPR:
-      if (cxx_dialect < cxx0x
+      if (cxx_dialect < cxx11
 	  && !dependent_type_p (TREE_TYPE (t))
 	  && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (t)))
 	/* In C++98, a conversion to non-integral type can't be part of a
@@ -8884,6 +8901,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
       want_rval = true;
       /* Fall through.  */
     case ARRAY_REF:
+    case ARRAY_NOTATION_REF:
     case ARRAY_RANGE_REF:
     case MEMBER_REF:
     case DOTSTAR_EXPR:
@@ -9503,6 +9521,7 @@ add_capture (tree lambda, tree id, tree initializer, bool by_reference_p,
 	  && variably_modified_type_p (TREE_TYPE (type), NULL_TREE))
 	inform (input_location, "because the array element type %qT has "
 		"variable size", TREE_TYPE (type));
+      type = error_mark_node;
     }
   else if (by_reference_p)
     {
