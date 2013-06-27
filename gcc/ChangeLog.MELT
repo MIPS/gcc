@@ -1,6 +1,15 @@
 
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.c: Add casts to melt_ptr_t for most assignement to
+	local pointers in MELT call frames.
+	(melt_dbgbacktrace, melt_dbgshortbacktrace): Add warning to
+	rewrite them for classy call frames.
+
+	* melt/warmelt-base.melt (valdesc_strbuf): Add cast in clone
+	chunk.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (meltgc_new_mult1, meltgc_new_mult2)
 	(meltgc_new_mult3, meltgc_new_mult4, meltgc_new_mult5)
 	(meltgc_new_mult6, meltgc_new_mult7): Remove declarations.
