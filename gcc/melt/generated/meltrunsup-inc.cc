@@ -2771,8 +2771,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltstrbuf_st *dst = NULL;
             /* clone chunk for VALDESC_STRBUF:*/
             /* clone chunk from VALDESC_STRBUF */
-            resv = dst = (struct meltstrbuf_st*)
-                         meltgc_new_strbuf ((meltobject_ptr_t)newdiscrv, NULL);
+            dst = (struct meltstrbuf_st*)
+                  meltgc_new_strbuf ((meltobject_ptr_t)newdiscrv, NULL);
+            resv = (melt_ptr_t) dst;
             src = (struct meltstrbuf_st*)srcvalv;
             meltgc_add_strbuf ((melt_ptr_t) dst, melt_strbuf_str ((melt_ptr_t)src));
             /* end clone chunk from VALDESC_STRBUF */
