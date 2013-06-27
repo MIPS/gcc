@@ -1877,37 +1877,6 @@ melt_ptr_t meltgc_new_multiple (meltobject_ptr_t discr_p,
 melt_ptr_t meltgc_new_subseq_multiple (melt_ptr_t oldmul_p, 
 					     int startix, int endix);
 
-/* allocate a multiple of arity 1 */
-melt_ptr_t meltgc_new_mult1 (meltobject_ptr_t discr_p,
-				   melt_ptr_t v0_p);
-/* allocate a multiple of arity 2 */
-melt_ptr_t meltgc_new_mult2 (meltobject_ptr_t discr_p,
-				   melt_ptr_t v0_p, melt_ptr_t v1_p);
-/* allocate a multiple of arity 3 */
-melt_ptr_t meltgc_new_mult3 (meltobject_ptr_t discr_p,
-				   melt_ptr_t v0_p, melt_ptr_t v1_p,
-				   melt_ptr_t v2_p);
-/* allocate a multiple of arity 4 */
-melt_ptr_t meltgc_new_mult4 (meltobject_ptr_t discr_p,
-				   melt_ptr_t v0_p, melt_ptr_t v1_p,
-				   melt_ptr_t v2_p, melt_ptr_t v3_p);
-/* allocate a multiple of arity 5 */
-melt_ptr_t meltgc_new_mult5 (meltobject_ptr_t discr_p,
-				   melt_ptr_t v0_p, melt_ptr_t v1_p,
-				   melt_ptr_t v2_p, melt_ptr_t v3_p,
-				   melt_ptr_t v4_p);
-/* allocate a multiple of arity 6 */
-melt_ptr_t meltgc_new_mult6 (meltobject_ptr_t discr_p,
-				   melt_ptr_t v0_p, melt_ptr_t v1_p,
-				   melt_ptr_t v2_p, melt_ptr_t v3_p,
-				   melt_ptr_t v4_p, melt_ptr_t v5_p);
-/* allocate a multiple of arity 7 */
-melt_ptr_t meltgc_new_mult7 (meltobject_ptr_t discr_p,
-				   melt_ptr_t v0_p, melt_ptr_t v1_p,
-				   melt_ptr_t v2_p, melt_ptr_t v3_p,
-				   melt_ptr_t v4_p, melt_ptr_t v5_p,
-				   melt_ptr_t v6_p);
-
 
 /* allocate a new (empty) list */
 melt_ptr_t meltgc_new_list (meltobject_ptr_t discr_p);

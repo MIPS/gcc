@@ -1,6 +1,15 @@
 
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (meltgc_new_mult1, meltgc_new_mult2)
+	(meltgc_new_mult3, meltgc_new_mult4, meltgc_new_mult5)
+	(meltgc_new_mult6, meltgc_new_mult7): Remove declarations.
+
+	* melt-runtime.c (meltgc_new_mult1, meltgc_new_mult2)
+	(meltgc_new_mult3, meltgc_new_mult4, meltgc_new_mult5)
+	(meltgc_new_mult6, meltgc_new_mult7): Remove function definitions.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
