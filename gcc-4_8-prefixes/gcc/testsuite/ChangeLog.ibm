@@ -1,4 +1,26 @@
-2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from the trunk
+
+	2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+		    Pat Haugen <pthaugen@us.ibm.com>
+		    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/atomic-p7.c: New file, add tests for atomic
+	load/store instructions on power7, power8.
+	* gcc.target/powerpc/atomic-p8.c: Likewise.
+
+2013-06-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from the trunk
+
+	2013-06-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+		    Pat Haugen <pthaugen@us.ibm.com>
+		    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/atomic-p7.c: New file, add tests for atomic
+	load/store instructions on power7, power8.
+	* gcc.target/powerpc/atomic-p8.c: Likewise.
 
 	Back port from the trunk
 
