@@ -1,6 +1,15 @@
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (melt_warning_at_strbuf) Typos in comments.
+	(melt_dynobjstruct_getfield_object_at)
+	(melt_dynobjstruct_putfield_object_at, melt_getfield_object_at)
+	(melt_putfield_object_at): Mention MELT in error messages.
+	(Melt_CallFrame::melt_clear_rest_of_frame): New member function.
+	(Melt_CallFrameWithValues): Call it.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.c (melt_really_initialize): When
 	ENABLE_GC_ALWAYS_COLLECT inform about slowdown.
 

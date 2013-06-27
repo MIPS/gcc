@@ -1442,7 +1442,7 @@ void melt_inform_str(melt_ptr_t mixloc_p, const char* msg, melt_ptr_t str_p);
 int* melt_dynobjstruct_fieldoffset_at(const char*fldnam, const char*fil, int lin);
 int* melt_dynobjstruct_classlength_at(const char*clanam, const char* fil, int lin);
 
-/* Print a warning at location loc with message $msg (a strbfuf value). */
+/* Print a warning at location loc with message $msg (a strbuf value). */
 void melt_warning_at_strbuf (location_t loc, melt_ptr_t msgbuf);
 
 #if MELTGCC_DYNAMIC_OBJSTRUCT
@@ -1459,10 +1459,12 @@ melt_dynobjstruct_getfield_object_at (melt_ptr_t ob, unsigned off, const char*fl
       if (poff && *poff) off = **poff;
       if (off < pob->obj_len)
 	return pob->obj_vartab[off];
-      error ("checked dynamic field access failed (bad offset %d/%d/%d [%s:%d]) - %s", (int)off, (int)pob->obj_len, (int)origoff, fil, lin, fldnam?fldnam:"...");
+      error ("MELT checked dynamic field access failed (bad offset %d/%d/%d [%s:%d]) - %s", 
+	     (int)off, (int)pob->obj_len, (int)origoff, fil, lin, fldnam?fldnam:"...");
       return NULL;
     }
-  error ("checked dynamic field access failed (not object [%s:%d]) - %s", fil, lin, fldnam?fldnam:"...");
+  error ("MELT checked dynamic field access failed (not object [%s:%d]) - %s", 
+	 fil, lin, fldnam?fldnam:"...");
   return NULL;
 }
 
@@ -1497,11 +1499,12 @@ melt_dynobjstruct_putfield_object_at(melt_ptr_t ob, unsigned off, melt_ptr_t val
 	pob->obj_vartab[off] = val;
 	return;
       }
-      error ("checked dynamic field put failed (bad offset %d/%d/%d [%s:%d]) - %s",
+      error ("MELT checked dynamic field put failed (bad offset %d/%d/%d [%s:%d]) - %s",
 	     (int)off, (int)pob->obj_len, (int)origoff, fil, lin, fldnam?fldnam:"...");
       return;
     }
-  error ("checked dynamic field put failed (not object [%s:%d]) - %s", fil, lin, fldnam?fldnam:"...");
+  error ("MELT checked dynamic field put failed (not object [%s:%d]) - %s", 
+	 fil, lin, fldnam?fldnam:"...");
 }
 
 #define melt_putfield_object_at(Obj,Off,Val,Fldnam,Fil,Lin) do {	\
@@ -1561,10 +1564,12 @@ melt_getfield_object_at (melt_ptr_t ob, unsigned off, const char*msg, const char
       meltobject_ptr_t pob = (meltobject_ptr_t) ob;
       if (off < pob->obj_len)
 	return pob->obj_vartab[off];
-      error ("checked field access failed (bad offset %d/len %d/origoff %d [%s:%d]) - %s", (int)off, (int)pob->obj_len, (int)origoff, fil, lin, msg?msg:"...");
+      error ("MELT checked field access failed (bad offset %d/len %d/origoff %d [%s:%d]) - %s", 
+	     (int)off, (int)pob->obj_len, (int)origoff, fil, lin, msg?msg:"...");
       return NULL;
     }
-  error ("checked field access failed (not object [%s:%d]) - %s", fil, lin, msg?msg:"...");
+  error ("MELT checked field access failed (not object [%s:%d]) - %s", 
+	 fil, lin, msg?msg:"...");
   return NULL;
 }
 
@@ -1578,9 +1583,11 @@ melt_putfield_object_at(melt_ptr_t ob, unsigned off, melt_ptr_t val, const char*
 	pob->obj_vartab[off] = val;
 	return;
       }
-      melt_fatal_error("checked field put failed (bad offset %d/%d [%s:%d]) - %s", (int)off, (int)pob->obj_len, fil, lin, msg?msg:"...");
+      melt_fatal_error("MELT checked field put failed (bad offset %d/%d [%s:%d]) - %s", 
+		       (int)off, (int)pob->obj_len, fil, lin, msg?msg:"...");
     }
-  melt_fatal_error("checked field put failed (not object [%s:%d]) - %s", fil, lin, msg?msg:"...");
+  melt_fatal_error("MELT checked field put failed (not object [%s:%d]) - %s", 
+		   fil, lin, msg?msg:"...");
 }
 
 static inline melt_ptr_t
@@ -2854,6 +2861,12 @@ public:
     melthook_ptr_t mcfr_hook;
     melt_ptr_t mcfr_current;
   };
+private:
+  // this is tricky but essential; we need to explicitly zero the rest of the frame.
+  void melt_clear_rest_of_frame (size_t sz) {
+    if (sz > sizeof(Melt_CallFrame))
+      memset ((&_meltcf_current)+1, 0, sz - sizeof(Melt_CallFrame));
+  };
 protected:
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
     : _meltcf_prev (_top_call_frame_), mcfr_flocs(NULL), mcfr_clos(clos) {
@@ -2872,7 +2885,7 @@ protected:
 };				// end class Melt_CallFrame.
 
 template<unsigned NbVal> class Melt_CallFrameWithValues 
-  : public class Melt_CallFrame {
+  : public Melt_CallFrame {
 public:
   melt_ptr_t mcfr_varptr[NbVal];
   virtual void melt_forward_values (void) { 
@@ -3003,6 +3016,7 @@ static inline int melt_curframdepth (void) {
 
 
 #else /*!MELT_HAVE_CLASSY_FRAME -------------*/
+
 
 #define MELT_DECLFRAME(NBVAR) struct {		\
   int mcfr_nbvar;				\
