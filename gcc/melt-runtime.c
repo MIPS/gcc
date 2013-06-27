@@ -1081,7 +1081,6 @@ melt_check_call_frames_at (int noyoungflag, const char *msg,
 {
   /* Don't call melt_fatal_error here, because if the MELT stack is
      corrupted we can't show it! */
-  struct melt_callframe_st *cfram = NULL;
   int nbfram = 0, nbvar = 0;
   meltnbcheckcallframes++;
   if (!msg)
@@ -1092,7 +1091,8 @@ melt_check_call_frames_at (int noyoungflag, const char *msg,
     ("start check_call_frames#%ld {%s} from %s:%d",
      meltnbcheckcallframes, msg, melt_basename (filenam), lineno);
   }
-  for (cfram = melt_topframe; cfram != NULL; cfram = cfram->mcfr_prev) {
+#if !MELT_HAVE_CLASSY_FRAME
+  for (struct melt_callframe_st *cfram = melt_topframe; cfram != NULL; cfram = cfram->mcfr_prev) {
     int varix = 0;
     nbfram++;
     if (cfram->mcfr_closp != NULL && cfram->mcfr_nbvar >= 0) {
@@ -1126,6 +1126,7 @@ melt_check_call_frames_at (int noyoungflag, const char *msg,
                         filenam, lineno);
     }
   }
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
   if (meltthresholdcheckcallframes > 0
       && meltnbcheckcallframes > meltthresholdcheckcallframes)
     debugeprintf ("end check_call_frames#%ld {%s} %d frames/%d vars %s:%d",

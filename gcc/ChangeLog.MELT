@@ -2,6 +2,15 @@
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-modes.melt (generate_runtypesupport_enum_objmagic):
+	Improve emitted comment.
+	(generate_runtypesupport_gty): Emit conversion operator wrapped
+	with #ifndef MELT_NO_CONVERSION_OPERATOR.
+
+	* melt/generated/meltrunsup-inc.cc: Temporary manual edits.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

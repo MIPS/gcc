@@ -2130,7 +2130,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
     resv = srcvalv;
     if (!srcvalv)
         goto end;
-    srcdiscrv = ((melt_ptr_t)srcvalv)->u_discr;
+    srcdiscrv = (melt_ptr_t) (((melt_ptr_t)srcvalv)->u_discr);
     if (!newdiscrv)
         newdiscrv = srcdiscrv;
     if (melt_magic_discr((melt_ptr_t)newdiscrv) != MELTOBMAG_OBJECT
@@ -2535,7 +2535,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             /* clone chunk for VALDESC_LIST:*/
             /* cloning from VALDESC_LIST */
             struct meltpair_st* curpair = NULL;
-            resv = dst = (struct meltlist_st*) meltgc_new_list ((meltobject_ptr_t)newdiscrv);
+            dst = (struct meltlist_st*) meltgc_new_list ((meltobject_ptr_t)newdiscrv);
+	    resv =  (melt_ptr_t) dst;
             src = (struct meltlist_st*) srcvalv;
             for (curpair = ((struct meltlist_st *) src)->first;
                     melt_magic_discr ((melt_ptr_t) curpair) == MELTOBMAG_PAIR;
@@ -2543,7 +2544,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                 {
                     src = (struct meltlist_st*) srcvalv;
                     dst = (struct meltlist_st*) resv;
-                    compv = curpair;
+                    compv = (melt_ptr_t) curpair;
                     meltgc_append_list ((melt_ptr_t) resv, curpair->hd);
                     /* copy, because GC might have moved values. */
                     curpair = (struct meltpair_st*) compv;
@@ -2570,7 +2571,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             unsigned srcix = 0;
             dst = (struct meltmapobjects_st*)
                   meltgc_new_mapobjects ((meltobject_ptr_t)newdiscrv, newlen);
-            resv = dst;
+            resv = (melt_ptr_t) dst;
             dst->meltmap_aux = src->meltmap_aux;
             for (srcix = 0; srcix < srclen; srcix++)
                 {
@@ -2604,7 +2605,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             unsigned newlen = 4*srccount/3+4;
             unsigned srcix = 0;
             dst = (struct meltmapstrings_st*) meltgc_new_mapstrings ((meltobject_ptr_t)newdiscrv, newlen);
-            resv = dst;
+            resv = (melt_ptr_t) dst;
             dst->meltmap_aux = src->meltmap_aux;
             for (srcix = 0; srcix < srclen; srcix++)
                 {
@@ -2665,8 +2666,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             /* cloning from VALDESC_MULTIPLE */
             unsigned srclen = src->nbval;
             unsigned srcix = 0;
-            resv = dst =
-                       (struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
+            dst =(struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
+	    resv = (melt_ptr_t) dst;
             src = (struct meltmultiple_st*) srcvalv; /* could have moved */
             for (srcix = 0; srcix < srclen; srcix++)
                 dst->tabval[srcix] = src->tabval[srcix];
@@ -2767,8 +2768,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             struct meltstrbuf_st *dst = NULL;
             /* clone chunk for VALDESC_STRBUF:*/
             /* clone chunk from VALDESC_STRBUF */
-            resv = dst = (struct meltstrbuf_st*)
+            dst = (struct meltstrbuf_st*)
                          meltgc_new_strbuf ((meltobject_ptr_t)newdiscrv, NULL);
+	    resv = (melt_ptr_t) dst;
             src = (struct meltstrbuf_st*)srcvalv;
             meltgc_add_strbuf ((melt_ptr_t) dst, melt_strbuf_str ((melt_ptr_t)src));
             /* end clone chunk from VALDESC_STRBUF */

@@ -1930,7 +1930,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	    " tix=" tix)
      (assert_msg "check curctyp" (is_a curctyp class_ctype_gty))
      (add2sbuf_indentnl outbuf 1)
-     (add2sbuf_strconst outbuf "/*gtyctype #")
+     (add2sbuf_strconst outbuf "/*gtyctype magic #")
      (add2sbuf_longdec outbuf (+i 1 tix))
      (add2sbuf_strconst outbuf " ")
      (add2sbuf_ccomstring outbuf (get_field :named_name curctyp))
@@ -2030,7 +2030,7 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (assert_msg "check curctyp" (is_a curctyp class_ctype_gty))
    (add2sbuf_indentnl outbuf 0)
    (add2sbuf_indentnl outbuf 0)
-   (add2sbuf_strconst outbuf "/*gtyctype #")
+   (add2sbuf_strconst outbuf "/*gtyctypebox gtyctyp #")
    (add2sbuf_longdec outbuf (+i 1 ix))
    (add2sbuf_strconst outbuf " ")
    (add2sbuf_ccomstring outbuf (get_field :named_name curctyp))
@@ -2046,8 +2046,14 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (add2sbuf_indentnl outbuf 3)
    (add2sbuf_string outbuf (get_field :ctype_cname curctyp))
    (add2sbuf_strconst outbuf " val;")
+   (add2sbuf_indentnl outbuf 0)
+   (add2out outbuf "#ifndef MELT_NO_CONVERSION_OPERATOR")
+   (add2sbuf_indentnl outbuf 3)
+   (add2out outbuf "melt_ptr_t operator (melt_ptr_t) () { return reinterpret_cast<melt_ptr_t>(this); }")
    (add2sbuf_indentnl outbuf 3)
    (add2sbuf_strconst outbuf "};")
+   (add2sbuf_indentnl outbuf 0)
+   (add2out outbuf "#endif /*MELT_NO_CONVERSION_OPERATOR*/")
    (add2sbuf_indentnl outbuf 0)
    (add2sbuf_strconst outbuf "struct GTY (()) ")
    (add2sbuf_string outbuf (get_field :ctypg_entrystruct curctyp))
@@ -2215,11 +2221,12 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
   (add2sbuf_indentnl outbuf 0)
   (add2sbuf_strconst outbuf "} melt_un_t /*end generated melt_un*/;")
   (add2sbuf_indentnl outbuf 0)
-  ;; generate the casts
+  ;; generate the casts and the conversion operators
   (foreach_in_multiple
    (valdesctup)
    (curvaldesc :long vix)
    (debug "generate_runtypesupport_gty cast curvaldesc=" curvaldesc " vix=" vix)
+   (add2sbuf_indentnl outbuf 0)
    (add2sbuf_indentnl outbuf 0)
    (add2sbuf_indentnl outbuf 0)
    (add2out outbuf "/* cast.valdesc #" (+i 1 vix) " " (get_field :valdesc_struct curvaldesc) "*/")
@@ -2234,6 +2241,15 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (add2out outbuf "return NULL;")
    (add2sbuf_indentnl outbuf 0)
    (add2out outbuf "} /* end meltcast_" (get_field :valdesc_struct curvaldesc) "*/")
+   (add2sbuf_indentnl outbuf 0)
+   (add2out outbuf "#ifndef MELT_NO_CONVERSION_OPERATOR")
+   (add2sbuf_indentnl outbuf 0)
+   (add2out outbuf "static inline struct " (get_field :valdesc_struct curvaldesc) "* operator (" (get_field :valdesc_struct curvaldesc) "*) (melt_ptr_t p) {")
+   (add2sbuf_indentnl outbuf 1)
+   (add2out outbuf "return meltcast_" (get_field :valdesc_struct curvaldesc) " (p);")
+   (add2out outbuf "} /* end operator (" (get_field :valdesc_struct curvaldesc) ") */")
+   (add2sbuf_indentnl outbuf 0)
+   (add2out outbuf "#endif /*MELT_NO_CONVERSION_OPERATOR*/")
    (add2sbuf_indentnl outbuf 0)
    )					;end foreach valdesc
   (add2sbuf_indentnl outbuf 0)
@@ -2552,7 +2568,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
   resv = srcvalv;
   if (!srcvalv) 
      goto end;
-  srcdiscrv = ((melt_ptr_t)srcvalv)->u_discr;
+  srcdiscrv = (melt_ptr_t) (((melt_ptr_t)srcvalv)->u_discr);
   if (!newdiscrv)
     newdiscrv = srcdiscrv;
   if (melt_magic_discr((melt_ptr_t)newdiscrv) != MELTOBMAG_OBJECT
