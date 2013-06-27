@@ -10727,14 +10727,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 {
   static int inited;
   long seed = 0;
-#if MELT_GCC_VERSION<=4006
-  /* In GCC 4.6 the random seed is a string.  */
-  const char *pc = NULL;
-  const char *randomseedstr = NULL;
-#else
   /* In GCC 4.7, the random seed is a number.  */
   long randomseednum = 0;
-#endif
   const char *modstr = NULL;
   const char *inistr = NULL;
   const char *countdbgstr = NULL;
@@ -10753,7 +10747,14 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
     melt_fatal_error ("MELT cannot call gettimeofday for melt_start_time (%s)", xstrerror(errno));
   debugeprintf ("melt_really_initialize melt_start_time=%ld",
 		(long) melt_start_time.tv_sec);
- 
+
+#if ENABLE_GC_ALWAYS_COLLECT
+  /* the GC will be tremendously slowed since called much too often. */
+  inform (UNKNOWN_LOCATION, 
+	  "GCC with ENABLE_GC_ALWAYS_COLLECT will slow down MELT [%s]", 
+	  versionstr);
+#endif 
+
   melt_payload_initialize_static_descriptors ();
 
 #ifdef MELT_IS_PLUGIN
