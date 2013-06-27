@@ -1,6 +1,14 @@
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_ENTERFRAME_AT): For classy frames, pass
+	their explicit size to constructor.
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_boxingfun):
+	Emit explicit casts.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-run.proto.h: Just include from "c-family/c-pragma.h" since
 	GCC 4.6 support is gone...
 

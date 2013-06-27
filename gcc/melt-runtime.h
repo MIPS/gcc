@@ -2906,7 +2906,8 @@ public:
 #define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
   /* classy enter frame */					\
   Melt_CallFrameWithValues<NbVar> meltfram__			\
-    (meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
+    (sizeof(Melt_CallFrameWithValues<NbVar>),			\
+     meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
   if (MELT_HAVE_DEBUG) {					\
     static char meltlocbuf_##Lin [92];				\
     if (MELT_UNLIKELY(!meltlocbuf_##Lin [0]))			\
