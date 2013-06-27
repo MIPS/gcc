@@ -2,6 +2,15 @@
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Improve
+	emission of conversion operator wrapped with #ifndef
+	MELT_NO_CONVERSION_OPERATOR.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.c (melt_check_call_frames_at): Do nothing for
+	classy frames.
+
 	* melt/warmelt-modes.melt (generate_runtypesupport_enum_objmagic):
 	Improve emitted comment.
 	(generate_runtypesupport_gty): Emit conversion operator wrapped
