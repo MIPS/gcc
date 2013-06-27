@@ -1,6 +1,19 @@
 
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-run.proto.h: Just include from "c-family/c-pragma.h" since
+	GCC 4.6 support is gone...
+
+	* melt-runtime.h: More comments for #if and #endif.
+	(MELT_FLEXIBLE_DIM): Keep only C++ case.  Reorganized oldstyle
+	frames so that mcfr_flocs is always defined. MELT_LOCATION* macros
+	simplified with "if (MELT_HAVE_DEBUG)"....
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): Field
+	declaration mcfr_flocs is always emitted.
+
+2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_warning_at_strbuf) Typos in comments.
 	(melt_dynobjstruct_getfield_object_at)
 	(melt_dynobjstruct_putfield_object_at, melt_getfield_object_at)

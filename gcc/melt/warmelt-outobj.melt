@@ -1615,15 +1615,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl dsbuf 0)
     (add2sbuf_strconst dsbuf "  int mcfr_nbvar;")
     (add2sbuf_indentnl dsbuf 0)
-    (add2sbuf_strconst dsbuf "#if MELT_HAVE_DEBUG")
-    (add2sbuf_indentnl dsbuf 0)
     (add2sbuf_strconst dsbuf "  const char* mcfr_flocs;")
-    (add2sbuf_indentnl dsbuf 0)
-    (add2sbuf_strconst dsbuf "#else /*!MELT_HAVE_DEBUG*/")
-    (add2sbuf_indentnl dsbuf 0)
-    (add2sbuf_strconst dsbuf "  const char* mcfr_unusedflocs;")
-    (add2sbuf_indentnl dsbuf 0)
-    (add2sbuf_strconst dsbuf "#endif /*MELT_HAVE_DEBUG*/")
     (add2sbuf_indentnl dsbuf 0)
     ;; we declare a mcfr_initforwmarkrout to be sure to never use clos in the
     ;; generated code; if we do, the generated code is invalid C

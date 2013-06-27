@@ -30,7 +30,9 @@ along with GCC; see the file COPYING3.   If not see
 
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
-#endif
+#endif /*HAVE_STDINT_H*/
+
+#define MELT_HAVE_CLASSY_FRAME 0
 
 /* In the generated gtype-desc.c, file diagnostic.h is not included,
    so we declare these functions explicitly! */
@@ -154,6 +156,7 @@ struct melt_callframe_st /* forward declaration */;
 #ifndef MELT_HAVE_DEBUG
 #define MELT_HAVE_DEBUG 1
 #endif /*MELT_HAVE_DEBUG*/
+
 #endif /*MELT_IS_PLUGIN*/
 
 #if defined(ENABLE_CHECKING) && !defined(MELT_HAVE_DEBUG)
@@ -163,6 +166,10 @@ struct melt_callframe_st /* forward declaration */;
 #define MELT_HAVE_DEBUG 0
 #endif /* undef MELT_HAVE_DEBUG */
 #endif /*ENABLE_CHECKING */
+
+#ifndef MELT_HAVE_DEBUG
+#define MELT_HAVE_DEBUG 0
+#endif /*MELT_HAVE_DEBUG*/
 
 extern long melt_dbgcounter;
 extern long melt_debugskipcount;
@@ -200,9 +207,6 @@ long melt_relative_time_millisec (void);
 /* Set the real timer alarm in milliseconds, or remove alarm if negative */
 void melt_set_real_timer_millisec (long millisec);
 
-#ifndef MELT_HAVE_DEBUG
-#define MELT_HAVE_DEBUG 0
-#endif /*MELT_HAVE_DEBUG*/
 
 #if ENABLE_GC_CHECKING 
 /* memory is poisoned by an 0xa5a5a5a5a5a5a5a5... pointer in ggc-zone.c or ggc-page.c */
@@ -224,6 +228,9 @@ extern "C" int melt_flag_bootstrapping;
 /* in the MELT branch melt_flag_debug is #define-d as
    global_options.x_melt_flag_debug in generated file options.h */
 #endif /*MELT_IS_PLUGIN*/
+
+
+
 
 #if MELT_HAVE_DEBUG
 
@@ -309,6 +316,9 @@ extern "C" int melt_flag_bootstrapping;
 
 #endif /*MELT_HAVE_DEBUG*/
 
+
+
+
 /* We need melt_need_debug and melt_need_debug_limit to work even
    without MELT_HAVE_DEBUG. Otherwise dbg_out don't work as expected,
    then a user module with debuggable flavor can't use the debug
@@ -337,27 +347,14 @@ melt_need_debug_limit (int depth, int lim) {
 }
 
 /* unspecified flexible dimension in structure */
-#if (defined(__STDC__) &&  __STDC__VERSION >= 199901L)
-#define MELT_FLEXIBLE_DIM /*C99 or better or C++ flexible*/
-#define MELT_HAVE_FLEXIBLE_DIM 1
-#elif defined(__cplusplus)
-#define MELT_FLEXIBLE_DIM /*C++ flexible*/1
+#define MELT_FLEXIBLE_DIM /*C++ flexible*/0
 #define MELT_HAVE_FLEXIBLE_DIM 0
-#elif __GNUC__>=4 
-#define MELT_FLEXIBLE_DIM /*gcc flexible*/
-#define MELT_HAVE_FLEXIBLE_DIM 1
-#else
-#define MELT_FLEXIBLE_DIM /*flexibly*/1
-#define MELT_HAVE_FLEXIBLE_DIM 0
-#endif
-
-
 
 
 /* array of (at least 100, increasing order but non consecutive)
    primes, zero terminated. Each prime is at least 1/8-th bigger than
    previous */
-extern const long melt_primtab[256];
+MELT_EXTERN const long melt_primtab[256];
 
 
 /* function to retrieve a MELT program -or plugin- argument; return
@@ -535,25 +532,25 @@ extern int melt_debug_garbcoll;
 #define melt_debuggc_eprintf(Fmt,...) do {if (melt_debug_garbcoll > 0) \
       fprintf (stderr, "%s:%d:@$*" Fmt "\n",			       \
 	       melt_basename(__FILE__), __LINE__, ##__VA_ARGS__);} while(0)
-#else
+#else /*!ENABLE_GC_CHECKING*/
 #define melt_debuggc_eprintf(Fmt,...) do{}while(0)
-#endif
+#endif /*ENABLE_GC_CHECKING*/
 
 /* also in generated meltrunsup.h */
 #ifndef meltobject_ptr_t_TYPEDEFINED
 typedef struct meltobject_st* meltobject_ptr_t;
 #define meltobject_ptr_t_TYPEDEFINED
-#endif
+#endif /*meltobject_ptr_t_TYPEDEFINED*/
 
 #ifndef melt_ptr_t_TYPEDEFINED
 typedef union melt_un* melt_ptr_t;
 #define melt_ptr_t_TYPEDEFINED
-#endif
+#endif /*melt_ptr_t_TYPEDEFINED*/
 
 #ifndef meltroutine_ptr_t_TYPEDEFINED
 typedef struct meltroutine_st *meltroutine_ptr_t;
 #define  meltroutine_ptr_t_TYPEDEFINED
-#endif
+#endif /*meltroutine_ptr_t_TYPEDEFINED*/
 
 
 /******************* closures, routines ************************/
@@ -681,7 +678,7 @@ melt_argdescr_length (const melt_argdescr_cell_t* argdesc)
     return 0;
 #if MELT_ARGDESCR_MAX == CHAR_MAX
   return strlen ((const char*)argdesc);
-#else
+#else /*MELT_ARGDESCR_MAX != CHAR_MAX*/
   {
     int ln = 0;
     while (*argdesc != (melt_argdescr_cell_t)0) 
@@ -1063,9 +1060,9 @@ melt_dbgtrace_written_object_at(meltobject_ptr_t ob, const char*msg, const char*
 #define melt_dbgtrace_written_object(Obj,Msg) do { \
   melt_dbgtrace_written_object_at ((meltobject_ptr_t)(Obj),(Msg),\
 				  __FILE__,__LINE__); }while(0)
-#else
+#else  /*!ENABLE_CHECKING*/
 #define melt_dbgtrace_written_object(Obj,Msg) do{}while(0)
-#endif
+#endif /*ENABLE_CHECKING*/
 
 /* the allocator routine allocates a zone of BASESZ with extra GAP */
 static inline void *
@@ -1090,7 +1087,7 @@ meltgc_allocate (size_t basesz, size_t gap)
     melt_break_alptr_1("allocated alptr1");
   else if (ptr == melt_alptr_2)
     melt_break_alptr_2("allocated alptr2");
-#endif
+#endif /*ENABLE_CHECKING*/
   melt_curalz += wanted;
   return ptr;
 }
@@ -1146,7 +1143,7 @@ melt_allocatereserved (size_t basesz, size_t gap)
     melt_break_alptr_1("allocatedreserved alptr1");
   else if (ptr == melt_alptr_2)
     melt_break_alptr_1("allocatedreserved alptr2");
-#endif
+#endif /*ENABLE_CHECKING*/
   melt_curalz += wanted;
   return ptr;
 }
@@ -1170,9 +1167,9 @@ meltgc_touch (void *touchedptr)
 
 #ifdef HAVE_STDINT_H
   unsigned pad = (unsigned) ((intptr_t) touchedptr);
-#else
+#else /*HAVE_STDINT_H*/
   unsigned pad = (unsigned) ((long) touchedptr);
-#endif
+#endif /*HAVE_STDINT_H*/
   if ((char *) touchedptr >= (char *) melt_startalz
       && (char *) touchedptr <= (char *) melt_endalz)
     return;
@@ -2834,11 +2831,17 @@ melt_put_int (melt_ptr_t v, long x)
     }
 }
 
+
+
+
+
+////++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /***
  * CALL FRAMES 
  ***/
 
 #if MELT_HAVE_CLASSY_FRAME
+#warning MELT have classy frames
 
 class Melt_CallFrame {
   friend void melt_minor_copying_garbage_collector (size_t wanted);
@@ -2860,12 +2863,6 @@ public:
     meltclosure_ptr_t mcfr_clos;
     melthook_ptr_t mcfr_hook;
     melt_ptr_t mcfr_current;
-  };
-private:
-  // this is tricky but essential; we need to explicitly zero the rest of the frame.
-  void melt_clear_rest_of_frame (size_t sz) {
-    if (sz > sizeof(Melt_CallFrame))
-      memset ((&_meltcf_current)+1, 0, sz - sizeof(Melt_CallFrame));
   };
 protected:
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
@@ -2894,7 +2891,7 @@ public:
   };
   void melt_mark_values (void) {
     for (unsigned ix=0; ix<NbVal; ix++)
-      if (_meltcf_baltab[ix] != NULL)
+      if (mcfr_varptr[ix] != NULL)
 	gt_ggc_mx_melt_un (mcfr_varptr[ix]);
   };
   virtual void melt_mark_ggc_data (void) { melt_mark_values (); };
@@ -2905,7 +2902,28 @@ public:
   ~Melt_CallFrameWithValues() {};
 };				// end template class Melt_CallFrameWithValues
 
+
+#define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
+  /* classy enter frame */					\
+  Melt_CallFrameWithValues<NbVar> meltfram__			\
+    (meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
+  if (MELT_HAVE_DEBUG) {					\
+    static char meltlocbuf_##Lin [92];				\
+    if (MELT_UNLIKELY(!meltlocbuf_##Lin [0]))			\
+      snprintf (meltlocbuf_##Lin, sizeof(meltlocbuf_##Lin),	\
+		"%s:%d ~%s", melt_basename (__FILE__),		\
+		Lin, __func__);					\
+    meltfram__.mcfr_flocs = meltlocbuf_##Lin; }
+
+#define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
+#define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
+#define MELT_EXITFRAME() do {meltfram__.mcfr_flocs = NULL;}while(0)
+
+////****************************************************************
+
 #else /* ! MELT_HAVE_CLASSY_FRAME */
+
+#warning MELT have oldstyle frames
 
 /* call frames for our copying garbage collector cannot be GTY-ed
    because they are inside the C call stack; in reality, MELT call
@@ -2919,13 +2937,8 @@ struct melt_callframe_st
      in mcfr_varptr; when it is negative, the mcfr_forwmarkrout should
      be used for forwarding or marking the frame's pointers. */
   int mcfr_nbvar;
-#if MELT_HAVE_DEBUG
-  /* get the string location for the current call */
+  /* get the string location for the current call; only used if MELT_HAVE_DEBUG */
   const char* mcfr_flocs;
-#else
-  /* unused slot, but helps in mixing modules with and without MELT debug */
-  const char* mcfr_unusedflocs;
-#endif /*MELT_HAVE_DEBUG*/
   union {
     struct meltclosure_st *mcfr_closp_; /* when mcfr_nbvar >= 0 */
     void (*mcfr_forwmarkrout_) (struct melt_callframe_st*, int); /* when mcfr_nbvar < 0 */
@@ -2951,73 +2964,6 @@ static inline int melt_curframdepth (void) {
   return cnt;
 }
 
-
-
-/* declare the current callframe */
-#if MELT_HAVE_DEBUG>0
-
-
-////////////////////////////////////////////////////////////////
-#if MELT_HAVE_CLASSY_FRAME
-
-#define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
-  /* classy enter frame */					\
-  Melt_CallFrameWithValues<NbVar> meltfram__			\
-    (meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
-  static char meltlocbuf_##Lin [92];				\
-  if (MELT_UNLIKELY(!meltlocbuf_##Lin [0]))			\
-    snprintf (meltlocbuf_##Lin, sizeof(meltlocbuf_##Lin),	\
-	      "%s:%d ~%s", melt_basename (__FILE__),		\
-	      Lin, __func__);					\
-  meltfram__.mcfr_flocs = meltlocbuf_##Lin;
-
-#define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
-#define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
-#define MELT_EXITFRAME() do {meltfram__.mcfr_flocs = NULL;}while(0)
-
-#define MELT_LOCATION(LOCS) do{			\
-  meltfram__.mcfr_flocs = LOCS;			\
-}while(0)
-
-#define MELT_LOCATION_HERE_AT(FIL,LIN,MSG) do {		\
-  static char locbuf_##LIN[92];				\
-  if (!MELT_UNLIKELY(locbuf_##LIN[0]))			\
-    snprintf(locbuf_##LIN, sizeof(locbuf_##LIN),	\
-             "%s:%d <%s>",				\
-	     melt_basename (FIL), (int)LIN, MSG);	\
-  meltfram__.mcfr_flocs = locbuf;			\
-} while(0)
-
-/* We need several indirections of macro to have the ##LIN trick above
-   working!  */
-#define MELT_LOCATION_HERE_AT_MACRO(FIL,LIN,MSG) \
-  MELT_LOCATION_HERE_AT(FIL,LIN,MSG)
-#define MELT_LOCATION_HERE_MACRO(MSG)  \
-  MELT_LOCATION_HERE_AT_MACRO(__FILE__,__LINE__,MSG)
-#define MELT_LOCATION_HERE(MSG)  MELT_LOCATION_HERE_MACRO(MSG)
-
-/* SBUF should be a local array of char */
-#define MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,...) do {	\
-  memset (SBUF, 0, sizeof(SBUF));				\
-  snprintf (SBUF, sizeof(SBUF),					\
-	    "%s:%d:: " FMT,					\
-	    melt_basename (FIL),				\
-            (int)LIN, __VA_ARGS__);				\
-  meltfram__.mcfr_flocs = SBUF;					\
-} while(0)
-/* We need several indirections of macro to have the ##LIN trick above
-   working!  */
-#define MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,FIL,LIN,FMT,...)	\
-  MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,__VA_ARGS__)
-#define MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT,...)			\
-  MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,__FILE__,__LINE__,FMT,__VA_ARGS__)
-#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...)		\
-  MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT, __VA_ARGS__)
-
-
-#else /*!MELT_HAVE_CLASSY_FRAME -------------*/
-
-
 #define MELT_DECLFRAME(NBVAR) struct {		\
   int mcfr_nbvar;				\
   const char* mcfr_flocs;			\
@@ -3036,13 +2982,16 @@ static inline int melt_curframdepth (void) {
 
 /* initialize the current callframe and link it at top */
 #define MELT_INITFRAME_AT(NBVAR,CLOS,FIL,LIN) do {		\
-  static char locbuf_##LIN[84];					\
-  if (!locbuf_##LIN[0])						\
-    snprintf(locbuf_##LIN, sizeof(locbuf_##LIN)-1, "%s:%d ~%s",	\
-	     basename (FIL), (int)LIN, __func__);	       	\
   memset(&meltfram__, 0, sizeof(meltfram__));			\
+  if (MELT_HAVE_DEBUG) {					\
+    static char locbuf_##LIN[84];				\
+    if (MELT_UNLIKELY(!locbuf_##LIN[0]))			\
+      snprintf (locbuf_##LIN, sizeof(locbuf_##LIN)-1,		\
+	       "%s:%d ~%s",					\
+	       melt_basename (FIL), (int)LIN, __func__);	\
+    meltfram__.mcfr_flocs = locbuf_##LIN;			\
+  };								\
   meltfram__.mcfr_nbvar = (NBVAR);				\
-  meltfram__.mcfr_flocs = locbuf_##LIN;				\
   meltfram__.mcfr_clos = (CLOS);				\
   meltfram__.mcfr_prev						\
     = (struct melt_callframe_st*) melt_topframe;		\
@@ -3053,46 +3002,6 @@ static inline int melt_curframdepth (void) {
   MELT_INITFRAME_AT(NBVAR,CLOS,FIL,LIN)
 #define MELT_INITFRAME(NBVAR,CLOS) \
   MELT_INITFRAME_AT_MACRO(NBVAR,CLOS,__FILE__,__LINE__)
-
-#define MELT_LOCATION(LOCS) do{			\
-  meltfram__.mcfr_flocs = LOCS;			\
-}while(0)
-
-#define MELT_LOCATION_HERE_AT(FIL,LIN,MSG) do {		\
-  static char locbuf_##LIN[88];				\
-  if (!locbuf_##LIN[0])					\
-    snprintf(locbuf_##LIN, sizeof(locbuf_##LIN),	\
-             "%s:%d <%s>",				\
-	     basename (FIL), (int)LIN, MSG);		\
-  meltfram__.mcfr_flocs =  locbuf_##LIN;		\
-} while(0)
-/* We need several indirections of macro to have the ##LIN trick above
-   working!  */
-#define MELT_LOCATION_HERE_AT_MACRO(FIL,LIN,MSG) \
-  MELT_LOCATION_HERE_AT(FIL,LIN,MSG)
-#define MELT_LOCATION_HERE_MACRO(MSG)  \
-  MELT_LOCATION_HERE_AT_MACRO(__FILE__,__LINE__,MSG)
-#define MELT_LOCATION_HERE(MSG)  MELT_LOCATION_HERE_MACRO(MSG)
-
-
-/* SBUF should be a local array of char */
-#define MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,...) do {	\
-  memset (SBUF, 0, sizeof(SBUF));				\
-  snprintf (SBUF, sizeof(SBUF),					\
-	    "%s:%d:: " FMT,					\
-	    melt_basename (FIL),				\
-            (int)LIN, __VA_ARGS__);				\
-  meltfram__.mcfr_flocs = SBUF;					\
-} while(0)
-/* We need several indirections of macro to have the ##LIN trick above
-   working!  */
-#define MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,FIL,LIN,FMT,...)	\
-  MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,__VA_ARGS__)
-#define MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT,...)			\
-  MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,__FILE__,__LINE__,FMT,__VA_ARGS__)
-#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...)		\
-  MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT, __VA_ARGS__)
-
 
 /* declare and initialize the current callframe */
 #define MELT_ENTERFRAME(NBVAR,CLOS) /*oldstyle enterframe */ 	\
@@ -3108,76 +3017,62 @@ static inline int melt_curframdepth (void) {
       = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
 } while(0)
 
-#endif /*MELT_HAVE_CLASSY_FRAME!!!!!!!!!!!!*/
-
-#else /*!MELT_HAVE_DEBUG*/
-
-#if MELT_HAVE_CLASSY_FRAME
-
-#define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)		\
-  Melt_CallFrameWithValues<NbVar> meltfram__		\
-    (meltcast_meltclosure_st((melt_ptr_t)(Clos)));     
-
-#define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
-#define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
-#define MELT_EXITFRAME() do{}while(0)
-
-#define MELT_LOCATION(LOCS) do{/*classylocation without MELT_HAVE_DEBUG*/}while(0)
-#define MELT_LOCATION_HERE(MSG) do{/*classylocationhere without MELT_HAVE_DEBUG*/}while(0)
-#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...) do{/*classylocationhereprintf without MELT_HAVE_DEBUG*/}while(0)
-
-#else /*!MELT_HAVE_CLASSY_FRAME ----------------*/
-
-#define MELT_DECLFRAME(NBVAR) struct {			\
-/*declframe without MELT_HAVE_DEBUG*/			\
-    int mcfr_nbvar;					\
-    const char* mcfr_unusedflocs;			\
-    struct meltclosure_st* mcfr_clos;			\
-    struct excepth_melt_st* mcfr_exh;			\
-    struct melt_callframe_st* mcfr_prev;		\
-    void*  /* a melt_ptr_t */ mcfr_varptr[NBVAR];	\
-} meltfram__
-#define MELT_DECLEMPTYFRAME () struct {			\
-/*declframe without MELT_HAVE_DEBUG*/			\
-    int mcfr_nbvar;					\
-    const char* mcfr_unusedflocs;			\
-    struct meltclosure_st* mcfr_clos;			\
-    struct excepth_melt_st* mcfr_exh;			\
-    struct melt_callframe_st* mcfr_prev;		\
-} meltfram__
-
-#define MELT_LOCATION(LOCS) do{/*location without MELT_HAVE_DEBUG*/}while(0)
-#define MELT_LOCATION_HERE(MSG) do{/*locationhere without MELT_HAVE_DEBUG*/}while(0)
-#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...) do{/*locationhereprintf without MELT_HAVE_DEBUG*/}while(0)
-
-/* initialize the current callframe and link it at top */
-#define MELT_INITFRAME(NBVAR,CLOS) do {	 /*initframe without MELT_HAVE_DEBUG*/ \
-  memset(&meltfram__, 0, sizeof(meltfram__));				\
-  meltfram__.mcfr_nbvar = (NBVAR);					\
-  meltfram__.mcfr_prev = (struct melt_callframe_st*)melt_topframe;	\
-  meltfram__.mcfr_clos = (CLOS);					\
-  melt_topframe = ((void*)&meltfram__);					\
-} while(0)
-
-
-/* declare and initialize the current callframe */
-#define MELT_ENTERFRAME(NBVAR,CLOS) /*oldcallframe*/ 	\
-  MELT_DECLFRAME(NBVAR); MELT_INITFRAME(NBVAR,CLOS)
-
-/* declare and initialize the current callframe */
-#define MELT_ENTEREMPTYFRAME(CLOS) /*oldemptycallframe */ \
-  MELT_DECLEMPTYFRAME(); MELT_INITFRAME(0,CLOS)
-
-/* exit the current frame and return */
-#define MELT_EXITFRAME() do { /*oldexitframe*/			\
-    melt_topframe						\
-      = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
-} while(0)
-
-#endif /*MELT_HAVE_CLASSY_FRAME */
-#endif /*!MELT_HAVE_DEBUG*/
-
 #endif /*MELT_HAVE_CLASSY_FRAME*/
+
+////================================================================
+
+
+/* MELT location macros should work with both oldstyle and classy
+   frames. They use "if (MELT_HAVE_DEBUG)" not "#if MELT_HAVE_DEBUG"
+   so the optimizer compiling them would remove the dead code when not
+   debugging. */
+
+#define MELT_LOCATION(LOCS) do{			\
+    if (MELT_HAVE_DEBUG)			\
+       meltfram__.mcfr_flocs = LOCS;		\
+}while(0)
+
+#define MELT_LOCATION_HERE_AT(FIL,LIN,MSG) do {		\
+  if (MELT_HAVE_DEBUG) {				\
+    static char locbuf_##LIN[92];			\
+    if (!MELT_UNLIKELY(locbuf_##LIN[0]))		\
+      snprintf(locbuf_##LIN, sizeof(locbuf_##LIN),	\
+	       "%s:%d <%s>",				\
+	       melt_basename (FIL), (int)LIN, MSG);	\
+    meltfram__.mcfr_flocs = locbuf_##LIN;		\
+  }							\
+} while(0)
+
+/* We need several indirections of macro to have the ##LIN trick above
+   working!  */
+#define MELT_LOCATION_HERE_AT_MACRO(FIL,LIN,MSG) \
+  MELT_LOCATION_HERE_AT(FIL,LIN,MSG)
+#define MELT_LOCATION_HERE_MACRO(MSG)  \
+  MELT_LOCATION_HERE_AT_MACRO(__FILE__,__LINE__,MSG)
+#define MELT_LOCATION_HERE(MSG)  MELT_LOCATION_HERE_MACRO(MSG)
+
+/* SBUF should be a local array of char */
+#define MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,...) do {	\
+  if (MELT_HAVE_DEBUG) {					\
+    memset (SBUF, 0, sizeof(SBUF));				\
+    snprintf (SBUF, sizeof(SBUF),				\
+	      "%s:%d:: " FMT,					\
+	      melt_basename (FIL),				\
+	      (int)LIN, __VA_ARGS__);				\
+    meltfram__.mcfr_flocs = SBUF;				\
+  }} while(0)
+/* We need several indirections of macro to have the ##LIN trick above
+   working!  */
+#define MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,FIL,LIN,FMT,...)	\
+  MELT_LOCATION_HERE_PRINTF_AT(SBUF,FIL,LIN,FMT,__VA_ARGS__)
+#define MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT,...)			\
+  MELT_LOCATION_HERE_PRINTF_AT_MACRO(SBUF,__FILE__,__LINE__,FMT,__VA_ARGS__)
+#define MELT_LOCATION_HERE_PRINTF(SBUF,FMT,...)		\
+  MELT_LOCATION_HERE_PRINTF_MACRO(SBUF,FMT, __VA_ARGS__)
+
+
+////////////////////////////////////////////////////////////////
+
 
 /* Internal unction to be called by MELT code when the
    :sysdata_inchannel_data is changed.  Called by code_chunk-s inside
@@ -3391,7 +3286,7 @@ void melt_cbreak_at(const char*msg, const char*fil, int lin);
 #define melt_cbreak(Msg) melt_cbreak_at((Msg),__FILE__,__LINE__)
 #define melt_trace_start(Msg,Cnt) do {} while(0)
 #define melt_trace_end(Msg,Cnt) do {} while(0)
-#else
+#else /*!ENABLE_CHECKING*/
 #define melt_checked_assign(Assign) Assign
 #define melt_checked_assignmsg(Assign,Msg) Assign
 #define melt_cbreak(Msg) ((void)(Msg))
