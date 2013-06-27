@@ -2457,6 +2457,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             gcc_assert (cnt <= len);
             dst = (struct meltbucketlongs_st*)
                   meltgc_new_longsbucket ((meltobject_ptr_t)newdiscrv, cnt + cnt/8 + 2);
+            resv = (melt_ptr_t) dst;
             dstlen = melt_primtab[dst->buckl_lenix];
             dst->buckl_aux = src->buckl_aux;
             dst->buckl_xnum = src->buckl_xnum;
@@ -2487,6 +2488,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             dst
                 = (struct meltclosure_st*)meltgc_allocate (sizeof(struct meltclosure_st),
                         nbval*sizeof(void*));
+            resv = (melt_ptr_t) dst;
             src = (struct meltclosure_st*)srcvalv;
             dst->discr = (meltobject_ptr_t)newdiscrv;
             dst->rout = src->rout;
@@ -2535,7 +2537,8 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             /* clone chunk for VALDESC_LIST:*/
             /* cloning from VALDESC_LIST */
             struct meltpair_st* curpair = NULL;
-            resv = dst = (struct meltlist_st*) meltgc_new_list ((meltobject_ptr_t)newdiscrv);
+            dst = (struct meltlist_st*) meltgc_new_list ((meltobject_ptr_t)newdiscrv);
+            resv = (melt_ptr_t) dst;
             src = (struct meltlist_st*) srcvalv;
             for (curpair = ((struct meltlist_st *) src)->first;
                     melt_magic_discr ((melt_ptr_t) curpair) == MELTOBMAG_PAIR;
@@ -2543,7 +2546,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                 {
                     src = (struct meltlist_st*) srcvalv;
                     dst = (struct meltlist_st*) resv;
-                    compv = curpair;
+                    compv = (melt_ptr_t) curpair;
                     meltgc_append_list ((melt_ptr_t) resv, curpair->hd);
                     /* copy, because GC might have moved values. */
                     curpair = (struct meltpair_st*) compv;
@@ -2570,7 +2573,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             unsigned srcix = 0;
             dst = (struct meltmapobjects_st*)
                   meltgc_new_mapobjects ((meltobject_ptr_t)newdiscrv, newlen);
-            resv = dst;
+            resv = (melt_ptr_t) dst;
             dst->meltmap_aux = src->meltmap_aux;
             for (srcix = 0; srcix < srclen; srcix++)
                 {
@@ -2604,7 +2607,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             unsigned newlen = 4*srccount/3+4;
             unsigned srcix = 0;
             dst = (struct meltmapstrings_st*) meltgc_new_mapstrings ((meltobject_ptr_t)newdiscrv, newlen);
-            resv = dst;
+            resv = (melt_ptr_t) dst;
             dst->meltmap_aux = src->meltmap_aux;
             for (srcix = 0; srcix < srclen; srcix++)
                 {
@@ -2665,8 +2668,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             /* cloning from VALDESC_MULTIPLE */
             unsigned srclen = src->nbval;
             unsigned srcix = 0;
-            resv = dst =
-                       (struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
+            dst =
+                (struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
+            resv = (melt_ptr_t) dst;
             src = (struct meltmultiple_st*) srcvalv; /* could have moved */
             for (srcix = 0; srcix < srclen; srcix++)
                 dst->tabval[srcix] = src->tabval[srcix];
@@ -2788,6 +2792,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             dst = (struct meltstring_st*)
                   meltgc_new_stringdup ((meltobject_ptr_t)newdiscrv,
                                         src->val);
+            resv = (melt_ptr_t) dst;
             /* end clone from VALDESC_STRING  */
             ;
             if (dst)
@@ -2924,12 +2929,10 @@ void melthookproc_HOOK_ALL_IPA_PASSES_END()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_IPA_PASSES_END);
     typedef void melthooksig_HOOK_ALL_IPA_PASSES_END_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_END is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_IPA_PASSES_END */
     melthooksig_HOOK_ALL_IPA_PASSES_END_t *melthookptr_HOOK_ALL_IPA_PASSES_END =
         (melthooksig_HOOK_ALL_IPA_PASSES_END_t*) (melthkp->hookad) ;
@@ -2953,12 +2956,10 @@ void melthookproc_HOOK_ALL_IPA_PASSES_START()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_IPA_PASSES_START);
     typedef void melthooksig_HOOK_ALL_IPA_PASSES_START_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_IPA_PASSES_START is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_IPA_PASSES_START */
     melthooksig_HOOK_ALL_IPA_PASSES_START_t *melthookptr_HOOK_ALL_IPA_PASSES_START =
         (melthooksig_HOOK_ALL_IPA_PASSES_START_t*) (melthkp->hookad) ;
@@ -2982,12 +2983,10 @@ void melthookproc_HOOK_ALL_PASSES_END()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_PASSES_END);
     typedef void melthooksig_HOOK_ALL_PASSES_END_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_END is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_PASSES_END */
     melthooksig_HOOK_ALL_PASSES_END_t *melthookptr_HOOK_ALL_PASSES_END =
         (melthooksig_HOOK_ALL_PASSES_END_t*) (melthkp->hookad) ;
@@ -3011,12 +3010,10 @@ void melthookproc_HOOK_ALL_PASSES_START()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_ALL_PASSES_START);
     typedef void melthooksig_HOOK_ALL_PASSES_START_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_ALL_PASSES_START is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_ALL_PASSES_START */
     melthooksig_HOOK_ALL_PASSES_START_t *melthookptr_HOOK_ALL_PASSES_START =
         (melthooksig_HOOK_ALL_PASSES_START_t*) (melthkp->hookad) ;
@@ -3040,12 +3037,10 @@ void melthookproc_HOOK_EARLY_GIMPLE_PASSES_END()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_EARLY_GIMPLE_PASSES_END);
     typedef void melthooksig_HOOK_EARLY_GIMPLE_PASSES_END_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_END is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_EARLY_GIMPLE_PASSES_END */
     melthooksig_HOOK_EARLY_GIMPLE_PASSES_END_t *melthookptr_HOOK_EARLY_GIMPLE_PASSES_END =
         (melthooksig_HOOK_EARLY_GIMPLE_PASSES_END_t*) (melthkp->hookad) ;
@@ -3069,12 +3064,10 @@ void melthookproc_HOOK_EARLY_GIMPLE_PASSES_START()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_EARLY_GIMPLE_PASSES_START);
     typedef void melthooksig_HOOK_EARLY_GIMPLE_PASSES_START_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_EARLY_GIMPLE_PASSES_START is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_EARLY_GIMPLE_PASSES_START */
     melthooksig_HOOK_EARLY_GIMPLE_PASSES_START_t *melthookptr_HOOK_EARLY_GIMPLE_PASSES_START =
         (melthooksig_HOOK_EARLY_GIMPLE_PASSES_START_t*) (melthkp->hookad) ;
@@ -3098,12 +3091,10 @@ void melthookproc_HOOK_EXIT_FINALIZER()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_EXIT_FINALIZER);
     typedef void melthooksig_HOOK_EXIT_FINALIZER_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_EXIT_FINALIZER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_EXIT_FINALIZER */
     melthooksig_HOOK_EXIT_FINALIZER_t *melthookptr_HOOK_EXIT_FINALIZER =
         (melthooksig_HOOK_EXIT_FINALIZER_t*) (melthkp->hookad) ;
@@ -3127,12 +3118,10 @@ void melthookproc_HOOK_FINISH_DECL(tree meltin_TFNDECL_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FINISH_DECL);
     typedef void melthooksig_HOOK_FINISH_DECL_t (melt_ptr_t, tree);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_DECL exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_DECL is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FINISH_DECL exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FINISH_DECL is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FINISH_DECL */
     melthooksig_HOOK_FINISH_DECL_t *melthookptr_HOOK_FINISH_DECL =
         (melthooksig_HOOK_FINISH_DECL_t*) (melthkp->hookad) ;
@@ -3157,12 +3146,10 @@ void melthookproc_HOOK_FINISH_TYPE(tree meltin_TFNDECL_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FINISH_TYPE);
     typedef void melthooksig_HOOK_FINISH_TYPE_t (melt_ptr_t, tree);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_TYPE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_TYPE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FINISH_TYPE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FINISH_TYPE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FINISH_TYPE */
     melthooksig_HOOK_FINISH_TYPE_t *melthookptr_HOOK_FINISH_TYPE =
         (melthooksig_HOOK_FINISH_TYPE_t*) (melthkp->hookad) ;
@@ -3187,12 +3174,10 @@ void melthookproc_HOOK_FINISH_UNIT()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FINISH_UNIT);
     typedef void melthooksig_HOOK_FINISH_UNIT_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_UNIT exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FINISH_UNIT is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FINISH_UNIT exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FINISH_UNIT is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FINISH_UNIT */
     melthooksig_HOOK_FINISH_UNIT_t *melthookptr_HOOK_FINISH_UNIT =
         (melthooksig_HOOK_FINISH_UNIT_t*) (melthkp->hookad) ;
@@ -3216,12 +3201,10 @@ long melthookproc_HOOK_GIMPLE_EXECUTE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_GIMPLE_EXECUTE);
     typedef long melthooksig_HOOK_GIMPLE_EXECUTE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_EXECUTE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_GIMPLE_EXECUTE */
     melthooksig_HOOK_GIMPLE_EXECUTE_t *melthookptr_HOOK_GIMPLE_EXECUTE =
         (melthooksig_HOOK_GIMPLE_EXECUTE_t*) (melthkp->hookad) ;
@@ -3245,12 +3228,10 @@ long melthookproc_HOOK_GIMPLE_GATE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_GIMPLE_GATE);
     typedef long melthooksig_HOOK_GIMPLE_GATE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_GIMPLE_GATE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_GIMPLE_GATE */
     melthooksig_HOOK_GIMPLE_GATE_t *melthookptr_HOOK_GIMPLE_GATE =
         (melthooksig_HOOK_GIMPLE_GATE_t*) (melthkp->hookad) ;
@@ -3274,12 +3255,10 @@ void melthookproc_HOOK_HANDLE_SIGALRM()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_SIGALRM);
     typedef void melthooksig_HOOK_HANDLE_SIGALRM_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGALRM is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_HANDLE_SIGALRM */
     melthooksig_HOOK_HANDLE_SIGALRM_t *melthookptr_HOOK_HANDLE_SIGALRM =
         (melthooksig_HOOK_HANDLE_SIGALRM_t*) (melthkp->hookad) ;
@@ -3303,12 +3282,10 @@ void melthookproc_HOOK_HANDLE_SIGCHLD()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_SIGCHLD);
     typedef void melthooksig_HOOK_HANDLE_SIGCHLD_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGCHLD is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_HANDLE_SIGCHLD */
     melthooksig_HOOK_HANDLE_SIGCHLD_t *melthookptr_HOOK_HANDLE_SIGCHLD =
         (melthooksig_HOOK_HANDLE_SIGCHLD_t*) (melthkp->hookad) ;
@@ -3332,12 +3309,10 @@ void melthookproc_HOOK_HANDLE_SIGIO()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_HANDLE_SIGIO);
     typedef void melthooksig_HOOK_HANDLE_SIGIO_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_HANDLE_SIGIO is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_HANDLE_SIGIO */
     melthooksig_HOOK_HANDLE_SIGIO_t *melthookptr_HOOK_HANDLE_SIGIO =
         (melthooksig_HOOK_HANDLE_SIGIO_t*) (melthkp->hookad) ;
@@ -3361,12 +3336,10 @@ melt_ptr_t melthookproc_HOOK_INTERN_KEYWORD(melt_ptr_t meltin_KEYWV_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_INTERN_KEYWORD);
     typedef melt_ptr_t melthooksig_HOOK_INTERN_KEYWORD_t (melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_INTERN_KEYWORD is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_INTERN_KEYWORD */
     melthooksig_HOOK_INTERN_KEYWORD_t *melthookptr_HOOK_INTERN_KEYWORD =
         (melthooksig_HOOK_INTERN_KEYWORD_t*) (melthkp->hookad) ;
@@ -3391,12 +3364,10 @@ melt_ptr_t melthookproc_HOOK_INTERN_SYMBOL(melt_ptr_t meltin_SYMBV_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_INTERN_SYMBOL);
     typedef melt_ptr_t melthooksig_HOOK_INTERN_SYMBOL_t (melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_INTERN_SYMBOL is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_INTERN_SYMBOL */
     melthooksig_HOOK_INTERN_SYMBOL_t *melthookptr_HOOK_INTERN_SYMBOL =
         (melthooksig_HOOK_INTERN_SYMBOL_t*) (melthkp->hookad) ;
@@ -3421,12 +3392,10 @@ void melthookproc_HOOK_LOW_DEBUG_VALUE_AT(melt_ptr_t meltin_VAL_p0, const char* 
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_LOW_DEBUG_VALUE_AT);
     typedef void melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t (melt_ptr_t, melt_ptr_t, const char*, long, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_LOW_DEBUG_VALUE_AT is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_LOW_DEBUG_VALUE_AT */
     melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t *melthookptr_HOOK_LOW_DEBUG_VALUE_AT =
         (melthooksig_HOOK_LOW_DEBUG_VALUE_AT_t*) (melthkp->hookad) ;
@@ -3455,12 +3424,10 @@ void melthookproc_HOOK_MELT_ATTRIBUTE_DEFINER(tree meltin_DECL_p0, tree meltin_N
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_MELT_ATTRIBUTE_DEFINER);
     typedef void melthooksig_HOOK_MELT_ATTRIBUTE_DEFINER_t (melt_ptr_t, tree, tree, melt_ptr_t, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_MELT_ATTRIBUTE_DEFINER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_MELT_ATTRIBUTE_DEFINER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_MELT_ATTRIBUTE_DEFINER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_MELT_ATTRIBUTE_DEFINER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_MELT_ATTRIBUTE_DEFINER */
     melthooksig_HOOK_MELT_ATTRIBUTE_DEFINER_t *melthookptr_HOOK_MELT_ATTRIBUTE_DEFINER =
         (melthooksig_HOOK_MELT_ATTRIBUTE_DEFINER_t*) (melthkp->hookad) ;
@@ -3489,12 +3456,10 @@ melt_ptr_t melthookproc_HOOK_NAMED_KEYWORD(const char* meltin_NAM_p0, long melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_NAMED_KEYWORD);
     typedef melt_ptr_t melthooksig_HOOK_NAMED_KEYWORD_t (melt_ptr_t, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_NAMED_KEYWORD is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_NAMED_KEYWORD */
     melthooksig_HOOK_NAMED_KEYWORD_t *melthookptr_HOOK_NAMED_KEYWORD =
         (melthooksig_HOOK_NAMED_KEYWORD_t*) (melthkp->hookad) ;
@@ -3520,12 +3485,10 @@ melt_ptr_t melthookproc_HOOK_NAMED_SYMBOL(const char* meltin_NAM_p0, long meltin
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_NAMED_SYMBOL);
     typedef melt_ptr_t melthooksig_HOOK_NAMED_SYMBOL_t (melt_ptr_t, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_NAMED_SYMBOL is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_NAMED_SYMBOL */
     melthooksig_HOOK_NAMED_SYMBOL_t *melthookptr_HOOK_NAMED_SYMBOL =
         (melthooksig_HOOK_NAMED_SYMBOL_t*) (melthkp->hookad) ;
@@ -3551,12 +3514,10 @@ void melthookproc_HOOK_OVERRIDE_GATE(long meltin_BEFOREGATE_p0, long* meltout_AF
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_OVERRIDE_GATE);
     typedef void melthooksig_HOOK_OVERRIDE_GATE_t (melt_ptr_t, long, long* );
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_OVERRIDE_GATE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_OVERRIDE_GATE */
     melthooksig_HOOK_OVERRIDE_GATE_t *melthookptr_HOOK_OVERRIDE_GATE =
         (melthooksig_HOOK_OVERRIDE_GATE_t*) (melthkp->hookad) ;
@@ -3582,12 +3543,10 @@ void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_PASS_EXECUTION);
     typedef void melthooksig_HOOK_PASS_EXECUTION_t (melt_ptr_t, const char*, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_PASS_EXECUTION is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_PASS_EXECUTION */
     melthooksig_HOOK_PASS_EXECUTION_t *melthookptr_HOOK_PASS_EXECUTION =
         (melthooksig_HOOK_PASS_EXECUTION_t*) (melthkp->hookad) ;
@@ -3613,12 +3572,10 @@ void melthookproc_HOOK_POLL_INPUTS(long meltin_DELAYMS_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_POLL_INPUTS);
     typedef void melthooksig_HOOK_POLL_INPUTS_t (melt_ptr_t, long);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_POLL_INPUTS exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_POLL_INPUTS is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_POLL_INPUTS exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_POLL_INPUTS is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_POLL_INPUTS */
     melthooksig_HOOK_POLL_INPUTS_t *melthookptr_HOOK_POLL_INPUTS =
         (melthooksig_HOOK_POLL_INPUTS_t*) (melthkp->hookad) ;
@@ -3643,12 +3600,10 @@ void melthookproc_HOOK_PRE_GENERICIZE(tree meltin_TFNDECL_p0)
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_PRE_GENERICIZE);
     typedef void melthooksig_HOOK_PRE_GENERICIZE_t (melt_ptr_t, tree);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_PRE_GENERICIZE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_PRE_GENERICIZE */
     melthooksig_HOOK_PRE_GENERICIZE_t *melthookptr_HOOK_PRE_GENERICIZE =
         (melthooksig_HOOK_PRE_GENERICIZE_t*) (melthkp->hookad) ;
@@ -3673,12 +3628,10 @@ long melthookproc_HOOK_RTL_EXECUTE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_RTL_EXECUTE);
     typedef long melthooksig_HOOK_RTL_EXECUTE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_RTL_EXECUTE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_RTL_EXECUTE */
     melthooksig_HOOK_RTL_EXECUTE_t *melthookptr_HOOK_RTL_EXECUTE =
         (melthooksig_HOOK_RTL_EXECUTE_t*) (melthkp->hookad) ;
@@ -3702,12 +3655,10 @@ long melthookproc_HOOK_RTL_GATE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_RTL_GATE);
     typedef long melthooksig_HOOK_RTL_GATE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_RTL_GATE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_RTL_GATE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_RTL_GATE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_RTL_GATE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_RTL_GATE */
     melthooksig_HOOK_RTL_GATE_t *melthookptr_HOOK_RTL_GATE =
         (melthooksig_HOOK_RTL_GATE_t*) (melthkp->hookad) ;
@@ -3731,12 +3682,10 @@ long melthookproc_HOOK_SIMPLE_IPA_EXECUTE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_SIMPLE_IPA_EXECUTE);
     typedef long melthooksig_HOOK_SIMPLE_IPA_EXECUTE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_EXECUTE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_SIMPLE_IPA_EXECUTE */
     melthooksig_HOOK_SIMPLE_IPA_EXECUTE_t *melthookptr_HOOK_SIMPLE_IPA_EXECUTE =
         (melthooksig_HOOK_SIMPLE_IPA_EXECUTE_t*) (melthkp->hookad) ;
@@ -3760,12 +3709,10 @@ long melthookproc_HOOK_SIMPLE_IPA_GATE()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_SIMPLE_IPA_GATE);
     typedef long melthooksig_HOOK_SIMPLE_IPA_GATE_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_GATE exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_GATE is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_GATE exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_SIMPLE_IPA_GATE is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_SIMPLE_IPA_GATE */
     melthooksig_HOOK_SIMPLE_IPA_GATE_t *melthookptr_HOOK_SIMPLE_IPA_GATE =
         (melthooksig_HOOK_SIMPLE_IPA_GATE_t*) (melthkp->hookad) ;
@@ -3789,12 +3736,10 @@ void melthookproc_HOOK_START_UNIT()
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_START_UNIT);
     typedef void melthooksig_HOOK_START_UNIT_t (melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_START_UNIT exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_START_UNIT is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_START_UNIT exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_START_UNIT is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_START_UNIT */
     melthooksig_HOOK_START_UNIT_t *melthookptr_HOOK_START_UNIT =
         (melthooksig_HOOK_START_UNIT_t*) (melthkp->hookad) ;
@@ -3818,12 +3763,10 @@ melt_ptr_t melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER(melt_ptr_t meltin
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER);
     typedef melt_ptr_t melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t (melt_ptr_t, melt_ptr_t, const char*);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER */
     melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t *melthookptr_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER =
         (melthooksig_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_t*) (melthkp->hookad) ;
@@ -3849,12 +3792,10 @@ melt_ptr_t melthookproc_HOOK_SYMBOL_IMPORTER(const char* meltin_SYMNAMESTR_p0, c
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_SYMBOL_IMPORTER);
     typedef melt_ptr_t melthooksig_HOOK_SYMBOL_IMPORTER_t (melt_ptr_t, const char*, const char*, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_SYMBOL_IMPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_SYMBOL_IMPORTER */
     melthooksig_HOOK_SYMBOL_IMPORTER_t *melthookptr_HOOK_SYMBOL_IMPORTER =
         (melthooksig_HOOK_SYMBOL_IMPORTER_t*) (melthkp->hookad) ;
@@ -3881,12 +3822,10 @@ void melthookproc_HOOK_VALUE_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_VALUE_EXPORTER);
     typedef void melthooksig_HOOK_VALUE_EXPORTER_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_VALUE_EXPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_VALUE_EXPORTER */
     melthooksig_HOOK_VALUE_EXPORTER_t *melthookptr_HOOK_VALUE_EXPORTER =
         (melthooksig_HOOK_VALUE_EXPORTER_t*) (melthkp->hookad) ;
@@ -3913,12 +3852,10 @@ void melthookproc_HOOK_MACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t melti
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_MACRO_EXPORTER);
     typedef void melthooksig_HOOK_MACRO_EXPORTER_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_MACRO_EXPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_MACRO_EXPORTER */
     melthooksig_HOOK_MACRO_EXPORTER_t *melthookptr_HOOK_MACRO_EXPORTER =
         (melthooksig_HOOK_MACRO_EXPORTER_t*) (melthkp->hookad) ;
@@ -3945,12 +3882,10 @@ void melthookproc_HOOK_PATMACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t me
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
     melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_PATMACRO_EXPORTER);
     typedef void melthooksig_HOOK_PATMACRO_EXPORTER_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/
-    melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER exists",
-                    melthkp != NULL);
-    /*checkhook ishook*/
-    melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER is hook",
-                    melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
+    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER exists",
+                                        melthkp != NULL);
+    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_PATMACRO_EXPORTER is hook",
+                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
     /* check hook routine HOOK_PATMACRO_EXPORTER */
     melthooksig_HOOK_PATMACRO_EXPORTER_t *melthookptr_HOOK_PATMACRO_EXPORTER =
         (melthooksig_HOOK_PATMACRO_EXPORTER_t*) (melthkp->hookad) ;
@@ -3979,4 +3914,4 @@ void melthookproc_HOOK_PATMACRO_EXPORTER(melt_ptr_t meltin_SYM_p0, melt_ptr_t me
 /* end of code generated by generate_runtypesupport_predefined_hooks for 146 predefined */
 
 /*** End of code file meltbuild-sources/generated/meltrunsup-inc.cc generated on 2013 Jun 27
- * by GCC MELT 4.9.0 20130626 (experimental) [melt-branch revision 200453] MELT_0.9.9-post . ***/
+ * by GCC MELT 4.9.0 20130626 (experimental) [melt-branch revision 200471] MELT_0.9.9-post . ***/
