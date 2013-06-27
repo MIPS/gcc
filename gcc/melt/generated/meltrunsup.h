@@ -84,31 +84,31 @@ enum meltobmag_en /*generated*/ { MELTOBMAG__NONE = 0,
                                   MELTOBMAG_STRING /*valmagic*/ =20018,
 
                                   /* ctype gty object magic */
-                                  /*gtyctype #1 CTYPE_BASIC_BLOCK*/
+                                  /*gtyctype magic #1 CTYPE_BASIC_BLOCK*/
                                   MELTOBMAG_BASICBLOCK /*boxedmagic*/ =20019,
                                   MELTOBMAG_MAPBASICBLOCKS /*mapmagic*/ =20020,
-                                  /*gtyctype #2 CTYPE_BITMAP*/
+                                  /*gtyctype magic #2 CTYPE_BITMAP*/
                                   MELTOBMAG_BITMAP /*boxedmagic*/ =20021,
                                   MELTOBMAG_MAPBITMAPS /*mapmagic*/ =20022,
-                                  /*gtyctype #3 CTYPE_EDGE*/
+                                  /*gtyctype magic #3 CTYPE_EDGE*/
                                   MELTOBMAG_EDGE /*boxedmagic*/ =20023,
                                   MELTOBMAG_MAPEDGES /*mapmagic*/ =20024,
-                                  /*gtyctype #4 CTYPE_GIMPLE*/
+                                  /*gtyctype magic #4 CTYPE_GIMPLE*/
                                   MELTOBMAG_GIMPLE /*boxedmagic*/ =20025,
                                   MELTOBMAG_MAPGIMPLES /*mapmagic*/ =20026,
-                                  /*gtyctype #5 CTYPE_GIMPLE_SEQ*/
+                                  /*gtyctype magic #5 CTYPE_GIMPLE_SEQ*/
                                   MELTOBMAG_GIMPLESEQ /*boxedmagic*/ =20027,
                                   MELTOBMAG_MAPGIMPLESEQS /*mapmagic*/ =20028,
-                                  /*gtyctype #6 CTYPE_LOOP*/
+                                  /*gtyctype magic #6 CTYPE_LOOP*/
                                   MELTOBMAG_LOOP /*boxedmagic*/ =20029,
                                   MELTOBMAG_MAPLOOPS /*mapmagic*/ =20030,
-                                  /*gtyctype #7 CTYPE_RTVEC*/
+                                  /*gtyctype magic #7 CTYPE_RTVEC*/
                                   MELTOBMAG_RTVEC /*boxedmagic*/ =20031,
                                   MELTOBMAG_MAPRTVECS /*mapmagic*/ =20032,
-                                  /*gtyctype #8 CTYPE_RTX*/
+                                  /*gtyctype magic #8 CTYPE_RTX*/
                                   MELTOBMAG_RTX /*boxedmagic*/ =20033,
                                   MELTOBMAG_MAPRTXS /*mapmagic*/ =20034,
-                                  /*gtyctype #9 CTYPE_TREE*/
+                                  /*gtyctype magic #9 CTYPE_TREE*/
                                   MELTOBMAG_TREE /*boxedmagic*/ =20035,
                                   MELTOBMAG_MAPTREES /*mapmagic*/ =20036,
                                   MELTOBMAG__LAST
@@ -157,12 +157,18 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
 /* generated ctype gty structures */
 
 
-/*gtyctype #1 CTYPE_BASIC_BLOCK*/
+/*gtyctypebox gtyctyp #1 CTYPE_BASIC_BLOCK*/
 struct GTY (()) meltbasicblock_st   /* when MELTOBMAG_BASICBLOCK*/
 {
     meltobject_ptr_t discr;
     basic_block val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entrybasicblockmelt_st   /* for MELTOBMAG_MAPBASICBLOCKS*/
 {
     basic_block e_at;
@@ -179,12 +185,18 @@ struct GTY (()) meltmapbasicblocks_st   /* when MELTOBMAG_MAPBASICBLOCKS*/
 };
 
 
-/*gtyctype #2 CTYPE_BITMAP*/
+/*gtyctypebox gtyctyp #2 CTYPE_BITMAP*/
 struct GTY (()) meltbitmap_st   /* when MELTOBMAG_BITMAP*/
 {
     meltobject_ptr_t discr;
     bitmap val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entrybitmapmelt_st   /* for MELTOBMAG_MAPBITMAPS*/
 {
     bitmap e_at;
@@ -201,12 +213,18 @@ struct GTY (()) meltmapbitmaps_st   /* when MELTOBMAG_MAPBITMAPS*/
 };
 
 
-/*gtyctype #3 CTYPE_EDGE*/
+/*gtyctypebox gtyctyp #3 CTYPE_EDGE*/
 struct GTY (()) meltedge_st   /* when MELTOBMAG_EDGE*/
 {
     meltobject_ptr_t discr;
     edge val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entryedgemelt_st   /* for MELTOBMAG_MAPEDGES*/
 {
     edge e_at;
@@ -223,12 +241,18 @@ struct GTY (()) meltmapedges_st   /* when MELTOBMAG_MAPEDGES*/
 };
 
 
-/*gtyctype #4 CTYPE_GIMPLE*/
+/*gtyctypebox gtyctyp #4 CTYPE_GIMPLE*/
 struct GTY (()) meltgimple_st   /* when MELTOBMAG_GIMPLE*/
 {
     meltobject_ptr_t discr;
     gimple val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entrygimplemelt_st   /* for MELTOBMAG_MAPGIMPLES*/
 {
     gimple e_at;
@@ -245,12 +269,18 @@ struct GTY (()) meltmapgimples_st   /* when MELTOBMAG_MAPGIMPLES*/
 };
 
 
-/*gtyctype #5 CTYPE_GIMPLE_SEQ*/
+/*gtyctypebox gtyctyp #5 CTYPE_GIMPLE_SEQ*/
 struct GTY (()) meltgimpleseq_st   /* when MELTOBMAG_GIMPLESEQ*/
 {
     meltobject_ptr_t discr;
     gimple_seq val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entrygimpleseqmelt_st   /* for MELTOBMAG_MAPGIMPLESEQS*/
 {
     gimple_seq e_at;
@@ -267,12 +297,18 @@ struct GTY (()) meltmapgimpleseqs_st   /* when MELTOBMAG_MAPGIMPLESEQS*/
 };
 
 
-/*gtyctype #6 CTYPE_LOOP*/
+/*gtyctypebox gtyctyp #6 CTYPE_LOOP*/
 struct GTY (()) meltloop_st   /* when MELTOBMAG_LOOP*/
 {
     meltobject_ptr_t discr;
     loop_p val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entryloopmelt_st   /* for MELTOBMAG_MAPLOOPS*/
 {
     loop_p e_at;
@@ -289,12 +325,18 @@ struct GTY (()) meltmaploops_st   /* when MELTOBMAG_MAPLOOPS*/
 };
 
 
-/*gtyctype #7 CTYPE_RTVEC*/
+/*gtyctypebox gtyctyp #7 CTYPE_RTVEC*/
 struct GTY (()) meltrtvec_st   /* when MELTOBMAG_RTVEC*/
 {
     meltobject_ptr_t discr;
     rtvec val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entryrtvecmelt_st   /* for MELTOBMAG_MAPRTVECS*/
 {
     rtvec e_at;
@@ -311,12 +353,18 @@ struct GTY (()) meltmaprtvecs_st   /* when MELTOBMAG_MAPRTVECS*/
 };
 
 
-/*gtyctype #8 CTYPE_RTX*/
+/*gtyctypebox gtyctyp #8 CTYPE_RTX*/
 struct GTY (()) meltrtx_st   /* when MELTOBMAG_RTX*/
 {
     meltobject_ptr_t discr;
     rtx val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entryrtxmelt_st   /* for MELTOBMAG_MAPRTXS*/
 {
     rtx e_at;
@@ -333,12 +381,18 @@ struct GTY (()) meltmaprtxs_st   /* when MELTOBMAG_MAPRTXS*/
 };
 
 
-/*gtyctype #9 CTYPE_TREE*/
+/*gtyctypebox gtyctyp #9 CTYPE_TREE*/
 struct GTY (()) melttree_st   /* when MELTOBMAG_TREE*/
 {
     meltobject_ptr_t discr;
     tree val;
+#ifndef MELT_NO_CONVERSION_OPERATOR
+    operator melt_ptr_t ()
+{
+    return reinterpret_cast<melt_ptr_t>(this);
+}
 };
+#endif /*MELT_NO_CONVERSION_OPERATOR*/
 struct GTY (()) entrytreemelt_st   /* for MELTOBMAG_MAPTREES*/
 {
     tree e_at;
@@ -836,6 +890,7 @@ typedef union
 } melt_un_t /*end generated melt_un*/;
 
 
+
 /* cast.valdesc #1 meltbucketlongs_st*/
 static inline struct meltbucketlongs_st* meltcast_meltbucketlongs_st(melt_ptr_t p)
 {
@@ -843,6 +898,8 @@ static inline struct meltbucketlongs_st* meltcast_meltbucketlongs_st(melt_ptr_t 
         return (struct meltbucketlongs_st*) p;
     return NULL;
 } /* end meltcast_meltbucketlongs_st*/
+
+
 
 
 /* cast.valdesc #2 meltclosure_st*/
@@ -854,6 +911,8 @@ static inline struct meltclosure_st* meltcast_meltclosure_st(melt_ptr_t p)
 } /* end meltcast_meltclosure_st*/
 
 
+
+
 /* cast.valdesc #3 meltdecay_st*/
 static inline struct meltdecay_st* meltcast_meltdecay_st(melt_ptr_t p)
 {
@@ -861,6 +920,8 @@ static inline struct meltdecay_st* meltcast_meltdecay_st(melt_ptr_t p)
         return (struct meltdecay_st*) p;
     return NULL;
 } /* end meltcast_meltdecay_st*/
+
+
 
 
 /* cast.valdesc #4 melthook_st*/
@@ -872,6 +933,8 @@ static inline struct melthook_st* meltcast_melthook_st(melt_ptr_t p)
 } /* end meltcast_melthook_st*/
 
 
+
+
 /* cast.valdesc #5 meltint_st*/
 static inline struct meltint_st* meltcast_meltint_st(melt_ptr_t p)
 {
@@ -879,6 +942,8 @@ static inline struct meltint_st* meltcast_meltint_st(melt_ptr_t p)
         return (struct meltint_st*) p;
     return NULL;
 } /* end meltcast_meltint_st*/
+
+
 
 
 /* cast.valdesc #6 meltlist_st*/
@@ -890,6 +955,8 @@ static inline struct meltlist_st* meltcast_meltlist_st(melt_ptr_t p)
 } /* end meltcast_meltlist_st*/
 
 
+
+
 /* cast.valdesc #7 meltmapobjects_st*/
 static inline struct meltmapobjects_st* meltcast_meltmapobjects_st(melt_ptr_t p)
 {
@@ -897,6 +964,8 @@ static inline struct meltmapobjects_st* meltcast_meltmapobjects_st(melt_ptr_t p)
         return (struct meltmapobjects_st*) p;
     return NULL;
 } /* end meltcast_meltmapobjects_st*/
+
+
 
 
 /* cast.valdesc #8 meltmapstrings_st*/
@@ -908,6 +977,8 @@ static inline struct meltmapstrings_st* meltcast_meltmapstrings_st(melt_ptr_t p)
 } /* end meltcast_meltmapstrings_st*/
 
 
+
+
 /* cast.valdesc #9 meltmixbigint_st*/
 static inline struct meltmixbigint_st* meltcast_meltmixbigint_st(melt_ptr_t p)
 {
@@ -915,6 +986,8 @@ static inline struct meltmixbigint_st* meltcast_meltmixbigint_st(melt_ptr_t p)
         return (struct meltmixbigint_st*) p;
     return NULL;
 } /* end meltcast_meltmixbigint_st*/
+
+
 
 
 /* cast.valdesc #10 meltmixint_st*/
@@ -926,6 +999,8 @@ static inline struct meltmixint_st* meltcast_meltmixint_st(melt_ptr_t p)
 } /* end meltcast_meltmixint_st*/
 
 
+
+
 /* cast.valdesc #11 meltmixloc_st*/
 static inline struct meltmixloc_st* meltcast_meltmixloc_st(melt_ptr_t p)
 {
@@ -933,6 +1008,8 @@ static inline struct meltmixloc_st* meltcast_meltmixloc_st(melt_ptr_t p)
         return (struct meltmixloc_st*) p;
     return NULL;
 } /* end meltcast_meltmixloc_st*/
+
+
 
 
 /* cast.valdesc #12 meltmultiple_st*/
@@ -944,6 +1021,8 @@ static inline struct meltmultiple_st* meltcast_meltmultiple_st(melt_ptr_t p)
 } /* end meltcast_meltmultiple_st*/
 
 
+
+
 /* cast.valdesc #13 meltobject_st*/
 static inline struct meltobject_st* meltcast_meltobject_st(melt_ptr_t p)
 {
@@ -951,6 +1030,8 @@ static inline struct meltobject_st* meltcast_meltobject_st(melt_ptr_t p)
         return (struct meltobject_st*) p;
     return NULL;
 } /* end meltcast_meltobject_st*/
+
+
 
 
 /* cast.valdesc #14 meltpair_st*/
@@ -962,6 +1043,8 @@ static inline struct meltpair_st* meltcast_meltpair_st(melt_ptr_t p)
 } /* end meltcast_meltpair_st*/
 
 
+
+
 /* cast.valdesc #15 meltreal_st*/
 static inline struct meltreal_st* meltcast_meltreal_st(melt_ptr_t p)
 {
@@ -969,6 +1052,8 @@ static inline struct meltreal_st* meltcast_meltreal_st(melt_ptr_t p)
         return (struct meltreal_st*) p;
     return NULL;
 } /* end meltcast_meltreal_st*/
+
+
 
 
 /* cast.valdesc #16 meltroutine_st*/
@@ -980,6 +1065,8 @@ static inline struct meltroutine_st* meltcast_meltroutine_st(melt_ptr_t p)
 } /* end meltcast_meltroutine_st*/
 
 
+
+
 /* cast.valdesc #17 meltspecialdata_st*/
 static inline struct meltspecialdata_st* meltcast_meltspecialdata_st(melt_ptr_t p)
 {
@@ -987,6 +1074,8 @@ static inline struct meltspecialdata_st* meltcast_meltspecialdata_st(melt_ptr_t 
         return (struct meltspecialdata_st*) p;
     return NULL;
 } /* end meltcast_meltspecialdata_st*/
+
+
 
 
 /* cast.valdesc #18 meltstrbuf_st*/
@@ -998,6 +1087,8 @@ static inline struct meltstrbuf_st* meltcast_meltstrbuf_st(melt_ptr_t p)
 } /* end meltcast_meltstrbuf_st*/
 
 
+
+
 /* cast.valdesc #19 meltstring_st*/
 static inline struct meltstring_st* meltcast_meltstring_st(melt_ptr_t p)
 {
@@ -1005,6 +1096,7 @@ static inline struct meltstring_st* meltcast_meltstring_st(melt_ptr_t p)
         return (struct meltstring_st*) p;
     return NULL;
 } /* end meltcast_meltstring_st*/
+
 
 /** end generated by generate_runtypesupport_gty **/
 
