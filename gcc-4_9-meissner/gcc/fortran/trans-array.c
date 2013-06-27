@@ -3145,7 +3145,7 @@ build_array_ref (tree desc, tree offset, tree decl)
    a(i, j, k) = base[offset + i * stride[0] + j * stride[1] + k * stride[2]]*/
 
 void
-gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
+gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_expr *expr,
 		    locus * where)
 {
   int n;
@@ -3154,6 +3154,8 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
   tree stride;
   gfc_se indexse;
   gfc_se tmpse;
+  gfc_symbol * sym = expr->symtree->n.sym;
+  char *var_name = NULL;
 
   if (ar->dimen == 0)
     {
@@ -3182,6 +3184,35 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
       gfc_conv_scalarized_array_ref (se, ar);
       gfc_advance_se_ss_chain (se);
       return;
+    }
+
+  if (gfc_option.rtcheck & GFC_RTCHECK_BOUNDS)
+    {
+      size_t len;
+      gfc_ref *ref;
+
+      len = strlen (sym->name) + 1;
+      for (ref = expr->ref; ref; ref = ref->next)
+	{
+	  if (ref->type == REF_ARRAY && &ref->u.ar == ar)
+	    break;
+	  if (ref->type == REF_COMPONENT)
+	    len += 1 + strlen (ref->u.c.component->name);
+	}
+
+      var_name = XALLOCAVEC (char, len);
+      strcpy (var_name, sym->name);
+
+      for (ref = expr->ref; ref; ref = ref->next)
+	{
+	  if (ref->type == REF_ARRAY && &ref->u.ar == ar)
+	    break;
+	  if (ref->type == REF_COMPONENT)
+	    {
+	      strcat (var_name, "%%");
+	      strcat (var_name, ref->u.c.component->name);
+	    }
+	}
     }
 
   cst_offset = offset = gfc_index_zero_node;
@@ -3219,7 +3250,7 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
 	  cond = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 				  indexse.expr, tmp);
 	  asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-		    "below lower bound of %%ld", n+1, sym->name);
+		    "below lower bound of %%ld", n+1, var_name);
 	  gfc_trans_runtime_check (true, false, cond, &se->pre, where, msg,
 				   fold_convert (long_integer_type_node,
 						 indexse.expr),
@@ -3243,7 +3274,7 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
 	      cond = fold_build2_loc (input_location, GT_EXPR,
 				      boolean_type_node, indexse.expr, tmp);
 	      asprintf (&msg, "Index '%%ld' of dimension %d of array '%s' "
-			"above upper bound of %%ld", n+1, sym->name);
+			"above upper bound of %%ld", n+1, var_name);
 	      gfc_trans_runtime_check (true, false, cond, &se->pre, where, msg,
 				   fold_convert (long_integer_type_node,
 						 indexse.expr),
@@ -8209,6 +8240,8 @@ gfc_alloc_allocatable_for_assignment (gfc_loopinfo *loop,
 			   gfc_array_index_type,
 			   tmp, size2);
   size2 = fold_convert (size_type_node, size2);
+  size2 = fold_build2_loc (input_location, MAX_EXPR, size_type_node,
+			   size2, size_one_node);
   size2 = gfc_evaluate_now (size2, &fblock);
 
   /* Realloc expression.  Note that the scalarizer uses desc.data
@@ -8307,12 +8340,12 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
   sym_has_alloc_comp = (sym->ts.type == BT_DERIVED
 			|| sym->ts.type == BT_CLASS)
 			  && sym->ts.u.derived->attr.alloc_comp;
+  has_finalizer = sym->ts.type == BT_CLASS || sym->ts.type == BT_DERIVED
+		   ? gfc_is_finalizable (sym->ts.u.derived, NULL) : false;
 
   /* Make sure the frontend gets these right.  */
-  if (!(sym->attr.pointer || sym->attr.allocatable || sym_has_alloc_comp))
-    fatal_error ("Possible front-end bug: Deferred array size without pointer, "
-		 "allocatable attribute or derived type without allocatable "
-		 "components.");
+  gcc_assert (sym->attr.pointer || sym->attr.allocatable || sym_has_alloc_comp
+	      || has_finalizer);
 
   gfc_save_backend_locus (&loc);
   gfc_set_backend_locus (&sym->declared_at);
@@ -8341,7 +8374,7 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
   /* Although static, derived types with default initializers and
      allocatable components must not be nulled wholesale; instead they
      are treated component by component.  */
-  if (TREE_STATIC (descriptor) && !sym_has_alloc_comp)
+  if (TREE_STATIC (descriptor) && !sym_has_alloc_comp && !has_finalizer)
     {
       /* SAVEd variables are not freed on exit.  */
       gfc_trans_static_array_pointer (sym);
@@ -8354,7 +8387,8 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
   /* Get the descriptor type.  */
   type = TREE_TYPE (sym->backend_decl);
 
-  if (sym_has_alloc_comp && !(sym->attr.pointer || sym->attr.allocatable))
+  if ((sym_has_alloc_comp || (has_finalizer && sym->ts.type != BT_CLASS))
+      && !(sym->attr.pointer || sym->attr.allocatable))
     {
       if (!sym->attr.save
 	  && !(TREE_STATIC (sym->backend_decl) && sym->attr.is_main_program))
@@ -8389,9 +8423,17 @@ gfc_trans_deferred_array (gfc_symbol * sym, gfc_wrapped_block * block)
 
   /* Allocatable arrays need to be freed when they go out of scope.
      The allocatable components of pointers must not be touched.  */
-  has_finalizer = sym->ts.type == BT_CLASS || sym->ts.type == BT_DERIVED
-		   ? gfc_is_finalizable (sym->ts.u.derived, NULL) : false;
-  if ((!sym->attr.allocatable || !has_finalizer)
+  if (!sym->attr.allocatable && has_finalizer && sym->ts.type != BT_CLASS
+      && !sym->attr.pointer && !sym->attr.artificial && !sym->attr.save
+      && !sym->ns->proc_name->attr.is_main_program)
+    {
+      gfc_expr *e;
+      sym->attr.referenced = 1;
+      e = gfc_lval_expr_from_sym (sym);
+      gfc_add_finalizer_call (&cleanup, e);
+      gfc_free_expr (e);
+    }
+  else if ((!sym->attr.allocatable || !has_finalizer)
       && sym_has_alloc_comp && !(sym->attr.function || sym->attr.result)
       && !sym->attr.pointer && !sym->attr.save
       && !sym->ns->proc_name->attr.is_main_program)

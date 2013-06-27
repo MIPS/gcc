@@ -5151,9 +5151,9 @@ convert_nontype_argument_function (tree type, tree expr)
     }
 
   linkage = decl_linkage (fn_no_ptr);
-  if (cxx_dialect >= cxx0x ? linkage == lk_none : linkage != lk_external)
+  if (cxx_dialect >= cxx11 ? linkage == lk_none : linkage != lk_external)
     {
-      if (cxx_dialect >= cxx0x)
+      if (cxx_dialect >= cxx11)
 	error ("%qE is not a valid template argument for type %qT "
 	       "because %qD has no linkage",
 	       expr, type, fn_no_ptr);
@@ -5178,7 +5178,7 @@ check_valid_ptrmem_cst_expr (tree type, tree expr,
   STRIP_NOPS (expr);
   if (expr && (null_ptr_cst_p (expr) || TREE_CODE (expr) == PTRMEM_CST))
     return true;
-  if (cxx_dialect >= cxx0x && null_member_pointer_value_p (expr))
+  if (cxx_dialect >= cxx11 && null_member_pointer_value_p (expr))
     return true;
   if (complain & tf_error)
     {
@@ -5510,7 +5510,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
      arbitrary constant expressions.  Pointer and pointer to
      member arguments can be general constant expressions that evaluate
      to a null value, but otherwise still need to be of a specific form.  */
-  if (cxx_dialect >= cxx0x)
+  if (cxx_dialect >= cxx11)
     {
       if (TREE_CODE (expr) == PTRMEM_CST)
 	/* A PTRMEM_CST is already constant, and a valid template
@@ -5644,7 +5644,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
       if (DECL_P (expr) && DECL_TEMPLATE_PARM_P (expr))
 	/* Non-type template parameters are OK.  */
 	;
-      else if (cxx_dialect >= cxx0x && integer_zerop (expr))
+      else if (cxx_dialect >= cxx11 && integer_zerop (expr))
 	/* Null pointer values are OK in C++11.  */;
       else if (TREE_CODE (expr) != ADDR_EXPR
 	       && TREE_CODE (expr_type) != ARRAY_TYPE)
@@ -5681,14 +5681,14 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 		     expr, type, decl);
 	      return NULL_TREE;
 	    }
-	  else if (cxx_dialect < cxx0x && !DECL_EXTERNAL_LINKAGE_P (decl))
+	  else if (cxx_dialect < cxx11 && !DECL_EXTERNAL_LINKAGE_P (decl))
 	    {
 	      error ("%qE is not a valid template argument of type %qT "
 		     "because %qD does not have external linkage",
 		     expr, type, decl);
 	      return NULL_TREE;
 	    }
-	  else if (cxx_dialect >= cxx0x && decl_linkage (decl) == lk_none)
+	  else if (cxx_dialect >= cxx11 && decl_linkage (decl) == lk_none)
 	    {
 	      error ("%qE is not a valid template argument of type %qT "
 		     "because %qD has no linkage",
@@ -5787,7 +5787,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	    return error_mark_node;
 	}
 
-      if (cxx_dialect >= cxx0x && integer_zerop (expr))
+      if (cxx_dialect >= cxx11 && integer_zerop (expr))
 	/* Null pointer values are OK in C++11.  */
 	return perform_qualification_conversions (type, expr);
 
@@ -6216,7 +6216,7 @@ convert_template_argument (tree parm,
       tree t = maybe_get_template_decl_from_type_decl (TYPE_NAME (arg));
       if (TREE_CODE (t) == TEMPLATE_DECL)
 	{
-	  if (cxx_dialect >= cxx0x)
+	  if (cxx_dialect >= cxx11)
 	    /* OK under DR 1004.  */;
 	  else if (complain & tf_warning_or_error)
 	    pedwarn (input_location, OPT_Wpedantic, "injected-class-name %qD"
@@ -13518,7 +13518,7 @@ tsubst_copy_and_build (tree t,
 	decl = finish_id_expression (t, decl, NULL_TREE,
 				     &idk,
 				     integral_constant_expression_p,
-          /*allow_non_integral_constant_expression_p=*/(cxx_dialect >= cxx0x),
+          /*allow_non_integral_constant_expression_p=*/(cxx_dialect >= cxx11),
 				     &non_integral_constant_expression_p,
 				     /*template_p=*/false,
 				     /*done=*/true,
@@ -13753,6 +13753,20 @@ tsubst_copy_and_build (tree t,
 				 RECUR (TREE_OPERAND (t, 1)),
 				 complain|decltype_flag));
 
+    case ARRAY_NOTATION_REF:
+      {
+	tree start_index, length, stride;
+	op1 = tsubst_non_call_postfix_expression (ARRAY_NOTATION_ARRAY (t),
+						  args, complain, in_decl);
+	start_index = RECUR (ARRAY_NOTATION_START (t));
+	length = RECUR (ARRAY_NOTATION_LENGTH (t));
+	stride = RECUR (ARRAY_NOTATION_STRIDE (t));
+	if (!cilkplus_an_triplet_types_ok_p (loc, start_index, length, stride,
+					     TREE_TYPE (op1)))
+	  RETURN (error_mark_node);
+	RETURN (build_array_notation_ref (EXPR_LOCATION (t), op1, start_index,
+					  length, stride, TREE_TYPE (op1)));
+      }
     case SIZEOF_EXPR:
       if (PACK_EXPANSION_P (TREE_OPERAND (t, 0)))
 	RETURN (tsubst_copy (t, args, complain, in_decl));
@@ -15725,6 +15739,9 @@ type_unification_real (tree tparms,
       arg = args[ia];
       ++ia;
 
+      if (flag_enable_cilkplus && TREE_CODE (arg) == ARRAY_NOTATION_REF)
+	return 1;
+
       if (unify_one_argument (tparms, targs, parm, arg, subr, strict,
 			      flags, explain_p))
 	return 1;
@@ -17493,7 +17510,8 @@ check_undeduced_parms (tree targs, tree args, tree end)
    corresponding argument.  Deduction is done as for class templates.
    The arguments used in deduction have reference and top level cv
    qualifiers removed.  Iff both arguments were originally reference
-   types *and* deduction succeeds in both directions, the template
+   types *and* deduction succeeds in both directions, an lvalue reference
+   wins against an rvalue reference and otherwise the template
    with the more cv-qualified argument wins for that pairing (if
    neither is more cv-qualified, they both are equal).  Unlike regular
    deduction, after all the arguments have been deduced in this way,
@@ -17569,6 +17587,8 @@ more_specialized_fn (tree pat1, tree pat2, int len)
       int deduce1, deduce2;
       int quals1 = -1;
       int quals2 = -1;
+      int ref1 = 0;
+      int ref2 = 0;
 
       if (TREE_CODE (arg1) == TYPE_PACK_EXPANSION
           && TREE_CODE (arg2) == TYPE_PACK_EXPANSION)
@@ -17584,12 +17604,14 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 
       if (TREE_CODE (arg1) == REFERENCE_TYPE)
 	{
+	  ref1 = TYPE_REF_IS_RVALUE (arg1) + 1;
 	  arg1 = TREE_TYPE (arg1);
 	  quals1 = cp_type_quals (arg1);
 	}
 
       if (TREE_CODE (arg2) == REFERENCE_TYPE)
 	{
+	  ref2 = TYPE_REF_IS_RVALUE (arg2) + 1;
 	  arg2 = TREE_TYPE (arg2);
 	  quals2 = cp_type_quals (arg2);
 	}
@@ -17667,19 +17689,33 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 
       /* "If, for a given type, deduction succeeds in both directions
 	 (i.e., the types are identical after the transformations above)
-	 and if the type from the argument template is more cv-qualified
-	 than the type from the parameter template (as described above)
-	 that type is considered to be more specialized than the other. If
-	 neither type is more cv-qualified than the other then neither type
-	 is more specialized than the other."  */
+	 and both P and A were reference types (before being replaced with
+	 the type referred to above):
+	 - if the type from the argument template was an lvalue reference and
+	 the type from the parameter template was not, the argument type is
+	 considered to be more specialized than the other; otherwise,
+	 - if the type from the argument template is more cv-qualified
+	 than the type from the parameter template (as described above),
+	 the argument type is considered to be more specialized than the other;
+	 otherwise,
+	 - neither type is more specialized than the other."  */
 
-      if (deduce1 && deduce2
-	  && quals1 != quals2 && quals1 >= 0 && quals2 >= 0)
+      if (deduce1 && deduce2)
 	{
-	  if ((quals1 & quals2) == quals2)
-	    lose2 = true;
-	  if ((quals1 & quals2) == quals1)
-	    lose1 = true;
+	  if (ref1 && ref2 && ref1 != ref2)
+	    {
+	      if (ref1 > ref2)
+		lose1 = true;
+	      else
+		lose2 = true;
+	    }
+	  else if (quals1 != quals2 && quals1 >= 0 && quals2 >= 0)
+	    {
+	      if ((quals1 & quals2) == quals2)
+		lose2 = true;
+	      if ((quals1 & quals2) == quals1)
+		lose1 = true;
+	    }
 	}
 
       if (lose1 && lose2)
@@ -19126,6 +19162,11 @@ instantiate_decl (tree d, int defer_ok,
       pointer_map_destroy (local_specializations);
       local_specializations = saved_local_specializations;
 
+      /* We expand all the array notation expressions here.  */
+      if (flag_enable_cilkplus
+	  && contains_array_notation_expr (DECL_SAVED_TREE (d)))
+	DECL_SAVED_TREE (d) = expand_array_notation_exprs (DECL_SAVED_TREE (d));
+      
       /* Finish the function.  */
       d = finish_function (0);
       expand_or_defer_fn (d);
@@ -19812,7 +19853,7 @@ value_dependent_expression_p (tree expression)
 	    /* If there are no operands, it must be an expression such
 	       as "int()". This should not happen for aggregate types
 	       because it would form non-constant expressions.  */
-	    gcc_assert (cxx_dialect >= cxx0x
+	    gcc_assert (cxx_dialect >= cxx11
 			|| INTEGRAL_OR_ENUMERATION_TYPE_P (type));
 
 	    return false;
@@ -20679,7 +20720,7 @@ build_non_dependent_expr (tree expr)
 #ifdef ENABLE_CHECKING
   /* Try to get a constant value for all non-dependent expressions in
       order to expose bugs in *_dependent_expression_p and constexpr.  */
-  if (cxx_dialect >= cxx0x)
+  if (cxx_dialect >= cxx11)
     maybe_constant_value (fold_non_dependent_expr_sfinae (expr, tf_none));
 #endif
 
