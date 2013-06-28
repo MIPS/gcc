@@ -1,3 +1,8 @@
+2013-06-28  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/bmiintrin.h (_bextr_u32): New.
+	(_bextr_u64): Ditto.
+
 2013-06-27  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/57623
