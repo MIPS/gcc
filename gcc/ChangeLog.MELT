@@ -2,6 +2,11 @@
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): repeat
+	the class for non-initial routines.
+
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* gcc/melt/generated/warmelt-base+01.cc: Regenerate.
 	* gcc/melt/generated/warmelt-base+02.cc: Regenerate.
@@ -80,7 +85,7 @@
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* melt/warmelt-outobj.melt (output_curframe_declstruct) Emit
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): Emit
 	semicolon after end of class Melt_InitialFrame.
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
