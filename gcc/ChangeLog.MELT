@@ -2,6 +2,12 @@
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (output_curframe_declstruct)
+	(outpucod_initialmoduleroutine): Emit typedef for classy initial
+	frame.
+
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
