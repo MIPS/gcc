@@ -1641,7 +1641,7 @@ mpx_make_static_const_bounds (HOST_WIDE_INT lb,
   tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			 get_identifier (name), bound_type_node);
 
-  TREE_PUBLIC (var) = 0;
+  TREE_PUBLIC (var) = 1;
   TREE_USED (var) = 1;
   TREE_READONLY (var) = 1;
   TREE_STATIC (var) = 1;
@@ -1649,6 +1649,7 @@ mpx_make_static_const_bounds (HOST_WIDE_INT lb,
   DECL_ARTIFICIAL (var) = 1;
   DECL_COMMON (var) = 1;
   DECL_COMDAT (var) = 1;
+  DECL_COMDAT_GROUP (var) = DECL_ASSEMBLER_NAME (var);
   DECL_READ_P (var) = 1;
   DECL_INITIAL (var) = build_int_cst_wide (bound_type_node, lb, ~ub);
 
