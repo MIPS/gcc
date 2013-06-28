@@ -1,3 +1,184 @@
+2013-06-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57744
+	* config/rs6000/rs6000.h (MODES_TIEABLE_P): Do not allow PTImode
+	to tie with any other modes.  Eliminate Altivec vector mode tests,
+	since these are a subset of ALTIVEC or VSX vector modes.  Simplify
+	code, to return 0 if testing MODE2 for a condition, if we've
+	already tested MODE1 for the same condition.
+
+2013-06-28  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_cannot_force_const_mem): Adjust
+	layout.
+
+2013-06-28  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_symbol_type):
+	Update comment w.r.t SYMBOL_TINY_ABSOLUTE.
+
+2013-06-28  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-protos.h
+	aarch64_classify_symbol_expression): Define.
+	(aarch64_symbolic_constant_p): Remove.
+	* config/aarch64/aarch64.c (aarch64_classify_symbol_expression): Remove
+	static.  Fix line length and white space.
+	(aarch64_symbolic_constant_p): Remove.
+	* config/aarch64/predicates.md (aarch64_valid_symref):
+	Use aarch64_classify_symbol_expression.
+
+2013-06-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/constraints.md (Ts): New constraint.
+	* config/arm/arm.md (arm_movqi_insn): Add alternatives for
+	16-bit encodings.
+	(compare_scc): Use "Ts" constraint for operand 0.
+	(ior_scc_scc): Likewise.
+	(and_scc_scc): Likewise.
+	(and_scc_scc_nodom): Likewise.
+	(ior_scc_scc_cmp): Likewise for operand 7.
+	(and_scc_scc_cmp): Likewise.
+	* config/arm/thumb2.md (thumb2_movsi_insn):
+	Add alternatives for 16-bit encodings.
+	(thumb2_movhi_insn): Likewise.
+	(thumb2_movsicc_insn): Likewise.
+	(thumb2_and_scc): Take 'and' outside cond_exec.  Use "Ts" constraint.
+	(thumb2_negscc): Use "Ts" constraint.
+	Move mvn instruction outside cond_exec block.
+	* config/arm/vfp.md (thumb2_movsi_vfp): Add alternatives
+	for 16-bit encodings.
+
+2013-06-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (arm_mulsi3_v6): Add alternative for 16-bit
+	encoding.
+	(mulsi3addsi_v6): Disable predicable variant for arm_restrict_it.
+	(mulsi3subsi): Likewise.
+	(mulsidi3adddi): Likewise.
+	(mulsidi3_v6): Likewise.
+	(umulsidi3_v6): Likewise.
+	(umulsidi3adddi_v6): Likewise.
+	(smulsi3_highpart_v6): Likewise.
+	(umulsi3_highpart_v6): Likewise.
+	(mulhisi3tb): Likewise.
+	(mulhisi3bt): Likewise.
+	(mulhisi3tt): Likewise.
+	(maddhisi4): Likewise.
+	(maddhisi4tb): Likewise.
+	(maddhisi4tt): Likewise.
+	(maddhidi4): Likewise.
+	(maddhidi4tb): Likewise.
+	(maddhidi4tt): Likewise.
+	(zeroextractsi_compare0_scratch): Likewise.
+	(insv_zero): Likewise.
+	(insv_t2): Likewise.
+	(anddi_notzesidi_di): Likewise.
+	(anddi_notsesidi_di): Likewise.
+	(andsi_notsi_si): Likewise.
+	(iordi_zesidi_di): Likewise.
+	(xordi_zesidi_di): Likewise.
+	(andsi_iorsi3_notsi): Likewise.
+	(smax_0): Likewise.
+	(smax_m1): Likewise.
+	(smin_0): Likewise.
+	(not_shiftsi): Likewise.
+	(unaligned_loadsi): Likewise.
+	(unaligned_loadhis): Likewise.
+	(unaligned_loadhiu): Likewise.
+	(unaligned_storesi): Likewise.
+	(unaligned_storehi): Likewise.
+	(extv_reg): Likewise.
+	(extzv_t2): Likewise.
+	(divsi3): Likewise.
+	(udivsi3): Likewise.
+	(arm_zero_extendhisi2addsi): Likewise.
+	(arm_zero_extendqisi2addsi): Likewise.
+	(compareqi_eq0): Likewise.
+	(arm_extendhisi2_v6): Likewise.
+	(arm_extendqisi2addsi): Likewise.
+	(arm_movt): Likewise.
+	(thumb2_ldrd): Likewise.
+	(thumb2_ldrd_base): Likewise.
+	(thumb2_ldrd_base_neg): Likewise.
+	(thumb2_strd): Likewise.
+	(thumb2_strd_base): Likewise.
+	(thumb2_strd_base_neg): Likewise.
+	(arm_negsi2): Add alternative for 16-bit encoding.
+	(arm_one_cmplsi2): Likewise.
+
+2013-06-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/predicates.md (arm_cond_move_operator): New predicate.
+	* config/arm/arm.md (movsfcc): Use arm_cond_move_operator predicate.
+	(movdfcc): Likewise.
+	* config/arm/vfp.md (*thumb2_movsf_vfp):
+	Disable predication for arm_restrict_it.
+	(*thumb2_movsfcc_vfp): Disable for arm_restrict_it.
+	(*thumb2_movdfcc_vfp): Likewise.
+	(*abssf2_vfp, *absdf2_vfp, *negsf2_vfp, *negdf2_vfp,*addsf3_vfp,
+	*adddf3_vfp, *subsf3_vfp, *subdf3_vfpc, *divsf3_vfp,*divdf3_vfp,
+	*mulsf3_vfp, *muldf3_vfp, *mulsf3negsf_vfp, *muldf3negdf_vfp,
+	*mulsf3addsf_vfp, *muldf3adddf_vfp, *mulsf3subsf_vfp,
+	*muldf3subdf_vfp, *mulsf3negsfaddsf_vfp, *fmuldf3negdfadddf_vfp,
+	*mulsf3negsfsubsf_vfp, *muldf3negdfsubdf_vfp, *fma<SDF:mode>4,
+	*fmsub<SDF:mode>4, *fnmsub<SDF:mode>4, *fnmadd<SDF:mode>4,
+	*extendsfdf2_vfp, *truncdfsf2_vfp, *extendhfsf2, *truncsfhf2,
+	*truncsisf2_vfp, *truncsidf2_vfp, fixuns_truncsfsi2, fixuns_truncdfsi2,
+	*floatsisf2_vfp, *floatsidf2_vfp, floatunssisf2, floatunssidf2,
+	*sqrtsf2_vfp, *sqrtdf2_vfp, *cmpsf_vfp, *cmpsf_trap_vfp, *cmpdf_vfp,
+	*cmpdf_trap_vfp, <vrint_pattern><SDF:mode>2):
+	Disable predication for arm_restrict_it.
+
+2013-06-28  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/bmiintrin.h (_bextr_u32): New.
+	(_bextr_u64): Ditto.
+
+2013-06-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config.gcc (mips*-mti-elf*, mips*-sde-elf*, mips64r5900-*-elf*)
+	(mips64r5900el-*-elf*): Include mips/n32-elf.h.
+	* config/mips/sde.h (LOCAL_LABEL_PREFIX, NO_DOLLAR_IN_LABEL)
+	(LONG_DOUBLE_TYPE_SIZE, LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Move to...
+	* config/mips/n32-elf.h: ...this new file.
+
+2013-06-27  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR target/57224
+	* config/i386/i386.c (enum ix86_builtins, bdesc_args): Remove
+	IX86_BUILTIN_CMPNGTSS and IX86_BUILTIN_CMPNGESS.
+
+2013-06-27  Catherine Moore <clm@codesourcery.com>
+
+	* config/mips/mips-tables.opt: Regenerate.
+	* config/mips/mips-cpus.def: Add m14ke and m14kec.
+	* config/mips/mips.h (BASE_DRIVER_SELF_SPECS): m14ke* implies
+	-mdspr2.
+	* doc/invoke.texi: Add -m14kc.
+
+2013-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57623
+	* config/i386/i386.md (bmi_bextr_<mode>): Swap predicates and
+	constraints of operand 1 and 2.
+
+	PR target/57623
+	* config/i386/i386.md (bmi2_bzhi_<mode>3): Swap AND arguments
+	to match RTL canonicalization.  Swap predicates and
+	constraints of operand 1 and 2.
+
+2013-06-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (inherit_in_ebb): Process static hard regs
+	too.  Process OP_INOUT regs for splitting too.
+
+2013-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-stmts.c (vectorizable_store): Move ptr_incr var
+	decl before the loop, initialize to NULL.
+	(vectorizable_load): Initialize ptr_incr to NULL.
+
 2013-06-27  Martin Jambor  <mjambor@suse.cz>
 
 	PR lto/57208
