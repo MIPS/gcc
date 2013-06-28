@@ -877,11 +877,12 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 #if !MELT_HAVE_CLASSY_FRAME
 struct melt_initial_frame_st; /*forward declaration of initial frame*/
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
-
-#if !MELT_HAVE_CLASSY_FRAME
 /*declare opaque initial frame: */
+#if MELT_HAVE_CLASSY_FRAME
+typedef class Melt_InitialFrame /*opaqueinitialclassy*/ meltinitial_frame_t;
+#else /*!MELT_HAVE_CLASSY_FRAME*/
 typedef struct melt_initial_frame_st meltinitial_frame_t;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/
 
 
 /* define different names when debugging or not */
