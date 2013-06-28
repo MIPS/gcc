@@ -1,0 +1,66 @@
+#   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
+# Various utilities for comparing abi dump output, used by gcc-dg.exp and
+# g++-dg.exp.
+
+load_lib scandump.exp
+
+# Utility for comparing the abi dump of the current test against a
+# reference file
+proc compare-abi-dump-with { args } {
+    global srcdir subdir
+
+    set num_args_min 1
+    set num_args_max 1
+
+    if { [llength $args] < $num_args_min } {
+	error "compare-abi-dump-with: too few arguments"
+	return
+    }
+    if { [llength $args] > $num_args_max } {
+	error "compare-abi-dump-with: too many arguments"
+    }
+
+    set tnfs [testname-for-summary]
+    set reference_dump [lindex $args 0]
+    # prepend $srcdir/$subdir to tot he reference_dump
+    if ![string match "*/*" reference_dump] {
+	set reference_dump $srcdir/$subdir/$reference_dump
+    }
+    set reference_dump "[glob -nocomplain $reference_dump]"
+    if { $reference_dump == "" } {
+	verbose -log "$reference_dump: reference dump file does not exist"
+	fail "reference dump presence test"
+    }
+    verbose -log "using reference dump: $reference_dump"
+
+    set abi_dump [file tail [lindex $tnfs 0]]
+    set abi_dump "[glob -nocomplain $abi_dump.bi]"
+    if { $abi_dump == "" } {
+	verbose -log "$abi_dump: abi dump file does not exist"
+	fail "$abi_dump presence test"
+    }
+    verbose -log "using abi dump: $abi_dump"
+
+    set result [catch { exec -ignorestderr diff -u $reference_dump $abi_dump 2>@1} diff_output]
+    if { $result == 0 } {
+	pass "$reference_dump, $abi_dump comparison"
+    } else {
+	fail "$reference_dump, $abi_dump comparison"
+	verbose -log "Difference is $diff_output"
+    }
+}
