@@ -703,6 +703,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      can be done with a movstrict instruction.  */
 
   if (!MEM_P (op0)
+      && !reverse
       && lowpart_bit_field_p (bitnum, bitsize, GET_MODE (op0))
       && bitsize == GET_MODE_BITSIZE (fieldmode)
       && optab_handler (movstrict_optab, fieldmode) != CODE_FOR_nothing)
@@ -1516,6 +1517,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
      as the least significant bit of the value is the least significant
      bit of either OP0 or a word of OP0.  */
   if (!MEM_P (op0)
+      && !reverse
       && lowpart_bit_field_p (bitnum, bitsize, GET_MODE (op0))
       && bitsize == GET_MODE_BITSIZE (mode1)
       && TRULY_NOOP_TRUNCATION_MODES_P (mode1, GET_MODE (op0)))
@@ -1523,11 +1525,7 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       rtx sub = simplify_gen_subreg (mode1, op0, GET_MODE (op0),
 				     bitnum / BITS_PER_UNIT);
       if (sub)
-	{
-	  if (reverse)
-	    sub = flip_storage_order (mode1, sub);
-	  return convert_extracted_bit_field (sub, mode, tmode, unsignedp);
-	}
+	return convert_extracted_bit_field (sub, mode, tmode, unsignedp);
     }
 
   /* Extraction of a full MODE1 value can be done with a load as long as
