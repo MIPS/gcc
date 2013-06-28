@@ -319,7 +319,8 @@ convert_location (source_location l)
     return abigail::location ();
 
   expanded_location e = expand_location (l);
-  return get_cur_tu ().get_loc_mgr ().create_new_location (e.file,
+  const char *file = (flag_dump_abi == 2) ? lbasename (e.file) : e.file;
+  return get_cur_tu ().get_loc_mgr ().create_new_location (file,
 							   e.line,
 							   e.column);
 }

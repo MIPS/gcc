@@ -5879,13 +5879,20 @@ same directory as the output file.  If the @samp{-@var{options}} form
 is used, @var{options} controls the details of the dump as described
 for the @option{-fdump-tree} options.
 
-@item -fdump-abi @r{(C++ only)}
+@item -fdump-abi@r{[}=@var{level}@r{]} @r{(C++ only)}
 @opindex fdump-abi
 Dump an XML representation of the types and declarations that are
 meaningful from an application binary interface standpoint.  For
 instance, types and declarations that are local to functions are not
 emitted in the dump.  The name of the dump file is made by appending
-@file{.bi} to the name of the input file.
+@file{.bi} to the name of the input file.  Value @samp{0} of
+@var{level} de-activates this options just as if no
+@option{-fdump-abi} was present on the command line.  Value @samp{1}
+activates this option.  Value @samp{2} activates this options but
+omits directory names in the @var{file} attribute of the XML elements
+where it is present; thus only the file base name is present.  When
+this option is given no argument, the default parameter value is
+@samp{1}.
 
 @item -fdump-ipa-@var{switch}
 @opindex fdump-ipa

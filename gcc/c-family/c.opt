@@ -894,6 +894,11 @@ Write all declarations as Ada code for the given file only
 fdump-abi
 C++ Var(flag_dump_abi)
 Dump the ABI of the translation unit to a file
+; Converted into fdump-abi=
+
+fdump-abi=
+C++ JoinedOrMissing RejectNegative UInteger Var(flag_dump_abi)
+-fdump-abi=<0|1|2> Dump the ABI of the translation unit to a file
 
 felide-constructors
 C++ ObjC++ Var(flag_elide_constructors) Init(1)
