@@ -2911,6 +2911,16 @@ public:
 #define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
 #define MELT_EXITFRAME() do {meltfram__.mcfr_flocs = NULL;}while(0)
 
+static inline int 
+melt_curframdepth (void) {
+  int cnt = 0;
+  for (Melt_CallFrame* cfr = Melt_CallFrame::top_call_frame();
+       cfr != NULL;
+       cfr=cfr->previous_frame()) 
+    cnt++;
+  return cnt;
+}
+
 ////****************************************************************
 
 #else /* ! MELT_HAVE_CLASSY_FRAME */

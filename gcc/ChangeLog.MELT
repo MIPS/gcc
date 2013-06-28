@@ -2,6 +2,12 @@
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): Better
+	handling of initial frames.  Emit appropriate meltinitial_frame_t
+	typedef.
+
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
 	* melt/generated/warmelt-debug+melttime.h: Regenerate.
