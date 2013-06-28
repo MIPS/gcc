@@ -1396,6 +1396,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<3> (sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT
+class MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1418,7 +1419,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_LOW_DEBUG_VALUE_AT_t; /* end of hook frame melthook_HOOK_LOW_DEBUG_VALUE_AT */
+    melthookframe_HOOK_LOW_DEBUG_VALUE_AT_t; /* end of hook frame melthook_HOOK_LOW_DEBUG_VALUE_AT */
 
 
 /** implementation of hook melthook_HOOK_LOW_DEBUG_VALUE_AT */
@@ -1568,6 +1569,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT
+class MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1590,7 +1592,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_LOW_STDERR_VALUE_AT_t; /* end of hook frame melthook_HOOK_LOW_STDERR_VALUE_AT */
+    melthookframe_HOOK_LOW_STDERR_VALUE_AT_t; /* end of hook frame melthook_HOOK_LOW_STDERR_VALUE_AT */
 
 
 /** implementation of hook melthook_HOOK_LOW_STDERR_VALUE_AT */
@@ -2012,6 +2014,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_OVERRIDE_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<37> (sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_OVERRIDE_GATE
+class MeltFrame_melthook_HOOK_OVERRIDE_GATE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2032,7 +2035,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_OVERRIDE_GATE_t; /* end of hook frame melthook_HOOK_OVERRIDE_GATE */
+    melthookframe_HOOK_OVERRIDE_GATE_t; /* end of hook frame melthook_HOOK_OVERRIDE_GATE */
 
 
 /** implementation of hook melthook_HOOK_OVERRIDE_GATE */
@@ -3416,6 +3419,7 @@ meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclosp_, mel
         MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<1> (sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE), clos) {};
     }; // end  class MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE
+    class MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3436,16 +3440,16 @@ meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclosp_, mel
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE_st*) meltfirstargp_;
             /* use arguments meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE output_curframe_declstruct_init */
@@ -3553,6 +3557,7 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
         MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<5> (sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE), clos) {};
     }; // end  class MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE
+    class MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3573,16 +3578,16 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE_st*) meltfirstargp_;
             /* use arguments meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE output_curframe_declstruct_init */
@@ -3802,6 +3807,7 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
         MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<8> (sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST), clos) {};
     }; // end  class MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST
+    class MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3822,16 +3828,16 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST_st*) meltfirstargp_;
             /* use arguments meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST output_curframe_declstruct_init */
@@ -4144,6 +4150,7 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
         MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<8> (sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST), clos) {};
     }; // end  class MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST
+    class MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4164,16 +4171,16 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST_st*) meltfirstargp_;
             /* use arguments meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST output_curframe_declstruct_init */
@@ -4486,6 +4493,7 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
         MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST), clos) {};
     }; // end  class MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST
+    class MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4506,16 +4514,16 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST_st*) meltfirstargp_;
             /* use arguments meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST output_curframe_declstruct_init */
@@ -5220,6 +5228,7 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
         MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST), clos) {};
     }; // end  class MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST
+    class MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5240,16 +5249,16 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST_st*) meltfirstargp_;
             /* use arguments meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST output_curframe_declstruct_init */
@@ -5954,6 +5963,7 @@ meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1), clos) {};
     }; // end  class MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1
+    class MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5974,16 +5984,16 @@ meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1_st*) meltfirstargp_;
             /* use arguments meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 output_curframe_declstruct_init */
@@ -6129,6 +6139,7 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<2> (sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2), clos) {};
     }; // end  class MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2
+    class MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6149,16 +6160,16 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2_st*) meltfirstargp_;
             /* use arguments meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 output_curframe_declstruct_init */
@@ -6283,6 +6294,7 @@ meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3), clos) {};
     }; // end  class MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3
+    class MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6303,16 +6315,16 @@ meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3_st*) meltfirstargp_;
             /* use arguments meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 output_curframe_declstruct_init */
@@ -6440,6 +6452,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_START_UNIT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_START_UNIT), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_START_UNIT
+class MeltFrame_melthook_HOOK_START_UNIT// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6460,7 +6473,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_START_UNIT_t; /* end of hook frame melthook_HOOK_START_UNIT */
+    melthookframe_HOOK_START_UNIT_t; /* end of hook frame melthook_HOOK_START_UNIT */
 
 
 /** implementation of hook melthook_HOOK_START_UNIT */
@@ -6734,6 +6747,7 @@ meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t meltclosp_, melt_
         MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<1> (sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT), clos) {};
     }; // end  class MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT
+    class MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6754,16 +6768,16 @@ meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t meltclosp_, melt_
         long _meltspare_;
     }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+        *meltframptr_=0,    meltfram__ /*declfrastruct*/
 #if MELT_HAVE_CLASSY_FRAME
-                  /*classyproc*/ (meltclosp_)
+              /*classyproc*/ (meltclosp_)
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                  ;
+                      ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
+    {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT_st*) meltfirstargp_;
             /* use arguments meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT output_curframe_declstruct_init */
@@ -6853,6 +6867,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_FINISH_UNIT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_FINISH_UNIT
+class MeltFrame_melthook_HOOK_FINISH_UNIT// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6873,7 +6888,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_FINISH_UNIT_t; /* end of hook frame melthook_HOOK_FINISH_UNIT */
+    melthookframe_HOOK_FINISH_UNIT_t; /* end of hook frame melthook_HOOK_FINISH_UNIT */
 
 
 /** implementation of hook melthook_HOOK_FINISH_UNIT */
@@ -7131,6 +7146,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_ALL_PASSES_START(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_ALL_PASSES_START
+class MeltFrame_melthook_HOOK_ALL_PASSES_START// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7151,7 +7167,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_ALL_PASSES_START_t; /* end of hook frame melthook_HOOK_ALL_PASSES_START */
+    melthookframe_HOOK_ALL_PASSES_START_t; /* end of hook frame melthook_HOOK_ALL_PASSES_START */
 
 
 /** implementation of hook melthook_HOOK_ALL_PASSES_START */
@@ -7462,6 +7478,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_ALL_PASSES_END(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_ALL_PASSES_END
+class MeltFrame_melthook_HOOK_ALL_PASSES_END// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7482,7 +7499,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_ALL_PASSES_END_t; /* end of hook frame melthook_HOOK_ALL_PASSES_END */
+    melthookframe_HOOK_ALL_PASSES_END_t; /* end of hook frame melthook_HOOK_ALL_PASSES_END */
 
 
 /** implementation of hook melthook_HOOK_ALL_PASSES_END */
@@ -7777,6 +7794,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START
+class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7797,7 +7815,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_ALL_IPA_PASSES_START_t; /* end of hook frame melthook_HOOK_ALL_IPA_PASSES_START */
+    melthookframe_HOOK_ALL_IPA_PASSES_START_t; /* end of hook frame melthook_HOOK_ALL_IPA_PASSES_START */
 
 
 /** implementation of hook melthook_HOOK_ALL_IPA_PASSES_START */
@@ -8108,6 +8126,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END
+class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -8128,7 +8147,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_ALL_IPA_PASSES_END_t; /* end of hook frame melthook_HOOK_ALL_IPA_PASSES_END */
+    melthookframe_HOOK_ALL_IPA_PASSES_END_t; /* end of hook frame melthook_HOOK_ALL_IPA_PASSES_END */
 
 
 /** implementation of hook melthook_HOOK_ALL_IPA_PASSES_END */
@@ -8423,6 +8442,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START
+class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -8443,7 +8463,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_EARLY_GIMPLE_PASSES_START_t; /* end of hook frame melthook_HOOK_EARLY_GIMPLE_PASSES_START */
+    melthookframe_HOOK_EARLY_GIMPLE_PASSES_START_t; /* end of hook frame melthook_HOOK_EARLY_GIMPLE_PASSES_START */
 
 
 /** implementation of hook melthook_HOOK_EARLY_GIMPLE_PASSES_START */
@@ -8754,6 +8774,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END
+class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -8774,7 +8795,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_EARLY_GIMPLE_PASSES_END_t; /* end of hook frame melthook_HOOK_EARLY_GIMPLE_PASSES_END */
+    melthookframe_HOOK_EARLY_GIMPLE_PASSES_END_t; /* end of hook frame melthook_HOOK_EARLY_GIMPLE_PASSES_END */
 
 
 /** implementation of hook melthook_HOOK_EARLY_GIMPLE_PASSES_END */
@@ -9072,6 +9093,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_PRE_GENERICIZE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_PRE_GENERICIZE
+class MeltFrame_melthook_HOOK_PRE_GENERICIZE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -9093,7 +9115,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_PRE_GENERICIZE_t; /* end of hook frame melthook_HOOK_PRE_GENERICIZE */
+    melthookframe_HOOK_PRE_GENERICIZE_t; /* end of hook frame melthook_HOOK_PRE_GENERICIZE */
 
 
 /** implementation of hook melthook_HOOK_PRE_GENERICIZE */
@@ -9411,6 +9433,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_FINISH_TYPE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_FINISH_TYPE
+class MeltFrame_melthook_HOOK_FINISH_TYPE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -9432,7 +9455,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_FINISH_TYPE_t; /* end of hook frame melthook_HOOK_FINISH_TYPE */
+    melthookframe_HOOK_FINISH_TYPE_t; /* end of hook frame melthook_HOOK_FINISH_TYPE */
 
 
 /** implementation of hook melthook_HOOK_FINISH_TYPE */
@@ -9750,6 +9773,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_FINISH_DECL(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_FINISH_DECL
+class MeltFrame_melthook_HOOK_FINISH_DECL// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -9771,7 +9795,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_FINISH_DECL_t; /* end of hook frame melthook_HOOK_FINISH_DECL */
+    melthookframe_HOOK_FINISH_DECL_t; /* end of hook frame melthook_HOOK_FINISH_DECL */
 
 
 /** implementation of hook melthook_HOOK_FINISH_DECL */
@@ -10087,6 +10111,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_PASS_EXECUTION(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_PASS_EXECUTION
+class MeltFrame_melthook_HOOK_PASS_EXECUTION// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -10108,7 +10133,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_PASS_EXECUTION_t; /* end of hook frame melthook_HOOK_PASS_EXECUTION */
+    melthookframe_HOOK_PASS_EXECUTION_t; /* end of hook frame melthook_HOOK_PASS_EXECUTION */
 
 
 /** implementation of hook melthook_HOOK_PASS_EXECUTION */
@@ -10439,6 +10464,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_GIMPLE_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<22> (sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_GIMPLE_GATE
+class MeltFrame_melthook_HOOK_GIMPLE_GATE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -10460,7 +10486,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_GIMPLE_GATE_t; /* end of hook frame melthook_HOOK_GIMPLE_GATE */
+    melthookframe_HOOK_GIMPLE_GATE_t; /* end of hook frame melthook_HOOK_GIMPLE_GATE */
 
 
 /** implementation of hook melthook_HOOK_GIMPLE_GATE */
@@ -11807,6 +11833,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<20> (sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_GIMPLE_EXECUTE
+class MeltFrame_melthook_HOOK_GIMPLE_EXECUTE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -11828,7 +11855,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_GIMPLE_EXECUTE_t; /* end of hook frame melthook_HOOK_GIMPLE_EXECUTE */
+    melthookframe_HOOK_GIMPLE_EXECUTE_t; /* end of hook frame melthook_HOOK_GIMPLE_EXECUTE */
 
 
 /** implementation of hook melthook_HOOK_GIMPLE_EXECUTE */
@@ -12878,6 +12905,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_RTL_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_RTL_GATE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_RTL_GATE
+class MeltFrame_melthook_HOOK_RTL_GATE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -12899,7 +12927,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_RTL_GATE_t; /* end of hook frame melthook_HOOK_RTL_GATE */
+    melthookframe_HOOK_RTL_GATE_t; /* end of hook frame melthook_HOOK_RTL_GATE */
 
 
 /** implementation of hook melthook_HOOK_RTL_GATE */
@@ -13548,6 +13576,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_RTL_EXECUTE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_RTL_EXECUTE
+class MeltFrame_melthook_HOOK_RTL_EXECUTE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -13569,7 +13598,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_RTL_EXECUTE_t; /* end of hook frame melthook_HOOK_RTL_EXECUTE */
+    melthookframe_HOOK_RTL_EXECUTE_t; /* end of hook frame melthook_HOOK_RTL_EXECUTE */
 
 
 /** implementation of hook melthook_HOOK_RTL_EXECUTE */
@@ -14267,6 +14296,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE
+class MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -14288,7 +14318,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_SIMPLE_IPA_GATE_t; /* end of hook frame melthook_HOOK_SIMPLE_IPA_GATE */
+    melthookframe_HOOK_SIMPLE_IPA_GATE_t; /* end of hook frame melthook_HOOK_SIMPLE_IPA_GATE */
 
 
 /** implementation of hook melthook_HOOK_SIMPLE_IPA_GATE */
@@ -14937,6 +14967,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE
+class MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -14958,7 +14989,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_SIMPLE_IPA_EXECUTE_t; /* end of hook frame melthook_HOOK_SIMPLE_IPA_EXECUTE */
+    melthookframe_HOOK_SIMPLE_IPA_EXECUTE_t; /* end of hook frame melthook_HOOK_SIMPLE_IPA_EXECUTE */
 
 
 /** implementation of hook melthook_HOOK_SIMPLE_IPA_EXECUTE */
@@ -15662,6 +15693,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER
+class MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -15685,7 +15717,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_MELT_ATTRIBUTE_DEFINER_t; /* end of hook frame melthook_HOOK_MELT_ATTRIBUTE_DEFINER */
+    melthookframe_HOOK_MELT_ATTRIBUTE_DEFINER_t; /* end of hook frame melthook_HOOK_MELT_ATTRIBUTE_DEFINER */
 
 
 /** implementation of hook melthook_HOOK_MELT_ATTRIBUTE_DEFINER */
@@ -16060,6 +16092,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_EXIT_FINALIZER(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_EXIT_FINALIZER
+class MeltFrame_melthook_HOOK_EXIT_FINALIZER// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -16080,7 +16113,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_EXIT_FINALIZER_t; /* end of hook frame melthook_HOOK_EXIT_FINALIZER */
+    melthookframe_HOOK_EXIT_FINALIZER_t; /* end of hook frame melthook_HOOK_EXIT_FINALIZER */
 
 
 /** implementation of hook melthook_HOOK_EXIT_FINALIZER */
@@ -16481,6 +16514,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_POLL_INPUTS(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<38> (sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_POLL_INPUTS
+class MeltFrame_melthook_HOOK_POLL_INPUTS// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -16501,7 +16535,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_POLL_INPUTS_t; /* end of hook frame melthook_HOOK_POLL_INPUTS */
+    melthookframe_HOOK_POLL_INPUTS_t; /* end of hook frame melthook_HOOK_POLL_INPUTS */
 
 
 /** implementation of hook melthook_HOOK_POLL_INPUTS */
@@ -18398,6 +18432,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_HANDLE_SIGIO(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<1> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGIO
+class MeltFrame_melthook_HOOK_HANDLE_SIGIO// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -18418,7 +18453,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_HANDLE_SIGIO_t; /* end of hook frame melthook_HOOK_HANDLE_SIGIO */
+    melthookframe_HOOK_HANDLE_SIGIO_t; /* end of hook frame melthook_HOOK_HANDLE_SIGIO */
 
 
 /** implementation of hook melthook_HOOK_HANDLE_SIGIO */
@@ -18533,6 +18568,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_HANDLE_SIGALRM(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<30> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGALRM
+class MeltFrame_melthook_HOOK_HANDLE_SIGALRM// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -18553,7 +18589,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_HANDLE_SIGALRM_t; /* end of hook frame melthook_HOOK_HANDLE_SIGALRM */
+    melthookframe_HOOK_HANDLE_SIGALRM_t; /* end of hook frame melthook_HOOK_HANDLE_SIGALRM */
 
 
 /** implementation of hook melthook_HOOK_HANDLE_SIGALRM */
@@ -19549,6 +19585,7 @@ public: /*inframedeclclassy*/
     MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<47> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), hook) {};
 }; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGCHLD
+class MeltFrame_melthook_HOOK_HANDLE_SIGCHLD// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -19569,7 +19606,7 @@ public: /*inframedeclclassy*/
     long _meltspare_;
 }
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-melthookframe_HOOK_HANDLE_SIGCHLD_t; /* end of hook frame melthook_HOOK_HANDLE_SIGCHLD */
+    melthookframe_HOOK_HANDLE_SIGCHLD_t; /* end of hook frame melthook_HOOK_HANDLE_SIGCHLD */
 
 
 /** implementation of hook melthook_HOOK_HANDLE_SIGCHLD */
@@ -26304,7 +26341,7 @@ void* melt_start_this_module (void* modargp_)
 #undef meltcallcount
 #define meltcallcount 0L
 #endif
-//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2335
+//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2342
 
 
     struct /*startiniframdecl*/ melt_initial_frame_st     meltfram__ /*declfrastruct*/
