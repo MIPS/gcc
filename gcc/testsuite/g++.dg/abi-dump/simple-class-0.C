@@ -27,3 +27,4 @@ foo(S& a)
 }
 
 // { dg-final { compare-abi-dump-with "simple-class-0.C.bi" } }
+// { dg-final { cleanup-dump "bi" } }
