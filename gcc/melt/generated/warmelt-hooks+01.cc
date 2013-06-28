@@ -353,9 +353,11 @@ void melthook_HOOK_LOW_DEBUG_VALUE_AT(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_LOW_DEBUG_VALUE_AT hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_LOW_DEBUG_VALUE_AT_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -370,9 +372,11 @@ void melthook_HOOK_LOW_STDERR_VALUE_AT(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_LOW_STDERR_VALUE_AT hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_LOW_STDERR_VALUE_AT_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -384,9 +388,11 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_OVERRIDE_GATE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_OVERRIDE_GATE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -441,9 +447,11 @@ void melthook_HOOK_START_UNIT(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_START_UNIT hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_START_UNIT_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -483,9 +491,11 @@ void melthook_HOOK_FINISH_UNIT(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_FINISH_UNIT hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_FINISH_UNIT_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -510,9 +520,11 @@ void melthook_HOOK_ALL_PASSES_START(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_ALL_PASSES_START hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_ALL_PASSES_START_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -537,9 +549,11 @@ void melthook_HOOK_ALL_PASSES_END(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_ALL_PASSES_END hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_ALL_PASSES_END_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -564,9 +578,11 @@ void melthook_HOOK_ALL_IPA_PASSES_START(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_ALL_IPA_PASSES_START hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_ALL_IPA_PASSES_START_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -591,9 +607,11 @@ void melthook_HOOK_ALL_IPA_PASSES_END(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_ALL_IPA_PASSES_END hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_ALL_IPA_PASSES_END_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -618,9 +636,11 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_START(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_EARLY_GIMPLE_PASSES_START hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_EARLY_GIMPLE_PASSES_START_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -645,9 +665,11 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_END(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_EARLY_GIMPLE_PASSES_END hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_EARLY_GIMPLE_PASSES_END_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -678,9 +700,11 @@ void melthook_HOOK_PRE_GENERICIZE(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_PRE_GENERICIZE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_PRE_GENERICIZE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -706,9 +730,11 @@ void melthook_HOOK_FINISH_TYPE(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_FINISH_TYPE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_FINISH_TYPE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -749,9 +775,11 @@ void melthook_HOOK_FINISH_DECL(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_FINISH_DECL hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_FINISH_DECL_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -773,9 +801,11 @@ void melthook_HOOK_PASS_EXECUTION(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_PASS_EXECUTION hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_PASS_EXECUTION_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -795,9 +825,11 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_GIMPLE_GATE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_GIMPLE_GATE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -807,9 +839,11 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_GIMPLE_EXECUTE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_GIMPLE_EXECUTE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -819,9 +853,11 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_RTL_GATE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_RTL_GATE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -831,9 +867,11 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_RTL_EXECUTE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_RTL_EXECUTE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -843,9 +881,11 @@ long melthook_HOOK_SIMPLE_IPA_GATE(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_SIMPLE_IPA_GATE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_SIMPLE_IPA_GATE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -855,9 +895,11 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_SIMPLE_IPA_EXECUTE hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_SIMPLE_IPA_EXECUTE_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -872,9 +914,11 @@ void melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_MELT_ATTRIBUTE_DEFINER hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_MELT_ATTRIBUTE_DEFINER_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -894,9 +938,11 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_EXIT_FINALIZER hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_EXIT_FINALIZER_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -922,9 +968,11 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_POLL_INPUTS hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_POLL_INPUTS_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -954,9 +1002,11 @@ void melthook_HOOK_HANDLE_SIGIO(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_HANDLE_SIGIO hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGIO_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -966,9 +1016,11 @@ void melthook_HOOK_HANDLE_SIGALRM(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_HANDLE_SIGALRM hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGALRM_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
@@ -988,9 +1040,11 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
 ;
 
 
+#if !MELT_HAVE_CLASSY_FRAME
 /* declare hook frame marking routine for melthook_HOOK_HANDLE_SIGCHLD hook */
 void MELT_MODULE_VISIBILITY melthookmark_HOOK_HANDLE_SIGCHLD_rout (struct melt_callframe_st*, int);
 
+#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
 
