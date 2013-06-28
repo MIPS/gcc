@@ -119,6 +119,9 @@ for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
 	    exit 1
 	else
 	    echo MELT-upgrade is upgrading "$meltsource_dir/melt/generated/$bf"
+	    if [ -f "$meltsource_dir/melt/generated/$bf" ]; then
+		mv $meltsource_dir/melt/generated/$bf $meltsource_dir/melt/generated/$bf~
+	    fi
 	    mv "$meltsource_dir/melt/generated/$bf-$melt_tempsuffix"  "$meltsource_dir/melt/generated/$bf"
 	fi	
     done
@@ -129,6 +132,9 @@ for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
 	exit 1
     else
 	echo MELT-upgrade is upgrading descriptor $meltsource_dir/melt/generated/$bf+meltdesc.c
+	    if [ -f "$meltsource_dir/melt/generated/$bs+meltdesc.c" ]; then
+		mv "$meltsource_dir/melt/generated/$bs+meltdesc.c" "$meltsource_dir/melt/generated/$bs+meltdesc.c~"
+	    fi
 	mv  "$meltsource_dir/melt/generated/$bf+meltdesc.c-$melt_tempsuffix" "$meltsource_dir/melt/generated/$bs+meltdesc.c"
     fi
     cp $tf "$meltsource_dir/melt/generated/$bs+melttime.h-$melt_tempsuffix"
@@ -137,8 +143,19 @@ for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
 	exit 1
     else
 	echo MELT-upgrade is upgrading timestamp file "$meltsource_dir/melt/generated/$bs+melttime.h"
+	if [ -f "$meltsource_dir/melt/generated/$bs+melttime.h" ]; then
+	    mv "$meltsource_dir/melt/generated/$bs+melttime.h" "$meltsource_dir/melt/generated/$bs+melttime.h~"
+	fi
 	mv "$meltsource_dir/melt/generated/$bs+melttime.h-$melt_tempsuffix"  "$meltsource_dir/melt/generated/$bs+melttime.h"
     fi
+    ## backup the files in the melt/generated/ which are no more in the build tree
+    for gf in $meltsource_dir/melt/generated/$bs*.cc  $meltsource_dir/melt/generated/$bs*.[ch]; do
+	bf=$(basename $gf)
+	if [ ! -f $meltbuild_sourcedir/$bf ]; then
+	    mv $gf $gf~
+	    echo MELT-upgrade backup removed $gf
+	fi
+    done
 done
 
 date +"MELT-upgrade completed upgrade from $meltbuild_sourcedir to $meltsource_dir/melt/ at %D %T %Z %n"

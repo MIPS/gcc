@@ -1,6 +1,15 @@
 
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/warmelt-first+03.cc: Remove file.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init): Emit
+	C++ comment about frame declarator closure.
+
+	* melt-upgrade.sh: Backup files, and remove those in
+	melt/generated who don't exist anymore.
+
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 
 	* melt/generated/meltrunsup.h: Regenerate.
