@@ -2,6 +2,23 @@
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (melt_low_stderr_value_at): Always perform the
+	output.
+	(Melt_CallFrame): Improve meltcast in current_closure &
+	current_hook...
+
+	* melt-runtime.c (melt_marking_callback): Becoming non-static. Use
+	mcf->current() for classy frames.
+	(meltgc_reference_put, meltgc_readmacrostringsequence)
+	(meltgc_new_file, meltgc_output_file, melt_val2passflag): Add cast to melt_ptr_t.
+	(melt_dbgbacktrace): Fix typo for classy frames.
+	(meltgc_walkstmt_cb, meltgc_walktree_cb): Fix for classy frames.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): For
+	classy frames emit a mcfr_varnum field.
+
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_low_stderr_value)
 	(melt_low_stderr_value_at): New macros.
 	(Melt_CallFrame): current_closure, current_hook: New member

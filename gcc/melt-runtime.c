@@ -1305,7 +1305,7 @@ meltgc_specialdata_sprint (melt_ptr_t specd_p)
 static long meltmarkingcount;
 
 
-static void
+void
 melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
                        void* user_data ATTRIBUTE_UNUSED)
 {
@@ -1335,8 +1335,8 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
        mcf = mcf->_meltcf_prev)
     {
       mcf->melt_mark_ggc_data ();
-      if (mcf->_meltcf_current)
-	gt_ggc_mx_melt_un (mcf->_meltcf_current);
+      if (mcf->current())
+	gt_ggc_mx_melt_un (mcf->current());
     }
 #else /*!MELT_HAVE_CLASSY_FRAME*/
   /* Scan all the MELT call frames */
@@ -3359,7 +3359,7 @@ meltgc_reference_put (melt_ptr_t ref_p, melt_ptr_t val_p)
   if (melt_magic_discr((melt_ptr_t)refv) != MELTOBMAG_OBJECT)
     goto end;
   /* This case is so common that we handle it explicitly! */
-  if (((meltobject_ptr_t)refv)->discr != classrefv
+  if ((melt_ptr_t) ((meltobject_ptr_t)refv)->discr != (melt_ptr_t) classrefv
       && !melt_is_instance_of
       ((melt_ptr_t) refv, (melt_ptr_t) classrefv))
     goto end;
@@ -7233,7 +7233,7 @@ meltgc_readmacrostringsequence (struct melt_reading_st *rd)
 	/* handle efficiently the common case of alphanum and spaces */
 	int nbc = 0;
 	if (!sbufv)
-	  sbufv = meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
+	  sbufv = (melt_ptr_t) meltgc_new_strbuf((meltobject_ptr_t) MELT_PREDEF(DISCR_STRBUF), (char*)0);
 	while (ISALNUM(rdfollowc(nbc)) || ISSPACE(rdfollowc(nbc)))
 	  nbc++;
 	meltgc_add_strbuf_raw_len((melt_ptr_t)sbufv, &rdcurc(), nbc);
@@ -11520,11 +11520,11 @@ melt_dbgbacktrace (int depth)
       melt_ptr_t current = cfr->current();
       if (current) {
 	char sbuf[32];
-	snprintf (sbuf, sizeof(sbuf); "Frame#%d", curdepth);
+	snprintf (sbuf, sizeof(sbuf), "Frame#%d", curdepth);
 	melt_low_stderr_value(sbuf,current);
       }
       putc ('\n', stderr);
-      if (currdepth % 4 == 0)
+      if (curdepth % 4 == 0)
 	fflush(stderr);
     }
   for (totdepth = curdepth; 
@@ -12074,7 +12074,7 @@ meltgc_new_file (melt_ptr_t discr_p, FILE* fil)
 #define resv   meltfram__.mcfr_varptr[1]
 #define spec_resv ((struct meltspecial_st*)(resv))
 #define spda_resv ((struct meltspecialdata_st*)(resv))
-  discrv = (void *) discr_p;
+  discrv = (melt_ptr_t) discr_p;
   if (melt_magic_discr ((melt_ptr_t) (discrv)) != MELTOBMAG_OBJECT)
     goto end;
   mag = object_discrv->meltobj_magic;
@@ -12082,7 +12082,7 @@ meltgc_new_file (melt_ptr_t discr_p, FILE* fil)
     {
     case MELTOBMAG_SPECIAL_DATA:
       {
-	resv = meltgc_make_specialdata ((melt_ptr_t) discrv);
+	resv = (melt_ptr_t) meltgc_make_specialdata ((melt_ptr_t) discrv);
 	/* first handle rawfile which are special cases of files */
 	if (discrv == MELT_PREDEF(DISCR_RAWFILE)
 	    || melt_is_subclass_of ((meltobject_ptr_t)discrv, 
@@ -12478,9 +12478,9 @@ void meltgc_output_file (FILE* fil, melt_ptr_t val_p)
     fprintf (fil, "%ld", melt_get_int ((melt_ptr_t)valv));
     break;
   case MELTOBMAG_LIST: {
-    for (pairv = ((struct meltlist_st*)(valv))->first;
+    for (pairv = (melt_ptr_t) ((struct meltlist_st*)(valv))->first;
          pairv && melt_magic_discr((melt_ptr_t)pairv) == MELTOBMAG_PAIR;
-         pairv = ((struct meltpair_st*)(pairv))->tl) {
+         pairv = (melt_ptr_t) ((struct meltpair_st*)(pairv))->tl) {
       compv = ((struct meltpair_st*)(pairv))->hd;
       if (compv)
         meltgc_output_file (fil, (melt_ptr_t) compv);
@@ -12714,10 +12714,10 @@ melt_val2passflag(melt_ptr_t val_p)
 #undef WHENFLAG
     goto end;
   } else if (valmag == MELTOBMAG_LIST) {
-    for (pairv = ((struct meltlist_st *) valv)->first;
+    for (pairv = (melt_ptr_t) ((struct meltlist_st *) valv)->first;
          melt_magic_discr ((melt_ptr_t) pairv) ==
          MELTOBMAG_PAIR;
-         pairv = ((struct meltpair_st *)pairv)->tl) {
+         pairv = (melt_ptr_t) ((struct meltpair_st *)pairv)->tl) {
       compv = ((struct meltpair_st *)pairv)->hd;
       res |= melt_val2passflag((melt_ptr_t) compv);
     }
@@ -12905,8 +12905,15 @@ meltgc_walkstmt_cb (gimple_stmt_iterator *gsip, bool *okp, struct walk_stmt_info
 #define datav      meltfram__.mcfr_varptr[0]
 #define closv      meltfram__.mcfr_varptr[1]
 #define resv       meltfram__.mcfr_varptr[2]
+#if MELT_HAVE_CLASSY_FRAME
+  const unsigned tree_walk_frame_size = (unsigned)meltwgs__LAST;
+  typedef Melt_CallFrameWithValues<tree_walk_frame_size> Melt_Tree_Walk_Call_Frame;
+  datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
+  closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
+#else /*!MELT_HAVE_CLASSY_FRAME*/
   datav = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_data];
   closv = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
+#endif /*MELT_HAVE_CLASSY_FRAME*/
   gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
   {
     union meltparam_un argtab[1];
@@ -12937,8 +12944,15 @@ tree meltgc_walktree_cb (tree*ptree, int*walksubtrees, void*data)
 #define datav      meltfram__.mcfr_varptr[0]
 #define closv      meltfram__.mcfr_varptr[1]
 #define resv       meltfram__.mcfr_varptr[2]
+#if MELT_HAVE_CLASSY_FRAME
+  const unsigned tree_walk_frame_size = (unsigned)meltwgs__LAST;
+  typedef Melt_CallFrameWithValues<tree_walk_frame_size> Melt_Tree_Walk_Call_Frame;
+  datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
+  closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
+#else /*!MELT_HAVE_CLASSY_FRAME*/
   datav = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_data];
   closv = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_treeclos];
+#endif /*MELT_HAVE_CLASSY_FRAME*/
   gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
   {
     long seclng = -2;

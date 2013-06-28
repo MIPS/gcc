@@ -1522,7 +1522,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2out dsbuf "public: /*inframedeclclassy*/")
       (add2sbuf_indentnl dsbuf 1)
       (when nblong 
-	(add2out dsbuf "long _meltcf_longtab[" nblong "];")
+	(add2out dsbuf "long mcfr_varnum[" nblong "];")
 	(add2sbuf_indentnl dsbuf 1))
       (when (not nblong)
 	(add2out dsbuf "// no classy longs")
