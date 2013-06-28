@@ -1,6 +1,11 @@
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_hookroutine): Emit the
+	marking routine wrapped with #if !MELT_HAVE_CLASSY_FRAME, etc...
+
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+03.cc: Remove.
 	* melt/generated/warmelt-base+01.cc: Regenerate.
