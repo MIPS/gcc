@@ -969,7 +969,7 @@ meltrout_34_WARMELTmiMACRO_PARSE_PAIRLIST_C_CODE_EXPANSION(meltclosure_ptr_t mel
         : public Melt_CallFrameWithValues<27>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[13];
+        long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1999,7 +1999,7 @@ meltrout_35_WARMELTmiMACRO_CHECK_C_EXPANSION(meltclosure_ptr_t meltclosp_, melt_
         : public Melt_CallFrameWithValues<24>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[14];
+        long mcfr_varnum[14];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2965,7 +2965,7 @@ meltrout_36_WARMELTmiMACRO_MEXPAND_DEFPRIMITIVE(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<94>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[27];
+        long mcfr_varnum[27];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5379,7 +5379,7 @@ meltrout_37_WARMELTmiMACRO_MEXPAND_DEFCITERATOR(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<129>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[34];
+        long mcfr_varnum[34];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -8238,7 +8238,7 @@ meltrout_38_WARMELTmiMACRO_MEXPAND_DEFCMATCHER(meltclosure_ptr_t meltclosp_, mel
         : public Melt_CallFrameWithValues<176>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[55];
+        long mcfr_varnum[55];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -12600,7 +12600,7 @@ meltrout_39_WARMELTmiMACRO_LAMBDA_cl7(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         : public Melt_CallFrameWithValues<2>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -12767,7 +12767,7 @@ meltrout_40_WARMELTmiMACRO_MEXPAND_DEFUNMATCHER(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<119>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[31];
+        long mcfr_varnum[31];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -15659,7 +15659,7 @@ meltrout_41_WARMELTmiMACRO_LAMBDA_cl8(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         : public Melt_CallFrameWithValues<2>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -15826,7 +15826,7 @@ meltrout_42_WARMELTmiMACRO_MEXPAND_DEFUN(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<59>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[17];
+        long mcfr_varnum[17];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -17284,7 +17284,7 @@ meltrout_43_WARMELTmiMACRO_MEXPAND_DEFVAR(meltclosure_ptr_t meltclosp_, melt_ptr
         : public Melt_CallFrameWithValues<50>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[9];
+        long mcfr_varnum[9];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -18409,7 +18409,7 @@ meltrout_44_WARMELTmiMACRO_MEXPAND_DEFHOOK(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<133>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[32];
+        long mcfr_varnum[32];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -21307,7 +21307,7 @@ meltrout_45_WARMELTmiMACRO_MEXPAND_DEFINE(meltclosure_ptr_t meltclosp_, melt_ptr
         : public Melt_CallFrameWithValues<94>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[16];
+        long mcfr_varnum[16];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -23463,7 +23463,7 @@ meltrout_47_WARMELTmiMACRO_SCAN_DEFCLASS(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<103>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[51];
+        long mcfr_varnum[51];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -26688,7 +26688,7 @@ meltrout_48_WARMELTmiMACRO_MEXPAND_DEFCLASS(meltclosure_ptr_t meltclosp_, melt_p
         : public Melt_CallFrameWithValues<79>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[45];
+        long mcfr_varnum[45];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -29457,7 +29457,7 @@ meltrout_49_WARMELTmiMACRO_LAMBDA_cl10(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -29684,7 +29684,7 @@ meltrout_50_WARMELTmiMACRO_LAMBDA_cl11(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<25>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[18];
+        long mcfr_varnum[18];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -30911,7 +30911,7 @@ meltrout_51_WARMELTmiMACRO_PARSE_FIELD_ASSIGNMENT(meltclosure_ptr_t meltclosp_, 
         : public Melt_CallFrameWithValues<86>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[42];
+        long mcfr_varnum[42];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -33895,7 +33895,7 @@ meltrout_52_WARMELTmiMACRO_LAMBDA_cl12(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<16>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[7];
+        long mcfr_varnum[7];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -34499,7 +34499,7 @@ meltrout_53_WARMELTmiMACRO_MEXPAND_DEFINSTANCE(meltclosure_ptr_t meltclosp_, mel
         : public Melt_CallFrameWithValues<86>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[21];
+        long mcfr_varnum[21];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -36398,7 +36398,7 @@ meltrout_54_WARMELTmiMACRO_MEXPAND_DEFSELECTOR(meltclosure_ptr_t meltclosp_, mel
         : public Melt_CallFrameWithValues<120>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[36];
+        long mcfr_varnum[36];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -39320,7 +39320,7 @@ meltrout_55_WARMELTmiMACRO_MEXPAND_INSTANCE(meltclosure_ptr_t meltclosp_, melt_p
         : public Melt_CallFrameWithValues<60>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[17];
+        long mcfr_varnum[17];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -40773,7 +40773,7 @@ meltrout_56_WARMELTmiMACRO_MEXPAND_LOAD(meltclosure_ptr_t meltclosp_, melt_ptr_t
         : public Melt_CallFrameWithValues<42>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[15];
+        long mcfr_varnum[15];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -42034,7 +42034,7 @@ meltrout_57_WARMELTmiMACRO_PARSE_FIELD_PATTERN(meltclosure_ptr_t meltclosp_, mel
         : public Melt_CallFrameWithValues<41>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[13];
+        long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -43296,7 +43296,7 @@ meltrout_58_WARMELTmiMACRO_LAMBDA_cl13(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -43666,7 +43666,7 @@ meltrout_59_WARMELTmiMACRO_PATEXPAND_INSTANCE(meltclosure_ptr_t meltclosp_, melt
         : public Melt_CallFrameWithValues<67>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[22];
+        long mcfr_varnum[22];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -45302,7 +45302,7 @@ meltrout_60_WARMELTmiMACRO_LAMBDA_cl14(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<3>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -45482,7 +45482,7 @@ meltrout_61_WARMELTmiMACRO_PATEXPAND_OBJECT(meltclosure_ptr_t meltclosp_, melt_p
         : public Melt_CallFrameWithValues<68>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[22];
+        long mcfr_varnum[22];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

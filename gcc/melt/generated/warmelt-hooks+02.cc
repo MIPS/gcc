@@ -1201,7 +1201,7 @@ meltrout_46_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_END_FIRST(meltclosure_pt
         : public Melt_CallFrameWithValues<7>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1498,7 +1498,7 @@ meltrout_47_WARMELTmiHOOKS_REGISTER_EARLY_GIMPLE_PASSES_END_LAST(meltclosure_ptr
         : public Melt_CallFrameWithValues<7>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1930,7 +1930,7 @@ meltrout_50_WARMELTmiHOOKS_REGISTER_PRE_GENERICIZE_FIRST(meltclosure_ptr_t meltc
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2273,7 +2273,7 @@ meltrout_51_WARMELTmiHOOKS_REGISTER_PRE_GENERICIZE_LAST(meltclosure_ptr_t meltcl
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2749,7 +2749,7 @@ meltrout_54_WARMELTmiHOOKS_REGISTER_FINISH_TYPE_FIRST(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3092,7 +3092,7 @@ meltrout_55_WARMELTmiHOOKS_REGISTER_FINISH_TYPE_LAST(meltclosure_ptr_t meltclosp
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3435,7 +3435,7 @@ meltrout_56_WARMELTmiHOOKS_RUN_ENDMELTPASS_FUNCTIONS(meltclosure_ptr_t meltclosp
         : public Melt_CallFrameWithValues<15>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3847,7 +3847,7 @@ meltrout_57_WARMELTmiHOOKS_AT_END_OF_THIS_MELT_PASS_FIRST(meltclosure_ptr_t melt
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4087,7 +4087,7 @@ meltrout_58_WARMELTmiHOOKS_AT_END_OF_THIS_MELT_PASS_LAST(meltclosure_ptr_t meltc
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4464,7 +4464,7 @@ meltrout_61_WARMELTmiHOOKS_REGISTER_FINISH_DECL_FIRST(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4807,7 +4807,7 @@ meltrout_62_WARMELTmiHOOKS_REGISTER_FINISH_DECL_LAST(meltclosure_ptr_t meltclosp
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5150,7 +5150,7 @@ meltrout_64_WARMELTmiHOOKS_REGISTER_PASS_EXECUTION_FIRST(meltclosure_ptr_t meltc
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5435,7 +5435,7 @@ meltrout_65_WARMELTmiHOOKS_REGISTER_PASS_EXECUTION_LAST(meltclosure_ptr_t meltcl
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5720,7 +5720,7 @@ meltrout_73_WARMELTmiHOOKS_AT_MELT_ATTRIBUTE_FIRST(meltclosure_ptr_t meltclosp_,
         : public Melt_CallFrameWithValues<3>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5890,7 +5890,7 @@ meltrout_74_WARMELTmiHOOKS_AT_MELT_ATTRIBUTE_LAST(meltclosure_ptr_t meltclosp_, 
         : public Melt_CallFrameWithValues<3>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -6060,7 +6060,7 @@ meltrout_76_WARMELTmiHOOKS_AT_EXIT_FIRST(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<3>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

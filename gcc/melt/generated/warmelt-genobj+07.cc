@@ -1118,7 +1118,7 @@ meltrout_172_WARMELTmiGENOBJ_ENDMATCH_GOTOINSTR(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<21>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1807,7 +1807,7 @@ meltrout_173_WARMELTmiGENOBJ_TESTMATCH_GOTOINSTR(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<24>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[8];
+        long mcfr_varnum[8];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2582,7 +2582,7 @@ meltrout_174_WARMELTmiGENOBJ_NORMTESTER_FREE_OBJLOC_LIST(meltclosure_ptr_t meltc
         : public Melt_CallFrameWithValues<26>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[9];
+        long mcfr_varnum[9];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3484,7 +3484,7 @@ meltrout_175_WARMELTmiGENOBJ_LAMBDA_cl45(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<9>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3817,7 +3817,7 @@ meltrout_176_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ANY(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<12>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4253,7 +4253,7 @@ meltrout_177_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_MATCHER(meltclosure_ptr_t melt
         : public Melt_CallFrameWithValues<68>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[25];
+        long mcfr_varnum[25];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -6530,7 +6530,7 @@ meltrout_178_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_INSTANCE(meltclosure_ptr_t mel
         : public Melt_CallFrameWithValues<79>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[27];
+        long mcfr_varnum[27];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -9000,7 +9000,7 @@ meltrout_179_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_TUPLE(meltclosure_ptr_t meltcl
         : public Melt_CallFrameWithValues<79>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[30];
+        long mcfr_varnum[30];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -11594,7 +11594,7 @@ meltrout_180_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SAME(meltclosure_ptr_t meltclo
         : public Melt_CallFrameWithValues<53>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[13];
+        long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -13063,7 +13063,7 @@ meltrout_181_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_SUCCESS(meltclosure_ptr_t melt
         : public Melt_CallFrameWithValues<38>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[10];
+        long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -14087,7 +14087,7 @@ meltrout_182_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORCLEAR(meltclosure_ptr_t melt
         : public Melt_CallFrameWithValues<43>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[17];
+        long mcfr_varnum[17];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -15572,7 +15572,7 @@ meltrout_183_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_ORTRANSMIT(meltclosure_ptr_t m
         : public Melt_CallFrameWithValues<43>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[16];
+        long mcfr_varnum[16];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -16944,7 +16944,7 @@ meltrout_184_WARMELTmiGENOBJ_COMPILTST_NORMTESTER_DISJUNCTION(meltclosure_ptr_t 
         : public Melt_CallFrameWithValues<36>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[13];
+        long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -18144,7 +18144,7 @@ meltrout_185_WARMELTmiGENOBJ_COMPILMATCHER_CMATCHER(meltclosure_ptr_t meltclosp_
         : public Melt_CallFrameWithValues<87>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[35];
+        long mcfr_varnum[35];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -20968,7 +20968,7 @@ meltrout_186_WARMELTmiGENOBJ_LAMBDA_cl46(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<11>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -21489,7 +21489,7 @@ meltrout_187_WARMELTmiGENOBJ_LAMBDA_cl47(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<11>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -22203,7 +22203,7 @@ meltrout_189_WARMELTmiGENOBJ_LAMBDA_cl49(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<12>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -22658,7 +22658,7 @@ meltrout_190_WARMELTmiGENOBJ_COMPILMATCHER_FUNMATCHER(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<69>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[19];
+        long mcfr_varnum[19];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

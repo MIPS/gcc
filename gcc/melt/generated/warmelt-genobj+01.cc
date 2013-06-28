@@ -1449,7 +1449,7 @@ meltrout_10_WARMELTmiGENOBJ_DBGOUT_ROUTINEOBJ(meltclosure_ptr_t meltclosp_, melt
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1691,7 +1691,7 @@ meltrout_11_WARMELTmiGENOBJ_PUTOBJDEST_OBJDESTINSTR(meltclosure_ptr_t meltclosp_
         : public Melt_CallFrameWithValues<18>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2263,7 +2263,7 @@ meltrout_12_WARMELTmiGENOBJ_PUTOBJDEST_OBJFINALRETURN(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2487,7 +2487,7 @@ meltrout_13_WARMELTmiGENOBJ_VARIADIC_IDSTR(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<23>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         const char* loc_CSTRING__o0;
         long _meltsparel;
@@ -3796,7 +3796,7 @@ meltrout_16_WARMELTmiGENOBJ_COMPILE2OBJ_HOOK(meltclosure_ptr_t meltclosp_, melt_
         : public Melt_CallFrameWithValues<146>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[73];
+        long mcfr_varnum[73];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -9486,7 +9486,7 @@ meltrout_17_WARMELTmiGENOBJ_COMPILE2OBJ_PROCEDURE(meltclosure_ptr_t meltclosp_, 
         : public Melt_CallFrameWithValues<94>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[42];
+        long mcfr_varnum[42];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -12349,7 +12349,7 @@ meltrout_18_WARMELTmiGENOBJ_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<20>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[9];
+        long mcfr_varnum[9];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -13448,7 +13448,7 @@ meltrout_21_WARMELTmiGENOBJ_COMPILE2OBJ_INITPROC(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<169>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[52];
+        long mcfr_varnum[52];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -15485,8 +15485,7 @@ meltlab_endgetargs:
             argtab[11].meltbp_cstring =  "\") ;\n\t        }\n\t      else /* no prevenv */\
 \n\t        {\n#if MELT_HAS_INITIAL_ENVIRONMENT>0\
 \n\t      if (!melt_flag_bootstrapping)\
-\n\t        warning(0, \"MELT is not creating a fresh environment reference\
- for ";
+\n\t        warning(0, \"MELT is not creating a fresh environment reference for ";
             /*^apply.arg*/
             argtab[12].meltbp_aptr = (melt_ptr_t*) &/*_.RAWMODNAM__V25*/ meltfptr[24];
             /*^apply.arg*/
@@ -18454,7 +18453,7 @@ meltrout_22_WARMELTmiGENOBJ_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -18935,7 +18934,7 @@ meltrout_23_WARMELTmiGENOBJ_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<11>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -19445,7 +19444,7 @@ meltrout_24_WARMELTmiGENOBJ_LAMBDA_cl4(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -19687,7 +19686,7 @@ meltrout_25_WARMELTmiGENOBJ_LAMBDA_cl5(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -20115,7 +20114,7 @@ meltrout_27_WARMELTmiGENOBJ_LAMBDA_cl7(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<17>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[10];
+        long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -20858,7 +20857,7 @@ meltrout_28_WARMELTmiGENOBJ_COMPILE2OBJ_INITEXTENDPROC(meltclosure_ptr_t meltclo
         : public Melt_CallFrameWithValues<164>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[57];
+        long mcfr_varnum[57];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -26245,7 +26244,7 @@ meltrout_29_WARMELTmiGENOBJ_LAMBDA_cl8(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -26726,7 +26725,7 @@ meltrout_30_WARMELTmiGENOBJ_LAMBDA_cl9(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<17>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[7];
+        long mcfr_varnum[7];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -27504,7 +27503,7 @@ meltrout_31_WARMELTmiGENOBJ_LAMBDA_cl10(meltclosure_ptr_t meltclosp_, melt_ptr_t
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -27746,7 +27745,7 @@ meltrout_32_WARMELTmiGENOBJ_LAMBDA_cl11(meltclosure_ptr_t meltclosp_, melt_ptr_t
         : public Melt_CallFrameWithValues<8>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -28170,7 +28169,7 @@ meltrout_33_WARMELTmiGENOBJ_LAMBDA_cl12(meltclosure_ptr_t meltclosp_, melt_ptr_t
         : public Melt_CallFrameWithValues<17>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[10];
+        long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -28913,7 +28912,7 @@ meltrout_34_WARMELTmiGENOBJ_LAMBDA_cl13(meltclosure_ptr_t meltclosp_, melt_ptr_t
         : public Melt_CallFrameWithValues<18>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[8];
+        long mcfr_varnum[8];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -29708,7 +29707,7 @@ meltrout_35_WARMELTmiGENOBJ_GET_FREE_OBJLOCPTR(meltclosure_ptr_t meltclosp_, mel
         : public Melt_CallFrameWithValues<40>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[30];
+        long mcfr_varnum[30];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -31166,7 +31165,7 @@ meltrout_36_WARMELTmiGENOBJ_GET_FREE_OBJLOCLONG(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<39>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[27];
+        long mcfr_varnum[27];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -32525,7 +32524,7 @@ meltrout_37_WARMELTmiGENOBJ_GET_FREE_OBJLOCTYPED(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<55>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[28];
+        long mcfr_varnum[28];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -34283,7 +34282,7 @@ meltrout_38_WARMELTmiGENOBJ_DISPOSE_OBJLOC(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<32>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[15];
+        long mcfr_varnum[15];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -35548,7 +35547,7 @@ meltrout_39_WARMELTmiGENOBJ_DISPOSE_BND_OBJ(meltclosure_ptr_t meltclosp_, melt_p
         : public Melt_CallFrameWithValues<22>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[12];
+        long mcfr_varnum[12];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -36435,7 +36434,7 @@ meltrout_40_WARMELTmiGENOBJ_COMPILOBJ_NREP_CHUNK(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<37>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[14];
+        long mcfr_varnum[14];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

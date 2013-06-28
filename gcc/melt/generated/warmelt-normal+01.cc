@@ -984,7 +984,7 @@ meltrout_8_WARMELTmiNORMAL_NORMEXP_NULL(meltclosure_ptr_t meltclosp_, melt_ptr_t
         : public Melt_CallFrameWithValues<15>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1473,7 +1473,7 @@ meltrout_9_WARMELTmiNORMAL_NORMEXP_ANY_OBJECT(meltclosure_ptr_t meltclosp_, melt
         : public Melt_CallFrameWithValues<15>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1945,7 +1945,7 @@ meltrout_10_WARMELTmiNORMAL_NORMEXP_ANY_VALUE(meltclosure_ptr_t meltclosp_, melt
         : public Melt_CallFrameWithValues<14>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2360,7 +2360,7 @@ meltrout_11_WARMELTmiNORMAL_NORMEXP_SRC_CATCHALL(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<17>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2896,7 +2896,7 @@ meltrout_12_WARMELTmiNORMAL_NORMEXP_LAZYMACROEXP(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<28>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[8];
+        long mcfr_varnum[8];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4102,7 +4102,7 @@ meltrout_15_WARMELTmiNORMAL_GECTYP_INTEGER(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4532,7 +4532,7 @@ meltrout_17_WARMELTmiNORMAL_NORMALIZE_TUPLE(meltclosure_ptr_t meltclosp_, melt_p
         : public Melt_CallFrameWithValues<62>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[28];
+        long mcfr_varnum[28];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -6563,7 +6563,7 @@ meltrout_18_WARMELTmiNORMAL_WRAP_NORMAL_LET1(meltclosure_ptr_t meltclosp_, melt_
         : public Melt_CallFrameWithValues<17>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -7016,7 +7016,7 @@ meltrout_19_WARMELTmiNORMAL_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -7394,7 +7394,7 @@ meltrout_20_WARMELTmiNORMAL_WRAP_NORMAL_LETSEQ(meltclosure_ptr_t meltclosp_, mel
         : public Melt_CallFrameWithValues<45>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[22];
+        long mcfr_varnum[22];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -8881,7 +8881,7 @@ meltrout_21_WARMELTmiNORMAL_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -9464,7 +9464,7 @@ meltrout_23_WARMELTmiNORMAL_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         : public Melt_CallFrameWithValues<7>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -9743,7 +9743,7 @@ meltrout_24_WARMELTmiNORMAL_NORMBIND_FAILANY(meltclosure_ptr_t meltclosp_, melt_
         : public Melt_CallFrameWithValues<15>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -10282,7 +10282,7 @@ meltrout_25_WARMELTmiNORMAL_NORMBIND_ANYBIND(meltclosure_ptr_t meltclosp_, melt_
         : public Melt_CallFrameWithValues<40>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[16];
+        long mcfr_varnum[16];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -11806,7 +11806,7 @@ meltrout_26_WARMELTmiNORMAL_NORMBIND_FORMALBIND(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<20>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -12412,7 +12412,7 @@ meltrout_27_WARMELTmiNORMAL_NORMBIND_LETBIND(meltclosure_ptr_t meltclosp_, melt_
         : public Melt_CallFrameWithValues<20>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -13018,7 +13018,7 @@ meltrout_28_WARMELTmiNORMAL_NORMBIND_FIXBIND(meltclosure_ptr_t meltclosp_, melt_
         : public Melt_CallFrameWithValues<27>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[13];
+        long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -14066,7 +14066,7 @@ meltrout_29_WARMELTmiNORMAL_NORMBIND_DEFINEDVALBIND(meltclosure_ptr_t meltclosp_
         : public Melt_CallFrameWithValues<28>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[10];
+        long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -15110,7 +15110,7 @@ meltrout_30_WARMELTmiNORMAL_NORMBIND_CONSTRUCTBIND(meltclosure_ptr_t meltclosp_,
         : public Melt_CallFrameWithValues<37>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[16];
+        long mcfr_varnum[16];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

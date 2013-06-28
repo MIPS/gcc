@@ -1118,7 +1118,7 @@ meltrout_147_WARMELTmiGENOBJ_LAMBDA_cl40(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1357,7 +1357,7 @@ meltrout_148_WARMELTmiGENOBJ_COMPILOBJ_DATAROUTINE(meltclosure_ptr_t meltclosp_,
         : public Melt_CallFrameWithValues<93>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[42];
+        long mcfr_varnum[42];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4550,7 +4550,7 @@ meltrout_149_WARMELTmiGENOBJ_COMPILOBJ_DATAHOOK(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<94>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[46];
+        long mcfr_varnum[46];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -8326,7 +8326,7 @@ meltrout_150_WARMELTmiGENOBJ_COMPILOBJ_QUASIDATA_CURRENT_MODULE_ENVIRONMENT_REFE
         : public Melt_CallFrameWithValues<8>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -8613,7 +8613,7 @@ meltrout_151_WARMELTmiGENOBJ_COMPILOBJ_QUASIDATA_PARENT_MODULE_ENVIRONMENT(meltc
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -9028,7 +9028,7 @@ meltrout_152_WARMELTmiGENOBJ_COMPILOBJ_NREP_STORE_PREDEFINED(meltclosure_ptr_t m
         : public Melt_CallFrameWithValues<32>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[10];
+        long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -10047,7 +10047,7 @@ meltrout_153_WARMELTmiGENOBJ_COMPILOBJ_NREP_UPDATE_CURRENT_MODULE_ENVIRONMENT_RE
         : public Melt_CallFrameWithValues<41>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[13];
+        long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -11249,7 +11249,7 @@ meltrout_154_WARMELTmiGENOBJ_LAMBDA_cl41(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<12>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -11627,7 +11627,7 @@ meltrout_155_WARMELTmiGENOBJ_COMPILOBJ_NREP_CHECK_RUNNING_MODULE_ENVIRONMENT_CON
         : public Melt_CallFrameWithValues<49>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[16];
+        long mcfr_varnum[16];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -12206,8 +12206,7 @@ meltlab_endgetargs:
             /*^apply.arg*/
             argtab[7].meltbp_cstring =  ",\n\t\t\t\t\t    (melt_ptr_t) MELT_PREDEF(CLASS_ENVIRONMENT)))\
 \n\t\t  melt_fatal_error (\"MELT running extension with bad environment\
- @%p in its reference @%p\",\n\t\t\t\t    \
-(void*) ";
+ @%p in its reference @%p\",\n\t\t\t\t    (void*) ";
             /*^apply.arg*/
             argtab[8].meltbp_aptr = (melt_ptr_t*) &/*_.LOCENV__V17*/ meltfptr[16];
             /*^apply.arg*/
@@ -13224,7 +13223,7 @@ meltrout_156_WARMELTmiGENOBJ_LAMBDA_cl42(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<7>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -13490,7 +13489,7 @@ meltrout_157_WARMELTmiGENOBJ_COMPILTST_ANYTESTER(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<16>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -14080,7 +14079,7 @@ meltrout_158_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCH(meltclosure_ptr_t meltclosp_, 
         : public Melt_CallFrameWithValues<135>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[63];
+        long mcfr_varnum[63];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -18889,7 +18888,7 @@ meltrout_159_WARMELTmiGENOBJ_LAMBDA_cl43(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<10>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -19170,7 +19169,7 @@ meltrout_160_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHALT(meltclosure_ptr_t meltclosp
         : public Melt_CallFrameWithValues<80>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[48];
+        long mcfr_varnum[48];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -22251,7 +22250,7 @@ meltrout_161_WARMELTmiGENOBJ_LAMBDA_cl44(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<9>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -22712,7 +22711,7 @@ meltrout_162_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHLABEL(meltclosure_ptr_t meltclo
         : public Melt_CallFrameWithValues<32>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[12];
+        long mcfr_varnum[12];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -23889,7 +23888,7 @@ meltrout_163_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHLABELEND(meltclosure_ptr_t melt
         : public Melt_CallFrameWithValues<24>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[9];
+        long mcfr_varnum[9];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -24812,7 +24811,7 @@ meltrout_164_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHFLAG(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<37>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[12];
+        long mcfr_varnum[12];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -26087,7 +26086,7 @@ meltrout_165_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHDATAINIT(meltclosure_ptr_t melt
         : public Melt_CallFrameWithValues<35>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[11];
+        long mcfr_varnum[11];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -27351,7 +27350,7 @@ meltrout_166_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHDATACLEAR(meltclosure_ptr_t mel
         : public Melt_CallFrameWithValues<18>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -28039,7 +28038,7 @@ meltrout_167_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHDATAFINAL(meltclosure_ptr_t mel
         : public Melt_CallFrameWithValues<20>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[8];
+        long mcfr_varnum[8];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -28826,7 +28825,7 @@ meltrout_168_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHEDATA(meltclosure_ptr_t meltclo
         : public Melt_CallFrameWithValues<24>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[7];
+        long mcfr_varnum[7];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -29651,7 +29650,7 @@ meltrout_169_WARMELTmiGENOBJ_COMPILOBJ_NREP_MATCHJUMP(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<42>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[15];
+        long mcfr_varnum[15];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -31118,7 +31117,7 @@ meltrout_170_WARMELTmiGENOBJ_NORMTESTER_LABELINSTR(meltclosure_ptr_t meltclosp_,
         : public Melt_CallFrameWithValues<31>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[12];
+        long mcfr_varnum[12];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -32147,7 +32146,7 @@ meltrout_171_WARMELTmiGENOBJ_NORMTESTER_GOTOINSTR(meltclosure_ptr_t meltclosp_, 
         : public Melt_CallFrameWithValues<33>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[14];
+        long mcfr_varnum[14];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

@@ -1319,7 +1319,7 @@ typedef
     : public Melt_CallFrameWithValues<3>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[2];
+    long mcfr_varnum[2];
     /*classy others*/
     const char* loc_CSTRING__o0;
     const char* loc_CSTRING__o1;
@@ -1495,7 +1495,7 @@ typedef
     : public Melt_CallFrameWithValues<9>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[7];
+    long mcfr_varnum[7];
     /*classy others*/
     const char* loc_CSTRING__o0;
     const char* loc_CSTRING__o1;
@@ -1972,7 +1972,7 @@ typedef
     : public Melt_CallFrameWithValues<37>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[24];
+    long mcfr_varnum[24];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -3637,7 +3637,7 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3901,7 +3901,7 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
         : public Melt_CallFrameWithValues<8>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4263,7 +4263,7 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<8>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4625,7 +4625,7 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
         : public Melt_CallFrameWithValues<19>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[11];
+        long mcfr_varnum[11];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5422,7 +5422,7 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
         : public Melt_CallFrameWithValues<19>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[11];
+        long mcfr_varnum[11];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -6396,7 +6396,7 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         : public Melt_CallFrameWithValues<2>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[1];
+        long mcfr_varnum[1];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -7443,7 +7443,7 @@ typedef
     : public Melt_CallFrameWithValues<15>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -7800,7 +7800,7 @@ typedef
     : public Melt_CallFrameWithValues<15>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -8140,7 +8140,7 @@ typedef
     : public Melt_CallFrameWithValues<15>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -8497,7 +8497,7 @@ typedef
     : public Melt_CallFrameWithValues<15>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -8837,7 +8837,7 @@ typedef
     : public Melt_CallFrameWithValues<15>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -9194,7 +9194,7 @@ typedef
     : public Melt_CallFrameWithValues<15>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -9534,7 +9534,7 @@ typedef
     : public Melt_CallFrameWithValues<16>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     tree loc_TREE__o0;
     long _meltsparel;
@@ -9903,7 +9903,7 @@ typedef
     : public Melt_CallFrameWithValues<16>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     tree loc_TREE__o0;
     long _meltsparel;
@@ -10272,7 +10272,7 @@ typedef
     : public Melt_CallFrameWithValues<16>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[1];
+    long mcfr_varnum[1];
     /*classy others*/
     tree loc_TREE__o0;
     long _meltsparel;
@@ -10641,7 +10641,7 @@ typedef
     : public Melt_CallFrameWithValues<16>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[2];
+    long mcfr_varnum[2];
     /*classy others*/
     const char* loc_CSTRING__o0;
     long _meltsparel;
@@ -11024,7 +11024,7 @@ typedef
     : public Melt_CallFrameWithValues<22>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[33];
+    long mcfr_varnum[33];
     /*classy others*/
     const char* loc_CSTRING__o0;
     long _meltsparel;
@@ -12518,7 +12518,7 @@ typedef
     : public Melt_CallFrameWithValues<20>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[28];
+    long mcfr_varnum[28];
     /*classy others*/
     const char* loc_CSTRING__o0;
     long _meltsparel;
@@ -13696,7 +13696,7 @@ typedef
     : public Melt_CallFrameWithValues<9>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[21];
+    long mcfr_varnum[21];
     /*classy others*/
     const char* loc_CSTRING__o0;
     long _meltsparel;
@@ -14437,7 +14437,7 @@ typedef
     : public Melt_CallFrameWithValues<14>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[21];
+    long mcfr_varnum[21];
     /*classy others*/
     const char* loc_CSTRING__o0;
     long _meltsparel;
@@ -15234,7 +15234,7 @@ typedef
     : public Melt_CallFrameWithValues<9>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[21];
+    long mcfr_varnum[21];
     /*classy others*/
     const char* loc_CSTRING__o0;
     long _meltsparel;
@@ -15975,7 +15975,7 @@ typedef
     : public Melt_CallFrameWithValues<14>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[21];
+    long mcfr_varnum[21];
     /*classy others*/
     const char* loc_CSTRING__o0;
     long _meltsparel;
@@ -16772,7 +16772,7 @@ typedef
     : public Melt_CallFrameWithValues<16>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[3];
+    long mcfr_varnum[3];
     /*classy others*/
     tree loc_TREE__o0;
     tree loc_TREE__o1;
@@ -17211,7 +17211,7 @@ typedef
     : public Melt_CallFrameWithValues<14>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[3];
+    long mcfr_varnum[3];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -17660,7 +17660,7 @@ typedef
     : public Melt_CallFrameWithValues<38>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[41];
+    long mcfr_varnum[41];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -19884,7 +19884,7 @@ typedef
     : public Melt_CallFrameWithValues<30>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[19];
+    long mcfr_varnum[19];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)
@@ -21000,7 +21000,7 @@ typedef
     : public Melt_CallFrameWithValues<47>
 {
 public: /*inframedeclclassy*/
-    long _meltcf_longtab[27];
+    long mcfr_varnum[27];
     /*classy others*/
     long _meltsparel;
     void melt_mark_stuff (void)

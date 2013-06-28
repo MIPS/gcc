@@ -847,7 +847,7 @@ meltrout_111_WARMELTmiNORMATCH_NORMSTEP_MFLAGSET(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<46>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[16];
+        long mcfr_varnum[16];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2321,7 +2321,7 @@ meltrout_112_WARMELTmiNORMATCH_NORMSTEP_MFLAGCONJ(meltclosure_ptr_t meltclosp_, 
         : public Melt_CallFrameWithValues<58>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[25];
+        long mcfr_varnum[25];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4492,7 +4492,7 @@ meltrout_113_WARMELTmiNORMATCH_NORMSTEP_MTESTINSTANCE(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<122>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[52];
+        long mcfr_varnum[52];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -8741,7 +8741,7 @@ meltrout_114_WARMELTmiNORMATCH_NORMSTEP_MTESTMULTIPLE(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<113>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[48];
+        long mcfr_varnum[48];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -12609,7 +12609,7 @@ meltrout_115_WARMELTmiNORMATCH_NORMSTEP_MTESTVAR(meltclosure_ptr_t meltclosp_, m
         : public Melt_CallFrameWithValues<63>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[24];
+        long mcfr_varnum[24];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -14777,7 +14777,7 @@ meltrout_116_WARMELTmiNORMATCH_NORMSTEP_MGROUP(meltclosure_ptr_t meltclosp_, mel
         : public Melt_CallFrameWithValues<79>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[38];
+        long mcfr_varnum[38];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -18353,7 +18353,7 @@ meltrout_121_WARMELTmiNORMATCH_NORMSTEP_MSUCCWHENFLAG(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<87>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[36];
+        long mcfr_varnum[36];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -21399,7 +21399,7 @@ meltrout_122_WARMELTmiNORMATCH_NORMTESTMATCH_CATCHALL(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<22>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[10];
+        long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -22318,7 +22318,7 @@ meltrout_123_WARMELTmiNORMATCH_NORMFILLMATCH_CATCHALL(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<18>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[4];
+        long mcfr_varnum[4];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -22881,7 +22881,7 @@ meltrout_124_WARMELTmiNORMATCH_NORMTESTMATCH_CMATCHER(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<82>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[47];
+        long mcfr_varnum[47];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -26208,7 +26208,7 @@ meltrout_125_WARMELTmiNORMATCH_NORMFILLMATCH_CMATCHER(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<70>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[38];
+        long mcfr_varnum[38];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -28844,7 +28844,7 @@ meltrout_126_WARMELTmiNORMATCH_NORMSTEP_MTESTMATCHER(meltclosure_ptr_t meltclosp
         : public Melt_CallFrameWithValues<127>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[58];
+        long mcfr_varnum[58];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -33440,7 +33440,7 @@ meltrout_127_WARMELTmiNORMATCH_MATCHALT_NORMALIZE_STEP(meltclosure_ptr_t meltclo
         : public Melt_CallFrameWithValues<33>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[13];
+        long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -34589,7 +34589,7 @@ meltrout_128_WARMELTmiNORMATCH_MATCHALT_NORMALIZE_MDATA(meltclosure_ptr_t meltcl
         : public Melt_CallFrameWithValues<45>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[14];
+        long mcfr_varnum[14];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -36065,7 +36065,7 @@ meltrout_129_WARMELTmiNORMATCH_MATCHALT_HANDLE_NORMALIZED_MDATA(meltclosure_ptr_
         : public Melt_CallFrameWithValues<40>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[28];
+        long mcfr_varnum[28];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -37965,7 +37965,7 @@ meltrout_130_WARMELTmiNORMATCH_MATCHALT_MAKE_MATCH_NORMALIZATION_CONTEXT(meltclo
         : public Melt_CallFrameWithValues<29>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -38847,7 +38847,7 @@ meltrout_131_WARMELTmiNORMATCH_MATCHALT_NORMALIZE_MATCH_CONTEXT(meltclosure_ptr_
         : public Melt_CallFrameWithValues<60>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[32];
+        long mcfr_varnum[32];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -41295,7 +41295,7 @@ meltrout_132_WARMELTmiNORMATCH_LAMBDA_cl28(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<15>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[6];
+        long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -41847,7 +41847,7 @@ meltrout_133_WARMELTmiNORMATCH_NORMEXP_MATCHALT(meltclosure_ptr_t meltclosp_, me
         : public Melt_CallFrameWithValues<206>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[83];
+        long mcfr_varnum[83];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -48541,7 +48541,7 @@ meltrout_134_WARMELTmiNORMATCH_LAMBDA_cl29(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<12>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -48980,7 +48980,7 @@ meltrout_135_WARMELTmiNORMATCH_ALTERNATE_MATCH_OPTSET(meltclosure_ptr_t meltclos
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         const char* loc_CSTRING__o0;
         long _meltsparel;
@@ -49306,7 +49306,7 @@ meltrout_136_WARMELTmiNORMATCH_MG_ALTDRAW_GRAPHVIZ(meltclosure_ptr_t meltclosp_,
         : public Melt_CallFrameWithValues<71>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[37];
+        long mcfr_varnum[37];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

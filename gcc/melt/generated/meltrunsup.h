@@ -21,98 +21,100 @@
 
 
 /** from generate_runtypesupport_enum_objmagic **/
-enum meltobmag_en /*generated*/ { MELTOBMAG__NONE = 0,
+enum meltobmag_en /*generated*/
+{
+    MELTOBMAG__NONE = 0,
 
-                                  MELTOBMAG__FIRST /* first valid object magic */ =20000,
+    MELTOBMAG__FIRST /* first valid object magic */ =20000,
 
-                                  /* value descriptor object magic */
-                                  /*valdesc #1 VALDESC_BUCKETLONGS*/
-                                  MELTOBMAG_BUCKETLONGS /*valmagic*/ =20000,
+    /* value descriptor object magic */
+    /*valdesc #1 VALDESC_BUCKETLONGS*/
+    MELTOBMAG_BUCKETLONGS /*valmagic*/ =20000,
 
-                                  /*valdesc #2 VALDESC_CLOSURE*/
-                                  MELTOBMAG_CLOSURE /*valmagic*/ =20001,
+    /*valdesc #2 VALDESC_CLOSURE*/
+    MELTOBMAG_CLOSURE /*valmagic*/ =20001,
 
-                                  /*valdesc #3 VALDESC_DECAY*/
-                                  MELTOBMAG_DECAY /*valmagic*/ =20002,
+    /*valdesc #3 VALDESC_DECAY*/
+    MELTOBMAG_DECAY /*valmagic*/ =20002,
 
-                                  /*valdesc #4 VALDESC_HOOK*/
-                                  MELTOBMAG_HOOK /*valmagic*/ =20003,
+    /*valdesc #4 VALDESC_HOOK*/
+    MELTOBMAG_HOOK /*valmagic*/ =20003,
 
-                                  /*valdesc #5 VALDESC_INT*/
-                                  MELTOBMAG_INT /*valmagic*/ =20004,
+    /*valdesc #5 VALDESC_INT*/
+    MELTOBMAG_INT /*valmagic*/ =20004,
 
-                                  /*valdesc #6 VALDESC_LIST*/
-                                  MELTOBMAG_LIST /*valmagic*/ =20005,
+    /*valdesc #6 VALDESC_LIST*/
+    MELTOBMAG_LIST /*valmagic*/ =20005,
 
-                                  /*valdesc #7 VALDESC_MAPOBJECTS*/
-                                  MELTOBMAG_MAPOBJECTS /*valmagic*/ =20006,
+    /*valdesc #7 VALDESC_MAPOBJECTS*/
+    MELTOBMAG_MAPOBJECTS /*valmagic*/ =20006,
 
-                                  /*valdesc #8 VALDESC_MAPSTRINGS*/
-                                  MELTOBMAG_MAPSTRINGS /*valmagic*/ =20007,
+    /*valdesc #8 VALDESC_MAPSTRINGS*/
+    MELTOBMAG_MAPSTRINGS /*valmagic*/ =20007,
 
-                                  /*valdesc #9 VALDESC_MIXBIGINT*/
-                                  MELTOBMAG_MIXBIGINT /*valmagic*/ =20008,
+    /*valdesc #9 VALDESC_MIXBIGINT*/
+    MELTOBMAG_MIXBIGINT /*valmagic*/ =20008,
 
-                                  /*valdesc #10 VALDESC_MIXINT*/
-                                  MELTOBMAG_MIXINT /*valmagic*/ =20009,
+    /*valdesc #10 VALDESC_MIXINT*/
+    MELTOBMAG_MIXINT /*valmagic*/ =20009,
 
-                                  /*valdesc #11 VALDESC_MIXLOC*/
-                                  MELTOBMAG_MIXLOC /*valmagic*/ =20010,
+    /*valdesc #11 VALDESC_MIXLOC*/
+    MELTOBMAG_MIXLOC /*valmagic*/ =20010,
 
-                                  /*valdesc #12 VALDESC_MULTIPLE*/
-                                  MELTOBMAG_MULTIPLE /*valmagic*/ =20011,
+    /*valdesc #12 VALDESC_MULTIPLE*/
+    MELTOBMAG_MULTIPLE /*valmagic*/ =20011,
 
-                                  /*valdesc #13 VALDESC_OBJECT*/
-                                  MELTOBMAG_OBJECT /*valmagic*/ =20012,
+    /*valdesc #13 VALDESC_OBJECT*/
+    MELTOBMAG_OBJECT /*valmagic*/ =20012,
 
-                                  /*valdesc #14 VALDESC_PAIR*/
-                                  MELTOBMAG_PAIR /*valmagic*/ =20013,
+    /*valdesc #14 VALDESC_PAIR*/
+    MELTOBMAG_PAIR /*valmagic*/ =20013,
 
-                                  /*valdesc #15 VALDESC_REAL*/
-                                  MELTOBMAG_REAL /*valmagic*/ =20014,
+    /*valdesc #15 VALDESC_REAL*/
+    MELTOBMAG_REAL /*valmagic*/ =20014,
 
-                                  /*valdesc #16 VALDESC_ROUTINE*/
-                                  MELTOBMAG_ROUTINE /*valmagic*/ =20015,
+    /*valdesc #16 VALDESC_ROUTINE*/
+    MELTOBMAG_ROUTINE /*valmagic*/ =20015,
 
-                                  /*valdesc #17 VALDESC_SPECIAL_DATA*/
-                                  MELTOBMAG_SPECIAL_DATA /*valmagic*/ =20016,
+    /*valdesc #17 VALDESC_SPECIAL_DATA*/
+    MELTOBMAG_SPECIAL_DATA /*valmagic*/ =20016,
 
-                                  /*valdesc #18 VALDESC_STRBUF*/
-                                  MELTOBMAG_STRBUF /*valmagic*/ =20017,
+    /*valdesc #18 VALDESC_STRBUF*/
+    MELTOBMAG_STRBUF /*valmagic*/ =20017,
 
-                                  /*valdesc #19 VALDESC_STRING*/
-                                  MELTOBMAG_STRING /*valmagic*/ =20018,
+    /*valdesc #19 VALDESC_STRING*/
+    MELTOBMAG_STRING /*valmagic*/ =20018,
 
-                                  /* ctype gty object magic */
-                                  /*gtyctype magic #1 CTYPE_BASIC_BLOCK*/
-                                  MELTOBMAG_BASICBLOCK /*boxedmagic*/ =20019,
-                                  MELTOBMAG_MAPBASICBLOCKS /*mapmagic*/ =20020,
-                                  /*gtyctype magic #2 CTYPE_BITMAP*/
-                                  MELTOBMAG_BITMAP /*boxedmagic*/ =20021,
-                                  MELTOBMAG_MAPBITMAPS /*mapmagic*/ =20022,
-                                  /*gtyctype magic #3 CTYPE_EDGE*/
-                                  MELTOBMAG_EDGE /*boxedmagic*/ =20023,
-                                  MELTOBMAG_MAPEDGES /*mapmagic*/ =20024,
-                                  /*gtyctype magic #4 CTYPE_GIMPLE*/
-                                  MELTOBMAG_GIMPLE /*boxedmagic*/ =20025,
-                                  MELTOBMAG_MAPGIMPLES /*mapmagic*/ =20026,
-                                  /*gtyctype magic #5 CTYPE_GIMPLE_SEQ*/
-                                  MELTOBMAG_GIMPLESEQ /*boxedmagic*/ =20027,
-                                  MELTOBMAG_MAPGIMPLESEQS /*mapmagic*/ =20028,
-                                  /*gtyctype magic #6 CTYPE_LOOP*/
-                                  MELTOBMAG_LOOP /*boxedmagic*/ =20029,
-                                  MELTOBMAG_MAPLOOPS /*mapmagic*/ =20030,
-                                  /*gtyctype magic #7 CTYPE_RTVEC*/
-                                  MELTOBMAG_RTVEC /*boxedmagic*/ =20031,
-                                  MELTOBMAG_MAPRTVECS /*mapmagic*/ =20032,
-                                  /*gtyctype magic #8 CTYPE_RTX*/
-                                  MELTOBMAG_RTX /*boxedmagic*/ =20033,
-                                  MELTOBMAG_MAPRTXS /*mapmagic*/ =20034,
-                                  /*gtyctype magic #9 CTYPE_TREE*/
-                                  MELTOBMAG_TREE /*boxedmagic*/ =20035,
-                                  MELTOBMAG_MAPTREES /*mapmagic*/ =20036,
-                                  MELTOBMAG__LAST
-                                }; /* end generated enum meltobmag_en */
+    /* ctype gty object magic */
+    /*gtyctype magic #1 CTYPE_BASIC_BLOCK*/
+    MELTOBMAG_BASICBLOCK /*boxedmagic*/ =20019,
+    MELTOBMAG_MAPBASICBLOCKS /*mapmagic*/ =20020,
+    /*gtyctype magic #2 CTYPE_BITMAP*/
+    MELTOBMAG_BITMAP /*boxedmagic*/ =20021,
+    MELTOBMAG_MAPBITMAPS /*mapmagic*/ =20022,
+    /*gtyctype magic #3 CTYPE_EDGE*/
+    MELTOBMAG_EDGE /*boxedmagic*/ =20023,
+    MELTOBMAG_MAPEDGES /*mapmagic*/ =20024,
+    /*gtyctype magic #4 CTYPE_GIMPLE*/
+    MELTOBMAG_GIMPLE /*boxedmagic*/ =20025,
+    MELTOBMAG_MAPGIMPLES /*mapmagic*/ =20026,
+    /*gtyctype magic #5 CTYPE_GIMPLE_SEQ*/
+    MELTOBMAG_GIMPLESEQ /*boxedmagic*/ =20027,
+    MELTOBMAG_MAPGIMPLESEQS /*mapmagic*/ =20028,
+    /*gtyctype magic #6 CTYPE_LOOP*/
+    MELTOBMAG_LOOP /*boxedmagic*/ =20029,
+    MELTOBMAG_MAPLOOPS /*mapmagic*/ =20030,
+    /*gtyctype magic #7 CTYPE_RTVEC*/
+    MELTOBMAG_RTVEC /*boxedmagic*/ =20031,
+    MELTOBMAG_MAPRTVECS /*mapmagic*/ =20032,
+    /*gtyctype magic #8 CTYPE_RTX*/
+    MELTOBMAG_RTX /*boxedmagic*/ =20033,
+    MELTOBMAG_MAPRTXS /*mapmagic*/ =20034,
+    /*gtyctype magic #9 CTYPE_TREE*/
+    MELTOBMAG_TREE /*boxedmagic*/ =20035,
+    MELTOBMAG_MAPTREES /*mapmagic*/ =20036,
+    MELTOBMAG__LAST
+}; /* end generated enum meltobmag_en */
 #define MELT_COUNT_GENERATED_OBJMAGIC 28
 /*** end from generate_runtypesupport_enum_objmagic **/
 

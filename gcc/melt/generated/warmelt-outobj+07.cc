@@ -933,7 +933,7 @@ meltrout_154_WARMELTmiOUTOBJ_TRANSLATE_RUN_MELT_EXPRESSIONS(meltclosure_ptr_t me
         : public Melt_CallFrameWithValues<126>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[64];
+        long mcfr_varnum[64];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5056,7 +5056,7 @@ meltrout_155_WARMELTmiOUTOBJ_LAMBDA_cl27(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -5414,7 +5414,7 @@ meltrout_156_WARMELTmiOUTOBJ_LAMBDA_cl28(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<19>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[11];
+        long mcfr_varnum[11];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -6217,7 +6217,7 @@ meltrout_157_WARMELTmiOUTOBJ_LAMBDA_cl29(meltclosure_ptr_t meltclosp_, melt_ptr_
         : public Melt_CallFrameWithValues<68>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[28];
+        long mcfr_varnum[28];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -8657,7 +8657,7 @@ meltrout_158_WARMELTmiOUTOBJ_READ_MELT_EXPRESSIONS(meltclosure_ptr_t meltclosp_,
         : public Melt_CallFrameWithValues<29>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[22];
+        long mcfr_varnum[22];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -9858,7 +9858,7 @@ meltrout_159_WARMELTmiOUTOBJ_TRANSLATE_TO_CC_MODULE_MELT_SOURCES(meltclosure_ptr
         : public Melt_CallFrameWithValues<32>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[29];
+        long mcfr_varnum[29];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -11272,7 +11272,7 @@ meltrout_160_WARMELTmiOUTOBJ_EVAL(meltclosure_ptr_t meltclosp_, melt_ptr_t meltf
         : public Melt_CallFrameWithValues<26>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[12];
+        long mcfr_varnum[12];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -12251,7 +12251,7 @@ meltrout_161_WARMELTmiOUTOBJ_GENERATE_GPLV3PLUS_COPYRIGHT_NOTICE_C_COMMENT(meltc
         : public Melt_CallFrameWithValues<5>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[3];
+        long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)

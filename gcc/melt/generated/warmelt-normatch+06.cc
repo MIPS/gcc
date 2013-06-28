@@ -847,7 +847,7 @@ meltrout_137_WARMELTmiNORMATCH_LAMBDA_cl30(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<32>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[11];
+        long mcfr_varnum[11];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -1824,7 +1824,7 @@ meltrout_138_WARMELTmiNORMATCH_LAMBDA_cl31(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<33>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[7];
+        long mcfr_varnum[7];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -2783,7 +2783,7 @@ meltrout_139_WARMELTmiNORMATCH_LAMBDA_cl32(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<13>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[5];
+        long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3333,7 +3333,7 @@ meltrout_140_WARMELTmiNORMATCH_LAMBDA_cl33(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<9>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -3592,7 +3592,7 @@ meltrout_141_WARMELTmiNORMATCH_LAMBDA_cl34(meltclosure_ptr_t meltclosp_, melt_pt
         : public Melt_CallFrameWithValues<9>
     {
     public: /*inframedeclclassy*/
-        long _meltcf_longtab[2];
+        long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
