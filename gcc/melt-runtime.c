@@ -11479,24 +11479,41 @@ void meltgc_debugmsgval(void* val_p, const char*msg, long count)
 void
 melt_dbgbacktrace (int depth)
 {
-#warning melt_dbgbacktrace & melt_dbgshortbacktrace should have a classy frame variant
   int curdepth = 1, totdepth = 0;
   fprintf (stderr, "    <{\n");
+#if MELT_HAVE_CLASSY_FRAME
+  Melt_CallFrame *cfr = NULL;
+  for (cfr = Melt_CallFrame::top_call_frame(); 
+       cfr != NULL & curdepth < depth;
+       (cfr = cfr->previous_frame()), (curdepth++))
+    {
+      const char* sloc = cfr->srcloc();
+      fprintf (stderr, "frame#%d current:", curdepth);
+      if (sloc && sloc[0]) 
+	fprintf (stderr, " {%s} ", sloc);
+      else
+	fputs (" ", stderr);
+      char sbuf[32];
+      snprintf (sbuf, sizeof(sbuf); "Frame#%d", curdepth);
+    }
+#else /*!MELT_HAVE_CLASSY_FRAME*/
   struct melt_callframe_st *fr = NULL;
   for (fr = melt_topframe; 
        fr != NULL && curdepth < depth;
-       (fr = fr->mcfr_prev), (curdepth++)) {
-    fprintf (stderr, "frame#%d closure: ", curdepth);
+       (fr = fr->mcfr_prev), (curdepth++)) 
+    {
+      fprintf (stderr, "frame#%d closure: ", curdepth);
 #if MELT_HAVE_DEBUG
-    if (fr->mcfr_flocs)
-      fprintf (stderr, "{%s} ", fr->mcfr_flocs);
-    else
-      fputs (" ", stderr);
+      if (fr->mcfr_flocs)
+	fprintf (stderr, "{%s} ", fr->mcfr_flocs);
+      else
+	fputs (" ", stderr);
 #endif
-    if (fr->mcfr_nbvar >= 0 && fr->mcfr_closp)
-      melt_dbgeprint (fr->mcfr_closp);
-  }
+      if (fr->mcfr_nbvar >= 0 && fr->mcfr_closp)
+	melt_dbgeprint (fr->mcfr_closp);
+    }
   for (totdepth = curdepth; fr != NULL; fr = fr->mcfr_prev);
+#endif /*MELT_HAVE_CLASSY_FRAME*/
   fprintf (stderr, "}> backtraced %d frames of %d\n", curdepth, totdepth);
   fflush (stderr);
 }

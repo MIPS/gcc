@@ -1,5 +1,18 @@
 
 
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-predef.list (HOOK_LOW_STDERR_VALUE_AT): New.
+
+	* melt-runtime.h (Melt_CallFrame): Add member functions
+	top_call_frame, previous_frame, srcloc, current.
+
+	* melt-runtime.c (melt_dbgbacktrace): adding classy call frame
+	support.
+
+	* melt/warmelt-debug.melt (debug_msg_fun): Cosmetical changes.
+
+	* melt/warmelt-hooks.melt (hook_low_stderr_value_at): New hook.
+
 2013-06-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

@@ -95,7 +95,7 @@ See $MELT_NEED_DBGLIM.}#
 	     (boxedmaxdepth (make_integerbox discr_integer (debug_depth))) ;;;; @@@ DEBUGDEPTH
 	     )
 	(code_chunk getdbgcounter 
-		    #{/*debug_msg_fun $GETDBGCOUNTER*/ $dbgcounter = melt_dbgcounter ;
+		    #{/*debug_msg_fun $GETDBGCOUNTER*/ $DBGCOUNTER = melt_dbgcounter ;
 		    }#)
 	;; if we don't have a dumpfile, use stderr; this may also
 	;; happens when the dumpf exists, but its dump_file is null.
@@ -103,7 +103,7 @@ See $MELT_NEED_DBGLIM.}#
 		    static int nbwarn_$ENSUREGOODOUT ;
 		    if (melt_get_file ((melt_ptr_t)$OUT) == NULL) {
 		    gcc_assert (melt_get_file ((melt_ptr_t)$STDERRF) == stderr) ;
-		    $OUT = $STDERRF  ;
+		    $OUT = $STDERRF ;
 		    if (nbwarn_$ENSUREGOODOUT++ <= 0) {
 		    inform (UNKNOWN_LOCATION, 
 			    "MELT debug output goes to stderr because we have no dump_file.") ;
@@ -130,20 +130,18 @@ See $MELT_NEED_DBGLIM.}#
 	  (add2out_strconst out "#^")
 	  (add2out_longdec out (-i framdepth 1))
 	  (add2out_strconst out ":")
-	  (if filenam
-	      (progn
-		(add2out_strconst out filenam)
-		(add2out_strconst out ":")
-		(add2out_longdec out lineno)
-		(add2out_strconst out ":")
-		))
+	  (when filenam
+	    (add2out_strconst out filenam)
+	    (add2out_strconst out ":")
+	    (add2out_longdec out lineno)
+	    (add2out_strconst out ":")
+	    )
 	  (add2out_strconst out msgstr)
-	  (if (>i count 0) 
-	      (progn
-		(add2out_strconst out " !")
-		(add2out_longdec out count)
-		(add2out_strconst out ": ")
-		))
+	  (when (>i count 0) 
+	    (add2out_strconst out " !")
+	    (add2out_longdec out count)
+	    (add2out_strconst out ": ")
+	    )
 	  (if val 
 	      (dbg_out val dbgi 0)
 	    (add2out_strconst out "() ;;;NIL!!!")
@@ -156,15 +154,14 @@ See $MELT_NEED_DBGLIM.}#
 		  (add2out_strconst out " .###")
 		  (add2out_indentnl out 0)))
 	    )
-	  (if (is_strbuf out)
-	      (progn
-		(code_chunk debugstrbuf #{ /* debug_msg_fun $DEBUGSTRBUF */
-			    fprintf (stderr,
-				     "\n**debug_msg thru strbuffer:\n%s\n",
-				     melt_strbuf_str ((melt_ptr_t) $OUT)) ;
-			    fflush (stderr)			     ;
-			    }#)
-		))
+	  (when (is_strbuf out)
+	    (code_chunk debugstrbuf #{ /* debug_msg_fun $DEBUGSTRBUF */
+			fprintf (stderr,
+				 "\n**debug_msg thru strbuffer:\n%s\n",
+				 melt_strbuf_str ((melt_ptr_t) $OUT)) ;
+			fflush (stderr)	;
+			}#)
+	    )
 	  ))))
 
 ;;; selector to output for debugging
@@ -276,7 +273,7 @@ See $MELT_NEED_DBGLIM.}#
   :disc_super discr_closure
   :named_name '"DISCR_DEBUG_CLOSURE")
 
-;;; the melt_debug_fun is usually called thru the debug macro.
+;;; the melt_debug_fun is usually called thru the debug macro, or via hook_low_level_debug_at
 (defun melt_debug_fun (nothing :long count :cstring filename :long lineno :rest)
   (if (melt_has_flag_debug_set) 
       (let ( (:long dbgcounter 0)
@@ -303,7 +300,7 @@ See $MELT_NEED_DBGLIM.}#
 		    }
 		    } /* end melt_debug_fun $ENSUREGOODOUT*/ }#)
 	(if (null out)
-	    (setq out (get_field :sysdata_stderr initial_system_data)))
+	    (setq out stderrf))
 	;; it may happen that OUT is null, e.g. because the dumpfile &
 	;; the stderr are not yet initialized in
 	;; initial_system_data...

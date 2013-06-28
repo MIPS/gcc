@@ -34,8 +34,56 @@
 				  :cstring msg :long count) () :void
   :predef HOOK_LOW_DEBUG_VALUE_AT
   :doc #{$HOOK_LOW_DEBUG_VALUE_AT is an internal hook for the
-  melt_low_debug_value macro in @file{melt-runtime.h}.}#
+  melt_low_debug_value macro in @file{melt-runtime.h}. Output on the
+  dump file or else the standard errror.}#
   (melt_debug_fun () count filename lineno msg val)
+)
+
+(defhook hook_low_stderr_value_at (:value val 
+				  :cstring filename :long lineno
+				  :cstring msg :long count) () :void
+  :predef HOOK_LOW_STDERR_VALUE_AT
+  :doc #{$HOOK_LOW_STDERR_VALUE_AT is an internal hook for the
+  melt_low_stderr_value macro in @file{melt-runtime.h}. 
+  Output always on standard errror.}#
+  (block_signals 
+   () ()
+   (let ( (:long dbgcounter 0)
+	  (stderrf (get_field :sysdata_stderr initial_system_data)) 
+	  (occmap (make_mapobject discr_map_objects 50))
+	  (boxedmaxdepth (make_integerbox discr_integer (debug_depth))) ;;;; @@@ DEBUGDEPTH
+	  (dbgi (instance class_debug_information
+			  :dbgi_out stderrf
+			  :dbgi_occmap occmap
+			  :dbgi_maxdepth boxedmaxdepth))
+	  (:long framdepth (the_framedepth)) 
+	  )
+     (code_chunk getdbgcounter 
+		 #{/*hook_low_stderr_value_at $GETDBGCOUNTER*/ $DBGCOUNTER = melt_dbgcounter ;
+		 }#)
+     (add2out_strconst stderrf "!!!!****####")
+     (add2out_longdec stderrf dbgcounter)
+     (add2out_strconst stderrf "#^")
+     (add2out_longdec stderrf (-i framdepth 1))
+     (add2out_strconst stderrf ":")
+     (when filename
+       (add2out_strconst stderrf filename)
+       (add2out_strconst stderrf ":")
+       (add2out_longdec stderrf lineno)
+       (add2out_strconst stderrf ":")
+       )
+     (add2out_strconst stderrf msg)
+     (when (>i count 0) 
+       (add2out_strconst stderrf " !")
+       (add2out_longdec stderrf count)
+       (add2out_strconst stderrf ": ")
+       )
+     (if val 
+	 (dbg_out val dbgi 0)
+       (add2out_strconst stderrf "() ;;;NIL!!!")
+       )
+     (add2out_indentnl stderrf 0)
+     ))
 )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

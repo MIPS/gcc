@@ -2834,6 +2834,10 @@ public:
     melthook_ptr_t mcfr_hook;
     melt_ptr_t mcfr_current;
   };
+  static Melt_CallFrame* top_call_frame() { return _top_call_frame_; };
+  Melt_CallFrame* previous_frame() const { return _meltcf_prev; };
+  const char* srcloc() const { return mcfr_flocs; };
+  melt_ptr_t current() const { return mcfr_current; };
 protected:
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
     : _meltcf_prev (_top_call_frame_), mcfr_flocs(NULL), mcfr_clos(clos) {
