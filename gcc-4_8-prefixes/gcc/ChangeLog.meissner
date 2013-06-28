@@ -1,3 +1,7 @@
+2013-06-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to subversion id 200539.
+
 2013-06-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Apply power8 patch #6, subversion id 199965.
