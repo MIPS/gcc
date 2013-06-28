@@ -1395,7 +1395,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<3> (sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), clos) {};
     MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<3> (sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), hook) {};
-} // end  class MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT
+}; // end  class MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1567,7 +1567,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), clos) {};
     MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), hook) {};
-} // end  class MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT
+}; // end  class MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2011,7 +2011,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<37> (sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), clos) {};
     MeltFrame_melthook_HOOK_OVERRIDE_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<37> (sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_OVERRIDE_GATE
+}; // end  class MeltFrame_melthook_HOOK_OVERRIDE_GATE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3415,7 +3415,7 @@ meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclosp_, mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<1> (sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE), clos) {};
-    } // end  class MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE
+    }; // end  class MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3552,7 +3552,7 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<5> (sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE), clos) {};
-    } // end  class MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE
+    }; // end  class MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3801,7 +3801,7 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<8> (sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST), clos) {};
-    } // end  class MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST
+    }; // end  class MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4143,7 +4143,7 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<8> (sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST), clos) {};
-    } // end  class MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST
+    }; // end  class MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4485,7 +4485,7 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST), clos) {};
-    } // end  class MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST
+    }; // end  class MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5219,7 +5219,7 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST), clos) {};
-    } // end  class MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST
+    }; // end  class MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5953,7 +5953,7 @@ meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1), clos) {};
-    } // end  class MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1
+    }; // end  class MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6128,7 +6128,7 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<2> (sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2), clos) {};
-    } // end  class MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2
+    }; // end  class MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6282,7 +6282,7 @@ meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3), clos) {};
-    } // end  class MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3
+    }; // end  class MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6439,7 +6439,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_START_UNIT), clos) {};
     MeltFrame_melthook_HOOK_START_UNIT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_START_UNIT), hook) {};
-} // end  class MeltFrame_melthook_HOOK_START_UNIT
+}; // end  class MeltFrame_melthook_HOOK_START_UNIT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6733,7 +6733,7 @@ meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t meltclosp_, melt_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<1> (sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT), clos) {};
-    } // end  class MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT
+    }; // end  class MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -6852,7 +6852,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), clos) {};
     MeltFrame_melthook_HOOK_FINISH_UNIT(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), hook) {};
-} // end  class MeltFrame_melthook_HOOK_FINISH_UNIT
+}; // end  class MeltFrame_melthook_HOOK_FINISH_UNIT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7130,7 +7130,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), clos) {};
     MeltFrame_melthook_HOOK_ALL_PASSES_START(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), hook) {};
-} // end  class MeltFrame_melthook_HOOK_ALL_PASSES_START
+}; // end  class MeltFrame_melthook_HOOK_ALL_PASSES_START
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7461,7 +7461,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), clos) {};
     MeltFrame_melthook_HOOK_ALL_PASSES_END(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), hook) {};
-} // end  class MeltFrame_melthook_HOOK_ALL_PASSES_END
+}; // end  class MeltFrame_melthook_HOOK_ALL_PASSES_END
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7776,7 +7776,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), clos) {};
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), hook) {};
-} // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START
+}; // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -8107,7 +8107,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), clos) {};
     MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), hook) {};
-} // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END
+}; // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -8422,7 +8422,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), clos) {};
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), hook) {};
-} // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START
+}; // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -8753,7 +8753,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), clos) {};
     MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<15> (sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), hook) {};
-} // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END
+}; // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -9071,7 +9071,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), clos) {};
     MeltFrame_melthook_HOOK_PRE_GENERICIZE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_PRE_GENERICIZE
+}; // end  class MeltFrame_melthook_HOOK_PRE_GENERICIZE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -9410,7 +9410,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), clos) {};
     MeltFrame_melthook_HOOK_FINISH_TYPE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_FINISH_TYPE
+}; // end  class MeltFrame_melthook_HOOK_FINISH_TYPE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -9749,7 +9749,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), clos) {};
     MeltFrame_melthook_HOOK_FINISH_DECL(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), hook) {};
-} // end  class MeltFrame_melthook_HOOK_FINISH_DECL
+}; // end  class MeltFrame_melthook_HOOK_FINISH_DECL
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -10086,7 +10086,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), clos) {};
     MeltFrame_melthook_HOOK_PASS_EXECUTION(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), hook) {};
-} // end  class MeltFrame_melthook_HOOK_PASS_EXECUTION
+}; // end  class MeltFrame_melthook_HOOK_PASS_EXECUTION
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -10438,7 +10438,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<22> (sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), clos) {};
     MeltFrame_melthook_HOOK_GIMPLE_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<22> (sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_GIMPLE_GATE
+}; // end  class MeltFrame_melthook_HOOK_GIMPLE_GATE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -11806,7 +11806,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<20> (sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), clos) {};
     MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<20> (sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_GIMPLE_EXECUTE
+}; // end  class MeltFrame_melthook_HOOK_GIMPLE_EXECUTE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -12877,7 +12877,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_RTL_GATE), clos) {};
     MeltFrame_melthook_HOOK_RTL_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_RTL_GATE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_RTL_GATE
+}; // end  class MeltFrame_melthook_HOOK_RTL_GATE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -13547,7 +13547,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), clos) {};
     MeltFrame_melthook_HOOK_RTL_EXECUTE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_RTL_EXECUTE
+}; // end  class MeltFrame_melthook_HOOK_RTL_EXECUTE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -14266,7 +14266,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE), clos) {};
     MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE
+}; // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -14936,7 +14936,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), clos) {};
     MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), hook) {};
-} // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE
+}; // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -15661,7 +15661,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER), clos) {};
     MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<16> (sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER), hook) {};
-} // end  class MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER
+}; // end  class MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -16059,7 +16059,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), clos) {};
     MeltFrame_melthook_HOOK_EXIT_FINALIZER(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), hook) {};
-} // end  class MeltFrame_melthook_HOOK_EXIT_FINALIZER
+}; // end  class MeltFrame_melthook_HOOK_EXIT_FINALIZER
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -16480,7 +16480,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<38> (sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), clos) {};
     MeltFrame_melthook_HOOK_POLL_INPUTS(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<38> (sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), hook) {};
-} // end  class MeltFrame_melthook_HOOK_POLL_INPUTS
+}; // end  class MeltFrame_melthook_HOOK_POLL_INPUTS
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -18397,7 +18397,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<1> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), clos) {};
     MeltFrame_melthook_HOOK_HANDLE_SIGIO(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<1> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), hook) {};
-} // end  class MeltFrame_melthook_HOOK_HANDLE_SIGIO
+}; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGIO
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -18532,7 +18532,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<30> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), clos) {};
     MeltFrame_melthook_HOOK_HANDLE_SIGALRM(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<30> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), hook) {};
-} // end  class MeltFrame_melthook_HOOK_HANDLE_SIGALRM
+}; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGALRM
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -19548,7 +19548,7 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<47> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), clos) {};
     MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(melthook_ptr_t hook) //the hook constructor
         : Melt_CallFrameWithValues<47> (sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), hook) {};
-} // end  class MeltFrame_melthook_HOOK_HANDLE_SIGCHLD
+}; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGCHLD
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -21143,7 +21143,7 @@ public: /*inframedeclclassy*/
     }; /*end melt_mark_ggc_data*/
     Melt_InitialFrame(meltclosure_ptr_t clos=NULL) //the constructor
         : Melt_CallFrameWithValues<559> (sizeof(Melt_InitialFrame), clos) {};
-} // end  class Melt_InitialFrame
+}; // end  class Melt_InitialFrame
 
 typedef class Melt_InitialFrame /*classyinitialframe*/ meltinitial_frame_t;
 

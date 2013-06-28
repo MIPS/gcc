@@ -956,7 +956,7 @@ meltrout_1_WARMELTmiOUTOBJ_GET_CODE_BUFFER_LIMIT(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_1_WARMELTmiOUTOBJ_GET_CODE_BUFFER_LIMIT(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<2> (sizeof(MeltFrame_meltrout_1_WARMELTmiOUTOBJ_GET_CODE_BUFFER_LIMIT), clos) {};
-    } // end  class MeltFrame_meltrout_1_WARMELTmiOUTOBJ_GET_CODE_BUFFER_LIMIT
+    }; // end  class MeltFrame_meltrout_1_WARMELTmiOUTOBJ_GET_CODE_BUFFER_LIMIT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1123,7 +1123,7 @@ meltrout_2_WARMELTmiOUTOBJ_PUT_CODE_BUFFER_LIMIT(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_2_WARMELTmiOUTOBJ_PUT_CODE_BUFFER_LIMIT(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<5> (sizeof(MeltFrame_meltrout_2_WARMELTmiOUTOBJ_PUT_CODE_BUFFER_LIMIT), clos) {};
-    } // end  class MeltFrame_meltrout_2_WARMELTmiOUTOBJ_PUT_CODE_BUFFER_LIMIT
+    }; // end  class MeltFrame_meltrout_2_WARMELTmiOUTOBJ_PUT_CODE_BUFFER_LIMIT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1472,7 +1472,7 @@ meltrout_3_WARMELTmiOUTOBJ_CODE_BUFFER_LIMIT_OPTSET(meltclosure_ptr_t meltclosp_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_3_WARMELTmiOUTOBJ_CODE_BUFFER_LIMIT_OPTSET(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<6> (sizeof(MeltFrame_meltrout_3_WARMELTmiOUTOBJ_CODE_BUFFER_LIMIT_OPTSET), clos) {};
-    } // end  class MeltFrame_meltrout_3_WARMELTmiOUTOBJ_CODE_BUFFER_LIMIT_OPTSET
+    }; // end  class MeltFrame_meltrout_3_WARMELTmiOUTOBJ_CODE_BUFFER_LIMIT_OPTSET
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1692,7 +1692,7 @@ meltrout_4_WARMELTmiOUTOBJ_OUT_ENUMIX_MODVARBIND(meltclosure_ptr_t meltclosp_, m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_4_WARMELTmiOUTOBJ_OUT_ENUMIX_MODVARBIND(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<28> (sizeof(MeltFrame_meltrout_4_WARMELTmiOUTOBJ_OUT_ENUMIX_MODVARBIND), clos) {};
-    } // end  class MeltFrame_meltrout_4_WARMELTmiOUTOBJ_OUT_ENUMIX_MODVARBIND
+    }; // end  class MeltFrame_meltrout_4_WARMELTmiOUTOBJ_OUT_ENUMIX_MODVARBIND
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2433,7 +2433,7 @@ meltrout_5_WARMELTmiOUTOBJ_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_5_WARMELTmiOUTOBJ_LAMBDA_cl1(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<2> (sizeof(MeltFrame_meltrout_5_WARMELTmiOUTOBJ_LAMBDA_cl1), clos) {};
-    } // end  class MeltFrame_meltrout_5_WARMELTmiOUTOBJ_LAMBDA_cl1
+    }; // end  class MeltFrame_meltrout_5_WARMELTmiOUTOBJ_LAMBDA_cl1
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2567,7 +2567,7 @@ meltrout_6_WARMELTmiOUTOBJ_OUTDECLINIT_ROOT(meltclosure_ptr_t meltclosp_, melt_p
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_6_WARMELTmiOUTOBJ_OUTDECLINIT_ROOT(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<10> (sizeof(MeltFrame_meltrout_6_WARMELTmiOUTOBJ_OUTDECLINIT_ROOT), clos) {};
-    } // end  class MeltFrame_meltrout_6_WARMELTmiOUTOBJ_OUTDECLINIT_ROOT
+    }; // end  class MeltFrame_meltrout_6_WARMELTmiOUTOBJ_OUTDECLINIT_ROOT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2937,7 +2937,7 @@ meltrout_7_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM(meltclosure_ptr_t meltclosp_, mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_7_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<30> (sizeof(MeltFrame_meltrout_7_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM), clos) {};
-    } // end  class MeltFrame_meltrout_7_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM
+    }; // end  class MeltFrame_meltrout_7_WARMELTmiOUTOBJ_OUTPUCOD_OBJINIELEM
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3915,7 +3915,7 @@ meltrout_8_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT(meltclosure_ptr_t meltclosp_, melt_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_8_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<8> (sizeof(MeltFrame_meltrout_8_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT), clos) {};
-    } // end  class MeltFrame_meltrout_8_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT
+    }; // end  class MeltFrame_meltrout_8_WARMELTmiOUTOBJ_OUTCINITFILL_ROOT
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4288,7 +4288,7 @@ public: /*inframedeclclassy*/
     }; /*end melt_mark_ggc_data*/
     Melt_InitialFrame(meltclosure_ptr_t clos=NULL) //the constructor
         : Melt_CallFrameWithValues<1114> (sizeof(Melt_InitialFrame), clos) {};
-} // end  class Melt_InitialFrame
+}; // end  class Melt_InitialFrame
 
 typedef class Melt_InitialFrame /*classyinitialframe*/ meltinitial_frame_t;
 

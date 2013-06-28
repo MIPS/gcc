@@ -524,7 +524,7 @@ meltrout_32_WARMELTmiFIRST_FIND_ENV_DEBUG(meltclosure_ptr_t meltclosp_, melt_ptr
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_32_WARMELTmiFIRST_FIND_ENV_DEBUG(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_32_WARMELTmiFIRST_FIND_ENV_DEBUG), clos) {};
-    } // end  class MeltFrame_meltrout_32_WARMELTmiFIRST_FIND_ENV_DEBUG
+    }; // end  class MeltFrame_meltrout_32_WARMELTmiFIRST_FIND_ENV_DEBUG
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1101,7 +1101,7 @@ meltrout_33_WARMELTmiFIRST_FIND_ENCLOSING_ENV(meltclosure_ptr_t meltclosp_, melt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_33_WARMELTmiFIRST_FIND_ENCLOSING_ENV(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<22> (sizeof(MeltFrame_meltrout_33_WARMELTmiFIRST_FIND_ENCLOSING_ENV), clos) {};
-    } // end  class MeltFrame_meltrout_33_WARMELTmiFIRST_FIND_ENCLOSING_ENV
+    }; // end  class MeltFrame_meltrout_33_WARMELTmiFIRST_FIND_ENCLOSING_ENV
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1630,7 +1630,7 @@ meltrout_34_WARMELTmiFIRST_PUT_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_34_WARMELTmiFIRST_PUT_ENV(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<17> (sizeof(MeltFrame_meltrout_34_WARMELTmiFIRST_PUT_ENV), clos) {};
-    } // end  class MeltFrame_meltrout_34_WARMELTmiFIRST_PUT_ENV
+    }; // end  class MeltFrame_meltrout_34_WARMELTmiFIRST_PUT_ENV
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2233,7 +2233,7 @@ meltrout_35_WARMELTmiFIRST_OVERWRITE_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_35_WARMELTmiFIRST_OVERWRITE_ENV(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<20> (sizeof(MeltFrame_meltrout_35_WARMELTmiFIRST_OVERWRITE_ENV), clos) {};
-    } // end  class MeltFrame_meltrout_35_WARMELTmiFIRST_OVERWRITE_ENV
+    }; // end  class MeltFrame_meltrout_35_WARMELTmiFIRST_OVERWRITE_ENV
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2789,7 +2789,7 @@ meltrout_37_WARMELTmiFIRST_POST_INITIALIZATION(meltclosure_ptr_t meltclosp_, mel
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_37_WARMELTmiFIRST_POST_INITIALIZATION(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<14> (sizeof(MeltFrame_meltrout_37_WARMELTmiFIRST_POST_INITIALIZATION), clos) {};
-    } // end  class MeltFrame_meltrout_37_WARMELTmiFIRST_POST_INITIALIZATION
+    }; // end  class MeltFrame_meltrout_37_WARMELTmiFIRST_POST_INITIALIZATION
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3169,7 +3169,7 @@ meltrout_38_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY(meltclosure_ptr_t melt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_38_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<2> (sizeof(MeltFrame_meltrout_38_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY), clos) {};
-    } // end  class MeltFrame_meltrout_38_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY
+    }; // end  class MeltFrame_meltrout_38_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE_GTY
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3336,7 +3336,7 @@ meltrout_39_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE(meltclosure_ptr_t meltclos
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_39_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<2> (sizeof(MeltFrame_meltrout_39_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE), clos) {};
-    } // end  class MeltFrame_meltrout_39_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE
+    }; // end  class MeltFrame_meltrout_39_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 

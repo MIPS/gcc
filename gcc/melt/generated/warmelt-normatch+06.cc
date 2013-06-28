@@ -867,7 +867,7 @@ meltrout_137_WARMELTmiNORMATCH_LAMBDA_cl30(meltclosure_ptr_t meltclosp_, melt_pt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_137_WARMELTmiNORMATCH_LAMBDA_cl30(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<32> (sizeof(MeltFrame_meltrout_137_WARMELTmiNORMATCH_LAMBDA_cl30), clos) {};
-    } // end  class MeltFrame_meltrout_137_WARMELTmiNORMATCH_LAMBDA_cl30
+    }; // end  class MeltFrame_meltrout_137_WARMELTmiNORMATCH_LAMBDA_cl30
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1755,7 +1755,7 @@ meltrout_138_WARMELTmiNORMATCH_LAMBDA_cl31(meltclosure_ptr_t meltclosp_, melt_pt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_138_WARMELTmiNORMATCH_LAMBDA_cl31(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<33> (sizeof(MeltFrame_meltrout_138_WARMELTmiNORMATCH_LAMBDA_cl31), clos) {};
-    } // end  class MeltFrame_meltrout_138_WARMELTmiNORMATCH_LAMBDA_cl31
+    }; // end  class MeltFrame_meltrout_138_WARMELTmiNORMATCH_LAMBDA_cl31
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2626,7 +2626,7 @@ meltrout_139_WARMELTmiNORMATCH_LAMBDA_cl32(meltclosure_ptr_t meltclosp_, melt_pt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_139_WARMELTmiNORMATCH_LAMBDA_cl32(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<13> (sizeof(MeltFrame_meltrout_139_WARMELTmiNORMATCH_LAMBDA_cl32), clos) {};
-    } // end  class MeltFrame_meltrout_139_WARMELTmiNORMATCH_LAMBDA_cl32
+    }; // end  class MeltFrame_meltrout_139_WARMELTmiNORMATCH_LAMBDA_cl32
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3140,7 +3140,7 @@ meltrout_140_WARMELTmiNORMATCH_LAMBDA_cl33(meltclosure_ptr_t meltclosp_, melt_pt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_140_WARMELTmiNORMATCH_LAMBDA_cl33(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_meltrout_140_WARMELTmiNORMATCH_LAMBDA_cl33), clos) {};
-    } // end  class MeltFrame_meltrout_140_WARMELTmiNORMATCH_LAMBDA_cl33
+    }; // end  class MeltFrame_meltrout_140_WARMELTmiNORMATCH_LAMBDA_cl33
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3380,7 +3380,7 @@ meltrout_141_WARMELTmiNORMATCH_LAMBDA_cl34(meltclosure_ptr_t meltclosp_, melt_pt
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_141_WARMELTmiNORMATCH_LAMBDA_cl34(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_meltrout_141_WARMELTmiNORMATCH_LAMBDA_cl34), clos) {};
-    } // end  class MeltFrame_meltrout_141_WARMELTmiNORMATCH_LAMBDA_cl34
+    }; // end  class MeltFrame_meltrout_141_WARMELTmiNORMATCH_LAMBDA_cl34
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 

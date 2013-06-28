@@ -525,7 +525,7 @@ meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(meltclosure_ptr_t meltclosp_, melt_p
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<9> (sizeof(MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE), clos) {};
-    } // end  class MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE
+    }; // end  class MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -921,7 +921,7 @@ meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<47> (sizeof(MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD), clos) {};
-    } // end  class MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD
+    }; // end  class MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2407,7 +2407,7 @@ meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<47> (sizeof(MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD), clos) {};
-    } // end  class MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD
+    }; // end  class MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -3892,7 +3892,7 @@ meltrout_4_WARMELTmiMODES_EVAL_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<28> (sizeof(MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD), clos) {};
-    } // end  class MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD
+    }; // end  class MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4704,7 +4704,7 @@ meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<28> (sizeof(MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD), clos) {};
-    } // end  class MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD
+    }; // end  class MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5519,7 +5519,7 @@ meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(meltclosure_ptr_t meltclosp_, melt_ptr_
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<46> (sizeof(MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR), clos) {};
-    } // end  class MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR
+    }; // end  class MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7017,7 +7017,7 @@ meltrout_7_WARMELTmiMODES_REPL_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t me
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<38> (sizeof(MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD), clos) {};
-    } // end  class MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD
+    }; // end  class MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -7818,7 +7818,7 @@ public: /*inframedeclclassy*/
     }; /*end melt_mark_ggc_data*/
     Melt_InitialFrame(meltclosure_ptr_t clos=NULL) //the constructor
         : Melt_CallFrameWithValues<617> (sizeof(Melt_InitialFrame), clos) {};
-} // end  class Melt_InitialFrame
+}; // end  class Melt_InitialFrame
 
 typedef class Melt_InitialFrame /*classyinitialframe*/ meltinitial_frame_t;
 
