@@ -316,6 +316,24 @@ extern "C" int melt_flag_bootstrapping;
 
 #endif /*MELT_HAVE_DEBUG*/
 
+/* Low level stderr output of value, using the melt_debug_fun; see the
+   hook_low_stderr_value_at in warmelt-hooks.melt file. */
+#define melt_low_stderr_value(Msg,Val)\
+  melt_low_stderr_value_at(__FILE__,__LINE__,(Msg),(Val))
+
+#define melt_low_stderr_value_at(Fil,Lin,Msg,Val) do {	\
+  static long _meltlowstderrcount_##Lin;                \
+  _meltlowstderrcount_##Lin++;                          \
+    if (melt_need_debug(0))                             \
+      {                                                 \
+        melthookproc_HOOK_LOW_STDERR_VALUE_AT		\
+          ((Val),                                       \
+           melt_basename((Fil)),  (Lin),                \
+           (Msg),                                       \
+           _meltlowdebugcount_##Lin);                   \
+      };                                                \
+  } while(0)
+
 
 
 
@@ -2838,6 +2856,8 @@ public:
   Melt_CallFrame* previous_frame() const { return _meltcf_prev; };
   const char* srcloc() const { return mcfr_flocs; };
   melt_ptr_t current() const { return mcfr_current; };
+  meltclosure_ptr_t current_closure() const { return meltcast_closure_st (mcfr_current); };
+  melthook_ptr_t current_hook() const { return meltcast_hook_st (mcfr_current); };
 protected:
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
     : _meltcf_prev (_top_call_frame_), mcfr_flocs(NULL), mcfr_clos(clos) {

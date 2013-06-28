@@ -11476,10 +11476,34 @@ void meltgc_debugmsgval(void* val_p, const char*msg, long count)
 #undef dbgfv
 }
 
+static void 
+melt_errprint_dladdr(void*ad)
+{
+  if (!ad) return;
+#if _GNU_SOURCE
+  /* we have dladdr! */
+  Dl_info funinf;
+  memset (&funinf, 0, sizeof(funinf));
+  if (dladdr (ad, &funinf)) {
+    if (funinf.dli_fname)
+      /* Just print the basename of the *.so since it has an
+	 md5sum in the path.  */
+      fprintf (stderr, "\n  %s", melt_basename (funinf.dli_fname));
+    if (funinf.dli_sname)
+      fprintf (stderr, " [%s=%p]",
+	       funinf.dli_sname, funinf.dli_saddr);
+    fputc('\n', stderr);
+  } else
+    fputs (" ?", stderr);
+#endif /*_GNU_SOURCE*/
+}
+
 void
 melt_dbgbacktrace (int depth)
 {
   int curdepth = 1, totdepth = 0;
+  if (depth < 3) 
+    depth = 3;
   fprintf (stderr, "    <{\n");
 #if MELT_HAVE_CLASSY_FRAME
   Melt_CallFrame *cfr = NULL;
@@ -11493,9 +11517,20 @@ melt_dbgbacktrace (int depth)
 	fprintf (stderr, " {%s} ", sloc);
       else
 	fputs (" ", stderr);
-      char sbuf[32];
-      snprintf (sbuf, sizeof(sbuf); "Frame#%d", curdepth);
+      melt_ptr_t current = cfr->current();
+      if (current) {
+	char sbuf[32];
+	snprintf (sbuf, sizeof(sbuf); "Frame#%d", curdepth);
+	melt_low_stderr_value(sbuf,current);
+      }
+      putc ('\n', stderr);
+      if (currdepth % 4 == 0)
+	fflush(stderr);
     }
+  for (totdepth = curdepth; 
+       cfr != NULL; 
+       cfr = cfr->previous_frame()) 
+    totdepth++;
 #else /*!MELT_HAVE_CLASSY_FRAME*/
   struct melt_callframe_st *fr = NULL;
   for (fr = melt_topframe; 
@@ -11512,7 +11547,10 @@ melt_dbgbacktrace (int depth)
       if (fr->mcfr_nbvar >= 0 && fr->mcfr_closp)
 	melt_dbgeprint (fr->mcfr_closp);
     }
-  for (totdepth = curdepth; fr != NULL; fr = fr->mcfr_prev);
+  for (totdepth = curdepth; 
+       fr != NULL; 
+       fr = fr->mcfr_prev)
+    totdepth++;
 #endif /*MELT_HAVE_CLASSY_FRAME*/
   fprintf (stderr, "}> backtraced %d frames of %d\n", curdepth, totdepth);
   fflush (stderr);
@@ -11527,6 +11565,36 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
     maxdepth = 5;
   fprintf (stderr, "\nSHORT BACKTRACE[#%ld] %s;", melt_dbgcounter,
            msg ? msg : "/");
+#if MELT_HAVE_CLASSY_FRAME
+  Melt_CallFrame *cfr = NULL;
+  for (cfr = Melt_CallFrame::top_call_frame();
+       cfr != NULL && curdepth < maxdepth;
+       (cfr = cfr->previous_frame()), (curdepth++))
+    {
+      fputs ("\n", stderr);
+      fprintf (stderr, "#%d:", curdepth);
+      meltclosure_ptr_t curclos = NULL;
+      melthook_ptr_t curhook = NULL;
+      if ((curclos= cfr->current_closure()) != NULL) 
+	{
+	  meltroutine_ptr_t curout = curclos->rout;
+	  if (melt_magic_discr ((melt_ptr_t) curout) == MELTOBMAG_ROUTINE)
+	    fprintf (stderr, "<%s> ", curout->routdescr);
+	  else
+	    fputs ("?norout?", stderr);
+	  melt_errprint_dladdr((void*) curout->routfunad);
+	}
+      else if ((curhook= cfr->current_hook()) != NULL) 
+	{
+	  fprintf (stderr, "!<%s> ", curhook->hookname);
+	  melt_errprint_dladdr((void*) curhook->hookad);
+	}
+    }
+  if (cfr && maxdepth > curdepth)
+    fprintf (stderr, "...&%d", maxdepth - curdepth);
+  else
+    fputs (".", stderr);
+#else /*!MELT_HAVE_CLASSY_FRAME*/
   struct melt_callframe_st *fr = NULL;
   for (fr = melt_topframe; 
        fr != NULL && curdepth <= maxdepth;
@@ -11541,26 +11609,7 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
 	  fprintf (stderr, "<%s> ", curout->routdescr);
 	else
 	  fputs ("?norout?", stderr);
-#if _GNU_SOURCE
-	/* we have dladdr! */
-	{
-	  PTR_UNION_TYPE(meltroutfun_t*) funad = {0};
-	  Dl_info funinf;
-	  memset (&funinf, 0, sizeof(funinf));
-	  PTR_UNION_AS_CAST_PTR (funad) = curout->routfunad;
-	  if (dladdr (PTR_UNION_AS_VOID_PTR (funad), &funinf)) {
-	    if (funinf.dli_fname)
-	      /* Just print the basename of the *.so since it has an
-		 md5sum in the path.  */
-	      fprintf (stderr, "\n  %s", melt_basename (funinf.dli_fname));
-	    if (funinf.dli_sname)
-	      fprintf (stderr, " [%s=%p]",
-		       funinf.dli_sname, funinf.dli_saddr);
-	    fputc('\n', stderr);
-	  } else
-	    fputs (" ?", stderr);
-	}
-#endif /*_GNU_SOURCE*/
+	melt_errprint_dladdr((void*) curout->routfunad);
       } else
 	fprintf (stderr, "_ ");
 #if MELT_HAVE_DEBUG
@@ -11574,6 +11623,7 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
     fprintf (stderr, "...&%d", maxdepth - curdepth);
   else
     fputs (".", stderr);
+#endif /*MELT_HAVE_CLASSY_FRAME*/
   putc ('\n', stderr);
   putc ('\n', stderr);
   fflush (stderr);

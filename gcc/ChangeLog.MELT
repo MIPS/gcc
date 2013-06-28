@@ -1,6 +1,19 @@
 
 
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_low_stderr_value)
+	(melt_low_stderr_value_at): New macros.
+	(Melt_CallFrame): current_closure, current_hook: New member
+	functions.
+	* melt-runtime.c (melt_errprint_dladdr): New utility function.
+	(melt_dbgbacktrace, melt_dbgshortbacktrace): Show backtrace with
+	classy frames. Use melt_errprint_dladdr.
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_enum_objmagic):
+	Emit newline.
+
+2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

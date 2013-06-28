@@ -1890,7 +1890,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (add2sbuf_indentnl outbuf 0)
     (add2sbuf_string outbuf
      #{$' /** from generate_runtypesupport_enum_objmagic **/
-     enum meltobmag_en /*generated*/ { MELTOBMAG__NONE = 0,
+     enum meltobmag_en /*generated*/ 
+     { 
+       MELTOBMAG__NONE = 0,
      }#)
     (add2sbuf_indentnl outbuf 1)
     (add2sbuf_strconst outbuf "MELTOBMAG__FIRST /* first valid object magic */ =")
