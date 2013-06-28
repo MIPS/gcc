@@ -6,6 +6,9 @@
 	handling of initial frames.  Emit appropriate meltinitial_frame_t
 	typedef.
 
+	* melt-runtime.h (melt_curframdepth): Provide a classy frame
+	implementation.
+
 2013-06-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
