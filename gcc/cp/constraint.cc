@@ -723,7 +723,8 @@ diagnose_node (location_t loc, tree t, tree args)
       break;
 
     case TRUTH_ORIF_EXPR:
-      sorry ("cannot diagnose disjunctions just yet");
+      // TODO: Design better diagnostics for dijunctions.
+      diagnose_other (loc, t, args);
       break;
 
     case TRAIT_EXPR:

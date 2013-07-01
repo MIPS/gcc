@@ -1,4 +1,9 @@
-2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2013-07-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/error.c (cp_printer): Fix unnecessary whitespace change.
+	* gcc/cp/constraint.cc (diagnose_node): Don't fail diagnosing
+	disjunctions.
+
+2013-07-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/class.c (are_constrained_member_overloads): Fix doc typos.
 
 2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>

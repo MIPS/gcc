@@ -3353,7 +3353,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 
   switch (*spec)
     {
-    case 'A': result = args_to_string (next_tree, verbose); break;
+    case 'A': result = args_to_string (next_tree, verbose);	break;
     case 'C': result = code_to_string (next_tcode);		break;
     case 'D':
       {
