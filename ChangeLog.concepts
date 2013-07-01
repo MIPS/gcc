@@ -1,4 +1,15 @@
 2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/class.c (are_constrained_member_overloads): Fix doc typos.
+
+2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/parser.c (cp_parser_init_declarator): Parse template
+	requirements for out-of-class member definitions.
+	* gcc/cp/decl2.c (check_classfn): Include match out-of-class
+	definitions using constraints.
+	* gcc/cp/constraint.cc (equivalently_constrained). Use get_constraints.
+	(more_constrained). Use get_constraints. 
+
+2013-06-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cp-tree.h (tree_template_info). Remove constraint from 
 	template info.
 	(check_template_info): Removed (unused).

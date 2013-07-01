@@ -934,9 +934,9 @@ modify_vtable_entry (tree t,
     }
 }
 
-// Returns true if NEWDECL and OLDDEC are member functions with with 
+// Returns true if NEWDECL and OLDDECL are member functions with with 
 // different constraints. If NEWDECL and OLDDECL are non-template members
-// or specializations of non-template members, they overloads are 
+// or specializations of non-template members, the overloads are 
 // differentiated by the template constraints.
 //
 // Note that the types of the functions are assumed to be equivalent.
