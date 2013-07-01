@@ -275,8 +275,6 @@ mark_pseudo_live (int regno, int point)
 
   lra_assert (regno >= FIRST_PSEUDO_REGISTER);
   lra_assert (! sparseset_bit_p (pseudos_live, regno));
-   if (lra_dump_file != NULL)
-     fprintf(lra_dump_file,"Marking %d regno live at %d point\n", regno, point);
   sparseset_set_bit (pseudos_live, regno);
   IOR_HARD_REG_SET (lra_reg_info[regno].conflict_hard_regs, hard_regs_live);
 
@@ -465,8 +463,6 @@ check_pseudos_live_through_calls (int regno)
   IOR_HARD_REG_SET (lra_reg_info[regno].conflict_hard_regs,
 		    call_used_reg_set);
 #ifdef ENABLE_CHECKING
-   if (lra_dump_file != NULL)
-     fprintf(lra_dump_file, "in %s regno %d lives across call\n", current_function_name(), regno);
   lra_reg_info[regno].call_p = true;
 #endif
   if (! sparseset_bit_p (pseudos_live_through_setjumps, regno))
@@ -622,15 +618,6 @@ process_bb_lives (basic_block bb, int &curr_point)
 
       if (call_p)
 	{
-          if (lra_dump_file != NULL) {
-             int ii;
-             fprintf(lra_dump_file, "Call is: %d\n", INSN_UID (curr_insn));
-             //debug_rtx(curr_insn);
-             fprintf(lra_dump_file, "Regnos:");
-             EXECUTE_IF_SET_IN_SPARSESET (pseudos_live, ii)
-               fprintf (lra_dump_file, "%d ", ii);
-             fprintf (lra_dump_file, "\n");
-          }
 	  sparseset_ior (pseudos_live_through_calls,
 			 pseudos_live_through_calls, pseudos_live);
 	  if (cfun->has_nonlocal_label

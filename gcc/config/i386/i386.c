@@ -43567,7 +43567,7 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 static bool
 ix86_lra_p ()
 {
-  return ! flag_mpx;
+  return true;//! flag_mpx;
 }
 
 static tree

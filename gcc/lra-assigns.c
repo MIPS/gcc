@@ -1414,11 +1414,8 @@ lra_assign (void)
     if (lra_reg_info[i].nrefs != 0 && reg_renumber[i] >= 0
 	&& lra_reg_info[i].call_p
 	&& overlaps_hard_reg_set_p (call_used_reg_set,
-				    PSEUDO_REGNO_MODE (i), reg_renumber[i])) {
-      if (lra_dump_file != NULL)
-        fprintf (lra_dump_file, "%s, bad number is %d, max is %d, call_used_reg_set "HOST_WIDEST_INT_PRINT_UNSIGNED", mode is %d renumber %d\n",current_function_name(),i,max_regno,call_used_reg_set,PSEUDO_REGNO_MODE (i), reg_renumber[i]);
+				    PSEUDO_REGNO_MODE (i), reg_renumber[i]))
       gcc_unreachable ();
-    }
 #endif
   /* Setup insns to process on the next constraint pass.  */
   bitmap_initialize (&changed_pseudo_bitmap, &reg_obstack);
