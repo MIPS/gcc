@@ -26149,8 +26149,6 @@ enum ix86_builtins
   IX86_BUILTIN_CMPNEQSS,
   IX86_BUILTIN_CMPNLTSS,
   IX86_BUILTIN_CMPNLESS,
-  IX86_BUILTIN_CMPNGTSS,
-  IX86_BUILTIN_CMPNGESS,
   IX86_BUILTIN_CMPORDSS,
   IX86_BUILTIN_CMPUNORDSS,
 
@@ -27806,8 +27804,6 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpneqss", IX86_BUILTIN_CMPNEQSS, NE, (int) V4SF_FTYPE_V4SF_V4SF },
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpnltss", IX86_BUILTIN_CMPNLTSS, UNGE, (int) V4SF_FTYPE_V4SF_V4SF },
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpnless", IX86_BUILTIN_CMPNLESS, UNGT, (int) V4SF_FTYPE_V4SF_V4SF },
-  { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpngtss", IX86_BUILTIN_CMPNGTSS, UNGE, (int) V4SF_FTYPE_V4SF_V4SF_SWAP },
-  { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpngess", IX86_BUILTIN_CMPNGESS, UNGT, (int) V4SF_FTYPE_V4SF_V4SF_SWAP },
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpordss", IX86_BUILTIN_CMPORDSS, ORDERED, (int) V4SF_FTYPE_V4SF_V4SF },
 
   { OPTION_MASK_ISA_SSE, CODE_FOR_sminv4sf3, "__builtin_ia32_minps", IX86_BUILTIN_MINPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF },
@@ -32864,7 +32860,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	}
 
       if (target == 0)
-	target = gen_reg_rtx (mode);
+	{
+	  /* mode is VOIDmode if __builtin_rd* has been called
+	     without lhs.  */
+	  if (mode == VOIDmode)
+	    return target;
+	  target = gen_reg_rtx (mode);
+	}
 
       if (TARGET_64BIT)
 	{
