@@ -2,6 +2,11 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* warmelt-outobj.melt (output_curframe_declstruct): Emit only one
+	empty constructor.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 
 	* melt/generated/warmelt-base+01.cc: Regenerate.
