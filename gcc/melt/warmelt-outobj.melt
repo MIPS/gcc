@@ -1483,7 +1483,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; output the code for declaring the current frame struct
 (defun output_curframe_declstruct (rou dsbuf)
   (debug "output_curframe_declstruct rou=" rou)
@@ -1499,6 +1499,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		   ))
 	(others (unsafe_get_field :obrout_others rou))
 	)       
+    (add2sbuf_indentnl dsbuf 0)
+    (add2out dsbuf "/** start of frame for " (get_field :named_name rou) "**/")
     (add2sbuf_indentnl dsbuf 0)
 ;;;;; CLASSY FRAME BEGIN
 ;;;;;
@@ -1706,6 +1708,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst dsbuf "  long _meltspare_; }")
     (add2sbuf_indentnl dsbuf 0)
     (add2sbuf_strconst dsbuf "#endif /*MELT_HAVE_CLASSY_FRAME*/")
+    (add2sbuf_indentnl dsbuf 0)
+    (add2out dsbuf "/** end of frame for " (get_field :named_name rou) "**/")
     (add2sbuf_indentnl dsbuf 0)
     ;; end of curframe
     ))
@@ -2690,6 +2694,12 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	   "\n oretctype=" oretctype
 	   "\n obody=" obody
 	   "\n ohkepilog=" ohkepilog)
+    (add2sbuf_indentnl declbuf 0)
+    (add2out declbuf "/** start of declaration for hook " hookname "**/")
+    (add2sbuf_indentnl declbuf 0)
+    (add2sbuf_indentnl implbuf 0)
+    (add2out declbuf "/** start of implementation for hook " hookname "**/")
+    (add2sbuf_indentnl implbuf 0)
 ;;; should generate the marking routine, and the hook routine
     (output_centraldecl_hookroutine phook declbuf "declaration of" "MELT_EXTERN")
     (add2out_strconst declbuf ";")
@@ -2705,10 +2715,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2out declbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/")
     (add2sbuf_indentnl declbuf 0)
     (add2sbuf_indentnl declbuf 0)
-    (add2out 
-     implbuf ##{/* frame for $HOOKNAME hook: */
-     typedef }#)
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf ##{/* frame for $HOOKNAME hook: */
+	     typedef }#)
     (output_curframe_declstruct phook implbuf)
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf ##{/* endframe for $HOOKNAME hook */}#)
+    (add2sbuf_indentnl implbuf 0)
     (add2out implbuf " melthookframe_" nrawhookname "_t; /* end of hook frame " hookname " */")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
@@ -2723,29 +2736,29 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2out 
        implbuf 
        ##{/* declare and initialize frame for $HOOKNAME hook */ 
-#undef meltcallcount
-#if MELT_HAVE_DEBUG
+       #undef meltcallcount
+       #if MELT_HAVE_DEBUG
        static long melthook_call_counter_$NRAWHOOKNAME ;
        long melt_thishookcall_counter_$NRAWHOOKNAME ATTRIBUTE_UNUSED 
-            = melthook_call_counter_$NRAWHOOKNAME++ ;
-#define meltcallcount melt_thishookcall_counter_$NRAWHOOKNAME
-#else
-#define meltcallcount 0L
-#endif
-#if MELT_HAVE_CLASSY_FRAME
-       melthookframe_$NRAWHOOKNAME#_t meltfram__(meltcast_melthook_st(melthookdatap));
-#else /*no MELT_HAVE_CLASSY_FRAME*/
-       melthookframe_$NRAWHOOKNAME#_t meltfram__;
+       = melthook_call_counter_$NRAWHOOKNAME++ ;
+       #define meltcallcount melt_thishookcall_counter_$NRAWHOOKNAME
+       #else
+       #define meltcallcount 0L
+       #endif
+       #if MELT_HAVE_CLASSY_FRAME
+       melthookframe_$NRAWHOOKNAME#_t meltfram__(meltcast_melthook_st(melthookdatap)) ;
+       #else /*no MELT_HAVE_CLASSY_FRAME*/
+       melthookframe_$NRAWHOOKNAME#_t meltfram__ ;
        /* clear and push the new call frame for hook $HOOKNAME */
        memset (&meltfram__, 0, sizeof(meltfram__)) ;
-#define meltframe meltfram__
+       #define meltframe meltfram__
        meltframe.mcfr_nbvar = -$MINIHASH /*hook minihash*/ ;
        ((struct melt_callframe_st*)&meltframe)->mcfr_forwmarkrout
-          = melthookmark_$NRAWHOOKNAME#_rout ;
+       = melthookmark_$NRAWHOOKNAME#_rout ;
        meltframe.mcfr_prev = (struct melt_callframe_st *) melt_topframe	;
-       melt_topframe = /*starthookrout*/ (struct melt_callframe_st*) &meltfram__;
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-   }#
+       melt_topframe = /*starthookrout*/ (struct melt_callframe_st*) &meltfram__ ;
+       #endif /*MELT_HAVE_CLASSY_FRAME*/
+       }#
        )
       (add2sbuf_indentnl implbuf 0)
       (add2out implbuf "#define meltfhook /*hook data of " nrawhookname "*/ ((melthook_ptr_t) (")
@@ -2794,9 +2807,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2out 
        implbuf 
        ##{/* final of $HOOKNAME hook */
-#if !MELT_HAVE_CLASSY_FRAME
-       melt_topframe = /* endhookrout*/ meltfram__.mcfr_prev;
-#endif /*MELT_HAVE_CLASSY_FRAME*/
+       #if !MELT_HAVE_CLASSY_FRAME
+       melt_topframe = /* endhookrout*/ meltfram__.mcfr_prev ;
+       #endif /*MELT_HAVE_CLASSY_FRAME*/
        return }#)
       (add2sbuf_indentnl implbuf 3)
       (if oretval
@@ -2824,24 +2837,24 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
        implbuf
        "/* define frame moving or marking routine for " hookname "hook */\n"
        "void melthookmark_" nrawhookname "_rout (struct melt_callframe_st*meltcfram, int meltmarking)\n{\n")
-       (add2out 
-	implbuf
-	##{
+      (add2out 
+       implbuf
+       ##{
        melthookframe_$NRAWHOOKNAME#_t* meltframptr_
-           = (melthookframe_$NRAWHOOKNAME#_t*) meltcfram ;
+       = (melthookframe_$NRAWHOOKNAME#_t*) meltcfram ;
        melt_assertmsg ("hook frame $NRAWHOOKNAME good hash", meltframptr_->mcfr_nbvar == -$MINIHASH) ;
-       if (meltmarking) { /* marking hook $NRAWHOOKNAME */ int meltix;}#
+       if (meltmarking) { /* marking hook $NRAWHOOKNAME */ int meltix ;}#
        )
-       (add2sbuf_indentnl implbuf 2)
+      (add2sbuf_indentnl implbuf 2)
       (debug "outpucod_hookroutine marking phook=" phook)
       (outpucod_marker phook implbuf)
       (add2out 
        implbuf
        ##{ } else /* copying hook $NRAWHOOKNAME */ if (melt_is_forwarding) {
-       int meltvix ;
-       for (meltvix= 0 ; 
-	    meltvix< $NBVAL ;
-	    meltvix++ ) 
+       int meltvix			;
+       for (meltvix= 0			; 
+		     meltvix< $NBVAL	;
+		     meltvix++ ) 
        MELT_FORWARDED (meltframptr_->mcfr_varptr[meltvix]) ;
        } /* end copying hook $NRAWHOOKNAME */ }#)
       (add2sbuf_indentnl implbuf 0)
@@ -2851,6 +2864,12 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2sbuf_indentnl implbuf 0)
       (add2sbuf_indentnl implbuf 0)
       (add2sbuf_indentnl declbuf 0)
+      (add2sbuf_indentnl declbuf 0)
+      (add2out declbuf "/** end of declaration for hook " hookname "**/")
+      (add2sbuf_indentnl declbuf 0)
+      (add2sbuf_indentnl implbuf 0)
+      (add2out declbuf "/** end of implementation for hook " hookname "**/")
+      (add2sbuf_indentnl implbuf 0)
       ;;
       )))
 (install_method class_hookroutineobj output_c_code outpucod_hookroutine)
