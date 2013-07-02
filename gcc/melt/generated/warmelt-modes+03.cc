@@ -441,15 +441,15 @@ melt_ptr_t MELT_MODULE_VISIBILITY meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULE
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2283*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2295*/
 struct melt_initial_frame_st; /*forward declaration of initial frame*/
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2287*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2299*/
 /*declare opaque initial frame: */
-#if MELT_HAVE_CLASSY_FRAME /*fromline 2292*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 2304*/
 typedef class Melt_InitialFrame /*opaqueinitialclassy*/ meltinitial_frame_t;
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2296*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2308*/
 typedef struct melt_initial_frame_st meltinitial_frame_t;
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2300*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2312*/
 
 
 /* define different names when debugging or not */
@@ -507,7 +507,7 @@ meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t meltclosp_, mel
 
     /** start of frame for meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD
+    /*curframdeclclassy*/ class MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD// fromline 1519
         : public Melt_CallFrameWithValues<37>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -531,17 +531,23 @@ meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t meltclosp_, mel
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<37> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD), clos) {};
+        MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<37> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD)) {};
     }; // end  class MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -550,35 +556,35 @@ meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t meltclosp_, mel
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 37
         melt_ptr_t mcfr_varptr[37];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 19
         long mcfr_varnum[19];
-        /*others fromline1698*/
+        /*others fromline1710*/
         const char* loc_CSTRING__o0;
         const char* loc_CSTRING__o1;
         const char* loc_CSTRING__o2;
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD**/
 
     /* end of frame for routine meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD */ MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD */ struct meltframe_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -604,7 +610,7 @@ meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t meltclosp_, mel
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("TRANSLATEINIT_DOCMD", meltcallcount);
     /*getargs*/
 
@@ -1615,9 +1621,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("TRANSLATEINIT_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -1650,7 +1656,7 @@ meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 
     /** start of frame for meltrout_70_WARMELTmiMODES_LAMBDA_cl22**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22
+    /*curframdeclclassy*/ class MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22// fromline 1519
         : public Melt_CallFrameWithValues<11>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -1671,17 +1677,23 @@ meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<11> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22), clos) {};
+        MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<11> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22)) {};
     }; // end  class MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_70_WARMELTmiMODES_LAMBDA_cl22_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_70_WARMELTmiMODES_LAMBDA_cl22_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -1690,32 +1702,32 @@ meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 11
         melt_ptr_t mcfr_varptr[11];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 4
         long mcfr_varnum[4];
-        /*others fromline1698*/
+        /*others fromline1710*/
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_70_WARMELTmiMODES_LAMBDA_cl22**/
 
     /* end of frame for routine meltrout_70_WARMELTmiMODES_LAMBDA_cl22 */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_70_WARMELTmiMODES_LAMBDA_cl22 */ MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_70_WARMELTmiMODES_LAMBDA_cl22 */ struct meltframe_meltrout_70_WARMELTmiMODES_LAMBDA_cl22_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_70_WARMELTmiMODES_LAMBDA_cl22*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_70_WARMELTmiMODES_LAMBDA_cl22 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -1741,7 +1753,7 @@ meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t 
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("LAMBDA_cl22", meltcallcount);
     /*getargs*/
 
@@ -2055,9 +2067,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("LAMBDA_cl22", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_70_WARMELTmiMODES_LAMBDA_cl22_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2090,7 +2102,7 @@ meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t meltclosp_, 
 
     /** start of frame for meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED
+    /*curframdeclclassy*/ class MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED// fromline 1519
         : public Melt_CallFrameWithValues<51>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -2114,17 +2126,23 @@ meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t meltclosp_, 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<51> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED), clos) {};
+        MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<51> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED)) {};
     }; // end  class MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -2133,35 +2151,35 @@ meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t meltclosp_, 
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 51
         melt_ptr_t mcfr_varptr[51];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 30
         long mcfr_varnum[30];
-        /*others fromline1698*/
+        /*others fromline1710*/
         const char* loc_CSTRING__o0;
         const char* loc_CSTRING__o1;
         const char* loc_CSTRING__o2;
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED**/
 
     /* end of frame for routine meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED */ MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED */ struct meltframe_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -2187,7 +2205,7 @@ meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t meltclosp_, 
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("TRANSLATEINIT_FLAVORED", meltcallcount);
     /*getargs*/
 
@@ -3860,9 +3878,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("TRANSLATEINIT_FLAVORED", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3895,7 +3913,7 @@ meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 
     /** start of frame for meltrout_72_WARMELTmiMODES_LAMBDA_cl23**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23
+    /*curframdeclclassy*/ class MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23// fromline 1519
         : public Melt_CallFrameWithValues<11>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -3916,17 +3934,23 @@ meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<11> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23), clos) {};
+        MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<11> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23)) {};
     }; // end  class MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_72_WARMELTmiMODES_LAMBDA_cl23_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_72_WARMELTmiMODES_LAMBDA_cl23_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -3935,32 +3959,32 @@ meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 11
         melt_ptr_t mcfr_varptr[11];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 4
         long mcfr_varnum[4];
-        /*others fromline1698*/
+        /*others fromline1710*/
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_72_WARMELTmiMODES_LAMBDA_cl23**/
 
     /* end of frame for routine meltrout_72_WARMELTmiMODES_LAMBDA_cl23 */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_72_WARMELTmiMODES_LAMBDA_cl23 */ MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_72_WARMELTmiMODES_LAMBDA_cl23 */ struct meltframe_meltrout_72_WARMELTmiMODES_LAMBDA_cl23_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_72_WARMELTmiMODES_LAMBDA_cl23*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_72_WARMELTmiMODES_LAMBDA_cl23 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -3986,7 +4010,7 @@ meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t 
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("LAMBDA_cl23", meltcallcount);
     /*getargs*/
 
@@ -4300,9 +4324,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("LAMBDA_cl23", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_72_WARMELTmiMODES_LAMBDA_cl23_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -4335,7 +4359,7 @@ meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t meltclosp
 
     /** start of frame for meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD
+    /*curframdeclclassy*/ class MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD// fromline 1519
         : public Melt_CallFrameWithValues<8>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -4356,17 +4380,23 @@ meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t meltclosp
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<8> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD), clos) {};
+        MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<8> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD)) {};
     }; // end  class MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -4375,32 +4405,32 @@ meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t meltclosp
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 8
         melt_ptr_t mcfr_varptr[8];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 2
         long mcfr_varnum[2];
-        /*others fromline1698*/
+        /*others fromline1710*/
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD**/
 
     /* end of frame for routine meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD */ MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD */ struct meltframe_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -4426,7 +4456,7 @@ meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t meltclosp
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("TRANSLATEINITMODULE_DOCMD", meltcallcount);
     /*getargs*/
 
@@ -4662,9 +4692,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("TRANSLATEINITMODULE_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -4697,7 +4727,7 @@ meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr
 
     /** start of frame for meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD
+    /*curframdeclclassy*/ class MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD// fromline 1519
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -4718,17 +4748,23 @@ meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<6> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD), clos) {};
+        MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<6> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD)) {};
     }; // end  class MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -4737,32 +4773,32 @@ meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 6
         melt_ptr_t mcfr_varptr[6];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 2
         long mcfr_varnum[2];
-        /*others fromline1698*/
+        /*others fromline1710*/
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD**/
 
     /* end of frame for routine meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */ MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */ struct meltframe_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -4788,7 +4824,7 @@ meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("TRANSLATEINITMODULEQUICKLYBUILT_DOCMD", meltcallcount);
     /*getargs*/
 
@@ -4976,9 +5012,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("TRANSLATEINITMODULEQUICKLYBUILT_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -5011,7 +5047,7 @@ meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_
 
     /** start of frame for meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD
+    /*curframdeclclassy*/ class MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD// fromline 1519
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -5032,17 +5068,23 @@ meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<6> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD), clos) {};
+        MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<6> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD)) {};
     }; // end  class MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -5051,32 +5093,32 @@ meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 6
         melt_ptr_t mcfr_varptr[6];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 2
         long mcfr_varnum[2];
-        /*others fromline1698*/
+        /*others fromline1710*/
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD**/
 
     /* end of frame for routine meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */ MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */ struct meltframe_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -5102,7 +5144,7 @@ meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("TRANSLATEINITMODULEDEBUGNOLINE_DOCMD", meltcallcount);
     /*getargs*/
 
@@ -5290,9 +5332,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("TRANSLATEINITMODULEDEBUGNOLINE_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -5325,7 +5367,7 @@ meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t 
 
     /** start of frame for meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME /* fromline 1506*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD
+    /*curframdeclclassy*/ class MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD// fromline 1519
         : public Melt_CallFrameWithValues<6>
     {
     public: /*inframedeclclassy fromline 1523 */
@@ -5346,17 +5388,23 @@ meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
+        MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<6> (
 #if MELT_HAVE_DEBUG /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* MELT_HAVE_DEBUG fromline 1602*/
                 sizeof(MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD), clos) {};
+        MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD() //the constructor fromline 1606
+            : Melt_CallFrameWithValues<6> (
+#if MELT_HAVE_DEBUG /*fromline 1610*/
+                __FILE__, __LINE__,
+#endif /* MELT_HAVE_DEBUG fromline 1614*/
+                sizeof(MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD)) {};
     }; // end  class MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1626*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1638*/
 
-    /*curframdeclstruct fromline 1630*/ struct meltframe_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD_st
+    /*curframdeclstruct fromline 1642*/ struct meltframe_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD_st
     {
         int mcfr_nbvar;
         const char* mcfr_flocs;
@@ -5365,32 +5413,32 @@ meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t 
         struct melt_callframe_st *mcfr_prev;
 #undef MELTFRAM_NBVARPTR
 #undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1666*/
+        /*varptr fromline 1678*/
 #define MELTFRAM_NBVARPTR 6
         melt_ptr_t mcfr_varptr[6];
-        /*varnum fromline 1682*/
+        /*varnum fromline 1694*/
 #define MELTFRAM_NBVARNUM 2
         long mcfr_varnum[2];
-        /*others fromline1698*/
+        /*others fromline1710*/
         long _meltspare_;
     };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1727*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1739*/
     /** end of frame for meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD**/
 
     /* end of frame for routine meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1851*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1863*/
     /* classy proc frame meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD */ MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1870*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1882*/
     /* plain proc frame meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD */ struct meltframe_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1885*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     *meltframptr_=0,    meltfram__ /*declfrastruct*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1891*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1903*/
                   /*classyprocarg meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD*/ (meltclosp_)
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1913*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1925*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1919*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1931*/
     /*meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -5416,7 +5464,7 @@ meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t 
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1994*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2006*/
     melt_trace_start("TRANSLATEINITMODULEOPTIMIZED_DOCMD", meltcallcount);
     /*getargs*/
 
@@ -5604,9 +5652,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("TRANSLATEINITMODULEOPTIMIZED_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2141*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2153*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2145*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2157*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
