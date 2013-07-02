@@ -228,7 +228,7 @@ melt_ptr_t MELT_MODULE_VISIBILITY meltrout_34_WARMELTmiFIRST_PUT_ENV(meltclosure
 melt_ptr_t MELT_MODULE_VISIBILITY meltrout_35_WARMELTmiFIRST_OVERWRITE_ENV(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 /** start of declaration for hook melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER**/
-/** start of implementation for hook melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER**/
+
 /** declaration of hook melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER */
 MELT_EXTERN
 melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER(melt_ptr_t melthookdatap,
@@ -244,9 +244,10 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER_
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER**/
-/** end of implementation for hook melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER**/
+
+
+
 
 
 
@@ -263,7 +264,7 @@ melt_ptr_t MELT_MODULE_VISIBILITY meltrout_38_WARMELTmiFIRST_RETRIEVE_DICTIONNAR
 melt_ptr_t MELT_MODULE_VISIBILITY meltrout_39_WARMELTmiFIRST_RETRIEVE_DICTIONNARY_CTYPE(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
 /** start of declaration for hook melthook_HOOK_NAMED_SYMBOL**/
-/** start of implementation for hook melthook_HOOK_NAMED_SYMBOL**/
+
 /** declaration of hook melthook_HOOK_NAMED_SYMBOL */
 MELT_EXTERN
 melt_ptr_t melthook_HOOK_NAMED_SYMBOL(melt_ptr_t melthookdatap,
@@ -279,11 +280,12 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_NAMED_SYMBOL_rout (struct melt_cal
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_NAMED_SYMBOL**/
-/** end of implementation for hook melthook_HOOK_NAMED_SYMBOL**/
+
+
+
 /** start of declaration for hook melthook_HOOK_NAMED_KEYWORD**/
-/** start of implementation for hook melthook_HOOK_NAMED_KEYWORD**/
+
 /** declaration of hook melthook_HOOK_NAMED_KEYWORD */
 MELT_EXTERN
 melt_ptr_t melthook_HOOK_NAMED_KEYWORD(melt_ptr_t melthookdatap,
@@ -299,11 +301,12 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_NAMED_KEYWORD_rout (struct melt_ca
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_NAMED_KEYWORD**/
-/** end of implementation for hook melthook_HOOK_NAMED_KEYWORD**/
+
+
+
 /** start of declaration for hook melthook_HOOK_INTERN_SYMBOL**/
-/** start of implementation for hook melthook_HOOK_INTERN_SYMBOL**/
+
 /** declaration of hook melthook_HOOK_INTERN_SYMBOL */
 MELT_EXTERN
 melt_ptr_t melthook_HOOK_INTERN_SYMBOL(melt_ptr_t melthookdatap,
@@ -318,11 +321,12 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_INTERN_SYMBOL_rout (struct melt_ca
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_INTERN_SYMBOL**/
-/** end of implementation for hook melthook_HOOK_INTERN_SYMBOL**/
+
+
+
 /** start of declaration for hook melthook_HOOK_INTERN_KEYWORD**/
-/** start of implementation for hook melthook_HOOK_INTERN_KEYWORD**/
+
 /** declaration of hook melthook_HOOK_INTERN_KEYWORD */
 MELT_EXTERN
 melt_ptr_t melthook_HOOK_INTERN_KEYWORD(melt_ptr_t melthookdatap,
@@ -337,11 +341,12 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_INTERN_KEYWORD_rout (struct melt_c
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_INTERN_KEYWORD**/
-/** end of implementation for hook melthook_HOOK_INTERN_KEYWORD**/
+
+
+
 /** start of declaration for hook melthook_HOOK_SYMBOL_IMPORTER**/
-/** start of implementation for hook melthook_HOOK_SYMBOL_IMPORTER**/
+
 /** declaration of hook melthook_HOOK_SYMBOL_IMPORTER */
 MELT_EXTERN
 melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER(melt_ptr_t melthookdatap,
@@ -358,11 +363,12 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_SYMBOL_IMPORTER_rout (struct melt_
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_SYMBOL_IMPORTER**/
-/** end of implementation for hook melthook_HOOK_SYMBOL_IMPORTER**/
+
+
+
 /** start of declaration for hook melthook_HOOK_VALUE_EXPORTER**/
-/** start of implementation for hook melthook_HOOK_VALUE_EXPORTER**/
+
 /** declaration of hook melthook_HOOK_VALUE_EXPORTER */
 MELT_EXTERN
 void melthook_HOOK_VALUE_EXPORTER(melt_ptr_t melthookdatap,
@@ -379,11 +385,12 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_VALUE_EXPORTER_rout (struct melt_c
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_VALUE_EXPORTER**/
-/** end of implementation for hook melthook_HOOK_VALUE_EXPORTER**/
+
+
+
 /** start of declaration for hook melthook_HOOK_MACRO_EXPORTER**/
-/** start of implementation for hook melthook_HOOK_MACRO_EXPORTER**/
+
 /** declaration of hook melthook_HOOK_MACRO_EXPORTER */
 MELT_EXTERN
 void melthook_HOOK_MACRO_EXPORTER(melt_ptr_t melthookdatap,
@@ -400,11 +407,12 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_MACRO_EXPORTER_rout (struct melt_c
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_MACRO_EXPORTER**/
-/** end of implementation for hook melthook_HOOK_MACRO_EXPORTER**/
+
+
+
 /** start of declaration for hook melthook_HOOK_PATMACRO_EXPORTER**/
-/** start of implementation for hook melthook_HOOK_PATMACRO_EXPORTER**/
+
 /** declaration of hook melthook_HOOK_PATMACRO_EXPORTER */
 MELT_EXTERN
 void melthook_HOOK_PATMACRO_EXPORTER(melt_ptr_t melthookdatap,
@@ -422,9 +430,10 @@ void MELT_MODULE_VISIBILITY melthookmark_HOOK_PATMACRO_EXPORTER_rout (struct mel
 #endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 
-
 /** end of declaration for hook melthook_HOOK_PATMACRO_EXPORTER**/
-/** end of implementation for hook melthook_HOOK_PATMACRO_EXPORTER**/
+
+
+
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
