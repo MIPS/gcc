@@ -29780,6 +29780,131 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 }
 
+
+/* Helper function for rs6000_split_logical to emit a logical instruction after
+   spliting the operation to single GPR registers.
+
+   DEST is the destination register.
+   OP1 and OP2 are the input source registers.
+   CODE is the base operation (AND, IOR, XOR, NOT).
+   MODE is the machine mode.
+   If COMPLEMENT_FINAL_P is true, wrap the whole operation with NOT.
+   If COMPLEMENT_OP1_P is true, wrap operand1 with NOT.
+   If COMPLEMENT_OP2_P is true, wrap operand2 with NOT.
+   CLOBBER_REG is either NULL or a scratch register of type CC to allow
+   formation of the AND instructions.  */
+
+static void
+rs6000_split_logical_inner (rtx dest,
+			    rtx op1,
+			    rtx op2,
+			    enum rtx_code code,
+			    enum machine_mode mode,
+			    bool complement_final_p,
+			    bool complement_op1_p,
+			    bool complement_op2_p,
+			    rtx clobber_reg)
+{
+  rtx bool_rtx;
+  rtx set_rtx;
+
+  /* Optimize AND of 0/0xffffffff and IOR/XOR of 0.  */
+  if (op2 && GET_CODE (op2) == CONST_INT && !complement_final_p
+      && !complement_op1_p && !complement_op2_p)
+    {
+      HOST_WIDE_INT value = INTVAL (op2);
+      HOST_WIDE_INT hi = (value & ~(HOST_WIDE_INT)0xffff);
+      HOST_WIDE_INT lo = value & 0xffff;
+
+      /* Optimize AND of 0 to just set 0.  */
+      if (code == AND && hi == 0 && lo == 0)
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, dest, const0_rtx));
+	  return;
+	}
+
+      /* AND of -1 and IOR/XOR of 0 is a simple move.  Skip doing moves to the
+	 same register.  */
+      if ((code == AND && hi == 0xffff && lo == 0xffff)
+	  || ((code == IOR || code == XOR) && hi == 0 && lo == 0))
+	{
+	  if (REGNO (dest) != REGNO (op1))
+	    emit_insn (gen_rtx_SET (VOIDmode, dest, op1));
+	  return;
+	}
+
+      if ((code == IOR || code == XOR) && !logical_const_operand (op2, mode))
+	{
+	  rs6000_split_logical_inner (dest, op1, GEN_INT (hi), code, mode,
+				      false, false, false, NULL_RTX);
+
+	  rs6000_split_logical_inner (dest, dest, GEN_INT (lo), code, mode,
+				      false, false, false, NULL_RTX);
+	  return;
+	}
+    }
+
+  if (complement_op1_p)
+    op1 = gen_rtx_NOT (mode, op1);
+
+  if (complement_op2_p)
+    op2 = gen_rtx_NOT (mode, op2);
+
+  bool_rtx = ((code == NOT)
+	      ? gen_rtx_NOT (mode, op1)
+	      : gen_rtx_fmt_ee (code, mode, op1, op2));
+
+  if (complement_final_p)
+    bool_rtx = gen_rtx_NOT (mode, bool_rtx);
+
+  set_rtx = gen_rtx_SET (VOIDmode, dest, bool_rtx);
+
+  /* Is this AND with an explicit clobber?  */
+  if (clobber_reg)
+    {
+      rtx clobber = gen_rtx_CLOBBER (VOIDmode, clobber_reg);
+      set_rtx = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, set_rtx, clobber));
+    }
+
+  emit_insn (set_rtx);
+}
+
+/* Split a DImode AND/IOR/XOR with a constant on a 32-bit system.  Unlike the
+   normal DI logical operations involving 2 input registers, we split these
+   operations early to allow for more optimizations of the AND/IOR/XOR.  */
+
+void
+rs6000_split_logical_di (rtx operands[3], enum rtx_code code)
+{
+  rtx hi_op0 = gen_highpart_mode (SImode, DImode, operands[0]);
+  rtx hi_op1 = gen_highpart_mode (SImode, DImode, operands[1]);
+  rtx hi_op2 = gen_highpart_mode (SImode, DImode, operands[2]);
+  rtx lo_op0 = gen_lowpart (SImode, operands[0]);
+  rtx lo_op1 = gen_lowpart (SImode, operands[1]);
+  rtx lo_op2 = gen_lowpart (SImode, operands[2]);
+  rtx clobber_reg;
+
+  if (code == AND)
+    {
+      clobber_reg = gen_rtx_SCRATCH (CCmode);
+
+      if (!and_operand (hi_op2, SImode))
+	hi_op2 = force_reg (SImode, hi_op2);
+
+      if (!and_operand (lo_op2, SImode))
+	lo_op2 = force_reg (SImode, lo_op2);
+    }
+  else
+    clobber_reg = NULL_RTX;
+
+  rs6000_split_logical_inner (hi_op0, hi_op1, hi_op2, code, SImode, false,
+			      false, false, clobber_reg);
+
+  rs6000_split_logical_inner (lo_op0, lo_op1, lo_op2, code, SImode, false,
+			      false, false, clobber_reg);
+}
+
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-rs6000.h"

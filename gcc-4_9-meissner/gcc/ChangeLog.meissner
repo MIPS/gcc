@@ -1,5 +1,19 @@
 2013-07-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-protos.h (rs6000_split_logical_di): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (rs6000_split_logical_innner): New
+	functions to split logical instructions and/ior/xor, etc.  Split
+	DI operations on 32-bit.
+	(rs6000_split_logical_di): Likewise.
+
+	* config/rs6000/rs6000.md (one_cmpl<mode>2): Add support for DI
+	logical operations on 32-bit, splitting the operations to 32-bit.
+	(anddi3): Likewise.
+	(iordi3): Likewise.
+	(xordi3): Likewise.
+
 	Clone branch from subversion id 200583.
 	* REVISION: New file, track revision number.
 
