@@ -2,6 +2,13 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallFrame): Improve, works with MELT_HAVE_DEBUG.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): Bette
+	emission of the constructor in debug mode.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Classy frame variant compiles but crashes}}
 
 	* melt-runtime.h (Melt_CallFrame::_dbgcall_file_): New static member.

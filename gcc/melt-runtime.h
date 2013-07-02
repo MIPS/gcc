@@ -2846,8 +2846,8 @@ private:
 protected:
   Melt_CallFrame*_meltcf_prev;
 #if MELT_HAVE_DEBUG
-  const char* meltcf_dbgfile;
-  const int meltcf_dbgline;
+  const char* _meltcf_dbgfile;
+  const int _meltcf_dbgline;
 #endif /*MELT_HAVE_DEBUG*/
 public:
   const char* mcfr_flocs;
@@ -2866,11 +2866,11 @@ protected:
 #if MELT_HAVE_DEBUG
   Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL) 
     : _meltcf_prev (_top_call_frame_), 
-      _meltcf_dbgline(file), _meltcf_dbgline(lin),
+      _meltcf_dbgfile(file), _meltcf_dbgline(lin),
       mcfr_flocs(NULL), mcfr_clos(clos) {
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file, "+ %s:%d Siz%d Clo%p\n n", file, line, (int)sz, (void*)clos);
-      fflush (_dbgcall_file);
+      fprintf (_dbgcall_file_, "+ %s:%d Siz%d Clo%p\n n", file, lin, (int)sz, (void*)clos);
+      fflush (_dbgcall_file_);
     }
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
@@ -2904,14 +2904,15 @@ protected:
   ~Melt_CallFrame() { 
 #if MELT_HAVE_DEBUG
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file, "- %s:%d\n",  _meltcf_dbgfilee, _meltcf_dbgline);
-      fflush (_dbgcall_file);
+      fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, _meltcf_dbgline);
+      fflush (_dbgcall_file_);
     }
 #endif /*MELT_HAVE_DEBUG*/
     mcfr_flocs = NULL; 
     _top_call_frame_ = _meltcf_prev; 
   };
 #if MELT_HAVE_DEBUG
+public:
   static void set_debug_file(FILE*f) { 
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
       fflush (_dbgcall_file_);
