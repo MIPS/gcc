@@ -1,6 +1,11 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* warmelt-outobj.melt (output_curframe_declstruct): Emit an empty
+	constructor.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
@@ -81,7 +86,7 @@
 
 	* melt-runtime.h (Melt_CallFrame): Improve, works with MELT_HAVE_DEBUG.
 
-	* melt/warmelt-outobj.melt (output_curframe_declstruct): Bette
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): Better
 	emission of the constructor in debug mode.
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
