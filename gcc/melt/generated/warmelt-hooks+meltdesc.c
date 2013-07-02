@@ -40,27 +40,27 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.9.0/
 /* hash of preprocessed melt-run.h generating this */
 const char melt_prepromd5meltrun[]="42c0328eb2f4dbdc18ffed2e5a760ee3";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="2c37a1777fc77f9dd6843d731b39ec02";
+const char melt_primaryhexmd5[]="2770eef3ef4d8c69e0b7f3b151995d9c";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+01.cc #1 */ "ed560c7418c8278351fa51d0f12c42a1",
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+02.cc #2 */ "bc3b2632230a41e6d8b839fc51196f36",
- /*sechexmd5checksum meltbuild-sources/warmelt-hooks+03.cc #3 */ "539ae343d85a04e3a88c463975e54cc9",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+01.cc #1 */ "04e5663abc6f87e104d157bf0d3cd9fc",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+02.cc #2 */ "8c4b79bbf8858a95ea489bbbfbeb638f",
+ /*sechexmd5checksum meltbuild-sources/warmelt-hooks+03.cc #3 */ "a38db0178c2917dee09c6039f7a3d8cb",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=3;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="400461a20d9183373f2f2dedf623408c" ;
+const char melt_cumulated_hexmd5[]="686c4cc9fd30bc9ba8f9db3e8199a1dc" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 3;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiHOOKS_mds__400461A20D9183373F2F2DEDF623408C 1
+#define meltmod_WARMELTmiHOOKS_mds__686C4CC9FD30BC9BA8F9DB3E8199A1DC 1
 #include "warmelt-hooks+melttime.h"
 	 
 

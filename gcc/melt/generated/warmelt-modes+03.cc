@@ -503,6 +503,7 @@ meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t meltclosp_, mel
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD */
 
     /** start of frame for meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -527,7 +528,6 @@ meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t meltclosp_, mel
         MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<37> (sizeof(MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD), clos) {};
     }; // end  class MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD
-    class MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -549,19 +549,27 @@ meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD(meltclosure_ptr_t meltclosp_, mel
         const char* loc_CSTRING__o1;
         const char* loc_CSTRING__o2;
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD**/
+
+    /* end of frame for routine meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD */ MeltFrame_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD */ struct meltframe_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD_st*) meltfirstargp_;
             /* use arguments meltrout_69_WARMELTmiMODES_TRANSLATEINIT_DOCMD output_curframe_declstruct_init */
@@ -1757,6 +1765,7 @@ meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_70_WARMELTmiMODES_LAMBDA_cl22 */
 
     /** start of frame for meltrout_70_WARMELTmiMODES_LAMBDA_cl22**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -1778,7 +1787,6 @@ meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<11> (sizeof(MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22), clos) {};
     }; // end  class MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22
-    class MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1797,19 +1805,27 @@ meltrout_70_WARMELTmiMODES_LAMBDA_cl22(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         long mcfr_varnum[4];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_70_WARMELTmiMODES_LAMBDA_cl22**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_70_WARMELTmiMODES_LAMBDA_cl22**/
+
+    /* end of frame for routine meltrout_70_WARMELTmiMODES_LAMBDA_cl22 */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_70_WARMELTmiMODES_LAMBDA_cl22 */ MeltFrame_meltrout_70_WARMELTmiMODES_LAMBDA_cl22
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_70_WARMELTmiMODES_LAMBDA_cl22 */ struct meltframe_meltrout_70_WARMELTmiMODES_LAMBDA_cl22_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_70_WARMELTmiMODES_LAMBDA_cl22*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_70_WARMELTmiMODES_LAMBDA_cl22 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_70_WARMELTmiMODES_LAMBDA_cl22_st*) meltfirstargp_;
             /* use arguments meltrout_70_WARMELTmiMODES_LAMBDA_cl22 output_curframe_declstruct_init */
@@ -2209,6 +2225,7 @@ meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED */
 
     /** start of frame for meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -2233,7 +2250,6 @@ meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t meltclosp_, 
         MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<51> (sizeof(MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED), clos) {};
     }; // end  class MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED
-    class MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2255,19 +2271,27 @@ meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED(meltclosure_ptr_t meltclosp_, 
         const char* loc_CSTRING__o1;
         const char* loc_CSTRING__o2;
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED**/
+
+    /* end of frame for routine meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED */ MeltFrame_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED */ struct meltframe_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED_st*) meltfirstargp_;
             /* use arguments meltrout_71_WARMELTmiMODES_TRANSLATEINIT_FLAVORED output_curframe_declstruct_init */
@@ -4183,6 +4207,7 @@ meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_72_WARMELTmiMODES_LAMBDA_cl23 */
 
     /** start of frame for meltrout_72_WARMELTmiMODES_LAMBDA_cl23**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -4204,7 +4229,6 @@ meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<11> (sizeof(MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23), clos) {};
     }; // end  class MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23
-    class MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4223,19 +4247,27 @@ meltrout_72_WARMELTmiMODES_LAMBDA_cl23(meltclosure_ptr_t meltclosp_, melt_ptr_t 
         long mcfr_varnum[4];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_72_WARMELTmiMODES_LAMBDA_cl23**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_72_WARMELTmiMODES_LAMBDA_cl23**/
+
+    /* end of frame for routine meltrout_72_WARMELTmiMODES_LAMBDA_cl23 */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_72_WARMELTmiMODES_LAMBDA_cl23 */ MeltFrame_meltrout_72_WARMELTmiMODES_LAMBDA_cl23
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_72_WARMELTmiMODES_LAMBDA_cl23 */ struct meltframe_meltrout_72_WARMELTmiMODES_LAMBDA_cl23_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_72_WARMELTmiMODES_LAMBDA_cl23*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_72_WARMELTmiMODES_LAMBDA_cl23 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_72_WARMELTmiMODES_LAMBDA_cl23_st*) meltfirstargp_;
             /* use arguments meltrout_72_WARMELTmiMODES_LAMBDA_cl23 output_curframe_declstruct_init */
@@ -4635,6 +4667,7 @@ meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t meltclosp
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD */
 
     /** start of frame for meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -4656,7 +4689,6 @@ meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t meltclosp
         MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<8> (sizeof(MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD), clos) {};
     }; // end  class MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD
-    class MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -4675,19 +4707,27 @@ meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD(meltclosure_ptr_t meltclosp
         long mcfr_varnum[2];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD**/
+
+    /* end of frame for routine meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD */ MeltFrame_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD */ struct meltframe_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD_st*) meltfirstargp_;
             /* use arguments meltrout_73_WARMELTmiMODES_TRANSLATEINITMODULE_DOCMD output_curframe_declstruct_init */
@@ -4996,6 +5036,7 @@ meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */
 
     /** start of frame for meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -5017,7 +5058,6 @@ meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr
         MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<6> (sizeof(MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD), clos) {};
     }; // end  class MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD
-    class MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5036,19 +5076,27 @@ meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD(meltclosure_ptr
         long mcfr_varnum[2];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD**/
+
+    /* end of frame for routine meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */ MeltFrame_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD */ struct meltframe_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD_st*) meltfirstargp_;
             /* use arguments meltrout_74_WARMELTmiMODES_TRANSLATEINITMODULEQUICKLYBUILT_DOCMD output_curframe_declstruct_init */
@@ -5304,6 +5352,7 @@ meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */
 
     /** start of frame for meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -5325,7 +5374,6 @@ meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_
         MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<6> (sizeof(MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD), clos) {};
     }; // end  class MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD
-    class MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5344,19 +5392,27 @@ meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD(meltclosure_ptr_
         long mcfr_varnum[2];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD**/
+
+    /* end of frame for routine meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */ MeltFrame_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD */ struct meltframe_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD_st*) meltfirstargp_;
             /* use arguments meltrout_75_WARMELTmiMODES_TRANSLATEINITMODULEDEBUGNOLINE_DOCMD output_curframe_declstruct_init */
@@ -5612,6 +5668,7 @@ meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD */
 
     /** start of frame for meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -5633,7 +5690,6 @@ meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t 
         MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<6> (sizeof(MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD), clos) {};
     }; // end  class MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD
-    class MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -5652,19 +5708,27 @@ meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD(meltclosure_ptr_t 
         long mcfr_varnum[2];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD**/
+
+    /* end of frame for routine meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD */ MeltFrame_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD */ struct meltframe_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD_st*) meltfirstargp_;
             /* use arguments meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULEOPTIMIZED_DOCMD output_curframe_declstruct_init */

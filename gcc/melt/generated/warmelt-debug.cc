@@ -378,6 +378,7 @@ meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_t
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN */
 
     /** start of frame for meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -401,7 +402,6 @@ meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_t
         MeltFrame_meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<19> (sizeof(MeltFrame_meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN), clos) {};
     }; // end  class MeltFrame_meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN
-    class MeltFrame_meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -422,19 +422,27 @@ meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_t
         const char* loc_CSTRING__o0;
         const char* loc_CSTRING__o1;
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN**/
+
+    /* end of frame for routine meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN */ MeltFrame_meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN */ struct meltframe_meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN_st*) meltfirstargp_;
             /* use arguments meltrout_1_WARMELTmiDEBUG_DEBUG_MSG_FUN output_curframe_declstruct_init */
@@ -1218,6 +1226,7 @@ meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN */
 
     /** start of frame for meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -1239,7 +1248,6 @@ meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN), clos) {};
     }; // end  class MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN
-    class MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1258,19 +1266,27 @@ meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         long mcfr_varnum[3];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN**/
+
+    /* end of frame for routine meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN */ MeltFrame_meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN */ struct meltframe_meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN_st*) meltfirstargp_;
             /* use arguments meltrout_2_WARMELTmiDEBUG_REGISTER_TREE_DEBUG_FUN output_curframe_declstruct_init */
@@ -1495,6 +1511,7 @@ meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t meltclosp_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN */
 
     /** start of frame for meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -1516,7 +1533,6 @@ meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t meltclosp_
         MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN), clos) {};
     }; // end  class MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN
-    class MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1535,19 +1551,27 @@ meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN(meltclosure_ptr_t meltclosp_
         long mcfr_varnum[3];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN**/
+
+    /* end of frame for routine meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN */ MeltFrame_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN */ struct meltframe_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN_st*) meltfirstargp_;
             /* use arguments meltrout_3_WARMELTmiDEBUG_REGISTER_GIMPLE_DEBUG_FUN output_curframe_declstruct_init */
@@ -1772,6 +1796,7 @@ meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t meltclo
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN */
 
     /** start of frame for meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -1793,7 +1818,6 @@ meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t meltclo
         MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN), clos) {};
     }; // end  class MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN
-    class MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -1812,19 +1836,27 @@ meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN(meltclosure_ptr_t meltclo
         long mcfr_varnum[3];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN**/
+
+    /* end of frame for routine meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN */ MeltFrame_meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN */ struct meltframe_meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN_st*) meltfirstargp_;
             /* use arguments meltrout_4_WARMELTmiDEBUG_REGISTER_GIMPLESEQ_DEBUG_FUN output_curframe_declstruct_init */
@@ -2049,6 +2081,7 @@ meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN */
 
     /** start of frame for meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -2070,7 +2103,6 @@ meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN), clos) {};
     }; // end  class MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN
-    class MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2089,19 +2121,27 @@ meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         long mcfr_varnum[3];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN**/
+
+    /* end of frame for routine meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN */ MeltFrame_meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN */ struct meltframe_meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN_st*) meltfirstargp_;
             /* use arguments meltrout_5_WARMELTmiDEBUG_REGISTER_EDGE_DEBUG_FUN output_curframe_declstruct_init */
@@ -2326,6 +2366,7 @@ meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t meltcl
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN */
 
     /** start of frame for meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -2347,7 +2388,6 @@ meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t meltcl
         MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN), clos) {};
     }; // end  class MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN
-    class MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2366,19 +2406,27 @@ meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN(meltclosure_ptr_t meltcl
         long mcfr_varnum[3];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN**/
+
+    /* end of frame for routine meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN */ MeltFrame_meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN */ struct meltframe_meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN_st*) meltfirstargp_;
             /* use arguments meltrout_6_WARMELTmiDEBUG_REGISTER_BASICBLOCK_DEBUG_FUN output_curframe_declstruct_init */
@@ -2603,6 +2651,7 @@ meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1488
 
+    /* start of frame for routine meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN */
 
     /** start of frame for meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN**/
 #if MELT_HAVE_CLASSY_FRAME
@@ -2624,7 +2673,6 @@ meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         MeltFrame_meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t clos=NULL) //the constructor
             : Melt_CallFrameWithValues<4> (sizeof(MeltFrame_meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN), clos) {};
     }; // end  class MeltFrame_meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN
-    class MeltFrame_meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN// noninitial classy
 
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
@@ -2643,19 +2691,27 @@ meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN(meltclosure_ptr_t meltclosp_, 
         long mcfr_varnum[3];
         /*others*/
         long _meltspare_;
-    }
+    };
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-/** end of frame for meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN**/
-        *meltframptr_=0,    meltfram__ /*declfrastruct*/
+    /** end of frame for meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN**/
+
+    /* end of frame for routine meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN */
+
 #if MELT_HAVE_CLASSY_FRAME
-              /*classyproc*/ (meltclosp_)
+    /* classy proc frame meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN */ MeltFrame_meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain proc frame meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN */ struct meltframe_meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN_st
 #endif /*MELT_HAVE_CLASSY_FRAME*/
-                      ;
+    *meltframptr_=0,    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+                  /*classyprocarg meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN*/ (meltclosp_)
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+                  ;
 #define meltframe meltfram__
 #if !MELT_HAVE_CLASSY_FRAME
     /*meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-    {
+        {
             int meltix;
             meltframptr_ = (struct meltframe_meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN_st*) meltfirstargp_;
             /* use arguments meltrout_7_WARMELTmiDEBUG_REGISTER_LOOP_DEBUG_FUN output_curframe_declstruct_init */
@@ -2946,8 +3002,6 @@ public: /*inframedeclclassy*/
         : Melt_CallFrameWithValues<410> (sizeof(Melt_InitialFrame), clos) {};
 }; // end  class Melt_InitialFrame
 
-typedef class Melt_InitialFrame /*classyinitialframe*/ meltinitial_frame_t;
-
 #else /*!MELT_HAVE_CLASSY_FRAME*/
 
 /*curframdeclstruct*/ struct melt_initial_frame_st
@@ -2965,7 +3019,7 @@ typedef class Melt_InitialFrame /*classyinitialframe*/ meltinitial_frame_t;
 #define MELTFRAM_NBVARNUM /*none*/0
     /*others*/
     long _meltspare_;
-}
+};
 #endif /*MELT_HAVE_CLASSY_FRAME*/
 /** end of frame for melt_start_this_module**/
 ;
@@ -6339,12 +6393,22 @@ void* melt_start_this_module (void* modargp_)
 #undef meltcallcount
 #define meltcallcount 0L
 #endif
-//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2346
+//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2376
 
+    /* start of frame for routine melt_start_this_module */
 
-    struct /*startiniframdecl*/ melt_initial_frame_st     meltfram__ /*declfrastruct*/
+    /*startiniframdecl*/
+
+    /* end of frame for routine melt_start_this_module */
+
 #if MELT_HAVE_CLASSY_FRAME
-(/*classyinitroutine*/)
+    /* classy initial frame melt_start_this_module */ Melt_InitialFrame
+#else /*!MELT_HAVE_CLASSY_FRAME*/
+    /* plain init frame melt_start_this_module */ struct melt_initial_frame_st
+#endif /*MELT_HAVE_CLASSY_FRAME*/
+    meltfram__ /*declfrastruct*/
+#if MELT_HAVE_CLASSY_FRAME
+    /*classyinitroutinearg melt_start_this_module*/ ()
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     ;
 #define meltframe meltfram__
