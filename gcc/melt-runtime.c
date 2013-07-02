@@ -378,6 +378,9 @@ static struct meltextinfovec_st {
 
 #if MELT_HAVE_CLASSY_FRAME
 Melt_CallFrame* Melt_CallFrame::_top_call_frame_ =NULL;
+#if MELT_HAVE_DEBUG
+FILE* Melt_CallFrame::_dbgcall_file_ = NULL;
+#endif /*MELT_HAVE_DEBUG*/
 #else /* ! MELT_HAVE_CLASSY_FRAME */
 struct melt_callframe_st* melt_topframe =NULL;
 #endif /* MELT_HAVE_CLASSY_FRAME */
@@ -10424,6 +10427,25 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   debugeprintf ("melt_really_initialize melt_start_time=%ld",
 		(long) melt_start_time.tv_sec);
 
+#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME
+  {
+    const char* dbgfilename = getenv ("GCCMELT_DEBUG_CALL_FRAME");
+    FILE *dbgfile = NULL;
+    if (dbgfilename) { 
+      if (!strcmp(dbgfilename,"-")) dbgfile = stdout;
+      else dbgfile = fopen(dbgfilename, "w");
+    }
+    if (dbgfile) {
+      time_t now = 0;
+      inform (UNKNOWN_LOCATION, "MELT is tracing classy call frames on %s\n", dbgfilename);
+      time (&now);
+      fprintf (dbgfile, "#MELT tracing classy call frames on %s pid %d at %s", dbgfilename, (int) getpid(), ctime(&now));
+      fflush(dbgfile);
+      Melt_CallFrame::set_debug_file (dbgfile);
+    }
+  }
+#endif /* MELT_HAVE_DEBUG  && MELT_HAVE_CLASSY_FRAME */
+
 #if ENABLE_GC_ALWAYS_COLLECT
   /* the GC will be tremendously slowed since called much too often. */
   inform (UNKNOWN_LOCATION, 
@@ -10975,6 +10997,9 @@ melt_do_finalize (void)
       melt_trace_source_fil = NULL;
     }
   dbgprintf ("melt_do_finalize ended melt_nb_modules=%d", melt_nb_modules);
+#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME
+  Melt_CallFrame::set_debug_file((FILE*)NULL);
+#endif /*MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME*/
   if (!quiet_flag)
     { /* when not quiet, the GGC collector displays data, so we show
 	 our various GC reasons count */

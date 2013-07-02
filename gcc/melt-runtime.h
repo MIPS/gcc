@@ -2832,6 +2832,9 @@ class Melt_CallFrame {
   friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
   friend void melt_marking_callback (void *, void*);
   static Melt_CallFrame* _top_call_frame_;
+#if MELT_HAVE_DEBUG
+  static FILE* _dbgcall_file_;
+#endif /*MELT_HAVE_DEBUG*/
   virtual void melt_forward_values (void) =0;
   virtual void melt_mark_ggc_data (void) =0;
 private:
@@ -2865,12 +2868,16 @@ protected:
     : _meltcf_prev (_top_call_frame_), 
       _meltcf_dbgline(file), _meltcf_dbgline(lin),
       mcfr_flocs(NULL), mcfr_clos(clos) {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
+      fprintf (_dbgcall_file, "+ %s:%d Siz%d Clo%p\n n", file, line, (int)sz, (void*)clos);
+      fflush (_dbgcall_file);
+    }
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
   Melt_CallFrame(const char*file, int lin, size_t sz, melthook_ptr_t hook) 
     : _meltcf_prev (_top_call_frame_), 
-      _meltcf_dbgline(file), _meltcf_dbgline(lin),
+      _meltcf_dbgfile(file), _meltcf_dbgline(lin),
       mcfr_flocs(NULL), mcfr_hook(hook) {
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
@@ -2895,9 +2902,27 @@ protected:
     _top_call_frame_ = this;
   }
   ~Melt_CallFrame() { 
+#if MELT_HAVE_DEBUG
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
+      fprintf (_dbgcall_file, "- %s:%d\n",  _meltcf_dbgfilee, _meltcf_dbgline);
+      fflush (_dbgcall_file);
+    }
+#endif /*MELT_HAVE_DEBUG*/
     mcfr_flocs = NULL; 
     _top_call_frame_ = _meltcf_prev; 
   };
+#if MELT_HAVE_DEBUG
+  static void set_debug_file(FILE*f) { 
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
+      fflush (_dbgcall_file_);
+      if (f == NULL) {
+	fprintf (_dbgcall_file_, "#eof\n");
+	fclose (_dbgcall_file_);
+      }
+    }
+    _dbgcall_file_ = f;
+  };
+#endif /*MELT_HAVE_DEBUG*/
 };				// end class Melt_CallFrame.
 
 template<unsigned NbVal> class Melt_CallFrameWithValues 

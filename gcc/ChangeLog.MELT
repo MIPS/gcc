@@ -2,6 +2,19 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Classy frame variant compiles but crashes}}
+
+	* melt-runtime.h (Melt_CallFrame::_dbgcall_file_): New static member.
+	(Melt_CallFrame): Provide constructors with file and line.
+	(Melt_CallFrame::set_debug_file): New function.
+
+	* melt-runtime.c (Melt_CallFrame::_dbgcall_file_): Define.
+	(melt_really_initialize): Use GCCMELT_DEBUG_CALL_FRAME environment
+	variable for debugging the call frame.
+	(melt_do_finalize): clear the debug file for frames.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
