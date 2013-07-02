@@ -2,6 +2,84 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Regenerate}}
+	* gcc/melt/generated/warmelt-base+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-base+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-base+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-base+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-base.cc: Regenerate.
+	* gcc/melt/generated/warmelt-debug+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-debug+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-debug+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-debug+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-debug.cc: Regenerate.
+	* gcc/melt/generated/warmelt-first+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-first+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-first+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-first+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-first.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+03.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+04.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+05.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+06.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+07.cc: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-genobj+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-genobj.cc: Regenerate.
+	* gcc/melt/generated/warmelt-hooks+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-hooks+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-hooks+03.cc: Regenerate.
+	* gcc/melt/generated/warmelt-hooks+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-hooks+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-hooks.cc: Regenerate.
+	* gcc/melt/generated/warmelt-macro+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-macro+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-macro+03.cc: Regenerate.
+	* gcc/melt/generated/warmelt-macro+04.cc: Regenerate.
+	* gcc/melt/generated/warmelt-macro+05.cc: Regenerate.
+	* gcc/melt/generated/warmelt-macro+06.cc: Regenerate.
+	* gcc/melt/generated/warmelt-macro+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-macro+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-macro.cc: Regenerate.
+	* gcc/melt/generated/warmelt-modes+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-modes+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-modes+03.cc: Regenerate.
+	* gcc/melt/generated/warmelt-modes+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-modes+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-modes.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normal+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normal+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normal+03.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normal+04.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normal+05.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normal+06.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normal+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-normal+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-normal.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+03.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+04.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+05.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+06.cc: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-normatch+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-normatch.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+01.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+02.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+03.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+04.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+05.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+06.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+07.cc: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+meltdesc.c: Regenerate.
+	* gcc/melt/generated/warmelt-outobj+melttime.h: Regenerate.
+	* gcc/melt/generated/warmelt-outobj.cc: Regenerate.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* warmelt-outobj.melt (output_curframe_declstruct): Emit only one
 	empty constructor.
 
