@@ -2,6 +2,17 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallFrame): Add fields meltcf_dbgfile &
+	meltcf_dbgline when debugging. Also add constructor.
+	(Melt_CallFrameWithValues): Likewise.
+	(MELT_ENTERFRAME_AT): Provide debugging variant.
+
+	* melt/warmelt-outobj.melt (outcinitfill_objinithook)
+	(output_curframe_declstruct): Emit the frames with a debugging
+	constructor, and add many emitted fromline comments.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.

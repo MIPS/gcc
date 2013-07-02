@@ -895,47 +895,45 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (debug "outcinitfill_objinithook hkproc=" hkproc
 	   "\n .. hkdata=" hkdata "\n .. opredef=" opredef)
     (add2sbuf_indentnl sbuf depth)
-    (add2out sbuf ##{/*inihook $CNAME */}#)
+    (add2out sbuf ##{/*inihook $CNAME fromline $(this_line) */}#)
     (add2sbuf_indentnl sbuf (+i depth 1))
-    (add2out 
-     sbuf 
-     ##{ $PTRSTR->$CNAME.discr = (meltobject_ptr_t)(}#)
+    (add2out sbuf " " ptrstr "->" cname ".discr = /*fromline " (this_line) "*/ (meltobject_ptr_t)(")
      (output_c_code (get_field :oie_discr recv) () sbuf (+i depth 1))
      (add2out sbuf ");")
-    (add2sbuf_indentnl sbuf (+i depth 1))
-    (add2out 
-     sbuf 
-     ##{   /*inihook $HKNAME data*/
-     $PTRSTR->$CNAME.nbval = $NBCLOVAL;
-     MELT_HOOK_SET_ROUTCODE (&$PTRSTR->$CNAME, melthook_$HKNAME);
-     $PTRSTR->$CNAME.hookdata = }#
-     )
-    (output_c_code hkdata () sbuf 1)
-    (add2out sbuf ";")
-    (add2sbuf_indentnl sbuf (+i depth 1))    
-    (add2out sbuf "strncpy (" ptrstr "->" cname ".hookname, \"")
-    (add2sbuf_cencstring sbuf hkname)
-    (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
-    (add2sbuf_indentnl sbuf depth)
-    (when opredef
-      (add2out 
-       sbuf 
-       ##{/*predefinedhook $OPREDEF for $CNAME*/
-       if (!MELT_PREDEF($OPREDEF))
-          MELT_STORE_PREDEF($OPREDEF, (melt_ptr_t) &$PTRSTR->$CNAME);
-       }#)
-      (add2sbuf_indentnl sbuf depth)
+     (add2sbuf_indentnl sbuf (+i depth 1))
+     (add2out 
+      sbuf 
+      ##{   /*inihook $HKNAME data fromline $(this_line) */
+      $PTRSTR->$CNAME.nbval = $NBCLOVAL				 ;
+      MELT_HOOK_SET_ROUTCODE (&$PTRSTR->$CNAME, melthook_$HKNAME) ;
+      $PTRSTR->$CNAME.hookdata = }#
       )
-    (when olocvar
-      (output_c_code olocvar () sbuf 1)
-      (add2out sbuf 
-	       ##{ = /*inihooklocvar $HKNAME*/ (melt_ptr_t) &$PTRSTR->$CNAME;
-	       }#)
-      (add2sbuf_indentnl sbuf 1)
-      )
-    (add2out sbuf ##{/*done inihook $CNAME */}#)
-    (add2sbuf_indentnl sbuf depth)
-    ))
+     (output_c_code hkdata () sbuf 1)
+     (add2out sbuf ";")
+     (add2sbuf_indentnl sbuf (+i depth 1))    
+     (add2out sbuf "strncpy (" ptrstr "->" cname ".hookname, \"")
+     (add2sbuf_cencstring sbuf hkname)
+     (add2out sbuf "\", sizeof(" ptrstr "->" cname ".hookname)-1);")
+     (add2sbuf_indentnl sbuf depth)
+     (when opredef
+       (add2out 
+	sbuf 
+	##{/*predefinedhook $OPREDEF for $CNAME*/
+	if (!MELT_PREDEF($OPREDEF))
+	MELT_STORE_PREDEF($OPREDEF, (melt_ptr_t) &$PTRSTR->$CNAME) ;
+	}#)
+       (add2sbuf_indentnl sbuf depth)
+       )
+     (when olocvar
+       (output_c_code olocvar () sbuf 1)
+       (add2out sbuf 
+		##{ = /*inihooklocvar $HKNAME*/ (melt_ptr_t) &$PTRSTR->$CNAME ;
+		}#)
+       (add2sbuf_indentnl sbuf 1)
+       )
+     (add2out sbuf ##{/*done inihook $CNAME */}#)
+     (add2sbuf_indentnl sbuf depth)
+     ))
 (install_method class_objinithook  output_c_initial_fill outcinitfill_objinithook)
 
 
@@ -1204,7 +1202,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (assert_msg "check limited sbuf" 
 			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
     ))
-  (install_method class_objinitboxinteger output_c_initial_fill outcinitfill_objinitboxedinteger)
+(install_method class_objinitboxinteger output_c_initial_fill outcinitfill_objinitboxedinteger)
 
 
 
@@ -1216,6 +1214,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (add2sbuf_strconst sbuf ";")
   )
 (install_method class_objinitpair output_c_declinit outdeclinit_objinitpair)
+
 
 (defun outcinitfill_objinitpair (recv sbuf ptrstr :long depth)
   (assert_msg "outcinitfill_objinitpair check recv" (is_a recv class_objinitpair))
@@ -1265,6 +1264,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (add2sbuf_strconst sbuf ";")
   )
 (install_method class_objinitlist output_c_declinit outdeclinit_objinitlist)
+
 
 (defun outcinitfill_objinitlist (recv sbuf ptrstr :long depth)
   (assert_msg "outcinitfill_objinitlist check recv" (is_a recv class_objinitlist))
@@ -1324,8 +1324,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (defun outpucod_null (nul declbuf implbuf :long depth)
 					;(assert_msg "@$@unexpected call to outpucod_null")
   (shortbacktrace_dbg "outpucod_null" 12)
-  (add2out implbuf 
-	   ##{ NULL }#)
+  (add2out implbuf ##{ /*fromline $(this_line)*/ NULL }#)
   )
 (install_method discr_null_receiver output_c_code outpucod_null)
 
@@ -1405,7 +1404,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
    )
   )
 
-  ;; output the location & set the frame's location
+;; output the location & set the frame's location
 (defun output_location (loc implbuf :long depth :cstring msg)
   (let ( (prevloc (unsafe_get_field :referenced_value prevloc_container))
 	 (prevbuf (unsafe_get_field :referenced_value previmplbuf_container))
@@ -1521,7 +1520,17 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2sbuf_indentnl dsbuf 1)
       (add2out dsbuf " : public Melt_CallFrameWithValues<" nbval "> {")
       (add2sbuf_indentnl dsbuf 1)
-      (add2out dsbuf "public: /*inframedeclclassy*/")
+      (add2out dsbuf "public: /*inframedeclclassy fromline " (this_line) " */")
+      (add2sbuf_indentnl dsbuf 1)
+      (add2out dsbuf classyframename "() : Melt_CallFrameWithValues<" nbval "> (")
+      (add2sbuf_indentnl dsbuf 0)
+      (add2out dsbuf "#if MELT_HAVE_DEBUG /*fromline " (this_line) "*/")
+      (add2sbuf_indentnl dsbuf 1)
+      (add2out dsbuf " __FILE__, __LINE__")
+      (add2sbuf_indentnl dsbuf 0)
+      (add2out dsbuf "#endif /*MELT_HAVE_DEBUG fromline " (this_line) "*/")
+      (add2sbuf_indentnl dsbuf 1)
+      (add2out dsbuf ") {}; /* end constructor " classyframename " fromline " (this_line) "*/")
       (add2sbuf_indentnl dsbuf 1)
       (when nblong 
 	(add2out dsbuf "long mcfr_varnum[" nblong "];")
@@ -1582,14 +1591,28 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2sbuf_indentnl dsbuf 1)
       (add2out dsbuf classyframename "(meltclosure_ptr_t clos=NULL) //the constructor")
       (add2sbuf_indentnl dsbuf 2)
-      (add2out dsbuf " : Melt_CallFrameWithValues<" nbval ">" 
-	       " (sizeof(" classyframename "), clos) {};")
+      (add2out dsbuf " : Melt_CallFrameWithValues<" nbval "> (")
+      (add2sbuf_indentnl dsbuf 0)
+      (add2out dsbuf "#if MELT_HAVE_DEBUG /*fromline " (this_line) "*/")
+      (add2sbuf_indentnl dsbuf 3)
+      (add2out dsbuf " __FILE__, __LINE__,")
+      (add2sbuf_indentnl dsbuf 0)
+      (add2out dsbuf "#endif /* MELT_HAVE_DEBUG fromline " (this_line) "*/")
+      (add2sbuf_indentnl dsbuf 2)
+      (add2out dsbuf " sizeof(" classyframename "), clos) {};")
       (when (is_a rou class_hookroutineobj)
 	(add2sbuf_indentnl dsbuf 1)
 	(add2out dsbuf classyframename "(melthook_ptr_t hook) //the hook constructor")
 	(add2sbuf_indentnl dsbuf 2)
-	(add2out dsbuf " : Melt_CallFrameWithValues<" nbval ">" 
-		 " (sizeof(" classyframename "), hook) {};")
+	(add2out dsbuf " : Melt_CallFrameWithValues<" nbval "> (")
+	(add2sbuf_indentnl dsbuf 0)
+	(add2out dsbuf "#if MELT_HAVE_DEBUG /*fromline " (this_line) "*/")
+	(add2sbuf_indentnl dsbuf 3)
+	(add2out dsbuf " __FILE__, __LINE__,")
+	(add2sbuf_indentnl dsbuf 0)
+	(add2out dsbuf "#endif /* MELT_HAVE_DEBUG fromline " (this_line) "*/")
+	(add2sbuf_indentnl dsbuf 2)
+	(add2out dsbuf " sizeof(" classyframename "), hook) {};")
 	)
       (add2sbuf_indentnl dsbuf 0)
       (add2out dsbuf "}; // end  class " classyframename)
@@ -1602,7 +1625,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl dsbuf 0)
     ;; output the current frame
     (add2sbuf_indentnl dsbuf 0)
-    (add2sbuf_strconst dsbuf " /*curframdeclstruct*/ struct ")
+    (add2out dsbuf " /*curframdeclstruct fromline " (this_line) "*/ struct ")
     (cond
      ((is_a rou class_initialroutineobj)
       (add2sbuf_strconst dsbuf "melt_initial_frame_st")
@@ -1614,6 +1637,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      (:else
       (assert_msg "unexpected routine")
       ))
+    ;;
     (add2sbuf_strconst dsbuf "{")
     (add2sbuf_indentnl dsbuf 0)
     (add2sbuf_strconst dsbuf "  int mcfr_nbvar;")
@@ -1623,9 +1647,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     ;; we declare a mcfr_initforwmarkrout to be sure to never use clos in the
     ;; generated code; if we do, the generated code is invalid C
     (if isinitial
-	(add2sbuf_strconst dsbuf
-			   " void (*mcfr_initforwmarkrout) ( struct melt_callframe_st*, int);")
-      (add2sbuf_strconst dsbuf "  struct meltclosure_st *mcfr_clos;"))
+	(add2out dsbuf
+		  " void (*mcfr_initforwmarkrout) /*fromline " (this_line) "*/ ( struct melt_callframe_st*, int);")
+      (add2out dsbuf "  struct meltclosure_st *mcfr_clos;"))
     (add2sbuf_indentnl dsbuf 0)
     (add2sbuf_strconst dsbuf "  struct excepth_melt_st *mcfr_exh;")
     (add2sbuf_indentnl dsbuf 0)
@@ -1637,6 +1661,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl dsbuf 0)
     (if (>i nbval 0) 
 	(progn
+	  (add2out dsbuf "/*varptr fromline " (this_line) "*/")
+	  (add2sbuf_indentnl dsbuf 0)
 	  (add2sbuf_strconst dsbuf "#define MELTFRAM_NBVARPTR ")
 	  (add2sbuf_longdec dsbuf nbval)
 	  (add2sbuf_indentnl dsbuf 0)
@@ -1645,27 +1671,29 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (add2sbuf_strconst dsbuf "];")
 	  (add2sbuf_indentnl dsbuf 0))
       (progn
-	(add2sbuf_strconst dsbuf "/*no varptr*/")
+	(add2out dsbuf "/*no varptr fromline " (this_line) "*/")
 	(add2sbuf_indentnl dsbuf 0)
 	(add2sbuf_strconst dsbuf "#define MELTFRAM_NBVARPTR /*none*/0")
 	(add2sbuf_indentnl dsbuf 0)))
     (if (>i nblong 0)
 	(progn
+	  (add2out dsbuf "/*varnum fromline " (this_line) "*/")
+	  (add2sbuf_indentnl dsbuf 0)
 	  (add2sbuf_strconst dsbuf "#define MELTFRAM_NBVARNUM ")
 	  (add2sbuf_longdec dsbuf nblong)
 	  (add2sbuf_indentnl dsbuf 0)
-	  (add2sbuf_strconst dsbuf "  long mcfr_varnum[")
+	  (add2out dsbuf "  long mcfr_varnum[")
 	  (add2sbuf_longdec dsbuf nblong)
 	  (add2sbuf_strconst dsbuf "];")
 	  (add2sbuf_indentnl dsbuf 0))
       (progn
-	(add2sbuf_strconst dsbuf "/*no varnum*/")
+	(add2out dsbuf "/*no varnum fromline " (this_line) "*/")
 	(add2sbuf_indentnl dsbuf 0)
 	(add2sbuf_strconst dsbuf "#define MELTFRAM_NBVARNUM /*none*/0")
 	(add2sbuf_indentnl dsbuf 0)))
     (if others 
 	(progn
-	  (add2sbuf_strconst dsbuf "/*others*/")
+	  (add2out dsbuf "/*others fromline" (this_line) "*/")
 	  (add2sbuf_indentnl dsbuf 0)
 	  (foreach_in_list
 	   (others)
@@ -1689,7 +1717,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	   )
 	  )
       (progn
-	(add2sbuf_strconst dsbuf "/*no others*/")
+	(add2out dsbuf "/*no others fromline" (this_line) "*/")
 	(add2sbuf_indentnl dsbuf 0))
       )
     (add2sbuf_strconst dsbuf "  long _meltspare_; };")

@@ -2842,6 +2842,10 @@ private:
   };
 protected:
   Melt_CallFrame*_meltcf_prev;
+#if MELT_HAVE_DEBUG
+  const char* meltcf_dbgfile;
+  const int meltcf_dbgline;
+#endif /*MELT_HAVE_DEBUG*/
 public:
   const char* mcfr_flocs;
   union {
@@ -2856,13 +2860,37 @@ public:
   meltclosure_ptr_t current_closure() const { return meltcast_meltclosure_st (mcfr_current); };
   melthook_ptr_t current_hook() const { return meltcast_melthook_st (mcfr_current); };
 protected:
+#if MELT_HAVE_DEBUG
+  Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL) 
+    : _meltcf_prev (_top_call_frame_), 
+      _meltcf_dbgline(file), _meltcf_dbgline(lin),
+      mcfr_flocs(NULL), mcfr_clos(clos) {
+    melt_clear_rest_of_frame (sz);
+    _top_call_frame_ = this;
+  }
+  Melt_CallFrame(const char*file, int lin, size_t sz, melthook_ptr_t hook) 
+    : _meltcf_prev (_top_call_frame_), 
+      _meltcf_dbgline(file), _meltcf_dbgline(lin),
+      mcfr_flocs(NULL), mcfr_hook(hook) {
+    melt_clear_rest_of_frame (sz);
+    _top_call_frame_ = this;
+  }
+#endif /*MELT_HAVE_DEBUG*/
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
-    : _meltcf_prev (_top_call_frame_), mcfr_flocs(NULL), mcfr_clos(clos) {
+    : _meltcf_prev (_top_call_frame_), 
+#if MELT_HAVE_DEBUG
+      _meltcf_dbgfile(0), _meltcf_dbgline(0),
+#endif /*MELT_HAVE_DEBUG*/
+      mcfr_flocs(NULL), mcfr_clos(clos) {
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
   Melt_CallFrame(size_t sz, melthook_ptr_t hook) 
-    : _meltcf_prev (_top_call_frame_), mcfr_flocs(NULL), mcfr_hook(hook) {
+    : _meltcf_prev (_top_call_frame_), 
+#if MELT_HAVE_DEBUG
+      _meltcf_dbgfile(0), _meltcf_dbgline(0),
+#endif /*MELT_HAVE_DEBUG*/
+      mcfr_flocs(NULL), mcfr_hook(hook) {
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
@@ -2886,6 +2914,13 @@ public:
 	gt_ggc_mx_melt_un (mcfr_varptr[ix]);
   };
   virtual void melt_mark_ggc_data (void) { melt_mark_values (); };
+#if MELT_HAVE_DEBUG
+  Melt_CallFrameWithValues(const char*fil, int lin, 
+			   size_t sz, meltclosure_ptr_t clos=NULL) 
+    : Melt_CallFrame(fil, lin, sz, clos) {};
+  Melt_CallFrameWithValues(const char*fil, int lin, size_t sz, melthook_ptr_t hook) 
+    : Melt_CallFrame(fil, lin, sz, hook) {};
+#endif /*MELT_HAVE_DEBUG*/
   Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL) 
     : Melt_CallFrame(sz,clos) {};
   Melt_CallFrameWithValues(size_t sz, melthook_ptr_t hook) 
@@ -2893,6 +2928,23 @@ public:
   ~Melt_CallFrameWithValues() {};
 };				// end template class Melt_CallFrameWithValues
 
+
+#if MELT_HAVE_DEBUG 
+
+#define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
+  /* classy enter frame */					\
+  Melt_CallFrameWithValues<NbVar> meltfram__			\
+     (__FILE__, Lin, sizeof(Melt_CallFrameWithValues<NbVar>),	\
+     meltcast_meltclosure_st((melt_ptr_t)(Clos)));		\
+  if (MELT_HAVE_DEBUG) {					\
+    static char meltlocbuf_##Lin [92];				\
+    if (MELT_UNLIKELY(!meltlocbuf_##Lin [0]))			\
+      snprintf (meltlocbuf_##Lin, sizeof(meltlocbuf_##Lin),	\
+		"%s:%d ~%s", melt_basename (__FILE__),		\
+		Lin, __func__);					\
+    meltfram__.mcfr_flocs = meltlocbuf_##Lin; }
+
+#else /*!MELT_HAVE_DEBUG*/
 
 #define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
   /* classy enter frame */					\
@@ -2906,6 +2958,8 @@ public:
 		"%s:%d ~%s", melt_basename (__FILE__),		\
 		Lin, __func__);					\
     meltfram__.mcfr_flocs = meltlocbuf_##Lin; }
+
+#endif /*MELT_HAVE_DEBUG*/
 
 #define MELT_ENTERFRAME(NBVAR,CLOS) MELT_ENTERFRAME_AT(NBVAR,CLOS,__LINE__)
 #define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
