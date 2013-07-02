@@ -2,6 +2,10 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallFrame): Improve debugging constructors.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* gcc/melt/generated/warmelt-base+01.cc: Regenerate.
 	* gcc/melt/generated/warmelt-base+02.cc: Regenerate.

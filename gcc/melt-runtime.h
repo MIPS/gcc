@@ -2869,7 +2869,7 @@ protected:
       _meltcf_dbgfile(file), _meltcf_dbgline(lin),
       mcfr_flocs(NULL), mcfr_clos(clos) {
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file_, "+ %s:%d Siz%d Clo%p\n n", file, lin, (int)sz, (void*)clos);
+      fprintf (_dbgcall_file_, "+ %s:%d Siz%d Clo%p\n", file, lin, (int)sz, (void*)clos);
       fflush (_dbgcall_file_);
     }
     melt_clear_rest_of_frame (sz);
@@ -2879,6 +2879,10 @@ protected:
     : _meltcf_prev (_top_call_frame_), 
       _meltcf_dbgfile(file), _meltcf_dbgline(lin),
       mcfr_flocs(NULL), mcfr_hook(hook) {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
+      fprintf (_dbgcall_file_, "+ %s:%d Siz%d Hook%p\n", file, lin, (int)sz, (void*)hook);
+      fflush (_dbgcall_file_);
+    }
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
@@ -2889,6 +2893,10 @@ protected:
       _meltcf_dbgfile(0), _meltcf_dbgline(0),
 #endif /*MELT_HAVE_DEBUG*/
       mcfr_flocs(NULL), mcfr_clos(clos) {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
+      fprintf (_dbgcall_file_, "+ * Siz%d Clo%p\n", (int)sz, (void*)clos);
+      fflush (_dbgcall_file_);
+    }
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
@@ -2898,6 +2906,10 @@ protected:
       _meltcf_dbgfile(0), _meltcf_dbgline(0),
 #endif /*MELT_HAVE_DEBUG*/
       mcfr_flocs(NULL), mcfr_hook(hook) {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
+      fprintf (_dbgcall_file_, "+ * Siz%d Hook%p\n", (int)sz, (void*)hook);
+      fflush (_dbgcall_file_);
+    }
     melt_clear_rest_of_frame (sz);
     _top_call_frame_ = this;
   }
