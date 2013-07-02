@@ -1,4 +1,9 @@
 
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct)
+	(output_curframe_declstruct_init, outpucod_hookroutine): Improve
+	emission related to frame.
 
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
