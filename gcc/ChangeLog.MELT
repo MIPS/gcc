@@ -2,6 +2,15 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (this_line, this_file): New macros.
+	(mexpand_this_file, mexpand_this_line): New functions to
+	macro-expand them.
+
+	* melt/warmelt-outobj.melt: Also emit using this_line the line
+	number emitting every MELT_HAVE_CLASSY_FRAME preprocessor test.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.

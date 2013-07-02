@@ -7131,81 +7131,52 @@ remain.}#)
 	      is enabled- and also issues a compile warning if
 	      condition is missing so false.}#)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; debug_msg macro is expanded into other src..
-;;;;;; (debug_msg val msg [count]) 
-;;; becomes
-;;;;;; (cppif MELT_HAVE_DEBUG (debug_msg_fun val msg count filename lineno) ())
-;;; where count is (melt_callcount) if not given
 
-(defun mexpand_debug_msg (sexpr env mexpander modctx)
-  (debug "mexpand_debug_msg sexpr=" sexpr)
+;;;;;; (this_line)  is expand to the literal integer corresponding to the line number;
+;;;;; inspired by C++ __LINE__
+(defun mexpand_this_line (sexpr env mexpander modctx)
+  (debug "mexpand_this_line sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
-  (assert_msg "check mexpander" (is_closure mexpander))
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(loc  (unsafe_get_field :loca_location sexpr))
-	(curpair (pair_tail (list_first cont)))
-	(xval (mexpander (pair_head curpair)  env mexpander modctx)) 
-	(xmsg ())
-	(xcount ())
+	(:long dline (get_int loc))
 	)
-    (if (melt_is_bootstrapping)
-	(warning_plain loc "(DEBUG_MSG ....) is obsolete, use (DEBUG ...) variadically")
-      (error_plain loc "(DEBUG_MSG ....) should not be used. Use (DEBUG ....) variadically instead."))
-    (setq curpair (pair_tail curpair))
-    (if (not (is_pair curpair))
-	(error_plain loc "missing message in DEBUG_MSG"_))
-    (setq xmsg  (mexpander (pair_head curpair) env mexpander modctx))
-    (setq curpair (pair_tail curpair))
-    (if (is_pair curpair)
-	(progn
-	  (setq xcount (mexpander (pair_head curpair) env mexpander modctx))
-	  (setq curpair (pair_tail curpair))))
-    (if curpair
-	(error_plain loc "too many arguments to DEBUG_MSG"_))
-    (if (not (is_string xmsg))
-	(error_plain loc "message argument should be string in DEBUG_MSG"_))
-    (if (null xcount)
-	(let ( (conlis (make_list discr_list)) )
-	  (list_append conlis 'melt_callcount)
-	  (setq xcount (macroexpand_1 (instance class_sexpr 
-						:sexp_contents conlis
-						:loca_location loc)
-				      env mexpander))))
-    (let (
-	  (dfilnam (cond
-		    ((is_mixint loc) (mixint_val loc))
-		    ((is_mixloc loc) (mixloc_val loc))))
-	  (dcall (instance 
-		  class_source_apply
-		  :loca_location loc
-		  :sapp_fun 'debug_msg_fun
-		  :sargop_args (tuple
-				xval
-				xmsg
-				xcount
-				dfilnam
-				(make_integerbox discr_integer (get_int loc)))))
-	  (dcppif (instance class_source_cppif
-			    :loca_location loc
-			    :sifp_cond 'MELT_HAVE_DEBUG
-			    :sifp_then dcall
-			    :sifp_else ()
-			    )) 
-	  )
-      (debug "mexpand_debug_msg result dcppif" dcppif)
-      (return dcppif)
-      )))
-(install_initial_macro 'debug_msg mexpand_debug_msg)
-(export_macro debug_msg mexpand_debug_msg
-	      :doc #{$DEBUG_MSG should not be used. Use $DEBUG instead.}#)
+    (debug "mexpand_this_line dline=" dline)
+    (return (if (>i dline 0)
+		(constant_box dline))
+	    ())))
+
+(install_initial_macro 'this_line mexpand_this_line)
+(export_macro this_line mexpand_this_line
+	      :doc #{$THIS_LINE, inspired by the @code{__LINE__} macro
+	      of C or C++, is a macro expanding to the line number in
+	      the source file of its occurrence, or NIL if no line.}#)
 
 
-
-
+;;;;;; (this_file)  is expand to the literal integer corresponding to the line number;
+;;;;; inspired by C++ __LINE__
+(defun mexpand_this_file (sexpr env mexpander modctx)
+  (debug "mexpand_this_file sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check modctx" (is_object modctx))
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(dfilnam (cond
+		  ((is_mixint loc) (mixint_val loc))
+		  ((is_mixloc loc) (mixloc_val loc))))
+	)
+    (debug "mexpand_this_file dfilnam=" dfilnam)
+    (return dfilnam)))
+(install_initial_macro 'this_file mexpand_this_file)
+(export_macro this_file mexpand_this_file
+	      :doc #{$THIS_FILE, inspired by the @code{__FILE__} macro
+	      of C or C++, is a macro expanding to the string naming
+	      the source file of its occurrence, or NIL if no source location is available.}#)
 
 
 ;;;;;; (debug ...) 
@@ -7214,7 +7185,7 @@ remain.}#)
 ;;; where count is (melt_callcount) 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun mexpand_debug  (sexpr env mexpander modctx)
-  (debug "mexpand_debug sexpr" sexpr)
+  (debug "mexpand_debug sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
