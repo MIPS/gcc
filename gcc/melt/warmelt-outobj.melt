@@ -2698,7 +2698,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2out declbuf "/** start of declaration for hook " hookname "**/")
     (add2sbuf_indentnl declbuf 0)
     (add2sbuf_indentnl implbuf 0)
-    (add2out declbuf "/** start of implementation for hook " hookname "**/")
+    (add2out implbuf "/** start of implementation for hook " hookname "**/")
     (add2sbuf_indentnl implbuf 0)
 ;;; should generate the marking routine, and the hook routine
     (output_centraldecl_hookroutine phook declbuf "declaration of" "MELT_EXTERN")
@@ -2868,7 +2868,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2out declbuf "/** end of declaration for hook " hookname "**/")
       (add2sbuf_indentnl declbuf 0)
       (add2sbuf_indentnl implbuf 0)
-      (add2out declbuf "/** end of implementation for hook " hookname "**/")
+      (add2out implbuf "/** end of implementation for hook " hookname "**/")
       (add2sbuf_indentnl implbuf 0)
       ;;
       )))

@@ -2,6 +2,11 @@
 
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_hookroutine): Fix typo for
+	emission of more comments.
+
+2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
