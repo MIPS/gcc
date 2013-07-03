@@ -1,3 +1,7 @@
+2013-07-03  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* vtable-class-hierarchy.c (output_set_info): Remove unused variable.
+
 2013-06-16  Caroline Tice  <cmtice@google.com>
 
 	* class.c (finish_struct_1):  Add call to vtv_save_class_info if vtable

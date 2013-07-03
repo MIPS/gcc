@@ -842,7 +842,6 @@ output_set_info (tree record_type, tree *vtbl_ptr_array, int array_size)
   static int vtv_debug_log_fd = -1;
   char buffer[1024];
   int bytes_written __attribute__ ((unused));
-  int i;
   const char *class_name =
               IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (TYPE_NAME (record_type)));
 
