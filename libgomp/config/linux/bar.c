@@ -33,11 +33,11 @@
 void
 gomp_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
-  if (__builtin_expect ((state & 1) != 0, 0))
+  if (__builtin_expect (state & BAR_WAS_LAST, 0))
     {
       /* Next time we'll be awaiting TOTAL threads again.  */
       bar->awaited = bar->total;
-      __atomic_store_n (&bar->generation, bar->generation + 4,
+      __atomic_store_n (&bar->generation, bar->generation + BAR_INCR,
 			MEMMODEL_RELEASE);
       futex_wake ((int *) &bar->generation, INT_MAX);
     }
@@ -66,7 +66,7 @@ void
 gomp_barrier_wait_last (gomp_barrier_t *bar)
 {
   gomp_barrier_state_t state = gomp_barrier_wait_start (bar);
-  if (state & 1)
+  if (state & BAR_WAS_LAST)
     gomp_barrier_wait_end (bar, state);
 }
 
@@ -81,7 +81,7 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
   unsigned int generation, gen;
 
-  if (__builtin_expect ((state & 1) != 0, 0))
+  if (__builtin_expect (state & BAR_WAS_LAST, 0))
     {
       /* Next time we'll be awaiting TOTAL threads again.  */
       struct gomp_thread *thr = gomp_thread ();
@@ -91,7 +91,7 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
       if (__builtin_expect (team->task_count, 0))
 	{
 	  gomp_barrier_handle_tasks (state);
-	  state &= ~1;
+	  state &= ~BAR_WAS_LAST;
 	}
       else
 	{
@@ -106,15 +106,14 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
     {
       do_wait ((int *) &bar->generation, generation);
       gen = __atomic_load_n (&bar->generation, MEMMODEL_ACQUIRE);
-      if (__builtin_expect (gen & 1, 0))
+      if (__builtin_expect (gen & BAR_TASK_PENDING, 0))
 	{
 	  gomp_barrier_handle_tasks (state);
 	  gen = __atomic_load_n (&bar->generation, MEMMODEL_ACQUIRE);
 	}
-      if ((gen & 2) != 0)
-	generation |= 2;
+      generation |= gen & BAR_WAITING_FOR_TASK;
     }
-  while (gen != state + 4);
+  while (gen != state + BAR_INCR);
 }
 
 void

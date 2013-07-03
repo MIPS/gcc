@@ -44,7 +44,16 @@ typedef struct
   unsigned arrived;
   unsigned generation;
 } gomp_barrier_t;
+
 typedef unsigned int gomp_barrier_state_t;
+
+/* The generation field contains a counter in the high bits, with a few
+   low bits dedicated to flags.  Note that TASK_PENDING and WAS_LAST can
+   share space because WAS_LAST is never stored back to generation.  */
+#define BAR_TASK_PENDING	1
+#define BAR_WAS_LAST		1
+#define BAR_WAITING_FOR_TASK	2
+#define BAR_INCR		4
 
 extern void gomp_barrier_init (gomp_barrier_t *, unsigned);
 extern void gomp_barrier_reinit (gomp_barrier_t *, unsigned);
@@ -62,15 +71,16 @@ gomp_barrier_wait_start (gomp_barrier_t *bar)
 {
   unsigned int ret;
   gomp_mutex_lock (&bar->mutex1);
-  ret = bar->generation & ~3;
-  ret += ++bar->arrived == bar->total;
+  ret = bar->generation & -BAR_INCR;
+  if (++bar->arrived == bar->total)
+    ret |= BAR_WAS_LAST;
   return ret;
 }
 
 static inline bool
 gomp_barrier_last_thread (gomp_barrier_state_t state)
 {
-  return state & 1;
+  return state & BAR_WAS_LAST;
 }
 
 static inline void
@@ -85,31 +95,31 @@ gomp_barrier_wait_last (gomp_barrier_t *bar)
 static inline void
 gomp_team_barrier_set_task_pending (gomp_barrier_t *bar)
 {
-  bar->generation |= 1;
+  bar->generation |= BAR_TASK_PENDING;
 }
 
 static inline void
 gomp_team_barrier_clear_task_pending (gomp_barrier_t *bar)
 {
-  bar->generation &= ~1;
+  bar->generation &= ~BAR_TASK_PENDING;
 }
 
 static inline void
 gomp_team_barrier_set_waiting_for_tasks (gomp_barrier_t *bar)
 {
-  bar->generation |= 2;
+  bar->generation |= BAR_WAITING_FOR_TASK;
 }
 
 static inline bool
 gomp_team_barrier_waiting_for_tasks (gomp_barrier_t *bar)
 {
-  return (bar->generation & 2) != 0;
+  return (bar->generation & BAR_WAITING_FOR_TASK) != 0;
 }
 
 static inline void
 gomp_team_barrier_done (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
-  bar->generation = (state & ~3) + 4;
+  bar->generation = (state & -BAR_INCR) + BAR_INCR;
 }
 
 #endif /* GOMP_BARRIER_H */

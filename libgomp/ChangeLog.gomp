@@ -1,3 +1,17 @@
+2013-07-03  Richard Henderson  <rth@redhat.com>
+
+	* config/linux/bar.h (BAR_TASK_PENDING, BAR_WAS_LAST,
+	BAR_WAITING_FOR_TASK, BAR_INCR): New.
+	(gomp_barrier_wait_start, gomp_barrier_last_thread, 
+	gomp_team_barrier_set_task_pending,
+	gomp_team_barrier_clear_task_pending,
+	gomp_team_barrier_set_waiting_for_tasks,
+	gomp_team_barrier_waiting_for_tasks,
+	gomp_team_barrier_done): Use them.
+	* config/linux/bar.c (gomp_barrier_wait_end,
+	gomp_barrier_wait_last, gomp_team_barrier_wait_end): Likewise.
+	* config/posix/bar.h, config/posix/bar.c: Similarly.
+
 2013-07-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/atomic-14.C: Adjust for stricter atomic

@@ -39,7 +39,16 @@ typedef struct
   unsigned generation;
   unsigned awaited __attribute__((aligned (64)));
 } gomp_barrier_t;
+
 typedef unsigned int gomp_barrier_state_t;
+
+/* The generation field contains a counter in the high bits, with a few
+   low bits dedicated to flags.  Note that TASK_PENDING and WAS_LAST can
+   share space because WAS_LAST is never stored back to generation.  */
+#define BAR_TASK_PENDING	1
+#define BAR_WAS_LAST		1
+#define BAR_WAITING_FOR_TASK	2
+#define BAR_INCR		4
 
 static inline void gomp_barrier_init (gomp_barrier_t *bar, unsigned count)
 {
@@ -69,20 +78,22 @@ extern void gomp_team_barrier_wake (gomp_barrier_t *, int);
 static inline gomp_barrier_state_t
 gomp_barrier_wait_start (gomp_barrier_t *bar)
 {
-  unsigned int ret = __atomic_load_n (&bar->generation, MEMMODEL_ACQUIRE) & ~3;
+  unsigned int ret = __atomic_load_n (&bar->generation, MEMMODEL_ACQUIRE);
+  ret &= -BAR_INCR;
   /* A memory barrier is needed before exiting from the various forms
      of gomp_barrier_wait, to satisfy OpenMP API version 3.1 section
      2.8.6 flush Construct, which says there is an implicit flush during
      a barrier region.  This is a convenient place to add the barrier,
      so we use MEMMODEL_ACQ_REL here rather than MEMMODEL_ACQUIRE.  */
-  ret += __atomic_add_fetch (&bar->awaited, -1, MEMMODEL_ACQ_REL) == 0;
+  if (__atomic_add_fetch (&bar->awaited, -1, MEMMODEL_ACQ_REL) == 0)
+    ret |= BAR_WAS_LAST;
   return ret;
 }
 
 static inline bool
 gomp_barrier_last_thread (gomp_barrier_state_t state)
 {
-  return state & 1;
+  return state & BAR_WAS_LAST;
 }
 
 /* All the inlines below must be called with team->task_lock
@@ -91,31 +102,31 @@ gomp_barrier_last_thread (gomp_barrier_state_t state)
 static inline void
 gomp_team_barrier_set_task_pending (gomp_barrier_t *bar)
 {
-  bar->generation |= 1;
+  bar->generation |= BAR_TASK_PENDING;
 }
 
 static inline void
 gomp_team_barrier_clear_task_pending (gomp_barrier_t *bar)
 {
-  bar->generation &= ~1;
+  bar->generation &= ~BAR_TASK_PENDING;
 }
 
 static inline void
 gomp_team_barrier_set_waiting_for_tasks (gomp_barrier_t *bar)
 {
-  bar->generation |= 2;
+  bar->generation |= BAR_WAITING_FOR_TASK;
 }
 
 static inline bool
 gomp_team_barrier_waiting_for_tasks (gomp_barrier_t *bar)
 {
-  return (bar->generation & 2) != 0;
+  return (bar->generation & BAR_WAITING_FOR_TASK) != 0;
 }
 
 static inline void
 gomp_team_barrier_done (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
-  bar->generation = (state & ~3) + 4;
+  bar->generation = (state & -BAR_INCR) + BAR_INCR;
 }
 
 #endif /* GOMP_BARRIER_H */

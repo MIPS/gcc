@@ -72,7 +72,7 @@ gomp_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
   unsigned int n;
 
-  if (state & 1)
+  if (state & BAR_WAS_LAST)
     {
       n = --bar->arrived;
       if (n > 0)
@@ -113,7 +113,7 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 {
   unsigned int n;
 
-  if (state & 1)
+  if (state & BAR_WAS_LAST)
     {
       n = --bar->arrived;
       struct gomp_thread *thr = gomp_thread ();
@@ -128,7 +128,7 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 	  return;
 	}
 
-      bar->generation = state + 3;
+      bar->generation = state + BAR_INCR - BAR_WAS_LAST;
       if (n > 0)
 	{
 	  do
@@ -144,10 +144,10 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
       do
 	{
 	  gomp_sem_wait (&bar->sem1);
-	  if (bar->generation & 1)
+	  if (bar->generation & BAR_TASK_PENDING)
 	    gomp_barrier_handle_tasks (state);
 	}
-      while (bar->generation != state + 4);
+      while (bar->generation != state + BAR_INCR);
 
 #ifdef HAVE_SYNC_BUILTINS
       n = __sync_add_and_fetch (&bar->arrived, -1);
