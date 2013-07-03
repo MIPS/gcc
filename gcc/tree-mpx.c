@@ -5149,7 +5149,7 @@ mpx_reduce_bounds_lifetime (void)
 
       if (gimple_code (stmt) == GIMPLE_CALL
 	  && (gimple_call_fndecl (stmt) == mpx_bndmk_fndecl
-	      || (gimple_call_fndecl (stmt) == mpx_arg_bnd_fndecl && 0 /* ICE in IRA */)))
+	      || (gimple_call_fndecl (stmt) == mpx_arg_bnd_fndecl)))
 	want_move = true;
 
       if (gimple_code (stmt) == GIMPLE_ASSIGN
