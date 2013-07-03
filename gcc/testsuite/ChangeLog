@@ -1,3 +1,43 @@
+2013-07-02  Sriraman Tallam  <tmsriram@google.com>
+
+	* gcc.target/i386/avx-inline.c: New test.
+
+2013-07-02  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* gcc.target/mips/call-1.c: Accept JALRS and JALR.
+	* gcc.target/mips/call-2.c: Likewise.
+	* gcc.target/mips/call-3.c: Likewise.
+	* gcc.target/mips/lazy-binding-1.c: Likewise.
+
+2013-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57741
+	* gcc.dg/vect/pr57741-1.c: New test.
+	* gcc.dg/vect/pr57741-2.c: New test.
+	* gcc.dg/vect/pr57741-3.c: New test.
+
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/config/aarch64/insv_1.c: Update to show it doesn't work
+	on big endian.
+	* gcc.target/config/aarch64/insv_2.c: New test for big endian.
+	* lib/target-supports.exp: Define aarch64_little_endian.
+
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/abs_1.c: New test.
+
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/bfxil_1.c: New test.
+	* gcc.target/aarch64/bfxil_2.c: Likewise.
+
+2013-07-01  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57766
+	* c-c++-common/cilk-plus/AN/sec_implicit_ex.c (NUMBER): Changed
+	array sizes from 100 to 20.
+
 2013-07-01  Dominique d'Humieres  <dominiq@lps.ens.fr>
 
 	PR fortran/54788
