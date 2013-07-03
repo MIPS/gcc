@@ -1,3 +1,14 @@
+2013-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_atomic): Disallow seq_cst before
+	atomic-clause, disallow comma in between atomic-clause and
+	seq_cst.
+	(cp_parser_omp_sections_scope): If section-sequence doesn't
+	start with #pragma omp section, require exactly one structured-block
+	instead of sequence of statements.
+	* semantics.c (finish_omp_clauses): Diagnose copyprivate clause
+	appearing together with nowait clause.
+
 2013-06-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* decl2.c (cplus_decl_attributes): Only add attribute

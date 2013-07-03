@@ -27939,20 +27939,6 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
       const char *p = IDENTIFIER_POINTER (id);
 
-      if (!strcmp (p, "seq_cst"))
-	{
-	  seq_cst = true;
-	  cp_lexer_consume_token (parser->lexer);
-	  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA)
-	      && cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME)
-	    cp_lexer_consume_token (parser->lexer);
-	}
-    }
-  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
-    {
-      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
-      const char *p = IDENTIFIER_POINTER (id);
-
       if (!strcmp (p, "read"))
 	code = OMP_ATOMIC_READ;
       else if (!strcmp (p, "write"))
@@ -27966,22 +27952,16 @@ cp_parser_omp_atomic (cp_parser *parser, cp_token *pragma_tok)
       if (p)
 	cp_lexer_consume_token (parser->lexer);
     }
-  if (!seq_cst)
+
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
-      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA)
-	  && cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_NAME)
-	cp_lexer_consume_token (parser->lexer);
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      const char *p = IDENTIFIER_POINTER (id);
 
-      if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+      if (!strcmp (p, "seq_cst"))
 	{
-	  tree id = cp_lexer_peek_token (parser->lexer)->u.value;
-	  const char *p = IDENTIFIER_POINTER (id);
-
-	  if (!strcmp (p, "seq_cst"))
-	    {
-	      seq_cst = true;
-	      cp_lexer_consume_token (parser->lexer);
-	    }
+	  seq_cst = true;
+	  cp_lexer_consume_token (parser->lexer);
 	}
     }
   cp_parser_require_pragma_eol (parser, pragma_tok);
@@ -29079,26 +29059,7 @@ cp_parser_omp_sections_scope (cp_parser *parser)
 
   if (cp_lexer_peek_token (parser->lexer)->pragma_kind != PRAGMA_OMP_SECTION)
     {
-      unsigned save;
-
-      substmt = begin_omp_structured_block ();
-      save = cp_parser_begin_omp_structured_block (parser);
-
-      while (1)
-	{
-	  cp_parser_statement (parser, NULL_TREE, false, NULL);
-
-	  tok = cp_lexer_peek_token (parser->lexer);
-	  if (tok->pragma_kind == PRAGMA_OMP_SECTION)
-	    break;
-	  if (tok->type == CPP_CLOSE_BRACE)
-	    break;
-	  if (tok->type == CPP_EOF)
-	    break;
-	}
-
-      cp_parser_end_omp_structured_block (parser, save);
-      substmt = finish_omp_structured_block (substmt);
+      substmt = cp_parser_omp_structured_block (parser);
       substmt = build1 (OMP_SECTION, void_type_node, substmt);
       add_stmt (substmt);
     }

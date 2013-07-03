@@ -6558,24 +6558,17 @@ expand_omp_single (struct omp_region *region)
 {
   basic_block entry_bb, exit_bb;
   gimple_stmt_iterator si;
-  bool need_barrier = false;
 
   entry_bb = region->entry;
   exit_bb = region->exit;
 
   si = gsi_last_bb (entry_bb);
-  /* The terminal barrier at the end of a GOMP_single_copy sequence cannot
-     be removed.  We need to ensure that the thread that entered the single
-     does not exit before the data is copied out by the other threads.  */
-  if (find_omp_clause (gimple_omp_single_clauses (gsi_stmt (si)),
-		       OMP_CLAUSE_COPYPRIVATE))
-    need_barrier = true;
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_SINGLE);
   gsi_remove (&si, true);
   single_succ_edge (entry_bb)->flags = EDGE_FALLTHRU;
 
   si = gsi_last_bb (exit_bb);
-  if (!gimple_omp_return_nowait_p (gsi_stmt (si)) || need_barrier)
+  if (!gimple_omp_return_nowait_p (gsi_stmt (si)))
     force_gimple_operand_gsi (&si, build_omp_barrier (), false, NULL_TREE,
 			      false, GSI_SAME_STMT);
   gsi_remove (&si, true);

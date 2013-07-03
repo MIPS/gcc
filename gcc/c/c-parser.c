@@ -10391,18 +10391,6 @@ c_parser_omp_atomic (location_t loc, c_parser *parser)
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
       const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-      if (!strcmp (p, "seq_cst"))
-	{
-	  seq_cst = true;
-	  c_parser_consume_token (parser);
-	  if (c_parser_next_token_is (parser, CPP_COMMA)
-	      && c_parser_peek_2nd_token (parser)->type == CPP_NAME)
-	    c_parser_consume_token (parser);
-	}
-    }
-  if (c_parser_next_token_is (parser, CPP_NAME))
-    {
-      const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
 
       if (!strcmp (p, "read"))
 	code = OMP_ATOMIC_READ;
@@ -10417,21 +10405,13 @@ c_parser_omp_atomic (location_t loc, c_parser *parser)
       if (p)
 	c_parser_consume_token (parser);
     }
-  if (!seq_cst)
+  if (c_parser_next_token_is (parser, CPP_NAME))
     {
-      if (c_parser_next_token_is (parser, CPP_COMMA)
-	  && c_parser_peek_2nd_token (parser)->type == CPP_NAME)
-	c_parser_consume_token (parser);
-
-      if (c_parser_next_token_is (parser, CPP_NAME))
+      const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      if (!strcmp (p, "seq_cst"))
 	{
-	  const char *p
-	    = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-	  if (!strcmp (p, "seq_cst"))
-	    {
-	      seq_cst = true;
-	      c_parser_consume_token (parser);
-	    }
+	  seq_cst = true;
+	  c_parser_consume_token (parser);
 	}
     }
   c_parser_skip_to_pragma_eol (parser);
@@ -11231,21 +11211,7 @@ c_parser_omp_sections_scope (location_t sections_loc, c_parser *parser)
 
   if (c_parser_peek_token (parser)->pragma_kind != PRAGMA_OMP_SECTION)
     {
-      substmt = push_stmt_list ();
-
-      while (1)
-	{
-          c_parser_statement (parser);
-
-	  if (c_parser_peek_token (parser)->pragma_kind == PRAGMA_OMP_SECTION)
-	    break;
-	  if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
-	    break;
-	  if (c_parser_next_token_is (parser, CPP_EOF))
-	    break;
-	}
-
-      substmt = pop_stmt_list (substmt);
+      substmt = c_parser_omp_structured_block (parser);
       substmt = build1 (OMP_SECTION, void_type_node, substmt);
       SET_EXPR_LOCATION (substmt, loc);
       add_stmt (substmt);

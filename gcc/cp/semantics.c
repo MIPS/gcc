@@ -4555,6 +4555,7 @@ finish_omp_clauses (tree clauses)
   tree c, t, *pc = &clauses;
   const char *name;
   bool branch_seen = false;
+  bool copyprivate_seen = false;
 
   bitmap_obstack_initialize (NULL);
   bitmap_initialize (&generic_head, &bitmap_default_obstack);
@@ -4579,6 +4580,7 @@ finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  name = "copyprivate";
+	  copyprivate_seen = true;
 	  goto check_dup_generic;
 	case OMP_CLAUSE_COPYIN:
 	  name = "copyin";
@@ -5099,6 +5101,16 @@ finish_omp_clauses (tree clauses)
 	  name = "copyin";
 	  need_copy_assignment = true;
 	  break;
+	case OMP_CLAUSE_NOWAIT:
+	  if (copyprivate_seen)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<nowait%> clause must not be used together "
+			"with %<copyprivate%>");
+	      *pc = OMP_CLAUSE_CHAIN (c);
+	      continue;
+	    }
+	  /* FALLTHRU */
 	default:
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;

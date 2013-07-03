@@ -1,3 +1,15 @@
+2013-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/block-0.C: Adjust for stricter #pragma omp sections
+	parser.
+	* g++.dg/gomp/block-3.C: Likewise.
+	* gcc.dg/gomp/block-3.c: Likewise.
+	* gcc.dg/gomp/nesting-1.c: Likewise.  Add further #pragma omp sections
+	nesting tests.
+	* c-c++-common/gomp/sections1.c: New test.
+	* c-c++-common/gomp/single1.c: New test.
+	* c-c++-common/gomp/atomic-16.c: New test.
+
 2013-06-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/depend-1.C: New test.
