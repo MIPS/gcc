@@ -2827,102 +2827,84 @@ melt_put_int (melt_ptr_t v, long x)
 #if MELT_HAVE_CLASSY_FRAME
 #warning MELT have classy frames
 
-class Melt_CallFrame {
+class Melt_CallFrame;
+class Melt_CallProtoFrame {
   friend void melt_minor_copying_garbage_collector (size_t wanted);
   friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
   friend void melt_marking_callback (void *, void*);
   static Melt_CallFrame* _top_call_frame_;
+  virtual void melt_forward_values (void) =0;
+  virtual void melt_mark_ggc_data (void) =0;
+protected:
+  // this is tricky but essential; we need to explicitly zero the rest of the frame.
+  void melt_clear_rest_of_frame (size_t sz) {
+    if (sz > sizeof(Melt_CallProtoFrame))
+      memset ((Melt_CallProtoFrame*)this+1, 0, sz - sizeof(Melt_CallProtoFrame));
+  };
+  Melt_CallFrame* _meltcf_prev;
+public:
+  const char* mcfr_flocs;
+protected:
 #if MELT_HAVE_DEBUG
+  const char* _meltcf_dbgfile;
+  const long _meltcf_dbgline;
+  const long _meltcf_dbgserial;
   static FILE* _dbgcall_file_;
   static long _dbgcall_count_;
 #endif /*MELT_HAVE_DEBUG*/
-  virtual void melt_forward_values (void) =0;
-  virtual void melt_mark_ggc_data (void) =0;
-private:
-  // this is tricky but essential; we need to explicitly zero the rest of the frame.
-  void melt_clear_rest_of_frame (size_t sz) {
-    if (sz > sizeof(Melt_CallFrame))
-      memset ((Melt_CallFrame*)this+1, 0, sz - sizeof(Melt_CallFrame));
-  };
-protected:
-  Melt_CallFrame*_meltcf_prev;
-#if MELT_HAVE_DEBUG
-  const char* _meltcf_dbgfile;
-  const int _meltcf_dbgline;
-#endif /*MELT_HAVE_DEBUG*/
 public:
-  const char* mcfr_flocs;
-  union {
-    meltclosure_ptr_t mcfr_clos;
-    melthook_ptr_t mcfr_hook;
-    melt_ptr_t mcfr_current;
-  };
   static Melt_CallFrame* top_call_frame() { return _top_call_frame_; };
   Melt_CallFrame* previous_frame() const { return _meltcf_prev; };
   const char* srcloc() const { return mcfr_flocs; };
-  melt_ptr_t current() const { return mcfr_current; };
-  meltclosure_ptr_t current_closure() const { return meltcast_meltclosure_st (mcfr_current); };
-  melthook_ptr_t current_hook() const { return meltcast_melthook_st (mcfr_current); };
-protected:
+  void set_srcloc(const char*s) { mcfr_flocs = s; };
 #if MELT_HAVE_DEBUG
-  Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL) 
-    : _meltcf_prev (_top_call_frame_), 
-      _meltcf_dbgfile(file), _meltcf_dbgline(lin),
-      mcfr_flocs(NULL), mcfr_clos(clos) {
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      _dbgcall_count_++;
-      fprintf (_dbgcall_file_, "+ %s:%d #%ld Siz%d Clo%p\n", 
-	       file, lin, _dbgcall_count_, (int)sz, (void*)clos);
-      fflush (_dbgcall_file_);
-    }
+  Melt_CallProtoFrame(const char*file, int lin, size_t sz) 
+    : _meltcf_prev(_top_call_frame_), mcfr_flocs(NULL), 
+      _meltcf_dbgfile(file), _meltcf_dbgline(lin), _meltcf_dbgserial(++_dbgcall_count_) {
     melt_clear_rest_of_frame (sz);
-    _top_call_frame_ = this;
-  }
-  Melt_CallFrame(const char*file, int lin, size_t sz, melthook_ptr_t hook) 
-    : _meltcf_prev (_top_call_frame_), 
-      _meltcf_dbgfile(file), _meltcf_dbgline(lin),
-      mcfr_flocs(NULL), mcfr_hook(hook) {
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      _dbgcall_count_++;
-      fprintf (_dbgcall_file_, "+ %s:%d #%ld Siz%d Hook%p\n", 
-	       file, lin, _dbgcall_count_, (int)sz, (void*)hook);
-      fflush (_dbgcall_file_);
-    }
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+      {
+	fprintf (_dbgcall_file_, "+ %s:%d #%ld S%d\n", file, lin, _meltcf_dbgserial, (int)sz);
+	fflush (_dbgcall_file_);
+      }
+  };
+  Melt_CallProtoFrame(size_t sz) 
+    : _meltcf_prev(_top_call_frame_), mcfr_flocs(NULL), 
+      _meltcf_dbgfile(NULL), _meltcf_dbgline(0), _meltcf_dbgserial(++_dbgcall_count_) {
     melt_clear_rest_of_frame (sz);
-    _top_call_frame_ = this;
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+      {
+	fprintf (_dbgcall_file_, "+ * #%ld S%d\n", _meltcf_dbgserial, (int)sz);
+	fflush (_dbgcall_file_);
+      }
+  };
+  void debug_hook (melthook_ptr_t hk) {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+      {
+	if (hk) 
+	  {
+	    fprintf(_dbgcall_file_, "!Hook @%p %s\n", (void*)hk, hk->hookname);
+	    fflush (_dbgcall_file_);
+	  }
+      }
   }
-#endif /*MELT_HAVE_DEBUG*/
-  Melt_CallFrame(size_t sz, meltclosure_ptr_t clos=NULL) 
-    : _meltcf_prev (_top_call_frame_), 
-#if MELT_HAVE_DEBUG
-      _meltcf_dbgfile(0), _meltcf_dbgline(0),
-#endif /*MELT_HAVE_DEBUG*/
-      mcfr_flocs(NULL), mcfr_clos(clos) {
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      _dbgcall_count_++;
-      fprintf (_dbgcall_file_, "+ * #%ld Siz%d Clo%p\n", 
-	       _dbgcall_count_, (int)sz, (void*)clos);
-      fflush (_dbgcall_file_);
-    }
+  void debug_closure (meltclosure_ptr_t clo) {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+      {
+	if (clo && clo->rout) 
+	  {
+	    fprintf(_dbgcall_file_, "!Closure @%p %s\n", (void*) clo, clo->rout->routdescr);
+	    fflush (_dbgcall_file_);
+	  }
+      }
+  }
+#else /*!MELT_HAVE_DEBUG*/
+  Melt_CallProtoFrame(size_t sz) 
+    : _meltcf_prev(_top_call_frame_), mcfr_flocs(NULL) {
     melt_clear_rest_of_frame (sz);
-    _top_call_frame_ = this;
-  }
-  Melt_CallFrame(size_t sz, melthook_ptr_t hook) 
-    : _meltcf_prev (_top_call_frame_), 
-#if MELT_HAVE_DEBUG
-      _meltcf_dbgfile(0), _meltcf_dbgline(0),
-#endif /*MELT_HAVE_DEBUG*/
-      mcfr_flocs(NULL), mcfr_hook(hook) {
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      _dbgcall_count_++;
-      fprintf (_dbgcall_file_, "+ * #%ld Siz%d Hook%p\n", 
-	       _dbgcall_count_, (int)sz, (void*)hook);
-      fflush (_dbgcall_file_);
-    }
-    melt_clear_rest_of_frame (sz);
-    _top_call_frame_ = this;
-  }
-  ~Melt_CallFrame() { 
+  };
+#endif  /*MELT_HAVE_DEBUG*/
+  ~Melt_CallProtoFrame() {
 #if MELT_HAVE_DEBUG
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
       fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, _meltcf_dbgline);
@@ -2931,7 +2913,7 @@ protected:
 #endif /*MELT_HAVE_DEBUG*/
     mcfr_flocs = NULL; 
     _top_call_frame_ = _meltcf_prev; 
-  };
+  }
 #if MELT_HAVE_DEBUG
 public:
   static void set_debug_file(FILE*f) { 
@@ -2945,6 +2927,47 @@ public:
     _dbgcall_file_ = f;
   };
 #endif /*MELT_HAVE_DEBUG*/
+};				// end class Melt_CallProtoFrame
+
+
+class Melt_CallFrame : public Melt_CallProtoFrame {
+  friend void melt_minor_copying_garbage_collector (size_t wanted);
+  friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
+  friend void melt_marking_callback (void *, void*);
+public:
+  union {
+    meltclosure_ptr_t mcfr_clos;
+    melthook_ptr_t mcfr_hook;
+    melt_ptr_t mcfr_current;
+  };
+  melt_ptr_t current() const { return mcfr_current; };
+  meltclosure_ptr_t current_closure() const { return meltcast_meltclosure_st (mcfr_current); };
+  melthook_ptr_t current_hook() const { return meltcast_melthook_st (mcfr_current); };
+protected:
+#if MELT_HAVE_DEBUG
+  Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL) 
+    : Melt_CallProtoFrame(file,lin,sz), mcfr_clos(clos) {
+    debug_closure (clos);
+  };
+  Melt_CallFrame(const char*file, int lin, size_t sz, melthook_ptr_t hook)
+    : Melt_CallProtoFrame(file,lin,sz), mcfr_hook(hook) {
+    debug_hook (hook);
+  };
+  Melt_CallFrame(const char*file, int lin, size_t sz)
+    : Melt_CallProtoFrame(file,lin,sz), mcfr_current(NULL) {
+  };
+#endif /*MELT_HAVE_DEBUG*/
+  Melt_CallFrame(size_t sz, meltclosure_ptr_t clos) 
+    : Melt_CallProtoFrame(sz), mcfr_clos(clos) {
+  };
+  Melt_CallFrame(size_t sz, melthook_ptr_t hook) 
+    : Melt_CallProtoFrame(sz), mcfr_hook(hook) {
+  };
+  Melt_CallFrame(size_t sz) 
+    : Melt_CallProtoFrame(sz), mcfr_current(NULL) {
+  };
+  ~Melt_CallFrame() { 
+  };
 };				// end class Melt_CallFrame.
 
 template<unsigned NbVal> class Melt_CallFrameWithValues 

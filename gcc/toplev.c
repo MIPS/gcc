@@ -1131,6 +1131,9 @@ general_init (const char *argv0)
   global_dc->option_state = &global_options;
   global_dc->option_name = option_name;
 
+
+  /* MELT don't like the signal handling; using GDB is simpler */
+#if !ENABLE_CHECKING
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
   signal (SIGSEGV, crash_signal);
@@ -1153,6 +1156,9 @@ general_init (const char *argv0)
 
   /* Other host-specific signal setup.  */
   (*host_hooks.extra_signals)();
+#else
+#warning MELT removed signal handling in toplev.c
+#endif /*!ENABLE_CHECKING*/
 
   /* Initialize the garbage-collector, string pools and tree type hash
      table.  */

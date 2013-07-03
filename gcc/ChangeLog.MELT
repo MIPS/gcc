@@ -2,6 +2,20 @@
 
 2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallProtoFrame): New class, dealing with
+	debugging and with linking frames.
+	(Melt_CallFrame): Use it.
+
+	* melt-runtime.c: Likewise.
+
+	* toplev.c (general_init): When ENABLE_CHECKING remove the signal
+	handlers.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init): Emit
+	file and line information for frames in debugging mode.
+
+2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (Melt_CallFrame): Declare _dbgcall_count_ when
 	debugging and use it.
 	* melt-runtime.c (Melt_CallFrame::_dbgcall_count_): Define.
