@@ -1,6 +1,13 @@
 
 2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallFrameWithValues::melt_forward_values):
+	Also forward the current value, that is the hook or closure.
+	(Melt_CallFrameWithValues::melt_mark_values):
+	Also mark the current value, that is the hook or closure.
+
+2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-outobj.melt (output_curframe_declstruct): Emit
 	constructor with file & line arguments when debugging.
 

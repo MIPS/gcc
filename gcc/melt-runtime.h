@@ -2975,10 +2975,13 @@ template<unsigned NbVal> class Melt_CallFrameWithValues
 public:
   melt_ptr_t mcfr_varptr[NbVal];
   virtual void melt_forward_values (void) { 
+    MELT_FORWARDED (mcfr_current);
     for (unsigned ix=0; ix<NbVal; ix++)
-      MELT_FORWARDED(mcfr_varptr[ix]);
+      MELT_FORWARDED (mcfr_varptr[ix]);
   };
   void melt_mark_values (void) {
+    if (mcfr_current)
+      gt_ggc_mx_melt_un (mcfr_current);
     for (unsigned ix=0; ix<NbVal; ix++)
       if (mcfr_varptr[ix] != NULL)
 	gt_ggc_mx_melt_un (mcfr_varptr[ix]);
