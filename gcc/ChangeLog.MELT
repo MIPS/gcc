@@ -1,6 +1,13 @@
 
 2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallProtoFrame): Use the basename of the
+	file name.
+
+	* melt/warmelt-first.melt (hook_intern_symbol): Add debugeprintf.
+
+2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (Melt_CallProtoFrame::_top_call_frame_): Replaced
 	by global melt_top_call_frame.
 	(Melt_CallFrameWithValues): Ensure mcfr_varptr has at least one

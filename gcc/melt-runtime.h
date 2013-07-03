@@ -2865,11 +2865,12 @@ public:
   long dbg_serial() const { return _meltcf_dbgserial; };
   Melt_CallProtoFrame(const char*file, int lin, size_t sz) 
     : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL), 
-      _meltcf_dbgfile(file), _meltcf_dbgline(lin), _meltcf_dbgserial(++_dbgcall_count_) {
+      _meltcf_dbgfile (melt_basename (file)), _meltcf_dbgline(lin), 
+      _meltcf_dbgserial(++_dbgcall_count_) {
     melt_clear_rest_of_frame (sz);
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
       {
-	fprintf (_dbgcall_file_, "+ %s:%d #%ld S%d\n", file, lin, _meltcf_dbgserial, (int)sz);
+	fprintf (_dbgcall_file_, "+ %s:%d #%ld S%d\n", _meltcf_dbgfile, lin, _meltcf_dbgserial, (int)sz);
 	fflush (_dbgcall_file_);
       }
     melt_top_call_frame = this;

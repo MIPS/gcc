@@ -4409,6 +4409,17 @@ $CREATE is true i.e. non zero.}#
 	(if (is_object oldsy)
 	    (setq symbv oldsy)
 	  (mapstring_putstr sydict syname symbv))
+	(code_chunk 
+	 dbgintern_chk
+	 #{ /* hook_intern_symbol $DBGINTERN_CHK */
+#if MELT_HAVE_DEBUG
+	 static long count;
+	 count++;
+	 debugeprintf ("@+hook_intern_symbol #%ld name '%s' @%p H%x", 
+		      count, melt_string_str((melt_ptr_t)$SYNAME), 
+		      (void*)$SYMBV, melt_obj_hash ((melt_ptr_t) $SYMBV));
+#endif /*MELT_HAVE_DEBUG*/
+	 }#)
 	(return symbv))
     (return ())))	    
 
