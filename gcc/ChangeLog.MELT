@@ -1,5 +1,11 @@
 
 
+2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (Melt_CallFrame): Declare _dbgcall_count_ when
+	debugging and use it.
+	* melt-runtime.c (Melt_CallFrame::_dbgcall_count_): Define.
+
 2013-07-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (Melt_CallFrame): Improve debugging constructors.

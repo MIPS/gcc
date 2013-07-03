@@ -380,6 +380,7 @@ static struct meltextinfovec_st {
 Melt_CallFrame* Melt_CallFrame::_top_call_frame_ =NULL;
 #if MELT_HAVE_DEBUG
 FILE* Melt_CallFrame::_dbgcall_file_ = NULL;
+long Melt_CallFrame::_dbgcall_count_ = 0L;
 #endif /*MELT_HAVE_DEBUG*/
 #else /* ! MELT_HAVE_CLASSY_FRAME */
 struct melt_callframe_st* melt_topframe =NULL;

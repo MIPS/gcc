@@ -2834,6 +2834,7 @@ class Melt_CallFrame {
   static Melt_CallFrame* _top_call_frame_;
 #if MELT_HAVE_DEBUG
   static FILE* _dbgcall_file_;
+  static long _dbgcall_count_;
 #endif /*MELT_HAVE_DEBUG*/
   virtual void melt_forward_values (void) =0;
   virtual void melt_mark_ggc_data (void) =0;
@@ -2869,7 +2870,9 @@ protected:
       _meltcf_dbgfile(file), _meltcf_dbgline(lin),
       mcfr_flocs(NULL), mcfr_clos(clos) {
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file_, "+ %s:%d Siz%d Clo%p\n", file, lin, (int)sz, (void*)clos);
+      _dbgcall_count_++;
+      fprintf (_dbgcall_file_, "+ %s:%d #%ld Siz%d Clo%p\n", 
+	       file, lin, _dbgcall_count_, (int)sz, (void*)clos);
       fflush (_dbgcall_file_);
     }
     melt_clear_rest_of_frame (sz);
@@ -2880,7 +2883,9 @@ protected:
       _meltcf_dbgfile(file), _meltcf_dbgline(lin),
       mcfr_flocs(NULL), mcfr_hook(hook) {
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file_, "+ %s:%d Siz%d Hook%p\n", file, lin, (int)sz, (void*)hook);
+      _dbgcall_count_++;
+      fprintf (_dbgcall_file_, "+ %s:%d #%ld Siz%d Hook%p\n", 
+	       file, lin, _dbgcall_count_, (int)sz, (void*)hook);
       fflush (_dbgcall_file_);
     }
     melt_clear_rest_of_frame (sz);
@@ -2894,7 +2899,9 @@ protected:
 #endif /*MELT_HAVE_DEBUG*/
       mcfr_flocs(NULL), mcfr_clos(clos) {
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file_, "+ * Siz%d Clo%p\n", (int)sz, (void*)clos);
+      _dbgcall_count_++;
+      fprintf (_dbgcall_file_, "+ * #%ld Siz%d Clo%p\n", 
+	       _dbgcall_count_, (int)sz, (void*)clos);
       fflush (_dbgcall_file_);
     }
     melt_clear_rest_of_frame (sz);
@@ -2907,7 +2914,9 @@ protected:
 #endif /*MELT_HAVE_DEBUG*/
       mcfr_flocs(NULL), mcfr_hook(hook) {
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file_, "+ * Siz%d Hook%p\n", (int)sz, (void*)hook);
+      _dbgcall_count_++;
+      fprintf (_dbgcall_file_, "+ * #%ld Siz%d Hook%p\n", 
+	       _dbgcall_count_, (int)sz, (void*)hook);
       fflush (_dbgcall_file_);
     }
     melt_clear_rest_of_frame (sz);
@@ -2929,7 +2938,7 @@ public:
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
       fflush (_dbgcall_file_);
       if (f == NULL) {
-	fprintf (_dbgcall_file_, "#eof\n");
+	fprintf (_dbgcall_file_, "#eof #%ld\n", _dbgcall_count_);
 	fclose (_dbgcall_file_);
       }
     }
