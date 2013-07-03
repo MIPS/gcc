@@ -377,7 +377,7 @@ static struct meltextinfovec_st {
 
 
 #if MELT_HAVE_CLASSY_FRAME
-Melt_CallFrame* Melt_CallProtoFrame::_top_call_frame_ =NULL;
+Melt_CallProtoFrame* melt_top_call_frame =NULL;
 #if MELT_HAVE_DEBUG
 FILE* Melt_CallProtoFrame::_dbgcall_file_ = NULL;
 long Melt_CallProtoFrame::_dbgcall_count_ = 0L;
@@ -1334,9 +1334,9 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
     }
   ///////
 #if MELT_HAVE_CLASSY_FRAME
-  for (Melt_CallFrame *mcf = Melt_CallFrame::_top_call_frame_;
+  for (Melt_CallFrame *mcf = (Melt_CallFrame*)melt_top_call_frame;
        mcf != NULL;
-       mcf = mcf->_meltcf_prev)
+       mcf = (Melt_CallFrame*)mcf->_meltcf_prev)
     {
       mcf->melt_mark_ggc_data ();
       if (mcf->current())
@@ -1504,13 +1504,16 @@ melt_minor_copying_garbage_collector (size_t wanted)
 
   /* Forward the MELT frames */
 #if MELT_HAVE_CLASSY_FRAME
-  for (Melt_CallFrame *cfr = Melt_CallFrame::_top_call_frame_;
+#warning MELT minor GC forwarding classy frames
+  melt_debuggc_eprintf ("melt_minor_copying_garbage_collector all classy frames top @%p", 
+			(void*) melt_top_call_frame);
+  for (Melt_CallProtoFrame *cfr = melt_top_call_frame;
        cfr != NULL;
        cfr = cfr->_meltcf_prev)
     {
       melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwardingclassyframe %p", (void*)cfr);
       cfr->melt_forward_values ();
-      MELT_FORWARDED(cfr->mcfr_current);
+      melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwardedclassyframe %p", (void*)cfr);
     };
 #else /*!MELT_HAVE_CLASSY_FRAME*/
   for (struct melt_callframe_st *cfram = melt_topframe; 
@@ -3102,7 +3105,7 @@ end:
   MELT_EXITFRAME ();
   return (melt_ptr_t) newmul;
 #undef newmul
-#undef discr
+#undef discrv
 #undef mult_newmul
 #undef object_discrv
 }
@@ -11533,9 +11536,9 @@ melt_dbgbacktrace (int depth)
   fprintf (stderr, "    <{\n");
 #if MELT_HAVE_CLASSY_FRAME
   Melt_CallFrame *cfr = NULL;
-  for (cfr = Melt_CallFrame::top_call_frame(); 
+  for (cfr = (Melt_CallFrame*)melt_top_call_frame; 
        cfr != NULL & curdepth < depth;
-       (cfr = cfr->previous_frame()), (curdepth++))
+       (cfr = (Melt_CallFrame*)cfr->previous_frame()), (curdepth++))
     {
       const char* sloc = cfr->srcloc();
       fprintf (stderr, "frame#%d current:", curdepth);
@@ -11555,7 +11558,7 @@ melt_dbgbacktrace (int depth)
     }
   for (totdepth = curdepth; 
        cfr != NULL; 
-       cfr = cfr->previous_frame()) 
+       cfr = (Melt_CallFrame*)cfr->previous_frame()) 
     totdepth++;
 #else /*!MELT_HAVE_CLASSY_FRAME*/
   struct melt_callframe_st *fr = NULL;
@@ -11593,9 +11596,9 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
            msg ? msg : "/");
 #if MELT_HAVE_CLASSY_FRAME
   Melt_CallFrame *cfr = NULL;
-  for (cfr = Melt_CallFrame::top_call_frame();
+  for (cfr = (Melt_CallFrame*)melt_top_call_frame;
        cfr != NULL && curdepth < maxdepth;
-       (cfr = cfr->previous_frame()), (curdepth++))
+       (cfr = (Melt_CallFrame*)cfr->previous_frame()), (curdepth++))
     {
       fputs ("\n", stderr);
       fprintf (stderr, "#%d:", curdepth);

@@ -1,6 +1,17 @@
 
 2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallProtoFrame::_top_call_frame_): Replaced
+	by global melt_top_call_frame.
+	(Melt_CallFrameWithValues): Ensure mcfr_varptr has at least one
+	cell, even for empty frames. Add debuggc messages.
+	(melt_curframdepth): Use melt_top_call_frame.
+	* melt-runtime.c (melt_top_call_frame): Declare.
+	(melt_marking_callback, melt_minor_copying_garbage_collector)
+	(melt_dbgbacktrace, melt_dbgshortbacktrace): Use it.
+
+2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (Melt_CallFrameWithValues::melt_forward_values):
 	Also forward the current value, that is the hook or closure.
 	(Melt_CallFrameWithValues::melt_mark_values):

@@ -2828,11 +2828,13 @@ melt_put_int (melt_ptr_t v, long x)
 #warning MELT have classy frames
 
 class Melt_CallFrame;
+class Melt_CallProtoFrame;
+MELT_EXTERN Melt_CallProtoFrame* melt_top_call_frame;
+
 class Melt_CallProtoFrame {
   friend void melt_minor_copying_garbage_collector (size_t wanted);
   friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
   friend void melt_marking_callback (void *, void*);
-  static Melt_CallFrame* _top_call_frame_;
   virtual void melt_forward_values (void) =0;
   virtual void melt_mark_ggc_data (void) =0;
 protected:
@@ -2841,7 +2843,7 @@ protected:
     if (sz > sizeof(Melt_CallProtoFrame))
       memset ((Melt_CallProtoFrame*)this+1, 0, sz - sizeof(Melt_CallProtoFrame));
   };
-  Melt_CallFrame* _meltcf_prev;
+  Melt_CallProtoFrame* _meltcf_prev;
 public:
   const char* mcfr_flocs;
 protected:
@@ -2853,13 +2855,16 @@ protected:
   static long _dbgcall_count_;
 #endif /*MELT_HAVE_DEBUG*/
 public:
-  static Melt_CallFrame* top_call_frame() { return _top_call_frame_; };
-  Melt_CallFrame* previous_frame() const { return _meltcf_prev; };
+  static Melt_CallProtoFrame* top_call_frame() { return melt_top_call_frame; };
+  Melt_CallProtoFrame* previous_frame() { return _meltcf_prev; };
   const char* srcloc() const { return mcfr_flocs; };
   void set_srcloc(const char*s) { mcfr_flocs = s; };
 #if MELT_HAVE_DEBUG
+  const char* dbg_file() const { return _meltcf_dbgfile; };
+  long dbg_line() const { return  _meltcf_dbgline; };
+  long dbg_serial() const { return _meltcf_dbgserial; };
   Melt_CallProtoFrame(const char*file, int lin, size_t sz) 
-    : _meltcf_prev(_top_call_frame_), mcfr_flocs(NULL), 
+    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL), 
       _meltcf_dbgfile(file), _meltcf_dbgline(lin), _meltcf_dbgserial(++_dbgcall_count_) {
     melt_clear_rest_of_frame (sz);
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
@@ -2867,9 +2872,10 @@ public:
 	fprintf (_dbgcall_file_, "+ %s:%d #%ld S%d\n", file, lin, _meltcf_dbgserial, (int)sz);
 	fflush (_dbgcall_file_);
       }
+    melt_top_call_frame = this;
   };
   Melt_CallProtoFrame(size_t sz) 
-    : _meltcf_prev(_top_call_frame_), mcfr_flocs(NULL), 
+    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL), 
       _meltcf_dbgfile(NULL), _meltcf_dbgline(0), _meltcf_dbgserial(++_dbgcall_count_) {
     melt_clear_rest_of_frame (sz);
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
@@ -2877,6 +2883,7 @@ public:
 	fprintf (_dbgcall_file_, "+ * #%ld S%d\n", _meltcf_dbgserial, (int)sz);
 	fflush (_dbgcall_file_);
       }
+    melt_top_call_frame = this;
   };
   void debug_hook (melthook_ptr_t hk) {
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
@@ -2900,8 +2907,9 @@ public:
   }
 #else /*!MELT_HAVE_DEBUG*/
   Melt_CallProtoFrame(size_t sz) 
-    : _meltcf_prev(_top_call_frame_), mcfr_flocs(NULL) {
+    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL) {
     melt_clear_rest_of_frame (sz);
+    melt_top_call_frame = this;
   };
 #endif  /*MELT_HAVE_DEBUG*/
   ~Melt_CallProtoFrame() {
@@ -2912,7 +2920,7 @@ public:
     }
 #endif /*MELT_HAVE_DEBUG*/
     mcfr_flocs = NULL; 
-    _top_call_frame_ = _meltcf_prev; 
+    melt_top_call_frame = _meltcf_prev; 
   }
 #if MELT_HAVE_DEBUG
 public:
@@ -2973,8 +2981,17 @@ protected:
 template<unsigned NbVal> class Melt_CallFrameWithValues 
   : public Melt_CallFrame {
 public:
-  melt_ptr_t mcfr_varptr[NbVal];
-  virtual void melt_forward_values (void) { 
+  melt_ptr_t mcfr_varptr[(NbVal>0)?NbVal:1];
+  virtual void melt_forward_values (void) 
+  { 
+#if MELT_HAVE_DEBUG
+    if (dbg_file())
+      melt_debuggc_eprintf("forwarding %d values call frame @%p from %s:%ld #%ld", 
+			   NbVal, (void*) this, dbg_file(), dbg_line(), dbg_serial());
+    else 
+      melt_debuggc_eprintf("forwarding %d values call frame @%p #%ld", 
+			   NbVal, (void*) this, dbg_serial());
+#endif /*MELT_HAVE_DEBUG*/
     MELT_FORWARDED (mcfr_current);
     for (unsigned ix=0; ix<NbVal; ix++)
       MELT_FORWARDED (mcfr_varptr[ix]);
@@ -3041,7 +3058,7 @@ public:
 static inline int 
 melt_curframdepth (void) {
   int cnt = 0;
-  for (Melt_CallFrame* cfr = Melt_CallFrame::top_call_frame();
+  for (Melt_CallProtoFrame* cfr = Melt_CallFrame::top_call_frame();
        cfr != NULL;
        cfr=cfr->previous_frame()) 
     cnt++;
