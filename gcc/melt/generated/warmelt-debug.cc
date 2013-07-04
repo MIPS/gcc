@@ -7283,6 +7283,7 @@ meltlabend_rout:
 #endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2584*/
     {
         /* return out of initial fromline 2586 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        debugeprintf ("returning @%p from initial routine of warmelt-debug", (void*)retval); /*fromline 2594*/
         return retval;
     }
 #undef meltcallcount
@@ -7290,7 +7291,7 @@ meltlabend_rout:
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
 
-} /* end fromline 2604 */
+} /* end fromline 2607 */
 
 void meltmod__WARMELTmiDEBUG__initialmeltchunk_0 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
 {
@@ -12706,9 +12707,9 @@ void meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t* meltmeltf
 #undef meltfram__
 } /*end of meltmod__WARMELTmiDEBUG__initialmeltchunk_6*/
 
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2647*/
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2654*/
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2657*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2650*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2657*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2660*/
 void meltmod__WARMELTmiDEBUG__forward_or_mark_module_start_frame (struct melt_callframe_st* fp, int marking)
 {
     int meltix=0;
@@ -12726,7 +12727,7 @@ void meltmod__WARMELTmiDEBUG__forward_or_mark_module_start_frame (struct melt_ca
             gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
 
 } /* end meltmod__WARMELTmiDEBUG__forward_or_mark_module_start_frame */
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2701*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2704*/
 
 
 
