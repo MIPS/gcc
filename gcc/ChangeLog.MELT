@@ -1,4 +1,12 @@
 
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (hook_intern_symbol): More debug.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init)
+	(outpucod_initialmoduleroutine): Emit clear of meltfram__ only
+	without classy frames.
+
 2013-07-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

@@ -2017,7 +2017,11 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       )
      )
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf "  memset(&meltfram__, 0, sizeof(meltfram__));")
+    (add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME /*fromline " (this_line) "*/")
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "  memset(&meltfram__, 0, sizeof(meltfram__));")
+    (add2sbuf_indentnl implbuf 0)
+    (add2out implbuf "#endif /*MELT_HAVE_CLASSY_FRAME*/")
     (add2sbuf_indentnl implbuf 0)
     (cond 
      (isinitial
@@ -2579,15 +2583,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(add2sbuf_indentnl implbuf 0)
 	(add2out implbuf "#endif /*!MELT_HAVE_CLASSY_FRAME*/" " /*fromline " (this_line) "*/")
 	(add2sbuf_indentnl implbuf 0)
-	(add2sbuf_strconst implbuf "{ /* clear initial frame & return */")
+	(add2out implbuf "{ /* return out of initial fromline " (this_line) " */")
 	(add2sbuf_strconst implbuf " melt_ptr_t retval = ")
 	(if oretval 
 	    (output_c_code oretval declbuf implbuf 1)
 	  (add2sbuf_strconst implbuf "/*noretval*/ NULL"))
 	(add2sbuf_strconst implbuf ";")
-	(add2sbuf_indentnl implbuf 1)
-	(add2sbuf_strconst implbuf " memset((void*) &meltfram__, 0, sizeof(meltfram__));")
-	(add2sbuf_indentnl implbuf 1)
+	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf " return retval;}")
 	(add2sbuf_indentnl implbuf 1)
 	(add2sbuf_strconst implbuf "#undef meltcallcount")
@@ -2599,7 +2601,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(add2sbuf_strconst implbuf "#undef MELTFRAM_NBVARPTR")
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_indentnl implbuf 0)
-	(add2sbuf_strconst implbuf "} /* end  */")
+	(add2out implbuf "} /* end fromline " (this_line) " */")
 	(add2sbuf_indentnl implbuf 0)
 	;; output the implementation of each chunk
 	(foreach_in_multiple

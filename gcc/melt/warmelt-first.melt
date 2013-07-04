@@ -4414,9 +4414,10 @@ $CREATE is true i.e. non zero.}#
 	 #{ /* hook_intern_symbol $DBGINTERN_CHK */
 #if MELT_HAVE_DEBUG
 	 static long count;
+         const char* namestr = melt_string_str((melt_ptr_t)$SYNAME);
 	 count++;
 	 debugeprintf ("@+hook_intern_symbol #%ld name '%s' @%p H%x", 
-		      count, melt_string_str((melt_ptr_t)$SYNAME), 
+		      count, namestr, 
 		      (void*)$SYMBV, melt_obj_hash ((melt_ptr_t) $SYMBV));
 #endif /*MELT_HAVE_DEBUG*/
 	 }#)
