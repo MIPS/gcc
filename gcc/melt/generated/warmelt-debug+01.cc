@@ -318,15 +318,15 @@ melt_ptr_t MELT_MODULE_VISIBILITY meltrout_52_WARMELTmiDEBUG_DISPLAY_DEBUG_MESSA
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2347*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2350*/
 struct melt_initial_frame_st; /*forward declaration of initial frame*/
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2351*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2354*/
 /*declare opaque initial frame: */
-#if MELT_HAVE_CLASSY_FRAME /*fromline 2356*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 2359*/
 typedef class Melt_InitialFrame /*opaqueinitialclassy*/ meltinitial_frame_t;
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2360*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2363*/
 typedef struct melt_initial_frame_st meltinitial_frame_t;
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2364*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2367*/
 
 
 /* define different names when debugging or not */
@@ -494,22 +494,22 @@ meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN */ MeltFrame_meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN */ struct meltframe_meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -540,7 +540,7 @@ meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
             if (meltframptr_->loc_LOOP__o12) gt_ggc_mx_loop (meltframptr_->loc_LOOP__o12);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN nbval 68*/
@@ -548,7 +548,7 @@ meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("MELT_DEBUG_FUN", meltcallcount);
     /*getargs*/
 
@@ -3026,9 +3026,9 @@ meltlabexit_ARGLOOP_1:;/*^loopepilog*/
 meltlabend_rout:
     melt_trace_end("MELT_DEBUG_FUN", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_8_WARMELTmiDEBUG_MELT_DEBUG_FUN_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef melt_variadic_length
 #undef melt_variadic_index
@@ -3127,22 +3127,22 @@ meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT(meltclosure_ptr_t meltclosp_, melt_ptr_t
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT */ MeltFrame_meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT */ struct meltframe_meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -3162,7 +3162,7 @@ meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT(meltclosure_ptr_t meltclosp_, melt_ptr_t
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT nbval 15*/
@@ -3170,7 +3170,7 @@ meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT(meltclosure_ptr_t meltclosp_, melt_ptr_t
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBG_OUTOBJECT", meltcallcount);
     /*getargs*/
 
@@ -3455,9 +3455,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBG_OUTOBJECT", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_9_WARMELTmiDEBUG_DBG_OUTOBJECT_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3553,22 +3553,22 @@ meltrout_10_WARMELTmiDEBUG_DBG_OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_10_WARMELTmiDEBUG_DBG_OUT */ MeltFrame_meltrout_10_WARMELTmiDEBUG_DBG_OUT
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_10_WARMELTmiDEBUG_DBG_OUT */ struct meltframe_meltrout_10_WARMELTmiDEBUG_DBG_OUT_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_10_WARMELTmiDEBUG_DBG_OUT fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_10_WARMELTmiDEBUG_DBG_OUT fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_10_WARMELTmiDEBUG_DBG_OUT is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -3588,7 +3588,7 @@ meltrout_10_WARMELTmiDEBUG_DBG_OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_10_WARMELTmiDEBUG_DBG_OUT nbval 17*/
@@ -3596,7 +3596,7 @@ meltrout_10_WARMELTmiDEBUG_DBG_OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t melt
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBG_OUT", meltcallcount);
     /*getargs*/
 
@@ -3969,9 +3969,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBG_OUT", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_10_WARMELTmiDEBUG_DBG_OUT_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -4067,22 +4067,22 @@ meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(meltclosure_ptr_t meltclosp_, melt_ptr_
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS */ MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS */ struct meltframe_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -4102,7 +4102,7 @@ meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(meltclosure_ptr_t meltclosp_, melt_ptr_
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS nbval 21*/
@@ -4110,7 +4110,7 @@ meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(meltclosure_ptr_t meltclosp_, melt_ptr_
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_FIELDS", meltcallcount);
     /*getargs*/
 
@@ -4908,9 +4908,9 @@ meltlabexit_FLDLOOP_1:;/*^loopepilog*/
 meltlabend_rout:
     melt_trace_end("DBGOUT_FIELDS", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -5006,22 +5006,22 @@ meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS(meltclosure_ptr_t meltclosp_, melt
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS */ MeltFrame_meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS */ struct meltframe_meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -5041,7 +5041,7 @@ meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS(meltclosure_ptr_t meltclosp_, melt
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS nbval 21*/
@@ -5049,7 +5049,7 @@ meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS(meltclosure_ptr_t meltclosp_, melt
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUTAGAIN_FIELDS", meltcallcount);
     /*getargs*/
 
@@ -5672,9 +5672,9 @@ meltlabexit_FLDLOOP_2:;/*^loopepilog*/
 meltlabend_rout:
     melt_trace_end("DBGOUTAGAIN_FIELDS", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_12_WARMELTmiDEBUG_DBGOUTAGAIN_FIELDS_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -5770,22 +5770,22 @@ meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD(meltclosure_ptr_t meltclosp_, melt
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD */ MeltFrame_meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD */ struct meltframe_meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -5805,7 +5805,7 @@ meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD(meltclosure_ptr_t meltclosp_, melt
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD nbval 4*/
@@ -5813,7 +5813,7 @@ meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD(meltclosure_ptr_t meltclosp_, melt
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_NULL_METHOD", meltcallcount);
     /*getargs*/
 
@@ -5869,9 +5869,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_NULL_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_13_WARMELTmiDEBUG_DBGOUT_NULL_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -5967,22 +5967,22 @@ meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD(meltclosure_ptr_t meltclosp_, me
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD */ MeltFrame_meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD */ struct meltframe_meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -6002,7 +6002,7 @@ meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD(meltclosure_ptr_t meltclosp_, me
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD nbval 8*/
@@ -6010,7 +6010,7 @@ meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD(meltclosure_ptr_t meltclosp_, me
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_STRING_METHOD", meltcallcount);
     /*getargs*/
 
@@ -6432,9 +6432,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_STRING_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_14_WARMELTmiDEBUG_DBGOUT_STRING_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -6530,22 +6530,22 @@ meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD(meltclosure_ptr_t meltclosp_, me
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD */ MeltFrame_meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD */ struct meltframe_meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -6565,7 +6565,7 @@ meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD(meltclosure_ptr_t meltclosp_, me
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD nbval 12*/
@@ -6573,7 +6573,7 @@ meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD(meltclosure_ptr_t meltclosp_, me
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_STRBUF_METHOD", meltcallcount);
     /*getargs*/
 
@@ -7039,9 +7039,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_STRBUF_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_15_WARMELTmiDEBUG_DBGOUT_STRBUF_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -7137,22 +7137,22 @@ meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD(meltclosure_ptr_t meltclosp_, m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD */ MeltFrame_meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD */ struct meltframe_meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -7172,7 +7172,7 @@ meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD(meltclosure_ptr_t meltclosp_, m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD nbval 12*/
@@ -7180,7 +7180,7 @@ meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD(meltclosure_ptr_t meltclosp_, m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_INTEGER_METHOD", meltcallcount);
     /*getargs*/
 
@@ -7533,9 +7533,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_INTEGER_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_16_WARMELTmiDEBUG_DBGOUT_INTEGER_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -7631,22 +7631,22 @@ meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD(meltclosure_ptr_t meltclosp_, me
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD */ MeltFrame_meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD */ struct meltframe_meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -7666,7 +7666,7 @@ meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD(meltclosure_ptr_t meltclosp_, me
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD nbval 13*/
@@ -7674,7 +7674,7 @@ meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD(meltclosure_ptr_t meltclosp_, me
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_MIXINT_METHOD", meltcallcount);
     /*getargs*/
 
@@ -8064,9 +8064,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_MIXINT_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_17_WARMELTmiDEBUG_DBGOUT_MIXINT_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -8162,22 +8162,22 @@ meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD(meltclosure_ptr_t meltclosp_, me
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD */ MeltFrame_meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD */ struct meltframe_meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -8197,7 +8197,7 @@ meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD(meltclosure_ptr_t meltclosp_, me
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD nbval 11*/
@@ -8205,7 +8205,7 @@ meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD(meltclosure_ptr_t meltclosp_, me
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_MIXLOC_METHOD", meltcallcount);
     /*getargs*/
 
@@ -8633,9 +8633,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_MIXLOC_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_18_WARMELTmiDEBUG_DBGOUT_MIXLOC_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -8731,22 +8731,22 @@ meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD(meltclosure_ptr_t meltclosp_,
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD */ MeltFrame_meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD */ struct meltframe_meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -8766,7 +8766,7 @@ meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD(meltclosure_ptr_t meltclosp_,
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD nbval 13*/
@@ -8774,7 +8774,7 @@ meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD(meltclosure_ptr_t meltclosp_,
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_MIXBIGINT_METHOD", meltcallcount);
     /*getargs*/
 
@@ -9141,9 +9141,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_MIXBIGINT_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_19_WARMELTmiDEBUG_DBGOUT_MIXBIGINT_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -9239,22 +9239,22 @@ meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD(meltclosure_ptr_t meltclosp_, 
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD */ MeltFrame_meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD */ struct meltframe_meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -9274,7 +9274,7 @@ meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD(meltclosure_ptr_t meltclosp_, 
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD nbval 10*/
@@ -9282,7 +9282,7 @@ meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD(meltclosure_ptr_t meltclosp_, 
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_MULTIPLE_METHOD", meltcallcount);
     /*getargs*/
 
@@ -9791,9 +9791,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_MULTIPLE_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_20_WARMELTmiDEBUG_DBGOUT_MULTIPLE_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -9889,22 +9889,22 @@ meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD(meltclosure_ptr_t meltclosp_, m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD */ MeltFrame_meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD */ struct meltframe_meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -9924,7 +9924,7 @@ meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD(meltclosure_ptr_t meltclosp_, m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD nbval 13*/
@@ -9932,7 +9932,7 @@ meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD(meltclosure_ptr_t meltclosp_, m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_ROUTINE_METHOD", meltcallcount);
     /*getargs*/
 
@@ -10244,9 +10244,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_ROUTINE_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_21_WARMELTmiDEBUG_DBGOUT_ROUTINE_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -10342,22 +10342,22 @@ meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1 */ MeltFrame_meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1 */ struct meltframe_meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1 fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1 fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -10377,7 +10377,7 @@ meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1 nbval 3*/
@@ -10385,7 +10385,7 @@ meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("LAMBDA_cl1", meltcallcount);
     /*getargs*/
 
@@ -10468,9 +10468,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("LAMBDA_cl1", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_22_WARMELTmiDEBUG_LAMBDA_cl1_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -10566,22 +10566,22 @@ meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD(meltclosure_ptr_t meltclosp_, melt
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD */ MeltFrame_meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD */ struct meltframe_meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -10601,7 +10601,7 @@ meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD(meltclosure_ptr_t meltclosp_, melt
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD nbval 19*/
@@ -10609,7 +10609,7 @@ meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD(meltclosure_ptr_t meltclosp_, melt
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_HOOK_METHOD", meltcallcount);
     /*getargs*/
 
@@ -10968,9 +10968,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_HOOK_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_23_WARMELTmiDEBUG_DBGOUT_HOOK_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -11066,22 +11066,22 @@ meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2 */ MeltFrame_meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2 */ struct meltframe_meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2 fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2 fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -11101,7 +11101,7 @@ meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2 nbval 4*/
@@ -11109,7 +11109,7 @@ meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("LAMBDA_cl2", meltcallcount);
     /*getargs*/
 
@@ -11211,9 +11211,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("LAMBDA_cl2", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_24_WARMELTmiDEBUG_LAMBDA_cl2_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -11309,22 +11309,22 @@ meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD(meltclosure_ptr_t meltclosp_, m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD */ MeltFrame_meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD */ struct meltframe_meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -11344,7 +11344,7 @@ meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD(meltclosure_ptr_t meltclosp_, m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD nbval 21*/
@@ -11352,7 +11352,7 @@ meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD(meltclosure_ptr_t meltclosp_, m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_CLOSURE_METHOD", meltcallcount);
     /*getargs*/
 
@@ -11979,9 +11979,9 @@ meltlabexit_OUTLOOP_1:;/*^loopepilog*/
 meltlabend_rout:
     melt_trace_end("DBGOUT_CLOSURE_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_25_WARMELTmiDEBUG_DBGOUT_CLOSURE_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -12077,22 +12077,22 @@ meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD(meltclosure_ptr_t meltclosp_, melt
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD */ MeltFrame_meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD */ struct meltframe_meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -12112,7 +12112,7 @@ meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD(meltclosure_ptr_t meltclosp_, melt
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD nbval 19*/
@@ -12120,7 +12120,7 @@ meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD(meltclosure_ptr_t meltclosp_, melt
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_LIST_METHOD", meltcallcount);
     /*getargs*/
 
@@ -12781,9 +12781,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_LIST_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_26_WARMELTmiDEBUG_DBGOUT_LIST_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -12879,22 +12879,22 @@ meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD(meltclosure_ptr_t meltclosp_, melt
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD */ MeltFrame_meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD */ struct meltframe_meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -12914,7 +12914,7 @@ meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD(meltclosure_ptr_t meltclosp_, melt
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD nbval 15*/
@@ -12922,7 +12922,7 @@ meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD(meltclosure_ptr_t meltclosp_, melt
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_PAIR_METHOD", meltcallcount);
     /*getargs*/
 
@@ -13314,9 +13314,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_PAIR_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_27_WARMELTmiDEBUG_DBGOUT_PAIR_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -13412,22 +13412,22 @@ meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD(meltclosure_ptr_t meltclosp_,
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD */ MeltFrame_meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD */ struct meltframe_meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -13447,7 +13447,7 @@ meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD(meltclosure_ptr_t meltclosp_,
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD nbval 33*/
@@ -13455,7 +13455,7 @@ meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD(meltclosure_ptr_t meltclosp_,
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_MAPOBJECT_METHOD", meltcallcount);
     /*getargs*/
 
@@ -14290,9 +14290,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_MAPOBJECT_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_28_WARMELTmiDEBUG_DBGOUT_MAPOBJECT_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -14388,22 +14388,22 @@ meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3 */ MeltFrame_meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3 */ struct meltframe_meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3 fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3 fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -14423,7 +14423,7 @@ meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3 nbval 6*/
@@ -14431,7 +14431,7 @@ meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("LAMBDA_cl3", meltcallcount);
     /*getargs*/
 
@@ -14539,9 +14539,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("LAMBDA_cl3", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_29_WARMELTmiDEBUG_LAMBDA_cl3_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -14636,22 +14636,22 @@ meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4 */ MeltFrame_meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4 */ struct meltframe_meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4 fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4 fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -14671,7 +14671,7 @@ meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4(meltclosure_ptr_t meltclosp_, melt_ptr_t m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4 nbval 11*/
@@ -14679,7 +14679,7 @@ meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("LAMBDA_cl4", meltcallcount);
     /*getargs*/
 
@@ -14791,9 +14791,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("LAMBDA_cl4", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_30_WARMELTmiDEBUG_LAMBDA_cl4_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -14889,22 +14889,22 @@ meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5 */ MeltFrame_meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5 */ struct meltframe_meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5 fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5 fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5 is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -14924,7 +14924,7 @@ meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5(meltclosure_ptr_t meltclosp_, melt_ptr_t m
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5 nbval 11*/
@@ -14932,7 +14932,7 @@ meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5(meltclosure_ptr_t meltclosp_, melt_ptr_t m
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("LAMBDA_cl5", meltcallcount);
     /*getargs*/
 
@@ -15159,9 +15159,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("LAMBDA_cl5", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_31_WARMELTmiDEBUG_LAMBDA_cl5_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -15257,22 +15257,22 @@ meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD(meltclosure_ptr_t meltclosp_,
 
 #if MELT_HAVE_CLASSY_FRAME /*fromline 1875*/
     /* classy proc frame meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD */ MeltFrame_meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1894*/
+#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1897*/
     /* plain proc frame meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD */ struct meltframe_meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1909*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1913*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1915*/
-                  /*classyprocarg meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD fromline 1920*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1912*/
+    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1916*/
+#if MELT_HAVE_CLASSY_FRAME /*fromline 1918*/
+                  /*classyprocarg meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD fromline 1923*/
 #if MELT_HAVE_DEBUG
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1924*/
+                  (__FILE__, __LINE__, meltclosp_) /* fromline 1927*/
 #else /*MELT_HAVE_DEBUG*/
-                  (meltclosp_) /* fromline 1928*/
+                  (meltclosp_) /* fromline 1931*/
 #endif /*MELT_HAVE_DEBUG*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1966*/
+#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1969*/
                   ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1972*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 1975*/
     /*meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD is not initial declstructinit*/
     if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
         {
@@ -15292,7 +15292,7 @@ meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD(meltclosure_ptr_t meltclosp_,
                     gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
             return NULL;
         }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2028*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2031*/
     memset(&meltfram__, 0, sizeof(meltfram__));
 #endif /*MELT_HAVE_CLASSY_FRAME*/
     /* declstructinit plain routine meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD nbval 32*/
@@ -15300,7 +15300,7 @@ meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD(meltclosure_ptr_t meltclosp_,
     meltfram__.mcfr_clos = meltclosp_;
     meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2058*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2061*/
     melt_trace_start("DBGOUT_MAPSTRING_METHOD", meltcallcount);
     /*getargs*/
 
@@ -16081,9 +16081,9 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("DBGOUT_MAPSTRING_METHOD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_32_WARMELTmiDEBUG_DBGOUT_MAPSTRING_METHOD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2205*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2208*/
     melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2209*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2212*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
