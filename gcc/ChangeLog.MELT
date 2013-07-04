@@ -2,6 +2,18 @@
 
 2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (class_initialroutineobj): Move the oirout_modulename here.
+	(class_initial_extension_routineobj): Remove oiroutx_extendname field.
+	(compile2obj_initextendproc): Set the oirout_modulename field.
+
+	* melt/warmelt-outobj.melt (initial_classy_frame_name): New
+	utility function needed because the frame class of the initial
+	function should be unique...
+
+	(output_curframe_declstruct, translate_macroexpanded_list): Use it.
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.

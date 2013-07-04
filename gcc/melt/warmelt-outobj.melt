@@ -108,6 +108,20 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	   (assert_msg "out_enumix_modvarbind bad binder" ()))
   )))
 
+
+;;;;;; utility function for the initial classy frame
+;;; we need the classy frame name to be unique, otherwise dlopen seems to mess things..
+(defun initial_classy_frame_name (obj)
+  (debug "initial_classy_frame_name obj=" obj)
+  (assert_msg "check obj" (is_a obj class_initialroutineobj))
+  (let ( (name (string4out discr_verbatim_string "Melt_InitialClassyFrame_" 
+			   (lambda (out o) (add2out_cident out (get_field :oirout_modulename o))) obj
+			   "_h" (obj_hash obj))
+	       )
+	 )
+    (debug "initial_classy_frame_name name=" name)
+    (return name)))
+
 ;;;;;;
 (defun outdeclinit_root (recv sbuf)
   (debug "outdeclinit_root recv=" recv)
@@ -1508,7 +1522,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (let ( (classyframename 
 	    (cond
 	     ((is_a rou class_initialroutineobj)
-	      '"Melt_InitialFrame")
+	      (initial_classy_frame_name rou))
 	     ((is_a rou class_named)
 	      (string4out discr_verbatim_string "MeltFrame_" (unsafe_get_field :named_name rou)))
 	     (:else
@@ -6951,6 +6965,15 @@ if (1) return;
 		  }#)
 		 ))
 	     (add2sbuf_indentnl declbuf 0)
+	     (add2sbuf_indentnl declbuf 0)
+	     (add2sbuf_indentnl declbuf 0)
+	     (add2out declbuf "#if MELT_HAVE_CLASSY_FRAME /* fromline " (this_line) "*/")
+	     (add2sbuf_indentnl declbuf 0)
+	     (add2out declbuf "class " (initial_classy_frame_name iniobj) "; // forward declaration fromline " (this_line))
+	     (add2sbuf_indentnl declbuf 0)
+	     (add2out declbuf "typedef " (initial_classy_frame_name iniobj) " Melt_InitialFrame;")
+	     (add2sbuf_indentnl declbuf 0)
+	     (add2out declbuf "#endif /* MELT_HAVE_CLASSY_FRAME fromline " (this_line) "*/")
 	     (add2sbuf_indentnl declbuf 0)
 	     ;;
 	     ;;
