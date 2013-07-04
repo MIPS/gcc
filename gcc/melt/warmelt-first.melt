@@ -4547,7 +4547,8 @@ $CREATE is true i.e. non zero.}#
   (assert_msg "check contenv" (is_a contenv class_reference))
   (let ( (env (unsafe_get_field :referenced_value contenv)) )
     (when (null env)
-      (informsg_strv "exporting value too early with null environment" (unsafe_get_field :named_name sym))
+      (warningmsg_strv "exporting value too early with null environment" (unsafe_get_field :named_name sym))
+      (shortbacktrace_dbg "failing exporting value null env" 15)
       (return))
     (assert_msg "check good env" (is_a env class_environment))
     (let (

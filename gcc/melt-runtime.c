@@ -11552,6 +11552,8 @@ melt_dbgbacktrace (int depth)
 	snprintf (sbuf, sizeof(sbuf), "Frame#%d", curdepth);
 	melt_low_stderr_value(sbuf,current);
       }
+      else
+	fputs("??", stderr);
       putc ('\n', stderr);
       if (curdepth % 4 == 0)
 	fflush(stderr);
@@ -11604,6 +11606,9 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
       fprintf (stderr, "#%d:", curdepth);
       meltclosure_ptr_t curclos = NULL;
       melthook_ptr_t curhook = NULL;
+      const char* sloc = cfr->srcloc();
+      if (sloc && sloc[0])
+	fprintf (stderr, "@%s ", sloc);
       if ((curclos= cfr->current_closure()) != NULL) 
 	{
 	  meltroutine_ptr_t curout = curclos->rout;
@@ -11618,6 +11623,8 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
 	  fprintf (stderr, "!<%s> ", curhook->hookname);
 	  melt_errprint_dladdr((void*) curhook->hookad);
 	}
+      else
+	fputs ("??", stderr);
     }
   if (cfr && maxdepth > curdepth)
     fprintf (stderr, "...&%d", maxdepth - curdepth);
