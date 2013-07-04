@@ -2,6 +2,11 @@
 
 2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init): Emit
+	a debugprint for start of initial routine.
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
