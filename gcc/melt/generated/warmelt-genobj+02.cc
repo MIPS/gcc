@@ -1028,7 +1028,7 @@ struct melt_initial_frame_st; /*forward declaration of initial frame*/
 #endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2368*/
 /*declare opaque initial frame: */
 #if MELT_HAVE_CLASSY_FRAME /*fromline 2373*/
-typedef class Melt_InitialFrame /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h432870178 /*opaqueinitialclassy*/ meltinitial_frame_t;
 #else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2377*/
 typedef struct melt_initial_frame_st meltinitial_frame_t;
 #endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2381*/

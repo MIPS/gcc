@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] = MELT_RUN_HASHMD5 /* from mel
 
 
 #if MELT_HAVE_CLASSY_FRAME /* fromline 6970*/
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h381335325; // forward declaration fromline 6972
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h381335325 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h1069910809; // forward declaration fromline 6972
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h1069910809 Melt_InitialFrame;
 #endif /* MELT_HAVE_CLASSY_FRAME fromline 6976*/
 /**** no MELT module variables ****/
 
@@ -883,7 +883,7 @@ struct melt_initial_frame_st; /*forward declaration of initial frame*/
 #endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2368*/
 /*declare opaque initial frame: */
 #if MELT_HAVE_CLASSY_FRAME /*fromline 2373*/
-typedef class Melt_InitialFrame /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h1069910809 /*opaqueinitialclassy*/ meltinitial_frame_t;
 #else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2377*/
 typedef struct melt_initial_frame_st meltinitial_frame_t;
 #endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2381*/
@@ -5161,7 +5161,8 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
 \n\t     extern \"C\" const int melt_lastsecfileindex;\
 \n\t     extern \"C\" const char melt_cumulated_hexmd5[];\
 \n\t     extern \"C\" const int melt_module_nb_module_vars;\
-\n\n\t     extern \"C\" {\n\t     #endif /*__cplusplus */\n\t     ";
+\n\n\t     extern \"C\" {\n\t \
+    #endif /*__cplusplus */\n\t     ";
             /*_.ADD2OUT__V36*/ meltfptr[35] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[15])), (melt_ptr_t)(/*_.DEBUF__V11*/ meltfptr[9]), (MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
         }
         ;
@@ -5220,8 +5221,7 @@ ltstr[];\n\t     extern \"C\" const char melt_genversionstr[];\
             /*^apply.arg*/
             argtab[0].meltbp_cstring =  "\n\t     #ifdef __cplusplus\n\t     \" (in C++)\"\
 \n\t     #else\n\t     \" (in C)\"\
-\n\t     #endif\n\t\t\
-\t\t\t;\n\t     ";
+\n\t     #endif\n\t\t\t\t\t;\n\t     ";
             /*_.ADD2OUT__V37*/ meltfptr[36] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[15])), (melt_ptr_t)(/*_.DEBUF__V11*/ meltfptr[9]), (MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
         }
         ;
@@ -7818,8 +7818,7 @@ plus*/\n\t\t\t\t\t;\n\t\t ";
             memset(&argtab, 0, sizeof(argtab));
             /*^apply.arg*/
             argtab[0].meltbp_cstring =  "\n\t\t #ifdef __cplusplus\n\t\t }  /* end extern C timestamp */\
-\n\t\t #endif /*__cplusplus */\n\n\t\t #els\
-e /* ! ";
+\n\t\t #endif /*__cplusplus */\n\n\t\t #else /* ! ";
             /*^apply.arg*/
             argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.MODIDNAM__V99*/ meltfptr[94];
             /*^apply.arg*/
@@ -7858,8 +7857,7 @@ e /* ! ";
             /*^apply.arg*/
             argtab[0].meltbp_cstring =  "\n\t\t #ifdef __cplusplus\n\t\t }\t  /* end extern C descriptor */\
 \
-\n\t\t #endif /*__cplusplus\
- */\n\t\t ";
+\n\t\t #endif /*__cplusplus */\n\t\t ";
             /*_.ADD2OUT__V131*/ meltfptr[130] =  melt_apply ((meltclosure_ptr_t)((/*!ADD2OUT*/ meltfrout->tabval[15])), (melt_ptr_t)(/*_.DEBUF__V11*/ meltfptr[9]), (MELTBPARSTR_CSTRING ""), argtab, "", (union meltparam_un*)0);
         }
         ;

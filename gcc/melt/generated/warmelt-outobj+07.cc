@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f7[] = MELT_RUN_HASHMD5 /* from mel
 
 
 #if MELT_HAVE_CLASSY_FRAME /* fromline 6970*/
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h381335325; // forward declaration fromline 6972
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h381335325 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h1069910809; // forward declaration fromline 6972
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h1069910809 Melt_InitialFrame;
 #endif /* MELT_HAVE_CLASSY_FRAME fromline 6976*/
 /**** no MELT module variables ****/
 
@@ -883,7 +883,7 @@ struct melt_initial_frame_st; /*forward declaration of initial frame*/
 #endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2368*/
 /*declare opaque initial frame: */
 #if MELT_HAVE_CLASSY_FRAME /*fromline 2373*/
-typedef class Melt_InitialFrame /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h1069910809 /*opaqueinitialclassy*/ meltinitial_frame_t;
 #else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2377*/
 typedef struct melt_initial_frame_st meltinitial_frame_t;
 #endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2381*/
