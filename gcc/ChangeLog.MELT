@@ -2,6 +2,12 @@
 
 2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit
+	the typedef for meltinitial_frame_t using
+	initial_classy_frame_name.
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.

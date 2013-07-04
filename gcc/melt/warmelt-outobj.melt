@@ -2372,7 +2372,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl declbuf 0)
     (add2out declbuf "#if MELT_HAVE_CLASSY_FRAME" " /*fromline " (this_line) "*/")
     (add2sbuf_indentnl declbuf 0)
-    (add2out declbuf "typedef class Melt_InitialFrame /*opaqueinitialclassy*/ meltinitial_frame_t;")
+    (add2out declbuf "typedef " (initial_classy_frame_name pini) " /*opaqueinitialclassy*/ meltinitial_frame_t;")
     (add2sbuf_indentnl declbuf 0)
     (add2out declbuf "#else /*!MELT_HAVE_CLASSY_FRAME*/" " /*fromline " (this_line) "*/")
     (add2sbuf_indentnl declbuf 0)
