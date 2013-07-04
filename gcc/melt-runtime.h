@@ -2917,7 +2917,7 @@ public:
   ~Melt_CallProtoFrame() {
 #if MELT_HAVE_DEBUG
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, _meltcf_dbgline);
+      fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, (int)_meltcf_dbgline);
       fflush (_dbgcall_file_);
     }
 #endif /*MELT_HAVE_DEBUG*/

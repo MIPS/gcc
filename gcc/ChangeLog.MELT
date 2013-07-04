@@ -2,6 +2,12 @@
 
 2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{First MELT bootstrap with classy frames, but optimized flavour dont work!}}
+	* melt-runtime.h (MELT_HAVE_CLASSY_FRAME): Can be set to 1.
+	(Melt_CallProtoFrame): Improve dbgcall_file print.
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
