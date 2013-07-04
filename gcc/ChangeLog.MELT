@@ -2,6 +2,11 @@
 
 2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit a
+	debugeprintf at end of initial routine.
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

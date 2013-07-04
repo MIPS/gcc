@@ -2589,6 +2589,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (output_c_code oretval declbuf implbuf 1)
 	  (add2sbuf_strconst implbuf "/*noretval*/ NULL"))
 	(add2sbuf_strconst implbuf ";")
+	(add2sbuf_indentnl implbuf 1)
+	(add2out implbuf "debugeprintf (\"returning @%p from initial routine of " omodnam
+		 "\", (void*)retval); /*fromline " (this_line) "*/")
 	(add2sbuf_indentnl implbuf 0)
 	(add2sbuf_strconst implbuf " return retval;}")
 	(add2sbuf_indentnl implbuf 1)
