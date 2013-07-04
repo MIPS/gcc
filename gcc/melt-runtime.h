@@ -2841,7 +2841,8 @@ protected:
   // this is tricky but essential; we need to explicitly zero the rest of the frame.
   void melt_clear_rest_of_frame (size_t sz) {
     if (sz > sizeof(Melt_CallProtoFrame))
-      memset ((Melt_CallProtoFrame*)this+1, 0, sz - sizeof(Melt_CallProtoFrame));
+      memset ((char*)this+sizeof(Melt_CallProtoFrame), 0, 
+	      sz - sizeof(Melt_CallProtoFrame));
   };
   Melt_CallProtoFrame* _meltcf_prev;
 public:
@@ -2867,12 +2868,12 @@ public:
     : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL), 
       _meltcf_dbgfile (melt_basename (file)), _meltcf_dbgline(lin), 
       _meltcf_dbgserial(++_dbgcall_count_) {
-    melt_clear_rest_of_frame (sz);
     if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
       {
 	fprintf (_dbgcall_file_, "+ %s:%d #%ld S%d\n", _meltcf_dbgfile, lin, _meltcf_dbgserial, (int)sz);
 	fflush (_dbgcall_file_);
       }
+    melt_clear_rest_of_frame (sz);
     melt_top_call_frame = this;
   };
   Melt_CallProtoFrame(size_t sz) 

@@ -1884,7 +1884,10 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		"#error dont know how to declare classy frame for extension " rouname "\n")
        )     
      ( (is_a rou class_initialroutineobj)
-       (add2out implbuf "/* classy initial frame " rouname " */ Melt_InitialFrame "))
+       (add2sbuf_indentnl implbuf 1)
+       (add2out implbuf "debugeprintf(\"sizeof Melt_InitialFrame in " rouname "=%d\", (int) sizeof(Melt_InitialFrame));")
+       (add2sbuf_indentnl implbuf 1)
+       (add2out implbuf "/* classy initial frame " rouname " fromline " (this_line) "*/ Melt_InitialFrame "))
      ( :else
        (debug "output_curframe_declstruct_init classy bad routine=" rou)
        (assert_msg "unexpected routine for classy frame declaration" ()))

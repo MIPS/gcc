@@ -2,6 +2,14 @@
 
 2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallProtoFrame::Melt_CallProtoFrame): Move
+	call to melt_clear_rest_of_frame after the debug printing.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct_init): Emit
+	a debugprint of the sizeof Melt_InitialFrame...
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
