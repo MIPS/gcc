@@ -27900,8 +27900,18 @@ meltlab_endgetargs:
                     /*cond*/
                     if (
                         /*ifisa*/ melt_is_instance_of((melt_ptr_t)(
-                                                          /*quasi.cur.mod.env.cont */
-                                                          (/*!konst_2*/ meltfrout->tabval[2])),
+                                                          /*quasi.cur.mod.env.ref */
+                                                          /* check quasi.cur.mod.env.ref 810562185 */
+                                                          (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                                                  (((melt_debug_garbcoll || melt_flag_debug) &&
+                                                                          (!((/*!konst_2*/ meltfrout->tabval[2]) && melt_reference_value ((melt_ptr_t)(/*!konst_2*/ meltfrout->tabval[2])))))
+                                                                          ?( {melt_fatal_error("bad current MELT module environment reference h810562185 @%p",
+                                                                                  (void*)(/*!konst_2*/ meltfrout->tabval[2])); 0;
+                                                                             })
+                                                                          :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                                                  (/*!konst_2*/ meltfrout->tabval[2]) )),
                                                       (melt_ptr_t)((/*!CLASS_REFERENCE*/ meltfrout->tabval[3])))
                     ) /*then*/
                         {
@@ -27910,15 +27920,25 @@ meltlab_endgetargs:
                             {
                                 melt_ptr_t slot=NULL, obj=NULL;
                                 obj = (melt_ptr_t)(
-                                          /*quasi.cur.mod.env.cont */
-                                          (/*!konst_2*/ meltfrout->tabval[2])) /*=obj*/;
+                                          /*quasi.cur.mod.env.ref */
+                                          /* check quasi.cur.mod.env.ref 810562185 */
+                                          (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                              (((melt_debug_garbcoll || melt_flag_debug) &&
+                                                (!((/*!konst_2*/ meltfrout->tabval[2]) && melt_reference_value ((melt_ptr_t)(/*!konst_2*/ meltfrout->tabval[2])))))
+                                               ?( {melt_fatal_error("bad current MELT module environment reference h810562185 @%p",
+                                                                    (void*)(/*!konst_2*/ meltfrout->tabval[2])); 0;
+                                                  })
+                                               :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                              (/*!konst_2*/ meltfrout->tabval[2]) )) /*=obj*/;
                                 melt_object_get_field(slot,obj, 0, "REFERENCED_VALUE");
                                 /*_.REFERENCED_VALUE__V9*/
                                 meltfptr[8] = slot;
                             };
                             ;
                         }
-                    else    /*^cond.else*/
+                    else  /*^cond.else*/
                         {
 
                             /*_.REFERENCED_VALUE__V9*/ meltfptr[8] =  /*fromline 1341*/ NULL ;;

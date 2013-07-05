@@ -3334,8 +3334,18 @@ meltlab_endgetargs:
 
         /*_.CURMODENVCONT__V3*/
         meltfptr[2] =
-            /*quasi.cur.mod.env.cont */
-            (/*!konst_0*/ meltfrout->tabval[0]);;
+            /*quasi.cur.mod.env.ref */
+            /* check quasi.cur.mod.env.ref 103525822 */
+            (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                (((melt_debug_garbcoll || melt_flag_debug) &&
+                  (!((/*!konst_0*/ meltfrout->tabval[0]) && melt_reference_value ((melt_ptr_t)(/*!konst_0*/ meltfrout->tabval[0])))))
+                 ?( {melt_fatal_error("bad current MELT module environment reference h103525822 @%p",
+                                      (void*)(/*!konst_0*/ meltfrout->tabval[0])); 0;
+                    })
+                 :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                (/*!konst_0*/ meltfrout->tabval[0]) );;
 
         MELT_CHECK_SIGNAL();
         ;

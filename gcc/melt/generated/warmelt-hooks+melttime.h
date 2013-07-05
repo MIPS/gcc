@@ -5,7 +5,7 @@
 
 
 /* This warmelt-hooks+melttime.h is included from warmelt-hooks+meltdesc.c only. */
-#if meltmod_WARMELTmiHOOKS_mds__03A7559770AF0AC66BC3EB8E76EAE068
+#if meltmod_WARMELTmiHOOKS_mds__22FB20BB7F1B4FB2C5EE65B2F2A5BDBD
 /* MELT generation timestamp for meltbuild-sources/warmelt-hooks */
 
 #ifdef __cplusplus
@@ -18,8 +18,8 @@ extern "C" {
 
 		 
 /*MELT BOOTSTRAP*/
-const char melt_gen_timestamp[]="Fri Jul  5 10:08:42 2013 CEST";
-const long long melt_gen_timenum=1373011722;
+const char melt_gen_timestamp[]="Fri Jul  5 13:06:08 2013 CEST";
+const long long melt_gen_timenum=1373022368;
 
 		 const char melt_build_timestamp[]= __DATE__ "@" __TIME__
 		 #ifdef __cplusplus
@@ -34,7 +34,7 @@ const long long melt_gen_timenum=1373011722;
 		 }  /* end extern C timestamp */
 		 #endif /*__cplusplus */
 
-		 #else /* ! meltmod_WARMELTmiHOOKS_mds__03A7559770AF0AC66BC3EB8E76EAE068 */
+		 #else /* ! meltmod_WARMELTmiHOOKS_mds__22FB20BB7F1B4FB2C5EE65B2F2A5BDBD */
 		 #error invalid timestamp file for meltbuild-sources/warmelt-hooks 
-		 #endif /* meltmod_WARMELTmiHOOKS_mds__03A7559770AF0AC66BC3EB8E76EAE068 */
+		 #endif /* meltmod_WARMELTmiHOOKS_mds__22FB20BB7F1B4FB2C5EE65B2F2A5BDBD */
 		 

@@ -38,19 +38,19 @@ const char melt_modulename[]="warmelt-outobj";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.9.0/melt-modules/0.9.9-post/warmelt-outobj";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="0415adefcf2a0689545342b98e8b8e27";
+const char melt_prepromd5meltrun[]="3fca163f10431a9e45f13fac961cdea1";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="618b4290017057823e62e70d2a360bb6";
+const char melt_primaryhexmd5[]="a68153f10f53ed5fef16346a53882de0";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+01.cc #1 */ "8abe22edbb30117923586d9c7eea53c0",
- /*sechexmd5checksum meltbuild-sources/warmelt-outobj+02.cc #2 */ "6aff5051e969d608f860b126ff5b3f55",
+ /*sechexmd5checksum meltbuild-sources/warmelt-outobj+02.cc #2 */ "c0bec106c8e6fbab4ca6cf5170c052a1",
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+03.cc #3 */ "4caa0a55e8a3c2dbf6d09cd627d5664f",
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+04.cc #4 */ "21da59b1c4a8fe5f50fa936308362e47",
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+05.cc #5 */ "d3e097d1df9b7b66fc561386b31310fc",
- /*sechexmd5checksum meltbuild-sources/warmelt-outobj+06.cc #6 */ "771a6d2bb406c8a23e01cc3886a33151",
+ /*sechexmd5checksum meltbuild-sources/warmelt-outobj+06.cc #6 */ "d8f8e4a2157cef4a3a3632a3c2362298",
  /*sechexmd5checksum meltbuild-sources/warmelt-outobj+07.cc #7 */ "f914bdae20c42bc4adbe5ad1f391e02f",
  /*nosecfile*/ (const char*)0,
  /*nosecfile*/ (const char*)0,
@@ -60,13 +60,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=7;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="20ed37fc09dbf1abc91292d162afc7a8" ;
+const char melt_cumulated_hexmd5[]="19b21972faab7f15581d66aa2771ef3b" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiOUTOBJ_mds__20ED37FC09DBF1ABC91292D162AFC7A8 1
+#define meltmod_WARMELTmiOUTOBJ_mds__19B21972FAAB7F15581D66AA2771EF3B 1
 #include "warmelt-outobj+melttime.h"
 	 
 

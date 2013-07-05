@@ -26991,9 +26991,9 @@ meltlabend_rout:
 
 } /* end fromline 2638 */
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_0 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -27710,9 +27710,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_0 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_0*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_1 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_1 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -28392,9 +28392,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_1 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_1*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_2 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_2 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -29148,9 +29148,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_2 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_2*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_3 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_3 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -29852,9 +29852,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_3 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_3*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_4 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_4 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -30570,9 +30570,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_4 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_4*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_5 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_5 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -31290,9 +31290,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_5 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_5*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_6 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_6 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -32036,9 +32036,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_6 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_6*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_7 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_7 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -32840,9 +32840,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_7 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_7*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_8 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_8 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -33646,9 +33646,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_8 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_8*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_9 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_9 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -34418,9 +34418,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_9 (meltinitial_frame_t* meltme
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_9*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_10 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_10 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -35168,9 +35168,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_10 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_10*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_11 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_11 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -35930,9 +35930,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_11 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_11*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_12 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_12 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -36650,9 +36650,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_12 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_12*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_13 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_13 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -37390,9 +37390,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_13 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_13*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_14 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_14 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -38118,9 +38118,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_14 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_14*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_15 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_15 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -38834,9 +38834,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_15 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_15*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_16 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_16 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -39554,9 +39554,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_16 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_16*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_17 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_17 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -40268,9 +40268,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_17 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_17*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_18 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_18 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -41014,9 +41014,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_18 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_18*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_19 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_19 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -41756,9 +41756,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_19 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_19*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_20 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_20 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -42488,9 +42488,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_20 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_20*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_21 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_21 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -43322,9 +43322,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_21 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_21*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_22 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_22 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -44144,9 +44144,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_22 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_22*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_23 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_23 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -44940,9 +44940,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_23 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_23*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_24 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_24 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -45654,9 +45654,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_24 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_24*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_25 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_25 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -46442,9 +46442,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_25 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_25*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_26 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_26 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -47166,9 +47166,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_26 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_26*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_27 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_27 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -47950,9 +47950,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_27 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_27*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_28 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_28 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -48744,9 +48744,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_28 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_28*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_29 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_29 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -49548,9 +49548,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_29 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_29*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_30 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_30 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -50402,9 +50402,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_30 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_30*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_31 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_31 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -50518,13 +50518,33 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_31 (meltinitial_frame_t* meltm
 
         /*^cond*/
         /*cond*/ if (
-            /*quasi.cur.mod.env.cont cur.mod.env.cont : at very start*/
-            /*_._CONTENV___V2*/ meltfptr[1]) /*then*/
+            /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
+            /* check quasi.cur.mod.env.ref 98365849 */
+            (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                (((melt_debug_garbcoll || melt_flag_debug) &&
+                  (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                 ?( {melt_fatal_error("bad current MELT module environment reference h98365849 @%p",
+                                      (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                    })
+                 :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                /*_._CONTENV___V2*/ meltfptr[1] )) /*then*/
             {
                 /*^cond.then*/
                 /*_.OR___V1486*/ meltfptr[1485] =
-                    /*quasi.cur.mod.env.cont cur.mod.env.cont : at very start*/
-                    /*_._CONTENV___V2*/ meltfptr[1];;
+                    /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
+                    /* check quasi.cur.mod.env.ref 98365849 */
+                    (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                        (((melt_debug_garbcoll || melt_flag_debug) &&
+                          (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                         ?( {melt_fatal_error("bad current MELT module environment reference h98365849 @%p",
+                                              (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                            })
+                         :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                        /*_._CONTENV___V2*/ meltfptr[1] );;
             }
         else
             {
@@ -52975,778 +52995,2328 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_31 (meltinitial_frame_t* meltm
 
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V95*/ meltfptr[94], /*_._VALDATA___V99*/ meltfptr[98],
-                /*quasi.cur.mod.env.cont norm.exp.val : CLASS_PATTERN_CONTEXT*/
-                /*_._CONTENV___V2*/ meltfptr[1]) ;
+                /*quasi.cur.mod.env.ref norm.exp.val : CLASS_PATTERN_CONTEXT*/
+                /* check quasi.cur.mod.env.ref 373943417 */
+                (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                    (((melt_debug_garbcoll || melt_flag_debug) &&
+                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                     ?( {melt_fatal_error("bad current MELT module environment reference h373943417 @%p",
+                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                        })
+                     :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V125*/ meltfptr[124], /*_._VALDATA___V102*/ meltfptr[101],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_NORMCTXT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_NORMCTXT*/
+                                      /* check quasi.cur.mod.env.ref 968382437 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h968382437 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V127*/ meltfptr[126], /*_._VALDATA___V104*/ meltfptr[103],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_SRC*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_SRC*/
+                                      /* check quasi.cur.mod.env.ref 898974973 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h898974973 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V129*/ meltfptr[128], /*_._VALDATA___V106*/ meltfptr[105],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_ENV*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_ENV*/
+                                      /* check quasi.cur.mod.env.ref 501216055 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h501216055 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V131*/ meltfptr[130], /*_._VALDATA___V108*/ meltfptr[107],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_MAPATVAR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_MAPATVAR*/
+                                      /* check quasi.cur.mod.env.ref 128019958 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h128019958 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V133*/ meltfptr[132], /*_._VALDATA___V110*/ meltfptr[109],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_MAPATCST*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_MAPATCST*/
+                                      /* check quasi.cur.mod.env.ref 560086670 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h560086670 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V135*/ meltfptr[134], /*_._VALDATA___V112*/ meltfptr[111],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_MAPOR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_MAPOR*/
+                                      /* check quasi.cur.mod.env.ref 427200239 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h427200239 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V137*/ meltfptr[136], /*_._VALDATA___V114*/ meltfptr[113],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_BINDLIST*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_BINDLIST*/
+                                      /* check quasi.cur.mod.env.ref 563708189 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h563708189 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V139*/ meltfptr[138], /*_._VALDATA___V116*/ meltfptr[115],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_STUFFMAP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_STUFFMAP*/
+                                      /* check quasi.cur.mod.env.ref 418942710 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h418942710 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V141*/ meltfptr[140], /*_._VALDATA___V118*/ meltfptr[117],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_PVARLOCMAP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_PVARLOCMAP*/
+                                      /* check quasi.cur.mod.env.ref 133036105 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h133036105 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V143*/ meltfptr[142], /*_._VALDATA___V120*/ meltfptr[119],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_TESTS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_TESTS*/
+                                      /* check quasi.cur.mod.env.ref 401430911 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h401430911 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V145*/ meltfptr[144], /*_._VALDATA___V122*/ meltfptr[121],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : PCTN_VARHANDLERS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : PCTN_VARHANDLERS*/
+                                      /* check quasi.cur.mod.env.ref 960070788 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h960070788 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V254*/ meltfptr[253], /*_._VALDATA___V258*/ meltfptr[257],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_ANY*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_ANY*/
+                                      /* check quasi.cur.mod.env.ref 592663601 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h592663601 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V274*/ meltfptr[273], /*_._VALDATA___V261*/ meltfptr[260],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTEST_MATCHED*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTEST_MATCHED*/
+                                      /* check quasi.cur.mod.env.ref 1065652729 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1065652729 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V276*/ meltfptr[275], /*_._VALDATA___V263*/ meltfptr[262],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTEST_THEN*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTEST_THEN*/
+                                      /* check quasi.cur.mod.env.ref 903472482 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h903472482 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V278*/ meltfptr[277], /*_._VALDATA___V265*/ meltfptr[264],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTEST_ELSE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTEST_ELSE*/
+                                      /* check quasi.cur.mod.env.ref 423972966 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h423972966 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V280*/ meltfptr[279], /*_._VALDATA___V267*/ meltfptr[266],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTEST_NORMATCH*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTEST_NORMATCH*/
+                                      /* check quasi.cur.mod.env.ref 286519247 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h286519247 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V282*/ meltfptr[281], /*_._VALDATA___V269*/ meltfptr[268],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTEST_LOCCLIST*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTEST_LOCCLIST*/
+                                      /* check quasi.cur.mod.env.ref 528041086 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h528041086 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V284*/ meltfptr[283], /*_._VALDATA___V271*/ meltfptr[270],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTEST_COMEFROM*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTEST_COMEFROM*/
+                                      /* check quasi.cur.mod.env.ref 857430952 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h857430952 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V326*/ meltfptr[325], /*_._VALDATA___V328*/ meltfptr[327],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_ANYTESTER*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_ANYTESTER*/
+                                      /* check quasi.cur.mod.env.ref 280174443 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h280174443 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V332*/ meltfptr[331], /*_._VALDATA___V334*/ meltfptr[333],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_DISJUNCTION*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_DISJUNCTION*/
+                                      /* check quasi.cur.mod.env.ref 461606824 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h461606824 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V344*/ meltfptr[343], /*_._VALDATA___V337*/ meltfptr[336],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTDISJUNCTS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTDISJUNCTS*/
+                                      /* check quasi.cur.mod.env.ref 686530072 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h686530072 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V346*/ meltfptr[345], /*_._VALDATA___V339*/ meltfptr[338],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTDISJ_FRESHORVAR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTDISJ_FRESHORVAR*/
+                                      /* check quasi.cur.mod.env.ref 341788309 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h341788309 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V348*/ meltfptr[347], /*_._VALDATA___V341*/ meltfptr[340],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTDISJ_SETORVAR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTDISJ_SETORVAR*/
+                                      /* check quasi.cur.mod.env.ref 1046266385 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1046266385 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V382*/ meltfptr[381], /*_._VALDATA___V384*/ meltfptr[383],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_INSTANCE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_INSTANCE*/
+                                      /* check quasi.cur.mod.env.ref 166747693 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h166747693 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V392*/ meltfptr[391], /*_._VALDATA___V387*/ meltfptr[386],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTINST_CLASS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTINST_CLASS*/
+                                      /* check quasi.cur.mod.env.ref 490637536 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h490637536 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V394*/ meltfptr[393], /*_._VALDATA___V389*/ meltfptr[388],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTINST_FIELDLOCS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTINST_FIELDLOCS*/
+                                      /* check quasi.cur.mod.env.ref 424655890 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h424655890 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V360*/ meltfptr[359], /*_._VALDATA___V362*/ meltfptr[361],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_MATCHER*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_MATCHER*/
+                                      /* check quasi.cur.mod.env.ref 746300667 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h746300667 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V374*/ meltfptr[373], /*_._VALDATA___V365*/ meltfptr[364],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTMATCH_MATCHER*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTMATCH_MATCHER*/
+                                      /* check quasi.cur.mod.env.ref 545889263 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h545889263 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V376*/ meltfptr[375], /*_._VALDATA___V367*/ meltfptr[366],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTMATCH_MATNDATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTMATCH_MATNDATA*/
+                                      /* check quasi.cur.mod.env.ref 103984232 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h103984232 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V378*/ meltfptr[377], /*_._VALDATA___V369*/ meltfptr[368],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTMATCH_INARGS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTMATCH_INARGS*/
+                                      /* check quasi.cur.mod.env.ref 288534470 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h288534470 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V380*/ meltfptr[379], /*_._VALDATA___V371*/ meltfptr[370],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTMATCH_OUTLOCS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTMATCH_OUTLOCS*/
+                                      /* check quasi.cur.mod.env.ref 431783268 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h431783268 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V296*/ meltfptr[295], /*_._VALDATA___V298*/ meltfptr[297],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_OR_CLEAR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_OR_CLEAR*/
+                                      /* check quasi.cur.mod.env.ref 750475203 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h750475203 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V304*/ meltfptr[303], /*_._VALDATA___V301*/ meltfptr[300],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTORCLEAR_LOCSYM*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTORCLEAR_LOCSYM*/
+                                      /* check quasi.cur.mod.env.ref 441305212 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h441305212 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V306*/ meltfptr[305], /*_._VALDATA___V308*/ meltfptr[307],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_OR_INITIAL_CLEAR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_OR_INITIAL_CLEAR*/
+                                      /* check quasi.cur.mod.env.ref 380928718 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h380928718 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V312*/ meltfptr[311], /*_._VALDATA___V314*/ meltfptr[313],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_OR_TRANSMIT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_OR_TRANSMIT*/
+                                      /* check quasi.cur.mod.env.ref 178194852 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h178194852 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V322*/ meltfptr[321], /*_._VALDATA___V317*/ meltfptr[316],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTORTRANSMIT_DST*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTORTRANSMIT_DST*/
+                                      /* check quasi.cur.mod.env.ref 99216264 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h99216264 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V324*/ meltfptr[323], /*_._VALDATA___V319*/ meltfptr[318],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTORTRANSMIT_SRC*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTORTRANSMIT_SRC*/
+                                      /* check quasi.cur.mod.env.ref 78759672 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h78759672 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V350*/ meltfptr[349], /*_._VALDATA___V352*/ meltfptr[351],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_SAME*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_SAME*/
+                                      /* check quasi.cur.mod.env.ref 878020366 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h878020366 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V358*/ meltfptr[357], /*_._VALDATA___V355*/ meltfptr[354],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTSAME_IDENTICAL*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTSAME_IDENTICAL*/
+                                      /* check quasi.cur.mod.env.ref 225080296 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h225080296 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V286*/ meltfptr[285], /*_._VALDATA___V288*/ meltfptr[287],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_SUCCESS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_SUCCESS*/
+                                      /* check quasi.cur.mod.env.ref 179438477 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h179438477 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V294*/ meltfptr[293], /*_._VALDATA___V291*/ meltfptr[290],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTSUCCESS_DO*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTSUCCESS_DO*/
+                                      /* check quasi.cur.mod.env.ref 515728081 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h515728081 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V396*/ meltfptr[395], /*_._VALDATA___V398*/ meltfptr[397],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NORMTESTER_TUPLE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NORMTESTER_TUPLE*/
+                                      /* check quasi.cur.mod.env.ref 191220780 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h191220780 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V404*/ meltfptr[403], /*_._VALDATA___V401*/ meltfptr[400],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTTUPLE_COMPONENTS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTTUPLE_COMPONENTS*/
+                                      /* check quasi.cur.mod.env.ref 992019704 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h992019704 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V406*/ meltfptr[405], /*_._VALDATA___V410*/ meltfptr[409],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH*/
+                                      /* check quasi.cur.mod.env.ref 551327387 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h551327387 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V420*/ meltfptr[419], /*_._VALDATA___V413*/ meltfptr[412],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NMATCH_TESTS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NMATCH_TESTS*/
+                                      /* check quasi.cur.mod.env.ref 317022760 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h317022760 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V422*/ meltfptr[421], /*_._VALDATA___V415*/ meltfptr[414],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NMATCH_STUFFMAP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NMATCH_STUFFMAP*/
+                                      /* check quasi.cur.mod.env.ref 54799392 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h54799392 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V424*/ meltfptr[423], /*_._VALDATA___V417*/ meltfptr[416],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NMATCH_MATCHED*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NMATCH_MATCHED*/
+                                      /* check quasi.cur.mod.env.ref 313390377 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h313390377 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V673*/ meltfptr[672], /*_._VALDATA___V675*/ meltfptr[674],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_CASE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_CASE*/
+                                      /* check quasi.cur.mod.env.ref 329700499 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h329700499 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V687*/ meltfptr[686], /*_._VALDATA___V678*/ meltfptr[677],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCASE_MCTXT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCASE_MCTXT*/
+                                      /* check quasi.cur.mod.env.ref 4751760 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h4751760 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V689*/ meltfptr[688], /*_._VALDATA___V680*/ meltfptr[679],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCASE_SOURCE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCASE_SOURCE*/
+                                      /* check quasi.cur.mod.env.ref 257240433 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h257240433 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V691*/ meltfptr[690], /*_._VALDATA___V682*/ meltfptr[681],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCASE_INDEX*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCASE_INDEX*/
+                                      /* check quasi.cur.mod.env.ref 556157290 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h556157290 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V693*/ meltfptr[692], /*_._VALDATA___V684*/ meltfptr[683],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCASE_VARMAP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCASE_VARMAP*/
+                                      /* check quasi.cur.mod.env.ref 158642620 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h158642620 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V741*/ meltfptr[740], /*_._VALDATA___V743*/ meltfptr[742],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_FLAG*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_FLAG*/
+                                      /* check quasi.cur.mod.env.ref 548490858 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h548490858 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V755*/ meltfptr[754], /*_._VALDATA___V746*/ meltfptr[745],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MFLAG_SPAT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MFLAG_SPAT*/
+                                      /* check quasi.cur.mod.env.ref 1065087238 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1065087238 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V757*/ meltfptr[756], /*_._VALDATA___V748*/ meltfptr[747],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MFLAG_RANK*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MFLAG_RANK*/
+                                      /* check quasi.cur.mod.env.ref 545376883 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h545376883 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V759*/ meltfptr[758], /*_._VALDATA___V750*/ meltfptr[749],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MFLAG_STRING*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MFLAG_STRING*/
+                                      /* check quasi.cur.mod.env.ref 639718564 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h639718564 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V761*/ meltfptr[760], /*_._VALDATA___V752*/ meltfptr[751],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MFLAG_SETSTEP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MFLAG_SETSTEP*/
+                                      /* check quasi.cur.mod.env.ref 405294687 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h405294687 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1281*/ meltfptr[1280], /*_._VALDATA___V1283*/ meltfptr[1282],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_NORMALIZATION_CONTEXT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_NORMALIZATION_CONTEXT*/
+                                      /* check quasi.cur.mod.env.ref 644546975 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h644546975 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1309*/ meltfptr[1308], /*_._VALDATA___V1286*/ meltfptr[1285],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_RESLOC*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_RESLOC*/
+                                      /* check quasi.cur.mod.env.ref 432751633 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h432751633 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1311*/ meltfptr[1310], /*_._VALDATA___V1288*/ meltfptr[1287],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_NMATCH*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_NMATCH*/
+                                      /* check quasi.cur.mod.env.ref 646139048 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h646139048 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1313*/ meltfptr[1312], /*_._VALDATA___V1290*/ meltfptr[1289],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_DATAMAP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_DATAMAP*/
+                                      /* check quasi.cur.mod.env.ref 621146627 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h621146627 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1315*/ meltfptr[1314], /*_._VALDATA___V1292*/ meltfptr[1291],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_FLAGMAP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_FLAGMAP*/
+                                      /* check quasi.cur.mod.env.ref 914651880 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h914651880 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1317*/ meltfptr[1316], /*_._VALDATA___V1294*/ meltfptr[1293],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_STEPMAP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_STEPMAP*/
+                                      /* check quasi.cur.mod.env.ref 42949269 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h42949269 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1319*/ meltfptr[1318], /*_._VALDATA___V1296*/ meltfptr[1295],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_MDATAQUEUE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_MDATAQUEUE*/
+                                      /* check quasi.cur.mod.env.ref 922949403 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h922949403 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1321*/ meltfptr[1320], /*_._VALDATA___V1298*/ meltfptr[1297],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_MSTEPQUEUE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_MSTEPQUEUE*/
+                                      /* check quasi.cur.mod.env.ref 784265361 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h784265361 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1323*/ meltfptr[1322], /*_._VALDATA___V1300*/ meltfptr[1299],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_BODYLIST*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_BODYLIST*/
+                                      /* check quasi.cur.mod.env.ref 718839345 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h718839345 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1325*/ meltfptr[1324], /*_._VALDATA___V1302*/ meltfptr[1301],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_ENDLABEL*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_ENDLABEL*/
+                                      /* check quasi.cur.mod.env.ref 124216420 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h124216420 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1327*/ meltfptr[1326], /*_._VALDATA___V1304*/ meltfptr[1303],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_STARTLABEL*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_STARTLABEL*/
+                                      /* check quasi.cur.mod.env.ref 49355017 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h49355017 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1329*/ meltfptr[1328], /*_._VALDATA___V1306*/ meltfptr[1305],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATNORX_MATCHCTXT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATNORX_MATCHCTXT*/
+                                      /* check quasi.cur.mod.env.ref 999213769 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h999213769 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V763*/ meltfptr[762], /*_._VALDATA___V765*/ meltfptr[764],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP*/
+                                      /* check quasi.cur.mod.env.ref 1035963077 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1035963077 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V779*/ meltfptr[778], /*_._VALDATA___V781*/ meltfptr[780],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_CLEAR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_CLEAR*/
+                                      /* check quasi.cur.mod.env.ref 352441760 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h352441760 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V787*/ meltfptr[786], /*_._VALDATA___V784*/ meltfptr[783],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEP_CLEARDATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEP_CLEARDATA*/
+                                      /* check quasi.cur.mod.env.ref 188535710 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h188535710 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V829*/ meltfptr[828], /*_._VALDATA___V831*/ meltfptr[830],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_FLAG_CONJUNCTION*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_FLAG_CONJUNCTION*/
+                                      /* check quasi.cur.mod.env.ref 181097198 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h181097198 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V835*/ meltfptr[834], /*_._VALDATA___V837*/ meltfptr[836],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_FLAG_DISJUNCTION*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_FLAG_DISJUNCTION*/
+                                      /* check quasi.cur.mod.env.ref 1060007901 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1060007901 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V819*/ meltfptr[818], /*_._VALDATA___V821*/ meltfptr[820],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_FLAG_OPERATION*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_FLAG_OPERATION*/
+                                      /* check quasi.cur.mod.env.ref 974908413 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h974908413 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V827*/ meltfptr[826], /*_._VALDATA___V824*/ meltfptr[823],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEP_FLAGARGS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEP_FLAGARGS*/
+                                      /* check quasi.cur.mod.env.ref 770292015 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h770292015 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V813*/ meltfptr[812], /*_._VALDATA___V815*/ meltfptr[814],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_FLAG_SET*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_FLAG_SET*/
+                                      /* check quasi.cur.mod.env.ref 439433188 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h439433188 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V841*/ meltfptr[840], /*_._VALDATA___V843*/ meltfptr[842],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_SUCCESS_WHEN_FLAG*/
+                                      /* check quasi.cur.mod.env.ref 904015416 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h904015416 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V853*/ meltfptr[852], /*_._VALDATA___V846*/ meltfptr[845],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEPSUCCESS_VAROCC*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEPSUCCESS_VAROCC*/
+                                      /* check quasi.cur.mod.env.ref 27289768 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h27289768 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V855*/ meltfptr[854], /*_._VALDATA___V848*/ meltfptr[847],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEPSUCCESS_BINDS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEPSUCCESS_BINDS*/
+                                      /* check quasi.cur.mod.env.ref 650029275 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h650029275 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V857*/ meltfptr[856], /*_._VALDATA___V850*/ meltfptr[849],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEPSUCCESS_BODY*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEPSUCCESS_BODY*/
+                                      /* check quasi.cur.mod.env.ref 1023193455 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1023193455 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V859*/ meltfptr[858], /*_._VALDATA___V861*/ meltfptr[860],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_TEST*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_TEST*/
+                                      /* check quasi.cur.mod.env.ref 292093777 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h292093777 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V867*/ meltfptr[866], /*_._VALDATA___V864*/ meltfptr[863],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEP_ELSE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEP_ELSE*/
+                                      /* check quasi.cur.mod.env.ref 615335513 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h615335513 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V893*/ meltfptr[892], /*_._VALDATA___V895*/ meltfptr[894],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_TEST_GROUP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_TEST_GROUP*/
+                                      /* check quasi.cur.mod.env.ref 366196437 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h366196437 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V905*/ meltfptr[904], /*_._VALDATA___V898*/ meltfptr[897],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTGROUP_START*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTGROUP_START*/
+                                      /* check quasi.cur.mod.env.ref 658672528 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h658672528 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V907*/ meltfptr[906], /*_._VALDATA___V900*/ meltfptr[899],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTGROUP_THEN*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTGROUP_THEN*/
+                                      /* check quasi.cur.mod.env.ref 1067079733 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1067079733 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V909*/ meltfptr[908], /*_._VALDATA___V902*/ meltfptr[901],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTGROUP_ELSE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTGROUP_ELSE*/
+                                      /* check quasi.cur.mod.env.ref 1052670336 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1052670336 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V911*/ meltfptr[910], /*_._VALDATA___V913*/ meltfptr[912],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_TEST_INSTANCE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_TEST_INSTANCE*/
+                                      /* check quasi.cur.mod.env.ref 678332234 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h678332234 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V921*/ meltfptr[920], /*_._VALDATA___V916*/ meltfptr[915],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTINS_CLASS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTINS_CLASS*/
+                                      /* check quasi.cur.mod.env.ref 131919617 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h131919617 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V923*/ meltfptr[922], /*_._VALDATA___V918*/ meltfptr[917],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTINS_SLOTS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTINS_SLOTS*/
+                                      /* check quasi.cur.mod.env.ref 1002954231 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1002954231 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V935*/ meltfptr[934], /*_._VALDATA___V937*/ meltfptr[936],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_TEST_MATCHER*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_TEST_MATCHER*/
+                                      /* check quasi.cur.mod.env.ref 1053157524 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1053157524 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V949*/ meltfptr[948], /*_._VALDATA___V940*/ meltfptr[939],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTMA_MATCHER*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTMA_MATCHER*/
+                                      /* check quasi.cur.mod.env.ref 682631650 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h682631650 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V951*/ meltfptr[950], /*_._VALDATA___V942*/ meltfptr[941],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTMA_BINDS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTMA_BINDS*/
+                                      /* check quasi.cur.mod.env.ref 511468760 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h511468760 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V953*/ meltfptr[952], /*_._VALDATA___V944*/ meltfptr[943],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTMA_INS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTMA_INS*/
+                                      /* check quasi.cur.mod.env.ref 612622794 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h612622794 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V955*/ meltfptr[954], /*_._VALDATA___V946*/ meltfptr[945],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTMA_OUTS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTMA_OUTS*/
+                                      /* check quasi.cur.mod.env.ref 816900736 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h816900736 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V925*/ meltfptr[924], /*_._VALDATA___V927*/ meltfptr[926],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_TEST_MULTIPLE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_TEST_MULTIPLE*/
+                                      /* check quasi.cur.mod.env.ref 193971182 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h193971182 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V933*/ meltfptr[932], /*_._VALDATA___V930*/ meltfptr[929],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTTUP_COMPONENTS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTTUP_COMPONENTS*/
+                                      /* check quasi.cur.mod.env.ref 656978752 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h656978752 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V869*/ meltfptr[868], /*_._VALDATA___V871*/ meltfptr[870],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_TEST_VARIABLE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_TEST_VARIABLE*/
+                                      /* check quasi.cur.mod.env.ref 534870706 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h534870706 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V877*/ meltfptr[876], /*_._VALDATA___V874*/ meltfptr[873],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEPTESTVAR_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEPTESTVAR_DATA*/
+                                      /* check quasi.cur.mod.env.ref 601995568 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h601995568 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V769*/ meltfptr[768], /*_._VALDATA___V771*/ meltfptr[770],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_THEN*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_THEN*/
+                                      /* check quasi.cur.mod.env.ref 186439462 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h186439462 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V777*/ meltfptr[776], /*_._VALDATA___V774*/ meltfptr[773],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEP_THEN*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEP_THEN*/
+                                      /* check quasi.cur.mod.env.ref 869683547 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h869683547 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V799*/ meltfptr[798], /*_._VALDATA___V801*/ meltfptr[800],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_WITH_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_WITH_DATA*/
+                                      /* check quasi.cur.mod.env.ref 489681631 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h489681631 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V809*/ meltfptr[808], /*_._VALDATA___V804*/ meltfptr[803],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEP_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEP_DATA*/
+                                      /* check quasi.cur.mod.env.ref 714565185 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h714565185 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V811*/ meltfptr[810], /*_._VALDATA___V806*/ meltfptr[805],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEP_INDEX*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEP_INDEX*/
+                                      /* check quasi.cur.mod.env.ref 866571028 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h866571028 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V789*/ meltfptr[788], /*_._VALDATA___V791*/ meltfptr[790],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCH_STEP_WITH_FLAG*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCH_STEP_WITH_FLAG*/
+                                      /* check quasi.cur.mod.env.ref 952913980 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h952913980 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V797*/ meltfptr[796], /*_._VALDATA___V794*/ meltfptr[793],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MSTEP_FLAG*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MSTEP_FLAG*/
+                                      /* check quasi.cur.mod.env.ref 872865439 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h872865439 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V723*/ meltfptr[722], /*_._VALDATA___V725*/ meltfptr[724],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCHED_BINDING*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCHED_BINDING*/
+                                      /* check quasi.cur.mod.env.ref 675348430 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h675348430 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V733*/ meltfptr[732], /*_._VALDATA___V728*/ meltfptr[727],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATCHBIND_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATCHBIND_DATA*/
+                                      /* check quasi.cur.mod.env.ref 701787929 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h701787929 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V735*/ meltfptr[734], /*_._VALDATA___V730*/ meltfptr[729],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MATCHBIND_NBOCC*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MATCHBIND_NBOCC*/
+                                      /* check quasi.cur.mod.env.ref 9156362 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h9156362 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V695*/ meltfptr[694], /*_._VALDATA___V697*/ meltfptr[696],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCHED_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCHED_DATA*/
+                                      /* check quasi.cur.mod.env.ref 245486326 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h245486326 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V709*/ meltfptr[708], /*_._VALDATA___V700*/ meltfptr[699],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MDATA_SYMB*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MDATA_SYMB*/
+                                      /* check quasi.cur.mod.env.ref 594064222 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h594064222 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V711*/ meltfptr[710], /*_._VALDATA___V702*/ meltfptr[701],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MDATA_CTYPE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MDATA_CTYPE*/
+                                      /* check quasi.cur.mod.env.ref 8661779 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h8661779 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V713*/ meltfptr[712], /*_._VALDATA___V704*/ meltfptr[703],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MDATA_ORIG*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MDATA_ORIG*/
+                                      /* check quasi.cur.mod.env.ref 618426423 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h618426423 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V715*/ meltfptr[714], /*_._VALDATA___V706*/ meltfptr[705],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MDATA_STEPS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MDATA_STEPS*/
+                                      /* check quasi.cur.mod.env.ref 581587413 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h581587413 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V717*/ meltfptr[716], /*_._VALDATA___V719*/ meltfptr[718],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCHED_NORMAL_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCHED_NORMAL_DATA*/
+                                      /* check quasi.cur.mod.env.ref 56745202 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h56745202 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V627*/ meltfptr[626], /*_._VALDATA___V629*/ meltfptr[628],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_MATCHING_CONTEXT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MATCHING_CONTEXT*/
+                                      /* check quasi.cur.mod.env.ref 136762528 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h136762528 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V653*/ meltfptr[652], /*_._VALDATA___V632*/ meltfptr[631],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_NORMCTXT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_NORMCTXT*/
+                                      /* check quasi.cur.mod.env.ref 1068828134 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1068828134 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V655*/ meltfptr[654], /*_._VALDATA___V634*/ meltfptr[633],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_SOURCE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_SOURCE*/
+                                      /* check quasi.cur.mod.env.ref 390341101 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h390341101 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V657*/ meltfptr[656], /*_._VALDATA___V636*/ meltfptr[635],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_NMATCHED*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_NMATCHED*/
+                                      /* check quasi.cur.mod.env.ref 139530292 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h139530292 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V659*/ meltfptr[658], /*_._VALDATA___V638*/ meltfptr[637],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_NMATBIND*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_NMATBIND*/
+                                      /* check quasi.cur.mod.env.ref 750866187 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h750866187 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V661*/ meltfptr[660], /*_._VALDATA___V640*/ meltfptr[639],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_CASES*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_CASES*/
+                                      /* check quasi.cur.mod.env.ref 419531619 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h419531619 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V663*/ meltfptr[662], /*_._VALDATA___V642*/ meltfptr[641],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_ENV*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_ENV*/
+                                      /* check quasi.cur.mod.env.ref 253487142 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h253487142 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V665*/ meltfptr[664], /*_._VALDATA___V644*/ meltfptr[643],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_MDATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_MDATA*/
+                                      /* check quasi.cur.mod.env.ref 295651779 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h295651779 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V667*/ meltfptr[666], /*_._VALDATA___V646*/ meltfptr[645],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_VARHANDLERS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_VARHANDLERS*/
+                                      /* check quasi.cur.mod.env.ref 948274121 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h948274121 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V669*/ meltfptr[668], /*_._VALDATA___V648*/ meltfptr[647],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_FLAGS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_FLAGS*/
+                                      /* check quasi.cur.mod.env.ref 888877509 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h888877509 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V671*/ meltfptr[670], /*_._VALDATA___V650*/ meltfptr[649],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : MCTX_ENDLABEL*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : MCTX_ENDLABEL*/
+                                      /* check quasi.cur.mod.env.ref 217675960 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h217675960 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1179*/ meltfptr[1178], /*_._VALDATA___V1181*/ meltfptr[1180],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCHALT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCHALT*/
+                                      /* check quasi.cur.mod.env.ref 630298273 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h630298273 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1197*/ meltfptr[1196], /*_._VALDATA___V1184*/ meltfptr[1183],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NAMATCH_MATCHED*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NAMATCH_MATCHED*/
+                                      /* check quasi.cur.mod.env.ref 698024358 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h698024358 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1199*/ meltfptr[1198], /*_._VALDATA___V1186*/ meltfptr[1185],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NAMATCH_RESULT*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NAMATCH_RESULT*/
+                                      /* check quasi.cur.mod.env.ref 1055729063 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1055729063 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1201*/ meltfptr[1200], /*_._VALDATA___V1188*/ meltfptr[1187],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NAMATCH_BODY*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NAMATCH_BODY*/
+                                      /* check quasi.cur.mod.env.ref 311358940 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h311358940 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1203*/ meltfptr[1202], /*_._VALDATA___V1190*/ meltfptr[1189],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NAMATCH_FLAGS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NAMATCH_FLAGS*/
+                                      /* check quasi.cur.mod.env.ref 213163975 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h213163975 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1205*/ meltfptr[1204], /*_._VALDATA___V1192*/ meltfptr[1191],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NAMATCH_MDATAS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NAMATCH_MDATAS*/
+                                      /* check quasi.cur.mod.env.ref 585003146 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h585003146 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1207*/ meltfptr[1206], /*_._VALDATA___V1194*/ meltfptr[1193],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NAMATCH_STARTLABEL*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NAMATCH_STARTLABEL*/
+                                      /* check quasi.cur.mod.env.ref 151811084 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h151811084 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1263*/ meltfptr[1262], /*_._VALDATA___V1265*/ meltfptr[1264],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_JUMP_WHEN_IS_A*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_JUMP_WHEN_IS_A*/
+                                      /* check quasi.cur.mod.env.ref 596341288 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h596341288 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1275*/ meltfptr[1274], /*_._VALDATA___V1268*/ meltfptr[1267],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTESTISA_VALUE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTESTISA_VALUE*/
+                                      /* check quasi.cur.mod.env.ref 724543432 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h724543432 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1277*/ meltfptr[1276], /*_._VALDATA___V1270*/ meltfptr[1269],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTESTISA_CLASS*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTESTISA_CLASS*/
+                                      /* check quasi.cur.mod.env.ref 129212379 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h129212379 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1279*/ meltfptr[1278], /*_._VALDATA___V1272*/ meltfptr[1271],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NTESTISA_JUMP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NTESTISA_JUMP*/
+                                      /* check quasi.cur.mod.env.ref 76534873 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h76534873 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1235*/ meltfptr[1234], /*_._VALDATA___V1237*/ meltfptr[1236],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_DATA_ACTION*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_DATA_ACTION*/
+                                      /* check quasi.cur.mod.env.ref 268135550 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h268135550 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1243*/ meltfptr[1242], /*_._VALDATA___V1240*/ meltfptr[1239],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NMDAC_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NMDAC_DATA*/
+                                      /* check quasi.cur.mod.env.ref 889497768 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h889497768 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1251*/ meltfptr[1250], /*_._VALDATA___V1253*/ meltfptr[1252],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_DATA_CLEAR*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_DATA_CLEAR*/
+                                      /* check quasi.cur.mod.env.ref 522229126 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h522229126 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1257*/ meltfptr[1256], /*_._VALDATA___V1259*/ meltfptr[1258],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_DATA_FINALIZER*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_DATA_FINALIZER*/
+                                      /* check quasi.cur.mod.env.ref 882464116 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h882464116 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1245*/ meltfptr[1244], /*_._VALDATA___V1247*/ meltfptr[1246],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_DATA_INITIALIZER*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_DATA_INITIALIZER*/
+                                      /* check quasi.cur.mod.env.ref 341515175 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h341515175 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V957*/ meltfptr[956], /*_._VALDATA___V961*/ meltfptr[960],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_FLAG*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_FLAG*/
+                                      /* check quasi.cur.mod.env.ref 451108809 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h451108809 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V969*/ meltfptr[968], /*_._VALDATA___V964*/ meltfptr[963],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NRPFLA_FLAG*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NRPFLA_FLAG*/
+                                      /* check quasi.cur.mod.env.ref 82355111 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h82355111 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V971*/ meltfptr[970], /*_._VALDATA___V966*/ meltfptr[965],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NRPFLA_NMATCH*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NRPFLA_NMATCH*/
+                                      /* check quasi.cur.mod.env.ref 401017859 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h401017859 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1225*/ meltfptr[1224], /*_._VALDATA___V1227*/ meltfptr[1226],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_JUMP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_JUMP*/
+                                      /* check quasi.cur.mod.env.ref 353247113 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h353247113 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1233*/ meltfptr[1232], /*_._VALDATA___V1230*/ meltfptr[1229],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NMJMP_LABEL*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NMJMP_LABEL*/
+                                      /* check quasi.cur.mod.env.ref 1000551924 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1000551924 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1209*/ meltfptr[1208], /*_._VALDATA___V1211*/ meltfptr[1210],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_LABEL*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_LABEL*/
+                                      /* check quasi.cur.mod.env.ref 954542793 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h954542793 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1217*/ meltfptr[1216], /*_._VALDATA___V1214*/ meltfptr[1213],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NMLAB_STEP*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NMLAB_STEP*/
+                                      /* check quasi.cur.mod.env.ref 1002504137 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h1002504137 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V1219*/ meltfptr[1218], /*_._VALDATA___V1221*/ meltfptr[1220],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCH_LABEL_END*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCH_LABEL_END*/
+                                      /* check quasi.cur.mod.env.ref 232115706 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h232115706 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V973*/ meltfptr[972], /*_._VALDATA___V975*/ meltfptr[974],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : CLASS_NREP_MATCHED_DATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : CLASS_NREP_MATCHED_DATA*/
+                                      /* check quasi.cur.mod.env.ref 819204491 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h819204491 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V985*/ meltfptr[984], /*_._VALDATA___V978*/ meltfptr[977],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NRMATD_CTYPE*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NRMATD_CTYPE*/
+                                      /* check quasi.cur.mod.env.ref 201739987 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h201739987 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V987*/ meltfptr[986], /*_._VALDATA___V980*/ meltfptr[979],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NRMATD_MDATA*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NRMATD_MDATA*/
+                                      /* check quasi.cur.mod.env.ref 525973025 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h525973025 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V989*/ meltfptr[988], /*_._VALDATA___V982*/ meltfptr[981],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NRMATD_RANK*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NRMATD_RANK*/
+                                      /* check quasi.cur.mod.env.ref 570093880 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h570093880 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
         /*epilog*/
     }
 
@@ -53757,13 +55327,33 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_31 (meltinitial_frame_t* meltm
 
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V147*/ meltfptr[146], /*_._VALDATA___V151*/ meltfptr[150],
-                /*quasi.cur.mod.env.cont norm.exp.val : SCAN_PATTERN*/
-                /*_._CONTENV___V2*/ meltfptr[1]) ;
+                /*quasi.cur.mod.env.ref norm.exp.val : SCAN_PATTERN*/
+                /* check quasi.cur.mod.env.ref 233310647 */
+                (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                    (((melt_debug_garbcoll || melt_flag_debug) &&
+                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                     ?( {melt_fatal_error("bad current MELT module environment reference h233310647 @%p",
+                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                        })
+                     :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
 
         /*hookcall*/
         melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V228*/ meltfptr[227], /*_._VALDATA___V230*/ meltfptr[229],
-                                      /*quasi.cur.mod.env.cont norm.exp.val : NORMAL_PATTERN*/
-                                      /*_._CONTENV___V2*/ meltfptr[1]) ;
+                                      /*quasi.cur.mod.env.ref norm.exp.val : NORMAL_PATTERN*/
+                                      /* check quasi.cur.mod.env.ref 569377496 */
+                                      (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
+                                          (((melt_debug_garbcoll || melt_flag_debug) &&
+                                            (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
+                                           ?( {melt_fatal_error("bad current MELT module environment reference h569377496 @%p",
+                                                   (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
+                                              })
+                                           :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
+                                          /*_._CONTENV___V2*/ meltfptr[1] )) ;
         /*epilog*/
     }
 
@@ -53847,9 +55437,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_31 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_31*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_32 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_32 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -54241,9 +55831,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_32 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_32*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_33 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_33 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
@@ -54635,9 +56225,9 @@ void meltmod__WARMELTmiNORMATCH__initialmeltchunk_33 (meltinitial_frame_t* meltm
 #undef meltfram__
 } /*end of meltmod__WARMELTmiNORMATCH__initialmeltchunk_33*/
 
-void meltmod__WARMELTmiNORMATCH__initialmeltchunk_34 (meltinitial_frame_t* meltmeltframptr__, char meltpredefinited[])
+void meltmod__WARMELTmiNORMATCH__initialmeltchunk_34 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
-#define meltfram__ (*meltmeltframptr__)
+#define meltfram__ (*meltframptr__)
 #undef meltcallcount
 #define meltcallcount 0L
     (void) meltpredefinited;
