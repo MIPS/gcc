@@ -4545,10 +4545,17 @@ $CREATE is true i.e. non zero.}#
     (return))
   (assert_msg "check sym" (is_a sym class_symbol))
   (assert_msg "check contenv" (is_a contenv class_reference))
-  (let ( (env (unsafe_get_field :referenced_value contenv)) )
+  (let ( (env (unsafe_get_field :referenced_value contenv)) 
+	 (symname (unsafe_get_field :named_name sym))
+	 )
+    (assert_msg "check symname" (is_string symname))
     (when (null env)
-      (warningmsg_strv "exporting value too early with null environment" (unsafe_get_field :named_name sym))
-      (shortbacktrace_dbg "failing exporting value null env" 15)
+      (code_chunk 
+       nullenv_chk 
+       #{ /* hook_value_exporter $NULLENV_CHK */
+       melt_fatal_error ("exporting value named %s failed with null environment",
+			 melt_string_str ((melt_ptr_t)$SYMNAME));
+       }#)
       (return))
     (assert_msg "check good env" (is_a env class_environment))
     (let (
@@ -4559,45 +4566,44 @@ $CREATE is true i.e. non zero.}#
 		    :binder sym
 		    :vbind_value val
 		    )) 
-	  (symnam (unsafe_get_field :named_name sym))
 	  )
       (cond 
        ( (null prevbind) () )
        ( (and 
 	  (is_a prevbind class_selector_binding)
 	  (is_a val class_selector))
-	 (warningmsg_strv "not exporting previous bound selector" symnam)
+	 (warningmsg_strv "not exporting previous bound selector" symname)
 	 (return))
        ( (and
 	  (is_a prevbind class_instance_binding)
 	  (is_object val))
-	 (warningmsg_strv "not exporting previous bound instance" symnam)
+	 (warningmsg_strv "not exporting previous bound instance" symname)
 	 (return))
        ( (and
 	  (is_a prevbind class_primitive_binding)
 	  (is_a val class_primitive))
-	 (warningmsg_strv "not exporting previous bound primitive" symnam)
+	 (warningmsg_strv "not exporting previous bound primitive" symname)
 	 (return))
        ( (and
 	  (is_a prevbind class_function_binding)
 	  (is_closure val))
-	 (warningmsg_strv "not exporting previous bound function" symnam)
+	 (warningmsg_strv "not exporting previous bound function" symname)
 	 (return))
        ( (and
 	  (is_a prevbind class_class_binding)
 	  (is_a val class_class))
-	 (warningmsg_strv "not exporting previous bound class" symnam)
+	 (warningmsg_strv "not exporting previous bound class" symname)
 	 (return))
        ( (and
 	  (is_a prevbind class_field_binding)
 	  (is_a val class_class))
-	 (warningmsg_strv "not exporting previous bound field" symnam)
+	 (warningmsg_strv "not exporting previous bound field" symname)
 	 (return)
 	 )
        ( (and
 	  (is_a prevbind class_instance_binding)
 	  (is_object val))
-	 (warningmsg_strv "not exporting previous bound instance" symnam)
+	 (warningmsg_strv "not exporting previous bound instance" symname)
 	 (return)
 	 )
        (  (is_a prevbind class_value_binding)
@@ -4607,7 +4613,7 @@ $CREATE is true i.e. non zero.}#
 		 )
 	    (if (== prevdiscr curdiscr)
 		(progn
-		  (warningmsg_strv "not exporting previous bound homogenous value" symnam)
+		  (warningmsg_strv "not exporting previous bound homogenous value" symname)
 		  (warningmsg_strv "common value discrim" 
 				   (unsafe_get_field :named_name prevdiscr))
 		  (return)))
@@ -4633,10 +4639,17 @@ $CREATE is true i.e. non zero.}#
 		     (unsafe_get_field :named_name sym))
     (return))
   (assert_msg "check contenv" (is_a contenv class_reference))
-  (let ( (env (unsafe_get_field :referenced_value contenv)) )
+  (let ( (env (unsafe_get_field :referenced_value contenv)) 
+	 (symname (unsafe_get_field :named_name sym))
+	 )
+    (assert_msg "check symname" (is_string symname))
     (when (null env)
-      (informsg_strv "exporting macro too early with null environment"
-		     (unsafe_get_field :named_name sym))
+      (code_chunk 
+       nullenv_chk 
+       #{ /* hook_macro_exporter $NULLENV_CHK */
+       melt_fatal_error ("exporting macro named %s failed with null environment",
+			 melt_string_str ((melt_ptr_t)$SYMNAME)) ;
+       }#)
       (return)
       )
     (assert_msg "check env" (is_a env class_environment))

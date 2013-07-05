@@ -2,6 +2,11 @@
 
 2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (hook_value_exporter)
+	(hook_macro_exporter): Fatal error when no environment.
+
+2013-07-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
