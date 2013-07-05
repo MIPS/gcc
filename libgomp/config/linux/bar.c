@@ -95,7 +95,8 @@ gomp_team_barrier_wait_end (gomp_barrier_t *bar, gomp_barrier_state_t state)
 	}
       else
 	{
-	  __atomic_store_n (&bar->generation, state + 3, MEMMODEL_RELEASE);
+	  state += BAR_INCR - BAR_WAS_LAST;
+	  __atomic_store_n (&bar->generation, state, MEMMODEL_RELEASE);
 	  futex_wake ((int *) &bar->generation, INT_MAX);
 	  return;
 	}
