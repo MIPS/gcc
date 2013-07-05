@@ -378,10 +378,10 @@ static struct meltextinfovec_st {
 
 #if MELT_HAVE_CLASSY_FRAME
 Melt_CallProtoFrame* melt_top_call_frame =NULL;
-#if MELT_HAVE_DEBUG
+#if ENABLE_CHECKING
 FILE* Melt_CallProtoFrame::_dbgcall_file_ = NULL;
 long Melt_CallProtoFrame::_dbgcall_count_ = 0L;
-#endif /*MELT_HAVE_DEBUG*/
+#endif /*ENABLE_CHECKING*/
 #else /* ! MELT_HAVE_CLASSY_FRAME */
 struct melt_callframe_st* melt_topframe =NULL;
 #endif /* MELT_HAVE_CLASSY_FRAME */
@@ -10431,7 +10431,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   debugeprintf ("melt_really_initialize melt_start_time=%ld",
 		(long) melt_start_time.tv_sec);
 
-#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME
+#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING
   {
     const char* dbgfilename = getenv ("GCCMELT_DEBUG_CALL_FRAME");
     FILE *dbgfile = NULL;
@@ -10449,7 +10449,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       Melt_CallFrame::set_debug_file (dbgfile);
     }
   }
-#endif /* MELT_HAVE_DEBUG  && MELT_HAVE_CLASSY_FRAME */
+#endif /* MELT_HAVE_DEBUG  && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING */
 
 #if ENABLE_GC_ALWAYS_COLLECT
   /* the GC will be tremendously slowed since called much too often. */
@@ -11002,9 +11002,9 @@ melt_do_finalize (void)
       melt_trace_source_fil = NULL;
     }
   dbgprintf ("melt_do_finalize ended melt_nb_modules=%d", melt_nb_modules);
-#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME
+#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING
   Melt_CallFrame::set_debug_file((FILE*)NULL);
-#endif /*MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME*/
+#endif /*MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING */
   if (!quiet_flag)
     { /* when not quiet, the GGC collector displays data, so we show
 	 our various GC reasons count */
@@ -11545,6 +11545,10 @@ melt_dbgbacktrace (int depth)
       fprintf (stderr, "frame#%d current:", curdepth);
       if (sloc && sloc[0]) 
 	fprintf (stderr, " {%s} ", sloc);
+#if ENABLE_CHECKING
+      else if (dbg_file())
+	fprintf (stderr, " [%s:%d]", dbg_file(), (int) dbg_line());
+#endif /*ENABLE_CHECKING*/
       else
 	fputs (" ", stderr);
       melt_ptr_t current = cfr->current();
@@ -11610,6 +11614,10 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
       const char* sloc = cfr->srcloc();
       if (sloc && sloc[0])
 	fprintf (stderr, "@%s ", sloc);
+#if ENABLE_CHECKING
+      else if (dbg_file())
+	fprintf (stderr, " [%s:%d]", dbg_file(), (int) dbg_line());
+#endif /*ENABLE_CHECKING*/
       if ((curclos= cfr->current_closure()) != NULL) 
 	{
 	  meltroutine_ptr_t curout = curclos->rout;

@@ -2,6 +2,21 @@
 
 2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallProtoFrame, Melt_CallFrame)
+	(Melt_CallFrameWithValues): Use #if ENABLE_CHECKING not
+	MELT_HAVE_DEBUG.
+
+	* melt-runtime.c (melt_really_initialize): Likewise.
+	(melt_dbgbacktrace, melt_dbgshortbacktrace): Use the dbg_file()
+	when relevant.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct): Emit
+	ENABLE_CHECKING, not MELT_HAVE_DEBUG.
+	(outpucod_initialmoduleroutine): Don't emit the
+	melt_sparebreakpoint_0.
+
+2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
