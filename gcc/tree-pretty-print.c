@@ -314,11 +314,17 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     case OMP_CLAUSE_COPYPRIVATE:
       name = "copyprivate";
       goto print_remap;
+    case OMP_CLAUSE_UNIFORM:
+      name = "uniform";
+      goto print_remap;
+    case OMP_CLAUSE__LOOPTEMP_:
+      name = "_looptemp_";
+      goto print_remap;
   print_remap:
       pp_string (buffer, name);
       pp_character (buffer, '(');
       dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
-	  spc, flags, false);
+			 spc, flags, false);
       pp_character (buffer, ')');
       break;
 
@@ -429,6 +435,37 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_MERGEABLE:
       pp_string (buffer, "mergeable");
+      break;
+
+    case OMP_CLAUSE_LINEAR:
+      pp_string (buffer, "linear(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
+			 spc, flags, false);
+      pp_character (buffer, ':');
+      dump_generic_node (buffer, OMP_CLAUSE_LINEAR_STEP (clause),
+			 spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_CLAUSE_SAFELEN:
+      pp_string (buffer, "safelen(");
+      dump_generic_node (buffer, OMP_CLAUSE_SAFELEN_EXPR (clause),
+			 spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_CLAUSE_SIMDLEN:
+      pp_string (buffer, "simdlen(");
+      dump_generic_node (buffer, OMP_CLAUSE_SIMDLEN_EXPR (clause),
+			 spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_CLAUSE__SIMDUID_:
+      pp_string (buffer, "_simduid_(");
+      dump_generic_node (buffer, OMP_CLAUSE__SIMDUID__DECL (clause),
+			 spc, flags, false);
+      pp_character (buffer, ')');
       break;
 
     default:
@@ -2178,6 +2215,13 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_FOR:
       pp_string (buffer, "#pragma omp for");
+      goto dump_omp_loop;
+
+    case OMP_SIMD:
+      pp_string (buffer, "#pragma omp simd");
+      goto dump_omp_loop;
+
+    dump_omp_loop:
       dump_omp_clauses (buffer, OMP_FOR_CLAUSES (node), spc, flags);
 
       if (!(flags & TDF_SLIM))

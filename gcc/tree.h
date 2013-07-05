@@ -365,6 +365,15 @@ enum omp_clause_code
   /* OpenMP clause: copyprivate (variable_list).  */
   OMP_CLAUSE_COPYPRIVATE,
 
+  /* OpenMP clause: linear (variable-list[:linear-step]).  */
+  OMP_CLAUSE_LINEAR,
+
+  /* OpenMP clause: uniform (argument-list).  */
+  OMP_CLAUSE_UNIFORM,
+
+   /* Internal clause: temporary for combined loops expansion.  */
+  OMP_CLAUSE__LOOPTEMP_,
+
   /* OpenMP clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
 
@@ -393,7 +402,16 @@ enum omp_clause_code
   OMP_CLAUSE_FINAL,
 
   /* OpenMP clause: mergeable.  */
-  OMP_CLAUSE_MERGEABLE
+  OMP_CLAUSE_MERGEABLE,
+
+  /* OpenMP clause: safelen (constant-integer-expression).  */
+  OMP_CLAUSE_SAFELEN,
+
+  /* OpenMP clause: simdlen (constant-integer-expression).  */
+  OMP_CLAUSE_SIMDLEN,
+
+  /* Internally used only clause, holding SIMD uid.  */
+  OMP_CLAUSE__SIMDUID_
 };
 
 /* The definition of tree nodes fills the next several pages.  */
@@ -560,6 +578,9 @@ struct GTY(()) tree_base {
        OMP_CLAUSE_PRIVATE_DEBUG in
            OMP_CLAUSE_PRIVATE
 
+       OMP_CLAUSE_LINEAR_NO_COPYIN in
+	   OMP_CLAUSE_LINEAR
+
        TRANSACTION_EXPR_RELAXED in
 	   TRANSACTION_EXPR
 
@@ -579,6 +600,9 @@ struct GTY(()) tree_base {
 
        OMP_CLAUSE_PRIVATE_OUTER_REF in
 	   OMP_CLAUSE_PRIVATE
+
+       OMP_CLAUSE_LINEAR_NO_COPYOUT in
+	   OMP_CLAUSE_LINEAR
 
        TYPE_REF_IS_RVALUE in
 	   REFERENCE_TYPE
@@ -1800,7 +1824,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_DECL(NODE)      					\
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
-	                                      OMP_CLAUSE_COPYPRIVATE), 0)
+	                                      OMP_CLAUSE__LOOPTEMP_), 0)
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
   (LOCATION_LOCUS ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus)		\
   != UNKNOWN_LOCATION)
@@ -1866,6 +1890,28 @@ extern void protected_set_expr_location (tree, location_t);
   (OMP_CLAUSE_CHECK (NODE))->omp_clause.gimple_reduction_merge
 #define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
+
+/* True if a LINEAR clause doesn't need copy in.  True for iterator vars which
+   are always initialized inside of the loop construct, false otherwise.  */
+#define OMP_CLAUSE_LINEAR_NO_COPYIN(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR)->base.public_flag)
+
+/* True if a LINEAR clause doesn't need copy out.  True for iterator vars which
+   are declared inside of the simd construct.  */
+#define OMP_CLAUSE_LINEAR_NO_COPYOUT(NODE) \
+  TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR))
+
+#define OMP_CLAUSE_LINEAR_STEP(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
+
+#define OMP_CLAUSE_SAFELEN_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SAFELEN), 0)
+
+#define OMP_CLAUSE_SIMDLEN_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SIMDLEN), 0)
+
+#define OMP_CLAUSE__SIMDUID__DECL(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__SIMDUID_), 0)
 
 enum omp_clause_schedule_kind
 {
@@ -4783,6 +4829,7 @@ extern tree build_translation_unit_decl (tree);
 extern tree build_block (tree, tree, tree, tree);
 extern tree build_empty_stmt (location_t);
 extern tree build_omp_clause (location_t, enum omp_clause_code);
+extern tree find_omp_clause (tree, enum omp_clause_code);
 
 extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
 #define build_vl_exp(c,n) build_vl_exp_stat (c,n MEM_STAT_INFO)
