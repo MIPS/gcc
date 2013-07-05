@@ -1,14 +1,25 @@
-ACLOCAL_AMFLAGS = -I .. -I ../config
+AM_CPPFLAGS = -I $(top_srcdir) -I $(top_srcdir)/include
 
-if TSAN_SUPPORTED
-SUBDIRS = interception sanitizer_common asan tsan ubsan
-else
-SUBDIRS = interception sanitizer_common asan ubsan
-endif
+# May be used by toolexeclibdir.
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
-if USING_MAC_INTERPOSE
-SUBDIRS = sanitizer_common asan ubsan
-endif
+DEFS = -D_GNU_SOURCE -D_DEBUG -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS 
+AM_CXXFLAGS = -Wall -W -Wno-unused-parameter -Wwrite-strings -pedantic -Wno-long-long  -fPIC -fno-builtin -fno-exceptions -fomit-frame-pointer -funwind-tables -fvisibility=hidden -Wno-variadic-macros
+AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
+ACLOCAL_AMFLAGS = -I m4
+
+toolexeclib_LTLIBRARIES = libubsan.la
+
+ubsan_files = \
+	ubsan_diag.cc \
+	ubsan_handlers.cc \
+	ubsan_handlers_cxx.cc \
+	ubsan_type_hash.cc \
+	ubsan_value.cc
+
+libubsan_la_SOURCES = $(ubsan_files) 
+libubsan_la_LIBADD = $(top_builddir)/sanitizer_common/libsanitizer_common.la $(top_builddir)/interception/libinterception.la $(LIBSTDCXX_RAW_CXX_LDFLAGS)
+libubsan_la_LDFLAGS = -version-info `grep -v '^\#' $(srcdir)/libtool-version` -lpthread -ldl
 
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
