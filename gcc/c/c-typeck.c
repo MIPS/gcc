@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-common.h"
+#include "c-family/c-ubsan.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -9532,6 +9533,15 @@ build_binary_op (location_t location, enum tree_code code,
      operands to truth-values.  */
   bool boolean_op = false;
 
+  /* Remember whether we're doing / or %.  */
+  bool doing_div_or_mod = false;
+
+  /* Remember whether we're doing << or >>.  */
+  bool doing_shift = false;
+
+  /* Tree holding instrumentation expression.  */
+  tree instrument_expr = NULL;
+
   if (location == UNKNOWN_LOCATION)
     location = input_location;
 
@@ -9733,6 +9743,7 @@ build_binary_op (location_t location, enum tree_code code,
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
     case EXACT_DIV_EXPR:
+      doing_div_or_mod = true;
       warn_for_div_by_zero (location, op1);
 
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE
@@ -9780,6 +9791,7 @@ build_binary_op (location_t location, enum tree_code code,
 
     case TRUNC_MOD_EXPR:
     case FLOOR_MOD_EXPR:
+      doing_div_or_mod = true;
       warn_for_div_by_zero (location, op1);
 
       if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
@@ -9878,6 +9890,7 @@ build_binary_op (location_t location, enum tree_code code,
       else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
 	  && code1 == INTEGER_TYPE)
 	{
+	  doing_shift = true;
 	  if (TREE_CODE (op1) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_sgn (op1) < 0)
@@ -9930,6 +9943,7 @@ build_binary_op (location_t location, enum tree_code code,
       else if ((code0 == INTEGER_TYPE || code0 == FIXED_POINT_TYPE)
 	  && code1 == INTEGER_TYPE)
 	{
+	  doing_shift = true;
 	  if (TREE_CODE (op1) == INTEGER_CST)
 	    {
 	      if (tree_int_cst_sgn (op1) < 0)
@@ -10474,6 +10488,17 @@ build_binary_op (location_t location, enum tree_code code,
 	return error_mark_node;
     }
 
+  if (flag_ubsan)
+    {
+      /* OP0 and/or OP1 might have side-effects.  */
+      op0 = c_save_expr (op0);
+      op1 = c_save_expr (op1);
+      if (doing_div_or_mod)
+	instrument_expr = ubsan_instrument_division (location, op0, op1);
+      else if (doing_shift)
+	instrument_expr = ubsan_instrument_shift (location, code, op0, op1);
+    }
+
   /* Treat expressions in initializers specially as they can't trap.  */
   if (int_const_or_overflow)
     ret = (require_constant_value
@@ -10497,6 +10522,11 @@ build_binary_op (location_t location, enum tree_code code,
   if (semantic_result_type)
     ret = build1 (EXCESS_PRECISION_EXPR, semantic_result_type, ret);
   protected_set_expr_location (ret, location);
+
+  if (flag_ubsan && instrument_expr != NULL)
+    ret = fold_build2 (COMPOUND_EXPR, TREE_TYPE (ret),
+		       instrument_expr, ret);
+
   return ret;
 }
 

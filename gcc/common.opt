@@ -858,6 +858,10 @@ fsanitize=thread
 Common Report Var(flag_tsan)
 Enable ThreadSanitizer, a data race detector
 
+fsanitize=undefined
+Common Report Var(flag_ubsan)
+Enable UndefinedBehaviorSanitizer, an undefined behavior detector
+
 fasynchronous-unwind-tables
 Common Report Var(flag_asynchronous_unwind_tables) Optimization
 Generate unwind tables that are exact at each instruction boundary

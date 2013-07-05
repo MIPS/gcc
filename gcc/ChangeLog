@@ -1,3 +1,15 @@
+2013-07-05  Marek Polacek  <polacek@redhat.com>
+
+	* Makefile.in: Add ubsan.c.
+	* common.opt: Add -fsanitize=undefined option.
+	* doc/invoke.texi: Document the new flag.
+	* sanitizer.def (DEF_SANITIZER_BUILTIN): Define.
+	* builtin-attrs.def (ATTR_COLD): Define.
+	* asan.c (initialize_sanitizer_builtins): Build
+	BT_FN_VOID_PTR_PTR_PTR.
+	* builtins.def (BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW,
+	BUILT_IN_UBSAN_HANDLE_SHIFT_OUT_OF_BOUNDS): Define.
+
 2013-07-05  Thomas Quinot  <quinot@adacore.com>
 
 	* tree-complex.c (expand_complex_operations_1): Fix typo.
