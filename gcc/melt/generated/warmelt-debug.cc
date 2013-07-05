@@ -40,10 +40,10 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-#if MELT_HAVE_CLASSY_FRAME /* fromline 6970*/
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h1051027782; // forward declaration fromline 6972
+#if MELT_HAVE_CLASSY_FRAME /* fromline 6981*/
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h1051027782; // forward declaration fromline 6983
 typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h1051027782 Melt_InitialFrame;
-#endif /* MELT_HAVE_CLASSY_FRAME fromline 6976*/
+#endif /* MELT_HAVE_CLASSY_FRAME fromline 6987*/
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -3235,7 +3235,7 @@ public: /* fromline 1537*/
 ;
 
 
-static void initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t *iniframp__, char meltpredefinited[])
+static void melt_initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t *iniframp__, char meltpredefinited[])
 {
 #define meltfram__  (*iniframp__)
 
@@ -3570,7 +3570,7 @@ static void initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t *inif
         struct MELT_STRING_STRUCT(23) dstr_325__REGISTER_TREE_DEBUG_FUN;
         long spare_;
     } *meltcdat = NULL;
-    dbgprintf ("start initialize_module_meltdata_WARMELTmiDEBUG iniframp__=%p", (void*) iniframp__);
+    dbgprintf ("start melt_initialize_module_meltdata_WARMELTmiDEBUG iniframp__=%p", (void*) iniframp__);
     (void) meltpredefinited; /* avoid warning if non-used. */
 #if !MELT_HAVE_CLASSY_FRAME /*fromline 2407*/
     melt_assertmsg ("check module initial frame", iniframp__->mcfr_nbvar == /*minihash*/ -2375);
@@ -6579,7 +6579,7 @@ static void initialize_module_meltdata_WARMELTmiDEBUG (meltinitial_frame_t *inif
     melt_prohibit_garbcoll = FALSE;
 
 #undef meltfram__
-} /*end initialize_module_meltdata_WARMELTmiDEBUG*/
+} /*end melt_initialize_module_meltdata_WARMELTmiDEBUG*/
 
 
 #if MELT_HAVE_DEBUG
@@ -6644,11 +6644,12 @@ void* melt_start_this_module (void* modargp_)
     melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
 #endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
     /**initial routine prologue**/
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2497*/
+    melt_sparebreakpoint_0((void*)&meltfram__, "initial routine start warmelt-debug");
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2499*/
     /* set initial frame marking */
     ((struct melt_callframe_st*)&meltfram__)->mcfr_nbvar = /*minihash*/ -2375;
     ((struct melt_callframe_st*)&meltfram__)->mcfr_forwmarkrout = meltmod__WARMELTmiDEBUG__forward_or_mark_module_start_frame;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2509*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2511*/
     /**COMMENT: get previous environment **/;
 
     /*^compute*/
@@ -8008,8 +8009,13 @@ void* melt_start_this_module (void* modargp_)
     /**initial routine cdata initializer**/
 
     memset(meltpredefinited, 0, sizeof(meltpredefinited));
-    initialize_module_meltdata_WARMELTmiDEBUG (&meltfram__, meltpredefinited);
+    melt_initialize_module_meltdata_WARMELTmiDEBUG (&meltfram__, meltpredefinited);
     /**initial routine body**/
+
+    debugeprintf (" in initialization of warmelt-debug thru 7 chunk routines with frame @%p of %d bytes",
+                  /*fromline 2588*/ (void*)&meltfram__, (int) sizeof(meltfram__));
+    melt_debuggc_eprintf ("initialization of warmelt-debug thru 7 chunks, frame @%p of %d bytes",
+                          (void*)&meltfram__, (int) sizeof(meltfram__));
 
     meltmod__WARMELTmiDEBUG__initialmeltchunk_0 (&meltfram__, meltpredefinited);
     meltmod__WARMELTmiDEBUG__initialmeltchunk_1 (&meltfram__, meltpredefinited);
@@ -8021,13 +8027,13 @@ void* melt_start_this_module (void* modargp_)
     goto meltlabend_rout;
 meltlabend_rout:
     ;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2609*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2620*/
     melt_topframe = /*endinitrout*/ (struct melt_callframe_st *) meltfram__.mcfr_prev;
     /* popped initial frame */
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2615*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2626*/
     {
-        /* return out of initial fromline 2617 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
-        debugeprintf ("returning @%p from initial routine of warmelt-debug", (void*)retval); /*fromline 2625*/
+        /* return out of initial fromline 2628 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        debugeprintf ("returning @%p from initial routine of warmelt-debug", (void*)retval); /*fromline 2636*/
         return retval;
     }
 #undef meltcallcount
@@ -8035,7 +8041,7 @@ meltlabend_rout:
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
 
-} /* end fromline 2638 */
+} /* end fromline 2649 */
 
 void meltmod__WARMELTmiDEBUG__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
@@ -13828,9 +13834,9 @@ void meltmod__WARMELTmiDEBUG__initialmeltchunk_6 (meltinitial_frame_t* meltframp
 #undef meltfram__
 } /*end of meltmod__WARMELTmiDEBUG__initialmeltchunk_6*/
 
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2681*/
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2688*/
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2691*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2692*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2699*/
+#if !MELT_HAVE_CLASSY_FRAME /*fromline 2702*/
 void meltmod__WARMELTmiDEBUG__forward_or_mark_module_start_frame (struct melt_callframe_st* fp, int marking)
 {
     int meltix=0;
@@ -13848,7 +13854,7 @@ void meltmod__WARMELTmiDEBUG__forward_or_mark_module_start_frame (struct melt_ca
             gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
 
 } /* end meltmod__WARMELTmiDEBUG__forward_or_mark_module_start_frame */
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2735*/
+#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2746*/
 
 
 
