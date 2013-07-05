@@ -3514,12 +3514,15 @@ gimple
 meltgc_walk_gimple_seq (melt_ptr_t data_p, gimple_seq gseq, melt_ptr_t stmtclos_p, melt_ptr_t treeclos_p, bool uniquetreevisit);
 
 #if ENABLE_CHECKING
-/* two useless routines in wich we can add a breakpoint from gdb. */
-void melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg);
-void melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg);
+/* some useless routines in wich we can add a breakpoint from gdb. */
+MELT_EXTERN void melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg);
+MELT_EXTERN void melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg);
+MELT_EXTERN void melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg);
+#define melt_sparebreakpoint_0(P,Msg) melt_sparebreakpoint_0_at(__FILE__,__LINE__,(void*)(P),(Msg))
 #define melt_sparebreakpoint_1(P,Msg) melt_sparebreakpoint_1_at(__FILE__,__LINE__,(void*)(P),(Msg))
 #define melt_sparebreakpoint_2(P,Msg) melt_sparebreakpoint_2_at(__FILE__,__LINE__,(void*)(P),(Msg))
 #else /*no ENABLE_CHECKING*/
+#define melt_sparebreakpoint_0(P,Msg) do{(void)(0 && (P));}while(0)
 #define melt_sparebreakpoint_1(P,Msg) do{(void)(0 && (P));}while(0)
 #define melt_sparebreakpoint_2(P,Msg) do{(void)(0 && (P));}while(0)
 #endif /*ENABLE_CHECKING*/

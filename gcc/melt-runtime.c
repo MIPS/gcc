@@ -10443,7 +10443,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       time_t now = 0;
       inform (UNKNOWN_LOCATION, "MELT is tracing classy call frames on %s\n", dbgfilename);
       time (&now);
-      fprintf (dbgfile, "#MELT tracing classy call frames on %s pid %d at %s", dbgfilename, (int) getpid(), ctime(&now));
+      fprintf (dbgfile, "#MELT tracing classy call frames thru GCCMELT_DEBUG_CALL_FRAME env.var\n"
+	       "#on file %s pid %d at %s", dbgfilename, (int) getpid(), ctime(&now));
       fflush(dbgfile);
       Melt_CallFrame::set_debug_file (dbgfile);
     }
@@ -13042,7 +13043,16 @@ end:
 
 
 #if ENABLE_CHECKING
-/* two useless routines in wich we can add a breakpoint from gdb. */
+/* some useless routines in wich we can add a breakpoint from gdb. */
+void
+melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
+{
+  dbgprintf_raw ("@%s:%d: MELT sparebreakpoint_0 ptr=%p msg=%s\n",
+                 fil, lin, ptr, msg);
+  melt_dbgshortbacktrace("melt_sparebreakpoint_0", 20);
+  debugeprintf ("melt_sparebreakpoint_0_at msg %s", msg);
+}
+
 void
 melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg)
 {

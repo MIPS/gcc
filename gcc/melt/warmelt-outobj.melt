@@ -2387,7 +2387,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf "static void initialize_module_meltdata_")
+    (add2sbuf_strconst implbuf "static void melt_initialize_module_meltdata_")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf " (meltinitial_frame_t *iniframp__, char meltpredefinited[])")
     (add2sbuf_indentnl implbuf 0)
@@ -2398,7 +2398,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (output_curframe_cdat_struct idatup implbuf)
     (add2sbuf_strconst implbuf " *meltcdat = NULL;")
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf " dbgprintf (\"start initialize_module_meltdata_")
+    (add2sbuf_strconst implbuf " dbgprintf (\"start melt_initialize_module_meltdata_")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf " iniframp__=%p\", (void*) iniframp__);")
     (add2sbuf_indentnl implbuf 1)
@@ -2417,7 +2417,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_strconst implbuf "#undef meltfram__")
     (add2sbuf_indentnl implbuf 0)
-    (add2sbuf_strconst implbuf "} /*end initialize_module_meltdata_")
+    (add2sbuf_strconst implbuf "} /*end melt_initialize_module_meltdata_")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf "*/")
     (add2sbuf_indentnl implbuf 0)
@@ -2493,6 +2493,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;; output the prologue
 ;;;
     (add2sbuf_strconst implbuf "/**initial routine prologue**/")
+    (add2sbuf_indentnl implbuf 1)
+    (add2out implbuf "melt_sparebreakpoint_0((void*)&meltfram__, \"initial routine start " omodnam "\");")
     (add2sbuf_indentnl implbuf 0)
     (add2out implbuf "#if !MELT_HAVE_CLASSY_FRAME" " /*fromline " (this_line) "*/")
     (add2sbuf_indentnl implbuf 1)
@@ -2522,7 +2524,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl implbuf 1)
     (add2sbuf_strconst implbuf "memset(meltpredefinited, 0, sizeof(meltpredefinited));")
     (add2sbuf_indentnl implbuf 1)
-    (add2sbuf_strconst implbuf "initialize_module_meltdata_")
+    (add2sbuf_strconst implbuf "melt_initialize_module_meltdata_")
     (add2sbuf_cident implbuf omodnam)
     (add2sbuf_strconst implbuf " (&meltfram__, meltpredefinited);")
     (add2sbuf_indentnl implbuf 1)
@@ -2580,6 +2582,15 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (let ( (chunktup (list_to_multiple chunkbuflist discr_multiple)) 
 	     )
 	;; declare each chunk and call it.
+	(add2sbuf_indentnl implbuf 1)
+	(add2out implbuf "debugeprintf (\" in initialization of " omodnam " thru " 
+		 (multiple_length chunktup) " chunk routines with frame @%p of %d bytes\",\n" 
+		 " /*fromline " (this_line) "*/ (void*)&meltfram__, (int) sizeof(meltfram__));")
+	(add2sbuf_indentnl implbuf 1)
+	(add2out implbuf "melt_debuggc_eprintf (\"initialization of " omodnam " thru " 
+		 (multiple_length chunktup) " chunks, frame @%p of %d bytes\",\n  "
+		 " (void*)&meltfram__, (int) sizeof(meltfram__));")
+	(add2sbuf_indentnl implbuf 1)
 	(add2sbuf_indentnl declbuf 0)
 	(foreach_in_multiple
 	 (chunktup)
