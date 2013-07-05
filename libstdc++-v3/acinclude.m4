@@ -2300,6 +2300,17 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
   AC_MSG_CHECKING([for vtable verify support])
   AC_MSG_RESULT([$enable_vtable_verify])
 
+  if test $enable_vtable_verify = yes; then
+    VTV_CXXFLAGS =  -fvtable-verify=std \
+  		    -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+    VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs -Wl,-lvtv		
+  else
+    VTV_CXXFLAGS = 
+    VTV_CXXLINKFLAGS = 
+  fi
+
+  AC_SUBST(VTV_CXXFLAGS)
+  AC_SUBST(VTV_CXXLINKFLAGS)
   GLIBCXX_CONDITIONAL(ENABLE_VTABLE_VERIFY, test $enable_vtable_verify = yes)
 ])
 

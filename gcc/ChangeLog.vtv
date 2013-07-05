@@ -1,36 +1,30 @@
 2013-06-16  Caroline Tice  <cmtice@google.com>
 
-	* configure (CXX_FOR_TARGET): Add libstdc++-v3/libsupc++/.libs to the
-	library search path.
-	* ligbcc/config.host (extra_parts):  Add vtv_start.o and vtv_end.o to
-	the list.
-	* libgcc/Makefile.in: Add definitin for gcc_srcdir; add rules for
-	building vtv_start.o and vtv_end.o.
-	* passes.c (init_optimization_pass): Add pass_vtable_verify.
-	* vtv_start.c:  New file.
-	* tree-pass.h (pass_vtable_verify): Declare new pass.
-	* vtable-verify.c:  New file, contains vtable verification tree
-	pass.
-	* vtable-verify.h: New file.
+	gcc
 	* common.opt: (fvtable-verify=): New option. Also define vtv_priority
 	values for the option.
-	* timevar.def (TV_VTABLE_VERIFICATION):  Declare new time var.
 	* config/gnu-user.h: Add vtv_start.o to STARTFILE_SPEC if
 	fvtable-verify is present; Add vtv_end.o to ENDFILE_SPEC if
 	fvtable-verify is present.
-	* tree.h: Add extern function declaration for save_vtable_map_decl.
-	* vtv_end.c:  New file.
 	* flag-types.h (vtv_priority):  New enum, for values for new
+	* tree-pass.h (pass_vtable_verify): Declare new pass.
+	* output.h (assemble_vtv_preinit_initializer):  External function decl.
+	* passes.c (init_optimization_pass): Add pass_vtable_verify.
+	* timevar.def (TV_VTABLE_VERIFICATION):  Declare new time var.
+	* tree.h: Add extern function declaration for save_vtable_map_decl.
 	'-fvtable-verify=' option.
-	* Makefile.in (OBJS):  Add vtable-verify.o to list of object
-	files.
-	(vtable-verify.o):  Add rule for building object file.
-	(GTFILES): Add vtable-verify.c to list of files that use GCC's
-	garbage collector.
 	* varasm.c (assemble_variable): Add code for handling variables that
 	go into the ".vtable_map_vars" section.
 	(assemble_vtv_perinit_initializer):  New function.
 	(default_section_type_flags):  Add SECTION_LINKONCE to
 	".vtable_map_vars" section items.
-	* output.h (assemble_vtv_preinit_initializer):  External function decl.
+	* vtable-verify.c:  New file, contains vtable verification tree
+	pass.
+	* vtable-verify.h: New file.
+
+	* Makefile.in (OBJS):  Add vtable-verify.o to list of object
+	files.
+	(vtable-verify.o):  Add rule for building object file.
+	(GTFILES): Add vtable-verify.c to list of files that use GCC's
+	garbage collector.
 

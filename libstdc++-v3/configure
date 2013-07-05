@@ -666,6 +666,8 @@ SECTION_LDFLAGS
 GLIBCXX_LIBS
 ENABLE_VTABLE_VERIFY_FALSE
 ENABLE_VTABLE_VERIFY_TRUE
+VTV_CXXLINKFLAGS
+VTV_CXXFLAGS
 ENABLE_WERROR_FALSE
 ENABLE_WERROR_TRUE
 ENABLE_PYTHONDIR_FALSE
@@ -11517,7 +11519,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11520 "configure"
+#line 11522 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11623,7 +11625,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11626 "configure"
+#line 11628 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -15043,7 +15045,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15046 "configure"
+#line 15048 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15393,7 +15395,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15396 "configure"
+#line 15398 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15428,7 +15430,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15431 "configure"
+#line 15433 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15463,7 +15465,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15466 "configure"
+#line 15468 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15499,7 +15501,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15502 "configure"
+#line 15504 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15578,7 +15580,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15581 "configure"
+#line 15583 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15620,7 +15622,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15623 "configure"
+#line 15625 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15654,7 +15656,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15657 "configure"
+#line 15659 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -17408,6 +17410,17 @@ fi
 $as_echo_n "checking for vtable verify support... " >&6; }
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_vtable_verify" >&5
 $as_echo "$enable_vtable_verify" >&6; }
+
+  if test $enable_vtable_verify = yes; then
+    VTV_CXXFLAGS =  -fvtable-verify=std \
+  		    -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+    VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs -Wl,-lvtv
+  else
+    VTV_CXXFLAGS =
+    VTV_CXXLINKFLAGS =
+  fi
+
+
 
 
 

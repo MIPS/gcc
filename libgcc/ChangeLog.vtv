@@ -1,0 +1,10 @@
+2013-06-16  Caroline Tice  <cmtice@google.com>
+
+	libgcc
+	* config.host (extra_parts):  Add vtv_start.o and vtv_end.o to
+	the list.
+	* Makefile.in: Add definition for gcc_srcdir; add rules for
+	building vtv_start.o and vtv_end.o.
+	* vtv_start.c: New file.
+	* vtv_end.c: New file.
+
