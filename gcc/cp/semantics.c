@@ -5142,6 +5142,13 @@ finish_omp_taskyield (void)
   finish_expr_stmt (stmt);
 }
 
+/* Perform any canonicalization of the conditional in a Cilk for loop.  */
+tree
+finish_cilk_for_cond (tree cond)
+{
+  return cp_truthvalue_conversion (cond);
+}
+
 /* Begin a __transaction_atomic or __transaction_relaxed statement.
    If PCOMPOUND is non-null, this is for a function-transaction-block, and we
    should create an extra compound stmt.  */

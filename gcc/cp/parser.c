@@ -231,6 +231,11 @@ static void cp_parser_initial_pragma
 static tree cp_literal_operator_id
   (const char *);
 
+static void cp_parser_cilk_simd_construct
+  (cp_parser *, cp_token *);
+static tree cp_parser_cilk_for
+  (cp_parser *, enum rid, tree);
+
 /* Manifest constants.  */
 #define CP_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (cp_token))
 #define CP_SAVED_TOKEN_STACK 5
@@ -10376,6 +10381,10 @@ cp_parser_jump_statement (cp_parser* parser)
 	case IN_OMP_FOR:
 	  error_at (token->location, "break statement used with OpenMP for loop");
 	  break;
+	case IN_CILK_P_SIMD_FOR:
+	  error_at (token->location,
+		    "break statement within <#pragma simd> loop body");
+	  break;
 	}
       cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
       break;
@@ -10392,6 +10401,10 @@ cp_parser_jump_statement (cp_parser* parser)
 	  break;
 	case IN_OMP_BLOCK:
 	  error_at (token->location, "invalid exit from OpenMP structured block");
+	  break;
+	case IN_CILK_P_SIMD_FOR:
+	  error_at (token->location,
+		    "continue statement within <#pragma simd> loop loop");
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -28732,6 +28745,16 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 		"%<#pragma omp sections%> construct");
       break;
 
+    case PRAGMA_CILK_SIMD:
+      if (context == pragma_external)
+	{
+	  error_at (pragma_tok->location,
+		    "%<#pragma simd%> must be inside a function");
+	  break;
+	}
+      cp_parser_cilk_simd_construct (parser, pragma_tok);
+      return true;
+
     default:
       gcc_assert (id >= PRAGMA_FIRST_EXTERNAL);
       c_invoke_pragma_handler (id);
@@ -28795,6 +28818,524 @@ c_parse_file (void)
 				? dk_no_deferred : dk_no_check);
   cp_parser_translation_unit (the_parser);
   the_parser = NULL;
+}
+
+
+/* Parses the Cilk Plus #pragma simd vectorlength clause:
+   Syntax:
+   vectorlength ( constant-expression )  */
+
+static tree
+cp_parser_cilk_simd_vectorlength (cp_parser *parser, tree clauses)
+{
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+  tree expr;
+  /* The vectorlength clause behaves exactly like OpenMP's safelen
+     clause.  Thus, vectorlength is represented as OMP 4.0
+     safelen.  */
+  check_no_duplicate_clause (clauses, OMP_CLAUSE_SAFELEN, "vectorlength", loc);
+  
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    return error_mark_node;
+  
+  expr = cp_parser_constant_expression (parser, false, NULL);
+  expr = maybe_constant_value (expr);
+
+  if (TREE_CONSTANT (expr)
+	   && exact_log2 (TREE_INT_CST_LOW (expr)) == -1)
+    error_at (loc, "vectorlength must be a power of 2");
+  else if (expr != error_mark_node)
+    {
+      tree c = build_omp_clause (loc, OMP_CLAUSE_SAFELEN);
+      OMP_CLAUSE_SAFELEN_EXPR (c) = expr;
+      OMP_CLAUSE_CHAIN (c) = clauses;
+      clauses = c;
+    }
+
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+    return error_mark_node;
+  return clauses;
+}
+
+/* Handles the Cilk Plus #pragma simd linear clause.
+   Syntax:
+   linear ( simd-linear-variable-list )
+
+   simd-linear-variable-list:
+     simd-linear-variable
+     simd-linear-variable-list , simd-linear-variable
+
+   simd-linear-variable:
+     id-expression
+     id-expression : simd-linear-step
+
+   simd-linear-step:
+   conditional-expression */
+
+static tree
+cp_parser_cilk_simd_linear (cp_parser *parser, tree clauses)
+{
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+  
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    return clauses;
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
+    {
+      cp_parser_error (parser, "expected identifier");
+      cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
+      return error_mark_node;
+    }
+
+  while (1)
+    {
+      cp_token *token = cp_lexer_peek_token (parser->lexer);
+      if (cp_lexer_next_token_is_not (parser->lexer, CPP_NAME))
+	{
+	  cp_parser_error (parser, "expected variable-name");
+	  clauses = error_mark_node;
+	  break;
+	}
+
+      tree var_name = cp_parser_id_expression (parser, false, true, NULL,
+					       false, false);
+      tree decl = cp_parser_lookup_name_simple (parser, var_name,
+						token->location);
+      if (decl == error_mark_node)
+	{
+	  cp_parser_name_lookup_error (parser, var_name, decl, NLE_NULL,
+				       token->location);
+	  clauses = error_mark_node;
+	}
+      else
+	{
+	  tree e = NULL_TREE;
+	  tree step_size = integer_one_node;
+
+	  /* If present, parse the linear step.  Otherwise, assume the default
+	     value of 1.  */
+	  if (cp_lexer_peek_token (parser->lexer)->type == CPP_COLON)
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+
+	      e = cp_parser_constant_expression (parser, false, NULL);
+	      e = maybe_constant_value (e);
+
+	      if (e == error_mark_node)
+		{
+		  /* If an error has occurred,  then the whole pragma is
+		     considered ill-formed.  Thus, no reason to keep
+		     parsing.  */
+		  clauses = error_mark_node;
+		  break;
+		}
+	      else if (!TREE_TYPE (e) || !TREE_CONSTANT (e)
+		       || !INTEGRAL_TYPE_P (TREE_TYPE (e)))
+		cp_parser_error (parser,
+				 "step size must be an integer constant");
+	      else
+		step_size = e;
+	    }
+
+	  /* Use the OMP_CLAUSE_LINEAR,  which has the same semantics.  */
+	  tree l = build_omp_clause (loc, OMP_CLAUSE_LINEAR);
+	  OMP_CLAUSE_DECL (l) = decl;
+	  OMP_CLAUSE_LINEAR_STEP (l) = step_size;
+	  OMP_CLAUSE_CHAIN (l) = clauses;
+	  clauses = l;
+	}
+      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	cp_lexer_consume_token (parser->lexer);
+      else if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN))
+	break;
+      else
+	{
+	  error_at (cp_lexer_peek_token (parser->lexer)->location,
+		    "expected %<,%> or %<)%> after %qE", decl);
+	  clauses = error_mark_node;
+	  break;
+	}
+    }
+  cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
+  return clauses;
+}
+
+/* Returns the name of the next clause.  If the clause is not
+   recognized, then PRAGMA_CILK_CLAUSE_NONE is returned and the next
+   token is not consumed.  Otherwise, the appropriate enum from the
+   pragma_simd_clause is returned and the token is consumed.  */
+
+static pragma_cilk_clause
+cp_parser_cilk_simd_clause_name (cp_parser *parser)
+{
+  pragma_cilk_clause clause_type;
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+
+  if (token->keyword == RID_PRIVATE)
+    clause_type = PRAGMA_CILK_CLAUSE_PRIVATE;
+  else if (!token->u.value || token->type != CPP_NAME)
+    return PRAGMA_CILK_CLAUSE_NONE;
+  else if (!strcmp (IDENTIFIER_POINTER (token->u.value), "vectorlength"))
+    clause_type = PRAGMA_CILK_CLAUSE_VECTORLENGTH;
+  else if (!strcmp (IDENTIFIER_POINTER (token->u.value), "linear"))
+    clause_type = PRAGMA_CILK_CLAUSE_LINEAR;
+  else if (!strcmp (IDENTIFIER_POINTER (token->u.value), "firstprivate"))
+    clause_type = PRAGMA_CILK_CLAUSE_FIRSTPRIVATE;
+  else if (!strcmp (IDENTIFIER_POINTER (token->u.value), "lastprivate"))
+    clause_type = PRAGMA_CILK_CLAUSE_LASTPRIVATE;
+  else if (!strcmp (IDENTIFIER_POINTER (token->u.value), "reduction"))
+    clause_type = PRAGMA_CILK_CLAUSE_REDUCTION;
+  else
+    return PRAGMA_CILK_CLAUSE_NONE;
+
+  cp_lexer_consume_token (parser->lexer);
+  return clause_type;
+}
+
+/* Parses all the #pragma simd clauses.  Returns a list of clauses found.  */
+
+static tree
+cp_parser_cilk_simd_all_clauses (cp_parser *parser, cp_token *pragma_token)
+{
+  tree clauses = NULL_TREE;
+
+  while (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL)
+	 && clauses != error_mark_node)
+    {
+      pragma_cilk_clause c_kind;
+      c_kind = cp_parser_cilk_simd_clause_name (parser);
+      if (c_kind == PRAGMA_CILK_CLAUSE_VECTORLENGTH)
+	clauses = cp_parser_cilk_simd_vectorlength (parser, clauses);
+      else if (c_kind == PRAGMA_CILK_CLAUSE_LINEAR)
+	clauses = cp_parser_cilk_simd_linear (parser, clauses);
+      else if (c_kind == PRAGMA_CILK_CLAUSE_PRIVATE)
+	/* Use the OpenMP 4.0 equivalent function.  */
+	clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_PRIVATE, clauses);
+      else if (c_kind == PRAGMA_CILK_CLAUSE_FIRSTPRIVATE)
+	/* Use the OpenMP 4.0 equivalent function.  */
+	clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_FIRSTPRIVATE,
+					  clauses);
+      else if (c_kind == PRAGMA_CILK_CLAUSE_LASTPRIVATE)
+	/* Use the OMP 4.0 equivalent function.  */
+	clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_LASTPRIVATE,
+					  clauses);
+      else if (c_kind == PRAGMA_CILK_CLAUSE_REDUCTION)
+	/* Use the OMP 4.0 equivalent function.  */
+	clauses = cp_parser_omp_clause_reduction (parser, clauses);
+      else
+	{
+	  clauses = error_mark_node;
+	  cp_parser_error (parser, "expected %<#pragma simd%> clause");
+	  break;
+	}
+    }
+
+  cp_parser_skip_to_pragma_eol (parser, pragma_token);
+
+  if (clauses == error_mark_node)
+    return error_mark_node;
+  else
+    return c_finish_cilk_clauses (clauses);
+}
+
+/* Main entry-point for parsing Cilk Plus <#pragma simd> for loops.  */
+
+static void
+cp_parser_cilk_simd_construct (cp_parser *parser, cp_token *pragma_token)
+{
+  tree clauses = cp_parser_cilk_simd_all_clauses (parser, pragma_token);
+
+  if (clauses == error_mark_node)
+    return;
+  
+  if (cp_lexer_next_token_is_not_keyword (parser->lexer, RID_FOR))
+    {
+      error_at (cp_lexer_peek_token (parser->lexer)->location,
+		"for statement expected");
+      return;
+    }
+
+  tree sb = begin_omp_structured_block ();
+  int save = cp_parser_begin_omp_structured_block (parser);
+  cp_parser_cilk_for (parser, RID_FOR, clauses);
+  cp_parser_end_omp_structured_block (parser, save);
+  add_stmt (finish_omp_structured_block (sb));
+  return;
+}
+
+/* Parses the initializer of a for/_Cilk_for statement.  The initial
+   value is stored in *INIT, and the inital value's declaration is
+   stored as DECL_EXPR in *PRE_BODY.  */
+
+static tree
+cp_parser_simd_for_init_statement (cp_parser *parser, tree *init,
+				   tree *pre_body)
+{
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+  tree decl = NULL_TREE;
+  cp_decl_specifier_seq type_specifiers;
+  tree this_pre_body = push_stmt_list ();
+  if (token->type == CPP_SEMICOLON)
+    {
+      error_at (loc, "expected iteration declaration");
+      return error_mark_node;
+    }
+
+  if (cp_lexer_next_token_is_keyword (parser->lexer, RID_STATIC)
+      || cp_lexer_next_token_is_keyword (parser->lexer, RID_REGISTER)
+      || cp_lexer_next_token_is_keyword (parser->lexer, RID_EXTERN)
+      || cp_lexer_next_token_is_keyword (parser->lexer, RID_MUTABLE)
+      || cp_lexer_next_token_is_keyword (parser->lexer, RID_THREAD))
+    {
+      error_at (loc, "storage class is not allowed");
+      cp_lexer_consume_token (parser->lexer);
+    }
+
+  cp_parser_parse_tentatively (parser);
+  cp_parser_type_specifier_seq (parser, true, false, &type_specifiers);
+  if (cp_parser_parse_definitely (parser))
+    {
+      cp_declarator *cp_decl;
+      tree asm_spec, attr;
+      cp_decl = cp_parser_declarator (parser, CP_PARSER_DECLARATOR_NAMED,
+				      NULL, NULL, false);
+      attr = cp_parser_attributes_opt (parser);
+      asm_spec = cp_parser_asm_specification_opt (parser);
+      if (cp_decl == cp_error_declarator)
+	cp_parser_skip_to_end_of_statement (parser);
+      else
+	{
+	  tree pushed_scope, auto_node;
+	  decl = start_decl (cp_decl, &type_specifiers, SD_INITIALIZED, attr,
+			     NULL_TREE, &pushed_scope);
+	  auto_node = type_uses_auto (TREE_TYPE (decl));
+	  if (cp_lexer_next_token_is_not (parser->lexer, CPP_EQ))
+	    {
+	      if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
+		error_at (loc, "parenthesized initialization is "
+			  "not allowed in for-loop");
+	      else
+		{	  
+		  if (!cp_parser_require (parser, CPP_EQ, RT_EQ))
+		    decl = error_mark_node;
+		}
+
+	      *init = error_mark_node;
+	      cp_parser_skip_to_end_of_statement (parser);
+	    }
+	  else if (CLASS_TYPE_P (TREE_TYPE (decl)) || auto_node
+		   || type_dependent_expression_p (decl))
+	    {
+	      bool is_direct_init, is_non_constant_init;
+	      *init = cp_parser_initializer (parser, &is_direct_init,
+					    &is_non_constant_init);
+	      if (auto_node)
+		{
+		  TREE_TYPE (decl)
+		    = do_auto_deduction (TREE_TYPE (decl), *init, auto_node);
+		  if (!CLASS_TYPE_P (TREE_TYPE (decl))
+		      && !type_dependent_expression_p (decl))
+		    goto non_class;
+		}
+	      cp_finish_decl (decl, *init, !is_non_constant_init, asm_spec,
+			      LOOKUP_ONLYCONVERTING);
+	      if (CLASS_TYPE_P (TREE_TYPE (decl)))
+		*init = NULL_TREE;
+	      else
+		*init = pop_stmt_list (this_pre_body);
+	      this_pre_body = NULL_TREE;
+	    }
+	  else
+	    {
+	      /* Consume the '='.  */
+	      cp_lexer_consume_token (parser->lexer);
+	      *init = cp_parser_assignment_expression (parser, false, NULL);
+	    non_class:
+	      if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE)
+		*init = error_mark_node;
+	      else
+		cp_finish_decl (decl, NULL_TREE, false, asm_spec,
+				LOOKUP_ONLYCONVERTING);
+	      if (decl != error_mark_node)
+		DECL_INITIAL (decl) = (*init || *init != error_mark_node) ?
+		  *init : NULL_TREE;
+	    }
+	  if (pushed_scope)
+	    pop_scope (pushed_scope);
+	}
+    }
+  else
+    {
+      cp_id_kind idk;
+      cp_parser_parse_tentatively (parser);
+      decl = cp_parser_primary_expression (parser, false, false,
+					   false, &idk);
+      if (!cp_parser_error_occurred (parser) && decl && DECL_P (decl)
+	  && CLASS_TYPE_P (TREE_TYPE (decl)))
+	{
+	  tree rhs, new_expr;
+	  // ?? FIXME: I don't see any definition for *init in this
+	  // code path. ??
+	  gcc_unreachable ();
+	  cp_parser_parse_definitely (parser);
+	  cp_parser_require (parser, CPP_EQ, RT_EQ);
+	  rhs = cp_parser_assignment_expression (parser, false, NULL);
+	  new_expr = build_x_modify_expr (EXPR_LOCATION (rhs), decl,
+					  NOP_EXPR, rhs,
+					  tf_warning_or_error);
+	  finish_expr_stmt (new_expr);
+	}
+      else
+	{
+	  if (decl != error_mark_node)
+	    decl = NULL;
+	  cp_parser_abort_tentative_parse (parser);
+	  *init = cp_parser_expression (parser, false, NULL);
+	}
+    }
+  
+  if (this_pre_body)
+    this_pre_body = pop_stmt_list (this_pre_body);
+
+  *pre_body = this_pre_body;
+  return decl;
+}
+  
+/* Top-level function to parse _Cilk_for and the for statement
+   following <#pragma simd>.  */
+
+static tree
+cp_parser_cilk_for (cp_parser *parser, enum rid for_keyword, tree clauses)
+{
+  bool valid = true;
+  tree cond = NULL_TREE;
+  tree incr_expr = NULL_TREE;
+  tree init = NULL_TREE, pre_body = NULL_TREE, decl;
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+  
+  gcc_assert (for_keyword == RID_FOR);
+
+  if (!cp_lexer_next_token_is_keyword (parser->lexer, for_keyword))
+    {
+      if (for_keyword == RID_FOR)
+	cp_parser_error (parser, "for statement expected");
+      else
+	cp_parser_error (parser, "_Cilk_for statement expected");
+      return error_mark_node;
+    }
+  cp_lexer_consume_token (parser->lexer);
+
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    {
+      cp_parser_skip_to_end_of_statement (parser);
+      return error_mark_node;
+    }
+
+  /* Parse initialization.  */
+  if (for_keyword == RID_FOR)
+    decl = cp_parser_simd_for_init_statement (parser, &init, &pre_body);
+
+  if (decl == error_mark_node)
+    valid = false;
+  else if (!decl || (TREE_CODE (decl) != VAR_DECL
+		     && TREE_CODE (decl) != DECL_EXPR))
+    {
+      error_at (loc, "%s-loop initializer does not declare a variable",
+		for_keyword == RID_FOR ? "for" : "_Cilk_for");
+      valid = false;
+      decl = error_mark_node;
+    }
+  else if (!processing_template_decl
+	   && !DECL_NONTRIVIALLY_INITIALIZED_P (decl)
+	   && !DECL_INITIAL (decl)
+	   && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
+    {
+      error_at (loc, "control variable for the %s-loop needs to "
+		"be initialized",
+		for_keyword == RID_FOR ? "for" : "_Cilk_for");
+      valid = false;
+    }
+  if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+    {
+      error_at (loc, "%s-loop initializer cannot have multiple variable "
+		"declarations", for_keyword == RID_FOR ? "for" : "_Cilk_for");
+      cp_parser_skip_to_end_of_statement (parser);
+      valid = false;
+    }
+
+  if (!valid)
+    {
+      /* Skip to the semicolon ending the init.  */
+      cp_parser_skip_to_end_of_statement (parser);
+    }
+
+  /* Parse condition.  */
+  if (!cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON))
+    return error_mark_node;
+  if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
+    {
+      error_at (loc, "missing condition");
+      cond = error_mark_node;
+    }
+  else
+    {
+      cond = cp_parser_condition (parser);
+      cond = finish_cilk_for_cond (cond);
+    }
+
+  if (cond == error_mark_node)
+    valid = false;
+  cp_parser_consume_semicolon_at_end_of_statement (parser);
+
+  /* Parse increment.  */
+  if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN))
+    {
+      error_at (loc, "missing increment");
+      incr_expr = error_mark_node;
+    }
+  else
+    incr_expr = cp_parser_expression (parser, false, NULL);
+  
+  if (incr_expr == error_mark_node)
+    {
+      cp_parser_skip_to_closing_parenthesis (parser, true, false, false);
+      valid = false;
+    }
+
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+    {
+      cp_parser_skip_to_end_of_statement (parser);
+      valid = false;
+    }
+  
+  if (!valid)
+    {
+      gcc_assert (sorrycount || errorcount);
+      return error_mark_node;
+    }
+
+  if (for_keyword == RID_FOR)
+    {
+      parser->in_statement = IN_CILK_P_SIMD_FOR;
+      tree body = push_stmt_list ();
+      cp_parser_statement (parser, NULL_TREE, false, NULL);
+      body = pop_stmt_list (body);
+
+      /* Check if the body satisfies all the requirement of a #pragma
+	 simd for body.  If it is invalid, then do not make the OpenMP
+	 nodes, just return an error mark node.  */
+      if (!cpp_validate_cilk_plus_loop (body))
+	return error_mark_node;
+
+      return c_finish_cilk_simd_loop (loc, decl, init, cond, incr_expr,
+				      body, clauses);
+    }
+  else
+    {
+      /* Handle _Cilk_for here when implemented.  */
+      gcc_unreachable ();
+      return NULL_TREE;
+    }
 }
 
 #include "gt-cp-parser.h"

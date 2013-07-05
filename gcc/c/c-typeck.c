@@ -9153,6 +9153,13 @@ c_finish_bc_stmt (location_t loc, tree *label_p, bool is_break)
       error_at (loc, "break statement used with OpenMP for loop");
       return NULL_TREE;
 
+    case 2:
+      if (is_break) 
+	error ("break statement within <#pragma simd> loop body");
+      else 
+	error ("continue statement within <#pragma simd> loop loop");
+      return NULL_TREE;
+
     default:
       gcc_unreachable ();
     }

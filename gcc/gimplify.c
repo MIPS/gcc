@@ -4711,6 +4711,7 @@ is_gimple_stmt (tree t)
     case OMP_PARALLEL:
     case OMP_FOR:
     case OMP_SIMD:
+    case CILK_SIMD:
     case OMP_SECTIONS:
     case OMP_SECTION:
     case OMP_SINGLE:
@@ -6584,7 +6585,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 
   for_stmt = *expr_p;
 
-  simd = TREE_CODE (for_stmt) == OMP_SIMD; 
+  simd = TREE_CODE (for_stmt) == OMP_SIMD
+    || TREE_CODE (for_stmt) == CILK_SIMD;
   gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p,
 			     simd ? ORT_SIMD : ORT_WORKSHARE);
 
@@ -6810,6 +6812,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     {
     case OMP_FOR: kind = GF_OMP_FOR_KIND_FOR; break;
     case OMP_SIMD: kind = GF_OMP_FOR_KIND_SIMD; break;
+    case CILK_SIMD: kind = GF_OMP_FOR_KIND_CILKSIMD; break;
     default:
       gcc_unreachable ();
     }
@@ -7752,6 +7755,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OMP_FOR:
 	case OMP_SIMD:
+	case CILK_SIMD:
 	  ret = gimplify_omp_for (expr_p, pre_p);
 	  break;
 

@@ -45,6 +45,9 @@ typedef enum pragma_kind {
   PRAGMA_OMP_TASKYIELD,
   PRAGMA_OMP_THREADPRIVATE,
 
+  /* Top level clause to handle all Cilk Plus pragma simd clauses.  */
+  PRAGMA_CILK_SIMD,
+
   PRAGMA_GCC_PCH_PREPROCESS,
 
   PRAGMA_FIRST_EXTERNAL
@@ -74,6 +77,17 @@ typedef enum pragma_omp_clause {
   PRAGMA_OMP_CLAUSE_FINAL,
   PRAGMA_OMP_CLAUSE_MERGEABLE
 } pragma_omp_clause;
+
+/* All Cilk Plus #pragma omp clauses.  */
+typedef enum pragma_cilk_clause {
+  PRAGMA_CILK_CLAUSE_NONE = 0,
+  PRAGMA_CILK_CLAUSE_VECTORLENGTH,
+  PRAGMA_CILK_CLAUSE_LINEAR,
+  PRAGMA_CILK_CLAUSE_PRIVATE,
+  PRAGMA_CILK_CLAUSE_FIRSTPRIVATE,
+  PRAGMA_CILK_CLAUSE_LASTPRIVATE,
+  PRAGMA_CILK_CLAUSE_REDUCTION
+} pragma_cilk_clause;
 
 extern struct cpp_reader* parse_in;
 

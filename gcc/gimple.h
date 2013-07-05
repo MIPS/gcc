@@ -112,7 +112,8 @@ enum gf_mask {
     GF_OMP_PARALLEL_COMBINED	= 1 << 0,
     GF_OMP_FOR_KIND_MASK	= 3 << 0,
     GF_OMP_FOR_KIND_FOR		= 0 << 0,
-    GF_OMP_FOR_KIND_SIMD	= 1 << 0,
+    GF_OMP_FOR_KIND_SIMD	= 2 << 0,
+    GF_OMP_FOR_KIND_CILKSIMD	= 3 << 0,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier
