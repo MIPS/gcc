@@ -2757,23 +2757,31 @@
    (let ( (onres (compilobj_nrep_quasiconstant nqcme gcx))
 	  (scomm (unsafe_get_field :nqcmec_comment nqcme))
 	  (str (let ( (sbuf (make_strbuf discr_strbuf)) )
-		 (add2sbuf_strconst sbuf "/*quasi.cur.mod.env.cont ")
+		 (add2sbuf_strconst sbuf "/*quasi.cur.mod.env.ref ")
 		 (add2sbuf_ccomstring sbuf scomm)
 		 (add2sbuf_strconst sbuf "*/\n")
 		 (strbuf2string discr_verbatim_string sbuf)
 		 )
 	       )
-	  (ores (instance class_objlocatedexpv
-			  :obv_type ctype_value
-			  :obcx_loc (unsafe_get_field :nrep_loc nqcme)
-			  :obx_cont (tuple
-				     str
-				     onres
-				     )
-			  ))
+	  (olres (make_objlocatedexp 
+		  (unsafe_get_field :nrep_loc nqcme)
+		  ctype_value
+		  str 
+		  ##{ /* check quasi.cur.mod.env.ref $(obj_hash nqcme) */ 
+                  (
+#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline $(this_file):$(this_line) */
+		   (((melt_debug_garbcoll || melt_flag_debug) && 
+		    (!($ONRES && melt_reference_value ((melt_ptr_t)$ONRES))))
+		   ?({melt_fatal_error("bad current MELT module environment reference h$(obj_hash nqcme) @%p", 
+				       (void*)$ONRES);0;})
+		   :0),
+#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline $(this_file):$(this_line) */
+		  }#
+		  onres
+		  " )"))
 	  )
-     (debug "compilobj_nrep_quasiconstant_current_module_environment_reference result ores=" ores)
-     (return ores)
+     (debug "compilobj_nrep_quasiconstant_current_module_environment_reference result olres=" olres)
+     (return olres)
      ))
  (install_method class_nrep_quasiconst_current_module_environment_reference compile_obj
 		 compilobj_nrep_quasiconst_current_module_environment_reference)

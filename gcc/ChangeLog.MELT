@@ -2,6 +2,15 @@
 
 2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt
+	(compilobj_nrep_quasiconstant_current_module_environment_reference):
+	Emit a check to ease debugging of classy frames.
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine):
+	Correct typo in frame pointer formal argument name.
+
+2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
