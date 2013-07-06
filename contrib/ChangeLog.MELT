@@ -1,4 +1,8 @@
 
+2013-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* make-melt-plugin-source-tar.sh: the produced tar ball is
+	compressed with bzip2 not gzip.
+
 2013-06-24  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT is now C++ only}}
 	* MELT-Plugin-Makefile: Use meltrunsup-inc.cc and only a C++

@@ -51,7 +51,7 @@ gccmelt_source_tree=$1
 ## the second argument of this script is a temporary directory
 ## basename for the plugin source, for instance /tmp/gcc-melt-plugin
 ## and this script will then make a directory /tmp/gcc-melt-plugin and
-## a gzipped tar archive /tmp/gcc-melt-plugin.tgz
+## a bzipped tar archive /tmp/gcc-melt-plugin.tar.bz2
 gccmelt_tarbase=$2
 
 shift 2
@@ -199,4 +199,5 @@ tar -cvf $gccmelt_tarbase-tmp.tar \
 tardy -User_NAme melt -Group_NAme gcc $gccmelt_tarbase-tmp.tar $gccmelt_tarbase.tar 
 
 rm -f $gccmelt_tarbase-tmp.tar 
-gzip -v9 $gccmelt_tarbase.tar
+bzip2 -v9 $gccmelt_tarbase.tar
+#eof make-melt-plugin-source-tar.sh
