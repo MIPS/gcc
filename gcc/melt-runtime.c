@@ -376,15 +376,11 @@ static struct meltextinfovec_st {
 } melt_extinfo;
 
 
-#if MELT_HAVE_CLASSY_FRAME
 Melt_CallProtoFrame* melt_top_call_frame =NULL;
 #if ENABLE_CHECKING
 FILE* Melt_CallProtoFrame::_dbgcall_file_ = NULL;
 long Melt_CallProtoFrame::_dbgcall_count_ = 0L;
 #endif /*ENABLE_CHECKING*/
-#else /* ! MELT_HAVE_CLASSY_FRAME */
-struct melt_callframe_st* melt_topframe =NULL;
-#endif /* MELT_HAVE_CLASSY_FRAME */
 
 /* The start routine of every MELT extension (dynamically loaded
    shared object to evaluate at runtime some expressions in a given
@@ -1074,73 +1070,6 @@ check_pointer_at (const char msg[], long count, melt_ptr_t * pptr,
 
 
 
-#if ENABLE_GC_CHECKING
-
-static long meltnbcheckcallframes;
-static long meltthresholdcheckcallframes;
-
-void
-melt_check_call_frames_at (int noyoungflag, const char *msg,
-                           const char *filenam, int lineno)
-{
-  /* Don't call melt_fatal_error here, because if the MELT stack is
-     corrupted we can't show it! */
-  int nbfram = 0, nbvar = 0;
-  meltnbcheckcallframes++;
-  if (!msg)
-    msg = "/";
-  if (meltthresholdcheckcallframes > 0
-      && meltnbcheckcallframes > meltthresholdcheckcallframes) {
-    debugeprintf
-    ("start check_call_frames#%ld {%s} from %s:%d",
-     meltnbcheckcallframes, msg, melt_basename (filenam), lineno);
-  }
-#if !MELT_HAVE_CLASSY_FRAME
-  for (struct melt_callframe_st *cfram = melt_topframe; cfram != NULL; cfram = cfram->mcfr_prev) {
-    int varix = 0;
-    nbfram++;
-    if (cfram->mcfr_closp != NULL && cfram->mcfr_nbvar >= 0) {
-      if (noyoungflag && melt_is_young (cfram->mcfr_closp))
-        fatal_error
-        ("bad MELT frame <%s#%ld> unexpected young closure %p in frame %p at %s:%d",
-         msg, meltnbcheckcallframes,
-         (void *) cfram->mcfr_closp, (void *) cfram, melt_basename (filenam),
-         lineno);
-
-      check_pointer_at (msg, meltnbcheckcallframes,
-                        (melt_ptr_t *) (void *) &cfram->mcfr_closp, filenam,
-                        lineno);
-      if (cfram->mcfr_closp->discr->meltobj_magic != MELTOBMAG_CLOSURE)
-        fatal_error
-        ("bad MELT frame <%s#%ld> invalid closure %p in frame %p at %s:%d",
-         msg, meltnbcheckcallframes,
-         (void *) cfram->mcfr_closp, (void *) cfram, melt_basename (filenam),
-         lineno);
-    }
-    for (varix = ((int) cfram->mcfr_nbvar) - 1; varix >= 0; varix--) {
-      nbvar++;
-      if (noyoungflag && cfram->mcfr_varptr[varix] != NULL
-          && melt_is_young (cfram->mcfr_varptr[varix]))
-        fatal_error
-        ("bad MELT frame <%s#%ld> unexpected young pointer %p in frame %p at %s:%d",
-         msg, meltnbcheckcallframes, (void *) cfram->mcfr_varptr[varix],
-         (void *) cfram, melt_basename (filenam), lineno);
-
-      check_pointer_at (msg, meltnbcheckcallframes, &cfram->mcfr_varptr[varix],
-                        filenam, lineno);
-    }
-  }
-#endif /*!MELT_HAVE_CLASSY_FRAME*/
-  if (meltthresholdcheckcallframes > 0
-      && meltnbcheckcallframes > meltthresholdcheckcallframes)
-    debugeprintf ("end check_call_frames#%ld {%s} %d frames/%d vars %s:%d",
-                  meltnbcheckcallframes, msg, nbfram, nbvar, melt_basename (filenam),
-                  lineno);
-}
-#endif /*ENABLE_GC_CHECKING*/
-
-
-
 void
 melt_caught_assign_at (void *ptr, const char *fil, int lin,
                        const char *msg)
@@ -1333,7 +1262,6 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
 	(*mex->mmx_markingrout) ();
     }
   ///////
-#if MELT_HAVE_CLASSY_FRAME
   for (Melt_CallFrame *mcf = (Melt_CallFrame*)melt_top_call_frame;
        mcf != NULL;
        mcf = (Melt_CallFrame*)mcf->_meltcf_prev)
@@ -1342,55 +1270,6 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
       if (mcf->current())
 	gt_ggc_mx_melt_un (mcf->current());
     }
-#else /*!MELT_HAVE_CLASSY_FRAME*/
-  /* Scan all the MELT call frames */
-  for (struct melt_callframe_st *cf = (struct melt_callframe_st*) melt_topframe; 
-       cf != NULL;
-       cf = cf->mcfr_prev) 
-    {
-      dbgprintf ("melt_marking_callback %ld cf=%p", meltmarkingcount, (void*) cf);
-      if (cf->mcfr_closp && cf->mcfr_nbvar >= 0) {
-	/* Common case, we have a closure. */
-	meltroutfun_t*funp = 0;
-	int ix = 0;
-	gcc_assert(cf->mcfr_closp->rout);
-	funp = cf->mcfr_closp->rout->routfunad;
-	gcc_assert(funp);
-	melt_debuggc_eprintf ("melt_marking_callback %ld marking*frame %p with closure & %d vars",
-			      meltmarkingcount, (void*) cf,
-			      cf->mcfr_nbvar);
-	gt_ggc_mx_melt_un ((melt_ptr_t)(cf->mcfr_closp));
-	for (ix = ((int)(cf->mcfr_nbvar)) - 1; ix >= 0; ix --)
-	  gt_ggc_mx_melt_un ((melt_ptr_t)(cf->mcfr_varptr[ix]));
-	/* call the function specially with the MARKGCC special
-	   parameter descriptor */
-	funp(cf->mcfr_closp, (melt_ptr_t)cf, MELTPAR_MARKGGC,
-	     (union meltparam_un*)0, (char*)0, (union meltparam_un*)0);
-      } else if (cf->mcfr_nbvar < 0 && cf->mcfr_forwmarkrout) {
-	/* Rare case, the frame is special and has its own marking
-	   routine.  This happens in particular for the initial frame
-	   of generated MELT modules;  their startup routine has a
-	   special marking routine.  */
-	melt_debuggc_eprintf ("melt_marking_callback %ld marking*frame thru routine frame %p",
-			      meltmarkingcount, (void*) cf);
-	cf->mcfr_forwmarkrout ((struct melt_callframe_st*)cf, 1);
-	melt_debuggc_eprintf ("melt_marking_callback %ld called frame %p marking routine",
-			      meltmarkingcount, (void*)cf);
-      } else {
-	/* no closure, e.g. a frame manually set with MELT_ENTERFRAME. */
-	extern void gt_ggc_mx_melt_un (void *);
-	melt_debuggc_eprintf
-	  ("melt_marking_callback %ld marking*frame no closure frame %p-%p of %d vars",
-	   meltmarkingcount, (void*)cf,
-	   (void*)(cf->mcfr_varptr + cf->mcfr_nbvar),
-	   cf->mcfr_nbvar);
-	/* if no closure, mark the local pointers */
-	for (ix= 0; ix<(int) cf->mcfr_nbvar; ix++)
-	  if (cf->mcfr_varptr[ix])
-	    gt_ggc_mx_melt_un ((melt_ptr_t)(cf->mcfr_varptr[ix]));
-      }
-    }
-#endif /*MELT_HAVE_CLASSY_FRAME*/
   //////
   /* mark the store list.  */
   if (melt_storalz)
@@ -1503,8 +1382,6 @@ melt_minor_copying_garbage_collector (size_t wanted)
     }
 
   /* Forward the MELT frames */
-#if MELT_HAVE_CLASSY_FRAME
-#warning MELT minor GC forwarding classy frames
   melt_debuggc_eprintf ("melt_minor_copying_garbage_collector all classy frames top @%p", 
 			(void*) melt_top_call_frame);
   for (Melt_CallProtoFrame *cfr = melt_top_call_frame;
@@ -1515,29 +1392,6 @@ melt_minor_copying_garbage_collector (size_t wanted)
       cfr->melt_forward_values ();
       melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwardedclassyframe %p", (void*)cfr);
     };
-#else /*!MELT_HAVE_CLASSY_FRAME*/
-  for (struct melt_callframe_st *cfram = melt_topframe; 
-       cfram != NULL; 
-       cfram = cfram->mcfr_prev) 
-    {
-      int varix = 0;
-      if (cfram->mcfr_nbvar < 0 && cfram->mcfr_forwmarkrout) {
-	melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwarding*frame %p thru routine",
-			      (void*) cfram);
-	cfram->mcfr_forwmarkrout (cfram, 0);
-      } else if (cfram->mcfr_nbvar >= 0) {
-	melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwarding*frame %p-%p of %d nbvars",
-			      (void*) cfram,
-			      (void*) (cfram->mcfr_varptr + cfram->mcfr_nbvar),
-			      cfram->mcfr_nbvar);
-	MELT_FORWARDED (cfram->mcfr_closp);
-	for (varix = 0; varix < cfram->mcfr_nbvar; varix ++)
-	  MELT_FORWARDED (cfram->mcfr_varptr[varix]);
-      };
-      melt_debuggc_eprintf ("melt_minor_copying_garbage_collector forwarding*frame %p done",
-			    (void*)cfram);
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/
 
   melt_debuggc_eprintf ("melt_minor_copying_garbage_collector %ld done forwarding",
                         melt_nb_garbcoll);
@@ -10431,26 +10285,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   debugeprintf ("melt_really_initialize melt_start_time=%ld",
 		(long) melt_start_time.tv_sec);
 
-#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING
-  {
-    const char* dbgfilename = getenv ("GCCMELT_DEBUG_CALL_FRAME");
-    FILE *dbgfile = NULL;
-    if (dbgfilename) { 
-      if (!strcmp(dbgfilename,"-")) dbgfile = stdout;
-      else dbgfile = fopen(dbgfilename, "w");
-    }
-    if (dbgfile) {
-      time_t now = 0;
-      inform (UNKNOWN_LOCATION, "MELT is tracing classy call frames on %s\n", dbgfilename);
-      time (&now);
-      fprintf (dbgfile, "#MELT tracing classy call frames thru GCCMELT_DEBUG_CALL_FRAME env.var\n"
-	       "#on file %s pid %d at %s", dbgfilename, (int) getpid(), ctime(&now));
-      fflush(dbgfile);
-      Melt_CallFrame::set_debug_file (dbgfile);
-    }
-  }
-#endif /* MELT_HAVE_DEBUG  && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING */
-
 #if ENABLE_GC_ALWAYS_COLLECT
   /* the GC will be tremendously slowed since called much too often. */
   inform (UNKNOWN_LOCATION, 
@@ -11002,9 +10836,6 @@ melt_do_finalize (void)
       melt_trace_source_fil = NULL;
     }
   dbgprintf ("melt_do_finalize ended melt_nb_modules=%d", melt_nb_modules);
-#if MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING
-  Melt_CallFrame::set_debug_file((FILE*)NULL);
-#endif /*MELT_HAVE_DEBUG && MELT_HAVE_CLASSY_FRAME && ENABLE_CHECKING */
   if (!quiet_flag)
     { /* when not quiet, the GGC collector displays data, so we show
 	 our various GC reasons count */
@@ -11535,7 +11366,6 @@ melt_dbgbacktrace (int depth)
   if (depth < 3) 
     depth = 3;
   fprintf (stderr, "    <{\n");
-#if MELT_HAVE_CLASSY_FRAME
   Melt_CallFrame *cfr = NULL;
   for (cfr = (Melt_CallFrame*)melt_top_call_frame; 
        cfr != NULL & curdepth < depth;
@@ -11569,27 +11399,6 @@ melt_dbgbacktrace (int depth)
        cfr != NULL; 
        cfr = (Melt_CallFrame*)cfr->previous_frame()) 
     totdepth++;
-#else /*!MELT_HAVE_CLASSY_FRAME*/
-  struct melt_callframe_st *fr = NULL;
-  for (fr = melt_topframe; 
-       fr != NULL && curdepth < depth;
-       (fr = fr->mcfr_prev), (curdepth++)) 
-    {
-      fprintf (stderr, "frame#%d closure: ", curdepth);
-#if MELT_HAVE_DEBUG
-      if (fr->mcfr_flocs)
-	fprintf (stderr, "{%s} ", fr->mcfr_flocs);
-      else
-	fputs (" ", stderr);
-#endif
-      if (fr->mcfr_nbvar >= 0 && fr->mcfr_closp)
-	melt_dbgeprint (fr->mcfr_closp);
-    }
-  for (totdepth = curdepth; 
-       fr != NULL; 
-       fr = fr->mcfr_prev)
-    totdepth++;
-#endif /*MELT_HAVE_CLASSY_FRAME*/
   fprintf (stderr, "}> backtraced %d frames of %d\n", curdepth, totdepth);
   fflush (stderr);
 }
@@ -11603,7 +11412,6 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
     maxdepth = 5;
   fprintf (stderr, "\nSHORT BACKTRACE[#%ld] %s;", melt_dbgcounter,
            msg ? msg : "/");
-#if MELT_HAVE_CLASSY_FRAME
   Melt_CallFrame *cfr = NULL;
   for (cfr = (Melt_CallFrame*)melt_top_call_frame;
        cfr != NULL && curdepth < maxdepth;
@@ -11643,36 +11451,6 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
     fprintf (stderr, "...&%d", maxdepth - curdepth);
   else
     fputs (".", stderr);
-#else /*!MELT_HAVE_CLASSY_FRAME*/
-  struct melt_callframe_st *fr = NULL;
-  for (fr = melt_topframe; 
-       fr != NULL && curdepth <= maxdepth;
-       (fr = fr->mcfr_prev), (curdepth++)) 
-    {
-      fputs ("\n", stderr);
-      fprintf (stderr, "#%d:", curdepth);
-      if (fr->mcfr_closp && fr->mcfr_nbvar >= 0
-	  && melt_magic_discr ((melt_ptr_t) fr->mcfr_closp) == MELTOBMAG_CLOSURE) {
-	meltroutine_ptr_t curout = fr->mcfr_closp->rout;
-	if (melt_magic_discr ((melt_ptr_t) curout) == MELTOBMAG_ROUTINE)
-	  fprintf (stderr, "<%s> ", curout->routdescr);
-	else
-	  fputs ("?norout?", stderr);
-	melt_errprint_dladdr((void*) curout->routfunad);
-      } else
-	fprintf (stderr, "_ ");
-#if MELT_HAVE_DEBUG
-      if (fr->mcfr_flocs && fr->mcfr_flocs[0])
-	fprintf (stderr, "%s\n", fr->mcfr_flocs);
-      else
-	fputs (" ?", stderr);
-#endif
-    };
-  if (fr && maxdepth > curdepth)
-    fprintf (stderr, "...&%d", maxdepth - curdepth);
-  else
-    fputs (".", stderr);
-#endif /*MELT_HAVE_CLASSY_FRAME*/
   putc ('\n', stderr);
   putc ('\n', stderr);
   fflush (stderr);
@@ -12954,15 +12732,10 @@ meltgc_walkstmt_cb (gimple_stmt_iterator *gsip, bool *okp, struct walk_stmt_info
 #define datav      meltfram__.mcfr_varptr[0]
 #define closv      meltfram__.mcfr_varptr[1]
 #define resv       meltfram__.mcfr_varptr[2]
-#if MELT_HAVE_CLASSY_FRAME
   const unsigned tree_walk_frame_size = (unsigned)meltwgs__LAST;
   typedef Melt_CallFrameWithValues<tree_walk_frame_size> Melt_Tree_Walk_Call_Frame;
   datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
   closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
-#else /*!MELT_HAVE_CLASSY_FRAME*/
-  datav = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_data];
-  closv = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
-#endif /*MELT_HAVE_CLASSY_FRAME*/
   gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
   {
     union meltparam_un argtab[1];
@@ -12993,15 +12766,10 @@ tree meltgc_walktree_cb (tree*ptree, int*walksubtrees, void*data)
 #define datav      meltfram__.mcfr_varptr[0]
 #define closv      meltfram__.mcfr_varptr[1]
 #define resv       meltfram__.mcfr_varptr[2]
-#if MELT_HAVE_CLASSY_FRAME
   const unsigned tree_walk_frame_size = (unsigned)meltwgs__LAST;
   typedef Melt_CallFrameWithValues<tree_walk_frame_size> Melt_Tree_Walk_Call_Frame;
   datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
   closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
-#else /*!MELT_HAVE_CLASSY_FRAME*/
-  datav = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_data];
-  closv = ((struct melt_callframe_st*)(wi->info))->mcfr_varptr[meltwgs_treeclos];
-#endif /*MELT_HAVE_CLASSY_FRAME*/
   gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
   {
     long seclng = -2;

@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.   If not see
 #include <stdint.h>
 #endif /*HAVE_STDINT_H*/
 
-#define MELT_HAVE_CLASSY_FRAME 1
+#define MELT_HAVE_CLASSY_FRAME 2
 
 /* In the generated gtype-desc.c, file diagnostic.h is not included,
    so we declare these functions explicitly! */
@@ -101,9 +101,6 @@ extern void melt_fatal_info (const char*filename, int lineno);
 /* the version string of GCC when MELT was initialized */
 MELT_EXTERN char* melt_gccversionstr;
 
-#ifndef MELT_HAVE_CLASSY_FRAME
-#define MELT_HAVE_CLASSY_FRAME 0
-#endif /*MELT_HAVE_CLASSY_FRAME*/
 
 /* The version number of GCC, at MELT build time. So 4006 is for 4.6,
    4007 is for 4.7.  Same as MELT_GCC_VERSION constant macro.  */
@@ -139,9 +136,6 @@ extern const char melt_default_probe[];
 /* Set to 1 iff MELT is a plugin, otherwise 0 */
 extern const int melt_is_plugin;
 
-#if !MELT_HAVE_CLASSY_FRAME
-struct melt_callframe_st /* forward declaration */;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/
 
 /* the system dynamically loaded [thru dlopen] library suffix, often
    .so for ELF shared objects; it should be a constant string (so its
@@ -2670,16 +2664,9 @@ melt_check_failed (const char *msg, const char *filnam, int lineno,
 #define melt_ensuremsg(MSG,EXPR) ((void)(0 && (MSG) && (EXPR)))
 #endif
 
-/* MELT call frames checks are quite expensive and related to MELT's
-   garbage collector. */
 enum { MELT_ANYWHERE=0, MELT_NOYOUNG };
-#if ENABLE_GC_CHECKING
-void  melt_check_call_frames_at(int youngflag, const char*msg, const char*filenam, int lineno);
-#define melt_check_call_frames(YNG,MSG)				\
-  ((void)(melt_check_call_frames_at((YNG),(MSG),__FILE__,__LINE__)))
-#else /* no ENABLE_GC_CHECKING */
+// no more check of call frames
 #define melt_check_call_frames(YNG,MSG) (void)(0)
-#endif /* ENABLE_GC_CHECKING */
 
 
 /******************* method sending ************************/
@@ -2824,8 +2811,6 @@ melt_put_int (melt_ptr_t v, long x)
  * CALL FRAMES 
  ***/
 
-#if MELT_HAVE_CLASSY_FRAME
-#warning MELT have classy frames
 
 class Melt_CallFrame;
 class Melt_CallProtoFrame;
@@ -3083,106 +3068,6 @@ melt_curframdepth (void) {
     cnt++;
   return cnt;
 }
-
-////****************************************************************
-
-#else /* ! MELT_HAVE_CLASSY_FRAME */
-
-#warning MELT have oldstyle frames
-
-/* call frames for our copying garbage collector cannot be GTY-ed
-   because they are inside the C call stack; in reality, MELT call
-   frames may also contain other GTY-ed data -like tree-s, gimple-s,
-   ...-, and the MELT machinery generated code to mark each such
-   frame. See http://gcc.gnu.org/wiki/memory%20management%20in%20MELT
-   for more */
-struct melt_callframe_st
-{
-  /* When mcfr_nbvar is positive or zero, it is the number of pointers
-     in mcfr_varptr; when it is negative, the mcfr_forwmarkrout should
-     be used for forwarding or marking the frame's pointers. */
-  int mcfr_nbvar;
-  /* get the string location for the current call; only used if MELT_HAVE_DEBUG */
-  const char* mcfr_flocs;
-  union {
-    struct meltclosure_st *mcfr_closp_; /* when mcfr_nbvar >= 0 */
-    void (*mcfr_forwmarkrout_) (struct melt_callframe_st*, int); /* when mcfr_nbvar < 0 */
-  } mcfr_un_;
-#define mcfr_closp mcfr_un_.mcfr_closp_
-#define mcfr_forwmarkrout mcfr_un_.mcfr_forwmarkrout_ 
-  /* Interface: void mcfr_forwmarkrout (void* frame, int marking) */
-  struct excepth_melt_st *mcfr_exh;	/* for our exceptions - not implemented yet */
-  struct melt_callframe_st *mcfr_prev;
-  melt_ptr_t mcfr_varptr[MELT_FLEXIBLE_DIM];
-};
-
-/* maximal number of local variables per frame */
-#define MELT_MAXNBLOCALVAR 16384
-
-/* the topmost call frame */
-extern struct melt_callframe_st *melt_topframe;
-
-static inline int melt_curframdepth (void) {
-  int cnt = 0;
-  struct melt_callframe_st* fr = melt_topframe;
-  for (;fr;fr=fr->mcfr_prev) cnt++;
-  return cnt;
-}
-
-#define MELT_DECLFRAME(NBVAR) struct {		\
-  int mcfr_nbvar;				\
-  const char* mcfr_flocs;			\
-  struct meltclosure_st* mcfr_clos;		\
-  struct excepth_melt_st* mcfr_exh;		\
-  struct melt_callframe_st* mcfr_prev;		\
-  void*  /* a melt_ptr_t */ mcfr_varptr[NBVAR];	\
-} meltfram__
-#define MELT_DECLEMPTYFRAME() struct {		\
-  int mcfr_nbvar;				\
-  const char* mcfr_flocs;			\
-  struct meltclosure_st* mcfr_clos;		\
-  struct excepth_melt_st* mcfr_exh;		\
-  struct melt_callframe_st* mcfr_prev;		\
-} meltfram__
-
-/* initialize the current callframe and link it at top */
-#define MELT_INITFRAME_AT(NBVAR,CLOS,FIL,LIN) do {		\
-  memset(&meltfram__, 0, sizeof(meltfram__));			\
-  if (MELT_HAVE_DEBUG) {					\
-    static char locbuf_##LIN[84];				\
-    if (MELT_UNLIKELY(!locbuf_##LIN[0]))			\
-      snprintf (locbuf_##LIN, sizeof(locbuf_##LIN)-1,		\
-	       "%s:%d ~%s",					\
-	       melt_basename (FIL), (int)LIN, __func__);	\
-    meltfram__.mcfr_flocs = locbuf_##LIN;			\
-  };								\
-  meltfram__.mcfr_nbvar = (NBVAR);				\
-  meltfram__.mcfr_clos = (CLOS);				\
-  meltfram__.mcfr_prev						\
-    = (struct melt_callframe_st*) melt_topframe;		\
-  melt_topframe = ((struct melt_callframe_st*)&meltfram__);	\
-} while(0)
-
-#define MELT_INITFRAME_AT_MACRO(NBVAR,CLOS,FIL,LIN) \
-  MELT_INITFRAME_AT(NBVAR,CLOS,FIL,LIN)
-#define MELT_INITFRAME(NBVAR,CLOS) \
-  MELT_INITFRAME_AT_MACRO(NBVAR,CLOS,__FILE__,__LINE__)
-
-/* declare and initialize the current callframe */
-#define MELT_ENTERFRAME(NBVAR,CLOS) /*oldstyle enterframe */ 	\
-  MELT_DECLFRAME(NBVAR); MELT_INITFRAME(NBVAR,CLOS)
-
-/* declare and initialize the current callframe */
-#define MELT_ENTEREMPTYFRAME(CLOS)  /*oldstyle emptyenterframe */ \
-  MELT_DECLEMPTYFRAME(); MELT_INITFRAME(0,CLOS)
-
-/* exit the current frame and return */
-#define MELT_EXITFRAME() do { /*oldstyle exitframe*/		\
-    melt_topframe						\
-      = (struct melt_callframe_st*)(meltfram__.mcfr_prev);	\
-} while(0)
-
-#endif /*MELT_HAVE_CLASSY_FRAME*/
 
 ////================================================================
 

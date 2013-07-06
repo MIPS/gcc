@@ -1,6 +1,16 @@
 
 
 2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{keep only the classy frames}}
+	* melt-runtime.h (melt_check_call_frames): Empty macro.
+	Keep only the classy frames, so remove #if MELT_HAVE_CLASSY_FRAME....
+
+	* melt-runtime.c: Keep only the classy frames, so remove #if
+	MELT_HAVE_CLASSY_FRAME....
+	(melt_check_call_frames_at): Remove.
+
+2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
