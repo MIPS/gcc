@@ -1,7 +1,23 @@
 
 
-2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{classy frames fully working}}
+	* melt-runtime.h (MELT_HAVE_CLASSY_FRAME): Define to 1.
+	(Melt_CallFrame): Use #if ENABLE_CHECKING instead of #if
+	MELT_HAVE_DEBUG to enable the dbg_file etc...
+
+	* melt-runtime.c (melt_dbgbacktrace, melt_dbgshortbacktrace):
+	Shameful hack around a bug elsewhere; Don't compile the
+	cfr->dbg_file() case when GCCMELT_CHECKMELTRUNTIME.
+
+	* melt-build-script.tpl: The checkruntime case gets
+	-DGCCMELT_CHECKMELTRUNTIME preprocessor flag.
+
+	* melt-build-script.sh: Regenerate.
+
+
+2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

@@ -11545,9 +11545,11 @@ melt_dbgbacktrace (int depth)
       fprintf (stderr, "frame#%d current:", curdepth);
       if (sloc && sloc[0]) 
 	fprintf (stderr, " {%s} ", sloc);
-#if ENABLE_CHECKING
-      else if (dbg_file())
-	fprintf (stderr, " [%s:%d]", dbg_file(), (int) dbg_line());
+      // for some reason, the checkruntime compilation don't like
+      // that.  The bug is elsewehere, but we just avoid the code...
+#if ENABLE_CHECKING && !defined(GCCMELT_CHECKMELTRUNTIME)
+      else if (cfr->dbg_file())
+	fprintf (stderr, " [%s:%d]", cfr->dbg_file(), (int) cfr->dbg_line());
 #endif /*ENABLE_CHECKING*/
       else
 	fputs (" ", stderr);
@@ -11614,9 +11616,11 @@ melt_dbgshortbacktrace (const char *msg, int maxdepth)
       const char* sloc = cfr->srcloc();
       if (sloc && sloc[0])
 	fprintf (stderr, "@%s ", sloc);
-#if ENABLE_CHECKING
-      else if (dbg_file())
-	fprintf (stderr, " [%s:%d]", dbg_file(), (int) dbg_line());
+      // for some reason, the checkruntime fails here. The bug is
+      // elsewhere, but we circumvent it...
+#if ENABLE_CHECKING  && !defined(GCCMELT_CHECKMELTRUNTIME)
+      else if (cfr->dbg_file())
+	fprintf (stderr, " [%s:%d]", cfr->dbg_file(), (int) cfr->dbg_line());
 #endif /*ENABLE_CHECKING*/
       if ((curclos= cfr->current_closure()) != NULL) 
 	{

@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.   If not see
 #include <stdint.h>
 #endif /*HAVE_STDINT_H*/
 
-#define MELT_HAVE_CLASSY_FRAME 0
+#define MELT_HAVE_CLASSY_FRAME 1
 
 /* In the generated gtype-desc.c, file diagnostic.h is not included,
    so we declare these functions explicitly! */
@@ -2959,7 +2959,7 @@ public:
   meltclosure_ptr_t current_closure() const { return meltcast_meltclosure_st (mcfr_current); };
   melthook_ptr_t current_hook() const { return meltcast_melthook_st (mcfr_current); };
 protected:
-#if MELT_HAVE_DEBUG
+#if ENABLE_CHECKING
   Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL) 
     : Melt_CallProtoFrame(file,lin,sz), mcfr_clos(clos) {
     debug_closure (clos);
@@ -2971,7 +2971,19 @@ protected:
   Melt_CallFrame(const char*file, int lin, size_t sz)
     : Melt_CallProtoFrame(file,lin,sz), mcfr_current(NULL) {
   };
-#endif /*MELT_HAVE_DEBUG*/
+#else /*!ENABLE_CHECKING*/
+  Melt_CallFrame(const char*, int, size_t sz, meltclosure_ptr_t clos=NULL) 
+    : Melt_CallProtoFrame(sz), mcfr_clos(clos) {
+    debug_closure (clos);
+  };
+  Melt_CallFrame(const char*, int, size_t sz, melthook_ptr_t hook)
+    : Melt_CallProtoFrame(sz), mcfr_hook(hook) {
+    debug_hook (hook);
+  };
+  Melt_CallFrame(const char*, int , size_t sz)
+    : Melt_CallProtoFrame(sz), mcfr_current(NULL) {
+  };
+#endif /*ENABLE_CHECKING*/
   Melt_CallFrame(size_t sz, meltclosure_ptr_t clos) 
     : Melt_CallProtoFrame(sz), mcfr_clos(clos) {
   };

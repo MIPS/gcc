@@ -725,7 +725,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     else
 	meltcheckruntime_args=meltbuild-checkruntime.args 
 	meltcheckruntime_argstemp=$meltcheckruntime_args-tmp$$
-	echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]"' > $meltcheckruntime_argstemp
+	echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]"' ' -DGCCMELT_CHECKMELTRUNTIME' > $meltcheckruntime_argstemp
 	meltbuild_arg mode=meltframe >> $meltcheckruntime_argstemp
 	meltbuild_arg workdir=meltbuild-workdir >>  $meltcheckruntime_argstemp
 	meltbuild_arg tempdir=meltbuild-tempdir >> $meltcheckruntime_argstemp
