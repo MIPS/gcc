@@ -2,6 +2,14 @@
 
 2013-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (outpucod_procroutine): Emit use of
+	argument to avoid warning.
+
+	* melt-module.mk (GCCMELT_OPTIMIZED_PREPROFLAGS): Add
+	-DMELTGCC_NOLINENUMBERING.
+
+2013-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Remove non-classy frames from generation}}
 	* melt/warmelt-genobj.melt
 	(compilobj_nrep_quasiconstant_current_module_environment_reference):
