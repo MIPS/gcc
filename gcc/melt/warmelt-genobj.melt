@@ -2768,17 +2768,8 @@
 		  ctype_value
 		  str 
 		  ##{ /* check quasi.cur.mod.env.ref $(obj_hash nqcme) */ 
-                  (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline $(this_file):$(this_line) */
-		   (((melt_debug_garbcoll || melt_flag_debug) && 
-		    (!($ONRES && melt_reference_value ((melt_ptr_t)$ONRES))))
-		   ?({melt_fatal_error("bad current MELT module environment reference h$(obj_hash nqcme) @%p", 
-				       (void*)$ONRES);0;})
-		   :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline $(this_file):$(this_line) */
-		  }#
-		  onres
-		  " )"))
+                  ($ONRES)
+		  }#))
 	  )
      (debug "compilobj_nrep_quasiconstant_current_module_environment_reference result olres=" olres)
      (return olres)

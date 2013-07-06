@@ -2,6 +2,19 @@
 
 2013-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Remove non-classy frames from generation}}
+	* melt/warmelt-genobj.melt
+	(compilobj_nrep_quasiconstant_current_module_environment_reference):
+	Remove emission of check about environment.
+
+	* melt/warmelt-outobj.melt (output_curframe_declstruct)
+	(output_curframe_declstruct_init)
+	(outpucod_initialextensionroutine): Remove emission for non-classy
+	frames.
+	(outpucod_marker): Remove function.
+
+2013-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{classy frames fully working}}
 	* melt-runtime.h (MELT_HAVE_CLASSY_FRAME): Define to 1.
 	(Melt_CallFrame): Use #if ENABLE_CHECKING instead of #if
@@ -15,7 +28,6 @@
 	-DGCCMELT_CHECKMELTRUNTIME preprocessor flag.
 
 	* melt-build-script.sh: Regenerate.
-
 
 2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
