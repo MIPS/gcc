@@ -112,7 +112,7 @@
    "-fvtable-verify=std" must be linked with libvtv_init.so (the gcc
    driver has been modified to do this).  vtv_stubs.so is built from
    vtv_stubs.cc.  It replaces the main runtime functions
-   (__VLTChangePermissino, __VLTRegisterPair and
+   (__VLTChangePermission, __VLTRegisterPair and
    __VLTVerifyVtablePointer) with stub functions that do nothing.  If
    a programmer has a library that was built with verification, but
    wishes to not have verification turned on, the programmer can link
