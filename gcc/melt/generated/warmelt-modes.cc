@@ -40,10 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-#if MELT_HAVE_CLASSY_FRAME /* fromline 6979*/
-class Melt_InitialClassyFrame_WARMELTmiMODES_h963459636; // forward declaration fromline 6981
+class Melt_InitialClassyFrame_WARMELTmiMODES_h963459636; // forward declaration fromline 6499
 typedef Melt_InitialClassyFrame_WARMELTmiMODES_h963459636 Melt_InitialFrame;
-#endif /* MELT_HAVE_CLASSY_FRAME fromline 6985*/
 /**** no MELT module variables ****/
 
 /*** 4 MELT called hook declarations ***/
@@ -447,15 +445,10 @@ melt_ptr_t MELT_MODULE_VISIBILITY meltrout_76_WARMELTmiMODES_TRANSLATEINITMODULE
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2364*/
-struct melt_initial_frame_st; /*forward declaration of initial frame*/
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2368*/
+
 /*declare opaque initial frame: */
-#if MELT_HAVE_CLASSY_FRAME /*fromline 2373*/
+
 typedef Melt_InitialClassyFrame_WARMELTmiMODES_h963459636 /*opaqueinitialclassy*/ meltinitial_frame_t;
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2377*/
-typedef struct melt_initial_frame_st meltinitial_frame_t;
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 2381*/
 
 
 /* define different names when debugging or not */
@@ -481,10 +474,6 @@ void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMODES__initialmeltchunk_8 (meltini
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMODES__initialmeltchunk_9 (meltinitial_frame_t*, char*);
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMODES__initialmeltchunk_10 (meltinitial_frame_t*, char*);
 void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMODES__initialmeltchunk_11 (meltinitial_frame_t*, char*);
-
-
-void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMODES__forward_or_mark_module_start_frame (struct melt_callframe_st* fp, int marking);
-
 
 
 /**** warmelt-modes implementations ****/
@@ -514,11 +503,11 @@ meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(meltclosure_ptr_t meltclosp_, melt_p
     /* start of frame for routine meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE */
 
     /** start of frame for meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE// fromline 1533
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE// fromline 1529
         : public Melt_CallFrameWithValues<9>
     {
-    public: /* fromline 1537*/
+    public: /* fromline 1533*/
         long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
@@ -530,99 +519,51 @@ meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(meltclosure_ptr_t meltclosp_, melt_p
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(meltclosure_ptr_t clos) //the closure constructor fromline 1592
             : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
                 sizeof(MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE), clos) {};
-        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE() //the constructor fromline 1608
+        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE() //the constructor fromline 1604
             : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
                 sizeof(MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(const char*fil, int lin) //the constructor fromline 1618
             : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE)) {};
-        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1627
+        MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
             : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE), clos) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
     }; // end  class MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-    /*curframdeclstruct fromline 1668*/ struct meltframe_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_st
-    {
-        int mcfr_nbvar;
-        const char* mcfr_flocs;
-        struct meltclosure_st *mcfr_clos;
-        struct excepth_melt_st *mcfr_exh;
-        struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 9
-        melt_ptr_t mcfr_varptr[9];
-        /*varnum fromline 1720*/
-#define MELTFRAM_NBVARNUM 3
-        long mcfr_varnum[3];
-        /*others fromline1736*/
-        long _meltspare_;
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
     /** end of frame for meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE**/
 
     /* end of frame for routine meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
     /* classy proc frame meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE */ MeltFrame_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain proc frame meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE */ struct meltframe_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-                  /*classyprocarg meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE fromline 1937*/
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyprocarg meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE fromline 1747*/
 #if ENABLE_CHECKING
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1941*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
 #else /*ENABLE_CHECKING */
-                  (meltclosp_) /* fromline 1945*/
+    (meltclosp_) /* fromline 1755*/
 #endif /*ENABLE_CHECKING */
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
-                  ;
+    ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
-    /*meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE is not initial declstructinit*/
-    if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
-            int meltix;
-            meltframptr_ = (struct meltframe_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_st*) meltfirstargp_;
-            /* use arguments meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE output_curframe_declstruct_init */
-            (void) meltclosp_;
-            (void) meltfirstargp_;
-            (void) meltxargdescr_;
-            (void) meltxargtab_;
-            (void) meltxresdescr_;
-            (void) meltxrestab_;
-            /* marking closure */
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
-            for(meltix=0; meltix<9; meltix++)
-                if (meltframptr_->mcfr_varptr[meltix])
-                    gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-            return NULL;
-        }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit plain routine meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE nbval 9*/
-    meltfram__.mcfr_nbvar = 9/*nbval*/;
-    meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
+
     melt_trace_start("INSTALL_MELT_MODE", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
     /*getargs*/
 
     /*getarg#0*/
@@ -912,9 +853,6 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("INSTALL_MELT_MODE", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_1_WARMELTmiMODES_INSTALL_MELT_MODE_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2222*/
-    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2226*/
     return (melt_ptr_t)(/*noretval*/ NULL);
 #undef meltcallcount
 #undef meltfram__
@@ -946,11 +884,11 @@ meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t
     /* start of frame for routine meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD */
 
     /** start of frame for meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD// fromline 1533
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD// fromline 1529
         : public Melt_CallFrameWithValues<47>
     {
-    public: /* fromline 1537*/
+    public: /* fromline 1533*/
         long mcfr_varnum[19];
         /*classy others*/
         const char* loc_CSTRING__o0;
@@ -964,101 +902,51 @@ meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1592
             : Melt_CallFrameWithValues<47> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
                 sizeof(MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD), clos) {};
-        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD() //the constructor fromline 1608
+        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD() //the constructor fromline 1604
             : Melt_CallFrameWithValues<47> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
                 sizeof(MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(const char*fil, int lin) //the constructor fromline 1618
             : Melt_CallFrameWithValues<47> (fil,lin, sizeof(MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD)) {};
-        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1627
+        MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
             : Melt_CallFrameWithValues<47> (fil,lin, sizeof(MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD), clos) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
     }; // end  class MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-    /*curframdeclstruct fromline 1668*/ struct meltframe_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_st
-    {
-        int mcfr_nbvar;
-        const char* mcfr_flocs;
-        struct meltclosure_st *mcfr_clos;
-        struct excepth_melt_st *mcfr_exh;
-        struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 47
-        melt_ptr_t mcfr_varptr[47];
-        /*varnum fromline 1720*/
-#define MELTFRAM_NBVARNUM 19
-        long mcfr_varnum[19];
-        /*others fromline1736*/
-        const char* loc_CSTRING__o0;
-        const char* loc_CSTRING__o1;
-        long _meltspare_;
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
     /** end of frame for meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD**/
 
     /* end of frame for routine meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
     /* classy proc frame meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD */ MeltFrame_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain proc frame meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD */ struct meltframe_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-                  /*classyprocarg meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD fromline 1937*/
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyprocarg meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD fromline 1747*/
 #if ENABLE_CHECKING
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1941*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
 #else /*ENABLE_CHECKING */
-                  (meltclosp_) /* fromline 1945*/
+    (meltclosp_) /* fromline 1755*/
 #endif /*ENABLE_CHECKING */
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
-                  ;
+    ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
-    /*meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD is not initial declstructinit*/
-    if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
-            int meltix;
-            meltframptr_ = (struct meltframe_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_st*) meltfirstargp_;
-            /* use arguments meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD output_curframe_declstruct_init */
-            (void) meltclosp_;
-            (void) meltfirstargp_;
-            (void) meltxargdescr_;
-            (void) meltxargtab_;
-            (void) meltxresdescr_;
-            (void) meltxrestab_;
-            /* marking closure */
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
-            for(meltix=0; meltix<47; meltix++)
-                if (meltframptr_->mcfr_varptr[meltix])
-                    gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-            return NULL;
-        }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit plain routine meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD nbval 47*/
-    meltfram__.mcfr_nbvar = 47/*nbval*/;
-    meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
+
     melt_trace_start("RUNFILE_DOCMD", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
     /*getargs*/
 
     /*getarg#0*/
@@ -2436,9 +2324,6 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("RUNFILE_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_2_WARMELTmiMODES_RUNFILE_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2222*/
-    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2226*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -2470,11 +2355,11 @@ meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* start of frame for routine meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD */
 
     /** start of frame for meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD// fromline 1533
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD// fromline 1529
         : public Melt_CallFrameWithValues<47>
     {
-    public: /* fromline 1537*/
+    public: /* fromline 1533*/
         long mcfr_varnum[19];
         /*classy others*/
         const char* loc_CSTRING__o0;
@@ -2488,101 +2373,51 @@ meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1592
             : Melt_CallFrameWithValues<47> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
                 sizeof(MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD), clos) {};
-        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD() //the constructor fromline 1608
+        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD() //the constructor fromline 1604
             : Melt_CallFrameWithValues<47> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
                 sizeof(MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(const char*fil, int lin) //the constructor fromline 1618
             : Melt_CallFrameWithValues<47> (fil,lin, sizeof(MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD)) {};
-        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1627
+        MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
             : Melt_CallFrameWithValues<47> (fil,lin, sizeof(MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD), clos) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
     }; // end  class MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-    /*curframdeclstruct fromline 1668*/ struct meltframe_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_st
-    {
-        int mcfr_nbvar;
-        const char* mcfr_flocs;
-        struct meltclosure_st *mcfr_clos;
-        struct excepth_melt_st *mcfr_exh;
-        struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 47
-        melt_ptr_t mcfr_varptr[47];
-        /*varnum fromline 1720*/
-#define MELTFRAM_NBVARNUM 19
-        long mcfr_varnum[19];
-        /*others fromline1736*/
-        const char* loc_CSTRING__o0;
-        const char* loc_CSTRING__o1;
-        long _meltspare_;
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
     /** end of frame for meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD**/
 
     /* end of frame for routine meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
     /* classy proc frame meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD */ MeltFrame_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain proc frame meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD */ struct meltframe_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-                  /*classyprocarg meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD fromline 1937*/
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyprocarg meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD fromline 1747*/
 #if ENABLE_CHECKING
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1941*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
 #else /*ENABLE_CHECKING */
-                  (meltclosp_) /* fromline 1945*/
+    (meltclosp_) /* fromline 1755*/
 #endif /*ENABLE_CHECKING */
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
-                  ;
+    ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
-    /*meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD is not initial declstructinit*/
-    if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
-            int meltix;
-            meltframptr_ = (struct meltframe_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_st*) meltfirstargp_;
-            /* use arguments meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD output_curframe_declstruct_init */
-            (void) meltclosp_;
-            (void) meltfirstargp_;
-            (void) meltxargdescr_;
-            (void) meltxargtab_;
-            (void) meltxresdescr_;
-            (void) meltxrestab_;
-            /* marking closure */
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
-            for(meltix=0; meltix<47; meltix++)
-                if (meltframptr_->mcfr_varptr[meltix])
-                    gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-            return NULL;
-        }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit plain routine meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD nbval 47*/
-    meltfram__.mcfr_nbvar = 47/*nbval*/;
-    meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
+
     melt_trace_start("RUNDEBUG_DOCMD", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
     /*getargs*/
 
     /*getarg#0*/
@@ -3960,9 +3795,6 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("RUNDEBUG_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_3_WARMELTmiMODES_RUNDEBUG_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2222*/
-    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2226*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -3994,11 +3826,11 @@ meltrout_4_WARMELTmiMODES_EVAL_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* start of frame for routine meltrout_4_WARMELTmiMODES_EVAL_DOCMD */
 
     /** start of frame for meltrout_4_WARMELTmiMODES_EVAL_DOCMD**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD// fromline 1533
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD// fromline 1529
         : public Melt_CallFrameWithValues<28>
     {
-    public: /* fromline 1537*/
+    public: /* fromline 1533*/
         long mcfr_varnum[9];
         /*classy others*/
         const char* loc_CSTRING__o0;
@@ -4011,100 +3843,51 @@ meltrout_4_WARMELTmiMODES_EVAL_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1592
             : Melt_CallFrameWithValues<28> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD), clos) {};
-        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD() //the constructor fromline 1608
+        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD() //the constructor fromline 1604
             : Melt_CallFrameWithValues<28> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD(const char*fil, int lin) //the constructor fromline 1618
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD)) {};
-        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1627
+        MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD), clos) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
     }; // end  class MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-    /*curframdeclstruct fromline 1668*/ struct meltframe_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_st
-    {
-        int mcfr_nbvar;
-        const char* mcfr_flocs;
-        struct meltclosure_st *mcfr_clos;
-        struct excepth_melt_st *mcfr_exh;
-        struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 28
-        melt_ptr_t mcfr_varptr[28];
-        /*varnum fromline 1720*/
-#define MELTFRAM_NBVARNUM 9
-        long mcfr_varnum[9];
-        /*others fromline1736*/
-        const char* loc_CSTRING__o0;
-        long _meltspare_;
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
     /** end of frame for meltrout_4_WARMELTmiMODES_EVAL_DOCMD**/
 
     /* end of frame for routine meltrout_4_WARMELTmiMODES_EVAL_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
     /* classy proc frame meltrout_4_WARMELTmiMODES_EVAL_DOCMD */ MeltFrame_meltrout_4_WARMELTmiMODES_EVAL_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain proc frame meltrout_4_WARMELTmiMODES_EVAL_DOCMD */ struct meltframe_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-                  /*classyprocarg meltrout_4_WARMELTmiMODES_EVAL_DOCMD fromline 1937*/
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyprocarg meltrout_4_WARMELTmiMODES_EVAL_DOCMD fromline 1747*/
 #if ENABLE_CHECKING
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1941*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
 #else /*ENABLE_CHECKING */
-                  (meltclosp_) /* fromline 1945*/
+    (meltclosp_) /* fromline 1755*/
 #endif /*ENABLE_CHECKING */
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
-                  ;
+    ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
-    /*meltrout_4_WARMELTmiMODES_EVAL_DOCMD is not initial declstructinit*/
-    if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
-            int meltix;
-            meltframptr_ = (struct meltframe_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_st*) meltfirstargp_;
-            /* use arguments meltrout_4_WARMELTmiMODES_EVAL_DOCMD output_curframe_declstruct_init */
-            (void) meltclosp_;
-            (void) meltfirstargp_;
-            (void) meltxargdescr_;
-            (void) meltxargtab_;
-            (void) meltxresdescr_;
-            (void) meltxrestab_;
-            /* marking closure */
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
-            for(meltix=0; meltix<28; meltix++)
-                if (meltframptr_->mcfr_varptr[meltix])
-                    gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-            return NULL;
-        }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit plain routine meltrout_4_WARMELTmiMODES_EVAL_DOCMD nbval 28*/
-    meltfram__.mcfr_nbvar = 28/*nbval*/;
-    meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
+
     melt_trace_start("EVAL_DOCMD", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
     /*getargs*/
 
     /*getarg#0*/
@@ -4810,9 +4593,6 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("EVAL_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_4_WARMELTmiMODES_EVAL_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2222*/
-    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2226*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -4844,11 +4624,11 @@ meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* start of frame for routine meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD */
 
     /** start of frame for meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD// fromline 1533
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD// fromline 1529
         : public Melt_CallFrameWithValues<28>
     {
-    public: /* fromline 1537*/
+    public: /* fromline 1533*/
         long mcfr_varnum[9];
         /*classy others*/
         const char* loc_CSTRING__o0;
@@ -4861,100 +4641,51 @@ meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1592
             : Melt_CallFrameWithValues<28> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD), clos) {};
-        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD() //the constructor fromline 1608
+        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD() //the constructor fromline 1604
             : Melt_CallFrameWithValues<28> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(const char*fil, int lin) //the constructor fromline 1618
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD)) {};
-        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1627
+        MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD), clos) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
     }; // end  class MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-    /*curframdeclstruct fromline 1668*/ struct meltframe_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_st
-    {
-        int mcfr_nbvar;
-        const char* mcfr_flocs;
-        struct meltclosure_st *mcfr_clos;
-        struct excepth_melt_st *mcfr_exh;
-        struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 28
-        melt_ptr_t mcfr_varptr[28];
-        /*varnum fromline 1720*/
-#define MELTFRAM_NBVARNUM 9
-        long mcfr_varnum[9];
-        /*others fromline1736*/
-        const char* loc_CSTRING__o0;
-        long _meltspare_;
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
     /** end of frame for meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD**/
 
     /* end of frame for routine meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
     /* classy proc frame meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD */ MeltFrame_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain proc frame meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD */ struct meltframe_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-                  /*classyprocarg meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD fromline 1937*/
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyprocarg meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD fromline 1747*/
 #if ENABLE_CHECKING
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1941*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
 #else /*ENABLE_CHECKING */
-                  (meltclosp_) /* fromline 1945*/
+    (meltclosp_) /* fromline 1755*/
 #endif /*ENABLE_CHECKING */
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
-                  ;
+    ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
-    /*meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD is not initial declstructinit*/
-    if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
-            int meltix;
-            meltframptr_ = (struct meltframe_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_st*) meltfirstargp_;
-            /* use arguments meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD output_curframe_declstruct_init */
-            (void) meltclosp_;
-            (void) meltfirstargp_;
-            (void) meltxargdescr_;
-            (void) meltxargtab_;
-            (void) meltxresdescr_;
-            (void) meltxrestab_;
-            /* marking closure */
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
-            for(meltix=0; meltix<28; meltix++)
-                if (meltframptr_->mcfr_varptr[meltix])
-                    gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-            return NULL;
-        }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit plain routine meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD nbval 28*/
-    meltfram__.mcfr_nbvar = 28/*nbval*/;
-    meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
+
     melt_trace_start("EVALFILE_DOCMD", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
     /*getargs*/
 
     /*getarg#0*/
@@ -5664,9 +5395,6 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("EVALFILE_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_5_WARMELTmiMODES_EVALFILE_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2222*/
-    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2226*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -5698,11 +5426,11 @@ meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(meltclosure_ptr_t meltclosp_, melt_ptr_
     /* start of frame for routine meltrout_6_WARMELTmiMODES_REPL_PROCESSOR */
 
     /** start of frame for meltrout_6_WARMELTmiMODES_REPL_PROCESSOR**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR// fromline 1533
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR// fromline 1529
         : public Melt_CallFrameWithValues<46>
     {
-    public: /* fromline 1537*/
+    public: /* fromline 1533*/
         long mcfr_varnum[22];
         /*classy others*/
         long _meltsparel;
@@ -5714,99 +5442,51 @@ meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(meltclosure_ptr_t clos) //the closure constructor fromline 1592
             : Melt_CallFrameWithValues<46> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR), clos) {};
-        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR() //the constructor fromline 1608
+        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR() //the constructor fromline 1604
             : Melt_CallFrameWithValues<46> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(const char*fil, int lin) //the constructor fromline 1618
             : Melt_CallFrameWithValues<46> (fil,lin, sizeof(MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR)) {};
-        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1627
+        MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
             : Melt_CallFrameWithValues<46> (fil,lin, sizeof(MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR), clos) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
     }; // end  class MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-    /*curframdeclstruct fromline 1668*/ struct meltframe_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_st
-    {
-        int mcfr_nbvar;
-        const char* mcfr_flocs;
-        struct meltclosure_st *mcfr_clos;
-        struct excepth_melt_st *mcfr_exh;
-        struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 46
-        melt_ptr_t mcfr_varptr[46];
-        /*varnum fromline 1720*/
-#define MELTFRAM_NBVARNUM 22
-        long mcfr_varnum[22];
-        /*others fromline1736*/
-        long _meltspare_;
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
     /** end of frame for meltrout_6_WARMELTmiMODES_REPL_PROCESSOR**/
 
     /* end of frame for routine meltrout_6_WARMELTmiMODES_REPL_PROCESSOR */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
     /* classy proc frame meltrout_6_WARMELTmiMODES_REPL_PROCESSOR */ MeltFrame_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain proc frame meltrout_6_WARMELTmiMODES_REPL_PROCESSOR */ struct meltframe_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-                  /*classyprocarg meltrout_6_WARMELTmiMODES_REPL_PROCESSOR fromline 1937*/
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyprocarg meltrout_6_WARMELTmiMODES_REPL_PROCESSOR fromline 1747*/
 #if ENABLE_CHECKING
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1941*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
 #else /*ENABLE_CHECKING */
-                  (meltclosp_) /* fromline 1945*/
+    (meltclosp_) /* fromline 1755*/
 #endif /*ENABLE_CHECKING */
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
-                  ;
+    ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
-    /*meltrout_6_WARMELTmiMODES_REPL_PROCESSOR is not initial declstructinit*/
-    if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
-            int meltix;
-            meltframptr_ = (struct meltframe_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_st*) meltfirstargp_;
-            /* use arguments meltrout_6_WARMELTmiMODES_REPL_PROCESSOR output_curframe_declstruct_init */
-            (void) meltclosp_;
-            (void) meltfirstargp_;
-            (void) meltxargdescr_;
-            (void) meltxargtab_;
-            (void) meltxresdescr_;
-            (void) meltxrestab_;
-            /* marking closure */
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
-            for(meltix=0; meltix<46; meltix++)
-                if (meltframptr_->mcfr_varptr[meltix])
-                    gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-            return NULL;
-        }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit plain routine meltrout_6_WARMELTmiMODES_REPL_PROCESSOR nbval 46*/
-    meltfram__.mcfr_nbvar = 46/*nbval*/;
-    meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
+
     melt_trace_start("REPL_PROCESSOR", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
     /*getargs*/
 
     /*getarg#0*/
@@ -7200,9 +6880,6 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("REPL_PROCESSOR", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_6_WARMELTmiMODES_REPL_PROCESSOR_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2222*/
-    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2226*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -7234,11 +6911,11 @@ meltrout_7_WARMELTmiMODES_REPL_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t me
     /* start of frame for routine meltrout_7_WARMELTmiMODES_REPL_DOCMD */
 
     /** start of frame for meltrout_7_WARMELTmiMODES_REPL_DOCMD**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-    /*curframdeclclassy*/ class MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD// fromline 1533
+
+    /*curframdeclclassy*/ class MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD// fromline 1529
         : public Melt_CallFrameWithValues<38>
     {
-    public: /* fromline 1537*/
+    public: /* fromline 1533*/
         long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
@@ -7250,99 +6927,51 @@ meltrout_7_WARMELTmiMODES_REPL_DOCMD(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD(meltclosure_ptr_t clos) //the closure constructor fromline 1592
             : Melt_CallFrameWithValues<38> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD), clos) {};
-        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD() //the constructor fromline 1608
+        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD() //the constructor fromline 1604
             : Melt_CallFrameWithValues<38> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD(const char*fil, int lin) //the constructor fromline 1618
             : Melt_CallFrameWithValues<38> (fil,lin, sizeof(MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD)) {};
-        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1627
+        MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
             : Melt_CallFrameWithValues<38> (fil,lin, sizeof(MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD), clos) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
     }; // end  class MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-    /*curframdeclstruct fromline 1668*/ struct meltframe_meltrout_7_WARMELTmiMODES_REPL_DOCMD_st
-    {
-        int mcfr_nbvar;
-        const char* mcfr_flocs;
-        struct meltclosure_st *mcfr_clos;
-        struct excepth_melt_st *mcfr_exh;
-        struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-        /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 38
-        melt_ptr_t mcfr_varptr[38];
-        /*varnum fromline 1720*/
-#define MELTFRAM_NBVARNUM 5
-        long mcfr_varnum[5];
-        /*others fromline1736*/
-        long _meltspare_;
-    };
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
     /** end of frame for meltrout_7_WARMELTmiMODES_REPL_DOCMD**/
 
     /* end of frame for routine meltrout_7_WARMELTmiMODES_REPL_DOCMD */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
     /* classy proc frame meltrout_7_WARMELTmiMODES_REPL_DOCMD */ MeltFrame_meltrout_7_WARMELTmiMODES_REPL_DOCMD
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain proc frame meltrout_7_WARMELTmiMODES_REPL_DOCMD */ struct meltframe_meltrout_7_WARMELTmiMODES_REPL_DOCMD_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    *meltframptr_=0,    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-                  /*classyprocarg meltrout_7_WARMELTmiMODES_REPL_DOCMD fromline 1937*/
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyprocarg meltrout_7_WARMELTmiMODES_REPL_DOCMD fromline 1747*/
 #if ENABLE_CHECKING
-                  (__FILE__, __LINE__, meltclosp_) /* fromline 1941*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
 #else /*ENABLE_CHECKING */
-                  (meltclosp_) /* fromline 1945*/
+    (meltclosp_) /* fromline 1755*/
 #endif /*ENABLE_CHECKING */
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
-                  ;
+    ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
-    /*meltrout_7_WARMELTmiMODES_REPL_DOCMD is not initial declstructinit*/
-    if (MELT_UNLIKELY(meltxargdescr_ == MELTPAR_MARKGGC))   /*mark for ggc*/
-        {
-            int meltix;
-            meltframptr_ = (struct meltframe_meltrout_7_WARMELTmiMODES_REPL_DOCMD_st*) meltfirstargp_;
-            /* use arguments meltrout_7_WARMELTmiMODES_REPL_DOCMD output_curframe_declstruct_init */
-            (void) meltclosp_;
-            (void) meltfirstargp_;
-            (void) meltxargdescr_;
-            (void) meltxargtab_;
-            (void) meltxresdescr_;
-            (void) meltxrestab_;
-            /* marking closure */
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_clos);
-            for(meltix=0; meltix<38; meltix++)
-                if (meltframptr_->mcfr_varptr[meltix])
-                    gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-            return NULL;
-        }/*end markggc*/;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit plain routine meltrout_7_WARMELTmiMODES_REPL_DOCMD nbval 38*/
-    meltfram__.mcfr_nbvar = 38/*nbval*/;
-    meltfram__.mcfr_clos = meltclosp_;
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
+
     melt_trace_start("REPL_DOCMD", meltcallcount);
+    /*use arguments*/ (void) meltclosp_;
+    (void)meltfirstargp_;
+    (void)meltxargdescr_;
+    (void)meltxargtab_;
+    (void)meltxresdescr_;
+    (void)meltxrestab_;
     /*getargs*/
 
     /*getarg#0*/
@@ -8056,9 +7685,6 @@ meltlab_endgetargs:
 meltlabend_rout:
     melt_trace_end("REPL_DOCMD", meltcallcount);
     melt_blocklevel_signals = current_blocklevel_signals_meltrout_7_WARMELTmiMODES_REPL_DOCMD_melt;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2222*/
-    melt_topframe /*endprocroutine*/ = (struct melt_callframe_st*) meltfram__.mcfr_prev;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2226*/
     return (melt_ptr_t)(/*_._RETVAL___V1*/ meltfptr[0]);
 #undef meltcallcount
 #undef meltfram__
@@ -8072,11 +7698,11 @@ meltlabend_rout:
 
 /* the frame for initial routine */
 /** start of frame for melt_start_this_module**/
-#if MELT_HAVE_CLASSY_FRAME /* fromline 1520*/
-/*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiMODES_h963459636// fromline 1533
+
+/*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiMODES_h963459636// fromline 1529
     : public Melt_CallFrameWithValues<617>
 {
-public: /* fromline 1537*/
+public: /* fromline 1533*/
 // no classy longs
     /*classy others*/
     long _meltsparel;
@@ -8088,45 +7714,26 @@ public: /* fromline 1537*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    Melt_InitialClassyFrame_WARMELTmiMODES_h963459636(meltclosure_ptr_t clos) //the closure constructor fromline 1596
+    Melt_InitialClassyFrame_WARMELTmiMODES_h963459636(meltclosure_ptr_t clos) //the closure constructor fromline 1592
         : Melt_CallFrameWithValues<617> (
-#if ENABLE_CHECKING /*fromline 1600*/
+#if ENABLE_CHECKING /*fromline 1596*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1604*/
+#endif /* ENABLE_CHECKING fromline 1600*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiMODES_h963459636), clos) {};
-    Melt_InitialClassyFrame_WARMELTmiMODES_h963459636() //the constructor fromline 1608
+    Melt_InitialClassyFrame_WARMELTmiMODES_h963459636() //the constructor fromline 1604
         : Melt_CallFrameWithValues<617> (
-#if ENABLE_CHECKING /*fromline 1612*/
+#if ENABLE_CHECKING /*fromline 1608*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1616*/
+#endif /* ENABLE_CHECKING fromline 1612*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiMODES_h963459636)) {};
-#if ENABLE_CHECKING /*fromline 1620*/
-    Melt_InitialClassyFrame_WARMELTmiMODES_h963459636(const char*fil, int lin) //the constructor fromline 1622
+#if ENABLE_CHECKING /*fromline 1616*/
+    Melt_InitialClassyFrame_WARMELTmiMODES_h963459636(const char*fil, int lin) //the constructor fromline 1618
         : Melt_CallFrameWithValues<617> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiMODES_h963459636)) {};
-#endif /* ENABLE_CHECKING fromline 1632*/
+#endif /* ENABLE_CHECKING fromline 1628*/
 
 }; // end  class Melt_InitialClassyFrame_WARMELTmiMODES_h963459636
 
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1664*/
 
-/*curframdeclstruct fromline 1668*/ struct melt_initial_frame_st
-{
-    int mcfr_nbvar;
-    const char* mcfr_flocs;
-    void (*mcfr_initforwmarkrout) /*fromline 1691*/ ( struct melt_callframe_st*, int);
-    struct excepth_melt_st *mcfr_exh;
-    struct melt_callframe_st *mcfr_prev;
-#undef MELTFRAM_NBVARPTR
-#undef MELTFRAM_NBVARNUM
-    /*varptr fromline 1704*/
-#define MELTFRAM_NBVARPTR 617
-    melt_ptr_t mcfr_varptr[617];
-    /*no varnum fromline 1730*/
-#define MELTFRAM_NBVARNUM /*none*/0
-    /*others fromline1736*/
-    long _meltspare_;
-};
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1765*/
 /** end of frame for melt_start_this_module**/
 ;
 
@@ -8659,9 +8266,6 @@ static void melt_initialize_module_meltdata_WARMELTmiMODES (meltinitial_frame_t 
     } *meltcdat = NULL;
     dbgprintf ("start melt_initialize_module_meltdata_WARMELTmiMODES iniframp__=%p", (void*) iniframp__);
     (void) meltpredefinited; /* avoid warning if non-used. */
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2407*/
-    melt_assertmsg ("check module initial frame", iniframp__->mcfr_nbvar == /*minihash*/ -2613);
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2413*/
     /*curframe_cdat_fill */
     meltcdat = (struct meltcdata_st*) meltgc_allocate(sizeof(*meltcdat),0);
     melt_prohibit_garbcoll = TRUE;
@@ -13122,7 +12726,7 @@ void* melt_start_this_module (void* modargp_)
 #undef meltcallcount
 #define meltcallcount 0L
 #endif
-//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2487
+//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2185
 
     /* start of frame for routine melt_start_this_module */
 
@@ -13130,43 +12734,19 @@ void* melt_start_this_module (void* modargp_)
 
     /* end of frame for routine melt_start_this_module */
 
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1889*/
 
     debugeprintf("sizeof Melt_InitialFrame in melt_start_this_module=%d", (int) sizeof(Melt_InitialFrame));
-    /* classy initial frame melt_start_this_module fromline 1904*/ Melt_InitialFrame
-#else /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 1911*/
-    /* plain init frame melt_start_this_module */ struct melt_initial_frame_st
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1926*/
-    meltfram__ /*declfrastruct fromline 1930*/
-#if MELT_HAVE_CLASSY_FRAME /*fromline 1932*/
-    /*classyinitroutinearg melt_start_this_module fromline 1971*/
+    /* classy initial frame melt_start_this_module fromline 1735*/ Melt_InitialFrame
+    meltfram__ /*declfrastruct fromline 1742*/
+    /*classyinitroutinearg melt_start_this_module fromline 1781*/
 #if ENABLE_CHECKING
-    /*classyinitroutfram fromline 1975:*/ (__FILE__, __LINE__)
-#endif /*ENABLE_CHECKING fromline1977*/
+    /*classyinitroutfram fromline 1785:*/ (__FILE__, __LINE__)
+#endif /*ENABLE_CHECKING fromline1787*/
 
-#endif /*MELT_HAVE_CLASSY_FRAME*/ /*fromline 1983*/
     ;
 #define meltframe meltfram__
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 1989*/
 
-    /*melt_start_this_module is initial declstructinit fromline 2002 */
-
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2045*/
-    memset(&meltfram__, 0, sizeof(meltfram__));
-#else /*MELT_HAVE_CLASSY_FRAME fromline 2050*/
-    debugeprintf("start of initial routine melt_start_this_module classyfram@%p", (void*) &__meltfram);
-#endif /*MELT_HAVE_CLASSY_FRAME*/
-    /* declstructinit initial routine melt_start_this_module minihash 2613*/
-
-    meltfram__.mcfr_prev = (struct melt_callframe_st *) melt_topframe /*declstructinit*/;
-    melt_topframe = /* declstructinit */ (struct melt_callframe_st *) &meltfram__;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2075*/
     /**initial routine prologue**/
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2497*/
-    /* set initial frame marking */
-    ((struct melt_callframe_st*)&meltfram__)->mcfr_nbvar = /*minihash*/ -2613;
-    ((struct melt_callframe_st*)&meltfram__)->mcfr_forwmarkrout = meltmod__WARMELTmiMODES__forward_or_mark_module_start_frame;
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2509*/
     /**COMMENT: get previous environment **/;
 
     /*^compute*/
@@ -15009,7 +14589,7 @@ void* melt_start_this_module (void* modargp_)
     /**initial routine body**/
 
     debugeprintf (" in initialization of warmelt-modes thru 12 chunk routines with frame @%p of %d bytes",
-                  /*fromline 2586*/ (void*)&meltfram__, (int) sizeof(meltfram__));
+                  /*fromline 2270*/ (void*)&meltfram__, (int) sizeof(meltfram__));
     melt_debuggc_eprintf ("initialization of warmelt-modes thru 12 chunks, frame @%p of %d bytes",
                           (void*)&meltfram__, (int) sizeof(meltfram__));
 
@@ -15028,13 +14608,9 @@ void* melt_start_this_module (void* modargp_)
     goto meltlabend_rout;
 meltlabend_rout:
     ;
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2618*/
-    melt_topframe = /*endinitrout*/ (struct melt_callframe_st *) meltfram__.mcfr_prev;
-    /* popped initial frame */
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2624*/
     {
-        /* return out of initial fromline 2626 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
-        debugeprintf ("returning @%p from initial routine of warmelt-modes", (void*)retval); /*fromline 2634*/
+        /* return out of initial fromline 2302 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        debugeprintf ("returning @%p from initial routine of warmelt-modes", (void*)retval); /*fromline 2310*/
         return retval;
     }
 #undef meltcallcount
@@ -15042,7 +14618,7 @@ meltlabend_rout:
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
 
-} /* end fromline 2647 */
+} /* end fromline 2323 */
 
 void meltmod__WARMELTmiMODES__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
@@ -23090,31 +22666,15 @@ void meltmod__WARMELTmiMODES__initialmeltchunk_10 (meltinitial_frame_t* meltfram
         /*cond*/ if (
             /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
             /* check quasi.cur.mod.env.ref 691467644 */
-            (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                (((melt_debug_garbcoll || melt_flag_debug) &&
-                  (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                 ?( {melt_fatal_error("bad current MELT module environment reference h691467644 @%p",
-                                      (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                    })
-                 :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                /*_._CONTENV___V2*/ meltfptr[1] )) /*then*/
+            (/*_._CONTENV___V2*/ meltfptr[1])
+        ) /*then*/
             {
                 /*^cond.then*/
                 /*_.OR___V597*/ meltfptr[596] =
                     /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
                     /* check quasi.cur.mod.env.ref 691467644 */
-                    (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                        (((melt_debug_garbcoll || melt_flag_debug) &&
-                          (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                         ?( {melt_fatal_error("bad current MELT module environment reference h691467644 @%p",
-                                              (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                            })
-                         :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                        /*_._CONTENV___V2*/ meltfptr[1] );;
+                    (/*_._CONTENV___V2*/ meltfptr[1])
+                    ;;
             }
         else
             {
@@ -23169,16 +22729,8 @@ void meltmod__WARMELTmiMODES__initialmeltchunk_10 (meltinitial_frame_t* meltfram
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V95*/ meltfptr[94], /*_._VALCLO___V84*/ meltfptr[83],
                 /*quasi.cur.mod.env.ref norm.exp.val : INSTALL_MELT_MODE*/
                 /* check quasi.cur.mod.env.ref 302719569 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h302719569 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
         /*epilog*/
     }
 
@@ -23311,240 +22863,104 @@ void meltmod__WARMELTmiMODES__initialmeltchunk_10 (meltinitial_frame_t* meltfram
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V225*/ meltfptr[224], /*_._VALDATA___V227*/ meltfptr[226],
                 /*quasi.cur.mod.env.ref norm.exp.val : CLASS_MAKEDOC_INFO*/
                 /* check quasi.cur.mod.env.ref 289459681 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h289459681 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V263*/ meltfptr[262], /*_._VALDATA___V230*/ meltfptr[229],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_PRIMITIVES*/
                 /* check quasi.cur.mod.env.ref 622816082 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h622816082 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V265*/ meltfptr[264], /*_._VALDATA___V232*/ meltfptr[231],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_FUNCTIONS*/
                 /* check quasi.cur.mod.env.ref 909901173 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h909901173 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V267*/ meltfptr[266], /*_._VALDATA___V234*/ meltfptr[233],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_CITERATORS*/
                 /* check quasi.cur.mod.env.ref 467384101 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h467384101 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V269*/ meltfptr[268], /*_._VALDATA___V236*/ meltfptr[235],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_CMATCHERS*/
                 /* check quasi.cur.mod.env.ref 734283817 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h734283817 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V271*/ meltfptr[270], /*_._VALDATA___V238*/ meltfptr[237],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_SELECTORS*/
                 /* check quasi.cur.mod.env.ref 728389927 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h728389927 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V273*/ meltfptr[272], /*_._VALDATA___V240*/ meltfptr[239],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_FIELDS*/
                 /* check quasi.cur.mod.env.ref 228661810 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h228661810 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V275*/ meltfptr[274], /*_._VALDATA___V242*/ meltfptr[241],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_CLASSES*/
                 /* check quasi.cur.mod.env.ref 652189721 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h652189721 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V277*/ meltfptr[276], /*_._VALDATA___V244*/ meltfptr[243],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_INSTANCES*/
                 /* check quasi.cur.mod.env.ref 968138171 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h968138171 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V279*/ meltfptr[278], /*_._VALDATA___V246*/ meltfptr[245],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_MACROS*/
                 /* check quasi.cur.mod.env.ref 974260121 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h974260121 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V281*/ meltfptr[280], /*_._VALDATA___V248*/ meltfptr[247],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_PATMACROS*/
                 /* check quasi.cur.mod.env.ref 231107207 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h231107207 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V283*/ meltfptr[282], /*_._VALDATA___V250*/ meltfptr[249],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_HOOKS*/
                 /* check quasi.cur.mod.env.ref 450040738 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h450040738 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V285*/ meltfptr[284], /*_._VALDATA___V252*/ meltfptr[251],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_FORMALOCCMAP*/
                 /* check quasi.cur.mod.env.ref 549609980 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h549609980 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V287*/ meltfptr[286], /*_._VALDATA___V254*/ meltfptr[253],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_PREDEFMAP*/
                 /* check quasi.cur.mod.env.ref 146647432 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h146647432 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V289*/ meltfptr[288], /*_._VALDATA___V256*/ meltfptr[255],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_DOCSYMAP*/
                 /* check quasi.cur.mod.env.ref 725130288 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h725130288 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V291*/ meltfptr[290], /*_._VALDATA___V258*/ meltfptr[257],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_SUBCLASSMAP*/
                 /* check quasi.cur.mod.env.ref 658657671 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h658657671 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
 
         /*hookcall*/ melthook_HOOK_VALUE_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_VALUE_EXPORTER))), /*_._VALDATA___V293*/ meltfptr[292], /*_._VALDATA___V260*/ meltfptr[259],
                 /*quasi.cur.mod.env.ref norm.exp.val : MKDOC_BOXCOUNTER*/
                 /* check quasi.cur.mod.env.ref 569131313 */
-                (
-#if defined(__GNUG__) && MELT_HAS_INITIAL_ENVIRONMENT /* for debugging MELT_HAVE_CLASSY_FRAME fromline warmelt-genobj.melt:2772 */
-                    (((melt_debug_garbcoll || melt_flag_debug) &&
-                      (!(/*_._CONTENV___V2*/ meltfptr[1] && melt_reference_value ((melt_ptr_t)/*_._CONTENV___V2*/ meltfptr[1]))))
-                     ?( {melt_fatal_error("bad current MELT module environment reference h569131313 @%p",
-                                          (void*)/*_._CONTENV___V2*/ meltfptr[1]); 0;
-                        })
-                     :0),
-#endif /* __GNUG__ && MELT_HAS_INITIAL_ENVIRONMENT fromline warmelt-genobj.melt:2778 */
-                    /*_._CONTENV___V2*/ meltfptr[1] )) ;
+                (/*_._CONTENV___V2*/ meltfptr[1])
+                                                  ) ;
         /*epilog*/
     }
 
@@ -24221,27 +23637,6 @@ void meltmod__WARMELTmiMODES__initialmeltchunk_11 (meltinitial_frame_t* meltfram
 #undef meltfram__
 } /*end of meltmod__WARMELTmiMODES__initialmeltchunk_11*/
 
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2690*/
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2697*/
-#if !MELT_HAVE_CLASSY_FRAME /*fromline 2700*/
-void meltmod__WARMELTmiMODES__forward_or_mark_module_start_frame (struct melt_callframe_st* fp, int marking)
-{
-    int meltix=0;
-    struct melt_initial_frame_st* meltframptr_= (struct melt_initial_frame_st*)fp;
-    melt_assertmsg ("check module frame", meltframptr_->mcfr_nbvar == /*minihash*/ -2613);
-    if (!marking && melt_is_forwarding)
-        {
-            dbgprintf ("forward_or_mark_module_start_frame_WARMELTmiMODES forwarding %d pointers in frame %p", 617, (void*) meltframptr_);
-            for (meltix = 0;  meltix < 617; meltix++)  MELT_FORWARDED(meltframptr_->mcfr_varptr[meltix]);
-            return;
-        } /*end forwarding*/
-    dbgprintf ("forward_or_mark_module_start_frame_WARMELTmiMODES marking in frame %p", (void*) meltframptr_);
-    for(meltix=0; meltix<617; meltix++)
-        if (meltframptr_->mcfr_varptr[meltix])
-            gt_ggc_mx_melt_un (meltframptr_->mcfr_varptr[meltix]);
-
-} /* end meltmod__WARMELTmiMODES__forward_or_mark_module_start_frame */
-#endif /*!MELT_HAVE_CLASSY_FRAME*/ /*fromline 2744*/
 
 
 
