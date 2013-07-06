@@ -1,3 +1,9 @@
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/depend-1.c: Enable for C as well.
+	* c-c++-common/gomp/depend-2.c: Likewise.
+	* c-c++-common/gomp/map-1.c: Likewise.
+
 2013-07-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/block-0.C: Adjust for stricter #pragma omp sections

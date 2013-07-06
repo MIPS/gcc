@@ -147,6 +147,9 @@ static bool undef_nested_function;
 
 enum machine_mode c_default_pointer_mode = VOIDmode;
 
+/* If non-zero, implicit "omp declare target" attribute is added into the
+   attribute lists.  */
+int current_omp_declare_target_attribute;
 
 /* Each c_binding structure describes one binding of an identifier to
    a decl.  All the decls in a scope - irrespective of namespace - are
@@ -3974,6 +3977,35 @@ groktypename (struct c_type_name *type_name, tree *expr,
   return type;
 }
 
+/* Wrapper for decl_attributes that adds some implicit attributes
+   to VAR_DECLs or FUNCTION_DECLs.  */
+
+static tree
+c_decl_attributes (tree *node, tree attributes, int flags)
+{
+  /* Add implicit "omp declare target" attribute if requested.  */
+  if (current_omp_declare_target_attribute
+      && ((TREE_CODE (*node) == VAR_DECL && TREE_STATIC (*node))
+	  || TREE_CODE (*node) == FUNCTION_DECL))
+    {
+      if (TREE_CODE (*node) == VAR_DECL
+	  && ((DECL_CONTEXT (*node)
+	       && TREE_CODE (DECL_CONTEXT (*node)) == FUNCTION_DECL)
+	      || (current_function_decl && !DECL_EXTERNAL (*node))))
+	error ("%q+D in block scope inside of declare target directive",
+	       *node);
+      else if (TREE_CODE (*node) == VAR_DECL
+	       && !COMPLETE_TYPE_P (TREE_TYPE (*node)))
+	error ("%q+D in declare target directive does not have mappable type",
+	       *node);
+      else
+	attributes = tree_cons (get_identifier ("omp declare target"),
+				NULL_TREE, attributes);
+    }
+  return decl_attributes (node, attributes, flags);
+}
+
+
 /* Decode a declarator in an ordinary declaration or data definition.
    This is called as soon as the type information and variable name
    have been parsed, before parsing the initializer if any.
@@ -4108,7 +4140,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
     DECL_COMMON (decl) = 1;
 
   /* Set attributes here so if duplicate decl, will have proper attributes.  */
-  decl_attributes (&decl, attributes, 0);
+  c_decl_attributes (&decl, attributes, 0);
 
   /* Handle gnu_inline attribute.  */
   if (declspecs->inline_p
@@ -7724,7 +7756,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
 
   loc = DECL_SOURCE_LOCATION (decl1);
 
-  decl_attributes (&decl1, attributes, 0);
+  c_decl_attributes (&decl1, attributes, 0);
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && DECL_UNINLINABLE (decl1)

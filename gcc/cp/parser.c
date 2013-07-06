@@ -29745,6 +29745,36 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
 static void
 cp_parser_omp_end_declare_target (cp_parser *parser, cp_token *pragma_tok)
 {
+  const char *p = "";
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      p = IDENTIFIER_POINTER (id);
+    }
+  if (strcmp (p, "declare") == 0)
+    {
+      cp_lexer_consume_token (parser->lexer);
+      p = "";
+      if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+	{
+	  tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+	  p = IDENTIFIER_POINTER (id);
+	}
+      if (strcmp (p, "target") == 0)
+	cp_lexer_consume_token (parser->lexer);
+      else
+	{
+	  cp_parser_error (parser, "expected %<target%>");
+	  cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+	  return;
+	}
+    }
+  else
+    {
+      cp_parser_error (parser, "expected %<declare%>");
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      return;
+    }
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
   if (!current_omp_declare_target_attribute)
     error_at (pragma_tok->location,
@@ -29757,7 +29787,8 @@ cp_parser_omp_end_declare_target (cp_parser *parser, cp_token *pragma_tok)
 /* OpenMP 4.0
    #pragma omp declare simd declare-simd-clauses[optseq] new-line
    #pragma omp declare reduction (reduction-id : typename-list : expression) \
-      identity-clause[opt] new-line */
+      identity-clause[opt] new-line
+   #pragma omp declare target new-line  */
 
 static void
 cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
@@ -29790,7 +29821,8 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
 	  return;
 	}
     }
-  cp_parser_error (parser, "expected %<simd%> or %<reduction%>");
+  cp_parser_error (parser, "expected %<simd%> or %<reduction%> "
+			   "or %<target%>");
   cp_parser_require_pragma_eol (parser, pragma_tok);
 }
 

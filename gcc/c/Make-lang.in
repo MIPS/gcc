@@ -181,8 +181,8 @@ c/c-objc-common.o : c/c-objc-common.c c/c-objc-common.h \
 	$(TREE_PRETTY_PRINT_H)
 
 c/c-parser.o : c/c-parser.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
-	$(TM_H) $(TREE_H) $(C_TREE_H) $(C_COMMON_H) $(C_PRAGMA_H) $(CPPLIB_H) \
-	$(GGC_H) $(TIMEVAR_H) $(INPUT_H) $(FLAGS_H) \
+	$(TM_H) $(TREE_H) c/c-lang.h $(C_TREE_H) $(C_COMMON_H) $(C_PRAGMA_H) \
+	$(CPPLIB_H) $(GGC_H) $(TIMEVAR_H) $(INPUT_H) $(FLAGS_H) \
 	gt-c-c-parser.h langhooks.h \
 	$(VEC_H) $(TARGET_H) $(CGRAPH_H) $(PLUGIN_H) \
 	c-family/c-objc.h

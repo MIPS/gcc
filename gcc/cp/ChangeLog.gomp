@@ -1,3 +1,9 @@
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_end_declare_target): Diagnose if
+	#pragma omp end isn't followed by declare target.
+	(cp_parser_omp_declare): Adjust expected keyword diagnostics.
+
 2013-07-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_atomic): Disallow seq_cst before

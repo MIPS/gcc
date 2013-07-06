@@ -1,3 +1,62 @@
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-lang.h (current_omp_declare_target_attribute): New extern
+	decl.
+	* Make-lang.in (c/c-parser.o): Depend on c/c-lang.h.
+	* c-parser.c: Include c-lang.h.
+	(c_parser_pragma): Handle PRAGMA_OMP_TARGET and
+	PRAGMA_OMP_END_DECLARE_TARGET.
+	(c_parser_omp_clause_name): Handle thread_limit clause.
+	(c_parser_omp_variable_list): Parse array sections for
+	OMP_CLAUSE_{DEPEND,MAP,TO,FROM} clauses.
+	(c_parser_omp_clause_reduction): Remove declare_simd argument.
+	Pass false instead of declare_simd to c_parser_omp_variable_list.
+	(c_parser_omp_clause_cancelkind): Remove diagnostics.
+	(c_parser_omp_clause_thread_limit): New function.
+	(c_parser_omp_all_clauses): Add finish_p argument.  Don't call
+	c_finish_omp_clauses if it is false.  Require that
+	OMP_CLAUSE_{PARALLEL,FOR,SECTIONS,TASKGROUP} must be first in
+	the list of clauses.  Adjust c_parser_omp_clause_reduction
+	caller.
+	(c_parser_omp_for_loop): Change last argument to cclauses,
+	and adjust uses to grab parallel clauses from the array of all
+	the split clauses.
+	(omp_split_clauses): New function.
+	(c_parser_omp_simd): Add p_name, mask and cclauses arguments.
+	Allow the function to be called also when parsing combined constructs.
+	(c_parser_omp_sections): Likewise.
+	(c_parser_omp_for): Add p_name, mask and cclauses arguments.
+	Allow the function to be called also when parsing combined constructs,
+	and call cp_parser_omp_simd when parsing for simd.
+	(c_parser_omp_parallel): Likewise.
+	(c_parser_omp_single, c_parser_omp_task, c_parser_omp_cancel,
+	c_parser_omp_cancellation_point, c_parser_omp_declare_simd): Adjust
+	c_parser_omp_all_clauses callers.
+	(OMP_TEAMS_CLAUSE_MASK, OMP_TARGET_CLAUSE_MASK,
+	OMP_TARGET_DATA_CLAUSE_MASK, OMP_TARGET_UPDATE_CLAUSE_MASK,
+	OMP_DISTRIBUTE_CLAUSE_MASK): Define.
+	(c_parser_omp_teams, c_parser_omp_target, c_parser_omp_target_data,
+	c_parser_omp_target_update, c_parser_omp_distribute): New
+	functions.
+	(c_parser_omp_construct): Handle PRAGMA_OMP_DISTRIBUTE and
+	PRAGMA_OMP_TEAMS.  Adjust callers of c_parser_omp_simd,
+	c_parser_omp_sections, c_parser_omp_for and c_parser_omp_parallel.
+	(OMP_DECLARE_SIMD_CLAUSE_MASK): Remove OMP_CLAUSE_REDUCTION.
+	(c_parser_omp_declare_target, c_parser_omp_end_declare_target): New
+	functions.
+	(c_parser_omp_declare): For target keyword call
+	c_parser_omp_declare_target.  Adjust expected keyword diagnostics.
+	* c-decl.c (current_omp_declare_target_attribute): New variable.
+	(c_decl_attributes): New function.
+	(start_decl, start_function): Use it instead of decl_attributes.
+	* c-typeck.c (handle_omp_array_sections_1, handle_omp_array_sections):
+	New functions.
+	(c_finish_omp_clauses): Handle array sections on
+	OMP_CLAUSE_{MAP,TO,FROM,DEPEND}.  If not array sections, mark the
+	decl addressable.  Complain if OMP_CLAUSE_{MAP,TO,FROM}
+	decls or array sections don't have complete type. Handle
+	OMP_CLAUSE_THREAD_LIMIT.
+
 2013-07-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_atomic): Disallow seq_cst before
