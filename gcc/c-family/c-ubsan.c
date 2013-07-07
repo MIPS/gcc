@@ -390,8 +390,7 @@ ubsan_type_descriptor (tree type)
   rest_of_decl_compilation (decl, 1, 0);
 
   /* Save the address of the VAR_DECL into the hash table.  */
-  decl = build_fold_addr_expr (decl);
-  *slot = ubsan_typedesc_new (type, decl);
+  *slot = ubsan_typedesc_new (type, build_fold_addr_expr (decl));
 
   return decl;
 }
