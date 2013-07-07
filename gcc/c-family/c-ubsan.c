@@ -125,6 +125,7 @@ ubsan_typedesc_new (tree type, tree decl)
 
 /* Clear all entries from the type descriptor hash table.  */
 
+#if 0
 static void
 empty_ubsan_typedesc_hash_table ()
 {
@@ -132,6 +133,7 @@ empty_ubsan_typedesc_hash_table ()
   if (ubsan_typedesc_ht.is_created ())
     ubsan_typedesc_ht.empty ();
 }
+#endif
 
 /* Build the ubsan uptr type.  */
 
