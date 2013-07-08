@@ -371,9 +371,6 @@ enum omp_clause_code
   /* OpenMP clause: uniform (argument-list).  */
   OMP_CLAUSE_UNIFORM,
 
-   /* Internal clause: temporary for combined loops expansion.  */
-  OMP_CLAUSE__LOOPTEMP_,
-
   /* OpenMP clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
 
@@ -406,9 +403,6 @@ enum omp_clause_code
 
   /* OpenMP clause: safelen (constant-integer-expression).  */
   OMP_CLAUSE_SAFELEN,
-
-  /* OpenMP clause: simdlen (constant-integer-expression).  */
-  OMP_CLAUSE_SIMDLEN,
 
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_
@@ -1824,7 +1818,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_DECL(NODE)      					\
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
-	                                      OMP_CLAUSE__LOOPTEMP_), 0)
+	                                      OMP_CLAUSE_UNIFORM), 0)
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
   (LOCATION_LOCUS ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus)		\
   != UNKNOWN_LOCATION)
@@ -1906,9 +1900,6 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_CLAUSE_SAFELEN_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SAFELEN), 0)
-
-#define OMP_CLAUSE_SIMDLEN_EXPR(NODE) \
-  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SIMDLEN), 0)
 
 #define OMP_CLAUSE__SIMDUID__DECL(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__SIMDUID_), 0)

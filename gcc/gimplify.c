@@ -6197,14 +6197,14 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  check_non_private = "reduction";
 	  goto do_add;
        case OMP_CLAUSE_LINEAR:
-         if (gimplify_expr (&OMP_CLAUSE_LINEAR_STEP (c), pre_p, NULL,
-                            is_gimple_val, fb_rvalue) == GS_ERROR)
-           {
-             remove = true;
-             break;
-           }
-         flags = GOVD_LINEAR | GOVD_EXPLICIT;
-         goto do_add;
+	 if (gimplify_expr (&OMP_CLAUSE_LINEAR_STEP (c), pre_p, NULL,
+			    is_gimple_val, fb_rvalue) == GS_ERROR)
+	   {
+	     remove = true;
+	     break;
+	   }
+	 flags = GOVD_LINEAR | GOVD_EXPLICIT;
+	 goto do_add;
 
 	do_add:
 	  decl = OMP_CLAUSE_DECL (c);

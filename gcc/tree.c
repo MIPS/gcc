@@ -238,7 +238,6 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_COPYPRIVATE  */
   2, /* OMP_CLAUSE_LINEAR  */
   1, /* OMP_CLAUSE_UNIFORM  */
-  1, /* OMP_CLAUSE__LOOPTEMP_  */
   1, /* OMP_CLAUSE_IF  */
   1, /* OMP_CLAUSE_NUM_THREADS  */
   1, /* OMP_CLAUSE_SCHEDULE  */
@@ -250,7 +249,6 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_FINAL  */
   0, /* OMP_CLAUSE_MERGEABLE  */
   1, /* OMP_CLAUSE_SAFELEN  */
-  1, /* OMP_CLAUSE_SIMDLEN  */
   1, /* OMP_CLAUSE__SIMDUID_  */
 };
 
@@ -266,7 +264,6 @@ const char * const omp_clause_code_name[] =
   "copyprivate",
   "linear",
   "uniform",
-  "_looptemp_",
   "if",
   "num_threads",
   "schedule",
@@ -278,7 +275,6 @@ const char * const omp_clause_code_name[] =
   "final",
   "mergeable",
   "safelen",
-  "simdlen",
   "_simduid_"
 };
 
@@ -11047,8 +11043,6 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_UNIFORM:
 	case OMP_CLAUSE_SAFELEN:
-	case OMP_CLAUSE_SIMDLEN:
-	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE__SIMDUID_:
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
 	  /* FALLTHRU */

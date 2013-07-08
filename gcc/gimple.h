@@ -5432,18 +5432,4 @@ gimple_seq_set_location (gimple_seq seq, location_t loc)
     gimple_set_location (gsi_stmt (i), loc);
 }
 
-static inline bool
-gimple_omp_for_combined_p (const_gimple g)
-{
-  GIMPLE_CHECK (g, GIMPLE_OMP_FOR);
-  return false;			/* FIXME */
-}
-
-static inline bool
-gimple_omp_for_combined_into_p (const_gimple g)
-{
-  GIMPLE_CHECK (g, GIMPLE_OMP_FOR);
-  return false; 		/* FIXME */
-}
-
 #endif  /* GCC_GIMPLE_H */
