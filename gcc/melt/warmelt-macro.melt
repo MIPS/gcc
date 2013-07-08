@@ -369,6 +369,14 @@ with a formal arguments binding tuple given in $SFORMAL_ARGS.}#
   :fields (sfun_body			;body sequence
 	   ))
 
+
+;; define a macro
+(defclass class_source_defmacro
+  :doc #{The internal $CLASS_SOURCE_DEFMACRO is the abstract syntax of $DEFMACRO. $SMACRO_BODY is the body tuple.}#
+  :super class_source_definition_formal
+  :fields (smacro_body			;body sequence
+	   ))
+
 ;;; define a primitive
 (defclass class_source_defprimitive
   :doc #{The internal $CLASS_SOURCE_DEFPRIMITIVE is the abstract
@@ -629,14 +637,27 @@ $CLASS_SOURCE_CASEMATCH.}#
 ;;;;;;;;;;;;;;;;
 
 ;;; letbinding source - not a binding, just abstract syntax for them
+(defclass class_source_any_let_binding
+  :doc #{The internal $CLASS_SOURCE_ANY_LET_BINDING is abstract syntax for 
+  $LET bindings in the source.}#
+  :super class_source
+  :fields (sletb_binder
+	   ))
+
+(defclass class_source_macro_let_binding
+  :doc #{The internal $CLASS_SOURCE_MACRO_LET_BINDING is abstract syntax for macro $LET binding in the source.}#
+  :super class_source_any_let_binding
+  :fields (sletm_macro_formals
+	   sletm_macro_body))
+
+;;; letbinding source - not a binding, just abstract syntax for them
 (defclass class_source_let_binding
   :doc #{The internal $CLASS_SOURCE_LET_BINDING is abstract syntax for
-  $LET bindings in the source. The $SLETB_TYPE gives the type of the
-  binding, the $SLETB_BINDER gives the binder, and the $SLETB_EXPR
-  gives the bound expression.}#
-  :super class_source
+  $LET bindings [of things] in the source. The $SLETB_TYPE gives the
+  type of the binding, the $SLETB_BINDER gives the binder, and the
+  $SLETB_EXPR gives the bound expression.}#
+  :super class_source_any_let_binding
   :fields (sletb_type			;the type of the binding
-	   sletb_binder			;the binder (variable)
 	   sletb_expr			;the expression
 	   ))
 
@@ -2902,10 +2923,10 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 ;;;;;;;;;;;;;;;;;; the defun expander
 ;;;(DEFUN funame formals [:doc documentation] body...)
 (defun mexpand_defun (sexpr env mexpander modctx)
+  (debug "mexp.defun sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
-  (debug "mexp.defun sexpr" sexpr)
   (let ( (cont (unsafe_get_field :sexp_contents sexpr))
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont)))
@@ -2975,6 +2996,32 @@ in sequence. The value of the last is returned. See also $RETURN and
 $LAMBDA macros. A function defined by $DEFUN has to be exported with 
 $EXPORT_VALUES to be visible outside its module.}#)
 
+
+
+;;;;;;;;;;;;;;;;;; the defmacro expander
+;;;(DEFMACRO macroname formals [:doc documentation] body...)
+(defun mexpand_defmacro (sexpr env mexpander modctx)
+  (debug "mexp.defmacro sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check modctx" (is_object modctx))
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont)))
+	 (symb (pair_head curpair))
+	 (symbname (get_field :named_name symb))
+	 (newenv (fresh_env env))
+	 (docv ())
+	 )
+    (assert_msg "@$@unimplemented mexpand_defmacro")
+    ))
+
+(install_initial_macro 'defmacro mexpand_defmacro)
+(export_macro defmacro mexpand_defmacro
+	      :doc #{The $DEFMACRO macro defines a macro. Syntax
+is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
+@var{body}...). At most four @var{formals} are permitted
+of ctype @code{:value}.}#)
 
 ;;;;;;;;;;;;;;;;;; the defvar expander
 ;;;(DEFVAR varname [:doc documentation])
@@ -5888,7 +5935,7 @@ applications of @code{/i} primitives.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;; for LET
-;; internal routine to make a letbinding
+;; internal routine to make a letbinding, called from mexpand_let
 (defun mexpand_letbinding (sexpr env mexpander modctx)
   (debug "mexpand_letbinding sexpr" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
@@ -5905,6 +5952,7 @@ applications of @code{/i} primitives.}#
 	(curarg ())
 	)
     (setq curarg (pair_head curpair))
+    ;; parse the ctype keyword
     (if (is_a curarg class_keyword)
 	(let ( (cty (unsafe_get_field :symb_data curarg)) 
 	       (tynam (unsafe_get_field :named_name curarg))
@@ -5921,11 +5969,12 @@ applications of @code{/i} primitives.}#
 	     (inform_strv loc "prefered ctype keyword" (get_field :named_name (get_field :ctype_keyword ctyp)))
 	     )
 	   (:else
-	    (error_strv loc "letbinding with invalid type keyword"_
+	    (error_strv loc "let-binding with invalid type keyword"_
 			tynam)))
 	  (setq curpair (pair_tail curpair))
 	  (setq curarg (pair_head curpair))
 	  ))
+    ;; parse the variable
     (cond ( (is_a curarg class_keyword)
 	    (error_strv loc "letbinding cannot bind keyword"_  
 			(unsafe_get_field :named_name curarg)))
@@ -5936,13 +5985,53 @@ applications of @code{/i} primitives.}#
 	    ))
     (if (null var) 
 	(error_plain loc "missing variable in letbinding"_))
-    (if curarg
-	(progn 
-	  (setq expr (mexpander curarg env mexpander modctx))
+    ;; special case for :macro i.e. quasi_ctype_macro
+    ;; syntax of the macro binding (:macro <name> <formals> <body>)
+    (if (== ctyp quasi_ctype_macro)
+	(let ( (macformals (lambda_arg_bindings curarg :true))
+	       (varname (unsafe_get_field :named_name var))
+	       (macbody ())
+	       (newenv (fresh_env env))
+	       )
+	  (debug "mexpand_letbinding macformals=" macformals)
 	  (setq curpair (pair_tail curpair))
-	  (setq curarg (pair_head curpair))
-	  (if curarg (error_plain loc "too long letbinding"_))
-	  ))
+	  (if (is_a macformals discr_variadic_formal_sequence)
+	      (error_strv loc ":macro let-binding cannot be variadic" varname))
+	  (if (>i (multiple_length macformals) 4)
+	      (error_strv loc ":macro let-binding should have at most 4 formals" varname))
+	  (foreach_in_multiple
+	   (macformals)
+	   (curmacformal :long ix)
+	   (debug "mexpand_letbinding curmacformal=" curmacformal)
+	   (assert_msg "check curmacformal" (is_a curmacformal class_formal_binding))
+	   (let ( (curformalname (get_field :named_name (get_field :binder curmacformal))) 
+		  )
+	     (if (!= (get_field :fbind_type curmacformal) ctype_value)
+		 (error_strv loc ":macro let-binding should be :value" curformalname))
+	     (if (find_env newenv (get_field :binder curmacformal))
+		 (error_strv loc ":macro formal already bound" curformalname))
+	     (put_env newenv curmacformal)
+	     ))
+	  (setq macbody (expand_pairlist_as_tuple curpair newenv mexpander modctx))
+	  (debug "mexpand_letbinding macbody=" macbody)
+	  (let ( (smacbind
+		  (instance class_source_macro_let_binding
+			    :loca_location loc
+			    :sletb_binder var 
+			    :sletm_macro_formals macformals
+			    :sletm_macro_body macbody
+			    ))
+		 )
+	    (debug "mexpand_letbinding smacbind=" smacbind)
+	    (return smacbind)
+	    )))
+    ;;
+    (when curarg
+      (setq expr (mexpander curarg env mexpander modctx))
+      (setq curpair (pair_tail curpair))
+      (setq curarg (pair_head curpair))
+      (if curarg (error_plain loc "too long letbinding"_))
+      )
     (let ( (prevbind (find_env env var)) )
       (cond
        ( (null prevbind) ())
@@ -7713,6 +7802,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
 (export_class  ;classes for source representations, alphabetical order
  class_pattern_expansion_context
  class_source_again
+ class_source_any_let_binding
  class_source_apply
  class_source_arithmetic_variadic_operation
  class_source_argumented_operator
@@ -7738,6 +7828,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_definstance
  class_source_defobjcommon
  class_source_defprimitive
+ class_source_defmacro
  class_source_defselector
  class_source_defun
  class_source_defunmatcher
@@ -7770,6 +7861,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_letrec
  class_source_letrec_binding
  class_source_list
+ class_source_macro_let_binding
  class_source_match
  class_source_match_case
  class_source_matchalt

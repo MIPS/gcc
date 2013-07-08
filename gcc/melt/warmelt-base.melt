@@ -470,6 +470,106 @@ number $NUM opaque location number $LOC.}#
   $STRV. $STRV can be a boxed string or a strbuf value.}#
   #{(meltgc_read_from_val ((melt_ptr_t) ($STRV), NULL))}# )
 
+
+
+;;;;;;; variadic diagnostics
+(defvar diagv_gimple)
+(defvar diagv_gimple_seq)
+(defvar diagv_tree)
+(defvar diagv_basic_block)
+
+(defun register_diag_gimple (c)
+  (if (is_closure c)
+      (setq diagv_gimple c)))
+
+(defun register_diag_gimple_seq (c)
+  (if (is_closure c)
+      (setq diagv_gimple_seq c)))
+
+(defun register_diag_tree (c)
+  (if (is_closure c)
+      (setq diagv_tree c)))
+
+(defun register_diag_basic_block (c)
+  (if (is_closure c)
+      (setq diagv_basic_block c)))
+
+
+;; we really need macros for this
+(defun error (loc :cstring fmt :rest) 
+  :doc #{Variadic function to emit an error message. The $FMT format
+  string may contain @code{$$1} ... @code{$$9} to refer to the first,
+  ... nineth argument (after $FMT).}#
+  (let ( (vec (make_multiple discr_multiple 9))
+	 (:long nbargs 0)
+	 )
+    (forever 
+     argloop
+     (variadic 
+      ( ()
+	(exit argloop))
+      ( (:cstring str)
+	(let ( (bs (constant_box str))
+	       )
+	  (multiple_put_nth vec nbargs bs)
+	  (setq nbargs (+ nbargs 1))))
+      ( (:long l)
+	(let ( (sn (string4out discr_string l))
+	       )
+	  (multiple_put_nth vec nbargs sn)
+	  (setq nbargs (+ nbargs 1))))
+      ( (:tree tr)
+	(assert_msg "check diagv_tree" (is_closure diagv_tree))
+	(let ( (s (diagv_tree () tr))
+	       )
+	  (multiple_put_nth vec nbargs s)
+	  (setq nbargs (+ nbargs 1))))
+      ( (:gimple gi)
+	(assert_msg "check diagv_gimple" (is_closure diagv_gimple))
+	(let ( (s (diagv_gimple () gi))
+	       )
+	  (multiple_put_nth vec nbargs s)
+	  (setq nbargs (+ nbargs 1))))
+      ( (:gimple_seq gs)
+	(assert_msg "check diagv_gimple_seq" (is_closure diagv_gimple_seq))
+	(let ( (s (diagv_gimple_seq () gs))
+	       )
+	  (multiple_put_nth vec nbargs s)
+	  (setq nbargs (+ nbargs 1))))
+      ( (:basic_block bb)
+	(assert_msg "check diagv_basic_block" (is_closure diagv_basic_block))
+	(let ( (s (diagv_basic_block () bb))
+	       )
+	  (multiple_put_nth vec nbargs s)
+	  (setq nbargs (+ nbargs 1))))
+      ( (:value v)
+	(cond 
+	 ( (is_integerbox v)
+	   (let ( (sn (string4out discr_string (get_int v)))
+		  )
+	     (multiple_put_nth vec nbargs sn)
+	     (setq nbargs (+ nbargs 1))))
+	 ( (is_string v)
+	     (multiple_put_nth vec nbargs v)
+	     (setq nbargs (+ nbargs 1)))
+	 ( (is_a v class_named)
+	   (let ( (nam (unsafe_get_field :named_name v))
+		  )
+	     (assert_msg "check nam" (is_string nam))
+	     (multiple_put_nth vec nbargs nam)
+	     (setq nbargs (+ nbargs 1)))
+	   )
+	 )
+	)
+      ( :else
+	(let ( (vcty (variadic_ctype 0))
+	       )
+	  (errormsg_strv "ADD2OUT for unsupported ctype; use a manipulator "
+			 (get_field :named_name vcty))
+	  (assert_msg "invalid variadic argument to ERROR" ())))
+      ))				;end forever args
+    ))
+
 ;; to signal an error in a  source with some additional string value
 (defprimitive error_strv (loc :cstring cmsg :value strv) :void
   :doc #{Show an error at boxed location $LOC with raw message string $CMSG and string value $STRV.}#

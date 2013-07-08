@@ -300,7 +300,7 @@ $INITIAL_SYSTEM_DATA.}#
 	   ctype_descr	  ;descriptive string
 	   )
   :doc #{The $CLASS_QUASI_CTYPE is only for the :auto ctype
-  annotation. It is a singleton class, but the $CLASS_CTYPE is its
+  annotation and :macro annotation. but the $CLASS_CTYPE is its
   subclass. $CTYPE_KEYWORD gives the MELT keyword symbol associated to
   it. $CTYPE_DESCR gives a descriptive string.}#)
 
@@ -309,8 +309,14 @@ $INITIAL_SYSTEM_DATA.}#
   :named_name '"QUASI_CTYPE_AUTO"
   :ctype_keyword ':auto
 )
-
 (put_fields ':auto :symb_data quasi_ctype_auto)
+
+(definstance quasi_ctype_macro class_quasi_ctype
+  :doc #{the $QUASI_CTYPE_MACRO is for :macro annotations}#
+  :named_name '"QUASI_CTYPE_MACRO"
+  :ctype_keyword ':macro
+)
+(put_fields ':macro :symb_data quasi_ctype_macro)
 
 ;; class of C types keywords - it is predefined to ensure
 ;; install_ctype_descr always refer to the same class
@@ -4148,6 +4154,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  initial_environment                  
  initial_system_data
  quasi_ctype_auto
+ quasi_ctype_macro
  ) ;;;end export discriminants, instances, selectors
 
 

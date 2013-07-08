@@ -1,5 +1,23 @@
 
 
+2013-07-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Start adding defmacro and :macro let-bindings}}
+
+	* melt/warmelt-first.melt (quasi_ctype_macro): New.
+
+	* melt/warmelt-base.melt (error): Start adding a variadic error,
+	but we really need a macro system to share code between error,
+	warning, inform...
+
+	* melt/warmelt-macro.melt (class_source_defmacro): New class with
+	field smacro_body.
+	(class_source_any_let_binding): New class with field sletb_binder.
+	(class_source_macro_let_binding): New class with field
+	(class_source_let_binding): Move sletb_binder field ...
+	(mexpand_defmacro): New, very incomplete.
+	(defmacro): New macro.
+	(mexpand_letbinding): Handle :macro binding.
+
 2013-07-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{keep only the classy frames}}
