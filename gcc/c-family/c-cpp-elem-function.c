@@ -2,7 +2,7 @@
    This file contains C/C++ specific functions for elemental
    functions.
    
-   Copyright (C) 2012  Free Software Foundation, Inc.
+   Copyright (C) 2013  Free Software Foundation, Inc.
    Written by Balaji V. Iyer <balaji.v.iyer@intel.com>,
               Intel Corporation
 
@@ -52,7 +52,6 @@
 #include "target.h"
 
 static tree create_optimize_attribute (int);
-static tree create_processor_attribute (elem_fn_info *, tree *);
 static tree elem_fn_build_array (tree base_var, tree index);
 
 enum elem_fn_parm_size {
@@ -72,25 +71,6 @@ typedef struct
   tree var_name;
   vec<tree, va_gc> *substitute_vars;
 } var_expand_struct;
-
-/* Creates the appropriate __target__ attribute for the processor information
-   given in ELEM_FN_VALUES->proc_type.  The function also returns the opposite
-   attribute through OPPOSITE_ATTR for the scalar function.  */
-
-static tree
-create_processor_attribute (elem_fn_info *elem_fn_values, tree *opposite_attr)
-{
-  if (elem_fn_values)
-    return targetm.cilkplus.builtin_map_processor_to_attr
-      (elem_fn_values->proc_type, opposite_attr);
-  else
-    {
-      /* We should never get here.  If we get here, something wrong has
-	 happened, so we reset the whole proc. attribute.  */
-      *opposite_attr = NULL_TREE;
-      return NULL_TREE;
-    }
-}
 
 /* Goes through all the uniform and linear variables in the ELEM_FN_VALUES and
    if those variables are set to VECTOR_TYPE in FNDECL by the
@@ -720,95 +700,90 @@ call_graph_add_fn (tree fndecl)
 void
 elem_fn_create_fn (tree fndecl)
 {
-  tree new_masked_fn = NULL_TREE, new_unmasked_fn = NULL_TREE;
+  tree new_masked_fn = NULL_TREE, new_unmasked_fn = NULL_TREE, opt_attr;
   tree induction_var = NULL_TREE;
   elem_fn_info *elem_fn_values = NULL;
-  char *masked_suffix = NULL, *unmasked_suffix = NULL;
-  tree proc_attr = NULL_TREE, opp_proc_attr = NULL_TREE, opt_attr = NULL_TREE;
-
+  char *masked_prefix = NULL, *unmasked_prefix = NULL;
+  size_t no_entries = 0, ii;
   if (!fndecl)
     return;
 
-  elem_fn_values = extract_elem_fn_values (fndecl);
-  if (!elem_fn_values)
+  elem_fn_values = extract_elem_fn_values (fndecl, &no_entries);
+  if (!elem_fn_values || no_entries == 0)
     return;
 
-  if (elem_fn_values->mask == USE_MASK)
-    masked_suffix = find_suffix (elem_fn_values, true);
-  else if (elem_fn_values->mask == USE_NOMASK)
-    unmasked_suffix = find_suffix (elem_fn_values, false);
-  else
+  for (ii = 0; ii < no_entries; ii++)
     {
-      masked_suffix   = find_suffix (elem_fn_values, true);
-      unmasked_suffix = find_suffix (elem_fn_values, false);
-    }
-  if (masked_suffix)
-    {
-      new_masked_fn = copy_node (fndecl);
-      new_masked_fn = rename_elem_fn (new_masked_fn, masked_suffix);
-      SET_DECL_RTL (new_masked_fn, NULL);
-      TREE_SYMBOL_REFERENCED (DECL_NAME (new_masked_fn)) = 1;
-      tree_elem_fn_versioning (fndecl, new_masked_fn, NULL, false, NULL, false,
-			       NULL, NULL, elem_fn_values->vectorlength, true);
-      scalarize_uniform_linear_params (new_masked_fn, elem_fn_values);
-      proc_attr = create_processor_attribute (elem_fn_values, &opp_proc_attr);
-      if (proc_attr)
-	decl_attributes (&new_masked_fn, proc_attr, 0);
-      if (opp_proc_attr)
-	decl_attributes (&fndecl, opp_proc_attr, 0);
+      if (elem_fn_values[ii].mask == USE_MASK)
+	masked_prefix = find_prefix (&elem_fn_values[ii], true);
+      else if (elem_fn_values[ii].mask == USE_NOMASK)
+	unmasked_prefix = find_prefix (&elem_fn_values[ii], false);
+      else
+	{
+	  masked_prefix   = find_prefix (&elem_fn_values[ii], true);
+	  unmasked_prefix = find_prefix (&elem_fn_values[ii], false);
+	}
+      if (masked_prefix)
+	{
+	  new_masked_fn = copy_node (fndecl);
+	  new_masked_fn = rename_elem_fn (new_masked_fn, masked_prefix);
+	  SET_DECL_RTL (new_masked_fn, NULL);
+	  TREE_SYMBOL_REFERENCED (DECL_NAME (new_masked_fn)) = 1;
+	  tree_elem_fn_versioning (fndecl, new_masked_fn, NULL, false, NULL,
+				   false, NULL, NULL,
+				   elem_fn_values[ii].vectorlength, true);
+	  scalarize_uniform_linear_params (new_masked_fn, elem_fn_values);
       
-      opt_attr = create_optimize_attribute (3); /* Turn vectorizer on.  */
-      if (opt_attr)
-	decl_attributes (&new_masked_fn, opt_attr, 0);
+	  opt_attr = create_optimize_attribute (3); /* Turn vectorizer on.  */
+	  if (opt_attr)
+	    decl_attributes (&new_masked_fn, opt_attr, 0);
 
-      DECL_ATTRIBUTES (new_masked_fn) =
-	remove_attribute ("vector", DECL_ATTRIBUTES (new_masked_fn));
+	  DECL_ATTRIBUTES (new_masked_fn) =
+	    remove_attribute ("vector", DECL_ATTRIBUTES (new_masked_fn));
 	
-      add_elem_fn_mask (new_masked_fn);
-      induction_var = add_elem_fn_loop (new_masked_fn,
-					elem_fn_values->vectorlength);
-      fix_elem_fn_return_value (new_masked_fn, elem_fn_values, induction_var);
-      segment_params_for_reg_size (new_masked_fn);
-      SET_DECL_ASSEMBLER_NAME (new_masked_fn, DECL_NAME (new_masked_fn));
-      DECL_ELEM_FN_ALREADY_CLONED (new_masked_fn) = true;
-      call_graph_add_fn (new_masked_fn);
-      if (DECL_STRUCT_FUNCTION (new_masked_fn))
-	DECL_STRUCT_FUNCTION (new_masked_fn)->elem_fn_already_cloned = true;
-    }
-  if (unmasked_suffix)
-    {
-      new_unmasked_fn = copy_node (fndecl);
-      new_unmasked_fn = rename_elem_fn (new_unmasked_fn, unmasked_suffix);
-      SET_DECL_RTL (new_unmasked_fn, NULL);
-      TREE_SYMBOL_REFERENCED (DECL_NAME (new_unmasked_fn)) = 1;
-      tree_elem_fn_versioning (fndecl, new_unmasked_fn, NULL, false, NULL,
-			       false, NULL, NULL,
-			       elem_fn_values->vectorlength, false);
-      scalarize_uniform_linear_params (new_unmasked_fn, elem_fn_values);
-      proc_attr = create_processor_attribute (elem_fn_values, &opp_proc_attr);
-      if (proc_attr)
-	decl_attributes (&new_unmasked_fn, proc_attr, 0);
-      if (opp_proc_attr)
-	decl_attributes (&fndecl, opp_proc_attr, 0);
+	  add_elem_fn_mask (new_masked_fn);
+	  induction_var = add_elem_fn_loop (new_masked_fn,
+					    elem_fn_values[ii].vectorlength);
+	  fix_elem_fn_return_value (new_masked_fn, elem_fn_values,
+				    induction_var);
+	  segment_params_for_reg_size (new_masked_fn);
+	  call_graph_add_fn (new_masked_fn);
+	  SET_DECL_ASSEMBLER_NAME (new_masked_fn, DECL_NAME (new_masked_fn));
+	  DECL_ELEM_FN_ALREADY_CLONED (new_masked_fn) = true;
+	  if (DECL_STRUCT_FUNCTION (new_masked_fn))
+	    DECL_STRUCT_FUNCTION (new_masked_fn)->elem_fn_already_cloned = true;
+	}
+      if (unmasked_prefix)
+	{
+	  new_unmasked_fn = copy_node (fndecl);
+	  new_unmasked_fn = rename_elem_fn (new_unmasked_fn, unmasked_prefix);
+	  SET_DECL_RTL (new_unmasked_fn, NULL);
+	  TREE_SYMBOL_REFERENCED (DECL_NAME (new_unmasked_fn)) = 1;
+	  tree_elem_fn_versioning (fndecl, new_unmasked_fn, NULL, false, NULL,
+				   false, NULL, NULL,
+				   elem_fn_values[ii].vectorlength, false);
+	  scalarize_uniform_linear_params (new_unmasked_fn, elem_fn_values);
       
-      opt_attr = create_optimize_attribute (3); /* Turn vectorizer on.  */
-      if (opt_attr)
-	decl_attributes (&new_unmasked_fn, opt_attr, 0);
+	  opt_attr = create_optimize_attribute (3); /* Turn vectorizer on.  */
+	  if (opt_attr)
+	    decl_attributes (&new_unmasked_fn, opt_attr, 0);
 
-      DECL_ATTRIBUTES (new_unmasked_fn) =
-	remove_attribute ("vector", DECL_ATTRIBUTES (new_unmasked_fn));
-      induction_var = add_elem_fn_loop (new_unmasked_fn,
-					elem_fn_values->vectorlength);
-      fix_elem_fn_return_value (new_unmasked_fn, elem_fn_values,
-				induction_var);
-      segment_params_for_reg_size (new_unmasked_fn);
-      SET_DECL_ASSEMBLER_NAME (new_unmasked_fn, DECL_NAME (new_unmasked_fn));
-      DECL_ELEM_FN_ALREADY_CLONED (new_unmasked_fn) = true;
-      call_graph_add_fn (new_unmasked_fn);
-      if (DECL_STRUCT_FUNCTION (new_unmasked_fn))
-	DECL_STRUCT_FUNCTION (new_unmasked_fn)->elem_fn_already_cloned = true;
+	  DECL_ATTRIBUTES (new_unmasked_fn) =
+	    remove_attribute ("vector", DECL_ATTRIBUTES (new_unmasked_fn));
+	  induction_var = add_elem_fn_loop (new_unmasked_fn,
+					    elem_fn_values[ii].vectorlength);
+	  fix_elem_fn_return_value (new_unmasked_fn, elem_fn_values,
+				    induction_var);
+	  segment_params_for_reg_size (new_unmasked_fn);
+	  call_graph_add_fn (new_unmasked_fn);
+	  SET_DECL_ASSEMBLER_NAME (new_unmasked_fn,
+				   DECL_NAME (new_unmasked_fn));
+	  DECL_ELEM_FN_ALREADY_CLONED (new_unmasked_fn) = true;
+	  if (DECL_STRUCT_FUNCTION (new_unmasked_fn))
+	    DECL_STRUCT_FUNCTION (new_unmasked_fn)->elem_fn_already_cloned =
+	      true;
+	}
     }
-
   XDELETEVEC (elem_fn_values);
   return;
 }

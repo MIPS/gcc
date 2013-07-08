@@ -794,7 +794,7 @@ vect_recog_pow_pattern (vec<gimple> *stmts, tree *type_in,
       if (*type_in)
 	{
 	  gimple stmt = gimple_build_call (newfn, 1, base);
-	  if (vectorizable_function (stmt, *type_in, *type_in)
+	  if (vectorizable_function (stmt, *type_in, *type_in, NULL, 0, 0)
 	      != NULL_TREE)
 	    {
 	      var = vect_recog_temp_ssa_var (TREE_TYPE (base), stmt);

@@ -202,5 +202,5 @@ extern char *default_builtin_find_processor_code (char *);
 extern char *default_builtin_find_isa_for_proc (char *, char *);
 extern unsigned int default_builtin_find_vlength_for_proc (char *);
 extern tree default_builtin_map_processor_to_attr (char *, tree *);
-char *default_builtin_find_isa_code (char *, char *);
+extern char *default_builtin_find_isa_code (char *);
 extern bool default_have_cilkscreen_support (void);

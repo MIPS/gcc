@@ -1891,8 +1891,13 @@ vect_finish_stmt_generation (gimple stmt, gimple vec_stmt,
    of the function, or NULL_TREE if the function cannot be vectorized.  */
 
 tree
-vectorizable_function (gimple call, tree vectype_out, tree vectype_in)
-{
+vectorizable_function (gimple call, tree vectype_out, tree vectype_in,
+		       enum vect_def_type *dt, size_t n_args, 
+		       enum elem_fn_parm_type *p_type_array)
+{ 
+  extern tree find_elem_fn_name (location_t, tree, tree, tree, 
+			       enum vect_def_type *, size_t, 
+			       enum elem_fn_parm_type *);
   tree fndecl = gimple_call_fndecl (call);
 
   if (flag_enable_cilk && is_elem_fn (fndecl))
@@ -1901,8 +1906,10 @@ vectorizable_function (gimple call, tree vectype_out, tree vectype_in)
 	return fndecl;
       else
 	{
-	  tree new_fndecl = find_elem_fn_name (copy_node (fndecl),
-					       vectype_out, vectype_in);
+	  tree new_fndecl = find_elem_fn_name (gimple_location (call),
+					       copy_node (fndecl), vectype_out,
+					       vectype_in, dt, n_args, 
+					       p_type_array);
 	  if (new_fndecl)
 	    DECL_ELEM_FN_ALREADY_CLONED (new_fndecl) = 1;
 	  return new_fndecl;
@@ -1945,8 +1952,8 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   bb_vec_info bb_vinfo = STMT_VINFO_BB_VINFO (stmt_info);
   tree fndecl, new_temp, def, rhs_type;
   gimple def_stmt;
-  enum vect_def_type dt[3]
-    = {vect_unknown_def_type, vect_unknown_def_type, vect_unknown_def_type};
+  enum elem_fn_parm_type *parm_type_array;
+  enum vect_def_type *dt = NULL;
   gimple new_stmt = NULL;
   int ncopies, j;
   vec<tree> vargs = vNULL;
@@ -1984,6 +1991,16 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   if (!flag_enable_cilk && (nargs == 0 || nargs > 3))
     return false;
 
+  dt = XNEWVEC (enum vect_def_type, nargs);
+  gcc_assert (dt);
+
+  parm_type_array = XNEWVEC (enum elem_fn_parm_type, nargs);
+  gcc_assert (parm_type_array);
+  for (i = 0; i < nargs; i++)
+    {
+      dt[i] = vect_unknown_def_type;
+      parm_type_array[i] = TYPE_NONE;
+    }
   for (i = 0; i < nargs; i++)
     {
       tree opvectype;
@@ -2056,7 +2073,8 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
      is available.  TODO -- in some cases, it might be profitable to
      insert the calls for pieces of the vector, in order to be able
      to vectorize other operations in the loop.  */
-  fndecl = vectorizable_function (stmt, vectype_out, vectype_in);
+  fndecl = vectorizable_function (stmt, vectype_out, vectype_in, dt, nargs,
+				  parm_type_array);
   if (fndecl == NULL_TREE)
     {
       if (dump_enabled_p ())
@@ -2150,10 +2168,10 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	      op = gimple_call_arg (stmt, i);
 	      if (j == 0)
 		{
-		  if (flag_enable_cilk)
-		    vec_oprnd0
-		      = elem_fn_vect_get_vec_def_for_operand (op, stmt, NULL,
-							      gsi);
+		  if (flag_enable_cilk
+		      && (parm_type_array[i] == TYPE_LINEAR
+			  || parm_type_array[i] == TYPE_UNIFORM))
+		    vec_oprnd0 = op;
 		  else
 		    vec_oprnd0
 		      = vect_get_vec_def_for_operand (op, stmt, NULL);

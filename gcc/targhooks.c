@@ -1582,9 +1582,9 @@ default_builtin_find_vlength_for_proc (char *)
 /* Default version of default_builtin_find_isa_code.  */
 
 char *
-default_builtin_find_isa_code (char *, char *)
+default_builtin_find_isa_code (char *)
 {
-  return NULL;
+  return xstrdup ("x");
 }
 
 char *

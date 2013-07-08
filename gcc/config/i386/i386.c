@@ -42449,6 +42449,28 @@ ix86_cilkplus_map_proc_to_attr (char *proc_name, tree *opposite_attr)
   return proc_attr;
 }
 
+/* Returns appropriate ISA string based on ISA_NAME.  */
+
+char *
+ix86_cilkplus_find_isa_code (char *isa_name)
+{
+  if (!isa_name)
+    return xstrdup ("x");
+  else if (!strcmp (isa_name, "xmm"))
+    return xstrdup ("x");
+  else if (!strcmp (isa_name, "ymm1"))
+    return xstrdup ("y");
+  else if (!strcmp (isa_name, "ymm2"))
+    return xstrdup ("Y");
+  else
+    /*  FIXME: When Intel Xeon Phi suppport is implemented, then add 'z'  for
+        'zmm' registers.  */
+    gcc_unreachable ();
+
+  return NULL; /* We should never get here.  */
+}
+
+
 char *
 ix86_cilkplus_find_proc_code (char *proc_name)
 {
@@ -42503,27 +42525,20 @@ ix86_cilkplus_find_isa_for_proc (char *proc_name, char *isa_name)
 }
 
 
+
 /* Returns the appropriate vectorlength based on PROC_NAME.  */
 
 unsigned int
-ix86_builtin_find_vlength_for_proc (char *proc_name)
+ix86_builtin_find_vlength_for_proc (char *isa_name)
 {
-  if (!proc_name)
+  if (!isa_name || !strcmp (isa_name, "xmm") || !strcmp (isa_name, "ymm1"))
     return 4;
-  else if (!strcmp (proc_name, "pentium_4"))
-    return 4;
-  else if (!strcmp (proc_name, "pentium_4_sse3"))
-    return 4;
-  else if (!strcmp (proc_name, "core2_duo_sse3"))
-    return 4;
-  else if (!strcmp (proc_name, "core_2_duo_sse_4_1"))
-    return 4;
-  else if (!strcmp (proc_name, "core_i7_sse4_2"))
+  else if (!strcmp (isa_name, "ymm2"))
     return 8;
   else
-    /* If we got here, then we have hit a processor that we do not yet
-       support.  */
-    return 0;
+    gcc_unreachable ();
+
+  return 0;
 }
 
 /* Returns true if the backend has cilkscreen support.  */
@@ -42909,7 +42924,7 @@ ix86_have_cilkscreen_support (void)
   ix86_cilkplus_find_proc_code
 
 #undef TARGET_CILKPLUS_BUILTIN_FIND_ISA_CODE
-#define TARGET_CILKPLUS_BUILTIN_FIND_ISA_CODE ix86_cilkplus_find_isa_for_proc
+#define TARGET_CILKPLUS_BUILTIN_FIND_ISA_CODE ix86_cilkplus_find_isa_code
 
 #undef TARGET_CILKPLUS_BUILTIN_FIND_VLENGTH_FOR_PROC
 #define TARGET_CILKPLUS_BUILTIN_FIND_VLENGTH_FOR_PROC  \

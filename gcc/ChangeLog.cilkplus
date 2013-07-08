@@ -1,3 +1,43 @@
+2013-07-07  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* config/i386/i386.c (ix86_cilkplus_find_isa_code): New function.
+	(ix86_builtin_find_vlength_for_proc): Updated to emit the new mangling
+	format.
+	(TARGET_CILKPLUS_BUILTIN_FIND_ISA_CODE): Updated #define to point
+	to the new function.
+	* tree-vect-patterns.c (vect_recog_pow_pattern): Added 3 new parameters
+	to the vectorizable_function function call.
+	* tree-vect-stmts.c (vectorizable_function): Added 3 new parameters.
+	Passed these parameters to find_elem_fn_name.
+	(vectorizable_call): Made 'dt' a dynamic array instead of a static one.
+	Passed 3 additional parameter to function call vectorizable_function.
+	Pass a scalar parameter when the paramter type is linear or uniform.
+	* doc/tm.texi (Addressing Modes): Changed TARGET_CILKPLUS_BUITIN_ISA
+	CODE function's parameter.
+	* targhooks.c (default_builtin_find_isa_code): Likewise.
+	* target.def (default_builtin_find_isa_code): Likewise.
+	* targhooks.h (default_builtin_find_isa_code): Likewise, but for a
+	prototype.
+	* cilk.h (find_elem_fn_name): Remove prototype.
+	(find_suffix): Likewise.
+	(extract_elem_fn_values): Added a new parameter.
+	(find_prefix): New prototype.
+	* elem-function-common.c (find_elem_fn_parm_type): Remove prototype.
+	(is_elem_fn): Likewise.
+	(find_elem_fn_name): Likewise.
+	(find_processor_code): Remove function.
+	(extract_elem_fn_values): Added a new parameter to prototype.
+	(rename_elem_fn): Change second parameter name.
+	(find_suffix): Renamed to find_prefix and made it return the new
+	mangling format.
+	(find_elem_fn_parm_type_1): Added new parameter to the function call
+	extact_elem_fn_values.
+	(find_elem_fn_name): Added new parameters to support new mangling
+	format.
+	(extract_elem_fn_values): Added new parameter.  Supported the new
+	mangling format and replaced processor clause with isa clause.
+	* tree-vectorizer.h (vectorizable_function): Added 3 new parameters.
+
 2013-06-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cilk.c (cilk_output_metadata): Make alignment number to be 32.

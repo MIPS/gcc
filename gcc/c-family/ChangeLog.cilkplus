@@ -1,3 +1,9 @@
+2013-07-07  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-cpp-elem-function.c (create_processor_attribute): Removed function
+	and its prototype.
+	(elem_fn_create_fn): Replaced mangling suffix with a mangling prefix.
+
 2013-04-14  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c-pragma.c (init_pragma): Added "simd" as a deferred pragma instead

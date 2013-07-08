@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-data-ref.h"
 #include "target.h"
 #include "hash-table.h"
-
+#include "cilk.h"
 typedef source_location LOC;
 #define UNKNOWN_LOC UNKNOWN_LOCATION
 #define EXPR_LOC(e) EXPR_LOCATION(e)
@@ -887,7 +887,8 @@ extern bool supportable_narrowing_operation (enum tree_code, tree, tree,
 extern stmt_vec_info new_stmt_vec_info (gimple stmt, loop_vec_info,
                                         bb_vec_info);
 extern void free_stmt_vec_info (gimple stmt);
-extern tree vectorizable_function (gimple, tree, tree);
+extern tree vectorizable_function (gimple, tree, tree, enum vect_def_type *,
+				   size_t, enum elem_fn_parm_type *);
 extern void vect_model_simple_cost (stmt_vec_info, int, enum vect_def_type *,
                                     stmt_vector_for_cost *,
 				    stmt_vector_for_cost *);

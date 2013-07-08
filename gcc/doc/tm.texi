@@ -5718,7 +5718,7 @@ This hook is called by a Cilk Plus routine that will request the
  the elemental functions.
 @end deftypefn
 
-@deftypefn {Target Hook} {char *} TARGET_CILKPLUS_BUILTIN_FIND_ISA_CODE (char *@var{}, char *@var{})
+@deftypefn {Target Hook} {char *} TARGET_CILKPLUS_BUILTIN_FIND_ISA_CODE (char *@var{})
 This hook is called by a Cilk Plus routine that will request the 
   ISA type (based on the register-set where vector parameters are passed).
   in elemental functions.

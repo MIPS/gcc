@@ -974,7 +974,7 @@ DEFHOOK
  "This hook is called by a Cilk Plus routine that will request the \n\
   ISA type (based on the register-set where vector parameters are passed).\n\
   in elemental functions.",
-char *, (char *, char *),
+char *, (char *),
 default_builtin_find_isa_code)
 
 DEFHOOK
