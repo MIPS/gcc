@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f5[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h894761858; // forward declaration fromline 6499
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h894761858 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h555157314; // forward declaration fromline 6499
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h555157314 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -769,7 +769,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h894761858 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h555157314 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -2920,7 +2920,7 @@ meltlab_endgetargs:
             ;
             /*^putpairtail*/
             /*putpairtail*/
-            melt_assertmsg("putpairtail /32da1e87 checkpair", melt_magic_discr((melt_ptr_t)(/*_.NSETFLAG__V32*/ meltfptr[31]))== MELTOBMAG_PAIR);
+            melt_assertmsg("putpairtail /11e7d0a0 checkpair", melt_magic_discr((melt_ptr_t)(/*_.NSETFLAG__V32*/ meltfptr[31]))== MELTOBMAG_PAIR);
             ((meltpair_ptr_t)(/*_.NSETFLAG__V32*/ meltfptr[31]))->tl = (meltpair_ptr_t) (/*_.NJUMP__V33*/ meltfptr[32]);
             ;
             /*^touch*/
@@ -43948,7 +43948,7 @@ meltlab_endgetargs:
             ;
             /*^putpairtail*/
             /*putpairtail*/
-            melt_assertmsg("putpairtail /34cb8e10 checkpair", melt_magic_discr((melt_ptr_t)(/*_.NRESBIND__V203*/ meltfptr[198]))== MELTOBMAG_PAIR);
+            melt_assertmsg("putpairtail /30127528 checkpair", melt_magic_discr((melt_ptr_t)(/*_.NRESBIND__V203*/ meltfptr[198]))== MELTOBMAG_PAIR);
             ((meltpair_ptr_t)(/*_.NRESBIND__V203*/ meltfptr[198]))->tl = (meltpair_ptr_t) (/*_.CBIND__V204*/ meltfptr[197]);
             ;
             /*^touch*/

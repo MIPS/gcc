@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f4[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h1045673136; // forward declaration fromline 6499
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h1045673136 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h231451642; // forward declaration fromline 6499
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h231451642 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -884,7 +884,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h1045673136 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h231451642 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -5149,7 +5149,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_8;
             meltlab_count_8++;
-            debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_TUPLE/322c7b8d. *CLASS_OBJLABELINSTR/2903623c. %ld", meltlab_count_8);
+            debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_TUPLE/1f9ef1ec. *CLASS_OBJLABELINSTR/2088dc92. %ld", meltlab_count_8);
 #endif
 
             ;
@@ -5196,7 +5196,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_9;
             meltlab_count_9++;
-            debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/1f9ef1ec. *CLASS_OBJLABELINSTR/3cf1afe4. %ld", meltlab_count_9);
+            debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/3ad24ab4. *CLASS_OBJLABELINSTR/19621fa4. %ld", meltlab_count_9);
 #endif
 
             ;
@@ -5592,7 +5592,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_10;
             meltlab_count_10++;
-            debugeprintf("objlabel_10 mtch1_*CLASS_NORMTESTER_TUPLE/17b813b9. *CLASS_OBJLABELINSTR/fc465bc. %ld", meltlab_count_10);
+            debugeprintf("objlabel_10 mtch1_*CLASS_NORMTESTER_TUPLE/7ab2eeb. *CLASS_OBJLABELINSTR/2bc7cf2c. %ld", meltlab_count_10);
 #endif
 
             ;
@@ -5644,7 +5644,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_11;
             meltlab_count_11++;
-            debugeprintf("objlabel_11 mtch1_*CLASS_NORMTESTER_SUCCESS/38719fbd. *CLASS_OBJLABELINSTR/3fb163b8. %ld", meltlab_count_11);
+            debugeprintf("objlabel_11 mtch1_*CLASS_NORMTESTER_SUCCESS/24d79e8f. *CLASS_OBJLABELINSTR/3cebbf6. %ld", meltlab_count_11);
 #endif
 
             ;
@@ -6044,7 +6044,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_12;
             meltlab_count_12++;
-            debugeprintf("objlabel_12 mtch1_*CLASS_NORMTESTER_SUCCESS/3337993c. *CLASS_OBJLABELINSTR/206eb85d. %ld", meltlab_count_12);
+            debugeprintf("objlabel_12 mtch1_*CLASS_NORMTESTER_SUCCESS/34ce1306. *CLASS_OBJLABELINSTR/232bd1c9. %ld", meltlab_count_12);
 #endif
 
             ;
@@ -6655,7 +6655,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
             static long meltlab_count_13;
             meltlab_count_13++;
-            debugeprintf("objlabel_13 mtch1__end_h1053750074 *CLASS_OBJLABELINSTR/3ecef33a. %ld", meltlab_count_13);
+            debugeprintf("objlabel_13 mtch1__end_h940782048 *CLASS_OBJLABELINSTR/381331e0. %ld", meltlab_count_13);
 #endif
 
             ;
@@ -18834,7 +18834,7 @@ meltlab_endgetargs:
                     {
                         melt_ptr_t slot=NULL, obj=NULL;
                         obj = (melt_ptr_t)(/*_.CURSBIND__V23*/ meltfptr[22]) /*=obj*/;
-                        melt_object_get_field(slot,obj, 3, "SLETB_BINDER");
+                        melt_object_get_field(slot,obj, 2, "SLETB_BINDER");
                         /*_.CURSYMB__V32*/ meltfptr[30] = slot;
                     };
                     ;
@@ -21412,7 +21412,7 @@ meltlab_endgetargs:
                     {
                         melt_ptr_t slot=NULL, obj=NULL;
                         obj = (melt_ptr_t)(/*_.CURSBIND__V99*/ meltfptr[88]) /*=obj*/;
-                        melt_object_get_field(slot,obj, 3, "SLETB_BINDER");
+                        melt_object_get_field(slot,obj, 2, "SLETB_BINDER");
                         /*_.CURSYMB__V107*/ meltfptr[32] = slot;
                     };
                     ;
