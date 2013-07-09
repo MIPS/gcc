@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "fixed-value.h"
 #include "alias.h"
 #include "flags.h"
-
 /* Codes of tree nodes */
 
 #define DEFTREECODE(SYM, STRING, TYPE, NARGS)   SYM,
@@ -6606,5 +6605,6 @@ builtin_decl_implicit_p (enum built_in_function fncode)
 #endif	/* NO_DOLLAR_IN_LABEL */
 #endif	/* NO_DOT_IN_LABEL */
 
+#include "gimple-tree-core.h"
 
 #endif  /* GCC_TREE_H  */

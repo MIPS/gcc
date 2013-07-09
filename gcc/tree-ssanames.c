@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
+#include "gimple-tree.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -107,17 +108,13 @@ ssanames_print_statistics (void)
    in function FN.  STMT may be an empty statement for artificial
    references (e.g., default definitions created when a variable is
    used without a preceding definition).  */
-
-tree
-make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
+SSADecl
+make_ssa_name_fn (struct function *fn, GimpleType type, gimple stmt)
 {
-  tree t;
+  SSADecl t;
   use_operand_p imm;
 
-  gcc_assert (TREE_CODE (var) == VAR_DECL
-	      || TREE_CODE (var) == PARM_DECL
-	      || TREE_CODE (var) == RESULT_DECL
-	      || (TYPE_P (var) && is_gimple_reg_type (var)));
+  gcc_assert (is_gimple_reg_type (type));
 
   /* If our free list has an element, then use it.  */
   if (!vec_safe_is_empty (FREE_SSANAMES (fn)))
@@ -128,38 +125,46 @@ make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
 
       /* The node was cleared out when we put it on the free list, so
 	 there is no need to do so again here.  */
-      gcc_assert (ssa_name (SSA_NAME_VERSION (t)) == NULL);
-      (*SSANAMES (fn))[SSA_NAME_VERSION (t)] = t;
+      gcc_assert (ssa_name (t.ssa_name_version ()) == NULL);
+      (*SSANAMES (fn))[t.ssa_name_version ()] = t;
     }
   else
     {
       t = make_node (SSA_NAME);
-      SSA_NAME_VERSION (t) = SSANAMES (fn)->length ();
-      vec_safe_push (SSANAMES (fn), t);
+      t.set_ssa_name_version (SSANAMES (fn)->length ());
+      vec_safe_push (SSANAMES (fn), (tree)t);
       if (GATHER_STATISTICS)
 	ssa_name_nodes_created++;
     }
 
-  if (TYPE_P (var))
-    {
-      TREE_TYPE (t) = var;
-      SET_SSA_NAME_VAR_OR_IDENTIFIER (t, NULL_TREE);
-    }
-  else
-    {
-      TREE_TYPE (t) = TREE_TYPE (var);
-      SET_SSA_NAME_VAR_OR_IDENTIFIER (t, var);
-    }
-  SSA_NAME_DEF_STMT (t) = stmt;
-  SSA_NAME_PTR_INFO (t) = NULL;
-  SSA_NAME_IN_FREE_LIST (t) = 0;
-  SSA_NAME_IS_DEFAULT_DEF (t) = 0;
-  imm = &(SSA_NAME_IMM_USE_NODE (t));
+  t.set_type (type);
+  t.set_ssa_name_var (NULL_TREE);
+
+  t.set_ssa_name_def_stmt (stmt);
+  t.set_ssa_name_ptr_info (NULL);
+  t.set_ssa_name_in_free_list (false);
+  t.set_ssa_name_is_default_def (false);
+  imm = t.ssa_name_imm_use_node_ptr ();
   imm->use = NULL;
   imm->prev = imm;
   imm->next = imm;
   imm->loc.ssa_name = t;
 
+  return t;
+
+}
+
+SSADecl
+make_ssa_name_fn (struct function *fn, GimpleDecl var, gimple stmt)
+{
+  SSADecl t;
+
+  gcc_assert (var.code() == VAR_DECL
+	      || var.code() == PARM_DECL
+	      || var.code() == RESULT_DECL);
+
+  t = make_ssa_name_fn (fn, var.type(), stmt);
+  t.set_ssa_name_var (var);
   return t;
 }
 
@@ -173,14 +178,14 @@ make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
    other fields must be assumed clobbered.  */
 
 void
-release_ssa_name (tree var)
+release_ssa_name (SSADecl var)
 {
   if (!var)
     return;
 
   /* Never release the default definition for a symbol.  It's a
      special SSA name that should always exist once it's created.  */
-  if (SSA_NAME_IS_DEFAULT_DEF (var))
+  if (var.ssa_name_is_default_def ())
     return;
 
   /* If VAR has been registered for SSA updating, don't remove it.
@@ -198,11 +203,12 @@ release_ssa_name (tree var)
 
      Note that once on the freelist you can not reference the SSA_NAME's
      defining statement.  */
-  if (! SSA_NAME_IN_FREE_LIST (var))
+  if (! var.ssa_name_in_free_list ())
     {
-      tree saved_ssa_name_var = SSA_NAME_VAR (var);
-      int saved_ssa_name_version = SSA_NAME_VERSION (var);
-      use_operand_p imm = &(SSA_NAME_IMM_USE_NODE (var));
+      GimpleDecl saved_ssa_name_var = var.ssa_name_var ();
+      GimpleIdentifier saved_ssa_name_ident = var.ssa_name_identifier ();
+      int saved_ssa_name_version = var.ssa_name_version ();
+      use_operand_p imm = var.ssa_name_imm_use_node_ptr ();
 
       if (MAY_HAVE_DEBUG_STMTS)
 	insert_debug_temp_for_var_def (NULL, var);
@@ -213,7 +219,7 @@ release_ssa_name (tree var)
       while (imm->next != imm)
 	delink_imm_use (imm->next);
 
-      (*SSANAMES (cfun))[SSA_NAME_VERSION (var)] = NULL_TREE;
+      (*SSANAMES (cfun))[var.ssa_name_version ()] = NULL_TREE;
       memset (var, 0, tree_size (var));
 
       imm->prev = imm;
@@ -222,20 +228,23 @@ release_ssa_name (tree var)
 
       /* First put back the right tree node so that the tree checking
 	 macros do not complain.  */
-      TREE_SET_CODE (var, SSA_NAME);
+      var.set_code (SSA_NAME);
 
       /* Restore the version number.  */
-      SSA_NAME_VERSION (var) = saved_ssa_name_version;
+      var.set_ssa_name_version (saved_ssa_name_version);
 
       /* Hopefully this can go away once we have the new incremental
          SSA updating code installed.  */
-      SET_SSA_NAME_VAR_OR_IDENTIFIER (var, saved_ssa_name_var);
+      if (saved_ssa_name_var)
+	var.set_ssa_name_var (saved_ssa_name_var);
+      else
+	var.set_ssa_name_identifier (saved_ssa_name_ident);
 
       /* Note this SSA_NAME is now in the first list.  */
-      SSA_NAME_IN_FREE_LIST (var) = 1;
+      var.set_ssa_name_in_free_list (true);
 
       /* And finally put it on the free list.  */
-      vec_safe_push (FREE_SSANAMES (cfun), var);
+      vec_safe_push (FREE_SSANAMES (cfun), (tree)var);
     }
 }
 
@@ -300,19 +309,19 @@ adjust_ptr_info_misalignment (struct ptr_info_def *pi,
    new instance if none existed.  */
 
 struct ptr_info_def *
-get_ptr_info (tree t)
+get_ptr_info (SSADecl decl)
 {
   struct ptr_info_def *pi;
 
-  gcc_assert (POINTER_TYPE_P (TREE_TYPE (t)));
+  gcc_assert (decl.type().pointer_type_p());
 
-  pi = SSA_NAME_PTR_INFO (t);
+  pi = decl.ssa_name_ptr_info ();
   if (pi == NULL)
     {
       pi = ggc_alloc_cleared_ptr_info_def ();
       pt_solution_reset (&pi->pt);
       mark_ptr_info_alignment_unknown (pi);
-      SSA_NAME_PTR_INFO (t) = pi;
+      decl.set_ssa_name_ptr_info (pi);
     }
 
   return pi;
@@ -322,17 +331,17 @@ get_ptr_info (tree t)
 /* Creates a new SSA name using the template NAME tobe defined by
    statement STMT in function FN.  */
 
-tree
-copy_ssa_name_fn (struct function *fn, tree name, gimple stmt)
+SSADecl
+copy_ssa_name_fn (struct function *fn, SSADecl name, gimple stmt)
 {
-  tree new_name;
+  SSADecl new_name;
 
-  if (SSA_NAME_VAR (name))
-    new_name = make_ssa_name_fn (fn, SSA_NAME_VAR (name), stmt);
+  if (name.ssa_name_var ())
+    new_name = make_ssa_name_fn (fn, name.ssa_name_var (), stmt);
   else
     {
-      new_name = make_ssa_name_fn (fn, TREE_TYPE (name), stmt);
-      SET_SSA_NAME_VAR_OR_IDENTIFIER (new_name, SSA_NAME_IDENTIFIER (name));
+      new_name = make_ssa_name_fn (fn, name.type(), stmt);
+      new_name.set_ssa_name_identifier (name.ssa_name_identifier ());
     }
 
   return new_name;
@@ -343,12 +352,12 @@ copy_ssa_name_fn (struct function *fn, tree name, gimple stmt)
    the SSA name NAME.  */
 
 void
-duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
+duplicate_ssa_name_ptr_info (SSADecl name, struct ptr_info_def *ptr_info)
 {
   struct ptr_info_def *new_ptr_info;
 
-  gcc_assert (POINTER_TYPE_P (TREE_TYPE (name)));
-  gcc_assert (!SSA_NAME_PTR_INFO (name));
+  gcc_assert (name.type().pointer_type_p ());
+  gcc_assert (!name.ssa_name_ptr_info ());
 
   if (!ptr_info)
     return;
@@ -356,18 +365,18 @@ duplicate_ssa_name_ptr_info (tree name, struct ptr_info_def *ptr_info)
   new_ptr_info = ggc_alloc_ptr_info_def ();
   *new_ptr_info = *ptr_info;
 
-  SSA_NAME_PTR_INFO (name) = new_ptr_info;
+  name.set_ssa_name_ptr_info (new_ptr_info);
 }
 
 
 /* Creates a duplicate of a ssa name NAME tobe defined by statement STMT
    in function FN.  */
 
-tree
-duplicate_ssa_name_fn (struct function *fn, tree name, gimple stmt)
+SSADecl
+duplicate_ssa_name_fn (struct function *fn, SSADecl name, gimple stmt)
 {
-  tree new_name = copy_ssa_name_fn (fn, name, stmt);
-  struct ptr_info_def *old_ptr_info = SSA_NAME_PTR_INFO (name);
+  SSADecl new_name = copy_ssa_name_fn (fn, name, stmt);
+  struct ptr_info_def *old_ptr_info = name.ssa_name_ptr_info ();
 
   if (old_ptr_info)
     duplicate_ssa_name_ptr_info (new_name, old_ptr_info);
@@ -381,7 +390,7 @@ duplicate_ssa_name_fn (struct function *fn, tree name, gimple stmt)
 void
 release_defs (gimple stmt)
 {
-  tree def;
+  GimpleValue def;
   ssa_op_iter iter;
 
   /* Make sure that we are in SSA.  Otherwise, operand cache may point
@@ -389,7 +398,7 @@ release_defs (gimple stmt)
   gcc_assert (gimple_in_ssa_p (cfun));
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
-    if (TREE_CODE (def) == SSA_NAME)
+    if (def.code () == SSA_NAME)
       release_ssa_name (def);
 }
 
@@ -397,10 +406,10 @@ release_defs (gimple stmt)
 /* Replace the symbol associated with SSA_NAME with SYM.  */
 
 void
-replace_ssa_name_symbol (tree ssa_name, tree sym)
+replace_ssa_name_symbol (SSADecl ssa_name, GimpleDecl sym)
 {
-  SET_SSA_NAME_VAR_OR_IDENTIFIER (ssa_name, sym);
-  TREE_TYPE (ssa_name) = TREE_TYPE (sym);
+  ssa_name.set_ssa_name_var (sym);
+  ssa_name.set_type (sym.type ());
 }
 
 /* Return SSA names that are unused to GGC memory and compact the SSA
@@ -419,12 +428,12 @@ release_dead_ssa_names (void)
      relative order of SSA versions.  */
   for (i = 1, j = 1; i < cfun->gimple_df->ssa_names->length (); ++i)
     {
-      tree name = ssa_name (i);
+      SSADecl name = ssa_name (i);
       if (name)
 	{
 	  if (i != j)
 	    {
-	      SSA_NAME_VERSION (name) = j;
+	      name.set_ssa_name_version (j);
 	      (*cfun->gimple_df->ssa_names)[j] = name;
 	    }
 	  j++;

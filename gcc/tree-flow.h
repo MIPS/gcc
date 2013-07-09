@@ -522,13 +522,14 @@ void set_current_def (tree, tree);
 /* In tree-ssanames.c  */
 extern void init_ssanames (struct function *, int);
 extern void fini_ssanames (void);
-extern tree make_ssa_name_fn (struct function *, tree, gimple);
-extern tree copy_ssa_name_fn (struct function *, tree, gimple);
-extern tree duplicate_ssa_name_fn (struct function *, tree, gimple);
-extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
-extern void release_ssa_name (tree);
+extern SSADecl make_ssa_name_fn (struct function *, GimpleDecl, gimple);
+extern SSADecl make_ssa_name_fn (struct function *, GimpleType, gimple);
+extern SSADecl copy_ssa_name_fn (struct function *, SSADecl , gimple);
+extern SSADecl duplicate_ssa_name_fn (struct function *, SSADecl, gimple);
+extern void duplicate_ssa_name_ptr_info (SSADecl, struct ptr_info_def *);
+extern void release_ssa_name (SSADecl);
 extern void release_defs (gimple);
-extern void replace_ssa_name_symbol (tree, tree);
+extern void replace_ssa_name_symbol (SSADecl , GimpleDecl);
 extern bool get_ptr_info_alignment (struct ptr_info_def *, unsigned int *,
 				    unsigned int *);
 extern void mark_ptr_info_alignment_unknown (struct ptr_info_def *);

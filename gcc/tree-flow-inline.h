@@ -21,6 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef _TREE_FLOW_INLINE_H
 #define _TREE_FLOW_INLINE_H 1
 
+
+#include "gimple-tree.h"
+
 /* Inline functions for manipulating various data structures defined in
    tree-flow.h.  See tree-flow.h for documentation.  */
 
@@ -1182,14 +1185,39 @@ redirect_edge_var_map_location (edge_var_map *v)
   return v->locus;
 }
 
+static inline SSADecl 
+make_ssa_name_fn (function *f, tree t, gimple stmt)
+{
+  if (TYPE_P (t))
+    {
+      GimpleType type = t;
+      return make_ssa_name_fn (f, type, stmt);
+    }
+  else
+    {
+      GimpleDecl decl = t;
+      return make_ssa_name_fn (f, decl, stmt);
+    }
+}
 
 /* Return an SSA_NAME node for variable VAR defined in statement STMT
    in function cfun.  */
-
 static inline tree
 make_ssa_name (tree var, gimple stmt)
 {
   return make_ssa_name_fn (cfun, var, stmt);
+}
+
+static inline GimpleDecl
+make_ssa_name (GimpleType type, gimple stmt)
+{
+  return make_ssa_name_fn (cfun, type, stmt);
+}
+
+static inline GimpleDecl
+make_ssa_name (GimpleDecl decl, gimple stmt)
+{
+  return make_ssa_name_fn (cfun, decl, stmt);
 }
 
 /* Return an SSA_NAME node using the template SSA name NAME defined in
@@ -1214,10 +1242,9 @@ duplicate_ssa_name (tree var, gimple stmt)
    in function cfun.  Arrange so that it uses NAME in dumps.  */
 
 static inline tree
-make_temp_ssa_name (tree type, gimple stmt, const char *name)
+make_temp_ssa_name (GimpleType type, gimple stmt, const char *name)
 {
   tree ssa_name;
-  gcc_checking_assert (TYPE_P (type));
   ssa_name = make_ssa_name_fn (cfun, type, stmt);
   SET_SSA_NAME_VAR_OR_IDENTIFIER (ssa_name, get_identifier (name));
   return ssa_name;

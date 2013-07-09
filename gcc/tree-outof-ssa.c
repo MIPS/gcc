@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
    should be in cfgexpand.c.  */
 #include "expr.h"
 
+#include "gimple-tree.h"
 
 
 /* Used to hold all the components required to do SSA PHI elimination.
@@ -141,7 +142,7 @@ set_location_for_edge (edge e)
    which we deduce the size to copy in that case.  */
 
 static inline rtx
-emit_partition_copy (rtx dest, rtx src, int unsignedsrcp, tree sizeexp)
+emit_partition_copy (rtx dest, rtx src, int unsignedsrcp, GimpleValue sizeexp)
 {
   rtx seq;
 
@@ -168,7 +169,7 @@ emit_partition_copy (rtx dest, rtx src, int unsignedsrcp, tree sizeexp)
 static void
 insert_partition_copy_on_edge (edge e, int dest, int src, source_location locus)
 {
-  tree var;
+  SSADecl var;
   rtx seq;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -191,7 +192,7 @@ insert_partition_copy_on_edge (edge e, int dest, int src, source_location locus)
   var = partition_to_var (SA.map, src);
   seq = emit_partition_copy (SA.partition_to_pseudo[dest],
 			     SA.partition_to_pseudo[src],
-			     TYPE_UNSIGNED (TREE_TYPE (var)),
+			     var.type().type_unsigned(),
 			     var);
 
   insert_insn_on_edge (seq, e);
@@ -201,12 +202,14 @@ insert_partition_copy_on_edge (edge e, int dest, int src, source_location locus)
    onto edge E.  */
 
 static void
-insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
+insert_value_copy_on_edge (edge e, int dest, GimpleValue src,
+			   source_location locus)
 {
   rtx seq, x;
   enum machine_mode dest_mode, src_mode;
   int unsignedp;
-  tree var;
+  SSADecl name;
+  GimpleDecl var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -227,10 +230,11 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
 
   start_sequence ();
 
-  var = SSA_NAME_VAR (partition_to_var (SA.map, dest));
-  src_mode = TYPE_MODE (TREE_TYPE (src));
+  name = partition_to_var (SA.map, dest);
+  var = name.ssa_name_var();
+  src_mode = src.type().type_mode();
   dest_mode = GET_MODE (SA.partition_to_pseudo[dest]);
-  gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (var)));
+  gcc_assert (src_mode == var.type().type_mode());
   gcc_assert (!REG_P (SA.partition_to_pseudo[dest])
 	      || dest_mode == promote_decl_mode (var, &unsignedp));
 
@@ -298,7 +302,7 @@ insert_rtx_to_part_on_edge (edge e, int dest, rtx src, int unsignedsrcp,
 static void
 insert_part_to_rtx_on_edge (edge e, rtx dest, int src, source_location locus)
 {
-  tree var;
+  SSADecl var;
   rtx seq;
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -320,7 +324,7 @@ insert_part_to_rtx_on_edge (edge e, rtx dest, int src, source_location locus)
   var = partition_to_var (SA.map, src);
   seq = emit_partition_copy (dest,
 			     SA.partition_to_pseudo[src],
-			     TYPE_UNSIGNED (TREE_TYPE (var)),
+			     var.type().type_unsigned(),
 			     var);
 
   insert_insn_on_edge (seq, e);
@@ -491,7 +495,7 @@ eliminate_name (elim_graph g, int T)
 static void
 eliminate_build (elim_graph g)
 {
-  tree Ti;
+  GimpleValue Ti;
   int p0, pi;
   gimple_stmt_iterator gsi;
 
@@ -514,7 +518,7 @@ eliminate_build (elim_graph g)
 	 left in SSA form, just queue a copy to be emitted on this
 	 edge.  */
       if (!phi_ssa_name_p (Ti)
-	  || (TREE_CODE (Ti) == SSA_NAME
+	  || (Ti.code()  == SSA_NAME
 	      && var_to_partition (g->map, Ti) == NO_PARTITION))
         {
 	  /* Save constant copies until all other copies have been emitted
@@ -594,15 +598,17 @@ elim_backward (elim_graph g, int T)
    in NAME (a decl or SSA name), i.e. with matching mode and attributes.  */
 
 static rtx
-get_temp_reg (tree name)
+get_temp_reg (GimpleValue name)
 {
-  tree var = TREE_CODE (name) == SSA_NAME ? SSA_NAME_VAR (name) : name;
-  tree type = TREE_TYPE (var);
+  
+  GimpleDecl var = (name.code() == SSA_NAME
+					? SSADecl(name).ssa_name_var() : name);
+  GimpleType type = var.type();
   int unsignedp;
   enum machine_mode reg_mode = promote_decl_mode (var, &unsignedp);
   rtx x = gen_reg_rtx (reg_mode);
-  if (POINTER_TYPE_P (type))
-    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));
+  if (type.pointer_type_p ())
+    mark_reg_pointer (x, TYPE_ALIGN (var.type().type()));
   return x;
 }
 
@@ -617,9 +623,9 @@ elim_create (elim_graph g, int T)
 
   if (elim_unvisited_predecessor (g, T))
     {
-      tree var = partition_to_var (g->map, T);
+      SSADecl var = partition_to_var (g->map, T);
       rtx U = get_temp_reg (var);
-      int unsignedsrcp = TYPE_UNSIGNED (TREE_TYPE (var));
+      int unsignedsrcp = var.type().type_unsigned();
 
       insert_part_to_rtx_on_edge (g->e, U, T, UNKNOWN_LOCATION);
       FOR_EACH_ELIM_GRAPH_PRED (g, T, P, locus,
@@ -687,7 +693,7 @@ eliminate_phi (edge e, elim_graph g)
   while (g->const_copies.length () > 0)
     {
       int dest;
-      tree src;
+      GimpleValue src;
       source_location locus;
 
       src = g->const_copies.pop ();
@@ -715,8 +721,8 @@ remove_gimple_phi_args (gimple phi)
 
   FOR_EACH_PHI_ARG (arg_p, phi, iter, SSA_OP_USE)
     {
-      tree arg = USE_FROM_PTR (arg_p);
-      if (TREE_CODE (arg) == SSA_NAME)
+      GimpleValue arg = USE_FROM_PTR (arg_p);
+      if (arg.code() == SSA_NAME)
         {
 	  /* Remove the reference to the existing argument.  */
 	  SET_USE (arg_p, NULL_TREE);
@@ -724,8 +730,9 @@ remove_gimple_phi_args (gimple phi)
 	    {
 	      gimple stmt;
 	      gimple_stmt_iterator gsi;
+	      SSADecl name = arg;
 
-	      stmt = SSA_NAME_DEF_STMT (arg);
+	      stmt = name.ssa_name_def_stmt ();
 
 	      /* Also remove the def if it is a PHI node.  */
 	      if (gimple_code (stmt) == GIMPLE_PHI)
@@ -747,7 +754,7 @@ eliminate_useless_phis (void)
 {
   basic_block bb;
   gimple_stmt_iterator gsi;
-  tree result;
+  SSADecl result;
 
   FOR_EACH_BB (bb)
     {
@@ -763,8 +770,8 @@ eliminate_useless_phis (void)
 	         results will be incorrect.  */
 	      for (i = 0; i < gimple_phi_num_args (phi); i++)
 	        {
-		  tree arg = PHI_ARG_DEF (phi, i);
-		  if (TREE_CODE (arg) == SSA_NAME
+		  GimpleValue arg = PHI_ARG_DEF (phi, i);
+		  if (arg.code() == SSA_NAME
 		      && !virtual_operand_p (arg))
 		    {
 		      fprintf (stderr, "Argument of PHI is not virtual (");
@@ -813,15 +820,15 @@ rewrite_trees (var_map map ATTRIBUTE_UNUSED)
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
-	  tree T0 = var_to_partition_to_var (map, gimple_phi_result (phi));
+	  SSADecl T0 = var_to_partition_to_var (map, gimple_phi_result (phi));
 	  if (T0 == NULL_TREE)
 	    {
 	      size_t i;
 	      for (i = 0; i < gimple_phi_num_args (phi); i++)
 		{
-		  tree arg = PHI_ARG_DEF (phi, i);
+		  GimpleValue arg = PHI_ARG_DEF (phi, i);
 
-		  if (TREE_CODE (arg) == SSA_NAME
+		  if (arg.code() == SSA_NAME
 		      && var_to_partition (map, arg) != NO_PARTITION)
 		    {
 		      fprintf (stderr, "Argument of PHI is in a partition :(");
@@ -923,8 +930,8 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
   sa->partition_has_default_def = BITMAP_ALLOC (NULL);
   for (i = 1; i < num_ssa_names; i++)
     {
-      tree t = ssa_name (i);
-      if (t && SSA_NAME_IS_DEFAULT_DEF (t))
+      SSADecl t = ssa_name (i);
+      if (t && t.ssa_name_is_default_def ())
 	{
 	  int p = var_to_partition (map, t);
 	  if (p != NO_PARTITION)
@@ -960,11 +967,11 @@ maybe_renumber_stmts_bb (basic_block bb)
    otherwise, also when we simply aren't sure.  */
 
 static bool
-trivially_conflicts_p (basic_block bb, tree result, tree arg)
+trivially_conflicts_p (basic_block bb, SSADecl result, SSADecl arg)
 {
   use_operand_p use;
   imm_use_iterator imm_iter;
-  gimple defa = SSA_NAME_DEF_STMT (arg);
+  gimple defa = arg.ssa_name_def_stmt ();
 
   /* If ARG isn't defined in the same block it's too complicated for
      our little mind.  */
@@ -1022,7 +1029,7 @@ insert_backedge_copies (void)
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple phi = gsi_stmt (gsi);
-	  tree result = gimple_phi_result (phi);
+	  SSADecl result = gimple_phi_result (phi);
 	  size_t i;
 
 	  if (virtual_operand_p (result))
@@ -1030,19 +1037,23 @@ insert_backedge_copies (void)
 
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
 	    {
-	      tree arg = gimple_phi_arg_def (phi, i);
+	      GimpleValue arg = gimple_phi_arg_def (phi, i);
+	      SSADecl ssa_arg;
 	      edge e = gimple_phi_arg_edge (phi, i);
+
+	      if (arg.code() == SSA_NAME)
+	        ssa_arg = arg;
 
 	      /* If the argument is not an SSA_NAME, then we will need a
 		 constant initialization.  If the argument is an SSA_NAME with
 		 a different underlying variable then a copy statement will be
 		 needed.  */
 	      if ((e->flags & EDGE_DFS_BACK)
-		  && (TREE_CODE (arg) != SSA_NAME
-		      || SSA_NAME_VAR (arg) != SSA_NAME_VAR (result)
+		  && (!ssa_arg
+		      || !ssa_arg.ssa_name_same_base (result)
 		      || trivially_conflicts_p (bb, result, arg)))
 		{
-		  tree name;
+		  SSADecl name;
 		  gimple stmt, last = NULL;
 		  gimple_stmt_iterator gsi2;
 
@@ -1062,8 +1073,7 @@ insert_backedge_copies (void)
 		      /* If the last statement in the block is the definition
 			 site of the PHI argument, then we can't insert
 			 anything after it.  */
-		      if (TREE_CODE (arg) == SSA_NAME
-			  && SSA_NAME_DEF_STMT (arg) == last)
+		      if (ssa_arg && ssa_arg.ssa_name_def_stmt () == last)
 			continue;
 		    }
 

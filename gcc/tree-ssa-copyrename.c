@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 #include "langhooks.h"
+#include "gimple-tree.h"
 
 static struct
 {
@@ -114,21 +115,19 @@ static struct
    Choose a representative for the partition, and send debug info to DEBUG.  */
 
 static void
-copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
+copy_rename_partition_coalesce (var_map map, SSADecl var1, SSADecl var2,
+				FILE *debug)
 {
   int p1, p2, p3;
-  tree root1, root2;
-  tree rep1, rep2;
+  GimpleDecl root1, root2;
+  SSADecl rep1, rep2;
   bool ign1, ign2, abnorm;
-
-  gcc_assert (TREE_CODE (var1) == SSA_NAME);
-  gcc_assert (TREE_CODE (var2) == SSA_NAME);
 
   register_ssa_partition (map, var1);
   register_ssa_partition (map, var2);
 
-  p1 = partition_find (map->var_partition, SSA_NAME_VERSION (var1));
-  p2 = partition_find (map->var_partition, SSA_NAME_VERSION (var2));
+  p1 = partition_find (map->var_partition, var1.ssa_name_version ());
+  p2 = partition_find (map->var_partition, var2.ssa_name_version ());
 
   if (debug)
     {
@@ -151,14 +150,14 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   rep1 = partition_to_var (map, p1);
   rep2 = partition_to_var (map, p2);
-  root1 = SSA_NAME_VAR (rep1);
-  root2 = SSA_NAME_VAR (rep2);
+  root1 = rep1.ssa_name_var ();
+  root2 = rep2.ssa_name_var ();
   if (!root1 && !root2)
     return;
 
   /* Don't coalesce if one of the variables occurs in an abnormal PHI.  */
-  abnorm = (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep1)
-	    || SSA_NAME_OCCURS_IN_ABNORMAL_PHI (rep2));
+  abnorm = (rep1.ssa_name_occurs_in_abnormal_phi ()
+	    || rep2.ssa_name_occurs_in_abnormal_phi ());
   if (abnorm)
     {
       if (debug)
@@ -176,31 +175,31 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     }
 
   /* Never attempt to coalesce 2 different parameters.  */
-  if ((root1 && TREE_CODE (root1) == PARM_DECL)
-      && (root2 && TREE_CODE (root2) == PARM_DECL))
+  if ((root1 && root1.code() == PARM_DECL)
+      && (root2 && root2.code () == PARM_DECL))
     {
       if (debug)
         fprintf (debug, " : 2 different PARM_DECLS. No coalesce.\n");
       return;
     }
 
-  if ((root1 && TREE_CODE (root1) == RESULT_DECL)
-      != (root2 && TREE_CODE (root2) == RESULT_DECL))
+  if ((root1 && root1.code() == RESULT_DECL)
+      != (root2 && root2.code () == RESULT_DECL))
     {
       if (debug)
         fprintf (debug, " : One root a RESULT_DECL. No coalesce.\n");
       return;
     }
 
-  ign1 = !root1 || (TREE_CODE (root1) == VAR_DECL && DECL_IGNORED_P (root1));
-  ign2 = !root2 || (TREE_CODE (root2) == VAR_DECL && DECL_IGNORED_P (root2));
+  ign1 = !root1 || (root1.code () == VAR_DECL && root1.decl_ignored_p ());
+  ign2 = !root2 || (root2.code () == VAR_DECL && root2.decl_ignored_p ());
 
   /* Refrain from coalescing user variables, if requested.  */
   if (!ign1 && !ign2)
     {
-      if (flag_ssa_coalesce_vars && DECL_FROM_INLINE (root2))
+      if (flag_ssa_coalesce_vars && root2.decl_from_inline ())
 	ign2 = true;
-      else if (flag_ssa_coalesce_vars && DECL_FROM_INLINE (root1))
+      else if (flag_ssa_coalesce_vars && root1.decl_from_inline ())
 	ign1 = true;
       else if (flag_ssa_coalesce_vars != 2)
 	{
@@ -248,8 +247,8 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
      wins, so reject in that case if any of the root vars is TREE_READONLY.
      Otherwise reject only if the root var, on which replace_ssa_name_symbol
      will be called below, is readonly.  */
-  if (((root1 && TREE_READONLY (root1)) && ign2)
-      || ((root2 && TREE_READONLY (root2)) && ign1))
+  if (((root1 && root1.readonly()) && ign2)
+      || ((root2 && root2.readonly()) && ign1))
     {
       if (debug)
 	fprintf (debug, " : Readonly variable.  No coalesce.\n");
@@ -257,12 +256,12 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
     }
 
   /* Don't coalesce if the two variables aren't type compatible .  */
-  if (!types_compatible_p (TREE_TYPE (var1), TREE_TYPE (var2))
+  if (!types_compatible_p (var1.type (), var2.type ())
       /* There is a disconnect between the middle-end type-system and
          VRP, avoid coalescing enum types with different bounds.  */
-      || ((TREE_CODE (TREE_TYPE (var1)) == ENUMERAL_TYPE
-	   || TREE_CODE (TREE_TYPE (var2)) == ENUMERAL_TYPE)
-	  && TREE_TYPE (var1) != TREE_TYPE (var2)))
+      || ((var1.type().code() == ENUMERAL_TYPE
+	   || var2.type().code()  == ENUMERAL_TYPE)
+	  && var1.type() != var2.type()))
     {
       if (debug)
 	fprintf (debug, " : Incompatible types.  No coalesce.\n");
@@ -283,9 +282,9 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
 
   if (debug)
     {
+      SSADecl tmp = partition_to_var (map, p3);
       fprintf (debug, " --> P%d ", p3);
-      print_generic_expr (debug, SSA_NAME_VAR (partition_to_var (map, p3)),
-			  TDF_SLIM);
+      print_generic_expr (debug, tmp.ssa_name_var(), TDF_SLIM);
       fprintf (debug, "\n");
     }
 }
@@ -303,7 +302,7 @@ rename_ssa_copies (void)
   var_map map;
   basic_block bb;
   gimple_stmt_iterator gsi;
-  tree var, part_var;
+  SSADecl var, part_var;
   gimple stmt, phi;
   unsigned x;
   FILE *debug;
@@ -325,8 +324,8 @@ rename_ssa_copies (void)
 	  stmt = gsi_stmt (gsi);
 	  if (gimple_assign_ssa_name_copy_p (stmt))
 	    {
-	      tree lhs = gimple_assign_lhs (stmt);
-	      tree rhs = gimple_assign_rhs1 (stmt);
+	      SSADecl lhs = gimple_assign_lhs (stmt);
+	      SSADecl rhs = gimple_assign_rhs1 (stmt);
 
 	      copy_rename_partition_coalesce (map, lhs, rhs, debug);
 	    }
@@ -339,7 +338,7 @@ rename_ssa_copies (void)
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         {
           size_t i;
-	  tree res;
+	  SSADecl res;
 
 	  phi = gsi_stmt (gsi);
 	  res = gimple_phi_result (phi);
@@ -350,12 +349,12 @@ rename_ssa_copies (void)
 
 	  /* Make sure to only use the same partition for an argument
 	     as the result but never the other way around.  */
-	  if (SSA_NAME_VAR (res)
-	      && !DECL_IGNORED_P (SSA_NAME_VAR (res)))
+	  if (res.ssa_name_var ()
+	      && !res.ssa_name_var().decl_ignored_p ())
 	    for (i = 0; i < gimple_phi_num_args (phi); i++)
 	      {
-		tree arg = PHI_ARG_DEF (phi, i);
-		if (TREE_CODE (arg) == SSA_NAME)
+		GimpleValue arg = PHI_ARG_DEF (phi, i);
+		if (arg.code () == SSA_NAME)
 		  copy_rename_partition_coalesce (map, res, arg,
 						  debug);
 	      }
@@ -367,24 +366,28 @@ rename_ssa_copies (void)
 	      int p = -1;
 	      for (i = 0; i < gimple_phi_num_args (phi); i++)
 		{
-		  tree arg = PHI_ARG_DEF (phi, i);
-		  if (TREE_CODE (arg) != SSA_NAME)
+		  GimpleValue arg = PHI_ARG_DEF (phi, i);
+		  if (arg.code() != SSA_NAME)
 		    {
 		      all_p_same = 0;
 		      break;
 		    }
-		  else if (all_p_same == -1)
+		  else 
 		    {
-		      p = partition_find (map->var_partition,
-					  SSA_NAME_VERSION (arg));
-		      all_p_same = 1;
-		    }
-		  else if (all_p_same == 1
-			   && p != partition_find (map->var_partition,
-						   SSA_NAME_VERSION (arg)))
-		    {
-		      all_p_same = 0;
-		      break;
+		      SSADecl name = arg;
+		      if (all_p_same == -1)
+			{
+			  p = partition_find (map->var_partition,
+					      name.ssa_name_version ());
+			  all_p_same = 1;
+			}
+		      else if (all_p_same == 1
+			       && p != partition_find (map->var_partition,
+						       name.ssa_name_version ()))
+			{
+			  all_p_same = 0;
+			  break;
+			}
 		    }
 		}
 	      if (all_p_same == 1)
@@ -407,7 +410,7 @@ rename_ssa_copies (void)
       if (!part_var)
         continue;
       var = ssa_name (x);
-      if (SSA_NAME_VAR (var) == SSA_NAME_VAR (part_var))
+      if (var.ssa_name_var () == part_var.ssa_name_var ())
 	continue;
       if (debug)
         {
@@ -418,7 +421,7 @@ rename_ssa_copies (void)
 	  fprintf (debug, "\n");
 	}
       stats.coalesced++;
-      replace_ssa_name_symbol (var, SSA_NAME_VAR (part_var));
+      replace_ssa_name_symbol (var, part_var.ssa_name_var ());
     }
 
   statistics_counter_event (cfun, "copies coalesced",
