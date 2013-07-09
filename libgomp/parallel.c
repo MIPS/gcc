@@ -141,15 +141,26 @@ GOMP_parallel (void (*fn) (void *), void *data, unsigned num_threads, unsigned i
   ialias_call (GOMP_parallel_end) ();
 }
 
-void
-GOMP_cancel (void)
+bool
+GOMP_cancellation_point (int which)
 {
-  /* Nothing so far.  */
+  struct gomp_team *team = gomp_thread ()->ts.team;
+  if (team)
+    return gomp_team_barrier_cancelled (&team->barrier);
+  return false;
 }
+ialias (GOMP_cancellation_point)
 
-void
-GOMP_cancellation_point (void)
+bool
+GOMP_cancel (int which, bool do_cancel)
 {
+  struct gomp_team *team = gomp_thread ()->ts.team;
+
+  if (!do_cancel)
+    return ialias_call (GOMP_cancellation_point) (which);
+
+  gomp_team_barrier_cancel (&team->barrier);
+  return true;
 }
 
 /* The public OpenMP API for thread and team related inquiries.  */

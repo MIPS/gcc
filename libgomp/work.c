@@ -29,6 +29,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 
 /* Allocate a new work share structure, preferably from current team's
@@ -226,6 +227,31 @@ gomp_work_share_end (void)
 
   gomp_team_barrier_wait_end (&team->barrier, bstate);
   thr->ts.last_work_share = NULL;
+}
+
+/* The current thread is done with its current work sharing construct.
+   This version implies a cancellable barrier at the end of the work-share.  */
+
+bool
+gomp_work_share_end_cancel (void)
+{
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+  gomp_barrier_state_t bstate;
+
+  /* Cancellable work sharing constructs cannot be orphaned.  */
+  assert (team != NULL);
+
+  bstate = gomp_barrier_wait_start (&team->barrier);
+
+  if (gomp_barrier_last_thread (bstate))
+    {
+      if (__builtin_expect (thr->ts.last_work_share != NULL, 1))
+	free_work_share (team, thr->ts.last_work_share);
+    }
+  thr->ts.last_work_share = NULL;
+
+  return gomp_team_barrier_wait_cancel_end (&team->barrier, bstate);
 }
 
 /* The current thread is done with its current work sharing construct.

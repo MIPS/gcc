@@ -208,14 +208,17 @@ GOMP_3.0 {
 
 GOMP_4.0 {
   global:
+	GOMP_barrier_cancel;
 	GOMP_cancel;
 	GOMP_cancellation_point;
+	GOMP_loop_end_cancel;
 	GOMP_parallel_loop_dynamic;
 	GOMP_parallel_loop_guided;
 	GOMP_parallel_loop_runtime;
 	GOMP_parallel_loop_static;
 	GOMP_parallel_sections;
 	GOMP_parallel;
+	GOMP_sections_end_cancel;
 	GOMP_taskgroup_start;
 	GOMP_taskgroup_end;
 } GOMP_3.0;

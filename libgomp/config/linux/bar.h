@@ -48,7 +48,8 @@ typedef unsigned int gomp_barrier_state_t;
 #define BAR_TASK_PENDING	1
 #define BAR_WAS_LAST		1
 #define BAR_WAITING_FOR_TASK	2
-#define BAR_INCR		4
+#define BAR_CANCELLED		4
+#define BAR_INCR		8
 
 static inline void gomp_barrier_init (gomp_barrier_t *bar, unsigned count)
 {
@@ -73,13 +74,17 @@ extern void gomp_barrier_wait_end (gomp_barrier_t *, gomp_barrier_state_t);
 extern void gomp_team_barrier_wait (gomp_barrier_t *);
 extern void gomp_team_barrier_wait_end (gomp_barrier_t *,
 					gomp_barrier_state_t);
+extern bool gomp_team_barrier_wait_cancel (gomp_barrier_t *);
+extern bool gomp_team_barrier_wait_cancel_end (gomp_barrier_t *,
+					       gomp_barrier_state_t);
 extern void gomp_team_barrier_wake (gomp_barrier_t *, int);
+extern void gomp_team_barrier_cancel (gomp_barrier_t *);
 
 static inline gomp_barrier_state_t
 gomp_barrier_wait_start (gomp_barrier_t *bar)
 {
   unsigned int ret = __atomic_load_n (&bar->generation, MEMMODEL_ACQUIRE);
-  ret &= -BAR_INCR;
+  ret &= -BAR_INCR | BAR_CANCELLED;
   /* A memory barrier is needed before exiting from the various forms
      of gomp_barrier_wait, to satisfy OpenMP API version 3.1 section
      2.8.6 flush Construct, which says there is an implicit flush during
@@ -121,6 +126,12 @@ static inline bool
 gomp_team_barrier_waiting_for_tasks (gomp_barrier_t *bar)
 {
   return (bar->generation & BAR_WAITING_FOR_TASK) != 0;
+}
+
+static inline bool
+gomp_team_barrier_cancelled (gomp_barrier_t *bar)
+{
+  return (bar->generation & BAR_CANCELLED) != 0;
 }
 
 static inline void

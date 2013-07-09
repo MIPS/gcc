@@ -502,6 +502,7 @@ extern void gomp_init_work_share (struct gomp_work_share *, bool, unsigned);
 extern void gomp_fini_work_share (struct gomp_work_share *);
 extern bool gomp_work_share_start (bool);
 extern void gomp_work_share_end (void);
+extern bool gomp_work_share_end_cancel (void);
 extern void gomp_work_share_end_nowait (void);
 
 static inline void

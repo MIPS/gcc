@@ -538,13 +538,19 @@ GOMP_parallel_loop_runtime (void (*fn) (void *), void *data,
 }
 
 /* The GOMP_loop_end* routines are called after the thread is told that
-   all loop iterations are complete.  This first version synchronizes
+   all loop iterations are complete.  The first two versions synchronize
    all threads; the nowait version does not.  */
 
 void
 GOMP_loop_end (void)
 {
   gomp_work_share_end ();
+}
+
+bool
+GOMP_loop_end_cancel (void)
+{
+  return gomp_work_share_end_cancel ();
 }
 
 void

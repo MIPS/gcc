@@ -64,6 +64,9 @@ extern void gomp_barrier_wait_end (gomp_barrier_t *, gomp_barrier_state_t);
 extern void gomp_team_barrier_wait (gomp_barrier_t *);
 extern void gomp_team_barrier_wait_end (gomp_barrier_t *,
 					gomp_barrier_state_t);
+extern bool gomp_team_barrier_wait_cancel (gomp_barrier_t *);
+extern bool gomp_team_barrier_wait_cancel_end (gomp_barrier_t *,
+					       gomp_barrier_state_t);
 extern void gomp_team_barrier_wake (gomp_barrier_t *, int);
 
 static inline gomp_barrier_state_t
