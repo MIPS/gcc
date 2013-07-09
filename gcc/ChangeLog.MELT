@@ -1,6 +1,11 @@
 
 
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Some corrections to make eval mode work again}}
+	* melt/warmelt-outobj.melt (output_curframe_declstruct)
+	(outpucod_initialextensionroutine): Improve emitted output.
+
+2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (class_defined_macro_binding): New class
 	with field mbind_defmacro.
 	(mexpand_defmacro): Use it.

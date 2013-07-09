@@ -1513,11 +1513,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(others (unsafe_get_field :obrout_others rou))
 	)       
     (add2sbuf_indentnl dsbuf 0)
-    (add2out dsbuf "/** start of frame for " (get_field :named_name rou) "**/")
+    (add2out dsbuf "/** start of frame for " (get_field :named_name rou) 
+	     " of " (get_field :named_name (discrim rou))
+	     " from " (this_line) "**/")
     (add2sbuf_indentnl dsbuf 0)    (add2sbuf_indentnl dsbuf 0)
     (let ( (classyframename 
 	    (cond
-	     ((is_a rou class_initialroutineobj)
+	     (isinitial
 	      (initial_classy_frame_name rou))
 	     ((is_a rou class_named)
 	      (string4out discr_verbatim_string "MeltFrame_" (unsafe_get_field :named_name rou)))
@@ -1656,7 +1658,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2sbuf_indentnl dsbuf 0)
       )
     (add2sbuf_indentnl dsbuf 0)
-    (add2out dsbuf "/** end of frame for " (get_field :named_name rou) "**/")
+    (add2out dsbuf "/** end of frame for " (get_field :named_name rou) " fromline " (this_line)"**/")
     (add2sbuf_indentnl dsbuf 0)
     ;; end of curframe
     ))
@@ -1711,11 +1713,11 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2out implbuf "//// emitted by output_curframe_declstruct_init using "
 	     (routine_descr (closure_routine declstruct)) "\n")
     (add2sbuf_indentnl implbuf 0)
-    (add2out implbuf "/* start of frame for routine " rouname " */")
+    (add2out implbuf "/* start of frame for routine " rouname " fromline " (this_line) " */")
     (add2sbuf_indentnl implbuf 0)
     (declstruct rou implbuf)
     (add2sbuf_indentnl implbuf 0)
-    (add2out implbuf "/* end of frame for routine " rouname " */")
+    (add2out implbuf "/* end of frame for routine " rouname " fromline " (this_line) " */")
     (add2sbuf_indentnl implbuf 0)
     ;;
     (add2sbuf_indentnl implbuf 0)
@@ -1726,7 +1728,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
        (add2out implbuf "/* classy hook frame " rouname " */ MeltFrame_" rouname " "))  
      ( (is_a rou class_initial_extension_routineobj)
        (add2out implbuf "/* classy extension frame " rouname " */\n"
-		"#error dont know how to declare classy frame for extension " rouname "\n")
+		(initial_classy_frame_name rou)  " ")
        )     
      ( (is_a rou class_initialroutineobj)
        (add2sbuf_indentnl implbuf 1)
@@ -2646,22 +2648,22 @@ $ONAME (melt_ptr_t meltarg_curenvbox_p, melt_ptr_t meltarg_tuplitval_p)
     ;; generate the initial frame declaration in the decl buf, because
     ;; the marking routine will use that
     ;;
-    (add2sbuf_indentnl declbuf 1)
-     (add2out declbuf ##{/* extension routine $OMODNAM initial frame decl */ typedef }#)
+    (add2out declbuf "// extension routine " omodnam " fromline " (this_line) "\n")
     (output_curframe_declstruct pini declbuf)
+    (add2sbuf_indentnl declbuf 1)
+    (add2out declbuf ##{/* extension routine $OMODNAM initial frame decl fromline $(this_line) */ typedef }#)
+    (add2out declbuf (initial_classy_frame_name pini))
     (add2out declbuf ##{ meltrun_$OMODNAM#_initialext_frame_t /*declaring runextend $OMODNAM frame type*/;}#
 	     )
     (add2sbuf_indentnl declbuf 1)
-    ;;
-
-    
+    ;;    
     ;; initialize the frame
     (add2sbuf_indentnl implbuf 1)
     (add2out implbuf ##{/* extension routine $OMODNAM initial frame init */}#)
     (output_curframe_declstruct_init 
      (lambda (rou dsbuf)
        (add2sbuf_indentnl dsbuf 0)
-       (add2out dsbuf  ##{ meltrun_$OMODNAM#_initialext_frame_t}#))
+       (add2out dsbuf  ##{ /* extension routine $OMODNAM initializing frame fromline $(this_line) */ }#))
      pini implbuf)
     (add2sbuf_indentnl implbuf 0)
     (add2out implbuf ##{ /* extension $OMODNAM initialized initial frame */}#)
