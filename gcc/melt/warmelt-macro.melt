@@ -2997,7 +2997,7 @@ $LAMBDA macros. A function defined by $DEFUN has to be exported with
 $EXPORT_VALUES to be visible outside its module.}#)
 
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;; the defmacro expander
 ;;;(DEFMACRO macroname formals [:doc documentation] body...)
 (defun mexpand_defmacro (sexpr env mexpander modctx)
@@ -3012,9 +3012,48 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	 (symbname (get_field :named_name symb))
 	 (newenv (fresh_env env))
 	 (docv ())
+	 (mbind 
+	  (instance class_macro_binding
+		    :binder symb
+		    :mbind_expanser ()	;to be filled later
+		    ))
 	 )
-    (assert_msg "@$@unimplemented mexpand_defmacro")
-    ))
+    (if (is_not_a symb class_symbol)
+	(error_plain loc "missing symbol for DEFMACRO"_))
+    (warn_if_redefined symb env loc)
+    (put_env env mbind)
+    (setq curpair (pair_tail curpair))
+    ;; parse the formal arguments
+    (let ( (curpairhead (pair_head curpair)) 
+	   (btup 
+	    (cond ( (null curpairhead) 
+		    (make_multiple discr_multiple 0) )
+		  ( (is_a curpairhead class_sexpr)
+		    (lambda_arg_bindings (pair_head curpair) sexpr))
+		  (:else
+		   (debug "mexpand_defmacro strange arglist curpairhead" curpairhead)
+		   (error_strv loc "missing or invalid arglist for DEFMACRO"_ symbname)
+		   ()
+		   )))
+	   )
+      (when (not (is_multiple btup))
+	(debug "mexpand_defmacro strange btup" btup)
+	(error_strv loc "missing formal arguments for DEFMACRO"_ symbname))
+      (foreach_in_multiple (btup) (fb :long bix) (put_env newenv fb))
+      (setq curpair (pair_tail curpair))
+      ;; handle the optional :doc documentationvalue
+      (when (== (pair_head curpair) ':doc)
+	(setq curpair (pair_tail curpair)) ;; consume :doc
+	;; the documentation is NOT macro-expanded
+	(setq docv (pair_head curpair))	       ;; get the docv
+	(setq curpair (pair_tail curpair))     ;; consume it
+	)
+      ;; handle the body
+      (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
+	     )
+	(debug "mexpand_defmacro bodytup=" bodytup)
+	(assert_msg "@$@unimplemented mexpand_defmacro")
+	))))
 
 (install_initial_macro 'defmacro mexpand_defmacro)
 (export_macro defmacro mexpand_defmacro
@@ -3023,6 +3062,9 @@ is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
 @var{body}...). At most four @var{formals} are permitted
 of ctype @code{:value}.}#)
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;; the defvar expander
 ;;;(DEFVAR varname [:doc documentation])
 (defun mexpand_defvar (sexpr env mexpander modctx)

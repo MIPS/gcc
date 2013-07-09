@@ -479,8 +479,8 @@ $DENV_DESCR which can for example be a descriptive string.}#)
 (defclass class_macro_binding
   :super class_exported_binding
   :fields (mbind_expanser)
-  :doc #{The $CLASS_MACRO_BINDING is the class of exported macro
-bindings. See the $EXPORT_MACRO macro.}# )
+  :doc #{The $CLASS_MACRO_BINDING is the class of exported or defined macro
+bindings. See the $EXPORT_MACRO and $DEFMACRO macros.}# )
 
 ;; pattern macro binding
 (defclass class_patmacro_binding

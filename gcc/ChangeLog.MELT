@@ -1,5 +1,12 @@
 
 
+2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (class_macro_binding): Change comment.
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): More, but still
+	incomplete.
+
 2013-07-08  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
