@@ -26,12 +26,15 @@ XTEMPLATE_FLAGS =
 endif
 
 if ENABLE_VTABLE_VERIFY
-VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs -Wl,-lvtv
+#VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs -Wl,-lvtv
+VTV_CXXLINKFLAGS = -L$(top_builddir)/libsupc++/.libs
 VTV_CXXFLAGS =  -fvtable-verify=std \
 		-Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+VTV_PCH_CXXFLAGS = -fvtable-verify=std
 else
 VTV_CXXLINKFLAGS =
 VTV_CXXFLAGS =
+VTV_PCH_CXXFLAGS =
 endif
 
 # These bits are all figured out from configure.  Look in acinclude.m4

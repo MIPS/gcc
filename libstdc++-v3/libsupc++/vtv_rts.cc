@@ -143,7 +143,22 @@
 
 #include "../../include/vtv-change-permission.h"
 
-bool vtv_debug = false;
+extern "C" {
+
+  /* __fortify_fail is a function in glibc that calls __libc_message,
+     causing it to print out a program termination error message
+     (including the name of the binary being terminated), a stack
+     trace where the error occurred, and a memory map dump.  Ideally
+     we would have called __libc_message directly, but that function
+     does not appear to be accessible to functions outside glibc,
+     whereas __fortify_fail is.  We call __fortify_fail from
+     __vtv_really_fail.  We looked at calling __libc_fatal, which is
+     externally accessible, but it does not do the back trace and
+     memory dump.  */
+
+  extern void __fortify_fail (const char *) __attribute__((noreturn));
+
+} /* extern "C" */
 
 /* The following variables are used only for debugging and performance
    tuning purposes. Therefore they do not need to be "protected".
@@ -174,12 +189,16 @@ static const int debug_functions = 0;
 static const int debug_init = 0;
 static const int debug_verify_vtable = 0;
 
+#ifdef VTV_DEBUG
+static const int debug_functions = 1;
+static const int debug_init = 1;
+static const int debug_verify_vtable = 1;
+#endif
 
 /* Global file descriptor variables for logging, tracing and debugging.  */
 
 static int init_log_fd = -1;
 static int verify_vtable_log_fd = -1;
-static int vtv_failures_log_fd = -1;
 
 /* This holds a formatted error logging message, to be written to the
    vtable verify failures log.  */
@@ -192,6 +211,10 @@ static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
 static __gthread_mutex_t change_permissions_lock;
 #endif
 
+
+#ifndef VTV_STATS
+#define VTV_STATS 0
+#endif
 
 #if VTV_STATS
 
@@ -272,7 +295,7 @@ struct vptr_set_alloc
     void *
     operator() (size_t n) const
       {
-	return VTV_malloc (n);
+	return __vtv_malloc (n);
       }
   };
 
@@ -373,9 +396,9 @@ log_memory_protection_data (char *message)
   static int log_fd = -1;
 
   if (log_fd == -1)
-    log_fd = vtv_open_log ("vtv_memory_protection_data_%d.log");
+    log_fd = __vtv_open_log ("vtv_memory_protection_data_%d.log");
 
-  vtv_add_to_log (log_fd, "%s", message);
+  __vtv_add_to_log (log_fd, "%s", message);
 }
 
 static void
@@ -444,7 +467,6 @@ read_section_offset_and_length (struct dl_phdr_info *info,
 
       if (fd != -1)
         {
-
           /* Find the section header information in the file.  */
           ElfW (Half) strtab_idx = ehdr_info->e_shstrndx;
           ElfW (Shdr) shstrtab;
@@ -455,6 +477,14 @@ read_section_offset_and_length (struct dl_phdr_info *info,
           VTV_ASSERT (bytes_read == sizeof (shstrtab));
 
           ElfW (Shdr) sect_hdr;
+
+	  /* This code will be needed once we have crated libvtv.so. */
+	  bool is_libvtv = false;
+
+	  /*
+	  if (strstr (info->dlpi_name, "libvtv.so"))
+	    is_libvtv = true;
+	  */
 
           /* Loop through all the section headers, looking for one whose
              name is ".vtable_map_vars".  */
@@ -480,7 +510,10 @@ read_section_offset_and_length (struct dl_phdr_info *info,
                   /* We found the section; get its load offset and
                      size.  */
                   *sect_offset = sect_hdr.sh_addr;
-                  *sect_len = sect_hdr.sh_size - VTV_PAGE_SIZE;
+		  if (!is_libvtv)
+		    *sect_len = sect_hdr.sh_size - VTV_PAGE_SIZE;
+		  else
+		    *sect_len = sect_hdr.sh_size;
                   found = true;
                 }
             }
@@ -516,7 +549,7 @@ read_section_offset_and_length (struct dl_phdr_info *info,
 }
 
 /* This is the callback function used by dl_iterate_phdr (which is
-   called from VTV_unprotect_vtable_vars and VTV_protect_vtable_vars).
+   called from vtv_unprotect_vtable_vars and vtv_protect_vtable_vars).
    It attempts to find the binary file on disk for the INFO record
    that dl_iterate_phdr passes in; open the binary file, and read its
    section header information.  If the file contains a
@@ -613,7 +646,8 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t unused, void *data)
             }
         }
       increment_num_calls (&num_calls_to_mprotect);
-      num_pages_protected += (map_sect_len + VTV_PAGE_SIZE - 1) / VTV_PAGE_SIZE;
+      /* num_pages_protected += (map_sect_len + VTV_PAGE_SIZE - 1) / VTV_PAGE_SIZE; */
+      num_pages_protected += (map_sect_len + 4096 - 1) / 4096;
     }
 
   return 0;
@@ -641,10 +675,12 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t unused, void *data)
 static void
 change_protections_on_phdr_cache (int protection_flag)
 {
-  ElfW (Addr) low_address = (ElfW (Addr)) &(vtv_sect_info_cache);
+  char * low_address = (char *) &(vtv_sect_info_cache);
   size_t cache_size = MAX_ENTRIES * sizeof (struct sect_hdr_data);
 
-  low_address = low_address & ~(VTV_PAGE_SIZE -1);
+  low_address = (char *) ((unsigned long) low_address & ~(VTV_PAGE_SIZE - 1));
+  size_t protection_size =
+                       (char *) &vtv_sect_info_cache - low_address + cache_size;
 
   if (mprotect ((void *) low_address, cache_size, protection_flag) == -1)
     VTV_error ();
@@ -655,7 +691,7 @@ change_protections_on_phdr_cache (int protection_flag)
    into relro sections */
 
 static void
-VTV_unprotect_vtable_vars (void)
+vtv_unprotect_vtable_vars (void)
 {
   int mprotect_flags;
 
@@ -669,7 +705,7 @@ VTV_unprotect_vtable_vars (void)
    into relro sections */
 
 static void
-VTV_protect_vtable_vars (void)
+vtv_protect_vtable_vars (void)
 {
   int mprotect_flags;
 
@@ -722,10 +758,10 @@ log_set_stats (void)
 {
 #if HASHTABLE_STATS
       if (set_log_fd == -1)
-	set_log_fd = vtv_open_log ("vtv_set_stats.log");
+	set_log_fd = __vtv_open_log ("vtv_set_stats.log");
 
-      vtv_add_to_log (set_log_fd, "---\n%s\n",
-		      insert_only_hash_tables_stats().c_str());
+      __vtv_add_to_log (set_log_fd, "---\n%s\n",
+			insert_only_hash_tables_stats().c_str());
 #endif
 }
 
@@ -767,9 +803,9 @@ __VLTChangePermission (int perm)
          module that is not the first load module.  */
       __gthread_mutex_lock (&change_permissions_lock);
 
-      VTV_unprotect_vtable_vars ();
-      VTV_malloc_init ();
-      VTV_malloc_unprotect ();
+      vtv_unprotect_vtable_vars ();
+      __vtv_malloc_init ();
+      __vtv_malloc_unprotect ();
 
     }
   else if (perm == __VLTP_READ_ONLY)
@@ -777,8 +813,8 @@ __VLTChangePermission (int perm)
       if (debug_hash)
         log_set_stats();
 
-      VTV_malloc_protect ();
-      VTV_protect_vtable_vars ();
+      __vtv_malloc_protect ();
+      vtv_protect_vtable_vars ();
 
       __gthread_mutex_unlock (&change_permissions_lock);
     }
@@ -798,7 +834,7 @@ struct insert_only_hash_map_allocator
     void *
     alloc (size_t n) const
     {  
-      return VTV_malloc (n);
+      return __vtv_malloc (n);
     }
 
     /* P points to the memory to be deallocated; N is the number of
@@ -806,7 +842,7 @@ struct insert_only_hash_map_allocator
     void
     dealloc (void *p, size_t n) const
     {
-      VTV_free (p);
+      __vtv_free (p);
     }
   };
 
@@ -855,31 +891,6 @@ static inline vtv_set_handle_handle
 set_handle_handle (vtv_set_handle * ptr)
 {
   return (vtv_set_handle_handle) ((unsigned long) ptr | SET_HANDLE_HANDLE_BIT);
-}
-
-/* Open error logging file, if not already open, and write vtable
-   verification failure messages (LOG_MSG) to the log file.  Also
-   generate a backtrace in the log file, if GENERATE_BACKTRACE is
-   set.  */
-
-static void
-log_error_message (const char *log_msg, bool generate_backtrace)
-{
-  if (vtv_failures_log_fd == -1)
-    vtv_failures_log_fd = vtv_open_log ("vtable_verification_failures.log");
-
-  if (vtv_failures_log_fd == -1)
-    return;
-
-  vtv_add_to_log (vtv_failures_log_fd, "%s", log_msg);
-
-  if (generate_backtrace)
-    {
-#define STACK_DEPTH 20
-      void *callers[STACK_DEPTH];
-      int actual_depth = backtrace (callers, STACK_DEPTH);
-      backtrace_symbols_fd (callers, actual_depth, vtv_failures_log_fd);
-    }
 }
 
 static inline void
@@ -933,12 +944,12 @@ register_pair_common (void **set_handle_ptr, const void *vtable_ptr,
   if (debug && debug_init)
     {
       if (init_log_fd == -1)
-        init_log_fd = vtv_open_log("vtv_init.log");
+        init_log_fd = __vtv_open_log("vtv_init.log");
 
-      vtv_add_to_log(init_log_fd,
-                     "Registered %s : %s (%p) 2 level deref = %s\n",
-                     set_symbol_name, vtable_name, vtbl_ptr,
-                     is_set_handle_handle(*set_handle_ptr) ? "yes" : "no" );
+      __vtv_add_to_log(init_log_fd,
+		       "Registered %s : %s (%p) 2 level deref = %s\n",
+		       set_symbol_name, vtable_name, vtbl_ptr,
+		       is_set_handle_handle(*set_handle_ptr) ? "yes" : "no" );
     }
 }
 
@@ -986,7 +997,7 @@ init_set_symbol_debug (void **set_handle_ptr, const void *set_symbol_key,
                     "*** Found non-NULL local set ptr %p missing for symbol"
                     " %.*s",
                     *handle_ptr, symbol_key_ptr->n, symbol_key_ptr->bytes);
-          log_error_message (buffer, true);
+          __vtv_log_verification_failure (buffer, true);
           VTV_DEBUG_ASSERT (0);
         }
     }
@@ -1000,7 +1011,7 @@ init_set_symbol_debug (void **set_handle_ptr, const void *set_symbol_key,
                 "for symbol %.*s",
                 *handle_ptr, *map_value_ptr,
                 symbol_key_ptr->n, symbol_key_ptr->bytes);
-      log_error_message (buffer, true);
+      __vtv_log_verification_failure (buffer, true);
       VTV_DEBUG_ASSERT (0);
     }
   else if (*handle_ptr == NULL)
@@ -1046,7 +1057,7 @@ init_set_symbol_debug (void **set_handle_ptr, const void *set_symbol_key,
          in case the memory where this comes from gets unmapped by
          dlclose.  */
       size_t map_key_len = symbol_key_ptr->n + sizeof (vtv_symbol_key);
-      void *map_key = VTV_malloc (map_key_len);
+      void *map_key = __vtv_malloc (map_key_len);
 
       memcpy (map_key, symbol_key_ptr, map_key_len);
 
@@ -1064,14 +1075,14 @@ init_set_symbol_debug (void **set_handle_ptr, const void *set_symbol_key,
   if (debug_init)
     {
       if (init_log_fd == -1)
-        init_log_fd = vtv_open_log ("vtv_init.log");
+        init_log_fd = __vtv_open_log ("vtv_init.log");
 
-      vtv_add_to_log (init_log_fd,
-                      "Init handle:%p for symbol:%.*s hash:%u size_hint:%lu"
-                      "number of symbols:%lu \n",
-                      set_handle_ptr, symbol_key_ptr->n,
-                      symbol_key_ptr->bytes, symbol_key_ptr->hash, size_hint,
-                      vtv_symbol_unification_map->size ());
+      __vtv_add_to_log (init_log_fd,
+			"Init handle:%p for symbol:%.*s hash:%u size_hint:%lu"
+			"number of symbols:%lu \n",
+			set_handle_ptr, symbol_key_ptr->n,
+			symbol_key_ptr->bytes, symbol_key_ptr->hash, size_hint,
+			vtv_symbol_unification_map->size ());
     }
 }
 
@@ -1165,10 +1176,10 @@ __VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
       if (debug_verify_vtable)
         {
           if (verify_vtable_log_fd == -1)
-            vtv_open_log ("vtv_verify_vtable.log");
-          vtv_add_to_log (verify_vtable_log_fd,
-			  "Verified %s %s value = %p\n",
-			  set_symbol_name, vtable_name, vtable_ptr);
+            __vtv_open_log ("vtv_verify_vtable.log");
+          __vtv_add_to_log (verify_vtable_log_fd,
+			    "Verified %s %s value = %p\n",
+			    set_symbol_name, vtable_name, vtable_ptr);
         }
     }
   else
@@ -1251,7 +1262,7 @@ init_set_symbol (void **set_handle_ptr, const void *set_symbol_key,
          in case the memory where this comes from gets unmapped by
          dlclose.  */
       size_t map_key_len = symbol_key_ptr->n + sizeof (vtv_symbol_key);
-      void * map_key = VTV_malloc (map_key_len);
+      void * map_key = __vtv_malloc (map_key_len);
       memcpy (map_key, symbol_key_ptr, map_key_len);
 
       s2s::value_type * value_ptr;
@@ -1393,31 +1404,122 @@ count_all_pages (void)
   page_count_2 = 0;
 
   dl_iterate_phdr (dl_iterate_phdr_count_pages, (void *) &mprotect_flags);
-  page_count_2 += VTV_count_mmapped_pages ();
+  page_count_2 += __vtv_count_mmapped_pages ();
 }
 
 void
 __VLTDumpStats (void)
 {
-  int log_fd = vtv_open_log ("vtv-runtime-stats.log");
+  int log_fd = __vtv_open_log ("vtv-runtime-stats.log");
 
   if (log_fd != -1)
     {
       count_all_pages ();
-      vtv_add_to_log (log_fd,
-                      "Calls: mprotect (%d)  regset (%d) regpair (%d)"
-                      " verify_vtable (%d)\n",
-                      num_calls_to_mprotect, num_calls_to_regset,
-                      num_calls_to_regpair, num_calls_to_verify_vtable);
-      vtv_add_to_log (log_fd,
-                      "Cycles: mprotect (%lld) regset (%lld) "
-                      "regpair (%lld) verify_vtable (%lld)\n",
-                      mprotect_cycles, regset_cycles, regpair_cycles,
-                      verify_vtable_cycles);
-      vtv_add_to_log (log_fd,
-                      "Pages protected (1): %d\n", num_pages_protected);
-      vtv_add_to_log (log_fd, "Pages protected (2): %d\n", page_count_2);
+      __vtv_add_to_log (log_fd,
+			"Calls: mprotect (%d)  regset (%d) regpair (%d)"
+			" verify_vtable (%d)\n",
+			num_calls_to_mprotect, num_calls_to_regset,
+			num_calls_to_regpair, num_calls_to_verify_vtable);
+      __vtv_add_to_log (log_fd,
+			"Cycles: mprotect (%lld) regset (%lld) "
+			"regpair (%lld) verify_vtable (%lld)\n",
+			mprotect_cycles, regset_cycles, regpair_cycles,
+			verify_vtable_cycles);
+      __vtv_add_to_log (log_fd,
+			"Pages protected (1): %d\n", num_pages_protected);
+      __vtv_add_to_log (log_fd, "Pages protected (2): %d\n", page_count_2);
 
       close (log_fd);
     }
+}
+
+/* This function is called from __VLTVerifyVtablePointerDebug; it
+   sends as much debugging information as it can to the error log
+   file, then calls __vtv_verify_fail.  SET_HANDLE_PTR is the pointer
+   to the set of valid vtable pointers, VTBL_PTR is the pointer that
+   was not found in the set, and DEBUG_MSG is the message to be
+   written to the log file before failing. n */
+
+void
+__vtv_verify_fail_debug (void **set_handle_ptr, const void *vtbl_ptr, 
+                         const char *debug_msg)
+{
+  __vtv_log_verification_failure (debug_msg, false);
+
+  /* Call the public interface in case it has been overwritten by
+     user.  */
+  __vtv_verify_fail (set_handle_ptr, vtbl_ptr);
+
+  __vtv_log_verification_failure ("Returned from __vtv_verify_fail."
+                     " Secondary verification succeeded.\n", false);
+}
+
+/* This function calls __fortify_fail with a FAILURE_MSG and then
+   calls abort.  */
+
+void
+__vtv_really_fail (const char *failure_msg)
+{
+  __fortify_fail (failure_msg);
+
+  /* We should never get this far; __fortify_fail calls __libc_message
+     which prints out a back trace and a memory dump and then is
+     supposed to call abort, but let's play it safe anyway and call abort
+     ourselves.  */
+  abort ();
+}
+
+/* This function takes an error MSG, a vtable map variable
+   (DATA_SET_PTR) and a vtable pointer (VTBL_PTR).  It is called when
+   an attempt to verify VTBL_PTR with the set pointed to by
+   DATA_SET_PTR failed.  It outputs a failure message with the
+   addresses involved, and calls __vtv_really_fail.  */
+
+static void
+vtv_fail (const char *msg, void **data_set_ptr, const void *vtbl_ptr)
+{
+  char buffer[128];
+  int buf_len;
+  const char *format_str =
+                 "*** Unable to verify vtable pointer (%p) in set (%p) *** \n";
+
+  snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr,
+            is_set_handle_handle(*data_set_ptr) ?
+              ptr_from_set_handle_handle (*data_set_ptr) :
+	      *data_set_ptr);
+  buf_len = strlen (buffer);
+  /*  Send this to to stderr.  */
+  write (2, buffer, buf_len);
+
+#ifndef VTV_NO_ABORT
+    __vtv_really_fail (msg);
+#endif
+}
+
+/* Send information about what we were trying to do when verification
+   failed to the error log, then call vtv_fail.  This function can be
+   overwritten/replaced by the user, to implement a secondary
+   verification function instead.  DATA_SET_PTR is the vtable map
+   variable used for the failed verification, and VTBL_PTR is the
+   vtable pointer that was not found in the set.  */
+
+void
+__vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
+{
+  char log_msg[256];
+  snprintf (log_msg, sizeof (log_msg), "Looking for vtable %p in set %p.\n",
+            vtbl_ptr,
+            is_set_handle_handle (*data_set_ptr) ?
+              ptr_from_set_handle_handle (*data_set_ptr) :
+              *data_set_ptr);
+  __vtv_log_verification_failure (log_msg, false);
+
+  const char *format_str =
+            "*** Unable to verify vtable pointer (%p) in set (%p) *** \n";
+  snprintf (log_msg, sizeof (log_msg), format_str, vtbl_ptr, *data_set_ptr);
+  __vtv_log_verification_failure (log_msg, false);
+  __vtv_log_verification_failure ("  Backtrace: \n", true);
+
+  const char *fail_msg = "Potential vtable pointer corruption detected!!\n";
+  vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
 }

@@ -26,7 +26,8 @@ include $(top_srcdir)/fragment.am
 # separately too.
 # 1) separate libsupc++.la
 if ENABLE_VTABLE_VERIFY
-toolexeclib_LTLIBRARIES = libsupc++.la libvtv.la libvtv_stubs.la
+#toolexeclib_LTLIBRARIES = libsupc++.la libvtv.la
+toolexeclib_LTLIBRARIES = libsupc++.la libvtv_stubs.la
 else
 toolexeclib_LTLIBRARIES = libsupc++.la
 endif
@@ -102,18 +103,31 @@ sources = \
 
 if ENABLE_VTABLE_VERIFY
 
-    sources += \
-	vtv_fail.cc
+# Once we have libvtv.so as a separate library, the stubs work will
+# go directly into libsupc++.
+#    sources += \
+#	vtv_stubs.cc
 
-    vtv_sources = \
+# These will eventually go into libvtv.so
+#    vtv_sources = \
+#        vtv_rts.cc \
+#        vtv_malloc.cc \
+#        vtv_utils.cc
+
+# This is only temporary, until libvtv.so is created:
+    sources += \
         vtv_rts.cc \
         vtv_malloc.cc \
         vtv_utils.cc
 
+# This is only temporary, until libvtv.so is created:
     vtv_stubs_sources = \
         vtv_stubs.cc
 
-    libvtv_la_SOURCES = $(vtv_sources)
+# These would be for libvtv.so
+#    libvtv_la_SOURCES = $(vtv_sources)
+
+# This is only temporary, until libvtv.so is created.
     libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 endif
 
@@ -200,6 +214,11 @@ AM_CXXFLAGS = \
 	$(XTEMPLATE_FLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS)  $(CONFIG_CXXFLAGS)
 
+AM_CXXFLAGS_SHARED = \
+	$(glibcxx_compiler_shared_flag) \
+	$(XTEMPLATE_FLAGS) \
+	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS)  $(CONFIG_CXXFLAGS)
+
 AM_MAKEFLAGS = \
 	"gxx_include_dir=$(gxx_include_dir)"
 
@@ -250,6 +269,12 @@ LTCXXCOMPILE = \
 	--mode=compile $(CXX) $(TOPLEVEL_INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(EXTRA_CXX_FLAGS)
 
+LTCXXCOMPILE_S = \
+	$(LIBTOOL) --tag CXX --tag enable-shared \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CXX) $(TOPLEVEL_INCLUDES) -DSHARED \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) $(EXTRA_CXX_FLAGS)
+
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 
 # 3) We'd have a problem when building the shared libstdc++ object if
@@ -263,6 +288,10 @@ CXXLINK = \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
+
+CXXLINK_SHARED = \
+	$(CXX) \
+	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS_SHARED) $(LTLDFLAGS) -o $@
 
 # Install notes
 # We have to have rules modified from the default to counteract SUN make

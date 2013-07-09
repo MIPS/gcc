@@ -55,20 +55,18 @@ unsigned int long long mprotect_cycles = 0;
 
 /* Put the following variables in our ".vtable_map_vars" section so
    that they are protected.  They are explicitly unprotected and
-   protected again by calls to VTV_unprotect and VTV_protect */
+   protected again by calls to __vtv_unprotect and __vtv_protect */
 
-static struct obstack VTV_obstack VTV_PROTECTED_VAR;
+static struct obstack vtv_obstack VTV_PROTECTED_VAR;
 static void *current_chunk VTV_PROTECTED_VAR = 0;
 static size_t current_chunk_size VTV_PROTECTED_VAR = 0;
 static int malloc_initialized VTV_PROTECTED_VAR = 0;
-
-static bool debug_malloc = false;
 
 /* The function goes through and counts all the pages we have allocated
    so far.  It returns the page count.  */
 
 int
-VTV_count_mmapped_pages (void)
+__vtv_count_mmapped_pages (void)
 {
   int count = 0;
   struct _obstack_chunk * ci = (struct _obstack_chunk *) current_chunk;
@@ -130,14 +128,15 @@ change_protections_on_data_chunks (int protection_flag)
       num_pages_protected += (total_size + VTV_PAGE_SIZE - 1)/ VTV_PAGE_SIZE;
     }
 
-  if (debug_malloc)
+#ifdef VTV_DEBUG
     VTV_malloc_dump_stats ();
+#endif
 }
 
 /* This function makes all of our allocated pages read-only.  */
 
 void
-VTV_malloc_protect (void)
+__vtv_malloc_protect (void)
 {
   change_protections_on_data_chunks (PROT_READ);
 }
@@ -145,7 +144,7 @@ VTV_malloc_protect (void)
 /* This function makes all of our allocated pages read-write.  */
 
 void
-VTV_malloc_unprotect (void)
+__vtv_malloc_unprotect (void)
 {
   change_protections_on_data_chunks (PROT_READ | PROT_WRITE);
 }
@@ -185,7 +184,7 @@ obstack_chunk_free (size_t size)
    memory allocation scheme.  */
 
 void
-VTV_malloc_init (void)
+__vtv_malloc_init (void)
 {
   /* Make sure we only execute the main body of this function ONCE.  */
   if (malloc_initialized)
@@ -194,14 +193,14 @@ VTV_malloc_init (void)
   if (VTV_PAGE_SIZE != sysconf (_SC_PAGE_SIZE))
     VTV_error ();
 
-  obstack_chunk_size (&VTV_obstack) = VTV_PAGE_SIZE;
-  obstack_alignment_mask (&VTV_obstack) = sizeof (long) - 1;
+  obstack_chunk_size (&vtv_obstack) = VTV_PAGE_SIZE;
+  obstack_alignment_mask (&vtv_obstack) = sizeof (long) - 1;
   /* We guarantee that the obstack alloc failed handler will never be
      called because in case the allocation of the chunk fails, it will
      never return */
   obstack_alloc_failed_handler = NULL;
 
-  obstack_init (&VTV_obstack);
+  obstack_init (&vtv_obstack);
   malloc_initialized = 1;
 }
 
@@ -209,16 +208,16 @@ VTV_malloc_init (void)
    the requested number of bytes to be allocated/  */
 
 void *
-VTV_malloc (size_t size)
+__vtv_malloc (size_t size)
 {
-  return obstack_alloc (&VTV_obstack, size);
+  return obstack_alloc (&vtv_obstack, size);
 }
 
 
 /* This is our external interface for memory deallocation.  */
 
 void
-VTV_free (void *)
+__vtv_free (void *)
 {
   /* Do nothing. We dont care about recovering unneded memory at this
      time.  */
@@ -228,7 +227,7 @@ VTV_free (void *)
 /* This is a debugging function tat collects statistics about our
    memory allocation.  */
 void
-VTV_malloc_stats (void)
+__vtv_malloc_stats (void)
 {
   int count = 0;
   struct _obstack_chunk * ci = (struct _obstack_chunk *) current_chunk;
@@ -238,7 +237,7 @@ VTV_malloc_stats (void)
       ci = ci->prev;
     }
   fprintf (stderr,
-           "VTV_malloc_stats:\n  Page Size = %lu bytes\n  "
+           "__vtv_malloc_stats:\n  Page Size = %lu bytes\n  "
            "Number of pages = %d\n", VTV_PAGE_SIZE, count);
 }
 
@@ -246,12 +245,12 @@ VTV_malloc_stats (void)
    statistics to a log file.  */
 
 void
-VTV_malloc_dump_stats (void)
+__vtv_malloc_dump_stats (void)
 {
   static int fd = -1;
 
   if (fd == -1)
-    fd = vtv_open_log ("vtv_mem_protection.log");
+    fd = __vtv_open_log ("vtv_mem_protection.log");
   if (fd == -1)
     return;
 
@@ -263,5 +262,5 @@ VTV_malloc_dump_stats (void)
       ci = ci->prev;
     }
 
-  vtv_add_to_log (fd, "VTV_malloc_protect protected=%d pages\n", count);
+  __vtv_add_to_log (fd, "__vtv_malloc_protect protected=%d pages\n", count);
 }

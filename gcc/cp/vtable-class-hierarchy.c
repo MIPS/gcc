@@ -162,7 +162,7 @@ struct vtbl_map_node *vtable_find_or_create_map_decl (tree);
    __VLTVerifyVtablePointerDebug which can be used in place of
    __VLTVerifyVtablePointer, and which takes extra parameters and
    outputs extra information, to help debug problems.  The debug
-   version of this function is generated and used if vtv_debug is
+   version of this function is generated and used if flag_vtv_debug is
    true.
 
    The signatures for these functions are:
@@ -180,7 +180,7 @@ vtv_build_vtable_verify_fndecl (void)
       && TREE_CODE (verify_vtbl_ptr_fndecl) != ERROR_MARK)
     return;
 
-  if (vtv_debug)
+  if (flag_vtv_debug)
     {
       func_type = build_function_type_list (const_ptr_type_node,
 					    build_pointer_type (ptr_type_node),
@@ -256,7 +256,7 @@ init_functions (void)
 					      build_pointer_type (ptr_type_node),
 					      NULL_TREE);
 
-  if (vtv_debug)
+  if (flag_vtv_debug)
     vlt_register_set_fndecl = build_lang_decl
                                        (FUNCTION_DECL,
 		                        get_identifier ("__VLTRegisterSetDebug"),
@@ -278,7 +278,7 @@ init_functions (void)
 
   /* Build function decl for __VLTRegisterPair*.  */
 
-  if (vtv_debug)
+  if (flag_vtv_debug)
     {
       register_pairs_type = build_function_type_list (void_type_node,
 						      build_pointer_type
@@ -771,7 +771,6 @@ insert_call_to_register_set (tree class_name, int num_args,
   vec<constructor_elt, va_gc> *array_elements;
   vec_alloc (array_elements, num_args);
                                                         
-  /* constructor_elt *celt; */
   tree initial = NULL_TREE;
   tree arg3 = NULL_TREE;
 
@@ -786,11 +785,6 @@ insert_call_to_register_set (tree class_name, int num_args,
 
   for (k = 0; k < num_args; ++k)
     {
-      /*
-      vec_safe_push (array_elements, celt);
-      celt->index = build_int_cst (integer_type_node, k);
-      celt->value = vtbl_ptr_array[k];
-      */
       CONSTRUCTOR_APPEND_ELT (array_elements, NULL_TREE, vtbl_ptr_array[k]);
     }
 
@@ -825,7 +819,7 @@ insert_call_to_register_pair (tree vtable_address, int num_args, tree arg1,
   if (num_args == 0)
     vtable_address = build_int_cst (build_pointer_type (void_type_node), 0);
 
-  if (vtv_debug)
+  if (flag_vtv_debug)
     call_expr = build_call_expr (vlt_register_pairs_fndecl, 6, arg1, arg2,
 				 size_hint_arg, vtable_address, str1, str2);
   else
@@ -912,7 +906,7 @@ register_all_pairs (tree body)
       gcc_assert (current->class_info != NULL);
 
 
-      if (vtv_debug)
+      if (flag_vtv_debug)
         str1 = build_string_from_id (DECL_NAME (base_ptr_var_decl));
 
       new_type = build_pointer_type (TREE_TYPE (base_ptr_var_decl));

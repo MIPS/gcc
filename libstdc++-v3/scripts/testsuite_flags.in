@@ -56,7 +56,8 @@ case ${query} in
     --cxxflags)
       CXXFLAGS_default="-D_GLIBCXX_ASSERT -fmessage-length=0"
       CXXFLAGS_config="@SECTION_FLAGS@ @CXXFLAGS@ @EXTRA_CXX_FLAGS@"
-      CXXFLAGS_vtv=" -lvtv"
+      #CXXFLAGS_vtv=" -fvtable-verify=std -lvtv"
+      CXXFLAGS_vtv=" -fvtable-verify=std"
       echo ${CXXFLAGS_default} ${CXXFLAGS_config} ${CXXFLAGS_vtv}
       ;;
     --cxxparallelflags)

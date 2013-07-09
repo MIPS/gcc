@@ -722,10 +722,23 @@ proper position among the other output files.  */
     %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}}}"
 #endif
 
+/*  This is the spec to use, once the code for creating the vtable
+    verification runtime library, libvtv.so, has been created.  Currently
+    the vtable verification runtime functions are in libstdc++, so we use
+    the spec just below this one.  */
+/*
 #ifndef VTABLE_VERIFICATION_SPEC
 #define VTABLE_VERIFICATION_SPEC "\
 %{!nostdlib:%{fvtable-verify=std: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}\
     %{fvtable-verify=preinit: -lvtv -u_vtable_map_vars_start -u_vtable_map_vars_end}}"
+#endif
+*/
+
+/* Once libvtv.so has been created, delete this spec and use the one above.  */
+#ifndef VTABLE_VERIFICATION_SPEC
+#define VTABLE_VERIFICATION_SPEC "\
+%{!nostdlib:%{fvtable-verify=std: -u_vtable_map_vars_start -u_vtable_map_vars_end}\
+    %{fvtable-verify=preinit: -u_vtable_map_vars_start -u_vtable_map_vars_end}}"
 #endif
 
 /* -u* was put back because both BSD and SysV seem to support it.  */

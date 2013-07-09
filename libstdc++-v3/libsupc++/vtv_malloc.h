@@ -86,13 +86,13 @@ extern unsigned long long regpair_cycles;
 
 /* Function declarations.  */
 
-extern void VTV_malloc_init (void);
-extern void *VTV_malloc (size_t size);
-extern void VTV_free (void * ptr);
-extern void VTV_malloc_protect (void);
-extern void VTV_malloc_unprotect (void);
-extern void VTV_malloc_stats (void);
-extern void VTV_malloc_dump_stats (void);
-extern int VTV_count_mmapped_pages (void);
+extern void __vtv_malloc_init (void);
+extern void *__vtv_malloc (size_t size) __attribute__ ((malloc));
+extern void __vtv_free (void * ptr);
+extern void __vtv_malloc_protect (void);
+extern void __vtv_malloc_unprotect (void);
+extern void __vtv_malloc_stats (void);
+extern void __vtv_malloc_dump_stats (void);
+extern int __vtv_count_mmapped_pages (void);
 
 #endif /* vtv_malloc.h */
