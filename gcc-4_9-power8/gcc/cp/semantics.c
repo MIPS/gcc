@@ -155,6 +155,17 @@ push_deferring_access_checks (deferring_kind deferring)
     }
 }
 
+/* Save the current deferred access states and start deferred access
+   checking, continuing the set of deferred checks in CHECKS.  */
+
+void
+reopen_deferring_access_checks (vec<deferred_access_check, va_gc> * checks)
+{
+  push_deferring_access_checks (dk_deferred);
+  if (!deferred_access_no_check)
+    deferred_access_stack->last().deferred_access_checks = checks;
+}
+
 /* Resume deferring access checks again after we stopped doing
    this previously.  */
 
@@ -779,22 +790,6 @@ finish_return_stmt (tree expr)
   tree r;
   bool no_warning;
 
-  if (flag_enable_cilkplus && contains_array_notation_expr (expr))
-    {
-      size_t rank = 0;
-      
-      if (!find_rank (input_location, expr, expr, false, &rank))
-	return error_mark_node;
-
-      /* If the return expression contains array notations, then flag it as
-	 error.  */
-      if (rank >= 1)
-	{
-	  error_at (input_location, "array notation expression cannot be "
-		    "used as a return value");
-	  return error_mark_node;
-	}
-    }
   expr = check_return_expr (expr, &no_warning);
 
   if (flag_openmp && !check_omp_return ())
@@ -7202,7 +7197,9 @@ cxx_eval_bit_field_ref (const constexpr_call *call, tree t,
     return t;
   /* Don't VERIFY_CONSTANT here; we only want to check that we got a
      CONSTRUCTOR.  */
-  if (!*non_constant_p && TREE_CODE (whole) != CONSTRUCTOR)
+  if (!*non_constant_p
+      && TREE_CODE (whole) != VECTOR_CST
+      && TREE_CODE (whole) != CONSTRUCTOR)
     {
       if (!allow_non_constant)
 	error ("%qE is not a constant expression", orig_whole);
@@ -7210,6 +7207,10 @@ cxx_eval_bit_field_ref (const constexpr_call *call, tree t,
     }
   if (*non_constant_p)
     return t;
+
+  if (TREE_CODE (whole) == VECTOR_CST)
+    return fold_ternary (BIT_FIELD_REF, TREE_TYPE (t), whole,
+			 TREE_OPERAND (t, 1), TREE_OPERAND (t, 2));
 
   start = TREE_OPERAND (t, 2);
   istart = tree_low_cst (start, 0);
@@ -8089,7 +8090,6 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
 				       non_constant_p, overflow_p);
       break;
 
-    case ARRAY_NOTATION_REF:
     case ARRAY_REF:
       r = cxx_eval_array_reference (call, t, allow_non_constant, addr,
 				    non_constant_p, overflow_p);
@@ -8901,7 +8901,6 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
       want_rval = true;
       /* Fall through.  */
     case ARRAY_REF:
-    case ARRAY_NOTATION_REF:
     case ARRAY_RANGE_REF:
     case MEMBER_REF:
     case DOTSTAR_EXPR:
@@ -8911,6 +8910,9 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 					      want_rval, flags))
 	  return false;
       return true;
+
+    case ARRAY_NOTATION_REF:
+      return false;
 
     case FMA_EXPR:
     case VEC_PERM_EXPR:
