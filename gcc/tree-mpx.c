@@ -2656,6 +2656,16 @@ mpx_get_bounds_for_decl_addr (tree decl)
       fprintf (dump_file, "\n");
     }
 
+  /* Use zero bounds if size is unknown and checks for
+     unknown sizes are restricted.  */
+  if ((!DECL_SIZE (decl)
+       || (mpx_variable_size_type (TREE_TYPE (decl))
+	   && (TREE_STATIC (decl)
+	       || DECL_EXTERNAL (decl)
+	       || TREE_PUBLIC (decl))))
+      && !flag_mpx_incomplete_type)
+      return mpx_get_zero_bounds ();
+
   if (flag_mpx_use_static_bounds
       && TREE_CODE (decl) == VAR_DECL
       && (TREE_STATIC (decl)
