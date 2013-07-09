@@ -1,6 +1,12 @@
 
 
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (class_defined_macro_binding): New class
+	with field mbind_defmacro.
+	(mexpand_defmacro): Use it.
+	{But export_value should accept defmacro-ed names.}
+
+2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (macroexpand_1): Make an error when the
 	field mbind_expanser of a macro is null. Return both values
 	otherwise.
