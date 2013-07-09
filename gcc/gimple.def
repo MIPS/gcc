@@ -325,7 +325,7 @@ DEFGSCODE(GIMPLE_OMP_PARALLEL, "gimple_omp_parallel", GSS_OMP_PARALLEL)
 DEFGSCODE(GIMPLE_OMP_TASK, "gimple_omp_task", GSS_OMP_TASK)
 
 /* OMP_RETURN marks the end of an OpenMP directive.  */
-DEFGSCODE(GIMPLE_OMP_RETURN, "gimple_omp_return", GSS_BASE)
+DEFGSCODE(GIMPLE_OMP_RETURN, "gimple_omp_return", GSS_OMP_ATOMIC_STORE)
 
 /* OMP_SECTION <BODY> represents #pragma omp section.
    BODY is the sequence of statements in the section body.  */

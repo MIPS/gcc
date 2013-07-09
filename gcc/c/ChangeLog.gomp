@@ -1,3 +1,9 @@
+2013-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_cancel): Pass two arguments to GOMP_cancel
+	rather than just one, if no OMP_CLAUSE_IF, pass true, otherwise pass
+	if clause argument.  Emit the call unconditionally.
+
 2013-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-lang.h (current_omp_declare_target_attribute): New extern

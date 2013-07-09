@@ -1,3 +1,7 @@
+2013-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_BOOL_INT, BT_FN_BOOL_INT_BOOL): New.
+
 2013-04-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* f95-lang.c (DEF_FUNCTION_TYPE_8): Define.

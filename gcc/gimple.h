@@ -1739,6 +1739,36 @@ gimple_omp_return_nowait_p (const_gimple g)
 }
 
 
+/* Set the LHS of OMP return.  */
+
+static inline void
+gimple_omp_return_set_lhs (gimple g, tree lhs)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_RETURN);
+  g->gimple_omp_atomic_store.val = lhs;
+}
+
+
+/* Get the LHS of OMP return.  */
+
+static inline tree
+gimple_omp_return_lhs (const_gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_RETURN);
+  return g->gimple_omp_atomic_store.val;
+}
+
+
+/* Return a pointer to the LHS of OMP return.  */
+
+static inline tree *
+gimple_omp_return_lhs_ptr (gimple g)
+{
+  GIMPLE_CHECK (g, GIMPLE_OMP_RETURN);
+  return &g->gimple_omp_atomic_store.val;
+}
+
+
 /* Return true if OMP section statement G has the GF_OMP_SECTION_LAST
    flag set.  */
 

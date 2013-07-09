@@ -1686,10 +1686,16 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	return ret;
       break;
 
+    case GIMPLE_OMP_RETURN:
+      ret = walk_tree (gimple_omp_return_lhs_ptr (stmt), callback_op, wi,
+		       pset);
+      if (ret)
+	return ret;
+      break;
+
       /* Tuples that do not have operands.  */
     case GIMPLE_NOP:
     case GIMPLE_RESX:
-    case GIMPLE_OMP_RETURN:
     case GIMPLE_PREDICT:
       break;
 

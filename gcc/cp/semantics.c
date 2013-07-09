@@ -6103,14 +6103,21 @@ finish_omp_cancel (tree clauses)
 	     "%<parallel%>, %<for%>, %<sections%> or %<taskgroup%> clauses");
       return;
     }
-  vec<tree, va_gc> *vec
-    = make_tree_vector_single (build_int_cst (integer_type_node, mask));
-  tree stmt = finish_call_expr (fn, &vec, false, false, tf_warning_or_error);
-  release_tree_vector (vec);
+  vec<tree, va_gc> *vec = make_tree_vector ();
   tree ifc = find_omp_clause (clauses, OMP_CLAUSE_IF);
   if (ifc != NULL_TREE)
-    stmt = build3 (COND_EXPR, void_type_node, OMP_CLAUSE_IF_EXPR (ifc),
-		   stmt, NULL_TREE);
+    {
+      tree type = TREE_TYPE (OMP_CLAUSE_IF_EXPR (ifc));
+      ifc = fold_build2_loc (OMP_CLAUSE_LOCATION (ifc), NE_EXPR,
+			     boolean_type_node, OMP_CLAUSE_IF_EXPR (ifc),
+			     build_zero_cst (type));
+    }
+  else
+    ifc = boolean_true_node;
+  vec->quick_push (build_int_cst (integer_type_node, mask));
+  vec->quick_push (ifc);
+  tree stmt = finish_call_expr (fn, &vec, false, false, tf_warning_or_error);
+  release_tree_vector (vec);
   finish_expr_stmt (stmt);
 }
 

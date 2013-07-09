@@ -1,3 +1,56 @@
+2013-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_omp_return): Print
+	gimple_omp_return_lhs if non-NULL.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1,
+	call_may_clobber_ref_p_1): Handle BUILT_IN_GOMP_BARRIER_CANCEL,
+	BUILT_IN_GOMP_LOOP_END_CANCEL, BUILT_IN_GOMP_SECTIONS_END_CANCEL.
+	* gimple.h (gimple_omp_return_set_lhs, gimple_omp_return_lhs,
+	gimple_omp_return_lhs_ptr): New inlines.
+	* gimple.def (GIMPLE_OMP_RETURN): Use GSS_OMP_ATOMIC_STORE
+	instead of GSS_BASE.
+	* gimple.c (walk_gimple_op) <case GIMPLE_OMP_RETURN>: Walk lhs.
+	* builtin-types.def (BT_FN_BOOL_INT, BT_FN_BOOL_INT_BOOL): New.
+	* omp-builtins.def (BUILT_IN_GOMP_CANCELLATION_POINT): Use
+	ATTR_NOTHROW_LEAF_LIST instead of ATTR_NULL.  Return type is now
+	bool.
+	(BUILT_IN_GOMP_CANCEL): Likewise.  Add second argument with bool type.
+	(BUILT_IN_BARRIER_CANCEL, BUILT_IN_GOMP_LOOP_END_CANCEL,
+	BUILT_IN_GOMP_SECTIONS_END_CANCEL): New builtins.
+	* omp-low.c (struct omp_context): Add cancel_label and cancellable
+	fields.
+	(extract_omp_for_data): Set have_nowait even for simd implicitly.
+	(check_omp_nesting_restrictions): Verify nesting restrictions for
+	#pragma omp cancel and #pragma omp cancellation point.
+	Set ctx->cancellable for regions that can be cancelled or also
+	for any task region that contains #pragma omp cancellation point.
+	(scan_omp_1_stmt): Check nesting restrictions even if ctx == NULL.
+	(build_omp_barrier): Return gimple instead of tree, add lhs argument,
+	if non-NULL, build GOMP_barrier_cancel builtin instead and set its 
+	call lhs to lhs.
+	(lower_rec_input_clauses): Adjust build_omp_barrier caller.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk,
+	expand_omp_single): Likewise.  If OMP_RETURN has lhs, pass it to
+	build_omp_barrier.
+	(expand_omp_for_generic): If OMP_RETURN has lhs, use
+	GOMP_loop_end_cancel libcall instead of GOMP_loop_end and set its
+	lhs from OMP_RETURN's lhs.
+	(expand_omp_sections): If OMP_RETURN has lhs, use
+	GOMP_sections_end_cancel libcall instead of GOMP_sections_end and set
+	its lhs from OMP_RETURN's lhs.
+	(maybe_add_implicit_barrier_cancel): New function.
+	(lower_omp_sections): If ctx->cancellable, emit cancel_label before
+	OMP_RETURN.  Call maybe_add_implicit_barrier_cancel.
+	(lower_omp_for): Likewise.
+	(lower_omp_single): Call maybe_add_implicit_barrier_cancel.
+	(lower_omp_taskreg): If ctx->cancellable, emit cancel_label before
+	OMP_RETURN.
+	(lower_omp_1): If ctx->cancellable, create ctx->cancel_label.
+	Adjust GOMP_barrier libcalls to GOMP_barrier_cancel plus conditional
+	branch in cancellable regions, adjust GOMP_cancel and
+	GOMP_cancellation_point in cancellable regions or remove
+	GOMP_cancellation_point in non-cancellable regions.
+
 2013-07-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_single): Don't force barrier for

@@ -90,6 +90,10 @@ typedef struct omp_context
      construct.  In the case of a parallel, this is in the child function.  */
   tree block_vars;
 
+  /* Label to which GOMP_cancel{,llation_point} and explicit and implicit
+     barriers should jump to during omplower pass.  */
+  tree cancel_label;
+
   /* What to do with variables with implicitly determined sharing
      attributes.  */
   enum omp_clause_default_kind default_kind;
@@ -101,6 +105,9 @@ typedef struct omp_context
 
   /* True if this parallel directive is nested within another.  */
   bool is_nested;
+
+  /* True if this construct can be cancelled.  */
+  bool cancellable;
 } omp_context;
 
 
@@ -235,7 +242,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
   else
     fd->loops = &fd->loop;
 
-  fd->have_nowait = distribute;
+  fd->have_nowait = distribute || simd;
   fd->have_ordered = false;
   fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
   fd->chunk_size = NULL_TREE;
@@ -2014,9 +2021,92 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 	  return true;
 	}
       /* FALLTHRU */
+    case GIMPLE_CALL:
+      if (is_gimple_call (stmt)
+	  && (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
+	      == BUILT_IN_GOMP_CANCEL
+	      || DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
+		 == BUILT_IN_GOMP_CANCELLATION_POINT))
+	{
+	  const char *bad = NULL;
+	  const char *kind = NULL;
+	  if (ctx == NULL)
+	    {
+	      error_at (gimple_location (stmt), "orphaned %qs construct",
+			DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
+			== BUILT_IN_GOMP_CANCEL
+			? "#pragma omp cancel"
+			: "#pragma omp cancellation point");
+	      return false;
+	    }
+	  switch (host_integerp (gimple_call_arg (stmt, 0), 0)
+		  ? tree_low_cst (gimple_call_arg (stmt, 0), 0)
+		  : 0)
+	    {
+	    case 1:
+	      if (gimple_code (ctx->stmt) != GIMPLE_OMP_PARALLEL)
+		bad = "#pragma omp parallel";
+	      else if (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
+		       == BUILT_IN_GOMP_CANCEL
+		       && !integer_zerop (gimple_call_arg (stmt, 1)))
+		ctx->cancellable = true;
+	      kind = "parallel";
+	      break;
+	    case 2:
+	      if (gimple_code (ctx->stmt) != GIMPLE_OMP_FOR
+		  || gimple_omp_for_kind (ctx->stmt) != GF_OMP_FOR_KIND_FOR)
+		bad = "#pragma omp for";
+	      else if (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
+		       == BUILT_IN_GOMP_CANCEL
+		       && !integer_zerop (gimple_call_arg (stmt, 1)))
+		ctx->cancellable = true;
+	      kind = "for";
+	      break;
+	    case 4:
+	      if (gimple_code (ctx->stmt) != GIMPLE_OMP_SECTIONS
+		  && gimple_code (ctx->stmt) != GIMPLE_OMP_SECTION)
+		bad = "#pragma omp sections";
+	      else if (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
+		       == BUILT_IN_GOMP_CANCEL
+		       && !integer_zerop (gimple_call_arg (stmt, 1)))
+		{
+		  if (gimple_code (ctx->stmt) == GIMPLE_OMP_SECTIONS)
+		    ctx->cancellable = true;
+		  else
+		    {
+		      gcc_assert (ctx->outer
+				  && gimple_code (ctx->outer->stmt)
+				     == GIMPLE_OMP_SECTIONS);
+		      ctx->outer->cancellable = true;
+		    }
+		}
+	      kind = "sections";
+	      break;
+	    case 8:
+	      if (gimple_code (ctx->stmt) != GIMPLE_OMP_TASK)
+		bad = "#pragma omp task";
+	      else
+		ctx->cancellable = true;
+	      kind = "taskgroup";
+	      break;
+	    default:
+	      error_at (gimple_location (stmt), "invalid arguments");
+	      return false;
+	    }
+	  if (bad)
+	    {
+	      error_at (gimple_location (stmt),
+			"%<%s %s%> construct not closely nested inside of %qs",
+			DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
+			== BUILT_IN_GOMP_CANCEL
+			? "#pragma omp cancel"
+			: "#pragma omp cancellation point", kind, bad);
+	      return false;
+	    }
+	}
+      /* FALLTHRU */
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
-    case GIMPLE_CALL:
       for (; ctx != NULL; ctx = ctx->outer)
 	switch (gimple_code (ctx->stmt))
 	  {
@@ -2191,36 +2281,33 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     input_location = gimple_location (stmt);
 
   /* Check the OpenMP nesting restrictions.  */
-  if (ctx != NULL)
+  bool remove = false;
+  if (is_gimple_omp (stmt))
+    remove = !check_omp_nesting_restrictions (stmt, ctx);
+  else if (is_gimple_call (stmt))
     {
-      bool remove = false;
-      if (is_gimple_omp (stmt))
-	remove = !check_omp_nesting_restrictions (stmt, ctx);
-      else if (is_gimple_call (stmt))
-	{
-	  tree fndecl = gimple_call_fndecl (stmt);
-	  if (fndecl
-	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
-	    switch (DECL_FUNCTION_CODE (fndecl))
-	      {
-	      case BUILT_IN_GOMP_BARRIER:
-	      case BUILT_IN_GOMP_CANCEL:
-	      case BUILT_IN_GOMP_CANCELLATION_POINT:
-	      case BUILT_IN_GOMP_TASKYIELD:
-	      case BUILT_IN_GOMP_TASKWAIT:
-	      case BUILT_IN_GOMP_TASKGROUP_START:
-	      case BUILT_IN_GOMP_TASKGROUP_END:
-		remove = !check_omp_nesting_restrictions (stmt, ctx);
-		break;
-	      default:
-		break;
-	      }
-	}
-      if (remove)
-	{
-	  stmt = gimple_build_nop ();
-	  gsi_replace (gsi, stmt, false);
-	}
+      tree fndecl = gimple_call_fndecl (stmt);
+      if (fndecl
+	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+	switch (DECL_FUNCTION_CODE (fndecl))
+	  {
+	  case BUILT_IN_GOMP_BARRIER:
+	  case BUILT_IN_GOMP_CANCEL:
+	  case BUILT_IN_GOMP_CANCELLATION_POINT:
+	  case BUILT_IN_GOMP_TASKYIELD:
+	  case BUILT_IN_GOMP_TASKWAIT:
+	  case BUILT_IN_GOMP_TASKGROUP_START:
+	  case BUILT_IN_GOMP_TASKGROUP_END:
+	    remove = !check_omp_nesting_restrictions (stmt, ctx);
+	    break;
+	  default:
+	    break;
+	  }
+    }
+  if (remove)
+    {
+      stmt = gimple_build_nop ();
+      gsi_replace (gsi, stmt, false);
     }
 
   *handled_ops_p = true;
@@ -2301,10 +2388,15 @@ scan_omp (gimple_seq *body_p, omp_context *ctx)
 
 /* Build a call to GOMP_barrier.  */
 
-static tree
-build_omp_barrier (void)
+static gimple
+build_omp_barrier (tree lhs)
 {
-  return build_call_expr (builtin_decl_explicit (BUILT_IN_GOMP_BARRIER), 0);
+  tree fndecl = builtin_decl_explicit (lhs ? BUILT_IN_GOMP_BARRIER_CANCEL
+					   : BUILT_IN_GOMP_BARRIER);
+  gimple g = gimple_build_call (fndecl, 0);
+  if (lhs)
+    gimple_call_set_lhs (g, lhs);
+  return g;
 }
 
 /* If a context was created for STMT when it was scanned, return it.  */
@@ -3131,7 +3223,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	 #pragma omp distribute.  */
       if (gimple_code (ctx->stmt) != GIMPLE_OMP_FOR
 	  || gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_FOR)
-	gimplify_and_add (build_omp_barrier (), ilist);
+	gimple_seq_add_stmt (ilist, build_omp_barrier (NULL_TREE));
     }
 
   /* If max_vf is non-NULL, then we can use only vectorization factor
@@ -5048,9 +5140,13 @@ expand_omp_for_generic (struct omp_region *region,
   gsi = gsi_last_bb (exit_bb);
   if (gimple_omp_return_nowait_p (gsi_stmt (gsi)))
     t = builtin_decl_explicit (BUILT_IN_GOMP_LOOP_END_NOWAIT);
+  else if (gimple_omp_return_lhs (gsi_stmt (gsi)))
+    t = builtin_decl_explicit (BUILT_IN_GOMP_LOOP_END_CANCEL);
   else
     t = builtin_decl_explicit (BUILT_IN_GOMP_LOOP_END);
   stmt = gimple_build_call (t, 0);
+  if (gimple_omp_return_lhs (gsi_stmt (gsi)))
+    gimple_call_set_lhs (stmt, gimple_omp_return_lhs (gsi_stmt (gsi)));
   gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
   gsi_remove (&gsi, true);
 
@@ -5443,10 +5539,11 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
-  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi))
-      && gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_FOR)
-    force_gimple_operand_gsi (&gsi, build_omp_barrier (), false, NULL_TREE,
-			      false, GSI_SAME_STMT);
+  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+    {
+      t = gimple_omp_return_lhs (gsi_stmt (gsi));
+      gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
+    }
   gsi_remove (&gsi, true);
 
   /* Connect all the blocks.  */
@@ -5834,10 +5931,11 @@ expand_omp_for_static_chunk (struct omp_region *region,
 
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   si = gsi_last_bb (exit_bb);
-  if (!gimple_omp_return_nowait_p (gsi_stmt (si))
-      && gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_FOR)
-    force_gimple_operand_gsi (&si, build_omp_barrier (), false, NULL_TREE,
-			      false, GSI_SAME_STMT);
+  if (!gimple_omp_return_nowait_p (gsi_stmt (si)))
+    {
+      t = gimple_omp_return_lhs (gsi_stmt (si));
+      gsi_insert_after (&si, build_omp_barrier (t), GSI_SAME_STMT);
+    }
   gsi_remove (&si, true);
 
   /* Connect the new blocks.  */
@@ -6540,9 +6638,13 @@ expand_omp_sections (struct omp_region *region)
   si = gsi_last_bb (l2_bb);
   if (gimple_omp_return_nowait_p (gsi_stmt (si)))
     t = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_END_NOWAIT);
+  else if (gimple_omp_return_lhs (gsi_stmt (si)))
+    t = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_END_CANCEL);
   else
     t = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_END);
   stmt = gimple_build_call (t, 0);
+  if (gimple_omp_return_lhs (gsi_stmt (si)))
+    gimple_call_set_lhs (stmt, gimple_omp_return_lhs (gsi_stmt (si)));
   gsi_insert_after (&si, stmt, GSI_SAME_STMT);
   gsi_remove (&si, true);
 
@@ -6569,8 +6671,10 @@ expand_omp_single (struct omp_region *region)
 
   si = gsi_last_bb (exit_bb);
   if (!gimple_omp_return_nowait_p (gsi_stmt (si)))
-    force_gimple_operand_gsi (&si, build_omp_barrier (), false, NULL_TREE,
-			      false, GSI_SAME_STMT);
+    {
+      tree t = gimple_omp_return_lhs (gsi_stmt (si));
+      gsi_insert_after (&si, build_omp_barrier (t), GSI_SAME_STMT);
+    }
   gsi_remove (&si, true);
   single_succ_edge (exit_bb)->flags = EDGE_FALLTHRU;
 }
@@ -7427,6 +7531,32 @@ struct gimple_opt_pass pass_expand_omp =
 
 /* Routines to lower OpenMP directives into OMP-GIMPLE.  */
 
+/* If ctx is a worksharing context inside of a cancellable parallel
+   region and it isn't nowait, add lhs to its GIMPLE_OMP_RETURN
+   and conditional branch to parallel's cancel_label to handle
+   cancellation in the implicit barrier.  */
+
+static void
+maybe_add_implicit_barrier_cancel (omp_context *ctx, gimple_seq *body)
+{
+  gimple omp_return = gimple_seq_last_stmt (*body);
+  gcc_assert (gimple_code (omp_return) == GIMPLE_OMP_RETURN);
+  if (gimple_omp_return_nowait_p (omp_return))
+    return;
+  if (ctx->outer
+      && gimple_code (ctx->outer->stmt) == GIMPLE_OMP_PARALLEL
+      && ctx->outer->cancellable)
+    {
+      tree lhs = create_tmp_var (boolean_type_node, NULL);
+      gimple_omp_return_set_lhs (omp_return, lhs);
+      tree fallthru_label = create_artificial_label (UNKNOWN_LOCATION);
+      gimple g = gimple_build_cond (NE_EXPR, lhs, boolean_false_node,
+				    ctx->outer->cancel_label, fallthru_label);
+      gimple_seq_add_stmt (body, g);
+      gimple_seq_add_stmt (body, gimple_build_label (fallthru_label));
+    }
+}
+
 /* Lower the OpenMP sections directive in the current statement in GSI_P.
    CTX is the enclosing OMP context for the current statement.  */
 
@@ -7510,10 +7640,13 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   new_body = maybe_catch_exception (new_body);
 
+  if (ctx->cancellable)
+    gimple_seq_add_stmt (&new_body, gimple_build_label (ctx->cancel_label));
   t = gimple_build_omp_return
         (!!find_omp_clause (gimple_omp_sections_clauses (stmt),
 			    OMP_CLAUSE_NOWAIT));
   gimple_seq_add_stmt (&new_body, t);
+  maybe_add_implicit_barrier_cancel (ctx, &new_body);
 
   gimple_bind_set_body (new_stmt, new_body);
 }
@@ -7674,6 +7807,7 @@ lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
         (!!find_omp_clause (gimple_omp_single_clauses (single_stmt),
 			    OMP_CLAUSE_NOWAIT));
   gimple_seq_add_stmt (&bind_body, t);
+  maybe_add_implicit_barrier_cancel (ctx, &bind_body);
   gimple_bind_set_body (bind, bind_body);
 
   pop_gimplify_context (bind);
@@ -8035,7 +8169,10 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   body = maybe_catch_exception (body);
 
   /* Region exit marker goes at the end of the loop body.  */
+  if (ctx->cancellable)
+    gimple_seq_add_stmt (&body, gimple_build_label (ctx->cancel_label));
   gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
+  maybe_add_implicit_barrier_cancel (ctx, &body);
   pop_gimplify_context (new_stmt);
 
   gimple_bind_append_vars (new_stmt, ctx->block_vars);
@@ -8437,6 +8574,8 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_seq_add_seq (&new_body, par_body);
   gimple_seq_add_seq (&new_body, par_olist);
   new_body = maybe_catch_exception (new_body);
+  if (ctx->cancellable)
+    gimple_seq_add_stmt (&new_body, gimple_build_label (ctx->cancel_label));
   gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
   gimple_omp_set_body (stmt, new_body);
 
@@ -8527,16 +8666,23 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
       ctx = maybe_lookup_ctx (stmt);
+      gcc_assert (ctx);
+      if (ctx->cancellable)
+	ctx->cancel_label = create_artificial_label (UNKNOWN_LOCATION);
       lower_omp_taskreg (gsi_p, ctx);
       break;
     case GIMPLE_OMP_FOR:
       ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
+      if (ctx->cancellable)
+	ctx->cancel_label = create_artificial_label (UNKNOWN_LOCATION);
       lower_omp_for (gsi_p, ctx);
       break;
     case GIMPLE_OMP_SECTIONS:
       ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
+      if (ctx->cancellable)
+	ctx->cancel_label = create_artificial_label (UNKNOWN_LOCATION);
       lower_omp_sections (gsi_p, ctx);
       break;
     case GIMPLE_OMP_SINGLE:
@@ -8565,6 +8711,56 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			lower_omp_regimplify_p, ctx ? NULL : &wi, NULL))
 	gimple_regimplify_operands (stmt, gsi_p);
       break;
+    case GIMPLE_CALL:
+      tree fndecl;
+      fndecl = gimple_call_fndecl (stmt);
+      if (fndecl
+	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+	switch (DECL_FUNCTION_CODE (fndecl))
+	  {
+	  case BUILT_IN_GOMP_BARRIER:
+	    if (ctx == NULL)
+	      break;
+	    /* FALLTHRU */
+	  case BUILT_IN_GOMP_CANCEL:
+	  case BUILT_IN_GOMP_CANCELLATION_POINT:
+	    omp_context *cctx;
+	    cctx = ctx;
+	    if (gimple_code (cctx->stmt) == GIMPLE_OMP_SECTION)
+	      cctx = cctx->outer;
+	    gcc_assert (gimple_call_lhs (stmt) == NULL_TREE);
+	    if (!cctx->cancellable)
+	      {
+		if (DECL_FUNCTION_CODE (fndecl)
+		    == BUILT_IN_GOMP_CANCELLATION_POINT)
+		  {
+		    stmt = gimple_build_nop ();
+		    gsi_replace (gsi_p, stmt, false);
+		  }
+		break;
+	      }
+	    tree lhs;
+	    lhs = create_tmp_var (boolean_type_node, NULL);
+	    if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_GOMP_BARRIER)
+	      {
+		fndecl = builtin_decl_explicit (BUILT_IN_GOMP_BARRIER_CANCEL);
+		gimple_call_set_fndecl (stmt, fndecl);
+		gimple_call_set_fntype (stmt, TREE_TYPE (fndecl));
+	      }
+	    gimple_call_set_lhs (stmt, lhs);
+	    tree fallthru_label;
+	    fallthru_label = create_artificial_label (UNKNOWN_LOCATION);
+	    gimple g;
+	    g = gimple_build_label (fallthru_label);
+	    gsi_insert_after (gsi_p, g, GSI_SAME_STMT);
+	    g = gimple_build_cond (NE_EXPR, lhs, boolean_false_node,
+				   cctx->cancel_label, fallthru_label);
+	    gsi_insert_after (gsi_p, g, GSI_SAME_STMT);
+	    break;
+	  default:
+	    break;
+	  }
+      /* FALLTHRU */
     default:
       if ((ctx || task_shared_vars)
 	  && walk_gimple_op (stmt, lower_omp_regimplify_p,

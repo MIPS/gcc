@@ -1441,14 +1441,26 @@ dump_gimple_omp_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
     {
-      dump_gimple_fmt (buffer, spc, flags, "%G <nowait=%d>", gs,
+      dump_gimple_fmt (buffer, spc, flags, "%G <nowait=%d", gs,
                        (int) gimple_omp_return_nowait_p (gs));
+      if (gimple_omp_return_lhs (gs))
+	dump_gimple_fmt (buffer, spc, flags, ", lhs=%T>",
+			 gimple_omp_return_lhs (gs));
+      else
+	dump_gimple_fmt (buffer, spc, flags, ">");
     }
   else
     {
       pp_string (buffer, "#pragma omp return");
       if (gimple_omp_return_nowait_p (gs))
 	pp_string (buffer, "(nowait)");
+      if (gimple_omp_return_lhs (gs))
+	{
+	  pp_string (buffer, " (set ");
+	  dump_generic_node (buffer, gimple_omp_return_lhs (gs),
+			     spc, flags, false);
+	  pp_character (buffer, ')');
+	}
     }
 }
 
