@@ -5206,8 +5206,9 @@ extern void finish_enum_value_list		(tree);
 extern void finish_enum				(tree);
 extern void build_enumerator			(tree, tree, tree, location_t);
 extern tree lookup_enumerator			(tree, tree);
-extern void start_preparsed_function		(tree, tree, int);
-extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, tree);
+extern bool start_preparsed_function		(tree, tree, int);
+extern bool start_function			(cp_decl_specifier_seq *,
+						 const cp_declarator *, tree);
 extern tree begin_function_body			(void);
 extern void finish_function_body		(tree);
 extern tree outer_curly_brace_block		(tree);
@@ -5636,6 +5637,7 @@ extern void resume_deferring_access_checks	(void);
 extern void stop_deferring_access_checks	(void);
 extern void pop_deferring_access_checks		(void);
 extern vec<deferred_access_check, va_gc> *get_deferred_access_checks (void);
+extern void reopen_deferring_access_checks (vec<deferred_access_check, va_gc> *);
 extern void pop_to_parent_deferring_access_checks (void);
 extern bool perform_access_checks (vec<deferred_access_check, va_gc> *,
 				   tsubst_flags_t);

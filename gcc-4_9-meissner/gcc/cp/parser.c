@@ -5576,10 +5576,17 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	/* Restore the old message.  */
 	parser->type_definition_forbidden_message = saved_message;
 
+	bool saved_greater_than_is_operator_p
+	  = parser->greater_than_is_operator_p;
+	parser->greater_than_is_operator_p = true;
+
 	/* And the expression which is being cast.  */
 	cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
 	expression = cp_parser_expression (parser, /*cast_p=*/true, & idk);
 	cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+
+	parser->greater_than_is_operator_p
+	  = saved_greater_than_is_operator_p;
 
 	/* Only type conversions to integral or enumeration types
 	   can be used in constant-expressions.  */
@@ -11002,11 +11009,20 @@ cp_parser_simple_declaration (cp_parser* parser,
 
   /* Issue an error message if no declarators are present, and the
      decl-specifier-seq does not itself declare a class or
-     enumeration.  */
+     enumeration: [dcl.dcl]/3.  */
   if (!saw_declarator)
     {
       if (cp_parser_declares_only_class_p (parser))
-	shadow_tag (&decl_specifiers);
+	{
+	  if (!declares_class_or_enum
+	      && decl_specifiers.type
+	      && OVERLOAD_TYPE_P (decl_specifiers.type))
+	    /* Ensure an error is issued anyway when finish_decltype_type,
+	       called via cp_parser_decl_specifier_seq, returns a class or
+	       an enumeration (c++/51786).  */
+	    decl_specifiers.type = NULL_TREE;
+	  shadow_tag (&decl_specifiers);
+	}
       /* Perform any deferred access checks.  */
       perform_deferred_access_checks (tf_warning_or_error);
     }
@@ -16175,6 +16191,7 @@ cp_parser_init_declarator (cp_parser* parser,
   bool friend_p;
   tree pushed_scope = NULL_TREE;
   bool range_for_decl_p = false;
+  bool saved_default_arg_ok_p = parser->default_arg_ok_p;
 
   /* Gather the attributes that were provided with the
      decl-specifiers.  */
@@ -16184,6 +16201,10 @@ cp_parser_init_declarator (cp_parser* parser,
      definition.  */
   if (function_definition_p)
     *function_definition_p = false;
+
+  /* Default arguments are only permitted for function parameters.  */
+  if (decl_spec_seq_has_spec_p (decl_specifiers, ds_typedef))
+    parser->default_arg_ok_p = false;
 
   /* Defer access checks while parsing the declarator; we cannot know
      what names are accessible until we know what is being
@@ -16199,6 +16220,8 @@ cp_parser_init_declarator (cp_parser* parser,
 			    member_p);
   /* Gather up the deferred checks.  */
   stop_deferring_access_checks ();
+
+  parser->default_arg_ok_p = saved_default_arg_ok_p;
 
   /* If the DECLARATOR was erroneous, there's no need to go
      further.  */
