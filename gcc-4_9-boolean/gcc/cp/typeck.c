@@ -3005,6 +3005,22 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
       return error_mark_node;
     }
 
+  /* If an array's index is an array notation, then its rank cannot be
+     greater than one.  */ 
+  if (flag_enable_cilkplus && contains_array_notation_expr (idx))
+    {
+      size_t rank = 0;
+
+      /* If find_rank returns false, then it should have reported an error,
+	 thus it is unnecessary for repetition.  */
+      if (!find_rank (loc, idx, idx, true, &rank))
+	return error_mark_node;
+      if (rank > 1)
+	{
+	  error_at (loc, "rank of the array%'s index is greater than 1");
+	  return error_mark_node;
+	}
+    }
   if (TREE_TYPE (array) == error_mark_node
       || TREE_TYPE (idx) == error_mark_node)
     return error_mark_node;
@@ -3477,8 +3493,8 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
       params = &allocated;
     }
 
-  nargs = convert_arguments (parm_types, params, fndecl, LOOKUP_NORMAL,
-			     complain);
+    nargs = convert_arguments (parm_types, params, fndecl, LOOKUP_NORMAL,
+			       complain);
   if (nargs < 0)
     return error_mark_node;
 
@@ -3640,8 +3656,7 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 	}
       else
 	{
-	  if (fndecl && DECL_BUILT_IN (fndecl)
-	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CONSTANT_P)
+	  if (fndecl && magic_varargs_p (fndecl))
 	    /* Don't do ellipsis conversion for __built_in_constant_p
 	       as this will result in spurious errors for non-trivial
 	       types.  */
@@ -3936,7 +3951,7 @@ cp_build_binary_op (location_t location,
 	}
     }
 
-  type0 = TREE_TYPE (op0);
+  type0 = TREE_TYPE (op0); 
   type1 = TREE_TYPE (op1);
 
   /* The expression codes of the data types of the arguments tell us
@@ -4843,6 +4858,21 @@ cp_build_binary_op (location_t location,
     overflow_warning (location, result);
 
   return result;
+}
+
+/* Build a VEC_PERM_EXPR.
+   This is a simple wrapper for c_build_vec_perm_expr.  */
+tree
+build_x_vec_perm_expr (location_t loc,
+			tree arg0, tree arg1, tree arg2,
+			tsubst_flags_t complain)
+{
+  if (processing_template_decl
+      && (type_dependent_expression_p (arg0)
+	  || type_dependent_expression_p (arg1)
+	  || type_dependent_expression_p (arg2)))
+    return build_min_nt_loc (loc, VEC_PERM_EXPR, arg0, arg1, arg2);
+  return c_build_vec_perm_expr (loc, arg0, arg1, arg2, complain & tf_error);
 }
 
 /* Return a tree for the sum or difference (RESULTCODE says which)
@@ -5911,7 +5941,7 @@ build_x_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2,
 				    orig_ifexp, orig_op1, orig_op2);
       /* In C++11, remember that the result is an lvalue or xvalue.
          In C++98, lvalue_kind can just assume lvalue in a template.  */
-      if (cxx_dialect >= cxx0x
+      if (cxx_dialect >= cxx11
 	  && lvalue_or_rvalue_with_address_p (expr)
 	  && !lvalue_or_rvalue_with_address_p (min))
 	TREE_TYPE (min) = cp_build_reference_type (TREE_TYPE (min),

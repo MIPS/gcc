@@ -45,6 +45,8 @@
 #include "gimple.h"
 #include "optabs.h"
 #include "dwarf2.h"
+#include "cfgloop.h"
+#include "tree-vectorizer.h"
 
 /* Classifies an address.
 
@@ -184,6 +186,26 @@ static const struct cpu_regmove_cost generic_regmove_cost =
   NAMED_PARAM (FP2FP, 4)
 };
 
+/* Generic costs for vector insn classes.  */
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_vector_cost generic_vector_cost =
+{
+  NAMED_PARAM (scalar_stmt_cost, 1),
+  NAMED_PARAM (scalar_load_cost, 1),
+  NAMED_PARAM (scalar_store_cost, 1),
+  NAMED_PARAM (vec_stmt_cost, 1),
+  NAMED_PARAM (vec_to_scalar_cost, 1),
+  NAMED_PARAM (scalar_to_vec_cost, 1),
+  NAMED_PARAM (vec_align_load_cost, 1),
+  NAMED_PARAM (vec_unalign_load_cost, 1),
+  NAMED_PARAM (vec_unalign_store_cost, 1),
+  NAMED_PARAM (vec_store_cost, 1),
+  NAMED_PARAM (cond_taken_branch_cost, 3),
+  NAMED_PARAM (cond_not_taken_branch_cost, 1)
+};
+
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
 __extension__
 #endif
@@ -192,6 +214,7 @@ static const struct tune_params generic_tunings =
   &generic_rtx_cost_table,
   &generic_addrcost_table,
   &generic_regmove_cost,
+  &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4)
 };
 
@@ -789,10 +812,10 @@ aarch64_split_simd_move (rtx dst, rtx src)
 }
 
 static rtx
-aarch64_force_temporary (rtx x, rtx value)
+aarch64_force_temporary (enum machine_mode mode, rtx x, rtx value)
 {
   if (can_create_pseudo_p ())
-    return force_reg (Pmode, value);
+    return force_reg (mode, value);
   else
     {
       x = aarch64_emit_move (x, value);
@@ -804,15 +827,16 @@ aarch64_force_temporary (rtx x, rtx value)
 static rtx
 aarch64_add_offset (enum machine_mode mode, rtx temp, rtx reg, HOST_WIDE_INT offset)
 {
-  if (!aarch64_plus_immediate (GEN_INT (offset), DImode))
+  if (!aarch64_plus_immediate (GEN_INT (offset), mode))
     {
       rtx high;
       /* Load the full offset into a register.  This
          might be improvable in the future.  */
       high = GEN_INT (offset);
       offset = 0;
-      high = aarch64_force_temporary (temp, high);
-      reg = aarch64_force_temporary (temp, gen_rtx_PLUS (Pmode, high, reg));
+      high = aarch64_force_temporary (mode, temp, high);
+      reg = aarch64_force_temporary (mode, temp,
+				     gen_rtx_PLUS (mode, high, reg));
     }
   return plus_constant (mode, reg, offset);
 }
@@ -851,7 +875,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	      && targetm.cannot_force_const_mem (mode, imm))
 	    {
 	      gcc_assert(can_create_pseudo_p ());
-	      base = aarch64_force_temporary (dest, base);
+	      base = aarch64_force_temporary (mode, dest, base);
 	      base = aarch64_add_offset (mode, NULL, base, INTVAL (offset));
 	      aarch64_emit_move (dest, base);
 	      return;
@@ -868,7 +892,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	  if (offset != const0_rtx)
 	    {
 	      gcc_assert(can_create_pseudo_p ());
-	      base = aarch64_force_temporary (dest, base);
+	      base = aarch64_force_temporary (mode, dest, base);
 	      base = aarch64_add_offset (mode, NULL, base, INTVAL (offset));
 	      aarch64_emit_move (dest, base);
 	      return;
@@ -2686,12 +2710,14 @@ static bool
 aarch64_cannot_force_const_mem (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 {
   rtx base, offset;
+
   if (GET_CODE (x) == HIGH)
     return true;
 
   split_const (x, &base, &offset);
   if (GET_CODE (base) == SYMBOL_REF || GET_CODE (base) == LABEL_REF)
-    return (aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR) != SYMBOL_FORCE_TO_MEM);
+    return (aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR)
+	    != SYMBOL_FORCE_TO_MEM);
 
   return aarch64_tls_referenced_p (x);
 }
@@ -3129,10 +3155,13 @@ aarch64_symbolic_address_p (rtx x)
 
 /* Classify the base of symbolic expression X, given that X appears in
    context CONTEXT.  */
-static enum aarch64_symbol_type
-aarch64_classify_symbolic_expression (rtx x, enum aarch64_symbol_context context)
+
+enum aarch64_symbol_type
+aarch64_classify_symbolic_expression (rtx x,
+				      enum aarch64_symbol_context context)
 {
   rtx offset;
+
   split_const (x, &x, &offset);
   return aarch64_classify_symbol (x, context);
 }
@@ -4713,6 +4742,101 @@ aarch64_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
   return aarch64_tune_params->memmov_cost;
 }
 
+/* Vectorizer cost model target hooks.  */
+
+/* Implement targetm.vectorize.builtin_vectorization_cost.  */
+static int
+aarch64_builtin_vectorization_cost (enum vect_cost_for_stmt type_of_cost,
+				    tree vectype,
+				    int misalign ATTRIBUTE_UNUSED)
+{
+  unsigned elements;
+
+  switch (type_of_cost)
+    {
+      case scalar_stmt:
+	return aarch64_tune_params->vec_costs->scalar_stmt_cost;
+
+      case scalar_load:
+	return aarch64_tune_params->vec_costs->scalar_load_cost;
+
+      case scalar_store:
+	return aarch64_tune_params->vec_costs->scalar_store_cost;
+
+      case vector_stmt:
+	return aarch64_tune_params->vec_costs->vec_stmt_cost;
+
+      case vector_load:
+	return aarch64_tune_params->vec_costs->vec_align_load_cost;
+
+      case vector_store:
+	return aarch64_tune_params->vec_costs->vec_store_cost;
+
+      case vec_to_scalar:
+	return aarch64_tune_params->vec_costs->vec_to_scalar_cost;
+
+      case scalar_to_vec:
+	return aarch64_tune_params->vec_costs->scalar_to_vec_cost;
+
+      case unaligned_load:
+	return aarch64_tune_params->vec_costs->vec_unalign_load_cost;
+
+      case unaligned_store:
+	return aarch64_tune_params->vec_costs->vec_unalign_store_cost;
+
+      case cond_branch_taken:
+	return aarch64_tune_params->vec_costs->cond_taken_branch_cost;
+
+      case cond_branch_not_taken:
+	return aarch64_tune_params->vec_costs->cond_not_taken_branch_cost;
+
+      case vec_perm:
+      case vec_promote_demote:
+	return aarch64_tune_params->vec_costs->vec_stmt_cost;
+
+      case vec_construct:
+        elements = TYPE_VECTOR_SUBPARTS (vectype);
+	return elements / 2 + 1;
+
+      default:
+	gcc_unreachable ();
+    }
+}
+
+/* Implement targetm.vectorize.add_stmt_cost.  */
+static unsigned
+aarch64_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
+		       struct _stmt_vec_info *stmt_info, int misalign,
+		       enum vect_cost_model_location where)
+{
+  unsigned *cost = (unsigned *) data;
+  unsigned retval = 0;
+
+  if (flag_vect_cost_model)
+    {
+      tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
+      int stmt_cost =
+	    aarch64_builtin_vectorization_cost (kind, vectype, misalign);
+
+      /* Statements in an inner loop relative to the loop being
+	 vectorized are weighted more heavily.  The value here is
+	 a function (linear for now) of the loop nest level.  */
+      if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
+	{
+	  loop_vec_info loop_info = STMT_VINFO_LOOP_VINFO (stmt_info);
+	  struct loop *loop =  LOOP_VINFO_LOOP (loop_info);
+	  unsigned nest_level = loop_depth (loop);
+
+	  count *= nest_level;
+	}
+
+      retval = (unsigned) (count * stmt_cost);
+      cost[where] += retval;
+    }
+
+  return retval;
+}
+
 static void initialize_aarch64_code_model (void);
 
 /* Parse the architecture extension string.  */
@@ -5131,24 +5255,6 @@ aarch64_classify_symbol (rtx x,
 
   /* By default push everything into the constant pool.  */
   return SYMBOL_FORCE_TO_MEM;
-}
-
-/* Return true if X is a symbolic constant that can be used in context
-   CONTEXT.  If it is, store the type of the symbol in *SYMBOL_TYPE.  */
-
-bool
-aarch64_symbolic_constant_p (rtx x, enum aarch64_symbol_context context,
-			     enum aarch64_symbol_type *symbol_type)
-{
-  rtx offset;
-  split_const (x, &x, &offset);
-  if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
-    *symbol_type = aarch64_classify_symbol (x, context);
-  else
-    return false;
-
-  /* No checking of offset at this point.  */
-  return true;
 }
 
 bool
@@ -8091,6 +8197,13 @@ aarch64_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 
 #undef TARGET_ARRAY_MODE_SUPPORTED_P
 #define TARGET_ARRAY_MODE_SUPPORTED_P aarch64_array_mode_supported_p
+
+#undef TARGET_VECTORIZE_ADD_STMT_COST
+#define TARGET_VECTORIZE_ADD_STMT_COST aarch64_add_stmt_cost
+
+#undef TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZATION_COST \
+  aarch64_builtin_vectorization_cost
 
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE aarch64_preferred_simd_mode

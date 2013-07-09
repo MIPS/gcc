@@ -75,45 +75,42 @@ extract_sec_implicit_index_arg (location_t location, tree fn)
   return return_int;
 }
 
-/* Returns true if there is length mismatch among expressions
-   on the same dimension and on the same side of the equal sign.  The
-   expressions (or ARRAY_NOTATION lengths) are passed in through 2-D array
-   **LIST where X and Y indicate first and second dimension sizes of LIST,
-   respectively.  */
+/* Returns true if there is a length mismatch among exprssions that are at the
+   same dimension and one the same side of the equal sign.  The Array notation
+   lengths (LIST->LENGTH) is passed in as a 2D vector of trees.  */
 
 bool
-length_mismatch_in_expr_p (location_t loc, tree **list, size_t x, size_t y)
+length_mismatch_in_expr_p (location_t loc, vec<vec<an_parts> >list)
 {
   size_t ii, jj;
-  tree start = NULL_TREE;
-  HOST_WIDE_INT l_start, l_node;
+  tree length = NULL_TREE;
+  
+  size_t x = list.length ();
+  size_t y = list[0].length ();
+  
   for (jj = 0; jj < y; jj++)
     {
-      start = NULL_TREE;
+      length = NULL_TREE;
       for (ii = 0; ii < x; ii++)
 	{
-	  if (!start)
-	    start = list[ii][jj];
-	  else if (TREE_CODE (start) == INTEGER_CST)
+	  if (!length)
+	    length = list[ii][jj].length;
+	  else if (TREE_CODE (length) == INTEGER_CST)
 	    {
-	      /* If start is a INTEGER, and list[ii][jj] is an integer then
+	      /* If length is a INTEGER, and list[ii][jj] is an integer then
 		 check if they are equal.  If they are not equal then return
 		 true.  */
-	      if (TREE_CODE (list[ii][jj]) == INTEGER_CST)
-		{
-		  l_node = int_cst_value (list[ii][jj]);
-		  l_start = int_cst_value (start);
-		  if (absu_hwi (l_start) != absu_hwi (l_node))
-		    {
-		      error_at (loc, "length mismatch in expression");
-		      return true;
-		    }
+	      if (TREE_CODE (list[ii][jj].length) == INTEGER_CST
+		  && !tree_int_cst_equal (list[ii][jj].length, length))
+		{ 
+		  error_at (loc, "length mismatch in expression"); 
+		  return true;
 		}
 	    }
 	  else
-	    /* We set the start node as the current node just in case it turns
+	    /* We set the length node as the current node just in case it turns
 	       out to be an integer.  */
-	    start = list[ii][jj];
+	    length = list[ii][jj].length;
 	}
     }
   return false;
@@ -269,6 +266,8 @@ find_rank (location_t loc, tree orig_expr, tree expr, bool ignore_builtin_fn,
 		/* If it is a built-in function, then we know it returns a 
 		   scalar.  */
 		return true;
+	  if (!find_rank (loc, orig_expr, func_name, ignore_builtin_fn, rank))
+	    return false;
 	  FOR_EACH_CALL_EXPR_ARG (arg, iter, expr)
 	    {
 	      if (!find_rank (loc, orig_expr, arg, ignore_builtin_fn, rank))
@@ -356,6 +355,9 @@ extract_array_notation_exprs (tree node, bool ignore_builtin_fn,
 	  vec_safe_push (*array_list, node);
 	  return;
 	}
+      /* This will extract array notations in function pointers.  */
+      extract_array_notation_exprs (CALL_EXPR_FN (node), ignore_builtin_fn,
+				    array_list);
       FOR_EACH_CALL_EXPR_ARG (arg, iter, node)
 	extract_array_notation_exprs (arg, ignore_builtin_fn, array_list);
     } 
@@ -431,6 +433,9 @@ replace_array_notations (tree *orig, bool ignore_builtin_fn,
 	      }
 	  return;
 	}
+      /* Fixes array notations in array notations in function pointers.  */
+      replace_array_notations (&CALL_EXPR_FN (*orig), ignore_builtin_fn, list,
+			       array_operand);
       ii = 0;
       FOR_EACH_CALL_EXPR_ARG (arg, iter, *orig)
 	{
@@ -559,4 +564,96 @@ find_correct_array_notation_type (tree op)
 	  }
     } 
   return return_type;
+}
+
+/* Extracts all the array notation triplet information from LIST and stores
+   them in the following fields of the 2-D array NODE(size x rank):
+   START, LENGTH and STRIDE, holding the starting index, length, and stride,
+   respectively.  In addition, it also sets two bool fields, IS_VECTOR and
+   COUNT_DOWN, in NODE indicating whether a certain value at a certain field
+   is a vector and if the array is accessed from high to low.  */
+
+void
+cilkplus_extract_an_triplets (vec<tree, va_gc> *list, size_t size, size_t rank,
+			      vec<vec<struct cilkplus_an_parts> > *node)
+{
+  vec<vec<tree> > array_exprs = vNULL;
+
+  node->safe_grow_cleared (size);
+  array_exprs.safe_grow_cleared (size);
+
+  if (rank > 0)
+    for (size_t ii = 0; ii < size; ii++)
+      {
+	(*node)[ii].safe_grow_cleared (rank);
+	array_exprs[ii].safe_grow_cleared (rank);
+      }
+  for (size_t ii = 0; ii < size; ii++)
+    {
+      size_t jj = 0;
+      tree ii_tree = (*list)[ii];
+      while (ii_tree)
+	{
+	  if (TREE_CODE (ii_tree) == ARRAY_NOTATION_REF)
+	    {
+	      array_exprs[ii][jj] = ii_tree;
+	      jj++;
+	      ii_tree = ARRAY_NOTATION_ARRAY (ii_tree);
+	    }
+	  else if (TREE_CODE (ii_tree) == ARRAY_REF)
+	    ii_tree = TREE_OPERAND (ii_tree, 0);
+	  else
+	    break;
+	}
+    }
+    for (size_t ii = 0; ii < size; ii++)
+      if (TREE_CODE ((*list)[ii]) == ARRAY_NOTATION_REF)
+	for (size_t jj = 0; jj < rank; jj++)
+	  {
+	    tree ii_tree = array_exprs[ii][jj];
+	    (*node)[ii][jj].is_vector = true;
+	    (*node)[ii][jj].value = ARRAY_NOTATION_ARRAY (ii_tree);
+	    (*node)[ii][jj].start = ARRAY_NOTATION_START (ii_tree);
+	    (*node)[ii][jj].length =
+	      fold_build1 (CONVERT_EXPR, integer_type_node,
+			   ARRAY_NOTATION_LENGTH (ii_tree));
+	    (*node)[ii][jj].stride =
+	      fold_build1 (CONVERT_EXPR, integer_type_node,
+			   ARRAY_NOTATION_STRIDE (ii_tree));
+	  }
+}
+
+/* Replaces all the __sec_implicit_arg functions in LIST with the induction
+   variable stored in VAR at the appropriate location pointed by the
+   __sec_implicit_arg's first parameter.  Emits an error if the parameter is
+   not between 0 and RANK.  */
+
+vec <tree, va_gc> *
+fix_sec_implicit_args (location_t loc, vec <tree, va_gc> *list,
+		       vec<an_loop_parts> an_loop_info, size_t rank,
+		       tree orig_stmt)
+{
+  vec <tree, va_gc> *array_operand = NULL;
+  for (size_t ii = 0; ii < vec_safe_length (list); ii++)
+    if (TREE_CODE ((*list)[ii]) == CALL_EXPR
+	&& is_sec_implicit_index_fn (CALL_EXPR_FN ((*list)[ii])))
+      {
+	int idx = extract_sec_implicit_index_arg (loc, (*list)[ii]);
+	if (idx < 0)
+	  /* In this case, the returning function would have emitted an
+	     error thus it is not necessary to do so again.  */
+	  return NULL;
+	else if (idx < (int) rank)
+	  vec_safe_push (array_operand, an_loop_info[idx].var);
+	else
+	  {
+	    error_at (loc, "__sec_implicit_index argument %d must be "
+		      "less than the rank of %qE", idx, orig_stmt);
+	    return NULL;
+	  }
+      }
+    else
+      /* Save the existing value into the array operand.  */
+      vec_safe_push (array_operand, (*list)[ii]);
+  return array_operand;
 }

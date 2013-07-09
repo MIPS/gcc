@@ -1228,7 +1228,7 @@ simplify_operand_subreg (int nop, enum machine_mode reg_mode)
       if (get_reload_reg (curr_static_id->operand[nop].type, reg_mode, reg,
 			  rclass, "subreg reg", &new_reg))
 	{
-	  bitmap_set_bit (&lra_optional_reload_pseudos, REGNO (new_reg));
+	  bitmap_set_bit (&lra_subreg_reload_pseudos, REGNO (new_reg));
 	  if (type != OP_OUT
 	      || GET_MODE_SIZE (GET_MODE (reg)) > GET_MODE_SIZE (mode))
 	    {
@@ -3183,6 +3183,8 @@ curr_insn_transform (void)
 
   for (i = 0; i < n_operands; i++)
     {
+      int regno;
+      bool optional_p = false;
       rtx old, new_reg;
       rtx op = *curr_id->operand_loc[i];
 
@@ -3205,7 +3207,22 @@ curr_insn_transform (void)
 		   current one.  */
 		reg_renumber[regno] = -1;
 	    }
-	  continue;
+	  /* We can do an optional reload.  If the pseudo got a hard
+	     reg, we might improve the code through inheritance.  If
+	     it does not get a hard register we coalesce memory/memory
+	     moves later.  Ignore move insns to avoid cycling.  */
+	  if (! lra_simple_p
+	      && lra_undo_inheritance_iter < LRA_MAX_INHERITANCE_PASSES
+	      && goal_alt[i] != NO_REGS && REG_P (op)
+	      && (regno = REGNO (op)) >= FIRST_PSEUDO_REGISTER
+	      && reg_renumber[regno] < 0
+	      && (curr_insn_set == NULL_RTX
+		  || !(REG_P (SET_SRC (curr_insn_set))
+		       || MEM_P (SET_SRC (curr_insn_set))
+		       || GET_CODE (SET_SRC (curr_insn_set)) == SUBREG)))
+	    optional_p = true;
+	  else
+	    continue;
 	}
 
       /* Operands that match previous ones have already been handled.  */
@@ -3328,6 +3345,21 @@ curr_insn_transform (void)
 	/* We must generate code in any case when function
 	   process_alt_operands decides that it is possible.  */
 	gcc_unreachable ();
+      if (optional_p)
+	{
+	  lra_assert (REG_P (op));
+	  regno = REGNO (op);
+	  op = *curr_id->operand_loc[i]; /* Substitution.  */
+	  if (GET_CODE (op) == SUBREG)
+	    op = SUBREG_REG (op);
+	  gcc_assert (REG_P (op) && (int) REGNO (op) >= new_regno_start);
+	  bitmap_set_bit (&lra_optional_reload_pseudos, REGNO (op));
+	  lra_reg_info[REGNO (op)].restore_regno = regno;
+	  if (lra_dump_file != NULL)
+	    fprintf (lra_dump_file,
+		     "      Making reload reg %d for reg %d optional\n",
+		     REGNO (op), regno);
+	}
     }
   if (before != NULL_RTX || after != NULL_RTX
       || max_regno_before != max_reg_num ())
@@ -4201,6 +4233,15 @@ need_for_split_p (HARD_REG_SET potential_reload_hard_regs, int regno)
 	   && (regno >= FIRST_PSEUDO_REGISTER
 	       || ! TEST_HARD_REG_BIT (eliminable_regset, hard_regno))
 	   && ! TEST_HARD_REG_BIT (lra_no_alloc_regs, hard_regno)
+	   /* Don't split call clobbered hard regs living through
+	      calls, otherwise we might have a check problem in the
+	      assign sub-pass as in the most cases (exception is a
+	      situation when lra_risky_transformations_p value is
+	      true) the assign pass assumes that all pseudos living
+	      through calls are assigned to call saved hard regs.  */
+	   && (regno >= FIRST_PSEUDO_REGISTER
+	       || ! TEST_HARD_REG_BIT (call_used_reg_set, regno)
+	       || usage_insns[regno].calls_num == calls_num)
 	   /* We need at least 2 reloads to make pseudo splitting
 	      profitable.  We should provide hard regno splitting in
 	      any case to solve 1st insn scheduling problem when
@@ -4762,76 +4803,81 @@ inherit_in_ebb (rtx head, rtx tail)
 	}
       else if (INSN_P (curr_insn))
 	{
+	  int iter;
 	  int max_uid = get_max_uid ();
 
 	  curr_id = lra_get_insn_recog_data (curr_insn);
+	  curr_static_id = curr_id->insn_static_data;
 	  to_inherit_num = 0;
 	  /* Process insn definitions.	*/
-	  for (reg = curr_id->regs; reg != NULL; reg = reg->next)
-	    if (reg->type != OP_IN
-		&& (dst_regno = reg->regno) < lra_constraint_new_regno_start)
-	      {
-		if (dst_regno >= FIRST_PSEUDO_REGISTER && reg->type == OP_OUT
-		    && reg_renumber[dst_regno] < 0 && ! reg->subreg_p
-		    && usage_insns[dst_regno].check == curr_usage_insns_check
-		    && (next_usage_insns
-			= usage_insns[dst_regno].insns) != NULL_RTX)
-		  {
-		    struct lra_insn_reg *r;
+	  for (iter = 0; iter < 2; iter++)
+	    for (reg = iter == 0 ? curr_id->regs : curr_static_id->hard_regs;
+		 reg != NULL;
+		 reg = reg->next)
+	      if (reg->type != OP_IN
+		  && (dst_regno = reg->regno) < lra_constraint_new_regno_start)
+		{
+		  if (dst_regno >= FIRST_PSEUDO_REGISTER && reg->type == OP_OUT
+		      && reg_renumber[dst_regno] < 0 && ! reg->subreg_p
+		      && usage_insns[dst_regno].check == curr_usage_insns_check
+		      && (next_usage_insns
+			  = usage_insns[dst_regno].insns) != NULL_RTX)
+		    {
+		      struct lra_insn_reg *r;
 
-		    for (r = curr_id->regs; r != NULL; r = r->next)
-		      if (r->type != OP_OUT && r->regno == dst_regno)
-			break;
-		    /* Don't do inheritance if the pseudo is also
-		       used in the insn.  */
-		    if (r == NULL)
-		      /* We can not do inheritance right now
-			 because the current insn reg info (chain
-			 regs) can change after that.  */
-		      add_to_inherit (dst_regno, next_usage_insns);
-		  }
-		/* We can not process one reg twice here because of
-		   usage_insns invalidation.  */
-		if ((dst_regno < FIRST_PSEUDO_REGISTER
-		     || reg_renumber[dst_regno] >= 0)
-		    && ! reg->subreg_p && reg->type == OP_OUT)
-		  {
-		    HARD_REG_SET s;
+		      for (r = curr_id->regs; r != NULL; r = r->next)
+			if (r->type != OP_OUT && r->regno == dst_regno)
+			  break;
+		      /* Don't do inheritance if the pseudo is also
+			 used in the insn.  */
+		      if (r == NULL)
+			/* We can not do inheritance right now
+			   because the current insn reg info (chain
+			   regs) can change after that.  */
+			add_to_inherit (dst_regno, next_usage_insns);
+		    }
+		  /* We can not process one reg twice here because of
+		     usage_insns invalidation.  */
+		  if ((dst_regno < FIRST_PSEUDO_REGISTER
+		       || reg_renumber[dst_regno] >= 0)
+		      && ! reg->subreg_p && reg->type != OP_IN)
+		    {
+		      HARD_REG_SET s;
 
-		    if (split_if_necessary (dst_regno, reg->biggest_mode,
-					    potential_reload_hard_regs,
-					    false, curr_insn, max_uid))
-		      change_p = true;
-		    CLEAR_HARD_REG_SET (s);
-		    if (dst_regno < FIRST_PSEUDO_REGISTER)
-		      add_to_hard_reg_set (&s, reg->biggest_mode, dst_regno);
-		    else
-		      add_to_hard_reg_set (&s, PSEUDO_REGNO_MODE (dst_regno),
-					   reg_renumber[dst_regno]);
-		    AND_COMPL_HARD_REG_SET (live_hard_regs, s);
-		  }
-		/* We should invalidate potential inheritance or
-		   splitting for the current insn usages to the next
-		   usage insns (see code below) as the output pseudo
-		   prevents this.  */
-		if ((dst_regno >= FIRST_PSEUDO_REGISTER
-		     && reg_renumber[dst_regno] < 0)
-		    || (reg->type == OP_OUT && ! reg->subreg_p
-			&& (dst_regno < FIRST_PSEUDO_REGISTER
-			    || reg_renumber[dst_regno] >= 0)))
-		  {
-		    /* Invalidate and mark definitions.  */
-		    if (dst_regno >= FIRST_PSEUDO_REGISTER)
-		      usage_insns[dst_regno].check = -(int) INSN_UID (curr_insn);
-		    else
-		      {
-			nregs = hard_regno_nregs[dst_regno][reg->biggest_mode];
-			for (i = 0; i < nregs; i++)
-			  usage_insns[dst_regno + i].check
-			    = -(int) INSN_UID (curr_insn);
-		      }
-		  }
-	      }
+		      if (split_if_necessary (dst_regno, reg->biggest_mode,
+					      potential_reload_hard_regs,
+					      false, curr_insn, max_uid))
+			change_p = true;
+		      CLEAR_HARD_REG_SET (s);
+		      if (dst_regno < FIRST_PSEUDO_REGISTER)
+			add_to_hard_reg_set (&s, reg->biggest_mode, dst_regno);
+		      else
+			add_to_hard_reg_set (&s, PSEUDO_REGNO_MODE (dst_regno),
+					     reg_renumber[dst_regno]);
+		      AND_COMPL_HARD_REG_SET (live_hard_regs, s);
+		    }
+		  /* We should invalidate potential inheritance or
+		     splitting for the current insn usages to the next
+		     usage insns (see code below) as the output pseudo
+		     prevents this.  */
+		  if ((dst_regno >= FIRST_PSEUDO_REGISTER
+		       && reg_renumber[dst_regno] < 0)
+		      || (reg->type == OP_OUT && ! reg->subreg_p
+			  && (dst_regno < FIRST_PSEUDO_REGISTER
+			      || reg_renumber[dst_regno] >= 0)))
+		    {
+		      /* Invalidate and mark definitions.  */
+		      if (dst_regno >= FIRST_PSEUDO_REGISTER)
+			usage_insns[dst_regno].check = -(int) INSN_UID (curr_insn);
+		      else
+			{
+			  nregs = hard_regno_nregs[dst_regno][reg->biggest_mode];
+			  for (i = 0; i < nregs; i++)
+			    usage_insns[dst_regno + i].check
+			      = -(int) INSN_UID (curr_insn);
+			}
+		    }
+		}
 	  if (! JUMP_P (curr_insn))
 	    for (i = 0; i < to_inherit_num; i++)
 	      if (inherit_reload_reg (true, to_inherit[i].regno,
@@ -4876,59 +4922,62 @@ inherit_in_ebb (rtx head, rtx tail)
 	    }
 	  to_inherit_num = 0;
 	  /* Process insn usages.  */
-	  for (reg = curr_id->regs; reg != NULL; reg = reg->next)
-	    if ((reg->type != OP_OUT
-		 || (reg->type == OP_OUT && reg->subreg_p))
-		&& (src_regno = reg->regno) < lra_constraint_new_regno_start)
-	      {
-		if (src_regno >= FIRST_PSEUDO_REGISTER
-		    && reg_renumber[src_regno] < 0 && reg->type == OP_IN)
-		  {
-		    if (usage_insns[src_regno].check == curr_usage_insns_check
-			&& (next_usage_insns
-			    = usage_insns[src_regno].insns) != NULL_RTX
-			&& NONDEBUG_INSN_P (curr_insn))
-		      add_to_inherit (src_regno, next_usage_insns);
-		    else if (usage_insns[src_regno].check
-			     != -(int) INSN_UID (curr_insn))
-                      /* Add usages but only if the reg is not set up
-                         in the same insn.  */
-		      add_next_usage_insn (src_regno, curr_insn, reloads_num);
-		  }
-		else if (src_regno < FIRST_PSEUDO_REGISTER
-			 || reg_renumber[src_regno] >= 0)
-		  {
-		    bool before_p;
-		    rtx use_insn = curr_insn;
+	  for (iter = 0; iter < 2; iter++)
+	    for (reg = iter == 0 ? curr_id->regs : curr_static_id->hard_regs;
+		 reg != NULL;
+		 reg = reg->next)
+	      if ((reg->type != OP_OUT
+		   || (reg->type == OP_OUT && reg->subreg_p))
+		  && (src_regno = reg->regno) < lra_constraint_new_regno_start)
+		{
+		  if (src_regno >= FIRST_PSEUDO_REGISTER
+		      && reg_renumber[src_regno] < 0 && reg->type == OP_IN)
+		    {
+		      if (usage_insns[src_regno].check == curr_usage_insns_check
+			  && (next_usage_insns
+			      = usage_insns[src_regno].insns) != NULL_RTX
+			  && NONDEBUG_INSN_P (curr_insn))
+			add_to_inherit (src_regno, next_usage_insns);
+		      else if (usage_insns[src_regno].check
+			       != -(int) INSN_UID (curr_insn))
+			/* Add usages but only if the reg is not set up
+			   in the same insn.  */
+			add_next_usage_insn (src_regno, curr_insn, reloads_num);
+		    }
+		  else if (src_regno < FIRST_PSEUDO_REGISTER
+			   || reg_renumber[src_regno] >= 0)
+		    {
+		      bool before_p;
+		      rtx use_insn = curr_insn;
 
-		    before_p = (JUMP_P (curr_insn)
-				|| (CALL_P (curr_insn) && reg->type == OP_IN));
-		    if (NONDEBUG_INSN_P (curr_insn)
-			&& split_if_necessary (src_regno, reg->biggest_mode,
-					       potential_reload_hard_regs,
-					       before_p, curr_insn, max_uid))
-		      {
-			if (reg->subreg_p)
-			  lra_risky_transformations_p = true;
-			change_p = true;
-			/* Invalidate.	*/
-			usage_insns[src_regno].check = 0;
-			if (before_p)
-			  use_insn = PREV_INSN (curr_insn);
-		      }
-		    if (NONDEBUG_INSN_P (curr_insn))
-		      {
-			if (src_regno < FIRST_PSEUDO_REGISTER)
-			  add_to_hard_reg_set (&live_hard_regs,
-					       reg->biggest_mode, src_regno);
-			else
-			  add_to_hard_reg_set (&live_hard_regs,
-					       PSEUDO_REGNO_MODE (src_regno),
-					       reg_renumber[src_regno]);
-		      }
-		    add_next_usage_insn (src_regno, use_insn, reloads_num);
-		  }
-	      }
+		      before_p = (JUMP_P (curr_insn)
+				  || (CALL_P (curr_insn) && reg->type == OP_IN));
+		      if (NONDEBUG_INSN_P (curr_insn)
+			  && split_if_necessary (src_regno, reg->biggest_mode,
+						 potential_reload_hard_regs,
+						 before_p, curr_insn, max_uid))
+			{
+			  if (reg->subreg_p)
+			    lra_risky_transformations_p = true;
+			  change_p = true;
+			  /* Invalidate.	*/
+			  usage_insns[src_regno].check = 0;
+			  if (before_p)
+			    use_insn = PREV_INSN (curr_insn);
+			}
+		      if (NONDEBUG_INSN_P (curr_insn))
+			{
+			  if (src_regno < FIRST_PSEUDO_REGISTER)
+			    add_to_hard_reg_set (&live_hard_regs,
+						 reg->biggest_mode, src_regno);
+			  else
+			    add_to_hard_reg_set (&live_hard_regs,
+						 PSEUDO_REGNO_MODE (src_regno),
+						 reg_renumber[src_regno]);
+			}
+		      add_next_usage_insn (src_regno, use_insn, reloads_num);
+		    }
+		}
 	  for (i = 0; i < to_inherit_num; i++)
 	    {
 	      src_regno = to_inherit[i].regno;
@@ -5256,6 +5305,100 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
   return change_p;
 }
 
+/* If optional reload pseudos failed to get a hard register or was not
+   inherited, it is better to remove optional reloads.  We do this
+   transformation after undoing inheritance to figure out necessity to
+   remove optional reloads easier.  Return true if we do any
+   change.  */
+static bool
+undo_optional_reloads (void)
+{
+  bool change_p;
+  unsigned int regno, uid;
+  bitmap_iterator bi, bi2;
+  rtx insn, set, src, dest;
+  bitmap_head removed_optional_reload_pseudos, insn_bitmap;
+
+  bitmap_initialize (&removed_optional_reload_pseudos, &reg_obstack);
+  bitmap_copy (&removed_optional_reload_pseudos, &lra_optional_reload_pseudos);
+  EXECUTE_IF_SET_IN_BITMAP (&lra_optional_reload_pseudos, 0, regno, bi)
+    if (reg_renumber[regno] >= 0)
+      EXECUTE_IF_SET_IN_BITMAP (&lra_reg_info[regno].insn_bitmap, 0, uid, bi2)
+	{
+	  insn = lra_insn_recog_data[uid]->insn;
+	  if ((set = single_set (insn)) == NULL_RTX)
+	    continue;
+	  src = SET_SRC (set);
+	  dest = SET_DEST (set);
+	  if (! REG_P (src) || ! REG_P (dest))
+	    continue;
+	  if ((REGNO (src) == regno
+	       && lra_reg_info[regno].restore_regno != (int) REGNO (dest))
+	      || (REGNO (dest) == regno
+		  && lra_reg_info[regno].restore_regno != (int) REGNO (src)))
+	    {
+	      /* Optional reload was inherited.  Keep it.  */
+	      bitmap_clear_bit (&removed_optional_reload_pseudos, regno);
+	      if (lra_dump_file != NULL)
+		fprintf (lra_dump_file, "Keep optional reload reg %d\n", regno);
+	    }
+	}
+  change_p = ! bitmap_empty_p (&removed_optional_reload_pseudos);
+  bitmap_initialize (&insn_bitmap, &reg_obstack);
+  EXECUTE_IF_SET_IN_BITMAP (&removed_optional_reload_pseudos, 0, regno, bi)
+    {
+      if (lra_dump_file != NULL)
+	fprintf (lra_dump_file, "Remove optional reload reg %d\n", regno);
+      bitmap_copy (&insn_bitmap, &lra_reg_info[regno].insn_bitmap);
+      EXECUTE_IF_SET_IN_BITMAP (&insn_bitmap, 0, uid, bi2)
+	{
+	  insn = lra_insn_recog_data[uid]->insn;
+	  if ((set = single_set (insn)) != NULL_RTX)
+	    {
+	      src = SET_SRC (set);
+	      dest = SET_DEST (set);
+	      if (REG_P (src) && REG_P (dest)
+		  && ((REGNO (src) == regno
+		       && (lra_reg_info[regno].restore_regno
+			   == (int) REGNO (dest)))
+		      || (REGNO (dest) == regno
+			  && (lra_reg_info[regno].restore_regno
+			      == (int) REGNO (src)))))
+		{
+		  if (lra_dump_file != NULL)
+		    {
+		      fprintf (lra_dump_file, "  Deleting move %u\n",
+			       INSN_UID (insn));
+		      dump_insn_slim (lra_dump_file, insn);
+		    }
+		  lra_set_insn_deleted (insn);
+		  continue;
+		}
+	      /* We should not worry about generation memory-memory
+		 moves here as if the corresponding inheritance did
+		 not work (inheritance pseudo did not get a hard reg),
+		 we remove the inheritance pseudo and the optional
+		 reload.  */
+	    }
+	  substitute_pseudo (&insn, regno,
+			     regno_reg_rtx[lra_reg_info[regno].restore_regno]);
+	  lra_update_insn_regno_info (insn);
+	  if (lra_dump_file != NULL)
+	    {
+	      fprintf (lra_dump_file,
+		       "  Restoring original insn:\n");
+	      dump_insn_slim (lra_dump_file, insn);
+	    }
+	}
+    }
+  /* Clear restore_regnos.  */
+  EXECUTE_IF_SET_IN_BITMAP (&lra_optional_reload_pseudos, 0, regno, bi)
+    lra_reg_info[regno].restore_regno = -1;
+  bitmap_clear (&insn_bitmap);
+  bitmap_clear (&removed_optional_reload_pseudos);
+  return change_p;
+}
+
 /* Entry function for undoing inheritance/split transformation.	 Return true
    if we did any RTL change in this pass.  */
 bool
@@ -5318,5 +5461,6 @@ lra_undo_inheritance (void)
     lra_reg_info[regno].restore_regno = -1;
   EXECUTE_IF_SET_IN_BITMAP (&lra_split_regs, 0, regno, bi)
     lra_reg_info[regno].restore_regno = -1;
+  change_p = undo_optional_reloads () || change_p;
   return change_p;
 }

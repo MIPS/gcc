@@ -216,7 +216,6 @@ static void add_candidates (tree, tree, const vec<tree, va_gc> *, tree, tree,
 			    bool, tree, tree, int, struct z_candidate **,
 			    tsubst_flags_t);
 static conversion *merge_conversion_sequences (conversion *, conversion *);
-static bool magic_varargs_p (tree);
 static tree build_temp (tree, tree, int, diagnostic_t *, tsubst_flags_t);
 
 /* Returns nonzero iff the destructor name specified in NAME matches BASETYPE.
@@ -554,7 +553,7 @@ null_ptr_cst_p (tree t)
   if (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)))
     {
       /* Core issue 903 says only literal 0 is a null pointer constant.  */
-      if (cxx_dialect < cxx0x)
+      if (cxx_dialect < cxx11)
 	t = maybe_constant_value (fold_non_dependent_expr_sfinae (t, tf_none));
       STRIP_NOPS (t);
       if (integer_zerop (t) && !TREE_OVERFLOW (t))
@@ -4642,10 +4641,11 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 
   /* [expr.cond]
 
-     If the second and third operands are lvalues and have the same
-     type, the result is of that type and is an lvalue.  */
-  if (real_lvalue_p (arg2)
-      && real_lvalue_p (arg3)
+     If the second and third operands are glvalues of the same value
+     category and have the same type, the result is of that type and
+     value category.  */
+  if (((real_lvalue_p (arg2) && real_lvalue_p (arg3))
+       || (xvalue_p (arg2) && xvalue_p (arg3)))
       && same_type_p (arg2_type, arg3_type))
     {
       result_type = arg2_type;
@@ -5857,10 +5857,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else if (t->kind == ck_identity)
 	    break;
 	}
-
-      if (permerror (loc, "invalid conversion from %qT to %qT",
-		     TREE_TYPE (expr), totype)
-	  && fn)
+       if (permerror (loc, "invalid conversion from %qT to %qT",
+                    TREE_TYPE (expr), totype)
+	   && fn)
 	inform (DECL_SOURCE_LOCATION (fn),
 		"initializing argument %P of %qD", argnum, fn);
 
@@ -6509,9 +6508,12 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
    which no conversions at all should be done.  This is true for some
    builtins which don't act like normal functions.  */
 
-static bool
+bool
 magic_varargs_p (tree fn)
 {
+  if (flag_enable_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
+    return true;
+
   if (DECL_BUILT_IN (fn))
     switch (DECL_FUNCTION_CODE (fn))
       {
@@ -6889,13 +6891,13 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 		       "  (you can disable this with -fno-deduce-init-list)");
 	    }
 	}
-
-      val = convert_like_with_context (conv, arg, fn, i-is_method,
-	                               conversion_warning
+      val = convert_like_with_context (conv, arg, fn, i - is_method,
+				       conversion_warning
 				       ? complain
 				       : complain & (~tf_warning));
 
       val = convert_for_arg_passing (type, val, complain);
+	
       if (val == error_mark_node)
         return error_mark_node;
       else
