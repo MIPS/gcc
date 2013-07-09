@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f5[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h231451642; // forward declaration fromline 6499
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h231451642 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h204776841; // forward declaration fromline 6501
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h204776841 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -884,7 +884,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h231451642 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h204776841 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -979,14 +979,14 @@ meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(meltclosure_ptr_t meltclosp_, melt_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT */
+    /* start of frame for routine meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT fromline 1716 */
 
-    /** start of frame for meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT**/
+    /** start of frame for meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT// fromline 1531
         : public Melt_CallFrameWithValues<30>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[8];
         /*classy others*/
         long _meltsparel;
@@ -998,39 +998,39 @@ meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(meltclosure_ptr_t meltclosp_, melt_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<30> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT), clos) {};
-        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT() //the constructor fromline 1604
+        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT() //the constructor fromline 1606
             : Melt_CallFrameWithValues<30> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<30> (fil,lin, sizeof(MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT)) {};
-        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<30> (fil,lin, sizeof(MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT
 
 
-    /** end of frame for meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT**/
+    /** end of frame for meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT fromline 1661**/
 
-    /* end of frame for routine meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT */
+    /* end of frame for routine meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT fromline 1720 */
 
     /* classy proc frame meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT */ MeltFrame_meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_119_WARMELTmiNORMAL_NORMEXP_COMMENT fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -1817,14 +1817,14 @@ meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(meltclosure_ptr_t meltclosp_, melt_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD */
+    /* start of frame for routine meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD fromline 1716 */
 
-    /** start of frame for meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD**/
+    /** start of frame for meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD// fromline 1531
         : public Melt_CallFrameWithValues<44>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[19];
         /*classy others*/
         long _meltsparel;
@@ -1836,39 +1836,39 @@ meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(meltclosure_ptr_t meltclosp_, melt_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<44> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD), clos) {};
-        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD() //the constructor fromline 1604
+        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD() //the constructor fromline 1606
             : Melt_CallFrameWithValues<44> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<44> (fil,lin, sizeof(MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD)) {};
-        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<44> (fil,lin, sizeof(MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD
 
 
-    /** end of frame for meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD**/
+    /** end of frame for meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD fromline 1661**/
 
-    /* end of frame for routine meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD */
+    /* end of frame for routine meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD fromline 1720 */
 
     /* classy proc frame meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD */ MeltFrame_meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_120_WARMELTmiNORMAL_NORMEXP_KEYWORD fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -3325,14 +3325,14 @@ meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(meltclosure_ptr_t meltclosp_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND */
+    /* start of frame for routine meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND fromline 1716 */
 
-    /** start of frame for meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND**/
+    /** start of frame for meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND// fromline 1531
         : public Melt_CallFrameWithValues<24>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
@@ -3344,39 +3344,39 @@ meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(meltclosure_ptr_t meltclosp_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<24> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND), clos) {};
-        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND() //the constructor fromline 1604
+        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND() //the constructor fromline 1606
             : Melt_CallFrameWithValues<24> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<24> (fil,lin, sizeof(MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND)) {};
-        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<24> (fil,lin, sizeof(MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND
 
 
-    /** end of frame for meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND**/
+    /** end of frame for meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND fromline 1661**/
 
-    /* end of frame for routine meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND */
+    /* end of frame for routine meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND fromline 1720 */
 
     /* classy proc frame meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND */ MeltFrame_meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_121_WARMELTmiNORMAL_FILL_NORMAL_FORMALBIND fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -3833,14 +3833,14 @@ meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(meltclosure_ptr_t meltclosp_, m
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS */
+    /* start of frame for routine meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS fromline 1716 */
 
-    /** start of frame for meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS**/
+    /** start of frame for meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS// fromline 1531
         : public Melt_CallFrameWithValues<12>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
@@ -3852,39 +3852,39 @@ meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(meltclosure_ptr_t meltclosp_, m
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<12> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS), clos) {};
-        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS() //the constructor fromline 1604
+        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS() //the constructor fromline 1606
             : Melt_CallFrameWithValues<12> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS)) {};
-        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS
 
 
-    /** end of frame for meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS**/
+    /** end of frame for meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS fromline 1661**/
 
-    /* end of frame for routine meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS */
+    /* end of frame for routine meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS fromline 1720 */
 
     /* classy proc frame meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS */ MeltFrame_meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_122_WARMELTmiNORMAL_FILL_NORMAL_FORMALS fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -4119,14 +4119,14 @@ meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(meltclosure_ptr_t meltclosp_,
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION */
+    /* start of frame for routine meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION fromline 1716 */
 
-    /** start of frame for meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION**/
+    /** start of frame for meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION// fromline 1531
         : public Melt_CallFrameWithValues<8>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
 // no classy longs
         /*classy others*/
         long _meltsparel;
@@ -4138,39 +4138,39 @@ meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(meltclosure_ptr_t meltclosp_,
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<8> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION), clos) {};
-        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION() //the constructor fromline 1604
+        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION() //the constructor fromline 1606
             : Melt_CallFrameWithValues<8> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION)) {};
-        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION
 
 
-    /** end of frame for meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION**/
+    /** end of frame for meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION fromline 1661**/
 
-    /* end of frame for routine meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION */
+    /* end of frame for routine meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION fromline 1720 */
 
     /* classy proc frame meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION */ MeltFrame_meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_123_WARMELTmiNORMAL_FILL_NORMAL_EXPANSION fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -4317,14 +4317,14 @@ meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 */
+    /* start of frame for routine meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 fromline 1716 */
 
-    /** start of frame for meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32**/
+    /** start of frame for meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32// fromline 1531
         : public Melt_CallFrameWithValues<12>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
@@ -4336,39 +4336,39 @@ meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<12> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32), clos) {};
-        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32() //the constructor fromline 1604
+        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32() //the constructor fromline 1606
             : Melt_CallFrameWithValues<12> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32)) {};
-        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<12> (fil,lin, sizeof(MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32
 
 
-    /** end of frame for meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32**/
+    /** end of frame for meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 fromline 1661**/
 
-    /* end of frame for routine meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 */
+    /* end of frame for routine meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 fromline 1720 */
 
     /* classy proc frame meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 */ MeltFrame_meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_124_WARMELTmiNORMAL_LAMBDA_cl32 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -4730,14 +4730,14 @@ meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE */
+    /* start of frame for routine meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE fromline 1716 */
 
-    /** start of frame for meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE**/
+    /** start of frame for meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE// fromline 1531
         : public Melt_CallFrameWithValues<49>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
@@ -4749,39 +4749,39 @@ meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(meltclosure_ptr_t meltclosp_, 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<49> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE), clos) {};
-        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE() //the constructor fromline 1604
+        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE() //the constructor fromline 1606
             : Melt_CallFrameWithValues<49> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<49> (fil,lin, sizeof(MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE)) {};
-        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<49> (fil,lin, sizeof(MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE
 
 
-    /** end of frame for meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE**/
+    /** end of frame for meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE fromline 1661**/
 
-    /* end of frame for routine meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE */
+    /* end of frame for routine meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE fromline 1720 */
 
     /* classy proc frame meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE */ MeltFrame_meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_125_WARMELTmiNORMAL_NORMEXP_DEFPRIMITIVE fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -5718,14 +5718,14 @@ meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR */
+    /* start of frame for routine meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR fromline 1716 */
 
-    /** start of frame for meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR**/
+    /** start of frame for meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR// fromline 1531
         : public Melt_CallFrameWithValues<70>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[25];
         /*classy others*/
         long _meltsparel;
@@ -5737,39 +5737,39 @@ meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(meltclosure_ptr_t meltclosp_, 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<70> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR), clos) {};
-        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR() //the constructor fromline 1604
+        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR() //the constructor fromline 1606
             : Melt_CallFrameWithValues<70> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<70> (fil,lin, sizeof(MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR)) {};
-        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<70> (fil,lin, sizeof(MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR
 
 
-    /** end of frame for meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR**/
+    /** end of frame for meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR fromline 1661**/
 
-    /* end of frame for routine meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR */
+    /* end of frame for routine meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR fromline 1720 */
 
     /* classy proc frame meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR */ MeltFrame_meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_126_WARMELTmiNORMAL_NORMEXP_DEFCITERATOR fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -7248,14 +7248,14 @@ meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(meltclosure_ptr_t meltclosp_, me
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION */
+    /* start of frame for routine meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION fromline 1716 */
 
-    /** start of frame for meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION**/
+    /** start of frame for meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION// fromline 1531
         : public Melt_CallFrameWithValues<114>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[39];
         /*classy others*/
         long _meltsparel;
@@ -7267,39 +7267,39 @@ meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(meltclosure_ptr_t meltclosp_, me
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<114> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION), clos) {};
-        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION() //the constructor fromline 1604
+        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION() //the constructor fromline 1606
             : Melt_CallFrameWithValues<114> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<114> (fil,lin, sizeof(MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION)) {};
-        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<114> (fil,lin, sizeof(MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION
 
 
-    /** end of frame for meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION**/
+    /** end of frame for meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION fromline 1661**/
 
-    /* end of frame for routine meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION */
+    /* end of frame for routine meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION fromline 1720 */
 
     /* classy proc frame meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION */ MeltFrame_meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_127_WARMELTmiNORMAL_NORMEXP_CITERATION fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -10219,14 +10219,14 @@ meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 */
+    /* start of frame for routine meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 fromline 1716 */
 
-    /** start of frame for meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33**/
+    /** start of frame for meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33// fromline 1531
         : public Melt_CallFrameWithValues<14>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
@@ -10238,39 +10238,39 @@ meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33), clos) {};
-        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33() //the constructor fromline 1604
+        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33() //the constructor fromline 1606
             : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33)) {};
-        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33
 
 
-    /** end of frame for meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33**/
+    /** end of frame for meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 fromline 1661**/
 
-    /* end of frame for routine meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 */
+    /* end of frame for routine meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 fromline 1720 */
 
     /* classy proc frame meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 */ MeltFrame_meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_128_WARMELTmiNORMAL_LAMBDA_cl33 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -10690,14 +10690,14 @@ meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 */
+    /* start of frame for routine meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 fromline 1716 */
 
-    /** start of frame for meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34**/
+    /** start of frame for meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34// fromline 1531
         : public Melt_CallFrameWithValues<25>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[10];
         /*classy others*/
         long _meltsparel;
@@ -10709,39 +10709,39 @@ meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<25> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34), clos) {};
-        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34() //the constructor fromline 1604
+        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34() //the constructor fromline 1606
             : Melt_CallFrameWithValues<25> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<25> (fil,lin, sizeof(MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34)) {};
-        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<25> (fil,lin, sizeof(MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34
 
 
-    /** end of frame for meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34**/
+    /** end of frame for meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 fromline 1661**/
 
-    /* end of frame for routine meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 */
+    /* end of frame for routine meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 fromline 1720 */
 
     /* classy proc frame meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 */ MeltFrame_meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_129_WARMELTmiNORMAL_LAMBDA_cl34 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -11565,14 +11565,14 @@ meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 */
+    /* start of frame for routine meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 fromline 1716 */
 
-    /** start of frame for meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35**/
+    /** start of frame for meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35// fromline 1531
         : public Melt_CallFrameWithValues<7>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
@@ -11584,39 +11584,39 @@ meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<7> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35), clos) {};
-        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35() //the constructor fromline 1604
+        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35() //the constructor fromline 1606
             : Melt_CallFrameWithValues<7> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<7> (fil,lin, sizeof(MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35)) {};
-        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<7> (fil,lin, sizeof(MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35
 
 
-    /** end of frame for meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35**/
+    /** end of frame for meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 fromline 1661**/
 
-    /* end of frame for routine meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 */
+    /* end of frame for routine meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 fromline 1720 */
 
     /* classy proc frame meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 */ MeltFrame_meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_130_WARMELTmiNORMAL_LAMBDA_cl35 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -11848,14 +11848,14 @@ meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 */
+    /* start of frame for routine meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 fromline 1716 */
 
-    /** start of frame for meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36**/
+    /** start of frame for meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36// fromline 1531
         : public Melt_CallFrameWithValues<9>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[5];
         /*classy others*/
         long _meltsparel;
@@ -11867,39 +11867,39 @@ meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36), clos) {};
-        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36() //the constructor fromline 1604
+        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36() //the constructor fromline 1606
             : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36)) {};
-        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36
 
 
-    /** end of frame for meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36**/
+    /** end of frame for meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 fromline 1661**/
 
-    /* end of frame for routine meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 */
+    /* end of frame for routine meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 fromline 1720 */
 
     /* classy proc frame meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 */ MeltFrame_meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_131_WARMELTmiNORMAL_LAMBDA_cl36 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -12220,14 +12220,14 @@ meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 */
+    /* start of frame for routine meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 fromline 1716 */
 
-    /** start of frame for meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37**/
+    /** start of frame for meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37// fromline 1531
         : public Melt_CallFrameWithValues<6>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[3];
         /*classy others*/
         long _meltsparel;
@@ -12239,39 +12239,39 @@ meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<6> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37), clos) {};
-        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37() //the constructor fromline 1604
+        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37() //the constructor fromline 1606
             : Melt_CallFrameWithValues<6> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37)) {};
-        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37
 
 
-    /** end of frame for meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37**/
+    /** end of frame for meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 fromline 1661**/
 
-    /* end of frame for routine meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 */
+    /* end of frame for routine meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 fromline 1720 */
 
     /* classy proc frame meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 */ MeltFrame_meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_132_WARMELTmiNORMAL_LAMBDA_cl37 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -12487,14 +12487,14 @@ meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 */
+    /* start of frame for routine meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 fromline 1716 */
 
-    /** start of frame for meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38**/
+    /** start of frame for meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38// fromline 1531
         : public Melt_CallFrameWithValues<6>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[2];
         /*classy others*/
         long _meltsparel;
@@ -12506,39 +12506,39 @@ meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<6> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38), clos) {};
-        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38() //the constructor fromline 1604
+        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38() //the constructor fromline 1606
             : Melt_CallFrameWithValues<6> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38)) {};
-        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<6> (fil,lin, sizeof(MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38
 
 
-    /** end of frame for meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38**/
+    /** end of frame for meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 fromline 1661**/
 
-    /* end of frame for routine meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 */
+    /* end of frame for routine meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 fromline 1720 */
 
     /* classy proc frame meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 */ MeltFrame_meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_133_WARMELTmiNORMAL_LAMBDA_cl38 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -12691,14 +12691,14 @@ meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 */
+    /* start of frame for routine meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 fromline 1716 */
 
-    /** start of frame for meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39**/
+    /** start of frame for meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39// fromline 1531
         : public Melt_CallFrameWithValues<2>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
 // no classy longs
         /*classy others*/
         long _meltsparel;
@@ -12710,39 +12710,39 @@ meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<2> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39), clos) {};
-        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39() //the constructor fromline 1604
+        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39() //the constructor fromline 1606
             : Melt_CallFrameWithValues<2> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<2> (fil,lin, sizeof(MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39)) {};
-        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<2> (fil,lin, sizeof(MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39
 
 
-    /** end of frame for meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39**/
+    /** end of frame for meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 fromline 1661**/
 
-    /* end of frame for routine meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 */
+    /* end of frame for routine meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 fromline 1720 */
 
     /* classy proc frame meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 */ MeltFrame_meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_134_WARMELTmiNORMAL_LAMBDA_cl39 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -12812,14 +12812,14 @@ meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(meltclosure_ptr_t meltclosp_, m
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER */
+    /* start of frame for routine meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER fromline 1716 */
 
-    /** start of frame for meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER**/
+    /** start of frame for meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER// fromline 1531
         : public Melt_CallFrameWithValues<90>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[37];
         /*classy others*/
         long _meltsparel;
@@ -12831,39 +12831,39 @@ meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(meltclosure_ptr_t meltclosp_, m
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<90> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER), clos) {};
-        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER() //the constructor fromline 1604
+        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER() //the constructor fromline 1606
             : Melt_CallFrameWithValues<90> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<90> (fil,lin, sizeof(MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER)) {};
-        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<90> (fil,lin, sizeof(MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER
 
 
-    /** end of frame for meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER**/
+    /** end of frame for meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER fromline 1661**/
 
-    /* end of frame for routine meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER */
+    /* end of frame for routine meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER fromline 1720 */
 
     /* classy proc frame meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER */ MeltFrame_meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_135_WARMELTmiNORMAL_NORMEXP_DEFCMATCHER fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -15022,14 +15022,14 @@ meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER */
+    /* start of frame for routine meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER fromline 1716 */
 
-    /** start of frame for meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER**/
+    /** start of frame for meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER// fromline 1531
         : public Melt_CallFrameWithValues<92>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[40];
         /*classy others*/
         long _meltsparel;
@@ -15041,39 +15041,39 @@ meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(meltclosure_ptr_t meltclosp_, 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<92> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER), clos) {};
-        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER() //the constructor fromline 1604
+        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER() //the constructor fromline 1606
             : Melt_CallFrameWithValues<92> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<92> (fil,lin, sizeof(MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER)) {};
-        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<92> (fil,lin, sizeof(MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER
 
 
-    /** end of frame for meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER**/
+    /** end of frame for meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER fromline 1661**/
 
-    /* end of frame for routine meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER */
+    /* end of frame for routine meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER fromline 1720 */
 
     /* classy proc frame meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER */ MeltFrame_meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_136_WARMELTmiNORMAL_NORMEXP_DEFUNMATCHER fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -17473,14 +17473,14 @@ meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(meltclosure_ptr_t meltclosp_, melt
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS */
+    /* start of frame for routine meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS fromline 1716 */
 
-    /** start of frame for meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS**/
+    /** start of frame for meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS// fromline 1531
         : public Melt_CallFrameWithValues<101>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[40];
         /*classy others*/
         long _meltsparel;
@@ -17492,39 +17492,39 @@ meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(meltclosure_ptr_t meltclosp_, melt
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<101> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS), clos) {};
-        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS() //the constructor fromline 1604
+        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS() //the constructor fromline 1606
             : Melt_CallFrameWithValues<101> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<101> (fil,lin, sizeof(MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS)) {};
-        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<101> (fil,lin, sizeof(MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS
 
 
-    /** end of frame for meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS**/
+    /** end of frame for meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS fromline 1661**/
 
-    /* end of frame for routine meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS */
+    /* end of frame for routine meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS fromline 1720 */
 
     /* classy proc frame meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS */ MeltFrame_meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_137_WARMELTmiNORMAL_NORMEXP_DEFCLASS fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -19751,14 +19751,14 @@ meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(meltclosure_ptr_t meltclosp_, m
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE */
+    /* start of frame for routine meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE fromline 1716 */
 
-    /** start of frame for meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE**/
+    /** start of frame for meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE// fromline 1531
         : public Melt_CallFrameWithValues<66>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[23];
         /*classy others*/
         long _meltsparel;
@@ -19770,39 +19770,39 @@ meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(meltclosure_ptr_t meltclosp_, m
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<66> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE), clos) {};
-        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE() //the constructor fromline 1604
+        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE() //the constructor fromline 1606
             : Melt_CallFrameWithValues<66> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<66> (fil,lin, sizeof(MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE)) {};
-        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<66> (fil,lin, sizeof(MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE
 
 
-    /** end of frame for meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE**/
+    /** end of frame for meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE fromline 1661**/
 
-    /* end of frame for routine meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE */
+    /* end of frame for routine meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE fromline 1720 */
 
     /* classy proc frame meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE */ MeltFrame_meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_138_WARMELTmiNORMAL_NORMEXP_DEFINSTANCE fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -21387,14 +21387,14 @@ meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 */
+    /* start of frame for routine meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 fromline 1716 */
 
-    /** start of frame for meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40**/
+    /** start of frame for meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40// fromline 1531
         : public Melt_CallFrameWithValues<27>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
@@ -21406,39 +21406,39 @@ meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<27> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40), clos) {};
-        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40() //the constructor fromline 1604
+        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40() //the constructor fromline 1606
             : Melt_CallFrameWithValues<27> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<27> (fil,lin, sizeof(MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40)) {};
-        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<27> (fil,lin, sizeof(MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40
 
 
-    /** end of frame for meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40**/
+    /** end of frame for meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 fromline 1661**/
 
-    /* end of frame for routine meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 */
+    /* end of frame for routine meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 fromline 1720 */
 
     /* classy proc frame meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 */ MeltFrame_meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_139_WARMELTmiNORMAL_LAMBDA_cl40 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -22309,14 +22309,14 @@ meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(meltclosure_ptr_t meltclosp_, melt_p
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR */
+    /* start of frame for routine meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR fromline 1716 */
 
-    /** start of frame for meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR**/
+    /** start of frame for meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR// fromline 1531
         : public Melt_CallFrameWithValues<47>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[21];
         /*classy others*/
         long _meltsparel;
@@ -22328,39 +22328,39 @@ meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(meltclosure_ptr_t meltclosp_, melt_p
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<47> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR), clos) {};
-        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR() //the constructor fromline 1604
+        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR() //the constructor fromline 1606
             : Melt_CallFrameWithValues<47> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<47> (fil,lin, sizeof(MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR)) {};
-        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<47> (fil,lin, sizeof(MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR
 
 
-    /** end of frame for meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR**/
+    /** end of frame for meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR fromline 1661**/
 
-    /* end of frame for routine meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR */
+    /* end of frame for routine meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR fromline 1720 */
 
     /* classy proc frame meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR */ MeltFrame_meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_140_WARMELTmiNORMAL_NORMEXP_DEFVAR fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -23726,14 +23726,14 @@ meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(meltclosure_ptr_t meltclosp_, melt_p
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE */
+    /* start of frame for routine meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE fromline 1716 */
 
-    /** start of frame for meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE**/
+    /** start of frame for meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE// fromline 1531
         : public Melt_CallFrameWithValues<87>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[40];
         /*classy others*/
         long _meltsparel;
@@ -23745,39 +23745,39 @@ meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(meltclosure_ptr_t meltclosp_, melt_p
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<87> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE), clos) {};
-        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE() //the constructor fromline 1604
+        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE() //the constructor fromline 1606
             : Melt_CallFrameWithValues<87> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<87> (fil,lin, sizeof(MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE)) {};
-        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<87> (fil,lin, sizeof(MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE
 
 
-    /** end of frame for meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE**/
+    /** end of frame for meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE fromline 1661**/
 
-    /* end of frame for routine meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE */
+    /* end of frame for routine meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE fromline 1720 */
 
     /* classy proc frame meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE */ MeltFrame_meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_141_WARMELTmiNORMAL_NORMEXP_DEFINE fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -26500,14 +26500,14 @@ meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 */
+    /* start of frame for routine meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 fromline 1716 */
 
-    /** start of frame for meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41**/
+    /** start of frame for meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41// fromline 1531
         : public Melt_CallFrameWithValues<3>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
 // no classy longs
         /*classy others*/
         long _meltsparel;
@@ -26519,39 +26519,39 @@ meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<3> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41), clos) {};
-        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41() //the constructor fromline 1604
+        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41() //the constructor fromline 1606
             : Melt_CallFrameWithValues<3> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<3> (fil,lin, sizeof(MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41)) {};
-        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<3> (fil,lin, sizeof(MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41
 
 
-    /** end of frame for meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41**/
+    /** end of frame for meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 fromline 1661**/
 
-    /* end of frame for routine meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 */
+    /* end of frame for routine meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 fromline 1720 */
 
     /* classy proc frame meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 */ MeltFrame_meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_142_WARMELTmiNORMAL_LAMBDA_cl41 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -26649,14 +26649,14 @@ meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(meltclosure_ptr_t meltclosp_, m
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR */
+    /* start of frame for routine meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR fromline 1716 */
 
-    /** start of frame for meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR**/
+    /** start of frame for meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR// fromline 1531
         : public Melt_CallFrameWithValues<80>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[29];
         /*classy others*/
         long _meltsparel;
@@ -26668,39 +26668,39 @@ meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(meltclosure_ptr_t meltclosp_, m
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<80> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR), clos) {};
-        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR() //the constructor fromline 1604
+        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR() //the constructor fromline 1606
             : Melt_CallFrameWithValues<80> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<80> (fil,lin, sizeof(MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR)) {};
-        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<80> (fil,lin, sizeof(MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR
 
 
-    /** end of frame for meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR**/
+    /** end of frame for meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR fromline 1661**/
 
-    /* end of frame for routine meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR */
+    /* end of frame for routine meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR fromline 1720 */
 
     /* classy proc frame meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR */ MeltFrame_meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_143_WARMELTmiNORMAL_NORMEXP_DEFSELECTOR fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -28539,14 +28539,14 @@ meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 */
+    /* start of frame for routine meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 fromline 1716 */
 
-    /** start of frame for meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42**/
+    /** start of frame for meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42// fromline 1531
         : public Melt_CallFrameWithValues<17>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[6];
         /*classy others*/
         long _meltsparel;
@@ -28558,39 +28558,39 @@ meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<17> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42), clos) {};
-        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42() //the constructor fromline 1604
+        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42() //the constructor fromline 1606
             : Melt_CallFrameWithValues<17> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<17> (fil,lin, sizeof(MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42)) {};
-        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<17> (fil,lin, sizeof(MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42
 
 
-    /** end of frame for meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42**/
+    /** end of frame for meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 fromline 1661**/
 
-    /* end of frame for routine meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 */
+    /* end of frame for routine meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 fromline 1720 */
 
     /* classy proc frame meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 */ MeltFrame_meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_144_WARMELTmiNORMAL_LAMBDA_cl42 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -29018,14 +29018,14 @@ meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(meltclosure_ptr_t meltclosp_,
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE */
+    /* start of frame for routine meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE fromline 1716 */
 
-    /** start of frame for meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE**/
+    /** start of frame for meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE// fromline 1531
         : public Melt_CallFrameWithValues<54>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
@@ -29037,39 +29037,39 @@ meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(meltclosure_ptr_t meltclosp_,
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<54> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE), clos) {};
-        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE() //the constructor fromline 1604
+        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE() //the constructor fromline 1606
             : Melt_CallFrameWithValues<54> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<54> (fil,lin, sizeof(MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE)) {};
-        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<54> (fil,lin, sizeof(MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE
 
 
-    /** end of frame for meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE**/
+    /** end of frame for meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE fromline 1661**/
 
-    /* end of frame for routine meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE */
+    /* end of frame for routine meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE fromline 1720 */
 
     /* classy proc frame meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE */ MeltFrame_meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_145_WARMELTmiNORMAL_NORMAL_EXPORTED_VALUE fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -30391,14 +30391,14 @@ meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(meltclosure_ptr_t meltclosp_,
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES */
+    /* start of frame for routine meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES fromline 1716 */
 
-    /** start of frame for meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES**/
+    /** start of frame for meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES// fromline 1531
         : public Melt_CallFrameWithValues<37>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[17];
         /*classy others*/
         long _meltsparel;
@@ -30410,39 +30410,39 @@ meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(meltclosure_ptr_t meltclosp_,
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<37> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES), clos) {};
-        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES() //the constructor fromline 1604
+        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES() //the constructor fromline 1606
             : Melt_CallFrameWithValues<37> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<37> (fil,lin, sizeof(MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES)) {};
-        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<37> (fil,lin, sizeof(MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES
 
 
-    /** end of frame for meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES**/
+    /** end of frame for meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES fromline 1661**/
 
-    /* end of frame for routine meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES */
+    /* end of frame for routine meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES fromline 1720 */
 
     /* classy proc frame meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES */ MeltFrame_meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_146_WARMELTmiNORMAL_NORMEXP_EXPORT_VALUES fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -31659,14 +31659,14 @@ meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(meltclosure_ptr_t meltclosp_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM */
+    /* start of frame for routine meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM fromline 1716 */
 
-    /** start of frame for meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM**/
+    /** start of frame for meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM// fromline 1531
         : public Melt_CallFrameWithValues<37>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[13];
         /*classy others*/
         long _meltsparel;
@@ -31678,39 +31678,39 @@ meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(meltclosure_ptr_t meltclosp_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<37> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM), clos) {};
-        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM() //the constructor fromline 1604
+        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM() //the constructor fromline 1606
             : Melt_CallFrameWithValues<37> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<37> (fil,lin, sizeof(MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM)) {};
-        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<37> (fil,lin, sizeof(MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM
 
 
-    /** end of frame for meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM**/
+    /** end of frame for meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM fromline 1661**/
 
-    /* end of frame for routine meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM */
+    /* end of frame for routine meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM fromline 1720 */
 
     /* classy proc frame meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM */ MeltFrame_meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_147_WARMELTmiNORMAL_NORMEXP_EXPORT_SYNONYM fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -32753,14 +32753,14 @@ meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(meltclosure_ptr_t meltclosp_, 
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS */
+    /* start of frame for routine meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS fromline 1716 */
 
-    /** start of frame for meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS**/
+    /** start of frame for meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS// fromline 1531
         : public Melt_CallFrameWithValues<28>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[8];
         /*classy others*/
         long _meltsparel;
@@ -32772,39 +32772,39 @@ meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(meltclosure_ptr_t meltclosp_, 
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<28> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS), clos) {};
-        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS() //the constructor fromline 1604
+        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS() //the constructor fromline 1606
             : Melt_CallFrameWithValues<28> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS)) {};
-        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<28> (fil,lin, sizeof(MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS
 
 
-    /** end of frame for meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS**/
+    /** end of frame for meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS fromline 1661**/
 
-    /* end of frame for routine meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS */
+    /* end of frame for routine meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS fromline 1720 */
 
     /* classy proc frame meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS */ MeltFrame_meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_148_WARMELTmiNORMAL_NORMEXP_EXPORT_CLASS fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -33521,14 +33521,14 @@ meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 */
+    /* start of frame for routine meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 fromline 1716 */
 
-    /** start of frame for meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43**/
+    /** start of frame for meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43// fromline 1531
         : public Melt_CallFrameWithValues<39>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[14];
         /*classy others*/
         long _meltsparel;
@@ -33540,39 +33540,39 @@ meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<39> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43), clos) {};
-        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43() //the constructor fromline 1604
+        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43() //the constructor fromline 1606
             : Melt_CallFrameWithValues<39> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<39> (fil,lin, sizeof(MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43)) {};
-        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<39> (fil,lin, sizeof(MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43
 
 
-    /** end of frame for meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43**/
+    /** end of frame for meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 fromline 1661**/
 
-    /* end of frame for routine meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 */
+    /* end of frame for routine meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 fromline 1720 */
 
     /* classy proc frame meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 */ MeltFrame_meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_149_WARMELTmiNORMAL_LAMBDA_cl43 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -34654,14 +34654,14 @@ meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(meltclosure_ptr_t meltclosp_, melt_ptr_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 */
+    /* start of frame for routine meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 fromline 1716 */
 
-    /** start of frame for meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44**/
+    /** start of frame for meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44// fromline 1531
         : public Melt_CallFrameWithValues<20>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[8];
         /*classy others*/
         long _meltsparel;
@@ -34673,39 +34673,39 @@ meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<20> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44), clos) {};
-        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44() //the constructor fromline 1604
+        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44() //the constructor fromline 1606
             : Melt_CallFrameWithValues<20> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44)) {};
-        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44
 
 
-    /** end of frame for meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44**/
+    /** end of frame for meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 fromline 1661**/
 
-    /* end of frame for routine meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 */
+    /* end of frame for routine meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 fromline 1720 */
 
     /* classy proc frame meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 */ MeltFrame_meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_150_WARMELTmiNORMAL_LAMBDA_cl44 fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -35260,14 +35260,14 @@ meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(meltclosure_ptr_t meltclosp_,
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO */
+    /* start of frame for routine meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO fromline 1716 */
 
-    /** start of frame for meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO**/
+    /** start of frame for meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO of CLASS_PROCROUTINEOBJ from 1518**/
 
-    /*curframdeclclassy*/ class MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO// fromline 1529
+    /*curframdeclclassy*/ class MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO// fromline 1531
         : public Melt_CallFrameWithValues<53>
     {
-    public: /* fromline 1533*/
+    public: /* fromline 1535*/
         long mcfr_varnum[14];
         /*classy others*/
         long _meltsparel;
@@ -35279,39 +35279,39 @@ meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(meltclosure_ptr_t meltclosp_,
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(meltclosure_ptr_t clos) //the closure constructor fromline 1592
+        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(meltclosure_ptr_t clos) //the closure constructor fromline 1594
             : Melt_CallFrameWithValues<53> (
-#if ENABLE_CHECKING /*fromline 1596*/
+#if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1600*/
+#endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO), clos) {};
-        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO() //the constructor fromline 1604
+        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO() //the constructor fromline 1606
             : Melt_CallFrameWithValues<53> (
-#if ENABLE_CHECKING /*fromline 1608*/
+#if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1612*/
+#endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO)) {};
-#if ENABLE_CHECKING /*fromline 1616*/
-        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(const char*fil, int lin) //the constructor fromline 1618
+#if ENABLE_CHECKING /*fromline 1618*/
+        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(const char*fil, int lin) //the constructor fromline 1620
             : Melt_CallFrameWithValues<53> (fil,lin, sizeof(MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO)) {};
-        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1623
+        MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
             : Melt_CallFrameWithValues<53> (fil,lin, sizeof(MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO), clos) {};
-#endif /* ENABLE_CHECKING fromline 1628*/
+#endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO
 
 
-    /** end of frame for meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO**/
+    /** end of frame for meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO fromline 1661**/
 
-    /* end of frame for routine meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO */
+    /* end of frame for routine meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO fromline 1720 */
 
     /* classy proc frame meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO */ MeltFrame_meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO
-    meltfram__ /*declfrastruct fromline 1742*/
-    /*classyprocarg meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO fromline 1747*/
+    meltfram__ /*declfrastruct fromline 1744*/
+    /*classyprocarg meltrout_151_WARMELTmiNORMAL_NORMAL_EXPORTED_MACRO fromline 1749*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1751*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1755*/
+    (meltclosp_) /* fromline 1757*/
 #endif /*ENABLE_CHECKING */
 
     ;

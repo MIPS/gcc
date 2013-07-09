@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20130704 (experimental) [melt-branch revision 200788] MELT_0\
+const char melt_genversionstr[]="4.9.0 20130704 (experimental) [melt-branch revision 200819] MELT_0\
 .9.9-post"
 
 	     #ifdef __cplusplus
@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /0.9.9-post/warmelt-base";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="931a730fa0b5f912213115a998eed0bf";
+const char melt_prepromd5meltrun[]="f17eda82187466774c6bb8cd50f7546d";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="b0b77576a3a19f6cbd295e422665f12b";
+const char melt_primaryhexmd5[]="579ef767a66a323422c4cb60f705b215";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-base+01.cc #1 */ "05ecb7dfdf36c353548ecb227a8bd838",
- /*sechexmd5checksum meltbuild-sources/warmelt-base+02.cc #2 */ "46c2c1a0f1c8e05acfe74ad1944a5a17",
+ /*sechexmd5checksum meltbuild-sources/warmelt-base+01.cc #1 */ "93867670a23bd40d64e48e797bda3522",
+ /*sechexmd5checksum meltbuild-sources/warmelt-base+02.cc #2 */ "d63849244d6d17fdccde4883dbecd582",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="e832eded3517ab688353714ac27c4f00" ;
+const char melt_cumulated_hexmd5[]="b67aba2a929fd5487d5c03cecc49d368" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 4;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiBASE_mds__E832EDED3517AB688353714AC27C4F00 1
+#define meltmod_WARMELTmiBASE_mds__B67ABA2A929FD5487D5C03CECC49D368 1
 #include "warmelt-base+melttime.h"
 	 
 
