@@ -462,9 +462,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
     }
 
   if (count
-      && !simd
-      /*&& (fd->sched_kind != OMP_CLAUSE_SCHEDULE_STATIC
-	|| fd->have_ordered)*/)
+      && !simd)
     {
       if (!tree_int_cst_lt (count, TYPE_MAX_VALUE (long_integer_type_node)))
 	iter_type = long_long_unsigned_type_node;
@@ -4707,10 +4705,7 @@ expand_omp_for_generic (struct omp_region *region,
       e = find_edge (cont_bb, l1_bb);
       /* OMP4 placeholder for gimple_omp_for_combined_p (fd->for_stmt).  */
       if (0)
-	{
-	  remove_edge (e);
-	  e = NULL;
-	}
+	;
       else if (fd->collapse > 1)
 	{
 	  remove_edge (e);
