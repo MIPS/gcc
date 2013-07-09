@@ -1,6 +1,11 @@
 
 
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (macroexpand_1): Make an error when the
+	field mbind_expanser of a macro is null. Return both values
+	otherwise.
+
+2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt (class_macro_binding): Change comment.
 

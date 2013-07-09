@@ -1438,14 +1438,22 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	     (return resk ())))
 ;;;; test for non-keyword symbols...
 	 ( (is_a soper class_symbol)
-	   (let ( (opbind (find_env env soper)) )
+	   (let ( (opbind (find_env env soper)) 
+		  (opname (get_field :named_name soper))
+		  )
 	     (debug "macroexpand_1 opbind" opbind)
 	     (cond ( (is_a opbind class_macro_binding)
-		     (let ( (mexp (unsafe_get_field :mbind_expanser opbind)) )
+		     (let ( (mexp (unsafe_get_field :mbind_expanser opbind)) 
+			    )
+		       (when (null mexp)
+			 (error_strv sloc "macro cannot be expanded since not yet defined" opname)
+			 (return () ()))
 		       (assert_msg "check mexp" (is_closure mexp))
-		       (let ( (resm (mexp sexpr env mexpander modctx)) )
-			 (debug "macroexpand_1 result for macro resm" resm)
-			 (return resm ())
+		       (multicall 
+			(resm otherm)
+			(mexp sexpr env mexpander modctx)
+			 (debug "macroexpand_1 result for macro resm=" resm " otherm=" otherm)
+			 (return resm otherm)
 			 )))
 		   ( (is_a opbind class_selector_binding)
 		     (let ( (ress (expand_msend soper sexpr env mexpander modctx)) )
@@ -3048,6 +3056,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	(setq docv (pair_head curpair))	       ;; get the docv
 	(setq curpair (pair_tail curpair))     ;; consume it
 	)
+	;; should put a :mbind_expanser closure into mbind
       ;; handle the body
       (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
 	     )
