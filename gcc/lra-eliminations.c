@@ -622,12 +622,12 @@ lra_eliminate_regs_1 (rtx x, enum machine_mode mem_mode,
     }
 
   /* Eliminate in notes as well */
-  if (REG_NOTES (x))
-    {
-      new_rtx = lra_eliminate_regs_1 (REG_NOTES (x), mem_mode,
-                                      subst_p, update_p, full_p);
-      REG_NOTES (x) = new_rtx;
-    }
+//  if (REG_NOTES (x))
+//    {
+//      new_rtx = lra_eliminate_regs_1 (REG_NOTES (x), mem_mode,
+//                                      subst_p, update_p, full_p);
+//      REG_NOTES (x) = new_rtx;
+//    }
 
   return x;
 }

@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-ssa-alias.h"
 #include "insn-codes.h"
+#include "ira.h"
 
 
 bool
@@ -1571,6 +1572,14 @@ default_member_type_forces_blk (const_tree, enum machine_mode)
 void
 default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
+}
+
+/* Compare two allocnos to define which allocno should be pushed first
+   into the coloring stack.  */
+int
+default_allocno_compare_func (const void *v1p, const void *v2p)
+{
+  return bucket_allocno_compare_func (v1p, v2p);
 }
 
 #include "gt-targhooks.h"

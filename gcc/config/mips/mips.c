@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "context.h"
 #include "hash-table.h"
+#include "ira-int.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -19051,6 +19052,404 @@ mips_reg_equiv_profitable_p (struct ira_reg_equiv * equiv)
 }
 
 
+/* Returns true if given function has microMIPS equivalent.  */
+
+static bool
+mips_insn_has_short_form_p(rtx insn)
+{
+  struct recog_data_d old_recog_data;
+  enum attr_mode mode;
+  bool result = false;
+  rtx pattern;
+
+  if (!INSN_P (insn))
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == USE)
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  old_recog_data = recog_data;
+
+  mode = get_attr_mode (insn);
+
+  pattern = PATTERN (insn);
+
+  /* li16 rd, imm.  */
+  if ((GET_CODE (pattern) == SET
+      && GET_CODE (XEXP (pattern, 1)) == CONST_INT
+      && mode == MODE_SI
+      && REG_P (XEXP (pattern, 0))
+      && CONST_INT_P (XEXP (pattern, 1))
+      && INTVAL (XEXP (pattern, 1)) != 0
+      && INTVAL (XEXP (pattern, 1)) >= -1
+      && INTVAL (XEXP (pattern, 1)) <= 126))
+    result = true;
+
+  /* lw16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 1))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 1)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 1)) == SFmode))
+      && REG_P (XEXP (pattern, 0))
+      && MEM_P (XEXP (pattern, 1))
+      && ((REG_P (XEXP (XEXP (pattern, 1), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 1), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 1), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 1), 0), 1)) <= 60)))
+    result = true;
+
+  /* sw16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 0)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 0)) == SFmode))
+      && ((CONST_INT_P (XEXP (pattern, 1))
+	   && INTVAL (XEXP (pattern, 1)) == 0)
+	  || (REG_P (XEXP (pattern, 1))))
+      && MEM_P (XEXP (pattern, 0))
+      && ((REG_P (XEXP (XEXP (pattern, 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 60)))
+    result = true;
+
+  /* addu16 rd, rs, rt.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == PLUS
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && REG_P (XEXP (XEXP (pattern, 1), 1)))
+    result = true;
+
+  /* subu16 rd, rs, rt.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == MINUS
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && REG_P (XEXP (XEXP (pattern, 1), 1)))
+    result = true;
+
+  /* and16/xor16/or16 rd, rs, rt.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && (GET_CODE (XEXP (pattern, 1)) == XOR
+	  || GET_CODE (XEXP (pattern, 1)) == IOR
+	  || GET_CODE (XEXP (pattern, 1)) == AND)
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && REG_P (XEXP (XEXP (pattern, 1), 1)))
+    result = true;
+
+  /* addiur2 rd, rs, imm.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == PLUS
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && (INTVAL (XEXP (XEXP (pattern, 1), 1)) == 1
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 4
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 8
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 12
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 16
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 20
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 24
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == -1))
+    result = true;
+
+  /* andi16 rd, rs, imm.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == AND
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && (INTVAL (XEXP (XEXP (pattern, 1), 1)) == 1
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 2
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 3
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 4
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 7
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 8
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 15
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 16
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 31
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 32
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 63
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 64
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 255
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 32768
+	  || INTVAL (XEXP (XEXP (pattern, 1), 1)) == 65535))
+    result = true;
+
+  /* addiur1sp rd, $29, imm.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == PLUS
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && REGNO (XEXP (XEXP (pattern, 1), 0)) == 29
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && (INTVAL (XEXP (XEXP (pattern, 1), 1)) & 3) == 0
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 0
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 252)
+    result = true;
+
+  /* not rt, rs.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == NOT
+      && REG_P (XEXP (XEXP (pattern, 1), 0)))
+    result = true;
+
+  /* lbu16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND
+      && MEM_P (XEXP (XEXP (pattern, 1), 0))
+      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == QImode
+      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= -1
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) <= 14)))
+    result = true;
+
+  /* lhu16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && GET_CODE (XEXP (pattern, 1)) == ZERO_EXTEND
+      && MEM_P (XEXP (XEXP (pattern, 1), 0))
+      && GET_MODE (XEXP (XEXP (pattern, 1), 0)) == HImode
+      && ((REG_P (XEXP (XEXP (XEXP (pattern, 1), 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (XEXP (pattern, 1), 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (XEXP (pattern, 1), 0), 0), 1)) <= 30)))
+    result = true;
+
+  /* sb16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && ((CONST_INT_P (XEXP (pattern, 1))
+	   && INTVAL (XEXP (pattern, 1)) == 0)
+	  || REG_P (XEXP (pattern, 1))
+	  || GET_CODE (XEXP (pattern, 1)) == SUBREG)
+      && GET_MODE (XEXP (pattern, 0)) == QImode
+      && (REG_P (XEXP (XEXP (pattern, 0), 0))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 15)))
+    result = true;
+
+  /* sh16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && ((CONST_INT_P (XEXP (pattern, 1))
+	  && INTVAL (XEXP (pattern, 1)) == 0)
+	  || REG_P (XEXP (pattern, 1))
+	  || GET_CODE (XEXP (pattern, 1)) == SUBREG)
+      && MEM_P (XEXP (pattern, 0))
+      && GET_MODE (XEXP (pattern, 0)) == HImode
+      && (REG_P (XEXP (XEXP (pattern, 0), 0))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 1) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 30)))
+    result = true;
+
+  /* sll16/srl16 rd, rt, sa.  */
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && (GET_CODE (XEXP (pattern, 1)) == ASHIFT
+	  || GET_CODE (XEXP (pattern, 1)) == LSHIFTRT)
+      && REG_P (XEXP (XEXP (pattern, 1), 0))
+      && CONST_INT_P (XEXP (XEXP (pattern, 1), 1))
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) >= 1
+      && INTVAL (XEXP (XEXP (pattern, 1), 1)) <= 8)
+    result = true;
+
+  /* beqz16/bnez16 rs, offset.  */
+  if (JUMP_P (insn)
+      && GET_CODE (pattern) == SET
+      && GET_CODE (SET_DEST (pattern)) == PC
+      && GET_CODE (SET_SRC (pattern)) == IF_THEN_ELSE)
+    {
+      /* Check for the right kind of condition.  */
+      rtx cond = XEXP (SET_SRC (pattern), 0);
+      if ((GET_CODE (cond) == EQ || GET_CODE (cond) == NE)
+	  && REG_P (XEXP (cond, 0))
+	  && CONST_INT_P (XEXP (cond, 1))
+	  && (INTVAL (XEXP (cond, 1)) == 0))
+	result = true;
+    }
+
+  recog_data = old_recog_data;
+  return result;
+}
+
+
+static bool
+mips_is_store_insn_p(rtx insn)
+{
+  struct recog_data_d old_recog_data;
+  enum attr_mode mode;
+  bool result = false;
+  rtx pattern;
+
+  if (!INSN_P (insn))
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == USE)
+    return false;
+
+  if (GET_CODE (PATTERN (insn)) == CLOBBER)
+    return false;
+
+  old_recog_data = recog_data;
+
+  mode = get_attr_mode (insn);
+
+  pattern = PATTERN (insn);
+
+  /* sw16 rt, offset(base).  */
+  if (GET_CODE (pattern) == SET
+      && MEM_P (XEXP (pattern, 0))
+      && ((mode == MODE_SI
+	   && GET_MODE (XEXP (pattern, 0)) == SImode)
+	  || (mode == MODE_SF
+	      && GET_MODE (XEXP (pattern, 0)) == SFmode))
+      && ((CONST_INT_P (XEXP (pattern, 1))
+	   && INTVAL (XEXP (pattern, 1)) == 0)
+	  || (REG_P (XEXP (pattern, 1))))
+      && MEM_P (XEXP (pattern, 0))
+      && ((REG_P (XEXP (XEXP (pattern, 0), 0)))
+	  || (GET_CODE (XEXP (XEXP (pattern, 0), 0)) == PLUS
+	      && REG_P (XEXP (XEXP (XEXP (pattern, 0), 0), 0))
+	      && CONST_INT_P (XEXP (XEXP (XEXP (pattern, 0), 0), 1))
+	      && (INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) & 3) == 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) >= 0
+	      && INTVAL (XEXP (XEXP (XEXP (pattern, 0), 0), 1)) <= 60)))
+    result = true;
+
+  recog_data = old_recog_data;
+  return result;
+}
+
+
+/* The function returns frequency and number of available hard
+   registers for allocnos coalesced with ALLOCNO.  */
+static void
+mips_get_coalesced_allocnos_attributes (ira_allocno_t allocno, int *freq,
+					int *num, int *nrefs_short,
+					int *lifetime)
+{
+  ira_allocno_t a = allocno;
+  live_range_t r;
+  int i;
+
+  *freq = 0;
+  *num = 0;
+  *nrefs_short = 0;
+  *lifetime = 0;
+
+//  for (a = ALLOCNO_COALESCE_DATA (allocno)->next;;
+//       a = ALLOCNO_COALESCE_DATA (a)->next)
+//    {
+      *freq += ALLOCNO_FREQ (a);
+      *num += ALLOCNO_COLOR_DATA (a)->available_regs_num;
+      *nrefs_short += ALLOCNO_NREFS_SHORT (a);
+
+      for (i = 0; i < ALLOCNO_NUM_OBJECTS (a); i++)
+        {
+          ira_object_t c1 = ALLOCNO_OBJECT (a, i);
+
+          r = OBJECT_LIVE_RANGES (c1);
+
+          while (r)
+	    {
+	      *lifetime += r->finish - r->start;
+	      r = r->next;
+	    }
+        }
+
+//      if (a == allocno)
+//	break;
+//    }
+}
+
+#define MIPS_FIXED_GP_REG_NUM 6
+/* Threshold, used by sorting heuristic, for taking number of short references
+   into account. */
+
+/* The threshold was 17 in the test below, why? using 8 made code smaller for libjpeg */
+#define ALLOCNO_COMPARE_HEURISTIC(A1N, A2N, A1NR_SHORT, A2NR_SHORT, LT1, LT2) \
+  ((A1N >= 8 && A2N >= 8) \
+   ? (9 * (A2N - A1N) \
+     - (3500 * A2NR_SHORT / (120 + LT2)) \
+     + (3500 * A1NR_SHORT / (120 + LT1))) \
+   : (A2N - A1N))
+
+/* Compare two allocnos to define which allocno should be pushed first
+   into the coloring stack.  If the return is a negative number, the
+   allocno given by the first parameter will be pushed first.  */
+static int
+mips_bucket_allocno_compare_func (const void *v1p, const void *v2p)
+{
+  ira_allocno_t a1 = *(const ira_allocno_t *) v1p;
+  ira_allocno_t a2 = *(const ira_allocno_t *) v2p;
+  int diff, a1_freq, a2_freq, a1_num, a2_num;
+  int a1_nrefs_short = 0, a2_nrefs_short = 0;
+  int lifetime1 = 0, lifetime2 = 0;
+  int cl1 = ALLOCNO_CLASS (a1), cl2 = ALLOCNO_CLASS (a2);
+
+  /* Push pseudos requiring less hard registers first.  It means that
+     we will assign pseudos requiring more hard registers first
+     avoiding creation small holes in free hard register file into
+     which the pseudos requiring more hard registers can not fit.  */
+  if ((diff = (ira_reg_class_max_nregs[cl1][ALLOCNO_MODE (a1)]
+               - ira_reg_class_max_nregs[cl2][ALLOCNO_MODE (a2)])) != 0)
+    return diff;
+
+  mips_get_coalesced_allocnos_attributes (a1, &a1_freq, &a1_num,
+					  &a1_nrefs_short, &lifetime1);
+  mips_get_coalesced_allocnos_attributes (a2, &a2_freq, &a2_num,
+					  &a2_nrefs_short, &lifetime2);
+
+  if (optimize_micromips_regs_flag)
+    {
+      diff = ALLOCNO_COMPARE_HEURISTIC (a1_num, a2_num, a1_nrefs_short,
+				        a2_nrefs_short, lifetime1, lifetime2);
+
+      if (diff != 0)
+        return diff;
+      if ((diff = a1_freq - a2_freq) != 0)
+        return diff;
+    }
+  else
+    {
+      if ((diff = a1_freq - a2_freq) != 0)
+        return diff;
+      if ((diff = a2_num - a1_num) != 0)
+        return diff;
+    }
+  return ALLOCNO_NUM (a2) - ALLOCNO_NUM (a1);
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.half\t"
@@ -19300,6 +19699,12 @@ mips_reg_equiv_profitable_p (struct ira_reg_equiv * equiv)
 
 #undef TARGET_REG_EQUIV_PROFITABLE_P
 #define TARGET_REG_EQUIV_PROFITABLE_P mips_reg_equiv_profitable_p
+
+#undef TARGET_INSN_HAS_SHORT_FORM
+#define TARGET_INSN_HAS_SHORT_FORM mips_insn_has_short_form_p
+
+#undef TARGET_ALLOCNO_COMPARE_FUNC
+#define TARGET_ALLOCNO_COMPARE_FUNC mips_bucket_allocno_compare_func
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

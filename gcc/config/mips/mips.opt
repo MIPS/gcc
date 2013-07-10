@@ -404,5 +404,9 @@ mshrink-offsets
 Target Report Mask(SHRINK_OFFSETS)
 Shrink offsets in MIPS16 code to avoid extended loads and stores
 
+moptimize-micromips-regs
+Target Optimization Var(optimize_micromips_regs_flag)
+Optimize use of the micromips registers
+
 noasmopt
 Driver
