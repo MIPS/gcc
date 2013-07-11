@@ -1,0 +1,83 @@
+2013-07-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* configure.ac (--with-extra-prefix=): Add configure time switches
+	to add additional prefix directories for the compiler to search for
+	extra executables, startfiles, and directories to add to the list
+	of shared library locations.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+	* configure: Regenerate.
+
+	* doc/install.texi (--with-extra-prefix=): Document new configure
+	switches.
+	(--with-extra-exec-prefix=): Likewise.
+	(--with-extra-include-prefix=): Likewise.
+	(--with-extra-startfile-prefix=): Likewise.
+	(--with-extra-rpath-prefix=): Likewise.
+
+	* gcc.c (LINK_RPATH_DIRS_SPEC): Add support for configuration time
+	additional executable, startfile, include, and shared library
+	location prefixes.  Add %find-dynamic-linker(), %extra-rpath-dirs(),
+	%extra-cpu-dirs() as spec functions.
+	(LINK_COMMAND_SPEC): Likewise.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(configure_include_prefix): Likewise.
+	(configure_startfile_prefix): Likewise.
+	(configure_exec_prefix): Likewise.
+	(static_spec_functions): Likewise.
+	(IS_STD_DIR): Likewise.
+	(config_rpath): Likewise.
+	(build_rpath_or_cpu_dirs): Likewise.
+	(get_rpath_dirs): Likewise.
+	(extra_rpath_dirs_spec_function): Likewsie.
+	(extra_cpu_dirs_spec_function): Likewise.
+	(find_dynamic_linker_spec_function): Likewise.
+	(add_multiple_prefix): New function that is like add_prefix, but
+	splits the prefix at PATH_SEPARATOR.
+	(process_command): Simplify processing COMPILER_PATH, LPATH, and
+	LIBRARY_PATH_ENV environment variables by using the function
+	add_multiple_prefix to do the splitting of the separate prefixes.
+	Add support for the configuration switch to add new executable,
+	startfile, include, and shared library prefixes.
+
+	* gcc.h (extra_cpu_dirs_spec_function): Add declaration.
+
+	* config.in (CONFIGURE_EXEC_PREFIX): Add defines for the configure
+	switches to add executable, startfile, include, and shared library
+	configuration directories.
+	(CONFIGURE_INCLUDE_PREFIX): Likewise.
+	(CONFIGURE_STARTFILE_PREFIX): Likewise.
+	(CONFIGURE_RPATH_PREFIX): Likewise.
+
+	* config/rs6000/x-rs6000 (driver-rs6000.o): Add $(GCC_H)
+	dependency.
+
+	* config/rs6000/linux64.h (GLIBC_DYNAMIC_LINKER32): If
+	--with-extra-startfile-prefix or --with-extra-prefix was used, use
+	%find-dynamic-linker() to find the dynamic linker in the startfile
+	prefixes.
+	(GLIBC_DYNAMIC_LINKER64): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS64): Likewise.
+	(LINK_OS_LINUX_SPEC32): Likewise.
+	(LINK_OS_LINUX_SPEC64): Likewise.
+	* config/rs6000/rs6000.h (EXTRA_SPEC_FUNCTIONS): Likewise.
+	(LOCAL_CPU_EXTR_SPEC_FUNCTIONS): Likewise.
+	* config/rs6000/sysv4.h (GLIBC_DYNAMIC_LINKER): Likewise.
+	(LINUX_EXTRA_STATIC_LIBDIRS32): Likewise.
+	(LINK_OS_LINUX_SPEC): Likewise.
+	(rs6000_extra_static_libdirs): Likewise.
+	(SUBTARGET_EXTRA_SPEC_FUNCTIONS): Likewise.
+
+	* config/rs6000/driver-rs6000.c (toplevel): Include gcc.h.
+	(rs6000_extra_static_libdirs): If we have extra configure
+	startfile prefixes, look for a machine specific file as a
+	subdirectory in the startfile prefixes if the user used
+	-mcpu=<xxx>.
+
+2013-07-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Clone branch, subversion id 200823.
+	* REVISION: New file, track subversion id.
