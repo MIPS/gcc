@@ -1,3 +1,7 @@
+2013-07-09  Janis Johnson  <janisjo@codesourcery.com>
+
+	* config.host (powerpc-*-eabispe*): Add t-fdpbit to tmake_file.
+
 2013-06-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/36041
