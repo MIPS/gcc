@@ -464,6 +464,22 @@ pp_cxx_primary_expression (cxx_pretty_printer *pp, tree t)
       pp_cxx_offsetof_expression (pp, t);
       break;
 
+    case REQUIRES_EXPR:
+      pp_cxx_requires_expr (pp, t);
+      break;
+
+    case EXPR_REQ:
+      pp_cxx_expr_requirement (pp, t);
+      break;
+
+    case TYPE_REQ:
+      pp_cxx_type_requirement (pp, t);
+      break;
+
+    case NESTED_REQ:
+      pp_cxx_nested_requirement (pp, t);
+      break;
+
     default:
       pp_c_primary_expression (pp_c_base (pp), t);
       break;
@@ -1073,6 +1089,10 @@ pp_cxx_expression (cxx_pretty_printer *pp, tree t)
     case TEMPLATE_PARM_INDEX:
     case TEMPLATE_TEMPLATE_PARM:
     case STMT_EXPR:
+    case REQUIRES_EXPR:
+    case EXPR_REQ:
+    case TYPE_REQ:
+    case NESTED_REQ:
       pp_cxx_primary_expression (pp, t);
       break;
 
@@ -2437,6 +2457,176 @@ pp_cxx_trait_expression (cxx_pretty_printer *pp, tree t)
 
   pp_cxx_right_paren (pp);
 }
+
+// requirement-list:
+//    requirement
+//    requirement-list ';' requirement[opt]
+//
+// requirement:
+//    simple-requirement
+//    compound-requirement
+//    type-requirement
+//    nested-requirement
+static void
+pp_cxx_requirement_list (cxx_pretty_printer *pp, tree t)
+{
+  int n = 3;
+  while (t) {
+    pp_newline_and_indent (pp, n);
+    pp_cxx_expression (pp, TREE_VALUE (t));
+    n = 0;
+    t = TREE_CHAIN (t);
+  }
+  pp_newline_and_indent (pp, -3);
+}
+
+// requirement-body:
+//    '{' requirement-list '}'
+static void
+pp_cxx_requirement_body (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_left_brace (pp);
+  pp_cxx_requirement_list (pp, TREE_OPERAND (t, 1));
+  pp_cxx_right_brace (pp);
+}
+
+// requirement-parameter-list:
+//    '(' parameter-declaration-clause ')'
+static void
+pp_cxx_requirement_parameter_list (cxx_pretty_printer *pp, tree t)
+{
+  tree p = TREE_OPERAND (t, 0);
+  pp_left_paren (pp);
+  while (p)
+    {
+      tree parm = TREE_VALUE (p);
+      pp_cxx_parameter_declaration (pp, parm);
+      if (!VOID_TYPE_P (TREE_VALUE (TREE_CHAIN (p))))
+        pp_separate_with (pp, ',');
+      else
+        break;
+      p = TREE_CHAIN (p);
+    }
+  pp_right_paren (pp);
+}
+
+// requires-expression:
+//    'requires' requirement-parameter-list requirement-body
+void
+pp_cxx_requires_expr (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "requires");
+  pp_space (pp);
+  pp_cxx_requirement_parameter_list (pp, t);
+  pp_space (pp);
+  pp_cxx_requirement_body (pp, t);
+}
+
+// constraint-specifier:
+//    noexcept
+//    constexpr
+static void
+pp_cxx_constraint_specifier (cxx_pretty_printer *pp, tree t)
+{
+  if (TREE_CODE (t) == NOEXCEPT_EXPR)
+    pp_cxx_ws_string (pp, "noexcept");
+  else if (TREE_CODE (t) == CONSTEXPR_EXPR)
+    pp_cxx_ws_string (pp, "constexpr");
+  else
+    gcc_unreachable ();
+}
+
+// compound-requirement:
+//    '{' expression '}' trailing-constraint-specifiers
+//
+// trailing-constraint-specifiers:
+//    constraint-specifiers-seq[opt] result-type-requirement[opt]
+//
+// result-type-requirement:
+//    '->' type-id
+static void
+pp_cxx_compound_requirement (cxx_pretty_printer *pp, tree t)
+{
+  // Get the expression requirement.
+  tree ereq = TREE_OPERAND (t, 0);
+
+  // Find the tree node containing the result type requirement.
+  // Note that validtype requirements are implicit.
+  tree treq = TREE_CHAIN (ereq);
+  if (TREE_CODE (TREE_VALUE (treq)) == VALIDTYPE_EXPR)
+    treq = TREE_CHAIN (treq);
+  
+  // Find tree nodes for any additional constraint specifiers.
+  tree spec1 = TREE_CHAIN (treq);
+  tree spec2 = spec1 ? TREE_CHAIN (spec1) : NULL_TREE;
+
+  // Pretty print the {expr} requirement
+  tree expr = TREE_OPERAND (TREE_VALUE (ereq), 0);
+  pp_cxx_left_brace (pp);
+  pp_cxx_expression (pp, expr);
+  pp_cxx_right_brace (pp);
+
+  // Pretty constraint specifiers, if any.
+  if (spec1)
+    {
+      pp_space (pp);
+      pp_cxx_constraint_specifier (pp, TREE_VALUE (spec1));
+      if (spec2)
+        pp_cxx_constraint_specifier (pp, TREE_VALUE (spec2));
+    }
+
+  // Pretty print the '-> type-id' part of the expression.
+  // Note that treq will contain a TRAIT_EXPR.
+  if (treq)
+    {
+      tree type = TRAIT_EXPR_TYPE2 (TREE_VALUE (treq));
+      pp_space (pp);
+      pp_cxx_arrow (pp);
+      pp_space (pp);
+      pp_cxx_type_id (pp, type);
+    }
+}
+
+// simple-requirement:
+//    expression
+static void
+pp_cxx_simple_requirement (cxx_pretty_printer *pp, tree t)
+{
+  tree req = TREE_OPERAND (t, 0);
+  pp_cxx_expression (pp, TREE_OPERAND (req, 0));
+}
+
+void
+pp_cxx_expr_requirement (cxx_pretty_printer *pp, tree t)
+{
+  tree reqs = TREE_OPERAND (t, 0);
+  if (TREE_CODE (reqs) == TREE_LIST)
+    pp_cxx_compound_requirement (pp, t);
+  else
+    pp_cxx_simple_requirement (pp, t);
+  pp_cxx_semicolon (pp);
+}
+
+// type-requirement:
+//    type-id
+void
+pp_cxx_type_requirement (cxx_pretty_printer *pp, tree t)
+{
+  tree req = TREE_OPERAND (t, 0);
+  pp_cxx_type_id (pp, TREE_OPERAND (req, 0));
+  pp_cxx_semicolon (pp);
+}
+
+// nested requirement:
+//    'requires' logical-or-expression
+void
+pp_cxx_nested_requirement (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "requires");
+  pp_cxx_expression (pp, TREE_OPERAND (t, 0));
+  pp_cxx_semicolon (pp);
+}
+
 
 typedef c_pretty_print_fn pp_fun;
 

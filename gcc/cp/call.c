@@ -8894,10 +8894,24 @@ tourney (struct z_candidate *candidates, tsubst_flags_t complain)
   return champ;
 }
 
-/* Returns nonzero if things of type FROM can be converted to TO.  */
 
+// Returns true if things of type FROM can be implicitly converted to TO.
 bool
 can_convert (tree to, tree from, tsubst_flags_t complain)
+{
+  // If either the TO or FROM types may be a class, build an expression
+  // to force the lookup of user-defined conversions.
+  tree expr = NULL_TREE;
+  if (MAYBE_CLASS_TYPE_P (to) || MAYBE_CLASS_TYPE_P (from))
+    expr = build_min (CAST_EXPR, from, NULL_TREE);
+  return can_convert_arg (to, from, expr, LOOKUP_IMPLICIT, complain);
+}
+
+/* Returns nonzero if things of type FROM can be converted to TO by
+   way of a standard conversion. */
+
+bool
+can_convert_standard (tree to, tree from, tsubst_flags_t complain)
 {
   return can_convert_arg (to, from, NULL_TREE, LOOKUP_IMPLICIT, complain);
 }

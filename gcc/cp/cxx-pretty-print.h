@@ -76,6 +76,10 @@ void pp_cxx_trait_expression (cxx_pretty_printer *, tree);
 void pp_cxx_va_arg_expression (cxx_pretty_printer *, tree);
 void pp_cxx_offsetof_expression (cxx_pretty_printer *, tree);
 void pp_cxx_userdef_literal (cxx_pretty_printer *, tree);
+void pp_cxx_requires_expr (cxx_pretty_printer *, tree);
+void pp_cxx_expr_requirement (cxx_pretty_printer *, tree);
+void pp_cxx_type_requirement (cxx_pretty_printer *, tree);
+void pp_cxx_nested_requirement (cxx_pretty_printer *, tree);
 
 
 #endif /* GCC_CXX_PRETTY_PRINT_H */

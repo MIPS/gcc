@@ -2216,9 +2216,9 @@ static tree cp_parser_requires_clause_opt
   (cp_parser *);
 static tree cp_parser_requires_expression
   (cp_parser *);
-static tree cp_parser_requires_expression_parameter_list
+static tree cp_parser_requirement_parameter_list
   (cp_parser *);
-static tree cp_parser_requires_expression_body
+static tree cp_parser_requirement_body
   (cp_parser *);
 static tree cp_parser_requirement_list
   (cp_parser *);
@@ -2226,7 +2226,7 @@ static tree cp_parser_requirement
   (cp_parser *);
 static tree cp_parser_simple_requirement
   (cp_parser *);
-static tree cp_parser_syntax_requirement
+static tree cp_parser_compound_requirement
   (cp_parser *);
 static tree cp_parser_type_requirement
   (cp_parser *);
@@ -21751,10 +21751,30 @@ cp_parser_requires_clause_opt (cp_parser *parser)
 // -------------------------------------------------------------------------- //
 // Requires Expression
 
+
+// An RAII helper that provides scoped control for entering and exiting 
+// the local scope defined by a requires expression. Name bindings introduced 
+// within the scope are popped prior to exiting the scope.
+struct cp_parser_requires_expr_scope
+{
+  // Enter a scope of kind K belonging to the decl D. 
+  cp_parser_requires_expr_scope ()
+  {
+    begin_scope (sk_block, NULL_TREE);
+  }
+
+  ~cp_parser_requires_expr_scope ()
+  {
+    for (tree t = current_binding_level->names; t; t = DECL_CHAIN (t))
+      pop_binding (DECL_NAME (t), t);
+    leave_scope ();
+  }
+};
+
 // Parse a requires expression
 //
 //    requirement-expression:
-//        'requires' requirement-parameter-list[opt] requirement-body
+//        'requires' requirement-parameter-list requirement-body
 static tree
 cp_parser_requires_expression (cp_parser *parser)
 {
@@ -21764,13 +21784,16 @@ cp_parser_requires_expression (cp_parser *parser)
   // TODO: Check that requires expressions are only written inside of
   // template declarations. They don't need to be concepts, just templates.
 
-  // Parse the optional parameter list.
-  tree parms = cp_parser_requires_expression_parameter_list (parser);
+  // Parse the optional parameter list. Any local parameter declarations
+  // are added to a new scope and are visible within the nested 
+  // requirement list.
+  cp_parser_requires_expr_scope guard;
+  tree parms = cp_parser_requirement_parameter_list (parser);
   if (parms == error_mark_node)
     return error_mark_node;
 
   // Parse the requirement body.
-  tree reqs = cp_parser_requires_expression_body (parser);
+  tree reqs = cp_parser_requirement_body (parser);
   if (reqs == error_mark_node)
     return error_mark_node;
 
@@ -21782,7 +21805,7 @@ cp_parser_requires_expression (cp_parser *parser)
 //    requirement-parameter-list:
 //        '(' parameter-declaration-clause ')'
 static tree
-cp_parser_requires_expression_parameter_list (cp_parser *parser)
+cp_parser_requirement_parameter_list (cp_parser *parser)
 {
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return error_mark_node;
@@ -21803,7 +21826,7 @@ cp_parser_requires_expression_parameter_list (cp_parser *parser)
 //    requirement-body:
 //        '{' requirement-list '}'
 static tree
-cp_parser_requires_expression_body (cp_parser *parser)
+cp_parser_requirement_body (cp_parser *parser)
 {
   if (!cp_parser_require (parser, CPP_OPEN_BRACE, RT_OPEN_BRACE))
     return error_mark_node;
@@ -21820,7 +21843,7 @@ cp_parser_requires_expression_body (cp_parser *parser)
 //
 //    requirement-list:
 //        requirement
-//        requirement-list ';' requirement[opt]static tree
+//        requirement-list ';' requirement[opt]
 static tree
 cp_parser_requirement_list (cp_parser *parser)
 {
@@ -21852,7 +21875,7 @@ cp_parser_requirement_list (cp_parser *parser)
 //
 //    requirement:
 //        simple-requirement
-//        syntax-requirement
+//        compound-requirement
 //        type-requirement
 //        nested-requirement
 static tree
@@ -21862,20 +21885,13 @@ cp_parser_requirement (cp_parser *parser)
     return cp_parser_nested_requirement (parser);
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
-    return cp_parser_syntax_requirement (parser);
+    return cp_parser_compound_requirement (parser);
 
   // Try parsing a type requirement first.
   cp_parser_parse_tentatively (parser);
   tree req = cp_parser_type_requirement (parser);
-  if (req == error_mark_node)
-    cp_parser_abort_tentative_parse (parser);
-  else
-    cp_parser_commit_to_tentative_parse (parser);
-
-  // If that failed, then we must have a simple requirement.
-  if (req == error_mark_node)
+  if (!cp_parser_parse_definitely (parser))
     req = cp_parser_simple_requirement (parser);
-
   return req;
 }
 
@@ -21887,7 +21903,10 @@ static tree
 cp_parser_nested_requirement (cp_parser *parser)
 {
   cp_lexer_consume_token (parser->lexer);
-  return cp_parser_requires_clause (parser);
+  tree req = cp_parser_requires_clause (parser);
+  if (req == error_mark_node)
+    return error_mark_node;
+  return finish_nested_requirement (req);
 }
 
 // Parse a simple requirement.
@@ -21900,12 +21919,12 @@ cp_parser_simple_requirement (cp_parser *parser)
   tree expr = cp_parser_expression (parser, false, false, NULL);
   if (!expr || expr == error_mark_node)
     return error_mark_node;
-  return finish_syntax_requirement (expr);
+  return finish_expr_requirement (expr);
 }
 
-// Parse a syntax requirement
+// Parse a compound requirement
 //
-//    syntax-requirement:
+//    compound-requirement:
 //        '{' expression '}' trailing-constraint-specifiers
 //
 //    trailing-constraint-specifiers:
@@ -21914,7 +21933,7 @@ cp_parser_simple_requirement (cp_parser *parser)
 //    result-type-requirement:
 //       '->' type-id
 static tree
-cp_parser_syntax_requirement (cp_parser *parser)
+cp_parser_compound_requirement (cp_parser *parser)
 {
   // Parse an expression enclosed in '{ }'s.
   if (!cp_parser_require (parser, CPP_OPEN_BRACE, RT_OPEN_BRACE))
@@ -21935,12 +21954,12 @@ cp_parser_syntax_requirement (cp_parser *parser)
   if (cp_lexer_next_token_is (parser->lexer, CPP_DEREF))
     {
       cp_lexer_consume_token (parser->lexer);
-      type = cp_parser_type_id (parser);
+      type = cp_parser_trailing_type_id (parser);
       if (type == error_mark_node)
         return error_mark_node;
     }
 
-  return finish_syntax_requirement (expr, type, cs);
+  return finish_expr_requirement (expr, type, cs);
 }
 
 // Parse a type requirement
@@ -21972,8 +21991,7 @@ static tree
 cp_parser_constexpr_constraint_spec (cp_parser *parser, tree expr)
 {
   cp_lexer_consume_token (parser->lexer);
-  return NULL_TREE;
-  // return finish_constexpr_requirement (expr);
+  return finish_constexpr_requirement (expr);
 }
 
 // Parse an optional noexcept specifier in a constraint expression.
@@ -21981,8 +21999,7 @@ static tree
 cp_parser_noexcept_constraint_spec (cp_parser *parser, tree expr)
 {
   cp_lexer_consume_token (parser->lexer);
-  return NULL_TREE;
-  // return finish_noexcept_requirement (expr);
+  return finish_noexcept_requirement (expr);
 }
 
 static tree

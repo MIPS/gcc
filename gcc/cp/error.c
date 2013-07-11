@@ -2573,6 +2573,22 @@ dump_expr (tree t, int flags)
       pp_cxx_right_paren (cxx_pp);
       break;
 
+    case REQUIRES_EXPR:
+      pp_cxx_requires_expr (cxx_pp, t);
+      break;
+
+    case EXPR_REQ:
+      pp_cxx_expr_requirement (cxx_pp, t);
+      break;
+    
+    case TYPE_REQ:
+      pp_cxx_type_requirement (cxx_pp, t);
+      break;
+
+    case NESTED_REQ:
+      pp_cxx_nested_requirement (cxx_pp, t);
+      break;
+
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call
 	  `report_error_function'.  That could cause an infinite loop.  */

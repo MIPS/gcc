@@ -5099,6 +5099,7 @@ extern tree build_op_delete_call		(enum tree_code, tree, tree,
 						 bool, tree, tree,
 						 tsubst_flags_t);
 extern bool can_convert				(tree, tree, tsubst_flags_t);
+extern bool can_convert_standard                (tree, tree, tsubst_flags_t);
 extern bool can_convert_arg			(tree, tree, tree, int,
 						 tsubst_flags_t);
 extern bool can_convert_arg_bad			(tree, tree, tree, int,
@@ -5801,11 +5802,15 @@ extern vec<tree> cx_error_context (void);
 extern bool is_unary_trait                      (cp_trait_kind);
 extern bool is_binary_trait                     (cp_trait_kind);
 extern tree finish_requires_expr                (tree, tree);
-extern tree finish_syntax_requirement           (tree, tree, tree);
-extern tree finish_syntax_requirement           (tree);
+extern tree finish_expr_requirement             (tree, tree, tree);
+extern tree finish_expr_requirement             (tree);
 extern tree finish_type_requirement             (tree);
+extern tree finish_nested_requirement           (tree);
 extern tree finish_constexpr_requirement        (tree);
 extern tree finish_noexcept_requirement         (tree);
+extern tree finish_validexpr_expr               (tree);
+extern tree finish_validtype_epxr               (tree);
+extern tree finish_constexpr_expr               (tree);
 
 enum {
   BCS_NO_SCOPE = 1,

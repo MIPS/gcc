@@ -1890,7 +1890,7 @@ check_final_overrider (tree overrider, tree basefn)
 	    }
 	}
       else if (!pedantic
-	       && can_convert (TREE_TYPE (base_type), TREE_TYPE (over_type),
+	       && can_convert_standard (TREE_TYPE (base_type), TREE_TYPE (over_type),
 			       tf_warning_or_error))
 	/* GNU extension, allow trivial pointer conversions such as
 	   converting to void *, or qualification conversion.  */

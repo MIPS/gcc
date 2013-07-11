@@ -6277,7 +6277,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       && CLASS_TYPE_P (intype)
       && (TYPE_REF_IS_RVALUE (type) || real_lvalue_p (expr))
       && DERIVED_FROM_P (intype, TREE_TYPE (type))
-      && can_convert (build_pointer_type (TYPE_MAIN_VARIANT (intype)),
+      && can_convert_standard (build_pointer_type (TYPE_MAIN_VARIANT (intype)),
 		      build_pointer_type (TYPE_MAIN_VARIANT
 					  (TREE_TYPE (type))),
 		      complain)
@@ -6410,7 +6410,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
   if (TYPE_PTR_P (type) && TYPE_PTR_P (intype)
       && CLASS_TYPE_P (TREE_TYPE (type))
       && CLASS_TYPE_P (TREE_TYPE (intype))
-      && can_convert (build_pointer_type (TYPE_MAIN_VARIANT
+      && can_convert_standard (build_pointer_type (TYPE_MAIN_VARIANT
 					  (TREE_TYPE (intype))),
 		      build_pointer_type (TYPE_MAIN_VARIANT
 					  (TREE_TYPE (type))),
@@ -6455,7 +6455,8 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
 	  t1 = intype;
 	  t2 = type;
 	}
-      if (can_convert (t1, t2, complain) || can_convert (t2, t1, complain))
+      if ((can_convert_standard (t1, t2, complain) || 
+           can_convert_standard (t2, t1, complain)))
 	{
 	  if (!c_cast_p
 	      && check_for_casting_away_constness (intype, type,
@@ -8904,7 +8905,7 @@ casts_away_constness (tree t1, tree t2, tsubst_flags_t complain)
   t1 = TYPE_MAIN_VARIANT (t1);
   t2 = TYPE_MAIN_VARIANT (t2);
   casts_away_constness_r (&t1, &t2, complain);
-  if (!can_convert (t2, t1, complain))
+  if (!can_convert_standard (t2, t1, complain))
     return true;
 
   return false;

@@ -5560,6 +5560,18 @@ is_binary_trait (cp_trait_kind k)
   return !is_unary_trait (k);
 }
 
+// Returns a type for T that can be used as an xvalue. For function
+// types, this returns an rvalue reference to T. For all other types,
+// this simply returns T.
+tree
+xvalue_result_type (tree t) 
+{
+  if (TREE_CODE (t) == FUNCTION_TYPE)
+    return cp_build_reference_type(t, true);
+  else
+    return t;
+}
+
 /* Actually evaluates the trait.  */
 
 static bool
@@ -5635,8 +5647,7 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
       return (NON_UNION_CLASS_TYPE_P (type1));
 
     case CPTK_IS_CONVERTIBLE_TO:
-      /* TODO  */
-      return false;
+      return can_convert (type2, xvalue_result_type (type1), tf_none);
 
     case CPTK_IS_EMPTY:
       return (NON_UNION_CLASS_TYPE_P (type1) && CLASSTYPE_EMPTY_P (type1));
@@ -5714,12 +5725,6 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 	      || kind == CPTK_IS_TRIVIAL
 	      || kind == CPTK_IS_UNION);
 
-  if (kind == CPTK_IS_CONVERTIBLE_TO)
-    {
-      sorry ("__is_convertible_to");
-      return error_mark_node;
-    }
-
   if (type1 == error_mark_node 
       || (is_binary_trait (kind) && type2 == error_mark_node))
     return error_mark_node;
@@ -5770,6 +5775,8 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
       break;
     
     case CPTK_IS_CONVERTIBLE_TO:
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -10014,41 +10021,118 @@ finish_template_requirements (tree expr)
     return make_constraints (expr);
 }
 
-// TODO: Implement semantics for requires expressions.
+// Finish a requires expression, returning a node wrapping the parameters,
+// PARMS, and the list of requirements REQS.
 tree
-finish_requires_expr (tree, tree)
+finish_requires_expr (tree parms, tree reqs)
 {
-  return NULL_TREE;
+  // Modify the declared parameters by removing their context (so they
+  // don't refer to the enclosing scope), and marking them constant (so
+  // we can actually check constexpr properties).
+  for (tree p = parms; p && !VOID_TYPE_P (TREE_VALUE (p)); p = TREE_CHAIN (p))
+    {
+      tree parm = TREE_VALUE (p);
+      DECL_CONTEXT (parm) = NULL_TREE;
+      TREE_CONSTANT (parm) = true;
+    }
+
+    // Build the node.
+  tree r = build_min (REQUIRES_EXPR, boolean_type_node, parms, reqs);
+  TREE_SIDE_EFFECTS (r) = false;
+  TREE_CONSTANT (r) = true;
+  return r;
 }
 
-// TODO: Implement syntax requirements.
-tree
-finish_syntax_requirement (tree, tree, tree)
+// Construct a unary expression that evaluates properties of the
+// expression or type T, and has a boolean result type.
+static inline tree
+build_check_expr (tree_code c, tree t)
 {
-  return NULL_TREE;
+  tree r = build_min (c, boolean_type_node, t);
+  TREE_SIDE_EFFECTS (r) = false;
+  TREE_READONLY (r) = true;
+  TREE_CONSTANT (r) = true;
+  return r;
 }
 
-// Finish the simple syntax requirement by constructing a new
-// syntax requirement that has no result type requirements nor
-// constraint specifiers.
+// Finish a syntax requirement, constructing a list embodying a sequence
+// of checks for the validity of EXPR and TYPE, the convertibility of
+// EXPR to TYPE, and the expression properties specified in SPECS.
 tree
-finish_syntax_requirement (tree expr)
+finish_expr_requirement (tree expr, tree type, tree specs)
 {
-  return finish_syntax_requirement (expr, NULL_TREE, NULL_TREE);
+  gcc_assert (processing_template_decl);
+
+  // Build a list of checks, starting with the valid expression.
+  tree result = tree_cons (NULL_TREE, finish_validexpr_expr (expr), NULL_TREE);
+
+  // If a type requirement was provided, build the result type checks.
+  if (type)
+    {
+      // If the type is dependent, ensure that it can be validly
+      // instantiated.
+      //
+      // NOTE: We can also disregard checks that result in the template
+      // parameter.
+      if (dependent_type_p (type))
+        {
+          tree treq = finish_type_requirement (type);
+          result = tree_cons (NULL_TREE, treq, result);
+        }
+
+      // Ensure that the result of the expression can be converted to
+      // the result type.
+      tree decl_type = finish_decltype_type (expr, false, tf_none);
+      tree creq = finish_trait_expr (CPTK_IS_CONVERTIBLE_TO, decl_type, type);
+      result = tree_cons (NULL_TREE, creq, result);
+    }
+
+  // If constraint specifiers are present, make them part of the
+  // list of constraints.
+  if (specs)
+    {
+      TREE_CHAIN (tree_last (specs)) = result;
+      result = specs;
+    }
+
+  // Finally, construct the syntactic requirement.
+  return build_check_expr (EXPR_REQ, nreverse (result));
 }
 
-// TODO: Implement type requirements.
+// Finish a simple syntax requirement, returning a node representing
+// a check that EXPR is a valid expression.
 tree
-finish_type_requirement (tree)
+finish_expr_requirement (tree expr)
 {
-  return NULL_TREE;
+  gcc_assert (processing_template_decl);
+  tree req = finish_validexpr_expr (expr);
+  return build_check_expr (EXPR_REQ, req);
 }
 
-// TODO: Implement constexpr requirements.
+// Finish a type requirement, returning a node representing a check
+// that TYPE will result in a valid type when instantiated.
 tree
-finish_constexpr_requirement (tree)
+finish_type_requirement (tree type)
 {
-  return NULL_TREE;
+  gcc_assert (processing_template_decl);
+  tree req = finish_validtype_epxr (type);
+  return build_check_expr (TYPE_REQ, req);
+}
+
+tree
+finish_nested_requirement (tree expr)
+{
+  gcc_assert (processing_template_decl);
+  return build_check_expr (NESTED_REQ, expr);
+}
+
+// Finish a constexpr requirement, returning a node representing a
+// check that EXPR, when instantiated, may be evaluated at compile time.
+tree
+finish_constexpr_requirement (tree expr)
+{
+  gcc_assert (processing_template_decl);
+  return finish_constexpr_expr (expr);
 }
 
 // Finish the noexcept requirement by constructing a noexcept 
@@ -10056,9 +10140,63 @@ finish_constexpr_requirement (tree)
 tree
 finish_noexcept_requirement (tree expr)
 {
+  gcc_assert (processing_template_decl);
   return finish_noexcept_expr (expr, tf_none);
 }
 
+// Returns the true or false node depending on the truth value of B.
+static inline tree
+truth_node (bool b)
+{
+  return b ? boolean_true_node : boolean_false_node;
+}
+
+// Returns a finished validexpr-expr. Returns the true or false node
+// depending on whether EXPR denotes a valid expression. This is the case
+// when the expression has been successfully type checked.
+//
+// When processing a template declaration, the result is an expression 
+// representing the check.
+tree
+finish_validexpr_expr (tree expr)
+{
+  if (processing_template_decl)
+    return build_check_expr (VALIDEXPR_EXPR, expr);
+  return truth_node (expr && expr != error_mark_node);
+}
+
+// Returns a finished validtype-expr. Returns the true or false node
+// depending on whether T denotes a valid type name.
+//
+// When processing a template declaration, the result is an expression 
+// representing the check.
+tree
+finish_validtype_epxr (tree type)
+{
+  if (processing_template_decl)
+    return build_check_expr (VALIDTYPE_EXPR, type);
+  return truth_node (type && TYPE_P (type));
+}
+
+// Returns a finished constexpr-expr. Returns the true or false node
+// depending on whether the expression T may be evaluated at compile
+// time.
+//
+// When processing a template declaration, the result is an expression 
+// representing the check.
+tree
+finish_constexpr_expr (tree expr)
+{
+  if (processing_template_decl)
+    return build_check_expr (CONSTEXPR_EXPR, expr);
+
+  // TODO: Actually check that the expression can be constexpr
+  // evaluatd. 
+  // 
+  // return truth_node (potential_constant_expression (expr));
+  sorry ("constexpr requirement");
+  return NULL_TREE;
+}
 
 
 #include "gt-cp-semantics.h"
