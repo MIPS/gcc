@@ -1,3 +1,290 @@
+2013-07-11  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mips.c (mips_conditional_register_usage): Do not
+	use t[0-7] registers in MIPS16 mode when optimizing for size.
+
+2013-07-11  Sriraman Tallam  <tmsriram@google.com>
+
+	* config/i386/i386.c (dispatch_function_versions): Fix array
+	indexing of function_version_info to match actual_versions.
+
+2013-07-11  Teresa Johnson  <tejohnson@google.com>
+
+	* vec.h (struct va_gc): Move release out-of-line.
+	(va_gc::release): Call ggc_free on released vec.
+
+2013-07-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.md (""*tls_gd_low<TLSmode:tls_abi_suffix>"):
+	Require GOT register as additional operand in UNSPEC.
+	("*tls_ld_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_got_dtprel_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_got_tprel_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_gd<TLSmode:tls_abi_suffix>"): Update splitter.
+	("*tls_ld<TLSmode:tls_abi_suffix>"): Likewise.
+	("tls_got_dtprel_<TLSmode:tls_abi_suffix>"): Likewise.
+	("tls_got_tprel_<TLSmode:tls_abi_suffix>"): Likewise.
+
+2013-07-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57631
+	* config/avr/avr.c (avr_set_current_function): Sanity-check signal
+	name seen by assembler/linker rather if available.
+
+2013-07-11  Andreas Schwab  <schwab@suse.de>
+
+	* config/aarch64/aarch64-linux.h (CPP_SPEC): Define.
+
+2013-07-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (curr_insn_transform): Switch off optional
+	reloads.
+
+2013-07-10  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/tm.texi.in: Move hook documentation to ....
+	* target.def: ... here.
+
+	* doc/tm.texi.in (TARGET_CANONICALIZE_COMPARISON): Remove stray
+	text on @hook line.
+	* doc/tm.texi: Regenerate.
+
+2013-07-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57869
+	* doc/invoke.texi: Document -Wconditionally-supported.
+
+2013-07-10  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57844
+	* config/avr/avr.c (avr_prologue_setup_frame): Trunk -size to mode
+	of my_fp.
+
+2013-07-10  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57506
+	* config/avr/avr-mcus.def (atmega16hva, atmega16hva2, atmega16hvb)
+	(atmega16m1, atmega16u4, atmega32a, atmega32c1, atmega32hvb)
+	(atmega32m1, atmega32u4, atmega32u6, atmega64c1, atmega64m1):
+	Remove duplicate devices.
+	* config/avr/gen-avr-mmcu-texi.c (print_mcus): Fail on duplicate MCUs.
+	* config/avr/t-multilib: Regenerate.
+	* config/avr/avr-tables.opt: Regenerate.
+	* doc/avr-mmcu.texi: Regenerate.
+
+2013-07-10  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/56987
+	* config/avr/avr.opt (Waddr-space-convert): Fix typo.
+
+2013-07-10  Graham Stott  <graham.stott@btinternet.com>
+
+	* config/mips/mips.c (mips_rtx_costs): Very slightly increase
+	the cost of MULT when optimizing for size.
+
+2013-07-10  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/cr16/cr16-protos.h: Don't include target.h.
+
+2013-07-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Only
+	adjust register size for TDmode and TFmode for VSX registers.
+
+2013-07-08  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/56892
+	* config/i386/i386.c (TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P): Define as
+	hook_bool_const_tree_true.
+
+2013-07-08  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c: Replace F*_REGNUM with FPR*_REGNUM.
+	* config/s390/s390.h: Remove F*_REGNUM macro definitions.
+	* config/s390/s390.md: Define FPR*_REGNUM constants.
+	Fix FPR2_REGNUM constant (18 -> 17).
+	("*trunc<BFP:mode><DFP_ALL:mode>2")
+	("*trunc<DFP_ALL:mode><BFP:mode>2")
+	("trunc<BFP:mode><DFP_ALL:mode>2")
+	("trunc<DFP_ALL:mode><BFP:mode>2")
+	("*extend<BFP:mode><DFP_ALL:mode>2")
+	("*extend<DFP_ALL:mode><BFP:mode>2")
+	("extend<BFP:mode><DFP_ALL:mode>2")
+	("extend<DFP_ALL:mode><BFP:mode>2"): Replace FPR2_REGNUM with
+	FPR4_REGNUM.
+
+2013-07-08  Graham Stott  <graham.stott@btinternet.com>
+
+	* Makefile.in: (c-family-warn): Define to $(STRICT_WARN)
+
+2013-07-08  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c: Rename cfun_set_fpr_bit to cfun_set_fpr_save
+	and cfun_fpr_bit_p to cfun_fpr_save_p.
+	(s390_frame_area, s390_register_info, s390_frame_info)
+	(s390_emit_prologue, s390_emit_epilogue)
+	(s390_conditional_register_usage): Use the *_REGNUM macros for FPR
+	register numbers.
+	* config/s390/s390.h: Define *_REGNUM macros for floating point
+	register numbers.
+
+2013-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* Makefile.in (tree-ssa-reassoc.o): Add dependency on $(PARAMS_H).
+
+2013-07-08  Po-Chun Chang  <pchang9@cs.wisc.edu>
+
+	PR rtl-optimization/57786
+	* combine.c (distribute_notes) <case REG_DEAD>: Change all_used to bool
+	and break out of the loop when it is set to false.
+
+2013-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57819
+	* simplify-rtx.c (simplify_unary_operation_1) <case ZERO_EXTEND>:
+	Simplify (zero_extend:SI (subreg:QI (and:SI (reg:SI)
+	(const_int 63)) 0)).
+	* combine.c (make_extraction): Create ZERO_EXTEND or SIGN_EXTEND
+	using simplify_gen_unary instead of gen_rtx_*_EXTEND.
+	* config/i386/i386.md (*jcc_bt<mode>_1): New define_insn_and_split.
+
+	PR rtl-optimization/57829
+	* simplify-rtx.c (simplify_binary_operation_1) <case IOR>: Ensure that
+	mask bits outside of mode are just sign-extension from mode to HWI.
+
+2013-07-08  Michael Zolotukhin  <michael.v.zolotukhin@gmail.com>
+
+	* config/i386/i386-opts.h (enum stringop_alg): Add vector_loop.
+	* config/i386/i386.c (expand_set_or_movmem_via_loop): Use
+	adjust_address instead of change_address to keep info about alignment.
+	(emit_strmov): Remove.
+	(emit_memmov): New function.
+	(expand_movmem_epilogue): Refactor to properly handle bigger sizes.
+	(expand_movmem_epilogue): Likewise and return updated rtx for
+	destination.
+	(expand_constant_movmem_prologue): Likewise and return updated rtx for
+	destination and source.
+	(decide_alignment): Refactor, handle vector_loop.
+	(ix86_expand_movmem): Likewise.
+	(ix86_expand_setmem): Likewise.
+	* config/i386/i386.opt (Enum): Add vector_loop to option stringop_alg.
+
+2013-07-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Do not check
+	signature_TM2_ebx, it interferes with signature_INTEL_ebx.
+
+2013-07-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (sse_movlhps): Change alternative 3
+	of operand 2 to "m".
+
+2013-07-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57807
+	* config/i386/sse.md (iptr): New mode attribute.
+	(sse2_movq128): Add pointer size overrides for Intel asm dialect.
+	(<sse>_vm<plusminus_insn><mode>3): Ditto.
+	(<sse>_vmmul<mode>3): Ditto.
+	(<sse>_vmdiv<mode>3): Ditto.
+	(sse_vmrcpv4sf2): Ditto.
+	(<sse>_vmsqrt<mode>2): Ditto.
+	(sse_vmrsqrtv4sf2): Ditto.
+	(<sse>_vm<code><mode>3): Ditto.
+	(avx_vmcmp<mode>3): Ditto.
+	(<sse>_vmmaskcmp<mode>3): Ditto.
+	(<sse>_comi): Ditto.
+	(<sse>_ucomi): Ditto.
+	(*xop_vmfrcz_<mode>): Ditto.
+	(*fmai_fmadd_<mode>): Ditto.
+	(*fmai_fmsub_<mode>): Ditto.
+	(*fmai_fnmadd_<mode>): Ditto.
+	(*fmai_fnmsub_<mode>): Ditto.
+	(*fma4i_vmfmadd_<mode>): Ditto.
+	(*fma4i_vmfmsub_<mode>): Ditto.
+	(*fma4i_vmfnmadd_<mode>): Ditto.
+	(*fma4i_vmfnmsub_<mode>): Ditto.
+	(*xop_vmfrcz_<mode>): Ditto.
+	(sse_cvtps2pi): Ditto.
+	(sse_cvttps2pi): Ditto.
+	(sse_cvtss2si): Ditto.
+	(sse_cvtss2si_2): Ditto.
+	(sse_cvtss2siq_2): Ditto.
+	(sse_cvttss2si): Ditto.
+	(sse_cvttss2siq): Ditto.
+	(sse_cvtsd2si): Ditto.
+	(sse_cvtsd2si_2): Ditto.
+	(sse_cvtsd2siq_2): Ditto.
+	(sse_cvttsd2si): Ditto.
+	(sse_cvttsd2siq): Ditto.
+	(sse_cvtsd2ss): Ditto.
+	(sse_cvtss2sd): Ditto.
+	(avx2_pbroadcast<mode>): Ditto.
+	(avx2_pbroadcast<mode>_1): Ditto.
+	(*avx_vperm_broadcast_v4sf): Ditto.
+
+	(sse_movhlps): Ditto for movlp[sd]/movhp[sd] alternatives.
+	(sse_movlhps): Ditto.
+	(sse_storehps): Ditto.
+	(sse_loadhps): Ditto.
+	(sse_storelps): Ditto.
+	(sse_loadlps): Ditto.
+	(*vec_concatv4sf): Ditto.
+	(*vec_interleave_highv2df): Ditto.
+	(*vec_interleave_lowv2df): Ditto.
+	(*vec_extractv2df_1_sse): Ditto.
+	(*vec_extractv2df_0_sse): Ditto.
+	(sse2_storelpd): Ditto.
+	(sse2_loadlpd): Ditto.
+	(sse2_movsd): Ditto.
+	(*vec_concatv4si): Ditto.
+	(vec_concatv2di): Ditto.
+
+	* config/i386/mmx.md (mmx_punpcklbw): Add pointer size overrides
+	for Intel asm dialect.
+	(mmx_punpcklwd): Ditto.
+	(mmx_punpckldq): Ditto.
+
+	* config/i386/i386.c (ix86_print_operand) ['H']: Output 'qword ptr'
+	for intel assembler dialect.
+
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/29776
+	* fold-const.c (tree_call_nonnegative_warnv_p): Return true
+	for BUILT_IN_C{LZ,LRSB}*.
+	* tree.h (CASE_INT_FN): Add FN##IMAX case.
+	* tree-vrp.c (extract_range_basic): Handle
+	BUILT_IN_{FFS,PARITY,POPCOUNT,C{LZ,TZ,LRSB}}*.  For
+	BUILT_IN_CONSTANT_P if argument isn't (D) of PARM_DECL,
+	fall thru to code calling set_value*.
+	* builtins.c (expand_builtin): Remove *IMAX cases.
+	(fold_builtin_bitop): For BUILT_IN_CLRSB* return NULL_TREE
+	if width is bigger than 2*HWI.
+
+2013-07-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/55342
+	* lra-int.h (lra_subreg_reload_pseudos): New.
+	* lra.c: Add undoing optional reloads to the block diagram.
+	(lra_subreg_reload_pseudos): New.
+	(lra_optional_reload_pseudos): Change comments.
+	(lra): Init and clear lra_subreg_reload_pseudos.  Clear
+	lra_optional_reload_pseudos after undo transformations.
+	* lra-assigns.c (pseudo_prefix_title): New.
+	(lra_setup_reg_renumber): Use it.
+	(spill_for): Ditto.  Check subreg reload pseudos too.
+	(assign_by_spills): Consider subreg reload pseudos too.
+	* lra-constraints.c (simplify_operand_subreg): Use
+	lra_subreg_reload_pseudos instead of lra_optional_reload_pseudos.
+	(curr_insn_transform): Recognize and do optional reloads.
+	(undo_optional_reloads): New.
+	(lra_undo_inheritance): Call undo_optional_reloads.
+
+2013-07-05  Thomas Quinot  <quinot@adacore.com>
+
+	* tree-complex.c (expand_complex_operations_1): Fix typo.
+
 2013-07-04  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/aarch64-protos.h (cpu_vector_cost): New.
@@ -48,8 +335,8 @@
 
 2013-07-02  Sriraman Tallam  <tmsriram@google.com>
 
-	* config/i386/i386.c (gate_insert_vzeroupper): Check if target
-	ISA is AVX.
+	* config/i386/i386.c (gate_insert_vzeroupper): Check if
+	target ISA is AVX.
 	(ix86_option_override_internal):Turn on all -mavx target flags by
 	default as they are dependent on AVX anyway.
 
@@ -71,8 +358,7 @@
 
 2013-07-02  Ian Bolton  <ian.bolton@arm.com>
 
-	* config/aarch64/aarch64-simd.md (absdi2): Support abs for
-	DI mode.
+	* config/aarch64/aarch64-simd.md (absdi2): Support abs for DI mode.
 
 2013-07-02  Ian Bolton  <ian.bolton@arm.com>
 
@@ -281,8 +567,7 @@
 
 2013-06-29  Yufeng Zhang  <yufeng.zhang@arm.com>
 
-	* config/aarch64/aarch64.c: Remove junk from the beginning of the
-	file.
+	* config/aarch64/aarch64.c: Remove junk from the beginning of the file.
 
 2013-06-28  Vladimir Makarov  <vmakarov@redhat.com>
 
@@ -297,9 +582,8 @@
 2013-06-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/57736
-	* config/i386/i386.c (ix86_expand_builtin): If target == NULL
-	and mode is VOIDmode, don't create a VOIDmode pseudo to copy result
-	into.
+	* config/i386/i386.c (ix86_expand_builtin): If target == NULL and
+	mode is VOIDmode, don't create a VOIDmode pseudo to copy result into.
 
 2013-06-28  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
@@ -331,8 +615,8 @@
 
 2013-06-28  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
-	* config/aarch64/aarch64-protos.h
-	aarch64_classify_symbol_expression): Define.
+	* config/aarch64/aarch64-protos.h (aarch64_classify_symbol_expression):
+	Define.
 	(aarch64_symbolic_constant_p): Remove.
 	* config/aarch64/aarch64.c (aarch64_classify_symbol_expression): Remove
 	static.  Fix line length and white space.
@@ -465,8 +749,7 @@
 
 	* config/mips/mips-tables.opt: Regenerate.
 	* config/mips/mips-cpus.def: Add m14ke and m14kec.
-	* config/mips/mips.h (BASE_DRIVER_SELF_SPECS): m14ke* implies
-	-mdspr2.
+	* config/mips/mips.h (BASE_DRIVER_SELF_SPECS): m14ke* implies -mdspr2.
 	* doc/invoke.texi: Add -m14kc.
 
 2013-06-27  Jakub Jelinek  <jakub@redhat.com>
@@ -482,8 +765,8 @@
 
 2013-06-27  Vladimir Makarov  <vmakarov@redhat.com>
 
-	* lra-constraints.c (inherit_in_ebb): Process static hard regs
-	too.  Process OP_INOUT regs for splitting too.
+	* lra-constraints.c (inherit_in_ebb): Process static hard regs too.
+	Process OP_INOUT regs for splitting too.
 
 2013-06-27  Jakub Jelinek  <jakub@redhat.com>
 
@@ -539,8 +822,7 @@
 	(s390_expand_builtin): New function.
 	(TARGET_INIT_BUILTINS): Define.
 	(TARGET_EXPAND_BUILTIN): Define.
-	* common/config/s390/s390-common.c (processor_flags_table): Add
-	PF_TX.
+	* common/config/s390/s390-common.c (processor_flags_table): Add PF_TX.
 	* config/s390/predicates.md (s390_comparison): Handle CCRAWmode.
 	(s390_alc_comparison): Likewise.
 	* config/s390/s390-modes.def: Add CCRAWmode.
@@ -551,8 +833,7 @@
 	* config/s390/s390.md: Rename UNSPEC_CCU_TO_INT to
 	UNSPEC_STRCMPCC_TO_INT and UNSPEC_CCZ_TO_INT to UNSPEC_CC_TO_INT.
 	(UNSPECV_TBEGIN, UNSPECV_TBEGINC, UNSPECV_TEND, UNSPECV_TABORT)
-	(UNSPECV_ETND, UNSPECV_NTSTG, UNSPECV_PPA): New unspecv enum
-	values.
+	(UNSPECV_ETND, UNSPECV_NTSTG, UNSPECV_PPA): New unspecv enum values.
 	(TBEGIN_MASK, TBEGINC_MASK): New constants.
 	("*cc_to_int"): Move up.
 	("*mov<mode>cc", "*cjump_64", "*cjump_31"): Accept integer
@@ -574,8 +855,7 @@
 2013-06-26  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/i386/gnu.h [TARGET_LIBC_PROVIDES_SSP]
-	(TARGET_CAN_SPLIT_STACK, TARGET_THREAD_SPLIT_STACK_OFFSET):
-	Undefine.
+	(TARGET_CAN_SPLIT_STACK, TARGET_THREAD_SPLIT_STACK_OFFSET): Undefine.
 
 2013-06-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Pat Haugen <pthaugen@us.ibm.com>
@@ -608,8 +888,7 @@
 	PR tree-optimization/57705
 	* tree-vect-loop.c (vect_is_simple_iv_evolution): Allow
 	SSA_NAME step, provided that it is not defined inside the loop.
-	(vect_analyze_scalar_cycles_1): Disallow SSA_NAME step in nested
-	loop.
+	(vect_analyze_scalar_cycles_1): Disallow SSA_NAME step in nested loop.
 	(get_initial_def_for_induction): Handle SSA_NAME IV step.
 
 2013-06-25  Martin Jambor  <mjambor@suse.cz>
@@ -659,8 +938,7 @@
 
 2013-06-24  Richard Biener  <rguenther@suse.de>
 
-	* pointer-set.h (struct pointer_set_t): Move here from
-	pointer-set.c.
+	* pointer-set.h (struct pointer_set_t): Move here from pointer-set.c.
 	(pointer_set_lookup): Declare.
 	(class pointer_map): New template class implementing a
 	generic pointer to T map.
@@ -724,7 +1002,8 @@
 	when current target options does not apply.
 	* config/i386/i386-protos.h (ix86_reset_previous_fndecl): New function.
 	* config/i386/i386.c (ix86_reset_previous_fndecl): Ditto.
-	* config/i386/bmiintrin.h: Pass appropriate target attributes to header.
+	* config/i386/bmiintrin.h: Pass appropriate target
+	attributes to header.
 	* config/i386/mmintrin.h: Ditto.
 	* config/i386/nmmintrin.h: Ditto.
 	* config/i386/avx2intrin.h: Ditto.
@@ -772,8 +1051,7 @@
 
 2013-06-21  Andi Kleen  <ak@linux.intel.com>
 
-	* doc/extend.texi: Dont use __atomic_clear in HLE
-	example.  Fix typo.
+	* doc/extend.texi: Dont use __atomic_clear in HLE example.  Fix typo.
 
 2013-06-21  Andi Kleen  <ak@linux.intel.com>
 
