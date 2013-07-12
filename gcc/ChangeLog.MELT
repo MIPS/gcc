@@ -1,6 +1,10 @@
 
 
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (make_sexpr): New function.
+
+2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

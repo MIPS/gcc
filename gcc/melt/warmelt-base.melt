@@ -3197,6 +3197,67 @@ typedef struct melthook_st *melthook_ptr_t;
 	    ))
 	(:else
 	 ())))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun make_sexpr (loc :rest)
+  :doc #{Dynamically build an s-expression of $CLASS_SEXPR with location $LOC and other arguments.}#
+  (let ( (cont (make_list discr_list))
+	 (vloc (cond ( (is_mixint loc)
+		       loc
+		       )
+		     ( (is_mixloc loc)
+		       loc)
+		     (:else ())))
+	 (sexpr (instance class_sexpr
+			  :loca_location vloc
+			  :sexp_contents cont))
+	 )
+    (forever 
+     argloop
+     (variadic 
+      ( ()
+	(exit argloop))
+      ( (:cstring str)
+	(let ( (bs (constant_box str))
+	       )
+	  (list_append cont bs)))
+      ( (:long num)
+	(let ( (bs (constant_box num))
+	       )
+	  (list_append cont bs)))
+      ( (:value v)
+	(cond ( (is_object v)
+		(list_append cont v))
+	      ( (is_integerbox v)
+		(list_append cont v))
+	      ( (is_string v)
+		(list_append cont v))
+	      ( (is_multiple v)
+		(foreach_in_multiple
+		 (v)
+		 (comp :long ix)
+		 (list_append cont comp)))
+	      ( (is_list v)
+		(foreach_in_list
+		 (v)
+		 (curpair curcomp)
+		 (list_append cont curcomp)))
+	      ( (is_closure v)
+		(v cont))
+	      (:else
+	       (error_plain vloc "unexpected value for MAKE_SEXPR")
+	       (return ())
+	       )))
+      (:else
+       (error_plain vloc "unexpected stuff for MAKE_SEXPR")
+       (return ())
+       )))
+    (return sexpr)
+    ))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  ;; keep the alphanumerical order
@@ -3314,6 +3375,7 @@ typedef struct melthook_st *melthook_ptr_t;
  make_mixint
  make_mixloc
  make_pair
+ make_sexpr
  make_strbuf
  make_string
  make_string_generated_cc_filename
