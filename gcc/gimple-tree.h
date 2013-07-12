@@ -61,6 +61,24 @@ inline void
 GimpleValue::set_type (GimpleType t)
 { CONTAINS_STRUCT_CHECK (Tree, TS_TYPED)->typed.type = t; }
 
+inline void
+GimpleValue::strip_nops()
+{ STRIP_NOPS (Tree); }
+
+inline GimpleValue
+GimpleValue::value_operand(const int i) const
+{
+  GimpleValue tmp;
+  tmp = *(CONST_CAST2 (tree*, typeof (Tree)*, 
+	     tree_operand_check (Tree, i, __FILE__, __LINE__, __FUNCTION__)));
+  return tmp;
+}
+
+inline location_t
+GimpleValue::expr_location() const
+{ return CAN_HAVE_LOCATION_P (Tree) ? Tree->exp.locus : UNKNOWN_LOCATION; }
+
+
 //
 // GimpleDecl methods
 //
@@ -90,6 +108,31 @@ GimpleDecl::decl_from_inline () const
 inline bool
 GimpleDecl::readonly () const
 { return NON_TYPE_CHECK (Tree)->base.readonly_flag; }
+
+inline bool
+GimpleDecl::decl_external () const
+{ return DECL_COMMON_CHECK (Tree)->decl_common.decl_flag_1; }
+
+
+inline bool
+GimpleDecl::decl_static() const
+{ return Tree->base.static_flag; }
+
+inline bool
+GimpleDecl::decl_visibility_specified() const
+{ return DECL_WITH_VIS_CHECK (Tree)->decl_with_vis.visibility_specified; }
+
+inline bool
+GimpleDecl::decl_public() const
+{ return Tree->base.public_flag; }
+
+inline bool
+GimpleDecl::decl_comdat() const
+{ return DECL_WITH_VIS_CHECK (Tree)->decl_with_vis.comdat_flag; }
+
+inline bool
+GimpleDecl::decl_asm_written() const
+{ return Tree->base.asm_written_flag; }
 
 
 //
@@ -182,5 +225,25 @@ SSADecl::ssa_name_imm_use_node_ptr () const
 inline bool
 SSADecl::ssa_name_same_base (const SSADecl &n) const
 { return (Tree->ssa_name.var == n.Tree->ssa_name.var); }
+
+template <>
+inline GimpleDecl
+GimpleValue::as_a<GimpleDecl>() const
+{
+  GimpleDecl tmp;
+  if (Tree && tree_code_type[(int)code()] == tcc_declaration)
+    return tmp = Tree;
+  return tmp;
+}
+
+template <>
+inline SSADecl
+GimpleValue::as_a<SSADecl>() const
+{
+  SSADecl tmp;
+  if (Tree && code() == SSA_NAME)
+    return tmp = Tree;
+  return tmp;
+}
 
 #endif

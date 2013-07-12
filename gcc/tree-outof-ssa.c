@@ -518,7 +518,7 @@ eliminate_build (elim_graph g)
 	 left in SSA form, just queue a copy to be emitted on this
 	 edge.  */
       if (!phi_ssa_name_p (Ti)
-	  || (Ti.code()  == SSA_NAME
+	  || (Ti.as_a<SSADecl>()
 	      && var_to_partition (g->map, Ti) == NO_PARTITION))
         {
 	  /* Save constant copies until all other copies have been emitted
@@ -598,11 +598,10 @@ elim_backward (elim_graph g, int T)
    in NAME (a decl or SSA name), i.e. with matching mode and attributes.  */
 
 static rtx
-get_temp_reg (GimpleValue name)
+get_temp_reg (SSADecl name)
 {
   
-  GimpleDecl var = (name.code() == SSA_NAME
-					? SSADecl(name).ssa_name_var() : name);
+  GimpleDecl var = name.ssa_name_var();
   GimpleType type = var.type();
   int unsignedp;
   enum machine_mode reg_mode = promote_decl_mode (var, &unsignedp);
@@ -722,15 +721,14 @@ remove_gimple_phi_args (gimple phi)
   FOR_EACH_PHI_ARG (arg_p, phi, iter, SSA_OP_USE)
     {
       GimpleValue arg = USE_FROM_PTR (arg_p);
-      if (arg.code() == SSA_NAME)
+      if (SSADecl name = arg.as_a<SSADecl>())
         {
 	  /* Remove the reference to the existing argument.  */
 	  SET_USE (arg_p, NULL_TREE);
-	  if (has_zero_uses (arg))
+	  if (has_zero_uses (name))
 	    {
 	      gimple stmt;
 	      gimple_stmt_iterator gsi;
-	      SSADecl name = arg;
 
 	      stmt = name.ssa_name_def_stmt ();
 
@@ -771,7 +769,7 @@ eliminate_useless_phis (void)
 	      for (i = 0; i < gimple_phi_num_args (phi); i++)
 	        {
 		  GimpleValue arg = PHI_ARG_DEF (phi, i);
-		  if (arg.code() == SSA_NAME
+		  if (arg.as_a<SSADecl>()
 		      && !virtual_operand_p (arg))
 		    {
 		      fprintf (stderr, "Argument of PHI is not virtual (");
@@ -828,7 +826,7 @@ rewrite_trees (var_map map ATTRIBUTE_UNUSED)
 		{
 		  GimpleValue arg = PHI_ARG_DEF (phi, i);
 
-		  if (arg.code() == SSA_NAME
+		  if (arg.as_a<SSADecl>()
 		      && var_to_partition (map, arg) != NO_PARTITION)
 		    {
 		      fprintf (stderr, "Argument of PHI is in a partition :(");
@@ -1038,11 +1036,8 @@ insert_backedge_copies (void)
 	  for (i = 0; i < gimple_phi_num_args (phi); i++)
 	    {
 	      GimpleValue arg = gimple_phi_arg_def (phi, i);
-	      SSADecl ssa_arg;
+	      SSADecl ssa_arg = arg.as_a<SSADecl>();
 	      edge e = gimple_phi_arg_edge (phi, i);
-
-	      if (arg.code() == SSA_NAME)
-	        ssa_arg = arg;
 
 	      /* If the argument is not an SSA_NAME, then we will need a
 		 constant initialization.  If the argument is an SSA_NAME with

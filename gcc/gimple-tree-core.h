@@ -80,6 +80,10 @@ class GimpleValue : public TreeBase
     void set_code (enum tree_code);
     GimpleType type() const;
     void set_type (GimpleType);
+    void strip_nops();
+    GimpleValue value_operand(const int i) const;
+    location_t expr_location() const;
+    template <typename T> inline T as_a() const;
 };
 
 class GimpleDecl : public GimpleValue
@@ -106,6 +110,13 @@ class GimpleDecl : public GimpleValue
     bool decl_from_inline () const;
     bool readonly () const;
     bool decl_ignored_p () const;
+    bool decl_external () const;
+    bool decl_visibility_specified() const;
+    bool decl_comdat() const;
+
+    bool decl_static() const;
+    bool decl_public() const;
+    bool decl_asm_written() const;
 };
 
 class SSADecl : public GimpleValue

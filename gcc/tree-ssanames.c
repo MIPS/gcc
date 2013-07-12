@@ -398,8 +398,8 @@ release_defs (gimple stmt)
   gcc_assert (gimple_in_ssa_p (cfun));
 
   FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter, SSA_OP_ALL_DEFS)
-    if (def.code () == SSA_NAME)
-      release_ssa_name (def);
+    if (SSADecl name = def.as_a<SSADecl>())
+      release_ssa_name (name);
 }
 
 

@@ -354,9 +354,8 @@ rename_ssa_copies (void)
 	    for (i = 0; i < gimple_phi_num_args (phi); i++)
 	      {
 		GimpleValue arg = PHI_ARG_DEF (phi, i);
-		if (arg.code () == SSA_NAME)
-		  copy_rename_partition_coalesce (map, res, arg,
-						  debug);
+		if (SSADecl name = arg.as_a<SSADecl>())
+		  copy_rename_partition_coalesce (map, res, name, debug);
 	      }
 	  /* Else if all arguments are in the same partition try to merge
 	     it with the result.  */
@@ -367,14 +366,8 @@ rename_ssa_copies (void)
 	      for (i = 0; i < gimple_phi_num_args (phi); i++)
 		{
 		  GimpleValue arg = PHI_ARG_DEF (phi, i);
-		  if (arg.code() != SSA_NAME)
+		  if (SSADecl name = arg.as_a<SSADecl>())
 		    {
-		      all_p_same = 0;
-		      break;
-		    }
-		  else 
-		    {
-		      SSADecl name = arg;
 		      if (all_p_same == -1)
 			{
 			  p = partition_find (map->var_partition,
@@ -388,6 +381,11 @@ rename_ssa_copies (void)
 			  all_p_same = 0;
 			  break;
 			}
+		    }
+		  else 
+		    {
+		      all_p_same = 0;
+		      break;
 		    }
 		}
 	      if (all_p_same == 1)
