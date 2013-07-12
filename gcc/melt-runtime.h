@@ -214,7 +214,7 @@ void melt_set_real_timer_millisec (long millisec);
 #endif /*ENABLE_GC_CHECKING*/
 
 /* the MELT debug depth for debug_msg ... can be set with -fmelt-debug-depth= */
-int melt_debug_depth(void);
+MELT_EXTERN int melt_debug_depth(void);
 
 #ifdef MELT_IS_PLUGIN
 extern "C" int melt_flag_debug;

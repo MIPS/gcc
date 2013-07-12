@@ -1,0 +1,23 @@
+; -*- lisp -*-
+;; file tmacro-1.melt
+
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tmacro-1.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tmacro-1.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(defmacro bitup (ex)
+	  (debug "macro bitup ex=" ex)
+	  (make_sexpr (get_field :loca_location ex)
+		      'tuple ex ex))
+
+(debug "using bitup" (bitup 'a))
+
+;; eof tmacro-1.melt
+
+
+	  

@@ -2,6 +2,17 @@
 
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (melt_default_depth): Declare MELT_EXTERN.
+
+	* melt/warmelt-base.melt: The loc formal argument can be some
+	located object.
+
+	* melt/warmelt-macro.melt (mexpand_debug): More debug.
+
+	* testsuite/melt/tmacro-1.melt: New file.
+
+2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (make_sexpr): New function.
 
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>

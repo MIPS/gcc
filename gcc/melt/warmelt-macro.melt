@@ -3063,6 +3063,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	(setq docv (pair_head curpair))	       ;; get the docv
 	(setq curpair (pair_tail curpair))     ;; consume it
 	)
+      (debug "mexpand_defmacro initial mbind=" mbind)
 	;; should put a :mbind_expanser closure into mbind
       ;; handle the body
       (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
@@ -3078,6 +3079,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	(debug "mexpand_defmacro bodytup=" bodytup "\n sdefmacro=" sdefmacro)
 	(put_fields mbind :mbind_defmacro sdefmacro)
 	;; we should put a :mbind_expanser closure into mbind
+	(debug "mexpand_defmacro mbind=" mbind "\n.. of discrim=" (discrim mbind))
 	(assert_msg "@$@unimplemented mexpand_defmacro")
 	(return sdefmacro)
 	))))
