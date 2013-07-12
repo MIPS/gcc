@@ -68,6 +68,13 @@ enum aarch64_symbol_context
    Each of of these represents a thread-local symbol, and corresponds to the
    thread local storage relocation operator for the symbol being referred to.
 
+   SYMBOL_TINY_ABSOLUTE
+
+   Generate symbol accesses as a PC relative address using a single
+   instruction.  To compute the address of symbol foo, we generate:
+
+   ADR x0, foo
+
    SYMBOL_FORCE_TO_MEM : Global variables are addressed using
    constant pool.  All variable addresses are spilled into constant
    pools.  The constant pools themselves are addressed using PC
@@ -127,16 +134,41 @@ struct cpu_regmove_cost
   const int FP2FP;
 };
 
+/* Cost for vector insn classes.  */
+struct cpu_vector_cost
+{
+  const int scalar_stmt_cost;		 /* Cost of any scalar operation,
+					    excluding load and store.  */
+  const int scalar_load_cost;		 /* Cost of scalar load.  */
+  const int scalar_store_cost;		 /* Cost of scalar store.  */
+  const int vec_stmt_cost;		 /* Cost of any vector operation,
+					    excluding load, store,
+					    vector-to-scalar and
+					    scalar-to-vector operation.  */
+  const int vec_to_scalar_cost;		 /* Cost of vec-to-scalar operation.  */
+  const int scalar_to_vec_cost;		 /* Cost of scalar-to-vector
+					    operation.  */
+  const int vec_align_load_cost;	 /* Cost of aligned vector load.  */
+  const int vec_unalign_load_cost;	 /* Cost of unaligned vector load.  */
+  const int vec_unalign_store_cost;	 /* Cost of unaligned vector store.  */
+  const int vec_store_cost;		 /* Cost of vector store.  */
+  const int cond_taken_branch_cost;	 /* Cost of taken branch.  */
+  const int cond_not_taken_branch_cost;  /* Cost of not taken branch.  */
+};
+
 struct tune_params
 {
   const struct cpu_rtx_cost_table *const insn_extra_cost;
   const struct cpu_addrcost_table *const addr_cost;
   const struct cpu_regmove_cost *const regmove_cost;
+  const struct cpu_vector_cost *const vec_costs;
   const int memmov_cost;
 };
 
 HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
 bool aarch64_bitmask_imm (HOST_WIDE_INT val, enum machine_mode);
+enum aarch64_symbol_type
+aarch64_classify_symbolic_expression (rtx, enum aarch64_symbol_context);
 bool aarch64_constant_address_p (rtx);
 bool aarch64_float_const_zero_rtx_p (rtx);
 bool aarch64_function_arg_regno_p (unsigned);
@@ -162,8 +194,6 @@ bool aarch64_simd_shift_imm_p (rtx, enum machine_mode, bool);
 bool aarch64_simd_valid_immediate (rtx, enum machine_mode, bool,
 				   struct simd_immediate_info *);
 bool aarch64_symbolic_address_p (rtx);
-bool aarch64_symbolic_constant_p (rtx, enum aarch64_symbol_context,
-				  enum aarch64_symbol_type *);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
 const char *aarch64_output_casesi (rtx *);
 enum aarch64_symbol_type aarch64_classify_symbol (rtx,
@@ -174,9 +204,6 @@ int aarch64_asm_preferred_eh_data_format (int, int);
 int aarch64_hard_regno_mode_ok (unsigned, enum machine_mode);
 int aarch64_hard_regno_nregs (unsigned, enum machine_mode);
 int aarch64_simd_attr_length_move (rtx);
-int aarch64_simd_immediate_valid_for_move (rtx, enum machine_mode, rtx *,
-					   int *, unsigned char *, int *,
-					   int *);
 int aarch64_uxt_size (int, HOST_WIDE_INT);
 rtx aarch64_final_eh_return_addr (void);
 rtx aarch64_legitimize_reload_address (rtx *, enum machine_mode, int, int, int);

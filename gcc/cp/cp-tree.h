@@ -4404,7 +4404,7 @@ extern GTY(()) vec<tree, va_gc> *local_classes;
 #define LAMBDANAME_PREFIX "__lambda"
 #define LAMBDANAME_FORMAT LAMBDANAME_PREFIX "%d"
 
-#define UDLIT_OP_ANSI_PREFIX "operator\"\" "
+#define UDLIT_OP_ANSI_PREFIX "operator\"\""
 #define UDLIT_OP_ANSI_FORMAT UDLIT_OP_ANSI_PREFIX "%s"
 #define UDLIT_OP_MANGLED_PREFIX "li"
 #define UDLIT_OP_MANGLED_FORMAT UDLIT_OP_MANGLED_PREFIX "%s"
@@ -4974,6 +4974,7 @@ extern bool pragma_java_exceptions;
 
 /* in call.c */
 extern bool check_dtor_name			(tree, tree);
+bool magic_varargs_p                            (tree);
 
 extern tree build_conditional_expr		(location_t, tree, tree, tree, 
                                                  tsubst_flags_t);
@@ -5205,8 +5206,9 @@ extern void finish_enum_value_list		(tree);
 extern void finish_enum				(tree);
 extern void build_enumerator			(tree, tree, tree, location_t);
 extern tree lookup_enumerator			(tree, tree);
-extern void start_preparsed_function		(tree, tree, int);
-extern int start_function			(cp_decl_specifier_seq *, const cp_declarator *, tree);
+extern bool start_preparsed_function		(tree, tree, int);
+extern bool start_function			(cp_decl_specifier_seq *,
+						 const cp_declarator *, tree);
 extern tree begin_function_body			(void);
 extern void finish_function_body		(tree);
 extern tree outer_curly_brace_block		(tree);
@@ -5635,6 +5637,7 @@ extern void resume_deferring_access_checks	(void);
 extern void stop_deferring_access_checks	(void);
 extern void pop_deferring_access_checks		(void);
 extern vec<deferred_access_check, va_gc> *get_deferred_access_checks (void);
+extern void reopen_deferring_access_checks (vec<deferred_access_check, va_gc> *);
 extern void pop_to_parent_deferring_access_checks (void);
 extern bool perform_access_checks (vec<deferred_access_check, va_gc> *,
 				   tsubst_flags_t);
@@ -6041,6 +6044,9 @@ extern tree strip_array_domain			(tree);
 extern tree check_return_expr			(tree, bool *);
 extern tree cp_build_binary_op                  (location_t,
 						 enum tree_code, tree, tree,
+						 tsubst_flags_t);
+extern tree build_x_vec_perm_expr               (location_t,
+						 tree, tree, tree,
 						 tsubst_flags_t);
 #define cxx_sizeof(T)  cxx_sizeof_or_alignof_type (T, SIZEOF_EXPR, true)
 extern tree build_simple_component_ref		(tree, tree);

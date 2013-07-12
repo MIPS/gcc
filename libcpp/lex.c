@@ -1334,6 +1334,33 @@ bufring_append (cpp_reader *pfile, const uchar *base, size_t len,
   *last_buff_p = last_buff;
 }
 
+
+/* Returns true if a macro has been defined.
+   This might not work if compile with -save-temps,
+   or preprocess separately from compilation.  */
+
+static bool
+is_macro(cpp_reader *pfile, const uchar *base)
+{
+  const uchar *cur = base;
+  if (! ISIDST (*cur))
+    return false;
+  unsigned int hash = HT_HASHSTEP (0, *cur);
+  ++cur;
+  while (ISIDNUM (*cur))
+    {
+      hash = HT_HASHSTEP (hash, *cur);
+      ++cur;
+    }
+  hash = HT_HASHFINISH (hash, cur - base);
+
+  cpp_hashnode *result = CPP_HASHNODE (ht_lookup_with_hash (pfile->hash_table,
+					base, cur - base, hash, HT_NO_INSERT));
+
+  return !result ? false : (result->type == NT_MACRO);
+}
+
+
 /* Lexes a raw string.  The stored string contains the spelling, including
    double quotes, delimiter string, '(' and ')', any leading
    'L', 'u', 'U' or 'u8' and 'R' modifier.  It returns the type of the
@@ -1516,8 +1543,8 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
       else if (c == '\n')
 	{
 	  if (pfile->state.in_directive
-	      || pfile->state.parsing_args
-	      || pfile->state.in_deferred_pragma)
+	      || (pfile->state.parsing_args
+		  && pfile->buffer->next_line >= pfile->buffer->rlimit))
 	    {
 	      cur--;
 	      type = CPP_OTHER;
@@ -1556,22 +1583,18 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
 
   if (CPP_OPTION (pfile, user_literals))
     {
-      /* According to C++11 [lex.ext]p10, a ud-suffix not starting with an
-	 underscore is ill-formed.  Since this breaks programs using macros
-	 from inttypes.h, we generate a warning and treat the ud-suffix as a
-	 separate preprocessing token.  This approach is under discussion by
-	 the standards committee, and has been adopted as a conforming
-	 extension by other front ends such as clang.
-         A special exception is made for the suffix 's' which will be
-	 standardized as a user-defined literal suffix for strings.  */
-      if (ISALPHA (*cur) && *cur != 's')
+      /* If a string format macro, say from inttypes.h, is placed touching
+	 a string literal it could be parsed as a C++11 user-defined string
+	 literal thus breaking the program.
+	 Try to identify macros with is_macro. A warning is issued. */
+      if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
 	  if (CPP_OPTION (pfile, warn_literal_suffix))
 	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
 				   token->src_loc, 0,
 				   "invalid suffix on literal; C++11 requires "
-				   "a space between literal and identifier");
+				   "a space between literal and string macro");
 	}
       /* Grab user defined literal suffix.  */
       else if (ISIDST (*cur))
@@ -1689,22 +1712,18 @@ lex_string (cpp_reader *pfile, cpp_token *token, const uchar *base)
 
   if (CPP_OPTION (pfile, user_literals))
     {
-      /* According to C++11 [lex.ext]p10, a ud-suffix not starting with an
-	 underscore is ill-formed.  Since this breaks programs using macros
-	 from inttypes.h, we generate a warning and treat the ud-suffix as a
-	 separate preprocessing token.  This approach is under discussion by
-	 the standards committee, and has been adopted as a conforming
-	 extension by other front ends such as clang.
-         A special exception is made for the suffix 's' which will be
-	 standardized as a user-defined literal suffix for strings.  */
-      if (ISALPHA (*cur) && *cur != 's')
+      /* If a string format macro, say from inttypes.h, is placed touching
+	 a string literal it could be parsed as a C++11 user-defined string
+	 literal thus breaking the program.
+	 Try to identify macros with is_macro. A warning is issued. */
+      if (is_macro (pfile, cur))
 	{
 	  /* Raise a warning, but do not consume subsequent tokens.  */
 	  if (CPP_OPTION (pfile, warn_literal_suffix))
 	    cpp_warning_with_line (pfile, CPP_W_LITERAL_SUFFIX,
 				   token->src_loc, 0,
 				   "invalid suffix on literal; C++11 requires "
-				   "a space between literal and identifier");
+				   "a space between literal and string macro");
 	}
       /* Grab user defined literal suffix.  */
       else if (ISIDST (*cur))
@@ -2748,6 +2767,15 @@ cpp_avoid_paste (cpp_reader *pfile, const cpp_token *token1,
 				|| (CPP_OPTION (pfile, objc)
 				    && token1->val.str.text[0] == '@'
 				    && (b == CPP_NAME || b == CPP_STRING)));
+    case CPP_STRING:
+    case CPP_WSTRING:
+    case CPP_UTF8STRING:
+    case CPP_STRING16:
+    case CPP_STRING32:	return (CPP_OPTION (pfile, user_literals)
+				&& (b == CPP_NAME
+				    || (TOKEN_SPELL (token2) == SPELL_LITERAL
+					&& ISIDST (token2->val.str.text[0]))));
+
     default:		break;
     }
 
@@ -3001,7 +3029,7 @@ _cpp_aligned_alloc (cpp_reader *pfile, size_t len)
 /* Say which field of TOK is in use.  */
 
 enum cpp_token_fld_kind
-cpp_token_val_index (cpp_token *tok)
+cpp_token_val_index (const cpp_token *tok)
 {
   switch (TOKEN_SPELL (tok))
     {
