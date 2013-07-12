@@ -2302,7 +2302,7 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
 
   if test $enable_vtable_verify = yes; then
     VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
-    VTV_CXXLINKFLAGS="-L${top_builddir}/libsupc++/.libs -Wl,-lvtv"		
+    VTV_CXXLINKFLAGS="-L${top_builddir}/libvtv/.libs -Wl,-lvtv"		
   else
     VTV_CXXFLAGS= 
     VTV_CXXLINKFLAGS= 
