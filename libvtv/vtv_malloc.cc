@@ -175,7 +175,7 @@ obstack_chunk_alloc (size_t size)
 }
 
 static void
-obstack_chunk_free (size_t size)
+obstack_chunk_free (size_t)
 {
   /* Do nothing. For our purposes there should be very little
      de-allocation. */
@@ -238,7 +238,7 @@ VTV_malloc_stats (void)
       ci = ci->prev;
     }
   fprintf (stderr,
-           "VTV_malloc_stats:\n  Page Size = %lu bytes\n  "
+           "VTV_malloc_stats:\n  Page Size = %i bytes\n  "
            "Number of pages = %d\n", VTV_PAGE_SIZE, count);
 }
 

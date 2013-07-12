@@ -527,7 +527,7 @@ read_section_offset_and_length (struct dl_phdr_info *info,
    read-only or read-write, depending on what's in DATA.  */
 
 static int
-dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t unused, void *data)
+dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t, void *data)
 {
   int * mprotect_flags = (int *) data;
   off_t map_sect_offset = 0;
@@ -804,7 +804,7 @@ struct insert_only_hash_map_allocator
     /* P points to the memory to be deallocated; N is the number of
        bytes to deallocate.  */
     void
-    dealloc (void *p, size_t n) const
+    dealloc (void *p, size_t) const
     {
       VTV_free (p);
     }

@@ -22,7 +22,7 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-#include "../../include/vtv-change-permission.h"
+#include "../include/vtv-change-permission.h"
 #include "vtv_rts.h"
 
 /* The is part of the vtable verification runtime library.  For more

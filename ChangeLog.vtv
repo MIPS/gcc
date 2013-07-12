@@ -1,0 +1,18 @@
+2013-07-06  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libvtv: New, vtable verification runtime support.
+	* configure.ac (target_libraries): Add libvtv. Disable on
+	unsupported systems. Disable when C++ disabled. Add to bootstrap.
+	* Makefile.def: Add target_module dependencies, configure and
+	install dependencies.
+	(lang_env_dependencies): Add libvtv as c++.
+	(target_modules): Don't declare as raw_cxx.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+	* contrib/gcc_update: Add libvtv to touch data.
+
+2013-06-16  Caroline Tice  <cmtice@google.com>
+
+	? (XXX currently not applied)
+	* configure (CXX_FOR_TARGET): Add libstdc++-v3/libsupc++/.libs to the
+	library search path.

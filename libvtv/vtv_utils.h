@@ -26,7 +26,8 @@
 #define _VTV_UTILS_H 1
 
 #include <stdlib.h>
-#include "../../include/vtv-change-permission.h"
+//#include "../../include/vtv-change-permission.h"
+#include "../include/vtv-change-permission.h"
 
 extern bool vtv_debug;
 

@@ -1,3 +1,4 @@
+
 2013-06-16  Caroline Tice  <cmtice@google.com>
 
 	gcc
@@ -21,10 +22,10 @@
 	* vtable-verify.c:  New file, contains vtable verification tree
 	pass.
 	* vtable-verify.h: New file.
+	* gcc.c (VTABLE_VERIFICATION_SPEC): Add.
 
 	* Makefile.in (OBJS):  Add vtable-verify.o to list of object
 	files.
 	(vtable-verify.o):  Add rule for building object file.
 	(GTFILES): Add vtable-verify.c to list of files that use GCC's
 	garbage collector.
-

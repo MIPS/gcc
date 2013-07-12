@@ -1,0 +1,79 @@
+## Makefile for the VTV library.
+##
+## Copyright (C) 2013 Free Software Foundation, Inc.
+##
+## Process this file with automake to produce Makefile.in.
+##
+## This file is part of GCC.
+##
+## GCC is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 3, or (at your option)
+## any later version.
+##
+## GCC is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with GCC; see the file COPYING3.  If not see
+## <http://www.gnu.org/licenses/>.
+
+ACLOCAL_AMFLAGS = -I .. -I ../config
+
+# May be used by toolexeclibdir.
+gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
+
+DEFS = 
+AM_CPPFLAGS = -I $(top_srcdir) -I $(top_srcdir)/include
+AM_CFLAGS = $(XCFLAGS)
+AM_CCASFLAGS = $(XCFLAGS)
+#AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS) 
+AM_CXXFLAGS = $(XCFLAGS)  
+AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
+
+toolexeclib_LTLIBRARIES = libvtv.la libvtv_stubs.la libvtv_init.la
+
+vtv_headers = \
+	vtv_map.h \
+	vtv_malloc.h \
+	vtv_fail.h \
+	vtv_set.h \
+	vtv_utils.h \
+	vtv_rts.h
+
+vtv_sources = \
+	vtv_fail.cc \
+        vtv_malloc.cc \
+        vtv_rts.cc \
+        vtv_utils.cc
+
+vtv_stubs_sources = \
+        vtv_stubs.cc
+
+vtv_init_sources = \
+	vtv_init.cc
+
+libvtv_la_SOURCES = $(vtv_sources)
+libvtv_stubs_la_SOURCES = $(vtv_stubs_sources) 
+libvtv_init_la_SOURCES = $(vtv_init_sources) 
+
+libvtv_includedir = $(includedir)
+libvtv_include_HEADERS = $(vtv_headers)
+#noinst_HEADERS = config.h
+
+# By adding these files here, automake will remove them for 'make clean'
+CLEANFILES = stamp-*
+
+#EXTRA_DIST = $(vtv_headers)
+
+# XXX ?
+CXXVTV=$(CC_FOR_TARGET)
+LTCXXCOMPILE = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CXXVTV) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+
+CXXLINK = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CXXVTV) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) \
+	$(LDFLAGS) -o $@
