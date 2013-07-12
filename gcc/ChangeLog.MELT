@@ -2,10 +2,19 @@
 
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (melt_transrunmacro_clos): New variable.
+	(melt_register_translator_runner_macroexpansions)
+	(melt_invoke_translator_runner_macroexpansions): New functions.
+
+	* melt/warmelt-outobj.melt
+	(melt_translate_run_macroexpansions_list): New function.
+
+2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (melt_default_depth): Declare MELT_EXTERN.
 
-	* melt/warmelt-base.melt: The loc formal argument can be some
-	located object.
+	* melt/warmelt-base.melt (make_sexpr): The loc formal argument can
+	be some located object.
 
 	* melt/warmelt-macro.melt (mexpand_debug): More debug.
 

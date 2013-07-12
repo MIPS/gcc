@@ -2318,6 +2318,34 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		   (get_field :named_name (discrim ecomp)))
      ()
      ))))
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;; register the melt_translate_run_macroexpansions_list
+(defvar melt_transrunmacro_clos)
+(defun melt_register_translator_runner_macroexpansions (clos)
+  :doc #{$MELT_REGISTER_TRANSLATOR_RUNNER_MACROEXPANSIONS is an
+  internal utility to enable forward reference to
+  melt_translate_run_macroexpansions_list defined in
+  @file{warmelt-outobj.melt}.}#
+  (debug "melt_register_translator_runner_macroexpansions clos=" clos)
+  (assert_msg "check clos" (or (is_closure clos) (null clos)))
+  (setq melt_transrunmacro_clos clos)
+)
+
+
+;; invoke the melt_translate_run_macroexpansions_list from warmelt-outobj.melt
+(defun melt_invoke_translator_runner_macroexpansions (lismexp env)
+  (debug "melt_invoke_translator_runner_macroexpansions lismexp=" lismexp " env=" env)
+  (let ( (clos melt_transrunmacro_clos)
+	 )
+  (assert_msg "check clos" (is_closure clos))
+  (let ( (res (clos lismexp env))
+	 )
+    (debug "melt_invoke_translator_runner_macroexpansions res=" res)
+    (return res))))
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;; macro expansers
 
@@ -7991,6 +8019,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  lambda_arg_bindings
  macroexpand_1
  macroexpand_toplevel_list
+ melt_register_translator_runner_macroexpansions
  patternexpand_1
  patternexpand_expr
  patternexpand_pairlist_as_tuple

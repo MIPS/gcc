@@ -7103,6 +7103,8 @@ if (1) return;
       ))))
 
 
+
+
 ;; translate and run a list of expressions in an environment
 (defun translate_run_melt_expressions (exprs env)
   :doc #{Translate and run the MELT s-expressions from $EXPRS in the
@@ -7353,7 +7355,7 @@ if (1) return;
 	    (runerrorhdlr '"runtime translation to code failed")
 	    (return () ()))
 	  ;; should now compile the generated C code
-	  (debug "translate_run_melt_expressions before compiling quicklybuilt flavor of basename=" basename "\n modctx=" modctx)
+	  (debug "translate_run_melt_expressions before compiling runextend flavor of basename=" basename "\n modctx=" modctx)
 	  (generate_flavored_melt_module basename basename '"runextend")
 	  (debug "translate_run_melt_expressions after compiling runextend flavor of basename=" basename)
 	  ;; make the literal value tuple
@@ -7394,6 +7396,232 @@ if (1) return;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun melt_translate_run_macroexpansions_list (lismexp env)
+  :doc #{The utility $MELT_TRANSLATE_RUN_MACROEXPANSIONS_LIST
+  translates and runs a list of macroexpansions. It is used for
+  expansion of $DEFMACRO-ed macronames.}#
+  (debug "melt_translate_run_macroexpansions_list start lismexp=" lismexp "\n env=" env)
+  (assert_msg "check env" (is_a env class_environment))
+  (when (null lismexp)
+    (debug "melt_translate_run_macroexpansions_list null lismexp=" lismexp)
+    (return ()))
+  (when (not (is_list lismexp))
+    (debug "melt_translate_run_macroexpansions_list bad lismexp=" lismexp)
+    (assert_msg "invalid lismexp" ())
+    (return ()))
+  (let ( (:long num 0)
+	 (:long starterrcount (melt_error_counter))
+	 (nakedbasnam ())
+	 (referr (instance class_reference))
+	 ;; we need to store the normlist for debugging purposes
+	 (refnormlist (instance class_reference))
+	 )
+    (code_chunk numchk #{/* melt_translate_run_macroexpansions_list $NUMCHK */ 
+		char basbuf_$NUMCHK[64] ;
+		long num_$NUMCHK = 0 ;
+		memset (basbuf_$NUMCHK, 0, sizeof(basbuf_$NUMCHK)) ;
+		melt_count_runtime_extensions++	 ;
+		num_$NUMCHK = melt_count_runtime_extensions ;
+		if (melt_count_runtime_extensions
+		    > MELT_MAX_RUNTIME_EXTENSIONS)
+		melt_fatal_error ("too many %ld MELT runtime extensions for macroexpansion",
+				  num_$NUMCHK) ;
+                /* Inmelt_translate_run_macroexpansions_list  $NUMCHK using getpid to ensure unicity 
+		of generated naked base name */
+		snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
+					  "MELTp%dmacro%04lx", (int)getpid(), num_$NUMCHK) ;
+		$NAKEDBASNAM = meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
+							  basbuf_$NUMCHK, -1) ;
+		}#)
+    (debug "melt_translate_run_macroexpansions_list nakedbasnam=" nakedbasnam " num=" num " starterrcount=" starterrcount)
+    (let (
+	  (runerrorhdlr 
+	   (lambda (v)
+	     (debug "macrorunerrorhdlr v=" v)
+	     (cond 
+	      ((is_string v)
+	       (code_chunk warnrunstr_chk
+			   #{ /* melt_translate_run_macroexpansions_list $WARNRUNSTR_chk */
+			   warning (0, "MELT running macro expansions {%s} error - %s", 
+				       melt_string_str ((melt_ptr_t) $NAKEDBASNAM), 
+				       melt_string_str ((melt_ptr_t) $V)) ; }#
+			   ))
+	      (:else 
+	       (code_chunk warnrun_chk
+			   #{ /* melt_translate_run_macroexpansions_list $WARNRUN_chk */
+			   warning (0, "MELT running macro expansions {%s} errored", 
+				       melt_string_str ((melt_ptr_t) $NAKEDBASNAM)) ; }#
+			   ))
+	      )
+	     (set_ref referr (or v :true))))
+	  (litvalist 
+	   (list ()))	    ;first element of list is ignored, so null
+	  (modctx
+	   (instance class_running_extension_module_context
+		     :mocx_modulename  nakedbasnam
+		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
+		     :mocx_expclassdict (make_mapstring discr_map_strings 19)
+		     :mocx_initialenv env
+		     :mocx_funcount (make_integerbox discr_integer 0)
+		     :mocx_filetuple ()
+		     :mocx_cheaderlist (make_list discr_list)
+		     :mocx_cimplementlist (make_list discr_list)
+		     :mocx_varcount (make_integerbox discr_integer 0)
+		     :mocx_varlist (make_list discr_list)
+		     :mocx_hookdict (make_mapstring discr_map_strings 31)
+		     ;; :mocx_cflags (make_list discr_list)
+		     ;; :mocx_linkflags (make_list discr_list)
+		     :mocx_packagepclist (make_list discr_list)
+		     :mocx_gendevlist (make_list discr_list)
+		     :mocx_errorhandler runerrorhdlr
+		     :morcx_litervalist litvalist
+		     :morcx_countlitval (make_integerbox discr_integer 1)
+		     :morcx_literobjmap (make_mapobject discr_map_objects 53)
+		     ))
+	  (ncx 
+	   (create_normal_extending_context modctx env))
+	  (:long lenxlist (list_length lismexp))
+	  ;; normalextend should ensure that the last normal gives a value
+	  (normalextend 
+	   (lambda (normlist bindlist modctx ncx inienv)
+	     (debug "melt_translate_run_macroexpansions_list/normalextend normlist=" normlist
+		    "\n bindlist=" bindlist
+		    "\n old !refnormlist=" !refnormlist
+		    "\n ncx=" ncx)
+	     (assert_msg "check bindlist != normlist" (!= bindlist normlist))
+	     (shortbacktrace_dbg "melt_translate_run_macroexpansions_list/normalextend" 13)
+	     (assert_msg "check null !refnormlist" (null !refnormlist))
+	     (let ( (lastnormpair (list_last normlist))
+		    (lastbindpair (list_last bindlist))
+		    (lastnorm (list_last_element normlist))
+		    (lastbinds (list_last_element bindlist))
+		    (lastctyp (get_ctype lastnorm inienv))
+		    )
+	       (debug "melt_translate_run_macroexpansions_list//normalextend lastnorm=" lastnorm 
+		      " lastnormpair=" lastnormpair
+		      " lastbinds=" lastbinds
+		      " lastctyp=" lastctyp)
+	       (assert_msg "check lastctyp" (is_a lastctyp class_ctype))
+	       (cond
+		((== lastctyp ctype_value)
+		 (debug "melt_translate_run_macroexpansions_list/normalextend value lastnorm=" lastnorm "\n of discrim=" (discrim lastnorm)
+			"\n lastnormpair=" lastnormpair
+			"\n normlist=" normlist)
+		 (when (is_not_a lastnorm class_nrep_return)
+		   (let ( (nret (instance class_nrep_return
+					  :nret_main lastnorm
+					  ))
+			  )
+		     (pair_set_head lastnormpair nret)
+		     (debug "melt_translate_run_macroexpansions_list/normalextend replaced lastnorm=" lastnorm
+			    "\n with nret=" nret 
+			    "\n in lastnormpair=" lastnormpair)
+		     (setq lastnorm nret)
+		     )))
+		(:else
+		 (debug "melt_translate_run_macroexpansions_list/normalextend nonvalue lastnorm=" lastnorm 
+			" of discrim " (discrim lastnorm) "\n lastctyp=" lastctyp)
+		 (warningmsg_strv 
+		  "runtime macroexpansion ending with a non-value expression, auto-boxing it."
+		  (get_field :named_name lastctyp))
+		 (multicall
+		  (newexp newbinds)
+		  (autobox_normal_return lastnorm lastbinds lastctyp ncx)
+		  (debug "melt_translate_run_macroexpansions_list/normalextend autoboxed newexp=" newexp
+			 " newbinds=" newbinds)
+		  (pair_set_head lastnormpair newexp)
+		  (pair_set_head lastbindpair newbinds)
+		  (setq lastbinds newbinds)
+		  (setq lastnorm newexp)
+		  )))
+		  
+	       (debug "melt_translate_run_macroexpansions_list/normalextend lastbinds=" lastbinds "\n lastnorm=" lastnorm 
+		      "\n lastnormpair=" lastnormpair
+		      "\n normlist=" normlist
+		      "\n bindlist=" bindlist)
+	       (if (list_first lastbinds)
+		   (let ( (nfinlet (wrap_normal_let1 lastnorm lastbinds ()))
+			  )
+		     (debug "melt_translate_run_macroexpansions_list/normalextend nfinlet=" nfinlet)
+		     (debug "melt_translate_run_macroexpansions_list/normalextend before lastnormpair=" lastnormpair
+			    "\n lastbindpair=" lastbindpair
+			    "\n normlist=" normlist
+			    "\n bindlist=" bindlist)
+		     (pair_set_head lastnormpair nfinlet)
+		     (pair_set_head lastbindpair ())
+		     (debug "melt_translate_run_macroexpansions_list/normalextend updated lastnormpair=" lastnormpair
+			    "\n lastbindpair=" lastbindpair
+			    "\n normlist=" normlist
+			    "\n bindlist=" bindlist)
+		     (assert_msg "check bindlist != normlist" (!= bindlist normlist))
+		     (setq lastnorm nfinlet)
+		     (setq lastbinds ())
+		     ))
+	       (set_ref refnormlist normlist)
+	       (debug "melt_translate_run_macroexpansions_list/normalextend final normlist=" normlist
+		      "\n final bindlist=" bindlist)
+	       (return)
+	       )))
+	  )
+      (debug "melt_translate_run_macroexpansions_list here lismexp=" lismexp)
+      (let ( (basename (make_string_tempname_suffixed discr_string nakedbasnam "_eXt"))
+	     )
+	(debug "melt_translate_run_macroexpansions_list basename=" basename 
+	       " refnormlist=" refnormlist)
+	;; translate to C code
+	(translate_macroexpanded_list lismexp basename modctx ncx env 
+				      normalextend compile2obj_initextendproc)
+	(debug "melt_translate_run_macroexpansions_list after translation"
+	       " refnormlist=" refnormlist
+	       " to nakedbasnam=" nakedbasnam)
+	(when  (or (notnull !referr) (>i (melt_error_counter) starterrcount))
+	  (runerrorhdlr '"runtime translation to code failed")
+	  (return () ()))
+	(debug "melt_translate_run_macroexpansions_list before compiling runextend flavor of basename=" basename "\n modctx=" modctx)
+	(generate_flavored_melt_module basename basename '"runextend")
+	(debug "melt_translate_run_macroexpansions_list after compiling runextend flavor of basename=" basename)
+	;; make the literal value tuple
+	(assert_msg "check litvalist" (is_list litvalist))
+	(debug "melt_translate_run_macroexpansions_list after generation litvalist=" litvalist)
+	(let ( (:long nblitval (list_length litvalist))
+	       (tuplitval (make_multiple discr_multiple nblitval))
+	       (:long ix 0)
+	       (filtup (get_field :mocx_filetuple modctx))
+	       (:long nbfile (multiple_length filtup))
+	       )
+	  (debug "melt_translate_run_macroexpansions_list filtup=" filtup)
+	  (foreach_in_list
+	   (litvalist)
+	   (curpair curlitval)
+	   (debug "melt_translate_run_macroexpansions_list  ix=" ix 
+		  " curlitval=" curlitval)
+	   (when curlitval
+	     (assert_msg "check curlitval" 
+			 (is_a curlitval class_literal_value))
+	     (let ( (val (get_field :litv_value curlitval))
+		    (bxrk (get_field :litv_rank curlitval))
+		    )
+	       (assert_msg "check bxrk" (==i (get_int bxrk) ix))
+	       (multiple_put_nth tuplitval ix val)
+	       ))
+	   (setq ix (+i ix 1)))	     ;end of foreach_in_list litvalist
+	  (debug "melt_translate_run_macroexpansions_list  tuplitval=" tuplitval)
+	  (debug "melt_translate_run_macroexpansions_list before melt_run_extension basename=" basename
+		 "\n* env=" env
+		 "\n* tuplitval=" tuplitval)
+	  (let ( (result (melt_run_extension basename env tuplitval))
+		 )
+	    (debug "melt_translate_run_macroexpansions_list after melt_run_extension basename=" basename
+		   "\n*  result=" result)
+	    (return result)
+	    )
+	  )))))
+
+;; to enable forward reference from warmelt-macro.melt
+(melt_register_translator_runner_macroexpansions melt_translate_run_macroexpansions_list)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; recursive internal utility to read melt expressions from files or lists or vectors or s-exprs
 (defun read_melt_expressions (src rlist :long depth)
   (debug "read_melt_expressions src=" src " depth=" depth " rlist.len=" (list_length rlist))
@@ -7574,6 +7802,7 @@ notice for file named $NAME.}#
  eval
  generate_gplv3plus_copyright_notice_c_comment 
  get_code_buffer_limit
+ melt_translate_run_macroexpansions_list
  put_code_buffer_limit
  syntax_test_generator
  translate_run_melt_expressions
