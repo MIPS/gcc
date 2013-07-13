@@ -1,7 +1,6 @@
 2013-07-07  Marek Polacek  <polacek@redhat.com>
 
 	* c-ubsan.c (empty_ubsan_typedesc_hash_table): Comment out function.
-	(ubsan_type_descriptor): Elide an assignment.
 
 2013-07-05  Marek Polacek  <polacek@redhat.com>
 
