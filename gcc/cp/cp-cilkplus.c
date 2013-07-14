@@ -46,6 +46,9 @@ cpp_validate_cilk_plus_loop_aux (tree *tp, int *walk_subtrees, void *data)
   if (!tp || !*tp)
     return NULL_TREE;
 
+  // Validate the C common bits.
+  c_validate_cilk_plus_loop (tp, walk_subtrees, data);
+
   if (TREE_CODE (*tp) == THROW_EXPR)
     {
       error_at (loc, "throw expressions are not allowed inside loops "

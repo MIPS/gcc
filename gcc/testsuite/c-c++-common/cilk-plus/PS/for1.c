@@ -15,7 +15,7 @@ void foo()
 
   // Empty initialization is not allowed.
 #pragma simd
-  for (; i < 5; ++i)		// { dg-error "expected iteration decl" }
+  for (; i < 5; ++i)		// { dg-error "expected induction variable" }
     a[i] = i;
 
   // Empty condition is not allowed.
@@ -36,7 +36,7 @@ void foo()
     int i;
   };
 #pragma simd
-  for (struct S ss = { 0 }; ss.i <= 1000; ++ss.i) /* { dg-error "initialization variable must be of integral or pointer type" } */
+  for (struct S ss = { 0 }; ss.i <= 1000; ++ss.i) /* { dg-error "induction variable must be of integral or pointer type" } */
     a[ss.i] = b[ss.i];
 
   #pragma simd

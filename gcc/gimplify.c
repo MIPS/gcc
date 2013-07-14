@@ -6626,7 +6626,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
     {
       t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
-      gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
+      gcc_assert (TREE_CODE (t) == MODIFY_EXPR
+		  || TREE_CODE (t) == INIT_EXPR);
       decl = TREE_OPERAND (t, 0);
       gcc_assert (DECL_P (decl));
       gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl))

@@ -10404,7 +10404,7 @@ cp_parser_jump_statement (cp_parser* parser)
 	  break;
 	case IN_CILK_P_SIMD_FOR:
 	  error_at (token->location,
-		    "continue statement within <#pragma simd> loop loop");
+		    "continue statement within <#pragma simd> loop body");
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -29077,7 +29077,7 @@ cp_parser_simd_for_init_statement (cp_parser *parser, tree *init,
   tree this_pre_body = push_stmt_list ();
   if (token->type == CPP_SEMICOLON)
     {
-      error_at (loc, "expected iteration declaration");
+      error_at (loc, "expected induction variable");
       return error_mark_node;
     }
 
@@ -29328,7 +29328,8 @@ cp_parser_cilk_for (cp_parser *parser, enum rid for_keyword, tree clauses)
 	return error_mark_node;
 
       return c_finish_cilk_simd_loop (loc, decl, init, cond, incr_expr,
-				      body, clauses);
+				      body, clauses,
+				      /*scan_body=*/false);
     }
   else
     {

@@ -11090,7 +11090,7 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
     {
     error_init:
       c_parser_error (parser,
-		      "expected iteration declaration or initialization");
+		      "expected induction variable initialization");
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				 "expected %<)%>");
       return;
@@ -11137,7 +11137,8 @@ c_parser_cilk_for_statement (c_parser *parser, enum rid for_keyword,
   if (!fail)
     {
       if (for_keyword == RID_FOR)
-	c_finish_cilk_simd_loop (loc, decl, init, cond, incr, body, clauses);
+	c_finish_cilk_simd_loop (loc, decl, init, cond, incr, body, clauses,
+				 /*scan_body=*/true);
     }
 
   stmt = c_end_compound_stmt (loc, block, true);

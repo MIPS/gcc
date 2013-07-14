@@ -523,7 +523,7 @@ struct GTY(()) c_language_function {
 
 /* In c-cilkplus.c */
 extern tree c_finish_cilk_simd_loop (location_t, tree, tree, tree, tree,
-				     tree, tree);
+				     tree, tree, bool);
 extern tree c_finish_cilk_clauses (tree);
 
 /* Language-specific hooks.  */
@@ -1143,7 +1143,7 @@ extern enum stv_conv scalar_to_vector (location_t loc, enum tree_code code,
 
 /* In c-cilkplus.c  */
 extern tree c_finish_cilk_simd_loop (location_t, tree, tree, tree, tree,
-				     tree, tree);
+				     tree, tree, bool);
 extern tree c_finish_cilk_clauses (tree);
 extern tree c_validate_cilk_plus_loop (tree *, int *, void *);
 

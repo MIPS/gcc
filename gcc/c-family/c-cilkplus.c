@@ -182,15 +182,23 @@ c_check_cilk_loop_body (tree body)
 }
 
 /* Validate a _Cilk_for construct (or a #pragma simd for loop, which
-   has the same syntactic restrictions).  Returns TRUE if there were
-   no errors, FALSE otherwise.  LOC is the location of the for.  DECL
-   is the controlling variable.  COND is the condition.  INCRP is a
-   pointer the increment expression (in case, the increment needs to
-   be canonicalized).  BODY is the body of the LOOP.  */
+   has the same syntactic restrictions).
+
+   Returns TRUE if there were no errors, FALSE otherwise.
+
+   LOC is the location of the for.
+   DECL is the controlling variable.
+   COND is the condition.
+
+   INCRP is a pointer the increment expression (in case the increment
+   needs to be canonicalized).
+
+   BODY is the body of the LOOP.
+   SCAN_BODY is true if the body must be checked.  */
 
 static bool
 c_check_cilk_loop (location_t loc, tree decl, tree cond, tree *incrp,
-		   tree body)
+		   tree body, bool scan_body)
 {
   tree incr = *incrp;
 
@@ -225,8 +233,8 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree *incrp,
   if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
       && !POINTER_TYPE_P (TREE_TYPE (decl)))
     {
-      error_at (loc, "initialization variable must be of integral "
-		"or pointer type");
+      error_at (loc, "induction variable must be of integral "
+		"or pointer type (have %qT)", TREE_TYPE (decl));
       return false;
     }
 
@@ -271,7 +279,7 @@ c_check_cilk_loop (location_t loc, tree decl, tree cond, tree *incrp,
     return false;
   *incrp = incr;
 
-  if (!c_check_cilk_loop_body (body))
+  if (scan_body && !c_check_cilk_loop_body (body))
     return false;
 
   return true;
@@ -295,6 +303,7 @@ adjust_clauses_for_omp (tree clauses)
    INCR is the increment expression.
    BODY is the body of the loop.
    CLAUSES are the clauses associated with the pragma simd loop.
+   SCAN_BODY is true if the body of the loop must be verified.
 
    Returns the generated statement.  */
 
@@ -303,11 +312,12 @@ c_finish_cilk_simd_loop (location_t loc,
 			 tree decl,
 			 tree init, tree cond, tree incr,
 			 tree body,
-			 tree clauses)
+			 tree clauses,
+			 bool scan_body)
 {
   location_t rhs_loc;
 
-  if (!c_check_cilk_loop (loc, decl, cond, &incr, body))
+  if (!c_check_cilk_loop (loc, decl, cond, &incr, body, scan_body))
     return NULL;
 
   /* In the case of "for (int i = 0...)", init will be a decl.  It should
@@ -324,13 +334,13 @@ c_finish_cilk_simd_loop (location_t loc,
 	  return NULL;
 	}
 
-      init = build_modify_expr (loc, decl, NULL_TREE, NOP_EXPR, rhs_loc,
-				init, NULL_TREE);
+      init = build2 (INIT_EXPR, TREE_TYPE (decl), decl, init);
+      DECL_INITIAL (decl) = NULL;
     }
 
   // The C++ parser just gives us the rhs.
   if (TREE_CODE (init) != MODIFY_EXPR)
-    init = build2 (MODIFY_EXPR, void_type_node, decl, init);
+    init = build2 (INIT_EXPR, TREE_TYPE (decl), decl, init);
 
   gcc_assert (TREE_OPERAND (init, 0) == decl);
 
@@ -393,7 +403,7 @@ c_finish_cilk_clauses (tree clauses)
 		error_at (OMP_CLAUSE_LOCATION (c2),
 			  "variable appears in more than one clause");
 		inform (OMP_CLAUSE_LOCATION (c),
-			"multiple clause defined here");
+			"other clause defined here");
 		// Remove problematic clauses.
 		OMP_CLAUSE_CHAIN (prev) = OMP_CLAUSE_CHAIN (c2);
 	      }
