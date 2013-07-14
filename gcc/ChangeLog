@@ -1,3 +1,53 @@
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c: Document %{%:function(args):X}.
+	(SANITIZER_EARLY_SPEC, SANITIZER_SPEC): Use %:sanitize(address)
+	instead of fsanitize=address and %:sanitize(thread) instead of
+	fsanitize=thread.
+	(static_spec_functions): Add sanitize.
+	(handle_spec_function): Add retval_nonnull argument and if non-NULL,
+	store funcval != NULL there.
+	(do_spec_1): Adjust handle_spec_function caller.
+	(handle_braces): Allow %:function(args) as condition.
+	(sanitize_spec_function): New function.
+	* common.opt (fsanitize=): Add Driver.
+	* config/darwin.h (LINK_COMMAND_SPEC_A): Use %:sanitize(address)
+	instead of fsanitize=address.
+	* config/arm/linux-eabi.h (ASAN_CC1_SPEC): Use %:sanitize(address)
+	instead of fsanitize=address*.
+
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
+	* common.opt (flag_sanitize): Add variable.
+	(fsanitize=): Add option.
+	(fsanitize=thread): Remove option.
+	(fsanitize=address): Likewise.
+	* flag-types.h (sanitize_code): New enum.
+	* opts.c (common_handle_option): Parse command line arguments
+	of -fsanitize=.
+	* varasm.c (get_variable_section): Adjust.
+	(assemble_noswitch_variable): Likewise.
+	(assemble_variable): Likewise.
+	(output_constant_def_contents): Likewise.
+	(categorize_decl_for_section): Likewise.
+	(place_block_symbol): Likewise.
+	(output_object_block): Likewise.
+	* builtins.def: Likewise.
+	* toplev.c (compile_file): Likewise.
+	(process_options): Likewise.
+	* cppbuiltin.c: Likewise.
+	* tsan.c (tsan_pass): Likewise.
+	(tsan_gate): Likewise.
+	(tsan_gate_O0): Likewise.
+	* cfgexpand.c (partition_stack_vars): Likewise.
+	(expand_stack_vars): Likewise.
+	(defer_stack_allocation): Likewise.
+	(expand_used_vars): Likewise.
+	* cfgcleanup.c (old_insns_match_p): Likewise.
+	* asan.c (asan_finish_file): Likewise.
+	(asan_instrument): Likewise.
+	(gate_asan): Likewise.
+
 2013-07-05  Marek Polacek  <polacek@redhat.com>
 
 	* Makefile.in: Add ubsan.c.
