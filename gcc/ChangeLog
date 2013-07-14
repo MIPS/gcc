@@ -1,5 +1,12 @@
 2013-07-14  Marek Polacek  <polacek@redhat.com>
 
+	* opts.c (common_handle_option): Add -fsanitize=unreachable option.
+	* builtins.c (fold_builtin_0): Use SANITIZE_UNREACHABLE instead of
+	SANITIZE_UNDEFINED.
+	* flag-types.h (enum sanitize_code): Add SANITIZE_UNREACHABLE.
+
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
 	* Makefile.in (c-family/c-ubsan.o): Add alloc-pool.h, CGRAPH_H,
 	GIMPLE_H, HASH_TABLE_H, output.h, toplev.h and ubsan.h dependencies.
 	(builtins.o): Add ubsan.h dependency.

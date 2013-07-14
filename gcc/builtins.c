@@ -10283,7 +10283,7 @@ fold_builtin_0 (location_t loc, tree fndecl, bool ignore ATTRIBUTE_UNUSED)
       return fold_builtin_classify_type (NULL_TREE);
 
     case BUILT_IN_UNREACHABLE:
-      if (flag_sanitize & SANITIZE_UNDEFINED)
+      if (flag_sanitize & SANITIZE_UNREACHABLE)
 	return ubsan_instrument_unreachable (loc);
       break;
 

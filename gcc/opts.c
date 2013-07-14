@@ -1423,6 +1423,8 @@ common_handle_option (struct gcc_options *opts,
 	      { "integer-divide-by-zero", SANITIZE_DIVIDE,
 		sizeof "integer-divide-by-zero" - 1 },
 	      { "undefined", SANITIZE_UNDEFINED, sizeof "undefined" - 1 },
+	      { "unreachable", SANITIZE_UNREACHABLE,
+		sizeof "unreachable" - 1 },
 	      { NULL, 0, 0 }
 	    };
 	    const char *comma;
