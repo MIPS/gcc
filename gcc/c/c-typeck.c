@@ -11656,16 +11656,7 @@ c_finish_omp_declare_simd (tree fndecl, tree parms, vec<tree> clauses)
 	    pc = &OMP_CLAUSE_CHAIN (c);
 	}
       cl = c_finish_omp_clauses (cl);
-      tree saved_arguments = DECL_ARGUMENTS (fndecl);
-      DECL_ARGUMENTS (fndecl) = parms;
-      cl = c_omp_declare_simd_clauses_to_numbers (fndecl, cl);
-      DECL_ARGUMENTS (fndecl) = saved_arguments;
-      for (c = lookup_attribute ("omp declare simd", DECL_ATTRIBUTES (fndecl));
-	   c; c = lookup_attribute ("omp declare simd", TREE_CHAIN (c)))
-	if (omp_declare_simd_clauses_equal (TREE_VALUE (c), cl))
-	  break;
-      if (c)
-	continue;
+      cl = c_omp_declare_simd_clauses_to_numbers (parms, cl);
       c = build_tree_list (get_identifier ("omp declare simd"), cl);
       TREE_CHAIN (c) = DECL_ATTRIBUTES (fndecl);
       DECL_ATTRIBUTES (fndecl) = c;

@@ -1,3 +1,9 @@
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/declare-simd-1.C: Add some new tests.
+	* g++.dg/gomp/declare-simd-2.C: Remove a test that should no longer
+	fail, adjust fn11 error locus, add new tests.
+
 2013-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/depend-1.c: Enable for C as well.

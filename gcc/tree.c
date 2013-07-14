@@ -4617,7 +4617,7 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 /* Check if "omp declare simd" attribute arguments, CLAUSES1 and CLAUSES2, are
    the same.  */
 
-bool
+static bool
 omp_declare_simd_clauses_equal (tree clauses1, tree clauses2)
 {
   tree cl1, cl2;
@@ -4654,6 +4654,35 @@ omp_declare_simd_clauses_equal (tree clauses1, tree clauses2)
 	}
     }
   return true;
+}
+
+/* Remove duplicate "omp declare simd" attributes.  */
+
+void
+omp_remove_redundant_declare_simd_attrs (tree fndecl)
+{
+  tree attr, end_attr = NULL_TREE, last_attr = NULL_TREE;
+  for (attr = lookup_attribute ("omp declare simd", DECL_ATTRIBUTES (fndecl));
+       attr;
+       attr = lookup_attribute ("omp declare simd", TREE_CHAIN (attr)))
+    {
+      tree *pc;
+      for (pc = &TREE_CHAIN (attr); *pc && *pc != end_attr; )
+	{
+	  if (is_attribute_p ("omp declare simd", TREE_PURPOSE (*pc)))
+	    {
+	      last_attr = TREE_CHAIN (*pc);
+	      if (omp_declare_simd_clauses_equal (TREE_VALUE (*pc),
+						  TREE_VALUE (attr)))
+		{
+		  *pc = TREE_CHAIN (*pc);
+		  continue;
+		}
+	    }
+	  pc = &TREE_CHAIN (*pc);
+	}
+      end_attr = last_attr;
+    }
 }
 
 /* Compare two attributes for their value identity.  Return true if the

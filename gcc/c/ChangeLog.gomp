@@ -1,3 +1,9 @@
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_declare_simd): Don't remove
+	redundant "omp declare simd" clauses here.  Adjust
+	c_omp_declare_simd_clauses_to_numbers caller.
+
 2013-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_cancel): Pass two arguments to GOMP_cancel

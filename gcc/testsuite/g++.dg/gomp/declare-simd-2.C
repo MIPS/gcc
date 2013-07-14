@@ -52,9 +52,16 @@ int t;
 #pragma omp threadprivate(t)	// { dg-error "not immediately followed by function declaration or definition" }
 int fn10 (int a);
 
-#pragma omp declare simd inbranch notinbranch
-int fn11 (int);		// { dg-error "clause is incompatible with" }
+#pragma omp declare simd inbranch notinbranch // { dg-error "clause is incompatible with" }
+int fn11 (int);
 
-#pragma omp declare simd simdlen (N)	// { dg-error "was not declared in this scope" }
-template <int N>
-int fn12 (int);
+struct D
+{
+  int d;
+  #pragma omp declare simd simdlen (N) linear (a : sizeof (e) + sizeof (this->e)) // { dg-error "was not declared" }
+  template <int N>
+  int fn12 (int a);
+  int e;
+};
+
+// { dg-error "has no member" "" { target *-*-* } 61 }

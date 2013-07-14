@@ -1,3 +1,8 @@
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_declare_simd_clauses_to_numbers): Change first
+	argument from a fndecl to its parms.
+
 2013-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-pragma.h (enum pragma_kind): Remove PRAGMA_OMP_DECLARE_SIMD,

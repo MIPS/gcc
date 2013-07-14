@@ -1,3 +1,46 @@
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (declare_simd_adjust_this): New function.
+	(grokfndecl): Remove omp_declare_simd_clauses argument.
+	Don't call finish_omp_declare_simd, instead just call
+	c_omp_declare_simd_clauses_to_numbers.
+	(grokdeclarator): Don't pass omp_declare_simd_clauses to
+	grokfndecl.
+	* parser.c (cp_ensure_no_omp_declare_simd): Adjust for
+	change from omp_declare_simd_clauses vector to omp_declare_simd
+	pointer.
+	(cp_finish_omp_declare_simd): Renamed to...
+	(cp_finalize_omp_declare_simd): ... this.  Adjust for
+	change from omp_declare_simd_clauses vector to omp_declare_simd
+	pointer, remove declspecs argument.
+	(cp_parser_init_declarator, cp_parser_member_declaration,
+	cp_parser_function_definition_from_specifiers_and_declarator,
+	cp_parser_save_member_function_body): Don't copy
+	omp_declare_simd_clauses vector to declspecs.  Call
+	cp_finalize_omp_declare_simd instead of cp_finish_omp_declare_simd.
+	(cp_parser_late_return_type_opt): Add declarator argument.  On
+	cdk_id declarator call cp_parser_late_parsing_omp_declare_simd
+	if declare simd pragma has been seen.
+	(cp_parser_direct_declarator): Adjust cp_parser_late_return_type_opt
+	caller.
+	(cp_parser_omp_var_list_no_open): Don't special-case lookup in
+	omp declare simd clauses.
+	(OMP_DECLARE_SIMD_CLAUSE_MASK): Remove OMP_CLAUSE_REDUCTION.
+	(cp_parser_omp_declare_simd): Don't set up omp_declare_simd_clauses
+	vector, don't parse omp clauses here.  Instead remember tokens
+	from #pragma omp declare simd till end of pragma line and populate
+	omp_declare_simd_data structure.
+	(cp_parser_late_parsing_omp_declare_simd): New function.
+	* pt.c (apply_late_template_attributes): Adjust
+	c_omp_declare_simd_clauses_to_numbers caller.
+	* cp-tree.h (struct cp_decl_specifier_seq): Remove
+	omp_declare_simd_clauses field.
+	(finish_omp_declare_simd): Remove.
+	* parser.h (cp_omp_declare_simd_data): New structure.
+	(struct cp_parser): Remove omp_declare_simd_clauses field,
+	add omp_declare_simd field instead.
+	* semantics.c (finish_omp_declare_simd): Remove.
+
 2013-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_cancel): Pass two arguments to GOMP_cancel

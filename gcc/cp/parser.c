@@ -1227,12 +1227,11 @@ cp_token_cache_new (cp_token *first, cp_token *last)
 static inline void
 cp_ensure_no_omp_declare_simd (cp_parser *parser)
 {
-  if (parser->omp_declare_simd_clauses
-      && (*parser->omp_declare_simd_clauses)[0] != error_mark_node)
+  if (parser->omp_declare_simd && !parser->omp_declare_simd->error_seen)
     {
       error ("%<#pragma omp declare simd%> not immediately followed by "
 	     "function declaration or definition");
-      parser->omp_declare_simd_clauses = NULL;
+      parser->omp_declare_simd = NULL;
     }
 }
 
@@ -1240,14 +1239,13 @@ cp_ensure_no_omp_declare_simd (cp_parser *parser)
    and put that into "omp declare simd" attribute.  */
 
 static inline void
-cp_finish_omp_declare_simd (cp_parser *parser,
-			    cp_decl_specifier_seq *declspecs, tree fndecl)
+cp_finalize_omp_declare_simd (cp_parser *parser, tree fndecl)
 {
-  if (__builtin_expect (parser->omp_declare_simd_clauses != NULL, 0))
+  if (__builtin_expect (parser->omp_declare_simd != NULL, 0))
     {
       if (fndecl == error_mark_node)
 	{
-	  parser->omp_declare_simd_clauses = NULL;
+	  parser->omp_declare_simd = NULL;
 	  return;
 	}
       if (TREE_CODE (fndecl) != FUNCTION_DECL)
@@ -1256,7 +1254,6 @@ cp_finish_omp_declare_simd (cp_parser *parser,
 	  return;
 	}
     }
-  declspecs->omp_declare_simd_clauses = NULL;
 }
 
 /* Decl-specifiers.  */
@@ -2066,7 +2063,7 @@ static cp_virt_specifiers cp_parser_virt_specifier_seq_opt
 static cp_ref_qualifier cp_parser_ref_qualifier_opt
   (cp_parser *);
 static tree cp_parser_late_return_type_opt
-  (cp_parser *, cp_cv_quals);
+  (cp_parser *, cp_declarator *, cp_cv_quals);
 static tree cp_parser_declarator_id
   (cp_parser *, bool);
 static tree cp_parser_type_id
@@ -2099,6 +2096,9 @@ static vec<constructor_elt, va_gc> *cp_parser_initializer_list
 
 static bool cp_parser_ctor_initializer_opt_and_function_body
   (cp_parser *, bool);
+
+static tree cp_parser_late_parsing_omp_declare_simd
+  (cp_parser *, tree);
 
 /* Classes [gram.class] */
 
@@ -16504,12 +16504,10 @@ cp_parser_init_declarator (cp_parser* parser,
     {
       if (parser->in_unbraced_linkage_specification_p)
 	decl_specifiers->storage_class = sc_extern;
-      decl_specifiers->omp_declare_simd_clauses
-	= parser->omp_declare_simd_clauses;
       decl = start_decl (declarator, decl_specifiers,
 			 range_for_decl_p? SD_INITIALIZED : is_initialized,
 			 attributes, prefix_attributes, &pushed_scope);
-      cp_finish_omp_declare_simd (parser, decl_specifiers, decl);
+      cp_finalize_omp_declare_simd (parser, decl);
       /* Adjust location of decl if declarator->id_loc is more appropriate:
 	 set, and decl wasn't merged with another decl, in which case its
 	 location would be different from input_location, and more accurate.  */
@@ -16613,14 +16611,12 @@ cp_parser_init_declarator (cp_parser* parser,
 	  pop_scope (pushed_scope);
 	  pushed_scope = NULL_TREE;
 	}
-      decl_specifiers->omp_declare_simd_clauses
-	= parser->omp_declare_simd_clauses;
       decl = grokfield (declarator, decl_specifiers,
 			initializer, !is_non_constant_init,
 			/*asmspec=*/NULL_TREE, prefix_attributes);
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
-      cp_finish_omp_declare_simd (parser, decl_specifiers, decl);
+      cp_finalize_omp_declare_simd (parser, decl);
     }
 
   /* Finish processing the declaration.  But, skip member
@@ -16922,7 +16918,9 @@ cp_parser_direct_declarator (cp_parser* parser,
 		  attrs = cp_parser_std_attribute_spec_seq (parser);
 
 		  late_return = (cp_parser_late_return_type_opt
-				 (parser, memfn ? cv_quals : -1));
+				 (parser, declarator,
+				  memfn ? cv_quals : -1));
+
 
 		  /* Parse the virt-specifier-seq.  */
 		  virt_specifiers = cp_parser_virt_specifier_seq_opt (parser);
@@ -17648,23 +17646,27 @@ parsing_nsdmi (void)
 
    Returns the type indicated by the type-id.
 
+   In addition to this this parses any queued up omp declare simd
+   clauses.
+
    QUALS is either a bitmask of cv_qualifiers or -1 for a non-member
    function.  */
 
 static tree
-cp_parser_late_return_type_opt (cp_parser* parser, cp_cv_quals quals)
+cp_parser_late_return_type_opt (cp_parser* parser, cp_declarator *declarator,
+				cp_cv_quals quals)
 {
   cp_token *token;
-  tree type;
+  tree type = NULL_TREE;
+  bool declare_simd_p = (parser->omp_declare_simd
+			 && declarator
+			 && declarator->kind == cdk_id);
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* A late-specified return type is indicated by an initial '->'. */
-  if (token->type != CPP_DEREF)
+  if (token->type != CPP_DEREF && !declare_simd_p)
     return NULL_TREE;
-
-  /* Consume the ->.  */
-  cp_lexer_consume_token (parser->lexer);
 
   tree save_ccp = current_class_ptr;
   tree save_ccr = current_class_ref;
@@ -17674,7 +17676,18 @@ cp_parser_late_return_type_opt (cp_parser* parser, cp_cv_quals quals)
       inject_this_parameter (current_class_type, quals);
     }
 
-  type = cp_parser_trailing_type_id (parser);
+  if (token->type == CPP_DEREF)
+    {
+      /* Consume the ->.  */
+      cp_lexer_consume_token (parser->lexer);
+
+      type = cp_parser_trailing_type_id (parser);
+    }
+
+  if (declare_simd_p)
+    declarator->std_attributes
+      = cp_parser_late_parsing_omp_declare_simd (parser,
+						 declarator->std_attributes);
 
   if (quals >= 0)
     {
@@ -20151,14 +20164,12 @@ cp_parser_member_declaration (cp_parser* parser)
 		if (declarator->kind == cdk_function)
 		  declarator->id_loc = token->location;
 	      /* Create the declaration.  */
-	      decl_specifiers.omp_declare_simd_clauses
-		= parser->omp_declare_simd_clauses;
 	      decl = grokfield (declarator, &decl_specifiers,
 				initializer, /*init_const_expr_p=*/true,
 				asm_specification, attributes);
 	    }
 
-	  cp_finish_omp_declare_simd (parser, &decl_specifiers, decl);
+	  cp_finalize_omp_declare_simd (parser, decl);
 
 	  /* Reset PREFIX_ATTRIBUTES.  */
 	  while (attributes && TREE_CHAIN (attributes) != first_attribute)
@@ -22293,8 +22304,6 @@ cp_parser_function_definition_from_specifiers_and_declarator
   bool success_p;
 
   /* Begin the function-definition.  */
-  decl_specifiers->omp_declare_simd_clauses
-    = parser->omp_declare_simd_clauses;
   success_p = start_function (decl_specifiers, declarator, attributes);
 
   /* The things we're about to see are not directly qualified by any
@@ -22309,15 +22318,13 @@ cp_parser_function_definition_from_specifiers_and_declarator
 
   if (success_p)
     {
-      cp_finish_omp_declare_simd (parser, decl_specifiers,
-				  current_function_decl);
-      parser->omp_declare_simd_clauses = NULL;
+      cp_finalize_omp_declare_simd (parser, current_function_decl);
+      parser->omp_declare_simd = NULL;
     }
 
   if (!success_p)
     {
       /* Skip the entire function.  */
-      decl_specifiers->omp_declare_simd_clauses = NULL;
       cp_parser_skip_to_end_of_block_or_statement (parser);
       fn = error_mark_node;
     }
@@ -22848,10 +22855,8 @@ cp_parser_save_member_function_body (cp_parser* parser,
   tree fn;
 
   /* Create the FUNCTION_DECL.  */
-  decl_specifiers->omp_declare_simd_clauses
-    = parser->omp_declare_simd_clauses;
   fn = grokmethod (decl_specifiers, declarator, attributes);
-  cp_finish_omp_declare_simd (parser, decl_specifiers, fn);
+  cp_finalize_omp_declare_simd (parser, fn);
   /* If something went badly wrong, bail out now.  */
   if (fn == error_mark_node)
     {
@@ -26592,20 +26597,15 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
       tree name, decl;
 
       token = cp_lexer_peek_token (parser->lexer);
-      if (parser->omp_declare_simd_clauses)
-	decl = name = cp_parser_identifier (parser);
-      else
-	{
-	  name = cp_parser_id_expression (parser, /*template_p=*/false,
-					  /*check_dependency_p=*/true,
-					  /*template_p=*/NULL,
-					  /*declarator_p=*/false,
-					  /*optional_p=*/false);
-	  if (name == error_mark_node)
-	    goto skip_comma;
+      name = cp_parser_id_expression (parser, /*template_p=*/false,
+				      /*check_dependency_p=*/true,
+				      /*template_p=*/NULL,
+				      /*declarator_p=*/false,
+				      /*optional_p=*/false);
+      if (name == error_mark_node)
+	goto skip_comma;
 
-	  decl = cp_parser_lookup_name_simple (parser, name, token->location);
-	}
+      decl = cp_parser_lookup_name_simple (parser, name, token->location);
       if (decl == error_mark_node)
 	cp_parser_name_lookup_error (parser, name, decl, NLE_NULL,
 				     token->location);
@@ -29686,7 +29686,6 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_LINEAR)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_ALIGNED)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)	\
-	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_REDUCTION)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_INBRANCH)	\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NOTINBRANCH))
 
@@ -29694,13 +29693,24 @@ static void
 cp_parser_omp_declare_simd (cp_parser *parser, cp_token *pragma_tok,
 			    enum pragma_context context)
 {
-  bool first_p = parser->omp_declare_simd_clauses == NULL;
-  vec_safe_push (parser->omp_declare_simd_clauses, NULL_TREE);
-  tree clauses
-    = cp_parser_omp_all_clauses (parser, OMP_DECLARE_SIMD_CLAUSE_MASK,
-				 "#pragma omp declare simd", pragma_tok,
-				 false);
-  parser->omp_declare_simd_clauses->last () = clauses;
+  bool first_p = parser->omp_declare_simd == NULL;
+  cp_omp_declare_simd_data data;
+  if (first_p)
+    {
+      data.error_seen = false;
+      data.fndecl_seen = false;
+      data.tokens = vNULL;
+      parser->omp_declare_simd = &data;
+    }
+  while (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL)
+	 && cp_lexer_next_token_is_not (parser->lexer, CPP_EOF))
+    cp_lexer_consume_token (parser->lexer);
+  if (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL))
+    parser->omp_declare_simd->error_seen = true;
+  cp_parser_require_pragma_eol (parser, pragma_tok);
+  struct cp_token_cache *cp
+    = cp_token_cache_new (pragma_tok, cp_lexer_peek_token (parser->lexer));
+  parser->omp_declare_simd->tokens.safe_push (cp);
   if (first_p)
     {
       while (cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA))
@@ -29720,15 +29730,60 @@ cp_parser_omp_declare_simd (cp_parser *parser, cp_token *pragma_tok,
 	  cp_parser_declaration_statement (parser);
 	  break;
 	}
-      if (parser->omp_declare_simd_clauses
-	  && (*parser->omp_declare_simd_clauses)[0] != error_mark_node
-	  && (*parser->omp_declare_simd_clauses)[0] != integer_zero_node)
+      if (parser->omp_declare_simd
+	  && !parser->omp_declare_simd->error_seen
+	  && !parser->omp_declare_simd->fndecl_seen)
 	error_at (pragma_tok->location,
 		  "%<#pragma omp declare simd%> not immediately followed by "
 		  "function declaration or definition");
-      parser->omp_declare_simd_clauses = NULL;
+      data.tokens.release ();
+      parser->omp_declare_simd = NULL;
     }
 }
+
+/* Finalize #pragma omp declare simd clauses after direct declarator has
+   been parsed, and put that into "omp declare simd" attribute.  */
+
+static tree
+cp_parser_late_parsing_omp_declare_simd (cp_parser *parser, tree attrs)
+{
+  struct cp_token_cache *ce;
+  cp_omp_declare_simd_data *data = parser->omp_declare_simd;
+  int i;
+
+  if (!data->error_seen && data->fndecl_seen)
+    {
+      error ("%<#pragma omp declare simd%> not immediately followed by "
+	     "a single function declaration or definition");
+      data->error_seen = true;
+      return attrs;
+    }
+  if (data->error_seen)
+    return attrs;
+
+  FOR_EACH_VEC_ELT (data->tokens, i, ce)
+    {
+      tree c, cl;
+
+      cp_parser_push_lexer_for_tokens (parser, ce);
+      parser->lexer->in_pragma = true;
+      gcc_assert (cp_lexer_peek_token (parser->lexer)->type == CPP_PRAGMA);
+      cp_token *pragma_tok = cp_lexer_consume_token (parser->lexer);
+      cp_lexer_consume_token (parser->lexer);
+      cl = cp_parser_omp_all_clauses (parser, OMP_DECLARE_SIMD_CLAUSE_MASK,
+				      "#pragma omp declare simd", pragma_tok);
+      cp_parser_pop_lexer (parser);
+      c = build_tree_list (get_identifier ("omp declare simd"), cl);
+      TREE_CHAIN (c) = attrs;
+      if (processing_template_decl)
+	ATTR_IS_DEPENDENT (c) = 1;
+      attrs = c;
+    }
+
+  data->fndecl_seen = true;
+  return attrs;
+}
+
 
 /* OpenMP 4.0:
    # pragma omp declare target new-line

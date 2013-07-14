@@ -8494,8 +8494,9 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 						complain, in_decl);
 		  c_omp_declare_simd_clauses_to_decls (*decl_p, clauses);
 		  clauses = finish_omp_clauses (clauses);
+		  tree parms = DECL_ARGUMENTS (*decl_p);
 		  TREE_VALUE (t)
-		    = c_omp_declare_simd_clauses_to_numbers (*decl_p, clauses);
+		    = c_omp_declare_simd_clauses_to_numbers (parms, clauses);
 		}
 	      /* If the first attribute argument is an identifier, don't
 		 pass it through tsubst.  Attributes like mode, format,

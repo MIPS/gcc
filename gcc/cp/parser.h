@@ -196,6 +196,14 @@ typedef struct GTY (()) cp_parser_context {
 } cp_parser_context;
 
 
+/* Control structure for #pragma omp declare simd parsing.  */
+struct cp_omp_declare_simd_data {
+  bool error_seen; /* Set if error has been reported.  */
+  bool fndecl_seen; /* Set if one fn decl/definition has been seen already.  */
+  vec<cp_token_cache_ptr> tokens;
+};
+
+
 /* The cp_parser structure represents the C++ parser.  */
 
 typedef struct GTY(()) cp_parser {
@@ -342,14 +350,9 @@ typedef struct GTY(()) cp_parser {
      current declaration.  */
   unsigned num_template_parameter_lists;
 
-  /* When parsing #pragma omp declare simd, this is a vector of
-     the clauses, each tree is either NULL_TREE, or OMP_CLAUSE
-     with optional chain of other clauses.  If error regarding
-     omp declare simd has been reported already, either
-     omp_declare_simd_clauses is set to NULL, or first element set
-     to error_mark_node.  If a FUNCTION_DECL has been seen already,
-     first element is set to integer_zero_node.  */
-  vec<tree, va_gc> *omp_declare_simd_clauses;
+  /* When parsing #pragma omp declare simd, this is a pointer to a
+     data structure with everything needed for parsing the clauses.  */
+  cp_omp_declare_simd_data * GTY((skip)) omp_declare_simd;
 } cp_parser;
 
 /* In parser.c  */

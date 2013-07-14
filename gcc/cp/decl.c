@@ -7299,6 +7299,22 @@ check_static_quals (tree decl, cp_cv_quals quals)
 	   decl);
 }
 
+/* Helper function.  Replace the temporary this parameter injected
+   during cp_finish_omp_declare_simd with the real this parameter.  */
+
+static tree
+declare_simd_adjust_this (tree *tp, int *walk_subtrees, void *data)
+{
+  tree this_parm = (tree) data;
+  if (TREE_CODE (*tp) == PARM_DECL
+      && DECL_NAME (*tp) == this_identifier
+      && *tp != this_parm)
+    *tp = this_parm;
+  else if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  return NULL_TREE;
+}
+
 /* CTYPE is class type, or null if non-class.
    TYPE is type this FUNCTION_DECL should have, either FUNCTION_TYPE
    or METHOD_TYPE.
@@ -7337,8 +7353,7 @@ grokfndecl (tree ctype,
 	    int template_count,
 	    tree in_namespace,
 	    tree* attrlist,
-	    location_t location,
-	    vec<tree, va_gc> *omp_declare_simd_clauses)
+	    location_t location)
 {
   tree decl;
   int staticp = ctype && TREE_CODE (type) == FUNCTION_TYPE;
@@ -7627,8 +7642,25 @@ grokfndecl (tree ctype,
   if (TYPE_NOTHROW_P (type) || nothrow_libfn_p (decl))
     TREE_NOTHROW (decl) = 1;
 
-  if (omp_declare_simd_clauses)
-    finish_omp_declare_simd (decl, omp_declare_simd_clauses);
+  if (flag_openmp)
+    {
+      /* Adjust "omp declare simd" attributes.  */
+      tree ods = lookup_attribute ("omp declare simd", *attrlist);
+      if (ods)
+	{
+	  tree attr;
+	  for (attr = ods; attr;
+	       attr = lookup_attribute ("omp declare simd", TREE_CHAIN (attr)))
+	    {
+	      if (TREE_CODE (type) == METHOD_TYPE)
+		walk_tree (&TREE_VALUE (attr), declare_simd_adjust_this,
+			   DECL_ARGUMENTS (decl), NULL);
+	      TREE_VALUE (attr)
+		= c_omp_declare_simd_clauses_to_numbers (DECL_ARGUMENTS (decl),
+							 TREE_VALUE (attr));
+	    }
+	}
+    }
 
   /* Caller will do the rest of this.  */
   if (check < 0)
@@ -10494,8 +10526,7 @@ grokdeclarator (const cp_declarator *declarator,
                                inlinep | (2 * constexpr_p),
 			       sfk,
 			       funcdef_flag, template_count, in_namespace,
-			       attrlist, declarator->id_loc,
-			       declspecs->omp_declare_simd_clauses);
+			       attrlist, declarator->id_loc);
             decl = set_virt_specifiers (decl, virt_specifiers);
 	    if (decl == NULL_TREE)
 	      return error_mark_node;
@@ -10708,8 +10739,7 @@ grokdeclarator (const cp_declarator *declarator,
 			   publicp, inlinep | (2 * constexpr_p), sfk,
                            funcdef_flag,
 			   template_count, in_namespace, attrlist,
-			   declarator->id_loc,
-			   declspecs->omp_declare_simd_clauses);
+			   declarator->id_loc);
 	if (decl == NULL_TREE)
 	  return error_mark_node;
 

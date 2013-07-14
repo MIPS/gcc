@@ -895,7 +895,7 @@ c_omp_declare_simd_clause_cmp (const void *p, const void *q)
    CLAUSES on FNDECL into argument indexes and sort them.  */
 
 tree
-c_omp_declare_simd_clauses_to_numbers (tree fndecl, tree clauses)
+c_omp_declare_simd_clauses_to_numbers (tree parms, tree clauses)
 {
   tree c;
   vec<tree> clvec = vNULL;
@@ -909,14 +909,14 @@ c_omp_declare_simd_clauses_to_numbers (tree fndecl, tree clauses)
 	  tree decl = OMP_CLAUSE_DECL (c);
 	  tree arg;
 	  int idx;
-	  for (arg = DECL_ARGUMENTS (fndecl), idx = 0; arg;
+	  for (arg = parms, idx = 0; arg;
 	       arg = TREE_CHAIN (arg), idx++)
 	    if (arg == decl)
 	      break;
 	  if (arg == NULL_TREE)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
-			"%qD is not an argument of %qD", decl, fndecl);
+			"%qD is not an function argument", decl);
 	      continue;
 	    }
 	  OMP_CLAUSE_DECL (c) = build_int_cst (integer_type_node, idx);

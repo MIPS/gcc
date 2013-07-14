@@ -1,3 +1,10 @@
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (omp_declare_simd_clauses_equal): Remove prototype.
+	(omp_remove_redundant_declare_simd_attrs): New prototype.
+	* tree.c (omp_declare_simd_clauses_equal): Make static.
+	(omp_remove_redundant_declare_simd_attrs): New function.
+
 2013-07-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimple-pretty-print.c (dump_gimple_omp_return): Print
