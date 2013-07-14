@@ -1377,6 +1377,7 @@ OBJS = \
 	tree-affine.o \
 	asan.o \
 	tsan.o \
+	ubsan.o \
 	tree-call-cdce.o \
 	tree-cfg.o \
 	tree-cfgcleanup.o \
@@ -2262,6 +2263,9 @@ tsan.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(TM_P_H) $(TREE_FLOW_H) $(DIAGNOSTIC_CORE_H) $(GIMPLE_H) tree-iterator.h \
    intl.h cfghooks.h output.h options.h c-family/c-common.h tsan.h asan.h \
    tree-ssa-propagate.h
+ubsan.o : ubsan.c ubsan.h $(CONFIG_H) $(SYSTEM_H) $(GIMPLE_H) \
+   output.h coretypes.h $(TREE_H) alloc-pool.h $(CGRAPH_H) $(HASH_TABLE_H) \
+   toplev.h c-family/c-common.h c-family/c-ubsan.h
 tree-ssa-tail-merge.o: tree-ssa-tail-merge.c \
    $(SYSTEM_H) $(CONFIG_H) coretypes.h $(TM_H) $(BITMAP_H) \
    $(FLAGS_H) $(TM_P_H) $(BASIC_BLOCK_H) $(CFGLOOP_H) \
@@ -3807,6 +3811,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/ipa-inline.h \
   $(srcdir)/asan.c \
   $(srcdir)/tsan.c \
+  $(srcdir)/ubsan.c \
   @all_gtfiles@
 
 # Compute the list of GT header files from the corresponding C sources,

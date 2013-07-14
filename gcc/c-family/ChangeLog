@@ -1,3 +1,24 @@
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (struct ubsan_typedesc): Move to ubsan.c.
+	(struct ubsan_typedesc_hasher): Likewise.
+	(ubsan_typedesc_hasher::hash): Likewise.
+	(ubsan_typedesc_hasher::equal): Likewise.
+	(ubsan_typedesc_init): Likewise.
+	(ubsan_typedesc_get_alloc_pool): Likewise.
+	(get_typedesc_hash_table): Likewise.
+	(ubsan_typedesc_new): Likewise.
+	(empty_ubsan_typedesc_hash_table): Likewise.
+	(uptr_type): Likewise.
+	(ubsan_encode_value): Likewise.
+	(ubsan_type_descriptor_type): Likewise.
+	(ubsan_source_location_type): Likewise.
+	(ubsan_source_location): Likewise.
+	(get_tinfo_for_type): Likewise.
+	(ubsan_type_descriptor): Likewise.
+	(ubsan_create_data): Likewise.
+	* c-ubsan.h: Rename GCC_UBSAN_H to GCC_C_UBSAN_H.
+
 2013-07-07  Marek Polacek  <polacek@redhat.com>
 
 	* c-ubsan.c (empty_ubsan_typedesc_hash_table): Comment out function.

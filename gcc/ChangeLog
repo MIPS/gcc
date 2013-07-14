@@ -1,3 +1,12 @@
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
+	* builtins.c: Include ubsan.h.
+	(fold_builtin_0): Instrument __builtin_unreachable.
+	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE): Define.
+	* Makefile.in: Add ubsan.c.
+	* ubsan.h: New file.
+	* ubsan.c: New file.
+
 2013-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.c: Document %{%:function(args):X}.

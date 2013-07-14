@@ -18,10 +18,13 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#ifndef GCC_C_UBSAN_H
-#define GCC_C_UBSAN_H
+#ifndef GCC_UBSAN_H
+#define GCC_UBSAN_H
 
-extern tree ubsan_instrument_division (location_t, tree, tree);
-extern tree ubsan_instrument_shift (location_t, enum tree_code, tree, tree);
+extern tree ubsan_instrument_unreachable (location_t);
+extern tree ubsan_create_data (const char *, location_t, ...);
+extern tree ubsan_type_descriptor (tree);
+extern tree ubsan_encode_value (tree);
 
-#endif  /* GCC_C_UBSAN_H  */
+#endif  /* GCC_UBSAN_H  */
+
