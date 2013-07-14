@@ -2181,7 +2181,7 @@ asan_finish_file (void)
   /* Avoid instrumenting code in the asan ctors/dtors.
      We don't need to insert padding after the description strings,
      nor after .LASAN* array.  */
-  flag_asan = 0;
+  flag_sanitize &= ~SANITIZE_ADDRESS;
 
   tree fn = builtin_decl_implicit (BUILT_IN_ASAN_INIT);
   append_to_statement_list (build_call_expr (fn, 0), &asan_ctor_statements);
@@ -2238,7 +2238,7 @@ asan_finish_file (void)
     }
   cgraph_build_static_cdtor ('I', asan_ctor_statements,
 			     MAX_RESERVED_INIT_PRIORITY - 1);
-  flag_asan = 1;
+  flag_sanitize |= SANITIZE_ADDRESS;
 }
 
 /* Instrument the current function.  */
@@ -2255,7 +2255,7 @@ asan_instrument (void)
 static bool
 gate_asan (void)
 {
-  return flag_asan != 0
+  return (flag_sanitize & SANITIZE_ADDRESS) != 0
 	  && !lookup_attribute ("no_sanitize_address",
 				DECL_ATTRIBUTES (current_function_decl));
 }

@@ -10488,7 +10488,7 @@ build_binary_op (location_t location, enum tree_code code,
 	return error_mark_node;
     }
 
-  if (flag_ubsan)
+  if (flag_sanitize & SANITIZE_UNDEFINED)
     {
       /* OP0 and/or OP1 might have side-effects.  */
       op0 = c_save_expr (op0);
@@ -10523,7 +10523,7 @@ build_binary_op (location_t location, enum tree_code code,
     ret = build1 (EXCESS_PRECISION_EXPR, semantic_result_type, ret);
   protected_set_expr_location (ret, location);
 
-  if (flag_ubsan && instrument_expr != NULL)
+  if ((flag_sanitize & SANITIZE_UNDEFINED) && instrument_expr != NULL)
     ret = fold_build2 (COMPOUND_EXPR, TREE_TYPE (ret),
 		       instrument_expr, ret);
 

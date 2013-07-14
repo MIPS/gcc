@@ -4868,7 +4868,8 @@ cp_build_binary_op (location_t location,
   if (build_type == NULL_TREE)
     build_type = result_type;
 
-  if (flag_ubsan && !processing_template_decl
+  if ((flag_sanitize & SANITIZE_UNDEFINED)
+      && !processing_template_decl
       && (doing_div_or_mod || doing_shift))
     {
       /* OP0 and/or OP1 might have side-effects.  */
@@ -4906,7 +4907,7 @@ cp_build_binary_op (location_t location,
       && !TREE_OVERFLOW_P (op1))
     overflow_warning (location, result);
 
-  if (flag_ubsan && instrument_expr != NULL)
+  if ((flag_sanitize & SANITIZE_UNDEFINED) && instrument_expr != NULL)
     result = fold_build2 (COMPOUND_EXPR, TREE_TYPE (result),
 			  instrument_expr, result);
 
