@@ -36,7 +36,6 @@
 #include "unwind.h"
 #include <bits/atomic_word.h>
 #include <cxxabi.h>
-#include "immintrin.h"
 
 #ifdef _GLIBCXX_HAVE_SYS_SDT_H
 #include <sys/sdt.h>
