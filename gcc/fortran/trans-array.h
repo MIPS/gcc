@@ -51,6 +51,8 @@ tree gfc_copy_allocatable_data (tree dest, tree src, tree type, int rank);
 tree gfc_nullify_alloc_comp (gfc_symbol *, tree, int);
 
 tree gfc_deallocate_alloc_comp (gfc_symbol *, tree, int);
+tree gfc_deallocate_alloc_comp_no_caf (gfc_symbol *, tree, int);
+tree gfc_reassign_alloc_comp_caf (gfc_symbol *, tree, tree);
 
 tree gfc_copy_alloc_comp (gfc_symbol *, tree, tree, int);
 
@@ -123,7 +125,7 @@ void gfc_conv_resolve_dependencies (gfc_loopinfo *, gfc_ss *, gfc_ss *);
 tree gfc_build_null_descriptor (tree);
 
 /* Get a single array element.  */
-void gfc_conv_array_ref (gfc_se *, gfc_array_ref *, gfc_symbol *, locus *);
+void gfc_conv_array_ref (gfc_se *, gfc_array_ref *, gfc_expr *, locus *);
 /* Translate a reference to a temporary array.  */
 void gfc_conv_tmp_array_ref (gfc_se * se);
 /* Translate a reference to an array temporary.  */

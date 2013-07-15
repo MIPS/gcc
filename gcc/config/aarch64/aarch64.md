@@ -80,6 +80,7 @@
     UNSPEC_FRINTZ
     UNSPEC_GOTSMALLPIC
     UNSPEC_GOTSMALLTLS
+    UNSPEC_GOTTINYPIC
     UNSPEC_LD2
     UNSPEC_LD3
     UNSPEC_LD4
@@ -2003,6 +2004,38 @@
    (set_attr "mode" "SI")]
 )
 
+(define_insn_and_split "absdi2"
+  [(set (match_operand:DI 0 "register_operand" "=r,w")
+	(abs:DI (match_operand:DI 1 "register_operand" "r,w")))
+   (clobber (match_scratch:DI 2 "=&r,X"))]
+  ""
+  "@
+   #
+   abs\\t%d0, %d1"
+  "reload_completed
+   && GP_REGNUM_P (REGNO (operands[0]))
+   && GP_REGNUM_P (REGNO (operands[1]))"
+  [(const_int 0)]
+  {
+    emit_insn (gen_rtx_SET (VOIDmode, operands[2],
+			    gen_rtx_XOR (DImode,
+					 gen_rtx_ASHIFTRT (DImode,
+							   operands[1],
+							   GEN_INT (63)),
+					 operands[1])));
+    emit_insn (gen_rtx_SET (VOIDmode,
+			    operands[0],
+			    gen_rtx_MINUS (DImode,
+					   operands[2],
+					   gen_rtx_ASHIFTRT (DImode,
+							     operands[1],
+							     GEN_INT (63)))));
+    DONE;
+  }
+  [(set_attr "v8type" "alu")
+   (set_attr "mode" "DI")]
+)
+
 (define_insn "neg<mode>2"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(neg:GPI (match_operand:GPI 1 "register_operand" "r")))]
@@ -3225,6 +3258,21 @@
    (set_attr "mode" "<MODE>")]
 )
 
+(define_insn "*extr_insv_lower_reg<mode>"
+  [(set (zero_extract:GPI (match_operand:GPI 0 "register_operand" "+r")
+			  (match_operand 1 "const_int_operand" "n")
+			  (const_int 0))
+	(zero_extract:GPI (match_operand:GPI 2 "register_operand" "+r")
+			  (match_dup 1)
+			  (match_operand 3 "const_int_operand" "n")))]
+  "!(UINTVAL (operands[1]) == 0
+     || (UINTVAL (operands[3]) + UINTVAL (operands[1])
+	 > GET_MODE_BITSIZE (<MODE>mode)))"
+  "bfxil\\t%<w>0, %<w>2, %3, %1"
+  [(set_attr "v8type" "bfm")
+   (set_attr "mode" "<MODE>")]
+)
+
 (define_insn "*<optab><ALLX:mode>_shft_<GPI:mode>"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(ashift:GPI (ANY_EXTEND:GPI
@@ -3700,6 +3748,16 @@
 		   UNSPEC_GOTSMALLPIC))]
   ""
   "ldr\\t%0, [%1, #:got_lo12:%a2]"
+  [(set_attr "v8type" "load1")
+   (set_attr "mode" "DI")]
+)
+
+(define_insn "ldr_got_tiny"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "aarch64_valid_symref" "S")]
+		   UNSPEC_GOTTINYPIC))]
+  ""
+  "ldr\\t%0, %L1"
   [(set_attr "v8type" "load1")
    (set_attr "mode" "DI")]
 )

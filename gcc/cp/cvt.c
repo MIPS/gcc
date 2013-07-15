@@ -449,8 +449,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 	}
     }
 
-  if (((convtype & CONV_STATIC) && 
-          can_convert_standard (intype, type, complain))
+  if (((convtype & CONV_STATIC)
+       && can_convert_standard (intype, type, complain))
       || ((convtype & CONV_IMPLICIT) && can_convert_intype_to_type))
     {
       {
