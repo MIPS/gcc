@@ -591,6 +591,28 @@ proper position among the other output files.  */
 #define LIBTSAN_EARLY_SPEC ""
 #endif
 
+#ifndef LIBUBSAN_SPEC
+#ifdef STATIC_LIBUBSAN_LIBS
+#define ADD_STATIC_LIBUBSAN_LIBS \
+  " %{static-libubsan:" STATIC_LIBUBSAN_LIBS "}"
+#else
+#define ADD_STATIC_LIBUBSAN_LIBS
+#endif
+#ifdef LIBUBSAN_EARLY_SPEC
+#define LIBUBSAN_SPEC ADD_STATIC_LIBUBSAN_LIBS
+#elif defined(HAVE_LD_STATIC_DYNAMIC)
+#define LIBUBSAN_SPEC "%{static-libubsan:" LD_STATIC_OPTION \
+		     "} -lubsan %{static-libubsan:" LD_DYNAMIC_OPTION "}" \
+		     ADD_STATIC_LIBUBSAN_LIBS
+#else
+#define LIBUBSAN_SPEC "-lubsan" ADD_STATIC_LIBUBSAN_LIBS
+#endif
+#endif
+
+#ifndef LIBUBSAN_EARLY_SPEC
+#define LIBUBSAN_EARLY_SPEC ""
+#endif
+
 /* config.h can define LIBGCC_SPEC to override how and when libgcc.a is
    included.  */
 #ifndef LIBGCC_SPEC
@@ -714,7 +736,8 @@ proper position among the other output files.  */
 #ifndef SANITIZER_EARLY_SPEC
 #define SANITIZER_EARLY_SPEC "\
 %{!nostdlib:%{!nodefaultlibs:%{%:sanitize(address):" LIBASAN_EARLY_SPEC "} \
-    %{%:sanitize(thread):" LIBTSAN_EARLY_SPEC "}}}"
+    %{%:sanitize(thread):" LIBTSAN_EARLY_SPEC "} \
+    %{%:sanitize(undefined):" LIBUBSAN_EARLY_SPEC "}}}"
 #endif
 
 /* Linker command line options for -fsanitize= late on the command line.  */
@@ -724,7 +747,8 @@ proper position among the other output files.  */
     %{static:%ecannot specify -static with -fsanitize=address}\
     %{%:sanitize(thread):%e-fsanitize=address is incompatible with -fsanitize=thread}}\
     %{%:sanitize(thread):" LIBTSAN_SPEC "\
-    %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}}}"
+    %{!pie:%{!shared:%e-fsanitize=thread linking must be done with -pie or -shared}}}\
+    %{%:sanitize(undefined):" LIBUBSAN_SPEC "}}}"
 #endif
 
 /* -u* was put back because both BSD and SysV seem to support it.  */

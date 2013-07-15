@@ -1,5 +1,13 @@
 2013-07-15  Marek Polacek  <polacek@redhat.com>
 
+	* gcc.c (ADD_STATIC_LIBUBSAN_LIBS): Define.
+	(LIBUBSAN_SPEC): Likewise.
+	(LIBUBSAN_EARLY_SPEC): Likewise.
+	(SANITIZER_SPEC): Handle libubsan.
+	(SANITIZER_EARLY_SPEC): Likewise.
+
+2013-07-15  Marek Polacek  <polacek@redhat.com>
+
 	* builtin-attrs.def (ATTR_COLD_NOTHROW_LEAF_LIST): Define.
 	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW): Don't mark
 	as NORETURN.

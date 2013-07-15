@@ -1,3 +1,21 @@
+2013-07-15  Marek Polacek  <polacek@redhat.com>
+
+	* lib/ubsan-dg.exp: New file.
+	* g++.dg/ubsan/ubsan.exp: New file.
+	* gcc.dg/ubsan/ubsan.exp: New file.
+	* g++.dg/ubsan/cxx11-shift-1.C: New test.
+	* g++.dg/ubsan/cxx11-shift-2.C: New test.
+	* c-c++-common/ubsan/div-by-zero-3.c: New test.
+	* c-c++-common/ubsan/div-by-zero-1.c: New test.
+	* c-c++-common/ubsan/div-by-zero-4.c: New test.
+	* c-c++-common/ubsan/shift-3.c: New test.
+	* c-c++-common/ubsan/unreachable-1.c: New test.
+	* c-c++-common/ubsan/shift-1.c: New test.
+	* c-c++-common/ubsan/shift-2.c: New test.
+	* c-c++-common/ubsan/div-by-zero-2.c: New test.
+	* gcc.dg/ubsan/c99-shift-2.c: New test.
+	* gcc.dg/ubsan/c99-shift-1.c: New test.
+
 2013-07-04  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	PR c/57821
