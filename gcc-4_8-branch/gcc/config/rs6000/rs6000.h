@@ -164,7 +164,7 @@
 %{mcpu=e6500: -me6500} \
 %{maltivec: -maltivec} \
 %{mvsx: -mvsx %{!maltivec: -maltivec} %{!mcpu*: %(asm_cpu_power7)}} \
-%{mpower8-vector|mcrypto|mdirect-move: %{!mcpu*: %(asm_cpu_power8)}} \
+%{mpower8-vector|mcrypto|mdirect-move|mhtm: %{!mcpu*: %(asm_cpu_power8)}} \
 -many"
 
 #define CPP_DEFAULT_SPEC ""
@@ -285,9 +285,11 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #ifndef HAVE_AS_POWER8
 #undef  TARGET_DIRECT_MOVE
 #undef  TARGET_CRYPTO
+#undef  TARGET_HTM
 #undef  TARGET_P8_VECTOR
 #define TARGET_DIRECT_MOVE 0
 #define TARGET_CRYPTO 0
+#define TARGET_HTM 0
 #define TARGET_P8_VECTOR 0
 #endif
 
@@ -543,6 +545,7 @@ extern int rs6000_vector_align[];
 #define MASK_FPRND			OPTION_MASK_FPRND
 #define MASK_P8_FUSION			OPTION_MASK_P8_FUSION
 #define MASK_HARD_FLOAT			OPTION_MASK_HARD_FLOAT
+#define MASK_HTM			OPTION_MASK_HTM
 #define MASK_ISEL			OPTION_MASK_ISEL
 #define MASK_MFCRF			OPTION_MASK_MFCRF
 #define MASK_MFPGPR			OPTION_MASK_MFPGPR
@@ -895,7 +898,7 @@ extern unsigned rs6000_pointer_size;
    Another pseudo (not included in DWARF_FRAME_REGISTERS) is soft frame
    pointer, which is eventually eliminated in favor of SP or FP.  */
 
-#define FIRST_PSEUDO_REGISTER 114
+#define FIRST_PSEUDO_REGISTER 117
 
 /* This must be included for pre gcc 3.0 glibc compatibility.  */
 #define PRE_GCC3_DWARF_FRAME_REGISTERS 77
@@ -957,7 +960,7 @@ extern unsigned rs6000_pointer_size;
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    1, 1						   \
-   , 1, 1, 1                                       \
+   , 1, 1, 1, 1, 1, 1				   \
 }
 
 /* 1 for registers not available across function calls.
@@ -977,7 +980,7 @@ extern unsigned rs6000_pointer_size;
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    1, 1						   \
-   , 1, 1, 1                                       \
+   , 1, 1, 1, 1, 1, 1				   \
 }
 
 /* Like `CALL_USED_REGISTERS' except this macro doesn't require that
@@ -996,7 +999,7 @@ extern unsigned rs6000_pointer_size;
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
    0, 0						   \
-   , 0, 0, 0                                       \
+   , 0, 0, 0, 0, 0, 0				   \
 }
 
 #define TOTAL_ALTIVEC_REGS	(LAST_ALTIVEC_REGNO - FIRST_ALTIVEC_REGNO + 1)
@@ -1035,6 +1038,9 @@ extern unsigned rs6000_pointer_size;
 	vrsave, vscr	(fixed)
 	spe_acc, spefscr (fixed)
 	sfp		(fixed)
+	tfhar		(fixed)
+	tfiar		(fixed)
+	texasr		(fixed)
 */
 
 #if FIXED_R2 == 1
@@ -1076,7 +1082,7 @@ extern unsigned rs6000_pointer_size;
    96, 95, 94, 93, 92, 91,					\
    108, 107, 106, 105, 104, 103, 102, 101, 100, 99, 98, 97,	\
    109, 110,							\
-   111, 112, 113						\
+   111, 112, 113, 114, 115, 116					\
 }
 
 /* True if register is floating-point.  */
@@ -1303,6 +1309,7 @@ enum reg_class
   VSCR_REGS,
   SPE_ACC_REGS,
   SPEFSCR_REGS,
+  SPR_REGS,
   NON_SPECIAL_REGS,
   LINK_REGS,
   CTR_REGS,
@@ -1333,6 +1340,7 @@ enum reg_class
   "VSCR_REGS",								\
   "SPE_ACC_REGS",                                                       \
   "SPEFSCR_REGS",                                                       \
+  "SPR_REGS",								\
   "NON_SPECIAL_REGS",							\
   "LINK_REGS",								\
   "CTR_REGS",								\
@@ -1362,6 +1370,7 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00004000 }, /* VSCR_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00008000 }, /* SPE_ACC_REGS */     \
   { 0x00000000, 0x00000000, 0x00000000, 0x00010000 }, /* SPEFSCR_REGS */     \
+  { 0x00000000, 0x00000000, 0x00000000, 0x00040000 }, /* SPR_REGS */     \
   { 0xffffffff, 0xffffffff, 0x00000008, 0x00020000 }, /* NON_SPECIAL_REGS */ \
   { 0x00000000, 0x00000000, 0x00000002, 0x00000000 }, /* LINK_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000004, 0x00000000 }, /* CTR_REGS */	     \
@@ -1372,7 +1381,7 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000ff0, 0x00000000 }, /* CR_REGS */	     \
   { 0xffffffff, 0x00000000, 0x00000ffe, 0x00020000 }, /* NON_FLOAT_REGS */   \
   { 0x00000000, 0x00000000, 0x00001000, 0x00000000 }, /* CA_REGS */	     \
-  { 0xffffffff, 0xffffffff, 0xfffffffe, 0x0003ffff }  /* ALL_REGS */	     \
+  { 0xffffffff, 0xffffffff, 0xfffffffe, 0x0007ffff }  /* ALL_REGS */	     \
 }
 
 /* The same information, inverted:
@@ -2286,6 +2295,9 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   &rs6000_reg_names[111][0],	/* spe_acc */				\
   &rs6000_reg_names[112][0],	/* spefscr */				\
   &rs6000_reg_names[113][0],	/* sfp  */				\
+  &rs6000_reg_names[114][0],	/* tfhar  */				\
+  &rs6000_reg_names[115][0],	/* tfiar  */				\
+  &rs6000_reg_names[116][0],	/* texasr  */				\
 }
 
 /* Table of additional register names to use in user input.  */
@@ -2339,7 +2351,9 @@ extern char rs6000_reg_names[][8];	/* register names (0 vs. %r0).  */
   {"vs48", 93}, {"vs49", 94}, {"vs50", 95}, {"vs51", 96},       \
   {"vs52", 97}, {"vs53", 98}, {"vs54", 99}, {"vs55", 100},	\
   {"vs56", 101},{"vs57", 102},{"vs58", 103},{"vs59", 104},      \
-  {"vs60", 105},{"vs61", 106},{"vs62", 107},{"vs63", 108} }
+  {"vs60", 105},{"vs61", 106},{"vs62", 107},{"vs63", 108},	\
+  /* Transactional Memory Facility (HTM) Registers.  */		\
+  {"tfhar",  114}, {"tfiar",  115}, {"texasr",  116} }
 
 /* This is how to output an element of a case-vector that is relative.  */
 
@@ -2428,7 +2442,12 @@ extern int frame_pointer_needed;
 #define RS6000_BTC_ATTR_MASK	0x00000700	/* Mask of the attributes.  */
 
 /* Miscellaneous information.  */
-#define RS6000_BTC_OVERLOADED	0x4000000	/* function is overloaded.  */
+#define RS6000_BTC_SPR		0x01000000	/* function references SPRs.  */
+#define RS6000_BTC_VOID		0x02000000	/* function has no return value.  */
+#define RS6000_BTC_OVERLOADED	0x04000000	/* function is overloaded.  */
+#define RS6000_BTC_32BIT	0x08000000	/* function references SPRs.  */
+#define RS6000_BTC_64BIT	0x10000000	/* function references SPRs.  */
+#define RS6000_BTC_MISC_MASK	0x1f000000	/* Mask of the misc info.  */
 
 /* Convenience macros to document the instruction type.  */
 #define RS6000_BTC_MEM		RS6000_BTC_MISC	/* load/store touches mem.  */
@@ -2442,6 +2461,7 @@ extern int frame_pointer_needed;
 #define RS6000_BTM_VSX		MASK_VSX	/* VSX (vector/scalar).  */
 #define RS6000_BTM_P8_VECTOR	MASK_P8_VECTOR	/* ISA 2.07 vector.  */
 #define RS6000_BTM_CRYPTO	MASK_CRYPTO	/* crypto funcs.  */
+#define RS6000_BTM_HTM		MASK_HTM	/* hardware TM funcs.  */
 #define RS6000_BTM_SPE		MASK_STRING	/* E500 */
 #define RS6000_BTM_PAIRED	MASK_MULHW	/* 750CL paired insns.  */
 #define RS6000_BTM_FRE		MASK_POPCNTB	/* FRE instruction.  */
@@ -2459,6 +2479,7 @@ extern int frame_pointer_needed;
 				 | RS6000_BTM_FRES			\
 				 | RS6000_BTM_FRSQRTE			\
 				 | RS6000_BTM_FRSQRTES			\
+				 | RS6000_BTM_HTM			\
 				 | RS6000_BTM_POPCNTD			\
 				 | RS6000_BTM_CELL)
 
@@ -2470,6 +2491,7 @@ extern int frame_pointer_needed;
 #undef RS6000_BUILTIN_A
 #undef RS6000_BUILTIN_D
 #undef RS6000_BUILTIN_E
+#undef RS6000_BUILTIN_H
 #undef RS6000_BUILTIN_P
 #undef RS6000_BUILTIN_Q
 #undef RS6000_BUILTIN_S
@@ -2481,6 +2503,7 @@ extern int frame_pointer_needed;
 #define RS6000_BUILTIN_A(ENUM, NAME, MASK, ATTR, ICODE) ENUM,
 #define RS6000_BUILTIN_D(ENUM, NAME, MASK, ATTR, ICODE) ENUM,
 #define RS6000_BUILTIN_E(ENUM, NAME, MASK, ATTR, ICODE) ENUM,
+#define RS6000_BUILTIN_H(ENUM, NAME, MASK, ATTR, ICODE) ENUM,
 #define RS6000_BUILTIN_P(ENUM, NAME, MASK, ATTR, ICODE) ENUM,
 #define RS6000_BUILTIN_Q(ENUM, NAME, MASK, ATTR, ICODE) ENUM,
 #define RS6000_BUILTIN_S(ENUM, NAME, MASK, ATTR, ICODE) ENUM,
@@ -2499,6 +2522,7 @@ enum rs6000_builtins
 #undef RS6000_BUILTIN_A
 #undef RS6000_BUILTIN_D
 #undef RS6000_BUILTIN_E
+#undef RS6000_BUILTIN_H
 #undef RS6000_BUILTIN_P
 #undef RS6000_BUILTIN_Q
 #undef RS6000_BUILTIN_S
