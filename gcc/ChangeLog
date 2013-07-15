@@ -1,3 +1,11 @@
+2013-07-15  Marek Polacek  <polacek@redhat.com>
+
+	* builtin-attrs.def (ATTR_COLD_NOTHROW_LEAF_LIST): Define.
+	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW): Don't mark
+	as NORETURN.
+	(BUILT_IN_UBSAN_HANDLE_SHIFT_OUT_OF_BOUNDS): Likewise.
+	* asan.c (ATTR_COLD_NOTHROW_LEAF_LIST): Define.
+
 2013-07-14  Marek Polacek  <polacek@redhat.com>
 
 	* opts.c (common_handle_option): Add -fsanitize=unreachable option.
