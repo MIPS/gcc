@@ -5620,6 +5620,10 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	  else
 	    return NULL_TREE;
 	}
+
+      /* Avoid typedef problems.  */
+      if (TREE_TYPE (expr) != type)
+	expr = fold_convert (type, expr);
     }
   /* [temp.arg.nontype]/5, bullet 2
 
@@ -5850,7 +5854,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 		 "because it is of type %qT", expr, type,
 		 TREE_TYPE (expr));
 	  /* If we are just one standard conversion off, explain.  */
-	  if (can_convert (type, TREE_TYPE (expr), complain))
+	  if (can_convert_standard (type, TREE_TYPE (expr), complain))
 	    inform (input_location,
 		    "standard conversions are not allowed in this context");
 	  return NULL_TREE;
@@ -12552,6 +12556,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case TYPE_DECL:
       return tsubst (t, args, complain, in_decl);
 
+    case USING_DECL:
+      t = DECL_NAME (t);
+      /* Fall through.  */
     case IDENTIFIER_NODE:
       if (IDENTIFIER_TYPENAME_P (t))
 	{
