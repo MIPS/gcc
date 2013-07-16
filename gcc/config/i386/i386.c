@@ -5836,6 +5836,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
      FIXME: once typesytem is fixed, we won't need this code anymore.  */
   if (i && i->local && i->can_change_signature)
     fntype = TREE_TYPE (fndecl);
+  cum->stdarg = fntype ? stdarg_p (fntype) : false;
   cum->maybe_vaarg = (fntype
 		      ? (!prototype_p (fntype) || stdarg_p (fntype))
 		      : !libname);
@@ -6053,7 +6054,7 @@ merge_classes (enum x86_64_reg_class class1, enum x86_64_reg_class class2)
 static int
 classify_argument (enum machine_mode mode, const_tree type,
 		   enum x86_64_reg_class classes[MAX_CLASSES], int bit_offset,
-		   bool named)
+		   bool stdarg)
 {
   HOST_WIDE_INT bytes =
     (mode == BLKmode) ? int_size_in_bytes (type) : (int) GET_MODE_SIZE (mode);
@@ -6146,7 +6147,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 		      num = classify_argument (TYPE_MODE (type), type,
 					       subclasses,
 					       (int_bit_position (field)
-						+ bit_offset) % 256, named);
+						+ bit_offset) % 256, stdarg);
 		      if (!num)
 			return 0;
 		      pos = (int_bit_position (field)
@@ -6164,7 +6165,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	  {
 	    int num;
 	    num = classify_argument (TYPE_MODE (TREE_TYPE (type)),
-				     TREE_TYPE (type), subclasses, bit_offset, named);
+				     TREE_TYPE (type), subclasses, bit_offset, stdarg);
 	    if (!num)
 	      return 0;
 
@@ -6195,7 +6196,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 
 		  num = classify_argument (TYPE_MODE (TREE_TYPE (field)),
 					   TREE_TYPE (field), subclasses,
-					   bit_offset, named);
+					   bit_offset, stdarg);
 		  if (!num)
 		    return 0;
 		  for (i = 0; i < num; i++)
@@ -6309,7 +6310,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	if (size <= 32)
 	  {
 	    /* Pass bounds for pointers and unnamed integers.  */
-	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || !named)
+	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || stdarg)
 	      ? X86_64_BOUNDED_INTEGERSI_CLASS
 	      : X86_64_INTEGERSI_CLASS;
 	    return 1;
@@ -6317,7 +6318,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	else if (size <= 64)
 	  {
 	    /* Pass bounds for pointers and unnamed integers.  */
-	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || !named)
+	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || stdarg)
 	      ? X86_64_BOUNDED_INTEGER_CLASS
 	      : X86_64_INTEGER_CLASS;
 	    return 1;
@@ -6445,10 +6446,10 @@ classify_argument (enum machine_mode mode, const_tree type,
    class.  Return 0 iff parameter should be passed in memory.  */
 static int
 examine_argument (enum machine_mode mode, const_tree type, int in_return,
-		  int *int_nregs, int *sse_nregs, int *bnd_nregs, bool named)
+		  int *int_nregs, int *sse_nregs, int *bnd_nregs, bool stdarg)
 {
   enum x86_64_reg_class regclass[MAX_CLASSES];
-  int n = classify_argument (mode, type, regclass, 0, named);
+  int n = classify_argument (mode, type, regclass, 0, stdarg);
 
   *int_nregs = 0;
   *sse_nregs = 0;
@@ -6495,7 +6496,7 @@ static rtx
 construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 		     const_tree type, int in_return, int nintregs, int nsseregs,
 		     const int *intreg, int sse_regno,
-		     int bnd_regno, bool named)
+		     int bnd_regno, bool stdarg)
 {
   /* The following variables hold the static issued_error state.  */
   static bool issued_sse_arg_error;
@@ -6513,12 +6514,12 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
   rtx exp[MAX_CLASSES];
   rtx ret;
 
-  n = classify_argument (mode, type, regclass, 0, named);
+  n = classify_argument (mode, type, regclass, 0, stdarg);
   if (!n)
     return NULL;
 
   if (!examine_argument (mode, type, in_return, &needed_intregs,
-			 &needed_sseregs, &needed_bndregs, named))
+			 &needed_sseregs, &needed_bndregs, stdarg))
     return NULL;
   if (needed_intregs > nintregs || needed_sseregs > nsseregs)
     return NULL;
@@ -6830,7 +6831,7 @@ function_arg_advance_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (!named && VALID_AVX256_REG_MODE (mode))
     return;
 
-  exam = examine_argument (mode, type, 0, &int_nregs, &sse_nregs, &bnd_nregs, named);
+  exam = examine_argument (mode, type, 0, &int_nregs, &sse_nregs, &bnd_nregs, cum->stdarg);
 
   if (exam
       && sse_nregs <= cum->sse_nregs && int_nregs <= cum->nregs)
@@ -7067,7 +7068,7 @@ function_arg_64 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
   return construct_container (mode, orig_mode, type, 0, cum->nregs,
 			      cum->sse_nregs,
 			      &x86_64_int_parameter_registers [cum->regno],
-			      cum->sse_regno, cum->bnd_regno, named);
+			      cum->sse_regno, cum->bnd_regno, cum->stdarg);
 }
 
 static rtx
@@ -7538,7 +7539,7 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   ret = construct_container (mode, orig_mode, valtype, 1,
 			     X86_64_REGPARM_MAX, X86_64_SSE_REGPARM_MAX,
-			     x86_64_int_return_registers, 0, FIRST_BND_REG, true);
+			     x86_64_int_return_registers, 0, FIRST_BND_REG, false);
 
   /* For zero sized structures, construct_container returns NULL, but we
      need to keep rest of compiler happy by returning meaningful value.  */
@@ -8291,7 +8292,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
       container = construct_container (nat_mode, TYPE_MODE (type),
 				       type, 0, X86_64_REGPARM_MAX,
 				       X86_64_SSE_REGPARM_MAX, intreg,
-				       0, 0, true);
+				       0, 0, false);
       mpx_split_slot (container, &container, &bndcontainer);
       break;
     }
