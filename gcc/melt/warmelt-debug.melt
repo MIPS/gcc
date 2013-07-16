@@ -117,6 +117,7 @@ See $MELT_NEED_DBGLIM.}#
 	(if (null out)
 	    (setq out (make_strbuf discr_strbuf)))
 	(assert_msg "check good out" (is_out out))
+	(assert_msg "check boxedmaxdepth" (>i (get_int boxedmaxdepth) 1))
 	(let ( 
 	      (dbgi (instance class_debug_information
 			      :dbgi_out out
@@ -273,6 +274,8 @@ See $MELT_NEED_DBGLIM.}#
   :disc_super discr_closure
   :named_name '"DISCR_DEBUG_CLOSURE")
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; the melt_debug_fun is usually called thru the debug macro, or via hook_low_level_debug_at
 (defun melt_debug_fun (nothing :long count :cstring filename :long lineno :rest)
   (if (melt_has_flag_debug_set) 
@@ -283,22 +286,24 @@ See $MELT_NEED_DBGLIM.}#
 	     (occmap (make_mapobject discr_map_objects 50))
 	     (boxedmaxdepth (make_integerbox discr_integer (debug_depth))) ;;;; @@@ DEBUGDEPTH
 	     )
-	(code_chunk getdbgcounter 
-		    #{/* melt_debug_fun $GETDBGCOUNTER*/ $dbgcounter = melt_dbgcounter ;
-		    }#)
+	(code_chunk
+	 getdbgcounter 
+	 #{/* melt_debug_fun $GETDBGCOUNTER*/ $dbgcounter = melt_dbgcounter ;
+	 }#)
 	;; if we don't have a dumpfile, use stderr; this may also
 	;; happens when the dumpf exists, but its dump_file is null.
-	(code_chunk ensuregoodout #{/* melt_debug_fun $ENSUREGOODOUT*/ {
-		    static int nbwarn;
-		    if (melt_get_file ((melt_ptr_t) $OUT) == NULL) {
-		    gcc_assert (melt_get_file ((melt_ptr_t) $STDERRF) == stderr) ;
-		    $OUT = $STDERRF ;
-		    if (nbwarn++ <= 0) {
-		    inform (UNKNOWN_LOCATION, 
-			    "MELT debug output goes to stderr because we have no dump_file.") ;
-		    }
-		    }
-		    } /* end melt_debug_fun $ENSUREGOODOUT*/ }#)
+	(code_chunk
+	 ensuregoodout #{/* melt_debug_fun $ENSUREGOODOUT*/ {
+	 static int nbwarn		;
+	 if (melt_get_file ((melt_ptr_t) $OUT) == NULL) {
+	   gcc_assert (melt_get_file ((melt_ptr_t) $STDERRF) == stderr) ;
+	   $OUT = $STDERRF ;
+	 if (nbwarn++ <= 0) {
+	   inform (UNKNOWN_LOCATION, 
+		   "MELT debug output goes to stderr because we have no dump_file.") ;
+	   }
+	 }
+	 } /* end melt_debug_fun $ENSUREGOODOUT*/ }#)
 	(if (null out)
 	    (setq out stderrf))
 	;; it may happen that OUT is null, e.g. because the dumpfile &
@@ -307,6 +312,7 @@ See $MELT_NEED_DBGLIM.}#
 	(if (null out)
 	    (setq out (make_strbuf discr_strbuf)))
 	(assert_msg "check good out" (is_out out))
+	(assert_msg "check boxedmaxdepth" (>i (get_int boxedmaxdepth) 1))
 	;; we don't want signals to happen during debugging output
 	(block_signals
 	 ()
@@ -324,9 +330,9 @@ See $MELT_NEED_DBGLIM.}#
 	   (add2out out "!!!!****####" dbgcounter "#^"  (-i framdepth 1) ":")
 	   (if filename
 	       (add2out out filename ":" lineno ":"))
-	   (if (>i count 0) 
-	       (progn
-		 (add2out out " !" count ": ")))
+	   (when (>i count 0)
+	     (add2out out " !" count ": "))
+	   ;; loop on variadic arguments
 	   (forever 
 	    argloop
 	    (variadic 
@@ -375,8 +381,10 @@ See $MELT_NEED_DBGLIM.}#
 		   )
 		  (void)
 		  )
-		(:else
-		 (dbg_out val dbgi 0))))
+		(:else ;; plain case of some value
+		 (dbg_out val dbgi 0)
+		 (void)
+		 )))
 	     ( (:tree tr)
 	       (let ( (tdf !tree_debug_funcont)
 		      )
@@ -439,14 +447,15 @@ See $MELT_NEED_DBGLIM.}#
 		)))
 	    (setq outlen (output_length out))
 	    )				;end forever argloop
+	   ;;
 	   ;; if the debug message is long enough, add an extra newline.
-	   (if (>i outlen (+i initoutlen 200))
-	       (progn
-		 (add2out_strconst out " .##.")
-		 (add2out_indentnl out 0)))
+	   (when (>i outlen (+i initoutlen 200))
+	     (add2out_strconst out " .##.")
+	     (add2out_indentnl out 0))
 	   (add2out_indentnl out 0)
 	   )))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun dbg_outobject (obj dbgi :long depth)
   :doc #{Output for debugging object $OBJ using debug information
@@ -461,9 +470,9 @@ $DBGI at given $DEPTH}#
 		(dbg_outputagain obj dbgi depth)
 		(put_int occ (+i (get_int occ) 1))
 		)
+	    ;; else new object
 	    (let ( (newocc (make_integerbox discr_integer 1)) )
 	      (mapobject_put occmap obj newocc)
-	      ;(checkcallstack_msg "in dbg_outobject output")
 	      (dbg_output obj dbgi depth)
 	      )))))
   )
@@ -512,39 +521,40 @@ $DBGI at given $DEPTH}#
     (assert_msg "check out" (is_out out))
     ;; outoff may be -1 when out is a non-seekable file like stdout
     (if (<i ix 0) (setq ix 0))
-    (if (and (<i depth maxdepth) (is_a dbgi class_debug_output_information))
-	(forever fldloop
-		 (if (>=i ix nbf)
-		     (exit fldloop))
-		 (and (>i torank 0)
-		      (>i ix torank)
-		      (exit fldloop))
-		 (let ( (curfld (multiple_nth clafieldseq ix))
-			(curval (object_nth_field obj ix))
-			)
-		   (if (or (<=i depth 1) (notnull curval))
-		       (let
-			   ( (:long outcuroff (output_length out))
-			     )
-			 (setq fldcnt (+i fldcnt 1))
-			 (if (or 
-			      (>i outcuroff (+i outoff 80))
-			      (==i (%iraw fldcnt 2) 0)
-			      (<=i depth 1)
-			      )
-			     (progn
-			       (add2out_indentnl out depth)
-			       (setq outoff (strbuf_usedlength out))
-			       )
-			   (add2out_strconst out " ")
-			   )
-			 (add2out_string out (unsafe_get_field :named_name curfld))
-			 (add2out_strconst out "=")
-			 (dbg_out curval dbgi (+i depth 1))
-			 (add2out_indent out depth))
-		     ))
-		 (setq ix (+i ix 1))
-		 )
+    (if (<i depth maxdepth)
+	(forever 
+	 fldloop
+	 (if (>=i ix nbf)
+	     (exit fldloop))
+	 (and (>i torank 0)
+	      (>i ix torank)
+	      (exit fldloop))
+	 (let ( (curfld (multiple_nth clafieldseq ix))
+		(curval (object_nth_field obj ix))
+		)
+	   (if (or (<=i depth 1) (notnull curval))
+	       (let
+		   ( (:long outcuroff (output_length out))
+		     )
+		 (setq fldcnt (+i fldcnt 1))
+		 (if (or 
+		      (>i outcuroff (+i outoff 80))
+		      (==i (%iraw fldcnt 2) 0)
+		      (<=i depth 1)
+		      )
+		     (progn
+		       (add2out_indentnl out depth)
+		       (setq outoff (strbuf_usedlength out))
+		       )
+		   (add2out_strconst out " ")
+		   )
+		 (add2out_string out (unsafe_get_field :named_name curfld))
+		 (add2out_strconst out "=")
+		 (dbg_out curval dbgi (+i depth 1))
+		 (add2out_indent out depth))
+	     ))
+	 (setq ix (+i ix 1))
+	 )
       )))
 
 ;; utility to dump again fields in an object from a given rank to a given rank
@@ -594,6 +604,7 @@ $TORANK}#
 (defun dbgout_null_method  (self dbgi :long depth)
   (let (  (out  (unsafe_get_field :dbgi_out dbgi))
 	  )
+    (assert_msg "check dbgi" (is_a dbgi class_debug_information))
     (add2out_strconst out "()")))
 (install_method discr_null_receiver dbg_output dbgout_null_method)
 (install_method discr_null_receiver dbg_outputagain dbgout_null_method)
@@ -854,6 +865,7 @@ $TORANK}#
 ;; routine debug out - don't print the routine components if depth is >0
 (defun dbgout_routine_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_routine self))
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
@@ -881,6 +893,7 @@ $TORANK}#
 ;; hook debug out - don't print the hook components if depth is >0
 (defun dbgout_hook_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_hook self))
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
@@ -913,6 +926,7 @@ $TORANK}#
 ;; closure debug out 
 (defun dbgout_closure_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_closure self))
   (let ( (dis (discrim self)) 
 	 (:long oldmaxdepth (get_int (unsafe_get_field :dbgi_maxdepth dbgi)))
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
@@ -959,6 +973,7 @@ $TORANK}#
 ;; list debug out 
 (defun dbgout_list_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_list self))
   (let ( (dis (discrim self)) 
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 (sbuf (get_field :dbgi_out dbgi)) )
@@ -1004,6 +1019,7 @@ $TORANK}#
 ;; pair debug output
 (defun dbgout_pair_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_pair self))
   (let ( (dis (discrim self)) 
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 (sbuf  (get_field :dbgi_out dbgi)) )
@@ -1028,6 +1044,7 @@ $TORANK}#
 ;; mapobject debug output
 (defun dbgout_mapobject_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_mapobject self))
   (let ( (dis (discrim self)) 
 	 (out  (get_field :dbgi_out dbgi))
 	 (:long mapcount (mapobject_count self))
@@ -1118,6 +1135,7 @@ $TORANK}#
 ;;; string map (ie dictionnary) debug output
 (defun dbgout_mapstring_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_mapstring self))
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (:long ix 0)
@@ -1236,6 +1254,7 @@ $TORANK}#
 ;;;; generic object debug
 (defun dbgout_anyobject_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_object self))
   (let ( (dis (discrim self)) 
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi)) ) 
@@ -1245,18 +1264,16 @@ $TORANK}#
     (add2sbuf_longhex sbuf (obj_hash self))
     (let ( (:long onum (get_int self)) 
 	   )
-      (if onum
-	  (progn
-	    (add2sbuf_strconst sbuf "#")
-	    (add2sbuf_longdec sbuf onum)))
+      (when onum
+	(add2sbuf_strconst sbuf "#")
+	(add2sbuf_longdec sbuf onum))
       )
-    (if	(and (<i (+i depth 1) maxdepth) (is_a dbgi class_debug_output_information))
-	(progn
-	  (add2sbuf_strconst sbuf "{")
-	  (dbgout_fields self dbgi (+i depth 1) 0 0)
-	  (add2sbuf_strconst sbuf "}")
-	  )
-      )))
+    (when (<i (+i depth 1) maxdepth) 
+      (add2sbuf_strconst sbuf "{")
+      (dbgout_fields self dbgi (+i depth 1) 0 0)
+      (add2sbuf_strconst sbuf "}")
+      )
+    ))
 (install_method class_root  dbg_output dbgout_anyobject_method)
 
 ;;;; generic value debug
@@ -1273,6 +1290,7 @@ $TORANK}#
 ;;; generic object debug outputagain
 (defun dbgoutagain_anyobject_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_object self))
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi)) 
 	 (:long onum (obj_num self)) 
@@ -1281,16 +1299,16 @@ $TORANK}#
     (add2sbuf_string sbuf (unsafe_get_field :named_name dis))
     (add2sbuf_strconst sbuf "/")
     (add2sbuf_longhex sbuf (obj_hash self))
-    (if onum
-	(progn
+    (when onum
 	  (add2sbuf_strconst sbuf "#")
-	  (add2sbuf_longdec sbuf onum)))
+	  (add2sbuf_longdec sbuf onum))
     ))
 (install_method class_root  dbg_outputagain dbgoutagain_anyobject_method)
 
 ;;;; named object debug
 (defun dbgout_namedobject_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_a self class_named))
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi))
 	 (onam (unsafe_get_field :named_name self))
@@ -1323,9 +1341,11 @@ $TORANK}#
 (install_method class_named  dbg_output dbgout_namedobject_method)
 ;;; we explicitly export dbgout_namedobject_method needed afterwards
 (export_values dbgout_namedobject_method)
+
 ;;;; named object debug outputagain
 (defun dbgoutagain_namedobject_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check self" (is_a self class_named))
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi))
 	 (onam (unsafe_get_field :named_name self)) 
@@ -1507,17 +1527,15 @@ $TORANK}#
     (add2out_string out (unsafe_get_field :named_name dis))
     (add2out_strconst out "/")
     (add2out_longhex out (obj_hash self))
-    (if bindnum 
-	(progn
-	  (add2out_strconst out "#")
-	  (add2out_longdec out bindnum)))
+    (when bindnum 
+      (add2out_strconst out "#")
+      (add2out_longdec out bindnum))
     (add2out_strconst out ":")
     (dbg_outputagain binderv dbgi (+i depth 2))
-    (if (and (<i depth maxdepth) (is_a dbgi class_debug_output_information))
-	(progn
-	  (add2out_strconst out "; ")
-	  (dbgout_fields self dbgi (+i depth 1) 1 0)
-	  ))
+    (when (<i depth maxdepth) 
+      (add2out_strconst out "; ")
+      (dbgout_fields self dbgi (+i depth 1) 1 0)
+      )
     (add2out_strconst out "~]")
     ))
 (install_method class_any_binding dbg_output dbgout_anybinding_method)

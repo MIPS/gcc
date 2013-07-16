@@ -1,5 +1,16 @@
 
 
+2013-07-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.c (melt_sparebreakpoint_0_at)
+	(melt_sparebreakpoint_1_at, melt_sparebreakpoint_2_at): Better
+	backtrace.
+
+	* melt/warmelt-debug.melt (debug_msg_fun, melt_debug_fun)
+	(dbg_outobject, dbgout_fields): Improve debugging output.
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): More debug.
+
 2013-07-09  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 

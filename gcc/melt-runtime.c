@@ -12822,6 +12822,8 @@ end:
 }
 
 
+
+
 #if ENABLE_CHECKING
 /* some useless routines in wich we can add a breakpoint from gdb. */
 void
@@ -12829,8 +12831,12 @@ melt_sparebreakpoint_0_at (const char*fil, int lin, void*ptr, const char*msg)
 {
   dbgprintf_raw ("@%s:%d: MELT sparebreakpoint_0 ptr=%p msg=%s\n",
                  fil, lin, ptr, msg);
-  melt_dbgshortbacktrace("melt_sparebreakpoint_0", 20);
+  char msgbuf[128];
+  snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_0@%.25s:%d: %s", 
+	    melt_basename (fil), lin, msg);
+  melt_dbgshortbacktrace(msgbuf, 20);
   debugeprintf ("melt_sparebreakpoint_0_at msg %s", msg);
+  gcc_assert (fil != NULL);
 }
 
 void
@@ -12838,8 +12844,12 @@ melt_sparebreakpoint_1_at (const char*fil, int lin, void*ptr, const char*msg)
 {
   dbgprintf_raw ("@%s:%d: MELT sparebreakpoint_1 ptr=%p msg=%s\n",
                  fil, lin, ptr, msg);
-  melt_dbgshortbacktrace("melt_sparebreakpoint_1", 20);
+  char msgbuf[128];
+  snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_1@%.25s:%d: %s", 
+	    melt_basename (fil), lin, msg);
+  melt_dbgshortbacktrace(msgbuf, 20);
   debugeprintf ("melt_sparebreakpoint_1_at msg %s", msg);
+  gcc_assert (fil != NULL);
 }
 
 void
@@ -12847,8 +12857,12 @@ melt_sparebreakpoint_2_at (const char*fil, int lin, void*ptr, const char*msg)
 {
   dbgprintf_raw ("@%s:%d: MELT sparebreakpoint_2 ptr=%p msg=%s\n",
                  fil, lin, ptr, msg);
-  melt_dbgshortbacktrace("melt_sparebreakpoint_2", 20);
+  char msgbuf[128];
+  snprintf (msgbuf, sizeof(msgbuf), "melt_sparebreakpoint_2@%.25s:%d: %s", 
+	    melt_basename (fil), lin, msg);
+  melt_dbgshortbacktrace(msgbuf, 20);
   debugeprintf ("melt_sparebreakpoint_2_at msg %s", msg);
+  gcc_assert (fil != NULL);
 }
 
 /* To be called from the gdb debugger only */
