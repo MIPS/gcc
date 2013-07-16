@@ -503,6 +503,7 @@ $DBGI at given $DEPTH}#
 	(add2out_strconst out ".?.")
 	))))
 
+
 ;; utility to dump fields in an object from a given rank to a given rank
 (defun dbgout_fields (obj dbgi :long depth fromrank torank)
   :doc #{Utility to output for debugging value in $OBJ using debug information
@@ -520,8 +521,7 @@ $DBGI at given $DEPTH}#
 	 )
     (assert_msg "check out" (is_out out))
     ;; outoff may be -1 when out is a non-seekable file like stdout
-    (if (<i ix 0) (setq ix 0))
-    (if (<i depth maxdepth)
+    (when (<i depth maxdepth)
 	(forever 
 	 fldloop
 	 (if (>=i ix nbf)
@@ -1322,7 +1322,7 @@ $TORANK}#
     (add2out_string out (unsafe_get_field :named_name dis))
     (add2out_strconst out "/")
     (add2out_longhex out (obj_hash self))
-    (if (and (<i depth maxdepth) (is_a dbgi class_debug_output_information))
+    (if (<i depth maxdepth) 
 	(let ( (:long onum (obj_num self)) 
 	       )
 	  (if onum
@@ -1392,7 +1392,7 @@ $TORANK}#
 (defun dbgout_class_method (self dbgi :long depth)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information))
   (assert_msg "check self" (is_a self class_class))
-  (if (<=i depth 0)
+  (if (<=i depth 1)
       (dbgout_namedobject_method self dbgi 0)
     (dbgoutagain_namedobject_method self dbgi depth)))
 (install_method class_class dbg_output dbgout_class_method)

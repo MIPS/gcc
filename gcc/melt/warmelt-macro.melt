@@ -364,7 +364,9 @@ with a formal arguments binding tuple given in $SFORMAL_ARGS.}#
 
 ;;;; define a function
 (defclass class_source_defun
-  :doc #{The internal $CLASS_SOURCE_DEFUN is the abstract syntax of $DEFUN. $SFUN_BODY is the body tuple.}#
+  :doc #{The internal $CLASS_SOURCE_DEFUN is the abstract syntax of
+  $DEFUN, and superclass of abstract syntax of $DEFMACRO.  $SFUN_BODY
+  is the body tuple.}#
   :super class_source_definition_formal
   :fields (sfun_body			;body sequence
 	   ))
@@ -372,9 +374,9 @@ with a formal arguments binding tuple given in $SFORMAL_ARGS.}#
 
 ;; define a macro
 (defclass class_source_defmacro
-  :doc #{The internal $CLASS_SOURCE_DEFMACRO is the abstract syntax of $DEFMACRO. $SMACRO_BODY is the body tuple.}#
-  :super class_source_definition_formal
-  :fields (smacro_body			;body sequence
+  :doc #{The internal $CLASS_SOURCE_DEFMACRO is the abstract syntax of $DEFMACRO. $SMACRO_BINDING is the binding.}#
+  :super class_source_defun
+  :fields (smacro_binding			;body sequence
 	   ))
 
 (defclass class_defined_macro_binding
@@ -3041,6 +3043,14 @@ $EXPORT_VALUES to be visible outside its module.}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; this magic function should expand and compile all the macro definitions of maclist
+
+(defun melt_delayed_macro_expander (mbind maclist env mexpander modctx)
+  (debug "melt_delayed_macro_expander mbind=" mbind " maclist=" maclist)
+  (assert_msg "@$@unimplemented melt_delayed_macro_expander")
+)
+
 ;;;;;;;;;;;;;;;;;; the defmacro expander
 ;;;(DEFMACRO macroname formals [:doc documentation] body...)
 (defun mexpand_defmacro (sexpr env mexpander modctx)
@@ -3095,21 +3105,39 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	;; should put a :mbind_expanser closure into mbind
       ;; handle the body
       (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
+	     (maclist (get_field :mocx_macrolist modctx))
 	     (sdefmacro
 	      (instance class_source_defmacro
 			:loca_location loc
 			:sdef_name symb
 			:sdef_doc docv
 			:sformal_args btup
-			:smacro_body bodytup
+			:sfun_body bodytup
+			:smacro_binding mbind
 			))
 	     )
-	(debug "mexpand_defmacro bodytup=" bodytup "\n sdefmacro=" sdefmacro)
+	(debug "mexpand_defmacro bodytup=" bodytup)
 	(put_fields mbind :mbind_defmacro sdefmacro)
+	(debug "mexpand_defmacro sdefmacro=" sdefmacro "\n oldmaclist=" maclist)
+	(assert_msg "check maclist" (is_list maclist))
+	(list_append maclist sdefmacro)
 	;; we should put a :mbind_expanser closure into mbind
+	(put_fields mbind 
+		    :mbind_expanser 
+		    (lambda (sexprm envm mexpanderm modctxm)
+		      (debug "mexpand_defmacro/lambdambind sexprm=" sexprm
+			     " modctxm=" modctxm)
+		      (assert_msg "check modctxm" (== modctxm modctx))
+		      (assert_msg "check envm" (== envm env))
+		      (multicall 
+		       (expmac othermac)
+		       (melt_delayed_macro_expander mbind maclist env mexpanderm modctx)
+		       (debug "mexpand_defmacro/lambdambind expmac=" expmac " othermac=" othermac)
+		       (return expmac othermac)
+		       )
+		      ))
 	(debug "mexpand_defmacro final mbind=" mbind "\n.. of discrim=" (discrim mbind)
 	       "\n.. sdefmacro=" sdefmacro)
-	(assert_msg "@$@unimplemented mexpand_defmacro")
 	(return sdefmacro)
 	))))
 

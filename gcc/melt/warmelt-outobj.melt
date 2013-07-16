@@ -6912,6 +6912,7 @@ if (1) return;
 			  :mocx_varcount (make_integerbox discr_integer 0)
 			  :mocx_varlist (make_list discr_list)
 			  :mocx_hookdict (make_mapstring discr_map_strings 31)
+			  :mocx_macrolist (make_list discr_list)
 			  ))
 	(ncx (create_normcontext modctx)) 
 	)
@@ -7183,6 +7184,7 @@ if (1) return;
 		     ;; :mocx_linkflags (make_list discr_list)
 		     :mocx_packagepclist (make_list discr_list)
 		     :mocx_gendevlist (make_list discr_list)
+		     :mocx_macrolist (make_list discr_list)
 		     :mocx_errorhandler runerrorhdlr
 		     :morcx_litervalist litvalist
 		     :morcx_countlitval (make_integerbox discr_integer 1)
@@ -7469,6 +7471,7 @@ if (1) return;
 		     :mocx_varcount (make_integerbox discr_integer 0)
 		     :mocx_varlist (make_list discr_list)
 		     :mocx_hookdict (make_mapstring discr_map_strings 31)
+		     :mocx_macrolist (make_list discr_list)
 		     ;; :mocx_cflags (make_list discr_list)
 		     ;; :mocx_linkflags (make_list discr_list)
 		     :mocx_packagepclist (make_list discr_list)

@@ -1,6 +1,26 @@
 
 
 2013-07-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (class_any_module_context): Add
+	mocx_macrolist field.
+
+	* melt/warmelt-macro.melt (class_source_defun): Mention macros.
+	(melt_delayed_macro_expander): New empty function stub.
+	(mexpand_defmacro): Update the mocx_macrolist field. Put some
+	lambda using it in the mbind.
+
+	* melt/warmelt-debug.melt (dbgout_fields, dbgout_class_method):
+	Better output.
+
+	* melt/warmelt-normal.melt (normexp_defun): Rename as...
+	(normexp_defun_defmacro): Handle both defun & defmacro.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr)
+	(translate_run_melt_expressions)
+	(melt_translate_run_macroexpansions_list): Initialize mocx_macrolist.
+
+2013-07-16  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

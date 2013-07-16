@@ -888,23 +888,25 @@ subclasses are produced by macro expanders.}# )
 	   mocx_varcount		;a boxed counter for defined variables
 	   mocx_varlist			;list of module variables bindings
 	   mocx_hookdict		;dictionnary of called hooks descriptors
+	   mocx_macrolist		;list of macros
 	   )
-  :doc #{The internal $CLASS_ANY_MODULE_CONTEXT describes the whole module or extension
-context of a translation. $MOCX_MODULENAME gives the module name,
-$MOCX_EXPFIELDICT gives the dictionnary of exported fields,
-$MOCX_EXPCLASSDICT gives the dictionnary of exported classes, and
-$MOCX_INITIALENV the initial environment. $MOCX_FUNCOUNT is a boxed
-integer counting the defined functions (excluding $LAMBDA-s, counting
-only $DEFUN), used to help generate C code in several files, described
-in $MOCX_FILETUPLE. $MOCX_CFLAGS is for the C compilation flags of the
-module. $MOCX_LINKFLAGS is for the linking flags. $MOCX_CHEADERLIST is
-the list of cheaders. $MOCX_CIMPLEMENTLIST is the list of
-cimplements. $MOCX_STARTCOMMENT is the initial comment.
+  :doc #{The internal $CLASS_ANY_MODULE_CONTEXT describes the whole
+module or extension context of a translation. $MOCX_MODULENAME gives
+the module name, $MOCX_EXPFIELDICT gives the dictionnary of exported
+fields, $MOCX_EXPCLASSDICT gives the dictionnary of exported classes,
+and $MOCX_INITIALENV the initial environment. $MOCX_FUNCOUNT is a
+boxed integer counting the defined functions (excluding $LAMBDA-s,
+counting only $DEFUN), used to help generate C code in several files,
+described in $MOCX_FILETUPLE. $MOCX_CFLAGS is for the C compilation
+flags of the module. $MOCX_LINKFLAGS is for the linking
+flags. $MOCX_CHEADERLIST is the list of cheaders. $MOCX_CIMPLEMENTLIST
+is the list of cimplements. $MOCX_STARTCOMMENT is the initial comment.
 $MOCX_GENDEVLIST is the list of instances of
 $CLASS_SOURCE_GENERATOR_DEVICE. $MOCX_ERRORHANDLER is the closure, if
 any, to call on errors. $MOCX_VARCOUNT is the counter for
 variables. $MOCX_VARLIST contains the list of variable
-descriptions. For gurus!}# )
+descriptions. $MOCX_MACROLIST is the list of not-yet-compiled
+macros. For gurus!}# )
 
 (defclass class_module_context
   :super class_any_module_context

@@ -4829,9 +4829,9 @@ source location.}#
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;;; normalize a DEFUN
-(defun normexp_defun (recv  env ncx psloc)
-  (debug "normexp_defun recv=" recv)
+;;;;;; normalize a DEFUN or a DEFMACRO
+(defun normexp_defun_defmacro (recv  env ncx psloc)
+  (debug "normexp_defun_defmacro recv=" recv)
   (assert_msg "check defun recv" (is_a recv class_source_defun))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check nctxt" (is_a ncx class_normalization_context))
@@ -4874,19 +4874,25 @@ source location.}#
     (unsafe_put_fields ncx 
 		       :nctx_curproc nproc
 		       :nctx_symbcachemap (make_mapobject discr_map_objects 40))
-    (debug "normexp_defun nproc=" nproc 
+    (debug "normexp_defun_defmacro nproc=" nproc 
 	   "\n.. ndatarout=" ndatarout 
 	   "\n.. ndataclos=" ndataclos)
     (add_nctx_data ncx ndatarout)
     (add_nctx_data ncx ndataclos)
-    (debug "normexp_defun updated ncx=" ncx)
-    (when (is_not_a sfubind class_function_binding)
+    (debug "normexp_defun_defmacro updated ncx=" ncx)
+    (debug "normexp_defun_defmacro sfubind=" sfubind)
+    (debug "normexp_defun_defmacro class_function_binding=" class_function_binding
+	   "\n ... class_defined_macro_binding=" class_defined_macro_binding)
+    (when (and 
+	   (is_not_a sfubind class_function_binding)
+	   (is_not_a sfubind class_defined_macro_binding))
       (error_strv sloc
 		  "bad DEFUN-ed function [nested definitions are prohibited; consider using LETREC]"
 		  (get_field :named_name snam))
+      (shortbacktrace_dbg "normexp_defun_defmacro bad DEFUNed function" 14)
       (return))
     (unsafe_put_fields nproc :nrpro_datarout ndatarout :nrpro_dataclos ndataclos)
-    (debug "normexp_defun updated nproc=" nproc)
+    (debug "normexp_defun_defmacro updated nproc=" nproc)
     (foreach_in_multiple 
      (sformals)
      (fbi :long ix)
@@ -4895,17 +4901,17 @@ source location.}#
     (if (is_a sformals discr_variadic_formal_sequence)
 	(put_fields nproc :nrpro_variadic snam))
     (unsafe_put_fields newenv :env_proc nproc)
-    (debug "normexp_defun updated :env_proc of of newenv" newenv)
+    (debug "normexp_defun_defmacro updated :env_proc of of newenv" newenv)
     ;; add nproc into ncx
     (let ( (ncplis (get_field :nctx_proclist ncx)) 
 	   )
       (list_append ncplis nproc)
-      (debug "normexp_defun appended to nctxproclist ncplis=" ncplis))
+      (debug "normexp_defun_defmacro appended to nctxproclist ncplis=" ncplis))
     ;;
     (multicall
      (nbody nbindings)
      (normalize_tuple sbody newenv ncx sloc)
-     (debug "normexp_defun nbody before replace_last_by_return" nbody)
+     (debug "normexp_defun_defmacro nbody before replace_last_by_return" nbody)
      (multiple_every
       nbindings
       (lambda (nbi :long ix)
@@ -4914,16 +4920,16 @@ source location.}#
 	    (npbody (wrap_normal_letseq nrbody nbindings sloc))
 	    )
        (unsafe_put_fields nproc  :nproc_body npbody)
-       (debug "normexp_defun after replace_last_by_return npbody=" npbody "\n.. nproc=" nproc)
+       (debug "normexp_defun_defmacro after replace_last_by_return npbody=" npbody "\n.. nproc=" nproc)
        )
      (unsafe_put_fields ncx :nctx_curproc oldproc :nctx_symbcachemap oldsymbcache)
-     (debug "normexp_defun restored ncx=" ncx)
+     (debug "normexp_defun_defmacro restored ncx=" ncx)
      (let ( (clovtup 
 	     (list_to_multiple 
 	      closblis
 	      discr_multiple
 	      (lambda (bnd)
-		(assert_msg "normexp_defun check bnd" (is_a bnd class_any_binding))
+		(assert_msg "normexp_defun_defmacro check bnd" (is_a bnd class_any_binding))
 		(let ( (sy (unsafe_get_field :binder bnd)) 
 		       ;; since sy is a symbol, its normalized form does not add any binding
 		       ;; we normalize it in the *old* environment, not the new one
@@ -4933,12 +4939,14 @@ source location.}#
 		  )))) )
        (unsafe_put_fields ndataclos :ndclo_closv clovtup)
        )
-     (put_fields sfubind :fixbind_data ndataclos)
-     (debug "normexp_defun return nproc=" nproc)
+     ;; if sfubind is for macros we don't update it.
+     (if (is_a sfubind class_function_binding)
+	 (unsafe_put_fields sfubind :fixbind_data ndataclos))
+     (debug "normexp_defun_defmacro return nproc=" nproc)
      (return nproc ())
      )
     ))
-(install_method class_source_defun normal_exp normexp_defun)
+(install_method class_source_defun normal_exp normexp_defun_defmacro)
 
 
 
