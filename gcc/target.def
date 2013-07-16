@@ -4678,6 +4678,13 @@ DEFHOOK
  int, (const void * first, const void * second),
  default_allocno_compare_func)
 
+/* Optionally recolor allocnos after initial IRA coloring */
+DEFHOOK
+(post_ira_recolor,
+ "",
+ void, (void),
+ default_post_ira_recoloring)
+
 /* Modify any or all of fixed_regs, call_used_regs, global_regs,
    reg_names, and reg_class_contents to account of the vagaries of the
    target.  */

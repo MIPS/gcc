@@ -3873,6 +3873,11 @@ stack.
 Default return value is based on a direct comparison of the allocno number.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_POST_IRA_RECOLOR (void)
+This target hook allows a backend to recolor the allocnos using a custom
+algorithm 
+@end deftypefn
+
 @defmac INITIAL_ELIMINATION_OFFSET (@var{from-reg}, @var{to-reg}, @var{offset-var})
 This macro is similar to @code{INITIAL_FRAME_POINTER_OFFSET}.  It
 specifies the initial difference between the specified pair of

@@ -19450,6 +19450,829 @@ mips_bucket_allocno_compare_func (const void *v1p, const void *v2p)
   return ALLOCNO_NUM (a2) - ALLOCNO_NUM (a1);
 }
 
+/* Post ira recolor data and functions.  */
+
+/* Number of instruction categories.  */
+#define INSN_CATEGORIES_NUM 5
+
+/* Maximum number of instruction operands.  */
+#define MAX_OPERAND_NUM 3
+
+/* Short register which can be used in 16bit instructions.  */
+#define RECOLOR_TYPE_SHORT 0
+/* Long register which cannot be used in 16bit instructions.  */
+#define RECOLOR_TYPE_LONG  1
+
+/* Short instructions categories.  */
+enum insn_category {
+  RECOLOR_SHORT = 0,
+  RECOLOR_1_SHORT,
+  RECOLOR_2_SHORT,
+  RECOLOR_3_SHORT,
+  RECOLOR_1_SHORT_STORE
+};
+
+/* Recolor data associated with every allocno.  */
+struct recolor_allocno_data {
+  /* Related allocno.  */
+  int allocno;
+  /* Short or long register.  */
+  int type;
+  /* Rating associated with allocno.  */
+  int rating;
+  /* Number of instructions with this allocno in every category.  */
+  int categories[INSN_CATEGORIES_NUM];
+  /* All instructions that have this allocno as operand.  */
+  vec<rtx> insns;
+  /* True if allocno is move related with some precolored register.  */
+  bool precolored_move_related;
+  /* Mark allocno as processed to terminate recursion.  */
+  bool processed;
+};
+
+/* Pointer to array containing data for all allocnos.  */
+typedef struct recolor_allocno_data *recolor_allocno_data_t;
+
+/* Data about instructions relevant for recoloring.  */
+typedef struct recolor_insn_data
+{
+  /* Number of register operands.  */
+  int reg_num;
+  /* Number of short register operands.  */
+  int short_reg_num;
+  /* Allocnos associated with register operands.  */
+  int allocnos[MAX_OPERAND_NUM];
+} insn_data_t;
+
+
+/* Returns true if given register is short.  */
+
+static bool is_short_reg (int reg_no)
+{
+  return M16_REG_P (reg_no);
+}
+
+/* Returns true if given register is short register that can be used as operand
+   in 16 bit store instruction.  */
+
+static bool is_short_store_reg (int reg_no)
+{
+  return M16STORE_REG_P (reg_no);
+}
+
+/* Coefficients used to calculate allocno rating (defines recoloring
+   priority).   */
+static int recolor_coeffs[INSN_CATEGORIES_NUM] = { 0, -3, 0, 0, -3 };
+
+/* Function type for determining register type.  */
+typedef bool (*regs_func_type) (int);
+
+/* Array with functions for selecting register of given type.  */
+static regs_func_type recolor_regs_func[INSN_CATEGORIES_NUM] =
+  { 0, is_short_reg, 0, 0, is_short_store_reg };
+
+/* Function type for determining instruction category.  */
+typedef bool (*insn_cat_func_type) (rtx, insn_data_t*);
+
+/* Returns true if given instruction is 16 bit microMIPS.  */
+
+static bool is_short_insn (rtx insn, insn_data_t *i_data)
+{
+  if (i_data->short_reg_num == i_data->reg_num
+     && !(mips_is_store_insn_p (insn)
+     && !is_short_store_reg (
+       ALLOCNO_HARD_REGNO (ira_allocnos[i_data->allocnos[0]]))))
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs one more short register to be 16 bit
+   microMIPS.  */
+
+static bool is_short_1_insn (rtx insn ATTRIBUTE_UNUSED, insn_data_t *i_data)
+{
+  if ((i_data->short_reg_num + 1) == i_data->reg_num)
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs two more short registers to be 16 bit
+   microMIPS.  */
+
+static bool is_short_2_insn (rtx insn ATTRIBUTE_UNUSED, insn_data_t *i_data)
+{
+  if ((i_data->short_reg_num + 2) == i_data->reg_num)
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs three short registers to be 16 bit
+   microMIPS.  */
+
+static bool is_short_3_insn (rtx insn ATTRIBUTE_UNUSED, insn_data_t *i_data)
+{
+  if ((i_data->short_reg_num + 3) == i_data->reg_num)
+    return true;
+
+  return false;
+}
+
+/* Returns true if given instruction needs one more short register to be 16 bit
+   store microMIPS.  */
+
+static bool is_short_1_store_insn (rtx insn, insn_data_t *i_data)
+{
+  if (!mips_is_store_insn_p (insn)
+      || (i_data->short_reg_num == i_data->reg_num
+	  && is_short_store_reg (
+	    ALLOCNO_HARD_REGNO (ira_allocnos[i_data->allocnos[0]]))))
+    return false;
+
+  return true;
+}
+
+/* Array with functions for classifying instructions.  */
+static insn_cat_func_type recolor_insn_cat_func[INSN_CATEGORIES_NUM] = {
+  is_short_insn,
+  is_short_1_insn,
+  is_short_2_insn,
+  is_short_3_insn,
+  is_short_1_store_insn
+};
+
+/* Array with functions for classifying instructions.  */
+recolor_allocno_data_t recolor_allocnos_data;
+
+/* Initialization function.  */
+
+static void
+post_ira_recoloring_init (void)
+{
+  int i;
+
+  recolor_allocnos_data =
+    (recolor_allocno_data_t) ira_allocate (
+      sizeof (struct recolor_allocno_data) * ira_allocnos_num);
+}
+
+/* Cleanup function.  */
+
+static void
+post_ira_recoloring_finish (void)
+{
+  int i;
+
+  ira_free (recolor_allocnos_data);
+}
+
+/* Returns allocno associated with given regno.  */
+
+static int
+get_allocno_num_for_regno (int regno)
+{
+  int i;
+
+  for (i=0; i <  ira_allocnos_num; i++)
+    if (ira_allocnos[i] && ALLOCNO_REGNO (ira_allocnos[i]) == regno)
+      return ALLOCNO_NUM (ira_allocnos[i]);
+
+  return -1;
+}
+
+
+/* Get recoloring data for given instruction.  */
+
+static int get_insn_data (rtx insn, void *res)
+{
+  insn_data_t *i_data = (insn_data_t *)res;
+  df_ref *def_rec;
+  df_ref *use_rec;
+  unsigned int uid = INSN_UID (insn);
+
+  if (DEBUG_INSN_P (insn) || !mips_insn_has_short_form_p (insn))
+    return -1;
+
+  for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
+    {
+      df_ref def = *def_rec;
+      unsigned int dregno = DF_REF_REGNO (def);
+      int allocno_num = get_allocno_num_for_regno (dregno);
+      if (allocno_num >= 0)
+	{
+	  if ( is_short_reg (ALLOCNO_HARD_REGNO (ira_allocnos[allocno_num])))
+	    i_data->short_reg_num++;
+	  i_data->allocnos[i_data->reg_num++] = allocno_num;
+	}
+    }
+
+  for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
+    {
+      df_ref use = *use_rec;
+      unsigned int uregno = DF_REF_REGNO (use);
+      int allocno_num = get_allocno_num_for_regno (uregno);
+      if (allocno_num >= 0)
+	{
+	  if ( is_short_reg (ALLOCNO_HARD_REGNO (ira_allocnos[allocno_num])))
+	    i_data->short_reg_num++;
+	  i_data->allocnos[i_data->reg_num++] = allocno_num;
+	}
+    }
+
+  return 0;
+}
+
+/* Mark allocnos that are move related with same precolored registers.  */
+
+static void
+update_precolored_move_related (rtx insn)
+{
+  rtx pattern;
+
+  if (!INSN_P (insn))
+    return;
+
+  if (GET_CODE (PATTERN (insn)) == USE)
+    return;
+
+  if (GET_CODE (PATTERN (insn)) == CLOBBER)
+    return;
+
+  pattern = PATTERN (insn);
+
+  if (GET_CODE (pattern) == SET
+      && REG_P (XEXP (pattern, 0))
+      && REG_P (XEXP (pattern, 1)))
+    {
+      int regno0 = REGNO (XEXP (pattern, 0));
+      int regno1 = REGNO (XEXP (pattern, 1));
+
+      if (regno0 < FIRST_PSEUDO_REGISTER && regno1 >= FIRST_PSEUDO_REGISTER)
+	{
+	  int allocno_num = get_allocno_num_for_regno (regno1);
+	  if (allocno_num >= 0)
+	    recolor_allocnos_data[allocno_num].precolored_move_related = true;
+	}
+
+      if (regno0 >= FIRST_PSEUDO_REGISTER && regno1 < FIRST_PSEUDO_REGISTER)
+	{
+	  int allocno_num = get_allocno_num_for_regno (regno0);
+	  if (allocno_num >= 0)
+	    recolor_allocnos_data[allocno_num].precolored_move_related = true;
+	}
+    }
+}
+
+
+/* Collect all recoloring data for current function.  */
+
+static void
+collect_recolor_data (void)
+{
+  basic_block bb;
+  rtx insn;
+  int i, j;
+
+  memset (recolor_allocnos_data, 0,
+	  sizeof (struct recolor_allocno_data) * ira_allocnos_num);
+
+  FOR_EACH_BB (bb)
+    for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb));
+	 insn = NEXT_INSN (insn))
+      {
+	insn_data_t i_data;
+	memset (&i_data, 0, sizeof (insn_data_t));
+
+	update_precolored_move_related (insn);
+
+	if (get_insn_data (insn, &i_data) >= 0)
+	  {
+	    /* Update corresponding data in recolor_allocnos_data.  */
+	    for (i = 0; i < i_data.reg_num; i++)
+	      {
+		for (j = 0; j < INSN_CATEGORIES_NUM; j++)
+		  if (recolor_insn_cat_func[j] (insn, &i_data))
+		    recolor_allocnos_data[i_data.allocnos[i]].categories[j]++;
+                  recolor_allocnos_data[i_data.allocnos[i]]
+                      .insns.safe_push (insn);
+	      }
+	  }
+      }
+
+  /* Set additional recolor_allocnos_data data.  */
+  for (i=0; i<ira_allocnos_num; i++)
+    {
+      recolor_allocnos_data[i].allocno = i;
+
+      if (!ira_allocnos[i])
+	continue;
+      /* Calculate current allocno type.  */
+      if (is_short_reg (ALLOCNO_HARD_REGNO (ira_allocnos[i])))
+	recolor_allocnos_data[i].type = RECOLOR_TYPE_SHORT;
+      else
+	{
+	  recolor_allocnos_data[i].type = RECOLOR_TYPE_LONG;
+	  /* Calculate allocno rating.  */
+	  for (j=0; j < INSN_CATEGORIES_NUM; j++)
+	    {
+	      int tmp;
+	      tmp = recolor_allocnos_data[i].categories[j] * recolor_coeffs[j];
+	      recolor_allocnos_data[i].rating += tmp;
+	    }
+	}
+    }
+}
+
+/* Returns true if allocnos can not be coalesced (e.g. int and float
+   allocnos).  */
+
+static bool
+recolor_need_move (enum machine_mode mode1, enum machine_mode mode2)
+{
+  if (GET_MODE_CLASS (mode1) == MODE_INT && GET_MODE_CLASS (mode2) == MODE_INT)
+    return false;
+  return true;
+}
+
+/* Return pointer to corresponding register function for given allocno.  */
+
+static regs_func_type
+get_register_func_for_allocno (recolor_allocno_data_t a_data)
+{
+  regs_func_type res = NULL;
+  int i;
+  int min = 0;
+
+  /* Find minimum value from array.  */
+
+  for (i=0; i < INSN_CATEGORIES_NUM; i++)
+    {
+      if (a_data->categories[i] * recolor_coeffs[i] < min)
+	{
+	  if (recolor_regs_func[i])
+	    {
+	      /* New minimum value.  */
+	      min = a_data->categories[i] * recolor_coeffs[i];
+	      res = recolor_regs_func[i];
+	    }
+	}
+     }
+
+  if (res && a_data->categories[INSN_CATEGORIES_NUM - 1])
+    res = recolor_regs_func[INSN_CATEGORIES_NUM - 1];
+
+  return res;
+}
+
+/* Recolor given allocno.  */
+
+static void
+recolor_one_allocno (ira_allocno_t a, int new_reg)
+{
+  ALLOCNO_HARD_REGNO (a) = new_reg;
+  reg_renumber[ALLOCNO_REGNO (a)] = new_reg;
+}
+
+/* Recolor given allocno and all related allocnos (e.g. colesced,
+   copies,...).  */
+
+static int
+recolor_allocno (ira_allocno_t candidate, int old_reg, int new_reg,
+		enum machine_mode mode, vec<int> recolor_allocnos)
+{
+  int allocno_no;
+  int iy;
+
+  if (recolor_need_move (ALLOCNO_MODE (candidate), mode)
+     || !ALLOCNO_ASSIGNED_P (candidate)
+     || ALLOCNO_HARD_REGNO (candidate) == new_reg
+     || ALLOCNO_HARD_REGNO (candidate) != old_reg)
+    return -1;
+
+  /* Recolor given allocno.  */
+
+  /* Recolor all processed allocnos.  */
+    FOR_EACH_VEC_ELT (recolor_allocnos, iy, allocno_no)
+      recolor_one_allocno (ira_allocnos[allocno_no], new_reg);
+
+  return 0;
+}
+
+/* Compares two allocnos (used for sorting with qsort).  */
+
+static int
+compare_allocno_data (const void *ad1, const void *ad2)
+{
+  int r1 = (*(const recolor_allocno_data_t*)ad1)->rating;
+  int r2 = (*(const recolor_allocno_data_t*)ad2)->rating;
+
+  if ( r1 > r2)
+    return 1;
+  else if (r1 == r2)
+    return 0;
+  else
+    return -1;
+}
+
+/* Returns hard regs set with all used S register in current function.  */
+
+static void
+get_used_s_regs (HARD_REG_SET *used_s_regs)
+{
+  int i;
+  int hard_regno;
+
+  CLEAR_HARD_REG_SET (*used_s_regs);
+
+  if (!ira_allocnos || ira_allocnos_num <= 0)
+    return;
+
+  for (i=0; i<ira_allocnos_num; i++)
+    if (ira_allocnos[i])
+	if (ALLOCNO_ASSIGNED_P (ira_allocnos[i]))
+	  {
+	    enum reg_class conflict_cover_class =
+	      ALLOCNO_CLASS (ira_allocnos[i]);
+	    if ((hard_regno = ALLOCNO_HARD_REGNO (ira_allocnos[i])) >= 0
+	         && ira_class_hard_reg_index[conflict_cover_class]
+					    [hard_regno] >= 0)
+	      IOR_HARD_REG_SET (*used_s_regs,
+				ira_reg_mode_hard_regset
+				[hard_regno][ALLOCNO_MODE (ira_allocnos[i])]);
+	  }
+
+  AND_COMPL_HARD_REG_SET (*used_s_regs, call_used_reg_set);
+}
+
+/* First S register.  */
+#define S_REG_NUM 8
+
+/* Number of S registers.  */
+#define FIRST_S_REG GP_REG_FIRST + 16
+
+/* Use S registers sequentially in order to be able to use swm an lwm
+   instructions.  */
+
+static void
+fix_s_reg_usage (void)
+{
+  int i;
+  HARD_REG_SET used_s_regs;
+  int recolor[S_REG_NUM];
+  int reg_counter = FIRST_S_REG;
+
+  if (!ira_allocnos || ira_allocnos_num <= 0)
+    return;
+
+  get_used_s_regs (&used_s_regs);
+
+  /* Find register that should be recolored.  */
+  for (i=0; i<S_REG_NUM; i++)
+    {
+      recolor[i] = reg_counter;
+      if (TEST_HARD_REG_BIT (used_s_regs, FIRST_S_REG + i))
+	reg_counter++;
+    }
+
+  /* Recolor all necessary allocnos.  */
+  for (i=0; i<ira_allocnos_num; i++)
+    {
+      int hard_reg;
+      if (!ira_allocnos[i])
+	continue;
+      hard_reg = ALLOCNO_HARD_REGNO (ira_allocnos[i]);
+
+      if (hard_reg >= FIRST_S_REG && hard_reg < (FIRST_S_REG + S_REG_NUM)
+	  && recolor[hard_reg - FIRST_S_REG] != hard_reg)
+	recolor_one_allocno (ira_allocnos[i], recolor[hard_reg - FIRST_S_REG]);
+    }
+}
+
+#define NO_RECOLOR (-1)
+#define INCOMPLETE_RECOLOR (-2)
+
+/* Calculate all data needed for recoloring. (registers that can be used,
+   whether some of allocnos is alive across function calls, all allocnos that
+   should be recolored).  */
+
+static int
+get_recolor_data_for_allocno (ira_allocno_t allocno,
+			      HARD_REG_SET *available_regs,
+			      int *call_crossed_num, int old_reg,
+			      enum machine_mode mode, vec<unsigned> uids,
+			      vec<int> *recolor_allocnos)
+{
+  ira_object_t obj;
+  ira_object_t conflict_obj;
+  ira_object_conflict_iterator oci;
+  ira_copy_t cp, next_cp;
+  ira_allocno_t a;
+  int n, i;
+  HARD_REG_SET used_regs;
+  HARD_REG_SET tmp_available_regs;
+
+  /* Check if given allocno is already processed.  */
+  if (recolor_allocnos_data[ALLOCNO_NUM (allocno)].processed)
+    return 0;
+
+  recolor_allocnos_data[ALLOCNO_NUM (allocno)].processed = true;
+
+  if (ALLOCNO_HARD_REGNO (allocno) != old_reg
+     || recolor_need_move (ALLOCNO_MODE (allocno), mode))
+    return 0;
+
+  if (recolor_allocnos_data[ALLOCNO_NUM (allocno)].precolored_move_related)
+    return NO_RECOLOR;
+
+  CLEAR_HARD_REG_SET (used_regs);
+
+  n = ALLOCNO_NUM_OBJECTS (allocno);
+  for (i = 0; i < n; i++)
+    {
+      ira_object_t obj = ALLOCNO_OBJECT (allocno, i);
+      ira_object_t conflict_obj;
+      ira_object_conflict_iterator oci;
+
+      if (OBJECT_CONFLICT_ARRAY (obj) == NULL)
+        continue;
+
+      // ??? Doesn't this just calculate OBJECT_TOTAL_CONFLICT_HARD_REGS!
+      FOR_EACH_OBJECT_CONFLICT (obj, conflict_obj, oci)
+        {
+          ira_allocno_t conflict_a = OBJECT_ALLOCNO (conflict_obj);
+          enum reg_class conflict_cover_class = ALLOCNO_CLASS (conflict_a);
+          int hard_regno;
+    
+          if (ALLOCNO_ASSIGNED_P (conflict_a))
+            {
+              if ((hard_regno = ALLOCNO_HARD_REGNO (conflict_a)) >= 0
+                  && ira_class_hard_reg_index[conflict_cover_class][hard_regno] >=
+                  0)
+                IOR_HARD_REG_SET
+                  (used_regs,
+                   ira_reg_mode_hard_regset
+                   [hard_regno][ALLOCNO_MODE (conflict_a)]);
+            }
+        }
+
+      IOR_HARD_REG_SET (used_regs, OBJECT_TOTAL_CONFLICT_HARD_REGS (obj));
+    }
+
+  /* Check if there is available regs.  */
+  COPY_HARD_REG_SET (tmp_available_regs, *available_regs);
+  AND_COMPL_HARD_REG_SET (tmp_available_regs, used_regs);
+
+  if (hard_reg_set_empty_p (tmp_available_regs))
+    return INCOMPLETE_RECOLOR;
+
+  /* Continue because there are available registers.  */
+  AND_COMPL_HARD_REG_SET (*available_regs, used_regs);
+
+  /* Get call crossed data.  */
+  *call_crossed_num = ALLOCNO_CALLS_CROSSED_NUM (allocno);
+
+  /* Put allocno in list of processed allocnos.  */
+  recolor_allocnos->safe_push(ALLOCNO_NUM (allocno));
+
+  /* Estimate delta for all allocnos with same regno.  */
+  for (a = ALLOCNO_NEXT_REGNO_ALLOCNO (allocno); a;
+       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
+    {
+      int a_call_crossed_num = 0;
+      int res;
+
+      if ((res =
+	   get_recolor_data_for_allocno (allocno, available_regs,
+					 &a_call_crossed_num, old_reg, mode,
+					 uids, recolor_allocnos)) < 0)
+	return res;
+
+      *call_crossed_num += a_call_crossed_num;
+      if (a == allocno)
+	break;
+    }
+
+  for (cp = ALLOCNO_COPIES (allocno); cp != NULL; cp = next_cp)
+    {
+      int a_call_crossed_num = 0;
+      int res;
+
+      if (cp->first == allocno)
+	{
+	  next_cp = cp->next_first_allocno_copy;
+	  a = cp->second;
+	}
+      else if (cp->second == allocno)
+	{
+	  next_cp = cp->next_second_allocno_copy;
+	  a = cp->first;
+	}
+      else
+	gcc_unreachable ();
+
+      if ((res =
+	   get_recolor_data_for_allocno (allocno, available_regs,
+					 &a_call_crossed_num, old_reg, mode,
+					 uids, recolor_allocnos)) < 0)
+	return res;
+
+      *call_crossed_num += a_call_crossed_num;
+    }
+
+  return 0;
+}
+
+/* Threshold used to define whether S registers will be used for recoloring.
+   Below this threshold only alreadu used S registers can be used for
+   recoloring.  */
+#define ALLOCNOS_THRESHOLD1 20
+
+/* Threshold used to define whether S registers will be used for recoloring.
+   If number of allocnos is between two thresholds and at least one S register
+   is used - use all S registers for recoloring.  */
+#define ALLOCNOS_THRESHOLD2 40
+
+/* Get available hard registers that can be used for recoloring given
+   allocno.  */
+
+static void get_available_hard_regs (HARD_REG_SET *available_hard_regs,
+				     ira_allocno_t a,
+				     regs_func_type is_appropriate_reg)
+{
+  unsigned cur_reg;
+  hard_reg_set_iterator hrsi;
+
+  COPY_HARD_REG_SET (*available_hard_regs,
+		     reg_class_contents[ALLOCNO_CLASS (a)]);
+
+  /* By default all S registers are available.  */
+  if (ira_allocnos_num < ALLOCNOS_THRESHOLD1)
+    {
+      /* Use only those S registers that are already used.  */
+      HARD_REG_SET used_s_regs;
+
+      get_used_s_regs (&used_s_regs);
+      AND_HARD_REG_SET (*available_hard_regs, call_used_reg_set);
+      IOR_HARD_REG_SET (*available_hard_regs, used_s_regs);
+    }
+  else if (ira_allocnos_num > ALLOCNOS_THRESHOLD1
+    && ira_allocnos_num < ALLOCNOS_THRESHOLD2)
+    {
+      /* If at least one S reg is already used use all S registers.  */
+      HARD_REG_SET used_s_regs;
+      get_used_s_regs (&used_s_regs);
+      if (hard_reg_set_empty_p (used_s_regs))
+		AND_HARD_REG_SET (*available_hard_regs, call_used_reg_set);
+    }
+
+  /* Zero register cannot be used for allocation.  */
+  CLEAR_HARD_REG_BIT (*available_hard_regs, GP_REG_FIRST);
+  /* AT register cannot be used for allocation.  */
+  CLEAR_HARD_REG_BIT (*available_hard_regs, AT_REGNUM);
+
+  EXECUTE_IF_SET_IN_HARD_REG_SET (*available_hard_regs, 0, cur_reg, hrsi)
+    if (!(*is_appropriate_reg) (cur_reg))
+      CLEAR_HARD_REG_BIT (*available_hard_regs, cur_reg);
+}
+
+/* Get hard reg for recoloring from set of available hard registers.  */
+static int get_free_hard_reg (HARD_REG_SET available_hard_regs,
+			      int call_crossed_num)
+{
+  unsigned cur_reg;
+  hard_reg_set_iterator hrsi;
+
+  if (call_crossed_num > 0)
+    AND_COMPL_HARD_REG_SET (available_hard_regs, call_used_reg_set);
+
+  /* Return first available hard reg.  */
+  EXECUTE_IF_SET_IN_HARD_REG_SET (available_hard_regs,0, cur_reg, hrsi)
+    return cur_reg;
+
+  /* There is no available register.  */
+  return -1;
+}
+
+/* Threshold for recoloring if not all related allocnos can be recolored.  */
+#define INCOMPLETE_RECOLORING_TRESHOLD (-6)
+
+/* Entry function for post ira recoloring.  */
+
+static void
+post_ira_recoloring (void)
+{
+  int i;
+  recolor_allocno_data_t *recolor_data;
+  bool changed;
+  int N;
+  vec<unsigned> uids;
+  vec<int> recolor_allocnos;
+  uids.create(0);
+  recolor_allocnos.create(0);
+
+  if (!ira_allocnos || !ira_conflicts_p)
+    return;
+
+  recolor_data = (recolor_allocno_data_t*)
+    ira_allocate (sizeof (recolor_allocno_data_t) * ira_allocnos_num);
+
+  post_ira_recoloring_init ();
+  collect_recolor_data ();
+
+  for (i=0; i<ira_allocnos_num; i++)
+    recolor_data[i] = &recolor_allocnos_data[i];
+
+  do
+    {
+      int i;
+
+      changed = false;
+      qsort (recolor_data, ira_allocnos_num, sizeof (recolor_allocno_data_t),
+	    compare_allocno_data);
+
+      N = ira_allocnos_num;
+      /* Limit number of allocnos for which recoloring is done.  */
+      if (N > 1000)
+        N = 1;
+
+      for (i = 0; i < N; i++)
+	{
+	  regs_func_type regs_func;
+	  int new_reg;
+	  ira_allocno_t allocno = ira_allocnos[recolor_data[i]->allocno];
+	  int old_reg;
+	  int j;
+	  int call_crossed_num;
+	  HARD_REG_SET available_regs;
+	  int res;
+
+	  /* Empty vectors at the begining of iteration.  */
+	  uids.truncate (0);
+	  recolor_allocnos.truncate (0);
+
+	  if (!ira_allocnos[recolor_data[i]->allocno]
+	     || recolor_data[i]->rating >= 0
+	     || recolor_data[i]->type == RECOLOR_TYPE_SHORT)
+	    continue;
+
+	  /* Get old hard register.  */
+	  old_reg = ALLOCNO_HARD_REGNO (ira_allocnos[recolor_data[i]->allocno]);
+
+	  if (old_reg == 25)
+	    continue;
+
+	  /* Mark all allocnos as not processed.
+             
+             MF: Seems like an odd thing to do at this point! */
+	  for (j=0; j<ira_allocnos_num; j++)
+	    recolor_allocnos_data[j].processed = false;
+
+	  /* Get corresponding register function.  */
+	  regs_func = get_register_func_for_allocno (recolor_data[i]);
+
+	  if (!regs_func || !allocno)
+	    continue;
+
+	  get_available_hard_regs (&available_regs, allocno, regs_func);
+
+	  res = get_recolor_data_for_allocno (allocno, &available_regs,
+					      &call_crossed_num, old_reg,
+					      ALLOCNO_MODE (allocno), uids,
+					      &recolor_allocnos);
+
+	  if (res == NO_RECOLOR
+	      || (res == INCOMPLETE_RECOLOR
+	          && recolor_data[i]->rating > INCOMPLETE_RECOLORING_TRESHOLD)
+	      || recolor_allocnos.is_empty())
+	    continue;
+
+	  new_reg = get_free_hard_reg (available_regs, call_crossed_num);
+	  if (new_reg < 0)
+            continue;
+
+	      /* Register for recoloring founded.  */
+	  if (recolor_allocno (ira_allocnos[recolor_data[i]->allocno], old_reg,
+			       new_reg, ALLOCNO_MODE (allocno),
+			       recolor_allocnos) == -1)
+	    continue;
+	  changed = true;
+	  collect_recolor_data ();
+	  break;
+	}
+    }
+  while (changed);
+
+  /* Use S registers sequentially  if not all S registers are used.  */
+  fix_s_reg_usage ();
+  ira_free (recolor_data);
+  uids.release();
+  recolor_allocnos.release();
+  post_ira_recoloring_finish ();
+}
+
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
 #define TARGET_ASM_ALIGNED_HI_OP "\t.half\t"
@@ -19705,6 +20528,9 @@ mips_bucket_allocno_compare_func (const void *v1p, const void *v2p)
 
 #undef TARGET_ALLOCNO_COMPARE_FUNC
 #define TARGET_ALLOCNO_COMPARE_FUNC mips_bucket_allocno_compare_func
+
+#undef TARGET_POST_IRA_RECOLOR
+#define TARGET_POST_IRA_RECOLOR post_ira_recoloring
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

@@ -1582,4 +1582,10 @@ default_allocno_compare_func (const void *v1p, const void *v2p)
   return bucket_allocno_compare_func (v1p, v2p);
 }
 
+void
+default_post_ira_recoloring (void)
+{
+  return;
+}
+
 #include "gt-targhooks.h"
