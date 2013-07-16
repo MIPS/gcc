@@ -368,6 +368,7 @@ static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
 static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
+static tree handle_warn_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_mpx_variable_size_attribute (tree *, tree, tree, int, bool *);
 static tree handle_mpx_legacy (tree *, tree, tree, int, bool *);
 
@@ -740,6 +741,8 @@ const struct attribute_spec c_common_attribute_table[] =
      The name contains space to prevent its usage in source code.  */
   { "fn spec",	 	      1, 1, false, true, true,
 			      handle_fnspec_attribute, false },
+  { "warn_unused",	      0, 0, false, false, false,
+			      handle_warn_unused_attribute, false },
   { "bnd_variable_size",      0, 0, true,  false, false,
 			      handle_mpx_variable_size_attribute, false },
   { "bnd_legacy",             0, 0, true, false, false,
@@ -7980,6 +7983,27 @@ handle_mpx_legacy (tree *node, tree name, tree ARG_UNUSED (args),
 		   int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+   
+  return NULL_TREE;
+}
+
+/* Handle a "warn_unused" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_warn_unused_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (TYPE_P (*node))
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
