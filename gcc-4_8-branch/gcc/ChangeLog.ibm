@@ -1,3 +1,20 @@
+2013-07-16  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2013-07-16  Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Do not
+	enable extra ISA flags with TARGET_HTM.
+
+	2013-07-16  Jakub Jelinek  <jakub@redhat.com>
+		    Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (FIRST_PSEUDO_REGISTERS): Mention HTM
+	registers in the comment.
+	(DWARF_FRAME_REGISTERS): Subtract also the 3 HTM registers.
+	(DWARF_REG_TO_UNWIND_COLUMN): Use DWARF_FRAME_REGISTERS
+	rather than FIRST_PSEUDO_REGISTERS.
+
 2013-07-15  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline
