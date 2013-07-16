@@ -1427,7 +1427,6 @@ mpx_replace_address_check_builtin (gimple_stmt_iterator *gsi,
 void
 mpx_replace_extract_builtin (gimple_stmt_iterator *gsi)
 {
-  gimple_stmt_iterator call_iter = *gsi;
   gimple call = gsi_stmt (*gsi);
   tree fndecl = gimple_call_fndecl (call);
   tree addr = gimple_call_arg (call, 0);
