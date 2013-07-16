@@ -1,3 +1,12 @@
+2013-07-12  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/vterminate.cc: Add back deleted file.
+
+	* libstdc++-v3/acinclude.m4: Fix paths for libvtv, still
+	dependency issue with libvtv build library required when libstdc++
+	built with -fvtable-verify. Add stubs lib as weak as part of
+	libsupc++ is one solution.
+
 2013-07-05  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4: Fix configure whitespace errors.
