@@ -126,12 +126,6 @@ _Unwind_Get_Unwind_Context_Reg_Val (_Unwind_Word val)
 #define ASSUME_EXTENDED_UNWIND_CONTEXT 0
 #endif
 
-#ifdef __MPX__
-#define RESET_BOUNDS(val) __mpx_bind_bounds ((void *)val, 0, 0)
-#else
-#define RESET_BOUNDS(val) (val)
-#endif
-
 /* This is the register and unwind state for a particular frame.  This
    provides the information necessary to unwind up past a frame and return
    to its caller.  */
@@ -248,12 +242,12 @@ _Unwind_GetGR (struct _Unwind_Context *context, int index)
   /* This will segfault if the register hasn't been saved.  */
   if (size == sizeof(_Unwind_Ptr))
     return * (_Unwind_Ptr *) (_Unwind_Internal_Ptr)
-      RESET_BOUNDS (val);
+      __bnd_init_ptr_bounds (val);
   else
     {
       gcc_assert (size == sizeof(_Unwind_Word));
       return * (_Unwind_Word *) (_Unwind_Internal_Ptr)
-	RESET_BOUNDS (val);
+	__bnd_init_ptr_bounds (val);
     }
 }
 
@@ -261,7 +255,7 @@ static inline void *
 _Unwind_GetPtr (struct _Unwind_Context *context, int index)
 {
   void *res = (void *)(_Unwind_Ptr) _Unwind_GetGR (context, index);
-  return RESET_BOUNDS (res);
+  return __bnd_init_ptr_bounds (res);
 }
 
 /* Get the value of the CFA as saved in CONTEXT.  */
@@ -312,7 +306,7 @@ _Unwind_GetGRPtr (struct _Unwind_Context *context, int index)
     res = &context->reg[index];
   else
     res = (void *) (_Unwind_Internal_Ptr) context->reg[index];
-  return RESET_BOUNDS (res);
+  return __bnd_init_ptr_bounds (res);
 }
 
 /* Set the pointer to a register INDEX as saved in CONTEXT.  */
@@ -356,7 +350,7 @@ _Unwind_GRByValue (struct _Unwind_Context *context, int index)
 inline _Unwind_Ptr
 _Unwind_GetIP (struct _Unwind_Context *context)
 {
-  return (_Unwind_Ptr) RESET_BOUNDS (context->ra);
+  return (_Unwind_Ptr) __bnd_init_ptr_bounds (context->ra);
 }
 
 /* Retrieve the return address and flag whether that IP is before
@@ -366,7 +360,7 @@ inline _Unwind_Ptr
 _Unwind_GetIPInfo (struct _Unwind_Context *context, int *ip_before_insn)
 {
   *ip_before_insn = _Unwind_IsSignalFrame (context);
-  return (_Unwind_Ptr) RESET_BOUNDS (context->ra);
+  return (_Unwind_Ptr) __bnd_init_ptr_bounds (context->ra);
 }
 
 /* Overwrite the return address for CONTEXT with VAL.  */

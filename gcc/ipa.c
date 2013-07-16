@@ -1460,7 +1460,7 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
       break;
     case 'B':
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
-      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("mpx_legacy"),
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("bnd_legacy"),
 					  NULL,
 					  NULL_TREE);
       decl_init_priority_insert (decl, priority);

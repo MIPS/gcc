@@ -353,6 +353,8 @@ static tree mpx_find_bounds_loaded (tree ptr, tree ptr_src,
 				   gimple_stmt_iterator *iter);
 static tree mpx_find_bounds_abnormal (tree ptr, tree phi);
 static void mpx_collect_value (tree ssa_name, address_t &res);
+static void mpx_build_bndstx (tree addr, tree ptr, tree bounds,
+			      gimple_stmt_iterator *gsi);
 
 #define mpx_bndldx_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDLDX))
 #define mpx_bndstx_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDSTX))
@@ -361,11 +363,12 @@ static void mpx_collect_value (tree ssa_name, address_t &res);
 #define mpx_bndmk_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK))
 #define mpx_ret_bnd_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDRET))
 #define mpx_intersect_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_INTERSECT))
-#define mpx_user_intersect_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_USER_INTERSECT))
-#define mpx_bind_intersect_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BIND_INTERSECT))
-#define mpx_bind_bounds_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BIND_BOUNDS))
+#define mpx_narrow_bounds_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_NARROW))
+#define mpx_set_bounds_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_SET_PTR_BOUNDS))
 #define mpx_arg_bnd_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_ARG_BND))
 #define mpx_sizeof_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_SIZEOF))
+#define mpx_extract_lower_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_EXTRACT_LOWER))
+#define mpx_extract_upper_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_EXTRACT_UPPER))
 
 static vec<struct bb_checks, va_heap, vl_ptr> check_infos;
 
@@ -1284,18 +1287,17 @@ mpx_force_gimple_call_op (tree op, gimple_seq *seq)
   return op;
 }
 
-/* Generate lower and upper bound checks for memory access
-   to memory slot [FIRST, LAST] againsr BOUNDS.  Checks
-   are inserted before the position pointed by ITER.
+/* Generate lower bound check for memory access by ADDR. 
+   Check is inserted before the position pointed by ITER.
    DIRFLAG indicates whether memory access is load or store.  */
 static void
-mpx_check_mem_access (tree first, tree last, tree bounds,
-		      gimple_stmt_iterator iter,
-		      location_t location ATTRIBUTE_UNUSED,
-		      tree dirflag ATTRIBUTE_UNUSED)
+mpx_check_lower (tree addr, tree bounds,
+		 gimple_stmt_iterator iter,
+		 location_t location ATTRIBUTE_UNUSED,
+		 tree dirflag)
 {
   gimple_seq seq;
-  gimple checkl, checku;
+  gimple check;
   tree node;
 
   if (bounds == mpx_get_zero_bounds ())
@@ -1309,36 +1311,86 @@ mpx_check_mem_access (tree first, tree last, tree bounds,
       && !flag_mpx_check_write)
     return;
 
-  seq = NULL;//gimple_seq_alloc ();
+  seq = NULL;
 
-  node = mpx_force_gimple_call_op (first, &seq);
+  node = mpx_force_gimple_call_op (addr, &seq);
 
-  checkl = gimple_build_call (mpx_checkl_fndecl, 2, bounds, node);
-  mpx_mark_stmt (checkl);
-  gimple_seq_add_stmt (&seq, checkl);
-
-  node = mpx_force_gimple_call_op (last, &seq);
-
-  checku = gimple_build_call (mpx_checku_fndecl, 2, bounds, node);
-  mpx_mark_stmt (checku);
-  gimple_seq_add_stmt (&seq, checku);
+  check = gimple_build_call (mpx_checkl_fndecl, 2, bounds, node);
+  mpx_mark_stmt (check);
+  gimple_seq_add_stmt (&seq, check);
 
   gsi_insert_seq_before (&iter, seq, GSI_SAME_STMT);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       gimple before = gsi_stmt (iter);
-      fprintf (dump_file, "Generated bound checks for statement ");
+      fprintf (dump_file, "Generated lower bound check for statement ");
       print_gimple_stmt (dump_file, before, 0, TDF_VOPS|TDF_MEMSYMS);
       fprintf (dump_file, "  ");
-      print_gimple_stmt (dump_file, checkl, 0, TDF_VOPS|TDF_MEMSYMS);
-      fprintf (dump_file, "  ");
-      print_gimple_stmt (dump_file, checku, 0, TDF_VOPS|TDF_MEMSYMS);
+      print_gimple_stmt (dump_file, check, 0, TDF_VOPS|TDF_MEMSYMS);
     }
 }
 
-/* Replace call to __mpx_check_address_* pointed by GSI with
-   pair of bndcu and bndcl calls.  DIRFLAG determines whether
+/* Generate upper bound check for memory access by ADDR.
+   Check is inserted before the position pointed by ITER.
+   DIRFLAG indicates whether memory access is load or store.  */
+static void
+mpx_check_upper (tree addr, tree bounds,
+		 gimple_stmt_iterator iter,
+		 location_t location ATTRIBUTE_UNUSED,
+		 tree dirflag)
+{
+  gimple_seq seq;
+  gimple check;
+  tree node;
+
+  if (bounds == mpx_get_zero_bounds ())
+    return;
+
+  if (dirflag == integer_zero_node
+      && !flag_mpx_check_read)
+    return;
+
+  if (dirflag == integer_one_node
+      && !flag_mpx_check_write)
+    return;
+
+  seq = NULL;
+
+  node = mpx_force_gimple_call_op (addr, &seq);
+
+  check = gimple_build_call (mpx_checku_fndecl, 2, bounds, node);
+  mpx_mark_stmt (check);
+  gimple_seq_add_stmt (&seq, check);
+
+  gsi_insert_seq_before (&iter, seq, GSI_SAME_STMT);
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      gimple before = gsi_stmt (iter);
+      fprintf (dump_file, "Generated upper bound check for statement ");
+      print_gimple_stmt (dump_file, before, 0, TDF_VOPS|TDF_MEMSYMS);
+      fprintf (dump_file, "  ");
+      print_gimple_stmt (dump_file, check, 0, TDF_VOPS|TDF_MEMSYMS);
+    }
+}
+
+/* Generate lower and upper bound checks for memory access
+   to memory slot [FIRST, LAST] againsr BOUNDS.  Checks
+   are inserted before the position pointed by ITER.
+   DIRFLAG indicates whether memory access is load or store.  */
+static void
+mpx_check_mem_access (tree first, tree last, tree bounds,
+		      gimple_stmt_iterator iter,
+		      location_t location,
+		      tree dirflag)
+{
+  mpx_check_lower (first, bounds, iter, location, dirflag);
+  mpx_check_upper (last, bounds, iter, location, dirflag);
+}
+
+/* Replace call to _bnd_chk_* pointed by GSI with
+   bndcu and bndcl calls.  DIRFLAG determines whether
    check is for read or write.  */
 
 void
@@ -1347,13 +1399,53 @@ mpx_replace_address_check_builtin (gimple_stmt_iterator *gsi,
 {
   gimple_stmt_iterator call_iter = *gsi;
   gimple call = gsi_stmt (*gsi);
+  tree fndecl = gimple_call_fndecl (call);
   tree addr = gimple_call_arg (call, 0);
   tree bounds = mpx_find_bounds (addr, gsi);
 
-  mpx_check_mem_access (addr, addr, bounds, *gsi,
-			gimple_location (call), dirflag);
-  gsi_prev (gsi);
+  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_PTR_LBOUNDS
+      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_PTR_BOUNDS)
+    mpx_check_lower (addr, bounds, *gsi, gimple_location (call), dirflag);
+
+  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_PTR_UBOUNDS)
+    mpx_check_upper (addr, bounds, *gsi, gimple_location (call), dirflag);
+
+  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_PTR_BOUNDS)
+    {
+      tree size = gimple_call_arg (call, 1);
+      addr = fold_build_pointer_plus (addr, size);
+      addr = fold_build_pointer_plus_hwi (addr, -1);
+      mpx_check_upper (addr, bounds, *gsi, gimple_location (call), dirflag);
+    }
+
   gsi_remove (&call_iter, true);
+}
+
+/* Replace call to _bnd_get_ptr_* pointed by GSI with
+   corresponding bounds extract call.  */
+
+void
+mpx_replace_extract_builtin (gimple_stmt_iterator *gsi)
+{
+  gimple_stmt_iterator call_iter = *gsi;
+  gimple call = gsi_stmt (*gsi);
+  tree fndecl = gimple_call_fndecl (call);
+  tree addr = gimple_call_arg (call, 0);
+  tree bounds = mpx_find_bounds (addr, gsi);
+  gimple extract;
+
+  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_GET_PTR_LBOUND)
+    fndecl = mpx_extract_lower_fndecl;
+  else if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_GET_PTR_UBOUND)
+    fndecl = mpx_extract_upper_fndecl;
+  else
+    gcc_unreachable ();
+
+  extract = gimple_build_call (fndecl, 1, bounds);
+  gimple_call_set_lhs (extract, gimple_call_lhs (call));
+  mpx_mark_stmt (extract);
+
+  gsi_replace (gsi, extract, false);
 }
 
 /* Add bound arguments to call statement pointed by GSI.
@@ -1381,28 +1473,68 @@ mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return;
 
-  /* MPX_CHECK_ADDRESS_READ call should be replaces with two checks.  */
+  /* Ignore MPX_INIT_PTR_BOUNDS and MPX_COPY_PTR_BOUNDS.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_ADDRESS_WRITE)
+      && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_INIT_PTR_BOUNDS
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_COPY_PTR_BOUNDS))
+    return;
+
+  /* Check user builtins are replaced with checks.  */
+  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_PTR_LBOUNDS
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_PTR_UBOUNDS
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_PTR_BOUNDS))
     {
-      mpx_replace_address_check_builtin (gsi, integer_one_node);
+      mpx_replace_address_check_builtin (gsi, integer_minus_one_node);
       return;
     }
 
-  /* MPX_CHECK_ADDRESS_WRITE call should be replaces with two checks.  */
+  /* Check user builtins are replaced with checks.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_CHECK_ADDRESS_READ)
+      && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_GET_PTR_LBOUND
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_GET_PTR_UBOUND))
     {
-      mpx_replace_address_check_builtin (gsi, integer_zero_node);
+      mpx_replace_extract_builtin (gsi);
       return;
     }
 
-  /* BUILT_IN_MPX_BIND_BOUNDS call does not require bound args.
+  /* BUILT_IN_MPX_SET_PTR_BOUNDS call does not require bound args.
      Just replace fndecl with target specific one.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_BIND_BOUNDS)
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_SET_PTR_BOUNDS)
     {
-      gimple_call_set_fndecl (call, mpx_bind_bounds_fndecl);
+      gimple_call_set_fndecl (call, mpx_set_bounds_fndecl);
+      return;
+    }
+
+  /* BUILT_IN_MPX_NARROW_PTR_BOUNDS call is replaced with
+     target narrow bounds call.  */
+  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_NARROW_PTR_BOUNDS)
+    {
+      tree arg = gimple_call_arg (call, 1);
+      tree bounds = mpx_find_bounds (arg, gsi);
+
+      gimple_call_set_fndecl (call, mpx_narrow_bounds_fndecl);
+      gimple_call_set_arg (call, 1, bounds);
+      update_stmt (call);
+
+      return;
+    }
+
+  /* BUILT_IN_MPX_STORE_PTR_BOUNDS call is replaced with
+     bndstx call.  */
+  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_STORE_PTR_BOUNDS)
+    {
+      tree addr = gimple_call_arg (call, 0);
+      tree ptr = gimple_call_arg (call, 1);
+      tree bounds = mpx_find_bounds (ptr, gsi);
+      gimple_stmt_iterator iter = gsi_for_stmt (call);
+
+      mpx_build_bndstx (addr, ptr, bounds, gsi);
+      gsi_remove (&iter, true);
+
       return;
     }
 
@@ -1435,17 +1567,6 @@ mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       arg_cnt++;
     }
 
-  /* BUILT_IN_MPX_USER_INTERSECT is the special case.
-     We need to pass bounds for the first args but
-     all other args are not provided with bounds.  */
-  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_USER_INTERSECT)
-    {
-      fndecl = mpx_bind_intersect_fndecl;
-      arg_cnt = 4;
-      bnd_arg_cnt = 1;
-    }
-
   /* Now add number of additional bound arguments for
      stdarg functions.  */
   for (arg_no = arg_cnt - bnd_arg_cnt;
@@ -1465,7 +1586,7 @@ mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   memcpy (new_call, call, sizeof (struct gimple_statement_call));
   gimple_set_num_ops (new_call, arg_cnt + 3);
   gimple_set_op (new_call, 0, gimple_op (call, 0));
-  if (fndecl == mpx_bind_intersect_fndecl)
+  if (fndecl)
     {
       gimple_set_op (new_call, 1, mpx_build_addr_expr (fndecl));
       gimple_call_set_fntype (new_call, TREE_TYPE (fndecl));
@@ -1483,6 +1604,7 @@ mpx_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     {
       tree type = use_fntype ? TREE_VALUE (arg) : TREE_TYPE (arg);
       tree call_arg = gimple_call_arg (call, arg_no++);
+
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
 
       if ((BOUNDED_TYPE_P (type)
@@ -1830,6 +1952,19 @@ mpx_build_returned_bound (gimple call)
 	  gimple_stmt_iterator iter = gsi_for_stmt (call);
 	  bounds = mpx_make_bounds (lb, size, &iter, true);
 	}
+    }
+  /* Detect bounds initialization calls.  */
+  else if (fndecl
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_INIT_PTR_BOUNDS)
+    bounds = mpx_get_zero_bounds ();
+  /* Detect bounds copy calls.  */
+  else if (fndecl
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_COPY_PTR_BOUNDS)
+    {
+      gimple_stmt_iterator iter = gsi_for_stmt (call);
+      bounds = mpx_find_bounds (gimple_call_arg (call, 1), &iter);
     }
   else
     {
@@ -2622,7 +2757,7 @@ mpx_variable_size_type (tree type)
       {
 	if (TREE_CODE (field) == FIELD_DECL)
 	  res = res
-	    || lookup_attribute ("mpx_variable_size", DECL_ATTRIBUTES (field))
+	    || lookup_attribute ("bnd_variable_size", DECL_ATTRIBUTES (field))
 	    || mpx_variable_size_type (TREE_TYPE (field));
       }
   else
@@ -2798,7 +2933,7 @@ mpx_may_narrow_to_field (tree field)
 	|| TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
     && (!DECL_FIELD_BIT_OFFSET (field)
 	|| TREE_CODE (DECL_FIELD_BIT_OFFSET (field)) == INTEGER_CST)
-    && !lookup_attribute ("mpx_variable_size", DECL_ATTRIBUTES (field))
+    && !lookup_attribute ("bnd_variable_size", DECL_ATTRIBUTES (field))
     && !mpx_variable_size_type (TREE_TYPE (field));
 }
 
@@ -3949,7 +4084,7 @@ static bool
 mpx_gate (void)
 {
   return flag_mpx != 0
-    && !lookup_attribute ("mpx_legacy", DECL_ATTRIBUTES (cfun->decl));
+    && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (cfun->decl));
 }
 
 /* Comparator for pol_item structures I1 and I2 to be used

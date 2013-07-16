@@ -200,11 +200,7 @@ static inline __cxa_exception *
 __get_exception_header_from_obj (void *ptr)
 {
   __cxa_exception *res = reinterpret_cast<__cxa_exception *>(ptr) - 1;
-#ifdef __MPX__
-  return (__cxa_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
-#else
-  return res;
-#endif
+  return (__cxa_exception *) __bnd_set_ptr_bounds (res, 0 - (size_t)res);
 }
 
 // Acquire the C++ exception header from the generic exception header.
@@ -212,11 +208,7 @@ static inline __cxa_exception *
 __get_exception_header_from_ue (_Unwind_Exception *exc)
 {
   __cxa_exception *res = reinterpret_cast<__cxa_exception *>(exc + 1) - 1;
-#ifdef __MPX__
-  return (__cxa_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
-#else
-  return res;
-#endif
+  return (__cxa_exception *) __bnd_set_ptr_bounds (res, 0 - (size_t)res);
 }
 
 // Acquire the C++ refcounted exception header from the C++ object.
@@ -224,11 +216,7 @@ static inline __cxa_refcounted_exception *
 __get_refcounted_exception_header_from_obj (void *ptr)
 {
   __cxa_refcounted_exception *res = reinterpret_cast<__cxa_refcounted_exception *>(ptr) - 1;
-#ifdef __MPX__
-  return (__cxa_refcounted_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
-#else
-  return res;
-#endif
+  return (__cxa_refcounted_exception *) __bnd_set_ptr_bounds (res, 0 - (size_t)res);
 }
 
 // Acquire the C++ refcounted exception header from the generic exception
@@ -237,22 +225,14 @@ static inline __cxa_refcounted_exception *
 __get_refcounted_exception_header_from_ue (_Unwind_Exception *exc)
 {
   __cxa_refcounted_exception *res = reinterpret_cast<__cxa_refcounted_exception *>(exc + 1) - 1;
-#ifdef __MPX__
-  return (__cxa_refcounted_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
-#else
-  return res;
-#endif
+  return (__cxa_refcounted_exception *) __bnd_set_ptr_bounds (res, 0 - (size_t)res);
 }
 
 static inline __cxa_dependent_exception *
 __get_dependent_exception_from_ue (_Unwind_Exception *exc)
 {
   __cxa_dependent_exception *res = reinterpret_cast<__cxa_dependent_exception *>(exc + 1) - 1;
-#ifdef __MPX__
-  return (__cxa_dependent_exception *) __mpx_bind_bounds (res, res, 0 - (size_t)res);
-#else
-  return res;
-#endif
+  return (__cxa_dependent_exception *) __bnd_set_ptr_bounds (res, 0 - (size_t)res);
 }
 
 #ifdef __ARM_EABI_UNWINDER__
@@ -403,11 +383,7 @@ __get_object_from_ue(_Unwind_Exception* eo) throw()
   void *res =  __is_dependent_exception (eo->exception_class) ?
     __get_dependent_exception_from_ue (eo)->primaryException :
     eo + 1;
-#ifdef __MPX__
-  return __mpx_bind_bounds (res, res, 0 - (size_t)res);
-#else
-  return res;
-#endif
+  return __bnd_set_ptr_bounds (res, 0 - (size_t)res);
 }
 
 static inline void *

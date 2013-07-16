@@ -159,8 +159,8 @@ get_cie (const struct dwarf_fde *f)
   /* Since we get pointer to an object using
      pointer to another, we need to set bounds
      manually.  */
-  p = __mpx_bind_bounds(p, p, sizeof(struct dwarf_cie));
-  p =  __mpx_bind_bounds(p, p, sizeof(struct dwarf_cie) + p->length * sizeof(uword));
+  p = __bnd_set_ptr_bounds (p, sizeof(struct dwarf_cie));
+  p = __bnd_set_ptr_bounds (p, sizeof(struct dwarf_cie) + p->length * sizeof(uword));
 
   return p;
 }

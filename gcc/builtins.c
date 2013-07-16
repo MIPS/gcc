@@ -5880,10 +5880,16 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       && fcode != BUILT_IN_ALLOCA
       && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
       && fcode != BUILT_IN_FREE
-      && fcode != BUILT_IN_MPX_CHECK_ADDRESS_WRITE
-      && fcode != BUILT_IN_MPX_CHECK_ADDRESS_READ
-      && fcode != BUILT_IN_MPX_BIND_BOUNDS
-      && fcode != BUILT_IN_MPX_USER_INTERSECT)
+      && fcode != BUILT_IN_MPX_SET_PTR_BOUNDS
+      && fcode != BUILT_IN_MPX_INIT_PTR_BOUNDS
+      && fcode != BUILT_IN_MPX_COPY_PTR_BOUNDS
+      && fcode != BUILT_IN_MPX_NARROW_PTR_BOUNDS
+      && fcode != BUILT_IN_MPX_STORE_PTR_BOUNDS
+      && fcode != BUILT_IN_MPX_CHECK_PTR_LBOUNDS
+      && fcode != BUILT_IN_MPX_CHECK_PTR_UBOUNDS
+      && fcode != BUILT_IN_MPX_CHECK_PTR_BOUNDS
+      && fcode != BUILT_IN_MPX_GET_PTR_LBOUND
+      && fcode != BUILT_IN_MPX_GET_PTR_UBOUND)
     return expand_call (exp, target, ignore);
 
   /* The built-in function expanders test for target == const0_rtx
@@ -7004,16 +7010,28 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       expand_builtin_set_thread_pointer (exp);
       return const0_rtx;
 
-    case BUILT_IN_MPX_CHECK_ADDRESS_WRITE:
-    case BUILT_IN_MPX_CHECK_ADDRESS_READ:
-    case BUILT_IN_MPX_BIND_BOUNDS:
-    case BUILT_IN_MPX_USER_INTERSECT:
+    case BUILT_IN_MPX_INIT_PTR_BOUNDS:
+    case BUILT_IN_MPX_COPY_PTR_BOUNDS:
+      return expand_normal (CALL_EXPR_ARG (exp, 0));
+
+    case BUILT_IN_MPX_CHECK_PTR_LBOUNDS:
+    case BUILT_IN_MPX_CHECK_PTR_UBOUNDS:
+    case BUILT_IN_MPX_CHECK_PTR_BOUNDS:
+    case BUILT_IN_MPX_SET_PTR_BOUNDS:
+    case BUILT_IN_MPX_NARROW_PTR_BOUNDS:
+    case BUILT_IN_MPX_STORE_PTR_BOUNDS:
+    case BUILT_IN_MPX_GET_PTR_LBOUND:
+    case BUILT_IN_MPX_GET_PTR_UBOUND:
       /* We allow user MPX builtins if MPX is off.  */
       if (!flag_mpx)
 	{
-	  if (fcode == BUILT_IN_MPX_BIND_BOUNDS
-	      || fcode == BUILT_IN_MPX_USER_INTERSECT)
+	  if (fcode ==  BUILT_IN_MPX_SET_PTR_BOUNDS
+	      || fcode ==  BUILT_IN_MPX_NARROW_PTR_BOUNDS)
 	    return expand_normal (CALL_EXPR_ARG (exp, 0));
+	  else if (fcode == BUILT_IN_MPX_GET_PTR_LBOUND)
+	    return expand_normal (size_zero_node);
+	  else if (fcode == BUILT_IN_MPX_GET_PTR_UBOUND)
+	    return expand_normal (size_int (-1));
 	  else
 	    return const0_rtx;
 	}
@@ -7026,8 +7044,10 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MPX_BNDLDX:
     case BUILT_IN_MPX_BNDRET:
     case BUILT_IN_MPX_INTERSECT:
-    case BUILT_IN_MPX_BIND_INTERSECT:
     case BUILT_IN_MPX_ARG_BND:
+    case BUILT_IN_MPX_NARROW:
+    case BUILT_IN_MPX_EXTRACT_LOWER:
+    case BUILT_IN_MPX_EXTRACT_UPPER:
       /* Software implementation of MPX is NYI.
 	 Target with MPX support should be used.  */
       error ("Target platform does not support MPX");

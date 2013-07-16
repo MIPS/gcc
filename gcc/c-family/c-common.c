@@ -740,9 +740,9 @@ const struct attribute_spec c_common_attribute_table[] =
      The name contains space to prevent its usage in source code.  */
   { "fn spec",	 	      1, 1, false, true, true,
 			      handle_fnspec_attribute, false },
-  { "mpx_variable_size",      0, 0, true,  false, false,
+  { "bnd_variable_size",      0, 0, true,  false, false,
 			      handle_mpx_variable_size_attribute, false },
-  { "mpx_legacy",             0, 0, true, false, false,
+  { "bnd_legacy",             0, 0, true, false, false,
 			      handle_mpx_legacy, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
@@ -7956,7 +7956,7 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
-/* Handle a "mpx_variable_size" attribute; arguments as in
+/* Handle a "bnd_variable_size" attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
@@ -7972,7 +7972,7 @@ handle_mpx_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args
   return NULL_TREE;
 }
 
-/* Handle a "mpx_legacy" attribute; arguments as in
+/* Handle a "bnd_legacy" attribute; arguments as in
    struct attribute_spec.handler.  */
 
 static tree
