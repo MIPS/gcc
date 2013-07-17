@@ -1,6 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-fno-mpx" } */
 /* { dg-additional-options "-L/opt/intel/lib -lpl-runtime64" } */
+/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #include "mpx-check.h"
 

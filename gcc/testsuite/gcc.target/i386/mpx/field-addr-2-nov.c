@@ -1,6 +1,7 @@
 /* { dg-do run } */
 /* { dg-options "-fmpx" } */
 /* { dg-additional-options "-L/opt/intel/lib -lpl-runtime64" } */
+/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 /* { dg-additional-options "-fmpx-first-field-has-own-bounds" } */
 
 #include "mpx-check.h"
