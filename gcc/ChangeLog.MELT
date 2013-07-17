@@ -2,6 +2,15 @@
 
 2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normexp_macro_installation): Return a
+	singleton list of bindings.
+
+	* melt/warmelt-outobj.melt
+	(melt_translate_run_macroexpansions_list): No need for autoboxing,
+	because it has no useful result...
+
+2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (wrap_normal_let1)
 	(normexp_macro_installation): More debug.
 

@@ -5008,7 +5008,7 @@ source location.}#
 	     )
 	(debug "normexp_macro_installation csym=" csym " nhcall=" nhcall)
 	(debug "normexp_macro_installation final symocc=" symocc " cbind=" cbind)
-	(return symocc cbind)
+	(return symocc (list cbind))
 	))))
 (install_method class_source_macro_installation normal_exp normexp_macro_installation)
 

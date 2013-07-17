@@ -7439,7 +7439,7 @@ if (1) return;
 		char basbuf_$NUMCHK[64] ;
 		long num_$NUMCHK = 0 ;
 		memset (basbuf_$NUMCHK, 0, sizeof(basbuf_$NUMCHK)) ;
-		melt_count_runtime_extensions++	 ;
+		melt_count_runtime_extensions++ ;
 		num_$NUMCHK = melt_count_runtime_extensions ;
 		if (melt_count_runtime_extensions
 		    > MELT_MAX_RUNTIME_EXTENSIONS)
@@ -7522,39 +7522,7 @@ if (1) return;
 		      " lastbinds=" lastbinds
 		      " lastctyp=" lastctyp)
 	       (assert_msg "check lastctyp" (is_a lastctyp class_ctype))
-	       (cond
-		((== lastctyp ctype_value)
-		 (debug "melt_translate_run_macroexpansions_list/normalextend value lastnorm=" lastnorm "\n of discrim=" (discrim lastnorm)
-			"\n lastnormpair=" lastnormpair
-			"\n normlist=" normlist)
-		 (when (is_not_a lastnorm class_nrep_return)
-		   (let ( (nret (instance class_nrep_return
-					  :nret_main lastnorm
-					  ))
-			  )
-		     (pair_set_head lastnormpair nret)
-		     (debug "melt_translate_run_macroexpansions_list/normalextend replaced lastnorm=" lastnorm
-			    "\n with nret=" nret 
-			    "\n in lastnormpair=" lastnormpair)
-		     (setq lastnorm nret)
-		     )))
-		(:else
-		 (debug "melt_translate_run_macroexpansions_list/normalextend nonvalue lastnorm=" lastnorm 
-			" of discrim " (discrim lastnorm) "\n lastctyp=" lastctyp)
-		 (warningmsg_strv 
-		  "runtime macroexpansion ending with a non-value expression, auto-boxing it."
-		  (get_field :named_name lastctyp))
-		 (multicall
-		  (newexp newbinds)
-		  (autobox_normal_return lastnorm lastbinds lastctyp ncx)
-		  (debug "melt_translate_run_macroexpansions_list/normalextend autoboxed newexp=" newexp
-			 " newbinds=" newbinds)
-		  (pair_set_head lastnormpair newexp)
-		  (pair_set_head lastbindpair newbinds)
-		  (setq lastbinds newbinds)
-		  (setq lastnorm newexp)
-		  )))
-		  
+;;;;
 	       (debug "melt_translate_run_macroexpansions_list/normalextend lastbinds=" lastbinds "\n lastnorm=" lastnorm 
 		      "\n lastnormpair=" lastnormpair
 		      "\n normlist=" normlist
@@ -7625,7 +7593,7 @@ if (1) return;
 	       (multiple_put_nth tuplitval ix val)
 	       ))
 	   (setq ix (+i ix 1)))	     ;end of foreach_in_list litvalist
-	  (debug "melt_translate_run_macroexpansions_list  tuplitval=" tuplitval)
+	  (debug "melt_translate_run_macroexpansions_list tuplitval=" tuplitval)
 	  (debug "melt_translate_run_macroexpansions_list before melt_run_extension basename=" basename
 		 "\n* env=" env
 		 "\n* tuplitval=" tuplitval)
