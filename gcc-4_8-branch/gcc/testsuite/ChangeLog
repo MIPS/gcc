@@ -1,3 +1,9 @@
+2013-06-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/htm-1.c: New file.
+	* gcc.target/s390/htm-nofloat-1.c: New file.
+	* gcc.target/s390/htm-xl-intrin-1.c: New file.
+
 2013-07-15  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* lib/target-supports.exp (check_effective_target_powerpc_htm_ok): New
