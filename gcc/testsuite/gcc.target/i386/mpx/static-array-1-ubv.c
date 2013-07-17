@@ -1,4 +1,6 @@
 /* { dg-do run { xfail *-*-* } } */
+/* { dg-options "-fmpx" } */
+/* { dg-additional-options "-L/opt/intel/lib -lpl-runtime64" } */
 
 #define XFAIL
 
@@ -8,6 +10,6 @@ int buf[100];
 
 int mpx_test (int argc, const char **argv)
 {
-  buf[100] = argc;
+  printf("%d\n", buf[100]);
   return 0;
 }

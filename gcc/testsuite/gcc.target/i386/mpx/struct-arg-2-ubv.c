@@ -1,0 +1,35 @@
+/* { dg-do run { xfail *-*-* } } */
+/* { dg-options "-fmpx" } */
+/* { dg-additional-options "-L/opt/intel/lib -lpl-runtime64" } */
+
+#define XFAIL
+
+#include "mpx-check.h"
+
+struct s1
+{
+  int i1;
+  int i2;
+  int *p;
+} s1;
+
+int rd (struct s1 s)
+{
+  int res = s.p[s.i1 + s.i2];
+  printf ("%d\n", res);
+  return res;
+}
+
+int buf[100];
+
+int mpx_test (int argc, const char **argv)
+{
+  struct s1 s;
+  s.p = buf;
+  s.i1 = 50;
+  s.i2 = 51;
+
+  rd (s);
+
+  return 0;
+}

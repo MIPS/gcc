@@ -28,7 +28,7 @@ if ![check_effective_target_mpx] {
 dg-init
 
 # Main loop.
-gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] "-fmpx -L/opt/intel/lib -lpl-runtime64"
+gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c*]] ""
 
 # All done.
 dg-finish

@@ -1,4 +1,6 @@
 /* { dg-do run } */
+/* { dg-options "-fmpx" } */
+/* { dg-additional-options "-L/opt/intel/lib -lpl-runtime64" } */
 
 #include "mpx-check.h"
 
