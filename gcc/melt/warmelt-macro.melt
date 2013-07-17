@@ -387,6 +387,10 @@ with a formal arguments binding tuple given in $SFORMAL_ARGS.}#
 	   mbind_data
 	   ))
 
+(defclass class_source_macro_installation
+  :super class_source
+  :fields (smacinst_defmacro))
+
 ;;; define a primitive
 (defclass class_source_defprimitive
   :doc #{The internal $CLASS_SOURCE_DEFPRIMITIVE is the abstract
@@ -2344,6 +2348,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
   (let ( (clos melt_transrunmacro_clos)
 	 )
   (assert_msg "check clos" (is_closure clos))
+  (assert_msg "check lismexp" (is_list lismexp))
   (let ( (res (clos lismexp env))
 	 )
     (debug "melt_invoke_translator_runner_macroexpansions res=" res)
@@ -3048,9 +3053,16 @@ $EXPORT_VALUES to be visible outside its module.}#)
 ;; this magic function should expand and compile all the macro definitions of maclist
 
 (defun melt_delayed_macro_expander (mbind maclist env mexpander modctx)
-  (debug "melt_delayed_macro_expander mbind=" mbind " maclist=" maclist)
-  (assert_msg "@$@unimplemented melt_delayed_macro_expander")
-)
+  (debug "melt_delayed_macro_expander mbind=" mbind " maclist=" maclist " modctx=" modctx)
+  (assert_msg "check maclist" (is_list maclist))
+  (block_signals 
+   () ()
+   (put_fields modctx :mocx_macrolist (make_list discr_list)))
+  ;;
+  (let ( (res (melt_invoke_translator_runner_macroexpansions maclist env))
+	 )
+    (debug "melt_delayed_macro_expander got res=" res)
+  ))
 
 ;;;;;;;;;;;;;;;;;; the defmacro expander
 ;;;(DEFMACRO macroname formals [:doc documentation] body...)
@@ -3116,12 +3128,18 @@ $EXPORT_VALUES to be visible outside its module.}#)
 			:sfun_body bodytup
 			:smacro_binding mbind
 			))
+	     (sinstmacro
+	      (instance class_source_macro_installation
+			:loca_location loc
+			:smacinst_defmacro sdefmacro
+			))
 	     )
 	(debug "mexpand_defmacro bodytup=" bodytup)
 	(put_fields mbind :mbind_defmacro sdefmacro)
 	(debug "mexpand_defmacro sdefmacro=" sdefmacro "\n oldmaclist=" maclist)
+	(debug "mexpand_defmacro sinstmacro=" sinstmacro)
 	(assert_msg "check maclist" (is_list maclist))
-	(list_append maclist sdefmacro)
+	(list_append maclist sinstmacro)
 	;; we should put a :mbind_expanser closure into mbind
 	(put_fields mbind 
 		    :mbind_expanser 
@@ -3150,6 +3168,19 @@ is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
 of ctype @code{:value}.}#)
 
 
+;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;; ther hook to install a macro
+(defhook hook_macro_installer (mbind mexpclos)
+  ()
+  :void
+  :predef HOOK_MACRO_INSTALLER
+  :doc #{The internal $HOOK_MACRO_INSTALLER is installing macro, during a translation}#
+  (debug "hook_macro_installer mbind=" mbind " mexpclos=" mexpclos)
+  (assert_msg "check mbind" (is_a mbind class_defined_macro_binding))
+  (assert_msg "check mexpclos" (is_closure mexpclos))
+  (unsafe_put_fields mbind :mbind_expanser mexpclos)
+  (debug "hook_macro_installer updated mbind=" mbind)
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;; the defvar expander
@@ -7993,6 +8024,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_letrec_binding
  class_source_list
  class_source_macro_let_binding
+ class_source_macro_installation
  class_source_match
  class_source_match_case
  class_source_matchalt
@@ -8044,6 +8076,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  expand_msend  
  expand_pairlist_as_tuple
  expand_primitive
+ hook_macro_installer
  install_initial_macro
  is_recursively_constructible
  lambda_arg_bindings

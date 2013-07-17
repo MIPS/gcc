@@ -1,6 +1,23 @@
 
 
-2013-07-16  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-predef.list (HOOK_MACRO_INSTALLER): New.
+
+	* melt/warmelt-macro.melt (class_source_macro_installation): New
+	class with field smacinst_defmacro.
+	(hook_macro_installer): New hook.
+	(melt_delayed_macro_expander): Call
+	melt_invoke_translator_runner_macroexpansions.
+	(mexpand_defmacro): Create instance of
+	class_source_macro_installation.
+
+	* melt/warmelt-normal.melt (normexp_macro_installation): New
+	method for normal_exp of normexp_macro_installation.
+
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): Can
+	handle normalization into tuples or lists of nreps.
+
+2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

@@ -6030,6 +6030,7 @@ if (1) return;
 
 
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; internal utility function to normalize a macroexpanded list
 ;; return the normalized list, the normalized bindings, the start clock
@@ -6110,8 +6111,24 @@ if (1) return;
 	      (list_append (unsafe_get_field :ninit_topl iniproc) 
 			   wnexp)
 	      ))
-	(list_append normlist nexp)
-	(list_append bindlist nbind)
+	(cond ( (is_list nexp)
+		(list_append2list normlist nexp))
+	      ( (is_multiple nexp)
+		(foreach_in_multiple
+		 (nexp)
+		 (curcomp :long cix)
+		 (list_append normlist curcomp)))
+	      (:else
+	       (list_append normlist nexp)))
+	(cond ( (is_list nbind)
+		(list_append2list bindlist nbind))
+	      ( (is_multiple nbind)
+		(foreach_in_multiple
+		 (nbind)
+		 (curbind :long bix)
+		 (list_append bindlist curbind)))
+	      (:else
+	       (list_append bindlist nbind)))
 	)))
     ;;
     (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc))
