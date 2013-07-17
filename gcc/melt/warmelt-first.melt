@@ -2363,6 +2363,15 @@ See also $DISCR_ROUTINE.}#
   :disc_super discr_any_receiver
   :named_name '"DISCR_CLOSURE")
 
+;;; the discriminant for macro closures
+(definstance discr_macro_closure class_discriminant
+  :doc #{The $DISCR_MACRO_CLOSURE is the discriminant of MELT macro closures,
+See also $DISCR_ROUTINE and $DISCR_CLOSURE.}#
+  :predef DISCR_MACRO_CLOSURE
+  :obj_num MELTOBMAG_CLOSURE
+  :disc_super discr_closure
+  :named_name '"DISCR_MACRO_CLOSURE")
+
 ;;; the discriminant for routines
 (definstance discr_routine class_discriminant
   :doc #{The $DISCR_ROUTINE is the discriminant of MELT routine values, which boxes 
@@ -4124,7 +4133,8 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  discr_hook
  discr_integer                        
  discr_list    
- discr_loop 
+ discr_loop
+ discr_macro_closure
  discr_map_basic_blocks
  discr_map_bitmaps
  discr_map_edges

@@ -1,5 +1,11 @@
 
 
+2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-predef.list (DISCR_MACRO_CLOSURE): New.
+
+	* melt/warmelt-first (discr_macro_closure): New.
+
 2013-07-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt (class_any_module_context): Add
