@@ -1,3 +1,10 @@
+2013-07-17  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2013-07-17  Iain Sandoe  <iain@codesourcery.com>
+
+	* config/rs6000/darwin.h (REGISTER_NAMES): Add HTM registers.
+
 2013-07-16  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Merge up to 200989.
