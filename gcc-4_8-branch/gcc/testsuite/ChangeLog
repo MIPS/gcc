@@ -1,3 +1,10 @@
+2013-07-15  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* lib/target-supports.exp (check_effective_target_powerpc_htm_ok): New
+	function to test if HTM is available.
+	* gcc.target/powerpc/htm-xl-intrin-1.c: New test.
+	* gcc.target/powerpc/htm-builtin-1.c: New test.
+
 2013-07-10  Janis Johnson  <janisjo@codesourcery.com>
 
 	* gcc.target/powerpc/20020118-1.c: Force 128-bit stack alignment
