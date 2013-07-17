@@ -1431,6 +1431,7 @@ routine procedures.}#
 
 ;; wrap a normal let around a single normalized expression & a bindinglist
 (defun wrap_normal_let1 (nexp bindlist loc)
+  (debug "wrap_normal_let1 nexp=" nexp " bindlist=" bindlist)
   (assert_msg "check bindlist" (is_list_or_null bindlist))
   (list_every
    bindlist 
@@ -4978,8 +4979,10 @@ source location.}#
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context))
       (assert_msg "check nmacproc" (is_a nmacproc class_nrep_defunroutproc))
       (assert_msg "check mbind" (is_a mbind class_defined_macro_binding))
-      (let ( (nlitbind (register_literal_value mbind modctx)) 
-	     (nhcall  (instance class_nrep_hook_call
+      (let ( (nlitbind (let ( (nli (register_literal_value mbind modctx)) )
+			 (debug "normexp_macro_installation nlitbind=" nli)
+			 nli))
+	     (nhcall  (let ( (nhc (instance class_nrep_hook_call
 				:nrep_loc loc
 				:nexpr_ctyp ctype_void
 				:nhook_name '"HOOK_MACRO_INSTALLER"
@@ -4988,7 +4991,9 @@ source location.}#
 							     psloc "hook_macro_installer")
 				:nhook_outs (tuple)
 				:nhook_descr (hook_data hook_macro_installer)
-				))
+				)) )
+			(debug "normexp_macro_installation nhcall=" nhc)
+			nhc))
 	     (csym (clone_symbol (get_field :binder mbind)))
 	     (cbind (instance class_normal_let_binding
 			      :letbind_loc loc
@@ -5001,6 +5006,7 @@ source location.}#
 			       :nocc_symb csym
 			       :nocc_bind cbind))
 	     )
+	(debug "normexp_macro_installation csym=" csym " nhcall=" nhcall)
 	(debug "normexp_macro_installation final symocc=" symocc " cbind=" cbind)
 	(return symocc cbind)
 	))))

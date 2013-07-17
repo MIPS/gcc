@@ -1,6 +1,11 @@
 
 
 2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (wrap_normal_let1)
+	(normexp_macro_installation): More debug.
+
+2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
