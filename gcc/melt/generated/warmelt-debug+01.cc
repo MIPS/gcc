@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiDEBUG_h159930291; // forward declaration fromline 6501
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h159930291 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiDEBUG_h798886673; // forward declaration fromline 6501
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h798886673 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -324,7 +324,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h159930291 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiDEBUG_h798886673 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1160,7 +1160,7 @@ mtch1_0:
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_1;
                                                                         meltlab_count_1++;
-                                                                        debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/2f2854ac. *CLASS_OBJLABELINSTR/332f8aa. %ld", meltlab_count_1);
+                                                                        debugeprintf("objlabel_1 mtch1_*CLASS_NORMTESTER_MATCHER/127a8824. *CLASS_OBJLABELINSTR/103d647. %ld", meltlab_count_1);
 #endif
 
                                                                         ;
@@ -1211,7 +1211,7 @@ mtch1_1:
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_2;
                                                                         meltlab_count_2++;
-                                                                        debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/fab29a. *CLASS_OBJLABELINSTR/2a170449. %ld", meltlab_count_2);
+                                                                        debugeprintf("objlabel_2 mtch1_*CLASS_NORMTESTER_SUCCESS/31771bf8. *CLASS_OBJLABELINSTR/1d592cc4. %ld", meltlab_count_2);
 #endif
 
                                                                         ;
@@ -1268,7 +1268,7 @@ mtch1_2:
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_3;
                                                                         meltlab_count_3++;
-                                                                        debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/2d31452f. *CLASS_OBJLABELINSTR/1e70c4e8. %ld", meltlab_count_3);
+                                                                        debugeprintf("objlabel_3 mtch1_*CLASS_NORMTESTER_SUCCESS/1abb635f. *CLASS_OBJLABELINSTR/368de5d0. %ld", meltlab_count_3);
 #endif
 
                                                                         ;
@@ -1295,7 +1295,7 @@ mtch1__end:
 #if MELTDEBUG_MATCHING
                                                                         static long meltlab_count_4;
                                                                         meltlab_count_4++;
-                                                                        debugeprintf("objlabel_4 mtch1__end_h1055936757 *CLASS_OBJLABELINSTR/3ef050f5. %ld", meltlab_count_4);
+                                                                        debugeprintf("objlabel_4 mtch1__end_h927798647 *CLASS_OBJLABELINSTR/374d1577. %ld", meltlab_count_4);
 #endif
 
                                                                         ;
@@ -4258,10 +4258,10 @@ meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(meltclosure_ptr_t meltclosp_, melt_ptr_
     /** start of frame for meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS of CLASS_PROCROUTINEOBJ from 1518**/
 
     /*curframdeclclassy*/ class MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS// fromline 1531
-        : public Melt_CallFrameWithValues<21>
+        : public Melt_CallFrameWithValues<22>
     {
     public: /* fromline 1535*/
-        long mcfr_varnum[38];
+        long mcfr_varnum[35];
         /*classy others*/
         long _meltsparel;
         void melt_mark_stuff (void)
@@ -4273,22 +4273,22 @@ meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(meltclosure_ptr_t meltclosp_, melt_ptr_
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
         MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(meltclosure_ptr_t clos) //the closure constructor fromline 1594
-            : Melt_CallFrameWithValues<21> (
+            : Melt_CallFrameWithValues<22> (
 #if ENABLE_CHECKING /*fromline 1598*/
                 __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1602*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS), clos) {};
         MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS() //the constructor fromline 1606
-            : Melt_CallFrameWithValues<21> (
+            : Melt_CallFrameWithValues<22> (
 #if ENABLE_CHECKING /*fromline 1610*/
                 __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1614*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS)) {};
 #if ENABLE_CHECKING /*fromline 1618*/
         MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(const char*fil, int lin) //the constructor fromline 1620
-            : Melt_CallFrameWithValues<21> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS)) {};
+            : Melt_CallFrameWithValues<22> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS)) {};
         MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
-            : Melt_CallFrameWithValues<21> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS), clos) {};
+            : Melt_CallFrameWithValues<22> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS), clos) {};
 #endif /* ENABLE_CHECKING fromline 1630*/
 
     }; // end  class MeltFrame_meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS
@@ -4322,7 +4322,7 @@ meltrout_11_WARMELTmiDEBUG_DBGOUT_FIELDS(meltclosure_ptr_t meltclosp_, melt_ptr_
     /*getargs*/
 
     /*getarg#0*/
-    MELT_LOCATION("warmelt-debug.melt:507:/ getarg");
+    MELT_LOCATION("warmelt-debug.melt:508:/ getarg");
     /*_.OBJ__V2*/
     meltfptr[1] = (melt_ptr_t) meltfirstargp_;
 
@@ -4362,7 +4362,7 @@ meltlab_endgetargs:
 
 
 #if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-debug.melt:510:/ cppif.then");
+        MELT_LOCATION("warmelt-debug.melt:511:/ cppif.then");
         /*^block*/
         /*anyblock*/
         {
@@ -4373,7 +4373,7 @@ meltlab_endgetargs:
             /*_#IS_A__L4*/
             meltfnum[3] =
                 melt_is_instance_of((melt_ptr_t)(/*_.DBGI__V3*/ meltfptr[2]), (melt_ptr_t)((/*!CLASS_DEBUG_INFORMATION*/ meltfrout->tabval[0])));;
-            MELT_LOCATION("warmelt-debug.melt:510:/ cond");
+            MELT_LOCATION("warmelt-debug.melt:511:/ cond");
             /*cond*/
             if (/*_#IS_A__L4*/ meltfnum[3]) /*then*/
                 {
@@ -4382,7 +4382,7 @@ meltlab_endgetargs:
                 }
             else
                 {
-                    MELT_LOCATION("warmelt-debug.melt:510:/ cond.else");
+                    MELT_LOCATION("warmelt-debug.melt:511:/ cond.else");
 
                     /*^block*/
                     /*anyblock*/
@@ -4394,7 +4394,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             melt_assert_failed(( "check dbgi"),( "warmelt-debug.melt")?( "warmelt-debug.melt"):__FILE__,
-                                               (510)?(510):__LINE__, __FUNCTION__);
+                                               (511)?(511):__LINE__, __FUNCTION__);
                             ;
                         }
                         ;
@@ -4410,7 +4410,7 @@ meltlab_endgetargs:
             meltfptr[3] = /*_._IFELSE___V5*/ meltfptr[4];;
             /*epilog*/
 
-            MELT_LOCATION("warmelt-debug.melt:510:/ clear");
+            MELT_LOCATION("warmelt-debug.melt:511:/ clear");
             /*clear*/ /*_#IS_A__L4*/
             meltfnum[3] = 0 ;
             /*^clear*/
@@ -4425,7 +4425,7 @@ meltlab_endgetargs:
         ;
 
 #if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-debug.melt:511:/ cppif.then");
+        MELT_LOCATION("warmelt-debug.melt:512:/ cppif.then");
         /*^block*/
         /*anyblock*/
         {
@@ -4436,7 +4436,7 @@ meltlab_endgetargs:
             /*_#IS_OBJECT__L5*/
             meltfnum[3] =
                 (melt_magic_discr((melt_ptr_t)(/*_.OBJ__V2*/ meltfptr[1])) == MELTOBMAG_OBJECT);;
-            MELT_LOCATION("warmelt-debug.melt:511:/ cond");
+            MELT_LOCATION("warmelt-debug.melt:512:/ cond");
             /*cond*/
             if (/*_#IS_OBJECT__L5*/ meltfnum[3]) /*then*/
                 {
@@ -4445,7 +4445,7 @@ meltlab_endgetargs:
                 }
             else
                 {
-                    MELT_LOCATION("warmelt-debug.melt:511:/ cond.else");
+                    MELT_LOCATION("warmelt-debug.melt:512:/ cond.else");
 
                     /*^block*/
                     /*anyblock*/
@@ -4457,7 +4457,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             melt_assert_failed(( "check obj"),( "warmelt-debug.melt")?( "warmelt-debug.melt"):__FILE__,
-                                               (511)?(511):__LINE__, __FUNCTION__);
+                                               (512)?(512):__LINE__, __FUNCTION__);
                             ;
                         }
                         ;
@@ -4473,7 +4473,7 @@ meltlab_endgetargs:
             meltfptr[4] = /*_._IFELSE___V7*/ meltfptr[6];;
             /*epilog*/
 
-            MELT_LOCATION("warmelt-debug.melt:511:/ clear");
+            MELT_LOCATION("warmelt-debug.melt:512:/ clear");
             /*clear*/ /*_#IS_OBJECT__L5*/
             meltfnum[3] = 0 ;
             /*^clear*/
@@ -4486,7 +4486,7 @@ meltlab_endgetargs:
         /*_.IFCPP___V6*/ meltfptr[4] = (/*nil*/NULL);
 #endif /*MELT_HAVE_DEBUG*/
         ;
-        MELT_LOCATION("warmelt-debug.melt:512:/ quasiblock");
+        MELT_LOCATION("warmelt-debug.melt:513:/ quasiblock");
 
 
         /*_#NBF__L6*/
@@ -4502,7 +4502,7 @@ meltlab_endgetargs:
         /*^compute*/
         /*_#FLDCNT__L8*/
         meltfnum[7] = 0;;
-        MELT_LOCATION("warmelt-debug.melt:516:/ getslot");
+        MELT_LOCATION("warmelt-debug.melt:517:/ getslot");
         {
             melt_ptr_t slot=NULL, obj=NULL;
             obj = (melt_ptr_t)(/*_.CLA__V9*/ meltfptr[8]) /*=obj*/;
@@ -4511,7 +4511,7 @@ meltlab_endgetargs:
             meltfptr[9] = slot;
         };
         ;
-        MELT_LOCATION("warmelt-debug.melt:517:/ getslot");
+        MELT_LOCATION("warmelt-debug.melt:518:/ getslot");
         {
             melt_ptr_t slot=NULL, obj=NULL;
             obj = (melt_ptr_t)(/*_.DBGI__V3*/ meltfptr[2]) /*=obj*/;
@@ -4523,7 +4523,7 @@ meltlab_endgetargs:
         /*_#OUTOFF__L9*/
         meltfnum[8] =
             melt_output_length ((melt_ptr_t)/*_.OUT__V11*/ meltfptr[10]);;
-        MELT_LOCATION("warmelt-debug.melt:519:/ cond");
+        MELT_LOCATION("warmelt-debug.melt:520:/ cond");
         /*cond*/
         if (
             /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.DBGI__V3*/ meltfptr[2]),
@@ -4553,7 +4553,7 @@ meltlab_endgetargs:
             (melt_get_int((melt_ptr_t)(/*_.DBGI_MAXDEPTH__V12*/ meltfptr[11])));;
 
 #if MELT_HAVE_DEBUG
-        MELT_LOCATION("warmelt-debug.melt:521:/ cppif.then");
+        MELT_LOCATION("warmelt-debug.melt:522:/ cppif.then");
         /*^block*/
         /*anyblock*/
         {
@@ -4564,7 +4564,7 @@ meltlab_endgetargs:
             /*_#IS_OUT__L11*/
             meltfnum[10] =
                 (melt_is_out ((melt_ptr_t) /*_.OUT__V11*/ meltfptr[10])) ;;
-            MELT_LOCATION("warmelt-debug.melt:521:/ cond");
+            MELT_LOCATION("warmelt-debug.melt:522:/ cond");
             /*cond*/
             if (/*_#IS_OUT__L11*/ meltfnum[10]) /*then*/
                 {
@@ -4573,7 +4573,7 @@ meltlab_endgetargs:
                 }
             else
                 {
-                    MELT_LOCATION("warmelt-debug.melt:521:/ cond.else");
+                    MELT_LOCATION("warmelt-debug.melt:522:/ cond.else");
 
                     /*^block*/
                     /*anyblock*/
@@ -4585,7 +4585,7 @@ meltlab_endgetargs:
                         {
                             /*^locexp*/
                             melt_assert_failed(( "check out"),( "warmelt-debug.melt")?( "warmelt-debug.melt"):__FILE__,
-                                               (521)?(521):__LINE__, __FUNCTION__);
+                                               (522)?(522):__LINE__, __FUNCTION__);
                             ;
                         }
                         ;
@@ -4601,7 +4601,7 @@ meltlab_endgetargs:
             meltfptr[12] = /*_._IFELSE___V14*/ meltfptr[13];;
             /*epilog*/
 
-            MELT_LOCATION("warmelt-debug.melt:521:/ clear");
+            MELT_LOCATION("warmelt-debug.melt:522:/ clear");
             /*clear*/ /*_#IS_OUT__L11*/
             meltfnum[10] = 0 ;
             /*^clear*/
@@ -4620,44 +4620,10 @@ meltlab_endgetargs:
         /*^compute*/
         /*_#ltI__L12*/
         meltfnum[10] =
-            ((/*_#IX__L7*/ meltfnum[6]) < (0));;
-        MELT_LOCATION("warmelt-debug.melt:523:/ cond");
-        /*cond*/
-        if (/*_#ltI__L12*/ meltfnum[10]) /*then*/
-            {
-                /*^cond.then*/
-                /*^block*/
-                /*anyblock*/
-                {
-
-                    /*^compute*/
-                    /*_#IX__L7*/ meltfnum[6] = /*_#SETQ___L14*/ meltfnum[13] = 0;;
-                    /*_#_IF___L13*/
-                    meltfnum[12] = /*_#SETQ___L14*/ meltfnum[13];;
-                    /*epilog*/
-
-                    MELT_LOCATION("warmelt-debug.melt:523:/ clear");
-                    /*clear*/ /*_#SETQ___L14*/
-                    meltfnum[13] = 0 ;
-                }
-                ;
-            }
-        else    /*^cond.else*/
-            {
-
-                /*_#_IF___L13*/ meltfnum[12] = 0;;
-            }
-        ;
-
-        MELT_CHECK_SIGNAL();
-        ;
-        /*^compute*/
-        /*_#ltI__L15*/
-        meltfnum[13] =
             ((/*_#DEPTH__L1*/ meltfnum[0]) < (/*_#MAXDEPTH__L10*/ meltfnum[9]));;
         MELT_LOCATION("warmelt-debug.melt:524:/ cond");
         /*cond*/
-        if (/*_#ltI__L15*/ meltfnum[13]) /*then*/
+        if (/*_#ltI__L12*/ meltfnum[10]) /*then*/
             {
                 /*^cond.then*/
                 /*^block*/
@@ -4679,12 +4645,12 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
 
                             MELT_CHECK_SIGNAL();
                             ;
-                            /*_#gteqI__L16*/
-                            meltfnum[15] =
+                            /*_#gteqI__L13*/
+                            meltfnum[12] =
                                 ((/*_#IX__L7*/ meltfnum[6]) >= (/*_#NBF__L6*/ meltfnum[3]));;
                             MELT_LOCATION("warmelt-debug.melt:527:/ cond");
                             /*cond*/
-                            if (/*_#gteqI__L16*/ meltfnum[15]) /*then*/
+                            if (/*_#gteqI__L13*/ meltfnum[12]) /*then*/
                                 {
                                     /*^cond.then*/
                                     /*^block*/
@@ -4712,12 +4678,12 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
 
                             MELT_CHECK_SIGNAL();
                             ;
-                            /*_#gtI__L17*/
-                            meltfnum[16] =
+                            /*_#gtI__L14*/
+                            meltfnum[13] =
                                 ((/*_#TORANK__L3*/ meltfnum[2]) > (0));;
                             MELT_LOCATION("warmelt-debug.melt:529:/ cond");
                             /*cond*/
-                            if (/*_#gtI__L17*/ meltfnum[16]) /*then*/
+                            if (/*_#gtI__L14*/ meltfnum[13]) /*then*/
                                 {
                                     /*^cond.then*/
                                     /*^block*/
@@ -4727,12 +4693,12 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
 
                                         MELT_CHECK_SIGNAL();
                                         ;
-                                        /*_#gtI__L18*/
-                                        meltfnum[17] =
+                                        /*_#gtI__L15*/
+                                        meltfnum[14] =
                                             ((/*_#IX__L7*/ meltfnum[6]) > (/*_#TORANK__L3*/ meltfnum[2]));;
                                         MELT_LOCATION("warmelt-debug.melt:529:/ cond");
                                         /*cond*/
-                                        if (/*_#gtI__L18*/ meltfnum[17]) /*then*/
+                                        if (/*_#gtI__L15*/ meltfnum[14]) /*then*/
                                             {
                                                 /*^cond.then*/
                                                 /*^block*/
@@ -4760,8 +4726,8 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                         /*epilog*/
 
                                         MELT_LOCATION("warmelt-debug.melt:529:/ clear");
-                                        /*clear*/ /*_#gtI__L18*/
-                                        meltfnum[17] = 0 ;
+                                        /*clear*/ /*_#gtI__L15*/
+                                        meltfnum[14] = 0 ;
                                     }
                                     ;
                                 } /*noelse*/
@@ -4780,15 +4746,15 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                             MELT_CHECK_SIGNAL();
                             ;
                             /*^compute*/
-                            /*_#lteqI__L19*/
-                            meltfnum[17] =
+                            /*_#lteqI__L16*/
+                            meltfnum[14] =
                                 ((/*_#DEPTH__L1*/ meltfnum[0]) <= (1));;
                             MELT_LOCATION("warmelt-debug.melt:535:/ cond");
                             /*cond*/
-                            if (/*_#lteqI__L19*/ meltfnum[17]) /*then*/
+                            if (/*_#lteqI__L16*/ meltfnum[14]) /*then*/
                                 {
                                     /*^cond.then*/
-                                    /*_#OR___L20*/ meltfnum[19] = /*_#lteqI__L19*/ meltfnum[17];;
+                                    /*_#OR___L17*/ meltfnum[16] = /*_#lteqI__L16*/ meltfnum[14];;
                                 }
                             else
                                 {
@@ -4798,23 +4764,23 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                     /*anyblock*/
                                     {
 
-                                        /*_#NOTNULL__L21*/ meltfnum[20] =
+                                        /*_#NOTNULL__L18*/ meltfnum[17] =
                                             ((/*_.CURVAL__V19*/ meltfptr[18]) != NULL);;
                                         /*^compute*/
-                                        /*_#OR___L20*/
-                                        meltfnum[19] = /*_#NOTNULL__L21*/ meltfnum[20];;
+                                        /*_#OR___L17*/
+                                        meltfnum[16] = /*_#NOTNULL__L18*/ meltfnum[17];;
                                         /*epilog*/
 
                                         MELT_LOCATION("warmelt-debug.melt:535:/ clear");
-                                        /*clear*/ /*_#NOTNULL__L21*/
-                                        meltfnum[20] = 0 ;
+                                        /*clear*/ /*_#NOTNULL__L18*/
+                                        meltfnum[17] = 0 ;
                                     }
                                     ;
                                 }
                             ;
                             /*^cond*/
                             /*cond*/
-                            if (/*_#OR___L20*/ meltfnum[19]) /*then*/
+                            if (/*_#OR___L17*/ meltfnum[16]) /*then*/
                                 {
                                     /*^cond.then*/
                                     /*^block*/
@@ -4824,32 +4790,32 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                         MELT_LOCATION("warmelt-debug.melt:536:/ quasiblock");
 
 
-                                        /*_#OUTCUROFF__L22*/
-                                        meltfnum[20] =
+                                        /*_#OUTCUROFF__L19*/
+                                        meltfnum[17] =
                                             melt_output_length ((melt_ptr_t)/*_.OUT__V11*/ meltfptr[10]);;
                                         /*^compute*/
-                                        /*_#plI__L23*/
-                                        meltfnum[22] =
+                                        /*_#plI__L20*/
+                                        meltfnum[19] =
                                             ((/*_#FLDCNT__L8*/ meltfnum[7]) + (1));;
                                         MELT_LOCATION("warmelt-debug.melt:539:/ compute");
                                         /*_#FLDCNT__L8*/
-                                        meltfnum[7] = /*_#SETQ___L24*/ meltfnum[23] = /*_#plI__L23*/ meltfnum[22];;
+                                        meltfnum[7] = /*_#SETQ___L21*/ meltfnum[20] = /*_#plI__L20*/ meltfnum[19];;
 
                                         MELT_CHECK_SIGNAL();
                                         ;
-                                        /*_#plI__L25*/
-                                        meltfnum[24] =
+                                        /*_#plI__L22*/
+                                        meltfnum[21] =
                                             ((/*_#OUTOFF__L9*/ meltfnum[8]) + (80));;
                                         /*^compute*/
-                                        /*_#gtI__L26*/
-                                        meltfnum[25] =
-                                            ((/*_#OUTCUROFF__L22*/ meltfnum[20]) > (/*_#plI__L25*/ meltfnum[24]));;
+                                        /*_#gtI__L23*/
+                                        meltfnum[22] =
+                                            ((/*_#OUTCUROFF__L19*/ meltfnum[17]) > (/*_#plI__L22*/ meltfnum[21]));;
                                         MELT_LOCATION("warmelt-debug.melt:540:/ cond");
                                         /*cond*/
-                                        if (/*_#gtI__L26*/ meltfnum[25]) /*then*/
+                                        if (/*_#gtI__L23*/ meltfnum[22]) /*then*/
                                             {
                                                 /*^cond.then*/
-                                                /*_#OR___L27*/ meltfnum[26] = /*_#gtI__L26*/ meltfnum[25];;
+                                                /*_#OR___L24*/ meltfnum[23] = /*_#gtI__L23*/ meltfnum[22];;
                                             }
                                         else
                                             {
@@ -4859,18 +4825,18 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                                 /*anyblock*/
                                                 {
 
-                                                    /*_#pcIRAW__L28*/ meltfnum[27] =
+                                                    /*_#pcIRAW__L25*/ meltfnum[24] =
                                                         ((/*_#FLDCNT__L8*/ meltfnum[7]) % (2));;
                                                     /*^compute*/
-                                                    /*_#eqeqI__L29*/
-                                                    meltfnum[28] =
-                                                        ((/*_#pcIRAW__L28*/ meltfnum[27]) == (0));;
+                                                    /*_#eqeqI__L26*/
+                                                    meltfnum[25] =
+                                                        ((/*_#pcIRAW__L25*/ meltfnum[24]) == (0));;
                                                     MELT_LOCATION("warmelt-debug.melt:540:/ cond");
                                                     /*cond*/
-                                                    if (/*_#eqeqI__L29*/ meltfnum[28]) /*then*/
+                                                    if (/*_#eqeqI__L26*/ meltfnum[25]) /*then*/
                                                         {
                                                             /*^cond.then*/
-                                                            /*_#OR___L30*/ meltfnum[29] = /*_#eqeqI__L29*/ meltfnum[28];;
+                                                            /*_#OR___L27*/ meltfnum[26] = /*_#eqeqI__L26*/ meltfnum[25];;
                                                         }
                                                     else
                                                         {
@@ -4880,40 +4846,40 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                                             /*anyblock*/
                                                             {
 
-                                                                /*_#lteqI__L31*/ meltfnum[30] =
+                                                                /*_#lteqI__L28*/ meltfnum[27] =
                                                                     ((/*_#DEPTH__L1*/ meltfnum[0]) <= (1));;
                                                                 /*^compute*/
-                                                                /*_#OR___L30*/
-                                                                meltfnum[29] = /*_#lteqI__L31*/ meltfnum[30];;
+                                                                /*_#OR___L27*/
+                                                                meltfnum[26] = /*_#lteqI__L28*/ meltfnum[27];;
                                                                 /*epilog*/
 
                                                                 MELT_LOCATION("warmelt-debug.melt:540:/ clear");
-                                                                /*clear*/ /*_#lteqI__L31*/
-                                                                meltfnum[30] = 0 ;
+                                                                /*clear*/ /*_#lteqI__L28*/
+                                                                meltfnum[27] = 0 ;
                                                             }
                                                             ;
                                                         }
                                                     ;
-                                                    /*_#OR___L27*/
-                                                    meltfnum[26] = /*_#OR___L30*/ meltfnum[29];;
+                                                    /*_#OR___L24*/
+                                                    meltfnum[23] = /*_#OR___L27*/ meltfnum[26];;
                                                     /*epilog*/
 
                                                     MELT_LOCATION("warmelt-debug.melt:540:/ clear");
-                                                    /*clear*/ /*_#pcIRAW__L28*/
-                                                    meltfnum[27] = 0 ;
+                                                    /*clear*/ /*_#pcIRAW__L25*/
+                                                    meltfnum[24] = 0 ;
                                                     /*^clear*/
-                                                    /*clear*/ /*_#eqeqI__L29*/
-                                                    meltfnum[28] = 0 ;
+                                                    /*clear*/ /*_#eqeqI__L26*/
+                                                    meltfnum[25] = 0 ;
                                                     /*^clear*/
-                                                    /*clear*/ /*_#OR___L30*/
-                                                    meltfnum[29] = 0 ;
+                                                    /*clear*/ /*_#OR___L27*/
+                                                    meltfnum[26] = 0 ;
                                                 }
                                                 ;
                                             }
                                         ;
                                         /*^cond*/
                                         /*cond*/
-                                        if (/*_#OR___L27*/ meltfnum[26]) /*then*/
+                                        if (/*_#OR___L24*/ meltfnum[23]) /*then*/
                                             {
                                                 /*^cond.then*/
                                                 /*^block*/
@@ -4926,31 +4892,31 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                                         meltgc_out_add_indent((melt_ptr_t)(/*_.OUT__V11*/ meltfptr[10]), (/*_#DEPTH__L1*/ meltfnum[0]), 0);;
                                                     }
                                                     ;
-                                                    /*_#STRBUF_USEDLENGTH__L33*/
-                                                    meltfnum[27] =
+                                                    /*_#STRBUF_USEDLENGTH__L30*/
+                                                    meltfnum[24] =
                                                         melt_strbuf_usedlength((melt_ptr_t)(/*_.OUT__V11*/ meltfptr[10]));;
                                                     MELT_LOCATION("warmelt-debug.melt:547:/ compute");
                                                     /*_#OUTOFF__L9*/
-                                                    meltfnum[8] = /*_#SETQ___L34*/ meltfnum[28] = /*_#STRBUF_USEDLENGTH__L33*/ meltfnum[27];;
+                                                    meltfnum[8] = /*_#SETQ___L31*/ meltfnum[25] = /*_#STRBUF_USEDLENGTH__L30*/ meltfnum[24];;
                                                     MELT_LOCATION("warmelt-debug.melt:545:/ quasiblock");
 
 
-                                                    /*_#PROGN___L35*/
-                                                    meltfnum[29] = /*_#SETQ___L34*/ meltfnum[28];;
+                                                    /*_#PROGN___L32*/
+                                                    meltfnum[26] = /*_#SETQ___L31*/ meltfnum[25];;
                                                     /*^compute*/
-                                                    /*_#_IFELSE___L32*/
-                                                    meltfnum[30] = /*_#PROGN___L35*/ meltfnum[29];;
+                                                    /*_#_IFELSE___L29*/
+                                                    meltfnum[27] = /*_#PROGN___L32*/ meltfnum[26];;
                                                     /*epilog*/
 
                                                     MELT_LOCATION("warmelt-debug.melt:540:/ clear");
-                                                    /*clear*/ /*_#STRBUF_USEDLENGTH__L33*/
-                                                    meltfnum[27] = 0 ;
+                                                    /*clear*/ /*_#STRBUF_USEDLENGTH__L30*/
+                                                    meltfnum[24] = 0 ;
                                                     /*^clear*/
-                                                    /*clear*/ /*_#SETQ___L34*/
-                                                    meltfnum[28] = 0 ;
+                                                    /*clear*/ /*_#SETQ___L31*/
+                                                    meltfnum[25] = 0 ;
                                                     /*^clear*/
-                                                    /*clear*/ /*_#PROGN___L35*/
-                                                    meltfnum[29] = 0 ;
+                                                    /*clear*/ /*_#PROGN___L32*/
+                                                    meltfnum[26] = 0 ;
                                                 }
                                                 ;
                                             }
@@ -4969,8 +4935,8 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                                         meltgc_add_out((melt_ptr_t)(/*_.OUT__V11*/ meltfptr[10]), ( " "));
                                                     }
                                                     ;
-                                                    /*clear*/ /*_#_IFELSE___L32*/
-                                                    meltfnum[30] = 0 ;
+                                                    /*clear*/ /*_#_IFELSE___L29*/
+                                                    meltfnum[27] = 0 ;
                                                     /*epilog*/
                                                 }
                                                 ;
@@ -4997,8 +4963,8 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                             meltgc_add_out((melt_ptr_t)(/*_.OUT__V11*/ meltfptr[10]), ( "="));
                                         }
                                         ;
-                                        /*_#plI__L36*/
-                                        meltfnum[27] =
+                                        /*_#plI__L33*/
+                                        meltfnum[24] =
                                             ((/*_#DEPTH__L1*/ meltfnum[0]) + (1));;
 
                                         MELT_CHECK_SIGNAL();
@@ -5011,7 +4977,7 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                             /*^apply.arg*/
                                             argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.DBGI__V3*/ meltfptr[2];
                                             /*^apply.arg*/
-                                            argtab[1].meltbp_long = /*_#plI__L36*/ meltfnum[27];
+                                            argtab[1].meltbp_long = /*_#plI__L33*/ meltfnum[24];
                                             /*_.DBG_OUT__V21*/
                                             meltfptr[20] =  melt_apply ((meltclosure_ptr_t)((/*!DBG_OUT*/ meltfrout->tabval[1])), (melt_ptr_t)(/*_.CURVAL__V19*/ meltfptr[18]), (MELTBPARSTR_PTR MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
                                         }
@@ -5024,32 +4990,32 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                                         ;
 
                                         MELT_LOCATION("warmelt-debug.melt:536:/ clear");
-                                        /*clear*/ /*_#OUTCUROFF__L22*/
+                                        /*clear*/ /*_#OUTCUROFF__L19*/
+                                        meltfnum[17] = 0 ;
+                                        /*^clear*/
+                                        /*clear*/ /*_#plI__L20*/
+                                        meltfnum[19] = 0 ;
+                                        /*^clear*/
+                                        /*clear*/ /*_#SETQ___L21*/
                                         meltfnum[20] = 0 ;
                                         /*^clear*/
-                                        /*clear*/ /*_#plI__L23*/
+                                        /*clear*/ /*_#plI__L22*/
+                                        meltfnum[21] = 0 ;
+                                        /*^clear*/
+                                        /*clear*/ /*_#gtI__L23*/
                                         meltfnum[22] = 0 ;
                                         /*^clear*/
-                                        /*clear*/ /*_#SETQ___L24*/
+                                        /*clear*/ /*_#OR___L24*/
                                         meltfnum[23] = 0 ;
                                         /*^clear*/
-                                        /*clear*/ /*_#plI__L25*/
-                                        meltfnum[24] = 0 ;
-                                        /*^clear*/
-                                        /*clear*/ /*_#gtI__L26*/
-                                        meltfnum[25] = 0 ;
-                                        /*^clear*/
-                                        /*clear*/ /*_#OR___L27*/
-                                        meltfnum[26] = 0 ;
-                                        /*^clear*/
-                                        /*clear*/ /*_#_IFELSE___L32*/
-                                        meltfnum[30] = 0 ;
+                                        /*clear*/ /*_#_IFELSE___L29*/
+                                        meltfnum[27] = 0 ;
                                         /*^clear*/
                                         /*clear*/ /*_.NAMED_NAME__V20*/
                                         meltfptr[19] = 0 ;
                                         /*^clear*/
-                                        /*clear*/ /*_#plI__L36*/
-                                        meltfnum[27] = 0 ;
+                                        /*clear*/ /*_#plI__L33*/
+                                        meltfnum[24] = 0 ;
                                         /*^clear*/
                                         /*clear*/ /*_.DBG_OUT__V21*/
                                         meltfptr[20] = 0 ;
@@ -5066,34 +5032,34 @@ meltlabloop_FLDLOOP_1:;/*^loopbody*/
                             /*clear*/ /*_.CURVAL__V19*/
                             meltfptr[18] = 0 ;
                             /*^clear*/
-                            /*clear*/ /*_#lteqI__L19*/
-                            meltfnum[17] = 0 ;
+                            /*clear*/ /*_#lteqI__L16*/
+                            meltfnum[14] = 0 ;
                             /*^clear*/
-                            /*clear*/ /*_#OR___L20*/
-                            meltfnum[19] = 0 ;
-                            /*_#plI__L37*/
-                            meltfnum[28] =
+                            /*clear*/ /*_#OR___L17*/
+                            meltfnum[16] = 0 ;
+                            /*_#plI__L34*/
+                            meltfnum[25] =
                                 ((/*_#IX__L7*/ meltfnum[6]) + (1));;
                             MELT_LOCATION("warmelt-debug.melt:556:/ compute");
                             /*_#IX__L7*/
-                            meltfnum[6] = /*_#SETQ___L38*/ meltfnum[29] = /*_#plI__L37*/ meltfnum[28];;
+                            meltfnum[6] = /*_#SETQ___L35*/ meltfnum[26] = /*_#plI__L34*/ meltfnum[25];;
 
                             MELT_CHECK_SIGNAL();
                             ;
                             /*epilog*/
 
                             MELT_LOCATION("warmelt-debug.melt:525:/ clear");
-                            /*clear*/ /*_#gteqI__L16*/
-                            meltfnum[15] = 0 ;
+                            /*clear*/ /*_#gteqI__L13*/
+                            meltfnum[12] = 0 ;
                             /*^clear*/
-                            /*clear*/ /*_#gtI__L17*/
-                            meltfnum[16] = 0 ;
+                            /*clear*/ /*_#gtI__L14*/
+                            meltfnum[13] = 0 ;
                             /*^clear*/
-                            /*clear*/ /*_#plI__L37*/
-                            meltfnum[28] = 0 ;
+                            /*clear*/ /*_#plI__L34*/
+                            meltfnum[25] = 0 ;
                             /*^clear*/
-                            /*clear*/ /*_#SETQ___L38*/
-                            meltfnum[29] = 0 ;
+                            /*clear*/ /*_#SETQ___L35*/
+                            meltfnum[26] = 0 ;
                         }
                         ;
                         ;
@@ -5104,14 +5070,22 @@ meltlabexit_FLDLOOP_1:;/*^loopepilog*/
                         meltfptr[15] = /*_.FLDLOOP__V17*/ meltfptr[16];;
                     }
                     ;
+                    MELT_LOCATION("warmelt-debug.melt:524:/ quasiblock");
+
+
+                    /*_.PROGN___V22*/
+                    meltfptr[19] = /*_.FOREVER___V16*/ meltfptr[15];;
                     /*^compute*/
                     /*_._IF___V15*/
-                    meltfptr[13] = /*_.FOREVER___V16*/ meltfptr[15];;
+                    meltfptr[13] = /*_.PROGN___V22*/ meltfptr[19];;
                     /*epilog*/
 
                     MELT_LOCATION("warmelt-debug.melt:524:/ clear");
                     /*clear*/ /*_.FOREVER___V16*/
                     meltfptr[15] = 0 ;
+                    /*^clear*/
+                    /*clear*/ /*_.PROGN___V22*/
+                    meltfptr[19] = 0 ;
                 }
                 ;
             }
@@ -5125,7 +5099,7 @@ meltlabexit_FLDLOOP_1:;/*^loopepilog*/
         /*_.LET___V8*/
         meltfptr[6] = /*_._IF___V15*/ meltfptr[13];;
 
-        MELT_LOCATION("warmelt-debug.melt:512:/ clear");
+        MELT_LOCATION("warmelt-debug.melt:513:/ clear");
         /*clear*/ /*_#NBF__L6*/
         meltfnum[3] = 0 ;
         /*^clear*/
@@ -5159,25 +5133,19 @@ meltlabexit_FLDLOOP_1:;/*^loopepilog*/
         /*clear*/ /*_#ltI__L12*/
         meltfnum[10] = 0 ;
         /*^clear*/
-        /*clear*/ /*_#_IF___L13*/
-        meltfnum[12] = 0 ;
-        /*^clear*/
-        /*clear*/ /*_#ltI__L15*/
-        meltfnum[13] = 0 ;
-        /*^clear*/
         /*clear*/ /*_._IF___V15*/
         meltfptr[13] = 0 ;
 
         MELT_CHECK_SIGNAL();
         ;
-        MELT_LOCATION("warmelt-debug.melt:507:/ quasiblock");
+        MELT_LOCATION("warmelt-debug.melt:508:/ quasiblock");
 
 
         /*_._RETVAL___V1*/
         meltfptr[0] = /*_.LET___V8*/ meltfptr[6];;
 
         {
-            MELT_LOCATION("warmelt-debug.melt:507:/ locexp");
+            MELT_LOCATION("warmelt-debug.melt:508:/ locexp");
             /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
             if (meltxresdescr_ && meltxresdescr_[0] && meltxrestab_)
@@ -6497,7 +6465,7 @@ mtch1_0:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_5;
                         meltlab_count_5++;
-                        debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_SAME/1ed34003. *CLASS_OBJLABELINSTR/2d3dfc51. %ld", meltlab_count_5);
+                        debugeprintf("objlabel_5 mtch1_*CLASS_NORMTESTER_SAME/3d31b47d. *CLASS_OBJLABELINSTR/10c5e224. %ld", meltlab_count_5);
 #endif
 
                         ;
@@ -6542,7 +6510,7 @@ mtch1_1:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_6;
                         meltlab_count_6++;
-                        debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/3aec3df2. *CLASS_OBJLABELINSTR/298e7518. %ld", meltlab_count_6);
+                        debugeprintf("objlabel_6 mtch1_*CLASS_NORMTESTER_SUCCESS/2cd7d191. *CLASS_OBJLABELINSTR/a66873d. %ld", meltlab_count_6);
 #endif
 
                         ;
@@ -6570,7 +6538,7 @@ mtch1_2:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_7;
                         meltlab_count_7++;
-                        debugeprintf("objlabel_7 mtch1_*CLASS_NORMTESTER_SAME/7dcaaf4. *CLASS_OBJLABELINSTR/15aa05bb. %ld", meltlab_count_7);
+                        debugeprintf("objlabel_7 mtch1_*CLASS_NORMTESTER_SAME/1ed34003. *CLASS_OBJLABELINSTR/3382f073. %ld", meltlab_count_7);
 #endif
 
                         ;
@@ -6616,7 +6584,7 @@ mtch1_3:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_8;
                         meltlab_count_8++;
-                        debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/398cce5f. *CLASS_OBJLABELINSTR/388e39de. %ld", meltlab_count_8);
+                        debugeprintf("objlabel_8 mtch1_*CLASS_NORMTESTER_SUCCESS/3aec3df2. *CLASS_OBJLABELINSTR/3bb44d20. %ld", meltlab_count_8);
 #endif
 
                         ;
@@ -6644,7 +6612,7 @@ mtch1_4:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_9;
                         meltlab_count_9++;
-                        debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/14f6c53f. *CLASS_OBJLABELINSTR/2b1a2226. %ld", meltlab_count_9);
+                        debugeprintf("objlabel_9 mtch1_*CLASS_NORMTESTER_SUCCESS/1d84322a. *CLASS_OBJLABELINSTR/243d7170. %ld", meltlab_count_9);
 #endif
 
                         ;
@@ -6672,7 +6640,7 @@ mtch1__end:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_10;
                         meltlab_count_10++;
-                        debugeprintf("objlabel_10 mtch1__end_h392762284 *CLASS_OBJLABELINSTR/176913ac. %ld", meltlab_count_10);
+                        debugeprintf("objlabel_10 mtch1__end_h521376841 *CLASS_OBJLABELINSTR/1f139449. %ld", meltlab_count_10);
 #endif
 
                         ;
