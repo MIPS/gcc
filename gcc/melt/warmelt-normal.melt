@@ -4839,6 +4839,7 @@ source location.}#
 	 (snam (unsafe_get_field :sdef_name recv))
 	 (sformals (unsafe_get_field :sformal_args recv))
 	 (sbody (unsafe_get_field :sfun_body recv))
+	 (:long ismacro (is_a recv class_source_defmacro))
 	 (sfubind (find_env env snam))
 	 (newenv (fresh_env env))
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
@@ -4866,7 +4867,10 @@ source location.}#
 			      ))
 	 (ndataclos (instance class_nrep_dataclosure
 			      :ndata_name snam
-			      :ndata_discrx  (normal_predef discr_closure ncx sloc "discr_closure")
+			      :ndata_discrx 
+			      (if ismacro
+				  (normal_predef discr_macro_closure ncx sloc "discr_macro_closure")
+				(normal_predef discr_closure ncx sloc "discr_closure"))
 			      :ndclo_proc nproc
 			      :ndclo_closv () ;filled below
 			      ))
@@ -4939,9 +4943,14 @@ source location.}#
 		  )))) )
        (unsafe_put_fields ndataclos :ndclo_closv clovtup)
        )
-     ;; if sfubind is for macros we don't update it.
-     (if (is_a sfubind class_function_binding)
-	 (unsafe_put_fields sfubind :fixbind_data ndataclos))
+     ;; link the bindind and the data
+     (cond ( (is_a sfubind class_function_binding)
+	     (unsafe_put_fields sfubind :fixbind_data ndataclos))
+	   ( (is_a sfubind class_defined_macro_binding)
+	     (unsafe_put_fields sfubind :mbind_data ndataclos))
+	   (:else
+	    (debug "normexp_defun_defmacro strange sfubind=" sfubind)
+	    (assert_msg "bad sfubind" ())))
      (debug "normexp_defun_defmacro return nproc=" nproc)
      (return nproc ())
      )

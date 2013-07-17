@@ -2,6 +2,15 @@
 
 2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (class_defined_macro_binding): Add
+	mbind_data field.
+
+	* melt/warmelt-normal.melt (normexp_defun_defmacro): The created
+	closure is of discr_macro_closure for macros, and the data is in
+	mbind_data for macro.
+
+2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-predef.list (DISCR_MACRO_CLOSURE): New.
 
 	* melt/warmelt-first (discr_macro_closure): New.
