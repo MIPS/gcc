@@ -2842,7 +2842,25 @@ protected:
 #endif /*ENABLE_CHECKING*/
 public:
   static Melt_CallProtoFrame* top_call_frame() { return melt_top_call_frame; };
-  Melt_CallProtoFrame* previous_frame() { return _meltcf_prev; };
+  inline static int top_call_depth(void);
+  inline static bool top_call_deeper_than (int d);
+  Melt_CallProtoFrame* previous_frame() const { return _meltcf_prev; };
+  int call_depth() const { 
+    int d=0; 
+    for (const Melt_CallProtoFrame* fr = this; 
+	 fr != NULL;
+	 fr = fr->previous_frame())
+      d++;
+    return d;
+  };
+  bool call_deeper_than (int d) const {
+    for (const Melt_CallProtoFrame* fr = this; 
+	 fr != NULL;
+	 fr = fr->previous_frame())
+      if (d-- <= 0)
+	return true;
+    return false;
+  }
   const char* srcloc() const { return mcfr_flocs; };
   void set_srcloc(const char*s) { mcfr_flocs = s; };
 #if ENABLE_CHECKING
@@ -2929,6 +2947,8 @@ public:
 #endif /*ENABLE_CHECKING*/
 };				// end class Melt_CallProtoFrame
 
+int Melt_CallProtoFrame::top_call_depth()  { return melt_top_call_frame->call_depth(); }
+bool Melt_CallProtoFrame::top_call_deeper_than (int d) { return melt_top_call_frame->call_deeper_than(d); }
 
 class Melt_CallFrame : public Melt_CallProtoFrame {
   friend void melt_minor_copying_garbage_collector (size_t wanted);

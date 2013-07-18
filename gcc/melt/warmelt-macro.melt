@@ -1442,8 +1442,9 @@ $SPAC_OUTARGS are the output sub-patterns.}#
       (let ( (scont (unsafe_get_field :sexp_contents sexpr))
 	     (sloc (unsafe_get_field :loca_location sexpr))
 	     (soper (pair_head (list_first scont))) )
-	(debug "macroexpand_1 sexpr" sexpr)
-	(debug "macroexpand_1 soper" soper)
+	(debug "macroexpand_1 sexpr=" sexpr "\n soper" soper)
+	(if (melt_call_deeper_than 64)
+	    (warning_plain sloc "MELT quite deep macro expansion"))
 	(cond 
 ;;;; first test for keywords, since they are also symbols
 	 ( (is_a soper class_keyword)
@@ -1455,13 +1456,14 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	   (let ( (opbind (find_env env soper)) 
 		  (opname (get_field :named_name soper))
 		  )
-	     (debug "macroexpand_1 opbind" opbind)
+	     (debug "macroexpand_1 opbind=" opbind)
 	     (cond ( (is_a opbind class_macro_binding)
 		     (let ( (mexp (unsafe_get_field :mbind_expanser opbind)) 
 			    )
 		       (when (null mexp)
 			 (error_strv sloc "macro cannot be expanded since not yet defined" opname)
 			 (return () ()))
+		       (debug "macroexpand_1 mexp=" mexp)
 		       (assert_msg "check mexp" (is_closure mexp))
 		       (multicall 
 			(resm otherm)
@@ -1608,8 +1610,11 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	    (return resca ())
 	    ))))
     ;; if the sexpr is not an sexpr return itself
-    (return sexpr ())))
+    (progn 
+      (debug "macroexpand_1 non-sexpr result sexpr=" sexpr)
+      (return sexpr ()))))
 
+;;;;;;;;;;;;;;;;
 ;;; expand a primitive s-expression
 (defun expand_primitive (sprim sexpr env mexpander modctx)
   (assert_msg "check sprim" (is_a sprim class_primitive))

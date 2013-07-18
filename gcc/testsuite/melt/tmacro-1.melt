@@ -11,15 +11,19 @@
 |#
 
 (defmacro bitup (sexp env mexpander modctx)
-	  (debug "macro bitup sexp=" sexp)
-	  (let ( (newsexp (make_sexpr (get_field :loca_location sexp)
-				      'tuple sexp sexp))
-		 )
-	    (debug "macro bitup newsexp=" newsexp)
-	    (let ( (res (mexpander newsexp env mexpander modctx))
-		   )
-	      (debug "macro bitup res=" res)
-	      (return res))))
+  (debug "macro bitup sexp=" sexp)
+  ;; sexp is the entire (bitup ...) s-expression
+  (let ( 
+	(sloc (get_field :loca_location sexp))
+	(scont (get_field :sexp_contents sexp))
+	(arg1 (list_first scont))
+	(newsexp (make_sexpr sloc 'tuple arg1 arg1))
+	)
+    (debug "macro bitup newsexp=" newsexp)
+    (let ( (res (mexpander newsexp env mexpander modctx))
+	   )
+      (debug "macro bitup res=" res)
+      (return res))))
 
 (debug "here bitup=" bitup)
 

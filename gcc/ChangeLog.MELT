@@ -2,6 +2,24 @@
 
 2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (Melt_CallProtoFrame::call_depth)
+	(Melt_CallProtoFrame::call_deeper_than): New member functions.
+	(Melt_CallProtoFrame::top_call_depth)
+	(Melt_CallProtoFrame::top_call_deeper_than): New static functions.
+
+	* melt-runtime.c (melt_apply): Call melt_fatal_error when too deep
+	application...
+
+	* melt/warmelt-base.melt (melt_call_deeper_than, melt_call_depth):
+	New primitives.
+
+	* melt/warmelt-macro.melt (macroexpand_1): Warn when excessive
+	call depth.
+
+	* testsuite/melt/tmacro-1.melt: Retrieve the first argument of a macro.
+
+2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (melt_delayed_macro_expander): More debug.
 	(mexpand_defmacro): More debug. The expander refetches its closure
 	and reinvoke it.

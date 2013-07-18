@@ -44,6 +44,13 @@ used to create new environments in modules. Only for gurus and MELT itself.}#
   melthookproc_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER ((melt_ptr_t) ($PREVENV), $MODULNAME)
   }#)
 
+(defprimitive melt_call_depth () :long
+  :doc #{The primitive $MELT_CALL_DEPTH returns the call depth of the current MELT frame stack.}#
+  #{ /*melt_call_depth*/ Melt_CallProtoFrame::top_call_depth() }#)
+
+(defprimitive melt_call_deeper_than (:long d) :long
+  :doc #{The primitive $MELT_CALL_DEEPER_THAN returns non-zero if the current MELT frame stack is deeper than $D.}#
+  #{ /*melt_call_deeper_than*/ Melt_CallProtoFrame::top_call_deeper_than((int) $D) }#)
 
 ;; negation of is_object
 (defprimitive is_not_object (obj) :long
@@ -3401,6 +3408,8 @@ typedef struct melthook_st *melthook_ptr_t;
  melt_application_shallower
  melt_argument
  melt_error_counter
+ melt_call_deeper_than
+ melt_call_depth
  melt_increment_dbgcounter
  melt_is_bootstrapping
  melt_mode_reference

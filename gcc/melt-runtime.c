@@ -4876,9 +4876,7 @@ melt_apply (meltclosure_ptr_t clos_p,
   applcount_melt++;
   appldepth_melt++;
   if (appldepth_melt > MAXDEPTH_APPLY_MELT) {
-    melt_dbgshortbacktrace ("too deep applications", 260);
-    /* Don't call melt_fatal_error, since the backtrace is already shown. */
-    fatal_error ("too deep (%d) MELT applications", appldepth_melt);
+    melt_fatal_error ("too deep (%d) MELT applications", appldepth_melt);
   }
   if ((int) MELTBPAR__LAST >= (int) MELT_ARGDESCR_MAX - 2)
     melt_fatal_error ("too many different MELT ctypes since MELTBPAR__LAST= %d",
