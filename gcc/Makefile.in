@@ -1489,9 +1489,13 @@ OBJS-libcommon-target = $(common_out_object_file) prefix.o params.o \
 # This lists all host objects for the front ends.
 ALL_HOST_FRONTEND_OBJS = $(foreach v,$(CONFIG_LANGUAGES),$($(v)_OBJS))
 
+GCOV_OBJS = gcov.o
+GCOV_DUMP_OBJS = gcov-dump.o
+
 ALL_HOST_BACKEND_OBJS = $(GCC_OBJS) $(OBJS) $(OBJS-libcommon) \
   $(OBJS-libcommon-target) @TREEBROWSER@ main.o c-family/cppspec.o \
-  $(COLLECT2_OBJS) $(EXTRA_GCC_OBJS) $(GCOV_OBJS) $(GCOV_DUMP_OBJS)
+  $(COLLECT2_OBJS) $(EXTRA_GCC_OBJS) $(GCOV_OBJS) $(GCOV_DUMP_OBJS) \
+  lto-wrapper.o
 
 # This lists all host object files, whether they are included in this
 # compilation or not.
@@ -4098,10 +4102,8 @@ gcov.o: gcov.c gcov-io.c $(GCOV_IO_H) intl.h $(SYSTEM_H) coretypes.h $(TM_H) \
 gcov-dump.o: gcov-dump.c gcov-io.c $(GCOV_IO_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(CONFIG_H) version.h intl.h $(DIAGNOSTIC_H)
 
-GCOV_OBJS = gcov.o
 gcov$(exeext): $(GCOV_OBJS) $(LIBDEPS)
 	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_OBJS) $(LIBS) -o $@
-GCOV_DUMP_OBJS = gcov-dump.o
 gcov-dump$(exeext): $(GCOV_DUMP_OBJS) $(LIBDEPS)
 	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_DUMP_OBJS) \
 		$(LIBS) -o $@
