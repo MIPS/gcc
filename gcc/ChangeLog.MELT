@@ -2,6 +2,14 @@
 
 2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (melt_delayed_macro_expander): More debug.
+	(mexpand_defmacro): More debug. The expander refetches its closure
+	and reinvoke it.
+
+	* testsuite/melt/tmacro-1.melt: macroexpands the s-expr.
+
+2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt (normexp_macro_installation): Make an
 	instance of class_nrep_literalnamedvalue and use the closure of
 	the macrofunction.

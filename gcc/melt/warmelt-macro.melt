@@ -3061,7 +3061,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
   ;;
   (let ( (res (melt_invoke_translator_runner_macroexpansions maclist env))
 	 )
-    (debug "melt_delayed_macro_expander got res=" res)
+    (debug "melt_delayed_macro_expander after melt_invoke_translator_runner_macroexpansions res=" res
+	   "\n mbind=" mbind)
   ))
 
 ;;;;;;;;;;;;;;;;;; the defmacro expander
@@ -3111,11 +3112,11 @@ $EXPORT_VALUES to be visible outside its module.}#)
       (when (== (pair_head curpair) ':doc)
 	(setq curpair (pair_tail curpair)) ;; consume :doc
 	;; the documentation is NOT macro-expanded
-	(setq docv (pair_head curpair))	       ;; get the docv
-	(setq curpair (pair_tail curpair))     ;; consume it
+	(setq docv (pair_head curpair))	   ;; get the docv
+	(setq curpair (pair_tail curpair)) ;; consume it
 	)
       (debug "mexpand_defmacro initial mbind=" mbind)
-	;; should put a :mbind_expanser closure into mbind
+      ;; should put a :mbind_expanser closure into mbind
       ;; handle the body
       (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
 	     (maclist (get_field :mocx_macrolist modctx))
@@ -3145,16 +3146,23 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		    :mbind_expanser 
 		    (lambda (sexprm envm mexpanderm modctxm)
 		      (debug "mexpand_defmacro/lambdambind sexprm=" sexprm
-			     " modctxm=" modctxm)
+			     "\n modctxm=" modctxm)
 		      (assert_msg "check modctxm" (== modctxm modctx))
 		      (assert_msg "check envm" (== envm env))
-		      (multicall 
-		       (expmac othermac)
-		       (melt_delayed_macro_expander mbind maclist env mexpanderm modctx)
-		       (debug "mexpand_defmacro/lambdambind expmac=" expmac " othermac=" othermac)
-		       (return expmac othermac)
-		       )
-		      ))
+		      (debug "mexpand_defmacro/lambdambind before melt_delayed_macro_expander mbind=" mbind)
+		      (melt_delayed_macro_expander mbind maclist env mexpanderm modctx)
+		      (debug "mexpand_defmacro/lambdambind after melt_delayed_macro_expander mbind=" mbind)
+		      (let ( (mclos (get_field :mbind_expanser mbind))
+			     )
+			(assert_msg "check mclos" (is_closure mclos))
+			(debug "mexpand_defmacro/lambdambind mclos=" mclos "\n.. sexprm=" sexprm)
+			(multicall 
+			 (expmac othermac)
+			 (mclos sexprm envm mexpanderm modctxm)
+			 (debug "mexpand_defmacro/lambdambind expmac=" expmac " othermac=" othermac)
+			 (return expmac othermac)
+			 )
+			)))
 	(debug "mexpand_defmacro final mbind=" mbind "\n.. of discrim=" (discrim mbind)
 	       "\n.. sdefmacro=" sdefmacro)
 	(return sdefmacro)
