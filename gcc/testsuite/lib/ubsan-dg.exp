@@ -89,7 +89,7 @@ proc ubsan_init { args } {
 }
 
 #
-# ubsan_finish -- called at the start of each subdir of tests
+# ubsan_finish -- called at the end of each subdir of tests
 #
 
 proc ubsan_finish { args } {

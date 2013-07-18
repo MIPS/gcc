@@ -1,3 +1,7 @@
+2013-07-18  Marek Polacek  <polacek@redhat.com>
+
+	* lib/ubsan-dg.exp: Fix a typo in comment.
+
 2013-07-15  Marek Polacek  <polacek@redhat.com>
 
 	* lib/ubsan-dg.exp: New file.
