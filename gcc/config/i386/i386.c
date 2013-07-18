@@ -8954,7 +8954,7 @@ ix86_code_end (void)
       xops[0] = gen_rtx_REG (Pmode, regno);
       xops[1] = gen_rtx_MEM (Pmode, stack_pointer_rtx);
       output_asm_insn ("mov%z0\t{%1, %0|%0, %1}", xops);
-      fputs ("\tret\n", asm_out_file);
+      output_asm_insn ("%!ret", NULL);
       final_end_function ();
       init_insn_lengths ();
       free_after_compilation (cfun);
@@ -9017,7 +9017,7 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
 
       xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
-      output_asm_insn ("call\t%X2", xops);
+      output_asm_insn ("%!call\t%X2", xops);
       /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
          is what will be referenced by the Mach-O PIC subsystem.  */
 #if TARGET_MACHO
