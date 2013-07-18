@@ -1,5 +1,13 @@
 
 
+2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (normexp_macro_installation): Make an
+	instance of class_nrep_literalnamedvalue and use the closure of
+	the macrofunction.
+
+	* melt/warmelt-genobj.melt (compilobj_routproc): Better debug.
+
 2013-07-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-normal.melt (normexp_macro_installation): Return a

@@ -4974,38 +4974,51 @@ source location.}#
     (let ( (nmacproc (normexp_defun_defmacro sdefmacro env ncx psloc))
 	   (mbind (get_field :smacro_binding sdefmacro))
 	   (modctx (get_field :nctx_modulcontext ncx))
+	   (msymb (get_field :binder mbind))
 	   )
       (debug "normexp_macro_installation nmacproc=" nmacproc " mbind=" mbind)
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context))
       (assert_msg "check nmacproc" (is_a nmacproc class_nrep_defunroutproc))
       (assert_msg "check mbind" (is_a mbind class_defined_macro_binding))
-      (let ( (nlitbind (let ( (nli (register_literal_value mbind modctx)) )
-			 (debug "normexp_macro_installation nlitbind=" nli)
-			 nli))
-	     (nhcall  (let ( (nhc (instance class_nrep_hook_call
-				:nrep_loc loc
-				:nexpr_ctyp ctype_void
-				:nhook_name '"HOOK_MACRO_INSTALLER"
-				:nexpr_args (tuple nlitbind nmacproc)
-				:nhook_called (normal_predef hook_macro_installer ncx
-							     psloc "hook_macro_installer")
-				:nhook_outs (tuple)
-				:nhook_descr (hook_data hook_macro_installer)
-				)) )
-			(debug "normexp_macro_installation nhcall=" nhc)
-			nhc))
-	     (csym (clone_symbol (get_field :binder mbind)))
-	     (cbind (instance class_normal_let_binding
-			      :letbind_loc loc
-			      :binder csym
-			      :letbind_type ctype_void
-			      :letbind_expr nhcall))
-	     (symocc (instance class_nrep_locsymocc
-			       :nrep_loc loc
-			       :nocc_ctyp ctype_void
-			       :nocc_symb csym
-			       :nocc_bind cbind))
-	     )
+      (let ( 
+	    (nclos (let ( (nc (get_field :nrpro_dataclos nmacproc)) )
+			(debug "normexp_macro_installation nclos=" nc)
+			(assert_msg "check nclos" (is_a nc class_nrep_dataclosure))
+			nc))
+	    (nlitsym (clone_symbol msymb))
+	    (nlitbind (let ( (nli (register_literal_value mbind modctx)) )
+			(debug "normexp_macro_installation nlitbind=" nli)
+			nli))
+	    (nlitval (let ( (nlv (instance class_nrep_literalnamedvalue
+					   :nlitval_regval nlitbind
+					   :nlitval_symbol nlitsym))
+			    )
+		       (debug "normexp_macro_installation nlitval=" nlv)
+		       nlv))
+	    (nhcall  (let ( (nhc (instance class_nrep_hook_call
+					   :nrep_loc loc
+					   :nexpr_ctyp ctype_void
+					   :nhook_name '"HOOK_MACRO_INSTALLER"
+					   :nexpr_args (tuple nlitval nclos)
+					   :nhook_called (normal_predef hook_macro_installer ncx
+									psloc "hook_macro_installer")
+					   :nhook_outs (tuple)
+					   :nhook_descr (hook_data hook_macro_installer)
+					   )) )
+		       (debug "normexp_macro_installation nhcall=" nhc)
+		       nhc))
+	    (csym (clone_symbol (get_field :binder mbind)))
+	    (cbind (instance class_normal_let_binding
+			     :letbind_loc loc
+			     :binder csym
+			     :letbind_type ctype_void
+			     :letbind_expr nhcall))
+	    (symocc (instance class_nrep_locsymocc
+			      :nrep_loc loc
+			      :nocc_ctyp ctype_void
+			      :nocc_symb csym
+			      :nocc_bind cbind))
+	    )
 	(debug "normexp_macro_installation csym=" csym " nhcall=" nhcall)
 	(debug "normexp_macro_installation final symocc=" symocc " cbind=" cbind)
 	(return symocc (list cbind))

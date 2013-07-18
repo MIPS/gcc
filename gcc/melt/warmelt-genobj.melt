@@ -5315,10 +5315,12 @@
 (defun compilobj_routproc (npro gcx)
   (assert_msg "check gcx" (is_a gcx class_c_generation_context))
   (assert_msg "check npro" (is_a npro class_nrep_routproc))
-  (debug "compilobj_routproc npro=" npro " gcx=" gcx)
+  (debug "compilobj_routproc npro=" npro "\n... gcx=" gcx)
   (assert_msg "UNEXPECTED CALL TO compilobj_routproc" ())
   )
 (install_method class_nrep_routproc compile_obj compilobj_routproc)
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
 (defun compilobj_predef (npr gcx)
