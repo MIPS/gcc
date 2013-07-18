@@ -2,6 +2,10 @@
 
 2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (list_nth_element): Improve.
+
+2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

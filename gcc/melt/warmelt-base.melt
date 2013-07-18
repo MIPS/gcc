@@ -486,32 +486,33 @@ number $NUM opaque location number $LOC.}#
   component of rank $RK, counting from last element if $RK is
   negative. This function scans linearly the list till the component
   is found.}#
-  (assert_msg "list_nth_element unimplemented" ())
-#|
   (if (is_list lis)
       (let ( (:long ix 0)
 	     )
-	(if (>=i rk 0)
-	    (foreach_in_list
-	     (lis)
-	     (curpair curcomp)
-	     (if (==i ix rk) 
-		 (return curcomp))
-	     (setq ix (+i ix 1))))
-	(let ( (:long ln (list_length lis))
-	       (:long nrk (+i ln rk))
-	       )
-	  (if (and (>=i nrk 0) 
-		   (<i nrk ln))
-	      (foreach_in_list
-	       (lis)
-	       (curpair curcomp)
-	       (if (==i ix nrk) 
-		   (return curcomp))
-	       (setq ix (+i ix 1))))))
-    (return ()))
-|#
-)
+	(cond
+	 ( (>=i rk 0)
+	   (foreach_in_list
+	    (lis)
+	    (curpair curcomp)
+	    (if (==i ix rk) 
+		(return curcomp))
+	    (setq ix (+i ix 1)))
+	   (void))
+	 (:else 
+	  (let ( (:long ln (list_length lis))
+		 (:long nrk (+i ln rk))
+		 )
+	    (if (and (>=i nrk 0) 
+		     (<i nrk ln))
+		(foreach_in_list
+		 (lis)
+		 (curpair curcomp)
+		 (if (==i ix nrk) 
+		     (return curcomp))
+		 (setq ix (+i ix 1))))))
+	 )))
+  (return ())
+  )
 
 ;;;;;;; variadic diagnostics
 (defvar diagv_gimple)
