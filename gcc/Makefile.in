@@ -308,6 +308,11 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) \
 # UNSORTED
 # --------
 
+# Dependency tracking stuff.
+CCDEPMODE = @CCDEPMODE@
+DEPDIR = @DEPDIR@
+depcomp = $(SHELL) $(srcdir)/../depcomp
+
 # Some compilers can't handle cc -c blah.c -o foo/blah.o.
 # In stage2 and beyond, we force this to "-o $@" since we know we're using gcc.
 OUTPUT_OPTION = @OUTPUT_OPTION@
@@ -1066,8 +1071,16 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   $(CPPINC) $(GMPINC) $(DECNUMINC) $(BACKTRACEINC) \
 	   $(CLOOGINC) $(ISLINC)
 
+COMPILE.base = $(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) -o $@
+ifeq ($(CCDEPMODE),depmode=gcc3)
+COMPILE = $(COMPILE.base) -MT $@ -MMD -MP -MF $(*D)/$(DEPDIR)/$(*F).Po
+else
+COMPILE = source='$<' object='$@' libtool=no \
+    DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) $(COMPILE.base)
+endif
+
 .cc.o .c.o:
-	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $< $(OUTPUT_OPTION)
+	$(COMPILE) $<
 
 #
 # Support for additional languages (other than C).
@@ -5354,3 +5367,13 @@ po/gcc.pot: force
 	$(MAKE) srcextra
 	AWK=$(AWK) $(SHELL) $(srcdir)/po/exgettext \
 		$(XGETTEXT) gcc $(srcdir)
+
+#
+
+# Dependency information.
+
+# Include the auto-generated dependencies for all host objects.
+DEPFILES = \
+  $(foreach obj,$(ALL_HOST_OBJS),\
+    $(dir $(obj))$(DEPDIR)/$(patsubst %.o,%.Po,$(notdir $(obj))))
+-include $(DEPFILES)
