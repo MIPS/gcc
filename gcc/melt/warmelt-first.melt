@@ -4459,9 +4459,19 @@ $CREATE is true i.e. non zero.}#
 	(return keywv))
     (return ())))
 
+
+;; primitive to clone a value with another discriminant.
+(defprimitive clone_with_discriminant (val discr) :value
+  :doc #{Clone value $VAL with new discriminant $DISCR. Gives the
+  original $VAL when cloning is not possible. For objects, make a new
+  one copying the common fields. See the $VALDESC_CLONECHUNK field in
+  $CLASS_VALUE_DESCRIPTOR. The primitive's code is generated.}#
+  #{ meltgc_clone_with_discriminant((melt_ptr_t)($VAL), (melt_ptr_t)($DISCR)) }#)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  block_signals
+ clone_with_discriminant
  hook_intern_keyword
  hook_intern_symbol
  hook_named_keyword 
@@ -4673,7 +4683,9 @@ $CREATE is true i.e. non zero.}#
       )
     (assert_msg "check env" (is_a env class_environment))
     (assert_msg "check val is closure" (is_closure val))
-    (let ( (macbind (instance
+    (let (
+	  (newclo (clone_with_discriminant val discr_macro_closure))
+	  (macbind (instance
 		     class_macro_binding
 		     :binder sym
 		     :mbind_expanser val))

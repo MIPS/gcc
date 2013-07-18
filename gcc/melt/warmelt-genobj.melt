@@ -2555,8 +2555,9 @@
 	 (lastcproc (pair_head (list_last cprocs)))
 	 (nloc (unsafe_get_field :nrep_loc ncnst))
 	 (cnstyp (unsafe_get_field :nocc_ctyp ncnst))
+	 (nbind (unsafe_get_field :nocc_bind ncnst))
 	 )
-     (debug "compilobj_nrep_constocc lastcproc=" lastcproc "\n..cprocs=" cprocs )
+     (debug "compilobj_nrep_constocc lastcproc=" lastcproc "\n..cprocs=" cprocs "\n..nbind=" nbind)
      (assert_msg "check lastcproc" (is_a lastcproc class_nrep_anyproc))
      (assert_msg "check cnstyp" (== cnstyp ctype_value))
      (cond 

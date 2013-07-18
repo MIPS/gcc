@@ -1590,7 +1590,7 @@ source location.}#
   (assert_msg "check bind" (is_a bind class_formal_binding))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check ncx" (is_a ncx class_normalization_context))
-  (let ( (sycmap  (unsafe_get_field :nctx_symbcachemap ncx))
+  (let ( (sycmap (unsafe_get_field :nctx_symbcachemap ncx))
 	 (symb (unsafe_get_field :binder bind))
 	 (syocc
 		(instance class_nrep_locsymocc
@@ -1605,7 +1605,6 @@ source location.}#
     syocc
     ))
 (install_method class_formal_binding  normalize_binding normbind_formalbind)
-
 
 ;; normalize local let binding
 
@@ -1683,6 +1682,33 @@ source location.}#
     (return syconst)
     ))
 (install_method class_defined_value_binding normalize_binding normbind_definedvalbind)
+
+
+
+;; normalize defined macro binding
+(defun normbind_defmacrobind (bind env ncx procs psloc)
+  (debug "normbind_defmacrobind bind=" bind " psloc=" psloc)
+  (assert_msg "check bind" (is_a bind class_defined_macro_binding))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check ncx" (is_a ncx class_normalization_context))
+  (let ( (sycmap  (unsafe_get_field :nctx_symbcachemap ncx))
+         (symb (unsafe_get_field :binder bind))
+         (curproc (get_field :nctx_curproc ncx))
+	 (mdata (get_field :mbind_data bind))
+	 )
+    (debug "normbind_defmacrobind mdata=" mdata)
+    (when (is_non_empty_list procs)
+      (debug "normbind_defmacrobind bad procs=" procs)
+      (assert_msg "normbind_defmacrobind check no procs" ()))
+    (when (is_not_a mdata class_nrep_dataclosure)
+      (error_strv psloc "not yet defined macro referenced" (get_field :named_name symb))
+      (assert_msg "normbind_defmacrobind bad macro data" ()))
+    (mapobject_put sycmap symb mdata)
+    (return mdata)
+))
+(install_method class_defined_macro_binding normalize_binding normbind_defmacrobind)
+
+
 
 ;; normalize local constructed binding
 (defun normbind_constructbind (bind env ncx procs psloc)

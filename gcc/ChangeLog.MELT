@@ -2,6 +2,24 @@
 
 2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (clone_with_discriminant): Move here
+	from warmelt-base.melt file.
+	(hook_macro_exporter): Use it.
+
+	* melt/warmelt-base.melt (clone_with_discriminant): Is moved to
+	warmelt-first.melt file.
+
+	* melt/warmelt-macro.melt (mexpand_export_macro): Guess the
+	expander for defmacros.
+
+	* melt/warmelt-normal.melt (normbind_defmacrobind): New method for
+	normalize_binding on class_defined_macro_binding.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_constocc): More debug.
+
+
+2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (list_nth_element): Improve.
 
 2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
