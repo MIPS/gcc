@@ -479,6 +479,40 @@ number $NUM opaque location number $LOC.}#
 
 
 
+
+;; function to get the nth element of some list
+(defun list_nth_element (lis :long rk)
+  :doc #{The $LIST_NTH_ELEMENT function finds in list $LIS the
+  component of rank $RK, counting from last element if $RK is
+  negative. This function scans linearly the list till the component
+  is found.}#
+  (assert_msg "list_nth_element unimplemented" ())
+#|
+  (if (is_list lis)
+      (let ( (:long ix 0)
+	     )
+	(if (>=i rk 0)
+	    (foreach_in_list
+	     (lis)
+	     (curpair curcomp)
+	     (if (==i ix rk) 
+		 (return curcomp))
+	     (setq ix (+i ix 1))))
+	(let ( (:long ln (list_length lis))
+	       (:long nrk (+i ln rk))
+	       )
+	  (if (and (>=i nrk 0) 
+		   (<i nrk ln))
+	      (foreach_in_list
+	       (lis)
+	       (curpair curcomp)
+	       (if (==i ix nrk) 
+		   (return curcomp))
+	       (setq ix (+i ix 1))))))
+    (return ()))
+|#
+)
+
 ;;;;;;; variadic diagnostics
 (defvar diagv_gimple)
 (defvar diagv_gimple_seq)
@@ -502,6 +536,7 @@ number $NUM opaque location number $LOC.}#
       (setq diagv_basic_block c)))
 
 
+#|
 ;; we really need macros for this
 (defun error (loc :cstring fmt :rest) 
   :doc #{Variadic function to emit an error message. The $FMT format
@@ -519,63 +554,83 @@ number $NUM opaque location number $LOC.}#
 	(let ( (bs (constant_box str))
 	       )
 	  (multiple_put_nth vec nbargs bs)
-	  (setq nbargs (+ nbargs 1))))
+	  (setq nbargs (+ nbargs 1)))
+	(void)
+	)
       ( (:long l)
 	(let ( (sn (string4out discr_string l))
 	       )
 	  (multiple_put_nth vec nbargs sn)
-	  (setq nbargs (+ nbargs 1))))
+	  (setq nbargs (+ nbargs 1)))
+	(void)
+	)
       ( (:tree tr)
 	(assert_msg "check diagv_tree" (is_closure diagv_tree))
 	(let ( (s (diagv_tree () tr))
 	       )
 	  (multiple_put_nth vec nbargs s)
-	  (setq nbargs (+ nbargs 1))))
+	  (setq nbargs (+ nbargs 1)))
+	(void)
+	)
       ( (:gimple gi)
 	(assert_msg "check diagv_gimple" (is_closure diagv_gimple))
 	(let ( (s (diagv_gimple () gi))
 	       )
 	  (multiple_put_nth vec nbargs s)
-	  (setq nbargs (+ nbargs 1))))
+	  (setq nbargs (+ nbargs 1)))
+	(void)
+	)
       ( (:gimple_seq gs)
 	(assert_msg "check diagv_gimple_seq" (is_closure diagv_gimple_seq))
 	(let ( (s (diagv_gimple_seq () gs))
 	       )
 	  (multiple_put_nth vec nbargs s)
-	  (setq nbargs (+ nbargs 1))))
+	  (setq nbargs (+ nbargs 1)))
+	(void)
+	)
       ( (:basic_block bb)
 	(assert_msg "check diagv_basic_block" (is_closure diagv_basic_block))
 	(let ( (s (diagv_basic_block () bb))
 	       )
 	  (multiple_put_nth vec nbargs s)
-	  (setq nbargs (+ nbargs 1))))
+	  (setq nbargs (+ nbargs 1)))
+	(void)
+	)
       ( (:value v)
 	(cond 
 	 ( (is_integerbox v)
 	   (let ( (sn (string4out discr_string (get_int v)))
 		  )
 	     (multiple_put_nth vec nbargs sn)
-	     (setq nbargs (+ nbargs 1))))
-	 ( (is_string v)
-	     (multiple_put_nth vec nbargs v)
 	     (setq nbargs (+ nbargs 1)))
+	   (void)
+	   )
+	 ( (is_string v)
+	   (multiple_put_nth vec nbargs v)
+	   (setq nbargs (+ nbargs 1))
+	   (void)
+	   )
 	 ( (is_a v class_named)
 	   (let ( (nam (unsafe_get_field :named_name v))
 		  )
 	     (assert_msg "check nam" (is_string nam))
 	     (multiple_put_nth vec nbargs nam)
 	     (setq nbargs (+ nbargs 1)))
+	   (void)
 	   )
 	 )
 	)
       ( :else
 	(let ( (vcty (variadic_ctype 0))
 	       )
-	  (errormsg_strv "ADD2OUT for unsupported ctype; use a manipulator "
+	  (errormsg_strv "ERROR for unsupported ctype; use a manipulator "
 			 (get_field :named_name vcty))
-	  (assert_msg "invalid variadic argument to ERROR" ())))
+	  (assert_msg "invalid variadic argument to ERROR" ()))
+	(void)
+	)
       ))				;end forever args
-    ))
+    ))					;end ERROR
+|#
 
 ;; to signal an error in a  source with some additional string value
 (defprimitive error_strv (loc :cstring cmsg :value strv) :void
@@ -3224,20 +3279,25 @@ typedef struct melthook_st *melthook_ptr_t;
 			  :loca_location vloc
 			  :sexp_contents cont))
 	 )
+    (debug "make_sexpr start loc=" loc)
     (forever 
      argloop
+     (debug "make_sexpr variadic_index:" (variadic_index))
      (variadic 
       ( ()
 	(exit argloop))
       ( (:cstring str)
+	(debug "make_sexpr str=" str)
 	(let ( (bs (constant_box str))
 	       )
 	  (list_append cont bs)))
       ( (:long num)
+	(debug "make_sexpr num=" num)
 	(let ( (bs (constant_box num))
 	       )
 	  (list_append cont bs)))
       ( (:value v)
+	(debug "make_sexpr v=" v)
 	(cond ( (is_object v)
 		(list_append cont v))
 	      ( (is_integerbox v)
@@ -3258,12 +3318,15 @@ typedef struct melthook_st *melthook_ptr_t;
 		(v cont))
 	      (:else
 	       (error_plain vloc "unexpected value for MAKE_SEXPR")
+	       (inform_strv vloc "discriminant of bad value for MAKE_SEXPR is" (get_field :named_name (discrim v)))
 	       (return ())
 	       )))
       (:else
-       (error_plain vloc "unexpected stuff for MAKE_SEXPR")
+       (debug "make_sexpr variadic_ctype:" (variadic_ctype 0) " at variadic_index:" (variadic_index))
+       (error_strv vloc "unexpected stuff for MAKE_SEXPR" (get_field :named_name (variadic_ctype 0)))
        (return ())
        )))
+    (debug "make_sexpr returns sexpr=" sexpr)
     (return sexpr)
     ))
 
@@ -3379,6 +3442,7 @@ typedef struct melthook_st *melthook_ptr_t;
  is_out
  is_strbuf
  is_stringconst
+ list_nth_element
  list_remove_last_element
  longbacktrace_dbg
  make_mixint

@@ -16,9 +16,11 @@
   (let ( 
 	(sloc (get_field :loca_location sexp))
 	(scont (get_field :sexp_contents sexp))
-	(arg1 (list_first scont))
+	(arg1 (list_nth_element scont 1))
 	(newsexp (make_sexpr sloc 'tuple arg1 arg1))
 	)
+    (if (!=i (list_length scont) 2)
+	(error_plain sloc "BITUP wants one argument"))
     (debug "macro bitup newsexp=" newsexp)
     (let ( (res (mexpander newsexp env mexpander modctx))
 	   )

@@ -3546,7 +3546,7 @@ source location.}#
 	      (setq ctypif ctypelse)
 	      )
 	    (:else
-	     (warning_plain sloc 
+	     (error_plain sloc 
 			    "incompatible types in conditional IF/OR/COND branches")
 	     (warning_strv sloc "then type in conditional is "
 			   (unsafe_get_field :named_name ctypif))

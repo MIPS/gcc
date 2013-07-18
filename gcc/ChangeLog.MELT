@@ -2,6 +2,19 @@
 
 2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (list_nth_element): Adding new function.
+	(make_sexpr): Better diagnostics and debug.
+	(error): Temporarily remove.
+
+	* melt/warmelt-normal.melt (normexp_ifelse): Give error, not
+	warning, on type incompatibility of conditional branches.
+
+
+	* testsuite/melt/tmacro-1.melt: Use [not implemented yet]
+	list_nth_element.
+
+2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (Melt_CallProtoFrame::call_depth)
 	(Melt_CallProtoFrame::call_deeper_than): New member functions.
 	(Melt_CallProtoFrame::top_call_depth)
