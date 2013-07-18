@@ -1,6 +1,5 @@
 /* { dg-do run { xfail *-*-* } } */
 /* { dg-options "-fmpx" } */
-/* { dg-additional-options "-L/opt/intel/lib -lpl-runtime64" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 /* { dg-additional-options "-fmpx-narrow-to-innermost-array" } */
 

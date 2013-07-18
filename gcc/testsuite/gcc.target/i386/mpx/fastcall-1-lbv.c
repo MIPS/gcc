@@ -1,7 +1,6 @@
 /* { dg-do run { xfail *-*-* } } */
 /* { dg-require-effective-target ia32 } */
 /* { dg-options "-fmpx" } */
-/* { dg-additional-options "-L/opt/intel/lib -lpl-runtime64" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #define XFAIL
