@@ -1,5 +1,10 @@
 
 
+2013-07-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (clone_symbol): The csym_urank is a constant boxed integer.
+
+	* melt/warmelt-macro.melt (with_cloned_symb): New macro.
+
 2013-07-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

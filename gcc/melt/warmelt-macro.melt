@@ -76,7 +76,6 @@ subexpressions. Field $SARGOP_ARGS is the tuple of arguments.}#
   the applied function, $SARGOP_ARGS is the tuple of arguments.}#
   :super class_source_argumented_operator
   :fields (sapp_fun			;the function to apply
-;	   sapp_args			;the arguments tuple
 	   ))
 
 
@@ -4996,9 +4995,9 @@ without any checks. Using $PUT_FIELDS is prefered.}#)
 
 
 ;;;;;;;;;;;;;;;;
-;;;; unless macro = syntactic sugar (UNLESS <test> <body...>) === (IF <test> () (PROGN <body...>))
+;;;; UNLESS macro = syntactic sugar (UNLESS <test> <body...>) === (IF <test> () (PROGN <body...>))
 (defun mexpand_unless (sexpr env mexpander modctx)
-  (debug "mexpand_unless sexpr" sexpr)
+  (debug "mexpand_unless sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (if (null mexpander) (setq mexpander macroexpand_1))
@@ -5029,10 +5028,103 @@ without any checks. Using $PUT_FIELDS is prefered.}#)
 (install_initial_macro 'unless mexpand_unless)
 (export_macro  unless mexpand_unless
  :doc #{The $UNLESS syntax sugar is for negated conditional expressions with body. Syntax
- is (UNLESS <test> <body>...) syntactic sugar for (IF <test> () (PROGN <body>...)).}#)
+ is @code{(UNLESS @var{<test>} @var{<body>...})} = syntactic sugar for @code{(IF @var{<test>} () (PROGN @var{<body>...}))}.}#)
 
 
-;;;;; the cppif expander
+;;;;;;;;;;;;;;;;
+;;;; WITH_CLONED_SYMB macro = 
+;;; syntactic sugar (WITH_CLONED_SYMB (<symb1>...) <body...>) 
+;;;     == (LET ((<symb1> (CLONE_SYMBOL <symb1>)) ....) <body...>)
+(defun mexpand_with_cloned_symb (sexpr env mexpander modctx)
+  (debug "mexpand_with_cloned_symb sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (if (null mexpander) (setq mexpander macroexpand_1))
+  (assert_msg "check modctx" (is_object modctx))
+  (let (
+	(cont (unsafe_get_field :sexp_contents sexpr))
+	(loc  (unsafe_get_field :loca_location sexpr))
+	(curpair (pair_tail (list_first cont)))
+	(symbs (pair_head curpair))
+	(newenv (fresh_env env))
+	(bindlist (make_list discr_list))
+	(bodyl ())
+	(processlist 
+	 (lambda (bloc blist)
+	   (assert_msg "check blist" (is_list_or_null blist))
+	   (foreach_in_list
+	    (blist)
+	    (curpair cursymb)
+	    (when (is_not_a cursymb class_symbol)
+	      (error_plain bloc "non-symbol in symbol list for (WITH_CLONED_SYMB <symbol-list> <body...>)")
+	      (return))
+	    (if (is_a cursymb class_keyword)
+		(warning_strv bloc "keyword in WITH_CLONED_SYMB is discouraged"
+			      (get_field :named_name cursymb)))
+	    (if (find_env newenv cursymb)
+		(warning_strv bloc "symbol in WITH_CLONED_SYMB hides previous definition"
+			      (get_field :named_name cursymb)))
+	    (let ( (appclonesymb (instance class_source_apply 
+					   :loca_location bloc
+					   :sapp_fun 'clone_symbol
+					   :sargop_args (tuple (instance class_source_quote
+									 :loca_location bloc
+									 :squoted cursymb))))
+		   (bindsymb (instance class_source_let_binding
+				       :loca_location bloc
+				       :sletb_type ctype_value
+				       :sletb_binder cursymb
+				       :sletb_expr appclonesymb
+				       ))
+		   )
+	      (put_env newenv bindsymb)
+	      (list_append bindlist bindsymb)
+	      )
+	    )))
+	)
+    (setq curpair (pair_tail curpair))
+    ;; parse the symbol list and build bindlist
+    (cond ( (null symbs)
+	    (void)
+	    )
+	  ( (is_a symbs class_sexpr)
+	    (let ( (syloc (or (unsafe_get_field :loca_location symbs) loc))
+		   (sylist (unsafe_get_field :sexp_contents symbs))
+		   )
+	      (processlist syloc sylist)
+	      (void)
+	      ))
+	  ( (is_list symbs)
+	    (processlist loc symbs)
+	    (void))
+	  ( (is_multiple symbs)
+	    (processlist loc (multiple_to_list symbs discr_list))
+	    (void))
+	  (:else
+	   (error_plain loc "WITH_CLONED_SYMB wants a list of symbols as first argument")
+	   (return () ())))
+    (debug "mexpand_with_cloned_symb bindlist=" bindlist)
+    ;; expand the body
+    (let ( (mbody (expand_pairlist_as_tuple curpair newenv mexpander modctx))
+	   (mlet (instance class_source_let
+			   :loca_location loc
+			   :slet_bindings (list_to_multiple bindlist discr_multiple)
+			   :slet_body mbody
+			   ))
+	   )
+      (debug "mexpand_with_cloned_symb result mbody=" mbody)
+      (return mbody)
+      )))
+(install_initial_macro 'with_cloned_symb mexpand_with_cloned_symb)
+(export_macro with_cloned_symb mexpand_with_cloned_symb
+ :doc #{The $WITH_CLONED_SYMB syntax sugar is for easily cloning symbols, notably useful in macros. 
+Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
+@code{(LET ( (@var{<symb>} (CLONE_SYMBOL (QUOTE @var{<symb>}))) @var{...})  @var{<body>...})} etc...}#)
+
+
+
+;;;;;;;;;;;;;;;;
+;;;;; the CPPIF expander
 (defun mexpand_cppif (sexpr env mexpander modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))

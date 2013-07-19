@@ -2965,7 +2965,7 @@ Keyword is :cstring.}#
       (put_int boxi i)
       (instance class_cloned_symbol
 		:named_name synam
-		:csym_urank (make_integerbox discr_integer i)))))
+		:csym_urank (make_integerbox discr_constant_integer i)))))
 
 
 
