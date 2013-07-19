@@ -111,7 +111,7 @@ AC_DEFUN([ABIGAIL_INIT],
  fi
 
  if test x$found_abigail_lib = xyes; then
-    abigaillibs="$abigaillibs -labigail"
+    abigaillibs="$abigaillibs -Wl,-Bstatic -labigail -Wl,-Bdynamic"
  fi
 
 ]
