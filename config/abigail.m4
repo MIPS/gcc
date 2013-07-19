@@ -101,7 +101,7 @@ AC_DEFUN([ABIGAIL_INIT],
    if test -d $srcdir/libabigail -a -f $srcdir/gcc/gcc.c; then
       libpath='$$r/$(HOST_SUBDIR)/libabigail/src/'"${lt_cv_objdir}"
       abigaillibs="-L$libpath ${abigaillibs}"
-      abigailinc='-I${srcdir}/libabigail/src '"${abigailinc}"
+      abigailinc='-I${srcdir}/libabigail/include '"${abigailinc}"
       found_abigail_lib=yes
       found_abigail_inc=yes
       HAVE_LIBABIGAIL=yes

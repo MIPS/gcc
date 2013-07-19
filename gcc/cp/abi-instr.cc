@@ -31,9 +31,9 @@ along with GCC; see the file COPYING3.  If not see
 #include <fstream>
 #include "cgraph.h"
 #include "cp-tree.h"
-#include "abg-writer.h"
-#include "abg-config.h"
 #include "abi-instr.h"
+#include "libabigail/abg-writer.h"
+#include "libabigail/abg-config.h"
 
 using std::tr1::shared_ptr;
 using std::tr1::static_pointer_cast;
