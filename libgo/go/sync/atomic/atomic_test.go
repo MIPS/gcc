@@ -82,8 +82,7 @@ func TestAddUint32(t *testing.T) {
 
 func TestAddInt64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before int64
@@ -107,8 +106,7 @@ func TestAddInt64(t *testing.T) {
 
 func TestAddUint64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before uint64
@@ -213,8 +211,7 @@ func TestCompareAndSwapUint32(t *testing.T) {
 
 func TestCompareAndSwapInt64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before int64
@@ -246,8 +243,7 @@ func TestCompareAndSwapInt64(t *testing.T) {
 
 func TestCompareAndSwapUint64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before uint64
@@ -381,8 +377,7 @@ func TestLoadUint32(t *testing.T) {
 
 func TestLoadInt64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before int64
@@ -405,8 +400,7 @@ func TestLoadInt64(t *testing.T) {
 
 func TestLoadUint64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before uint64
@@ -515,8 +509,7 @@ func TestStoreUint32(t *testing.T) {
 
 func TestStoreInt64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before int64
@@ -540,8 +533,7 @@ func TestStoreInt64(t *testing.T) {
 
 func TestStoreUint64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	var x struct {
 		before uint64
@@ -840,8 +832,7 @@ func hammerCompareAndSwapPointer64(uaddr *uint64, count int) {
 
 func TestHammer64(t *testing.T) {
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	const p = 4
 	n := 100000
@@ -1013,8 +1004,7 @@ func TestHammerStoreLoad(t *testing.T) {
 
 func TestStoreLoadSeqCst32(t *testing.T) {
 	if runtime.NumCPU() == 1 {
-		t.Logf("Skipping test on %v processor machine", runtime.NumCPU())
-		return
+		t.Skipf("Skipping test on %v processor machine", runtime.NumCPU())
 	}
 	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(4))
 	N := int32(1e3)
@@ -1054,12 +1044,10 @@ func TestStoreLoadSeqCst32(t *testing.T) {
 
 func TestStoreLoadSeqCst64(t *testing.T) {
 	if runtime.NumCPU() == 1 {
-		t.Logf("Skipping test on %v processor machine", runtime.NumCPU())
-		return
+		t.Skipf("Skipping test on %v processor machine", runtime.NumCPU())
 	}
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(4))
 	N := int64(1e3)
@@ -1099,8 +1087,7 @@ func TestStoreLoadSeqCst64(t *testing.T) {
 
 func TestStoreLoadRelAcq32(t *testing.T) {
 	if runtime.NumCPU() == 1 {
-		t.Logf("Skipping test on %v processor machine", runtime.NumCPU())
-		return
+		t.Skipf("Skipping test on %v processor machine", runtime.NumCPU())
 	}
 	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(4))
 	N := int32(1e3)
@@ -1132,7 +1119,7 @@ func TestStoreLoadRelAcq32(t *testing.T) {
 					d1 := X.data1
 					d2 := X.data2
 					if d1 != i || d2 != float32(i) {
-						t.Fatalf("incorrect data: %d/%d (%d)", d1, d2, i)
+						t.Fatalf("incorrect data: %d/%g (%d)", d1, d2, i)
 					}
 				}
 			}
@@ -1145,12 +1132,10 @@ func TestStoreLoadRelAcq32(t *testing.T) {
 
 func TestStoreLoadRelAcq64(t *testing.T) {
 	if runtime.NumCPU() == 1 {
-		t.Logf("Skipping test on %v processor machine", runtime.NumCPU())
-		return
+		t.Skipf("Skipping test on %v processor machine", runtime.NumCPU())
 	}
 	if test64err != nil {
-		t.Logf("Skipping 64-bit tests: %v", test64err)
-		return
+		t.Skipf("Skipping 64-bit tests: %v", test64err)
 	}
 	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(4))
 	N := int64(1e3)
@@ -1182,7 +1167,7 @@ func TestStoreLoadRelAcq64(t *testing.T) {
 					d1 := X.data1
 					d2 := X.data2
 					if d1 != i || d2 != float64(i) {
-						t.Fatalf("incorrect data: %d/%d (%d)", d1, d2, i)
+						t.Fatalf("incorrect data: %d/%g (%d)", d1, d2, i)
 					}
 				}
 			}
@@ -1191,4 +1176,32 @@ func TestStoreLoadRelAcq64(t *testing.T) {
 	}
 	<-c
 	<-c
+}
+
+func shouldPanic(t *testing.T, name string, f func()) {
+	defer func() {
+		if recover() == nil {
+			t.Errorf("%s did not panic", name)
+		}
+	}()
+	f()
+}
+
+func TestUnaligned64(t *testing.T) {
+	// Unaligned 64-bit atomics on 32-bit systems are
+	// a continual source of pain. Test that on 32-bit systems they crash
+	// instead of failing silently.
+	if unsafe.Sizeof(int(0)) != 4 {
+		t.Skip("test only runs on 32-bit systems")
+	}
+
+	t.Skip("skipping test for gccgo")
+
+	x := make([]uint32, 4)
+	p := (*uint64)(unsafe.Pointer(&x[1])) // misaligned
+
+	shouldPanic(t, "LoadUint64", func() { LoadUint64(p) })
+	shouldPanic(t, "StoreUint64", func() { StoreUint64(p, 1) })
+	shouldPanic(t, "CompareAndSwapUint64", func() { CompareAndSwapUint64(p, 1, 2) })
+	shouldPanic(t, "AddUint64", func() { AddUint64(p, 3) })
 }

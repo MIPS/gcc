@@ -1,4 +1,4 @@
-@c Copyright (C) 2006, 2012 Free Software Foundation, Inc.
+@c Copyright (C) 2006-2013 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -5744,6 +5744,18 @@
 @itemize @bullet
 @item int32x4_t vcvtq_s32_f32 (float32x4_t)
 @*@emph{Form of expected instruction(s):} @code{vcvt.s32.f32 @var{q0}, @var{q0}}
+@end itemize
+
+
+@itemize @bullet
+@item float16x4_t vcvt_f16_f32 (float32x4_t)
+@*@emph{Form of expected instruction(s):} @code{vcvt.f16.f32 @var{d0}, @var{q0}}
+@end itemize
+
+
+@itemize @bullet
+@item float32x4_t vcvt_f32_f16 (float16x4_t)
+@*@emph{Form of expected instruction(s):} @code{vcvt.f32.f16 @var{q0}, @var{d0}}
 @end itemize
 
 

@@ -48,7 +48,8 @@ type parser struct {
 	syncCnt int       // number of calls to syncXXX without progress
 
 	// Non-syntactic parser control
-	exprLev int // < 0: in control clause, >= 0: in expression
+	exprLev int  // < 0: in control clause, >= 0: in expression
+	inRhs   bool // if set, the parser is parsing a rhs expression
 
 	// Ordinary identifier scopes
 	pkgScope   *ast.Scope        // pkgScope.Outer == nil
@@ -149,7 +150,7 @@ func (p *parser) shortVarDecl(decl *ast.AssignStmt, list []ast.Expr) {
 				}
 			}
 		} else {
-			p.errorExpected(x.Pos(), "identifier")
+			p.errorExpected(x.Pos(), "identifier on left side of :=")
 		}
 	}
 	if n == 0 && p.mode&DeclarationErrors != 0 {
@@ -162,7 +163,12 @@ func (p *parser) shortVarDecl(decl *ast.AssignStmt, list []ast.Expr) {
 // internal consistency.
 var unresolved = new(ast.Object)
 
-func (p *parser) resolve(x ast.Expr) {
+// If x is an identifier, tryResolve attempts to resolve x by looking up
+// the object it denotes. If no object is found and collectUnresolved is
+// set, x is marked as unresolved and collected in the list of unresolved
+// identifiers.
+//
+func (p *parser) tryResolve(x ast.Expr, collectUnresolved bool) {
 	// nothing to do if x is not an identifier or the blank identifier
 	ident, _ := x.(*ast.Ident)
 	if ident == nil {
@@ -183,8 +189,14 @@ func (p *parser) resolve(x ast.Expr) {
 	// must be found either in the file scope, package scope
 	// (perhaps in another file), or universe scope --- collect
 	// them so that they can be resolved later
-	ident.Obj = unresolved
-	p.unresolved = append(p.unresolved, ident)
+	if collectUnresolved {
+		ident.Obj = unresolved
+		p.unresolved = append(p.unresolved, ident)
+	}
+}
+
+func (p *parser) resolve(x ast.Expr) {
+	p.tryResolve(x, true)
 }
 
 // ----------------------------------------------------------------------------
@@ -329,8 +341,26 @@ func (p *parser) next() {
 	}
 }
 
+// A bailout panic is raised to indicate early termination.
+type bailout struct{}
+
 func (p *parser) error(pos token.Pos, msg string) {
-	p.errors.Add(p.file.Position(pos), msg)
+	epos := p.file.Position(pos)
+
+	// If AllErrors is not set, discard errors reported on the same line
+	// as the last recorded error and stop parsing if there are more than
+	// 10 errors.
+	if p.mode&AllErrors == 0 {
+		n := len(p.errors)
+		if n > 0 && p.errors[n-1].Pos.Line == epos.Line {
+			return // discard - likely a spurious error
+		}
+		if n > 10 {
+			panic(bailout{})
+		}
+	}
+
+	p.errors.Add(epos, msg)
 }
 
 func (p *parser) errorExpected(pos token.Pos, msg string) {
@@ -510,6 +540,8 @@ func (p *parser) parseExprList(lhs bool) (list []ast.Expr) {
 }
 
 func (p *parser) parseLhsList() []ast.Expr {
+	old := p.inRhs
+	p.inRhs = false
 	list := p.parseExprList(true)
 	switch p.tok {
 	case token.DEFINE:
@@ -531,11 +563,16 @@ func (p *parser) parseLhsList() []ast.Expr {
 			p.resolve(x)
 		}
 	}
+	p.inRhs = old
 	return list
 }
 
 func (p *parser) parseRhsList() []ast.Expr {
-	return p.parseExprList(false)
+	old := p.inRhs
+	p.inRhs = true
+	list := p.parseExprList(false)
+	p.inRhs = old
+	return list
 }
 
 // ----------------------------------------------------------------------------
@@ -1189,14 +1226,35 @@ func (p *parser) parseElement(keyOk bool) ast.Expr {
 		return p.parseLiteralValue(nil)
 	}
 
-	x := p.checkExpr(p.parseExpr(keyOk)) // don't resolve if map key
+	// Because the parser doesn't know the composite literal type, it cannot
+	// know if a key that's an identifier is a struct field name or a name
+	// denoting a value. The former is not resolved by the parser or the
+	// resolver.
+	//
+	// Instead, _try_ to resolve such a key if possible. If it resolves,
+	// it a) has correctly resolved, or b) incorrectly resolved because
+	// the key is a struct field with a name matching another identifier.
+	// In the former case we are done, and in the latter case we don't
+	// care because the type checker will do a separate field lookup.
+	//
+	// If the key does not resolve, it a) must be defined at the top
+	// level in another file of the same package, the universe scope, or be
+	// undeclared; or b) it is a struct field. In the former case, the type
+	// checker can do a top-level lookup, and in the latter case it will do
+	// a separate field lookup.
+	x := p.checkExpr(p.parseExpr(keyOk))
 	if keyOk {
 		if p.tok == token.COLON {
 			colon := p.pos
 			p.next()
+			// Try to resolve the key but don't collect it
+			// as unresolved identifier if it fails so that
+			// we don't get (possibly false) errors about
+			// undeclared names.
+			p.tryResolve(x, false)
 			return &ast.KeyValueExpr{Key: x, Colon: colon, Value: p.parseElement(false)}
 		}
-		p.resolve(x) // not a map key
+		p.resolve(x) // not a key
 	}
 
 	return x
@@ -1455,6 +1513,14 @@ func (p *parser) parseUnaryExpr(lhs bool) ast.Expr {
 	return p.parsePrimaryExpr(lhs)
 }
 
+func (p *parser) tokPrec() (token.Token, int) {
+	tok := p.tok
+	if p.inRhs && tok == token.ASSIGN {
+		tok = token.EQL
+	}
+	return tok, tok.Precedence()
+}
+
 // If lhs is set and the result is an identifier, it is not resolved.
 func (p *parser) parseBinaryExpr(lhs bool, prec1 int) ast.Expr {
 	if p.trace {
@@ -1462,10 +1528,13 @@ func (p *parser) parseBinaryExpr(lhs bool, prec1 int) ast.Expr {
 	}
 
 	x := p.parseUnaryExpr(lhs)
-	for prec := p.tok.Precedence(); prec >= prec1; prec-- {
-		for p.tok.Precedence() == prec {
-			pos, op := p.pos, p.tok
-			p.next()
+	for _, prec := p.tokPrec(); prec >= prec1; prec-- {
+		for {
+			op, oprec := p.tokPrec()
+			if oprec != prec {
+				break
+			}
+			pos := p.expect(op)
 			if lhs {
 				p.resolve(x)
 				lhs = false
@@ -1491,11 +1560,19 @@ func (p *parser) parseExpr(lhs bool) ast.Expr {
 }
 
 func (p *parser) parseRhs() ast.Expr {
-	return p.checkExpr(p.parseExpr(false))
+	old := p.inRhs
+	p.inRhs = true
+	x := p.checkExpr(p.parseExpr(false))
+	p.inRhs = old
+	return x
 }
 
 func (p *parser) parseRhsOrType() ast.Expr {
-	return p.checkExprOrType(p.parseExpr(false))
+	old := p.inRhs
+	p.inRhs = true
+	x := p.checkExprOrType(p.parseExpr(false))
+	p.inRhs = old
+	return x
 }
 
 // ----------------------------------------------------------------------------
@@ -2041,7 +2118,7 @@ func (p *parser) parseStmt() (s ast.Stmt) {
 // ----------------------------------------------------------------------------
 // Declarations
 
-type parseSpecFunction func(p *parser, doc *ast.CommentGroup, keyword token.Token, iota int) ast.Spec
+type parseSpecFunction func(doc *ast.CommentGroup, keyword token.Token, iota int) ast.Spec
 
 func isValidImport(lit string) bool {
 	const illegalChars = `!"#$%&'()*,:;<=>?[\]^{|}` + "`\uFFFD"
@@ -2160,12 +2237,12 @@ func (p *parser) parseGenDecl(keyword token.Token, f parseSpecFunction) *ast.Gen
 		lparen = p.pos
 		p.next()
 		for iota := 0; p.tok != token.RPAREN && p.tok != token.EOF; iota++ {
-			list = append(list, f(p, p.leadComment, keyword, iota))
+			list = append(list, f(p.leadComment, keyword, iota))
 		}
 		rparen = p.expect(token.RPAREN)
 		p.expectSemi()
 	} else {
-		list = append(list, f(p, nil, keyword, 0))
+		list = append(list, f(nil, keyword, 0))
 	}
 
 	return &ast.GenDecl{
@@ -2266,10 +2343,10 @@ func (p *parser) parseDecl(sync func(*parser)) ast.Decl {
 	var f parseSpecFunction
 	switch p.tok {
 	case token.CONST, token.VAR:
-		f = (*parser).parseValueSpec
+		f = p.parseValueSpec
 
 	case token.TYPE:
-		f = (*parser).parseTypeSpec
+		f = p.parseTypeSpec
 
 	case token.FUNC:
 		return p.parseFuncDecl()
@@ -2321,7 +2398,7 @@ func (p *parser) parseFile() *ast.File {
 	if p.mode&PackageClauseOnly == 0 {
 		// import decls
 		for p.tok == token.IMPORT {
-			decls = append(decls, p.parseGenDecl(token.IMPORT, (*parser).parseImportSpec))
+			decls = append(decls, p.parseGenDecl(token.IMPORT, p.parseImportSpec))
 		}
 
 		if p.mode&ImportsOnly == 0 {

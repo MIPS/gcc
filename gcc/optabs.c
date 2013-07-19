@@ -1,7 +1,5 @@
 /* Expand the basic unary and binary arithmetic operations, for GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012  Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -46,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 
 struct target_optabs default_target_optabs;
 struct target_libfuncs default_target_libfuncs;
+struct target_optabs *this_fn_optabs = &default_target_optabs;
 #if SWITCHABLE_TARGET
 struct target_optabs *this_target_optabs = &default_target_optabs;
 struct target_libfuncs *this_target_libfuncs = &default_target_libfuncs;
@@ -192,16 +191,39 @@ add_equal_note (rtx insns, rtx target, enum rtx_code code, rtx op0, rtx op1)
   if (GET_CODE (target) == ZERO_EXTRACT)
     return 1;
 
-  /* If TARGET is in OP0 or OP1, punt.  We'd end up with a note referencing
-     a value changing in the insn, so the note would be invalid for CSE.  */
-  if (reg_overlap_mentioned_p (target, op0)
-      || (op1 && reg_overlap_mentioned_p (target, op1)))
-    return 0;
-
   for (last_insn = insns;
        NEXT_INSN (last_insn) != NULL_RTX;
        last_insn = NEXT_INSN (last_insn))
     ;
+
+  /* If TARGET is in OP0 or OP1, punt.  We'd end up with a note referencing
+     a value changing in the insn, so the note would be invalid for CSE.  */
+  if (reg_overlap_mentioned_p (target, op0)
+      || (op1 && reg_overlap_mentioned_p (target, op1)))
+    {
+      if (MEM_P (target)
+	  && (rtx_equal_p (target, op0)
+	      || (op1 && rtx_equal_p (target, op1))))
+	{
+	  /* For MEM target, with MEM = MEM op X, prefer no REG_EQUAL note
+	     over expanding it as temp = MEM op X, MEM = temp.  If the target
+	     supports MEM = MEM op X instructions, it is sometimes too hard
+	     to reconstruct that form later, especially if X is also a memory,
+	     and due to multiple occurrences of addresses the address might
+	     be forced into register unnecessarily.
+	     Note that not emitting the REG_EQUIV note might inhibit
+	     CSE in some cases.  */
+	  set = single_set (last_insn);
+	  if (set
+	      && GET_CODE (SET_SRC (set)) == code
+	      && MEM_P (SET_DEST (set))
+	      && (rtx_equal_p (SET_DEST (set), XEXP (SET_SRC (set), 0))
+		  || (op1 && rtx_equal_p (SET_DEST (set),
+					  XEXP (SET_SRC (set), 1)))))
+	    return 1;
+	}
+      return 0;
+    }
 
   set = single_set (last_insn);
   if (set == NULL_RTX)
@@ -327,10 +349,10 @@ widen_operand (rtx op, enum machine_mode mode, enum machine_mode oldmode,
 	  && SUBREG_PROMOTED_UNSIGNED_P (op) == unsignedp))
     return convert_modes (mode, oldmode, op, unsignedp);
 
-  /* If MODE is no wider than a single word, we return a paradoxical
+  /* If MODE is no wider than a single word, we return a lowpart or paradoxical
      SUBREG.  */
   if (GET_MODE_SIZE (mode) <= UNITS_PER_WORD)
-    return gen_rtx_SUBREG (mode, force_reg (GET_MODE (op), op), 0);
+    return gen_lowpart (mode, force_reg (GET_MODE (op), op));
 
   /* Otherwise, get an object of MODE, clobber it, and set the low-order
      part to OP.  */
@@ -6133,7 +6155,7 @@ init_optabs (void)
     libfunc_hash = htab_create_ggc (10, hash_libfunc, eq_libfunc, NULL);
 
   /* Fill in the optabs with the insns we support.  */
-  init_all_optabs ();
+  init_all_optabs (this_fn_optabs);
 
   /* The ffs function operates on `int'.  Fall back on it if we do not
      have a libgcc2 function for that width.  */
@@ -6188,6 +6210,39 @@ init_optabs (void)
 
   /* Allow the target to add more libcalls or rename some, etc.  */
   targetm.init_libfuncs ();
+}
+
+/* Use the current target and options to initialize
+   TREE_OPTIMIZATION_OPTABS (OPTNODE).  */
+
+void
+init_tree_optimization_optabs (tree optnode)
+{
+  /* Quick exit if we have already computed optabs for this target.  */
+  if (TREE_OPTIMIZATION_BASE_OPTABS (optnode) == this_target_optabs)
+    return;
+
+  /* Forget any previous information and set up for the current target.  */
+  TREE_OPTIMIZATION_BASE_OPTABS (optnode) = this_target_optabs;
+  struct target_optabs *tmp_optabs = (struct target_optabs *)
+    TREE_OPTIMIZATION_OPTABS (optnode);
+  if (tmp_optabs)
+    memset (tmp_optabs, 0, sizeof (struct target_optabs));
+  else
+    tmp_optabs = (struct target_optabs *)
+      ggc_alloc_atomic (sizeof (struct target_optabs));
+
+  /* Generate a new set of optabs into tmp_optabs.  */
+  init_all_optabs (tmp_optabs);
+
+  /* If the optabs changed, record it.  */
+  if (memcmp (tmp_optabs, this_target_optabs, sizeof (struct target_optabs)))
+    TREE_OPTIMIZATION_OPTABS (optnode) = (unsigned char *) tmp_optabs;
+  else
+    {
+      TREE_OPTIMIZATION_OPTABS (optnode) = NULL;
+      ggc_free (tmp_optabs);
+    }
 }
 
 /* A helper function for init_sync_libfuncs.  Using the basename BASE,
@@ -7014,9 +7069,9 @@ maybe_emit_sync_lock_test_and_set (rtx target, rtx mem, rtx val,
      exists, and the memory model is stronger than acquire, add a release 
      barrier before the instruction.  */
 
-  if (model == MEMMODEL_SEQ_CST
-      || model == MEMMODEL_RELEASE
-      || model == MEMMODEL_ACQ_REL)
+  if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST
+      || (model & MEMMODEL_MASK) == MEMMODEL_RELEASE
+      || (model & MEMMODEL_MASK) == MEMMODEL_ACQ_REL)
     expand_mem_thread_fence (model);
 
   if (icode != CODE_FOR_nothing)
@@ -7394,7 +7449,7 @@ expand_mem_thread_fence (enum memmodel model)
 {
   if (HAVE_mem_thread_fence)
     emit_insn (gen_mem_thread_fence (GEN_INT (model)));
-  else if (model != MEMMODEL_RELAXED)
+  else if ((model & MEMMODEL_MASK) != MEMMODEL_RELAXED)
     {
       if (HAVE_memory_barrier)
 	emit_insn (gen_memory_barrier ());
@@ -7418,7 +7473,7 @@ expand_mem_signal_fence (enum memmodel model)
 {
   if (HAVE_mem_signal_fence)
     emit_insn (gen_mem_signal_fence (GEN_INT (model)));
-  else if (model != MEMMODEL_RELAXED)
+  else if ((model & MEMMODEL_MASK) != MEMMODEL_RELAXED)
     {
       /* By default targets are coherent between a thread and the signal
 	 handler running on the same thread.  Thus this really becomes a
@@ -7473,7 +7528,7 @@ expand_atomic_load (rtx target, rtx mem, enum memmodel model)
     target = gen_reg_rtx (mode);
 
   /* For SEQ_CST, emit a barrier before the load.  */
-  if (model == MEMMODEL_SEQ_CST)
+  if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST)
     expand_mem_thread_fence (model);
 
   emit_move_insn (target, mem);
@@ -7519,7 +7574,7 @@ expand_atomic_store (rtx mem, rtx val, enum memmodel model, bool use_release)
 	  if (maybe_expand_insn (icode, 2, ops))
 	    {
 	      /* lock_release is only a release barrier.  */
-	      if (model == MEMMODEL_SEQ_CST)
+	      if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST)
 		expand_mem_thread_fence (model);
 	      return const0_rtx;
 	    }
@@ -7546,7 +7601,7 @@ expand_atomic_store (rtx mem, rtx val, enum memmodel model, bool use_release)
   emit_move_insn (mem, val);
 
   /* For SEQ_CST, also emit a barrier after the store.  */
-  if (model == MEMMODEL_SEQ_CST)
+  if ((model & MEMMODEL_MASK) == MEMMODEL_SEQ_CST)
     expand_mem_thread_fence (model);
 
   return const0_rtx;

@@ -18,6 +18,8 @@
 
 #include "sanitizer_common.h"
 #include "sanitizer_libc.h"
+#include "sanitizer_placement_new.h"
+#include "sanitizer_mutex.h"
 
 namespace __sanitizer {
 
@@ -93,6 +95,11 @@ void *Mprotect(uptr fixed_addr, uptr size) {
                       MEM_RESERVE | MEM_COMMIT, PAGE_NOACCESS);
 }
 
+void FlushUnneededShadowMemory(uptr addr, uptr size) {
+  // This is almost useless on 32-bits.
+  // FIXME: add madvice-analog when we move to 64-bits.
+}
+
 bool MemoryRangeIsAvailable(uptr range_start, uptr range_end) {
   // FIXME: shall we do anything here on Windows?
   return true;
@@ -119,6 +126,10 @@ const char *GetEnv(const char *name) {
 }
 
 const char *GetPwd() {
+  UNIMPLEMENTED();
+}
+
+u32 GetUid() {
   UNIMPLEMENTED();
 }
 
@@ -154,10 +165,6 @@ void SleepForMillis(int millis) {
   Sleep(millis);
 }
 
-void Exit(int exitcode) {
-  _exit(exitcode);
-}
-
 void Abort() {
   abort();
   _exit(-1);  // abort is not NORETURN on Windows.
@@ -187,7 +194,15 @@ int internal_isatty(fd_t fd) {
   return _isatty(fd);
 }
 
-fd_t internal_open(const char *filename, bool write) {
+fd_t internal_open(const char *filename, int flags) {
+  UNIMPLEMENTED();
+}
+
+fd_t internal_open(const char *filename, int flags, u32 mode) {
+  UNIMPLEMENTED();
+}
+
+fd_t OpenFile(const char *filename, bool write) {
   UNIMPLEMENTED();
 }
 
@@ -207,6 +222,18 @@ uptr internal_write(fd_t fd, const void *buf, uptr count) {
   return ret;
 }
 
+int internal_stat(const char *path, void *buf) {
+  UNIMPLEMENTED();
+}
+
+int internal_lstat(const char *path, void *buf) {
+  UNIMPLEMENTED();
+}
+
+int internal_fstat(fd_t fd, void *buf) {
+  UNIMPLEMENTED();
+}
+
 uptr internal_filesize(fd_t fd) {
   UNIMPLEMENTED();
 }
@@ -222,6 +249,44 @@ uptr internal_readlink(const char *path, char *buf, uptr bufsize) {
 int internal_sched_yield() {
   Sleep(0);
   return 0;
+}
+
+void internal__exit(int exitcode) {
+  _exit(exitcode);
+}
+
+// ---------------------- BlockingMutex ---------------- {{{1
+const uptr LOCK_UNINITIALIZED = 0;
+const uptr LOCK_READY = (uptr)-1;
+
+BlockingMutex::BlockingMutex(LinkerInitialized li) {
+  // FIXME: see comments in BlockingMutex::Lock() for the details.
+  CHECK(li == LINKER_INITIALIZED || owner_ == LOCK_UNINITIALIZED);
+
+  CHECK(sizeof(CRITICAL_SECTION) <= sizeof(opaque_storage_));
+  InitializeCriticalSection((LPCRITICAL_SECTION)opaque_storage_);
+  owner_ = LOCK_READY;
+}
+
+void BlockingMutex::Lock() {
+  if (owner_ == LOCK_UNINITIALIZED) {
+    // FIXME: hm, global BlockingMutex objects are not initialized?!?
+    // This might be a side effect of the clang+cl+link Frankenbuild...
+    new(this) BlockingMutex((LinkerInitialized)(LINKER_INITIALIZED + 1));
+
+    // FIXME: If it turns out the linker doesn't invoke our
+    // constructors, we should probably manually Lock/Unlock all the global
+    // locks while we're starting in one thread to avoid double-init races.
+  }
+  EnterCriticalSection((LPCRITICAL_SECTION)opaque_storage_);
+  CHECK_EQ(owner_, LOCK_READY);
+  owner_ = GetThreadSelf();
+}
+
+void BlockingMutex::Unlock() {
+  CHECK_EQ(owner_, GetThreadSelf());
+  owner_ = LOCK_READY;
+  LeaveCriticalSection((LPCRITICAL_SECTION)opaque_storage_);
 }
 
 }  // namespace __sanitizer

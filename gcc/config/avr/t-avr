@@ -1,5 +1,4 @@
-# Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-# 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+# Copyright (C) 2000-2013 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -35,6 +34,15 @@ avr-log.o: $(srcdir)/config/avr/avr-log.c \
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $<
 
 avr.o avr-c.o: $(srcdir)/config/avr/builtins.def
+
+# This overrides stdfix.h from USER_H which we supply and include
+# in our own stdint.h as stdint-gcc.h.
+
+EXTRA_HEADERS = $(srcdir)/config/avr/stdfix.h \
+	      	stdfix-gcc.h
+
+stdfix-gcc.h: $(srcdir)/ginclude/stdfix.h
+	-cp $< $@
 
 # Files and Variables auto-generated from avr-mcus.def
 

@@ -1,5 +1,5 @@
 /* Functions to support general ended bitmaps.
-   Copyright (C) 1997-2012  Free Software Foundation, Inc.
+   Copyright (C) 1997-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -293,6 +293,8 @@ inline void dump_bitmap (FILE *file, const_bitmap map)
 {
   bitmap_print (file, map, "", "\n");
 }
+extern void debug (const bitmap_head_def &ref);
+extern void debug (const bitmap_head_def *ptr);
 
 extern unsigned bitmap_first_set_bit (const_bitmap);
 extern unsigned bitmap_last_set_bit (const_bitmap);

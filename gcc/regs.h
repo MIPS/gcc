@@ -1,7 +1,5 @@
 /* Define per-register tables for data flow info and register allocation.
-   Copyright (C) 1987, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2003, 2004, 2005, 2006, 2007, 2008, 2010 Free Software
-   Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -91,6 +89,8 @@ REG_N_SETS (int regno)
 #define SET_REG_N_SETS(N,V) (regstat_n_sets_and_refs[N].sets = V)
 #define INC_REG_N_SETS(N,V) (regstat_n_sets_and_refs[N].sets += V)
 
+/* Given a REG, return TRUE if the reg is a PARM_DECL, FALSE otherwise.  */
+extern bool reg_is_parm_p (rtx);
 
 /* Functions defined in regstat.c.  */
 extern void regstat_init_n_sets_and_refs (void);

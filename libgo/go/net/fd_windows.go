@@ -37,12 +37,34 @@ func sysInit() {
 	}
 	canCancelIO = syscall.LoadCancelIoEx() == nil
 	if syscall.LoadGetAddrInfo() == nil {
+		lookupPort = newLookupPort
 		lookupIP = newLookupIP
 	}
 }
 
 func closesocket(s syscall.Handle) error {
 	return syscall.Closesocket(s)
+}
+
+func canUseConnectEx(net string) bool {
+	if net == "udp" || net == "udp4" || net == "udp6" {
+		// ConnectEx windows API does not support connectionless sockets.
+		return false
+	}
+	return syscall.LoadConnectEx() == nil
+}
+
+func resolveAndDial(net, addr string, localAddr Addr, deadline time.Time) (Conn, error) {
+	if !canUseConnectEx(net) {
+		// Use the relatively inefficient goroutine-racing
+		// implementation of DialTimeout.
+		return resolveAndDialChannel(net, addr, localAddr, deadline)
+	}
+	ra, err := resolveAddr("dial", net, addr, deadline)
+	if err != nil {
+		return nil, err
+	}
+	return dial(net, addr, localAddr, ra, deadline)
 }
 
 // Interface for all IO operations.
@@ -115,12 +137,18 @@ type resultSrv struct {
 	iocp syscall.Handle
 }
 
+func runtime_blockingSyscallHint()
+
 func (s *resultSrv) Run() {
 	var o *syscall.Overlapped
 	var key uint32
 	var r ioResult
 	for {
-		r.err = syscall.GetQueuedCompletionStatus(s.iocp, &(r.qty), &key, &o, syscall.INFINITE)
+		r.err = syscall.GetQueuedCompletionStatus(s.iocp, &(r.qty), &key, &o, 0)
+		if r.err == syscall.Errno(syscall.WAIT_TIMEOUT) && o == nil {
+			runtime_blockingSyscallHint()
+			r.err = syscall.GetQueuedCompletionStatus(s.iocp, &(r.qty), &key, &o, syscall.INFINITE)
+		}
 		switch {
 		case r.err == nil:
 			// Dequeued successfully completed IO packet.
@@ -321,8 +349,49 @@ func (fd *netFD) setAddr(laddr, raddr Addr) {
 	runtime.SetFinalizer(fd, (*netFD).closesocket)
 }
 
-func (fd *netFD) connect(ra syscall.Sockaddr) error {
-	return syscall.Connect(fd.sysfd, ra)
+// Make new connection.
+
+type connectOp struct {
+	anOp
+	ra syscall.Sockaddr
+}
+
+func (o *connectOp) Submit() error {
+	return syscall.ConnectEx(o.fd.sysfd, o.ra, nil, 0, nil, &o.o)
+}
+
+func (o *connectOp) Name() string {
+	return "ConnectEx"
+}
+
+func (fd *netFD) connect(la, ra syscall.Sockaddr) error {
+	if !canUseConnectEx(fd.net) {
+		return syscall.Connect(fd.sysfd, ra)
+	}
+	// ConnectEx windows API requires an unconnected, previously bound socket.
+	if la == nil {
+		switch ra.(type) {
+		case *syscall.SockaddrInet4:
+			la = &syscall.SockaddrInet4{}
+		case *syscall.SockaddrInet6:
+			la = &syscall.SockaddrInet6{}
+		default:
+			panic("unexpected type in connect")
+		}
+		if err := syscall.Bind(fd.sysfd, la); err != nil {
+			return err
+		}
+	}
+	// Call ConnectEx API.
+	var o connectOp
+	o.Init(fd, 'w')
+	o.ra = ra
+	_, err := iosrv.ExecIO(&o, fd.wdeadline.value())
+	if err != nil {
+		return err
+	}
+	// Refresh socket properties.
+	return syscall.Setsockopt(fd.sysfd, syscall.SOL_SOCKET, syscall.SO_UPDATE_CONNECT_CONTEXT, (*byte)(unsafe.Pointer(&fd.sysfd)), int32(unsafe.Sizeof(fd.sysfd)))
 }
 
 // Add a reference to this fd.
@@ -556,15 +625,10 @@ func (fd *netFD) accept(toAddr func(syscall.Sockaddr) Addr) (*netFD, error) {
 	defer fd.decref()
 
 	// Get new socket.
-	// See ../syscall/exec_unix.go for description of ForkLock.
-	syscall.ForkLock.RLock()
-	s, err := syscall.Socket(fd.family, fd.sotype, 0)
+	s, err := sysSocket(fd.family, fd.sotype, 0)
 	if err != nil {
-		syscall.ForkLock.RUnlock()
 		return nil, &OpError{"socket", fd.net, fd.laddr, err}
 	}
-	syscall.CloseOnExec(s)
-	syscall.ForkLock.RUnlock()
 
 	// Associate our new socket with IOCP.
 	onceStartServer.Do(startServer)

@@ -1,5 +1,5 @@
 ;; Predicate definitions for NEC V850.
-;; Copyright (C) 2005, 2007, 2010, 2011, 2012 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -496,6 +496,26 @@
     return 0;
 
   return op == CONST0_RTX(mode);
+})
+
+(define_predicate "label_ref_operand"
+  (match_code "label_ref")
+)
+
+
+(define_predicate "e3v5_shift_operand"
+  (match_code "const_int,reg")
+  {
+    if (CONST_INT_P (op))
+      return IN_RANGE (INTVAL (op), 0, 31);
+    return true;
+  }
+)
+
+(define_predicate "ior_operator"
+  (match_code "ior")
+{
+  return (GET_CODE (op) == IOR);
 })
 
 ;; Return true if the floating point comparison operation

@@ -27,14 +27,14 @@
 #if ASAN_ALLOCATOR_VERSION == 1
 #include "asan_interceptors.h"
 #include "asan_internal.h"
-#include "asan_lock.h"
 #include "asan_mapping.h"
 #include "asan_stats.h"
 #include "asan_report.h"
 #include "asan_thread.h"
 #include "asan_thread_registry.h"
-#include "sanitizer/asan_interface.h"
+#include "sanitizer_common/sanitizer_allocator.h"
 #include "sanitizer_common/sanitizer_atomic.h"
+#include "sanitizer_common/sanitizer_mutex.h"
 
 namespace __asan {
 
@@ -227,7 +227,7 @@ class MallocInfo {
     AsanChunk *m = 0;
     AsanChunk **fl = &free_lists_[size_class];
     {
-      ScopedLock lock(&mu_);
+      BlockingMutexLock lock(&mu_);
       for (uptr i = 0; i < n_chunks; i++) {
         if (!(*fl)) {
           *fl = GetNewChunks(size_class);
@@ -245,7 +245,7 @@ class MallocInfo {
   void SwallowThreadLocalMallocStorage(AsanThreadLocalMallocStorage *x,
                                        bool eat_free_lists) {
     CHECK(flags()->quarantine_size > 0);
-    ScopedLock lock(&mu_);
+    BlockingMutexLock lock(&mu_);
     AsanChunkFifoList *q = &x->quarantine_;
     if (q->size() > 0) {
       quarantine_.PushList(q);
@@ -269,18 +269,18 @@ class MallocInfo {
   }
 
   void BypassThreadLocalQuarantine(AsanChunk *chunk) {
-    ScopedLock lock(&mu_);
+    BlockingMutexLock lock(&mu_);
     quarantine_.Push(chunk);
   }
 
   AsanChunk *FindChunkByAddr(uptr addr) {
-    ScopedLock lock(&mu_);
+    BlockingMutexLock lock(&mu_);
     return FindChunkByAddrUnlocked(addr);
   }
 
   uptr AllocationSize(uptr ptr) {
     if (!ptr) return 0;
-    ScopedLock lock(&mu_);
+    BlockingMutexLock lock(&mu_);
 
     // Make sure this is our chunk and |ptr| actually points to the beginning
     // of the allocated memory.
@@ -303,7 +303,7 @@ class MallocInfo {
   }
 
   void PrintStatus() {
-    ScopedLock lock(&mu_);
+    BlockingMutexLock lock(&mu_);
     uptr malloced = 0;
 
     Printf(" MallocInfo: in quarantine: %zu malloced: %zu; ",
@@ -321,7 +321,7 @@ class MallocInfo {
   }
 
   PageGroup *FindPageGroup(uptr addr) {
-    ScopedLock lock(&mu_);
+    BlockingMutexLock lock(&mu_);
     return FindPageGroupUnlocked(addr);
   }
 
@@ -367,7 +367,7 @@ class MallocInfo {
         left_chunk->chunk_state != CHUNK_AVAILABLE)
       return left_chunk;
     // Choose based on offset.
-    uptr l_offset = 0, r_offset = 0;
+    sptr l_offset = 0, r_offset = 0;
     CHECK(AsanChunkView(left_chunk).AddrIsAtRight(addr, 1, &l_offset));
     CHECK(AsanChunkView(right_chunk).AddrIsAtLeft(addr, 1, &r_offset));
     if (l_offset < r_offset)
@@ -387,7 +387,7 @@ class MallocInfo {
     CHECK(m->chunk_state == CHUNK_ALLOCATED ||
           m->chunk_state == CHUNK_AVAILABLE ||
           m->chunk_state == CHUNK_QUARANTINE);
-    uptr offset = 0;
+    sptr offset = 0;
     AsanChunkView m_view(m);
     if (m_view.AddrIsInside(addr, 1, &offset))
       return m;
@@ -479,7 +479,7 @@ class MallocInfo {
 
   AsanChunk *free_lists_[kNumberOfSizeClasses];
   AsanChunkFifoList quarantine_;
-  AsanLock mu_;
+  BlockingMutex mu_;
 
   PageGroup *page_groups_[kMaxAvailableRam / kMinMmapSize];
   atomic_uint32_t n_page_groups_;
@@ -685,6 +685,8 @@ void __asan_free_hook(void *ptr) {
 
 namespace __asan {
 
+void InitializeAllocator() { }
+
 void PrintInternalAllocatorStats() {
 }
 
@@ -710,6 +712,7 @@ void *asan_malloc(uptr size, StackTrace *stack) {
 }
 
 void *asan_calloc(uptr nmemb, uptr size, StackTrace *stack) {
+  if (__sanitizer::CallocShouldReturnNullDueToOverflow(size, nmemb)) return 0;
   void *ptr = (void*)Allocate(0, nmemb * size, stack, FROM_MALLOC);
   if (ptr)
     REAL(memset)(ptr, 0, nmemb * size);

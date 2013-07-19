@@ -1,6 +1,5 @@
 ;; ARM VFP instruction patterns
-;; Copyright (C) 2003, 2005, 2006, 2007, 2008, 2010, 2011, 2012
-;; Free Software Foundation, Inc.
+;; Copyright (C) 2003-2013 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -18,29 +17,6 @@
 ;; You should have received a copy of the GNU General Public License
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.  */
-
-;; The VFP "type" attributes differ from those used in the FPA model.
-;; fcpys	Single precision cpy.
-;; ffariths	Single precision abs, neg.
-;; ffarithd	Double precision abs, neg, cpy.
-;; fadds	Single precision add/sub.
-;; faddd	Double precision add/sub.
-;; fconsts	Single precision load immediate.
-;; fconstd	Double precision load immediate.
-;; fcmps	Single precision comparison.
-;; fcmpd	Double precision comparison.
-;; fmuls	Single precision multiply.
-;; fmuld	Double precision multiply.
-;; fmacs	Single precision multiply-accumulate.
-;; fmacd	Double precision multiply-accumulate.
-;; fdivs	Single precision sqrt or division.
-;; fdivd	Double precision sqrt or division.
-;; f_flag	fmstat operation
-;; f_load[sd]	Floating point load from memory.
-;; f_store[sd]	Floating point store to memory.
-;; f_2_r	Transfer vfp to arm reg.
-;; r_2_f	Transfer arm to vfp reg.
-;; f_cvt	Convert floating<->integral
 
 ;; SImode moves
 ;; ??? For now do not allow loading constants into vfp regs.  This causes
@@ -77,7 +53,7 @@
     }
   "
   [(set_attr "predicable" "yes")
-   (set_attr "type" "*,*,simple_alu_imm,simple_alu_imm,load1,store1,r_2_f,f_2_r,fcpys,f_loads,f_stores")
+   (set_attr "type" "*,*,arlo_imm,arlo_imm,load1,store1,r_2_f,f_2_r,fcpys,f_loads,f_stores")
    (set_attr "neon_type" "*,*,*,*,*,*,neon_mcr,neon_mrc,neon_vmov,*,*")
    (set_attr "insn" "mov,mov,mvn,mov,*,*,*,*,*,*,*")
    (set_attr "pool_range"     "*,*,*,*,4096,*,*,*,*,1020,*")
@@ -86,53 +62,60 @@
 
 ;; See thumb2.md:thumb2_movsi_insn for an explanation of the split
 ;; high/low register alternatives for loads and stores here.
+;; The l/Py alternative should come after r/I to ensure that the short variant
+;; is chosen with length 2 when the instruction is predicated for
+;; arm_restrict_it.
 (define_insn "*thumb2_movsi_vfp"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=rk,r,r,r, l,*hk,m, *m,*t, r,*t,*t,  *Uv")
-	(match_operand:SI 1 "general_operand"	   "rk, I,K,j,mi,*mi,l,*hk, r,*t,*t,*Uvi,*t"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=rk,r,l,r,r, l,*hk,m, *m,*t, r,*t,*t,  *Uv")
+	(match_operand:SI 1 "general_operand"	   "rk,I,Py,K,j,mi,*mi,l,*hk, r,*t,*t,*Uvi,*t"))]
   "TARGET_THUMB2 && TARGET_VFP && TARGET_HARD_FLOAT
    && (   s_register_operand (operands[0], SImode)
        || s_register_operand (operands[1], SImode))"
   "*
   switch (which_alternative)
     {
-    case 0: case 1:
-      return \"mov%?\\t%0, %1\";
+    case 0:
+    case 1:
     case 2:
-      return \"mvn%?\\t%0, #%B1\";
+      return \"mov%?\\t%0, %1\";
     case 3:
-      return \"movw%?\\t%0, %1\";
+      return \"mvn%?\\t%0, #%B1\";
     case 4:
+      return \"movw%?\\t%0, %1\";
     case 5:
-      return \"ldr%?\\t%0, %1\";
     case 6:
+      return \"ldr%?\\t%0, %1\";
     case 7:
-      return \"str%?\\t%1, %0\";
     case 8:
-      return \"fmsr%?\\t%0, %1\\t%@ int\";
+      return \"str%?\\t%1, %0\";
     case 9:
-      return \"fmrs%?\\t%0, %1\\t%@ int\";
+      return \"fmsr%?\\t%0, %1\\t%@ int\";
     case 10:
+      return \"fmrs%?\\t%0, %1\\t%@ int\";
+    case 11:
       return \"fcpys%?\\t%0, %1\\t%@ int\";
-    case 11: case 12:
+    case 12: case 13:
       return output_move_vfp (operands);
     default:
       gcc_unreachable ();
     }
   "
   [(set_attr "predicable" "yes")
-   (set_attr "type" "*,*,*,*,load1,load1,store1,store1,r_2_f,f_2_r,fcpys,f_loads,f_stores")
-   (set_attr "neon_type" "*,*,*,*,*,*,*,*,neon_mcr,neon_mrc,neon_vmov,*,*")
-   (set_attr "insn" "mov,mov,mvn,mov,*,*,*,*,*,*,*,*,*")
-   (set_attr "pool_range"     "*,*,*,*,1018,4094,*,*,*,*,*,1018,*")
-   (set_attr "neg_pool_range" "*,*,*,*,   0,   0,*,*,*,*,*,1008,*")]
+   (set_attr "predicable_short_it" "yes,no,yes,no,no,no,no,no,no,no,no,no,no,no")
+   (set_attr "type" "*,*,*,*,*,load1,load1,store1,store1,r_2_f,f_2_r,fcpys,f_loads,f_stores")
+   (set_attr "length" "2,4,2,4,4,4,4,4,4,4,4,4,4,4")
+   (set_attr "neon_type" "*,*,*,*,*,*,*,*,*,neon_mcr,neon_mrc,neon_vmov,*,*")
+   (set_attr "insn" "mov,mov,mov,mvn,mov,*,*,*,*,*,*,*,*,*")
+   (set_attr "pool_range"     "*,*,*,*,*,1018,4094,*,*,*,*,*,1018,*")
+   (set_attr "neg_pool_range" "*,*,*,*,*,   0,   0,*,*,*,*,*,1008,*")]
 )
 
 
 ;; DImode moves
 
 (define_insn "*movdi_vfp"
-  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,r,r,m,w,r,w,w, Uv")
-       (match_operand:DI 1 "di_operand"              "r,rDa,Db,Dc,mi,mi,r,r,w,w,Uvi,w"))]
+  [(set (match_operand:DI 0 "nonimmediate_di_operand" "=r,r,r,r,q,q,m,w,r,w,w, Uv")
+       (match_operand:DI 1 "di_operand"              "r,rDa,Db,Dc,mi,mi,q,r,w,w,Uvi,w"))]
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP && arm_tune != cortexa8
    && (   register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))
@@ -411,6 +394,7 @@
     }
   "
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type"
      "r_2_f,f_2_r,fconsts,f_loads,f_stores,load1,store1,fcpys,*")
    (set_attr "neon_type" "neon_mcr,neon_mrc,*,*,*,*,*,neon_vmov,*")
@@ -418,7 +402,6 @@
    (set_attr "pool_range" "*,*,*,1018,*,4090,*,*,*")
    (set_attr "neg_pool_range" "*,*,*,1008,*,0,*,*,*")]
 )
-
 
 ;; DFmode moves
 
@@ -549,7 +532,7 @@
 	    [(match_operand 4 "cc_register" "") (const_int 0)])
 	  (match_operand:SF 1 "s_register_operand" "0,t,t,0,?r,?r,0,t,t")
 	  (match_operand:SF 2 "s_register_operand" "t,0,t,?r,0,?r,t,0,t")))]
-  "TARGET_THUMB2 && TARGET_HARD_FLOAT && TARGET_VFP"
+  "TARGET_THUMB2 && TARGET_HARD_FLOAT && TARGET_VFP && !arm_restrict_it"
   "@
    it\\t%D3\;fcpys%D3\\t%0, %2
    it\\t%d3\;fcpys%d3\\t%0, %1
@@ -597,7 +580,7 @@
 	    [(match_operand 4 "cc_register" "") (const_int 0)])
 	  (match_operand:DF 1 "s_register_operand" "0,w,w,0,?r,?r,0,w,w")
 	  (match_operand:DF 2 "s_register_operand" "w,0,w,?r,0,?r,w,0,w")))]
-  "TARGET_THUMB2 && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
+  "TARGET_THUMB2 && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE && !arm_restrict_it"
   "@
    it\\t%D3\;fcpyd%D3\\t%P0, %P2
    it\\t%d3\;fcpyd%d3\\t%P0, %P1
@@ -623,6 +606,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fabss%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "ffariths")]
 )
 
@@ -632,6 +616,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fabsd%?\\t%P0, %P1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "ffarithd")]
 )
 
@@ -643,6 +628,7 @@
    fnegs%?\\t%0, %1
    eor%?\\t%0, %1, #-2147483648"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "ffariths")]
 )
 
@@ -688,6 +674,7 @@
     }
   "
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "length" "4,4,8")
    (set_attr "type" "ffarithd")]
 )
@@ -702,6 +689,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fadds%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fadds")]
 )
 
@@ -712,6 +700,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "faddd%?\\t%P0, %P1, %P2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "faddd")]
 )
 
@@ -723,6 +712,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fsubs%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fadds")]
 )
 
@@ -733,6 +723,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fsubd%?\\t%P0, %P1, %P2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "faddd")]
 )
 
@@ -746,6 +737,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fdivs%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fdivs")]
 )
 
@@ -756,6 +748,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fdivd%?\\t%P0, %P1, %P2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fdivd")]
 )
 
@@ -769,6 +762,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fmuls%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmuls")]
 )
 
@@ -779,6 +773,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fmuld%?\\t%P0, %P1, %P2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmuld")]
 )
 
@@ -789,6 +784,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fnmuls%?\\t%0, %1, %2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmuls")]
 )
 
@@ -799,6 +795,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fnmuld%?\\t%P0, %P1, %P2"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmuld")]
 )
 
@@ -814,6 +811,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fmacs%?\\t%0, %2, %3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacs")]
 )
 
@@ -825,6 +823,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fmacd%?\\t%P0, %P2, %P3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacd")]
 )
 
@@ -837,6 +836,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fmscs%?\\t%0, %2, %3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacs")]
 )
 
@@ -848,6 +848,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fmscd%?\\t%P0, %P2, %P3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacd")]
 )
 
@@ -860,6 +861,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fnmacs%?\\t%0, %2, %3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacs")]
 )
 
@@ -871,6 +873,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fnmacd%?\\t%P0, %P2, %P3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacd")]
 )
 
@@ -885,6 +888,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fnmscs%?\\t%0, %2, %3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacs")]
 )
 
@@ -897,6 +901,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fnmscd%?\\t%P0, %P2, %P3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fmacd")]
 )
 
@@ -910,7 +915,8 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfma%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 (define_insn "*fmsub<SDF:mode>4"
@@ -922,7 +928,8 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfms%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 (define_insn "*fnmsub<SDF:mode>4"
@@ -933,7 +940,8 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfnms%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 (define_insn "*fnmadd<SDF:mode>4"
@@ -945,7 +953,8 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfnma%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "predicable_short_it" "no")
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 
@@ -957,6 +966,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fcvtds%?\\t%P0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -966,6 +976,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fcvtsd%?\\t%0, %P1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -975,6 +986,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FP16"
   "vcvtb%?.f32.f16\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -984,6 +996,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FP16"
   "vcvtb%?.f16.f32\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -993,6 +1006,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "ftosizs%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1002,6 +1016,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "ftosizd%?\\t%0, %P1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1012,6 +1027,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "ftouizs%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1021,6 +1037,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "ftouizd%?\\t%0, %P1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1031,6 +1048,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fsitos%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1040,6 +1058,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fsitod%?\\t%P0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1050,6 +1069,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fuitos%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1059,6 +1079,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fuitod%?\\t%P0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_cvt")]
 )
 
@@ -1071,6 +1092,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP"
   "fsqrts%?\\t%0, %1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fdivs")]
 )
 
@@ -1080,6 +1102,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP_DOUBLE"
   "fsqrtd%?\\t%P0, %P1"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fdivd")]
 )
 
@@ -1167,6 +1190,7 @@
    fcmps%?\\t%0, %1
    fcmpzs%?\\t%0"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fcmps")]
 )
 
@@ -1179,6 +1203,7 @@
    fcmpes%?\\t%0, %1
    fcmpezs%?\\t%0"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fcmps")]
 )
 
@@ -1191,6 +1216,7 @@
    fcmpd%?\\t%P0, %P1
    fcmpzd%?\\t%P0"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fcmpd")]
 )
 
@@ -1203,6 +1229,7 @@
    fcmped%?\\t%P0, %P1
    fcmpezd%?\\t%P0"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "fcmpd")]
 )
 
@@ -1262,6 +1289,7 @@
   "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
   "vrint<vrint_variant>%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1"
   [(set_attr "predicable" "<vrint_predicable>")
+   (set_attr "predicable_short_it" "no")
    (set_attr "type" "f_rint<vfp_type>")]
 )
 

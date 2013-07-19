@@ -2,6 +2,7 @@
 
 /* { dg-do run { target setrlimit } } */
 /* { dg-skip-if "" { *-*-* } { "*" } { "-O0" } } */
+/* { dg-require-effective-target hw } */
 /* { dg-shouldfail "asan" } */
 
 #include <stdlib.h>
@@ -18,4 +19,4 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-/* { dg-output "AddressSanitizer is unable to mmap" } */
+/* { dg-output "ERROR: Failed to mmap" } */

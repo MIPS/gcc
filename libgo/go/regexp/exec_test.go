@@ -2,11 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package regexp_test
+package regexp
 
 import (
-	. "regexp"
-
 	"bufio"
 	"compress/bzip2"
 	"fmt"
@@ -71,8 +69,7 @@ func TestRE2Search(t *testing.T) {
 
 func TestRE2Exhaustive(t *testing.T) {
 	if testing.Short() {
-		t.Log("skipping TestRE2Exhaustive during short test")
-		return
+		t.Skip("skipping TestRE2Exhaustive during short test")
 	}
 	testRE2(t, "testdata/re2-exhaustive.txt.bz2")
 }
@@ -92,7 +89,7 @@ func testRE2(t *testing.T, file string) {
 		txt = f
 	}
 	lineno := 0
-	r := bufio.NewReader(txt)
+	scanner := bufio.NewScanner(txt)
 	var (
 		str       []string
 		input     []string
@@ -102,16 +99,8 @@ func testRE2(t *testing.T, file string) {
 		nfail     int
 		ncase     int
 	)
-	for {
-		line, err := r.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			t.Fatalf("%s:%d: %v", file, lineno, err)
-		}
-		line = line[:len(line)-1] // chop \n
-		lineno++
+	for lineno := 1; scanner.Scan(); lineno++ {
+		line := scanner.Text()
 		switch {
 		case line == "":
 			t.Fatalf("%s:%d: unexpected blank line", file, lineno)
@@ -207,6 +196,9 @@ func testRE2(t *testing.T, file string) {
 			t.Fatalf("%s:%d: out of sync: %s\n", file, lineno, line)
 		}
 	}
+	if err := scanner.Err(); err != nil {
+		t.Fatalf("%s:%d: %v", file, lineno, err)
+	}
 	if len(input) != 0 {
 		t.Fatalf("%s:%d: out of sync: have %d strings left at EOF", file, lineno, len(input))
 	}
@@ -221,22 +213,22 @@ var run = []func(*Regexp, *Regexp, string) ([]int, string){
 }
 
 func runFull(re, refull *Regexp, text string) ([]int, string) {
-	refull.SetLongest(false)
+	refull.longest = false
 	return refull.FindStringSubmatchIndex(text), "[full]"
 }
 
 func runPartial(re, refull *Regexp, text string) ([]int, string) {
-	re.SetLongest(false)
+	re.longest = false
 	return re.FindStringSubmatchIndex(text), ""
 }
 
 func runFullLongest(re, refull *Regexp, text string) ([]int, string) {
-	refull.SetLongest(true)
+	refull.longest = true
 	return refull.FindStringSubmatchIndex(text), "[full,longest]"
 }
 
 func runPartialLongest(re, refull *Regexp, text string) ([]int, string) {
-	re.SetLongest(true)
+	re.longest = true
 	return re.FindStringSubmatchIndex(text), "[longest]"
 }
 
@@ -248,22 +240,22 @@ var match = []func(*Regexp, *Regexp, string) (bool, string){
 }
 
 func matchFull(re, refull *Regexp, text string) (bool, string) {
-	refull.SetLongest(false)
+	refull.longest = false
 	return refull.MatchString(text), "[full]"
 }
 
 func matchPartial(re, refull *Regexp, text string) (bool, string) {
-	re.SetLongest(false)
+	re.longest = false
 	return re.MatchString(text), ""
 }
 
 func matchFullLongest(re, refull *Regexp, text string) (bool, string) {
-	refull.SetLongest(true)
+	refull.longest = true
 	return refull.MatchString(text), "[full,longest]"
 }
 
 func matchPartialLongest(re, refull *Regexp, text string) (bool, string) {
-	re.SetLongest(true)
+	re.longest = true
 	return re.MatchString(text), "[longest]"
 }
 
@@ -543,7 +535,7 @@ Reading:
 				}
 			}
 
-			re, err := CompileInternal(pattern, syn, true)
+			re, err := compile(pattern, syn, true)
 			if err != nil {
 				if shouldCompile {
 					t.Errorf("%s:%d: %#q did not compile", file, lineno, pattern)
@@ -709,3 +701,17 @@ func BenchmarkMatchHard_1K(b *testing.B)    { benchmark(b, hard, 1<<10) }
 func BenchmarkMatchHard_32K(b *testing.B)   { benchmark(b, hard, 32<<10) }
 func BenchmarkMatchHard_1M(b *testing.B)    { benchmark(b, hard, 1<<20) }
 func BenchmarkMatchHard_32M(b *testing.B)   { benchmark(b, hard, 32<<20) }
+
+func TestLongest(t *testing.T) {
+	re, err := Compile(`a(|b)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if g, w := re.FindString("ab"), "a"; g != w {
+		t.Errorf("first match was %q, want %q", g, w)
+	}
+	re.Longest()
+	if g, w := re.FindString("ab"), "ab"; g != w {
+		t.Errorf("longest match was %q, want %q", g, w)
+	}
+}

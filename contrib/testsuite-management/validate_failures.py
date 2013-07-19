@@ -2,10 +2,14 @@
 
 # Script to compare testsuite failures against a list of known-to-fail
 # tests.
+#
+# NOTE: This script is used in installations that are running Python 2.4.
+#       Please stick to syntax features available in 2.4 and earlier
+#       versions.
 
 # Contributed by Diego Novillo <dnovillo@google.com>
 #
-# Copyright (C) 2011, 2012 Free Software Foundation, Inc.
+# Copyright (C) 2011-2013 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -62,6 +66,7 @@ import sys
 
 # Handled test results.
 _VALID_TEST_RESULTS = [ 'FAIL', 'UNRESOLVED', 'XPASS', 'ERROR' ]
+_VALID_TEST_RESULTS_REX = re.compile("%s" % "|".join(_VALID_TEST_RESULTS))
 
 # Subdirectory of srcdir in which to find the manifest file.
 _MANIFEST_SUBDIR = 'contrib/testsuite-management'
@@ -77,7 +82,7 @@ _MANIFEST_PATH_PATTERN = '%s/%s/%s.xfail'
 _OPTIONS = None
 
 def Error(msg):
-  print >>sys.stderr, '\nerror: %s' % msg
+  print >>sys.stderr, 'error: %s' % msg
   sys.exit(1)
 
 
@@ -114,20 +119,15 @@ class TestResult(object):
 
   def __init__(self, summary_line, ordinal=-1):
     try:
-      self.attrs = ''
-      if '|' in summary_line:
-        (self.attrs, summary_line) = summary_line.split('|', 1)
+      (self.attrs, summary_line) = SplitAttributesFromSummaryLine(summary_line)
       try:
         (self.state,
          self.name,
-         self.description) = re.match(r' *([A-Z]+):\s*(\S+)\s+(.*)',
+         self.description) = re.match(r'([A-Z]+):\s*(\S+)\s*(.*)',
                                       summary_line).groups()
       except:
         print 'Failed to parse summary line: "%s"' % summary_line
         raise
-      self.attrs = self.attrs.strip()
-      self.state = self.state.strip()
-      self.description = self.description.strip()
       self.ordinal = ordinal
     except ValueError:
       Error('Cannot parse summary line "%s"' % summary_line)
@@ -191,11 +191,9 @@ def GetMakefileValue(makefile_name, value_name):
   return None
 
 
-def ValidBuildDirectory(builddir, target):
+def ValidBuildDirectory(builddir):
   if (not os.path.exists(builddir) or
-      not os.path.exists('%s/Makefile' % builddir) or
-      (not os.path.exists('%s/build-%s' % (builddir, target)) and
-       not os.path.exists('%s/%s' % (builddir, target)))):
+      not os.path.exists('%s/Makefile' % builddir)):
     return False
   return True
 
@@ -205,12 +203,21 @@ def IsComment(line):
   return line.startswith('#')
 
 
+def SplitAttributesFromSummaryLine(line):
+  """Splits off attributes from a summary line, if present."""
+  if '|' in line and not _VALID_TEST_RESULTS_REX.match(line):
+    (attrs, line) = line.split('|', 1)
+    attrs = attrs.strip()
+  else:
+    attrs = ''
+  line = line.strip()
+  return (attrs, line)
+
+
 def IsInterestingResult(line):
   """Return True if line is one of the summary lines we care about."""
-  if '|' in line:
-    (_, line) = line.split('|', 1)
-    line = line.strip()
-  return any(line.startswith(result) for result in _VALID_TEST_RESULTS)
+  (_, line) = SplitAttributesFromSummaryLine(line)
+  return bool(_VALID_TEST_RESULTS_REX.match(line))
 
 
 def IsInclude(line):
@@ -357,15 +364,29 @@ def GetManifestPath(srcdir, target, user_provided_must_exist):
       Error('Manifest does not exist: %s' % manifest_path)
     return manifest_path
   else:
+    if not srcdir:
+      Error('Could not determine the location of GCC\'s source tree. '
+            'The Makefile does not contain a definition for "srcdir".')
+    if not target:
+      Error('Could not determine the target triplet for this build. '
+            'The Makefile does not contain a definition for "target_alias".')
     return _MANIFEST_PATH_PATTERN % (srcdir, _MANIFEST_SUBDIR, target)
 
 
 def GetBuildData():
-  target = GetMakefileValue('%s/Makefile' % _OPTIONS.build_dir, 'target_alias=')
+  if not ValidBuildDirectory(_OPTIONS.build_dir):
+    # If we have been given a set of results to use, we may
+    # not be inside a valid GCC build directory.  In that case,
+    # the user must provide both a manifest file and a set
+    # of results to check against it.
+    if not _OPTIONS.results or not _OPTIONS.manifest:
+      Error('%s is not a valid GCC top level build directory. '
+            'You must use --manifest and --results to do the validation.' %
+            _OPTIONS.build_dir)
+    else:
+      return None, None
   srcdir = GetMakefileValue('%s/Makefile' % _OPTIONS.build_dir, 'srcdir =')
-  if not ValidBuildDirectory(_OPTIONS.build_dir, target):
-    Error('%s is not a valid GCC top level build directory.' %
-          _OPTIONS.build_dir)
+  target = GetMakefileValue('%s/Makefile' % _OPTIONS.build_dir, 'target_alias=')
   print 'Source directory: %s' % srcdir
   print 'Build target:     %s' % target
   return srcdir, target
@@ -399,8 +420,9 @@ def PerformComparison(expected, actual, ignore_missing_failures):
   if not ignore_missing_failures and len(expected_vs_actual) > 0:
     PrintSummary('Expected results not present in this build (fixed tests)'
                  '\n\nNOTE: This is not a failure.  It just means that these '
-                 'tests were expected\nto fail, but they worked in this '
-                 'configuration.\n', expected_vs_actual)
+                 'tests were expected\nto fail, but either they worked in '
+                 'this configuration or they were not\npresent at all.\n',
+                 expected_vs_actual)
 
   if tests_ok:
     print '\nSUCCESS: No unexpected failures.'
@@ -409,7 +431,7 @@ def PerformComparison(expected, actual, ignore_missing_failures):
 
 
 def CheckExpectedResults():
-  (srcdir, target) = GetBuildData()
+  srcdir, target = GetBuildData()
   manifest_path = GetManifestPath(srcdir, target, True)
   print 'Manifest:         %s' % manifest_path
   manifest = GetManifest(manifest_path)
@@ -484,7 +506,8 @@ def Main(argv):
   parser.add_option('--manifest', action='store', type='string',
                     dest='manifest', default=None,
                     help='Name of the manifest file to use (default = '
-                    'taken from contrib/testsuite-managment/<target_alias>.xfail)')
+                    'taken from '
+                    'contrib/testsuite-managment/<target_alias>.xfail)')
   parser.add_option('--produce_manifest', action='store_true',
                     dest='produce_manifest', default=False,
                     help='Produce the manifest for the current '

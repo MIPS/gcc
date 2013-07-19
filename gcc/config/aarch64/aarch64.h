@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -521,12 +521,6 @@ typedef struct GTY (()) machine_function
 #endif
 
 
-/* Which ABI to use.  */
-enum arm_abi_type
-{
-  ARM_ABI_AAPCS64
-};
-
 enum arm_pcs
 {
   ARM_PCS_AAPCS64,		/* Base standard AAPCS for 64 bit.  */
@@ -534,11 +528,7 @@ enum arm_pcs
 };
 
 
-extern enum arm_abi_type arm_abi;
 extern enum arm_pcs arm_pcs_variant;
-#ifndef ARM_DEFAULT_ABI
-#define ARM_DEFAULT_ABI ARM_ABI_AAPCS64
-#endif
 
 #ifndef ARM_DEFAULT_PCS
 #define ARM_DEFAULT_PCS ARM_PCS_AAPCS64
@@ -708,6 +698,8 @@ do {									     \
 #define FUNCTION_MODE	Pmode
 
 #define SELECT_CC_MODE(OP, X, Y)	aarch64_select_cc_mode (OP, X, Y)
+
+#define REVERSIBLE_CC_MODE(MODE) 1
 
 #define REVERSE_CONDITION(CODE, MODE)		\
   (((MODE) == CCFPmode || (MODE) == CCFPEmode)	\

@@ -1,6 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2002, 2003, 2004, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -152,6 +151,9 @@ typedef bool (*printer_fn) (pretty_printer *, text_info *, const char *,
    output.  */
 #define pp_translate_identifiers(PP) pp_base (PP)->translate_identifiers
 
+/* True if colors should be shown.  */
+#define pp_show_color(PP) pp_base (PP)->show_color
+
 /* The data structure that contains the bare minimum required to do
    proper pretty-printing.  Clients may derived from this structure
    and add additional fields they need.  */
@@ -195,6 +197,9 @@ struct pretty_print_info
   /* Nonzero means identifiers are translated to the locale character
      set on output.  */
   bool translate_identifiers;
+
+  /* Nonzero means that text should be colorized.  */
+  bool show_color;
 };
 
 #define pp_set_line_maximum_length(PP, L) \

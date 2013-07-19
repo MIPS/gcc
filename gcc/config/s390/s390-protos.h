@@ -1,6 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM S/390.
-   Copyright (C) 2000, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011,
-   2012 Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
 
    Contributed by Hartmut Penner (hpenner@de.ibm.com)
 
@@ -59,7 +58,7 @@ extern bool s390_match_ccmode (rtx, enum machine_mode);
 extern enum machine_mode s390_tm_ccmode (rtx, rtx, bool);
 extern enum machine_mode s390_select_ccmode (enum rtx_code, rtx, rtx);
 extern rtx s390_emit_compare (enum rtx_code, rtx, rtx);
-extern void s390_emit_jump (rtx, rtx);
+extern rtx s390_emit_jump (rtx, rtx);
 extern bool symbolic_reference_mentioned_p (rtx);
 extern bool tls_symbolic_reference_mentioned_p (rtx);
 extern bool legitimate_la_operand_p (rtx);
@@ -88,6 +87,7 @@ extern void s390_expand_cs_hqi (enum machine_mode, rtx, rtx, rtx,
 				rtx, rtx, bool);
 extern void s390_expand_atomic (enum machine_mode, enum rtx_code,
 				rtx, rtx, rtx, bool);
+extern void s390_expand_tbegin (rtx, rtx, rtx, bool);
 extern rtx s390_return_addr_rtx (int, rtx);
 extern rtx s390_back_chain_rtx (void);
 extern rtx s390_emit_call (rtx, rtx, rtx, rtx);

@@ -18,15 +18,20 @@ import (
 	"unicode/utf8"
 )
 
+// An Example represents an example function found in a source files.
 type Example struct {
-	Name     string // name of the item being exemplified
-	Doc      string // example function doc string
-	Code     ast.Node
-	Play     *ast.File // a whole program version of the example
-	Comments []*ast.CommentGroup
-	Output   string // expected output
+	Name        string // name of the item being exemplified
+	Doc         string // example function doc string
+	Code        ast.Node
+	Play        *ast.File // a whole program version of the example
+	Comments    []*ast.CommentGroup
+	Output      string // expected output
+	EmptyOutput bool   // expect empty output
+	Order       int    // original source code order
 }
 
+// Examples returns the examples found in the files, sorted by Name field.
+// The Order fields record the order in which the examples were encountered.
 func Examples(files ...*ast.File) []*Example {
 	var list []*Example
 	for _, file := range files {
@@ -55,13 +60,16 @@ func Examples(files ...*ast.File) []*Example {
 			if f.Doc != nil {
 				doc = f.Doc.Text()
 			}
+			output, hasOutput := exampleOutput(f.Body, file.Comments)
 			flist = append(flist, &Example{
-				Name:     name[len("Example"):],
-				Doc:      doc,
-				Code:     f.Body,
-				Play:     playExample(file, f.Body),
-				Comments: file.Comments,
-				Output:   exampleOutput(f.Body, file.Comments),
+				Name:        name[len("Example"):],
+				Doc:         doc,
+				Code:        f.Body,
+				Play:        playExample(file, f.Body),
+				Comments:    file.Comments,
+				Output:      output,
+				EmptyOutput: output == "" && hasOutput,
+				Order:       len(flist),
 			})
 		}
 		if !hasTests && numDecl > 1 && len(flist) == 1 {
@@ -79,15 +87,22 @@ func Examples(files ...*ast.File) []*Example {
 
 var outputPrefix = regexp.MustCompile(`(?i)^[[:space:]]*output:`)
 
-func exampleOutput(b *ast.BlockStmt, comments []*ast.CommentGroup) string {
+// Extracts the expected output and whether there was a valid output comment
+func exampleOutput(b *ast.BlockStmt, comments []*ast.CommentGroup) (output string, ok bool) {
 	if _, last := lastComment(b, comments); last != nil {
 		// test that it begins with the correct prefix
 		text := last.Text()
 		if loc := outputPrefix.FindStringIndex(text); loc != nil {
-			return strings.TrimSpace(text[loc[1]:])
+			text = text[loc[1]:]
+			// Strip zero or more spaces followed by \n or a single space.
+			text = strings.TrimLeft(text, " ")
+			if len(text) > 0 && text[0] == '\n' {
+				text = text[1:]
+			}
+			return text, true
 		}
 	}
-	return "" // no suitable comment found
+	return "", false // no suitable comment found
 }
 
 // isTest tells whether name looks like a test, example, or benchmark.
@@ -142,13 +157,20 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 	// Find unresolved identifiers and uses of top-level declarations.
 	unresolved := make(map[string]bool)
 	usesTopDecl := false
-	ast.Inspect(body, func(n ast.Node) bool {
-		// For an expression like fmt.Println, only add "fmt" to the
-		// set of unresolved names.
+	var inspectFunc func(ast.Node) bool
+	inspectFunc = func(n ast.Node) bool {
+		// For selector expressions, only inspect the left hand side.
+		// (For an expression like fmt.Println, only add "fmt" to the
+		// set of unresolved names, not "Println".)
 		if e, ok := n.(*ast.SelectorExpr); ok {
-			if id, ok := e.X.(*ast.Ident); ok && id.Obj == nil {
-				unresolved[id.Name] = true
-			}
+			ast.Inspect(e.X, inspectFunc)
+			return false
+		}
+		// For key value expressions, only inspect the value
+		// as the key should be resolved by the type of the
+		// composite literal.
+		if e, ok := n.(*ast.KeyValueExpr); ok {
+			ast.Inspect(e.Value, inspectFunc)
 			return false
 		}
 		if id, ok := n.(*ast.Ident); ok {
@@ -159,7 +181,8 @@ func playExample(file *ast.File, body *ast.BlockStmt) *ast.File {
 			}
 		}
 		return true
-	})
+	}
+	ast.Inspect(body, inspectFunc)
 	if usesTopDecl {
 		// We don't support examples that are not self-contained (yet).
 		return nil

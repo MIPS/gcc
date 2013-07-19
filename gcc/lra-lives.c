@@ -1,6 +1,5 @@
 /* Build live ranges for pseudos.
-   Copyright (C) 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -847,6 +846,21 @@ lra_print_live_range_list (FILE *f, lra_live_range_t r)
   for (; r != NULL; r = r->next)
     fprintf (f, " [%d..%d]", r->start, r->finish);
   fprintf (f, "\n");
+}
+
+DEBUG_FUNCTION void
+debug (lra_live_range &ref)
+{
+  lra_print_live_range_list (stderr, &ref);
+}
+
+DEBUG_FUNCTION void
+debug (lra_live_range *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
 }
 
 /* Print live ranges R to stderr.  */

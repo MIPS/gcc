@@ -1,7 +1,5 @@
 /* RTL reader for GCC.
-   Copyright (C) 1987, 1988, 1991, 1994, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2007, 2008, 2010, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -382,7 +380,7 @@ apply_iterator_to_string (const char *string)
 static rtx
 copy_rtx_for_iterators (rtx original)
 {
-  const char *format_ptr;
+  const char *format_ptr, *p;
   int i, j;
   rtx x;
 
@@ -399,12 +397,14 @@ copy_rtx_for_iterators (rtx original)
     switch (format_ptr[i])
       {
       case 'T':
-	XTMPL (x, i) = apply_iterator_to_string (XTMPL (x, i));
+	while (XTMPL (x, i) != (p = apply_iterator_to_string (XTMPL (x, i))))
+	  XTMPL (x, i) = p;
 	break;
 
       case 'S':
       case 's':
-	XSTR (x, i) = apply_iterator_to_string (XSTR (x, i));
+	while (XSTR (x, i) != (p = apply_iterator_to_string (XSTR (x, i))))
+	  XSTR (x, i) = p;
 	break;
 
       case 'e':
@@ -803,7 +803,10 @@ validate_const_int (const char *string)
     valid = 0;
   for (; *cp; cp++)
     if (! ISDIGIT (*cp))
-      valid = 0;
+      {
+        valid = 0;
+	break;
+      }
   if (!valid)
     fatal_with_file_and_line ("invalid decimal constant \"%s\"\n", string);
 }

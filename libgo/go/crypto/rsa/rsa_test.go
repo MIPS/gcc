@@ -21,15 +21,18 @@ func TestKeyGeneration(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to generate key")
 	}
+	if bits := priv.N.BitLen(); bits != size {
+		t.Errorf("key too short (%d vs %d)", bits, size)
+	}
 	testKeyBasics(t, priv)
 }
 
 func Test3PrimeKeyGeneration(t *testing.T) {
+	size := 768
 	if testing.Short() {
-		return
+		size = 256
 	}
 
-	size := 768
 	priv, err := GenerateMultiPrimeKey(rand.Reader, 3, size)
 	if err != nil {
 		t.Errorf("failed to generate key")
@@ -38,16 +41,34 @@ func Test3PrimeKeyGeneration(t *testing.T) {
 }
 
 func Test4PrimeKeyGeneration(t *testing.T) {
+	size := 768
 	if testing.Short() {
-		return
+		size = 256
 	}
 
-	size := 768
 	priv, err := GenerateMultiPrimeKey(rand.Reader, 4, size)
 	if err != nil {
 		t.Errorf("failed to generate key")
 	}
 	testKeyBasics(t, priv)
+}
+
+func TestNPrimeKeyGeneration(t *testing.T) {
+	primeSize := 64
+	maxN := 24
+	if testing.Short() {
+		primeSize = 16
+		maxN = 16
+	}
+	// Test that generation of N-prime keys works for N > 4.
+	for n := 5; n < maxN; n++ {
+		priv, err := GenerateMultiPrimeKey(rand.Reader, n, 64+n*primeSize)
+		if err == nil {
+			testKeyBasics(t, priv)
+		} else {
+			t.Errorf("failed to generate %d-prime key", n)
+		}
+	}
 }
 
 func TestGnuTLSKey(t *testing.T) {
@@ -71,6 +92,9 @@ func TestGnuTLSKey(t *testing.T) {
 func testKeyBasics(t *testing.T, priv *PrivateKey) {
 	if err := priv.Validate(); err != nil {
 		t.Errorf("Validate() failed: %s", err)
+	}
+	if priv.D.Cmp(priv.N) > 0 {
+		t.Errorf("private exponent too large")
 	}
 
 	pub := &priv.PublicKey
@@ -176,7 +200,7 @@ func TestEncryptOAEP(t *testing.T) {
 			if err != nil {
 				t.Errorf("#%d,%d error: %s", i, j, err)
 			}
-			if bytes.Compare(out, message.out) != 0 {
+			if !bytes.Equal(out, message.out) {
 				t.Errorf("#%d,%d bad result: %x (want %x)", i, j, out, message.out)
 			}
 		}
@@ -200,7 +224,7 @@ func TestDecryptOAEP(t *testing.T) {
 			out, err := DecryptOAEP(sha1, nil, private, message.out, nil)
 			if err != nil {
 				t.Errorf("#%d,%d error: %s", i, j, err)
-			} else if bytes.Compare(out, message.in) != 0 {
+			} else if !bytes.Equal(out, message.in) {
 				t.Errorf("#%d,%d bad result: %#v (want %#v)", i, j, out, message.in)
 			}
 
@@ -208,7 +232,7 @@ func TestDecryptOAEP(t *testing.T) {
 			out, err = DecryptOAEP(sha1, random, private, message.out, nil)
 			if err != nil {
 				t.Errorf("#%d,%d (blind) error: %s", i, j, err)
-			} else if bytes.Compare(out, message.in) != 0 {
+			} else if !bytes.Equal(out, message.in) {
 				t.Errorf("#%d,%d (blind) bad result: %#v (want %#v)", i, j, out, message.in)
 			}
 		}

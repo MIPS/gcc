@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    Address Sanitizer and Thread Sanitizer builtins used in the GNU compiler.
-   Copyright (C) 2012 Free Software Foundation, Inc.
+   Copyright (C) 2012-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
    for other FEs by asan.c.  */
 
 /* Address Sanitizer */
-DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_INIT, "__asan_init",
+DEF_SANITIZER_BUILTIN(BUILT_IN_ASAN_INIT, "__asan_init_v1",
 		      BT_FN_VOID, ATTR_NOTHROW_LEAF_LIST)
 /* Do not reorder the BUILT_IN_ASAN_REPORT* builtins, e.g. cfgcleanup.c
    relies on this order.  */

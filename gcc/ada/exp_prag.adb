@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -377,7 +377,7 @@ package body Exp_Prag is
 
                --  For Assert, we just use the location
 
-               if Nam = Name_Assertion then
+               if Nam = Name_Assert then
                   null;
 
                --  For predicate, we generate the string "predicate failed
@@ -392,10 +392,7 @@ package body Exp_Prag is
                --  that the failure is not at the point of occurrence of the
                --  pragma, unlike the other Check cases.
 
-               elsif Nam = Name_Precondition
-                       or else
-                     Nam = Name_Postcondition
-               then
+               elsif Nam_In (Nam, Name_Precondition, Name_Postcondition) then
                   Get_Name_String (Nam);
                   Insert_Str_In_Name_Buffer ("failed ", 1);
                   Add_Str_To_Name_Buffer (" from ");
@@ -449,7 +446,7 @@ package body Exp_Prag is
          then
             return;
 
-         elsif Nam = Name_Assertion then
+         elsif Nam = Name_Assert then
             Error_Msg_N ("?A?assertion will fail at run time", N);
          else
 
@@ -513,7 +510,7 @@ package body Exp_Prag is
 
       Insert_After_And_Analyze (N,
          Make_Pragma (Loc,
-           Chars => Name_Machine_Attribute,
+           Chars                        => Name_Machine_Attribute,
            Pragma_Argument_Associations => New_List (
              Make_Pragma_Argument_Association (Iloc,
                Expression => New_Copy_Tree (Internal)),
@@ -644,44 +641,38 @@ package body Exp_Prag is
                        (UI_To_Int (Exception_Code (Id)) / 8 * 8);
 
                      Excep_Alias :=
-                       Make_Pragma
-                         (Loc,
-                          Name_Linker_Alias,
-                          New_List
-                            (Make_Pragma_Argument_Association
-                               (Sloc => Loc,
-                                Expression =>
-                                  New_Reference_To (Excep_Internal, Loc)),
+                       Make_Pragma (Loc,
+                         Chars                        => Name_Linker_Alias,
+                         Pragma_Argument_Associations => New_List (
+                           Make_Pragma_Argument_Association (Loc,
+                             Expression =>
+                               New_Reference_To (Excep_Internal, Loc)),
 
-                             Make_Pragma_Argument_Association
-                               (Sloc => Loc,
-                                Expression =>
-                                  Make_String_Literal
-                                    (Sloc => Loc,
-                                     Strval => End_String))));
+                           Make_Pragma_Argument_Association (Loc,
+                             Expression =>
+                               Make_String_Literal (Loc, End_String))));
 
                      Insert_Action (N, Excep_Alias);
                      Analyze (Excep_Alias);
 
                      Export_Pragma :=
-                       Make_Pragma
-                         (Loc,
-                          Name_Export,
-                          New_List
-                            (Make_Pragma_Argument_Association (Loc,
-                               Expression => Make_Identifier (Loc, Name_C)),
+                       Make_Pragma (Loc,
+                         Chars                        => Name_Export,
+                         Pragma_Argument_Associations => New_List (
+                           Make_Pragma_Argument_Association (Loc,
+                             Expression => Make_Identifier (Loc, Name_C)),
 
-                             Make_Pragma_Argument_Association (Loc,
-                               Expression =>
-                                 New_Reference_To (Excep_Internal, Loc)),
+                           Make_Pragma_Argument_Association (Loc,
+                             Expression =>
+                               New_Reference_To (Excep_Internal, Loc)),
 
-                             Make_Pragma_Argument_Association (Loc,
-                               Expression =>
-                                 Make_String_Literal (Loc, Excep_Image)),
+                           Make_Pragma_Argument_Association (Loc,
+                             Expression =>
+                               Make_String_Literal (Loc, Excep_Image)),
 
-                             Make_Pragma_Argument_Association (Loc,
-                                Expression =>
-                                  Make_String_Literal (Loc, Excep_Image))));
+                           Make_Pragma_Argument_Association (Loc,
+                             Expression =>
+                               Make_String_Literal (Loc, Excep_Image))));
 
                      Insert_Action (N, Export_Pragma);
                      Analyze (Export_Pragma);
@@ -839,9 +830,9 @@ package body Exp_Prag is
 
    --        if Flag then
    --           if Curr_1 /= Old_1 then
-   --              pragma Assert (Curr_1 > Old_1);
+   --              pragma Check (Loop_Variant, Curr_1 > Old_1);
    --           else
-   --              pragma Assert (Curr_2 < Old_2);
+   --              pragma Check (Loop_Variant, Curr_2 < Old_2);
    --           end if;
    --        else
    --           Flag := True;
@@ -1008,12 +999,14 @@ package body Exp_Prag is
          --  Step 5: Create corresponding assertion to verify change of value
 
          --  Generate:
-         --    pragma Assert (Curr <|> Old);
+         --    pragma Check (Loop_Variant, Curr <|> Old);
 
          Prag :=
            Make_Pragma (Loc,
-             Chars                        => Name_Assert,
+             Chars                        => Name_Check,
              Pragma_Argument_Associations => New_List (
+               Make_Pragma_Argument_Association (Loc,
+                 Expression => Make_Identifier (Loc, Name_Loop_Variant)),
                Make_Pragma_Argument_Association (Loc,
                  Expression =>
                    Make_Op (Loc,
@@ -1068,9 +1061,18 @@ package body Exp_Prag is
          end if;
       end Process_Variant;
 
-   --  Start of processing for Expand_Pragma_Loop_Assertion
+   --  Start of processing for Expand_Pragma_Loop_Variant
 
    begin
+      --  If pragma is not enabled, rewrite as Null statement. If pragma is
+      --  disabled, it has already been rewritten as a Null statement.
+
+      if Is_Ignored (N) then
+         Rewrite (N, Make_Null_Statement (Loc));
+         Analyze (N);
+         return;
+      end if;
+
       --  Locate the enclosing loop for which this assertion applies. In the
       --  case of Ada 2012 array iteration, we might be dealing with nested
       --  loops. Only the outermost loop has an identifier.

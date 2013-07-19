@@ -7,6 +7,7 @@ package bufio_test
 import (
 	. "bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,9 +29,9 @@ func newRot13Reader(r io.Reader) *rot13Reader {
 }
 
 func (r13 *rot13Reader) Read(p []byte) (int, error) {
-	n, e := r13.r.Read(p)
-	if e != nil {
-		return n, e
+	n, err := r13.r.Read(p)
+	if err != nil {
+		return n, err
 	}
 	for i := 0; i < n; i++ {
 		c := p[i] | 0x20 // lowercase byte
@@ -48,15 +49,15 @@ func readBytes(buf *Reader) string {
 	var b [1000]byte
 	nb := 0
 	for {
-		c, e := buf.ReadByte()
-		if e == io.EOF {
+		c, err := buf.ReadByte()
+		if err == io.EOF {
 			break
 		}
-		if e == nil {
+		if err == nil {
 			b[nb] = c
 			nb++
-		} else if e != iotest.ErrTimeout {
-			panic("Data: " + e.Error())
+		} else if err != iotest.ErrTimeout {
+			panic("Data: " + err.Error())
 		}
 	}
 	return string(b[0:nb])
@@ -93,12 +94,12 @@ var readMakers = []readMaker{
 func readLines(b *Reader) string {
 	s := ""
 	for {
-		s1, e := b.ReadString('\n')
-		if e == io.EOF {
+		s1, err := b.ReadString('\n')
+		if err == io.EOF {
 			break
 		}
-		if e != nil && e != iotest.ErrTimeout {
-			panic("GetLines: " + e.Error())
+		if err != nil && err != iotest.ErrTimeout {
+			panic("GetLines: " + err.Error())
 		}
 		s += s1
 	}
@@ -110,9 +111,9 @@ func reads(buf *Reader, m int) string {
 	var b [1000]byte
 	nb := 0
 	for {
-		n, e := buf.Read(b[nb : nb+m])
+		n, err := buf.Read(b[nb : nb+m])
 		nb += n
-		if e == io.EOF {
+		if err == io.EOF {
 			break
 		}
 	}
@@ -434,9 +435,12 @@ func TestWriteErrors(t *testing.T) {
 			t.Errorf("Write hello to %v: %v", w, e)
 			continue
 		}
-		e = buf.Flush()
-		if e != w.expect {
-			t.Errorf("Flush %v: got %v, wanted %v", w, e, w.expect)
+		// Two flushes, to verify the error is sticky.
+		for i := 0; i < 2; i++ {
+			e = buf.Flush()
+			if e != w.expect {
+				t.Errorf("Flush %d/2 %v: got %v, wanted %v", i+1, w, e, w.expect)
+			}
 		}
 	}
 }
@@ -748,7 +752,7 @@ func testReadLineNewlines(t *testing.T, input string, expect []readLineResult) {
 	b := NewReaderSize(strings.NewReader(input), minReadBufferSize)
 	for i, e := range expect {
 		line, isPrefix, err := b.ReadLine()
-		if bytes.Compare(line, e.line) != 0 {
+		if !bytes.Equal(line, e.line) {
 			t.Errorf("%q call %d, line == %q, want %q", input, i, line, e.line)
 			return
 		}
@@ -953,13 +957,50 @@ func TestNegativeRead(t *testing.T) {
 			t.Fatal("read did not panic")
 		case error:
 			if !strings.Contains(err.Error(), "reader returned negative count from Read") {
-				t.Fatal("wrong panic: %v", err)
+				t.Fatalf("wrong panic: %v", err)
 			}
 		default:
 			t.Fatalf("unexpected panic value: %T(%v)", err, err)
 		}
 	}()
 	b.Read(make([]byte, 100))
+}
+
+var errFake = errors.New("fake error")
+
+type errorThenGoodReader struct {
+	didErr bool
+	nread  int
+}
+
+func (r *errorThenGoodReader) Read(p []byte) (int, error) {
+	r.nread++
+	if !r.didErr {
+		r.didErr = true
+		return 0, errFake
+	}
+	return len(p), nil
+}
+
+func TestReaderClearError(t *testing.T) {
+	r := &errorThenGoodReader{}
+	b := NewReader(r)
+	buf := make([]byte, 1)
+	if _, err := b.Read(nil); err != nil {
+		t.Fatalf("1st nil Read = %v; want nil", err)
+	}
+	if _, err := b.Read(buf); err != errFake {
+		t.Fatalf("1st Read = %v; want errFake", err)
+	}
+	if _, err := b.Read(nil); err != nil {
+		t.Fatalf("2nd nil Read = %v; want nil", err)
+	}
+	if _, err := b.Read(buf); err != nil {
+		t.Fatalf("3rd Read with buffer = %v; want nil", err)
+	}
+	if r.nread != 2 {
+		t.Errorf("num reads = %d; want 2", r.nread)
+	}
 }
 
 // An onlyReader only implements io.Reader, no matter what other methods the underlying implementation may have.

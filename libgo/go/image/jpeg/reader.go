@@ -147,14 +147,27 @@ func (d *decoder) processSOF(n int) error {
 		return UnsupportedError("SOF has wrong number of image components")
 	}
 	for i := 0; i < d.nComp; i++ {
-		hv := d.tmp[7+3*i]
-		d.comp[i].h = int(hv >> 4)
-		d.comp[i].v = int(hv & 0x0f)
 		d.comp[i].c = d.tmp[6+3*i]
 		d.comp[i].tq = d.tmp[8+3*i]
 		if d.nComp == nGrayComponent {
+			// If a JPEG image has only one component, section A.2 says "this data
+			// is non-interleaved by definition" and section A.2.2 says "[in this
+			// case...] the order of data units within a scan shall be left-to-right
+			// and top-to-bottom... regardless of the values of H_1 and V_1". Section
+			// 4.8.2 also says "[for non-interleaved data], the MCU is defined to be
+			// one data unit". Similarly, section A.1.1 explains that it is the ratio
+			// of H_i to max_j(H_j) that matters, and similarly for V. For grayscale
+			// images, H_1 is the maximum H_j for all components j, so that ratio is
+			// always 1. The component's (h, v) is effectively always (1, 1): even if
+			// the nominal (h, v) is (2, 1), a 20x5 image is encoded in three 8x8
+			// MCUs, not two 16x8 MCUs.
+			d.comp[i].h = 1
+			d.comp[i].v = 1
 			continue
 		}
+		hv := d.tmp[7+3*i]
+		d.comp[i].h = int(hv >> 4)
+		d.comp[i].v = int(hv & 0x0f)
 		// For color images, we only support 4:4:4, 4:4:0, 4:2:2 or 4:2:0 chroma
 		// downsampling ratios. This implies that the (h, v) values for the Y
 		// component are either (1, 1), (1, 2), (2, 1) or (2, 2), and the (h, v)
@@ -232,10 +245,38 @@ func (d *decoder) decode(r io.Reader, configOnly bool) (image.Image, error) {
 		if err != nil {
 			return nil, err
 		}
-		if d.tmp[0] != 0xff {
-			return nil, FormatError("missing 0xff marker start")
+		for d.tmp[0] != 0xff {
+			// Strictly speaking, this is a format error. However, libjpeg is
+			// liberal in what it accepts. As of version 9, next_marker in
+			// jdmarker.c treats this as a warning (JWRN_EXTRANEOUS_DATA) and
+			// continues to decode the stream. Even before next_marker sees
+			// extraneous data, jpeg_fill_bit_buffer in jdhuff.c reads as many
+			// bytes as it can, possibly past the end of a scan's data. It
+			// effectively puts back any markers that it overscanned (e.g. an
+			// "\xff\xd9" EOI marker), but it does not put back non-marker data,
+			// and thus it can silently ignore a small number of extraneous
+			// non-marker bytes before next_marker has a chance to see them (and
+			// print a warning).
+			//
+			// We are therefore also liberal in what we accept. Extraneous data
+			// is silently ignored.
+			//
+			// This is similar to, but not exactly the same as, the restart
+			// mechanism within a scan (the RST[0-7] markers).
+			//
+			// Note that extraneous 0xff bytes in e.g. SOS data are escaped as
+			// "\xff\x00", and so are detected a little further down below.
+			d.tmp[0] = d.tmp[1]
+			d.tmp[1], err = d.r.ReadByte()
+			if err != nil {
+				return nil, err
+			}
 		}
 		marker := d.tmp[1]
+		if marker == 0 {
+			// Treat "\xff\x00" as extraneous data.
+			continue
+		}
 		for marker == 0xff {
 			// Section B.1.1.2 says, "Any marker may optionally be preceded by any
 			// number of fill bytes, which are bytes assigned code X'FF'".

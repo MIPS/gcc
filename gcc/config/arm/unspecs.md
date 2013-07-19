@@ -1,5 +1,5 @@
 ;; Unspec defintions.
-;; Copyright (C) 2012 Free Software Foundation, Inc.
+;; Copyright (C) 2012-2013 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -83,6 +83,8 @@
                         ; FPSCR rounding mode and signal inexactness.
   UNSPEC_VRINTA         ; Represent a float to integral float rounding
                         ; towards nearest, ties away from zero.
+  UNSPEC_RRX            ; Rotate Right with Extend shifts register right
+                        ; by one place, with Carry flag shifted into bit[31].
 ])
 
 (define_c_enum "unspec" [
@@ -139,6 +141,10 @@
   VUNSPEC_ATOMIC_OP	; Represent an atomic operation.
   VUNSPEC_LL		; Represent a load-register-exclusive.
   VUNSPEC_SC		; Represent a store-register-exclusive.
+  VUNSPEC_LAX		; Represent a load-register-acquire-exclusive.
+  VUNSPEC_SLX		; Represent a store-register-release-exclusive.
+  VUNSPEC_LDA		; Represent a store-register-acquire.
+  VUNSPEC_STL		; Represent a store-register-release.
 ])
 
 ;; Enumerators for NEON unspecs.

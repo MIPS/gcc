@@ -1,7 +1,6 @@
 // -*- C++ -*-
 
-// Copyright (C) 2005, 2006, 2008, 2009, 2010, 2011
-// Free Software Foundation, Inc.
+// Copyright (C) 2005-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the terms
@@ -1004,7 +1003,7 @@ operator()()
   delete m_p_c;
 
   try 
-    { m_alloc.check_allocated(memory_label); }
+    { m_alloc.check(memory_label); }
   catch (...)
     {
       std::cerr << "detected leaks!" << std::endl;

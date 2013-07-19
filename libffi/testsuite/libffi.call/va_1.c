@@ -5,7 +5,7 @@
    Originator:	        ARM Ltd. */
 
 /* { dg-do run } */
-/* { dg-output "" { xfail avr32*-*-* x86_64-*-*-* } } */
+/* { dg-output "" { xfail avr32*-*-* } } */
 
 #include "ffitest.h"
 #include <stdarg.h>
@@ -94,7 +94,7 @@ main (void)
   struct large_tag l1;
 
   int n;
-  int res;
+  ffi_arg res;
 
   unsigned char uc;
   signed char sc;
@@ -132,10 +132,10 @@ main (void)
   arg_types[1] = &s_type;
   arg_types[2] = &l_type;
   arg_types[3] = &s_type;
-  arg_types[4] = &ffi_type_uint;
-  arg_types[5] = &ffi_type_sint;
-  arg_types[6] = &ffi_type_uint;
-  arg_types[7] = &ffi_type_sint;
+  arg_types[4] = &ffi_type_uchar;
+  arg_types[5] = &ffi_type_schar;
+  arg_types[6] = &ffi_type_ushort;
+  arg_types[7] = &ffi_type_sshort;
   arg_types[8] = &ffi_type_uint;
   arg_types[9] = &ffi_type_sint;
   arg_types[10] = &ffi_type_ulong;

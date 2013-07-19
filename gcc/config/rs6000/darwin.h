@@ -1,5 +1,5 @@
 /* Target definitions for PowerPC running Darwin (Mac OS X).
-   Copyright (C) 1997-2012 Free Software Foundation, Inc.
+   Copyright (C) 1997-2013 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
    This file is part of GCC.
@@ -205,7 +205,8 @@ extern int darwin_emit_branch_islands;
     "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",             \
     "vrsave", "vscr",							\
     "spe_acc", "spefscr",                                               \
-    "sfp"								\
+    "sfp",								\
+    "tfhar", "tfiar", "texasr"						\
 }
 
 /* This outputs NAME to FILE.  */

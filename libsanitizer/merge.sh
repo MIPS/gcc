@@ -16,7 +16,7 @@ get_current_rev() {
 }
 
 list_files() {
-  (cd $1; ls *.{cc,h} 2> /dev/null)
+  (cd $1; ls *.{cc,h,inc} 2> /dev/null)
 
 }
 
@@ -66,7 +66,6 @@ CUR_REV=$(get_current_rev)
 echo Current upstream revision: $CUR_REV
 merge include/sanitizer include/sanitizer
 merge lib/asan asan
-merge lib/asan/dynamic asan/dynamic
 merge lib/tsan/rtl tsan
 merge lib/sanitizer_common sanitizer_common
 merge lib/interception interception

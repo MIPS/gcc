@@ -151,7 +151,7 @@ func (t *Tree) error(err error) {
 func (t *Tree) expect(expected itemType, context string) item {
 	token := t.nextNonSpace()
 	if token.typ != expected {
-		t.errorf("expected %s in %s; got %s", expected, context, token)
+		t.unexpected(token, context)
 	}
 	return token
 }
@@ -160,7 +160,7 @@ func (t *Tree) expect(expected itemType, context string) item {
 func (t *Tree) expectOneOf(expected1, expected2 itemType, context string) item {
 	token := t.nextNonSpace()
 	if token.typ != expected1 && token.typ != expected2 {
-		t.errorf("expected %s or %s in %s; got %s", expected1, expected2, context, token)
+		t.unexpected(token, context)
 	}
 	return token
 }
@@ -429,7 +429,6 @@ func (t *Tree) pipeline(context string) (pipe *PipeNode) {
 			t.unexpected(token, context)
 		}
 	}
-	return
 }
 
 func (t *Tree) parseControl(context string) (pos Pos, line int, pipe *PipeNode, list, elseList *ListNode) {
@@ -445,7 +444,6 @@ func (t *Tree) parseControl(context string) (pos Pos, line int, pipe *PipeNode, 
 		if next.Type() != nodeEnd {
 			t.errorf("expected end; found %s", next)
 		}
-		elseList = elseList
 	}
 	return pipe.Position(), line, pipe, list, elseList
 }

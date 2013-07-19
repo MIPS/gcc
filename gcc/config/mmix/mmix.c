@@ -1,7 +1,5 @@
 /* Definitions of target machine for GNU compiler, for MMIX.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
 This file is part of GCC.
@@ -315,7 +313,7 @@ mmix_init_machine_status (void)
   return ggc_alloc_cleared_machine_function ();
 }
 
-/* DATA_ALIGNMENT.
+/* DATA_ABI_ALIGNMENT.
    We have trouble getting the address of stuff that is located at other
    than 32-bit alignments (GETA requirements), so try to give everything
    at least 32-bit alignment.  */
@@ -1730,7 +1728,7 @@ mmix_print_operand (FILE *stream, rtx x, int code)
       if (CONSTANT_P (modified_x)
 	  /* Strangely enough, this is not included in CONSTANT_P.
 	     FIXME: Ask/check about sanity here.  */
-	  || GET_CODE (modified_x) == CODE_LABEL)
+	  || LABEL_P (modified_x))
 	{
 	  output_addr_const (stream, modified_x);
 	  return;

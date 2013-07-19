@@ -11,10 +11,8 @@
 //===----------------------------------------------------------------------===//
 #include "asan_interceptors.h"
 #include "asan_internal.h"
-#include "asan_lock.h"
 #include "asan_stats.h"
 #include "asan_thread_registry.h"
-#include "sanitizer/asan_interface.h"
 #include "sanitizer_common/sanitizer_stackdepot.h"
 
 namespace __asan {
@@ -53,13 +51,13 @@ void AsanStats::Print() {
              malloc_large, malloc_small_slow);
 }
 
-static AsanLock print_lock(LINKER_INITIALIZED);
+static BlockingMutex print_lock(LINKER_INITIALIZED);
 
 static void PrintAccumulatedStats() {
   AsanStats stats;
   asanThreadRegistry().GetAccumulatedStats(&stats);
   // Use lock to keep reports from mixing up.
-  ScopedLock lock(&print_lock);
+  BlockingMutexLock lock(&print_lock);
   stats.Print();
   StackDepotStats *stack_depot_stats = StackDepotGetStats();
   Printf("Stats: StackDepot: %zd ids; %zdM mapped\n",

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -101,10 +101,9 @@ package Errout is
    --        messages. Warning messages are only suppressed for case 1, and
    --        when they come from other than the main extended unit.
 
-   --  This normal suppression action may be overridden in cases 2-5 (but not
-   --  in case 1) by setting All_Errors mode, or by setting the special
-   --  unconditional message insertion character (!) at the end of the message
-   --  text as described below.
+   --  This normal suppression action may be overridden in cases 2-5 (but
+   --  not in case 1) by setting All_Errors mode, or by setting the special
+   --  unconditional message insertion character (!) as described below.
 
    ---------------------------------------------------------
    -- Error Message Text and Message Insertion Characters --
@@ -222,7 +221,7 @@ package Errout is
    --      A second ^ may occur in the message, in which case it is replaced
    --      by the decimal conversion of the Uint value in Error_Msg_Uint_2.
 
-   --    Insertion character > (Right bracket, run time name)
+   --    Insertion character > (Greater Than, run time name)
    --      The character > is replaced by a string of the form (name) if
    --      Targparm scanned out a Run_Time_Name (see package Targparm for
    --      details). The name is enclosed in parentheses and output in mixed
@@ -230,7 +229,7 @@ package Errout is
    --      name is defined, this insertion character has no effect.
 
    --    Insertion character ! (Exclamation: unconditional message)
-   --      The character ! appearing as the last character of a message makes
+   --      The character ! appearing anywhere in the text of a message makes
    --      the message unconditional which means that it is output even if it
    --      would normally be suppressed. See section above for a description
    --      of the cases in which messages are normally suppressed. Note that
@@ -242,14 +241,14 @@ package Errout is
    --      messages starting with the \ insertion character). The effect of the
    --      use of ! in a parent message automatically applies to all of its
    --      continuation messages (since we clearly don't want any case in which
-   --      continuations are separated from the parent message. It is allowable
+   --      continuations are separated from the main message). It is allowable
    --      to put ! in continuation messages, and the usual style is to include
    --      it, since it makes it clear that the continuation is part of an
    --      unconditional message.
 
    --    Insertion character !! (Double exclamation: unconditional warning)
    --      Normally warning messages issued in other than the main unit are
-   --      suppressed. If the message ends with !! then this suppression is
+   --      suppressed. If the message contains !! then this suppression is
    --      avoided. This is currently used by the Compile_Time_Warning pragma
    --      to ensure the message for a with'ed unit is output, and for warnings
    --      on ineffective back-end inlining, which is detected in units that
@@ -280,24 +279,27 @@ package Errout is
    --      which is being continued. It is allowable to put ? in continuation
    --      messages, and the usual style is to include it, since it makes it
    --      clear that the continuation is part of a warning message.
+   --
+   --      Note: this usage is obsolete, use ??, ?x? or ?X? instead to specify
+   --      the string to be added when Warn_Doc_Switch is set to True. If this
+   --      switch is True, then for simple ? messages it has no effect. This
+   --      simple form is to ease transition and will be removed later.
 
-   --    Insertion character ?? (two question marks)
+   --    Insertion character ?? (Two question marks: default warning)
    --      Like ?, but if the flag Warn_Doc_Switch is True, adds the string
-   --      "[enabled by default]" at the end of the warning message. In the
-   --      case of continuations, use this in each continuation message.
+   --      "[enabled by default]" at the end of the warning message. For
+   --      continuations, use this in each continuation message.
 
    --    Insertion character ?x? (warning with switch)
    --      Like ?, but if the flag Warn_Doc_Switch is True, adds the string
    --      "[-gnatwx]" at the end of the warning message. x is a lower case
-   --      letter. In the case of continuations, use this on each continuation
-   --      message.
+   --      letter. For continuations, use this on each continuation message.
 
    --    Insertion character ?X? (warning with dot switch)
    --      Like ?, but if the flag Warn_Doc_Switch is True, adds the string
    --      "[-gnatw.x]" at the end of the warning message. X is an upper case
-   --      letter corresponding to the lower case letter x in the message. In
-   --      the case of continuations, use this on each continuation
-   --      message.
+   --      letter corresponding to the lower case letter x in the message.
+   --      For continuations, use this on each continuation message.
 
    --    Insertion character < (Less Than: conditional warning message)
    --      The character < appearing anywhere in a message is used for a
@@ -321,9 +323,8 @@ package Errout is
    --    Insertion character ' (Quote: literal character)
    --      Precedes a character which is placed literally into the message.
    --      Used to insert characters into messages that are one of the
-   --      insertion characters defined here. Also useful in inserting
-   --      sequences of upper case letters which are not to be treated as
-   --      keywords.
+   --      insertion characters defined here. Also used when insertion
+   --      upper case letter sequences not to be treated as keywords.
 
    --    Insertion character \ (Backslash: continuation message)
    --      Indicates that the message is a continuation of a message
@@ -505,8 +506,8 @@ package Errout is
    --  Note: a special exception is that RM is never treated as a keyword
    --  but instead is copied literally into the message, this avoids the
    --  need for writing 'R'M for all reference manual quotes. A similar
-   --  exception is applied to the occurrence of the string Alfa used in
-   --  error messages about the Alfa subset of Ada.
+   --  exception is applied to the occurrence of the string SPARK used in
+   --  error messages about the SPARK subset of Ada.
 
    --  In the case of names, the default mode for the error text processor
    --  is to surround the name by quotation marks automatically. The case
@@ -745,6 +746,9 @@ package Errout is
    --  points to the start of the first token in the expression. In the case
    --  where the expression is parenthesized, an attempt is made to include
    --  the parentheses (i.e. to return the location of the initial paren).
+
+   function Get_Ignore_Errors return Boolean;
+   --  Return True if all error calls are ignored.
 
    procedure Purge_Messages (From : Source_Ptr; To : Source_Ptr)
      renames Erroutc.Purge_Messages;

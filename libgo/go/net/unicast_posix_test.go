@@ -45,9 +45,8 @@ var listenerTests = []struct {
 // same port.
 func TestTCPListener(t *testing.T) {
 	switch runtime.GOOS {
-	case "plan9", "windows":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
+	case "plan9":
+		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
 
 	for _, tt := range listenerTests {
@@ -70,9 +69,8 @@ func TestTCPListener(t *testing.T) {
 // same port.
 func TestUDPListener(t *testing.T) {
 	switch runtime.GOOS {
-	case "plan9", "windows":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
+	case "plan9":
+		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
 
 	toudpnet := func(net string) string {
@@ -92,63 +90,6 @@ func TestUDPListener(t *testing.T) {
 			continue
 		}
 		if tt.ipv6 && !supportsIPv6 {
-			continue
-		}
-		tt.net = toudpnet(tt.net)
-		l1, port := usableListenPacketPort(t, tt.net, tt.laddr)
-		checkFirstListener(t, tt.net, tt.laddr+":"+port, l1)
-		l2, err := ListenPacket(tt.net, tt.laddr+":"+port)
-		checkSecondListener(t, tt.net, tt.laddr+":"+port, err, l2)
-		l1.Close()
-	}
-}
-
-func TestSimpleTCPListener(t *testing.T) {
-	switch runtime.GOOS {
-	case "plan9":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
-	}
-
-	for _, tt := range listenerTests {
-		if tt.wildcard && (testing.Short() || !*testExternal) {
-			continue
-		}
-		if tt.ipv6 {
-			continue
-		}
-		l1, port := usableListenPort(t, tt.net, tt.laddr)
-		checkFirstListener(t, tt.net, tt.laddr+":"+port, l1)
-		l2, err := Listen(tt.net, tt.laddr+":"+port)
-		checkSecondListener(t, tt.net, tt.laddr+":"+port, err, l2)
-		l1.Close()
-	}
-}
-
-func TestSimpleUDPListener(t *testing.T) {
-	switch runtime.GOOS {
-	case "plan9":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
-	}
-
-	toudpnet := func(net string) string {
-		switch net {
-		case "tcp":
-			return "udp"
-		case "tcp4":
-			return "udp4"
-		case "tcp6":
-			return "udp6"
-		}
-		return "<nil>"
-	}
-
-	for _, tt := range listenerTests {
-		if tt.wildcard && (testing.Short() || !*testExternal) {
-			continue
-		}
-		if tt.ipv6 {
 			continue
 		}
 		tt.net = toudpnet(tt.net)
@@ -230,11 +171,10 @@ var dualStackListenerTests = []struct {
 func TestDualStackTCPListener(t *testing.T) {
 	switch runtime.GOOS {
 	case "plan9":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
+		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
 	if !supportsIPv6 {
-		return
+		t.Skip("ipv6 is not supported")
 	}
 
 	for _, tt := range dualStackListenerTests {
@@ -263,11 +203,10 @@ func TestDualStackTCPListener(t *testing.T) {
 func TestDualStackUDPListener(t *testing.T) {
 	switch runtime.GOOS {
 	case "plan9":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
+		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
 	if !supportsIPv6 {
-		return
+		t.Skip("ipv6 is not supported")
 	}
 
 	toudpnet := func(net string) string {
@@ -467,8 +406,7 @@ var prohibitionaryDialArgTests = []struct {
 func TestProhibitionaryDialArgs(t *testing.T) {
 	switch runtime.GOOS {
 	case "plan9":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
+		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
 	// This test requires both IPv6 and IPv6 IPv4-mapping functionality.
 	if !supportsIPv4map || testing.Short() || !*testExternal {
@@ -490,13 +428,11 @@ func TestProhibitionaryDialArgs(t *testing.T) {
 func TestWildWildcardListener(t *testing.T) {
 	switch runtime.GOOS {
 	case "plan9":
-		t.Logf("skipping test on %q", runtime.GOOS)
-		return
+		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
 
 	if testing.Short() || !*testExternal {
-		t.Logf("skipping test to avoid external network")
-		return
+		t.Skip("skipping test to avoid external network")
 	}
 
 	defer func() {

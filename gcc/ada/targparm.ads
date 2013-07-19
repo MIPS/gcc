@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -205,6 +205,9 @@ package Targparm is
 
    OpenVMS_On_Target : Boolean := False;
    --  Set to True if target is OpenVMS
+
+   VAX_Float_On_Target : Boolean := False;
+   --  Set to True if target float format is VAX Float
 
    RTX_RTSS_Kernel_Module_On_Target : Boolean := False;
    --  Set to True if target is RTSS module for RTX
@@ -435,6 +438,11 @@ package Targparm is
    --  If True, the back end supports 64-bit shift operations. If False, then
    --  the source program may not contain explicit 64-bit shifts. In addition,
    --  the code generated for packed arrays will avoid the use of long shifts.
+
+   Support_Nondefault_SSO_On_Target : Boolean := True;
+   --  If True, the back end supports the non-default Scalar_Storage_Order
+   --  (i.e. allows non-confirming Scalar_Storage_Order attribute definition
+   --  clauses).
 
    --------------------
    -- Indirect Calls --

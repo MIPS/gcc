@@ -41,23 +41,20 @@ const char *thread_name(char *buf, int tid) {
   return buf;
 }
 
-static void PrintHeader(ReportType typ) {
-  Printf("WARNING: ThreadSanitizer: ");
-
+static const char *ReportTypeString(ReportType typ) {
   if (typ == ReportTypeRace)
-    Printf("data race");
-  else if (typ == ReportTypeUseAfterFree)
-    Printf("heap-use-after-free");
-  else if (typ == ReportTypeThreadLeak)
-    Printf("thread leak");
-  else if (typ == ReportTypeMutexDestroyLocked)
-    Printf("destroy of a locked mutex");
-  else if (typ == ReportTypeSignalUnsafe)
-    Printf("signal-unsafe call inside of a signal");
-  else if (typ == ReportTypeErrnoInSignal)
-    Printf("signal handler spoils errno");
-
-  Printf(" (pid=%d)\n", GetPid());
+    return "data race";
+  if (typ == ReportTypeUseAfterFree)
+    return "heap-use-after-free";
+  if (typ == ReportTypeThreadLeak)
+    return "thread leak";
+  if (typ == ReportTypeMutexDestroyLocked)
+    return "destroy of a locked mutex";
+  if (typ == ReportTypeSignalUnsafe)
+    return "signal-unsafe call inside of a signal";
+  if (typ == ReportTypeErrnoInSignal)
+    return "signal handler spoils errno";
+  return "";
 }
 
 void PrintStack(const ReportStack *ent) {
@@ -87,11 +84,17 @@ static void PrintMutexSet(Vector<ReportMopMutex> const& mset) {
   }
 }
 
+static const char *MopDesc(bool first, bool write, bool atomic) {
+  return atomic ? (first ? (write ? "Atomic write" : "Atomic read")
+                : (write ? "Previous atomic write" : "Previous atomic read"))
+                : (first ? (write ? "Write" : "Read")
+                : (write ? "Previous write" : "Previous read"));
+}
+
 static void PrintMop(const ReportMop *mop, bool first) {
   char thrbuf[kThreadBufSize];
   Printf("  %s of size %d at %p by %s",
-      (first ? (mop->write ? "Write" : "Read")
-             : (mop->write ? "Previous write" : "Previous read")),
+      MopDesc(first, mop->write, mop->atomic),
       mop->size, (void*)mop->addr,
       thread_name(thrbuf, mop->tid));
   PrintMutexSet(mop->mset);
@@ -102,16 +105,17 @@ static void PrintMop(const ReportMop *mop, bool first) {
 static void PrintLocation(const ReportLocation *loc) {
   char thrbuf[kThreadBufSize];
   if (loc->type == ReportLocationGlobal) {
-    Printf("  Location is global '%s' of size %zu at %zx %s:%d (%s+%p)\n\n",
-               loc->name, loc->size, loc->addr, loc->file, loc->line,
-               loc->module, loc->offset);
+    Printf("  Location is global '%s' of size %zu at %zx (%s+%p)\n\n",
+               loc->name, loc->size, loc->addr, loc->module, loc->offset);
   } else if (loc->type == ReportLocationHeap) {
     char thrbuf[kThreadBufSize];
     Printf("  Location is heap block of size %zu at %p allocated by %s:\n",
         loc->size, loc->addr, thread_name(thrbuf, loc->tid));
     PrintStack(loc->stack);
   } else if (loc->type == ReportLocationStack) {
-    Printf("  Location is stack of %s\n\n", thread_name(thrbuf, loc->tid));
+    Printf("  Location is stack of %s.\n\n", thread_name(thrbuf, loc->tid));
+  } else if (loc->type == ReportLocationTLS) {
+    Printf("  Location is TLS of %s.\n\n", thread_name(thrbuf, loc->tid));
   } else if (loc->type == ReportLocationFD) {
     Printf("  Location is file descriptor %d created by %s at:\n",
         loc->fd, thread_name(thrbuf, loc->tid));
@@ -149,9 +153,28 @@ static void PrintSleep(const ReportStack *s) {
   PrintStack(s);
 }
 
+static ReportStack *ChooseSummaryStack(const ReportDesc *rep) {
+  if (rep->mops.Size())
+    return rep->mops[0]->stack;
+  if (rep->stacks.Size())
+    return rep->stacks[0];
+  if (rep->mutexes.Size())
+    return rep->mutexes[0]->stack;
+  if (rep->threads.Size())
+    return rep->threads[0]->stack;
+  return 0;
+}
+
+ReportStack *SkipTsanInternalFrames(ReportStack *ent) {
+  while (FrameIsInternal(ent) && ent->next)
+    ent = ent->next;
+  return ent;
+}
+
 void PrintReport(const ReportDesc *rep) {
   Printf("==================\n");
-  PrintHeader(rep->typ);
+  const char *rep_typ_str = ReportTypeString(rep->typ);
+  Printf("WARNING: ThreadSanitizer: %s (pid=%d)\n", rep_typ_str, GetPid());
 
   for (uptr i = 0; i < rep->stacks.Size(); i++) {
     if (i)
@@ -173,6 +196,9 @@ void PrintReport(const ReportDesc *rep) {
 
   for (uptr i = 0; i < rep->threads.Size(); i++)
     PrintThread(rep->threads[i]);
+
+  if (ReportStack *ent = SkipTsanInternalFrames(ChooseSummaryStack(rep)))
+    ReportErrorSummary(rep_typ_str, ent->file, ent->line, ent->func);
 
   Printf("==================\n");
 }

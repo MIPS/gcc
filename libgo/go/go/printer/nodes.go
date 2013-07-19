@@ -271,12 +271,12 @@ func (p *printer) parameters(fields *ast.FieldList) {
 			// if there are multiple parameter names for this par
 			// or the type is on a separate line)
 			var parLineBeg int
-			var parLineEnd = p.lineFor(par.Type.Pos())
 			if len(par.Names) > 0 {
 				parLineBeg = p.lineFor(par.Names[0].Pos())
 			} else {
-				parLineBeg = parLineEnd
+				parLineBeg = p.lineFor(par.Type.Pos())
 			}
+			var parLineEnd = p.lineFor(par.Type.End())
 			// separating "," if needed
 			needsLinebreak := 0 < prevLine && prevLine < parLineBeg
 			if i > 0 {
@@ -307,7 +307,7 @@ func (p *printer) parameters(fields *ast.FieldList) {
 				p.print(blank)
 			}
 			// parameter type
-			p.expr(par.Type)
+			p.expr(stripParensAlways(par.Type))
 			prevLine = parLineEnd
 		}
 		// if the closing ")" is on a separate line from the last parameter,
@@ -336,7 +336,7 @@ func (p *printer) signature(params, result *ast.FieldList) {
 		p.print(blank)
 		if n == 1 && result.List[0].Names == nil {
 			// single anonymous result; no ()'s
-			p.expr(result.List[0].Type)
+			p.expr(stripParensAlways(result.List[0].Type))
 			return
 		}
 		p.parameters(result)
@@ -955,6 +955,13 @@ func stripParens(x ast.Expr) ast.Expr {
 		if strip {
 			return stripParens(px.X)
 		}
+	}
+	return x
+}
+
+func stripParensAlways(x ast.Expr) ast.Expr {
+	if x, ok := x.(*ast.ParenExpr); ok {
+		return stripParensAlways(x.X)
 	}
 	return x
 }

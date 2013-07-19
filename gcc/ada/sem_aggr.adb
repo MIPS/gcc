@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1252,6 +1252,8 @@ package body Sem_Aggr is
          Set_Etype (N, Aggr_Subtyp);
          Set_Analyzed (N);
       end if;
+
+      Check_Function_Writable_Actuals (N);
    end Resolve_Aggregate;
 
    -----------------------------
@@ -1676,9 +1678,10 @@ package body Sem_Aggr is
             --  unless the expression covers a single component, or the
             --  expander is inactive.
 
-            --  In Alfa mode, expressions that can perform side-effects will be
-            --  recognized by the gnat2why back-end, and the whole subprogram
-            --  will be ignored. So semantic analysis can be performed safely.
+            --  In SPARK mode, expressions that can perform side-effects will
+            --  be recognized by the gnat2why back-end, and the whole
+            --  subprogram will be ignored. So semantic analysis can be
+            --  performed safely.
 
             if Single_Elmt
               or else not Full_Expander_Active
@@ -2816,6 +2819,8 @@ package body Sem_Aggr is
       else
          Error_Msg_N ("no unique type for this aggregate",  A);
       end if;
+
+      Check_Function_Writable_Actuals (N);
    end Resolve_Extension_Aggregate;
 
    ------------------------------

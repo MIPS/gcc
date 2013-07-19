@@ -76,13 +76,13 @@ func (b *Reader) fill() {
 	}
 
 	// Read new data.
-	n, e := b.rd.Read(b.buf[b.w:])
+	n, err := b.rd.Read(b.buf[b.w:])
 	if n < 0 {
 		panic(errNegativeRead)
 	}
 	b.w += n
-	if e != nil {
-		b.err = e
+	if err != nil {
+		b.err = err
 	}
 }
 
@@ -274,11 +274,10 @@ func (b *Reader) ReadSlice(delim byte) (line []byte, err error) {
 			return b.buf, ErrBufferFull
 		}
 	}
-	panic("not reached")
 }
 
 // ReadLine is a low-level line-reading primitive. Most callers should use
-// ReadBytes('\n') or ReadString('\n') instead.
+// ReadBytes('\n') or ReadString('\n') instead or use a Scanner.
 //
 // ReadLine tries to return a single line, not including the end-of-line bytes.
 // If the line was too long for the buffer then isPrefix is set and the
@@ -331,6 +330,7 @@ func (b *Reader) ReadLine() (line []byte, isPrefix bool, err error) {
 // it returns the data read before the error and the error itself (often io.EOF).
 // ReadBytes returns err != nil if and only if the returned data does not end in
 // delim.
+// For simple uses, a Scanner may be more convenient.
 func (b *Reader) ReadBytes(delim byte) (line []byte, err error) {
 	// Use ReadSlice to look for array,
 	// accumulating full buffers.
@@ -378,9 +378,10 @@ func (b *Reader) ReadBytes(delim byte) (line []byte, err error) {
 // it returns the data read before the error and the error itself (often io.EOF).
 // ReadString returns err != nil if and only if the returned data does not end in
 // delim.
+// For simple uses, a Scanner may be more convenient.
 func (b *Reader) ReadString(delim byte) (line string, err error) {
-	bytes, e := b.ReadBytes(delim)
-	return string(bytes), e
+	bytes, err := b.ReadBytes(delim)
+	return string(bytes), err
 }
 
 // WriteTo implements io.WriterTo.
@@ -461,17 +462,17 @@ func (b *Writer) Flush() error {
 	if b.n == 0 {
 		return nil
 	}
-	n, e := b.wr.Write(b.buf[0:b.n])
-	if n < b.n && e == nil {
-		e = io.ErrShortWrite
+	n, err := b.wr.Write(b.buf[0:b.n])
+	if n < b.n && err == nil {
+		err = io.ErrShortWrite
 	}
-	if e != nil {
+	if err != nil {
 		if n > 0 && n < b.n {
 			copy(b.buf[0:b.n-n], b.buf[n:b.n])
 		}
 		b.n -= n
-		b.err = e
-		return e
+		b.err = err
+		return err
 	}
 	b.n = 0
 	return nil

@@ -70,6 +70,10 @@ var invalids = []string{
 	`package p; func f() { select { case _ <- chan /* ERROR "expected expression" */ int: } };`,
 	`package p; func f() { _ = (<-<- /* ERROR "expected 'chan'" */ chan int)(nil) };`,
 	`package p; func f() { _ = (<-chan<-chan<-chan<-chan<-chan<- /* ERROR "expected channel type" */ int)(nil) };`,
+	`package p; func f() { var t []int; t /* ERROR "expected identifier on left side of :=" */ [0] := 0 };`,
+	`package p; func f() { if x := g(); x = /* ERROR "expected '=='" */ 0 {}};`,
+	`package p; func f() { _ = x = /* ERROR "expected '=='" */ 0 {}};`,
+	`package p; func f() { _ = 1 == func()int { var x bool; x = x = /* ERROR "expected '=='" */ true; return x }() };`,
 }
 
 func TestInvalid(t *testing.T) {

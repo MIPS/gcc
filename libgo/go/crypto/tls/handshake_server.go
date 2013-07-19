@@ -33,22 +33,7 @@ func (c *Conn) serverHandshake() error {
 
 	// If this is the first server handshake, we generate a random key to
 	// encrypt the tickets with.
-	config.serverInitOnce.Do(func() {
-		if config.SessionTicketsDisabled {
-			return
-		}
-
-		// If the key has already been set then we have nothing to do.
-		for _, b := range config.SessionTicketKey {
-			if b != 0 {
-				return
-			}
-		}
-
-		if _, err := io.ReadFull(config.rand(), config.SessionTicketKey[:]); err != nil {
-			config.SessionTicketsDisabled = true
-		}
-	})
+	config.serverInitOnce.Do(config.serverInit)
 
 	hs := serverHandshakeState{
 		c: c,
@@ -180,8 +165,17 @@ Curves:
 		return true, nil
 	}
 
-	for _, id := range hs.clientHello.cipherSuites {
-		if hs.suite = c.tryCipherSuite(id, hs.ellipticOk); hs.suite != nil {
+	var preferenceList, supportedList []uint16
+	if c.config.PreferServerCipherSuites {
+		preferenceList = c.config.cipherSuites()
+		supportedList = hs.clientHello.cipherSuites
+	} else {
+		preferenceList = hs.clientHello.cipherSuites
+		supportedList = c.config.cipherSuites()
+	}
+
+	for _, id := range preferenceList {
+		if hs.suite = c.tryCipherSuite(id, supportedList, hs.ellipticOk); hs.suite != nil {
 			break
 		}
 	}
@@ -222,7 +216,7 @@ func (hs *serverHandshakeState) checkForResumption() bool {
 	}
 
 	// Check that we also support the ciphersuite from the session.
-	hs.suite = c.tryCipherSuite(hs.sessionState.cipherSuite, hs.ellipticOk)
+	hs.suite = c.tryCipherSuite(hs.sessionState.cipherSuite, c.config.cipherSuites(), hs.ellipticOk)
 	if hs.suite == nil {
 		return false
 	}
@@ -568,8 +562,8 @@ func (hs *serverHandshakeState) processCertsFromClient(certificates [][]byte) (*
 
 // tryCipherSuite returns a cipherSuite with the given id if that cipher suite
 // is acceptable to use.
-func (c *Conn) tryCipherSuite(id uint16, ellipticOk bool) *cipherSuite {
-	for _, supported := range c.config.cipherSuites() {
+func (c *Conn) tryCipherSuite(id uint16, supportedCipherSuites []uint16, ellipticOk bool) *cipherSuite {
+	for _, supported := range supportedCipherSuites {
 		if id == supported {
 			var candidate *cipherSuite
 

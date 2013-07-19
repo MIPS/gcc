@@ -1,5 +1,5 @@
 ;; Code and mode itertator and attribute definitions for the ARM backend
-;; Copyright (C) 2010, 2011, 2012 Free Software Foundation, Inc.
+;; Copyright (C) 2010-2013 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -314,6 +314,12 @@
                                 (V2SF "V2SI") (V4SF  "V4SI")
                                 (DI   "DI")   (V2DI  "V2DI")])
 
+(define_mode_attr v_cmp_result [(V8QI "v8qi") (V16QI "v16qi")
+				(V4HI "v4hi") (V8HI  "v8hi")
+				(V2SI "v2si") (V4SI  "v4si")
+				(DI   "di")   (V2DI  "v2di")
+				(V2SF "v2si") (V4SF  "v4si")])
+
 ;; Get element type from double-width mode, for operations where we 
 ;; don't care about signedness.
 (define_mode_attr V_if_elem [(V8QI "i8")  (V16QI "i8")
@@ -429,8 +435,8 @@
 (define_mode_attr qhs_extenddi_op [(SI "s_register_operand")
 				   (HI "nonimmediate_operand")
 				   (QI "arm_reg_or_extendqisi_mem_op")])
-(define_mode_attr qhs_extenddi_cstr [(SI "r,0,r,r") (HI "r,0,rm,rm") (QI "r,0,rUq,rm")])
-(define_mode_attr qhs_zextenddi_cstr [(SI "r,0,r") (HI "r,0,rm") (QI "r,0,rm")])
+(define_mode_attr qhs_extenddi_cstr [(SI "r,0,r,r,r") (HI "r,0,rm,rm,r") (QI "r,0,rUq,rm,r")])
+(define_mode_attr qhs_zextenddi_cstr [(SI "r,0,r,r") (HI "r,0,rm,r") (QI "r,0,rm,r")])
 
 ;; Mode attributes used for fixed-point support.
 (define_mode_attr qaddsub_suf [(V4UQQ "8") (V2UHQ "16") (UQQ "8") (UHQ "16")
@@ -490,3 +496,11 @@
 (define_int_attr nvrint_variant [(UNSPEC_NVRINTZ "z") (UNSPEC_NVRINTP "p")
                                 (UNSPEC_NVRINTA "a") (UNSPEC_NVRINTM "m")
                                 (UNSPEC_NVRINTX "x") (UNSPEC_NVRINTN "n")])
+;; Both kinds of return insn.
+(define_code_iterator returns [return simple_return])
+(define_code_attr return_str [(return "") (simple_return "simple_")])
+(define_code_attr return_simple_p [(return "false") (simple_return "true")])
+(define_code_attr return_cond_false [(return " && USE_RETURN_INSN (FALSE)")
+                               (simple_return " && use_simple_return_p ()")])
+(define_code_attr return_cond_true [(return " && USE_RETURN_INSN (TRUE)")
+                               (simple_return " && use_simple_return_p ()")])

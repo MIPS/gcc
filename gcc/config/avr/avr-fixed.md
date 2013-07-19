@@ -1,7 +1,6 @@
 ;;   This file contains instructions that support fixed-point operations
 ;;   for Atmel AVR micro controllers.
-;;   Copyright (C) 2012
-;;   Free Software Foundation, Inc.
+;;   Copyright (C) 2012-2013 Free Software Foundation, Inc.
 ;;
 ;;   Contributed by Sean D'Epagnier  (sean@depagnier.com)
 ;;                  Georg-Johann Lay (avr@gjlay.de)
@@ -25,14 +24,16 @@
 (define_mode_iterator ALL1Q  [QQ UQQ])
 (define_mode_iterator ALL2Q  [HQ UHQ])
 (define_mode_iterator ALL2A  [HA UHA])
-(define_mode_iterator ALL2QA [HQ UHQ
-                              HA UHA])
 (define_mode_iterator ALL4A  [SA USA])
+(define_mode_iterator ALL2QA [HQ UHQ HA UHA])
+(define_mode_iterator ALL4QA [SQ USQ SA USA])
+(define_mode_iterator ALL124QA [ QQ   HQ  HA  SA  SQ
+                                UQQ  UHQ UHA USA USQ])
 
 (define_mode_iterator ALL2S [HQ HA])
 (define_mode_iterator ALL4S [SA SQ])
-(define_mode_iterator ALL24S  [    HQ   HA  SA  SQ])
-(define_mode_iterator ALL124S [ QQ HQ   HA  SA  SQ])
+(define_mode_iterator ALL24S  [     HQ  HA  SA  SQ])
+(define_mode_iterator ALL124S [ QQ  HQ  HA  SA  SQ])
 (define_mode_iterator ALL124U [UQQ UHQ UHA USA USQ])
 
 ;;; Conversions
@@ -395,5 +396,102 @@
    (clobber (reg:HI 30))]
   ""
   "%~call __<code><mode>3"
+  [(set_attr "type" "xcall")
+   (set_attr "cc" "clobber")])
+
+
+;******************************************************************************
+;** Rounding
+;******************************************************************************
+
+;; "roundqq3"  "rounduqq3"
+;; "roundhq3"  "rounduhq3"  "roundha3"  "rounduha3"
+;; "roundsq3"  "roundusq3"  "roundsa3"  "roundusa3"
+(define_expand "round<mode>3"
+  [(set (match_dup 4)
+        (match_operand:ALL124QA 1 "register_operand" ""))
+   (set (reg:QI 24)
+        (match_dup 5))
+   (parallel [(set (match_dup 3)
+                   (unspec:ALL124QA [(match_dup 4)
+                                     (reg:QI 24)] UNSPEC_ROUND))
+              (clobber (match_dup 4))])
+   (set (match_operand:ALL124QA 0 "register_operand" "")
+        (match_dup 3))
+   (use (match_operand:HI 2 "nonmemory_operand" ""))]
+  ""
+  {
+    if (CONST_INT_P (operands[2])
+        && !(optimize_size
+             && 4 == GET_MODE_SIZE (<MODE>mode)))
+      {
+        emit_insn (gen_round<mode>3_const (operands[0], operands[1], operands[2]));
+        DONE;
+      }
+
+    // Input and output of the libgcc function
+    const unsigned int regno_in[]  = { -1, 22, 22, -1, 18 };
+    const unsigned int regno_out[] = { -1, 24, 24, -1, 22 };
+
+    operands[3] = gen_rtx_REG (<MODE>mode, regno_out[(size_t) GET_MODE_SIZE (<MODE>mode)]);
+    operands[4] = gen_rtx_REG (<MODE>mode,  regno_in[(size_t) GET_MODE_SIZE (<MODE>mode)]);
+    operands[5] = simplify_gen_subreg (QImode, force_reg (HImode, operands[2]), HImode, 0);
+    // $2 is no more needed, but is referenced for expand.
+    operands[2] = const0_rtx;
+  })
+
+;; Expand rounding with known rounding points inline so that the addend / mask
+;; will be consumed by operation with immediate operands and there is no
+;; need for a shift with variable offset.
+
+;; "roundqq3_const"  "rounduqq3_const"
+;; "roundhq3_const"  "rounduhq3_const"  "roundha3_const"  "rounduha3_const"
+;; "roundsq3_const"  "roundusq3_const"  "roundsa3_const"  "roundusa3_const"
+(define_insn "round<mode>3_const"
+  [(set (match_operand:ALL124QA 0 "register_operand"                  "=d")
+        (unspec:ALL124QA [(match_operand:ALL124QA 1 "register_operand" "0")
+                          (match_operand:HI 2 "const_int_operand"      "n")
+                          (const_int 0)]
+                         UNSPEC_ROUND))]
+  ""
+  {
+    return avr_out_round (insn, operands);
+  }
+  [(set_attr "cc" "clobber")
+   (set_attr "adjust_len" "round")])
+
+
+;; "*roundqq3.libgcc"  "*rounduqq3.libgcc"
+(define_insn "*round<mode>3.libgcc"
+  [(set (reg:ALL1Q 24)
+        (unspec:ALL1Q [(reg:ALL1Q 22)
+                       (reg:QI 24)] UNSPEC_ROUND))
+   (clobber (reg:ALL1Q 22))]
+  ""
+  "%~call __round<mode>3"
+  [(set_attr "type" "xcall")
+   (set_attr "cc" "clobber")])
+
+;; "*roundhq3.libgcc"  "*rounduhq3.libgcc"
+;; "*roundha3.libgcc"  "*rounduha3.libgcc"
+(define_insn "*round<mode>3.libgcc"
+  [(set (reg:ALL2QA 24)
+        (unspec:ALL2QA [(reg:ALL2QA 22)
+                        (reg:QI 24)] UNSPEC_ROUND))
+   (clobber (reg:ALL2QA 22))]
+  ""
+  "%~call __round<mode>3"
+  [(set_attr "type" "xcall")
+   (set_attr "cc" "clobber")])
+
+;; "*roundsq3.libgcc"  "*roundusq3.libgcc"
+;; "*roundsa3.libgcc"  "*roundusa3.libgcc"
+(define_insn "*round<mode>3.libgcc"
+  [(set (reg:ALL4QA 22)
+        (unspec:ALL4QA [(reg:ALL4QA 18)
+                        (reg:QI 24)] UNSPEC_ROUND))
+   (clobber (reg:ALL4QA 18))]
+  ""
+  "%~call __round<mode>3"
   [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])

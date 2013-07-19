@@ -1,5 +1,5 @@
 /* Simple bitmaps.
-   Copyright (C) 1999-2012  Free Software Foundation, Inc.
+   Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -655,6 +655,21 @@ dump_bitmap (FILE *file, const_sbitmap bmap)
   fprintf (file, "\n");
 }
 
+DEBUG_FUNCTION void
+debug_raw (simple_bitmap_def &ref)
+{
+  dump_bitmap (stderr, &ref);
+}
+
+DEBUG_FUNCTION void
+debug_raw (simple_bitmap_def *ptr)
+{
+  if (ptr)
+    debug_raw (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
+}
+
 void
 dump_bitmap_file (FILE *file, const_sbitmap bmap)
 {
@@ -682,6 +697,21 @@ DEBUG_FUNCTION void
 debug_bitmap (const_sbitmap bmap)
 {
   dump_bitmap_file (stderr, bmap);
+}
+
+DEBUG_FUNCTION void
+debug (simple_bitmap_def &ref)
+{
+  dump_bitmap_file (stderr, &ref);
+}
+
+DEBUG_FUNCTION void
+debug (simple_bitmap_def *ptr)
+{
+  if (ptr)
+    debug (*ptr);
+  else
+    fprintf (stderr, "<nil>\n");
 }
 
 void
