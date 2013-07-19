@@ -408,6 +408,15 @@ tail $TL or else null.}#
   :doc #{Make a mixint value of given discriminant $DIS value $VAL and number $NUM or else null.}#
   #{(meltgc_new_mixint((meltobject_ptr_t)($dis), (melt_ptr_t)($val), ($num)))}#)
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; the quoting mechanism needs to make mixint thu a hook
+(defhook hook_melt_make_location (:cstring filename :long lineno) () :value
+  :predef HOOK_MELT_MAKE_LOCATION
+  :doc #{Hook to make a mixed integer representing the location at given $FILENAME and $LINENO,
+  useful for quoting s-expressions etc...}#
+  (return (make_mixint discr_mixed_integer (make_stringconst discr_string filename) lineno)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; MIXLOC primitives (use get_int to get the integer)
 ;; test
@@ -3255,73 +3264,6 @@ typedef struct melthook_st *melthook_ptr_t;
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defun make_sexpr (loc :rest)
-  :doc #{Dynamically build an s-expression of $CLASS_SEXPR with location $LOC and other arguments.}#
-  (let ( (cont (make_list discr_list))
-	 (vloc (cond ( (is_mixint loc)
-		       loc
-		       )
-		     ( (is_mixloc loc)
-		       loc)
-		     ( (is_a loc class_located)
-		       (unsafe_get_field :loca_location loc))
-		     (:else ())))
-	 (sexpr (instance class_sexpr
-			  :loca_location vloc
-			  :sexp_contents cont))
-	 )
-    (debug "make_sexpr start loc=" loc)
-    (forever 
-     argloop
-     (debug "make_sexpr variadic_index:" (variadic_index))
-     (variadic 
-      ( ()
-	(exit argloop))
-      ( (:cstring str)
-	(debug "make_sexpr str=" str)
-	(let ( (bs (constant_box str))
-	       )
-	  (list_append cont bs)))
-      ( (:long num)
-	(debug "make_sexpr num=" num)
-	(let ( (bs (constant_box num))
-	       )
-	  (list_append cont bs)))
-      ( (:value v)
-	(debug "make_sexpr v=" v)
-	(cond ( (is_object v)
-		(list_append cont v))
-	      ( (is_integerbox v)
-		(list_append cont v))
-	      ( (is_string v)
-		(list_append cont v))
-	      ( (is_multiple v)
-		(foreach_in_multiple
-		 (v)
-		 (comp :long ix)
-		 (list_append cont comp)))
-	      ( (is_list v)
-		(foreach_in_list
-		 (v)
-		 (curpair curcomp)
-		 (list_append cont curcomp)))
-	      ( (is_closure v)
-		(v cont))
-	      (:else
-	       (error_plain vloc "unexpected value for MAKE_SEXPR")
-	       (inform_strv vloc "discriminant of bad value for MAKE_SEXPR is" (get_field :named_name (discrim v)))
-	       (return ())
-	       )))
-      (:else
-       (debug "make_sexpr variadic_ctype:" (variadic_ctype 0) " at variadic_index:" (variadic_index))
-       (error_strv vloc "unexpected stuff for MAKE_SEXPR" (get_field :named_name (variadic_ctype 0)))
-       (return ())
-       )))
-    (debug "make_sexpr returns sexpr=" sexpr)
-    (return sexpr)
-    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
@@ -3421,6 +3363,7 @@ typedef struct melthook_st *melthook_ptr_t;
  full_garbcoll
  generate_flavored_melt_module
  get_globpredef
+ hook_melt_make_location
  increment
  inform_plain
  inform_strv
@@ -3440,7 +3383,6 @@ typedef struct melthook_st *melthook_ptr_t;
  make_mixint
  make_mixloc
  make_pair
- make_sexpr
  make_strbuf
  make_string
  make_string_generated_cc_filename
@@ -3591,6 +3533,7 @@ typedef struct melthook_st *melthook_ptr_t;
 
 
 (export_synonym melt_mode_container melt_mode_reference)
+
 
 (export_synonym set_content set_reference)
 

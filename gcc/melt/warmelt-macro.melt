@@ -987,6 +987,79 @@ $SPAC_OUTARGS are the output sub-patterns.}#
   :super class_source_pattern_matcher
   :fields ())
 
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; dynamically make a MELT s-expression, notably useful for macros and quotes
+(defun melt_make_sexpr (loc :rest)
+  :doc #{Dynamically build an s-expression of $CLASS_SEXPR with location $LOC and other arguments.}#
+  (let ( (cont (make_list discr_list))
+	 (vloc (cond ( (is_mixint loc)
+		       loc
+		       )
+		     ( (is_mixloc loc)
+		       loc)
+		     ( (is_a loc class_located)
+		       (unsafe_get_field :loca_location loc))
+		     (:else ())))
+	 (sexpr (instance class_sexpr
+			  :loca_location vloc
+			  :sexp_contents cont))
+	 )
+    (debug "melt_make_sexpr start loc=" loc)
+    (forever 
+     argloop
+     (debug "melt_make_sexpr variadic_index:" (variadic_index))
+     (variadic 
+      ( ()
+	(exit argloop))
+      ( (:cstring str)
+	(debug "melt_make_sexpr str=" str)
+	(let ( (bs (constant_box str))
+	       )
+	  (list_append cont bs)))
+      ( (:long num)
+	(debug "melt_make_sexpr num=" num)
+	(let ( (bs (constant_box num))
+	       )
+	  (list_append cont bs)))
+      ( (:value v)
+	(debug "melt_make_sexpr v=" v)
+	(cond ( (is_object v)
+		(list_append cont v))
+	      ( (is_integerbox v)
+		(list_append cont v))
+	      ( (is_string v)
+		(list_append cont v))
+	      ( (is_multiple v)
+		(foreach_in_multiple
+		 (v)
+		 (comp :long ix)
+		 (list_append cont comp)))
+	      ( (is_list v)
+		(foreach_in_list
+		 (v)
+		 (curpair curcomp)
+		 (list_append cont curcomp)))
+	      ( (is_closure v)
+		(v cont))
+	      (:else
+	       (error_plain vloc "unexpected value for MELT_MAKE_SEXPR")
+	       (inform_strv vloc "discriminant of bad value for MELT_MAKE_SEXPR is" (get_field :named_name (discrim v)))
+	       (return ())
+	       )))
+      (:else
+       (debug "melt_make_sexpr variadic_ctype:" (variadic_ctype 0) " at variadic_index:" (variadic_index))
+       (error_strv vloc "unexpected stuff for MELT_MAKE_SEXPR" (get_field :named_name (variadic_ctype 0)))
+       (return ())
+       )))
+    (debug "melt_make_sexpr returns sexpr=" sexpr)
+    (return sexpr)
+    ))
+
+;; it is also called make_sexpr for simplicity
+(export_values melt_make_sexpr)
+(export_synonym make_sexpr melt_make_sexpr)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; compute the recursive weight of an s-expr (or give :true if too big)
@@ -4403,8 +4476,7 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	))
     ))
 (install_initial_patmacro 'instance patexpand_instance mexpand_instance)
-(export_patmacro 
-instance patexpand_instance mexpand_instance
+(export_patmacro instance patexpand_instance mexpand_instance
 :doc #{The $INSTANCE pattern macro matches an instance when used as a
 pattern, or creates an instance when used as an expression.  Pattern
 syntax is ?($INSTANCE @var{class-name} @var{:field1} @var{pattern1}
@@ -5503,8 +5575,7 @@ condition is a string such as "4.5." or a list of strings.}#)
     ))
 
 (install_initial_patmacro 'and patexpand_and mexpand_and)
-(export_patmacro 
- and patexpand_and mexpand_and
+(export_patmacro and patexpand_and mexpand_and
  :doc #{The lispy $AND conjunction syntax is a short-circuit "and
  then" conjunction. Expression syntax is (AND
  <conjunct-subexpression>...) and can evaluate to a :value or a thing
@@ -5569,8 +5640,7 @@ condition is a string such as "4.5." or a list of strings.}#)
      (return res)
      )))
 (install_initial_patmacro 'or patexpand_or mexpand_or)
-(export_patmacro 
- or patexpand_or mexpand_or
+(export_patmacro or patexpand_or mexpand_or
  :doc #{The lispy $OR disjunctive syntax is a short-circuit "or else"
  disjonction. Expression syntax is (OR <disjunct-subexpression>...)
  and can evaluate to a :value or a thing such as a :gimple or a :long
@@ -5651,8 +5721,7 @@ condition is a string such as "4.5." or a list of strings.}#)
     (return res)
 ))
 (install_initial_patmacro 'reference patexpand_reference mexpand_reference)
-(export_patmacro 
- reference patexpand_reference mexpand_reference
+(export_patmacro reference patexpand_reference mexpand_reference
  :doc #{The $REFERENCE syntax is a short-hand for making or matching
  instances of $CLASS_REFERENCE. Expression syntax (REFERENCE
  <subexpression>) is a short-hand for (INSTANCE
@@ -5679,8 +5748,7 @@ condition is a string such as "4.5." or a list of strings.}#)
   (patexpand_reference sexpr env pctx))
   
 (install_initial_patmacro 'container patexpandobsolete_container mexpandobsolete_container)
-(export_patmacro 
- container patexpandobsolete_container mexpandobsolete_container
+(export_patmacro container patexpandobsolete_container mexpandobsolete_container
  :doc #{The $CONTAINER syntax for expressions or patterns is obsolete. Use $REFERENCE instead}#)
 
 
@@ -5955,8 +6023,7 @@ applications of @code{/i} primitives.}#
     (return res)
 ))
 (install_initial_patmacro 'tuple patexpand_tuple mexpand_tuple)
-(export_patmacro 
- tuple patexpand_tuple mexpand_tuple
+(export_patmacro tuple patexpand_tuple mexpand_tuple
  :doc #{The $TUPLE syntax is for making or matching tuples. Expression
  syntax is (TUPLE <component-subexpression>...) to make a tuple of
  $DISCR_MULTIPLE with the given components. Pattern syntax is ?(TUPLE
@@ -6002,8 +6069,7 @@ applications of @code{/i} primitives.}#
     (return res)
 ))
 (install_initial_patmacro 'list patexpand_list mexpand_list)
-(export_patmacro 
- list patexpand_list mexpand_list
+(export_patmacro list patexpand_list mexpand_list
  :doc #{The $LIST syntax is for making or matching lists made of
  pairs. Expression syntax is (LIST <component-subexpression>...) to
  make a list of $DISCR_LIST with the given components going into the
@@ -6789,15 +6855,94 @@ remain.}#)
 (export_macro multicall mexpand_multicall
  :doc #{The $MULTICALL syntax is for accumulating the primary and
  secondary results of a function application or a message
- sending. Syntax is (MULTICALL ( <formals> ) <application-or-sending>
- <body>...). The first formal is bound to the primary result and
+ sending. Syntax is @code{(MULTICALL ( @var{<formals>} ) @var{<application-or-message-send>}
+ @var{<body>...})}. The first formal is bound to the primary result and
  should be a :value. Other are for secondary results. The body is
  evaluated with these results of the given application or sending
  expression bound by the formals. Inspired by Scheme's
  CALL-WITH-VALUES or CommonLisp's MULTIPLE-VALUE-BIND.}#)
 
 
-;;;;;;;; for QUOTE (only of symbols or keywords, strings, or integers)
+;;;;;;;; for QUOTE 
+
+
+;; utility to expand an s-expression into a suitable invocation of melt_make_sexpr
+(defun expand_quoted_sexpr (sexpr env antiquoter mexpander modctx)
+  (debug "expand_quoted_sexpr sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr))
+  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check modctx" (is_object modctx))
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (:long dline (get_int loc))
+	 (dfilnam (cond
+		   ((is_mixint loc) (mixint_val loc))
+		   ((is_mixloc loc) (mixloc_val loc))))
+	 (locexp (instance class_source_hook_call
+			   :loca_location loc
+			   :shook_called hook_melt_make_location
+			   :sargop_args (tuple dfilnam (constant_box dline))))
+	 (arglist (make_list discr_list))
+	 )
+    (debug "expand_quoted_sexpr dline=" dline " dfilnam=" dfilnam)
+    (foreach_in_list
+     (cont)
+     (curpair curcomp)
+     (cond ( (null curcomp)
+	     (list_append arglist ())
+	     )
+	   ( (is_integerbox curcomp)
+	     (list_append arglist curcomp))
+	   ( (is_string curcomp)
+	     (list_append arglist curcomp))
+	   ( (is_a curcomp class_keyword)
+	     (list_append arglist curcomp))
+	   ( (is_a curcomp class_symbol)
+	     (let ( (qsymb (instance class_source_quote
+				     :loca_location loc
+				     :squoted curcomp))
+		    )
+	       (list_append arglist qsymb)))
+	   ( (is_a curcomp class_sexpr)
+	     (if (is_closure antiquoter)
+		 (let ( (curloc (unsafe_get_field :loca_location curcomp))
+			(curcont (unsafe_get_field :sexp_contents curcomp))
+			)
+		  (if (and 
+		       (==i (list_length curcont) 2)
+		       (== (list_first_element curcont) 'comma))
+		      (let ( (commaexp (list_nth_element curcont 1))
+			     )
+			  (antiquoter commaexp arglist curloc env mexpander modctx))
+		    (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))))
+	        (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))
+		))
+	   ;; the below cases don't happen for expressions which have
+	   ;; been read, only for computed s-exprs...
+	   ( (is_list curcomp)
+	     (list_append2list arglist curcomp))
+	   ( (is_multiple curcomp)
+	     (foreach_in_multiple
+	      (curcomp)
+	      (subcomp :long ix)
+	      (list_append arglist subcomp)))
+	   (:else
+	    (list_append arglist curcomp))
+	   )
+     )					; end foreach_in_list
+    (debug "expand_quoted_sexpr arglist=" arglist)
+    (list_prepend arglist locexp)
+    (let ( (xexp (instance class_source_apply
+			   :loca_location loc
+			   :sapp_fun 'melt_make_sexpr
+			   :sargop_args (list_to_multiple arglist discr_multiple)))
+	   )
+      (debug "expand_quoted_sexpr result xexp=" xexp)
+      (return xexp)
+    )
+  )
+)
+
 (defun mexpand_quote (sexpr env mexpander modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
@@ -6818,6 +6963,12 @@ remain.}#)
 	  ( (is_integerbox quoted)
 	    ()
 	    )
+	  ( (is_a quoted class_sexpr)
+	      (debug "mexpand_quote sexpr quoted=" quoted)
+	    (let ( (expquo (expand_quoted_sexpr quoted env () mexpander modctx))
+		   )
+	      (debug "mexpander expquo=" expquo)
+	      (return expquo)))
 	  (:else
 	   (error_plain loc "QUOTE should have a symbol, string, or integer argument"_))
 	  )
@@ -6836,6 +6987,12 @@ remain.}#)
  quoted. A quoted literal reifies a value, so '2 is a value of
  $DISCR_CONSTANT_INTEGER.}#)
 
+
+;; could be passed to expand_quoted_sexpr for future mexpand_backquote 
+(defun antiquoter (aexp arglist loc env mexpander modctx)
+  (debug "antiquoter aexp=" aexp " arglist=" arglist)
+  (assert_msg "$@$unimplemented antiquoter")
+)
 
 
 ;;;;;;; for BOX

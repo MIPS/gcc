@@ -1,6 +1,19 @@
 
 
 2013-07-19  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{quote implemented for s-expressions}}
+	* melt-predef.list (HOOK_MELT_MAKE_LOCATION): New.
+
+	* melt/warmelt-base.melt (make_sexpr): Moved to warmelt-macro.melt file and renamed as melt_make_sexpr.
+
+	* melt/warmelt-macro.melt (melt_make_sexpr); Function moved from
+	warmelt-base.melt file.
+	(make_sexpr): Synonym of above.
+	(expand_quoted_sexpr): New utility function.
+	(mexpand_quote): Use it for quoted s-exprs.
+	(antiquoter): New stub.
+
+2013-07-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (clone_symbol): The csym_urank is a constant boxed integer.
 
 	* melt/warmelt-macro.melt (with_cloned_symb): New macro.
