@@ -121,6 +121,7 @@ find_rank (tree array, bool ignore_builtin_fn, size_t *rank)
 	  else if (TREE_CODE (ii_tree) == ARRAY_REF)
 	    ii_tree = TREE_OPERAND (ii_tree, 0);
 	  else if (TREE_CODE (ii_tree) == PARM_DECL
+		   || TREE_CODE (ii_tree) == INDIRECT_REF
 		   || TREE_CODE (ii_tree) == VAR_DECL)
 	    break;
 	}
@@ -731,6 +732,7 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
 	      else if (TREE_CODE (ii_tree) == ARRAY_REF)
 		ii_tree = TREE_OPERAND (ii_tree, 0);
 	      else if (TREE_CODE (ii_tree) == VAR_DECL
+		       || TREE_CODE (ii_tree) == INDIRECT_REF
 		       || TREE_CODE (ii_tree) == PARM_DECL)
 		break;
 	    }
@@ -759,9 +761,9 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
 	      else if (TREE_CODE (ii_tree) == ARRAY_REF)
 		ii_tree = TREE_OPERAND (ii_tree, 0);
 	      else if (TREE_CODE (ii_tree) == VAR_DECL
-		       || TREE_CODE (ii_tree) == PARM_DECL)
-		break;
-	      else if (TREE_CODE (ii_tree) == CALL_EXPR)
+		       || TREE_CODE (ii_tree) == PARM_DECL
+		       || TREE_CODE (ii_tree) == CALL_EXPR
+		       || TREE_CODE (ii_tree) == INDIRECT_REF)
 		break;
 	    }
 	}

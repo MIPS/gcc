@@ -1,3 +1,8 @@
+2013-07-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c/c-array-notation.c (find_rank): Added INDIRECT_REF case.
+	(build_array_notation_expr): Likewise.
+
 2013-07-07  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* config/i386/i386.c (ix86_cilkplus_find_isa_code): New function.
