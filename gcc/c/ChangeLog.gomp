@@ -1,3 +1,39 @@
+2013-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_declare_simd): Moved to...
+	* c-parser.c (c_finish_omp_declare_simd): ... here.  Add
+	first c_parser * argument and change last argument to vec<c_token>.
+	Parse clauses here from the saved c_tokens.
+	(struct c_parser): Change tokens to c_token *.
+	Add tokens_buf field.  Change tokens_avail type to unsigned int.
+	(c_parser_consume_token): If parser->tokens isn't
+	&parser->tokens_buf[0], increment parser->tokens.
+	(c_parser_consume_pragma): Likewise
+	(c_parser_declaration_or_fndef): Change last argument to vec<c_token>.
+	Pass parser as first argument to c_finish_omp_declare_simd.  For
+	prototypes, fix code indentation and call temp_store_parm_decls
+	and temp_pop_parm_decls around c_finish_omp_declare_simd.
+	(c_parser_omp_variable_list): Remove declare_simd argument, call
+	lookup_name unconditionally.
+	(c_parser_omp_var_list_parens, c_parser_omp_clause_reduction,
+	c_parser_omp_clause_depend, c_parser_omp_clause_map,
+	c_parser_omp_clause_uniform): Adjust c_parser_omp_variable_list
+	callers.
+	(c_parser_omp_clause_aligned, c_parser_omp_clause_linear): Likewise.
+	Remove declare_simd argument.
+	(c_parser_omp_all_clauses): Remove declare_simd argument.  Adjust
+	c_parser_omp_clause_aligned and c_parser_omp_clause_linear callers.
+	(c_parser_omp_declare_simd): Don't parse declare simd clauses here,
+	instead push the clause c_tokens starting with simd token up to
+	CPP_PRAGMA_EOL for each #pragma omp declare simd into a vector.
+	(c_parser_omp_declare): Don't consume simd token here.
+	(c_parse_file): Initialize tparser.tokens and the_parser->tokens here.
+	* c-decl.c (temp_store_parm_decls, temp_pop_parm_decls): New
+	functions.
+	* c-tree.h (temp_store_parm_decls, temp_pop_parm_decls): New
+	prototypes.
+	(c_finish_omp_declare_simd): Remove prototype.
+
 2013-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_declare_simd): Don't remove

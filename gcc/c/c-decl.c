@@ -8353,6 +8353,44 @@ store_parm_decls (void)
   if (arg_info->pending_sizes)
     add_stmt (arg_info->pending_sizes);
 }
+
+/* Store PARM_DECLs in PARMS into scope temporarily.  Used for
+   c_finish_omp_declare_simd for function prototypes.  No diagnostics
+   should be done.  */
+
+void
+temp_store_parm_decls (tree fndecl, tree parms)
+{
+  push_scope ();
+  for (tree p = parms; p; p = DECL_CHAIN (p))
+    {
+      DECL_CONTEXT (p) = fndecl;
+      if (DECL_NAME (p))
+	bind (DECL_NAME (p), p, current_scope,
+	      /*invisible=*/false, /*nested=*/false,
+	      UNKNOWN_LOCATION);
+    }
+}
+
+/* Undo what temp_store_parm_decls did.  */
+
+void
+temp_pop_parm_decls (void)
+{
+  /* Clear all bindings in this temporary scope, so that
+     pop_scope doesn't create a BLOCK.  */
+  struct c_binding *b = current_scope->bindings;
+  current_scope->bindings = NULL;
+  for (; b; b = free_binding_and_advance (b))
+    {
+      gcc_assert (TREE_CODE (b->decl) == PARM_DECL);
+      gcc_assert (I_SYMBOL_BINDING (b->id) == b);
+      I_SYMBOL_BINDING (b->id) = b->shadowed;
+      if (b->shadowed && b->shadowed->u.type)
+	TREE_TYPE (b->shadowed->decl) = b->shadowed->u.type;
+    }
+  pop_scope ();
+}
 
 
 /* Finish up a function declaration and compile that function

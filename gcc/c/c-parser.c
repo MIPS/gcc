@@ -163,9 +163,12 @@ typedef struct GTY (()) c_token {
    tokens of look-ahead; more are not needed for C.  */
 typedef struct GTY(()) c_parser {
   /* The look-ahead tokens.  */
-  c_token tokens[2];
-  /* How many look-ahead tokens are available (0, 1 or 2).  */
-  short tokens_avail;
+  c_token * GTY((skip)) tokens;
+  /* Buffer for look-ahead tokens.  */
+  c_token tokens_buf[2];
+  /* How many look-ahead tokens are available (0, 1 or 2, or
+     more if parsing from pre-lexed tokens).  */
+  unsigned int tokens_avail;
   /* True if a syntax error is being recovered from; false otherwise.
      c_parser_error sets this flag.  It should clear this flag when
      enough tokens have been consumed to recover from the error.  */
@@ -737,7 +740,9 @@ c_parser_consume_token (c_parser *parser)
   gcc_assert (parser->tokens[0].type != CPP_EOF);
   gcc_assert (!parser->in_pragma || parser->tokens[0].type != CPP_PRAGMA_EOL);
   gcc_assert (parser->error || parser->tokens[0].type != CPP_PRAGMA);
-  if (parser->tokens_avail == 2)
+  if (parser->tokens != &parser->tokens_buf[0])
+    parser->tokens++;
+  else if (parser->tokens_avail == 2)
     parser->tokens[0] = parser->tokens[1];
   parser->tokens_avail--;
 }
@@ -751,7 +756,9 @@ c_parser_consume_pragma (c_parser *parser)
   gcc_assert (!parser->in_pragma);
   gcc_assert (parser->tokens_avail >= 1);
   gcc_assert (parser->tokens[0].type == CPP_PRAGMA);
-  if (parser->tokens_avail == 2)
+  if (parser->tokens != &parser->tokens_buf[0])
+    parser->tokens++;
+  else if (parser->tokens_avail == 2)
     parser->tokens[0] = parser->tokens[1];
   parser->tokens_avail--;
   parser->in_pragma = true;
@@ -1113,7 +1120,7 @@ enum c_parser_prec {
 static void c_parser_external_declaration (c_parser *);
 static void c_parser_asm_definition (c_parser *);
 static void c_parser_declaration_or_fndef (c_parser *, bool, bool, bool,
-					   bool, bool, tree *, vec<tree>);
+					   bool, bool, tree *, vec<c_token>);
 static void c_parser_static_assert_declaration_no_semi (c_parser *);
 static void c_parser_static_assert_declaration (c_parser *);
 static void c_parser_declspecs (c_parser *, struct c_declspecs *, bool, bool,
@@ -1374,6 +1381,8 @@ c_parser_external_declaration (c_parser *parser)
     }
 }
 
+static void c_finish_omp_declare_simd (c_parser *, tree, tree, vec<c_token>);
+
 /* Parse a declaration or function definition (C90 6.5, 6.7.1, C99
    6.7, 6.9.1).  If FNDEF_OK is true, a function definition is
    accepted; otherwise (old-style parameter declarations) only other
@@ -1450,7 +1459,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 			       bool static_assert_ok, bool empty_ok,
 			       bool nested, bool start_attr_ok,
 			       tree *objc_foreach_object_declaration,
-			       vec<tree> omp_declare_simd_clauses)
+			       vec<c_token> omp_declare_simd_clauses)
 {
   struct c_declspecs *specs;
   tree prefix_attrs;
@@ -1621,7 +1630,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
       if (declarator == NULL)
 	{
 	  if (omp_declare_simd_clauses.exists ())
-	    c_finish_omp_declare_simd (NULL_TREE, NULL_TREE,
+	    c_finish_omp_declare_simd (parser, NULL_TREE, NULL_TREE,
 				       omp_declare_simd_clauses);
 	  c_parser_skip_to_end_of_block_or_statement (parser);
 	  return;
@@ -1660,7 +1669,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	      if (!d)
 		d = error_mark_node;
 	      if (omp_declare_simd_clauses.exists ())
-		c_finish_omp_declare_simd (d, NULL_TREE,
+		c_finish_omp_declare_simd (parser, d, NULL_TREE,
 					   omp_declare_simd_clauses);
 	      start_init (d, asm_name, global_bindings_p ());
 	      init_loc = c_parser_peek_token (parser)->location;
@@ -1684,17 +1693,21 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  if (d && TREE_CODE (d) == FUNCTION_DECL)
 		    {
 		      struct c_declarator *ce = declarator;
-			while (ce != NULL)
-			  if (ce->kind == cdk_function)
-			    {
-			      parms = ce->u.arg_info->parms;
-			      break;
-			    }
-			  else
-			    ce = ce->declarator;
+		      while (ce != NULL)
+			if (ce->kind == cdk_function)
+			  {
+			    parms = ce->u.arg_info->parms;
+			    break;
+			  }
+			else
+			  ce = ce->declarator;
 		    }
-		  c_finish_omp_declare_simd (d, parms,
+		  if (parms)
+		    temp_store_parm_decls (d, parms);
+		  c_finish_omp_declare_simd (parser, d, parms,
 					     omp_declare_simd_clauses);
+		  if (parms)
+		    temp_pop_parm_decls ();
 		}
 	      if (d)
 		finish_decl (d, UNKNOWN_LOCATION, NULL_TREE,
@@ -1788,7 +1801,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 				       true, false, NULL, vNULL);
       store_parm_decls ();
       if (omp_declare_simd_clauses.exists ())
-	c_finish_omp_declare_simd (current_function_decl, NULL_TREE,
+	c_finish_omp_declare_simd (parser, current_function_decl, NULL_TREE,
 				   omp_declare_simd_clauses);
       DECL_STRUCT_FUNCTION (current_function_decl)->function_start_locus
 	= c_parser_peek_token (parser)->location;
@@ -9058,8 +9071,7 @@ check_no_duplicate_clause (tree clauses, enum omp_clause_code code,
 static tree
 c_parser_omp_variable_list (c_parser *parser,
 			    location_t clause_loc,
-			    enum omp_clause_code kind,
-			    tree list, bool declare_simd)
+			    enum omp_clause_code kind, tree list)
 {
   if (c_parser_next_token_is_not (parser, CPP_NAME)
       || c_parser_peek_token (parser)->id_kind != C_ID_ID)
@@ -9068,12 +9080,7 @@ c_parser_omp_variable_list (c_parser *parser,
   while (c_parser_next_token_is (parser, CPP_NAME)
 	 && c_parser_peek_token (parser)->id_kind == C_ID_ID)
     {
-      tree t;
-
-      if (declare_simd)
-	t = c_parser_peek_token (parser)->value;
-      else
-	t = lookup_name (c_parser_peek_token (parser)->value);
+      tree t = lookup_name (c_parser_peek_token (parser)->value);
 
       if (t == NULL_TREE)
 	{
@@ -9161,7 +9168,7 @@ c_parser_omp_var_list_parens (c_parser *parser, enum omp_clause_code kind,
 
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      list = c_parser_omp_variable_list (parser, loc, kind, list, false);
+      list = c_parser_omp_variable_list (parser, loc, kind, list);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
   return list;
@@ -9523,7 +9530,7 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 	  tree nl, c;
 
 	  nl = c_parser_omp_variable_list (parser, clause_loc,
-					   OMP_CLAUSE_REDUCTION, list, false);
+					   OMP_CLAUSE_REDUCTION, list);
 	  for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
 	    OMP_CLAUSE_REDUCTION_CODE (c) = code;
 
@@ -9781,7 +9788,7 @@ c_parser_omp_clause_thread_limit (c_parser *parser, tree list)
    aligned ( variable-list : constant-expression ) */
 
 static tree
-c_parser_omp_clause_aligned (c_parser *parser, tree list, bool declare_simd)
+c_parser_omp_clause_aligned (c_parser *parser, tree list)
 {
   location_t clause_loc = c_parser_peek_token (parser)->location;
   tree nl, c;
@@ -9790,7 +9797,7 @@ c_parser_omp_clause_aligned (c_parser *parser, tree list, bool declare_simd)
     return list;
 
   nl = c_parser_omp_variable_list (parser, clause_loc,
-				   OMP_CLAUSE_ALIGNED, list, declare_simd);
+				   OMP_CLAUSE_ALIGNED, list);
 
   if (c_parser_next_token_is (parser, CPP_COLON))
     {
@@ -9820,7 +9827,7 @@ c_parser_omp_clause_aligned (c_parser *parser, tree list, bool declare_simd)
    linear ( variable-list : expression ) */
 
 static tree
-c_parser_omp_clause_linear (c_parser *parser, tree list, bool declare_simd)
+c_parser_omp_clause_linear (c_parser *parser, tree list)
 {
   location_t clause_loc = c_parser_peek_token (parser)->location;
   tree nl, c, step;
@@ -9829,7 +9836,7 @@ c_parser_omp_clause_linear (c_parser *parser, tree list, bool declare_simd)
     return list;
 
   nl = c_parser_omp_variable_list (parser, clause_loc,
-				   OMP_CLAUSE_LINEAR, list, declare_simd);
+				   OMP_CLAUSE_LINEAR, list);
 
   if (c_parser_next_token_is (parser, CPP_COLON))
     {
@@ -9965,7 +9972,7 @@ c_parser_omp_clause_depend (c_parser *parser, tree list)
     goto resync_fail;
 
   nl = c_parser_omp_variable_list (parser, clause_loc,
-				   OMP_CLAUSE_DEPEND, list, false);
+				   OMP_CLAUSE_DEPEND, list);
 
   for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
     OMP_CLAUSE_DEPEND_KIND (c) = kind;
@@ -10020,8 +10027,7 @@ c_parser_omp_clause_map (c_parser *parser, tree list)
       c_parser_consume_token (parser);
     }
 
-  nl = c_parser_omp_variable_list (parser, clause_loc,
-				   OMP_CLAUSE_MAP, list, false);
+  nl = c_parser_omp_variable_list (parser, clause_loc, OMP_CLAUSE_MAP, list);
 
   for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
     OMP_CLAUSE_MAP_KIND (c) = kind;
@@ -10181,7 +10187,7 @@ c_parser_omp_clause_uniform (c_parser *parser, tree list)
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
       list = c_parser_omp_variable_list (parser, loc, OMP_CLAUSE_UNIFORM,
-					 list, true);
+					 list);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
   return list;
@@ -10193,8 +10199,7 @@ c_parser_omp_clause_uniform (c_parser *parser, tree list)
 
 static tree
 c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
-			  const char *where, bool finish_p = true,
-			  bool declare_simd = false)
+			  const char *where, bool finish_p = true)
 {
   tree clauses = NULL;
   bool first = true;
@@ -10350,12 +10355,11 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "thread_limit";
 	  break;
 	case PRAGMA_OMP_CLAUSE_ALIGNED:
-	  clauses = c_parser_omp_clause_aligned (parser, clauses,
-						 declare_simd);
+	  clauses = c_parser_omp_clause_aligned (parser, clauses);
 	  c_name = "aligned";
 	  break;
 	case PRAGMA_OMP_CLAUSE_LINEAR:
-	  clauses = c_parser_omp_clause_linear (parser, clauses, declare_simd);
+	  clauses = c_parser_omp_clause_linear (parser, clauses);
 	  c_name = "linear";
 	  break;
 	case PRAGMA_OMP_CLAUSE_DEPEND:
@@ -11976,10 +11980,21 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 static void
 c_parser_omp_declare_simd (c_parser *parser, enum pragma_context context)
 {
-  vec<tree> clauses = vNULL;
-  tree cl = c_parser_omp_all_clauses (parser, OMP_DECLARE_SIMD_CLAUSE_MASK,
-				      "#pragma omp declare simd", false, true);
-  clauses.safe_push (cl);
+  vec<c_token> clauses = vNULL;
+  while (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
+    {
+      c_token *token = c_parser_peek_token (parser);
+      if (token->type == CPP_EOF)
+	{
+	  c_parser_skip_to_pragma_eol (parser);
+	  clauses.release ();
+	  return;
+	}
+      clauses.safe_push (*token);
+      c_parser_consume_token (parser);
+    }
+  clauses.safe_push (*c_parser_peek_token (parser));
+  c_parser_skip_to_pragma_eol (parser);
 
   while (c_parser_next_token_is (parser, CPP_PRAGMA))
     {
@@ -11998,11 +12013,28 @@ c_parser_omp_declare_simd (c_parser *parser, enum pragma_context context)
 	  return;
 	}
       c_parser_consume_pragma (parser);
-      c_parser_consume_token (parser);
-      cl = c_parser_omp_all_clauses (parser, OMP_DECLARE_SIMD_CLAUSE_MASK,
-				     "#pragma omp declare simd", false, true);
-      clauses.safe_push (cl);
+      while (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
+	{
+	  c_token *token = c_parser_peek_token (parser);
+	  if (token->type == CPP_EOF)
+	    {
+	      c_parser_skip_to_pragma_eol (parser);
+	      clauses.release ();
+	      return;
+	    }
+	  clauses.safe_push (*token);
+	  c_parser_consume_token (parser);
+	}
+      clauses.safe_push (*c_parser_peek_token (parser));
+      c_parser_skip_to_pragma_eol (parser);
     }
+
+  /* Make sure nothing tries to read past the end of the tokens.  */
+  c_token eof_token;
+  memset (&eof_token, 0, sizeof (eof_token));
+  eof_token.type = CPP_EOF;
+  clauses.safe_push (eof_token);
+  clauses.safe_push (eof_token);
 
   switch (context)
     {
@@ -12061,6 +12093,65 @@ c_parser_omp_declare_simd (c_parser *parser, enum pragma_context context)
     }
   clauses.release ();
 }
+
+/* Finalize #pragma omp declare simd clauses after FNDECL has been parsed,
+   and put that into "omp declare simd" attribute.  */
+
+static void
+c_finish_omp_declare_simd (c_parser *parser, tree fndecl, tree parms,
+			   vec<c_token> clauses)
+{
+  /* Normally first token is CPP_NAME "simd".  CPP_EOF there indicates
+     error has been reported and CPP_PRAGMA that c_finish_omp_declare_simd
+     has already processed the tokens.  */
+  if (clauses[0].type == CPP_EOF)
+    return;
+  if (fndecl == NULL_TREE || TREE_CODE (fndecl) != FUNCTION_DECL)
+    {
+      error ("%<#pragma omp declare simd%> not immediately followed by "
+	     "a function declaration or definition");
+      clauses[0].type = CPP_EOF;
+      return;
+    }
+  if (clauses[0].type != CPP_NAME)
+    {
+      error_at (DECL_SOURCE_LOCATION (fndecl),
+		"%<#pragma omp declare simd%> not immediately followed by "
+		"a single function declaration or definition");
+      clauses[0].type = CPP_EOF;
+      return;
+    }
+
+  if (parms == NULL_TREE)
+    parms = DECL_ARGUMENTS (fndecl);
+
+  unsigned int tokens_avail = parser->tokens_avail;
+  gcc_assert (parser->tokens == &parser->tokens_buf[0]);
+  parser->tokens = clauses.address ();
+  parser->tokens_avail = clauses.length ();
+
+  /* c_parser_omp_declare_simd pushed 2 extra CPP_EOF tokens at the end.  */
+  while (parser->tokens_avail > 3)
+    {
+      c_token *token = c_parser_peek_token (parser);
+      gcc_assert (token->type == CPP_NAME
+		  && strcmp (IDENTIFIER_POINTER (token->value), "simd") == 0);
+      c_parser_consume_token (parser);
+      parser->in_pragma = true;
+
+      tree c = c_parser_omp_all_clauses (parser, OMP_DECLARE_SIMD_CLAUSE_MASK,
+					 "#pragma omp declare simd");
+      c = c_omp_declare_simd_clauses_to_numbers (parms, c);
+      c = build_tree_list (get_identifier ("omp declare simd"), c);
+      TREE_CHAIN (c) = DECL_ATTRIBUTES (fndecl);
+      DECL_ATTRIBUTES (fndecl) = c;
+    }
+
+  parser->tokens = &parser->tokens_buf[0];
+  parser->tokens_avail = tokens_avail;
+  clauses[0].type = CPP_PRAGMA;
+}
+
 
 /* OpenMP 4.0:
    # pragma omp declare target new-line
@@ -12124,7 +12215,8 @@ c_parser_omp_declare (c_parser *parser, enum pragma_context context)
       const char *p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
       if (strcmp (p, "simd") == 0)
 	{
-	  c_parser_consume_token (parser);
+	  /* c_parser_consume_token (parser); done in
+	     c_parser_omp_declare_simd.  */
 	  c_parser_omp_declare_simd (parser, context);
 	  return;
 	}
@@ -12495,6 +12587,7 @@ c_parse_file (void)
   c_parser tparser;
 
   memset (&tparser, 0, sizeof tparser);
+  tparser.tokens = &tparser.tokens_buf[0];
   the_parser = &tparser;
 
   if (c_parser_peek_token (&tparser)->pragma_kind == PRAGMA_GCC_PCH_PREPROCESS)
@@ -12502,6 +12595,8 @@ c_parse_file (void)
 
   the_parser = ggc_alloc_c_parser ();
   *the_parser = tparser;
+  if (tparser.tokens == &tparser.tokens_buf[0])
+    the_parser->tokens = &the_parser->tokens_buf[0];
 
   /* Initialize EH, if we've been told to do so.  */
   if (flag_exceptions)

@@ -526,6 +526,8 @@ extern tree start_struct (location_t, enum tree_code, tree,
 			  struct c_struct_parse_info **);
 extern void store_parm_decls (void);
 extern void store_parm_decls_from (struct c_arg_info *);
+extern void temp_store_parm_decls (tree, tree);
+extern void temp_pop_parm_decls (void);
 extern tree xref_tag (enum tree_code, tree);
 extern struct c_typespec parser_xref_tag (location_t, enum tree_code, tree);
 extern struct c_parm *build_c_parm (struct c_declspecs *, tree,
@@ -642,7 +644,6 @@ extern void c_finish_omp_taskgroup (location_t, tree);
 extern void c_finish_omp_cancel (location_t, tree);
 extern void c_finish_omp_cancellation_point (location_t, tree);
 extern tree c_finish_omp_clauses (tree);
-extern void c_finish_omp_declare_simd (tree, tree, vec<tree>);
 extern tree c_build_va_arg (location_t, tree, tree);
 extern tree c_finish_transaction (location_t, tree, int);
 extern bool c_tree_equal (tree, tree);
