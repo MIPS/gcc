@@ -10493,6 +10493,8 @@ build_binary_op (location_t location, enum tree_code code,
       /* OP0 and/or OP1 might have side-effects.  */
       op0 = c_save_expr (op0);
       op1 = c_save_expr (op1);
+      op0 = c_fully_fold (op0, false, NULL);
+      op1 = c_fully_fold (op1, false, NULL);
       if (doing_div_or_mod)
 	instrument_expr = ubsan_instrument_division (location, op0, op1);
       else if (doing_shift)
