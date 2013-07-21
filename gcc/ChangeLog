@@ -1,3 +1,17 @@
+2013-07-21  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c (struct ubsan_typedesc): Add comments.
+	(ubsan_typedesc_hasher::hash): Don't hash the VAR_DECL element.
+	(ubsan_typedesc_hasher::equal): Adjust comment.
+	(ubsan_typedesc_get_alloc_pool): Remove comment.
+	(empty_ubsan_typedesc_hash_table): Remove function.
+	(ubsan_source_location_type): Remove bogus comment.
+	(get_tinfo_for_type): Remove function.
+	(get_ubsan_type_info_for_type): New function.
+	(ubsan_type_descriptor): Use ASM_GENERATE_INTERNAL_LABEL instead of
+	ASM_FORMAT_PRIVATE_NAME.  Use TYPE_MAIN_VARIANT of the type.
+	(ubsan_create_data): Likewise.
+
 2013-07-15  Marek Polacek  <polacek@redhat.com>
 
 	* gcc.c (ADD_STATIC_LIBUBSAN_LIBS): Define.

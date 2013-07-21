@@ -34,7 +34,10 @@ along with GCC; see the file COPYING3.  If not see
 /* This type represents an entry in the hash table.  */
 struct ubsan_typedesc
 {
+  /* This represents the type of a variable.  */
   tree type;
+
+  /* This is the VAR_DECL of the type.  */
   tree decl;
 };
 
@@ -56,9 +59,7 @@ struct ubsan_typedesc_hasher
 inline hashval_t
 ubsan_typedesc_hasher::hash (const ubsan_typedesc *data)
 {
-  hashval_t h = iterative_hash_object (data->type, 0);
-  h = iterative_hash_object (data->decl, h);
-  return h;
+  return iterative_hash_object (data->type, 0);
 }
 
 /* Compare two data types.  */
@@ -67,8 +68,8 @@ inline bool
 ubsan_typedesc_hasher::equal (const ubsan_typedesc *d1,
 			      const ubsan_typedesc *d2)
 {
-  /* ??? Here, the types should have identical __typekind,
-     _typeinfo and __typename.  Is this enough?  */
+  /* Here, the types should have identical __typekind,
+     __typeinfo and __typename.  */
   return d1->type == d2->type;
 }
 
@@ -93,7 +94,6 @@ ubsan_typedesc_get_alloc_pool ()
     ubsan_typedesc_alloc_pool = create_alloc_pool ("ubsan_typedesc",
 						   sizeof (ubsan_typedesc),
 						   10);
-  // XXX But where do we free this?  We'll need GTY machinery.
   return ubsan_typedesc_alloc_pool;
 }
 
@@ -122,18 +122,6 @@ ubsan_typedesc_new (tree type, tree decl)
   ubsan_typedesc_init (desc, type, decl);
   return desc;
 }
-
-/* Clear all entries from the type descriptor hash table.  */
-
-#if 0
-static void
-empty_ubsan_typedesc_hash_table ()
-{
-  // XXX But when do we call this?
-  if (ubsan_typedesc_ht.is_created ())
-    ubsan_typedesc_ht.empty ();
-}
-#endif
 
 /* Build the ubsan uptr type.  */
 
@@ -245,7 +233,6 @@ ubsan_source_location_type (void)
     {
       fields[i] = build_decl (UNKNOWN_LOCATION, FIELD_DECL,
 			      get_identifier (field_names[i]),
-			      //(i == 0) ? const_string_type_node
 			      (i == 0) ? build_pointer_type (const_char_type)
 			      : unsigned_type_node);
       DECL_CONTEXT (fields[i]) = ret;
@@ -291,34 +278,16 @@ ubsan_source_location (location_t loc)
   return ctor;
 }
 
-/* This routine returns a magic number for TYPE.
-   ??? This is probably too ugly.  Tweak it.  */
+/* This routine returns a magic number for TYPE.  */
 
 static unsigned short
-get_tinfo_for_type (tree type)
+get_ubsan_type_info_for_type (tree type)
 {
-  unsigned short tinfo;
+  int prec = exact_log2 (TYPE_PRECISION (type));
+  if (prec == -1)
+    error ("unexpected size of type %qT", type);
 
-  switch (GET_MODE_SIZE (TYPE_MODE (type)))
-    {
-    case 4:
-      tinfo = 5;
-      break;
-    case 8:
-      tinfo = 6;
-      break;
-    case 16:
-      tinfo = 7;
-      break;
-    default:
-      error ("unexpected size of type %qT", type);
-    }
-
-  tinfo <<= 1;
-
-  /* The MSB here says whether the value is signed or not.  */
-  tinfo |= !TYPE_UNSIGNED (type);
-  return tinfo;
+  return (prec << 1) | !TYPE_UNSIGNED (type);
 }
 
 /* Helper routine that returns ADDR_EXPR of a VAR_DECL of a type
@@ -332,6 +301,9 @@ ubsan_type_descriptor (tree type)
   hash_table <ubsan_typedesc_hasher> ht = get_typedesc_hash_table ();
   ubsan_typedesc d;
   ubsan_typedesc_init (&d, type, NULL);
+
+  /* See through any typedefs.  */
+  type = TYPE_MAIN_VARIANT (type);
 
   ubsan_typedesc **slot = ht.find_slot (&d, INSERT);
   if (*slot != NULL)
@@ -353,7 +325,7 @@ ubsan_type_descriptor (tree type)
     {
       /* For INTEGER_TYPE, this is 0x0000.  */
       tkind = 0x000;
-      tinfo = get_tinfo_for_type (type);
+      tinfo = get_ubsan_type_info_for_type (type);
     }
   else if (TREE_CODE (type) == REAL_TYPE)
     /* We don't have float support yet.  */
@@ -362,9 +334,9 @@ ubsan_type_descriptor (tree type)
     gcc_unreachable ();
 
   /* Create a new VAR_DECL of type descriptor.  */
-  char *tmp_name;
+  char tmp_name[32];
   static unsigned int type_var_id_num;
-  ASM_FORMAT_PRIVATE_NAME (tmp_name, ".Lubsan_type", type_var_id_num++);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_type", type_var_id_num++);
   tree decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (tmp_name),
 			  dtype);
   TREE_STATIC (decl) = 1;
@@ -446,9 +418,9 @@ ubsan_create_data (const char *name, location_t loc, ...)
   va_end (args);
 
   /* Now, fill in the type.  */
-  char *tmp_name;
+  char tmp_name[32];
   static unsigned int ubsan_var_id_num;
-  ASM_FORMAT_PRIVATE_NAME (tmp_name, ".Lubsan_data", ubsan_var_id_num++);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_data", ubsan_var_id_num++);
   tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (tmp_name),
 			 ret);
   TREE_STATIC (var) = 1;
