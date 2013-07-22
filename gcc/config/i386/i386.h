@@ -1193,7 +1193,7 @@ enum target_cpu_default
 #define FIRST_REX_SSE_REG  (LAST_REX_INT_REG + 1)
 #define LAST_REX_SSE_REG   (FIRST_REX_SSE_REG + 7)
 
-#define FIRST_BND_REG  (LAST_REX_SSE_REG + 1) 
+#define FIRST_BND_REG  (LAST_REX_SSE_REG + 1)
 #define LAST_BND_REG   (FIRST_BND_REG + 3)
 
 /* Override this in other tm.h files to cope with various OS lossage

@@ -1114,11 +1114,11 @@ as pointer to the whole structure.
 fmpx-narrow-to-innermost-array
 C ObjC C++ ObjC++ LTO RejectNegative Report Var(flag_mpx_narrow_to_innermost_arrray)
 Forces MPX instrumentation to use bounds of the innermost arrays in case of
-nested static arryas access. By default outermost array is used.
+nested static arryas access.  By default outermost array is used.
 
 fmpxopt
 C ObjC C++ ObjC++ LTO Report Var(flag_mpxopt) Init(-1)
-Allow MPX optimizations. By default allowed on optimization levels >0.
+Allow MPX optimizations.  By default allowed on optimization levels >0.
 
 fmpx-use-fast-string-functions
 C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_fast_string_functions) Init(0)

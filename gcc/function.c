@@ -3319,13 +3319,13 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
       if (GET_CODE (data->bound_parm) == PARALLEL)
         {
           for (n = 0; n < XVECLEN (data->bound_parm, 0); n++)
-            { 
+            {
               rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
-              rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1); 
-              rtx ptr = mpx_get_value_with_offs (entry_parm, offs); 
-              rtx slot = adjust_address (mem, GET_MODE (reg), 
+              rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
+              rtx ptr = mpx_get_value_with_offs (entry_parm, offs);
+              rtx slot = adjust_address (mem, GET_MODE (reg),
                                              INTVAL (offs));
-              targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL); 
+              targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
             }
           return;
         }

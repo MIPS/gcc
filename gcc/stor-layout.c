@@ -327,13 +327,13 @@ enum machine_mode
 mode_for_bound (unsigned int size, enum mode_class mclass)
 {
   enum machine_mode mode;
- 
+
   /* Get the first mode which has this size, in the specified class.  */
   for (mode = GET_CLASS_NARROWEST_MODE (mclass); mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     if (GET_MODE_SIZE (mode) == (size/8))
       return mode;
- 
+
   return BLKmode;
 }
 

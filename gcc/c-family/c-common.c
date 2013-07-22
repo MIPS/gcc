@@ -7987,7 +7987,7 @@ handle_mpx_legacy (tree *node, tree name, tree ARG_UNUSED (args),
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
-   
+
   return NULL_TREE;
 }
 

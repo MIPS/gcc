@@ -32359,7 +32359,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op0 = force_reg (Pmode, op0);
       op1 = force_reg (Pmode, op1);
 
-      emit_insn (TARGET_64BIT 
+      emit_insn (TARGET_64BIT
                  ? gen_bnd64_mk (target, op0, op1)
                  : gen_bnd32_mk (target, op0, op1));
       return target;
@@ -32377,8 +32377,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op1 = force_reg (Pmode, op1);
       op2 = force_reg (BNDmode, op2);
 
-      emit_insn (TARGET_64BIT 
-                 ? gen_bnd64_stx (op0, op1, op2) 
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_stx (op0, op1, op2)
                  : gen_bnd32_stx (op0, op1, op2));
       return 0;
 
@@ -32436,14 +32436,14 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       arg0 = CALL_EXPR_ARG (exp, 0);
       arg1 = CALL_EXPR_ARG (exp, 1);
 
-      op0 = expand_normal (arg0); 
-      op1 = expand_normal (arg1); 
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
 
       op0 = force_reg (BNDmode, op0);
       op1 = force_reg (Pmode, op1);
 
       emit_insn (TARGET_64BIT
-                 ? gen_bnd64_cu (op0, op1) 
+                 ? gen_bnd64_cu (op0, op1)
                  : gen_bnd32_cu (op0, op1));
       return 0;
 
@@ -32467,7 +32467,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op1 = force_reg (Pmode, op1);
 
       /* Bounds are bound to return value, so put them into b0.  */
-      emit_insn( TARGET_64BIT
+      emit_insn (TARGET_64BIT
 		 ? gen_bnd64_mk (gen_rtx_REG (BND64mode, FIRST_BND_REG),
 				 op0, op1)
 		 : gen_bnd32_mk (gen_rtx_REG (BND32mode, FIRST_BND_REG),
@@ -33678,7 +33678,7 @@ ix86_init_returned_bounds (tree bounds)
     {
       rtx lb = force_reg (Pmode, GEN_INT (0));
       rtx size = force_reg (Pmode, GEN_INT (-1));
-      emit_insn( TARGET_64BIT
+      emit_insn (TARGET_64BIT
 		 ? gen_bnd64_mk (gen_rtx_REG (BND64mode, FIRST_BND_REG),
 				 lb, size)
 		 : gen_bnd32_mk (gen_rtx_REG (BND32mode, FIRST_BND_REG),

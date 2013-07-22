@@ -123,7 +123,8 @@ along with GCC; see the file COPYING3.  If not see
 
       is translated into:
 
-      val_1 = foo (&buf1, __bound_tmp.1_2, &buf2, __bound_tmp.1_3, &buf1, __bound_tmp.1_2, 0);
+      val_1 = foo (&buf1, __bound_tmp.1_2, &buf2, __bound_tmp.1_3,
+                   &buf1, __bound_tmp.1_2, 0);
 
     e) Returns.
 
@@ -258,7 +259,8 @@ along with GCC; see the file COPYING3.  If not see
 	<bb 2>:
 	_5 = &p_1(D)->second_field;
 	__bound_tmp.3_6 = __builtin___mpx_bndmk (_5, 4);
-	__bound_tmp.3_8 = __builtin___mpx_intersect (__bound_tmp.3_6, __bound_tmp.3_4);
+	__bound_tmp.3_8 = __builtin___mpx_intersect (__bound_tmp.3_6,
+	                                             __bound_tmp.3_4);
 	_2 = &p_1(D)->second_field;
 	return _2, __bound_tmp.3_8;
       }
@@ -338,7 +340,7 @@ struct check_info
   address_t addr;
   /* Bounds used for the check.  */
   tree bounds;
-  /* Check statement.  Can be NULL for removed checks.*/
+  /* Check statement.  Can be NULL for removed checks.  */
   gimple stmt;
 };
 
@@ -356,19 +358,32 @@ static void mpx_collect_value (tree ssa_name, address_t &res);
 static void mpx_build_bndstx (tree addr, tree ptr, tree bounds,
 			      gimple_stmt_iterator *gsi);
 
-#define mpx_bndldx_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDLDX))
-#define mpx_bndstx_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDSTX))
-#define mpx_checkl_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL))
-#define mpx_checku_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU))
-#define mpx_bndmk_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK))
-#define mpx_ret_bnd_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDRET))
-#define mpx_intersect_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_INTERSECT))
-#define mpx_narrow_bounds_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_NARROW))
-#define mpx_set_bounds_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_SET_PTR_BOUNDS))
-#define mpx_arg_bnd_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_ARG_BND))
-#define mpx_sizeof_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_SIZEOF))
-#define mpx_extract_lower_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_EXTRACT_LOWER))
-#define mpx_extract_upper_fndecl (targetm.builtin_mpx_function (BUILT_IN_MPX_EXTRACT_UPPER))
+#define mpx_bndldx_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDLDX))
+#define mpx_bndstx_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDSTX))
+#define mpx_checkl_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCL))
+#define mpx_checku_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDCU))
+#define mpx_bndmk_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDMK))
+#define mpx_ret_bnd_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_BNDRET))
+#define mpx_intersect_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_INTERSECT))
+#define mpx_narrow_bounds_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_NARROW))
+#define mpx_set_bounds_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_SET_PTR_BOUNDS))
+#define mpx_arg_bnd_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_ARG_BND))
+#define mpx_sizeof_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_SIZEOF))
+#define mpx_extract_lower_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_EXTRACT_LOWER))
+#define mpx_extract_upper_fndecl \
+  (targetm.builtin_mpx_function (BUILT_IN_MPX_EXTRACT_UPPER))
 
 static vec<struct bb_checks, va_heap, vl_ptr> check_infos;
 
@@ -396,7 +411,8 @@ struct pointer_map_t *mpx_reg_addr_bounds;
 struct pointer_map_t *mpx_incomplete_bounds_map;
 struct pointer_map_t *mpx_rtx_bounds;
 
-static GTY ((if_marked ("tree_vec_map_marked_p"), param_is (struct tree_vec_map)))
+static GTY ((if_marked ("tree_vec_map_marked_p"),
+	     param_is (struct tree_vec_map)))
      htab_t mpx_abnormal_phi_copies;
 static GTY (()) vec<tree, va_gc> *var_inits;
 static GTY ((if_marked ("tree_map_marked_p"),
@@ -1287,7 +1303,7 @@ mpx_force_gimple_call_op (tree op, gimple_seq *seq)
   return op;
 }
 
-/* Generate lower bound check for memory access by ADDR. 
+/* Generate lower bound check for memory access by ADDR.
    Check is inserted before the position pointed by ITER.
    DIRFLAG indicates whether memory access is load or store.  */
 static void
@@ -2362,7 +2378,8 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
       break;
 
     default:
-      internal_error ("mpx_compute_bounds_for_assignment: Unexpected RHS code %s",
+      internal_error ("mpx_compute_bounds_for_assignment: "
+		      "Unexpected RHS code %s",
 		      tree_code_name[rhs_code]);
     }
 
@@ -2381,7 +2398,8 @@ mpx_compute_bounds_for_assignment (tree node, gimple assign)
 
    Return computed bounds.  */
 static tree
-mpx_get_bounds_by_definition (tree node, gimple def_stmt, gimple_stmt_iterator *iter)
+mpx_get_bounds_by_definition (tree node, gimple def_stmt,
+			      gimple_stmt_iterator *iter)
 {
   tree var, bounds;
   enum gimple_code code = gimple_code (def_stmt);
@@ -2569,8 +2587,10 @@ mpx_make_static_bounds (tree obj)
   /* Add created var to the global hash map.  */
   if (!mpx_static_var_bounds)
     {
-      mpx_static_var_bounds = htab_create_ggc (31, tree_map_hash, tree_map_eq, NULL);
-      mpx_static_var_bounds_r = htab_create_ggc (31, tree_map_hash, tree_map_eq, NULL);
+      mpx_static_var_bounds = htab_create_ggc (31, tree_map_hash,
+					       tree_map_eq, NULL);
+      mpx_static_var_bounds_r = htab_create_ggc (31, tree_map_hash,
+						 tree_map_eq, NULL);
     }
 
   map = ggc_alloc_tree_map ();
@@ -2958,7 +2978,8 @@ mpx_narrow_bounds_for_field (tree field, bool always_narrow)
   offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
   bit_offs = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
 
-  return (always_narrow || flag_mpx_first_field_has_own_bounds || offs || bit_offs);
+  return (always_narrow || flag_mpx_first_field_has_own_bounds
+	  || offs || bit_offs);
 }
 
 /* Perform narrowing for BOUNDS using bounds computed for field
@@ -3066,8 +3087,8 @@ mpx_parse_array_and_component_ref (tree node, tree *ptr,
   /* In this loop we are trying to find a field access
      requiring narrowing.  There are two simple rules
      for search:
-     1. Leftmost array_ref is chosen if any.
-     2. Rightmost suitable component_ref is chosen if innermost
+     1.  Leftmost array_ref is chosen if any.
+     2.  Rightmost suitable component_ref is chosen if innermost
      bounds are required and no array_ref exists.  */
   for (i = 1; i < len; i++)
     {
@@ -3177,7 +3198,8 @@ mpx_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 		   tree_code_name[TREE_CODE (obj)]);
 	  print_node (dump_file, "", obj, 0);
 	}
-      internal_error ("mpx_make_addressed_object_bounds: Unexpected tree code %s",
+      internal_error ("mpx_make_addressed_object_bounds: "
+		      "Unexpected tree code %s",
 		      tree_code_name[TREE_CODE (obj)]);
     }
 
@@ -3457,17 +3479,19 @@ mpx_build_component_ref (tree obj, tree field)
   /* If object is TMR then we do not use component_ref but
      add offset instead.  We need it to be able to get addr
      of the reasult later.  */
-  if (TREE_CODE (obj) == TARGET_MEM_REF) {
-    tree offs = TMR_OFFSET (obj);
-    offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
-				    offs, DECL_FIELD_OFFSET (field));
+  if (TREE_CODE (obj) == TARGET_MEM_REF)
+    {
+      tree offs = TMR_OFFSET (obj);
+      offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
+				      offs, DECL_FIELD_OFFSET (field));
 
-    gcc_assert (offs);
+      gcc_assert (offs);
 
-    res = copy_node (obj);
-    TREE_TYPE (res) = TREE_TYPE (field);
-    TMR_OFFSET (res) = offs;
-  } else
+      res = copy_node (obj);
+      TREE_TYPE (res) = TREE_TYPE (field);
+      TMR_OFFSET (res) = offs;
+    }
+  else
     res = build3 (COMPONENT_REF, TREE_TYPE (field), obj, field, NULL_TREE);
 
   return res;
@@ -3512,7 +3536,8 @@ mpx_build_array_ref (tree arr, tree etype, tree esize,
    objects and then call HANDLER for them.  Function is used to copy
    or initilize bounds for copied object.  */
 static void
-mpx_walk_pointer_assignments (tree lhs, tree rhs, void *arg, assign_handler handler)
+mpx_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
+			      assign_handler handler)
 {
   tree type = TREE_TYPE (rhs);
 
@@ -4020,7 +4045,7 @@ mpx_instrument_function (void)
   while (bb);
 }
 
-/* Initialize pass. */
+/* Initialize pass.  */
 static void
 mpx_init (void)
 {
@@ -4052,7 +4077,7 @@ mpx_init (void)
   mpx_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
 }
 
-/* Finalize MPX instrumentation pass. */
+/* Finalize MPX instrumentation pass.  */
 static void
 mpx_fini (void)
 {
@@ -4063,7 +4088,7 @@ mpx_fini (void)
   pointer_map_destroy (mpx_incomplete_bounds_map);
 }
 
-/* Main MPX instrumentation pass function. */
+/* Main MPX instrumentation pass function.  */
 static unsigned int
 mpx_execute (void)
 {
@@ -4830,16 +4855,18 @@ mpx_remove_constant_checks (void)
    CI2 postdominateds CI1.
 
    Few conditions are checked to find redundant check:
-     1. Checks has the same type
-     2. Checks use the same bounds
-     3. One check fail means other check fail
-     4. Stronger check is always executed if weaker one is executed
+     1.  Checks has the same type
+     2.  Checks use the same bounds
+     3.  One check fail means other check fail
+     4.  Stronger check is always executed if weaker one is executed
 
    If redundant check is found it is removed. If removed check is CI1
    then CI2 is moved to CI1's position to avoid bound violation happened
    before check is executed.  */
 void
-mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom)
+mpx_compare_checks (struct check_info *ci1,
+		    struct check_info *ci2,
+		    bool postdom)
 {
   address_t delta;
   int sign;
@@ -4899,7 +4926,8 @@ mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom
 	      unsigned int n;
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "    Action: replace the first check with the second one\n");
+		fprintf (dump_file, "    Action: replace the first "
+			 "check with the second one\n");
 
 	      gsi_remove (&i, true);
 	      unlink_stmt_vdef (ci2->stmt);
@@ -4955,7 +4983,8 @@ mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom
 	  else
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file, "    Action: skip (the first check is not post-dominanted by the second check)\n");
+		fprintf (dump_file, "    Action: skip (the first check is "
+			 "not post-dominanted by the second check)\n");
 	    }
 	}
       else
@@ -4963,7 +4992,8 @@ mpx_compare_checks (struct check_info *ci1, struct check_info *ci2, bool postdom
 	  gimple_stmt_iterator i = gsi_for_stmt (ci2->stmt);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "    Action: delete the second check (same addresses)\n");
+	    fprintf (dump_file,
+		     "    Action: delete the second check (same addresses)\n");
 
 	  gsi_remove (&i, true);
 	  unlink_stmt_vdef (ci2->stmt);
@@ -5239,7 +5269,7 @@ mpx_optimize_string_function_calls (void)
 		  j = gsi_last_bb (check_bb);
 
 		  /* The block was splitted and therefore we
-		     need to set iterator to its end.   */
+		     need to set iterator to its end.  */
 		  i = gsi_last_bb (bb);
 		}
 	      /* If size is known to be zero then no MPX checks

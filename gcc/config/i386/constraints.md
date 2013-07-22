@@ -18,8 +18,8 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;     B     H           T
-;;;           h jk          
+;;;           H           T
+;;;           h jk          v
 
 ;; Integer register constraints.
 ;; It is not necessary to define 'r' here.
@@ -85,7 +85,7 @@
 (define_register_constraint "x" "TARGET_SSE ? SSE_REGS : NO_REGS"
  "Any SSE register.")
 
-(define_register_constraint "v" "BND_REGS"
+(define_register_constraint "B" "BND_REGS"
  "@internal Any bound register.")
 
 ;; We use the Y prefix to denote any number of conditional register sets:
