@@ -1076,6 +1076,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
+/* Nonzero if this type is a bound type.  */
+#define BOUND_TYPE_P(NODE) \
+  (TREE_CODE (NODE) == BOUND_TYPE)
+
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 

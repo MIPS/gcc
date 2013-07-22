@@ -1189,6 +1189,7 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 
     case INTEGER_TYPE:
     case OFFSET_TYPE:
+    case BOUND_TYPE:
       if (TYPE_UNSIGNED (type))
 	{
 	  /* Cache 0..N */
@@ -3224,6 +3225,7 @@ type_contains_placeholder_1 (const_tree type)
   switch (TREE_CODE (type))
     {
     case VOID_TYPE:
+    case BOUND_TYPE:
     case COMPLEX_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
