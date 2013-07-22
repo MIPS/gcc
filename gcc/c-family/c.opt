@@ -1121,11 +1121,11 @@ C ObjC C++ ObjC++ LTO Report Var(flag_mpxopt) Init(-1)
 Allow MPX optimizations. By default allowed on optimization levels >0.
 
 fmpx-use-fast-string-functions
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_fast_string_functions) Init(1)
+C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_fast_string_functions) Init(0)
 Allow to use *_nobnd versions of string functions by MPX pass.
 
 fmpx-use-nochk-string-functions
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_nochk_string_functions) Init(1)
+C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_nochk_string_functions) Init(0)
 Allow to use *_nochk versions of string functions by MPX pass.
 
 fmpx-use-static-bounds
