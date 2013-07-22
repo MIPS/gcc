@@ -1,13 +1,13 @@
 /* { dg-do run } */
 /* { dg-options "-fmpx" } */
-/* { dg-additional-options "-lstdc++" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #include "mpx-check.h"
 
 int buf[100];
 
-int rd (int *&p, int i)
+int __attribute((nothrow))
+rd (int *&p, int i)
 {
   int res = p[i];
   printf ("%d\n", res);

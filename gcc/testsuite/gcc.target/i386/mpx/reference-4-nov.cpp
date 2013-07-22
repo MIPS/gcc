@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-fmpx" } */
-/* { dg-additional-options "-lstdc++" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #include "mpx-check.h"

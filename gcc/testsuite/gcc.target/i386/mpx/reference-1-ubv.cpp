@@ -1,6 +1,5 @@
 /* { dg-do run { xfail *-*-* } } */
 /* { dg-options "-fmpx" } */
-/* { dg-additional-options "-lstdc++" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #define XFAIL
@@ -9,7 +8,8 @@
 
 int buf[100];
 
-int rd (int *p, int i)
+int __attribute((nothrow))
+rd (int *p, int i)
 {
   int res = p[i];
   printf ("%d\n", res);

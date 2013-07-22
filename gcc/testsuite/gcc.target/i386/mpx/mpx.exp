@@ -27,7 +27,7 @@ if ![check_effective_target_mpx] {
 # Initialize `dg'.
 dg-init
 
-# Main loop.
+# Run all tests.
 gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c*]] ""
 
 # All done.

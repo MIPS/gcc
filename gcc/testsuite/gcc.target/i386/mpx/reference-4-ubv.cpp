@@ -1,6 +1,5 @@
 /* { dg-do run { xfail *-*-* } } */
 /* { dg-options "-fmpx" } */
-/* { dg-additional-options "-lstdc++" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #define XFAIL
