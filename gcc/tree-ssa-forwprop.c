@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "optabs.h"
 #include "tree-ssa-propagate.h"
+#include "gimple-ssa-combine.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
@@ -3291,6 +3292,44 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
   return true;
 }
 
+/* Delete possible dead code in BB which might have been caused
+   unused by ssa_combine until statement UNTIL.  Return true if
+   a statement was removed. */
+static bool
+delete_dead_code_uptil (gimple_stmt_iterator until)
+{
+  gimple_stmt_iterator gsi;
+  bool removed = false;
+  gsi = until;
+  gsi_prev (&gsi);
+  for (; !gsi_end_p (gsi);)
+    {
+      gimple stmt = gsi_stmt (gsi);
+      if (gimple_get_lhs (stmt)
+	  && TREE_CODE (gimple_get_lhs (stmt)) == SSA_NAME
+	  && has_zero_uses (gimple_get_lhs (stmt))
+	  && !stmt_could_throw_p (stmt)
+	  && !gimple_has_side_effects (stmt))
+	{
+	  gimple_stmt_iterator i2;
+	  if (dump_file && dump_flags & TDF_DETAILS)
+	    {
+	      fprintf (dump_file, "Removing dead stmt ");
+	      print_gimple_stmt (dump_file, stmt, 0, 0);
+	      fprintf (dump_file, "\n");
+	    }
+	  i2 = gsi;
+	  gsi_prev (&gsi);
+	  gsi_remove (&i2, true);
+	  release_defs (stmt);
+	  removed = true;
+	  continue;
+	}
+      gsi_prev (&gsi);
+    }
+  return removed;
+}
+
 /* Main entry point for the forward propagation and statement combine
    optimizer.  */
 
@@ -3299,6 +3338,7 @@ ssa_forward_propagate_and_combine (void)
 {
   basic_block bb;
   unsigned int todoflags = 0;
+  gimple_combine combiner;
 
   cfg_changed = false;
 
@@ -3399,10 +3439,40 @@ ssa_forward_propagate_and_combine (void)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  bool changed = false;
+	  tree new_expr = NULL_TREE;
+	  bool temp = false;
 
 	  /* Mark stmt as potentially needing revisiting.  */
 	  gimple_set_plf (stmt, GF_PLF_1, false);
 
+	  new_expr = combiner.combine (stmt);
+	  if (new_expr)
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+	        {
+	          fprintf (dump_file, "Folding statement: ");
+	          print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+
+	          print_generic_expr (dump_file, new_expr, TDF_SLIM);
+	          fprintf (dump_file, "\n");
+	        }
+	      if (replace_rhs_after_ssa_combine (&gsi, new_expr))
+		{
+		  cfg_changed = true;
+		  if (delete_dead_code_uptil (gsi))
+		    todoflags |= TODO_remove_unused_locals;
+		  if (dump_file && (dump_flags & TDF_DETAILS))
+		    {
+		       fprintf (dump_file, "Replaced: ");
+		       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+		       fprintf (dump_file, "\n");
+		    }
+		  temp = true;
+		  changed = true;
+		}
+	    }
+
+	  if (!changed)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_ASSIGN:
@@ -3514,6 +3584,12 @@ ssa_forward_propagate_and_combine (void)
 	    default:;
 	    }
 
+	  if (changed ? !temp : false)
+	    {
+	      fprintf (stderr, "\nStatement not folded by gimple_combine");
+	      print_gimple_stmt (stderr, stmt, 0, TDF_SLIM);
+	      gcc_assert (false);
+	    }
 	  if (changed)
 	    {
 	      /* If the stmt changed then re-visit it and the statements
