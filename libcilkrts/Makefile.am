@@ -22,7 +22,7 @@
 # <http://www.gnu.org/licenses/>.
 
 AUTOMAKE_OPTIONS = foreign
-ACLOCAL_AMFLAGS = -I ..
+ACLOCAL_AMFLAGS = -I .. -I ../config
 
 # Compiler and linker flags.
 GENERAL_FLAGS = -I$(top_srcdir)/include -DIN_CILK_RUNTIME=1
