@@ -28,8 +28,8 @@
 #define INCLUDED_CILK_HYPEROBJECT_BASE
 
 #ifdef __cplusplus
-# include <cstdlib>
-# include <cstddef>
+# include <stdlib.h>
+# include <stddef.h>
 #else
 # include <stdlib.h>
 # include <stddef.h>

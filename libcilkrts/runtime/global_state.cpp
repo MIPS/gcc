@@ -33,11 +33,11 @@
 #include "stats.h"
 #include "cilk/cilk_api.h"
 
-#include <algorithm>  // For max()
-#include <cstring>
-#include <cstdlib>
-#include <climits>
-#include <cerrno>
+/*  #include <algorithm> */  // For max()
+#include <string.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <errno.h>
 
 #ifdef _WIN32
 #   include <wchar.h>
@@ -77,7 +77,7 @@ extern "C"
 // Returns true if 'a' and 'b' are equal null-terminated strings
 inline bool strmatch(const char* a, const char* b)
 {
-    return 0 == std::strcmp(a, b);
+    return 0 == strcmp(a, b);
 }
 
 // Returns the integer value represented by the null-terminated string at 's'.
@@ -86,7 +86,7 @@ inline long to_long(const char* s)
     char *end;
 
     errno = 0;
-    return std::strtol(s, &end, 0);
+    return strtol(s, &end, 0);
 }
 
 #ifdef _WIN32
@@ -103,7 +103,7 @@ bool strmatch(const char* a, const wchar_t* b)
 {
     // Convert 'a' to wide-characters, then compare.
     wchar_t wa[31];
-    std::size_t count;
+    size_t count;
     errno_t err = mbstowcs_s(&count, wa, a, 30);
     CILK_ASSERT(0 == err);
     if (err) return false;
@@ -329,7 +329,8 @@ int calc_max_user_workers(global_state_t *g)
         return g->max_user_workers;
 
     // Calculate it
-    return std::max(3, g->P * 2);
+    // return std::max(3, g->P * 2);
+    return 3 > (g->P * 2) ? 3 : (g->P * 2);
 }
 
 } // end unnamed namespace
@@ -361,7 +362,7 @@ global_state_t* cilkg_get_user_settable_values()
         int stealing_disabled = g->stealing_disabled;
 
         // All fields will be zero until set.  In particular
-        std::memset(g, 0, sizeof(global_state_t));
+        memset(g, 0, sizeof(global_state_t));
 
         // Fetch the number of cores.  There must be at last 1, since we're
         // executing on *something*, aren't we!?

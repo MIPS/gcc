@@ -672,15 +672,15 @@ CILK_EXPORT void* __CILKRTS_STRAND_PURE(
 }
 
 extern "C" CILK_EXPORT
-void* __cilkrts_hyperobject_alloc(void* ignore, std::size_t bytes)
+void* __cilkrts_hyperobject_alloc(void* ignore, size_t bytes)
 {
-    return std::malloc(bytes);
+    return malloc(bytes);
 }
 
 extern "C" CILK_EXPORT
 void __cilkrts_hyperobject_dealloc(void* ignore, void* view)
 {
-    std::free(view);
+    free(view);
 }
 
 /* No-op destroy function */

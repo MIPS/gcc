@@ -42546,7 +42546,7 @@ ix86_builtin_find_vlength_for_proc (char *isa_name)
 bool
 ix86_have_cilkscreen_support (void)
 {
-  return true;
+  return false;
 }
 
 /* Initialize the GCC target structure.  */

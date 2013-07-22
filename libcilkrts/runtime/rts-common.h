@@ -92,6 +92,6 @@
 /* Compilers that build the Cilk runtime are assumed to know about
    zero-cost intrinsics.  For those that don't, comment out the
    following definition: */
-#define ENABLE_NOTIFY_ZC_INTRINSIC
+// #define ENABLE_NOTIFY_ZC_INTRINSIC
 
 #endif // ! defined(INCLUDED_RTS_COMMON_DOT_H)
