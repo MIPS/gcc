@@ -11044,7 +11044,7 @@ A memory transaction commits all changes to memory in an atomic way,
 as visible to other threads. If the transaction fails it is rolled back
 and all side effects discarded.
 
-Generally there is no guarantee that a memory transaction ever suceeds
+Generally there is no guarantee that a memory transaction ever succeeds
 and suitable fallback code always needs to be supplied.
 
 @deftypefn {RTM Function} {unsigned} _xbegin ()
@@ -16489,7 +16489,7 @@ namespace std @{
     template <class T> struct A @{ @};
   @}
   using namespace debug __attribute ((__strong__));
-  template <> struct A<int> @{ @};   // @r{ok to specialize}
+  template <> struct A<int> @{ @};   // @r{OK to specialize}
 
   template <class T> void f (A<T>);
 @}

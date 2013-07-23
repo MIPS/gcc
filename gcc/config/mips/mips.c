@@ -3857,7 +3857,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     case MINUS:
       if (float_mode_p
-	  && (ISA_HAS_NMADD4_NMSUB4 (mode) || ISA_HAS_NMADD3_NMSUB3 (mode))
+	  && (ISA_HAS_NMADD4_NMSUB4 || ISA_HAS_NMADD3_NMSUB3)
 	  && TARGET_FUSED_MADD
 	  && !HONOR_NANS (mode)
 	  && !HONOR_SIGNED_ZEROS (mode))
@@ -3890,7 +3890,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	{
 	  /* If this is part of a MADD or MSUB, treat the PLUS as
 	     being free.  */
-	  if (ISA_HAS_FP4
+	  if ((ISA_HAS_FP_MADD4_MSUB4 || ISA_HAS_FP_MADD3_MSUB3)
 	      && TARGET_FUSED_MADD
 	      && GET_CODE (XEXP (x, 0)) == MULT)
 	    *total = 0;
@@ -3909,7 +3909,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     case NEG:
       if (float_mode_p
-	  && (ISA_HAS_NMADD4_NMSUB4 (mode) || ISA_HAS_NMADD3_NMSUB3 (mode))
+	  && (ISA_HAS_NMADD4_NMSUB4 || ISA_HAS_NMADD3_NMSUB3)
 	  && TARGET_FUSED_MADD
 	  && !HONOR_NANS (mode)
 	  && HONOR_SIGNED_ZEROS (mode))
@@ -16832,6 +16832,11 @@ mips_option_override (void)
 
   /* End of code shared with GAS.  */
 
+  /* The R5900 FPU only supports single precision.  */
+  if (TARGET_MIPS5900 && TARGET_HARD_FLOAT_ABI && TARGET_DOUBLE_FLOAT)
+    error ("unsupported combination: %s",
+	   "-march=r5900 -mhard-float -mdouble-float");
+
   /* If a -mlong* option was given, check that it matches the ABI,
      otherwise infer the -mlong* setting from the other options.  */
   if ((target_flags_explicit & MASK_LONG64) != 0)
@@ -17139,6 +17144,9 @@ mips_option_override (void)
      filling.  Registering the pass must be done at start up.  It's
      convenient to do it here.  */
   register_pass (&insert_pass_mips_machine_reorg2);
+
+  if (TARGET_HARD_FLOAT_ABI && TARGET_MIPS5900)
+    REAL_MODE_FORMAT (SFmode) = &spu_single_format;
 }
 
 /* Swap the register information for registers I and I + 1, which

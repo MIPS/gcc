@@ -8653,7 +8653,12 @@ xscale_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
 	 instruction we depend on is another ALU instruction, then we may
 	 have to account for an additional stall.  */
       if (shift_opnum != 0
-	  && (attr_type == TYPE_ALU_SHIFT || attr_type == TYPE_ALU_SHIFT_REG))
+	  && (attr_type == TYPE_ARLO_SHIFT
+	      || attr_type == TYPE_ARLO_SHIFT_REG
+	      || attr_type == TYPE_MOV_SHIFT
+	      || attr_type == TYPE_MVN_SHIFT
+	      || attr_type == TYPE_MOV_SHIFT_REG
+	      || attr_type == TYPE_MVN_SHIFT_REG))
 	{
 	  rtx shifted_operand;
 	  int opno;
@@ -8934,12 +8939,12 @@ cortexa7_older_only (rtx insn)
   if (recog_memoized (insn) < 0)
     return false;
 
-  if (get_attr_insn (insn) == INSN_MOV)
-    return false;
-
   switch (get_attr_type (insn))
     {
-    case TYPE_ALU_REG:
+    case TYPE_ARLO_REG:
+    case TYPE_MVN_REG:
+    case TYPE_SHIFT:
+    case TYPE_SHIFT_REG:
     case TYPE_LOAD_BYTE:
     case TYPE_LOAD1:
     case TYPE_STORE1:
@@ -8980,13 +8985,15 @@ cortexa7_younger (FILE *file, int verbose, rtx insn)
       return false;
     }
 
-  if (get_attr_insn (insn) == INSN_MOV)
-    return true;
-
   switch (get_attr_type (insn))
     {
-    case TYPE_SIMPLE_ALU_IMM:
-    case TYPE_SIMPLE_ALU_SHIFT:
+    case TYPE_ARLO_IMM:
+    case TYPE_EXTEND:
+    case TYPE_MVN_IMM:
+    case TYPE_MOV_IMM:
+    case TYPE_MOV_REG:
+    case TYPE_MOV_SHIFT:
+    case TYPE_MOV_SHIFT_REG:
     case TYPE_BRANCH:
     case TYPE_CALL:
       return true;
@@ -12018,8 +12025,16 @@ gen_movmem_ldrd_strd (rtx *operands)
       dst = adjust_address (dst, HImode, 0);
       src = adjust_address (src, HImode, 0);
       reg0 = gen_reg_rtx (SImode);
-      emit_insn (gen_unaligned_loadhiu (reg0, src));
-      emit_insn (gen_unaligned_storehi (dst, gen_lowpart (HImode, reg0)));
+      if (src_aligned)
+        emit_insn (gen_zero_extendhisi2 (reg0, src));
+      else
+        emit_insn (gen_unaligned_loadhiu (reg0, src));
+
+      if (dst_aligned)
+        emit_insn (gen_movhi (dst, gen_lowpart(HImode, reg0)));
+      else
+        emit_insn (gen_unaligned_storehi (dst, gen_lowpart (HImode, reg0)));
+
       src = next_consecutive_mem (src);
       dst = next_consecutive_mem (dst);
       if (len == 2)
@@ -24352,7 +24367,7 @@ arm_expand_epilogue (bool really_return)
   func_type = arm_current_func_type ();
 
   /* Naked functions don't have epilogue.  Hence, generate return pattern, and
-     let output_return_instruction take care of instruction emition if any.  */
+     let output_return_instruction take care of instruction emission if any.  */
   if (IS_NAKED (func_type)
       || (IS_VOLATILE (func_type) && TARGET_ABORT_NORETURN))
     {
