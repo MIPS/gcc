@@ -14954,8 +14954,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case '!':
-	  if (flag_mpx
-	      && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (cfun->decl)))
+	  if (ix86_bnd_prefixed_insn_p (NULL_RTX))
 	    fputs ("bnd ", file);
 	  return;
 
@@ -42383,7 +42382,10 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
 }
 
 /* Return 1 if control tansfer instruction INSN
-   should be encoded with bnd prefix.  */
+   should be encoded with bnd prefix.
+   If insn is NULL then return 1 when control
+   transfer instructions should be prefixed with
+   bnd by default for current function.  */
 
 bool
 ix86_bnd_prefixed_insn_p (rtx insn ATTRIBUTE_UNUSED)

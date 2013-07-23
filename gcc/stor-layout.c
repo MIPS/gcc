@@ -2151,8 +2151,6 @@ layout_type (tree type)
       break;
 
     case BOUND_TYPE:
-      //TYPE_ALIGN (type) = 1;
-      //TYPE_USER_ALIGN (type) = 0;
       SET_TYPE_MODE (type,
                      mode_for_bound (TYPE_PRECISION (type), MODE_BOUND));
       TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
