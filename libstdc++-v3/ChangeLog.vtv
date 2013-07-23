@@ -1,3 +1,21 @@
+2013-07-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_VTABLE_VERIFY):Adjust VTV_CXXFLAGS
+	to be non-linking only, VTV_CXXLINKFLAGS to have exclusively link
+	commands.
+	* configure: Regenerated.
+
+	* libsupc++/vtv_stubs.cc: Mark declarations weak. Add stub definitions.
+	* libsupc++/Makefile.am (vtv_sources): Conditionally compile
+	vtv_stubs.cc based on ENABLE_VTABLE_VERIFY.
+	(libsupc___la_SOURCES, libsupc__convenience_la_SOURCES): Same.
+	* libsupc++/Makefile.in: Regenerate.
+
+2013-07-15  Caroline Tice  <cmtice@google.com>
+
+	* testsuite/18_support/bad_exception/23591_thread-1.c: Use
+	-fvtable-verify=none.
+
 2013-07-12  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* libsupc++/vterminate.cc: Add back deleted file.

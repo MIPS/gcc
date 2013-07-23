@@ -26,10 +26,7 @@
 #define _VTV_UTILS_H 1
 
 #include <stdlib.h>
-//#include "../../include/vtv-change-permission.h"
-#include "../include/vtv-change-permission.h"
-
-extern bool vtv_debug;
+#include "../../include/vtv-change-permission.h"
 
 static inline void
 VTV_not_an_error (void)
@@ -40,10 +37,15 @@ VTV_not_an_error (void)
 #define VTV_error abort
 
 /* Assertion macros used in vtable verification runtime.  */
-#define VTV_ASSERT(EXPR) (!(EXPR) ? VTV_error() : VTV_not_an_error())
-    
+#define VTV_ASSERT(EXPR) \
+  if (!(EXPR)) VTV_error();
+
+#ifdef VTV_DEBUG
 #define VTV_DEBUG_ASSERT(EXPR) \
-                      ((bool) (vtv_debug && !(EXPR)) ? VTV_error() : (void) 0)
+                      ((bool) (!(EXPR)) ? VTV_error() : (void) 0)
+#else
+#define VTV_DEBUG_ASSERT(EXPR) ((void) 0)
+#endif
 
 /* Name of the section where we put general VTV variables for protection */
 #define VTV_PROTECTED_VARS_SECTION ".vtable_map_vars"
@@ -54,7 +56,8 @@ VTV_not_an_error (void)
    routines and avoid calling malloc. We need this so that we dont
    disturb the order of calls to dlopen.  Changing the order of dlopen
    calls may lead to deadlocks */
-int vtv_open_log (const char * name);
-int vtv_add_to_log (int log, const char * format, ...);
+int __vtv_open_log (const char * name);
+int __vtv_add_to_log (int log, const char * format, ...);
+void __vtv_log_verification_failure (const char *, bool);
 
 #endif /* VTV_UTILS_H */

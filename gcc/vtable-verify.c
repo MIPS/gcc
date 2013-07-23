@@ -157,7 +157,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "vtable-verify.h"
 
-bool vtv_debug = false;
 unsigned num_vtable_map_nodes = 0;
 bool any_verification_calls_generated = false;
 int total_num_virtual_calls = 0;
@@ -658,7 +657,7 @@ verify_bb_vtables (basic_block bb)
 
                   /* Call different routines if we are interested in
                      trace information to debug problems.  */
-                  if (vtv_debug)
+                  if (flag_vtv_debug)
                     {
                       int len1 = IDENTIFIER_LENGTH
                                                  (DECL_NAME (vtbl_var_decl));

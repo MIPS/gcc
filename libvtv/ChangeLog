@@ -1,3 +1,43 @@
+2013-07-15  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* vtv_stubs.cc: Move to libsupc++.
+	* vtv_init.cc: Move functionality to libgcc_s.
+	* Makefile.am (vtv_stubs_sources): Remove.
+	(libvtv_stubs_la_SOURCES): Remove.
+	(libvtv_init_la_SOURCES): Remove.
+	* Makefile.in: Regenerate.
+
+2013-07-15  Caroline Tice  <cmtice@google.com>
+
+	* vtv_fail.h (__vtv_really_fail): Add default, noreturn, nothrow
+	attributes.
+	(__vtv_verify_fail, __vtv_verify_fail_debug): Add nothrow attribute.
+	* vtv_malloc.cc (VTV_count_mmapped_pages): To __vtv_count_mmapped_pages.
+	Add debugging hook when VTV_DEBUG defined.
+	(VTV_malloc_protect): To __vtv_malloc_protect.
+	(VTV_malloc_unprotect): To __vtv_malloc_unprotect.
+	(VTV_malloc_init): To __vtv_malloc_init.
+	(VTV_malloc): To __vtv_malloc.
+	(VTV_free): To __vtv_free.
+	(VTV_malloc_dump_stats): To __vtv_malloc_dump_stats.
+	(VTV_malloc_stats): To __vtv_malloc_dump_stats.
+	* vtv_malloc.h: Adjust for name changes as immediately above.
+	* vtv_map.h (insert_only_hash_map): Mark get and equals member
+	functions inline.
+	* vtv_rts.cc: Add debug_functions, debug_init, debug_verify_vtable
+	when VTV_DEBUG. Adjust names for interface changes.
+	(VTV_protect_vtable_vars): To vtv_protect_vtable_vars.
+	(log_error_message): Remove.
+	(__vtv_verify_fail_debug): Add.
+	(__vtv_verify_fail): Add.
+	(vtv_fail): Add.
+	* vtv_utils.cc (__vtv_open_log, __vtv_add_to_log)
+	(__vtv_log_verification): Uglify to declarations.
+	* vtv_utils.h (vtv_failures_log_fd): New.
+	(vtv_open_log): Uglify to __vtv_open_log.
+	(vtv_add_to_log): Uglify to __vtv_add_to_log.
+	(__vtv_log_verification): New.
+
 2013-07-11  Benjamin Kosnik  <bkoz@adair>
 
 	* libvtv/vtv_rts.cc: Remove unused variables.

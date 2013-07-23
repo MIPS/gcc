@@ -97,8 +97,13 @@ sources = \
 	vmi_class_type_info.cc \
 	vterminate.cc
 
-libsupc___la_SOURCES = $(sources) $(c_sources)
-libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+if ENABLE_VTABLE_VERIFY
+  vtv_sources = \
+	vtv_stubs.cc
+endif
+
+libsupc___la_SOURCES = $(sources) $(c_sources) $(vtv_sources)
+libsupc__convenience_la_SOURCES = $(sources) $(c_sources) $(vtv_sources)
 
 cp-demangle.c:
 	rm -f $@

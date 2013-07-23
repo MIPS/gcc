@@ -33,7 +33,7 @@ AM_CCASFLAGS = $(XCFLAGS)
 AM_CXXFLAGS = $(XCFLAGS)  
 AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
 
-toolexeclib_LTLIBRARIES = libvtv.la libvtv_stubs.la libvtv_init.la
+toolexeclib_LTLIBRARIES = libvtv.la
 
 vtv_headers = \
 	vtv_map.h \
@@ -44,20 +44,11 @@ vtv_headers = \
 	vtv_rts.h
 
 vtv_sources = \
-	vtv_fail.cc \
         vtv_malloc.cc \
         vtv_rts.cc \
         vtv_utils.cc
 
-vtv_stubs_sources = \
-        vtv_stubs.cc
-
-vtv_init_sources = \
-	vtv_init.cc
-
 libvtv_la_SOURCES = $(vtv_sources)
-libvtv_stubs_la_SOURCES = $(vtv_stubs_sources) 
-libvtv_init_la_SOURCES = $(vtv_init_sources) 
 
 libvtv_includedir = $(includedir)
 libvtv_include_HEADERS = $(vtv_headers)

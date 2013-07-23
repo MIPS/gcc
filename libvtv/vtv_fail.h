@@ -32,7 +32,8 @@
   attempt to rewrite __vtv_really_fail. */
 
 extern void
-__vtv_really_fail (const char *fail_msg) __attribute__ ((noreturn));
+__vtv_really_fail (const char *fail_msg)
+  __attribute__ ((visibility ("default"), noreturn, nothrow));
 
 /* __vtv_verify_fail is the function that gets called if the vtable
   verification code discovers a vtable pointer that it cannot verify
@@ -48,11 +49,11 @@ __vtv_really_fail (const char *fail_msg) __attribute__ ((noreturn));
 
 extern void
 __vtv_verify_fail (void **data_set_ptr, const void *vtbl_pointer)
-                                 __attribute__((visibility ("default")));
+  __attribute__((visibility ("default"), nothrow));
 
 extern void
 __vtv_verify_fail_debug (void **data_set_ptr, const void *vtbl_pointer,
 			 const char *debug_msg)
-                                 __attribute__((visibility ("default")));
+  __attribute__((visibility ("default"), nothrow));
 
 #endif /* _VTV_FAIL_H */

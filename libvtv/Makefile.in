@@ -37,7 +37,7 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 subdir = .
-DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
+DIST_COMMON = ChangeLog $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
 	$(srcdir)/../mkinstalldirs $(srcdir)/../depcomp \
 	$(libvtv_include_HEADERS)
@@ -84,17 +84,9 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)" \
 	"$(DESTDIR)$(libvtv_includedir)"
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
 libvtv_la_LIBADD =
-am__objects_1 = vtv_fail.lo vtv_malloc.lo vtv_rts.lo vtv_utils.lo
+am__objects_1 = vtv_malloc.lo vtv_rts.lo vtv_utils.lo
 am_libvtv_la_OBJECTS = $(am__objects_1)
 libvtv_la_OBJECTS = $(am_libvtv_la_OBJECTS)
-libvtv_init_la_LIBADD =
-am__objects_2 = vtv_init.lo
-am_libvtv_init_la_OBJECTS = $(am__objects_2)
-libvtv_init_la_OBJECTS = $(am_libvtv_init_la_OBJECTS)
-libvtv_stubs_la_LIBADD =
-am__objects_3 = vtv_stubs.lo
-am_libvtv_stubs_la_OBJECTS = $(am__objects_3)
-libvtv_stubs_la_OBJECTS = $(am_libvtv_stubs_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
 am__depfiles_maybe = depfiles
@@ -102,8 +94,7 @@ am__mv = mv -f
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
-SOURCES = $(libvtv_la_SOURCES) $(libvtv_init_la_SOURCES) \
-	$(libvtv_stubs_la_SOURCES)
+SOURCES = $(libvtv_la_SOURCES)
 MULTISRCTOP = 
 MULTIBUILDTOP = 
 MULTIDIRS = 
@@ -255,7 +246,7 @@ AM_CFLAGS = $(XCFLAGS)
 AM_CCASFLAGS = $(XCFLAGS)
 #AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS) 
 AM_CXXFLAGS = $(XCFLAGS) $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
-toolexeclib_LTLIBRARIES = libvtv.la libvtv_stubs.la libvtv_init.la
+toolexeclib_LTLIBRARIES = libvtv.la
 vtv_headers = \
 	vtv_map.h \
 	vtv_malloc.h \
@@ -265,20 +256,11 @@ vtv_headers = \
 	vtv_rts.h
 
 vtv_sources = \
-	vtv_fail.cc \
         vtv_malloc.cc \
         vtv_rts.cc \
         vtv_utils.cc
 
-vtv_stubs_sources = \
-        vtv_stubs.cc
-
-vtv_init_sources = \
-	vtv_init.cc
-
 libvtv_la_SOURCES = $(vtv_sources)
-libvtv_stubs_la_SOURCES = $(vtv_stubs_sources) 
-libvtv_init_la_SOURCES = $(vtv_init_sources) 
 libvtv_includedir = $(includedir)
 libvtv_include_HEADERS = $(vtv_headers)
 #noinst_HEADERS = config.h
@@ -369,10 +351,6 @@ clean-toolexeclibLTLIBRARIES:
 	done
 libvtv.la: $(libvtv_la_OBJECTS) $(libvtv_la_DEPENDENCIES) 
 	$(CXXLINK) -rpath $(toolexeclibdir) $(libvtv_la_OBJECTS) $(libvtv_la_LIBADD) $(LIBS)
-libvtv_init.la: $(libvtv_init_la_OBJECTS) $(libvtv_init_la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(toolexeclibdir) $(libvtv_init_la_OBJECTS) $(libvtv_init_la_LIBADD) $(LIBS)
-libvtv_stubs.la: $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(toolexeclibdir) $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -380,11 +358,8 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vtv_fail.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vtv_init.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vtv_malloc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vtv_rts.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vtv_stubs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/vtv_utils.Plo@am__quote@
 
 .cc.o:

@@ -1,3 +1,7 @@
+2013-07-15  Caroline Tice  <cmtice@google.com>
+
+	* vtable-class-hierarchy.c: Use flag_vtv_debug, not vtv_debug.
+
 2013-07-03  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* vtable-class-hierarchy.c (output_set_info): Remove unused variables.

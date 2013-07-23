@@ -32,6 +32,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <execinfo.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -40,6 +41,8 @@
 /* This is the directory into which all vtable verication log files
    get written.  */
 static const char * const logs_dir = "/tmp/vtv_logs";
+static int vtv_failures_log_fd = -1;
+
 
 
 /* This function takes the NAME of a log file to open, attempts to
@@ -47,14 +50,14 @@ static const char * const logs_dir = "/tmp/vtv_logs";
    decriptor.  */
 
 int
-vtv_open_log (const char *name)
+__vtv_open_log (const char *name)
 {
   char log_name[256];
   snprintf (log_name, sizeof (log_name), "%s/%s", logs_dir, name);
   mkdir (logs_dir, S_IRWXU);
   int fd = open (log_name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
   if (fd == -1)
-    vtv_add_to_log (2, "Cannot open log file %s %s\n", name,
+    __vtv_add_to_log (2, "Cannot open log file %s %s\n", name,
                     strerror (errno));
   return fd;
 }
@@ -69,7 +72,7 @@ vtv_log_write (int fd, const char *str)
     return 0;
 
   if (fd != 2) /* Make sure we dont get in a loop.  */
-    vtv_add_to_log (2, "Error writing to log: %s\n", strerror (errno));
+    __vtv_add_to_log (2, "Error writing to log: %s\n", strerror (errno));
   return -1;
 }
 
@@ -82,7 +85,7 @@ vtv_log_write (int fd, const char *str)
  to vtv_log_write.  */
 
 int
-vtv_add_to_log (int log_file, const char * format, ...)
+__vtv_add_to_log (int log_file, const char * format, ...)
 {
   /* We dont want to dynamically allocate this buffer. This should be
      more than enough in most cases. It if isn't we are careful not to
@@ -99,9 +102,30 @@ vtv_add_to_log (int log_file, const char * format, ...)
   vtv_log_write (log_file, output);
   va_end (ap);
 
-  /* fdatasync is quite expensive. Only enable if you suspect you are
-     loosing log data in in a program crash?  */
-  /*  fdatasync(log_file);  */
-
   return 0;
+}
+
+/* Open error logging file, if not already open, and write vtable
+   verification failure messages (LOG_MSG) to the log file.  Also
+   generate a backtrace in the log file, if GENERATE_BACKTRACE is
+   set.  */
+
+void
+__vtv_log_verification_failure (const char *log_msg, bool generate_backtrace)
+{
+  if (vtv_failures_log_fd == -1)
+    vtv_failures_log_fd = __vtv_open_log ("vtable_verification_failures.log");
+
+  if (vtv_failures_log_fd == -1)
+    return;
+
+  __vtv_add_to_log (vtv_failures_log_fd, "%s", log_msg);
+
+  if (generate_backtrace)
+    {
+#define STACK_DEPTH 20
+      void *callers[STACK_DEPTH];
+      int actual_depth = backtrace (callers, STACK_DEPTH);
+      backtrace_symbols_fd (callers, actual_depth, vtv_failures_log_fd);
+    }
 }
