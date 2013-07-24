@@ -1,4 +1,33 @@
-2013-07-21   Ondřej Bílka  <neleai@seznam.cz>
+2013-07-23   Ondřej Bílka  <neleai@seznam.cz>
+
+	* decl.c: Fix comment typos.
+	* interface.c: Likewise.
+	* trans-array.c: Likewise.
+	* trans.c: Likewise.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57906
+	PR fortran/52052
+	* class.c (gfc_build_class_symbol): Set coarray_comp.
+	* trans-array.c (structure_alloc_comps): For coarrays,
+	directly use the data pointer address.
+
+2013-07-22  Chang  <pchang9@cs.wisc.edu>
+
+	* trans-decl.c (gfc_build_dummy_array_decl): Exit loop after
+	setting PACKED_PARTIAL.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_array_allocate): Correct memory-leak patch.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_array_allocate,
+	gfc_trans_deferred_array): Plug memory leak.
+
+2013-07-21  Ondřej Bílka  <neleai@seznam.cz>
 
 	* trans-decl.c: Fix comment typos.
 	* trans-expr.c: Ditto.

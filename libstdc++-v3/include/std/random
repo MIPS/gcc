@@ -36,7 +36,7 @@
 #else
 
 #include <cmath>
-#include <cstdio>
+#include <cstdio> // For FILE
 #include <cstdlib>
 #include <string>
 #include <iosfwd>
