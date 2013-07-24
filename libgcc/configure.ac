@@ -10,6 +10,7 @@ sinclude(../config/picflag.m4)
 sinclude(../config/dfp.m4)
 sinclude(../config/unwind_ipinfo.m4)
 sinclude(../config/gthr.m4)
+sinclude(../config/mpx.m4)
 
 AC_PREREQ(2.64)
 AC_INIT([GNU C Runtime Library], 1.0,,[libgcc])
@@ -91,6 +92,8 @@ else
   slibdir='$(libdir)'
 fi)
 AC_SUBST(slibdir)
+
+ENABLE_MPX
 
 # Command-line options.
 # Very limited version of AC_MAINTAINER_MODE.

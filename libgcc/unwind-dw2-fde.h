@@ -154,7 +154,15 @@ typedef struct dwarf_fde fde;
 static inline const struct dwarf_cie *
 get_cie (const struct dwarf_fde *f)
 {
-  return (const void *)&f->CIE_delta - f->CIE_delta;
+  const struct dwarf_cie  *p = (const void *)&f->CIE_delta - f->CIE_delta;
+
+  /* Since we get pointer to an object using
+     pointer to another, we need to set bounds
+     manually.  */
+  p = __bnd_set_ptr_bounds (p, sizeof(struct dwarf_cie));
+  p = __bnd_set_ptr_bounds (p, sizeof(struct dwarf_cie) + p->length * sizeof(uword));
+
+  return p;
 }
 
 static inline const fde *

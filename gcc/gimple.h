@@ -4879,7 +4879,6 @@ gimple_return_retval (const_gimple gs)
   return gimple_op (gs, 0);
 }
 
-
 /* Set RETVAL to be the return value for GIMPLE_RETURN GS.  */
 
 static inline void
@@ -4887,6 +4886,24 @@ gimple_return_set_retval (gimple gs, tree retval)
 {
   GIMPLE_CHECK (gs, GIMPLE_RETURN);
   gimple_set_op (gs, 0, retval);
+}
+
+/* Return the return bounds for GIMPLE_RETURN GS.  */
+
+static inline tree
+gimple_return_retbnd (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  return gimple_op (gs, 1);
+}
+
+/* Set RETVAL to be the return bounds for GIMPLE_RETURN GS.  */
+
+static inline void
+gimple_return_set_retbnd (gimple gs, tree retval)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  gimple_set_op (gs, 1, retval);
 }
 
 

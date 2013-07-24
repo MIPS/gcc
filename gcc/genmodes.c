@@ -333,6 +333,7 @@ complete_mode (struct mode_data *m)
       break;
 
     case MODE_INT:
+    case MODE_BOUND:
     case MODE_FLOAT:
     case MODE_DECIMAL_FLOAT:
     case MODE_FRACT:
@@ -532,6 +533,18 @@ make_special_mode (enum mode_class cl, const char *name,
 {
   new_mode (cl, name, file, line);
 }
+
+#define BOUND_MODE(N, Y) make_bound_mode (#N, Y, __FILE__, __LINE__)
+
+static void
+make_bound_mode (const char *name,
+               unsigned int bytesize,
+               const char *file, unsigned int line)
+{
+  struct mode_data *m = new_mode (MODE_BOUND, name, file, line);
+  m->bytesize = bytesize;
+}
+
 
 #define INT_MODE(N, Y) FRACTIONAL_INT_MODE (N, -1U, Y)
 #define FRACTIONAL_INT_MODE(N, B, Y) \

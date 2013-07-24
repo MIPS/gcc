@@ -823,6 +823,15 @@ gate_copy_prop (void)
   return flag_tree_copy_prop != 0;
 }
 
+static bool
+gate_copy_prop_mpx (void)
+{
+  return flag_tree_copy_prop != 0
+    && flag_mpx != 0
+    && (flag_mpxopt > 0
+	|| (flag_mpxopt == -1 && optimize > 0));
+}
+
 struct gimple_opt_pass pass_copy_prop =
 {
  {
@@ -830,6 +839,28 @@ struct gimple_opt_pass pass_copy_prop =
   "copyprop",				/* name */
   OPTGROUP_NONE,                        /* optinfo_flags */
   gate_copy_prop,			/* gate */
+  execute_copy_prop,			/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_TREE_COPY_PROP,			/* tv_id */
+  PROP_ssa | PROP_cfg,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_cleanup_cfg
+    | TODO_verify_ssa
+    | TODO_update_ssa			/* todo_flags_finish */
+ }
+};
+
+struct gimple_opt_pass pass_copy_prop_mpx =
+{
+ {
+  GIMPLE_PASS,
+  "copyprop",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
+  gate_copy_prop_mpx,			/* gate */
   execute_copy_prop,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */

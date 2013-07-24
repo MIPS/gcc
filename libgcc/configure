@@ -598,6 +598,7 @@ INSTALL_DATA
 INSTALL_SCRIPT
 INSTALL_PROGRAM
 MAINT
+enable_mpx
 slibdir
 PICFLAG
 host_os
@@ -657,6 +658,7 @@ with_ld
 enable_shared
 enable_version_specific_runtime_libs
 with_slibdir
+enable_mpx
 enable_maintainer_mode
 with_build_libsubdir
 enable_decimal_float
@@ -1289,6 +1291,7 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --disable-shared        don't provide a shared libgcc
   --enable-version-specific-runtime-libs    Specify that runtime libraries should be installed in a compiler-specific directory
+  --enable-mpx            Enable MPX
   --enable-maintainer-mode
                           enable make rules and dependencies not useful (and
                           sometimes confusing) to the casual installer
@@ -2320,6 +2323,18 @@ else
   slibdir='$(libdir)'
 fi
 fi
+
+
+
+
+  # Check whether --enable-mpx was given.
+if test "${enable_mpx+set}" = set; then :
+  enableval=$enable_mpx; enable_mpx=$enableval
+else
+  enable_mpx=no
+
+fi
+
 
 
 

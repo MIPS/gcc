@@ -179,7 +179,7 @@ gimple_build_with_ops_stat (enum gimple_code code, unsigned subcode,
 gimple
 gimple_build_return (tree retval)
 {
-  gimple s = gimple_build_with_ops (GIMPLE_RETURN, ERROR_MARK, 1);
+  gimple s = gimple_build_with_ops (GIMPLE_RETURN, ERROR_MARK, 2);
   if (retval)
     gimple_return_set_retval (s, retval);
   return s;

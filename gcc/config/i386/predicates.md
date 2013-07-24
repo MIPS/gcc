@@ -104,6 +104,15 @@
        (match_test "TARGET_64BIT")
        (match_test "REGNO (op) > BX_REG")))
 
+;; Return true if VALUE is size relocation
+(define_predicate "size_relocation"
+  (match_code "const")
+{
+  return (GET_CODE (op) == CONST
+          && GET_CODE (XEXP (op, 0)) == UNSPEC
+	  && XINT (XEXP (op, 0), 1) == UNSPEC_SIZEOF);
+})
+
 ;; Return true if VALUE can be stored in a sign extended immediate field.
 (define_predicate "x86_64_immediate_operand"
   (match_code "const_int,symbol_ref,label_ref,const")
@@ -308,6 +317,13 @@
 	      return false;
 	    }
 	}
+      else if (GET_CODE (XEXP (op, 0)) == UNSPEC)
+        {
+          if (XINT (XEXP (op, 0), 1) == UNSPEC_SIZEOF
+	      && XVECLEN (XEXP (op, 0), 0) == 1
+	      && GET_CODE (XVECEXP (XEXP (op, 0), 0, 0)) == SYMBOL_REF)
+	    return true;
+        }
       break;
 
     default:
@@ -578,14 +594,17 @@
   (match_code "parallel")
 {
   unsigned creg_size = ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
+  unsigned adop = GET_CODE (XVECEXP (op, 0, 0)) == SET
+                  ? 4
+		  : 2;
   unsigned i;
 
-  if ((unsigned) XVECLEN (op, 0) != creg_size + 2)
+  if ((unsigned) XVECLEN (op, 0) != creg_size + adop)
     return false;
 
   for (i = 0; i < creg_size; i++)
     {
-      rtx elt = XVECEXP (op, 0, i+2);
+      rtx elt = XVECEXP (op, 0, i+adop);
       enum machine_mode mode;
       unsigned regno;
 
@@ -850,7 +869,7 @@
 ;; Return true if op if a valid address for LEA, and does not contain
 ;; a segment override.  Defined as a special predicate to allow
 ;; mode-less const_int operands pass to address_operand.
-(define_special_predicate "lea_address_operand"
+(define_special_predicate "address_no_seg_operand"
   (match_operand 0 "address_operand")
 {
   struct ix86_address parts;
@@ -907,7 +926,72 @@
   return true;
 })
 
+;; Return true if op is valid MPX address operand without base
+(define_predicate "address_mpx_no_base_operand"
+  (match_operand 0 "address_operand")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (op, &parts);
+  gcc_assert (ok);
+
+  if (parts.index && parts.base)
+    return false;
+
+  if (parts.seg != SEG_DEFAULT)
+    return false;
+
+  /* Do not support (%rip).  */
+  if (parts.disp && flag_pic && TARGET_64BIT
+      && SYMBOLIC_CONST (parts.disp))
+    {
+      if (GET_CODE (parts.disp) != CONST
+	  || GET_CODE (XEXP (parts.disp, 0)) != PLUS
+	  || GET_CODE (XEXP (XEXP (parts.disp, 0), 0)) != UNSPEC
+	  || !CONST_INT_P (XEXP (XEXP (parts.disp, 0), 1))
+	  || (XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_DTPOFF
+	      && XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_NTPOFF))
+	return false;
+    }
+
+  return true;
+})
+
+;; Return true if op is valid MPX address operand without index
+(define_predicate "address_mpx_no_index_operand"
+  (match_operand 0 "address_operand")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (op, &parts);
+  gcc_assert (ok);
+
+  if (parts.index)
+    return false;
+
+  if (parts.seg != SEG_DEFAULT)
+    return false;
+
+  /* Do not support (%rip).  */
+  if (parts.disp && flag_pic && TARGET_64BIT
+      && SYMBOLIC_CONST (parts.disp)
+      && (GET_CODE (parts.disp) != CONST
+	  || GET_CODE (XEXP (parts.disp, 0)) != PLUS
+	  || GET_CODE (XEXP (XEXP (parts.disp, 0), 0)) != UNSPEC
+	  || !CONST_INT_P (XEXP (XEXP (parts.disp, 0), 1))
+	  || (XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_DTPOFF
+	      && XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_NTPOFF)))
+    return false;
+
+  return true;
+})
+
 (define_predicate "vsib_mem_operator"
+  (match_code "mem"))
+
+(define_predicate "bnd_mem_operator"
   (match_code "mem"))
 
 ;; Return true if the rtx is known to be at least 32 bits aligned.

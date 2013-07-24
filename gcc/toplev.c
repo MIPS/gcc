@@ -577,6 +577,9 @@ compile_file (void)
       if (flag_tsan)
 	tsan_finish_file ();
 
+      if (flag_mpx)
+	mpx_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
@@ -1268,6 +1271,9 @@ process_options (void)
 
   if (flag_mudflap && flag_lto)
     sorry ("mudflap cannot be used together with link-time optimization");
+
+  if (flag_mpx && flag_lto)
+    sorry ("MPX is not yet fully supported for link-time optimization");
 
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)

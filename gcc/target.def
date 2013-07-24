@@ -2023,6 +2023,30 @@ built-in function.",
  (tree exp, rtx target, rtx subtarget, enum machine_mode mode, int ignore),
  default_expand_builtin)
 
+/* Return target-specific builtin function which implements
+   generic memory protection builtin.  */
+DEFHOOK
+(builtin_mpx_function,
+ "MPX instrumentation pass uses this hook to obtain\n\
+target-specific functions which implement generic MPX\n\
+builtins.",
+ tree, (unsigned fcode),
+ default_builtin_mpx_function)
+
+/* Bounds type MPX should use.  */
+DEFHOOK
+(mpx_bound_type,
+ "Return type to be used for bounds",
+ tree, (void),
+ hook_tree_void_null)
+
+/* Bounds mode MPX should use.  */
+DEFHOOK
+(mpx_bound_mode,
+ "Return mode to be used for bounds.",
+ enum machine_mode, (void),
+ default_mpx_bound_mode)
+
 /* Select a replacement for a target-specific builtin.  This is done
    *before* regular type checking, and so allows the target to
    implement a crude form of function overloading.  The result is a
@@ -3266,6 +3290,16 @@ The default version of this hook returns @code{va_list_type_node}.",
  tree, (tree fndecl),
  std_fn_abi_va_list)
 
+/* Get the cfun/fndecl calling abi __builtin_va_list bounds size or
+   0 if va_list does not have own bounds (e.g. is scalar pointing
+   to args in the stack.  */
+DEFHOOK
+(fn_abi_va_list_bounds_size,
+"This hook returns bounds for va_list object or integer_zero_node if\
+it does not have any (e.g. is scalar pointer to the stack).",
+ tree, (tree fndecl),
+ default_fn_abi_va_list_bounds_size)
+
 /* Get the __builtin_va_list type dependent on input type.  */
 DEFHOOK
 (canonical_va_list_type,
@@ -3695,6 +3729,29 @@ not generate any instructions in this case.",
  void, (cumulative_args_t args_so_far, enum machine_mode mode, tree type,
 	int *pretend_args_size, int second_time),
  default_setup_incoming_varargs)
+
+/* Returns rtx for bounds for specified incoming arg.  */
+DEFHOOK
+(load_bounds_for_arg,
+ "Extend pass uses this hook to emit insn for arg\n\
+bounds in case bounds are not passed on register.",
+ rtx, (rtx, rtx, rtx),
+ default_load_bounds_for_arg)
+
+/* Returns rtx for bounds store for specified arg.  */
+DEFHOOK
+(store_bounds_for_arg,
+ "Extend pass uses this hook to emit insn for arg\n\
+bounds in case bounds are not passed on register.",
+ rtx, (rtx, rtx, rtx, rtx),
+ default_store_bounds_for_arg)
+
+/* Put zero bounds into place where returned
+bounds are expected.  */
+DEFHOOK
+(init_returned_bounds,
+ "Put bounds into place where returned bounds are expected.",
+ void, (tree), default_init_returned_bounds)
 
 DEFHOOK
 (strict_argument_naming,

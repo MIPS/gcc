@@ -1076,6 +1076,19 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
+/* Nonzero if this type is a bound type.  */
+#define BOUND_TYPE_P(NODE) \
+  (TREE_CODE (NODE) == BOUND_TYPE)
+
+/* Nonzero if this type supposes bounds existence.  */
+#define BOUNDED_TYPE_P(type) \
+  (TREE_CODE (type) == POINTER_TYPE \
+    || TREE_CODE (type) == REFERENCE_TYPE)
+
+/* Nonzero for objects with bounded types.  */
+#define BOUNDED_P(node) \
+  BOUNDED_TYPE_P (TREE_TYPE (node))
+
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 
@@ -2935,6 +2948,11 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
+#define DECL_BOUNDS_RTL(NODE) (mpx_get_rtl_bounds (DECL_WRTL_CHECK (NODE)))
+
+#define SET_DECL_BOUNDS_RTL(NODE, VAL) \
+  (mpx_set_rtl_bounds (DECL_WRTL_CHECK (NODE), VAL))
+
 struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
   rtx rtl;
@@ -4228,6 +4246,8 @@ enum tree_index
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
 
+  TI_BOUND_TYPE,
+
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
   TI_DFLOAT128_TYPE,
@@ -4368,6 +4388,8 @@ extern GTY(()) tree global_trees[TI_MAX];
 #define complex_float_type_node		global_trees[TI_COMPLEX_FLOAT_TYPE]
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
+
+#define bound_type_node                 global_trees[TI_BOUND_TYPE]
 
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */
@@ -5654,7 +5676,7 @@ extern void expand_goto (tree);
 
 extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
-extern void expand_return (tree);
+extern void expand_return (tree, tree);
 
 /* In tree-eh.c */
 extern void using_eh_for_cleanups (void);
@@ -6586,6 +6608,28 @@ builtin_decl_implicit_p (enum built_in_function fncode)
 	  && builtin_info.implicit_p[uns_fncode]);
 }
 
+/* In tree-mpx.c.  */
+
+extern rtx mpx_get_rtl_bounds (tree node);
+extern void mpx_set_rtl_bounds (tree node, rtx val);
+extern bool mpx_register_var_initializer (tree var);
+extern void mpx_finish_file (void);
+extern tree mpx_get_registered_bounds (tree ptr);
+extern tree mpx_get_arg_bounds (tree arg);
+extern void mpx_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd);
+extern rtx mpx_join_splitted_slot (rtx val, rtx bnd);
+extern rtx mpx_get_value_with_offs (rtx par, rtx offs);
+extern void mpx_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
+extern bool mpx_type_has_pointer (tree type);
+extern void mpx_emit_bounds_store (rtx bounds, rtx value, rtx mem);
+extern tree mpx_make_bounds_for_struct_addr (tree ptr);
+extern tree mpx_get_zero_bounds (void);
+extern bool mpx_variable_size_type (tree type);
+extern tree mpx_build_make_bounds_call (tree lb, tree size);
+extern tree mpx_build_bndstx_call (tree addr, tree ptr, tree bounds);
+extern void mpx_expand_bounds_reset_for_mem (tree mem, tree ptr);
+extern void mpx_put_regs_to_expr_list (rtx par);
+extern void mpx_fix_cfg ();
 
 /* For anonymous aggregate types, we need some sort of name to
    hold on to.  In practice, this should not appear, but it should

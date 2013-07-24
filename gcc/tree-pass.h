@@ -257,6 +257,10 @@ struct register_pass_info
   enum pass_positioning_ops pos_op; /* how to insert the new pass.  */
 };
 
+extern struct gimple_opt_pass pass_mpx;
+extern struct gimple_opt_pass pass_copy_prop_mpx;
+extern struct gimple_opt_pass pass_mpxopt;
+extern struct gimple_opt_pass pass_dce_mpx;
 extern struct gimple_opt_pass pass_mudflap_1;
 extern struct gimple_opt_pass pass_mudflap_2;
 extern struct gimple_opt_pass pass_asan;

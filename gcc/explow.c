@@ -52,7 +52,8 @@ trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
   int width = GET_MODE_PRECISION (mode);
 
   /* You want to truncate to a _what_?  */
-  gcc_assert (SCALAR_INT_MODE_P (mode));
+  gcc_assert (SCALAR_INT_MODE_P (mode)
+	      || BOUND_MODE_P (mode));
 
   /* Canonicalize BImode to 0 and STORE_FLAG_VALUE.  */
   if (mode == BImode)
@@ -1851,9 +1852,13 @@ rtx
 hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 		     int outgoing ATTRIBUTE_UNUSED)
 {
-  rtx val;
+  rtx val, bnd;
 
   val = targetm.calls.function_value (valtype, func ? func : fntype, outgoing);
+
+  /* Split bound registers to process non-bound values separately.
+     Join back after processing.  */
+  mpx_split_slot (val, &val, &bnd);
 
   if (REG_P (val)
       && GET_MODE (val) == BLKmode)
@@ -1879,7 +1884,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 
       PUT_MODE (val, tmpmode);
     }
-  return val;
+  return mpx_join_splitted_slot (val, bnd);
 }
 
 /* Return an rtx representing the register or memory location

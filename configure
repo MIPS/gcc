@@ -643,6 +643,7 @@ DEBUG_PREFIX_CFLAGS_FOR_TARGET
 SYSROOT_CFLAGS_FOR_TARGET
 stage1_languages
 extra_host_libiberty_configure_flags
+enable_mpx
 clooginc
 clooglibs
 islinc
@@ -776,6 +777,7 @@ enable_isl_version_check
 with_cloog_include
 with_cloog_lib
 enable_cloog_version_check
+enable_mpx
 enable_lto
 enable_stage1_languages
 enable_objc_gc
@@ -1473,6 +1475,7 @@ Optional Features:
                           disable check for ISL version
   --disable-cloog-version-check
                           disable check for CLooG version
+  --enable-mpx            Enable MPX
   --enable-lto            enable link time optimization support
   --enable-stage1-languages[=all]
                           choose additional languages to build during stage1.
@@ -6165,6 +6168,21 @@ fi
 
 
 
+
+  # Check whether --enable-mpx was given.
+if test "${enable_mpx+set}" = set; then :
+  enableval=$enable_mpx; enable_mpx=$enableval
+else
+  enable_mpx=no
+
+fi
+
+
+
+
+if test x${enable_mpx} = xyes ; then
+  target_configargs="--enable-mpx ${target_configargs}"
+fi
 
 # Check for LTO support.
 # Check whether --enable-lto was given.
