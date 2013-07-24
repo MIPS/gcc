@@ -1,0 +1,214 @@
+PART 1a & 1b -  Removed.
+
+================================================================================
+PART 2.  Adjust register classes.
+
+This patch adds comand-line options for avx512f use and relevant cpuid bits
+detection. Vector registers are now 512-bit wide, so support for new modes
+(e.g. V16SF) is added. AVX512F introduve new 16 registers zmm16-zmm31. Some
+instruction now have EVEX encoding and can now use those new registers while
+old instuctions can't. We introduce new register class for them. We also add
+new constraint "v" which allows zmm0-zmm31. We can't extend "x" constraint
+because it's exposed in inline asm, and so may break some inline asm if we
+assign e. g. xmm21 to non-evex encodable instruction.  Idea is to replace all
+uses of "x" for evex-encodable instructions with "v". And allow only scalar and
+512-bit modes for registers 16+ in ix86_hard_regno_mode_ok. We update move
+instructions to use evex-encodable versions of instructions for AVX512F to
+allow usage of new registers. Main problem is with vector mov<mode>_internal
+in sse.md. In AVX512F we have some instructions reading/writing e. g. ymm16+
+(for exmape vinsert64x4/vextract64x4),but there in no ymm mov instruction
+with evex encoding, so we have to use insert/extract instead.
+
+
+================================================================================
+PART 3.  Add mask registers.
+
+In this patch we add support for new mask register k0-k7. Changes are mostly
+strightforward, but there are two problems. First we can't use k0 as mask in
+vector instructions, so we have introduce two register classe. One for use in
+vector instruction with "k" constraint - corresponding to k1-k7. And one for
+instruction like kxor which can use all new mask registers. Another problem is
+that we have only 16-bit kmovw, but both 8 and 16 bit wide uses of masks. So
+we don't have memory alternatives in movqi_internal, and hope that register
+allocator will figure out that we need move throught GPR.
+
+
+================================================================================
+PART 4.  AVX512F patterns patch
+
+This patch contains pattern changes for AVX512F ISA. Support of some AVX512F
+instructions is added by extending existing SSE/AVX/AVX2 patterns and also
+there're some new patterns. Extending existing patterns involves supporitng code
+changes and/or iterators extension. In our implementation, we tried to avoid
+unneeded iterators; instead we tried to extend existing ones where it's
+possible. Note if some general iterator like VF isn't extended to 512 bits then
+it actually means it is used in patterns that don't have 512-bit widening.
+
+Changes in i386.md add some code attrs and iterators we used to merge patterns.
+Maybe later we should move them to sse.md.
+
+Changes in i386.c are related to pattern merging too. Changes in
+ix86_expand_vector_move_misalign are analogous to 
+(TARGET_AVX && GET_MODE_SIZE (mode) == 32) branch; just there's no seperate
+fuction for MODE_VECTOR_FLOAT case.
+
+
+================================================================================
+PART 5.  Description for substs.
+
+MASKING
+
+For each insn we wanted to add its original variant, extended to 512 bit, its
+masked variant, unmasked variant with rounding and masked variant with rounding.
+Later we.d probably add variants with and without embedded broadcasting.  To do
+that, we introduced define_subst and used it in the following way:
+The most of insn patterns are something like
+(set
+  (match_operand /*dest*/ )
+  (match_operand /*operation*/)),
+so we made next subst for them:
+(define_subst "mask"
+  [(set (match_operand:SUBST_V 0)
+        (match_operand:SUBST_V 1))]
+  "TARGET_AVX512F"
+  [(set (match_dup 0)
+        (vec_merge:SUBST_V
+            (match_dup 1)
+            (match_operand:SUBST_V 2 "vector_move_operand" "0C")
+            (match_operand:<avx512fmaskmode> 3 "register_operand" "k")))])
+
+But that subst wasn.t enough to cover all patterns for instructions with
+masking: we needed 3 more subst for masking. Those are:
+* mask_scalar,
+* mask_scalar_merge,
+* sd
+
+mask_scalar is used for scalar instructions, in which we need to merge not with
+destination but with another source operand. Example of such instruction is
+vsqrtss. We can.t use usual mask-subst here, as we need to firstly do vec_merge
+for masking, and only then take the lowest element with the second vec_merge .
+so the order of vec_merges matters here.  So, we specify the pattern in more
+details for this subst:
+(set
+  (match_operand /*dest*/)
+  (vec_merge
+    (match_operand /*operation*/)
+    (match_operand /*src operand from which we take upper bits*/)
+    (const_int 1)))
+We want to add our vec_merge (for masking) upon the operation, not on the
+exsisting vec_merge
+
+The next subst is mask_scalar_merge, it is used for new cmp-instructions, which
+compares vectors and stores the result in a mask. If the operation is masked
+itself, we need to AND the result-mask of comparison with the input mask - and
+that's what the subst does:
+(define_subst "mask_scalar_merge"
+  [(set (match_operand:SUBST_S 0)
+        (match_operand:SUBST_S 1))]
+  "TARGET_AVX512F"
+  [(set (match_dup 0)
+        (and:SUBST_S
+            (match_dup 1)
+            (match_operand:SUBST_S 3 "register_operand" "k")))])
+
+The last subst is called sd (Source-Destination). It's is almost the same, as
+the usual mask-subst, but it's only used for zero-masking. The reason is that
+some patterns already have an operand with constraint "0" and we can't add a new
+operand with the same constraint. So we add only zero-masking here by subst and
+manually write a pattern for merge-masking where we use match_dup instead of an
+operand with constraint "0":
+(define_insn "avx512f_fmadd_<mode>_mask<round_name>"
+  [(set (match_operand:VF_512 0 "register_operand" "=T,T")
+	(vec_merge:VF_512
+	  (fma:VF_512
+	    (match_operand:VF_512 1 "register_operand" "0,0")
+	    (match_operand:VF_512 2 "nonimmediate_operand" "<round_constraint>,T")
+	    (match_operand:VF_512 3 "nonimmediate_operand" "T,<round_constraint>"))
+	  (match_dup 1) <<<<<------ Operand for merge
+	  (match_operand:<avx512fmaskmode> 4 "register_operand" "k,k")))]
+  "TARGET_AVX512F"
+  "@
+   vfmadd132
+   ..."
+  [(...)])
+Examples of such instruction are FMA-insns and some permutes.
+
+We also added set of subst-attributes: they are used to:
+1) modify name of insn-pattern:
+(define_subst_attr "mask_name" "mask" "" "_mask")
+2) properly add masking operands
+(define_subst_attr "mask_operand3" "mask" "" "%M4%N3")
+3) adjust operand's constraints
+(define_subst_attr "store_mask_constraint" "mask" "Tm" "T")
+4) hide unmasked version of pattern with '*'
+(define_subst_attr "mask_codefor" "mask" "*" "")
+
+It's not possible to share subst-attrs across different substs, so we created
+such set of subst-attrs for each subst.
+
+ROUNDING
+Rounding is implemented by adding a const_int value in parallel with the
+original pattern - however, that might be not the best approach.  define_subst
+for this transformation are quite straightforward - we needed three of them to
+cover all patterns we need to transform.  The most interesting part here is how
+to determine which operand corresponds to the rounding immediate. To somehow
+reflect this in the pattern, we allowed using attributes in other attributes,
+i.e. attributes nesting (that's already in the trunk). The problem here arises
+from the next: when subst for rounding is applied to a pattern after subst for
+masking, it's actually applied to two patterns with different number of
+operands. To find that number, we wrote next attributes: (define_subst_attr
+"round_mask_operand2" "mask" "%R2" "%R4") (define_subst_attr "round_mask_op2"
+"round" "" "<round_mask_operand2>") In result, we get either empty string (if
+rounding-subst isn't applied), or "%R2" or "%R4" depending on whether mask-subst
+was applied.
+
+There are other similar attributes for different combinations of round- and
+mask- substs.
+
+
+================================================================================
+PART 7.  Add builtins.
+
+New builtins were added to the bdesc_args and bdesc_round_args tables.  For
+special cases we created new expanders: ix86_expand_round_builtin and
+ix86_erase_embedded_rounding for instructions with rounding,
+ix86_expand_sse_comi_round for comi instructions.  In
+ix86_expand_special_args_builtin we supported kortest instruction, and new
+GATHERs in the subroutine gather_gen. Also scatter_gen for SCATTERs was created
+analogous to gather_gen.
+
+
+================================================================================
+PART 8.  Testsuite approach description
+
+While implementing testsuite we were strongly connected to the fact that we
+don't want more then 2 test files per each instruction - a scan assembler test
+and a runtime test.
+
+Consider that in general case for most new instuctions we have a simple
+intrinsic, an intrinsic with merge masking and an intrinsic with zero masking -
+and we need to have scan tests and runtimes test for them all. Also, there may
+be rounding support, i.e.  an intrinsic with rounding. For this case we only
+have scan tests and do not have runtime tests because it's unclear how to
+implement a runtime test in this case.
+
+Firstly, scan tests (avx512f-<insn>-1.c). Each test should aggregate all
+intrinsics that generate appropriate instruction <insn>. I.e. simple intrinsic,
+merge masking, zero masking, rounding intrinsics and maybe some aliases that
+worth testing. Tests are written in exactly the same manner as AVX2 scan tests.
+See avx2-*-1.c for reference.
+
+Secondly, runtime tests (avx512f-<insn>-2.c). Basically, the approach was the
+same for AVX2 runtime tests - call an intrinsic with some pre-initialized source
+and destination and check if results meet expectation - except that we have 3-4
+intrinsics with the same semantics. To avoid lots of duplicate code, we use
+macros in runtime tests. Macros are defined in avx512f-helper.h, and every
+runtime test includes this file. Also, avx512f-helper.h contains definition of
+core testing function - avx512f_test. Note that some macros are defined in
+dg-options. This machinery may seem redundand for now, but it will be extremely
+useful for future extensions.  There're also some stand-alone AVX512F runtime
+tests that are implemented without our macros machinery just like AVX2 tests.
+
+Finally, we have updated avx-1.c, sse-*.c, testimm-*.c tests with new intrinsics
+and builtins. To check messaging for intrinsics with rouning, we have added
+testround-*.c tests.

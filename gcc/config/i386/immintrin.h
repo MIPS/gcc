@@ -42,6 +42,16 @@
 
 #include <avx2intrin.h>
 
+#include <avx512fintrin.h>
+
+#include <avx512erintrin.h>
+
+#include <avx512pfintrin.h>
+
+#include <avx512cdintrin.h>
+
+#include <shaintrin.h>
+
 #include <lzcntintrin.h>
 
 #include <bmiintrin.h>

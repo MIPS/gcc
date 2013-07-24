@@ -51,6 +51,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_SSE4_2	TARGET_ISA_SSE4_2
 #define TARGET_AVX	TARGET_ISA_AVX
 #define TARGET_AVX2	TARGET_ISA_AVX2
+#define TARGET_AVX512F  TARGET_ISA_AVX512F
+#define TARGET_AVX512PF TARGET_ISA_AVX512PF
+#define TARGET_AVX512ER TARGET_ISA_AVX512ER
+#define TARGET_AVX512CD TARGET_ISA_AVX512CD
 #define TARGET_FMA	TARGET_ISA_FMA
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
 #define TARGET_FMA4	TARGET_ISA_FMA4
@@ -67,6 +71,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_MOVBE	TARGET_ISA_MOVBE
 #define TARGET_CRC32	TARGET_ISA_CRC32
 #define TARGET_AES	TARGET_ISA_AES
+#define TARGET_SHA	TARGET_ISA_SHA
 #define TARGET_PCLMUL	TARGET_ISA_PCLMUL
 #define TARGET_CMPXCHG16B TARGET_ISA_CX16
 #define TARGET_FSGSBASE	TARGET_ISA_FSGSBASE
@@ -802,7 +807,8 @@ enum target_cpu_default
    Pentium+ prefers DFmode values to be aligned to 64 bit boundary
    and Pentium Pro XFmode values at 128 bit boundaries.  */
 
-#define BIGGEST_ALIGNMENT (TARGET_AVX ? 256 : 128)
+#define BIGGEST_ALIGNMENT \
+  (TARGET_AVX512F ? 512 : (TARGET_AVX ? 256 : 128))
 
 /* Maximum stack alignment.  */
 #define MAX_STACK_ALIGNMENT MAX_OFILE_ALIGNMENT
@@ -958,7 +964,7 @@ enum target_cpu_default
    eliminated during reloading in favor of either the stack or frame
    pointer.  */
 
-#define FIRST_PSEUDO_REGISTER 53
+#define FIRST_PSEUDO_REGISTER 77
 
 /* Number of hardware registers that go into the DWARF-2 unwind info.
    If not defined, equals FIRST_PSEUDO_REGISTER.  */
@@ -984,7 +990,13 @@ enum target_cpu_default
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      0,   0,   0,   0,   0,   0,   0,   0,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     0,   0,    0,    0,    0,    0,    0,    0 }
+     0,   0,    0,    0,    0,    0,    0,    0,		\
+/*xmm16,xmm17,xmm18,xmm19,xmm20,xmm21,xmm22,xmm23*/		\
+     0,   0,    0,    0,    0,    0,    0,    0,		\
+/*xmm24,xmm25,xmm26,xmm27,xmm28,xmm29,xmm30,xmm31*/		\
+     0,   0,    0,    0,    0,    0,    0,    0,		\
+/*  k0,  k1, k2, k3, k4, k5, k6, k7*/				\
+     0,  0,   0,  0,  0,  0,  0,  0 }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -1012,7 +1024,13 @@ enum target_cpu_default
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      1,   1,   1,   1,   2,   2,   2,   2,			\
 /*xmm8,xmm9,xmm10,xmm11,xmm12,xmm13,xmm14,xmm15*/		\
-     6,   6,    6,    6,    6,    6,    6,    6 }
+     6,   6,    6,    6,    6,    6,    6,    6,		\
+/*xmm16,xmm17,xmm18,xmm19,xmm20,xmm21,xmm22,xmm23*/		\
+     6,    6,     6,    6,    6,    6,    6,    6,		\
+/*xmm24,xmm25,xmm26,xmm27,xmm28,xmm29,xmm30,xmm31*/		\
+     6,    6,     6,    6,    6,    6,    6,    6,		\
+ /* k0,  k1,  k2,  k3,  k4,  k5,  k6,  k7*/			\
+     1,   1,   1,   1,   1,   1,   1,   1 }
 
 /* Order in which to allocate registers.  Each register must be
    listed once, even those in FIXED_REGISTERS.  List frame pointer
@@ -1027,7 +1045,8 @@ enum target_cpu_default
 {  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,\
    18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32,	\
    33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,  \
-   48, 49, 50, 51, 52 }
+   48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62,	\
+   63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76 }
 
 /* ADJUST_REG_ALLOC_ORDER is a macro which permits reg_alloc_order
    to be rearranged based on a particular function.  When using sse math,
@@ -1073,6 +1092,14 @@ enum target_cpu_default
 #define VALID_AVX256_REG_OR_OI_MODE(MODE)					\
   (VALID_AVX256_REG_MODE (MODE) || (MODE) == OImode)
 
+#define VALID_AVX512F_SCALAR_MODE(MODE)					\
+  ((MODE) == DImode || (MODE) == DFmode || (MODE) == SImode		\
+   || (MODE) == SFmode)
+
+#define VALID_AVX512F_REG_MODE(MODE)					\
+  ((MODE) == V8DImode || (MODE) == V8DFmode || (MODE) == V64QImode	\
+   || (MODE) == V16SImode || (MODE) == V16SFmode || (MODE) == V32HImode)
+
 #define VALID_SSE2_REG_MODE(MODE)					\
   ((MODE) == V16QImode || (MODE) == V8HImode || (MODE) == V2DFmode	\
    || (MODE) == V2DImode || (MODE) == DFmode)
@@ -1112,7 +1139,11 @@ enum target_cpu_default
    || (MODE) == V2DImode || (MODE) == V4SFmode || (MODE) == V4SImode	\
    || (MODE) == V32QImode || (MODE) == V16HImode || (MODE) == V8SImode	\
    || (MODE) == V4DImode || (MODE) == V8SFmode || (MODE) == V4DFmode	\
-   || (MODE) == V2TImode)
+   || (MODE) == V2TImode || (MODE) == V8DImode || (MODE) == V64QImode	\
+   || (MODE) == V16SImode || (MODE) == V32HImode || (MODE) == V8DFmode	\
+   || (MODE) == V16SFmode)
+
+#define VALID_MASK_REG_MODE(MODE) ((MODE) == HImode || (MODE) == QImode)
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.  */
 
@@ -1175,14 +1206,20 @@ enum target_cpu_default
 #define FIRST_SSE_REG (FRAME_POINTER_REGNUM + 1)
 #define LAST_SSE_REG  (FIRST_SSE_REG + 7)
 
-#define FIRST_MMX_REG  (LAST_SSE_REG + 1)
+#define FIRST_MMX_REG  (LAST_SSE_REG + 1)   /*29*/
 #define LAST_MMX_REG   (FIRST_MMX_REG + 7)
 
-#define FIRST_REX_INT_REG  (LAST_MMX_REG + 1)
+#define FIRST_REX_INT_REG  (LAST_MMX_REG + 1) /*37*/
 #define LAST_REX_INT_REG   (FIRST_REX_INT_REG + 7)
 
-#define FIRST_REX_SSE_REG  (LAST_REX_INT_REG + 1)
+#define FIRST_REX_SSE_REG  (LAST_REX_INT_REG + 1) /*45*/
 #define LAST_REX_SSE_REG   (FIRST_REX_SSE_REG + 7)
+
+#define FIRST_EXT_REX_SSE_REG  (LAST_REX_SSE_REG + 1) /*53*/
+#define LAST_EXT_REX_SSE_REG   (FIRST_EXT_REX_SSE_REG + 15) /*68*/
+
+#define FIRST_MASK_REG  (LAST_EXT_REX_SSE_REG + 1) /*69*/
+#define LAST_MASK_REG   (FIRST_MASK_REG + 7) /*76*/
 
 /* Override this in other tm.h files to cope with various OS lossage
    requiring a frame pointer.  */
@@ -1263,6 +1300,8 @@ enum reg_class
   FLOAT_REGS,
   SSE_FIRST_REG,
   SSE_REGS,
+  EVEX_SSE_REGS,
+  ALL_SSE_REGS,
   MMX_REGS,
   FP_TOP_SSE_REGS,
   FP_SECOND_SSE_REGS,
@@ -1270,6 +1309,8 @@ enum reg_class
   FLOAT_INT_REGS,
   INT_SSE_REGS,
   FLOAT_INT_SSE_REGS,
+  MASK_EVEX_REGS,
+  MASK_REGS,
   ALL_REGS, LIM_REG_CLASSES
 };
 
@@ -1280,7 +1321,7 @@ enum reg_class
 #define FLOAT_CLASS_P(CLASS) \
   reg_class_subset_p ((CLASS), FLOAT_REGS)
 #define SSE_CLASS_P(CLASS) \
-  reg_class_subset_p ((CLASS), SSE_REGS)
+  reg_class_subset_p ((CLASS), ALL_SSE_REGS)
 #define MMX_CLASS_P(CLASS) \
   ((CLASS) == MMX_REGS)
 #define MAYBE_INTEGER_CLASS_P(CLASS) \
@@ -1288,9 +1329,11 @@ enum reg_class
 #define MAYBE_FLOAT_CLASS_P(CLASS) \
   reg_classes_intersect_p ((CLASS), FLOAT_REGS)
 #define MAYBE_SSE_CLASS_P(CLASS) \
-  reg_classes_intersect_p (SSE_REGS, (CLASS))
+  reg_classes_intersect_p (ALL_SSE_REGS, (CLASS))
 #define MAYBE_MMX_CLASS_P(CLASS) \
   reg_classes_intersect_p (MMX_REGS, (CLASS))
+#define MAYBE_MASK_CLASS_P(CLASS) \
+  reg_classes_intersect_p (MASK_REGS, (CLASS))
 
 #define Q_CLASS_P(CLASS) \
   reg_class_subset_p ((CLASS), Q_REGS)
@@ -1311,6 +1354,8 @@ enum reg_class
    "FLOAT_REGS",			\
    "SSE_FIRST_REG",			\
    "SSE_REGS",				\
+   "EVEX_SSE_REGS",			\
+   "ALL_SSE_REGS",			\
    "MMX_REGS",				\
    "FP_TOP_SSE_REGS",			\
    "FP_SECOND_SSE_REGS",		\
@@ -1318,6 +1363,8 @@ enum reg_class
    "FLOAT_INT_REGS",			\
    "INT_SSE_REGS",			\
    "FLOAT_INT_SSE_REGS",		\
+   "MASK_EVEX_REGS",			\
+   "MASK_REGS",				\
    "ALL_REGS" }
 
 /* Define which registers fit in which classes.  This is an initializer
@@ -1326,30 +1373,38 @@ enum reg_class
    Note that CLOBBERED_REGS are calculated by
    TARGET_CONDITIONAL_REGISTER_USAGE.  */
 
-#define REG_CLASS_CONTENTS						\
-{     { 0x00,     0x0 },						\
-      { 0x01,     0x0 }, { 0x02, 0x0 },	/* AREG, DREG */		\
-      { 0x04,     0x0 }, { 0x08, 0x0 },	/* CREG, BREG */		\
-      { 0x10,     0x0 }, { 0x20, 0x0 },	/* SIREG, DIREG */		\
-      { 0x03,     0x0 },		/* AD_REGS */			\
-      { 0x0f,     0x0 },		/* Q_REGS */			\
-  { 0x1100f0,  0x1fe0 },		/* NON_Q_REGS */		\
-      { 0x7f,  0x1fe0 },		/* INDEX_REGS */		\
-  { 0x1100ff,     0x0 },		/* LEGACY_REGS */		\
-      { 0x00,     0x0 },		/* CLOBBERED_REGS */		\
-  { 0x1100ff,  0x1fe0 },		/* GENERAL_REGS */		\
-     { 0x100,     0x0 }, { 0x0200, 0x0 },/* FP_TOP_REG, FP_SECOND_REG */\
-    { 0xff00,     0x0 },		/* FLOAT_REGS */		\
-  { 0x200000,     0x0 },		/* SSE_FIRST_REG */		\
-{ 0x1fe00000,0x1fe000 },		/* SSE_REGS */			\
-{ 0xe0000000,    0x1f },		/* MMX_REGS */			\
-{ 0x1fe00100,0x1fe000 },		/* FP_TOP_SSE_REG */		\
-{ 0x1fe00200,0x1fe000 },		/* FP_SECOND_SSE_REG */		\
-{ 0x1fe0ff00,0x1fe000 },		/* FLOAT_SSE_REGS */		\
-  { 0x11ffff,  0x1fe0 },		/* FLOAT_INT_REGS */		\
-{ 0x1ff100ff,0x1fffe0 },		/* INT_SSE_REGS */		\
-{ 0x1ff1ffff,0x1fffe0 },		/* FLOAT_INT_SSE_REGS */	\
-{ 0xffffffff,0x1fffff }							\
+#define REG_CLASS_CONTENTS                                              \
+{     { 0x00,       0x0,   0x0 },                                       \
+      { 0x01,       0x0,   0x0 },       /* AREG */                      \
+      { 0x02,       0x0,   0x0 },       /* DREG */                      \
+      { 0x04,       0x0,   0x0 },       /* CREG */                      \
+      { 0x08,       0x0,   0x0 },       /* BREG */                      \
+      { 0x10,       0x0,   0x0 },       /* SIREG */                     \
+      { 0x20,       0x0,   0x0 },       /* DIREG */                     \
+      { 0x03,       0x0,   0x0 },       /* AD_REGS */                   \
+      { 0x0f,       0x0,   0x0 },       /* Q_REGS */                    \
+  { 0x1100f0,    0x1fe0,   0x0 },       /* NON_Q_REGS */                \
+      { 0x7f,    0x1fe0,   0x0 },       /* INDEX_REGS */                \
+  { 0x1100ff,       0x0,   0x0 },       /* LEGACY_REGS */               \
+      { 0x07,       0x0,   0x0 },       /* CLOBBERED_REGS */            \
+  { 0x1100ff,    0x1fe0,   0x0 },       /* GENERAL_REGS */              \
+     { 0x100,       0x0,   0x0 },       /* FP_TOP_REG */                \
+    { 0x0200,       0x0,   0x0 },       /* FP_SECOND_REG */             \
+    { 0xff00,       0x0,   0x0 },       /* FLOAT_REGS */                \
+  { 0x200000,       0x0,   0x0 },       /* SSE_FIRST_REG */             \
+{ 0x1fe00000,  0x1fe000,   0x0 },       /* SSE_REGS */                  \
+       { 0x0,0xffe00000,  0x1f },       /* EVEX_SSE_REGS */             \
+{ 0x1fe00000,0xffffe000,  0x1f },       /* ALL_SSE_REGS */              \
+{ 0xe0000000,      0x1f,   0x0 },       /* MMX_REGS */                  \
+{ 0x1fe00100,0xffffe000,  0x1f },       /* FP_TOP_SSE_REG */            \
+{ 0x1fe00200,0xffffe000,  0x1f },       /* FP_SECOND_SSE_REG */         \
+{ 0x1fe0ff00,0xffffe000,  0x1f },       /* FLOAT_SSE_REGS */            \
+{   0x11ffff,    0x1fe0,   0x0 },       /* FLOAT_INT_REGS */            \
+{ 0x1ff100ff,0xffffffe0,  0x1f },       /* INT_SSE_REGS */              \
+{ 0x1ff1ffff,0xffffffe0,  0x1f },       /* FLOAT_INT_SSE_REGS */        \
+       { 0x0,       0x0,0x1fc0 },       /* MASK_EVEX_REGS */           \
+       { 0x0,       0x0,0x1fe0 },       /* MASK_REGS */                 \
+{ 0xffffffff,0xffffffff,0x1fff }                                        \
 }
 
 /* The same information, inverted:
@@ -1393,13 +1448,22 @@ enum reg_class
 #define SSE_REG_P(X) (REG_P (X) && SSE_REGNO_P (REGNO (X)))
 #define SSE_REGNO_P(N)						\
   (IN_RANGE ((N), FIRST_SSE_REG, LAST_SSE_REG)			\
-   || REX_SSE_REGNO_P (N))
+   || REX_SSE_REGNO_P (N)					\
+   || EXT_REX_SSE_REGNO_P (N))
 
 #define REX_SSE_REGNO_P(N) \
   IN_RANGE ((N), FIRST_REX_SSE_REG, LAST_REX_SSE_REG)
 
+#define EXT_REX_SSE_REGNO_P(N) \
+  IN_RANGE ((N), FIRST_EXT_REX_SSE_REG, LAST_EXT_REX_SSE_REG)
+
 #define SSE_REGNO(N) \
-  ((N) < 8 ? FIRST_SSE_REG + (N) : FIRST_REX_SSE_REG + (N) - 8)
+  ((N) < 8 ? FIRST_SSE_REG + (N) \
+         : (N) <= LAST_REX_SSE_REG ? (FIRST_REX_SSE_REG + (N) - 8) \
+                                   : (FIRST_EXT_REX_SSE_REG + (N) - 16))
+
+#define MASK_REGNO_P(N) IN_RANGE ((N), FIRST_MASK_REG, LAST_MASK_REG)
+#define ANY_MASK_REG_P(X) (REG_P (X) && MASK_REGNO_P (REGNO (X)))
 
 #define SSE_FLOAT_MODE_P(MODE) \
   ((TARGET_SSE && (MODE) == SFmode) || (TARGET_SSE2 && (MODE) == DFmode))
@@ -1452,10 +1516,10 @@ enum reg_class
 
 /* Get_secondary_mem widens integral modes to BITS_PER_WORD.
    There is no need to emit full 64 bit move on 64 bit targets
-   for integral modes that can be moved using 32 bit move.  */
+   for integral modes that can be moved using 8 bit move.  */
 #define SECONDARY_MEMORY_NEEDED_MODE(MODE)			\
-  (GET_MODE_BITSIZE (MODE) < 32 && INTEGRAL_MODE_P (MODE)	\
-   ? mode_for_size (32, GET_MODE_CLASS (MODE), 0)		\
+  (GET_MODE_BITSIZE (MODE) < 8 && INTEGRAL_MODE_P (MODE)	\
+   ? mode_for_size (8, GET_MODE_CLASS (MODE), 0)		\
    : MODE)
 
 /* Return a class of registers that cannot change FROM mode to TO mode.  */
@@ -1952,7 +2016,12 @@ do {							\
  "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7",		\
  "mm0", "mm1", "mm2", "mm3", "mm4", "mm5", "mm6", "mm7",		\
  "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",			\
- "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"}
+ "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15",	\
+ "xmm16", "xmm17", "xmm18", "xmm19",					\
+ "xmm20", "xmm21", "xmm22", "xmm23",					\
+ "xmm24", "xmm25", "xmm26", "xmm27",					\
+ "xmm28", "xmm29", "xmm30", "xmm31",					\
+ "k0", "k1", "k2", "k3", "k4", "k5", "k6", "k7" }
 
 #define REGISTER_NAMES HI_REGISTER_NAMES
 
@@ -2273,9 +2342,13 @@ enum avx_u128_state
    scheduling just increases amount of live registers at time and in
    the turn amount of fxch instructions needed.
 
-   ??? Maybe Pentium chips benefits from renaming, someone can try....  */
+   ??? Maybe Pentium chips benefits from renaming, someone can try....
 
-#define HARD_REGNO_RENAME_OK(SRC, TARGET) !STACK_REGNO_P (SRC)
+   Don't rename evex to non-evex sse registers.  */
+
+#define HARD_REGNO_RENAME_OK(SRC, TARGET) (!STACK_REGNO_P (SRC) &&	 \
+					   (EXT_REX_SSE_REGNO_P (SRC) == \
+					    EXT_REX_SSE_REGNO_P (TARGET)))
 
 
 #define FASTCALL_PREFIX '@'
