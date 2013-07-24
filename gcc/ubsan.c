@@ -31,7 +31,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ubsan.h"
 #include "c-family/c-common.h"
 
-/* This type represents an entry in the hash table.  */
+/* This type represents an entry in the hash table; this hash table
+   maps from a TYPE to a ubsan type descriptor VAR_DECL for that type.  */
 struct ubsan_typedesc
 {
   /* This represents the type of a variable.  */
