@@ -1,5 +1,79 @@
 2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (VEC_R): Move reload insns to
+	rs6000.md.  Delete VEC_R iterator.
+	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+	(vec_reload_and_reg_<mptrsize>): Likewise.
+
+	* config/rs6000/rs6000.opt (-mgeneral-addr-int): New debug
+	switches for enabling general addresses before reload.
+	(-mgeneral-addr-float): Likewise.
+	(-mgeneral-addr-vector): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_addr_mask_type): Move reload
+	helper INSN fields into reg_addr structure.  Add data to describe
+	the valid data addressing modes for each type in GPRs, FPRs,
+	altivec and VSX registers.  Add support for enabling general
+	addresses before reload.
+	(struct rs6000_reg_addr): Likewise.
+	(reg_addr): Likewise.
+	(rs6000_vector_reload): Delete old stand-alone arrays for reload
+	helpers that are now in the rs6000_reg_addr structure.
+	(reload_fpr_gpr): Likewise.
+	(reload_gpr_vsx): Likewise.
+	(reload_vsx_gpr): Likewise.
+	(ADDR_VALID_GPR): Define bits to describe the various address
+	modes available.
+	(ADDR_VALID_FPR): Likewise.
+	(ADDR_VALID_AV): Likewise.
+	(ADDR_VALID_VSX): Likewise.
+	(ADDR_VALID_MASK): Likewise.
+	(ADDR_UPDATE_GPR): Likewise.
+	(ADDR_UPDATE_FPR): Likewise.
+	(ADDR_UPDATE_MASK): Likewise.
+	(ADDR_MULTIPLE_GPR): Likewise.
+	(ADDR_MULTIPLE_FPR): Likewise.
+	(ADDR_MULTIPLE_AV): Likewise.
+	(ADDR_MULTIPLE_VSX): Likewise.
+	(ADDR_MULTIPLE_MASK): Likewise.
+	(ADDR_INDEXED_GPR): Likewise.
+	(ADDR_INDEXED_FPR): Likewise.
+	(ADDR_INDEXED_AV): Likewise.
+	(ADDR_INDEXED_VSX): Likewise.
+	(ADDR_INDEXED_MASK): Likewise.
+	(ADDR_GPR_MASK): Likewise.
+	(ADDR_FPR_MASK): Likewise.
+	(ADDR_AV_MASK): Likewise.
+	(ADDR_VSX_MASK): Likewise.
+	(rs6000_debug_reg_global): If -mdebug=reg, print valid addressing
+	modes.  Print if -mgeneral-addr-{int,float,scalar} used.
+	(rs6000_init_address_modes): Setup tables for the valid address
+	modes.  Setup reload helper INSNS for secondary reload.
+	(rs6000_init_direct_move): Setup tables for direct move support.
+	(rs6000_init_hard_regno_mode_ok): Move code for setting up direct
+	move and reload helper INSNS to rs6000_init_address_modes and
+	rs6000_init_direct_move.  Call those functions.  Use ssize_t
+	instead of int on loop iterators.
+	(rs6000_option_override_internal): Temporarily look at environment
+	variables to set the -mgeneral-addr-* switches.
+	(rs6000_debug_legitimate_address_p): Print the reload status.
+	(rs6000_secondary_reload_direct_move): Use reg_addr fields instead
+	of reload_fpr_gpr, reload_gpr_vsx, reload_vsx_gpr and
+	rs6000_vector_reload.
+	(rs6000_secondary_reload): Likewise.
+
+	* config/rs6000/rs6000.md (RELOAD): Move vector reload helper
+	functions from vector.md to rs6000.md.  Make them more general,
+	and support for scalar types.
+	(reload_<RELOAD:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
+	(vec_reload_and_plus_<mptrsize>): Likewise.
+	(vec_reload_and_reg_<mptrsize>): Likewise.
+
+2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Clone branch from 201189.
 	* REVISION: New file, track subversion id.
 
