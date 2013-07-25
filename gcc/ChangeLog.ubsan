@@ -1,0 +1,117 @@
+2013-07-24  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c (struct ubsan_typedesc): Improve comment.
+
+2013-07-21  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c (struct ubsan_typedesc): Add comments.
+	(ubsan_typedesc_hasher::hash): Don't hash the VAR_DECL element.
+	(ubsan_typedesc_hasher::equal): Adjust comment.
+	(ubsan_typedesc_get_alloc_pool): Remove comment.
+	(empty_ubsan_typedesc_hash_table): Remove function.
+	(ubsan_source_location_type): Remove bogus comment.
+	(get_tinfo_for_type): Remove function.
+	(get_ubsan_type_info_for_type): New function.
+	(ubsan_type_descriptor): Use ASM_GENERATE_INTERNAL_LABEL instead of
+	ASM_FORMAT_PRIVATE_NAME.  Use TYPE_MAIN_VARIANT of the type.
+	(ubsan_create_data): Likewise.
+
+2013-07-15  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.c (ADD_STATIC_LIBUBSAN_LIBS): Define.
+	(LIBUBSAN_SPEC): Likewise.
+	(LIBUBSAN_EARLY_SPEC): Likewise.
+	(SANITIZER_SPEC): Handle libubsan.
+	(SANITIZER_EARLY_SPEC): Likewise.
+
+2013-07-15  Marek Polacek  <polacek@redhat.com>
+
+	* builtin-attrs.def (ATTR_COLD_NOTHROW_LEAF_LIST): Define.
+	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW): Don't mark
+	as NORETURN.
+	(BUILT_IN_UBSAN_HANDLE_SHIFT_OUT_OF_BOUNDS): Likewise.
+	* asan.c (ATTR_COLD_NOTHROW_LEAF_LIST): Define.
+
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
+	* opts.c (common_handle_option): Add -fsanitize=unreachable option.
+	* builtins.c (fold_builtin_0): Use SANITIZE_UNREACHABLE instead of
+	SANITIZE_UNDEFINED.
+	* flag-types.h (enum sanitize_code): Add SANITIZE_UNREACHABLE.
+
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
+	* Makefile.in (c-family/c-ubsan.o): Add alloc-pool.h, CGRAPH_H,
+	GIMPLE_H, HASH_TABLE_H, output.h, toplev.h and ubsan.h dependencies.
+	(builtins.o): Add ubsan.h dependency.
+
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
+	* builtins.c: Include ubsan.h.
+	(fold_builtin_0): Instrument __builtin_unreachable.
+	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE): Define.
+	* Makefile.in: Add ubsan.c.
+	* ubsan.h: New file.
+	* ubsan.c: New file.
+
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c: Document %{%:function(args):X}.
+	(SANITIZER_EARLY_SPEC, SANITIZER_SPEC): Use %:sanitize(address)
+	instead of fsanitize=address and %:sanitize(thread) instead of
+	fsanitize=thread.
+	(static_spec_functions): Add sanitize.
+	(handle_spec_function): Add retval_nonnull argument and if non-NULL,
+	store funcval != NULL there.
+	(do_spec_1): Adjust handle_spec_function caller.
+	(handle_braces): Allow %:function(args) as condition.
+	(sanitize_spec_function): New function.
+	* common.opt (fsanitize=): Add Driver.
+	* config/darwin.h (LINK_COMMAND_SPEC_A): Use %:sanitize(address)
+	instead of fsanitize=address.
+	* config/arm/linux-eabi.h (ASAN_CC1_SPEC): Use %:sanitize(address)
+	instead of fsanitize=address*.
+
+2013-07-14  Marek Polacek  <polacek@redhat.com>
+
+	* common.opt (flag_sanitize): Add variable.
+	(fsanitize=): Add option.
+	(fsanitize=thread): Remove option.
+	(fsanitize=address): Likewise.
+	* flag-types.h (sanitize_code): New enum.
+	* opts.c (common_handle_option): Parse command line arguments
+	of -fsanitize=.
+	* varasm.c (get_variable_section): Adjust.
+	(assemble_noswitch_variable): Likewise.
+	(assemble_variable): Likewise.
+	(output_constant_def_contents): Likewise.
+	(categorize_decl_for_section): Likewise.
+	(place_block_symbol): Likewise.
+	(output_object_block): Likewise.
+	* builtins.def: Likewise.
+	* toplev.c (compile_file): Likewise.
+	(process_options): Likewise.
+	* cppbuiltin.c: Likewise.
+	* tsan.c (tsan_pass): Likewise.
+	(tsan_gate): Likewise.
+	(tsan_gate_O0): Likewise.
+	* cfgexpand.c (partition_stack_vars): Likewise.
+	(expand_stack_vars): Likewise.
+	(defer_stack_allocation): Likewise.
+	(expand_used_vars): Likewise.
+	* cfgcleanup.c (old_insns_match_p): Likewise.
+	* asan.c (asan_finish_file): Likewise.
+	(asan_instrument): Likewise.
+	(gate_asan): Likewise.
+
+2013-07-05  Marek Polacek  <polacek@redhat.com>
+
+	* Makefile.in: Add ubsan.c.
+	* common.opt: Add -fsanitize=undefined option.
+	* doc/invoke.texi: Document the new flag.
+	* sanitizer.def (DEF_SANITIZER_BUILTIN): Define.
+	* builtin-attrs.def (ATTR_COLD): Define.
+	* asan.c (initialize_sanitizer_builtins): Build
+	BT_FN_VOID_PTR_PTR_PTR.
+	* builtins.def (BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW,
+	BUILT_IN_UBSAN_HANDLE_SHIFT_OUT_OF_BOUNDS): Define.

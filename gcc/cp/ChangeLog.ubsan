@@ -1,0 +1,4 @@
+2013-07-05  Marek Polacek  <polacek@redhat.com>
+
+	* typeck.c (cp_build_binary_op): Add division by zero and shift
+	instrumentation.
