@@ -1,4 +1,3 @@
-
 2013-07-05  Thomas Quinot  <quinot@adacore.com>
 
 	* tree-complex.c (expand_complex_operations_1): Fix typo.
