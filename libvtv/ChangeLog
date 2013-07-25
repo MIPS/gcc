@@ -1,7 +1,19 @@
+2013-07-24  Benjamin Kosnik  <bkoz@adair>
+
+	* vtv_rts.cc: Remove unused variables.
+	* vtv_malloc.cc: Same.
+
+2013-07-24  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* Makefile.am (SUBDIRS): Add testsuite.
+	* Makefile.in: Regenerate.
+	* testsuite/Makefile.am: Add.
+	* testsuite/Makefile.in: Regenerate.
+
 2013-07-24  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* Makefile.am.bkoz: Remove merge mistake.
-	
+
 2013-07-23  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* vtv_rts.h: Format.

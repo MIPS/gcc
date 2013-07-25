@@ -560,7 +560,7 @@ read_section_offset_and_length (struct dl_phdr_info *info,
    read-only or read-write, depending on what's in DATA.  */
 
 static int
-dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t unused, void *data)
+dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t, void *data)
 {
   int * mprotect_flags = (int *) data;
   off_t map_sect_offset = 0;
@@ -679,9 +679,7 @@ change_protections_on_phdr_cache (int protection_flag)
   size_t cache_size = MAX_ENTRIES * sizeof (struct sect_hdr_data);
 
   low_address = (char *) ((unsigned long) low_address & ~(VTV_PAGE_SIZE - 1));
-  size_t protection_size =
-                       (char *) &vtv_sect_info_cache - low_address + cache_size;
-
+  
   if (mprotect ((void *) low_address, cache_size, protection_flag) == -1)
     VTV_error ();
 }
@@ -840,7 +838,7 @@ struct insert_only_hash_map_allocator
     /* P points to the memory to be deallocated; N is the number of
        bytes to deallocate.  */
     void
-    dealloc (void *p, size_t n) const
+    dealloc (void *p, size_t) const
     {
       __vtv_free (p);
     }

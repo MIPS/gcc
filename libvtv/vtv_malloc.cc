@@ -174,7 +174,7 @@ obstack_chunk_alloc (size_t size)
 }
 
 static void
-obstack_chunk_free (size_t size)
+obstack_chunk_free (size_t)
 {
   /* Do nothing. For our purposes there should be very little
      de-allocation. */
@@ -238,7 +238,8 @@ __vtv_malloc_stats (void)
     }
   fprintf (stderr,
            "__vtv_malloc_stats:\n  Page Size = %lu bytes\n  "
-           "Number of pages = %d\n", VTV_PAGE_SIZE, count);
+           "Number of pages = %d\n", static_cast<unsigned long>(VTV_PAGE_SIZE),
+	   count);
 }
 
 /* This is a debugging function.  It writes out our memory allocation
