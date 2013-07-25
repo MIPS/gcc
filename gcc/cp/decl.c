@@ -630,7 +630,9 @@ poplevel (int keep, int reverse, int functionbody)
 	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl)
 	    && type != error_mark_node
 	    && (!CLASS_TYPE_P (type)
-		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)))
+		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+		|| lookup_attribute ("warn_unused",
+				     TYPE_ATTRIBUTES (TREE_TYPE (decl)))))
 	  {
 	    if (! TREE_USED (decl))
 	      warning (OPT_Wunused_variable, "unused variable %q+D", decl);
@@ -4886,7 +4888,7 @@ layout_var_decl (tree decl)
   if (type == error_mark_node)
     return;
 
-  /* If we haven't already layed out this declaration, do so now.
+  /* If we haven't already laid out this declaration, do so now.
      Note that we must not call complete type for an external object
      because it's type might involve templates that we are not
      supposed to instantiate yet.  (And it's perfectly valid to say

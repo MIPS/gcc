@@ -1,3 +1,479 @@
+2013-07-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/57639
+	* gfortran.dg/unlimited_polymorphic_9.f90: New.
+
+2013-07-25  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/thumb1-Os-mult.c: New test case.
+
+2013-07-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57942
+	* g++.dg/inherit/pr57942.C: New.
+
+2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/bool2.h: New file, test the code generation
+	of logical operations for power5, altivec, power7, and power8
+	systems.
+	* gcc.target/powerpc/bool2-p5.c: Likewise.
+	* gcc.target/powerpc/bool2-av.c: Likewise.
+	* gcc.target/powerpc/bool2-p7.c: Likewise.
+	* gcc.target/powerpc/bool2-p8.c: Likewise.
+	* gcc.target/powerpc/bool3.h: Likewise.
+	* gcc.target/powerpc/bool3-av.c: Likewise.
+	* gcc.target/powerpc/bool2-p7.c: Likewise.
+	* gcc.target/powerpc/bool2-p8.c: Likewise.
+
+2013-07-23  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.target/aarch64/vect_smlal_1.c: Replace 'long' with 'long long'.
+
+2013-07-23  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.target/aarch64/test-ptr-arg-on-stack-1.c: New test.
+
+2013-07-23  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.dg/20020219-1.c: Skip the test on aarch64*-*-* in ilp32.
+	* gcc.target/aarch64/aapcs64/test_18.c (struct y): Change the field
+	type from long to long long.
+	* gcc.target/aarch64/atomic-op-long.c: Update dg-final directives
+	to have effective-target keywords of lp64 and ilp32.
+	* gcc.target/aarch64/fcvt_double_int.c: Likewise.
+	* gcc.target/aarch64/fcvt_double_long.c: Likewise.
+	* gcc.target/aarch64/fcvt_double_uint.c: Likewise.
+	* gcc.target/aarch64/fcvt_double_ulong.c: Likewise.
+	* gcc.target/aarch64/fcvt_float_int.c: Likewise.
+	* gcc.target/aarch64/fcvt_float_long.c: Likewise.
+	* gcc.target/aarch64/fcvt_float_uint.c: Likewise.
+	* gcc.target/aarch64/fcvt_float_ulong.c: Likewise.
+	* gcc.target/aarch64/vect_smlal_1.c: Replace 'long' with 'long long'.
+
+2013-07-23  Tom Tromey  <tromey@redhat.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c11-generic-1.c: New file.
+	* gcc.dg/c11-generic-2.c: New file.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57906
+	PR fortran/52052
+	* coarray/lib_realloc_1.f90: Permit optimization.
+	* gfortran.dg/coarray_31.f90: New.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57762
+	* gfortran.dg/class_array_7.f03: Fix memory leak.
+
+2013-07-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52816
+	* g++.dg/cpp0x/decltype56.C: New.
+
+2013-07-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.dg/pr53265.c: Correct line number in dg-message.
+
+2013-07-22  Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/pr57878.C: Do not force -m32.  Use target ilp32.
+
+2013-07-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR testsuite/52641
+	* gcc.c-torture/execute/pr57124.x: Skip int16 platforms.
+	* gcc.c-torture/execute/pr53366-1.x: New: Skip int16 platforms.
+
+2013-07-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR testsuite/52641
+	* gcc.c-torture/execute/pr57344-2.x: New. Skip int16.
+	* gcc.dg/pr53265.c: Add dg-require-effective-target size32plus.
+	* gcc.dg/torture/pr53366-1.c: Same.
+	* gcc.dg/torture/pr57381.c: Add dg-require-effective-target int32plus.
+	* gcc.dg/torture/pr56488.c: Same.
+	* gcc.dg/torture/pr57584.c: Same.
+	* gcc.dg/tree-ssa/pr57385.c: Same.
+	* gcc.dg/pr57154.c: Add dg-require-effective-target scheduling.
+
+2013-07-21   OndÅej BÃ­lka  <neleai@seznam.cz>
+
+	* c-c++-common/pr41779.c: Fix typos.
+	* gcc.c-torture/compile/20031125-2.c: Likewise.
+	* gcc.c-torture/compile/20040621-1.c: Likewise.
+	* gcc.c-torture/execute/20020418-1.c: Likewise.
+	* gcc.dg/20020108-1.c: Likewise.
+	* gcc.dg/atomic-generic-aux.c: Likewise.
+	* gcc.dg/builtin-complex-err-2.c: Likewise.
+	* gcc.dg/decl-1.c: Likewise.
+	* gcc.dg/di-sync-multithread.c: Likewise.
+	* gcc.dg/format/c90-printf-1.c: Likewise.
+	* gcc.dg/format/ms_c90-printf-1.c: Likewise.
+	* gcc.dg/long-long-compare-1.c: Likewise.
+	* gcc.dg/plugin/start_unit_plugin.c: Likewise.
+	* gcc.dg/pr17055-1.c: Likewise.
+	* gcc.dg/pr27095.c: Likewise.
+	* gcc.dg/torture/fp-int-convert.h: Likewise.
+	* gcc.dg/tree-prof/inliner-1.c: Likewise.
+	* gcc.dg/tree-ssa/20030731-1.c: Likewise.
+	* gcc.dg/tree-ssa/forwprop-6.c: Likewise.
+	* gcc.dg/tree-ssa/ipa-cp-1.c: Likewise.
+	* gcc.dg/tree-ssa/loop-19.c: Likewise.
+	* gcc.dg/tree-ssa/loop-1.c: Likewise.
+	* gcc.dg/tree-ssa/pr21001.c: Likewise.
+	* gcc.dg/tree-ssa/pr42585.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dse-5.c: Likewise.
+	* gcc.dg/vect/vect-cond-5.c: Likewise.
+	* gcc.dg/weak/typeof-2.c: Likewise.
+	* gcc.target/aarch64/aapcs64/abitest-common.h: Likewise.
+	* gcc.target/arm/naked-1.c: Likewise.
+	* gcc.target/i386/pr9771-1.c: Likewise.
+	* gcc.target/sparc/sparc-constant-1.c: Likewise.
+	* gcc.target/sparc/struct-ret-check.c: Likewise.
+	* gcc.target/x86_64/abi/test_struct_returning.c: Likewise.
+	* gfortran.dg/c_ptr_tests_8_funcs.c: Likewise.
+	* objc-obj-c++-shared/objc-test-suite-next-encode-assist-impl.h:
+	Likewise.
+
+2013-07-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/56937
+	* gfortran.dg/dependency_42.f90:  New test.
+	* gfortran.dg/dependency_43.f90:  New test.
+
+2013-07-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/35862
+	* gfortran.dg/round_4.f90: New.
+
+2013-07-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57894
+	* gfortran.dg/min_max_conformance_2.f90: New.
+
+2013-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/57620
+	* c-c++-common/raw-string-2.c (s12, u12, U12, L12): Remove.
+	(main): Don't test {s,u,U,L}12.
+	* c-c++-common/raw-string-13.c: New test.
+	* c-c++-common/raw-string-14.c: New test.
+	* c-c++-common/raw-string-15.c: New test.
+	* c-c++-common/raw-string-16.c: New test.
+
+2013-07-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/vabs_intrinsic_1.c: New file.
+
+2013-07-20  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.dg/pr57154.c: Add dg-require-effective-target scheduling.
+
+	* gcc.dg/tree-ssa/pr21090.c: Do vrp1 scan check only for
+	target { ! keeps_null_pointer_checks }.
+	* gcc.dg/tree-ssa/unreachable.c: Do optimized scan check only for
+	target { ! keeps_null_pointer_checks }.
+
+	* gcc.dg/torture/pr53366-1.c: Only run for target { size32plus }.
+	* gcc.dg/torture/pr56488.c: Likewise.
+
+2013-07-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/scalar_intrinsics.c (test_vabs_s64): Added
+	new testcase.
+
+2013-07-19  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gfortran.fortran-torture/execute/intrinsic_nearest.x: Skip on AIX.
+	* gfortran.dg/nint_2.f90: Correct AIX target name to skip.
+	* gfortran.dg/guality/guality.exp: Skip on AIX.
+
+	* lib/dg-pch.exp (dg-flags-pch): Skip on AIX.
+
+	* g++.dg/debug/pr56819.C: Skip on AIX.
+	* g++.dg/ext/vector23.C: Ignore vector ABI warning.
+	* g++.dg/guality/guality.exp: Skip on AIX.
+
+	* g++.old-deja/g++.other/init19.C: Require cxa_atext.
+
+	* gcc.misc-tests/gcov-14.c: Skip on AIX.
+
+	* gcc.dg/simulate-thread/simulate-thread.exp: Skip on AIX.
+
+2013-07-19  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57516
+	* gcc.target/avr/torture/builtins-4-roundfx.c (test2hr, test2k):
+	Adjust to corrected rounding.
+
+2013-07-19  Georg-Johann Lay  <avr@gjlay.de>
+
+	* lib/target-supports.exp (check_effective_target_cilkplus): New proc.
+	* gcc.dg/cilk-plus/cilk-plus.exp: only run if
+	check_effective_target_cilkplus.
+	* g++.dg/cilk-plus/cilk-plus.exp: Same.
+
+2013-07-18  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/pr57744.c: Fix typo.
+
+2013-07-18  Sriraman Tallam  <tmsriram@google.com>
+
+	PR middle-end/57698
+	* gcc.c-torture/compile/pr57698.c: New test.
+	* gcc.c-torture/compile/pr43791.c: Remove prune output
+	directive.
+	* gcc.c-torture/compile/pr44043.c: Ditto.
+
+2013-07-18  Wei Mi  <wmi@google.com>
+
+	PR rtl-optimization/57878
+	* g++.dg/pr57518.C: New test.
+
+2013-07-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.dg/pr42611.c: Move dg-error to correct line.
+
+2013-07-17  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57895
+	* gfortran.dg/dollar_sym_3.f: New.
+	* gfortran.dg/dollar_sym_1.f90: Update dg-error.
+
+2013-07-16  Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/55654
+	PR target/55656
+	PR target/55657
+	* obj-c++.dg/cxx-ivars-3.mm: Use NSObject instead of Object.
+	* obj-c++.dg/strings/const-cfstring-5.mm: Likewise.
+	* obj-c++.dg/torture/strings/const-str-10.mm: Likewise.
+	* obj-c++.dg/torture/strings/const-str-9.mm: Likewise.
+	* objc.dg/image-info.m: Likewise.
+	* objc.dg/symtab-1.m: Likewise.
+	* objc.dg/torture/strings/const-str-10.m: Likewise.
+	* objc.dg/torture/strings/const-str-11.m: Likewise.
+	* objc.dg/torture/strings/const-str-9.m: Likewise.
+	* objc.dg/zero-link-1.m: Likewise.
+	* objc.dg/zero-link-2.m: Likewise.
+	* objc.dg/no-extra-load.m: Avoid Foundation.h.
+	* objc.dg/objc-foreach-4.m: Likewise.
+	* objc.dg/objc-foreach-5.m: Likewise.
+	* obj-c++.dg/proto-lossage-7.mm: Use NSObject instead of Object
+	(for Darwin).
+	* obj-c++.dg/strings/const-str-12.mm: Likewise.
+	* obj-c++.dg/syntax-error-1.mm: Likewise.
+	* objc.dg/method-6.m: Likewise.
+	* objc.dg/pr23214.m: Likewise.
+	* objc.dg/proto-lossage-7.m: Likewise.
+	* objc.dg/strings/const-str-12b.m: Likewise.
+	* objc.dg/zero-link-3.m: Likewise.
+	* obj-c++.dg/method-12.mm: Skip on Darwin versions without 'Object'.
+	* objc.dg/encode-7-next-64bit.m: Use NSObject instead of Object,
+	adjust headers, interfaces and encoded types to reflect current system
+	versions.  Add FIXME and outputs from current system compiler for
+	reference.
+
+2013-07-15  Cong Hou  <congh@google.com>
+
+	* gcc.target/i386/l_fma_float_1.c: Update the instruction to be
+	counted.
+	* gcc.target/i386/l_fma_float_3.c: Likewise.
+	* gcc.target/i386/l_fma_double_1.c: Likewise.
+	* gcc.target/i386/l_fma_double_3.c: Likewise.
+
+2013-07-15  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* lib/target-supports.exp (check_effective_target_powerpc_htm_ok): New
+	function to test if HTM is available.
+	* gcc.target/powerpc/htm-xl-intrin-1.c: New test.
+	* gcc.target/powerpc/htm-builtin-1.c: New test.
+
+2013-07-15  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray_lib_realloc_1.f90: New.
+	* gfortran.dg/coarray/lib_realloc_1.f90: New.
+	* gfortran.dg/coarray_6.f90: Add dg-error.
+
+2013-07-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* gfortran.dg/finalize_18.f90: New.
+
+2013-07-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/52669
+	* fortran.dg/module_variable_1.f90:  New test.
+	* fortran.dg/module_variable_2.f90:  New test.
+
+2013-07-14  Marc Glisse  <marc.glisse@inria.fr>
+
+	* g++.dg/ext/vector19.C: Adapt.
+	* g++.dg/ext/vector23.C: New testcase.
+
+2013-07-12  Michael Matz  <matz@suse.de>
+
+	PR middle-end/55771
+	* c-c++-common/pr55771.c: New test.
+
+2013-07-12  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* gcc.target/aarch64/vect-movi.c: New.
+
+2013-07-11  Sriraman Tallam  <tmsriram@google.com>
+
+	PR target/57362
+	* g++.dg/ext/pr57362.C: New.
+
+2013-07-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57631
+	* gcc.target/avr/torture/pr57631.c: New test.
+
+2013-07-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57827
+	* g++.dg/cpp0x/constexpr-ice7.C: New.
+
+2013-07-10  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/powerpc/20020118-1.c: Force 128-bit stack alignment
+	for EABI targets.
+	* gcc.c-torture/execute/nest-align-1.x: New.
+
+2013-07-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57874
+	* g++.dg/cpp0x/sfinae48.C: New.
+
+2013-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/57824
+	* c-c++-common/raw-string-17.c: New test.
+	* c-c++-common/gomp/pr57824.c: New test.
+
+2013-07-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57869
+	* g++.dg/cpp0x/reinterpret_cast1.C: New.
+	* g++.dg/warn/Wconditionally-supported-1.C: Likewise.
+	* g++.dg/conversion/dr195.C: Update.
+	* g++.dg/expr/cast2.C: Likewise.
+
+2013-07-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/raw-string-18.c: New test.
+	* c-c++-common/raw-string-19.c: New test.
+
+	PR preprocessor/57757
+	* g++.dg/cpp/paste1.C: New test.
+	* g++.dg/cpp/paste2.C: New test.
+
+2013-07-10  Graham Stott  <grahams@btinternet.com>
+
+	* gcc.target/mips/mulsize-1.c: New.
+	* gcc.target/mips/mulsize-2.c: New.
+	* gcc.target/mips/mulsize-3.c: New.
+	* gcc.target/mips/mulsize-4.c: New.
+
+2013-07-09  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/53094
+	* g++.dg/cpp0x/constexpr-53094-1.C: Adjust.
+	* g++.dg/ext/vector24.C: New testcase.
+
+2013-07-09  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/53000
+	* g++.dg/cpp0x/decltype17.C: Adjust.
+
+2013-07-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51786
+	* g++.dg/cpp0x/pr51786.C: New.
+
+2013-07-08  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/powerpc/tfmode_off.c: Skip for EABI targets.
+
+	* gcc.target/powerpc/ppc-spe64-1.c: Update expected error message.
+
+	* gcc.target/powerpc/pr47197.c: Require powerpc_altivec_ok.
+
+	* gcc.target/powerpc/sd-vsx.c: Require dfp.
+	* gcc.target/powerpc/sd-pwr6.c: Likewise.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57834
+	* gfortran.dg/c_f_pointer_tests_8.f90: New.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50554
+	* gfortran.dg/do_check_9.f90: New.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57785
+	* gfortran.dg/dot_product_2.f90: New.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57469
+	* gfortran.dg/warn_unused_dummy_argument_4.f90: New.
+
+2013-07-08  Manfred Schwarb  <manfred99@gmx.ch>
+
+	* gfortran.dg/defined_assignment_7.f90: Fix dg-do.
+	* gfortran.dg/finalize_10.f90: Fix dg-final.
+
+2013-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57819
+	* gcc.target/i386/pr57819.c: New test.
+
+	PR rtl-optimization/57829
+	* gcc.c-torture/execute/pr57829.c: New test.
+
+2013-07-08  Michael Zolotukhin  <michael.v.zolotukhin@gmail.com>
+
+	* gcc.target/i386/memcpy-vector_loop-1.c: New.
+	* gcc.target/i386/memcpy-vector_loop-2.c: New.
+
+2013-07-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57807
+	* gcc.target/i386/pr57807.c: New test.
+
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/29776
+	* gcc.dg/tree-ssa/vrp89.c: New test.
+
+2013-07-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/28262
+	* g++.dg/parse/defarg16.C: New.
+
+2013-07-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/55342
+	* gcc.target/i386/pr55342.c: New.
+
+2013-07-05  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* gcc.dg/pr57518.c: Adjust scan-rtl-dump-not pattern.
+
+2013-07-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/14263
+	* g++.dg/inherit/virtual10.C: New.
+
 2013-07-04  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	PR c/57821
@@ -247,18 +723,19 @@
 2013-06-21  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c-c++-common/cilk-plus/AN/array_test1.c: Make this an execution test.
-	Also changed the returns from error as distinct values so that debugging
-	can get easier.
+	Also changed the returns from error as distinct values so that
+	debugging can get easier.
 	* c-c++-common/cilk-plus/AN/if_test_errors.c (main): Made certain
-	errors specific to C, if necessary.  Also added new error hooks for C++.
+	errors specific to C, if necessary.  Also added new error
+	hooks for C++.
 	* c-c++-common/cilk-plus/AN/misc.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/parser_errors.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/parser_errors2.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/parser_errors3.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/pr57541.c (main): Likewise.
-	* c-c++-common/cilk-plus/AN/parser_errors4.c (main): In addition to the
-	same changes as parser_errors3.c, spaces were added between colons to
-	not confuse C++ compiler with 2 colons as scope.
+	* c-c++-common/cilk-plus/AN/parser_errors4.c (main): In addition to
+	the same changes as parser_errors3.c, spaces were added between colons
+	to not confuse C++ compiler with 2 colons as scope.
 	* c-c++-common/cilk-plus/AN/vla.c: Make this test C specific.
 	* g++.dg/cilk-plus/AN/array_test1_tplt.cc: New test.
 	* g++.dg/cilk-plus/AN/array_test2_tplt.cc: Likewise.
@@ -270,7 +747,8 @@
 	* g++.dg/cilk-plus/AN/preincr_test.cc: Likewise.
 	* g++.dg/cilk-plus/AN/postincr_test.cc: Likewise.
 	* g++.dg/cilk-plus/cilk-plus.exp: New script.
-	* gcc/testsuite/g++.dg/dg.exp: Included Cilk Plus C++ tests in the list.
+	* gcc/testsuite/g++.dg/dg.exp: Included Cilk Plus C++ tests
+	in the list.
 
 2013-06-21  Joseph Myers  <joseph@codesourcery.com>
 
@@ -305,7 +783,7 @@
 	PR tree-optimization/57584
 	* gcc.dg/torture/pr57584.c: New testcase.
 
-2013-06-19    <singhai@google.com>
+2013-06-19  Sharad Singhai  <singhai@google.com>
 
 	* g++.dg/gcov/gcov-8.C: New testcase.
 	* lib/gcov.exp: Handle intermediate format.
@@ -1680,7 +2158,7 @@
 2013-05-14  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* gcc.c-torture/compile/limits-externdecl.c [target avr-*-*]:
-        Expect "size of array is too large" error.
+	Expect "size of array is too large" error.
 
 2013-05-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 

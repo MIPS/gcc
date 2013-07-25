@@ -6103,6 +6103,14 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
   CHECKSUM_ULEB128 (0);
 }
 
+/* Add a type name and tag to a hash.  */
+static void
+die_odr_checksum (int tag, const char *name, md5_ctx *ctx)
+{
+  CHECKSUM_ULEB128 (tag);
+  CHECKSUM_STRING (name);
+}
+
 #undef CHECKSUM
 #undef CHECKSUM_STRING
 #undef CHECKSUM_ATTR
@@ -6143,8 +6151,8 @@ generate_type_signature (dw_die_ref die, comdat_type_node *type_node)
       if (parent != NULL)
         checksum_die_context (parent, &ctx);
 
-      md5_process_bytes (&die->die_tag, sizeof (die->die_tag), &ctx);
-      md5_process_bytes (name, strlen (name) + 1, &ctx);
+      /* Checksum the current DIE. */
+      die_odr_checksum (die->die_tag, name, &ctx);
       md5_finish_ctx (&ctx, checksum);
 
       add_AT_data8 (type_node->root_die, DW_AT_GNU_odr_signature, &checksum[8]);
@@ -22703,7 +22711,7 @@ string_cst_pool_decl (tree t)
    of exprloc or after DW_OP_{,bit_}piece, and val_addr can't be
    resolved.  Replace it (both DW_OP_addr and DW_OP_stack_value)
    with DW_OP_GNU_implicit_pointer if possible
-   and return true, if unsuccesful, return false.  */
+   and return true, if unsuccessful, return false.  */
 
 static bool
 optimize_one_addr_into_implicit_ptr (dw_loc_descr_ref loc)

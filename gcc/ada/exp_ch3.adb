@@ -4632,9 +4632,19 @@ package body Exp_Ch3 is
       ------------------
 
       procedure Build_Master (Ptr_Typ : Entity_Id) is
-         Desig_Typ : constant Entity_Id := Designated_Type (Ptr_Typ);
+         Desig_Typ : Entity_Id := Designated_Type (Ptr_Typ);
 
       begin
+         --  If the designated type is an incomplete view coming from a
+         --  limited-with'ed package, we need to use the nonlimited view in
+         --  case it has tasks.
+
+         if Ekind (Desig_Typ) in Incomplete_Kind
+           and then Present (Non_Limited_View (Desig_Typ))
+         then
+            Desig_Typ := Non_Limited_View (Desig_Typ);
+         end if;
+
          --  Anonymous access types are created for the components of the
          --  record parameter for an entry declaration. No master is created
          --  for such a type.
@@ -7273,12 +7283,19 @@ package body Exp_Ch3 is
 
             --  When compiling in Ada 2012 mode, ensure that the accessibility
             --  level of the subpool access type is not deeper than that of the
-            --  pool_with_subpools. This check is not performed on .NET/JVM
-            --  since those targets do not support pools.
+            --  pool_with_subpools.
 
             elsif Ada_Version >= Ada_2012
               and then Present (Associated_Storage_Pool (Def_Id))
+
+              --  Omit this check on .NET/JVM where pools are not supported
+
               and then VM_Target = No_VM
+
+              --  Omit this check for the case of a configurable run-time that
+              --  does not provide package System.Storage_Pools.Subpools.
+
+              and then RTE_Available (RE_Root_Storage_Pool_With_Subpools)
             then
                declare
                   Loc   : constant Source_Ptr := Sloc (Def_Id);
@@ -8592,8 +8609,8 @@ package body Exp_Ch3 is
    --  end case;
 
    function Make_Eq_Case
-     (E     : Entity_Id;
-      CL    : Node_Id;
+     (E      : Entity_Id;
+      CL     : Node_Id;
       Discrs : Elist_Id := New_Elmt_List) return List_Id
    is
       Loc      : constant Source_Ptr := Sloc (E);
@@ -8643,6 +8660,8 @@ package body Exp_Ch3 is
          Name_Len := Name_Len - 1;
          return Name_Find;
       end External_Name;
+
+   --  Start of processing for Make_Eq_Case
 
    begin
       Append_To (Result, Make_Eq_If (E, Component_Items (CL)));

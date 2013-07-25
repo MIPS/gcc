@@ -1718,14 +1718,16 @@ package body Sem_Prag is
       --  Preanalyze the boolean expression, we treat this as a spec expression
       --  (i.e. similar to a default expression).
 
-      Preanalyze_Assert_Expression (Get_Pragma_Arg (Arg1), Standard_Boolean);
-
-      --  In ASIS mode, for a pragma generated from a source aspect, also
-      --  analyze the original aspect expression.
+      --  In ASIS mode, for a pragma generated from a source aspect, analyze
+      --  directly the the original aspect expression, which is shared with
+      --  the generated pragma.
 
       if ASIS_Mode and then Present (Corresponding_Aspect (N)) then
          Preanalyze_Assert_Expression
            (Expression (Corresponding_Aspect (N)), Standard_Boolean);
+      else
+         Preanalyze_Assert_Expression
+            (Get_Pragma_Arg (Arg1), Standard_Boolean);
       end if;
 
       --  For a class-wide condition, a reference to a controlling formal must
@@ -3563,12 +3565,13 @@ package body Sem_Prag is
          --  If we fall through loop, pragma is at start of list, so see if it
          --  is at the start of declarations of a subprogram body.
 
-         if Nkind (Parent (N)) = N_Subprogram_Body
-           and then List_Containing (N) = Declarations (Parent (N))
+         PO := Parent (N);
+
+         if Nkind (PO) = N_Subprogram_Body
+           and then List_Containing (N) = Declarations (PO)
          then
-            if Operating_Mode /= Generate_Code
-              or else Inside_A_Generic
-            then
+            if Operating_Mode /= Generate_Code or else Inside_A_Generic then
+
                --  Analyze pragma expression for correctness and for ASIS use
 
                Preanalyze_Assert_Expression
@@ -3583,22 +3586,56 @@ package body Sem_Prag is
                end if;
             end if;
 
+            --  Retain a copy of the pre- or postcondition pragma for formal
+            --  verification purposes. The copy is needed because the pragma is
+            --  expanded into other constructs which are not acceptable in the
+            --  N_Contract node.
+
+            if Acts_As_Spec (PO)
+              and then (SPARK_Mode or else Formal_Extensions)
+            then
+               declare
+                  Prag : constant Node_Id := New_Copy_Tree (N);
+
+               begin
+                  --  Preanalyze the pragma
+
+                  Preanalyze_Assert_Expression
+                    (Get_Pragma_Arg
+                      (First (Pragma_Argument_Associations (Prag))),
+                     Standard_Boolean);
+
+                  --  Preanalyze the corresponding aspect (if any)
+
+                  if Present (Corresponding_Aspect (Prag)) then
+                     Preanalyze_Assert_Expression
+                       (Expression (Corresponding_Aspect (Prag)),
+                     Standard_Boolean);
+                  end if;
+
+                  --  Chain the copy on the contract of the body
+
+                  Add_Contract_Item
+                    (Prag, Defining_Unit_Name (Specification (PO)));
+               end;
+            end if;
+
             In_Body := True;
             return;
 
          --  See if it is in the pragmas after a library level subprogram
 
-         elsif Nkind (Parent (N)) = N_Compilation_Unit_Aux then
+         elsif Nkind (PO) = N_Compilation_Unit_Aux then
 
             --  In formal verification mode, analyze pragma expression for
             --  correctness, as it is not expanded later.
 
             if SPARK_Mode then
                Analyze_PPC_In_Decl_Part
-                 (N, Defining_Entity (Unit (Parent (Parent (N)))));
+                 (N, Defining_Entity (Unit (Parent (PO))));
             end if;
 
-            Chain_PPC (Unit (Parent (Parent (N))));
+            Chain_PPC (Unit (Parent (PO)));
             return;
          end if;
 
@@ -4627,7 +4664,7 @@ package body Sem_Prag is
                               and then
                                 Is_Spec_Name (Unit_Name (Current_Sem_Unit))
                               and then (Ekind (Cent) /= E_Package
-                                          or else not In_Private_Part (Cent));
+                                         or else not In_Private_Part (Cent));
                   --  Set True if this is the warning case, and we are in the
                   --  visible part of a package spec, or in a subprogram spec,
                   --  in which case we want to force the client to see the
@@ -6988,33 +7025,8 @@ package body Sem_Prag is
          Expr  : Node_Id;
          Val   : Uint;
 
-         procedure Check_Unit_Name (N : Node_Id);
-         --  Checks unit name parameter for No_Dependence. Returns if it has
-         --  an appropriate form, otherwise raises pragma argument error.
-
-         ---------------------
-         -- Check_Unit_Name --
-         ---------------------
-
-         procedure Check_Unit_Name (N : Node_Id) is
-         begin
-            if Nkind (N) = N_Selected_Component then
-               Check_Unit_Name (Prefix (N));
-               Check_Unit_Name (Selector_Name (N));
-
-            elsif Nkind (N) = N_Identifier then
-               return;
-
-            else
-               Error_Pragma_Arg
-                 ("wrong form for unit name for No_Dependence", N);
-            end if;
-         end Check_Unit_Name;
-
-      --  Start of processing for Process_Restrictions_Or_Restriction_Warnings
-
       begin
-         --  Ignore all Restrictions pragma in CodePeer mode
+         --  Ignore all Restrictions pragmas in CodePeer mode
 
          if CodePeer_Mode then
             return;
@@ -7172,7 +7184,9 @@ package body Sem_Prag is
             --  already made the necessary entry in the No_Dependence table.
 
             elsif Id = Name_No_Dependence then
-               Check_Unit_Name (Expr);
+               if not OK_No_Dependence_Unit_Name (Expr) then
+                  raise Pragma_Exit;
+               end if;
 
             --  Case of No_Specification_Of_Aspect => Identifier.
 
@@ -16352,16 +16366,6 @@ package body Sem_Prag is
             function Get_SPARK_Mode_Name (Id : SPARK_Mode_Id) return Name_Id;
             --  Convert a value of type SPARK_Mode_Id into a corresponding name
 
-            procedure Redefinition_Error (Mode : SPARK_Mode_Id);
-            --  Emit an error on an attempt to redefine existing mode Mode. The
-            --  message is associated with the first argument of the current
-            --  pragma.
-
-            procedure Redefinition_Error (Prag : Node_Id);
-            --  Emit an error on an attempt to redefine the mode of Prag. The
-            --  message is associated with the first argument of the current
-            --  pragma.
-
             ------------------
             -- Chain_Pragma --
             ------------------
@@ -16472,41 +16476,14 @@ package body Sem_Prag is
                end if;
             end Get_SPARK_Mode_Name;
 
-            ------------------------
-            -- Redefinition_Error --
-            ------------------------
-
-            procedure Redefinition_Error (Mode : SPARK_Mode_Id) is
-            begin
-               Error_Msg_Name_1 := Get_SPARK_Mode_Name (Mode);
-               Error_Msg_N
-                 ("cannot redefine 'S'P'A'R'K mode, already set to %", Arg1);
-            end Redefinition_Error;
-
-            ------------------------
-            -- Redefinition_Error --
-            ------------------------
-
-            procedure Redefinition_Error (Prag : Node_Id) is
-               Mode : constant Name_Id :=
-                        Chars (Get_Pragma_Arg (First
-                         (Pragma_Argument_Associations (Prag))));
-            begin
-               Error_Msg_Name_1 := Mode;
-               Error_Msg_Sloc   := Sloc (Prag);
-               Error_Msg_N
-                 ("cannot redefine 'S'P'A'R'K mode, already set to % #", Arg1);
-            end Redefinition_Error;
-
             --  Local variables
 
-            Body_Id   : Entity_Id;
-            Context   : Node_Id;
-            Mode      : Name_Id;
-            Mode_Id   : SPARK_Mode_Id;
-            Spec_Id   : Entity_Id;
-            Stmt      : Node_Id;
-            Unit_Prag : Node_Id;
+            Body_Id : Entity_Id;
+            Context : Node_Id;
+            Mode    : Name_Id;
+            Mode_Id : SPARK_Mode_Id;
+            Spec_Id : Entity_Id;
+            Stmt    : Node_Id;
 
          --  Start of processing for SPARK_Mode
 
@@ -16534,38 +16511,14 @@ package body Sem_Prag is
 
             if No (Context) then
                Check_Valid_Configuration_Pragma;
-
-               --  Set the global mode
-
-               if Global_SPARK_Mode = None then
-                  Global_SPARK_Mode := Mode_Id;
-
-               --  Catch an attempt to redefine an existing global mode by
-               --  using multiple configuration files.
-
-               elsif Global_SPARK_Mode /= Mode_Id then
-                  Redefinition_Error (Global_SPARK_Mode);
-               end if;
+               Global_SPARK_Mode := Mode_Id;
 
             --  When the pragma is placed before the declaration of a unit, it
             --  configures the whole unit.
 
             elsif Nkind (Context) = N_Compilation_Unit then
                Check_Valid_Configuration_Pragma;
-
-               Unit_Prag := SPARK_Mode_Pragma (Current_Sem_Unit);
-
-               --  Set the unit mode
-
-               if No (Unit_Prag) then
-                  Set_SPARK_Mode_Pragma (Current_Sem_Unit, N);
-
-               --  Catch an attempt to redefine the unit mode by using multiple
-               --  pragmas declared in the same region.
-
-               else
-                  Redefinition_Error (Unit_Prag);
-               end if;
+               Set_SPARK_Mode_Pragma (Current_Sem_Unit, N);
 
             --  The pragma applies to a [library unit] subprogram or package
 

@@ -1,7 +1,6 @@
 ------------------------------------------------------------------------------
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
---                                                                          --
 --                                E I N F O                                 --
 --                                                                          --
 --                                 S p e c                                  --
@@ -3760,7 +3759,7 @@ package Einfo is
 --    SPARK_Mode_Pragmas (Node32)
 --       Present in the entities of subprogram specs and bodies as well as in
 --       package specs and bodies. Points to a list of SPARK_Mode pragmas that
---       apply to the related construct.
+--       apply to the related construct. Add note of what this is used for ???
 
 --    Spec_Entity (Node19)
 --       Defined in package body entities. Points to corresponding package
@@ -7376,7 +7375,9 @@ package Einfo is
    function Get_Pragma (E : Entity_Id; Id : Pragma_Id) return Node_Id;
    --  Searches the Rep_Item chain for a given entity E, for an instance of
    --  a pragma with the given pragma Id. If found, the value returned is the
-   --  N_Pragma node, otherwise Empty is returned.
+   --  N_Pragma node, otherwise Empty is returned. Delayed pragmas such as
+   --  Precondition, Postcondition, Contract_Cases, Depends and Global appear
+   --  in the N_Contract node of entity E and are also handled by this routine.
 
    function Get_Record_Representation_Clause (E : Entity_Id) return Node_Id;
    --  Searches the Rep_Item chain for a given entity E, for a record

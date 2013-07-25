@@ -48,6 +48,9 @@
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
 
+/* Defined for convenience.  */
+#define POINTER_BYTES (POINTER_SIZE / BITS_PER_UNIT)
+
 /* Classifies an address.
 
    ADDRESS_REG_IMM
@@ -95,6 +98,7 @@ struct simd_immediate_info
   int shift;
   int element_width;
   bool mvn;
+  bool msl;
 };
 
 /* The current code model.  */
@@ -378,8 +382,13 @@ aarch64_hard_regno_mode_ok (unsigned regno, enum machine_mode mode)
   if (GET_MODE_CLASS (mode) == MODE_CC)
     return regno == CC_REGNUM;
 
-  if (regno == SP_REGNUM || regno == FRAME_POINTER_REGNUM
-      || regno == ARG_POINTER_REGNUM)
+  if (regno == SP_REGNUM)
+    /* The purpose of comparing with ptr_mode is to support the
+       global register variable associated with the stack pointer
+       register via the syntax of asm ("wsp") in ILP32.  */
+    return mode == Pmode || mode == ptr_mode;
+
+  if (regno == FRAME_POINTER_REGNUM || regno == ARG_POINTER_REGNUM)
     return mode == Pmode;
 
   if (GP_REGNUM_P (regno) && ! aarch64_vect_struct_mode_p (mode))
@@ -542,13 +551,16 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
     {
     case SYMBOL_SMALL_ABSOLUTE:
       {
+	/* In ILP32, the mode of dest can be either SImode or DImode.  */
 	rtx tmp_reg = dest;
-	if (can_create_pseudo_p ())
-	  {
-	    tmp_reg =  gen_reg_rtx (Pmode);
-	  }
+	enum machine_mode mode = GET_MODE (dest);
 
-	emit_move_insn (tmp_reg, gen_rtx_HIGH (Pmode, imm));
+	gcc_assert (mode == Pmode || mode == ptr_mode);
+
+	if (can_create_pseudo_p ())
+	  tmp_reg = gen_reg_rtx (mode);
+
+	emit_move_insn (tmp_reg, gen_rtx_HIGH (mode, imm));
 	emit_insn (gen_add_losym (dest, tmp_reg, imm));
 	return;
       }
@@ -559,11 +571,33 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 
     case SYMBOL_SMALL_GOT:
       {
+	/* In ILP32, the mode of dest can be either SImode or DImode,
+	   while the got entry is always of SImode size.  The mode of
+	   dest depends on how dest is used: if dest is assigned to a
+	   pointer (e.g. in the memory), it has SImode; it may have
+	   DImode if dest is dereferenced to access the memeory.
+	   This is why we have to handle three different ldr_got_small
+	   patterns here (two patterns for ILP32).  */
 	rtx tmp_reg = dest;
+	enum machine_mode mode = GET_MODE (dest);
+
 	if (can_create_pseudo_p ())
-	  tmp_reg =  gen_reg_rtx (Pmode);
-	emit_move_insn (tmp_reg, gen_rtx_HIGH (Pmode, imm));
-	emit_insn (gen_ldr_got_small (dest, tmp_reg, imm));
+	  tmp_reg = gen_reg_rtx (mode);
+
+	emit_move_insn (tmp_reg, gen_rtx_HIGH (mode, imm));
+	if (mode == ptr_mode)
+	  {
+	    if (mode == DImode)
+	      emit_insn (gen_ldr_got_small_di (dest, tmp_reg, imm));
+	    else
+	      emit_insn (gen_ldr_got_small_si (dest, tmp_reg, imm));
+	  }
+	else
+	  {
+	    gcc_assert (mode == Pmode);
+	    emit_insn (gen_ldr_got_small_sidi (dest, tmp_reg, imm));
+	  }
+
 	return;
       }
 
@@ -611,6 +645,10 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
+
+    case SYMBOL_TINY_GOT:
+      emit_insn (gen_ldr_got_tiny (dest, imm));
+      return;
 
     default:
       gcc_unreachable ();
@@ -880,8 +918,10 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	      aarch64_emit_move (dest, base);
 	      return;
 	    }
-	  mem = force_const_mem (mode, imm);
+	  mem = force_const_mem (ptr_mode, imm);
 	  gcc_assert (mem);
+	  if (mode != ptr_mode)
+	    mem = gen_rtx_ZERO_EXTEND (mode, mem);
 	  emit_insn (gen_rtx_SET (VOIDmode, dest, mem));
 	  return;
 
@@ -889,6 +929,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
         case SYMBOL_SMALL_TLSDESC:
         case SYMBOL_SMALL_GOTTPREL:
 	case SYMBOL_SMALL_GOT:
+	case SYMBOL_TINY_GOT:
 	  if (offset != const0_rtx)
 	    {
 	      gcc_assert(can_create_pseudo_p ());
@@ -1576,11 +1617,12 @@ aarch64_pad_arg_upward (enum machine_mode mode, const_tree type)
   if (!BYTES_BIG_ENDIAN)
     return true;
 
-  /* Otherwise, integral types and floating point types are padded downward:
+  /* Otherwise, integral, floating-point and pointer types are padded downward:
      the least significant byte of a stack argument is passed at the highest
      byte address of the stack slot.  */
   if (type
-      ? (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type))
+      ? (INTEGRAL_TYPE_P (type) || SCALAR_FLOAT_TYPE_P (type)
+	 || POINTER_TYPE_P (type))
       : (SCALAR_INT_MODE_P (mode) || SCALAR_FLOAT_MODE_P (mode)))
     return false;
 
@@ -2282,7 +2324,7 @@ aarch64_expand_epilogue (bool for_sibcall)
 	 However the dwarf emitter only understands a constant
 	 register offset.
 
-	 The solution choosen here is to use the otherwise unused IP0
+	 The solution chosen here is to use the otherwise unused IP0
 	 as a temporary register to hold the current SP value.  The
 	 CFA is described using IP0 then SP is modified.  */
 
@@ -2512,7 +2554,7 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     aarch64_add_constant (this_regno, IP1_REGNUM, delta);
   else
     {
-      gcc_assert ((vcall_offset & 0x7) == 0);
+      gcc_assert ((vcall_offset & (POINTER_BYTES - 1)) == 0);
 
       this_rtx = gen_rtx_REG (Pmode, this_regno);
       temp0 = gen_rtx_REG (Pmode, IP0_REGNUM);
@@ -2528,9 +2570,14 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	    aarch64_add_constant (this_regno, IP1_REGNUM, delta);
 	}
 
-      aarch64_emit_move (temp0, gen_rtx_MEM (Pmode, addr));
+      if (Pmode == ptr_mode)
+	aarch64_emit_move (temp0, gen_rtx_MEM (ptr_mode, addr));
+      else
+	aarch64_emit_move (temp0,
+			   gen_rtx_ZERO_EXTEND (Pmode,
+						gen_rtx_MEM (ptr_mode, addr)));
 
-      if (vcall_offset >= -256 && vcall_offset < 32768)
+      if (vcall_offset >= -256 && vcall_offset < 4096 * POINTER_BYTES)
 	  addr = plus_constant (Pmode, temp0, vcall_offset);
       else
 	{
@@ -2538,7 +2585,13 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	  addr = gen_rtx_PLUS (Pmode, temp0, temp1);
 	}
 
-      aarch64_emit_move (temp1, gen_rtx_MEM (Pmode,addr));
+      if (Pmode == ptr_mode)
+	aarch64_emit_move (temp1, gen_rtx_MEM (ptr_mode,addr));
+      else
+	aarch64_emit_move (temp1,
+			   gen_rtx_SIGN_EXTEND (Pmode,
+						gen_rtx_MEM (ptr_mode, addr)));
+
       emit_insn (gen_add2_insn (this_rtx, temp1));
     }
 
@@ -2716,8 +2769,15 @@ aarch64_cannot_force_const_mem (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
 
   split_const (x, &base, &offset);
   if (GET_CODE (base) == SYMBOL_REF || GET_CODE (base) == LABEL_REF)
-    return (aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR)
-	    != SYMBOL_FORCE_TO_MEM);
+    {
+      if (aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR)
+	  != SYMBOL_FORCE_TO_MEM)
+	return true;
+      else
+	/* Avoid generating a 64-bit relocation in ILP32; leave
+	   to aarch64_expand_mov_immediate to handle it properly.  */
+	return mode != ptr_mode;
+    }
 
   return aarch64_tls_referenced_p (x);
 }
@@ -3645,6 +3705,10 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  asm_fprintf (asm_out_file, ":tprel:");
 	  break;
 
+	case SYMBOL_TINY_GOT:
+	  gcc_unreachable ();
+	  break;
+
 	default:
 	  break;
 	}
@@ -3672,6 +3736,10 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 
 	case SYMBOL_SMALL_TPREL:
 	  asm_fprintf (asm_out_file, ":tprel_lo12_nc:");
+	  break;
+
+	case SYMBOL_TINY_GOT:
+	  asm_fprintf (asm_out_file, ":got:");
 	  break;
 
 	default:
@@ -3904,6 +3972,10 @@ aarch64_legitimize_reload_address (rtx *x_p,
       HOST_WIDE_INT high = val - low;
       HOST_WIDE_INT offs;
       rtx cst;
+      enum machine_mode xmode = GET_MODE (x);
+
+      /* In ILP32, xmode can be either DImode or SImode.  */
+      gcc_assert (xmode == DImode || xmode == SImode);
 
       /* Reload non-zero BLKmode offsets.  This is because we cannot ascertain
 	 BLKmode alignment.  */
@@ -3937,16 +4009,16 @@ aarch64_legitimize_reload_address (rtx *x_p,
 
       cst = GEN_INT (high);
       if (!aarch64_uimm12_shift (high))
-	cst = force_const_mem (Pmode, cst);
+	cst = force_const_mem (xmode, cst);
 
       /* Reload high part into base reg, leaving the low part
 	 in the mem instruction.  */
-      x = gen_rtx_PLUS (Pmode,
-			gen_rtx_PLUS (Pmode, XEXP (x, 0), cst),
+      x = gen_rtx_PLUS (xmode,
+			gen_rtx_PLUS (xmode, XEXP (x, 0), cst),
 			GEN_INT (low));
 
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
-		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
+		   BASE_REG_CLASS, xmode, VOIDmode, 0, 0,
 		   opnum, (enum reload_type) type);
       return x;
     }
@@ -4094,41 +4166,47 @@ aarch64_return_addr (int count, rtx frame ATTRIBUTE_UNUSED)
 static void
 aarch64_asm_trampoline_template (FILE *f)
 {
-  asm_fprintf (f, "\tldr\t%s, .+16\n", reg_names [IP1_REGNUM]);
-  asm_fprintf (f, "\tldr\t%s, .+20\n", reg_names [STATIC_CHAIN_REGNUM]);
+  if (TARGET_ILP32)
+    {
+      asm_fprintf (f, "\tldr\tw%d, .+16\n", IP1_REGNUM - R0_REGNUM);
+      asm_fprintf (f, "\tldr\tw%d, .+16\n", STATIC_CHAIN_REGNUM - R0_REGNUM);
+    }
+  else
+    {
+      asm_fprintf (f, "\tldr\t%s, .+16\n", reg_names [IP1_REGNUM]);
+      asm_fprintf (f, "\tldr\t%s, .+20\n", reg_names [STATIC_CHAIN_REGNUM]);
+    }
   asm_fprintf (f, "\tbr\t%s\n", reg_names [IP1_REGNUM]);
   assemble_aligned_integer (4, const0_rtx);
-  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);
-  assemble_aligned_integer (UNITS_PER_WORD, const0_rtx);
-}
-
-unsigned
-aarch64_trampoline_size (void)
-{
-  return 32;  /* 3 insns + padding + 2 dwords.  */
+  assemble_aligned_integer (POINTER_BYTES, const0_rtx);
+  assemble_aligned_integer (POINTER_BYTES, const0_rtx);
 }
 
 static void
 aarch64_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 {
   rtx fnaddr, mem, a_tramp;
+  const int tramp_code_sz = 16;
 
   /* Don't need to copy the trailing D-words, we fill those in below.  */
   emit_block_move (m_tramp, assemble_trampoline_template (),
-		   GEN_INT (TRAMPOLINE_SIZE - 16), BLOCK_OP_NORMAL);
-  mem = adjust_address (m_tramp, DImode, 16);
+		   GEN_INT (tramp_code_sz), BLOCK_OP_NORMAL);
+  mem = adjust_address (m_tramp, ptr_mode, tramp_code_sz);
   fnaddr = XEXP (DECL_RTL (fndecl), 0);
+  if (GET_MODE (fnaddr) != ptr_mode)
+    fnaddr = convert_memory_address (ptr_mode, fnaddr);
   emit_move_insn (mem, fnaddr);
 
-  mem = adjust_address (m_tramp, DImode, 24);
+  mem = adjust_address (m_tramp, ptr_mode, tramp_code_sz + POINTER_BYTES);
   emit_move_insn (mem, chain_value);
 
   /* XXX We should really define a "clear_cache" pattern and use
      gen_clear_cache().  */
   a_tramp = XEXP (m_tramp, 0);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),
-		     LCT_NORMAL, VOIDmode, 2, a_tramp, Pmode,
-		     plus_constant (Pmode, a_tramp, TRAMPOLINE_SIZE), Pmode);
+		     LCT_NORMAL, VOIDmode, 2, a_tramp, ptr_mode,
+		     plus_constant (ptr_mode, a_tramp, TRAMPOLINE_SIZE),
+		     ptr_mode);
 }
 
 static unsigned char
@@ -4183,9 +4261,7 @@ aarch64_elf_asm_constructor (rtx symbol, int priority)
       s = get_section (buf, SECTION_WRITE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
-      fputs ("\t.dword\t", asm_out_file);
-      output_addr_const (asm_out_file, symbol);
-      fputc ('\n', asm_out_file);
+      assemble_aligned_integer (POINTER_BYTES, symbol);
     }
 }
 
@@ -4202,9 +4278,7 @@ aarch64_elf_asm_destructor (rtx symbol, int priority)
       s = get_section (buf, SECTION_WRITE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
-      fputs ("\t.dword\t", asm_out_file);
-      output_addr_const (asm_out_file, symbol);
-      fputc ('\n', asm_out_file);
+      assemble_aligned_integer (POINTER_BYTES, symbol);
     }
 }
 
@@ -5240,7 +5314,7 @@ aarch64_classify_symbol (rtx x,
 
 	case AARCH64_CMODEL_TINY_PIC:
 	  if (!aarch64_symbol_binds_local_p (x))
-	    return SYMBOL_SMALL_GOT;
+	    return SYMBOL_TINY_GOT;
 	  return SYMBOL_TINY_ABSOLUTE;
 
 	case AARCH64_CMODEL_SMALL_PIC:
@@ -6437,16 +6511,16 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
       CHECK (2, 16, 11, bytes[i] == 0xff && bytes[i + 1] == bytes[1], 8, 1);
 
       CHECK (4, 32, 12, bytes[i] == 0xff && bytes[i + 1] == bytes[1]
-	     && bytes[i + 2] == 0 && bytes[i + 3] == 0, 0, 0);
+	     && bytes[i + 2] == 0 && bytes[i + 3] == 0, 8, 0);
 
       CHECK (4, 32, 13, bytes[i] == 0 && bytes[i + 1] == bytes[1]
-	     && bytes[i + 2] == 0xff && bytes[i + 3] == 0xff, 0, 1);
+	     && bytes[i + 2] == 0xff && bytes[i + 3] == 0xff, 8, 1);
 
       CHECK (4, 32, 14, bytes[i] == 0xff && bytes[i + 1] == 0xff
-	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0, 0, 0);
+	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0, 16, 0);
 
       CHECK (4, 32, 15, bytes[i] == 0 && bytes[i + 1] == 0
-	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0xff, 0, 1);
+	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0xff, 16, 1);
 
       CHECK (1, 8, 16, bytes[i] == bytes[0], 0, 0);
 
@@ -6455,12 +6529,7 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
     }
   while (0);
 
-  /* TODO: Currently the assembler cannot handle types 12 to 15.
-     And there is no way to specify cmode through the compiler.
-     Disable them till there is support in the assembler.  */
-  if (immtype == -1
-      || (immtype >= 12 && immtype <= 15)
-      || immtype == 18)
+  if (immtype == -1)
     return false;
 
   if (info)
@@ -6470,6 +6539,9 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
       info->shift = eshift;
 
       unsigned HOST_WIDE_INT imm = 0;
+
+      if (immtype >= 12 && immtype <= 15)
+	info->msl = true;
 
       /* Un-invert bytes of recognized vector, if necessary.  */
       if (invmask != 0)
@@ -7403,10 +7475,11 @@ aarch64_output_simd_mov_immediate (rtx const_vector,
   bool is_valid;
   static char templ[40];
   const char *mnemonic;
+  const char *shift_op;
   unsigned int lane_count = 0;
   char element_char;
 
-  struct simd_immediate_info info;
+  struct simd_immediate_info info = { NULL_RTX, 0, 0, false, false };
 
   /* This will return true to show const_vector is legal for use as either
      a AdvSIMD MOVI instruction (or, implicitly, MVNI) immediate.  It will
@@ -7442,14 +7515,15 @@ aarch64_output_simd_mov_immediate (rtx const_vector,
     }
 
   mnemonic = info.mvn ? "mvni" : "movi";
+  shift_op = info.msl ? "msl" : "lsl";
 
   if (lane_count == 1)
     snprintf (templ, sizeof (templ), "%s\t%%d0, " HOST_WIDE_INT_PRINT_HEX,
 	      mnemonic, UINTVAL (info.value));
   else if (info.shift)
     snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, " HOST_WIDE_INT_PRINT_HEX
-	      ", lsl %d", mnemonic, lane_count, element_char,
-	      UINTVAL (info.value), info.shift);
+	      ", %s %d", mnemonic, lane_count, element_char,
+	      UINTVAL (info.value), shift_op, info.shift);
   else
     snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, " HOST_WIDE_INT_PRINT_HEX,
 	      mnemonic, lane_count, element_char, UINTVAL (info.value));
