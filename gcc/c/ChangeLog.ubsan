@@ -1,0 +1,9 @@
+2013-07-21  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (build_binary_op): Call c_fully_fold on both
+	SAVE_EXPRs.
+
+2013-07-05  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (build_binary_op): Add division by zero and shift
+	instrumentation.
