@@ -26,7 +26,7 @@
 #define _VTV_UTILS_H 1
 
 #include <stdlib.h>
-#include "../../include/vtv-change-permission.h"
+#include "../include/vtv-change-permission.h"
 
 static inline void
 VTV_not_an_error (void)

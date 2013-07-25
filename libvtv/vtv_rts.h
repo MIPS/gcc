@@ -27,23 +27,24 @@
 
 #include <cstdlib>
 
-/* These prototypes needs to be kept in sync with the compiler-
-   generated declarations in vtable-class-hierarchy.c.  */
+// These prototypes needs to be kept in sync with the compiler-generated declarations in vtable-class-hierarchy.c
+extern void 
+__VLTRegisterSet(void**, const void*, std::size_t, std::size_t, void**);
 
+extern void 
+__VLTRegisterSetDebug(void**, const void*, std::size_t, std::size_t, void**);
 
+extern void 
+__VLTRegisterPair(void**, const void*, size_t, const void*);
 
-extern void __VLTRegisterSet      (void **, const void *, std::size_t,
-                                   std::size_t, void **);
-extern void __VLTRegisterSetDebug (void **, const void *, std::size_t,
-                                   std::size_t, void **);
+extern void 
+__VLTRegisterPairDebug(void**, const void*, size_t, const void*, 
+		       const char*, const char*);
 
-extern void __VLTRegisterPair      (void **, const void *, size_t,
-				    const void *);
-extern void __VLTRegisterPairDebug (void **, const void *, size_t,
-                                    const void *, const char *, const char *);
+extern const void*
+__VLTVerifyVtablePointer(void**, const void*);
 
-extern const void *__VLTVerifyVtablePointer      (void **, const void *);
-extern const void *__VLTVerifyVtablePointerDebug (void **, const void *,
-						  const char *, const char *);
+extern const void*
+__VLTVerifyVtablePointerDebug(void**, const void*, const char*, const char*);
 
 #endif /* _VTV_RTS_H */

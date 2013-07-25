@@ -1,3 +1,7 @@
+2013-07-23  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/vtv_stubs.cc: Include cstddef.
+
 2013-07-15  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* acinclude.m4 (GLIBCXX_ENABLE_VTABLE_VERIFY):Adjust VTV_CXXFLAGS

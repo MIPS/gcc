@@ -35,6 +35,8 @@
    the real verification functions with a set of functions that do
    nothing (so no more verification failures/aborts).  */
 
+#include <cstddef>
+
 // Declare as weak for libsupc++.
 extern "C"
 void
