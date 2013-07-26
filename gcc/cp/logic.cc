@@ -1,4 +1,4 @@
-/* Process declarations and variables for C++ compiler.
+/* Derivation and subsumption rules for constraints.
    Copyright (C) 2013 Free Software Foundation, Inc.
    Contributed by Andrew Sutton (andrew.n.sutton@gmail.com)
 
@@ -18,8 +18,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-// Algorithms and data structures for the decomposition and validation
-// of logical formulas.
+// 
 
 #include "config.h"
 #include "system.h"

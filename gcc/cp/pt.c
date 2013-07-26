@@ -168,8 +168,6 @@ static tree expand_template_argument_pack (tree);
 static tree build_template_parm_index (int, int, int, tree, tree);
 static bool inline_needs_template_parms (tree);
 static void push_inline_template_parms_recursive (tree, int);
-static tree retrieve_local_specialization (tree);
-static void register_local_specialization (tree, tree);
 static hashval_t hash_specialization (const void *p);
 static tree reduce_template_parm_level (tree, tree, int, tree, tsubst_flags_t);
 static int mark_template_parm (tree, void *);
@@ -209,7 +207,6 @@ static int invalid_nontype_parm_type_p (tree, tsubst_flags_t);
 static bool dependent_template_arg_p (tree);
 static bool any_template_arguments_need_structural_equality_p (tree);
 static bool dependent_type_p_r (tree);
-static tree tsubst_expr	(tree, tree, tsubst_flags_t, tree, bool);
 static tree tsubst_copy	(tree, tree, tsubst_flags_t, tree);
 static tree tsubst_pack_expansion (tree, tree, tsubst_flags_t, tree);
 static tree tsubst_decl (tree, tree, tsubst_flags_t);
@@ -1100,7 +1097,7 @@ retrieve_specialization (tree tmpl, tree args, hashval_t hash)
 
 /* Like retrieve_specialization, but for local declarations.  */
 
-static tree
+tree
 retrieve_local_specialization (tree tmpl)
 {
   void **slot;
@@ -1711,7 +1708,7 @@ reregister_specialization (tree spec, tree tinfo, tree new_spec)
 /* Like register_specialization, but for local declarations.  We are
    registering SPEC, an instantiation of TMPL.  */
 
-static void
+void
 register_local_specialization (tree spec, tree tmpl)
 {
   void **slot;
@@ -3908,7 +3905,7 @@ template_parms_to_args (tree parms)
 /* Within the declaration of a template, return the currently active
    template parameters as an argument TREE_VEC.  */
 
-tree
+static tree
 current_template_args (void)
 {
   return template_parms_to_args (current_template_parms);
@@ -9265,7 +9262,7 @@ tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
    instantiated from it at *SPEC_P, return a NONTYPE_ARGUMENT_PACK of them
    and set *SPEC_P to point at the next point in the list.  */
 
-static tree
+tree
 extract_fnparm_pack (tree tmpl_parm, tree *spec_p)
 {
   /* Collect all of the extra "packed" parameters into an
@@ -13012,7 +13009,7 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
 /* Like tsubst_copy for expressions, etc. but also does semantic
    processing.  */
 
-static tree
+tree
 tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	     bool integral_constant_expression_p)
 {
@@ -14788,6 +14785,31 @@ tsubst_copy_and_build (tree t,
 		RECUR (TREE_OPERAND (t, 2)),
 		complain));
 
+    case REQUIRES_EXPR:
+      RETURN (tsubst_requires_expr (t, args, complain, in_decl));
+
+    case VALIDEXPR_EXPR:
+      RETURN (tsubst_validexpr_expr (t, args, in_decl));
+    
+    case VALIDTYPE_EXPR:
+      RETURN (tsubst_validtype_expr (t, args, in_decl));
+
+    case CONSTEXPR_EXPR:
+      RETURN (tsubst_constexpr_expr (t, args, in_decl));
+
+    // Normally, *_REQ are reduced out of requiremetns when used
+    // as constraints. If a concept is checked directly via e.g.,
+    // a static_assert, however, these appear in the input tree.
+
+    case EXPR_REQ:
+      RETURN (tsubst_expr_req (t, args, in_decl));
+
+    case TYPE_REQ:
+      RETURN (tsubst_type_req (t, args, in_decl));
+
+    case NESTED_REQ:
+      RETURN (tsubst_nested_req (t, args, in_decl));
+
     default:
       /* Handle Objective-C++ constructs, if appropriate.  */
       {
@@ -15394,7 +15416,7 @@ fn_type_unification (tree fn,
   if (!check_template_constraints (fn, targs)) 
     {
       if (explain_p)
-        diagnose_constraint_failure (DECL_SOURCE_LOCATION (fn), fn, targs);
+        diagnose_constraints (DECL_SOURCE_LOCATION (fn), fn, targs);
       return error_mark_node;
     }
 
@@ -21358,28 +21380,6 @@ print_template_statistics (void)
 	   "%f collisions\n", (long) htab_size (type_specializations),
 	   (long) htab_elements (type_specializations),
 	   htab_collisions (type_specializations));
-}
-
-// Substitute the template arguments ARGS into the requirement
-// expression REQS. Errors resulting from substitution are not
-// diagnosed.
-tree
-instantiate_requirements (tree reqs, tree args)
-{
-  return tsubst_expr (reqs, args, tf_none, NULL_TREE, true);
-}
-
-// Create a new constraint info block by substituting ARGS into
-// the requirements of CONS.
-//
-// Note that this does not require evaluation.
-tree
-tsubst_constraint (tree cons, tree args)
-{
-  if (!cons)
-    return NULL_TREE;
-  tree reqs = instantiate_requirements (CI_REQUIREMENTS (cons), args);
-  return make_constraints (reqs);
 }
 
 #include "gt-cp-pt.h"

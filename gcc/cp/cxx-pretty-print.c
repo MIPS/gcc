@@ -42,7 +42,6 @@ static void pp_cxx_ptr_operator (cxx_pretty_printer *, tree);
 static void pp_cxx_type_id (cxx_pretty_printer *, tree);
 static void pp_cxx_direct_abstract_declarator (cxx_pretty_printer *, tree);
 static void pp_cxx_declarator (cxx_pretty_printer *, tree);
-static void pp_cxx_parameter_declaration_clause (cxx_pretty_printer *, tree);
 static void pp_cxx_abstract_declarator (cxx_pretty_printer *, tree);
 static void pp_cxx_statement (cxx_pretty_printer *, tree);
 static void pp_cxx_template_parameter (cxx_pretty_printer *, tree);
@@ -478,6 +477,18 @@ pp_cxx_primary_expression (cxx_pretty_printer *pp, tree t)
 
     case NESTED_REQ:
       pp_cxx_nested_requirement (pp, t);
+      break;
+
+    case VALIDEXPR_EXPR:
+      pp_cxx_validexpr_expr (pp, t);
+      break;
+
+    case VALIDTYPE_EXPR:
+      pp_cxx_validtype_expr (pp, t);
+      break;
+
+    case CONSTEXPR_EXPR:
+      pp_cxx_constexpr_expr (pp, t);
       break;
 
     default:
@@ -1450,14 +1461,29 @@ pp_cxx_parameter_declaration (cxx_pretty_printer *pp, tree t)
       parameter-declaration
       parameter-declaration-list , parameter-declaration  */
 
-static void
+void
 pp_cxx_parameter_declaration_clause (cxx_pretty_printer *pp, tree t)
 {
-  tree args = TYPE_P (t) ? NULL : FUNCTION_FIRST_USER_PARM (t);
-  tree types =
-    TYPE_P (t) ? TYPE_ARG_TYPES (t) : FUNCTION_FIRST_USER_PARMTYPE (t);
-  const bool abstract = args == NULL
-    || pp_c_base (pp)->flags & pp_c_flag_abstract;
+  tree args;
+  tree types;
+  bool abstract;
+
+  // For a requires clause or the explicit printing of a parameter list
+  // we expect T to be a TREE_LIST of PARM_DECLs. Otherwise, the list of
+  // args and types are taken from the function decl T.
+  if (TREE_CODE (t) == TREE_LIST)
+    {
+      args = TREE_VALUE (t);
+      types = TREE_VALUE (t);
+      abstract = false;
+    }
+  else
+    {
+      bool type_p = TYPE_P (t);
+      args = type_p ? NULL : FUNCTION_FIRST_USER_PARM (t);
+      types = type_p ? TYPE_ARG_TYPES (t) : FUNCTION_FIRST_USER_PARMTYPE (t);
+      abstract = args == NULL || pp_c_base (pp)->flags & pp_c_flag_abstract;
+    }
   bool first = true;
 
   /* Skip artificial parameter for nonstatic member functions.  */
@@ -2486,28 +2512,8 @@ static void
 pp_cxx_requirement_body (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_left_brace (pp);
-  pp_cxx_requirement_list (pp, TREE_OPERAND (t, 1));
+  pp_cxx_requirement_list (pp, t);
   pp_cxx_right_brace (pp);
-}
-
-// requirement-parameter-list:
-//    '(' parameter-declaration-clause ')'
-static void
-pp_cxx_requirement_parameter_list (cxx_pretty_printer *pp, tree t)
-{
-  tree p = TREE_OPERAND (t, 0);
-  pp_left_paren (pp);
-  while (p)
-    {
-      tree parm = TREE_VALUE (p);
-      pp_cxx_parameter_declaration (pp, parm);
-      if (!VOID_TYPE_P (TREE_VALUE (TREE_CHAIN (p))))
-        pp_separate_with (pp, ',');
-      else
-        break;
-      p = TREE_CHAIN (p);
-    }
-  pp_right_paren (pp);
 }
 
 // requires-expression:
@@ -2517,9 +2523,9 @@ pp_cxx_requires_expr (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_ws_string (pp, "requires");
   pp_space (pp);
-  pp_cxx_requirement_parameter_list (pp, t);
+  pp_cxx_parameter_declaration_clause (pp, TREE_OPERAND (t, 0));
   pp_space (pp);
-  pp_cxx_requirement_body (pp, t);
+  pp_cxx_requirement_body (pp, TREE_OPERAND (t, 1));
 }
 
 // constraint-specifier:
@@ -2625,6 +2631,33 @@ pp_cxx_nested_requirement (cxx_pretty_printer *pp, tree t)
   pp_cxx_ws_string (pp, "requires");
   pp_cxx_expression (pp, TREE_OPERAND (t, 0));
   pp_cxx_semicolon (pp);
+}
+
+void
+pp_cxx_validexpr_expr (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "__is_valid_expr");
+  pp_cxx_left_paren (pp);
+  pp_cxx_expression (pp, TREE_OPERAND (t, 0));
+  pp_cxx_right_paren (pp);
+}
+
+void
+pp_cxx_validtype_expr (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "__is_valid_expr");
+  pp_cxx_left_paren (pp);
+  pp_cxx_type_id (pp, TREE_OPERAND (t, 0));
+  pp_cxx_right_paren (pp);
+}
+
+void
+pp_cxx_constexpr_expr (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_ws_string (pp, "__is_valid_expr");
+  pp_cxx_left_paren (pp);
+  pp_cxx_expression (pp, TREE_OPERAND (t, 0));
+  pp_cxx_right_paren (pp);
 }
 
 

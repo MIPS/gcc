@@ -3294,7 +3294,7 @@ print_z_candidate (location_t loc, const char *msgstr,
           {
             tree tmpl = r->u.template_instantiation.tmpl;
             tree args = r->u.template_instantiation.targs;
-            diagnose_constraint_failure (cloc, tmpl, args);
+            diagnose_constraints (cloc, tmpl, args);
           }
           break;
 	case rr_none:

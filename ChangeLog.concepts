@@ -1,4 +1,4 @@
-2013-07-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2013-07-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_parser_requires_expr): Update parser using new
 	requires expression nodes. Renamed some grammar productions to better 
 	reflect the representation of the syntax. Create a new scope for requires
@@ -9,34 +9,42 @@
 	(trait_expr_value): Evaluate __is_convertible_to.
 	(finish_requires_expr): Implemented, along with other functions to
 	construct and evaluate nodes for template constraints.
-	* gcc/cp/cp-tree.def: (REQUIRES_EXPR): New.
-	(EXPR_REQ): New.
-	(TYPE_REQ): New.
-	(NESTED_REQ): New.
-	(VALIDEXPR_EXPR): New.
-	(VALIDTYPE_EXPR): New.
-	(CONSTEXPR_EXPR): New.
+	(potential_constant_expression_1): Handle requires expressions.
+	(finish_template_requirements), (finish_requires_expr), etc:
+	Move to constraint.cc.
+	* gcc/cp/cp-tree.def: (REQUIRES_EXPR), (EXPR_REQ), (TYPE_REQ),
+	(NESTED_REQ), (VALIDEXPR_EXPR), (VALIDTYPE_EXPR), (CONSTEXPR_EXPR):
+	New.
 	* gcc/cp/cp-objcp-common.c (cp_common_init_ts): Make new nodes typed.
-	* gcc/cp/cp-tree.h (finish_expr_requirement): New.
-	(finish_type_requirement): New.
-	(finish_nested_requirement): New.
-	(finish_validexpr_expr): New.
-	(finish_validtype_expr): New.
+	* gcc/cp/cp-tree.h (finish_expr_requirement), 
+	(finish_type_requirement), (finish_nested_requirement),
+	(finish_validexpr_expr), (finish_validtype_expr),
 	(finish_constexpr_expr): New.
 	* gcc/cp/pt.c (convert_nontype_argument): Use can_convert_standard.
+	(retrieve_local_specialization), (register_local_specialization),
+	(extract_fnparm_pack): Make non-static.
+	(tsubst_expr): Substitution rules for requires expressions.
+	(instantiate_requirements): Move to constraints.cc
+	(tsubst_constraint): Remove.
 	* gcc/cp/call.c (can_convert): Allow user-defined conversions.
- 	(can_convert_standard): New.
- 	* gcc/cp/cvt.c (convert_to_reference): Use can_convert_standard.
- 	* gcc/cp/search.c (check_final_overrider): Use can_cnvert_standard.
- 	* gcc/cp/typeck.c (build_static_cast_1): Use can_convert_standard.
+	(can_convert_standard): New.
+	* gcc/cp/cvt.c (convert_to_reference): Use can_convert_standard.
+	* gcc/cp/search.c (check_final_overrider): Use can_cnvert_standard.
+	* gcc/cp/typeck.c (build_static_cast_1): Use can_convert_standard.
 	* gcc/cp/error.c (dump_expr): Pretty print new nodes.
 	* gcc/cp/cxx-pretty-print.c (pp_cxx_primary_expression): Pretty
 	print new expr/req nodes.
 	(pp_cxx_requires_expr): New along with related functions for
 	pretty printing requirements.
+	(pp_cxx_parameter_declaration_clause): Accommodate "raw" parameter
+	lists in addition to function decls.
+	(pp_cxx_requirement_parameter_list): Unified with parameter decl clause.
 	* gcc/cp/cxx-pretty-print.h (pp_cxx_requires_expr): New along with
 	related functions for pretty printing requirements.     
-
+	* gcc/cp/logic.cc: Move header comments to top of file.
+	* gcc/cp/constraint.cc (reduce_requirements): Handle requires
+	expressions.
+	(diagnose_constraints): Rename and handle requires expressions.
 
 2013-07-01  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/error.c (cp_printer): Fix unnecessary whitespace change.

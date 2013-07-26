@@ -5602,6 +5602,8 @@ extern tree tsubst_default_argument		(tree, tree, tree);
 extern tree tsubst (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t,
 						 tree, bool, bool);
+extern tree tsubst_expr                         (tree, tree, tsubst_flags_t, 
+                                                 tree, bool);
 extern tree most_general_template		(tree);
 extern tree get_mostly_instantiated_function_type (tree);
 extern int problematic_instantiation_changed	(void);
@@ -5648,9 +5650,10 @@ extern tree get_function_template_decl		(const_tree);
 extern tree resolve_nondeduced_context		(tree);
 extern hashval_t iterative_hash_template_arg (tree arg, hashval_t val);
 extern tree coerce_template_parms               (tree, tree, tree);
-extern tree instantiate_requirements            (tree, tree);
-extern tree tsubst_constraint                   (tree, tree);
-extern tree current_template_args               ();
+extern void register_local_specialization       (tree, tree);
+extern tree retrieve_local_specialization       (tree);
+extern tree extract_fnparm_pack                 (tree, tree *);
+
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -5804,16 +5807,6 @@ extern void explain_invalid_constexpr_fn (tree);
 extern vec<tree> cx_error_context (void);
 extern bool is_unary_trait                      (cp_trait_kind);
 extern bool is_binary_trait                     (cp_trait_kind);
-extern tree finish_requires_expr                (tree, tree);
-extern tree finish_expr_requirement             (tree, tree, tree);
-extern tree finish_expr_requirement             (tree);
-extern tree finish_type_requirement             (tree);
-extern tree finish_nested_requirement           (tree);
-extern tree finish_constexpr_requirement        (tree);
-extern tree finish_noexcept_requirement         (tree);
-extern tree finish_validexpr_expr               (tree);
-extern tree finish_validtype_epxr               (tree);
-extern tree finish_constexpr_expr               (tree);
 
 enum {
   BCS_NO_SCOPE = 1,
@@ -6257,10 +6250,30 @@ extern tree strip_using_decl                    (tree);
 
 /* in constraint.cc */
 extern tree conjoin_requirements                (tree, tree);
-extern tree disjoin_requirements                (tree, tree);
 extern tree reduce_requirements                 (tree);
 extern tree make_constraints                    (tree);
 extern tree get_constraints                     (tree);
+
+extern tree finish_requires_expr                (tree, tree);
+extern tree finish_expr_requirement             (tree, tree, tree);
+extern tree finish_expr_requirement             (tree);
+extern tree finish_type_requirement             (tree);
+extern tree finish_nested_requirement           (tree);
+extern tree finish_constexpr_requirement        (tree);
+extern tree finish_noexcept_requirement         (tree);
+extern tree finish_validexpr_expr               (tree);
+extern tree finish_validtype_expr               (tree);
+extern tree finish_constexpr_expr               (tree);
+
+extern tree tsubst_requires_expr                (tree, tree, tsubst_flags_t, tree);
+extern tree tsubst_validexpr_expr               (tree, tree, tree);
+extern tree tsubst_validtype_expr               (tree, tree, tree);
+extern tree tsubst_constexpr_expr               (tree, tree, tree);
+extern tree tsubst_expr_req                     (tree, tree, tree);
+extern tree tsubst_type_req                     (tree, tree, tree);
+extern tree tsubst_nested_req                   (tree, tree, tree);
+extern tree instantiate_requirements            (tree, tree);
+
 extern bool check_constraints                   (tree);
 extern bool check_constraints                   (tree, tree);
 extern bool check_template_constraints          (tree, tree);
@@ -6269,7 +6282,8 @@ extern bool equivalent_constraints              (tree, tree);
 extern bool equivalently_constrained            (tree, tree);
 extern bool more_constraints                    (tree, tree);
 extern bool more_constrained                    (tree, tree);
-extern void diagnose_constraint_failure         (location_t, tree, tree);
+
+extern void diagnose_constraints                (location_t, tree, tree);
 
 /* in logic.cc */
 extern tree decompose_assumptions               (tree);

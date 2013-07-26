@@ -57,6 +57,7 @@ static const char *expr_to_string (tree);
 static const char *fndecl_to_string (tree, int);
 static const char *op_to_string	(enum tree_code);
 static const char *parm_to_string (int);
+static const char *parms_to_string (tree);
 static const char *type_to_string (tree, int);
 
 static void dump_alias_template_specialization (tree, int);
@@ -2589,6 +2590,17 @@ dump_expr (tree t, int flags)
       pp_cxx_nested_requirement (cxx_pp, t);
       break;
 
+    case VALIDEXPR_EXPR:
+      pp_cxx_validexpr_expr (cxx_pp, t);
+      break;
+
+    case VALIDTYPE_EXPR:
+      pp_cxx_validtype_expr (cxx_pp, t);
+      break;
+    
+    case CONSTEXPR_EXPR:
+      pp_cxx_constexpr_expr (cxx_pp, t);
+
       /*  This list is incomplete, but should suffice for now.
 	  It is very important that `sorry' does not call
 	  `report_error_function'.  That could cause an infinite loop.  */
@@ -2908,7 +2920,7 @@ args_to_string (tree p, int verbose)
   int flags = 0;
   if (verbose)
     flags |= TFF_CLASS_KEY_OR_ENUM;
-
+  
   if (p == NULL_TREE)
     return "";
 
@@ -2965,6 +2977,14 @@ cv_to_string (tree p, int v)
   reinit_cxx_pp ();
   pp_base (cxx_pp)->padding = v ? pp_before : pp_none;
   pp_cxx_cv_qualifier_seq (cxx_pp, p);
+  return pp_formatted_text (cxx_pp);
+}
+
+static const char*
+parms_to_string (tree p)
+{
+  reinit_cxx_pp ();
+  pp_cxx_parameter_declaration_clause (cxx_pp, p);
   return pp_formatted_text (cxx_pp);
 }
 
@@ -3400,6 +3420,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'K':
       percent_K_format (text);
       return true;
+    case 'Z': result = parms_to_string (next_tree);          break;
 
     default:
       return false;
