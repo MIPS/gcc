@@ -1966,7 +1966,8 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
     }
 
   /* F2008, 12.5.2.5; IR F08/0073.  */
-  if (formal->ts.type == BT_CLASS && actual->expr_type != EXPR_NULL
+  if (formal->ts.type == BT_CLASS && formal->attr.class_ok
+      && actual->expr_type != EXPR_NULL
       && ((CLASS_DATA (formal)->attr.class_pointer
 	   && !formal->attr.intent == INTENT_IN)
           || CLASS_DATA (formal)->attr.allocatable))
@@ -1978,6 +1979,10 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
 			formal->name, &actual->where);
 	  return 0;
 	}
+
+      if (!gfc_expr_attr (actual).class_ok)
+	return 0;
+
       if (!gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
 				      CLASS_DATA (formal)->ts.u.derived))
 	{
@@ -3170,7 +3175,7 @@ gfc_procedure_use (gfc_symbol *sym, gfc_actual_arglist **ap, locus *where)
   gfc_formal_arglist *dummy_args;
 
   /* Warn about calls with an implicit interface.  Special case
-     for calling a ISO_C_BINDING becase c_loc and c_funloc
+     for calling a ISO_C_BINDING because c_loc and c_funloc
      are pseudo-unknown.  Additionally, warn about procedures not
      explicitly declared at all if requested.  */
   if (sym->attr.if_source == IFSRC_UNKNOWN && ! sym->attr.is_iso_c)
@@ -3287,7 +3292,7 @@ void
 gfc_ppc_use (gfc_component *comp, gfc_actual_arglist **ap, locus *where)
 {
   /* Warn about calls with an implicit interface.  Special case
-     for calling a ISO_C_BINDING becase c_loc and c_funloc
+     for calling a ISO_C_BINDING because c_loc and c_funloc
      are pseudo-unknown.  */
   if (gfc_option.warn_implicit_interface
       && comp->attr.if_source == IFSRC_UNKNOWN
