@@ -9124,5 +9124,4 @@ capture_decltype (tree decl)
   return type;
 }
 
-
 #include "gt-cp-semantics.h"

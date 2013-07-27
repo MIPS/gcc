@@ -1,3 +1,7 @@
+2013-07-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/tree.c (cp_walk_subtrees): Don't recurse through the
+	requires expr parameter list.
+
 2013-07-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_parser_requires_expr): Update parser using new
 	requires expression nodes. Renamed some grammar productions to better 

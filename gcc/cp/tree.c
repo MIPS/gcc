@@ -3549,7 +3549,15 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
       *walk_subtrees_p = 0;
       break;
  
-
+    case REQUIRES_EXPR:
+      // Only recurse through the nested expression. Do not
+      // walk the parameter list. Doing so causes false
+      // positives in the pack expansion checker since the
+      // requires parameters are introduced as pack expansions.
+      WALK_SUBTREE (TREE_OPERAND (*tp, 1));
+      *walk_subtrees_p = 0;
+      break;
+    
     default:
       return NULL_TREE;
     }
