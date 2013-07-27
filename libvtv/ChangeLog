@@ -1,3 +1,63 @@
+2013-07-26  Benjamin Kosnik  <bkoz@adair>
+
+	* Makefile.am
+	* Makefile.in: Regenerate.
+	* acinclude.m4 (LIBVTV_CONFIGURE): New.
+	* configure: Regenerate.
+	* configure.ac: Call LIBVTV_CONFIGURE.
+	* testsuite/Makefile.am: New.
+	(check-script): New.
+	* testsuite/Makefile.in: Regenerate.
+
+2013-07-26  Caroline Tice  <cmtice@google.com>
+	    Benjamin Kosnik  <bkoz@adair>
+
+	* scripts/run-testsuite.sh: Test harness.
+
+2013-07-26  Caroline Tice  <cmtice@google.com>
+
+	* testsuite/const_vtable.cc: Add tests.
+	* testsuite/dataentry.cc: Same.
+	* testsuite/dlopen.cc: Same.
+	* testsuite/dlopen_mt.cc: Same.
+	* testsuite/dup_name.cc: Same.
+	* testsuite/environment-fail-32.s
+	* testsuite/environment-fail-64.s
+	* testsuite/environment.cc: Same.
+	* testsuite/event-definitions.cc: Same.
+	* testsuite/event-main.cc: Same.
+	* testsuite/event-private.cc: Same.
+	* testsuite/event-private.h
+	* testsuite/event.h
+	* testsuite/event.list
+	* testsuite/field-test.cc: Same.
+	* testsuite/mempool_negative.c
+	* testsuite/mempool_positive.c
+	* testsuite/nested_vcall_test.cc: Same.
+	* testsuite/parts-test-extra-parts-views.cc: Same.
+	* testsuite/parts-test-extra-parts-views.h
+	* testsuite/parts-test-extra-parts.cc: Same.
+	* testsuite/parts-test-extra-parts.h
+	* testsuite/parts-test-main.cc: Same.
+	* testsuite/parts-test-main.h
+	* testsuite/parts-test.list
+	* testsuite/povray-derived.cc: Same.
+	* testsuite/register_pair.cc: Same.
+	* testsuite/register_pair_inserts.cc: Same.
+	* testsuite/register_pair_inserts_mt.cc: Same.
+	* testsuite/register_pair_mt.cc: Same.
+	* testsuite/replace-fail.cc: Same.
+	* testsuite/so.cc: Same.
+	* testsuite/temp_deriv.cc: Same.
+	* testsuite/temp_deriv2.cc: Same.
+	* testsuite/temp_deriv3.cc: Same.
+	* testsuite/template-list-iostream.cc: Same.
+	* testsuite/template-list.cc: Same.
+	* testsuite/template-list2.cc: Same.
+	* testsuite/thunk.cc: Same.
+	* testsuite/thunk_vtable_map_attack.cc: Same.
+	* testsuite/virtual_inheritance.cc: Same.
+
 2013-07-24  Benjamin Kosnik  <bkoz@adair>
 
 	* vtv_rts.cc: Remove unused variables.

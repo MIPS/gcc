@@ -4,21 +4,22 @@
 ##
 ## Process this file with automake to produce Makefile.in.
 ##
-## This file is part of GCC.
-##
-## GCC is free software; you can redistribute it and/or modify
-## it under the terms of the GNU General Public License as published by
+## This file is part of the Vtable Verification (VTV) Library.  This
+## library is free software; you can redistribute it and/or modify it
+## under the terms of the GNU General Public License as published by
 ## the Free Software Foundation; either version 3, or (at your option)
 ## any later version.
-##
-## GCC is distributed in the hope that it will be useful,
-## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-## GNU General Public License for more details.
-##
+
+## This library is distributed in the hope that it will be useful, but
+## WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+## General Public License for more details.
+
 ## You should have received a copy of the GNU General Public License
-## along with GCC; see the file COPYING3.  If not see
+## along with this library; see the file COPYING3.  If not see
 ## <http://www.gnu.org/licenses/>.
+
+SUBDIRS = testsuite
 
 ACLOCAL_AMFLAGS = -I .. -I ../config
 
@@ -29,7 +30,6 @@ DEFS =
 AM_CPPFLAGS = -I $(top_srcdir) -I $(top_srcdir)/include
 AM_CFLAGS = $(XCFLAGS)
 AM_CCASFLAGS = $(XCFLAGS)
-#AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS) 
 AM_CXXFLAGS = $(XCFLAGS)  
 AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
 
@@ -52,14 +52,12 @@ libvtv_la_SOURCES = $(vtv_sources)
 
 libvtv_includedir = $(includedir)
 libvtv_include_HEADERS = $(vtv_headers)
-#noinst_HEADERS = config.h
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = stamp-*
 
-#EXTRA_DIST = $(vtv_headers)
-
-# XXX ?
+# Least ordering for dependencies mean linking w/o libstdc++ for as
+# long as the development of libvtv does not absolutely require it.
 CXXVTV=$(CC_FOR_TARGET)
 LTCXXCOMPILE = $(LIBTOOL) --tag=CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=compile $(CXXVTV) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \

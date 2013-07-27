@@ -102,6 +102,8 @@ else
   multilib_arg=
 fi
 
+LIBVTV_CONFIGURE
+
 # Get target configury.
 unset VTV_SUPPORTED
 . ${srcdir}/configure.tgt
@@ -110,7 +112,7 @@ AM_CONDITIONAL(VTV_SUPPORTED, [test "x$VTV_SUPPORTED" = "xyes"])
 AC_CONFIG_FILES([Makefile])
 
 if test "x$VTV_SUPPORTED" = "xyes"; then
-  AC_CONFIG_FILES(AC_FOREACH([DIR], [.], [DIR/Makefile ]), 
+  AC_CONFIG_FILES(AC_FOREACH([DIR], [. testsuite], [DIR/Makefile ]), 
     [cat > vpsed$$ << \_EOF
 s!`test -f '$<' || echo '$(srcdir)/'`!!
 _EOF
