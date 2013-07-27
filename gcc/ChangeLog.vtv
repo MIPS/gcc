@@ -1,3 +1,7 @@
+2013-07-26  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* gcc.c (VTABLE_VERIFICATION_SPEC): Use new library placement.
+
 2013-07-15  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* aclocal.m4: Regenerate.
