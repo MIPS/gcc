@@ -246,6 +246,10 @@
   (and (match_code "plus,minus,ior,xor,and")
        (match_test "mode == GET_MODE (op)")))
 
+(define_special_predicate "shiftable_operator_strict_it"
+  (and (match_code "plus,and")
+       (match_test "mode == GET_MODE (op)")))
+
 ;; True for logical binary operators.
 (define_special_predicate "logical_binary_operator"
   (and (match_code "ior,xor,and")
@@ -320,6 +324,12 @@
                     || maybe_get_arm_condition_code (op) == ARM_LE
                     || maybe_get_arm_condition_code (op) == ARM_NE
                     || maybe_get_arm_condition_code (op) == ARM_VC")))
+
+(define_special_predicate "arm_cond_move_operator"
+  (if_then_else (match_test "arm_restrict_it")
+                (and (match_test "TARGET_FPU_ARMV8")
+                     (match_operand 0 "arm_vsel_comparison_operator"))
+                (match_operand 0 "expandable_comparison_operator")))
 
 (define_special_predicate "noov_comparison_operator"
   (match_code "lt,ge,eq,ne"))

@@ -2480,7 +2480,7 @@ gather_edges_for_value (struct ipcp_value *val, int caller_count)
    Return it or NULL if for some reason it cannot be created.  */
 
 static struct ipa_replace_map *
-get_replacement_map (tree value, tree parm)
+get_replacement_map (tree value, tree parm, int parm_num)
 {
   tree req_type = TREE_TYPE (parm);
   struct ipa_replace_map *replace_map;
@@ -2514,7 +2514,8 @@ get_replacement_map (tree value, tree parm)
       print_generic_expr (dump_file, value, 0);
       fprintf (dump_file, "\n");
     }
-  replace_map->old_tree = parm;
+  replace_map->old_tree = NULL;
+  replace_map->parm_num = parm_num;
   replace_map->new_tree = value;
   replace_map->replace_p = true;
   replace_map->ref_p = false;
@@ -2663,6 +2664,7 @@ create_specialized_node (struct cgraph_node *node,
 {
   struct ipa_node_params *new_info, *info = IPA_NODE_REF (node);
   vec<ipa_replace_map_p, va_gc> *replace_trees = NULL;
+  struct ipa_agg_replacement_value *av;
   struct cgraph_node *new_node;
   int i, count = ipa_get_param_count (info);
   bitmap args_to_skip;
@@ -2695,7 +2697,7 @@ create_specialized_node (struct cgraph_node *node,
 	{
 	  struct ipa_replace_map *replace_map;
 
-	  replace_map = get_replacement_map (t, ipa_get_param (info, i));
+	  replace_map = get_replacement_map (t, ipa_get_param (info, i), i);
 	  if (replace_map)
 	    vec_safe_push (replace_trees, replace_map);
 	}
@@ -2704,6 +2706,10 @@ create_specialized_node (struct cgraph_node *node,
   new_node = cgraph_create_virtual_clone (node, callers, replace_trees,
 					  args_to_skip, "constprop");
   ipa_set_node_agg_value_chain (new_node, aggvals);
+  for (av = aggvals; av; av = av->next)
+    ipa_maybe_record_reference ((symtab_node) new_node, av->value,
+				IPA_REF_ADDR, NULL);
+
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "     the new node is %s/%i.\n",

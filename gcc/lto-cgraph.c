@@ -955,7 +955,7 @@ input_node (struct lto_file_decl_data *file_data,
     {
       node = cgraph_clone_node (cgraph (nodes[clone_ref]), fn_decl,
 				0, CGRAPH_FREQ_BASE, false,
-				vNULL, false);
+				vNULL, false, NULL);
     }
   else
     {
@@ -1549,17 +1549,10 @@ output_node_opt_summary (struct output_block *ob,
   streamer_write_uhwi (ob, vec_safe_length (node->clone.tree_map));
   FOR_EACH_VEC_SAFE_ELT (node->clone.tree_map, i, map)
     {
-      int parm_num;
-      tree parm;
-
-      for (parm_num = 0, parm = DECL_ARGUMENTS (node->symbol.decl); parm;
-	   parm = DECL_CHAIN (parm), parm_num++)
-	if (map->old_tree == parm)
-	  break;
       /* At the moment we assume all old trees to be PARM_DECLs, because we have no
          mechanism to store function local declarations into summaries.  */
-      gcc_assert (parm);
-      streamer_write_uhwi (ob, parm_num);
+      gcc_assert (!map->old_tree);
+      streamer_write_uhwi (ob, map->parm_num);
       gcc_assert (EXPR_LOCATION (map->new_tree) == UNKNOWN_LOCATION);
       stream_write_tree (ob, map->new_tree, true);
       bp = bitpack_create (ob->main_stream);

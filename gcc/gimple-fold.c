@@ -1038,7 +1038,7 @@ gimple_extract_devirt_binfo_from_cst (tree cst)
       HOST_WIDE_INT pos, size;
       tree fld;
 
-      if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (expected_type))
+      if (types_same_for_odr (type, expected_type))
 	break;
       if (offset < 0)
 	return NULL_TREE;
@@ -2699,7 +2699,7 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
       {
 	tree init = ctor_for_folding (base);
 
-	/* Our semantic is exact oposite of ctor_for_folding;
+	/* Our semantic is exact opposite of ctor_for_folding;
 	   NULL means unknown, while error_mark_node is 0.  */
 	if (init == error_mark_node)
 	  return NULL_TREE;

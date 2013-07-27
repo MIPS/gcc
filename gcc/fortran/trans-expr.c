@@ -1235,7 +1235,7 @@ gfc_conv_expr_present (gfc_symbol * sym)
      as actual argument to denote absent dummies. For array descriptors,
      we thus also need to check the array descriptor.  For BT_CLASS, it
      can also occur for scalars and F2003 due to type->class wrapping and
-     class->class wrapping.  Note futher that BT_CLASS always uses an
+     class->class wrapping.  Note further that BT_CLASS always uses an
      array descriptor for arrays, also for explicit-shape/assumed-size.  */
 
   if (!sym->attr.allocatable
@@ -1910,7 +1910,7 @@ gfc_conv_variable (gfc_se * se, gfc_expr * expr)
 	      && ref->next == NULL && (se->descriptor_only))
 	    return;
 
-	  gfc_conv_array_ref (se, &ref->u.ar, sym, &expr->where);
+	  gfc_conv_array_ref (se, &ref->u.ar, expr, &expr->where);
 	  /* Return a pointer to an element.  */
 	  break;
 
@@ -2829,7 +2829,7 @@ gfc_build_compare_string (tree len1, tree str1, tree len2, tree str2, int kind,
   /* We can compare via memcpy if the strings are known to be equal
      in length and they are
      - kind=1
-     - kind=4 and the comparision is for (in)equality.  */
+     - kind=4 and the comparison is for (in)equality.  */
 
   if (INTEGER_CST_P (len1) && INTEGER_CST_P (len2)
       && tree_int_cst_equal (len1, len2)
@@ -6824,6 +6824,7 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
     }
   else if (ts.type == BT_DERIVED && ts.u.derived->attr.alloc_comp)
     {
+      tree tmp_var = NULL_TREE;
       cond = NULL_TREE;
 
       /* Are the rhs and the lhs the same?  */
@@ -6841,8 +6842,8 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 	 expression.  */
       if (!l_is_temp && dealloc)
 	{
-	  tmp = gfc_evaluate_now (lse->expr, &lse->pre);
-	  tmp = gfc_deallocate_alloc_comp (ts.u.derived, tmp, 0);
+	  tmp_var = gfc_evaluate_now (lse->expr, &lse->pre);
+	  tmp = gfc_deallocate_alloc_comp_no_caf (ts.u.derived, tmp_var, 0);
 	  if (deep_copy)
 	    tmp = build3_v (COND_EXPR, cond, build_empty_stmt (input_location),
 			    tmp);
@@ -6854,6 +6855,15 @@ gfc_trans_scalar_assign (gfc_se * lse, gfc_se * rse, gfc_typespec ts,
 
       gfc_add_modify (&block, lse->expr,
 			   fold_convert (TREE_TYPE (lse->expr), rse->expr));
+
+      /* Restore pointer address of coarray components.  */
+      if (ts.u.derived->attr.coarray_comp && deep_copy && tmp_var != NULL_TREE)
+	{
+	  tmp = gfc_reassign_alloc_comp_caf (ts.u.derived, tmp_var, lse->expr);
+	  tmp = build3_v (COND_EXPR, cond, build_empty_stmt (input_location),
+			  tmp);
+	  gfc_add_expr_to_block (&block, tmp);
+	}
 
       /* Do a deep copy if the rhs is a variable, if it is not the
 	 same as the lhs.  */
@@ -7196,8 +7206,8 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
 	&& expr1->ts.u.derived->attr.alloc_comp)
     {
       tree tmp;
-      tmp = gfc_deallocate_alloc_comp (expr1->ts.u.derived, se.expr,
-				       expr1->rank);
+      tmp = gfc_deallocate_alloc_comp_no_caf (expr1->ts.u.derived, se.expr,
+					      expr1->rank);
       gfc_add_expr_to_block (&se.pre, tmp);
     }
 
@@ -7574,6 +7584,9 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
       size_in_bytes = size;
     }
 
+  size_in_bytes = fold_build2_loc (input_location, MAX_EXPR, size_type_node,
+				   size_in_bytes, size_one_node);
+
   if (expr1->ts.type == BT_DERIVED && expr1->ts.u.derived->attr.alloc_comp)
     {
       tmp = build_call_expr_loc (input_location,
@@ -7759,7 +7772,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 		       && expr1->rank && !expr2->rank);
   if (scalar_to_array && dealloc)
     {
-      tmp = gfc_deallocate_alloc_comp (expr2->ts.u.derived, rse.expr, 0);
+      tmp = gfc_deallocate_alloc_comp_no_caf (expr2->ts.u.derived, rse.expr, 0);
       gfc_add_expr_to_block (&loop.post, tmp);
     }
 

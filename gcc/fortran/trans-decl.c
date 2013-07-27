@@ -559,12 +559,6 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
     {
       /* TODO: Don't set sym->module for result or dummy variables.  */
       gcc_assert (current_function_decl == NULL_TREE || sym->result == sym);
-      /* This is the declaration of a module variable.  */
-      if (sym->attr.access == ACCESS_UNKNOWN
-	  && (sym->ns->default_access == ACCESS_PRIVATE
-	      || (sym->ns->default_access == ACCESS_UNKNOWN
-		  && gfc_option.flag_module_private)))
-	sym->attr.access = ACCESS_PRIVATE;
 
       if (sym->attr.access != ACCESS_PRIVATE || sym->attr.public_used)
 	TREE_PUBLIC (decl) = 1;
@@ -981,7 +975,10 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 			&& as->lower[n]
 			&& as->upper[n]->expr_type == EXPR_CONSTANT
 			&& as->lower[n]->expr_type == EXPR_CONSTANT))
-		    packed = PACKED_PARTIAL;
+		    {
+		      packed = PACKED_PARTIAL;
+		      break;
+		    }
 		}
 	    }
 	  else
@@ -1420,7 +1417,11 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       || (sym->ts.type == BT_CLASS &&
 	  (CLASS_DATA (sym)->attr.dimension
 	   || CLASS_DATA (sym)->attr.allocatable))
-      || (sym->ts.type == BT_DERIVED && sym->ts.u.derived->attr.alloc_comp)
+      || (sym->ts.type == BT_DERIVED
+	  && (sym->ts.u.derived->attr.alloc_comp
+	      || (!sym->attr.pointer && !sym->attr.artificial && !sym->attr.save
+		  && !sym->ns->proc_name->attr.is_main_program
+		  && gfc_is_finalizable (sym->ts.u.derived, NULL))))
       /* This applies a derived type default initializer.  */
       || (sym->ts.type == BT_DERIVED
 	  && sym->attr.save == SAVE_NONE
@@ -2159,7 +2160,7 @@ create_function_arglist (gfc_symbol * sym)
 	    }
 	}
       /* For noncharacter scalar intrinsic types, VALUE passes the value,
-	 hence, the optional status cannot be transfered via a NULL pointer.
+	 hence, the optional status cannot be transferred via a NULL pointer.
 	 Thus, we will use a hidden argument in that case.  */
       else if (f->sym->attr.optional && f->sym->attr.value
 	       && !f->sym->attr.dimension && f->sym->ts.type != BT_CLASS
@@ -3668,8 +3669,10 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
   for (sym = proc_sym->tlink; sym != proc_sym; sym = sym->tlink)
     {
-      bool sym_has_alloc_comp = (sym->ts.type == BT_DERIVED)
-				   && sym->ts.u.derived->attr.alloc_comp;
+      bool alloc_comp_or_fini = (sym->ts.type == BT_DERIVED)
+				&& (sym->ts.u.derived->attr.alloc_comp
+				    || gfc_is_finalizable (sym->ts.u.derived,
+							   NULL));
       if (sym->assoc)
 	continue;
 
@@ -3754,7 +3757,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		  gfc_save_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
 
-		  if (sym_has_alloc_comp)
+		  if (alloc_comp_or_fini)
 		    {
 		      seen_trans_deferred_array = true;
 		      gfc_trans_deferred_array (sym, block);
@@ -3802,7 +3805,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	    default:
 	      gcc_unreachable ();
 	    }
-	  if (sym_has_alloc_comp && !seen_trans_deferred_array)
+	  if (alloc_comp_or_fini && !seen_trans_deferred_array)
 	    gfc_trans_deferred_array (sym, block);
 	}
       else if ((!sym->attr.dummy || sym->ts.deferred)
@@ -3998,7 +4001,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	}
       else if (sym->ts.deferred)
 	gfc_fatal_error ("Deferred type parameter not yet supported");
-      else if (sym_has_alloc_comp)
+      else if (alloc_comp_or_fini)
 	gfc_trans_deferred_array (sym, block);
       else if (sym->ts.type == BT_CHARACTER)
 	{
@@ -4205,6 +4208,18 @@ gfc_create_module_variable (gfc_symbol * sym)
   if (sym->backend_decl && !sym->attr.vtab && !sym->attr.target)
     internal_error ("backend decl for module variable %s already exists",
 		    sym->name);
+
+  if (sym->module && !sym->attr.result && !sym->attr.dummy
+      && (sym->attr.access == ACCESS_UNKNOWN
+	  && (sym->ns->default_access == ACCESS_PRIVATE
+	      || (sym->ns->default_access == ACCESS_UNKNOWN
+		  && gfc_option.flag_module_private))))
+    sym->attr.access = ACCESS_PRIVATE;
+
+  if (warn_unused_variable && !sym->attr.referenced
+      && sym->attr.access == ACCESS_PRIVATE)
+    gfc_warning ("Unused PRIVATE module variable '%s' declared at %L",
+		 sym->name, &sym->declared_at);
 
   /* We always want module variables to be created.  */
   sym->attr.referenced = 1;
@@ -4720,7 +4735,7 @@ generate_local_decl (gfc_symbol * sym)
 	gfc_get_symbol_decl (sym);
 
       /* Warnings for unused dummy arguments.  */
-      else if (sym->attr.dummy)
+      else if (sym->attr.dummy && !sym->attr.in_namelist)
 	{
 	  /* INTENT(out) dummy arguments are likely meant to be set.  */
 	  if (gfc_option.warn_unused_dummy_argument

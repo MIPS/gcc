@@ -124,6 +124,11 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= -16 && INTVAL (op) <= 15")))
 
+;; Return 1 if op is a unsigned 3-bit constant integer.
+(define_predicate "u3bit_cint_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 7")))
+
 ;; Return 1 if op is a unsigned 5-bit constant integer.
 (define_predicate "u5bit_cint_operand"
   (and (match_code "const_int")
@@ -134,6 +139,11 @@
 (define_predicate "s8bit_cint_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= -128 && INTVAL (op) <= 127")))
+
+;; Return 1 if op is a unsigned 10-bit constant integer.
+(define_predicate "u10bit_cint_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 1023")))
 
 ;; Return 1 if op is a constant integer that can fit in a D field.
 (define_predicate "short_cint_operand"
@@ -224,6 +234,33 @@
     return 0;
 
   return (REGNO (op) != FIRST_GPR_REGNO);
+})
+
+;; Return 1 if op is a HTM specific SPR register.
+(define_predicate "htm_spr_reg_operand"
+  (match_operand 0 "register_operand")
+{
+  if (!TARGET_HTM)
+    return 0;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  switch (REGNO (op))
+    {
+      case TFHAR_REGNO:
+      case TFIAR_REGNO:
+      case TEXASR_REGNO:
+	return 1;
+      default:
+	break;
+    }
+  
+  /* Unknown SPR.  */
+  return 0;
 })
 
 ;; Return 1 if op is a general purpose register that is an even register
@@ -527,9 +564,11 @@
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
   HOST_WIDE_INT val;
+  int elt;
   if (mode == V2DImode || mode == V2DFmode)
     return 0;
-  val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  elt = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (mode) - 1 : 0;
+  val = const_vector_elt_as_int (op, elt);
   val = ((val & 0xff) ^ 0x80) - 0x80;
   return EASY_VECTOR_15_ADD_SELF (val);
 })
@@ -541,9 +580,11 @@
 	    (match_test "easy_altivec_constant (op, mode)")))
 {
   HOST_WIDE_INT val;
+  int elt;
   if (mode == V2DImode || mode == V2DFmode)
     return 0;
-  val = const_vector_elt_as_int (op, GET_MODE_NUNITS (mode) - 1);
+  elt = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (mode) - 1 : 0;
+  val = const_vector_elt_as_int (op, elt);
   return EASY_VECTOR_MSB (val, GET_MODE_INNER (mode));
 })
 

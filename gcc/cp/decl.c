@@ -630,7 +630,9 @@ poplevel (int keep, int reverse, int functionbody)
 	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl)
 	    && type != error_mark_node
 	    && (!CLASS_TYPE_P (type)
-		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)))
+		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+		|| lookup_attribute ("warn_unused",
+				     TYPE_ATTRIBUTES (TREE_TYPE (decl)))))
 	  {
 	    if (! TREE_USED (decl))
 	      warning (OPT_Wunused_variable, "unused variable %q+D", decl);
@@ -652,7 +654,7 @@ poplevel (int keep, int reverse, int functionbody)
       if (leaving_for_scope && VAR_P (link)
 	  /* It's hard to make this ARM compatibility hack play nicely with
 	     lambdas, and it really isn't necessary in C++11 mode.  */
-	  && cxx_dialect < cxx0x
+	  && cxx_dialect < cxx11
 	  && DECL_NAME (link))
 	{
 	  tree name = DECL_NAME (link);
@@ -3090,7 +3092,7 @@ case_conversion (tree type, tree value)
   if (value == NULL_TREE)
     return value;
 
-  if (cxx_dialect >= cxx0x
+  if (cxx_dialect >= cxx11
       && (SCOPED_ENUM_P (type)
 	  || !INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (value))))
     {
@@ -4886,7 +4888,7 @@ layout_var_decl (tree decl)
   if (type == error_mark_node)
     return;
 
-  /* If we haven't already layed out this declaration, do so now.
+  /* If we haven't already laid out this declaration, do so now.
      Note that we must not call complete type for an external object
      because it's type might involve templates that we are not
      supposed to instantiate yet.  (And it's perfectly valid to say
@@ -5757,7 +5759,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
     {
       static int explained = 0;
 
-      if (cxx_dialect < cxx0x)
+      if (cxx_dialect < cxx11)
 	error ("initializer invalid for static member with constructor");
       else
 	error ("non-constant in-class initialization invalid for static "
@@ -6345,25 +6347,6 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    }
 	  cleanups = make_tree_vector ();
 	  init = check_initializer (decl, init, flags, &cleanups);
-
-	  /* Check that the initializer for a static data member was a
-	     constant.  Although we check in the parser that the
-	     initializer is an integral constant expression, we do not
-	     simplify division-by-zero at the point at which it
-	     occurs.  Therefore, in:
-
-	       struct S { static const int i = 7 / 0; };
-
-	     we issue an error at this point.  It would
-	     probably be better to forbid division by zero in
-	     integral constant expressions.  */
-	  if (DECL_EXTERNAL (decl) && init)
-	    {
-	      error ("%qD cannot be initialized by a non-constant expression"
-		     " when being declared", decl);
-	      DECL_INITIALIZED_IN_CLASS_P (decl) = 0;
-	      init = NULL_TREE;
-	    }
 
 	  /* Handle:
 
@@ -7653,7 +7636,7 @@ grokfndecl (tree ctype,
     grokclassfn (ctype, decl, flags);
 
   /* 12.4/3  */
-  if (cxx_dialect >= cxx0x
+  if (cxx_dialect >= cxx11
       && DECL_DESTRUCTOR_P (decl)
       && !TYPE_BEING_DEFINED (DECL_CONTEXT (decl))
       && !processing_template_decl)
@@ -8053,7 +8036,7 @@ check_static_variable_definition (tree decl, tree type)
      in check_initializer.  */
   if (DECL_P (decl) && DECL_DECLARED_CONSTEXPR_P (decl))
     return 0;
-  else if (cxx_dialect >= cxx0x && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
+  else if (cxx_dialect >= cxx11 && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       if (!COMPLETE_TYPE_P (type))
 	error ("in-class initialization of static data member %q#D of "
@@ -8175,7 +8158,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 
       mark_rvalue_use (size);
 
-      if (cxx_dialect < cxx0x && TREE_CODE (size) == NOP_EXPR
+      if (cxx_dialect < cxx11 && TREE_CODE (size) == NOP_EXPR
 	  && TREE_SIDE_EFFECTS (size))
 	/* In C++98, we mark a non-constant array bound with a magic
 	   NOP_EXPR with TREE_SIDE_EFFECTS; don't fold in that case.  */;
@@ -9534,7 +9517,7 @@ grokdeclarator (const cp_declarator *declarator,
 		  }
 		else if (declarator->u.function.late_return_type)
 		  {
-		    if (cxx_dialect < cxx0x)
+		    if (cxx_dialect < cxx11)
 		      /* Not using maybe_warn_cpp0x because this should
 			 always be an error.  */
 		      error ("trailing return type only available with "
@@ -10900,7 +10883,7 @@ local_variable_p_walkfn (tree *tp, int *walk_subtrees,
    DECL, if there is no DECL available.  */
 
 tree
-check_default_argument (tree decl, tree arg)
+check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
 {
   tree var;
   tree decl_type;
@@ -10932,13 +10915,14 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   ++cp_unevaluated_operand;
-  perform_implicit_conversion_flags (decl_type, arg, tf_warning_or_error,
+  perform_implicit_conversion_flags (decl_type, arg, complain,
 				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
       && TYPE_PTR_OR_PTRMEM_P (decl_type)
       && null_ptr_cst_p (arg)
+      && (complain & tf_warning)
       && maybe_warn_zero_as_null_pointer_constant (arg, input_location))
     return nullptr_node;
 
@@ -10952,10 +10936,14 @@ check_default_argument (tree decl, tree arg)
   var = cp_walk_tree_without_duplicates (&arg, local_variable_p_walkfn, NULL);
   if (var)
     {
-      if (DECL_NAME (var) == this_identifier)
-	permerror (input_location, "default argument %qE uses %qD", arg, var);
-      else
-	error ("default argument %qE uses local variable %qD", arg, var);
+      if (complain & tf_warning_or_error)
+	{
+	  if (DECL_NAME (var) == this_identifier)
+	    permerror (input_location, "default argument %qE uses %qD",
+		       arg, var);
+	  else
+	    error ("default argument %qE uses local variable %qD", arg, var);
+	}
       return error_mark_node;
     }
 
@@ -11106,7 +11094,7 @@ grokparms (tree parmlist, tree *parms)
 	  if (any_error)
 	    init = NULL_TREE;
 	  else if (init && !processing_template_decl)
-	    init = check_default_argument (decl, init);
+	    init = check_default_argument (decl, init, tf_warning_or_error);
 	}
 
       DECL_CHAIN (decl) = decls;
@@ -12842,7 +12830,7 @@ build_enumerator (tree name, tree value, tree enumtype, location_t loc)
 				  && double_int_fits_to_tree_p (type, di))
 				break;
 			    }
-			  if (type && cxx_dialect < cxx0x
+			  if (type && cxx_dialect < cxx11
 			      && itk > itk_unsigned_long)
 			    pedwarn (input_location, OPT_Wlong_long, pos ? "\
 incremented enumerator value is too large for %<unsigned long%>" :  "\
@@ -13012,7 +13000,7 @@ check_function_type (tree decl, tree current_function_parms)
    error_mark_node if the function has never been defined, or
    a BLOCK if the function has been defined somewhere.  */
 
-void
+bool
 start_preparsed_function (tree decl1, tree attrs, int flags)
 {
   tree ctype = NULL_TREE;
@@ -13109,10 +13097,14 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
      by push_nested_class.)  */
   if (processing_template_decl)
     {
-      /* FIXME: Handle error_mark_node more gracefully.  */
       tree newdecl1 = push_template_decl (decl1);
-      if (newdecl1 != error_mark_node)
-	decl1 = newdecl1;
+      if (newdecl1 == error_mark_node)
+	{
+	  if (ctype || DECL_STATIC_FUNCTION_P (decl1))
+	    pop_nested_class ();
+	  return false;
+	}
+      decl1 = newdecl1;
     }
 
   /* We are now in the scope of the function being defined.  */
@@ -13223,7 +13215,7 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   /* This function may already have been parsed, in which case just
      return; our caller will skip over the body without parsing.  */
   if (DECL_INITIAL (decl1) != error_mark_node)
-    return;
+    return true;
 
   /* Initialize RTL machinery.  We cannot do this until
      CURRENT_FUNCTION_DECL and DECL_RESULT are set up.  We do this
@@ -13385,17 +13377,19 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   start_fname_decls ();
 
   store_parm_decls (current_function_parms);
+
+  return true;
 }
 
 
 /* Like start_preparsed_function, except that instead of a
    FUNCTION_DECL, this function takes DECLSPECS and DECLARATOR.
 
-   Returns 1 on success.  If the DECLARATOR is not suitable for a function
-   (it defines a datum instead), we return 0, which tells
-   yyparse to report a parse error.  */
+   Returns true on success.  If the DECLARATOR is not suitable
+   for a function, we return false, which tells the parser to
+   skip the entire function.  */
 
-int
+bool
 start_function (cp_decl_specifier_seq *declspecs,
 		const cp_declarator *declarator,
 		tree attrs)
@@ -13404,13 +13398,13 @@ start_function (cp_decl_specifier_seq *declspecs,
 
   decl1 = grokdeclarator (declarator, declspecs, FUNCDEF, 1, &attrs);
   if (decl1 == error_mark_node)
-    return 0;
+    return false;
   /* If the declarator is not suitable for a function definition,
      cause a syntax error.  */
   if (decl1 == NULL_TREE || TREE_CODE (decl1) != FUNCTION_DECL)
     {
       error ("invalid function declaration");
-      return 0;
+      return false;
     }
 
   if (DECL_MAIN_P (decl1))
@@ -13419,9 +13413,7 @@ start_function (cp_decl_specifier_seq *declspecs,
     gcc_assert (same_type_p (TREE_TYPE (TREE_TYPE (decl1)),
 			     integer_type_node));
 
-  start_preparsed_function (decl1, attrs, /*flags=*/SF_DEFAULT);
-
-  return 1;
+  return start_preparsed_function (decl1, attrs, /*flags=*/SF_DEFAULT);
 }
 
 /* Returns true iff an EH_SPEC_BLOCK should be created in the body of

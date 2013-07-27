@@ -16435,6 +16435,35 @@ fi
 
 
 # Check for library functions.
+if test "x${with_newlib}" = "xyes"; then
+   # We are being configured with a cross compiler.  AC_REPLACE_FUNCS
+   # may not work correctly, because the compiler may not be able to
+   # link executables.
+
+$as_echo "#define HAVE_MKSTEMP 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_STRTOF 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_STRTOLD 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_SNPRINTF 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_STRCASESTR 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_VSNPRINTF 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_LOCALTIME_R 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_GMTIME_R 1" >>confdefs.h
+
+else
 
 
 
@@ -16554,6 +16583,7 @@ done
 
 
 
+fi
 
 # Check strerror_r, cannot be above as versions with two and three arguments exist
 
@@ -25976,6 +26006,48 @@ $as_echo "$libgfor_cv_have_fpsetmask" >&6; }
 $as_echo "#define HAVE_FPSETMASK 1" >>confdefs.h
 
   fi
+
+ac_fn_c_check_type "$LINENO" "fp_except" "ac_cv_type_fp_except" "#include <ieeefp.h>
+"
+if test "x$ac_cv_type_fp_except" = x""yes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_FP_EXCEPT 1
+_ACEOF
+
+
+fi
+ac_fn_c_check_type "$LINENO" "fp_except_t" "ac_cv_type_fp_except_t" "#include <ieeefp.h>
+"
+if test "x$ac_cv_type_fp_except_t" = x""yes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_FP_EXCEPT_T 1
+_ACEOF
+
+
+fi
+
+ac_fn_c_check_type "$LINENO" "fp_rnd" "ac_cv_type_fp_rnd" "#include <ieeefp.h>
+"
+if test "x$ac_cv_type_fp_rnd" = x""yes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_FP_RND 1
+_ACEOF
+
+
+fi
+ac_fn_c_check_type "$LINENO" "fp_rnd_t" "ac_cv_type_fp_rnd_t" "#include <ieeefp.h>
+"
+if test "x$ac_cv_type_fp_rnd_t" = x""yes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_FP_RND_T 1
+_ACEOF
+
+
+fi
 
 
 # Check for AIX fp_trap and fp_enable
