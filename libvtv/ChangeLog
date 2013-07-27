@@ -1,3 +1,9 @@
+2013-07-26  Caroline Tice  <cmtice@google.com>
+
+	* doc/VtableVerification-FeatureProposal.pdf: New.
+	* doc/VtableVerification-PartialVerificationProblem.pdf: New.
+	* doc/VtableVerification-UsersGuide.pdf: New.
+
 2013-07-26  Benjamin Kosnik  <bkoz@adair>
 
 	* Makefile.am
