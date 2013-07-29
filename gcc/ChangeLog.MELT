@@ -2,6 +2,13 @@
 
 2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (mexpand_quote): Don't expand instances
+	of CLASS_SOURCE obtained by previous macro-expansion.
+	(mexpand_backquote): Call expand_quoted_sexpr with antiquoter.
+	(mexpand_comma): Make an error.
+
+2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (quote): Improve documentation.
 	(mexpand_backquote, mexpand_comma, backquote, comma): New stubs.
 
