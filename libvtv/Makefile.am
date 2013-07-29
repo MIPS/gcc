@@ -48,10 +48,16 @@ vtv_sources = \
         vtv_rts.cc \
         vtv_utils.cc
 
-libvtv_la_SOURCES = $(vtv_sources)
-
 libvtv_includedir = $(includedir)
+
+if ENABLE_VTABLE_VERIFY
+libvtv_la_SOURCES = $(vtv_sources)
 libvtv_include_HEADERS = $(vtv_headers)
+else
+libvtv_la_SOURCES = 
+libvtv_include_HEADERS = 
+endif
+
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = stamp-*

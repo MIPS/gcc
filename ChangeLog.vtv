@@ -10,9 +10,3 @@
 	* configure: Regenerate.
 	* Makefile.in: Regenerate.
 	* contrib/gcc_update: Add libvtv to touch data.
-
-2013-06-16  Caroline Tice  <cmtice@google.com>
-
-	? (XXX currently not applied)
-	* configure (CXX_FOR_TARGET): Add libstdc++-v3/libsupc++/.libs to the
-	library search path.

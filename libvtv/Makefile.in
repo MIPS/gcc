@@ -40,7 +40,7 @@ subdir = .
 DIST_COMMON = ChangeLog $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/configure $(am__configure_deps) \
 	$(srcdir)/../mkinstalldirs $(srcdir)/../depcomp \
-	$(libvtv_include_HEADERS)
+	$(am__libvtv_include_HEADERS_DIST)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
 	$(top_srcdir)/../config/depstand.m4 \
@@ -85,7 +85,7 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)" \
 LTLIBRARIES = $(toolexeclib_LTLIBRARIES)
 libvtv_la_LIBADD =
 am__objects_1 = vtv_malloc.lo vtv_rts.lo vtv_utils.lo
-am_libvtv_la_OBJECTS = $(am__objects_1)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_la_OBJECTS = $(am__objects_1)
 libvtv_la_OBJECTS = $(am_libvtv_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/../depcomp
@@ -108,6 +108,8 @@ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	install-pdf-recursive install-ps-recursive install-recursive \
 	installcheck-recursive installdirs-recursive pdf-recursive \
 	ps-recursive uninstall-recursive
+am__libvtv_include_HEADERS_DIST = vtv_map.h vtv_malloc.h vtv_fail.h \
+	vtv_set.h vtv_utils.h vtv_rts.h
 HEADERS = $(libvtv_include_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
@@ -276,9 +278,11 @@ vtv_sources = \
         vtv_rts.cc \
         vtv_utils.cc
 
-libvtv_la_SOURCES = $(vtv_sources)
 libvtv_includedir = $(includedir)
-libvtv_include_HEADERS = $(vtv_headers)
+@ENABLE_VTABLE_VERIFY_FALSE@libvtv_la_SOURCES = 
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv_la_SOURCES = $(vtv_sources)
+@ENABLE_VTABLE_VERIFY_FALSE@libvtv_include_HEADERS = 
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv_include_HEADERS = $(vtv_headers)
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = stamp-*

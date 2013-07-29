@@ -1,10 +1,25 @@
+2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* Makefile.am (libvtv_include_HEADERS, libvtv_la_SOURCES): Make
+	conditional on enable-vtable-verify.
+	* acinclude.m4 (LIBVTV_CONFIGURE): Add check for --enable-vtable-verify.
+	* Makefile.in: Regenerate.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+
+	* scripts/run-testsuite.sh: Add LDFLAGS.
+
+	* testsuite/Makefile.am (check-am): Conditionalize on
+	enable_vtable_verify check.
+	* testsuite/Makefile.in: Regenerate.
+	
 2013-07-26  Caroline Tice  <cmtice@google.com>
 
 	* doc/VtableVerification-FeatureProposal.pdf: New.
 	* doc/VtableVerification-PartialVerificationProblem.pdf: New.
 	* doc/VtableVerification-UsersGuide.pdf: New.
 
-2013-07-26  Benjamin Kosnik  <bkoz@adair>
+2013-07-26  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* Makefile.am
 	* Makefile.in: Regenerate.
@@ -16,7 +31,7 @@
 	* testsuite/Makefile.in: Regenerate.
 
 2013-07-26  Caroline Tice  <cmtice@google.com>
-	    Benjamin Kosnik  <bkoz@adair>
+	    Benjamin Kosnik  <bkoz@redhat.com>
 
 	* scripts/run-testsuite.sh: Test harness.
 
@@ -64,7 +79,7 @@
 	* testsuite/thunk_vtable_map_attack.cc: Same.
 	* testsuite/virtual_inheritance.cc: Same.
 
-2013-07-24  Benjamin Kosnik  <bkoz@adair>
+2013-07-24  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* vtv_rts.cc: Remove unused variables.
 	* vtv_malloc.cc: Same.
@@ -125,7 +140,7 @@
 	(vtv_add_to_log): Uglify to __vtv_add_to_log.
 	(__vtv_log_verification): New.
 
-2013-07-11  Benjamin Kosnik  <bkoz@adair>
+2013-07-11  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* libvtv/vtv_rts.cc: Remove unused variables.
 
