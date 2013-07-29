@@ -717,6 +717,7 @@ GLIBCXX_HOSTED_TRUE
 glibcxx_compiler_shared_flag
 glibcxx_compiler_pic_flag
 glibcxx_lt_pic_flag
+enable_mpx
 enable_static
 enable_shared
 lt_host_flags
@@ -846,6 +847,7 @@ with_pic
 enable_fast_install
 with_gnu_ld
 enable_libtool_lock
+enable_mpx
 enable_hosted_libstdcxx
 enable_libstdcxx_verbose
 enable_sjlj_exceptions
@@ -1520,6 +1522,7 @@ Optional Features:
   --enable-fast-install[=PKGS]
                           optimize for fast installation [default=yes]
   --disable-libtool-lock  avoid locking (might break parallel builds)
+  --enable-mpx            Enable MPX
   --disable-hosted-libstdcxx
                           only build freestanding C++ runtime support
   --disable-libstdcxx-verbose
@@ -11513,7 +11516,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11516 "configure"
+#line 11519 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11619,7 +11622,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11622 "configure"
+#line 11625 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -14906,6 +14909,18 @@ esac
 
 
 
+
+  # Check whether --enable-mpx was given.
+if test "${enable_mpx+set}" = set; then :
+  enableval=$enable_mpx; enable_mpx=$enableval
+else
+  enable_mpx=no
+
+fi
+
+
+
+
 # libtool variables for C++ shared and position-independent compiles.
 #
 # Use glibcxx_lt_pic_flag to designate the automake variable
@@ -15033,7 +15048,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15036 "configure"
+#line 15051 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15383,7 +15398,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15386 "configure"
+#line 15401 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15418,7 +15433,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15421 "configure"
+#line 15436 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15453,7 +15468,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15456 "configure"
+#line 15471 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15489,7 +15504,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15492 "configure"
+#line 15507 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15568,7 +15583,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15571 "configure"
+#line 15586 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15610,7 +15625,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15613 "configure"
+#line 15628 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15644,7 +15659,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15647 "configure"
+#line 15662 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };

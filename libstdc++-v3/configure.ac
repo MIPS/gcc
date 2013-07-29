@@ -1,5 +1,7 @@
 # Process this file with autoreconf to produce a configure script.
 
+sinclude(../config/mpx.m4)
+
 AC_PREREQ(2.64)
 AC_INIT(package-unused, version-unused,, libstdc++)
 AC_CONFIG_SRCDIR(src/shared/hashtable-aux.cc)
@@ -96,6 +98,8 @@ AM_PROG_LIBTOOL
 ACX_LT_HOST_FLAGS
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
+
+ENABLE_MPX
 
 # libtool variables for C++ shared and position-independent compiles.
 #
