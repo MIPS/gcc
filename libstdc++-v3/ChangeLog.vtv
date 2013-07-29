@@ -1,5 +1,9 @@
 2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
 
+	* doc/xml/manual/configure.xml: Add details for --enable-vtable-verify.
+
+2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
+
 	* acinclude.m4 (VTV_CXXLINKFLAGS): Export full path, use rpath.
 	* scripts/testsuite_flags.in: Adjust.
 	* configure: Regenerate.
