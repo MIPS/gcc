@@ -2057,6 +2057,11 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count)
   struct function *src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
   gcov_type count_scale;
 
+  if (!DECL_ARGUMENTS (new_fndecl))
+    DECL_ARGUMENTS (new_fndecl) = DECL_ARGUMENTS (callee_fndecl);
+  if (!DECL_RESULT (new_fndecl))
+    DECL_RESULT (new_fndecl) = DECL_RESULT (callee_fndecl);
+
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
     count_scale
         = GCOV_COMPUTE_SCALE (count,
@@ -3905,6 +3910,10 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 	     for inlining, but we can't do that because frontends overwrite
 	     the body.  */
 	  && !cg_edge->callee->local.redefined_extern_inline
+	  /* During early inline pass, report only when optimization is
+	     not turned on.  */
+	  && (cgraph_global_info_ready
+	      || !optimize)
 	  /* PR 20090218-1_0.c. Body can be provided by another module. */
 	  && (reason != CIF_BODY_NOT_AVAILABLE || !flag_generate_lto))
 	{
