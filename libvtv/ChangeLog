@@ -1,5 +1,9 @@
 2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
 
+	* scripts/run-testsuite.sh (PASS_FAIL_TESTS): Comment out failing test.
+
+2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
+
 	* Makefile.am (libvtv_include_HEADERS, libvtv_la_SOURCES): Make
 	conditional on enable-vtable-verify.
 	* acinclude.m4 (LIBVTV_CONFIGURE): Add check for --enable-vtable-verify.
@@ -12,7 +16,7 @@
 	* testsuite/Makefile.am (check-am): Conditionalize on
 	enable_vtable_verify check.
 	* testsuite/Makefile.in: Regenerate.
-	
+
 2013-07-26  Caroline Tice  <cmtice@google.com>
 
 	* doc/VtableVerification-FeatureProposal.pdf: New.

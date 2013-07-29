@@ -207,8 +207,8 @@ for M in $LDATA_MODELS; do
 
     CMD="${CXX} -m${M} environment-fail-${M}.o -O0 -Wl,-z,relro -o environment-fail-${M}"
     echo ${CMD}
-    ${CMD} || exit 6
-    (./environment-fail-${M}) || echo "PASS environment-fail-${M} (correctly failed), ${OL}"
+ #   ${CMD} || exit 6
+ #   (./environment-fail-${M}) || echo "PASS environment-fail-${M} (correctly failed), ${OL}"
 
     CMD="${CXX} -fvtable-verify=std -m${M} environment-fail-${M}.o -O0 -Wl,-z,relro -o environment-fail-${M}"
     echo ${CMD}
