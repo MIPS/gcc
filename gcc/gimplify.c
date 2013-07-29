@@ -4026,10 +4026,19 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   individual element initialization.  Also don't do this for small
 	   all-zero initializers (which aren't big enough to merit
 	   clearing), and don't try to make bitwise copies of
-	   TREE_ADDRESSABLE types.  */
+	   TREE_ADDRESSABLE types.
+
+	   We cannot apply such transformation when compiling MPX static
+	   initializer because creation of initializer image in the memory
+	   will require static initialization of bounds for it.  It should
+	   result in another gimplification of similar initializer and we
+	   may fall into infinite loop.  */
 	if (valid_const_initializer
 	    && !(cleared || num_nonzero_elements == 0)
-	    && !TREE_ADDRESSABLE (type))
+	    && !TREE_ADDRESSABLE (type)
+	    && (!current_function_decl
+		|| !lookup_attribute ("mpx ctor",
+				      DECL_ATTRIBUTES (current_function_decl))))
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
 	    unsigned int align;
@@ -4064,6 +4073,11 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 		walk_tree (&ctor, force_labels_r, NULL, NULL);
 		ctor = tree_output_constant_def (ctor);
+
+		/* We need to register created constant object to
+		   initialize bounds for pointers in it.  */
+		mpx_register_var_initializer (ctor);
+
 		if (!useless_type_conversion_p (type, TREE_TYPE (ctor)))
 		  ctor = build1 (VIEW_CONVERT_EXPR, type, ctor);
 		TREE_OPERAND (*expr_p, 1) = ctor;

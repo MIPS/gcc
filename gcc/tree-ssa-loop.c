@@ -633,7 +633,7 @@ tree_ssa_loop_ivopts (void)
 static bool
 gate_tree_ssa_loop_ivopts (void)
 {
-  return flag_ivopts != 0;
+  return flag_ivopts != 0 && !flag_mpx;
 }
 
 struct gimple_opt_pass pass_iv_optimize =

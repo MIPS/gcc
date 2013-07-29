@@ -4334,6 +4334,10 @@ This hook returns the va_list type of the calling convention specified by
 The default version of this hook returns @code{va_list_type_node}.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE (tree @var{fndecl})
+This hook returns bounds for va_list object or integer_zero_node ifit does not have any (e.g. is scalar pointer to the stack).
+@end deftypefn
+
 @deftypefn {Target Hook} tree TARGET_CANONICAL_VA_LIST_TYPE (tree @var{type})
 This hook returns the va_list type of the calling convention specified by the
 type of @var{type}. If @var{type} is not a valid va_list type, it returns
@@ -5149,6 +5153,20 @@ If you need to conditionally change ABIs so that one works with
 defined, then define this hook to return @code{true} if
 @code{TARGET_SETUP_INCOMING_VARARGS} is used, @code{false} otherwise.
 Otherwise, you should not define this hook.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_LOAD_BOUNDS_FOR_ARG (rtx, @var{rtx}, @var{rtx})
+Extend pass uses this hook to emit insn for arg
+bounds in case bounds are not passed on register.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_STORE_BOUNDS_FOR_ARG (rtx, @var{rtx}, @var{rtx}, @var{rtx})
+Extend pass uses this hook to emit insn for arg
+bounds in case bounds are not passed on register.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_INIT_RETURNED_BOUNDS (tree)
+Put bounds into place where returned bounds are expected.
 @end deftypefn
 
 @node Trampolines
@@ -10927,6 +10945,18 @@ convenient, and have mode @var{mode} if that is convenient.
 @var{exp}'s operands.  @var{ignore} is nonzero if the value is to be
 ignored.  This function should return the result of the call to the
 built-in function.
+@end deftypefn
+
+@deftypefn {Target Hook} tree TARGET_BUILTIN_MPX_FUNCTION (unsigned @var{fcode})
+MPX instrumentation pass uses this hook to obtain
+target-specific functions which implement generic MPX
+builtins.
+@end deftypefn
+@deftypefn {Target Hook} tree TARGET_MPX_BOUND_TYPE (void)
+Return type to be used for bounds
+@end deftypefn
+@deftypefn {Target Hook} {enum machine_mode} TARGET_MPX_BOUND_MODE (void)
+Return mode to be used for bounds.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_RESOLVE_OVERLOADED_BUILTIN (unsigned int @var{loc}, tree @var{fndecl}, void *@var{arglist})

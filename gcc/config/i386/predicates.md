@@ -104,6 +104,15 @@
        (match_test "TARGET_64BIT")
        (match_test "REGNO (op) > BX_REG")))
 
+;; Return true if VALUE is size relocation
+(define_predicate "size_relocation"
+  (match_code "const")
+{
+  return (GET_CODE (op) == CONST
+          && GET_CODE (XEXP (op, 0)) == UNSPEC
+	  && XINT (XEXP (op, 0), 1) == UNSPEC_SIZEOF);
+})
+
 ;; Return true if VALUE can be stored in a sign extended immediate field.
 (define_predicate "x86_64_immediate_operand"
   (match_code "const_int,symbol_ref,label_ref,const")
@@ -308,6 +317,13 @@
 	      return false;
 	    }
 	}
+      else if (GET_CODE (XEXP (op, 0)) == UNSPEC)
+        {
+          if (XINT (XEXP (op, 0), 1) == UNSPEC_SIZEOF
+	      && XVECLEN (XEXP (op, 0), 0) == 1
+	      && GET_CODE (XVECEXP (XEXP (op, 0), 0, 0)) == SYMBOL_REF)
+	    return true;
+        }
       break;
 
     default:
@@ -578,14 +594,17 @@
   (match_code "parallel")
 {
   unsigned creg_size = ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
+  unsigned adop = GET_CODE (XVECEXP (op, 0, 0)) == SET
+                  ? 4
+		  : 2;
   unsigned i;
 
-  if ((unsigned) XVECLEN (op, 0) != creg_size + 2)
+  if ((unsigned) XVECLEN (op, 0) != creg_size + adop)
     return false;
 
   for (i = 0; i < creg_size; i++)
     {
-      rtx elt = XVECEXP (op, 0, i+2);
+      rtx elt = XVECEXP (op, 0, i+adop);
       enum machine_mode mode;
       unsigned regno;
 

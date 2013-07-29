@@ -1388,9 +1388,11 @@ struct ipa_opt_pass_d pass_ipa_profile =
 };
 
 /* Generate and emit a static constructor or destructor.  WHICH must
-   be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
-   is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority for this constructor or destructor. 
+   be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
+   (for MPX static vars constructor) or 'B' (for MPX static bounds
+   constructor).  BODY is a STATEMENT_LIST containing GENERIC
+   statements.  PRIORITY is the initialization priority for this
+   constructor or destructor.
 
    FINAL specify whether the externally visible name for collect2 should
    be produced. */
@@ -1449,6 +1451,20 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
       decl_init_priority_insert (decl, priority);
       break;
+    case 'P':
+      DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("mpx ctor"),
+					  NULL,
+					  NULL_TREE);
+      decl_init_priority_insert (decl, priority);
+      break;
+    case 'B':
+      DECL_STATIC_CONSTRUCTOR (decl) = 1;
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("bnd_legacy"),
+					  NULL,
+					  NULL_TREE);
+      decl_init_priority_insert (decl, priority);
+      break;
     case 'D':
       DECL_STATIC_DESTRUCTOR (decl) = 1;
       decl_fini_priority_insert (decl, priority);
@@ -1466,9 +1482,11 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
 }
 
 /* Generate and emit a static constructor or destructor.  WHICH must
-   be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
-   is a STATEMENT_LIST containing GENERIC statements.  PRIORITY is the
-   initialization priority for this constructor or destructor.  */
+   be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
+   (for MPX static vars constructor) or 'B' (for MPX static bounds
+   constructor).  BODY is a STATEMENT_LIST containing GENERIC
+   statements.  PRIORITY is the initialization priority for this
+   constructor or destructor.  */
 
 void
 cgraph_build_static_cdtor (char which, tree body, int priority)

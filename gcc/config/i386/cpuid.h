@@ -71,6 +71,7 @@
 #define bit_AVX2	(1 << 5)
 #define bit_BMI2	(1 << 8)
 #define bit_RTM	(1 << 11)
+#define bit_MPX (1 << 14)
 #define bit_RDSEED	(1 << 18)
 #define bit_ADX	(1 << 19)
 

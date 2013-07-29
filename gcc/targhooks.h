@@ -198,3 +198,10 @@ extern void default_asm_output_ident_directive (const char*);
 
 extern enum machine_mode default_cstore_mode (enum insn_code);
 extern bool default_member_type_forces_blk (const_tree, enum machine_mode);
+
+extern rtx default_load_bounds_for_arg (rtx, rtx, rtx);
+extern rtx default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
+extern tree default_fn_abi_va_list_bounds_size (tree);
+extern void default_init_returned_bounds (tree);
+extern enum machine_mode default_mpx_bound_mode (void);
+extern tree default_builtin_mpx_function (unsigned int);

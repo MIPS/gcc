@@ -2054,6 +2054,12 @@ expand_builtin_eh_pointer (tree exp)
     = expand_builtin_eh_common (CALL_EXPR_ARG (exp, 0));
   if (region->exc_ptr_reg == NULL)
     region->exc_ptr_reg = gen_reg_rtx (ptr_mode);
+
+  /* Currently bounds are not passed in exception
+     context.  Set them to zero.  */
+  if (flag_mpx)
+    targetm.calls.init_returned_bounds (NULL_TREE);
+
   return region->exc_ptr_reg;
 }
 

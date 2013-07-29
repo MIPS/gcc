@@ -1559,12 +1559,52 @@ default_member_type_forces_blk (const_tree, enum machine_mode)
 {
   return false;
 }
+rtx
+default_load_bounds_for_arg (rtx addr ATTRIBUTE_UNUSED,
+			     rtx ptr ATTRIBUTE_UNUSED,
+			     rtx bnd ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+rtx
+default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
+			      rtx addr ATTRIBUTE_UNUSED,
+			      rtx bounds ATTRIBUTE_UNUSED,
+			      rtx to ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+extern void default_init_returned_bounds (tree bounds ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+tree
+default_fn_abi_va_list_bounds_size (tree fndecl ATTRIBUTE_UNUSED)
+{
+  return integer_zero_node;
+}
 
 /* Default version of canonicalize_comparison.  */
 
 void
 default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
+}
+
+enum machine_mode
+default_mpx_bound_mode (void)
+{
+  return DImode;
+}
+
+tree
+default_builtin_mpx_function (unsigned int fcode ATTRIBUTE_UNUSED)
+{
+  error ("Target platform does not support MPX");
+  return NULL_TREE;
 }
 
 #include "gt-targhooks.h"
