@@ -18,7 +18,7 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;           H           T
+;;;           H
 ;;;           h jk          v
 
 ;; Integer register constraints.
@@ -226,3 +226,15 @@
    to fit that range (for immediate operands in zero-extending x86-64
    instructions)."
   (match_operand 0 "x86_64_zext_immediate_operand"))
+
+;; T prefix is used for different address constraints
+;;   i - address with no index and no rip
+;;   b - address with no base and no rip
+
+(define_address_constraint "Ti"
+  "MPX address operand without index"
+  (match_operand 0 "address_mpx_no_index_operand"))
+
+(define_address_constraint "Tb"
+  "MPX address operand without base"
+  (match_operand 0 "address_mpx_no_base_operand"))
