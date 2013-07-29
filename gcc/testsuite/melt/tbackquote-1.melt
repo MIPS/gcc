@@ -1,0 +1,16 @@
+; -*- lisp -*-
+;; file tbackquote-1.melt
+
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tbackquote-1.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tbackquote-1.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(debug "backquotest=" (let ( (one 1) ) 
+			`(aa ,one)))
+
+;; eof tbackquote-1.melt

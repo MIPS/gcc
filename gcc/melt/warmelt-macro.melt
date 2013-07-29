@@ -6888,6 +6888,7 @@ remain.}#)
     (foreach_in_list
      (cont)
      (curpair curcomp)
+     (debug "expand_quoted_sexpr curcomp=" curcomp "\n.. arglist=" arglist)
      (cond ( (null curcomp)
 	     (list_append arglist ())
 	     )
@@ -6908,15 +6909,18 @@ remain.}#)
 		 (let ( (curloc (unsafe_get_field :loca_location curcomp))
 			(curcont (unsafe_get_field :sexp_contents curcomp))
 			)
-		  (if (and 
-		       (==i (list_length curcont) 2)
-		       (== (list_first_element curcont) 'comma))
-		      (let ( (commaexp (list_nth_element curcont 1))
-			     )
-			  (antiquoter commaexp arglist curloc env mexpander modctx))
-		    (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))))
-	        (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))
-		))
+		   (if (and 
+			(==i (list_length curcont) 2)
+			(== (list_first_element curcont) 'comma))
+		       (let ( (commaexp (list_nth_element curcont 1))
+			      )
+			 (debug "expand_quoted_sexpr commaexp=" commaexp " curloc=" curloc)
+			 (antiquoter commaexp arglist curloc env mexpander modctx)
+			 (debug "expand_quoted_sexpr after antiquoter arglist=" arglist)
+			 )
+		     (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))))
+	       (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))
+	       ))
 	   ;; the below cases don't happen for expressions which have
 	   ;; been read, only for computed s-exprs...
 	   ( (is_list curcomp)
@@ -6932,6 +6936,7 @@ remain.}#)
      )					; end foreach_in_list
     (debug "expand_quoted_sexpr arglist=" arglist)
     (list_prepend arglist locexp)
+    (debug "expand_quoted_sexpr final arglist=" arglist)
     (let ( (xexp (instance class_source_apply
 			   :loca_location loc
 			   :sapp_fun 'melt_make_sexpr
@@ -6939,9 +6944,9 @@ remain.}#)
 	   )
       (debug "expand_quoted_sexpr result xexp=" xexp)
       (return xexp)
+      )
     )
   )
-)
 
 (defun mexpand_quote (sexpr env mexpander modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
@@ -6992,11 +6997,37 @@ remain.}#)
  $HOOK_MELT_MAKE_LOCATION.}#)
 
 
-;; could be passed to expand_quoted_sexpr for future mexpand_backquote 
+;; could be passed to expand_quoted_sexpr for future
+;; mexpand_backquote; the result of antiquoter is ignored, but it
+;; usually updates the arglist.
 (defun antiquoter (aexp arglist loc env mexpander modctx)
   (debug "antiquoter aexp=" aexp " arglist=" arglist)
-  (assert_msg "$@$unimplemented antiquoter")
-)
+  (shortbacktrace_dbg "antiquoter" 15)
+  (cond 
+   ( (is_a aexp class_keyword)
+     (debug "antiquoter keyword aexp=" aexp)
+     (list_append arglist aexp)
+     )
+   ( (is_a aexp class_symbol)
+     (debug "antiquoter symbol aexp=" aexp "\n.. env=" env)
+     (let ( (abind (find_env env aexp))
+	    (symb aexp)
+	    )
+       (debug "antiquoter abind=" abind)
+       (when (null abind)
+	 (error_strv loc "antiquoting unbound symbol" (get_field :named_name symb))
+	 (return))
+       (assert_msg "$@$unimplemented antiquoter abind")
+       ))
+   ( (is_a aexp class_sexpr)
+     (debug "antiquoter sexpr aexp=" aexp)
+     (assert_msg "$@$unimplemented antiquoter sexpr")
+     )
+   (:else
+    (debug "antiquoter verbatim aexp=" aexp)
+    ))
+  (debug "antiquoter ends with arglist=" arglist))
+
 
 
 
