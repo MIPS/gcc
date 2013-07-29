@@ -1,6 +1,10 @@
 
 
 2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (mexpand_let): Give more precise
+	location of bindings.
+
+2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* testsuite/melt/tbackquote-1.melt: New file.
 

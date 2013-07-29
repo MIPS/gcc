@@ -6392,6 +6392,8 @@ applications of @code{/i} primitives.}#
       (return letb)
       )))
 
+
+
 ;;; the LET expander itself
 (defun mexpand_let (sexpr env mexpander modctx)
   (debug "mexpand_let sexpr=" sexpr)
@@ -6421,19 +6423,22 @@ applications of @code{/i} primitives.}#
 		     (mexpand_letbinding b env mexpander modctx))))
 	  (error_plain loc "missing letbinding-s in LET"_))
       )
-    (multiple_every
-     bindtup
-     (lambda (slb)
-       (assert_msg "mexp.let. check slb" (is_a slb class_source_let_binding))
-       (let (
-	     (sx (unsafe_get_field :sletb_expr slb))
-	     (lb (instance class_let_binding
-			   :binder (unsafe_get_field :sletb_binder slb)
-			   :letbind_type (unsafe_get_field :sletb_type slb)
-			   :letbind_expr sx)) )
-	 (assert_msg "mexp.let not list lb" (not (is_list lb)))
-	 (put_env newenv lb)
-	 )))
+    (foreach_in_multiple
+     (bindtup)
+     (slb :long bix)
+     (debug "mexpand_let slb=" slb " bix=" bix)
+     (assert_msg "mexpand_let check slb" (is_a slb class_source_let_binding))
+     (let (
+	   (sx (unsafe_get_field :sletb_expr slb))
+	   (lb (instance class_let_binding
+			 :binder (unsafe_get_field :sletb_binder slb)
+			 :letbind_type (unsafe_get_field :sletb_type slb)
+			 :letbind_expr sx
+			 :letbind_loc (or (get_field :loca_location slb) loc)))
+	   )
+       (assert_msg "mexpand_let not list lb" (not (is_list lb)))
+       (put_env newenv lb)
+       ))
     (setq bodytup (pairlist_to_multiple 
 		   restpair discr_multiple 
 		   (lambda (e) (mexpander e newenv mexpander modctx))))
