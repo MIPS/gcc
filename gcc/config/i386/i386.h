@@ -80,6 +80,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_FXSR	TARGET_ISA_FXSR
 #define TARGET_XSAVE	TARGET_ISA_XSAVE
 #define TARGET_XSAVEOPT	TARGET_ISA_XSAVEOPT
+#define TARGET_MPX      TARGET_ISA_MPX
 
 #define TARGET_LP64	TARGET_ABI_64
 #define TARGET_X32	TARGET_ABI_X32
@@ -1097,7 +1098,7 @@ enum target_cpu_default
    || (MODE) == V4HImode || (MODE) == V8QImode)
 
 #define VALID_BND_REG_MODE(MODE) \
-  (TARGET_64BIT? (MODE) == BND64mode : (MODE) == BND32mode)
+  (TARGET_64BIT ? (MODE) == BND64mode : (MODE) == BND32mode)
 
 #define VALID_DFP_MODE_P(MODE) \
   ((MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)

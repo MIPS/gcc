@@ -2692,6 +2692,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mrtm",		OPTION_MASK_ISA_RTM },
     { "-mxsave",	OPTION_MASK_ISA_XSAVE },
     { "-mxsaveopt",	OPTION_MASK_ISA_XSAVEOPT },
+    { "-mmpx",          OPTION_MASK_ISA_MPX },
   };
 
   /* Flag options.  */
@@ -2965,7 +2966,8 @@ ix86_option_override_internal (bool main_args_p)
 #define PTA_FXSR		(HOST_WIDE_INT_1 << 37)
 #define PTA_XSAVE		(HOST_WIDE_INT_1 << 38)
 #define PTA_XSAVEOPT		(HOST_WIDE_INT_1 << 39)
-#define PTA_MPX                 (HOST_WIDE_INT_1 << 40)
+#define PTA_MPX			(HOST_WIDE_INT_1 << 40)
+
 /* if this reaches 64, need to widen struct pta flags below */
 
   static struct pta
@@ -3486,6 +3488,9 @@ ix86_option_override_internal (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_XSAVEOPT
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVEOPT))
 	  ix86_isa_flags |= OPTION_MASK_ISA_XSAVEOPT;
+        if (processor_alias_table[i].flags & PTA_MPX
+            && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_MPX))
+          ix86_isa_flags |= OPTION_MASK_ISA_MPX;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -4111,12 +4116,10 @@ ix86_conditional_register_usage (void)
       if (TEST_HARD_REG_BIT (reg_class_contents[(int)FLOAT_REGS], i))
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
 
-  /* Support bound registers only for MPX mode.  */
-  if (! flag_mpx)
-    {
-      for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
-	fixed_regs[i] = 1, reg_names[i] = "";
-    }
+  /* If MPX is disabled, squash the registers.  */
+  if (! TARGET_MPX)
+    for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
+      fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
 }
 
 
@@ -35158,7 +35161,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
   if (BND_REGNO_P (regno))
-    return VALID_BND_REG_MODE(mode);
+    return VALID_BND_REG_MODE (mode);
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
