@@ -85,7 +85,7 @@
 (define_register_constraint "x" "TARGET_SSE ? SSE_REGS : NO_REGS"
  "Any SSE register.")
 
-(define_register_constraint "B" "BND_REGS"
+(define_register_constraint "B" "TARGET_MPX ? BND_REGS : NO_REGS"
  "@internal Any bound register.")
 
 ;; We use the Y prefix to denote any number of conditional register sets:

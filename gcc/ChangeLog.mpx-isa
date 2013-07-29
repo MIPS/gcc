@@ -17,10 +17,13 @@
 	* config/i386/i386-modes.def (BND32): New.
 	(BND64): New.
 	* config/i386/i386-protos.h (ix86_bnd_prefixed_insn_p): New.
-	* config/i386/i386.c (regclass_map): Add bound registers.
+	* config/i386/i386.c (isa_opts): Add mmpx.
+	(regclass_map): Add bound registers.
 	(dbx_register_map): Likewise.
 	(dbx64_register_map): Likewise.
 	(svr4_dbx_register_map): Likewise.
+	(PTA_MPX): New.
+	(ix86_option_override_internal) Support MPX ISA.
 	(ix86_code_end): Add MPX bnd prefix.
 	(output_set_got): Likewise.
 	(ix86_output_call_insn): Likewise.
@@ -37,6 +40,7 @@
 	(CALL_USED_REGISTERS): Likewise.
 	(REG_ALLOC_ORDER): Likewise.
 	(HARD_REGNO_NREGS): Likewise.
+	(TARGET_MPX): New.
 	(VALID_BND_REG_MODE): New.
 	(FIRST_BND_REG): New.
 	(LAST_BND_REG): New.
@@ -91,3 +95,4 @@
 	(address_mpx_no_base_operand): New.
 	(address_mpx_no_index_operand): New.
 	(bnd_mem_operator): New.
+	* config/i386/i386.opt (mmpx): New.
