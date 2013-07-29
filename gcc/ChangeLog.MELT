@@ -1,6 +1,11 @@
 
 
 2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (antiquoter): Handle simple cases with
+	constant bindings... So tbackquote-1.melt test is passing.
+
+2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (mexpand_let): Give more precise
 	location of bindings.
 
