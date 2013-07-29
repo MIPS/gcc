@@ -6982,10 +6982,11 @@ remain.}#)
 (install_initial_macro 'quote mexpand_quote)
 (export_macro
  quote mexpand_quote
- :doc #{The $QUOTE syntax (usually noted with a prefix
- quote-character) is for quotations. Only symbols or literals can be
- quoted. A quoted literal reifies a value, so '2 is a value of
- $DISCR_CONSTANT_INTEGER.}#)
+ :doc #{The $QUOTE syntax (usually noted with a prefix quote-character
+ @code{'}) is for quotations. A quoted literal reifies a value, so
+ @code{'2} is a value of $DISCR_CONSTANT_INTEGER. A quoted
+ s-expression invokes $MELT_MAKE_SEXPR using
+ $HOOK_MELT_MAKE_LOCATION.}#)
 
 
 ;; could be passed to expand_quoted_sexpr for future mexpand_backquote 
@@ -6995,12 +6996,51 @@ remain.}#)
 )
 
 
+
+;;;;;;; for BACKQUOTE
+(defun mexpand_backquote (sexpr env mexpander modctx)
+  (debug "mexpand_backquote sexpr=" sexpr)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 )
+    (error_plain loc "backquote unimplemented")
+    (assert_msg "$@$mexpand_backquote unimplemented" ())
+))
+(install_initial_macro 'backquote mexpand_backquote)
+(export_macro
+ backquote mexpand_backquote
+ :doc #{The $BACKQUOTE macro is expanding into an s-expr, except for
+$COMMA It is often noted with a prefix backquote-character
+@code{`}....}# )
+
+
+
+;;;;;;; for COMMA
+(defun mexpand_comma (sexpr env mexpander modctx)
+  (debug "mexpand_comma sexpr=" sexpr)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 )
+    (error_plain loc "comma unimplemented")
+    (assert_msg "$@$mexpand_comma unimplemented" ())
+))
+(install_initial_macro 'comma mexpand_comma)
+(export_macro
+ comma mexpand_comma
+ :doc #{The $COMMA macro is related to $BACKQUTE.
+$COMMA It is often noted with a prefix comma-character
+@code{,}....}# )
+
+
+
 ;;;;;;; for BOX
 (defun mexpand_box (sexpr env mexpander modctx)
+  (debug "mexpand_box start sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
   (assert_msg "check modctx" (is_object modctx))
-  (debug "mexpand_box start sexpr=" sexpr)
   (let ( (cont (unsafe_get_field :sexp_contents sexpr))
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont))) 

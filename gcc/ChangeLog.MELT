@@ -1,5 +1,10 @@
 
 
+2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (quote): Improve documentation.
+	(mexpand_backquote, mexpand_comma, backquote, comma): New stubs.
+
 2013-07-19  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{quote implemented for s-expressions}}
 	* melt-predef.list (HOOK_MELT_MAKE_LOCATION): New.
