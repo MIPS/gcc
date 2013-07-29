@@ -157,6 +157,17 @@ proc libstdc++_init { testfile } {
     }
     v3track libgompdir 3
 
+    # Locate libvtv. This is only required for --enable-vtable-verify.
+    set v3-libvtv 0
+    set libvtvdir [lookfor_file $blddir/../libvtv .libs/libvtv.$shlib_ext]
+    if {$libvtvdir != ""} {
+	set v3-libvtv 1
+        set libvtvdir [file dirname $libvtvdir]
+	append ld_library_path_tmp ":${libvtvdir}"
+	verbose -log "libvtv support detected"
+    }
+    v3track libvtvdir 3
+
     # Locate libstdc++ shared library. (ie libstdc++.so.)
     set v3-sharedlib 0
     set sharedlibdir [lookfor_file $blddir src/.libs/libstdc++.$shlib_ext]

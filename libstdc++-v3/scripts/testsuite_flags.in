@@ -62,8 +62,8 @@ case ${query} in
       ;;
     --cxxvtvflags)
       CXXFLAGS_vtv="@VTV_CXXFLAGS@"
-      LDFLAGS_vtv="@VTV_CXXLINKFLAGS@"
-      echo ${CXXFLAGS_vtv}
+      LDFLAGS_vtv="-L${BUILD_DIR}/../@VTV_CXXLINKFLAGS@"
+      echo ${CXXFLAGS_vtv} ${LDFLAGS_vtv}
       ;;
     --cxxparallelflags)
       CXXFLAGS_parallel="-D_GLIBCXX_PARALLEL -fopenmp

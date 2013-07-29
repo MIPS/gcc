@@ -1,3 +1,20 @@
+2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_VTABLE_VERIFY): VTV_CXXLINKFLAGS
+	simplification.
+	* scripts/testsuite_flags.in (cxxvtvflags): Use it here.
+	* configure: Regenerate.
+
+2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Add libvtv to
+	LD_LIBRARY_PATH for testsuite.
+
+2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/pre/gnu.ver: Don't export any libvtv symbols. All are
+	weak internal.
+
 2013-07-23  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* libsupc++/vtv_stubs.cc: Include cstddef.
