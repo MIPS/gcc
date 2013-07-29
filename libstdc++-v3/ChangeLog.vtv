@@ -3,7 +3,7 @@
 	* acinclude.m4 (VTV_CXXLINKFLAGS): Export full path, use rpath.
 	* scripts/testsuite_flags.in: Adjust.
 	* configure: Regenerate.
-	
+
 2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* libsupc++/vtv_stubs.cc: Guard with __GXX_WEAK__.
