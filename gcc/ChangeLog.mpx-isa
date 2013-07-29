@@ -6,8 +6,7 @@
 	(BOUND_MODE): New.
 	(make_bound_mode): New.
 	* machmode.h (BOUND_MODE_P): New.
-	* stor-layout.c (mode_for_bound): New.
-	(int_mode_for_mode): Support MODE_BOUND.
+	* stor-layout.c (int_mode_for_mode): Support MODE_BOUND.
 	(layout_type): Support BOUND_TYPE.
 	* tree-pretty-print.c (dump_generic_node): Support BOUND_TYPE.
 	* tree.c (build_int_cst_wide): Support BOUND_TYPE.
