@@ -37,7 +37,8 @@
 
 #include <cstddef>
 
-// Declare as weak for libsupc++.
+// Declare as weak for libsupc++, strong definitions are in libvtv.
+#if __GXX_WEAK__
 extern "C"
 void
 __VLTChangePermission(int) __attribute__((weak));
@@ -64,6 +65,7 @@ __VLTRegisterPairDebug(void**, const void*, std::size_t, const void*,
 const void*
 __VLTVerifyVtablePointerDebug(void**, const void*, const char*,
 			      const char*) __attribute__((weak));
+#endif
 
 // Stub definitions.
 extern "C"
