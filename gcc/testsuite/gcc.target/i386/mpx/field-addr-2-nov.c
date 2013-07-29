@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fmpx" } */
+/* { dg-options "-fmpx -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 /* { dg-additional-options "-fmpx-first-field-has-own-bounds" } */
 
