@@ -28472,24 +28472,24 @@ static const struct builtin_description bdesc_args[] =
 /* Bultins for MPX.  */
 static const struct builtin_description bdesc_mpx[] =
 {
-  { 0, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND },
-  { 0, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
-  { 0, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
 };
 
 /* Const builtins for MPX.  */
 static const struct builtin_description bdesc_mpx_const[] =
 {
-  { 0, (enum insn_code)0, "__builtin_ia32_bndmk", IX86_BUILTIN_BNDMK, UNKNOWN, (int) BND_FTYPE_PCVOID_ULONG },
-  { 0, (enum insn_code)0, "__builtin_ia32_bndldx", IX86_BUILTIN_BNDLDX, UNKNOWN, (int) BND_FTYPE_PCVOID_PCVOID },
-  { 0, (enum insn_code)0, "__builtin_ia32_set_bounds", IX86_BUILTIN_BNDSET, UNKNOWN, (int) PVOID_FTYPE_PVOID_PVOID_ULONG },
-  { 0, (enum insn_code)0, "__builtin_ia32_narrow_bounds", IX86_BUILTIN_BNDNARROW, UNKNOWN, (int) PVOID_FTYPE_PCVOID_BND_ULONG },
-  { 0, (enum insn_code)0, "__builtin_ia32_bndret", IX86_BUILTIN_BNDRET, UNKNOWN, (int) BND_FTYPE_VOID },
-  { 0, (enum insn_code)0, "__builtin_ia32_bndint", IX86_BUILTIN_BNDINT, UNKNOWN, (int) BND_FTYPE_BND_BND },
-  { 0, (enum insn_code)0, "__builtin_ia32_arg_bnd", IX86_BUILTIN_ARG_BND, UNKNOWN, (int) BND_FTYPE_VOID },
-  { 0, (enum insn_code)0, "__builtin_ia32_sizeof", IX86_BUILTIN_SIZEOF, UNKNOWN, (int) ULONG_FTYPE_VOID },
-  { 0, (enum insn_code)0, "__builtin_ia32_bndlower", IX86_BUILTIN_BNDLOWER, UNKNOWN, (int) PVOID_FTYPE_BND },
-  { 0, (enum insn_code)0, "__builtin_ia32_bndupper", IX86_BUILTIN_BNDUPPER, UNKNOWN, (int) PVOID_FTYPE_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndmk", IX86_BUILTIN_BNDMK, UNKNOWN, (int) BND_FTYPE_PCVOID_ULONG },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndldx", IX86_BUILTIN_BNDLDX, UNKNOWN, (int) BND_FTYPE_PCVOID_PCVOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_set_bounds", IX86_BUILTIN_BNDSET, UNKNOWN, (int) PVOID_FTYPE_PVOID_PVOID_ULONG },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_narrow_bounds", IX86_BUILTIN_BNDNARROW, UNKNOWN, (int) PVOID_FTYPE_PCVOID_BND_ULONG },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndret", IX86_BUILTIN_BNDRET, UNKNOWN, (int) BND_FTYPE_VOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndint", IX86_BUILTIN_BNDINT, UNKNOWN, (int) BND_FTYPE_BND_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_arg_bnd", IX86_BUILTIN_ARG_BND, UNKNOWN, (int) BND_FTYPE_VOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_sizeof", IX86_BUILTIN_SIZEOF, UNKNOWN, (int) ULONG_FTYPE_VOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndlower", IX86_BUILTIN_BNDLOWER, UNKNOWN, (int) PVOID_FTYPE_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndupper", IX86_BUILTIN_BNDUPPER, UNKNOWN, (int) PVOID_FTYPE_BND },
 };
 
 /* FMA4 and XOP.  */

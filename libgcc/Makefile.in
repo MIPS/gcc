@@ -232,7 +232,7 @@ LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(HOST_LIBGCC2_CFLAGS) \
 		 $(INHIBIT_LIBC_CFLAGS)
 
 ifeq ($(enable_mpx),yes)
-LIBGCC2_CFLAGS += -fmpx -fno-mpx-use-fast-string-functions -fno-mpx-use-nochk-string-functions
+LIBGCC2_CFLAGS += -fmpx -mmpx -fno-mpx-use-fast-string-functions -fno-mpx-use-nochk-string-functions
 endif
 
 # Additional options to use when compiling libgcc2.a.
