@@ -1,3 +1,8 @@
+2013-07-29  Caroline Tice  <cmtice@google.com>
+
+	* scripts/sum-vtv-counts.c: New. Summarize -fvtv-counts output log
+	files.
+
 2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* scripts/run-testsuite.sh (PASS_FAIL_TESTS): Comment out failing test.
