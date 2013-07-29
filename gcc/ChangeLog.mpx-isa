@@ -14,6 +14,8 @@
 	* tree.h (BOUND_TYPE_P): New.
 	* varasm.c (output_constant): Support BOUND_TYPE.
 	* config/i386/constraints.md (B): New.
+	(Ti): New.
+	(Tb): New.
 	* config/i386/i386-modes.def (BND32): New.
 	(BND64): New.
 	* config/i386/i386-protos.h (ix86_bnd_prefixed_insn_p): New.
