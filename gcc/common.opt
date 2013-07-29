@@ -2580,6 +2580,9 @@ Driver
 static-libtsan
 Driver
 
+static-libubsan
+Driver
+
 symbolic
 Driver
 
