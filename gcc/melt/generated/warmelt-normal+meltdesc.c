@@ -38,7 +38,7 @@ const char melt_modulename[]="warmelt-normal";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.9.0/melt-modules/0.9.9-post/warmelt-normal";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="e91764be13f94e6fb939d8a4751df5cb";
+const char melt_prepromd5meltrun[]="8930c8cb547ff4e0155933f8f86e35e9";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="0b101d133f3d088e4f1b9bc0c49c697d";
 
