@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h363687140; // forward declaration fromline 6518
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h363687140 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h216660757; // forward declaration fromline 6518
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h216660757 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -1024,7 +1024,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h363687140 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h216660757 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -12136,7 +12136,8 @@ meltlab_endgetargs:
             /*^apply.arg*/
             argtab[7].meltbp_cstring =  ",\n\t\t\t\t\t    (melt_ptr_t) MELT_PREDEF(CLASS_ENVIRONMENT)))\
 \n\t\t  melt_fatal_error (\"MELT running extension with bad environment\
- @%p in its reference @%p\",\n\t\t\t\t    (void*) ";
+ @%p in its reference @%p\",\n\t\t\t\t    \
+(void*) ";
             /*^apply.arg*/
             argtab[8].meltbp_aptr = (melt_ptr_t*) &/*_.LOCENV__V17*/ meltfptr[16];
             /*^apply.arg*/

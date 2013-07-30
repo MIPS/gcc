@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f5[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h363687140; // forward declaration fromline 6518
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h363687140 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h216660757; // forward declaration fromline 6518
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h216660757 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -1024,7 +1024,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h363687140 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h216660757 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1851,7 +1851,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /fb06fe8 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V29*/ meltfptr[28]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /3b97dafb checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V29*/ meltfptr[28]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V29*/ meltfptr[28]))->tl = (meltpair_ptr_t) (/*_.OVARIADICINDEX__V30*/ meltfptr[29]);
                         ;
                         /*^touch*/
@@ -1864,7 +1864,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /238be02a checkpair", melt_magic_discr((melt_ptr_t)(/*_.OVARIADICINDEX__V30*/ meltfptr[29]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /fb06fe8 checkpair", melt_magic_discr((melt_ptr_t)(/*_.OVARIADICINDEX__V30*/ meltfptr[29]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_.OVARIADICINDEX__V30*/ meltfptr[29]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V31*/ meltfptr[30]);
                         ;
                         /*^touch*/
@@ -1877,7 +1877,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /1f75bf91 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /238be02a checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V31*/ meltfptr[30]))->tl = (meltpair_ptr_t) (/*_.OVARIADICLENGTH__V32*/ meltfptr[31]);
                         ;
                         /*^touch*/
@@ -2073,7 +2073,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /7f0d1e6 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V43*/ meltfptr[42]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /34ba6240 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V43*/ meltfptr[42]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V43*/ meltfptr[42]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V44*/ meltfptr[43]);
                         ;
                         /*^touch*/
@@ -2086,7 +2086,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /1836db21 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V44*/ meltfptr[43]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /7f0d1e6 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V44*/ meltfptr[43]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V44*/ meltfptr[43]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V45*/ meltfptr[44]);
                         ;
                         /*^touch*/
@@ -2099,7 +2099,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /1bcfc6bf checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V45*/ meltfptr[44]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /1836db21 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V45*/ meltfptr[44]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V45*/ meltfptr[44]))->tl = (meltpair_ptr_t) (/*_.OVARIADICINDEX__V46*/ meltfptr[45]);
                         ;
                         /*^touch*/
@@ -2112,7 +2112,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /34f1bed8 checkpair", melt_magic_discr((melt_ptr_t)(/*_.OVARIADICINDEX__V46*/ meltfptr[45]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /1bcfc6bf checkpair", melt_magic_discr((melt_ptr_t)(/*_.OVARIADICINDEX__V46*/ meltfptr[45]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_.OVARIADICINDEX__V46*/ meltfptr[45]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V47*/ meltfptr[46]);
                         ;
                         /*^touch*/
@@ -2125,7 +2125,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /33123d01 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V47*/ meltfptr[46]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /34f1bed8 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V47*/ meltfptr[46]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V47*/ meltfptr[46]))->tl = (meltpair_ptr_t) (/*_.OVARIADICINDEX__V48*/ meltfptr[47]);
                         ;
                         /*^touch*/
@@ -2138,7 +2138,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /2a54e379 checkpair", melt_magic_discr((melt_ptr_t)(/*_.OVARIADICINDEX__V48*/ meltfptr[47]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /33123d01 checkpair", melt_magic_discr((melt_ptr_t)(/*_.OVARIADICINDEX__V48*/ meltfptr[47]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_.OVARIADICINDEX__V48*/ meltfptr[47]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V49*/ meltfptr[48]);
                         ;
                         /*^touch*/
@@ -2151,7 +2151,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /54ca6c1 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V49*/ meltfptr[48]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /2a54e379 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V49*/ meltfptr[48]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V49*/ meltfptr[48]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V50*/ meltfptr[49]);
                         ;
                         /*^touch*/
@@ -2164,7 +2164,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /33122a8c checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V50*/ meltfptr[49]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /54ca6c1 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V50*/ meltfptr[49]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V50*/ meltfptr[49]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V51*/ meltfptr[50]);
                         ;
                         /*^touch*/
@@ -2177,7 +2177,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /158c0453 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V51*/ meltfptr[50]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /33122a8c checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V51*/ meltfptr[50]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_._PAIROFLIST__V51*/ meltfptr[50]))->tl = (meltpair_ptr_t) (/*_.OVARIADICLENGTH__V52*/ meltfptr[51]);
                         ;
                         /*^touch*/

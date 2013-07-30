@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f7[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h265224252; // forward declaration fromline 6518
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h265224252 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h449990060; // forward declaration fromline 6518
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h449990060 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -884,7 +884,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h265224252 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h449990060 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1964,7 +1964,7 @@ meltlab_endgetargs:
         /*rawallocobj*/
         {
             melt_ptr_t newobj = 0;
-            melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_RUNNING_EXTENSION_MODULE_CONTEXT*/ meltfrout->tabval[6])), (21), "CLASS_RUNNING_EXTENSION_MODULE_CONTEXT");
+            melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_RUNNING_EXTENSION_MODULE_CONTEXT*/ meltfrout->tabval[6])), (22), "CLASS_RUNNING_EXTENSION_MODULE_CONTEXT");
             /*_.INST__V47*/
             meltfptr[46] =
                 newobj;
@@ -1973,92 +1973,92 @@ meltlab_endgetargs:
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_MODULENAME", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (0), (/*_.NAKEDBASNAM__V20*/ meltfptr[14]), "MOCX_MODULENAME");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (1), (/*_.NAKEDBASNAM__V20*/ meltfptr[14]), "MOCX_MODULENAME");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_EXPFIELDICT", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (1), (/*_.MAKE_MAPSTRING__V33*/ meltfptr[30]), "MOCX_EXPFIELDICT");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (2), (/*_.MAKE_MAPSTRING__V33*/ meltfptr[30]), "MOCX_EXPFIELDICT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_EXPCLASSDICT", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (2), (/*_.MAKE_MAPSTRING__V34*/ meltfptr[31]), "MOCX_EXPCLASSDICT");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (3), (/*_.MAKE_MAPSTRING__V34*/ meltfptr[31]), "MOCX_EXPCLASSDICT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_INITIALENV", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (3), (/*_.ENV__V3*/ meltfptr[2]), "MOCX_INITIALENV");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (4), (/*_.ENV__V3*/ meltfptr[2]), "MOCX_INITIALENV");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_FUNCOUNT", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (4), (/*_.MAKE_INTEGERBOX__V35*/ meltfptr[34]), "MOCX_FUNCOUNT");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (5), (/*_.MAKE_INTEGERBOX__V35*/ meltfptr[34]), "MOCX_FUNCOUNT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_FILETUPLE", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (5), ((/*nil*/NULL)), "MOCX_FILETUPLE");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (6), ((/*nil*/NULL)), "MOCX_FILETUPLE");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_CHEADERLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (8), (/*_.MAKE_LIST__V36*/ meltfptr[35]), "MOCX_CHEADERLIST");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (9), (/*_.MAKE_LIST__V36*/ meltfptr[35]), "MOCX_CHEADERLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_CIMPLEMENTLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (9), (/*_.MAKE_LIST__V37*/ meltfptr[36]), "MOCX_CIMPLEMENTLIST");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (10), (/*_.MAKE_LIST__V37*/ meltfptr[36]), "MOCX_CIMPLEMENTLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_VARCOUNT", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (14), (/*_.MAKE_INTEGERBOX__V38*/ meltfptr[37]), "MOCX_VARCOUNT");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (15), (/*_.MAKE_INTEGERBOX__V38*/ meltfptr[37]), "MOCX_VARCOUNT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_VARLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (15), (/*_.MAKE_LIST__V39*/ meltfptr[38]), "MOCX_VARLIST");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (16), (/*_.MAKE_LIST__V39*/ meltfptr[38]), "MOCX_VARLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_HOOKDICT", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (16), (/*_.MAKE_MAPSTRING__V40*/ meltfptr[39]), "MOCX_HOOKDICT");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (17), (/*_.MAKE_MAPSTRING__V40*/ meltfptr[39]), "MOCX_HOOKDICT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_PACKAGEPCLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (12), (/*_.MAKE_LIST__V41*/ meltfptr[40]), "MOCX_PACKAGEPCLIST");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (13), (/*_.MAKE_LIST__V41*/ meltfptr[40]), "MOCX_PACKAGEPCLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_GENDEVLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (11), (/*_.MAKE_LIST__V42*/ meltfptr[41]), "MOCX_GENDEVLIST");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (12), (/*_.MAKE_LIST__V42*/ meltfptr[41]), "MOCX_GENDEVLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_MACROLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (17), (/*_.MAKE_LIST__V43*/ meltfptr[42]), "MOCX_MACROLIST");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (18), (/*_.MAKE_LIST__V43*/ meltfptr[42]), "MOCX_MACROLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_ERRORHANDLER", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (13), (/*_.RUNERRORHDLR__V28*/ meltfptr[24]), "MOCX_ERRORHANDLER");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (14), (/*_.RUNERRORHDLR__V28*/ meltfptr[24]), "MOCX_ERRORHANDLER");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MORCX_LITERVALIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (18), (/*_.LITVALIST__V30*/ meltfptr[29]), "MORCX_LITERVALIST");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (19), (/*_.LITVALIST__V30*/ meltfptr[29]), "MORCX_LITERVALIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MORCX_COUNTLITVAL", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (20), (/*_.MAKE_INTEGERBOX__V44*/ meltfptr[43]), "MORCX_COUNTLITVAL");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (21), (/*_.MAKE_INTEGERBOX__V44*/ meltfptr[43]), "MORCX_COUNTLITVAL");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MORCX_LITEROBJMAP", melt_magic_discr((melt_ptr_t)(/*_.INST__V47*/ meltfptr[46])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (19), (/*_.MAKE_MAPOBJECT__V45*/ meltfptr[44]), "MORCX_LITEROBJMAP");
+        melt_putfield_object((/*_.INST__V47*/ meltfptr[46]), (20), (/*_.MAKE_MAPOBJECT__V45*/ meltfptr[44]), "MORCX_LITEROBJMAP");
         ;
         /*^touchobj*/
 
@@ -3864,7 +3864,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.MODCTX__V46*/ meltfptr[45]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 5, "MOCX_FILETUPLE");
+                    melt_object_get_field(slot,obj, 6, "MOCX_FILETUPLE");
                     /*_.FILTUP__V106*/
                     meltfptr[105] = slot;
                 };
@@ -9724,7 +9724,7 @@ meltlab_endgetargs:
         /*rawallocobj*/
         {
             melt_ptr_t newobj = 0;
-            melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_RUNNING_EXTENSION_MODULE_CONTEXT*/ meltfrout->tabval[6])), (21), "CLASS_RUNNING_EXTENSION_MODULE_CONTEXT");
+            melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_RUNNING_EXTENSION_MODULE_CONTEXT*/ meltfrout->tabval[6])), (22), "CLASS_RUNNING_EXTENSION_MODULE_CONTEXT");
             /*_.INST__V48*/
             meltfptr[47] =
                 newobj;
@@ -9733,92 +9733,92 @@ meltlab_endgetargs:
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_MODULENAME", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (0), (/*_.NAKEDBASNAM__V21*/ meltfptr[8]), "MOCX_MODULENAME");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (1), (/*_.NAKEDBASNAM__V21*/ meltfptr[8]), "MOCX_MODULENAME");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_EXPFIELDICT", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (1), (/*_.MAKE_MAPSTRING__V34*/ meltfptr[31]), "MOCX_EXPFIELDICT");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (2), (/*_.MAKE_MAPSTRING__V34*/ meltfptr[31]), "MOCX_EXPFIELDICT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_EXPCLASSDICT", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (2), (/*_.MAKE_MAPSTRING__V35*/ meltfptr[32]), "MOCX_EXPCLASSDICT");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (3), (/*_.MAKE_MAPSTRING__V35*/ meltfptr[32]), "MOCX_EXPCLASSDICT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_INITIALENV", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (3), (/*_.ENV__V3*/ meltfptr[2]), "MOCX_INITIALENV");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (4), (/*_.ENV__V3*/ meltfptr[2]), "MOCX_INITIALENV");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_FUNCOUNT", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (4), (/*_.MAKE_INTEGERBOX__V36*/ meltfptr[35]), "MOCX_FUNCOUNT");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (5), (/*_.MAKE_INTEGERBOX__V36*/ meltfptr[35]), "MOCX_FUNCOUNT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_FILETUPLE", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (5), ((/*nil*/NULL)), "MOCX_FILETUPLE");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (6), ((/*nil*/NULL)), "MOCX_FILETUPLE");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_CHEADERLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (8), (/*_.MAKE_LIST__V37*/ meltfptr[36]), "MOCX_CHEADERLIST");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (9), (/*_.MAKE_LIST__V37*/ meltfptr[36]), "MOCX_CHEADERLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_CIMPLEMENTLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (9), (/*_.MAKE_LIST__V38*/ meltfptr[37]), "MOCX_CIMPLEMENTLIST");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (10), (/*_.MAKE_LIST__V38*/ meltfptr[37]), "MOCX_CIMPLEMENTLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_VARCOUNT", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (14), (/*_.MAKE_INTEGERBOX__V39*/ meltfptr[38]), "MOCX_VARCOUNT");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (15), (/*_.MAKE_INTEGERBOX__V39*/ meltfptr[38]), "MOCX_VARCOUNT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_VARLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (15), (/*_.MAKE_LIST__V40*/ meltfptr[39]), "MOCX_VARLIST");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (16), (/*_.MAKE_LIST__V40*/ meltfptr[39]), "MOCX_VARLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_HOOKDICT", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (16), (/*_.MAKE_MAPSTRING__V41*/ meltfptr[40]), "MOCX_HOOKDICT");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (17), (/*_.MAKE_MAPSTRING__V41*/ meltfptr[40]), "MOCX_HOOKDICT");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_MACROLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (17), (/*_.MAKE_LIST__V42*/ meltfptr[41]), "MOCX_MACROLIST");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (18), (/*_.MAKE_LIST__V42*/ meltfptr[41]), "MOCX_MACROLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_PACKAGEPCLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (12), (/*_.MAKE_LIST__V43*/ meltfptr[42]), "MOCX_PACKAGEPCLIST");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (13), (/*_.MAKE_LIST__V43*/ meltfptr[42]), "MOCX_PACKAGEPCLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_GENDEVLIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (11), (/*_.MAKE_LIST__V44*/ meltfptr[43]), "MOCX_GENDEVLIST");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (12), (/*_.MAKE_LIST__V44*/ meltfptr[43]), "MOCX_GENDEVLIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MOCX_ERRORHANDLER", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (13), (/*_.RUNERRORHDLR__V29*/ meltfptr[25]), "MOCX_ERRORHANDLER");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (14), (/*_.RUNERRORHDLR__V29*/ meltfptr[25]), "MOCX_ERRORHANDLER");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MORCX_LITERVALIST", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (18), (/*_.LITVALIST__V31*/ meltfptr[30]), "MORCX_LITERVALIST");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (19), (/*_.LITVALIST__V31*/ meltfptr[30]), "MORCX_LITERVALIST");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MORCX_COUNTLITVAL", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (20), (/*_.MAKE_INTEGERBOX__V45*/ meltfptr[44]), "MORCX_COUNTLITVAL");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (21), (/*_.MAKE_INTEGERBOX__V45*/ meltfptr[44]), "MORCX_COUNTLITVAL");
         ;
         /*^putslot*/
         /*putslot*/
         melt_assertmsg("checkobj putslot  _ @MORCX_LITEROBJMAP", melt_magic_discr((melt_ptr_t)(/*_.INST__V48*/ meltfptr[47])) == MELTOBMAG_OBJECT);
-        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (19), (/*_.MAKE_MAPOBJECT__V46*/ meltfptr[45]), "MORCX_LITEROBJMAP");
+        melt_putfield_object((/*_.INST__V48*/ meltfptr[47]), (20), (/*_.MAKE_MAPOBJECT__V46*/ meltfptr[45]), "MORCX_LITEROBJMAP");
         ;
         /*^touchobj*/
 
@@ -10880,7 +10880,7 @@ meltlab_endgetargs:
                 {
                     melt_ptr_t slot=NULL, obj=NULL;
                     obj = (melt_ptr_t)(/*_.MODCTX__V47*/ meltfptr[46]) /*=obj*/;
-                    melt_object_get_field(slot,obj, 5, "MOCX_FILETUPLE");
+                    melt_object_get_field(slot,obj, 6, "MOCX_FILETUPLE");
                     /*_.FILTUP__V76*/
                     meltfptr[75] = slot;
                 };

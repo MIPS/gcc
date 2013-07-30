@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f5[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMAL_h531617731; // forward declaration fromline 6518
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h531617731 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMAL_h497836561; // forward declaration fromline 6518
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h497836561 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 4 MELT called hook declarations ***/
@@ -897,7 +897,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h531617731 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMAL_h497836561 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -27466,7 +27466,7 @@ meltlab_endgetargs:
         {
             melt_ptr_t slot=NULL, obj=NULL;
             obj = (melt_ptr_t)(/*_.MODCTX__V17*/ meltfptr[16]) /*=obj*/;
-            melt_object_get_field(slot,obj, 14, "MOCX_VARCOUNT");
+            melt_object_get_field(slot,obj, 15, "MOCX_VARCOUNT");
             /*_.BNBVAR__V19*/
             meltfptr[18] = slot;
         };
@@ -27475,7 +27475,7 @@ meltlab_endgetargs:
         {
             melt_ptr_t slot=NULL, obj=NULL;
             obj = (melt_ptr_t)(/*_.MODCTX__V17*/ meltfptr[16]) /*=obj*/;
-            melt_object_get_field(slot,obj, 15, "MOCX_VARLIST");
+            melt_object_get_field(slot,obj, 16, "MOCX_VARLIST");
             /*_.VARLIST__V20*/
             meltfptr[19] = slot;
         };

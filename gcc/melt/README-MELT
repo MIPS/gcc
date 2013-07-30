@@ -1,8 +1,15 @@
-## file melt/README.melt in melt-branch of GCC
+## file melt/README-MELT in melt-branch of GCC
 
-Please read the wiki page on http://gcc.gnu.org/wiki/MiddleEndLispTranslator
+The MELT web site is http://gcc-melt.org/
+
+The files under melt/generated/ are all generated, but required to
+compile and boostrap MELT. Somethimes, the make upgrade-warmelt target
+is used to regenerate them.
+
+Please read  http://gcc-melt.org/, 
 and my GCC summit 2007 paper 
 Multi-stage construction of a global static analyser by Basile Starynkevitch, pages 143 - 152
+and my DSL2011 paper
 
 This directory contains melt files. MELT is a dialect of Lisp compiled
 into C code which should be compilable with the appropriate -fPIC and
