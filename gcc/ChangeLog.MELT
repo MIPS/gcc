@@ -2,6 +2,14 @@
 
 2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (diagnostic_args_macro): New macro.
+	(error): Should use it, but don't work yet, so commented out.
+
+	* melt/warmelt-macro.melt
+
+
+2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
