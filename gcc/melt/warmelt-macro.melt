@@ -2423,13 +2423,14 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 
 
 ;; invoke the melt_translate_run_macroexpansions_list from warmelt-outobj.melt
-(defun melt_invoke_translator_runner_macroexpansions (lismexp env)
-  (debug "melt_invoke_translator_runner_macroexpansions lismexp=" lismexp " env=" env)
+(defun melt_invoke_translator_runner_macroexpansions (lismexp env modctx)
+  (debug "melt_invoke_translator_runner_macroexpansions lismexp=" lismexp "\n.. env=" env 
+	 "\n.. modctx=" modctx)
   (let ( (clos melt_transrunmacro_clos)
 	 )
   (assert_msg "check clos" (is_closure clos))
   (assert_msg "check lismexp" (is_list lismexp))
-  (let ( (res (clos lismexp env))
+  (let ( (res (clos lismexp env modctx))
 	 )
     (debug "melt_invoke_translator_runner_macroexpansions res=" res)
     (return res))))
@@ -3139,7 +3140,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
    () ()
    (put_fields modctx :mocx_macrolist (make_list discr_list)))
   ;;
-  (let ( (res (melt_invoke_translator_runner_macroexpansions maclist env))
+  (let ( (res (melt_invoke_translator_runner_macroexpansions maclist env modctx))
 	 )
     (debug "melt_delayed_macro_expander after melt_invoke_translator_runner_macroexpansions res=" res
 	   "\n mbind=" mbind)

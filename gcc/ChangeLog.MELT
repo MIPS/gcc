@@ -1,6 +1,18 @@
 
 
 2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt
+	(melt_invoke_translator_runner_macroexpansions): New formal for
+	modctx.
+	(melt_delayed_macro_expander): Give that formal.
+
+	* melt/warmelt-outobj.melt (translate_run_melt_expressions):
+	Better format for the naked base name.
+	(melt_translate_run_macroexpansions_list): New formal for modctx.
+	Use it for generated naked base name when bootstrapping.
+
+2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+01.cc: Regenerate.

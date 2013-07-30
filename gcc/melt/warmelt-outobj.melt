@@ -7157,7 +7157,7 @@ if (1) return;
                 /* In translate_run_melt_expressions $NUMCHK using getpid to ensure unicity 
 		   of generated naked base name */
 		snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-			  "MELTp%drun%04lx", (int)getpid(), num_$NUMCHK) ;
+			  "MELTp%d_run%04lx", (int)getpid(), num_$NUMCHK) ;
 		$NAKEDBASNAM = meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
 							  basbuf_$NUMCHK, -1) ;
 		}#)
@@ -7415,11 +7415,12 @@ if (1) return;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun melt_translate_run_macroexpansions_list (lismexp env)
+(defun melt_translate_run_macroexpansions_list (lismexp env modctx)
   :doc #{The utility $MELT_TRANSLATE_RUN_MACROEXPANSIONS_LIST
   translates and runs a list of macroexpansions. It is used for
   expansion of $DEFMACRO-ed macronames.}#
-  (debug "melt_translate_run_macroexpansions_list start lismexp=" lismexp "\n env=" env)
+  (debug "melt_translate_run_macroexpansions_list start lismexp=" lismexp 
+	 "\n.. env=" env "\n.. modctx=" modctx)
   (assert_msg "check env" (is_a env class_environment))
   (when (null lismexp)
     (debug "melt_translate_run_macroexpansions_list null lismexp=" lismexp)
@@ -7434,6 +7435,7 @@ if (1) return;
 	 (referr (instance class_reference))
 	 ;; we need to store the normlist for debugging purposes
 	 (refnormlist (instance class_reference))
+	 (modnam (get_field :mocx_modulename modctx))
 	 )
     (code_chunk numchk #{/* melt_translate_run_macroexpansions_list $NUMCHK */ 
 		char basbuf_$NUMCHK[64] ;
@@ -7445,10 +7447,16 @@ if (1) return;
 		    > MELT_MAX_RUNTIME_EXTENSIONS)
 		melt_fatal_error ("too many %ld MELT runtime extensions for macroexpansion",
 				  num_$NUMCHK) ;
-                /* Inmelt_translate_run_macroexpansions_list  $NUMCHK using getpid to ensure unicity 
-		of generated naked base name */
-		snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-					  "MELTp%dmacro%04lx", (int)getpid(), num_$NUMCHK) ;
+                /* In melt_translate_run_macroexpansions_list $NUMCHK using getpid to 
+		   ensure unicity of generated naked base name */
+		if (melt_flag_bootstrapping && melt_magic_discr($MODNAM) == MELTOBMAG_STRING)
+                  snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
+			    "MELT_%s_macro%05lx",
+			    melt_string_str($MODNAM), num_$NUMCHK);
+		else
+                  snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
+                            "MELTp%d_macro%05lx", 
+                            (int)getpid(), num_$NUMCHK) ;
 		$NAKEDBASNAM = meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
 							  basbuf_$NUMCHK, -1) ;
 		}#)
