@@ -1,5 +1,10 @@
 2013-07-30  Marek Polacek  <polacek@redhat.com>
 
+	* config/rs6000/rs6000.h (FRAME_GROWS_DOWNWARD): Use flag_sanitize
+	instead of flag_asan.
+
+2013-07-30  Marek Polacek  <polacek@redhat.com>
+
 	* ubsan.c (ubsan_source_location): Use build_constructor_va
 	instead of build_constructor.
 	(ubsan_type_descriptor): Likewise.
