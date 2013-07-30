@@ -37,7 +37,8 @@
 
 
 (defselector is_recursively_constructible class_selector
-  :doc #{The selector $IS_RECURSIVELY_CONSTRUCTIBLE tests if an expression can appear in $LETREC bindings.}#
+  :doc #{The selector $IS_RECURSIVELY_CONSTRUCTIBLE tests if an 
+expression can appear in $LETREC bindings.}#
   :formals (recv)
 )
   
@@ -6872,7 +6873,7 @@ remain.}#)
 
 
 ;; utility to expand an s-expression into a suitable invocation of melt_make_sexpr
-(defun expand_quoted_sexpr (sexpr env antiquoter mexpander modctx)
+(defun expand_quoted_sexpr (sexpr env antiquotefun mexpander modctx)
   (debug "expand_quoted_sexpr sexpr=" sexpr)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr))
   (assert_msg "check env" (is_a env class_environment))
@@ -6910,7 +6911,7 @@ remain.}#)
 		    )
 	       (list_append arglist qsymb)))
 	   ( (is_a curcomp class_sexpr)
-	     (if (is_closure antiquoter)
+	     (if (is_closure antiquotefun)
 		 (let ( (curloc (unsafe_get_field :loca_location curcomp))
 			(curcont (unsafe_get_field :sexp_contents curcomp))
 			)
@@ -6920,11 +6921,11 @@ remain.}#)
 		       (let ( (commaexp (list_nth_element curcont 1))
 			      )
 			 (debug "expand_quoted_sexpr commaexp=" commaexp " curloc=" curloc)
-			 (antiquoter commaexp arglist curloc env mexpander modctx)
-			 (debug "expand_quoted_sexpr after antiquoter arglist=" arglist)
+			 (antiquotefun commaexp arglist curloc env mexpander modctx)
+			 (debug "expand_quoted_sexpr after antiquotefun arglist=" arglist)
 			 )
-		     (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))))
-	       (list_append arglist (expand_quoted_sexpr curcomp env antiquoter mexpander modctx))
+		     (list_append arglist (expand_quoted_sexpr curcomp env antiquotefun mexpander modctx))))
+	       (list_append arglist (expand_quoted_sexpr curcomp env antiquotefun mexpander modctx))
 	       ))
 	   ;; the below cases don't happen for expressions which have
 	   ;; been read, only for computed s-exprs...
@@ -7008,37 +7009,11 @@ remain.}#)
 (defun antiquoter (aexp arglist loc env mexpander modctx)
   (debug "antiquoter aexp=" aexp " arglist=" arglist)
   (shortbacktrace_dbg "antiquoter" 15)
-  (cond 
-   ( (is_a aexp class_keyword)
-     (debug "antiquoter keyword aexp=" aexp)
-     (list_append arglist aexp)
-     )
-   ( (is_a aexp class_symbol)
-     (debug "antiquoter symbol aexp=" aexp "\n.. env=" env)
-     (let ( (abind (find_env env aexp))
-	    (symb aexp)
-	    )
-       (debug "antiquoter abind=" abind)
-       (when (null abind)
-	 (error_strv loc "antiquoting unbound symbol" (get_field :named_name symb))
-	 (return))
-       (let ( (bexpr (get_field :letbind_expr abind))
-	     )
-	 (cond ( (or (is_string bexpr) (is_integerbox bexpr))
-		 (debug "antiquoter constantbound symb=" symb "  to bexpr=" bexpr)
-		 (list_append arglist bexpr)
-		 )
-	       (:else
-		(assert_msg "$@$unimplemented antiquoter abind"))
-	       )
-       )))
-   ( (is_a aexp class_sexpr)
-     (debug "antiquoter sexpr aexp=" aexp)
-     (assert_msg "$@$unimplemented antiquoter sexpr")
-     )
-   (:else
-    (debug "antiquoter verbatim aexp=" aexp)
-    ))
+  (let ( (mexp (mexpander aexp env mexpander modctx))
+	 )
+    (debug "antiquoter mexp=" mexp)
+    (list_append arglist mexp)
+    )
   (debug "antiquoter ends with arglist=" arglist))
 
 

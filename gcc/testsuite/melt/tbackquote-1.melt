@@ -11,6 +11,6 @@
 |#
 
 (debug "backquotest=" (let ( (one 1) ) 
-			`(aa ,one)))
+			`(aa ,(+i one 2))))
 
 ;; eof tbackquote-1.melt

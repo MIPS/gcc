@@ -1,4 +1,11 @@
 
+2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (expand_quoted_sexpr): Change formal
+	name antiquoter to antiquotefun.
+	(antiquoter): Always macro-expand the aexp.
+
+	* testsuite/melt/tbackquote-1.melt: Improve, and it still passes.
 
 
 2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
