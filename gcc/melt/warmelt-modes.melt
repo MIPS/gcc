@@ -452,9 +452,12 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; makedoc mode
-(defclass class_makedoc_info
-  :doc #{The $CLASS_MAKEDOC_INFO aggregates data for generating documentation.}#
-  :super class_proped
+(defclass class_makedoc_module_context
+  ;; macro-expansion of defmacro-s needs a module context, so...
+  :doc #{The $CLASS_MAKEDOC_MODULE_CONTEXT aggregates data for
+  generating documentation, and is a module context since
+  macro-expansion needs that.}#
+  :super class_any_module_context
   :fields (
 	   ;; lists
 	   mkdoc_primitives
@@ -483,7 +486,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;; increment the documentation counter
 (defun increment_mkdoc_counter (mdinfo)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (let ( (dcountbox (get_field :mkdoc_boxcounter mdinfo))
 	 (:long dcnt (get_int dcountbox))
 	 )
@@ -849,7 +852,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the documentation of a single class definition
 (defun makedoc_outclassdef (mdinfo outb cladef :long claix)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (assert_msg "check cladef" (is_a cladef class_source_defclass))
   (let ( (cla (get_field :cbind_class (get_field :sclass_clabind cladef)))
@@ -975,7 +978,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the macro documentation
 (defun makedoc_genmacro (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT macros")
   (add2sbuf_indentnl outb 0)
@@ -1038,7 +1041,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the pattern macro documentation
 (defun makedoc_genpatmacro (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT patterns")
   (add2sbuf_indentnl outb 0)
@@ -1106,7 +1109,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the class documentation
 (defun makedoc_genclass (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT classes")
   (add2sbuf_indentnl outb 0)
@@ -1233,7 +1236,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;;; output a primitive
 (defun makedoc_outprimitivedef (mdinfo outb primdef :long primix)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (assert_msg "check primdef" (is_a primdef class_source_defprimitive))
   (let ( (pnam (get_field :sdef_name primdef)) 
@@ -1264,7 +1267,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;;; generate the primitive documentation
 (defun makedoc_genprimitive (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT primitives")
   (add2sbuf_indentnl outb 0)
@@ -1308,7 +1311,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; output a function
 (defun makedoc_outfunctiondef (mdinfo outb fundef :long primix)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (assert_msg "check fundef" (is_a fundef class_source_defun))
   (let ( (fnam (get_field :sdef_name fundef)) 
@@ -1334,7 +1337,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;;; generate the function documentation
 (defun makedoc_genfunction (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT functions")
   (add2sbuf_indentnl outb 0)
@@ -1369,7 +1372,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the citerators documentation
 (defun makedoc_genciterator (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT c-iterators")
   (add2sbuf_indentnl outb 0)
@@ -1431,7 +1434,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the cmatchers documentation
 (defun makedoc_gencmatcher (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT c-matchers")
   (add2sbuf_indentnl outb 0)
@@ -1505,7 +1508,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the hook documentation
 (defun makedoc_genhook (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outb" (is_strbuf outb))
   (add2sbuf_strconst outb "@node MELT hooks")
   (add2sbuf_indentnl outb 0)
@@ -1586,7 +1589,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 (compile_warning "should list selectors and document their formals if given")
 (defun makedoc_genoutput (mdinfo outarg)
   (debug "makedoc_genoutput mdinfo=" mdinfo)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_info))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
   (assert_msg "check outarg" (is_string outarg))
   (let ( (outb (make_strbuf discr_strbuf)) 
 	 )
@@ -1700,7 +1703,23 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	(outarg (make_stringconst discr_string (melt_argument "output")))
 	(rlist (make_list discr_list))
 	(mdinfo 
-	 (instance class_makedoc_info
+	 (instance class_makedoc_module_context
+		   :mocx_modulename  outarg
+		   :mocx_expfieldict (make_mapstring discr_map_strings 71)
+		   :mocx_expclassdict (make_mapstring discr_map_strings 19)
+		   :mocx_initialenv curenv
+		   :mocx_funcount (make_integerbox discr_integer 0)
+		   :mocx_filetuple ()
+		   :mocx_cheaderlist (make_list discr_list)
+		   :mocx_cimplementlist (make_list discr_list)
+		   :mocx_varcount (make_integerbox discr_integer 0)
+		   :mocx_varlist (make_list discr_list)
+		   :mocx_hookdict (make_mapstring discr_map_strings 31)
+		   :mocx_macrolist (make_list discr_list)
+		   ;; :mocx_cflags (make_list discr_list)
+		   ;; :mocx_linkflags (make_list discr_list)
+		   :mocx_packagepclist (make_list discr_list)
+		   :mocx_gendevlist (make_list discr_list)
 		   :mkdoc_primitives (make_list discr_list)
 		   :mkdoc_functions (make_list discr_list) 
 		   :mkdoc_citerators (make_list discr_list)
@@ -1719,7 +1738,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		   :mkdoc_boxcounter (make_integerbox discr_integer 0)
 		   ))
 	)
-    (debug "makedoc_docmd arglist=" arglist " outarg=" outarg)    ;; read into rlist all the stuff
+    (debug "makedoc_docmd arglist=" arglist " outarg=" outarg) ;; read into rlist all the stuff
     (if (not (is_list rlist))
 	(errormsg_plain 
 	 "makedoc MELT mode needs an -f[plugin-arg-]melt-arglist of comma-separated *.melt file[s]"))
@@ -1765,7 +1784,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 )
 (install_melt_mode makedoc_mode)
 
-(export_class class_makedoc_info)
+(export_class class_makedoc_module_context)
 
 ;;;;;;;;;;;;;;;;
 ;;;;;

@@ -2,10 +2,23 @@
 
 2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (class_any_module_context): Inherits
+	from class_proped.
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): More debugging.
+
+	* melt/warmelt-modes.melt (class_makedoc_info): Rename as ...
+	(class_makedoc_module_context): New class, now a subclass of
+	class_any_module_context...
+	(makedoc_docmd): Create an appropriate instance of it.
+
+2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (diagnostic_args_macro): New macro.
 	(error): Should use it, but don't work yet, so commented out.
 
-	* melt/warmelt-macro.melt
+	* melt/warmelt-macro.melt (mexpand_defmacro): Use envm not env in
+	lambdabind.
 
 
 2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>

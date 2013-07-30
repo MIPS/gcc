@@ -870,7 +870,7 @@ subclasses are produced by macro expanders.}# )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; module compilation context
 (defclass class_any_module_context
-  :super class_root
+  :super class_proped
   :fields (mocx_modulename		;the module name
 	   mocx_expfieldict		;dict of exported fields
 	   mocx_expclassdict		;dict of exported classes
