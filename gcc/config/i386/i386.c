@@ -43614,12 +43614,6 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   return val;
 }
 
-static bool
-ix86_lra_p ()
-{
-  return true;//! flag_mpx;
-}
-
 static tree
 ix86_mpx_bound_type ()
 {
@@ -43982,7 +43976,7 @@ ix86_mpx_bound_mode ()
 #define TARGET_LEGITIMATE_ADDRESS_P ix86_legitimate_address_p
 
 #undef TARGET_LRA_P
-#define TARGET_LRA_P ix86_lra_p
+#define TARGET_LRA_P hook_bool_void_true
 
 #undef TARGET_REGISTER_PRIORITY
 #define TARGET_REGISTER_PRIORITY ix86_register_priority

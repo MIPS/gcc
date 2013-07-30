@@ -5440,13 +5440,6 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	}
     }
 
-  /* Actually MPX pass created a separate statements to store
-     returned bounds.  Will it be better to do it here?  */
-  if (0 && temp_bnd && TREE_TYPE (exp)
-      && !BOUNDED_TYPE_P (TREE_TYPE (exp))
-      && mpx_type_has_pointer (TREE_TYPE (exp)))
-    mpx_emit_bounds_store (temp_bnd, temp, target);
-
   return NULL_RTX;
 }
 
