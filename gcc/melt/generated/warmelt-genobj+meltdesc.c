@@ -50,7 +50,7 @@ const char* const melt_secondaryhexmd5tab[]={
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+03.cc #3 */ "3e30e5a97b5e408078471db792ea90b4",
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+04.cc #4 */ "acbb42eb58c609f691d28dd91e604049",
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+05.cc #5 */ "d8f5394bf32b78c37e94d5b530893a2d",
- /*sechexmd5checksum meltbuild-sources/warmelt-genobj+06.cc #6 */ "bb9d37e903e6edfac507b3c1cc12496c",
+ /*sechexmd5checksum meltbuild-sources/warmelt-genobj+06.cc #6 */ "2ed552ebf63f7f8a764af083b25a7c07",
  /*sechexmd5checksum meltbuild-sources/warmelt-genobj+07.cc #7 */ "c96180e31aa573a19ebd68e6d4228e0a",
  /*nosecfile*/ (const char*)0,
  /*nosecfile*/ (const char*)0,
@@ -60,13 +60,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=7;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="b28b3be8b640c8254e9710965591e63a" ;
+const char melt_cumulated_hexmd5[]="3f8d18d6aa04108126eed71c33c0e778" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiGENOBJ_mds__B28B3BE8B640C8254E9710965591E63A 1
+#define meltmod_WARMELTmiGENOBJ_mds__3F8D18D6AA04108126EED71C33C0E778 1
 #include "warmelt-genobj+melttime.h"
 	 
 
