@@ -1,3 +1,10 @@
+2013-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_addr_mask): Move print of
+	addr_mask debugging to a separate function that can be called from
+	gdb.
+	(rs6000_debug_reg_global): Likewise.
+
 2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_R): Move reload insns to

@@ -317,7 +317,7 @@ static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 #define IS_FP_VECT_REG_TYPE(RTYPE) IN_RANGE(RTYPE, VSX_REG_TYPE, FPR_REG_TYPE)
 
 /* Mask of the valid address bits.  */
-typedef unsigned HOST_WIDE_INT rs6000_addr_mask_type;
+typedef unsigned int rs6000_addr_mask_type;
 
 const rs6000_addr_mask_type ADDR_1_BIT  = ((rs6000_addr_mask_type)1);
 
@@ -1848,6 +1848,43 @@ rs6000_debug_reg_print (int first_regno, int last_regno, const char *reg_name)
     }
 }
 
+/* Print the address masks in a human readble fashion.  */
+DEBUG_FUNCTION void
+rs6000_debug_addr_mask (int m, rs6000_addr_mask_type mask)
+{
+  if (mask == 0)
+    fprintf (stderr, "Mode: %-5s no addr mask!\n", GET_MODE_NAME (m));
+  else
+    {
+      fprintf (stderr,
+	       "Mode: %-5s mask: 0x%.4lx gen: %c reload: %c%c "
+	       "GPR: %c %c%c%c%c "
+	       "FPR: %c %c%c%c%c "
+	       "AV: %c %c%c VSX: %c %c%c\n",
+	       GET_MODE_NAME (m),
+	       (unsigned long) mask,
+	       reg_addr[m].general_addr_p ? 'g' : '-',
+	       (reg_addr[m].reload_load != CODE_FOR_nothing) ? 'l' : '-',
+	       (reg_addr[m].reload_store != CODE_FOR_nothing) ? 's' : '-',
+	       (mask & ADDR_VALID_GPR) ? 'y' : '-',
+	       (mask & ADDR_INDEXED_GPR) ? 'i' : ' ',
+	       (mask & ADDR_UPDATE_GPR) ? '+' : ' ',
+	       (mask & ADDR_OFFSET_GPR) ? 'o' : ' ',
+	       (mask & ADDR_MULTIPLE_GPR) ? 'm' : ' ',
+	       (mask & ADDR_VALID_FPR) ? 'y' : '-',
+	       (mask & ADDR_INDEXED_FPR) ? 'i' : ' ',
+	       (mask & ADDR_UPDATE_FPR) ? '+' : ' ',
+	       (mask & ADDR_OFFSET_FPR) ? 'o' : ' ',
+	       (mask & ADDR_MULTIPLE_FPR) ? 'm' : ' ',
+	       (mask & ADDR_VALID_AV) ? 'y' : '-',
+	       (mask & ADDR_INDEXED_AV) ? 'i' : ' ',
+	       (mask & ADDR_MULTIPLE_AV) ? 'm' : ' ',
+	       (mask & ADDR_VALID_VSX) ? 'y' : '-',
+	       (mask & ADDR_INDEXED_VSX) ? 'i' : ' ',
+	       (mask & ADDR_MULTIPLE_VSX) ? 'm' : ' ');
+    }
+}
+
 #define DEBUG_FMT_ID "%-32s= "
 #define DEBUG_FMT_D   DEBUG_FMT_ID "%d\n"
 #define DEBUG_FMT_WX  DEBUG_FMT_ID "%#.12" HOST_WIDE_INT_PRINT "x: "
@@ -2059,40 +2096,7 @@ rs6000_debug_reg_global (void)
 
   /* Print out the addressing types available for each register class.  */
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
-    {
-      rs6000_addr_mask_type mask = reg_addr[m].addr_mask;
-
-      if (mask == 0)
-	fprintf (stderr, "Mode: %-5s no addr mask!\n", GET_MODE_NAME (m));
-      else
-	{
-	  fprintf (stderr,
-		   "Mode: %-5s gen: %c reload: %c%c "
-		   "GPR: %c %c%c%c%c "
-		   "FPR: %c %c%c%c%c "
-		   "AV: %c %c%c VSX: %c %c%c\n",
-		   GET_MODE_NAME (m),
-		   reg_addr[m].general_addr_p ? 'g' : '-',
-		   (reg_addr[m].reload_load != CODE_FOR_nothing) ? 'l' : '-',
-		   (reg_addr[m].reload_store != CODE_FOR_nothing) ? 's' : '-',
-		   (mask & ADDR_VALID_GPR) ? 'y' : '-',
-		   (mask & ADDR_INDEXED_GPR) ? 'i' : ' ',
-		   (mask & ADDR_UPDATE_GPR) ? '+' : ' ',
-		   (mask & ADDR_OFFSET_GPR) ? 'o' : ' ',
-		   (mask & ADDR_MULTIPLE_GPR) ? 'm' : ' ',
-		   (mask & ADDR_VALID_FPR) ? 'y' : '-',
-		   (mask & ADDR_INDEXED_FPR) ? 'i' : ' ',
-		   (mask & ADDR_UPDATE_FPR) ? '+' : ' ',
-		   (mask & ADDR_OFFSET_FPR) ? 'o' : ' ',
-		   (mask & ADDR_MULTIPLE_FPR) ? 'm' : ' ',
-		   (mask & ADDR_VALID_AV) ? 'y' : '-',
-		   (mask & ADDR_INDEXED_AV) ? 'i' : ' ',
-		   (mask & ADDR_MULTIPLE_AV) ? 'm' : ' ',
-		   (mask & ADDR_VALID_VSX) ? 'y' : '-',
-		   (mask & ADDR_INDEXED_VSX) ? 'i' : ' ',
-		   (mask & ADDR_MULTIPLE_VSX) ? 'm' : ' ');
-	}
-    }
+    rs6000_debug_addr_mask (m, reg_addr[m].addr_mask);
 
   fputs (nl, stderr);
 
