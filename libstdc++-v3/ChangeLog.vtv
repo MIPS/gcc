@@ -1,3 +1,12 @@
+2013-07-30  Caroline Tice  <cmtice@google.com>
+            Benjamin Kosnik  <bkoz@redhat.com>
+
+	* acinclude.m4 (GLIBCXX_ENABLE_VTABLE_VERIFY): Add
+	VTV_PCH_CXXFLAGS, subst.
+	* include/Makefile.am (PCHFLAGS): Use VTV_PCH_CXXFLAGS.
+	* configure: Regenerate.
+	* */Makefile.in: Same.
+
 2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* doc/xml/manual/configure.xml: Add details for --enable-vtable-verify.

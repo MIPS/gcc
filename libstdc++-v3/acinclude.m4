@@ -2301,14 +2301,17 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
   AC_MSG_RESULT([$enable_vtable_verify])
 
   if test $enable_vtable_verify = yes; then
-    VTV_CXXFLAGS="-fvtable-verify=std"
+    VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+    VTV_PCH_CXXFLAGS="-fvtable-verify=std"
     VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"		
   else
     VTV_CXXFLAGS= 
+    VTV_PCH_CXXFLAGS=
     VTV_CXXLINKFLAGS= 
   fi
 
   AC_SUBST(VTV_CXXFLAGS)
+  AC_SUBST(VTV_PCH_CXXFLAGS)
   AC_SUBST(VTV_CXXLINKFLAGS)
   GLIBCXX_CONDITIONAL(ENABLE_VTABLE_VERIFY, test $enable_vtable_verify = yes)
 ])
