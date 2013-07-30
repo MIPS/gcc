@@ -2357,12 +2357,6 @@ rs6000_init_address_modes (void)
 						 | ADDR_OFFSET_GPR
 						 | ADDR_INDEXED_GPR);
 
-  /* Mask for values that go in GPRs and fit in a single register and does not
-     do updates.  */
-  const rs6000_addr_mask_type GPR_SINGLE_MASK_NO_UPDATE = (ADDR_VALID_GPR
-							   | ADDR_OFFSET_GPR
-							   | ADDR_INDEXED_GPR);
-
   /* Mask for values that go in GPRs and take multiple registers.  */
   const rs6000_addr_mask_type GPR_MULTIPLE_MASK = (ADDR_VALID_GPR
 						   | ADDR_OFFSET_GPR);
@@ -2400,72 +2394,92 @@ rs6000_init_address_modes (void)
   const rs6000_addr_mask_type VSX_SINGLE_MASK = (ADDR_VALID_VSX
 						 | ADDR_INDEXED_VSX);
 
+  /* Mask for addressing modes to automatically add the reload function
+     handlers for any type that uses VSX registers.  */
+  const rs6000_addr_mask_type VSX_SET   = ADDR_VALID_VSX | ADDR_INDEXED_VSX;
+  const rs6000_addr_mask_type VSX_CLEAR = ADDR_MULTIPLE_VSX;
+
+  rs6000_addr_mask_type small_int_mask;
+  rs6000_addr_mask_type small_int_mask_no_update;
+  rs6000_addr_mask_type large_int_mask;
+  rs6000_addr_mask_type di_df_dd_mask;
+  rs6000_addr_mask_type tf_td_mask;
+  rs6000_addr_mask_type vector_mask;
+  rs6000_addr_mask_type ti_mask;
+  rs6000_addr_mask_type sf_mask;
+  rs6000_addr_mask_type sd_mask;
+  rs6000_addr_mask_type spe_mask;
+  rs6000_addr_mask_type v2sf_mask;
+  unsigned word_size;
+
+
   /* Mask for small integers (QImode, HImode, SImode) that fit in a GPR
      register and don't go into FPR, Altivec, or VSX registers.  */
-  rs6000_addr_mask_type small_int_mask = GPR_SINGLE_MASK;
+  small_int_mask = GPR_SINGLE_MASK;
 
   /* Mask for small/large integer values with update disabled.  */
-  rs6000_addr_mask_type small_int_mask_no_update = GPR_SINGLE_MASK_NO_UPDATE;
-  rs6000_addr_mask_type large_int_mask_no_update = GPR_MULTIPLE_MASK;
+  small_int_mask_no_update = GPR_SINGLE_MASK & ~ADDR_UPDATE_MASK;
+  large_int_mask = GPR_MULTIPLE_MASK;
 
-  /* Mask for 64-bit types.  */
-  rs6000_addr_mask_type di_df_dd_mask
-    = (((TARGET_POWERPC64) ? GPR_SINGLE_MASK : GPR_MULTIPLE_MASK)
-       | ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
-	  ? FPR_SINGLE_MASK : 0));
+  /* Mask for 64-bit types. Restrict auto-incs on E500 due to the subreg
+     hackery.  */
+  di_df_dd_mask = ((TARGET_POWERPC64) ? GPR_SINGLE_MASK : GPR_MULTIPLE_MASK);
+
+  if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+    di_df_dd_mask |= FPR_SINGLE_MASK;
+
+  if (TARGET_E500_DOUBLE)
+    di_df_dd_mask &= ~ADDR_UPDATE_MASK;
 
   /* Mask for 128-bit floating point types that take two registers.  At
      present, these are not allowed in VSX registers.  */
-  rs6000_addr_mask_type tf_td_mask = ((TARGET_HARD_FLOAT && TARGET_FPRS)
-				      ? (GPR_MULTIPLE_MASK | FPR_MULTIPLE_MASK)
-				      : GPR_MULTIPLE_MASK);
+  tf_td_mask = GPR_MULTIPLE_MASK;
+
+  if (TARGET_HARD_FLOAT && TARGET_FPRS)
+    tf_td_mask |= FPR_MULTIPLE_MASK;
 
   /* Mask for 128-bit vector types.  */
-  rs6000_addr_mask_type vector_mask = (GPR_MULTIPLE_MASK
-				       | ((TARGET_ALTIVEC) ? AV_SINGLE_MASK : 0)
-				       | ((TARGET_VSX) ? VSX_SINGLE_MASK : 0));
+  vector_mask = GPR_MULTIPLE_MASK;
+
+  if (TARGET_VSX)
+    vector_mask |= VSX_SINGLE_MASK | AV_SINGLE_MASK;
+
+  else if (TARGET_ALTIVEC)
+    vector_mask |= AV_SINGLE_MASK;
 
   /* Mask for TImode.  At present, limit TImode to reg only addresses, due to
      problems with CSE after reload.  */
-  rs6000_addr_mask_type ti_mask = ((TARGET_VSX && TARGET_VSX_TIMODE)
-				   ? ADDR_VALID_MASK
-				   : GPR_MULTIPLE_MASK);
+  ti_mask = ((TARGET_VSX && TARGET_VSX_TIMODE)
+	     ? ADDR_VALID_MASK
+	     : GPR_MULTIPLE_MASK);
 
   /* Mask for SFmode.  */
-  rs6000_addr_mask_type sf_mask = (GPR_SINGLE_MASK
-				   | ((TARGET_HARD_FLOAT
-				       && TARGET_FPRS
-				       && TARGET_SINGLE_FLOAT)
-				      ? FPR_SINGLE_MASK : 0)
-				   | ((TARGET_P8_VECTOR)
-				      ? VSX_SINGLE_MASK : 0));
+  sf_mask = GPR_SINGLE_MASK;
+
+  if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT)
+    sf_mask |= FPR_SINGLE_MASK;
+
+  if (TARGET_P8_VECTOR)
+    sf_mask |= VSX_SINGLE_MASK;
 
   /* Combination mask for SDmode in normal GPR/FPR registers and possibily VSX
      registers.  Turn off update mode in the GPRs, since the primary register
      set SD is loaded to does not have an update form.  Having to use 32-bit
      integer load/store to FPR/VSX registers complicates things.  */
-  rs6000_addr_mask_type sd_mask = ((TARGET_DFP && TARGET_NO_SDMODE_STACK)
-				   ? SD_DFP_MASK
-				   : (di_df_dd_mask & ~ADDR_UPDATE_MASK));
+  sd_mask = ((TARGET_DFP && TARGET_NO_SDMODE_STACK)
+	     ? SD_DFP_MASK
+	     : (di_df_dd_mask & ~ADDR_UPDATE_MASK));
 
-  /* Mask for SPE vector types.  */
-  rs6000_addr_mask_type spe_mask = ((TARGET_SPE)
-				    ? GPR_SPE_MASK : GPR_MULTIPLE_MASK);
-
-  /* Mask for paired floating point.  */
-  rs6000_addr_mask_type paired_mask = ((TARGET_SPE)
-				       ? spe_mask
-				       : (GPR_MULTIPLE_MASK
-					  | FPR_MULTIPLE_MASK));
-
-  /* Mask for eliminating various options.  */
-  rs6000_addr_mask_type eliminate_mask = 0;
-
-  /* Mask for addressing modes to automatically add the reload function
-     handlers for any type that uses VSX registers.  */
-  const rs6000_addr_mask_type vsx_set = ADDR_VALID_VSX | ADDR_INDEXED_VSX;
-  const rs6000_addr_mask_type vsx_clear = ADDR_MULTIPLE_VSX;
-  unsigned word_size;
+  /* Mask for SPE vector types and paired floating point (both share V2SF
+     mode.  */
+  if (TARGET_SPE)
+    spe_mask = v2sf_mask = GPR_SPE_MASK;
+  else
+    {
+      spe_mask = v2sf_mask = GPR_MULTIPLE_MASK;
+      if (TARGET_PAIRED_FLOAT)
+	v2sf_mask |= FPR_MULTIPLE_MASK;
+    }
 
   /* Initialize the reg_addr array.  */
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
@@ -2479,42 +2493,42 @@ rs6000_init_address_modes (void)
       reg_addr[m].general_addr_p = false;
     }
 
-  /* restrict DI/DF mode on E500 due to the subreg hackery.  */
-  if (TARGET_E500_DOUBLE)
-    di_df_dd_mask &= ~ADDR_UPDATE_MASK;
-
   /* Eliminate GPR/FPR indexed mode if -mavoid-indexed-addresses.  We leave
      Altivec and VSX indexed addresses, since those modes do not have an offset
-     form.  */
-  if (TARGET_AVOID_XFORM)
-    eliminate_mask |= (ADDR_INDEXED_GPR | ADDR_INDEXED_FPR);
+     form.  Similarly, eliminate support for pre increment/decrement/modfy if
+     -mno-update.  */
+  if (TARGET_AVOID_XFORM || TARGET_NO_UPDATE)
+    {
+      rs6000_addr_mask_type eliminate_mask = 0;
 
-  /* Eliminate update modes if -mno-update.  */
-  if (TARGET_NO_UPDATE)
-    eliminate_mask |= ADDR_UPDATE_MASK;
+      if (TARGET_AVOID_XFORM)
+	eliminate_mask |= (ADDR_INDEXED_GPR | ADDR_INDEXED_FPR);
 
-  /* Apply all restrictions.  */
-  small_int_mask &= ~eliminate_mask;
-  small_int_mask_no_update &= ~eliminate_mask;
-  large_int_mask_no_update &= ~eliminate_mask;
-  di_df_dd_mask &= ~eliminate_mask;
-  tf_td_mask &= ~eliminate_mask;
-  ti_mask &= ~eliminate_mask;
-  sf_mask &= ~eliminate_mask;
-  sd_mask &= ~eliminate_mask;
-  spe_mask &= ~eliminate_mask;
-  paired_mask &= ~eliminate_mask;
-  vector_mask &= ~eliminate_mask;
+      if (TARGET_NO_UPDATE)
+	eliminate_mask |= ADDR_UPDATE_MASK;
 
-  reg_addr[VOIDmode].addr_mask = large_int_mask_no_update;
-  reg_addr[BLKmode].addr_mask = large_int_mask_no_update;
+      small_int_mask &= ~eliminate_mask;
+      small_int_mask_no_update &= ~eliminate_mask;
+      large_int_mask &= ~eliminate_mask;
+      di_df_dd_mask &= ~eliminate_mask;
+      tf_td_mask &= ~eliminate_mask;
+      ti_mask &= ~eliminate_mask;
+      sf_mask &= ~eliminate_mask;
+      sd_mask &= ~eliminate_mask;
+      spe_mask &= ~eliminate_mask;
+      v2sf_mask &= ~eliminate_mask;
+      vector_mask &= ~eliminate_mask;
+    }
+
+  reg_addr[VOIDmode].addr_mask = large_int_mask;
+  reg_addr[BLKmode].addr_mask = large_int_mask;
 
   reg_addr[QImode].addr_mask = small_int_mask;
   reg_addr[HImode].addr_mask = small_int_mask;
   reg_addr[SImode].addr_mask = small_int_mask;
   reg_addr[DImode].addr_mask = di_df_dd_mask;
   reg_addr[TImode].addr_mask = ti_mask;
-  reg_addr[PTImode].addr_mask = large_int_mask_no_update;
+  reg_addr[PTImode].addr_mask = large_int_mask;
 
   reg_addr[SFmode].addr_mask = sf_mask;
   reg_addr[DFmode].addr_mask = di_df_dd_mask;
@@ -2524,11 +2538,11 @@ rs6000_init_address_modes (void)
   reg_addr[DDmode].addr_mask = di_df_dd_mask;
   reg_addr[TDmode].addr_mask = tf_td_mask;
 
-  reg_addr[CQImode].addr_mask = large_int_mask_no_update;
-  reg_addr[CHImode].addr_mask = large_int_mask_no_update;
-  reg_addr[CSImode].addr_mask = large_int_mask_no_update;
-  reg_addr[CDImode].addr_mask = large_int_mask_no_update;
-  reg_addr[CTImode].addr_mask = large_int_mask_no_update;
+  reg_addr[CQImode].addr_mask = large_int_mask;
+  reg_addr[CHImode].addr_mask = large_int_mask;
+  reg_addr[CSImode].addr_mask = large_int_mask;
+  reg_addr[CDImode].addr_mask = large_int_mask;
+  reg_addr[CTImode].addr_mask = large_int_mask;
   reg_addr[SCmode].addr_mask = tf_td_mask;
   reg_addr[DCmode].addr_mask = tf_td_mask;
   reg_addr[TCmode].addr_mask = tf_td_mask;
@@ -2543,7 +2557,7 @@ rs6000_init_address_modes (void)
   reg_addr[V8QImode].addr_mask = spe_mask;
   reg_addr[V4HImode].addr_mask = spe_mask;
   reg_addr[V2SImode].addr_mask = spe_mask;
-  reg_addr[V2SFmode].addr_mask = paired_mask;
+  reg_addr[V2SFmode].addr_mask = v2sf_mask;
   reg_addr[V1DImode].addr_mask = spe_mask;
 
   /* For any other modes, treat them as the appropriate sized integers with
@@ -2553,7 +2567,7 @@ rs6000_init_address_modes (void)
     if (reg_addr[m].addr_mask == 0)
       reg_addr[m].addr_mask = ((GET_MODE_SIZE (m) <= word_size)
 			       ? small_int_mask_no_update
-			       : large_int_mask_no_update);
+			       : large_int_mask);
 
   /* Set up whether to be more general about legal addresses before the
      register allocation phase.  */
@@ -2602,7 +2616,7 @@ rs6000_init_address_modes (void)
     {
       m = reload_funcs[i].mode;
       if (reg_addr[m].general_addr_p
-	  || ((reg_addr[m].addr_mask & (vsx_set | vsx_clear)) == vsx_set
+	  || ((reg_addr[m].addr_mask & (VSX_SET | VSX_CLEAR)) == VSX_SET
 	      && m != SDmode))
 	{
 	  reg_addr[m].reload_load = reload_funcs[i].load[si_or_di];
