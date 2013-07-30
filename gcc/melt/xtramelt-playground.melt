@@ -26,5 +26,16 @@
 ;; releases.  It is a playground for testing purposes.
 
 
+(defun play_error (loc :cstring fmt :rest) 
+  :doc #{Variadic function to emit an error message. The $FMT format
+  string may contain @code{$$1} ... @code{$$9} to refer to the first,
+  ... nineth argument (after $FMT).}#
+  (let ( (vect (make_multiple discr_multiple 9))
+	 (:long nbargs 0)
+	 )
+    (diagnostic_args_macro nbargs vect)
+    ;; we need to expand the fmt using the vect...
+    (assert_msg "@$@unimplemented error")
+    ))					;end ERROR
 
 ;; eof xtramelt-playground.melt

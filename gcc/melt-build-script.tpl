@@ -835,6 +835,8 @@ if [   ! -f meltgendoc.texi [+FOR melt_translator_file " \\\n"+] -o meltbuild-so
    meltbuild_arg tempdir=meltbuild-tempdir >> $meltgen_args
    meltbuild_arg source-path=meltbuild-sources >> $meltgen_args
    meltbuild_arg module-path=meltbuild-modules >> $meltgen_args
+meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltgen_args
+meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltgen_args
    meltbuild_arg bootstrapping  >> $meltgen_args 
    meltbuild_arg arglist=[+FOR melt_translator_file ","+][+base+].melt[+ENDFOR melt_translator_file+],[+FOR melt_application_file ","+][+base+].melt[+ENDFOR melt_application_file+]  >> $meltgen_args 
    echo meltbuild-empty-file.c >> $meltgen_args

@@ -2,6 +2,21 @@
 
 2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-build-script.tpl: When generating meltbuild-gendoc.args put
+	module-cflags & module-makefile since defmacros could generate
+	code.
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-base.melt (diagnostic_args_macro): Export it.
+
+	* melt/warmelt-macro (melt_make_sexpr): Accept nil values.
+
+	* melt/xtramelt-playground.melt (play_error): Temporary 
+          function which does not work yet. FIXME!.
+
+2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* README-MELT: Improve, and refer to gcc-melt.org site.
 
 	{{Regenerate}}

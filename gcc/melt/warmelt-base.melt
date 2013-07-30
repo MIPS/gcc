@@ -661,6 +661,7 @@ number $NUM opaque location number $LOC.}#
       )
     )
   )
+(export_macro diagnostic_args_macro)
 
 #|
 (defun error (loc :cstring fmt :rest) 
@@ -671,6 +672,8 @@ number $NUM opaque location number $LOC.}#
 	 (:long nbargs 0)
 	 )
     (diagnostic_args_macro nbargs vect)
+    ;; we need to expand the fmt using the vect...
+    (assert_msg "@$@unimplemented error")
     ))					;end ERROR
 |#
 
