@@ -254,13 +254,10 @@ ubsan_source_location (location_t loc)
 {
   expanded_location xloc;
   tree type = ubsan_source_location_type ();
-  vec<constructor_elt, va_gc> *v;
 
   xloc = expand_location (loc);
 
   /* Fill in the values from LOC.  */
-  vec_alloc (v, 3);
-  tree ctor = build_constructor (type, v);
   size_t len = strlen (xloc.file);
   tree str = build_string (len + 1, xloc.file);
   TREE_TYPE (str) = build_array_type (char_type_node,
@@ -268,11 +265,11 @@ ubsan_source_location (location_t loc)
   TREE_READONLY (str) = 1;
   TREE_STATIC (str) = 1;
   str = build_fold_addr_expr_loc (loc, str);
-  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
-  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (unsigned_type_node,
-						       xloc.line));
-  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (unsigned_type_node,
-						       xloc.column));
+  tree ctor = build_constructor_va (type, 3, NULL_TREE, str, NULL_TREE,
+				    build_int_cst (unsigned_type_node,
+						   xloc.line), NULL_TREE,
+				    build_int_cst (unsigned_type_node,
+						   xloc.column));
   TREE_CONSTANT (ctor) = 1;
   TREE_STATIC (ctor) = 1;
 
@@ -312,7 +309,6 @@ ubsan_type_descriptor (tree type)
     return (*slot)->decl;
 
   tree dtype = ubsan_type_descriptor_type ();
-  vec<constructor_elt, va_gc> *v;
   const char *tname;
   unsigned short tkind, tinfo;
 
@@ -346,20 +342,17 @@ ubsan_type_descriptor (tree type)
   DECL_IGNORED_P (decl) = 1;
   DECL_EXTERNAL (decl) = 0;
 
-  vec_alloc (v, 3);
-  tree ctor = build_constructor (dtype, v);
   size_t len = strlen (tname);
   tree str = build_string (len + 1, tname);
   TREE_TYPE (str) = build_array_type (char_type_node,
 				      build_index_type (size_int (len)));
   TREE_READONLY (str) = 1;
   TREE_STATIC (str) = 1;
-  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (short_unsigned_type_node,
-						       tkind));
-  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (short_unsigned_type_node,
-						       tinfo));
-  CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);
-
+  tree ctor = build_constructor_va (dtype, 3, NULL_TREE,
+				    build_int_cst (short_unsigned_type_node,
+						   tkind), NULL_TREE,
+				    build_int_cst (short_unsigned_type_node,
+						   tinfo), NULL_TREE, str);
   TREE_CONSTANT (ctor) = 1;
   TREE_STATIC (ctor) = 1;
   DECL_INITIAL (decl) = ctor;
