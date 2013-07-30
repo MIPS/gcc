@@ -1,3 +1,8 @@
+2013-07-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (build_binary_op): Sanitize only when
+	current_function_decl is not zero.
+
 2013-07-21  Marek Polacek  <polacek@redhat.com>
 
 	* c-typeck.c (build_binary_op): Call c_fully_fold on both

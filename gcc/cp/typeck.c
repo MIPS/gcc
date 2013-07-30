@@ -4885,6 +4885,7 @@ cp_build_binary_op (location_t location,
 
   if ((flag_sanitize & SANITIZE_UNDEFINED)
       && !processing_template_decl
+      && current_function_decl != 0
       && (doing_div_or_mod || doing_shift))
     {
       /* OP0 and/or OP1 might have side-effects.  */
