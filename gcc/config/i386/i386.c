@@ -43614,12 +43614,6 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   return val;
 }
 
-static bool
-ix86_lra_p ()
-{
-  return true;//! flag_mpx;
-}
-
 static tree
 ix86_mpx_bound_type ()
 {

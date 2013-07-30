@@ -3470,7 +3470,7 @@ assign_parms (tree fndecl)
 	  assign_parm_adjust_entry_rtl (&data);
 	}
 
-      /* Find out where bounds for parameter for parameter are.
+      /* Find out where bounds for parameter are.
 	 Load them if required and associate them with parm.  */
       if (flag_mpx
 	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
