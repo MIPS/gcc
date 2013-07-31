@@ -17,7 +17,7 @@ shift
 flags_script=$BUILD_DIR/../libstdc++-v3/scripts/testsuite_flags
 INCLUDES=`$flags_script --build-includes`
 COMPILER=`$flags_script --build-cxx`
-CXX="$COMPILER $INCLUDES -L$BUILD_DIR/.libs"
+CXX="$COMPILER $INCLUDES -L$BUILD_DIR/.libs -Wl,--rpath -Wl,$BUILD_DIR/.libs"
 
 echo "compiler config is:"
 echo $CXX
