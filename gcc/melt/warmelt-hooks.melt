@@ -152,7 +152,7 @@
      (revlastlist)
      (curlpair curlclo)
      (debug "hook_override_gate last curlclo=" curlclo " memref=" memref)
-     (assert_msg "check curlclo" (is_closure curlclo))
+     (assert_msg "check curlclo" (is_closure curlclo) curlclo)
      (let ( (clores (curlclo gateflag memref passname passnum))
 	    )
        (debug "hook_override_gate last clores=" clores)

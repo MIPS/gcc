@@ -2555,14 +2555,14 @@ Also add the ctype as symbol data in the keyword and the alternate keyword if pr
 		  #{/*$INVALIDCTYPE*/error("MELT invalid ctype: %s", $DESCR);
       }#)
       )
-  (assert_msg "check ctyp" (is_a ctyp class_ctype)) 
+  (assert_msg "check ctyp" (is_a ctyp class_ctype) ctyp) 
   (if (unsafe_get_field :ctype_descr ctyp)
       (return))
   (let ( (ckw (get_field :ctype_keyword ctyp)) 
 	 (altkw (get_field :ctype_altkeyword ctyp)) 
 	 (ds (make_stringconst discr_string descr))
 	 )
-    (assert_msg "check ctype ckw" (is_a ckw class_keyword))
+    (assert_msg "check ctype ckw" (is_a ckw class_keyword) ckw)
     (unsafe_put_fields ckw :symb_data ctyp)
     (if (is_a altkw class_keyword)
 	(put_fields altkw :symb_data ctyp))
@@ -3102,7 +3102,7 @@ Keyword is :cstring.}#
 		)))
 	   ))
 	 (boxi (mapstring_getstr mapstr synam)) )
-    (assert_msg "check synam" (is_string synam))
+    (assert_msg "check synam" (is_string synam) synam)
     (if (not (is_integerbox boxi))
 	(progn 
 	  (setq boxi (make_integerbox discr_integer 0))
@@ -3159,11 +3159,11 @@ function, and $OPTDESC_HELP is the help string.}#
 	 (optdec (mapobject_get optmap optsymb))
 	 (optname (get_field :named_name optsymb))
 	 )
-    (assert_msg "check optsymb" (is_a optsymb class_symbol))
+    (assert_msg "check optsymb" (is_a optsymb class_symbol) optsymb)
     (if optdec
 	(let ( (optfun (get_field :optdesc_fun optdec)) 
 	       )
-	  (assert_msg "check optdec" (is_a optdec class_option_descriptor))
+	  (assert_msg "check optdec" (is_a optdec class_option_descriptor) optdec)
 	  (let ( (optres (optfun optsymb optval)) 
 		 )
 	    (return optres)))
@@ -3717,7 +3717,7 @@ list of every element of the tuple transformed by $TRANSF.}#
 				 (return vgreat))
 			       (:else 
 				;; this should not happen, two distinct cloned symbols with same name & rank
-				(assert_msg "corrupted same cloned symbols" ())
+				(assert_msg "corrupted same cloned symbols" () x1 x2)
 				(return ()))
 			       ))))
 		))
@@ -3843,17 +3843,17 @@ $CLASS_DESCRIBED_ENVIRONMENT.}#
 ;; find a binding inside an environment
 (defun find_env (env binder)
   :doc #{Find a binding inside environement $ENV for binder symbol $BINDER.}#
-  (assert_msg "check arg env" (is_a env class_environment))
-  (assert_msg "check arg binder" (is_object binder))
+  (assert_msg "check arg env" (is_a env class_environment) env)
+  (assert_msg "check arg binder" (is_object binder) binder)
   (forever
    findloop
    (if (null env)
        (exit findloop ()))
-   (assert_msg "check env obj" (is_object env))
-   (assert_msg "check good env" (is_a env class_environment))
+   (assert_msg "check env obj" (is_object env) env)
+   (assert_msg "check good env" (is_a env class_environment) env)
    (let ( (bindmap 
 	   (unsafe_get_field :env_bind env)) )
-     (assert_msg "check bindmap" (is_mapobject bindmap))
+     (assert_msg "check bindmap" (is_mapobject bindmap) bindmap)
      (let ( (bnd 
 	     (mapobject_get bindmap binder)) )
        (if bnd 
@@ -3865,17 +3865,17 @@ $CLASS_DESCRIBED_ENVIRONMENT.}#
 
 ;; find a binding inside an environment with debugging 
 (defun find_env_debug (env binder)
-  (assert_msg "check arg env" (is_a env class_environment))
-  (assert_msg "check arg binder" (is_object binder))
+  (assert_msg "check arg env" (is_a env class_environment) env)
+  (assert_msg "check arg binder" (is_object binder) binder)
   (forever
    findloop
    (if (null env)
        (exit findloop ()))
-   (assert_msg "check env obj" (is_object env))
-   (assert_msg "check good env" (is_a env class_environment))
+   (assert_msg "check env obj" (is_object env) env)
+   (assert_msg "check good env" (is_a env class_environment) env)
    (let ( (bindmap 
 	   (unsafe_get_field :env_bind env)) )
-     (assert_msg "check bindmap" (is_mapobject bindmap))
+     (assert_msg "check bindmap" (is_mapobject bindmap) bindmap)
      (let ( (bnd 
 	     (mapobject_get bindmap binder)) )
        (if bnd 
@@ -3889,15 +3889,15 @@ $CLASS_DESCRIBED_ENVIRONMENT.}#
 (defun find_enclosing_env (env binder)
   :doc #{Find the binding in environment $ENV for given $BINDER symbol 
 and secondarily return the reversed list of enclosing procedures.}#
-  (assert_msg "check env" (is_a env class_environment))
-  (assert_msg "check binder" (is_object binder))
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check binder" (is_object binder) binder)
   (let ( (proclist (make_list discr_list)) )
     (forever findloop
 	     (if (is_not_a env class_environment) (exit findloop))
 	     (let ( (bindmap (unsafe_get_field :env_bind env)) 
 		    (eproc (unsafe_get_field :env_proc env))
 		    )
-	       (assert_msg "check bindmap" (is_mapobject bindmap))
+	       (assert_msg "check bindmap" (is_mapobject bindmap) bindmap)
 	       (let ( (bnd (mapobject_get bindmap binder)) )
 		 (if bnd (return bnd proclist env)))
 	       (if eproc (list_prepend proclist eproc))
@@ -3908,21 +3908,21 @@ and secondarily return the reversed list of enclosing procedures.}#
 (defun put_env (env binding)
   :doc #{Put into environment $ENV the given $BINDING. 
 See also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
-  (assert_msg "check binding is obj" (is_object binding))
-  (assert_msg "check env is obj" (is_object env))
-  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check binding is obj" (is_object binding) binding)
+  (assert_msg "check env is obj" (is_object env) env)
+  (assert_msg "check env" (is_a env class_environment) env)
   (if (not (is_a binding class_any_binding))
       (progn
 	(shortbacktrace_dbg "put_env invalid binding" 15)))
-  (assert_msg "check binding" (is_a binding class_any_binding))
+  (assert_msg "check binding" (is_a binding class_any_binding) binding)
   (let ( (bindmap (unsafe_get_field :env_bind env)) 
 	 (binderv (unsafe_get_field :binder binding))
 	 )
     (if (not (is_object binder))
 	(progn
 	  (shortbacktrace_dbg "put_env  bad binder in binding" 5)))
-    (assert_msg "check bindmap" (is_mapobject bindmap))
-    (assert_msg "check binderv" (is_object binderv))
+    (assert_msg "check bindmap" (is_mapobject bindmap) bindmap)
+    (assert_msg "check binderv" (is_object binderv) binderv)
     (mapobject_put bindmap binderv binding)
     ))
 
@@ -3931,14 +3931,14 @@ See also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
   :doc #{Overwrite in environment $ENV or its ancestor the given
 $BINDING, in the environment where it has already been bound.  See
 also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
-  (assert_msg "check env" (is_a env class_environment))
-  (assert_msg "check binding" (is_a binding class_any_binding))
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check binding" (is_a binding class_any_binding) binding)
   (let ( (binderv  (unsafe_get_field :binder binding)) )
-    (assert_msg "check binderv" (is_object binderv))
+    (assert_msg "check binderv" (is_object binderv) binderv)
     (forever findloop
 	     (if (not (is_a env class_environment)) (exit findloop))
 	     (let ( (bindmap (unsafe_get_field :env_bind env)) )
-	       (assert_msg "check bindmap" (is_mapobject bindmap))
+	       (assert_msg "check bindmap" (is_mapobject bindmap) bindmap)
 	       (let ( (oldbinding (mapobject_get bindmap binder)) )
 		 (if oldbinding 
 		     (progn 
@@ -3992,7 +3992,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
 			   (unsafe_get_field :named_name (discrim curmodenvcont)))
 	  (return)
 	  ))
-    (assert_msg "check curmodenvcont" (is_a curmodenvcont class_reference))
+    (assert_msg "check curmodenvcont" (is_a curmodenvcont class_reference) curmodenvcont)
     (let ( (curmodenv (unsafe_get_field :referenced_value curmodenvcont)) )
       (if (is_a curmodenv class_environment)
 	  (let ( (curbindmap (unsafe_get_field :env_bind curmodenv))
@@ -4442,7 +4442,7 @@ $CREATE is true i.e. non zero.}#
 	 (symbv ())
 	 (namev ())
 	 )
-     (assert_msg "check sydict" (is_mapstring sydict))
+     (assert_msg "check sydict" (is_mapstring sydict) sydict)
      (code_chunk 
       namedsym_chk 
       #{ /* hook_named_symbol $NAMEDSYM_CHK start */
@@ -4509,7 +4509,7 @@ $CREATE is true i.e. non zero.}#
 	 (keywv ())
 	 (namev ())
 	 )
-     (assert_msg "check kwdict" (is_mapstring kwdict))
+     (assert_msg "check kwdict" (is_mapstring kwdict) kwdict)
      (code_chunk 
       namedkeyw_chk 
       #{ /* hook_named_keyword $NAMEDKEYW_CHK start */
@@ -4670,7 +4670,7 @@ $CREATE is true i.e. non zero.}#
 		  }#)
       (return ()))
     ;; error if importing a non symbol
-    (assert_msg "check symb" (is_a symb class_symbol))
+    (assert_msg "check symb" (is_a symb class_symbol) symb)
     ;; error if importing from a non environment
     (if (is_not_a parenv class_environment)
 	(let ( (pardiscr (discrim parenv))
@@ -4689,7 +4689,7 @@ $CREATE is true i.e. non zero.}#
 	   }#)
 	  (return ())))
     ;;
-    (assert_msg "check parenv" (is_a parenv class_environment))
+    (assert_msg "check parenv" (is_a parenv class_environment) parenv)
     (let ( (valbind (find_env parenv symb))
 	   (bindiscr (discrim valbind))
 	   (bindiscrnam (get_field :named_name discrim))
@@ -4705,7 +4705,7 @@ $CREATE is true i.e. non zero.}#
 		    } /* hook_symbol_importer $ERRBADIMPORT end */ }#)
 	(return ())
 	)
-      (assert_msg "check valbind" (is_a valbind class_value_binding))
+      (assert_msg "check valbind" (is_a valbind class_value_binding) valbind)
       (return (unsafe_get_field :vbind_value valbind))
       )))
 
@@ -4725,12 +4725,12 @@ $CREATE is true i.e. non zero.}#
     (warningmsg_strv "exporting value too early with null environment container" 
 		     (unsafe_get_field :named_name sym))
     (return))
-  (assert_msg "check sym" (is_a sym class_symbol))
-  (assert_msg "check contenv" (is_a contenv class_reference))
+  (assert_msg "check sym" (is_a sym class_symbol) sym)
+  (assert_msg "check contenv" (is_a contenv class_reference) contenv)
   (let ( (env (unsafe_get_field :referenced_value contenv)) 
 	 (symname (unsafe_get_field :named_name sym))
 	 )
-    (assert_msg "check symname" (is_string symname))
+    (assert_msg "check symname" (is_string symname) symname)
     (when (null env)
       (code_chunk 
        nullenv_chk 
@@ -4739,7 +4739,7 @@ $CREATE is true i.e. non zero.}#
 			 melt_string_str ((melt_ptr_t)$SYMNAME));
        }#)
       (return))
-    (assert_msg "check good env" (is_a env class_environment))
+    (assert_msg "check good env" (is_a env class_environment) env)
     (let (
 	  (parenv (get_field :env_prev env))
 	  (prevbind (if parenv (find_env parenv sym)))
@@ -4801,7 +4801,7 @@ $CREATE is true i.e. non zero.}#
 		  (return)))
 	    ))
        )
-      (assert_msg "check valbind" (is_a valbind class_any_binding))
+      (assert_msg "check valbind" (is_a valbind class_any_binding) valbind)
       (put_env env valbind)
       (return)
       )))
@@ -4815,16 +4815,16 @@ $CREATE is true i.e. non zero.}#
   ()
   :void
   :predef HOOK_MACRO_EXPORTER
-  (assert_msg "check sym" (is_a sym class_symbol))
+  (assert_msg "check sym" (is_a sym class_symbol) sym)
   (when (null contenv)
     (warningmsg_strv "exporting macro too early with null environment container" 
 		     (unsafe_get_field :named_name sym))
     (return))
-  (assert_msg "check contenv" (is_a contenv class_reference))
+  (assert_msg "check contenv" (is_a contenv class_reference) contenv)
   (let ( (env (unsafe_get_field :referenced_value contenv)) 
 	 (symname (unsafe_get_field :named_name sym))
 	 )
-    (assert_msg "check symname" (is_string symname))
+    (assert_msg "check symname" (is_string symname) symname)
     (when (null env)
       (code_chunk 
        nullenv_chk 
@@ -4834,8 +4834,8 @@ $CREATE is true i.e. non zero.}#
        }#)
       (return)
       )
-    (assert_msg "check env" (is_a env class_environment))
-    (assert_msg "check val is closure" (is_closure val))
+    (assert_msg "check env" (is_a env class_environment) env)
+    (assert_msg "check val is closure" (is_closure val) val)
     (let (
 	  (newclo (clone_with_discriminant val discr_macro_closure))
 	  (macbind (instance
@@ -4857,22 +4857,22 @@ $CREATE is true i.e. non zero.}#
   :predef HOOK_PATMACRO_EXPORTER
   :doc #{$HOOK_PATMACRO_EXPORTER is an internal hook to export pattern-macros. 
 See also $EXPORT_PATMACRO}#
-  (assert_msg "check sym" (is_a sym class_symbol))
+  (assert_msg "check sym" (is_a sym class_symbol) sym)
   (when (null contenv)
     (warningmsg_strv "exporting patmacro too early with null environment container" 
 		     (unsafe_get_field :named_name sym))
     (return)
     )
-  (assert_msg "check contenv" (is_a contenv class_reference))
+  (assert_msg "check contenv" (is_a contenv class_reference) contenv)
   (let ( (env (unsafe_get_field :referenced_value contenv)) )
     (when (null env)
       (informsg_strv "exporting patmacro too early with null environment"
 		     (unsafe_get_field :named_name sym))
       (return)
       )
-    (assert_msg "check env" (is_a env class_environment))
-    (assert_msg "check macval is closure" (is_closure macval))
-    (assert_msg "check patval is closure" (is_closure patval))
+    (assert_msg "check env" (is_a env class_environment) env)
+    (assert_msg "check macval is closure" (is_closure macval) macval)
+    (assert_msg "check patval is closure" (is_closure patval) patval)
     (let ( (macbind (instance
 		     class_patmacro_binding
 		     :binder sym

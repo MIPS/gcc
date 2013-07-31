@@ -1142,8 +1142,8 @@ routine procedures.}#
 	 (predefmap (make_mapobject discr_map_objects (+i 11 (*i 2 maxpredefix))))
 	 (valmap (make_mapobject discr_map_objects 91))
 	 )
-    (assert_msg "check modctx" (is_a modctx class_running_extension_module_context))
-    (assert_msg "check modenv" (is_a modenv class_environment))
+    (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
+    (assert_msg "check modenv" (is_a modenv class_environment) modenv)
     (forever predefloop
 	     (if (>=i ix maxpredefix) (exit predefloop))
 	     (let ( (curpredef (get_globpredef ix)) )

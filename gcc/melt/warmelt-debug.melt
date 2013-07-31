@@ -116,8 +116,8 @@ See $MELT_NEED_DBGLIM.}#
 	;; initial_system_data...
 	(if (null out)
 	    (setq out (make_strbuf discr_strbuf)))
-	(assert_msg "check good out" (is_out out))
-	(assert_msg "check boxedmaxdepth" (>i (get_int boxedmaxdepth) 1))
+	(assert_msg "check good out" (is_out out) out)
+	(assert_msg "check boxedmaxdepth" (>i (get_int boxedmaxdepth) 1) boxedmaxdepth)
 	(let ( 
 	      (dbgi (instance class_debug_information
 			      :dbgi_out out
@@ -311,8 +311,8 @@ See $MELT_NEED_DBGLIM.}#
 	;; initial_system_data...
 	(if (null out)
 	    (setq out (make_strbuf discr_strbuf)))
-	(assert_msg "check good out" (is_out out))
-	(assert_msg "check boxedmaxdepth" (>i (get_int boxedmaxdepth) 1))
+	(assert_msg "check good out" (is_out out) out)
+	(assert_msg "check boxedmaxdepth" (>i (get_int boxedmaxdepth) 1) boxedmaxdepth)
 	;; we don't want signals to happen during debugging output
 	(block_signals
 	 ()
@@ -460,7 +460,7 @@ See $MELT_NEED_DBGLIM.}#
 (defun dbg_outobject (obj dbgi :long depth)
   :doc #{Output for debugging object $OBJ using debug information
 $DBGI at given $DEPTH}#
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (occmap (unsafe_get_field :dbgi_occmap dbgi)) )
     (if (is_mapobject occmap)
 	(let ( (occ (mapobject_get occmap obj)) )
@@ -480,7 +480,7 @@ $DBGI at given $DEPTH}#
 (defun dbg_out (obj dbgi :long depth) 
   :doc #{Output for debugging value $OBJ using debug information
   $DBGI at given $DEPTH}#
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (checkcallstack_msg "start dbg_out")
   (let ( (out (unsafe_get_field :dbgi_out dbgi))
 	 (discr (discrim obj))
@@ -508,8 +508,8 @@ $DBGI at given $DEPTH}#
 (defun dbgout_fields (obj dbgi :long depth fromrank torank)
   :doc #{Utility to output for debugging value in $OBJ using debug information
   $DBGI at given $DEPTH the fields from $FROMRANK to $TORANK}#
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check obj" (is_object obj))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check obj" (is_object obj) obj)
   (let ( (:long nbf (object_length obj)) 
 	 (cla (discrim obj))
 	 (:long ix fromrank)
@@ -519,7 +519,7 @@ $DBGI at given $DEPTH}#
 	 (:long outoff (output_length out))
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 )
-    (assert_msg "check out" (is_out out))
+    (assert_msg "check out" (is_out out) out)
     ;; outoff may be -1 when out is a non-seekable file like stdout
     (when (<i depth maxdepth)
 	(forever 
@@ -562,8 +562,8 @@ $DBGI at given $DEPTH}#
   :doc #{Utility to output again for debugging value in $OBJ using
 debug information $DBGI at given $DEPTH the fields from $FROMRANK to
 $TORANK}#
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check obj" (is_object obj))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check obj" (is_object obj) obj)
   (let ( (:long nbf (object_length obj)) 
 	 (cla (discrim obj))
 	 (:long ix fromrank)
@@ -571,7 +571,7 @@ $TORANK}#
 	 (out  (unsafe_get_field :dbgi_out dbgi))
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 )
-    (assert_msg "check out" (is_out out))
+    (assert_msg "check out" (is_out out) out)
     (if (<i ix 0) (setq ix 0))
     (if (and (<i depth maxdepth) 
 	     (is_a dbgi class_debug_output_information))
@@ -604,14 +604,14 @@ $TORANK}#
 (defun dbgout_null_method  (self dbgi :long depth)
   (let (  (out  (unsafe_get_field :dbgi_out dbgi))
 	  )
-    (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+    (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
     (add2out_strconst out "()")))
 (install_method discr_null_receiver dbg_output dbgout_null_method)
 (install_method discr_null_receiver dbg_outputagain dbgout_null_method)
 
 ;; string debug output
 (defun dbgout_string_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
 	 )
@@ -640,8 +640,8 @@ $TORANK}#
 
 ;;; string buffer debug output
 (defun dbgout_strbuf_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_strbuf self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_strbuf self) self)
   (let ( (dis (discrim self)) 
 	 (disname (get_field :named_name dis))
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
@@ -726,7 +726,7 @@ $TORANK}#
 	
 ;; integer debug output
 (defun dbgout_integer_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
 	 )
@@ -747,7 +747,7 @@ $TORANK}#
 
 ;; mixint debug value
 (defun dbgout_mixint_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
@@ -776,8 +776,8 @@ $TORANK}#
 
 ;; mixloc debug value
 (defun dbgout_mixloc_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self mixloc" (is_mixloc self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self mixloc" (is_mixloc self) self)
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
@@ -806,8 +806,8 @@ $TORANK}#
 
 ;; mixbigint debug value
 (defun dbgout_mixbigint_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self mixbigint" (is_mixbigint self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self mixbigint" (is_mixbigint self) self)
   (let ( (dis (discrim self)) 
 	 (sbuf  (get_field :dbgi_out dbgi))
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
@@ -829,7 +829,7 @@ $TORANK}#
 
 ;; multiple debug out
 (defun dbgout_multiple_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 )
@@ -864,8 +864,8 @@ $TORANK}#
 
 ;; routine debug out - don't print the routine components if depth is >0
 (defun dbgout_routine_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_routine self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_routine self) self)
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
@@ -892,8 +892,8 @@ $TORANK}#
 
 ;; hook debug out - don't print the hook components if depth is >0
 (defun dbgout_hook_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_hook self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_hook self) self)
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
@@ -925,8 +925,8 @@ $TORANK}#
 
 ;; closure debug out 
 (defun dbgout_closure_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_closure self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_closure self) self)
   (let ( (dis (discrim self)) 
 	 (:long oldmaxdepth (get_int (unsafe_get_field :dbgi_maxdepth dbgi)))
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi))
@@ -972,8 +972,8 @@ $TORANK}#
 
 ;; list debug out 
 (defun dbgout_list_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_list self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_list self) self)
   (let ( (dis (discrim self)) 
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 (sbuf (get_field :dbgi_out dbgi)) )
@@ -1018,8 +1018,8 @@ $TORANK}#
 
 ;; pair debug output
 (defun dbgout_pair_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_pair self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_pair self) self)
   (let ( (dis (discrim self)) 
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 (sbuf  (get_field :dbgi_out dbgi)) )
@@ -1043,14 +1043,14 @@ $TORANK}#
 
 ;; mapobject debug output
 (defun dbgout_mapobject_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_mapobject self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_mapobject self) self)
   (let ( (dis (discrim self)) 
 	 (out  (get_field :dbgi_out dbgi))
 	 (:long mapcount (mapobject_count self))
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 )
-    (assert_msg "check out at start" (is_out out))
+    (assert_msg "check out at start" (is_out out) out)
     (if (and (>i depth 0) (== dis DISCR_MAP_OBJECTS))
 	(add2out_strconst out " {")
       (progn
@@ -1089,7 +1089,7 @@ $TORANK}#
 	       (multiple_put_nth tupl curcount ent)
 	       (put_int countbox (+i curcount 1))
 	       )))
-	  (assert_msg "check tupl" (is_multiple tupl))
+	  (assert_msg "check tupl" (is_multiple tupl) tupl)
 ;;; sort the tuple and output in sorted order
 	  (let ( (sortupl 
 		  (multiple_sort 
@@ -1107,7 +1107,7 @@ $TORANK}#
 		   discr_multiple
 		   ))
 		 )
-	    (assert_msg "check sortupl" (is_multiple sortupl))
+	    (assert_msg "check sortupl" (is_multiple sortupl) sortupl)
 	    (multiple_every 
 	     sortupl
 	     (lambda (el :long ix)
@@ -1117,7 +1117,7 @@ $TORANK}#
 			(:long oldmaxdepth (get_int (unsafe_get_field :dbgi_maxdepth dbgi)))
 			)
 
-		   (assert_msg "check out" (is_out out))
+		   (assert_msg "check out" (is_out out) out)
 		   (add2out_indentnl out nextdepth)
 		   (add2out_strconst out "**")  
 		   (put_int (unsafe_get_field :dbgi_maxdepth dbgi) 0)
@@ -1134,8 +1134,8 @@ $TORANK}#
 
 ;;; string map (ie dictionnary) debug output
 (defun dbgout_mapstring_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_mapstring self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_mapstring self) self)
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (:long ix 0)
@@ -1192,7 +1192,7 @@ $TORANK}#
 		   discr_multiple
 		   ))
 		 )
-	    (assert_msg "check sortupl" (is_multiple sortupl)) 
+	    (assert_msg "check sortupl" (is_multiple sortupl) sortupl)
 	    (foreach_in_multiple 
 	     (sortupl)
 	     (el :long ix)
@@ -1216,8 +1216,8 @@ $TORANK}#
 
 ;;;;;;;;;;;;;;;; bucket_longs debug output
 (defun dbgout_bucketlong_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_bucketlong self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_bucketlong self) self)
   (let ( (dis (discrim self)) 
 	 (sbuf (unsafe_get_field :dbgi_out dbgi))
 	 (:long ix 0)
@@ -1253,8 +1253,8 @@ $TORANK}#
 
 ;;;; generic object debug
 (defun dbgout_anyobject_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_object self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_object self) self)
   (let ( (dis (discrim self)) 
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi)) ) 
@@ -1278,7 +1278,7 @@ $TORANK}#
 
 ;;;; generic value debug
 (defun dbgout_anyrecv_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi)) ) 
     (add2sbuf_strconst sbuf " ?.")
@@ -1289,8 +1289,8 @@ $TORANK}#
 
 ;;; generic object debug outputagain
 (defun dbgoutagain_anyobject_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_object self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_object self) self)
   (let ( (dis (discrim self)) 
 	 (sbuf  (unsafe_get_field :dbgi_out dbgi)) 
 	 (:long onum (obj_num self)) 
@@ -1307,15 +1307,15 @@ $TORANK}#
 
 ;;;; named object debug
 (defun dbgout_namedobject_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_named))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_named) self)
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi))
 	 (onam (unsafe_get_field :named_name self))
 	 (oprop (unsafe_get_field :prop_table self))
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 ) 
-    (assert_msg "check out" (is_out out))
+    (assert_msg "check out" (is_out out) out)
     (add2out_strconst out "`")
     (add2out_string out onam)
     (add2out_strconst out "|")
@@ -1344,8 +1344,8 @@ $TORANK}#
 
 ;;;; named object debug outputagain
 (defun dbgoutagain_namedobject_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_named))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_named) self)
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi))
 	 (onam (unsafe_get_field :named_name self)) 
@@ -1362,8 +1362,8 @@ $TORANK}#
 ;;;; symbol output debug & again
 
 (defun dbgoutagain_symbol_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_symbol))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_symbol) self)
   (let ( (out  (unsafe_get_field :dbgi_out dbgi))
 	 (onam (unsafe_get_field :named_name self))
 	 (:long snum (get_int self))
@@ -1380,8 +1380,8 @@ $TORANK}#
 (install_method class_symbol dbg_outputagain dbgoutagain_symbol_method)
 
 (defun dbgout_symbol_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_symbol))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_symbol) self)
   (if (<=i depth 0)
       (dbgout_namedobject_method self dbgi 0)
     (dbgoutagain_symbol_method self dbgi depth)))
@@ -1390,8 +1390,8 @@ $TORANK}#
 
 ;;;; class output debug & again
 (defun dbgout_class_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_class))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_class) self)
   (if (<=i depth 1)
       (dbgout_namedobject_method self dbgi 0)
     (dbgoutagain_namedobject_method self dbgi depth)))
@@ -1400,8 +1400,8 @@ $TORANK}#
 
 ;;;; keyword output debug & again
 (defun dbgoutagain_keyword_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_keyword))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_keyword) self)
   (let ( (out  (unsafe_get_field :dbgi_out dbgi))
 	 (onam (unsafe_get_field :named_name self))
 	 )	
@@ -1413,8 +1413,8 @@ $TORANK}#
 (install_method class_keyword dbg_outputagain dbgoutagain_keyword_method)
 
 (defun dbgout_keyword_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_keyword))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_keyword) self)
   (if (<=i depth 0)
       (dbgout_namedobject_method self dbgi 0)
     (dbgoutagain_keyword_method self dbgi depth)))
@@ -1438,8 +1438,8 @@ $TORANK}#
 (install_method class_cloned_symbol dbg_outputagain dbgoutagain_cloned_symbol_method)
 
 (defun dbgout_cloned_symbol_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_cloned_symbol))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_cloned_symbol) self)
   (if (<=i depth 0)
       (dbgout_namedobject_method self dbgi 0)
     (dbgoutagain_cloned_symbol_method self dbgi depth)
@@ -1449,8 +1449,8 @@ $TORANK}#
 
 ;;;; environment output debug
 (defun dbgout_environment_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_environment))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_environment) self)
   (let ( (dis (discrim self)) 
 	 (out (unsafe_get_field :dbgi_out dbgi)) 
 	 (:long onum (obj_num self)) 
@@ -1504,8 +1504,8 @@ $TORANK}#
 
 
 (defun dbgout_ctype_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_ctype))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_ctype) self)
   (if (<=i depth 0)
       (dbgout_namedobject_method self dbgi 0)
     (dbgoutagain_ctype_method self dbgi depth)
@@ -1514,8 +1514,8 @@ $TORANK}#
 
 ;;;; any binding debug output
 (defun dbgout_anybinding_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_a self class_any_binding))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_a self class_any_binding) self)
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi)) 
 	 (binderv (unsafe_get_field :binder self))

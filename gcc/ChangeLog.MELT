@@ -1,6 +1,16 @@
 
 
 2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt: Improve assert_msg with variadic arguments.
+	* melt/warmelt-base.melt: Ditto.
+	* melt/warmelt-debug.melt: Ditto.
+	* melt/warmelt-genobj.melt: Ditto.
+
+	* melt/warmelt-hooks.melt: Improve few assert_msg. Most improvements still to be made.
+	* melt/warmelt-normal.melt: Improve few assert_msg.
+
+2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.

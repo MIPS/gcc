@@ -584,7 +584,7 @@ number $NUM opaque location number $LOC.}#
 		   (void)
 		   )
 		 ( (:tree tr)
-		   (assert_msg "check diagv_tree" (is_closure diagv_tree))
+		   (assert_msg "check diagv_tree" (is_closure diagv_tree) diagv_tree)
 		   (let ( (s (diagv_tree () tr))
 			  )
 		     (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
@@ -592,7 +592,7 @@ number $NUM opaque location number $LOC.}#
 		   (void)
 		   )
 		 ( (:gimple gi)
-		   (assert_msg "check diagv_gimple" (is_closure diagv_gimple))
+		   (assert_msg "check diagv_gimple" (is_closure diagv_gimple) diagv_gimple)
 		   (let ( (s (diagv_gimple () gi))
 			  )
 		     (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
@@ -600,7 +600,7 @@ number $NUM opaque location number $LOC.}#
 		   (void)
 		   )
 		 ( (:gimple_seq gs)
-		   (assert_msg "check diagv_gimple_seq" (is_closure diagv_gimple_seq))
+		   (assert_msg "check diagv_gimple_seq" (is_closure diagv_gimple_seq) diagv_gimple_seq)
 		   (let ( (s (diagv_gimple_seq () gs))
 			  )
 		     (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
@@ -608,7 +608,7 @@ number $NUM opaque location number $LOC.}#
 		   (void)
 		   )
 		 ( (:basic_block bb)
-		   (assert_msg "check diagv_basic_block" (is_closure diagv_basic_block))
+		   (assert_msg "check diagv_basic_block" (is_closure diagv_basic_block) diagv_basic_block)
 		   (let ( (s (diagv_basic_block () bb))
 			  )
 		     (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
@@ -632,7 +632,7 @@ number $NUM opaque location number $LOC.}#
 		    ( (is_a v class_named)
 		      (let ( (nam (unsafe_get_field :named_name v))
 			     )
-			(assert_msg "check nam" (is_string nam))
+			(assert_msg "check nam" (is_string nam) nam)
 			(multiple_put_nth ,macrovarvect ,macrovarnbarg nam)
 			(setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
 		      (void)
@@ -644,7 +644,7 @@ number $NUM opaque location number $LOC.}#
 			  )
 		     (errormsg_strv "DIAGNOSTIC_ARGS_MACRO for unsupported ctype"
 				    (get_field :named_name vcty))
-		     (assert_msg "invalid variadic argument to DIAGNOSTIC_ARGS_MACRO" ()))
+		     (assert_msg "invalid variadic argument to DIAGNOSTIC_ARGS_MACRO" () vcty))
 		   (void)
 		   )
 		 ))			;end forever args
@@ -1536,7 +1536,7 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 		   )
 	      (errormsg_strv "ADD2OUT with manipulator for unsupported ctype"
 			     (get_field :named_name vcty))
-	      (assert_msg "invalid variadic argument after closure to ADD2OUT" ())
+	      (assert_msg "invalid variadic argument after closure to ADD2OUT" () vcty)
 	      (return)
 	      )))
 	(add_to_out v out)))
@@ -1549,8 +1549,8 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	     )
 	(errormsg_strv "ADD2OUT for unsupported ctype; use a manipulator like OUTPUT_TREE "
 		       (get_field :named_name vcty))
-	)
-      (assert_msg "invalid variadic argument to ADD2OUT" ())
+      (assert_msg "invalid variadic argument to ADD2OUT" () vcty)
+      )
       )))
   (return out)
   )
@@ -1599,7 +1599,7 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 		     )
 		(errormsg_strv "STRING4OUT with manipulator for unsupported ctype"
 			       (get_field :named_name vcty))
-		(assert_msg "invalid variadic argument after closure to STRING4OUT" ())
+		(assert_msg "invalid variadic argument after closure to STRING4OUT" () vcty)
 		(return)
 		)))
 	  (add_to_out v out)))
@@ -1612,8 +1612,8 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	       )
 	  (errormsg_strv "STRING4OUT for unsupported ctype; use a manipulator like OUTPUT_TREE "
 			 (get_field :named_name vcty))
-	  )
-	(assert_msg "invalid variadic argument to STRING4OUT" ())
+	  (assert_msg "invalid variadic argument to STRING4OUT" () vcty)
+	)
 	)))
     (let ( (str (strbuf2string dis out))
 	   )
@@ -1624,22 +1624,22 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 
 ;; read add2out4null as "add to out for null"
 (defun add2out4null (v out)
-  (assert_msg "check null v" (null v))
+  (assert_msg "check null v" (null v) v)
   (add2out_strconst out "*nil*"))
 (install_method discr_null_receiver add_to_out add2out4null)
 
 (defun add2out4integer (vn out)
-  (assert_msg "check boxed number vn" (is_integerbox vn))
+  (assert_msg "check boxed number vn" (is_integerbox vn) vn)
   (add2out_longdec out (get_int vn)))
 (install_method discr_integer add_to_out add2out4integer)
 
 (defun add2out4string (vs out)
-  (assert_msg "check boxed string vs" (is_string vs))
+  (assert_msg "check boxed string vs" (is_string vs) vs)
   (add2out_string out vs))
 (install_method discr_string add_to_out add2out4string)
 
 (defun add2out4strbuf (vsbuf out)
-  (assert_msg "check strbuf vsbuf" (is_strbuf vsbuf))
+  (assert_msg "check strbuf vsbuf" (is_strbuf vsbuf) vsbuf)
   (add2out_sbuf out vsbuf))
 (install_method discr_strbuf add_to_out add2out4strbuf)
 
@@ -1648,12 +1648,12 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
 	 (?(instance class_cloned_symbol
 		     :named_name ?nvarnam
 		     :csym_urank ?(integerbox_of ?nvarurank))
-	   (assert_msg "check nvarnam" (is_string nvarnam))
+	   (assert_msg "check nvarnam" (is_string nvarnam) nvarnam)
 	   (add2out_cident out nvarnam)
 	   (add2out_strconst out "__")
 	   (add2out_longdec out nvarurank))
 	 (?_
-	  (assert_msg "bad cloned symbol" ()))))
+	  (assert_msg "bad cloned symbol" () vc))))
 (install_method class_cloned_symbol add_to_out add2out4clonedsymb)
 
 (defun add2out4named (vn out)
@@ -1856,7 +1856,7 @@ significant iff ENABLE_CHECKING.}# #{(melt_application_depth() <
   tuple each time we call this function.  That why $LSTHANDLER is a list of
   handlers (class_gcc_pragma) and not a single object.  }#
   (assert_msg "register_pragma_handler takes a list as argument." 
-    (is_list lsthandler))
+    (is_list lsthandler) lsthandler)
   (let ((oldtuple (get_field :sysdata_meltpragmas initial_system_data))
         (:long oldsize 0))
     (if notnull oldtuple)
@@ -1877,7 +1877,7 @@ significant iff ENABLE_CHECKING.}# #{(melt_application_depth() <
     (lsthandler)
     (curpair curhandler)
       (assert_msg "register_pragma_handler must be a list of class_gcc_pragma."
-        (is_a curhandler class_gcc_pragma))
+        (is_a curhandler class_gcc_pragma) curhandler)
       (multiple_put_nth newtuple i curhandler)
       (setq i (+i i 1))
     )
@@ -1947,7 +1947,7 @@ the field :REFERENCED_VALUE to $V. Obsolete function, use $SET_REF macro.}#
 )
 
 (defun install_value_descriptor (vd)
-  (assert_msg "check vd" (is_a vd class_value_descriptor))
+  (assert_msg "check vd" (is_a vd class_value_descriptor) vd)
   (list_append (get_field :referenced_value value_descriptor_list_reference) 
 	       vd))
 
@@ -3054,11 +3054,11 @@ typedef struct melthook_st *melthook_ptr_t;
   (let ( (lastpair (list_last lis))
 	 (prevpair ())
 	 )
-    (if lastpair (assert_msg "check lastpair" (is_pair lastpair)))
+    (if lastpair (assert_msg "check lastpair" (is_pair lastpair)) lastpair)
     (foreach_in_list
      (lis)
      (curpair curelem)
-     (assert_msg "check curpair" (is_pair curpair))
+     (assert_msg "check curpair" (is_pair curpair) curpair)
      (when (== curpair lastpair)
        (setq curpair ())
        (if (is_pair prevpair)
@@ -3112,7 +3112,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	     )
 	(errormsg_strv "COMPLETE_SEQUENCE_AS_TUPLE with unsupported ctype"
 		       (get_field :named_name vcty))
-	(assert_msg "invalid variadic argument to COMPLETE_SEQUENCE_AS_TUPLE" ())))
+	(assert_msg "invalid variadic argument to COMPLETE_SEQUENCE_AS_TUPLE" () vcty)))
       ))
     (let ( (res (list_to_multiple newlist))
 	   )
@@ -3152,7 +3152,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	     )
 	(errormsg_strv "COMPLETE_SEQUENCE_AS_LIST with unsupported ctype"
 		       (get_field :named_name vcty))
-	(assert_msg "invalid variadic argument to COMPLETE_SEQUENCE_AS_LIST" ())))
+	(assert_msg "invalid variadic argument to COMPLETE_SEQUENCE_AS_LIST" () vcty)))
       ))
     (return newlist)))
  
