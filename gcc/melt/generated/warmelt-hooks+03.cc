@@ -1748,7 +1748,7 @@ meltlab_endgetargs:
                                         /*^apply*/
                                         /*apply*/
                                         {
-                                            union meltparam_un argtab[3];
+                                            union meltparam_un argtab[4];
                                             memset(&argtab, 0, sizeof(argtab));
                                             /*^apply.arg*/
                                             argtab[0].meltbp_cstring =  "check curinch";
@@ -1756,8 +1756,10 @@ meltlab_endgetargs:
                                             argtab[1].meltbp_cstring =  "warmelt-hooks.melt";
                                             /*^apply.arg*/
                                             argtab[2].meltbp_long = 2392;
+                                            /*^apply.arg*/
+                                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.CURINCH__V9*/ meltfptr[8];
                                             /*_.MELT_ASSERT_FAILURE_FUN__V17*/
-                                            meltfptr[16] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
+                                            meltfptr[16] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                         }
                                         ;
                                         /*_._IFELSE___V16*/
@@ -1822,7 +1824,7 @@ meltlab_endgetargs:
                                         /*^apply*/
                                         /*apply*/
                                         {
-                                            union meltparam_un argtab[3];
+                                            union meltparam_un argtab[4];
                                             memset(&argtab, 0, sizeof(argtab));
                                             /*^apply.arg*/
                                             argtab[0].meltbp_cstring =  "check curfd";
@@ -1830,8 +1832,10 @@ meltlab_endgetargs:
                                             argtab[1].meltbp_cstring =  "warmelt-hooks.melt";
                                             /*^apply.arg*/
                                             argtab[2].meltbp_long = 2393;
+                                            /*^apply.arg*/
+                                            argtab[3].meltbp_long = /*_#CURFD__L6*/ meltfnum[5];
                                             /*_.MELT_ASSERT_FAILURE_FUN__V20*/
-                                            meltfptr[19] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
+                                            meltfptr[19] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[3])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
                                         }
                                         ;
                                         /*_._IFELSE___V19*/
@@ -5319,7 +5323,7 @@ meltlab_endgetargs:
                                     /*^apply*/
                                     /*apply*/
                                     {
-                                        union meltparam_un argtab[3];
+                                        union meltparam_un argtab[4];
                                         memset(&argtab, 0, sizeof(argtab));
                                         /*^apply.arg*/
                                         argtab[0].meltbp_cstring =  "check tim";
@@ -5327,8 +5331,10 @@ meltlab_endgetargs:
                                         argtab[1].meltbp_cstring =  "warmelt-hooks.melt";
                                         /*^apply.arg*/
                                         argtab[2].meltbp_long = 2804;
+                                        /*^apply.arg*/
+                                        argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.TIM__V2*/ meltfptr[1];
                                         /*_.MELT_ASSERT_FAILURE_FUN__V11*/
-                                        meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
+                                        meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                     }
                                     ;
                                     /*_._IFELSE___V10*/
@@ -5557,7 +5563,7 @@ meltlab_endgetargs:
                                         /*^apply*/
                                         /*apply*/
                                         {
-                                            union meltparam_un argtab[3];
+                                            union meltparam_un argtab[4];
                                             memset(&argtab, 0, sizeof(argtab));
                                             /*^apply.arg*/
                                             argtab[0].meltbp_cstring =  "check oldala";
@@ -5565,8 +5571,10 @@ meltlab_endgetargs:
                                             argtab[1].meltbp_cstring =  "warmelt-hooks.melt";
                                             /*^apply.arg*/
                                             argtab[2].meltbp_long = 2820;
+                                            /*^apply.arg*/
+                                            argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.OLDALA__V19*/ meltfptr[16];
                                             /*_.MELT_ASSERT_FAILURE_FUN__V22*/
-                                            meltfptr[21] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
+                                            meltfptr[21] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[2])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                         }
                                         ;
                                         /*_._IFELSE___V21*/
@@ -6431,7 +6439,7 @@ meltlab_endgetargs:
                                                     /*^apply*/
                                                     /*apply*/
                                                     {
-                                                        union meltparam_un argtab[3];
+                                                        union meltparam_un argtab[4];
                                                         memset(&argtab, 0, sizeof(argtab));
                                                         /*^apply.arg*/
                                                         argtab[0].meltbp_cstring =  "check buck";
@@ -6439,8 +6447,10 @@ meltlab_endgetargs:
                                                         argtab[1].meltbp_cstring =  "warmelt-hooks.melt";
                                                         /*^apply.arg*/
                                                         argtab[2].meltbp_long = 2976;
+                                                        /*^apply.arg*/
+                                                        argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.BUCK__V19*/ meltfptr[17];
                                                         /*_.MELT_ASSERT_FAILURE_FUN__V23*/
-                                                        meltfptr[22] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[4])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
+                                                        meltfptr[22] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[4])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                                     }
                                                     ;
                                                     /*_._IFELSE___V22*/

@@ -7649,7 +7649,7 @@ meltlab_endgetargs:
                                                                                                             /*^apply*/
                                                                                                             /*apply*/
                                                                                                             {
-                                                                                                                union meltparam_un argtab[3];
+                                                                                                                union meltparam_un argtab[5];
                                                                                                                 memset(&argtab, 0, sizeof(argtab));
                                                                                                                 /*^apply.arg*/
                                                                                                                 argtab[0].meltbp_cstring =  "corrupted same cloned symbols";
@@ -7657,8 +7657,12 @@ meltlab_endgetargs:
                                                                                                                 argtab[1].meltbp_cstring =  "warmelt-first.melt";
                                                                                                                 /*^apply.arg*/
                                                                                                                 argtab[2].meltbp_long = 3720;
+                                                                                                                /*^apply.arg*/
+                                                                                                                argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.X1__V2*/ meltfptr[1];
+                                                                                                                /*^apply.arg*/
+                                                                                                                argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.X2__V4*/ meltfptr[3];
                                                                                                                 /*_.MELT_ASSERT_FAILURE_FUN__V37*/
-                                                                                                                meltfptr[36] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
+                                                                                                                meltfptr[36] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[1])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                                                                                             }
                                                                                                             ;
                                                                                                             /*_._IFELSE___V36*/
