@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20130729 (experimental) [melt-branch revision 201340] MELT_0\
+const char melt_genversionstr[]="4.9.0 20130729 (experimental) [melt-branch revision 201360] MELT_0\
 .9.9-post"
 
 	     #ifdef __cplusplus
@@ -30,18 +30,17 @@ const char melt_genversionstr[]="4.9.0 20130729 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="0.9.9-post [melt-branch_revision_201340]";
+const char melt_versionmeltstr[]="0.9.9-post [melt-branch_revision_201360]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-base */
 const char melt_modulename[]="warmelt-base";
-const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/0.9.9-post/warmelt-base";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.9.0/melt-modules/0.9.9-post/warmelt-base";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="67fc3250a9b3df491cfdecbcd2a9736a";
+const char melt_prepromd5meltrun[]="47c09d6e14e95681678d9d91c35593ef";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="3e501789ed3e15a7357273b322c6605b";
+const char melt_primaryhexmd5[]="5b50a9d371592343e3cff92520d739ad";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -55,13 +54,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="b16283a3c448238d9af225f52f86fa5a" ;
+const char melt_cumulated_hexmd5[]="9abaf284d738063b9fd2b1843f071721" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 4;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiBASE_mds__B16283A3C448238D9AF225F52F86FA5A 1
+#define meltmod_WARMELTmiBASE_mds__9ABAF284D738063B9FD2B1843F071721 1
 #include "warmelt-base+melttime.h"
 	 
 
