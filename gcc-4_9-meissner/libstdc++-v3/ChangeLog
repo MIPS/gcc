@@ -1,3 +1,111 @@
+2013-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/56627
+	* include/bits/stl_bvector.h: Use friend struct hash intead of
+	friend class hash to work around useless warnings produced by
+	some compilers.
+	* include/std/bitset: Likewise.
+
+2013-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* src/c++11/functexcept.cc: Do not include the whole <regex>.
+	* src/c++11/regex.cc: Likewise.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Revert last commit.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert last commit.
+
+2013-07-30  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-29  Nathan Froyd  <froydnj@gcc.gnu.org>
+
+	* include/std/atomic (compare_exchange_weak, compare_exchange_strong):
+	Add call to __cmpexch_failure_order.
+	* testsuite/util/testsuite_common_types.h
+	(compare_exchange_order_lowering): New generator.
+	* testsuite/29_atomics/atomic/requirements/compare_exchange_lowering.cc:
+	New test.
+
+2013-07-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/complex (pow(const complex<>&, int)): Enable in
+	C++11 mode too.
+	* testsuite/26_numerics/complex/dr844.cc: Adjust.
+	* doc/xml/manual/intro.xml: Update.
+
+2013-07-25  Tim Shen  <timshen91@gmail.com>
+
+	Add documents and comments.
+	* include/bits/regex.h: Documents and comments.
+	* include/bits/regex_grep_matcher.h: Likewise.
+	* include/bits/regex_grep_matcher.tcc: Likewise.
+	* testsuite/28_regex/iterators/regex_iterator/char/
+	string_position_01.cc: New.
+
+2013-07-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57976
+	* doc/xml/manual/status_cxx2011.xml: Note missing time_get::get and
+	time_get::do_get.
+
+2013-07-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.h (random_device): Avoid using the FILE type.
+	* include/std/random: Do not include <cstdio>.
+	* src/c++11/random.cc: ... include it here.
+	(random_device::_M_init, random_device::_M_fini,
+	random_device::_M_getval): Cast back and forth void* and FILE*.
+
+2013-07-24  Tim Shen  <timshen91@gmail.com>
+
+	Reimplment matcher using Depth-first search(backtracking).
+	PR libstdc++/53622
+	PR libstdc++/57173
+	* include/bits/regex.h: regex_match() and regex_search().
+	* include/bits/regex_cursor.h: Fix _M_set_pos().
+	* include/bits/regex_grep_matcher.h: add _M_dfs_match().
+	* include/bits/regex_grep_matcher.tcc: Implement it.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc: New.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc: New.
+	* testsuite/28_regex/algorithms/regex_search/basic/string_01.cc:
+	Remove xfail.
+
 2013-07-23  Tim Shen  <timshen91@gmail.com>
 
 	Implement regex_iterator and regex_token_iterator.
@@ -8,8 +116,8 @@
 	New.
 	* testsuite/28_regex/iterators/regex_token_iterator/char/string_01.cc:
 	New.
-	* testsuite/28_regex/iterators/regex_token_iterator/wchar_t/string_01.cc:
-	New.
+	* testsuite/28_regex/iterators/regex_token_iterator/wchar_t/
+	string_01.cc: New.
 
 2013-07-23  Paolo Carlini  <paolo.carlini@oracle.com>
 

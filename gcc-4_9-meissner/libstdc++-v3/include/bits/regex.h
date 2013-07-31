@@ -61,7 +61,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
           _BaseType _M_base;
           unsigned char _M_extended;
           static constexpr unsigned char _S_under = 1 << 0;
-          // _S_blank should be removed in the future, when locale's complete.
+          // FIXME: _S_blank should be removed in the future, when locale's complete.
           static constexpr unsigned char _S_blank = 1 << 1;
           static constexpr unsigned char _S_valid_mask = 0x3;
 
@@ -2185,8 +2185,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __detail::_SpecializedCursor<_Bi_iter> __cs(__s, __e);
       __detail::_SpecializedResults<_Bi_iter, _Alloc> __r(__sz, __cs, __m);
       __detail::_Grep_matcher __matcher(__cs, __r, __a, __flags);
-      __matcher._M_match();
-      return __m[0].matched;
+      return __matcher._M_dfs_match();
     }
 
   /**
@@ -2338,8 +2337,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         {
           __detail::_SpecializedCursor<_Bi_iter> __curs(__cur, __last);
           __detail::_Grep_matcher __matcher(__curs, __r, __a, __flags);
-          __matcher._M_search_from_first();
-          if (__m[0].matched)
+          if (__matcher._M_dfs_search_from_first())
             {
               __r._M_set_range(__m.size(),
                                __detail::_SpecializedCursor<_Bi_iter>
@@ -2366,7 +2364,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @param __flags [IN]  Search policy flags.
    * @retval true  A match was found within the string.
    * @retval false No match was found within the string.
-   * @doctodo
    *
    * @throws an exception of type regex_error.
    */
@@ -2390,7 +2387,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @retval true  A match was found within the string.
    * @retval false No match was found within the string, the content of %m is
    *               undefined.
-   * @doctodo
    *
    * @throws an exception of type regex_error.
    */
@@ -2410,7 +2406,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @param __f [IN]  Search policy flags.
    * @retval true  A match was found within the string.
    * @retval false No match was found within the string.
-   * @doctodo
    *
    * @throws an exception of type regex_error.
    */
@@ -2429,7 +2424,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @param __flags [IN]  Search policy flags.
    * @retval true  A match was found within the string.
    * @retval false No match was found within the string.
-   * @doctodo
    *
    * @throws an exception of type regex_error.
    */
@@ -2540,7 +2534,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       /**
        * @brief Provides a singular iterator, useful for indicating
        * one-past-the-end of a range.
-       * @doctodo
        */
       regex_iterator()
       : _M_match()
@@ -2552,7 +2545,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * @param __b  [IN] One-past-the-end of the text range to search.
        * @param __re [IN] The regular expression to match.
        * @param __m  [IN] Policy flags for match rules.
-       * @doctodo
        */
       regex_iterator(_Bi_iter __a, _Bi_iter __b, const regex_type& __re,
 		     regex_constants::match_flag_type __m
@@ -2562,51 +2554,50 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       /**
        * Copy constructs a %regex_iterator.
-       * @doctodo
        */
       regex_iterator(const regex_iterator& __rhs) = default;
       
       /**
-       * @doctodo
+       * @brief Assigns one %regex_iterator to another.
        */
       regex_iterator&
       operator=(const regex_iterator& __rhs) = default;
       
       /**
-       * @doctodo
+       * @brief Tests the equivalence of two regex iterators.
        */
       bool
       operator==(const regex_iterator& __rhs) const;
       
       /**
-       * @doctodo
+       * @brief Tests the inequivalence of two regex iterators.
        */
       bool
       operator!=(const regex_iterator& __rhs) const
       { return !(*this == __rhs); }
       
       /**
-       * @doctodo
+       * @brief Dereferences a %regex_iterator.
        */
       const value_type&
       operator*() const
       { return _M_match; }
       
       /**
-       * @doctodo
+       * @brief Selects a %regex_iterator member.
        */
       const value_type*
       operator->() const
       { return &_M_match; }
       
       /**
-       * @doctodo
+       * @brief Increments a %regex_iterator.
        */
       regex_iterator&
       operator++();
       
       /**
-       * @doctodo
+       * @brief Postincrements a %regex_iterator.
        */
       regex_iterator
       operator++(int)
@@ -2617,7 +2608,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
       
     private:
-      // these members are shown for exposition only:
       _Bi_iter                         _M_begin;
       _Bi_iter                         _M_end;
       const regex_type*                _M_pregex;
@@ -2647,6 +2637,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     regex_iterator<_Bi_iter, _Ch_type, _Rx_traits>::
     operator++()
     {
+      // FIXME: In all cases in which the call to regex_search returns true,
+      // match.prefix().first shall be equal to the previous value of
+      // match[0].second, and for each index i in the half-open range
+      // [0, match.size()) for which match[i].matched is true,
+      // match[i].position() shall return distance(begin, match[i].first).
+      // [28.12.1.4.5]
       if (_M_match[0].matched)
         {
           auto __start = _M_match[0].second;
@@ -2728,8 +2724,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *                        - >0 enumerates only the indicated
        *                          subexpression from a match within the text.
        * @param __m          [IN] Policy flags for match rules.
-       *
-       * @doctodo
        */
       regex_token_iterator(_Bi_iter __a, _Bi_iter __b, const regex_type& __re,
 			   int __submatch = 0,
@@ -2746,8 +2740,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * @param __submatches [IN] A list of subexpressions to return for each
        *                          regular expression match within the text.
        * @param __m          [IN] Policy flags for match rules.
-       *
-       * @doctodo
        */
       regex_token_iterator(_Bi_iter __a, _Bi_iter __b,
 			   const regex_type& __re,
@@ -2765,8 +2757,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * @param __submatches [IN] A list of subexpressions to return for each
        *                          regular expression match within the text.
        * @param __m          [IN] Policy flags for match rules.
-       *
-       * @doctodo
        */
       regex_token_iterator(_Bi_iter __a, _Bi_iter __b,
 			   const regex_type& __re,
@@ -2784,8 +2774,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * @param __submatches [IN] A list of subexpressions to return for each
        *                          regular expression match within the text.
        * @param __m          [IN] Policy flags for match rules.
-       *
-       * @doctodo
        */
       template<std::size_t _Nm>
         regex_token_iterator(_Bi_iter __a, _Bi_iter __b,
@@ -2861,7 +2849,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         return __tmp;
       }
 
-    private: // data members for exposition only:
+    private:
       typedef regex_iterator<_Bi_iter, _Ch_type, _Rx_traits> _Position;
 
       void
@@ -2886,7 +2874,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       std::size_t       _M_n;
       std::vector<int>  _M_subs;
 
-      bool              _M_has_m1; // subs contains -1
+      // Show whether _M_subs contains -1
+      bool              _M_has_m1;
     };
 
   template<typename _Bi_iter,

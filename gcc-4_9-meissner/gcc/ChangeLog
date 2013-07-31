@@ -1,3 +1,444 @@
+2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (fusion_gpr_addis): New predicates
+	to support power8 load fusion.
+	(fusion_gpr_mem_load): Likewise.
+
+	* config/rs6000/rs6000-modes.def (PTImode): Update a comment.
+
+	* config/rs6000/rs6000-protos.h (fusion_gpr_load_p): New
+	declarations for power8 load fusion.
+	(emit_fusion_gpr_load): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): If
+	tuning for power8, turn on fusion mode by default.  Turn on sign
+	extending fusion mode if normal fusion mode is on, and we are at
+	-O2 or -O3.
+	(fusion_gpr_load_p): New function, return true if we can fuse an
+	addis instruction with a dependent load to a GPR.
+	(emit_fusion_gpr_load): Emit the instructions for power8 load
+	fusion to GPRs.
+
+	* config/rs6000/vsx.md (VSX_M2): New iterator for fusion
+	peepholes.
+	(VSX load fusion peepholes): New peepholes to fuse together an
+	addi instruction with a VSX load instruction.
+
+	* config/rs6000/rs6000.md (GPR load fusion peepholes): New
+	peepholes to fuse an addis instruction with a load to a GPR base
+	register.  If we are supporting sign extending fusions, convert
+	sign extending loads to zero extending loads and add an explicit
+	sign extension.
+
+2013-07-31  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config.gcc (arm*-*-*): Add aarch-common.o to extra_objs.  Add
+	aarch-common-protos.h to extra_headers.
+	(arm*-*-*): Add arm/aarch-common-protos.h to tm_p_file.
+	* config/arm/arm.c (arm_early_load_addr_dep): Move from here to ...
+	(arm_early_store_addr_dep): Likewise.
+	(arm_no_early_alu_shift_dep: Likewise.
+	(arm_no_early_alu_shift_value_dep: Likewise.
+	(arm_no_early_mul_dep: Likewise.
+	(arm_no_early_store_addr_dep: Likewise.
+	(arm_mac_accumulator_is_mul_result: Likewise.
+	(arm_mac_accumulator_is_result: Likewise.
+	* config/arm/aarch-common.c: ... here.  New file.
+	* config/arm/arm-protos.h (arm_early_load_addr_dep): Move from here to ...
+	(arm_early_store_addr_dep): Likewise.
+	(arm_no_early_alu_shift_dep: Likewise.
+	(arm_no_early_alu_shift_value_dep: Likewise.
+	(arm_no_early_mul_dep: Likewise.
+	(arm_no_early_store_addr_dep: Likewise.
+	(arm_mac_accumulator_is_mul_result: Likewise.
+	(arm_mac_accumulator_is_result: Likewise.
+	* config/arm/aarch-common-protos.h: ... here.  New file.
+	* config/arm/t-arm (aarch-common.o): Define.
+
+2013-07-31  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/arm/arm.md: Include new file "types.md".
+	(define_attr "type"): Move from here to ...
+	(define_attr "mul32"): Likewise.
+	(define_attr "mul64"): Likewise.
+	* config/arm/types.md: ... here.  New file.
+
+2013-07-31  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config.gcc (*-*-rtems*): Use __cxa_atexit by default.
+	* config/rs6000/rtems.h (TARGET_LIBGCC_SDATA_SECTION): Define.
+
+2013-07-31  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* gen-pass-instances.awk: Fix offset of substr().
+
+2013-07-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (pass-instances.def): New.
+	(passes.o): Replace dependency on passes.def with one on
+	pass-instances.def
+
+	* gen-pass-instances.awk: New.
+
+	* passes.c (pass_manager::pass_manager): Use pass-instances.def
+	rather than passes.def, updating local definition of NEXT_PASS
+	macro to add an extra NUM parameter (currently unused).
+
+2013-07-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (PASS_MANAGER_H): New.
+	(lto-cgraph.o): Depend on CONTEXT_H and PASS_MANAGER_H.
+	(passes.o): Likewise.
+	(statistics.o): Likewise.
+	(cgraphunit.o): Likewise.
+	(context.o): Depend on PASS_MANAGER_H.
+
+	* pass_manager.h: New.
+
+	* cgraphunit.c (cgraph_add_new_function): Update for moves
+	of globals to fields of pass_manager.
+	(analyze_function): Likewise.
+	(expand_function): Likewise.
+	(ipa_passes): Likewise.
+	(compile): Likewise.
+
+	* context.c (context::context): New.
+	* context.h  (context::context): New.
+	(context::get_passes): New.
+	(context::passes_): New.
+
+	* lto-cgraph.c (input_node): Update for moves of globals to
+	fields of pass_manager.
+
+	* passes.c (all_passes): Remove, in favor of a field of the
+	same name within the new class pass_manager.
+	(all_small_ipa_passes): Likewise.
+	(all_lowering_passes): Likewise.
+	(all_regular_ipa_passes): Likewise.
+	(all_late_ipa_passes): Likewise.
+	(all_lto_gen_passes): Likewise.
+	(passes_by_id): Likewise.
+	(passes_by_id_size): Likewise.
+	(gcc_pass_lists): Remove, in favor of "pass_lists" field within
+	the new class pass_manager.
+	(set_pass_for_id): Convert to...
+	(pass_manager::set_pass_for_id): ...method.
+	(get_pass_for_id): Convert to...
+	(pass_manager::get_pass_for_id): ...method.
+	(register_one_dump_file): Move body of implementation into...
+	(pass_manager::register_one_dump_file): ...here.
+	(register_dump_files_1): Convert to...
+	(pass_manager::register_dump_files_1): ...method.
+	(register_dump_files): Convert to...
+	(pass_manager::register_dump_files): ...method.
+	(create_pass_tab): Update for moves of globals to fields of
+	pass_manager.
+	(dump_passes): Move body of implementation into...
+	(pass_manager::dump_passes): ...here.
+	(register_pass): Move body of implementation into...
+	(pass_manager::register_pass): ...here.
+	(init_optimization_passes): Convert into...
+	(pass_manager::pass_manager): ...constructor for new
+	pass_manager class, and initialize the pass_lists array.
+	(check_profile_consistency): Update for moves of globals to
+	fields of pass_manager.
+	(dump_profile_report): Move body of implementation into...
+	(pass_manager::dump_profile_report): ...here.
+	(ipa_write_summaries_1): Update for moves of pass lists from
+	being globals to fields of pass_manager.
+	(ipa_write_optimization_summaries): Likewise.
+	(ipa_read_summaries):  Likewise.
+	(ipa_read_optimization_summaries): Likewise.
+	(execute_all_ipa_stmt_fixups): Likewise.
+
+	* statistics.c (statistics_fini): Update for moves of globals to
+	fields of pass_manager.
+
+	* toplev.c (general_init): Replace call to
+	init_optimization_passes with construction of the pass_manager
+	instance.
+
+	* tree-pass.h (all_passes): Remove, in favor of a field of the
+	same name within the new class pass_manager.
+	(all_small_ipa_passes): Likewise.
+	(all_lowering_passes): Likewise.
+	(all_regular_ipa_passes): Likewise.
+	(all_lto_gen_passes): Likewise.
+	(all_late_ipa_passes): Likewise.
+	(passes_by_id): Likewise.
+	(passes_by_id_size): Likewise.
+	(gcc_pass_lists): Remove, in favor of "pass_lists" field within
+	the new class pass_manager.
+	(get_pass_for_id): Remove.
+
+2013-07-30  Richard Earnshaw  <rearnsha@arm.com>
+
+	* config.gcc (arm): Require 64-bit host-wide-int for all ARM target
+	configs.
+
+2013-07-30  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (mulhi3): New expand pattern.
+
+2013-07-30  Jan Hubicka  <jh@suse.cz>
+	    Martin Liska  <marxin.liska@gmail.com>
+
+	* profile.c (compute_value_histograms): Do not ICE when
+	there is mismatch only on some counters.
+
+2013-07-30  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	PR rtl-optimization/57637
+	* function.c (move_insn_for_shrink_wrap): Also check the
+	GEN set of the LIVE problem for the liveness analysis
+	if it exists, otherwise give up.
+
+2013-07-29  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	PR tree-optimization/57993
+	* gimple-ssa-strength-reduction.c (replace_mult_candidate): Record
+	replaced statement in the candidate table.
+	(phi_add_costs): Return infinite cost when the hidden basis does
+	not dominate all phis on which the candidate is dependent.
+	(replace_one_candidate): Record replaced statement in the
+	candidate table.
+
+2013-07-29  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.md (*isub_i+2): New peephole.
+	(ashlv2si3): New expander.
+	(*ashlv2si3_i): New define_insn_and_split.
+	* predicates.md (float_operation): Allow patterns with three
+	basic sub-patterns.
+
+	PR rtl-optimization/58021
+	* mode-switching.c (create_pre_exit): Always split off preceding
+	insns if we are not at the basic block head.
+
+2013-07-29  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* config/mips/linux.h (GLIBC_DYNAMIC_LINKER): Handle `-mnan=2008'.
+	(UCLIBC_DYNAMIC_LINKER): New macro.
+	* config/mips/linux64.h (GLIBC_DYNAMIC_LINKER32): Handle
+	`-mnan=2008'.
+	(GLIBC_DYNAMIC_LINKER64, GLIBC_DYNAMIC_LINKERN32): Likewise.
+	(UCLIBC_DYNAMIC_LINKER32): Undefine macro first.  Handle
+	`-mnan=2008'.
+	(UCLIBC_DYNAMIC_LINKER64): Redefine macro.
+	(UCLIBC_DYNAMIC_LINKERN32): Likewise.
+	* config/mips/mips-modes.def: Remove RESET_FLOAT_FORMAT calls
+	for SF and DF modes.  Use ieee_quad_format for TF mode.
+	* config/mips/mips-opts.h (mips_ieee_754_setting): New enum.
+	* config/mips/mips.c (mips_file_start): Output a `.nan' directive.
+	(mips_option_override): Handle `-mnan=legacy'.
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS): Handle
+	`-mabs=2008' and `-mnan=2008'.
+	(OPTION_DEFAULT_SPECS): Add "nan" default.
+	(ASM_SPEC): Handle `-mnan='.
+	[!HAVE_AS_NAN] (HAVE_AS_NAN): New macro.
+	* config/mips/mips.md (abs<mode>2): Handle `-mabs=2008', update
+	comment accordingly.
+	(neg<mode>2): Likewise.
+	* config/mips/mips.opt (mabs, mnan): New options.
+	* doc/install.texi (Configuration): Document `--with-nan=' option.
+	* doc/invoke.texi (Option Summary): List MIPS `-mabs=' and
+	`-mnan=' options.
+	(MIPS Options): Document them.
+	* config.gcc <mips*-*-*>: Handle `--with-nan='.
+	* configure.ac <mips*-*-*>: Check for GAS `-mnan=2008' support.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2013-07-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (float post-reload splitters): Do not check
+	for subregs of SSE registers.
+
+2013-07-29  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/57954
+	PR target/57988
+	* config/i386/i386.md (post-reload splitter
+	to avoid partial SSE reg dependency stalls): New pattern.
+
+2013-07-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("movcc"): Swap load and store instructions.
+
+2013-07-27  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_compute_frame_size):
+	Also reserve space for saving UNKNOWN_REGNUM for leaf functions.
+
+2013-07-26  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (die_checksum_ordered): Don't include template
+	instantiations in signature.
+	(is_template_parameter): New function.
+	(is_template_instantiation): New function.
+	(generate_skeleton_bottom_up): Don't include template instantiations
+	in type unit DIE.
+	(generate_skeleton): Likewise.
+	(break_out_comdat_types): Move recursive call to break out nested
+	types earlier.
+	(prune_unused_types_mark_generic_parms_dies): Call
+	is_template_parameter.
+
+2013-07-26  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (neg<mode>2): Offer alternative that
+	uses vector registers.
+	* config/aarch64/iterators.md: Add attributes rtn and vas.
+
+2013-07-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+	    Richard Earnshaw  <richard.earnshaw@arm.com>
+
+	* combine.c (simplify_comparison): Re-canonicalize operands
+	where appropriate.
+	* config/arm/arm.md (movcond_addsi): New splitter.
+
+2013-07-25  Sterling Augustine  <saugustine@google.com>
+
+	* dwarf2out.c (size_of_pubnames): Move code to...
+	(include_pubname_in_output): ...here.  New.
+	(want_pubnames): Rearrange.
+	(output_pubnames): Call include_pubname_in_output.  Move assertion.
+
+2013-07-25  Cameron McInally  <cameron.mcinally@nyu.edu>
+
+	* doc/extend.texi: Fix return types for __builtin_ia32_cmp*s builtins.
+
+2013-07-25  Cameron McInally  <cameron.mcinally@nyu.edu>
+
+	PR target/38836
+	* doc/extend.texi: Remove obsolete builtins. Fix
+	typo for __builtin_ia32_loadss and __builtin_ia32_cmpnltss.
+
+2013-07-25  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (release_function_body): Break out from ...
+	(cgraph_release_function_body): ... this one; also release DECL_RESULT
+	and DECL_ARGUMENTS.
+	* ipa-cp.c (get_replacement_map): Add parm_num argument; do not set
+	old_tree in the map.
+	(create_specialized_node): Update.
+	* lto-cgraph.c (output_node_opt_summary): Do not translate old_tree
+	into index.
+	* cgraphclones.c (cgraph_create_virtual_clone): Do not copy
+	DECL_ARGUMENTS, DECL_INITIAL and DECL_RESULT.
+	* ipa-prop.c (ipa_populate_param_decls): Look for origin of clones.
+	* tree-inline.c (initialize_cfun): Initialize DECL_ARGUMENTS and
+	DECL_RESULT.
+
+2013-07-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (arm_addsi3, addsi3_carryin_<optab>,
+	addsi3_carryin_alt2_<optab>): Correct output template.
+
+2013-07-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm-fixed.md (ssmulsa3, usmulusa3):
+	Adjust for arm_restrict_it.
+	Remove trailing whitespace.
+
+2013-07-25  Mark Kettenis  <kettenis@openbsd.org>
+
+	* config/pa/pa.c (pa_trampoline_init): Emit __enable_execute_stack
+	libcall if HAVE_ENABLE_EXECUTE_STACK is defined.
+
+	* config.gcc (hppa-*-openbsd*): Don't set tmake_file.
+
+2013-07-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57960
+	* lra-constraints.c (process_alt_operands): Use the right mode
+	when checking strict_low.
+
+2013-07-25  Jan Hubicka  <jh@suse.cz>
+
+	* lto-symtab.c (lto_cgraph_replace_node): Release function body.
+	* cgraph.c (cgraph_remove_node): Do not release function body
+	when in cgraph streaming.
+	* ipa.c (process_references, symtab_remove_unreachable_nodes): Objects
+	in other partitions are not considered reachable; fix handling of
+	clones.
+
+2013-07-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm.md (*sibcall_insn): Remove unnecessary space.
+
+2013-07-25  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/19599
+	PR target/57731
+	PR target/57837
+	* config/arm/arm.md ("*sibcall_insn): Replace use of
+	Ss with US. Adjust output for v5 and v4t.
+	(*sibcall_value_insn): Likewise and loosen predicate on operand0.
+
+	* config/arm/constraints.md ("Ss"): Rename to US.
+
+2013-07-25  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (thumb1_size_rtx_costs): Assign proper cost for
+	shift_add/shift_sub0/shift_sub1 RTXs.
+
+2013-07-24  Bill Schmidt  <wschmidt@linux.ibm.com>
+	    Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vpkpx): Handle little endian.
+	(altivec_vpks<VI_char>ss): Likewise.
+	(altivec_vpks<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>um): Likewise.
+
+2013-07-24  David Malcolm  <dmalcolm@redhat.com>
+
+	Introduce context class.
+
+	* Makefile.in (CONTEXT_H): New.
+	(OBJS): Add context.o.
+	(toplev.o): Add CONTEXT_H to dependencies.
+	(context.o): New.
+
+	* toplev.c (general_init): Create the singleton gcc::context instance.
+
+	* context.c: New.
+
+	* context.h: New.
+
+2013-07-24  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/57968
+	* mode-switching.c (create_pre_exit): Allow instructions that
+	don't set a return register to need a non-exit mode.
+
+2013-07-24  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+	    Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/vector.md (vec_realign_load_<mode>): Reorder input
+	operands to vperm for little endian.
+	* config/rs6000/rs6000.c (rs6000_expand_builtin): Use lvsr instead
+	of lvsl to create the control mask for a vperm for little endian.
+
+2013-07-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Reverse
+	two operands for little-endian.
+
+2013-07-23  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mips.c (mips_case_values_threshold): New.
+	(TARGET_CASE_VALUES_THRESHOLD): Define.
+
+2013-07-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	    Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Correct
+	selection of field for vector splat in little endian mode.
+
 2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (xor<mode>3): Move 128-bit boolean
@@ -95,9 +536,11 @@
 
 2013-07-23  David Holsgrove <david.holsgrove@xilinx.com>
 
-	* config/microblaze/microblaze.c: Add microblaze_asm_output_mi_thunk
-	and define TARGET_ASM_OUTPUT_MI_THUNK and
-	TARGET_ASM_CAN_OUTPUT_MI_THUNK.
+	* config/microblaze/sync.md: New file.
+	* config/microblaze/microblaze.md: Include sync.md
+	* config/microblaze/microblaze.c: Add print_operand 'y'.
+	* config/microblaze/constraints.md: Add memory_contraint
+	'Q' which is a single register.
 
 2013-07-23  Eric Botcazou  <ebotcazou@adacore.com>
 
@@ -238,7 +681,7 @@
 	* dwarf2out.c (die_odr_checksum): New function to use
 	CHECKSUM_ macros and ULEB128 for DIE tag.
 	(generate_type_signature): Use.
-	
+
 2013-07-22  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* config.gcc (sparc*-*-*): Accept leon3 processor.
