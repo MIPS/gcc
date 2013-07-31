@@ -10489,7 +10489,8 @@ build_binary_op (location_t location, enum tree_code code,
     }
 
   if (flag_sanitize & SANITIZE_UNDEFINED
-      && current_function_decl != 0)
+      && current_function_decl != 0
+      && (doing_div_or_mod || doing_shift))
     {
       /* OP0 and/or OP1 might have side-effects.  */
       op0 = c_save_expr (op0);
