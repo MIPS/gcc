@@ -1,3 +1,7 @@
+2013-07-31  Marek Polacek  <polacek@redhat.com>
+
+	* doc/invoke.texi: Improve documentation of -fsanitize=undefined.
+
 2013-07-30  Marek Polacek  <polacek@redhat.com>
 
 	* config/rs6000/rs6000.h (FRAME_GROWS_DOWNWARD): Use flag_sanitize
