@@ -1,7 +1,14 @@
+2013-07-30  Caroline Tice  <cmtice@google.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* Makefile.am (AM_CXXFLAGS): Add
+	Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end.
+	* Makefile.in: Regenerate.
+
 2013-07-29  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* doc/VtableVerificationFeatureProposal.pdf: Edits.
-	
+
 2013-07-29  Caroline Tice  <cmtice@google.com>
 
 	* scripts/sum-vtv-counts.c: New. Summarize -fvtv-counts output log

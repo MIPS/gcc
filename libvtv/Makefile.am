@@ -32,6 +32,7 @@ AM_CFLAGS = $(XCFLAGS)
 AM_CCASFLAGS = $(XCFLAGS)
 AM_CXXFLAGS = $(XCFLAGS)  
 AM_CXXFLAGS += $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
+AM_CXXFLAGS += -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
 
 toolexeclib_LTLIBRARIES = libvtv.la
 
@@ -57,7 +58,6 @@ else
 libvtv_la_SOURCES = 
 libvtv_include_HEADERS = 
 endif
-
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = stamp-*

@@ -263,7 +263,8 @@ gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 AM_CPPFLAGS = -I $(top_srcdir) -I $(top_srcdir)/include
 AM_CFLAGS = $(XCFLAGS)
 AM_CCASFLAGS = $(XCFLAGS)
-AM_CXXFLAGS = $(XCFLAGS) $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
+AM_CXXFLAGS = $(XCFLAGS) $(LIBSTDCXX_RAW_CXX_CXXFLAGS) \
+	-Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
 toolexeclib_LTLIBRARIES = libvtv.la
 vtv_headers = \
 	vtv_map.h \
