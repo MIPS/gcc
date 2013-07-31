@@ -12435,6 +12435,8 @@ melt_fatal_info (const char*filename, int lineno)
 	    (void*) current_pass,
 	    current_pass->static_pass_number, current_pass->name);
   fflush (NULL);
+  debugeprintf ("ending melt_fatal_info filename=%s lineno=%d\n", filename, lineno);
+  return;
 }
 
 

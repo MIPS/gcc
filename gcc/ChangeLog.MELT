@@ -1,5 +1,8 @@
 
 2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.c (melt_fatal_info): Adding final debugeprintf.
+
+2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
