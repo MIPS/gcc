@@ -1,5 +1,24 @@
 
 2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_fatal_info): Declare as MELT_EXTERN.
+
+	* melt/warmelt-first.melt (melt_assert_failure_fun): New function.
+	(variadic_ctype, variadic_index, variadic_length, variadic_skip)
+	(variadic_type_code): Moved from warmelt-base.melt file.
+
+	* melt/warmelt-base.melt (variadic_ctype, variadic_index)
+	(variadic_length, variadic_skip)
+	(variadic_type_code): Removed since moved to warmelt-first.melt
+	file above.
+
+	* melt/warmelt-macro.melt (mexpand_assert_msg): Now more variadic
+	and expanded to call to melt_assert_failure_fun.
+
+	* melt/xtramelt-ana-base.melt: Most assert_msg got new variadic
+	arguments.
+
+2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

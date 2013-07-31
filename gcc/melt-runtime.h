@@ -85,7 +85,7 @@ MELT_EXTERN const char* melt_plugin_name;
 
 MELT_EXTERN const char melt_runtime_build_date[];
 
-extern void melt_fatal_info (const char*filename, int lineno);
+MELT_EXTERN void melt_fatal_info (const char*filename, int lineno);
 
 #define melt_fatal_error(Fmt,...) do{ melt_fatal_info (__FILE__,__LINE__); \
     fatal_error ((Fmt),##__VA_ARGS__); }while(0)

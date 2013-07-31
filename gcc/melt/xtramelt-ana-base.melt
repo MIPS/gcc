@@ -1643,7 +1643,7 @@ current function and gives its declaration in $CFUNDECL}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;; debug support
 (defun debugfun_tree (dbgi :tree tr)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (out (get_field :dbgi_out dbgi))
 	 )
     (if tr
@@ -1676,7 +1676,7 @@ current function and gives its declaration in $CFUNDECL}#
 	)))
 
 (defun dbgfun_tree_briefly (dbgi :tree tr)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (output_tree_briefly (get_field :dbgi_out dbgi) tr)
   )
 
@@ -1685,7 +1685,7 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;;;;;;;;;;;;;;;
 (defun debugfun_basicblock (dbgi :basic_block bb)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (out (get_field :dbgi_out dbgi))
 	 )
     (if bb
@@ -1699,7 +1699,7 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;;;;;;;;;;;;;;;
 (defun debugfun_edge (dbgi :edge ed)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (out (get_field :dbgi_out dbgi))
 	 )
     (if ed
@@ -1714,7 +1714,7 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;;;;;;;;;;;;;;;
 (defun debugfun_loop (dbgi :loop lo)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (out (get_field :dbgi_out dbgi))
 	 )
     (if lo
@@ -1733,7 +1733,7 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;;; boxed basicblock debug
 (defun dbgout_boxbasicblock_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi)) ) 
     (add2out_strconst out " ?/")
@@ -1750,8 +1750,8 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;;; boxed edge debug
 (defun dbgout_boxedge_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_edge self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_edge self) self)
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi)) ) 
     (add2out_strconst out " ?/")
@@ -1767,8 +1767,8 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;; boxed loop debug
 (defun dbgout_boxloop_method (self dbgi :long depth)
-  (assert_msg "check self" (is_loop self))
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_loop self) self)
   (let ( (dis (discrim self)) 
 	 (out  (unsafe_get_field :dbgi_out dbgi)) ) 
     (add2out_strconst out " ?/")
@@ -1784,8 +1784,8 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;;; basicblockmap debug
 (defun dbgout_mapbasicblock_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_mapbasicblock self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_mapbasicblock self) self)
   (let ( (dis (discrim self)) 
 	 (:long mapcount (mapbasicblock_count self))
 	 (out  (unsafe_get_field :dbgi_out dbgi)) 
@@ -1819,8 +1819,8 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;;;; edgemap debug
 (defun dbgout_mapedge_method (self dbgi :long depth)
-  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
-  (assert_msg "check self" (is_mapedge self))
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (assert_msg "check self" (is_mapedge self) self)
   (let ( (dis (discrim self)) 
 	 (:long mapcount (mapedge_count self))
 	 (out  (unsafe_get_field :dbgi_out dbgi)) 

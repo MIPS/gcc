@@ -7631,9 +7631,9 @@ $COMMA It is often noted with a prefix comma-character
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; assert_msg macro is expanded into other src..
-;;;;;; (assert_msg msg check)
+;;;;;; (assert_msg msg check ...)
 ;;; becomes
-;;;;;; (cppif ENABLE_CHECKING (if check (assert_failed msg filename lineno)) ())
+;;;;;; (cppif ENABLE_CHECKING (if check (melt_assert_failure_fun () msg filename lineno ...)) ())
 ;;; where assert_failed is a primitive
 
 (defun mexpand_assert_msg (sexpr env mexpander modctx)
@@ -7648,59 +7648,67 @@ $COMMA It is often noted with a prefix comma-character
 	(curpair (pair_tail (list_first cont)))
 	(xmsg (mexpander (pair_head curpair)  env mexpander modctx))
 	(xtest ())
-	(assfail_symb 'assert_failed)
-	(assfail_binding (find_env env assfail_symb))
+	(xarglist ())
+	(assfail_binding (find_env env 'melt_assert_failure_fun))
 	)
     (if (not (is_string xmsg))
 	(error_plain loc "non string message in (ASSERT_MSG <msg> <test>)"_))
     (setq curpair (pair_tail curpair))
     (cond ( (is_pair curpair)
-	    (if (pair_tail curpair)
-		(error_plain loc "extra arg for (ASSERT_MSG <msg> <test>)"_))
-	    (setq xtest (mexpander (pair_head curpair) env mexpander modctx)))
+	    (setq xtest (mexpander (pair_head curpair) env mexpander modctx))
+	    (setq xarglist (expand_pairlist_as_list (pair_tail curpair) env mexpander modctx))
+	    )
 	  (:else
-	   (setq xtest ())
 	   (warning_strv loc "empty ASSERT_MSG" xmsg)
 	   ))
     (let (
-	  (afprim 
+	  (assfailfun 
 	   (cond 
 	    ( (null assfail_binding)
-	      (error_plain loc "unbound ASSERT_FAILED in (ASSERT_MSG <msg> <test>)"_)
+	      (error_plain loc "unbound MELT_ASSERT_FAILURE in (ASSERT_MSG <msg> <test>)"_)
 	      (debug "mexpand_assert_msg  without assert_failed env=" env
 		     " env's class" (discrim env)
-		     "find_env giving:" (find_env_debug env assfail_symb)
-		     "assfail_symb=" assfail_symb)
+		     "find_env giving:" (find_env_debug env 'melt_assert_failure_fun)
+		     "'melt_assert_failure_fun=" 'melt_assert_failure_fun)
 	      (assert_msg "assfail_binding nul! @@" ())
 	      (return))
-	    ( (is_a assfail_binding class_primitive_binding)
-	      (unsafe_get_field :pbind_primitive assfail_binding))
+	    ( (is_a assfail_binding class_function_binding)
+	      (or 
+	       (unsafe_get_field :fixbind_data assfail_binding)
+	       (unsafe_get_field :fubind_defun assfail_binding))
+	       )
 	    ( (and (is_a assfail_binding class_value_binding)
-		   (is_a (unsafe_get_field :vbind_value assfail_binding) 
-			 class_primitive))
+		   (is_closure (unsafe_get_field :vbind_value assfail_binding)))
 	      (unsafe_get_field :vbind_value assfail_binding))
 	    (:else
 	     (debug "mexpand_assert_msg bad assfail_binding=" assfail_binding)
-	     (error_plain loc "ASSERT_FAILED not bound to a primitive in  (ASSERT_MSG <msg> <test>)"_)
+	     (error_plain loc "MELT_ASSERT_FAILURE badly bound in  (ASSERT_MSG <msg> <test>)"_)
 	     (return)
 	     )))
 	  (filnam (cond
 		   ((is_mixint loc) (mixint_val loc))
 		   ((is_mixloc loc) (mixloc_val loc))))
-	  (aprim (instance 
-		  class_source_primitive
+	  (afapply (instance 
+		  class_source_apply
 		  :loca_location loc
-		  :sprim_oper afprim
-		  :sargop_args (tuple
-				xmsg
-				filnam
-				(make_integerbox discr_integer (get_int loc)))))
+		  :sapp_fun 'melt_assert_failure_fun
+		  :sargop_args (list_to_multiple 
+				(list_append2list
+				 (list
+				  ()
+				  xmsg
+				  filnam
+				  (make_integerbox discr_integer (get_int loc)))
+				 xarglist
+				))
+		  )
+		  )
 	  (atest (instance
 		  class_source_ifelse
 		  :loca_location loc
 		  :sif_test xtest
 		  :sif_then ()
-		  :sif_else aprim))
+		  :sif_else afapply))
 	  (acppif (instance class_source_cppif
 			    :loca_location loc
 			    :sifp_cond 'MELT_HAVE_DEBUG

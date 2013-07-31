@@ -1139,16 +1139,6 @@ Use $HOOK_NAMED_KEYWORD}#
 create it if not found.}# 
   #{melthookproc_HOOK_NAMED_KEYWORD (melt_string_str((melt_ptr_t)($STRV)), (long) MELT_CREATE)}#)
 
-
-;; runtime assertion with message called by expansion of assert_msg
-;;; @@ UGLY HACK TO ALWAYS HAVE A filename
-(defprimitive assert_failed (:cstring msg :cstring filename :long lineno) :void
-  :doc #{Internally used by $ASSERT_MSG macro. Runtime assert failed with message $MSG in file $FILENAME at line $LINENO.}#
-  #{melt_assert_failed(($msg),($filename)?($filename):__FILE__,
-  ($lineno)?($lineno):__LINE__, __FUNCTION__);
-}#)
-
-
 ;;; most compare primitives moved to warmelt-base.melt; we keep here
 ;;; those that are useful in this warmelt-first.melt file.
 
@@ -1171,6 +1161,163 @@ create it if not found.}#
 (defprimitive %iraw (:long a b)  :long  :doc #{Integer raw modulus of $a and $b, crash on zero-divide.}##{(($a) % ($b))}#)
 ;; boolean not
 (defprimitive not (:long i) :long  :doc #{Integer unary logical negation of $i.}#  #{(!($i))}#)
+
+
+
+;; variadic primitives are needed by melt_assert_failure_fun
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; variadic related utilities
+
+;; the index of variadic argument
+(defprimitive variadic_index () :long
+  :doc #{Returns the current index of variadic argument, or -1 outside
+  of variadic functions.}#
+;; the melt_variadic_index macro is defined by code emitted in function
+;; outpucod_procroutine of file warmelt-outobj.melt
+  #{ /*variadic_index*/
+#ifdef melt_variadic_index
+  (melt_variadic_index)
+#else
+  -1
+#endif /*melt_variadic_index*/
+}#)
+
+;; the length or count of variadic arguments
+(defprimitive variadic_length () :long
+  :doc #{Returns the length of variadic arguments, or -1 outside
+  of variadic functions.}#
+;; the melt_variadic_length macro is defined by code emitted in function
+;; outpucod_procroutine of file warmelt-outobj.melt
+  #{ /*variadic_length*/
+#ifdef melt_variadic_length
+  (melt_variadic_length)
+#else
+  -1
+#endif /*melt_variadic_length*/
+}#)
+
+
+;; skip some variadic arguments
+(defprimitive variadic_skip (:long delta) :void
+  :doc #{Skip some variadic arguments, by incrementing appropriately the variadic index.}#
+;; the melt_variadic_index & melt_variadic_length macros are defined
+;; by code emitted in function outpucod_procroutine of file
+;; warmelt-outobj.melt
+  #{ /*variadic_skip*/
+#ifdef melt_variadic_index
+  melt_variadic_index += (int) ($DELTA);
+  if (melt_variadic_index < 0) 
+     melt_variadic_index = 0;
+  else if (melt_variadic_index > melt_variadic_length) 
+     melt_variadic_index = melt_variadic_length;
+#else
+  /* no variadic_skip outside of variadic functions */
+  (void) ($DELTA);
+#endif /*melt_variadic_index*/
+}#)
+
+(defprimitive variadic_type_code (:long delta) :long
+  :doc #{Return the type code, i.e. an integer from the MELTBPAR_*
+  enumeration, of the variadic argument at offset $DELTA, or else
+  [outside of variadic functions, or index out of bounds] 0, that is
+  MELTBPAR__NONE. See also $VARIADIC_CTYPE.}#
+#{ /*variadic_type_code*/
+#ifdef melt_variadic_index
+  (((melt_variadic_index + $DELTA) >= 0
+    && (melt_variadic_index + $DELTA) < melt_variadic_length) 
+  ? (long) (meltxargdescr_[melt_variadic_index + $DELTA] & MELT_ARGDESCR_MAX)
+  : 0)
+#else
+  (0 && $DELTA /* no variadic_type_code outside of variadic functions */)
+#endif /*melt_variadic_index*/
+}#)
+
+(defprimitive variadic_ctype  (:long delta) :value
+  :doc #{Return the ctype of the variadic argument at offset $DELTA,
+  or else Nil. See also $VARIADIC_TYPE_CODE.}#
+#{ /*variadic_type_code*/
+#ifdef melt_variadic_index
+  (((melt_variadic_index + $DELTA) >= 0
+    && (melt_variadic_index + $DELTA) < melt_variadic_length) 
+  ?  melt_code_to_ctype (meltxargdescr_[melt_variadic_index + $DELTA] 
+			 & MELT_ARGDESCR_MAX)
+  : NULL)
+#else
+  NULL /* no variadic_ctype outside of variadic functions */
+#endif /*melt_variadic_index*/
+}#)
+
+;; runtime assertion with message called by expansion of assert_msg
+;;; @@ UGLY HACK TO ALWAYS HAVE A filename
+(defprimitive assert_failed (:cstring msg :cstring filename :long lineno) :void
+  :doc #{Internally used by $ASSERT_MSG macro. Runtime assert failed with message $MSG in file $FILENAME at line $LINENO.}#
+  #{melt_assert_failed(($msg),($filename)?($filename):__FILE__,
+  ($lineno)?($lineno):__LINE__, __FUNCTION__);
+}#)
+
+;; improved internal variadic function used by ASSERT_MSG
+(defun melt_assert_failure_fun (nothing :cstring msg :cstring filename :long lineno :rest)
+  (code_chunk info_chk #{ /* melt_assert_failure_fun $INFO_CHK */
+	      static bool got_assert;
+	      melt_fatal_info ($FILENAME, $LINENO);
+	      if (!$FILENAME) $FILENAME="???";
+	      fprintf(stderr, "\n"
+			      "!+! MELT ASSERT FAILURE @%s:%ld: %s\n",
+			      $FILENAME, $LINENO, $MSG);
+	      fflush (NULL);
+	      if (got_assert) 
+  	        fatal_error ("!*!*! RECURSIVE MELT ASSERT FAILURE @%s:%ld: %s", 
+			     $FILENAME, $LINENO, $MSG);
+              got_assert = true;
+	      }#)
+  (let ( (:long argcount 0)
+	 )
+    (setq argcount (+i argcount 1))
+    (forever 
+     argloop
+     (variadic 
+      ( ()
+	(exit argloop))
+      ( (:cstring str)
+	(code_chunk failstring_chk #{ /* melt_assert_failure_fun $FAILSTRING_CHK */
+		    fprintf (stderr, " %s", $STR);
+		    }#)
+	)
+      ( (:long l)
+	(code_chunk faillong_chk #{ /* melt_assert_failure_fun $FAILLONG_CHK */
+		    fprintf (stderr, " %ld", $L);
+		    }#)
+	)
+      ( (:value v)
+        (code_chunk failval_chk #{ /* melt_assert_failure_fun $FAILVAL_CHK */
+           char failmsg[32];
+           snprintf (failmsg, sizeof(failmsg), "$$%ld=", $ARGCOUNT);
+           fprintf (stderr, " $$%ld_v@%p:", $ARGCOUNT, (void*) $V);
+           melthookproc_HOOK_LOW_DEBUG_VALUE_AT ($V,
+                                                 melt_basename ($FILENAME),
+                                                 $LINENO,
+                                                 failmsg,
+                                                 $ARGCOUNT);
+	   fputc('\n', stderr);
+	   fflush (stderr);
+	   }#)
+	)
+      ( :else
+	(let ( (vctype (variadic_ctype 0))
+	       (vctyname (get_field :named_name vctype))
+	       )
+        (code_chunk failother_chk #{ /* melt_assert_failure_fun $FAILOTHER_CHK */
+		    fprintf (stderr, " $$%ld?%s?", $ARGCOUNT, melt_string_str($VCTYNAME));
+		    }#)
+	)
+      ))
+    ))
+  (code_chunk final_chk #{ /* melt_assert_failure_fun $FINAL_CHK */
+	      fputc('\n', stderr);
+	      fflush (NULL);
+	      melt_assert_failed ($MSG, $FILENAME, (int) $LINENO, __FUNCTION__);
+	      }#)
+  )
 
 (defprimitive informsg_strv (:cstring cmsg :value strv) :void
   :doc #{Show a plain notice with raw message string $CMSG and string value $STRV.}#
@@ -4069,6 +4216,7 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  mapstring_nth_val
  mapstring_putstr
  mapstring_removestr
+ melt_assert_failure_fun
  melt_low_debug
  melt_need_dbg
  melt_need_dbglim
@@ -4203,6 +4351,11 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
  retrieve_dictionnary_ctype
  retrieve_dictionnary_ctype_gty
  routine_every
+ variadic_ctype
+ variadic_index
+ variadic_length
+ variadic_skip
+ variadic_type_code
  )
 
 
