@@ -34,7 +34,7 @@
 
 (defun install_melt_mode (mode)
   :doc #{$INSTALL_MELT_MODE installs a new MELT mode, ie an instance of $CLASS_MELT_MODE.}#
-  (assert_msg "check mode" (is_a mode class_melt_mode))
+  (assert_msg "check mode" (is_a mode class_melt_mode) mode)
   (let ( (cmdict (get_field :sysdata_mode_dict initial_system_data))
 	 (cnam (get_field :named_name mode))
 	 )
@@ -60,7 +60,7 @@
 	   " initial_environment=" initial_environment
 	   " inarg=" inarg
 	   " outarg=" outarg)
-    (assert_msg "check curenv" (is_a curenv class_environment))
+    (assert_msg "check curenv" (is_a curenv class_environment) curenv)
     (let ( (modulnam ()) 
 	   (modsrcname
 	    (cond
@@ -123,7 +123,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   " initial_environment=" initial_environment
 	   " inarg=" inarg
 	   " outarg=" outarg)
-    (assert_msg "check curenv" (is_a curenv class_environment))
+    (assert_msg "check curenv" (is_a curenv class_environment) curenv)
     (let ( (modulnam ()) 
 	   (modsrcname
 	    (cond
@@ -194,7 +194,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   "\n curenv=" curenv
 	   " inarg=" inarg
 	   "\n inexprs=" inexprs)
-    (assert_msg "check curenv" (is_a curenv class_environment))
+    (assert_msg "check curenv" (is_a curenv class_environment) curenv)
     (let (
 	  (:long nbexprs (list_length inexprs))
 	  (newenv (fresh_env curenv))

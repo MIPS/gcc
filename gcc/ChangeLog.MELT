@@ -1,6 +1,11 @@
 
 
 2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-hooks.melt: Improve assert_msg with variadic arguments.
+	* melt/warmelt-macro.melt: Improve assert_msg with variadic arguments.
+	* melt/warmelt-modes.melt: Improve few assert_msg. Most improvements still to be made.
+
+2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt: Improve assert_msg with variadic arguments.
 	* melt/warmelt-base.melt: Ditto.
