@@ -1101,7 +1101,7 @@ C ObjC C++ ObjC++ LTO Report Var(flag_mpx_incomplete_type) Init(1)
 Add MPX instrumentation for usage of variables with incomplete type
 
 fmpx-zero-input-bounds-for-main
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_zero_input_bounds_for_main) Init(1)
+C ObjC C++ ObjC++ LTO Report Var(flag_mpx_zero_input_bounds_for_main) Init(0)
 Use zero bounds for all incoming arguments in 'main' function.  It helps when
 MPX binaries are used with non-MPX libs.
 
