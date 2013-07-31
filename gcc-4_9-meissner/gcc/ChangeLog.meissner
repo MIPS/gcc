@@ -4,6 +4,7 @@
 	addr_mask debugging to a separate function that can be called from
 	gdb.
 	(rs6000_debug_reg_global): Likewise.
+	(rs6000_init_address_modes): Reorganize code somewhat.
 
 2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

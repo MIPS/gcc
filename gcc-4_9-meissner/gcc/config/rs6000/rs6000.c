@@ -319,8 +319,6 @@ static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 /* Mask of the valid address bits.  */
 typedef unsigned int rs6000_addr_mask_type;
 
-const rs6000_addr_mask_type ADDR_1_BIT  = ((rs6000_addr_mask_type)1);
-
 /* Register type masks based on the type, of valid addressing modes.  */
 struct rs6000_reg_addr {
   rs6000_addr_mask_type addr_mask;	/* address valid bits.  */
@@ -336,71 +334,72 @@ struct rs6000_reg_addr {
 static struct rs6000_reg_addr reg_addr[NUM_MACHINE_MODES];
 
 /* Whether the type is valid in the register set.  */
-const rs6000_addr_mask_type ADDR_VALID_GPR =	(ADDR_1_BIT << 0);
-const rs6000_addr_mask_type ADDR_VALID_FPR =	(ADDR_1_BIT << 1);
-const rs6000_addr_mask_type ADDR_VALID_AV =	(ADDR_1_BIT << 2);
-const rs6000_addr_mask_type ADDR_VALID_VSX =	(ADDR_1_BIT << 3);
-const rs6000_addr_mask_type ADDR_VALID_MASK =	(ADDR_VALID_GPR
-						 | ADDR_VALID_FPR
-						 | ADDR_VALID_AV
-						 | ADDR_VALID_VSX);
+const rs6000_addr_mask_type ADDR_VALID_GPR =		0x0001;
+const rs6000_addr_mask_type ADDR_VALID_FPR =		0x0002;
+const rs6000_addr_mask_type ADDR_VALID_AV =		0x0003;
+const rs6000_addr_mask_type ADDR_VALID_VSX =		0x0004;
+const rs6000_addr_mask_type ADDR_VALID_MASK =		(ADDR_VALID_GPR
+							 | ADDR_VALID_FPR
+							 | ADDR_VALID_AV
+							 | ADDR_VALID_VSX);
 
 /* Whether update forms of the addressing are allowed in GPR and FPR register
    sets.  */
-const rs6000_addr_mask_type ADDR_UPDATE_GPR =	(ADDR_1_BIT << 4);
-const rs6000_addr_mask_type ADDR_UPDATE_FPR =	(ADDR_1_BIT << 5);
-const rs6000_addr_mask_type ADDR_UPDATE_MASK =	(ADDR_UPDATE_GPR
-						 | ADDR_UPDATE_FPR);
+const rs6000_addr_mask_type ADDR_UPDATE_GPR =		0x0010;
+const rs6000_addr_mask_type ADDR_UPDATE_FPR =		0x0020;
+const rs6000_addr_mask_type ADDR_UPDATE_MASK =		(ADDR_UPDATE_GPR
+							 | ADDR_UPDATE_FPR);
 
 /* Whether reg+offset forms of addressing are allowed.  */
-const rs6000_addr_mask_type ADDR_OFFSET_GPR =	(ADDR_1_BIT << 6);
-const rs6000_addr_mask_type ADDR_OFFSET_FPR =	(ADDR_1_BIT << 7);
-const rs6000_addr_mask_type ADDR_OFFSET_MASK =	(ADDR_OFFSET_GPR
-						 | ADDR_OFFSET_FPR);
+const rs6000_addr_mask_type ADDR_OFFSET_GPR =		0x0040;
+const rs6000_addr_mask_type ADDR_OFFSET_FPR =		0x0080;
+const rs6000_addr_mask_type ADDR_OFFSET_MASK =		(ADDR_OFFSET_GPR
+							 | ADDR_OFFSET_FPR);
 
 /* Whether the type takes multiple words in the register set.  */
-const rs6000_addr_mask_type ADDR_MULTIPLE_GPR =	(ADDR_1_BIT << 8);
-const rs6000_addr_mask_type ADDR_MULTIPLE_FPR =	(ADDR_1_BIT << 9);
-const rs6000_addr_mask_type ADDR_MULTIPLE_AV =	(ADDR_1_BIT << 10);
-const rs6000_addr_mask_type ADDR_MULTIPLE_VSX =	(ADDR_1_BIT << 11);
-const rs6000_addr_mask_type ADDR_MULTIPLE_MASK = (ADDR_MULTIPLE_GPR
-						  | ADDR_MULTIPLE_FPR 
-						  | ADDR_MULTIPLE_AV
-						  | ADDR_MULTIPLE_VSX);
+const rs6000_addr_mask_type ADDR_MULTIPLE_GPR =		0x0100;
+const rs6000_addr_mask_type ADDR_MULTIPLE_FPR =		0x0200;
+const rs6000_addr_mask_type ADDR_MULTIPLE_AV =		0x0400;
+const rs6000_addr_mask_type ADDR_MULTIPLE_VSX =		0x0800;
+const rs6000_addr_mask_type ADDR_MULTIPLE_MASK =	(ADDR_MULTIPLE_GPR
+							 | ADDR_MULTIPLE_FPR
+							 | ADDR_MULTIPLE_AV
+							 | ADDR_MULTIPLE_VSX);
 
 /* Whether register+register indexed mode can be used.  */
-const rs6000_addr_mask_type ADDR_INDEXED_GPR =	(ADDR_1_BIT << 12);
-const rs6000_addr_mask_type ADDR_INDEXED_FPR =	(ADDR_1_BIT << 13);
-const rs6000_addr_mask_type ADDR_INDEXED_AV =	(ADDR_1_BIT << 14);
-const rs6000_addr_mask_type ADDR_INDEXED_VSX =	(ADDR_1_BIT << 15);
-const rs6000_addr_mask_type ADDR_INDEXED_MASK =	(ADDR_INDEXED_GPR
-						 | ADDR_INDEXED_FPR
-						 | ADDR_INDEXED_AV
-						 | ADDR_INDEXED_VSX);
+const rs6000_addr_mask_type ADDR_INDEXED_GPR =		0x1000;
+const rs6000_addr_mask_type ADDR_INDEXED_FPR =		0x2000;
+const rs6000_addr_mask_type ADDR_INDEXED_AV =		0x4000;
+const rs6000_addr_mask_type ADDR_INDEXED_VSX =		0x8000;
+const rs6000_addr_mask_type ADDR_INDEXED_MASK =		(ADDR_INDEXED_GPR
+							 | ADDR_INDEXED_FPR
+							 | ADDR_INDEXED_AV
+							 | ADDR_INDEXED_VSX);
 
 /* Combination mask for all GPR options.  */
-const rs6000_addr_mask_type ADDR_GPR_MASK =	(ADDR_VALID_GPR
-						 | ADDR_UPDATE_GPR
-						 | ADDR_OFFSET_GPR
-						 | ADDR_MULTIPLE_GPR
-						 | ADDR_INDEXED_GPR);
+const rs6000_addr_mask_type ADDR_GPR_MASK =		(ADDR_VALID_GPR
+							 | ADDR_UPDATE_GPR
+							 | ADDR_OFFSET_GPR
+							 | ADDR_MULTIPLE_GPR
+							 | ADDR_INDEXED_GPR);
 
 /* Combination mask for all FPR options.  */
-const rs6000_addr_mask_type ADDR_FPR_MASK =	(ADDR_VALID_FPR
-						 | ADDR_UPDATE_FPR
-						 | ADDR_OFFSET_FPR
-						 | ADDR_MULTIPLE_FPR
-						 | ADDR_INDEXED_FPR);
+const rs6000_addr_mask_type ADDR_FPR_MASK =		(ADDR_VALID_FPR
+							 | ADDR_UPDATE_FPR
+							 | ADDR_OFFSET_FPR
+							 | ADDR_MULTIPLE_FPR
+							 | ADDR_INDEXED_FPR);
 
 /* Combination mask for all Altivec options.  */
-const rs6000_addr_mask_type ADDR_AV_MASK =	(ADDR_VALID_AV
-						 | ADDR_MULTIPLE_AV
-						 | ADDR_INDEXED_AV);
+const rs6000_addr_mask_type ADDR_AV_MASK =		(ADDR_VALID_AV
+							 | ADDR_MULTIPLE_AV
+							 | ADDR_INDEXED_AV);
 
 /* Combination mask for all VSX options.  */
-const rs6000_addr_mask_type ADDR_VSX_MASK =	(ADDR_VALID_VSX
-						 | ADDR_MULTIPLE_VSX
-						 | ADDR_INDEXED_VSX);
+const rs6000_addr_mask_type ADDR_VSX_MASK =		(ADDR_VALID_VSX
+							 | ADDR_MULTIPLE_VSX
+							 | ADDR_INDEXED_VSX);
+
 
 /* Target cpu costs.  */
 
