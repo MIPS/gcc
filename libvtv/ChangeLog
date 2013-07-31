@@ -1,9 +1,18 @@
+2013-07-30  Caroline Tice  <cmtice@google.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	* Makefile.am (AM_CPPFLAGS): Adjust to toplevel include directory.
+	(vtv_sources): Add vtv_start.c, vtv_end.c.
+	(BUILT_SOURCES): Copy new sources from libgcc.
+	* Makefile.in: Regenerate.
+	* vtv_rts.cc: Adjust vtv-change-permission.h include path.
+
 2013-07-30   Benjamin Kosnik  <bkoz@redhat.com>
 
 	* scripts/run-testsuite.sh (CXX): From VTV_CXXLINKFLAGS.
 
 	* vtv_init.cc: Remove.
-	
+
 2013-07-30  Caroline Tice  <cmtice@google.com>
 	    Benjamin Kosnik  <bkoz@redhat.com>
 

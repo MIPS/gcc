@@ -27,7 +27,7 @@ ACLOCAL_AMFLAGS = -I .. -I ../config
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
 DEFS = 
-AM_CPPFLAGS = -I $(top_srcdir) -I $(top_srcdir)/include
+AM_CPPFLAGS = -I$(top_srcdir)/../include
 AM_CFLAGS = $(XCFLAGS)
 AM_CCASFLAGS = $(XCFLAGS)
 AM_CXXFLAGS = $(XCFLAGS)  
@@ -45,11 +45,23 @@ vtv_headers = \
 	vtv_rts.h
 
 vtv_sources = \
+	vtv_start.c \
         vtv_malloc.cc \
         vtv_rts.cc \
-        vtv_utils.cc
+        vtv_utils.cc \
+	vtv_end.c
 
 libvtv_includedir = $(includedir)
+
+# Link in vtv_start and vtv_end. 
+BUILT_SOURCES = vtv_start.c vtv_end.c
+vtv_start.c:
+	rm -f $@
+	$(LN_S) $(toplevel_srcdir)/libgcc/vtv_start.c $@
+
+vtv_end.c:
+	rm -f $@
+	$(LN_S) $(toplevel_srcdir)/libgcc/vtv_end.c $@
 
 if ENABLE_VTABLE_VERIFY
 libvtv_la_SOURCES = $(vtv_sources)
@@ -58,9 +70,6 @@ else
 libvtv_la_SOURCES = 
 libvtv_include_HEADERS = 
 endif
-
-# By adding these files here, automake will remove them for 'make clean'
-CLEANFILES = stamp-*
 
 # Least ordering for dependencies mean linking w/o libstdc++ for as
 # long as the development of libvtv does not absolutely require it.

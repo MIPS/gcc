@@ -141,7 +141,7 @@
 #include "vtv_rts.h"
 #include "vtv_fail.h"
 
-#include "../../include/vtv-change-permission.h"
+#include "vtv-change-permission.h"
 
 extern "C" {
 
