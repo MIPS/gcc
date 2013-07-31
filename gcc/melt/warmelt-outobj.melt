@@ -7157,7 +7157,7 @@ if (1) return;
                 /* In translate_run_melt_expressions $NUMCHK using getpid to ensure unicity 
 		   of generated naked base name */
 		snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-			  "MELTp%d_run%04lx", (int)getpid(), num_$NUMCHK) ;
+			  "melt_p%d_run%04lx", (int)getpid(), num_$NUMCHK) ;
 		$NAKEDBASNAM = meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
 							  basbuf_$NUMCHK, -1) ;
 		}#)
@@ -7451,11 +7451,11 @@ if (1) return;
 		   ensure unicity of generated naked base name */
 		if (melt_flag_bootstrapping && melt_magic_discr($MODNAM) == MELTOBMAG_STRING)
                   snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-			    "MELT_%s_macro%05lx",
+			    "melt_%s_macro%05lx",
 			    melt_string_str($MODNAM), num_$NUMCHK);
 		else
                   snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-                            "MELTp%d_macro%05lx", 
+                            "melt_p%d_macro%05lx", 
                             (int)getpid(), num_$NUMCHK) ;
 		$NAKEDBASNAM = meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
 							  basbuf_$NUMCHK, -1) ;

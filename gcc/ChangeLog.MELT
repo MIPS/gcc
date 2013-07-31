@@ -1,5 +1,11 @@
 
 
+2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (translate_run_melt_expressions)
+	(melt_translate_run_macroexpansions_list): Generated base name
+	starts with melt.
+
 2013-07-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt
 	(melt_invoke_translator_runner_macroexpansions): New formal for
