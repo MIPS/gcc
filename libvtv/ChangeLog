@@ -2,6 +2,8 @@
 
 	* scripts/run-testsuite.sh (CXX): From VTV_CXXLINKFLAGS.
 
+	* vtv_init.cc: Remove.
+	
 2013-07-30  Caroline Tice  <cmtice@google.com>
 	    Benjamin Kosnik  <bkoz@redhat.com>
 
