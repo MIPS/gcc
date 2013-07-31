@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcov-io.h"
 #include "tree-pass.h"
 #include "profile.h"
+#include "context.h"
+#include "pass_manager.h"
 
 static void output_cgraph_opt_summary (void);
 static void input_cgraph_opt_summary (vec<symtab_node>  nodes);
@@ -936,6 +938,7 @@ input_node (struct lto_file_decl_data *file_data,
 	    enum LTO_symtab_tags tag,
 	    vec<symtab_node> nodes)
 {
+  gcc::pass_manager *passes = g->get_passes ();
   tree fn_decl;
   struct cgraph_node *node;
   struct bitpack_d bp;
@@ -981,8 +984,8 @@ input_node (struct lto_file_decl_data *file_data,
       struct opt_pass *pass;
       int pid = streamer_read_hwi (ib);
 
-      gcc_assert (pid < passes_by_id_size);
-      pass = passes_by_id[pid];
+      gcc_assert (pid < passes->passes_by_id_size);
+      pass = passes->passes_by_id[pid];
       node->ipa_transforms_to_apply.safe_push ((struct ipa_opt_pass_d *) pass);
     }
 
@@ -1549,17 +1552,10 @@ output_node_opt_summary (struct output_block *ob,
   streamer_write_uhwi (ob, vec_safe_length (node->clone.tree_map));
   FOR_EACH_VEC_SAFE_ELT (node->clone.tree_map, i, map)
     {
-      int parm_num;
-      tree parm;
-
-      for (parm_num = 0, parm = DECL_ARGUMENTS (node->symbol.decl); parm;
-	   parm = DECL_CHAIN (parm), parm_num++)
-	if (map->old_tree == parm)
-	  break;
       /* At the moment we assume all old trees to be PARM_DECLs, because we have no
          mechanism to store function local declarations into summaries.  */
-      gcc_assert (parm);
-      streamer_write_uhwi (ob, parm_num);
+      gcc_assert (!map->old_tree);
+      streamer_write_uhwi (ob, map->parm_num);
       gcc_assert (EXPR_LOCATION (map->new_tree) == UNKNOWN_LOCATION);
       stream_write_tree (ob, map->new_tree, true);
       bp = bitpack_create (ob->main_stream);
