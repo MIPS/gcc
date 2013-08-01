@@ -3419,7 +3419,10 @@ returns the list (LIST (F E_1) ...(F E_n)) if $LIS is the (LIST E_1
 	  )
 	)))
  
-;;; translate a list to a multiple - with each element transformed by a function f (default the identity)
+
+
+;;; translate a list to a multiple - with each element transformed by
+;;; a function f (default the identity)
 (defun list_to_multiple (lis disc f)
   (if (null disc) (setq disc discr_multiple))
   (if (is_list lis)
@@ -3427,18 +3430,20 @@ returns the list (LIST (F E_1) ...(F E_n)) if $LIS is the (LIST E_1
 	     (:long count 0)
 	     (tup (make_multiple disc ln))
 	     )
-	(if (is_closure f)
-	    (foreach_in_list
-	     (lis)
-	     (curpair curcomp)
-	     (multiple_put_nth tup count (f curcomp))
-	     (setq count (+i count 1)))
-	  (foreach_in_list
-	   (lis)
-	   (curpair curcomp)
-	   (multiple_put_nth tup count curcomp)
-	   (setq count (+i count 1)))
-	  )
+	(cond ( (is_closure f)
+		(foreach_in_list
+		 (lis)
+		 (curpair curcomp)
+		 (multiple_put_nth tup count (f curcomp))
+		 (setq count (+i count 1)))
+		)
+	      (:else
+	       (foreach_in_list
+		(lis)
+		(curpair curcomp)
+		(multiple_put_nth tup count curcomp)
+		(setq count (+i count 1)))
+	       ))
 	(return tup))))
 
 ;;; translate a pairlist to a tuple - with each element transformed by a function f (default the identity)

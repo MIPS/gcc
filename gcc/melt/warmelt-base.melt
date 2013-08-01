@@ -542,14 +542,21 @@ number $NUM opaque location number $LOC.}#
 ;; usage (diagnostic_args_macro <nbargs-var> <vect-var>)
 (defmacro diagnostic_args_macro (sexp env mexpander modctx)
   (debug "diagnostic_args_macro sexp=" sexp)
+  (assert_msg "check sexp" (is_a sexp class_sexpr) sexp)
   (let (
 	(sloc (get_field :loca_location sexp))
-	(scont (get_field :sexp_contents sexp))
-	(tcont (list_to_multiple scont))
+	(sexcont (get_field :sexp_contents sexp))
+	(tcont (list_to_multiple sexcont))
 	)
     (debug "diagnostic_args_macro sloc=" sloc " tcont=" tcont)
+    (assert_msg "check sexcont" (is_list sexcont) sexcont)
+    (assert_msg "check tcont" (is_multiple tcont) tcont)
     (when (!=i (multiple_length tcont) 3)
       (error_plain sloc "DIAGNOSTIC_ARGS_MACRO needs 2 args: <nbargs> <vect>")
+      (code_chunk diagargbad_chk #{ /* diagnostic_args_macro $DIAGARGBAD_CHK */
+		  melt_low_stderr_value ("diagnostic_args_macro sexp", $SEXP);
+		  melt_low_stderr_value ("diagnostic_args_macro tcont", $TCONT);
+		  }#)
       (return)
       )
     (let ( (macrovarnbarg (multiple_nth tcont 1))

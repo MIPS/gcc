@@ -1,5 +1,22 @@
 
 2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (list_to_multiple): Improve.
+
+	* melt/warmelt-base.melt (diagnostic_args_macro): Show on stderr
+	when arity error.
+
+	* melt/warmelt-debug.melt (dbgout_mixloc_method)
+	(dbgout_mixbigint_method): More verbose output.
+
+	* melt/warmelt-outobj.melt
+	(melt_translate_run_macroexpansions_list): Use different names
+	parmodctx & newmodctx for the different module contexts.
+
+	* melt/warmelt-modes.melt (makedoc_docmd): The module context gets
+	a robust module name.
+
+2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (melt_assert_failure_fun): Call
 	melthookproc_HOOK_LOW_STDERR_VALUE_AT.
 

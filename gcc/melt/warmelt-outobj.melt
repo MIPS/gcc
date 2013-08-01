@@ -7415,12 +7415,12 @@ if (1) return;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun melt_translate_run_macroexpansions_list (lismexp env modctx)
+(defun melt_translate_run_macroexpansions_list (lismexp env parmodctx)
   :doc #{The utility $MELT_TRANSLATE_RUN_MACROEXPANSIONS_LIST
   translates and runs a list of macroexpansions. It is used for
   expansion of $DEFMACRO-ed macronames.}#
   (debug "melt_translate_run_macroexpansions_list start lismexp=" lismexp 
-	 "\n.. env=" env "\n.. modctx=" modctx)
+	 "\n.. env=" env "\n.. parmodctx=" parmodctx)
   (assert_msg "check env" (is_a env class_environment))
   (when (null lismexp)
     (debug "melt_translate_run_macroexpansions_list null lismexp=" lismexp)
@@ -7435,31 +7435,33 @@ if (1) return;
 	 (referr (instance class_reference))
 	 ;; we need to store the normlist for debugging purposes
 	 (refnormlist (instance class_reference))
-	 (modnam (get_field :mocx_modulename modctx))
+	 (modnam (get_field :mocx_modulename parmodctx))
 	 )
     (code_chunk numchk #{/* melt_translate_run_macroexpansions_list $NUMCHK */ 
-		char basbuf_$NUMCHK[64] ;
-		long num_$NUMCHK = 0 ;
-		memset (basbuf_$NUMCHK, 0, sizeof(basbuf_$NUMCHK)) ;
-		melt_count_runtime_extensions++ ;
-		num_$NUMCHK = melt_count_runtime_extensions ;
-		if (melt_count_runtime_extensions
-		    > MELT_MAX_RUNTIME_EXTENSIONS)
-		melt_fatal_error ("too many %ld MELT runtime extensions for macroexpansion",
-				  num_$NUMCHK) ;
+                char basbuf_$NUMCHK[64] ;
+                long num_$NUMCHK = 0 ;
+                memset (basbuf_$NUMCHK, 0, sizeof(basbuf_$NUMCHK)) ;
+                melt_count_runtime_extensions++ ;
+                num_$NUMCHK = melt_count_runtime_extensions ;
+                if (melt_count_runtime_extensions
+                    > MELT_MAX_RUNTIME_EXTENSIONS)
+                melt_fatal_error ("too many %ld MELT runtime extensions for macroexpansion",
+                                  num_$NUMCHK) ;
                 /* In melt_translate_run_macroexpansions_list $NUMCHK using getpid to 
-		   ensure unicity of generated naked base name */
-		if (melt_flag_bootstrapping && melt_magic_discr($MODNAM) == MELTOBMAG_STRING)
+                ensure unicity of generated naked base name */
+                if (melt_flag_bootstrapping && melt_magic_discr($MODNAM) == MELTOBMAG_STRING)
                   snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-			    "melt_%s_macro%05lx",
-			    melt_string_str($MODNAM), num_$NUMCHK);
-		else
+                                          "melt_%s_macro%05lx",
+                                          melt_string_str($MODNAM), num_$NUMCHK) ;
+                else
                   snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-                            "melt_p%d_macro%05lx", 
-                            (int)getpid(), num_$NUMCHK) ;
-		$NAKEDBASNAM = meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
-							  basbuf_$NUMCHK, -1) ;
-		}#)
+                                          "melt_p%d_macro%05lx", 
+                                          (int)getpid(), num_$NUMCHK) ;
+                $NAKEDBASNAM =
+		   meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
+					      basbuf_$NUMCHK, -1) ;
+	   /* end melt_translate_run_macroexpansions_list $NUMCHK */ 
+                }#)
     (debug "melt_translate_run_macroexpansions_list nakedbasnam=" nakedbasnam " num=" num " starterrcount=" starterrcount)
     (let (
 	  (runerrorhdlr 
@@ -7483,7 +7485,7 @@ if (1) return;
 	     (set_ref referr (or v :true))))
 	  (litvalist 
 	   (list ()))	    ;first element of list is ignored, so null
-	  (modctx
+	  (newmodctx
 	   (instance class_running_extension_module_context
 		     :mocx_modulename  nakedbasnam
 		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
@@ -7507,7 +7509,7 @@ if (1) return;
 		     :morcx_literobjmap (make_mapobject discr_map_objects 53)
 		     ))
 	  (ncx 
-	   (create_normal_extending_context modctx env))
+	   (create_normal_extending_context newmodctx env))
 	  (:long lenxlist (list_length lismexp))
 	  ;; normalextend should ensure that the last normal gives a value
 	  (normalextend 
@@ -7565,7 +7567,7 @@ if (1) return;
 	(debug "melt_translate_run_macroexpansions_list basename=" basename 
 	       " refnormlist=" refnormlist)
 	;; translate to C code
-	(translate_macroexpanded_list lismexp basename modctx ncx env 
+	(translate_macroexpanded_list lismexp basename newmodctx ncx env 
 				      normalextend compile2obj_initextendproc)
 	(debug "melt_translate_run_macroexpansions_list after translation"
 	       " refnormlist=" refnormlist
@@ -7573,7 +7575,7 @@ if (1) return;
 	(when  (or (notnull !referr) (>i (melt_error_counter) starterrcount))
 	  (runerrorhdlr '"runtime translation to code failed")
 	  (return () ()))
-	(debug "melt_translate_run_macroexpansions_list before compiling runextend flavor of basename=" basename "\n modctx=" modctx)
+	(debug "melt_translate_run_macroexpansions_list before compiling runextend flavor of basename=" basename "\n.. newmodctx=" newmodctx "\n.. parmodctx=" parmodctx)
 	(generate_flavored_melt_module basename basename '"runextend")
 	(debug "melt_translate_run_macroexpansions_list after compiling runextend flavor of basename=" basename)
 	;; make the literal value tuple
@@ -7582,7 +7584,7 @@ if (1) return;
 	(let ( (:long nblitval (list_length litvalist))
 	       (tuplitval (make_multiple discr_multiple nblitval))
 	       (:long ix 0)
-	       (filtup (get_field :mocx_filetuple modctx))
+	       (filtup (get_field :mocx_filetuple newmodctx))
 	       (:long nbfile (multiple_length filtup))
 	       )
 	  (debug "melt_translate_run_macroexpansions_list filtup=" filtup)

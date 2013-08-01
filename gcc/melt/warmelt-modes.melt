@@ -1702,9 +1702,14 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	(arglist (split_string_comma discr_string (make_stringconst discr_string (melt_argument "arglist"))))
 	(outarg (make_stringconst discr_string (melt_argument "output")))
 	(rlist (make_list discr_list))
+	(modnam (let ( (sbuf (make_strbuf discr_strbuf))
+		       )
+		  (add2out sbuf "meltmakedoc_")
+		  (add2out_cident sbuf (make_string_nakedbasename discr_string outarg))
+		  (strbuf2string discr_string sbuf)))
 	(mdinfo 
 	 (instance class_makedoc_module_context
-		   :mocx_modulename  outarg
+		   :mocx_modulename modnam
 		   :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		   :mocx_expclassdict (make_mapstring discr_map_strings 19)
 		   :mocx_initialenv curenv

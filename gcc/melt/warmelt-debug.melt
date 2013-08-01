@@ -792,7 +792,7 @@ $TORANK}#
 	(add2sbuf_strconst sbuf "#![")
 	(add2sbuf_longdec sbuf (get_int self)))
       )
-    (if (and (<i depth maxdepth) (is_a dbgi class_debug_output_information))
+    (if (<i (+i depth 2) maxdepth)
 	(progn
 	  (add2sbuf_strconst sbuf ",")
 	  (add2sbuf_mixloc sbuf self)
@@ -815,7 +815,7 @@ $TORANK}#
     (add2sbuf_strconst sbuf " |")
     (add2sbuf_string sbuf (unsafe_get_field :named_name dis))
     (add2sbuf_strconst sbuf "#![")
-    (if (and (<i depth maxdepth) (is_a dbgi class_debug_output_information))
+    (if (<i (+i depth 2) maxdepth)
       (progn
 	(dbg_out (mixbigint_val self) dbgi (+i depth 1))
 	(add2sbuf_strconst sbuf ",")
