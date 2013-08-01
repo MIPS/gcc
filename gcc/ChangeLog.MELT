@@ -1,6 +1,10 @@
 
 2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable}}
+	* melt/warmelt-normal.melt: More partly improve assert_msg.
+
+2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Unstable}}
 	* melt/warmelt-normal.melt: Partly improve assert_msg.
 
 2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
