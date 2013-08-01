@@ -1830,7 +1830,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (if (or (is_mixint orloc) (is_mixloc orloc))
 	(output_raw_location orloc declbuf 0 "procdecl")
       )
-    (add2sbuf_strconst declbuf "melt_ptr_t MELT_MODULE_VISIBILITY ")
+    (add2sbuf_strconst declbuf "MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY ")
     (add2sbuf_string declbuf onam)
     (add2sbuf_strconst declbuf "(meltclosure_ptr_t meltclosp_,")
     (add2sbuf_strconst declbuf " melt_ptr_t meltfirstargp_,")

@@ -1293,7 +1293,8 @@ create it if not found.}#
            char failmsg[32];
            snprintf (failmsg, sizeof(failmsg), "$$%ld=", $ARGCOUNT);
            fprintf (stderr, " $$%ld_v@%p:", $ARGCOUNT, (void*) $V);
-           melthookproc_HOOK_LOW_DEBUG_VALUE_AT ($V,
+	   /* in melt_assert_failure_fun $FAILVAL_CHK */
+           melthookproc_HOOK_LOW_STDERR_VALUE_AT ($V,
                                                  melt_basename ($FILENAME),
                                                  $LINENO,
                                                  failmsg,

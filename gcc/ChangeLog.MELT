@@ -1,4 +1,14 @@
 
+2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (melt_assert_failure_fun): Call
+	melthookproc_HOOK_LOW_STDERR_VALUE_AT.
+
+	* melt/warmelt-macro.melt (mexpand_assert_msg): Mention
+	melt_assert_failure_fun in comment.
+
+	* melt/warmelt-outobj.melt (outpucod_procroutine): Emit the
+	declaration as a MELT_EXTERN function.
+
 2013-07-31  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.c (melt_fatal_info): Adding final debugeprintf.
 

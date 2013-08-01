@@ -7642,7 +7642,7 @@ $COMMA It is often noted with a prefix comma-character
 ;;;;;; (assert_msg msg check ...)
 ;;; becomes
 ;;;;;; (cppif ENABLE_CHECKING (if check (melt_assert_failure_fun () msg filename lineno ...)) ())
-;;; where assert_failed is a primitive
+;;; where melt_assert_failure_fun is a function.
 
 (defun mexpand_assert_msg (sexpr env mexpander modctx)
   (debug "mexpand_assert_msg sexpr=" sexpr)
