@@ -1,5 +1,9 @@
 
-2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>y
+2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-modes.melt: Improve assert_msg.
+
+2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.

@@ -244,7 +244,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   "\n curenv=" curenv
 	   " inarg=" inarg
 	   "\n inexprs=" inexprs)
-    (assert_msg "check curenv" (is_a curenv class_environment))
+    (assert_msg "check curenv" (is_a curenv class_environment) curenv)
     (let (
 	  (:long nbexprs (list_length inexprs))
 	  (newenv (fresh_env curenv))
@@ -284,16 +284,16 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 (defun repl_processor (inch inlist)
   (debug "repl_processor inch=" inch "\n inlist=" inlist)
-  (assert_msg "check inch" (is_a inch class_input_channel_handler))
+  (assert_msg "check inch" (is_a inch class_input_channel_handler) inch)
   (let ( (repldata (get_field :inch_data inch))
 	 (replenv (get_field :repl_env repldata))
 	 (replcounterv (get_field :repl_counter repldata))
 	 (replcontref (get_field :repl_contref repldata))
 	 (:long replcount (get_int replcounterv))
 	 )
-    (assert_msg "check repldata" (is_a repldata class_read_eval_print_loop_data))
-    (assert_msg "check replenv" (is_a replenv class_environment))
-    (assert_msg "check replcounterv" (is_integerbox replcounterv))
+    (assert_msg "check repldata" (is_a repldata class_read_eval_print_loop_data) repldata)
+    (assert_msg "check replenv" (is_a replenv class_environment) replenv)
+    (assert_msg "check replcounterv" (is_integerbox replcounterv) replcounterv)
     (cond ((null inlist)
 	   (code_chunk eofrepl_chk 
 		       #{ /* repl_processor $EOFREPL_CHK */ 
@@ -304,7 +304,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   (set_ref replcontref ())
 	   )
 	  (:else
-	   (assert_msg "check inlist" (is_list inlist))
+	   (assert_msg "check inlist" (is_list inlist) inlist)
 	   (setq replcount (+i replcount 1))
 	   (put_int replcounterv replcount)
 	   (let ( 
@@ -312,7 +312,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		 (stdout (get_field :sysdata_stdout initial_system_data))
 		 )
 	     (debug "repl_processor stdout=" stdout)
-	     (assert_msg "check stdout" (is_out stdout))
+	     (assert_msg "check stdout" (is_out stdout) stdout)
 	     (code_chunk beforevalrepl_chk
 			 #{ /* repl_processor $BEFOREVALREPL_CHK */
 			 printf ("\n;; MELT REPL evaluation #%ld of %ld expressions\n",
@@ -345,8 +345,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 
 (defun repl_docmd (cmd moduldata)
-  (assert_msg "check moduldata" (is_a moduldata class_environment))
   (debug "repl_docmd cmd=" cmd " moduldata=" moduldata)
+  (assert_msg "check moduldata" (is_a moduldata class_environment) moduldata)
   (code_chunk replwelcome_chk 
 	      #{ /* repl_docmd $REPLWELCOME_CHK */
 	      printf ("; Welcome to the MELT interactive Read-Eval-Print-Loop [=REPL]; see gcc-melt.org\n") ;
@@ -486,11 +486,11 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;; increment the documentation counter
 (defun increment_mkdoc_counter (mdinfo)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
   (let ( (dcountbox (get_field :mkdoc_boxcounter mdinfo))
 	 (:long dcnt (get_int dcountbox))
 	 )
-    (assert_msg "check dcount" (is_integerbox dcountbox))
+    (assert_msg "check dcount" (is_integerbox dcountbox) dcountbox)
     (put_int dcountbox (+i dcnt 1)))
   )
 
@@ -510,7 +510,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	    ( (is_string nam)
 	      (setq nam (get_symbolstr nam)))
 	    )
-	   (assert_msg "check nam" (is_a nam class_symbol))
+	   (assert_msg "check nam" (is_a nam class_symbol) nam)
 	   (mapobject_put docsymap
 			  nam
 			  data)))
@@ -526,8 +526,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   (mapobject_get docsymap nam)))
 	(add_formal_occ
 	 (lambda (formbind def)
-	   (assert_msg "check formbind" (is_a formbind class_formal_binding))
-	   (assert_msg "check def" (is_a def class_source_definition))
+	   (assert_msg "check formbind" (is_a formbind class_formal_binding) formbind)
+	   (assert_msg "check def" (is_a def class_source_definition) def)
 	   (let ( (formsym (get_field :binder formbind)) 
 		  (formocclist (mapobject_get formaloccmap formsym))
 		  )
@@ -564,7 +564,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   :sclass_clabind ?(instance class_class_binding :cbind_class ?clas)
 	   )
 	  (debug "makedoc_docmd defclass clas=" clas)
-	  (assert_msg "check clas" (is_a clas class_class))
+	  (assert_msg "check clas" (is_a clas class_class) clas)
 	  (if predef 
 	      (mapobject_put (get_field :mkdoc_predefmap mdinfo) predef curexp))
 	  (add_docsym dnam curexp)
@@ -762,8 +762,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; output the location, if any, of a definition
 (defun makedoc_outdefloc (outb def :cstring prefstr)
-  (assert_msg "check outb" (is_strbuf outb))
-  (assert_msg "check def" (is_a def class_source_definition))
+  (assert_msg "check outb" (is_strbuf outb) outb)
+  (assert_msg "check def" (is_a def class_source_definition) def)
   (let ( (loc (get_field :loca_location def)) 
 	 )
     (if (null loc) (return))
@@ -776,7 +776,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;; output a formal argument tuple
 (defun makedoc_outformals (outb fargs :cstring prefstr)
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (if (>i (multiple_length fargs) 0)
       (progn
 	(add2sbuf_indentnl outb 0)
@@ -788,7 +788,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	(foreach_in_multiple
 	 (fargs)
 	 (curfbind :long fix)
-	 (assert_msg "check curfbind" (is_a curfbind class_formal_binding))
+	 (assert_msg "check curfbind" (is_a curfbind class_formal_binding) curfbind)
 	 (add2sbuf_indentnl outb 0)
 	 (add2sbuf_strconst outb "@item @i{")
 	 (add2sbuf_longdec outb fix)
@@ -816,7 +816,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;; output the :doc sexpr
 (defun makedoc_outdoc (outb doc :cstring prefstr)
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (if (is_not_a doc class_sexpr) (return))
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb prefstr)
@@ -852,9 +852,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the documentation of a single class definition
 (defun makedoc_outclassdef (mdinfo outb cladef :long claix)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
-  (assert_msg "check cladef" (is_a cladef class_source_defclass))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
+  (assert_msg "check cladef" (is_a cladef class_source_defclass) cladef)
   (let ( (cla (get_field :cbind_class (get_field :sclass_clabind cladef)))
 	 (clancs (get_field :class_ancestors cla))
 	 (clflds (get_field :class_fields cla))
@@ -863,7 +863,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	 (doc (get_field :sdef_doc cladef))
 	 (subclalist (mapobject_get (get_field :mkdoc_subclassmap mdinfo) cla))
 	 )
-    (assert_msg "check cla" (is_a cla class_class))
+    (assert_msg "check cla" (is_a cla class_class) cla)
     (add2sbuf_indentnl outb 0)
     (add2sbuf_strconst outb "@subsection @var{")
     (add2sbuf_string outb (get_field :named_name cla))
@@ -884,7 +884,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   (clancs)
 	   (curanc :long ancix)
 	   (debug "makedoc_outclassdef curanc=" curanc " ancix#" ancix)
-	   (assert_msg "check curanc" (is_a curanc class_class))
+	   (assert_msg "check curanc" (is_a curanc class_class) curanc)
 	   (add2sbuf_strconst outb " @code{")
 	   (add2sbuf_string outb (get_field :named_name curanc))
 	   (add2sbuf_strconst outb "}")
@@ -908,7 +908,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   (clflds)
 	   (curfld :long fldix)
 	   (debug  "makedoc_outclassdef curfld=" curfld " fldix=" fldix)
-	   (assert_msg "check curfld" (is_a curfld class_field))
+	   (assert_msg "check curfld" (is_a curfld class_field) curfld)
 	   (add2sbuf_indentnl outb 0)
 	   (add2sbuf_strconst outb "@item ")
 	   (add2sbuf_longdec outb fldix)
@@ -978,8 +978,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the macro documentation
 (defun makedoc_genmacro (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT macros")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT macros")
@@ -1008,12 +1008,12 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (sortedmactuple)
      (curmac :long macix)
      (debug "makedoc_genmacro curmac=" curmac " macix=" macix)
-     (assert_msg "check curmac" (is_a curmac class_source_export_macro))
+     (assert_msg "check curmac" (is_a curmac class_source_export_macro) curmac)
      (let ( (mnam (get_field :named_name (get_field :sexpmac_mname curmac)))
 	    (mloc (get_field :loca_location curmac))
 	    (mdoc (get_field :sexpmac_doc curmac))
 	    )
-       (assert_msg "check mnam" (is_string mnam))
+       (assert_msg "check mnam" (is_string mnam) mnam)
        (add2sbuf_indentnl outb 0)
        (add2sbuf_strconst outb "@subsection @var{")
        (add2sbuf_string outb mnam)
@@ -1041,8 +1041,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the pattern macro documentation
 (defun makedoc_genpatmacro (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT patterns")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT pattern macros")
@@ -1056,7 +1056,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	     rawpatmactuple
 	     (curpms :long pmsix)
 	     (assert_msg "makedoc_genpatmacro check curpms"
-			 (is_a curpms class_source_export_macro)))
+			 (is_a curpms class_source_export_macro) curpms))
 	    (multiple_sort rawpatmactuple
 			   (lambda (pms1 pms2)
 			     (compare_named_alpha 
@@ -1074,13 +1074,13 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (sortedpatmactuple)
      (patmac :long pmacix)
      (debug "makedoc_genpatmacro patmac=" patmac " pmacix=" pmacix)
-     (assert_msg "check patmac" (is_a patmac class_source_export_patmacro))
+     (assert_msg "check patmac" (is_a patmac class_source_export_patmacro) patmac)
      (add2sbuf_indentnl outb 0)
      (let ( (mnam (get_field :named_name (get_field :sexpmac_mname patmac)))
 	    (mloc (get_field :loca_location patmac))
 	    (mdoc (get_field :sexpmac_doc patmac))
 	    )
-       (assert_msg "check mnam" (is_string mnam))
+       (assert_msg "check mnam" (is_string mnam) mnam)
        (add2sbuf_indentnl outb 0)
        (add2sbuf_strconst outb "@subsection @var{")
        (add2sbuf_string outb mnam)
@@ -1109,8 +1109,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the class documentation
 (defun makedoc_genclass (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT classes")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT classes")
@@ -1125,13 +1125,13 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	  (get_field :mkdoc_classes mdinfo)
 	  discr_multiple
 	  (lambda (cldef)
-	    (assert_msg "check cldef" (is_a cldef class_source_defclass))
+	    (assert_msg "check cldef" (is_a cldef class_source_defclass) cldef)
 	    (get_field :cbind_class (get_field :sclass_clabind cldef)))
 	  ))
 	(cmpclassdepthname
 	 (lambda (cl0 cl1)
-	   (assert_msg "check cl0" (is_a cl0 class_class))
-	   (assert_msg "check cl1" (is_a cl1 class_class))
+	   (assert_msg "check cl0" (is_a cl0 class_class) cl0)
+	   (assert_msg "check cl1" (is_a cl1 class_class) cl1)
 	   (let ( (cl0anc (unsafe_get_field :class_ancestors cl0))
 		  (cl1anc (unsafe_get_field :class_ancestors cl1))
 		  (:long nbcl0anc (multiple_length cl0anc))
@@ -1152,7 +1152,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		quotedone)
 	      (:else
 ;;; this should not happen
-	       (assert_msg "cmpclassdepthname same name different classes!" ())
+	       (assert_msg "cmpclassdepthname same name different classes!" () cl0 cl1)
 	       ())
 	      )
 	     )
@@ -1160,8 +1160,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	 )
 	(cmpclassname
 	 (lambda (cl0 cl1)
-	   (assert_msg "check cl0" (is_a cl0 class_class))
-	   (assert_msg "check cl1" (is_a cl1 class_class))
+	   (assert_msg "check cl0" (is_a cl0 class_class) cl0)
+	   (assert_msg "check cl1" (is_a cl1 class_class) cl1)
 	   (let ( (cl0nam (unsafe_get_field :named_name cl0))
 		  (cl1nam (unsafe_get_field :named_name cl1))
 		  )
@@ -1174,7 +1174,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		quotedone)
 	      (:else
 ;;; this should not happen
-	       (assert_msg "cmpclassname same name different classes!" ())
+	       (assert_msg "cmpclassname same name different classes!" () cl0 cl1)
 	       ())
 	      )
 	     )))
@@ -1183,8 +1183,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	 )
 	(cmpclassdef
 	 (lambda (cdf0 cdf1)
-	   (assert_msg "check cdf0" (is_a cdf0 class_source_defclass))
-	   (assert_msg "check cdf1" (is_a cdf1 class_source_defclass))
+	   (assert_msg "check cdf0" (is_a cdf0 class_source_defclass) cdf0)
+	   (assert_msg "check cdf1" (is_a cdf1 class_source_defclass) cdf1)
 	   (compare_named_alpha (get_field :sdef_name cdf0) (get_field :sdef_name cdf1))
 	   ))
 	(alphasortedclassdeftuple
@@ -1203,7 +1203,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (foreach_in_multiple
      (depthsortedclassestuple)
      (curcla :long claix)
-     (assert_msg "check curcla" (is_a curcla class_class))
+     (assert_msg "check curcla" (is_a curcla class_class) curcla)
      (let ( (:long nbanc (multiple_length (get_field :class_ancestors curcla))) )
        (if (<i depthix nbanc)
 	   (progn
@@ -1227,7 +1227,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (foreach_in_multiple
      (alphasortedclassdeftuple)
      (curcladef :long claix)
-     (assert_msg "check curcladef" (is_a curcladef class_source_defclass))
+     (assert_msg "check curcladef" (is_a curcladef class_source_defclass) curcladef)
      (makedoc_outclassdef mdinfo outb curcladef claix) ;which also increments the counter
      )
     )
@@ -1236,9 +1236,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;;; output a primitive
 (defun makedoc_outprimitivedef (mdinfo outb primdef :long primix)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
-  (assert_msg "check primdef" (is_a primdef class_source_defprimitive))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
+  (assert_msg "check primdef" (is_a primdef class_source_defprimitive) primdef)
   (let ( (pnam (get_field :sdef_name primdef)) 
 	 (args (get_field :sformal_args primdef))
 	 (type (get_field :sprim_type primdef))
@@ -1267,8 +1267,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;;; generate the primitive documentation
 (defun makedoc_genprimitive (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT primitives")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT primitives")
@@ -1282,7 +1282,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	     (rawprimtup)
 	     (curprim :long primix)
 	     (assert_msg "makedoc_genprimitive check curprim"
-			 (is_a curprim class_source_defprimitive)))
+			 (is_a curprim class_source_defprimitive) curprim))
 	    (multiple_sort 
 	     rawprimtup 
 	     (lambda (sdpri1 sdpri2)
@@ -1300,7 +1300,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (foreach_in_multiple
      (sortedprimtup)
      (curprimdef :long primix)
-     (assert_msg "check curprim" (is_a curprimdef class_source_defprimitive))
+     (assert_msg "check curprimdef" (is_a curprimdef class_source_defprimitive) curprimdef)
      (makedoc_outprimitivedef mdinfo outb curprimdef primix)
      (add2sbuf_indentnl outb 0)
      )
@@ -1311,9 +1311,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; output a function
 (defun makedoc_outfunctiondef (mdinfo outb fundef :long primix)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
-  (assert_msg "check fundef" (is_a fundef class_source_defun))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
+  (assert_msg "check fundef" (is_a fundef class_source_defun) fundef)
   (let ( (fnam (get_field :sdef_name fundef)) 
 	 (args (get_field :sformal_args fundef))
 	 (doc (get_field :sdef_doc fundef))
@@ -1337,8 +1337,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 
 ;;;;; generate the function documentation
 (defun makedoc_genfunction (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT functions")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT functions")
@@ -1360,7 +1360,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (foreach_in_multiple
      (sortedfuntup)
      (curfundef :long funix)
-     (assert_msg "check curfun" (is_a curfundef class_source_defun))
+     (assert_msg "check curfun" (is_a curfundef class_source_defun) curfundef)
      (debug "makedoc_genfunction curfundef=" curfundef " funix=" funix)
      (makedoc_outfunctiondef mdinfo outb curfundef funix) ;also increments the counter
      (add2sbuf_indentnl outb 0)
@@ -1372,8 +1372,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the citerators documentation
 (defun makedoc_genciterator (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT c-iterators")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT c-iterators")
@@ -1400,13 +1400,13 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (sortedcitertup)
      (curciterdef :long citix)
      (debug "makedoc_genciterator curciterdef=" curciterdef " citix=" citix)
-     (assert_msg "check curciterdef" (is_a curciterdef class_source_defciterator))
+     (assert_msg "check curciterdef" (is_a curciterdef class_source_defciterator) curciterdef)
      (let ( (sloc (get_field :loca_location curciterdef) )
 	    (snam (get_field :sdef_name curciterdef))
 	    (sdoc (get_field :sdef_doc curciterdef))
 	    (citer (get_field :sciterdef_citerator curciterdef))
 	    )
-       (assert_msg "check citer" (is_a citer class_citerator))
+       (assert_msg "check citer" (is_a citer class_citerator) citer)
        (add2sbuf_indentnl outb 0)
        (add2sbuf_strconst outb "@subsection @var{")
        (add2sbuf_string outb (get_field :named_name snam))
@@ -1434,8 +1434,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the cmatchers documentation
 (defun makedoc_gencmatcher (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT c-matchers")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT c-matchers")
@@ -1460,7 +1460,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (sortedcmatchtup)
      (curcmatchdef :long citix)
      (debug "makedoc_gencmatcher curcmatchdef=" curcmatchdef " citix=" citix)
-     (assert_msg "check curcmatchdef" (is_a curcmatchdef class_source_defcmatcher))
+     (assert_msg "check curcmatchdef" (is_a curcmatchdef class_source_defcmatcher) curcmatchdef)
      (let (
 	   (snam (get_field :sdef_name curcmatchdef))
 	   (sdoc (get_field :sdef_doc curcmatchdef))
@@ -1508,8 +1508,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;;;;;;;;;;;;;;;;
 ;;;;; generate the hook documentation
 (defun makedoc_genhook (mdinfo outb)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outb" (is_strbuf outb))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outb" (is_strbuf outb) outb)
   (add2sbuf_strconst outb "@node MELT hooks")
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb "@section MELT hooks")
@@ -1534,7 +1534,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (sortedhooktup)
      (curhook :long hix)
      (debug "makedoc_genhook curhook=" curhook)
-     (assert_msg "check curhook" (is_a curhook class_source_defhook))
+     (assert_msg "check curhook" (is_a curhook class_source_defhook) curhook)
      (let ( (loc (get_field :loca_location curhook))
 	    (name (get_field :sdef_name curhook))
 	    (doc (get_field :sdef_doc curhook))
@@ -1589,8 +1589,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 (compile_warning "should list selectors and document their formals if given")
 (defun makedoc_genoutput (mdinfo outarg)
   (debug "makedoc_genoutput mdinfo=" mdinfo)
-  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context))
-  (assert_msg "check outarg" (is_string outarg))
+  (assert_msg "check mdinfo" (is_a mdinfo class_makedoc_module_context) mdinfo)
+  (assert_msg "check outarg" (is_string outarg) outarg)
   (let ( (outb (make_strbuf discr_strbuf)) 
 	 )
     (add2sbuf_strconst outb "@c **** makedoc generated file ")
@@ -1685,7 +1685,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 			      melt_dbgcounter, $COUNTDOC) ;
 		      }#)
 	(errormsg_plain "MELT makedoc generate no documentation items"))
-      (assert_msg "makedoc check counter" (>i countdoc 0))
+      (assert_msg "makedoc check counter" (>i countdoc 0) countdoc)
       )
     )
   )
@@ -1751,7 +1751,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	(errormsg_plain 
 	 "makedoc MELT mode needs an -f[plugin-arg-]melt-output *.texi file"))
     (set_ref melt_mode_reference mdinfo)
-    (assert_msg "check rlist" (is_list rlist))
+    (assert_msg "check rlist" (is_list rlist) rlist)
     (list_every 
      arglist 
      (lambda (curarg)
@@ -1759,7 +1759,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        (let ( (curead (read_file curarg))
 	      )
 	 (debug "makedoc_docmd curead=" curead)
-	 (assert_msg "check curead" (is_list_or_null curead))
+	 (assert_msg "check curead" (is_list_or_null curead) curead)
 	 (list_append2list rlist curead))))
     ;; macro expand it
     (debug "makedoc_docmd have read rlist=" rlist)
@@ -1801,7 +1801,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	(inarg (make_stringconst discr_string (melt_argument "arg")))
 	(insymb (get_symbolstr inarg))
 	)
-    (assert_msg "check moduldata" (is_a moduldata class_environment))
+    (assert_msg "check moduldata" (is_a moduldata class_environment) moduldata)
     (if (is_a insymb class_symbol)
 	(let ( (symbind (find_env env insymb))
 	       (symname (unsafe_get_field :named_name insymb))
@@ -1826,7 +1826,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (foreach_in_mapstring
      (cmdict)
      (curname curcmd)
-     (assert_msg "check curcmd" (is_a curcmd class_melt_mode))
+     (assert_msg "check curcmd" (is_a curcmd class_melt_mode) curcmd)
      (list_append cmdlist curcmd)
      )
     (let ( (rawcmdtup (list_to_multiple cmdlist))
@@ -1846,7 +1846,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
       (foreach_in_multiple
        (sortedcmdtup)
        (curmod :long modix)
-       (assert_msg "check curmod" (is_a curmod class_melt_mode))
+       (assert_msg "check curmod" (is_a curmod class_melt_mode) curmod)
        (let ( (modnam (unsafe_get_field :named_name curmod))
 	      (modhelp (unsafe_get_field :meltmode_help curmod))
 	      )
@@ -1904,9 +1904,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        (:long curobjmagic 20000)
        (:long countobjmagic 0)
        )
-    (assert_msg "check ctygtytup" (is_multiple ctygtytup))
-    (assert_msg "check valdesctup" (is_multiple valdesctup))
-    (assert_msg "check outbuf" (is_strbuf outbuf))
+    (assert_msg "check ctygtytup" (is_multiple ctygtytup) ctygtytup)
+    (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+    (assert_msg "check outbuf" (is_strbuf outbuf) outbuf)
     (strbuf_reserve outbuf 65000)
     ;;
     ;;;;;;;;;;;;;;;;
@@ -1930,7 +1930,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (curvaldesc :long vix)
      (debug "generate_runtypesupport_enum_objmagic curvaldesc=" curvaldesc 
 	    " vix=" vix)
-     (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor))
+     (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor) curvaldesc)
      (add2sbuf_indentnl outbuf 1)
      (add2sbuf_strconst outbuf "/*valdesc #")
      (add2sbuf_longdec outbuf (+i 1 vix))
@@ -1954,7 +1954,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (curctyp :long tix)
      (debug "generate_runtypesupport_enum_objmagic curctyp=" curctyp
 	    " tix=" tix)
-     (assert_msg "check curctyp" (is_a curctyp class_ctype_gty))
+     (assert_msg "check curctyp" (is_a curctyp class_ctype_gty) curctyp)
      (add2sbuf_indentnl outbuf 1)
      (add2sbuf_strconst outbuf "/*gtyctype magic #")
      (add2sbuf_longdec outbuf (+i 1 tix))
@@ -1991,9 +1991,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 ;; internal function to generate the gty struct-s and union-s
 (defun generate_runtypesupport_gty  (ctygtytup valdesctup outarg outbuf)
   (debug "generate_runtypesupport_gty start outarg=" outarg)
-  (assert_msg "check ctygtytup" (is_multiple ctygtytup))
-  (assert_msg "check valdesctup" (is_multiple valdesctup))
-  (assert_msg "check outbuf" (is_strbuf outbuf))
+  (assert_msg "check ctygtytup" (is_multiple ctygtytup) ctygtytup)
+  (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+  (assert_msg "check outbuf" (is_strbuf outbuf) outbuf)
   (strbuf_reserve outbuf 65000)
 ;;;;;;;;;;;;;;;;
   (add2sbuf_indentnl outbuf 0)
@@ -2053,7 +2053,7 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (ctygtytup)
    (curctyp :long ix)
    (debug "generate_runtypesupport_gty curctyp=" curctyp " ix=" ix)
-   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty))
+   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty) curctyp)
    (add2sbuf_indentnl outbuf 0)
    (add2sbuf_indentnl outbuf 0)
    (add2sbuf_strconst outbuf "/*gtyctypebox gtyctyp #")
@@ -2124,7 +2124,7 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (valdesctup)
    (curvaldesc :long ix)
    (debug "runtypesupport_gtyvaldesc curvaldesc=" curvaldesc " ix=" ix)
-   (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor))
+   (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor) curvaldesc)
    (add2sbuf_indentnl outbuf 0)
    (add2sbuf_indentnl outbuf 0)
    (add2sbuf_strconst outbuf "/*gtyvaldesc #")
@@ -2137,7 +2137,7 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (cond 
     ( (is_a curvaldesc class_varisized_value_descriptor)
       (assert_msg "check null valdescgty" 
-		  (null (get_field :valdesc_gty curvaldesc)))
+		  (null (get_field :valdesc_gty curvaldesc)) curvaldesc)
       (add2sbuf_strconst outbuf "variable_size")
       )
     ( (is_a curvaldesc class_value_descriptor)
@@ -2146,7 +2146,7 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
 	(if (is_string sgty)
 	    (add2sbuf_string outbuf sgty))))
     (:else
-     (assert_msg "invalid value descriptor" ()))
+     (assert_msg "invalid value descriptor" () curvaldesc))
     )
    (add2sbuf_strconst outbuf ")) ")
    (add2sbuf_string outbuf (get_field :valdesc_struct curvaldesc))
@@ -2197,7 +2197,7 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
    (ctygtytup)
    (curctyp :long ix)
    (debug "generate_runtypesupport_gty curctyp=" curctyp " ix=" ix)
-   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty))
+   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty) curctyp)
    (add2sbuf_indentnl outbuf 1)
    (add2sbuf_strconst outbuf "/*union gtyctype #")
    (add2sbuf_longdec outbuf (+i 1 ix))
@@ -2291,9 +2291,9 @@ typedef melt_ptr_t meltroutfun_t (struct meltclosure_st* meltclosp_,
 					     outname
 					     outbuf)
   (debug "generate_runtypesupport_forwcopy_fun start outname=" outname)
-  (assert_msg "check valdesctup" (is_multiple valdesctup))
-  (assert_msg "check ctygtytup" (is_multiple ctygtytup))
-  (assert_msg "check outbuf" (is_strbuf outbuf))
+  (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+  (assert_msg "check ctygtytup" (is_multiple ctygtytup) ctygtytup)
+  (assert_msg "check outbuf" (is_strbuf outbuf) outbuf)
   (strbuf_reserve outbuf 65000)
 ;;;;;;;;;;;;;;;;
   (add2sbuf_indentnl outbuf 0)
@@ -2327,7 +2327,7 @@ melt_forwarded_copy (melt_ptr_t p)
    (valdesctup)
    (curvaldesc :long vix)
    (debug "runtypesupport_forwcopy curvaldesc=" curvaldesc)
-   (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor))
+   (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor) curvaldesc)
    (add2sbuf_indentnl outbuf 1)
    (add2sbuf_strconst outbuf "/*valdesc #")
    (add2sbuf_longdec outbuf (+i 1 vix))
@@ -2365,7 +2365,7 @@ melt_forwarded_copy (melt_ptr_t p)
    (ctygtytup)
    (curctyp :long tix)
    (debug "runtypesupport_forwcopy curctyp=" curctyp)
-   (assert_msg "check curctygty" (is_a curctyp class_ctype_gty))
+   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty) curctyp)
    (add2sbuf_strconst outbuf "/*forwcopy gtyctype #")
    (add2sbuf_longdec outbuf (+i 1 tix))
    (add2sbuf_strconst outbuf " ")
@@ -2559,8 +2559,8 @@ melt_forwarded_copy (melt_ptr_t p)
 					     outname
 					     outbuf)
   (debug "generate_runtypesupport_cloning_fun start outname=" outname)
-  (assert_msg "check valdesctup" (is_multiple valdesctup))
-  (assert_msg "check ctygtytup" (is_multiple ctygtytup))
+  (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+  (assert_msg "check ctygtytup" (is_multiple ctygtytup) ctygtytup)
   (assert_msg "check outbuf" (is_strbuf outbuf))
   (strbuf_reserve outbuf 65000)
 ;;;;;;;;;;;;;;;;
@@ -2615,7 +2615,7 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
    (ctygtytup)
    (curctyp :long tix)
    (debug "runtypesupport_cloning curctyp=" curctyp " tix=" tix)
-   (assert_msg "check curctygty" (is_a curctyp class_ctype_gty))
+   (assert_msg "check curctygty" (is_a curctyp class_ctype_gty) curctyp)
    (let ( (ctypname  (get_field :named_name curctyp))
 	  (:long tixsucc (+i 1 tix))
 	  (tycname (get_field :ctype_cname curctyp))
@@ -2753,9 +2753,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
 (defun generate_runtypesupport_scanning (ctygtytup valdesctup outname outbuf)
   (debug "generate_runtypesupport_scanning start outname=" outname)
 ;;;;;;;;;;;;;;;;
-  (assert_msg "check ctygtytup" (is_multiple ctygtytup))
-  (assert_msg "check valdesctup" (is_multiple valdesctup))
-  (assert_msg "check outbuf" (is_strbuf outbuf))
+  (assert_msg "check ctygtytup" (is_multiple ctygtytup) ctygtytup)
+  (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+  (assert_msg "check outbuf" (is_strbuf outbuf) outbuf)
   (strbuf_reserve outbuf 65000)
   (add2sbuf_indentnl outbuf 0)
   (add2sbuf_indentnl outbuf 0)
@@ -2789,7 +2789,7 @@ melt_scanning (melt_ptr_t p)
    (valdesctup)
    (curvaldesc :long vix)
    (debug "generate_runtypesupport_scanning curvaldesc=" curvaldesc)
-   (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor))
+   (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor) curvaldesc)
    (add2sbuf_indentnl outbuf 1)
    (add2sbuf_strconst outbuf "/*valdesc #")
    (add2sbuf_longdec outbuf (+i 1 vix))
@@ -2924,9 +2924,9 @@ melt_scanning (melt_ptr_t p)
 ;; internal function to generate parameter passing support
 (defun generate_runtypesupport_param (ctytup valdesctup outname outbuf)
   (debug "generate_runtypesupport_param start outname=" outname)
-  (assert_msg "check ctytup" (is_multiple ctytup))
-  (assert_msg "check valdesctup" (is_multiple valdesctup))
-  (assert_msg "check outbuf" (is_strbuf outbuf))
+  (assert_msg "check ctytup" (is_multiple ctytup) ctytup)
+  (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+  (assert_msg "check outbuf" (is_strbuf outbuf) outbuf)
   (strbuf_reserve outbuf 65000)
   (let 
       ( 
@@ -2999,7 +2999,7 @@ melt_scanning (melt_ptr_t p)
 	 (errormsg_plain 
 	  "too many ctypes for generated enum with MELTBPAR* w.r.t. MELT_ARGDESCR_MAX")
 	 (assert_msg "exhausted number of ctypes w.r.t MELT_ARGDESCR_MAX"
-		     (<i lastnum (-i argdescrmax 2))))
+		     (<i lastnum (-i argdescrmax 2)) lastnum))
 	((>i lastnum (-i argdescrmax 20))
 	 (warningmsg_plain 
 	  "the number of ctypes is dangerously near MELT_ARGDESCR_MAX"))
@@ -3066,9 +3066,9 @@ melt_scanning (melt_ptr_t p)
 ;; internal function to generate the melt_code2ctype function
 (defun generate_runtypesupport_cod2ctype  (ctytup valdesctup outname outbuf)
   (debug "generate_runtypesupport_param start outname=" outname)
-  (assert_msg "check ctytup" (is_multiple ctytup))
-  (assert_msg "check valdesctup" (is_multiple valdesctup))
-  (assert_msg "check outbuf" (is_strbuf outbuf))
+  (assert_msg "check ctytup" (is_multiple ctytup) ctytup)
+  (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+  (assert_msg "check outbuf" (is_strbuf outbuf) outbuf)
   (strbuf_reserve outbuf 65000)
   (let 
       ( 
@@ -3116,10 +3116,10 @@ melt_scanning (melt_ptr_t p)
 ;; internal function to generate parameter passing support
 (defun generate_runtypesupport_mag2str (ctytup valdesctup outname outdeclbuf outcodebuf)
   (debug "generate_runtypesupport_mag2str start outname=" outname)
-  (assert_msg "check ctytup" (is_multiple ctytup))
-  (assert_msg "check valdesctup" (is_multiple valdesctup))
-  (assert_msg "check outdeclbuf" (is_strbuf outdeclbuf))
-  (assert_msg "check outcodebuf" (is_strbuf outcodebuf))
+  (assert_msg "check ctytup" (is_multiple ctytup) ctytup)
+  (assert_msg "check valdesctup" (is_multiple valdesctup) valdesctup)
+  (assert_msg "check outdeclbuf" (is_strbuf outdeclbuf) outdeclbuf)
+  (assert_msg "check outcodebuf" (is_strbuf outcodebuf) outcodebuf)
   (strbuf_reserve outdeclbuf 35000)
   (strbuf_reserve outcodebuf 75000)
   (let 
@@ -3197,7 +3197,7 @@ melt_scanning (melt_ptr_t p)
      (valdesctup)
      (curvaldesc :long vix)
      (debug "generate_runtypesupport_mag2str curvaldesc=" curvaldesc)
-     (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor))
+     (assert_msg "check curvaldesc" (is_a curvaldesc class_value_descriptor) curvaldesc)
      (add2sbuf_indentnl outcodebuf 1)
      (add2sbuf_strconst outcodebuf "/*valdesc #")
      (add2sbuf_longdec outcodebuf (+i 1 vix))
@@ -3241,9 +3241,9 @@ melt_scanning (melt_ptr_t p)
 (defun generate_runtypesupport_boxingfun (ctytup outarg
 						 declbuf codebuf)
   (debug "generate_runtypesupport_boxingfun start outarg=" outarg)
-  (assert_msg "check ctytup is tuple" (is_multiple ctytup))
-  (assert_msg "check declbuf is buffer" (is_strbuf declbuf))
-  (assert_msg "check codebuf is buffer" (is_strbuf codebuf))
+  (assert_msg "check ctytup is tuple" (is_multiple ctytup) ctytup)
+  (assert_msg "check declbuf is buffer" (is_strbuf declbuf) declbuf)
+  (assert_msg "check codebuf is buffer" (is_strbuf codebuf) codebuf)
   (strbuf_reserve declbuf 35000)
   (strbuf_reserve codebuf 75000)
   (add2sbuf_indentnl declbuf 0)
@@ -3261,7 +3261,7 @@ melt_scanning (melt_ptr_t p)
    (ctytup)
    (curctyp :long tix)
    (debug "generate runtypesupport_mapfun curctyp=" curctyp)
-   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty))
+   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty) curctyp)
    (match curctyp
 	  (?(instance class_ctype_gty
 		      :named_name          ?(some_string_value ?ctypnam)
@@ -3437,7 +3437,7 @@ melt_scanning (melt_ptr_t p)
 	  (?_
 	   (errormsg_strv "invalid GTY-ed ctype for boxing"
 			  (get_field :named_name curctyp))
-	   (assert_msg "invalid curctype" ())
+	   (assert_msg "invalid curctype" () curctyp)
 	   ))
    )					;end foreach
   (add2sbuf_indentnl declbuf 0)
@@ -3458,8 +3458,8 @@ melt_scanning (melt_ptr_t p)
 
 (defun generate_runtypesupport_mapfun (ctytup outarg outbuf)
   (debug "generate_runtypesupport_mapfun start outarg=" outarg)
-  (assert_msg "check ctytup is tuple" (is_multiple ctytup))
-  (assert_msg "check outbuf is buffer" (is_strbuf outbuf))
+  (assert_msg "check ctytup is tuple" (is_multiple ctytup) ctytup)
+  (assert_msg "check outbuf is buffer" (is_strbuf outbuf) outbuf)
   (strbuf_reserve outbuf 65000)
   (add2sbuf_indentnl outbuf 0)
   (add2sbuf_indentnl outbuf 0)
@@ -3472,7 +3472,7 @@ melt_scanning (melt_ptr_t p)
    (ctytup)
    (curctyp :long tix)
    (debug "generate runtypesupport_mapfun curctyp=" curctyp)
-   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty))
+   (assert_msg "check curctyp" (is_a curctyp class_ctype_gty) curctyp)
    (add2sbuf_strconst outbuf "/*gtyctype #")
    (add2sbuf_longdec outbuf (+i 1 tix))
    (add2sbuf_strconst outbuf " ")
@@ -3835,7 +3835,7 @@ melt_scanning (melt_ptr_t p)
 
 (defun generate_runtypesupport_predef_fields (outbuf)
   (debug "generate_runtypesupport_predef_fields start outbuf=" outbuf)
-  (assert_msg "check outbuf" (is_out outbuf))
+  (assert_msg "check outbuf" (is_out outbuf) outbuf)
   (strbuf_reserve outbuf 27500)
   (add2sbuf_indentnl outbuf 0)
   (add2sbuf_indentnl outbuf 0)
@@ -3865,7 +3865,7 @@ melt_scanning (melt_ptr_t p)
 	   (foreach_in_multiple
 	    (clasfields)
 	    (curfield :long fldix)
-	    (assert_msg "check curfield" (is_a curfield class_field))
+	    (assert_msg "check curfield" (is_a curfield class_field) curfield)
 	    (if (== (get_field :fld_ownclass curfield) curpredef)
 		(let ( (fldnam (get_field :named_name curfield))
 		       (:long fldix (get_int curfield))
@@ -3940,7 +3940,7 @@ melt_scanning (melt_ptr_t p)
 		    (add2out outdeclbuf ", ")
 		    (add2out outcodebuf ", "))
 		  (setq nbparam (+i nbparam 1))
-		  (assert_msg "check curinsb" (is_a curinsb class_formal_binding))
+		  (assert_msg "check curinsb" (is_a curinsb class_formal_binding) curinsb)
 		  (add2out outdeclbuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
 		  (add2out outdeclbuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
 		  (add2out outcodebuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
@@ -4038,7 +4038,7 @@ melt_scanning (melt_ptr_t p)
 		  )
 	     ;; else, not a hook data
 	     (progn
-	       (assert_msg "check hkdata is empty " (is_not_a hkdata class_hook_descriptor))
+	       (assert_msg "check hkdata is empty " (is_not_a hkdata class_hook_descriptor) hkdata)
 	       (add2out outcodebuf "#warning hook " hkname " without data")
 	       (add2out_indentnl outcodebuf 1)
 	       )
@@ -4229,7 +4229,7 @@ melt_scanning (melt_ptr_t p)
 		       (make_string_nakedbasename discr_string outnam)))
 	(outbase (make_string_without_suffix discr_string outnam  ".cc"))
 	)
-    (assert_msg "check curenv" (is_a curenv class_environment))
+    (assert_msg "check curenv" (is_a curenv class_environment) curenv)
     (debug "translate_to_flavored_module basnam=" basnam 
 	   " rawsrcnam=" rawsrcnam " outbase=" outbase)
     (translate_to_cc_module_melt_sources inarg outbase curenv)
@@ -4254,7 +4254,7 @@ melt_scanning (melt_ptr_t p)
 	(generate_flavored_melt_module rawsrcnam outnam curflavor)))
      (:else
       (debug "translate_to_flavored_module bad flavors=" flavors)
-      (assert_msg "invalid flavors" ())
+      (assert_msg "invalid flavors" () flavors)
       )
      )))
 
@@ -4385,7 +4385,7 @@ ASSERT_MSG) is enabled"
     (debug "translatefile_docmd inarg=" inarg " outarg=" outarg 
 	   " parmodenv=" parmodenv 
 	   " initial_environment=" initial_environment)
-    (assert_msg "check curenv" (is_a curenv class_environment))
+    (assert_msg "check curenv" (is_a curenv class_environment) curenv)
     (let ( (basnam (cond
 		    ( (is_string outarg) 
 		      (make_string_without_suffix discr_string outarg ".cc")
@@ -4476,8 +4476,8 @@ ASSERT_MSG) is enabled"
 		    (informsg_strv "reading from file" curarg)
 		    (let ( (curead (read_file curarg))
 			   )
-		      (assert_msg "check rlist" (is_list rlist))
-		      (assert_msg "check curead" (is_list_or_null curead))
+		      (assert_msg "check rlist" (is_list rlist) rlist)
+		      (assert_msg "check curead" (is_list_or_null curead) curead)
 		      (debug "translateinit_mode curead=" curead)
 		      (list_append2list rlist curead)))))
      )
@@ -4554,8 +4554,8 @@ ASSERT_MSG) is enabled"
 		    (informsg_strv "reading from file" curarg)
 		    (let ( (curead (read_file curarg))
 			   )
-		      (assert_msg "check rlist" (is_list rlist))
-		      (assert_msg "check curead" (is_list_or_null curead))
+		      (assert_msg "check rlist" (is_list rlist) rlist)
+		      (assert_msg "check curead" (is_list_or_null curead) curead)
 		      (debug "translateinitmodule_flavored curead=" curead)
 		      (list_append2list rlist curead)))))
      )
@@ -4591,7 +4591,7 @@ ASSERT_MSG) is enabled"
        (:else
 	(debug "translateinitmodule_flavored bad flavor=" flavor)
 	(errormsg_plain "bad flavor for translating initial module")
-	(assert_msg "translateinitmodule_flavored bad flavor"))
+	(assert_msg "translateinitmodule_flavored bad flavor" () flavor))
        )
       )
     )
