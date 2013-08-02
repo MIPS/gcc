@@ -1857,7 +1857,10 @@
 	  (oiniprolog (make_list discr_list))
 	  (oinibody (make_list discr_list))
 	  (modenv (get_field :ninitextend_modenv ipro))
-	  (nbody (get_field :nproc_body ipro))
+	  (nbody (let ( (nb (get_field :nproc_body ipro))
+			)
+		   (debug "compile2obj_initextendproc nbody=" nb)
+		   nb))
 	  (modname (get_field :mocx_modulename modctx))
 	  (litvalist (get_field :morcx_litervalist modctx))
 	  (oinitxrout 
@@ -1912,25 +1915,30 @@
 	   (let ( (reti (get_free_objlocptr gcx '_retruninit_)) )
 	     (put_fields gcx :gncx_retloc reti)
 	     (put_fields oinitxrout :obrout_retval reti)
+	     (debug "compile2obj_initextendproc retinit=" reti)
 	     reti))
 	  ;; reserve stack location for the current environment box container
 	  (ocurenvboxloc
 	   (let ( (boxl (get_free_objlocptr gcx '_ocurenvboxloc_)) )
 	     (put_fields gcx :igncx_contenvloc boxl)
+	     (debug "compile2obj_initextendproc ocurenvboxloc=" boxl)
 	     boxl))
 	  ;; reserve stack location for the current environment
 	  (ocurenvloc
 	   (let ( (locl (get_free_objlocptr gcx '_ocurenvloc_)) )
+	     (debug "compile2obj_initextendproc ocurenvloc=" locl)
 	     locl))
 	  ;; reserve stack location for the previous environment
 	  (oprevenvloc
 	   (let ( (boxl (get_free_objlocptr gcx '_prevenvloc_)) )
 	     (put_fields gcx :igncx_prevenvloc boxl)
+	     (debug "compile2obj_initextendproc oprevenvloc=" boxl)
 	     boxl))
 	  ;; reserve stack location for the tuple of literal values
 	  (olitvaluetuploc
 	   (let ( (boxl (get_free_objlocptr gcx '_olitvaluetuploc_)) )
 	     (put_fields gcx :egncx_litvaltuploc boxl)
+	     (debug "compile2obj_initextendproc olitvaluetuploc=" boxl)
 	     boxl))
 	  ;; We don't have any exporter, because all values stay
 	  ;; defined in the current environment so are implicitly
@@ -1951,6 +1959,8 @@
      ;; we actually could import literal named values.
      ;;
      ;; reserve location for defined values
+     (debug "compile2obj_initextendproc inidefbinds=" inidefbinds)
+     (assert_msg "check inidefbinds=" (is_list_or_null inidefbinds) inidefbinds)
      (foreach_in_list
       (inidefbinds)
       (curpair curdefbind)
@@ -1968,7 +1978,7 @@
 	(assert_msg "check oinisym" (is_a oinisym class_nrep_simple) oinisym)
 	(mapobject_put locmap curdefbind oinidefloc)
 	))
-     (debug "compile2obj_initextendproc updated locmap=" locmap)
+     (debug "compile2obj_initextendproc updated locmap=" locmap "\n.. importvalues=" importvalues)
      ;;
      (let (
 	   (limplocv
@@ -2015,7 +2025,7 @@
 					     $NBLITVAL)
 		     melt_fatal_error ("bad runtime extension literal value tuple@%p in " 
 				       $MODNAME ", wants $NBLITVAL components", 
-				       (void*) $OLITVALUETUPLOC)	;
+				       (void*) $OLITVALUETUPLOC) ;
 		     }#
 		     ))
        (list_append oiniprolog
@@ -2039,11 +2049,14 @@
 	      (list_to_multiple
 	       idata discr_multiple
 	       (lambda (curdat)
+		 (debug "compile2obj_initextendproc/lambdabody curdat=" curdat)
 		 (assert_msg "check curdat" (is_a curdat class_nrep_bound_data) curdat)
 		 (let ( (curobd (compile_obj curdat gcx)) )
+		   (debug "compile2obj_initextendproc/lambdabody curobd=" curobd)		   
 		   curobd))))
 	     (toplis (unsafe_get_field :ninit_topl ipro)) 
 	     )
+	 (debug "compile2obj_initextendproc odatatup=" odatatup "\n.. toplis=" toplis)
 	 (put_fields oinitxrout
 		     :oirout_data odatatup)
 	 (debug "compile2obj_initextendproc toplis=" toplis)
@@ -2058,69 +2071,69 @@
 		      (debug "compile2obj_initextendproc otop=" otop)
 		      otop)))) 
 		)
-	   (debug "compile2obj_initextendproc objtoplis=" objtoplis)
+	   (debug "compile2obj_initextendproc objtoplis=" objtoplis "\n.. odatatup=" odatatup)
 	   ;; generate the getting of symbols & keywords
 	   (append_commentconst oiniprolog "get symbols & keywords for extension")
-	   (multiple_every
-	    odatatup
-	    (lambda (curpdat :long curk) 
-	      (if (is_a curpdat class_objinitobject)
-		  (let ( (odat (unsafe_get_field :oie_data curpdat))
-			 )
-		    (debug "compile2obj_initextendproc getting curpdat=" curpdat)
-		    (cond 
-		     ;; first  check for keywords, since they are also symbols (so order is important)
-		     ( (is_a odat class_nrep_datakeyword)
-		       (let ( (ogkw (instance class_objgetnamedkeyword
-					      :obgnamed_iobj curpdat))
-			      )
-			 (list_append oiniprolog ogkw)
-			 (debug "compile2obj_initextendproc added keyword getting ogkw=" ogkw)
-			 ))
-		     ( (is_a odat class_nrep_datasymbol)
-		       (let ( (ogsy (instance class_objgetnamedsymbol
-					      :obgnamed_iobj curpdat))
-			      )
-			 (list_append oiniprolog ogsy)
-			 (debug "compile2obj_initextendproc added symbol getting ogsy=" ogsy)
-			 ))
-		     )))))
+	   (assert_msg "check odatatup" (is_multiple_or_null odatatup) odatatup)
+	   (foreach_in_multiple
+	    (odatatup)
+	    (curpdat :long curk) 
+	    (if (is_a curpdat class_objinitobject)
+		(let ( (odat (unsafe_get_field :oie_data curpdat))
+		       )
+		  (debug "compile2obj_initextendproc getting curpdat=" curpdat)
+		  (cond 
+		   ;; first  check for keywords, since they are also symbols (so order is important)
+		   ( (is_a odat class_nrep_datakeyword)
+		     (let ( (ogkw (instance class_objgetnamedkeyword
+					    :obgnamed_iobj curpdat))
+			    )
+		       (list_append oiniprolog ogkw)
+		       (debug "compile2obj_initextendproc added keyword getting ogkw=" ogkw)
+		       ))
+		   ( (is_a odat class_nrep_datasymbol)
+		     (let ( (ogsy (instance class_objgetnamedsymbol
+					    :obgnamed_iobj curpdat))
+			    )
+		       (list_append oiniprolog ogsy)
+		       (debug "compile2obj_initextendproc added symbol getting ogsy=" ogsy)
+		       ))
+		   ))))
 	   (debug "compile2obj_initextendproc before imports oiniprolog=" oiniprolog)
 	   ;;
-	   (if (>i (list_length importvalues) 0)
-	       (progn
-		 (append_commentconst oiniprolog "before getting imported values")
-		 ;; generate the getting of imported values
-		 (list_every
-		  importvalues
-		  (lambda (curimport)
-		    (debug "compile2obj_initextendproc curimport=" curimport)
-		    (assert_msg "check curimport" (is_a curimport  class_nrep_literalnamedvalue) curimport)
-		    (compile_warning "the generated import should have a cstring")
-		    (let ( (impsym (get_field :nlitval_symbol curimport)) 
-			   (regval (get_field :nlitval_regval curimport))
-			   (val (get_field :litv_value regval))
-			   (modulstr (get_field :mocx_modulename modctx)) 
-			   (oimplocv (mapobject_get importmap impsym))
-			   )
-		      (debug "compile2obj_initextendproc impsym=" impsym "\n regval=" regval "\n oimplocv=" oimplocv)
-		      (let ( 
-			    (:long litrank (get_int (get_field :litv_rank regval)))
-			    (ogetlit (make_objcompute
-				      ()
-				      ctype_value
-				      ##{/* retrieve runtime literal value #$LITRANK */
-				      ((melt_ptr_t) (((meltmultiple_ptr_t)$OLITVALUETUPLOC)->tabval[$LITRANK]))
-				      }#))
-			    )
-			(put_objdest ogetlit oimplocv)
-			(debug "compile2obj_initextendproc/import val=" val
-			       " regval=" regval
-			       " ogetlit=" ogetlit)
-			(list_append oiniprolog ogetlit)
-			))))
-		 (append_commentconst oiniprolog "after getting imported values")
-		 ))
+	   (when (>i (list_length importvalues) 0)
+	     (append_commentconst oiniprolog "before getting imported values")
+	     ;; generate the getting of imported values
+	     (foreach_in_list
+	      (importvalues)
+	      (curpairimp curimport)
+	      (debug "compile2obj_initextendproc curimport=" curimport)
+	      (assert_msg "check curimport" (is_a curimport  class_nrep_literalnamedvalue) curimport)
+	      (compile_warning "the generated import should have a cstring")
+	      (let ( (impsym (get_field :nlitval_symbol curimport)) 
+		     (regval (get_field :nlitval_regval curimport))
+		     (val (get_field :litv_value regval))
+		     (modulstr (get_field :mocx_modulename modctx)) 
+		     (oimplocv (mapobject_get importmap impsym))
+		     )
+		(debug "compile2obj_initextendproc impsym=" impsym "\n regval=" regval "\n oimplocv=" oimplocv)
+		(let ( 
+		      (:long litrank (get_int (get_field :litv_rank regval)))
+		      (ogetlit (make_objcompute
+				()
+				ctype_value
+				##{/* retrieve runtime literal value #$LITRANK */
+				((melt_ptr_t) (((meltmultiple_ptr_t)$OLITVALUETUPLOC)->tabval[$LITRANK]))
+				}#))
+		      )
+		  (put_objdest ogetlit oimplocv)
+		  (debug "compile2obj_initextendproc/import val=" val
+			 " regval=" regval
+			 " ogetlit=" ogetlit)
+		  (list_append oiniprolog ogetlit)
+		  )))
+	     (append_commentconst oiniprolog "after getting imported values")
+	     )
 	   ;; append the compiled toplevel
 	   (append_commentconst oinibody "before toplevel body")
 	   (debug "compile2obj_initextendproc objtoplis=" objtoplis)
@@ -2152,7 +2165,7 @@
 	   (append_commentconst oinibody "after toplevel body")
 	   (debug "compile2obj_initextendproc final oinibody=" oinibody)
 	   ;;
-	   (debug "compile2obj_initextendproc gives oinitxrout=" oinitxrout)
+	   (debug "compile2obj_initextendproc gives oinitxrout=" oinitxrout "\n")
 	   (return oinitxrout)
 	   )))))
 
@@ -2357,11 +2370,13 @@
 
  ;; function to dispose, i.e. mark as free, a binding 
  (defun dispose_bnd_obj (bnd gcx)
+   (debug "dispose_bnd_obj start bnd=" bnd)
    (assert_msg "check bnd" (is_a bnd class_any_binding) bnd)
    (assert_msg "check gcx" (is_a gcx class_c_generation_context) gcx)
-   (debug "dispose_bnd_obj start bnd=" bnd)
    (let ( (locmap (unsafe_get_field :gncx_locmap gcx))
-	  (oldloc (mapobject_get locmap bnd)) )
+	  (oldloc (mapobject_get locmap bnd)) 
+	  )
+     (debug "dispose_bnd_obj oldloc=" oldloc)
      (if (null oldloc)
 	 (progn
 	   ;; special hack to dispose a void let binding - return immediately in that case
@@ -2478,15 +2493,15 @@
 	  (sbnd (unsafe_get_field :nocc_bind lsyo))
 	  (ovar (mapobject_get locmap sbnd))
 	  )
-     (if (null sbnd)
-	 (progn
-	   (debug "compilobj_nrep_locsymocc null sbnd lsyo=" lsyo " sym=" sym)
-	   (assert_msg "locsymocc without binding" () lsyo)
-	   ))
+     (debug "compilobj locsymocc sbnd=" sbnd " ovar=" ovar)
+     (when (null sbnd)
+       (debug "compilobj_nrep_locsymocc null sbnd lsyo=" lsyo " sym=" sym)
+       (assert_msg "locsymocc without binding" () lsyo)
+	   )
      (if (null ovar) 
 	 (progn
 	   (debug "compilobj locsymocc null ovar sbnd=" sbnd " locmap=" locmap " lsyo=" lsyo)
-	   (assert_msg "compilobj locsymocc null ovar without ctype_void" (== oty ctype_void) oty)
+	   (assert_msg "compilobj locsymocc null ovar without ctype_void" (== oty ctype_void) oty lsyo)
 	   )
        (assert_msg "compilobj locsymocc check ovar"  (is_a ovar class_objlocv) ovar))
      (debug "compilobj locsymocc end lsyo=" lsyo " gives ovar=" ovar)
@@ -3287,8 +3302,8 @@
 			    :omalblo_name namstr
 			    ))
 	  )
-     (debug "compilobj_nrep_letrec initial loc=" loc " nlocsyms=" nlocsyms 
-	    " fillbnds=" fillbnds " bodybnds=" bodybnds)
+     (debug "compilobj_nrep_letrec initial loc=" loc "\n.. nlocsyms=" nlocsyms 
+	    "\n.. fillbnds=" fillbnds "\n.. bodybnds=" bodybnds "\n locmap=" locmap)
      (assert_msg "check fillbnds is list" (is_list_or_null fillbnds) fillbnds)
      (assert_msg "check bodybnds is list" (is_list_or_null bodybnds) bodybnds)
      (put_int obcntletrec cntletrec)
@@ -3433,7 +3448,7 @@
       )
      ;;
      ;; compile the body
-     (debug  "compilobj_nrep_letrec nbdy= "nbdy)
+     (debug  "compilobj_nrep_letrec nbdy=" nbdy)
      (assert_msg "check nbdy" (is_multiple_or_null nbdy) nbdy)
      (foreach_in_multiple
       (nbdy)
@@ -3442,7 +3457,7 @@
       (let ( (ocurb (compile_obj curbdy gcx)) )
 	(debug "compilobj_nrep_letrec ocurb=" ocurb)
 	(list_append obodl ocurb)))
-     (debug "compilobj_nrep_letrec final obodl=" obodl " ofreelocs=" ofreelocs)
+     (debug "compilobj_nrep_letrec final obodl=" obodl "\n.. ofreelocs=" ofreelocs)
      ;; should clear and free our objlocs...
      (foreach_in_list
       (ofreelocs)
@@ -3454,12 +3469,13 @@
 			       :oclr_vloc curlocva))
 	     )
 	(list_append oepil oclear)
+	(debug "compilobj_nrep_letrec oclear=" oclear " \n..disposing curlocva=" curlocva)
 	(dispose_objloc curlocva gcx)
 	(debug "compilobj_nrep_letrec final oclear=" oclear)
 	))
      ;;
-     (debug "compilobj_nrep_letrec final oblock=" oblock " oallstruct= "oallstruct
-	    " gcx=" gcx)
+     (debug "compilobj_nrep_letrec final oblock=" oblock "\n.. oallstruct= "oallstruct
+	    "\n.. gcx=" gcx "\n")
      oblock
      ))
  (install_method class_nrep_letrec compile_obj compilobj_nrep_letrec)

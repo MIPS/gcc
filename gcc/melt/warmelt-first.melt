@@ -1272,9 +1272,9 @@ create it if not found.}#
 	      }#)
   (let ( (:long argcount 0)
 	 )
-    (setq argcount (+i argcount 1))
     (forever 
      argloop
+     (setq argcount (+i argcount 1))
      (variadic 
       ( ()
 	(exit argloop))
@@ -1292,7 +1292,6 @@ create it if not found.}#
         (code_chunk failval_chk #{ /* melt_assert_failure_fun $FAILVAL_CHK */
            char failmsg[32];
            snprintf (failmsg, sizeof(failmsg), "$$%ld=", $ARGCOUNT);
-           fprintf (stderr, " $$%ld_v@%p:", $ARGCOUNT, (void*) $V);
 	   /* in melt_assert_failure_fun $FAILVAL_CHK */
            melthookproc_HOOK_LOW_STDERR_VALUE_AT ($V,
                                                  melt_basename ($FILENAME),

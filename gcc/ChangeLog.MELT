@@ -1,5 +1,13 @@
 
 2013-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Unstable, eval of (make_integerbox discr_integer 1) fails}}
+	* melt/warmelt-first.melt (melt_assert_failure_fun): Move
+	increment of argcount. Now works correctly.
+
+	* melt/warmelt-genobj.melt (compile2obj_initextendproc)
+	(dispose_bnd_obj, compilobj locsymocc, compilobj_nrep_letrec): More debug.
+
+2013-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable}}
 	* melt/warmelt-outobj.melt: Done improve assert_msg, etc...
 
