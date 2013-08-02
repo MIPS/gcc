@@ -40,7 +40,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831; // forward declaration fromline 6518
+class Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831; // forward declaration fromline 6501
 typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831 Melt_InitialFrame;
 /*** 3 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
@@ -1361,38 +1361,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<3> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), clos) {};
-    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT() //the constructor fromline 1605
         : Melt_CallFrameWithValues<3> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<3> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<3> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<3> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_LOW_DEBUG_VALUE_AT
 
 
-/** end of frame for melthook_HOOK_LOW_DEBUG_VALUE_AT fromline 1661**/
+/** end of frame for melthook_HOOK_LOW_DEBUG_VALUE_AT fromline 1660**/
 
 /* endframe for melthook_HOOK_LOW_DEBUG_VALUE_AT hook */
 
@@ -1513,38 +1513,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), clos) {};
-    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT() //the constructor fromline 1605
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_LOW_STDERR_VALUE_AT
 
 
-/** end of frame for melthook_HOOK_LOW_STDERR_VALUE_AT fromline 1661**/
+/** end of frame for melthook_HOOK_LOW_STDERR_VALUE_AT fromline 1660**/
 
 /* endframe for melthook_HOOK_LOW_STDERR_VALUE_AT hook */
 
@@ -1628,7 +1628,7 @@ void melthook_HOOK_LOW_STDERR_VALUE_AT(melt_ptr_t melthookdatap,
             else    /*^cond.else*/
                 {
 
-                    /*_.STDERRF__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                    /*_.STDERRF__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                 }
             ;
             /*^compute*/
@@ -1964,38 +1964,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<38> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), clos) {};
-    MeltFrame_melthook_HOOK_OVERRIDE_GATE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_OVERRIDE_GATE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<38> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<38> (fil,lin, sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_OVERRIDE_GATE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_OVERRIDE_GATE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<38> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_OVERRIDE_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_OVERRIDE_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<38> (fil,lin, sizeof(MeltFrame_melthook_HOOK_OVERRIDE_GATE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_OVERRIDE_GATE
 
 
-/** end of frame for melthook_HOOK_OVERRIDE_GATE fromline 1661**/
+/** end of frame for melthook_HOOK_OVERRIDE_GATE fromline 1660**/
 
 /* endframe for melthook_HOOK_OVERRIDE_GATE hook */
 
@@ -2114,7 +2114,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -2172,7 +2172,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                 MELT_LOCATION("warmelt-hooks.melt:111:/ cond.else");
 
                 /*_.GATEFLAG__V4*/
-                meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -2233,7 +2233,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.QUFIRST__V9*/ meltfptr[8] =  /*fromline 1341*/ NULL ;;
+                /*_.QUFIRST__V9*/ meltfptr[8] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:117:/ cond");
@@ -2257,7 +2257,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.QULAST__V10*/ meltfptr[9] =  /*fromline 1341*/ NULL ;;
+                /*_.QULAST__V10*/ meltfptr[9] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -2373,7 +2373,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V11*/ meltfptr[10] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V11*/ meltfptr[10] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -2511,7 +2511,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V15*/ meltfptr[14] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V15*/ meltfptr[14] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -2671,7 +2671,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                                     else    /*^cond.else*/
                                         {
 
-                                            /*_._IF___V20*/ meltfptr[19] =  /*fromline 1341*/ NULL ;;
+                                            /*_._IF___V20*/ meltfptr[19] =  /*reallynil*/ NULL ;;
                                         }
                                     ;
 
@@ -2736,7 +2736,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V17*/ meltfptr[15] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V17*/ meltfptr[15] =  /*reallynil*/ NULL ;;
                         }
                     ;
                 } /* end foreach_in_list meltcit1__EACHLIST */
@@ -2914,7 +2914,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V27*/ meltfptr[26] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V27*/ meltfptr[26] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -3135,7 +3135,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V34*/ meltfptr[33] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V34*/ meltfptr[33] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -3301,7 +3301,7 @@ void melthook_HOOK_OVERRIDE_GATE(melt_ptr_t melthookdatap,
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V37*/ meltfptr[33] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V37*/ meltfptr[33] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -3468,7 +3468,7 @@ meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclosp_, mel
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1716 */
+    /* start of frame for routine meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1715 */
 
     /** start of frame for meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -3487,40 +3487,40 @@ meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclosp_, mel
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<1> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE), clos) {};
-        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE() //the constructor fromline 1606
+        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE() //the constructor fromline 1605
             : Melt_CallFrameWithValues<1> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE)) {};
-        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE
 
 
-    /** end of frame for meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1661**/
+    /** end of frame for meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1660**/
 
-    /* end of frame for routine meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1720 */
+    /* end of frame for routine meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1719 */
 
     /* classy proc frame meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE */
     MeltFrame_meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_4_WARMELTmiHOOKS_ENABLE_OVERRIDE_GATE fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -3594,7 +3594,7 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1716 */
+    /* start of frame for routine meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1715 */
 
     /** start of frame for meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -3613,40 +3613,40 @@ meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t meltclos
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<5> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE), clos) {};
-        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE() //the constructor fromline 1606
+        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE() //the constructor fromline 1605
             : Melt_CallFrameWithValues<5> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<5> (fil,lin, sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE)) {};
-        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<5> (fil,lin, sizeof(MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE
 
 
-    /** end of frame for meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1661**/
+    /** end of frame for meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1660**/
 
-    /* end of frame for routine meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1720 */
+    /* end of frame for routine meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1719 */
 
     /* classy proc frame meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE */
     MeltFrame_meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_5_WARMELTmiHOOKS_MAYBE_DISABLE_OVERRIDE_GATE fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -3697,7 +3697,7 @@ meltlab_endgetargs:
         else    /*^cond.else*/
             {
 
-                /*_.DELQU_FIRST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.DELQU_FIRST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -3738,7 +3738,7 @@ meltlab_endgetargs:
                     else    /*^cond.else*/
                         {
 
-                            /*_.DELQU_LAST__V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                            /*_.DELQU_LAST__V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -3850,7 +3850,7 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1716 */
+    /* start of frame for routine meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1715 */
 
     /** start of frame for meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -3869,40 +3869,40 @@ meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltclo
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<8> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST), clos) {};
-        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST() //the constructor fromline 1606
+        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST() //the constructor fromline 1605
             : Melt_CallFrameWithValues<8> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST)) {};
-        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST
 
 
-    /** end of frame for meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1661**/
+    /** end of frame for meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1660**/
 
-    /* end of frame for routine meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1720 */
+    /* end of frame for routine meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1719 */
 
     /* classy proc frame meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST */
     MeltFrame_meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_6_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_FIRST fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -4015,7 +4015,7 @@ meltlab_endgetargs:
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -4091,7 +4091,7 @@ meltlab_endgetargs:
                     else    /*^cond.else*/
                         {
 
-                            /*_.DELQU_FIRST__V6*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                            /*_.DELQU_FIRST__V6*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                         }
                     ;
 
@@ -4106,7 +4106,7 @@ meltlab_endgetargs:
                     MELT_LOCATION("warmelt-hooks.melt:236:/ apply");
                     /*apply*/
                     {
-                        /*_.ENABLE_OVERRIDE_GATE__V7*/ meltfptr[6] =  melt_apply ((meltclosure_ptr_t)((/*!ENABLE_OVERRIDE_GATE*/ meltfrout->tabval[3])), (melt_ptr_t)( /*fromline 1341*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                        /*_.ENABLE_OVERRIDE_GATE__V7*/ meltfptr[6] =  melt_apply ((meltclosure_ptr_t)((/*!ENABLE_OVERRIDE_GATE*/ meltfrout->tabval[3])), (melt_ptr_t)( /*reallynil*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                     }
                     ;
                     MELT_LOCATION("warmelt-hooks.melt:234:/ quasiblock");
@@ -4134,7 +4134,7 @@ meltlab_endgetargs:
         else    /*^cond.else*/
             {
 
-                /*_._IF___V5*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                /*_._IF___V5*/ meltfptr[3] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -4204,7 +4204,7 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1716 */
+    /* start of frame for routine meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1715 */
 
     /** start of frame for meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -4223,40 +4223,40 @@ meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltclos
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<8> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST), clos) {};
-        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST() //the constructor fromline 1606
+        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST() //the constructor fromline 1605
             : Melt_CallFrameWithValues<8> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST)) {};
-        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<8> (fil,lin, sizeof(MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST
 
 
-    /** end of frame for meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1661**/
+    /** end of frame for meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1660**/
 
-    /* end of frame for routine meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1720 */
+    /* end of frame for routine meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1719 */
 
     /* classy proc frame meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST */
     MeltFrame_meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_7_WARMELTmiHOOKS_REGISTER_OVERRIDE_GATE_LAST fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -4369,7 +4369,7 @@ meltlab_endgetargs:
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -4445,7 +4445,7 @@ meltlab_endgetargs:
                     else    /*^cond.else*/
                         {
 
-                            /*_.DELQU_LAST__V6*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                            /*_.DELQU_LAST__V6*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                         }
                     ;
 
@@ -4460,7 +4460,7 @@ meltlab_endgetargs:
                     MELT_LOCATION("warmelt-hooks.melt:244:/ apply");
                     /*apply*/
                     {
-                        /*_.ENABLE_OVERRIDE_GATE__V7*/ meltfptr[6] =  melt_apply ((meltclosure_ptr_t)((/*!ENABLE_OVERRIDE_GATE*/ meltfrout->tabval[3])), (melt_ptr_t)( /*fromline 1341*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                        /*_.ENABLE_OVERRIDE_GATE__V7*/ meltfptr[6] =  melt_apply ((meltclosure_ptr_t)((/*!ENABLE_OVERRIDE_GATE*/ meltfrout->tabval[3])), (melt_ptr_t)( /*reallynil*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                     }
                     ;
                     MELT_LOCATION("warmelt-hooks.melt:242:/ quasiblock");
@@ -4488,7 +4488,7 @@ meltlab_endgetargs:
         else    /*^cond.else*/
             {
 
-                /*_._IF___V5*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                /*_._IF___V5*/ meltfptr[3] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -4558,7 +4558,7 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1716 */
+    /* start of frame for routine meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1715 */
 
     /** start of frame for meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -4577,40 +4577,40 @@ meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t meltc
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<19> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST), clos) {};
-        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST() //the constructor fromline 1606
+        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST() //the constructor fromline 1605
             : Melt_CallFrameWithValues<19> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<19> (fil,lin, sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST)) {};
-        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<19> (fil,lin, sizeof(MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST
 
 
-    /** end of frame for meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1661**/
+    /** end of frame for meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1660**/
 
-    /* end of frame for routine meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1720 */
+    /* end of frame for routine meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1719 */
 
     /* classy proc frame meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST */
     MeltFrame_meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_8_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_FIRST fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -4723,7 +4723,7 @@ meltlab_endgetargs:
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -4787,7 +4787,7 @@ meltlab_endgetargs:
         else    /*^cond.else*/
             {
 
-                /*_.OLDLIS__V6*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.OLDLIS__V6*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -4934,7 +4934,7 @@ meltlab_endgetargs:
                     MELT_LOCATION("warmelt-hooks.melt:263:/ apply");
                     /*apply*/
                     {
-                        /*_.MAYBE_DISABLE_OVERRIDE_GATE__V11*/ meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MAYBE_DISABLE_OVERRIDE_GATE*/ meltfrout->tabval[4])), (melt_ptr_t)( /*fromline 1341*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                        /*_.MAYBE_DISABLE_OVERRIDE_GATE__V11*/ meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MAYBE_DISABLE_OVERRIDE_GATE*/ meltfrout->tabval[4])), (melt_ptr_t)( /*reallynil*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                     }
                     ;
 
@@ -5021,7 +5021,7 @@ meltlab_endgetargs:
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V12*/ meltfptr[11] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V12*/ meltfptr[11] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -5116,7 +5116,7 @@ meltlab_endgetargs:
         else    /*^cond.else*/
             {
 
-                /*_._IF___V10*/ meltfptr[9] =  /*fromline 1341*/ NULL ;;
+                /*_._IF___V10*/ meltfptr[9] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -5201,7 +5201,7 @@ meltlab_endgetargs:
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V17*/ meltfptr[10] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V17*/ meltfptr[10] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -5347,7 +5347,7 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1716 */
+    /* start of frame for routine meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1715 */
 
     /** start of frame for meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -5366,40 +5366,40 @@ meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t meltcl
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<19> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST), clos) {};
-        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST() //the constructor fromline 1606
+        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST() //the constructor fromline 1605
             : Melt_CallFrameWithValues<19> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<19> (fil,lin, sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST)) {};
-        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<19> (fil,lin, sizeof(MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST
 
 
-    /** end of frame for meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1661**/
+    /** end of frame for meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1660**/
 
-    /* end of frame for routine meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1720 */
+    /* end of frame for routine meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1719 */
 
     /* classy proc frame meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST */
     MeltFrame_meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_9_WARMELTmiHOOKS_UNREGISTER_OVERRIDE_GATE_LAST fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -5512,7 +5512,7 @@ meltlab_endgetargs:
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -5576,7 +5576,7 @@ meltlab_endgetargs:
         else    /*^cond.else*/
             {
 
-                /*_.OLDLIS__V6*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.OLDLIS__V6*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -5723,7 +5723,7 @@ meltlab_endgetargs:
                     MELT_LOCATION("warmelt-hooks.melt:286:/ apply");
                     /*apply*/
                     {
-                        /*_.MAYBE_DISABLE_OVERRIDE_GATE__V11*/ meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MAYBE_DISABLE_OVERRIDE_GATE*/ meltfrout->tabval[4])), (melt_ptr_t)( /*fromline 1341*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                        /*_.MAYBE_DISABLE_OVERRIDE_GATE__V11*/ meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!MAYBE_DISABLE_OVERRIDE_GATE*/ meltfrout->tabval[4])), (melt_ptr_t)( /*reallynil*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                     }
                     ;
 
@@ -5810,7 +5810,7 @@ meltlab_endgetargs:
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V12*/ meltfptr[11] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V12*/ meltfptr[11] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -5905,7 +5905,7 @@ meltlab_endgetargs:
         else    /*^cond.else*/
             {
 
-                /*_._IF___V10*/ meltfptr[9] =  /*fromline 1341*/ NULL ;;
+                /*_._IF___V10*/ meltfptr[9] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -5990,7 +5990,7 @@ meltlab_endgetargs:
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V17*/ meltfptr[10] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V17*/ meltfptr[10] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -6136,7 +6136,7 @@ meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1716 */
+    /* start of frame for routine meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1715 */
 
     /** start of frame for meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -6155,40 +6155,40 @@ meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t meltclosp_, melt_ptr_t m
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<4> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1), clos) {};
-        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1() //the constructor fromline 1606
+        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1() //the constructor fromline 1605
             : Melt_CallFrameWithValues<4> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1)) {};
-        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1
 
 
-    /** end of frame for meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1661**/
+    /** end of frame for meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1660**/
 
-    /* end of frame for routine meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1720 */
+    /* end of frame for routine meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1719 */
 
     /* classy proc frame meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 */
     MeltFrame_meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_10_WARMELTmiHOOKS_LAMBDA_cl1 fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -6305,7 +6305,7 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1716 */
+    /* start of frame for routine meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1715 */
 
     /** start of frame for meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -6324,40 +6324,40 @@ meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t meltclosp_, melt_ptr_t m
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<2> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2), clos) {};
-        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2() //the constructor fromline 1606
+        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2() //the constructor fromline 1605
             : Melt_CallFrameWithValues<2> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<2> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2)) {};
-        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<2> (fil,lin, sizeof(MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2
 
 
-    /** end of frame for meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1661**/
+    /** end of frame for meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1660**/
 
-    /* end of frame for routine meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1720 */
+    /* end of frame for routine meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1719 */
 
     /* classy proc frame meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 */
     MeltFrame_meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_11_WARMELTmiHOOKS_LAMBDA_cl2 fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -6452,7 +6452,7 @@ meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1716 */
+    /* start of frame for routine meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1715 */
 
     /** start of frame for meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -6471,40 +6471,40 @@ meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t meltclosp_, melt_ptr_t m
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<4> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3), clos) {};
-        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3() //the constructor fromline 1606
+        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3() //the constructor fromline 1605
             : Melt_CallFrameWithValues<4> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3)) {};
-        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<4> (fil,lin, sizeof(MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3
 
 
-    /** end of frame for meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1661**/
+    /** end of frame for meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1660**/
 
-    /* end of frame for routine meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1720 */
+    /* end of frame for routine meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1719 */
 
     /* classy proc frame meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 */
     MeltFrame_meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_12_WARMELTmiHOOKS_LAMBDA_cl3 fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -6621,38 +6621,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_START_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_START_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_START_UNIT), clos) {};
-    MeltFrame_melthook_HOOK_START_UNIT() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_START_UNIT() //the constructor fromline 1605
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_START_UNIT)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_START_UNIT(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_START_UNIT(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_START_UNIT)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_START_UNIT(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_START_UNIT(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_START_UNIT), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_START_UNIT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_START_UNIT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_START_UNIT), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_START_UNIT
 
 
-/** end of frame for melthook_HOOK_START_UNIT fromline 1661**/
+/** end of frame for melthook_HOOK_START_UNIT fromline 1660**/
 
 /* endframe for melthook_HOOK_START_UNIT hook */
 
@@ -6898,7 +6898,7 @@ meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t meltclosp_, melt_
 #endif
 //// emitted by output_curframe_declstruct_init using OUTPUT_CURFRAME_DECLSTRUCT @warmelt-outobj.melt:1501
 
-    /* start of frame for routine meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1716 */
+    /* start of frame for routine meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1715 */
 
     /** start of frame for meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT of CLASS_PROCROUTINEOBJ from 1518**/
 
@@ -6917,40 +6917,40 @@ meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t meltclosp_, melt_
             melt_mark_values ();
             melt_mark_stuff ();
         }; /*end melt_mark_ggc_data*/
-        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1593
             : Melt_CallFrameWithValues<1> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
                 sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT), clos) {};
-        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT() //the constructor fromline 1606
+        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT() //the constructor fromline 1605
             : Melt_CallFrameWithValues<1> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
                 __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
                 sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(const char*fil, int lin) //the constructor fromline 1619
             : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT)) {};
-        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1625
+        MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT(const char*fil, int lin, meltclosure_ptr_t clos) //the closure constructor fromline 1624
             : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT), clos) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
     }; // end  class MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT
 
 
-    /** end of frame for meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1661**/
+    /** end of frame for meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1660**/
 
-    /* end of frame for routine meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1720 */
+    /* end of frame for routine meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1719 */
 
     /* classy proc frame meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT */
     MeltFrame_meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyprocarg meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1749*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyprocarg meltrout_14_WARMELTmiHOOKS_ENABLE_START_UNIT fromline 1748*/
 #if ENABLE_CHECKING
-    (__FILE__, __LINE__, meltclosp_) /* fromline 1753*/
+    (__FILE__, __LINE__, meltclosp_) /* fromline 1752*/
 #else /*ENABLE_CHECKING */
-    (meltclosp_) /* fromline 1757*/
+    (meltclosp_) /* fromline 1756*/
 #endif /*ENABLE_CHECKING */
 
     ;
@@ -7024,38 +7024,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_FINISH_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_FINISH_UNIT(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), clos) {};
-    MeltFrame_melthook_HOOK_FINISH_UNIT() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_FINISH_UNIT() //the constructor fromline 1605
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_FINISH_UNIT(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_FINISH_UNIT(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_FINISH_UNIT(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_FINISH_UNIT(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_FINISH_UNIT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_FINISH_UNIT(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_UNIT), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_FINISH_UNIT
 
 
-/** end of frame for melthook_HOOK_FINISH_UNIT fromline 1661**/
+/** end of frame for melthook_HOOK_FINISH_UNIT fromline 1660**/
 
 /* endframe for melthook_HOOK_FINISH_UNIT hook */
 
@@ -7302,38 +7302,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_ALL_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_ALL_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), clos) {};
-    MeltFrame_melthook_HOOK_ALL_PASSES_START() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_ALL_PASSES_START() //the constructor fromline 1605
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_ALL_PASSES_START(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_ALL_PASSES_START(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_ALL_PASSES_START(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_ALL_PASSES_START(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_ALL_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_ALL_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_START), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_ALL_PASSES_START
 
 
-/** end of frame for melthook_HOOK_ALL_PASSES_START fromline 1661**/
+/** end of frame for melthook_HOOK_ALL_PASSES_START fromline 1660**/
 
 /* endframe for melthook_HOOK_ALL_PASSES_START hook */
 
@@ -7387,7 +7387,7 @@ void melthook_HOOK_ALL_PASSES_START(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:529:/ cond");
@@ -7411,7 +7411,7 @@ void melthook_HOOK_ALL_PASSES_START(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -7637,38 +7637,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_ALL_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_ALL_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), clos) {};
-    MeltFrame_melthook_HOOK_ALL_PASSES_END() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_ALL_PASSES_END() //the constructor fromline 1605
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_ALL_PASSES_END(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_ALL_PASSES_END(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_ALL_PASSES_END(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_ALL_PASSES_END(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_ALL_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_ALL_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_PASSES_END), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_ALL_PASSES_END
 
 
-/** end of frame for melthook_HOOK_ALL_PASSES_END fromline 1661**/
+/** end of frame for melthook_HOOK_ALL_PASSES_END fromline 1660**/
 
 /* endframe for melthook_HOOK_ALL_PASSES_END hook */
 
@@ -7722,7 +7722,7 @@ void melthook_HOOK_ALL_PASSES_END(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:653:/ cond");
@@ -7746,7 +7746,7 @@ void melthook_HOOK_ALL_PASSES_END(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -7955,38 +7955,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), clos) {};
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START() //the constructor fromline 1605
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_START
 
 
-/** end of frame for melthook_HOOK_ALL_IPA_PASSES_START fromline 1661**/
+/** end of frame for melthook_HOOK_ALL_IPA_PASSES_START fromline 1660**/
 
 /* endframe for melthook_HOOK_ALL_IPA_PASSES_START hook */
 
@@ -8040,7 +8040,7 @@ void melthook_HOOK_ALL_IPA_PASSES_START(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:774:/ cond");
@@ -8064,7 +8064,7 @@ void melthook_HOOK_ALL_IPA_PASSES_START(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -8290,38 +8290,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), clos) {};
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END() //the constructor fromline 1605
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_ALL_IPA_PASSES_END
 
 
-/** end of frame for melthook_HOOK_ALL_IPA_PASSES_END fromline 1661**/
+/** end of frame for melthook_HOOK_ALL_IPA_PASSES_END fromline 1660**/
 
 /* endframe for melthook_HOOK_ALL_IPA_PASSES_END hook */
 
@@ -8375,7 +8375,7 @@ void melthook_HOOK_ALL_IPA_PASSES_END(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:898:/ cond");
@@ -8399,7 +8399,7 @@ void melthook_HOOK_ALL_IPA_PASSES_END(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -8608,38 +8608,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), clos) {};
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START() //the constructor fromline 1605
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_START
 
 
-/** end of frame for melthook_HOOK_EARLY_GIMPLE_PASSES_START fromline 1661**/
+/** end of frame for melthook_HOOK_EARLY_GIMPLE_PASSES_START fromline 1660**/
 
 /* endframe for melthook_HOOK_EARLY_GIMPLE_PASSES_START hook */
 
@@ -8693,7 +8693,7 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_START(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:1020:/ cond");
@@ -8717,7 +8717,7 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_START(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -8943,38 +8943,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), clos) {};
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END() //the constructor fromline 1605
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<15> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<15> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_EARLY_GIMPLE_PASSES_END
 
 
-/** end of frame for melthook_HOOK_EARLY_GIMPLE_PASSES_END fromline 1661**/
+/** end of frame for melthook_HOOK_EARLY_GIMPLE_PASSES_END fromline 1660**/
 
 /* endframe for melthook_HOOK_EARLY_GIMPLE_PASSES_END hook */
 
@@ -9028,7 +9028,7 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_END(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:1144:/ cond");
@@ -9052,7 +9052,7 @@ void melthook_HOOK_EARLY_GIMPLE_PASSES_END(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -9264,38 +9264,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_PRE_GENERICIZE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_PRE_GENERICIZE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), clos) {};
-    MeltFrame_melthook_HOOK_PRE_GENERICIZE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_PRE_GENERICIZE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_PRE_GENERICIZE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_PRE_GENERICIZE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_PRE_GENERICIZE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_PRE_GENERICIZE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_PRE_GENERICIZE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_PRE_GENERICIZE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PRE_GENERICIZE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_PRE_GENERICIZE
 
 
-/** end of frame for melthook_HOOK_PRE_GENERICIZE fromline 1661**/
+/** end of frame for melthook_HOOK_PRE_GENERICIZE fromline 1660**/
 
 /* endframe for melthook_HOOK_PRE_GENERICIZE hook */
 
@@ -9353,7 +9353,7 @@ void melthook_HOOK_PRE_GENERICIZE(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:1294:/ cond");
@@ -9377,7 +9377,7 @@ void melthook_HOOK_PRE_GENERICIZE(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -9609,38 +9609,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_FINISH_TYPE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_FINISH_TYPE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), clos) {};
-    MeltFrame_melthook_HOOK_FINISH_TYPE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_FINISH_TYPE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_FINISH_TYPE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_FINISH_TYPE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_FINISH_TYPE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_FINISH_TYPE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_FINISH_TYPE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_FINISH_TYPE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_TYPE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_FINISH_TYPE
 
 
-/** end of frame for melthook_HOOK_FINISH_TYPE fromline 1661**/
+/** end of frame for melthook_HOOK_FINISH_TYPE fromline 1660**/
 
 /* endframe for melthook_HOOK_FINISH_TYPE hook */
 
@@ -9698,7 +9698,7 @@ void melthook_HOOK_FINISH_TYPE(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:1423:/ cond");
@@ -9722,7 +9722,7 @@ void melthook_HOOK_FINISH_TYPE(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -9954,38 +9954,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_FINISH_DECL(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_FINISH_DECL(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), clos) {};
-    MeltFrame_melthook_HOOK_FINISH_DECL() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_FINISH_DECL() //the constructor fromline 1605
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_DECL)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_FINISH_DECL(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_FINISH_DECL(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_DECL)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_FINISH_DECL(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_FINISH_DECL(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_FINISH_DECL(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_FINISH_DECL(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_FINISH_DECL), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_FINISH_DECL
 
 
-/** end of frame for melthook_HOOK_FINISH_DECL fromline 1661**/
+/** end of frame for melthook_HOOK_FINISH_DECL fromline 1660**/
 
 /* endframe for melthook_HOOK_FINISH_DECL hook */
 
@@ -10043,7 +10043,7 @@ void melthook_HOOK_FINISH_DECL(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:1619:/ cond");
@@ -10067,7 +10067,7 @@ void melthook_HOOK_FINISH_DECL(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -10297,38 +10297,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_PASS_EXECUTION(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_PASS_EXECUTION(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), clos) {};
-    MeltFrame_melthook_HOOK_PASS_EXECUTION() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_PASS_EXECUTION() //the constructor fromline 1605
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_PASS_EXECUTION(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_PASS_EXECUTION(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_PASS_EXECUTION(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_PASS_EXECUTION(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_PASS_EXECUTION(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_PASS_EXECUTION(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_PASS_EXECUTION), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_PASS_EXECUTION
 
 
-/** end of frame for melthook_HOOK_PASS_EXECUTION fromline 1661**/
+/** end of frame for melthook_HOOK_PASS_EXECUTION fromline 1660**/
 
 /* endframe for melthook_HOOK_PASS_EXECUTION hook */
 
@@ -10397,7 +10397,7 @@ void melthook_HOOK_PASS_EXECUTION(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:1754:/ cond");
@@ -10421,7 +10421,7 @@ void melthook_HOOK_PASS_EXECUTION(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -10657,38 +10657,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_GIMPLE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_GIMPLE_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<22> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), clos) {};
-    MeltFrame_melthook_HOOK_GIMPLE_GATE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_GIMPLE_GATE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<22> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_GIMPLE_GATE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_GIMPLE_GATE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<22> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_GIMPLE_GATE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_GIMPLE_GATE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<22> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_GIMPLE_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_GIMPLE_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<22> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_GATE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_GIMPLE_GATE
 
 
-/** end of frame for melthook_HOOK_GIMPLE_GATE fromline 1661**/
+/** end of frame for melthook_HOOK_GIMPLE_GATE fromline 1660**/
 
 /* endframe for melthook_HOOK_GIMPLE_GATE hook */
 
@@ -10883,7 +10883,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -11028,7 +11028,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V6*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V6*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -11152,7 +11152,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V8*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V8*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -11231,7 +11231,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.GATEFUN__V10*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                            /*_.GATEFUN__V10*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -11322,7 +11322,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V11*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V11*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -11478,7 +11478,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V13*/ meltfptr[11] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V13*/ meltfptr[11] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -11642,7 +11642,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V16*/ meltfptr[11] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V16*/ meltfptr[11] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -11862,7 +11862,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V18*/ meltfptr[16] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V18*/ meltfptr[16] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -11995,7 +11995,7 @@ long melthook_HOOK_GIMPLE_GATE(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V21*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V21*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -12128,38 +12128,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<20> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), clos) {};
-    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<20> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<20> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_GIMPLE_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<20> (fil,lin, sizeof(MeltFrame_melthook_HOOK_GIMPLE_EXECUTE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_GIMPLE_EXECUTE
 
 
-/** end of frame for melthook_HOOK_GIMPLE_EXECUTE fromline 1661**/
+/** end of frame for melthook_HOOK_GIMPLE_EXECUTE fromline 1660**/
 
 /* endframe for melthook_HOOK_GIMPLE_EXECUTE hook */
 
@@ -12221,7 +12221,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.PASSDICT__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.PASSDICT__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -12309,7 +12309,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -12458,7 +12458,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V6*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V6*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -12638,7 +12638,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V8*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V8*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -12717,7 +12717,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.EXECFUN__V12*/ meltfptr[11] =  /*fromline 1341*/ NULL ;;
+                            /*_.EXECFUN__V12*/ meltfptr[11] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -12843,7 +12843,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V14*/ meltfptr[13] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V14*/ meltfptr[13] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -12997,7 +12997,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V17*/ meltfptr[13] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V17*/ meltfptr[13] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -13130,7 +13130,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                                 MELT_LOCATION("warmelt-hooks.melt:1949:/ apply");
                                 /*apply*/
                                 {
-                                    /*_.RUN_ENDMELTPASS_FUNCTIONS__V19*/ meltfptr[17] =  melt_apply ((meltclosure_ptr_t)((/*~RUN_ENDMELTPASS_FUNCTIONS*/ meltfhook->tabval[5])), (melt_ptr_t)( /*fromline 1341*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                                    /*_.RUN_ENDMELTPASS_FUNCTIONS__V19*/ meltfptr[17] =  melt_apply ((meltclosure_ptr_t)((/*~RUN_ENDMELTPASS_FUNCTIONS*/ meltfhook->tabval[5])), (melt_ptr_t)( /*reallynil*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                                 }
                                 ;
                                 MELT_LOCATION("warmelt-hooks.melt:1926:/ quasiblock");
@@ -13155,7 +13155,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V13*/ meltfptr[12] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V13*/ meltfptr[12] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -13187,7 +13187,7 @@ long melthook_HOOK_GIMPLE_EXECUTE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_._IF___V10*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                /*_._IF___V10*/ meltfptr[4] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -13283,38 +13283,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_RTL_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_RTL_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_RTL_GATE), clos) {};
-    MeltFrame_melthook_HOOK_RTL_GATE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_RTL_GATE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_RTL_GATE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_RTL_GATE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_RTL_GATE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_GATE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_RTL_GATE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_RTL_GATE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_RTL_GATE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_RTL_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_RTL_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_GATE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_RTL_GATE
 
 
-/** end of frame for melthook_HOOK_RTL_GATE fromline 1661**/
+/** end of frame for melthook_HOOK_RTL_GATE fromline 1660**/
 
 /* endframe for melthook_HOOK_RTL_GATE hook */
 
@@ -13373,7 +13373,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.PASSDICT__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.PASSDICT__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -13489,7 +13489,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.GATEFUN__V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                            /*_.GATEFUN__V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -13615,7 +13615,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V5*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V5*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -13784,7 +13784,7 @@ long melthook_HOOK_RTL_GATE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V8*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V8*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -14001,38 +14001,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_RTL_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_RTL_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), clos) {};
-    MeltFrame_melthook_HOOK_RTL_EXECUTE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_RTL_EXECUTE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_RTL_EXECUTE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_RTL_EXECUTE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_RTL_EXECUTE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_RTL_EXECUTE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_RTL_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_RTL_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_RTL_EXECUTE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_RTL_EXECUTE
 
 
-/** end of frame for melthook_HOOK_RTL_EXECUTE fromline 1661**/
+/** end of frame for melthook_HOOK_RTL_EXECUTE fromline 1660**/
 
 /* endframe for melthook_HOOK_RTL_EXECUTE hook */
 
@@ -14091,7 +14091,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.PASSDICT__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.PASSDICT__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -14207,7 +14207,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.EXECFUN__V6*/ meltfptr[5] =  /*fromline 1341*/ NULL ;;
+                            /*_.EXECFUN__V6*/ meltfptr[5] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -14335,7 +14335,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V8*/ meltfptr[7] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V8*/ meltfptr[7] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -14489,7 +14489,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V11*/ meltfptr[7] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V11*/ meltfptr[7] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -14622,7 +14622,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                                 MELT_LOCATION("warmelt-hooks.melt:2068:/ apply");
                                 /*apply*/
                                 {
-                                    /*_.RUN_ENDMELTPASS_FUNCTIONS__V13*/ meltfptr[11] =  melt_apply ((meltclosure_ptr_t)((/*~RUN_ENDMELTPASS_FUNCTIONS*/ meltfhook->tabval[5])), (melt_ptr_t)( /*fromline 1341*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                                    /*_.RUN_ENDMELTPASS_FUNCTIONS__V13*/ meltfptr[11] =  melt_apply ((meltclosure_ptr_t)((/*~RUN_ENDMELTPASS_FUNCTIONS*/ meltfhook->tabval[5])), (melt_ptr_t)( /*reallynil*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                                 }
                                 ;
                                 MELT_LOCATION("warmelt-hooks.melt:2044:/ quasiblock");
@@ -14647,7 +14647,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V7*/ meltfptr[6] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V7*/ meltfptr[6] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -14679,7 +14679,7 @@ long melthook_HOOK_RTL_EXECUTE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_._IF___V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                /*_._IF___V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -14775,38 +14775,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE), clos) {};
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<9> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<9> (fil,lin, sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_GATE
 
 
-/** end of frame for melthook_HOOK_SIMPLE_IPA_GATE fromline 1661**/
+/** end of frame for melthook_HOOK_SIMPLE_IPA_GATE fromline 1660**/
 
 /* endframe for melthook_HOOK_SIMPLE_IPA_GATE hook */
 
@@ -14865,7 +14865,7 @@ long melthook_HOOK_SIMPLE_IPA_GATE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.PASSDICT__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.PASSDICT__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -14981,7 +14981,7 @@ long melthook_HOOK_SIMPLE_IPA_GATE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.GATEFUN__V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                            /*_.GATEFUN__V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -15107,7 +15107,7 @@ long melthook_HOOK_SIMPLE_IPA_GATE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V5*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V5*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -15276,7 +15276,7 @@ long melthook_HOOK_SIMPLE_IPA_GATE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V8*/ meltfptr[4] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V8*/ meltfptr[4] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -15493,38 +15493,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), clos) {};
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE() //the constructor fromline 1605
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_SIMPLE_IPA_EXECUTE
 
 
-/** end of frame for melthook_HOOK_SIMPLE_IPA_EXECUTE fromline 1661**/
+/** end of frame for melthook_HOOK_SIMPLE_IPA_EXECUTE fromline 1660**/
 
 /* endframe for melthook_HOOK_SIMPLE_IPA_EXECUTE hook */
 
@@ -15583,7 +15583,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.PASSDICT__V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.PASSDICT__V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -15699,7 +15699,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.EXECFUN__V6*/ meltfptr[5] =  /*fromline 1341*/ NULL ;;
+                            /*_.EXECFUN__V6*/ meltfptr[5] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -15827,7 +15827,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V8*/ meltfptr[7] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V8*/ meltfptr[7] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -15981,7 +15981,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V11*/ meltfptr[7] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V11*/ meltfptr[7] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -16114,7 +16114,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                                 MELT_LOCATION("warmelt-hooks.melt:2186:/ apply");
                                 /*apply*/
                                 {
-                                    /*_.RUN_ENDMELTPASS_FUNCTIONS__V13*/ meltfptr[11] =  melt_apply ((meltclosure_ptr_t)((/*~RUN_ENDMELTPASS_FUNCTIONS*/ meltfhook->tabval[5])), (melt_ptr_t)( /*fromline 1341*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                                    /*_.RUN_ENDMELTPASS_FUNCTIONS__V13*/ meltfptr[11] =  melt_apply ((meltclosure_ptr_t)((/*~RUN_ENDMELTPASS_FUNCTIONS*/ meltfhook->tabval[5])), (melt_ptr_t)( /*reallynil*/ NULL ), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                                 }
                                 ;
                                 MELT_LOCATION("warmelt-hooks.melt:2162:/ quasiblock");
@@ -16139,7 +16139,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V7*/ meltfptr[6] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V7*/ meltfptr[6] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -16171,7 +16171,7 @@ long melthook_HOOK_SIMPLE_IPA_EXECUTE(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_._IF___V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                /*_._IF___V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
             }
         ;
 
@@ -16273,38 +16273,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER), clos) {};
-    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER() //the constructor fromline 1605
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<16> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<16> (fil,lin, sizeof(MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_MELT_ATTRIBUTE_DEFINER
 
 
-/** end of frame for melthook_HOOK_MELT_ATTRIBUTE_DEFINER fromline 1661**/
+/** end of frame for melthook_HOOK_MELT_ATTRIBUTE_DEFINER fromline 1660**/
 
 /* endframe for melthook_HOOK_MELT_ATTRIBUTE_DEFINER hook */
 
@@ -16378,7 +16378,7 @@ void melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:2211:/ cond");
@@ -16402,7 +16402,7 @@ void melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melt_ptr_t melthookdatap,
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V4*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V4*/ meltfptr[3] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -16491,7 +16491,7 @@ void melthook_HOOK_MELT_ATTRIBUTE_DEFINER(melt_ptr_t melthookdatap,
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V10*/ meltfptr[9] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V10*/ meltfptr[9] =  /*reallynil*/ NULL ;;
                         }
                     ;
                 } /* end foreach_in_list meltcit1__EACHLIST */
@@ -16678,38 +16678,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_EXIT_FINALIZER(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_EXIT_FINALIZER(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), clos) {};
-    MeltFrame_melthook_HOOK_EXIT_FINALIZER() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_EXIT_FINALIZER() //the constructor fromline 1605
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_EXIT_FINALIZER(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_EXIT_FINALIZER(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_EXIT_FINALIZER(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_EXIT_FINALIZER(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<14> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_EXIT_FINALIZER(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_EXIT_FINALIZER(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<14> (fil,lin, sizeof(MeltFrame_melthook_HOOK_EXIT_FINALIZER), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_EXIT_FINALIZER
 
 
-/** end of frame for melthook_HOOK_EXIT_FINALIZER fromline 1661**/
+/** end of frame for melthook_HOOK_EXIT_FINALIZER fromline 1660**/
 
 /* endframe for melthook_HOOK_EXIT_FINALIZER hook */
 
@@ -16823,7 +16823,7 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -16887,7 +16887,7 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.FIRSTLIST__V4*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                /*_.FIRSTLIST__V4*/ meltfptr[2] =  /*reallynil*/ NULL ;;
             }
         ;
         MELT_LOCATION("warmelt-hooks.melt:2267:/ cond");
@@ -16911,7 +16911,7 @@ void melthook_HOOK_EXIT_FINALIZER(melt_ptr_t melthookdatap)
         else    /*^cond.else*/
             {
 
-                /*_.LASTLIST__V5*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                /*_.LASTLIST__V5*/ meltfptr[1] =  /*reallynil*/ NULL ;;
             }
         ;
         /*^compute*/
@@ -17105,38 +17105,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_POLL_INPUTS(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_POLL_INPUTS(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<39> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), clos) {};
-    MeltFrame_melthook_HOOK_POLL_INPUTS() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_POLL_INPUTS() //the constructor fromline 1605
         : Melt_CallFrameWithValues<39> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_POLL_INPUTS(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_POLL_INPUTS(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<39> (fil,lin, sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_POLL_INPUTS(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_POLL_INPUTS(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<39> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_POLL_INPUTS(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_POLL_INPUTS(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<39> (fil,lin, sizeof(MeltFrame_melthook_HOOK_POLL_INPUTS), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_POLL_INPUTS
 
 
-/** end of frame for melthook_HOOK_POLL_INPUTS fromline 1661**/
+/** end of frame for melthook_HOOK_POLL_INPUTS fromline 1660**/
 
 /* endframe for melthook_HOOK_POLL_INPUTS hook */
 
@@ -17270,7 +17270,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -17407,7 +17407,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V5*/ meltfptr[3] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V5*/ meltfptr[3] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -17610,7 +17610,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 else    /*^cond.else*/
                                     {
 
-                                        /*_._IF___V9*/ meltfptr[8] =  /*fromline 1341*/ NULL ;;
+                                        /*_._IF___V9*/ meltfptr[8] =  /*reallynil*/ NULL ;;
                                     }
                                 ;
 
@@ -17922,7 +17922,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V14*/ meltfptr[12] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V14*/ meltfptr[12] =  /*reallynil*/ NULL ;;
                         }
                     ;
 
@@ -18118,7 +18118,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V20*/ meltfptr[19] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V20*/ meltfptr[19] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -18258,7 +18258,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                                         else    /*^cond.else*/
                                                             {
 
-                                                                /*_._IF___V23*/ meltfptr[19] =  /*fromline 1341*/ NULL ;;
+                                                                /*_._IF___V23*/ meltfptr[19] =  /*reallynil*/ NULL ;;
                                                             }
                                                         ;
 
@@ -18418,7 +18418,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                                                     else    /*^cond.else*/
                                                                         {
 
-                                                                            /*_._IF___V26*/ meltfptr[19] =  /*fromline 1341*/ NULL ;;
+                                                                            /*_._IF___V26*/ meltfptr[19] =  /*reallynil*/ NULL ;;
                                                                         }
                                                                     ;
 
@@ -18480,7 +18480,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                                     else    /*^cond.else*/
                                                         {
 
-                                                            /*_._IFELSE___V25*/ meltfptr[23] =  /*fromline 1341*/ NULL ;;
+                                                            /*_._IFELSE___V25*/ meltfptr[23] =  /*reallynil*/ NULL ;;
                                                         }
                                                     ;
                                                     /*^compute*/
@@ -18614,7 +18614,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 else    /*^cond.else*/
                                     {
 
-                                        /*_._IF___V28*/ meltfptr[26] =  /*fromline 1341*/ NULL ;;
+                                        /*_._IF___V28*/ meltfptr[26] =  /*reallynil*/ NULL ;;
                                     }
                                 ;
 
@@ -18748,7 +18748,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V32*/ meltfptr[20] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V32*/ meltfptr[20] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
 
@@ -18909,7 +18909,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 else    /*^cond.else*/
                                     {
 
-                                        /*_._IF___V35*/ meltfptr[19] =  /*fromline 1341*/ NULL ;;
+                                        /*_._IF___V35*/ meltfptr[19] =  /*reallynil*/ NULL ;;
                                     }
                                 ;
 
@@ -19049,7 +19049,7 @@ void melthook_HOOK_POLL_INPUTS(melt_ptr_t melthookdatap,
                                 else    /*^cond.else*/
                                     {
 
-                                        /*_._IF___V38*/ meltfptr[19] =  /*fromline 1341*/ NULL ;;
+                                        /*_._IF___V38*/ meltfptr[19] =  /*reallynil*/ NULL ;;
                                     }
                                 ;
 
@@ -19189,38 +19189,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGIO(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_HANDLE_SIGIO(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<1> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), clos) {};
-    MeltFrame_melthook_HOOK_HANDLE_SIGIO() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_HANDLE_SIGIO() //the constructor fromline 1605
         : Melt_CallFrameWithValues<1> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGIO(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_HANDLE_SIGIO(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_HANDLE_SIGIO(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_HANDLE_SIGIO(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<1> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGIO(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_HANDLE_SIGIO(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<1> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGIO), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGIO
 
 
-/** end of frame for melthook_HOOK_HANDLE_SIGIO fromline 1661**/
+/** end of frame for melthook_HOOK_HANDLE_SIGIO fromline 1660**/
 
 /* endframe for melthook_HOOK_HANDLE_SIGIO hook */
 
@@ -19300,38 +19300,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<32> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), clos) {};
-    MeltFrame_melthook_HOOK_HANDLE_SIGALRM() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_HANDLE_SIGALRM() //the constructor fromline 1605
         : Melt_CallFrameWithValues<32> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<32> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<32> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_HANDLE_SIGALRM(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<32> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGALRM), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGALRM
 
 
-/** end of frame for melthook_HOOK_HANDLE_SIGALRM fromline 1661**/
+/** end of frame for melthook_HOOK_HANDLE_SIGALRM fromline 1660**/
 
 /* endframe for melthook_HOOK_HANDLE_SIGALRM hook */
 
@@ -19458,7 +19458,7 @@ void melthook_HOOK_HANDLE_SIGALRM(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V3*/ meltfptr[2] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V3*/ meltfptr[2] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -19645,7 +19645,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
 
 
                             /*^compute*/
-                            /*_.HANDLELOOP__V7*/ meltfptr[6] =  /*fromline 1341*/ NULL ;;
+                            /*_.HANDLELOOP__V7*/ meltfptr[6] =  /*reallynil*/ NULL ;;
 
                             /*^exit*/
                             /*exit*/
@@ -19759,7 +19759,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V13*/ meltfptr[12] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V13*/ meltfptr[12] =  /*reallynil*/ NULL ;;
                         }
                     ;
 
@@ -19821,7 +19821,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
 
 
                             /*^compute*/
-                            /*_.HANDLELOOP__V7*/ meltfptr[6] =  /*fromline 1341*/ NULL ;;
+                            /*_.HANDLELOOP__V7*/ meltfptr[6] =  /*reallynil*/ NULL ;;
 
                             /*^exit*/
                             /*exit*/
@@ -19862,7 +19862,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
 
 
                             /*^compute*/
-                            /*_.HANDLELOOP__V7*/ meltfptr[6] =  /*fromline 1341*/ NULL ;;
+                            /*_.HANDLELOOP__V7*/ meltfptr[6] =  /*reallynil*/ NULL ;;
 
                             /*^exit*/
                             /*exit*/
@@ -19993,7 +19993,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                     else    /*^cond.else*/
                         {
 
-                            /*_.CLOS__V23*/ meltfptr[22] =  /*fromline 1341*/ NULL ;;
+                            /*_.CLOS__V23*/ meltfptr[22] =  /*reallynil*/ NULL ;;
                         }
                     ;
 
@@ -20060,7 +20060,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_.ALARMH_PERIOD__V29*/ meltfptr[28] =  /*fromline 1341*/ NULL ;;
+                                                    /*_.ALARMH_PERIOD__V29*/ meltfptr[28] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
                                             /*^compute*/
@@ -20111,7 +20111,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                                             else    /*^cond.else*/
                                                 {
 
-                                                    /*_._IF___V30*/ meltfptr[29] =  /*fromline 1341*/ NULL ;;
+                                                    /*_._IF___V30*/ meltfptr[29] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
                                             /*^compute*/
@@ -20143,7 +20143,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                                 else    /*^cond.else*/
                                     {
 
-                                        /*_._IF___V27*/ meltfptr[26] =  /*fromline 1341*/ NULL ;;
+                                        /*_._IF___V27*/ meltfptr[26] =  /*reallynil*/ NULL ;;
                                     }
                                 ;
                                 /*^compute*/
@@ -20169,7 +20169,7 @@ meltlabloop_HANDLELOOP_1:;/*^loopbody*/
                     else    /*^cond.else*/
                         {
 
-                            /*_._IF___V24*/ meltfptr[23] =  /*fromline 1341*/ NULL ;;
+                            /*_._IF___V24*/ meltfptr[23] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -20420,38 +20420,38 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<49> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), clos) {};
-    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD() //the constructor fromline 1606
+    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD() //the constructor fromline 1605
         : Melt_CallFrameWithValues<49> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<49> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
-    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(melthook_ptr_t hook) //the hook constructor fromline 1634
+    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(melthook_ptr_t hook) //the hook constructor fromline 1633
         : Melt_CallFrameWithValues<49> (
-#if ENABLE_CHECKING /*fromline 1638*/
+#if ENABLE_CHECKING /*fromline 1637*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1642*/
+#endif /* ENABLE_CHECKING fromline 1641*/
             sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), hook) {};
-#if ENABLE_CHECKING /*fromline 1646*/
-    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1648
+#if ENABLE_CHECKING /*fromline 1645*/
+    MeltFrame_melthook_HOOK_HANDLE_SIGCHLD(const char*fil, int lin, melthook_ptr_t hook) //the hook constructor fromline 1647
         : Melt_CallFrameWithValues<49> (fil,lin, sizeof(MeltFrame_melthook_HOOK_HANDLE_SIGCHLD), hook) {};
-#endif /* ENABLE_CHECKING fromline 1652*/
+#endif /* ENABLE_CHECKING fromline 1651*/
 
 }; // end  class MeltFrame_melthook_HOOK_HANDLE_SIGCHLD
 
 
-/** end of frame for melthook_HOOK_HANDLE_SIGCHLD fromline 1661**/
+/** end of frame for melthook_HOOK_HANDLE_SIGCHLD fromline 1660**/
 
 /* endframe for melthook_HOOK_HANDLE_SIGCHLD hook */
 
@@ -20571,7 +20571,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
             else    /*^cond.else*/
                 {
 
-                    /*_._IF___V2*/ meltfptr[1] =  /*fromline 1341*/ NULL ;;
+                    /*_._IF___V2*/ meltfptr[1] =  /*reallynil*/ NULL ;;
                 }
             ;
 
@@ -20786,7 +20786,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                             else    /*^cond.else*/
                                 {
 
-                                    /*_._IF___V10*/ meltfptr[9] =  /*fromline 1341*/ NULL ;;
+                                    /*_._IF___V10*/ meltfptr[9] =  /*reallynil*/ NULL ;;
                                 }
                             ;
 
@@ -20979,7 +20979,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                             else    /*^cond.else*/
                                 {
 
-                                    /*_.CHILPROH_PID__V17*/ meltfptr[13] =  /*fromline 1341*/ NULL ;;
+                                    /*_.CHILPROH_PID__V17*/ meltfptr[13] =  /*reallynil*/ NULL ;;
                                 }
                             ;
                             /*^compute*/
@@ -21244,7 +21244,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.CHILPROH_PID__V26*/ meltfptr[25] =  /*fromline 1341*/ NULL ;;
+                            /*_.CHILPROH_PID__V26*/ meltfptr[25] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -21272,7 +21272,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                     else    /*^cond.else*/
                         {
 
-                            /*_.CURCLOS__V27*/ meltfptr[26] =  /*fromline 1341*/ NULL ;;
+                            /*_.CURCLOS__V27*/ meltfptr[26] =  /*reallynil*/ NULL ;;
                         }
                     ;
                     /*^compute*/
@@ -21382,7 +21382,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                         else    /*^cond.else*/
                             {
 
-                                /*_._IF___V29*/ meltfptr[28] =  /*fromline 1341*/ NULL ;;
+                                /*_._IF___V29*/ meltfptr[28] =  /*reallynil*/ NULL ;;
                             }
                         ;
 
@@ -21607,7 +21607,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     else    /*^cond.else*/
                                                         {
 
-                                                            /*_._IF___V36*/ meltfptr[32] =  /*fromline 1341*/ NULL ;;
+                                                            /*_._IF___V36*/ meltfptr[32] =  /*reallynil*/ NULL ;;
                                                         }
                                                     ;
 
@@ -21775,7 +21775,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     else    /*^cond.else*/
                                                         {
 
-                                                            /*_._IF___V40*/ meltfptr[36] =  /*fromline 1341*/ NULL ;;
+                                                            /*_._IF___V40*/ meltfptr[36] =  /*reallynil*/ NULL ;;
                                                         }
                                                     ;
 
@@ -21975,7 +21975,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                                     else    /*^cond.else*/
                                                         {
 
-                                                            /*_._IF___V46*/ meltfptr[36] =  /*fromline 1341*/ NULL ;;
+                                                            /*_._IF___V46*/ meltfptr[36] =  /*reallynil*/ NULL ;;
                                                         }
                                                     ;
 
@@ -22051,7 +22051,7 @@ void melthook_HOOK_HANDLE_SIGCHLD(melt_ptr_t melthookdatap)
                                     else    /*^cond.else*/
                                         {
 
-                                            /*_._IFELSE___V45*/ meltfptr[32] =  /*fromline 1341*/ NULL ;;
+                                            /*_._IFELSE___V45*/ meltfptr[32] =  /*reallynil*/ NULL ;;
                                         }
                                     ;
                                     /*^compute*/
@@ -22192,27 +22192,27 @@ public: /* fromline 1535*/
         melt_mark_values ();
         melt_mark_stuff ();
     }; /*end melt_mark_ggc_data*/
-    Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831(meltclosure_ptr_t clos) //the closure constructor fromline 1594
+    Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831(meltclosure_ptr_t clos) //the closure constructor fromline 1593
         : Melt_CallFrameWithValues<562> (
-#if ENABLE_CHECKING /*fromline 1598*/
+#if ENABLE_CHECKING /*fromline 1597*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1602*/
+#endif /* ENABLE_CHECKING fromline 1601*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831), clos) {};
-    Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831() //the constructor fromline 1606
+    Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831() //the constructor fromline 1605
         : Melt_CallFrameWithValues<562> (
-#if ENABLE_CHECKING /*fromline 1610*/
+#if ENABLE_CHECKING /*fromline 1609*/
             __FILE__, __LINE__,
-#endif /* ENABLE_CHECKING fromline 1614*/
+#endif /* ENABLE_CHECKING fromline 1613*/
             sizeof(Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831)) {};
-#if ENABLE_CHECKING /*fromline 1618*/
-    Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831(const char*fil, int lin) //the constructor fromline 1620
+#if ENABLE_CHECKING /*fromline 1617*/
+    Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831(const char*fil, int lin) //the constructor fromline 1619
         : Melt_CallFrameWithValues<562> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831)) {};
-#endif /* ENABLE_CHECKING fromline 1630*/
+#endif /* ENABLE_CHECKING fromline 1629*/
 
 }; // end  class Melt_InitialClassyFrame_WARMELTmiHOOKS_h227378831
 
 
-/** end of frame for melt_start_this_module fromline 1661**/
+/** end of frame for melt_start_this_module fromline 1660**/
 ;
 
 
@@ -28036,23 +28036,23 @@ void* melt_start_this_module (void* modargp_)
 #undef meltcallcount
 #define meltcallcount 0L
 #endif
-//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2187
+//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2186
 
-    /* start of frame for routine melt_start_this_module fromline 1716 */
+    /* start of frame for routine melt_start_this_module fromline 1715 */
 
     /*startiniframdecl*/
 
-    /* end of frame for routine melt_start_this_module fromline 1720 */
+    /* end of frame for routine melt_start_this_module fromline 1719 */
 
 
     debugeprintf("sizeof Melt_InitialFrame in melt_start_this_module=%d", (int) sizeof(Melt_InitialFrame));
-    /* classy initial frame melt_start_this_module fromline 1737*/
+    /* classy initial frame melt_start_this_module fromline 1736*/
     Melt_InitialFrame
-    meltfram__ /*declfrastruct fromline 1744*/
-    /*classyinitroutinearg melt_start_this_module fromline 1783*/
+    meltfram__ /*declfrastruct fromline 1743*/
+    /*classyinitroutinearg melt_start_this_module fromline 1782*/
 #if ENABLE_CHECKING
-    /*classyinitroutfram fromline 1787:*/ (__FILE__, __LINE__)
-#endif /*ENABLE_CHECKING fromline1789*/
+    /*classyinitroutfram fromline 1786:*/ (__FILE__, __LINE__)
+#endif /*ENABLE_CHECKING fromline1788*/
 
     ;
 #define meltframe meltfram__
@@ -29674,7 +29674,7 @@ void* melt_start_this_module (void* modargp_)
     /**initial routine body**/
 
     debugeprintf (" in initialization of warmelt-hooks thru 11 chunk routines with frame @%p of %d bytes",
-                  /*fromline 2272*/ (void*)&meltfram__, (int) sizeof(meltfram__));
+                  /*fromline 2271*/ (void*)&meltfram__, (int) sizeof(meltfram__));
     melt_debuggc_eprintf ("initialization of warmelt-hooks thru 11 chunks, frame @%p of %d bytes",
                           (void*)&meltfram__, (int) sizeof(meltfram__));
 
@@ -29693,8 +29693,8 @@ void* melt_start_this_module (void* modargp_)
 meltlabend_rout:
     ;
     {
-        /* return out of initial fromline 2304 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
-        debugeprintf ("returning @%p from initial routine of warmelt-hooks", (void*)retval); /*fromline 2312*/
+        /* return out of initial fromline 2303 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        debugeprintf ("returning @%p from initial routine of warmelt-hooks", (void*)retval); /*fromline 2311*/
         return retval;
     }
 #undef meltcallcount
@@ -29702,7 +29702,7 @@ meltlabend_rout:
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
 
-} /* end fromline 2325 */
+} /* end fromline 2324 */
 
 void meltmod__WARMELTmiHOOKS__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {
