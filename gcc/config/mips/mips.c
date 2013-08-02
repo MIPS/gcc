@@ -19260,6 +19260,31 @@ mips_lra_p (void)
   return !TARGET_RELOAD;
 }
 
+static bool
+mips_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
+{
+  if (TARGET_MIPS16)
+    {
+      *p1 = 24;
+      *p2 = INVALID_REGNUM;
+      return true;
+    }
+
+  return false;
+}
+
+static bool
+mips_reg_equiv_profitable_p (struct ira_reg_equiv * equiv)
+{
+  if (TARGET_MIPS16
+      && optimize_size
+      && equiv->argument_p
+      && abs(frame_offset) > 1000)
+    return false;
+
+  return true;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -19502,6 +19527,15 @@ mips_lra_p (void)
 
 #undef TARGET_LRA_P
 #define TARGET_LRA_P mips_lra_p
+
+#undef TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
+#define TARGET_DIFFERENT_ADDR_DISPLACEMENT_P hook_bool_void_true
+
+#undef TARGET_FIXED_CONDITION_CODE_REGS
+#define TARGET_FIXED_CONDITION_CODE_REGS mips_fixed_condition_code_regs
+
+#undef TARGET_REG_EQUIV_PROFITABLE_P
+#define TARGET_REG_EQUIV_PROFITABLE_P mips_reg_equiv_profitable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

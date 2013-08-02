@@ -885,6 +885,12 @@ default_different_addr_displacement_p (void)
   return false;
 }
 
+bool
+default_reg_equiv_profitable_p (struct ira_reg_equiv * ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
 reg_class_t
 default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 			  reg_class_t reload_class_i ATTRIBUTE_UNUSED,
