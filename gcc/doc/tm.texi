@@ -6131,6 +6131,12 @@ integer pointed to by @var{p2} should be set to
 The default version of this hook returns false.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_FLAGS_REGISTER_EXPENSIVE_P (void)
+On targets which use a flags register that is not generally usable
+ then this hook allows the register to be marked as expensive so that
+ ifcvt does not try to perform expansion by using STORE_FLAG_VALUE
+@end deftypefn
+
 @deftypefn {Target Hook} {enum machine_mode} TARGET_CC_MODES_COMPATIBLE (enum machine_mode @var{m1}, enum machine_mode @var{m2})
 On targets which use multiple condition code modes in class
 @code{MODE_CC}, it is sometimes the case that a comparison can be
