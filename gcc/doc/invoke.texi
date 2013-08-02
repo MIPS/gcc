@@ -838,6 +838,7 @@ Objective-C and Objective-C++ Dialects}.
 -minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
 -minline-intermix -mno-inline-intermix @gol
+-mgrow-frame-downwards -mno-grow-frame-downwards @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
@@ -17927,6 +17928,18 @@ This is useful in conjunction with the @code{mips16}, @code{micromips}, or
 is compiled using the compression flags for the callee, so you may need to use
 the @code{noinline} attribute on functions that must be compiled with
 particular compression settings.
+
+@item -mgrow-frame-downwards
+@itemx -mno-grow-frame-downwards
+@opindex mgrow-frame-downwards
+Grow the local frame down (up) for MIPS16.
+
+Growing the frame downwards allows us to get spill slots created at the lowest
+address rather than the highest address in a local frame.  The benefit of this
+is smaller code size as accessing spill slots closer to the stack pointer
+can be done using using 16-bit instructions.
+
+The option is enabled by default (to grow frame downwards) for MIPS16.
 
 @item -mabi=32
 @itemx -mabi=o64

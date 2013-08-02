@@ -447,3 +447,7 @@ Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee.
+
+mgrow-frame-downwards
+Target Report Var(TARGET_FRAME_GROWS_DOWNWARDS) Init(1)
+Change the behaviour to grow the frame downwards for MIPS16.
