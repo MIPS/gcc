@@ -2549,6 +2549,8 @@ as below:
 
 @hook TARGET_SPILL_CLASS
 
+@hook TARGET_REG_EQUIV_PROFITABLE_P
+
 @hook TARGET_CSTORE_MODE
 
 @node Old Constraints

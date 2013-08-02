@@ -160,6 +160,8 @@ struct ira_reg_equiv_s
   bool defined_p;
   /* True if the usage of the equivalence is profitable.  */
   bool profitable_p;
+  /* True if this represents an argument slot */
+  bool argument_p;
   /* Equiv. memory, constant, invariant, and initializing insns of
      given pseudo-register or NULL_RTX.  */
   rtx memory;
