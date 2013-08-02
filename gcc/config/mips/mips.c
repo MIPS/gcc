@@ -18697,6 +18697,18 @@ mips_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
   return false;
 }
 
+static bool
+mips_reg_equiv_profitable_p (struct ira_reg_equiv * equiv)
+{
+  if (TARGET_MIPS16
+      && optimize_size
+      && equiv->argument_p
+      && abs(frame_offset) > 1000)
+    return false;
+
+  return true;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -18944,6 +18956,9 @@ mips_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
 
 #undef TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
 #define TARGET_DIFFERENT_ADDR_DISPLACEMENT_P hook_bool_void_true
+
+#undef TARGET_REG_EQUIV_PROFITABLE_P
+#define TARGET_REG_EQUIV_PROFITABLE_P mips_reg_equiv_profitable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
