@@ -1,14 +1,24 @@
 2013-07-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/semantics.c (trait_expr_value): Evaluate __is_same_as.
+	(finish_trait_expr): Check __is_same_as and __is_convertible_to.
+	* gcc/cp/constraint.cc (diagnose_trait): Diagnose failures in
+	__is_same_as.
+	* gcc/cp/parser.c (cp_parser_primary_expression), 
+	(cp_parser_trait_expr): Parse __is_same_as.
+	* gcc/cp/cp-tree.h (cp_trait_kind): Add CPTK_IS_SAME_AS.
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_trait_expression): Pretty print
+	__is_same_as trait.
+
+2013-07-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/tree.c (cp_walk_subtrees): Don't recurse through the
 	requires expr parameter list.
 
 2013-07-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_parser_requires_expr): Update parser using new
 	requires expression nodes. Renamed some grammar productions to better 
-	reflect the representation of the syntax. Create a new scope for requires
-	parameters.
-	(cp_parser_nested_requirement): Wrap results in a
-	NESTED_REQ node.        
+	reflect the representation of the syntax. Create a new scope for 
+	requires parameters.
+	(cp_parser_nested_requirement): Wrap results in a NESTED_REQ node.        
 	* gcc/cp/semantics.c (xvalue_result_type): New.
 	(trait_expr_value): Evaluate __is_convertible_to.
 	(finish_requires_expr): Implemented, along with other functions to

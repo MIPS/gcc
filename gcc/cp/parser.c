@@ -4428,6 +4428,7 @@ cp_parser_primary_expression (cp_parser *parser,
 	case RID_IS_LITERAL_TYPE:
 	case RID_IS_POD:
 	case RID_IS_POLYMORPHIC:
+  case RID_IS_SAME_AS:
 	case RID_IS_STD_LAYOUT:
 	case RID_IS_TRIVIAL:
 	case RID_IS_UNION:
@@ -8448,6 +8449,10 @@ cp_parser_trait_expr (cp_parser* parser, enum rid keyword)
       break;
     case RID_IS_POLYMORPHIC:
       kind = CPTK_IS_POLYMORPHIC;
+      break;
+    case RID_IS_SAME_AS:
+      kind = CPTK_IS_SAME_AS;
+      binary = true;
       break;
     case RID_IS_STD_LAYOUT:
       kind = CPTK_IS_STD_LAYOUT;

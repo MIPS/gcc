@@ -1070,6 +1070,9 @@ diagnose_trait (location_t loc, tree t, tree args)
       case CPTK_IS_POLYMORPHIC:
         inform (loc, "  %qT is not a polymorphic type", t1);
         break;
+      case CPTK_IS_SAME_AS:
+        inform (loc, "  %qT is not the same as %qT", t1, t2);
+        break;
       case CPTK_IS_STD_LAYOUT:
         inform (loc, "  %qT is not an standard layout type", t1);
         break;

@@ -5662,6 +5662,9 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_IS_POLYMORPHIC:
       return (CLASS_TYPE_P (type1) && TYPE_POLYMORPHIC_P (type1));
 
+    case CPTK_IS_SAME_AS:
+      return same_type_p (type1, type2);
+
     case CPTK_IS_STD_LAYOUT:
       return (std_layout_type_p (type1));
 
@@ -5716,6 +5719,7 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
 	      || kind == CPTK_IS_LITERAL_TYPE
 	      || kind == CPTK_IS_POD
 	      || kind == CPTK_IS_POLYMORPHIC
+        || kind == CPTK_IS_SAME_AS
 	      || kind == CPTK_IS_STD_LAYOUT
 	      || kind == CPTK_IS_TRIVIAL
 	      || kind == CPTK_IS_UNION);
@@ -5767,9 +5771,14 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
     case CPTK_IS_CLASS:
     case CPTK_IS_ENUM:
     case CPTK_IS_UNION:
+    case CPTK_IS_SAME_AS:
       break;
     
     case CPTK_IS_CONVERTIBLE_TO:
+      if (!check_trait_type (type1))
+        return error_mark_node;
+      if (!check_trait_type (type2))
+        return error_mark_node;
       break;
 
     default:
