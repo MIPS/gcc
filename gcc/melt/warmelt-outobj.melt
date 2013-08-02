@@ -4402,11 +4402,10 @@ meltlabend_rout:
 (install_method class_objtouch output_c_code outpucod_objtouch)
 
 
-;;; @@@$$$ assert_msg and other improved above not below
 
 ;; output a debug tracing of written object
 (defun outpucod_dbgtracewriteobj (otwro declbuf implbuf :long depth)
-  (assert_msg "check otwro" (is_a otwro class_objdbgtracewriteobj))
+  (assert_msg "check otwro" (is_a otwro class_objdbgtracewriteobj) otwro)
   (let ( (iloc (unsafe_get_field :obi_loc otwro)) 
 	 (owritten (unsafe_get_field :obdtw_writtenobj otwro)) 
 	 (msg (unsafe_get_field :obdtw_message otwro))
@@ -4426,7 +4425,7 @@ meltlabend_rout:
   
 ;;; output a put tuple (mostly used in initial data content filling)
 (defun outpucod_objputuple (optup declbuf implbuf :long depth)
-  (assert_msg "check optyp" (is_a optup class_objputuple))
+  (assert_msg "check optyp" (is_a optup class_objputuple) optup)
   (let ( (iloc (unsafe_get_field :obi_loc optup))
 	 (otup (unsafe_get_field :oputu_tupled optup))
 	 (ooff (unsafe_get_field :oputu_offset optup))
@@ -4491,7 +4490,7 @@ meltlabend_rout:
      (add2sbuf_strconst implbuf ");")
      (add2sbuf_indentnl implbuf depth)
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
     )
   )
@@ -4524,7 +4523,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
 ))
 (install_method class_objputpairhead output_c_code outpucod_objputpairhead)
 
@@ -4550,7 +4549,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
 ))
 (install_method class_objputpairtail output_c_code outpucod_objputpairtail)
 
@@ -4581,26 +4580,26 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
 ))
 (install_method class_objputlist output_c_code outpucod_objputlist)
 
 ;;;;
 (defun outpucod_objgetslot (ogsl declbuf implbuf :long depth)
-  (assert_msg "check ogsl" (is_a ogsl class_objgetslot))
+  (assert_msg "check ogsl" (is_a ogsl class_objgetslot) ogsl)
   (let ( (oloc (unsafe_get_field :obi_loc ogsl))
 	 (destlist (unsafe_get_field :obdi_destlist ogsl))
 	 (oobj (unsafe_get_field :ogetsl_obj ogsl))
 	 (ofield (unsafe_get_field :ogetsl_field ogsl))
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
 	 )
-    (assert_msg "check ofield" (is_a ofield class_field))
+    (assert_msg "check ofield" (is_a ofield class_field) ofield)
     (output_location oloc implbuf depth "getslot")
     (add2sbuf_strconst implbuf "{ melt_ptr_t slot=NULL, obj=NULL;")
     (add2sbuf_indentnl implbuf (+i 1 depth))
-    (add2sbuf_strconst implbuf "obj = (melt_ptr_t)(");
+    (add2sbuf_strconst implbuf "obj = (melt_ptr_t)(") ;
     (output_c_code oobj declbuf implbuf depth)
-    (add2sbuf_strconst implbuf ") /*=obj*/;");
+    (add2sbuf_strconst implbuf ") /*=obj*/;") ;
     (add2sbuf_indentnl implbuf (+i 1 depth))
     (add2sbuf_strconst implbuf "melt_object_get_field(slot,obj, ")
     (add2sbuf_longdec implbuf (get_int ofield))
@@ -4608,17 +4607,17 @@ meltlabend_rout:
     (add2sbuf_string implbuf (unsafe_get_field :named_name ofield))
     (add2sbuf_strconst implbuf "\");")
     (add2sbuf_indentnl implbuf (+i 1 depth))
-    (list_every
-     destlist
-     (lambda (dst)    
-       (output_c_code dst declbuf implbuf (get_int boxdepthp1))
-       (assert_msg "check limited implbuf" 
-		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-       (add2sbuf_strconst implbuf " = ")))
+    (foreach_in_list
+     (destlist)
+     (curpair dst)    
+     (output_c_code dst declbuf implbuf (get_int boxdepthp1))
+     (assert_msg "check limited implbuf" 
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+     (add2sbuf_strconst implbuf " = "))
     (add2sbuf_strconst implbuf "slot; };")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objgetslot output_c_code outpucod_objgetslot)
 
@@ -4627,7 +4626,7 @@ meltlabend_rout:
 ;;; output a put slot (mostly used in initial data content filling)
 (defun outpucod_objputslot (opslo declbuf implbuf :long depth)
   (debug "outpucod_objputslot opslo=" opslo)
-  (assert_msg "check opslo" (is_a opslo class_objputslot))
+  (assert_msg "check opslo" (is_a opslo class_objputslot) opslo)
   (let ( (iloc (unsafe_get_field :obi_loc opslo))
 	 (odata (unsafe_get_field :oslot_odata opslo))
 	 (ooff (unsafe_get_field :oslot_offset opslo))
@@ -4646,11 +4645,11 @@ meltlabend_rout:
 		(cond ( (is_a ofield class_named)
 			(add2out msgbuf " @" (unsafe_get_field :named_name ofield)))
 		      (:else
-		        (add2out msgbuf " @#" ooff)))
+		       (add2out msgbuf " @#" ooff)))
 		(strbuf2string discr_verbatim_string msgbuf)))
 	 )
     (debug "outpucod_objputslot msg=" msg)
-    (assert_msg "outpucod_objputslot check oval not nrep" (not (is_a oval class_nrep)))
+    (assert_msg "outpucod_objputslot check oval not nrep" (is_not_a oval class_nrep) oval)
     (output_location iloc implbuf depth "putslot")
     (add2sbuf_strconst implbuf "/*putslot*/")
     (add2sbuf_indentnl implbuf depth)
@@ -4695,14 +4694,15 @@ meltlabend_rout:
       )
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-    ))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+    )
+  )
 (install_method class_objputslot output_c_code outpucod_objputslot)
 
 
 ;;; output the putting of the routine in a closure
 (defun outpucod_objputclosurout (opclor  declbuf implbuf :long depth)
-  (assert_msg "check opclor" (is_a opclor class_objputclosurout))
+  (assert_msg "check opclor" (is_a opclor class_objputclosurout) opclor)
   (let ( (oloc (unsafe_get_field :obi_loc opclor))
 	 (oclos (unsafe_get_field :opclor_clos opclor))
 	 (orout (unsafe_get_field :opclor_rout opclor)) 
@@ -4739,14 +4739,14 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objputclosurout output_c_code outpucod_objputclosurout)
 
 ;;; output the putting of a closed value
 (defun outpucod_objputclosedv (opclov declbuf implbuf :long depth)
-  (assert_msg "check opclor" (is_a opclov class_objputclosedv))
+  (assert_msg "check opclov" (is_a opclov class_objputclosedv) opclov)
   (let ( (oloc (unsafe_get_field :obi_loc opclov))
 	 (oclos (unsafe_get_field :opclov_clos opclov))
 	 (ooff (unsafe_get_field :opclov_off opclov))
@@ -4775,14 +4775,14 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objputclosedv output_c_code outpucod_objputclosedv)
 
 
 ;;; output the putting of a nonull closed value
 (defun outpucod_objputclosednotnullv (opclov declbuf implbuf :long depth)
-  (assert_msg "check opclor" (is_a opclov class_objputclosednotnullv))
+  (assert_msg "check opclov" (is_a opclov class_objputclosednotnullv) opclov)
   (let ( (oloc (unsafe_get_field :obi_loc opclov))
 	 (oclos (unsafe_get_field :opclov_clos opclov))
 	 (ooff (unsafe_get_field :opclov_off opclov))
@@ -4815,14 +4815,14 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objputclosednotnullv output_c_code outpucod_objputclosednotnullv)
 
 
 ;; output the putting of a constant value inside a routine
 (defun outpucod_objputroutconst (oprconst declbuf implbuf :long depth)
-  (assert_msg "check oprconst" (is_a oprconst class_objputroutconst))
+  (assert_msg "check oprconst" (is_a oprconst class_objputroutconst) oprconst)
   (let ( (oloc (unsafe_get_field :obi_loc oprconst))
 	 (orout (unsafe_get_field :oprconst_rout oprconst))
 	 (oroutnam (if (is_a orout class_objinitroutine) (unsafe_get_field :oie_cname orout)))
@@ -4854,14 +4854,14 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objputroutconst output_c_code outpucod_objputroutconst)
 
 ;; output the putting of a nonnull constant value inside a routine
 (defun outpucod_objputroutconstnotnull (oprconst declbuf implbuf :long depth)
-  (assert_msg "check oprconst" (is_a oprconst class_objputroutconstnotnull))
+  (assert_msg "check oprconst" (is_a oprconst class_objputroutconstnotnull) oprconst)
   (let ( (oloc (unsafe_get_field :obi_loc oprconst))
 	 (orout (unsafe_get_field :oprconst_rout oprconst))
 	 (ooff (unsafe_get_field :oprconst_off oprconst))
@@ -4887,7 +4887,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objputroutconstnotnull output_c_code outpucod_objputroutconstnotnull)
@@ -4895,7 +4895,7 @@ meltlabend_rout:
 ;; output the putting of a constant value inside a hook
 (defun outpucod_objputhookconst (ophconst declbuf implbuf :long depth)
   (debug "outpucod_objputhookconst ophconst=" ophconst)
-  (assert_msg "check ophconst" (is_a ophconst class_objputhookconst))
+  (assert_msg "check ophconst" (is_a ophconst class_objputhookconst) ophconst)
   (let ( (oloc (get_field :obi_loc ophconst))
 	 (ohook (get_field :ophconst_hook ophconst))
 	 (ohoff (get_field :ophconst_off ophconst))
@@ -4939,7 +4939,7 @@ meltlabend_rout:
 ;; output the putting of a constant data inside a hook
 (defun outpucod_objputhookdata (ophd declbuf implbuf :long depth)
   (debug "outpucod_objputhookdata ophd=" ophd)
-  (assert_msg "check ophconst" (is_a ophd class_objputhookdata))
+  (assert_msg "check ophconst" (is_a ophd class_objputhookdata) ophd)
   (let ( (oloc (get_field :obi_loc ophd))
 	 (ohook (get_field :ophkdata_hook ophd))
 	 (odata (get_field :ophkdata_data ophd))
@@ -4947,7 +4947,7 @@ meltlabend_rout:
 	 (hookname (get_field :ndata_name nhook))
 	 )
     (debug "outpucod_objputhookdata ophd=" ophd "\n.. ohook=" ohook "\n.. odata=" odata "\n nhook=" nhook)
-    (assert_msg "check ohook" (is_a ohook class_objinithook))
+    (assert_msg "check ohook" (is_a ohook class_objinithook) ohook)
     (output_location oloc implbuf depth "puthookdata")
     (add2out implbuf ##{/*put data in hook $HOOKNAME */}#)
     (add2sbuf_indentnl implbuf depth)
@@ -4967,15 +4967,15 @@ meltlabend_rout:
 
 ;;; output the put of an extra returned result
 (defun outpucod_objputxtraresult (oputx declbuf implbuf :long depth)
-  (assert_msg "check oputx" (is_a oputx class_objputxtraresult))
+  (assert_msg "check oputx" (is_a oputx class_objputxtraresult) oputx)
   (let (  (oloc (unsafe_get_field :obi_loc oputx))
 	  (orank (unsafe_get_field :obxres_rank oputx))
 	  (ovloc (unsafe_get_field :obxres_obloc oputx))
 	  (octyp (get_ctype ovloc ()))
 	  )
     (output_location oloc implbuf depth "putxtraresult")
-    (assert_msg "check octyp" (is_a octyp class_ctype))
-    (assert_msg "check orank" (is_integerbox orank))
+    (assert_msg "check octyp" (is_a octyp class_ctype) octyp)
+    (assert_msg "check orank" (is_integerbox orank) orank)
     (add2sbuf_strconst implbuf "if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;")
     (add2sbuf_indentnl implbuf depth)
     (add2sbuf_strconst implbuf "if (meltxresdescr_[")
@@ -5002,9 +5002,10 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ");")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objputxtraresult output_c_code  outpucod_objputxtraresult)
+
 
 ;;; output an expression
 (defun outpucod_objexpv (oexp declbuf implbuf :long depth)
@@ -5012,27 +5013,27 @@ meltlabend_rout:
   (let ( (cont (unsafe_get_field :obx_cont oexp)) 
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
 	 )
-    (assert_msg "check cont" (is_multiple cont))
+    (assert_msg "check cont" (is_multiple cont) cont)
     (foreach_in_multiple
      (cont)
      (comp :long ix)
      (output_c_code comp declbuf implbuf (get_int boxdepthp1))
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )))
 (install_method class_objexpv output_c_code outpucod_objexpv)
 
 ;;; output a located expression
 (defun outpucod_objlocatedexpv (oexp declbuf implbuf :long depth)
   (debug "outpucod_objlocatedexpv oexp=" oexp)
-  (assert_msg "check oexp" (is_a oexp class_objlocatedexpv))
+  (assert_msg "check oexp" (is_a oexp class_objlocatedexpv) oexp)
   (let ( (cont (unsafe_get_field :obx_cont oexp)) 
 	 (oloc (unsafe_get_field :obcx_loc oexp))
 	 (:long depthp1 (+i depth 1))
 	 (otyp (unsafe_get_field :obv_type oexp))
 	 )
     ;; the cont may be null
-    (assert_msg "check cont" (is_multiple_or_null cont))
+    (assert_msg "check cont" (is_multiple_or_null cont) cont)
     (if (== otyp ctype_void)
 	(progn
 	  (add2sbuf_indentnl implbuf depth)
@@ -5051,24 +5052,24 @@ meltlabend_rout:
      (comp :long ix)
      (output_c_code comp declbuf implbuf depthp1)
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
-    (if (== otyp ctype_void)
-	(progn
-	  (add2sbuf_strconst implbuf ";}")
-	  (add2sbuf_indentnl implbuf depth)))
+    (when (== otyp ctype_void)
+      (add2sbuf_strconst implbuf ";}")
+      (add2sbuf_indentnl implbuf depth))
     )
   (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method class_objlocatedexpv output_c_code outpucod_objlocatedexpv)
 
+
 ;;; output a verbatim string
 (defun outpucod_verbatimstring (vstr declbuf implbuf :long depth)
-  (assert_msg "check vstr" (== (discrim vstr) discr_verbatim_string))
+  (assert_msg "check vstr" (== (discrim vstr) discr_verbatim_string) vstr)
   (add2sbuf_string implbuf vstr)
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) vstr)
   )
 (install_method discr_verbatim_string output_c_code outpucod_verbatimstring)
 
@@ -5076,12 +5077,12 @@ meltlabend_rout:
 
 ;; output a string (cstring constant)
 (defun outpucod_string (vstr declbuf implbuf :long depth)
-  (assert_msg "check vstr" (== (discrim vstr) discr_string)) 
+  (assert_msg "check vstr" (== (discrim vstr) discr_string) vstr) 
   (add2sbuf_strconst implbuf " \"")
   (add2sbuf_cencstring implbuf vstr)
   (add2sbuf_strconst implbuf "\"")
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method discr_string output_c_code outpucod_string)
 
@@ -5089,20 +5090,20 @@ meltlabend_rout:
 
 ;;; output an integer
 (defun outpucod_integer (vint declbuf implbuf :long depth)
-  (assert_msg "check vint" (is_integerbox vint))
+  (assert_msg "check vint" (is_integerbox vint) vint)
   (add2sbuf_longdec implbuf (get_int vint))
   )
 (install_method discr_integer output_c_code outpucod_integer)
 
 ;;; output a finalreturn
 (defun outpucod_finalreturn (fret declbuf implbuf :long depth)
-  (assert_msg "check fret" (is_a fret class_objfinalreturn))
+  (assert_msg "check fret" (is_a fret class_objfinalreturn) fret)
   (output_location (unsafe_get_field :obi_loc fret) implbuf depth "finalreturn")
   (add2sbuf_strconst implbuf ";")
   (add2sbuf_indentnl implbuf depth)
   (add2sbuf_strconst implbuf "/*finalret*/ goto meltlabend_rout ")
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method class_objfinalreturn output_c_code outpucod_finalreturn)
 
@@ -5115,18 +5116,19 @@ meltlabend_rout:
     (foreach_in_mapstring
      (dic)
      (nam ent)
-     (assert_msg "check ent named" (is_a ent class_named))
+     (assert_msg "check ent named" (is_a ent class_named) ent)
      (list_append entlist ent))
     (let ( (rawtup (list_to_multiple entlist))
 	   )
       (assert_msg "sorted_named_dict_tuple check tuple length is dict count"
-		  (==i dicnt (multiple_length rawtup)))
+		  (==i dicnt (multiple_length rawtup)) rawtup)
       (multiple_sort rawtup compare_named_alpha discr_multiple)
       )
     ))
 
+
 (defun output_exported_offsets (modctx declbuf implbuf)
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
   (let ( 
 	(rawdictfields (unsafe_get_field :mocx_expfieldict modctx))
 	(sortedfields (sorted_named_dict_tuple rawdictfields))
@@ -5141,7 +5143,7 @@ meltlabend_rout:
     (foreach_in_multiple 
      (sortedfields)
      (fld :long ix)
-     (assert_msg "check fld" (is_a fld class_field))
+     (assert_msg "check fld" (is_a fld class_field) fld)
      (add2sbuf_indentnl implbuf 0)
      (add2sbuf_strconst implbuf "MELT_EXTERN const int meltfieldoff__")
      (add2sbuf_cident implbuf (unsafe_get_field :named_name fld))
@@ -5156,7 +5158,7 @@ meltlabend_rout:
      (add2sbuf_string implbuf (get_field :named_name (get_field :fld_ownclass fld)))
      (add2sbuf_strconst implbuf " */")
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
@@ -5166,7 +5168,7 @@ meltlabend_rout:
     (foreach_in_multiple
      (sortedclasses)
      (cla :long ix)
-     (assert_msg "check cla" (is_a cla class_class))
+     (assert_msg "check cla" (is_a cla class_class) cla)
      (add2sbuf_indentnl implbuf 0)
      (add2sbuf_strconst implbuf "MELT_EXTERN const int meltclasslen__")
      (add2sbuf_cident implbuf (unsafe_get_field :named_name cla))
@@ -5179,7 +5181,7 @@ meltlabend_rout:
 		       (multiple_length (unsafe_get_field :class_fields cla)))
      (add2sbuf_strconst implbuf ";")
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
@@ -5205,9 +5207,9 @@ meltlabend_rout:
 
 ;;; retrieve or create the nth secondary file in a module
 (defun nth_secundary_file (modctx modnamstr declbuf :long ix)
-    (assert_msg "check modctx" (is_a modctx class_any_module_context))
-    (assert_msg "check modnamstr" (is_string modnamstr))
-    (assert_msg "check declbuf" (is_strbuf declbuf))
+    (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+    (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
+    (assert_msg "check declbuf" (is_strbuf declbuf) declbuf)
     (let ( (mofiles (get_field :mocx_filetuple modctx))
 	   (:long nbfiles (multiple_length mofiles))
 	   (nthfile (multiple_nth mofiles ix))
@@ -5240,8 +5242,8 @@ meltlabend_rout:
 ;; timestamp FOO+melttime.h [#include-d by FOO+meltdesc.c] from files
 (defun output_melt_descriptor (modnamstr secfiles modctx)
   (debug "output_melt_descriptor modnamstr=" modnamstr " secfiles=" secfiles " modctx=" modctx)
-  (assert_msg "check modnamstr" (is_string modnamstr))
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
+  (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
   (let ( 
 	(:long nbsecfiles (multiple_length secfiles))
 	(:long lastsecfileix 0)
@@ -5441,7 +5443,7 @@ meltlabend_rout:
        (if curfil
 	   (progn
 	     (assert_msg "output_melt_descriptor check curfil" 
-			 (is_a curfil class_secondary_cc_file))
+			 (is_a curfil class_secondary_cc_file) curfil)
 	     (setq lastsecfileix filix)
 	     (let ( (secpath (get_field :secfil_path curfil)) 
 		    (secmd5s (string_hex_md5sum_pathstrv secpath))
@@ -5501,7 +5503,7 @@ meltlabend_rout:
 			 (strbuf2string discr_string mout))
 		       )
 	     )
-	(assert_msg "check cumpathmds" (is_string cumpathmds)) 
+	(assert_msg "check cumpathmds" (is_string cumpathmds) cumpathmds) 
 	;;
 	(add2out mkrulebuf "## dependency for descriptor object of " modnamstr "\n")
 	(add2out mkrulebuf  modprefstr "."  cumpathmds ".descriptor.meltpic.o: " modnamstr "+meltdesc.c " 
@@ -5520,7 +5522,8 @@ meltlabend_rout:
 	 (let ( (pathtup (list_to_multiple pathlist discr_multiple))
 		(md5tup (list_to_multiple md5list discr_multiple))
 		)
-	   (assert_msg "check same length pathtup md5tup" (==i (multiple_length pathtup) (multiple_length md5tup)))
+	   (assert_msg "check same length pathtup md5tup" 
+		       (==i (multiple_length pathtup) (multiple_length md5tup)) pathtup md5tup)
 	   (foreach_in_multiple
 	    (pathtup)
 	    (curpath :long ix)
@@ -5674,10 +5677,10 @@ $MODCTX is the module context, and $IX is the index.}#
 	   "\n* modctx=" modctx
 	   "\n* ix=" ix)
     (error_strv dloc "unimplemented SYNTAX_TEST_GENERATOR method for " disname)
-    (assert_msg "check gendev" (is_a gendev class_source_generator_device))
-    (assert_msg "check sbuf" (is_strbuf sbuf))
-    (assert_msg "check modctx" (is_a modctx class_any_module_context))
-    (assert_msg "@$@unimplemented syntax_test_generator")
+    (assert_msg "check gendev" (is_a gendev class_source_generator_device) gendev)
+    (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+    (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+    (assert_msg "@$@unimplemented syntax_test_generator" () recv)
 ))
 (install_method discr_any_receiver syntax_test_generator syntestgen_any)
 		
@@ -5685,14 +5688,14 @@ $MODCTX is the module context, and $IX is the index.}#
 
 (defun substitute_formals_for_syntest (sbuf replmap formals :cstring prefix)
   (debug "substitute_formals_for_syntest sbuf=" sbuf "\n replmap=" replmap "\n* formals=" formals "\n prefix=" prefix)
-  (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check replmap" (is_mapobject replmap))
-  (assert_msg "check formals" (is_multiple_or_null formals))
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (assert_msg "check replmap" (is_mapobject replmap) replmap)
+  (assert_msg "check formals" (is_multiple_or_null formals) formals)
   (foreach_in_multiple
    (formals)
    (curformal :long ix)
    (debug "substitute_formals_for_syntest curformal=" curformal " ix=" ix)
-   (assert_msg "check curformal" (is_a curformal class_formal_binding))
+   (assert_msg "check curformal" (is_a curformal class_formal_binding) curformal)
    (let ( (fsymb (get_field :binder curformal))
 	  (ftype (get_field :fbind_type curformal))
 	  (gensy (let ( (nambuf (make_strbuf discr_strbuf))
@@ -5735,10 +5738,10 @@ $MODCTX is the module context, and $IX is the index.}#
 ;;;;;;;;;;;;;;;;
 (defun syntestgen_primitive (recv gendev sbuf modctx :long ix)
   (debug "syntestgen_primitive recv=" recv " gendev=" gendev)
-  (assert_msg "check recv" (is_a recv class_primitive))
-  (assert_msg "check gendev" (is_a gendev class_source_generator_device))
-  (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
+  (assert_msg "check recv" (is_a recv class_primitive) recv)
+  (assert_msg "check gendev" (is_a gendev class_source_generator_device) gendev)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
   (let ( (dloc (get_field :loca_location gendev))
 	 (pridef (get_field :srcgen_defin gendev))
 	 (prirep (get_field :srcgen_repr gendev))
@@ -5750,8 +5753,8 @@ $MODCTX is the module context, and $IX is the index.}#
 	 (replmap (make_mapobject discr_map_objects 
 				  (+i 5 (*i 2 (multiple_length priformals)))))
 	 )
-    (assert_msg "check pridef" (is_a pridef class_source_defprimitive))
-    (assert_msg "check prirep" (== prirep recv))
+    (assert_msg "check pridef" (is_a pridef class_source_defprimitive) pridef)
+    (assert_msg "check prirep" (== prirep recv) prirep recv)
     (add2out sbuf "/*primitive-syntax ")
     (add2sbuf_ccomstring sbuf prinam)
     (add2out sbuf "*/ {")
@@ -5795,10 +5798,10 @@ $MODCTX is the module context, and $IX is the index.}#
 ;;;;;;;;;;;;;;;;
 (defun syntestgen_citerator (recv gendev sbuf modctx :long ix)
   (debug "syntestgen_citerator recv=" recv " gendev=" gendev)
-  (assert_msg "check recv" (is_a recv class_citerator))
-  (assert_msg "check gendev" (is_a gendev class_source_generator_device))
-  (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
+  (assert_msg "check recv" (is_a recv class_citerator) recv)
+  (assert_msg "check gendev" (is_a gendev class_source_generator_device) gendev)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
   (let ( (dloc (get_field :loca_location gendev))
 	 (citdef (get_field :srcgen_defin gendev))
 	 (citrep (get_field :srcgen_repr gendev))
@@ -5817,8 +5820,8 @@ $MODCTX is the module context, and $IX is the index.}#
 	 (befloc (or (get_field :sciterdef_beforeloc citdef) dloc))
 	 (aftloc (or (get_field :sciterdef_afterloc citdef) dloc))
 	 )
-    (assert_msg "check citdef" (is_a citdef class_source_defciterator))
-    (assert_msg "check citrep" (== citrep recv))
+    (assert_msg "check citdef" (is_a citdef class_source_defciterator) citdef)
+    (assert_msg "check citrep" (== citrep recv) citrep recv)
     (add2out sbuf "/*citerator-syntax ")
     (add2sbuf_ccomstring sbuf citnam)
     (add2out sbuf "*/ {")
@@ -5863,10 +5866,10 @@ $MODCTX is the module context, and $IX is the index.}#
 ;;;;;;;;;;;;;;;;
 (defun syntestgen_cmatcher (recv gendev sbuf modctx :long ix)
   (debug "syntestgen_cmatcher recv=" recv " gendev=" gendev)
-  (assert_msg "check recv" (is_a recv class_cmatcher))
-  (assert_msg "check gendev" (is_a gendev class_source_generator_device))
-  (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
+  (assert_msg "check recv" (is_a recv class_cmatcher) recv)
+  (assert_msg "check gendev" (is_a gendev class_source_generator_device) gendev)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
   (let ( (dloc (get_field :loca_location gendev))
 	 (cmatdef (get_field :srcgen_defin gendev))
 	 (cmatrep (get_field :srcgen_repr gendev))
@@ -5949,9 +5952,9 @@ $MODCTX is the module context, and $IX is the index.}#
 (defun emit_syntax_testing_routine (gendevtup modctx sbuf)
   (debug "emit_syntax_testing_routine gendevtup=" gendevtup 
 	 " sbuf=" sbuf)
-  (assert_msg "check gendevtup" (is_multiple gendevtup))
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
-  (assert_msg "check sbuf" (is_strbuf sbuf))
+  (assert_msg "check gendevtup" (is_multiple gendevtup) gendevtup)
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (let ( 
 	(:long nbgendev (multiple_length gendevtup))
 	(modnam (get_field :mocx_modulename modctx))
@@ -5962,7 +5965,7 @@ $MODCTX is the module context, and $IX is the index.}#
 	   (strbuf2string discr_verbatim_string nabuf)))
 	)
     (debug "emit_syntax_testing_routine syntestname=" syntestname)
-    (assert_msg "check syntestname" (is_string syntestname))
+    (assert_msg "check syntestname" (is_string syntestname) syntestname)
     (add2sbuf_indentnl sbuf 0)
     (add2sbuf_indentnl sbuf 0)
     (add2sbuf_indentnl sbuf 0)
@@ -5985,7 +5988,7 @@ if (1) return;
      (curgendev :long gix)
      (add2sbuf_indentnl sbuf 1)
      (debug "emit_syntax_testing_routine curgendev=" curgendev "\n gix#" gix)
-     (assert_msg "check curgendev" (is_a curgendev class_source_generator_device))
+     (assert_msg "check curgendev" (is_a curgendev class_source_generator_device) curgendev)
      (let ( (:long sucgix (+i gix 1))
 	    (repr (get_field :srcgen_repr curgendev))
 	    )
@@ -6020,11 +6023,11 @@ if (1) return;
 	 "\n* modctx=" modctx
 	 "\n* ncx=" ncx
 	 "\n* inienv=" inienv)
-  (assert_msg "check xlist" (is_list xlist))
-  (assert_msg "check modnamstr" (is_string modnamstr))
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
-  (assert_msg "check ncx" (is_a ncx class_normalization_context))
-  (assert_msg "check inienv" (is_a inienv class_environment))
+  (assert_msg "check xlist" (is_list xlist) xlist)
+  (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+  (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+  (assert_msg "check inienv" (is_a inienv class_environment) inienv)
   (debug "normalize_macroexpanded_list modctx=" modctx)
   (let (
 	(:long startclock 0)
@@ -6111,8 +6114,8 @@ if (1) return;
 	       (list_append bindlist nbind)))
 	)))
     ;;
-    (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc))
-    (assert_msg "check xlist" (is_list xlist))
+    (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc) iniproc)
+    (assert_msg "check xlist" (is_list xlist) xlist)
     ;;
     (debug "normalize_macroexpanded_list gives normlist=" normlist
 	   "\n bindlist=" bindlist
@@ -6133,7 +6136,7 @@ if (1) return;
      (tuphooks)
      (curhookrout :long hix)
      (debug "output_hooks_with_modvar curhookrout=" curhookrout " hix#" hix)
-     (assert_msg "check curhookrout" (is_a curhookrout class_hookroutineobj))
+     (assert_msg "check curhookrout" (is_a curhookrout class_hookroutineobj) curhookrout)
      (let ( (nhookproc (get_field :obrout_proc curhookrout))
 	    (nhookdata (get_field :nrhook_datahook nhookproc))
 	    (modvarbind (get_field :ndhook_modvarbind nhookdata))
@@ -6147,11 +6150,11 @@ if (1) return;
        (debug "output_hooks_with_modvar nhookproc=" nhookproc "\n modvarbind=" modvarbind)
        (debug "output_hooks_with_modvar hkname=" hkname "\n nhookdata=" nhookdata "\n hkctype=" hkctype)
        (debug "output_hooks_with_modvar hkins=" hkins " hkouts=" hkouts)
-       (assert_msg "check nhookproc" (is_a nhookproc class_nrep_hookproc))
-       (assert_msg "check hkname" (is_string hkname))
-       (assert_msg "check hkctype" (is_a hkctype class_ctype))
+       (assert_msg "check nhookproc" (is_a nhookproc class_nrep_hookproc) nhookproc)
+       (assert_msg "check hkname" (is_string hkname) hkname)
+       (assert_msg "check hkctype" (is_a hkctype class_ctype) hkctype)
        (debug "output_hooks_with_modvar nhookdata=" nhookdata)
-       (assert_msg "check nhookdata" (is_a nhookdata class_nrep_datahook))
+       (assert_msg "check nhookdata" (is_a nhookdata class_nrep_datahook) nhookdata)
        (add2out declbuf "\n" "/* declare hook with module variable " hkname " */\n")
        (add2out declbuf "MELT_EXTERN " hkctypename " melthookproc_" hkname " (")
        (add2out implbuf "\n" "/* define hook with module variable " hkname " */\n")
@@ -6167,7 +6170,7 @@ if (1) return;
 	  (add2out declbuf ", ")
 	  (add2out implbuf ", "))
 	(setq nbparam (+i nbparam 1))
-	(assert_msg "check curinsb" (is_a curinsb class_formal_binding))
+	(assert_msg "check curinsb" (is_a curinsb class_formal_binding) curinsb)
 	(add2out declbuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
 	(add2out declbuf " meltin_" (get_field :named_name (get_field :binder curinsb)) "_p" inix)
 	(add2out implbuf (get_field :ctype_cname (get_field :fbind_type curinsb)))
@@ -6280,19 +6283,19 @@ if (1) return;
   (debug "translate_macroexpanded_list modnamstr=" modnamstr "\n* modctx=" modctx
 	 "\n* inienv=" inienv
 	 "\n* iniproctransl=" iniproctransl)
-  (assert_msg "check xlist" (is_list xlist))
-  (assert_msg "check modnamstr" (is_string modnamstr))
-  (assert_msg "check modctx" (is_a modctx class_any_module_context))
-  (assert_msg "check ncx" (is_a ncx class_normalization_context))
-  (assert_msg "check inienv" (is_a inienv class_environment))
+  (assert_msg "check xlist" (is_list xlist) xlist)
+  (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
+  (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+  (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+  (assert_msg "check inienv" (is_a inienv class_environment) inienv)
   (assert_msg "translate_macroexpanded_list modulename not ended with MELT_DYNLOADED_SUFFIX."
-	      (not (string_dynloaded_suffixed modnamstr)))
+	      (not (string_dynloaded_suffixed modnamstr)) modnamstr)
   (assert_msg "translate_macroexpanded_list modulename not ended with .melt"
-	      (not (string_suffixed modnamstr ".melt")))
+	      (not (string_suffixed modnamstr ".melt")) modnamstr)
   (assert_msg "translate_macroexpanded_list modulename not ended with .cc"
-	      (not (string_suffixed modnamstr ".cc")))
+	      (not (string_suffixed modnamstr ".cc")) modnamstr)
   (assert_msg "translate_macroexpanded_list modulename not ended with .c"
-	      (not (string_suffixed modnamstr ".c")))
+	      (not (string_suffixed modnamstr ".c")) modnamstr)
   (let (
 	(:long endclock 0)
 	(errorhdlr (get_field :mocx_errorhandler modctx))
@@ -6309,8 +6312,8 @@ if (1) return;
      (normalize_macroexpanded_list xlist modnamstr modctx ncx inienv)
      (debug "translate_macroexpanded_list normalize_macroexpanded_list give normlist=" normlist 
 	    "\n bindlist=" bindlist)
-     (assert_msg "check normlist" (is_list normlist))
-     (assert_msg "check bindlist" (is_list bindlist))
+     (assert_msg "check normlist" (is_list normlist) normlist)
+     (assert_msg "check bindlist" (is_list bindlist) bindlist)
      (debug "translate_macroexpanded_list after normalize_macroexpanded_list modctx=" modctx
 	    "\n normalisthandler=" normalisthandler
 	    "\n normlist=" normlist)
@@ -6346,7 +6349,7 @@ if (1) return;
        (debug "translate_macroexpanded_list prolist=" prolist)
        (shortbacktrace_dbg "translate_macroexpanded_list" 14)
        ;;
-       (assert_msg "check prolist" (is_list prolist))
+       (assert_msg "check prolist" (is_list prolist) prolist)
        (foreach_in_list
 	(prolist)
 	(curpair pro)
@@ -6364,7 +6367,7 @@ if (1) return;
 	     (debug "translate_macroexpanded_list objhook=" objhook 
 		    "\n.. pro=" pro "\n.. objlist=" objlist 
 		    "\n.. compicache=" compicache)
-	     (assert_msg "check objhook=" (is_object objhook))
+	     (assert_msg "check objhook=" (is_object objhook) objhook)
 	     ))
 	 ( (is_a pro class_nrep_anyproc)
 	   (let ( (objpro (compile2obj_procedure pro modctx compicache count)) 
@@ -6373,10 +6376,10 @@ if (1) return;
 	     (debug "translate_macroexpanded_list objpro=" objpro 
 		    "\n.. pro=" pro "\n.. objlist=" objlist
 		    "\n.. compicache=" compicache)
-	     (assert_msg "check objpro=" (is_object objpro))
+	     (assert_msg "check objpro=" (is_object objpro) objpro)
 	     ))
 	 ( :else
-	   (assert_msg "translate_macroexpanded_list unexecpected procedure" pro))
+	   (assert_msg "translate_macroexpanded_list unexpected procedure" () pro))
 	 ))				;end foreach_in_list
        ;;
        (when (melt_error_counter)
@@ -6390,11 +6393,11 @@ if (1) return;
 	 (return))
        ;;
        ;; compile the initial procedure
-       (assert_msg "check objlist" (is_list objlist))
+       (assert_msg "check objlist" (is_list objlist) objlist)
        (foreach_in_list
 	(objlist)
 	(pairel obel)
-	(assert_msg "check obel is object" (is_object obel))
+	(assert_msg "check obel is object" (is_object obel) obel)
 	)
        (let ( (inipro (unsafe_get_field :nctx_initproc ncx)) 
 	      (inidata (unsafe_get_field :nctx_datalist ncx))
@@ -6406,7 +6409,7 @@ if (1) return;
 		"\n.. iniproctransl=" iniproctransl
 		"\n.. importvalues=" importvalues
 		"\n.. normlist=" normlist)
-	 (assert_msg "null iniprobody" (null (get_field :nproc_body inipro)))
+	 (assert_msg "null iniprobody" (null (get_field :nproc_body inipro)) inipro)
 	 (let ( (importup (list_to_multiple 
 			   importvalues discr_multiple
 			   (lambda (curimp)
@@ -6422,15 +6425,15 @@ if (1) return;
 		       :ninit_importexprs importup)
 	   (debug "translate_macroexpanded_list unpdated inipro=" inipro)
 	   )
-	 (assert_msg "check inipro" (is_a inipro class_nrep_initproc))
-	 (assert_msg "check iniproctransl" (is_closure iniproctransl))
+	 (assert_msg "check inipro" (is_a inipro class_nrep_initproc) inipro)
+	 (assert_msg "check iniproctransl" (is_closure iniproctransl) iniproctransl)
 	 (debug "translate_macroexpanded_list inipro= " inipro
 		"\n before calling iniproctransl=" iniproctransl
 		"\n.. objlist=" objlist)
 	 (foreach_in_list
 	  (objlist)
 	  (pairel obel)
-	  (assert_msg "check obel is object" (is_object obel))
+	  (assert_msg "check obel is object" (is_object obel) obel)
 	  )
 	 (let ( (iniobj
 		 (iniproctransl inipro modctx inidata compicache procurmodenvlist)) 
@@ -6571,7 +6574,7 @@ if (1) return;
 		      (modvartup)
 		      (curmodvarbind :long mvix)
 		      (debug "translate_macroexpanded_list curmodvarbind=" curmodvarbind " mvix#" mvix)
-		      (assert_msg "check curmodvarbind" (is_a curmodvarbind class_normal_module_variable_binding))
+		      (assert_msg "check curmodvarbind" (is_a curmodvarbind class_normal_module_variable_binding) curmodvarbind)
 		      (add2out declbuf " ")
 		      (out_enumix_modvarbind declbuf curmodvarbind)
 		      (add2out declbuf " = " (+i mvix 1) ",\n")
@@ -6595,7 +6598,7 @@ if (1) return;
 		    (sortuphook)
 		    (curhkdesc :long hkix)
 		    (debug "translate_macroexpanded_list curhkdesc=" curhkdesc "\n .. hkix#" hkix)
-		    (assert_msg "check curhkdesc" (is_a curhkdesc class_hook_descriptor))
+		    (assert_msg "check curhkdesc" (is_a curhkdesc class_hook_descriptor) curhkdesc)
 		    (let ( (hkname (get_field :named_name curhkdesc))
 			   (hkins (get_field :hookdesc_in_formals curhkdesc))
 			   (hkouts (get_field :hookdesc_out_formals curhkdesc))
@@ -6634,7 +6637,7 @@ if (1) return;
 		    (mheadertup)
 		    (curheader :long hdix)
 		    (debug  "translate_macroexpanded_list curheader=" curheader " hdix#" hdix)
-		    (assert_msg "check curheader" (is_a curheader class_source_cheader))
+		    (assert_msg "check curheader" (is_a curheader class_source_cheader) curheader)
 		    (let ( 
 			  (hloc (get_field :loca_location curheader))
 			  (hstr (get_field :sc_codestring curheader))
@@ -6657,7 +6660,7 @@ if (1) return;
 		   (foreach_in_multiple
 		    (mimplemtup)
 		    (curimplem :long imix)
-		    (assert_msg "check curimplem" (is_a curimplem class_source_cimplement))
+		    (assert_msg "check curimplem" (is_a curimplem class_source_cimplement) curimplem)
 		    (let ( 
 			  (iloc (get_field :loca_location curimplem))
 			  (istr (get_field :sc_codestring curimplem))
@@ -6679,7 +6682,7 @@ if (1) return;
 	      (objlist)
 	      (pairel obel)
 	      (debug "translate_macroexpanded_list obel=" obel)
-	      (assert_msg "check obel" (is_object obel))
+	      (assert_msg "check obel" (is_object obel) obel)
 	      ;; hack to generate hook routine with module variable
 	      (when  (is_a obel class_hookroutineobj)
 		(debug "translate_macroexpanded_list obel is hookroutineobj " obel)
@@ -6754,9 +6757,9 @@ if (1) return;
 	      (if curfil
 		  (progn
 		    (assert_msg "check curfil" 
-				(is_a curfil class_secondary_cc_file))
+				(is_a curfil class_secondary_cc_file) curfil)
 		    (assert_msg "check curfil index" 
-				(==i (get_int curfil) filix))
+				(==i (get_int curfil) filix) curfil filix)
 		    (setq hisecfilerk filix)
 		    (increment nbsecfiles 1)
 		    ;;(setq nbsecfiles (+i nbsecfiles 1))
@@ -6879,17 +6882,17 @@ if (1) return;
   (debug "@*@@@@ compile_list_sexpr lsexp=" lsexp "\n@ compile_list_sexpr  inienv=" inienv
 	 "\n@ compile_list_sexpr  modnamstr=" modnamstr) 
   (shortbacktrace_dbg "compile_list_sexpr" 10)
-  (assert_msg "check lsexp" (is_list lsexp))
-  (assert_msg "check modnamstr" (is_string modnamstr))
-  (assert_msg "check inienv" (or (null inienv) (is_a inienv class_environment)))
+  (assert_msg "check lsexp" (is_list lsexp) lsexp)
+  (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
+  (assert_msg "check inienv" (or (null inienv) (is_a inienv class_environment)) inienv)
   (assert_msg "compile_list_sexpr modulename not ended with MELT_DYNLOADED_SUFFIX."
-	      (not (string_dynloaded_suffixed modnamstr)))
+	      (not (string_dynloaded_suffixed modnamstr)) modnamstr)
   (assert_msg "compile_list_sexpr modulename not ended with .melt"
-	      (not (string_suffixed modnamstr ".melt")))
+	      (not (string_suffixed modnamstr ".melt")) modnamstr)
   (assert_msg "compile_list_sexpr modulename not ended with .c"
-	      (not (string_suffixed modnamstr ".c")))
+	      (not (string_suffixed modnamstr ".c")) modnamstr)
   (assert_msg "compile_list_sexpr modulename not ended with .cc"
-	      (not (string_suffixed modnamstr ".cc")))
+	      (not (string_suffixed modnamstr ".cc")) modnamstr)
   (let (
 	(modnakedname (make_string_nakedbasename discr_string modnamstr))
 	(modctx (instance class_module_context
@@ -6928,7 +6931,7 @@ if (1) return;
       ;; we set inienv to be able to macroexpand and translate the rest. However, mocx_initialenv is null.
       (setq inienv initial_environment))
     (debug "compile_list_sexpr initial ncx=" ncx)
-    (assert_msg "check ncx" (is_a ncx class_normalization_context))
+    (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
     (let ( (xlist (macroexpand_toplevel_list lsexp inienv macroexpand_1 modctx)) 
 	   (:long lenxlist (list_length xlist))
 	   )
@@ -6966,8 +6969,8 @@ if (1) return;
 (defun autobox_normal_return (nexp nbinds ctyp ncx)
   (debug "autobox_normal_return nexp=" nexp " nbinds=" nbinds " ctyp=" ctyp " ncx=" ncx)
   (if (null nbinds) (setq nbinds (make_list discr_list)))
-  (assert_msg "check ctyp" (is_a ctyp class_ctype))
-  (assert_msg "check nbind" (is_list nbinds))
+  (assert_msg "check ctyp" (is_a ctyp class_ctype) ctyp)
+  (assert_msg "check nbind" (is_list nbinds) nbinds)
   (let ( (csym (clone_symbol 'retautoboxval))
 	 (cbind (instance class_normal_let_binding
 			  :letbind_loc ()
@@ -7097,7 +7100,7 @@ if (1) return;
      ;;
      (:else
       (debug "autobox_normal_return unexpected ctyp=" ctyp "\n of discrim " (discrim ctyp))
-      (assert_msg "autobox_normal_return unexpected ctype" ())
+      (assert_msg "autobox_normal_return unexpected ctype" () ctyp)
       ))))
 
 
@@ -7110,7 +7113,7 @@ if (1) return;
   the $EXPRS. The last expression should preferably gives a value,
   which is returned...}#
   (debug "translate_run_melt_expressions start exprs=" exprs "\n*env=" env)
-  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check env" (is_a env class_environment) env)
   (when (not (is_list exprs))
     (debug "translate_run_melt_expressions gets " exprs " and gives null")
     (return ()))
@@ -7261,9 +7264,9 @@ if (1) return;
 		       "\n bindlist=" bindlist
 		       "\n old !refnormlist=" !refnormlist
 		       "\n ncx=" ncx)
-		(assert_msg "check bindlist != normlist" (!= bindlist normlist))
+		(assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
 		(shortbacktrace_dbg "translate_run_melt_expressions/normalextend" 13)
-		(assert_msg "check null !refnormlist" (null !refnormlist))
+		(assert_msg "check null !refnormlist" (null !refnormlist) refnormlist)
 		(let ( (lastnormpair (list_last normlist))
 		       (lastbindpair (list_last bindlist))
 		       (lastnorm (list_last_element normlist))
@@ -7274,7 +7277,7 @@ if (1) return;
 			 " lastnormpair=" lastnormpair
 			 " lastbinds=" lastbinds
 			 " lastctyp=" lastctyp)
-		  (assert_msg "check lastctyp" (is_a lastctyp class_ctype))
+		  (assert_msg "check lastctyp" (is_a lastctyp class_ctype) lastctyp)
 		  (cond
 		   ((== lastctyp ctype_value)
 		    (debug "translate_run_melt_expressions/normalextend value lastnorm=" lastnorm "\n of discrim=" (discrim lastnorm)
@@ -7326,7 +7329,7 @@ if (1) return;
 			       "\n lastbindpair=" lastbindpair
 			       "\n normlist=" normlist
 			       "\n bindlist=" bindlist)
-			(assert_msg "check bindlist != normlist" (!= bindlist normlist))
+			(assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
 			(setq lastnorm nfinlet)
 			(setq lastbinds ())
 			))
@@ -7358,7 +7361,7 @@ if (1) return;
 	  (generate_flavored_melt_module basename basename '"runextend")
 	  (debug "translate_run_melt_expressions after compiling runextend flavor of basename=" basename)
 	  ;; make the literal value tuple
-	  (assert_msg "check litvalist" (is_list litvalist))
+	  (assert_msg "check litvalist" (is_list litvalist) litvalist)
 	  (debug "translate_run_melt_expressions after generation litvalist=" litvalist)
 	  (let ( (:long nblitval (list_length litvalist))
 		 (tuplitval (make_multiple discr_multiple nblitval))
@@ -7374,11 +7377,11 @@ if (1) return;
 		    " curlitval=" curlitval)
 	     (when curlitval
 	       (assert_msg "check curlitval" 
-			   (is_a curlitval class_literal_value))
+			   (is_a curlitval class_literal_value) curlitval)
 	       (let ( (val (get_field :litv_value curlitval))
 		      (bxrk (get_field :litv_rank curlitval))
 		      )
-		 (assert_msg "check bxrk" (==i (get_int bxrk) ix))
+		 (assert_msg "check bxrk" (==i (get_int bxrk) ix) bxrk ix)
 		 (multiple_put_nth tuplitval ix val)
 		 ))
 	     (setq ix (+i ix 1)))    ;end of foreach_in_list litvalist
@@ -7401,13 +7404,13 @@ if (1) return;
   expansion of $DEFMACRO-ed macronames.}#
   (debug "melt_translate_run_macroexpansions_list start lismexp=" lismexp 
 	 "\n.. env=" env "\n.. parmodctx=" parmodctx)
-  (assert_msg "check env" (is_a env class_environment))
+  (assert_msg "check env" (is_a env class_environment) env)
   (when (null lismexp)
     (debug "melt_translate_run_macroexpansions_list null lismexp=" lismexp)
     (return ()))
   (when (not (is_list lismexp))
     (debug "melt_translate_run_macroexpansions_list bad lismexp=" lismexp)
-    (assert_msg "invalid lismexp" ())
+    (assert_msg "invalid lismexp" () lismexp)
     (return ()))
   (let ( (:long num 0)
 	 (:long starterrcount (melt_error_counter))
@@ -7498,9 +7501,9 @@ if (1) return;
 		    "\n bindlist=" bindlist
 		    "\n old !refnormlist=" !refnormlist
 		    "\n ncx=" ncx)
-	     (assert_msg "check bindlist != normlist" (!= bindlist normlist))
+	     (assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
 	     (shortbacktrace_dbg "melt_translate_run_macroexpansions_list/normalextend" 13)
-	     (assert_msg "check null !refnormlist" (null !refnormlist))
+	     (assert_msg "check null !refnormlist" (null !refnormlist) refnormlist)
 	     (let ( (lastnormpair (list_last normlist))
 		    (lastbindpair (list_last bindlist))
 		    (lastnorm (list_last_element normlist))
@@ -7511,7 +7514,7 @@ if (1) return;
 		      " lastnormpair=" lastnormpair
 		      " lastbinds=" lastbinds
 		      " lastctyp=" lastctyp)
-	       (assert_msg "check lastctyp" (is_a lastctyp class_ctype))
+	       (assert_msg "check lastctyp" (is_a lastctyp class_ctype) lastctyp)
 ;;;;
 	       (debug "melt_translate_run_macroexpansions_list/normalextend lastbinds=" lastbinds "\n lastnorm=" lastnorm 
 		      "\n lastnormpair=" lastnormpair
@@ -7531,7 +7534,7 @@ if (1) return;
 			    "\n lastbindpair=" lastbindpair
 			    "\n normlist=" normlist
 			    "\n bindlist=" bindlist)
-		     (assert_msg "check bindlist != normlist" (!= bindlist normlist))
+		     (assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
 		     (setq lastnorm nfinlet)
 		     (setq lastbinds ())
 		     ))
@@ -7559,7 +7562,7 @@ if (1) return;
 	(generate_flavored_melt_module basename basename '"runextend")
 	(debug "melt_translate_run_macroexpansions_list after compiling runextend flavor of basename=" basename)
 	;; make the literal value tuple
-	(assert_msg "check litvalist" (is_list litvalist))
+	(assert_msg "check litvalist" (is_list litvalist) litvalist)
 	(debug "melt_translate_run_macroexpansions_list after generation litvalist=" litvalist)
 	(let ( (:long nblitval (list_length litvalist))
 	       (tuplitval (make_multiple discr_multiple nblitval))
@@ -7574,12 +7577,11 @@ if (1) return;
 	   (debug "melt_translate_run_macroexpansions_list  ix=" ix 
 		  " curlitval=" curlitval)
 	   (when curlitval
-	     (assert_msg "check curlitval" 
-			 (is_a curlitval class_literal_value))
+	     (assert_msg "check curlitval" (is_a curlitval class_literal_value) curlitval)
 	     (let ( (val (get_field :litv_value curlitval))
 		    (bxrk (get_field :litv_rank curlitval))
 		    )
-	       (assert_msg "check bxrk" (==i (get_int bxrk) ix))
+	       (assert_msg "check bxrk" (==i (get_int bxrk) ix) bxrk)
 	       (multiple_put_nth tuplitval ix val)
 	       ))
 	   (setq ix (+i ix 1)))	     ;end of foreach_in_list litvalist
@@ -7603,8 +7605,8 @@ if (1) return;
 ;; recursive internal utility to read melt expressions from files or lists or vectors or s-exprs
 (defun read_melt_expressions (src rlist :long depth)
   (debug "read_melt_expressions src=" src " depth=" depth " rlist.len=" (list_length rlist))
-  (assert_msg "check rlist" (is_list rlist))
-  (assert_msg "check depth" (<i depth 100))
+  (assert_msg "check rlist" (is_list rlist) rlist)
+  (assert_msg "check depth" (<i depth 100) depth)
   (cond 
    ((null src)
     (return))
@@ -7628,7 +7630,7 @@ if (1) return;
 	   )
       (debug "read_melt_expressions xsrc=" xsrc " depth=" depth)
       (if (null xsrc) (return))
-      (assert_msg "check xsrc" (or (is_a xsrc class_sexpr) (is_a xsrc class_symbol)))
+      (assert_msg "check xsrc" (or (is_a xsrc class_sexpr) (is_a xsrc class_symbol)) xsrc)
       (list_append rlist xsrc)))
    (:else
     (error_strv () "invalid MELT expression to read, with discriminant" 
@@ -7641,8 +7643,8 @@ if (1) return;
 ;;; basename should not contains any dots
 (defun translate_to_cc_module_melt_sources (sources modsrcname curenv)
   (debug  "translate_to_cc_module_melt_sources sources=" sources " modsrcname=" modsrcname)
-  (assert_msg "check curenv" (is_a curenv class_environment))
-  (assert_msg "check modsrcname" (is_string modsrcname))
+  (assert_msg "check curenv" (is_a curenv class_environment) curenv)
+  (assert_msg "check modsrcname" (is_string modsrcname) modsrcname)
   (if (or (string_dynloaded_suffixed modsrcname)
 	  (string_suffixed modsrcname ".melt")
 	  (string_suffixed modsrcname ".c")
@@ -7650,13 +7652,13 @@ if (1) return;
       (errormsg_strv "invalid MELT source name - should not be suffixed"
 		     modsrcname))
   (assert_msg "translate_to_cc_module_melt_sources modsrcname not ended with MELT_DYNLOADED_SUFFIX"
-	      (not (string_dynloaded_suffixed modsrcname)))
+	      (not (string_dynloaded_suffixed modsrcname)) modsrcname)
   (assert_msg "translate_to_cc_module_melt_sources modulename not ended with .melt"
-	      (not (string_suffixed modsrcname ".melt")))
+	      (not (string_suffixed modsrcname ".melt")) modsrcname)
   (assert_msg "translate_to_cc_module_melt_sources modulename not ended with .c"
-	      (not (string_suffixed modsrcname ".c")))
+	      (not (string_suffixed modsrcname ".c")) modsrcname)
   (assert_msg "translate_to_cc_module_melt_sources modulename not ended with .cc"
-	      (not (string_suffixed modsrcname ".cc")))
+	      (not (string_suffixed modsrcname ".cc")) modsrcname)
   (let ( (:long isvalidmodsrc 0)
 	 (rlist (make_list discr_list)) 
 	 )
@@ -7680,7 +7682,7 @@ if (1) return;
 	  ))
     (read_melt_expressions sources rlist 0)
     (debug "after read translate_to_cc_module_melt_sources rlist=" rlist)
-    (assert_msg "check non empty rlist" (>i (list_length rlist) 0))
+    (assert_msg "check non empty rlist" (>i (list_length rlist) 0) rlist)
     (compile_list_sexpr rlist curenv modsrcname)
     (debug "translate_to_cc_module_melt_sources done modsrcname=" modsrcname "\n")
     ))
@@ -7720,7 +7722,7 @@ if (1) return;
 (defun generate_gplv3plus_copyright_notice_c_comment (sbuf name)
   :doc #{Generate into stringbuffer $SBUF a C comment with GPLv3+
 notice for file named $NAME.}#
-  (assert_msg "check sbuf" (is_strbuf sbuf))
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (add2sbuf_strconst sbuf "/** Copyright (C) ")
   (let ( (:long year 0)
 	 )
