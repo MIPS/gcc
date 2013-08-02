@@ -66,7 +66,8 @@
 	if -mvsx-scalar-memory on power8.  Setup wy constraint for single
 	float in upper VSX registers.
 	(rs6000_option_override_internal): Temporarily look at environment
-	variables to set the -mgeneral-addr-* switches.
+	variable VECTOR_OFFSET to set the -mvector-offset switch.  Look at
+	VSX_SCALAR_MEMORY to set the -mvsx-scalar-memory switch.
 	(rs6000_debug_legitimate_address_p): Print the reload status.
 	(rs6000_fixup_address_inner): New functions to use the reg_addr
 	masks to determine if an address is correct, and if not on the
@@ -113,7 +114,7 @@
 	(fnmssf4_fpr): Likewise.
 	(sqrtsf2): Likewise.
 	(rsqrtsf_internal1): Likewise.
-	(*copysignsf3_vsx): Likewise.
+	(copysignsf3_vsx): Likewise.
 	(mov<mode>_hardfloat, 32-bit float): Likewise.
 	(cmpsf_internal1): Likewise.
 

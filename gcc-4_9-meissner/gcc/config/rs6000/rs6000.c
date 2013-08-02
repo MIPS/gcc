@@ -3432,7 +3432,8 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* Don't enable DF/SF in the upper VSX registers by default on VSX.  */
   if (TARGET_VSX_SCALAR_MEMORY == -1)
-    TARGET_VSX_SCALAR_MEMORY = /* (TARGET_VSX) ? 1 : */ 0;
+    TARGET_VSX_SCALAR_MEMORY
+      = (TARGET_VSX && getenv ("VSX_SCALAR_MEMORY") != NULL) ? 1 : 0;
   else if (TARGET_VSX_SCALAR_MEMORY && !TARGET_VSX)
     error ("-mvsx-scalar-memory requires -mvsx");
 
