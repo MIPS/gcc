@@ -1,7 +1,12 @@
 
 2013-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable}}
-	* melt/warmelt-normal.melt: Finish improve improve assert_msg.
+	* melt/warmelt-outobj.melt: Partly improve assert_msg and add
+	iterators instead of every_* function
+
+2013-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Unstable}}
+	* melt/warmelt-normal.melt: Finish improve assert_msg.
 
 2013-08-01  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Unstable}}

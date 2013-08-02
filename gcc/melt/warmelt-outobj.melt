@@ -83,8 +83,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;;;;
 ;; utility function to output the enum index of a module variable binding
 (defun out_enumix_modvarbind (out mvarbind)
-  (assert_msg "check out" (is_out out))
-  (assert_msg "check mvarbind" (is_a mvarbind class_normal_module_variable_binding))
+  (assert_msg "check out" (is_out out) out)
+  (assert_msg "check mvarbind" (is_a mvarbind class_normal_module_variable_binding) mvarbind)
   (let ( (binder (get_field :binder mvarbind))
 	 (outnam (lambda (nam) (add2out_cident out nam)))
 	 )
@@ -105,7 +105,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    ))
 	  (:else
 	   (debug "out_enumix_modvarbind bad binder in mvarbind=" mvarbind)
-	   (assert_msg "out_enumix_modvarbind bad binder" ()))
+	   (assert_msg "out_enumix_modvarbind bad binder" () binder))
   )))
 
 
@@ -113,7 +113,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;; we need the classy frame name to be unique, otherwise dlopen seems to mess things..
 (defun initial_classy_frame_name (obj)
   (debug "initial_classy_frame_name obj=" obj)
-  (assert_msg "check obj" (is_a obj class_initialroutineobj))
+  (assert_msg "check obj" (is_a obj class_initialroutineobj) obj)
   (let ( (name (string4out discr_verbatim_string "Melt_InitialClassyFrame_" 
 			   (lambda (out o) (add2out_cident out (get_field :oirout_modulename o))) obj
 			   "_h" (obj_hash obj))
@@ -129,16 +129,16 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (disname (get_field :named_name dis))
 	 )
     (errormsg_strv "unexpected object to output initial declaration for" disname)
-    (assert_msg "outdeclinit_root unimplemented catchall" ())
+    (assert_msg "outdeclinit_root unimplemented catchall" () recv)
     ))
 (install_method class_root output_c_declinit outdeclinit_root)
 
 
 (defun outpucod_objinielem (obielem  declbuf implbuf :long depth)
-  (assert_msg "check obelem" (is_a obielem class_objinitelem))
+  (assert_msg "check obelem" (is_a obielem class_objinitelem) obielem)
   (let ( (olocvar (unsafe_get_field :oie_locvar obielem))
 	 (cnam (unsafe_get_field :oie_cname obielem)) )
-    (assert_msg "check cnam" (is_string cnam))
+    (assert_msg "check cnam" (is_string cnam) cnam)
     (assert_msg "check olocvar"  olocvar)
     (output_c_code olocvar declbuf implbuf depth)
     ;;
@@ -146,20 +146,20 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outpucod_objinielem huge declbuf" 10)
 	    (debug "outpucod_objinielem huge declbuf=" declbuf)
 	    (assert_msg "check limited declbuf" 
-		      (<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)))))
+		      (<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)) declbuf)))
     ;;
     (cond ( (>i (strbuf_usedlength implbuf) (/iraw (get_int !buffer_limit_cont) 2))
 	    (shortbacktrace_dbg "outpucod_objinielem huge implbuf" 10)
 	    (debug "outpucod_objinielem huge implbuf=" implbuf)
 	    (assert_msg "check limited implbuf" 
-			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
     )
   )
 (install_method class_objinitelem output_c_code outpucod_objinielem)
 
 (defun outcinitfill_root (recv implbuf ptrstr :long depth)
   (debug "outcinitfill_root recv=" recv)
-  (assert_msg "outcinitfill_root unimplemented catchall" ())
+  (assert_msg "outcinitfill_root unimplemented catchall" () recv)
   )
 (install_method class_root output_c_initial_fill outcinitfill_root)
 
@@ -186,7 +186,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
      )
    ( :else
      (debug obpredef " output_predef bad obpredef=" obpredef)
-     (assert_msg "invalid obpredef" ())
+     (assert_msg "invalid obpredef" () obpredef)
      )
    )
   ;;
@@ -194,33 +194,33 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "output_predef huge implbuf" 10)
 	    (debug "output_predef huge implbuf=" implbuf)
 	    (assert_msg "check limited implbuf" 
-			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
   )
 
 ;;; output code for a predef
 (defun outpucod_predef (obpred declbuf implbuf :long depth)
-  (assert_msg "check obpredef" (is_a obpred class_objpredef))
+  (assert_msg "check obpredef" (is_a obpred class_objpredef) obpred)
   (let ( (obpr (unsafe_get_field :obpredef obpred)) )
     (output_predef obpr implbuf depth)))
 (install_method class_objpredef output_c_code outpucod_predef)
 
 ;;;; output a nil
 (defun outpucod_nil (obnil  declbuf implbuf :long depth)
-  (assert_msg "check obnil" (is_a obnil class_objnil))
+  (assert_msg "check obnil" (is_a obnil class_objnil) obnil)
   (add2sbuf_strconst implbuf "(/*nil*/NULL)"))
 (install_method class_objnil output_c_code outpucod_nil)
 
 ;;; output code for a objexpandpureval
 (defun outpucod_objexpandpureval (obx declbuf implbuf :long depth)
   (debug "outpucod_objexpandpureval obx=" obx)
-  (assert_msg "check obx" (is_a obx class_objexpandpureval))
+  (assert_msg "check obx" (is_a obx class_objexpandpureval) obx)
   (let ( (oloc (get_field :oxpurval_loc obx))
 	 (ocomm (get_field :oxpurval_comm obx))
 	 (ocont (get_field :oxpurval_cont obx))
 	 (otyp (get_field :obv_type obx))
 	 )
-    (assert_msg "check ocont" (is_multiple_or_null ocont))
-    (assert_msg "check otyp" (is_a otyp class_ctype))
+    (assert_msg "check ocont" (is_multiple_or_null ocont) ocont)
+    (assert_msg "check otyp" (is_a otyp class_ctype) otyp)
     (cond
      ((== otyp ctype_void)
       (shortbacktrace_dbg "outpucod_objexpandpureval pure void" 15)
@@ -301,8 +301,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;; output code for hook nth value
 (defun outpucod_objhooknth (obh declbuf implbuf :long depth)
   (debug "outpucod_objhooknth obh=" obh)
-  (assert_msg "check obh" (is_a obh class_objhooknth))
-  (assert_msg "check type" (== (get_field :obv_type obh) ctype_value))
+  (assert_msg "check obh" (is_a obh class_objhooknth) obh)
+  (assert_msg "check type" (== (get_field :obv_type obh) ctype_value) obh) 
   (let ( (ohook (unsafe_get_field :ohknth_hook obh))
 	 (off (unsafe_get_field :ohknth_off obh))
 	 (hknam (or (get_field :obl_cname ohook) (get_field :oie_cname ohook)))
@@ -344,9 +344,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 ;; initial fill for both objinitobject & its objinituniqueobject subclass
 (defun outcinitfill_objinitobject (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitobject check recv" (is_a recv class_objinitobject))
   (debug "outcinitfill_objinitobject recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitobject check ptrstr" (is_string ptrstr))
+  (assert_msg "outcinitfill_objinitobject check recv" (is_a recv class_objinitobject) recv)
+  (assert_msg "outcinitfill_objinitobject check ptrstr" (is_string ptrstr) ptrstr)
   (let ( (odata (unsafe_get_field :oie_data recv)) 
 	 (odiscr (unsafe_get_field :oie_discr recv))
 	 (oname (unsafe_get_field :oie_cname recv))
@@ -356,7 +356,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (:long depthp1 (+i depth 1))
 	 )
     (debug "outcinitfill_objinitobject odata=" odata)
-    (if odata (assert_msg "check odata" (is_a odata class_nrep_datainstance)))
+    (if odata (assert_msg "check odata" (is_a odata class_nrep_datainstance) odata))
     (let ( (odloc (if odata (unsafe_get_field :nrep_loc odata)))
 	   (odhash (if odata (unsafe_get_field :ninst_hash odata)))
 	   (odslots (if odata (unsafe_get_field :ninst_slots odata)))
@@ -367,7 +367,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 			 ( (is_a oclass class_class)
 			   (multiple_length (get_field :class_fields oclass)))
 			 (:else
-			  (assert_msg "outcinitfill_objinitobject cannot compute nbslots" ())
+			  (assert_msg "outcinitfill_objinitobject cannot compute nbslots" () odslots oclass)
 			  0)))
 	   )
       (if odloc (output_location odloc sbuf depthp1 "iniobj"))
@@ -460,7 +460,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		    (add2sbuf_string sbuf (unsafe_get_field :named_name odobnum)))
 		  (:else 
 		   (debug "outcinitfill_objinitobject unexpected odobnum=" odobnum)
-		   (assert_msg "outcinitfill_objinitobject unexpected odobnum" ())
+		   (assert_msg "outcinitfill_objinitobject unexpected odobnum" () odobnum)
 		   ))
 	    (add2sbuf_strconst sbuf ";")
 	    (add2sbuf_indentnl sbuf depth)
@@ -488,7 +488,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (cond ( (>i (strbuf_usedlength sbuf) (/iraw (get_int !buffer_limit_cont) 2))
 	    (debug "outcinitfill_objinitobject huge sbuf=" sbuf)
 	    (assert_msg "check limited sbuf" 
-			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
     )
   )
 (install_method class_objinitobject output_c_initial_fill outcinitfill_objinitobject)
@@ -497,17 +497,17 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 (defun outcinitpredef_objinitobject (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitpredef_objinitobject check recv" (is_a recv class_objinitobject))
   (debug recv "outcinitpredef_objinitobject recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitpredef_objinitobject check sbuf" (is_strbuf sbuf))
-  (assert_msg "outcinitpredef_objinitobject check ptrstr" (is_string ptrstr))
+  (assert_msg "check recv" (is_a recv class_objinitobject) recv)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (assert_msg "check ptrstr" (is_string ptrstr) ptrstr)
   (let ( (odata (unsafe_get_field :oie_data recv)) 
 	 (odiscr (unsafe_get_field :oie_discr recv))
 	 (oname (unsafe_get_field :oie_cname recv))
 	 (olocvar (unsafe_get_field :oie_locvar recv))
 	 (oiopredef (unsafe_get_field :oio_predef recv))
 	 )
-    (assert_msg "check odata" (is_a odata class_nrep_datainstance))
+    (assert_msg "check odata" (is_a odata class_nrep_datainstance) odata)
     (debug "outcinitpredef_objinitobject oiopredef=" oiopredef)
     (if (null oiopredef) (return ()))
     (if (is_a oiopredef class_nrep_nil) (return ()))
@@ -522,7 +522,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (cond ( (>i (strbuf_usedlength sbuf) (/iraw (get_int !buffer_limit_cont) 2))
 	      (debug "outcinitpredef_objinitobject huge implbuf=" sbuf)
 	      (assert_msg "check limited sbuf" 
-			  (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			  (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
       ;; we really initialize the predefined only if it was not initialized
       (cond
        ( (is_a oiopredef class_symbol)
@@ -578,7 +578,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (return ()))
        ( :else
 	 (debug "outcinitpredef_objinitobject unexpected oiopredef=" oiopredef)
-	 (assert_msg "outcinitpredef_objinitobject unexpected oiopredef" ())
+	 (assert_msg "outcinitpredef_objinitobject unexpected oiopredef" () oiopredef)
 	 )))
     )
   )
@@ -588,9 +588,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;;;;;;;;;;;;;;
 (defun outcinitpredef_objinithook (recv sbuf ptrstr :long depth)
   (debug recv "outcinitpredef_objinithook recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitpredef_objinithook check recv" (is_a recv class_objinithook))
-  (assert_msg "outcinitpredef_objinithook check sbuf" (is_strbuf sbuf))
-  (assert_msg "outcinitpredef_objinithook check ptrstr" (is_string ptrstr))
+  (assert_msg "outcinitpredef_objinithook check recv" (is_a recv class_objinithook) recv)
+  (assert_msg "outcinitpredef_objinithook check sbuf" (is_strbuf sbuf) sbuf)
+  (assert_msg "outcinitpredef_objinithook check ptrstr" (is_string ptrstr) ptrstr)
   (let ( (odata (get_field :oie_data recv)) 
 	 (odiscr (get_field :oie_discr recv))
 	 (oname (get_field :oie_cname recv))
@@ -636,7 +636,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 ))
      (:else
       (debug "outcinitpredef_objinithook unexpected opredef=" opredef)
-      (assert_msg "outcinitpredef_objinithook bad predefined")
+      (assert_msg "outcinitpredef_objinithook bad predefined" () opredef)
       ))
     ))
 
@@ -655,9 +655,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 (defun outcinitfill_objinitmultiple (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitmultiple check recv" (is_a recv class_objinitmultiple))
   (debug "outcinitfill_objinitmultiple recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitmultiple check ptrstr" (is_string ptrstr))
+  (assert_msg "outcinitfill_objinitmultiple check recv" (is_a recv class_objinitmultiple) recv)
+  (assert_msg "outcinitfill_objinitmultiple check ptrstr" (is_string ptrstr) ptrstr)
   (let ( (cnam (unsafe_get_field :oie_cname recv)) 
 	 (olocvar (unsafe_get_field :oie_locvar recv))
 	 )
@@ -695,7 +695,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outcinitfill_objinitmultiple huge sbuf" 15)
 	    (debug "outcinitfill_objinitmultiple huge sbuf=" sbuf)
 	    (assert_msg "check limited sbuf" 
-			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
     ))
 (install_method class_objinitmultiple output_c_initial_fill outcinitfill_objinitmultiple)
 
@@ -709,9 +709,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (install_method class_objinitclosure output_c_declinit outdeclinit_objinitclosure)
 
 (defun outcinitfill_objinitclosure (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitclosure check recv" (is_a recv class_objinitclosure))
   (debug "outcinitfill_objinitclosure recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitclosure check ptrstr" (is_string ptrstr))
+  (assert_msg "check recv" (is_a recv class_objinitclosure) recv)
+  (assert_msg "check ptrstr" (is_string ptrstr) ptrstr)
   (let ( (cnam (unsafe_get_field :oie_cname recv)) 
 	 (olocvar (unsafe_get_field :oie_locvar recv))
 	 (orout (unsafe_get_field :oiclo_rout recv))
@@ -764,7 +764,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (debug "outcinitfill_objinitclosure huge sbuf=" sbuf)
 	    (shortbacktrace_dbg "outcinitfill_objinitclosure huge sbuf" 15)
 	    (assert_msg "check limited sbuf" 
-			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
     ))
 (install_method class_objinitclosure output_c_initial_fill outcinitfill_objinitclosure)
 
@@ -780,9 +780,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 (defun outcinitfill_objinitroutine (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitroutine check recv" (is_a recv class_objinitroutine))
   (debug recv "outcinitfill_objinitroutine recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitroutine check ptrstr" (is_string ptrstr))
+  (assert_msg "heck recv" (is_a recv class_objinitroutine) recv)
+  (assert_msg "heck ptrstr" (is_string ptrstr) ptrstr)
   (let ( (cnam (unsafe_get_field :oie_cname recv)) 
 	 (ipro (unsafe_get_field :oir_procroutine recv))
 	 (olocvar (unsafe_get_field :oie_locvar recv))
@@ -847,7 +847,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (if ipro
 	(progn
 	  (debug "outcinitfill_objinitroutine ipro=" ipro)
-	  (assert_msg "check ipro" (is_a ipro class_named))
+	  (assert_msg "check ipro" (is_a ipro class_named) ipro)
 	  (add2sbuf_strconst sbuf "MELT_ROUTINE_SET_ROUTCODE(&")
 	  (add2sbuf_string sbuf ptrstr)
 	  (add2sbuf_strconst sbuf "->")
@@ -871,7 +871,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (debug "outcinitfill_objinitroutine huge sbuf=" sbuf)
 	  (shortbacktrace_dbg "outcinitfill_objinitroutine huge sbuf" 12)
 	  (assert_msg "check limited sbuf" 
-		      (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+		      (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
   )
 (install_method class_objinitroutine output_c_initial_fill outcinitfill_objinitroutine)
 
@@ -894,8 +894,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (defun outcinitfill_objinithook (recv sbuf ptrstr :long depth)
   (debug "outcinitfill_objinithook recv=" recv 
 	 "\n.. of discrim:" (discrim recv) "\n.. ptrstr=" ptrstr)
-  (assert_msg "check recv" (is_a recv class_objinithook))
-  (assert_msg "check sbuf" (is_strbuf sbuf))
+  (assert_msg "check recv" (is_a recv class_objinithook) recv)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (let ( (cname (get_field :oie_cname recv))
 	 (olocvar (unsafe_get_field :oie_locvar recv))
 	 (ndatr (unsafe_get_field :oie_data recv))
@@ -964,9 +964,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 (defun outcinitfill_objinitstring (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitstring check recv" (is_a recv class_objinitstring))
   (debug  "outcinitfill_objinitstring recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitstring check ptrstr" (is_string ptrstr))
+  (assert_msg "check recv" (is_a recv class_objinitstring) recv)
+  (assert_msg "check ptrstr" (is_string ptrstr) ptrstr)
   (let ( (cnam (unsafe_get_field :oie_cname recv)) 
 	 (olocvar (unsafe_get_field :oie_locvar recv))
 	 (strdata (unsafe_get_field :oie_data recv))
@@ -1028,7 +1028,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		 (shortbacktrace_dbg "outcinitfill_objinitstring huge sbuf" 10)
 		 (debug "outcinitfill_objinitstring huge sbuf=" sbuf)
 		 (assert_msg "check limited sbuf" 
-			     (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			     (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
 	 ;;
 	 (cond
 	  ;; end reached
@@ -1148,7 +1148,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		(shortbacktrace_dbg "outcinitfill_objinitstring huge sbuf" 10)
 		(debug "outcinitfill_objinitstring huge declbuf=" sbuf)
 		(assert_msg "check limited sbuf" 
-			    (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			    (<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont))
+			    sbuf)))
 	))
     (add2sbuf_indentnl sbuf 1)
     (add2out sbuf ##{$PTRSTR->$CNAM.val[$DATALEN] = (char)0 ; }#
@@ -1171,9 +1172,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 (defun outcinitfill_objinitboxedinteger (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitboxedinteger check recv" (is_a recv class_objinitboxinteger))
   (debug "outcinitfill_objinitboxedinteger recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitboxedinteger check ptrstr" (is_string ptrstr))
+  (assert_msg "check recv" (is_a recv class_objinitboxinteger) recv)
+  (assert_msg "check ptrstr" (is_string ptrstr) ptrstr)
   (let ( (cnam (unsafe_get_field :oie_cname recv)) 
 	 (olocvar (unsafe_get_field :oie_locvar recv))
 	 (odata (unsafe_get_field :oie_data recv))
@@ -1214,7 +1215,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outcinitfill_objinitboxedinteger huge sbuf" 10)
 	    (debug "outcinitfill_objinitboxedinteger huge sbuf=" sbuf)
 	    (assert_msg "check limited sbuf" 
-			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
     ))
 (install_method class_objinitboxinteger output_c_initial_fill outcinitfill_objinitboxedinteger)
 
@@ -1231,9 +1232,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 (defun outcinitfill_objinitpair (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitpair check recv" (is_a recv class_objinitpair))
   (debug "outcinitfill_objinitpair recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitpair check ptrstr" (is_string ptrstr))
+  (assert_msg "check recv" (is_a recv class_objinitpair) recv)
+  (assert_msg "check ptrstr" (is_string ptrstr) ptrstr)
   (let  ( (cnam (unsafe_get_field :oie_cname recv)) 
 	  (olocvar (unsafe_get_field :oie_locvar recv))
 	  (odata (unsafe_get_field :oie_data recv))
@@ -1266,7 +1267,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outcinitfill_objinitpair huge sbuf" 10)
 	    (debug "outcinitfill_objinitpair huge sbuf=" sbuf)
 	    (assert_msg "check limited sbuf" 
-			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
     ))
 (install_method class_objinitpair output_c_initial_fill outcinitfill_objinitpair)
 ;;;;;;;;;;;;;;;;
@@ -1281,9 +1282,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 
 (defun outcinitfill_objinitlist (recv sbuf ptrstr :long depth)
-  (assert_msg "outcinitfill_objinitlist check recv" (is_a recv class_objinitlist))
   (debug "outcinitfill_objinitlist recv=" recv " ptrstr=" ptrstr)
-  (assert_msg "outcinitfill_objinitlist check ptrstr" (is_string ptrstr)) 
+  (assert_msg "check recv" (is_a recv class_objinitlist) recv)
+  (assert_msg "check ptrstr" (is_string ptrstr) ptrstr) 
   (let  ( (cnam (unsafe_get_field :oie_cname recv)) 
 	  (olocvar (unsafe_get_field :oie_locvar recv))
 	  (odata (unsafe_get_field :oie_data recv))
@@ -1316,7 +1317,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outcinitfill_objinitlist huge sbuf" 10)
 	    (debug "outcinitfill_objinitlist huge sbuf=" sbuf)
 	    (assert_msg "check limited sbuf" 
-			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)))
     )
   )
 (install_method class_objinitlist output_c_initial_fill outcinitfill_objinitlist)
@@ -1329,16 +1330,15 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (outstr_err (unsafe_get_field :named_name discr))
     (outnewline_err)
     (debug  "outpucod_anydiscr discr=" discr))
-  (assert_msg "@@ outpucod_anydiscr not able to output" ())
+  (assert_msg "@@ outpucod_anydiscr not able to output" () any)
   )
 (install_method discr_any_receiver output_c_code outpucod_anydiscr)
 
 
   ;;
 (defun outpucod_null (nul declbuf implbuf :long depth)
-					;(assert_msg "@$@unexpected call to outpucod_null")
   (shortbacktrace_dbg "outpucod_null" 12)
-  (add2out implbuf ##{ /*fromline $(this_line)*/ NULL }#)
+  (add2out implbuf ##{ /*reallynil*/ NULL }#)
   )
 (install_method discr_null_receiver output_c_code outpucod_null)
 
@@ -1349,7 +1349,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (outcstring_err "* output_c_code unimplemented receiver class ")
   (let ( (discr (discrim anyr)) ) (outstr_err (unsafe_get_field :named_name discr)))
   (outnewline_err)
-  (assert_msg "@@ outpucod_catchall_root not able to output" ())
+  (assert_msg "@@ outpucod_catchall_root not able to output" () anyr)
   )
 (install_method class_root output_c_code outpucod_catchall_root)
 
@@ -1394,7 +1394,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		(shortbacktrace_dbg "output_raw_location huge implbuf" 12)
 		(debug "output_raw_location huge implbuf=" implbuf)
 		(assert_msg "check limited implbuf" 
-			    (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+			    (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
 	)))
 
   ;; we really want to avoid outputing the same location twice, so we
@@ -1458,7 +1458,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		      (shortbacktrace_dbg "output_location huge implbuf" 12)
 		      (debug "output_location huge implbuf=" implbuf)
 		      (assert_msg "check limited implbuf" 
-				  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+				  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
 	      (return)
 	      )
 	  )
@@ -1525,7 +1525,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	      (string4out discr_verbatim_string "MeltFrame_" (unsafe_get_field :named_name rou)))
 	     (:else
 	      (debug "output_curframe_declstruct bad routine rou=" rou)
-	      (assert_msg "unexpected routine" ())
+	      (assert_msg "unexpected routine" () rou)
 	      )))
 	   )
       (add2out dsbuf " /*curframdeclclassy*/ class " classyframename "// fromline " (this_line))
@@ -1546,11 +1546,11 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(foreach_in_list
 	 (others)
 	 (curpair oloc)
-	 (assert_msg "check other oloc" (is_a oloc class_objlocv))
+	 (assert_msg "check other oloc" (is_a oloc class_objlocv) oloc)
 	 (let ( (octyp (unsafe_get_field :obv_type oloc))
 		(oname (unsafe_get_field :obl_cname oloc))
 		)
-	   (assert_msg "check octyp" (is_a octyp class_ctype))
+	   (assert_msg "check octyp" (is_a octyp class_ctype) octyp)
 	   (add2sbuf_string dsbuf (unsafe_get_field :ctype_cname octyp))
 	   (add2sbuf_strconst dsbuf " ")
 	   (add2sbuf_string dsbuf oname)
@@ -1568,7 +1568,6 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (foreach_in_list
        (others)
        (curpair oloc)
-					;(assert_msg "check other oloc" (is_a oloc class_objlocv))
        (let ( (octyp (unsafe_get_field :obv_type oloc))
 	      (oname (unsafe_get_field :obl_cname oloc))
 	      )
@@ -1670,9 +1669,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (debug "output_curframe_declstruct_init declstruct= " declstruct 
 	 "\n.. rou=" rou
 	 "\n .. of discrim=" (discrim rou))
-  (assert_msg "check rou" (is_a rou class_routineobj))
-  (assert_msg "check declstruct" (is_closure declstruct))
-  (assert_msg "check implbuf" (is_strbuf implbuf))
+  (assert_msg "check rou" (is_a rou class_routineobj) rou)
+  (assert_msg "check declstruct" (is_closure declstruct) declstruct)
+  (assert_msg "check implbuf" (is_strbuf implbuf) implbuf)
   (let (
 	(obody (unsafe_get_field :obrout_body rou))
 	(onbval (unsafe_get_field :obrout_nbval rou))
@@ -1737,7 +1736,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
        (add2out implbuf "/* classy initial frame " rouname " fromline " (this_line) "*/ Melt_InitialFrame "))
      ( :else
        (debug "output_curframe_declstruct_init classy bad routine=" rou)
-       (assert_msg "unexpected routine for classy frame declaration" ()))
+       (assert_msg "unexpected routine for classy frame declaration" () rou))
      )
      ;;
     (add2sbuf_indentnl implbuf 0)
@@ -1798,7 +1797,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 
 
@@ -1806,7 +1805,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 ;;; output code for a procroutine
 (defun outpucod_procroutine (prou declbuf implbuf :long depth)
-  (assert_msg "check prou" (is_a prou class_procroutineobj))
+  (assert_msg "check prou" (is_a prou class_procroutineobj) prou)
   (let ( (onam (unsafe_get_field :named_name prou)) 
 	 (obody (unsafe_get_field :obrout_body prou))
 	 (onbval (unsafe_get_field :obrout_nbval prou))
@@ -1895,7 +1894,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     ;; output the argument getting
     (add2sbuf_strconst implbuf "/*getargs*/")
     (add2sbuf_indentnl implbuf 0)
-    (assert_msg "check ogargs" (is_multiple_or_null ogargs))
+    (assert_msg "check ogargs" (is_multiple_or_null ogargs) ogargs)
     (foreach_in_multiple
      (ogargs)
      (curget :long curank) 
@@ -1910,7 +1909,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	     (shortbacktrace_dbg "outpucod_procroutine huge implbuf" 10)
 	     (debug "outpucod_procroutine huge implbuf=" implbuf)
 	     (assert_msg "check limited implbuf" 
-			 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+			 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
      )					;end foreach ogargs
     (add2sbuf_strconst implbuf ";")
     (add2sbuf_indentnl implbuf 0)
@@ -1919,7 +1918,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_strconst implbuf "meltlab_endgetargs:;")
     (add2sbuf_indentnl implbuf 0)
     ;; output the body
-    (assert_msg "check obody" (is_list obody))
+    (assert_msg "check obody" (is_list obody) obody)
     (add2sbuf_strconst implbuf "/*body*/")
     (add2sbuf_indentnl implbuf 0)
     (foreach_in_list
@@ -1930,7 +1929,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	   (output_c_code curbody declbuf implbuf 0)
 	   (add2sbuf_indentnl implbuf 0)))
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
     ;; end of implementation
     (add2sbuf_strconst implbuf ";")
@@ -1976,13 +1975,13 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	    (shortbacktrace_dbg "outpucod_procroutine huge declbuf" 10)
 	    (debug "outpucod_procroutine huge declbuf=" declbuf)
 	    (assert_msg "check limited declbuf" 
-			(<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)) declbuf)))
     ;;
     (cond ( (>i (strbuf_usedlength implbuf) (/iraw (get_int !buffer_limit_cont) 2))
 	    (shortbacktrace_dbg "outpucod_procroutine huge implbuf" 10)
 	    (debug "outpucod_procroutine huge implbuf=" implbuf)
 	    (assert_msg "check limited implbuf" 
-			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
     ))
 (install_method class_procroutineobj output_c_code outpucod_procroutine)
 
@@ -2009,7 +2008,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (shortbacktrace_dbg "output_curframe_cdat_struct huge implbuf" 10)
 	  (debug "output_curframe_cdat_struct huge implbuf=" implbuf)
 	  (assert_msg "check limited implbuf" 
-		      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+		      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
   )
 
 
@@ -2053,7 +2052,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (shortbacktrace_dbg "output_curframe_cdat_fill implbuf" 10)
 	  (debug "output_curframe_cdat_fill huge implbuf=" implbuf)
 	  (assert_msg "check limited implbuf" 
-		      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+		      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
   )
 
 
@@ -2065,7 +2064,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (defun outpucod_initialmoduleroutine (pini declbuf implbuf :long depth)
   (debug "outpucod_initialmoduleroutine start pini=" pini
 	 "\n of discrim=" (discrim pini))
-  (assert_msg "check pini" (is_a pini class_initial_module_routineobj))
+  (assert_msg "check pini" (is_a pini class_initial_module_routineobj) pini)
   (let ( 
 	(idatup (unsafe_get_field :oirout_data pini)) 
 	(irfill (unsafe_get_field :oirout_fill pini))
@@ -2257,7 +2256,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		 (shortbacktrace_dbg "outpucod_initialroutine huge chunkbuf" 10)
 		 (debug "outpucod_initialroutine huge chunkbuf=" chunkbuf)
 		 (assert_msg "check limited chunkbuf" 
-			     (<i (strbuf_usedlength chunkbuf) (get_int !buffer_limit_cont)))))
+			     (<i (strbuf_usedlength chunkbuf) (get_int !buffer_limit_cont)) chunkbuf)))
 	 
 	 ))
       ;; clear the previous location memoization
@@ -2358,7 +2357,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 		 (shortbacktrace_dbg "outpucod_initialroutine huge implbuf" 10)
 		 (debug "outpucod_initialroutine huge implbuf=" implbuf)
 		 (assert_msg "check limited implbuf" 
-			     (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))))
+			     (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
 
 	 )
 	)
@@ -2366,9 +2365,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     (assert_msg "check limited declbuf" 
-		(<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)) declbuf)
     ))
 (install_method class_initial_module_routineobj output_c_code outpucod_initialmoduleroutine)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2378,8 +2377,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;; to be shared in declaration & implementation buffers
 (defun output_centraldecl_hookroutine (phook sbuf :cstring comm qualif)
   (debug "output_centraldecl_hookroutine start phook=" phook)
-  (assert_msg "check phook" (is_a phook class_hookroutineobj))
-  (assert_msg "check sbuf" (is_strbuf sbuf))
+  (assert_msg "check phook" (is_a phook class_hookroutineobj) phook)
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
   (let ( (hookname (get_field :named_name phook))
 	 (nhookproc (get_field :obrout_proc phook))
 	 (oretval (get_field :obrout_retval phook))
@@ -2391,7 +2390,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (ohkoutargs (get_field :ohookrout_outargs phook))
 	 )
     (debug "output_centraldecl_hookroutine oretctype=" oretctype "\n.. oretval=" oretval)
-    (assert_msg "check oretctype" (is_a oretctype class_ctype))
+    (assert_msg "check oretctype" (is_a oretctype class_ctype) oretctype)
     (add2sbuf_indentnl sbuf 0)
     (add2out sbuf ##{/** $COMM hook $HOOKNAME */}#)
     (add2sbuf_indentnl sbuf 0)
@@ -2437,7 +2436,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (defun outpucod_hookroutine (phook declbuf implbuf :long depth)
   (debug "outpucod_hookroutine start phook=" phook
 	 "\n of discrim=" (discrim phook))
-  (assert_msg "check phook" (is_a phook class_hookroutineobj))
+  (assert_msg "check phook" (is_a phook class_hookroutineobj) phook)
   (let ( (hookname (get_field :named_name phook))
 	 (nhookproc (get_field :obrout_proc phook))
 	 (nrawhookname (get_field :nrclop_name nhookproc))
@@ -2521,7 +2520,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
        )
       (add2sbuf_indentnl implbuf 1)
       (debug "outpucod_hookroutine obody=" obody)
-      (assert_msg "check list body" (is_list obody))
+      (assert_msg "check list body" (is_list obody) obody)
       (foreach_in_list
        (obody)
        (curbodypair curbodyo)
@@ -2531,7 +2530,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	 (add2sbuf_strconst implbuf ";")
 	 (add2sbuf_indentnl implbuf 1))
        (assert_msg "check limited implbuf" 
-		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
        )
       ;; output the epilogue
       (add2out 
@@ -2543,7 +2542,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
        )
       (add2sbuf_indentnl implbuf 1)
       (debug "outpucod_hookroutine ohkepilog=" ohkepilog)
-      (assert_msg "check epilog" (is_list ohkepilog))
+      (assert_msg "check epilog" (is_list ohkepilog) ohkepilog)
       (foreach_in_list
        (ohkepilog)
        (curepipair curepins)
@@ -2592,9 +2591,9 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; output extension initial routine
 (defun outpucod_initialextensionroutine  (pini declbuf implbuf :long depth)
-  (assert_msg "check pini" (is_a pini class_initial_extension_routineobj))
   (debug "outpucod_initialextensionroutine start pini=" pini
 	 "\n of discrim " (discrim pini))
+  (assert_msg "check pini" (is_a pini class_initial_extension_routineobj) pini)
   (shortbacktrace_dbg "outpucod_initialextensionroutine" 20)
   (let (
 	(oname (get_field :named_name pini))
@@ -2698,7 +2697,7 @@ $ONAME (melt_ptr_t meltarg_curenvbox_p, melt_ptr_t meltarg_tuplitval_p)
 	     ((is_list obody) (list_to_multiple obody discr_multiple))
 	     ((is_multiple obody) obody)
 	     (:else
-	      (assert_msg "unexpected body"))))
+	      (assert_msg "unexpected body" () obody))))
 	   (:long nbbody (multiple_length bodtup))
 	   )
       (debug "outpucod_initialextensionroutine bodtup=" bodtup)
@@ -2746,20 +2745,20 @@ meltlabend_rout:
 
 ;; output code for argument getter
 (defun outpucod_getarg (garg declbuf implbuf :long depth)
-  (assert_msg "check garg" (is_a garg class_objgetarg))
+  (assert_msg "check garg" (is_a garg class_objgetarg) garg)
   (let ( (oloc (unsafe_get_field :obarg_obloc garg)) 
 	 (nloc (unsafe_get_field :obi_loc garg))
 	 (obind (unsafe_get_field :obarg_bind garg))
 	 (:long rkbind (get_int obind))
 	 (ctybind (unsafe_get_field :fbind_type obind))
 	 )
-    (assert_msg "check obind" (is_a obind class_formal_binding))
+    (assert_msg "check obind" (is_a obind class_formal_binding) obind)
     (output_location nloc implbuf depth "getarg")
-    (assert_msg "check oloc" (is_a oloc class_objlocv))
-    (assert_msg "check ctybind" (is_a ctybind class_ctype))
+    (assert_msg "check oloc" (is_a oloc class_objlocv) oloc)
+    (assert_msg "check ctybind" (is_a ctybind class_ctype) ctybind)
     (if (==i rkbind 0)
 	(progn
-	  (assert_msg "check ctybind first" (== ctybind ctype_value))
+	  (assert_msg "check ctybind first" (== ctybind ctype_value) ctybind)
 	  (output_c_code oloc declbuf implbuf depth)
 	  (add2sbuf_strconst implbuf " = (melt_ptr_t) meltfirstargp_;")
 	  (add2sbuf_indentnl implbuf depth)
@@ -2804,14 +2803,14 @@ meltlabend_rout:
 	(add2sbuf_indentnl implbuf depth)
 	))
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objgetarg output_c_code outpucod_getarg)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output code for rest argument getter
 (defun outpucod_getargrest (garg declbuf implbuf :long depth)
-  (assert_msg "check garg" (is_a garg class_objgetargrest))
+  (assert_msg "check garg" (is_a garg class_objgetargrest) garg)
   (let ( (oloc (unsafe_get_field :obarg_obloc garg)) 
 	 (nloc (unsafe_get_field :obi_loc garg))
 	 (obind (unsafe_get_field :obarg_bind garg))
@@ -2821,13 +2820,13 @@ meltlabend_rout:
 	 (ovariadicindex (variadic_index_idstr orest))
 	 (ovariadiclength (variadic_length_idstr orest))
 	 )
-    (assert_msg "check obind" (is_a obind class_formal_binding))
+    (assert_msg "check obind" (is_a obind class_formal_binding) obind)
     (output_location nloc implbuf depth "getarg")
-    (assert_msg "check oloc" (is_a oloc class_objlocv))
-    (assert_msg "check ctybind" (is_a ctybind class_ctype))
+    (assert_msg "check oloc" (is_a oloc class_objlocv) oloc)
+    (assert_msg "check ctybind" (is_a ctybind class_ctype) ctybind)
     (if (==i rkbind 0)
 	(progn
-	  (assert_msg "check ctybind first" (== ctybind ctype_value))
+	  (assert_msg "check ctybind first" (== ctybind ctype_value) ctybind)
 	  (output_c_code oloc declbuf implbuf depth)
 	  (add2sbuf_strconst implbuf " = (melt_ptr_t) meltfirstargp_;")
 	  (add2sbuf_indentnl implbuf depth)
@@ -2886,7 +2885,7 @@ meltlabend_rout:
 	(add2sbuf_indentnl implbuf depth)
 	))
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objgetargrest output_c_code outpucod_getargrest)
 
@@ -2895,11 +2894,11 @@ meltlabend_rout:
 ;; output code for objcformal
 (defun outpucod_objcformal (cform declbuf implbuf :long depth)
   (debug "outpucod_objcformal cform=" cform)
-  (assert_msg "check cform" (is_a cform class_objcformal))
-  (assert_msg "check implbuf" (is_strbuf implbuf))
+  (assert_msg "check cform" (is_a cform class_objcformal) cform)
+  (assert_msg "check implbuf" (is_strbuf implbuf) implbuf)
   (let ( (fornam (get_field :oformal_name cform))
 	 )
-    (assert_msg "check formnam" (is_string fornam))
+    (assert_msg "check formnam" (is_string fornam) fornam)
     (add2out_strconst implbuf " ")
     (add2out_string implbuf fornam)
     ))
@@ -2909,11 +2908,11 @@ meltlabend_rout:
 ;;; output code for module variable fetching
 (defun outpucod_objfetchmodvar (fmodvar declbuf implbuf :long depth)
   (debug "outpucod_objfetchmodvar fmodvar=" fmodvar)
-  (assert_msg "check fmodvar" (is_a fmodvar class_objfetchmodvar))
+  (assert_msg "check fmodvar" (is_a fmodvar class_objfetchmodvar) fmodvar)
   (let ( (varbind (get_field :obfetchmodvar_bind fmodvar))
 	 )
     ;; the inlined function melt_module_var_fetch is emitted by translate_macroexpanded_list
-    (assert_msg "check varbind" (is_a varbind class_normal_module_variable_binding))
+    (assert_msg "check varbind" (is_a varbind class_normal_module_variable_binding) varbind)
     (add2out implbuf " (melt_module_var_fetch (")
     (out_enumix_modvarbind implbuf varbind)
     (add2out implbuf "))")
@@ -2923,14 +2922,14 @@ meltlabend_rout:
 ;;; output code for module variable putting
 (defun outpucod_objputmodvar (pmodvar declbuf implbuf :long depth)
   (debug "outpucod_objputmodvar pmodvar=" pmodvar)
-  (assert_msg "check pmodvar" (is_a pmodvar class_objputmodvar))
+  (assert_msg "check pmodvar" (is_a pmodvar class_objputmodvar) pmodvar)
   (let ( (oloc (get_field :obi_loc pmodvar))
 	 (varbind (get_field :obputmodvar_bind pmodvar))
 	 (oval (get_field :obputmodvar_val pmodvar))
 	 )
     ;; the inlined function melt_module_var_put is emitted by translate_macroexpanded_list
     (debug "outpucod_objputmodvar varbind=" varbind)
-    (assert_msg "check varbind" (is_a varbind class_normal_module_variable_binding))
+    (assert_msg "check varbind" (is_a varbind class_normal_module_variable_binding) varbind)
     (if oloc (output_location oloc implbuf depth "putmodvar"))
     (add2out implbuf "melt_module_var_put (")
     (out_enumix_modvarbind implbuf varbind)
@@ -2944,14 +2943,14 @@ meltlabend_rout:
 ;; output code for put output argument in hooks
 (defun outpucod_objputoutarg (outa declbuf implbuf :long depth)
   (debug "outpucod_objputoutarg outa=" outa)
-  (assert_msg "check outa" (is_a outa class_objputoutarg))
+  (assert_msg "check outa" (is_a outa class_objputoutarg) outa)
   (let ( (oloc (get_field :obi_loc outa))
 	 (oformal (get_field :oboutarg_formal outa))
 	 (olocv (get_field :oformal_locv oformal))
 	 )
     (debug "outpucod_objputoutarg oformal=" oformal)
-    (assert_msg "check oformal" (is_a oformal class_objcformal))
-    (assert_msg "check olocv" (is_a olocv class_objlocv))
+    (assert_msg "check oformal" (is_a oformal class_objcformal) oformal)
+    (assert_msg "check olocv" (is_a olocv class_objlocv) olocv)
     (output_location oloc implbuf depth "putoutarg")
     (add2sbuf_strconst implbuf "if ((")
     (output_c_code oformal declbuf implbuf depth)
@@ -2969,7 +2968,7 @@ meltlabend_rout:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output code for objlocv
 (defun outpucod_objlocv (locv declbuf implbuf :long depth)
-  (assert_msg "check locv" (is_a locv class_objlocv))
+  (assert_msg "check locv" (is_a locv class_objlocv) locv)
   (let ( 
 	(ltyp (unsafe_get_field :obv_type locv))
 	(loff (unsafe_get_field :obl_off locv))
@@ -2993,25 +2992,25 @@ meltlabend_rout:
       (add2sbuf_string implbuf lcnam)))
     )
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method class_objlocv output_c_code outpucod_objlocv)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output code for object closed occurrence
 (defun outpucod_objcloccv (occv  declbuf implbuf :long depth)
-  (assert_msg "check occv" (is_a occv class_objcloccv))
+  (assert_msg "check occv" (is_a occv class_objcloccv) occv)
   (let ( (ooff (unsafe_get_field :obc_off occv))
 	 (onam (unsafe_get_field :obc_name occv)) )
     (assert_msg "check valueness of closed occurrence" 
-		(== (unsafe_get_field :obv_type occv) ctype_value))
+		(== (unsafe_get_field :obv_type occv) ctype_value) occv)
     (add2sbuf_strconst implbuf "(/*~")
     (add2sbuf_string implbuf onam)
     (add2sbuf_strconst implbuf "*/ meltfclos->tabval[")
     (add2sbuf_longdec implbuf (get_int ooff))
     (add2sbuf_strconst implbuf "])")
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objcloccv output_c_code outpucod_objcloccv)
 
@@ -3019,18 +3018,18 @@ meltlabend_rout:
 ;; output code for hook closed occurrence
 (defun outpucod_objclohookv (occv  declbuf implbuf :long depth)
   (debug "outpucod_objclohookv occv=" occv)
-  (assert_msg "check occv" (is_a occv class_objclohookv))
+  (assert_msg "check occv" (is_a occv class_objclohookv) occv)
   (let ( (ooff (unsafe_get_field :obc_off occv))
 	 (onam (unsafe_get_field :obc_name occv)) )
     (assert_msg "check valueness of closed occurrence" 
-		(== (unsafe_get_field :obv_type occv) ctype_value))
+		(== (unsafe_get_field :obv_type occv) ctype_value) occv)
     (add2sbuf_strconst implbuf "(/*~")
     (add2sbuf_string implbuf onam)
     (add2sbuf_strconst implbuf "*/ meltfhook->tabval[")
     (add2sbuf_longdec implbuf (get_int ooff))
     (add2sbuf_strconst implbuf "])")
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objclohookv output_c_code outpucod_objclohookv)
 
@@ -3038,11 +3037,11 @@ meltlabend_rout:
 ;;;;;;;;;;;;;;;;
 ;; output code for object const [closed] occurrence
 (defun outpucod_objconstv (ocnstv  declbuf implbuf :long depth)
-  (assert_msg "check ocnstv" (is_a ocnstv class_objconstv))
+  (assert_msg "check ocnstv" (is_a ocnstv class_objconstv) ocnstv)
   (let ( (ooff (unsafe_get_field :obc_off ocnstv))
 	 (onam (unsafe_get_field :obc_name ocnstv)) )
     (assert_msg "check valueness of const occurrence" 
-		(== (unsafe_get_field :obv_type ocnstv) ctype_value))
+		(== (unsafe_get_field :obv_type ocnstv) ctype_value) ocnstv)
     (add2sbuf_strconst implbuf "(/*!")
     (add2sbuf_string implbuf onam)
     ;; was for debug
@@ -3050,15 +3049,15 @@ meltlabend_rout:
     (add2sbuf_longdec implbuf (get_int ooff))
     (add2sbuf_strconst implbuf "])")
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objconstv output_c_code outpucod_objconstv)
 
 
 ;; output the code of an instructions list, skipping any pure value
 (defun output_code_instructions_list (lis declbuf implbuf boxeddepth)
-  (assert_msg "check lis" (is_list_or_null lis))
-  (assert_msg "check boxeddepth" (is_integerbox boxeddepth))
+  (assert_msg "check lis" (is_list_or_null lis) lis)
+  (assert_msg "check boxeddepth" (is_integerbox boxeddepth) boxeddepth)
   (let ( (:long depth (get_int boxeddepth)) )
     (add2sbuf_indentnl implbuf depth)
     (foreach_in_list
@@ -3082,16 +3081,16 @@ meltlabend_rout:
 	(add2sbuf_strconst implbuf ";"))
       )					;end cond
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      (assert_msg "check limited declbuf" 
-		 (<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength declbuf) (get_int !buffer_limit_cont)) declbuf)
      ))
   )
   
 
 ;;;;;;;;;;;;;;;;
 (defun outpucod_objchecksignal (obchi declbuf implbuf :long depth)
-  (assert_msg "check ochi" (is_a obchi class_objchecksignal))
+  (assert_msg "check ochi" (is_a obchi class_objchecksignal) obchi)
   (let ( (oloc (unsafe_get_field :obi_loc obchi))
 	 )
     ;; We use output_raw_location because out_location would pollute
@@ -3104,7 +3103,7 @@ meltlabend_rout:
 
 ;; output code for objanyblock
 (defun outpucod_objanyblock (oblo declbuf implbuf :long depth)
-  (assert_msg "check oblo" (is_a oblo class_objanyblock))
+  (assert_msg "check oblo" (is_a oblo class_objanyblock) oblo)
   (output_location (unsafe_get_field :obi_loc oblo) implbuf depth "block")
   (let ( (bodyl (unsafe_get_field :oblo_bodyl oblo))
 	 (epil (unsafe_get_field :oblo_epil oblo)) 
@@ -3121,7 +3120,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "}")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objanyblock output_c_code outpucod_objanyblock)
@@ -3130,7 +3129,7 @@ meltlabend_rout:
 ;; output code for objflag
 (defun outpucod_objflag (oflag declbuf implbuf :long depth)
   (debug "outpucod_objflag oflag=" oflag)
-  (assert_msg "check oflag" (is_a oflag class_objflag))
+  (assert_msg "check oflag" (is_a oflag class_objflag) oflag)
   (let ( (oflname (get_field :obflag_name oflag))
 	 (oflrank (get_field :obflag_rank oflag))
 	 )
@@ -3141,7 +3140,7 @@ meltlabend_rout:
 ;; output code for objmatchflagblock
 (defun outpucod_objmatchflagblock (oblo declbuf implbuf :long depth)
   (debug "outpucod_objmatchflagblock oblo=" oblo)
-  (assert_msg "check oblo" (is_a oblo class_objmatchflagblock))
+  (assert_msg "check oblo" (is_a oblo class_objmatchflagblock) oblo)
   (let (
 	(oloc (get_field :obi_loc oblo))
 	(oflags (get_field :omchflgblo_flags oblo))
@@ -3154,12 +3153,12 @@ meltlabend_rout:
     ;; output flag declarations;
     (debug "outpucod_objmatchflagblock oflags=" oflags)
     (when oflags
-      (assert_msg "check oflags" (is_multiple oflags))
+      (assert_msg "check oflags" (is_multiple oflags) oflags)
       (foreach_in_multiple
        (oflags)
        (curoflag :long ix)
        (debug "outpucod_objmatchflagblock curoflag=" curoflag " ix=" ix)
-       (assert_msg "check curoflag" (is_a curoflag class_objflag))
+       (assert_msg "check curoflag" (is_a curoflag class_objflag) curoflag)
        (add2sbuf_indentnl implbuf depthsucc)
        (add2sbuf_strconst implbuf "bool ") ;
        (output_c_code curoflag declbuf implbuf depthsucc)
@@ -3171,7 +3170,7 @@ meltlabend_rout:
     (when obody
       (add2sbuf_indentnl implbuf depthsucc)
       (output_location oloc implbuf depth "matchflagblock.body")
-      (assert_msg "check obody" (is_list obody))
+      (assert_msg "check obody" (is_list obody) obody)
       (output_code_instructions_list obody declbuf implbuf 
 				     (constant_box depthsucc))
       )
@@ -3180,7 +3179,7 @@ meltlabend_rout:
     (when oepil
       (add2sbuf_indentnl implbuf depthsucc)
       (output_location oloc implbuf depth "matchflagblock.epilog")
-      (assert_msg "check oepil" (is_list oepil))
+      (assert_msg "check oepil" (is_list oepil) oepil)
       (output_code_instructions_list oepil declbuf implbuf 
 				     (constant_box depthsucc))
       )
@@ -3192,7 +3191,7 @@ meltlabend_rout:
 
 ;; output code for objmultiallocblock
 (defun outpucod_objmultiallocblock (oblo declbuf implbuf :long depth)
-  (assert_msg "check oblo" (is_a oblo class_objmultiallocblock))
+  (assert_msg "check oblo" (is_a oblo class_objmultiallocblock) oblo)
   (let ( (oloc (unsafe_get_field :obi_loc oblo))
 	 (oallstruct (unsafe_get_field :omalblo_allstruct oblo))
 	 (oname (unsafe_get_field :omalblo_name oblo))
@@ -3206,7 +3205,7 @@ meltlabend_rout:
 		     (strbuf2string discr_verbatim_string ptrbuf)))
 	 )
     (output_location oloc implbuf depth "blockmultialloc")
-    (assert_msg "check oallstruct" (is_multiple_or_null oallstruct))
+    (assert_msg "check oallstruct" (is_multiple_or_null oallstruct) oallstruct)
     (add2sbuf_strconst implbuf "/*multiallocblock*/{")
     (add2sbuf_indentnl implbuf depthp1)
     (add2sbuf_strconst implbuf "struct ")
@@ -3215,11 +3214,11 @@ meltlabend_rout:
     (foreach_in_multiple
      (oallstruct)
      (curstru :long strix)
-     (assert_msg "check curstru" (is_a curstru class_objinitelem))
+     (assert_msg "check curstru" (is_a curstru class_objinitelem) curstru)
      (add2sbuf_indentnl implbuf depthp1)
      (output_c_declinit curstru implbuf)
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
     (add2sbuf_strconst implbuf " long ")
     (add2sbuf_string implbuf oname)
@@ -3241,7 +3240,7 @@ meltlabend_rout:
      (curstru :long strix)
      (output_c_initial_fill curstru implbuf onameptr depthp1)
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      (add2sbuf_indentnl implbuf depthp1)   
      )
     ;;
@@ -3253,18 +3252,17 @@ meltlabend_rout:
 	  (add2sbuf_indentnl implbuf (get_int boxdepthp1))
 	  (add2sbuf_strconst implbuf "/*epilog*/")
 	  (output_code_instructions_list epil declbuf implbuf boxdepthp1)))
-					;(assert_msg "@$@unimplemented outpucod_objmultiallocblock" ())
     (add2sbuf_strconst implbuf "} /*end multiallocblock*/")
     (add2sbuf_indentnl implbuf depth)
     )
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method class_objmultiallocblock output_c_code outpucod_objmultiallocblock)
 
 ;; output code for objciterblock
 (defun outpucod_objciterblock (obcit  declbuf implbuf :long depth)
-  (assert_msg "check obcit" (is_a obcit class_objciterblock))
+  (assert_msg "check obcit" (is_a obcit class_objciterblock) obcit)
   (let ( (oloc (unsafe_get_field :obi_loc obcit))
 	 (bodyl (unsafe_get_field :oblo_bodyl obcit))
 	 (epil (unsafe_get_field :oblo_epil obcit)) 
@@ -3273,7 +3271,7 @@ meltlabend_rout:
 	 (oafter (unsafe_get_field :obciter_after obcit))
 	 (citer (unsafe_get_field :obciter_citer obcit))
 	 )
-    (assert_msg "check citer" (is_a citer class_citerator))
+    (assert_msg "check citer" (is_a citer class_citerator) citer)
     (output_location oloc "citerblock")
     (add2sbuf_strconst implbuf "/*citerblock ")
     (add2sbuf_ccomstring implbuf (unsafe_get_field :named_name citer))
@@ -3285,7 +3283,7 @@ meltlabend_rout:
      (obef :long ix)
      (output_c_code obef declbuf implbuf (get_int boxdepthp1))
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
     (add2sbuf_indentnl implbuf depth)
     (output_location oloc "citerbody")
@@ -3298,7 +3296,7 @@ meltlabend_rout:
      (oaft :long ix)
      (output_c_code oaft declbuf implbuf (get_int boxdepthp1))
      (assert_msg "check limited implbuf" 
-		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      )
     (add2sbuf_indentnl implbuf depth)
     (output_location oloc "citerepil")
@@ -3313,13 +3311,13 @@ meltlabend_rout:
     (add2sbuf_indentnl implbuf depth)
     )
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method class_objciterblock output_c_code outpucod_objciterblock)
 
 ;;;;;;;;;;;;;;;;
 (defun outpucod_objcommentinstr (obci declbuf implbuf :long depth)
-  (assert_msg "check obci" (is_a obci class_objcommentinstr))
+  (assert_msg "check obci" (is_a obci class_objcommentinstr) obci)
   (let ( (oloc (unsafe_get_field :obi_loc obci))
 	 (coms (unsafe_get_field :obci_comment obci))
 	 (comstr (let ( (sbu (make_strbuf discr_strbuf)) )
@@ -3333,14 +3331,14 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf " **/;")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objcommentinstr output_c_code outpucod_objcommentinstr)
 
 ;;;;;;;;;;;;;;;;
 ;; output code for objcommentedblock
 (defun outpucod_objcommentedblock (oblo declbuf implbuf :long depth)
-  (assert_msg "check oblo" (is_a oblo class_objcommentedblock))
+  (assert_msg "check oblo" (is_a oblo class_objcommentedblock) oblo)
   (output_location (unsafe_get_field :obi_loc oblo) implbuf depth "block")
   (let ( (bodyl (unsafe_get_field :oblo_bodyl oblo))
 	 (epil (unsafe_get_field :oblo_epil oblo)) 
@@ -3356,20 +3354,19 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "*/{")
     (if (is_list bodyl)
 	(output_code_instructions_list bodyl declbuf implbuf boxdepthp1))
-    (if (is_list epil)
-	(progn
-	  (add2sbuf_indentnl implbuf (get_int boxdepthp1))
-	  (add2sbuf_strconst implbuf "/*comp.epilog:")
-	  (add2sbuf_string implbuf comstr)
-	  (add2sbuf_strconst implbuf "*/")
-	  (output_code_instructions_list epil declbuf implbuf boxdepthp1)))
+    (when (is_list epil)
+      (add2sbuf_indentnl implbuf (get_int boxdepthp1))
+      (add2sbuf_strconst implbuf "/*comp.epilog:")
+      (add2sbuf_string implbuf comstr)
+      (add2sbuf_strconst implbuf "*/")
+      (output_code_instructions_list epil declbuf implbuf boxdepthp1))
     (add2sbuf_strconst implbuf "}")
     (add2sbuf_strconst implbuf "/*com.end block:")
     (add2sbuf_string implbuf comstr)
     (add2sbuf_strconst implbuf "*/")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objcommentedblock output_c_code outpucod_objcommentedblock)
@@ -3380,7 +3377,7 @@ meltlabend_rout:
 (definstance labelcountref class_reference :referenced_value '0)
 (defun outpucod_objlabelinstr (oblab declbuf implbuf :long depth)
   (debug "outpucod_objlabelinstr oblab=" oblab)
-  (assert_msg "check oblab" (is_a oblab class_objlabelinstr))
+  (assert_msg "check oblab" (is_a oblab class_objlabelinstr) oblab)
   (add2sbuf_indentnl implbuf depth)
   (add2sbuf_strconst implbuf "/*objlabel*/ ")
   (let ( (oprefix (unsafe_get_field :oblab_prefix oblab))
@@ -3396,7 +3393,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ": ;")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     (output_location (unsafe_get_field :obi_loc oblab) implbuf depth "objlabel")
     (add2out 
      implbuf ##{ /* objlabel */
@@ -3414,7 +3411,7 @@ meltlabend_rout:
 ;;; output code for goto instr
 
 (defun outpucod_objgotoinstr (obgoto declbuf implbuf :long depth)
-  (assert_msg "check obgoto" (is_a obgoto class_objgotoinstr))
+  (assert_msg "check obgoto" (is_a obgoto class_objgotoinstr) obgoto)
   (output_location (unsafe_get_field :obi_loc obgoto) implbuf depth "objgoto")
   (add2sbuf_strconst implbuf "/*objgoto*/ goto ")
   (add2sbuf_string implbuf (unsafe_get_field :obgoto_prefix obgoto))
@@ -3424,50 +3421,49 @@ meltlabend_rout:
   (add2sbuf_strconst implbuf ";")
   (add2sbuf_indentnl implbuf depth)
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method class_objgotoinstr output_c_code outpucod_objgotoinstr)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; add a cname for a cloned identifier into a buffer
 (defun add2sbuf_clonsym (sbuf csy)
-  (assert_msg "check sbuf" (is_strbuf sbuf))
-  (assert_msg "check csy" (is_a csy class_cloned_symbol))
+  (assert_msg "check sbuf" (is_strbuf sbuf) sbuf)
+  (assert_msg "check csy" (is_a csy class_cloned_symbol) csy)
   (let ( (cnam (unsafe_get_field :named_name csy))
 	 (:long rk (get_int (unsafe_get_field :csym_urank csy))) )
     (add2sbuf_cident sbuf cnam)
     (add2sbuf_strconst sbuf "_")
     (add2sbuf_longdec sbuf rk)
     (assert_msg "check limited sbuf" 
-		(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength sbuf) (get_int !buffer_limit_cont)) sbuf)
     ))
 
 ;;; output code for objloop
 (defun outpucod_objloop (oblo declbuf implbuf :long depth)
-  (assert_msg "check oblo" (is_a oblo class_objloop))
+  (assert_msg "check oblo" (is_a oblo class_objloop) oblo)
   (let ( (bodyl (unsafe_get_field :oblo_bodyl oblo))
 	 (epil (unsafe_get_field :oblo_epil oblo)) 
 	 (lab (unsafe_get_field :obloop_label oblo))
 	 (oloc (unsafe_get_field :obi_loc oblo))
 	 (boxdepthp1 (make_integerbox discr_integer (+i depth 1)))
 	 )
-    (assert_msg "check lab" (is_a lab class_cloned_symbol))
+    (assert_msg "check lab" (is_a lab class_cloned_symbol) lab)
     (output_location oloc implbuf depth "loop")
     (add2sbuf_strconst implbuf "/*loop*/{ meltlabloop_")
     (add2sbuf_clonsym implbuf lab)
     (add2sbuf_strconst implbuf ":;")
-    (if (is_list bodyl)
-	(progn
-	  (output_location oloc implbuf depth "loopbody")
-	  (add2sbuf_indentnl implbuf (+i depth 1))
-	  (list_every
-	   bodyl
-	   (lambda (curbody)
-	     (let ( (:long depthp1 (get_int boxdepthp1)) )
-	       (if (and curbody (not (is_a curbody class_objpurevalue)))
-		   (output_c_code curbody declbuf implbuf depthp1))
-	       (add2sbuf_strconst implbuf ";")
-	       (add2sbuf_indentnl implbuf depthp1))))))
+    (when (is_list bodyl)
+      (output_location oloc implbuf depth "loopbody")
+      (add2sbuf_indentnl implbuf (+i depth 1))
+      (foreach_in_list
+       (bodyl)
+       (curpair curbody)
+       (let ( (:long depthp1 (get_int boxdepthp1)) )
+	 (if (and curbody (not (is_a curbody class_objpurevalue)))
+	     (output_c_code curbody declbuf implbuf depthp1))
+	 (add2sbuf_strconst implbuf ";")
+	 (add2sbuf_indentnl implbuf depthp1))))
     (add2sbuf_strconst implbuf ";")
     (add2sbuf_indentnl implbuf (+i depth 1))
     (add2sbuf_strconst implbuf " goto meltlabloop_")
@@ -3477,25 +3473,24 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf " meltlabexit_")
     (add2sbuf_clonsym implbuf lab)
     (add2sbuf_strconst implbuf ":;")
-    (if (is_list epil)
-	(progn
-	  (output_location oloc implbuf depth "loopepilog")
-	  (add2sbuf_strconst implbuf "/*loopepilog*/")
-	  (add2sbuf_indentnl implbuf (+i depth 1))
-	  (list_every
-	   epil
-	   (lambda (curepil)
-	     (let ( (:long depthp1 (get_int boxdepthp1)) )
-	       (if (and curepil (not (is_a curepil class_objpurevalue)))
-		   (output_c_code curepil declbuf implbuf depthp1))
-	       (add2sbuf_strconst implbuf ";")
-	       (assert_msg "check limited implbuf" 
-			   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-	       (add2sbuf_indentnl implbuf depthp1))))))
+    (when (is_list epil)
+      (output_location oloc implbuf depth "loopepilog")
+      (add2sbuf_strconst implbuf "/*loopepilog*/")
+      (add2sbuf_indentnl implbuf (+i depth 1))
+      (foreach_in_list
+       (epil)
+       (curpair curepil)
+       (let ( (:long depthp1 (get_int boxdepthp1)) )
+	 (if (and curepil (not (is_a curepil class_objpurevalue)))
+	     (output_c_code curepil declbuf implbuf depthp1))
+	 (add2sbuf_strconst implbuf ";")
+	 (assert_msg "check limited implbuf" 
+		     (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+	 (add2sbuf_indentnl implbuf depthp1))))
     (add2sbuf_strconst implbuf "}")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objloop output_c_code outpucod_objloop)
@@ -3503,11 +3498,11 @@ meltlabend_rout:
 
 ;;; output code for objexit
 (defun outpucod_objexit (obxi declbuf implbuf :long depth)
-  (assert_msg "check obxi" (is_a obxi class_objexit))
+  (assert_msg "check obxi" (is_a obxi class_objexit) obxi)
   (let ( (olab (unsafe_get_field :obexit_label obxi))
 	 (loc (unsafe_get_field :obi_loc obxi))
 	 )
-    (assert_msg "check olab" (is_a olab class_cloned_symbol))
+    (assert_msg "check olab" (is_a olab class_cloned_symbol) olab)
     (output_location loc implbuf depth "exit")
     (add2sbuf_strconst implbuf "/*exit*/{")
     (add2sbuf_indentnl implbuf depth)
@@ -3516,18 +3511,18 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ";}")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))    
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)    
     ))
 (install_method class_objexit output_c_code outpucod_objexit)
 
 
 ;;; output code for objagain
 (defun outpucod_objagain (obag declbuf implbuf :long depth)
-  (assert_msg "check obag" (is_a obag class_objagain))
+  (assert_msg "check obag" (is_a obag class_objagain) obag)
   (let ( (olab (unsafe_get_field :obagain_label obag))
 	 (loc (unsafe_get_field :obi_loc obag))
 	 )
-    (assert_msg "check olab" (is_a olab class_cloned_symbol))
+    (assert_msg "check olab" (is_a olab class_cloned_symbol) olab)
     (output_location loc implbuf depth "again")
     (add2sbuf_strconst implbuf "/*again*/{")
     (add2sbuf_indentnl implbuf depth)
@@ -3536,13 +3531,13 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf ";}")
     (add2sbuf_indentnl implbuf depth) 
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))   
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)   
     ))
 (install_method class_objagain output_c_code outpucod_objagain)
 
 ;;; output code for objcompute
 (defun outpucod_objcompute (obcomp declbuf implbuf :long depth)
-  (assert_msg "check obcomp" (is_a obcomp class_objcompute))
+  (assert_msg "check obcomp" (is_a obcomp class_objcompute) obcomp)
   (let ( (cdest (unsafe_get_field :obdi_destlist obcomp)) ; destination list
 	 (cloc (unsafe_get_field :obi_loc obcomp))
 	 (cexp (unsafe_get_field :obcpt_expr obcomp)) 
@@ -3550,63 +3545,61 @@ meltlabend_rout:
 	 )
     (output_location cloc implbuf depth "compute")
     (if (is_list cdest)
-	(list_every
-	 cdest
-	 (lambda (destcur) 
-	   (output_c_code destcur declbuf implbuf (get_int boxdepthp1))
-	   (add2sbuf_strconst implbuf " = ")
-	   ())))
+	(foreach_in_list 
+	 (cdest)
+	 (curpair destcur) 
+	 (output_c_code destcur declbuf implbuf (get_int boxdepthp1))
+	 (add2sbuf_strconst implbuf " = ")
+	 ()))
     (cond ((is_list cexp)
 	   (if (>i (list_length cexp) 2)
 	       (add2sbuf_indentnl implbuf (+i 1 depth)))
-	   (list_every
-	    cexp 
-	    (lambda (expcur) 
-	      (output_c_code expcur declbuf implbuf (get_int boxdepthp1))
-	      (assert_msg "check limited implbuf" 
-			  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-	      )))
+	   (foreach_in_list
+	    (cexp)
+	    (curpair expcur) 
+	    (output_c_code expcur declbuf implbuf (get_int boxdepthp1))
+	    (assert_msg "check limited implbuf" 
+			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	    ))
 	  ((is_multiple cexp)
 	   (if (>i (multiple_length cexp) 2)
 	       (add2sbuf_indentnl implbuf (+i 1 depth)))
-	   (multiple_every
-	    cexp
-	    (lambda (expcur) 
-	      (output_c_code expcur declbuf implbuf (get_int boxdepthp1))
-	      (assert_msg "check limited implbuf" 
-			  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-	      )))
+	   (foreach_in_multiple
+	    (cexp)
+	    (expcur :long ix) 
+	    (output_c_code expcur declbuf implbuf (get_int boxdepthp1))
+	    (assert_msg "check limited implbuf" 
+			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+	    ))
 	  (:else
 	   (output_c_code cexp declbuf implbuf (+i depth 1))
 	   ))
     (add2sbuf_strconst implbuf ";")
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objcompute output_c_code outpucod_objcompute)
 
 
 ;; output a conditional
 (defun outpucod_objcond (ocond declbuf implbuf :long depth)
-  (assert_msg "check ocond" (is_a ocond class_objcond))
+  (assert_msg "check ocond" (is_a ocond class_objcond) ocond)
   (let ( (cloc (unsafe_get_field :obi_loc ocond))
 	 (ctest (unsafe_get_field :obcond_test ocond))
 	 (cthen (unsafe_get_field :obcond_then ocond))
 	 (celse (unsafe_get_field :obcond_else ocond)) 
 	 )
-    (assert_msg "check ctest" (notnull ctest))
+    (assert_msg "check ctest" (notnull ctest) ctest)
     (output_location cloc implbuf depth "cond")
     (add2sbuf_strconst implbuf "/*cond*/ if (")
     (output_c_code ctest declbuf implbuf (+i depth 1))
     (add2sbuf_strconst implbuf ") /*then*/ {")
     (add2sbuf_indentnl implbuf depth)
-    (if (and cthen (not (is_a cthen class_objpurevalue)))
-	(progn
-	  (output_location cloc implbuf depth "cond.then")
-	  (output_c_code cthen declbuf implbuf (+i depth 1))
-	  (add2sbuf_strconst implbuf ";")
-	  (add2sbuf_indentnl implbuf depth)
-	  )
+    (when (and cthen (not (is_a cthen class_objpurevalue)))
+      (output_location cloc implbuf depth "cond.then")
+      (output_c_code cthen declbuf implbuf (+i depth 1))
+      (add2sbuf_strconst implbuf ";")
+      (add2sbuf_indentnl implbuf depth)
       )
     (if (and celse (not (is_a celse class_objpurevalue)))
 	(progn
@@ -3622,7 +3615,7 @@ meltlabend_rout:
       )
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ) 
   )
 (install_method class_objcond output_c_code outpucod_objcond)
@@ -3630,14 +3623,14 @@ meltlabend_rout:
 
 ;; output a cppif
 (defun outpucod_objcppif (opif declbuf implbuf :long depth)
-  (assert_msg "check opif" (is_a opif class_objcppif))
+  (assert_msg "check opif" (is_a opif class_objcppif) opif)
   (let ( (cloc (unsafe_get_field :obi_loc opif))
 	 (ccond (unsafe_get_field :obifp_cond opif))
 	 (cthen (unsafe_get_field :obifp_then opif))
 	 (celse (unsafe_get_field :obifp_else opif))
 	 (:long depthp1 (+i 1 depth))
 	 )
-    (assert_msg "check ccond" (is_string ccond))
+    (assert_msg "check ccond" (is_string ccond) ccond)
     (output_raw_location cloc implbuf depth "cppif")
     (add2sbuf_strconst implbuf "#if ")
     (add2sbuf_string implbuf ccond)
@@ -3657,7 +3650,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "*/")
     (add2sbuf_indentnl implbuf depthp1)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objcppif output_c_code outpucod_objcppif)
 
@@ -3669,8 +3662,8 @@ meltlabend_rout:
 	 (oidat (unsafe_get_field :oie_data oiobj)) 
 	 (oilocv (unsafe_get_field :oie_locvar oiobj)) 
 	 )
-    (assert_msg "check oiobj" (is_a oiobj class_objinitobject))
-    (assert_msg "check oidat" (is_a oidat class_nrep_datasymbol))
+    (assert_msg "check oiobj" (is_a oiobj class_objinitobject) oiobj)
+    (assert_msg "check oidat" (is_a oidat class_nrep_datasymbol) oidat)
     (let ( (nsy (unsafe_get_field :ndsy_namestr oidat)) )
       (output_location (if cloc cloc (unsafe_get_field :nrep_loc oidat)) implbuf 1 "internsymbol")
       (add2sbuf_strconst implbuf "/*internsym:")
@@ -3682,19 +3675,19 @@ meltlabend_rout:
       (add2sbuf_strconst implbuf "));")
       (add2sbuf_indentnl implbuf depth))
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objinternsymbol output_c_code outpucod_objinternsymbol)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun outpucod_objinternkeyword (oikw declbuf implbuf :long depth)
-  (assert_msg "check oikw" (is_a oikw class_objinternkeyword))
+  (assert_msg "check oikw" (is_a oikw class_objinternkeyword) oikw)
   (let ( (cloc (unsafe_get_field :obi_loc oikw))
 	 (oiobj (unsafe_get_field :obintern_iobj oikw))
 	 (oidat (unsafe_get_field :oie_data oiobj)) 
 	 (oilocv (unsafe_get_field :oie_locvar oiobj)) 
 	 )
-    (assert_msg "check oidat" (is_a oidat class_nrep_datakeyword))
+    (assert_msg "check oidat" (is_a oidat class_nrep_datakeyword) oidat)
     (let ( (nsy (unsafe_get_field :ndsy_namestr oidat)) )
       (output_location (if cloc cloc (unsafe_get_field :nrep_loc oidat)) implbuf depth "internkeyword")
       (add2sbuf_strconst implbuf "/*internkeyw:")
@@ -3706,20 +3699,20 @@ meltlabend_rout:
       (add2sbuf_strconst implbuf "));")
       (add2sbuf_indentnl implbuf depth))
     (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objinternkeyword output_c_code outpucod_objinternkeyword)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun outpucod_objgetnamedsymbol (ogsy declbuf implbuf :long depth)
-  (assert_msg "check ogsy" (is_a ogsy class_objgetnamedsymbol))
+  (assert_msg "check ogsy" (is_a ogsy class_objgetnamedsymbol) ogsy)
   (let ( (cloc (unsafe_get_field :obi_loc ogsy))
 	 (oiobj (unsafe_get_field :obgnamed_iobj ogsy)) 
 	 (ogdat (unsafe_get_field :oie_data oiobj))
 	 (oilocv (unsafe_get_field :oie_locvar oiobj))
 	 )
-    (assert_msg "check oiobj" (is_a oiobj class_objinitobject))
-    (assert_msg "check ogdat" (is_a ogdat class_nrep_datasymbol))
+    (assert_msg "check oiobj" (is_a oiobj class_objinitobject) oiobj)
+    (assert_msg "check ogdat" (is_a ogdat class_nrep_datasymbol) ogdat)
     (let ( (nsy (unsafe_get_field :ndsy_namestr ogdat)) 
 	   )
       (output_location (if cloc cloc (unsafe_get_field :nrep_loc ogdat)) implbuf depth "getnamedsymbol")
@@ -3757,20 +3750,20 @@ meltlabend_rout:
       (add2sbuf_indentnl implbuf depth)
       (add2sbuf_indentnl implbuf depth)
       (assert_msg "check limited implbuf" 
-		  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
       )))
 (install_method class_objgetnamedsymbol output_c_code outpucod_objgetnamedsymbol)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun outpucod_objgetnamedkeyword (ogkw declbuf implbuf :long depth)
-  (assert_msg "check ogkw" (is_a ogkw class_objgetnamedkeyword))
+  (assert_msg "check ogkw" (is_a ogkw class_objgetnamedkeyword) ogkw)
   (let ( (cloc (unsafe_get_field :obi_loc ogkw))
 	 (oiobj (unsafe_get_field :obgnamed_iobj ogkw)) 
 	 (ogdat (unsafe_get_field :oie_data oiobj))
 	 (oilocv (unsafe_get_field :oie_locvar oiobj))
 	 )
-    (assert_msg "check oiobj" (is_a oiobj class_objinitobject))
-    (assert_msg "check ogdat" (is_a ogdat class_nrep_datakeyword))
+    (assert_msg "check oiobj" (is_a oiobj class_objinitobject) oiobj)
+    (assert_msg "check ogdat" (is_a ogdat class_nrep_datakeyword) ogdat)
     (let ( (nkw (unsafe_get_field :ndsy_namestr ogdat)) )
       (output_location (if cloc cloc (unsafe_get_field :nrep_loc ogdat)) implbuf depth "getnamedkeyword")
       (add2sbuf_strconst implbuf "/*getnamedkeyw:")
@@ -3792,14 +3785,14 @@ meltlabend_rout:
       (add2sbuf_strconst implbuf "; }")
       (add2sbuf_indentnl implbuf depth)
       (assert_msg "check limited implbuf" 
-		  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
       )))
 (install_method class_objgetnamedkeyword output_c_code outpucod_objgetnamedkeyword)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output an application
 (defun outpucod_objapply (oapp declbuf implbuf :long depth)
-  (assert_msg "check oapp" (is_a oapp class_objapply))
+  (assert_msg "check oapp" (is_a oapp class_objapply) oapp)
   (let (
 	(aloc (unsafe_get_field :obi_loc oapp))
 	(adest (unsafe_get_field :obdi_destlist oapp))
@@ -3812,55 +3805,54 @@ meltlabend_rout:
     (output_location aloc implbuf depth "apply")
     (add2sbuf_strconst implbuf "/*apply*/{")
     (add2sbuf_indentnl implbuf (+i 1 depth))
-    (if (>i nbarg 1)
-	(progn
-	  (add2sbuf_strconst implbuf "union meltparam_un argtab[")
-	  (add2sbuf_longdec implbuf (-i nbarg 1))
-	  (add2sbuf_strconst implbuf "];")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ;; output the initialization of argtab and fill the paramdesclist
-	  (foreach_in_multiple
-	   (oargs)
-	   (curarg :long curank)
-	   (assert_msg "outputcod_objapply check curarg not objinstr" (not (is_a curarg class_objinstr)))
-	   (if (>i curank 0)
-	       (let ( (curctyp (get_ctype curarg ())) )
-		 (assert_msg "check curctyp" (is_a curctyp class_ctype))
-		 (output_location aloc implbuf (get_int boxdepthp1) "apply.arg")
-		 (add2sbuf_strconst implbuf "argtab[")
-		 (add2sbuf_longdec implbuf  (-i curank 1))
-		 (add2sbuf_strconst implbuf "].")
-		 (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
-		 (cond ( (null curarg)
-			 (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL")) 
-		       ( (is_a curarg class_objnil)
-			 (add2sbuf_strconst implbuf "meltbp_aptr = /*nil*/(melt_ptr_t*)NULL"))
-		       ( (== curctyp ctype_value)
-			 (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
-			 (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-			 )
-		       (:else 
-			(add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
-			(add2sbuf_strconst implbuf " = ")
-			(output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-			))
-		 (add2sbuf_strconst implbuf ";")
-		 (add2sbuf_indentnl implbuf (get_int boxdepthp1))
-		 ))
-	   (assert_msg "check limited implbuf" 
-		       (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-	   )
-	  ))
-;;; output the destination(s)
-    (list_every 
-     adest
-     (lambda (curdest) 
-       (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
+    (when (>i nbarg 1)
+      (add2sbuf_strconst implbuf "union meltparam_un argtab[")
+      (add2sbuf_longdec implbuf (-i nbarg 1))
+      (add2sbuf_strconst implbuf "];")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      ;; output the initialization of argtab and fill the paramdesclist
+      (foreach_in_multiple
+       (oargs)
+       (curarg :long curank)
+       (assert_msg "outputcod_objapply check curarg not objinstr" (is_not_a curarg class_objinstr) curarg)
+       (if (>i curank 0)
+	   (let ( (curctyp (get_ctype curarg ())) )
+	     (assert_msg "check curctyp" (is_a curctyp class_ctype) curctyp)
+	     (output_location aloc implbuf (get_int boxdepthp1) "apply.arg")
+	     (add2sbuf_strconst implbuf "argtab[")
+	     (add2sbuf_longdec implbuf  (-i curank 1))
+	     (add2sbuf_strconst implbuf "].")
+	     (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
+	     (cond ( (null curarg)
+		     (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL")) 
+		   ( (is_a curarg class_objnil)
+		     (add2sbuf_strconst implbuf "meltbp_aptr = /*nil*/(melt_ptr_t*)NULL"))
+		   ( (== curctyp ctype_value)
+		     (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
+		     (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+		     )
+		   (:else 
+		    (add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
+		    (add2sbuf_strconst implbuf " = ")
+		    (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+		    ))
+	     (add2sbuf_strconst implbuf ";")
+	     (add2sbuf_indentnl implbuf (get_int boxdepthp1))
+	     ))
        (assert_msg "check limited implbuf" 
-		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-       (add2sbuf_strconst implbuf " = ")))
+		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+       )
+      )
+;;; output the destination(s)
+    (foreach_in_list 
+     (adest)
+     (curpair curdest) 
+     (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
+     (assert_msg "check limited implbuf" 
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+     (add2sbuf_strconst implbuf " = "))
     ;; output the apply and the closure
     (add2sbuf_strconst implbuf " melt_apply ((meltclosure_ptr_t)(")
     (output_c_code oclos declbuf implbuf (+i 1 depth))
@@ -3871,11 +3863,11 @@ meltlabend_rout:
       )
     (add2sbuf_strconst implbuf "), (")
     ;; output the argdescr string
-    (list_every
-     paramdesclist
-     (lambda (pard)
-       (add2sbuf_string implbuf pard)
-       (add2sbuf_strconst implbuf " ")))
+    (foreach_in_list
+     (paramdesclist)
+     (curpair pard)
+     (add2sbuf_string implbuf pard)
+     (add2sbuf_strconst implbuf " "))
     (add2sbuf_strconst implbuf "\"\"), ")
     ;; output the argtab (or null if none)
     (if (>i nbarg 1)
@@ -3888,7 +3880,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "}")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objapply output_c_code outpucod_objapply)
@@ -3896,7 +3888,7 @@ meltlabend_rout:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output a message send
 (defun outpucod_objmsend (omsend declbuf implbuf :long depth)
-  (assert_msg "check omsend" (is_a omsend class_objmsend))
+  (assert_msg "check omsend" (is_a omsend class_objmsend) omsend)
   (let ( (oloc (unsafe_get_field :obi_loc omsend))
 	 (odest (unsafe_get_field :obdi_destlist omsend))
 	 (osel (unsafe_get_field :obmsnd_sel omsend))
@@ -3909,60 +3901,59 @@ meltlabend_rout:
     (output_location oloc implbuf depth "msend")
     (add2sbuf_strconst implbuf "/*msend*/{")
     (add2sbuf_indentnl implbuf (+i 1 depth))
-    (if (>i nbarg 0)
-	;; the code below is very similar to code inside
-	;; outpucod_objapply except that we do not shift arguments by
-	;; one
-	(progn
-	  (add2sbuf_strconst implbuf "union meltparam_un argtab[")
-	  (add2sbuf_longdec implbuf nbarg)
-	  (add2sbuf_strconst implbuf "];")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ;; output the initialization of argtab and fill the paramdesclist
-	  (foreach_in_multiple
-	   (oargs)
-	   (curarg :long curank)
-	   (let ( (curctyp (get_ctype curarg ())) )
-	     (assert_msg "check curctyp" (is_a curctyp class_ctype))
-	     (output_location oloc implbuf (get_int boxdepthp1) "ojbmsend.arg")
-	     (add2sbuf_strconst implbuf "argtab[")
-	     (add2sbuf_longdec implbuf  curank)
-	     (add2sbuf_strconst implbuf "].")
-	     (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
-	     (cond ( (null curarg)
-		     (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL")
-		     ) 
-		   ( (is_a curarg class_objnil)
-		     (add2sbuf_strconst implbuf "meltbp_aptr = /*nil*/(melt_ptr_t*)NULL")
-		     )
-		   ( (== curctyp ctype_value)
-		     (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
-		     (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-		     )
-		   (:else
-		    (assert_msg "check curarg is not multiple" (not (is_multiple curarg)))
-		    (add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
-		    (add2sbuf_strconst implbuf " = ")
-		    (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-		    ))
-	     (add2sbuf_strconst implbuf ";")
-	     (assert_msg "check limited implbuf" 
-			 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-	     (add2sbuf_indentnl implbuf (get_int boxdepthp1))
-	     ))
-	  ))
+    (when (>i nbarg 0)
+      ;; the code below is very similar to code inside
+      ;; outpucod_objapply except that we do not shift arguments by
+      ;; one
+      (add2sbuf_strconst implbuf "union meltparam_un argtab[")
+      (add2sbuf_longdec implbuf nbarg)
+      (add2sbuf_strconst implbuf "];")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      ;; output the initialization of argtab and fill the paramdesclist
+      (foreach_in_multiple
+       (oargs)
+       (curarg :long curank)
+       (let ( (curctyp (get_ctype curarg ())) )
+	 (assert_msg "check curctyp" (is_a curctyp class_ctype))
+	 (output_location oloc implbuf (get_int boxdepthp1) "ojbmsend.arg")
+	 (add2sbuf_strconst implbuf "argtab[")
+	 (add2sbuf_longdec implbuf  curank)
+	 (add2sbuf_strconst implbuf "].")
+	 (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
+	 (cond ( (null curarg)
+		 (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL")
+		 ) 
+	       ( (is_a curarg class_objnil)
+		 (add2sbuf_strconst implbuf "meltbp_aptr = /*nil*/(melt_ptr_t*)NULL")
+		 )
+	       ( (== curctyp ctype_value)
+		 (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
+		 (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+		 )
+	       (:else
+		(assert_msg "check curarg is not multiple" (not (is_multiple curarg)))
+		(add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
+		(add2sbuf_strconst implbuf " = ")
+		(output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+		))
+	 (add2sbuf_strconst implbuf ";")
+	 (assert_msg "check limited implbuf" 
+		     (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+	 (add2sbuf_indentnl implbuf (get_int boxdepthp1))
+	 ))
+      )
 ;;; output the destination(s)
     (foreach_in_list
      (odest)
      (curpair curdest) 
      (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
      (assert_msg "check limited implbuf" 
-		  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      (add2sbuf_strconst implbuf " = "))
     ;;
-    (assert_msg "check orecv object" (is_object orecv))
+    (assert_msg "check orecv object" (is_object orecv) orecv)
     ;;
     (add2sbuf_strconst implbuf "meltgc_send((melt_ptr_t)(")
     (output_c_code orecv declbuf implbuf (+i depth 1))
@@ -3970,11 +3961,12 @@ meltlabend_rout:
     (output_c_code osel declbuf implbuf (+i depth 1))
     (add2sbuf_strconst implbuf "), (")
     ;; output the argdescr string
-    (list_every
-     paramdesclist
-     (lambda (pard)
-       (add2sbuf_string implbuf pard)
-       (add2sbuf_strconst implbuf " ")))
+    (foreach_in_list
+     (paramdesclist)
+     (curpair pard)
+     (assert_msg "check pard" (is_string pard))
+     (add2sbuf_string implbuf pard)
+     (add2sbuf_strconst implbuf " "))
     (add2sbuf_strconst implbuf "\"\"), ")
     (if (>i nbarg 0)
 	(add2sbuf_strconst implbuf "argtab,")
@@ -3986,7 +3978,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "}")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objmsend output_c_code outpucod_objmsend)
 
@@ -3994,7 +3986,7 @@ meltlabend_rout:
 ;; output a multiresult application
 
 (defun outpucod_objmultiapply (oapp declbuf implbuf :long depth)
-  (assert_msg "check oapp" (is_a oapp class_objmultiapply))
+  (assert_msg "check oapp" (is_a oapp class_objmultiapply) oapp)
   (let (
 	(aloc (unsafe_get_field :obi_loc oapp))
 	(adest (unsafe_get_field :obdi_destlist oapp))
@@ -4007,8 +3999,8 @@ meltlabend_rout:
 	(resdesclist (make_list discr_list))
 	(boxdepthp1 (make_integerbox discr_integer (+i 1 depth)))
 	)
-    (assert_msg "check oargs" (is_multiple_or_null oargs))
-    (assert_msg "check oxres" (is_multiple_or_null oxres))
+    (assert_msg "check oargs" (is_multiple_or_null oargs) oargs)
+    (assert_msg "check oxres" (is_multiple_or_null oxres) oxres)
     (output_location aloc implbuf depth "multiapply")
     (add2sbuf_strconst implbuf "/*multiapply ")
     (add2sbuf_longdec implbuf nbarg)
@@ -4017,102 +4009,96 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "x.res*/ ")
     (add2sbuf_strconst implbuf "{")
     (add2sbuf_indentnl implbuf (+i 1 depth))
-    (if (>i nbarg 1)
-	(progn
-	  (add2sbuf_strconst implbuf "union meltparam_un argtab[")
-	  (add2sbuf_longdec implbuf (-i nbarg 1))
-	  (add2sbuf_strconst implbuf "];")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ))
-    (if (>i nbxres 0)
-	(progn
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  (add2sbuf_strconst implbuf "union meltparam_un restab[")
-	  (add2sbuf_longdec implbuf nbxres)
-	  (add2sbuf_strconst implbuf "];")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ))
-    (if (>i nbxres 0)
-	(progn
-	  (add2sbuf_strconst implbuf "memset(&restab, 0, sizeof(restab));")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ;; fill the resdesclist
-	  (multiple_every 
-	   oxres
-	   (lambda (cures :long curank)
-	     (let ( (curctyp (get_ctype cures ())) )
-	       (list_append resdesclist (unsafe_get_field :ctype_parstring curctyp)))))))
-    (if (>i nbarg 1)
-	(progn
-	  (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ;; output the initialization of argtab and fill the paramdesclist
-	  (foreach_in_multiple
-	   (oargs)
-	   (curarg :long curank)
-	   (if (>i curank 0)
-	       (let ( (curctyp (get_ctype curarg ())) )
-		 (assert_msg "check curctyp" (is_a curctyp class_ctype))
-		 (output_location aloc implbuf (get_int boxdepthp1) "multiapply.arg")
-		 (add2sbuf_strconst implbuf "argtab[")
-		 (add2sbuf_longdec implbuf  (-i curank 1))
-		 (add2sbuf_strconst implbuf "].")
-		 (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
-		 (cond
-		  ( (null curarg)
-		    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL"))
-		  ( (== curctyp ctype_value)
-		    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
-		    (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-		    )
-		  (:else
-		   (add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
-		   (add2sbuf_strconst implbuf " = ")
-		   (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-		   ))
-		 (add2sbuf_strconst implbuf ";")
-		 ))
-	   (assert_msg "check limited implbuf" 
-		       (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-	   )
-	  (add2sbuf_indentnl implbuf (get_int boxdepthp1))
-	  ))
-    ;; output the initialization of restab
-    (if (>i nbxres 0)
-	(progn
-	  (multiple_every
-	   oxres
-	   (lambda (cures :long curank)
-	     (let ( (curestyp (get_ctype cures ())) )
-	       (assert_msg "check curestyp" (is_a curestyp class_ctype))
-	       (output_location aloc implbuf (get_int boxdepthp1) "multiapply.xres")
-	       (add2sbuf_strconst implbuf "restab[")
-	       (add2sbuf_longdec implbuf  curank)
-	       (add2sbuf_strconst implbuf "].")
-	       (cond
-		( (null cures)
-		  (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL"))
-		( (== curestyp ctype_value)
-		  (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
-		  (output_c_code cures declbuf implbuf (get_int boxdepthp1))
-		  )
-		(:else
-		 (add2sbuf_string implbuf (unsafe_get_field :ctype_resfield curestyp))
-		 (add2sbuf_strconst implbuf " =  & ")
-		 (output_c_code cures declbuf implbuf (get_int boxdepthp1))
-		 ))
-	       (add2sbuf_strconst implbuf ";")
-	       (add2sbuf_indentnl implbuf (get_int boxdepthp1))
-	       )
+    (when (>i nbarg 1)
+      (add2sbuf_strconst implbuf "union meltparam_un argtab[")
+      (add2sbuf_longdec implbuf (-i nbarg 1))
+      (add2sbuf_strconst implbuf "];")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      )
+    (when (>i nbxres 0)
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      (add2sbuf_strconst implbuf "union meltparam_un restab[")
+      (add2sbuf_longdec implbuf nbxres)
+      (add2sbuf_strconst implbuf "];")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      )
+    (when (>i nbxres 0)
+      (add2sbuf_strconst implbuf "memset(&restab, 0, sizeof(restab));")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      ;; fill the resdesclist
+      (foreach_in_multiple 
+       (oxres)
+       (cures :long curank)
+       (let ( (curctyp (get_ctype cures ())) )
+	 (list_append resdesclist (unsafe_get_field :ctype_parstring curctyp)))))
+    (when (>i nbarg 1)
+      (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      ;; output the initialization of argtab and fill the paramdesclist
+      (foreach_in_multiple
+       (oargs)
+       (curarg :long curank)
+       (if (>i curank 0)
+	   (let ( (curctyp (get_ctype curarg ())) )
+	     (assert_msg "check curctyp" (is_a curctyp class_ctype))
+	     (output_location aloc implbuf (get_int boxdepthp1) "multiapply.arg")
+	     (add2sbuf_strconst implbuf "argtab[")
+	     (add2sbuf_longdec implbuf  (-i curank 1))
+	     (add2sbuf_strconst implbuf "].")
+	     (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
+	     (cond
+	      ( (null curarg)
+		(add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL"))
+	      ( (== curctyp ctype_value)
+		(add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
+		(output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+		)
+	      (:else
+	       (add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
+	       (add2sbuf_strconst implbuf " = ")
+	       (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+	       ))
+	     (add2sbuf_strconst implbuf ";")
 	     ))
-	  ))
+       (assert_msg "check limited implbuf" 
+		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+       )
+      (add2sbuf_indentnl implbuf (get_int boxdepthp1))
+      )
+    ;; output the initialization of restab
+    (when (>i nbxres 0)
+      (foreach_in_multiple
+       (oxres)
+       (cures :long curank)
+       (let ( (curestyp (get_ctype cures ())) )
+	 (assert_msg "check curestyp" (is_a curestyp class_ctype))
+	 (output_location aloc implbuf (get_int boxdepthp1) "multiapply.xres")
+	 (add2sbuf_strconst implbuf "restab[")
+	 (add2sbuf_longdec implbuf  curank)
+	 (add2sbuf_strconst implbuf "].")
+	 (cond
+	  ( (null cures)
+	    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL"))
+	  ( (== curestyp ctype_value)
+	    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
+	    (output_c_code cures declbuf implbuf (get_int boxdepthp1))
+	    )
+	  (:else
+	   (add2sbuf_string implbuf (unsafe_get_field :ctype_resfield curestyp))
+	   (add2sbuf_strconst implbuf " =  & ")
+	   (output_c_code cures declbuf implbuf (get_int boxdepthp1))
+	   ))
+	 (add2sbuf_strconst implbuf ";")
+	 (add2sbuf_indentnl implbuf (get_int boxdepthp1))
+	 ))
+      )
     (output_location aloc implbuf (get_int boxdepthp1) "multiapply.appl")
 ;;; output the destination(s)
-    (list_every
-     adest
-     (lambda (curdest) 
-       (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
-       (add2sbuf_strconst implbuf " = ")))
+    (foreach_in_list
+     (adest)
+     (curpair curdest) 
+     (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
+     (add2sbuf_strconst implbuf " = "))
     ;; output the apply and the closure
     (add2sbuf_strconst implbuf " melt_apply ((meltclosure_ptr_t)(")
     (output_c_code oclos declbuf implbuf (+i 1 depth))
@@ -4134,11 +4120,11 @@ meltlabend_rout:
 	(add2sbuf_strconst implbuf "argtab, (")
       (add2sbuf_strconst implbuf "(union meltparam_un*)0, ("))
     ;; output the resdescr string
-    (list_every
-     resdesclist
-     (lambda (resd)
-       (add2sbuf_string implbuf resd)
-       (add2sbuf_strconst implbuf " ")))
+    (foreach_in_list
+     (resdesclist)
+     (curpair resd)
+     (add2sbuf_string implbuf resd)
+     (add2sbuf_strconst implbuf " "))
     (add2sbuf_strconst implbuf "\"\"), ")
     ;; output the extra results
     (if (>i nbxres 0)
@@ -4149,7 +4135,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "}")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 
 (install_method class_objmultiapply output_c_code outpucod_objmultiapply)
@@ -4159,7 +4145,7 @@ meltlabend_rout:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output a multiresult message send
 (defun outpucod_objmultimsend (omsnd  declbuf implbuf :long depth)
-  (assert_msg "check omsnd" (is_a omsnd class_objmultimsend))
+  (assert_msg "check omsnd" (is_a omsnd class_objmultimsend) omsnd)
   (let ( (oloc (unsafe_get_field :obi_loc omsnd))
 	 (odest (unsafe_get_field :obdi_destlist omsnd))
 	 (osel (unsafe_get_field :obmsnd_sel omsnd))
@@ -4175,103 +4161,97 @@ meltlabend_rout:
     (output_location oloc implbuf depth "multimsend")
     (add2sbuf_strconst implbuf "/*multimsend*/{")
     (add2sbuf_indentnl implbuf (+i 1 depth))
-    (if (>i nbarg 0)
-	(progn
-	  (add2sbuf_strconst implbuf "union meltparam_un argtab[")
-	  (add2sbuf_longdec implbuf nbarg)
-	  (add2sbuf_strconst implbuf "];")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ))
-    (if (>i nbxres 0)
-	(progn
-	  (add2sbuf_strconst implbuf "union meltparam_un restab[")
-	  (add2sbuf_longdec implbuf nbxres)
-	  (add2sbuf_strconst implbuf "];")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))
-	  ;; fill the resdesclist
-	  (multiple_every 
-	   oxres
-	   (lambda (cures :long curank)
-	     (let ( (curestyp (get_ctype cures ())) )
-	       (list_append resdesclist (unsafe_get_field :ctype_parstring curestyp)))))
-	  ))
-    (if (>i nbarg 0)
-	(progn
-	  (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))))
-    (if (>i nbxres 0)
-	(progn
-	  (add2sbuf_strconst implbuf "memset(&restab, 0, sizeof(restab));")
-	  (add2sbuf_indentnl implbuf (+i 1 depth))))
+    (when (>i nbarg 0)
+      (add2sbuf_strconst implbuf "union meltparam_un argtab[")
+      (add2sbuf_longdec implbuf nbarg)
+      (add2sbuf_strconst implbuf "];")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      )
+    (when (>i nbxres 0)
+      (add2sbuf_strconst implbuf "union meltparam_un restab[")
+      (add2sbuf_longdec implbuf nbxres)
+      (add2sbuf_strconst implbuf "];")
+      (add2sbuf_indentnl implbuf (+i 1 depth))
+      ;; fill the resdesclist
+      (foreach_in_multiple 
+       (oxres)
+       (cures :long curank)
+       (let ( (curestyp (get_ctype cures ())) )
+	 (list_append resdesclist (unsafe_get_field :ctype_parstring curestyp))))
+      )
+    (when (>i nbarg 0)
+      (add2sbuf_strconst implbuf "memset(&argtab, 0, sizeof(argtab));")
+      (add2sbuf_indentnl implbuf (+i 1 depth)))
+    (when (>i nbxres 0)
+      (add2sbuf_strconst implbuf "memset(&restab, 0, sizeof(restab));")
+      (add2sbuf_indentnl implbuf (+i 1 depth)))
     ;; output the initialization of argtab and fill paramdesclist
-    (if (>i nbarg 0)
-	(progn
-	  ;; output the initialization of argtab and fill the paramdesclist
-	  (foreach_in_multiple
-	   (oargs)
-	   (curarg :long curank)
-	     (let ( (curctyp (get_ctype curarg ())) )
-	       (assert_msg "check curctyp" (is_a curctyp class_ctype))
-	       (output_location oloc implbuf (get_int boxdepthp1) "multimsend.arg")
-	       (add2sbuf_strconst implbuf "argtab[")
-	       (add2sbuf_longdec implbuf   curank)
-	       (add2sbuf_strconst implbuf "].")
-	       (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
-	       (cond
-		( (null curarg)
-		  (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL"))
-		( (== curctyp ctype_value)
-		  (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
-		  (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-		  )
-		(:else
-		 (add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
-		 (add2sbuf_strconst implbuf " = ")
-		 (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
-		 ))
-	       (add2sbuf_strconst implbuf ";")
-	       )
-	     (assert_msg "check limited implbuf" 
-			 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-	     )
-	  (add2sbuf_indentnl implbuf (get_int boxdepthp1))
-	  ))
+    (when (>i nbarg 0)
+      ;; output the initialization of argtab and fill the paramdesclist
+      (foreach_in_multiple
+       (oargs)
+       (curarg :long curank)
+       (let ( (curctyp (get_ctype curarg ())) )
+	 (assert_msg "check curctyp" (is_a curctyp class_ctype))
+	 (output_location oloc implbuf (get_int boxdepthp1) "multimsend.arg")
+	 (add2sbuf_strconst implbuf "argtab[")
+	 (add2sbuf_longdec implbuf   curank)
+	 (add2sbuf_strconst implbuf "].")
+	 (list_append paramdesclist (unsafe_get_field :ctype_parstring curctyp))
+	 (cond
+	  ( (null curarg)
+	    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL"))
+	  ( (== curctyp ctype_value)
+	    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
+	    (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+	    )
+	  (:else
+	   (add2sbuf_string implbuf (unsafe_get_field :ctype_argfield curctyp))
+	   (add2sbuf_strconst implbuf " = ")
+	   (output_c_code curarg declbuf implbuf (get_int boxdepthp1))
+	   ))
+	 (add2sbuf_strconst implbuf ";")
+	 )
+       (assert_msg "check limited implbuf" 
+		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+       )
+      (add2sbuf_indentnl implbuf (get_int boxdepthp1))
+      )
     ;; output the initialization of restab
-    (if (>i nbxres 0)
-	(progn
-	  (multiple_every
-	   oxres
-	   (lambda (cures :long curank)
-	     (let ( (curestyp (get_ctype cures ())) )
-	       (assert_msg "check curestyp" (is_a curestyp class_ctype))
-	       (output_location oloc implbuf (get_int boxdepthp1) "multimsend.xres")
-	       (add2sbuf_strconst implbuf "restab[")
-	       (add2sbuf_longdec implbuf  curank)
-	       (add2sbuf_strconst implbuf "].")
-	       (cond
-		( (null cures)
-		  (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL")
-		  )
-		( (== curestyp ctype_value)
-		  (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
-		  (output_c_code cures declbuf implbuf (get_int boxdepthp1))
-		  )
-		(:else
-		 (add2sbuf_string implbuf (unsafe_get_field :ctype_resfield curestyp))
-		 (add2sbuf_strconst implbuf " = ")
-		 (output_c_code cures declbuf implbuf (get_int boxdepthp1))
-		 ))
-	       (add2sbuf_strconst implbuf ";")
-	       )
-	     ))
-	  ))
+    (when (>i nbxres 0)
+      (foreach_in_multiple
+       (oxres)
+       (cures :long curank)
+       (let ( (curestyp (get_ctype cures ())) )
+	 (assert_msg "check curestyp" (is_a curestyp class_ctype) curestyp)
+	 (output_location oloc implbuf (get_int boxdepthp1) "multimsend.xres")
+	 (add2sbuf_strconst implbuf "restab[")
+	 (add2sbuf_longdec implbuf  curank)
+	 (add2sbuf_strconst implbuf "].")
+	 (cond
+	  ( (null cures)
+	    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*)NULL")
+	    )
+	  ( (== curestyp ctype_value)
+	    (add2sbuf_strconst implbuf "meltbp_aptr = (melt_ptr_t*) &")
+	    (output_c_code cures declbuf implbuf (get_int boxdepthp1))
+	    )
+	  (:else
+	   (add2sbuf_string implbuf (unsafe_get_field :ctype_resfield curestyp))
+	   (add2sbuf_strconst implbuf " = ")
+	   (output_c_code cures declbuf implbuf (get_int boxdepthp1))
+	   ))
+	 (add2sbuf_strconst implbuf ";")
+	 )
+       )
+      )
     (output_location oloc implbuf (get_int boxdepthp1) "multimsend.send")
 ;;; output the destination(s)
-    (list_every
-     odest
-     (lambda (curdest) 
-       (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
-       (add2sbuf_strconst implbuf " = ")))
+    (foreach_in_list
+     (odest)
+     (curpair curdest) 
+     (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
+     (add2sbuf_strconst implbuf " = "))
     ;; output the send and the receiver
     (add2sbuf_strconst implbuf " meltgc_send ((melt_ptr_t)(")
     (output_c_code orecv declbuf implbuf (+i 1 depth))
@@ -4280,22 +4260,22 @@ meltlabend_rout:
     (output_c_code osel declbuf implbuf (+i 1 depth))
     (add2sbuf_strconst implbuf ")), (")
     ;; output the argdescr string
-    (list_every 
-     paramdesclist
-     (lambda (pard)
-       (add2sbuf_string implbuf pard)
-       (add2sbuf_strconst implbuf " ")))
+    (foreach_in_list 
+     (paramdesclist)
+     (curpair pard)
+     (add2sbuf_string implbuf pard)
+     (add2sbuf_strconst implbuf " "))
     (add2sbuf_strconst implbuf "\"\"), ")
     ;; output the argtab (or null if none)
     (if (>i nbarg 0)
 	(add2sbuf_strconst implbuf "argtab, (")
       (add2sbuf_strconst implbuf "(union meltparam_un*)0, ("))
     ;; output the resdescr string
-    (list_every
-     resdesclist
-     (lambda (resd)
-       (add2sbuf_string implbuf resd)
-       (add2sbuf_strconst implbuf " ")))
+    (foreach_in_list
+     (resdesclist)
+     (curpair resd)
+     (add2sbuf_string implbuf resd)
+     (add2sbuf_strconst implbuf " "))
     (add2sbuf_strconst implbuf "\"\"), ")
     ;; output the extra results
     (if (>i nbxres 0)
@@ -4306,7 +4286,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "}")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objmultimsend output_c_code outpucod_objmultimsend)
 
@@ -4314,7 +4294,7 @@ meltlabend_rout:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; output a clear
 (defun outpucod_objclear (oclear declbuf implbuf :long depth)
-  (assert_msg "check oclear" (is_a oclear class_objclear))
+  (assert_msg "check oclear" (is_a oclear class_objclear) oclear)
   (let ( (cloc (unsafe_get_field :obi_loc oclear))
 	 (cvl (unsafe_get_field :oclr_vloc oclear))
 	 )
@@ -4323,14 +4303,14 @@ meltlabend_rout:
     (output_c_code cvl declbuf implbuf (+i depth 1))
     (add2sbuf_strconst implbuf " = 0 ")
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     )
   )
 (install_method class_objclear output_c_code outpucod_objclear)
 
 ;; output a raw object allocation
 (defun outpucod_objrawallocobj (oralob declbuf implbuf :long depth)
-  (assert_msg "check oralob" (is_a oralob class_objrawallocobj))
+  (assert_msg "check oralob" (is_a oralob class_objrawallocobj) oralob)
   (let ( (iloc (unsafe_get_field :obi_loc oralob))
 	 (iclass (unsafe_get_field :obrallobj_class oralob))
 	 (iclaname (unsafe_get_field :obrallobj_classname oralob))
@@ -4355,20 +4335,20 @@ meltlabend_rout:
      (add2sbuf_indentnl implbuf (+i depth 1))
      (output_c_code dst declbuf implbuf (get_int boxdepthp1))
      (assert_msg "check limited implbuf" 
-		  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		  (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
      (add2sbuf_strconst implbuf " =")))
   (add2sbuf_indentnl implbuf (+i depth 1))
   (add2sbuf_strconst implbuf "newobj; };")
   (add2sbuf_indentnl implbuf depth)
   (assert_msg "check limited implbuf" 
-	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+	      (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
   )
 (install_method class_objrawallocobj output_c_code outpucod_objrawallocobj)
 
 
 ;; output a closure allocation
 (defun outpucod_objnewclosure (obnclo declbuf implbuf :long depth)
-  (assert_msg "check oralob" (is_a obnclo class_objnewclosure))
+  (assert_msg "check oralob" (is_a obnclo class_objnewclosure) obnclo)
   (let ( (iloc (unsafe_get_field :obi_loc obnclo))
 	 (odiscr (unsafe_get_field :obnclo_discr obnclo))
 	 (orout (unsafe_get_field :obnclo_rout obnclo))
@@ -4378,13 +4358,13 @@ meltlabend_rout:
 	 )
     (output_location iloc implbuf depth "newclosure")
     (add2sbuf_strconst implbuf " /*newclosure*/ ")
-    (list_every
-     destlist
-     (lambda (dst) 
-       (output_c_code dst declbuf implbuf (get_int boxdepthp1))
-       (assert_msg "check limited implbuf" 
-		   (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
-       (add2sbuf_strconst implbuf " =")))
+    (foreach_in_list
+     (destlist)
+     (curpair dst) 
+     (output_c_code dst declbuf implbuf (get_int boxdepthp1))
+     (assert_msg "check limited implbuf" 
+		 (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
+     (add2sbuf_strconst implbuf " ="))
     (add2sbuf_indentnl implbuf (+i depth 1))
     (add2sbuf_strconst implbuf "(melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(")
     (output_c_code odiscr declbuf implbuf (get_int boxdepthp1))
@@ -4395,7 +4375,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "));")
     (add2sbuf_indentnl implbuf depth)
     (assert_msg "check limited implbuf" 
-		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)))
+		(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)
     ))
 (install_method class_objnewclosure  output_c_code outpucod_objnewclosure)
 
@@ -4407,13 +4387,12 @@ meltlabend_rout:
 	 (comm (unsafe_get_field :otouch_comment otouch))
 	 )
     (output_location iloc implbuf depth "touch")
-    (if comm 
-	(progn 
-	  (add2sbuf_strconst implbuf "/*touch:")
-	  (add2sbuf_cident implbuf comm)
-	  (add2sbuf_strconst implbuf "*/")
-	  (add2sbuf_indentnl implbuf depth)
-	  ))
+    (when comm 
+      (add2sbuf_strconst implbuf "/*touch:")
+      (add2sbuf_cident implbuf comm)
+      (add2sbuf_strconst implbuf "*/")
+      (add2sbuf_indentnl implbuf depth)
+      )
     (add2sbuf_strconst implbuf "meltgc_touch(")
     (output_c_code touched declbuf implbuf depth)
     (add2sbuf_strconst implbuf ");")
@@ -4423,6 +4402,7 @@ meltlabend_rout:
 (install_method class_objtouch output_c_code outpucod_objtouch)
 
 
+;;; @@@$$$ assert_msg and other improved above not below
 
 ;; output a debug tracing of written object
 (defun outpucod_dbgtracewriteobj (otwro declbuf implbuf :long depth)
