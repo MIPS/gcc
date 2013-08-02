@@ -2313,8 +2313,14 @@ enum reg_class
 
 #define STACK_GROWS_DOWNWARD 1
 
+/* Growing the frame downwards allows us to put spills closest to
+   the stack pointer which is good as they are likely to be accessed
+   frequently. We can also arrange for normal stack usage to place
+   scalars last so that they too are close to the stack pointer */
 #define FRAME_GROWS_DOWNWARD (flag_stack_protect != 0			\
-			      || (flag_sanitize & SANITIZE_ADDRESS) != 0)
+			      || (flag_sanitize & SANITIZE_ADDRESS) != 0\
+			      || (TARGET_MIPS16			    	\
+				  && TARGET_FRAME_GROWS_DOWNWARDS))
 
 /* Size of the area allocated in the frame to save the GP.  */
 
