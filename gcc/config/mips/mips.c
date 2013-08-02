@@ -21959,6 +21959,20 @@ mips_lra_p (void)
 {
   return mips_lra_flag;
 }
+
+static bool
+mips_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
+{
+  if (TARGET_MIPS16)
+    {
+      *p1 = 24;
+      *p2 = INVALID_REGNUM;
+      return true;
+    }
+
+  return false;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -22039,6 +22053,11 @@ mips_lra_p (void)
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS mips_preferred_reload_class
+
+#undef TARGET_FLAGS_REGISTER_EXPENSIVE_P
+#define TARGET_FLAGS_REGISTER_EXPENSIVE_P hook_bool_void_true
+#undef TARGET_FIXED_CONDITION_CODE_REGS
+#define TARGET_FIXED_CONDITION_CODE_REGS mips_fixed_condition_code_regs
 
 #undef TARGET_EXPAND_TO_RTL_HOOK
 #define TARGET_EXPAND_TO_RTL_HOOK mips_expand_to_rtl_hook
