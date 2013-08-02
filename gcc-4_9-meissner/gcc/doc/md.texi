@@ -2091,13 +2091,16 @@ No register.
 General purpose register if 64-bit mode is used
 
 @item ws
-VSX vector register to hold scalar float data
+VSX register to use to hold double precision floating point values
 
 @item wt
 VSX vector register to hold 128 bit integer
 
 @item wx
 If the STFIWX instruction is enabled, a floating point register
+
+@item ws
+VSX register to use to hold single precision floating point values
 
 @item wz
 If the LFIWZX instruction is enabled, a floating point register

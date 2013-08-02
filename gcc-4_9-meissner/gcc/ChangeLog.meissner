@@ -1,29 +1,12 @@
-2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	Merge up to 201389.
-	* REVISION: Update subversion id.
-
-2013-07-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
-
-	* config/rs6000/rs6000.c (rs6000_debug_addr_mask): Move print of
-	addr_mask debugging to a separate function that can be called from
-	gdb.
-	(rs6000_debug_reg_global): Likewise.
-	(rs6000_init_address_modes): Reorganize code somewhat.
-
-2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2013-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_R): Move reload insns to
-	rs6000.md.  Delete VEC_R iterator.
+	rs6000.md.  Delete VEC_R iterator.  Add generators for the
+	vec_reload_and* insns.
 	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
 	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
 	(vec_reload_and_plus_<mptrsize>): Likewise.
 	(vec_reload_and_reg_<mptrsize>): Likewise.
-
-	* config/rs6000/rs6000.opt (-mgeneral-addr-int): New debug
-	switches for enabling general addresses before reload.
-	(-mgeneral-addr-float): Likewise.
-	(-mgeneral-addr-vector): Likewise.
 
 	* config/rs6000/rs6000.c (rs6000_addr_mask_type): Move reload
 	helper INSN fields into reg_addr structure.  Add data to describe
@@ -45,6 +28,7 @@
 	(ADDR_VALID_MASK): Likewise.
 	(ADDR_UPDATE_GPR): Likewise.
 	(ADDR_UPDATE_FPR): Likewise.
+	(ADDR_UPDATE_NOSTRICT): Likewise.
 	(ADDR_UPDATE_MASK): Likewise.
 	(ADDR_MULTIPLE_GPR): Likewise.
 	(ADDR_MULTIPLE_FPR): Likewise.
@@ -55,27 +39,53 @@
 	(ADDR_INDEXED_FPR): Likewise.
 	(ADDR_INDEXED_AV): Likewise.
 	(ADDR_INDEXED_VSX): Likewise.
+	(ADDR_INDEXED_NOSTRICT): Likewise.
 	(ADDR_INDEXED_MASK): Likewise.
+	(ADDR_AND_AV): Likeiwse.
+	(ADDR_AND_NOSTRICT): Likewise.
+	(ADDR_AND_MASK): Likewise.
 	(ADDR_GPR_MASK): Likewise.
 	(ADDR_FPR_MASK): Likewise.
 	(ADDR_AV_MASK): Likewise.
 	(ADDR_VSX_MASK): Likewise.
+	(ADDR_NOSTRICT_MASK): Likewise.
+	(rs6000_register_move_coast): Add forward declaration.
+	(rs6000_hard_regno_mode_ok): Don't check for VSX memory, check if
+	the type is allowed in VSX registers.
+	(rs6000_debug_addr_mask): New debug function to print out address
+	masks in a human readable fashion.
 	(rs6000_debug_reg_global): If -mdebug=reg, print valid addressing
-	modes.  Print if -mgeneral-addr-{int,float,scalar} used.
+	modes.  Print wy constraint.
 	(rs6000_init_address_modes): Setup tables for the valid address
 	modes.  Setup reload helper INSNS for secondary reload.
 	(rs6000_init_direct_move): Setup tables for direct move support.
 	(rs6000_init_hard_regno_mode_ok): Move code for setting up direct
 	move and reload helper INSNS to rs6000_init_address_modes and
 	rs6000_init_direct_move.  Call those functions.  Use ssize_t
-	instead of int on loop iterators.
+	instead of int on loop iterators.  Allow SF in upper VSX registers
+	if -mvsx-scalar-memory on power8.  Setup wy constraint for single
+	float in upper VSX registers.
 	(rs6000_option_override_internal): Temporarily look at environment
 	variables to set the -mgeneral-addr-* switches.
 	(rs6000_debug_legitimate_address_p): Print the reload status.
+	(rs6000_fixup_address_inner): New functions to use the reg_addr
+	masks to determine if an address is correct, and if not on the
+	first pass, count the number of added instructions to add for
+	reloading, and on the second pass, generate the instructions.
+	(rs6000_fixup_address_and): Likewise.
+	(rs6000_fixup_address_update): Likewise.
+	(rs6000_fixup_address_indexed): Likewise.
+	(rs6000_fixup_address_offset): Likewise.
+	(rs6000_fixup_address): Likewise.
+	(rs6000_secondary_reload_memory): New helper function for
+	reloading to/from memory locations.
 	(rs6000_secondary_reload_direct_move): Use reg_addr fields instead
 	of reload_fpr_gpr, reload_gpr_vsx, reload_vsx_gpr and
 	rs6000_vector_reload.
-	(rs6000_secondary_reload): Likewise.
+	(rs6000_secondary_reload): Use reg_addr fields.  Call
+	rs6000_secondary_reload_memory for reloading memory if we have
+	helper functions.
+	(rs6000_opt_masks): Add -mvector-offset.
 
 	* config/rs6000/rs6000.md (RELOAD): Move vector reload helper
 	functions from vector.md to rs6000.md.  Make them more general,
@@ -84,6 +94,49 @@
 	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
 	(vec_reload_and_plus_<mptrsize>): Likewise.
 	(vec_reload_and_reg_<mptrsize>): Likewise.
+	(extendsfdf2_fpr): Add initial support for power8 single precision
+	floating point in the upper VSX registers.  Name some previously
+	unnamed SF patterns.
+	(extendsfdf2_fpr): Likewise.
+	(truncdfsf2_fpr): Likewise.
+	(negsf2): Likewise.
+	(abssf2): Likewise.
+	(nabssf2): Likewise.
+	(addsf3): Likewise.
+	(subsf3): Likewise.
+	(mulsf3): Likewise.
+	(divsf3): Likewise.
+	(fres): Likewise.
+	(fmasf4_fpr): Likewise.
+	(fmssf4_fpr): Likewise.
+	(fnmasf4_fpr): Likewise.
+	(fnmssf4_fpr): Likewise.
+	(sqrtsf2): Likewise.
+	(rsqrtsf_internal1): Likewise.
+	(*copysignsf3_vsx): Likewise.
+	(mov<mode>_hardfloat, 32-bit float): Likewise.
+	(cmpsf_internal1): Likewise.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-memory): Change comment.
+	(-mvector-offset): New switch to enable adding offsets to vector
+	types before reload.
+
+	* config/rs6000/constraints.md (wa): Sort w* options.  Add
+	documention strings for wa, wd, wf, ws, wt.  Add wy constraint for
+	single precision floating point in upper VSX registers.
+
+	* config/rs6000/rs6000.h (RS6000_CONSTRAINT_wg): Place in
+	alphabetical order.
+	(RS6000_CONSTRAINT_wy): Add constraint for single precision
+	floating point in upper VSX registers.
+
+	* doc/md.texi (PowerPC and IBM RS6000, ws/wy constraints):
+	Document wy constraint.  Update ws documentation.
+
+2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 201389.
+	* REVISION: Update subversion id.
 
 2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
