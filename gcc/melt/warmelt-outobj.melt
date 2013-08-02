@@ -6318,9 +6318,10 @@ if (1) return;
 	    "\n normalisthandler=" normalisthandler
 	    "\n normlist=" normlist)
      (when (is_closure normalisthandler)
-       (debug "translate_macroexpanded_list before calling normalisthandler normlist=" normlist 
-	      "\n of length " (list_length normlist)
-	      "\n bindlist=" bindlist "\n of length " (list_length bindlist))
+       (debug "translate_macroexpanded_list before calling normalisthandler=" normalisthandler 
+	      "\n.. with normlist=" normlist 
+	      "\n.. of length " (list_length normlist)
+	      "\n.. bindlist=" bindlist "\n of length " (list_length bindlist))
        (normalisthandler normlist bindlist modctx ncx inienv)
        (debug "translate_macroexpanded_list after calling normalisthandler normlist=" normlist
 	      "\n of length " (list_length normlist)
@@ -7264,8 +7265,8 @@ if (1) return;
 		       "\n bindlist=" bindlist
 		       "\n old !refnormlist=" !refnormlist
 		       "\n ncx=" ncx)
-		(assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
 		(shortbacktrace_dbg "translate_run_melt_expressions/normalextend" 13)
+		(assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
 		(assert_msg "check null !refnormlist" (null !refnormlist) refnormlist)
 		(let ( (lastnormpair (list_last normlist))
 		       (lastbindpair (list_last bindlist))
@@ -7339,7 +7340,7 @@ if (1) return;
 		  (return)
 		  )))
 	     )
-	(debug "translate_run_melt_expressions xlist=" xlist)
+	(debug "translate_run_melt_expressions xlist=" xlist "\n... normalextend=" normalextend)
 	(when (or (notnull !referr) (>i (melt_error_counter) starterrcount))
 	  (runerrorhdlr '"runtime macroexpansion failed")
 	  (return () ()))

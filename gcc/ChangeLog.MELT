@@ -1,6 +1,15 @@
 
 2013-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Still unstable, added comment about possible bug...}}
+	* melt/warmelt-genobj.melt (get_free_objlocptr): More debug.
+	(compilobj_nrep_let): More debug. Add comment about possible bug.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list)
+	(translate_run_melt_expressions): More debug.
+
+2013-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerated but unstable, see entry below...}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

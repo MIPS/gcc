@@ -2188,6 +2188,7 @@
  (defun get_free_objlocptr (gcx nam)
    (assert_msg "check gcx" (is_a gcx class_c_generation_context) gcx)
    (debug "get_free_objlocptr start nam=" nam)
+   (shortbacktrace_dbg "get_free_objlocptr" 6)
    (let ( (orout (unsafe_get_field :gncx_objrout gcx))
 	  (freeli (unsafe_get_field :gncx_freeptrlist gcx)) 
 	  (pfree (list_popfirst freeli))
@@ -2938,12 +2939,11 @@
 	(debug "compilobj_nrep_let current normbinding obva=" obva "\n nexp=" nexp)
 	(let ( (obnx (compile_obj nexp gcx)) )
 	  (debug "compilobj_nrep_let current normbinding obnx=" obnx
-		 "\n for nexp=" nexp "n with obva=" obva)
+		 "\n.. for nexp=" nexp "\n.. with obva=" obva)
 	  (if (is_a nexp class_sexpr) 
-	      (if (not (is_object obnx))
-		  (progn 
+	      (when (not (is_object obnx))
 		    (debug "compilobj_nrep_let current normbinding faulty nexp=" nexp " obnx=" obnx)
-		    (assert_msg "compilobj_nrep_let check obnx" (is_object obnx) obnx))))
+		    (assert_msg "compilobj_nrep_let check obnx" (is_object obnx) obnx nexp)))
 	  (if obva
 	      ;; non void cty
 	      (progn
@@ -2991,11 +2991,14 @@
      (debug "compilobj_nrep_let after iterate body loc=" loc)
      ;;
      ;; dispose each binding
+     (debug "compilobj_nrep_let disposing bnds=" bnds "\n.. with bdy=" bdy "\n.. obodl=" obodl)
+     ;; @@@??? perhaps we should avoid disposing the binding of the last component of tuple bdy, if it is its locsymocc...
      (foreach_in_multiple
       (bnds)
       (obnd :long ix)
       (debug "compilobj_nrep_let dispose loc=" loc " obnd=" obnd " ix=" ix)
       (dispose_bnd_obj obnd gcx))
+     (debug "compilobj_nrep_let done disposal bnds=" bnds)
      (debug "compilobj_nrep_let final loc=" loc " locmap=" locmap " oblock=" oblock)
      (return oblock)			;return it
      ))
