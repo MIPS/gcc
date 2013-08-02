@@ -1,3 +1,9 @@
+2013-08-02  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* Makefile.def (target_modules): Added libcilkrts to enable multilib
+	support.
+	(lang_env_dependencies): Likewise.
+
 2013-03-13  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* configure.ac (enable_libcilkrts): Made libcilkrts unconditional.

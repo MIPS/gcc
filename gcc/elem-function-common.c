@@ -521,6 +521,7 @@ extract_elem_fn_values (tree decl, size_t *no_entries)
 				"variable %s defined in both uniform and"
 				" linear clause",
 				elem_fn_list[ii].linear_vars[jj]);
+		      *no_entries = 0;
 		      return NULL;
 		    }
 		  else

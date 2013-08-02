@@ -785,7 +785,9 @@ gimplify_cilk_sync (tree *expr_p, gimple_seq *pre_p)
   gimplify_and_add (sync_expr, pre_p);
 }
 
-/* This function will create a label for the metadata section given by name.  */ 
+/* This function will create a label for the metadata section given by
+   name.  */
+
 static rtx
 create_metadata_label (const char *name)
 {
@@ -892,34 +894,49 @@ get_zca_exprs_table_size (void)
 static void
 output_zca_table (section *s)
 {
+  switch_to_section (s);
   int ii = 0;
   zca_data *zca_entry = NULL;
   int length = get_zca_entry_count ();
   int str_table_offset = 0;
   int annotation_table_offset = 0;
   
-  switch_to_section (s);
-
   for (ii = 0; ii < length; ii++)
     {
       zca_entry = find_zca_data (ii);
       /* This outputs the IP.  */
-      fputs (integer_asm_op (8, 0), asm_out_file);
-      output_asm_label (zca_entry->label);
-      fputc ('\n', asm_out_file);
+      if (GET_MODE_SIZE (Pmode) == 4)
+	{
+	  fputs (integer_asm_op (GET_MODE_SIZE (Pmode), 1), asm_out_file); 
+	  fputs ("0\n", asm_out_file);
+	  fputs (integer_asm_op (GET_MODE_SIZE (Pmode), 1), asm_out_file); 
+	  output_asm_label (zca_entry->label);
+	}
+      else if (GET_MODE_SIZE (Pmode) == 8)
+	{
+	  fputs (integer_asm_op (GET_MODE_SIZE (Pmode), 1), asm_out_file); 
+	  output_asm_label (zca_entry->label);
+	}
+      else
+	/* Its gotta be 4 or 8.  */
+	gcc_unreachable ();
 
+      fputc ('\n', asm_out_file);
       /* This outputs the probspace, currently unused, thus is kept to zero.  */
-      assemble_integer (gen_rtx_CONST_INT (BLKmode, 0), 4, 1, 1);
+      assemble_integer (gen_rtx_CONST_INT (BLKmode, 0), 
+			GET_MODE_SIZE (SImode), 1, 1);
 
       /* This outputs the offset to the string table.  */
-      assemble_integer (gen_rtx_CONST_INT (BLKmode, str_table_offset), 4, 1, 1);
-      str_table_offset += strlen (zca_entry->string) + 1;
+      assemble_integer (gen_rtx_CONST_INT (BLKmode, str_table_offset), 
+			GET_MODE_SIZE (SImode), 1, 1);
 
       /* This outputs the offset to the annotation table.  */
       assemble_integer (gen_rtx_CONST_INT (BLKmode, annotation_table_offset),
-			4, 1, 1);
+			GET_MODE_SIZE (SImode), 1, 1);
+      str_table_offset += strlen (zca_entry->string) + 1;
       annotation_table_offset += (int) sizeof (zca_entry->dwarf_expr);
     }    
+
   return;
 }
 
@@ -928,11 +945,10 @@ output_zca_table (section *s)
 static void
 output_string_table (section *s)
 {
+  switch_to_section (s);
   int length = get_zca_entry_count ();
   int ii = 0, jj = 0;
   zca_data *zca_entry;
-  
-  switch_to_section (s);;
 
   for (ii = 0; ii < length; ii++)
     {
@@ -941,7 +957,7 @@ output_string_table (section *s)
 	assemble_integer (gen_rtx_CONST_INT (BLKmode, zca_entry->string[jj]),
 			  1, 1, 1);
       assemble_integer (gen_rtx_CONST_INT (BLKmode, 0), 1, 1, 1);
-    }  
+    }
   return;
 }
 
@@ -950,11 +966,11 @@ output_string_table (section *s)
 static void
 output_expr_table (section *s)
 {
+  switch_to_section (s);
   int ii = 0;
   int length = get_zca_entry_count ();
   zca_data *zca_entry = NULL;
   
-  switch_to_section (s);
 
   for (ii = 0; ii < length; ii++)
     {
@@ -980,41 +996,39 @@ void
 cilk_output_metadata (void)
 {
   const char *itt_string = ".itt_notify_tab";
-  section *s;
-  int ii = 0;
+  section *s = NULL;
   int entry_count = 0;
   int strings_len = 0;
   int exprs_len = 0;
   rtx st_label = NULL_RTX, str_table_label = NULL_RTX, expr_label = NULL_RTX;
-
   /* If there are no zca entries, then no reason to output this section.  */
   if (get_zca_entry_count () == 0)
     return;
-  
   /* Create a new zca section (if necessary) and switch to it.  */
-  s = get_unnamed_section (0, output_section_asm_op,
+  s = get_unnamed_section (0, output_section_asm_op, 
 			   "\t.section .itt_notify_tab,\"a\"");
   switch_to_section (s);
-  assemble_align (32);
-
+  //assemble_align (32);
   st_label = create_metadata_label ("ZCA_START");
   str_table_label = create_metadata_label ("STRING_TABLE_START");
   expr_label = create_metadata_label ("EXPR_TABLE_START");
   /* Now we emit the start label.  */
   output_asm_label (st_label);
   fputs (":\n", asm_out_file);
-  
-  
+
   /* Here we output the magic number.  */
-  for (ii = 0; ii < (int) strlen (itt_string); ii++)
-    assemble_integer (gen_rtx_CONST_INT (BLKmode, itt_string[ii]), 1, 1, 1);
+  for (int ii = 0; ii < (int) strlen (itt_string); ii++)
+    assemble_integer (gen_rtx_CONST_INT (BLKmode, itt_string[ii]), 
+		      GET_MODE_SIZE (QImode), 1, 1);
   assemble_integer (gen_rtx_CONST_INT (BLKmode, 0), 1, 1, 1);
   /* Here we output the major and minor version number.  */
-  assemble_integer (gen_rtx_CONST_INT (BLKmode, ZCA_MAJOR_VER_NUMBER), 1, 1, 1);
-  assemble_integer (gen_rtx_CONST_INT (BLKmode, ZCA_MINOR_VER_NUMBER), 1, 1, 1);
-
+  assemble_integer (gen_rtx_CONST_INT (BLKmode, ZCA_MAJOR_VER_NUMBER), 
+		    GET_MODE_SIZE (QImode), 1, 1);
+  assemble_integer (gen_rtx_CONST_INT (BLKmode, ZCA_MINOR_VER_NUMBER), 
+		    GET_MODE_SIZE (QImode), 1, 1);
   entry_count = get_zca_entry_count ();
-  assemble_integer (gen_rtx_CONST_INT (BLKmode, entry_count), 2, 1, 1);
+  assemble_integer (gen_rtx_CONST_INT (BLKmode, entry_count), 
+		    GET_MODE_SIZE (HImode), 1, 1);
 
   /* Now we output the offet to the string table.  This is done by printing out 
      the label for string_table_start, then a '-' then start_label.  The linker
@@ -1026,7 +1040,8 @@ cilk_output_metadata (void)
   fputc ('\n', asm_out_file);
 
   strings_len = get_zca_string_table_size ();
-  assemble_integer (gen_rtx_CONST_INT (BLKmode, strings_len), 4, 1, 1);
+  assemble_integer (gen_rtx_CONST_INT (BLKmode, strings_len), 
+		    GET_MODE_SIZE (SImode), 1, 1);
 
   /* Now we output the expr table the same way.  */
   fputs (integer_asm_op (GET_MODE_SIZE (SImode), 1), asm_out_file);
@@ -1036,7 +1051,8 @@ cilk_output_metadata (void)
   fputc ('\n', asm_out_file);
 
   exprs_len = get_zca_exprs_table_size ();
-  assemble_integer (gen_rtx_CONST_INT (BLKmode, exprs_len), 4, 1, 1);
+  assemble_integer (gen_rtx_CONST_INT (BLKmode, exprs_len), 
+		    GET_MODE_SIZE (SImode), 1, 1);
 
   output_zca_table (s);
 

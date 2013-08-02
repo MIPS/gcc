@@ -22,11 +22,11 @@
 # <http://www.gnu.org/licenses/>.
 
 AUTOMAKE_OPTIONS = foreign
-ACLOCAL_AMFLAGS = -I ..
+ACLOCAL_AMFLAGS = -I .. -I ../config
 
 # Compiler and linker flags.
 GENERAL_FLAGS = -I$(top_srcdir)/include -DIN_CILK_RUNTIME=1
-GENERAL_FLAGS += -fpic -O3 -fcilkplus
+GENERAL_FLAGS += -fcilkplus
 GENERAL_FLAGS += -DBUILD_USER=\"$(USER)\"
 GENERAL_FLAGS += -DBUILD_HOST=\"`hostname`\"
 AM_CFLAGS = $(GENERAL_FLAGS) -std=c99
@@ -34,7 +34,7 @@ AM_CPPFLAGS = $(GENERAL_FLAGS)
 AM_LDFLAGS = -lpthread -ldl
 
 # Target list.
-lib_LTLIBRARIES = libcilkrts.la
+toolexeclib_LTLIBRARIES = libcilkrts.la
 
 libcilkrts_la_SOURCES = runtime/cilk-abi.c runtime/cilk_api.c           \
   runtime/cilk_malloc.c runtime/c_reducers.c                            \
@@ -49,8 +49,8 @@ libcilkrts_la_SOURCES = runtime/cilk-abi.c runtime/cilk_api.c           \
 # Load the $(REVISION) value.
 include include/internal/rev.mk
 
-libcilkrts_la_LDFLAGS  = -rpath '$(libdir)'
-libcilkrts_la_LDFLAGS += -version-info 5:$(CILK_REVISION):0
+# libcilkrts_la_LDFLAGS  = -rpath '$(libdir)'
+libcilkrts_la_LDFLAGS = -version-info 5:$(CILK_REVISION):0
 libcilkrts_la_LDFLAGS += -lpthread -ldl
 
 # C/C++ header files for Cilk.
@@ -75,3 +75,43 @@ cilkinclude_HEADERS =              \
   include/cilk/reducer_opxor.h     \
   include/cilk/reducer_ostream.h   \
   include/cilk/reducer_string.h
+
+# Work around what appears to be a GNU make bug handling MAKEFLAGS
+# values defined in terms of make variables, as is the case for CC and
+# friends when we are called from the top level Makefile.
+AM_MAKEFLAGS = \
+	"AR_FLAGS=$(AR_FLAGS)" \
+	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
+	"CFLAGS=$(CFLAGS)" \
+	"CXXFLAGS=$(CXXFLAGS)" \
+	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
+	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
+	"INSTALL=$(INSTALL)" \
+	"INSTALL_DATA=$(INSTALL_DATA)" \
+	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
+	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" \
+	"JC1FLAGS=$(JC1FLAGS)" \
+	"LDFLAGS=$(LDFLAGS)" \
+	"LIBCFLAGS=$(LIBCFLAGS)" \
+	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
+	"MAKE=$(MAKE)" \
+	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
+	"PICFLAG=$(PICFLAG)" \
+	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
+	"SHELL=$(SHELL)" \
+	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
+	"exec_prefix=$(exec_prefix)" \
+	"infodir=$(infodir)" \
+	"libdir=$(libdir)" \
+	"prefix=$(prefix)" \
+	"includedir=$(includedir)" \
+	"AR=$(AR)" \
+	"AS=$(AS)" \
+	"LD=$(LD)" \
+	"LIBCFLAGS=$(LIBCFLAGS)" \
+	"NM=$(NM)" \
+	"PICFLAG=$(PICFLAG)" \
+	"RANLIB=$(RANLIB)" \
+	"DESTDIR=$(DESTDIR)"
+
+MAKEOVERRIDES=

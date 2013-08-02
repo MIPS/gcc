@@ -1,3 +1,11 @@
+2013-08-02  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* Makefile.in: Removed c-family/elem-function.c.
+	* elem-function-common.c (extract_elem_fn_values): Reset entry-numbers
+	when error has occurred and returning an error.
+	* cilk.c (output_zca_table): Replaced absolute values for bit sizes
+	with GET_MODE_SIZE.
+
 2013-07-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c/c-array-notation.c (find_rank): Added INDIRECT_REF case.

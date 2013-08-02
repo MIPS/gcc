@@ -1,4 +1,4 @@
-/* { dg-final { scan-assembler "simdsimd"  } } */
+/* { dg-final { scan-assembler "_ZGV"  } } */
 
 /* This test will create 2 clones of the function below,
  * for the pentium4 with sse3 processor.

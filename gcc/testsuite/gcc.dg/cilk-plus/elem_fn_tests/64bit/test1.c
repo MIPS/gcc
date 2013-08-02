@@ -1,4 +1,4 @@
-/* { dg-final { scan-assembler "simdsimd"  } } */
+/* { dg-final { scan-assembler "_ZGV"  } } */
 
 /* This test will insert the clone for the function ef_add inside the function
  * main (the non-masked version).
@@ -20,7 +20,7 @@ main (int argc, char **argv)
       vhx[ii] = argc;
 
   for (ii = 0; ii < 10; ii++)
-    vhx2[ii] = ef_add(vhx[ii], vhx[ii]);
+    vhx2[ii] = ef_add(argc, argc);
  
   for (ii = 0; ii < 10; ii++)
     if (vhx2[ii] != (argc + argc))

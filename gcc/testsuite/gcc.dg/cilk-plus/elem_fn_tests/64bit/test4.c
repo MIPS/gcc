@@ -1,4 +1,4 @@
-/* { dg-final { scan-assembler "simdsimd"  } } */
+/* { dg-final { scan-assembler "_ZGV"  } } */
 
 /* This test will create 1 clone of the function below, just one for nomask
  */

@@ -1,5 +1,5 @@
 
-/* { dg-final { scan-assembler "simdsimd"  } } */
+/* { dg-final { scan-assembler "_ZGV"  } } */
 /* This test will create 1 clones of the function below, just the mask
  * for the pentium4 with sse3 processor.
  */

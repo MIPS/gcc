@@ -1,3 +1,7 @@
+2013-08-02  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* elem-function.c: Removed. 
+
 2013-07-07  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c-cpp-elem-function.c (create_processor_attribute): Removed function
