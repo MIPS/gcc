@@ -1,3 +1,16 @@
+2013-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline:
+	2013-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+		    Pat Haugen <pthaugen@us.ibm.com>
+		    Peter Bergner <bergner@vnet.ibm.com>
+
+	* lib/target-supports.exp (check_p8vector_hw_available) Add power8
+	support.
+	(check_effective_target_powerpc_p8vector_ok): Likewise.
+	(is-effective-target): Likewise.
+	(check_vect_support_and_set_flags): Likewise.
+
 2013-08-04  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Back port from mainline
