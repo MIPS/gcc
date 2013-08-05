@@ -474,7 +474,6 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->symbol.forced_by_abi, 1);
   bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->symbol.address_taken, 1);
-  bp_pack_value (&bp, node->abstract_and_needed, 1);
   bp_pack_value (&bp, tag == LTO_symtab_analyzed_node
 		 && !DECL_EXTERNAL (node->symbol.decl)
 		 && !DECL_COMDAT (node->symbol.decl)
@@ -750,6 +749,13 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       add_node_to (encoder, node, true);
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
       add_references (encoder, &node->symbol.ref_list);
+      /* For proper debug info, we need to ship the origins, too.  */
+      if (DECL_ABSTRACT_ORIGIN (node->symbol.decl))
+	{
+	  struct cgraph_node *origin_node
+	  = cgraph_get_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	  add_node_to (encoder, origin_node, true);
+	}
     }
   for (lsei = lsei_start_variable_in_partition (in_encoder);
        !lsei_end_p (lsei); lsei_next_variable_in_partition (&lsei))
@@ -759,6 +765,13 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
       add_references (encoder, &vnode->symbol.ref_list);
+      /* For proper debug info, we need to ship the origins, too.  */
+      if (DECL_ABSTRACT_ORIGIN (vnode->symbol.decl))
+	{
+	  struct varpool_node *origin_node
+	  = varpool_get_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	  lto_set_symtab_encoder_in_partition (encoder, (symtab_node)origin_node);
+	}
     }
   /* Pickle in also the initializer of all referenced readonly variables
      to help folding.  Constant pool variables are not shared, so we must
@@ -889,7 +902,6 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->symbol.forced_by_abi = bp_unpack_value (bp, 1);
   node->symbol.unique_name = bp_unpack_value (bp, 1);
   node->symbol.address_taken = bp_unpack_value (bp, 1);
-  node->abstract_and_needed = bp_unpack_value (bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (bp, 1);
   node->lowered = bp_unpack_value (bp, 1);
   node->symbol.analyzed = tag == LTO_symtab_analyzed_node;

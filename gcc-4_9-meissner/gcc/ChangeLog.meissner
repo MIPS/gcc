@@ -1,3 +1,29 @@
+2013-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 201504.
+	* REVISION: Update subversion id.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-memory): Move old debug
+	switch to be an alias for -mdf-upper-regs.
+	(-mdf-upper-regs): New switches to control whether DF/SF mode can
+	go in the upper VSX registers.
+	(-msf-upper-regs): Likewise.
+
+	* config/rs6000/rs6000.c (mode_allowed_in_vsx_p): New inline
+	functions to determine if a mode can go in vsx, altivec, or
+	floating point registers.
+	(mode_allowed_in_altivec_p): Likewise.
+	(mode_allowed_in_vsx_or_altivec_p): Likewise.
+	(mode_allowed_in_fpr_p): Likewise.
+	(rs6000_hard_regno_nregs_internal): Use the mode allowed functions
+	instead of VECTOR_MEM_VSX_P.
+	(rs6000_hard_regno_mode_ok): Likewise.
+	(rs6000_fixup_addresses): Likewise.
+	(rs6000_init_address_modes): Use -mdf-upper-regs and
+	-msf-upper-regs instead of -mvsx-scalar-memory.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+
 2013-08-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_R): Move reload insns to
