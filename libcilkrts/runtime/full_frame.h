@@ -2,51 +2,53 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 #ifndef INCLUDED_FULL_FRAME_DOT_H
 #define INCLUDED_FULL_FRAME_DOT_H
 
+
 #include "rts-common.h"
 #include "worker_mutex.h"
 
 #include <cilk/common.h>
-
+#include <internal/abi.h>
 #include <stddef.h>
+#include "cilk_fiber.h"
 
 __CILKRTS_BEGIN_EXTERN_C
-
-// Forwarded declarations
-typedef struct __cilkrts_stack_frame __cilkrts_stack_frame;
-typedef struct __cilkrts_stack __cilkrts_stack;
 
 /** Magic numbers for full_frame, used for debugging */
 typedef unsigned long long ff_magic_t;
 
 /* COMMON_SYSDEP */ struct pending_exception_info;  /* opaque */
-/* COMMON_SYSDEP */ struct __cilkrts_stack;         /* opaque */
 
 /*************************************************************
   Full frames
@@ -302,23 +304,23 @@ struct full_frame
     ptrdiff_t frame_size;
 
     /**
-     * Allocated stacks that need to be freed.  The stacks work
-     * like a reducer.  The leftmost frame may have stack_self
+     * Allocated fibers that need to be freed.  The fibers work
+     * like a reducer.  The leftmost frame may have @c fiber_self
      * null and owner non-null.
      *
      * [local]
      * TBD: verify exception code satisfies this requirement.
      */
-    __cilkrts_stack *stack_self;
+    cilk_fiber *fiber_self;
 
     /**
-     * Allocated stacks that need to be freed.  The stacks work
-     * like a reducer.  The leftmost frame may have stack_self
+     * Allocated fibers that need to be freed.  The fibers work
+     * like a reducer.  The leftmost frame may have @c fiber_self
      * null and owner non-null.
      *
      * [self-locked]
      */
-    __cilkrts_stack *stack_child;
+    cilk_fiber *fiber_child;
 
     /**
      * If the sync_master is set, this function can only be sync'd by the team
@@ -375,56 +377,62 @@ struct full_frame
  */
 
 /**
- * Records the stack pointer within the 'sf' stack frame as the current stack
- * pointer at the point of suspending full frame 'ff'.
+ * @brief Records the stack pointer within the @c sf stack frame as the
+ * current stack pointer at the point of suspending full frame @c ff.
  *
- * Preconditions:
- *   - ff->sync_sp must be either null or contain the result of a prior call to
- *     __cilkrts_take_stack().
- *   - If ff->sync_sp is not null, then SP(sf) must refer to the same stack as
- *     the 'sp' argument to the prior call to __cilkrts_take_stack().
+ * @pre @c ff->sync_sp must be either null or contain the result of a prior call to
+ *      @c __cilkrts_take_stack().
+ * @pre If @c ff->sync_sp is not null, then @c SP(sf) must refer to the same stack as
+ *      the @c sp argument to the prior call to @c __cilkrts_take_stack().
  * 
- * Postconditions:
- *   - If ff->sync_sp was null before the call, then ff->sync_sp will be set to
- *     SP(sf). 
- *   - Otherwise, ff->sync_sp will be restored to the value it had just prior
- *     to the last call to __cilkrts_take_stack(), except offset by any change
- *     in the stack pointer between the call to __cilkrts_take_stack() and
- *      this call to __cilkrts_put_stack().
+
+ * @post If @c ff->sync_sp was null before the call, then @c
+ *       ff->sync_sp will be set to @c SP(sf).
+ * @post Otherwise, @c ff->sync_sp will be restored to the value it had just prior
+ *       to the last call to @c __cilkrts_take_stack(), except offset by any change
+ *       in the stack pointer between the call to @c __cilkrts_take_stack() and
+ *       this call to @c __cilkrts_put_stack().
  *
  * @param ff The full frame that is being suspended.
- * @param sf The __cilkrts_stack_frame that is being suspended.  The stack
+ * @param sf The @c __cilkrts_stack_frame that is being suspended.  The stack
  *   pointer will be taken from the jmpbuf contained within this
- *   __cilkrts_stack_frame.
+ *   @c __cilkrts_stack_frame.
  */
 COMMON_PORTABLE void __cilkrts_put_stack(full_frame *ff,
                                          __cilkrts_stack_frame *sf);
 
 /**
- * Records the stack pointer 'sp' as the stack pointer at the point of
- * resuming execution on full frame 'ff'.  The value of 'sp' may be on a
- * different stack than the original value recorded for the stack pointer
- * using __cilkrts_put_stack().
+ * @brief Records the stack pointer @c sp as the stack pointer at the point of
+ * resuming execution on full frame @c ff.
  *
- * Precondition:
- *   - ff->sync_sp must contain a value set by __cilkrts_put_stack().
+ * The value of @c sp may be on a different stack than the original
+ * value recorded for the stack pointer using __cilkrts_put_stack().
  *
- * Postcondition:
- *   - ff->sync_sp contains an *integer* value used to compute a change in the
- *     stack pointer upon the next call to __cilkrts_take_stack().
- *   - If 'sp' equals ff->sync_sp, then ff->sync_sp is set to null.
+ * @pre  @c ff->sync_sp must contain a value set by @c __cilkrts_put_stack().
+ *
+ * @post @c ff->sync_sp contains an *integer* value used to compute a change in the
+ *       stack pointer upon the next call to @c __cilkrts_take_stack().
+ * @post If @c sp equals @c ff->sync_sp, then @c ff->sync_sp is set to null.
  *
  * @param ff The full frame that is being resumed.
  * @param sp The stack pointer for the stack the function is being resumed on.
  */
 COMMON_PORTABLE void __cilkrts_take_stack(full_frame *ff, void *sp);
 
+/*
+ * @brief Adjust the stack for to deallocate a Variable Length Array
+ *
+ * @param ff The full frame that is being adjusted.
+ * @param size The size of the array being deallocated from the stack
+ */
+COMMON_PORTABLE void __cilkrts_adjust_stack(full_frame *ff, size_t size);
+
 /**
- * Allocates and initailizes a full_frame.
+ * @brief Allocates and initailizes a full_frame.
  *
  * @param w The memory for the full_frame will be allocated out of the
  * worker's pool.
- * @param sf The __cilkrts_stack_frame which will be saved as the call_stack
+ * @param sf The @c __cilkrts_stack_frame which will be saved as the call_stack
  * for this full_frame.
  *
  * @return The newly allocated and initialized full_frame.
@@ -434,7 +442,7 @@ full_frame *__cilkrts_make_full_frame(__cilkrts_worker *w,
                                       __cilkrts_stack_frame *sf);
 
 /**
- * Deallocates a full_frame.
+ * @brief Deallocates a full_frame.
  *
  * @param w The memory for the full_frame will be returned to the worker's pool.
  * @param ff The full_frame to be deallocated.
@@ -443,18 +451,18 @@ COMMON_PORTABLE
 void __cilkrts_destroy_full_frame(__cilkrts_worker *w, full_frame *ff);
 
 /**
- * Performs sanity checks to check the integrity of a full_frame.
+ * @brief Performs sanity checks to check the integrity of a full_frame.
  *
  * @param ff The full_frame to be validated.
  */
 COMMON_PORTABLE void validate_full_frame(full_frame *ff);
 
 /**
- * Locks the mutex contained in a full_frame.  The full_frame is validated
- * before the runtime attempts to lock it.
+ * @brief Locks the mutex contained in a full_frame.
  *
- * Postcondition:
- *   - ff->lock will be owned by w.
+ * The full_frame is validated before the runtime attempts to lock it.
+ *
+ * @post @c ff->lock will be owned by @c w.
  *
  * @param w  The worker that will own the full_frame.  If the runtime is
  * collecting stats, the intervals will be attributed to the worker.
@@ -464,10 +472,9 @@ COMMON_PORTABLE void __cilkrts_frame_lock(__cilkrts_worker *w,
                                           full_frame *ff);
 
 /**
- * Unlocks the mutex contained in a full_frame.
+ * @brief Unlocks the mutex contained in a full_frame.
  *
- * Precondition:
- *   - ff->lock must must be owned by w.
+ * @pre @c ff->lock must must be owned by @c w.
  *
  * @param w  The worker that currently owns the full_frame.
  * @param ff The full_frame containing the mutex to be unlocked.

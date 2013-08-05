@@ -1,25 +1,30 @@
-# Copyright (C) 2011 
-# Intel Corporation
-# 
-# This file is part of the Intel Cilk Plus Library.  This library is free
-# software; you can redistribute it and/or modify it under the
-# terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 3, or (at your option)
-# any later version.
-# 
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-# 
-# Under Section 7 of GPL version 3, you are granted additional
-# permissions described in the GCC Runtime Library Exception, version
-# 3.1, as published by the Free Software Foundation.
-# 
-# You should have received a copy of the GNU General Public License and
-# a copy of the GCC Runtime Library Exception along with this program;
-# see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
-# <http://www.gnu.org/licenses/>.
+#  @copyright
+#  Copyright (C) 2011
+#  Intel Corporation
+#  
+#  @copyright
+#  This file is part of the Intel Cilk Plus Library.  This library is free
+#  software; you can redistribute it and/or modify it under the
+#  terms of the GNU General Public License as published by the
+#  Free Software Foundation; either version 3, or (at your option)
+#  any later version.
+#  
+#  @copyright
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#  
+#  @copyright
+#  Under Section 7 of GPL version 3, you are granted additional
+#  permissions described in the GCC Runtime Library Exception, version
+#  3.1, as published by the Free Software Foundation.
+#  
+#  @copyright
+#  You should have received a copy of the GNU General Public License and
+#  a copy of the GCC Runtime Library Exception along with this program;
+#  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+#  <http://www.gnu.org/licenses/>.
 
 __cilkrts_bind_thread
 __cilkrts_bind_thread_1
@@ -41,8 +46,6 @@ __cilkrts_get_nworkers
 __cilkrts_get_pedigree_info
 __cilkrts_get_pedigree_internal
 __cilkrts_get_sf
-__cilkrts_get_stack_region_id
-__cilkrts_get_stack_region_properties
 __cilkrts_get_stack_size
 __cilkrts_get_tls_worker
 __cilkrts_get_tls_worker_fast
@@ -57,13 +60,15 @@ __cilkrts_hyperobject_alloc
 __cilkrts_hyperobject_dealloc
 __cilkrts_hyperobject_noop_destroy
 __cilkrts_init
-# __cilkrts_init_worker_sysdep
 __cilkrts_irml_version
 __cilkrts_leave_frame
 __cilkrts_metacall
 __cilkrts_rethrow
 __cilkrts_return_exception
+__cilkrts_save_fp_ctrl_state
 __cilkrts_set_param
+__cilkrts_stack_alloc
+__cilkrts_stack_free
 __cilkrts_sync
 __cilkrts_synched
 __cilkrts_watch_stack

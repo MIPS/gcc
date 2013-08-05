@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2011, 2013
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  *
  **************************************************************************/
 
@@ -114,6 +119,9 @@ void call_cilk_for_loop_body(count_t low, count_t high,
                              __cilkrts_worker *w,
                              __cilkrts_pedigree *loop_root_pedigree)
 {
+    // Cilkscreen should not report this call in a stack trace
+    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+
     // The worker is only valid until the first spawn.  Fetch the
     // __cilkrts_stack_frame out of the worker, since it will be stable across
     // steals.  The sf pointer actually points to the *parent's*
@@ -201,7 +209,6 @@ capture_spawn_arg_stack_frame(__cilkrts_stack_frame* &sf, __cilkrts_worker* w)
     return w;
 }
 
-
 /*
  * cilk_for_recursive
  *
@@ -225,6 +232,10 @@ void cilk_for_recursive(count_t low, count_t high,
                         __cilkrts_pedigree *loop_root_pedigree)
 {
 tail_recurse:
+    // Cilkscreen should not report this call in a stack trace
+    // This needs to be done everytime the worker resumes
+    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+
     count_t count = high - low;
     // Invariant: count > 0, grain >= 1
     if (count > grain)
@@ -269,6 +280,9 @@ static void noop() { }
 template <typename count_t, typename F>
 static void cilk_for_root(F body, void *data, count_t count, int grain)
 {
+    // Cilkscreen should not report this call in a stack trace
+    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+
     // Pedigree computation:
     //
     //    If the last pedigree node on entry to the _Cilk_for has value X,
@@ -353,6 +367,9 @@ extern "C" {
 CILK_ABI_THROWS_VOID __cilkrts_cilk_for_32(__cilk_abi_f32_t body, void *data,
                                             cilk32_t count, int grain)
 {
+    // Cilkscreen should not report this call in a stack trace
+    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+
     // Check for an empty range here as an optimization - don't need to do any
     // __cilkrts_stack_frame initialization
     if (count > 0)

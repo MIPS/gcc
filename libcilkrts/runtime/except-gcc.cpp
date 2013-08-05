@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 #include "except-gcc.h"
@@ -34,6 +39,7 @@
 #include "full_frame.h"
 #include "scheduler.h"
 #include "frame_malloc.h"
+#include "pedigrees.h"
 
 #include <stdint.h>
 #include <typeinfo>
@@ -159,8 +165,24 @@ __cilkrts_return_exception(__cilkrts_stack_frame *sf)
     CILK_ASSERT(sf->flags & CILK_FRAME_DETACHED);
     sf->flags &= ~CILK_FRAME_DETACHED;
 
+   /*
+    * If we are in replay mode, and a steal occurred during the recording
+    * phase, stall till a steal actually occurs.
+    */
+    replay_wait_for_steal_if_parent_was_stolen(w);
+
     /* If this is to be an abnormal return, save the active exception. */
     if (!__cilkrts_pop_tail(w)) {
+        /* Write a record to the replay log for an attempt to return to a
+           stolen parent.  This must be done before the exception handler
+           invokes __cilkrts_leave_frame which will bump the pedigree so
+           the replay_wait_for_steal_if_parent_was_stolen() above will match on
+           replay */
+        replay_record_orphaned(w);
+
+        /* Now that the record/replay stuff is done, update the pedigree */
+        update_pedigree_on_leave_frame(w, sf);
+
         /* Inline pop_frame; this may not be needed. */
         w->current_stack_frame = sf->call_parent;
         sf->call_parent = 0;
@@ -191,6 +213,10 @@ __cilkrts_return_exception(__cilkrts_stack_frame *sf)
        the same stack and part of the same full frame.  The caller is
        cleaning up the Cilk frame during unwind and will reraise the
        exception */
+
+    /* Now that the record/replay stuff is done, update the pedigree */
+    update_pedigree_on_leave_frame(w, sf);
+
 #if DEBUG_EXCEPTIONS /* DEBUG ONLY */
     {
         __cxa_eh_globals *state = __cxa_get_globals();
@@ -247,7 +273,8 @@ NORETURN __cilkrts_c_sync_except (__cilkrts_worker *w, __cilkrts_stack_frame *sf
     __cxa_eh_globals *state = __cxa_get_globals();
     _Unwind_Exception *exc = (_Unwind_Exception *)sf->except_data;
 
-    CILK_ASSERT (sf->flags & (CILK_FRAME_UNSYNCHED|CILK_FRAME_EXCEPTING) == (CILK_FRAME_UNSYNCHED|CILK_FRAME_EXCEPTING));
+    CILK_ASSERT((sf->flags & (CILK_FRAME_UNSYNCHED|CILK_FRAME_EXCEPTING)) ==
+                (CILK_FRAME_UNSYNCHED|CILK_FRAME_EXCEPTING));
     sf->flags &= ~CILK_FRAME_EXCEPTING;
 
 #if DEBUG_EXCEPTIONS

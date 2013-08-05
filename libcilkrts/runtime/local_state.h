@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 /**
@@ -40,9 +45,13 @@
 #include <internal/abi.h>
 #include "worker_mutex.h"
 #include "global_state.h"
+#include "record-replay.h"
+#include "signal_node.h"
 
 #include <setjmp.h>
 #include <stddef.h>
+#include <stdio.h>
+
 
 #ifndef _WIN32
 #   include <pthread.h>
@@ -51,18 +60,20 @@
 __CILKRTS_BEGIN_EXTERN_C
 
 /* Opaque types. */
-typedef struct signal_node_t signal_node_t;
+
 struct full_frame;
 struct free_list;
 struct pending_exception_info;
+/// Opaque type for replay entry. 
+typedef struct replay_entry_t replay_entry_t;
 
 /**
- * Magic numbers for local_state, used for debugging
+ * @brief Magic numbers for local_state, used for debugging
  */
 typedef unsigned long long ls_magic_t;
 
 /**
- * Scheduling stack function: A function that is decided on the program stack,
+ * @brief Scheduling stack function: A function that is decided on the program stack,
  * but that must be executed on the scheduling stack.
  */
 typedef void (*scheduling_stack_fcn_t) (__cilkrts_worker *w,
@@ -70,7 +81,7 @@ typedef void (*scheduling_stack_fcn_t) (__cilkrts_worker *w,
                                         __cilkrts_stack_frame *sf);
 
 /**
- * Type of this worker.
+ * @brief Type of this worker.
  **/
 typedef enum cilk_worker_type
 {
@@ -81,10 +92,12 @@ typedef enum cilk_worker_type
 
 
 /**
- * The local_state structure contains additional OS-independent
+ * @brief The local_state structure contains additional OS-independent
  * information that's associated with a worker, but doesn't need to be
- * visible to the compiler.  No compiler-generated code should need to
- * know the layout of this structure.
+ * visible to the compiler.
+ *
+ * No compiler-generated code should need to know the layout of this
+ * structure.
  *
  * The fields of this struct can be classified as either local or
  * shared.
@@ -111,8 +124,7 @@ typedef enum cilk_worker_type
  * that are involved in synchronization protocols (i.e., the THE
  * protocol).
  */
-/* COMMON_PORTABLE */
-typedef struct local_state
+struct local_state  /* COMMON_PORTABLE */
 {
     /** This value should be in the first field in any local_state */
 #   define WORKER_MAGIC_0 ((ls_magic_t)0xe0831a4a940c60b8ULL)
@@ -175,19 +187,76 @@ typedef struct local_state
     struct full_frame *next_frame_ff;
 
     /**
+     * This is set iff this is a WORKER_USER and there has been a steal.  It
+     * points to the first frame that was stolen since the team was last fully
+     * sync'd.  Only this worker may continue past a sync in this function.
+     *
+     * This field is set by a thief for a victim that is a user
+     * thread, while holding the victim's lock.
+     * It can be cleared without a lock by the worker that will
+     * continue exuecting past the sync.
+     *
+     * [shared read/write]
+     */
+    struct full_frame *last_full_frame;
+
+    /**
+     * Team on which this worker is a participant.  When a user worker enters,
+     * its team is its own worker struct and it can never change teams.  When a
+     * system worker steals, it adopts the team of its victim.
+     *
+     * When a system worker w steals, it reads victim->l->team and
+     * joins this team.  w->l->team is constant until the next time w
+     * returns control to the runtime.
+     * We must acquire the worker lock to change w->l->team.
+     *
+     * @note This field is 64-byte aligned because it is the first in
+     * the group of shared read-only fields.  We want this group to
+     * fall on a different cache line from the previous group, which
+     * is shared read-write.
+     *
+     * [shared read-only]
+     */
+    __attribute__((aligned(64)))
+    __cilkrts_worker *team;
+
+    /**
+     * Type of this worker
+     *
+     * This field changes only when a worker binds or unbinds.
+     * Otherwise, the field is read-only while the worker is bound.
+     *
+     * [shared read-only]
+     */
+    cilk_worker_type type;
+    
+    /**
      * Lazy task queue of this worker - an array of pointers to stack frames.
      *
      * Read-only because deques are a fixed size in the current
      * implementation.
+     *
+     * @note This field is 64-byte aligned because it is the first in
+     * the group of local fields.  We want this group to fall on a
+     * different cache line from the previous group, which is shared
+     * read-only.
+     *
      * [local read-only]
      */
+    __attribute__((aligned(64)))
     __cilkrts_stack_frame **ltq;
 
     /**
-     * Stacks waiting to be reused
+     * Pool of fibers waiting to be reused.
      * [local read/write]
      */
-    __cilkrts_stack_cache stack_cache;
+    cilk_fiber_pool fiber_pool;
+
+    /**
+     * The fiber for the scheduling stacks.
+     * [local read/write]
+     */
+    cilk_fiber* scheduling_fiber;
 
     /**
      * Saved pointer to the leaf node in thread-local storage, when a
@@ -207,24 +276,6 @@ typedef struct local_state
     unsigned rand_seed;
 
     /**
-     * Type of this worker
-     *
-     * This field changes only when a worker binds or unbinds.
-     * Otherwise, the field is read-only while the worker is bound.
-     *
-     * [shared read-only]
-     */
-    cilk_worker_type type;
-
-    /**
-     * jmp_buf used to jump back into the runtime system after an
-     * unsuccessful steal check or sync.
-     *
-     * [local read/write]
-     */
-    jmp_buf env;
-
-    /**
      * Function to execute after transferring onto the scheduling stack.
      *
      * [local read/write]
@@ -240,7 +291,7 @@ typedef struct local_state
     __cilkrts_stack_frame *suspended_stack;
 
     /**
-     * __cilkrts_stack that should be freed after returning from a
+     * cilk_fiber that should be freed after returning from a
      *  spawn with a stolen parent or after stalling at a sync.
 
      *  We calculate the stack to free when executing a reduction on
@@ -252,7 +303,7 @@ typedef struct local_state
      *
      * [local read/write]
      */
-    __cilkrts_stack* stack_to_free;
+    cilk_fiber* fiber_to_free;
 
     /**
      * Saved exception object for an exception that is being passed to
@@ -262,14 +313,6 @@ typedef struct local_state
      */
     struct pending_exception_info *pending_exception;
 
-    /**
-     * Place to save return address so we can report it to Inspector
-     *
-     * Used only by Windows.
-     * [local read/write]
-     */
-    void *sync_return_address;
-    
     /**
      * Buckets for the memory allocator
      *
@@ -290,7 +333,7 @@ typedef struct local_state
      * Useful only when CILK_PROFIlE is compiled in. 
      * [local read/write]
      */
-    statistics stats;
+    statistics* stats;
 
     /**
      * Count indicates number of failures since last successful steal.  This is
@@ -299,54 +342,6 @@ typedef struct local_state
      * [local read/write]
      */
     unsigned int steal_failure_count;
-
-    /**
-     * Team on which this worker is a participant.  When a user worker enters,
-     * its team is its own worker struct and it can never change teams.  When a
-     * system worker steals, it adopts the team of its victim.
-     *
-     * When a system worker w steals, it reads victim->l->team and
-     * joins this team.  w->l->team is constant until the next time w
-     * returns control to the runtime.
-     * We must acquire the worker lock to change w->l->team.
-     *
-     * [shared read-only]
-     */
-    __cilkrts_worker *team;
-
-    /**
-     * This is set iff this is a WORKER_USER and there has been a steal.  It
-     * points to the first frame that was stolen since the team was last fully
-     * sync'd.  Only this worker may continue past a sync in this function.
-     *
-     * This field is set by a thief for a victim that is a user
-     * thread, while holding the victim's lock.
-     * It can be cleared without a lock by the worker that will
-     * continue exuecting past the sync.
-     *
-     * [shared read/write]
-     */
-    struct full_frame *last_full_frame;
-
-    /**
-     * NULL for WORKER_SYSTEMs (they are created on their scheduling stacks, so
-     * they already know where their scheduling stacks are).  A WORKER_USER can
-     * jump to this stack when it returns to a stolen parent and wants to begin
-     * stealing.
-     *
-     * [local read/write]
-     */
-    void *scheduler_stack;
-
-    /**
-     * 0 if the user thread has not yet been imported.  1 if the user thread
-     * has been imported.  \"Imported\" means the user thread has returned to a
-     * stolen parent and a scheduling stack or fiber has been created for it.
-     * Ignored for system workers.
-     *
-     * [local read/write]
-     */
-    int user_thread_imported;
 
     /**
      * 1 if work was stolen from another worker.  When true, this will flag
@@ -358,6 +353,30 @@ typedef struct local_state
      */
     int work_stolen;
 
+    /**
+     * File pointer for record or replay
+     * Does FILE * work on Windows?
+     * During record, the file will be opened in write-only mode.
+     * During replay, the file will be opened in read-only mode.
+     *
+     * [local read/write]
+     */
+    FILE *record_replay_fptr;
+
+    /**
+     * Root of array of replay entries - NULL if we're not replaying a log
+     *
+     * [local read/write]
+     */
+    replay_entry_t *replay_list_root;
+
+    /**
+     * Current replay entry - NULL if we're not replaying a log
+     *
+     * [local read/write]
+     */
+    replay_entry_t *replay_list_entry;
+    
     /**
      * Separate the signal_node from other things in the local_state by the
      * sizeof a cache line for performance reasons.
@@ -383,7 +402,7 @@ typedef struct local_state
      * [shared read-only]
      */
     ls_magic_t worker_magic_1;
-} local_state;
+};
 
 /**
  * Perform cleanup according to the function set before the longjmp().

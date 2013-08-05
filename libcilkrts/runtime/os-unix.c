@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 #ifdef __linux__
@@ -45,8 +50,13 @@
 #   include <sys/sysctl.h>
     // Uses sysconf(_SC_NPROCESSORS_ONLN) in verbose output
 #elif defined  __FreeBSD__
+// No additional include files
 #elif defined __CYGWIN__
 // Cygwin on Windows - no additional include files
+#elif defined  __VXWORKS__
+#   include <vxWorks.h>   
+#   include <vxCpuLib.h>   
+#   include <taskLib.h>   
 #else
 #   error "Unsupported OS"
 #endif
@@ -74,7 +84,12 @@
 
 #if !defined CILK_WORKER_TLS
 static int cilk_keys_defined;
-static pthread_key_t worker_key, reducer_key, tbb_interop_key, pedigree_leaf_key;
+static pthread_key_t worker_key, pedigree_leaf_key, tbb_interop_key;
+
+#if SUPPORT_GET_CURRENT_FIBER > 0
+static pthread_key_t fiber_key;
+#endif
+
 static void *serial_worker;
 
 
@@ -88,8 +103,7 @@ static void __cilkrts_pedigree_leaf_destructor(void* pedigree_tls_ptr)
         // Assert that we have either one or two nodes
         // left in the pedigree chain.
         // If we have more, then something is going wrong...
-        CILK_ASSERT((!pedigree_tls->parent) ||
-                    (pedigree_tls->parent && (!pedigree_tls->parent->parent)));
+        CILK_ASSERT(!pedigree_tls->parent || !pedigree_tls->parent->parent);
 	__cilkrts_free(pedigree_tls);
     }
 }
@@ -102,18 +116,28 @@ void __cilkrts_init_tls_variables(void)
        on cilk_keys_defined. */
     if (cilk_keys_defined)
         return;
-    status = pthread_key_create(&worker_key, 0);
-    CILK_ASSERT (status == 0);
-    status = pthread_key_create(&reducer_key, 0);
-    CILK_ASSERT (status == 0);
-    status = pthread_key_create(&tbb_interop_key, 0);
+    status = pthread_key_create(&worker_key, NULL);
     CILK_ASSERT (status == 0);
     status = pthread_key_create(&pedigree_leaf_key,
 				__cilkrts_pedigree_leaf_destructor);
     CILK_ASSERT (status == 0);
+    status = pthread_key_create(&tbb_interop_key, NULL);
+    CILK_ASSERT (status == 0);
+
+#if SUPPORT_GET_CURRENT_FIBER > 0    
+    status = pthread_key_create(&fiber_key, NULL);
+    CILK_ASSERT (status == 0);
+#endif
     cilk_keys_defined = 1;
     return;
 }
+
+COMMON_SYSDEP
+void* cilkos_get_current_thread_id(void)
+{
+    return (void*)pthread_self();
+}
+
 
 CILK_ABI_WORKER_PTR __cilkrts_get_tls_worker()
 {
@@ -127,14 +151,6 @@ CILK_ABI_WORKER_PTR __cilkrts_get_tls_worker()
 CILK_ABI_WORKER_PTR __cilkrts_get_tls_worker_fast()
 {
   return (__cilkrts_worker *)pthread_getspecific(worker_key);
-}
-
-COMMON_SYSDEP struct cilkred_map *__cilkrts_get_tls_reducer(void)
-{
-    if (__builtin_expect(cilk_keys_defined, 1))
-        return (struct cilkred_map *)pthread_getspecific(reducer_key);
-    else
-        return 0;
 }
 
 COMMON_SYSDEP
@@ -188,6 +204,17 @@ __cilkrts_pedigree *__cilkrts_get_tls_pedigree_leaf(int create_new)
     return pedigree_tls;
 }
 
+#if SUPPORT_GET_CURRENT_FIBER > 0
+COMMON_SYSDEP
+cilk_fiber_sysdep* cilkos_get_tls_cilk_fiber(void)
+{
+    if (__builtin_expect(cilk_keys_defined, 1))
+        return (cilk_fiber_sysdep *)pthread_getspecific(fiber_key);
+    else
+        return NULL;
+}
+#endif
+
 COMMON_SYSDEP
 void __cilkrts_set_tls_worker(__cilkrts_worker *w)
 {
@@ -203,17 +230,6 @@ void __cilkrts_set_tls_worker(__cilkrts_worker *w)
     }
 }
 
-COMMON_SYSDEP void __cilkrts_set_tls_reducer(struct cilkred_map *r)
-{
-    if (__builtin_expect(cilk_keys_defined, 1)) {
-        int status;
-        status = pthread_setspecific(reducer_key, r);
-        CILK_ASSERT (status == 0);
-        return;
-    }
-    abort();
-}
-
 COMMON_SYSDEP
 void __cilkrts_set_tls_tbb_interop(__cilk_tbb_stack_op_thunk *t)
 {
@@ -225,7 +241,6 @@ void __cilkrts_set_tls_tbb_interop(__cilk_tbb_stack_op_thunk *t)
     }
     abort();
 }
-
 
 COMMON_SYSDEP
 void __cilkrts_set_tls_pedigree_leaf(__cilkrts_pedigree* pedigree_leaf)
@@ -239,13 +254,27 @@ void __cilkrts_set_tls_pedigree_leaf(__cilkrts_pedigree* pedigree_leaf)
     abort();
 }
 
+#if SUPPORT_GET_CURRENT_FIBER > 0
+COMMON_SYSDEP
+void cilkos_set_tls_cilk_fiber(cilk_fiber_sysdep* fiber)
+{
+    if (__builtin_expect(cilk_keys_defined, 1)) {
+        int status;
+        status = pthread_setspecific(fiber_key, fiber);
+        CILK_ASSERT (status == 0);
+        return;
+    }
+    abort();
+}
+#endif
+
 #else
 void __cilkrts_init_tls_variables(void)
 {
 }
 #endif
 
-#if defined __linux__
+#if defined (__linux__) && ! defined(ANDROID)
 /*
  * Get the thread id, rather than the pid. In the case of MIC offload, it's
  * possible that we have multiple threads entering Cilk, and each has a
@@ -312,7 +341,14 @@ static int linux_get_affinity_count (int tid)
 
 COMMON_SYSDEP int __cilkrts_hardware_cpu_count(void)
 {
-#if defined __linux__
+#if defined ANDROID
+    return sysconf (_SC_NPROCESSORS_ONLN);
+#elif defined __MIC__
+    /// HACK: Usually, the 3rd and 4th hyperthreads are not beneficial
+    /// on KNC.  Also, ignore the last core.
+    int P = sysconf (_SC_NPROCESSORS_ONLN);
+    return P/2 - 2;
+#elif defined __linux__
     int affinity_count = linux_get_affinity_count(linux_gettid());
 
     return (0 != affinity_count) ? affinity_count : sysconf (_SC_NPROCESSORS_ONLN);
@@ -331,6 +367,8 @@ COMMON_SYSDEP int __cilkrts_hardware_cpu_count(void)
     return ncores;
     // Just get the number of processors
 //    return sysconf(_SC_NPROCESSORS_ONLN);
+#elif defined  __VXWORKS__
+    return __builtin_popcount( vxCpuEnabledGet() );
 #else
 #error "Unknown architecture"
 #endif
@@ -360,7 +398,7 @@ COMMON_SYSDEP void __cilkrts_short_pause(void)
 #elif defined __i386__ || defined __x86_64
     __asm__("pause");
 #else
-#   warning __cilkrts_short_pause undefined
+#   warning __cilkrts_short_pause empty
 #endif
 }
 
@@ -377,12 +415,16 @@ COMMON_SYSDEP int __cilkrts_xchg(volatile int *ptr, int x)
 
 COMMON_SYSDEP void __cilkrts_sleep(void)
 {
+#ifdef __VXWORKS__
+	taskDelay(1);
+#else			
     usleep(1);
+#endif	
 }
 
 COMMON_SYSDEP void __cilkrts_yield(void)
 {
-#if __APPLE__ || __FreeBSD__
+#if __APPLE__ || __FreeBSD__ || __VXWORKS__
     // On MacOS, call sched_yield to yield quantum.  I'm not sure why we
     // don't do this on Linux also.
     sched_yield();
@@ -393,6 +435,10 @@ COMMON_SYSDEP void __cilkrts_yield(void)
     // giving up the processor and latency starting up when work becomes
     // available
     _mm_delay_32(1024);
+#elif defined(ANDROID)
+    // On Android, call sched_yield to yield quantum.  I'm not sure why we
+    // don't do this on Linux also.
+    sched_yield();
 #else
     // On Linux, call pthread_yield (which in turn will call sched_yield)
     // to yield quantum.
@@ -486,6 +532,11 @@ size_t cilkos_validate_stack_size(size_t specified_stack_size) {
         return (PAGE * (1 + specified_stack_size / PAGE));
     }
     return specified_stack_size;
+}
+
+long cilkos_atomic_add(volatile long* p, long x)
+{
+    return __sync_add_and_fetch(p, x);
 }
 
 /* End os-unix.c */

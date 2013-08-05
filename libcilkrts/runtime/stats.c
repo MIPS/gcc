@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 #include "stats.h"
@@ -40,7 +45,8 @@
 static const char *names[] = {
     /*[INTERVAL_IN_SCHEDULER]*/                 "in scheduler",
     /*[INTERVAL_WORKING]*/                      "  of which: working",
-    /*[INTERVAL_STEALING]*/                     "  of which: stealing",
+    /*[INTERVAL_IN_RUNTIME]*/                   "  of which: in runtime",
+    /*[INTERVAL_STEALING]*/                     "     of which: stealing",
     /*[INTERVAL_STEAL_SUCCESS]*/                "steal success: detach",
     /*[INTERVAL_STEAL_FAIL_EMPTYQ]*/            "steal fail: empty queue",
     /*[INTERVAL_STEAL_FAIL_LOCK]*/              "steal fail: victim locked",
@@ -64,15 +70,18 @@ static const char *names[] = {
     /*[INTERVAL_MUTEX_LOCK_SPINNING]*/          "  spinning",
     /*[INTERVAL_MUTEX_LOCK_YIELDING]*/          "  yielding",
     /*[INTERVAL_MUTEX_TRYLOCK]*/                "mutex trylock",
-    /*[INTERVAL_ALLOC_STACK]*/                  "alloc stack",
-    /*[INTERVAL_FREE_STACK]*/                   "free stack",    
+    /*[INTERVAL_FIBER_ALLOCATE]*/               "fiber_allocate",
+    /*[INTERVAL_FIBER_DEALLOCATE]*/             "fiber_deallocate", 
+    /*[INTERVAL_FIBER_ALLOCATE_FROM_THREAD]*/   "fiber_allocate_from_thread",
+    /*[INTERVAL_FIBER_DEALLOCATE_FROM_THREAD]*/ "fiber_deallocate (thread)", 
+    /*[INTERVAL_SUSPEND_RESUME_OTHER]*/         "fiber suspend self + resume",
+    /*[INTERVAL_DEALLOCATE_RESUME_OTHER]*/      "fiber deallocate self + resume", 
 };
 #endif
 
 void __cilkrts_init_stats(statistics *s)
 {
     int i;
-
     for (i = 0; i < INTERVAL_N; ++i) {
         s->start[i] = INVALID_START;
         s->accum[i] = 0;
@@ -87,7 +96,7 @@ void __cilkrts_accum_stats(statistics *to, statistics *from)
 {
     int i;
 
-    for (i = 0; i < INTERVAL_N; ++i) { 
+    for (i = 0; i < INTERVAL_N; ++i) {
         to->accum[i] += from->accum[i];
         to->count[i] += from->count[i];
         from->accum[i] = 0;
@@ -102,7 +111,7 @@ void __cilkrts_accum_stats(statistics *to, statistics *from)
 void __cilkrts_note_interval(__cilkrts_worker *w, enum interval i)
 {
     if (w) {
-        statistics *s = &w->l->stats;
+        statistics *s = w->l->stats;
         CILK_ASSERT(s->start[i] == INVALID_START);
         s->count[i]++;
     }
@@ -111,7 +120,7 @@ void __cilkrts_note_interval(__cilkrts_worker *w, enum interval i)
 void __cilkrts_start_interval(__cilkrts_worker *w, enum interval i)
 {
     if (w) {
-        statistics *s = &w->l->stats;
+        statistics *s = w->l->stats;
         CILK_ASSERT(s->start[i] == INVALID_START);
         s->start[i] = __cilkrts_getticks();
         s->count[i]++;
@@ -121,7 +130,7 @@ void __cilkrts_start_interval(__cilkrts_worker *w, enum interval i)
 void __cilkrts_stop_interval(__cilkrts_worker *w, enum interval i)
 {
     if (w) {
-        statistics *s = &w->l->stats;
+        statistics *s = w->l->stats;
         CILK_ASSERT(s->start[i] != INVALID_START);
         s->accum[i] += __cilkrts_getticks() - s->start[i];
         s->start[i] = INVALID_START;
