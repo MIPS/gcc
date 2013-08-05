@@ -1668,6 +1668,37 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
+/* Helper function to return if a mode is valid for VSX registers.  */
+static inline bool
+mode_allowed_in_vsx_p (enum machine_mode mode)
+{
+  return (reg_addr[mode].addr_mask & ADDR_VALID_VSX) != 0;
+}
+
+/* Helper function to return if a mode is valid for altivec registers.  */
+static inline bool
+mode_allowed_in_altivec_p (enum machine_mode mode)
+{
+  return (reg_addr[mode].addr_mask & ADDR_VALID_AV) != 0;
+}
+
+/* Helper function to return if a mode is valid for altivec registers.  */
+static inline bool
+mode_allowed_in_vsx_or_altivec_p (enum machine_mode mode)
+{
+  return (reg_addr[mode].addr_mask
+	  & (ADDR_VALID_AV | ADDR_VALID_VSX)) != 0;
+}
+
+/* Helper function to return if a mode is valid for traditional floating point
+   registers.  */
+static inline bool
+mode_allowed_in_fpr_p (enum machine_mode mode)
+{
+  return (reg_addr[mode].addr_mask & ADDR_VALID_FPR) != 0;
+}
+
+
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
@@ -1687,7 +1718,8 @@ rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
 
   /* TF/TD modes are special in that they always take 2 registers.  */
   if (FP_REGNO_P (regno))
-    reg_size = ((VECTOR_MEM_VSX_P (mode) && mode != TDmode && mode != TFmode)
+    reg_size = ((mode_allowed_in_vsx_p (mode) && mode != TDmode
+		 && !mode != TFmode)
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -1731,7 +1763,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  Don't allow an item to be split between a FP register
      and an Altivec register.  */
-  if (TARGET_VSX && (reg_addr[mode].addr_mask & ADDR_VALID_VSX) != 0)
+  if (TARGET_VSX && mode_allowed_in_vsx_p (mode))
     {
       if (FP_REGNO_P (regno))
 	return FP_REGNO_P (last_regno);
@@ -1762,7 +1794,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 	  && PAIRED_VECTOR_MODE (mode))
 	return 1;
 
-      return 0;
+      return mode_allowed_in_fpr_p (mode);
     }
 
   /* The CR register can only hold CC modes.  */
@@ -1774,7 +1806,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 
   /* AltiVec only in AldyVec registers.  */
   if (ALTIVEC_REGNO_P (regno))
-    return VECTOR_MEM_ALTIVEC_OR_VSX_P (mode);
+    return mode_allowed_in_vsx_or_altivec_p (mode);
 
   /* ...but GPRs can hold SIMD data on the SPE in one register.  */
   if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
@@ -2430,7 +2462,7 @@ rs6000_init_address_modes (void)
     di_dd_mask &= ~ADDR_UPDATE_MASK;
 
   df_mask = di_dd_mask;
-  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
+  if (TARGET_VSX && TARGET_DF_UPPER_REGS)
     df_mask |= VSX_SINGLE_MASK;
 
   /* Mask for 128-bit floating point types that take two registers.  At
@@ -2469,7 +2501,7 @@ rs6000_init_address_modes (void)
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT)
     {
       sf_mask |= FPR_SINGLE_MASK;
-      if (TARGET_P8_VECTOR && TARGET_VSX_SCALAR_MEMORY)
+      if (TARGET_P8_VECTOR && TARGET_SF_UPPER_REGS)
 	sf_mask |= VSX_SINGLE_MASK;
     }
 
@@ -2822,7 +2854,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;
 
       rs6000_constraints[RS6000_CONSTRAINT_ws]
-	= (TARGET_VSX_SCALAR_MEMORY) ? VSX_REGS : FLOAT_REGS;
+	= (TARGET_DF_UPPER_REGS) ? VSX_REGS : FLOAT_REGS;
     }
 
   /* Add conditional constraints based on various options, to allow us to
@@ -2850,7 +2882,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   if (TARGET_P8_VECTOR)
     rs6000_constraints[RS6000_CONSTRAINT_wy]
-	= (TARGET_VSX_SCALAR_MEMORY) ? VSX_REGS : FLOAT_REGS;
+	= (TARGET_SF_UPPER_REGS) ? VSX_REGS : FLOAT_REGS;
 
   if (TARGET_LFIWZX)
     rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;
@@ -3431,11 +3463,13 @@ rs6000_option_override_internal (bool global_init_p)
     }
 
   /* Don't enable DF/SF in the upper VSX registers by default on VSX.  */
-  if (TARGET_VSX_SCALAR_MEMORY == -1)
-    TARGET_VSX_SCALAR_MEMORY
-      = (TARGET_VSX && getenv ("VSX_SCALAR_MEMORY") != NULL) ? 1 : 0;
-  else if (TARGET_VSX_SCALAR_MEMORY && !TARGET_VSX)
-    error ("-mvsx-scalar-memory requires -mvsx");
+  if ((rs6000_isa_flags_explicit & OPTION_MASK_DF_UPPER_REGS) == 0
+      && TARGET_VSX && getenv ("DF_UPPER_REGS") != NULL)
+    rs6000_isa_flags |= OPTION_MASK_DF_UPPER_REGS;
+
+  if ((rs6000_isa_flags_explicit & OPTION_MASK_SF_UPPER_REGS) == 0
+      && TARGET_P8_VECTOR && getenv ("SF_UPPER_REGS") != NULL)
+    rs6000_isa_flags |= OPTION_MASK_SF_UPPER_REGS;
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
      silently turn off quad memory mode.  */
@@ -15406,7 +15440,7 @@ rs6000_fixup_address (rtx addr,
 	 registers, floating point registers, or default to the general purpose
 	 registers.  Otherwise if a register type was prefered, limit the
 	 address mask to just the register set specified.  */
-      if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
+      if (mode_allowed_in_vsx_or_altivec_p (mode))
 	addr_mask &= (ADDR_AV_MASK | vsx_mask);
 
       else if (FLOAT_MODE_P (mode) && TARGET_FPRS && TARGET_HARD_FLOAT)
@@ -15943,261 +15977,66 @@ rs6000_secondary_reload_fail (int line, rtx reg, rtx mem, rtx scratch,
 void
 rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 {
-  int regno = true_regnum (reg);
-  enum machine_mode mode = GET_MODE (reg);
+  int regno;
+  enum machine_mode mode;
   enum reg_class rclass;
+  int extra_cost;
   rtx addr;
-  rtx and_op2 = NULL_RTX;
-  rtx addr_op1;
-  rtx addr_op2;
-  rtx scratch_or_premodify = scratch;
-  rtx and_rtx;
-  rtx cc_clobber;
+  rtx output_addr;
+  bool need_tmp_reg;
 
-  if (TARGET_DEBUG_ADDR)
-    rs6000_secondary_reload_trace (__LINE__, reg, mem, scratch, store_p);
-
-  if (regno < 0 || regno >= FIRST_PSEUDO_REGISTER)
+  if (!reg || !REG_P (reg))
     rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
-  if (GET_CODE (mem) != MEM)
+  regno = true_regnum (reg);
+  mode = GET_MODE (reg);
+
+  if (!IN_RANGE (regno, 0, FIRST_PSEUDO_REGISTER-1))
     rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
   rclass = REGNO_REG_CLASS (regno);
   addr = XEXP (mem, 0);
 
-  switch (rclass)
+  if (GET_CODE (mem) != MEM)
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+  /* If we don't have a scratch register, validate that we don't need it.  If
+     we do have a scratch register, it must be a base register.  */
+  if (!scratch || !REG_P (scratch))
     {
-      /* GPRs can handle reg + small constant, all other addresses need to use
-	 the scratch register.  */
-    case GENERAL_REGS:
-    case BASE_REGS:
-      if (GET_CODE (addr) == AND)
-	{
-	  and_op2 = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
-	}
+      need_tmp_reg = false;
+      extra_cost = rs6000_fixup_address (addr, rclass, mode, NULL_RTX,
+					 &need_tmp_reg, (rtx *)0);
 
-      if (GET_CODE (addr) == PRE_MODIFY)
-	{
-	  scratch_or_premodify = XEXP (addr, 0);
-	  if (!REG_P (scratch_or_premodify))
-	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
-	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  addr = XEXP (addr, 1);
-	}
-
-      if (GET_CODE (addr) == PLUS
-	  && (and_op2 != NULL_RTX
-	      || !rs6000_legitimate_offset_address_p (PTImode, addr,
-						      false, true)))
-	{
-	  addr_op1 = XEXP (addr, 0);
-	  addr_op2 = XEXP (addr, 1);
-	  if (!legitimate_indirect_address_p (addr_op1, false))
-	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  if (!REG_P (addr_op2)
-	      && (GET_CODE (addr_op2) != CONST_INT
-		  || !satisfies_constraint_I (addr_op2)))
-	    {
-	      if (TARGET_DEBUG_ADDR)
-		{
-		  fprintf (stderr,
-			   "\nMove plus addr to register %s, mode = %s: ",
-			   rs6000_reg_names[REGNO (scratch)],
-			   GET_MODE_NAME (mode));
-		  debug_rtx (addr_op2);
-		}
-	      rs6000_emit_move (scratch, addr_op2, Pmode);
-	      addr_op2 = scratch;
-	    }
-
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  scratch_or_premodify,
-				  gen_rtx_PLUS (Pmode,
-						addr_op1,
-						addr_op2)));
-
-	  addr = scratch_or_premodify;
-	  scratch_or_premodify = scratch;
-	}
-      else if (!legitimate_indirect_address_p (addr, false)
-	       && !rs6000_legitimate_offset_address_p (PTImode, addr,
-						       false, true))
-	{
-	  if (TARGET_DEBUG_ADDR)
-	    {
-	      fprintf (stderr, "\nMove addr to register %s, mode = %s: ",
-		       rs6000_reg_names[REGNO (scratch_or_premodify)],
-		       GET_MODE_NAME (mode));
-	      debug_rtx (addr);
-	    }
-	  rs6000_emit_move (scratch_or_premodify, addr, Pmode);
-	  addr = scratch_or_premodify;
-	  scratch_or_premodify = scratch;
-	}
-      break;
-
-      /* Float registers can do offset+reg addressing for scalar types.  */
-    case FLOAT_REGS:
-      if (legitimate_indirect_address_p (addr, false)	/* reg */
-	  || legitimate_indexed_address_p (addr, false)	/* reg+reg */
-	  || ((GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
-	      && and_op2 == NULL_RTX
-	      && scratch_or_premodify == scratch
-	      && rs6000_legitimate_offset_address_p (mode, addr, false, false)))
-	break;
-
-      /* If this isn't a legacy floating point load/store, fall through to the
-	 VSX defaults.  */
-
-      /* VSX/Altivec registers can only handle reg+reg addressing.  Move other
-	 addresses into a scratch register.  */
-    case VSX_REGS:
-    case ALTIVEC_REGS:
-
-      /* With float regs, we need to handle the AND ourselves, since we can't
-	 use the Altivec instruction with an implicit AND -16.  Allow scalar
-	 loads to float registers to use reg+offset even if VSX.  */
-      if (GET_CODE (addr) == AND
-	  && (rclass != ALTIVEC_REGS || GET_MODE_SIZE (mode) != 16
-	      || GET_CODE (XEXP (addr, 1)) != CONST_INT
-	      || INTVAL (XEXP (addr, 1)) != -16
-	      || !VECTOR_MEM_ALTIVEC_P (mode)))
-	{
-	  and_op2 = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
-	}
-
-      /* If we aren't using a VSX load, save the PRE_MODIFY register and use it
-	 as the address later.  */
-      if (GET_CODE (addr) == PRE_MODIFY
-	  && ((ALTIVEC_OR_VSX_VECTOR_MODE (mode)
-	       && (rclass != FLOAT_REGS
-		   || (GET_MODE_SIZE (mode) != 4 && GET_MODE_SIZE (mode) != 8)))
-	      || and_op2 != NULL_RTX
-	      || !legitimate_indexed_address_p (XEXP (addr, 1), false)))
-	{
-	  scratch_or_premodify = XEXP (addr, 0);
-	  if (!legitimate_indirect_address_p (scratch_or_premodify, false))
-	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
-	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  addr = XEXP (addr, 1);
-	}
-
-      if (legitimate_indirect_address_p (addr, false)	/* reg */
-	  || legitimate_indexed_address_p (addr, false)	/* reg+reg */
-	  || (GET_CODE (addr) == AND			/* Altivec memory */
-	      && rclass == ALTIVEC_REGS
-	      && GET_CODE (XEXP (addr, 1)) == CONST_INT
-	      && INTVAL (XEXP (addr, 1)) == -16
-	      && (legitimate_indirect_address_p (XEXP (addr, 0), false)
-		  || legitimate_indexed_address_p (XEXP (addr, 0), false))))
-	;
-
-      else if (GET_CODE (addr) == PLUS)
-	{
-	  addr_op1 = XEXP (addr, 0);
-	  addr_op2 = XEXP (addr, 1);
-	  if (!REG_P (addr_op1))
-	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  if (TARGET_DEBUG_ADDR)
-	    {
-	      fprintf (stderr, "\nMove plus addr to register %s, mode = %s: ",
-		       rs6000_reg_names[REGNO (scratch)], GET_MODE_NAME (mode));
-	      debug_rtx (addr_op2);
-	    }
-	  rs6000_emit_move (scratch, addr_op2, Pmode);
-	  emit_insn (gen_rtx_SET (VOIDmode,
-				  scratch_or_premodify,
-				  gen_rtx_PLUS (Pmode,
-						addr_op1,
-						scratch)));
-	  addr = scratch_or_premodify;
-	  scratch_or_premodify = scratch;
-	}
-
-      else if (GET_CODE (addr) == SYMBOL_REF || GET_CODE (addr) == CONST
-	       || GET_CODE (addr) == CONST_INT || GET_CODE (addr) == LO_SUM
-	       || REG_P (addr))
-	{
-	  if (TARGET_DEBUG_ADDR)
-	    {
-	      fprintf (stderr, "\nMove addr to register %s, mode = %s: ",
-		       rs6000_reg_names[REGNO (scratch_or_premodify)],
-		       GET_MODE_NAME (mode));
-	      debug_rtx (addr);
-	    }
-
-	  rs6000_emit_move (scratch_or_premodify, addr, Pmode);
-	  addr = scratch_or_premodify;
-	  scratch_or_premodify = scratch;
-	}
-
-      else
+      if (need_tmp_reg)
 	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-      break;
-
-    default:
-      rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
     }
+  else if (!REGNO_OK_FOR_BASE_P (REGNO (scratch)))
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
-  /* If the original address involved a pre-modify that we couldn't use the VSX
-     memory instruction with update, and we haven't taken care of already,
-     store the address in the pre-modify register and use that as the
-     address.  */
-  if (scratch_or_premodify != scratch && scratch_or_premodify != addr)
-    {
-      emit_insn (gen_rtx_SET (VOIDmode, scratch_or_premodify, addr));
-      addr = scratch_or_premodify;
-    }
 
-  /* If the original address involved an AND -16 and we couldn't use an ALTIVEC
-     memory instruction, recreate the AND now, including the clobber which is
-     generated by the general ANDSI3/ANDDI3 patterns for the
-     andi. instruction.  */
-  if (and_op2 != NULL_RTX)
-    {
-      if (! legitimate_indirect_address_p (addr, false))
-	{
-	  emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
-	  addr = scratch;
-	}
+  if (TARGET_DEBUG_ADDR)
+    rs6000_secondary_reload_trace (__LINE__, reg, mem, scratch, store_p);
 
-      if (TARGET_DEBUG_ADDR)
-	{
-	  fprintf (stderr, "\nAnd addr to register %s, mode = %s: ",
-		   rs6000_reg_names[REGNO (scratch)], GET_MODE_NAME (mode));
-	  debug_rtx (and_op2);
-	}
+  /* Fixup the address now to use the scratch register as needed.  */
+  need_tmp_reg = false;
+  output_addr = addr;
+  extra_cost = rs6000_fixup_address (addr, rclass, mode, scratch, &need_tmp_reg,
+				     &output_addr);
 
-      and_rtx = gen_rtx_SET (VOIDmode,
-			     scratch,
-			     gen_rtx_AND (Pmode,
-					  addr,
-					  and_op2));
-
-      cc_clobber = gen_rtx_CLOBBER (CCmode, gen_rtx_SCRATCH (CCmode));
-      emit_insn (gen_rtx_PARALLEL (VOIDmode,
-				   gen_rtvec (2, and_rtx, cc_clobber)));
-      addr = scratch;
-    }
+  if (!output_addr || extra_cost < 0)
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
   /* Adjust the address if it changed.  */
-  if (addr != XEXP (mem, 0))
+  if (output_addr != addr)
     {
-      mem = replace_equiv_address_nv (mem, addr);
+      mem = replace_equiv_address_nv (mem, output_addr);
       if (TARGET_DEBUG_ADDR)
-	fprintf (stderr, "\nrs6000_secondary_reload_inner, mem adjusted.\n");
+	{
+	  fputs ("\nrs6000_secondary_reload_inner, mem adjusted, addr:\n",
+		 stderr);
+	  debug_rtx (mem);
+	}
     }
 
   /* Now create the move.  */
@@ -28718,7 +28557,7 @@ rs6000_register_move_cost (enum machine_mode mode,
     }
 
   /* If we have VSX, we can easily move between FPR or Altivec registers.  */
-  else if (VECTOR_MEM_VSX_P (mode)
+  else if (VECTOR_UNIT_VSX_P (mode)
 	   && reg_classes_intersect_p (to, VSX_REGS)
 	   && reg_classes_intersect_p (from, VSX_REGS))
     ret = 2 * hard_regno_nregs[32][mode];
@@ -29952,6 +29791,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "cmpb",			OPTION_MASK_CMPB,		false, true  },
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
+  { "df-upper-regs",		OPTION_MASK_DF_UPPER_REGS,	false, false },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
@@ -29970,6 +29810,7 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "powerpc-gpopt",		OPTION_MASK_PPC_GPOPT,		false, true  },
   { "quad-memory",		OPTION_MASK_QUAD_MEMORY,	false, true  },
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
+  { "sf-upper-regs",		OPTION_MASK_SF_UPPER_REGS,	false, false },
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
   { "vector-offsets",		OPTION_MASK_VECTOR_OFFSET,	false, false },
