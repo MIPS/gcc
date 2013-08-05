@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2012 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2012
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 #include "global_state.h"
@@ -32,6 +37,8 @@
 #include "metacall_impl.h"
 #include "stats.h"
 #include "cilk/cilk_api.h"
+#include "cilk_malloc.h"
+#include "record-replay.h"
 
 #include <algorithm>  // For max()
 #include <cstring>
@@ -180,7 +187,6 @@ template <typename INT_T, typename CHAR_T>
 int store_int(INT_T *out, const CHAR_T *val, INT_T min, INT_T max)
 {
     errno = 0;
-    char *end = 0;
     long val_as_long = to_long(val);
     if (val_as_long == 0 && errno != 0)
         return __CILKRTS_SET_PARAM_INVALID;
@@ -271,7 +277,7 @@ int set_param_imp(global_state_t* g, const CHAR_T* param, const CHAR_T* value)
         //
         // Number of stacks we'll hold in the per-worker stack cache.  Maximum
         // value is 42.  See __cilkrts_make_global_state for details.
-        return store_int(&g->stack_cache_size, value, 0, 42);
+        return store_int(&g->fiber_pool_size, value, 0, 42);
     }
     else if (strmatch(param, s_shared_stacks))
     {
@@ -280,7 +286,7 @@ int set_param_imp(global_state_t* g, const CHAR_T* param, const CHAR_T* value)
         // Maximum number of stacks we'll hold in the global stack
         // cache. Maximum value is 42.  See __cilkrts_make_global_state for
         // details.
-        return store_int(&g->global_stack_cache_size, value, 0, 42);
+        return store_int(&g->global_fiber_pool_size, value, 0, 42);
     }
     else if (strmatch(param, s_nstacks))
     {
@@ -293,7 +299,9 @@ int set_param_imp(global_state_t* g, const CHAR_T* param, const CHAR_T* value)
         // Undocumented at this time, though there are plans to expose it.
         // The current implentation is for Linux debugging only and is not
         // robust enough for users.
-        return store_int<long>(&g->max_stacks, value, 0, INT_MAX);
+        if (cilkg_singleton_ptr)
+            return __CILKRTS_SET_PARAM_LATE;
+        return store_int<unsigned>(&g->max_stacks, value, 0, INT_MAX);
     }
     else if (strmatch(param, s_stack_size))
     {
@@ -356,6 +364,8 @@ global_state_t* cilkg_get_user_settable_values()
     // multiple threads from initializing this data.
     if (! cilkg_user_settable_values_initialized)
     {
+        size_t len;
+
         // Preserve stealing disabled since it may have been set by the
         // debugger
         int stealing_disabled = g->stealing_disabled;
@@ -377,11 +387,42 @@ global_state_t* cilkg_get_user_settable_values()
         g->force_reduce             = 0;   // Default Off
         g->P                        = hardware_cpu_count;   // Defaults to hardware CPU count
         g->max_user_workers         = 0;   // 0 unless set by user
-        g->stack_cache_size         = 7;   // Arbitrary default
-        g->global_stack_cache_size  = 3;   // Arbitrary default
-        g->max_stacks               = 0;   // 0 == unlimited
+        g->fiber_pool_size          = 7;   // Arbitrary default
+        
+        g->global_fiber_pool_size   = 3 * 3* g->P;  // Arbitrary default
+        // 3*P was the default size of the worker array (including
+        // space for extra user workers).  This parameter was chosen
+        // to match previous versions of the runtime.
+
+        if (4 == sizeof(void *))
+            g->max_stacks           = 1200; // Only 1GB on 32-bit machines
+        else
+            g->max_stacks           = 2400; // 2GB on 64-bit machines
+
+        // If we have 2400 1MB stacks, that is 2 gb.  If we reach this
+        // limit on a single-socket machine, we may have other
+        // problems.  Is 2400 too small for large multicore machines?
+
+        // TBD(jsukha, 11/27/2012): I set this limit on stacks to be a
+        // value independent of P.  When running on a Xeon Phi with
+        // small values of P, I recall seeing a few microbenchmarks
+        // (e.g., fib) where a limit of 10*P seemed to be
+        // unnecessarily slowing things down.
+        // 
+        // That being said, the code has changed sufficiently that
+        // this observation may no longer be true.
+        //
+        // Note: in general, the worst-case number of stacks required
+        // for a Cilk computation with spawn depth "d" on P workers is
+        // O(Pd).  Code with unbalanced recursion may run into issues
+        // with this stack usage.
+
         g->max_steal_failures       = 128; // TBD: depend on max_workers?
         g->stack_size               = 0;   // 0 unless set by the user
+
+        // Assume no record or replay log for now
+        g->record_replay_file_name  = NULL;
+        g->record_or_replay         = RECORD_REPLAY_NONE;  // set by user
 
         if (always_force_reduce())
             g->force_reduce = true;
@@ -414,6 +455,33 @@ global_state_t* cilkg_get_user_settable_values()
         // total_workers must be computed now to support __cilkrts_get_total_workers
         g->total_workers = g->P + calc_max_user_workers(g) - 1;
 
+#ifdef CILK_RECORD_REPLAY
+        // RecordReplay: See if we've been asked to replay a log
+        len = cilkos_getenv(envstr, 0, "CILK_REPLAY_LOG");
+        if (len > 0)
+        {
+            len += 1;    // Allow for trailing NUL
+            g->record_or_replay = REPLAY_LOG;
+            g->record_replay_file_name = (char *)__cilkrts_malloc(len);
+            cilkos_getenv(g->record_replay_file_name, len, "CILK_REPLAY_LOG");
+        }
+
+        // RecordReplay: See if we've been asked to record a log
+        len = cilkos_getenv(envstr, 0, "CILK_RECORD_LOG");
+        if (len > 0)
+        {
+            if (RECORD_REPLAY_NONE != g->record_or_replay)
+                cilkos_warning("CILK_RECORD_LOG ignored since CILK_REPLAY_LOG is defined.\n");
+            else
+            {
+                len += 1;    // Allow for trailing NUL
+                g->record_or_replay = RECORD_LOG;
+                g->record_replay_file_name = (char *)__cilkrts_malloc(len);
+                cilkos_getenv(g->record_replay_file_name, len, "CILK_RECORD_LOG");
+            }
+        }
+#endif
+        
         cilkg_user_settable_values_initialized = true;
     }
 
@@ -439,8 +507,6 @@ global_state_t* cilkg_init_global_state()
     // Get partially-initialized global state.
     global_state_t* g = cilkg_get_user_settable_values();
 
-    int i, max_workers;
-
     if (g->max_stacks > 0) {
 
         // nstacks is currently honored on non-Windows systems only.
@@ -461,12 +527,19 @@ global_state_t* cilkg_init_global_state()
         // interaction with the local stack cache is specifically to help out
         // MIC.
 
-        g->stack_cache_size = 1; // One stack per worker cache.
+        // About max_stacks / P stacks, except we require at least 1
+        // per pool.
+        if (((int)g->max_stacks / g->P) < g->fiber_pool_size)
+            g->fiber_pool_size = g->max_stacks / g->P;
 
-        if (g->max_stacks < g->P)
+        if (g->fiber_pool_size <= 0) {
+            g->fiber_pool_size = 1;
+        }
+        
+        if ((int)g->max_stacks < g->P)
             g->max_stacks = g->P;
 
-        g->global_stack_cache_size = g->max_stacks;
+        g->global_fiber_pool_size = g->P * (g->fiber_pool_size+1);
     }
 
     // Number of bytes/address - validation for debugger integration
@@ -483,7 +556,6 @@ global_state_t* cilkg_init_global_state()
     g->workers_running = 0;
     g->ltqsize = 1024; /* FIXME */
 
-    g->stacks = 0;
     g->stack_size = cilkos_validate_stack_size(g->stack_size);
     g->failure_to_allocate_stack = 0;
 

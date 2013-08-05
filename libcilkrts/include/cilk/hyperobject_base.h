@@ -1,26 +1,31 @@
 /*
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  *
  */
 
@@ -43,19 +48,6 @@
      * functions. */
 #   pragma comment(lib, "cilkrts")
 # endif
-#endif
-
-/* Macro to cache-align a declaration.  Argument(s) comprise either a
- * variable or a struct declaration. */
-#define __CILKRTS_CACHE_LINE__ 64 /* Good enough for most architectures */
-#if defined(__INTEL_COMPILER) || defined(_WIN32)
-# define __CILKRTS_CACHE_ALIGNED(...) \
-    __declspec(align(__CILKRTS_CACHE_LINE__)) __VA_ARGS__
-#elif defined(__GNUC__)
-# define __CILKRTS_CACHE_ALIGNED(...) \
-    __VA_ARGS__ __attribute__((__aligned__(__CILKRTS_CACHE_LINE__)))
-#else
-# define __CILKRTS_CACHE_ALIGNED(...) __VA_ARGS__
 #endif
 
 /* The __CILKRTS_STRAND_PURE attribute tells the compiler that the value
@@ -106,6 +98,9 @@ typedef struct __cilkrts_hyperobject_base
     __STDNS size_t      __view_size;    /* Size of each view */
 } __cilkrts_hyperobject_base;
 
+
+#ifndef CILK_STUB
+
 /* Library functions. */
 CILK_EXPORT
     void __cilkrts_hyper_create(__cilkrts_hyperobject_base *key);
@@ -122,6 +117,50 @@ CILK_EXPORT
 /* No-op destroy function */
 CILK_EXPORT
     void __cilkrts_hyperobject_noop_destroy(void* ignore, void* ignore2);
+
+
+#else // CILK_STUB
+
+// Programs compiled with CILK_STUB are not linked with the Cilk runtime 
+// library, so they should not have external references to cilkrts functions.
+// Furthermore, they don't need the hyperobject functionality, so the
+// functions can be stubbed.
+
+#define __cilkrts_hyperobject_create __cilkrts_hyperobject_create__stub
+__CILKRTS_INLINE
+    void __cilkrts_hyper_create(__cilkrts_hyperobject_base *key) 
+    {}
+
+#define __cilkrts_hyperobject_destroy __cilkrts_hyperobject_destroy__stub
+__CILKRTS_INLINE
+    void __cilkrts_hyper_destroy(__cilkrts_hyperobject_base *key) 
+    {}
+
+#define __cilkrts_hyperobject_lookup __cilkrts_hyperobject_lookup__stub
+__CILKRTS_INLINE
+    void* __cilkrts_hyper_lookup(__cilkrts_hyperobject_base *key)
+    { return (char*)(key) + key->__view_offset; }
+
+// Pointers to these functions are stored into monoids, so real functions
+// are needed.
+
+#define __cilkrts_hyperobject_alloc __cilkrts_hyperobject_alloc__stub
+__CILKRTS_INLINE
+    void* __cilkrts_hyperobject_alloc(void* ignore, __STDNS size_t bytes)
+    { assert(0); return __STDNS malloc(bytes); }
+
+#define __cilkrts_hyperobject_dealloc __cilkrts_hyperobject_dealloc__stub
+__CILKRTS_INLINE
+    void __cilkrts_hyperobject_dealloc(void* ignore, void* view)
+    { assert(0); __STDNS free(view); }
+
+#define __cilkrts_hyperobject_noop_destroy \
+            __cilkrts_hyperobject_noop_destroy__stub
+__CILKRTS_INLINE
+    void __cilkrts_hyperobject_noop_destroy(void* ignore, void* ignore2)
+    {}
+    
+#endif
 
 __CILKRTS_END_EXTERN_C
 

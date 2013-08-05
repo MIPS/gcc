@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 #include "worker_mutex.h"
@@ -60,24 +65,23 @@ void __cilkrts_mutex_lock(__cilkrts_worker *w, struct mutex *m)
 
     NOTE_INTERVAL(w, INTERVAL_MUTEX_LOCK);
     if (!TRY_ACQUIRE(m)) {
-	START_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
-	count = 0;
-	do {
-	    do {
-		__cilkrts_short_pause();
-
-		if (++count >= maxspin) {
-		    STOP_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
-		    START_INTERVAL(w, INTERVAL_MUTEX_LOCK_YIELDING);
-		    /* let the OS reschedule every once in a while */
-		    __cilkrts_yield();
-		    STOP_INTERVAL(w, INTERVAL_MUTEX_LOCK_YIELDING);
-		    START_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
-		    count = 0;
-		}
-	    } while (m->lock != 0);
-	} while (!TRY_ACQUIRE(m));
-	STOP_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
+        START_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
+        count = 0;
+        do {
+            do {
+                __cilkrts_short_pause();
+                if (++count >= maxspin) {
+                    STOP_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
+                    START_INTERVAL(w, INTERVAL_MUTEX_LOCK_YIELDING);
+                    /* let the OS reschedule every once in a while */
+                    __cilkrts_yield();
+                    STOP_INTERVAL(w, INTERVAL_MUTEX_LOCK_YIELDING);
+                    START_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
+                    count = 0;
+                }
+            } while (m->lock != 0);
+        } while (!TRY_ACQUIRE(m));
+        STOP_INTERVAL(w, INTERVAL_MUTEX_LOCK_SPINNING);
     }
 
     CILK_ASSERT(m->owner == 0);

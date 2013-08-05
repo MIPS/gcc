@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 /**
@@ -37,7 +42,8 @@
 #define INCLUDED_OS_DOT_H
 
 #include "rts-common.h"
-#include <cilk/common.h>
+#include "cilk/common.h"
+#include "cilk-tbb-interop.h"
 
 #ifdef __cplusplus
 #   include <cstddef>
@@ -45,20 +51,7 @@
 #   include <stddef.h>
 #endif
 
-// #ifndef _WIN32
-// #   include <pthread.h>  // For pthread_key_t
-// #endif
-
-// Forward declarations
-typedef struct __cilk_tbb_stack_op_thunk __cilk_tbb_stack_op_thunk;
-
 __CILKRTS_BEGIN_EXTERN_C
-
-#ifdef _WIN32
-typedef unsigned cilkos_thread_id_t;
-#else
-typedef void*    cilkos_thread_id_t;
-#endif
 
 
 // /* Thread-local storage */
@@ -74,27 +67,28 @@ typedef void*    cilkos_thread_id_t;
 /* The RTS assumes that some thread-local state exists that stores the
    worker and reducer map currently associated with a thread.  These routines
    manipulate this state. */
-typedef struct __cilkrts_worker __cilkrts_worker;
-typedef struct cilkred_map cilkred_map;
-typedef struct __cilkrts_pedigree __cilkrts_pedigree;
 
+/** @brief Thread-local state for cilk fibers. */
+typedef struct cilk_fiber_sysdep cilk_fiber_sysdep;
+
+/** @brief Initialize  all TLS variables for Cilk. */
 COMMON_SYSDEP void __cilkrts_init_tls_variables(void);
 
+/** @brief Set worker struct in TLS. */
 COMMON_SYSDEP
 void __cilkrts_set_tls_worker(__cilkrts_worker *w) cilk_nothrow;
 
-/* Likewise for reducer maps */
-COMMON_SYSDEP cilkred_map *__cilkrts_get_tls_reducer(void) cilk_nothrow;
-
-COMMON_SYSDEP void __cilkrts_set_tls_reducer(cilkred_map *) cilk_nothrow;
-
-/* Ditto for TBB-interop structures. */
+/** @brief Get stack_op for TBB-interop structures from TLS. */
 COMMON_SYSDEP
 __cilk_tbb_stack_op_thunk *__cilkrts_get_tls_tbb_interop(void);
+
+/** @brief Set stack_op for TBB-interop structures in TLS. */
 COMMON_SYSDEP
 void __cilkrts_set_tls_tbb_interop(__cilk_tbb_stack_op_thunk *t);
 
 /**
+ * @brief Get the pointer to the pedigree leaf node from TLS.
+ *
  * Function to get a pointer to the thread's pedigree leaf node.  This
  * pointer can be NULL.
  */
@@ -102,24 +96,53 @@ COMMON_SYSDEP
 __cilkrts_pedigree * __cilkrts_get_tls_pedigree_leaf(int create_new);
 
 /**
- * Set the pointer to the pedigree leaf node.
+ * @brief Sets the pointer to the pedigree leaf node in TLS.
  *
  * If the previous pointer value was not NULL, it is the caller's
  * responsibility to ensure that previous pointer value is saved and
  * freed.
+ *
+ * @param pedigree_leaf The leaf node to store into TLS.
  */ 
 COMMON_SYSDEP
 void __cilkrts_set_tls_pedigree_leaf(__cilkrts_pedigree* pedigree_leaf);
 
-/* Return number of CPUs supported by this hardware, using whatever definition
+
+#if SUPPORT_GET_CURRENT_FIBER > 0
+/**
+ * @brief Get the cilk_fiber from TLS. 
+ */
+COMMON_SYSDEP
+cilk_fiber_sysdep* cilkos_get_tls_cilk_fiber(void);
+
+/**
+ * @brief Set the cilk_fiber in TLS.
+ *
+ * @param fiber The fiber to store into TLS. 
+ */
+COMMON_SYSDEP
+void cilkos_set_tls_cilk_fiber(cilk_fiber_sysdep* fiber);
+#endif
+
+/**
+ * @brief Function for returning the current thread id.
+ * @warning This function is useful for debugging purposes only.
+ */
+COMMON_SYSDEP
+void* cilkos_get_current_thread_id(void);
+
+/** @brief Return number of CPUs supported by this hardware, using whatever definition
    of CPU is considered appropriate. */
 COMMON_SYSDEP int __cilkrts_hardware_cpu_count(void);
 
-/* timer support */
+/** @brief Get current value of timer */
 COMMON_SYSDEP unsigned long long __cilkrts_getticks(void);
 
 /* Machine instructions */
+
+/// Stall execution for a few cycles.
 COMMON_SYSDEP void __cilkrts_short_pause(void);
+/// Wrapper for xchg instruction
 COMMON_SYSDEP int __cilkrts_xchg(volatile int *ptr, int x);
 
 /* gcc before 4.4 does not implement __sync_synchronize properly */
@@ -153,51 +176,67 @@ COMMON_SYSDEP int __cilkrts_xchg(volatile int *ptr, int x);
 // #   pragma intrinsic(_ReadWriteBarrier)
 // #   define __cilkrts_fence() _ReadWriteBarrier()
 #else
-COMMON_SYSDEP void __cilkrts_fence(void);
+COMMON_SYSDEP void __cilkrts_fence(void); ///< MFENCE instruction
 #endif
 
-COMMON_SYSDEP void __cilkrts_sleep(void); /* Sleep briefly */
-COMMON_SYSDEP void __cilkrts_yield(void); /* Yield quantum */
+COMMON_SYSDEP void __cilkrts_sleep(void); ///< Sleep briefly 
+COMMON_SYSDEP void __cilkrts_yield(void); ///< Yield quantum 
 
-/*
- * Gets environment variable 'varname' and copy its value into 'value'.
+/**
+ * @brief Gets environment variable 'varname' and copy its value into 'value'.
+ *
  * If the entire value, including the null terminator fits into 'vallen'
  * bytes, then returns the length of the value excluding the null.  Otherwise,
  * leaves the contents of 'value' undefined and returns the number of
  * characters needed to store the environment variable's value, *including*
  * the null terminator.
+ *
+ * @param value    Buffer to store value.
+ * @param vallen   Length of value buffer
+ * @param varname  Name of the environment variable.
+ * @return         Length of value buffer (excluding the null).
  */
 COMMON_SYSDEP __STDNS size_t cilkos_getenv(char* value, __STDNS size_t vallen,
                                            const char* varname);
 
-/*
- * Unrecoverable error: Print an error message and abort execution.
+/**
+ * @brief Unrecoverable error: Print an error message and abort execution.
  */
 COMMON_SYSDEP void cilkos_error(const char *fmt, ...);
 
-/*
- * Print a warning message and return.
+/**
+ * @brief Print a warning message and return.
  */
 COMMON_SYSDEP void cilkos_warning(const char *fmt, ...);
 
-/*
- * Convert the user's specified stack size into a "reasonable" value
- * for the current OS.
+/**
+ * @brief Convert the user's specified stack size into a "reasonable"
+ * value for the current OS.
+ *
+ * @param specified_stack_size   User-specified stack size.
+ * @return New stack size value, modified for the OS.
  */
 COMMON_SYSDEP size_t cilkos_validate_stack_size(size_t specified_stack_size);
 
-#ifdef _WIN32
-/*
- * Windows-only low-level functions for processor groups.
+/**
+ * @brief Atomic addition: computes *p += x.
+ * 
+ * @param p  Pointer to value to update
+ * @param x  Value of x.
  */
+COMMON_SYSDEP long cilkos_atomic_add(volatile long* p, long x);
 
+#ifdef _WIN32
+
+/**
+ * @brief Windows-only low-level functions for processor groups.
+ */
 typedef struct _GROUP_AFFINITY GROUP_AFFINITY;
 
-/*
- * init_processor_group_function_ptrs
- *
- * Probe the executing OS to see if it supports processor groups.  These
- * functions are expected to be available in Windows 7 or later.
+/**
+ * @brief Probe the executing OS to see if it supports processor
+ * groups.  These functions are expected to be available in Windows 7
+ * or later.
  */
 void win_init_processor_groups(void);
 
@@ -208,8 +247,7 @@ int win_set_thread_group_affinity(/*HANDLE*/ void* hThread,
                                   GROUP_AFFINITY* PreviousGroupAffinity);
 
 /**
- * This method should be called to clean up any state it allocated in
- * TLS.
+ * @brief Cleans up any state allocated in TLS.
  *
  * Only defined for Windows because Linux calls destructors for each
  * thread-local variable.

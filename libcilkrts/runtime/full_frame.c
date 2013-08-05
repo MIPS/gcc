@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2010-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2010-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  *
  **************************************************************************/
 
@@ -64,10 +69,8 @@ full_frame *__cilkrts_make_full_frame(__cilkrts_worker *w,
         ff->registration = 0;
 #endif
 	ff->frame_size = 0;
-//        ff->exception_sp_offset = 0;
-//        ff->eh_kind = EH_NONE;
-        ff->stack_self = 0;
-        ff->stack_child = 0;
+        ff->fiber_self = 0;
+        ff->fiber_child = 0;
 
         ff->sync_master = 0;
 
@@ -116,6 +119,26 @@ COMMON_PORTABLE void __cilkrts_take_stack(full_frame *ff, void *sp)
     DBGPRINTF("%d-                __cilkrts_take_stack - adjust (-) sync "
               "stack of full frame %p to %p (-sp: %p)\n",
               __cilkrts_get_tls_worker()->self, ff, ff->sync_sp, sp);
+}
+
+COMMON_PORTABLE void __cilkrts_adjust_stack(full_frame *ff, size_t size)
+{
+    /* When resuming the parent after a steal, __cilkrts_take_stack is used to
+     * subtract the new stack pointer from the current stack pointer, storing
+     * the offset in ff->sync_sp.  When resuming after a sync,
+     * __cilkrts_take_stack is used to subtract the new stack pointer from
+     * itself, leaving ff->sync_sp at zero (null).  Although the pointers being
+     * subtracted are not part of the same contiguous chunk of memory, the
+     * flat memory model allows us to subtract them and get a useable offset.
+     *
+     * __cilkrts_adjust_stack() is used to deallocate a Variable Length Array
+     * by adding it's size to ff->sync_sp.
+     */
+    ff->sync_sp = ff->sync_sp + size;
+
+    DBGPRINTF("%d-                __cilkrts_adjust_stack - adjust (+) sync "
+              "stack of full frame %p to %p (+ size: 0x%x)\n",
+              __cilkrts_get_tls_worker()->self, ff, ff->sync_sp, size);
 }
 
 COMMON_PORTABLE

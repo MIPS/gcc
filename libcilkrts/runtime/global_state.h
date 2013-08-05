@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2012 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2012
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 /**
@@ -41,39 +46,23 @@
 #include "frame_malloc.h"
 #include "stats.h"
 #include "bug.h"
+#include "cilk_fiber.h"
 
 __CILKRTS_BEGIN_EXTERN_C
-
-/** @brief Abstract, per-strand stack (system dependent) */
-typedef struct __cilkrts_stack __cilkrts_stack;
 
 /**
  * Non-null place-holder for a stack handle that has no meaningful value.
  */
-#define PLACEHOLDER_STACK  ((__cilkrts_stack *) -2)
+#define PLACEHOLDER_FIBER  ((cilk_fiber *) -2)
 
 /**
- * Temporary place holder to use during a provably good steal, before the real
- * stack handle is known.  Differs from PLACEHOLDER_STACK in that this value
- * is used in the case where the stack *is* assigned a meaningful value, but
- * that meaningful value is not known (yet).
+ * States for record_or_replay
  */
-#define BIND_PROVABLY_GOOD_STACK ((__cilkrts_stack *) -1)
-
-/** @brief Data structure for a cache of stack handles */
-typedef struct __cilkrts_stack_cache {
-    /** Mutex used to secure exclusive access to the cache */
-    mutex             lock;
-
-    /** Max for cached stacks */
-    unsigned int      size;
-
-    /** Count of cached stacks */
-    unsigned int      n;
-
-    /** Array to hold cached stacks */
-    __cilkrts_stack **stacks;
-} __cilkrts_stack_cache;
+enum record_replay_t {
+    RECORD_REPLAY_NONE,
+    RECORD_LOG,
+    REPLAY_LOG
+};
 
 /**
  * @brief The global state is a structure that is shared by all workers in
@@ -101,7 +90,7 @@ typedef struct __cilkrts_stack_cache {
  * initialization and after deinitialization.
  */
 
-typedef /* COMMON_PORTABLE */ struct global_state_t {
+struct global_state_t { /* COMMON_PORTABLE */
 
     /* Fields described as "(fixed)" should not be changed after
      * initialization.
@@ -115,52 +104,60 @@ typedef /* COMMON_PORTABLE */ struct global_state_t {
      * debugger integration library will need to be changed to match!!!
      *************************************************************************/
 
-    int addr_size; /**< Number of bytes for an address, used by debugger (fixed)*/
+    int addr_size; ///< Number of bytes for an address, used by debugger (fixed)
 
-    int system_workers; /**< Number of system workers (fixed) */
+    int system_workers; ///< Number of system workers (fixed)
 
     /**
-     * Maximum number of user workers that can be bound to cilk workers. 
+     * @brief USER SETTING: Maximum number of user workers that can be
+     * bound to cilk workers.
+     *
      * 0 unless set by user.  Call cilkg_calc_max_user_workers to get
      * the value.
      */
-    int max_user_workers; /* USER SETTING - max Q (fixed) */
+    int max_user_workers; 
 
-    int total_workers;  /**< Total number of worker threads allocated (fixed) */
+    int total_workers;  ///< Total number of worker threads allocated (fixed)
 
-    int workers_running; /**< True when system workers have beens started */
+    int workers_running; ///< True when system workers have beens started */
 
-    /** Set by debugger to disable stealing (fixed) */
+    /// Set by debugger to disable stealing (fixed)
     int stealing_disabled;
 
-    /** System-dependent part of the global state */
+    /// System-dependent part of the global state
     struct global_sysdep_state *sysdep;
 
-    /** Array of worker structures. */
+    /// Array of worker structures.
     __cilkrts_worker **workers;
 
     /******* END OF DEBUGGER-INTEGRATION FIELDS ***************/
 
-    /** Number of frames in each worker's lazy task queue */
+    /// Number of frames in each worker's lazy task queue
     __STDNS size_t ltqsize;
 
     /**
+     * @brief USER SETTING: Force all possible reductions.
+     *
      * TRUE if running a p-tool that requires reducers to call the reduce()
-     * method even if no actual stealing occurs
+     * method even if no actual stealing occurs.
+     *
+     * When set to TRUE, runtime will simulate steals, forcing calls to the 
+     * the reduce() methods of reducers.
+     *
      */
-    int force_reduce;     /* USER SETTING */
+    int force_reduce;    
 
-    /** Per-worker stack cache size */
-    int stack_cache_size; /* USER SETTING */
+    /// USER SETTING: Per-worker fiber pool size
+    int fiber_pool_size; 
 
-    /** Global stack cache size */
-    int global_stack_cache_size; /* USER SETTING  */
+    /// USER SETTING: Global fiber pool size
+    int global_fiber_pool_size;
 
     /**
-     * TRUE when workers should exit scheduling loop so we can shut down the
-     * runtime and free the global state.
+     * @brief TRUE when workers should exit scheduling loop so we can
+     * shut down the runtime and free the global state.
      *
-     * Note that work_done will be checked *FREQUENTLY* in the scheduling loop
+     * @note @c work_done will be checked *FREQUENTLY* in the scheduling loop
      * by idle workers.  We need to ensure that it's not in a cache line which
      * may be invalidated by other cores.  The surrounding fields are either
      * constant after initialization or not used until shutdown (stats) so we
@@ -168,66 +165,81 @@ typedef /* COMMON_PORTABLE */ struct global_state_t {
      */
     volatile int work_done;
 
-    int under_ptool;     /**< True when running under a serial PIN tool */
+    int under_ptool;     ///< True when running under a serial PIN tool
 
-    statistics stats;    /**< Statistics on use of runtime */
-
-    /**
-     * Number of allocated stacks.  When the runtime is compiled with
-     * profiling, workers use atomic operations to keep count.  Otherwise
-     * the counter is zero.
-     */
-    long stacks;
+    statistics stats;    ///< Statistics on use of runtime
 
     /**
-     * Maximum number of stacks the runtime will allocate (apart from those
-     * created by the OS when worker threads are created).  If max_stacks <= 0,
-     * there is no pre-defined maximum.
+     * @brief USER SETTING: Maximum number of stacks the runtime will
+     * allocate (apart from those created by the OS when worker
+     * threads are created).
+     *
+     * If max_stacks == 0,there is no pre-defined maximum.
      */
-    long max_stacks;  /* USER SETTING */
+    unsigned max_stacks; 
 
-    /** Size of each stack */
+    /// Size of each stack
     size_t stack_size;
 
-    /** Global cache for per-worker memory */
+    /// Global cache for per-worker memory
     struct __cilkrts_frame_cache frame_malloc;
 
-    /** Global cache of stacks */
-    __cilkrts_stack_cache stack_cache;
+    /// Global fiber pool
+    cilk_fiber_pool fiber_pool;
 
 
     /**
-     * Track whether the runtime has failed to allocate a stack.  This prevents
-     * multiple warnings from being issued.
+     * @brief Track whether the runtime has failed to allocate a
+     * stack.
+     * 
+     * Setting this flag prevents multiple warnings from being
+     * issued.
      */
     int failure_to_allocate_stack;
 
     /**
-     * Buffer to  force max_steal_failures to appear on a different cache line
-     * from the previous member variables.  This is because max_steal_failures
-     * is read constantly and other modified values in the global state will
+     * @brief USER SETTING: indicate record or replay log.
+     * Set to NULL if not used in this run.
+     */
+    char *record_replay_file_name;
+
+    /**
+     * @brief Record/replay state.
+     * Valid states are:
+     *   RECORD_REPLAY_NONE - Not recording or replaying a log
+     *   RECORD_LOG - Recording a log for replay later
+     *   REPLAY_LOG - Replay a log recorded earlier
+     */
+    enum record_replay_t record_or_replay;
+
+    /**
+     * @brief Buffer to force max_steal_failures to appear on a
+     * different cache line from the previous member variables.
+     *
+     * This padding is needed because max_steal_failures is read
+     * constantly and other modified values in the global state will
      * cause thrashing.
      */
     char cache_buf[64];
 
     /**
-     * Maximum number of times a thread should fail to steal before checking
-     * if Cilk is shutting down.
+     * @brief Maximum number of times a thread should fail to steal
+     * before checking if Cilk is shutting down.
      */
     unsigned int max_steal_failures;
 
-    /** Pointer to scheduler entry point */
+    /// Pointer to scheduler entry point
     void (*scheduler)(__cilkrts_worker *w);
 
     /**
-     * Buffer to force P and Q to appear on a different cache line from the
-     * previous member variables.
+     * @brief Buffer to force P and Q to appear on a different cache
+     * line from the previous member variables.
      */
     char cache_buf_2[64];
 
-    int P;         /**< USER SETTING: number of system workers + 1 (fixed) */
-    int Q;         /**< Number of user threads currently bound to workers */
-} global_state_t;
+    int P;         ///< USER SETTING: number of system workers + 1 (fixed)
+    int Q;         ///< Number of user threads currently bound to workers 
+};
 
 /**
  * @brief Initialize the global state object.  This method must both

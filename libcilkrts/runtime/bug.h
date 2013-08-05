@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 /**
@@ -62,12 +67,31 @@ COMMON_PORTABLE extern const char *const __cilkrts_assertion_failed;
 #define CILK_ASSERT(ex)                                                 \
     (__builtin_expect((ex) != 0, 1) ? (void)0 :                         \
      __cilkrts_bug(__cilkrts_assertion_failed, __FILE__, __LINE__,  #ex))
+
+#define CILK_ASSERT_MSG(ex, msg)                                        \
+    (__builtin_expect((ex) != 0, 1) ? (void)0 :                         \
+     __cilkrts_bug(__cilkrts_assertion_failed, __FILE__, __LINE__,      \
+                   #ex "\n    " msg))
 #endif  // CILK_ASSERT
 
 /**
  * Assert that there is no uncaught exception.
+ *
+ * Not valid on Windows or Android.
+ *
+ * On Android, calling std::uncaught_exception with the stlport library causes
+ * a seg fault.  Since we're not supporting exceptions there at this point,
+ * just don't do the check.  It works with the GNU STL library, but that's
+ * GPL V3 licensed.
  */
 COMMON_PORTABLE void cilkbug_assert_no_uncaught_exception(void);
+#if defined(_WIN32) || defined(ANDROID)
+#  define CILKBUG_ASSERT_NO_UNCAUGHT_EXCEPTION()
+#else
+#  define CILKBUG_ASSERT_NO_UNCAUGHT_EXCEPTION() \
+    cilkbug_assert_no_uncaught_exception()
+#endif
+
 
 /**
  * Call __cilkrts_bug with a standard message that the runtime state is
@@ -76,7 +100,9 @@ COMMON_PORTABLE void cilkbug_assert_no_uncaught_exception(void);
 COMMON_SYSDEP void abort_because_rts_is_corrupted(void);
 
 // Debugging aids
-#ifdef _WIN32
+#ifndef _DEBUG
+#       define DBGPRINTF(_fmt, ...)
+#elif defined(_WIN32)
 
 /**
  * Write debugging output.  On windows this is written to the debugger.
@@ -93,16 +119,17 @@ COMMON_SYSDEP void __cilkrts_dbgprintf(const char *fmt,...) cilk_nothrow;
  * @param _fmt printf-style format string.  Any remaining parameters will be
  * be interpreted based on the format string text.
  */
-#   ifdef _DEBUG
 #       define DBGPRINTF(_fmt, ...) __cilkrts_dbgprintf(_fmt, __VA_ARGS__)
-#   else
-#       define DBGPRINTF(_fmt, ...)
-#   endif  // _DEBUG
 
-#else
-    // Not yet implemented on the Unix side
-#   define DBGPRINTF(_fmt, ...)
-#endif  // _WIN32
+#else /* if _DEBUG && !_WIN32 */
+    /* Non-Windows debug logging.  Someday we should make GetCurrentFiber()
+     * and GetWorkerFiber() do something.
+     */
+#   include <stdio.h>
+    __CILKRTS_INLINE void* GetCurrentFiber() { return 0; }
+    __CILKRTS_INLINE void* GetWorkerFiber(__cilkrts_worker* w) { return 0; }
+#       define DBGPRINTF(_fmt, ...) fprintf(stderr, _fmt, __VA_ARGS__)
+#endif  // _DEBUG
 
 __CILKRTS_END_EXTERN_C
 

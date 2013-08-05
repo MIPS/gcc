@@ -36,15 +36,36 @@ AM_LDFLAGS = -lpthread -ldl
 # Target list.
 toolexeclib_LTLIBRARIES = libcilkrts.la
 
-libcilkrts_la_SOURCES = runtime/cilk-abi.c runtime/cilk_api.c           \
-  runtime/cilk_malloc.c runtime/c_reducers.c                            \
-  runtime/frame_malloc.c runtime/full_frame.c runtime/jmpbuf.c          \
-  runtime/local_state.c runtime/metacall_impl.c runtime/os_mutex-unix.c \
-  runtime/os-unix.c runtime/scheduler.c runtime/signal_node.c           \
-  runtime/stacks.c runtime/stats.c			                \
-  runtime/sysdep-unix.c runtime/worker_mutex.c runtime/bug.cpp          \
-  runtime/cilk-abi-cilk-for.cpp runtime/except-gcc.cpp                  \
-  runtime/global_state.cpp runtime/reducer_impl.cpp runtime/pedigrees.c
+libcilkrts_la_SOURCES =            \
+  runtime/bug.cpp                  \
+  runtime/cilk-abi.c               \
+  runtime/cilk-abi-cilk-for.cpp    \
+  runtime/cilk-abi-vla.c           \
+  runtime/cilk-abi-vla-internal.c  \
+  runtime/cilk_api.c               \
+  runtime/cilk_fiber.cpp           \
+  runtime/cilk_fiber-unix.cpp      \
+  runtime/cilk_malloc.c            \
+  runtime/c_reducers.c             \
+  runtime/except-gcc.cpp           \
+  runtime/frame_malloc.c           \
+  runtime/full_frame.c             \
+  runtime/global_state.cpp         \
+  runtime/jmpbuf.c                 \
+  runtime/local_state.c            \
+  runtime/metacall_impl.c          \
+  runtime/os_mutex-unix.c          \
+  runtime/os-unix.c                \
+  runtime/pedigrees.c              \
+  runtime/record-replay.cpp        \
+  runtime/reducer_impl.cpp         \
+  runtime/scheduler.c              \
+  runtime/signal_node.c            \
+  runtime/spin_mutex.c             \
+  runtime/stats.c                  \
+  runtime/symbol_test.c            \
+  runtime/sysdep-unix.c            \
+  runtime/worker_mutex.c
 
 # Load the $(REVISION) value.
 include include/internal/rev.mk
@@ -64,13 +85,16 @@ cilkinclude_HEADERS =              \
   include/cilk/common.h            \
   include/cilk/holder.h            \
   include/cilk/hyperobject_base.h  \
+  include/cilk/metaprogramming.h   \
   include/cilk/reducer_file.h      \
   include/cilk/reducer.h           \
   include/cilk/reducer_list.h      \
   include/cilk/reducer_max.h       \
   include/cilk/reducer_min.h       \
+  include/cilk/reducer_min_max.h   \
   include/cilk/reducer_opadd.h     \
   include/cilk/reducer_opand.h     \
+  include/cilk/reducer_opmul.h     \
   include/cilk/reducer_opor.h      \
   include/cilk/reducer_opxor.h     \
   include/cilk/reducer_ostream.h   \

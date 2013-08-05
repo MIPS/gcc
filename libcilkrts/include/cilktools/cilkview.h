@@ -2,24 +2,29 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2010-2011 
+ * @copyright
+ * Copyright (C) 2010-2011
  * Intel Corporation
  * 
+ * @copyright
  * This file is part of the Intel Cilk Plus Library.  This library is free
  * software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 3, or (at your option)
  * any later version.
  * 
+ * @copyright
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  * 
+ * @copyright
  * Under Section 7 of GPL version 3, you are granted additional
  * permissions described in the GCC Runtime Library Exception, version
  * 3.1, as published by the Free Software Foundation.
  * 
+ * @copyright
  * You should have received a copy of the GNU General Public License and
  * a copy of the GCC Runtime Library Exception along with this program;
  * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
@@ -40,7 +45,7 @@ __CILKRTS_END_EXTERN_C
 #   endif
 #endif  // _WIN32
 
-#if defined __unix__ || defined __APPLE__
+#if defined __unix__ || defined __APPLE__ || defined __VXWORKS__
 #   include <sys/time.h>
 #endif  // defined __unix__ || defined __APPLE__
 
@@ -61,7 +66,7 @@ static inline unsigned long long __cilkview_getticks()
 #ifdef _WIN32
     // Return milliseconds elapsed since the system started
     return GetTickCount();
-#elif defined(__unix__) || defined(__APPLE__)
+#elif defined(__unix__) || defined(__APPLE__) || defined __VXWORKS__
     // Return milliseconds elapsed since the Unix Epoch
     // (1-Jan-1970 00:00:00.000 UTC)
     struct timeval t;
@@ -96,7 +101,7 @@ typedef struct
 {
     cilkview_data_t *start;     // Values at start of interval
     cilkview_data_t *end;       // Values at end of interval
-    char *label;                // Name for this interval
+    const char *label;          // Name for this interval
     unsigned int flags;         // What to do - see flags below
 } cilkview_report_t;
 
@@ -107,10 +112,13 @@ enum
     CV_REPORT_WRITE_TO_RESULTS = 2  // Write parallelism data to results file
 };
 
-void __cilkview_do_report(cilkview_data_t *start,
+#ifndef CILKVIEW_NO_REPORT
+static void __cilkview_do_report(cilkview_data_t *start,
                           cilkview_data_t *end,
-                          char *label,
+                          const char *label,
                           unsigned int flags);
+#endif /* CILKVIEW_NO_REPORT */
+
 /*
  * Metacall data
  *
@@ -198,7 +206,7 @@ enum
 
 static void __cilkview_do_report(cilkview_data_t *start,
                                  cilkview_data_t *end,
-                                 char *label,
+                                 const char *label,
                                  unsigned int flags)
 {
     int under_cilkview = 0;
@@ -242,7 +250,7 @@ static void __cilkview_do_report(cilkview_data_t *start,
     // Open the output file and write the trial data to it
     outfile = getenv("CILKVIEW_OUTFILE");
     if (NULL == outfile)
-        outfile = "cilkview.out";
+        outfile = (char *)"cilkview.out";
 
     f = fopen(outfile, "a");
     if (NULL == f)

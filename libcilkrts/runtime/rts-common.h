@@ -2,28 +2,33 @@
  *
  *************************************************************************
  *
- * Copyright (C) 2009-2011 
- * Intel Corporation
- * 
- * This file is part of the Intel Cilk Plus Library.  This library is free
- * software; you can redistribute it and/or modify it under the
- * terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 3, or (at your option)
- * any later version.
- * 
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * Under Section 7 of GPL version 3, you are granted additional
- * permissions described in the GCC Runtime Library Exception, version
- * 3.1, as published by the Free Software Foundation.
- * 
- * You should have received a copy of the GNU General Public License and
- * a copy of the GCC Runtime Library Exception along with this program;
- * see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
- * <http://www.gnu.org/licenses/>.
+ *  @copyright
+ *  Copyright (C) 2009-2011
+ *  Intel Corporation
+ *  
+ *  @copyright
+ *  This file is part of the Intel Cilk Plus Library.  This library is free
+ *  software; you can redistribute it and/or modify it under the
+ *  terms of the GNU General Public License as published by the
+ *  Free Software Foundation; either version 3, or (at your option)
+ *  any later version.
+ *  
+ *  @copyright
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  
+ *  @copyright
+ *  Under Section 7 of GPL version 3, you are granted additional
+ *  permissions described in the GCC Runtime Library Exception, version
+ *  3.1, as published by the Free Software Foundation.
+ *  
+ *  @copyright
+ *  You should have received a copy of the GNU General Public License and
+ *  a copy of the GCC Runtime Library Exception along with this program;
+ *  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+ *  <http://www.gnu.org/licenses/>.
  **************************************************************************/
 
 #ifndef INCLUDED_RTS_COMMON_DOT_H
@@ -89,9 +94,27 @@
 #   define inline __inline
 #endif
 
-/* Compilers that build the Cilk runtime are assumed to know about
-   zero-cost intrinsics.  For those that don't, comment out the
-   following definition: */
-#define ENABLE_NOTIFY_ZC_INTRINSIC
+/* Compilers that build the Cilk runtime are assumed to know about zero-cost
+ * intrinsics (__notify_intrinsic()).  For those that don't, #undef the
+ * following definition:
+ */
+#define ENABLE_NOTIFY_ZC_INTRINSIC 1
+
+#if defined(__INTEL_COMPILER)
+/* The notify intrinsic was introduced in ICC 12.0. */
+#   if __INTEL_COMPILER <= 1200
+#       undef ENABLE_NOTIFY_ZC_INTRINSIC
+#   endif
+#elif defined(__VXWORKS__)
+#   undef ENABLE_NOTIFY_ZC_INTRINSIC
+#elif defined(__clang__)
+#   if !defined(__has_extension) || !__has_extension(notify_zc_intrinsic)
+#      undef ENABLE_NOTIFY_ZC_INTRINSIC
+#   endif
+#elif defined(__arm__)
+// __notify_zc_intrinsic not yet supported by gcc for ARM
+#   undef ENABLE_NOTIFY_ZC_INTRINSIC
+#endif
+
 
 #endif // ! defined(INCLUDED_RTS_COMMON_DOT_H)
