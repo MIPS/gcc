@@ -226,8 +226,8 @@ ubsan_source_location_type (void)
   static const char *field_names[3]
     = { "__filename", "__line", "__column" };
   tree fields[3], ret;
-  tree const_char_type = char_type_node;
-  TYPE_READONLY (const_char_type) = 1;
+  tree const_char_type = build_qualified_type (char_type_node,
+					       TYPE_QUAL_CONST);
 
   ret = make_node (RECORD_TYPE);
   for (int i = 0; i < 3; i++)

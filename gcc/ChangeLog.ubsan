@@ -1,3 +1,8 @@
+2013-08-05  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c (ubsan_source_location_type): Properly create
+	const char type using build_qualified_type.
+
 2013-07-31  Marek Polacek  <polacek@redhat.com>
 
 	* doc/invoke.texi: Improve documentation of -fsanitize=undefined.
