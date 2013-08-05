@@ -138,7 +138,7 @@ process_references (struct ipa_ref_list *list,
     {
       symtab_node node = ref->referred;
 
-      if (node->symbol.definition
+      if (node->symbol.definition && !node->symbol.in_other_partition
 	  && ((!DECL_EXTERNAL (node->symbol.decl) || node->symbol.alias)
 	      || (before_inlining_p
 		  /* We use variable constructors during late complation for
@@ -234,23 +234,29 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
      This is mostly when they can be referenced externally.  Inline clones
      are special since their declarations are shared with master clone and thus
      cgraph_can_remove_if_no_direct_calls_and_refs_p should not be called on them.  */
-  FOR_EACH_DEFINED_FUNCTION (node)
-    if (!node->global.inlined_to
-	&& (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
-	    /* Keep around virtual functions for possible devirtualization.  */
-	    || (before_inlining_p
-		&& DECL_VIRTUAL_P (node->symbol.decl))))
-      {
-        gcc_assert (!node->global.inlined_to);
-	pointer_set_insert (reachable, node);
-	enqueue_node ((symtab_node)node, &first, reachable);
-      }
-    else
-      gcc_assert (!node->symbol.aux);
+  FOR_EACH_FUNCTION (node)
+    {
+      node->used_as_abstract_origin = false;
+      if (node->symbol.definition
+	  && !node->global.inlined_to
+	  && !node->symbol.in_other_partition
+	  && (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
+	      /* Keep around virtual functions for possible devirtualization.  */
+	      || (before_inlining_p
+		  && DECL_VIRTUAL_P (node->symbol.decl))))
+	{
+	  gcc_assert (!node->global.inlined_to);
+	  pointer_set_insert (reachable, node);
+	  enqueue_node ((symtab_node)node, &first, reachable);
+	}
+      else
+	gcc_assert (!node->symbol.aux);
+     }
 
   /* Mark variables that are obviously needed.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    if (!varpool_can_remove_if_no_refs (vnode))
+    if (!varpool_can_remove_if_no_refs (vnode)
+	&& !vnode->symbol.in_other_partition)
       {
 	pointer_set_insert (reachable, vnode);
 	enqueue_node ((symtab_node)vnode, &first, reachable);
@@ -270,6 +276,13 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	node->symbol.aux = (void *)2;
       else
 	{
+	  if (DECL_ABSTRACT_ORIGIN (node->symbol.decl))
+	    {
+	      struct cgraph_node *origin_node
+	      = cgraph_get_create_real_symbol_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	      origin_node->used_as_abstract_origin = true;
+	      enqueue_node ((symtab_node) origin_node, &first, reachable);
+	    }
 	  /* If any symbol in a comdat group is reachable, force
 	     all other in the same comdat group to be also reachable.  */
 	  if (node->symbol.same_comdat_group)
@@ -296,6 +309,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      for (e = cnode->callees; e; e = e->next_callee)
 		{
 		  if (e->callee->symbol.definition
+		      && !e->callee->symbol.in_other_partition
 		      && (!e->inline_failed
 			  || !DECL_EXTERNAL (e->callee->symbol.decl)
 			  || e->callee->symbol.alias
@@ -306,22 +320,20 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 
 	      /* When inline clone exists, mark body to be preserved so when removing
 		 offline copy of the function we don't kill it.  */
-	      if (!cnode->symbol.alias && cnode->global.inlined_to)
+	      if (cnode->global.inlined_to)
 	        pointer_set_insert (body_needed_for_clonning, cnode->symbol.decl);
-	    }
 
-	  /* For non-inline clones, force their origins to the boundary and ensure
-	     that body is not removed.  */
-	  while (cnode->clone_of
-	         && !gimple_has_body_p (cnode->symbol.decl))
-	    {
-	      bool noninline = cnode->clone_of->symbol.decl != cnode->symbol.decl;
-	      cnode = cnode->clone_of;
-	      if (noninline)
-	      	{
-	          pointer_set_insert (body_needed_for_clonning, cnode->symbol.decl);
-		  enqueue_node ((symtab_node)cnode, &first, reachable);
-		  break;
+	      /* For non-inline clones, force their origins to the boundary and ensure
+		 that body is not removed.  */
+	      while (cnode->clone_of)
+		{
+		  bool noninline = cnode->clone_of->symbol.decl != cnode->symbol.decl;
+		  cnode = cnode->clone_of;
+		  if (noninline)
+		    {
+		      pointer_set_insert (body_needed_for_clonning, cnode->symbol.decl);
+		      enqueue_node ((symtab_node)cnode, &first, reachable);
+		    }
 		}
 	    }
 	}
@@ -358,6 +370,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
         {
 	  if (!pointer_set_contains (body_needed_for_clonning, node->symbol.decl))
 	    cgraph_release_function_body (node);
+	  else if (!node->clone_of)
+	    gcc_assert (in_lto_p || DECL_RESULT (node->symbol.decl));
 	  if (node->symbol.definition)
 	    {
 	      if (file)
@@ -366,6 +380,9 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      changed = true;
 	    }
 	}
+      else
+	gcc_assert (node->clone_of || !cgraph_function_with_gimple_body_p (node)
+		    || in_lto_p || DECL_RESULT (node->symbol.decl));
     }
 
   /* Inline clones might be kept around so their materializing allows further
@@ -734,6 +751,21 @@ varpool_externally_visible_p (struct varpool_node *vnode)
   return false;
 }
 
+/* Return true if reference to NODE can be replaced by a local alias.
+   Local aliases save dynamic linking overhead and enable more optimizations.
+ */
+
+bool
+can_replace_by_local_alias (symtab_node node)
+{
+  return (symtab_node_availability (node) > AVAIL_OVERWRITABLE
+	  && !DECL_EXTERNAL (node->symbol.decl)
+	  && (!DECL_ONE_ONLY (node->symbol.decl)
+	      || node->symbol.resolution == LDPR_PREVAILING_DEF
+	      || node->symbol.resolution == LDPR_PREVAILING_DEF_IRONLY
+	      || node->symbol.resolution == LDPR_PREVAILING_DEF_IRONLY_EXP));
+}
+
 /* Mark visibility of all functions.
 
    A local function is one whose calls can occur only in the current
@@ -855,7 +887,36 @@ function_and_variable_visibility (bool whole_program)
 	}
     }
   FOR_EACH_DEFINED_FUNCTION (node)
-    node->local.local = cgraph_local_node_p (node);
+    {
+      node->local.local = cgraph_local_node_p (node);
+
+      /* If we know that function can not be overwritten by a different semantics
+	 and moreover its section can not be discarded, replace all direct calls
+	 by calls to an nonoverwritable alias.  This make dynamic linking
+	 cheaper and enable more optimization.
+
+	 TODO: We can also update virtual tables.  */
+      if (node->callers && can_replace_by_local_alias ((symtab_node)node))
+	{
+	  struct cgraph_node *alias = cgraph (symtab_nonoverwritable_alias ((symtab_node) node));
+
+	  if (alias != node)
+	    {
+	      while (node->callers)
+		{
+		  struct cgraph_edge *e = node->callers;
+
+		  cgraph_redirect_edge_callee (e, alias);
+		  if (!flag_wpa)
+		    {
+		      push_cfun (DECL_STRUCT_FUNCTION (e->caller->symbol.decl));
+		      cgraph_redirect_edge_call_stmt_to_callee (e);
+		      pop_cfun ();
+		    }
+		}
+	    }
+	}
+    }
   FOR_EACH_VARIABLE (vnode)
     {
       /* weak flag makes no sense on local variables.  */
