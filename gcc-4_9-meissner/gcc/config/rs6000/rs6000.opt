@@ -186,7 +186,7 @@ Target Undocumented Report Var(TARGET_VSX_SCALAR_DOUBLE) Init(-1)
 ; If -mvsx, use VSX arithmetic instructions for scalar double (on by default)
 
 mvsx-scalar-memory
-Target Undocumented Report Alias(mdf-upper-regs)
+Target Undocumented Report Alias(mupper-regs-df)
 
 mvsx-align-128
 Target Undocumented Report Var(TARGET_VSX_ALIGN_128)
@@ -550,10 +550,10 @@ mvector-offset
 Target Undocumented Mask(VECTOR_OFFSET) Var(rs6000_isa_flags)
 Before register allocation, allow offsets in memory addresses for vector types
 
-mdf-upper-regs
-Target Undocumented Mask(DF_UPPER_REGS) Var(rs6000_isa_flags)
+mupper-regs-df
+Target Undocumented Mask(UPPER_REGS_DF) Var(rs6000_isa_flags)
 Allow double variables in upper registers with -mcpu=power7 or -mvsx
 
-msf-upper-regs
-Target Undocumented Mask(SF_UPPER_REGS) Var(rs6000_isa_flags)
+mupper-regs-sf
+Target Undocumented Mask(UPPER_REGS_SF) Var(rs6000_isa_flags)
 Allow float variables in upper registers with -mcpu=power8 or -mp8-vector

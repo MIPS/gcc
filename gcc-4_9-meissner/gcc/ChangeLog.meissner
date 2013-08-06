@@ -1,3 +1,29 @@
+2013-08-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (merge_peephole2_move_p): Add
+	declaration.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-memory): Rename upper
+	regs switches to -mupper-regs-{df,sf}.
+	(-mupper-regs-df): Likewise.
+	(-mupper-regs-sf): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_init_address_modes): Change upper
+	regs switch to -mupper-regs-{df,sf}.  Change temporary environment
+	variables to enable upper regs.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_opt_masks): Likewise.
+	(merge_peephole2_move_p): New function that says whether it is ok
+	to merge two moves into one move.  Take into account that we might
+	be trying to collapse a load to a traditional floating point
+	register to a load to an Altivec register, and the Altivec/VSX
+	loads do not have offsetable address or update forms.
+
+	* config/rs6000/rs6000.md (move/move peephole2s for SF/DF):
+	Combine SFmode and DFmode peephole2s.  Call merge_peephole2_move_p
+	to validate the peephole.
+
 2013-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 201504.

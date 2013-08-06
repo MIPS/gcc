@@ -1191,6 +1191,11 @@ static bool rs6000_secondary_reload_move (enum rs6000_reg_type,
 					  secondary_reload_info *,
 					  bool);
 
+static int rs6000_fixup_address_inner (rtx, enum reg_class, enum machine_mode,
+				       rtx, bool *, rtx *, addr_mask_type);
+static int rs6000_fixup_address (rtx, enum reg_class, enum machine_mode, rtx,
+				 bool *, rtx *);
+
 /* Hash table stuff for keeping track of TOC entries.  */
 
 struct GTY(()) toc_hash_struct
@@ -2462,7 +2467,7 @@ rs6000_init_address_modes (void)
     di_dd_mask &= ~ADDR_UPDATE_MASK;
 
   df_mask = di_dd_mask;
-  if (TARGET_VSX && TARGET_DF_UPPER_REGS)
+  if (TARGET_VSX && TARGET_UPPER_REGS_DF)
     df_mask |= VSX_SINGLE_MASK;
 
   /* Mask for 128-bit floating point types that take two registers.  At
@@ -2501,7 +2506,7 @@ rs6000_init_address_modes (void)
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT)
     {
       sf_mask |= FPR_SINGLE_MASK;
-      if (TARGET_P8_VECTOR && TARGET_SF_UPPER_REGS)
+      if (TARGET_P8_VECTOR && TARGET_UPPER_REGS_SF)
 	sf_mask |= VSX_SINGLE_MASK;
     }
 
@@ -2854,7 +2859,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;
 
       rs6000_constraints[RS6000_CONSTRAINT_ws]
-	= (TARGET_DF_UPPER_REGS) ? VSX_REGS : FLOAT_REGS;
+	= (TARGET_UPPER_REGS_DF) ? VSX_REGS : FLOAT_REGS;
     }
 
   /* Add conditional constraints based on various options, to allow us to
@@ -2882,7 +2887,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   if (TARGET_P8_VECTOR)
     rs6000_constraints[RS6000_CONSTRAINT_wy]
-	= (TARGET_SF_UPPER_REGS) ? VSX_REGS : FLOAT_REGS;
+	= (TARGET_UPPER_REGS_SF) ? VSX_REGS : FLOAT_REGS;
 
   if (TARGET_LFIWZX)
     rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;
@@ -3463,13 +3468,17 @@ rs6000_option_override_internal (bool global_init_p)
     }
 
   /* Don't enable DF/SF in the upper VSX registers by default on VSX.  */
-  if ((rs6000_isa_flags_explicit & OPTION_MASK_DF_UPPER_REGS) == 0
-      && TARGET_VSX && getenv ("DF_UPPER_REGS") != NULL)
-    rs6000_isa_flags |= OPTION_MASK_DF_UPPER_REGS;
+  if ((rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF) == 0
+      && TARGET_VSX
+      && (getenv ("UPPER_REGS_DF") != NULL
+	  || getenv ("UPPER_REGS_BOTH") != NULL))
+    rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_DF;
 
-  if ((rs6000_isa_flags_explicit & OPTION_MASK_SF_UPPER_REGS) == 0
-      && TARGET_P8_VECTOR && getenv ("SF_UPPER_REGS") != NULL)
-    rs6000_isa_flags |= OPTION_MASK_SF_UPPER_REGS;
+  if ((rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF) == 0
+      && TARGET_P8_VECTOR
+      && (getenv ("UPPER_REGS_SF") != NULL
+	  || getenv ("UPPER_REGS_BOTH") != NULL))
+    rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_SF;
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
      silently turn off quad memory mode.  */
@@ -6064,6 +6073,51 @@ quad_load_store_p (rtx op0, rtx op1)
     }
 
   return ret;
+}
+
+/* Return true if we can convert the following in a peephole2 pass:
+	(set (reg1) (input))
+	(set (reg2) (reg1))
+   to:
+	(set (reg2) (input)
+
+   After inserting conditional returns we can sometimes have unnecessary
+   register moves.  Unfortunately we cannot have a modeless peephole here,
+   because some single SImode sets have early clobber outputs.  Although those
+   sets expand to multi-ppc-insn sequences, using get_attr_length here will
+   smash the operands array.  Neither is there an early_cobbler_p
+   predicate.  */
+
+bool
+merge_peephole2_move_p (rtx reg1, rtx inp, rtx reg2)
+{
+  enum machine_mode mode = GET_MODE (reg1);
+
+  /* Disallow subregs for E500 so we don't munge frob_di_df_2.  */
+  if (mode == DFmode && TARGET_E500_DOUBLE && GET_CODE (reg2) == SUBREG)
+    return false;
+
+  if (!peep2_reg_dead_p (2, reg1))
+    return false;
+
+  /* On VSX systems if operand 0 is a traditional floating point register and
+     operand 2 is an Altivec register, we must not do the peephole if operand1 is
+     a memory reference that has an address such as pre-modify or offsetable
+     address which the VSX/Altivec register set does not provide.  */
+  if (TARGET_VSX && MEM_P (inp))
+    {
+      rtx addr = XEXP (inp, 0);
+      int rnum = REGNO ((GET_CODE (reg2) == SUBREG) ? SUBREG_REG (reg2) : reg2);
+      enum reg_class rclass = rs6000_regno_regclass[rnum];
+      bool need_tmp_reg = false;
+      int extra_cost = rs6000_fixup_address (addr, rclass, mode, NULL_RTX,
+					     &need_tmp_reg, (rtx *)0);
+
+      if (extra_cost != 0)
+	return false;
+    }
+
+  return true;
 }
 
 /* Given an address, return a constant offset term if one exists.  */
@@ -15060,10 +15114,6 @@ register_to_reg_type (rtx reg, bool *is_altivec)
 }
 
 
-/* Forward reference.  */
-static int rs6000_fixup_address_inner (rtx, enum reg_class, enum machine_mode,
-				       rtx, bool *, rtx *, addr_mask_type);
-
 /* Helper function to fixup rs6000 addresses during secondary reload that are
    altivec addresses which clear out the bottom 3 bits.  Return the extra cost
    of doing the fixup, and optionally create the additional instructions.
@@ -16027,7 +16077,6 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   if (!output_addr || extra_cost < 0)
     rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
-  /* Adjust the address if it changed.  */
   if (output_addr != addr)
     {
       mem = replace_equiv_address_nv (mem, output_addr);
@@ -29791,7 +29840,6 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "cmpb",			OPTION_MASK_CMPB,		false, true  },
   { "crypto",			OPTION_MASK_CRYPTO,		false, true  },
   { "direct-move",		OPTION_MASK_DIRECT_MOVE,	false, true  },
-  { "df-upper-regs",		OPTION_MASK_DF_UPPER_REGS,	false, false },
   { "dlmzb",			OPTION_MASK_DLMZB,		false, true  },
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
@@ -29810,9 +29858,10 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "powerpc-gpopt",		OPTION_MASK_PPC_GPOPT,		false, true  },
   { "quad-memory",		OPTION_MASK_QUAD_MEMORY,	false, true  },
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
-  { "sf-upper-regs",		OPTION_MASK_SF_UPPER_REGS,	false, false },
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
+  { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, false },
+  { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, false },
   { "vector-offsets",		OPTION_MASK_VECTOR_OFFSET,	false, false },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
   { "vsx-timode",		OPTION_MASK_VSX_TIMODE,		false, true  },
