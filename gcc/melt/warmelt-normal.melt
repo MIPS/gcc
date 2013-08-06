@@ -1180,7 +1180,7 @@ routine procedures.}#
 			  :nctx_procurmodenvlist (make_list discr_list)
 			  ))
 	   )
-      (debug "create_normal_extending_context make ncx=" ncx)
+      (debug "create_normal_extending_context make inipro=" inipro "\n.. result ncx=" ncx "\n")
       (return ncx)
       )))
 

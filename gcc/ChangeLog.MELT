@@ -2,6 +2,15 @@
 2013-08-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Still unstable}}
+	* melt/warmelt-normal.melt (create_normal_extending_context): More
+	debug.
+
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): More
+	debug. Add comment about strange code!
+
+2013-08-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Still unstable}}
 	* melt-runtime.c (meltgc_run_cc_extension): Don't debugeprintf
 	each line of the descriptor file.
 
