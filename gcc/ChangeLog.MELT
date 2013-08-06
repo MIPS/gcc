@@ -1,4 +1,13 @@
 
+2013-08-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Still unstable}}
+	* melt-runtime.c (meltgc_run_cc_extension): Don't debugeprintf
+	each line of the descriptor file.
+
+	* melt/warmelt-genobj.melt (compile2obj_initextendproc): Still
+	buggy, probably.
+
 2013-08-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Still unstable, added comment about possible bug...}}

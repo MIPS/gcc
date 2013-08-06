@@ -1847,6 +1847,7 @@
 	  "\n* procurmodenvlist=" procurmodenvlist 
 	  "\n\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n\n"
 	  )
+   (shortbacktrace_dbg "compile2obj_initextendproc" 12)
    (assert_msg "check ipro" (is_a ipro class_nrep_initextendproc) ipro)
    (assert_msg "check idata" (is_list idata) idata)
    (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
@@ -2013,9 +2014,11 @@
 		   ##{/*initextendproc get boxcurenv*/ $OCURENVBOXLOC
 		   = meltarg_curenvbox_p ;}#
 		   ))
-     (debug " litvalist=" litvalist)
+     (debug "compile2obj_initextendproc litvalist=" litvalist)
      (let ( (:long nblitval (list_length litvalist))
+	    (toplis (unsafe_get_field :ninit_topl ipro)) 
 	    )
+       (debug "compile2obj_initextendproc toplis=" toplis)
        (list_append oiniprolog
 		    (make_objlocatedexp 
 		     () ctype_void
@@ -2042,36 +2045,35 @@
 			      ))
        (debug "compile2obj_initextendproc before body oiniprolog=" oiniprolog
 	      "\n idata=" idata)
-       ;; now handle the body
-       ;; the tuple to compile the body
-       (let (
-	     (odatatup 
-	      (list_to_multiple
-	       idata discr_multiple
-	       (lambda (curdat)
-		 (debug "compile2obj_initextendproc/lambdabody curdat=" curdat)
-		 (assert_msg "check curdat" (is_a curdat class_nrep_bound_data) curdat)
-		 (let ( (curobd (compile_obj curdat gcx)) )
-		   (debug "compile2obj_initextendproc/lambdabody curobd=" curobd)		   
-		   curobd))))
-	     (toplis (unsafe_get_field :ninit_topl ipro)) 
-	     )
-	 (debug "compile2obj_initextendproc odatatup=" odatatup "\n.. toplis=" toplis)
-	 (put_fields oinitxrout
-		     :oirout_data odatatup)
-	 (debug "compile2obj_initextendproc toplis=" toplis)
-	 (assert_msg "check toplis" (is_list_or_null toplis) toplis)
-	 ;; compile the toplevels
-	 (let ( (objtoplis 
-		 (list_map
-		  toplis
-		  (lambda (curtop)
-		    (debug "compile2obj_initextendproc curtop=" curtop)
-		    (let ( (otop (compile_obj curtop gcx)) )
-		      (debug "compile2obj_initextendproc otop=" otop)
-		      otop)))) 
-		)
-	   (debug "compile2obj_initextendproc objtoplis=" objtoplis "\n.. odatatup=" odatatup)
+       (debug "compile2obj_initextendproc again toplis=" toplis)
+       (assert_msg "check toplis" (is_list_or_null toplis) toplis)
+       ;; compile the toplevels
+       (let ( (objtoplis 
+	       (list_map
+		toplis
+		(lambda (curtop)
+		  (debug "compile2obj_initextendproc curtop=" curtop)
+		  (let ( (otop (compile_obj curtop gcx)) )
+		    (debug "compile2obj_initextendproc otop=" otop)
+		    otop)))) 
+	      )
+	 (debug "compile2obj_initextendproc objtoplis=" objtoplis)
+	 ;; now handle the body
+	 ;; the tuple to compile the body
+	 (let (
+	       (odatatup 
+		(list_to_multiple
+		 idata discr_multiple
+		 (lambda (curdat)
+		   (debug "compile2obj_initextendproc/lambdabody curdat=" curdat)
+		   (assert_msg "check curdat" (is_a curdat class_nrep_bound_data) curdat)
+		   (let ( (curobd (compile_obj curdat gcx)) )
+		     (debug "compile2obj_initextendproc/lambdabody curobd=" curobd)		   
+		     curobd))))
+	       )
+	   (debug "compile2obj_initextendproc odatatup=" odatatup "\n.. toplis=" toplis)
+	   (put_fields oinitxrout
+		       :oirout_data odatatup)
 	   ;; generate the getting of symbols & keywords
 	   (append_commentconst oiniprolog "get symbols & keywords for extension")
 	   (assert_msg "check odatatup" (is_multiple_or_null odatatup) odatatup)
@@ -2152,7 +2154,11 @@
 		(let ( (curobjb (compile_obj curninst gcx))
 		       )
 		  (debug "compile2obj_initextendproc curobjb=" curobjb)
-		  (cond ( (is_a curobjb class_objpurevalue)
+		  (cond ( (null curobjb)
+			  (debug "compile2obj_initextendproc skipping null curobjb=" curobjb)
+			  (void)
+			  )
+			( (is_a curobjb class_objpurevalue)
 			  (debug "compile2obj_initextendproc skipping pure curobjb=" curobjb)
 			  (void)
 			  )
@@ -2908,6 +2914,7 @@
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  (defun compilobj_nrep_let (rlet gcx)
+   (debug "compilobj_nrep_let initial rlet=" rlet)
    (assert_msg "check rlet" (is_a rlet class_nrep_let) rlet)
    (assert_msg "check gcx" (is_a gcx class_c_generation_context) gcx)
    (let ( (loc (unsafe_get_field :nrep_loc rlet))
@@ -2921,7 +2928,9 @@
 			    :oblo_bodyl obodl
 			    :oblo_epil oepil))
 	  )
-     (debug "compilobj_nrep_let initial rlet=" rlet " loc=" loc)
+     (debug "compilobj_nrep_let initial loc=" loc "\n.. bnds=" bnds 
+	    "\n.. bdy=" bdy
+	    "\n.. locmap=" locmap)
      ;; for each normalexp in the bnds tuple
      ;; add the binding and the setting in the body and the clear in the epilogue
      (assert_msg "compilobj_nrep_let check bnds multiple" (is_multiple_or_null bnds) bnds)
@@ -2971,7 +2980,7 @@
 		(list_append oepil obcl)
 		)))))
      (debug "compilobj_nrep_let after iterate normbind loc=" loc 
-	    " locmap=" locmap)
+	    "\n.. locmap=" locmap "\n.. oepil=" oepil)
      ;;
      ;; compile each body component
      (assert_msg "check bdy" (is_multiple_or_null bdy) bdy)
@@ -2992,7 +3001,8 @@
      ;;
      ;; dispose each binding
      (debug "compilobj_nrep_let disposing bnds=" bnds "\n.. with bdy=" bdy "\n.. obodl=" obodl)
-     ;; @@@??? perhaps we should avoid disposing the binding of the last component of tuple bdy, if it is its locsymocc...
+     ;; @@@??? perhaps we should avoid disposing the binding of the
+     ;; last component of tuple bdy, if it is its locsymocc...
      (foreach_in_multiple
       (bnds)
       (obnd :long ix)

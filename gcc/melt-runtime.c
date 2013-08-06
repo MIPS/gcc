@@ -9198,8 +9198,6 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
       /* ignore lines with extern "C" */
       if (strstr(descline, "extern") && strstr(descline, "\"C\""))
 	continue;
-      debugeprintf ("meltgc_run_cc_extension (%s) #%d,len%d: %s",
-		    basenamebuf, desclinenum, (int) desclinlen, descline);
       /* parse the melt_versionmeltstr */
       if (descversionmelt == NULL
 	  && (pc = strstr(descline, "melt_versionmeltstr[]")) != NULL
