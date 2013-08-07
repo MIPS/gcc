@@ -204,4 +204,10 @@ enum sanitize_code {
   SANITIZE_UNDEFINED = SANITIZE_SHIFT | SANITIZE_DIVIDE | SANITIZE_UNREACHABLE
 };
 
+/* flag_vtable_verify initialization levels. */
+enum vtv_priority {
+  VTV_NO_PRIORITY       = 0,  /* i.E. Do NOT do vtable verification. */
+  VTV_STANDARD_PRIORITY = 1,
+  VTV_PREINIT_PRIORITY  = 2
+};
 #endif /* ! GCC_FLAG_TYPES_H */

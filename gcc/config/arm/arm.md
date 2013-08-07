@@ -3717,8 +3717,7 @@
                              (match_dup 2))))
    (cond_exec (match_op_dup 5 [(reg:CC CC_REGNUM) (const_int 0)])
               (set (match_dup 0)
-                   (minus:SI (match_dup 1)
-                             (match_dup 3))))]
+                   (match_dup 6)))]
   {
   enum machine_mode mode = SELECT_CC_MODE (GET_CODE (operands[1]),
                                            operands[2], operands[3]);
@@ -3731,6 +3730,10 @@
   else
     rc = reverse_condition (rc);
   operands[5] = gen_rtx_fmt_ee (rc, SImode, operands[2], operands[3]);
+  if (CONST_INT_P (operands[3]))
+    operands[6] = plus_constant (SImode, operands[1], -INTVAL (operands[3]));
+  else
+    operands[6] = gen_rtx_MINUS (SImode, operands[1], operands[3]);
   }
   [(set_attr "conds" "clob")
    (set (attr "length")
@@ -10094,7 +10097,7 @@
 		 (geu:SI (reg:CC CC_REGNUM) (const_int 0))))]
 )
 
-;; Rd = (eq (reg1) (reg2/imm))	// ARMv5
+;; Rd = (eq (reg1) (reg2/imm))	// ARMv5 and optimising for speed.
 ;;	sub  Rd, Reg1, reg2
 ;;	clz  Rd, Rd
 ;;	lsr  Rd, Rd, #5
@@ -10106,14 +10109,15 @@
 	      (set (match_operand:SI 0 "register_operand" "") (const_int 0)))
    (cond_exec (eq (reg:CC CC_REGNUM) (const_int 0))
 	      (set (match_dup 0) (const_int 1)))]
-  "arm_arch5 && TARGET_32BIT && peep2_regno_dead_p (3, CC_REGNUM)"
+  "arm_arch5 && TARGET_32BIT && peep2_regno_dead_p (3, CC_REGNUM)
+  && !(TARGET_THUMB2 && optimize_insn_for_size_p ())"
   [(set (match_dup 0) (minus:SI (match_dup 1) (match_dup 2)))
    (set (match_dup 0) (clz:SI (match_dup 0)))
    (set (match_dup 0) (lshiftrt:SI (match_dup 0) (const_int 5)))]
 )
 
 
-;; Rd = (eq (reg1) (reg2/imm))	// ! ARMv5
+;; Rd = (eq (reg1) (reg2))	// ! ARMv5 or optimising for size.
 ;;	sub  T1, Reg1, reg2
 ;;	negs Rd, T1
 ;;	adc  Rd, Rd, T1
@@ -10127,7 +10131,7 @@
 	      (set (match_dup 0) (const_int 1)))
    (match_scratch:SI 3 "r")]
   "TARGET_32BIT && peep2_regno_dead_p (3, CC_REGNUM)"
-  [(set (match_dup 3) (minus:SI (match_dup 1) (match_dup 2)))
+  [(set (match_dup 3) (match_dup 4))
    (parallel
     [(set (reg:CC CC_REGNUM)
 	  (compare:CC (const_int 0) (match_dup 3)))
@@ -10135,7 +10139,12 @@
    (set (match_dup 0)
 	(plus:SI (plus:SI (match_dup 0) (match_dup 3))
 		 (geu:SI (reg:CC CC_REGNUM) (const_int 0))))]
-)
+  "
+  if (CONST_INT_P (operands[2]))
+    operands[4] = plus_constant (SImode, operands[1], -INTVAL (operands[2]));
+  else
+    operands[4] = gen_rtx_MINUS (SImode, operands[1], operands[2]);
+  ")
 
 (define_insn "*cond_move"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r,r")
