@@ -6074,6 +6074,8 @@ if (1) return;
     (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 " modinienv=" modinienv)
     (if modinienv 
 	(list_prepend xlist ucmeb1))
+    (debug "normalize_macroexpanded_list xlist=" xlist)
+    (assert_msg "check xlist" (is_list xlist) xlist)
     ;;
     ;; we need to normalize now, because cheaders are handled by normalization
     (foreach_in_list
@@ -6117,7 +6119,6 @@ if (1) return;
 	)))
     ;;
     (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc) iniproc)
-    (assert_msg "check xlist" (is_list xlist) xlist)
     ;;
     (debug "normalize_macroexpanded_list gives normlist=" normlist
 	   "\n bindlist=" bindlist
@@ -6307,8 +6308,8 @@ if (1) return;
 	(implbuf (make_strbuf discr_strbuf)) 
 	(declbuf (make_strbuf discr_strbuf))
 	)
-    (debug "translate_macroexpanded_list modinienv=" modinienv " modnamstr=" modnamstr
-	   " before normalize_macroexpanded_list modctx=" modctx)
+    (debug "translate_macroexpanded_list modinienv=" modinienv "\n.. modnamstr=" modnamstr
+	   "\n.. before normalize_macroexpanded_list modctx=" modctx "\n ..xlist=" xlist)
     (multicall
      (normlist bindlist :long startclock)
      (normalize_macroexpanded_list xlist modnamstr modctx ncx inienv)

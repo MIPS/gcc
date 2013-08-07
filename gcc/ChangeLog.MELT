@@ -1,4 +1,9 @@
 
+2013-08-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list)
+	(translate_macroexpanded_list): More debug.
+
 2013-08-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerated but unstable}}
