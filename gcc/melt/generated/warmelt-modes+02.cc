@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMODES_h627126698; // forward declaration fromline 6504
+class Melt_InitialClassyFrame_WARMELTmiMODES_h627126698; // forward declaration fromline 6523
 typedef Melt_InitialClassyFrame_WARMELTmiMODES_h627126698 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -9952,8 +9952,7 @@ NANT)\n    goto end;\n  if (!melt_is_instance_of((melt_ptr_t)newdiscrv\
 \
 \n\t  if (src->entab)\n            for (ix=0; ix<oldlen; \
 \n\t\t ix++) {\n\t       melt_ptr_t curva = src->entab[ix].e_va;\
-\n\t \
-      ";
+\n\t       ";
                                     /*^apply.arg*/
                                     argtab[13].meltbp_aptr = (melt_ptr_t*) &/*_.TYCNAME__V27*/ meltfptr[26];
                                     /*^apply.arg*/

@@ -40,7 +40,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMODES_h627126698; // forward declaration fromline 6504
+class Melt_InitialClassyFrame_WARMELTmiMODES_h627126698; // forward declaration fromline 6523
 typedef Melt_InitialClassyFrame_WARMELTmiMODES_h627126698 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -11962,8 +11962,7 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;", sizeof (meltcdat-
     meltcdat->dstr_410__not_map_magic_.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_STRING))));
     /*small inistring*/ strncpy(meltcdat->dstr_410__not_map_magic_.val, ") /* not map magic */\n\t\t\t       return NULL ;\
 \n\t\t\t       return (melt_ptr_t) meltgc_raw_new_mappointers (discr\
-, len) ;\n\t\t\t       } /*end generated new map\
- for ", sizeof (meltcdat->dstr_410__not_map_magic_.val)-1);
+, len) ;\n\t\t\t       } /*end generated new map for ", sizeof (meltcdat->dstr_410__not_map_magic_.val)-1);
     meltcdat->dstr_410__not_map_magic_.val[158] = (char)0 ;
     meltcdat->dstr_410__not_map_magic_.slen = 158 ;
 
