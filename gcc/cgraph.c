@@ -1316,7 +1316,7 @@ void
 cgraph_release_function_body (struct cgraph_node *node)
 {
   node->ipa_transforms_to_apply.release ();
-  if (!node->abstract_and_needed && cgraph_state != CGRAPH_STATE_PARSING)
+  if (!node->used_as_abstract_origin && cgraph_state != CGRAPH_STATE_PARSING)
     {
       DECL_RESULT (node->symbol.decl) = NULL;
       DECL_ARGUMENTS (node->symbol.decl) = NULL;
@@ -1324,7 +1324,7 @@ cgraph_release_function_body (struct cgraph_node *node)
   /* If the node is abstract and needed, then do not clear DECL_INITIAL
      of its associated function function declaration because it's
      needed to emit debug info later.  */
-  if (!node->abstract_and_needed && DECL_INITIAL (node->symbol.decl))
+  if (!node->used_as_abstract_origin && DECL_INITIAL (node->symbol.decl))
     DECL_INITIAL (node->symbol.decl) = error_mark_node;
   release_function_body (node->symbol.decl);
 }
@@ -1697,7 +1697,6 @@ enum availability
 cgraph_function_body_availability (struct cgraph_node *node)
 {
   enum availability avail;
-  gcc_assert (cgraph_function_flags_ready);
   if (!node->symbol.analyzed)
     avail = AVAIL_NOT_AVAILABLE;
   else if (node->local.local)
@@ -2364,7 +2363,7 @@ verify_cgraph_node (struct cgraph_node *node)
       error ("inline clone in same comdat group list");
       error_found = true;
     }
-  if (!node->symbol.definition && node->local.local)
+  if (!node->symbol.definition && !node->symbol.in_other_partition && node->local.local)
     {
       error ("local symbols must be defined");
       error_found = true;
@@ -2706,6 +2705,46 @@ cgraph_function_node (struct cgraph_node *node, enum availability *availability)
 	}
     } while (node && node->thunk.thunk_p);
   return node;
+}
+
+/* When doing LTO, read NODE's body from disk if it is not already present.  */
+
+bool
+cgraph_get_body (struct cgraph_node *node)
+{
+  struct lto_file_decl_data *file_data;
+  const char *data, *name;
+  size_t len;
+  tree decl = node->symbol.decl;
+
+  if (DECL_RESULT (decl))
+    return false;
+
+  gcc_assert (in_lto_p);
+
+  file_data = node->symbol.lto_file_data;
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+
+  /* We may have renamed the declaration, e.g., a static function.  */
+  name = lto_get_decl_name_mapping (file_data, name);
+
+  data = lto_get_section_data (file_data, LTO_section_function_body,
+			       name, &len);
+  if (!data)
+    {
+	dump_cgraph_node (stderr, node);
+    fatal_error ("%s: section %s is missing",
+		 file_data->file_name,
+		 name);
+    }
+
+  gcc_assert (DECL_STRUCT_FUNCTION (decl) == NULL);
+
+  lto_input_function_body (file_data, decl, data);
+  lto_stats.num_function_bodies++;
+  lto_free_section_data (file_data, LTO_section_function_body, name,
+			 data, len);
+  return true;
 }
 
 #include "gt-cgraph.h"
