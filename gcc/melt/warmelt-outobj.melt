@@ -6043,8 +6043,9 @@ if (1) return;
 			  :loca_location firstloc
 			  :sucme_comment '"at very start"
 			  ))
+	(ntopl (get_field :ninit_topl iniproc))
 	)
-    (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc)
+    (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc "\n.. ntopl=" ntopl)
     (code_chunk startmodnam
 		#{ /* normalize_macroexpanded_list $STARTMODNAM */
 		#if HAVE_CLOCK
@@ -6074,29 +6075,31 @@ if (1) return;
     (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 " modinienv=" modinienv)
     (if modinienv 
 	(list_prepend xlist ucmeb1))
-    (debug "normalize_macroexpanded_list xlist=" xlist)
+    (debug "normalize_macroexpanded_list xlist=" xlist "\n.. iniproc=" iniproc "\n.. ntopl=" ntopl
+	   "\n.. inienv=" inienv)
     (assert_msg "check xlist" (is_list xlist) xlist)
     ;;
     ;; we need to normalize now, because cheaders are handled by normalization
     (foreach_in_list
      (xlist)
      (curpair sexp)
-     (debug "normalize_macroexpanded_list sexp=" sexp)
+     (debug "normalize_macroexpanded_list sexp=" sexp "\n.. inienv=" inienv)
      (let (
 	   (psloc (if (is_a sexp class_located) (unsafe_get_field :loca_location sexp)))
 	   )
        (multicall 
 	(nexp nbind)
-	(normal_exp sexp inienv ncx psloc)	    
-	(debug "normalize_macroexpanded_list nexp=" nexp " nbind=" nbind)
-	;; strangely needed for bootstrapping
-	(if (and (is_a nexp class_nrep)
-		 (not (is_a nexp class_nrep_anyproc)))
-	    (let ( (wnexp (wrap_normal_let1 nexp nbind psloc)) )
-	      (debug "normalize_macroexpanded_list wnexp=" wnexp)
-	      (list_append (unsafe_get_field :ninit_topl iniproc) 
-			   wnexp)
-	      ))
+	(normal_exp sexp inienv ncx psloc) ;;; inienv is probably wrong here	    
+	(debug "normalize_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind)
+	;; strangely needed for bootstrapping ;;;
+	(when (and (is_a nexp class_nrep)
+	(is_not_a nexp class_nrep_anyproc))
+	(debug "normalize_macroexpanded_list strange nexp=" nexp)
+	(let ( (wnexp (wrap_normal_let1 nexp nbind psloc)) )
+	(debug "normalize_macroexpanded_list wnexp=" wnexp)
+	(list_append ntopl wnexp)
+	(debug "normalize_macroexpanded_list updated ntopl=" ntopl)
+	))
 	;;
 	(cond ( (is_list nexp)
 		(list_append2list normlist nexp))
@@ -6107,18 +6110,30 @@ if (1) return;
 		 (list_append normlist curcomp)))
 	      (:else
 	       (list_append normlist nexp)))
-	(cond ( (is_list nbind)
-		(list_append2list bindlist nbind))
-	      ( (is_multiple nbind)
-		(foreach_in_multiple
-		 (nbind)
-		 (curbind :long bix)
-		 (list_append bindlist curbind)))
-	      (:else
-	       (list_append bindlist nbind)))
+	;;;
+	(cond 
+	 ( (null nbind)
+	   (void))
+	 ( (is_list nbind)
+	   (list_append2list bindlist nbind))
+	 ( (is_multiple nbind)
+	   (foreach_in_multiple
+	    (nbind)
+	    (curbind :long bix)
+	    (assert_msg "check curbind" (is_a curbind class_any_binding) curbind)
+	    (list_append bindlist curbind)))
+	 (:else
+	  (assert_msg "check nbind" (is_a nbind class_any_binding) nbind)
+	  (list_append bindlist nbind)))
 	)))
     ;;
     (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc) iniproc)
+    ;;
+    (foreach_in_list
+     (bindlist)
+     (curpair curbind)
+     (assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind))
+    ;;
     ;;
     (debug "normalize_macroexpanded_list gives normlist=" normlist
 	   "\n bindlist=" bindlist
@@ -6314,12 +6329,12 @@ if (1) return;
      (normlist bindlist :long startclock)
      (normalize_macroexpanded_list xlist modnamstr modctx ncx inienv)
      (debug "translate_macroexpanded_list normalize_macroexpanded_list give normlist=" normlist 
-	    "\n bindlist=" bindlist)
+	    "\n.. bindlist=" bindlist "\n")
      (assert_msg "check normlist" (is_list normlist) normlist)
      (assert_msg "check bindlist" (is_list bindlist) bindlist)
      (debug "translate_macroexpanded_list after normalize_macroexpanded_list modctx=" modctx
-	    "\n normalisthandler=" normalisthandler
-	    "\n normlist=" normlist)
+	    "\n.. normalisthandler=" normalisthandler
+	    "\n.. normlist=" normlist)
      (when (is_closure normalisthandler)
        (debug "translate_macroexpanded_list before calling normalisthandler=" normalisthandler 
 	      "\n.. with normlist=" normlist 
@@ -6327,8 +6342,9 @@ if (1) return;
 	      "\n.. bindlist=" bindlist "\n of length " (list_length bindlist))
        (normalisthandler normlist bindlist modctx ncx inienv)
        (debug "translate_macroexpanded_list after calling normalisthandler normlist=" normlist
-	      "\n of length " (list_length normlist)
-	      "\n bindlist=" bindlist "\n of length " (list_length bindlist))
+	      "\n.. of length " (list_length normlist)
+	      "\n.. bindlist=" bindlist "\n... of length " (list_length bindlist)
+	      "\n.. iniproc=" iniproc)
        )
      ;;
      ;;
@@ -6398,11 +6414,13 @@ if (1) return;
        ;;
        ;; compile the initial procedure
        (assert_msg "check objlist" (is_list objlist) objlist)
+       (debug "translate_macroexpanded_list checking elements of objlist=" objlist)
        (foreach_in_list
 	(objlist)
 	(pairel obel)
 	(assert_msg "check obel is object" (is_object obel) obel)
 	)
+       ;;
        (let ( (inipro (unsafe_get_field :nctx_initproc ncx)) 
 	      (inidata (unsafe_get_field :nctx_datalist ncx))
 	      (importvalues (unsafe_get_field :nctx_valuelist ncx))
@@ -7290,6 +7308,7 @@ if (1) return;
 		    (when (is_not_a lastnorm class_nrep_return)
 		      (let ( (nret (instance class_nrep_return
 					     :nret_main lastnorm
+					     :nrep_loc (get_field :nrep_loc lastnorm)
 					     ))
 			     )
 			(pair_set_head lastnormpair nret)
@@ -7339,7 +7358,8 @@ if (1) return;
 			))
 		  (set_ref refnormlist normlist)
 		  (debug "translate_run_melt_expressions/normalextend final normlist=" normlist
-			 "\n final bindlist=" bindlist)
+			 "\n final bindlist=" bindlist
+			 "\n updated refnormlist=" refnormlist)
 		  (return)
 		  )))
 	     )

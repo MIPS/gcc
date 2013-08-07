@@ -1,5 +1,19 @@
 
 2013-08-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Still unstable}}
+	* melt/warmelt-debug.melt (dbgout_environment_method): Also write
+	the depth and width of the environment in all cases...
+
+	* melt/warmelt-normal.melt (normexp_symbol): Better assert.
+
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): More
+	debug, but probably still buggy.
+	(translate_macroexpanded_list, translate_run_melt_expressions):
+	More debug, but still buggy perhaps...
+
+	* melt/xtramelt-playground.melt (play_foo): Temporary new function.
+
+2013-08-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-outobj.melt (normalize_macroexpanded_list)
 	(translate_macroexpanded_list): More debug.

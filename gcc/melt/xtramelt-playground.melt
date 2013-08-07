@@ -38,4 +38,25 @@
     (assert_msg "@$@unimplemented error")
     ))					;end ERROR
 
+
+(defun play_foo (x) 
+  (let ( (:long cnt 0)
+	 )
+    (code_chunk cntchk #{ /*play_foo $CNTCHK */ static long thecnt; thecnt++; 
+		$CNT = thecnt; }#
+		)
+    (when (is_integerbox x)
+	(let ( (xi (get_int x))
+	       )
+	  (code_chunk intchk #{ /* play_foo $INTCHK */ 
+		      printf("**playfoo cnt#%ld integer xi=%ld\n", $CNT, $XI);
+		      }#)
+	  (return (tuple '"integerx" (box (+i xi 2)))))
+	)
+    (code_chunk otherchk #{ /* play_foo $OTHERCHK */
+		printf("**playfoo cnt#%ld other\n", $CNT);
+		}#)
+    (return (tuple '"otherx" x))))
+(export_values play_foo play_error)
+		
 ;; eof xtramelt-playground.melt

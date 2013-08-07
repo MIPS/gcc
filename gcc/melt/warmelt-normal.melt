@@ -1781,7 +1781,7 @@ source location.}#
        (debug "normexp_symbol bad name envprev2=" (get_field :env_prev (get_field :env_prev env)))
        (debug "normexp_symbol bad name envprev3=" (get_field :env_prev  (get_field :env_prev (get_field :env_prev env))))
        (if (melt_is_bootstrapping)
-	   (assert_msg "@$@normexp_symbol is failing while bootstrapping") recv)
+	   (assert_msg "@$@normexp_symbol is failing while bootstrapping" () recv env))
        (return () ()))
      ;;
      (if (is_a bind class_normal_magic_binding)
