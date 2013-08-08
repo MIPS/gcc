@@ -62,6 +62,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "tree-pass.h"
 #include "tree-flow.h"
+#include "context.h"
+#include "pass_manager.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -1833,6 +1835,13 @@ const struct processor_costs *ix86_cost = &pentium_cost;
    (PPro/PENT4/NOCONA/CORE2/Athlon/K8).  */
 #define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
+const char* ix86_tune_feature_names[X86_TUNE_LAST] = {
+#undef DEF_TUNE
+#define DEF_TUNE(tune, name) name,
+#include "x86-tune.def"
+#undef DEF_TUNE
+};
+
 /* Feature tests against the various tunings.  */
 unsigned char ix86_tune_features[X86_TUNE_LAST];
 
@@ -2601,30 +2610,47 @@ rest_of_handle_insert_vzeroupper (void)
   ix86_optimize_mode_switching[AVX_U128] = 1;
 
   /* Call optimize_mode_switching.  */
-  pass_mode_switching.pass.execute ();
+  g->get_passes ()->execute_pass_mode_switching ();
   return 0;
 }
 
-struct rtl_opt_pass pass_insert_vzeroupper =
+namespace {
+
+const pass_data pass_data_insert_vzeroupper =
 {
- {
-  RTL_PASS,
-  "vzeroupper",				/* name */
-  OPTGROUP_NONE,			/* optinfo_flags */
-  gate_insert_vzeroupper,		/* gate */
-  rest_of_handle_insert_vzeroupper,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  0,					/* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "vzeroupper", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing | 0 ), /* todo_flags_finish */
 };
+
+class pass_insert_vzeroupper : public rtl_opt_pass
+{
+public:
+  pass_insert_vzeroupper(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_insert_vzeroupper, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_insert_vzeroupper (); }
+  unsigned int execute () { return rest_of_handle_insert_vzeroupper (); }
+
+}; // class pass_insert_vzeroupper
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_insert_vzeroupper (gcc::context *ctxt)
+{
+  return new pass_insert_vzeroupper (ctxt);
+}
 
 /* Return true if a red-zone is in use.  */
 
@@ -3560,6 +3586,40 @@ ix86_option_override_internal (bool main_args_p)
   for (i = 0; i < X86_TUNE_LAST; ++i)
     ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
 
+  if (ix86_tune_ctrl_string)
+    {
+      /* parse the tune ctrl string in the following form:
+         [^]tune_name1,[^]tune_name2,..a */
+      char *next_feature_string = NULL;
+      char *curr_feature_string = xstrdup (ix86_tune_ctrl_string);
+      char *orig = curr_feature_string;
+      do {
+        bool clear = false;
+
+        next_feature_string = strchr (curr_feature_string, ',');
+	if (next_feature_string)
+          *next_feature_string++ = '\0';
+        if (*curr_feature_string == '^')
+	  {
+	    curr_feature_string++;
+	    clear = true;
+	  }
+        for (i = 0; i < X86_TUNE_LAST; i++)
+	  {
+            if (!strcmp (curr_feature_string, ix86_tune_feature_names[i]))
+	      {
+                ix86_tune_features[i] = !clear;
+                break;
+              }
+	  }
+        if (i == X86_TUNE_LAST)
+	  warning (0, "Unknown parameter to option -mtune-ctrl: %s",
+	           clear ? curr_feature_string - 1 : curr_feature_string);
+	curr_feature_string = next_feature_string;    
+      } while (curr_feature_string);
+      free (orig);
+    }
+
 #ifndef USE_IX86_FRAME_POINTER
 #define USE_IX86_FRAME_POINTER 0
 #endif
@@ -4038,8 +4098,9 @@ ix86_option_override_internal (bool main_args_p)
 static void
 ix86_option_override (void)
 {
+  opt_pass *pass_insert_vzeroupper = make_pass_insert_vzeroupper (g);
   static struct register_pass_info insert_vzeroupper_info
-    = { &pass_insert_vzeroupper.pass, "reload",
+    = { pass_insert_vzeroupper, "reload",
 	1, PASS_POS_INSERT_AFTER
       };
 
