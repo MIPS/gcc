@@ -6016,14 +6016,16 @@ if (1) return;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; internal utility function to normalize a macroexpanded list
-;; return the normalized list, the normalized bindings, the start clock
-(defun normalize_macroexpanded_list (xlist modnamstr modctx ncx inienv)
-  (debug "normalize_macroexpanded_list start xlist= " xlist
+;; return the normalized list & the start clock
+;; no bindings are returned because we have letwrapped them
+;; the initial function is not modified
+(defun give_normalized_macroexpanded_list (xlist modnamstr modctx ncx inienv)
+  (debug "give_normalized_macroexpanded_list start xlist= " xlist
 	 "\n* modnamstr=" modnamstr 
 	 "\n* modctx=" modctx
 	 "\n* ncx=" ncx
 	 "\n* inienv=" inienv)
-  (shortbacktrace_dbg "normalize_macroexpanded_list" 12)
+  (shortbacktrace_dbg "give_normalized_macroexpanded_list" 12)
   (assert_msg "check xlist" (is_list xlist) xlist)
   (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
   (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
@@ -6032,7 +6034,6 @@ if (1) return;
   (let (
 	(:long startclock 0)
 	(normlist (list))
-	(bindlist (list))
 	(firstx (pair_head (list_first xlist)))
 	(firstloc (if (is_a firstx class_source) (get_field :loca_location firstx)))
 	(errorhdlr (get_field :mocx_errorhandler modctx))
@@ -6043,24 +6044,23 @@ if (1) return;
 			  :loca_location firstloc
 			  :sucme_comment '"at very start"
 			  ))
-	(ntopl (get_field :ninit_topl iniproc))
 	)
-    (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc "\n.. ntopl=" ntopl)
+    (debug "give_normalized_macroexpanded_list ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc)
     (code_chunk startmodnam
-  #{ /* normalize_macroexpanded_list $STARTMODNAM */
-  #if HAVE_CLOCK
-  $STARTCLOCK = (long) clock () ;
-  #endif /*HAVE_CLOCK */
-  #if MELT_HAVE_DEBUG
-  inform  (UNKNOWN_LOCATION, 
-           "MELT [#%ld] generating C++ code of module %s", 
-           melt_dbgcounter, melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
-  #else
-  inform  (UNKNOWN_LOCATION, 
-           "MELT generating C++ code of module %s", 
-           melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
-  #endif /* MELT_HAVE_DEBUG */
-  }#)
+		#{ /* give_normalized_macroexpanded_list $STARTMODNAM */
+		#if HAVE_CLOCK
+		$STARTCLOCK = (long) clock () ;
+		#endif /*HAVE_CLOCK */
+		#if MELT_HAVE_DEBUG
+		inform  (UNKNOWN_LOCATION, 
+			 "MELT [#%ld] generating C++ code of module %s", 
+			 melt_dbgcounter, melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
+		#else
+		inform  (UNKNOWN_LOCATION, 
+			 "MELT generating C++ code of module %s", 
+			 melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
+		#endif /* MELT_HAVE_DEBUG */
+		}#)
     ;; special hack to copy the first comment before anything else,
     ;; practically useful to make the copyright comment appear really
     ;; early in generated declaration buffer.
@@ -6072,10 +6072,10 @@ if (1) return;
 	(put_fields modctx :mocx_startcomment scomm)
 	)
       )
-    (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 " modinienv=" modinienv)
+    (debug "give_normalized_macroexpanded_list ucmeb1=" ucmeb1 " modinienv=" modinienv)
     (if modinienv 
 	(list_prepend xlist ucmeb1))
-    (debug "normalize_macroexpanded_list xlist=" xlist "\n.. iniproc=" iniproc "\n.. ntopl=" ntopl
+    (debug "give_normalized_macroexpanded_list xlist=" xlist "\n.. iniproc=" iniproc
 	   "\n.. inienv=" inienv)
     (assert_msg "check xlist" (is_list xlist) xlist)
     ;;
@@ -6083,14 +6083,14 @@ if (1) return;
     (foreach_in_list
      (xlist)
      (curpair sexp)
-     (debug "normalize_macroexpanded_list sexp=" sexp "\n.. inienv=" inienv)
+     (debug "give_normalized_macroexpanded_list sexp=" sexp "\n.. inienv=" inienv)
      (let (
 	   (psloc (if (is_a sexp class_located) (unsafe_get_field :loca_location sexp)))
 	   )
        (multicall 
 	(nexp nbind)
 	(normal_exp sexp inienv ncx psloc) ;;; inienv is probably wrong here	    
-	(debug "normalize_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind)
+	(debug "give_normalized_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind)
 	;; check the nbind and its elements
 	(assert_msg "check nbind" (is_list_or_null nbind) nbind)
 	(cppif MELT_HAVE_DEBUG
@@ -6103,17 +6103,14 @@ if (1) return;
 	       (newnbind nbind)
 	       )
 	  ;; letwrap when relevant
-	  (when (and (is_not_a nexp class_nrep_anyproc)
-		     (list_first_element nbind))
-	    (debug "normalize_macroexpanded_list should wrap nexp=" nexp "\n.. nbind=" nbind)
+	  (when (list_first_element nbind)
+	    (debug "give_normalized_macroexpanded_list should wrap nexp=" nexp "\n.. nbind=" nbind)
+	    (assert_msg "check nexp" (is_not_a nexp class_nrep_anyproc) nexp)
 	    ;;
 	    (setq newnbind ())
 	    (setq newnexp (wrap_normal_let1 nexp nbind psloc))
-	    (debug "normalize_macroexpanded_list update newnexp=" newnexp)
-	    (list_append ntopl newnexp);@!@ WHY do I need this... Don't bootstrap without!
+	    (debug "give_normalized_macroexpanded_list update newnexp=" newnexp)
 	    )
-	  
-;; the issue is probably that we both return a value and update ntopl
 	  ;;
 	  (cond ( (is_list newnexp)
 		  (list_append2list normlist newnexp))
@@ -6124,39 +6121,15 @@ if (1) return;
 		   (list_append normlist curcomp)))
 		(:else
 		 (list_append normlist newnexp)))
-;;;
-	  (cond 
-	   ( (null newnbind)
-	     (void))
-	   ( (is_list newnbind)
-	     (list_append2list bindlist newnbind))
-	   ( (is_multiple newnbind)
-	     (foreach_in_multiple
-	      (newnbind)
-	      (curbind :long bix)
-	      (assert_msg "check curbind" (is_a curbind class_any_binding) curbind)
-	      (list_append bindlist curbind)))
-	   (:else
-	    (assert_msg "check newnbind" (is_a newnbind class_any_binding) nbind)
-	    (list_append bindlist newnbind))
-	   )
+	  ;;
+	  (assert_msg "check empty newnbind" (==i (list_length newnbind) 0) newnbind)
 	  )
 	))
      )
     ;;
-    (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc) iniproc)
-    (cppif MELT_HAVE_DEBUG
-	   (foreach_in_list
-	    (bindlist)
-	    (curpair curbind)
-	    (assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind)))
-    ;;
-    ;;
-    ;;
-    (debug "normalize_macroexpanded_list gives normlist=" normlist
-	   "\n bindlist=" bindlist
+    (debug "give_normalized_macroexpanded_list gives normlist=" normlist
 	   "\n startclock=" startclock)
-    (return normlist bindlist startclock)
+    (return normlist startclock)
     ))
 
 
@@ -6344,27 +6317,40 @@ if (1) return;
 	(declbuf (make_strbuf discr_strbuf))
 	)
     (debug "translate_macroexpanded_list modinienv=" modinienv "\n.. modnamstr=" modnamstr
-	   "\n.. before normalize_macroexpanded_list modctx=" modctx "\n ..xlist=" xlist)
+	   "\n.. before give_normalized_macroexpanded_list modctx=" modctx "\n ..xlist=" xlist)
     (multicall
-     (normlist bindlist :long startclock)
-     (normalize_macroexpanded_list xlist modnamstr modctx ncx inienv)
-     (debug "translate_macroexpanded_list normalize_macroexpanded_list give normlist=" normlist 
-	    "\n.. bindlist=" bindlist "\n")
+     (normlist :long startclock)
+     (give_normalized_macroexpanded_list xlist modnamstr modctx ncx inienv)
+     (debug "translate_macroexpanded_list give_normalized_macroexpanded_list give normlist=" normlist
+	    "\n.. startclock=" startclock "\n")
      (assert_msg "check normlist" (is_list normlist) normlist)
-     (assert_msg "check bindlist" (is_list bindlist) bindlist)
      (debug "translate_macroexpanded_list after normalize_macroexpanded_list modctx=" modctx
 	    "\n.. normalisthandler=" normalisthandler
 	    "\n.. normlist=" normlist)
      (when (is_closure normalisthandler)
        (debug "translate_macroexpanded_list before calling normalisthandler=" normalisthandler 
 	      "\n.. with normlist=" normlist 
-	      "\n.. of length " (list_length normlist)
-	      "\n.. bindlist=" bindlist "\n of length " (list_length bindlist))
-       (normalisthandler normlist bindlist modctx ncx inienv)
+	      "\n.. of length " (list_length normlist))
+       (normalisthandler normlist modctx ncx inienv)
        (debug "translate_macroexpanded_list after calling normalisthandler normlist=" normlist
 	      "\n.. of length " (list_length normlist)
-	      "\n.. bindlist=" bindlist "\n... of length " (list_length bindlist)
 	      "\n.. iniproc=" iniproc)
+       )
+     ;;
+     ;; insert the normalized list inside the initial procedure but skip the procedures
+     (debug "translate_macroexpanded_list iniproc=" iniproc "\n.. before insertion of normlist=" normlist)
+     (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc) iniproc)
+     (let ( (initoplist (get_field :ninit_topl iniproc))
+	    )
+       (debug "translate_macroexpanded_list initoplist=" initoplist)
+       (assert_msg "check empty initoplist" (==i 0 (list_length initoplist)) initoplist)
+       (foreach_in_list
+	(normlist)
+	(curpair curnorm)
+	(debug "translate_macroexpanded_list curnorm=" curnorm)
+	(if (is_not_a curnorm class_nrep_anyproc)
+	    (list_append initoplist curnorm)))
+       (debug "translate_macroexpanded_list updated initoplist=" initoplist "\n.. in iniproc=" iniproc)
        )
      ;;
      ;;
@@ -7008,11 +6994,9 @@ if (1) return;
 
 ;; utility function to box a non-value normal as a return of an
 ;; autoboxed value
-(defun autobox_normal_return (nexp nbinds ctyp ncx)
-  (debug "autobox_normal_return nexp=" nexp " nbinds=" nbinds " ctyp=" ctyp " ncx=" ncx)
-  (if (null nbinds) (setq nbinds (make_list discr_list)))
+(defun autobox_normal_return (nexp ctyp ncx)
+  (debug "autobox_normal_return nexp=" nexp " ctyp=" ctyp " ncx=" ncx)
   (assert_msg "check ctyp" (is_a ctyp class_ctype) ctyp)
-  (assert_msg "check nbind" (is_list nbinds) nbinds)
   (let ( (csym (clone_symbol 'retautoboxval))
 	 (cbind (instance class_normal_let_binding
 			  :letbind_loc ()
@@ -7025,6 +7009,7 @@ if (1) return;
 			  :nocc_ctyp ctype_value
 			  :nocc_symb csym
 			  :nocc_bind cbind))
+	 (nbinds (list))
 	 )
     (debug "autobox_normal_return clocc=" clocc " incomplete cbind=" cbind)
     (cond
@@ -7301,23 +7286,18 @@ if (1) return;
 	     (:long lenxlist (list_length xlist))
 	     ;; normalextend should ensure that the last normal gives a value
 	     (normalextend 
-	      (lambda (normlist bindlist modctx ncx inienv)
+	      (lambda (normlist modctx ncx inienv)
 		(debug "translate_run_melt_expressions/normalextend normlist=" normlist
-		       "\n bindlist=" bindlist
 		       "\n old !refnormlist=" !refnormlist
 		       "\n ncx=" ncx)
 		(shortbacktrace_dbg "translate_run_melt_expressions/normalextend" 13)
-		(assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
 		(assert_msg "check null !refnormlist" (null !refnormlist) refnormlist)
 		(let ( (lastnormpair (list_last normlist))
-		       (lastbindpair (list_last bindlist))
 		       (lastnorm (list_last_element normlist))
-		       (lastbinds (list_last_element bindlist))
 		       (lastctyp (get_ctype lastnorm inienv))
 		       )
 		  (debug "translate_run_melt_expressions/normalextend lastnorm=" lastnorm 
 			 " lastnormpair=" lastnormpair
-			 " lastbinds=" lastbinds
 			 " lastctyp=" lastctyp)
 		  (assert_msg "check lastctyp" (is_a lastctyp class_ctype) lastctyp)
 		  (cond
@@ -7345,43 +7325,21 @@ if (1) return;
 		     (get_field :named_name lastctyp))
 		    (multicall
 		     (newexp newbinds)
-		     (autobox_normal_return lastnorm lastbinds lastctyp ncx)
+		     (autobox_normal_return lastnorm lastctyp ncx)
 		     (debug "translate_run_melt_expressions/normalextend autoboxed newexp=" newexp
 			    " newbinds=" newbinds)
 		     (pair_set_head lastnormpair newexp)
-		     (pair_set_head lastbindpair newbinds)
-		     (setq lastbinds newbinds)
 		     (setq lastnorm newexp)
 		     )))
 		  ;;
-		  (debug "translate_run_melt_expressions/normalextend lastbinds=" lastbinds "\n lastnorm=" lastnorm 
+		  (debug "translate_run_melt_expressions/normalextend lastnorm=" lastnorm 
 			 "\n lastnormpair=" lastnormpair
-			 "\n normlist=" normlist
-			 "\n bindlist=" bindlist)
-		  (if (list_first lastbinds)
-		      (let ( (nfinlet (wrap_normal_let1 lastnorm lastbinds ()))
-			     )
-			(debug "translate_run_melt_expressions/normalextend nfinlet=" nfinlet)
-			(debug "translate_run_melt_expressions/normalextend before lastnormpair=" lastnormpair
-			       "\n lastbindpair=" lastbindpair
-			       "\n normlist=" normlist
-			       "\n bindlist=" bindlist)
-			(pair_set_head lastnormpair nfinlet)
-			(pair_set_head lastbindpair ())
-			(debug "translate_run_melt_expressions/normalextend updated lastnormpair=" lastnormpair
-			       "\n lastbindpair=" lastbindpair
-			       "\n normlist=" normlist
-			       "\n bindlist=" bindlist)
-			(assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
-			(setq lastnorm nfinlet)
-			(setq lastbinds ())
-			))
+			 "\n normlist=" normlist)
 		  (set_ref refnormlist normlist)
 		  (debug "translate_run_melt_expressions/normalextend final normlist=" normlist
-			 "\n final bindlist=" bindlist
 			 "\n updated refnormlist=" refnormlist)
 		  (return)
-		  )))
+		  )))			;end normalextend
 	     )
 	(debug "translate_run_melt_expressions xlist=" xlist "\n... normalextend=" normalextend)
 	(when (or (notnull !referr) (>i (melt_error_counter) starterrcount))
@@ -7465,30 +7423,30 @@ if (1) return;
 	 (modnam (get_field :mocx_modulename parmodctx))
 	 )
     (code_chunk numchk #{/* melt_translate_run_macroexpansions_list $NUMCHK */ 
-                char basbuf_$NUMCHK[64] ;
-                long num_$NUMCHK = 0 ;
-                memset (basbuf_$NUMCHK, 0, sizeof(basbuf_$NUMCHK)) ;
-                melt_count_runtime_extensions++ ;
-                num_$NUMCHK = melt_count_runtime_extensions ;
-                if (melt_count_runtime_extensions
-                    > MELT_MAX_RUNTIME_EXTENSIONS)
-                melt_fatal_error ("too many %ld MELT runtime extensions for macroexpansion",
-                                  num_$NUMCHK) ;
-                /* In melt_translate_run_macroexpansions_list $NUMCHK using getpid to 
-                ensure unicity of generated naked base name */
-                if (melt_flag_bootstrapping && melt_magic_discr($MODNAM) == MELTOBMAG_STRING)
-                  snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-                                          "melt_%s_macro%05lx",
-                                          melt_string_str($MODNAM), num_$NUMCHK) ;
-                else
-                  snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-                                          "melt_p%d_macro%05lx", 
-                                          (int)getpid(), num_$NUMCHK) ;
-                $NAKEDBASNAM =
-		   meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
-					      basbuf_$NUMCHK, -1) ;
-	   /* end melt_translate_run_macroexpansions_list $NUMCHK */ 
-                }#)
+         char basbuf_$NUMCHK[64] ;
+         long num_$NUMCHK = 0 ;
+         memset (basbuf_$NUMCHK, 0, sizeof(basbuf_$NUMCHK)) ;
+         melt_count_runtime_extensions++ ;
+         num_$NUMCHK = melt_count_runtime_extensions ;
+         if (melt_count_runtime_extensions
+             > MELT_MAX_RUNTIME_EXTENSIONS)
+           melt_fatal_error ("too many %ld MELT runtime extensions for macroexpansion",
+                             num_$NUMCHK) ;
+         /* In melt_translate_run_macroexpansions_list $NUMCHK using getpid to 
+         ensure unicity of generated naked base name */
+         if (melt_flag_bootstrapping && melt_magic_discr($MODNAM) == MELTOBMAG_STRING)
+           snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
+                                   "melt_%s_macro%05lx",
+                                   melt_string_str($MODNAM), num_$NUMCHK) ;
+         else
+           snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
+                                   "melt_p%d_macro%05lx", 
+                                   (int)getpid(), num_$NUMCHK) ;
+         $NAKEDBASNAM =
+           meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
+                                    basbuf_$NUMCHK, -1) ;
+         /* end melt_translate_run_macroexpansions_list $NUMCHK */ 
+         }#)
     (debug "melt_translate_run_macroexpansions_list nakedbasnam=" nakedbasnam " num=" num 
 	   " starterrcount=" starterrcount)
     (let (
@@ -7540,55 +7498,7 @@ if (1) return;
 	  (ncx 
 	   (create_normal_extending_context newmodctx env))
 	  (:long lenxlist (list_length lismexp))
-	  ;; normalextend should ensure that the last normal gives a value
-	  (normalextend 
-	   (lambda (normlist bindlist modctx ncx inienv)
-	     (debug "melt_translate_run_macroexpansions_list/normalextend normlist=" normlist
-		    "\n bindlist=" bindlist
-		    "\n old !refnormlist=" !refnormlist
-		    "\n ncx=" ncx)
-	     (assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
-	     (shortbacktrace_dbg "melt_translate_run_macroexpansions_list/normalextend" 13)
-	     (assert_msg "check null !refnormlist" (null !refnormlist) refnormlist)
-	     (let ( (lastnormpair (list_last normlist))
-		    (lastbindpair (list_last bindlist))
-		    (lastnorm (list_last_element normlist))
-		    (lastbinds (list_last_element bindlist))
-		    (lastctyp (get_ctype lastnorm inienv))
-		    )
-	       (debug "melt_translate_run_macroexpansions_list//normalextend lastnorm=" lastnorm 
-		      " lastnormpair=" lastnormpair
-		      " lastbinds=" lastbinds
-		      " lastctyp=" lastctyp)
-	       (assert_msg "check lastctyp" (is_a lastctyp class_ctype) lastctyp)
-;;;;
-	       (debug "melt_translate_run_macroexpansions_list/normalextend lastbinds=" lastbinds "\n lastnorm=" lastnorm 
-		      "\n lastnormpair=" lastnormpair
-		      "\n normlist=" normlist
-		      "\n bindlist=" bindlist)
-	       (if (list_first lastbinds)
-		   (let ( (nfinlet (wrap_normal_let1 lastnorm lastbinds ()))
-			  )
-		     (debug "melt_translate_run_macroexpansions_list/normalextend nfinlet=" nfinlet)
-		     (debug "melt_translate_run_macroexpansions_list/normalextend before lastnormpair=" lastnormpair
-			    "\n lastbindpair=" lastbindpair
-			    "\n normlist=" normlist
-			    "\n bindlist=" bindlist)
-		     (pair_set_head lastnormpair nfinlet)
-		     (pair_set_head lastbindpair ())
-		     (debug "melt_translate_run_macroexpansions_list/normalextend updated lastnormpair=" lastnormpair
-			    "\n lastbindpair=" lastbindpair
-			    "\n normlist=" normlist
-			    "\n bindlist=" bindlist)
-		     (assert_msg "check bindlist != normlist" (!= bindlist normlist) bindlist)
-		     (setq lastnorm nfinlet)
-		     (setq lastbinds ())
-		     ))
-	       (set_ref refnormlist normlist)
-	       (debug "melt_translate_run_macroexpansions_list/normalextend final normlist=" normlist
-		      "\n final bindlist=" bindlist)
-	       (return)
-	       )))
+	  
 	  )
       (debug "melt_translate_run_macroexpansions_list here lismexp=" lismexp)
       (let ( (basename (make_string_tempname_suffixed discr_string nakedbasnam "_eXt"))
@@ -7597,7 +7507,7 @@ if (1) return;
 	       "\n.. refnormlist=" refnormlist)
 	;; translate to C code
 	(translate_macroexpanded_list lismexp basename newmodctx ncx env 
-				      normalextend compile2obj_initextendproc)
+				      () compile2obj_initextendproc)
 	(debug "melt_translate_run_macroexpansions_list after translation"
 	       " refnormlist=" refnormlist
 	       " to nakedbasnam=" nakedbasnam)

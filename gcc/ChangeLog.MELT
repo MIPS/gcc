@@ -1,6 +1,19 @@
 
 
 2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): Remove,
+	since replaced by ...
+	(give_normalized_macroexpanded_list): New function, with slightly
+	different role and interface than old
+	normalize_macroexpanded_list, in particular no side effects on the
+	initial procedure's toplevel list.
+	(translate_macroexpanded_list): Use above function.
+	(autobox_normal_return): Change the interface.
+	(translate_run_melt_expressions): Simplified its normalextend internal function.
+	(melt_translate_run_macroexpansions_list): Remove its normalextend
+	internal function.
+
+2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.c (meltgc_run_cc_extension): Better location for
 	MELT_LOCATION_HERE_PRINTF.
