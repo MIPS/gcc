@@ -4982,7 +4982,7 @@ source location.}#
 	    (debug "normexp_defun_defmacro strange sfubind=" sfubind)
 	    (assert_msg "bad sfubind" () sfubind)))
      (debug "normexp_defun_defmacro return nproc=" nproc)
-     (return nproc ())
+     (return ndataclos ())
      )
     ))
 (install_method class_source_defun normal_exp normexp_defun_defmacro)
@@ -4998,20 +4998,16 @@ source location.}#
 	 (sdefmacro (unsafe_get_field :smacinst_defmacro recv))
 	 )
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
-    (let ( (nmacproc (normexp_defun_defmacro sdefmacro env ncx psloc))
+    (let ( (nclos (normexp_defun_defmacro sdefmacro env ncx psloc))
 	   (mbind (get_field :smacro_binding sdefmacro))
 	   (modctx (get_field :nctx_modulcontext ncx))
 	   (msymb (get_field :binder mbind))
 	   )
-      (debug "normexp_macro_installation nmacproc=" nmacproc " mbind=" mbind)
+      (debug "normexp_macro_installation nclos=" nclos "\n.. mbind=" mbind)
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
-      (assert_msg "check nmacproc" (is_a nmacproc class_nrep_defunroutproc) nmacproc)
+      (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos)
       (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
       (let ( 
-	    (nclos (let ( (nc (get_field :nrpro_dataclos nmacproc)) )
-			(debug "normexp_macro_installation nclos=" nc)
-			(assert_msg "check nclos" (is_a nc class_nrep_dataclosure) nc)
-			nc))
 	    (nlitsym (clone_symbol msymb))
 	    (nlitbind (let ( (nli (register_literal_value mbind modctx)) )
 			(debug "normexp_macro_installation nlitbind=" nli)
@@ -7678,38 +7674,38 @@ source location.}#
       (put_env env bindins)
       (put_fields bindins :fixbind_data insdata)
       ;; scan the fields initialization
-      (multiple_every
-       sinstfields
-       (lambda (flda :long ix)
-	 (debug "normexp_definstance flda" flda)
-	 (assert_msg "check flda" (is_a flda class_source_fieldassign) flda)
-	 (let ( (curfld (unsafe_get_field :sfla_field flda))
-		(curexp (unsafe_get_field :sfla_expr flda))
-		(:long curoff (obj_num curfld))
-		)
-	   (assert_msg "check curfld" (is_a curfld class_field) curfld)
-	   (if (!= (multiple_nth (unsafe_get_field :class_fields sinstclass) curoff) 
-			   curfld)
-	       (progn
-		 (error_strv sloc
-			     "inappropriate field in DEFINSTANCE"
-			     (get_field :named_name curfld)
-			     )
-		 (return)))
-	   (debug "normexp_definstance field curexp" curexp)
-	   (multicall
-	    (ncur nbindcur)
-	    (normal_exp curexp env ncx sloc)
-	    (debug "normexp_definstance field ncur=" ncur " nbindcur=" nbindcur)
-	    (if (!= (get_ctype ncur env) ctype_value)
-		(error_strv sloc
-			    "field in DEFINSTANCE don't get a value"
-			    (get_field :named_name curfld)))
-	    (multiple_put_nth slotup curoff ncur)
-	    (if (is_list nbindcur)
-		(let ( (thebindlist (deref nbindcont)))
-		  (setq thebindlist (list_append2list thebindlist nbindcur))
-		  (set_ref nbindcont thebindlist)))))))
+      (foreach_in_multiple
+       (sinstfields)
+       (flda :long ix)
+       (debug "normexp_definstance flda" flda)
+       (assert_msg "check flda" (is_a flda class_source_fieldassign) flda)
+       (let ( (curfld (unsafe_get_field :sfla_field flda))
+	      (curexp (unsafe_get_field :sfla_expr flda))
+	      (:long curoff (obj_num curfld))
+	      )
+	 (assert_msg "check curfld" (is_a curfld class_field) curfld)
+	 (if (!= (multiple_nth (unsafe_get_field :class_fields sinstclass) curoff) 
+		 curfld)
+	     (progn
+	       (error_strv sloc
+			   "inappropriate field in DEFINSTANCE"
+			   (get_field :named_name curfld)
+			   )
+	       (return)))
+	 (debug "normexp_definstance field curexp" curexp)
+	 (multicall
+	  (ncur nbindcur)
+	  (normal_exp curexp env ncx sloc)
+	  (debug "normexp_definstance field ncur=" ncur " nbindcur=" nbindcur)
+	  (if (!= (get_ctype ncur env) ctype_value)
+	      (error_strv sloc
+			  "field in DEFINSTANCE don't get a value"
+			  (get_field :named_name curfld)))
+	  (multiple_put_nth slotup curoff ncur)
+	  (if (is_list nbindcur)
+	      (let ( (thebindlist (deref nbindcont)))
+		(setq thebindlist (list_append2list thebindlist nbindcur))
+		(set_ref nbindcont thebindlist))))))
 ;;; put the binding into the data
       (let ( (thebindlist (deref nbindcont)) 
 	     (nbindtup (list_to_multiple thebindlist discr_multiple))
@@ -7921,7 +7917,7 @@ source location.}#
 					   :ndata_name sname
 					   :ndata_discrx (normal_predef discr_multiple ncx sloc "discr_multiple")
 					   :ntup_comp nformaltuple))
-			      )
+			       )
 			  (fill_normal_formals sformals nformaltuple formsymbmap env ncx sloc)
 			  (add_nctx_data ncx nformdata)   
 			  (fill_data_slot insdata  sdefsel_formals nformdata)
@@ -7932,26 +7928,26 @@ source location.}#
       (add_nctx_data ncx namstrdata)
       (put_fields bindsel :fixbind_data insdata)
       ;; scan the fields initialization
-      (multiple_every
-       sinstfields
-       (lambda (flda :long ix)
-	 (assert_msg "check flda" (is_a flda class_source_fieldassign) flda)
-	 (let ( (curfld (unsafe_get_field :sfla_field flda))
-		(curexp (unsafe_get_field :sfla_expr flda))
-		(:long curoff (obj_num curfld))
-		)
-	   (assert_msg "check curfld" (is_a curfld class_field) curfld)
-	   (assert_msg "good curfld"
-		       (== (multiple_nth (unsafe_get_field :class_fields sinstclass) curoff) 
-			   curfld) curoff curfld)  
-	   (multicall
-	    (ncur nbindcur)
-	    (normal_exp curexp env ncx sloc)
-	    (multiple_put_nth slotup curoff ncur)
-	    (if (is_list nbindcur)
-		(let ( (thebindlist (deref nbindcont)))
-		  (setq thebindlist (list_append2list thebindlist nbindcur))
-		  (set_ref nbindcont thebindlist)))))))
+      (foreach_in_multiple
+       (sinstfields)
+       (flda :long ix)
+       (assert_msg "check flda" (is_a flda class_source_fieldassign) flda)
+       (let ( (curfld (unsafe_get_field :sfla_field flda))
+	      (curexp (unsafe_get_field :sfla_expr flda))
+	      (:long curoff (obj_num curfld))
+	      )
+	 (assert_msg "check curfld" (is_a curfld class_field) curfld)
+	 (assert_msg "good curfld"
+		     (== (multiple_nth (unsafe_get_field :class_fields sinstclass) curoff) 
+			 curfld) curoff curfld)  
+	 (multicall
+	  (ncur nbindcur)
+	  (normal_exp curexp env ncx sloc)
+	  (multiple_put_nth slotup curoff ncur)
+	  (if (is_list nbindcur)
+	      (let ( (thebindlist (deref nbindcont)))
+		(setq thebindlist (list_append2list thebindlist nbindcur))
+		(set_ref nbindcont thebindlist))))))
 ;;; put the binding into the data
       (let ( (thebindlist (deref nbindcont)) 
 	     (nbindtup (list_to_multiple thebindlist discr_multiple))

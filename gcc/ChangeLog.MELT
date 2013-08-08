@@ -1,6 +1,13 @@
 
 2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{tmacro-1.melt test still fails}}
+	* melt/warmelt-normal.melt (normexp_defun_defmacro): Return the closure data.
+	(normexp_macro_installation): Use it.
+	(normexp_definstance, normexp_defselector): Use a foreach_in_multiple loop.
+
+2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
