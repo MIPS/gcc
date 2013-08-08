@@ -24,6 +24,7 @@ case "${target}" in
 	VTV_SUPPORTED=yes
 	;;
   powerpc*-*-linux*)
+	UNSUPPORTED=1
 	;;
   sparc*-*-linux*)
 	;;
