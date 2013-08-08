@@ -7530,8 +7530,7 @@ if (1) return;
 	  (foreach_in_list
 	   (litvalist)
 	   (curpair curlitval)
-	   (debug "melt_translate_run_macroexpansions_list  ix=" ix 
-		  " curlitval=" curlitval)
+	   (debug "melt_translate_run_macroexpansions_list ix#" ix " curlitval=" curlitval)
 	   (when curlitval
 	     (assert_msg "check curlitval" (is_a curlitval class_literal_value) curlitval)
 	     (let ( (val (get_field :litv_value curlitval))

@@ -1,6 +1,13 @@
 
 
 2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tmacro-1.melt test fails}}
+	* melt/warmelt-macro.melt (melt_translate_run_macroexpansions_list): Better debug.
+	* melt/warmelt-outobj.melt
+	(melt_translate_run_macroexpansions_list): Improve debug.
+
+2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{simple eval works again. gendoc mode & tmacro-1.melt test still failing}}
 	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): Remove,
 	since replaced by ...
 	(give_normalized_macroexpanded_list): New function, with slightly
