@@ -51,7 +51,7 @@
    (let ( (:long dbgcounter 0)
 	  (stderrf (get_field :sysdata_stderr initial_system_data)) 
 	  (occmap (make_mapobject discr_map_objects 50))
-	  (boxedmaxdepth (make_integerbox discr_integer (debug_depth))) ;;;; @@@ DEBUGDEPTH
+	  (boxedmaxdepth (constant_box (+i 2 (debug_depth)))) ;;;; @@@ DEBUGDEPTH
 	  (dbgi (instance class_debug_information
 			  :dbgi_out stderrf
 			  :dbgi_occmap occmap

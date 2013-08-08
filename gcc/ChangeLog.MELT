@@ -1,4 +1,15 @@
 
+2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (assert_msg): Update comment and
+	documentation...
+
+	* melt/warmelt-hooks.melt (hook_low_stderr_value_at): Increase the
+	maxdepth.
+
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list):
+	Probably still buggy but slightly improved.
+
 2013-08-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerated but unstable}}

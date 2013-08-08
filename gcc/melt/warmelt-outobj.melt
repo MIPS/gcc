@@ -6047,20 +6047,20 @@ if (1) return;
 	)
     (debug "normalize_macroexpanded_list ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc "\n.. ntopl=" ntopl)
     (code_chunk startmodnam
-		#{ /* normalize_macroexpanded_list $STARTMODNAM */
-		#if HAVE_CLOCK
-		$STARTCLOCK = (long) clock () ;
-		#endif /*HAVE_CLOCK */
-		#if MELT_HAVE_DEBUG
-		inform  (UNKNOWN_LOCATION, 
-			 "MELT [#%ld] generating C++ code of module %s", 
-			 melt_dbgcounter, melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
-		#else
-		inform  (UNKNOWN_LOCATION, 
-			 "MELT generating C++ code of module %s", 
-			 melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
-		#endif /* MELT_HAVE_DEBUG */
-		}#)
+  #{ /* normalize_macroexpanded_list $STARTMODNAM */
+  #if HAVE_CLOCK
+  $STARTCLOCK = (long) clock () ;
+  #endif /*HAVE_CLOCK */
+  #if MELT_HAVE_DEBUG
+  inform  (UNKNOWN_LOCATION, 
+           "MELT [#%ld] generating C++ code of module %s", 
+           melt_dbgcounter, melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
+  #else
+  inform  (UNKNOWN_LOCATION, 
+           "MELT generating C++ code of module %s", 
+           melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
+  #endif /* MELT_HAVE_DEBUG */
+  }#)
     ;; special hack to copy the first comment before anything else,
     ;; practically useful to make the copyright comment appear really
     ;; early in generated declaration buffer.
@@ -6091,48 +6091,63 @@ if (1) return;
 	(nexp nbind)
 	(normal_exp sexp inienv ncx psloc) ;;; inienv is probably wrong here	    
 	(debug "normalize_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind)
-	;; strangely needed for bootstrapping ;;;
-	(when (and (is_a nexp class_nrep)
-	(is_not_a nexp class_nrep_anyproc))
-	(debug "normalize_macroexpanded_list strange nexp=" nexp)
-	(let ( (wnexp (wrap_normal_let1 nexp nbind psloc)) )
-	(debug "normalize_macroexpanded_list wnexp=" wnexp)
-	(list_append ntopl wnexp)
-	(debug "normalize_macroexpanded_list updated ntopl=" ntopl)
+	(assert_msg "check nbind" (is_list_or_null nbind) nbind)
+	(let ( (newnexp nexp)
+	       (newnbind nbind)
+	       )
+	  ;; letwrap when relevant
+	  (when (and (is_not_a nexp class_nrep_anyproc)
+		     (list_first_element nbind))
+	    (debug "normalize_macroexpanded_list should wrap nexp=" nexp "\n.. nbind=" nbind)
+	    ;; check the nbind
+	    (cppif MELT_HAVE_DEBUG
+		   (foreach_in_list
+		    (nbind)
+		    (curpair curbind)
+		    (assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind)))
+	    ;;
+	    (setq newnbind ())
+	    (setq newnexp (wrap_normal_let1 nexp nbind psloc))
+	    (list_append ntopl newnexp)	;@!@ WHY do I need this... Don't bootstrap without!
+	    (debug "normalize_macroexpanded_list update newnexp=" newnexp)
+	    )
+	  ;;
+	  (cond ( (is_list newnexp)
+		  (list_append2list normlist newnexp))
+		( (is_multiple newnexp)
+		  (foreach_in_multiple
+		   (newnexp)
+		   (curcomp :long cix)
+		   (list_append normlist curcomp)))
+		(:else
+		 (list_append normlist newnexp)))
+;;;
+	  (cond 
+	   ( (null newnbind)
+	     (void))
+	   ( (is_list newnbind)
+	     (list_append2list bindlist newnbind))
+	   ( (is_multiple newnbind)
+	     (foreach_in_multiple
+	      (newnbind)
+	      (curbind :long bix)
+	      (assert_msg "check curbind" (is_a curbind class_any_binding) curbind)
+	      (list_append bindlist curbind)))
+	   (:else
+	    (assert_msg "check newnbind" (is_a newnbind class_any_binding) nbind)
+	    (list_append bindlist newnbind))
+	   )
+	  )
 	))
-	;;
-	(cond ( (is_list nexp)
-		(list_append2list normlist nexp))
-	      ( (is_multiple nexp)
-		(foreach_in_multiple
-		 (nexp)
-		 (curcomp :long cix)
-		 (list_append normlist curcomp)))
-	      (:else
-	       (list_append normlist nexp)))
-	;;;
-	(cond 
-	 ( (null nbind)
-	   (void))
-	 ( (is_list nbind)
-	   (list_append2list bindlist nbind))
-	 ( (is_multiple nbind)
-	   (foreach_in_multiple
-	    (nbind)
-	    (curbind :long bix)
-	    (assert_msg "check curbind" (is_a curbind class_any_binding) curbind)
-	    (list_append bindlist curbind)))
-	 (:else
-	  (assert_msg "check nbind" (is_a nbind class_any_binding) nbind)
-	  (list_append bindlist nbind)))
-	)))
+     )
     ;;
     (assert_msg "check iniproc" (is_a iniproc class_nrep_initproc) iniproc)
+    (cppif MELT_HAVE_DEBUG
+	   (foreach_in_list
+	    (bindlist)
+	    (curpair curbind)
+	    (assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind)))
     ;;
-    (foreach_in_list
-     (bindlist)
-     (curpair curbind)
-     (assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind))
     ;;
     ;;
     (debug "normalize_macroexpanded_list gives normlist=" normlist
@@ -6140,6 +6155,8 @@ if (1) return;
 	   "\n startclock=" startclock)
     (return normlist bindlist startclock)
     ))
+
+
 
 
 ;;; utility function to output the hook C procedures for hook with module variables

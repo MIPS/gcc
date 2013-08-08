@@ -7641,7 +7641,7 @@ $COMMA It is often noted with a prefix comma-character
 ;;; assert_msg macro is expanded into other src..
 ;;;;;; (assert_msg msg check ...)
 ;;; becomes
-;;;;;; (cppif ENABLE_CHECKING (if check (melt_assert_failure_fun () msg filename lineno ...)) ())
+;;;;;; (cppif MELT_HAVE_DEBUG (if check (melt_assert_failure_fun () msg filename lineno ...)) ())
 ;;; where melt_assert_failure_fun is a function.
 
 (defun mexpand_assert_msg (sexpr env mexpander modctx)
@@ -7730,9 +7730,9 @@ $COMMA It is often noted with a prefix comma-character
 (install_initial_macro 'assert_msg mexpand_assert_msg)
 (export_macro assert_msg mexpand_assert_msg
 	      :doc #{$ASSERT_MSG macro with a message cstring and an
-	      optional condition. Generates an assertion -if checking
-	      is enabled- and also issues a compile warning if
-	      condition is missing so false.}#)
+	      optional condition. Generates an assertion -if
+	      MELT_HAVE_DEBUG enabled- and also issues a compile
+	      warning if condition is missing so false.}#)
 
 
 
