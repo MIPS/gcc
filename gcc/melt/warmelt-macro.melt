@@ -3268,8 +3268,8 @@ of ctype @code{:value}.}#)
   :doc #{The internal $HOOK_MACRO_INSTALLER is installing macro, during a translation}#
   (debug "hook_macro_installer mbind=" mbind " mexpclos=" mexpclos)
   (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
-  (assert_msg "check mexpclos" (is_closure mexpclos) mexpclos)
-  (unsafe_put_fields mbind :mbind_expanser mexpclos)
+  (assert_msg "check mexpclos" (is_closure mexpclos) mexpclos mbind)
+  (put_fields mbind :mbind_expanser mexpclos)
   (debug "hook_macro_installer updated mbind=" mbind)
   )
 

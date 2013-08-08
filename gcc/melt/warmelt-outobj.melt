@@ -6091,7 +6091,14 @@ if (1) return;
 	(nexp nbind)
 	(normal_exp sexp inienv ncx psloc) ;;; inienv is probably wrong here	    
 	(debug "normalize_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind)
+	;; check the nbind and its elements
 	(assert_msg "check nbind" (is_list_or_null nbind) nbind)
+	(cppif MELT_HAVE_DEBUG
+	       (foreach_in_list
+		(nbind)
+		(curpair curbind)
+		(assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind)))
+	;;
 	(let ( (newnexp nexp)
 	       (newnbind nbind)
 	       )
@@ -6099,18 +6106,14 @@ if (1) return;
 	  (when (and (is_not_a nexp class_nrep_anyproc)
 		     (list_first_element nbind))
 	    (debug "normalize_macroexpanded_list should wrap nexp=" nexp "\n.. nbind=" nbind)
-	    ;; check the nbind
-	    (cppif MELT_HAVE_DEBUG
-		   (foreach_in_list
-		    (nbind)
-		    (curpair curbind)
-		    (assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind)))
 	    ;;
 	    (setq newnbind ())
 	    (setq newnexp (wrap_normal_let1 nexp nbind psloc))
-	    (list_append ntopl newnexp)	;@!@ WHY do I need this... Don't bootstrap without!
 	    (debug "normalize_macroexpanded_list update newnexp=" newnexp)
+	    (list_append ntopl newnexp);@!@ WHY do I need this... Don't bootstrap without!
 	    )
+	  
+;; the issue is probably that we both return a value and update ntopl
 	  ;;
 	  (cond ( (is_list newnexp)
 		  (list_append2list normlist newnexp))
@@ -7486,11 +7489,13 @@ if (1) return;
 					      basbuf_$NUMCHK, -1) ;
 	   /* end melt_translate_run_macroexpansions_list $NUMCHK */ 
                 }#)
-    (debug "melt_translate_run_macroexpansions_list nakedbasnam=" nakedbasnam " num=" num " starterrcount=" starterrcount)
+    (debug "melt_translate_run_macroexpansions_list nakedbasnam=" nakedbasnam " num=" num 
+	   " starterrcount=" starterrcount)
     (let (
 	  (runerrorhdlr 
 	   (lambda (v)
-	     (debug "macrorunerrorhdlr v=" v)
+	     (debug "melt_translate_run_macroexpansions_list/macrorunerrorhdlr v=" v)
+	     (shortbacktrace_dbg "melt_translate_run_macroexpansions_list/macrorunerrorhdlr" 14)
 	     (cond 
 	      ((is_string v)
 	       (code_chunk warnrunstr_chk
@@ -7589,7 +7594,7 @@ if (1) return;
       (let ( (basename (make_string_tempname_suffixed discr_string nakedbasnam "_eXt"))
 	     )
 	(debug "melt_translate_run_macroexpansions_list basename=" basename 
-	       " refnormlist=" refnormlist)
+	       "\n.. refnormlist=" refnormlist)
 	;; translate to C code
 	(translate_macroexpanded_list lismexp basename newmodctx ncx env 
 				      normalextend compile2obj_initextendproc)

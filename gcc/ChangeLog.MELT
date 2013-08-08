@@ -2,6 +2,18 @@
 
 2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.c (meltgc_run_cc_extension): Better location for
+	MELT_LOCATION_HERE_PRINTF.
+
+	* melt/warmelt-macro.melt (hook_macro_installer): Improve asserts.
+
+	* melt/warmelt-outobj.melt (normalize_macroexpanded_list): Improve
+	check of nbinds.  Actually, the normalize_macroexpanded_list
+	function both fills the ninit_topl and return a value, and doing
+	both is wrong.
+
+2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate but unstable}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

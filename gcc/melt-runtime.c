@@ -9321,10 +9321,10 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
   debugeprintf ("meltgc_run_cc_extension envrefv@%p", (void*)envrefv);
   {
 #if MELT_HAVE_DEBUG
-    char locbuf[80];
+    char locbuf[96];
     memset (locbuf,0,sizeof(locbuf));
     MELT_LOCATION_HERE_PRINTF (locbuf, 
-			       "run-c-ext.. basename %s", basenamebuf);
+			       "run-cc-extension %s", melt_basename (basenamebuf));
 #endif
     debugeprintf ("meltgc_run_cc_extension before calling dynr_melt_start_run_extension@%p", (void*) dynr_melt_start_run_extension);
     resv = (*dynr_melt_start_run_extension) ((melt_ptr_t)envrefv,
