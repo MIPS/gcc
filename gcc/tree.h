@@ -6518,6 +6518,9 @@ is_lang_specific (tree t)
 /* In gimple-low.c.  */
 extern bool block_may_fallthru (const_tree);
 
+/* In vtable-verify.c.  */
+extern void save_vtable_map_decl (tree);
+
 
 /* Functional interface to the builtin functions.  */
 
@@ -6608,6 +6611,27 @@ builtin_decl_implicit_p (enum built_in_function fncode)
 	  && builtin_info.implicit_p[uns_fncode]);
 }
 
+/* For anonymous aggregate types, we need some sort of name to
+   hold on to.  In practice, this should not appear, but it should
+   not be harmful if it does.  */
+#ifndef NO_DOT_IN_LABEL
+#define ANON_AGGRNAME_FORMAT "._%d"
+#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '.' \
+				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
+#else /* NO_DOT_IN_LABEL */
+#ifndef NO_DOLLAR_IN_LABEL
+#define ANON_AGGRNAME_FORMAT "$_%d"
+#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '$' \
+				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
+#else /* NO_DOLLAR_IN_LABEL */
+#define ANON_AGGRNAME_PREFIX "__anon_"
+#define ANON_AGGRNAME_P(ID_NODE) \
+  (!strncmp (IDENTIFIER_POINTER (ID_NODE), ANON_AGGRNAME_PREFIX, \
+	     sizeof (ANON_AGGRNAME_PREFIX) - 1))
+#define ANON_AGGRNAME_FORMAT "__anon_%d"
+#endif	/* NO_DOLLAR_IN_LABEL */
+#endif	/* NO_DOT_IN_LABEL */
+
 /* In tree-mpx.c.  */
 
 extern rtx mpx_get_rtl_bounds (tree node);
@@ -6630,27 +6654,5 @@ extern tree mpx_build_bndstx_call (tree addr, tree ptr, tree bounds);
 extern void mpx_expand_bounds_reset_for_mem (tree mem, tree ptr);
 extern void mpx_put_regs_to_expr_list (rtx par);
 extern void mpx_fix_cfg ();
-
-/* For anonymous aggregate types, we need some sort of name to
-   hold on to.  In practice, this should not appear, but it should
-   not be harmful if it does.  */
-#ifndef NO_DOT_IN_LABEL
-#define ANON_AGGRNAME_FORMAT "._%d"
-#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '.' \
-				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
-#else /* NO_DOT_IN_LABEL */
-#ifndef NO_DOLLAR_IN_LABEL
-#define ANON_AGGRNAME_FORMAT "$_%d"
-#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '$' \
-				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
-#else /* NO_DOLLAR_IN_LABEL */
-#define ANON_AGGRNAME_PREFIX "__anon_"
-#define ANON_AGGRNAME_P(ID_NODE) \
-  (!strncmp (IDENTIFIER_POINTER (ID_NODE), ANON_AGGRNAME_PREFIX, \
-	     sizeof (ANON_AGGRNAME_PREFIX) - 1))
-#define ANON_AGGRNAME_FORMAT "__anon_%d"
-#endif	/* NO_DOLLAR_IN_LABEL */
-#endif	/* NO_DOT_IN_LABEL */
-
 
 #endif  /* GCC_TREE_H  */

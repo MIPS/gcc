@@ -5504,46 +5504,80 @@ mpxopt_gate (void)
 			   || (flag_mpxopt == -1 && optimize > 0));
 }
 
-struct gimple_opt_pass pass_mpxopt =
+namespace {
+
+const pass_data pass_data_mpxopt =
 {
- {
-  GIMPLE_PASS,
-  "mpxopt",                             /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  mpxopt_gate,                          /* gate */
-  mpxopt_execute,                       /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  PROP_ssa | PROP_cfg,                  /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  GIMPLE_PASS, /* type */
+  "mpxopt", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* gate */
+  true, /* execute */
+  TV_NONE, /* tv_id */
+  PROP_ssa | PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
   TODO_verify_flow | TODO_verify_stmts
-  | TODO_update_ssa                     /* todo_flags_finish */
- }
+  | TODO_update_ssa /* todo_flags_finish */
 };
 
-struct gimple_opt_pass pass_mpx =
+const pass_data pass_data_mpx =
 {
- {
-  GIMPLE_PASS,
-  "mpx",                                 /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  mpx_gate,                              /* gate */
-  mpx_execute,                           /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  PROP_ssa | PROP_cfg,                  /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
+  GIMPLE_PASS, /* type */
+  "mpx", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* gate */
+  true, /* execute */
+  TV_NONE, /* tv_id */
+  PROP_ssa | PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
   TODO_verify_flow | TODO_verify_stmts
-  | TODO_update_ssa                     /* todo_flags_finish */
- }
+  | TODO_update_ssa /* todo_flags_finish */
 };
+
+class pass_mpx : public gimple_opt_pass
+{
+public:
+  pass_mpx (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_mpx, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_mpx (ctxt_); }
+  bool gate () { return mpx_gate (); }
+  unsigned int execute () { return mpx_execute (); }
+
+}; // class pass_mpx
+
+class pass_mpxopt : public gimple_opt_pass
+{
+public:
+  pass_mpxopt (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_mpxopt, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_mpxopt (ctxt_); }
+  bool gate () { return mpxopt_gate (); }
+  unsigned int execute () { return mpxopt_execute (); }
+
+}; // class pass_mpxopt
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_mpx (gcc::context *ctxt)
+{
+  return new pass_mpx (ctxt);
+}
+
+gimple_opt_pass *
+make_pass_mpxopt (gcc::context *ctxt)
+{
+  return new pass_mpxopt (ctxt);
+}
 
 #include "gt-tree-mpx.h"
