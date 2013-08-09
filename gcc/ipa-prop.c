@@ -131,11 +131,13 @@ ipa_populate_param_decls (struct cgraph_node *node,
   int param_num;
 
   fndecl = node->symbol.decl;
+  gcc_assert (gimple_has_body_p (fndecl));
   fnargs = DECL_ARGUMENTS (fndecl);
   param_num = 0;
   for (parm = fnargs; parm; parm = DECL_CHAIN (parm))
     {
       descriptors[param_num].decl = parm;
+      descriptors[param_num].move_cost = estimate_move_cost (TREE_TYPE (parm));
       param_num++;
     }
 }
@@ -147,11 +149,39 @@ count_formal_params (tree fndecl)
 {
   tree parm;
   int count = 0;
+  gcc_assert (gimple_has_body_p (fndecl));
 
   for (parm = DECL_ARGUMENTS (fndecl); parm; parm = DECL_CHAIN (parm))
     count++;
 
   return count;
+}
+
+/* Return the declaration of Ith formal parameter of the function corresponding
+   to INFO.  Note there is no setter function as this array is built just once
+   using ipa_initialize_node_params. */
+
+void
+ipa_dump_param (FILE *file, struct ipa_node_params *info, int i)
+{
+  fprintf (file, "param #%i", i);
+  if (info->descriptors[i].decl)
+    {
+      fprintf (file, " ");
+      print_generic_expr (file, info->descriptors[i].decl, 0);
+    }
+}
+
+/* Initialize the ipa_node_params structure associated with NODE 
+   to hold PARAM_COUNT parameters.  */
+
+void
+ipa_alloc_node_params (struct cgraph_node *node, int param_count)
+{
+  struct ipa_node_params *info = IPA_NODE_REF (node);
+
+  if (!info->descriptors.exists () && param_count)
+    info->descriptors.safe_grow_cleared (param_count);
 }
 
 /* Initialize the ipa_node_params structure associated with NODE by counting
@@ -165,14 +195,8 @@ ipa_initialize_node_params (struct cgraph_node *node)
 
   if (!info->descriptors.exists ())
     {
-      int param_count;
-
-      param_count = count_formal_params (node->symbol.decl);
-      if (param_count)
-	{
-	  info->descriptors.safe_grow_cleared (param_count);
-	  ipa_populate_param_decls (node, info->descriptors);
-	}
+      ipa_alloc_node_params (node, count_formal_params (node->symbol.decl));
+      ipa_populate_param_decls (node, info->descriptors);
     }
 }
 
@@ -683,7 +707,7 @@ mark_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef ATTRIBUTE_UNUSED,
   return true;
 }
 
-/* Return true if a load from a formal parameter PARM_LOAD is known to retreive
+/* Return true if a load from a formal parameter PARM_LOAD is known to retrieve
    a value known not to be modified in this function before reaching the
    statement STMT.  PARM_AINFO is a pointer to a structure containing temporary
    information about the parameter.  */
@@ -3067,6 +3091,7 @@ ipa_get_vector_of_formal_parms (tree fndecl)
   int count;
   tree parm;
 
+  gcc_assert (!flag_wpa);
   count = count_formal_params (fndecl);
   args.create (count);
   for (parm = DECL_ARGUMENTS (fndecl); parm; parm = DECL_CHAIN (parm))
@@ -3861,6 +3886,9 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
   node_ref = lto_symtab_encoder_encode (encoder, (symtab_node) node);
   streamer_write_uhwi (ob, node_ref);
 
+  streamer_write_uhwi (ob, ipa_get_param_count (info));
+  for (j = 0; j < ipa_get_param_count (info); j++)
+    streamer_write_uhwi (ob, ipa_get_param_move_cost (info, j));
   bp = bitpack_create (ob->main_stream);
   gcc_assert (info->uses_analysis_done
 	      || ipa_get_param_count (info) == 0);
@@ -3901,8 +3929,11 @@ ipa_read_node_info (struct lto_input_block *ib, struct cgraph_node *node,
   struct cgraph_edge *e;
   struct bitpack_d bp;
 
-  ipa_initialize_node_params (node);
+  ipa_alloc_node_params (node, streamer_read_uhwi (ib));
 
+  for (k = 0; k < ipa_get_param_count (info); k++)
+    info->descriptors[k].move_cost = streamer_read_uhwi (ib);
+    
   bp = streamer_read_bitpack (ib);
   if (ipa_get_param_count (info) != 0)
     info->uses_analysis_done = true;
@@ -4054,13 +4085,8 @@ ipa_prop_read_jump_functions (void)
 void
 ipa_update_after_lto_read (void)
 {
-  struct cgraph_node *node;
-
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
-
-  FOR_EACH_DEFINED_FUNCTION (node)
-    ipa_initialize_node_params (node);
 }
 
 void

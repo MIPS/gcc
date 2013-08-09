@@ -75,6 +75,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "plugin.h"
 #include "diagnostic-color.h"
+#include "context.h"
+#include "pass_manager.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -1156,7 +1158,11 @@ general_init (const char *argv0)
   /* This must be done after global_init_params but before argument
      processing.  */
   init_ggc_heuristics();
-  init_optimization_passes ();
+
+  /* Create the singleton holder for global state.
+     Doing so also creates the pass manager and with it the passes.  */
+  g = new gcc::context();
+
   statistics_early_init ();
   finish_params ();
 }
@@ -1813,7 +1819,7 @@ finalize (bool no_backend)
     {
       statistics_fini ();
 
-      finish_optimization_passes ();
+      g->get_passes ()->finish_optimization_passes ();
 
       ira_finish_once ();
     }

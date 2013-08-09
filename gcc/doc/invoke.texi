@@ -191,6 +191,8 @@ in the following sections.
 -ftemplate-depth=@var{n} @gol
 -fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
 -fno-default-inline  -fvisibility-inlines-hidden @gol
+-fvtable-verify=@var{std|preinit|none} @gol
+-fvtv-counts -fvtv-debug @gol
 -fvisibility-ms-compat @gol
 -fext-numeric-literals @gol
 -Wabi  -Wconversion-null  -Wctor-dtor-privacy @gol
@@ -318,6 +320,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+-fdump-tree-vtable-verify @gol
 -fdump-tree-vrp@r{[}-@var{n}@r{]} @gol
 -ftree-vectorizer-verbose=@var{n} @gol
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
@@ -470,7 +473,7 @@ Objective-C and Objective-C++ Dialects}.
 @c so users have a clue at guessing where the ones they want will be.
 
 @emph{AArch64 Options}
-@gccoptlist{-mbig-endian  -mlittle-endian @gol
+@gccoptlist{-mabi=@var{name}  -mbig-endian  -mlittle-endian @gol
 -mgeneral-regs-only @gol
 -mcmodel=tiny  -mcmodel=small  -mcmodel=large @gol
 -mstrict-align @gol
@@ -750,7 +753,8 @@ Objective-C and Objective-C++ Dialects}.
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
--mno-float -msingle-float  -mdouble-float  @gol
+-mno-float  -msingle-float  -mdouble-float @gol
+-mabs=@var{mode}  -mnan=@var{encoding} @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
 -meva -mno-eva @gol
@@ -2300,6 +2304,56 @@ objects are different, so changing one does not change the other;
 and that pointers to function members defined in different shared
 objects may not compare equal.  When this flag is given, it is a
 violation of the ODR to define types with the same name differently.
+
+@item -fvtable-verify=@var{std|preinit|none}
+@opindex fvtable-verify
+Turn on (or off, if using @option{-fvtable-verify=none}) the security
+feature that verifies at runtime, for every virtual call that is made, that
+the vtable pointer through which the call is made is valid for the type of
+the object, and has not been corrupted or overwritten.  If an invalid vtable
+pointer is detected (at runtime), an error is reported and execution of the
+program is immediately halted.
+
+This option causes runtime data structures to be built, at program start up,
+for verifying the vtable pointers.  The options @code{std} and @code{preinit}
+control the timing of when these data structures are built.  In both cases the
+data structures are built before execution reaches 'main'.  The
+@option{-fvtable-verify=std} causes these data structure to be built after the
+shared libraries have been loaded and initialized.
+@option{-fvtable-verify=preinit} causes them to be built before the shared
+libraries have been loaded and initialized.
+
+If this option appears multiple times in the compiler line, with different
+values specified, 'none' will take highest priority over both 'std' and
+'preinit'; 'preinit' will take priority over 'std'.
+
+@item -fvtv-debug
+@opindex (fvtv-debug)
+Causes debug versions of the runtime functions for the vtable verification 
+feature to be called.  This assumes the @option{-fvtable-verify=std} or
+@option{-fvtable-verify=preinit} has been used.  This flag will also cause the
+compiler to keep track of which vtable pointers it found for each class, and
+record that information in the file ``vtv_set_ptr_data.log'', in the dump
+file directory on the user's machine.
+
+Note:  This feature APPENDS data to the log file. If you want a fresh log
+file, be sure to delete any existing one.
+
+@item -fvtv-counts
+@opindex (fvtv-counts)
+This is a debugging flag.  When used in conjunction with
+@option{-fvtable-verify=std} or @option{-fvtable-verify=preinit}, this
+causes the compiler to keep track of the total number of virtual calls
+it encountered and the number of verifications it inserted.  It also
+counts the number of calls to certain runtime library functions
+that it inserts.  This information, for each compilation unit, is written
+to a file named ``vtv_count_data.log'', in the dump_file directory on
+the user's machine.   It also counts the size of the vtable pointer sets
+for each class, and writes this information to ``vtv_class_set_sizes.log''
+in the same directory.
+
+Note:  This feature APPENDS data to the log files.  To get a fresh log
+files, be sure to delete any existing ones.
 
 @item -fno-weak
 @opindex fno-weak
@@ -10972,6 +11026,17 @@ These options are defined for AArch64 implementations:
 
 @table @gcctabopt
 
+@item -mabi=@var{name}
+@opindex mabi
+Generate code for the specified data model.  Permissible values
+are @samp{ilp32} for SysV-like data model where int, long int and pointer
+are 32-bit, and @samp{lp64} for SysV-like data model where int is 32-bit,
+but long int and pointer are 64-bit.
+
+The default depends on the specific target configuration.  Note that
+the LP64 and ILP32 ABIs are not link-compatible; you must compile your
+entire program with the same ABI, and link with a compatible set of libraries.
+
 @item -mbig-endian
 @opindex mbig-endian
 Generate big-endian code.  This is the default when GCC is configured for an
@@ -16161,7 +16226,7 @@ knows that the target of the jump is not compressed.
 @opindex mno-interlink-mips16
 Aliases of @option{-minterlink-compressed} and
 @option{-mno-interlink-compressed}.  These options predate the microMIPS ASE
-and are retained for backwards compatiblity.
+and are retained for backwards compatibility.
 
 @item -mabi=32
 @itemx -mabi=o64
@@ -16312,6 +16377,48 @@ operations.
 @opindex mdouble-float
 Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
+
+@item -mabs=2008
+@itemx -mabs=legacy
+@opindex mabs=2008
+@opindex mabs=legacy
+These options control the treatment of the special not-a-number (NaN)
+IEEE 754 floating-point data with the @code{abs.@i{fmt}} and
+@code{neg.@i{fmt}} machine instructions.
+
+By default or when the @option{-mabs=legacy} is used the legacy
+treatment is selected.  In this case these instructions are considered
+arithmetic and avoided where correct operation is required and the
+input operand might be a NaN.  A longer sequence of instructions that
+manipulate the sign bit of floating-point datum manually is used
+instead unless the @option{-ffinite-math-only} option has also been
+specified.
+
+The @option{-mabs=2008} option selects the IEEE 754-2008 treatment.  In
+this case these instructions are considered non-arithmetic and therefore
+operating correctly in all cases, including in particular where the
+input operand is a NaN.  These instructions are therefore always used
+for the respective operations.
+
+@item -mnan=2008
+@itemx -mnan=legacy
+@opindex mnan=2008
+@opindex mnan=legacy
+These options control the encoding of the special not-a-number (NaN)
+IEEE 754 floating-point data.
+
+The @option{-mnan=legacy} option selects the legacy encoding.  In this
+case quiet NaNs (qNaNs) are denoted by the first bit of their trailing
+significand field being 0, whereas signalling NaNs (sNaNs) are denoted
+by the first bit of their trailing significand field being 1.
+
+The @option{-mnan=2008} option selects the IEEE 754-2008 encoding.  In
+this case qNaNs are denoted by the first bit of their trailing
+significand field being 1, whereas sNaNs are denoted by the first bit of
+their trailing significand field being 0.
+
+The default is @option{-mnan=legacy} unless GCC has been configured with
+@option{--with-nan=2008}.
 
 @item -mllsc
 @itemx -mno-llsc
@@ -19332,10 +19439,10 @@ the rules of the ABI@.
 Set the instruction set, register set, and instruction scheduling parameters
 for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{v7}, @samp{cypress}, @samp{v8}, @samp{supersparc}, @samp{hypersparc},
-@samp{leon}, @samp{sparclite}, @samp{f930}, @samp{f934}, @samp{sparclite86x},
-@samp{sparclet}, @samp{tsc701}, @samp{v9}, @samp{ultrasparc},
-@samp{ultrasparc3}, @samp{niagara}, @samp{niagara2}, @samp{niagara3},
-and @samp{niagara4}.
+@samp{leon}, @samp{leon3}, @samp{sparclite}, @samp{f930}, @samp{f934},
+@samp{sparclite86x}, @samp{sparclet}, @samp{tsc701}, @samp{v9},
+@samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
+@samp{niagara3} and @samp{niagara4}.
 
 Native Solaris and GNU/Linux toolchains also support the value @samp{native},
 which selects the best architecture option for the host processor.
@@ -19354,7 +19461,7 @@ implementations.
 cypress
 
 @item v8
-supersparc, hypersparc, leon
+supersparc, hypersparc, leon, leon3
 
 @item sparclite
 f930, f934, sparclite86x
@@ -19416,10 +19523,11 @@ option @option{-mcpu=@var{cpu_type}} does.
 The same values for @option{-mcpu=@var{cpu_type}} can be used for
 @option{-mtune=@var{cpu_type}}, but the only useful values are those
 that select a particular CPU implementation.  Those are @samp{cypress},
-@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{f930}, @samp{f934},
-@samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc}, @samp{ultrasparc3},
-@samp{niagara}, @samp{niagara2}, @samp{niagara3} and @samp{niagara4}.  With
-native Solaris and GNU/Linux toolchains, @samp{native} can also be used.
+@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{leon3}, @samp{f930},
+@samp{f934}, @samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc},
+@samp{ultrasparc3}, @samp{niagara}, @samp{niagara2}, @samp{niagara3} and
+@samp{niagara4}.  With native Solaris and GNU/Linux toolchains, @samp{native}
+can also be used.
 
 @item -mv8plus
 @itemx -mno-v8plus
@@ -19491,8 +19599,8 @@ processor (which corresponds to erratum #13 of the AT697E processor).
 
 @item -mfix-ut699
 @opindex mfix-ut699
-Enable the documented workarounds for the floating-point errata of the UT699
-processor.
+Enable the documented workarounds for the floating-point errata and the data
+cache nullify errata of the UT699 processor.
 @end table
 
 These @samp{-m} options are supported in addition to the above

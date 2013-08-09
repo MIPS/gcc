@@ -184,7 +184,7 @@ static int coerce_template_template_parms (tree, tree, tsubst_flags_t,
 					   tree, tree);
 static bool template_template_parm_bindings_ok_p (tree, tree);
 static int template_args_equal (tree, tree);
-static void tsubst_default_arguments (tree);
+static void tsubst_default_arguments (tree, tsubst_flags_t);
 static tree for_each_template_parm_r (tree *, int *, void *);
 static tree copy_default_args_to_explicit_spec_1 (tree, tree);
 static void copy_default_args_to_explicit_spec (tree);
@@ -5111,6 +5111,34 @@ alias_template_specialization_p (const_tree t)
 	  && DECL_ALIAS_TEMPLATE_P (TYPE_TI_TEMPLATE (t)));
 }
 
+/* Return either TMPL or another template that it is equivalent to under DR
+   1286: An alias that just changes the name of a template is equivalent to
+   the other template.  */
+
+static tree
+get_underlying_template (tree tmpl)
+{
+  gcc_assert (TREE_CODE (tmpl) == TEMPLATE_DECL);
+  while (DECL_ALIAS_TEMPLATE_P (tmpl))
+    {
+      tree result = DECL_ORIGINAL_TYPE (DECL_TEMPLATE_RESULT (tmpl));
+      if (TYPE_TEMPLATE_INFO (result))
+	{
+	  tree sub = TYPE_TI_TEMPLATE (result);
+	  if (PRIMARY_TEMPLATE_P (sub)
+	      && same_type_p (result, TREE_TYPE (sub)))
+	    {
+	      /* The alias type is equivalent to the pattern of the
+		 underlying template, so strip the alias.  */
+	      tmpl = sub;
+	      continue;
+	    }
+	}
+      break;
+    }
+  return tmpl;
+}
+
 /* Subroutine of convert_nontype_argument. Converts EXPR to TYPE, which
    must be a function or a pointer-to-function type, as specified
    in [temp.arg.nontype]: disambiguate EXPR if it is an overload set,
@@ -5854,7 +5882,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 		 "because it is of type %qT", expr, type,
 		 TREE_TYPE (expr));
 	  /* If we are just one standard conversion off, explain.  */
-	  if (can_convert (type, TREE_TYPE (expr), complain))
+	  if (can_convert_standard (type, TREE_TYPE (expr), complain))
 	    inform (input_location,
 		    "standard conversions are not allowed in this context");
 	  return NULL_TREE;
@@ -6319,6 +6347,9 @@ convert_template_argument (tree parm,
 	      tree parmparm = DECL_INNERMOST_TEMPLATE_PARMS (parm);
 	      tree argparm;
 
+	      /* Strip alias templates that are equivalent to another
+		 template.  */
+	      arg = get_underlying_template (arg);
               argparm = DECL_INNERMOST_TEMPLATE_PARMS (arg);
 
 	      if (coerce_template_template_parms (parmparm, argparm,
@@ -6542,18 +6573,22 @@ coerce_template_parameter_pack (tree parms,
   return argument_pack;
 }
 
-/* Returns true if the template argument vector ARGS contains
-   any pack expansions, false otherwise.  */
+/* Returns the number of pack expansions in the template argument vector
+   ARGS.  */
 
-static bool
-any_pack_expanson_args_p (tree args)
+static int
+pack_expansion_args_count (tree args)
 {
   int i;
+  int count = 0;
   if (args)
     for (i = 0; i < TREE_VEC_LENGTH (args); ++i)
-      if (PACK_EXPANSION_P (TREE_VEC_ELT (args, i)))
-	return true;
-  return false;
+      {
+	tree elt = TREE_VEC_ELT (args, i);
+	if (elt && PACK_EXPANSION_P (elt))
+	  ++count;
+      }
+  return count;
 }
 
 /* Convert all template arguments to their appropriate types, and
@@ -6588,6 +6623,7 @@ coerce_template_parms (tree parms,
      subtract it from nparms to get the number of non-variadic
      parameters.  */
   int variadic_p = 0;
+  int variadic_args_p = 0;
   int post_variadic_parms = 0;
 
   if (args == error_mark_node)
@@ -6617,11 +6653,14 @@ coerce_template_parms (tree parms,
   if (!post_variadic_parms)
     inner_args = expand_template_argument_pack (inner_args);
 
+  /* Count any pack expansion args.  */
+  variadic_args_p = pack_expansion_args_count (inner_args);
+
   nargs = inner_args ? NUM_TMPL_ARGS (inner_args) : 0;
   if ((nargs > nparms && !variadic_p)
       || (nargs < nparms - variadic_p
 	  && require_all_args
-	  && !any_pack_expanson_args_p (inner_args)
+	  && !variadic_args_p
 	  && (!use_default_args
 	      || (TREE_VEC_ELT (parms, nargs) != error_mark_node
                   && !TREE_PURPOSE (TREE_VEC_ELT (parms, nargs))))))
@@ -6642,6 +6681,33 @@ coerce_template_parms (tree parms,
 	    error ("provided for %q+D", in_decl);
 	}
 
+      return error_mark_node;
+    }
+  /* We can't pass a pack expansion to a non-pack parameter of an alias
+     template (DR 1430).  */
+  else if (in_decl && DECL_ALIAS_TEMPLATE_P (in_decl)
+	   && variadic_args_p
+	   && nargs - variadic_args_p < nparms - variadic_p)
+    {
+      if (complain & tf_error)
+	{
+	  for (int i = 0; i < TREE_VEC_LENGTH (inner_args); ++i)
+	    {
+	      tree arg = TREE_VEC_ELT (inner_args, i);
+	      tree parm = TREE_VALUE (TREE_VEC_ELT (parms, i));
+
+	      if (PACK_EXPANSION_P (arg)
+		  && !template_parameter_pack_p (parm))
+		{
+		  error ("pack expansion argument for non-pack parameter "
+			 "%qD of alias template %qD", parm, in_decl);
+		  inform (DECL_SOURCE_LOCATION (parm), "declared here");
+		  goto found;
+		}
+	    }
+	  gcc_unreachable ();
+	found:;
+	}
       return error_mark_node;
     }
 
@@ -7142,6 +7208,13 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 
   complain &= ~tf_user;
 
+  /* An alias that just changes the name of a template is equivalent to the
+     other template, so if any of the arguments are pack expansions, strip
+     the alias to avoid problems with a pack expansion passed to a non-pack
+     alias template parameter (DR 1430).  */
+  if (pack_expansion_args_count (INNERMOST_TEMPLATE_ARGS (arglist)))
+    templ = get_underlying_template (templ);
+
   if (DECL_TEMPLATE_TEMPLATE_PARM_P (templ))
     {
       /* Create a new TEMPLATE_DECL and TEMPLATE_TEMPLATE_PARM node to store
@@ -7204,7 +7277,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       int use_partial_inst_tmpl = false;
 
       if (template_type == error_mark_node)
-	/* An error occured while building the template TEMPL, and a
+	/* An error occurred while building the template TEMPL, and a
 	   diagnostic has most certainly been emitted for that
 	   already.  Let's propagate that error.  */
 	return error_mark_node;
@@ -9875,7 +9948,7 @@ tsubst_aggr_type (tree t,
    FN), which has the indicated TYPE.  */
 
 tree
-tsubst_default_argument (tree fn, tree type, tree arg)
+tsubst_default_argument (tree fn, tree type, tree arg, tsubst_flags_t complain)
 {
   tree saved_class_ptr = NULL_TREE;
   tree saved_class_ref = NULL_TREE;
@@ -9915,7 +9988,7 @@ tsubst_default_argument (tree fn, tree type, tree arg)
      stack.  */
   ++function_depth;
   arg = tsubst_expr (arg, DECL_TI_ARGS (fn),
-		     tf_warning_or_error, NULL_TREE,
+		     complain, NULL_TREE,
 		     /*integral_constant_expression_p=*/false);
   --function_depth;
   pop_deferring_access_checks();
@@ -9927,12 +10000,13 @@ tsubst_default_argument (tree fn, tree type, tree arg)
       cp_function_chain->x_current_class_ref = saved_class_ref;
     }
 
-  if (errorcount+sorrycount > errs)
+  if (errorcount+sorrycount > errs
+      && (complain & tf_warning_or_error))
     inform (input_location,
 	    "  when instantiating default argument for call to %D", fn);
 
   /* Make sure the default argument is reasonable.  */
-  arg = check_default_argument (type, arg);
+  arg = check_default_argument (type, arg, complain);
 
   pop_access_scope (fn);
 
@@ -9942,7 +10016,7 @@ tsubst_default_argument (tree fn, tree type, tree arg)
 /* Substitute into all the default arguments for FN.  */
 
 static void
-tsubst_default_arguments (tree fn)
+tsubst_default_arguments (tree fn, tsubst_flags_t complain)
 {
   tree arg;
   tree tmpl_args;
@@ -9963,7 +10037,8 @@ tsubst_default_arguments (tree fn)
     if (TREE_PURPOSE (arg))
       TREE_PURPOSE (arg) = tsubst_default_argument (fn,
 						    TREE_VALUE (arg),
-						    TREE_PURPOSE (arg));
+						    TREE_PURPOSE (arg),
+						    complain);
 }
 
 /* Substitute the ARGS into the T, which is a _DECL.  Return the
@@ -10323,7 +10398,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    if (!member
 		&& !PRIMARY_TEMPLATE_P (gen_tmpl)
 		&& !uses_template_parms (argvec))
-	      tsubst_default_arguments (r);
+	      tsubst_default_arguments (r, complain);
 	  }
 	else
 	  DECL_TEMPLATE_INFO (r) = NULL_TREE;

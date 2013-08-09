@@ -169,6 +169,12 @@ typedef const struct basic_block_def *const_basic_block;
    in target.h.  */
 typedef int reg_class_t;
 
+class rtl_opt_pass;
+
+namespace gcc {
+  class context;
+}
+
 #else
 
 struct _dont_use_rtx_here_;
@@ -196,7 +202,7 @@ enum memmodel
   MEMMODEL_LAST = 6
 };
 
-/* Suppose that higher bits are target dependant. */
+/* Suppose that higher bits are target dependent. */
 #define MEMMODEL_MASK ((1<<16)-1)
 
 /* Support for user-provided GGC and PCH markers.  The first parameter

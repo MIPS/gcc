@@ -630,7 +630,9 @@ poplevel (int keep, int reverse, int functionbody)
 	    && DECL_NAME (decl) && ! DECL_ARTIFICIAL (decl)
 	    && type != error_mark_node
 	    && (!CLASS_TYPE_P (type)
-		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)))
+		|| !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+		|| lookup_attribute ("warn_unused",
+				     TYPE_ATTRIBUTES (TREE_TYPE (decl)))))
 	  {
 	    if (! TREE_USED (decl))
 	      warning (OPT_Wunused_variable, "unused variable %q+D", decl);
@@ -4886,7 +4888,7 @@ layout_var_decl (tree decl)
   if (type == error_mark_node)
     return;
 
-  /* If we haven't already layed out this declaration, do so now.
+  /* If we haven't already laid out this declaration, do so now.
      Note that we must not call complete type for an external object
      because it's type might involve templates that we are not
      supposed to instantiate yet.  (And it's perfectly valid to say
@@ -10881,7 +10883,7 @@ local_variable_p_walkfn (tree *tp, int *walk_subtrees,
    DECL, if there is no DECL available.  */
 
 tree
-check_default_argument (tree decl, tree arg)
+check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
 {
   tree var;
   tree decl_type;
@@ -10913,13 +10915,14 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   ++cp_unevaluated_operand;
-  perform_implicit_conversion_flags (decl_type, arg, tf_warning_or_error,
+  perform_implicit_conversion_flags (decl_type, arg, complain,
 				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
       && TYPE_PTR_OR_PTRMEM_P (decl_type)
       && null_ptr_cst_p (arg)
+      && (complain & tf_warning)
       && maybe_warn_zero_as_null_pointer_constant (arg, input_location))
     return nullptr_node;
 
@@ -10933,10 +10936,14 @@ check_default_argument (tree decl, tree arg)
   var = cp_walk_tree_without_duplicates (&arg, local_variable_p_walkfn, NULL);
   if (var)
     {
-      if (DECL_NAME (var) == this_identifier)
-	permerror (input_location, "default argument %qE uses %qD", arg, var);
-      else
-	error ("default argument %qE uses local variable %qD", arg, var);
+      if (complain & tf_warning_or_error)
+	{
+	  if (DECL_NAME (var) == this_identifier)
+	    permerror (input_location, "default argument %qE uses %qD",
+		       arg, var);
+	  else
+	    error ("default argument %qE uses local variable %qD", arg, var);
+	}
       return error_mark_node;
     }
 
@@ -11087,7 +11094,7 @@ grokparms (tree parmlist, tree *parms)
 	  if (any_error)
 	    init = NULL_TREE;
 	  else if (init && !processing_template_decl)
-	    init = check_default_argument (decl, init);
+	    init = check_default_argument (decl, init, tf_warning_or_error);
 	}
 
       DECL_CHAIN (decl) = decls;
@@ -14259,13 +14266,6 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
 }
 
 
-/* When a stmt has been parsed, this function is called.  */
-
-void
-finish_stmt (void)
-{
-}
-
 /* Return the FUNCTION_TYPE that corresponds to MEMFNTYPE, which can be a
    FUNCTION_DECL, METHOD_TYPE, FUNCTION_TYPE, pointer or reference to
    METHOD_TYPE or FUNCTION_TYPE, or pointer to member function.  */

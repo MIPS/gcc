@@ -6055,6 +6055,8 @@ extern void debug_body (const tree_node *ptr);
 extern void debug_vec_tree (vec<tree, va_gc> *);
 extern void debug (vec<tree, va_gc> &ref);
 extern void debug (vec<tree, va_gc> *ptr);
+extern void debug_raw (vec<tree, va_gc> &ref);
+extern void debug_raw (vec<tree, va_gc> *ptr);
 #ifdef BUFSIZ
 extern void dump_addr (FILE*, const char *, const void *);
 extern void print_node (FILE *, const char *, tree, int);
@@ -6524,6 +6526,9 @@ is_lang_specific (tree t)
 /* In gimple-low.c.  */
 extern bool block_may_fallthru (const_tree);
 
+/* In vtable-verify.c.  */
+extern void save_vtable_map_decl (tree);
+
 
 /* Functional interface to the builtin functions.  */
 
@@ -6613,7 +6618,6 @@ builtin_decl_implicit_p (enum built_in_function fncode)
   return (builtin_info.decl[uns_fncode] != NULL_TREE
 	  && builtin_info.implicit_p[uns_fncode]);
 }
-
 
 /* For anonymous aggregate types, we need some sort of name to
    hold on to.  In practice, this should not appear, but it should

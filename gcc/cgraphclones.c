@@ -295,7 +295,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   size_t i;
   struct ipa_replace_map *map;
 
-  if (!flag_wpa)
+  if (!in_lto_p)
     gcc_checking_assert  (tree_versionable_function_p (old_decl));
 
   gcc_assert (old_node->local.can_change_signature || !args_to_skip);
@@ -305,7 +305,16 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
     new_decl = copy_node (old_decl);
   else
     new_decl = build_function_decl_skip_args (old_decl, args_to_skip, false);
+
+  /* These pointers represent function body and will be populated only when clone
+     is materialized.  */
+  gcc_assert (new_decl != old_decl);
   DECL_STRUCT_FUNCTION (new_decl) = NULL;
+  DECL_ARGUMENTS (new_decl) = NULL;
+  DECL_INITIAL (new_decl) = NULL;
+  DECL_RESULT (new_decl) = NULL; 
+  /* We can not do DECL_RESULT (new_decl) = NULL; here because of LTO partitioning
+     sometimes storing only clone decl instead of original.  */
 
   /* Generate a new name for the new version. */
   DECL_NAME (new_decl) = clone_function_name (old_decl, suffix);
@@ -820,6 +829,8 @@ cgraph_materialize_all_clones (void)
 	  if (node->clone_of && node->symbol.decl != node->clone_of->symbol.decl
 	      && !gimple_has_body_p (node->symbol.decl))
 	    {
+	      if (!node->clone_of->clone_of)
+		cgraph_get_body (node->clone_of);
 	      if (gimple_has_body_p (node->clone_of->symbol.decl))
 	        {
 		  if (cgraph_dump_file)
@@ -865,7 +876,12 @@ cgraph_materialize_all_clones (void)
     }
   FOR_EACH_FUNCTION (node)
     if (!node->symbol.analyzed && node->callees)
-      cgraph_node_remove_callees (node);
+      {
+        cgraph_node_remove_callees (node);
+	ipa_remove_all_references (&node->symbol.ref_list);
+      }
+    else
+      ipa_clear_stmts_in_references ((symtab_node)node);
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materialization Call site updates done.\n");
 #ifdef ENABLE_CHECKING

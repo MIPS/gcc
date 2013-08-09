@@ -3133,7 +3133,8 @@ Check_return_statements_traverse::function(Named_object* no)
     return TRAVERSE_CONTINUE;
 
   if (func->block()->may_fall_through())
-    error_at(func->location(), "control reaches end of non-void function");
+    error_at(func->block()->end_location(),
+	     "missing return at end of function");
 
   return TRAVERSE_CONTINUE;
 }
@@ -3380,7 +3381,7 @@ Function::set_closure_type()
   st->push_field(Struct_field(Typed_identifier(".$f", voidptr_type,
 					       this->location_)));
 
-  unsigned int index = 0;
+  unsigned int index = 1;
   for (Closure_fields::const_iterator p = this->closure_fields_.begin();
        p != this->closure_fields_.end();
        ++p, ++index)
@@ -3581,6 +3582,12 @@ Function::make_descriptor_wrapper(Gogo* gogo, Named_object* no,
   std::string name = no->name() + "$descriptorfn";
   Named_object* dno = gogo->start_function(name, new_fntype, false, loc);
   dno->func_value()->is_descriptor_wrapper_ = true;
+
+  // Put the wrapper in a unique section so that it can be discarded
+  // by the linker if it is not needed.  Every top-level function will
+  // get a wrapper, in case there is a reference other than a call
+  // from some other package, but most will not need one.
+  dno->func_value()->set_in_unique_section();
 
   gogo->start_block(loc);
 

@@ -62,6 +62,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "tree-pass.h"
 #include "tree-flow.h"
+#include "context.h"
+#include "pass_manager.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -1833,6 +1835,13 @@ const struct processor_costs *ix86_cost = &pentium_cost;
    (PPro/PENT4/NOCONA/CORE2/Athlon/K8).  */
 #define m_GENERIC (m_GENERIC32 | m_GENERIC64)
 
+const char* ix86_tune_feature_names[X86_TUNE_LAST] = {
+#undef DEF_TUNE
+#define DEF_TUNE(tune, name) name,
+#include "x86-tune.def"
+#undef DEF_TUNE
+};
+
 /* Feature tests against the various tunings.  */
 unsigned char ix86_tune_features[X86_TUNE_LAST];
 
@@ -2030,7 +2039,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   /* X86_TUNE_PAD_RETURNS */
   m_CORE_ALL | m_AMD_MULTIPLE | m_GENERIC,
 
-  /* X86_TUNE_PAD_SHORT_FUNCTION: Pad short funtion.  */
+  /* X86_TUNE_PAD_SHORT_FUNCTION: Pad short function.  */
   m_ATOM,
 
   /* X86_TUNE_EXT_80387_CONSTANTS */
@@ -2596,30 +2605,47 @@ rest_of_handle_insert_vzeroupper (void)
   ix86_optimize_mode_switching[AVX_U128] = 1;
 
   /* Call optimize_mode_switching.  */
-  pass_mode_switching.pass.execute ();
+  g->get_passes ()->execute_pass_mode_switching ();
   return 0;
 }
 
-struct rtl_opt_pass pass_insert_vzeroupper =
+namespace {
+
+const pass_data pass_data_insert_vzeroupper =
 {
- {
-  RTL_PASS,
-  "vzeroupper",				/* name */
-  OPTGROUP_NONE,			/* optinfo_flags */
-  gate_insert_vzeroupper,		/* gate */
-  rest_of_handle_insert_vzeroupper,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  0,					/* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "vzeroupper", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing | 0 ), /* todo_flags_finish */
 };
+
+class pass_insert_vzeroupper : public rtl_opt_pass
+{
+public:
+  pass_insert_vzeroupper(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_insert_vzeroupper, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_insert_vzeroupper (); }
+  unsigned int execute () { return rest_of_handle_insert_vzeroupper (); }
+
+}; // class pass_insert_vzeroupper
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_insert_vzeroupper (gcc::context *ctxt)
+{
+  return new pass_insert_vzeroupper (ctxt);
+}
 
 /* Return true if a red-zone is in use.  */
 
@@ -3550,6 +3576,40 @@ ix86_option_override_internal (bool main_args_p)
   for (i = 0; i < X86_TUNE_LAST; ++i)
     ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
 
+  if (ix86_tune_ctrl_string)
+    {
+      /* parse the tune ctrl string in the following form:
+         [^]tune_name1,[^]tune_name2,..a */
+      char *next_feature_string = NULL;
+      char *curr_feature_string = xstrdup (ix86_tune_ctrl_string);
+      char *orig = curr_feature_string;
+      do {
+        bool clear = false;
+
+        next_feature_string = strchr (curr_feature_string, ',');
+	if (next_feature_string)
+          *next_feature_string++ = '\0';
+        if (*curr_feature_string == '^')
+	  {
+	    curr_feature_string++;
+	    clear = true;
+	  }
+        for (i = 0; i < X86_TUNE_LAST; i++)
+	  {
+            if (!strcmp (curr_feature_string, ix86_tune_feature_names[i]))
+	      {
+                ix86_tune_features[i] = !clear;
+                break;
+              }
+	  }
+        if (i == X86_TUNE_LAST)
+	  warning (0, "Unknown parameter to option -mtune-ctrl: %s",
+	           clear ? curr_feature_string - 1 : curr_feature_string);
+	curr_feature_string = next_feature_string;    
+      } while (curr_feature_string);
+      free (orig);
+    }
+
 #ifndef USE_IX86_FRAME_POINTER
 #define USE_IX86_FRAME_POINTER 0
 #endif
@@ -4028,8 +4088,9 @@ ix86_option_override_internal (bool main_args_p)
 static void
 ix86_option_override (void)
 {
+  opt_pass *pass_insert_vzeroupper = make_pass_insert_vzeroupper (g);
   static struct register_pass_info insert_vzeroupper_info
-    = { &pass_insert_vzeroupper.pass, "reload",
+    = { pass_insert_vzeroupper, "reload",
 	1, PASS_POS_INSERT_AFTER
       };
 
@@ -8822,17 +8883,12 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
 
   if (!flag_pic)
     {
+      if (TARGET_MACHO)
+	/* We don't need a pic base, we're not producing pic.  */
+	gcc_unreachable ();
+
       xops[2] = gen_rtx_LABEL_REF (Pmode, label ? label : gen_label_rtx ());
-
       output_asm_insn ("mov%z0\t{%2, %0|%0, %2}", xops);
-
-#if TARGET_MACHO
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
-      if (!label)
-	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-#endif
-
       targetm.asm_out.internal_label (asm_out_file, "L",
 				      CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
     }
@@ -8845,12 +8901,18 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
       xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
       output_asm_insn ("call\t%X2", xops);
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
+
 #if TARGET_MACHO
-      if (!label)
+      /* Output the Mach-O "canonical" pic base label name ("Lxx$pb") here.
+         This is what will be referenced by the Mach-O PIC subsystem.  */
+      if (machopic_should_output_picbase_label () || !label)
 	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-      else
+
+      /* When we are restoring the pic base at the site of a nonlocal label,
+         and we decided to emit the pic base above, we will still output a
+         local label used for calculating the correction offset (even though
+         the offset will be 0 in that case).  */
+      if (label)
         targetm.asm_out.internal_label (asm_out_file, "L",
 					   CODE_LABEL_NUMBER (label));
 #endif
@@ -8932,7 +8994,8 @@ ix86_save_reg (unsigned int regno, bool maybe_eh_return)
       && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || crtl->profile
 	  || crtl->calls_eh_return
-	  || crtl->uses_const_pool))
+	  || crtl->uses_const_pool
+	  || cfun->has_nonlocal_label))
     return ix86_select_alt_pic_regnum () == INVALID_REGNUM;
 
   if (crtl->calls_eh_return && maybe_eh_return)
@@ -29705,7 +29768,7 @@ ix86_get_function_versions_dispatcher (void *decl)
 
   /* Find the default version and make it the first node.  */
   first_v = node_v;
-  /* Go to the beginnig of the chain.  */
+  /* Go to the beginning of the chain.  */
   while (first_v->prev != NULL)
     first_v = first_v->prev;
   default_version_info = first_v;
@@ -33820,7 +33883,7 @@ ix86_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
   if (TARGET_64BIT
       && MEM_P (x)
       && GET_MODE_SIZE (mode) > UNITS_PER_WORD
-      && rclass == GENERAL_REGS
+      && INTEGER_CLASS_P (rclass)
       && !offsettable_memref_p (x))
     {
       sri->icode = (in_p
@@ -33836,12 +33899,8 @@ ix86_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
      intermediate register on 32bit targets.  */
   if (!TARGET_64BIT
       && !in_p && mode == QImode
-      && (rclass == GENERAL_REGS
-	  || rclass == LEGACY_REGS
-	  || rclass == NON_Q_REGS
-	  || rclass == SIREG
-	  || rclass == DIREG
-	  || rclass == INDEX_REGS))
+      && INTEGER_CLASS_P (rclass)
+      && MAYBE_NON_Q_CLASS_P (rclass))
     {
       int regno;
 
@@ -35723,7 +35782,10 @@ ix86_pad_returns (void)
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (EDGE_FREQUENCY (e) && e->src->index >= 0
 		&& !(e->flags & EDGE_FALLTHRU))
-	      replace = true;
+	      {
+		replace = true;
+		break;
+	      }
 	}
       if (!replace)
 	{
@@ -35859,7 +35921,7 @@ ix86_pad_short_function (void)
     }
 }
 
-/* Fix up a Windows system unwinder issue.  If an EH region falls thru into
+/* Fix up a Windows system unwinder issue.  If an EH region falls through into
    the epilogue, the Windows system unwinder will apply epilogue logic and
    produce incorrect offsets.  This can be avoided by adding a nop between
    the last insn that can throw and the first insn of the epilogue.  */
@@ -35881,7 +35943,7 @@ ix86_seh_fixup_eh_fallthru (void)
       if (insn == NULL)
 	continue;
 
-      /* We only care about preceeding insns that can throw.  */
+      /* We only care about preceding insns that can throw.  */
       insn = prev_active_insn (insn);
       if (insn == NULL || !can_throw_internal (insn))
 	continue;
@@ -36653,7 +36715,7 @@ ix86_expand_vector_init_interleave (enum machine_mode mode,
       op0 = gen_reg_rtx (mode);
       emit_move_insn (op0, gen_lowpart (mode, op1));
 
-      /* Load even elements into the second positon.  */
+      /* Load even elements into the second position.  */
       emit_insn (gen_load_even (op0,
 				force_reg (inner_mode,
 					   ops [i + i + 1]),
@@ -41177,7 +41239,7 @@ ix86_expand_vecop_qihi (enum rtx_code code, rtx dest, rtx op1, rtx op2)
 
 /* Helper function of ix86_expand_mul_widen_evenodd.  Return true
    if op is CONST_VECTOR with all odd elements equal to their
-   preceeding element.  */
+   preceding element.  */
 
 static bool
 const_vector_equal_evenodd_p (rtx op)

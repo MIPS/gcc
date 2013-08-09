@@ -346,7 +346,7 @@ typedef struct ptrmem_cst * ptrmem_cst_t;
 /* If set, this was imported in a using declaration.
    This is not to confuse with being used somewhere, which
    is not important for this node.  */
-#define OVL_USED(NODE)		TREE_USED (NODE)
+#define OVL_USED(NODE)		TREE_USED (OVERLOAD_CHECK (NODE))
 /* If set, this OVERLOAD was created for argument-dependent lookup
    and can be freed afterward.  */
 #define OVL_ARG_DEPENDENT(NODE) TREE_LANG_FLAG_0 (OVERLOAD_CHECK (NODE))
@@ -1320,8 +1320,7 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* Nonzero iff TYPE is derived from PARENT. Ignores accessibility and
    ambiguity issues.  */
 #define DERIVED_FROM_P(PARENT, TYPE) \
-  (lookup_base ((TYPE), (PARENT), ba_any, NULL, tf_warning_or_error)\
-   != NULL_TREE)
+  (lookup_base ((TYPE), (PARENT), ba_any, NULL, tf_none) != NULL_TREE)
 
 /* Gives the visibility specification for a class type.  */
 #define CLASSTYPE_VISIBILITY(TYPE)		\
@@ -5007,6 +5006,7 @@ extern tree build_op_delete_call		(enum tree_code, tree, tree,
 						 bool, tree, tree,
 						 tsubst_flags_t);
 extern bool can_convert				(tree, tree, tsubst_flags_t);
+extern bool can_convert_standard		(tree, tree, tsubst_flags_t);
 extern bool can_convert_arg			(tree, tree, tree, int,
 						 tsubst_flags_t);
 extern bool can_convert_arg_bad			(tree, tree, tree, int,
@@ -5217,12 +5217,11 @@ extern tree grokmethod				(cp_decl_specifier_seq *, const cp_declarator *, tree)
 extern void maybe_register_incomplete_var	(tree);
 extern void maybe_commonize_var			(tree);
 extern void complete_vars			(tree);
-extern void finish_stmt				(void);
 extern tree static_fn_type			(tree);
 extern void revert_static_member_fn		(tree);
 extern void fixup_anonymous_aggr		(tree);
 extern tree compute_array_index_type		(tree, tree, tsubst_flags_t);
-extern tree check_default_argument		(tree, tree);
+extern tree check_default_argument		(tree, tree, tsubst_flags_t);
 typedef int (*walk_namespaces_fn)		(tree, void *);
 extern int walk_namespaces			(walk_namespaces_fn,
 						 void *);
@@ -5299,6 +5298,8 @@ extern void note_vague_linkage_fn		(tree);
 extern tree build_artificial_parm		(tree, tree);
 extern bool possibly_inlined_p			(tree);
 extern int parm_index                           (tree);
+extern tree vtv_start_verification_constructor_init_function (void);
+extern tree vtv_finish_verification_constructor_init_function (tree);
 
 /* in error.c */
 extern void init_error				(void);
@@ -5389,6 +5390,7 @@ extern tree build_java_class_ref		(tree);
 extern tree integral_constant_value		(tree);
 extern tree decl_constant_value_safe	        (tree);
 extern int diagnose_uninitialized_cst_or_ref_member (tree, bool, bool);
+extern tree build_vtbl_address                  (tree);
 
 /* in lex.c */
 extern void cxx_dup_lang_specific_decl		(tree);
@@ -5504,7 +5506,8 @@ extern tree maybe_process_partial_specialization (tree);
 extern tree most_specialized_instantiation	(tree);
 extern void print_candidates			(tree);
 extern void instantiate_pending_templates	(int);
-extern tree tsubst_default_argument		(tree, tree, tree);
+extern tree tsubst_default_argument		(tree, tree, tree,
+						 tsubst_flags_t);
 extern tree tsubst (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_copy_and_build		(tree, tree, tsubst_flags_t,
 						 tree, bool, bool);
@@ -5616,7 +5619,6 @@ extern tree adjust_result_of_qualified_name_lookup
 extern tree copied_binfo			(tree, tree);
 extern tree original_binfo			(tree, tree);
 extern int shared_member_p			(tree);
-
 
 /* The representation of a deferred access check.  */
 
@@ -6022,7 +6024,7 @@ extern tree convert_for_initialization		(tree, tree, tree, int,
 extern int comp_ptr_ttypes			(tree, tree);
 extern bool comp_ptr_ttypes_const		(tree, tree);
 extern bool error_type_p			(const_tree);
-extern int ptr_reasonably_similar		(const_tree, const_tree);
+extern bool ptr_reasonably_similar		(const_tree, const_tree);
 extern tree build_ptrmemfunc			(tree, tree, int, bool,
 						 tsubst_flags_t);
 extern int cp_type_quals			(const_tree);
@@ -6112,6 +6114,7 @@ extern tree mangle_tls_init_fn			(tree);
 extern tree mangle_tls_wrapper_fn		(tree);
 extern bool decl_tls_wrapper_p			(tree);
 extern tree mangle_ref_init_variable		(tree);
+extern char * get_mangled_vtable_map_var_name   (tree);
 
 /* in dump.c */
 extern bool cp_dump_tree			(void *, tree);
@@ -6143,6 +6146,13 @@ extern bool cxx_omp_privatize_by_reference	(const_tree);
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);
 extern tree strip_using_decl                    (tree);
+
+/* in vtable-class-hierarchy.c */
+extern void vtv_compute_class_hierarchy_transitive_closure (void);
+extern void vtv_generate_init_routine           (void);
+extern void vtv_save_class_info                 (tree);
+extern void vtv_recover_class_info              (void);
+extern void vtv_build_vtable_verify_fndecl      (void);
 
 /* In cp/cp-array-notations.c */
 extern tree expand_array_notation_exprs         (tree);

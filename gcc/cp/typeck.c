@@ -43,7 +43,7 @@ static tree pfn_from_ptrmemfunc (tree);
 static tree delta_from_ptrmemfunc (tree);
 static tree convert_for_assignment (tree, tree, impl_conv_rhs, tree, int,
 				    tsubst_flags_t, int);
-static tree cp_pointer_int_sum (enum tree_code, tree, tree);
+static tree cp_pointer_int_sum (enum tree_code, tree, tree, tsubst_flags_t);
 static tree rationalize_conditional_expr (enum tree_code, tree, 
 					  tsubst_flags_t);
 static int comp_ptr_ttypes_real (tree, tree, int);
@@ -4064,7 +4064,8 @@ cp_build_binary_op (location_t location,
 	    }
 	  return cp_pointer_int_sum (code,
 				     ptr_operand, 
-				     int_operand);
+				     int_operand,
+				     complain);
 	}
       common = 1;
       break;
@@ -4535,23 +4536,38 @@ cp_build_binary_op (location_t location,
 	  if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (type0),
 							  TREE_TYPE (type1)))
 	    {
-	      error_at (location, "comparing vectors with different "
-				  "element types");
-	      inform (location, "operand types are %qT and %qT", type0, type1);
+	      if (complain & tf_error)
+		{
+		  error_at (location, "comparing vectors with different "
+				      "element types");
+		  inform (location, "operand types are %qT and %qT",
+			  type0, type1);
+		}
 	      return error_mark_node;
 	    }
 
 	  if (TYPE_VECTOR_SUBPARTS (type0) != TYPE_VECTOR_SUBPARTS (type1))
 	    {
-	      error_at (location, "comparing vectors with different "
-				  "number of elements");
-	      inform (location, "operand types are %qT and %qT", type0, type1);
+	      if (complain & tf_error)
+		{
+		  error_at (location, "comparing vectors with different "
+				      "number of elements");
+		  inform (location, "operand types are %qT and %qT",
+			  type0, type1);
+		}
 	      return error_mark_node;
 	    }
 
 	  /* Always construct signed integer vector type.  */
 	  intt = c_common_type_for_size (GET_MODE_BITSIZE
 					   (TYPE_MODE (TREE_TYPE (type0))), 0);
+	  if (!intt)
+	    {
+	      if (complain & tf_error)
+		error_at (location, "could not find an integer type "
+			  "of the same size as %qT", TREE_TYPE (type0));
+	      return error_mark_node;
+	    }
 	  result_type = build_opaque_vector_type (intt,
 						  TYPE_VECTOR_SUBPARTS (type0));
 	  converted = 1;
@@ -4879,7 +4895,8 @@ build_x_vec_perm_expr (location_t loc,
    of pointer PTROP and integer INTOP.  */
 
 static tree
-cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
+cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop,
+		    tsubst_flags_t complain)
 {
   tree res_type = TREE_TYPE (ptrop);
 
@@ -4891,7 +4908,8 @@ cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
   complete_type (TREE_TYPE (res_type));
 
   return pointer_int_sum (input_location, resultcode, ptrop,
-			  fold_if_not_in_template (intop));
+			  fold_if_not_in_template (intop),
+			  complain & tf_warning_or_error);
 }
 
 /* Return a tree for the difference of pointers OP0 and OP1.
@@ -8584,10 +8602,10 @@ error_type_p (const_tree type)
     }
 }
 
-/* Returns 1 if to and from are (possibly multi-level) pointers to the same
+/* Returns true if to and from are (possibly multi-level) pointers to the same
    type or inheritance-related types, regardless of cv-quals.  */
 
-int
+bool
 ptr_reasonably_similar (const_tree to, const_tree from)
 {
   for (; ; to = TREE_TYPE (to), from = TREE_TYPE (from))
@@ -8599,7 +8617,7 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 	return !error_type_p (to);
 
       if (TREE_CODE (to) != TREE_CODE (from))
-	return 0;
+	return false;
 
       if (TREE_CODE (from) == OFFSET_TYPE
 	  && comptypes (TYPE_OFFSET_BASETYPE (to),
@@ -8609,19 +8627,24 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 
       if (TREE_CODE (to) == VECTOR_TYPE
 	  && vector_types_convertible_p (to, from, false))
-	return 1;
+	return true;
 
       if (TREE_CODE (to) == INTEGER_TYPE
 	  && TYPE_PRECISION (to) == TYPE_PRECISION (from))
-	return 1;
+	return true;
 
       if (TREE_CODE (to) == FUNCTION_TYPE)
 	return !error_type_p (to) && !error_type_p (from);
 
       if (!TYPE_PTR_P (to))
-	return comptypes
-	  (TYPE_MAIN_VARIANT (to), TYPE_MAIN_VARIANT (from),
-	   COMPARE_BASE | COMPARE_DERIVED);
+	{
+	  /* When either type is incomplete avoid DERIVED_FROM_P,
+	     which may call complete_type (c++/57942).  */
+	  bool b = !COMPLETE_TYPE_P (to) || !COMPLETE_TYPE_P (from);
+	  return comptypes
+	    (TYPE_MAIN_VARIANT (to), TYPE_MAIN_VARIANT (from),
+	     b ? COMPARE_STRICT : COMPARE_BASE | COMPARE_DERIVED);
+	}
     }
 }
 

@@ -1,3 +1,30 @@
+2013-08-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/Makefile.in (TOOLS_LIBS): Pick C object files from the
+	compiler build and use standard library variables.
+	(../../vxaddr2line$(exeext): Do not depend on targext.o and adjust.
+	(gnatmake-re): Do not depend on targext.o.
+	(gnatlink-re): Do not depend on link.o and targext.o.
+	(../../gnatmake$(exeext): Likewise.
+	(../../gnatlink$(exeext): Likewise.
+
+2013-07-21   OndÅej BÃ­lka  <neleai@seznam.cz>
+
+	* gcc-interface/gigi.h: Fix typos.
+	* gcc-interface/trans.c: Likewise.
+	* gcc-interface/utils2.c: Likewise.
+	* gnat_rm.texi: Likewise.
+	* gnat_ugn.texi: Likewise.
+	* raise-gcc.c: Likewise.
+	* sigtramp-ppcvxw.c: Likewise.
+	* sysdep.c: Likewise.
+	* terminals.c: Likewise.
+
+2013-07-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/57934
+	* gcc-interface/ada.h (CAT): Fix typo.
+
 2013-07-08  Hristian Kirtchev  <kirtchev@adacore.com>
 
 	* einfo.adb (Get_Pragma): Handle the retrieval of delayed

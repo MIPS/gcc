@@ -138,7 +138,7 @@ cxx_initialize_diagnostics (diagnostic_context *context)
 
   base = context->printer;
   pp = XNEW (cxx_pretty_printer);
-  memcpy (pp_base (pp), base, sizeof (pretty_printer));
+  memcpy (pp, base, sizeof (pretty_printer));
   pp_cxx_pretty_printer_init (pp);
   context->printer = (pretty_printer *) pp;
 
@@ -226,7 +226,7 @@ init_shadowed_var_for_decl (void)
 					   tree_decl_map_eq, 0);
 }
 
-/* Return true if stmt can fall thru.  Used by block_may_fallthru
+/* Return true if stmt can fall through.  Used by block_may_fallthru
    default case.  */
 
 bool

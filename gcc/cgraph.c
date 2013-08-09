@@ -1266,17 +1266,16 @@ cgraph_node_remove_callers (struct cgraph_node *node)
   node->callers = NULL;
 }
 
-/* Release memory used to represent body of function NODE.
-   Use this only for functions that are released before being translated to
-   target code (i.e. RTL).  Functions that are compiled to RTL and beyond
-   are free'd in final.c via free_after_compilation().  */
+/* Helper function for cgraph_release_function_body and free_lang_data.
+   It releases body from function DECL without having to inspect its
+   possibly non-existent symtab node.  */
 
 void
-cgraph_release_function_body (struct cgraph_node *node)
+release_function_body (tree decl)
 {
-  if (DECL_STRUCT_FUNCTION (node->symbol.decl))
+  if (DECL_STRUCT_FUNCTION (decl))
     {
-      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+      push_cfun (DECL_STRUCT_FUNCTION (decl));
       if (cfun->cfg
 	  && current_loops)
 	{
@@ -1299,19 +1298,35 @@ cgraph_release_function_body (struct cgraph_node *node)
       if (cfun->value_histograms)
 	free_histograms ();
       pop_cfun();
-      gimple_set_body (node->symbol.decl, NULL);
-      node->ipa_transforms_to_apply.release ();
+      gimple_set_body (decl, NULL);
       /* Struct function hangs a lot of data that would leak if we didn't
          removed all pointers to it.   */
-      ggc_free (DECL_STRUCT_FUNCTION (node->symbol.decl));
-      DECL_STRUCT_FUNCTION (node->symbol.decl) = NULL;
+      ggc_free (DECL_STRUCT_FUNCTION (decl));
+      DECL_STRUCT_FUNCTION (decl) = NULL;
     }
-  DECL_SAVED_TREE (node->symbol.decl) = NULL;
+  DECL_SAVED_TREE (decl) = NULL;
+}
+
+/* Release memory used to represent body of function NODE.
+   Use this only for functions that are released before being translated to
+   target code (i.e. RTL).  Functions that are compiled to RTL and beyond
+   are free'd in final.c via free_after_compilation().  */
+
+void
+cgraph_release_function_body (struct cgraph_node *node)
+{
+  node->ipa_transforms_to_apply.release ();
+  if (!node->used_as_abstract_origin && cgraph_state != CGRAPH_STATE_PARSING)
+    {
+      DECL_RESULT (node->symbol.decl) = NULL;
+      DECL_ARGUMENTS (node->symbol.decl) = NULL;
+    }
   /* If the node is abstract and needed, then do not clear DECL_INITIAL
      of its associated function function declaration because it's
      needed to emit debug info later.  */
-  if (!node->abstract_and_needed && DECL_INITIAL (node->symbol.decl))
+  if (!node->used_as_abstract_origin && DECL_INITIAL (node->symbol.decl))
     DECL_INITIAL (node->symbol.decl) = error_mark_node;
+  release_function_body (node->symbol.decl);
 }
 
 /* Remove the node from cgraph.  */
@@ -1384,15 +1399,18 @@ cgraph_remove_node (struct cgraph_node *node)
      itself is kept in the cgraph even after it is compiled.  Check whether
      we are done with this body and reclaim it proactively if this is the case.
      */
-  n = cgraph_get_node (node->symbol.decl);
-  if (!n
-      || (!n->clones && !n->clone_of && !n->global.inlined_to
-	  && (cgraph_global_info_ready
-	      && (TREE_ASM_WRITTEN (n->symbol.decl)
-		  || DECL_EXTERNAL (n->symbol.decl)
-		  || !n->symbol.analyzed
-		  || n->symbol.in_other_partition))))
-    cgraph_release_function_body (node);
+  if (cgraph_state != CGRAPH_LTO_STREAMING)
+    {
+      n = cgraph_get_node (node->symbol.decl);
+      if (!n
+	  || (!n->clones && !n->clone_of && !n->global.inlined_to
+	      && (cgraph_global_info_ready
+		  && (TREE_ASM_WRITTEN (n->symbol.decl)
+		      || DECL_EXTERNAL (n->symbol.decl)
+		      || !n->symbol.analyzed
+		      || (!flag_wpa && n->symbol.in_other_partition)))))
+	cgraph_release_function_body (node);
+    }
 
   node->symbol.decl = NULL;
   if (node->call_site_hash)
@@ -1679,7 +1697,6 @@ enum availability
 cgraph_function_body_availability (struct cgraph_node *node)
 {
   enum availability avail;
-  gcc_assert (cgraph_function_flags_ready);
   if (!node->symbol.analyzed)
     avail = AVAIL_NOT_AVAILABLE;
   else if (node->local.local)
@@ -2346,7 +2363,7 @@ verify_cgraph_node (struct cgraph_node *node)
       error ("inline clone in same comdat group list");
       error_found = true;
     }
-  if (!node->symbol.definition && node->local.local)
+  if (!node->symbol.definition && !node->symbol.in_other_partition && node->local.local)
     {
       error ("local symbols must be defined");
       error_found = true;
@@ -2520,55 +2537,75 @@ verify_cgraph_node (struct cgraph_node *node)
     {
       if (this_cfun->cfg)
 	{
+	  pointer_set_t *stmts = pointer_set_create ();
+	  int i;
+	  struct ipa_ref *ref;
+
 	  /* Reach the trees by walking over the CFG, and note the
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
-	    for (gsi = gsi_start_bb (this_block);
-                 !gsi_end_p (gsi);
-                 gsi_next (&gsi))
-	      {
-		gimple stmt = gsi_stmt (gsi);
-		if (is_gimple_call (stmt))
-		  {
-		    struct cgraph_edge *e = cgraph_edge (node, stmt);
-		    tree decl = gimple_call_fndecl (stmt);
-		    if (e)
-		      {
-			if (e->aux)
-			  {
-			    error ("shared call_stmt:");
-			    cgraph_debug_gimple_stmt (this_cfun, stmt);
-			    error_found = true;
-			  }
-			if (!e->indirect_unknown_callee)
-			  {
-			    if (verify_edge_corresponds_to_fndecl (e, decl))
-			      {
-				error ("edge points to wrong declaration:");
-				debug_tree (e->callee->symbol.decl);
-				fprintf (stderr," Instead of:");
-				debug_tree (decl);
-				error_found = true;
-			      }
-			  }
-			else if (decl)
-			  {
-			    error ("an indirect edge with unknown callee "
-				   "corresponding to a call_stmt with "
-				   "a known declaration:");
-			    error_found = true;
-			    cgraph_debug_gimple_stmt (this_cfun, e->call_stmt);
-			  }
-			e->aux = (void *)1;
-		      }
-		    else if (decl)
-		      {
-			error ("missing callgraph edge for call stmt:");
-			cgraph_debug_gimple_stmt (this_cfun, stmt);
-			error_found = true;
-		      }
-		  }
+	    {
+	      for (gsi = gsi_start_phis (this_block);
+		   !gsi_end_p (gsi); gsi_next (&gsi))
+		pointer_set_insert (stmts, gsi_stmt (gsi));
+	      for (gsi = gsi_start_bb (this_block);
+		   !gsi_end_p (gsi);
+		   gsi_next (&gsi))
+		{
+		  gimple stmt = gsi_stmt (gsi);
+		  pointer_set_insert (stmts, stmt);
+		  if (is_gimple_call (stmt))
+		    {
+		      struct cgraph_edge *e = cgraph_edge (node, stmt);
+		      tree decl = gimple_call_fndecl (stmt);
+		      if (e)
+			{
+			  if (e->aux)
+			    {
+			      error ("shared call_stmt:");
+			      cgraph_debug_gimple_stmt (this_cfun, stmt);
+			      error_found = true;
+			    }
+			  if (!e->indirect_unknown_callee)
+			    {
+			      if (verify_edge_corresponds_to_fndecl (e, decl))
+				{
+				  error ("edge points to wrong declaration:");
+				  debug_tree (e->callee->symbol.decl);
+				  fprintf (stderr," Instead of:");
+				  debug_tree (decl);
+				  error_found = true;
+				}
+			    }
+			  else if (decl)
+			    {
+			      error ("an indirect edge with unknown callee "
+				     "corresponding to a call_stmt with "
+				     "a known declaration:");
+			      error_found = true;
+			      cgraph_debug_gimple_stmt (this_cfun, e->call_stmt);
+			    }
+			  e->aux = (void *)1;
+			}
+		      else if (decl)
+			{
+			  error ("missing callgraph edge for call stmt:");
+			  cgraph_debug_gimple_stmt (this_cfun, stmt);
+			  error_found = true;
+			}
+		    }
+		}
 	      }
+	    for (i = 0;
+		 ipa_ref_list_reference_iterate (&node->symbol.ref_list, i, ref);
+		 i++)
+	      if (ref->stmt && !pointer_set_contains (stmts, ref->stmt))
+		{
+		  error ("reference to dead statement");
+		  cgraph_debug_gimple_stmt (this_cfun, ref->stmt);
+		  error_found = true;
+		}
+	    pointer_set_destroy (stmts);
 	}
       else
 	/* No CFG available?!  */
@@ -2688,6 +2725,46 @@ cgraph_function_node (struct cgraph_node *node, enum availability *availability)
 	}
     } while (node && node->thunk.thunk_p);
   return node;
+}
+
+/* When doing LTO, read NODE's body from disk if it is not already present.  */
+
+bool
+cgraph_get_body (struct cgraph_node *node)
+{
+  struct lto_file_decl_data *file_data;
+  const char *data, *name;
+  size_t len;
+  tree decl = node->symbol.decl;
+
+  if (DECL_RESULT (decl))
+    return false;
+
+  gcc_assert (in_lto_p);
+
+  file_data = node->symbol.lto_file_data;
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+
+  /* We may have renamed the declaration, e.g., a static function.  */
+  name = lto_get_decl_name_mapping (file_data, name);
+
+  data = lto_get_section_data (file_data, LTO_section_function_body,
+			       name, &len);
+  if (!data)
+    {
+	dump_cgraph_node (stderr, node);
+    fatal_error ("%s: section %s is missing",
+		 file_data->file_name,
+		 name);
+    }
+
+  gcc_assert (DECL_STRUCT_FUNCTION (decl) == NULL);
+
+  lto_input_function_body (file_data, decl, data);
+  lto_stats.num_function_bodies++;
+  lto_free_section_data (file_data, LTO_section_function_body, name,
+			 data, len);
+  return true;
 }
 
 #include "gt-cgraph.h"
