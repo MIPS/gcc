@@ -4981,7 +4981,7 @@ source location.}#
 	   (:else
 	    (debug "normexp_defun_defmacro strange sfubind=" sfubind)
 	    (assert_msg "bad sfubind" () sfubind)))
-     (debug "normexp_defun_defmacro return nproc=" nproc)
+     (debug "normexp_defun_defmacro return ndataclos=" ndataclos)
      (return ndataclos ())
      )
     ))
@@ -4998,7 +4998,7 @@ source location.}#
 	 (sdefmacro (unsafe_get_field :smacinst_defmacro recv))
 	 )
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
-    (let ( (nclos (normexp_defun_defmacro sdefmacro env ncx psloc))
+    (let ( (nclos (normexp_defun_defmacro sdefmacro env ncx loc))
 	   (mbind (get_field :smacro_binding sdefmacro))
 	   (modctx (get_field :nctx_modulcontext ncx))
 	   (msymb (get_field :binder mbind))
@@ -5009,9 +5009,20 @@ source location.}#
       (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
       (let ( 
 	    (nlitsym (clone_symbol msymb))
+	    (nclosym (clone_symbol msymb))
 	    (nlitbind (let ( (nli (register_literal_value mbind modctx)) )
 			(debug "normexp_macro_installation nlitbind=" nli)
 			nli))
+	    (clobind (instance class_normal_let_binding
+			     :letbind_loc loc
+			     :binder nclosym
+			     :letbind_type ctype_value
+			     :letbind_expr nclos))
+	    (closocc (instance class_nrep_locsymocc
+			      :nrep_loc loc
+			      :nocc_ctyp ctype_value
+			      :nocc_symb nclosym
+			      :nocc_bind clobind))
 	    (nlitval (let ( (nlv (instance class_nrep_literalnamedvalue
 					   :nlitval_regval nlitbind
 					   :nlitval_symbol nlitsym))
@@ -5022,9 +5033,9 @@ source location.}#
 					   :nrep_loc loc
 					   :nexpr_ctyp ctype_void
 					   :nhook_name '"HOOK_MACRO_INSTALLER"
-					   :nexpr_args (tuple nlitval nclos)
+					   :nexpr_args (tuple nlitval closocc)
 					   :nhook_called (normal_predef hook_macro_installer ncx
-									psloc "hook_macro_installer")
+									loc "hook_macro_installer")
 					   :nhook_outs (tuple)
 					   :nhook_descr (hook_data hook_macro_installer)
 					   )) )
@@ -5042,11 +5053,14 @@ source location.}#
 			      :nocc_symb csym
 			      :nocc_bind cbind))
 	    )
+	(debug "normexp_macro_installation nlitval=" nlitval)
 	(debug "normexp_macro_installation csym=" csym " nhcall=" nhcall)
-	(debug "normexp_macro_installation final symocc=" symocc " cbind=" cbind)
-	(return symocc (list cbind))
+	(debug "normexp_macro_installation final closocc=" closocc "\n.. symocc=" symocc 
+	       "\n.. cbind=" cbind "\n.. clobind=" clobind)
+	(return (tuple closocc symocc) (list clobind cbind))
 	))))
 (install_method class_source_macro_installation normal_exp normexp_macro_installation)
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

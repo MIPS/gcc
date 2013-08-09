@@ -4918,7 +4918,7 @@ meltgc_send (melt_ptr_t recv_p,
              const melt_argdescr_cell_t *xresdescr_,
              union meltparam_un * xrestab_)
 {
-  /* NAUGHTY TRICK here: message sending is very common, and we want
+  /** NAUGHTY TRICK here: message sending is very common, and we want
      to avoid having the current frame (the frame declared by the
      MELT_ENTERFRAME macro call below) to be active when the application
      for the sending is performed. This should make our call frames'
@@ -4926,8 +4926,8 @@ meltgc_send (melt_ptr_t recv_p,
      the receiver in the two variables below. Yes this is dirty, but
      it works!
 
-     We should be very careful when modifying this routine */
-  /* never assign to these if a GC could happen */
+     We should be very careful when modifying this routine.  Never
+     assign to these dirtyptr-s if a GC could happen!  */
   meltclosure_ptr_t closure_dirtyptr = NULL;
   melt_ptr_t recv_dirtyptr = NULL;
 
@@ -4945,6 +4945,7 @@ meltgc_send (melt_ptr_t recv_p,
 #define mul_ancv  ((struct meltmultiple_st*)(ancv))
   recv = recv_p;
   selv = sel_p;
+  MELT_LOCATION_HERE ("sending msg");
   /* the receiver can be null, using DISCR_NULL_RECEIVER */
   if (melt_magic_discr ((melt_ptr_t) selv) != MELTOBMAG_OBJECT)
     goto end;
@@ -4958,44 +4959,58 @@ meltgc_send (melt_ptr_t recv_p,
     discrv = (melt_ptr_t) ((meltobject_ptr_t) MELT_PREDEF (DISCR_NULL_RECEIVER));
     gcc_assert (discrv != NULL);
   };
-  while (discrv) {
-    gcc_assert (melt_magic_discr ((melt_ptr_t) discrv) ==
-                MELTOBMAG_OBJECT);
-    gcc_assert (obj_discrv->obj_len >= MELTLENGTH_CLASS_DISCRIMINANT);
-    mapv = obj_discrv->obj_vartab[MELTFIELD_DISC_METHODICT];
-    if (melt_magic_discr ((melt_ptr_t) mapv) == MELTOBMAG_MAPOBJECTS) {
-      closv =
-        (melt_ptr_t) melt_get_mapobjects ((meltmapobjects_ptr_t)
-                                          mapv,
-                                          (meltobject_ptr_t)
-                                          selv);
-    } else {
-      closv = obj_discrv->obj_vartab[MELTFIELD_DISC_SENDER];
-      if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) {
-        union meltparam_un pararg[1];
-        pararg[0].meltbp_aptr = (melt_ptr_t *) & selv;
-        resv =
-          melt_apply ((meltclosure_ptr_t) closv,
-                      (melt_ptr_t) recv, MELTBPARSTR_PTR, pararg, "",
-                      NULL);
-        closv = resv;
+#if MELT_HAVE_DEBUG
+  char curloc[80];
+  if (melt_flag_debug) 
+    {
+      curloc[0] = (char)0;
+      const char* selname = melt_string_str (obj_selv->obj_vartab[MELTFIELD_NAMED_NAME]);
+      if (selname && selname[0])
+	MELT_LOCATION_HERE_PRINTF (curloc, "sending %s", selname);
+    }
+#endif /*MELT_HAVE_DEBUG*/
+  while (discrv) 
+    {
+      gcc_assert (melt_magic_discr ((melt_ptr_t) discrv) ==
+		  MELTOBMAG_OBJECT);
+      gcc_assert (obj_discrv->obj_len >= MELTLENGTH_CLASS_DISCRIMINANT);
+      mapv = obj_discrv->obj_vartab[MELTFIELD_DISC_METHODICT];
+      if (melt_magic_discr ((melt_ptr_t) mapv) == MELTOBMAG_MAPOBJECTS) 
+	{
+	  closv =
+	    (melt_ptr_t) melt_get_mapobjects ((meltmapobjects_ptr_t)
+					      mapv,
+					      (meltobject_ptr_t)
+					      selv);
+	} else {
+	closv = obj_discrv->obj_vartab[MELTFIELD_DISC_SENDER];
+	if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) 
+	  {
+	    union meltparam_un pararg[1];
+	    pararg[0].meltbp_aptr = (melt_ptr_t *) & selv;
+	    resv =
+	      melt_apply ((meltclosure_ptr_t) closv,
+			  (melt_ptr_t) recv, MELTBPARSTR_PTR, pararg, "",
+			  NULL);
+	    closv = resv;
+	  }
       }
-    }
-    if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) {
-      /* NAUGHTY TRICK: assign to dirty (see comments near start of function) */
-      closure_dirtyptr = (meltclosure_ptr_t) closv;
-      recv_dirtyptr = (melt_ptr_t) recv;
-      /*** OLD CODE:
-      resv =
-        melt_apply (closv, recv, xargdescr_, xargtab_,
-             xresdescr_, xrestab_);
-      ***/
-      goto end;
-    }
-    discrv = obj_discrv->obj_vartab[MELTFIELD_DISC_SUPER];
-  }       /* end while discrv */
+      if (melt_magic_discr ((melt_ptr_t) closv) == MELTOBMAG_CLOSURE) 
+	{
+	  /* NAUGHTY TRICK: assign to dirty (see comments near start of function) */
+	  closure_dirtyptr = (meltclosure_ptr_t) closv;
+	  recv_dirtyptr = (melt_ptr_t) recv;
+	  /*** OLD CODE:
+	       resv =
+	       melt_apply (closv, recv, xargdescr_, xargtab_,
+	       xresdescr_, xrestab_);
+	  ***/
+	  goto end;
+	}
+      discrv = obj_discrv->obj_vartab[MELTFIELD_DISC_SUPER];
+    }       /* end while discrv */
   resv = NULL;
-end:
+ end:
   MELT_EXITFRAME ();
   /* NAUGHTY TRICK  (see comments near start of function) */
   if (closure_dirtyptr)

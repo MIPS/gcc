@@ -1357,45 +1357,48 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 
 ;;; just output the #line directive
 (defun output_raw_location (loc implbuf :long depth :cstring msg)
-  (if loc
-      (progn
-	(add2sbuf_indentnl implbuf 0)
-	(add2sbuf_strconst implbuf "#ifndef MELTGCC_NOLINENUMBERING")
-	(add2sbuf_indentnl implbuf 0)
-	(cond ( (is_mixint loc) 
+  (when loc
+    (add2sbuf_indentnl implbuf 0)
+    (cond ( (is_mixint loc) 
+	    (add2sbuf_strconst implbuf "#ifndef MELTGCC_NOLINENUMBERING")
+	    (add2sbuf_indentnl implbuf 0)
 ;;; we don't output #line in a single draw to make
 ;;; grep -v '#line' work better even without the
 ;;; start-of-line caret...
-		(add2sbuf_strconst implbuf "#")
-		(add2sbuf_strconst implbuf "line ")
-		(add2sbuf_longdec implbuf (get_int loc))
-		(add2sbuf_strconst implbuf " \"")
-		(add2sbuf_string implbuf (mixint_val loc))
-		(add2sbuf_strconst implbuf "\""))
-	      ( (is_mixloc loc)
-		(add2sbuf_strconst implbuf "#")
-		(add2sbuf_strconst implbuf "line ")
-		(add2sbuf_longdec implbuf (mixloc_locline loc))
-		(add2sbuf_strconst implbuf "   \"")
-		(add2sbuf_strconst implbuf (mixloc_locbasefile loc))
-		(add2sbuf_strconst implbuf "\""))
-	      )
-	(if msg 
-	    (progn
-	      (add2sbuf_strconst implbuf " /**::")
-	      (add2sbuf_ccomconst implbuf msg)
-	      (add2sbuf_strconst implbuf "::**/")
-	      ))
-	(add2sbuf_indentnl implbuf 0)
-	(add2sbuf_strconst implbuf "#endif /*MELTGCC_NOLINENUMBERING*/")
-	(add2sbuf_indentnl implbuf depth)
-	;;
-	(cond ( (>i (strbuf_usedlength implbuf) (/iraw (get_int !buffer_limit_cont) 2))
-		(shortbacktrace_dbg "output_raw_location huge implbuf" 12)
-		(debug "output_raw_location huge implbuf=" implbuf)
-		(assert_msg "check limited implbuf" 
-			    (<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
-	)))
+	    (add2sbuf_strconst implbuf "#")
+	    (add2sbuf_strconst implbuf "line ")
+	    (add2sbuf_longdec implbuf (get_int loc))
+	    (add2sbuf_strconst implbuf " \"")
+	    (add2sbuf_string implbuf (mixint_val loc))
+	    (add2sbuf_strconst implbuf "\""))
+	  ( (is_mixloc loc)
+	    (add2sbuf_strconst implbuf "#ifndef MELTGCC_NOLINENUMBERING")
+	    (add2sbuf_indentnl implbuf 0)
+	    (add2sbuf_strconst implbuf "#")
+	    (add2sbuf_strconst implbuf "line ")
+	    (add2sbuf_longdec implbuf (mixloc_locline loc))
+	    (add2sbuf_strconst implbuf "   \"")
+	    (add2sbuf_strconst implbuf (mixloc_locbasefile loc))
+	    (add2sbuf_strconst implbuf "\""))
+	  (:else
+	   (assert_msg "unexpected loc" () loc)
+	   )
+	  )
+    (when msg 
+      (add2sbuf_strconst implbuf " /**::")
+      (add2sbuf_ccomconst implbuf msg)
+      (add2sbuf_strconst implbuf "::**/")
+      )
+    (add2sbuf_indentnl implbuf 0)
+    (add2sbuf_strconst implbuf "#endif /*MELTGCC_NOLINENUMBERING*/")
+    (add2sbuf_indentnl implbuf depth)
+    ;;
+    (cond ( (>i (strbuf_usedlength implbuf) (/iraw (get_int !buffer_limit_cont) 2))
+	    (shortbacktrace_dbg "output_raw_location huge implbuf" 12)
+	    (debug "output_raw_location huge implbuf=" implbuf)
+	    (assert_msg "check limited implbuf" 
+			(<i (strbuf_usedlength implbuf) (get_int !buffer_limit_cont)) implbuf)))
+    ))
 
   ;; we really want to avoid outputing the same location twice, so we
   ;; keep the previous location and implbuf
@@ -6108,8 +6111,15 @@ if (1) return;
 	    (assert_msg "check nexp" (is_not_a nexp class_nrep_anyproc) nexp)
 	    ;;
 	    (setq newnbind ())
-	    (setq newnexp (wrap_normal_let1 nexp nbind psloc))
-	    (debug "give_normalized_macroexpanded_list update newnexp=" newnexp)
+	    (cond ( (is_multiple nexp)
+		    (debug "give_normalized_macroexpanded_list multiple nexp=" nexp)
+		    (setq newnexp (wrap_normal_letseq nexp nbind psloc))
+		    (debug "give_normalized_macroexpanded_list wrapseq newnexp=" newnexp))
+		  ( (is_list nexp)
+		    (assert_msg "give_normalized_macroexpanded_list nonlist nexp" () nexp))
+		  (:else
+		   (setq newnexp (wrap_normal_let1 nexp nbind psloc))
+		   (debug "give_normalized_macroexpanded_list wrap1 newnexp=" newnexp)))
 	    )
 	  ;;
 	  (cond ( (is_list newnexp)
@@ -7406,6 +7416,7 @@ if (1) return;
   expansion of $DEFMACRO-ed macronames.}#
   (debug "melt_translate_run_macroexpansions_list start lismexp=" lismexp 
 	 "\n.. env=" env "\n.. parmodctx=" parmodctx)
+  (shortbacktrace_dbg "melt_translate_run_macroexpansions_list" 12)
   (assert_msg "check env" (is_a env class_environment) env)
   (when (null lismexp)
     (debug "melt_translate_run_macroexpansions_list null lismexp=" lismexp)

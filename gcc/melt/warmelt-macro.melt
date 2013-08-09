@@ -2429,12 +2429,14 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	 "\n.. modctx=" modctx)
   (let ( (clos melt_transrunmacro_clos)
 	 )
-  (assert_msg "check clos" (is_closure clos) clos)
-  (assert_msg "check lismexp" (is_list lismexp) lismexp)
-  (let ( (res (clos lismexp env modctx))
-	 )
-    (debug "melt_invoke_translator_runner_macroexpansions res=" res)
-    (return res))))
+    (debug "melt_invoke_translator_runner_macroexpansions melt_transrunmacro_clos=" clos)
+    (shortbacktrace_dbg "melt_invoke_translator_runner_macroexpansions" 12)
+    (assert_msg "check clos" (is_closure clos) clos)
+    (assert_msg "check lismexp" (is_list lismexp) lismexp)
+    (let ( (res (clos lismexp env modctx))
+	   )
+      (debug "melt_invoke_translator_runner_macroexpansions res=" res)
+      (return res))))
   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;; macro expansers
@@ -3224,6 +3226,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	(debug "mexpand_defmacro sinstmacro=" sinstmacro)
 	(assert_msg "check maclist" (is_list maclist) maclist)
 	(list_append maclist sinstmacro)
+	(debug "mexpand_defmacro updated maclist=" maclist)
 	;; we should put a :mbind_expanser closure into mbind
 	(put_fields mbind 
 		    :mbind_expanser 
@@ -3268,6 +3271,7 @@ of ctype @code{:value}.}#)
   :predef HOOK_MACRO_INSTALLER
   :doc #{The internal $HOOK_MACRO_INSTALLER is installing macro, during a translation}#
   (debug "hook_macro_installer mbind=" mbind " mexpclos=" mexpclos)
+  (shortbacktrace_dbg "hook_macro_installer" 10)
   (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
   (assert_msg "check mexpclos" (is_closure mexpclos) mexpclos mbind)
   (put_fields mbind :mbind_expanser mexpclos)

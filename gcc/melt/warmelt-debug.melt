@@ -978,15 +978,16 @@ $TORANK}#
 	 (:long maxdepth (get_int (get_field :dbgi_maxdepth dbgi)))
 	 (sbuf (get_field :dbgi_out dbgi)) )
     (if (and (>i depth 0) (== dis DISCR_LIST))
-	(add2sbuf_strconst sbuf " *li(")
+	(add2sbuf_strconst sbuf " *li")
       (progn
 	(add2sbuf_strconst sbuf " *li|")
-	(add2sbuf_string sbuf (unsafe_get_field :named_name dis))
-	(add2sbuf_strconst sbuf "(")))
+	(add2sbuf_string sbuf (unsafe_get_field :named_name dis))))
     (let (
 	  (:long ix 0) 
 	  (:long lislen (list_length self))
 	  )
+    (if depth (add2sbuf_strconst sbuf "(")
+      (add2out sbuf "~" lislen "("))
       (cond 
        ( (<i depth maxdepth) 
 	 (foreach_in_list

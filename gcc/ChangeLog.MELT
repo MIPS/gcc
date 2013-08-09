@@ -1,4 +1,29 @@
 
+2013-08-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tmacro-1.melt test works, and also the documentation
+	generation; more stable...}}
+
+	* melt-runtime.c (meltgc_send): Improve comment.
+	added MELT_LOCATION_HERE_PRINTF when debugging.
+
+	* melt/warmelt-debug.melt (dbgout_list_method): Show the list
+	length at depth 0.
+
+	* melt/warmelt-macro.melt
+	(melt_invoke_translator_runner_macroexpansions, mexpand_defmacro):
+	More debug.
+
+	* melt/warmelt-normal.melt (normexp_defun_defmacro): Return the
+	data closure.
+	(normexp_macro_installation): Use a local symbol occurrence for
+	the closure. Return both the closure and the symbol.
+
+	* melt/warmelt-outobj.melt (output_raw_location): Aborts for
+	unexpected location.
+	(give_normalized_macroexpanded_list): Handle multiple result of
+	normalization by letseq wrapping.
+
+
 2013-08-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{tmacro-1.melt test still fails}}
