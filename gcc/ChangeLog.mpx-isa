@@ -92,9 +92,13 @@
 	(*<mode>_ldx): New.
 	(<mode>_stx): New.
 	(*<mode>_stx): New.
-	* config/i386/predicates.md (lea_address_operand) Rename to...
+	* config/i386/predicates.md (lea_address_operand): Rename to...
 	(address_no_seg_operand): ... this.
 	(address_mpx_no_base_operand): New.
 	(address_mpx_no_index_operand): New.
 	(bnd_mem_operator): New.
 	* config/i386/i386.opt (mmpx): New.
+	* doc/invoke.texi: Add documentation for the flags -mmpx, -mno-mpx.
+	* doc/rtl.texi (BND32mode): New.
+	(BND64mode): New.
+	(MODE_BOUND): New.
