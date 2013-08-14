@@ -32,8 +32,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "cp-tree.h"
 #include "abi-instr.h"
-#include "libabigail/abg-writer.h"
-#include "libabigail/abg-config.h"
+#include "abg-ir.h"
+#include "abg-config.h"
 
 using std::tr1::shared_ptr;
 using std::tr1::static_pointer_cast;
@@ -1192,7 +1192,7 @@ abi_instr_dump_file ()
   if (!of.is_open ())
     fatal_error ("can%'t open %s for writing: %m", out_path.c_str ());
 
-  bool is_ok = abigail::writer::write_to_ostream (get_cur_tu (), of);
+  bool is_ok = get_cur_tu ().write (of);
   of.close ();
   if (!is_ok)
     error ("could not dump abi instrumentation to file %s: %m",
