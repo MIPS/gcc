@@ -42,8 +42,10 @@ ubsan_instrument_division (location_t loc, tree op0, tree op1)
   tree type = TREE_TYPE (op0);
 
   /* At this point both operands should have the same type,
-     because they are already converted to RESULT_TYPE.  */
-  gcc_assert (type == TREE_TYPE (op1));
+     because they are already converted to RESULT_TYPE.
+     Use TYPE_MAIN_VARIANT since typedefs can confuse us.  */
+  gcc_assert (TYPE_MAIN_VARIANT (TREE_TYPE (op0))
+	      == TYPE_MAIN_VARIANT (TREE_TYPE (op1)));
 
   /* TODO: REAL_TYPE is not supported yet.  */
   if (TREE_CODE (type) != INTEGER_TYPE)
