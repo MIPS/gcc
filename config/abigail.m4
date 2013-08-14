@@ -62,7 +62,7 @@ AC_DEFUN([ABIGAIL_INIT],
 	       [ENABLE_ABIGAIL_VERSION_CHECK=yes])
 
  if test x$with_abigail != x -a x$with_abigail != xno; then
-   abigailinc="-I$with_abigail/include"
+   abigailinc="-I$with_abigail/include/libabigail"
    abigaillibs="-L$with_abigail/lib"
    found_abigail_lib=yes
    found_abigail_inc=yes
@@ -157,7 +157,7 @@ AC_DEFUN([ABIGAIL_CHECK_VERSION],
 
    AC_MSG_CHECKING([for version $1.$2 of libabigail])
    AC_LANG_PUSH(C++)
-   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include "libabigail/abg-version.h"],
+   AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include "abg-version.h"],
 				      [#if ABIGAIL_VERSION_MAJOR != $1 || ABIGAIL_VERSION_MINOR < $2
 				          choke here
 				       #endif
