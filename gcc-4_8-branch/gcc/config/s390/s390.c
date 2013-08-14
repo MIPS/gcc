@@ -7519,8 +7519,7 @@ s390_register_info (int clobbered_regs[])
 	     this we fail during elimination offset verification.  */
 	  if ((clobbered_regs[i]
 	       || (df_regs_ever_live_p (i)
-		   && (lra_in_progress
-		       || reload_in_progress
+		   && (reload_in_progress
 		       || crtl->saves_all_registers)))
 	      && !global_regs[i])
 	    {

@@ -1,3 +1,114 @@
+2013-08-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/56417
+	* gcc.dg/asan/pr56417.c: New test.
+
+2013-08-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-06-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57459
+	* gcc.target/i386/pr57459.c: New test.
+
+2013-08-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization16.adb: New test.
+	* gnat.dg/loop_optimization16_pkg.ad[sb]: New helper.
+
+2013-08-13  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/57980
+	* gcc.dg/pr57980.c: New test.
+
+2013-08-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-08-12  Perez Read  <netfirewall@gmail.com>
+
+        PR target/58132
+        * gcc.target/i386/movabs-1.c: New test.
+
+2013-08-11  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from trunk:
+	2013-08-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58058
+	* gfortran.dg/transfer_intrinsic_6.f90: New.
+
+2013-08-09  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	Backport from mainline:
+	2013-08-09  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* gcc.target/arm/lp1189445.c: New testcase.
+
+2013-08-06  Martin Jambor  <mjambor@suse.cz>
+	    Bernd Edlinger <bernd.edlinger@hotmail.de>
+
+	* gcc.dg/torture/pr58041.c (foo): Accept z by reference.
+	(a): Fix constructor.
+
+2013-08-06  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/58041
+	* gcc.dg/torture/pr58041.c: New test.
+	* gcc.target/arm/pr58041.c: Likewise.
+
+2013-08-02  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	Backport from mainline
+	2013-06-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+        * gcc.target/s390/htm-1.c: New file.
+        * gcc.target/s390/htm-nofloat-1.c: New file.
+        * gcc.target/s390/htm-xl-intrin-1.c: New file.
+
+2013-07-28  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2013-05-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57435
+	* gfortran.dg/use_29.f90: New.
+
+2013-07-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57981
+	* g++.dg/cpp0x/pr57981.C: New.
+
+2013-07-25  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline:
+	2013-07-25  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/thumb1-Os-mult.c: New test case.
+
+2013-07-19  Wei Mi  <wmi@google.com>
+
+	Backport from mainline:
+	2013-07-18  Wei Mi  <wmi@google.com>
+
+	PR rtl-optimization/57878
+	* g++.dg/pr57518.C: New test.
+
+2013-07-19  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2013-07-19 trunk r201051.
+
+	PR target/57516
+	* gcc.target/avr/torture/builtins-4-roundfx.c (test2hr, test2k):
+	Adjust to corrected rounding.
+
+2013-07-19  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/bmi-1.c: Extend with new instrinsics.
+	Fix scan patterns.
+	* gcc.target/i386/bmi-2.c: Ditto.
+	* gcc.target/i386/bmi-bextr-4.c: New.
+	* gcc.target/i386/bmi-bextr-5.c: Ditto.
+
 2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/fusion.c: New file, test power8 fusion
@@ -178,14 +289,6 @@
 	* gcc.target/powerpc/sd-vsx.c: Likewise.
 	* gcc.target/powerpc/sd-pwr6.c: Likewise.
 	* gcc.target/powerpc/vsx-float0.c: Likewise.
-
-2013-06-28  Kirill Yukhin  <kirill.yukhin@intel.com>
-
-        * gcc.target/i386/bmi-1.c: Extend with new instrinsic.
-        Fix scan patterns.
-        * gcc.target/i386/bmi-1.c: Ditto.
-        * gcc.target/i386/bmi-bextr-4.c: New.
-        * gcc.target/i386/bmi-bextr-5.c: Ditto.
 
 2013-06-27  Jakub Jelinek  <jakub@redhat.com>
 

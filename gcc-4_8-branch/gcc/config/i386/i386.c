@@ -8806,17 +8806,12 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
 
   if (!flag_pic)
     {
+      if (TARGET_MACHO)
+	/* We don't need a pic base, we're not producing pic.  */
+	gcc_unreachable ();
+
       xops[2] = gen_rtx_LABEL_REF (Pmode, label ? label : gen_label_rtx ());
-
       output_asm_insn ("mov%z0\t{%2, %0|%0, %2}", xops);
-
-#if TARGET_MACHO
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
-      if (!label)
-	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-#endif
-
       targetm.asm_out.internal_label (asm_out_file, "L",
 				      CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
     }
@@ -8829,12 +8824,18 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
       xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
       output_asm_insn ("call\t%X2", xops);
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
+
 #if TARGET_MACHO
-      if (!label)
+      /* Output the Mach-O "canonical" pic base label name ("Lxx$pb") here.
+         This is what will be referenced by the Mach-O PIC subsystem.  */
+      if (machopic_should_output_picbase_label () || !label)
 	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-      else
+
+      /* When we are restoring the pic base at the site of a nonlocal label,
+         and we decided to emit the pic base above, we will still output a
+         local label used for calculating the correction offset (even though
+         the offset will be 0 in that case).  */
+      if (label)
         targetm.asm_out.internal_label (asm_out_file, "L",
 					   CODE_LABEL_NUMBER (label));
 #endif
@@ -8916,7 +8917,8 @@ ix86_save_reg (unsigned int regno, bool maybe_eh_return)
       && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || crtl->profile
 	  || crtl->calls_eh_return
-	  || crtl->uses_const_pool))
+	  || crtl->uses_const_pool
+	  || cfun->has_nonlocal_label))
     return ix86_select_alt_pic_regnum () == INVALID_REGNUM;
 
   if (crtl->calls_eh_return && maybe_eh_return)
@@ -13681,21 +13683,29 @@ ix86_delegitimize_address (rtx x)
 	    x = replace_equiv_address_nv (orig_x, x);
 	  return x;
 	}
-      if (GET_CODE (x) != CONST
-	  || GET_CODE (XEXP (x, 0)) != UNSPEC
-	  || (XINT (XEXP (x, 0), 1) != UNSPEC_GOTPCREL
-	      && XINT (XEXP (x, 0), 1) != UNSPEC_PCREL)
-	  || (!MEM_P (orig_x) && XINT (XEXP (x, 0), 1) != UNSPEC_PCREL))
-	return ix86_delegitimize_tls_address (orig_x);
-      x = XVECEXP (XEXP (x, 0), 0, 0);
-      if (GET_MODE (orig_x) != GET_MODE (x) && MEM_P (orig_x))
+
+      if (GET_CODE (x) == CONST
+	  && GET_CODE (XEXP (x, 0)) == UNSPEC
+	  && (XINT (XEXP (x, 0), 1) == UNSPEC_GOTPCREL
+	      || XINT (XEXP (x, 0), 1) == UNSPEC_PCREL)
+	  && (MEM_P (orig_x) || XINT (XEXP (x, 0), 1) == UNSPEC_PCREL))
 	{
-	  x = simplify_gen_subreg (GET_MODE (orig_x), x,
-				   GET_MODE (x), 0);
-	  if (x == NULL_RTX)
-	    return orig_x;
+	  x = XVECEXP (XEXP (x, 0), 0, 0);
+	  if (GET_MODE (orig_x) != GET_MODE (x) && MEM_P (orig_x))
+	    {
+	      x = simplify_gen_subreg (GET_MODE (orig_x), x,
+				       GET_MODE (x), 0);
+	      if (x == NULL_RTX)
+		return orig_x;
+	    }
+	  return x;
 	}
-      return x;
+
+      if (ix86_cmodel != CM_MEDIUM_PIC && ix86_cmodel != CM_LARGE_PIC)
+	return ix86_delegitimize_tls_address (orig_x);
+
+      /* Fall thru into the code shared with -m32 for -mcmodel=large -fpic
+	 and -mcmodel=medium -fpic.  */
     }
 
   if (GET_CODE (x) != PLUS
@@ -13732,10 +13742,12 @@ ix86_delegitimize_address (rtx x)
 
   if (GET_CODE (x) == UNSPEC
       && ((XINT (x, 1) == UNSPEC_GOT && MEM_P (orig_x) && !addend)
-	  || (XINT (x, 1) == UNSPEC_GOTOFF && !MEM_P (orig_x))))
+	  || (XINT (x, 1) == UNSPEC_GOTOFF && !MEM_P (orig_x))
+	  || (XINT (x, 1) == UNSPEC_PLTOFF && ix86_cmodel == CM_LARGE_PIC
+	      && !MEM_P (orig_x) && !addend)))
     result = XVECEXP (x, 0, 0);
 
-  if (TARGET_MACHO && darwin_local_data_pic (x)
+  if (!TARGET_64BIT && TARGET_MACHO && darwin_local_data_pic (x)
       && !MEM_P (orig_x))
     result = XVECEXP (x, 0, 0);
 
@@ -29231,10 +29243,11 @@ dispatch_function_versions (tree dispatch_decl,
       if (predicate_chain == NULL_TREE)
 	continue;
 
+      function_version_info [actual_versions].version_decl = version_decl;
+      function_version_info [actual_versions].predicate_chain
+	 = predicate_chain;
+      function_version_info [actual_versions].dispatch_priority = priority;
       actual_versions++;
-      function_version_info [ix - 1].version_decl = version_decl;
-      function_version_info [ix - 1].predicate_chain = predicate_chain;
-      function_version_info [ix - 1].dispatch_priority = priority;
     }
 
   /* Sort the versions according to descending order of dispatch priority.  The

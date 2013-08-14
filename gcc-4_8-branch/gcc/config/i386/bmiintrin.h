@@ -38,7 +38,6 @@ __tzcnt_u16 (unsigned short __X)
   return __builtin_ctzs (__X);
 }
 
-
 extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __andn_u32 (unsigned int __X, unsigned int __Y)
 {
@@ -64,9 +63,21 @@ __blsi_u32 (unsigned int __X)
 }
 
 extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_blsi_u32 (unsigned int __X)
+{
+  return __blsi_u32 (__X);
+}
+
+extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __blsmsk_u32 (unsigned int __X)
 {
   return __X ^ (__X - 1);
+}
+
+extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_blsmsk_u32 (unsigned int __X)
+{
+  return __blsmsk_u32 (__X);
 }
 
 extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -75,9 +86,20 @@ __blsr_u32 (unsigned int __X)
   return __X & (__X - 1);
 }
 
+extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_blsr_u32 (unsigned int __X)
+{
+  return __blsr_u32 (__X);
+}
 
 extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __tzcnt_u32 (unsigned int __X)
+{
+  return __builtin_ctz (__X);
+}
+
+extern __inline unsigned int __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_tzcnt_u32 (unsigned int __X)
 {
   return __builtin_ctz (__X);
 }
@@ -109,9 +131,21 @@ __blsi_u64 (unsigned long long __X)
 }
 
 extern __inline unsigned long long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_blsi_u64 (unsigned long long __X)
+{
+  return __blsi_u64 (__X);
+}
+
+extern __inline unsigned long long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __blsmsk_u64 (unsigned long long __X)
 {
   return __X ^ (__X - 1);
+}
+
+extern __inline unsigned long long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_blsmsk_u64 (unsigned long long __X)
+{
+  return __blsmsk_u64 (__X);
 }
 
 extern __inline unsigned long long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
@@ -121,7 +155,19 @@ __blsr_u64 (unsigned long long __X)
 }
 
 extern __inline unsigned long long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_blsr_u64 (unsigned long long __X)
+{
+  return __blsr_u64 (__X);
+}
+
+extern __inline unsigned long long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __tzcnt_u64 (unsigned long long __X)
+{
+  return __builtin_ctzll (__X);
+}
+
+extern __inline unsigned long long __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+_tzcnt_u64 (unsigned long long __X)
 {
   return __builtin_ctzll (__X);
 }
