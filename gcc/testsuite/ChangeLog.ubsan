@@ -1,3 +1,10 @@
+2013-08-15  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/save-expr-1.c: New test.
+	* c-c++-common/ubsan/save-expr-2.c: New test.
+	* c-c++-common/ubsan/save-expr-3.c: New test.
+	* c-c++-common/ubsan/save-expr-4.c: New test.
+
 2013-08-14  Marek Polacek  <polacek@redhat.com>
 
 	* c-c++-common/ubsan/typedef-1.c: New test.

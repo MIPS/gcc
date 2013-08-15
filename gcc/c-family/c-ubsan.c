@@ -73,6 +73,10 @@ ubsan_instrument_division (location_t loc, tree op0, tree op1)
       x = fold_build2 (TRUTH_AND_EXPR, boolean_type_node, x, tt);
       t = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, t, x);
     }
+
+  /* In case we have a SAVE_EXPR in a conditional context, we need to
+     make sure it gets evaluated before the condition.  */
+  t = fold_build2 (COMPOUND_EXPR, TREE_TYPE (t), op0, t);
   tree data = ubsan_create_data ("__ubsan_overflow_data",
 				 loc, ubsan_type_descriptor (type),
 				 NULL_TREE);
@@ -133,6 +137,10 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
 		       build_int_cst (type0, 0));
       tt = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, x, tt);
     }
+
+  /* In case we have a SAVE_EXPR in a conditional context, we need to
+     make sure it gets evaluated before the condition.  */
+  t = fold_build2 (COMPOUND_EXPR, TREE_TYPE (t), op0, t);
   tree data = ubsan_create_data ("__ubsan_shift_data",
 				 loc, ubsan_type_descriptor (type0),
 				 ubsan_type_descriptor (type1), NULL_TREE);

@@ -1,3 +1,9 @@
+2013-08-15  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_division): Evaluate SAVE_EXPRs
+	before the condition.
+	(ubsan_instrument_shift): Likewise.
+
 2013-08-14  Marek Polacek  <polacek@redhat.com>
 
 	* c-ubsan.c (ubsan_instrument_division): Use TYPE_MAIN_VARIANT
