@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fmpx -mmpx" } */
+/* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-additional-options "-lm" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 

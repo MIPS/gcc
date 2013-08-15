@@ -1,7 +1,7 @@
 /* { dg-do run } */
-/* { dg-options "-fmpx -mmpx" } */
+/* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
-/* { dg-additional-options "-fmpx-first-field-has-own-bounds" } */
+/* { dg-additional-options "-fchkp-first-field-has-own-bounds" } */
 
 #include "mpx-check.h"
 

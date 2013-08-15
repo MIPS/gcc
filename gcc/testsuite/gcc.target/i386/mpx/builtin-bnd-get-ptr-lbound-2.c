@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fno-mpx" } */
+/* { dg-options "-fno-check-pointers" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #include "mpx-check.h"

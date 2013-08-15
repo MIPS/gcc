@@ -1,6 +1,6 @@
 /* { dg-do run } */
 /* { dg-require-effective-target ia32 } */
-/* { dg-options "-fmpx -mmpx" } */
+/* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #include "mpx-check.h"

@@ -1,7 +1,7 @@
 /* { dg-do run } */
-/* { dg-options "-fmpx -mmpx" } */
+/* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
-/* { dg-additional-options "-fmpx-narrow-to-innermost-array" } */
+/* { dg-additional-options "-fchkp-narrow-to-innermost-array" } */
 
 #include "mpx-check.h"
 
