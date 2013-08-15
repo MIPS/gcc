@@ -1092,65 +1092,6 @@ fpermissive
 C++ ObjC++ Var(flag_permissive)
 Downgrade conformance errors to warnings
 
-fmpx
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx)
-Add MPX instrumentation
-
-fmpx-check-incomplete-type
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_incomplete_type) Init(1)
-Add MPX instrumentation for usage of variables with incomplete type
-
-fmpx-zero-input-bounds-for-main
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_zero_input_bounds_for_main) Init(0)
-Use zero bounds for all incoming arguments in 'main' function.  It helps when
-MPX binaries are used with non-MPX libs.
-
-fmpx-first-field-has-own-bounds
-C ObjC C++ ObjC++ LTO RejectNegative Report Var(flag_mpx_first_field_has_own_bounds)
-Forces MPX instrumentation to use narrowed bounds for address of the first field
-in the structure.  By default pointer to the first field has the same bounds
-as pointer to the whole structure.
-
-fmpx-narrow-to-innermost-array
-C ObjC C++ ObjC++ LTO RejectNegative Report Var(flag_mpx_narrow_to_innermost_arrray)
-Forces MPX instrumentation to use bounds of the innermost arrays in case of
-nested static arryas access.  By default outermost array is used.
-
-fmpxopt
-C ObjC C++ ObjC++ LTO Report Var(flag_mpxopt) Init(-1)
-Allow MPX optimizations.  By default allowed on optimization levels >0.
-
-fmpx-use-fast-string-functions
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_fast_string_functions) Init(0)
-Allow to use *_nobnd versions of string functions by MPX pass.
-
-fmpx-use-nochk-string-functions
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_nochk_string_functions) Init(0)
-Allow to use *_nochk versions of string functions by MPX pass.
-
-fmpx-use-static-bounds
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_static_bounds) Init(1)
-Use statically initialized variable for vars bounds instead of
-generating them each time it is required.
-
-fmpx-use-static-const-bounds
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_use_static_const_bounds) Init(-1)
-Use statically initialized variable for constant bounds instead of
-generating them each time it is required.
-
-fmpx-treat-zero-size-reloc-as-infinite
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_zero_size_reloc_as_infinite) Init(0)
-With this option zero size relocation will cause upper bound of object
-to be infinite.
-
-fmpx-check-read
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_check_read) Init(1)
-Generate MPX checks for all read accesses to memory.
-
-fmpx-check-write
-C ObjC C++ ObjC++ LTO Report Var(flag_mpx_check_write) Init(1)
-Generate MPX checks for all write accesses to memory.
-
 fplan9-extensions
 C ObjC Var(flag_plan9_extensions)
 Enable Plan 9 language extensions

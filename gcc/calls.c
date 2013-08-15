@@ -882,7 +882,7 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 	    /* We have to make a temporary for bounds if there is a bndmk.  */
 	    if (TREE_CODE (args[i].bounds_value) == CALL_EXPR)
 	      {
-		args[i].bounds = gen_reg_rtx (targetm.mpx_bound_mode ());
+		args[i].bounds = gen_reg_rtx (targetm.chkp_bound_mode ());
 		expand_expr_real (args[i].bounds_value, args[i].bounds,
 				  VOIDmode, EXPAND_NORMAL, 0);
 	      }
@@ -1157,9 +1157,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* If we pass structure address then we need to
 	   create bounds for it.  */
-	if (flag_mpx)
+	if (flag_check_pointers)
 	  args[j].bounds_value
-	    = mpx_make_bounds_for_struct_addr (struct_value_addr_value);
+	    = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
 
 	j += inc;
       }
@@ -1325,7 +1325,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
 						argpos < n_named_args);
-      mpx_split_slot (args[i].reg, &args[i].reg, &args[i].bounds_slot);
+      chkp_split_slot (args[i].reg, &args[i].reg, &args[i].bounds_slot);
 
       /* If this is a sibling call and the machine has register windows, the
 	 register window has to be unwinded before calling the routine, so
@@ -2061,7 +2061,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	      /* If we do not have computed bounds then we probably
 		 pass a structure with pointers in registers.  */
 	      else if (!BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value))
-		      && mpx_type_has_pointer (TREE_TYPE (args[i].tree_value)))
+		      && chkp_type_has_pointer (TREE_TYPE (args[i].tree_value)))
 		{
 		  if (GET_CODE (args[i].bounds_slot) == PARALLEL)
 		    {
@@ -2074,7 +2074,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 			{
 			  rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
 			  rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
-			  rtx ptr = mpx_get_value_with_offs (args[i].reg, offs);
+			  rtx ptr = chkp_get_value_with_offs (args[i].reg, offs);
 			  rtx addr = adjust_address (args[i].value, Pmode,
 						     INTVAL (offs));
 			  rtx bnd = targetm.calls.load_bounds_for_arg (addr, ptr, NULL);
@@ -2121,7 +2121,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		}
 	    }
 	  else
-	    gcc_assert (!flag_mpx
+	    gcc_assert (!flag_check_pointers
 			|| !BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value)));
 	}
     }
@@ -2604,7 +2604,7 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
   /* Compute number of bound arguments.  */
-  if (flag_mpx)
+  if (flag_check_pointers)
     {
       call_expr_arg_iterator iter;
       tree arg;
@@ -3146,7 +3146,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  /* Returned bound registers are handled later.  Slit them right now and
 	     join back before rerurn.  */
-	  mpx_split_slot (valreg, &valreg, &valbnd);
+	  chkp_split_slot (valreg, &valreg, &valbnd);
 
 	  /* If VALREG is a PARALLEL whose first member has a zero
 	     offset, use that.  This is for targets such as m68k that
@@ -3630,7 +3630,7 @@ expand_call (tree exp, rtx target, int ignore)
   free (stack_usage_map_buf);
 
   /* Join result with returned bounds so caller may use them if needed.  */
-  target = mpx_join_splitted_slot (target, valbnd);
+  target = chkp_join_splitted_slot (target, valbnd);
 
   return target;
 }
@@ -4394,7 +4394,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   /* Returned bound registers are handled later.  Slit them right now and
      join back before rerurn.  */
-  mpx_split_slot (valreg, &valreg, &valbnd);
+  chkp_split_slot (valreg, &valreg, &valbnd);
 
   /* Copy the value to the right place.  */
   if (outmode != VOIDmode && retval)
@@ -4878,7 +4878,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       /* We have to make a temporary for bounds if there is a bndmk.  */
       if (TREE_CODE (arg->bounds_value) == CALL_EXPR)
 	{
-	  arg->bounds = gen_reg_rtx (targetm.mpx_bound_mode ());
+	  arg->bounds = gen_reg_rtx (targetm.chkp_bound_mode ());
 	  expand_expr_real (arg->bounds_value, arg->bounds,
 			    VOIDmode, EXPAND_NORMAL, 0);
 	}
@@ -4894,13 +4894,13 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 					  arg->bounds, NULL);
     }
   /* Copy bounds for structure with pointers passed in memory.  */
-  else if (flag_mpx
+  else if (flag_check_pointers
 	   && !BOUNDED_TYPE_P (TREE_TYPE (arg->tree_value))
-	   && mpx_type_has_pointer (TREE_TYPE (arg->tree_value)))
+	   && chkp_type_has_pointer (TREE_TYPE (arg->tree_value)))
     {
       tree argtype = TREE_TYPE (arg->tree_value);
       rtx value = arg->pushed_value ? arg->pushed_value : arg->value;
-      mpx_copy_bounds_for_stack_parm (arg->stack_slot, value, argtype);
+      chkp_copy_bounds_for_stack_parm (arg->stack_slot, value, argtype);
     }
 
   /* Mark all slots this store used.  */

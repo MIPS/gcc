@@ -10947,15 +10947,15 @@ ignored.  This function should return the result of the call to the
 built-in function.
 @end deftypefn
 
-@deftypefn {Target Hook} tree TARGET_BUILTIN_MPX_FUNCTION (unsigned @var{fcode})
-MPX instrumentation pass uses this hook to obtain
-target-specific functions which implement generic MPX
+@deftypefn {Target Hook} tree TARGET_BUILTIN_CHKP_FUNCTION (unsigned @var{fcode})
+Pointers checker instrumentation pass uses this hook to obtain
+target-specific functions which implement generic checker
 builtins.
 @end deftypefn
-@deftypefn {Target Hook} tree TARGET_MPX_BOUND_TYPE (void)
+@deftypefn {Target Hook} tree TARGET_CHKP_BOUND_TYPE (void)
 Return type to be used for bounds
 @end deftypefn
-@deftypefn {Target Hook} {enum machine_mode} TARGET_MPX_BOUND_MODE (void)
+@deftypefn {Target Hook} {enum machine_mode} TARGET_CHKP_BOUND_MODE (void)
 Return mode to be used for bounds.
 @end deftypefn
 

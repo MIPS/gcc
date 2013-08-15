@@ -2061,7 +2061,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
   reg = hard_function_value (type, 0, fntype, 0);
 
   /* Do not care about returned bounds here.  */
-  mpx_split_slot (reg, &reg, &bnd);
+  chkp_split_slot (reg, &reg, &bnd);
 
   /* If we have something other than a REG (e.g. a PARALLEL), then assume
      it is OK.  */
@@ -2096,9 +2096,9 @@ use_register_for_decl (const_tree decl)
 
   /* Decl is implicitly addressible by bound stores and loads
      if it is an aggregate holding bounds.  */
-  if (flag_mpx && TREE_TYPE (decl)
+  if (flag_check_pointers && TREE_TYPE (decl)
       && !BOUNDED_TYPE_P (TREE_TYPE (decl))
-      && mpx_type_has_pointer (TREE_TYPE (decl)))
+      && chkp_type_has_pointer (TREE_TYPE (decl)))
     return false;
 
   /* Only register-like things go in registers.  */
@@ -2460,7 +2460,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 						    data->promoted_mode,
 						    data->passed_type,
 						    data->named_arg);
-  mpx_split_slot (entry_parm, &entry_parm, &bound_parm);
+  chkp_split_slot (entry_parm, &entry_parm, &bound_parm);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2868,7 +2868,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 		{
 		  rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
 		  rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
-		  rtx ptr = mpx_get_value_with_offs (entry_parm, offs);
+		  rtx ptr = chkp_get_value_with_offs (entry_parm, offs);
 		  rtx slot = adjust_address (mem, GET_MODE (reg),
 					     INTVAL (offs));
 		  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
@@ -3339,7 +3339,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
             {
               rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
               rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
-              rtx ptr = mpx_get_value_with_offs (entry_parm, offs);
+              rtx ptr = chkp_get_value_with_offs (entry_parm, offs);
               rtx slot = adjust_address (mem, GET_MODE (reg),
                                              INTVAL (offs));
               targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
@@ -3489,7 +3489,7 @@ assign_parms (tree fndecl)
 
       /* Find out where bounds for parameter are.
 	 Load them if required and associate them with parm.  */
-      if (flag_mpx
+      if (flag_check_pointers
 	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
 	{
 	  if (!data.bound_parm || CONST_INT_P (data.bound_parm))
@@ -3509,7 +3509,7 @@ assign_parms (tree fndecl)
 
 		  if (!REG_P (reg))
 		    {
-		      rtx p = mpx_get_value_with_offs (data.entry_parm, offs);
+		      rtx p = chkp_get_value_with_offs (data.entry_parm, offs);
 		      reg = targetm.calls.load_bounds_for_arg (p, NULL, reg);
 		    }
 
@@ -3524,11 +3524,11 @@ assign_parms (tree fndecl)
 	  else if (!AGGREGATE_TYPE_P (data.passed_type))
 	    {
 	      int align = STACK_SLOT_ALIGNMENT (bound_type_node,
-						targetm.mpx_bound_mode (),
+						targetm.chkp_bound_mode (),
 						TYPE_ALIGN (bound_type_node));
 	      rtx stack
-		= assign_stack_local (targetm.mpx_bound_mode (),
-				      GET_MODE_SIZE (targetm.mpx_bound_mode ()),
+		= assign_stack_local (targetm.chkp_bound_mode (),
+				      GET_MODE_SIZE (targetm.chkp_bound_mode ()),
 				      align);
 
 	      gcc_assert (REG_P (data.bound_parm));
@@ -3688,7 +3688,7 @@ assign_parms (tree fndecl)
 
 	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
 							fndecl, true);
-	  mpx_split_slot (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
+	  chkp_split_slot (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that crtl->return_rtx
 	     holds the hard register containing the return value, not a
@@ -4952,7 +4952,7 @@ expand_function_start (tree subr)
 	  rtx hard_reg = hard_function_value (return_type, subr, 0, 1);
 	  rtx bounds;
 
-	  mpx_split_slot (hard_reg, &hard_reg, &bounds);
+	  chkp_split_slot (hard_reg, &hard_reg, &bounds);
 
 	  /* Structures that are returned in registers are not
 	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
@@ -5326,9 +5326,9 @@ expand_function_end (void)
 
       outgoing = targetm.calls.function_value (build_pointer_type (type),
 					       current_function_decl, true);
-      mpx_split_slot (outgoing, &outgoing, &crtl->return_bnd);
+      chkp_split_slot (outgoing, &outgoing, &crtl->return_bnd);
 
-      if (flag_mpx && GET_CODE (outgoing) == PARALLEL)
+      if (flag_check_pointers && GET_CODE (outgoing) == PARALLEL)
 	outgoing = XEXP (XVECEXP (outgoing, 0, 0), 0);
 
       /* Mark this as a function return value so integrate will delete the

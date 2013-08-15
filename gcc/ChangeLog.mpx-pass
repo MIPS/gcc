@@ -1,8 +1,8 @@
-2013-07-29  Ilya Enkovich <ilya.enkovich@intel.com>
+2013-08-15  Ilya Enkovich <ilya.enkovich@intel.com>
 
-	* Makefile.in (OBJS): Add tree-mpx.o.
-	(GTFILES): Add tree-mpx.c.
-	(tree-mpx.o): New.
+	* Makefile.in (OBJS): Add tree-chkp.o.
+	(GTFILES): Add tree-chkp.c.
+	(tree-chkp.o): New.
 	* builtin-types.def (BT_FN_VOID_CONST_PTR): New.
 	(BT_FN_PTR_CONST_PTR): New.
 	(BT_FN_CONST_PTR_CONST_PTR): New.
@@ -16,63 +16,63 @@
 	(expand_builtin_stpcpy): Likewise.
 	(expand_builtin_cexpi): Add bound args to generated call.
 	(expand_builtin_va_copy): Add bounds initialization.
-	(expand_builtin): Support MPX builtins.  Support calls
+	(expand_builtin): Support checker builtins.  Support calls
 	with bound args.  Disable string functions inlining when
-	MPX is on.
+	pointers checker is on.
 	(fold_builtin_next_arg): Support bound args for next_arg.
-	* builtins.def (DEF_MPX_BUILTIN): New.
-	(BUILT_IN_MPX_BNDMK): New.
-	(BUILT_IN_MPX_BNDSTX): New.
-	(BUILT_IN_MPX_BNDCL): New.
-	(BUILT_IN_MPX_BNDCU): New.
-	(BUILT_IN_MPX_BNDLDX): New.
-	(BUILT_IN_MPX_BNDRET): New.
-	(BUILT_IN_MPX_INTERSECT): New.
-	(BUILT_IN_MPX_ARG_BND): New.
-	(BUILT_IN_MPX_SIZEOF): New.
-	(BUILT_IN_MPX_EXTRACT_LOWER): New.
-	(BUILT_IN_MPX_EXTRACT_UPPER): New.
-	(BUILT_IN_MPX_NARROW): New.
-	(BUILT_IN_MPX_SET_PTR_BOUNDS): New.
-	(BUILT_IN_MPX_INIT_PTR_BOUNDS): New.
-	(BUILT_IN_MPX_COPY_PTR_BOUNDS): New.
-	(BUILT_IN_MPX_NARROW_PTR_BOUNDS): New.
-	(BUILT_IN_MPX_STORE_PTR_BOUNDS): New.
-	(BUILT_IN_MPX_CHECK_PTR_LBOUNDS): New.
-	(BUILT_IN_MPX_CHECK_PTR_UBOUNDS): New.
-	(BUILT_IN_MPX_CHECK_PTR_BOUNDS): New.
-	(BUILT_IN_MPX_GET_PTR_LBOUND): New.
-	(BUILT_IN_MPX_GET_PTR_UBOUND): New.
-	(BUILT_IN_MPX_MEMCPY_NOBND): New.
-	(BUILT_IN_MPX_MEMCPY_NOCHK): New.
-	(BUILT_IN_MPX_MEMCPY_NOBND_NOCHK): New.
-	(BUILT_IN_MPX_MEMMOVE_NOBND): New.
-	(BUILT_IN_MPX_MEMMOVE_NOCHK): New.
-	(BUILT_IN_MPX_MEMMOVE_NOBND_NOCHK): New.
-	(BUILT_IN_MPX_MEMPCPY_NOBND): New.
-	(BUILT_IN_MPX_MEMPCPY_NOCHK): New.
-	(BUILT_IN_MPX_MEMPCPY_NOBND_NOCHK): New.
-	(BUILT_IN_MPX_MEMSET_NOBND): New.
-	(BUILT_IN_MPX_MEMSET_NOCHK): New.
-	(BUILT_IN_MPX_MEMSET_NOBND_NOCHK): New.
-	* c-family/c-common.c (handle_mpx_variable_size_attribute): New.
-	(handle_mpx_legacy): New.
+	* builtins.def (DEF_CHKP_BUILTIN): New.
+	(BUILT_IN_CHKP_BNDMK): New.
+	(BUILT_IN_CHKP_BNDSTX): New.
+	(BUILT_IN_CHKP_BNDCL): New.
+	(BUILT_IN_CHKP_BNDCU): New.
+	(BUILT_IN_CHKP_BNDLDX): New.
+	(BUILT_IN_CHKP_BNDRET): New.
+	(BUILT_IN_CHKP_INTERSECT): New.
+	(BUILT_IN_CHKP_ARG_BND): New.
+	(BUILT_IN_CHKP_SIZEOF): New.
+	(BUILT_IN_CHKP_EXTRACT_LOWER): New.
+	(BUILT_IN_CHKP_EXTRACT_UPPER): New.
+	(BUILT_IN_CHKP_NARROW): New.
+	(BUILT_IN_CHKP_SET_PTR_BOUNDS): New.
+	(BUILT_IN_CHKP_INIT_PTR_BOUNDS): New.
+	(BUILT_IN_CHKP_COPY_PTR_BOUNDS): New.
+	(BUILT_IN_CHKP_NARROW_PTR_BOUNDS): New.
+	(BUILT_IN_CHKP_STORE_PTR_BOUNDS): New.
+	(BUILT_IN_CHKP_CHECK_PTR_LBOUNDS): New.
+	(BUILT_IN_CHKP_CHECK_PTR_UBOUNDS): New.
+	(BUILT_IN_CHKP_CHECK_PTR_BOUNDS): New.
+	(BUILT_IN_CHKP_GET_PTR_LBOUND): New.
+	(BUILT_IN_CHKP_GET_PTR_UBOUND): New.
+	(BUILT_IN_CHKP_MEMCPY_NOBND): New.
+	(BUILT_IN_CHKP_MEMCPY_NOCHK): New.
+	(BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK): New.
+	(BUILT_IN_CHKP_MEMMOVE_NOBND): New.
+	(BUILT_IN_CHKP_MEMMOVE_NOCHK): New.
+	(BUILT_IN_CHKP_MEMMOVE_NOBND_NOCHK): New.
+	(BUILT_IN_CHKP_MEMPCPY_NOBND): New.
+	(BUILT_IN_CHKP_MEMPCPY_NOCHK): New.
+	(BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK): New.
+	(BUILT_IN_CHKP_MEMSET_NOBND): New.
+	(BUILT_IN_CHKP_MEMSET_NOCHK): New.
+	(BUILT_IN_CHKP_MEMSET_NOBND_NOCHK): New.
+	* c-family/c-common.c (handle_bnd_variable_size_attribute): New.
+	(handle_bnd_legacy): New.
 	(c_common_attribute_table): Add bnd_variable_size and bnd_legacy.
-	* c-family/c.opt (fmpx): New.
-	(fmpx-check-incomplete-type): New.
-	(fmpx-zero-input-bounds-for-main): New.
-	(fmpx-zero-input-bounds-for-main): New.
-	(fmpx-narrow-to-innermost-array): New.
-	(fmpxopt): New.
-	(fmpx-use-fast-string-functions): New.
-	(fmpx-use-nochk-string-functions): New.
-	(fmpx-use-static-bounds): New.
-	(fmpx-use-static-const-bounds): New.
-	(fmpx-treat-zero-size-reloc-as-infinite): New.
-	(fmpx-check-read): New.
-	(fmpx-check-write): New.
+	* common.opt (fcheck-pointers): New.
+	(fchkp-check-incomplete-type): New.
+	(fchkp-zero-input-bounds-for-main): New.
+	(fchkp-zero-input-bounds-for-main): New.
+	(fchkp-narrow-to-innermost-array): New.
+	(fchkp-optimize): New.
+	(fchkp-use-fast-string-functions): New.
+	(fchkp-use-nochk-string-functions): New.
+	(fchkp-use-static-bounds): New.
+	(fchkp-use-static-const-bounds): New.
+	(fchkp-treat-zero-size-reloc-as-infinite): New.
+	(fchkp-check-read): New.
+	(fchkp-check-write): New.
 	* c/c-parser.c (c_parser_declaration_or_fndef): Register all
-	statically initialized variables in MPX pass.
+	statically initialized variables in pointers checker.
 	* calls.c (arg_data): Add bounds related fields.
 	(precompute_register_parameters): Add bounds expand.
 	(initialize_argument_information): Initialize bounds_value and
@@ -165,9 +165,9 @@
 	(TARGET_STORE_BOUNDS_FOR_ARG): New.
 	(TARGET_INIT_RETURNED_BOUNDS): New.
 	(TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE): New.
-	(TARGET_MPX_BOUND_TYPE): New.
-	(TARGET_MPX_BOUND_MODE): New.
-	(TARGET_BUILTIN_MPX_FUNCTION): New.
+	(TARGET_CHKP_BOUND_TYPE): New.
+	(TARGET_CHKP_BOUND_MODE): New.
+	(TARGET_BUILTIN_CHKP_FUNCTION): New.
 	* config/i386/i386.h (ix86_args): Add bound regs info and stdarg flag.
 	* config/i386/i386.md (UNSPEC_SIZEOF): New.
 	(UNSPEC_BNDRET): New.
@@ -183,15 +183,15 @@
 	* cp/decl.c (cp_finish_decl): Register static initializer in
 	instrumentation pass.
 	* cppbuiltin.c (define_builtin_macros_for_compilation_flags): Add
-	__MPX__ macro definition when compiled with -fmpx.
+	__CHKP__ macro definition when compiled with -fcheck-pointers.
 	* dbxout.c (dbxout_type): Handle BOUND_TYPE with no output.
 	* doc/tm.texi.in (TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE): New.
 	(TARGET_LOAD_BOUNDS_FOR_ARG): New.
 	(TARGET_STORE_BOUNDS_FOR_ARG): New.
 	(TARGET_INIT_RETURNED_BOUNDS): New.
-	(TARGET_BUILTIN_MPX_FUNCTION): New.
-	(TARGET_MPX_BOUND_TYPE): New.
-	(TARGET_MPX_BOUND_MODE): New.
+	(TARGET_BUILTIN_CHKP_FUNCTION): New.
+	(TARGET_CHKP_BOUND_TYPE): New.
+	(TARGET_CHKP_BOUND_MODE): New.
 	* doc/tm.texi: Regenerate.
 	* dwarf2out.c (gen_subprogram_die): Skip bound args.
 	* emit-rtl.c (immed_double_const): Add MODE_BOUND class.
@@ -206,7 +206,7 @@
 	* function.c (instantiate_virtual_regs_in_insn): Add PLUS expr.
 	(aggregate_value_p): Handle returned bounds.
 	(use_register_for_decl): Do not use register for aggregates having
-	pointers when MPX is on.
+	pointers when pointers checker is on.
 	(assign_parm_data_one): Add bound_parm field to hold arg bounds.
 	(assign_parm_find_data_types): Take bound args into account when
 	checking for variadric args.
@@ -227,7 +227,7 @@
 	* gimple.h (gimple_return_retbnd): New.
 	(gimple_return_set_retbnd): New.
 	* gimplify.c (gimplify_init_constructor): Do not generate initializer
-	image in the memory when handling mpx constructor.  Register created
+	image in the memory when handling chkp constructor.  Register created
 	statically initialized vars.
 	* hooks.c (hook_tree_void_null): New.
 	(hook_tree_uint_null): New.
@@ -235,12 +235,12 @@
 	(hook_tree_uint_null): New.
 	* ipa.c (cgraph_build_static_cdtor_1) Add 'P' and 'B' constructor types.
 	* optabs.c (expand_unop): Handle returned bounds.
-	* passes.def: Add pass_mpx, pass_copy_prop_mpx, pass_mpxopt,
-	pass_dce_mpx.
+	* passes.def: Add pass_chkp, pass_copy_prop_chkp, pass_chkp_opt,
+	pass_dce_chkp.
 	* stmt.c (expand_return): Add bounds arg.  Handle returned bounds.
-	* target.def (builtin_mpx_function): New.
-	(mpx_bound_type): New.
-	(mpx_bound_mode): New.
+	* target.def (builtin_chkp_function): New.
+	(chkp_bound_type): New.
+	(chkp_bound_mode): New.
 	(fn_abi_va_list_bounds_size): New.
 	(load_bounds_for_arg): New.
 	(store_bounds_for_arg): New.
@@ -249,27 +249,30 @@
 	(default_store_bounds_for_arg): New.
 	(default_init_returned_bounds): New.
 	(default_fn_abi_va_list_bounds_size): New.
-	(default_mpx_bound_mode): New.
-	(default_builtin_mpx_function): New.
+	(default_chkp_bound_mode): New.
+	(default_builtin_chkp_function): New.
 	* targhooks.h (default_load_bounds_for_arg): New.
 	(default_store_bounds_for_arg): New.
 	(default_fn_abi_va_list_bounds_size): New.
 	(default_init_returned_bounds): New.
-	(default_mpx_bound_mode): New.
-	(default_builtin_mpx_function): New.
-	* toplev.c (compile_file): Add mpx_finish_file call.
-	(process_options): Check for mpx and lto usage.
-	* tree-mpx.c: New.
-	* tree-pass.h (pass_mpx): New.
-	(pass_copy_prop_mpx): New.
-	(pass_mpxopt): New.
-	(pass_dce_mpx): New.
-	* tree-ssa-copy.c (gate_copy_prop_mpx): New.
-	(pass_copy_prop_mpx): New.
-	* tree-ssa-dce.c (gate_dce_mpx): New.
-	(pass_dce_mpx): New.
+	(default_chkp_bound_mode): New.
+	(default_builtin_chkp_function): New.
+	* toplev.c (compile_file): Add chkp_finish_file call.
+	(process_options): Check front-end support.  Check for
+	pointers checker and lto usage.
+	* tree-chkp.c: New.
+	* tree-pass.h (make_pass_chkp): New.
+	(make_pass_copy_prop_chkp): New.
+	(make_pass_chkp_opt): New.
+	(make_pass_dce_chkp): New.
+	* tree-ssa-copy.c (gate_copy_prop_chkp): New.
+	(pass_copy_prop_chkp): New.
+	(make_pass_copy_prop_chkp): New.
+	* tree-ssa-dce.c (gate_dce_chkp): New.
+	(pass_dce_chkp): New.
+	(make_pass_dce_chkp): New.
 	* tree-ssa-loop.c (gate_tree_ssa_loop_ivopts): Disable ivopts when
-	MPX is on.
+	pointers checker is on.
 	* tree.c (build_common_tree_nodes): Add bound_type_node creation.
 	* tree.h (BOUNDED_TYPE_P): New.
 	(BOUNDED_P): New.
@@ -278,23 +281,29 @@
 	(TI_BOUND_TYPE): New.
 	(bound_type_node): New.
 	(expand_return): Add arg.
-	(mpx_get_rtl_bounds): New.
-	(mpx_set_rtl_bounds): New.
-	(mpx_register_var_initializer): New.
-	(mpx_finish_file): New.
-	(mpx_get_registered_bounds): New.
-	(mpx_get_arg_bounds): New.
-	(mpx_split_slot): New.
-	(mpx_join_splitted_slot): New.
-	(mpx_get_value_with_offs): New.
-	(mpx_copy_bounds_for_stack_parm): New.
-	(mpx_type_has_pointer): New.
-	(mpx_emit_bounds_store): New.
-	(mpx_make_bounds_for_struct_addr): New.
-	(mpx_get_zero_bounds): New.
-	(mpx_variable_size_type): New.
-	(mpx_build_make_bounds_call): New.
-	(mpx_build_bndstx_call): New.
-	(mpx_expand_bounds_reset_for_mem): New.
-	(mpx_put_regs_to_expr_list): New.
-	(mpx_fix_cfg): New.
+	(chkp_get_rtl_bounds): New.
+	(chkp_set_rtl_bounds): New.
+	(chkp_register_var_initializer): New.
+	(chkp_finish_file): New.
+	(chkp_get_registered_bounds): New.
+	(chkp_get_arg_bounds): New.
+	(chkp_split_slot): New.
+	(chkp_join_splitted_slot): New.
+	(chkp_get_value_with_offs): New.
+	(chkp_copy_bounds_for_stack_parm): New.
+	(chkp_type_has_pointer): New.
+	(chkp_emit_bounds_store): New.
+	(chkp_make_bounds_for_struct_addr): New.
+	(chkp_get_zero_bounds): New.
+	(chkp_variable_size_type): New.
+	(chkp_build_make_bounds_call): New.
+	(chkp_build_bndstx_call): New.
+	(chkp_expand_bounds_reset_for_mem): New.
+	(chkp_put_regs_to_expr_list): New.
+	* langhooks.h (lang_hooks): Add chkp_supported field.
+	* langhooks-def.h (LANG_HOOKS_CHKP_SUPPORTED): New.
+	(LANG_HOOKS_INITIALIZER): Add LANG_HOOKS_CHKP_SUPPORTED.
+	* c/c-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
+	* cp/cp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
+	* objc/objc-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
+	* objcp/objcp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.

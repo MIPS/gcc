@@ -330,10 +330,10 @@ struct register_pass_info
   enum pass_positioning_ops pos_op; /* how to insert the new pass.  */
 };
 
-extern gimple_opt_pass *make_pass_mpx (gcc::context *ctxt);
-extern gimple_opt_pass *make_pass_copy_prop_mpx (gcc::context *ctxt);
-extern gimple_opt_pass *make_pass_mpxopt (gcc::context *ctxt);
-extern gimple_opt_pass *make_pass_dce_mpx (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_chkp (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_copy_prop_chkp (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_chkp_opt (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_dce_chkp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_mudflap_1 (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_mudflap_2 (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_asan (gcc::context *ctxt);

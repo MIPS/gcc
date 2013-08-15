@@ -824,12 +824,12 @@ gate_copy_prop (void)
 }
 
 static bool
-gate_copy_prop_mpx (void)
+gate_copy_prop_chkp (void)
 {
   return flag_tree_copy_prop != 0
-    && flag_mpx != 0
-    && (flag_mpxopt > 0
-	|| (flag_mpxopt == -1 && optimize > 0));
+    && flag_check_pointers != 0
+    && (flag_chkp_optimize > 0
+	|| (flag_chkp_optimize == -1 && optimize > 0));
 }
 
 namespace {
@@ -864,19 +864,19 @@ public:
 
 }; // class pass_copy_prop
 
-class pass_copy_prop_mpx : public gimple_opt_pass
+class pass_copy_prop_chkp : public gimple_opt_pass
 {
 public:
-  pass_copy_prop_mpx (gcc::context *ctxt)
+  pass_copy_prop_chkp (gcc::context *ctxt)
     : gimple_opt_pass (pass_data_copy_prop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_copy_prop_mpx (ctxt_); }
-  bool gate () { return gate_copy_prop_mpx (); }
+  opt_pass * clone () { return new pass_copy_prop_chkp (ctxt_); }
+  bool gate () { return gate_copy_prop_chkp (); }
   unsigned int execute () { return execute_copy_prop (); }
 
-}; // class pass_copy_prop_mpx
+}; // class pass_copy_prop_chkp
 
 } // anon namespace
 
@@ -887,7 +887,7 @@ make_pass_copy_prop (gcc::context *ctxt)
 }
 
 gimple_opt_pass *
-make_pass_copy_prop_mpx (gcc::context *ctxt)
+make_pass_copy_prop_chkp (gcc::context *ctxt)
 {
-  return new pass_copy_prop_mpx (ctxt);
+  return new pass_copy_prop_chkp (ctxt);
 }

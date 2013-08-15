@@ -1644,12 +1644,12 @@ gate_dce (void)
 }
 
 static bool
-gate_dce_mpx (void)
+gate_dce_chkp (void)
 {
   return flag_tree_dce != 0
-    && flag_mpx != 0
-    && (flag_mpxopt > 0
-	|| (flag_mpxopt == -1 && optimize > 0));
+    && flag_check_pointers != 0
+    && (flag_chkp_optimize > 0
+	|| (flag_chkp_optimize == -1 && optimize > 0));
 }
 
 namespace {
@@ -1683,19 +1683,19 @@ public:
 
 }; // class pass_dce
 
-class pass_dce_mpx : public gimple_opt_pass
+class pass_dce_chkp : public gimple_opt_pass
 {
 public:
-  pass_dce_mpx (gcc::context *ctxt)
+  pass_dce_chkp (gcc::context *ctxt)
     : gimple_opt_pass (pass_data_dce, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce_mpx (ctxt_); }
-  bool gate () { return gate_dce_mpx (); }
+  opt_pass * clone () { return new pass_dce_chkp (ctxt_); }
+  bool gate () { return gate_dce_chkp (); }
   unsigned int execute () { return tree_ssa_dce (); }
 
-}; // class pass_dce_mpx
+}; // class pass_dce_chkp
 
 } // anon namespace
 
@@ -1706,9 +1706,9 @@ make_pass_dce (gcc::context *ctxt)
 }
 
 gimple_opt_pass *
-make_pass_dce_mpx (gcc::context *ctxt)
+make_pass_dce_chkp (gcc::context *ctxt)
 {
-  return new pass_dce_mpx (ctxt);
+  return new pass_dce_chkp (ctxt);
 }
 
 namespace {
