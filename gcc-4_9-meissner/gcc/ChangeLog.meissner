@@ -1,5 +1,12 @@
 2013-08-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (ADDR_FUSION_GPR): Add bitmasks for
+	indicating fusion support.
+	(ADDR_FUSION_NONSTRICT): Likewise.
+	(ADDR_FUSION_MASK): Likewise.
+	(rs6000_debug_addr_mask): Likewise.
+	(rs6000_init_address_modes): Likewise.
+
 	Merge up to 201765.
 	* REVISION: Update subversion id.
 

@@ -391,12 +391,19 @@ const addr_mask_type ADDR_AND_NOSTRICT =	(1 << 20);
 const addr_mask_type ADDR_AND_MASK =		(ADDR_AND_AV
 						 | ADDR_AND_NOSTRICT);
 
+/* Whether the address should allow for GPR style fusion.  */
+const addr_mask_type ADDR_FUSION_GPR =		(1 << 21);
+const addr_mask_type ADDR_FUSION_NOSTRICT =	(1 << 22);
+const addr_mask_type ADDR_FUSION_MASK =		(ADDR_FUSION_GPR
+						 | ADDR_FUSION_NOSTRICT);
+
 /* Combination mask for all GPR options.  */
 const addr_mask_type ADDR_GPR_MASK =		(ADDR_VALID_GPR
 						 | ADDR_INDEXED_GPR
 						 | ADDR_OFFSET_GPR
 						 | ADDR_MULTIPLE_GPR
-						 | ADDR_UPDATE_GPR);
+						 | ADDR_UPDATE_GPR
+						 | ADDR_FUSION_GPR);
 
 /* Combination mask for all FPR options.  */
 const addr_mask_type ADDR_FPR_MASK =		(ADDR_VALID_FPR
@@ -420,7 +427,8 @@ const addr_mask_type ADDR_VSX_MASK =		(ADDR_VALID_VSX
 const addr_mask_type ADDR_NOSTRICT_MASK =	(ADDR_INDEXED_NOSTRICT
 						 | ADDR_OFFSET_NOSTRICT
 						 | ADDR_UPDATE_NOSTRICT
-						 | ADDR_AND_NOSTRICT);
+						 | ADDR_AND_NOSTRICT
+						 | ADDR_FUSION_NOSTRICT);
 
 
 /* Target cpu costs.  */
@@ -1913,8 +1921,8 @@ rs6000_debug_addr_mask (int m, addr_mask_type mask)
       fprintf (stderr,
 	       "Mode: %-5s mask: 0x%.8x "
 	       "Reload func: %c%c "
-	       "Before reload: %c%c%c%c "
-	       "GPR: %c %c%c%c%c "
+	       "Before reload: %c%c%c%c%c "
+	       "GPR: %c %c%c%c%c%c "
 	       "FPR: %c %c%c%c%c "
 	       "AV: %c %c%c%c "
 	       "VSX: %c %c%c\n",
@@ -1926,11 +1934,13 @@ rs6000_debug_addr_mask (int m, addr_mask_type mask)
 	       (mask & ADDR_UPDATE_NOSTRICT) ? '+' : ' ',
 	       (mask & ADDR_OFFSET_NOSTRICT) ? 'o' : ' ',
 	       (mask & ADDR_AND_NOSTRICT) ? '&' : ' ',
+	       (mask & ADDR_FUSION_NOSTRICT) ? 'f' : ' ',
 	       (mask & ADDR_VALID_GPR) ? 'y' : '-',
 	       (mask & ADDR_INDEXED_GPR) ? 'i' : ' ',
 	       (mask & ADDR_UPDATE_GPR) ? '+' : ' ',
 	       (mask & ADDR_OFFSET_GPR) ? 'o' : ' ',
 	       (mask & ADDR_MULTIPLE_GPR) ? 'm' : ' ',
+	       (mask & ADDR_FUSION_GPR) ? 'f' : ' ',
 	       (mask & ADDR_VALID_FPR) ? 'y' : '-',
 	       (mask & ADDR_INDEXED_FPR) ? 'i' : ' ',
 	       (mask & ADDR_UPDATE_FPR) ? '+' : ' ',
@@ -2393,11 +2403,13 @@ rs6000_init_address_modes (void)
   /* Mask to allow offset, update, and indexed addressing before reload.  */
   const addr_mask_type ADDR_NORMAL_NOSTRICT = (ADDR_UPDATE_NOSTRICT
 					       | ADDR_OFFSET_NOSTRICT
-					       | ADDR_INDEXED_NOSTRICT);
+					       | ADDR_INDEXED_NOSTRICT
+					       | ADDR_FUSION_NOSTRICT);
 
   /* Mask for values that go in GPRs and fit in a single register.  */
   const addr_mask_type GPR_SINGLE_MASK = (ADDR_VALID_GPR | ADDR_UPDATE_GPR
-					  | ADDR_OFFSET_GPR | ADDR_INDEXED_GPR);
+					  | ADDR_OFFSET_GPR | ADDR_INDEXED_GPR
+					  | ADDR_FUSION_GPR);
 
   /* Mask for values that go in GPRs and take multiple registers.  */
   const addr_mask_type GPR_MULTIPLE_MASK = (ADDR_VALID_GPR | ADDR_OFFSET_GPR);
