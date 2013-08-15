@@ -1,3 +1,8 @@
+2013-08-15  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cp-array-notation.c (find_inv_trees): Added a check for VAR_DECL
+	or PARM_DECL.  If so then don't save them to temporary variables.
+
 2013-06-20  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cp-cilk.c (add_incr): Added CONVERT_EXPR case.

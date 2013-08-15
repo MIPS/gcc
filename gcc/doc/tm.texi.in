@@ -5628,6 +5628,9 @@ misalignment value (@var{misalign}).
 
 @hook TARGET_CILKPLUS_BUILTIN_HAVE_CILKSCREEN_SUPPORT
 
+@hook TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SECTION_NAME
+
+@hook TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SUBTRACT_LABELS
 
 @hook TARGET_VECTORIZE_VECTOR_ALIGNMENT_REACHABLE
 Return true if vector alignment is reachable (by peeling N iterations) for the given type.

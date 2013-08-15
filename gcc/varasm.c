@@ -137,7 +137,8 @@ section *dtors_section;
 section *bss_section;
 section *sbss_section;
 
-section *cilk_metadata_default_section;
+/* Section to hold the metadata info. read by Cilk Screen and Cilk View.  */
+section *cilk_metadata_section;
 
 
 /* Various forms of common section.  All are guaranteed to be nonnull.  */

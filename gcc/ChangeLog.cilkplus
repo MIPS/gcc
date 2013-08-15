@@ -1,3 +1,21 @@
+2013-08-15  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cilk.c (create_metadata_label): Make this function non-static.
+	(cilk_output_metadata): Called the target function subtract two labels.
+	Same for setting the metadata section name.
+	* config/i386/i386.c (ix86_cilkplus_itt_notify_section_name): New
+	function.
+	(ix86_cilkplus_itt_notify_subtract_labels): Likewise.
+	(TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SECTION_NAME): New #define.
+	(TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SUBTRACT_LABELS): Likewise.
+	* doc/tm.texi (TARGET_CILKPLUS_ITT_NOTIFY_SECTION_NAME): New target 
+	hook.
+	(TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SUBTRACT_LABELS): Likewise.
+	* doc/tm.texi.in (TARGET_CILKPLUS_ITT_NOTIFY_SECTION_NAME): Likewise.
+	(TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SUBTRACT_LABELS): Likewise.
+	* target.def (builtin_itt_notify_section_name): Likewise.
+	(builtin_itt_notify_subtract_labels): Likewise.
+
 2013-06-20  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cilk.c (output_zca_table): Hardcoded the mode size to 8.
