@@ -1656,10 +1656,11 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  finish_decl (d, init_loc, init.value,
 		      	       init.original_type, asm_name);
 
-		  /* Register all decls with initializers in MPX
-		     to generate required static bounds initializers.  */
+		  /* Register all decls with initializers in pointers
+		     checker to generate required static bounds
+		     initializers.  */
 		  if (DECL_INITIAL (d) != error_mark_node)
-		    mpx_register_var_initializer (d);
+		    chkp_register_var_initializer (d);
 		}
 	    }
 	  else

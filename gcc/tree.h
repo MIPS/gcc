@@ -2948,10 +2948,10 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
-#define DECL_BOUNDS_RTL(NODE) (mpx_get_rtl_bounds (DECL_WRTL_CHECK (NODE)))
+#define DECL_BOUNDS_RTL(NODE) (chkp_get_rtl_bounds (DECL_WRTL_CHECK (NODE)))
 
 #define SET_DECL_BOUNDS_RTL(NODE, VAL) \
-  (mpx_set_rtl_bounds (DECL_WRTL_CHECK (NODE), VAL))
+  (chkp_set_rtl_bounds (DECL_WRTL_CHECK (NODE), VAL))
 
 struct GTY(()) tree_decl_with_rtl {
   struct tree_decl_common common;
@@ -6632,27 +6632,26 @@ builtin_decl_implicit_p (enum built_in_function fncode)
 #endif	/* NO_DOLLAR_IN_LABEL */
 #endif	/* NO_DOT_IN_LABEL */
 
-/* In tree-mpx.c.  */
+/* In tree-chkp.c.  */
 
-extern rtx mpx_get_rtl_bounds (tree node);
-extern void mpx_set_rtl_bounds (tree node, rtx val);
-extern bool mpx_register_var_initializer (tree var);
-extern void mpx_finish_file (void);
-extern tree mpx_get_registered_bounds (tree ptr);
-extern tree mpx_get_arg_bounds (tree arg);
-extern void mpx_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd);
-extern rtx mpx_join_splitted_slot (rtx val, rtx bnd);
-extern rtx mpx_get_value_with_offs (rtx par, rtx offs);
-extern void mpx_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
-extern bool mpx_type_has_pointer (tree type);
-extern void mpx_emit_bounds_store (rtx bounds, rtx value, rtx mem);
-extern tree mpx_make_bounds_for_struct_addr (tree ptr);
-extern tree mpx_get_zero_bounds (void);
-extern bool mpx_variable_size_type (tree type);
-extern tree mpx_build_make_bounds_call (tree lb, tree size);
-extern tree mpx_build_bndstx_call (tree addr, tree ptr, tree bounds);
-extern void mpx_expand_bounds_reset_for_mem (tree mem, tree ptr);
-extern void mpx_put_regs_to_expr_list (rtx par);
-extern void mpx_fix_cfg ();
+extern rtx chkp_get_rtl_bounds (tree node);
+extern void chkp_set_rtl_bounds (tree node, rtx val);
+extern bool chkp_register_var_initializer (tree var);
+extern void chkp_finish_file (void);
+extern tree chkp_get_registered_bounds (tree ptr);
+extern tree chkp_get_arg_bounds (tree arg);
+extern void chkp_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd);
+extern rtx chkp_join_splitted_slot (rtx val, rtx bnd);
+extern rtx chkp_get_value_with_offs (rtx par, rtx offs);
+extern void chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
+extern bool chkp_type_has_pointer (tree type);
+extern void chkp_emit_bounds_store (rtx bounds, rtx value, rtx mem);
+extern tree chkp_make_bounds_for_struct_addr (tree ptr);
+extern tree chkp_get_zero_bounds (void);
+extern bool chkp_variable_size_type (tree type);
+extern tree chkp_build_make_bounds_call (tree lb, tree size);
+extern tree chkp_build_bndstx_call (tree addr, tree ptr, tree bounds);
+extern void chkp_expand_bounds_reset_for_mem (tree mem, tree ptr);
+extern void chkp_put_regs_to_expr_list (rtx par);
 
 #endif  /* GCC_TREE_H  */

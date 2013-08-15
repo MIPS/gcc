@@ -6374,7 +6374,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	if (size <= 32)
 	  {
 	    /* Pass bounds for pointers and unnamed integers.  */
-	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || stdarg)
+	    classes[0] = flag_check_pointers && ((type && BOUNDED_TYPE_P (type)) || stdarg)
 	      ? X86_64_BOUNDED_INTEGERSI_CLASS
 	      : X86_64_INTEGERSI_CLASS;
 	    return 1;
@@ -6382,7 +6382,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	else if (size <= 64)
 	  {
 	    /* Pass bounds for pointers and unnamed integers.  */
-	    classes[0] = flag_mpx && ((type && BOUNDED_TYPE_P (type)) || stdarg)
+	    classes[0] = flag_check_pointers && ((type && BOUNDED_TYPE_P (type)) || stdarg)
 	      ? X86_64_BOUNDED_INTEGER_CLASS
 	      : X86_64_INTEGER_CLASS;
 	    return 1;
@@ -6813,7 +6813,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
-      if (flag_mpx && type && BOUNDED_TYPE_P (type))
+      if (flag_check_pointers && type && BOUNDED_TYPE_P (type))
 	{
 	  cum->bnd_nregs--;
 	  cum->bnd_regno++;
@@ -7014,7 +7014,7 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		regno = CX_REG;
 	    }
 
-	  if (flag_mpx && type && BOUNDED_TYPE_P (type))
+	  if (flag_check_pointers && type && BOUNDED_TYPE_P (type))
 	    {
 	      rtx bnd = gen_rtx_REG (BNDmode, cum->bnd_regno);
 	      rtx val = gen_rtx_REG (mode, regno);
@@ -7472,7 +7472,7 @@ ix86_function_value_regno_p (const unsigned int regno)
       return true;
 
     case FIRST_BND_REG:
-      return flag_mpx;
+      return flag_check_pointers;
 
     case FIRST_FLOAT_REG:
       /* TODO: The function should depend on current function ABI but
@@ -7551,7 +7551,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 
   /* Add bound register if bounds are returned in addition to
      function value.  */
-  if (flag_mpx && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
+  if (flag_check_pointers && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
     {
       rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
       res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, res, b0));
@@ -7651,7 +7651,7 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   /* Add bound register if bounds are returned in addition to
      function value.  */
-  if (flag_mpx && BOUNDED_TYPE_P (valtype))
+  if (flag_check_pointers && BOUNDED_TYPE_P (valtype))
     {
       rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
 			    FIRST_BND_REG);
@@ -8005,7 +8005,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 				   x86_64_int_parameter_registers[i]));
 
       /* In MPX mpde we need to store bounds for each stored rergister.  */
-      if (flag_mpx)
+      if (flag_check_pointers)
 	{
 	  rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
 	  rtx ptr = gen_rtx_REG (DImode,
@@ -8210,8 +8210,8 @@ ix86_va_start (tree valist, rtx nextarg)
 	  convert_move (va_r, next, 0);
 
 	  /* Store zero bounds for va_list.  */
-	  if (flag_mpx)
-	    mpx_expand_bounds_reset_for_mem (valist,
+	  if (flag_check_pointers)
+	    chkp_expand_bounds_reset_for_mem (valist,
 					     make_tree (TREE_TYPE (valist),
 							next));
 
@@ -8274,8 +8274,8 @@ ix86_va_start (tree valist, rtx nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   /* Store zero bounds for overflow area pointer.  */
-  if (flag_mpx)
-    mpx_expand_bounds_reset_for_mem (ovf, t1);
+  if (flag_check_pointers)
+    chkp_expand_bounds_reset_for_mem (ovf, t1);
 
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {
@@ -8291,8 +8291,8 @@ ix86_va_start (tree valist, rtx nextarg)
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       /* Store zero bounds for save area pointer.  */
-      if (flag_mpx)
-	mpx_expand_bounds_reset_for_mem (sav, t1);
+      if (flag_check_pointers)
+	chkp_expand_bounds_reset_for_mem (sav, t1);
     }
 }
 
@@ -8357,7 +8357,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 				       type, 0, X86_64_REGPARM_MAX,
 				       X86_64_SSE_REGPARM_MAX, intreg,
 				       0, 0, false);
-      mpx_split_slot (container, &container, &bndcontainer);
+      chkp_split_slot (container, &container, &bndcontainer);
       break;
     }
 
@@ -24136,8 +24136,8 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       /* For MPX we may have GPR + BR in parallel but but
 	 it will confuse DF and we need to put each reg
 	 under EXPR_LIST.  */
-      if (flag_mpx)
-	mpx_put_regs_to_expr_list (retval);
+      if (flag_check_pointers)
+	chkp_put_regs_to_expr_list (retval);
 
       call = gen_rtx_SET (VOIDmode, retval, call);
     }
@@ -33564,43 +33564,43 @@ ix86_builtin_mpx_function (unsigned fcode)
 {
   switch (fcode)
     {
-    case BUILT_IN_MPX_BNDMK:
+    case BUILT_IN_CHKP_BNDMK:
       return ix86_builtins[IX86_BUILTIN_BNDMK];
 
-    case BUILT_IN_MPX_BNDSTX:
+    case BUILT_IN_CHKP_BNDSTX:
       return ix86_builtins[IX86_BUILTIN_BNDSTX];
 
-    case BUILT_IN_MPX_BNDLDX:
+    case BUILT_IN_CHKP_BNDLDX:
       return ix86_builtins[IX86_BUILTIN_BNDLDX];
 
-    case BUILT_IN_MPX_BNDCL:
+    case BUILT_IN_CHKP_BNDCL:
       return ix86_builtins[IX86_BUILTIN_BNDCL];
 
-    case BUILT_IN_MPX_BNDCU:
+    case BUILT_IN_CHKP_BNDCU:
       return ix86_builtins[IX86_BUILTIN_BNDCU];
 
-    case BUILT_IN_MPX_BNDRET:
+    case BUILT_IN_CHKP_BNDRET:
       return ix86_builtins[IX86_BUILTIN_BNDRET];
 
-    case BUILT_IN_MPX_INTERSECT:
+    case BUILT_IN_CHKP_INTERSECT:
       return ix86_builtins[IX86_BUILTIN_BNDINT];
 
-    case BUILT_IN_MPX_SET_PTR_BOUNDS:
+    case BUILT_IN_CHKP_SET_PTR_BOUNDS:
       return ix86_builtins[IX86_BUILTIN_BNDSET];
 
-    case BUILT_IN_MPX_NARROW:
+    case BUILT_IN_CHKP_NARROW:
       return ix86_builtins[IX86_BUILTIN_BNDNARROW];
 
-    case BUILT_IN_MPX_ARG_BND:
+    case BUILT_IN_CHKP_ARG_BND:
       return ix86_builtins[IX86_BUILTIN_ARG_BND];
 
-    case BUILT_IN_MPX_SIZEOF:
+    case BUILT_IN_CHKP_SIZEOF:
       return ix86_builtins[IX86_BUILTIN_SIZEOF];
 
-    case BUILT_IN_MPX_EXTRACT_LOWER:
+    case BUILT_IN_CHKP_EXTRACT_LOWER:
       return ix86_builtins[IX86_BUILTIN_BNDLOWER];
 
-    case BUILT_IN_MPX_EXTRACT_UPPER:
+    case BUILT_IN_CHKP_EXTRACT_UPPER:
       return ix86_builtins[IX86_BUILTIN_BNDUPPER];
 
     default:
@@ -42453,7 +42453,7 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
 bool
 ix86_bnd_prefixed_insn_p (rtx insn ATTRIBUTE_UNUSED)
 {
-  return flag_mpx
+  return flag_check_pointers
     && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (cfun->decl));
 }
 
@@ -44067,14 +44067,14 @@ ix86_mpx_bound_mode ()
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS ix86_spill_class
 
-#undef TARGET_MPX_BOUND_TYPE
-#define TARGET_MPX_BOUND_TYPE ix86_mpx_bound_type
+#undef TARGET_CHKP_BOUND_TYPE
+#define TARGET_CHKP_BOUND_TYPE ix86_mpx_bound_type
 
-#undef TARGET_MPX_BOUND_MODE
-#define TARGET_MPX_BOUND_MODE ix86_mpx_bound_mode
+#undef TARGET_CHKP_BOUND_MODE
+#define TARGET_CHKP_BOUND_MODE ix86_mpx_bound_mode
 
-#undef TARGET_BUILTIN_MPX_FUNCTION
-#define TARGET_BUILTIN_MPX_FUNCTION ix86_builtin_mpx_function
+#undef TARGET_BUILTIN_CHKP_FUNCTION
+#define TARGET_BUILTIN_CHKP_FUNCTION ix86_builtin_mpx_function
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

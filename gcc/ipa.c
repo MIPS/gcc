@@ -1534,7 +1534,7 @@ make_pass_ipa_profile (gcc::context *ctxt)
 
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
-   (for MPX static vars constructor) or 'B' (for MPX static bounds
+   (for chp static vars constructor) or 'B' (for chkp static bounds
    constructor).  BODY is a STATEMENT_LIST containing GENERIC
    statements.  PRIORITY is the initialization priority for this
    constructor or destructor.
@@ -1598,7 +1598,7 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
       break;
     case 'P':
       DECL_STATIC_CONSTRUCTOR (decl) = 1;
-      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("mpx ctor"),
+      DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("chkp ctor"),
 					  NULL,
 					  NULL_TREE);
       decl_init_priority_insert (decl, priority);
@@ -1628,7 +1628,7 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
 
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor), 'D' (for a destructor), 'P'
-   (for MPX static vars constructor) or 'B' (for MPX static bounds
+   (for chkp static vars constructor) or 'B' (for chkp static bounds
    constructor).  BODY is a STATEMENT_LIST containing GENERIC
    statements.  PRIORITY is the initialization priority for this
    constructor or destructor.  */

@@ -4028,7 +4028,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	   clearing), and don't try to make bitwise copies of
 	   TREE_ADDRESSABLE types.
 
-	   We cannot apply such transformation when compiling MPX static
+	   We cannot apply such transformation when compiling chkp static
 	   initializer because creation of initializer image in the memory
 	   will require static initialization of bounds for it.  It should
 	   result in another gimplification of similar initializer and we
@@ -4037,7 +4037,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	    && !(cleared || num_nonzero_elements == 0)
 	    && !TREE_ADDRESSABLE (type)
 	    && (!current_function_decl
-		|| !lookup_attribute ("mpx ctor",
+		|| !lookup_attribute ("chkp ctor",
 				      DECL_ATTRIBUTES (current_function_decl))))
 	  {
 	    HOST_WIDE_INT size = int_size_in_bytes (type);
@@ -4076,7 +4076,7 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 		/* We need to register created constant object to
 		   initialize bounds for pointers in it.  */
-		mpx_register_var_initializer (ctor);
+		chkp_register_var_initializer (ctor);
 
 		if (!useless_type_conversion_p (type, TREE_TYPE (ctor)))
 		  ctor = build1 (VIEW_CONVERT_EXPR, type, ctor);

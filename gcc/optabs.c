@@ -3258,7 +3258,7 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
 
 	  val = hard_libcall_value (TYPE_MODE (integer_type_node),
 				    optab_libfunc (unoptab, mode));
-	  mpx_split_slot (val, &val, &bnd);
+	  chkp_split_slot (val, &val, &bnd);
 	  outmode = GET_MODE (val);
 	}
 

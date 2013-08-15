@@ -19,6 +19,7 @@
 	* config/i386/i386-modes.def (BND32): New.
 	(BND64): New.
 	* config/i386/i386-protos.h (ix86_bnd_prefixed_insn_p): New.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Add __MPX__.
 	* config/i386/i386.c (isa_opts): Add mmpx.
 	(regclass_map): Add bound registers.
 	(dbx_register_map): Likewise.

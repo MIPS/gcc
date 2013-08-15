@@ -916,7 +916,7 @@ tree_ssa_loop_ivopts (void)
 static bool
 gate_tree_ssa_loop_ivopts (void)
 {
-  return flag_ivopts != 0 && !flag_mpx;
+  return flag_ivopts != 0 && !flag_check_pointers;
 }
 
 namespace {

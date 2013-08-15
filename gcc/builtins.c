@@ -2573,19 +2573,19 @@ expand_builtin_cexpi (tree exp, rtx target)
       /* Make sure not to fold the sincos call again.  */
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
 
-      /* If MPX is on then we have to add bound arguments to
+      /* If pointers checker is on then we have to add bound arguments to
 	 the call.  */
-      if (flag_mpx)
+      if (flag_check_pointers)
 	{
 	  tree tmp, bnd1, bnd2;
 
-	  tmp = mpx_build_make_bounds_call (top1,
+	  tmp = chkp_build_make_bounds_call (top1,
 					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
 	  bnd1 = make_tree (bound_type_node,
 			    assign_temp (bound_type_node, 0, 1));
 	  expand_assignment (bnd1, tmp, false);
 
-	  tmp = mpx_build_make_bounds_call (top2,
+	  tmp = chkp_build_make_bounds_call (top2,
 					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
 	  bnd2 = make_tree (bound_type_node,
 			    assign_temp (bound_type_node, 0, 1));
@@ -3187,10 +3187,10 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len,
 
     /* If return value is ignored, transform mempcpy into memcpy.  */
   if (target == const0_rtx
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MPX_MEMPCPY_NOBND_NOCHK
-      && builtin_decl_implicit_p (BUILT_IN_MPX_MEMCPY_NOBND_NOCHK))
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK
+      && builtin_decl_implicit_p (BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK))
     {
-      tree fn = builtin_decl_implicit (BUILT_IN_MPX_MEMCPY_NOBND_NOCHK);
+      tree fn = builtin_decl_implicit (BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK);
       tree result = build_call_nofold_loc (UNKNOWN_LOCATION, fn, 3,
 					   dest, src, len);
       return expand_expr (result, target, mode, EXPAND_NORMAL);
@@ -3667,7 +3667,7 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
   fndecl = get_callee_fndecl (orig_exp);
   fcode = DECL_FUNCTION_CODE (fndecl);
   if (fcode == BUILT_IN_MEMSET
-      || fcode == BUILT_IN_MPX_MEMSET_NOBND_NOCHK)
+      || fcode == BUILT_IN_CHKP_MEMSET_NOBND_NOCHK)
     fn = build_call_nofold_loc (EXPR_LOCATION (orig_exp), fndecl, 3,
 				dest, val, len);
   else if (fcode == BUILT_IN_BZERO)
@@ -4222,10 +4222,10 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
 
   /* We do not have any valid bounds for the pointer, so
      just store zero bounds for it.  */
-  if (flag_mpx)
-    mpx_expand_bounds_reset_for_mem (valist,
-				     make_tree (TREE_TYPE (valist),
-						nextarg));
+  if (flag_check_pointers)
+    chkp_expand_bounds_reset_for_mem (valist,
+				      make_tree (TREE_TYPE (valist),
+						 nextarg));
 }
 
 /* Expand EXP, a call to __builtin_va_start.  */
@@ -4544,7 +4544,7 @@ static rtx
 expand_builtin_frame_address (tree fndecl, tree exp)
 {
   /*  Set zero bounds for returned value.  */
-  if (flag_mpx)
+  if (flag_check_pointers)
     targetm.calls.init_returned_bounds (NULL_TREE);
 
   /* The argument must be a nonnegative integer constant.
@@ -5880,16 +5880,16 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       && fcode != BUILT_IN_ALLOCA
       && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
       && fcode != BUILT_IN_FREE
-      && fcode != BUILT_IN_MPX_SET_PTR_BOUNDS
-      && fcode != BUILT_IN_MPX_INIT_PTR_BOUNDS
-      && fcode != BUILT_IN_MPX_COPY_PTR_BOUNDS
-      && fcode != BUILT_IN_MPX_NARROW_PTR_BOUNDS
-      && fcode != BUILT_IN_MPX_STORE_PTR_BOUNDS
-      && fcode != BUILT_IN_MPX_CHECK_PTR_LBOUNDS
-      && fcode != BUILT_IN_MPX_CHECK_PTR_UBOUNDS
-      && fcode != BUILT_IN_MPX_CHECK_PTR_BOUNDS
-      && fcode != BUILT_IN_MPX_GET_PTR_LBOUND
-      && fcode != BUILT_IN_MPX_GET_PTR_UBOUND)
+      && fcode != BUILT_IN_CHKP_SET_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_INIT_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_COPY_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_NARROW_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_STORE_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_LBOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_UBOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_GET_PTR_LBOUND
+      && fcode != BUILT_IN_CHKP_GET_PTR_UBOUND)
     return expand_call (exp, target, ignore);
 
   /* The built-in function expanders test for target == const0_rtx
@@ -5927,7 +5927,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
      To avoid modification of all expanders we just make a new call
      expression without bound args.  The original expression is used
      in case we expand builtin as a call.  */
-  if (flag_mpx)
+  if (flag_check_pointers)
     {
       int new_arg_no = 0;
       tree new_call;
@@ -6245,7 +6245,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRLEN:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_strlen (exp, target, target_mode);
       if (target)
@@ -6253,7 +6253,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRCPY:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_strcpy (exp, target);
       if (target)
@@ -6261,7 +6261,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRNCPY:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_strncpy (exp, target);
       if (target)
@@ -6269,7 +6269,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STPCPY:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_stpcpy (exp, target, mode);
       if (target)
@@ -6277,48 +6277,48 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_MEMCPY:
-    case BUILT_IN_MPX_MEMCPY_NOBND_NOCHK:
-      if (flag_mpx && fcode == BUILT_IN_MEMCPY)
+    case BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK:
+      if (flag_check_pointers && fcode == BUILT_IN_MEMCPY)
 	break;
       target = expand_builtin_memcpy (exp, target);
       if (target)
 	{
-	  /* We need to set returned bounds in MPX mode.  */
-	  if (flag_mpx)
+	  /* We need to set returned bounds if checker is on.  */
+	  if (flag_check_pointers)
 	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
 	  return target;
 	}
       break;
 
     case BUILT_IN_MEMPCPY:
-      case BUILT_IN_MPX_MEMPCPY_NOBND_NOCHK:
-      if (flag_mpx && fcode == BUILT_IN_MEMPCPY)
+      case BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK:
+      if (flag_check_pointers && fcode == BUILT_IN_MEMPCPY)
 	break;
       target = expand_builtin_mempcpy (exp, target, mode);
       if (target)
 	{
-	  if (flag_mpx)
+	  if (flag_check_pointers)
 	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
 	  return target;
 	}
       break;
 
     case BUILT_IN_MEMSET:
-    case BUILT_IN_MPX_MEMSET_NOBND_NOCHK:
-      if (flag_mpx && fcode == BUILT_IN_MEMSET)
+    case BUILT_IN_CHKP_MEMSET_NOBND_NOCHK:
+      if (flag_check_pointers && fcode == BUILT_IN_MEMSET)
 	break;
       target = expand_builtin_memset (exp, target, mode);
       if (target)
 	{
-	  /* We need to set returned bounds in MPX mode.  */
-	  if (flag_mpx)
+	  /* We need to set returned bounds if cheker is on.  */
+	  if (flag_check_pointers)
 	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
 	  return target;
 	}
       break;
 
     case BUILT_IN_BZERO:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_bzero (exp);
       if (target)
@@ -6326,7 +6326,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRCMP:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_strcmp (exp, target);
       if (target)
@@ -6334,7 +6334,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRNCMP:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_strncmp (exp, target, mode);
       if (target)
@@ -6343,7 +6343,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_memcmp (exp, target, mode);
       if (target)
@@ -6745,8 +6745,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	for (z = 0; z < nargs; z++)
 	  {
 	    /* Skip the boolean weak parameter.  */
-	    if ((!flag_mpx && z == 3)
-		|| (flag_mpx && z == 5))
+	    if ((!flag_check_pointers && z == 3)
+		|| (flag_check_pointers && z == 5))
 	      continue;
 
 	    vec->quick_push (CALL_EXPR_ARG (exp, z));
@@ -6975,7 +6975,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MEMPCPY_CHK:
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
-      if (flag_mpx)
+      if (flag_check_pointers)
 	break;
       target = expand_builtin_memory_chk (exp, target, mode, fcode);
       if (target)
@@ -7010,47 +7010,47 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       expand_builtin_set_thread_pointer (exp);
       return const0_rtx;
 
-    case BUILT_IN_MPX_INIT_PTR_BOUNDS:
-    case BUILT_IN_MPX_COPY_PTR_BOUNDS:
+    case BUILT_IN_CHKP_INIT_PTR_BOUNDS:
+    case BUILT_IN_CHKP_COPY_PTR_BOUNDS:
       return expand_normal (CALL_EXPR_ARG (exp, 0));
 
-    case BUILT_IN_MPX_CHECK_PTR_LBOUNDS:
-    case BUILT_IN_MPX_CHECK_PTR_UBOUNDS:
-    case BUILT_IN_MPX_CHECK_PTR_BOUNDS:
-    case BUILT_IN_MPX_SET_PTR_BOUNDS:
-    case BUILT_IN_MPX_NARROW_PTR_BOUNDS:
-    case BUILT_IN_MPX_STORE_PTR_BOUNDS:
-    case BUILT_IN_MPX_GET_PTR_LBOUND:
-    case BUILT_IN_MPX_GET_PTR_UBOUND:
-      /* We allow user MPX builtins if MPX is off.  */
-      if (!flag_mpx)
+    case BUILT_IN_CHKP_CHECK_PTR_LBOUNDS:
+    case BUILT_IN_CHKP_CHECK_PTR_UBOUNDS:
+    case BUILT_IN_CHKP_CHECK_PTR_BOUNDS:
+    case BUILT_IN_CHKP_SET_PTR_BOUNDS:
+    case BUILT_IN_CHKP_NARROW_PTR_BOUNDS:
+    case BUILT_IN_CHKP_STORE_PTR_BOUNDS:
+    case BUILT_IN_CHKP_GET_PTR_LBOUND:
+    case BUILT_IN_CHKP_GET_PTR_UBOUND:
+      /* We allow user CHKP builtins if checker is off.  */
+      if (!flag_check_pointers)
 	{
-	  if (fcode ==  BUILT_IN_MPX_SET_PTR_BOUNDS
-	      || fcode ==  BUILT_IN_MPX_NARROW_PTR_BOUNDS)
+	  if (fcode ==  BUILT_IN_CHKP_SET_PTR_BOUNDS
+	      || fcode ==  BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
 	    return expand_normal (CALL_EXPR_ARG (exp, 0));
-	  else if (fcode == BUILT_IN_MPX_GET_PTR_LBOUND)
+	  else if (fcode == BUILT_IN_CHKP_GET_PTR_LBOUND)
 	    return expand_normal (size_zero_node);
-	  else if (fcode == BUILT_IN_MPX_GET_PTR_UBOUND)
+	  else if (fcode == BUILT_IN_CHKP_GET_PTR_UBOUND)
 	    return expand_normal (size_int (-1));
 	  else
 	    return const0_rtx;
 	}
       /* FALLTHROUGH */
 
-    case BUILT_IN_MPX_BNDMK:
-    case BUILT_IN_MPX_BNDSTX:
-    case BUILT_IN_MPX_BNDCL:
-    case BUILT_IN_MPX_BNDCU:
-    case BUILT_IN_MPX_BNDLDX:
-    case BUILT_IN_MPX_BNDRET:
-    case BUILT_IN_MPX_INTERSECT:
-    case BUILT_IN_MPX_ARG_BND:
-    case BUILT_IN_MPX_NARROW:
-    case BUILT_IN_MPX_EXTRACT_LOWER:
-    case BUILT_IN_MPX_EXTRACT_UPPER:
-      /* Software implementation of MPX is NYI.
-	 Target with MPX support should be used.  */
-      error ("Target platform does not support MPX");
+    case BUILT_IN_CHKP_BNDMK:
+    case BUILT_IN_CHKP_BNDSTX:
+    case BUILT_IN_CHKP_BNDCL:
+    case BUILT_IN_CHKP_BNDCU:
+    case BUILT_IN_CHKP_BNDLDX:
+    case BUILT_IN_CHKP_BNDRET:
+    case BUILT_IN_CHKP_INTERSECT:
+    case BUILT_IN_CHKP_ARG_BND:
+    case BUILT_IN_CHKP_NARROW:
+    case BUILT_IN_CHKP_EXTRACT_LOWER:
+    case BUILT_IN_CHKP_EXTRACT_UPPER:
+      /* Software implementation of pointers checker is NYI.
+	 Target support is required.  */
+      error ("Your target platform does not support -fcheck-pointers");
       break;
 
     default:	/* just do library call, if unknown builtin */
@@ -12324,7 +12324,8 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 
   if (va_start_p)
     {
-      if (va_start_p && (nargs != 2) && (nargs < 3 || nargs > 4 || !flag_mpx))
+      if (va_start_p && (nargs != 2)
+	  && (nargs < 3 || nargs > 4 || !flag_check_pointers))
 	{
 	  error ("wrong number of arguments to function %<va_start%>");
 	  return true;
@@ -12332,7 +12333,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
       arg_no = 1;
       arg = CALL_EXPR_ARG (exp, arg_no);
       /* Skip bounds arg if any.  */
-      if (flag_mpx && BOUND_TYPE_P (TREE_TYPE (arg)))
+      if (flag_check_pointers && BOUND_TYPE_P (TREE_TYPE (arg)))
 	{
 	  arg_no++;
 	  arg = CALL_EXPR_ARG (exp, arg_no);
@@ -12351,7 +12352,8 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 		   "%<__builtin_next_arg%> called without an argument");
 	  return true;
 	}
-      else if ((nargs > 1 && !flag_mpx) || (nargs > 2 && flag_mpx))
+      else if ((nargs > 1 && !flag_check_pointers)
+	       || (nargs > 2 && flag_check_pointers))
 	{
 	  error ("wrong number of arguments to function %<__builtin_next_arg%>");
 	  return true;
