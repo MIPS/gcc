@@ -71,7 +71,7 @@ libcilkrts_la_SOURCES =            \
 include include/internal/rev.mk
 
 # libcilkrts_la_LDFLAGS  = -rpath '$(libdir)'
-libcilkrts_la_LDFLAGS = -version-info 5:$(CILK_REVISION):0
+# libcilkrts_la_LDFLAGS = -version-info 5:$(CILK_REVISION):0
 libcilkrts_la_LDFLAGS += -lpthread -ldl
 
 # C/C++ header files for Cilk.

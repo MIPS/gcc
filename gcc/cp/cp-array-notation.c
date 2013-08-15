@@ -359,7 +359,8 @@ find_inv_trees (tree *tp, int *walk_subtrees, void *data)
 
   if (!tp || !*tp)
     return NULL_TREE;
-  if (TREE_CONSTANT (*tp))
+  if (TREE_CONSTANT (*tp) || TREE_CODE (*tp) == VAR_DECL
+      || TREE_CODE (*tp) == PARM_DECL)
     return NULL_TREE; /* No need to save constant to a variable.  */
   if (TREE_CODE (*tp) != COMPOUND_EXPR
       && !contains_array_notation_expr (*tp))
@@ -438,6 +439,7 @@ replace_invariant_exprs (tree *node)
 	  gcc_assert (new_var != NULL_TREE && new_var != error_mark_node);
 	  new_node = build_x_modify_expr (EXPR_LOCATION (t), new_var, NOP_EXPR,
 					  t, tf_warning_or_error);
+	  add_local_decl (cfun, new_var);
 	  add_stmt (new_node);
 	  vec_safe_push (data.replacement, new_var);
 	}

@@ -333,4 +333,5 @@ extern bool pragma_simd_is_linear_var_p (unsigned int, tree);
 extern void set_OK_for_certain_clause (enum pragma_simd_kind, bool,
 				       unsigned int);
 extern bool pragma_simd_acceptable_vlength_p (unsigned int, int, tree);
+extern rtx create_metadata_label (const char *);
 #endif /* GCC_CILK_H */

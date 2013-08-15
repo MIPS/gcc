@@ -36,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h" /* only correct declaration of warning() */
 #include "output.h"
 #include "dwarf2out.h"
-
+#include "target.h"
 
 /* The only reason why we have this struct is that we need a void * to pass
    into the walk_tree function.  */
@@ -788,7 +788,7 @@ gimplify_cilk_sync (tree *expr_p, gimple_seq *pre_p)
 /* This function will create a label for the metadata section given by
    name.  */
 
-static rtx
+rtx
 create_metadata_label (const char *name)
 {
   rtx new_label = NULL_RTX;
@@ -1006,7 +1006,7 @@ cilk_output_metadata (void)
     return;
   /* Create a new zca section (if necessary) and switch to it.  */
   s = get_unnamed_section (0, output_section_asm_op, 
-			   "\t.section .itt_notify_tab,\"a\"");
+			   targetm.cilkplus.builtin_itt_notify_section_name ());
   switch_to_section (s);
   //assemble_align (32);
   st_label = create_metadata_label ("ZCA_START");
@@ -1030,25 +1030,15 @@ cilk_output_metadata (void)
   assemble_integer (gen_rtx_CONST_INT (BLKmode, entry_count), 
 		    GET_MODE_SIZE (HImode), 1, 1);
 
-  /* Now we output the offet to the string table.  This is done by printing out 
-     the label for string_table_start, then a '-' then start_label.  The linker
-     should find out the correct absolute value.  */
-  fputs (integer_asm_op (GET_MODE_SIZE (SImode), 1), asm_out_file);
-  output_asm_label (str_table_label);
-  fputc ('-', asm_out_file);
-  output_asm_label (st_label);
-  fputc ('\n', asm_out_file);
-
+  /* Now we output the offet to the string table.  */
+  targetm.cilkplus.builtin_itt_notify_subtract_labels (str_table_label,
+						       st_label);
   strings_len = get_zca_string_table_size ();
   assemble_integer (gen_rtx_CONST_INT (BLKmode, strings_len), 
 		    GET_MODE_SIZE (SImode), 1, 1);
 
   /* Now we output the expr table the same way.  */
-  fputs (integer_asm_op (GET_MODE_SIZE (SImode), 1), asm_out_file);
-  output_asm_label (expr_label);
-  fputc ('-', asm_out_file);
-  output_asm_label (st_label);
-  fputc ('\n', asm_out_file);
+  targetm.cilkplus.builtin_itt_notify_subtract_labels (expr_label, st_label);
 
   exprs_len = get_zca_exprs_table_size ();
   assemble_integer (gen_rtx_CONST_INT (BLKmode, exprs_len), 

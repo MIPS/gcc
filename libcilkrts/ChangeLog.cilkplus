@@ -1,3 +1,9 @@
+2013-08-15  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+	
+       * Makefile.in (libcilkrts_la_LDFLAGS): Removed version info from 
+	ld flags.
+       * Makefile.am (libcilkrts_la_LDFLAGS): Likewise.
+
 2013-08-05  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* include/cilk/reducer_opmul.h: Updated to revision 3520.

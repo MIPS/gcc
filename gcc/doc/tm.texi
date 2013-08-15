@@ -5737,6 +5737,16 @@ This hook is called by the builtins expander to make sure there is a
   replaces them all with const0_rtx.
 @end deftypefn
 
+@deftypefn {Target Hook} {const char *} TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SECTION_NAME (void)
+This hook is called by itt_notify information emission function.
+  This function will tell the name of the itt notify section name.
+@end deftypefn
+
+@deftypefn {Target Hook} void TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SUBTRACT_LABELS (rtx, @var{rtx})
+This hook is called by the itt_notify information emission function.
+  This function will emit a different subtract function based on MAC or 
+  Linux.
+@end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_VECTORIZE_VECTOR_ALIGNMENT_REACHABLE (const_tree @var{type}, bool @var{is_packed})
 Return true if vector alignment is reachable (by peeling N iterations) for the given type.

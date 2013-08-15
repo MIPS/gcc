@@ -42549,6 +42549,46 @@ ix86_have_cilkscreen_support (void)
   return true;
 }
 
+/* Returns the appropriate section name based on the target OS.  */
+
+static const char *
+ix86_cilkplus_itt_notify_section_name (void)
+{
+#if TARGET_MACHO
+  return ".section __DATA, __itt_notify_ta";
+#else
+  return ".section .itt_notify_tab,\"a\"";
+#endif
+  }
+
+/* Returns how label subtraction is done.  They are different from MACHO and
+   Linux.  */
+
+static void
+ix86_cilkplus_itt_notify_subtract_labels (rtx label1, rtx label2)
+{
+#if TARGET_MACHO
+  extern rtx create_metadata_label (const char *);
+  fputs ("\t.set\t", asm_out_file);
+  rtx temp_label = create_metadata_label ("temp");
+  output_asm_label (temp_label);
+  fputc (',', asm_out_file);
+  output_asm_label (label1);
+  fputc ('-', asm_out_file);
+  output_asm_label (label2);
+  fputc('\n', asm_out_file);
+  fputs (integer_asm_op (GET_MODE_SIZE (SImode), 1), asm_out_file);
+  output_asm_label (temp_label);
+#else
+  fputs (integer_asm_op (GET_MODE_SIZE (SImode), 1), asm_out_file);
+  output_asm_label (label1);
+  fputc ('-', asm_out_file);
+  output_asm_label (label2);
+#endif
+  fputc ('\n', asm_out_file);
+}
+     
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -42933,6 +42973,14 @@ ix86_have_cilkscreen_support (void)
 #undef  TARGET_CILKPLUS_BUILTIN_HAVE_CILKSCREEN_SUPPORT
 #define TARGET_CILKPLUS_BUILTIN_HAVE_CILKSCREEN_SUPPORT \
   ix86_have_cilkscreen_support
+
+#undef  TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SECTION_NAME 
+#define TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SECTION_NAME \
+  ix86_cilkplus_itt_notify_section_name
+
+#undef  TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SUBTRACT_LABELS
+#define TARGET_CILKPLUS_BUILTIN_ITT_NOTIFY_SUBTRACT_LABELS \
+  ix86_cilkplus_itt_notify_subtract_labels
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
