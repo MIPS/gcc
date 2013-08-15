@@ -1,3 +1,37 @@
+2013-08-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51912
+	* cp-tree.h (LOOKUP_NO_NON_INTEGRAL): Add.
+	* decl.c (case_conversion): Use it.
+	* call.c (standard_conversion): Likewise.
+	(implicit_conversion): Adjust.
+
+2013-08-13  Adam Butcher  <adam@jessamine.co.uk>
+
+	* pt.c: Grammar fix in comments ("it's" to "its").
+
+2013-08-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (warn_extern_redeclared_static, duplicate_decls,
+	check_elaborated_type_specifier): Use error + inform.
+	* friend.c (make_friend_class): Likewise.
+	* semantics.c (finish_id_expression): Likewise.
+
+2013-08-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert:
+	2013-08-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/46206
+	* name-lookup.c (lookup_name_real_1): Handle iter->type before
+	iter->value.
+
+2013-08-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/46206
+	* name-lookup.c (lookup_name_real_1): Handle iter->type before
+	iter->value.
+
 2013-08-06  Caroline Tice  <cmtice@google.com>
 
 	* Make-lang.in (*CXX_AND_OBJCXX_OBJS):  Add vtable-class-hierarchy.o to
