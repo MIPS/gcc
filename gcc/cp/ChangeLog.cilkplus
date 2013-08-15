@@ -2,6 +2,8 @@
 
 	* cp-array-notation.c (find_inv_trees): Added a check for VAR_DECL
 	or PARM_DECL.  If so then don't save them to temporary variables.
+        (fix_conditional_array_notations_1): Do not reject when body of
+        if-statment is zero.
 
 2013-06-20  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 

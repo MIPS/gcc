@@ -1455,13 +1455,13 @@ fix_conditional_array_notations_1 (tree orig_stmt)
       find_rank (cond, true, &cond_rank);
       find_rank (yes_expr, true, &yes_rank);
       find_rank (no_expr, true, &no_rank);
-      if (cond_rank != 0 && cond_rank != yes_rank)
+      if (cond_rank != 0 && cond_rank != yes_rank && yes_rank > 0)
 	{
 	  error_at (EXPR_LOCATION (yes_expr), "rank mismatch with controlling"
 		    " expression of parent if-statement");
 	  return error_mark_node;
 	}
-      else if (cond_rank != 0 && cond_rank != no_rank)
+      else if (cond_rank != 0 && cond_rank != no_rank && no_rank > 0)
 	{
 	  error_at (EXPR_LOCATION (no_expr), "rank mismatch with controlling "
 		    "expression of parent if-statement");
@@ -1477,13 +1477,13 @@ fix_conditional_array_notations_1 (tree orig_stmt)
       find_rank (cond, true, &cond_rank);
       find_rank (yes_expr, true, &yes_rank);
       find_rank (no_expr, true, &no_rank);
-      if (cond_rank != 0 && cond_rank != yes_rank)
+      if (cond_rank != 0 && cond_rank != yes_rank && yes_rank > 0)
 	{
 	  error_at (EXPR_LOCATION (yes_expr), "rank mismatch with controlling"
 		    " expression of parent if-statement");
 	  return error_mark_node;
 	}
-      else if (cond_rank != 0 && cond_rank != no_rank)
+      else if (cond_rank != 0 && cond_rank != no_rank && no_rank > 0)
 	{
 	  error_at (EXPR_LOCATION (no_expr), "rank mismatch with controlling "
 		    "expression of parent if-statement");
