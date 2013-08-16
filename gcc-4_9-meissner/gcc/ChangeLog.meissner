@@ -1,5 +1,8 @@
 2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 201798.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/constraints.md (wv constraint): Change wv
 	constraint to be Altivec register if -mvsx.  Add wu constraint to
 	be Altivec register if power8.  Add ww constraint for single

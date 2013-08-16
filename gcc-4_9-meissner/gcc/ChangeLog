@@ -1,3 +1,81 @@
+2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/58160
+	* config/rs6000/predicates.md (fusion_gpr_mem_load): Allow the
+	memory rtx to contain ZERO_EXTEND and SIGN_EXTEND.
+
+	* config/rs6000/rs6000-protos.h (fusion_gpr_load_p): Pass operands
+	array instead of each individual operand as a separate argument.
+	(emit_fusion_gpr_load): Likewise.
+	(expand_fusion_gpr_load): Add new function declaration.
+
+	* config/rs6000/rs6000.c (fusion_gpr_load_p): Change the calling
+	signature to have the operands passed as an array, instead of as
+	separate arguments.  Allow ZERO_EXTEND to be in the memory
+	address, and also SIGN_EXTEND if -mpower8-fusion-sign.  Do not
+	depend on the register live/dead flags when peepholes are run.
+	(expand_fusion_gpr_load): New function to be called from the
+	peephole2 pass, to change the register that addis sets to be the
+	target register.
+	(emit_fusion_gpr_load): Change the calling signature to have the
+	operands passed as an array, instead of as separate arguments.
+	Allow ZERO_EXTEND to be in the memory address, and also
+	SIGN_EXTEND if -mpower8-fusion-sign.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_GPR): Delete unused
+	unspec enumeration.
+	(power8 fusion peephole/peephole2): Rework the fusion peepholes to
+	adjust the register addis loads up in the peephole2 pass.  Do not
+	depend on the register live/dead state when the peephole pass is
+	done.
+
+2013-08-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* gengtype.c (create_user_defined_type): Ensure that the kind
+	is set to TYPE_USER_STRUCT, fixing a bug seen when an incomplete
+	declaration is seen before the GTY((user)) marking.
+
+2013-08-16  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/58105
+	* config/i386/i386.c (make_resolver_func): Set DECL_UNINLINABLE.
+
+2013-08-16  Jan Hubicka  <jh@suse.cz>
+
+	* gimple-fold.c (gimple_extract_devirt_binfo_from_cst): Add new
+	arugment expected_type.
+	(gimple_fold_call): Use it.
+	* gimple.h (gimple_extract_devirt_binfo_from_cst): Update prototype.
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Update.
+	* ipa-prop.c (ipa_analyze_virtual_call_uses): Use obj_type_ref_class.
+	(try_make_edge_direct_virtual_call): Likewise.
+	* tree.c (obj_type_ref_class): New.
+	* tree.h (obj_type_ref_class): Use it.
+
+2013-08-16  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* sched-vis.c (rtl_slim_pp_initialized): Remove.
+	(rtl_slim_pp): Likewise.
+	(init_rtl_slim_pretty_print): Likewise.
+	(dump_value_slim):  Don't call it.  Use local pretty printer.
+	(dump_insn_slim): Likewise.
+	(dump_rtl_slim): Likewise.
+	(str_pattern_slim): Likewise.
+	* tree-mudflap.c (mf_varname_tree): Use local pretty printer.
+	Simplify.
+
+2013-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58164
+	* gimple.c (walk_stmt_load_store_addr_ops): For visit_addr
+	walk gimple_goto_dest of GIMPLE_GOTO.
+
+	PR tree-optimization/58165
+	* tree-call-cdce.c (shrink_wrap_one_built_in_call): If
+	bi_call must be the last stmt in a bb, don't split_block, instead
+	use fallthru edge from it and give up if there is none.
+	Release conds vector when returning early.
+
 2013-08-14  Xinliang David Li  <davidxl@google.com>
 
 	* config/i386/i386.c (ix86_option_override_internal):
@@ -6,15 +84,13 @@
 2013-08-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR target/57949
-	* doc/invoke.texi: Add documentation of mcompat-align-parm
-	option.
+	* doc/invoke.texi: Add documentation of mcompat-align-parm option.
 	* config/rs6000/rs6000.opt: Add mcompat-align-parm option.
 	* config/rs6000/rs6000.c (rs6000_function_arg_boundary): For AIX
 	and Linux, correct BLKmode alignment when 128-bit alignment is
 	required and compatibility flag is not set.
-	(rs6000_gimplify_va_arg): For AIX and Linux, honor specified
-	alignment for zero-size arguments when compatibility flag is not
-	set.
+	(rs6000_gimplify_va_arg): For AIX and Linux, honor specified alignment
+	for zero-size arguments when compatibility flag is not set.
 
 2013-08-14  Jakub Jelinek  <jakub@redhat.com>
 
