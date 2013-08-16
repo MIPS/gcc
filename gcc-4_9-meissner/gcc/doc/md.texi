@@ -2096,11 +2096,23 @@ VSX register to use to hold double precision floating point values
 @item wt
 VSX vector register to hold 128 bit integer
 
+@item wu
+Altivec vector register if -mpower8-vector is enabled or NO_REGS
+
+@item wv
+Altivec vector register if -mvsx is enabled or NO_REGS
+
+@item ww
+FP or VSX register to perform single precision operations under -mvsx
+
 @item wx
 If the STFIWX instruction is enabled, a floating point register
 
 @item ws
 VSX register to use to hold single precision floating point values
+
+@item wy
+FP or VSX register to perform ISA 2.07 single precision operations
 
 @item wz
 If the LFIWZX instruction is enabled, a floating point register

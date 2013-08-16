@@ -1,3 +1,50 @@
+2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wv constraint): Change wv
+	constraint to be Altivec register if -mvsx.  Add wu constraint to
+	be Altivec register if power8.  Add ww constraint for single
+	precision register using vsx instructions.  Add wy constraint for
+	single precision register using power8 instructions.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Debug wu and
+	ww constraints.
+	(rs6000_init_hard_regno_mode_ok): Add wu, ww, and wy constraints.
+	Change wv to be altivec register if -mvsx.
+
+	* config/rs6000/rs6000.md (VSr4): Use ww constraint instead of f.
+	(VRr5): Likewise.
+	(vsx_smaxsf3): Likewise.
+	(vsx_sminsf3): Likewise.
+	(vsx_xscvspdp): Likewise.
+	(vsx_xscvspdp_scalar2): Likewise.
+	(vsx_xscvdpspn_scalar): Likewise.
+	(vsx_concat_<mode>): Likewise.
+	(vsx_extract_v4sf): Likewise.
+	(vsx_splat_<mode>): Likewise.
+	(vsx_reduc_<VEC_reduc_name>_v4sf_scalar): Likewise.
+
+	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Add wu, ww,
+	and wy constraints.
+
+	* config/rs6000/rs6000.md (zero_extendsidi2_lfiwzx): Update
+	constraints to allow for use of power8 single precision and load
+	integer operations.
+	(extendsidi2_lfiwax): Likewise.
+	(lfiwax): Likewise.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(mov<mode>_hardfloat, 32-bit float): Likewise.
+	(mov<mode>_hardfloat32, 64-bit float): Likewise.
+	(mov<mode>_hardfloat64, 64-bit float): Likewise.
+	(movdi_internal64): Likewise.
+	(fmssf4_fpr): Fix typo.
+	(reload_<RELOAD:mode>_<P:mptrsize>_store): Add = to target
+	constraints.
+
+	* do/md.texi (PowerPC and IBM RS6000, ws/wy constraints): Document
+	new constraints.
+
 2013-08-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (ADDR_FUSION_GPR): Add bitmasks for

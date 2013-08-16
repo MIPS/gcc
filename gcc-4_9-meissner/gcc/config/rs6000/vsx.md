@@ -91,13 +91,13 @@
 
 ;; Map the register class for sp<->dp float conversions, destination
 (define_mode_attr VSr4	[(SF	"ws")
-			 (DF	"f")
+			 (DF	"ww")
 			 (V2DF  "wd")
 			 (V4SF	"v")])
 
 ;; Map the register class for sp<->dp float conversions, destination
 (define_mode_attr VSr5	[(SF	"ws")
-			 (DF	"f")
+			 (DF	"ww")
 			 (V2DF  "v")
 			 (V4SF	"wd")])
 
@@ -449,18 +449,18 @@
 ;; of the instruction.
 
 (define_insn "*vsx_smaxsf3"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
-        (smax:SF (match_operand:SF 1 "vsx_register_operand" "f")
-		 (match_operand:SF 2 "vsx_register_operand" "f")))]
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
+        (smax:SF (match_operand:SF 1 "vsx_register_operand" "ww")
+		 (match_operand:SF 2 "vsx_register_operand" "ww")))]
   "VECTOR_UNIT_VSX_P (DFmode)"
   "xsmaxdp %x0,%x1,%x2"
   [(set_attr "type" "fp")
    (set_attr "fp_type" "fp_addsub_d")])
 
 (define_insn "*vsx_sminsf3"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
-        (smin:SF (match_operand:SF 1 "vsx_register_operand" "f")
-		 (match_operand:SF 2 "vsx_register_operand" "f")))]
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
+        (smin:SF (match_operand:SF 1 "vsx_register_operand" "ww")
+		 (match_operand:SF 2 "vsx_register_operand" "ww")))]
   "VECTOR_UNIT_VSX_P (DFmode)"
   "xsmindp %x0,%x1,%x2"
   [(set_attr "type" "fp")
@@ -917,7 +917,7 @@
 ;; format of scalars is actually DF.
 (define_insn "vsx_xscvdpsp_scalar"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa")
-	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "f")]
+	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "ww")]
 		     UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xscvdpsp %x0,%x1"
@@ -925,7 +925,7 @@
 
 ;; Same as vsx_xscvspdp, but use SF as the type
 (define_insn "vsx_xscvspdp_scalar2"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
 	(unspec:SF [(match_operand:V4SF 1 "vsx_register_operand" "wa")]
 		   UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
@@ -951,7 +951,7 @@
 
 (define_insn "vsx_xscvdpspn_scalar"
   [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa")
-	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "f")]
+	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "wy")]
 		     UNSPEC_VSX_CVDPSPN))]
   "TARGET_XSCVDPSPN"
   "xscvdpspn %x0,%x1"
@@ -1069,8 +1069,8 @@
 (define_insn "vsx_concat_v2sf"
   [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
 	(unspec:V2DF
-	 [(match_operand:SF 1 "vsx_register_operand" "f,f")
-	  (match_operand:SF 2 "vsx_register_operand" "f,f")]
+	 [(match_operand:SF 1 "vsx_register_operand" "ww,ww")
+	  (match_operand:SF 2 "vsx_register_operand" "ww,ww")]
 	 UNSPEC_VSX_CONCAT))]
   "VECTOR_MEM_VSX_P (V2DFmode)"
   "xxpermdi %x0,%x1,%x2,0"
@@ -1125,7 +1125,7 @@
 
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f,f")
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww,ww")
 	(vec_select:SF
 	 (match_operand:V4SF 1 "vsx_register_operand" "wa,wa")
 	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "O,i")])))
@@ -1246,7 +1246,7 @@
 (define_insn "vsx_splat_<mode>"
   [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa,?wa")
 	(vec_duplicate:VSX_D
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "ws,f,Z,wa,wa,Z")))]
+	 (match_operand:<VS_scalar> 1 "splat_input_operand" "ws,ww,Z,wa,wa,Z")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
@@ -1411,7 +1411,7 @@
    (set_attr "type" "veccomplex")])
 
 (define_insn_and_split "*vsx_reduc_<VEC_reduc_name>_v4sf_scalar"
-  [(set (match_operand:SF 0 "vfloat_operand" "=f,?f")
+  [(set (match_operand:SF 0 "vfloat_operand" "=ww,?ww")
 	(vec_select:SF
 	 (VEC_reduc:V4SF
 	  (unspec:V4SF [(const_int 0)] UNSPEC_REDUC)

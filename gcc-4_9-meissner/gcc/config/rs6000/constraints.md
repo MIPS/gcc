@@ -88,14 +88,20 @@
 (define_register_constraint "wt" "rs6000_constraints[RS6000_CONSTRAINT_wt]"
   "VSX register if 128-bit integers are allowed in VSX registers or NO_REGS.")
 
-(define_register_constraint "wv" "rs6000_constraints[RS6000_CONSTRAINT_wv]"
+(define_register_constraint "wu" "rs6000_constraints[RS6000_CONSTRAINT_wu]"
   "Altivec register if -mpower8-vector is used or NO_REGS.")
+
+(define_register_constraint "wv" "rs6000_constraints[RS6000_CONSTRAINT_wv]"
+  "Altivec register if -mvsx is used or NO_REGS.")
+
+(define_register_constraint "ww" "rs6000_constraints[RS6000_CONSTRAINT_ww]"
+  "FP or VSX register to perform single precision operations under -mvsx.")
 
 (define_register_constraint "wx" "rs6000_constraints[RS6000_CONSTRAINT_wx]"
   "Floating point register if the STFIWX instruction is enabled or NO_REGS.")
 
 (define_register_constraint "wy" "rs6000_constraints[RS6000_CONSTRAINT_wy]"
-  "VSX register to use to hold single precision floating point values.")
+  "FP or VSX register to perform -mpower8-vector single precision operations.")
 
 (define_register_constraint "wz" "rs6000_constraints[RS6000_CONSTRAINT_wz]"
   "Floating point register if the LFIWZX instruction is enabled or NO_REGS.")

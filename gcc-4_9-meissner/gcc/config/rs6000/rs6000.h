@@ -1410,7 +1410,9 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wr,		/* GPR register if 64-bit  */
   RS6000_CONSTRAINT_ws,		/* VSX register for DF */
   RS6000_CONSTRAINT_wt,		/* VSX register for TImode */
-  RS6000_CONSTRAINT_wv,		/* Altivec register for power8 vector */
+  RS6000_CONSTRAINT_wu,		/* Altivec register for ISA 2.06 vector */
+  RS6000_CONSTRAINT_wv,		/* Altivec register for ISA 2.07 vector */
+  RS6000_CONSTRAINT_ww,		/* FPR/VSX register for VSX float ops. */
   RS6000_CONSTRAINT_wx,		/* FPR register for STFIWX */
   RS6000_CONSTRAINT_wy,		/* VSX register for SF */
   RS6000_CONSTRAINT_wz,		/* FPR register for LFIWZX */
