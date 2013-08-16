@@ -1,3 +1,58 @@
+2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk.
+	2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/bool2.h: New file, test the code generation
+	of logical operations for power5, altivec, power7, and power8 systems.
+	* gcc.target/powerpc/bool2-p5.c: Likewise.
+	* gcc.target/powerpc/bool2-av.c: Likewise.
+	* gcc.target/powerpc/bool2-p7.c: Likewise.
+	* gcc.target/powerpc/bool2-p8.c: Likewise.
+	* gcc.target/powerpc/bool3.h: Likewise.
+	* gcc.target/powerpc/bool3-av.c: Likewise.
+	* gcc.target/powerpc/bool2-p7.c: Likewise.
+	* gcc.target/powerpc/bool2-p8.c: Likewise.
+
+2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk.
+	2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/fusion.c: New file, test power8 fusion support.
+
+2013-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline:
+	2013-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+		    Pat Haugen <pthaugen@us.ibm.com>
+		    Peter Bergner <bergner@vnet.ibm.com>
+
+	* lib/target-supports.exp (check_p8vector_hw_available) Add power8
+	support.
+	(check_effective_target_powerpc_p8vector_ok): Likewise.
+	(is-effective-target): Likewise.
+	(check_vect_support_and_set_flags): Likewise.
+
+2013-08-04  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Back port from mainline
+	2013-08-01  Fabien Chêne  <fabien@gcc.gnu.org>
+		    Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR c++/54537
+	* g++.dg/overload/using3.C: New.
+	* g++.dg/overload/using2.C: Adjust.
+	* g++.dg/lookup/using9.C: Likewise.
+
+2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/fusion.c: New file, test power8 fusion
+	support.
+
 2013-07-15  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Back port from mainline
