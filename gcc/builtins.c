@@ -5882,6 +5882,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       && fcode != BUILT_IN_FREE
       && fcode != BUILT_IN_CHKP_SET_PTR_BOUNDS
       && fcode != BUILT_IN_CHKP_INIT_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_NULL_PTR_BOUNDS
       && fcode != BUILT_IN_CHKP_COPY_PTR_BOUNDS
       && fcode != BUILT_IN_CHKP_NARROW_PTR_BOUNDS
       && fcode != BUILT_IN_CHKP_STORE_PTR_BOUNDS
@@ -7011,6 +7012,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       return const0_rtx;
 
     case BUILT_IN_CHKP_INIT_PTR_BOUNDS:
+    case BUILT_IN_CHKP_NULL_PTR_BOUNDS:
     case BUILT_IN_CHKP_COPY_PTR_BOUNDS:
       return expand_normal (CALL_EXPR_ARG (exp, 0));
 

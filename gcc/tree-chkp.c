@@ -1488,9 +1488,11 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return;
 
-  /* Ignore CHKP_INIT_PTR_BOUNDS and CHKP_COPY_PTR_BOUNDS.  */
+  /* Ignore CHKP_INIT_PTR_BOUNDS, CHKP_NULL_PTR_BOUNDS
+     and CHKP_COPY_PTR_BOUNDS.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_INIT_PTR_BOUNDS
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_NULL_PTR_BOUNDS
 	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_COPY_PTR_BOUNDS))
     return;
 
@@ -1973,6 +1975,11 @@ chkp_build_returned_bound (gimple call)
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_INIT_PTR_BOUNDS)
     bounds = chkp_get_zero_bounds ();
+  /* Detect bounds nullification calls.  */
+  else if (fndecl
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_NULL_PTR_BOUNDS)
+    bounds = chkp_get_none_bounds ();
   /* Detect bounds copy calls.  */
   else if (fndecl
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
