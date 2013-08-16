@@ -4089,6 +4089,15 @@ get_computation_cost_at (struct ivopts_data *data,
       return infinite_cost;
     }
 
+  /* If we use the IV in a non-linear fashion (which means it might be used
+     as a pointer) and the candidate is a pointer, this candidate should be
+     rejected as the difference might be re-assiocated which could cause undefined
+     behavior due to overflow.  */
+  if (use->type == USE_NONLINEAR_EXPR
+      && cand->iv->base_object
+      && POINTER_TYPE_P (TREE_TYPE (cand->iv->base_object)))
+    return infinite_cost;
+
   if (address_p
       || (use->iv->base_object
 	  && cand->iv->base_object

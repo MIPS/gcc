@@ -216,6 +216,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2013-08-16  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #7620
+	* tree-ssa-loop-ivopts.c (get_computation_cost_at):
+	Reject pointer candidates for non-linear uses.
+
 2013-06-10  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.c (mips_classify_symbol): Consider local
