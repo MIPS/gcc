@@ -43680,7 +43680,16 @@ ix86_mpx_bound_type ()
 static enum machine_mode
 ix86_mpx_bound_mode ()
 {
-  return TARGET_64BIT ? BND64mode : BND32mode;
+  /* Do not support pointer checker if MPX
+     is not enabled.  */
+  if (!TARGET_MPX)
+    {
+      warning (0, "Pointer Checker requires MPX support on this target."
+	       " Use -mmpx options to enable MPX.");
+      return VOIDmode;
+    }
+
+  return BNDmode;
 }
 
 /* Initialize the GCC target structure.  */
