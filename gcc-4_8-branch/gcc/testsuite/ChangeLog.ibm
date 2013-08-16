@@ -1,3 +1,26 @@
+2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk.
+	2013-07-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/bool2.h: New file, test the code generation
+	of logical operations for power5, altivec, power7, and power8 systems.
+	* gcc.target/powerpc/bool2-p5.c: Likewise.
+	* gcc.target/powerpc/bool2-av.c: Likewise.
+	* gcc.target/powerpc/bool2-p7.c: Likewise.
+	* gcc.target/powerpc/bool2-p8.c: Likewise.
+	* gcc.target/powerpc/bool3.h: Likewise.
+	* gcc.target/powerpc/bool3-av.c: Likewise.
+	* gcc.target/powerpc/bool2-p7.c: Likewise.
+	* gcc.target/powerpc/bool2-p8.c: Likewise.
+
+2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk.
+	2013-07-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/fusion.c: New file, test power8 fusion support.
+
 2013-08-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from mainline:
