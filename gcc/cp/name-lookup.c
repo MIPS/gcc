@@ -3062,8 +3062,10 @@ push_class_level_binding_1 (tree name, tree x)
   if (name == error_mark_node)
     return false;
 
-  /* Check for invalid member names.  */
-  gcc_assert (TYPE_BEING_DEFINED (current_class_type));
+  /* Check for invalid member names.  But don't worry about a default
+     argument-scope lambda being pushed after the class is complete.  */
+  gcc_assert (TYPE_BEING_DEFINED (current_class_type)
+	      || LAMBDA_TYPE_P (TREE_TYPE (decl)));
   /* Check that we're pushing into the right binding level.  */
   gcc_assert (current_class_type == class_binding_level->this_entity);
 
@@ -4740,11 +4742,11 @@ lookup_name_real_1 (tree name, int prefer_type, int nonclass, bool block_p,
 	  continue;
 
 	/* If this is the kind of thing we're looking for, we're done.  */
-	if ((flags & LOOKUP_PREFER_TYPES)
-	    && qualify_lookup (iter->type, flags))
-	  binding = iter->type;
-	else if (qualify_lookup (iter->value, flags))
+	if (qualify_lookup (iter->value, flags))
 	  binding = iter->value;
+	else if ((flags & LOOKUP_PREFER_TYPES)
+		 && qualify_lookup (iter->type, flags))
+	  binding = iter->type;
 	else
 	  binding = NULL_TREE;
 

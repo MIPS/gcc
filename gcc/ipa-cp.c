@@ -734,7 +734,8 @@ initialize_node_lattices (struct cgraph_node *node)
     }
 
   for (ie = node->indirect_calls; ie; ie = ie->next_callee)
-    if (ie->indirect_info->polymorphic)
+    if (ie->indirect_info->polymorphic
+        && ie->indirect_info->param_index >= 0)
       {
 	gcc_checking_assert (ie->indirect_info->param_index >= 0);
 	ipa_get_parm_lattices (info,
@@ -1541,7 +1542,8 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   if (TREE_CODE (t) != TREE_BINFO)
     {
       tree binfo;
-      binfo = gimple_extract_devirt_binfo_from_cst (t);
+      binfo = gimple_extract_devirt_binfo_from_cst
+		 (t, ie->indirect_info->otr_type);
       if (!binfo)
 	return NULL_TREE;
       binfo = get_binfo_at_offset (binfo, anc_offset, otr_type);
@@ -2278,14 +2280,15 @@ ipcp_discover_new_direct_edges (struct cgraph_node *node,
 					       aggvals);
       if (target)
 	{
+	  bool agg_contents = ie->indirect_info->agg_contents;
+	  bool polymorphic = ie->indirect_info->polymorphic;
+	  bool param_index = ie->indirect_info->param_index;
 	  struct cgraph_edge *cs = ipa_make_edge_direct_to_target (ie, target);
 	  found = true;
 
-	  if (cs && !ie->indirect_info->agg_contents
-	      && !ie->indirect_info->polymorphic)
+	  if (cs && !agg_contents && !polymorphic)
 	    {
 	      struct ipa_node_params *info = IPA_NODE_REF (node);
-	      int param_index = ie->indirect_info->param_index;
 	      int c = ipa_get_controlled_uses (info, param_index);
 	      if (c != IPA_UNDESCRIBED_USE)
 		{
@@ -2299,7 +2302,7 @@ ipcp_discover_new_direct_edges (struct cgraph_node *node,
 		  if (c == 0
 		      && (to_del = ipa_find_reference ((symtab_node) node,
 						       (symtab_node) cs->callee,
-						       NULL)))
+						       NULL, 0)))
 		    {
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			fprintf (dump_file, "       and even removing its "
