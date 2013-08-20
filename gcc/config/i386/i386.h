@@ -171,7 +171,7 @@ struct processor_costs {
   const int fsqrt;		/* cost of FSQRT instruction.  */
 				/* Specify what algorithm
 				   to use for stringops on unknown size.  */
-  struct stringop_algs memcpy[2], memset[2];
+  struct stringop_algs *memcpy, *memset;
   const int scalar_stmt_cost;   /* Cost of any scalar operation, excluding
 				   load and store.  */
   const int scalar_load_cost;   /* Cost of scalar load.  */
@@ -263,7 +263,7 @@ extern const struct processor_costs ix86_size_cost;
 /* Feature tests against the various tunings.  */
 enum ix86_tune_indices {
 #undef DEF_TUNE
-#define DEF_TUNE(tune, name) tune,
+#define DEF_TUNE(tune, name, selector) tune,
 #include "x86-tune.def"
 #undef DEF_TUNE
 X86_TUNE_LAST

@@ -220,19 +220,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
         string_type
         transform_primary(_Fwd_iter __first, _Fwd_iter __last) const
         {
-          __try
-            {
-              typedef std::ctype<char_type> __ctype_type;
-              const __ctype_type& __fctyp(use_facet<__ctype_type>(_M_locale));
-              std::vector<char_type> __v(__first, __last);
-              // FIXME : this is not entirely correct
-              __fctyp.tolower(&*__v.begin(), &*__v.end());
-              return this->transform(&*__v.begin(), &*__v.end());
-            }
-          __catch (std::bad_cast)
-            {
-            }
-          return string_type();
+          typedef std::ctype<char_type> __ctype_type;
+          const __ctype_type& __fctyp(use_facet<__ctype_type>(_M_locale));
+          std::vector<char_type> __s(__first, __last);
+          // FIXME : this is not entirely correct
+          __fctyp.tolower(__s.data(), __s.data() + __s.size());
+          return this->transform(__s.data(), __s.data() + __s.size());
         }
 
       /**
@@ -572,7 +565,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       std::string __s(__last - __first, '?');
       __fctyp.narrow(__first, __last, '?', &__s[0]);
-      __cctyp.tolower(&*__s.begin(), &*__s.end());
+      __cctyp.tolower(&*__s.begin(), &*__s.begin() + __s.size());
       for (_ClassnameEntry* __it = __classnames;
            __it < *(&__classnames + 1);
            ++__it)
@@ -995,18 +988,18 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
                                  const basic_regex<_CharT, _TraitsT>&,
                                  regex_constants::match_flag_type);
 
-      template<typename _B, typename _A, typename _C, typename _R>
+      template<typename _Bp, typename _Ap, typename _Cp, typename _Rp>
         friend bool
-        regex_match(_B, _B,
-                    match_results<_B, _A>&,
-                    const basic_regex<_C, _R>&,
+        regex_match(_Bp, _Bp,
+                    match_results<_Bp, _Ap>&,
+                    const basic_regex<_Cp, _Rp>&,
                     regex_constants::match_flag_type);
 
-      template<typename _B, typename _A, typename _C, typename _R>
+      template<typename _Bp, typename _Ap, typename _Cp, typename _Rp>
         friend bool
-        regex_search(_B, _B,
-                     match_results<_B, _A>&,
-                     const basic_regex<_C, _R>&,
+        regex_search(_Bp, _Bp,
+                     match_results<_Bp, _Ap>&,
+                     const basic_regex<_Cp, _Rp>&,
                      regex_constants::match_flag_type);
 
       flag_type     _M_flags;
@@ -2111,16 +2104,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       template<typename, typename, typename, typename>
         friend class __detail::_BFSExecutor;
 
-      template<typename _B, typename _A, typename _Ch_type, typename _Rx_traits>
+      template<typename _Bp, typename _Ap, typename _Ch_type, typename _Rx_traits>
         friend bool
-        regex_match(_B, _B, match_results<_B, _A>&,
+        regex_match(_Bp, _Bp, match_results<_Bp, _Ap>&,
                     const basic_regex<_Ch_type,
                     _Rx_traits>&,
                     regex_constants::match_flag_type);
 
-      template<typename _B, typename _A, typename _Ch_type, typename _Rx_traits>
+      template<typename _Bp, typename _Ap, typename _Ch_type, typename _Rx_traits>
         friend bool
-        regex_search(_B, _B, match_results<_B, _A>&,
+        regex_search(_Bp, _Bp, match_results<_Bp, _Ap>&,
                      const basic_regex<_Ch_type,
                      _Rx_traits>&,
                      regex_constants::match_flag_type);
