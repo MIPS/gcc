@@ -25,6 +25,7 @@ extern tree ubsan_instrument_unreachable (location_t);
 extern tree ubsan_create_data (const char *, location_t, ...);
 extern tree ubsan_type_descriptor (tree);
 extern tree ubsan_encode_value (tree);
+extern bool is_ubsan_builtin_p (tree);
 
 #endif  /* GCC_UBSAN_H  */
 

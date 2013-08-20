@@ -456,3 +456,13 @@ ubsan_instrument_unreachable (location_t loc)
   tree t = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_BUILTIN_UNREACHABLE);
   return build_call_expr_loc (loc, t, 1, build_fold_addr_expr_loc (loc, data));
 }
+
+/* Return true if T is a call to a libubsan routine.  */
+
+bool
+is_ubsan_builtin_p (tree t)
+{
+  gcc_checking_assert (TREE_CODE (t) == FUNCTION_DECL);
+  return strncmp (IDENTIFIER_POINTER (DECL_NAME (t)),
+		  "__builtin___ubsan_", 18) == 0;
+}

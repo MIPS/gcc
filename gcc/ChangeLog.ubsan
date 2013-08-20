@@ -1,3 +1,8 @@
+2013-08-20  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c (is_ubsan_builtin_p): New function.
+	* ubsan.h: Declare it.
+
 2013-08-05  Marek Polacek  <polacek@redhat.com>
 
 	* ubsan.c (ubsan_source_location_type): Properly create
