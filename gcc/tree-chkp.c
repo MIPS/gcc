@@ -2303,6 +2303,8 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
     case NEGATE_EXPR:
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
+    case LROTATE_EXPR:
+    case RROTATE_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
     case LT_EXPR:
@@ -3695,7 +3697,7 @@ chkp_finish_file (void)
       vars.create (htab_size (chkp_static_var_bounds));
 
       /* It seems that htab_traverse gives random vars order and thus
-	 causes bootstrap to fails due to differences.  To fix it we
+	 causes bootstrap to fail due to differences.  To fix it we
 	 sort all vars by name first.  */
       htab_traverse (chkp_static_var_bounds_r,
 		     chkp_add_tree_to_vec, &vars);
@@ -3895,7 +3897,7 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
 			   stmt_iter, loc, dirflag);
     }
 
-  /* We need to generate bndstx in case pointer is stored.  */
+  /* We need to store bounds in case pointer is stored.  */
   if (dirflag == integer_one_node && chkp_type_has_pointer (node_type))
     {
       gimple stmt = gsi_stmt (*iter);
