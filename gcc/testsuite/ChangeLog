@@ -1,3 +1,66 @@
+2013-08-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+	
+	PR c/57490
+	* c-c++-common/cilk-plus/AN/pr57490.c: New test.
+
+2013-08-19  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/dfp-dd-2.c: New test.
+	* gcc.target/powerpc/dfp-td-2.c: Likewise.
+	* gcc.target/powerpc/dfp-td-3.c: Likewise.
+
+2013-08-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mulsize-1.c: Check for SLL as well as SUBU.
+	* gcc.target/mips/mulsize-2.c: Check for ADDU rather than SUBU.
+	Check for SLL too.
+
+2013-08-19  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* gcc.target/avr/progmem-error-1.cpp: Update linenumber of error.
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-4.c [avr-*-*]: Expect 6 times
+	"Threaded".
+
+	* gcc.dg/tree-ssa/vrp55.c: Use keeps_null_pointer_checks to determine
+	correct test response.
+
+	PR testsuite/52641
+	* gcc.dg/tree-ssa/pr31261.c [int16]: Change expected unsigned type.
+	* gcc.dg/tree-ssa/ssa-pre-21.c [! size32plus]: Mark as xfail.
+	* gcc.dg/tree-ssa/vector-4.c (SItype): New typedef.
+	(v4si): Use it.
+	* gcc.dg/tree-ssa/ssa-pre-30.c: Test requires int32.
+	* gcc.dg/tree-ssa/vrp58.c: Adjust scan expression for int16.
+
+	* gcc.dg/tree-ssa/vrp87.c [avr-*-*] (dg-additional-options): New.
+
+2013-08-18  Jan Hubicka  <jh@suse.cz>
+
+	* g++.dg/ipa/type-inheritance-1.C: New testcase.
+
+2013-08-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/46271
+	* gfortran.dg/gomp/proc_ptr_1.f90: New.
+
+2013-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58006
+	* g++.dg/opt/pr58006.C: New test.
+
+2013-08-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/linker_alias.ads: New test.
+
+2013-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58164
+	* gcc.c-torture/compile/pr58164.c: New test.
+
+	PR tree-optimization/58165
+	* g++.dg/opt/pr58165.C: New test.
+
 2013-08-14  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51912

@@ -925,12 +925,30 @@ cgraph_create_indirect_edge (struct cgraph_node *caller, gimple call_stmt,
 {
   struct cgraph_edge *edge = cgraph_create_edge_1 (caller, NULL, call_stmt,
 						   count, freq);
+  tree target;
 
   edge->indirect_unknown_callee = 1;
   initialize_inline_failed (edge);
 
   edge->indirect_info = cgraph_allocate_init_indirect_info ();
   edge->indirect_info->ecf_flags = ecf_flags;
+
+  /* Record polymorphic call info.  */
+  if (call_stmt
+      && (target = gimple_call_fn (call_stmt))
+      && virtual_method_call_p (target))
+    {
+      tree type = obj_type_ref_class (target);
+
+
+      /* Only record types can have virtual calls.  */
+      gcc_assert (TREE_CODE (type) == RECORD_TYPE);
+      edge->indirect_info->param_index = -1;
+      edge->indirect_info->otr_token
+	 = tree_low_cst (OBJ_TYPE_REF_TOKEN (target), 1);
+      edge->indirect_info->otr_type = type;
+      edge->indirect_info->polymorphic = 1;
+    }
 
   edge->next_callee = caller->indirect_calls;
   if (caller->indirect_calls)
@@ -1274,10 +1292,13 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
       struct ipa_ref *ref;
 
       cgraph_speculative_call_info (e, e, e2, ref);
-      if (gimple_call_fndecl (e->call_stmt))
-	e = cgraph_resolve_speculation (e, gimple_call_fndecl (e->call_stmt));
-      if (!gimple_check_call_matching_types (e->call_stmt, e->callee->symbol.decl,
-					     true))
+      /* If there already is an direct call (i.e. as a result of inliner's substitution),
+ 	 forget about speculating.  */
+      if (decl)
+	e = cgraph_resolve_speculation (e, decl);
+      /* If types do not match, speculation was likely wrong.  */
+      else if (!gimple_check_call_matching_types (e->call_stmt, e->callee->symbol.decl,
+						  true))
 	{
 	  e = cgraph_resolve_speculation (e, NULL);
 	  if (dump_file)
@@ -1286,6 +1307,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 		     xstrdup (cgraph_node_name (e->caller)), e->caller->symbol.order,
 		     xstrdup (cgraph_node_name (e->callee)), e->callee->symbol.order);
 	}
+      /* Expand speculation into GIMPLE code.  */
       else
 	{
 	  if (dump_file)

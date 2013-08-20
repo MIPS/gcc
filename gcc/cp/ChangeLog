@@ -1,3 +1,64 @@
+2013-08-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57490
+	* cp-array-notation.c (cp_expand_cond_array_notations): Added a
+	check for truth values.
+	(expand_array_notation_exprs): Added truth values case.  Removed an
+	unwanted else.  Added for-loop to walk through subtrees in default
+	case.
+	* call.c (build_cxx_call): Inherited the type of the array notation for
+	certain built-in array notation functions.
+
+2013-08-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* parser.c (cp_parser_lambda_introducer, cp_parser_decltype_expr):
+	Use cp_parser_lookup_name_simple.
+
+2013-08-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* name-lookup.h (pop_bindings_and_leave_scope): Declare.
+	* name-lookup.c (pop_bindings_and_leave_scope): Define.
+	* parser.c (cp_parser_lambda_declarator_opt,
+	cp_parser_direct_declarator, cp_parser_cache_defarg): Use it.
+
+2013-08-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58083
+	* name-lookup.c (push_class_level_binding_1): It's OK to push a
+	lambda type after the enclosing type is complete.
+
+2013-08-17  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* error.c (dump_scope): Add a cxx_pretty_printer parameter.
+	Adjust callers.
+	(dump_template_argument): Likewise.
+	(dump_template_argument_list): Likewise.
+	(dump_template_parameter): Likewise.
+	(dump_template_bindings): Likewise.
+	(dump_alias_template_specialization): Likewise.
+	(dump_type): Likewise.
+	(dump_typename): Likewise.
+	(dump_aggr_type): Likewise.
+	(dump_type_prefix): Likewise.
+	(dump_type_suffix): Likewise.
+	(dump_global_iord): Likewise.
+	(dump_simple_decl): Likewise.
+	(dump_decl): Likewise.
+	(dump_template_decl): Likewise.
+	(dump_function_decl): Likewise.
+	(dump_parameters): Likewise.
+	(dump_ref_qualifier): Likewise.
+	(dump_exception_spec): Likewise.
+	(dump_function_name): Likewise.
+	(dump_template_parms): Likewise.
+	(dump_call_expr_args): Likewise.
+	(dump_aggr_init_expr_args): Likewise.
+	(dump_expr_list): Likewise.
+	(dump_expr_init_vec): Likewise.
+	(dump_expr): Likewise.
+	(dump_binary_op): Likewise.
+	(dump_unary_op): Likewise.
+
 2013-08-14  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51912

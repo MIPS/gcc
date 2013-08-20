@@ -5729,6 +5729,14 @@ ix86_function_type_abi (const_tree fntype)
   return ix86_abi;
 }
 
+/* We add this as a workaround in order to use libc_has_function
+   hook in i386.md.  */
+bool
+ix86_libc_has_function (enum function_class fn_class)
+{
+  return targetm.libc_has_function (fn_class);
+}
+
 static bool
 ix86_function_ms_hook_prologue (const_tree fn)
 {
@@ -29922,7 +29930,7 @@ make_resolver_func (const tree default_decl,
   DECL_IGNORED_P (decl) = 0;
   /* IFUNC resolvers have to be externally visible.  */
   TREE_PUBLIC (decl) = 1;
-  DECL_UNINLINABLE (decl) = 0;
+  DECL_UNINLINABLE (decl) = 1;
 
   /* Resolver is not external, body is generated.  */
   DECL_EXTERNAL (decl) = 0;

@@ -1,3 +1,314 @@
+2013-08-20  Pavel Chupin  <pavel.v.chupin@intel.com>
+
+	Fix LIB_SPEC for systems without libpthread.
+
+	* config/gnu-user.h: Introduce GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC.
+	* config/arm/linux-eabi.h: Use GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC
+	for Android.
+	* config/i386/linux-common.h: Likewise.
+	* config/mips/linux-common.h: Likewise.
+
+2013-08-20  Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+
+	* tree-ssa-ccp.c (get_default_value): Remove redundant condition
+	checks.
+
+2013-08-20  David Malcolm  <dmalcolm@redhat.com>
+
+	Make opt_pass and gcc::pass_manager be GC-managed, so that pass
+	instances can own GC refs.
+
+	* Makefile.in (GTFILES): Add pass_manager.h and tree-pass.h.
+	* context.c (gcc::context::gt_ggc_mx): Traverse passes_.
+	(gcc::context::gt_pch_nx): Likewise.
+	(gcc::context::gt_pch_nx):  Likewise.
+	* ggc.h (gt_ggc_mx <T>): New.
+	(gt_pch_nx_with_op <T>): New.
+	(gt_pch_nx <T>): New.
+	* passes.c (opt_pass::gt_ggc_mx): New.
+	(opt_pass::gt_pch_nx): New.
+	(opt_pass::gt_pch_nx_with_op): New.
+	(pass_manager::gt_ggc_mx): New.
+	(pass_manager::gt_pch_nx): New.
+	(pass_manager::gt_pch_nx_with_op): New.
+	(pass_manager::operator new): Use
+	ggc_internal_cleared_alloc_stat rather than xcalloc.
+	* pass_manager.h (class pass_manager): Add GTY((user)) marking.
+	(pass_manager::gt_ggc_mx): New.
+	(pass_manager::gt_pch_nx): New.
+	(pass_manager::gt_pch_nx_with_op): New.
+	* tree-pass.h (class opt_pass): Add GTY((user)) marking.
+	(opt_pass::operator new): New.
+	(opt_pass::gt_ggc_mx): New.
+	(opt_pass::gt_pch_nx): New.
+	(opt_pass::gt_pch_nx_with_op): New.
+
+2013-08-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (GTFILES): Add context.h.
+	* context.c (gcc::context::operator new): New.
+	(gcc::context::gt_ggc_mx): New.
+	(gcc::context::gt_pch_nx): New.
+	(gcc::context::gt_pch_nx): New.
+	* context.h (gcc::context): Add GTY((user)) marking.
+	(gcc::context::operator new): New.
+	(gcc::context::gt_ggc_mx): New.
+	(gcc::context::gt_pch_nx): New.
+	(gcc::context::gt_pch_nx): New.
+	(g): Add GTY marking.
+	(gt_ggc_mx (gcc::context *)): New.
+	(gt_pch_nx (gcc::context *)): New.
+	(gt_pch_nx (gcc::context *ctxt, gt_pointer_operator op,
+	void *cookie)): New.
+	* gengtype.c (open_base_files) <ifiles>: Add context.h.
+
+2013-08-20  Alan Modra  <amodra@gmail.com>
+
+	PR target/57865
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Correct ool_adjust.
+	(rs6000_emit_epilogue): Likewise.
+
+2013-08-19  Dehao Chen (dehao@google.com)
+
+	* value-prof.c (gimple_ic): Fix the bug of adding EH edge.
+
+2013-08-19  Peter Bergner  <bergner@vnet.ibm.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* builtins.def (BUILT_IN_FABSD32): New DFP ABS builtin.
+	(BUILT_IN_FABSD64): Likewise.
+	(BUILT_IN_FABSD128): Likewise.
+	* builtins.c (expand_builtin): Add support for new DFP ABS builtins.
+	(fold_builtin_1): Likewise.
+	* config/rs6000/dfp.md (*negtd2_fpr): Handle non-overlapping destination
+	and source operands.
+	(*abstd2_fpr): Likewise.
+	(*nabstd2_fpr): Likewise.
+
+2013-08-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_adjust_insn_length): Add checks for
+	JUMP_P and INSN_P.
+
+2013-08-19  Aldy Hernandez  <aldyh@redhat.com>
+
+	* doc/invoke.texi (-fcilkplus): Clarify that implementation is
+	incomplete.
+
+2013-08-19  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	* target.def (TARGET_LIBC_HAS_FUNCTION): New target hook.
+	* builtins.c (default_libc_has_function): New.
+	(gnu_libc_has_function): Ditto.
+	(no_c99_libc_has_function): Ditto.
+	(expand_builtin_cexpi): Using new target hook TARGET_LIBC_HAS_FUNCTION
+	instead of TARGET_HAS_SINCOS and TARGET_C99_FUNCTIONS.
+	(fold_builtin_sincos): Likewise.
+	(fold_builtin_cexp): Likewise.
+	* builtins.def (DEF_C94_BUILTIN): Likewise.
+	(DEF_C99_BUILTIN): Likewise.
+	(DEF_C99_C90RES_BUILTIN): Likewise.
+	(DEF_C99_COMPL_BUILTIN): New define. Change all complex c99 builtin
+	definitions to using this define.
+	* config/darwin-protos.h (darwin_libc_has_function): New.
+	* config/darwin.c: (darwin_libc_has_function: Ditto.
+	* config/alpha/linux.h: Remove TARGET_C99_FUNCTIONS and
+	TARGET_HAS_SINCOS. Redefine TARGET_LIBC_HAS_FUNCTION.
+	* config/darwin.h: Ditto.
+	* config/elfos.h: Ditto.
+	* config/freebsd.h: Ditto.
+	* config/i386/cygming.h: Ditto.
+	* config/i386/djgpp.h: Ditto.
+	* config/i386/i386-interix.h: Ditto.
+	* config/microblaze/microblaze.h: Ditto.
+	* config/mmix/mmix.h: Ditto.
+	* config/gnu-user.h: Ditto.
+	* config/ia64/hpux.h: Ditto.
+	* config/pa/pa-hpux.h: Ditto.
+	* config/pdp11/pdp11.h: Ditto.
+	* config/picochip/picochip.h: Ditto.
+	* config/linux.h: Ditto.
+	* config/netbsd.h: Ditto.
+	* config/openbsd.h: Ditto.
+	* config/rs6000/aix43.h: Ditto.
+	* config/rs6000/aix51.h: Ditto.
+	* config/rs6000/aix52.h: Ditto.
+	* config/rs6000/aix53.h: Ditto.
+	* config/rs6000/aix61.h: Ditto.
+	* config/rs6000/darwin.h: Ditto.
+	* config/rs6000/linux.h: Ditto.
+	* config/rs6000/linux64.h: Ditto.
+	* config/s390/tpf.h: Ditto.
+	* config/sol2-10.h: Ditto.
+	* config/sol2.h: Ditto.
+	* config/vms/vms.h: Ditto.
+	* config/vxworks.h: Ditto.
+	* config/linux-android.c (linux_android_libc_has_function):
+	New linux-specific implementation of TARGET_LIBC_HAS_FUNCTION.
+	* config/linux-protos.h (linux_android_libc_has_function):
+	New declaration.
+	* config/i386/i386.c (ix86_libc_has_function): New.
+	* config/i386/i386-protos.h
+	(ix86_libc_has_function): New declaration.
+	* config/i386/i386.md
+	("isinfxf2"): Change condition for TARGET_LIBC_HAS_FUNCTION.
+	("isinf<mode>2): Likewise.
+	* convert.c (convert_to_integer): Using new target hook
+	TARGET_LIBC_HAS_FUNCTION istead of TARGET_HAS_SINCOS and
+	TARGET_C99_FUNCTIONS.
+	* fortran/f95-lang.c (gfc_init_builtin_functions): Ditto.
+	* tree-ssa-math-opts.c (execute_cse_sincos): Ditto.
+	* coretypes.h (function_class): New enum for different
+	classes of functions.
+	* defaults.h: Remove TARGET_C99_FUNCTIONS and TARGET_HAS_SINCOS.
+	* doc/tm.texi.in (TARGET_C99_FUNCTIONS): Remove documentation.
+	(TARGET_HAS_SINCOS): Likewise.
+	(TARGET_LIBC_HAS_FUNCTION): New.
+	* doc/tm.texi: Regenerated.
+	* targhooks.h (default_libc_has_function): New declaration.
+	(no_c99_libc_has_function): Ditto.
+	(gnu_libc_has_function): Ditto.
+	* system.h: Add the poisoning of TARGET_C99_FUNCTIONS
+	and TARGET_HAS_SINCOS.
+
+2013-08-18  Jan Hubicka  <jh@suse.cz>
+
+	* Makeifle-in (ipa-devirt.o): New.
+	(GTFILES): Add ipa-utils.h and ipa-devirt.c
+	* cgraphunit.c (decide_is_symbol_needed): Do not care about virtuals.
+	(analyze_functions): Look into possible targets of polymorphic call.
+	* dumpfile.c (dump_files): Add type-inheritance dump.
+	* dumpfile.h (TDI_inheritance): New.
+	* ipa-devirt.c: New file.
+	* ipa-utils.h (odr_type_d): Forward declare.
+	(odr_type): New type.
+	(build_type_inheritance_graph): Declare.
+	(possible_polymorphic_call_targets): Declare and introduce inline
+	variant when only edge is pased.
+	(dump_possible_polymorphic_call_targets): Likewise.
+	* timevar.def (TV_IPA_INHERITANCE, TV_IPA_VIRTUAL_CALL): New.
+	* tree.c (type_in_anonymous_namespace_p): Break out from ...
+	(types_same_for_odr): ... here.
+	* tree.h (type_in_anonymous_namespace_p): Declare.
+
+2013-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58006
+	* tree-parloops.c (take_address_of): Don't ICE if get_name
+	returns NULL.
+	(eliminate_local_variables_stmt): Remove clobber stmts.
+
+2013-08-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cgraphunit.c (handle_alias_pairs): Reset the alias flag after the
+	error message is issued for an alias to undefined symbol.
+
+2013-08-18  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_create_indirect_edge): Discover
+	polymorphic calls and record basic info into indirect_info.
+	* gimple-fold.c (gimple_fold_call): When doing BINFO based
+	devirtualization, ignore objc function calls.
+	* ipa-cp.c (initialize_node_lattices): Be ready for polymorphic
+	call with no parm index info.
+	* ipa-prop.c (ipa_analyze_call_uses): Likewise.
+	* tree.c (virtual_method_call_p): New function.
+	* tree.h (virtual_method_call_p): Declare.
+
+2013-08-16  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/58179
+	* tree.c (obj_type_ref_class): Do not ICE on non-method calls.
+
+2013-08-16  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.md (rs6000_get_timebase_ppc32): Add length
+	attribute.
+
+2013-08-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* gengtype.c (type_for_name): Add special-case support for
+	locating types within the "gcc::" namespace.
+	(open_base_files): Emit a "using namespace gcc" directive.
+
+2013-08-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/58160
+	* config/rs6000/predicates.md (fusion_gpr_mem_load): Allow the
+	memory rtx to contain ZERO_EXTEND and SIGN_EXTEND.
+
+	* config/rs6000/rs6000-protos.h (fusion_gpr_load_p): Pass operands
+	array instead of each individual operand as a separate argument.
+	(emit_fusion_gpr_load): Likewise.
+	(expand_fusion_gpr_load): Add new function declaration.
+
+	* config/rs6000/rs6000.c (fusion_gpr_load_p): Change the calling
+	signature to have the operands passed as an array, instead of as
+	separate arguments.  Allow ZERO_EXTEND to be in the memory
+	address, and also SIGN_EXTEND if -mpower8-fusion-sign.  Do not
+	depend on the register live/dead flags when peepholes are run.
+	(expand_fusion_gpr_load): New function to be called from the
+	peephole2 pass, to change the register that addis sets to be the
+	target register.
+	(emit_fusion_gpr_load): Change the calling signature to have the
+	operands passed as an array, instead of as separate arguments.
+	Allow ZERO_EXTEND to be in the memory address, and also
+	SIGN_EXTEND if -mpower8-fusion-sign.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_GPR): Delete unused
+	unspec enumeration.
+	(power8 fusion peephole/peephole2): Rework the fusion peepholes to
+	adjust the register addis loads up in the peephole2 pass.  Do not
+	depend on the register live/dead state when the peephole pass is
+	done.
+
+2013-08-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* gengtype.c (create_user_defined_type): Ensure that the kind
+	is set to TYPE_USER_STRUCT, fixing a bug seen when an incomplete
+	declaration is seen before the GTY((user)) marking.
+
+2013-08-16  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/58105
+	* config/i386/i386.c (make_resolver_func): Set DECL_UNINLINABLE.
+
+2013-08-16  Jan Hubicka  <jh@suse.cz>
+
+	* gimple-fold.c (gimple_extract_devirt_binfo_from_cst): Add new
+	arugment expected_type.
+	(gimple_fold_call): Use it.
+	* gimple.h (gimple_extract_devirt_binfo_from_cst): Update prototype.
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Update.
+	* ipa-prop.c (ipa_analyze_virtual_call_uses): Use obj_type_ref_class.
+	(try_make_edge_direct_virtual_call): Likewise.
+	* tree.c (obj_type_ref_class): New.
+	* tree.h (obj_type_ref_class): Use it.
+
+2013-08-16  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* sched-vis.c (rtl_slim_pp_initialized): Remove.
+	(rtl_slim_pp): Likewise.
+	(init_rtl_slim_pretty_print): Likewise.
+	(dump_value_slim):  Don't call it.  Use local pretty printer.
+	(dump_insn_slim): Likewise.
+	(dump_rtl_slim): Likewise.
+	(str_pattern_slim): Likewise.
+	* tree-mudflap.c (mf_varname_tree): Use local pretty printer.
+	Simplify.
+
+2013-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58164
+	* gimple.c (walk_stmt_load_store_addr_ops): For visit_addr
+	walk gimple_goto_dest of GIMPLE_GOTO.
+
+	PR tree-optimization/58165
+	* tree-call-cdce.c (shrink_wrap_one_built_in_call): If
+	bi_call must be the last stmt in a bb, don't split_block, instead
+	use fallthru edge from it and give up if there is none.
+	Release conds vector when returning early.
+
 2013-08-14  Xinliang David Li  <davidxl@google.com>
 
 	* config/i386/i386.c (ix86_option_override_internal):
@@ -6,15 +317,13 @@
 2013-08-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR target/57949
-	* doc/invoke.texi: Add documentation of mcompat-align-parm
-	option.
+	* doc/invoke.texi: Add documentation of mcompat-align-parm option.
 	* config/rs6000/rs6000.opt: Add mcompat-align-parm option.
 	* config/rs6000/rs6000.c (rs6000_function_arg_boundary): For AIX
 	and Linux, correct BLKmode alignment when 128-bit alignment is
 	required and compatibility flag is not set.
-	(rs6000_gimplify_va_arg): For AIX and Linux, honor specified
-	alignment for zero-size arguments when compatibility flag is not
-	set.
+	(rs6000_gimplify_va_arg): For AIX and Linux, honor specified alignment
+	for zero-size arguments when compatibility flag is not set.
 
 2013-08-14  Jakub Jelinek  <jakub@redhat.com>
 
@@ -12625,21 +12934,21 @@
 
 2013-03-27  Alexander Ivchenko  <alexander.ivchenko@intel.com>
 
-	* target.def (TARGET_HAS_IFUNC_P): New target hook.
-	* doc/tm.texi.in (TARGET_HAS_IFUNC_P): New.
-	* doc/tm.texi: Regenerate.
-	* targhooks.h (default_has_ifunc_p): New.
-	* targhooks.c (default_has_ifunc_p): Ditto.
-	* config/linux-protos.h: New file.
-	* config/linux-android.h (TARGET_HAS_IFUNC_P): Using version of
+	* gcc/target.def (TARGET_HAS_IFUNC_P): New target hook.
+	* gcc/doc/tm.texi.in (TARGET_HAS_IFUNC_P): New.
+	* gcc/doc/tm.texi: Regenerate.
+	* gcc/targhooks.h (default_has_ifunc_p): New.
+	* gcc/targhooks.c (default_has_ifunc_p): Ditto.
+	* gcc/config/linux-protos.h: New file.
+	* gcc/config/linux-android.h (TARGET_HAS_IFUNC_P): Using version of
 	this hook for linux which disables support of indirect functions in
 	android.
-	* config/linux-android.c: New file.
-	* config/t-linux-android.c: Ditto.
-	* config.gcc: Added new object file linux-android.o.
-	* config/i386/i386.c (ix86_get_function_versions_dispatcher):
+	* gcc/config/linux-android.c: New file.
+	* gcc/config/t-linux-android.c: Ditto.
+	* gcc/config.gcc: Added new object file linux-android.o.
+	* gcc/config/i386/i386.c (ix86_get_function_versions_dispatcher):
 	Using TARGET_HAS_IFUNC hook instead of HAVE_GNU_INDIRECT_FUNCTION.
-	* varasm.c (do_assemble_alias): Likewise.
+	* gcc/varasm.c (do_assemble_alias): Likewise.
 	* configure.ac: Define HAVE_GNU_INDIRECT_FUNCTION as zero if the target
 	doesn't support indirect functions.
 	* configure: Regenerate.

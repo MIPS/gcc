@@ -235,10 +235,6 @@ decide_is_symbol_needed (symtab_node node)
   if (!node->symbol.definition)
     return false;
 
-  /* Devirtualization may access these.  */
-  if (DECL_VIRTUAL_P (decl) && optimize)
-    return true;
-
   if (DECL_EXTERNAL (decl))
     return false;
 
@@ -838,6 +834,7 @@ analyze_functions (void)
   struct cgraph_node *first_handled = first_analyzed;
   static struct varpool_node *first_analyzed_var;
   struct varpool_node *first_handled_var = first_analyzed_var;
+  struct pointer_set_t *reachable_call_targets = pointer_set_create ();
 
   symtab_node node, next;
   int i;
@@ -853,6 +850,8 @@ analyze_functions (void)
     FOR_EACH_SYMBOL (node)
       if (node->symbol.cpp_implicit_alias)
 	  fixup_same_cpp_alias_visibility (node, symtab_alias_target (node));
+  if (optimize && flag_devirtualize)
+    build_type_inheritance_graph ();
 
   /* Analysis adds static variables that in turn adds references to new functions.
      So we need to iterate the process until it stabilize.  */
@@ -875,6 +874,8 @@ analyze_functions (void)
 	      changed = true;
 	      if (cgraph_dump_file)
 		fprintf (cgraph_dump_file, " %s", symtab_node_asm_name (node));
+	      if (!changed && cgraph_dump_file)
+		fprintf (cgraph_dump_file, "\n");
 	    }
 	  if (node == (symtab_node)first_analyzed
 	      || node == (symtab_node)first_analyzed_var)
@@ -919,6 +920,29 @@ analyze_functions (void)
 	      for (edge = cnode->callees; edge; edge = edge->next_callee)
 		if (edge->callee->symbol.definition)
 		   enqueue_node ((symtab_node)edge->callee);
+	      if (optimize && flag_devirtualize)
+		{
+	          for (edge = cnode->indirect_calls; edge; edge = edge->next_callee)
+		    if (edge->indirect_info->polymorphic)
+		      {
+			unsigned int i;
+			void *cache_token;
+			vec <cgraph_node *>targets
+			  = possible_polymorphic_call_targets
+			      (edge, NULL, &cache_token);
+
+			if (!pointer_set_insert (reachable_call_targets,
+						 cache_token))
+			  {
+			    if (cgraph_dump_file)
+			      dump_possible_polymorphic_call_targets 
+				(cgraph_dump_file, edge);
+
+			    for (i = 0; i < targets.length(); i++)
+			      enqueue_node ((symtab_node) targets[i]);
+			  }
+		      }
+		}
 
 	      /* If decl is a clone of an abstract function,
 	      mark that abstract function so that we don't release its body.
@@ -999,12 +1023,13 @@ analyze_functions (void)
       dump_symtab (cgraph_dump_file);
     }
   bitmap_obstack_release (NULL);
+  pointer_set_destroy (reachable_call_targets);
   ggc_collect ();
 }
 
 /* Translate the ugly representation of aliases as alias pairs into nice
    representation in callgraph.  We don't handle all cases yet,
-   unforutnately.  */
+   unfortunately.  */
 
 static void
 handle_alias_pairs (void)
@@ -1016,10 +1041,11 @@ handle_alias_pairs (void)
     {
       symtab_node target_node = symtab_node_for_asm (p->target);
 
-      /* Weakrefs with target not defined in current unit are easy to handle; they
-	 behave just as external variables except we need to note the alias flag
-	 to later output the weakref pseudo op into asm file.  */
-      if (!target_node && lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)) != NULL)
+      /* Weakrefs with target not defined in current unit are easy to handle:
+	 they behave just as external variables except we need to note the
+	 alias flag to later output the weakref pseudo op into asm file.  */
+      if (!target_node
+	  && lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)) != NULL)
 	{
 	  symtab_node node = symtab_get_node (p->decl);
 	  if (node)
@@ -1034,6 +1060,9 @@ handle_alias_pairs (void)
       else if (!target_node)
 	{
 	  error ("%q+D aliased to undefined symbol %qE", p->decl, p->target);
+	  symtab_node node = symtab_get_node (p->decl);
+	  if (node)
+	    node->symbol.alias = false;
 	  alias_pairs->unordered_remove (i);
 	  continue;
 	}
