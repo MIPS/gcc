@@ -318,6 +318,9 @@ build_cgraph_edges (void)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree decl;
 
+	  if (is_gimple_debug (stmt))
+	    continue;
+
 	  if (is_gimple_call (stmt))
 	    {
 	      int freq = compute_call_stmt_bb_frequency (current_function_decl,
@@ -480,8 +483,15 @@ cgraph_rebuild_references (void)
   basic_block bb;
   struct cgraph_node *node = cgraph_get_node (current_function_decl);
   gimple_stmt_iterator gsi;
+  struct ipa_ref *ref;
+  int i;
 
-  ipa_remove_all_references (&node->symbol.ref_list);
+  /* Keep speculative references for further cgraph edge expansion.  */
+  for (i = 0; ipa_ref_list_reference_iterate (&node->symbol.ref_list, i, ref);)
+    if (!ref->speculative)
+      ipa_remove_reference (ref);
+    else
+      i++;
 
   node->count = ENTRY_BLOCK_PTR->count;
 
@@ -537,7 +547,9 @@ make_pass_rebuild_cgraph_edges (gcc::context *ctxt)
 static unsigned int
 remove_cgraph_callee_edges (void)
 {
-  cgraph_node_remove_callees (cgraph_get_node (current_function_decl));
+  struct cgraph_node *node = cgraph_get_node (current_function_decl);
+  cgraph_node_remove_callees (node);
+  ipa_remove_all_references (&node->symbol.ref_list);
   return 0;
 }
 
