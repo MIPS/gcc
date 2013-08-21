@@ -75,6 +75,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "plugin.h"
 #include "diagnostic-color.h"
+#include "context.h"
+#include "pass_manager.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -577,8 +579,8 @@ compile_file (void)
       if (flag_tsan)
 	tsan_finish_file ();
 
-      if (flag_mpx)
-	mpx_finish_file ();
+      if (flag_check_pointers)
+	chkp_finish_file ();
 
       output_shared_constant_pool ();
       output_object_blocks ();
@@ -1159,7 +1161,11 @@ general_init (const char *argv0)
   /* This must be done after global_init_params but before argument
      processing.  */
   init_ggc_heuristics();
-  init_optimization_passes ();
+
+  /* Create the singleton holder for global state.
+     Doing so also creates the pass manager and with it the passes.  */
+  g = new gcc::context();
+
   statistics_early_init ();
   finish_params ();
 }
@@ -1272,8 +1278,17 @@ process_options (void)
   if (flag_mudflap && flag_lto)
     sorry ("mudflap cannot be used together with link-time optimization");
 
-  if (flag_mpx && flag_lto)
-    sorry ("MPX is not yet fully supported for link-time optimization");
+  if (flag_check_pointers)
+    {
+      if (flag_lto)
+	sorry ("Pointers checker is not yet fully supported for link-time optimization");
+
+      if (targetm.chkp_bound_mode () == VOIDmode)
+	error ("-fcheck-pointers is not supported for this target.");
+
+      if (!lang_hooks.chkp_supported)
+	flag_check_pointers = 0;
+    }
 
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
@@ -1819,7 +1834,7 @@ finalize (bool no_backend)
     {
       statistics_fini ();
 
-      finish_optimization_passes ();
+      g->get_passes ()->finish_optimization_passes ();
 
       ira_finish_once ();
     }

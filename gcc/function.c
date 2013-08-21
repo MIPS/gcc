@@ -1952,25 +1952,42 @@ instantiate_virtual_regs (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_instantiate_virtual_regs =
+namespace {
+
+const pass_data pass_data_instantiate_virtual_regs =
 {
- {
-  RTL_PASS,
-  "vregs",                              /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  instantiate_virtual_regs,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "vregs", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_instantiate_virtual_regs : public rtl_opt_pass
+{
+public:
+  pass_instantiate_virtual_regs(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_instantiate_virtual_regs, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return instantiate_virtual_regs (); }
+
+}; // class pass_instantiate_virtual_regs
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_instantiate_virtual_regs (gcc::context *ctxt)
+{
+  return new pass_instantiate_virtual_regs (ctxt);
+}
 
 
 /* Return 1 if EXP is an aggregate type (or a value with aggregate type).
@@ -2044,7 +2061,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
   reg = hard_function_value (type, 0, fntype, 0);
 
   /* Do not care about returned bounds here.  */
-  mpx_split_slot (reg, &reg, &bnd);
+  chkp_split_slot (reg, &reg, &bnd);
 
   /* If we have something other than a REG (e.g. a PARALLEL), then assume
      it is OK.  */
@@ -2079,9 +2096,9 @@ use_register_for_decl (const_tree decl)
 
   /* Decl is implicitly addressible by bound stores and loads
      if it is an aggregate holding bounds.  */
-  if (flag_mpx && TREE_TYPE (decl)
+  if (flag_check_pointers && TREE_TYPE (decl)
       && !BOUNDED_TYPE_P (TREE_TYPE (decl))
-      && mpx_type_has_pointer (TREE_TYPE (decl)))
+      && chkp_type_has_pointer (TREE_TYPE (decl)))
     return false;
 
   /* Only register-like things go in registers.  */
@@ -2443,7 +2460,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 						    data->promoted_mode,
 						    data->passed_type,
 						    data->named_arg);
-  mpx_split_slot (entry_parm, &entry_parm, &bound_parm);
+  chkp_split_slot (entry_parm, &entry_parm, &bound_parm);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2851,7 +2868,7 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 		{
 		  rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
 		  rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
-		  rtx ptr = mpx_get_value_with_offs (entry_parm, offs);
+		  rtx ptr = chkp_get_value_with_offs (entry_parm, offs);
 		  rtx slot = adjust_address (mem, GET_MODE (reg),
 					     INTVAL (offs));
 		  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
@@ -3322,7 +3339,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
             {
               rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
               rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
-              rtx ptr = mpx_get_value_with_offs (entry_parm, offs);
+              rtx ptr = chkp_get_value_with_offs (entry_parm, offs);
               rtx slot = adjust_address (mem, GET_MODE (reg),
                                              INTVAL (offs));
               targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
@@ -3470,9 +3487,9 @@ assign_parms (tree fndecl)
 	  assign_parm_adjust_entry_rtl (&data);
 	}
 
-      /* Find out where bounds for parameter for parameter are.
+      /* Find out where bounds for parameter are.
 	 Load them if required and associate them with parm.  */
-      if (flag_mpx
+      if (flag_check_pointers
 	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
 	{
 	  if (!data.bound_parm || CONST_INT_P (data.bound_parm))
@@ -3492,7 +3509,7 @@ assign_parms (tree fndecl)
 
 		  if (!REG_P (reg))
 		    {
-		      rtx p = mpx_get_value_with_offs (data.entry_parm, offs);
+		      rtx p = chkp_get_value_with_offs (data.entry_parm, offs);
 		      reg = targetm.calls.load_bounds_for_arg (p, NULL, reg);
 		    }
 
@@ -3507,11 +3524,11 @@ assign_parms (tree fndecl)
 	  else if (!AGGREGATE_TYPE_P (data.passed_type))
 	    {
 	      int align = STACK_SLOT_ALIGNMENT (bound_type_node,
-						targetm.mpx_bound_mode (),
+						targetm.chkp_bound_mode (),
 						TYPE_ALIGN (bound_type_node));
 	      rtx stack
-		= assign_stack_local (targetm.mpx_bound_mode (),
-				      GET_MODE_SIZE (targetm.mpx_bound_mode ()),
+		= assign_stack_local (targetm.chkp_bound_mode (),
+				      GET_MODE_SIZE (targetm.chkp_bound_mode ()),
 				      align);
 
 	      gcc_assert (REG_P (data.bound_parm));
@@ -3671,7 +3688,7 @@ assign_parms (tree fndecl)
 
 	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
 							fndecl, true);
-	  mpx_split_slot (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
+	  chkp_split_slot (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that crtl->return_rtx
 	     holds the hard register containing the return value, not a
@@ -4935,7 +4952,7 @@ expand_function_start (tree subr)
 	  rtx hard_reg = hard_function_value (return_type, subr, 0, 1);
 	  rtx bounds;
 
-	  mpx_split_slot (hard_reg, &hard_reg, &bounds);
+	  chkp_split_slot (hard_reg, &hard_reg, &bounds);
 
 	  /* Structures that are returned in registers are not
 	     aggregate_value_p, so we may see a PARALLEL or a REG.  */
@@ -5309,9 +5326,9 @@ expand_function_end (void)
 
       outgoing = targetm.calls.function_value (build_pointer_type (type),
 					       current_function_decl, true);
-      mpx_split_slot (outgoing, &outgoing, &crtl->return_bnd);
+      chkp_split_slot (outgoing, &outgoing, &crtl->return_bnd);
 
-      if (flag_mpx && GET_CODE (outgoing) == PARALLEL)
+      if (flag_check_pointers && GET_CODE (outgoing) == PARALLEL)
 	outgoing = XEXP (XVECEXP (outgoing, 0, 0), 0);
 
       /* Mark this as a function return value so integrate will delete the
@@ -5655,22 +5672,45 @@ move_insn_for_shrink_wrap (basic_block bb, rtx insn,
 	 except for any part that overlaps SRC (next loop).  */
       bb_uses = &DF_LR_BB_INFO (bb)->use;
       bb_defs = &DF_LR_BB_INFO (bb)->def;
-      for (i = dregno; i < end_dregno; i++)
+      if (df_live)
 	{
-	  if (REGNO_REG_SET_P (bb_uses, i) || REGNO_REG_SET_P (bb_defs, i))
-	    next_block = NULL;
-	  CLEAR_REGNO_REG_SET (live_out, i);
-	  CLEAR_REGNO_REG_SET (live_in, i);
-	}
+	  for (i = dregno; i < end_dregno; i++)
+	    {
+	      if (REGNO_REG_SET_P (bb_uses, i) || REGNO_REG_SET_P (bb_defs, i)
+		  || REGNO_REG_SET_P (&DF_LIVE_BB_INFO (bb)->gen, i))
+		next_block = NULL;
+	      CLEAR_REGNO_REG_SET (live_out, i);
+	      CLEAR_REGNO_REG_SET (live_in, i);
+	    }
 
-      /* Check whether BB clobbers SRC.  We need to add INSN to BB if so.
-	 Either way, SRC is now live on entry.  */
-      for (i = sregno; i < end_sregno; i++)
+	  /* Check whether BB clobbers SRC.  We need to add INSN to BB if so.
+	     Either way, SRC is now live on entry.  */
+	  for (i = sregno; i < end_sregno; i++)
+	    {
+	      if (REGNO_REG_SET_P (bb_defs, i)
+		  || REGNO_REG_SET_P (&DF_LIVE_BB_INFO (bb)->gen, i))
+		next_block = NULL;
+	      SET_REGNO_REG_SET (live_out, i);
+	      SET_REGNO_REG_SET (live_in, i);
+	    }
+	}
+      else
 	{
-	  if (REGNO_REG_SET_P (bb_defs, i))
-	    next_block = NULL;
-	  SET_REGNO_REG_SET (live_out, i);
-	  SET_REGNO_REG_SET (live_in, i);
+	  /* DF_LR_BB_INFO (bb)->def does not comprise the DF_REF_PARTIAL and
+	     DF_REF_CONDITIONAL defs.  So if DF_LIVE doesn't exist, i.e.
+	     at -O1, just give up searching NEXT_BLOCK.  */
+	  next_block = NULL;
+	  for (i = dregno; i < end_dregno; i++)
+	    {
+	      CLEAR_REGNO_REG_SET (live_out, i);
+	      CLEAR_REGNO_REG_SET (live_in, i);
+	    }
+
+	  for (i = sregno; i < end_sregno; i++)
+	    {
+	      SET_REGNO_REG_SET (live_out, i);
+	      SET_REGNO_REG_SET (live_in, i);
+	    }
 	}
 
       /* If we don't need to add the move to BB, look for a single
@@ -7099,25 +7139,42 @@ types_used_by_var_decl_insert (tree type, tree var_decl)
     }
 }
 
-struct rtl_opt_pass pass_leaf_regs =
+namespace {
+
+const pass_data pass_data_leaf_regs =
 {
- {
-  RTL_PASS,
-  "*leaf_regs",                         /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  rest_of_handle_check_leaf_regs,       /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "*leaf_regs", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_leaf_regs : public rtl_opt_pass
+{
+public:
+  pass_leaf_regs(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_leaf_regs, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_handle_check_leaf_regs (); }
+
+}; // class pass_leaf_regs
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_leaf_regs (gcc::context *ctxt)
+{
+  return new pass_leaf_regs (ctxt);
+}
 
 static unsigned int
 rest_of_handle_thread_prologue_and_epilogue (void)
@@ -7138,26 +7195,45 @@ rest_of_handle_thread_prologue_and_epilogue (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_thread_prologue_and_epilogue =
+namespace {
+
+const pass_data pass_data_thread_prologue_and_epilogue =
 {
- {
-  RTL_PASS,
-  "pro_and_epilogue",                   /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  rest_of_handle_thread_prologue_and_epilogue, /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_THREAD_PROLOGUE_AND_EPILOGUE,      /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  TODO_verify_flow,                     /* todo_flags_start */
-  TODO_df_verify | TODO_df_finish
-  | TODO_verify_rtl_sharing             /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "pro_and_epilogue", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_THREAD_PROLOGUE_AND_EPILOGUE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  TODO_verify_flow, /* todo_flags_start */
+  ( TODO_df_verify | TODO_df_finish
+    | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_thread_prologue_and_epilogue : public rtl_opt_pass
+{
+public:
+  pass_thread_prologue_and_epilogue(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_thread_prologue_and_epilogue, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () {
+    return rest_of_handle_thread_prologue_and_epilogue ();
+  }
+
+}; // class pass_thread_prologue_and_epilogue
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_thread_prologue_and_epilogue (gcc::context *ctxt)
+{
+  return new pass_thread_prologue_and_epilogue (ctxt);
+}
 
 
 /* This mini-pass fixes fall-out from SSA in asm statements that have
@@ -7339,25 +7415,42 @@ rest_of_match_asm_constraints (void)
   return TODO_df_finish;
 }
 
-struct rtl_opt_pass pass_match_asm_constraints =
+namespace {
+
+const pass_data pass_data_match_asm_constraints =
 {
- {
-  RTL_PASS,
-  "asmcons",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  rest_of_match_asm_constraints,	/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "asmcons", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_match_asm_constraints : public rtl_opt_pass
+{
+public:
+  pass_match_asm_constraints(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_match_asm_constraints, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_match_asm_constraints (); }
+
+}; // class pass_match_asm_constraints
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_match_asm_constraints (gcc::context *ctxt)
+{
+  return new pass_match_asm_constraints (ctxt);
+}
 
 
 #include "gt-function.h"

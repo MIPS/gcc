@@ -2026,26 +2026,26 @@ built-in function.",
 /* Return target-specific builtin function which implements
    generic memory protection builtin.  */
 DEFHOOK
-(builtin_mpx_function,
- "MPX instrumentation pass uses this hook to obtain\n\
-target-specific functions which implement generic MPX\n\
+(builtin_chkp_function,
+ "Pointers checker instrumentation pass uses this hook to obtain\n\
+target-specific functions which implement generic checker\n\
 builtins.",
  tree, (unsigned fcode),
- default_builtin_mpx_function)
+ default_builtin_chkp_function)
 
-/* Bounds type MPX should use.  */
+/* Bounds type pointers checker should use.  */
 DEFHOOK
-(mpx_bound_type,
+(chkp_bound_type,
  "Return type to be used for bounds",
  tree, (void),
  hook_tree_void_null)
 
-/* Bounds mode MPX should use.  */
+/* Bounds mode pointers checker should use.  */
 DEFHOOK
-(mpx_bound_mode,
+(chkp_bound_mode,
  "Return mode to be used for bounds.",
  enum machine_mode, (void),
- default_mpx_bound_mode)
+ default_chkp_bound_mode)
 
 /* Select a replacement for a target-specific builtin.  This is done
    *before* regular type checking, and so allows the target to
@@ -2224,6 +2224,13 @@ need to override this if your target has special flags that might be\n\
 set via @code{__attribute__}.",
  unsigned int, (tree decl, const char *name, int reloc),
  default_section_type_flags)
+
+DEFHOOK
+(libc_has_function,
+ "This hook determines whether a function from a class of functions\n\
+@var{fn_class} is present at the runtime.",
+ bool, (enum function_class fn_class),
+ default_libc_has_function)
 
 /* True if new jumps cannot be created, to replace existing ones or
    not, at the current point in the compilation.  */

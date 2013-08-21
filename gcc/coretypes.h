@@ -169,6 +169,12 @@ typedef const struct basic_block_def *const_basic_block;
    in target.h.  */
 typedef int reg_class_t;
 
+class rtl_opt_pass;
+
+namespace gcc {
+  class context;
+}
+
 #else
 
 struct _dont_use_rtx_here_;
@@ -182,6 +188,15 @@ union _dont_use_tree_here_;
 #define const_tree union _dont_use_tree_here_ *
 
 #endif
+
+/* Classes of functions that compiler needs to check
+   whether they are present at the runtime or not.  */
+enum function_class {
+  function_c94,
+  function_c99_misc,
+  function_c99_math_complex,
+  function_sincos
+};
 
 /* Memory model types for the __atomic* builtins. 
    This must match the order in libstdc++-v3/include/bits/atomic_base.h.  */

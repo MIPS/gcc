@@ -166,6 +166,10 @@ extern rtx default_addr_space_convert (rtx, tree, tree);
 extern unsigned int default_case_values_threshold (void);
 extern bool default_have_conditional_execution (void);
 
+extern bool default_libc_has_function (enum function_class);
+extern bool no_c99_libc_has_function (enum function_class);
+extern bool gnu_libc_has_function (enum function_class);
+
 extern tree default_builtin_tm_load_store (tree);
 
 extern int default_memory_move_cost (enum machine_mode, reg_class_t, bool);
@@ -203,5 +207,5 @@ extern rtx default_load_bounds_for_arg (rtx, rtx, rtx);
 extern rtx default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
 extern tree default_fn_abi_va_list_bounds_size (tree);
 extern void default_init_returned_bounds (tree);
-extern enum machine_mode default_mpx_bound_mode (void);
-extern tree default_builtin_mpx_function (unsigned int);
+extern enum machine_mode default_chkp_bound_mode (void);
+extern tree default_builtin_chkp_function (unsigned int);

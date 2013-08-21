@@ -874,6 +874,67 @@ fbounds-check
 Common Report Var(flag_bounds_check)
 Generate code to check bounds before indexing arrays
 
+fcheck-pointers
+Common Report Var(flag_check_pointers)
+Add pointers checker instrumentation.  fchkp-* flags are used to
+control instrumentation.  Currently available for C, C++ and ObjC.
+
+fchkp-check-incomplete-type
+Common Report Var(flag_chkp_incomplete_type) Init(1)
+Generate checks variables with incomplete type
+
+fchkp-zero-input-bounds-for-main
+Common Report Var(flag_chkp_zero_input_bounds_for_main) Init(0)
+Use zero bounds for all incoming arguments in 'main' function.  It helps when
+instrumented binaries are used with legacy libs.
+
+fchkp-first-field-has-own-bounds
+Common RejectNegative Report Var(flag_chkp_first_field_has_own_bounds)
+Forces pointers checker to use narrowed bounds for address of the first field
+in the structure.  By default pointer to the first field has the same bounds
+as pointer to the whole structure.
+
+fchkp-narrow-to-innermost-array
+Common RejectNegative Report Var(flag_chkp_narrow_to_innermost_arrray)
+Forces pointers checker to use bounds of the innermost arrays in case of
+nested static arryas access.  By default outermost array is used.
+
+fchkp-optimize
+Common Report Var(flag_chkp_optimize) Init(-1)
+Allow pointers checker optimizations.  By default allowed
+on optimization levels >0.
+
+fchkp-use-fast-string-functions
+Common Report Var(flag_chkp_use_fast_string_functions) Init(0)
+Allow to use *_nobnd versions of string functions by pointers checker.
+
+fchkp-use-nochk-string-functions
+Common Report Var(flag_chkp_use_nochk_string_functions) Init(0)
+Allow to use *_nochk versions of string functions by pointers checker.
+
+fchkp-use-static-bounds
+Common Report Var(flag_chkp_use_static_bounds) Init(1)
+Use statically initialized variable for vars bounds instead of
+generating them each time it is required.
+
+fchkp-use-static-const-bounds
+Common Report Var(flag_chkp_use_static_const_bounds) Init(-1)
+Use statically initialized variable for constant bounds instead of
+generating them each time it is required.
+
+fchkp-treat-zero-dynamic-size-as-infinite
+Common Report Var(flag_chkp_zero_dynamic_size_as_infinite) Init(0)
+With this option zero size obtained dynamically for objects with
+incomplete type will be treated as infinite.
+
+fchkp-check-read
+Common Report Var(flag_chkp_check_read) Init(1)
+Generate checks for all read accesses to memory.
+
+fchkp-check-write
+Common Report Var(flag_chkp_check_write) Init(1)
+Generate checks for all write accesses to memory.
+
 fbranch-count-reg
 Common Report Var(flag_branch_on_count_reg) Init(1) Optimization
 Replace add, compare, branch with branch on count register
@@ -2310,6 +2371,30 @@ Enum(symbol_visibility) String(hidden) Value(VISIBILITY_HIDDEN)
 
 EnumValue
 Enum(symbol_visibility) String(protected) Value(VISIBILITY_PROTECTED)
+
+fvtable-verify=
+Common Joined RejectNegative Enum(vtv_priority) Var(flag_vtable_verify) Init(VTV_NO_PRIORITY)
+Validate vtable pointers before using them.
+
+Enum
+Name(vtv_priority) Type(enum vtv_priority) UnknownError(unknown vtable verify initialization priority %qs)
+
+EnumValue
+Enum(vtv_priority) String(none) Value(VTV_NO_PRIORITY)
+
+EnumValue
+Enum(vtv_priority) String(std) Value(VTV_STANDARD_PRIORITY)
+
+EnumValue
+Enum(vtv_priority) String(preinit) Value(VTV_PREINIT_PRIORITY)
+
+fvtv-counts
+Common Var(flag_vtv_counts)
+Output vtable verification counters.
+
+fvtv-debug
+Common Var(flag_vtv_debug)
+Output vtable verification pointer sets information.
 
 fvpt
 Common Report Var(flag_value_profile_transformations) Optimization

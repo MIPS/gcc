@@ -119,7 +119,7 @@ struct store_by_pieces_d
   int reverse;
 };
 
-static void move_by_pieces_1 (rtx (*) (rtx, ...), enum machine_mode,
+static void move_by_pieces_1 (insn_gen_fn, machine_mode,
 			      struct move_by_pieces_d *);
 static bool block_move_libcall_safe_for_call_parm (void);
 static bool emit_block_move_via_movmem (rtx, rtx, rtx, unsigned, unsigned, HOST_WIDE_INT);
@@ -128,7 +128,7 @@ static void emit_block_move_via_loop (rtx, rtx, rtx, unsigned);
 static rtx clear_by_pieces_1 (void *, HOST_WIDE_INT, enum machine_mode);
 static void clear_by_pieces (rtx, unsigned HOST_WIDE_INT, unsigned int);
 static void store_by_pieces_1 (struct store_by_pieces_d *, unsigned int);
-static void store_by_pieces_2 (rtx (*) (rtx, ...), enum machine_mode,
+static void store_by_pieces_2 (insn_gen_fn, machine_mode,
 			       struct store_by_pieces_d *);
 static tree clear_storage_libcall_fn (int);
 static rtx compress_float_constant (rtx, rtx);
@@ -1043,7 +1043,7 @@ move_by_pieces_ninsns (unsigned HOST_WIDE_INT l, unsigned int align,
    to make a move insn for that mode.  DATA has all the other info.  */
 
 static void
-move_by_pieces_1 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
+move_by_pieces_1 (insn_gen_fn genfun, machine_mode mode,
 		  struct move_by_pieces_d *data)
 {
   unsigned int size = GET_MODE_SIZE (mode);
@@ -1362,15 +1362,16 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size, bool tailcall)
   size_tree = make_tree (sizetype, size);
 
   fn = emit_block_move_libcall_fn (true);
-  /* In case MPX is on we actually should have all checks
-     made and bounds copied.  It means we may call a fast
-     memcpy version to copy data.
-     TODO: use mpx_memcpy_nobnd instead of regular memcpy.  */
-  if (flag_mpx)
+  /* In case pointers checker is on we actually should have
+     all checks made and bounds copied.  It means we may call
+     a fast memcpy version to copy data.
+     TODO: use chkp_memcpy_nobnd instead of regular memcpy
+     when possible.  */
+  if (flag_check_pointers)
     {
       tree tmp, bnd;
 
-      tmp = mpx_build_make_bounds_call (integer_zero_node, integer_zero_node);
+      tmp = chkp_build_make_bounds_call (integer_zero_node, integer_zero_node);
       bnd = make_tree (bound_type_node,
 			assign_temp (bound_type_node, 0, 1));
       expand_assignment (bnd, tmp, false);
@@ -2673,7 +2674,7 @@ store_by_pieces_1 (struct store_by_pieces_d *data ATTRIBUTE_UNUSED,
    to make a move insn for that mode.  DATA has all the other info.  */
 
 static void
-store_by_pieces_2 (rtx (*genfun) (rtx, ...), enum machine_mode mode,
+store_by_pieces_2 (insn_gen_fn genfun, machine_mode mode,
 		   struct store_by_pieces_d *data)
 {
   unsigned int size = GET_MODE_SIZE (mode);
@@ -4933,7 +4934,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
       value = expand_normal (from);
 
       /* Split value and bounds to store them separately.  */
-      mpx_split_slot (value, &value, &bounds);
+      chkp_split_slot (value, &value, &bounds);
 
       if (to_rtx == 0)
 	to_rtx = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
@@ -4972,12 +4973,12 @@ expand_assignment (tree to, tree from, bool nontemporal)
       /* Store bounds if required.  */
       if (bounds
 	  && !BOUNDED_TYPE_P (TREE_TYPE (to))
-	  && mpx_type_has_pointer (TREE_TYPE (to)))
+	  && chkp_type_has_pointer (TREE_TYPE (to)))
 	{
 	  gcc_assert (MEM_P (to_rtx));
 	  gcc_assert (!CONST_INT_P (bounds));
 
-	  mpx_emit_bounds_store (bounds, value, to_rtx);
+	  chkp_emit_bounds_store (bounds, value, to_rtx);
 	}
 
       preserve_temp_slots (to_rtx);
@@ -5191,7 +5192,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 
       /* Bounds returned by the call are atored separately.  */
       if (TREE_CODE (exp) == CALL_EXPR)
-	mpx_split_slot (temp, &temp, &temp_bnd);
+	chkp_split_slot (temp, &temp, &temp_bnd);
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -5277,7 +5278,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 
       /* Bounds returned by the call are stored separately.  */
       if (TREE_CODE (exp) == CALL_EXPR)
-	mpx_split_slot (temp, &temp, &temp_bnd);
+	chkp_split_slot (temp, &temp, &temp_bnd);
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not
@@ -5439,13 +5440,6 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 	    emit_move_insn (target, temp);
 	}
     }
-
-  /* Actually MPX pass created a separate statements to store
-     returned bounds.  Will it be better to do it here?  */
-  if (0 && temp_bnd && TREE_TYPE (exp)
-      && !BOUNDED_TYPE_P (TREE_TYPE (exp))
-      && mpx_type_has_pointer (TREE_TYPE (exp)))
-    mpx_emit_bounds_store (temp_bnd, temp, target);
 
   return NULL_RTX;
 }

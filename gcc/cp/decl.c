@@ -1146,8 +1146,9 @@ warn_extern_redeclared_static (tree newdecl, tree olddecl)
       && DECL_ARTIFICIAL (olddecl))
     return;
 
-  permerror (input_location, "%qD was declared %<extern%> and later %<static%>", newdecl);
-  permerror (input_location, "previous declaration of %q+D", olddecl);
+  if (permerror (input_location,
+		 "%qD was declared %<extern%> and later %<static%>", newdecl))
+    inform (input_location, "previous declaration of %q+D", olddecl);
 }
 
 /* NEW_DECL is a redeclaration of OLD_DECL; both are functions or
@@ -1287,19 +1288,19 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (OPT_Wattributes, "function %q+D redeclared as inline",
-		   newdecl);
-	  warning (OPT_Wattributes, "previous declaration of %q+D "
-		   "with attribute noinline", olddecl);
+	  if (warning (OPT_Wattributes, "function %q+D redeclared as inline",
+		       newdecl))
+	    inform (input_location, "previous declaration of %q+D "
+		    "with attribute noinline", olddecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (OPT_Wattributes, "function %q+D redeclared with "
-		   "attribute noinline", newdecl);
-	  warning (OPT_Wattributes, "previous declaration of %q+D was inline",
-		   olddecl);
+	  if (warning (OPT_Wattributes, "function %q+D redeclared with "
+		       "attribute noinline", newdecl))
+	    inform (input_location, "previous declaration of %q+D was inline",
+		    olddecl);
 	}
     }
 
@@ -1485,7 +1486,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       error ("%q#D redeclared as different kind of symbol", newdecl);
       if (TREE_CODE (olddecl) == TREE_LIST)
 	olddecl = TREE_VALUE (olddecl);
-      error ("previous declaration of %q+#D", olddecl);
+      inform (input_location, "previous declaration of %q+#D", olddecl);
 
       return error_mark_node;
     }
@@ -1550,7 +1551,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       else
 	{
 	  error ("conflicting declaration %q#D", newdecl);
-	  error ("%q+D has a previous declaration as %q#D", olddecl, olddecl);
+	  inform (input_location,
+		  "%q+D has a previous declaration as %q#D", olddecl, olddecl);
 	  return error_mark_node;
 	}
     }
@@ -1613,9 +1615,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  error_at (DECL_SOURCE_LOCATION (newdecl), errmsg, newdecl);
 	  if (DECL_NAME (olddecl) != NULL_TREE)
-	    error ((DECL_INITIAL (olddecl) && namespace_bindings_p ())
-		   ? G_("%q+#D previously defined here")
-		   : G_("%q+#D previously declared here"), olddecl);
+	    inform (input_location,
+		    (DECL_INITIAL (olddecl) && namespace_bindings_p ())
+		    ? G_("%q+#D previously defined here")
+		    : G_("%q+#D previously declared here"), olddecl);
 	  return error_mark_node;
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -1759,8 +1762,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  && (! DECL_TEMPLATE_SPECIALIZATION (newdecl)
 	      || DECL_TEMPLATE_SPECIALIZATION (olddecl)))
 	{
-	  warning (OPT_Wredundant_decls, "redundant redeclaration of %qD in same scope", newdecl);
-	  warning (OPT_Wredundant_decls, "previous declaration of %q+D", olddecl);
+	  if (warning (OPT_Wredundant_decls,
+		       "redundant redeclaration of %qD in same scope",
+		       newdecl))
+	    inform (input_location, "previous declaration of %q+D", olddecl);
 	}
 
       if (!(DECL_TEMPLATE_INSTANTIATION (olddecl)
@@ -3098,7 +3103,9 @@ case_conversion (tree type, tree value)
     {
       if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
 	type = type_promotes_to (type);
-      value = perform_implicit_conversion (type, value, tf_warning_or_error);
+      value = (perform_implicit_conversion_flags
+	       (type, value, tf_warning_or_error,
+		LOOKUP_IMPLICIT | LOOKUP_NO_NON_INTEGRAL));
     }
   return cxx_constant_value (value);
 }
@@ -6373,10 +6380,11 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	  if (!DECL_EXTERNAL (decl))
 	    var_definition_p = true;
 
-	  /* If var has initilizer then we need to register in MPX module
-	     to generate static bounds initilizer if required.  */
+	  /* If var has initilizer then we need to register it in
+	     pointers checker to generate static bounds initilizer
+	     if required.  */
 	  if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
-	    mpx_register_var_initializer (decl);
+	    chkp_register_var_initializer (decl);
 	}
       /* If the variable has an array type, lay out the type, even if
 	 there is no initializer.  It is valid to index through the
@@ -10888,7 +10896,7 @@ local_variable_p_walkfn (tree *tp, int *walk_subtrees,
    DECL, if there is no DECL available.  */
 
 tree
-check_default_argument (tree decl, tree arg)
+check_default_argument (tree decl, tree arg, tsubst_flags_t complain)
 {
   tree var;
   tree decl_type;
@@ -10920,13 +10928,14 @@ check_default_argument (tree decl, tree arg)
      A default argument expression is implicitly converted to the
      parameter type.  */
   ++cp_unevaluated_operand;
-  perform_implicit_conversion_flags (decl_type, arg, tf_warning_or_error,
+  perform_implicit_conversion_flags (decl_type, arg, complain,
 				     LOOKUP_IMPLICIT);
   --cp_unevaluated_operand;
 
   if (warn_zero_as_null_pointer_constant
       && TYPE_PTR_OR_PTRMEM_P (decl_type)
       && null_ptr_cst_p (arg)
+      && (complain & tf_warning)
       && maybe_warn_zero_as_null_pointer_constant (arg, input_location))
     return nullptr_node;
 
@@ -10940,10 +10949,14 @@ check_default_argument (tree decl, tree arg)
   var = cp_walk_tree_without_duplicates (&arg, local_variable_p_walkfn, NULL);
   if (var)
     {
-      if (DECL_NAME (var) == this_identifier)
-	permerror (input_location, "default argument %qE uses %qD", arg, var);
-      else
-	error ("default argument %qE uses local variable %qD", arg, var);
+      if (complain & tf_warning_or_error)
+	{
+	  if (DECL_NAME (var) == this_identifier)
+	    permerror (input_location, "default argument %qE uses %qD",
+		       arg, var);
+	  else
+	    error ("default argument %qE uses local variable %qD", arg, var);
+	}
       return error_mark_node;
     }
 
@@ -11094,7 +11107,7 @@ grokparms (tree parmlist, tree *parms)
 	  if (any_error)
 	    init = NULL_TREE;
 	  else if (init && !processing_template_decl)
-	    init = check_default_argument (decl, init);
+	    init = check_default_argument (decl, init, tf_warning_or_error);
 	}
 
       DECL_CHAIN (decl) = decls;
@@ -11836,14 +11849,14 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   && tag_code != typename_type)
     {
       error ("%qT referred to as %qs", type, tag_name (tag_code));
-      error ("%q+T has a previous declaration here", type);
+      inform (input_location, "%q+T has a previous declaration here", type);
       return error_mark_node;
     }
   else if (TREE_CODE (type) != ENUMERAL_TYPE
 	   && tag_code == enum_type)
     {
       error ("%qT referred to as enum", type);
-      error ("%q+T has a previous declaration here", type);
+      inform (input_location, "%q+T has a previous declaration here", type);
       return error_mark_node;
     }
   else if (!allow_template_p
@@ -14266,13 +14279,6 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
 }
 
 
-/* When a stmt has been parsed, this function is called.  */
-
-void
-finish_stmt (void)
-{
-}
-
 /* Return the FUNCTION_TYPE that corresponds to MEMFNTYPE, which can be a
    FUNCTION_DECL, METHOD_TYPE, FUNCTION_TYPE, pointer or reference to
    METHOD_TYPE or FUNCTION_TYPE, or pointer to member function.  */

@@ -1858,7 +1858,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 
   /* Split bound registers to process non-bound values separately.
      Join back after processing.  */
-  mpx_split_slot (val, &val, &bnd);
+  chkp_split_slot (val, &val, &bnd);
 
   if (REG_P (val)
       && GET_MODE (val) == BLKmode)
@@ -1884,7 +1884,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 
       PUT_MODE (val, tmpmode);
     }
-  return mpx_join_splitted_slot (val, bnd);
+  return chkp_join_splitted_slot (val, bnd);
 }
 
 /* Return an rtx representing the register or memory location

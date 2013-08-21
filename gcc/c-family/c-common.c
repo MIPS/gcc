@@ -369,8 +369,8 @@ static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
 static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_attribute (tree *, tree, tree, int, bool *);
-static tree handle_mpx_variable_size_attribute (tree *, tree, tree, int, bool *);
-static tree handle_mpx_legacy (tree *, tree, tree, int, bool *);
+static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *);
+static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -745,9 +745,9 @@ const struct attribute_spec c_common_attribute_table[] =
   { "warn_unused",	      0, 0, false, false, false,
 			      handle_warn_unused_attribute, false },
   { "bnd_variable_size",      0, 0, true,  false, false,
-			      handle_mpx_variable_size_attribute, false },
+			      handle_bnd_variable_size_attribute, false },
   { "bnd_legacy",             0, 0, true, false, false,
-			      handle_mpx_legacy, false },
+			      handle_bnd_legacy, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -4290,7 +4290,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 
 tree
 pointer_int_sum (location_t loc, enum tree_code resultcode,
-		 tree ptrop, tree intop)
+		 tree ptrop, tree intop, bool complain)
 {
   tree size_exp, ret;
 
@@ -4299,14 +4299,20 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
-      pedwarn (loc, OPT_Wpointer_arith,
-	       "pointer of type %<void *%> used in arithmetic");
+      if (complain && warn_pointer_arith)
+	pedwarn (loc, OPT_Wpointer_arith,
+		 "pointer of type %<void *%> used in arithmetic");
+      else if (!complain)
+	return error_mark_node;
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
     {
-      pedwarn (loc, OPT_Wpointer_arith,
-	       "pointer to a function used in arithmetic");
+      if (complain && warn_pointer_arith)
+	pedwarn (loc, OPT_Wpointer_arith,
+		 "pointer to a function used in arithmetic");
+      else if (!complain)
+	return error_mark_node;
       size_exp = integer_one_node;
     }
   else
@@ -7964,7 +7970,7 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
    struct attribute_spec.handler.  */
 
 static tree
-handle_mpx_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+handle_bnd_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 				    int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FIELD_DECL)
@@ -7980,7 +7986,7 @@ handle_mpx_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args
    struct attribute_spec.handler.  */
 
 static tree
-handle_mpx_legacy (tree *node, tree name, tree ARG_UNUSED (args),
+handle_bnd_legacy (tree *node, tree name, tree ARG_UNUSED (args),
 		   int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
@@ -9390,6 +9396,18 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
       free (message);
       message = NULL;
     }
+  else if (token_type == CPP_CHAR_USERDEF
+	   || token_type == CPP_WCHAR_USERDEF
+	   || token_type == CPP_CHAR16_USERDEF
+	   || token_type == CPP_CHAR32_USERDEF)
+    message = catenate_messages (gmsgid,
+				 " before user-defined character literal");
+  else if (token_type == CPP_STRING_USERDEF
+	   || token_type == CPP_WSTRING_USERDEF
+	   || token_type == CPP_STRING16_USERDEF
+	   || token_type == CPP_STRING32_USERDEF
+	   || token_type == CPP_UTF8STRING_USERDEF)
+    message = catenate_messages (gmsgid, " before user-defined string literal");
   else if (token_type == CPP_STRING
 	   || token_type == CPP_WSTRING
 	   || token_type == CPP_STRING16

@@ -1,7 +1,7 @@
 /* { dg-do run { xfail *-*-* } } */
-/* { dg-options "-fmpx" } */
+/* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
-/* { dg-additional-options "-fmpx-first-field-has-own-bounds" } */
+/* { dg-additional-options "-fchkp-first-field-has-own-bounds" } */
 
 #define XFAIL
 

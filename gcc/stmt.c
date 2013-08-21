@@ -1546,9 +1546,9 @@ expand_return (tree retval, tree bounds)
 	    }
 	}
     }
-  else if (flag_mpx
+  else if (flag_check_pointers
 	   && !BOUNDED_TYPE_P (TREE_TYPE (retval_rhs))
-	   && mpx_type_has_pointer (TREE_TYPE (retval_rhs))
+	   && chkp_type_has_pointer (TREE_TYPE (retval_rhs))
 	   && TREE_CODE (retval_rhs) != RESULT_DECL)
     {
       rtx addr = expand_normal (build_fold_addr_expr (retval_rhs));
@@ -1556,7 +1556,7 @@ expand_return (tree retval, tree bounds)
 
       gcc_assert (MEM_P (result_rtl));
 
-      mpx_copy_bounds_for_stack_parm (result_rtl, addr, TREE_TYPE (retval_rhs));
+      chkp_copy_bounds_for_stack_parm (result_rtl, addr, TREE_TYPE (retval_rhs));
     }
 
   /* If we are returning the RESULT_DECL, then the value has already

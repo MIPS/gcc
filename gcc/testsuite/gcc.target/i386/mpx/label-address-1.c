@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-fmpx" } */
+/* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 
 #include "mpx-check.h"
