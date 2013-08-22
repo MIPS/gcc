@@ -1072,9 +1072,9 @@ chkp_register_var_initializer (tree var)
    If statements list becomes too big, emit checker contructor
    and start the new one.  */
 static void
-chkp_add_modification_to_statements_list (tree lhs,
-					 tree rhs,
-					 void *arg)
+chkp_add_modification_to_stmt_list (tree lhs,
+				    tree rhs,
+				    void *arg)
 {
   struct chkp_ctor_stmt_list *stmts = (struct chkp_ctor_stmt_list *)arg;
   tree modify;
@@ -1086,14 +1086,6 @@ chkp_add_modification_to_statements_list (tree lhs,
   append_to_statement_list (modify, &stmts->stmts);
 
   stmts->avail--;
-
-  if (!stmts->avail)
-    {
-      cgraph_build_static_cdtor ('P', stmts->stmts,
-				 MAX_RESERVED_INIT_PRIORITY + 2);
-      stmts->avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
-      stmts->stmts = NULL;
-    }
 }
 
 /* Build and return ADDR_EXPR for specified object OBJ.  */
@@ -3674,8 +3666,19 @@ chkp_finish_file (void)
 	   and may initialize its bounds.  Currently asm_written flag and
 	   rtl are checked.  Probably some other fields should be checked.  */
 	if (DECL_RTL (var) && MEM_P (DECL_RTL (var)) && TREE_ASM_WRITTEN (var))
-	  chkp_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
-					chkp_add_modification_to_statements_list);
+	  {
+	    chkp_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
+					   chkp_add_modification_to_stmt_list);
+
+	    if (stmts.avail <= 0)
+	      {
+		cgraph_build_static_cdtor ('P', stmts.stmts,
+					   MAX_RESERVED_INIT_PRIORITY + 2);
+		stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
+		stmts.stmts = NULL;
+	      }
+	  }
+
 
       if (stmts.stmts)
 	cgraph_build_static_cdtor ('P', stmts.stmts,
@@ -3758,9 +3761,9 @@ chkp_finish_file (void)
    checked.  */
 static void
 chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
-		 location_t loc, tree dirflag,
-		 tree access_offs, tree access_size,
-		 bool safe)
+		   location_t loc, tree dirflag,
+		   tree access_offs, tree access_size,
+		   bool safe)
 {
   tree node_type = TREE_TYPE (node);
   tree size = access_size ? access_size : TYPE_SIZE_UNIT (node_type);
@@ -3786,8 +3789,8 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
 	  }
 
 	chkp_parse_array_and_component_ref (node, &ptr, &elt, &safe,
-					  &bitfield, &bounds, iter, false,
-					  false);
+					    &bitfield, &bounds, iter, false,
+					    false);
 
 	/* Break if there is no dereference and operation is safe.  */
 
@@ -3894,7 +3897,7 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
 	bounds = chkp_find_bounds (ptr, iter);
 
       chkp_check_mem_access (addr_first, addr_last, bounds,
-			   stmt_iter, loc, dirflag);
+			     stmt_iter, loc, dirflag);
     }
 
   /* We need to store bounds in case pointer is stored.  */
@@ -3905,7 +3908,8 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
       enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
 
       if (get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS)
-	chkp_walk_pointer_assignments (node, rhs1, iter, chkp_copy_bounds_for_assign);
+	chkp_walk_pointer_assignments (node, rhs1, iter,
+				       chkp_copy_bounds_for_assign);
       else
 	{
 	  bounds = chkp_compute_bounds_for_assignment (NULL_TREE, stmt);
@@ -4002,25 +4006,25 @@ chkp_instrument_function (void)
             {
             case GIMPLE_ASSIGN:
 	      chkp_process_stmt (&i, gimple_assign_lhs (s),
-			       gimple_location (s), integer_one_node,
-			       NULL_TREE, NULL_TREE, safe);
+				 gimple_location (s), integer_one_node,
+				 NULL_TREE, NULL_TREE, safe);
 	      chkp_process_stmt (&i, gimple_assign_rhs1 (s),
-			       gimple_location (s), integer_zero_node,
-			       NULL_TREE, NULL_TREE, safe);
+				 gimple_location (s), integer_zero_node,
+				 NULL_TREE, NULL_TREE, safe);
 	      grhs_class = get_gimple_rhs_class (gimple_assign_rhs_code (s));
 	      if (grhs_class == GIMPLE_BINARY_RHS)
 		chkp_process_stmt (&i, gimple_assign_rhs2 (s),
-				 gimple_location (s), integer_zero_node,
-				 NULL_TREE, NULL_TREE, safe);
+				   gimple_location (s), integer_zero_node,
+				   NULL_TREE, NULL_TREE, safe);
               break;
 
             case GIMPLE_RETURN:
               if (gimple_return_retval (s) != NULL_TREE)
                 {
                   chkp_process_stmt (&i, gimple_return_retval (s),
-				   gimple_location (s),
-				   integer_zero_node,
-				   NULL_TREE, NULL_TREE, safe);
+				     gimple_location (s),
+				     integer_zero_node,
+				     NULL_TREE, NULL_TREE, safe);
 
 		  /* Additionall we need to add bounds
 		     to return statement.  */
@@ -4074,7 +4078,7 @@ chkp_init (void)
     pointer_map_destroy (chkp_rtx_bounds);
   chkp_rtx_bounds = pointer_map_create ();
   chkp_abnormal_phi_copies = htab_create_ggc (31, tree_map_base_hash,
-					     tree_vec_map_eq, NULL);
+					      tree_vec_map_eq, NULL);
 
   entry_block = NULL;
   zero_bounds = NULL_TREE;
@@ -4352,8 +4356,8 @@ chkp_collect_addr_value (tree ptr, address_t &res)
 	  {
 	    addr.pol.create (0);
 	    chkp_collect_value (fold_build2 (TRUNC_DIV_EXPR, size_type_node,
-					    DECL_FIELD_BIT_OFFSET (field),
-					    size_int (BITS_PER_UNIT)),
+					     DECL_FIELD_BIT_OFFSET (field),
+					     size_int (BITS_PER_UNIT)),
 			   addr);
 	    chkp_add_addr_addr (res, addr);
 	    addr.pol.release ();
