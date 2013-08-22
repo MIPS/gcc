@@ -1625,18 +1625,26 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   /* VSX registers that overlap the FPR registers are larger than for non-VSX
      implementations.  Don't allow an item to be split between a FP register
      and an Altivec register.  */
-  if (VECTOR_MEM_VSX_P (mode))
+  if (VECTOR_UNIT_VSX_OR_P8_VECTOR_P (mode)
+      || VECTOR_MEM_VSX_OR_P8_VECTOR_P (mode))
     {
       if (FP_REGNO_P (regno))
 	return FP_REGNO_P (last_regno);
 
       if (ALTIVEC_REGNO_P (regno))
-	return ALTIVEC_REGNO_P (last_regno);
-    }
+	{
+	  if (!ALTIVEC_REGNO_P (last_regno))
+	    return false;
 
-  /* Allow TImode in all VSX registers if the user asked for it.  */
-  if (mode == TImode && TARGET_VSX_TIMODE && VSX_REGNO_P (regno))
-    return 1;
+	  if (mode == DFmode && !TARGET_UPPER_REGS_DF)
+	    return false;
+
+	  if (mode == SFmode && !TARGET_UPPER_REGS_SF)
+	    return false;
+
+	  return true;
+	}
+    }
 
   /* The GPRs can hold any mode, but values bigger than one register
      cannot go past R31.  */
@@ -1891,8 +1899,11 @@ rs6000_debug_reg_global (void)
 	   "wr reg_class = %s\n"
 	   "ws reg_class = %s\n"
 	   "wt reg_class = %s\n"
+	   "wu reg_class = %s\n"
 	   "wv reg_class = %s\n"
+	   "ww reg_class = %s\n"
 	   "wx reg_class = %s\n"
+	   "wy reg_class = %s\n"
 	   "wz reg_class = %s\n"
 	   "\n",
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_d]],
@@ -1907,8 +1918,11 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ws]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wt]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wu]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wv]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ww]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wx]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wy]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wz]]);
 
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
@@ -2135,6 +2149,24 @@ rs6000_debug_reg_global (void)
   if (rs6000_float_gprs)
     fprintf (stderr, DEBUG_FMT_S, "float_gprs", "true");
 
+  if (VECTOR_UNIT_VSX_P (DFmode))
+    fprintf (stderr, DEBUG_FMT_S, "vsx double",
+	     (TARGET_UPPER_REGS_DF) ? "fpr + altivec" : "fpr");
+  else if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+    fprintf (stderr, DEBUG_FMT_S, "trad. double", "fpr");
+  else if (TARGET_HARD_FLOAT && TARGET_E500_DOUBLE)
+    fprintf (stderr, DEBUG_FMT_S, "E500 double", "gpr");
+  else
+    fprintf (stderr, DEBUG_FMT_S, "software double", "gpr");
+
+  if (VECTOR_UNIT_P8_VECTOR_P (SFmode))
+    fprintf (stderr, DEBUG_FMT_S, "p8 float",
+	     (TARGET_UPPER_REGS_SF) ? "fpr + altivec" : "fpr");
+  else if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_SINGLE_FLOAT)
+    fprintf (stderr, DEBUG_FMT_S, "trad. float", "fpr");
+  else
+    fprintf (stderr, DEBUG_FMT_S, "software float", "gpr");
+
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
 
@@ -2315,12 +2347,21 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_vector_align[V2DImode] = align64;
     }
 
-  /* DFmode, see if we want to use the VSX unit.  */
+  /* SFmode, see if we want to use the VSX unit.  Don't set the VSX memory unit
+     for now, to allow use of the traditional floating point instructions.  */
+  if (TARGET_P8_VECTOR && TARGET_VSX_SCALAR_FLOAT)
+    {
+      rs6000_vector_unit[SFmode] = VECTOR_P8_VECTOR;
+      rs6000_vector_mem[SFmode] = VECTOR_NONE;
+      rs6000_vector_align[SFmode] = align32;
+    }
+
+  /* DFmode, see if we want to use the VSX unit.  Don't set the VSX memory unit
+     for now, to allow use of the traditional floating point instructions.  */
   if (TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
     {
       rs6000_vector_unit[DFmode] = VECTOR_VSX;
-      rs6000_vector_mem[DFmode]
-	= (TARGET_VSX_SCALAR_MEMORY ? VECTOR_VSX : VECTOR_NONE);
+      rs6000_vector_mem[DFmode] = VECTOR_NONE;
       rs6000_vector_align[DFmode] = align64;
     }
 
@@ -2349,13 +2390,15 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	 V4SF, wd = register class to use for V2DF, and ws = register classs to
 	 use for DF scalars.  */
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_ws] = (TARGET_VSX_SCALAR_MEMORY
-						  ? VSX_REGS
-						  : FLOAT_REGS);
+      rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wu] = ALTIVEC_REGS;
+
       if (TARGET_VSX_TIMODE)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;
+
+      rs6000_constraints[RS6000_CONSTRAINT_ws]
+	= (TARGET_UPPER_REGS_DF) ? VSX_REGS : FLOAT_REGS;
     }
 
   /* Add conditional constraints based on various options, to allow us to
@@ -2376,7 +2419,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     rs6000_constraints[RS6000_CONSTRAINT_wr] = GENERAL_REGS;
 
   if (TARGET_P8_VECTOR)
-    rs6000_constraints[RS6000_CONSTRAINT_wv] = ALTIVEC_REGS;
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_wv] = ALTIVEC_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wy]
+	= rs6000_constraints[RS6000_CONSTRAINT_ww]
+	= (TARGET_UPPER_REGS_SF) ? VSX_REGS : FLOAT_REGS;
+    }
+  else if (TARGET_VSX)
+    rs6000_constraints[RS6000_CONSTRAINT_ww] = FLOAT_REGS;
 
   if (TARGET_STFIWX)
     rs6000_constraints[RS6000_CONSTRAINT_wx] = FLOAT_REGS;
@@ -2409,20 +2459,22 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_di_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_di_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_di_load;
-	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
+#if 0
+	  if (VECTOR_UNIT_VSX_P (DFmode) && TARGET_UPPER_REGS_DF)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_di_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_di_load;
 	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_di_store;
 	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_di_load;
 	    }
-	  if (TARGET_P8_VECTOR)
+	  if (VECTOR_UNIT_P8_VECTOR_P (SFmode) && TARGET_UPPER_REGS_SF)
 	    {
 	      rs6000_vector_reload[SFmode][0]  = CODE_FOR_reload_sf_di_store;
 	      rs6000_vector_reload[SFmode][1]  = CODE_FOR_reload_sf_di_load;
 	      rs6000_vector_reload[SDmode][0]  = CODE_FOR_reload_sd_di_store;
 	      rs6000_vector_reload[SDmode][1]  = CODE_FOR_reload_sd_di_load;
 	    }
+#endif
 	  if (TARGET_VSX_TIMODE)
 	    {
 	      rs6000_vector_reload[TImode][0]  = CODE_FOR_reload_ti_di_store;
@@ -2472,20 +2524,22 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  rs6000_vector_reload[V4SFmode][1]  = CODE_FOR_reload_v4sf_si_load;
 	  rs6000_vector_reload[V2DFmode][0]  = CODE_FOR_reload_v2df_si_store;
 	  rs6000_vector_reload[V2DFmode][1]  = CODE_FOR_reload_v2df_si_load;
-	  if (TARGET_VSX && TARGET_VSX_SCALAR_MEMORY)
+#if 0
+	  if (VECTOR_UNIT_VSX_P (DFmode) && TARGET_UPPER_REGS_DF)
 	    {
 	      rs6000_vector_reload[DFmode][0]  = CODE_FOR_reload_df_si_store;
 	      rs6000_vector_reload[DFmode][1]  = CODE_FOR_reload_df_si_load;
 	      rs6000_vector_reload[DDmode][0]  = CODE_FOR_reload_dd_si_store;
 	      rs6000_vector_reload[DDmode][1]  = CODE_FOR_reload_dd_si_load;
 	    }
-	  if (TARGET_P8_VECTOR)
+	  if (VECTOR_UNIT_P8_VECTOR_P (SFmode) && TARGET_UPPER_REGS_SF)
 	    {
 	      rs6000_vector_reload[SFmode][0]  = CODE_FOR_reload_sf_si_store;
 	      rs6000_vector_reload[SFmode][1]  = CODE_FOR_reload_sf_si_load;
 	      rs6000_vector_reload[SDmode][0]  = CODE_FOR_reload_sd_si_store;
 	      rs6000_vector_reload[SDmode][1]  = CODE_FOR_reload_sd_si_load;
 	    }
+#endif
 	  if (TARGET_VSX_TIMODE)
 	    {
 	      rs6000_vector_reload[TImode][0]  = CODE_FOR_reload_ti_si_store;
@@ -29164,6 +29218,8 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "recip-precision",		OPTION_MASK_RECIP_PRECISION,	false, true  },
   { "string",			OPTION_MASK_STRING,		false, true  },
   { "update",			OPTION_MASK_NO_UPDATE,		true , true  },
+  { "upper-regs-df",		OPTION_MASK_UPPER_REGS_DF,	false, false },
+  { "upper-regs-sf",		OPTION_MASK_UPPER_REGS_SF,	false, false },
   { "vsx",			OPTION_MASK_VSX,		false, true  },
   { "vsx-timode",		OPTION_MASK_VSX_TIMODE,		false, true  },
 #ifdef OPTION_MASK_64BIT

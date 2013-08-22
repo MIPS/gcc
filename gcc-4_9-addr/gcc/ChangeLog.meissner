@@ -1,3 +1,194 @@
+2013-08-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wa constraint): Add documentation
+	to all w* constraints.  Make the documentation agree with
+	md.texi.  Sort the w* constraints to be in alphabetical order.
+	Add wu, wv, and wy constraints for supporting using the upper
+	registers for DFmode under power7 and SFmode under power8.
+	(wd constraint): Likewise.
+	(wf constraint): Likewise.
+	(wg constraint): Likewise.
+	(wl constraint): Likewise.
+	(wm constraint): Likewise.
+	(wn constraint): Likewise.
+	(wr constraint): Likewise.
+	(ws constraint): Likewise.
+	(wt constraint): Likewise.
+	(wu constraint): Likewise.
+	(wv constraint): Likewise.
+	(wx constraint): Likewise.
+	(wy constraint): Likewise.
+	(wz constraint): Likewise.
+	* doc/md.texi (PowerPC and IBM RS6000): Likewise.
+
+	* config/rs6000/rs6000-builtin.def (xsrdpim): Use floor, ceil,
+	btrunc insns, instead of vsx_<name>.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-float): New debug swtich
+	to allow/disallow single precision VSX scalar instructions.
+	(-mvsx-double-float): Change initial value to 1 from -1.
+	(-mvsx-scalar-memory): Make this an alias of -mupper-regs-df.
+	(-mupper-regs-df): New debug switches to control whether DFmode
+	and SFmode can use the upper registers on power7/power8
+	respectively.
+	(-mupper-regs-sf): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Add support
+	for -mupper-regs-sf and -mupper-regs-df.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_opt_masks): Likewise.
+	(rs6000_debug_reg_global): Print wu, and wy constraints.
+	Print which type of floating point unit and registers are
+	available for DFmode/SFmode.
+
+	* config/rs6000/vsx.md (vsx_add<mode>3): Move all scalar DF VSX
+	support to rs6000.md.  Make SF/DFmode insns common where
+	possible.  Add support for power8 scalar float instructions using
+	the upper registers.  Don't use VSv and VStype_simple mode
+	attributes on the insns that only handle vectors after moving
+	scalar support to rs6000.md.  Merge some expanders into the
+	define_insn if there is only one option.
+	(vsx_sub<mode>3): Likewise.
+	(vsx_mul<mode>3): Likewise.
+	(vsx_div<mode>3): Likewise.
+	(vsx_fre<mode>2): Likewise.
+	(vsx_neg<mode>2): Likewise.
+	(vsx_abs<mode>2): Likewise.
+	(vsx_nabs<mode>2): Likewise.
+	(vsx_smax<mode>3): Likewise.
+	(vsx_smaxsf3): Likewise.
+	(vsx_smin<mode>3): Likewise.
+	(vsx_sminsf3): Likewise.
+	(vsx_sqrt<mode>2): Likewise.
+	(vsx_rsqrte<mode>2): Likewise.
+	(vsx_fmadf4): Likewise.
+	(vsx_fmsdf4): Likewise.
+	(vsx_fms<mode>4): Likewise.
+	(vsx_nfmadf4): Likewise.
+	(vsx_nfma<mode>4): Likewise.
+	(vsx_nfmadf4): Likewise.
+	(vsx_cmpdf_internal1): Likewise.
+	(vsx_copysign<mode>3): Likewise.
+	(vsx_btrunc<mode>2): Likewise.
+	(vsx_floor<mode>2): Likewise.
+	(vsx_ceil<mode>2): Likewise.
+	* config/rs6000/rs6000.md (Ftrad): Likewise.
+	(Fvsx): Likewise.
+	(Ff): Likewise.
+	(Fv): Likewise.
+	(Fs): Likewise.
+	(Ffre): Likewise.
+	(FFRE): Likewise.
+	(abs<mode>2): Likewise.
+	(abs<mode>2_fpr): Likewise.
+	(nabs<mode>2_fpr): Likewise.
+	(neg<mode>2): Likewise.
+	(neg<mode>2_fpr): Likewise.
+	(smax<mode>3): Likewise.
+	(smax<mode>3_vsx): Likewise.
+	(smin<mode>3): Likewise.
+	(smin<mode>3_fpr): Likewise.
+	(smin/smax peephole): Likewise.
+	(add<mode>3): Likewise.
+	(add<mode>3_fpr): Likewise.
+	(sub<mode>3): Likewise.
+	(sub<mode>3_fpr): Likewise.
+	(mul<mode>3): Likewise.
+	(mul<mode>3_fpr): Likewise.
+	(div<mode>3): Likewise.
+	(div<mode>3_fpr): Likewise.
+	(fre<Fs>): Likewise.
+	(sqrt<mode>2): Likewise.
+	(rsqrt<mode>2): Likewise.
+	(cmp<mode>_fpr): Likewise.
+	(negsf2): Likewise.
+	(abssf2): Likewise.
+	(negative abssf2 unnamed pattern): Likewise.
+	(addsf3): Likewise.
+	(subsf3): Likewise.
+	(mulsf3): Likewise.
+	(divsf3): Likewise.
+	(fres): Likewise.
+	(fmasf4_fpr): Likewise.
+	(fmssf4_fpr): Likewise.
+	(nfmasf4_fpr): Likewise.
+	(nfmssf4_fpr): Likewise.
+	(sqrtsf2): Likewise.
+	(rsqrtsf_internal1): Likewise.
+	(copysign<mode>3_fcpsgn): Likewise.
+	(smaxsf3): Likewise.
+	(sminsf3): Likewise.
+	(sminsf3/smaxsf3 splitter): Likewise.
+	(negdf2): Likewise.
+	(negdf2_fpr): Likewise.
+	(absdf2): Likewise.
+	(absdf2_fpr): Likewise.
+	(nabsdf2_fpr): Likewise.
+	(adddf3): Likewise.
+	(adddf3_fpr): Likewise.
+	(subdf3): Likewise.
+	(subdf3_fpr): Likewise.
+	(muldf3): Likewise.
+	(muldf3_fpr): Likewise.
+	(divdf3): Likewise.
+	(divdf3_fpr): Likewise.
+	(fred_fpr): Likewise.
+	(rsqrtdf_internal1): Likewise.
+	(fmadf4_fpr): Likewise.
+	(fmsdf4_fpr): Likewise.
+	(nfmadf4_fpr): Likewise.
+	(nfmsdf4_fpr): Likewise.
+	(sqrtdf2): Likewise.
+	(sqrtdf2_fpr): Likewise.
+	(smaxdf3): Likewise.
+	(smindf3): Likewise.
+	(smaxdf3, smindf3 splitter): Likewise.
+	(lrint<mode>di2): Likewise.
+	(btrunc<mode>2): Likewise.
+	(btranc<mode>2_fpr): Likewise.
+	(ceil<mode>2): Likewise.
+	(ceil<mode>2_fpr): Likewise.
+	(floor<mode>2): Likewise.
+	(floor<mode>2_fpr): Likewise.
+	(cmpsf_internal1): Likewise.
+	(cmpdf_internal1): Likewise.
+	(fma<mode>4_fpr): Likewise.
+	(fms<mode>4_fpr): Likewise.
+	(nfma<mode>4): Likewise.
+	(nfma<mode>4_fpr): Likewise.
+	(fnms<mode>4): Likewise.
+	(nfmssf4_fpr): Likewise.
+	(zero_extendsidi2_lfiwzx): Restrict using VSX load/stores to
+	Altivec registers.  Add support for power8 32-bit VSX memory
+	operations.
+	(extendsidi2_lfiwax): Likewise.
+	(lfiwax): Likewise.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(lfiwzx): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(mov<mode>_hardfloat, SFmode/SDmode): Likewise.
+	(mov<mode>_hardfloat32, DFmode/DDmode): Likewise.
+	(mov<mode>_hardfloat64, DFmode/DDmode): Likewise.
+	(movdi_internal64): Likewise.
+	(mov<mode>cc): Merge SF/DF conditional move patterns.
+	(fsel<mode>sf4): Likewise.
+	(fsel<mode>df4): Likewise.
+	(fselsfsf4): Likewise.
+	(fselsfdf4): Likewise.
+	(fseldfsf4): Likewise.
+	(fseldfdf4): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_SF_SPE): Define new macros to
+	simplify testing what kind of SFmode/DFmode floating point unit we
+	have.
+	(TARGET_DF_SPE): Likewise.
+	(TARGET_SF_FPR): Likewise.
+	(TARGET_DF_FPR): Likewise.
+	(TARGET_SF_INSN): Likewise.
+	(TARGET_DF_INSN): Likewise.
+	(res6000_reg_class_enum): Add wu, and wy constraints.  Sort
+	elements.
+
 2013-08-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from 201798.
