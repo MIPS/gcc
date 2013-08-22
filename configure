@@ -6849,7 +6849,7 @@ fi
 
 
  if test x$with_abigail != x -a x$with_abigail != xno; then
-   abigailinc="-I$with_abigail/include"
+   abigailinc="-I$with_abigail/include/libabigail"
    abigaillibs="-L$with_abigail/lib"
    found_abigail_lib=yes
    found_abigail_inc=yes
@@ -6927,9 +6927,6 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-    if test x$found_abigail_inc = xyes; then
-       abigailinc='-Ilibabigail '"${abigailinc}"
-    fi
  fi
 
  if test x$found_abigail_lib = xyes -a x$found_abigail_inc = xyes; then
@@ -6943,7 +6940,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
    if test -d $srcdir/libabigail -a -f $srcdir/gcc/gcc.c; then
       libpath='$$r/$(HOST_SUBDIR)/libabigail/src/'"${lt_cv_objdir}"
       abigaillibs="-L$libpath ${abigaillibs}"
-      abigailinc='-I${srcdir}/libabigail/src '"${abigailinc}"
+      abigailinc='-I${srcdir}/libabigail/include '"${abigailinc}"
       found_abigail_lib=yes
       found_abigail_inc=yes
       HAVE_LIBABIGAIL=yes
@@ -6954,7 +6951,7 @@ $as_echo "$as_me: WARNING: using in-tree libabigail, disabling version check" >&
  fi
 
  if test x$found_abigail_lib = xyes; then
-    abigaillibs="$abigaillibs -labigail"
+    abigaillibs="$abigaillibs -Wl,-Bstatic -labigail -Wl,-Bdynamic"
  fi
 
 
@@ -6979,7 +6976,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#include "libabigail/abg-version.h"
+#include "abg-version.h"
 int
 main ()
 {
