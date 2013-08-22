@@ -19355,7 +19355,7 @@ mips_is_store_insn_p(rtx insn)
    registers for allocnos coalesced with ALLOCNO.  */
 static void
 mips_get_coalesced_allocnos_attributes (ira_allocno_t allocno, int *freq,
-					int *num, int *nrefs_short,
+					int *num, int *nrefs,
 					int *lifetime)
 {
   ira_allocno_t a = allocno;
@@ -19364,7 +19364,7 @@ mips_get_coalesced_allocnos_attributes (ira_allocno_t allocno, int *freq,
 
   *freq = 0;
   *num = 0;
-  *nrefs_short = 0;
+  *nrefs = 0;
   *lifetime = 0;
 
 //  for (a = ALLOCNO_COALESCE_DATA (allocno)->next;;
@@ -19372,7 +19372,10 @@ mips_get_coalesced_allocnos_attributes (ira_allocno_t allocno, int *freq,
 //    {
       *freq += ALLOCNO_FREQ (a);
       *num += ALLOCNO_COLOR_DATA (a)->available_regs_num;
-      *nrefs_short += ALLOCNO_NREFS_SHORT (a);
+      if (TARGET_MIPS16)
+        *nrefs += ALLOCNO_NREFS (a);
+      else
+        *nrefs += ALLOCNO_NREFS_SHORT (a);
 
       for (i = 0; i < ALLOCNO_NUM_OBJECTS (a); i++)
         {
@@ -19392,16 +19395,12 @@ mips_get_coalesced_allocnos_attributes (ira_allocno_t allocno, int *freq,
 //    }
 }
 
-#define MIPS_FIXED_GP_REG_NUM 6
-/* Threshold, used by sorting heuristic, for taking number of short references
-   into account. */
-
-/* The threshold was 17 in the test below, why? using 8 made code smaller for libjpeg */
-#define ALLOCNO_COMPARE_HEURISTIC(A1N, A2N, A1NR_SHORT, A2NR_SHORT, LT1, LT2) \
-  ((A1N >= 8 && A2N >= 8) \
+/* The threshold was 17 in the test below, why? using 9 made code smaller for libjpeg */
+#define ALLOCNO_COMPARE_HEURISTIC(A1N, A2N, A1NR, A2NR, LT1, LT2) \
+  ((A1N >= 9 && A2N >= 9) \
    ? (9 * (A2N - A1N) \
-     - (3500 * A2NR_SHORT / (120 + LT2)) \
-     + (3500 * A1NR_SHORT / (120 + LT1))) \
+     - (3500 * A2NR / (120 + LT2)) \
+     + (3500 * A1NR / (120 + LT1))) \
    : (A2N - A1N))
 
 /* Compare two allocnos to define which allocno should be pushed first
@@ -19413,7 +19412,7 @@ mips_bucket_allocno_compare_func (const void *v1p, const void *v2p)
   ira_allocno_t a1 = *(const ira_allocno_t *) v1p;
   ira_allocno_t a2 = *(const ira_allocno_t *) v2p;
   int diff, a1_freq, a2_freq, a1_num, a2_num;
-  int a1_nrefs_short = 0, a2_nrefs_short = 0;
+  int a1_nrefs = 0, a2_nrefs = 0;
   int lifetime1 = 0, lifetime2 = 0;
   int cl1 = ALLOCNO_CLASS (a1), cl2 = ALLOCNO_CLASS (a2);
 
@@ -19426,27 +19425,22 @@ mips_bucket_allocno_compare_func (const void *v1p, const void *v2p)
     return diff;
 
   mips_get_coalesced_allocnos_attributes (a1, &a1_freq, &a1_num,
-					  &a1_nrefs_short, &lifetime1);
+					  &a1_nrefs, &lifetime1);
   mips_get_coalesced_allocnos_attributes (a2, &a2_freq, &a2_num,
-					  &a2_nrefs_short, &lifetime2);
+					  &a2_nrefs, &lifetime2);
 
-  if (optimize_micromips_regs_flag)
+  if (optimize_compressed_regs_flag)
     {
-      diff = ALLOCNO_COMPARE_HEURISTIC (a1_num, a2_num, a1_nrefs_short,
-				        a2_nrefs_short, lifetime1, lifetime2);
-
+      diff = ALLOCNO_COMPARE_HEURISTIC (a1_num, a2_num, a1_nrefs,
+				        a2_nrefs, lifetime1, lifetime2);
       if (diff != 0)
         return diff;
-      if ((diff = a1_freq - a2_freq) != 0)
-        return diff;
     }
-  else
-    {
-      if ((diff = a1_freq - a2_freq) != 0)
-        return diff;
-      if ((diff = a2_num - a1_num) != 0)
-        return diff;
-    }
+
+  if ((diff = a1_freq - a2_freq) != 0)
+    return diff;
+  if ((diff = a2_num - a1_num) != 0)
+    return diff;
   return ALLOCNO_NUM (a2) - ALLOCNO_NUM (a1);
 }
 
