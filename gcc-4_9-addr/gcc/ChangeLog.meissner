@@ -1,5 +1,58 @@
 2013-08-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vector.md (VEC_R): Add PTImode to types with
+	reload functions.
+
+	* config/rs6000/rs6000.c (rs6000_vector_reload): Delete separate
+	arrays holding different reload insns, and combine them into one
+	structure.  Add a mask of the allowable address forms for each type.
+	(reload_fpr_gpr): Likewise.
+	(reload_gpr_vsx): Likewise.
+	(reload_vsx_gpr): Likewise.
+	(struct rs6000_reg_addr): Likewise.
+	(reg_addr): Likewise.
+	(ADD_VALID_*): Likewise.
+	(ADDR_INDEXED_*): Likewise.
+	(ADDR_OFFSET_*): Likewise.
+	(ADDR_MULTIPLE_*): Likewise.
+	(ADDR_UPDATE_*): Likewise.
+	(ADDR_AND_*): Likewise.
+	(ADDR_GPR_MASK): Likewise.
+	(ADDR_FPR_MASK): Likewise.
+	(ADDR_AV_MASK): Likewise.
+	(ADDR_VSX_MASK): Likewise.
+	(ADDR_NOSTRICT_MASK): Likewise.
+	(rs6000_register_move_cost): Add forward declaration.
+	(mode_allowed_in_vsx_p): Inline helper functions to say whether a
+	mode is allowed in certain registers.
+	(mode_allowed_in_altivec_p): Likewise.
+	(mode_allowed_in_vsx_or_altivec_p): Likewise.
+	(mode_allowed_in_fpr_p): Likewise.
+	(mode_allows_update_p): Inline helper function to say whether
+	update forms are allowed for the address.
+	(rs6000_hard_regno_nregs_internal): Use the inline helper
+	functions to say whether a mode can go in a hard register.
+	(rs6000_debug_addr_mask): New debug function to decode the address
+	mask bits.
+	(rs6000_debug_reg_global): Switch to using reg_addr array for
+	reload functions.  Call rs6000_debug_addr_mask for each type.
+	(rs6000_init_address_modes): New function to set up the address
+	masks for each type.
+	(rs6000_init_hard_regno_mode_ok): Switch to using the reg_addr
+	array to hold secondary reload information.  Call
+	rs6000_init_address_modes.
+	(rs6000_option_override_internal): Add temporary support to turn
+	on -mupper-regs-{df,sf} if an evnronment variable is set.  Do not
+	submit this part of the code.
+	(rs6000_legitimate_address_p): Use mode_allows_update_p to
+	determine if PRE_INC, PRE_DEC, and PRE_MODIFY are supported.
+	(rs6000_debug_legitimate_address_p): Print whether we are before,
+	in, or after reload.
+	(rs6000_secondary_reload_direct_move): Use the reg_addr array
+	instead of separate reload function arrays.
+	(rs6000_secondary_reload): Likewise. Only call register_operand if
+	the address is a SUBREG.
+
 	* config/rs6000/rs6000.md (f32_lv): Use %x for VSX registers.
 	(f32_sv): Likewise.
 

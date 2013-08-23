@@ -54,7 +54,7 @@
 (define_mode_iterator VEC_64 [V2DI V2DF])
 
 ;; Vector reload iterator
-(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF SF SD SI DF DD DI TI])
+(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF SF SD SI DF DD DI TI PTI])
 
 ;; Base type from vector mode
 (define_mode_attr VEC_base [(V16QI "QI")
