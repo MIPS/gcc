@@ -1,3 +1,10 @@
+2013-08-23  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c (ubsan_typedesc_hasher::hash): Hash the TYPE_UID of the
+	type.
+	(ubsan_type_descriptor): Get TYPE_MAIN_VARIANT before initializing
+	the type descriptor.
+
 2013-08-20  Marek Polacek  <polacek@redhat.com>
 
 	* ubsan.c (is_ubsan_builtin_p): New function.

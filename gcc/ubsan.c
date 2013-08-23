@@ -60,7 +60,7 @@ struct ubsan_typedesc_hasher
 inline hashval_t
 ubsan_typedesc_hasher::hash (const ubsan_typedesc *data)
 {
-  return iterative_hash_object (data->type, 0);
+  return iterative_hash_object (TYPE_UID (data->type), 0);
 }
 
 /* Compare two data types.  */
@@ -298,11 +298,11 @@ ubsan_type_descriptor (tree type)
 {
   hash_table <ubsan_typedesc_hasher> ht = get_typedesc_hash_table ();
   ubsan_typedesc d;
-  ubsan_typedesc_init (&d, type, NULL);
 
   /* See through any typedefs.  */
   type = TYPE_MAIN_VARIANT (type);
 
+  ubsan_typedesc_init (&d, type, NULL);
   ubsan_typedesc **slot = ht.find_slot (&d, INSERT);
   if (*slot != NULL)
     /* We have the VAR_DECL in the table.  Return it.  */
