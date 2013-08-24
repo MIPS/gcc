@@ -1815,7 +1815,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 	  && PAIRED_VECTOR_MODE (mode))
 	return 1;
 
-      return mode_allowed_in_fpr_p (mode);
+      return 0;
     }
 
   /* The CR register can only hold CC modes.  */
