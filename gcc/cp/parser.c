@@ -8787,15 +8787,8 @@ cp_parser_lambda_introducer (cp_parser* parser, tree lambda_expr)
 
 	  /* Turn the identifier into an id-expression.  */
 	  capture_init_expr
-            = cp_parser_lookup_name
-                (parser,
-		 capture_id,
-                 none_type,
-                 /*is_template=*/false,
-                 /*is_namespace=*/false,
-                 /*check_dependency=*/true,
-                 /*ambiguous_decls=*/NULL,
-                 capture_token->location);
+	    = cp_parser_lookup_name_simple (parser, capture_id,
+					    capture_token->location);
 
 	  if (capture_init_expr == error_mark_node)
 	    {
@@ -8886,7 +8879,6 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
   tree param_list = void_list_node;
   tree attributes = NULL_TREE;
   tree exception_spec = NULL_TREE;
-  tree t;
 
   /* The lambda-declarator is optional, but must begin with an opening
      parenthesis if present.  */
@@ -8901,7 +8893,7 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
 
       /* Default arguments shall not be specified in the
 	 parameter-declaration-clause of a lambda-declarator.  */
-      for (t = param_list; t; t = TREE_CHAIN (t))
+      for (tree t = param_list; t; t = TREE_CHAIN (t))
 	if (TREE_PURPOSE (t))
 	  pedwarn (DECL_SOURCE_LOCATION (TREE_VALUE (t)), OPT_Wpedantic,
 		   "default argument specified for lambda parameter");
@@ -8930,10 +8922,7 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
 
       /* The function parameters must be in scope all the way until after the
          trailing-return-type in case of decltype.  */
-      for (t = current_binding_level->names; t; t = DECL_CHAIN (t))
-	pop_binding (DECL_NAME (t), t);
-
-      leave_scope ();
+      pop_bindings_and_leave_scope ();
     }
 
   /* Create the function call operator.
@@ -11671,13 +11660,8 @@ cp_parser_decltype_expr (cp_parser *parser,
 
       if (identifier_p (expr))
 	/* Lookup the name we got back from the id-expression.  */
-	expr = cp_parser_lookup_name (parser, expr,
-				      none_type,
-				      /*is_template=*/false,
-				      /*is_namespace=*/false,
-				      /*check_dependency=*/true,
-				      /*ambiguous_decls=*/NULL,
-				      id_expr_start_token->location);
+	expr = cp_parser_lookup_name_simple (parser, expr,
+					     id_expr_start_token->location);
 
       if (expr
           && expr != error_mark_node
@@ -16856,7 +16840,6 @@ cp_parser_direct_declarator (cp_parser* parser,
 	      tree params;
 	      unsigned saved_num_template_parameter_lists;
 	      bool is_declarator = false;
-	      tree t;
 
 	      /* In a member-declarator, the only valid interpretation
 		 of a parenthesis is the start of a
@@ -16945,9 +16928,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 		}
 
 	      /* Remove the function parms from scope.  */
-	      for (t = current_binding_level->names; t; t = DECL_CHAIN (t))
-		pop_binding (DECL_NAME (t), t);
-	      leave_scope();
+	      pop_bindings_and_leave_scope ();
 
 	      if (is_declarator)
 		/* Repeat the main loop.  */
@@ -24576,7 +24557,6 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 		 the default argument; otherwise the default
 		 argument continues.  */
 	      bool error = false;
-	      tree t;
 
 	      /* Set ITALP so cp_parser_parameter_declaration_list
 		 doesn't decide to commit to this parse.  */
@@ -24598,9 +24578,7 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 		{
 		  begin_scope (sk_function_parms, NULL_TREE);
 		  cp_parser_parameter_declaration_list (parser, &error);
-		  for (t = current_binding_level->names; t; t = DECL_CHAIN (t))
-		    pop_binding (DECL_NAME (t), t);
-		  leave_scope ();
+		  pop_bindings_and_leave_scope ();
 		}
 	      if (!cp_parser_error_occurred (parser) && !error)
 		done = true;

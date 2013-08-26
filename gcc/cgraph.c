@@ -701,6 +701,8 @@ cgraph_add_edge_to_call_site_hash (struct cgraph_edge *e)
   if (*slot)
     {
       gcc_assert (((struct cgraph_edge *)*slot)->speculative);
+      if (e->callee)
+	*slot = e;
       return;
     }
   gcc_assert (!*slot || e->speculative);
@@ -1074,8 +1076,8 @@ cgraph_turn_edge_to_speculative (struct cgraph_edge *e,
 
   if (dump_file)
     {
-      fprintf (dump_file, "Indirect call -> direct call from"
-	       " other module %s/%i => %s/%i\n",
+      fprintf (dump_file, "Indirect call -> speculative call"
+	       " %s/%i => %s/%i\n",
 	       xstrdup (cgraph_node_name (n)), n->symbol.order,
 	       xstrdup (cgraph_node_name (n2)), n2->symbol.order);
     }
@@ -1083,8 +1085,10 @@ cgraph_turn_edge_to_speculative (struct cgraph_edge *e,
   e2 = cgraph_create_edge (n, n2, e->call_stmt, direct_count, direct_frequency);
   initialize_inline_failed (e2);
   e2->speculative = true;
-  e2->call_stmt = e->call_stmt;
-  e2->can_throw_external = e->can_throw_external;
+  if (TREE_NOTHROW (n2->symbol.decl))
+    e2->can_throw_external = false;
+  else
+    e2->can_throw_external = e->can_throw_external;
   e2->lto_stmt_uid = e->lto_stmt_uid;
   e->count -= e2->count;
   e->frequency -= e2->frequency;
@@ -1093,6 +1097,7 @@ cgraph_turn_edge_to_speculative (struct cgraph_edge *e,
 			      IPA_REF_ADDR, e->call_stmt);
   ref->lto_stmt_uid = e->lto_stmt_uid;
   ref->speculative = e->speculative;
+  cgraph_mark_address_taken_node (n2);
   return e2;
 }
 
@@ -1292,10 +1297,13 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
       struct ipa_ref *ref;
 
       cgraph_speculative_call_info (e, e, e2, ref);
-      if (gimple_call_fndecl (e->call_stmt))
-	e = cgraph_resolve_speculation (e, gimple_call_fndecl (e->call_stmt));
-      if (!gimple_check_call_matching_types (e->call_stmt, e->callee->symbol.decl,
-					     true))
+      /* If there already is an direct call (i.e. as a result of inliner's substitution),
+ 	 forget about speculating.  */
+      if (decl)
+	e = cgraph_resolve_speculation (e, decl);
+      /* If types do not match, speculation was likely wrong.  */
+      else if (!gimple_check_call_matching_types (e->call_stmt, e->callee->symbol.decl,
+						  true))
 	{
 	  e = cgraph_resolve_speculation (e, NULL);
 	  if (dump_file)
@@ -1304,6 +1312,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 		     xstrdup (cgraph_node_name (e->caller)), e->caller->symbol.order,
 		     xstrdup (cgraph_node_name (e->callee)), e->callee->symbol.order);
 	}
+      /* Expand speculation into GIMPLE code.  */
       else
 	{
 	  if (dump_file)

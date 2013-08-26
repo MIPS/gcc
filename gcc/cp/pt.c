@@ -8864,7 +8864,8 @@ instantiate_class_template_1 (tree type)
       /* Adjust visibility for template arguments.  */
       determine_visibility (TYPE_MAIN_DECL (type));
     }
-  CLASSTYPE_FINAL (type) = CLASSTYPE_FINAL (pattern);
+  if (CLASS_TYPE_P (type))
+    CLASSTYPE_FINAL (type) = CLASSTYPE_FINAL (pattern);
 
   pbinfo = TYPE_BINFO (pattern);
 
