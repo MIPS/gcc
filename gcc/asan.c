@@ -1940,7 +1940,7 @@ asan_global_struct (void)
 	= build_decl (UNKNOWN_LOCATION, FIELD_DECL,
 		      get_identifier (field_names[i]),
 		      (i == 0 || i == 3) ? const_ptr_type_node
-		      : build_nonstandard_integer_type (POINTER_SIZE, 1));
+		      : pointer_sized_int_node);
       DECL_CONTEXT (fields[i]) = ret;
       if (i)
 	DECL_CHAIN (fields[i - 1]) = fields[i];
@@ -2025,8 +2025,7 @@ initialize_sanitizer_builtins (void)
 				ptr_type_node, ptr_type_node, NULL_TREE);
   tree BT_FN_VOID_PTR_PTRMODE
     = build_function_type_list (void_type_node, ptr_type_node,
-				build_nonstandard_integer_type (POINTER_SIZE,
-								1), NULL_TREE);
+				pointer_sized_int_node, NULL_TREE);
   tree BT_FN_VOID_INT
     = build_function_type_list (void_type_node, integer_type_node, NULL_TREE);
   tree BT_FN_BOOL_VPTR_PTR_IX_INT_INT[5];
@@ -2183,7 +2182,6 @@ asan_finish_file (void)
   if (gcount)
     {
       tree type = asan_global_struct (), var, ctor;
-      tree uptr = build_nonstandard_integer_type (POINTER_SIZE, 1);
       tree dtor_statements = NULL_TREE;
       vec<constructor_elt, va_gc> *v;
       char buf[20];
@@ -2212,15 +2210,16 @@ asan_finish_file (void)
       varpool_assemble_decl (varpool_node_for_decl (var));
 
       fn = builtin_decl_implicit (BUILT_IN_ASAN_REGISTER_GLOBALS);
+      tree gcount_tree = build_int_cst (pointer_sized_int_node, gcount);
       append_to_statement_list (build_call_expr (fn, 2,
 						 build_fold_addr_expr (var),
-						 build_int_cst (uptr, gcount)),
+						 gcount_tree),
 				&asan_ctor_statements);
 
       fn = builtin_decl_implicit (BUILT_IN_ASAN_UNREGISTER_GLOBALS);
       append_to_statement_list (build_call_expr (fn, 2,
 						 build_fold_addr_expr (var),
-						 build_int_cst (uptr, gcount)),
+						 gcount_tree),
 				&dtor_statements);
       cgraph_build_static_cdtor ('D', dtor_statements,
 				 MAX_RESERVED_INIT_PRIORITY - 1);

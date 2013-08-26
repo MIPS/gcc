@@ -124,14 +124,6 @@ ubsan_typedesc_new (tree type, tree decl)
   return desc;
 }
 
-/* Build the ubsan uptr type.  */
-
-static tree
-uptr_type (void)
-{
-  return build_nonstandard_integer_type (POINTER_SIZE, 1);
-}
-
 /* Helper routine, which encodes a value in the uptr type.
    Arguments with precision <= POINTER_SIZE are passed directly,
    the rest is passed by reference.  T is a value we are to encode.  */
@@ -144,7 +136,7 @@ ubsan_encode_value (tree t)
     {
     case INTEGER_TYPE:
       if (TYPE_PRECISION (type) <= POINTER_SIZE)
-	return fold_build1 (NOP_EXPR, uptr_type (), t);
+	return fold_build1 (NOP_EXPR, pointer_sized_int_node, t);
       else
 	return build_fold_addr_expr (t);
     case REAL_TYPE:
@@ -154,7 +146,7 @@ ubsan_encode_value (tree t)
 	  {
 	    tree itype = build_nonstandard_integer_type (bitsize, true);
 	    t = fold_build1 (VIEW_CONVERT_EXPR, itype, t);
-	    return fold_convert (uptr_type (), t);
+	    return fold_convert (pointer_sized_int_node, t);
 	  }
 	else
 	  {

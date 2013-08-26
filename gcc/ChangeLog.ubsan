@@ -1,3 +1,17 @@
+2013-08-26  Marek Polacek  <polacek@redhat.com>
+
+	* tree.h (enum tree_index): Add TI_POINTER_SIZED_TYPE.
+	(pointer_sized_int_node): Define.
+	* tree.c (build_common_tree_nodes): Initialize
+	pointer_sized_int_node.
+	* ubsan.c (ubsan_encode_value): Use pointer_sized_int_node instead
+	calling uptr_type.
+	(uptr_type): Remove function.
+	* asan.c (asan_global_struct): Use pointer_sized_int_node instead
+	calling build_nonstandard_integer_type.
+	(initialize_sanitizer_builtins): Likewise.
+	(asan_finish_file): Likewise.
+
 2013-08-23  Marek Polacek  <polacek@redhat.com>
 
 	* ubsan.c (ubsan_typedesc_hasher::hash): Hash the TYPE_UID of the
