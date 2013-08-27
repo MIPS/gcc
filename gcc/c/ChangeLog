@@ -1,3 +1,61 @@
+2013-08-26  Joern Rennecke  <joern.rennecke@embecosm.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35649
+	* c-typeck.c (c_common_type): Prefer double_type_node over
+	other REAL_TYPE types with the same precision.
+	(convert_arguments): Likewise.
+
+2013-08-23  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* c-objc-common.c (c_tree_printer): Document the nature of the cast.
+	(c_initialize_diagnostics): Call a destructor for the early printer.
+
+2013-08-22  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* c-objc-common.c (c_initialize_diagnostics): Simplify C pretty
+	printer initialization.
+
+2013-08-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57490
+	* c-array-notation.c (fix_conditional_array_notations_1): Added a
+	check for truth values.
+	(expand_array_notation_exprs): Added truth values case.  Removed an
+	unwanted else.  Added for-loop to walk through subtrees in default
+	case.
+
+2013-08-04  Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	* c-objc-common.c (c_initialize_diagnostics): Don't call pp_base.
+
+2013-07-23  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-parser.c (struct c_generic_association): Fix typo.
+
+2013-07-23  Tom Tromey  <tromey@redhat.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* c-parser.c (struct c_generic_association): New.
+	(c_generic_association_d): New typedef.
+	(c_parser_generic_selection): New function.
+	(c_parser_postfix_expression): Handle RID_GENERIC.
+
+2013-07-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57793
+	* c-decl.c (finish_struct): Check for too-large class.
+
+2013-07-04  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR c/57821
+	* c-typeck.c (set_init_index): When folding, check for index overflow.
+
+2013-06-28  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-parser.c (c_parser_array_notation): Removed rejection of array
+	notations in an array of function pointers.
+
 2013-06-21  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c-array-notation.c (make_triplet_val_inv): New function.

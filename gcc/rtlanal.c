@@ -2802,7 +2802,10 @@ computed_jump_p (const_rtx insn)
 	    if (GET_CODE (XVECEXP (pat, 0, i)) == USE
 		&& (GET_CODE (XEXP (XVECEXP (pat, 0, i), 0))
 		    == LABEL_REF))
-	      has_use_labelref = 1;
+	      {
+	        has_use_labelref = 1;
+	        break;
+	      }
 
 	  if (! has_use_labelref)
 	    for (i = len - 1; i >= 0; i--)
@@ -4031,7 +4034,7 @@ nonzero_bits1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
 	  && mode_width < BITS_PER_WORD
 	  && (UINTVAL (x) & ((unsigned HOST_WIDE_INT) 1 << (mode_width - 1)))
 	     != 0)
-	return UINTVAL (x) | ((unsigned HOST_WIDE_INT) (-1) << mode_width);
+	return UINTVAL (x) | (HOST_WIDE_INT_M1U << mode_width);
 #endif
 
       return UINTVAL (x);

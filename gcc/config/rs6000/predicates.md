@@ -124,6 +124,11 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= -16 && INTVAL (op) <= 15")))
 
+;; Return 1 if op is a unsigned 3-bit constant integer.
+(define_predicate "u3bit_cint_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 7")))
+
 ;; Return 1 if op is a unsigned 5-bit constant integer.
 (define_predicate "u5bit_cint_operand"
   (and (match_code "const_int")
@@ -134,6 +139,11 @@
 (define_predicate "s8bit_cint_operand"
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= -128 && INTVAL (op) <= 127")))
+
+;; Return 1 if op is a unsigned 10-bit constant integer.
+(define_predicate "u10bit_cint_operand"
+  (and (match_code "const_int")
+       (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 1023")))
 
 ;; Return 1 if op is a constant integer that can fit in a D field.
 (define_predicate "short_cint_operand"
@@ -224,6 +234,33 @@
     return 0;
 
   return (REGNO (op) != FIRST_GPR_REGNO);
+})
+
+;; Return 1 if op is a HTM specific SPR register.
+(define_predicate "htm_spr_reg_operand"
+  (match_operand 0 "register_operand")
+{
+  if (!TARGET_HTM)
+    return 0;
+
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  if (!REG_P (op))
+    return 0;
+
+  switch (REGNO (op))
+    {
+      case TFHAR_REGNO:
+      case TFIAR_REGNO:
+      case TEXASR_REGNO:
+	return 1;
+      default:
+	break;
+    }
+  
+  /* Unknown SPR.  */
+  return 0;
 })
 
 ;; Return 1 if op is a general purpose register that is an even register
@@ -1664,4 +1701,100 @@
     op = XEXP (op, 0);
 
   return GET_CODE (op) == UNSPEC && XINT (op, 1) == UNSPEC_TOCREL;
+})
+
+;; Match the first insn (addis) in fusing the combination of addis and loads to
+;; GPR registers on power8.
+(define_predicate "fusion_gpr_addis"
+  (match_code "const_int,high,plus")
+{
+  HOST_WIDE_INT value;
+  rtx int_const;
+
+  if (GET_CODE (op) == HIGH)
+    return 1;
+
+  if (CONST_INT_P (op))
+    int_const = op;
+
+  else if (GET_CODE (op) == PLUS
+	   && base_reg_operand (XEXP (op, 0), Pmode)
+	   && CONST_INT_P (XEXP (op, 1)))
+    int_const = XEXP (op, 1);
+
+  else
+    return 0;
+
+  /* Power8 currently will only do the fusion if the top 11 bits of the addis
+     value are all 1's or 0's.  */
+  value = INTVAL (int_const);
+  if ((value & (HOST_WIDE_INT)0xffff) != 0)
+    return 0;
+
+  if ((value & (HOST_WIDE_INT)0xffff0000) == 0)
+    return 0;
+
+  return (IN_RANGE (value >> 16, -32, 31));
+})
+
+;; Match the second insn (lbz, lhz, lwz, ld) in fusing the combination of addis
+;; and loads to GPR registers on power8.
+(define_predicate "fusion_gpr_mem_load"
+  (match_code "mem,sign_extend,zero_extend")
+{
+  rtx addr;
+
+  /* Handle sign/zero extend.  */
+  if (GET_CODE (op) == ZERO_EXTEND
+      || (TARGET_P8_FUSION_SIGN && GET_CODE (op) == SIGN_EXTEND))
+    {
+      op = XEXP (op, 0);
+      mode = GET_MODE (op);
+    }
+
+  if (!MEM_P (op))
+    return 0;
+
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+      break;
+
+    case DImode:
+      if (!TARGET_POWERPC64)
+	return 0;
+      break;
+
+    default:
+      return 0;
+    }
+
+  addr = XEXP (op, 0);
+  if (GET_CODE (addr) == PLUS)
+    {
+      rtx base = XEXP (addr, 0);
+      rtx offset = XEXP (addr, 1);
+
+      return (base_reg_operand (base, GET_MODE (base))
+	      && satisfies_constraint_I (offset));
+    }
+
+  else if (GET_CODE (addr) == LO_SUM)
+    {
+      rtx base = XEXP (addr, 0);
+      rtx offset = XEXP (addr, 1);
+
+      if (!base_reg_operand (base, GET_MODE (base)))
+	return 0;
+
+      else if (TARGET_XCOFF || (TARGET_ELF && TARGET_POWERPC64))
+	return small_toc_ref (offset, GET_MODE (offset));
+
+      else if (TARGET_ELF && !TARGET_POWERPC64)
+	return CONSTANT_P (offset);
+    }
+
+  return 0;
 })

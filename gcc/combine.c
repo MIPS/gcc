@@ -5803,8 +5803,15 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest,
 		return x;
 	    }
 
-	  /* If the code changed, return a whole new comparison.  */
-	  if (new_code != code)
+	  /* If the code changed, return a whole new comparison.
+	     We also need to avoid using SUBST in cases where
+	     simplify_comparison has widened a comparison with a CONST_INT,
+	     since in that case the wider CONST_INT may fail the sanity
+	     checks in do_SUBST.  */
+	  if (new_code != code
+	      || (CONST_INT_P (op1)
+		  && GET_MODE (op0) != GET_MODE (XEXP (x, 0))
+		  && GET_MODE (op0) != GET_MODE (XEXP (x, 1))))
 	    return gen_rtx_fmt_ee (new_code, mode, op0, op1);
 
 	  /* Otherwise, keep this operation, but maybe change its operands.
@@ -7326,7 +7333,8 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
   if (pos_rtx != 0
       && GET_MODE_SIZE (pos_mode) > GET_MODE_SIZE (GET_MODE (pos_rtx)))
     {
-      rtx temp = gen_rtx_ZERO_EXTEND (pos_mode, pos_rtx);
+      rtx temp = simplify_gen_unary (ZERO_EXTEND, pos_mode, pos_rtx,
+				     GET_MODE (pos_rtx));
 
       /* If we know that no extraneous bits are set, and that the high
 	 bit is not set, convert extraction to cheaper one - either
@@ -7340,7 +7348,8 @@ make_extraction (enum machine_mode mode, rtx inner, HOST_WIDE_INT pos,
 		       >> 1))
 		  == 0)))
 	{
-	  rtx temp1 = gen_rtx_SIGN_EXTEND (pos_mode, pos_rtx);
+	  rtx temp1 = simplify_gen_unary (SIGN_EXTEND, pos_mode, pos_rtx,
+					  GET_MODE (pos_rtx));
 
 	  /* Prefer ZERO_EXTENSION, since it gives more information to
 	     backends.  */
@@ -8120,8 +8129,8 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 	      /* If MODE is narrower than HOST_WIDE_INT and CVAL is a negative
 		 number, sign extend it.  */
 	      if (width > 0 && width < HOST_BITS_PER_WIDE_INT
-		  && (cval & ((unsigned HOST_WIDE_INT) 1 << (width - 1))) != 0)
-		cval |= (unsigned HOST_WIDE_INT) -1 << width;
+		  && (cval & (HOST_WIDE_INT_1U << (width - 1))) != 0)
+		cval |= HOST_WIDE_INT_M1U << width;
 
 	      y = simplify_gen_binary (AND, GET_MODE (x),
 				       XEXP (x, 0), GEN_INT (cval));
@@ -8149,8 +8158,8 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 	   number, sign extend it.  */
 
 	if (width < HOST_BITS_PER_WIDE_INT
-	    && (smask & ((unsigned HOST_WIDE_INT) 1 << (width - 1))) != 0)
-	  smask |= (unsigned HOST_WIDE_INT) (-1) << width;
+	    && (smask & (HOST_WIDE_INT_1U << (width - 1))) != 0)
+	  smask |= HOST_WIDE_INT_M1U << width;
 
 	if (CONST_INT_P (XEXP (x, 1))
 	    && exact_log2 (- smask) >= 0
@@ -11988,6 +11997,13 @@ simplify_comparison (enum rtx_code code, rtx *pop0, rtx *pop1)
 	    }
 	}
 
+  /* We may have changed the comparison operands.  Re-canonicalize.  */
+  if (swap_commutative_operands_p (op0, op1))
+    {
+      tem = op0, op0 = op1, op1 = tem;
+      code = swap_condition (code);
+    }
+
   /* If this machine only supports a subset of valid comparisons, see if we
      can convert an unsupported one into a supported one.  */
   target_canonicalize_comparison (&code, &op0, &op1, 0);
@@ -13578,14 +13594,17 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 		  && hard_regno_nregs[regno][GET_MODE (XEXP (note, 0))] > 1)
 		{
 		  unsigned int endregno = END_HARD_REGNO (XEXP (note, 0));
-		  int all_used = 1;
+		  bool all_used = true;
 		  unsigned int i;
 
 		  for (i = regno; i < endregno; i++)
 		    if ((! refers_to_regno_p (i, i + 1, PATTERN (place), 0)
 			 && ! find_regno_fusage (place, USE, i))
 			|| dead_or_set_regno_p (place, i))
-		      all_used = 0;
+		      {
+			all_used = false;
+			break;
+		      }
 
 		  if (! all_used)
 		    {
@@ -13629,7 +13648,6 @@ distribute_notes (rtx notes, rtx from_insn, rtx i3, rtx i2, rtx elim_i2,
 				    break;
 				  }
 			      }
-
 			}
 
 		      place = 0;
@@ -13829,22 +13847,40 @@ rest_of_handle_combine (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_combine =
+namespace {
+
+const pass_data pass_data_combine =
 {
- {
-  RTL_PASS,
-  "combine",                            /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_handle_combine,                  /* gate */
-  rest_of_handle_combine,               /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_COMBINE,                           /* tv_id */
-  PROP_cfglayout,                       /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "combine", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_COMBINE, /* tv_id */
+  PROP_cfglayout, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_combine : public rtl_opt_pass
+{
+public:
+  pass_combine(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_combine, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_combine (); }
+  unsigned int execute () { return rest_of_handle_combine (); }
+
+}; // class pass_combine
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_combine (gcc::context *ctxt)
+{
+  return new pass_combine (ctxt);
+}

@@ -33,6 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "diagnostic-color.h"
 
+#include <new>                     // For placement new.
+
 #define pedantic_warning_kind(DC)			\
   ((DC)->pedantic_errors ? DK_ERROR : DK_WARNING)
 #define permissive_error_kind(DC) ((DC)->permissive ? DK_WARNING : DK_ERROR)
@@ -102,7 +104,7 @@ diagnostic_set_caret_max_width (diagnostic_context *context, int value)
 {
   /* One minus to account for the leading empty space.  */
   value = value ? value - 1 
-    : (isatty (fileno (context->printer->buffer->stream))
+    : (isatty (fileno (pp_buffer (context->printer)->stream))
        ? getenv_columns () - 1: INT_MAX);
   
   if (value <= 0) 
@@ -120,11 +122,7 @@ diagnostic_initialize (diagnostic_context *context, int n_opts)
   /* Allocate a basic pretty-printer.  Clients will replace this a
      much more elaborated pretty-printer if they wish.  */
   context->printer = XNEW (pretty_printer);
-  pp_construct (context->printer, NULL, 0);
-  /* By default, diagnostics are sent to stderr.  */
-  context->printer->buffer->stream = stderr;
-  /* By default, we emit prefixes once per message.  */
-  context->printer->wrapping.rule = DIAGNOSTICS_SHOW_PREFIX_ONCE;
+  new (context->printer) pretty_printer ();
 
   memset (context->diagnostic_count, 0, sizeof context->diagnostic_count);
   context->some_warnings_are_errors = false;
@@ -306,7 +304,7 @@ diagnostic_show_locus (diagnostic_context * context,
   pp_newline (context->printer);
   saved_prefix = pp_get_prefix (context->printer);
   pp_set_prefix (context->printer, NULL);
-  pp_character (context->printer, ' ');
+  pp_space (context->printer);
   while (max_width > 0 && *line != '\0')
     {
       char c = *line == '\t' ? ' ' : *line;
@@ -554,7 +552,8 @@ default_diagnostic_finalizer (diagnostic_context *context ATTRIBUTE_UNUSED,
 
 /* Interface to specify diagnostic kind overrides.  Returns the
    previous setting, or DK_UNSPECIFIED if the parameters are out of
-   range.  */
+   range.  If OPTION_INDEX is zero, the new setting is for all the
+   diagnostics.  */
 diagnostic_t
 diagnostic_classify_diagnostic (diagnostic_context *context,
 				int option_index,
@@ -563,7 +562,7 @@ diagnostic_classify_diagnostic (diagnostic_context *context,
 {
   diagnostic_t old_kind;
 
-  if (option_index <= 0
+  if (option_index < 0
       || option_index >= context->n_opts
       || new_kind >= DK_LAST_DIAGNOSTIC_KIND)
     return DK_UNSPECIFIED;
@@ -695,9 +694,8 @@ diagnostic_report_diagnostic (diagnostic_context *context,
       /* This tests for #pragma diagnostic changes.  */
       if (context->n_classification_history > 0)
 	{
-	  int i;
 	  /* FIXME: Stupid search.  Optimize later. */
-	  for (i = context->n_classification_history - 1; i >= 0; i --)
+	  for (int i = context->n_classification_history - 1; i >= 0; i --)
 	    {
 	      if (linemap_location_before_p
 		  (line_table,
@@ -709,7 +707,9 @@ diagnostic_report_diagnostic (diagnostic_context *context,
 		      i = context->classification_history[i].option;
 		      continue;
 		    }
-		  if (context->classification_history[i].option == diagnostic->option_index)
+		  int option = context->classification_history[i].option;
+		  /* The option 0 is for all the diagnostics.  */
+		  if (option == 0 || option == diagnostic->option_index)
 		    {
 		      diag_class = context->classification_history[i].kind;
 		      if (diag_class != DK_UNSPECIFIED)

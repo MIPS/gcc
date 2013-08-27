@@ -216,7 +216,6 @@ static void add_candidates (tree, tree, const vec<tree, va_gc> *, tree, tree,
 			    bool, tree, tree, int, struct z_candidate **,
 			    tsubst_flags_t);
 static conversion *merge_conversion_sequences (conversion *, conversion *);
-static bool magic_varargs_p (tree);
 static tree build_temp (tree, tree, int, diagnostic_t *, tsubst_flags_t);
 
 /* Returns nonzero iff the destructor name specified in NAME matches BASETYPE.
@@ -1315,7 +1314,8 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
   /* As an extension, allow conversion to complex type.  */
   else if (ARITHMETIC_TYPE_P (to))
     {
-      if (! (INTEGRAL_CODE_P (fcode) || fcode == REAL_TYPE)
+      if (! (INTEGRAL_CODE_P (fcode)
+	     || (fcode == REAL_TYPE && !(flags & LOOKUP_NO_NON_INTEGRAL)))
           || SCOPED_ENUM_P (from))
 	return NULL;
       conv = build_conv (ck_std, to, conv);
@@ -1682,7 +1682,7 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
      resolution, or after we've chosen one.  */
   flags &= (LOOKUP_ONLYCONVERTING|LOOKUP_NO_CONVERSION|LOOKUP_COPY_PARM
 	    |LOOKUP_NO_TEMP_BIND|LOOKUP_NO_RVAL_BIND|LOOKUP_PREFER_RVALUE
-	    |LOOKUP_NO_NARROWING|LOOKUP_PROTECT);
+	    |LOOKUP_NO_NARROWING|LOOKUP_PROTECT|LOOKUP_NO_NON_INTEGRAL);
 
   /* FIXME: actually we don't want warnings either, but we can't just
      have 'complain &= ~(tf_warning|tf_error)' because it would cause
@@ -4406,10 +4406,54 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
       if (TREE_CODE (arg2_type) != VECTOR_TYPE
 	  && TREE_CODE (arg3_type) != VECTOR_TYPE)
 	{
-	  if (complain & tf_error)
-	    error_at (loc, "at least one operand of a vector conditional "
-		      "operator must be a vector");
-	  return error_mark_node;
+	  /* Rely on the error messages of the scalar version.  */
+	  tree scal = build_conditional_expr_1 (loc, integer_one_node,
+						orig_arg2, orig_arg3, complain);
+	  if (scal == error_mark_node)
+	    return error_mark_node;
+	  tree stype = TREE_TYPE (scal);
+	  tree ctype = TREE_TYPE (arg1_type);
+	  if (TYPE_SIZE (stype) != TYPE_SIZE (ctype)
+	      || (!INTEGRAL_TYPE_P (stype) && !SCALAR_FLOAT_TYPE_P (stype)))
+	    {
+	      if (complain & tf_error)
+		error_at (loc, "inferred scalar type %qT is not an integer or "
+			  "floating point type of the same size as %qT", stype,
+			  COMPARISON_CLASS_P (arg1)
+			  ? TREE_TYPE (TREE_TYPE (TREE_OPERAND (arg1, 0)))
+			  : ctype);
+	      return error_mark_node;
+	    }
+
+	  tree vtype = build_opaque_vector_type (stype,
+			 TYPE_VECTOR_SUBPARTS (arg1_type));
+	  /* We could pass complain & tf_warning to unsafe_conversion_p,
+	     but the warnings (like Wsign-conversion) have already been
+	     given by the scalar build_conditional_expr_1. We still check
+	     unsafe_conversion_p to forbid truncating long long -> float.  */
+	  if (unsafe_conversion_p (stype, arg2, false))
+	    {
+	      if (complain & tf_error)
+		error_at (loc, "conversion of scalar %qT to vector %qT "
+			       "involves truncation", arg2_type, vtype);
+	      return error_mark_node;
+	    }
+	  if (unsafe_conversion_p (stype, arg3, false))
+	    {
+	      if (complain & tf_error)
+		error_at (loc, "conversion of scalar %qT to vector %qT "
+			       "involves truncation", arg3_type, vtype);
+	      return error_mark_node;
+	    }
+
+	  arg2 = cp_convert (stype, arg2, complain);
+	  arg2 = save_expr (arg2);
+	  arg2 = build_vector_from_val (vtype, arg2);
+	  arg2_type = vtype;
+	  arg3 = cp_convert (stype, arg3, complain);
+	  arg3 = save_expr (arg3);
+	  arg3 = build_vector_from_val (vtype, arg3);
+	  arg3_type = vtype;
 	}
 
       if ((TREE_CODE (arg2_type) == VECTOR_TYPE)
@@ -4425,6 +4469,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 		return error_mark_node;
 	      case stv_firstarg:
 		{
+		  arg2 = save_expr (arg2);
 		  arg2 = convert (TREE_TYPE (arg3_type), arg2);
 		  arg2 = build_vector_from_val (arg3_type, arg2);
 		  arg2_type = TREE_TYPE (arg2);
@@ -4432,6 +4477,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 		}
 	      case stv_secondarg:
 		{
+		  arg3 = save_expr (arg3);
 		  arg3 = convert (TREE_TYPE (arg2_type), arg3);
 		  arg3 = build_vector_from_val (arg2_type, arg3);
 		  arg3_type = TREE_TYPE (arg3);
@@ -4642,10 +4688,11 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
 
   /* [expr.cond]
 
-     If the second and third operands are lvalues and have the same
-     type, the result is of that type and is an lvalue.  */
-  if (real_lvalue_p (arg2)
-      && real_lvalue_p (arg3)
+     If the second and third operands are glvalues of the same value
+     category and have the same type, the result is of that type and
+     value category.  */
+  if (((real_lvalue_p (arg2) && real_lvalue_p (arg3))
+       || (xvalue_p (arg2) && xvalue_p (arg3)))
       && same_type_p (arg2_type, arg3_type))
     {
       result_type = arg2_type;
@@ -5857,16 +5904,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else if (t->kind == ck_identity)
 	    break;
 	}
-
-      if (flag_enable_cilkplus
-	  && (contains_array_notation_expr (expr)
-	      || contains_array_notation_expr (fn)))
-	/* If we are using array notations, we fix them up at a later stage
-	   and we will do these checks then.  */
-	;
-      else if (permerror (loc, "invalid conversion from %qT to %qT",
-			  TREE_TYPE (expr), totype)
-	       && fn)
+       if (permerror (loc, "invalid conversion from %qT to %qT",
+                    TREE_TYPE (expr), totype)
+	   && fn)
 	inform (DECL_SOURCE_LOCATION (fn),
 		"initializing argument %P of %qD", argnum, fn);
 
@@ -6400,7 +6440,7 @@ convert_default_arg (tree type, tree arg, tree fn, int parmnum,
   push_defarg_context (fn);
 
   if (fn && DECL_TEMPLATE_INFO (fn))
-    arg = tsubst_default_argument (fn, type, arg);
+    arg = tsubst_default_argument (fn, type, arg, complain);
 
   /* Due to:
 
@@ -6515,9 +6555,12 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
    which no conversions at all should be done.  This is true for some
    builtins which don't act like normal functions.  */
 
-static bool
+bool
 magic_varargs_p (tree fn)
 {
+  if (flag_enable_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
+    return true;
+
   if (DECL_BUILT_IN (fn))
     switch (DECL_FUNCTION_CODE (fn))
       {
@@ -6895,21 +6938,13 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 		       "  (you can disable this with -fno-deduce-init-list)");
 	    }
 	}
+      val = convert_like_with_context (conv, arg, fn, i - is_method,
+				       conversion_warning
+				       ? complain
+				       : complain & (~tf_warning));
 
-      /* If the function call is builtin array notation function then no need
-	 to do any type conversion.  */
-      if (flag_enable_cilkplus
-	  && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
-	val = arg;
-      else
-	{
-	  val = convert_like_with_context (conv, arg, fn, i - is_method,
-					   conversion_warning
-					   ? complain
-					   : complain & (~tf_warning));
-
-	  val = convert_for_arg_passing (type, val, complain);
-	}
+      val = convert_for_arg_passing (type, val, complain);
+	
       if (val == error_mark_node)
         return error_mark_node;
       else
@@ -7141,6 +7176,33 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
       && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && !check_builtin_function_arguments (fndecl, nargs, argarray))
     return error_mark_node;
+
+    /* If it is a built-in array notation function, then the return type of
+     the function is the element type of the array passed in as array 
+     notation (i.e. the first parameter of the function).  */
+  if (flag_enable_cilkplus && TREE_CODE (fn) == CALL_EXPR) 
+    {
+      enum built_in_function bif = 
+	is_cilkplus_reduce_builtin (CALL_EXPR_FN (fn));
+      if (bif == BUILT_IN_CILKPLUS_SEC_REDUCE_ADD
+	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MUL
+	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MAX
+	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN
+	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE
+	  || bif == BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING)
+	{ 
+	  /* for bif == BUILT_IN_CILKPLUS_SEC_REDUCE_ALL_ZERO or
+	     BUILT_IN_CILKPLUS_SEC_REDUCE_ANY_ZERO or
+	     BUILT_IN_CILKPLUS_SEC_REDUCE_ANY_NONZERO or 
+	     BUILT_IN_CILKPLUS_SEC_REDUCE_ALL_NONZERO or
+	     BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND or
+             BUILT_IN_CILKPLUS_SEC_REDUCE_MAX_IND
+	     The pre-defined return-type is the correct one.  */
+	  tree array_ntn = CALL_EXPR_ARG (fn, 0); 
+	  TREE_TYPE (fn) = TREE_TYPE (array_ntn); 
+	  return fn;
+	}
+    }
 
   /* Some built-in function calls will be evaluated at compile-time in
      fold ().  Set optimize to 1 when folding __builtin_constant_p inside
@@ -7606,7 +7668,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 
       if (init)
 	{
-	  if (TREE_CODE (instance) == INDIRECT_REF
+	  if (INDIRECT_REF_P (instance)
 	      && integer_zerop (TREE_OPERAND (instance, 0)))
 	    return get_target_expr_sfinae (init, complain);
 	  init = build2 (INIT_EXPR, TREE_TYPE (instance), instance, init);
@@ -8826,6 +8888,20 @@ tourney (struct z_candidate *candidates, tsubst_flags_t complain)
 bool
 can_convert (tree to, tree from, tsubst_flags_t complain)
 {
+  tree arg = NULL_TREE;
+  /* implicit_conversion only considers user-defined conversions
+     if it has an expression for the call argument list.  */
+  if (CLASS_TYPE_P (from) || CLASS_TYPE_P (to))
+    arg = build1 (CAST_EXPR, from, NULL_TREE);
+  return can_convert_arg (to, from, arg, LOOKUP_IMPLICIT, complain);
+}
+
+/* Returns nonzero if things of type FROM can be converted to TO with a
+   standard conversion.  */
+
+bool
+can_convert_standard (tree to, tree from, tsubst_flags_t complain)
+{
   return can_convert_arg (to, from, NULL_TREE, LOOKUP_IMPLICIT, complain);
 }
 
@@ -9234,10 +9310,14 @@ initialize_reference (tree type, tree expr,
       return error_mark_node;
     }
 
-  gcc_assert (conv->kind == ck_ref_bind);
-
-  /* Perform the conversion.  */
-  expr = convert_like (conv, expr, complain);
+  if (conv->kind == ck_ref_bind)
+    /* Perform the conversion.  */
+    expr = convert_like (conv, expr, complain);
+  else if (conv->kind == ck_ambig)
+    /* We gave an error in build_user_type_conversion_1.  */
+    expr = error_mark_node;
+  else
+    gcc_unreachable ();
 
   /* Free all the conversions we allocated.  */
   obstack_free (&conversion_obstack, p);
@@ -9343,6 +9423,8 @@ is_std_init_list (tree type)
 {
   /* Look through typedefs.  */
   if (!TYPE_P (type))
+    return false;
+  if (cxx_dialect == cxx98)
     return false;
   type = TYPE_MAIN_VARIANT (type);
   return (CLASS_TYPE_P (type)

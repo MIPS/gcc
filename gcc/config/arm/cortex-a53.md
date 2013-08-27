@@ -67,12 +67,15 @@
 
 (define_insn_reservation "cortex_a53_alu" 2
   (and (eq_attr "tune" "cortexa53")
-       (eq_attr "type" "alu_reg,simple_alu_imm"))
+       (eq_attr "type" "arlo_imm,arlo_reg,shift,shift_reg,\
+                        mov_imm,mov_reg,mvn_imm,mvn_reg"))
   "cortex_a53_slot_any")
 
 (define_insn_reservation "cortex_a53_alu_shift" 2
   (and (eq_attr "tune" "cortexa53")
-       (eq_attr "type" "alu_shift,alu_shift_reg"))
+       (eq_attr "type" "arlo_shift,arlo_shift_reg,\
+                        mov_shift,mov_shift_reg,\
+                        mvn_shift,mvn_shift_reg"))
   "cortex_a53_slot_any")
 
 ;; Forwarding path for unshifted operands.
@@ -127,12 +130,12 @@
 
 (define_insn_reservation "cortex_a53_load1" 3
   (and (eq_attr "tune" "cortexa53")
-       (eq_attr "type" "load_byte,load1"))
+       (eq_attr "type" "load_byte,load1,load_acq"))
   "cortex_a53_slot_any+cortex_a53_ls")
 
 (define_insn_reservation "cortex_a53_store1" 2
   (and (eq_attr "tune" "cortexa53")
-       (eq_attr "type" "store1"))
+       (eq_attr "type" "store1,store_rel"))
   "cortex_a53_slot_any+cortex_a53_ls+cortex_a53_store")
 
 (define_insn_reservation "cortex_a53_load2" 3

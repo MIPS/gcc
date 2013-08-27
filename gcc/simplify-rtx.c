@@ -1470,6 +1470,29 @@ simplify_unary_operation_1 (enum rtx_code code, enum machine_mode mode, rtx op)
 	    }
 	}
 
+      /* (zero_extend:M (subreg:N <X:O>)) is <X:O> (for M == O) or
+	 (zero_extend:M <X:O>), if X doesn't have any non-zero bits outside
+	 of mode N.  E.g.
+	 (zero_extend:SI (subreg:QI (and:SI (reg:SI) (const_int 63)) 0)) is
+	 (and:SI (reg:SI) (const_int 63)).  */
+      if (GET_CODE (op) == SUBREG
+	  && GET_MODE_PRECISION (GET_MODE (op))
+	     < GET_MODE_PRECISION (GET_MODE (SUBREG_REG (op)))
+	  && GET_MODE_PRECISION (GET_MODE (SUBREG_REG (op)))
+	     <= HOST_BITS_PER_WIDE_INT
+	  && GET_MODE_PRECISION (mode)
+	     >= GET_MODE_PRECISION (GET_MODE (SUBREG_REG (op)))
+	  && subreg_lowpart_p (op)
+	  && (nonzero_bits (SUBREG_REG (op), GET_MODE (SUBREG_REG (op)))
+	      & ~GET_MODE_MASK (GET_MODE (op))) == 0)
+	{
+	  if (GET_MODE_PRECISION (mode)
+	      == GET_MODE_PRECISION (GET_MODE (SUBREG_REG (op))))
+	    return SUBREG_REG (op);
+	  return simplify_gen_unary (ZERO_EXTEND, mode, SUBREG_REG (op),
+				     GET_MODE (SUBREG_REG (op)));
+	}
+
 #if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
       /* As we do not know which address space the pointer is referring to,
 	 we can do this only if the target does not support different pointer
@@ -1995,14 +2018,13 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  /* Test against the signed lower bound.  */
 	  if (width > HOST_BITS_PER_WIDE_INT)
 	    {
-	      th = (unsigned HOST_WIDE_INT) (-1)
-		   << (width - HOST_BITS_PER_WIDE_INT - 1);
+	      th = HOST_WIDE_INT_M1U << (width - HOST_BITS_PER_WIDE_INT - 1);
 	      tl = 0;
 	    }
 	  else
 	    {
 	      th = -1;
-	      tl = (unsigned HOST_WIDE_INT) (-1) << (width - 1);
+	      tl = HOST_WIDE_INT_M1U << (width - 1);
 	    }
 	  real_from_integer (&t, VOIDmode, tl, th, 0);
 	  if (REAL_VALUES_LESS (x, t))
@@ -2818,6 +2840,7 @@ simplify_binary_operation_1 (enum rtx_code code, enum machine_mode mode,
           HOST_WIDE_INT mask = INTVAL (trueop1) << count;
 
           if (mask >> count == INTVAL (trueop1)
+	      && trunc_int_for_mode (mask, mode) == mask
               && (mask & nonzero_bits (XEXP (op0, 0), mode)) == 0)
 	    return simplify_gen_binary (ASHIFTRT, mode,
 					plus_constant (mode, XEXP (op0, 0),
@@ -4167,7 +4190,7 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
 
 	  /* Sign-extend the result for arithmetic right shifts.  */
 	  if (code == ASHIFTRT && arg0s < 0 && arg1 > 0)
-	    val |= ((unsigned HOST_WIDE_INT) (-1)) << (width - arg1);
+	    val |= HOST_WIDE_INT_M1U << (width - arg1);
 	  break;
 
 	case ROTATERT:

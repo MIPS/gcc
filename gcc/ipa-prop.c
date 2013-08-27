@@ -131,11 +131,13 @@ ipa_populate_param_decls (struct cgraph_node *node,
   int param_num;
 
   fndecl = node->symbol.decl;
+  gcc_assert (gimple_has_body_p (fndecl));
   fnargs = DECL_ARGUMENTS (fndecl);
   param_num = 0;
   for (parm = fnargs; parm; parm = DECL_CHAIN (parm))
     {
       descriptors[param_num].decl = parm;
+      descriptors[param_num].move_cost = estimate_move_cost (TREE_TYPE (parm));
       param_num++;
     }
 }
@@ -147,11 +149,39 @@ count_formal_params (tree fndecl)
 {
   tree parm;
   int count = 0;
+  gcc_assert (gimple_has_body_p (fndecl));
 
   for (parm = DECL_ARGUMENTS (fndecl); parm; parm = DECL_CHAIN (parm))
     count++;
 
   return count;
+}
+
+/* Return the declaration of Ith formal parameter of the function corresponding
+   to INFO.  Note there is no setter function as this array is built just once
+   using ipa_initialize_node_params. */
+
+void
+ipa_dump_param (FILE *file, struct ipa_node_params *info, int i)
+{
+  fprintf (file, "param #%i", i);
+  if (info->descriptors[i].decl)
+    {
+      fprintf (file, " ");
+      print_generic_expr (file, info->descriptors[i].decl, 0);
+    }
+}
+
+/* Initialize the ipa_node_params structure associated with NODE 
+   to hold PARAM_COUNT parameters.  */
+
+void
+ipa_alloc_node_params (struct cgraph_node *node, int param_count)
+{
+  struct ipa_node_params *info = IPA_NODE_REF (node);
+
+  if (!info->descriptors.exists () && param_count)
+    info->descriptors.safe_grow_cleared (param_count);
 }
 
 /* Initialize the ipa_node_params structure associated with NODE by counting
@@ -165,14 +195,8 @@ ipa_initialize_node_params (struct cgraph_node *node)
 
   if (!info->descriptors.exists ())
     {
-      int param_count;
-
-      param_count = count_formal_params (node->symbol.decl);
-      if (param_count)
-	{
-	  info->descriptors.safe_grow_cleared (param_count);
-	  ipa_populate_param_decls (node, info->descriptors);
-	}
+      ipa_alloc_node_params (node, count_formal_params (node->symbol.decl));
+      ipa_populate_param_decls (node, info->descriptors);
     }
 }
 
@@ -682,7 +706,7 @@ mark_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef ATTRIBUTE_UNUSED,
   return true;
 }
 
-/* Return true if a load from a formal parameter PARM_LOAD is known to retreive
+/* Return true if a load from a formal parameter PARM_LOAD is known to retrieve
    a value known not to be modified in this function before reaching the
    statement STMT.  PARM_AINFO is a pointer to a structure containing temporary
    information about the parameter.  */
@@ -1879,7 +1903,7 @@ ipa_analyze_virtual_call_uses (struct cgraph_node *node,
   ii = cs->indirect_info;
   ii->offset = anc_offset;
   ii->otr_token = tree_low_cst (OBJ_TYPE_REF_TOKEN (target), 1);
-  ii->otr_type = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (target)));
+  ii->otr_type = obj_type_ref_class (target);
   ii->polymorphic = 1;
 }
 
@@ -1898,7 +1922,7 @@ ipa_analyze_call_uses (struct cgraph_node *node,
     return;
   if (TREE_CODE (target) == SSA_NAME)
     ipa_analyze_indirect_call_uses (node, info, parms_ainfo, call, target);
-  else if (TREE_CODE (target) == OBJ_TYPE_REF)
+  else if (virtual_method_call_p (target))
     ipa_analyze_virtual_call_uses (node, info, call, target);
 }
 
@@ -2289,12 +2313,6 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
      the cgraph node too early.  */
   gcc_assert (!callee->global.inlined_to);
 
-  cgraph_make_edge_direct (ie, callee);
-  es = inline_edge_summary (ie);
-  es->call_stmt_size -= (eni_size_weights.indirect_call_cost
-			 - eni_size_weights.call_cost);
-  es->call_stmt_time -= (eni_time_weights.indirect_call_cost
-			 - eni_time_weights.call_cost);
   if (dump_file && !unreachable)
     {
       fprintf (dump_file, "ipa-prop: Discovered %s call to a known target "
@@ -2302,14 +2320,19 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 	       ie->indirect_info->polymorphic ? "a virtual" : "an indirect",
 	       xstrdup (cgraph_node_name (ie->caller)),
 	       ie->caller->symbol.order,
-	       xstrdup (cgraph_node_name (ie->callee)),
-	       ie->callee->symbol.order);
+	       xstrdup (cgraph_node_name (callee)),
+	       callee->symbol.order);
       if (ie->call_stmt)
 	print_gimple_stmt (dump_file, ie->call_stmt, 2, TDF_SLIM);
       else
 	fprintf (dump_file, "with uid %i\n", ie->lto_stmt_uid);
-    }
-  callee = cgraph_function_or_thunk_node (callee, NULL);
+     }
+  ie = cgraph_make_edge_direct (ie, callee);
+  es = inline_edge_summary (ie);
+  es->call_stmt_size -= (eni_size_weights.indirect_call_cost
+			 - eni_size_weights.call_cost);
+  es->call_stmt_time -= (eni_time_weights.indirect_call_cost
+			 - eni_time_weights.call_cost);
 
   return ie;
 }
@@ -2350,7 +2373,7 @@ remove_described_reference (symtab_node symbol, struct ipa_cst_ref_desc *rdesc)
 
   origin = rdesc->cs;
   to_del = ipa_find_reference ((symtab_node) origin->caller, symbol,
-			       origin->call_stmt);
+			       origin->call_stmt, origin->lto_stmt_uid);
   gcc_assert (to_del);
   ipa_remove_reference (to_del);
   if (dump_file)
@@ -2384,9 +2407,11 @@ try_make_edge_direct_simple_call (struct cgraph_edge *ie,
 				  struct ipa_jump_func *jfunc,
 				  struct ipa_node_params *new_root_info)
 {
-  struct ipa_cst_ref_desc *rdesc;
   struct cgraph_edge *cs;
   tree target;
+  bool agg_contents = ie->indirect_info->agg_contents;
+  bool speculative = ie->speculative;
+  struct ipa_cst_ref_desc *rdesc;
 
   if (ie->indirect_info->agg_contents)
     target = ipa_find_agg_cst_for_param (&jfunc->agg,
@@ -2398,7 +2423,8 @@ try_make_edge_direct_simple_call (struct cgraph_edge *ie,
     return NULL;
   cs = ipa_make_edge_direct_to_target (ie, target);
 
-  if (cs && !ie->indirect_info->agg_contents
+  /* FIXME: speculative edges can be handled.  */
+  if (cs && !agg_contents && !speculative
       && jfunc->type == IPA_JF_CONST
       && (rdesc = jfunc_rdesc_usable (jfunc))
       && --rdesc->refcount == 0)
@@ -2427,7 +2453,8 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 
   if (TREE_CODE (binfo) != TREE_BINFO)
     {
-      binfo = gimple_extract_devirt_binfo_from_cst (binfo);
+      binfo = gimple_extract_devirt_binfo_from_cst
+		 (binfo, ie->indirect_info->otr_type);
       if (!binfo)
         return NULL;
     }
@@ -2497,7 +2524,14 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
       else
 	new_direct_edge = try_make_edge_direct_simple_call (ie, jfunc,
 							    new_root_info);
-      if (new_direct_edge)
+      /* If speculation was removed, then we need to do nothing.  */
+      if (new_direct_edge && new_direct_edge != ie)
+	{
+	  new_direct_edge->indirect_inlining_edge = 1;
+	  top = IPA_EDGE_REF (cs);
+	  res = true;
+	}
+      else if (new_direct_edge)
 	{
 	  new_direct_edge->indirect_inlining_edge = 1;
 	  if (new_direct_edge->call_stmt)
@@ -2508,9 +2542,9 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 	  if (new_edges)
 	    {
 	      new_edges->safe_push (new_direct_edge);
-	      top = IPA_EDGE_REF (cs);
 	      res = true;
 	    }
+	  top = IPA_EDGE_REF (cs);
 	}
       else if (jfunc->type == IPA_JF_PASS_THROUGH
 	       && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
@@ -2621,7 +2655,7 @@ propagate_controlled_uses (struct cgraph_edge *cs)
 		  && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL
 		  && (n = cgraph_get_node (TREE_OPERAND (t, 0)))
 		  && (ref = ipa_find_reference ((symtab_node) new_root,
-						(symtab_node) n, NULL)))
+						(symtab_node) n, NULL, 0)))
 		{
 		  if (dump_file)
 		    fprintf (dump_file, "ipa-prop: Removing cloning-created "
@@ -2659,7 +2693,7 @@ propagate_controlled_uses (struct cgraph_edge *cs)
 		    {
 		      struct ipa_ref *ref;
 		      ref = ipa_find_reference ((symtab_node) clone,
-						(symtab_node) n, NULL);
+						(symtab_node) n, NULL, 0);
 		      if (ref)
 			{
 			  if (dump_file)
@@ -3007,7 +3041,6 @@ void
 ipa_print_node_params (FILE *f, struct cgraph_node *node)
 {
   int i, count;
-  tree temp;
   struct ipa_node_params *info;
 
   if (!node->symbol.definition)
@@ -3020,12 +3053,7 @@ ipa_print_node_params (FILE *f, struct cgraph_node *node)
     {
       int c;
 
-      temp = ipa_get_param (info, i);
-      if (TREE_CODE (temp) == PARM_DECL)
-	fprintf (f, "    param %d : %s", i,
-                 (DECL_NAME (temp)
-                  ? (*lang_hooks.decl_printable_name) (temp, 2)
-                  : "(unnamed)"));
+      ipa_dump_param (f, info, i);
       if (ipa_is_param_used (info, i))
 	fprintf (f, " used");
       c = ipa_get_controlled_uses (info, i);
@@ -3059,6 +3087,7 @@ ipa_get_vector_of_formal_parms (tree fndecl)
   int count;
   tree parm;
 
+  gcc_assert (!flag_wpa);
   count = count_formal_params (fndecl);
   args.create (count);
   for (parm = DECL_ARGUMENTS (fndecl); parm; parm = DECL_CHAIN (parm))
@@ -3851,6 +3880,9 @@ ipa_write_node_info (struct output_block *ob, struct cgraph_node *node)
   node_ref = lto_symtab_encoder_encode (encoder, (symtab_node) node);
   streamer_write_uhwi (ob, node_ref);
 
+  streamer_write_uhwi (ob, ipa_get_param_count (info));
+  for (j = 0; j < ipa_get_param_count (info); j++)
+    streamer_write_uhwi (ob, ipa_get_param_move_cost (info, j));
   bp = bitpack_create (ob->main_stream);
   gcc_assert (info->uses_analysis_done
 	      || ipa_get_param_count (info) == 0);
@@ -3891,8 +3923,11 @@ ipa_read_node_info (struct lto_input_block *ib, struct cgraph_node *node,
   struct cgraph_edge *e;
   struct bitpack_d bp;
 
-  ipa_initialize_node_params (node);
+  ipa_alloc_node_params (node, streamer_read_uhwi (ib));
 
+  for (k = 0; k < ipa_get_param_count (info); k++)
+    info->descriptors[k].move_cost = streamer_read_uhwi (ib);
+    
   bp = streamer_read_bitpack (ib);
   if (ipa_get_param_count (info) != 0)
     info->uses_analysis_done = true;
@@ -4044,13 +4079,8 @@ ipa_prop_read_jump_functions (void)
 void
 ipa_update_after_lto_read (void)
 {
-  struct cgraph_node *node;
-
   ipa_check_create_node_params ();
   ipa_check_create_edge_args ();
-
-  FOR_EACH_DEFINED_FUNCTION (node)
-    ipa_initialize_node_params (node);
 }
 
 void

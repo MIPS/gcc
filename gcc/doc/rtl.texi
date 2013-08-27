@@ -1097,6 +1097,10 @@ this is the right mode to use for certain pointers.
 @item OImode
 ``Octa Integer'' (?) mode represents a thirty-two-byte integer.
 
+@findex XImode
+@item XImode
+``Hexadeca Integer'' (?) mode represents a sixty-four-byte integer.
+
 @findex QFmode
 @item QFmode
 ``Quarter-Floating'' mode represents a quarter-precision (single byte)
@@ -3086,7 +3090,7 @@ code output, can produce insns whose patterns consist of a @code{parallel}
 whose elements are the operands needed to output the resulting
 assembler code---often @code{reg}, @code{mem} or constant expressions.
 This would not be well-formed RTL at any other stage in compilation,
-but it is ok then because no further optimization remains to be done.
+but it is OK then because no further optimization remains to be done.
 However, the definition of the macro @code{NOTICE_UPDATE_CC}, if
 any, must deal with such insns if you define any peephole optimizations.
 

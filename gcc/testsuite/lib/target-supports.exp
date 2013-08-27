@@ -1132,6 +1132,24 @@ proc check_effective_target_static_libgfortran { } {
     } "-static"]
 }
 
+# Return 1 if cilk-plus is supported by the target, 0 otherwise.
+ 
+proc check_effective_target_cilkplus { } {
+    # Skip cilk-plus tests on int16 and size16 targets for now.
+    # The cilk-plus tests are not generic enough to cover these
+    # cases and would throw hundreds of FAILs.
+    if { [check_effective_target_int16]
+	 || ![check_effective_target_size32plus] } {
+	return 0;
+    }
+
+    # Skip AVR, its RAM is too small and too many tests would fail.
+    if { [istarget avr-*-*] } {
+	return 0;
+    }
+    return 1
+}
+
 proc check_linker_plugin_available { } {
   return [check_no_compiler_messages_nocache linker_plugin executable {
      int main() { return 0; }
@@ -1705,6 +1723,15 @@ proc check_effective_target_x32 { } {
     }]
 }
 
+# Return 1 if we're generating 32-bit integers using default
+# options, 0 otherwise.
+
+proc check_effective_target_int32 { } {
+    return [check_no_compiler_messages int32 object {
+	int dummy[sizeof (int) == 4 ? 1 : -1];
+    }]
+}
+
 # Return 1 if we're generating 32-bit or larger integers using default
 # options, 0 otherwise.
 
@@ -2103,6 +2130,15 @@ proc check_effective_target_aarch64_big_endian { } {
 	#if !defined(__aarch64__) || !defined(__AARCH64EB__)
 	#error FOO
 	#endif
+    }]
+}
+
+# Return 1 if this is a AArch64 target supporting little endian
+proc check_effective_target_aarch64_little_endian { } {
+    return [check_no_compiler_messages aarch64_little_endian assembly {
+        #if !defined(__aarch64__) || defined(__AARCH64EB__)
+        #error FOO
+        #endif
     }]
 }
 
@@ -2825,6 +2861,27 @@ proc check_effective_target_powerpc_vsx_ok { } {
 		return 0;
 	    }
 	} "-mvsx"]
+    } else {
+	return 0
+    }
+}
+
+# Return 1 if this is a PowerPC target supporting -mhtm
+
+proc check_effective_target_powerpc_htm_ok { } {
+    if { ([istarget powerpc*-*-*]
+         && ![istarget powerpc-*-linux*paired*])
+	 || [istarget rs6000-*-*] } {
+	# HTM is not supported on AIX yet.
+	if { [istarget powerpc*-*-aix*] } {
+	    return 0
+	}
+	return [check_no_compiler_messages powerpc_htm_ok object {
+	    int main (void) {
+		asm volatile ("tbegin. 0");
+		return 0;
+	    }
+	} "-mhtm"]
     } else {
 	return 0
     }
@@ -4586,6 +4643,17 @@ proc check_missing_uclibc_feature {feature} {
 proc check_effective_target_newlib {} {
     return [check_no_compiler_messages newlib object {
 	#include <newlib.h>
+    }]
+}
+
+# Return true if this is NOT a Bionic target.
+
+proc check_effective_target_non_bionic {} {
+    return [check_no_compiler_messages non_bionic object {
+	#include <ctype.h>
+	#if defined (__BIONIC__)
+	#error FOO
+	#endif
     }]
 }
 

@@ -368,6 +368,7 @@ static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
 static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
+static tree handle_warn_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
@@ -415,6 +416,7 @@ const struct c_common_resword c_common_reswords[] =
   { "_Sat",             RID_SAT,       D_CONLY | D_EXT },
   { "_Static_assert",   RID_STATIC_ASSERT, D_CONLY },
   { "_Noreturn",        RID_NORETURN,  D_CONLY },
+  { "_Generic",         RID_GENERIC,   D_CONLY },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof",	RID_ALIGNOF,	0 },
@@ -742,6 +744,8 @@ const struct attribute_spec c_common_attribute_table[] =
      The name contains space to prevent its usage in source code.  */
   { "fn spec",	 	      1, 1, false, true, true,
 			      handle_fnspec_attribute, false },
+  { "warn_unused",            0, 0, false, false, false,
+			      handle_warn_unused_attribute, false },
   { "omp declare simd",       0, -1, true,  false, false,
 			      handle_omp_declare_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
@@ -4288,7 +4292,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 
 tree
 pointer_int_sum (location_t loc, enum tree_code resultcode,
-		 tree ptrop, tree intop)
+		 tree ptrop, tree intop, bool complain)
 {
   tree size_exp, ret;
 
@@ -4297,14 +4301,20 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
-      pedwarn (loc, OPT_Wpointer_arith,
-	       "pointer of type %<void *%> used in arithmetic");
+      if (complain && warn_pointer_arith)
+	pedwarn (loc, OPT_Wpointer_arith,
+		 "pointer of type %<void *%> used in arithmetic");
+      else if (!complain)
+	return error_mark_node;
       size_exp = integer_one_node;
     }
   else if (TREE_CODE (TREE_TYPE (result_type)) == FUNCTION_TYPE)
     {
-      pedwarn (loc, OPT_Wpointer_arith,
-	       "pointer to a function used in arithmetic");
+      if (complain && warn_pointer_arith)
+	pedwarn (loc, OPT_Wpointer_arith,
+		 "pointer to a function used in arithmetic");
+      else if (!complain)
+	return error_mark_node;
       size_exp = integer_one_node;
     }
   else
@@ -7964,6 +7974,27 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
+/* Handle a "warn_unused" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_warn_unused_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (TYPE_P (*node))
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle an "omp declare simd" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -9359,6 +9390,18 @@ c_parse_error (const char *gmsgid, enum cpp_ttype token_type,
       free (message);
       message = NULL;
     }
+  else if (token_type == CPP_CHAR_USERDEF
+	   || token_type == CPP_WCHAR_USERDEF
+	   || token_type == CPP_CHAR16_USERDEF
+	   || token_type == CPP_CHAR32_USERDEF)
+    message = catenate_messages (gmsgid,
+				 " before user-defined character literal");
+  else if (token_type == CPP_STRING_USERDEF
+	   || token_type == CPP_WSTRING_USERDEF
+	   || token_type == CPP_STRING16_USERDEF
+	   || token_type == CPP_STRING32_USERDEF
+	   || token_type == CPP_UTF8STRING_USERDEF)
+    message = catenate_messages (gmsgid, " before user-defined string literal");
   else if (token_type == CPP_STRING
 	   || token_type == CPP_WSTRING
 	   || token_type == CPP_STRING16
@@ -9813,6 +9856,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
   tree maxindex, type, main_type, elt, unqual_elt;
   int failure = 0, quals;
   hashval_t hashcode = 0;
+  bool overflow_p = false;
 
   maxindex = size_zero_node;
   if (initial_value)
@@ -9841,8 +9885,8 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	      bool fold_p = false;
 
 	      if ((*v)[0].index)
-		maxindex = fold_convert_loc (input_location, sizetype,
-					     (*v)[0].index);
+		maxindex = (*v)[0].index, fold_p = true;
+
 	      curindex = maxindex;
 
 	      for (cnt = 1; vec_safe_iterate (v, cnt, &ce); cnt++)
@@ -9853,15 +9897,26 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 		  else
 		    {
 		      if (fold_p)
-		        curindex = fold_convert (sizetype, curindex);
+			{
+			  /* Since we treat size types now as ordinary
+			     unsigned types, we need an explicit overflow
+			     check.  */
+			  tree orig = curindex;
+		          curindex = fold_convert (sizetype, curindex);
+			  overflow_p |= tree_int_cst_lt (curindex, orig);
+			}
 		      curindex = size_binop (PLUS_EXPR, curindex,
 					     size_one_node);
 		    }
 		  if (tree_int_cst_lt (maxindex, curindex))
 		    maxindex = curindex, fold_p = curfold_p;
 		}
-	       if (fold_p)
-	         maxindex = fold_convert (sizetype, maxindex);
+	      if (fold_p)
+		{
+		  tree orig = maxindex;
+	          maxindex = fold_convert (sizetype, maxindex);
+		  overflow_p |= tree_int_cst_lt (maxindex, orig);
+		}
 	    }
 	}
       else
@@ -9922,7 +9977,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 
   if (COMPLETE_TYPE_P (type)
       && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
-      && TREE_OVERFLOW (TYPE_SIZE_UNIT (type)))
+      && (overflow_p || TREE_OVERFLOW (TYPE_SIZE_UNIT (type))))
     {
       error ("size of array is too large");
       /* If we proceed with the array type as it is, we'll eventually
@@ -10159,7 +10214,7 @@ get_atomic_generic_size (location_t loc, tree function,
     {
       int size;
       tree type = TREE_TYPE ((*params)[x]);
-      /* __atomic_compare_exchange has a bool in the 4th postion, skip it.  */
+      /* __atomic_compare_exchange has a bool in the 4th position, skip it.  */
       if (n_param == 6 && x == 3)
         continue;
       if (!POINTER_TYPE_P (type))

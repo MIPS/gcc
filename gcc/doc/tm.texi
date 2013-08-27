@@ -1267,7 +1267,7 @@ This target hook should return @code{true} if accesses to volatile bitfields
 should use the narrowest mode possible.  It should return @code{false} if
 these accesses should use the bitfield container type.
 
-The default is @code{!TARGET_STRICT_ALIGN}.
+The default is @code{false}.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_MEMBER_TYPE_FORCES_BLK (const_tree @var{field}, enum machine_mode @var{mode})
@@ -4959,7 +4959,7 @@ the function prologue.  Normally, the profiling code comes after.
 @cindex tail calls
 
 @deftypefn {Target Hook} bool TARGET_FUNCTION_OK_FOR_SIBCALL (tree @var{decl}, tree @var{exp})
-True if it is ok to do sibling call optimization for the specified
+True if it is OK to do sibling call optimization for the specified
 call expression @var{exp}.  @var{decl} will be the called function,
 or @code{NULL} if this is an indirect call.
 
@@ -5358,26 +5358,10 @@ refers to the global ``variable'' @code{errno}.  (On certain systems,
 macro, a reasonable default is used.
 @end defmac
 
-@cindex C99 math functions, implicit usage
-@defmac TARGET_C99_FUNCTIONS
-When this macro is nonzero, GCC will implicitly optimize @code{sin} calls into
-@code{sinf} and similarly for other functions defined by C99 standard.  The
-default is zero because a number of existing systems lack support for these
-functions in their runtime so this macro needs to be redefined to one on
-systems that do support the C99 runtime.
-@end defmac
-
-@cindex sincos math function, implicit usage
-@defmac TARGET_HAS_SINCOS
-When this macro is nonzero, GCC will implicitly optimize calls to @code{sin}
-and @code{cos} with the same argument to a call to @code{sincos}.  The
-default is zero.  The target has to provide the following functions:
-@smallexample
-void sincos(double x, double *sin, double *cos);
-void sincosf(float x, float *sin, float *cos);
-void sincosl(long double x, long double *sin, long double *cos);
-@end smallexample
-@end defmac
+@deftypefn {Target Hook} bool TARGET_LIBC_HAS_FUNCTION (enum function_class @var{fn_class})
+This hook determines whether a function from a class of functions
+@var{fn_class} is present at the runtime.
+@end deftypefn
 
 @defmac NEXT_OBJC_RUNTIME
 Set this macro to 1 to use the "NeXT" Objective-C message sending conventions
@@ -6040,7 +6024,7 @@ You should define this macro if and only if you define extra CC modes
 in @file{@var{machine}-modes.def}.
 @end defmac
 
-@deftypefn {Target Hook} void TARGET_CANONICALIZE_COMPARISON (int *@var{code}, rtx *@var{op0}, rtx *@var{op1}, bool @var{op0_preserve_value}) (@var{code}, @var{op0}, @var{op1}, @var{op0_preserve_value})
+@deftypefn {Target Hook} void TARGET_CANONICALIZE_COMPARISON (int *@var{code}, rtx *@var{op0}, rtx *@var{op1}, bool @var{op0_preserve_value})
 On some machines not all possible comparisons are defined, but you can
 convert an invalid comparison into a valid one.  For example, the Alpha
 does not have a @code{GT} comparison, but you can use an @code{LT}
@@ -9861,7 +9845,7 @@ needed.
 
 @deftypefn {Target Hook} bool TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P (const_tree @var{fndecl})
 @cindex inlining
-This target hook returns @code{true} if it is ok to inline @var{fndecl}
+This target hook returns @code{true} if it is OK to inline @var{fndecl}
 into the current function, despite its having target-specific
 attributes, @code{false} otherwise.  By default, if a function has a
 target specific attribute attached to it, it will not be inlined.

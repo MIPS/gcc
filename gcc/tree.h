@@ -322,7 +322,7 @@ extern const char * built_in_names[(int) END_BUILTINS];
 
 #define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
-#define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL
+#define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
 /* In an OMP_CLAUSE node.  */
 
@@ -790,6 +790,9 @@ struct GTY(()) tree_base {
 
        DECL_NONLOCAL_FRAME in
 	   VAR_DECL
+
+       TYPE_FINAL_P in
+	   RECORD_TYPE, UNION_TYPE and QUAL_UNION_TYPE
 */
 
 struct GTY(()) tree_typed {
@@ -2495,6 +2498,10 @@ enum cv_qualifier
 #define TYPE_CONTAINS_PLACEHOLDER_INTERNAL(NODE) \
   (TYPE_CHECK (NODE)->type_common.contains_placeholder_bits)
 
+/* Nonzero if RECORD_TYPE represents a final derivation of class.  */
+#define TYPE_FINAL_P(NODE) \
+  (RECORD_OR_UNION_CHECK (NODE)->base.default_def_flag)
+
 /* The debug output functions use the symtab union field to store
    information specific to the debugging format.  The different debug
    output hooks store different types in the union field.  These three
@@ -3405,7 +3412,13 @@ struct GTY(()) tree_decl_with_vis {
  unsigned init_priority_p : 1;
  /* Used by C++ only.  Might become a generic decl flag.  */
  unsigned shadowed_for_var_p : 1;
- /* 14 unused bits. */
+ /* Belong to FUNCTION_DECL exclusively.  */
+ unsigned cxx_constructor : 1;
+ /* Belong to FUNCTION_DECL exclusively.  */
+ unsigned cxx_destructor : 1;
+ /* Belong to FUNCTION_DECL exclusively.  */
+ unsigned final : 1;
+ /* 11 unused bits. */
 };
 
 extern tree decl_debug_expr_lookup (tree);
@@ -3654,6 +3667,23 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
    have any "target" attribute set. */
 #define DECL_FUNCTION_VERSIONED(NODE)\
    (FUNCTION_DECL_CHECK (NODE)->function_decl.versioned_function)
+
+/* In FUNCTION_DECL, this is set if this function is a C++ constructor.
+   Devirtualization machinery uses this knowledge for determing type of the
+   object constructed.  Also we assume that constructor address is not
+   important.  */
+#define DECL_CXX_CONSTRUCTOR_P(NODE)\
+   (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.cxx_constructor)
+
+/* In FUNCTION_DECL, this is set if this function is a C++ destructor.
+   Devirtualization machinery uses this to track types in destruction.  */
+#define DECL_CXX_DESTRUCTOR_P(NODE)\
+   (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.cxx_destructor)
+
+/* In FUNCTION_DECL that represent an virtual method this is set when
+   the method is final.  */
+#define DECL_FINAL_P(NODE)\
+   (FUNCTION_DECL_CHECK (NODE)->decl_with_vis.final)
 
 /* FUNCTION_DECL inherits from DECL_NON_COMMON because of the use of the
    arguments/result/saved_tree fields by front ends.   It was either inherit
@@ -6159,10 +6189,13 @@ extern location_t tree_nonartificial_location (tree);
 extern tree block_ultimate_origin (const_tree);
 
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
+extern bool virtual_method_call_p (tree);
+extern tree obj_type_ref_class (tree ref);
 extern bool types_same_for_odr (tree type1, tree type2);
 extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
 				     HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern bool contains_bitfld_component_ref_p (const_tree);
+extern bool type_in_anonymous_namespace_p (tree);
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);
@@ -6210,6 +6243,8 @@ extern void debug_body (const tree_node *ptr);
 extern void debug_vec_tree (vec<tree, va_gc> *);
 extern void debug (vec<tree, va_gc> &ref);
 extern void debug (vec<tree, va_gc> *ptr);
+extern void debug_raw (vec<tree, va_gc> &ref);
+extern void debug_raw (vec<tree, va_gc> *ptr);
 #ifdef BUFSIZ
 extern void dump_addr (FILE*, const char *, const void *);
 extern void print_node (FILE *, const char *, tree, int);
@@ -6679,6 +6714,9 @@ is_lang_specific (tree t)
 /* In gimple-low.c.  */
 extern bool block_may_fallthru (const_tree);
 
+/* In vtable-verify.c.  */
+extern void save_vtable_map_decl (tree);
+
 
 /* Functional interface to the builtin functions.  */
 
@@ -6768,7 +6806,6 @@ builtin_decl_implicit_p (enum built_in_function fncode)
   return (builtin_info.decl[uns_fncode] != NULL_TREE
 	  && builtin_info.implicit_p[uns_fncode]);
 }
-
 
 /* For anonymous aggregate types, we need some sort of name to
    hold on to.  In practice, this should not appear, but it should
