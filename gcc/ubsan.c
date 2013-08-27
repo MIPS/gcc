@@ -22,109 +22,42 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "alloc-pool.h"
 #include "cgraph.h"
 #include "gimple.h"
-#include "hash-table.h"
+#include "pointer-set.h"
 #include "output.h"
 #include "toplev.h"
 #include "ubsan.h"
 #include "c-family/c-common.h"
 
-/* This type represents an entry in the hash table; this hash table
-   maps from a TYPE to a ubsan type descriptor VAR_DECL for that type.  */
-struct ubsan_typedesc
-{
-  /* This represents the type of a variable.  */
-  tree type;
+/* Map a TYPE to an ubsan type descriptor VAR_DECL for that type.  */
+static pointer_map_t *typedesc_map;
 
-  /* This is the VAR_DECL of the type.  */
-  tree decl;
-};
-
-static alloc_pool ubsan_typedesc_alloc_pool;
-
-/* Hash table for type descriptors.  */
-struct ubsan_typedesc_hasher
-  : typed_noop_remove <ubsan_typedesc>
-{
-  typedef ubsan_typedesc value_type;
-  typedef ubsan_typedesc compare_type;
-
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-};
-
-/* Hash a memory reference.  */
-
-inline hashval_t
-ubsan_typedesc_hasher::hash (const ubsan_typedesc *data)
-{
-  return iterative_hash_object (TYPE_UID (data->type), 0);
-}
-
-/* Compare two data types.  */
-
-inline bool
-ubsan_typedesc_hasher::equal (const ubsan_typedesc *d1,
-			      const ubsan_typedesc *d2)
-{
-  /* Here, the types should have identical __typekind,
-     __typeinfo and __typename.  */
-  return d1->type == d2->type;
-}
-
-static hash_table <ubsan_typedesc_hasher> ubsan_typedesc_ht;
-
-/* Initializes an instance of ubsan_typedesc.  */
+/* Insert DECL as the VAR_DECL for TYPE in the TYPEDESC_MAP.  */
 
 static void
-ubsan_typedesc_init (ubsan_typedesc *data, tree type, tree decl)
+insert_decl_for_type (tree decl, tree type)
 {
-  data->type = type;
-  data->decl = decl;
+  void **slot = pointer_map_insert (typedesc_map, type);
+  gcc_assert (*slot == NULL);
+  *slot = decl;
 }
 
-/* This creates the alloc pool used to store the instances of
-   ubsan_typedesc that are stored in the hash table ubsan_typedesc_ht.  */
+/* Find the VAR_DECL for TYPE in TYPEDESC_MAP.  If TYPE does not
+   exist in the map, return NULL_TREE, otherwise, return the VAR_DECL
+   we found.  */
 
-static alloc_pool
-ubsan_typedesc_get_alloc_pool ()
+static tree
+lookup_decl_for_type (tree type)
 {
-  if (ubsan_typedesc_alloc_pool == NULL)
-    ubsan_typedesc_alloc_pool = create_alloc_pool ("ubsan_typedesc",
-						   sizeof (ubsan_typedesc),
-						   10);
-  return ubsan_typedesc_alloc_pool;
+  /* If the pointer map is not initialized yet, create it now.  */
+  if (typedesc_map == NULL)
+    typedesc_map = pointer_map_create ();
+  void **slot = pointer_map_contains (typedesc_map, type);
+  return slot ? (tree) *slot : NULL_TREE;
 }
 
-/* Returns a reference to the hash table containing data type.
-   This function ensures that the hash table is created.  */
-
-static hash_table <ubsan_typedesc_hasher> &
-get_typedesc_hash_table ()
-{
-  if (!ubsan_typedesc_ht.is_created ())
-    ubsan_typedesc_ht.create (10);
-
-  return ubsan_typedesc_ht;
-}
-
-/* Allocates memory for an instance of ubsan_typedesc into the memory
-   pool returned by ubsan_typedesc_get_alloc_pool and initialize it.
-   TYPE describes a particular type, DECL is its VAR_DECL.  */
-
-static ubsan_typedesc *
-ubsan_typedesc_new (tree type, tree decl)
-{
-  ubsan_typedesc *desc =
-    (ubsan_typedesc *) pool_alloc (ubsan_typedesc_get_alloc_pool ());
-
-  ubsan_typedesc_init (desc, type, decl);
-  return desc;
-}
-
-/* Helper routine, which encodes a value in the uptr type.
+/* Helper routine, which encodes a value in the pointer_sized_int_node.
    Arguments with precision <= POINTER_SIZE are passed directly,
    the rest is passed by reference.  T is a value we are to encode.  */
 
@@ -281,24 +214,19 @@ get_ubsan_type_info_for_type (tree type)
 }
 
 /* Helper routine that returns ADDR_EXPR of a VAR_DECL of a type
-   descriptor.  It first looks into the hash table; if not found,
-   create the VAR_DECL, put it into the hash table and return the
+   descriptor.  It first looks into the pointer map; if not found,
+   create the VAR_DECL, put it into the pointer map and return the
    ADDR_EXPR of it.  TYPE describes a particular type.  */
 
 tree
 ubsan_type_descriptor (tree type)
 {
-  hash_table <ubsan_typedesc_hasher> ht = get_typedesc_hash_table ();
-  ubsan_typedesc d;
-
   /* See through any typedefs.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  ubsan_typedesc_init (&d, type, NULL);
-  ubsan_typedesc **slot = ht.find_slot (&d, INSERT);
-  if (*slot != NULL)
-    /* We have the VAR_DECL in the table.  Return it.  */
-    return (*slot)->decl;
+  tree decl = lookup_decl_for_type (type);
+  if (decl != NULL_TREE)
+    return decl;
 
   tree dtype = ubsan_type_descriptor_type ();
   const char *tname;
@@ -326,7 +254,7 @@ ubsan_type_descriptor (tree type)
   char tmp_name[32];
   static unsigned int type_var_id_num;
   ASM_GENERATE_INTERNAL_LABEL (tmp_name, "Lubsan_type", type_var_id_num++);
-  tree decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (tmp_name),
+  decl = build_decl (UNKNOWN_LOCATION, VAR_DECL, get_identifier (tmp_name),
 			  dtype);
   TREE_STATIC (decl) = 1;
   TREE_PUBLIC (decl) = 0;
@@ -350,9 +278,9 @@ ubsan_type_descriptor (tree type)
   DECL_INITIAL (decl) = ctor;
   rest_of_decl_compilation (decl, 1, 0);
 
-  /* Save the address of the VAR_DECL into the hash table.  */
+  /* Save the address of the VAR_DECL into the pointer map.  */
   decl = build_fold_addr_expr (decl);
-  *slot = ubsan_typedesc_new (type, decl);
+  insert_decl_for_type (decl, type);
 
   return decl;
 }

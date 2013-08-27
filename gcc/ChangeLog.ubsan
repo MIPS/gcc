@@ -1,3 +1,7 @@
+2013-08-27  Marek Polacek  <polacek@redhat.com>
+
+	* ubsan.c: Use pointer map instead of hash table.
+
 2013-08-26  Marek Polacek  <polacek@redhat.com>
 
 	* tree.h (enum tree_index): Add TI_POINTER_SIZED_TYPE.
