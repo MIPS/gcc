@@ -879,8 +879,51 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 	/* Expand argument bounds if any.  */
 	if (args[i].bounds_value)
 	  {
+	    /* If bounds_value is a list then we pass bounds
+	       for a structure.  TREE_VALUE of each node holds
+	       bounds value and TREE_PURPOSE holds corresponding
+	       offset of the pointer field in structure.  */
+	    if (TREE_CODE (args[i].bounds_value) == TREE_LIST)
+	      {
+		tree node = args[i].bounds_value;
+		unsigned bnd_num = list_length (args[i].bounds_value);
+		rtx *bounds = XALLOCAVEC (rtx, bnd_num);
+		unsigned bnd_no = 0;
+
+		/* Expand all nodes in the list.  */
+		while (node)
+		  {
+		    tree bnd_val = TREE_VALUE (node);
+		    tree bnd_offs = TREE_PURPOSE (node);
+		    HOST_WIDE_INT offs = TREE_INT_CST_LOW (bnd_offs);
+		    rtx bnd_expr;
+
+		    /* We have to make a temporary for bounds if there
+		       is a bndmk.  */
+		    if (TREE_CODE (args[i].bounds_value) == CALL_EXPR)
+		      {
+			bnd_expr = gen_reg_rtx (targetm.chkp_bound_mode ());
+			expand_expr_real (bnd_val, bnd_expr,
+					  VOIDmode, EXPAND_NORMAL, 0);
+		      }
+		    else
+		      bnd_expr = expand_normal (bnd_val);
+
+		    bounds[bnd_no] = gen_rtx_EXPR_LIST (VOIDmode,
+							bnd_expr,
+							GEN_INT (offs));
+
+		    node = TREE_CHAIN (node);
+		    bnd_no++;
+		  }
+
+		/* Make PARALLEL holding all expanded bounds.  */
+		args[i].bounds = gen_rtx_PARALLEL (VOIDmode,
+						   gen_rtvec_v (bnd_num,
+								bounds));
+	      }
 	    /* We have to make a temporary for bounds if there is a bndmk.  */
-	    if (TREE_CODE (args[i].bounds_value) == CALL_EXPR)
+	    else if (TREE_CODE (args[i].bounds_value) == CALL_EXPR)
 	      {
 		args[i].bounds = gen_reg_rtx (targetm.chkp_bound_mode ());
 		expand_expr_real (args[i].bounds_value, args[i].bounds,
@@ -1150,6 +1193,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
     int j = i;
     call_expr_arg_iterator iter;
     tree arg;
+    vec<bool> struct_bounds = vNULL;
 
     if (struct_value_addr_value)
       {
@@ -1171,7 +1215,26 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	   assign it to the previous arg.  */
 	if (BOUND_TYPE_P (argtype))
 	  {
-	    args[j - inc].bounds_value = arg;
+	    tree bounds_val = arg;
+
+	    if (struct_bounds.exists ())
+	      {
+		HOST_WIDE_INT offs;
+
+		for (offs = 0; offs < struct_bounds.length (); offs++)
+		  if (struct_bounds[offs])
+		    {
+		      struct_bounds[offs] = false;
+		      break;
+		    }
+		offs *= POINTER_SIZE / BITS_PER_UNIT;
+
+		bounds_val = tree_cons (build_int_cst (NULL, offs),
+					arg,
+					args[j - inc].bounds_value);
+	      }
+
+	    args[j - inc].bounds_value = bounds_val;
 	    continue;
 	  }
 	else
@@ -1189,8 +1252,22 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	  }
 	else
 	  args[j].tree_value = arg;
+
+	/* If pointers checker is on and we pass structure with
+	   pointers then we determine here how many bounds should
+	   follow.  */
+	if (flag_check_pointers
+	    && !BOUNDED_P (arg)
+	    && chkp_type_has_pointer (argtype))
+	  struct_bounds = chkp_find_bound_slots (argtype);
+	else if (struct_bounds.exists ())
+	  struct_bounds.release ();
+
 	j += inc;
       }
+
+    if (struct_bounds.exists ())
+      struct_bounds.release ();
   }
 
   /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
@@ -2037,92 +2114,66 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	    use_regs (call_fusage, REGNO (reg), nregs);
 
 	  /* Handle passed bounds.  */
-	  if (args[i].bounds_slot)
+	  if (args[i].bounds_slot && args[i].bounds)
 	    {
-	      /* If bounds have been already expanded then just
-		 move them to the bounds slot.  */
-	      if (args[i].bounds)
+	      if (GET_CODE (args[i].bounds_slot) == PARALLEL)
 		{
-		  gcc_assert (REG_P (args[i].bounds_slot)
-			      || CONST_INT_P (args[i].bounds_slot));
+		  HOST_WIDE_INT n;
 
-		  if (REG_P (args[i].bounds_slot))
-		    {
-		      emit_move_insn (args[i].bounds_slot, args[i].bounds);
-		      use_reg (call_fusage, args[i].bounds_slot);
-		    }
-		  else
-		    {
-		      targetm.calls.store_bounds_for_arg (reg, reg,
-							  args[i].bounds,
-							  args[i].bounds_slot);
-		    }
-		}
-	      /* If we do not have computed bounds then we probably
-		 pass a structure with pointers in registers.  */
-	      else if (!BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value))
-		      && chkp_type_has_pointer (TREE_TYPE (args[i].tree_value)))
-		{
-		  if (GET_CODE (args[i].bounds_slot) == PARALLEL)
-		    {
-		      int n;
+		  gcc_assert (GET_CODE (args[i].bounds) == PARALLEL);
+		  gcc_assert (GET_CODE (args[i].reg) == PARALLEL);
 
-		      gcc_assert (MEM_P (args[i].value));
-		      gcc_assert (GET_CODE (args[i].reg) == PARALLEL);
+		  for (n = 0; n < XVECLEN (args[i].bounds_slot, 0); n++)
+		    {
+		      rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
+		      rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
+		      rtx bnd = chkp_get_value_with_offs (args[i].bounds, offs);
+		      rtx ptr = chkp_get_value_with_offs (args[i].reg, offs);
 
-		      for (n = 0; n < XVECLEN (args[i].bounds_slot, 0); n++)
+		      /* For vararg functions it is possible we have
+			 slot for bounds but do not have bounds.  */
+		      if (bnd)
 			{
-			  rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
-			  rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
-			  rtx ptr = chkp_get_value_with_offs (args[i].reg, offs);
-			  rtx addr = adjust_address (args[i].value, Pmode,
-						     INTVAL (offs));
-			  rtx bnd = targetm.calls.load_bounds_for_arg (addr, ptr, NULL);
-
 			  if (REG_P (reg))
 			    {
 			      emit_move_insn (reg, bnd);
 			      use_reg (call_fusage, reg);
 			    }
 			  else
-			    targetm.calls.store_bounds_for_arg (ptr, ptr, bnd, reg);
+			    targetm.calls.store_bounds_for_arg (ptr, ptr,
+								bnd, reg);
 			}
-		    }
-		  else
-		    {
-		      rtx slot;
-		      rtx ptr = args[i].reg;
-		      rtx bnd;
-
-		      gcc_assert (REG_P (args[i].reg));
-		      gcc_assert (REG_P (args[i].bounds_slot)
-				  || CONST_INT_P (args[i].bounds_slot));
-
-		      if (MEM_P (args[i].value))
-			slot = args[i].value;
-		      else
-			{
-			  tree addr = build_fold_addr_expr (args[i].tree_value);
-			  slot = gen_rtx_MEM (Pmode, expand_normal (addr));
-			}
-
-		      bnd = targetm.calls.load_bounds_for_arg (slot, ptr,
-							       args[i].bounds_slot);
-
-		      if (REG_P (args[i].bounds_slot))
-			{
-			  emit_move_insn (args[i].bounds_slot, bnd);
-			  use_reg (call_fusage, args[i].bounds_slot);
-			}
-		      else
-			targetm.calls.store_bounds_for_arg (reg, args[i].reg,
-							    bnd, args[i].bounds_slot);
 		    }
 		}
+	      else
+		{
+		  rtx bnd = args[i].bounds;
+
+		  /* We may have PARALLEL in bounds if handle structure
+		     fitting single register.  */
+		  if (GET_CODE (bnd) == PARALLEL)
+		    {
+		      gcc_assert (XVECLEN (bnd, 0) == 1);
+		      gcc_assert (INTVAL (XEXP (XVECEXP (bnd, 0, 0), 1)) == 0);
+		      bnd = XEXP (XVECEXP (bnd, 0, 0), 0);
+		    }
+
+		  gcc_assert (REG_P (args[i].bounds_slot)
+			      || CONST_INT_P (args[i].bounds_slot));
+		  gcc_assert (REG_P (args[i].reg));
+
+		  if (REG_P (args[i].bounds_slot))
+		    {
+		      emit_move_insn (args[i].bounds_slot, bnd);
+		      use_reg (call_fusage, args[i].bounds_slot);
+		    }
+		  else
+		    targetm.calls.store_bounds_for_arg (args[i].reg,
+							args[i].reg,
+							bnd,
+							args[i].bounds_slot);
+		}
 	    }
-	  else
-	    gcc_assert (!flag_check_pointers
-			|| !BOUNDED_TYPE_P (TREE_TYPE (args[i].tree_value)));
 	}
     }
 }
@@ -4873,34 +4924,52 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
   /* Store computed bounds for argument.  */
   if (arg->bounds_value)
     {
-      rtx ptr, addr;
+      tree bounds = arg->bounds_value;
 
-      /* We have to make a temporary for bounds if there is a bndmk.  */
-      if (TREE_CODE (arg->bounds_value) == CALL_EXPR)
-	{
-	  arg->bounds = gen_reg_rtx (targetm.chkp_bound_mode ());
-	  expand_expr_real (arg->bounds_value, arg->bounds,
-			    VOIDmode, EXPAND_NORMAL, 0);
-	}
+      if (TREE_CODE (bounds) == TREE_LIST)
+	while (bounds)
+	  {
+	    tree bnd_val = TREE_VALUE (bounds);
+	    HOST_WIDE_INT bnd_offs
+	      = TREE_INT_CST_LOW (TREE_PURPOSE (bounds));
+	    rtx bnd, ptr, ptr_slot;
+
+	    /* We have to make a temporary for bounds if
+	       there is a bndmk.  */
+	    if (TREE_CODE (bnd_val) == CALL_EXPR)
+	      {
+		bnd = gen_reg_rtx (targetm.chkp_bound_mode ());
+		expand_expr_real (bnd_val, bnd, VOIDmode, EXPAND_NORMAL, 0);
+	      }
+	    else
+	      bnd = expand_normal (bnd_val);
+
+	    ptr = arg->pushed_value ? arg->pushed_value : arg->value;
+	    ptr = adjust_address (ptr, Pmode, bnd_offs);
+
+	    ptr_slot = arg->stack_slot;
+	    ptr_slot = adjust_address (arg->stack_slot, Pmode, bnd_offs);
+
+	    targetm.calls.store_bounds_for_arg (ptr, ptr_slot, bnd, NULL_RTX);
+
+	    bounds = TREE_CHAIN (bounds);
+	  }
       else
-	arg->bounds = expand_normal (arg->bounds_value);
+	{
+	  rtx ptr = arg->pushed_value ? arg->pushed_value : arg->value;
+	  rtx bnd;
 
-      gcc_assert (!arg->bounds_slot);
+	  if (TREE_CODE (bounds) == CALL_EXPR)
+	    {
+	      bnd = gen_reg_rtx (targetm.chkp_bound_mode ());
+	      expand_expr_real (bounds, bnd, VOIDmode, EXPAND_NORMAL, 0);
+	    }
+	  else
+	    bnd = expand_normal (bounds);
 
-      ptr = arg->pushed_value ? arg->pushed_value : arg->value;
-      addr = arg->stack;
-
-      targetm.calls.store_bounds_for_arg (ptr, addr,
-					  arg->bounds, NULL);
-    }
-  /* Copy bounds for structure with pointers passed in memory.  */
-  else if (flag_check_pointers
-	   && !BOUNDED_TYPE_P (TREE_TYPE (arg->tree_value))
-	   && chkp_type_has_pointer (TREE_TYPE (arg->tree_value)))
-    {
-      tree argtype = TREE_TYPE (arg->tree_value);
-      rtx value = arg->pushed_value ? arg->pushed_value : arg->value;
-      chkp_copy_bounds_for_stack_parm (arg->stack_slot, value, argtype);
+	  targetm.calls.store_bounds_for_arg (ptr, arg->stack_slot,
+					      bnd, NULL_RTX);
+	}
     }
 
   /* Mark all slots this store used.  */
