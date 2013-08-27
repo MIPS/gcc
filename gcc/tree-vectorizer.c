@@ -101,28 +101,38 @@ simduid_to_vf::equal (const value_type *p1, const value_type *p2)
   return p1->simduid == p2->simduid;
 }
 
-/* For mapping decl to simduid.  */
+/* This hash maps the OMP simd array to the corresponding simduid used
+   to index into it.  Like thus,
 
-struct decl_to_simduid : typed_free_remove<decl_to_simduid>
+        _7 = GOMP_SIMD_LANE (simduid.0)
+        ...
+        ...
+        D.1737[_7] = stuff;
+
+
+   This hash maps from the OMP simd array (D.1737[]) to DECL_UID of
+   simduid.0.  */
+
+struct simd_array_to_simduid : typed_free_remove<simd_array_to_simduid>
 {
   tree decl;
   unsigned int simduid;
 
   /* hash_table support.  */
-  typedef decl_to_simduid value_type;
-  typedef decl_to_simduid compare_type;
+  typedef simd_array_to_simduid value_type;
+  typedef simd_array_to_simduid compare_type;
   static inline hashval_t hash (const value_type *);
   static inline int equal (const value_type *, const compare_type *);
 };
 
 inline hashval_t
-decl_to_simduid::hash (const value_type *p)
+simd_array_to_simduid::hash (const value_type *p)
 {
   return DECL_UID (p->decl);
 }
 
 inline int
-decl_to_simduid::equal (const value_type *p1, const value_type *p2)
+simd_array_to_simduid::equal (const value_type *p1, const value_type *p2)
 {
   return p1->decl == p2->decl;
 }
@@ -190,7 +200,7 @@ adjust_simduid_builtins (hash_table <simduid_to_vf> &htab)
 
 struct note_simd_array_uses_struct
 {
-  hash_table <decl_to_simduid> *htab;
+  hash_table <simd_array_to_simduid> *htab;
   unsigned int simduid;
 };
 
@@ -209,15 +219,15 @@ note_simd_array_uses_cb (tree *tp, int *walk_subtrees, void *data)
 	   && lookup_attribute ("omp simd array", DECL_ATTRIBUTES (*tp))
 	   && DECL_CONTEXT (*tp) == current_function_decl)
     {
-      decl_to_simduid data;
+      simd_array_to_simduid data;
       if (!ns->htab->is_created ())
 	ns->htab->create (15);
       data.decl = *tp;
       data.simduid = ns->simduid;
-      decl_to_simduid **slot = ns->htab->find_slot (&data, INSERT);
+      simd_array_to_simduid **slot = ns->htab->find_slot (&data, INSERT);
       if (*slot == NULL)
 	{
-	  decl_to_simduid *p = XNEW (decl_to_simduid);
+	  simd_array_to_simduid *p = XNEW (simd_array_to_simduid);
 	  *p = data;
 	  *slot = p;
 	}
@@ -232,7 +242,7 @@ note_simd_array_uses_cb (tree *tp, int *walk_subtrees, void *data)
    simduid.  */
 
 static void
-note_simd_array_uses (hash_table <decl_to_simduid> *htab)
+note_simd_array_uses (hash_table <simd_array_to_simduid> *htab)
 {
   basic_block bb;
   gimple_stmt_iterator gsi;
@@ -283,7 +293,7 @@ vectorize_loops (void)
   loop_iterator li;
   struct loop *loop;
   hash_table <simduid_to_vf> simduid_to_vf_htab;
-  hash_table <decl_to_simduid> decl_to_simduid_htab;
+  hash_table <simd_array_to_simduid> simd_array_to_simduid_htab;
 
   vect_loops_num = number_of_loops (cfun);
 
@@ -296,7 +306,7 @@ vectorize_loops (void)
     }
 
   if (cfun->has_simduid_loops)
-    note_simd_array_uses (&decl_to_simduid_htab);
+    note_simd_array_uses (&simd_array_to_simduid_htab);
 
   init_stmt_vec_info_vec ();
 
@@ -375,11 +385,11 @@ vectorize_loops (void)
 
   /* Shrink any "omp array simd" temporary arrays to the
      actual vectorization factors.  */
-  if (decl_to_simduid_htab.is_created ())
+  if (simd_array_to_simduid_htab.is_created ())
     {
-      for (hash_table <decl_to_simduid>::iterator iter
-	   = decl_to_simduid_htab.begin ();
-	   iter != decl_to_simduid_htab.end (); ++iter)
+      for (hash_table <simd_array_to_simduid>::iterator iter
+	   = simd_array_to_simduid_htab.begin ();
+	   iter != simd_array_to_simduid_htab.end (); ++iter)
 	if ((*iter).simduid != -1U)
 	  {
 	    tree decl = (*iter).decl;
@@ -398,7 +408,7 @@ vectorize_loops (void)
 	    relayout_decl (decl);
 	  }
 
-      decl_to_simduid_htab.dispose ();
+      simd_array_to_simduid_htab.dispose ();
     }
   if (simduid_to_vf_htab.is_created ())
     simduid_to_vf_htab.dispose ();

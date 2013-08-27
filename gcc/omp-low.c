@@ -1718,7 +1718,6 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   pop_cfun ();
 }
 
-
 /* Callback for walk_gimple_seq.  Check if combined parallel
    contains gimple_omp_for_combined_into_p OMP_FOR.  */
 
@@ -2689,9 +2688,10 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
   copyin_seq = NULL;
 
-  /* Enforce simdlen 1 in simd loops with data sharing clauses referencing
-     variable sized vars.  That is unnecessarily hard to support and very
-     unlikely to result in vectorized code anyway.  */
+  /* Set max_vf=1 (which will later enforce safelen=1) in simd loops
+     with data sharing clauses referencing variable sized vars.  That
+     is unnecessarily hard to support and very unlikely to result in
+     vectorized code anyway.  */
   if (is_simd)
     for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
       switch (OMP_CLAUSE_CODE (c))
@@ -3226,8 +3226,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	gimple_seq_add_stmt (ilist, build_omp_barrier (NULL_TREE));
     }
 
-  /* If max_vf is non-NULL, then we can use only vectorization factor
-     up to the max_vf we chose.  So stick it into safelen clause.  */
+  /* If max_vf is non-zero, then we can use only a vectorization factor
+     up to the max_vf we chose.  So stick it into the safelen clause.  */
   if (max_vf)
     {
       tree c = find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
@@ -4441,6 +4441,32 @@ expand_omp_taskreg (struct omp_region *region)
    of the combined loop constructs, just initialize COUNTS array
    from the _looptemp_ clauses.  */
 
+/* NOTE: It *could* be better to moosh all of the BBs together,
+   creating one larger BB with all the computation and the unexpected
+   jump at the end.  I.e.
+
+   bool zero3, zero2, zero1, zero;
+
+   zero3 = N32 c3 N31;
+   count3 = (N32 - N31) /[cl] STEP3;
+   zero2 = N22 c2 N21;
+   count2 = (N22 - N21) /[cl] STEP2;
+   zero1 = N12 c1 N11;
+   count1 = (N12 - N11) /[cl] STEP1;
+   zero = zero3 || zero2 || zero1;
+   count = count1 * count2 * count3;
+   if (__builtin_expect(zero, false)) goto zero_iter_bb;
+
+   After all, we expect the zero=false, and thus we expect to have to
+   evaluate all of the comparison expressions, so short-circuiting
+   oughtn't be a win.  Since the condition isn't protecting a
+   denominator, we're not concerned about divide-by-zero, so we can
+   fully evaluate count even if a numerator turned out to be wrong.
+
+   It seems like putting this all together would create much better
+   scheduling opportunities, and less pressure on the chip's branch
+   predictor.  */
+
 static void
 expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 			    basic_block &entry_bb, tree *counts,
@@ -4452,7 +4478,7 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
   edge e, ne;
   int i;
 
-  /* collapsed loops need work for expansion in SSA form.  */
+  /* Collapsed loops need work for expansion into SSA form.  */
   gcc_assert (!gimple_in_ssa_p (cfun));
 
   if (gimple_omp_for_combined_into_p (fd->for_stmt)
@@ -4539,6 +4565,11 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 		       fold_convert (itype, fd->loops[i].n2));
       t = fold_build2 (MINUS_EXPR, itype, t,
 		       fold_convert (itype, fd->loops[i].n1));
+      /* ?? We could probably use CEIL_DIV_EXPR instead of
+	 TRUNC_DIV_EXPR and adjusting by hand.  Unless we can't
+	 generate the same code in the end because generically we
+	 don't know that the values involved must be negative for
+	 GT??  */
       if (TYPE_UNSIGNED (itype) && fd->loops[i].cond_code == GT_EXPR)
 	t = fold_build2 (TRUNC_DIV_EXPR, itype,
 			 fold_build1 (NEGATE_EXPR, itype, t),
