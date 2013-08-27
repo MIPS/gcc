@@ -6656,5 +6656,6 @@ extern tree chkp_build_make_bounds_call (tree lb, tree size);
 extern tree chkp_build_bndstx_call (tree addr, tree ptr, tree bounds);
 extern void chkp_expand_bounds_reset_for_mem (tree mem, tree ptr);
 extern void chkp_put_regs_to_expr_list (rtx par);
+extern vec<bool> chkp_find_bound_slots (tree type);
 
 #endif  /* GCC_TREE_H  */

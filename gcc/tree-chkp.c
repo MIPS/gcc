@@ -385,7 +385,7 @@ static void chkp_build_bndstx (tree addr, tree ptr, tree bounds,
 #define chkp_extract_upper_fndecl \
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_EXTRACT_UPPER))
 
-static vec<struct bb_checks, va_heap, vl_ptr> check_infos;
+static vec<struct bb_checks, va_heap, vl_ptr> check_infos = vNULL;
 
 static GTY (()) tree chkp_uintptr_type;
 
@@ -1455,6 +1455,204 @@ chkp_replace_extract_builtin (gimple_stmt_iterator *gsi)
   gsi_replace (gsi, extract, false);
 }
 
+/* Return COMPONENT_REF accessing FIELD in OBJ.  */
+static tree
+chkp_build_component_ref (tree obj, tree field)
+{
+  tree res;
+
+  /* If object is TMR then we do not use component_ref but
+     add offset instead.  We need it to be able to get addr
+     of the reasult later.  */
+  if (TREE_CODE (obj) == TARGET_MEM_REF)
+    {
+      tree offs = TMR_OFFSET (obj);
+      offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
+				      offs, DECL_FIELD_OFFSET (field));
+
+      gcc_assert (offs);
+
+      res = copy_node (obj);
+      TREE_TYPE (res) = TREE_TYPE (field);
+      TMR_OFFSET (res) = offs;
+    }
+  else
+    res = build3 (COMPONENT_REF, TREE_TYPE (field), obj, field, NULL_TREE);
+
+  return res;
+}
+
+/* Return ARRAY_REF for array ARR and index IDX with
+   specified element type ETYPE and element size ESIZE.  */
+static tree
+chkp_build_array_ref (tree arr, tree etype, tree esize,
+		    unsigned HOST_WIDE_INT idx)
+{
+  tree index = build_int_cst (size_type_node, idx);
+  tree res;
+
+  /* If object is TMR then we do not use array_ref but
+     add offset instead.  We need it to be able to get addr
+     of the reasult later.  */
+  if (TREE_CODE (arr) == TARGET_MEM_REF)
+    {
+      tree offs = TMR_OFFSET (arr);
+
+      esize = fold_binary_to_constant (MULT_EXPR, TREE_TYPE (esize),
+				     esize, index);
+      gcc_assert(esize);
+
+      offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
+				    offs, esize);
+      gcc_assert (offs);
+
+      res = copy_node (arr);
+      TREE_TYPE (res) = etype;
+      TMR_OFFSET (res) = offs;
+    }
+  else
+    res = build4 (ARRAY_REF, etype, arr, index, NULL_TREE, NULL_TREE);
+
+  return res;
+}
+
+/* Helper function for chkp_find_bounds_for_struct.
+   Fill ALL_BOUNDS output array with created bounds.
+
+   OFFS is used for recursive calls and holds basic
+   offset of TYPE in outer structure in bits.
+
+   ITER points a position where bounds are searched.
+
+   ALL_BOUNDS[i] is filled with elem bounds if there
+   is a field in TYPE which has pointer type and offset
+   equal to i * POINTER_SIZE in bits.  */
+static void
+chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
+			   HOST_WIDE_INT offs,
+			   gimple_stmt_iterator *iter)
+{
+  tree type = TREE_TYPE (elem);
+
+  if (BOUNDED_TYPE_P (type))
+    {
+      if (!all_bounds[offs / POINTER_SIZE])
+	{
+	  tree temp = make_temp_ssa_name (type, gimple_build_nop (), "");
+	  gimple assign = gimple_build_assign (temp, elem);
+	  gimple_stmt_iterator gsi;
+
+	  gsi_insert_before (iter, assign, GSI_SAME_STMT);
+	  gsi = gsi_for_stmt (assign);
+
+	  all_bounds[offs / POINTER_SIZE] = chkp_find_bounds (temp, &gsi);
+	}
+    }
+  else if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      tree field;
+
+      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+	if (TREE_CODE (field) == FIELD_DECL)
+	  {
+	    tree base = tree_node_can_be_shared (elem)
+	      ? elem
+	      : unshare_expr (elem);
+	    tree field_ref = chkp_build_component_ref (base, field);
+	    HOST_WIDE_INT field_offs
+	      = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
+	    if (DECL_FIELD_OFFSET (field))
+	      field_offs += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field)) * 8;
+
+	    chkp_find_bounds_for_elem (field_ref, all_bounds,
+				       offs + field_offs, iter);
+	  }
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+      tree etype = TREE_TYPE (type);
+      HOST_WIDE_INT esize = TREE_INT_CST_LOW (TYPE_SIZE (etype));
+      unsigned HOST_WIDE_INT cur;
+
+      for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
+	{
+	  tree base = tree_node_can_be_shared (elem)
+	    ? elem
+	    : unshare_expr (elem);
+	  tree arr_elem = chkp_build_array_ref (base, etype,
+						TYPE_SIZE (etype),
+						cur);
+	  chkp_find_bounds_for_elem (arr_elem, all_bounds, offs + cur * esize,
+				     iter);
+	}
+    }
+}
+
+/* Fill HAVE_BOUND output array with information about
+   bounds requred for object of type TYPE.
+
+   OFFS is used for recursive calls and holds basic
+   offset of TYPE in outer structure in bits.
+
+   HAVE_BOUND[i] is set to 1 if there is a field
+   in TYPE which has pointer type and offset
+   equal to i * POINTER_SIZE - OFFS in bits.  */
+void
+chkp_find_bound_slots_1 (tree type, vec<bool> &have_bound,
+			 HOST_WIDE_INT offs)
+{
+  if (BOUNDED_TYPE_P (type))
+    have_bound[offs / POINTER_SIZE] = true;
+  else if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      tree field;
+
+      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+	if (TREE_CODE (field) == FIELD_DECL)
+	  {
+	    HOST_WIDE_INT field_offs
+	      = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
+	    if (DECL_FIELD_OFFSET (field))
+	      field_offs += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field)) * 8;
+	    chkp_find_bound_slots_1 (TREE_TYPE (field), have_bound,
+				     offs + field_offs);
+	  }
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    {
+      tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
+      tree etype = TREE_TYPE (type);
+      HOST_WIDE_INT esize = TREE_INT_CST_LOW (TYPE_SIZE (etype));
+      unsigned HOST_WIDE_INT cur;
+
+      for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
+	chkp_find_bound_slots_1 (etype, have_bound, offs + cur * esize);
+    }
+}
+
+/* Return vector holding information about
+   bounds for type TYPE.  See chkp_find_bound_slots_1
+   for more details.
+
+   Caller is responsible for deallocation of returned
+   buffer.  */
+vec<bool>
+chkp_find_bound_slots (tree type)
+{
+  HOST_WIDE_INT max_bounds
+    = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
+  vec<bool> res = vNULL;
+
+  res.create (max_bounds);
+  for (HOST_WIDE_INT i = 0; i < max_bounds; i++)
+    res.safe_push (false);
+
+  chkp_find_bound_slots_1 (type, res, 0);
+
+  return res;
+}
+
 /* Add bound arguments to call statement pointed by GSI.
    Also performs a replacement of user checker builtins calls
    with internal ones.  */
@@ -1557,20 +1755,48 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       use_fntype = true;
     }
 
-  /* Get number of arguments and bound arguments.  */
-  for (arg = first_formal_arg;
-       arg && (!use_fntype || TREE_VALUE (arg) != void_type_node)
-	 && (arg_cnt - bnd_arg_cnt)< gimple_call_num_args (call);
-       arg = TREE_CHAIN (arg))
+  /* Get number of original arguments and bound arguments.  */
+  arg = first_formal_arg;
+  for (arg_no = 0; arg_no < gimple_call_num_args (call); arg_no++)
     {
-      tree type = use_fntype ? TREE_VALUE (arg) : TREE_TYPE (arg);
+      tree type;
+
+      /* Get arg type using formal argument description
+	 or actual argument type.  */
+      if (arg)
+	if (use_fntype)
+	  if (TREE_VALUE (arg) != void_type_node)
+	    {
+	      type = TREE_VALUE (arg);
+	      arg = TREE_CHAIN (arg);
+	    }
+	  else
+	    type = TREE_TYPE (gimple_call_arg (call, arg_no));
+	else
+	  {
+	    type = TREE_TYPE (arg);
+	    arg = TREE_CHAIN (arg);
+	  }
+      else
+	type = TREE_TYPE (gimple_call_arg (call, arg_no));
 
       if (BOUNDED_TYPE_P (type)
-	  || (use_fntype
-	      && pass_by_reference (NULL, TYPE_MODE (type), type, false)))
+	  || pass_by_reference (NULL, TYPE_MODE (type), type, false))
 	{
 	  bnd_arg_cnt++;
 	  arg_cnt++;
+	}
+      else if (chkp_type_has_pointer (type))
+	{
+	  vec<bool> have_bound = chkp_find_bound_slots (type);
+
+	  for (unsigned bnd_no = 0; bnd_no < have_bound.length (); bnd_no++)
+	    if (have_bound[bnd_no])
+	      {
+		arg_cnt++;
+		bnd_arg_cnt++;
+	      }
+	  have_bound.release ();
 	}
 
       arg_cnt++;
@@ -1578,17 +1804,40 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
   /* Now add number of additional bound arguments for
      stdarg functions.  */
+/*
   for (arg_no = arg_cnt - bnd_arg_cnt;
        arg_no < gimple_call_num_args (call);
        arg_no++)
     {
-      if (BOUNDED_P (gimple_call_arg (call, arg_no)))
+      tree arg_type = TREE_TYPE (gimple_call_arg (call, arg_no));
+      if (BOUNDED_TYPE_P (arg_type)
+	  || pass_by_reference (NULL, TYPE_MODE (type), type, false))
 	{
 	  arg_cnt++;
 	  bnd_arg_cnt++;
 	}
+      else if (chkp_type_has_pointer (arg_type))
+	{
+	  HOST_WIDE_INT max_bounds
+	    = TREE_INT_CST_LOW (TYPE_SIZE (arg_type)) / POINTER_SIZE;
+	  bool *have_bound = (bool *)xmalloc (sizeof (bool) * max_bounds);
+
+	  memset (have_bound, 0, sizeof (bool) * max_bounds);
+
+	  chkp_find_bound_slots (arg_type, have_bound);
+
+	  for (HOST_WIDE_INT bnd_no = 0; bnd_no < max_bounds; bnd_no++)
+	    if (have_bound[bnd_no])
+	      {
+		arg_cnt++;
+		bnd_arg_cnt++;
+	      }
+
+	  free (have_bound);
+	}
       arg_cnt++;
     }
+*/
 
   /* Create new call statement with additional arguments.  */
   new_call = gimple_alloc (GIMPLE_CALL, arg_cnt + 3);
@@ -1605,41 +1854,104 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple_set_op (new_call, 2, gimple_op (call, 2));
 
   /* Add bounds for all arguments listed in formal arguments list.  */
-  arg_no = 0;
-  for (arg = first_formal_arg;
-       arg && (!use_fntype || TREE_VALUE (arg) != void_type_node)
-	 && arg_no < gimple_call_num_args (call);
-       arg = TREE_CHAIN (arg))
+  arg = first_formal_arg;
+  for (arg_no = 0; arg_no < gimple_call_num_args (call); arg_no++)
     {
-      tree type = use_fntype ? TREE_VALUE (arg) : TREE_TYPE (arg);
-      tree call_arg = gimple_call_arg (call, arg_no++);
+      tree call_arg = gimple_call_arg (call, arg_no);
+      tree type;
+
+      /* Get arg type using formal argument description
+	 or actual argument type.  */
+      if (arg)
+	if (use_fntype)
+	  if (TREE_VALUE (arg) != void_type_node)
+	    {
+	      type = TREE_VALUE (arg);
+	      arg = TREE_CHAIN (arg);
+	    }
+	  else
+	    type = TREE_TYPE (call_arg);
+	else
+	  {
+	    type = TREE_TYPE (arg);
+	    arg = TREE_CHAIN (arg);
+	  }
+      else
+	type = TREE_TYPE (call_arg);
 
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
 
-      if ((BOUNDED_TYPE_P (type)
-	   || (use_fntype
-	       && pass_by_reference (NULL, TYPE_MODE (type), type, false)))
+      if (((BOUNDED_TYPE_P (type)
+	    || pass_by_reference (NULL, TYPE_MODE (type), type, true)))
 	  && bnd_arg_cnt)
 	{
 	  tree bounds = chkp_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	  bnd_arg_cnt--;
 	}
+      else if (chkp_type_has_pointer (type) && bnd_arg_cnt)
+	{
+	  HOST_WIDE_INT max_bounds
+	    = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
+	  tree *all_bounds = (tree *)xmalloc (sizeof (tree) * max_bounds);
+	  HOST_WIDE_INT bnd_no;
+
+	  memset (all_bounds, 0, sizeof (tree) * max_bounds);
+
+	  chkp_find_bounds_for_elem (call_arg, all_bounds, 0, gsi);
+
+	  for (bnd_no = 0; (bnd_no < max_bounds) && bnd_arg_cnt; bnd_no++)
+	    if (all_bounds[bnd_no])
+	      {
+		gimple_call_set_arg (new_call, new_arg_no++,
+				     all_bounds[bnd_no]);
+		bnd_arg_cnt--;
+	      }
+
+	  free (all_bounds);
+	}
     }
 
   /* Add bounds for all other arguments.  */
+/*
   for ( ; arg_no < gimple_call_num_args (call); arg_no++)
     {
       tree call_arg = gimple_call_arg (call, arg_no);
+      tree type = TREE_TYPE (call_arg);
+
       gimple_call_set_arg (new_call, new_arg_no++, call_arg);
-      if (BOUNDED_P (call_arg) && bnd_arg_cnt)
+
+      if ((BOUNDED_P (call_arg)
+	   || pass_by_reference (NULL, TYPE_MODE (type), type, false))
+	  && bnd_arg_cnt)
 	{
 	  tree bounds = chkp_find_bounds (call_arg, gsi);
 	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
 	  bnd_arg_cnt--;
 	}
-    }
+      else if (chkp_type_has_pointer (type) && bnd_arg_cnt)
+	{
+	  HOST_WIDE_INT max_bounds
+	    = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
+	  tree *all_bounds = (tree *)xmalloc (sizeof (tree) * max_bounds);
+	  HOST_WIDE_INT bnd_no;
 
+	  memset (all_bounds, 0, sizeof (tree) * max_bounds);
+
+	  chkp_find_bounds_for_elem (call_arg, all_bounds, 0, gsi);
+
+	  for (bnd_no = 0; (bnd_no < max_bounds) && bnd_arg_cnt; bnd_no++)
+	    if (all_bounds[bnd_no])
+	      {
+		gimple_call_set_arg (new_call, new_arg_no++,
+				     all_bounds[bnd_no]);
+		bnd_arg_cnt--;
+	      }
+
+	  free (all_bounds);
+	}
+    }
+*/
   /* replace old call statement with the new one.  */
   FOR_EACH_SSA_TREE_OPERAND (op, call, iter, SSA_OP_ALL_DEFS)
     {
@@ -1668,77 +1980,25 @@ chkp_get_value_with_offs (rtx par, rtx offs)
   return NULL;
 }
 
-/* Helper function for chkp_copy_bounds_for_stack_parm.
-   Fill HAVE_BOUND output array with information about
-   bounds requred for object of type TYPE.
-
-   OFFS is used for recursive calls and holds basic
-   offset of TYPE in outer structure in bits.
-
-   PTR_SIZE holds size of the pointer in bits.
-
-   HAVE_BOUND[i] is set to 1 if there is a field
-   in TYPE which has pointer type and offset
-   equal to i * PTR_SIZE - OFFS in bits.  */
-static void
-chkp_find_bound_slots (tree type, bool *have_bound,
-		      HOST_WIDE_INT offs,
-		      HOST_WIDE_INT ptr_size)
-{
-  if (BOUNDED_TYPE_P (type))
-    have_bound[offs / ptr_size] = true;
-  else if (RECORD_OR_UNION_TYPE_P (type))
-    {
-      tree field;
-
-      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-	if (TREE_CODE (field) == FIELD_DECL)
-	  {
-	    HOST_WIDE_INT field_offs
-	      = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
-	    if (DECL_FIELD_OFFSET (field))
-	      field_offs += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field)) * 8;
-	    chkp_find_bound_slots (TREE_TYPE (field), have_bound,
-				 offs + field_offs, ptr_size);
-	  }
-    }
-  else if (TREE_CODE (type) == ARRAY_TYPE)
-    {
-      tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
-      tree etype = TREE_TYPE (type);
-      HOST_WIDE_INT esize = TREE_INT_CST_LOW (TYPE_SIZE (etype));
-      unsigned HOST_WIDE_INT cur;
-
-      for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
-	chkp_find_bound_slots (etype, have_bound, offs + cur * esize, ptr_size);
-    }
-}
-
 /* Emit code to copy bounds for structure VALUE of type TYPE
    copied to SLOT.  */
 void
 chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
 {
-  HOST_WIDE_INT ptr_size = TREE_INT_CST_LOW (TYPE_SIZE (chkp_uintptr_type));
-  HOST_WIDE_INT max_bounds = TREE_INT_CST_LOW (TYPE_SIZE (type)) / ptr_size;
-  bool *have_bound = (bool *)xmalloc (sizeof (bool) * max_bounds);
-  HOST_WIDE_INT i;
+  vec<bool> have_bound = chkp_find_bound_slots (type);
+  unsigned i;
   rtx tmp = NULL, bnd;
-
-  memset (have_bound, 0, sizeof (bool) * max_bounds);
 
   gcc_assert (TYPE_SIZE (type));
   gcc_assert (MEM_P (value));
   gcc_assert (MEM_P (slot));
   gcc_assert (RECORD_OR_UNION_TYPE_P (type));
 
-  chkp_find_bound_slots (type, have_bound, 0, ptr_size);
-
-  for (i = 0; i < max_bounds; i++)
+  for (i = 0; i < have_bound.length (); i++)
     if (have_bound[i])
       {
-	rtx ptr = adjust_address (value, Pmode, i * ptr_size / 8);
-	rtx to = adjust_address (slot, Pmode, i * ptr_size / 8);
+	rtx ptr = adjust_address (value, Pmode, i * POINTER_SIZE / 8);
+	rtx to = adjust_address (slot, Pmode, i * POINTER_SIZE / 8);
 
 	if (!tmp)
 	  tmp = gen_reg_rtx (Pmode);
@@ -1748,7 +2008,7 @@ chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
 	targetm.calls.store_bounds_for_arg (tmp, to, bnd, NULL);
       }
 
-  free (have_bound);
+  have_bound.release ();
 }
 
 /* Return entry block to be used for checker initilization code.
@@ -3471,67 +3731,6 @@ chkp_find_bounds_abnormal (tree ptr, tree phi)
   return copy;
 }
 
-/* Return COMPONENT_REF accessing FIELD in OBJ.  */
-static tree
-chkp_build_component_ref (tree obj, tree field)
-{
-  tree res;
-
-  /* If object is TMR then we do not use component_ref but
-     add offset instead.  We need it to be able to get addr
-     of the reasult later.  */
-  if (TREE_CODE (obj) == TARGET_MEM_REF)
-    {
-      tree offs = TMR_OFFSET (obj);
-      offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
-				      offs, DECL_FIELD_OFFSET (field));
-
-      gcc_assert (offs);
-
-      res = copy_node (obj);
-      TREE_TYPE (res) = TREE_TYPE (field);
-      TMR_OFFSET (res) = offs;
-    }
-  else
-    res = build3 (COMPONENT_REF, TREE_TYPE (field), obj, field, NULL_TREE);
-
-  return res;
-}
-
-/* Return ARRAY_REF for array ARR and index IDX with
-   specified element type ETYPE and element size ESIZE.  */
-static tree
-chkp_build_array_ref (tree arr, tree etype, tree esize,
-		    unsigned HOST_WIDE_INT idx)
-{
-  tree index = build_int_cst (size_type_node, idx);
-  tree res;
-
-  /* If object is TMR then we do not use array_ref but
-     add offset instead.  We need it to be able to get addr
-     of the reasult later.  */
-  if (TREE_CODE (arr) == TARGET_MEM_REF)
-    {
-      tree offs = TMR_OFFSET (arr);
-
-      esize = fold_binary_to_constant (MULT_EXPR, TREE_TYPE (esize),
-				     esize, index);
-      gcc_assert(esize);
-
-      offs = fold_binary_to_constant (PLUS_EXPR, TREE_TYPE (offs),
-				    offs, esize);
-      gcc_assert (offs);
-
-      res = copy_node (arr);
-      TREE_TYPE (res) = etype;
-      TMR_OFFSET (res) = offs;
-    }
-  else
-    res = build4 (ARRAY_REF, etype, arr, index, NULL_TREE, NULL_TREE);
-
-  return res;
-}
-
 /* Helper function which checks type of RHS and finds all pointers in
    it.  For each found pointer we build it's accesses in LHS and RHS
    objects and then call HANDLER for them.  Function is used to copy
@@ -4503,8 +4702,7 @@ chkp_init_check_info (void)
   struct bb_checks empty_bbc;
   int n;
 
-  empty_bbc.checks.create (0);
-  empty_bbc.checks.release ();
+  empty_bbc.checks = vNULL;
 
   chkp_release_check_info ();
 
