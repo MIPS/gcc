@@ -2491,10 +2491,15 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
       break;
 
     case PARM_DECL:
-      gcc_assert (TREE_ADDRESSABLE (rhs1));
-      /* We need to load bounds from the bounds table.  */
-      bounds = chkp_build_bndldx (chkp_build_addr_expr (rhs1),
-				node, &iter);
+      if (BOUNDED_P (rhs1))
+	{
+	  /* We need to load bounds from the bounds table.  */
+	  bounds = chkp_build_bndldx (chkp_build_addr_expr (rhs1),
+				      node, &iter);
+	  TREE_ADDRESSABLE (rhs1) = 1;
+	}
+      else
+	bounds = chkp_get_nonpointer_load_bounds ();
       break;
 
     case MINUS_EXPR:
