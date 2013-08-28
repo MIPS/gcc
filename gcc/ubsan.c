@@ -31,16 +31,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 
 /* Map a TYPE to an ubsan type descriptor VAR_DECL for that type.  */
-static pointer_map_t *typedesc_map;
+static pointer_map<tree> *typedesc_map;
 
 /* Insert DECL as the VAR_DECL for TYPE in the TYPEDESC_MAP.  */
 
 static void
 insert_decl_for_type (tree decl, tree type)
 {
-  void **slot = pointer_map_insert (typedesc_map, type);
-  gcc_assert (*slot == NULL);
-  *slot = decl;
+  *typedesc_map->insert (type) = decl;
 }
 
 /* Find the VAR_DECL for TYPE in TYPEDESC_MAP.  If TYPE does not
@@ -52,9 +50,13 @@ lookup_decl_for_type (tree type)
 {
   /* If the pointer map is not initialized yet, create it now.  */
   if (typedesc_map == NULL)
-    typedesc_map = pointer_map_create ();
-  void **slot = pointer_map_contains (typedesc_map, type);
-  return slot ? (tree) *slot : NULL_TREE;
+    {
+      typedesc_map = new pointer_map<tree>;
+      /* That also means we don't have to bother with the lookup.  */
+      return NULL_TREE;
+    }
+  tree *t = typedesc_map->contains (type);
+  return t ? *t : NULL_TREE;
 }
 
 /* Helper routine, which encodes a value in the pointer_sized_int_node.

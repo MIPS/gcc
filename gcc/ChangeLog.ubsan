@@ -1,5 +1,11 @@
 2013-08-28  Marek Polacek  <polacek@redhat.com>
 
+	* ubsan.c: Use pointer_map<tree> instead of pointer_map_t.
+	(insert_decl_for_type): Adjust.
+	(lookup_decl_for_type): Likewise.
+
+2013-08-28  Marek Polacek  <polacek@redhat.com>
+
 	* Makefile.in (ubsan.o): Add pointer-set.h dependency.  Remove
 	alloc-pool.h and HASH_TABLE_H dependencies.
 
