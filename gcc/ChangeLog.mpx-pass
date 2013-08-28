@@ -213,9 +213,8 @@
 	checking for variadric args.
 	(assign_parm_find_entry_rtl): Split parm into value and bounds parts.
 	(assign_parm_is_stack_parm): Check bound parm.
-	(assign_parm_setup_block): Store bounds if any.
-	(assign_parm_setup_stack): Likewise.
-	(assign_parms): Load bounds and associate them with parm.
+	(assign_parms): Load bounds and associate them with parm. Store
+	bounds in bounds table if required.
 	(expand_function_start): Handle returned bounds.
 	(diddle_return_value_1): New.
 	(diddle_return_value): Handle returned bounds.
