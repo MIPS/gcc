@@ -1,3 +1,8 @@
+2013-08-28  Marek Polacek  <polacek@redhat.com>
+
+	* Makefile.in (ubsan.o): Add pointer-set.h dependency.  Remove
+	alloc-pool.h and HASH_TABLE_H dependencies.
+
 2013-08-27  Marek Polacek  <polacek@redhat.com>
 
 	* ubsan.c: Use pointer map instead of hash table.

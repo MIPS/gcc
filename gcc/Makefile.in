@@ -2273,7 +2273,7 @@ tsan.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    intl.h cfghooks.h output.h options.h $(C_COMMON_H) tsan.h asan.h \
    tree-ssa-propagate.h
 ubsan.o : ubsan.c ubsan.h $(CONFIG_H) $(SYSTEM_H) $(GIMPLE_H) \
-   output.h coretypes.h $(TREE_H) alloc-pool.h $(CGRAPH_H) $(HASH_TABLE_H) \
+   output.h coretypes.h $(TREE_H) $(CGRAPH_H) pointer-set.h \
    toplev.h $(C_COMMON_H)
 tree-ssa-tail-merge.o: tree-ssa-tail-merge.c \
    $(SYSTEM_H) $(CONFIG_H) coretypes.h $(TM_H) $(BITMAP_H) \
