@@ -3744,7 +3744,7 @@ static void
 chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 			      assign_handler handler)
 {
-  tree type = TREE_TYPE (rhs);
+  tree type = TREE_TYPE (lhs);
 
   /* We have nothing to do with clobbers.  */
   if (TREE_CLOBBER_P (rhs))
@@ -4246,10 +4246,11 @@ chkp_instrument_function (void)
 
 	  gsi_next (&i);
 
-	  /* We do not need any statements in checker static initializer
-	     except created in this pass.  */
+	  /* We do not need any actual pointer stores in checker
+	     static initializer.  */
 	  if (lookup_attribute ("chkp ctor", DECL_ATTRIBUTES (cfun->decl))
-	      && gimple_code (s) == GIMPLE_ASSIGN)
+	      && gimple_code (s) == GIMPLE_ASSIGN
+	      && gimple_store_p (s))
 	    {
 	      gimple_stmt_iterator del_iter = gsi_for_stmt (s);
 	      gsi_remove (&del_iter, true);
