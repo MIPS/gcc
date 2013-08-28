@@ -356,7 +356,14 @@ static tree chkp_find_bounds_loaded (tree ptr, tree ptr_src,
 static tree chkp_find_bounds_abnormal (tree ptr, tree phi);
 static void chkp_collect_value (tree ssa_name, address_t &res);
 static void chkp_build_bndstx (tree addr, tree ptr, tree bounds,
-			      gimple_stmt_iterator *gsi);
+			       gimple_stmt_iterator *gsi);
+static void chkp_parse_array_and_component_ref (tree node, tree *ptr,
+						tree *elt, bool *safe,
+						bool *bitfield,
+						tree *bounds,
+						gimple_stmt_iterator *iter,
+						bool innermost_bounds,
+						bool always_narrow);
 
 #define chkp_bndldx_fndecl \
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDLDX))
@@ -2467,9 +2474,9 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
   switch (rhs_code)
     {
     case MEM_REF:
-    case ARRAY_REF:
-    case COMPONENT_REF:
     case TARGET_MEM_REF:
+    case COMPONENT_REF:
+    case ARRAY_REF:
       /* We need to load bounds from the bounds table.  */
       bounds = chkp_find_bounds_loaded (node, rhs1, &iter);
       break;
@@ -3278,7 +3285,7 @@ chkp_narrow_bounds_to_field (tree bounds, tree component,
    checks are not required.
 
    BOUNDS outer parameter holds bounds to be used to check
-   access.
+   access (may be NULL).
 
    If INNERMOST_BOUNDS is 1 then try to narrow bounds to the
    innermost ccessed component.
@@ -3286,12 +3293,12 @@ chkp_narrow_bounds_to_field (tree bounds, tree component,
    If ALWAYS_NARROW then do narrowing ignoring field offset.  */
 static void
 chkp_parse_array_and_component_ref (tree node, tree *ptr,
-				  tree *elt, bool *safe,
-				  bool *bitfield,
-				  tree *bounds,
-				  gimple_stmt_iterator *iter,
-				  bool innermost_bounds,
-				  bool always_narrow)
+				    tree *elt, bool *safe,
+				    bool *bitfield,
+				    tree *bounds,
+				    gimple_stmt_iterator *iter,
+				    bool innermost_bounds,
+				    bool always_narrow)
 {
   tree comp_to_narrow = NULL_TREE;
   tree last_comp = NULL_TREE;
@@ -3305,7 +3312,8 @@ chkp_parse_array_and_component_ref (tree node, tree *ptr,
   var = node;
   len = 1;
   while (TREE_CODE (var) == COMPONENT_REF
-	 || TREE_CODE (var) == ARRAY_REF)
+	 || TREE_CODE (var) == ARRAY_REF
+	 || TREE_CODE (var) == VIEW_CONVERT_EXPR)
     {
       var = TREE_OPERAND (var, 0);
       len++;
@@ -3321,7 +3329,8 @@ chkp_parse_array_and_component_ref (tree node, tree *ptr,
   for (i = len - 2; i >= 0; i--)
     nodes[i] = TREE_OPERAND (nodes[i + 1], 0);
 
-  *bounds = NULL;
+  if (bounds)
+    *bounds = NULL;
   *safe = true;
   *bitfield = (TREE_CODE (node) == COMPONENT_REF
 	       && DECL_BIT_FIELD_TYPE (TREE_OPERAND (node, 1)));
@@ -3338,14 +3347,16 @@ chkp_parse_array_and_component_ref (tree node, tree *ptr,
     {
       *safe = false;
       *ptr = TREE_OPERAND (nodes[0], 0);
-      *bounds = chkp_find_bounds (*ptr, iter);
+      if (bounds)
+	*bounds = chkp_find_bounds (*ptr, iter);
     }
   else
     {
       gcc_assert (TREE_CODE (var) == VAR_DECL
 		  || TREE_CODE (var) == PARM_DECL
 		  || TREE_CODE (var) == RESULT_DECL
-		  || TREE_CODE (var) == STRING_CST);
+		  || TREE_CODE (var) == STRING_CST
+		  || TREE_CODE (var) == SSA_NAME);
 
       *ptr = chkp_build_addr_expr (var);
     }
@@ -3385,18 +3396,22 @@ chkp_parse_array_and_component_ref (tree node, tree *ptr,
 	  if (flag_chkp_narrow_to_innermost_arrray
 	      && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
 	    {
-	      *bounds = chkp_narrow_bounds_to_field (*bounds, var, iter);
+	      if (bounds)
+		*bounds = chkp_narrow_bounds_to_field (*bounds, var, iter);
 	      comp_to_narrow = NULL;
 	    }
 	}
+      else if (TREE_CODE (var) == VIEW_CONVERT_EXPR)
+	/* Nothing to do for it.  */
+	;
       else
 	gcc_unreachable ();
     }
 
-  if (comp_to_narrow && DECL_SIZE (TREE_OPERAND (comp_to_narrow, 1)))
+  if (comp_to_narrow && DECL_SIZE (TREE_OPERAND (comp_to_narrow, 1)) && bounds)
     *bounds = chkp_narrow_bounds_to_field (*bounds, comp_to_narrow, iter);
 
-  if (innermost_bounds && !*bounds)
+  if (innermost_bounds && bounds && !*bounds)
     *bounds = chkp_find_bounds (*ptr, iter);
 }
 
@@ -3491,7 +3506,7 @@ chkp_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 
 static tree
 chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
-		   bool always_narrow_fields)
+		    bool always_narrow_fields)
 {
   tree addr = NULL_TREE;
   tree bounds = NULL_TREE;
@@ -3507,8 +3522,6 @@ chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
   switch (TREE_CODE (ptr_src))
     {
     case MEM_REF:
-    case ARRAY_REF:
-    case COMPONENT_REF:
     case VAR_DECL:
       if (BOUNDED_P (ptr_src))
 	if (TREE_CODE (ptr) == VAR_DECL && DECL_REGISTER (ptr))
@@ -3520,6 +3533,31 @@ chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
 	  }
       else
 	bounds = chkp_get_nonpointer_load_bounds ();
+      break;
+
+    case ARRAY_REF:
+    case COMPONENT_REF:
+      addr = get_base_address (ptr_src);
+      if (DECL_P (addr)
+	  || TREE_CODE (addr) == MEM_REF
+	  || TREE_CODE (addr) == TARGET_MEM_REF)
+	{
+	  if (BOUNDED_P (ptr_src))
+	    if (TREE_CODE (ptr) == VAR_DECL && DECL_REGISTER (ptr))
+	      bounds = chkp_get_zero_bounds ();
+	    else
+	      {
+		addr = chkp_build_addr_expr (ptr_src);
+		bounds = chkp_build_bndldx (addr, ptr, iter);
+	      }
+	  else
+	    bounds = chkp_get_nonpointer_load_bounds ();
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (addr) == SSA_NAME);
+	  bounds = chkp_find_bounds (addr, iter);
+	}
       break;
 
     case PARM_DECL:
