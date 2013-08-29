@@ -228,6 +228,13 @@
 	 (const_string "yes")]
 	(const_string "no")))
 
+;; True if the main data type is four times of the size of a word.
+(define_attr "qword_mode" "no,yes"
+  (cond [(and (eq_attr "mode" "TI,TF")
+	      (not (match_test "TARGET_64BIT")))
+	 (const_string "yes")]
+	(const_string "no")))
+
 ;; Attributes describing a sync loop.  These loops have the form:
 ;;
 ;;       if (RELEASE_BARRIER == YES) sync
@@ -385,6 +392,11 @@
 	 (eq_attr "move_type" "constN,shift_shift")
 	   (const_string "multi")
 
+	 ;; These types of move are split for quadword modes only.
+	 (and (eq_attr "move_type" "move,const")
+	      (eq_attr "qword_mode" "yes"))
+	   (const_string "multi")
+
 	 ;; These types of move are split for doubleword modes only.
 	 (and (eq_attr "move_type" "move,const")
 	      (eq_attr "dword_mode" "yes"))
@@ -456,6 +468,18 @@
 	      (eq_attr "dword_mode" "yes"))
 	 (const_int 2)
 
+	 ;; Check for quadword moves that are decomposed into four
+	 ;; instructions.
+	 (and (eq_attr "move_type" "mtc,mfc,move")
+	      (eq_attr "qword_mode" "yes"))
+	 (const_int 16)
+
+	 ;; Quadword CONST moves are split into four word
+	 ;; CONST moves.
+	 (and (eq_attr "move_type" "const")
+	      (eq_attr "qword_mode" "yes"))
+	 (symbol_ref "mips_split_128bit_const_insns (operands[1]) * 4")
+
 	 ;; Constants, loads and stores are handled by external routines.
 	 (and (eq_attr "move_type" "const,constN")
 	      (eq_attr "dword_mode" "yes"))
@@ -497,7 +521,9 @@
 	 (const_int 2)
 
 	 (eq_attr "type" "idiv,idiv3")
-	 (symbol_ref "mips_idiv_insns ()")
+	 (cond [(eq_attr "mode" "TI")
+		(symbol_ref "mips_msa_idiv_insns () * 4")]
+	        (symbol_ref "mips_idiv_insns () * 4"))
 
 	 (not (eq_attr "sync_mem" "none"))
 	 (symbol_ref "mips_sync_loop_insns (insn, operands)")]
@@ -843,7 +869,7 @@
 
 ;; This attribute gives the upper-case mode name for one unit of a
 ;; floating-point mode.
-(define_mode_attr UNITMODE [(SF "SF") (DF "DF") (V2SF "SF")])
+(define_mode_attr UNITMODE [(SF "SF") (DF "DF") (V2SF "SF") (V4SF "SF") (V2DF "DF")])
 
 ;; This attribute gives the integer mode that has the same size as a
 ;; fixed-point mode.
@@ -1366,7 +1392,7 @@
 	(sign_extend:DI
 	    (minus:SI (match_operand:SI 1 "register_operand" "d")
 		      (match_operand:SI 2 "register_operand" "d"))))]
-  "TARGET_64BIT"
+  "TARGET_64BIT || TARGET_MSA"
   "subu\t%0,%1,%2"
   [(set_attr "alu_type" "sub")
    (set_attr "mode" "DI")])
@@ -4699,7 +4725,7 @@
 (define_expand "movti"
   [(set (match_operand:TI 0)
 	(match_operand:TI 1))]
-  "TARGET_64BIT"
+  "TARGET_64BIT || TARGET_MSA"
 {
   if (mips_legitimize_move (TImode, operands[0], operands[1]))
     DONE;
@@ -6968,6 +6994,9 @@
 
 ; ST-Microelectronics Loongson-2E/2F-specific patterns.
 (include "loongson.md")
+
+; The MIPS MSA Instructions.
+(include "mips-msa.md")
 
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
