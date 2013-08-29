@@ -311,6 +311,11 @@
    "@internal"
    (match_operand 0 "low_bitmask_operand"))
 
+(define_constraint "YC"
+  "@internal
+   A constant vector."
+  (match_code "const_vector"))
+
 (define_memory_constraint "ZC"
   "When compiling microMIPS code, this constraint matches a memory operand
    whose address is formed from a base register and a 12-bit offset.  These
