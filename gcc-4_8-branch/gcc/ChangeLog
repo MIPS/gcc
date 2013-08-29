@@ -1,3 +1,123 @@
+2013-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57381
+	PR tree-optimization/57417
+	* tree-ssa-sccvn.c (vn_reference_fold_indirect): Fix test
+	for unchanged base.
+	(set_ssa_val_to): Compare addresses using
+	get_addr_base_and_unit_offset.
+
+	PR tree-optimization/57396
+	* tree-affine.c (double_int_constant_multiple_p): Properly
+	return false for val == 0 and div != 0.
+
+	PR tree-optimization/57343
+	* tree-ssa-loop-niter.c (number_of_iterations_ne_max): Do not
+	use multiple_of_p if not TYPE_OVERFLOW_UNDEFINED.
+	(number_of_iterations_cond): Do not build the folded tree.
+
+2013-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58257
+	* omp-low.c (copy_var_decl): Copy over TREE_NO_WARNING flag.
+
+2013-08-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-06-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56977
+	* passes.c (init_optimization_passes): Move pass_fold_builtins
+	and pass_dce earlier with -Og.
+
+2013-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-08-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Update
+	Haswell processor detection.
+
+	Backport from mainline
+	2013-08-27  Christian Widmer  <shadow@umbrox.de>
+
+	PR target/57927
+	* config/i386/driver-i386.c (host_detect_local_cpu): Add detection
+	of Ivy Bridge and Haswell processors.  Assume core-avx2 for unknown
+	AVX2 capable processors.
+
+2013-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58218
+	* config/i386/x86-64.h (TARGET_SECTION_TYPE_FLAGS): Define.
+	* config/i386/i386.c (x86_64_elf_section_type_flags): New function.
+
+	PR tree-optimization/58209
+	* tree-tailcall.c (find_tail_calls): Give up for pointer result types
+	if m or a is non-NULL.
+
+2013-08-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/56979
+	* arm.c (aapcs_vfp_allocate): Decompose the argument if the
+	suggested mode for the assignment isn't compatible with the
+	registers required.
+
+2013-08-20  Alan Modra  <amodra@gmail.com>
+
+	PR target/57865
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Correct ool_adjust.
+	(rs6000_emit_epilogue): Likewise.
+
+2013-08-19  Peter Bergner  <bergner@vnet.ibm.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	* config/rs6000/dfp.md (*negtd2_fpr): Handle non-overlapping
+	destination and source operands.
+
+2013-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58006
+	* tree-parloops.c (take_address_of): Don't ICE if get_name
+	returns NULL.
+	(eliminate_local_variables_stmt): Remove clobber stmts.
+
+2013-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58164
+	* gimple.c (walk_stmt_load_store_addr_ops): For visit_addr
+	walk gimple_goto_dest of GIMPLE_GOTO.
+
+	PR tree-optimization/58165
+	* tree-call-cdce.c (shrink_wrap_one_built_in_call): If
+	bi_call must be the last stmt in a bb, don't split_block, instead
+	use fallthru edge from it and give up if there is none.
+	Release conds vector when returning early.
+
+2013-08-15  David Given  <dg@cowlark.com>
+
+	Backport from mainline
+	2013-04-26  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (process_alt_operands): Use #if HAVE_ATTR_enable
+	instead of #ifdef.
+
+2013-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58145
+	* tree-sra.c (build_ref_for_offset): If prev_base has
+	TREE_THIS_VOLATILE or TREE_SIDE_EFFECTS, propagate it to MEM_REF.
+
+2013-08-14  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/htmxlintrin.h: Add file missing from last commit.
+	* config/s390/htmintrin.h: Likewise.
+	* config/s390/s390intrin.h: Likewise.
+
 2013-08-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/58067

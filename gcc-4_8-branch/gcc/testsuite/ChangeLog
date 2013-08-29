@@ -1,3 +1,85 @@
+2013-08-29  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-07-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR testsuite/52641
+	* gcc.dg/torture/pr57381.c: Add dg-require-effective-target int32plus.
+
+	2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57417
+	* gcc.dg/torture/pr57417.c: New testcase.
+
+	PR tree-optimization/57396
+	* gfortran.fortran-torture/execute/pr57396.f90: New testcase.
+
+	PR tree-optimization/57343
+	* gcc.dg/torture/pr57343.c: New testcase.
+
+	2013-05-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57381
+	* gcc.dg/torture/pr57381.c: New testcase.
+
+2013-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58257
+	* c-c++-common/gomp/pr58257.c: New test.
+
+2013-08-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-06-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56977
+	* gcc.dg/pr56977.c: New testcase.
+
+2013-08-24  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/57798
+	* gfortran.dg/inline_sum_5.f90: New.
+
+2013-08-24  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from trunk:
+	2013-08-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58185
+	* gfortran.dg/select_type_34.f90: New.
+
+2013-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58218
+	* gcc.target/i386/pr58218.c: New test.
+
+	PR tree-optimization/58209
+	* gcc.c-torture/execute/pr58209.c: New test.
+
+2013-08-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58190
+	* g++.dg/pr57878.C: Use __SIZE_TYPE__.
+
+2013-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58006
+	* g++.dg/opt/pr58006.C: New test.
+
+2013-08-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58164
+	* gcc.c-torture/compile/pr58164.c: New test.
+
+	PR tree-optimization/58165
+	* g++.dg/opt/pr58165.C: New test.
+
+2013-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58145
+	* gcc.dg/pr58145-1.c: New test.
+	* gcc.dg/pr58145-2.c: New test.
+
 2013-08-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR sanitizer/56417
@@ -91,7 +173,7 @@
 	2013-07-18  Wei Mi  <wmi@google.com>
 
 	PR rtl-optimization/57878
-	* g++.dg/pr57518.C: New test.
+	* g++.dg/pr57878.C: New test.
 
 2013-07-19  Georg-Johann Lay  <avr@gjlay.de>
 
