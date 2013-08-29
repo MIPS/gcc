@@ -3220,9 +3220,6 @@ static void
 assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 		         struct assign_parm_data_one *data)
 {
-  /* Value must be stored in the stack slot STACK_PARM during function
-     execution.  */
-  rtx entry_parm = data->entry_parm;
   bool to_conversion = false;
 
   assign_parm_remove_parallels (data);
