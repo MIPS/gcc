@@ -33732,21 +33732,9 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
   else
     gcc_unreachable ();
 
-  /* Of ptr is not int at all then we are trying to store bounds
-     for something which is not pointer.  It may happen when we
-     store args for vararg call.  Just ignore such stores.  */
-  /*  if (GET_MODE_CLASS (GET_MODE (ptr)) != MODE_INT)
-      return NULL_RTX;*/
-
   /* Should we also ignore integer modes of incorrect size?.  */
   ptr = force_reg (Pmode, ptr);
-  /*if (GET_MODE (ptr) != Pmode
-      && GET_MODE (ptr) != (TARGET_64BIT ? DImode : SImode))
-    {
-      rtx ext = gen_rtx_ZERO_EXTEND (Pmode, ptr);
-      ptr = gen_reg_rtx (Pmode);
-      emit_move_insn (ptr, ext);
-      }*/
+  addr = force_reg (Pmode, addr);
 
   /* Avoid registers which connot be used as index.  */
   if (REGNO (ptr) == VIRTUAL_INCOMING_ARGS_REGNUM
