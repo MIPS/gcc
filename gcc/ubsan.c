@@ -24,39 +24,63 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cgraph.h"
 #include "gimple.h"
+#include "hashtab.h"
 #include "pointer-set.h"
 #include "output.h"
 #include "toplev.h"
 #include "ubsan.h"
 #include "c-family/c-common.h"
 
-/* Map a TYPE to an ubsan type descriptor VAR_DECL for that type.  */
-static pointer_map<tree> *typedesc_map;
+/* Map from a tree to a VAR_DECL tree.  */
 
-/* Insert DECL as the VAR_DECL for TYPE in the TYPEDESC_MAP.  */
+struct GTY(()) tree_type_map {
+  struct tree_map_base type;
+  tree decl;
+};
 
-static void
-insert_decl_for_type (tree decl, tree type)
-{
-  *typedesc_map->insert (type) = decl;
-}
+#define tree_type_map_eq tree_map_base_eq
+#define tree_type_map_hash tree_map_base_hash
+#define tree_type_map_marked_p tree_map_base_marked_p
 
-/* Find the VAR_DECL for TYPE in TYPEDESC_MAP.  If TYPE does not
-   exist in the map, return NULL_TREE, otherwise, return the VAR_DECL
-   we found.  */
+static GTY ((if_marked ("tree_type_map_marked_p"), param_is (struct tree_type_map)))
+     htab_t decl_tree_for_type;
+
+/* Lookup a VAR_DECL for TYPE, and return it if we find one.  */
 
 static tree
-lookup_decl_for_type (tree type)
+decl_for_type_lookup (tree type)
 {
-  /* If the pointer map is not initialized yet, create it now.  */
-  if (typedesc_map == NULL)
+  /* If the hash table is not initialized yet, create it now.  */
+  if (decl_tree_for_type == NULL)
     {
-      typedesc_map = new pointer_map<tree>;
+      decl_tree_for_type = htab_create_ggc (10, tree_type_map_hash,
+					    tree_type_map_eq, 0);
       /* That also means we don't have to bother with the lookup.  */
       return NULL_TREE;
     }
-  tree *t = typedesc_map->contains (type);
-  return t ? *t : NULL_TREE;
+
+  struct tree_type_map *h, in;
+  in.type.from = type;
+
+  h = (struct tree_type_map *)
+      htab_find_with_hash (decl_tree_for_type, &in, TYPE_UID (type));
+  return h ? h->decl : NULL_TREE;
+}
+
+/* Insert a mapping TYPE->DECL in the VAR_DECL for type hashtable.  */
+
+static void
+decl_for_type_insert (tree type, tree decl)
+{
+  struct tree_type_map *h;
+  void **slot;
+
+  h = ggc_alloc_tree_type_map ();
+  h->type.from = type;
+  h->decl = decl;
+  slot = htab_find_slot_with_hash (decl_tree_for_type, h, TYPE_UID (type),
+                                  INSERT);
+  *(struct tree_type_map **) slot = h;
 }
 
 /* Helper routine, which encodes a value in the pointer_sized_int_node.
@@ -226,7 +250,7 @@ ubsan_type_descriptor (tree type)
   /* See through any typedefs.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  tree decl = lookup_decl_for_type (type);
+  tree decl = decl_for_type_lookup (type);
   if (decl != NULL_TREE)
     return decl;
 
@@ -282,7 +306,7 @@ ubsan_type_descriptor (tree type)
 
   /* Save the address of the VAR_DECL into the pointer map.  */
   decl = build_fold_addr_expr (decl);
-  insert_decl_for_type (decl, type);
+  decl_for_type_insert (type, decl);
 
   return decl;
 }
@@ -388,3 +412,5 @@ is_ubsan_builtin_p (tree t)
   return strncmp (IDENTIFIER_POINTER (DECL_NAME (t)),
 		  "__builtin___ubsan_", 18) == 0;
 }
+
+#include "gt-ubsan.h"

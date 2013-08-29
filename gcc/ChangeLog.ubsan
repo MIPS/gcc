@@ -1,3 +1,9 @@
+2013-08-29  Marek Polacek  <polacek@redhat.com>
+
+	* Makefile.in (ubsan.o): Add $(HASHTAB_H) and gt-ubsan.h
+	dependencies.  Remove pointer-set.h dependency.
+	* ubsan.c: Convert to C style hash table.
+
 2013-08-28  Marek Polacek  <polacek@redhat.com>
 
 	* ubsan.c: Use pointer_map<tree> instead of pointer_map_t.
