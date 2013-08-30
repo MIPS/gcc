@@ -1,3 +1,333 @@
+2013-08-29  Jan Hubicka  <jh@suse.cz>
+
+	* tree.c (set_call_expr_flags): Fix handling of TM_PURE.
+
+2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58228
+	* tree-vect-data-refs.c (vect_analyze_data_ref_access): Do not
+	allow invariant loads in nested loop vectorization.
+
+2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58223
+	* tree-loop-distribution.c (has_anti_dependence): Rename to ...
+	(has_anti_or_output_dependence): ... this and adjust to also
+	look for output dependences.
+	(mark_nodes_having_upstream_mem_writes): Adjust.
+	(rdg_flag_uses): Likewise.
+
+2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58010
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Remove
+	assert that we have a loop-closed PHI.
+
+2013-08-29  Jan Hubicka  <jh@suse.cz>
+
+	* lto-symtab.c (lto_cgraph_replace_node): Free decl_in_state.
+	* cgraph.c (cgraph_release_function_body): Free decl_in_state.
+	* lto-section-in.c (lto_free_function_in_decl_state): New function.
+	(lto_free_function_in_decl_state_for_node): New function.
+
+2013-08-29  Xinliang David Li  <davidxl@google.com>
+
+	* loop-unroll.c (report_unroll_peel): Minor message
+	change.
+	* tree-vect-loop-manip.c (vect_do_peeling_for_alignment):
+	Emit alignment peeling message with default -fopt-info.
+	(vect_loop_versioning): Emit loop version info message.
+	* tree-vectorizer.c (vectorize_loops): Minor message
+	change.
+	(execute_vect_slp): Ditto.
+
+2013-08-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cgraphclones.c (cgraph_create_virtual_clone): Compute the DECL_NAME
+	of the clone from the DECL_NAME of the original function.
+
+2013-08-29  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* passes.c (register_pass): Add overload.
+	* tree-pass.h (register_pass): Forward declare it.  Add comment.
+
+2013-08-29  Jan Hubicka  <jh@suse.cz>
+
+	* lto-streamer-out.c (hash_tree): Stream DECL_FINAL_P.
+	DECL_CXX_CONSTRUCTOR_P. DECL_CXX_DESTRUCTOR_P.
+	TYPE_FINAL_P.
+	* lto-streamer-in.c (unpack_ts_decl_with_vis_value_fields):
+	DECL_FINAL_P. DECL_CXX_CONSTRUCTOR_P and DECL_CXX_DESTRUCTOR_P.
+	(unpack_ts_type_common_value_fields): Stream TYPE_FINAL_P.
+	* tree-streamer-out.c (pack_ts_decl_with_vis_value_fields):
+	Add DECL_FINAL_P, DECL_CXX_CONSTRUCTOR_P, DECL_CXX_DESTRUCTOR_P
+	(pack_ts_type_common_value_fields): Add TYPE_FINAL_P.
+
+2013-08-29  Teresa Johnson  <tejohnson@google.com>
+
+	* dumpfile.c (dump_loc): Output column number.
+	* dumpfile.h (OPTGROUP_OTHER): Add and enable under OPTGROUP_ALL.
+	* doc/invoke.texi: Document optall -fopt-info flag.
+	* profile.c (read_profile_edge_counts): Use new dump framework.
+	(compute_branch_probabilities): Ditto.
+	* passes.c (pass_manager::register_one_dump_file): Use OPTGROUP_OTHER
+	when pass not in any opt group.
+	* pass_manager.h (pass_manager::get_pass_profile): New method.
+	* value-prof.c (check_counter): Use new dump framework.
+	(check_ic_target): Ditto.
+	* coverage.c (get_coverage_counts): Ditto.
+	(coverage_init): Setup new dump framework.
+
+	* testsuite/gcc.dg/pr40209.c: Use -fopt-info.
+	* testsuite/gcc.dg/pr26570.c: Ditto.
+	* testsuite/gcc.dg/pr32773.c: Ditto.
+	* testsuite/g++.dg/tree-ssa/dom-invalid.C: Ditto.
+	* testsuite/gcc.dg/inline-dump.c: New test.
+
+2013-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58246
+	* tree-ssa-dce.c (mark_aliased_reaching_defs_necessary_1): Properly
+	handle the dominance check inside a basic-block.
+
+2013-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57287
+	* tree-ssa-copy.c (may_propagate_copy): Allow propagating
+	of default defs that appear in abnormal PHI nodes.
+
+2013-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57685
+	* tree-vrp.c (register_edge_assert_for_1): Recurse only for
+	single-use operands to avoid exponential complexity.
+
+2013-08-28  Dehao Chen  <dehao@google.com>
+
+	* ipa-inline.c (edge_badness): Fix integer underflow.
+
+2013-08-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gtm-builtins.def (_ITM_free): Declare leaf.
+
+2013-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58067
+	* config/i386/i386.md (*tls_global_dynamic_64_largepic): New insn.
+	(*tls_local_dynamic_base_64_largepic): Likewise.
+	(tls_global_dynamic_64_<mode>, tls_local_dynamic_base_64_<mode>):
+	Remove predicate from call operand.
+	* config/i386/i386.c (ix86_tls_get_addr): For -mcmodel=large -fpic
+	return sum of pic_offset_table_rtx and UNSPEC_PLTOFF of the symbol.
+
+2013-08-28  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c (thread_around_empty_block): Remove
+	checks for the number of predecessors and successors allowed.
+	* tree-ssa-threadupdate.c (mark_threaded_blocks): Ignore requests
+	which require copying a joiner block if there is a request which
+	is a subpath that requires no joiner block copying.
+
+2013-08-28  Jan Hubicka  <jh@suse.cz>
+
+	* lto-streamer-out.c (DFS_write_tree_body): Drop
+	BINFO_INHERITANCE_CHAIN, BINFO_SUBVTT_INDEX and BINFO_VPTR_INDEX.
+	(hash_tree): Do not hash DECL_DEFER_OUTPUT, BINFO_INHERITANCE_CHAIN,
+	BINFO_SUBVTT_INDEX, BINFO_VPTR_INDEX, DECL_IN_TEXT_SECTION.
+	* tree-streamer-in.c (unpack_ts_decl_common_value_fields):
+	Do not read DECL_ERROR_ISSUED.
+	(unpack_ts_decl_with_vis_value_fields): Do not read
+	DECL_DEFER_OUTPUT.
+	(lto_input_ts_binfo_tree_pointers): Do not read
+	BINFO_INHERITANCE_CHAIN, BINFO_SUBVTT_INDEX, BINFO_VPTR_INDEX
+	* tree-streamer-out.c (pack_ts_decl_common_value_fields): Do not
+	write DECL_ERROR_ISSUED..
+	(pack_ts_decl_with_vis_value_fields): Do not write
+	DECL_DEFER_OUTPUT.
+	(write_ts_binfo_tree_pointers): Do not read BINFO_INHERITANCE_CHAIN,
+	BINFO_SUBVTT_INDEX, BINFO_VPTR_INDEX.
+	* print-tree.c (print_node): Do not print DECL_ERROR_ISSUED.
+	* tree.h (tree_decl_common): Update comment.
+	(DECL_ERROR_ISSUED): Remove.
+
+2013-08-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58257
+	* omp-low.c (copy_var_decl): Copy over TREE_NO_WARNING flag.
+
+2013-08-28  Jan Hubicka  <jh@suse.cz>
+
+	* builtins.def (free): Declare leaf.
+
+2013-08-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* gdbhooks.py: New.
+	* configure.ac (gdbinit.in): Add import of gcc/gdbhooks.py.
+	* configure: Regenerate.
+
+2013-08-27  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-prop.h (ipa_pass_through_data): New field type_preserved.
+	(ipa_ancestor_jf_data): Likewise.
+	(ipa_get_jf_pass_through_agg_preserved): Fix comment typo.
+	(ipa_get_jf_pass_through_type_preserved): New function.
+	(ipa_get_jf_ancestor_agg_preserved): Fix comment typo.
+	(ipa_get_jf_ancestor_type_preserved): New function.
+	* ipa-cp.c (ipa_get_jf_pass_through_result): Honor type_preserved flag.
+	(ipa_get_jf_ancestor_result): Likewise.
+	(propagate_vals_accross_pass_through): Use
+	ipa_get_jf_pass_through_result to do all the value mappings.
+	* ipa-prop.c (ipa_print_node_jump_functions_for_edge): Dump the
+	type_preserved flag.
+	(ipa_set_jf_cst_copy): New function.
+	(ipa_set_jf_simple_pass_through): Set the type_preserved flag.
+	(ipa_set_jf_arith_pass_through): Likewise.
+	(ipa_set_ancestor_jf): Likewise.
+	(compute_complex_assign_jump_func): Set type_preserved instead of
+	punting.
+	(ipa_compute_jump_functions_for_edge): Likewise.
+	(combine_known_type_and_ancestor_jfs): Honor type_preserved.
+	(update_jump_functions_after_inlining): Update type_preserved.
+	Explicitely create jump functions when combining one with pass_through.
+	(ipa_write_jump_function): Stream the type_preserved flags.
+	(ipa_read_jump_function): Likewise.
+
+2013-08-27  Jakub Jelinek  <jakub@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* Makefile.in (omp-low.o): Depend on $(TARGET_H).
+	* cfgloop.h (struct loop): Add safelen, force_vect, simduid.
+	* function.h (struct function): Add has_force_vect_loops and
+	has_simduid_loops.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Handle GF_OMP_FOR_KIND*.
+	* gimple.c (gimple_build_omp_critical): Add KIND argument and
+	handle it.
+	* gimple.def: Update CLAUSES comments.
+	* gimple.h (enum gf_mask): Add GF_OMP_FOR_KIND_{FOR,SIMD}.
+	(gimple_build_omp_for): Add argument to prototype.
+	(gimple_omp_for_kind): New.
+	(gimple_omp_for_set_kind): New.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_LINEAR to
+	GOVD_DATA_SHARE_CLASS.
+	(enum omp_region_type): Add ORT_SIMD.
+	(gimple_add_tmp_var): Handle ORT_SIMD.
+	(gimplify_var_or_parm_decl): Same.
+	(is_gimple_stmt): Same.
+	(omp_firstprivatize_variable): Same.
+	(omp_add_variable): Only use splay_tree_insert if lookup failed.
+	(omp_notice_variable): Handle ORT_SIMD.
+	(omp_is_private): Add SIMD argument and handle it as well as ORT_SIMD.
+	(omp_check_private): Handle ORT_SIMD.
+	(gimplify_scan_omp_clauses): Handle OMP_CLAUSE_LINEAR and
+	OMP_CLAUSE_SAFELEN.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_LINEAR.
+	Handle OMP_CLAUSE_LASTPRIVATE.
+	(gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_LINEAR and
+	OMP_CLAUSE_SAFELEN.
+	(gimplify_omp_for): Handle OMP_SIMD and OMP_CLAUSE_LINEAR.
+	(gimplify_expr): Handle OMP_SIMD.
+	* internal-fn.c (expand_GOMP_SIMD_LANE): New.
+	(expand_GOMP_SIMD_VF): New.
+	(expand_GOMP_SIMD_LAST_LANE): New.
+	* internal-fn.def (GOMP_SIMD_LANE): New.
+	(GOMP_SIMD_VF): New.
+	(GOMP_SIMD_LAST_LANE): New.
+	* omp-low.c: Include target.h.
+	(extract_omp_for_data): Handle OMP_SIMD, OMP_CLAUSE_LINEAR,
+	OMP_CLAUSE_SAFELEN.
+	(check_omp_nesting_restrictions): Same.
+	(omp_max_vf): New.
+	(lower_rec_simd_input_clauses): New.
+	(lower_rec_input_clauses): Handle OMP_SIMD, GF_OMP_FOR_KIND_SIMD,
+	OMP_CLAUSE_LINEAR.
+	(lower_lastprivate_clauses): Handle OMP_CLAUSE_LINEAR,
+	GF_OMP_FOR_KIND_SIMD, OMP_SIMD.
+	(expand_omp_build_assign): New.
+	(expand_omp_for_init_counts): New.
+	(expand_omp_for_init_vars): New.
+	(extract_omp_for_update_vars): New.
+	(expand_omp_for_generic): Use expand_omp_for_{init,update}_vars
+	and rewrite accordingly.
+	(expand_omp_simd): New.
+	(expand_omp_for): Use expand_omp_simd.
+	(lower_omp_for_lastprivate): Unshare vinit when appropriate.
+	(lower_omp_for): Do not lower the body.
+	* tree-data-ref (get_references_in_stmt): Allow IFN_GOMP_SIMD_LANE
+	in their own loops.
+	* tree-flow.h (find_omp_clause): Remove prototype.
+	* tree-if-conv.c (main_tree_if_conversion): Run if doing if conversion,
+	forcing vectorization of the loop, or if flag_tree_vectorize.
+	(gate_tree_if_conversion): Similarly.
+	* tree-inline.c (remap_gimple_stmt): Pass for kind argument to
+	gimple_build_omp_for.
+	(copy_cfg_body): set has_force_vect_loops and has_simduid_loops.
+	* tree-parloops (create_parallel_loop): Pass kind argument to
+	gimple_build_omp_for.
+	* tree-pretty-print.c (dump_omp_clause): Add cases for
+	OMP_CLAUSE_UNIFORM, OMP_CLAUSE_LINEAR, OMP_CLAUSE_SAFELEN,
+	OMP_CLAUSE__SIMDUID_.
+	(dump_generic_node): Handle OMP_SIMD.
+	* tree-ssa-ccp.c (likely_value): Handle IFN_GOMP_SIMD*.
+	* tree-ssa-loop-ivcanon.c (tree_unroll_loops_completely_1): Do not
+	unroll OMP_SIMD loops here.
+	* tree-ssa-loop.c (gate_tree_vectorize): Run if has_force_vect_loops.
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Handle
+	loop->safelen.
+	(vect_analyze_data_refs): Handle simd loops.
+	* tree-vect-loop.c (vectorizable_live_operation): Handle
+	IFN_GOMP_SIMD*.
+	* tree-vect-stmts.c (vectorizable_call): Handle IFN_GOMP_SIMD_LANE.
+	(vectorizable_store): Handle STMT_VINFO_SIMD_LANE_ACCESS_P.
+	(vectorizable_load): Same.
+	* tree-vectorizer.c: Include hash-table.h and tree-ssa-propagate.h.
+	(struct simduid_to_vf): New.
+	(simduid_to_vf::hash): New.
+	(simduid_to-vf::equal): New.
+	(struct simd_array_to_simduid): New.
+	(simd_array_to_simduid::hash): New.
+	(simd_array_to_simduid::equal): New.
+	(adjust_simduid_builtins): New.
+	(struct note_simd_array_uses_struct): New.
+	(note_simd_array_uses_cb): New.
+	(note_simd_array_uses): New.
+	(vectorize_loops): Handle simd hints and adjust simd builtins
+	accordingly.
+	* tree-vectorizer.h (struct _stmt_vec_info): Add
+	simd_lane_access_p field.
+	(STMT_VINFO_SIMD_LANE_ACCESS_P): New macro.
+	* tree.c (omp_clause_num_ops): Add entries for OMP_CLAUSE_LINEAR,
+	OMP_CLAUSE_SAFELEN, OMP_CLAUSE__SIMDUID_, OMP_CLAUSE_UNIFORM.
+	(omp_clause_code_name): Same.
+	(walk_tree_1): Handle OMP_CLAUSE_UNIFORM, OMP_CLAUSE_SAFELEN,
+	OMP_CLAUSE__SIMDUID_, OMP_CLAUSE_LINEAR.
+	* tree.def (OMP_SIMD): New entry.
+	* tree.h (enum omp_clause_code): Add entries for OMP_CLAUSE_LINEAR,
+	OMP_CLAUSE_UNIFORM, OMP_CLAUSE_SAFELEN, OMP_CLAUSE__SIMDUID_.
+	(OMP_CLAUSE_DECL): Adjust range for new clauses.
+	(OMP_CLAUSE_LINEAR_NO_COPYIN): New.
+	(OMP_CLAUSE_LINEAR_NO_COPYOUT): New.
+	(OMP_CLAUSE_LINEAR_STEP): New.
+	(OMP_CLAUSE_SAFELEN_EXPR): New.
+	(OMP_CLAUSE__SIMDUID__DECL): New.
+	(find_omp_clause): New prototype.
+
+2013-08-27  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Update
+	Haswell processor detection.
+
+2013-08-27  Christian Widmer  <shadow@umbrox.de>
+
+	PR target/57927
+	* config/i386/driver-i386.c (host_detect_local_cpu): Add detection
+	of Ivy Bridge and Haswell processors.  Assume core-avx2 for unknown
+	AVX2 capable processors.
+
+2013-08-27  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/arm_neon.h: Replace all inline asm implementations
+	of vget_low_* with implementations in terms of other intrinsics.
+
 2013-08-27  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR middle-end/57219
@@ -61,7 +391,8 @@
 
 2013-08-26  Jan Hubicka  <jh@suse.cz>
 
-	* gimple-fold.c (gimple_get_virt_method_for_binfo): Use ctor_for_folding.
+	* gimple-fold.c (gimple_get_virt_method_for_binfo): Use
+	ctor_for_folding.
 
 2013-08-26  Jan Hubicka  <jh@suse.cz>
 
@@ -90,8 +421,8 @@
 
 2013-08-26  Jan Hubicka  <jh@suse.cz>
 
-	* cgraph.c (cgraph_speculative_call_info): Fix parameter order and formating;
-	add sanity check.
+	* cgraph.c (cgraph_speculative_call_info): Fix parameter order and
+	formating; add sanity check.
 	(cgraph_resolve_speculation): Add FIXME about scaling profiles.
 	(cgraph_redirect_edge_call_stmt_to_callee): Fix ICE in debug dump.
 	* ipa-inline.c (heap_edge_removal_hook): Reset node growth cache.
@@ -470,7 +801,7 @@
 	Revert:
 	2013-08-20  Alexey Makhalov  <makhaloff@gmail.com>
 
-        * dce.c (fini_dce): Call df_analyze again just in case
+	* dce.c (fini_dce): Call df_analyze again just in case
 	delete_unmarked_insns removed anything.
 
 2013-08-21  Joern Rennecke  <joern.rennecke@embecosm.com>
@@ -596,7 +927,7 @@
 	* config/i386/linux-common.h: Likewise.
 	* config/mips/linux-common.h: Likewise.
 
-2013-08-20  Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+2013-08-20  Zhouyi Zhou  <yizhouzhou@ict.ac.cn>
 
 	* tree-ssa-ccp.c (get_default_value): Remove redundant condition
 	checks.
@@ -656,7 +987,7 @@
 	* config/rs6000/rs6000.c (rs6000_emit_prologue): Correct ool_adjust.
 	(rs6000_emit_epilogue): Likewise.
 
-2013-08-19  Dehao Chen (dehao@google.com)
+2013-08-19  Dehao Chen  <dehao@google.com>
 
 	* value-prof.c (gimple_ic): Fix the bug of adding EH edge.
 
@@ -1331,7 +1662,7 @@
 	* config/i386/i386.c (ix86_option_override_internal):
 	Parsing -mtune-ctrl= option and set tune features.
 
-2013-08-07  Oleg Endo <olegendo@gcc.gnu.org>
+2013-08-07  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	PR other/12081
 	* config/rs6000/rs6000.c (gen_2arg_fn_t): Remove typedef.
@@ -1456,7 +1787,7 @@
 	* gimple-ssa-strength-reduction.c (replace_ref): Make sure built
 	MEM_REF has proper alignment information.
 
-2013-08-05  Oleg Endo <olegendo@gcc.gnu.org>
+2013-08-05  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	PR other/12081
 	* recog.h (rtx (*insn_gen_fn) (rtx, ...)): Replace typedef with	new
@@ -3633,7 +3964,7 @@
 	shift_add/shift_sub0/shift_sub1 RTXs.
 
 2013-07-24  Bill Schmidt  <wschmidt@linux.ibm.com>
-	    Anton Blanchard <anton@au1.ibm.com>
+	    Anton Blanchard  <anton@au1.ibm.com>
 
 	* config/rs6000/altivec.md (altivec_vpkpx): Handle little endian.
 	(altivec_vpks<VI_char>ss): Likewise.
@@ -3663,7 +3994,7 @@
 	don't set a return register to need a non-exit mode.
 
 2013-07-24  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
-	    Anton Blanchard <anton@au1.ibm.com>
+	    Anton Blanchard  <anton@au1.ibm.com>
 
 	* config/rs6000/vector.md (vec_realign_load_<mode>): Reorder input
 	operands to vperm for little endian.
@@ -3671,7 +4002,7 @@
 	of lvsl to create the control mask for a vperm for little endian.
 
 2013-07-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-	    Anton Blanchard <anton@au1.ibm.com>
+	    Anton Blanchard  <anton@au1.ibm.com>
 
 	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Reverse
 	two operands for little-endian.
@@ -3682,7 +4013,7 @@
 	(TARGET_CASE_VALUES_THRESHOLD): Define.
 
 2013-07-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-	    Anton Blanchard <anton@au1.ibm.com>
+	    Anton Blanchard  <anton@au1.ibm.com>
 
 	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Correct
 	selection of field for vector splat in little endian mode.
@@ -3777,12 +4108,12 @@
 	(eqv<mode>3_internal2): Likewise.
 	(one_cmpl1<mode>3_internal): Likewise.
 
-2013-07-23  David Holsgrove <david.holsgrove@xilinx.com>
+2013-07-23  David Holsgrove  <david.holsgrove@xilinx.com>
 
 	* config/microblaze/microblaze.c (microblaze_expand_prologue):
 	Rename flag_stack_usage to flag_stack_usage_info.
 
-2013-07-23  David Holsgrove <david.holsgrove@xilinx.com>
+2013-07-23  David Holsgrove  <david.holsgrove@xilinx.com>
 
 	* config/microblaze/sync.md: New file.
 	* config/microblaze/microblaze.md: Include sync.md
@@ -3919,7 +4250,7 @@
 	* config/avr/avr.md: Explain asm print modifier 'r' for REG.
 
 2013-07-22  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
-	    Anton Blanchard <anton@au1.ibm.com>
+	    Anton Blanchard  <anton@au1.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Fix
 	endianness when selecting field to splat.
@@ -4202,12 +4533,12 @@
 	(avr_out_round): New function.
 	(avr_adjust_insn_length): Handle ADJUST_LEN_ROUND.
 
-2013-07-18  David Holsgrove <david.holsgrove@xilinx.com>
+2013-07-18  David Holsgrove  <david.holsgrove@xilinx.com>
 
 	* config/microblaze/microblaze.c (microblaze_expand_prologue):
 	Add check for flag_stack_usage to handle -fstack-usage support
 
-2013-07-18  Pat Haugen <pthaugen@us.ibm.com>
+2013-07-18  Pat Haugen  <pthaugen@us.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_option_override_internal): Adjust flag
 	interaction for new Power8 flags and VSX.
@@ -5372,7 +5703,7 @@
 	* config/i386/i386.c (enum ix86_builtins, bdesc_args): Remove
 	IX86_BUILTIN_CMPNGTSS and IX86_BUILTIN_CMPNGESS.
 
-2013-06-27  Catherine Moore <clm@codesourcery.com>
+2013-06-27  Catherine Moore  <clm@codesourcery.com>
 
 	* config/mips/mips-tables.opt: Regenerate.
 	* config/mips/mips-cpus.def: Add m14ke and m14kec.
@@ -5485,8 +5816,8 @@
 	(TARGET_CAN_SPLIT_STACK, TARGET_THREAD_SPLIT_STACK_OFFSET): Undefine.
 
 2013-06-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Pat Haugen <pthaugen@us.ibm.com>
-	    Peter Bergner <bergner@vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/power8.md: New.
 	* config/rs6000/rs6000-cpus.def (RS6000_CPU table): Adjust processor
@@ -5615,7 +5946,7 @@
 	* common/config/i386/i386-common.c (ix86_handle_option): For OPT_mlzcnt
 	add missing return true.
 
-2013-06-23  Oleg Endo <olegendo@gcc.gnu.org>
+2013-06-23  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	PR target/52483
 	* config/sh/predicates.md (general_extend_operand): Invoke
@@ -5672,7 +6003,7 @@
 	* doc/extend.texi: Use __atomic_store_n instead of
 	__atomic_store in HLE example.
 
-2013-06-22  Oleg Endo <olegendo@gcc.gnu.org>
+2013-06-22  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	* config/sh/sh.c: Remove <cstdlib> workaround.
 
@@ -5695,7 +6026,7 @@
 	(get_binfo_at_offset): Use it.
 	* tree.h (types_same_for_odr): Declare.
 
-2013-06-20  Oleg Endo <olegendo@gcc.gnu.org>
+2013-06-20  Oleg Endo  <olegendo@gcc.gnu.org>
 	    Jason Merrill  <jason@redhat.com>
 
 	* system.h: Include <cstdlib> as well as <stdlib.h>.
@@ -5710,7 +6041,7 @@
 
 	* lto-cgraph.c (input_symtab): Do not set cgraph state.
 
-2013-06-20  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-06-20  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR rtl-optimization/57425
 	PR rtl-optimization/57569
@@ -6188,7 +6519,7 @@
 	Likewise.  Remove default with_tune setting.  Move default float
 	setting to its own block.  Handle with_llsc in the same block as above.
 
-2013-06-16  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-06-16  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR rtl-optimization/57425
 	PR rtl-optimization/57569
@@ -6224,7 +6555,7 @@
 	rs6000_output_move_128bit to handle emitting quad memory
 	operations.  Set attribute length to 8 bytes.
 
-2013-06-14  Vidya Praveen <vidyapraveen@arm.com>
+2013-06-14  Vidya Praveen  <vidyapraveen@arm.com>
 
 	* config/aarch64/aarch64-simd.md (aarch64_<su>mlal_lo<mode>):
 	New pattern.
@@ -6293,8 +6624,8 @@
 	* config/rs6000/spe.md (spe_abstf2_cmp, spe_abstf2_tst): Likewise.
 
 2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Pat Haugen <pthaugen@us.ibm.com>
-	    Peter Bergner <bergner@vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (emit_load_locked): Add support for
 	power8 byte, half-word, and quad-word atomic instructions.
@@ -6381,7 +6712,7 @@
 	* lto-symtab.c (lto_symtab_merge_symbols): Likewise.
 	* cgraph.h (cgraph_state): Add CGRAPH_LTO_STREAMING.
 
-2013-06-12  Roland Stigge <stigge@antcom.de>
+2013-06-12  Roland Stigge  <stigge@antcom.de>
 
 	PR target/57578
 	* config/rs6000/t-linux (MULTIARCH_DIRNAME): Fix SPE version detection.
@@ -6521,8 +6852,8 @@
 	for hash so that hash table traversal order is deterministic.
 
 2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Pat Haugen <pthaugen@us.ibm.com>
-	    Peter Bergner <bergner@vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/vector.md (GPR move splitter): Do not split moves
 	of vectors in GPRS if they are direct moves or quad word load or
@@ -6750,8 +7081,8 @@
 	TARGET_VALID_POINTER_MODE.
 
 2013-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Pat Haugen <pthaugen@us.ibm.com>
-	    Peter Bergner <bergner@vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
 	Document new power8 builtins.
@@ -7502,7 +7833,7 @@
 	* config/aarch64/aarch64.md (insv<mode>): New define_expand.
 	(*insv_reg<mode>): New define_insn.
 
-2013-05-30  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-05-30  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR rtl-optimization/57439
 	* postreload.c (move2add_valid_value_p): Check that we have
@@ -7595,8 +7926,8 @@
 	functions are not yet marked as defined.
 
 2013-05-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Pat Haugen <pthaugen@us.ibm.com>
-	    Peter Bergner <bergner@vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_I): Add support for new power8 V2DI
 	instructions.
@@ -7912,7 +8243,7 @@
 	(MULTILIB_DIRNAMES): Ditto.
 	(MULTILIB_EXCEPTIONS): Add new exceptions.
 
-2012-05-29  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+2012-05-29  Chris Schlumberger-Socha  <chris.schlumberger-socha@arm.com>
 	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64-protos.h (aarch64_symbol_type): Define
@@ -7925,7 +8256,7 @@
 	Permit SYMBOL_TINY_ABSOLUTE.
 	* config/aarch64/predicates.md (aarch64_mov_operand): Permit CONST.
 
-2013-05-29  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+2013-05-29  Chris Schlumberger-Socha  <chris.schlumberger-socha@arm.com>
 	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64.c (aarch64_classify_symbol): Remove comment.
@@ -7975,7 +8306,7 @@
 	* builtin-types.def: Define BT_FN_INT_PTR_PTR_PTR.
 	* cilkplus.def: New file.
 
-2013-05-28  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-05-28  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR rtl-optimization/57439
 	* postreload.c (move2add_use_add2_insn): Use gen_lowpart_common.
@@ -8059,7 +8390,7 @@
 	(set_ssa_val_to): Compare addresses using
 	get_addr_base_and_unit_offset.
 
-2013-05-27  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-05-27  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR rtl-optimization/56833
 	* postreload.c (move2add_record_mode): New function.
@@ -8225,14 +8556,14 @@
 	PR debug/57351
 	* config/arm/arm.c (arm_dwarf_register_span): Do not use dbx number.
 
-2013-05-23  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+2013-05-23  Chris Schlumberger-Socha  <chris.schlumberger-socha@arm.com>
 	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64.md (*movdi_aarch64): Replace Usa with S.
 	* config/aarch64/constraints.md (Usa): Remove.
 	* doc/md.texi (AArch64 Usa): Remove.
 
-2013-05-23  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+2013-05-23  Chris Schlumberger-Socha  <chris.schlumberger-socha@arm.com>
 	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64-protos.h (aarch64_mov_operand_p): Define.
@@ -8240,7 +8571,7 @@
 	* config/aarch64/predicates.md (aarch64_const_address): Remove.
 	(aarch64_mov_operand): Use aarch64_mov_operand_p.
 
-2013-05-23  Vidya Praveen <vidyapraveen@arm.com>
+2013-05-23  Vidya Praveen  <vidyapraveen@arm.com>
 
 	* config/aarch64/aarch64-simd.md (clzv4si2): Support for CLZ
 	instruction (AdvSIMD).
@@ -8295,8 +8626,8 @@
 	(exec_threshold): Ditto.
 
 2013-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Pat Haugen <pthaugen@us.ibm.com>
-	    Peter Bergner <bergner@vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions): Add
 	documentation for the power8 crypto builtins.
@@ -8348,8 +8679,8 @@
 	instructions.
 
 2013-05-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Pat Haugen <pthaugen@us.ibm.com>
-	    Peter Bergner <bergner@vnet.ibm.com>
+	    Pat Haugen  <pthaugen@us.ibm.com>
+	    Peter Bergner  <bergner@vnet.ibm.com>
 
 	* doc/invoke.texi (Option Summary): Add power8 options.
 	(RS/6000 and PowerPC Options): Likewise.
@@ -9109,7 +9440,7 @@
 	* config/arm/arm.h (EPILOGUE_USES): Only return true
 	for LR_REGNUM after epilogue_completed.
 
-2013-05-14  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-05-14  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/avr/avr.c (avr_encode_section_info): Bail out if the type
 	is error_mark_node.
@@ -9992,7 +10323,7 @@
 	*vec_concatv2si_sse2 and vec_concatv2si_sse.
 	(vec_concatv2di): Merge with *vec_concatv2di_rex64.
 
-2013-05-03  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-05-03  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR tree-optimization/57027
 	* tree-ssa-math-opts.c (convert_mult_to_fma): When checking
@@ -11359,7 +11690,7 @@
 	(scev_analysis): Likewise.
 
 2013-04-02  Catherine Moore  <clm@codesourcery.com>
-	    Chao-ying Fu <fu@mips.com>
+	    Chao-ying Fu  <fu@mips.com>
 
 	* config/mips/micromips.md (jraddiusp): New pattern.
 	* config/mips/mips.c (mips_expand_epilogue): Use the JRADDIUSP
@@ -12274,7 +12605,7 @@
 	(vect_get_constant_vectors): Handle mixed vect_external_def,
 	vect_constant_def types.
 
-2013-04-10  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-04-10  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR tree-optimization/55524
 	* tree-ssa-math-opts.c
@@ -12282,7 +12613,7 @@
 	when we don't have an fms operation, but fnma, and it looks
 	likely that we'll be able to use the latter.
 
-2013-04-10  Zhouyi Zhou <yizhouzhou@ict.ac.cn>
+2013-04-10  Zhouyi Zhou  <yizhouzhou@ict.ac.cn>
 
 	* cif-code.def (OVERWRITABLE): Correct the comment for overwritable
 	function.
@@ -12760,7 +13091,7 @@
 	* basic-block.h (gcov_working_set_t): Moved to gcov-io.h.
 	* gcov-dump.c (dump_working_sets): New function.
 
-2013-04-03  Kenneth Zadeck <zadeck@naturalbridge.com>
+2013-04-03  Kenneth Zadeck  <zadeck@naturalbridge.com>
 
 	* hwint.c (sext_hwi, zext_hwi): New functions.
 	* hwint.h (HOST_BITS_PER_HALF_WIDE_INT, HOST_HALF_WIDE_INT,
@@ -14288,7 +14619,7 @@
 	* params.def (PARAM_IPA_CP_ARRAY_INDEX_HINT_BONUS): New parameter.
 	* ipa-cp.c (hint_time_bonus): Add abonus for known array indices.
 
-2013-03-20  Pat Haugen <pthaugen@us.ibm.com>
+2013-03-20  Pat Haugen  <pthaugen@us.ibm.com>
 
 	* config/rs6000/predicates.md (indexed_address, update_address_mem
 	update_indexed_address_mem): New predicates.
@@ -14595,10 +14926,10 @@
 2013-03-20  Catherine Moore  <clm@codesourcery.com>
 	    Maciej W. Rozycki  <macro@codesourcery.com>
 	    Tom de Vries  <tom@codesourcery.com>
-	    Nathan Sidwell <nathan@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
 	    Iain Sandoe  <iain@codesourcery.com>
 	    Nathan Froyd  <froydnj@codesourcery.com>
-	    Chao-ying Fu <fu@mips.com>
+	    Chao-ying Fu  <fu@mips.com>
 
 	* doc/extend.texi: (micromips, nomicromips, nocompression):
 	Document new function attributes.
@@ -14730,7 +15061,7 @@
 	remap_gimple_op_r.
 
 2013-03-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
-	    Steven Bosscher <steven@gcc.gnu.org>
+	    Steven Bosscher  <steven@gcc.gnu.org>
 
 	PR rtl-optimization/56605
 	* loop-iv.c (implies_p): Handle equal RTXs and subregs.
