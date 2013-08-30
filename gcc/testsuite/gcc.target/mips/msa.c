@@ -1,6 +1,6 @@
 /* Test MIPS MSA ASE instructions */
 /* { dg-do compile } */
-/* { dg-options "-mips32r2 -mmsa" } */
+/* { dg-options "-mips32r2 -mfp64 -mhard-float -mmsa" } */
 
 typedef signed char v16i8 __attribute__ ((vector_size(16)));
 typedef short v8i16 __attribute__ ((vector_size(16)));

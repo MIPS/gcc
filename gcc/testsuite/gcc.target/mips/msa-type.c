@@ -1,6 +1,6 @@
 /* Test MIPS MSA ASE instructions */
 /* { dg-do compile } */
-/* { dg-options "-mmsa" } */
+/* { dg-options "-mfp64 -mhard-float -mmsa" } */
 /* { dg-skip-if "madd and msub need combine" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler-times "\taddv.b\t" 2 } } */
 /* { dg-final { scan-assembler-times "\taddv.h\t" 2 } } */
