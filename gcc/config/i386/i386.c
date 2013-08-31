@@ -4847,7 +4847,7 @@ ix86_in_large_data_p (tree exp)
    RELOC indicates whether forming the initial value of DECL requires
    link-time relocations.  */
 
-static section * ATTRIBUTE_UNUSED
+ATTRIBUTE_UNUSED static section *
 x86_64_elf_select_section (tree decl, int reloc,
 			   unsigned HOST_WIDE_INT align)
 {
@@ -13046,6 +13046,14 @@ ix86_tls_get_addr (void)
 	   ? "___tls_get_addr" : "__tls_get_addr");
 
       ix86_tls_symbol = gen_rtx_SYMBOL_REF (Pmode, sym);
+    }
+
+  if (ix86_cmodel == CM_LARGE_PIC && !TARGET_PECOFF)
+    {
+      rtx unspec = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, ix86_tls_symbol),
+				   UNSPEC_PLTOFF);
+      return gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+			   gen_rtx_CONST (Pmode, unspec));
     }
 
   return ix86_tls_symbol;
