@@ -1,5 +1,10 @@
 
 
+2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (class_diagnostic_state): New class with
+	fields diag_vec and diag_state.
+	(diagnostic_args_macro): Improve.
 
 2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
