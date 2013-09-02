@@ -1,6 +1,14 @@
 
 2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* Makefile.in (melt_make_cc1_dependency, check-melt-runtime): Use
+	melt-runtime.cc file.
+
+	* melt/warmelt-base.melt (diagnostic_args_macro): Show also the
+	sexcont.
+
+2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* gengtype.c (file_rules): Added rule for *.cc files.
 	(get_output_file_with_visibility): Give fatal message when no
 	rules found.

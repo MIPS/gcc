@@ -5501,7 +5501,7 @@ po/gcc.pot: force
 melt_version_string:=$(shell $(AWK) -F\" '/^.define +MELT_VERSION_STRING/{print $$2}' $(srcdir)/melt-runtime.h)
 
 melt_make_cc1=./cc1$(exeext)
-melt_make_cc1_dependency=$(melt_make_cc1) $(MELT_H) melt-runtime.c
+melt_make_cc1_dependency=$(melt_make_cc1) $(MELT_H) melt-runtime.cc
 melt_make_gencdeps= ./cc1$(exeext)
 melt_make_module_makefile=$(srcdir)/melt-module.mk
 melt_make_source_dir=$(srcdir)/melt
@@ -5659,12 +5659,12 @@ install-melt-includes: melt-runtime.h melt-predef.h melt-run.h melt-run-md5.h me
 
 
 ## phony target to compile the MELT runtime using MELT to exercise the
-## meltframe MELT pass, and to check that melt-runtime.c follows some
+## meltframe MELT pass, and to check that melt-runtime.cc follows some
 ## MELT coding rules.
 
 check-melt-runtime: $(MELT_RUNTIME_C) xgcc$(exeext)		\
     melt-sources melt-all-sources melt-modules melt-all-modules
-	@echo checking melt-runtime.c with MELT				\
+	@echo checking melt-runtime.cc with MELT				\
 	$(GCC_FOR_TARGET)  $(ALL_CFLAGS) $(ALL_CPPFLAGS) -Wno-error	\
  -I $(srcdir)/melt/generated/						\
 	    $(MELT_RUNTIME_CPPDEFS)					\
