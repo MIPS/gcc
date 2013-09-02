@@ -1007,7 +1007,8 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 			  :loca_location vloc
 			  :sexp_contents cont))
 	 )
-    (debug "melt_make_sexpr start loc=" loc)
+    (debug "melt_make_sexpr start loc=" loc " vloc=" vloc)
+    (shortbacktrace_dbg "melt_make_sexpr" 12)
     (forever 
      argloop
      (debug "melt_make_sexpr variadic_index:" (variadic_index))

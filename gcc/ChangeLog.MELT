@@ -1,6 +1,9 @@
 
 
 2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (melt_make_sexpr): More debug.
+
+2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
