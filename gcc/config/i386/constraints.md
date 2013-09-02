@@ -18,7 +18,7 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;           H           T
+;;;           H
 ;;;           h jk
 
 ;; Integer register constraints.
