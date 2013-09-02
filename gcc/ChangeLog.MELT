@@ -1,6 +1,11 @@
 
 
 2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (outpucod_initialextensionroutine):
+	Define and use the omodcname for emission of module related
+	identifiers.
+
+2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
