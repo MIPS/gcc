@@ -7442,6 +7442,14 @@ build_special_member_call (tree instance, tree name, vec<tree, va_gc> **args,
   if (allocated != NULL)
     release_tree_vector (allocated);
 
+  if ((complain & tf_error)
+      && (flags & LOOKUP_DELEGATING_CONS)
+      && name == complete_ctor_identifier 
+      && TREE_CODE (ret) == CALL_EXPR
+      && (DECL_ABSTRACT_ORIGIN (TREE_OPERAND (CALL_EXPR_FN (ret), 0))
+	  == current_function_decl))
+    error ("constructor delegates to itself");
+
   return ret;
 }
 
@@ -7668,7 +7676,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 
       if (init)
 	{
-	  if (TREE_CODE (instance) == INDIRECT_REF
+	  if (INDIRECT_REF_P (instance)
 	      && integer_zerop (TREE_OPERAND (instance, 0)))
 	    return get_target_expr_sfinae (init, complain);
 	  init = build2 (INIT_EXPR, TREE_TYPE (instance), instance, init);
