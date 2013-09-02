@@ -1392,7 +1392,7 @@
 	(sign_extend:DI
 	    (minus:SI (match_operand:SI 1 "register_operand" "d")
 		      (match_operand:SI 2 "register_operand" "d"))))]
-  "TARGET_64BIT || TARGET_MSA"
+  "TARGET_64BIT"
   "subu\t%0,%1,%2"
   [(set_attr "alu_type" "sub")
    (set_attr "mode" "DI")])
@@ -4735,6 +4735,7 @@
   [(set (match_operand:TI 0 "nonimmediate_operand" "=d,d,d,m,*a,*a,*d")
 	(match_operand:TI 1 "move_operand" "d,i,m,dJ,*J,*d,*a"))]
   "TARGET_64BIT
+   && !TARGET_MSA
    && !TARGET_MIPS16
    && (register_operand (operands[0], TImode)
        || reg_or_0_operand (operands[1], TImode))"
@@ -4803,7 +4804,7 @@
 (define_split
   [(set (match_operand:MOVE128 0 "nonimmediate_operand")
 	(match_operand:MOVE128 1 "move_operand"))]
-  "reload_completed && mips_split_move_insn_p (operands[0], operands[1], insn)"
+  "reload_completed && !TARGET_MSA && mips_split_move_insn_p (operands[0], operands[1], insn)"
   [(const_int 0)]
 {
   mips_split_move_insn (operands[0], operands[1], curr_insn);
