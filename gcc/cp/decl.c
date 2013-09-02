@@ -75,7 +75,6 @@ static tree grokvardecl (tree, tree, const cp_decl_specifier_seq *,
 static int check_static_variable_definition (tree, tree);
 static void record_unknown_type (tree, const char *);
 static tree builtin_function_1 (tree, tree, bool);
-static tree build_library_fn_1 (tree, enum tree_code, tree);
 static int member_function_or_else (tree, tree, enum overload_flags);
 static void bad_specifiers (tree, enum bad_spec_place, int, int, int, int,
 			    int);
@@ -107,8 +106,8 @@ static tree cp_make_fname_decl (location_t, tree, int);
 static void initialize_predefined_identifiers (void);
 static tree check_special_function_return_type
 	(special_function_kind, tree, tree);
-static tree push_cp_library_fn (enum tree_code, tree);
-static tree build_cp_library_fn (tree, enum tree_code, tree);
+static tree push_cp_library_fn (enum tree_code, tree, int);
+static tree build_cp_library_fn (tree, enum tree_code, tree, int);
 static void store_parm_decls (tree);
 static void initialize_local_var (tree, tree);
 static void expand_static_init (tree, tree);
@@ -1146,8 +1145,9 @@ warn_extern_redeclared_static (tree newdecl, tree olddecl)
       && DECL_ARTIFICIAL (olddecl))
     return;
 
-  permerror (input_location, "%qD was declared %<extern%> and later %<static%>", newdecl);
-  permerror (input_location, "previous declaration of %q+D", olddecl);
+  if (permerror (input_location,
+		 "%qD was declared %<extern%> and later %<static%>", newdecl))
+    inform (input_location, "previous declaration of %q+D", olddecl);
 }
 
 /* NEW_DECL is a redeclaration of OLD_DECL; both are functions or
@@ -1287,19 +1287,19 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  warning (OPT_Wattributes, "function %q+D redeclared as inline",
-		   newdecl);
-	  warning (OPT_Wattributes, "previous declaration of %q+D "
-		   "with attribute noinline", olddecl);
+	  if (warning (OPT_Wattributes, "function %q+D redeclared as inline",
+		       newdecl))
+	    inform (input_location, "previous declaration of %q+D "
+		    "with attribute noinline", olddecl);
 	}
       else if (DECL_DECLARED_INLINE_P (olddecl)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  warning (OPT_Wattributes, "function %q+D redeclared with "
-		   "attribute noinline", newdecl);
-	  warning (OPT_Wattributes, "previous declaration of %q+D was inline",
-		   olddecl);
+	  if (warning (OPT_Wattributes, "function %q+D redeclared with "
+		       "attribute noinline", newdecl))
+	    inform (input_location, "previous declaration of %q+D was inline",
+		    olddecl);
 	}
     }
 
@@ -1485,7 +1485,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       error ("%q#D redeclared as different kind of symbol", newdecl);
       if (TREE_CODE (olddecl) == TREE_LIST)
 	olddecl = TREE_VALUE (olddecl);
-      error ("previous declaration of %q+#D", olddecl);
+      inform (input_location, "previous declaration of %q+#D", olddecl);
 
       return error_mark_node;
     }
@@ -1550,7 +1550,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       else
 	{
 	  error ("conflicting declaration %q#D", newdecl);
-	  error ("%q+D has a previous declaration as %q#D", olddecl, olddecl);
+	  inform (input_location,
+		  "%q+D has a previous declaration as %q#D", olddecl, olddecl);
 	  return error_mark_node;
 	}
     }
@@ -1613,9 +1614,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  error_at (DECL_SOURCE_LOCATION (newdecl), errmsg, newdecl);
 	  if (DECL_NAME (olddecl) != NULL_TREE)
-	    error ((DECL_INITIAL (olddecl) && namespace_bindings_p ())
-		   ? G_("%q+#D previously defined here")
-		   : G_("%q+#D previously declared here"), olddecl);
+	    inform (input_location,
+		    (DECL_INITIAL (olddecl) && namespace_bindings_p ())
+		    ? G_("%q+#D previously defined here")
+		    : G_("%q+#D previously declared here"), olddecl);
 	  return error_mark_node;
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -1759,8 +1761,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  && (! DECL_TEMPLATE_SPECIALIZATION (newdecl)
 	      || DECL_TEMPLATE_SPECIALIZATION (olddecl)))
 	{
-	  warning (OPT_Wredundant_decls, "redundant redeclaration of %qD in same scope", newdecl);
-	  warning (OPT_Wredundant_decls, "previous declaration of %q+D", olddecl);
+	  if (warning (OPT_Wredundant_decls,
+		       "redundant redeclaration of %qD in same scope",
+		       newdecl))
+	    inform (input_location, "previous declaration of %q+D", olddecl);
 	}
 
       if (!(DECL_TEMPLATE_INSTANTIATION (olddecl)
@@ -3098,7 +3102,9 @@ case_conversion (tree type, tree value)
     {
       if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (type))
 	type = type_promotes_to (type);
-      value = perform_implicit_conversion (type, value, tf_warning_or_error);
+      value = (perform_implicit_conversion_flags
+	       (type, value, tf_warning_or_error,
+		LOOKUP_IMPLICIT | LOOKUP_NO_NON_INTEGRAL));
     }
   return cxx_constant_value (value);
 }
@@ -3793,10 +3799,10 @@ cxx_init_decl_processing (void)
     newtype = build_exception_variant (newtype, new_eh_spec);
     deltype = cp_build_type_attribute_variant (void_ftype_ptr, extvisattr);
     deltype = build_exception_variant (deltype, empty_except_spec);
-    push_cp_library_fn (NEW_EXPR, newtype);
-    push_cp_library_fn (VEC_NEW_EXPR, newtype);
-    global_delete_fndecl = push_cp_library_fn (DELETE_EXPR, deltype);
-    push_cp_library_fn (VEC_DELETE_EXPR, deltype);
+    push_cp_library_fn (NEW_EXPR, newtype, 0);
+    push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
+    global_delete_fndecl = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
+    push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
 
     nullptr_type_node = make_node (NULLPTR_TYPE);
     TYPE_SIZE (nullptr_type_node) = bitsize_int (GET_MODE_BITSIZE (ptr_mode));
@@ -3809,7 +3815,8 @@ cxx_init_decl_processing (void)
   }
 
   abort_fndecl
-    = build_library_fn_ptr ("__cxa_pure_virtual", void_ftype);
+    = build_library_fn_ptr ("__cxa_pure_virtual", void_ftype,
+			    ECF_NORETURN | ECF_NOTHROW);
 
   /* Perform other language dependent initializations.  */
   init_class_processing ();
@@ -4000,7 +4007,8 @@ cxx_builtin_function_ext_scope (tree decl)
    function.  Not called directly.  */
 
 static tree
-build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
+build_library_fn (tree name, enum tree_code operator_code, tree type,
+		  int ecf_flags)
 {
   tree fn = build_lang_decl (FUNCTION_DECL, name, type);
   DECL_EXTERNAL (fn) = 1;
@@ -4012,28 +4020,17 @@ build_library_fn_1 (tree name, enum tree_code operator_code, tree type)
      external shared object.  */
   DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
   DECL_VISIBILITY_SPECIFIED (fn) = 1;
-  return fn;
-}
-
-/* Returns the _DECL for a library function with C linkage.
-   We assume that such functions never throw; if this is incorrect,
-   callers should unset TREE_NOTHROW.  */
-
-static tree
-build_library_fn (tree name, tree type)
-{
-  tree fn = build_library_fn_1 (name, ERROR_MARK, type);
-  TREE_NOTHROW (fn) = 1;
+  set_call_expr_flags (fn, ecf_flags);
   return fn;
 }
 
 /* Returns the _DECL for a library function with C++ linkage.  */
 
 static tree
-build_cp_library_fn (tree name, enum tree_code operator_code, tree type)
+build_cp_library_fn (tree name, enum tree_code operator_code, tree type,
+		     int ecf_flags)
 {
-  tree fn = build_library_fn_1 (name, operator_code, type);
-  TREE_NOTHROW (fn) = TYPE_NOTHROW_P (type);
+  tree fn = build_library_fn (name, operator_code, type, ecf_flags);
   DECL_CONTEXT (fn) = FROB_CONTEXT (current_namespace);
   SET_DECL_LANGUAGE (fn, lang_cplusplus);
   return fn;
@@ -4043,18 +4040,19 @@ build_cp_library_fn (tree name, enum tree_code operator_code, tree type)
    IDENTIFIER_NODE.  */
 
 tree
-build_library_fn_ptr (const char* name, tree type)
+build_library_fn_ptr (const char* name, tree type, int ecf_flags)
 {
-  return build_library_fn (get_identifier (name), type);
+  return build_library_fn (get_identifier (name), ERROR_MARK, type, ecf_flags);
 }
 
 /* Like build_cp_library_fn, but takes a C string instead of an
    IDENTIFIER_NODE.  */
 
 tree
-build_cp_library_fn_ptr (const char* name, tree type)
+build_cp_library_fn_ptr (const char* name, tree type, int ecf_flags)
 {
-  return build_cp_library_fn (get_identifier (name), ERROR_MARK, type);
+  return build_cp_library_fn (get_identifier (name), ERROR_MARK, type,
+			      ecf_flags);
 }
 
 /* Like build_library_fn, but also pushes the function so that we will
@@ -4062,14 +4060,14 @@ build_cp_library_fn_ptr (const char* name, tree type)
    may throw exceptions listed in RAISES.  */
 
 tree
-push_library_fn (tree name, tree type, tree raises)
+push_library_fn (tree name, tree type, tree raises, int ecf_flags)
 {
   tree fn;
 
   if (raises)
     type = build_exception_variant (type, raises);
 
-  fn = build_library_fn (name, type);
+  fn = build_library_fn (name, ERROR_MARK, type, ecf_flags);
   pushdecl_top_level (fn);
   return fn;
 }
@@ -4078,11 +4076,12 @@ push_library_fn (tree name, tree type, tree raises)
    will be found by normal lookup.  */
 
 static tree
-push_cp_library_fn (enum tree_code operator_code, tree type)
+push_cp_library_fn (enum tree_code operator_code, tree type,
+		    int ecf_flags)
 {
   tree fn = build_cp_library_fn (ansi_opname (operator_code),
 				 operator_code,
-				 type);
+				 type, ecf_flags);
   pushdecl (fn);
   if (flag_tm)
     apply_tm_attr (fn, get_identifier ("transaction_safe"));
@@ -4093,10 +4092,10 @@ push_cp_library_fn (enum tree_code operator_code, tree type)
    a FUNCTION_TYPE.  */
 
 tree
-push_void_library_fn (tree name, tree parmtypes)
+push_void_library_fn (tree name, tree parmtypes, int ecf_flags)
 {
   tree type = build_function_type (void_type_node, parmtypes);
-  return push_library_fn (name, type, NULL_TREE);
+  return push_library_fn (name, type, NULL_TREE, ecf_flags);
 }
 
 /* Like push_library_fn, but also note that this function throws
@@ -4105,9 +4104,7 @@ push_void_library_fn (tree name, tree parmtypes)
 tree
 push_throw_library_fn (tree name, tree type)
 {
-  tree fn = push_library_fn (name, type, NULL_TREE);
-  TREE_THIS_VOLATILE (fn) = 1;
-  TREE_NOTHROW (fn) = 0;
+  tree fn = push_library_fn (name, type, NULL_TREE, ECF_NORETURN);
   return fn;
 }
 
@@ -6637,7 +6634,7 @@ get_atexit_node (void)
 
   /* Now, build the function declaration.  */
   push_lang_context (lang_name_c);
-  atexit_fndecl = build_library_fn_ptr (name, fn_type);
+  atexit_fndecl = build_library_fn_ptr (name, fn_type, ECF_LEAF | ECF_NOTHROW);
   mark_used (atexit_fndecl);
   pop_lang_context ();
   atexit_node = decay_conversion (atexit_fndecl, tf_warning_or_error);
@@ -6659,7 +6656,8 @@ get_thread_atexit_node (void)
 					   NULL_TREE);
 
   /* Now, build the function declaration.  */
-  tree atexit_fndecl = build_library_fn_ptr ("__cxa_thread_atexit", fn_type);
+  tree atexit_fndecl = build_library_fn_ptr ("__cxa_thread_atexit", fn_type,
+					     ECF_LEAF | ECF_NOTHROW);
   return decay_conversion (atexit_fndecl, tf_warning_or_error);
 }
 
@@ -6985,15 +6983,17 @@ expand_static_init (tree decl, tree init)
 	      (acquire_name, build_function_type_list (integer_type_node,
 						       TREE_TYPE (guard_addr),
 						       NULL_TREE),
-	       NULL_TREE);
+	       NULL_TREE, ECF_NOTHROW | ECF_LEAF);
 	  if (!release_fn || !abort_fn)
 	    vfntype = build_function_type_list (void_type_node,
 						TREE_TYPE (guard_addr),
 						NULL_TREE);
 	  if (!release_fn)
-	    release_fn = push_library_fn (release_name, vfntype, NULL_TREE);
+	    release_fn = push_library_fn (release_name, vfntype, NULL_TREE,
+					   ECF_NOTHROW | ECF_LEAF);
 	  if (!abort_fn)
-	    abort_fn = push_library_fn (abort_name, vfntype, NULL_TREE);
+	    abort_fn = push_library_fn (abort_name, vfntype, NULL_TREE,
+					ECF_NOTHROW | ECF_LEAF);
 
 	  inner_if_stmt = begin_if_stmt ();
 	  finish_if_stmt_cond (build_call_n (acquire_fn, 1, guard_addr),
@@ -7420,17 +7420,6 @@ grokfndecl (tree ctype,
 	     the information in the TEMPLATE_ID_EXPR.  */
 	  SET_DECL_IMPLICIT_INSTANTIATION (decl);
 
-	  if (TREE_CODE (fns) == COMPONENT_REF)
-	    {
-	      /* Due to bison parser ickiness, we will have already looked
-		 up an operator_name or PFUNCNAME within the current class
-		 (see template_id in parse.y). If the current class contains
-		 such a name, we'll get a COMPONENT_REF here. Undo that.  */
-
-	      gcc_assert (TREE_TYPE (TREE_OPERAND (fns, 0))
-			  == current_class_type);
-	      fns = TREE_OPERAND (fns, 1);
-	    }
 	  gcc_assert (identifier_p (fns) || TREE_CODE (fns) == OVERLOAD);
 	  DECL_TEMPLATE_INFO (decl) = build_template_info (fns, args);
 
@@ -11836,14 +11825,14 @@ check_elaborated_type_specifier (enum tag_types tag_code,
 	   && tag_code != typename_type)
     {
       error ("%qT referred to as %qs", type, tag_name (tag_code));
-      error ("%q+T has a previous declaration here", type);
+      inform (input_location, "%q+T has a previous declaration here", type);
       return error_mark_node;
     }
   else if (TREE_CODE (type) != ENUMERAL_TYPE
 	   && tag_code == enum_type)
     {
       error ("%qT referred to as enum", type);
-      error ("%q+T has a previous declaration here", type);
+      inform (input_location, "%q+T has a previous declaration here", type);
       return error_mark_node;
     }
   else if (!allow_template_p

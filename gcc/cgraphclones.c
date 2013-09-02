@@ -147,6 +147,7 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
   /* Clone flags that depend on call_stmt availability manually.  */
   new_edge->can_throw_external = e->can_throw_external;
   new_edge->call_stmt_cannot_inline_p = e->call_stmt_cannot_inline_p;
+  new_edge->speculative = e->speculative;
   if (update_original)
     {
       e->count -= new_edge->count;
@@ -251,7 +252,7 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
   return new_node;
 }
 
-/* Create a new name for clone of DECL, add SUFFIX.  Returns an identifier.  */
+/* Return a new assembler name for a clone of DECL with SUFFIX.  */
 
 static GTY(()) unsigned int clone_fn_id_num;
 
@@ -292,8 +293,9 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   tree old_decl = old_node->symbol.decl;
   struct cgraph_node *new_node = NULL;
   tree new_decl;
-  size_t i;
+  size_t len, i;
   struct ipa_replace_map *map;
+  char *name;
 
   if (!in_lto_p)
     gcc_checking_assert  (tree_versionable_function_p (old_decl));
@@ -317,8 +319,13 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
      sometimes storing only clone decl instead of original.  */
 
   /* Generate a new name for the new version. */
-  DECL_NAME (new_decl) = clone_function_name (old_decl, suffix);
-  SET_DECL_ASSEMBLER_NAME (new_decl, DECL_NAME (new_decl));
+  len = IDENTIFIER_LENGTH (DECL_NAME (old_decl));
+  name = XALLOCAVEC (char, len + strlen (suffix) + 2);
+  memcpy (name, IDENTIFIER_POINTER (DECL_NAME (old_decl)), len);
+  strcpy (name + len + 1, suffix);
+  name[len] = '.';
+  DECL_NAME (new_decl) = get_identifier (name);
+  SET_DECL_ASSEMBLER_NAME (new_decl, clone_function_name (old_decl, suffix));
   SET_DECL_RTL (new_decl, NULL);
 
   new_node = cgraph_clone_node (old_node, new_decl, old_node->count,
@@ -474,17 +481,21 @@ cgraph_find_replacement_node (struct cgraph_node *node)
 }
 
 /* Like cgraph_set_call_stmt but walk the clone tree and update all
-   clones sharing the same function body.  */
+   clones sharing the same function body.  
+   When WHOLE_SPECULATIVE_EDGES is true, all three components of
+   speculative edge gets updated.  Otherwise we update only direct
+   call.  */
 
 void
 cgraph_set_call_stmt_including_clones (struct cgraph_node *orig,
-				       gimple old_stmt, gimple new_stmt)
+				       gimple old_stmt, gimple new_stmt,
+				       bool update_speculative)
 {
   struct cgraph_node *node;
   struct cgraph_edge *edge = cgraph_edge (orig, old_stmt);
 
   if (edge)
-    cgraph_set_call_stmt (edge, new_stmt);
+    cgraph_set_call_stmt (edge, new_stmt, update_speculative);
 
   node = orig->clones;
   if (node)
@@ -492,7 +503,23 @@ cgraph_set_call_stmt_including_clones (struct cgraph_node *orig,
       {
 	struct cgraph_edge *edge = cgraph_edge (node, old_stmt);
 	if (edge)
-	  cgraph_set_call_stmt (edge, new_stmt);
+	  {
+	    cgraph_set_call_stmt (edge, new_stmt, update_speculative);
+	    /* If UPDATE_SPECULATIVE is false, it means that we are turning
+	       speculative call into a real code sequence.  Update the
+	       callgraph edges.  */
+	    if (edge->speculative && !update_speculative)
+	      {
+		struct cgraph_edge *direct, *indirect;
+		struct ipa_ref *ref;
+
+		gcc_assert (!edge->indirect_unknown_callee);
+		cgraph_speculative_call_info (edge, direct, indirect, ref);
+		direct->speculative = false;
+		indirect->speculative = false;
+		ref->speculative = false;
+	      }
+	  }
 	if (node->clones)
 	  node = node->clones;
 	else if (node->next_sibling_clone)
@@ -811,6 +838,7 @@ cgraph_materialize_all_clones (void)
 {
   struct cgraph_node *node;
   bool stabilized = false;
+  
 
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materializing clones\n");

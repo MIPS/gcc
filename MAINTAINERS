@@ -178,6 +178,7 @@ libobjc			Nicola Pero		nicola.pero@meta-innovation.com
 libobjc			Andrew Pinski		pinskia@gmail.com
 libquadmath		Tobias Burnus		burnus@net-b.de
 libquadmath		Jakub Jelinek		jakub@redhat.com
+libvtv	      		Caroline Tice		cmtice@google.com
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 soft-fp			Joseph Myers		joseph@codesourcery.com
 scheduler (+ haifa)	Jim Wilson		wilson@tuliptree.org
@@ -194,7 +195,7 @@ dwarf debugging code	Cary Coutant		ccoutant@google.com
 c++ runtime libs	Paolo Carlini		paolo.carlini@oracle.com
 c++ runtime libs	Gabriel Dos Reis	gdr@integrable-solutions.net
 c++ runtime libs	Ulrich Drepper		drepper@gmail.com
-c++ runtime libs	Benjamin Kosnik		bkoz@redhat.com
+c++ runtime libs	Benjamin De Kosnik	bkoz@gnu.org
 c++ runtime libs	Loren J. Rittle		ljrittle@acm.org
 c++ runtime libs	Jonathan Wakely		redi@gcc.gnu.org
 *synthetic multiply	Torbjorn Granlund	tege@swox.com
@@ -256,6 +257,7 @@ testsuite		Rainer Orth		ro@CeBiTec.Uni-Bielefeld.DE
 testsuite		Mike Stump		mikestump@comcast.net
 testsuite		Janis Johnson		janisjo@codesourcery.com
 register allocation	Vladimir Makarov	vmakarov@redhat.com
+gdbhooks.py		David Malcolm		dmalcolm@redhat.com
 
 Note that individuals who maintain parts of the compiler need approval to
 check in changes outside of the parts of the compiler they maintain.
@@ -298,6 +300,7 @@ Plugin			Le-Chun Wu		lcwu@google.com
 register allocation	Peter Bergner		bergner@vnet.ibm.com
 register allocation	Kenneth Zadeck		zadeck@naturalbridge.com
 register allocation	Seongbae Park		seongbae.park@gmail.com
+RTL optimizers		Steven Bosscher		steven@gcc.gnu.org
 selective scheduling	Andrey Belevantsev	abel@ispras.ru
 
 Note that while reviewers can approve changes to parts of the compiler
@@ -329,13 +332,13 @@ Ian Bolton					ian.bolton@arm.com
 Andrea Bona					andrea.bona@st.com
 Paolo Bonzini					bonzini@gnu.org
 Neil Booth					neil@daikokuya.co.uk
-Steven Bosscher					steven@gcc.gnu.org
 Robert Bowdidge					bowdidge@apple.com
 Joel Brobecker					brobecker@gnat.com
 Dave Brolley					brolley@redhat.com
 Julian Brown					julian@codesourcery.com
 Christian Bruel					christian.bruel@st.com
 Kevin Buettner					kevinb@redhat.com
+Adam Butcher					adam@jessamine.co.uk
 Andrew Cagney					cagney@redhat.com
 Daniel Carrera					dcarrera@gmail.com
 Stephane Carrez					stcarrez@nerim.fr
@@ -359,6 +362,7 @@ Sameera Deshpande				sameera.deshpande@arm.com
 François Dumont					fdumont@gcc.gnu.org
 Benoit Dupont de Dinechin			benoit.dupont-de-dinechin@st.com
 Michael Eager					eager@eagercon.com
+Bernd Edlinger					bernd.edlinger@hotmail.de
 Phil Edwards					pme@gcc.gnu.org
 Mohan Embar					gnustuff@thisiscool.com
 Oleg Endo					olegendo@gcc.gnu.org
@@ -478,7 +482,7 @@ Thomas Neumann					tneumann@users.sourceforge.net
 Dan Nicolaescu					dann@ics.uci.edu
 Dorit Nuzman					dorit@il.ibm.com
 David O'Brien					obrien@FreeBSD.org
-Carlos O'Donell					carlos@codesourcery.com
+Carlos O'Donell					carlos@redhat.com
 Peter O'Gorman					pogma@thewrittenword.com
 Andrea Ornstein					andrea.ornstein@st.com
 Seongbae Park					seongbae.park@gmail.com
@@ -537,7 +541,7 @@ Chung-Lin Tang					cltang@codesourcery.com
 Samuel Tardieu					sam@rfc1149.net
 Dinar Temirbulatov				dinar@kugelworks.com
 Kresten Krab Thorup				krab@gcc.gnu.org
-Caroline Tice					ctice@apple.com
+Caroline Tice					cmtice@google.com
 Kyrylo Tkachov					kyrylo.tkachov@arm.com
 Konrad Trifunovic				konrad.trifunovic@inria.fr
 David Ung					davidu@mips.com
