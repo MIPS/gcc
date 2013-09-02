@@ -1045,6 +1045,32 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		 (v)
 		 (curpair curcomp)
 		 (list_append cont curcomp)))
+	      ;; try to reify locations
+	      ( (is_mixloc v)
+		(let ( (:long locline (mixloc_locline v))
+		       (:cstring locfile (mixloc_locfile v))
+		       )
+		  (if (and (>i locline 0)
+			   (cstring_non_empty locfile))
+		      (list_append cont (instance class_sexpr
+						  :loca_location loc
+						  :sexp_contents (list 'hook_melt_make_location 
+								       (constant_box locfile) 
+								       (constant_box locline))))
+		    (list_append cont ())))
+		)
+	      ( (and (is_mixint v)
+		     (is_string (mixint_val v))
+		     )
+		(let ( (:long locline (get_int v))
+		       )
+		  (list_append cont (instance class_sexpr
+					      :loca_location loc
+					      :sexp_contents (list 'hook_melt_make_location 
+								   (mixint_val v) 
+								   (constant_box locline))))
+		  (list_append cont ()))
+		)
 	      ( (is_closure v)
 		(v cont))
 	      (:else

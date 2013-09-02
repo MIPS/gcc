@@ -1,6 +1,10 @@
 
 
 2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (melt_make_sexpr): Handle location
+	values by emitting a hook_melt_make_location call.
+
+2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (melt_make_sexpr): More debug.
 
 2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
