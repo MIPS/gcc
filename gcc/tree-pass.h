@@ -76,21 +76,10 @@ namespace gcc
 
 /* An instance of a pass.  This is also "pass_data" to minimize the
    changes in existing code.  */
-class GTY((user)) opt_pass : public pass_data
+class opt_pass : public pass_data
 {
 public:
-  /* Ensure that instances are allocated in the GC-managed heap.  */
-  void *operator new (size_t sz);
-
   virtual ~opt_pass () { }
-
-  /* GTY((user)) methods, to be called once per traversal.
-     opt_pass subclasses with additional GC-managed data should override
-     these, chain up to the base class implementation, then walk their
-     extra fields.  */
-  virtual void gt_ggc_mx ();
-  virtual void gt_pch_nx ();
-  virtual void gt_pch_nx_with_op (gt_pointer_operator op, void *cookie);
 
   /* Create a copy of this pass.
 
@@ -102,7 +91,8 @@ public:
   virtual opt_pass *clone ();
 
   /* If has_gate is set, this pass and all sub-passes are executed only if
-     the function returns true.  */
+     the function returns true.
+     The default implementation returns true.  */
   virtual bool gate ();
 
   /* This is the code to run.  If has_execute is false, then there should
@@ -341,6 +331,14 @@ struct register_pass_info
   enum pass_positioning_ops pos_op; /* how to insert the new pass.  */
 };
 
+/* Registers a new pass.  Either fill out the register_pass_info or specify
+   the individual parameters.  The pass object is expected to have been
+   allocated using operator new and the pass manager takes the ownership of
+   the pass object.  */
+extern void register_pass (register_pass_info *);
+extern void register_pass (opt_pass* pass, pass_positioning_ops pos,
+			   const char* ref_pass_name, int ref_pass_inst_number);
+
 extern gimple_opt_pass *make_pass_chkp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_copy_prop_chkp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_chkp_opt (gcc::context *ctxt);
@@ -474,6 +472,7 @@ extern simple_ipa_opt_pass *make_pass_ipa_free_lang_data (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_free_inline_summary (gcc::context
 							       *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_cp (gcc::context *ctxt);
+extern ipa_opt_pass_d *make_pass_ipa_devirt (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_reference (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_pure_const (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_pta (gcc::context *ctxt);
@@ -609,7 +608,6 @@ extern void ipa_read_summaries (void);
 extern void ipa_read_optimization_summaries (void);
 extern void register_one_dump_file (struct opt_pass *);
 extern bool function_called_by_processed_nodes_p (void);
-extern void register_pass (struct register_pass_info *);
 
 /* Set to true if the pass is called the first time during compilation of the
    current function.  Note that using this information in the optimization

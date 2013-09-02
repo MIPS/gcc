@@ -44,18 +44,27 @@ void ipa_free_postorder_info (void);
 vec<cgraph_node_ptr> ipa_get_nodes_in_cycle (struct cgraph_node *);
 int ipa_reverse_postorder (struct cgraph_node **);
 tree get_base_var (tree);
+void ipa_merge_profiles (struct cgraph_node *dst,
+			 struct cgraph_node *src);
+
+/* In ipa-profile.c  */
+bool ipa_propagate_frequency (struct cgraph_node *node);
 
 /* In ipa-devirt.c  */
 
 struct odr_type_d;
 typedef odr_type_d *odr_type;
 void build_type_inheritance_graph (void);
+void update_type_inheritance_graph (void);
 vec <cgraph_node *>
 possible_polymorphic_call_targets (tree, HOST_WIDE_INT,
 				   bool *final = NULL,
 				   void **cache_token = NULL);
 odr_type get_odr_type (tree, bool insert = false);
 void dump_possible_polymorphic_call_targets (FILE *, tree, HOST_WIDE_INT);
+bool possible_polymorphic_call_target_p (tree, HOST_WIDE_INT,
+					 struct cgraph_node *n);
+tree method_class_type (tree);
 
 /* Return vector containing possible targets of polymorphic call E.
    If FINALP is non-NULL, store true if the list is complette. 
@@ -86,6 +95,17 @@ dump_possible_polymorphic_call_targets (FILE *f, struct cgraph_edge *e)
   gcc_checking_assert (e->indirect_info->polymorphic);
   dump_possible_polymorphic_call_targets (f, e->indirect_info->otr_type,
 					  e->indirect_info->otr_token);
+}
+
+/* Return true if N can be possibly target of a polymorphic call of
+   E.  */
+
+inline bool
+possible_polymorphic_call_target_p (struct cgraph_edge *e,
+				    struct cgraph_node *n)
+{
+  return possible_polymorphic_call_target_p (e->indirect_info->otr_type,
+					     e->indirect_info->otr_token, n);
 }
 #endif  /* GCC_IPA_UTILS_H  */
 
