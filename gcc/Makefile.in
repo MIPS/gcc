@@ -1510,7 +1510,7 @@ MELT_H= $(srcdir)/melt/generated/meltrunsup.h \
     $(srcdir)/melt-runtime.h \
     melt-predef.h 
 
-MELT_RUNTIME_C= $(srcdir)/melt-runtime.c 
+MELT_RUNTIME_C= $(srcdir)/melt-runtime.cc
 #### end of MELT things
 
 # This is defined to "yes" if Tree checking is enabled, which roughly means
@@ -2728,7 +2728,7 @@ melt_default_probe=melt-probe
 ## FIXME: melt_installed_cflags may vary from stage1 to stage2 so
 ## melt-runtime.o fails in the compare step.
 
-## file melt-runtime-params-inc.c is generated and #include-d in melt-runtime.c
+## file melt-runtime-params-inc.c is generated and #include-d in melt-runtime.cc
 melt-runtime-params-inc.c: build/melt-make-string$(build_exeext) Makefile
 	./build/melt-make-string$(build_exeext) \
 	     melt_source_dir '$(melt_source_dir)' \

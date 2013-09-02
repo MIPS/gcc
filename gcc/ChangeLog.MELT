@@ -1,4 +1,17 @@
 
+2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* gengtype.c (file_rules): Added rule for *.cc files.
+	(get_output_file_with_visibility): Give fatal message when no
+	rules found.
+
+	* melt-runtime.c: File renamed as ...
+
+	* melt-runtime.cc: Will use C++ features, so is renamed.
+
+	* Makefile.in (MELT_RUNTIME_C): Becomes melt-runtime.cc
+	(melt-runtime-params-inc.c): Update comment.
+
 2013-08-09  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerated. Todo: C++ify the runtime. Variadic error & inform in
 	MELT. Merge with GCC 4.9 new C++ pass system.}}
