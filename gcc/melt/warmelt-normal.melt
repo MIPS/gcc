@@ -1247,10 +1247,10 @@ routine procedures.}#
 	 (recname (get_field :named_name recv))
 	 )
     (if (is_string recname)
-	(error_strv psloc 
-		    "unimplemented normalization for literal object named " recname))
-    (error_strv psloc 
-		"unimplemented normalization for literal object of " claname)
+	(error_at psloc 
+		  "unimplemented normalization for literal object named $1"_ recname))
+    (error_at psloc 
+		"unimplemented normalization for literal object of $1"_ claname)
     (assert_msg "@$@ unimplemented normexp_any_object" () recv)))
 (install_method class_root normal_exp  normexp_any_object)
 
@@ -1264,8 +1264,8 @@ routine procedures.}#
   (let ( (cla (discrim recv))
 	 (claname (get_field :named_name cla))
 	 )
-    (error_strv psloc 
-		"unimplemented normalization for literal value of " claname)
+    (error_at psloc 
+		"unimplemented normalization for literal value of $1"_ claname)
     (assert_msg "@$@ unimplemented normexp_any_value" () recv)))
 (install_method discr_any_receiver normal_exp  normexp_any_value)
 
@@ -1276,8 +1276,8 @@ routine procedures.}#
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (let ( (myclass (discrim recv))
 	 (myclassname (unsafe_get_field :named_name myclass)) )
-    (error_strv (unsafe_get_field :loca_location recv) 
-		"unimplemented normalization for " myclassname)
+    (error_at (unsafe_get_field :loca_location recv) 
+		"unimplemented normalization for value of $1" myclassname)
     (assert_msg "normexp_src_catchall unimplemented normexp for src" () recv)
     ))
 (install_method class_source normal_exp normexp_src_catchall)
@@ -1299,15 +1299,15 @@ routine procedures.}#
      (if mresexp
 	 ;;; this happens in the pathological case when the lazy macro
 	 ;;; macro-expands to more than one result
-	 (error_plain sloc "delayed lazy macro expansion cannot macro expand multiply"))
+	 (error_at sloc "delayed lazy macro expansion cannot macro expand multiply"_))
      (if (is_a mexp class_source_lazy_macro_expansion)
 	 ;;; this happens in the pathological case when a macro
 	 ;;; operator is not defined
 	 (progn 
 	   (if (is_a lazymacoper class_symbol)
-	       (error_strv sloc "undefined operator; unknown name"
+	       (error_at sloc "undefined operator; unknown name $1"
 			   (get_field :named_name lazymacoper))
-	     (error_plain sloc "undefined macro; delayed lazy macro expansion too lazy"))
+	     (error_at sloc "undefined macro; delayed lazy macro expansion too lazy"))
 	   (return)
 	   ))
      (multicall
@@ -1522,7 +1522,7 @@ routine procedures.}#
      (let ( (ctyp (get_ctype cnarg env)) )
        (assert_msg "check_ctype_nargs ctyp" (is_a ctyp class_ctype) ctyp)
        (if (not (is_string (unsafe_get_field :ctype_parstring ctyp)))
-	   (error_strv sloc "argument has invalid type" (unsafe_get_field :named_name ctyp))
+	   (error_at sloc "argument has invalid type $1"_ (unsafe_get_field :named_name ctyp))
 	 ))
      )))
 
@@ -1538,7 +1538,7 @@ source location.}#
   (let ( (dis (discrim recv))
 	 )
     (debug "normbind_failany dis" dis)
-    (error_strv psloc "unexpected binding normalization of class" (get_field :named_name dis))
+    (error_at psloc "unexpected binding normalization of instance of $1" (get_field :named_name dis))
     (assert_msg "@$@unexpected normalize binding" () recv)
 ))
 (install_method discr_any_receiver normalize_binding normbind_failany)
@@ -1644,7 +1644,7 @@ source location.}#
     (debug "normbind_fixbind fixdat=" fixdat)
     (when (null fixdat)
       (debug "normbind_fixbind strange bind=" bind)
-      (error_strv psloc "unresolved forward fixed reference to"
+      (error_at psloc "unresolved forward fixed reference to $1"
 		  (unsafe_get_field :named_name symb)
 		  )
       )
@@ -1703,7 +1703,7 @@ source location.}#
       (debug "normbind_defmacrobind bad procs=" procs)
       (assert_msg "normbind_defmacrobind check no procs" () procs))
     (when (is_not_a mdata class_nrep_dataclosure)
-      (error_strv psloc "not yet defined macro referenced" (get_field :named_name symb))
+      (error_at psloc "not yet defined macro $1 referenced"_ (get_field :named_name symb))
       (assert_msg "normbind_defmacrobind bad macro data" () mdata))
     (mapobject_put sycmap symb mdata)
     (return mdata)
@@ -1773,7 +1773,7 @@ source location.}#
 	 (shortbacktrace_dbg "normex_symbol null psloc" 10)
        )
      (when (null bind)
-       (error_strv psloc "unknown name; symbol is not bound"
+       (error_at psloc "unknown name $1; symbol is not bound"
 		   (unsafe_get_field :named_name recv))
        (shortbacktrace_dbg "normexp_symbol null bind" 15)
        (debug "normexp_symbol bad name recv=" recv "\n.. env=" env)
@@ -1941,9 +1941,10 @@ source location.}#
 		 )
 	    (if bty 
 		(if (!= bty ctype_value)
-		    (error_strv psloc
-				"closed variable has non value type (boxing required)"
+		    (error_at psloc
+				"closed variable $1 has non value ctype $2 (boxing required)"
 				(unsafe_get_field :named_name recv)
+				(get_field :named_name bty)
 				)))
 	    (setq bty ctype_value)
 	    (if (is_a bind class_fixed_binding)
@@ -2100,7 +2101,7 @@ source location.}#
 	   ;; rebound, But we don't really handle that. We might scan
 	   ;; the environment stack to find the real class binding and
 	   ;; normalize accordingly, but this won't happen often...
-	   (error_strv psloc "class incorrectly bound, perhaps locally rebound"
+	   (error_at psloc "class $1 incorrectly bound, perhaps locally rebound"_
 		       (unsafe_get_field :named_name recv))
 	   (debug "normexp_class failed")
 	   (return)
@@ -2133,12 +2134,10 @@ source location.}#
 	    (:long nbexp (multiple_length sopexp))
 	    )
        (assert_msg "check soptype" (is_a soptype class_ctype) soptype)
-       (if (!=i nbarg (multiple_length sopformals))
-	   (progn
-	     (error_strv sloc "length mismatch between formals & actuals in primitive" 
-			 sopnamstr)
+       (when (!=i nbarg (multiple_length sopformals))
+	     (error_at sloc "length mismatch between formals & actuals in primitive $1, got $2 arguments for $3 formals"_
+			 sopnamstr nbarg (multiple_length sopformals))
 	     (return ()))
-	 )
        (let ( (bmap (make_mapobject  discr_map_objects (+i 5 (/iraw (*i 3 nbarg) 2))))
 	      (expargs (make_multiple discr_multiple nbexp))
 	      )
@@ -2156,14 +2155,8 @@ source location.}#
 	    (when (and (is_a fortype class_ctype)
 		       (is_a actype class_ctype)
 		       (!= fortype actype))
-	      (error_strv sloc "type mismatch between formals & actuals in primitive"
-			  sopnamstr)
-	      (inform_strv sloc "mismatched primitive formal name"
-			   (unsafe_get_field :named_name forarg))
-	      (inform_strv sloc "mismatched primitive actual type"
-			   (unsafe_get_field :named_name actype))
-	      (inform_strv sloc "mismatched primitive expected type"
-			   (unsafe_get_field :named_name fortype))
+	      (error_at sloc "type mismatch between formal $1 of ctype $2 and argument #$3 of ctype $4 in primitive $5"_
+			forarg (get_field :named_name fortype) ix (get_field :named_name actype) sopnamstr)
 	      )
 	    (mapobject_put bmap forarg actarg)
 	    ))
@@ -2182,9 +2175,8 @@ source location.}#
 			      ;; itself, and code should be generated to fill the primitive with
 			      ;; non-symbol values.
 			      (debug "normexp_primitive recv unexpected symbol in expansion recv=" recv "excu=" excu)
-			      (error_strv sloc "unexpected symbol in primitive expansion" 
-					  (unsafe_get_field  :named_name excu))
-			      (error_strv sloc "bad primitive name" sopnamstr)
+			      (error_at sloc "unexpected symbol $1 in primitive $2 expansion"_ 
+					(unsafe_get_field  :named_name excu) sopnamstr)
 			      ))
 			bval)
 		    excu)) )
@@ -2291,7 +2283,7 @@ source location.}#
 		    "\n.. hkctype=" hkctype)
 	     )
 	   (?_
-	    (error_plain sloc "invalid hook call")
+	    (error_at sloc "invalid hook call")
 	    (setq errorflag 1)
 	    (assert_msg "@$@unexpected hook, unimplemented" () shook)
 	    ))
@@ -2314,7 +2306,8 @@ source location.}#
       (debug "normexp_hook_call hkbind=" hkbind "\n hksymb=" hksymb)
       (assert_msg "check hkbind" (is_object hkbind) hkbind)
       (when (!=i (multiple_length sargs) (+i nbins nbouts))
-	(error_strv sloc "invalid operand arity for hook call" hnamestr)
+	(error_at sloc "invalid operand arity $1 for hook call $2 wanting $3 ins and $4 outs"_ 
+		  (multiple_length sargs) hnamestr nbins nbouts)
 	(return () ()))
       ;; extract and normalize the inputs
       (foreach_long_upto
@@ -2349,14 +2342,9 @@ source location.}#
 	  (assert_msg "check inbctyp" (is_a inbctyp class_ctype) inbctyp)
 	  (assert_msg "check curinctyp" (is_a curinctyp class_ctype) curinctyp)
 	  (when (!= inbctyp curinctyp)
-	    (error_strv sloc "type mismatch between input formals & actuals in hook call"
-			hnamestr)
-	    (inform_strv sloc "mismatched hook input formal name"
-			 (unsafe_get_field :named_name inbinder))
-	    (inform_strv sloc "mismatched hook actual type"
-			 (unsafe_get_field :named_name curinctyp))
-	    (inform_strv sloc "mismatched hook expected type"
-			 (unsafe_get_field :named_name inbctyp))
+	    (error_at sloc "type mismatch between input formal $1 of ctype $2 & argument #$3 of ctype $4 in hook call $5"
+			(get_field :named_name inbinder) (get_field :named_name inbctyp) 
+			inix (get_field :named_name curinctyp) hnamestr)
 	    (setq errorflag 1)
 	    )
 	  ))
@@ -2380,6 +2368,7 @@ source location.}#
 		    (varoutctyp (get_ctype noutvar env))
 		    )
 	       (debug "normexp_hook_call noutvar=" noutvar " varoutctyp=" varoutctyp)
+	       ;;;@@@ errors to be improved below
 	       (when (is_not_a noutvar class_nrep_locsymocc)
 		 (error_strv sloc "invalid output variable for hook" hnamestr)
 		 (error_strv sloc "invalid hook output variable is" (get_field :named_name curoutarg))

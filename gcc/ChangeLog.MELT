@@ -1,8 +1,13 @@
 
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
-	{{Regenerate}}
 
+	* melt/warmelt-normal.melt: Start replacing old error messages
+	with error_at...
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
 	* melt/generated/warmelt-base.cc: Regenerate.
