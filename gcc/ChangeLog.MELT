@@ -1,4 +1,9 @@
 
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (makedoc_genoutput) output a temporary
+	file on error to avoid overwriting the previously generated
+	documentation.
+
 2013-09-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

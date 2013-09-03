@@ -1674,19 +1674,32 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (add2sbuf_indentnl outb 0)
     (add2sbuf_strconst outb "@c **** end of makedoc generated file ")
     (add2sbuf_string outb outarg)
-    (add2sbuf_indentnl outb 0)	   
-    (output_sbuf_strval outb outarg)
-    (let ( (:long countdoc (get_int (get_field :mkdoc_boxcounter mdinfo)))
+    (add2sbuf_indentnl outb 0)	
+    (cond ( (melt_error_counter)
+	    (let ( (outerr 
+		    (string4out discr_string outarg "-p" 
+				(expr_chunk getpid_chk :long #{ /* makedoc_genoutput $GETPID_CHK */ (long) getpid() }#)
+				".tmp"))
+		   )
+	      (errormsg_strv "MELT makedoc failed so outputting " outerr)
+	      (output_sbuf_strval outb outerr)
+	      )
+	    )
+	  (:else
+	   (output_sbuf_strval outb outarg)
+	   (let ( (:long countdoc (get_int (get_field :mkdoc_boxcounter mdinfo)))
+		  )
+	     (if countdoc 
+		 (code_chunk informdocountchk #{/*makedoc_genoutput $INFORMDOCOUNTCHK*/ 
+			     inform (UNKNOWN_LOCATION,
+				     "MELT makedoc [#%ld]: generated %ld documentation items",
+				     melt_dbgcounter, $COUNTDOC) ;
+			     }#)
+	       (errormsg_strv "MELT makedoc generate no documentation items" outarg))
+	     (assert_msg "makedoc check counter" (>i countdoc 0) countdoc)
+	     )
 	   )
-      (if countdoc 
-	  (code_chunk informdocountchk #{/*makedoc_genoutput $INFORMDOCOUNTCHK*/ 
-		      inform (UNKNOWN_LOCATION,
-			      "MELT makedoc [#%ld]: generated %ld documentation items",
-			      melt_dbgcounter, $COUNTDOC) ;
-		      }#)
-	(errormsg_plain "MELT makedoc generate no documentation items"))
-      (assert_msg "makedoc check counter" (>i countdoc 0) countdoc)
-      )
+	  )
     )
   )
 
