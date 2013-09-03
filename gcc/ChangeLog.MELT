@@ -1,4 +1,9 @@
 
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (error, warning, inform): Rename
+	functions as ...
+	(error_at, warning_at, inform_at): New names.
+
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_FLEXIBLE_DIM): Define as 1 for standard
