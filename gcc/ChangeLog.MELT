@@ -1,7 +1,13 @@
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* melt/warmelt-base.melt (class_diagnostic_state): Add diag_position field.
+	* testsuite/melt/tmacro-2.melt: New test file, which works.
+	* melt/warmelt-base.melt (diagnostic_args_macro): More debug.
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (class_diagnostic_state): Add
+	diag_position field.
 	(discr_diagnostic_closure): New exported discriminant.
 	(diagnostic_args_macro): Improve to use it.
 	(diagnostic_expand_message): New exported function.

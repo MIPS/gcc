@@ -585,6 +585,7 @@ number $NUM opaque location number $LOC.}#
 		    melt_low_stderr_value ("diagnostic_args_macro sexp", $SEXP) ;
 		    melt_low_stderr_value ("diagnostic_args_macro sexcont", $SEXCONT) ;
 		    melt_low_stderr_value ("diagnostic_args_macro tcont", $TCONT) ;
+		    melt_low_stderr_value ("diagnostic_args_macro sloc", $SLOC) ;
 		    }#)
 	(inform_strv sloc "DIAGNOSTIC_ARGS_MACRO called with " 
 		     (string4out discr_string tcontlen " args == " tcont))
