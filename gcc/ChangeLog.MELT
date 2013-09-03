@@ -1,6 +1,10 @@
 
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_FLEXIBLE_DIM): Define as 1 for standard
+	compliance.
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-macro.melt (error, warning, inform): New variadic
 	functions.
 

@@ -355,8 +355,8 @@ melt_need_debug_limit (int depth, int lim) {
     && depth >= 0 && depth < lim;
 }
 
-/* unspecified flexible dimension in structure */
-#define MELT_FLEXIBLE_DIM /*C++ flexible*/0
+/* unspecified flexible dimension in structure, we use 1 not 0 for standard compliance... */
+#define MELT_FLEXIBLE_DIM /*C++ flexible*/1
 #define MELT_HAVE_FLEXIBLE_DIM 0
 
 
