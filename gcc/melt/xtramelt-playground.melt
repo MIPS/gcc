@@ -30,13 +30,21 @@
   :doc #{Variadic function to emit an error message. The $FMT format
   string may contain @code{$$1} ... @code{$$9} to refer to the first,
   ... nineth argument (after $FMT).}#
+  (debug "play_error start loc=" loc " fmt=" fmt)
   (let ( (vect (make_multiple discr_multiple 9))
 	 (:long nbargs 0)
+	 (diagstate (diagnostic_args_macro nbargs vect))
 	 )
-    (diagnostic_args_macro nbargs vect)
-    ;; we need to expand the fmt using the vect...
-    (assert_msg "@$@unimplemented error")
-    ))					;end ERROR
+    (debug "play_error diagstate=" diagstate)
+    (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
+	   )
+      (debug "play_error diagmsg=" diagmsg)
+      (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
+      (code_chunk error_chk
+		  #{ /* start play_error $ERROR_CHK */
+		  melt_error_str (($LOC), melt_string_str ($DIAGMSG), NULL);
+		  /* end play_error $ERROR_CHK */ }#)
+    )))					;end PLAY_ERROR
 
 
 (defun play_foo (x) 

@@ -1,6 +1,13 @@
 
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (hook_symbol_importer): Show a backtrace
+	on failure.
+
+	* melt/xtramelt-playground.melt (play_error): New function...
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
