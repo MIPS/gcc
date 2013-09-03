@@ -1,5 +1,12 @@
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (class_diagnostic_state): Add diag_position field.
+	(discr_diagnostic_closure): New exported discriminant.
+	(diagnostic_args_macro): Improve to use it.
+	(diagnostic_expand_message): New exported function.
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-modes.melt (makedoc_genoutput) output a temporary
 	file on error to avoid overwriting the previously generated
 	documentation.

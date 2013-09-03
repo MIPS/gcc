@@ -546,9 +546,20 @@ number $NUM opaque location number $LOC.}#
 (defclass class_diagnostic_state
   :super class_located
   :fields (diag_vect 
+	   diag_position
 	   diag_state)
   :doc #{The $CLASS_DIAGNOSTIC_STATE manage diagnostic handling by $ERROR and $WARNING ....}#
   )
+
+;;; the discriminant for diagnostic closures
+(definstance discr_diagnostic_closure class_discriminant
+  :doc #{The $DISCR_DIAGNOSTIC_CLOSURE is the discriminant of MELT
+  diagnostic manipulator functions, used in $ERROR, $WARNING,
+  etc.... Use $CLONE_WITH_DISCRIMINANT on a closure, e.g. with
+  $LAMBDA, to make it a diagnostic manipulator function.}#
+  :disc_super discr_closure
+  :named_name '"DISCR_DIAGNOSTIC_CLOSURE")
+
 
 ;;;;;;;;;;;;;;;;
 ;; usage (diagnostic_args_macro <nbargs-var> <vect-var>)
@@ -593,13 +604,17 @@ number $NUM opaque location number $LOC.}#
 		       "(DIAGNOSTIC_ARGS_MACRO <nbargs> <vect>) not variable <vect>")
 	  (return))
 	(let ( (resexp
-		`(let ( (diagstate (instance class_diagnostic_state
+		`(let ( 
+		       (diagposbox (box 0))
+		       (diagstate (instance class_diagnostic_state
 					     :loca_location ,sloc
 					     :diag_vect ,macrovarvect
+					     :diag_position diagposbox
 					     :diag_state (make_mapobject discr_map_objects 19)))
 			)
 		   (forever 
 		    argloop
+		    (put_int diagposbox ,macrovarnbarg)
 		    (variadic 
 		     ( ()
 		       (exit argloop))
@@ -671,6 +686,16 @@ number $NUM opaque location number $LOC.}#
 			  (setq ,macrovarnbarg (+ ,macrovarnbarg 1))
 			  (void)
 			  )
+			( (is_a v discr_diagnostic_closure)
+			  (v diagstate)
+			  (void)
+			  )
+			( (and (is_a v class_keyword)
+			       (is_a (get_field :symb_data v) discr_diagnostic_closure)
+			       )
+			  ((get_field :symb_data v) diagstate)
+			  (void)
+			  )
 			( (is_a v class_named)
 			  (let ( (nam (unsafe_get_field :named_name v))
 				 )
@@ -690,6 +715,7 @@ number $NUM opaque location number $LOC.}#
 		       (void)
 		       )
 		     ))			;end forever args
+		   diagstate		;the result
 		   )
 		)			; end resexp binding
 	       )
@@ -706,6 +732,58 @@ number $NUM opaque location number $LOC.}#
     )
   )
 (export_macro diagnostic_args_macro)
+
+(defun diagnostic_expand_message (diagstate :cstring sfmt)
+  (debug "diagnostic_expand_message diagstate=" diagstate " sfmt=" sfmt)
+  (assert_msg "check diagstate" (is_a diagstate class_diagnostic_state) diagstate)
+  (assert_msg "check sfmt" sfmt sfmt)
+  (let ( (diagvec (get_field :diag_vect diagstate))
+	 (:long dpos (get_int (get_field :diag_position diagstate)))
+	 (:long spos 0)
+	 (:long dollarpos 0)
+	 (:long ixdoll -1)
+	 (:long fmtlen 0)
+	 (sbuf (make_strbuf discr_strbuf))
+	 )
+    (code_chunk slen_chk 
+		#{/* diagnostic_expand_message $SLEN_CHK*/ $FMTLEN = (($SFMT)?strlen($SFMT):0);
+		}#)
+    (assert_msg "check diagvec" (is_multiple diagvec) diagvec)
+    (forever 
+     diagloop
+     (if (>=i spos fmtlen) 
+	 (exit diagloop))
+     (setq ixdoll -1)
+     (code_chunk dolpos_chk
+		 #{ /* diagnostic_expand_message $DOLPOS_CHK start */
+		    char *dp = strchr ($SFMT + $SPOS, '$$');
+		    if (dp) {
+                      $DOLLARPOS = dp - $SFMT;
+		      if ($DOLLARPOS > $SPOS)
+		         meltgc_add_out_cstr_len ($SBUF, $SFMT + $SPOS, $DOLLARPOS - $SPOS);
+		      if (ISDIGIT(dp[1]))
+		         $IXDOLL = dp[1] - '0';
+		      else
+		         meltgc_add_out_cstr_len ($SBUF, dp+1, 1);
+		    } else
+                      $DOLLARPOS = -1;
+		    /* end diagnostic_expand_message $DOLPOS_CHK */
+		 }#)
+     (if (<i dollarpos 0)
+	 (exit diagloop))
+     (if (<i ixdoll 0) 
+	 (again diagloop))
+     (if (<i ixdoll dpos)
+	 (add2out sbuf (multiple_nth diagvec ixdoll)))
+     (setq spos (+i dollarpos 2))
+     )
+    (let ( (diagmsg (strbuf2string discr_string sbuf))
+	   )
+      (debug "diagnostic_expand_message gives diagmsg=" diagmsg)
+      (return diagmsg))
+  ))
+
+
 
 #|
 (defun error (loc :cstring fmt :rest) 
@@ -3360,6 +3438,8 @@ typedef struct melthook_st *melthook_ptr_t;
  cstring_same
  debugcstring
  debuglong
+ diagnostic_expand_message
+ discr_diagnostic_closure
  error_plain
  error_strv
  errormsg_plain
