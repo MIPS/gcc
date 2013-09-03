@@ -26,6 +26,12 @@
 ;; releases.  It is a playground for testing purposes.
 
 
+;;;;;;; variadic diagnostics
+(defvar diagv_gimple)
+(defvar diagv_gimple_seq)
+(defvar diagv_tree)
+(defvar diagv_basic_block)
+(defvar diagv_edge)
 (defun play_error (loc :cstring fmt :rest) 
   :doc #{Variadic function to emit an error message. The $FMT format
   string may contain @code{$$1} ... @code{$$9} to refer to the first,

@@ -2,6 +2,27 @@
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Caveat: warmelt-base.melt cannot contain defmacro or backquote
+	so diagnostics support has moved}}
+	* melt/warmelt-base.melt: Add comment that defmacro and backquote
+	cannot be used in this file, so diagnostic support is moved to
+	warmelt-macro.melt file...
+	(diagv_gimple, diagv_gimple_seq, diagv_tree, diagv_basic_block)
+	(diagv_edge, register_diag_gimple, register_diag_gimple_seq)
+	(register_diag_tree, register_diag_edge, class_diagnostic_state)
+	(discr_diagnostic_closure, diagnostic_args_macro): Remove and
+	moved to warmelt-macro.melt file...
+
+	* melt/warmelt-macro.melt: Diagnostic support moved from
+	warmelt-base.melt file...
+	(diagv_gimple, diagv_gimple_seq, diagv_tree, diagv_basic_block)
+	(diagv_edge, register_diag_gimple, register_diag_gimple_seq)
+	(register_diag_tree, register_diag_edge, class_diagnostic_state)
+	(discr_diagnostic_closure, diagnostic_args_macro): New and
+	moved from warmelt-base.melt file...
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (hook_symbol_importer): Show a backtrace
 	on failure.
 

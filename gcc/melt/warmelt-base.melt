@@ -34,6 +34,10 @@
 ;;    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; CAVEAT: We cannot have defmacro or backquote in this warmelt-base
+;; file, because make_sexpr is not yet available, so diagnostic
+;; support has to be in warmelt-macro.melt file...
+
 ;; internal primitive to make a fresh environment reference; call the
 ;; hook_fresh_environment_reference_maker from warmelt-hooks.melt
 (defprimitive melt_make_fresh_environment_reference
@@ -515,290 +519,6 @@ number $NUM opaque location number $LOC.}#
   (return ())
   )
 
-;;;;;;; variadic diagnostics
-(defvar diagv_gimple)
-(defvar diagv_gimple_seq)
-(defvar diagv_tree)
-(defvar diagv_basic_block)
-(defvar diagv_edge)
-
-(defun register_diag_gimple (c)
-  (if (is_closure c)
-      (setq diagv_gimple c)))
-
-(defun register_diag_gimple_seq (c)
-  (if (is_closure c)
-      (setq diagv_gimple_seq c)))
-
-(defun register_diag_tree (c)
-  (if (is_closure c)
-      (setq diagv_tree c)))
-
-(defun register_diag_basic_block (c)
-  (if (is_closure c)
-      (setq diagv_basic_block c)))
-
-(defun register_diag_edge (c)
-  (if (is_closure c)
-      (setq diagv_edge c)))
-
-
-(defclass class_diagnostic_state
-  :super class_located
-  :fields (diag_vect 
-	   diag_position
-	   diag_state)
-  :doc #{The $CLASS_DIAGNOSTIC_STATE manage diagnostic handling by $ERROR and $WARNING ....}#
-  )
-
-;;; the discriminant for diagnostic closures
-(definstance discr_diagnostic_closure class_discriminant
-  :doc #{The $DISCR_DIAGNOSTIC_CLOSURE is the discriminant of MELT
-  diagnostic manipulator functions, used in $ERROR, $WARNING,
-  etc.... Use $CLONE_WITH_DISCRIMINANT on a closure, e.g. with
-  $LAMBDA, to make it a diagnostic manipulator function.}#
-  :disc_super discr_closure
-  :named_name '"DISCR_DIAGNOSTIC_CLOSURE")
-
-
-;;;;;;;;;;;;;;;;
-;; usage (diagnostic_args_macro <nbargs-var> <vect-var>)
-(defmacro diagnostic_args_macro (sexp env mexpander modctx)
-  (debug "diagnostic_args_macro sexp=" sexp)
-  (shortbacktrace_dbg "diagnostic_args_macro" 12)
-  (assert_msg "check sexp" (is_a sexp class_sexpr) sexp)
-  (let (
-	(sloc (get_field :loca_location sexp))
-	(sexcont (get_field :sexp_contents sexp))
-	)
-    (debug "diagnostic_args_macro sloc=" sloc " sexcont=" sexcont)
-    (assert_msg "check sexcont" (is_list sexcont) sexcont)
-    (let ( 
-	  (tcont (list_to_multiple sexcont discr_multiple))
-	  (:long tcontlen (multiple_length tcont))
-	  )
-      (assert_msg "check tcont" (is_multiple tcont) tcont sexcont)
-      (assert_msg "check tcontlen" (>i tcontlen 0) tcontlen tcont)
-      (when (!=i tcontlen 3)
-	(error_plain sloc "DIAGNOSTIC_ARGS_MACRO needs two args: <nbargs> <vect>")
-	(code_chunk diagargbad_chk #{ /* diagnostic_args_macro $DIAGARGBAD_CHK */
-		    melt_low_stderr_value ("diagnostic_args_macro sexp", $SEXP) ;
-		    melt_low_stderr_value ("diagnostic_args_macro sexcont", $SEXCONT) ;
-		    melt_low_stderr_value ("diagnostic_args_macro tcont", $TCONT) ;
-		    melt_low_stderr_value ("diagnostic_args_macro sloc", $SLOC) ;
-		    }#)
-	(inform_strv sloc "DIAGNOSTIC_ARGS_MACRO called with " 
-		     (string4out discr_string tcontlen " args == " tcont))
-	(assert_msg "diagnostic_args_macro wrongly called when bootstrapping" 
-		    (not (melt_is_bootstrapping)) sexp sexcont tcont)
-	(return)
-	)
-      (let ( (macrovarnbarg (multiple_nth tcont 1))
-	     (macrovarvect (multiple_nth tcont 2))
-	     )
-	(when (is_not_a macrovarnbarg class_symbol)
-	  (error_plain sloc 
-		       "(DIAGNOSTIC_ARGS_MACRO <nbargs> <vect>) not variable <nbargs>")
-	  (return))
-	(when (is_not_a macrovarvect class_symbol)
-	  (error_plain sloc 
-		       "(DIAGNOSTIC_ARGS_MACRO <nbargs> <vect>) not variable <vect>")
-	  (return))
-	(let ( (resexp
-		`(let ( 
-		       (diagposbox (box 0))
-		       (diagstate (instance class_diagnostic_state
-					     :loca_location ,sloc
-					     :diag_vect ,macrovarvect
-					     :diag_position diagposbox
-					     :diag_state (make_mapobject discr_map_objects 19)))
-			)
-		   (forever 
-		    argloop
-		    (put_int diagposbox ,macrovarnbarg)
-		    (variadic 
-		     ( ()
-		       (exit argloop))
-		     ( (:cstring str)
-		       (let ( (bs (constant_box str))
-			      )
-			 (multiple_put_nth ,macrovarvect ,macrovarnbarg bs)
-			 (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-		       (void)
-		       )
-		     ( (:long l)
-		       (let ( (sn (string4out discr_string l))
-			      )
-			 (multiple_put_nth ,macrovarvect ,macrovarnbarg sn)
-			 (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-		       (void)
-		       )
-		     ( (:tree tr)
-		       (assert_msg "check diagv_tree" (is_closure diagv_tree) diagv_tree)
-		       (let ( (s (diagv_tree diagstate tr))
-			      )
-			 (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
-			 (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-		       (void)
-		       )
-		     ( (:gimple gi)
-		       (assert_msg "check diagv_gimple" (is_closure diagv_gimple) diagv_gimple)
-		       (let ( (s (diagv_gimple diagstate gi))
-			      )
-			 (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
-			 (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-		       (void)
-		       )
-		     ( (:gimple_seq gs)
-		       (assert_msg "check diagv_gimple_seq" (is_closure diagv_gimple_seq) diagv_gimple_seq)
-		       (let ( (s (diagv_gimple_seq diagstate gs))
-			      )
-			 (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
-			 (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-		       (void)
-		       )
-		     ( (:basic_block bb)
-		       (assert_msg "check diagv_basic_block" (is_closure diagv_basic_block) diagv_basic_block)
-		       (let ( (s (diagv_basic_block diagstate bb))
-			      )
-			 (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
-			 (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-		       (void)
-		       )
-		     ( (:edge ed)
-		       (assert_msg "check diagv_edge" (is_closure diagv_edge) diagv_edge)
-		       (let ( (s (diagv_edge diagstate ed))
-			      )
-			 (multiple_put_nth ,macrovarvect ,macrovarnbarg s)
-			 (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-		       (void)
-		       )
-		     ( (:value v)
-		       (cond 
-			( (is_integerbox v)
-			  (let ( (sn (string4out discr_string (get_int v)))
-				 )
-			    (multiple_put_nth ,macrovarvect ,macrovarnbarg sn)
-			    (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-			  (void)
-			  )
-			( (is_string v)
-			  (multiple_put_nth ,macrovarvect ,macrovarnbarg v)
-			  (setq ,macrovarnbarg (+ ,macrovarnbarg 1))
-			  (void)
-			  )
-			( (is_a v discr_diagnostic_closure)
-			  (v diagstate)
-			  (void)
-			  )
-			( (and (is_a v class_keyword)
-			       (is_a (get_field :symb_data v) discr_diagnostic_closure)
-			       )
-			  ((get_field :symb_data v) diagstate)
-			  (void)
-			  )
-			( (is_a v class_named)
-			  (let ( (nam (unsafe_get_field :named_name v))
-				 )
-			    (assert_msg "check nam" (is_string nam) nam)
-			    (multiple_put_nth ,macrovarvect ,macrovarnbarg nam)
-			    (setq ,macrovarnbarg (+ ,macrovarnbarg 1)))
-			  (void)
-			  )
-			)
-		       )
-		     ( :else
-		       (let ( (vcty (variadic_ctype 0))
-			      )
-			 (errormsg_strv "DIAGNOSTIC_ARGS_MACRO for unsupported ctype"
-					(get_field :named_name vcty))
-			 (assert_msg "invalid variadic argument to DIAGNOSTIC_ARGS_MACRO" () vcty))
-		       (void)
-		       )
-		     ))			;end forever args
-		   diagstate		;the result
-		   )
-		)			; end resexp binding
-	       )
-	  (debug "diagnostic_args_macro resexp=" resexp)
-	  (let ( (mexp (mexpander resexp env mexpander modctx))
-		 )
-	    (debug "diagnostic_args_macro final mexp=" mexp)
-	    (put_fields mexp :loca_location sloc)
-	    (return mexp)
-	    )
-	  )
-	)
-      )
-    )
-  )
-(export_macro diagnostic_args_macro)
-
-(defun diagnostic_expand_message (diagstate :cstring sfmt)
-  (debug "diagnostic_expand_message diagstate=" diagstate " sfmt=" sfmt)
-  (assert_msg "check diagstate" (is_a diagstate class_diagnostic_state) diagstate)
-  (assert_msg "check sfmt" sfmt sfmt)
-  (let ( (diagvec (get_field :diag_vect diagstate))
-	 (:long dpos (get_int (get_field :diag_position diagstate)))
-	 (:long spos 0)
-	 (:long dollarpos 0)
-	 (:long ixdoll -1)
-	 (:long fmtlen 0)
-	 (sbuf (make_strbuf discr_strbuf))
-	 )
-    (code_chunk slen_chk 
-		#{/* diagnostic_expand_message $SLEN_CHK*/ $FMTLEN = (($SFMT)?strlen($SFMT):0);
-		}#)
-    (assert_msg "check diagvec" (is_multiple diagvec) diagvec)
-    (forever 
-     diagloop
-     (if (>=i spos fmtlen) 
-	 (exit diagloop))
-     (setq ixdoll -1)
-     (code_chunk dolpos_chk
-		 #{ /* diagnostic_expand_message $DOLPOS_CHK start */
-		    char *dp = strchr ($SFMT + $SPOS, '$$');
-		    if (dp) {
-                      $DOLLARPOS = dp - $SFMT;
-		      if ($DOLLARPOS > $SPOS)
-		         meltgc_add_out_cstr_len ($SBUF, $SFMT + $SPOS, $DOLLARPOS - $SPOS);
-		      if (ISDIGIT(dp[1]))
-		         $IXDOLL = dp[1] - '0';
-		      else
-		         meltgc_add_out_cstr_len ($SBUF, dp+1, 1);
-		    } else
-                      $DOLLARPOS = -1;
-		    /* end diagnostic_expand_message $DOLPOS_CHK */
-		 }#)
-     (if (<i dollarpos 0)
-	 (exit diagloop))
-     (if (<i ixdoll 0) 
-	 (again diagloop))
-     (if (<i ixdoll dpos)
-	 (add2out sbuf (multiple_nth diagvec ixdoll)))
-     (setq spos (+i dollarpos 2))
-     )
-    (let ( (diagmsg (strbuf2string discr_string sbuf))
-	   )
-      (debug "diagnostic_expand_message gives diagmsg=" diagmsg)
-      (return diagmsg))
-  ))
-
-
-
-#|
-(defun error (loc :cstring fmt :rest) 
-  :doc #{Variadic function to emit an error message. The $FMT format
-  string may contain @code{$$1} ... @code{$$9} to refer to the first,
-  ... nineth argument (after $FMT).}#
-  (let ( (vect (make_multiple discr_multiple 9))
-	 (:long nbargs 0)
-	 )
-    (diagnostic_args_macro nbargs vect)
-    ;; we need to expand the fmt using the vect...
-    (assert_msg "@$@unimplemented error")
-    ))					;end ERROR
-|#
 
 ;; to signal an error in a  source with some additional string value
 (defprimitive error_strv (loc :cstring cmsg :value strv) :void
@@ -2053,7 +1773,6 @@ significant iff ENABLE_CHECKING.}# #{(melt_application_depth() <
 	   ))
 
 (export_class
- class_diagnostic_state
  class_value_descriptor 
  class_varisized_value_descriptor)
 
@@ -3439,8 +3158,6 @@ typedef struct melthook_st *melthook_ptr_t;
  cstring_same
  debugcstring
  debuglong
- diagnostic_expand_message
- discr_diagnostic_closure
  error_plain
  error_strv
  errormsg_plain
