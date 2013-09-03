@@ -39,11 +39,11 @@ MELT_EXTERN const char meltrun_used_md5_melt_f7[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h757447865; // forward declaration fromline 6543
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h757447865 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h951174191; // forward declaration fromline 6543
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h951174191 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
-/*** 3 MELT called hook declarations ***/
+/*** 4 MELT called hook declarations ***/
 
 /*declare MELT called hook #0 HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER **/
 MELT_EXTERN melt_ptr_t melthook_HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_PREVENV, const char* meltinp1_MODULNAME);
@@ -54,7 +54,10 @@ MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, 
 /*declare MELT called hook #2 HOOK_VALUE_EXPORTER **/
 MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
 
-/*** end of 3 MELT called hook declarations ***/
+/*declare MELT called hook #3 HOOK_VALUE_EXPORTER **/
+MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_ptr_t meltinp0_SYM, melt_ptr_t meltinp1_VAL, melt_ptr_t meltinp2_CONTENV);
+
+/*** end of 4 MELT called hook declarations ***/
 
 /*** no extra MELT c-headers ***/
 
@@ -1014,7 +1017,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h757447865 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h951174191 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -14416,7 +14419,7 @@ meltlab_endgetargs:
                         ;
                         /*^putpairtail*/
                         /*putpairtail*/
-                        melt_assertmsg("putpairtail /8a59d54 checkpair", melt_magic_discr((melt_ptr_t)(/*_.OSUCC__V41*/ meltfptr[37]))== MELTOBMAG_PAIR);
+                        melt_assertmsg("putpairtail /38268600 checkpair", melt_magic_discr((melt_ptr_t)(/*_.OSUCC__V41*/ meltfptr[37]))== MELTOBMAG_PAIR);
                         ((meltpair_ptr_t)(/*_.OSUCC__V41*/ meltfptr[37]))->tl = (meltpair_ptr_t) (/*_.GOTOEND__V42*/ meltfptr[38]);
                         ;
                         /*^touch*/
