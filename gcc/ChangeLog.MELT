@@ -2,6 +2,11 @@
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (diagnostic_args_macro): Increment the
+	argument counter before updating the vector, not after...
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt: Start replacing old error messages
 	with error_at...
 
