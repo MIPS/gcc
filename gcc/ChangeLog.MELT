@@ -1,6 +1,10 @@
 
 
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (error, warning, inform): New variadic
+	functions.
+
+2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.

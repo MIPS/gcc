@@ -322,6 +322,72 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
  register_diag_gimple_seq 
  register_diag_tree 
  )
+
+(defun error (loc :cstring fmt :rest) 
+  :doc #{Variadic $ERROR function to emit an error message. The $FMT format
+  string may contain @code{$$1} ... @code{$$9} to refer to the first,
+  ... nineth argument (after $FMT).}#
+  (debug "error start loc=" loc " fmt=" fmt)
+  (let ( (vect (make_multiple discr_multiple 9))
+	 (:long nbargs 0)
+	 (diagstate (diagnostic_args_macro nbargs vect))
+	 )
+    (debug "error diagstate=" diagstate)
+    (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
+	   )
+      (debug "error diagmsg=" diagmsg)
+      (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
+      (code_chunk error_chk
+		  #{ /* start error $ERROR_CHK */
+		  melt_error_str (($LOC), melt_string_str ($DIAGMSG), NULL);
+		  /* end error $ERROR_CHK */ }#)
+    )))					;end ERROR
+
+
+(defun warning (loc :cstring fmt :rest) 
+  :doc #{Variadic $WARNING function to emit an warning message. The $FMT format
+  string may contain @code{$$1} ... @code{$$9} to refer to the first,
+  ... nineth argument (after $FMT).}#
+  (debug "warning start loc=" loc " fmt=" fmt)
+  (let ( (vect (make_multiple discr_multiple 9))
+	 (:long nbargs 0)
+	 (diagstate (diagnostic_args_macro nbargs vect))
+	 )
+    (debug "warning diagstate=" diagstate)
+    (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
+	   )
+      (debug "warning diagmsg=" diagmsg)
+      (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
+      (code_chunk warning_chk
+		  #{ /* start warning $WARNING_CHK */
+		  melt_warning_str (0, ($LOC), melt_string_str ($DIAGMSG), NULL);
+		  /* end warning $WARNING_CHK */ }#)
+    )))					;end WARNING
+
+
+
+(defun inform (loc :cstring fmt :rest) 
+  :doc #{Variadic $INFORM function to emit an inform notice. The $FMT format
+  string may contain @code{$$1} ... @code{$$9} to refer to the first,
+  ... nineth argument (after $FMT).}#
+  (debug "inform start loc=" loc " fmt=" fmt)
+  (let ( (vect (make_multiple discr_multiple 9))
+	 (:long nbargs 0)
+	 (diagstate (diagnostic_args_macro nbargs vect))
+	 )
+    (debug "inform diagstate=" diagstate)
+    (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
+	   )
+      (debug "inform diagmsg=" diagmsg)
+      (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
+      (code_chunk inform_chk
+		  #{ /* start inform $INFORM_CHK */
+		  melt_inform_str (($LOC), melt_string_str ($DIAGMSG), NULL);
+		  /* end inform $INFORM_CHK */ }#)
+    )))					;end INFORM
+
+(export_values error warning inform)
+
 ;;****************************************************************
 
 
