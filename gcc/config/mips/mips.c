@@ -4392,6 +4392,10 @@ mips_split_move_p (rtx dest, rtx src, enum mips_split_type split_type)
 	return false;
     }
 
+  /* Don't split moves that can use MSA insns.  */
+  if (TARGET_MSA && MSA_SUPPORTED_MODE_P (GET_MODE (dest)))
+    return false;
+
   /* Otherwise split all multiword moves.  */
   return size > UNITS_PER_WORD;
 }
