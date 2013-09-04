@@ -2403,7 +2403,7 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
     {
       passed_type = nominal_type = build_pointer_type (passed_type);
       data->passed_pointer = true;
-      passed_mode = nominal_mode = Pmode;
+      passed_mode = nominal_mode = TYPE_MODE (nominal_type);
     }
 
   /* Find mode as it is passed by the ABI.  */
@@ -2858,22 +2858,6 @@ assign_parm_setup_block (struct assign_parm_data_all *all,
 	  push_to_sequence2 (all->first_conversion_insn,
 			     all->last_conversion_insn);
 	  emit_group_store (mem, entry_parm, data->passed_type, size);
-	  if (data->bound_parm)
-	    {
-	      int n;
-
-	      gcc_assert (GET_CODE (data->bound_parm) == PARALLEL);
-
-	      for (n = 0; n < XVECLEN (data->bound_parm, 0); n++)
-		{
-		  rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
-		  rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
-		  rtx ptr = chkp_get_value_with_offs (entry_parm, offs);
-		  rtx slot = adjust_address (mem, GET_MODE (reg),
-					     INTVAL (offs));
-		  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
-		}
-	    }
 	  all->first_conversion_insn = get_insns ();
 	  all->last_conversion_insn = get_last_insn ();
 	  end_sequence ();
@@ -3139,17 +3123,27 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
     emit_move_insn (parmreg, validated_mem);
 
   /* If we were passed a pointer but the actual value can safely live
-     in a register, put it in one.  */
-  if (data->passed_pointer
-      && TYPE_MODE (TREE_TYPE (parm)) != BLKmode
-      /* If by-reference argument was promoted, demote it.  */
-      && (TYPE_MODE (TREE_TYPE (parm)) != GET_MODE (DECL_RTL (parm))
-	  || use_register_for_decl (parm)))
+     in a register, retrieve it and use it directly.  */
+  if (data->passed_pointer && TYPE_MODE (TREE_TYPE (parm)) != BLKmode)
     {
       /* We can't use nominal_mode, because it will have been set to
 	 Pmode above.  We must use the actual mode of the parm.  */
-      parmreg = gen_reg_rtx (TYPE_MODE (TREE_TYPE (parm)));
-      mark_user_reg (parmreg);
+      if (use_register_for_decl (parm))
+	{
+	  parmreg = gen_reg_rtx (TYPE_MODE (TREE_TYPE (parm)));
+	  mark_user_reg (parmreg);
+	}
+      else
+	{
+	  int align = STACK_SLOT_ALIGNMENT (TREE_TYPE (parm),
+					    TYPE_MODE (TREE_TYPE (parm)),
+					    TYPE_ALIGN (TREE_TYPE (parm)));
+	  parmreg
+	    = assign_stack_local (TYPE_MODE (TREE_TYPE (parm)),
+				  GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (parm))),
+				  align);
+	  set_mem_attributes (parmreg, parm, 1);
+	}
 
       if (GET_MODE (parmreg) != GET_MODE (DECL_RTL (parm)))
 	{
@@ -3236,9 +3230,6 @@ static void
 assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 		         struct assign_parm_data_one *data)
 {
-  /* Value must be stored in the stack slot STACK_PARM during function
-     execution.  */
-  rtx entry_parm = data->entry_parm;
   bool to_conversion = false;
 
   assign_parm_remove_parallels (data);
@@ -3312,48 +3303,6 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
     }
 
   SET_DECL_RTL (parm, data->stack_parm);
-
-  if (data->bound_parm && AGGREGATE_TYPE_P (data->passed_type))
-    {
-      rtx bnd;
-      rtx ptr, mem;
-      int n;
-
-      gcc_assert (REG_P (data->bound_parm)
-		  || CONST_INT_P (data->bound_parm)
-                  || GET_CODE (data->bound_parm) == PARALLEL);
-
-      if (REG_P (data->entry_parm))
-	ptr = data->entry_parm;
-      else
-	{
-	  ptr = gen_reg_rtx (Pmode);
-	  emit_move_insn (ptr, data->entry_parm);
-	}
-
-      mem = validize_mem (data->stack_parm);
-
-      if (GET_CODE (data->bound_parm) == PARALLEL)
-        {
-          for (n = 0; n < XVECLEN (data->bound_parm, 0); n++)
-            {
-              rtx reg = XEXP (XVECEXP (data->bound_parm, 0, n), 0);
-              rtx offs = XEXP (XVECEXP (data->bound_parm, 0, n), 1);
-              rtx ptr = chkp_get_value_with_offs (entry_parm, offs);
-              rtx slot = adjust_address (mem, GET_MODE (reg),
-                                             INTVAL (offs));
-              targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
-            }
-          return;
-        }
-      else if (REG_P (data->bound_parm))
-	bnd = data->bound_parm;
-      else
-	bnd = targetm.calls.load_bounds_for_arg (data->entry_parm, ptr,
-						 data->bound_parm);
-
-      targetm.calls.store_bounds_for_arg (ptr, data->stack_parm, bnd, NULL);
-    }
 }
 
 /* A subroutine of assign_parms.  If the ABI splits complex arguments, then
@@ -3562,6 +3511,42 @@ assign_parms (tree fndecl)
 	assign_parm_setup_reg (&all, parm, &data);
       else
 	assign_parm_setup_stack (&all, parm, &data);
+
+      /* If parm decl is addressable then we have to store its
+	 bounds.  */
+      if (flag_check_pointers
+	  && TREE_ADDRESSABLE (parm)
+	  && data.bound_parm)
+	{
+	  rtx mem = validize_mem (data.stack_parm);
+
+	  if (GET_CODE (data.bound_parm) == PARALLEL)
+	    {
+	      int n;
+
+	      for (n = 0; n < XVECLEN (data.bound_parm, 0); n++)
+		{
+		  rtx bnd = XEXP (XVECEXP (data.bound_parm, 0, n), 0);
+		  rtx offs = XEXP (XVECEXP (data.bound_parm, 0, n), 1);
+		  rtx slot = adjust_address (mem, Pmode, INTVAL (offs));
+
+		  if (!REG_P (bnd))
+		    {
+		      rtx tmp = gen_reg_rtx (targetm.chkp_bound_mode ());
+		      emit_move_insn (tmp, bnd);
+		      bnd = tmp;
+		    }
+
+		  targetm.calls.store_bounds_for_arg (slot, slot, bnd, NULL);
+		}
+	    }
+	  else
+	    {
+	      rtx slot = adjust_address (mem, Pmode, 0);
+	      targetm.calls.store_bounds_for_arg (slot, slot,
+						  data.bound_parm, NULL);
+	    }
+	}
     }
 
   if (targetm.calls.split_complex_arg)
