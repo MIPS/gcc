@@ -1,6 +1,10 @@
 
 2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt: Use errror_at everywhere.
+
+2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt: More error_at replacement.
 
 2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
