@@ -201,6 +201,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 (defun outpucod_predef (obpred declbuf implbuf :long depth)
   (assert_msg "check obpredef" (is_a obpred class_objpredef) obpred)
   (let ( (obpr (unsafe_get_field :obpredef obpred)) )
+    (assert_msg "check obpr" obpr obpred)
     (output_predef obpr implbuf depth)))
 (install_method class_objpredef output_c_code outpucod_predef)
 
