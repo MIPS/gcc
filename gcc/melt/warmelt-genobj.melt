@@ -5356,9 +5356,13 @@
 ;;;;
 (defun compilobj_predef (npr gcx)
   (assert_msg "check gcx" (is_a gcx class_c_generation_context) gcx)
-  (let ( (opr (instance class_objpredef
+  (assert_msg "check npr" (is_a npr class_nrep_predef) npr)
+  (let ((obpred (get_field :nrpredef npr))
+	(opr (instance class_objpredef
 			:obv_type ctype_value
-			:obpredef (unsafe_get_field :nrpredef npr))) )
+			:obpredef obpred)) 
+	)
+    (assert_msg "check obpred" obpred npr)
     opr)
   )
 

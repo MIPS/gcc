@@ -7039,8 +7039,9 @@ source location.}#
 	    (let ( (curvsym (unsafe_get_field :binder curvbind))
 		   (curctyp (unsafe_get_field :fbind_type curvbind))
 		   (curvfor (unsafe_get_field :binder curbform))
+		   (forctyp (unsafe_get_field :fbind_type curbform))
 		   )
-	      (if (== curctyp (unsafe_get_field :fbind_type curbform))
+	      (if (== curctyp forctyp)
 		  (let ( (nlvbind (instance class_normal_let_binding
 					    :letbind_loc sloc
 					    :binder curvsym
@@ -7065,10 +7066,11 @@ source location.}#
 		    (list_append uncachelist curvsym)
 		    )
 		(progn
-		  ;;;@@@@ continue updating error here
-		  (error_strv sloc "local formal and actual type mismatch in citerator" (unsafe_get_field :named_name soper))
-		  (inform_strv sloc "mismatched citerator local variable" 
-			       (unsafe_get_field :named_name (unsafe_get_field :binder curvbind)))
+		  (error_at sloc "local formal type $1 and actual type $2 for formal $3 #$4 mismatch in citerator $5"_ 
+			    (get_field :named_name forctyp)
+			    (get_field :named_name curctyp)
+			    (get_field :named_name curvsym)
+			    ix (unsafe_get_field :named_name soper))
 		  ))
 	      )
 	    (put_env bodyenv curvbind)
@@ -7643,16 +7645,15 @@ source location.}#
 	 )
     (debug "normexp_definstance bindins" bindins)
     (assert_msg "check bindins" (is_a  bindins class_instance_binding) bindins)
-    (if (not (is_a icladata class_nrep))
-	(progn
-	  (error_strv sloc "invalid class in definstance" (unsafe_get_field :named_name sname))
-	  (return ())))
+    (when (is_not_a icladata class_nrep)
+      (error_at sloc "invalid class $1 in definstance" (unsafe_get_field :named_name sname))
+      (return ()))
     (cond
      ( (null spredef) () )
      ( (is_integerbox spredef) () )
      ( (is_a spredef class_symbol) () )
      (:else
-      (error_strv sloc "bad predef in DEFINSTANCE"  (unsafe_get_field :named_name sname))
+      (error_at sloc "bad predef $1 in DEFINSTANCE"  (unsafe_get_field :named_name sname))
       (return ())))
     (assert_msg "check sinstclass" (is_a sinstclass class_class) sinstclass)
     (assert_msg "check sinstclasym" (is_a sinstclasym class_symbol) sinstclasym)
@@ -7683,14 +7684,13 @@ source location.}#
 	      (:long curoff (obj_num curfld))
 	      )
 	 (assert_msg "check curfld" (is_a curfld class_field) curfld)
-	 (if (!= (multiple_nth (unsafe_get_field :class_fields sinstclass) curoff) 
-		 curfld)
-	     (progn
-	       (error_strv sloc
-			   "inappropriate field in DEFINSTANCE"
-			   (get_field :named_name curfld)
-			   )
-	       (return)))
+	 (when (!= (multiple_nth (unsafe_get_field :class_fields sinstclass) curoff) 
+		   curfld)
+	   (error_at sloc
+		     "inappropriate field $1 in DEFINSTANCE"
+		     (get_field :named_name curfld)
+		     )
+	   (return))
 	 (debug "normexp_definstance field curexp" curexp)
 	 (multicall
 	  (ncur nbindcur)
