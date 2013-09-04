@@ -1,5 +1,10 @@
 
 
+2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt: More replacing of old error messages
+	with error_at...
+
 2013-09-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (diagnostic_args_macro): Increment the

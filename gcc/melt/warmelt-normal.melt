@@ -2368,28 +2368,21 @@ source location.}#
 		    (varoutctyp (get_ctype noutvar env))
 		    )
 	       (debug "normexp_hook_call noutvar=" noutvar " varoutctyp=" varoutctyp)
-	       ;;;@@@ errors to be improved below
 	       (when (is_not_a noutvar class_nrep_locsymocc)
-		 (error_strv sloc "invalid output variable for hook" hnamestr)
-		 (error_strv sloc "invalid hook output variable is" (get_field :named_name curoutarg))
+		 (error_at sloc "invalid output variable $1 for hook $2"_ (get_field :named_name curoutarg) hnamestr)
 		 (setq errorflag 1))		 
 	       (assert_msg "check varoutctyp" (is_a varoutctyp class_ctype) varoutctyp)
 	       (when (!= varoutctyp outbctyp)
-		 (error_strv sloc "incompatible output variable type for hook" hnamestr)
-		 (inform_strv sloc "output formal name for hook" 
-			      (get_field :named_name outbinder))
-		 (inform_strv sloc "actual output ctype for hook" 
-			      (get_field :named_name varoutctyp))
-		 (inform_strv sloc "expected output ctype for hook" 
-			      (get_field :named_name outbctyp))
+		 (error_at sloc "incompatible output formal $1 ctype $2 expecting $3 for hook $4"_ 
+			   (get_field :named_name outbinder) 
+			   (get_field :named_name varoutctyp) 
+			   (get_field :named_name outbctyp) hnamestr)
 		 (setq errorflag 1)
 		 )
 	       (multiple_put_nth nouts outix noutvar)
 	       ))
 	   (:else
-	    (error_strv sloc "hook output argument is not a symbol" hnamestr)
-	    (inform_strv sloc "corresponding hook formal output name"
-			 (unsafe_get_field :named_name outbinder))
+	    (error_at sloc "hook output argument is not a symbol for formal output $1 of hook $2" (unsafe_get_field :named_name outbinder) hnamestr)
 	    (setq errorflag 1)
 	    ))
 	  ))
@@ -2460,7 +2453,7 @@ source location.}#
        (assert_msg "normexp_box check nctyp" (is_a nctyp class_ctype) nctyp)
        (debug "normexp_box nctyp=" nctyp " autoboxdiscr=" autoboxdiscr)
        (when (is_not_a autoboxdiscr class_discriminant)
-	 (error_strv sloc "non-BOX-able stuff of ctype"
+	 (error_at sloc "non-BOX-able stuff of ctype $1"
 		     (get_field :named_name nctyp))
 	 (return))
        (let (
@@ -2481,7 +2474,7 @@ source location.}#
 		   boxfun
 		   ))
 	       (:else
-		(error_strv sloc "unexpected ctype for BOX"
+		(error_at sloc "unexpected ctype $1 for BOX"
 			    (get_field :named_name nctyp))))
 	      )
 	     )
@@ -2558,7 +2551,7 @@ source location.}#
        (assert_msg "normexp_constbox check nctyp" (is_a nctyp class_ctype) nctyp)
        (debug "normexp_constbox nctyp=" nctyp " autoboxdiscr=" autoboxdiscr)
        (when (is_not_a autoboxdiscr class_discriminant)
-	 (error_strv sloc "non-CONSTANT_BOX-able stuff of ctype"
+	 (error_at sloc "non-CONSTANT_BOX-able stuff of ctype $1"
 		     (get_field :named_name nctyp))
 	 (return))
        (let (
@@ -2575,7 +2568,7 @@ source location.}#
 		   boxfun
 		   ))
 	       (:else
-		(error_strv sloc "unexpected ctype for BOX"
+		(error_at sloc "unexpected ctype $1 for BOX"_
 			    (get_field :named_name nctyp))))
 	      )
 	     )
@@ -2650,7 +2643,8 @@ source location.}#
 		  ( (is_a ctyp class_ctype_gty)
 		    (get_field :ctypg_unboxfun ctyp))
 		  (:else
-		   (error_plain sloc "unexpected ctype for UNBOX")
+		   (error_at sloc "unexpected ctype $1 for UNBOX" 
+			     (get_field :named_name ctyp))
 		   (return))))
 	   )
       (debug "normexp_unbox unboxer=" unboxer " cname=" cname)
@@ -2744,8 +2738,8 @@ source location.}#
 				    )
 			       (debug "normexp_code_chunk compctyp=" compctyp)
 			       (when (!= compctyp ctype_void)
-				 (error_strv cloc
-					     "composite CODE_CHUNK element should be :void, got"
+				 (error_at cloc
+					     "composite CODE_CHUNK element should be :void, got $1"
 					     (get_field :named_name compctyp))
 				 (return ())
 				 )
@@ -2902,7 +2896,7 @@ source location.}#
        (assert_msg "check otype" (is_a otype class_ctype) otype)
        (if (!=i nbarg (multiple_length oformals))
 	   (progn
-	     (error_strv sloc "length mismatch between formals & actuals in cmatch expr" 
+	     (error_at sloc "length mismatch between formals & actuals in cmatch $1 expr" 
 			 cmanamstr)
 	     (return))
 	 )
@@ -2924,14 +2918,12 @@ source location.}#
 		       (is_a actype class_ctype)
 		       (!= fortype actype))
 		  (progn
-		    (error_strv sloc "type mismatch between formals & actuals in cmatch oper"
-				  cmanamstr)
-		    (inform_strv sloc "mismatched primitive formal name"
-				 (unsafe_get_field :named_name forarg))
-		    (inform_strv sloc "mismatched primitive actual type"
-				 (unsafe_get_field :named_name actype))
-		    (inform_strv sloc "mismatched primitive expected type"
-				 (unsafe_get_field :named_name fortype))
+		    (error_at sloc 
+			      "type mismatch between formals & actuals in cmatch $1 operator formal $2 actual ctype $3 expected ctype $4"_
+				  cmanamstr
+				  (unsafe_get_field :named_name forarg) 
+				  (unsafe_get_field :named_name actype) 
+				  (unsafe_get_field :named_name fortype))
 		    ))
 	      (mapobject_put bmap forarg actarg)
 	      )))
@@ -2951,9 +2943,10 @@ source location.}#
 ;; itself, and code should be generated to fill the primitive with
 ;; non-symbol values.
 				(debug "normexp_cmatchexpr unexpected symbol in expansion recv=" recv " excu=" excu)
-				(error_strv sloc "unexpected symbol in cmatch expression expansion" 
-					    (unsafe_get_field  :named_name excu))
-				(error_strv sloc "bad primitive name" cmanamstr)
+				(error_at sloc 
+					  "unexpected symbol in cmatch expression expansion $1 for $2"_
+					  (unsafe_get_field  :named_name excu)
+					  cmanamstr)
 				))
 			  bval)
 		      excu)) )
@@ -3095,17 +3088,17 @@ source location.}#
        (if (!= nfunctyp ctype_value)
 	   (progn 
 	     (debug "normexp_apply bad nfun=" nfun " sfun=" sfun " nfunctyp=" nfunctyp " recv=" recv)
-	     (error_strv sloc "applied function should be a value, but has bad ctype" 
+	     (error_at sloc "applied function should be a value, but has bad ctype $1" 
 			 (get_field :named_name nfunctyp))
 	     (cond 
 	      ( (is_string sfun)
-		(error_strv sloc "bad applied string, not a function" sfun))
+		(error_at sloc "bad applied string '$1', not a function"_ sfun))
 	      ( (is_a sfun class_named)
-		(error_strv sloc "bad applied function, named" 
+		(error_at sloc "bad applied function, named $1"_ 
 			    (get_field :named_name sfun)))
 	      ( (is_a sfun class_located)
-		(error_plain (get_field :loca_location sfun) 
-			     "here is the wrong applied function")))
+		(error_at (get_field :loca_location sfun) 
+			  "here is the wrong applied function")))
 	     )))
      (multicall
       (nargs nbindargs)
@@ -3120,8 +3113,8 @@ source location.}#
 		   )
 	      (debug "normexp_apply nargfirstctype" nargfirstctype)
 	      (if (!= nargfirstctype ctype_value)
-		  (error_plain sloc
-			       "first argument of function application should be a value")
+		  (error_at sloc
+			    "first argument of function application should be a value not a $1" (get_field :named_name nargfirstctype))
 		))
 	  ))
       ;;
@@ -3192,8 +3185,8 @@ source location.}#
      (let ( (ctypr (get_ctype nrecv env)) )
        (assert_msg "normexp_msend check ctypr " (is_a ctypr class_ctype) ctypr)
        (if (!= ctypr ctype_value)
-	   (error_strv sloc "non value receiver for message send of selector"
-		       (unsafe_get_field :named_name selnam)))
+	   (error_at sloc "non value receiver for message send of selector $1"
+		     (unsafe_get_field :named_name selnam)))
        )
      (multicall
       (nargs nbindargs)
@@ -3258,8 +3251,8 @@ source location.}#
 	      (debug "normexp_msend" selformals)
 	      (assert_msg "check recvformal" (== (get_field :fbind_type recvformal) ctype_value) recvformal)
 	      (if (!=i nbformals (+i 1 (multiple_length nargs)))
-		  (error_strv sloc "unexpected number of arguments for method"
-			      (get_field :named_name selnam))
+		  (error_at sloc "unexpected number of arguments for method $1 with $2 formals"
+			    (get_field :named_name selnam) nbformals)
 		)
 	      (foreach_in_multiple 
 	       (nargs)
@@ -3311,8 +3304,8 @@ source location.}#
 			( (is_a curproc class_nrep_hookproc)
 			  (get_field :nrhook_ctype curproc))
 			( :else
-			  (error_plain sloc 
-				       "RETURN outside of LAMBDA or DEFUN procedure or DEFHOOK")
+			  (error_at sloc 
+				    "RETURN outside of LAMBDA or DEFUN procedure or DEFHOOK")
 			  (return))))
 	 ;; while the return effectively go out, it is preferable to give it a value type
 	 ;; to avoid make warning on code like (if (p x) (return) (.....))
@@ -3351,8 +3344,8 @@ source location.}#
        (when (and
 	      (>i nbrets 1)
 	      (is_a curproc class_nrep_hookproc))
-	 (error_plain sloc
-		      "multiple RETURN not allowed inside hooks")
+	 (error_at sloc
+		   "multiple RETURN not allowed inside hooks")
 	 (return))
        (let ( (nret0 (multiple_nth nrets 0))
 	      (toth (make_multiple discr_multiple (-i nbrets 1))) 
@@ -3362,17 +3355,17 @@ source location.}#
 	     (and 
 	      (!= ctyp0 ctype_value)
 	      (is_a curproc class_nrep_routproc))
-	   (error_plain sloc 
+	   (error_at sloc 
 			"primary RETURN-ed result from procedure is not a value")
 	   (return))
 	 (when (is_a curproc class_nrep_hookproc)
 	   (when (>i nbrets 1)
-	     (error_plain sloc "RETURN with secondary results impossible in a hook")
+	     (error_at sloc "RETURN with secondary results impossible in a hook")
 	     (return))
 	   (when (and nret0 ctyp0 (!= ctyp0 restype))
-	     (error_plain sloc "RETURN with incompatible type in hook")
-	     (inform_strv sloc "expected hook return ctype is" (get_field :named_name restype))
-	     (inform_strv sloc "actual returned ctype in hook is" (get_field :named_name ctyp0))
+	     (error_at sloc "RETURN with incompatible type in hook expected type $1 gotten $2"_ 
+		       (get_field :named_name restype)
+		       (get_field :named_name ctyp0))
 	     (return))
 	   )
 	 (if (null nbindrets) 
@@ -3397,7 +3390,8 @@ source location.}#
 		 )
 	    (assert_msg "check nctyp" (is_a nctyp class_ctype) nctyp)
 	    (unless (get_field :ctype_parchar nctyp)
-	      (error_strv sloc "impossible secondary result type" (get_field :named_name nctyp)))
+	      (error_at sloc "impossible secondary result type $1"_
+			(get_field :named_name nctyp)))
 	    )
 	  (if (>i ix 0)
 	      (multiple_put_nth toth (-i ix 1) ncomp)))
@@ -3564,12 +3558,10 @@ source location.}#
 	      (setq ctypif ctypelse)
 	      )
 	    (:else
-	     (error_plain sloc 
-			    "incompatible types in conditional IF/OR/COND branches")
-	     (warning_strv sloc "then type in conditional is "
-			   (unsafe_get_field :named_name ctypif))
-	     (warning_strv sloc "else type in conditional is "
-			   (unsafe_get_field :named_name ctypelse))
+	     (error_at sloc 
+			    "incompatible types in conditional IF/OR/COND branches: then type is $1 else type is $2"_ 
+			    (unsafe_get_field :named_name ctypif)
+			    (unsafe_get_field :named_name ctypelse))
 	     (setq ctypif ctype_void)
 	     )
 	    ))
@@ -3637,44 +3629,43 @@ source location.}#
 	(debug "normexp_cppif nelse" nelse)
 	(assert_msg "check nbindelse" (is_list_or_null nbindelse) nbindelse)
 	(let ( (newelseenv (fresh_env env)) )
-	  (list_every 
-	   nbindelse
-	   (lambda (b) (put_env newelseenv b)))
+	  (foreach_in_list 
+	   (nbindelse)
+	   (curpairelse elsebind) 
+	   (put_env newelseenv elsebind))
 	  (let ( (ctypelse (get_ctype nelse newelseenv)) )
-	    (if (and (!= ctypif ctypelse) (!= ctypif ctype_void) (!= ctypelse ctype_void))
-		(progn
-		  (error_plain sloc "CPPIF incompatible then & else types")
-		  (error_strv sloc "CPPIF incompatible then type :" 
-			      (unsafe_get_field :named_name ctypif))
-		  (error_strv sloc "CPPIF incompatible else type :" 
-			      (unsafe_get_field :named_name ctypelse))))
+	    (when (and (!= ctypif ctypelse) (!= ctypif ctype_void) (!= ctypelse ctype_void))
+	      (error_at sloc "CPPIF incompatible then $1 & else $2 types"_
+			(unsafe_get_field :named_name ctypif)
+			(unsafe_get_field :named_name ctypelse))
+	      ))
 
-	    (let ( (csym (clone_symbol 'ifcpp_))
-		   (clocc  (instance  class_nrep_locsymocc
-				      :nrep_loc sloc
-				      :nocc_ctyp ctypif
-				      :nocc_symb csym)) 
-		   (wthen (wrap_normal_let1 nthen nbindthen sloc))
-		   (welse (wrap_normal_let1 nelse nbindelse sloc))
-		   (cbind (instance class_normal_let_binding
-				    :letbind_loc sloc
-				    :binder csym
-				    :letbind_type ctypif 
-				    :letbind_expr 
-				    (instance class_nrep_cppif
-					      :nrep_loc sloc
-					      :nifp_cond scond
-					      :nifp_then wthen
-					      :nifp_else welse
-					      :nifp_ctyp ctypif
-					      ))) 
-		   (nbindres (make_list discr_list))
-		   )
-	      (unsafe_put_fields clocc :nocc_bind cbind)
-	      (list_append nbindres cbind)
-	      (debug "normexp_cppif result clocc=" clocc " nbindres=" nbindres)
-	      (return clocc nbindres)
-	      ))))))))
+	  (let ( (csym (clone_symbol 'ifcpp_))
+		 (clocc  (instance  class_nrep_locsymocc
+				    :nrep_loc sloc
+				    :nocc_ctyp ctypif
+				    :nocc_symb csym)) 
+		 (wthen (wrap_normal_let1 nthen nbindthen sloc))
+		 (welse (wrap_normal_let1 nelse nbindelse sloc))
+		 (cbind (instance class_normal_let_binding
+				  :letbind_loc sloc
+				  :binder csym
+				  :letbind_type ctypif 
+				  :letbind_expr 
+				  (instance class_nrep_cppif
+					    :nrep_loc sloc
+					    :nifp_cond scond
+					    :nifp_then wthen
+					    :nifp_else welse
+					    :nifp_ctyp ctypif
+					    ))) 
+		 (nbindres (make_list discr_list))
+		 )
+	    (unsafe_put_fields clocc :nocc_bind cbind)
+	    (list_append nbindres cbind)
+	    (debug "normexp_cppif result clocc=" clocc " nbindres=" nbindres)
+	    (return clocc nbindres)
+	    )))))))
 (install_method class_source_cppif normal_exp normexp_cppif)
 
 ;;;;;;;;;;;;;;;; normalize an or
@@ -3717,7 +3708,7 @@ source location.}#
 		 )
 	    (assert_msg "check ctypcur" (is_a ctypcur class_ctype))
 	    (if (!= ctypcur (deref ctyporcont))
-		(error_plain  sloc "disjuncts' type mismatch in OR | COND"))
+		(error_at  sloc "disjuncts' type mismatch in OR | COND got $1 expecting $2"_ ctypcur (deref ctyporcont)))
 	    (let (
 		  ;; ncur is normal, so simple
 		  (nifor (instance
@@ -3775,7 +3766,7 @@ source location.}#
 	 )
     (if (<=i lnbody 0)
 	(let ( (onull (instance class_nrep_nil :nrep_loc sloc)) )
-	  (error_plain sloc "empty PROGN")
+	  (error_at sloc "empty PROGN")
 	  (debug "normexp_progn return empty onull" onull)
 	  (return onull)))
     (multicall
@@ -3865,21 +3856,14 @@ source location.}#
 	  (if (== sbtyp quasi_ctype_auto)
 	      (setq sbtyp nbctype))
 	  ;; check ctype compatibility
-	  (if (!= nbctype sbtyp)
-	      (progn
-		(error_strv 
+	  (when (!= nbctype sbtyp)
+		(error_at 
 		 sbloc
-		 "ctype mismatch in LET binding of local variable"
-		 (get_field :named_name  sbinder))
-		(inform_strv
-		 sbloc
-		 "expecting ctype in LET binding"
+		 "ctype mismatch in LET binding of local variable $1 got $2 expecting $3"
+		 (get_field :named_name  sbinder)
+		 (get_field :named_name nbctype)
 		 (get_field :named_name sbtyp))
-		(inform_strv
-		 sbloc
-		 "ctype of binding expression in LET"
-		 (get_field :named_name nbctype))
-		)))
+		))
 	;;
 	(let ( (lastnbinding (pair_head (list_last nbindings))) )
 	  ;; common case of a normalized apply or primitive, hence a
@@ -4121,9 +4105,9 @@ source location.}#
 	     (let ( (fctyp (get_ctype nexp env)) )
 	       (debug "normexp_unsafe_put_fields fctyp" fctyp)
 	       (if (!= fctyp ctype_value)
-		   (error_strv 
+		   (error_at 
 		    fsloc 
-		    "invalid field type in (UNSAFE_PUT_FIELDS ..); expecting a :value"
+		    "invalid field type $1 in (UNSAFE_PUT_FIELDS ..); expecting a :value"_
 		    (get_field :named_name fld))))
 	     )))))
      (let ( (npuf (instance class_nrep_unsafe_put_fields
@@ -4205,9 +4189,11 @@ source location.}#
 		(:else
 		 (debug "normexp_put_fields bad fld=" fld " fcla=" fcla
 			" precla=" precla)
-		 (error_strv sloc "bad field name in PUT_FIELD" (unsafe_get_field :named_name fld))
-		 (inform_strv sloc "PUT_FIELD expecting field of class" (unsafe_get_field :named_name precla))
-		 (inform_strv sloc "PUT_FIELD got field of class" (get_field :named_name fcla))
+		 (error_at sloc 
+			   "bad field name $1 in PUT_FIELD should be a field from class $1 but got field from $3"_ 
+			   (get_field :named_name fld)
+			   (get_field :named_name precla)
+			   (get_field :named_name fcla))
 		 )
 		)
 	  )
@@ -4222,10 +4208,11 @@ source location.}#
 	   (let ( (fctyp (get_ctype nexp env)) 
 		  )
 	     (if (!= fctyp ctype_value)
-		   (error_strv 
+		   (error_at 
 		    fsloc 
-		    "invalid field type in (PUT_FIELDS ..); expecting a :value"
-		    (get_field :named_name fld))
+		    "invalid field $1 actual type $2 in (PUT_FIELDS ..); expecting a :value"_
+		    (get_field :named_name fld)
+		    (get_field :named_name fctyp))
 		 )
 	     )
 	   (multiple_put_nth nfields ix nfla)
@@ -4276,12 +4263,10 @@ source location.}#
 	 (debug "normexp_setq expctyp" expctyp)
 	 (assert_msg "check expctyp" (is_a expctyp class_ctype) expctyp)
 	 (when (!= varctyp expctyp)
-	       (error_strv sloc "incompatible type for SETQ"
-			   (unsafe_get_field :named_name svar))
-	       (inform_strv sloc "left [var] type for incompatible SETQ"
-			    (unsafe_get_field :named_name varctyp))
-	       (inform_strv sloc "right [expr] type for incompatible SETQ"
-			    (unsafe_get_field :named_name expctyp))
+	       (error_at sloc "incompatible type for SETQ of $1 left ctype is $2 right is $3"_
+			 (unsafe_get_field :named_name svar)
+			 (unsafe_get_field :named_name varctyp)
+			 (unsafe_get_field :named_name expctyp))
 	       ))
        (when (is_a nvar class_nrep_modulevarocc)
 	 (debug "normexp_setq modulevarocc nexp=" nexp)
@@ -4360,12 +4345,12 @@ source location.}#
     (cond 
      ( (is_not_a sclass class_class)
        (debug "normexp_instance bad sclass" sclass)
-       (error_plain sloc "bad class in (INSTANCE <class> [:field1 <expr1> ...]) expression")
+       (error_at sloc "bad class in (INSTANCE <class> [:field1 <expr1> ...]) expression")
        (return ())
        )
      ( (is_not_a cladata class_nrep)
        (debug "normexp_instance bad cladata" cladata)
-       (error_strv sloc "invalid class in (INSTANCE <class> [:field1 <expr1> ...]) expression" 
+       (error_at sloc "invalid class $1 in (INSTANCE <class> [:field1 <expr1> ...]) expression" 
 		   (get_field :named_name sclass))
        (return ()))
      )
@@ -4385,22 +4370,20 @@ source location.}#
 		  ( (is_not_a curfield class_field)
 		    (debug "normexp_instance corrupted curflda=" curflda
 			   " curfield=" curfield)
-		    (error_strv sloc 
-				"invalid field in  (INSTANCE <class> [:field1 <expr1> ...]) expression"
-				(get_field :named_name sclass))
+		    (error_at sloc 
+			      "invalid field #$1 in (INSTANCE $2 [:field1 <expr1> ...]) expression"
+			      curk
+			      (get_field :named_name sclass))
 		    (return))
 		  ( (not (subclass_or_eq sclass (unsafe_get_field :fld_ownclass curfield)))
 		    (debug "normexp_instance corrupted curflda=" curflda
 			   " curfield=" curfield)
-		    (error_strv sloc
-				"unexpected field in (INSTANCE <class> [:field1 <expr1> ...]) expression"
-				(get_field :named_name curfield))
-		    (inform_strv sloc
-				 "this field belongs to class "
-				 (get_field :named_name (unsafe_get_field :fld_ownclass curfield)))
-		    (inform_strv sloc
-				 "field misused in (INSTANCE <class> ...) of class"
-				 (get_field :named_name sclass))
+		    (error_at sloc
+			      "unexpected field $1 from class $2 in (INSTANCE $3 [:field1 <expr1> ...]) expression"_
+			      (get_field :named_name curfield)
+			      (get_field :named_name (get_field :fld_ownclass curfield))
+			      (get_field :named_name sclass)
+			      )
 		    (return))
 		  )
 		 ;;
@@ -4411,10 +4394,11 @@ source location.}#
 		  (let ( (fctyp (get_ctype nexp env)) )
 		    (debug "normexp_instance fctyp" fctyp)
 		    (if (!= fctyp ctype_value)
-			(error_strv 
+			(error_at 
 			 curfloc 
-			 "invalid field type in (INSTANCE ..); expecting a :value"
-			 (get_field :named_name curfield))))
+			 "invalid field $1 type $2 in (INSTANCE ..); expecting a :value"
+			 (get_field :named_name curfield)
+			 (get_field :named_name fctyp))))
 		  (list_append2list bindlist  nbind)
 		  (instance class_nrep_fieldassign
 			    :nrep_loc curfloc
@@ -4615,11 +4599,10 @@ source location.}#
     (debug "normexp_ifvariadic curpro" curpro)
     (assert_msg "normexp_ifvariadic check sthen" (is_multiple_or_null sthen) sthen)
     (assert_msg "normexp_ifvariadic check selse" (is_multiple_or_null selse) selse)
-    (if (is_not_a curprocargs discr_variadic_formal_sequence)
-	(progn
-	  (debug "normexp_ifvariadic bad curprocargs" curprocargs)
-	  (error_plain loc "(VARIADIC ...) used in non-variadic function")
-	  (return)))
+    (when (is_not_a curprocargs discr_variadic_formal_sequence)
+      (debug "normexp_ifvariadic bad curprocargs" curprocargs)
+      (error_at loc "(VARIADIC ...) used in non-variadic function")
+      (return))
     (debug "normexp_ifvariadic nprovariadic" nprovariadic)
     (assert_msg "normexp_ifvariadic has nprovariadic" nprovariadic nprovariadic)
     ;; we transform the sequence of formal bindings into a sequence of
@@ -4909,9 +4892,9 @@ source location.}#
     (when (and 
 	   (is_not_a sfubind class_function_binding)
 	   (is_not_a sfubind class_defined_macro_binding))
-      (error_strv sloc
-		  "bad DEFUN-ed function [nested definitions are prohibited; consider using LETREC]"
-		  (get_field :named_name snam))
+      (error_at sloc
+		"bad DEFUN-ed function [nested definitions are prohibited; consider using LETREC]"
+		(get_field :named_name snam))
       (shortbacktrace_dbg "normexp_defun_defmacro bad DEFUNed function" 14)
       (return))
     (unsafe_put_fields nproc :nrpro_datarout ndatarout :nrpro_dataclos ndataclos)
@@ -5136,7 +5119,7 @@ source location.}#
 	       )
 	  (debug "normexp_defhook symbname=" symbname " smodvar=" smodvar " modvarbind=" modvarbind)
 	  (when (is_not_a modvarbind class_normal_module_variable_binding)
-	    (error_strv sloc "DEFHOOK has bad :VAR annotation, should be a module variable"
+	    (error_at sloc "DEFHOOK $1 has bad :VAR annotation, should be a module variable"_
 			symbname)
 	    (return)
 	    )
@@ -5159,9 +5142,9 @@ source location.}#
     (add_nctx_data ncx ndatahook)
     (add_nctx_data ncx insdata)
     (when (is_not_a shobind class_hook_binding)
-      (error_strv sloc
-		  "bad DEFHOOK, not bound to a hook [nested hooks are prohibited]"
-		  symbname)
+      (error_at sloc
+		"bad DEFHOOK $1, not bound to a hook [nested hooks are prohibited]"
+		symbname)
       (return))
 ;;; fill the named_name of insdata
     (debug "normexp_defhook namstrdata=" namstrdata)
@@ -5560,7 +5543,7 @@ source location.}#
 		 )
 	       )
 	     ( :else
-	       (error_plain sloc "multi-called expression neither apply nor send")
+	       (error_at sloc "MULTICALL-ed expression neither apply nor send")
 	       (return ())
 	       )
 	     ))))))))
@@ -5640,10 +5623,12 @@ source location.}#
 	     (foreach_in_multiple
 	      (nargs)
 	      (curnarg :long nix)
-	      (if (!= (get_ctype curnarg newenv) ctype_value)
-		  (progn
-		    (debug "normexp_tuple bad curnarg" curnarg)
-		    (error_plain sloc "(TUPLE ...) arguments should be values")
+	      (let ( (curctype (get_ctype curnarg newenv))
+		     )
+		(assert_msg "check curctype" (is_a curctype class_ctype))
+	      (when (!= curctype ctype_value)
+		    (debug "normexp_tuple bad curnarg=" curnarg " of curctype=" curctype)
+		    (error_at sloc "(TUPLE ...) argument #$1 should be value got $2" nix (get_field :named_name curctype))
 		    (return)))
 	      )
 	     (debug "normexp_tuple return ctuplocc=" ctuplocc " nbindings=" nbindings)
@@ -5706,7 +5691,7 @@ source location.}#
       (if (!= (get_ctype curnarg newenv) ctype_value)
 	  (progn
 	    (debug "normexp_list bad curnarg" curnarg)
-	    (error_plain sloc "(LIST ...) arguments should be values")
+	    (error_at sloc "(LIST ...) argument #$1 should be value" nix)
 	    (return))))
      (letrec (
 	      (creclocc (instance class_nrep_locsymocc
@@ -5823,7 +5808,7 @@ source location.}#
       (let ( (argctyp (get_ctype curnarg env))
 	     )
 	(when (!= argctyp ctype_long)
-	  (error_plain sloc "variadic arithmetic operation requires only :long arguments")
+	  (error_at sloc "variadic arithmetic operation requires only :long arguments got $1 at #$2"_ (get_field :named_name argctyp) argix)
 	  (return))		
 	))
      (match
@@ -5899,9 +5884,9 @@ source location.}#
 
 (defun badmeth_prepare_constructor_binding (recv symb ncx sloc)
   (debug "bad_prepare_constructor_binding recv=" recv " symb=" symb)
-  (error_strv sloc "invalid constructor binding" (get_field :named_name symb))
-  (error_strv sloc "receiver unprepared to constructor binding" 
-	      (get_field :named_name (discrim recv)))
+  (error_at sloc "invalid constructor binding $1 of receiver dicriminant $2"_
+	    (get_field :named_name symb)
+	    (get_field :named_name (discrim recv)))
   (assert_msg "@$@badmeth_prepare_constructor_binding" () recv symb)
 )
 (install_method discr_any_receiver prepare_constructor_binding badmeth_prepare_constructor_binding)
@@ -5918,9 +5903,9 @@ source location.}#
 (defun badmeth_normal_letrec_constructive (cexpr symb cbind env ncx sloc)
   (debug "badmeth_normal_letrec_constructive cexpr=" cexpr " symb=" symb
 	 " cbind=" cbind)
-  (error_strv sloc "invalid letrec constructive symbol" (get_field :named_name symb))
-  (error_strv sloc "receiver unprepared to normal_letrec_constructive" 
-	      (get_field :named_name (discrim cexpr)))
+  (error_at sloc "invalid letrec constructive symbol $1 for reciever $2" 
+	    (get_field :named_name symb)
+	    (get_field :named_name (discrim cexpr)))
   (assert_msg "@$@badmeth_normal_letrec_constructive" () cexpr symb)
 )
 (install_method discr_any_receiver normal_letrec_constructive badmeth_normal_letrec_constructive)
@@ -6210,10 +6195,9 @@ source location.}#
 	 (bindlist (make_list discr_list))
 	 )
     (debug "normletrec_instance nletrec" nletrec)
-    (if (not (is_a cladata class_nrep))
-	(progn
-	  (error_strv sloc "invalid class in (INSTANCE ..)" (unsafe_get_field :named_name sclass))
-	  (return ())))
+    (when (not (is_a cladata class_nrep))
+      (error_at sloc "invalid class in (INSTANCE $1 ...)" (unsafe_get_field :named_name sclass))
+      (return ()))
     (let ( (nfields 
 	    (multiple_map 
 	     sfields 
@@ -6249,10 +6233,11 @@ source location.}#
 	 (let ( (fctyp (get_ctype curfval env))
 		)
 	   (if (!= fctyp ctype_value)
-	       (error_strv
-			 curfloc 
-			 "invalid field type in (LETREC .. (INSTANCE ..); expecting a :value"
-			 (get_field :named_name curfield))))
+	       (error_at
+		curfloc 
+		"invalid field $1 type in (LETREC .. (INSTANCE ..); expecting a :value gotten a $2"_
+		(get_field :named_name curfield)
+		(get_field :named_name fctyp))))
 	 (multiple_put_nth bslots curfoff curfval)
        ))
       (list_append2list nrecbinds bindlist)
@@ -6480,7 +6465,7 @@ source location.}#
 	  (return res))
       (progn
 	(debug "normalpredef fail predefmap=" predefmap " pred=" pred)
-	(error_strv sloc "not a predef:" (make_stringconst discr_verbatim_string predname))
+	(error_at sloc "not a predef: $1" (make_stringconst discr_verbatim_string predname))
 	(return ())
 	))))
 
@@ -6787,7 +6772,7 @@ source location.}#
 		     )
 		   ( :else 
 		     (debug "bad component in C code expansion expcomp" expcomp)
-		     (error_plain sloc "unexpected component in C code expansion"))))
+		     (error_at sloc "unexpected component #$1 of dicriminant $2 in C code expansion" ix (get_field :named_name discrcomp)))))
 	    )
        (multiple_put_nth nexptuple ix compdata)
        )))
@@ -6994,9 +6979,11 @@ source location.}#
      (debug "normexp_citeration nargs=" nargs " nbindings=" nbindings)
      (let ( (starformals (unsafe_get_field :citer_start_formals soper)) )
        (debug "normexp_citeration starformals" starformals)
-       (if (!=i (multiple_length starformals) (multiple_length nargs))
-	   (progn
-	     (error_strv sloc "start formals and actuals length mismatch in citerator" (unsafe_get_field :named_name soper))
+       (let ( (:long nbformals (multiple_length starformals))
+	      (:long nbargs (multiple_length nargs))
+	      )
+       (when (!=i nbformals nbargs)
+	     (error_at sloc "start formals $1 and actuals $2 lengths mismatch in citerator $3" nbformals nbargs (unsafe_get_field :named_name soper))
 	     (return)))
        (multiple_every_both 
 	nargs starformals
@@ -7017,8 +7004,13 @@ source location.}#
 		  (multiple_put_nth nbndtup ix nlbind)
 		  )
 	      (progn
-		(error_strv sloc "start formal and actual type mismatch in citerator" (unsafe_get_field :named_name soper))
-		(inform_strv sloc "mismatched citerator start formal argument" (unsafe_get_field :named_name formarg))))
+		(error_at sloc "start formal $1 and actual arg #$2 type mismatch, got $3 expecting $4, in citerator $5"_ 
+			  (get_field :named_name formarg)
+			  ix
+			  (get_field :named_name curctyp)
+			  (get_field :named_name formctyp)
+			  (unsafe_get_field :named_name soper))
+		))
 	    ))
 	)
        (debug "normexp_citeration nbndtup" nbndtup)
@@ -7030,9 +7022,12 @@ source location.}#
 	      (nsymocctup (make_multiple discr_multiple nbcitbform))
 	      )
 	 (debug "normexp_citeration citbform" citbform)
-	 (if (!=i nbcitbform (multiple_length svbind))
-	     (progn
-	       (error_strv sloc "body formals and actuals length mismatch in citerator" (unsafe_get_field :named_name soper))
+	 (let ( (:long nbsvbind (multiple_length svbind))
+		)
+	   (when (!=i nbcitbform nbsvbind)
+	       (error_at sloc 
+			 "body formals #$1 and actuals #$2 length mismatch in citerator $3"_ 
+			 nbcitbform nbsvbind (unsafe_get_field :named_name soper))
 	       (return)))
 	 (multiple_every_both 
 	  svbind citbform
@@ -7070,6 +7065,7 @@ source location.}#
 		    (list_append uncachelist curvsym)
 		    )
 		(progn
+		  ;;;@@@@ continue updating error here
 		  (error_strv sloc "local formal and actual type mismatch in citerator" (unsafe_get_field :named_name soper))
 		  (inform_strv sloc "mismatched citerator local variable" 
 			       (unsafe_get_field :named_name (unsafe_get_field :binder curvbind)))
