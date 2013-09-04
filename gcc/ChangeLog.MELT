@@ -1,6 +1,37 @@
 
 2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Regenerate}}
+	* melt/generated/warmelt-base+melttime.h: Regenerate.
+	* melt/generated/warmelt-debug+melttime.h: Regenerate.
+	* melt/generated/warmelt-first+melttime.h: Regenerate.
+	* melt/generated/warmelt-genobj+01.cc: Regenerate.
+	* melt/generated/warmelt-genobj+02.cc: Regenerate.
+	* melt/generated/warmelt-genobj+03.cc: Regenerate.
+	* melt/generated/warmelt-genobj+04.cc: Regenerate.
+	* melt/generated/warmelt-genobj+05.cc: Regenerate.
+	* melt/generated/warmelt-genobj+06.cc: Regenerate.
+	* melt/generated/warmelt-genobj+07.cc: Regenerate.
+	* melt/generated/warmelt-genobj.cc: Regenerate.
+	* melt/generated/warmelt-genobj+meltdesc.c: Regenerate.
+	* melt/generated/warmelt-genobj+melttime.h: Regenerate.
+	* melt/generated/warmelt-hooks+melttime.h: Regenerate.
+	* melt/generated/warmelt-macro+melttime.h: Regenerate.
+	* melt/generated/warmelt-modes+melttime.h: Regenerate.
+	* melt/generated/warmelt-normal+01.cc: Regenerate.
+	* melt/generated/warmelt-normal+02.cc: Regenerate.
+	* melt/generated/warmelt-normal+03.cc: Regenerate.
+	* melt/generated/warmelt-normal+04.cc: Regenerate.
+	* melt/generated/warmelt-normal+05.cc: Regenerate.
+	* melt/generated/warmelt-normal+06.cc: Regenerate.
+	* melt/generated/warmelt-normal.cc: Regenerate.
+	* melt/generated/warmelt-normal+meltdesc.c: Regenerate.
+	* melt/generated/warmelt-normal+melttime.h: Regenerate.
+	* melt/generated/warmelt-normatch+melttime.h: Regenerate.
+	* melt/generated/warmelt-outobj+melttime.h: Regenerate.
+
+2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-normal.melt: Use errror_at everywhere.
 
 2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
