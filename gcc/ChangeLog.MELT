@@ -3,7 +3,12 @@
 
 	* melt/warmelt-normal.melt: More error_at replacement.
 
+2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt: More error_at replacement.
+
 	* melt/warmeltgenobj.melt (compilobj_predef): Add assert.
+
 2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

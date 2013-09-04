@@ -7696,10 +7696,13 @@ source location.}#
 	  (ncur nbindcur)
 	  (normal_exp curexp env ncx sloc)
 	  (debug "normexp_definstance field ncur=" ncur " nbindcur=" nbindcur)
-	  (if (!= (get_ctype ncur env) ctype_value)
-	      (error_strv sloc
-			  "field in DEFINSTANCE don't get a value"
-			  (get_field :named_name curfld)))
+	  (let ( (curctype (get_ctype ncur env))
+		 )
+	    (if (!= curctype ctype_value)
+		(error_at sloc
+			  "field $1 in DEFINSTANCE don't get a value but a $2"
+			  (get_field :named_name curfld) (get_field :named_name curctype)))
+	    )
 	  (multiple_put_nth slotup curoff ncur)
 	  (if (is_list nbindcur)
 	      (let ( (thebindlist (deref nbindcont)))
@@ -7735,7 +7738,7 @@ source location.}#
 	 )
     (debug "normexp_defvar modctx=" modctx)
     (when (is_not_a curproc class_nrep_initproc)
-      (error_plain sloc "(DEFVAR ...) can appear only at top-level")
+      (error_at sloc "(DEFVAR $1) can appear only at top-level"_ sname)
       (return))
     (multicall
      (vbind procs gotenv)
@@ -7744,8 +7747,8 @@ source location.}#
      (when 
 	 (or (!= gotenv env) 
 	     (is_not_a vbind class_variable_binding))
-       (error_strv sloc "cannot redefine variable with DEFVAR" 
-		   (get_field :named_name sname))
+       (error_at sloc "cannot redefine variable $1 with DEFVAR"_ 
+		 (get_field :named_name sname))
        (return))
      (debug "normexp_defvar class_normal_module_variable_binding=" class_normal_module_variable_binding)
      (let (
@@ -7797,7 +7800,7 @@ source location.}#
     (debug "normexp_define curproc=" curproc " newenv=" newenv)
     ;; TODO:: maybe we could have internal defines for constants...
     (when (is_not_a curproc class_nrep_initproc)
-      (error_plain sloc "(DEFINE ...) can appear only at top-level")
+      (error_at sloc "(DEFINE $1 ...) can appear only at top-level"_ sname)
       (return))
     (put_env newenv locbind)
     (debug "normexp_define sbody=" sbody "\n newenv=" newenv)
@@ -7831,10 +7834,16 @@ source location.}#
        (list_append procdefbinds binddef)
        (debug "normexp_define updated procdefbinds=" procdefbinds
 	      " ndefname=" ndefname " newbody=" newbody)
-       (if (!= (get_ctype ndefname env) ctype_value)
-	   (error_strv sloc "DEFINE-d name is not a value" snamestr))
-       (if (!= (get_ctype nlastbody newenv) ctype_value)
-	   (error_strv sloc "DEFINE-d body don't end with a value" snamestr))
+       (let ( (curctype (get_ctype ndefname env))
+	      (lastctype (get_ctype nlastbody newenv))
+	      )
+	 (if (!= curctype ctype_value)
+	     (error_at sloc "DEFINE-d name $1 is not a value but a $2"_ 
+		       snamestr (get_field :named_name curctype)))
+	 (if (!= lastctype ctype_value)
+	     (error_at sloc "(DEFINE $1 ...) body don't end with a value but with a $2"_ snamestr
+		       (get_field :named_name lastctype)))
+	 )
        (debug "normexp_define newbody=" newbody " sname=" sname " sycmap=" sycmap)
        (let ( (nwrlet (wrap_normal_letseq newbody nbindings sloc))
 	      (nlocbindings (list locbind))
