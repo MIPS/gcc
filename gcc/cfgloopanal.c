@@ -320,6 +320,14 @@ seq_cost (const_rtx seq, bool speed)
   return cost;
 }
 
+#ifndef LOOP_COST_REG_CLASS
+#define LOOP_COST_REG_CLASS GENERAL_REGS
+#endif
+
+#ifndef LOOP_COST_RESERVED_REGS
+#define LOOP_COST_RESERVED_REGS 3
+#endif
+
 /* Initialize the constants for computing set costs.  */
 
 void
@@ -336,7 +344,7 @@ init_set_costs (void)
   target_avail_regs = 0;
   target_clobbered_regs = 0;
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    if (TEST_HARD_REG_BIT (reg_class_contents[GENERAL_REGS], i)
+    if (TEST_HARD_REG_BIT (reg_class_contents[LOOP_COST_REG_CLASS], i)
 	&& !fixed_regs[i])
       {
 	target_avail_regs++;
@@ -344,7 +352,7 @@ init_set_costs (void)
 	  target_clobbered_regs++;
       }
 
-  target_res_regs = 3;
+  target_res_regs = LOOP_COST_RESERVED_REGS;
 
   for (speed = 0; speed < 2; speed++)
      {
