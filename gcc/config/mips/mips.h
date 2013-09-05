@@ -2170,6 +2170,26 @@ enum reg_class
 
 #define INDEX_REG_CLASS NO_REGS
 
+/* Register pressure in loops is calculated with the assumption that
+   GENERAL_REGS are generally usable. Not unreasonable but not true
+   for MIPS16. Alter the class used for the loop cost calculations
+   and also reduce the number of registers reserved for temporary
+   expressions. This may be better as a function of the available
+   registers but the relationship is probably more complex than that */
+#define LOOP_COST_REG_CLASS (TARGET_MIPS16 ? M16_REGS : GENERAL_REGS)
+#define LOOP_COST_RESERVED_REGS (TARGET_MIPS16 ? 2 : 3)
+
+/* The inliner thinks that referencing parameters passed by reference is
+   free after inlining. This does not sound right and hurts code size */
+#define INLINE_PARM_BY_REF_FREE (!TARGET_MIPS16 || !optimize_size)
+
+/* Add costs to hard registers based on frequency. This helps to negate
+   some of the reduced cost associated with argument registers which 
+   unfairly promotes their use and increases register pressure */
+#define IRA_HARD_REGNO_ADD_COST_MULTIPLIER(REGNO)                       \
+  (TARGET_MIPS16 && optimize_size                                       \
+   ? ((REGNO) >= 4 && (REGNO <= 7) ? 2 : 0) : 0)
+
 /* We generally want to put call-clobbered registers ahead of
    call-saved ones.  (IRA expects this.)  */
 
