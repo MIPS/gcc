@@ -12068,7 +12068,10 @@ c_parser_omp_target_data (location_t loc, c_parser *parser)
   OMP_TARGET_DATA_CLAUSES (stmt)
     = c_parser_omp_all_clauses (parser, OMP_TARGET_DATA_CLAUSE_MASK,
 				"#pragma omp target data");
-  OMP_TARGET_DATA_BODY (stmt) = c_parser_omp_structured_block (parser);
+  keep_next_level ();
+  tree block = c_begin_compound_stmt (true);
+  add_stmt (c_parser_omp_structured_block (parser));
+  OMP_TARGET_DATA_BODY (stmt) = c_end_compound_stmt (loc, block, true);
 
   SET_EXPR_LOCATION (stmt, loc);
   return add_stmt (stmt);
@@ -12161,6 +12164,7 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 
 	  c_parser_consume_token (parser);
 	  strcpy (p_name, "#pragma omp target");
+	  keep_next_level ();
 	  tree block = c_begin_compound_stmt (true);
 	  tree ret = c_parser_omp_teams (loc, parser, p_name,
 					 OMP_TARGET_CLAUSE_MASK, cclauses);
@@ -12182,7 +12186,10 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
   OMP_TARGET_CLAUSES (stmt)
     = c_parser_omp_all_clauses (parser, OMP_TARGET_CLAUSE_MASK,
 				"#pragma omp target");
-  OMP_TARGET_BODY (stmt) = c_parser_omp_structured_block (parser);
+  keep_next_level ();
+  tree block = c_begin_compound_stmt (true);
+  add_stmt (c_parser_omp_structured_block (parser));
+  OMP_TARGET_BODY (stmt) = c_end_compound_stmt (loc, block, true);
 
   SET_EXPR_LOCATION (stmt, loc);
   add_stmt (stmt);

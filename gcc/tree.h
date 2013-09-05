@@ -629,6 +629,9 @@ struct GTY(()) tree_base {
        OMP_CLAUSE_LINEAR_NO_COPYIN in
 	   OMP_CLAUSE_LINEAR
 
+       OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION in
+	   OMP_CLAUSE_MAP
+
        TRANSACTION_EXPR_RELAXED in
 	   TRANSACTION_EXPR
 
@@ -2050,14 +2053,20 @@ enum omp_clause_map_kind
   OMP_CLAUSE_MAP_TO,
   OMP_CLAUSE_MAP_FROM,
   OMP_CLAUSE_MAP_TOFROM,
-  /* This following is an internal only map kind, used for pointer based array
-     sections.  OMP_CLAUSE_SIZE for these is not the pointer size, which is
-     implicitly POINTER_SIZE / BITS_PER_UNIT, but the bias.  */
+  /* The following kind is an internal only map kind, used for pointer based
+     array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
+     which is implicitly POINTER_SIZE / BITS_PER_UNIT, but the bias.  */
   OMP_CLAUSE_MAP_POINTER
 };
 
 #define OMP_CLAUSE_MAP_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
+
+/* Nonzero if this map clause is for array (rather than pointer) based array
+   section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and
+   correspoidng OMP_CLAUSE_MAP_POINTER clause are marked with this flag.  */
+#define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
 
 enum omp_clause_proc_bind_kind
 {

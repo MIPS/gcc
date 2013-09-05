@@ -5976,7 +5976,16 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   if (ctx->region_type == ORT_TARGET)
     {
       if (n == NULL)
-	omp_add_variable (ctx, decl, GOVD_MAP | flags);
+	{
+	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl)))
+	    {
+	      error ("%qD referenced in target region does not have "
+		     "a mappable type", decl);
+	      omp_add_variable (ctx, decl, GOVD_MAP | GOVD_EXPLICIT | flags);
+	    }
+	  else
+	    omp_add_variable (ctx, decl, GOVD_MAP | flags);
+	}
       else
 	n->value |= flags;
       ret = lang_hooks.decls.omp_disregard_value_expr (decl, true);
@@ -6283,7 +6292,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	      break;
 	    }
 	  flags = GOVD_MAP | GOVD_EXPLICIT;
-	  notice_outer = false;
 	  goto do_add;
 
 	case OMP_CLAUSE_DEPEND:
@@ -6500,31 +6508,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   if (private_debug)
     code = OMP_CLAUSE_PRIVATE;
   else if (flags & GOVD_MAP)
-    {
-      /* If decl is already in the enclosing device data environment,
-	 the spec says that it should just be used and no init/assignment
-	 should be done.  If there was any privatization in between though,
-	 it means that original decl might be in the enclosing device data
-	 environment, but the privatized might not.  */
-      struct gimplify_omp_ctx *ctx;
-      for (ctx = gimplify_omp_ctxp->outer_context;
-	   ctx; ctx = ctx->outer_context)
-	{
-	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
-	  if (n == NULL)
-	    continue;
-	  if (ctx->region_type == ORT_TARGET_DATA)
-	    {
-	      if ((n->value & GOVD_MAP) != 0)
-		return 0;
-	    }
-	  else if ((n->value & (GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE
-				| GOVD_PRIVATE | GOVD_REDUCTION
-				| GOVD_LINEAR)) != 0)
-	    break;
-	}
-      code = OMP_CLAUSE_MAP;
-    }
+    code = OMP_CLAUSE_MAP;
   else if (flags & GOVD_SHARED)
     {
       if (is_global_var (decl))
@@ -6689,31 +6673,6 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
 	  if (ctx->region_type == ORT_TARGET && !(n->value & GOVD_SEEN))
 	    remove = true;
-	  else
-	    {
-	      /* If decl is already in the enclosing device data environment,
-		 the spec says that it should just be used and no init/assignment
-		 should be done.  If there was any privatization in between though,
-		 it means that original decl might be in the enclosing device data
-		 environment, but the privatized might not.  */
-	      struct gimplify_omp_ctx *octx;
-	      for (octx = ctx->outer_context; octx; octx = octx->outer_context)
-		{
-		  n = splay_tree_lookup (octx->variables,
-					 (splay_tree_key) decl);
-		  if (n == NULL)
-		    continue;
-		  if (octx->region_type == ORT_TARGET_DATA)
-		    {
-		      if ((n->value & GOVD_MAP) != 0)
-			remove = true;
-		    }
-		  else if ((n->value & (GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE
-					| GOVD_PRIVATE | GOVD_REDUCTION
-					| GOVD_LINEAR)) != 0)
-		    break;
-		}
-	    }
 	  break;
 
 	case OMP_CLAUSE_REDUCTION:
@@ -6722,6 +6681,7 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_NUM_TEAMS:
+	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEVICE:
 	case OMP_CLAUSE_SCHEDULE:
@@ -7198,7 +7158,28 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
       gcc_unreachable ();
     }
   gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort);
-  gimplify_and_add (OMP_BODY (expr), &body);
+  if (ort == ORT_TARGET || ort == ORT_TARGET_DATA)
+    {
+      struct gimplify_ctx gctx;
+      push_gimplify_context (&gctx);
+      gimple g = gimplify_and_return_first (OMP_BODY (expr), &body);
+      if (gimple_code (g) == GIMPLE_BIND)
+	pop_gimplify_context (g);
+      else
+	pop_gimplify_context (NULL);
+      if (ort == ORT_TARGET_DATA)
+	{
+	  gimple_seq cleanup = NULL;
+	  tree fn = builtin_decl_explicit (BUILT_IN_GOMP_TARGET_END_DATA);
+	  g = gimple_build_call (fn, 0);
+	  gimple_seq_add_stmt (&cleanup, g);
+	  g = gimple_build_try (body, cleanup, GIMPLE_TRY_FINALLY);
+	  body = NULL;
+	  gimple_seq_add_stmt (&body, g);
+	}
+    }
+  else
+    gimplify_and_add (OMP_BODY (expr), &body);
   gimplify_adjust_omp_clauses (&OMP_CLAUSES (expr));
 
   switch (TREE_CODE (expr))

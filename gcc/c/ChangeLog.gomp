@@ -1,3 +1,16 @@
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections_1): Remove pointer_based_p
+	argument.  Do c_save_expr on low bound unconditionally.
+	(handle_omp_array_sections): Adjust caller.  Call c_fully_fold when
+	needed.  Add OMP_CLAUSE_MAP_POINTER map clause even for array based
+	array sections.
+	(c_finish_omp_clauses): Don't complain about non-mappable types
+	for OMP_CLAUSE_MAP_POINTER.  Check for duplicates even for map
+	clauses.  Handle OMP_CLAUSE_NUM_TEAMS.
+	* c-parser.c (c_parser_omp_target_data, c_parser_omp_target): Call
+	keep_next_level ().
+
 2013-07-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_declare_simd): Moved to...

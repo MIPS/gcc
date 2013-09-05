@@ -1,3 +1,18 @@
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.map (GOMP_4.0): Add GOMP_target, GOMP_target_data,
+	GOMP_target_end_data, GOMP_target_update and GOMP_teams.
+	* Makefile.am (libgomp_la_SOURCES): Add target.c.
+	* Makefile.in: Regenerated.
+	* target.c: New file.
+	* libgomp_g.h (GOMP_target, GOMP_target_data,
+	GOMP_target_end_data, GOMP_target_update, GOMP_teams): New prototypes.
+	* testsuite/libgomp.c++/for-11.C (main): Uncomment
+	#pragma omp target teams directive.
+	* testsuite/libgomp.c/for-3.c (main): Likewise.
+	* testsuite/libgomp.c++/target-1.C: New test.
+	* testsuite/libgomp.c/target-1.c: New test.
+
 2013-07-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/for-3.c: New test.

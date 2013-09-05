@@ -1,3 +1,16 @@
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_target_data, cp_parser_omp_target): Call
+	keep_next_level (true).
+	* cp-objcp-common.h (LANG_HOOKS_OMP_MAPPABLE_TYPE): Define.
+	* semantics.c (handle_omp_array_sections_1): Remove pointer_based_p
+	argument.  Do cp_save_expr on low bound unconditionally.
+	(handle_omp_array_sections): Adjust caller.  Add OMP_CLAUSE_MAP_POINTER
+	map clause even for array based array sections.
+	(finish_omp_clauses): Don't complain about non-mappable types
+	for OMP_CLAUSE_MAP_POINTER.  Check for duplicates even for map
+	clauses.
+
 2013-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* decl.c (declare_simd_adjust_this): New function.

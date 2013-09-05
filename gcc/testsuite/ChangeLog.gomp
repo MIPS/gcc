@@ -1,3 +1,8 @@
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/map-1.c (foo): Add dg-error for implicitly
+	mapped non-mappable var.
+
 2013-07-20  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/declare-simd-1.c (f16, f17, f18): New tests.

@@ -218,4 +218,9 @@ GOMP_4.0 {
 	GOMP_parallel;
 	GOMP_taskgroup_start;
 	GOMP_taskgroup_end;
+	GOMP_target;
+	GOMP_target_data;
+	GOMP_target_end_data;
+	GOMP_target_update;
+	GOMP_teams;
 } GOMP_3.0;

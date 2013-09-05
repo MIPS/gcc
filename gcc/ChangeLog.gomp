@@ -1,3 +1,71 @@
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-cfg.c (make_edges): For GIMPLE_OMP_TARGET
+	with GF_OMP_TARGET_KIND_UPDATE, don't look for
+	GIMPLE_OMP_RETURN and immediately restore previous
+	region.
+	* langhooks.c (lhd_omp_mappable_type): New function.
+	* omp-low.c (scan_sharing_clauses): Ignore OMP_CLAUSE_SHARED
+	in GIMPLE_OMP_TEAMS constructs.  Handle OMP_CLAUSE_NUM_TEAMS,
+	OMP_CLAUSE_THREAD_LIMIT, OMP_CLAUSE_DEVICE, OMP_CLAUSE_MAP,
+	OMP_CLAUSE_TO and OMP_CLAUSE_FROM.
+	(create_omp_child_function): If current function has
+	"omp declare target" attribute or if current region
+	is OMP_TARGET or lexically nested in it, add that
+	attribute to the omp child function.
+	(scan_omp_target, scan_omp_teams): New functions.
+	(check_omp_nesting_restrictions): Fix a typo in TEAMS nesting
+	check.
+	(scan_omp_1_stmt): Handle GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	(lower_rec_input_clauses): Ignore OMP_CLAUSE_SHARED
+	in GIMPLE_OMP_TEAMS constructs.
+	(expand_omp_synch): Handle GIMPLE_OMP_TEAMS.
+	(expand_omp_target): New function.
+	(expand_omp): Handle GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	(build_omp_regions_1): For GIMPLE_OMP_TARGET with
+	GF_OMP_TARGET_KIND_UPDATE, don't look for GIMPLE_OMP_RETURN and
+	immediately restore previous region.
+	(lower_omp_single): Emit a CLOBBER stmt after GIMPLE_OMP_RETURN.
+	(lower_omp_taskreg): Likewise.
+	(lower_omp_target, lower_omp_teams): New functions.
+	(lower_omp_1): Handle GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	* tree.h (enum omp_clause_map_kind): Improve description of
+	OMP_CLAUSE_MAP_POINTER.
+	(OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION): Define.
+	* gimple.def (GIMPLE_OMP_TARGET): Use GSS_OMP_PARALLEL instead
+	of GSS_OMP_SINGLE.
+	* langhooks.h (struct lang_hooks_for_types): Add
+	omp_mappable_type hook.
+	* langhooks-def.h (lhd_omp_mappable_type): New prototype.
+	(LANG_HOOKS_OMP_MAPPABLE_TYPE): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Use it.
+	* gimple.h (gimple_omp_target_clauses, gimple_omp_target_clauses_ptr,
+	gimple_omp_target_set_clauses): Use gimple_omp_parallel
+	instead of gimple_omp_single.
+	(gimple_omp_target_child_fn, gimple_omp_target_child_fn_ptr,
+	gimple_omp_target_set_child_fn, gimple_omp_target_data_arg,
+	gimple_omp_target_data_arg_ptr, gimple_omp_target_set_data_arg): New
+	inlines.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET, BUILT_IN_GOMP_TARGET_DATA,
+	BUILT_IN_GOMP_TARGET_END_DATA, BUILT_IN_GOMP_TARGET_UPDATE,
+	BUILT_IN_GOMP_TEAMS): New builtins.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Print child_fn
+	for #pragma omp target.
+	* gimplify.c (omp_notice_variable): Diagnose if implicitly mapped
+	decl doesn't have mappable type.
+	(gimplify_scan_omp_clauses): For OMP_CLAUSE_MAP don't clear
+	notice_outer.
+	(gimplify_adjust_omp_clauses_1): Add OMP_CLAUSE_MAP even if the same
+	decl is already referenced in target data construct surrounding it.
+	(gimplify_adjust_omp_clauses): Likewise.  Handle
+	OMP_CLAUSE_THREAD_LIMIT.
+	(gimplify_omp_workshare): Fix up gimplification of target or target
+	data construct body.  For target data add GOMP_target_end_data
+	call in a try/finally cleanup.
+	* builtin-types.def (BT_FN_VOID_UINT_UINT,
+	BT_FN_VOID_INT_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR): New.
+
 2013-07-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (omp_declare_simd_clauses_equal): Remove prototype.

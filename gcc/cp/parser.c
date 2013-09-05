@@ -29451,6 +29451,7 @@ cp_parser_omp_target_data (cp_parser *parser, cp_token *pragma_tok)
   OMP_TARGET_DATA_CLAUSES (stmt)
     = cp_parser_omp_all_clauses (parser, OMP_TARGET_DATA_CLAUSE_MASK,
 				 "#pragma omp target data", pragma_tok);
+  keep_next_level (true);
   OMP_TARGET_DATA_BODY (stmt) = cp_parser_omp_structured_block (parser);
 
   SET_EXPR_LOCATION (stmt, pragma_tok->location);
@@ -29543,6 +29544,7 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 
 	  cp_lexer_consume_token (parser->lexer);
 	  strcpy (p_name, "#pragma omp target");
+	  keep_next_level (true);
 	  tree sb = begin_omp_structured_block ();
 	  unsigned save = cp_parser_begin_omp_structured_block (parser);
 	  tree ret = cp_parser_omp_teams (parser, pragma_tok, p_name,
@@ -29566,6 +29568,7 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
   OMP_TARGET_CLAUSES (stmt)
     = cp_parser_omp_all_clauses (parser, OMP_TARGET_CLAUSE_MASK,
 				 "#pragma omp target", pragma_tok);
+  keep_next_level (true);
   OMP_TARGET_BODY (stmt) = cp_parser_omp_structured_block (parser);
 
   SET_EXPR_LOCATION (stmt, pragma_tok->location);

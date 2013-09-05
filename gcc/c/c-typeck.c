@@ -10773,8 +10773,7 @@ c_finish_omp_cancellation_point (location_t loc, tree clauses)
 
 static tree
 handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
-			     bool &maybe_zero_len, unsigned int &first_non_one,
-			     bool &pointer_based_p)
+			     bool &maybe_zero_len, unsigned int &first_non_one)
 {
   tree ret, low_bound, length, type;
   if (TREE_CODE (t) != TREE_LIST)
@@ -10801,15 +10800,11 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
-      if (POINTER_TYPE_P (TREE_TYPE (t))
-	  && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP)
-	pointer_based_p = true;
       return t;
     }
 
   ret = handle_omp_array_sections_1 (c, TREE_CHAIN (t), types,
-				     maybe_zero_len, first_non_one,
-				     pointer_based_p);
+				     maybe_zero_len, first_non_one);
   if (ret == error_mark_node || ret == NULL_TREE)
     return ret;
 
@@ -10989,16 +10984,12 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
     }
   if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND)
     types.safe_push (TREE_TYPE (ret));
-  /* For pointer based array sections we will need to evaluate lb more
-     than once.  */
-  if (pointer_based_p)
+  /* We will need to evaluate lb more than once.  */
+  tree lb = c_save_expr (low_bound);
+  if (lb != low_bound)
     {
-      tree lb = c_save_expr (low_bound);
-      if (lb != low_bound)
-	{
-	  TREE_PURPOSE (t) = lb;
-	  low_bound = lb;
-	}
+      TREE_PURPOSE (t) = lb;
+      low_bound = lb;
     }
   ret = build_array_ref (OMP_CLAUSE_LOCATION (c), ret, low_bound);
   return ret;
@@ -11010,12 +11001,10 @@ static bool
 handle_omp_array_sections (tree c)
 {
   bool maybe_zero_len = false;
-  bool pointer_based_p = false;
   unsigned int first_non_one = 0;
   vec<tree> types = vNULL;
   tree first = handle_omp_array_sections_1 (c, OMP_CLAUSE_DECL (c), types,
-					    maybe_zero_len, first_non_one,
-					    pointer_based_p);
+					    maybe_zero_len, first_non_one);
   if (first == error_mark_node)
     {
       types.release ();
@@ -11047,6 +11036,7 @@ handle_omp_array_sections (tree c)
 	}
       if (tem)
 	first = build2 (COMPOUND_EXPR, TREE_TYPE (first), tem, first);
+      first = c_fully_fold (first, false, NULL);
       OMP_CLAUSE_DECL (c) = first;
     }
   else
@@ -11155,27 +11145,31 @@ handle_omp_array_sections (tree c)
       types.release ();
       if (side_effects)
 	size = build2 (COMPOUND_EXPR, sizetype, side_effects, size);
+      first = c_fully_fold (first, false, NULL);
       OMP_CLAUSE_DECL (c) = first;
+      if (size)
+	size = c_fully_fold (size, false, NULL);
       OMP_CLAUSE_SIZE (c) = size;
-      if (pointer_based_p)
-	{
-	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_MAP_KIND (c2) = OMP_CLAUSE_MAP_POINTER;
-	  if (!c_mark_addressable (t))
-	    return false;
-	  OMP_CLAUSE_DECL (c2) = t;
-	  t = build_fold_addr_expr (first);
-	  t = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-				build_pointer_type (char_type_node), t);
-	  t = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
-			       ptrdiff_type_node, t,
-			       fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-						 TREE_TYPE (t),
-						 OMP_CLAUSE_DECL (c2)));
-	  OMP_CLAUSE_SIZE (c2) = t;
-	  OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (c);
-	  OMP_CLAUSE_CHAIN (c) = c2;
-	}
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+	return false;
+      tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
+      OMP_CLAUSE_MAP_KIND (c2) = OMP_CLAUSE_MAP_POINTER;
+      if (!c_mark_addressable (t))
+	return false;
+      OMP_CLAUSE_DECL (c2) = t;
+      t = build_fold_addr_expr (first);
+      t = fold_convert_loc (OMP_CLAUSE_LOCATION (c), ptrdiff_type_node, t);
+      tree ptr = OMP_CLAUSE_DECL (c2);
+      if (!POINTER_TYPE_P (TREE_TYPE (ptr)))
+	ptr = build_fold_addr_expr (ptr);
+      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
+			   ptrdiff_type_node, t,
+			   fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+					     ptrdiff_type_node, ptr));
+      t = c_fully_fold (t, false, NULL);
+      OMP_CLAUSE_SIZE (c2) = t;
+      OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (c);
+      OMP_CLAUSE_CHAIN (c) = c2;
     }
   return false;
 }
@@ -11462,18 +11456,21 @@ c_finish_omp_clauses (tree clauses)
 	    }
 	  else if (!c_mark_addressable (t))
 	    remove = true;
-	  else if (!COMPLETE_TYPE_P (TREE_TYPE (t)))
+	  else if (!COMPLETE_TYPE_P (TREE_TYPE (t))
+		   && !(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+			&& OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP)
-	    break;
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t)))
 	    {
-	      error ("%qD appears more than once in motion clauses", t);
+	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+		error ("%qD appears more than once in motion clauses", t);
+	      else
+		error ("%qD appears more than once in map clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -11509,6 +11506,7 @@ c_finish_omp_clauses (tree clauses)
 
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_ORDERED:

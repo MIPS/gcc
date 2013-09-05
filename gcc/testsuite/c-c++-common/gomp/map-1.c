@@ -33,7 +33,7 @@ foo (int g[3][10], int h[4][8], int i[2][10], int j[][9],
   #pragma omp target map(to: o[2:5]) /* { dg-error "does not have pointer or array type" } */
     ;
   #pragma omp target map(to: a[:][:]) /* { dg-error "array type length expression is not optional" } */
-    bar (&a[0][0]);
+    bar (&a[0][0]); /* { dg-error "referenced in target region does not have a mappable type" } */
   #pragma omp target map(tofrom: b[-1:]) /* { dg-error "negative low bound in array section" } */
     bar (b);
   #pragma omp target map(tofrom: c[:-3][:]) /* { dg-error "negative length in array section" } */

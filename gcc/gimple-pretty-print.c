@@ -1277,6 +1277,13 @@ dump_gimple_omp_target (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_string (buffer, "#pragma omp target");
       pp_string (buffer, kind);
       dump_omp_clauses (buffer, gimple_omp_target_clauses (gs), spc, flags);
+      if (gimple_omp_target_child_fn (gs))
+	{
+	  pp_string (buffer, " [child fn: ");
+	  dump_generic_node (buffer, gimple_omp_target_child_fn (gs),
+			     spc, flags, false);
+	  pp_right_bracket (buffer);
+	}
       if (!gimple_seq_empty_p (gimple_omp_body (gs)))
 	{
 	  newline_and_indent (buffer, spc + 2);

@@ -199,4 +199,14 @@ extern bool GOMP_single_start (void);
 extern void *GOMP_single_copy_start (void);
 extern void GOMP_single_copy_end (void *);
 
+/* target.c */
+
+extern void GOMP_target (int, void (*) (void *), const char *,
+			 size_t, void **, size_t *, unsigned char *);
+extern void GOMP_target_data (int, size_t, void **, size_t *, unsigned char *);
+extern void GOMP_target_end_data (void);
+extern void GOMP_target_update (int, size_t, void **, size_t *,
+				unsigned char *);
+extern void GOMP_teams (unsigned int, unsigned int);
+
 #endif /* LIBGOMP_G_H */

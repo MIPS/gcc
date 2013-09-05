@@ -4702,7 +4702,7 @@ static inline tree
 gimple_omp_target_clauses (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
-  return gs->gimple_omp_single.clauses;
+  return gs->gimple_omp_parallel.clauses;
 }
 
 
@@ -4712,7 +4712,7 @@ static inline tree *
 gimple_omp_target_clauses_ptr (gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
-  return &gs->gimple_omp_single.clauses;
+  return &gs->gimple_omp_parallel.clauses;
 }
 
 
@@ -4722,7 +4722,7 @@ static inline void
 gimple_omp_target_set_clauses (gimple gs, tree clauses)
 {
   GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
-  gs->gimple_omp_single.clauses = clauses;
+  gs->gimple_omp_parallel.clauses = clauses;
 }
 
 
@@ -4744,6 +4744,67 @@ gimple_omp_target_set_kind (gimple g, int kind)
   GIMPLE_CHECK (g, GIMPLE_OMP_TARGET);
   g->gsbase.subcode = (g->gsbase.subcode & ~GF_OMP_TARGET_KIND_MASK)
 		      | (kind & GF_OMP_TARGET_KIND_MASK);
+}
+
+
+/* Return the child function used to hold the body of OMP_TARGET GS.  */
+
+static inline tree
+gimple_omp_target_child_fn (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
+  return gs->gimple_omp_parallel.child_fn;
+}
+
+/* Return a pointer to the child function used to hold the body of
+   OMP_TARGET GS.  */
+
+static inline tree *
+gimple_omp_target_child_fn_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
+  return &gs->gimple_omp_parallel.child_fn;
+}
+
+
+/* Set CHILD_FN to be the child function for OMP_TARGET GS.  */
+
+static inline void
+gimple_omp_target_set_child_fn (gimple gs, tree child_fn)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
+  gs->gimple_omp_parallel.child_fn = child_fn;
+}
+
+
+/* Return the artificial argument used to send variables and values
+   from the parent to the children threads in OMP_TARGET GS.  */
+
+static inline tree
+gimple_omp_target_data_arg (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
+  return gs->gimple_omp_parallel.data_arg;
+}
+
+
+/* Return a pointer to the data argument for OMP_TARGET GS.  */
+
+static inline tree *
+gimple_omp_target_data_arg_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
+  return &gs->gimple_omp_parallel.data_arg;
+}
+
+
+/* Set DATA_ARG to be the data argument for OMP_TARGET GS.  */
+
+static inline void
+gimple_omp_target_set_data_arg (gimple gs, tree data_arg)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OMP_TARGET);
+  gs->gimple_omp_parallel.data_arg = data_arg;
 }
 
 
