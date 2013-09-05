@@ -4506,6 +4506,7 @@ handle_omp_array_sections (tree c)
 	  t = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
 				ptrdiff_type_node, t);
 	  tree ptr = OMP_CLAUSE_DECL (c2);
+	  ptr = convert_from_reference (ptr);
 	  if (!POINTER_TYPE_P (TREE_TYPE (ptr)))
 	    ptr = build_fold_addr_expr (ptr);
 	  t = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
@@ -4515,6 +4516,19 @@ handle_omp_array_sections (tree c)
 	  OMP_CLAUSE_SIZE (c2) = t;
 	  OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (c);
 	  OMP_CLAUSE_CHAIN (c) = c2;
+	  ptr = OMP_CLAUSE_DECL (c2);
+	  if (TREE_CODE (TREE_TYPE (ptr)) == REFERENCE_TYPE
+	      && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (ptr))))
+	    {
+	      tree c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+					  OMP_CLAUSE_MAP);
+	      OMP_CLAUSE_MAP_KIND (c3) = OMP_CLAUSE_MAP_POINTER;
+	      OMP_CLAUSE_DECL (c3) = ptr;
+	      OMP_CLAUSE_DECL (c2) = convert_from_reference (ptr);
+	      OMP_CLAUSE_SIZE (c3) = size_zero_node;
+	      OMP_CLAUSE_CHAIN (c3) = OMP_CLAUSE_CHAIN (c2);
+	      OMP_CLAUSE_CHAIN (c2) = c3;
+	    }
 	}
     }
   return false;
@@ -4942,6 +4956,9 @@ finish_omp_clauses (tree clauses)
 	  else if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
+		break;
+	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		  && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
 		break;
 	      if (DECL_P (t))
 		error ("%qD is not a variable in %qs clause", t,

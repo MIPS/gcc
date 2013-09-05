@@ -1,5 +1,8 @@
 2013-09-05  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c++/target-2.C: New test.
+	* testsuite/libgomp.c++/target-2-aux.cc: New file.
+
 	* libgomp.map (GOMP_4.0): Add GOMP_target, GOMP_target_data,
 	GOMP_target_end_data, GOMP_target_update and GOMP_teams.
 	* Makefile.am (libgomp_la_SOURCES): Add target.c.

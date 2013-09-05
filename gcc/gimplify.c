@@ -2704,7 +2704,14 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
       notice_special_calls (call);
       gimplify_seq_add_stmt (pre_p, call);
       gsi = gsi_last (*pre_p);
-      fold_stmt (&gsi);
+      /* Don't fold stmts inside of target construct.  We'll do it
+	 during omplower pass instead.  */
+      struct gimplify_omp_ctx *ctx;
+      for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
+	if (ctx->region_type == ORT_TARGET)
+	  break;
+      if (ctx == NULL)
+	fold_stmt (&gsi);
       *expr_p = NULL_TREE;
     }
   else
@@ -4961,7 +4968,14 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
   gimplify_seq_add_stmt (pre_p, assign);
   gsi = gsi_last (*pre_p);
-  fold_stmt (&gsi);
+  /* Don't fold stmts inside of target construct.  We'll do it
+     during omplower pass instead.  */
+  struct gimplify_omp_ctx *ctx;
+  for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
+    if (ctx->region_type == ORT_TARGET)
+      break;
+  if (ctx == NULL)
+    fold_stmt (&gsi);
 
   if (want_value)
     {

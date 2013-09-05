@@ -1,5 +1,11 @@
 2013-09-05  Jakub Jelinek  <jakub@redhat.com>
 
+	* semantics.c (handle_omp_array_sections): Fix up handling
+	of reference to array and reference to pointer based array
+	sections.
+	(finish_omp_clauses): Don't report errors about non-decl
+	in OMP_CLAUSE_DECL for OMP_CLAUSE_MAP_POINTER.
+
 	* parser.c (cp_parser_omp_target_data, cp_parser_omp_target): Call
 	keep_next_level (true).
 	* cp-objcp-common.h (LANG_HOOKS_OMP_MAPPABLE_TYPE): Define.

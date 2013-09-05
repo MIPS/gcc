@@ -1,5 +1,16 @@
 2013-09-05  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (gimplify_call_expr): Don't call fold_stmt
+	inside of #pragma omp target construct.
+	(gimplify_modify_expr): Likewise.
+	* omp-low.c (target_nesting_level): New variable.
+	(lower_omp_target): Increase/restore target_nesting_level
+	around lowering #pragma omp target body.  Use TYPE_SIZE_UNIT
+	instead of TYPE_SIZE if OMP_CLAUSE_SIZE is missing.
+	Or log2 of needed alignment into high 5 bits of kind.
+	(lower_omp): Call fold_stmt on all stmts inside of
+	#pragma omp target construct.
+
 	* tree-cfg.c (make_edges): For GIMPLE_OMP_TARGET
 	with GF_OMP_TARGET_KIND_UPDATE, don't look for
 	GIMPLE_OMP_RETURN and immediately restore previous

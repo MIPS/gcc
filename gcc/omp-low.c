@@ -134,6 +134,7 @@ struct omp_for_data
 
 static splay_tree all_contexts;
 static int taskreg_nesting_level;
+static int target_nesting_level;
 struct omp_region *root_omp_region;
 static bitmap task_shared_vars;
 
@@ -9213,7 +9214,13 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	map_cnt++;
       }
 
-  if (kind != GF_OMP_TARGET_KIND_UPDATE)
+  if (kind == GF_OMP_TARGET_KIND_REGION)
+    {
+      target_nesting_level++;
+      lower_omp (&tgt_body, ctx);
+      target_nesting_level--;
+    }
+  else if (kind == GF_OMP_TARGET_KIND_DATA)
     lower_omp (&tgt_body, ctx);
 
   if (kind == GF_OMP_TARGET_KIND_REGION)
@@ -9320,7 +9327,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      }
 	    tree s = OMP_CLAUSE_SIZE (c);
 	    if (s == NULL_TREE)
-	      s = TYPE_SIZE (TREE_TYPE (ovar));
+	      s = TYPE_SIZE_UNIT (TREE_TYPE (ovar));
 	    s = fold_convert (size_type_node, s);
 	    tree purpose = size_int (map_idx++);
 	    CONSTRUCTOR_APPEND_ELT (vsize, purpose, s);
@@ -9342,6 +9349,11 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      default:
 		gcc_unreachable ();
 	      }
+	    unsigned int talign = TYPE_ALIGN_UNIT (TREE_TYPE (ovar));
+	    if (DECL_P (ovar) && DECL_ALIGN_UNIT (ovar) > talign)
+	      talign = DECL_ALIGN_UNIT (ovar);
+	    talign = ceil_log2 (talign);
+	    tkind |= talign << 3;
 	    CONSTRUCTOR_APPEND_ELT (vkind, purpose,
 				    build_int_cst (unsigned_char_type_node,
 						   tkind));
@@ -9673,6 +9685,12 @@ lower_omp (gimple_seq *body, omp_context *ctx)
   gimple_stmt_iterator gsi;
   for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))
     lower_omp_1 (&gsi, ctx);
+  /* Inside target region we haven't called fold_stmt during gimplification,
+     because it can break code by adding decl references that weren't in the
+     source.  Call fold_stmt now.  */
+  if (target_nesting_level)
+    for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))
+      fold_stmt (&gsi);
   input_location = saved_location;
 }
 
