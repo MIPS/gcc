@@ -1986,6 +1986,10 @@ enum reg_class
 #define LOOP_COST_REG_CLASS (TARGET_MIPS16 ? M16_REGS : GENERAL_REGS)
 #define LOOP_COST_RESERVED_REGS (TARGET_MIPS16 ? 2 : 3)
 
+/* The inliner thinks that referencing parameters passed by reference is
+   free after inlining. This does not sound right and hurts code size */
+#define INLINE_PARM_BY_REF_FREE (!TARGET_MIPS16 || !optimize_size)
+
 /* Add costs to hard registers based on frequency. This helps to negate
    some of the reduced cost associated with argument registers which 
    unfairly promotes their use and increases register pressure */
