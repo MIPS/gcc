@@ -3713,8 +3713,7 @@ chkp_find_bounds_abnormal (tree ptr, tree phi)
      vector of copies for PHI.  */
   if (!copy)
     {
-      copy = create_tmp_reg (bound_type_node, CHKP_BOUND_TMP_NAME);
-      copy = make_ssa_name (copy, gimple_build_nop ());
+      copy = make_ssa_name (chkp_get_tmp_var (), gimple_build_nop ());
       assign = gimple_build_assign (copy, bounds);
 
       if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
