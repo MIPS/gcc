@@ -6848,6 +6848,35 @@ tree_ssa_iv_optimize_loop (struct ivopts_data *data, struct loop *loop)
   if (n_iv_uses (data) > MAX_CONSIDERED_USES)
     goto finish;
 
+  /* A codesize heuristic!
+
+     The rationale is weak but, if there are too many invariants live in the
+     loop don't mess around with induction variables as they are likely to be
+     referenced in complex expressions and rewriting them will probably lead
+     to higher register pressure. */
+
+  if (optimize_size)
+    {
+      bitmap_iterator bi;
+      unsigned i;
+      int ninv = 0 ;
+      int neliminable_inv = 0;
+      EXECUTE_IF_SET_IN_BITMAP (data->relevant, 0, i, bi)
+      {
+        struct version_info *info;
+        info = ver_info (data, i);
+        if (info->inv_id)
+        {
+          ninv++;
+          if (!info->has_nonlin_use)
+            neliminable_inv++;
+        }
+      }
+
+      if ((ninv > 4 )|| neliminable_inv >= 4 )
+        goto finish;
+    }
+
   /* Finds candidates for the induction variables (item 2).  */
   find_iv_candidates (data);
 
