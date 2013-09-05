@@ -1,6 +1,9 @@
 
 2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h: Reindented with astyle --style=gnu -s2 command.
+	* melt-runtime.cc: Likewise.
+
 	{{C++ifying the MELT runtime}}
 	* melt-runtime.h (melt_nb_modules): Remove.
 

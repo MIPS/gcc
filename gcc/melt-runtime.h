@@ -58,7 +58,7 @@ extern void fatal_error (const char *, ...);
 #define MELTGCC_DYNAMIC_OBJSTRUCT 0
 #endif /*MELTGCC_DYNAMIC_OBJSTRUCT*/
 
-/***** 
+/*****
        if GGC-collected data, e.g. tree-s, edge-s, ... is computed by
        melt/MELT routines and is referenced only by the
        melt/MELT call frames, it should be carefully handled by
@@ -181,7 +181,7 @@ extern long melt_blocklevel_signals;
    result. */
 extern const char* melt_intern_cstring (const char* s);
 
-static inline const char* 
+static inline const char*
 melt_basename(const char* path)
 {
   return (path && path[0])?(lbasename (path)):path;
@@ -201,7 +201,7 @@ long melt_relative_time_millisec (void);
 void melt_set_real_timer_millisec (long millisec);
 
 
-#if ENABLE_GC_CHECKING 
+#if ENABLE_GC_CHECKING
 /* memory is poisoned by an 0xa5a5a5a5a5a5a5a5... pointer in ggc-zone.c or ggc-page.c */
 #if SIZEOF_VOID_P == 8
 #define MELT_POISON_POINTER (void*)0xa5a5a5a5a5a5a5a5
@@ -293,7 +293,7 @@ extern "C" int melt_flag_bootstrapping;
       void* __val = (Val);					\
       fprintf(stderr,"!@%s:%d:\n@! %s @%p= ",			\
               melt_basename(__FILE__), __LINE__, (Msg), __val);	\
-      melt_dbgeprint(__val); }} while(0)			
+      melt_dbgeprint(__val); }} while(0)
 
 #define debugebacktrace(Msg,Depth)  do{if (0){			\
       void* __val = (Val);					\
@@ -340,17 +340,19 @@ extern "C" int melt_flag_bootstrapping;
 extern void melt_set_flag_debug (void);
 extern void melt_clear_flag_debug (void);
 
-static inline int 
-melt_need_debug (int depth) {
-  return 
-    melt_flag_debug && melt_dbgcounter>=melt_debugskipcount 
+static inline int
+melt_need_debug (int depth)
+{
+  return
+    melt_flag_debug && melt_dbgcounter>=melt_debugskipcount
     && depth >= 0 && depth < MELTDBG_MAXDEPTH;
 }
 
-static inline int 
-melt_need_debug_limit (int depth, int lim) {
-  return 
-    melt_flag_debug && melt_dbgcounter>=melt_debugskipcount 
+static inline int
+melt_need_debug_limit (int depth, int lim)
+{
+  return
+    melt_flag_debug && melt_dbgcounter>=melt_debugskipcount
     && depth >= 0 && depth < lim;
 }
 
@@ -400,7 +402,7 @@ typedef struct meltobject_st* meltobject_ptr_t ;
 
 
 struct				/* entry of string maps */
-GTY (()) 
+GTY (())
 entrystringsmelt_st
 {
   const char *GTY (()) e_at;
@@ -422,7 +424,7 @@ entryobjectsmelt_st
 
 struct
 GTY (())			/* entry of long buckets */
-melt_bucketlongentry_st 
+melt_bucketlongentry_st
 {
   long ebl_at;
   melt_ptr_t ebl_va;
@@ -431,9 +433,10 @@ melt_bucketlongentry_st
 
 /* We don't want to use GCC vectors from vec.h because GCC 4.7 & 4.8
    are source incompatible....  */
-struct 
+struct
 GTY ((variable_size))
-melt_valuevector_st {
+melt_valuevector_st
+{
   unsigned long vv_size;		/* allocated size */
   unsigned long vv_ulen;		/* used length, should be <= vv_size */
   melt_ptr_t GTY ((length("%h.vv_ulen"))) vv_tab[MELT_FLEXIBLE_DIM];
@@ -446,16 +449,20 @@ union melt_special_un
      because the generated gtype-desc.c don't include all the files
      which define mpfr_ptr etc... */
   /* generic pointer */ void *sp_pointer;
-  /* stdio file */ FILE *sp_file;
-  /*mpfr_ptr= */ void *sp_mpfr;
+  /* stdio file */
+  FILE *sp_file;
+  /*mpfr_ptr= */
+  void *sp_mpfr;
   /* malloced pointer to mpfr_t */
 };
 /* make a special value; return NULL if the discriminant is not special */
 
 struct meltspecialdata_st* meltgc_make_specialdata (melt_ptr_t discr_p);
 
-struct meltspecialpayload_st {
-  union meltpayload_un {
+struct meltspecialpayload_st
+{
+  union meltpayload_un
+  {
     void* meltpayload__ptr1;
     FILE* meltpayload__file1;
   } meltpayload__un1;
@@ -473,7 +480,8 @@ typedef void meltpayload_destroy_t (struct meltspecialdata_st*, const struct mel
 typedef char* meltpayload_sprint_t (struct meltspecialdata_st*, const struct melt_payload_descriptor_st*);
 
 /* Payload descriptors should be static or global.  */
-struct melt_payload_descriptor_st {
+struct melt_payload_descriptor_st
+{
   unsigned meltpyd_magic;	/* always
 				   MELT_PAYLOAD_DESCRIPTOR_MAGIC, even
 				   at registration time */
@@ -494,7 +502,7 @@ int melt_payload_register_descriptor (struct melt_payload_descriptor_st*);
 
 /* forwarded pointers; nobody see them except the melt copying
    garbage collector */
-struct 
+struct
 GTY (())
 meltforward_st
 {
@@ -512,7 +520,7 @@ struct debugprint_melt_st
 
 
 void melt_debug_out (struct debugprint_melt_st *dp, melt_ptr_t ptr,
-			int depth);
+                     int depth);
 void melt_dbgeprint (void *p);
 void melt_dbgbacktrace (int depth);
 
@@ -528,7 +536,7 @@ FILE* melt_open_ppfile (void);
    meltppbuffer & meltppbufsize contains the FILE* content. */
 void melt_close_ppfile (FILE* oldfile);
 
-static inline void 
+static inline void
 melt_release_ppbuf (void)
 {
   free (meltppbuffer), meltppbuffer = NULL;
@@ -570,11 +578,11 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
 /* functions needed to support the generated map accessing routines
    inside meltrunsup.h */
 void *meltgc_raw_new_mappointers (meltobject_ptr_t discr_p,
-				     unsigned len);
+                                  unsigned len);
 
 void
 meltgc_raw_put_mappointers (void *mappointer_p,
-			       const void *attr, melt_ptr_t valu_p);
+                            const void *attr, melt_ptr_t valu_p);
 
 melt_ptr_t
 melt_raw_get_mappointers (void *mappointer_p, const void *attr);
@@ -589,7 +597,7 @@ meltgc_raw_remove_mappointers (void *mappointer_p, const void *attr);
 
      + the called closure
      + this first pointer argument
-     + a (non null, can be empty) constant argument descriptor 
+     + a (non null, can be empty) constant argument descriptor
        string describing the extra arguments
      + the array of union meltparam_un for extra arguments
      + a (non null, can be empty) constant argument descriptor string
@@ -666,11 +674,11 @@ static inline void meltgc_touch (void* touchedptr);
 /* the application routine does not call the GC; of course, the
    applied closure can call the GC! */
 melt_ptr_t melt_apply (meltclosure_ptr_t clos_p,
-		       melt_ptr_t firstarg,
-		       const melt_argdescr_cell_t xargdescr_[],
-		       union meltparam_un *xargtab_,
-		       const melt_argdescr_cell_t xresdescr_[],
-		       union meltparam_un *xrestab_);
+                       melt_ptr_t firstarg,
+                       const melt_argdescr_cell_t xargdescr_[],
+                       union meltparam_un *xargtab_,
+                       const melt_argdescr_cell_t xresdescr_[],
+                       union meltparam_un *xrestab_);
 
 /* Depth and counter of MELT applications are only significant when
    checking is enabled by ENABLE_CHECKING.  */
@@ -679,7 +687,7 @@ extern long melt_application_depth (void);
 
 /* The number of arguments given in an argument description "string";
    useful to implement variadic functions. */
-static inline int 
+static inline int
 melt_argdescr_length (const melt_argdescr_cell_t* argdesc)
 {
   if (!argdesc || (const void*)argdesc == (const void*)MELTPAR_MARKGGC)
@@ -689,7 +697,7 @@ melt_argdescr_length (const melt_argdescr_cell_t* argdesc)
 #else /*MELT_ARGDESCR_MAX != CHAR_MAX*/
   {
     int ln = 0;
-    while (*argdesc != (melt_argdescr_cell_t)0) 
+    while (*argdesc != (melt_argdescr_cell_t)0)
       ln++, argdesc++;
     return ln;
   }
@@ -722,10 +730,10 @@ const char* melt_obmag_string(int i);
 
 
 /***
-    objects are a la ObjVlisp, single-inheritance with a root class, 
+    objects are a la ObjVlisp, single-inheritance with a root class,
     the discr of an object is its class
     each object has its hashcode, its magic (used to discriminate non-object values),
-    its number of slots or instance variables object_arity, and an array of slots called vartab[] 
+    its number of slots or instance variables object_arity, and an array of slots called vartab[]
 
     objects should be allocated in young region, hence discr should be
     forwarded in the garbage collector
@@ -746,40 +754,40 @@ const char* melt_obmag_string(int i);
 static inline int
 melt_magic_discr (melt_ptr_t p)
 {
-  if (!p) 
+  if (!p)
     return 0;
 #if ENABLE_GC_CHECKING
   if ((void*) p == MELT_POISON_POINTER)
     {
       /* This should never happen, and if it happens it means that p
-	 was insided a poisoned freed data zone, so the memory is
-	 corrupted; a data zone has been freed and then dereferenced. */
+      was insided a poisoned freed data zone, so the memory is
+      corrupted; a data zone has been freed and then dereferenced. */
       melt_fatal_error
-	("corrupted memory retrieving magic discriminant of %p,"
-	 " (= the poison pointer)", 
-	 (void*) p);
+      ("corrupted memory retrieving magic discriminant of %p,"
+       " (= the poison pointer)",
+       (void*) p);
     }
 #endif /*ENABLE_GC_CHECKING */
-#if MELT_HAVE_DEBUG 
-  if (!p->u_discr) 
+#if MELT_HAVE_DEBUG
+  if (!p->u_discr)
     {
       /* This should never happen, we are asking the discriminant of a
-	 not yet filled, since cleared, memory zone. */
+      not yet filled, since cleared, memory zone. */
       melt_fatal_error
-	("corrupted memory heap retrieving magic discriminant of %p,"
-	 "(= a cleeared memory zone)", 
-	 (void*) p);
+      ("corrupted memory heap retrieving magic discriminant of %p,"
+       "(= a cleeared memory zone)",
+       (void*) p);
     }
 #endif /*MELT_HAVE_DEBUG*/
 #if ENABLE_GC_CHECKING
   if ((void*) (p->u_discr) == MELT_POISON_POINTER)
     {
       /* This should never happen, we are asking the discriminant of a
-	 zone which has been poisoned, that is has been freed! */
+      zone which has been poisoned, that is has been freed! */
       melt_fatal_error
-	("corrupted memory heap retrieving magic discriminant of %p,"
-	 "(= a freed and poisoned memory zone)", 
-	 (void*) p);
+      ("corrupted memory heap retrieving magic discriminant of %p,"
+       "(= a freed and poisoned memory zone)",
+       (void*) p);
     }
 #endif /*ENABLE_GC_CHECKING*/
   return p->u_discr->meltobj_magic;
@@ -793,7 +801,8 @@ melt_unsafe_magic_discr (melt_ptr_t p)
   return p->u_discr->meltobj_magic;
 }
 
-enum {
+enum
+{
   meltpydkind__none=0,
   meltpydkind_file,
   meltpydkind_rawfile,
@@ -830,7 +839,7 @@ melt_is_out (melt_ptr_t p)
   int d = melt_magic_discr(p);
   unsigned k = melt_special_kind (p);
   return d == MELTOBMAG_STRBUF
-    || k == meltpydkind_file || k == meltpydkind_rawfile;
+         || k == meltpydkind_file || k == meltpydkind_rawfile;
 }
 
 /* test if a pointer is a file */
@@ -839,9 +848,9 @@ melt_is_file (melt_ptr_t p)
 {
   int d = melt_magic_discr (p);
   unsigned k = melt_special_kind (p);
-  return 
-    (d == MELTOBMAG_SPECIAL_DATA 
-     ) &&
+  return
+    (d == MELTOBMAG_SPECIAL_DATA
+    ) &&
     (k == meltpydkind_file || k == meltpydkind_rawfile);
 }
 
@@ -861,7 +870,7 @@ melt_multiple_nth (melt_ptr_t mul, int n)
 
 /* set the nth of a multiple (but beware of circularities!) */
 void meltgc_multiple_put_nth (melt_ptr_t mul, int n,
-				 melt_ptr_t val);
+                              melt_ptr_t val);
 
 /* return the length of a multiple */
 static inline int
@@ -896,7 +905,7 @@ melt_is_multiple_of_length(melt_ptr_t mul, int ln)
    :true and a raw integer the whole sort returns null; otherwise it
    returns a new multiple value of discriminant DISCRM */
 melt_ptr_t
-meltgc_sort_multiple(melt_ptr_t mult_p, melt_ptr_t clo_p, melt_ptr_t discrm_p); 
+meltgc_sort_multiple(melt_ptr_t mult_p, melt_ptr_t clo_p, melt_ptr_t discrm_p);
 
 
 
@@ -935,7 +944,7 @@ melt_basicblock_gimpleseq (melt_ptr_t box)
 
 
 /*************************************************************
- * young generation copying garbage collector 
+ * young generation copying garbage collector
  *
  * the young generation is managed specifically by an additional
  * copying garbage collector, which copies melt_ptr_t data into the
@@ -985,7 +994,7 @@ static inline bool
 melt_is_young (const void *const p)
 {
   return (const char * const) p >= (const char * const) melt_startalz
-    && (const char * const) p < (const char * const) melt_endalz;
+         && (const char * const) p < (const char * const) melt_endalz;
 }
 
 static inline void *
@@ -995,9 +1004,9 @@ melt_forwarded (void *ptr)
   if (p && melt_is_young (p))
     {
       if (p->u_discr == MELT_FORWARDED_DISCR)
-	p = ((struct meltforward_st *) p)->forward;
+        p = ((struct meltforward_st *) p)->forward;
       else
-	p = melt_forwarded_copy (p);
+        p = melt_forwarded_copy (p);
     }
   return p;
 }
@@ -1015,7 +1024,7 @@ melt_forwarded (void *ptr)
    minor or full appropriately, and Full GC is the minor one followed by
    GCC garbage collector Ggc. */
 enum melt_gckind_en
-  { MELT_ONLY_MINOR= 0, MELT_MINOR_OR_FULL = 1, MELT_NEED_FULL = 2};
+{ MELT_ONLY_MINOR= 0, MELT_MINOR_OR_FULL = 1, MELT_NEED_FULL = 2};
 void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
 
 /* the alignment */
@@ -1047,23 +1056,23 @@ void melt_break_objhash_2_at (const char *msg, const char *fil, int line);
 #define melt_break_objhash_1(Msg) melt_break_objhash_1_at((Msg),__FILE__,__LINE__)
 #define melt_break_objhash_2(Msg) melt_break_objhash_2_at((Msg),__FILE__,__LINE__)
 
-static void inline 
+static void inline
 melt_dbgtrace_written_object_at(meltobject_ptr_t ob, const char*msg, const char*fil, int lin)
 {
   unsigned obh = 0;
-  if (!ob || !msg) 
+  if (!ob || !msg)
     return;
-  if (ob == melt_alptr_1) 
+  if (ob == melt_alptr_1)
     melt_break_alptr_1_at(msg, fil, lin);
-  if (ob == melt_alptr_2) 
+  if (ob == melt_alptr_2)
     melt_break_alptr_2_at(msg, fil, lin);
   obh = ob->obj_hash;
-  if (!obh) 
+  if (!obh)
     return;
   if (obh == melt_objhash_1)
     melt_break_objhash_1_at (msg, fil, lin);
   if (obh == melt_objhash_2)
-    melt_break_objhash_2_at (msg, fil, lin);    
+    melt_break_objhash_2_at (msg, fil, lin);
 }
 #define melt_dbgtrace_written_object(Obj,Msg) do { \
   melt_dbgtrace_written_object_at ((meltobject_ptr_t)(Obj),(Msg),\
@@ -1087,7 +1096,7 @@ meltgc_allocate (size_t basesz, size_t gap)
   wanted = basesz + gap;
   gcc_assert (wanted >= sizeof (struct meltforward_st));
   if (MELT_UNLIKELY (melt_curalz + wanted + 2 * MELT_ALIGN
-			>= (char *) melt_storalz))
+                     >= (char *) melt_storalz))
     melt_garbcoll (wanted, MELT_MINOR_OR_FULL);
   ptr = melt_curalz;
 #if ENABLE_CHECKING
@@ -1107,14 +1116,14 @@ meltgc_allocate (size_t basesz, size_t gap)
    young if the datastructure is young, and should become old (ie. GGC
    allocated) when it becomes old */
 static inline void
-meltgc_reserve(size_t wanted) 
+meltgc_reserve(size_t wanted)
 {
   if (wanted < 100*sizeof(void*) + sizeof(struct meltforward_st))
     wanted = 100*sizeof(void*) + sizeof(struct meltforward_st);
   if ((wanted  % MELT_ALIGN) != 0)
     wanted += (MELT_ALIGN - (wanted % MELT_ALIGN));
   if (MELT_UNLIKELY (melt_curalz + wanted + 2 * MELT_ALIGN
-			>= (char *) melt_storalz))
+                     >= (char *) melt_storalz))
     melt_garbcoll (wanted, MELT_MINOR_OR_FULL);
 }
 
@@ -1142,7 +1151,7 @@ melt_allocatereserved (size_t basesz, size_t gap)
   wanted = basesz + gap;
   gcc_assert (wanted >= sizeof (struct meltforward_st));
   if (MELT_UNLIKELY (melt_curalz + wanted + 2 * MELT_ALIGN
-			>= (char *) melt_storalz))
+                     >= (char *) melt_storalz))
     /* this should never happen */
     melt_reserved_allocation_failure((long) wanted);
   ptr = melt_curalz;
@@ -1190,8 +1199,8 @@ meltgc_touch (void *touchedptr)
   if (MELT_UNLIKELY
       ((char *) ((void **) melt_storalz - 3) <= (char *) melt_curalz))
     melt_garbcoll (1024 * sizeof (void *) +
-		      ((char *) melt_endalz - (char *) melt_storalz),
-		      MELT_MINOR_OR_FULL);
+                   ((char *) melt_endalz - (char *) melt_storalz),
+                   MELT_MINOR_OR_FULL);
 }
 
 /* we can avoid the hassle of adding a touched pointer to the store
@@ -1214,9 +1223,9 @@ static inline void
 melt_mark_specialdata (struct meltspecialdata_st* p)
 {
   p->meltspec_mark = 1;
-  melt_debuggc_eprintf ("marked specialdata %p of magic %d = %s", 
-                        (void*)p, p->discr->meltobj_magic, 
-			melt_obmag_string (p->discr->meltobj_magic));
+  melt_debuggc_eprintf ("marked specialdata %p of magic %d = %s",
+                        (void*)p, p->discr->meltobj_magic,
+                        melt_obmag_string (p->discr->meltobj_magic));
 }
 #define melt_mark_special_data(P) melt_mark_specialdata(P)
 
@@ -1240,7 +1249,7 @@ melt_mark_decay (struct meltdecay_st *p)
 
 
 /***
- * allocation routines that may trigger a garbage collection 
+ * allocation routines that may trigger a garbage collection
  * (their name starts with meltgc)
  ***/
 
@@ -1284,11 +1293,11 @@ melt_ptr_t meltgc_new_real(meltobject_ptr_t discr, REAL_VALUE_TYPE r);
 static inline REAL_VALUE_TYPE
 melt_get_real (melt_ptr_t v)
 {
-    if (melt_magic_discr (v) == MELTOBMAG_REAL)
-       return ((struct meltreal_st*) v)->val;
-    return dconst0;
+  if (melt_magic_discr (v) == MELTOBMAG_REAL)
+    return ((struct meltreal_st*) v)->val;
+  return dconst0;
 }
- 
+
 
 static inline long
 melt_obj_hash (melt_ptr_t v)
@@ -1339,11 +1348,11 @@ melt_imod (long i, long j)
 /* allocate a boxed mixed integer & value) */
 melt_ptr_t
 meltgc_new_mixint (meltobject_ptr_t discr_p, melt_ptr_t val_p,
-		      long num);
+                   long num);
 /* allocate a boxed mixed location */
 melt_ptr_t
 meltgc_new_mixloc (meltobject_ptr_t discr_p, melt_ptr_t val_p,
-		      long num, location_t loc);
+                   long num, location_t loc);
 
 /* get the boxed value of a mixint */
 static inline melt_ptr_t
@@ -1403,21 +1412,21 @@ melt_location_mixloc (melt_ptr_t mix)
 
 /* allocate a mixbigint from a GMP biginteger */
 melt_ptr_t meltgc_new_mixbigint_mpz (meltobject_ptr_t discr_p,
-					   melt_ptr_t val_p, mpz_t mp);
+                                     melt_ptr_t val_p, mpz_t mp);
 
 /* fill an mpz from a mixbigint and return true iff ok */
-static inline bool 
+static inline bool
 melt_fill_mpz_from_mixbigint(melt_ptr_t mix, mpz_t mp)
 {
   struct meltmixbigint_st *bmix = (struct meltmixbigint_st *) mix;
   if (!bmix || !mp || melt_magic_discr (mix) != MELTOBMAG_MIXBIGINT)
     return false;
   mpz_import (mp, bmix->biglen,
-	      /*most significant word first*/ 1, 
-	      sizeof(bmix->tabig[0]), 
-	      /*native endian*/ 0, 
-	      /*no nails bits*/0, 
-	      bmix->tabig);
+              /*most significant word first*/ 1,
+              sizeof(bmix->tabig[0]),
+              /*native endian*/ 0,
+              /*no nails bits*/0,
+              bmix->tabig);
   return true;
 }
 
@@ -1429,14 +1438,14 @@ melt_field_object (melt_ptr_t ob, unsigned off)
     {
       meltobject_ptr_t pob = (meltobject_ptr_t) ob;
       if (off < pob->obj_len)
-	return pob->obj_vartab[off];
+        return pob->obj_vartab[off];
     };
   return NULL;
 }
 
 /* allocate a new raw object of given KLASS (unchecked) with LEN slots */
 meltobject_ptr_t meltgc_new_raw_object (meltobject_ptr_t klass_p,
-					unsigned len);
+                                        unsigned len);
 
 
 /* melt diagnostic routine */
@@ -1456,20 +1465,20 @@ static inline melt_ptr_t
 melt_dynobjstruct_getfield_object_at (melt_ptr_t ob, unsigned off, const char*fldnam, const char*fil, int lin, int**poff)
 {
   unsigned origoff = off;
-  if (poff && !*poff) 
+  if (poff && !*poff)
     *poff = melt_dynobjstruct_fieldoffset_at(fldnam, fil, lin);
   if (melt_magic_discr (ob) == MELTOBMAG_OBJECT)
     {
       meltobject_ptr_t pob = (meltobject_ptr_t) ob;
       if (poff && *poff) off = **poff;
       if (off < pob->obj_len)
-	return pob->obj_vartab[off];
-      error ("MELT checked dynamic field access failed (bad offset %d/%d/%d [%s:%d]) - %s", 
-	     (int)off, (int)pob->obj_len, (int)origoff, fil, lin, fldnam?fldnam:"...");
+        return pob->obj_vartab[off];
+      error ("MELT checked dynamic field access failed (bad offset %d/%d/%d [%s:%d]) - %s",
+             (int)off, (int)pob->obj_len, (int)origoff, fil, lin, fldnam?fldnam:"...");
       return NULL;
     }
-  error ("MELT checked dynamic field access failed (not object [%s:%d]) - %s", 
-	 fil, lin, fldnam?fldnam:"...");
+  error ("MELT checked dynamic field access failed (not object [%s:%d]) - %s",
+         fil, lin, fldnam?fldnam:"...");
   return NULL;
 }
 
@@ -1490,26 +1499,27 @@ melt_dynobjstruct_getfield_object_at (melt_ptr_t ob, unsigned off, const char*fl
                                             __LINE__,			\
 					    (int**)0)
 
-static inline void 
+static inline void
 melt_dynobjstruct_putfield_object_at(melt_ptr_t ob, unsigned off, melt_ptr_t val, const char*fldnam, const char*fil, int lin, int**poff)
 {
   unsigned origoff = off;
-  if (poff && !*poff) 
+  if (poff && !*poff)
     *poff = melt_dynobjstruct_fieldoffset_at(fldnam, fil, lin);
   if (melt_magic_discr (ob) == MELTOBMAG_OBJECT)
     {
       meltobject_ptr_t pob = (meltobject_ptr_t) ob;
       if (poff && *poff) off = **poff;
-      if (off < pob->obj_len) {
-	pob->obj_vartab[off] = val;
-	return;
-      }
+      if (off < pob->obj_len)
+        {
+          pob->obj_vartab[off] = val;
+          return;
+        }
       error ("MELT checked dynamic field put failed (bad offset %d/%d/%d [%s:%d]) - %s",
-	     (int)off, (int)pob->obj_len, (int)origoff, fil, lin, fldnam?fldnam:"...");
+             (int)off, (int)pob->obj_len, (int)origoff, fil, lin, fldnam?fldnam:"...");
       return;
     }
-  error ("MELT checked dynamic field put failed (not object [%s:%d]) - %s", 
-	 fil, lin, fldnam?fldnam:"...");
+  error ("MELT checked dynamic field put failed (not object [%s:%d]) - %s",
+         fil, lin, fldnam?fldnam:"...");
 }
 
 #define melt_putfield_object_at(Obj,Off,Val,Fldnam,Fil,Lin) do {	\
@@ -1525,13 +1535,14 @@ melt_dynobjstruct_putfield_object_at(melt_ptr_t ob, unsigned off, melt_ptr_t val
 
 
 static inline melt_ptr_t
-melt_dynobjstruct_make_raw_object (melt_ptr_t klas, int len, 
-				  const char*clanam, const char*fil, int lin, 
-				   int**pptr,
-				   int*deflenptr) {
-  if (pptr && !*pptr) 
+melt_dynobjstruct_make_raw_object (melt_ptr_t klas, int len,
+                                   const char*clanam, const char*fil, int lin,
+                                   int**pptr,
+                                   int*deflenptr)
+{
+  if (pptr && !*pptr)
     *pptr = melt_dynobjstruct_classlength_at(clanam,fil,lin);
-  if (pptr && *pptr) 
+  if (pptr && *pptr)
     len = **pptr;
   if (pptr && !*pptr && deflenptr)
     {
@@ -1568,13 +1579,13 @@ melt_getfield_object_at (melt_ptr_t ob, unsigned off, const char*msg, const char
     {
       meltobject_ptr_t pob = (meltobject_ptr_t) ob;
       if (off < pob->obj_len)
-	return pob->obj_vartab[off];
-      error ("MELT checked field access failed (bad offset %d/len %d/origoff %d [%s:%d]) - %s", 
-	     (int)off, (int)pob->obj_len, (int)origoff, fil, lin, msg?msg:"...");
+        return pob->obj_vartab[off];
+      error ("MELT checked field access failed (bad offset %d/len %d/origoff %d [%s:%d]) - %s",
+             (int)off, (int)pob->obj_len, (int)origoff, fil, lin, msg?msg:"...");
       return NULL;
     }
-  error ("MELT checked field access failed (not object [%s:%d]) - %s", 
-	 fil, lin, msg?msg:"...");
+  error ("MELT checked field access failed (not object [%s:%d]) - %s",
+         fil, lin, msg?msg:"...");
   return NULL;
 }
 
@@ -1584,19 +1595,21 @@ melt_putfield_object_at(melt_ptr_t ob, unsigned off, melt_ptr_t val, const char*
   if (melt_magic_discr (ob) == MELTOBMAG_OBJECT)
     {
       meltobject_ptr_t pob = (meltobject_ptr_t) ob;
-      if (off < pob->obj_len) {
-	pob->obj_vartab[off] = val;
-	return;
-      }
-      melt_fatal_error("MELT checked field put failed (bad offset %d/%d [%s:%d]) - %s", 
-		       (int)off, (int)pob->obj_len, fil, lin, msg?msg:"...");
+      if (off < pob->obj_len)
+        {
+          pob->obj_vartab[off] = val;
+          return;
+        }
+      melt_fatal_error("MELT checked field put failed (bad offset %d/%d [%s:%d]) - %s",
+                       (int)off, (int)pob->obj_len, fil, lin, msg?msg:"...");
     }
-  melt_fatal_error("MELT checked field put failed (not object [%s:%d]) - %s", 
-		   fil, lin, msg?msg:"...");
+  melt_fatal_error("MELT checked field put failed (not object [%s:%d]) - %s",
+                   fil, lin, msg?msg:"...");
 }
 
 static inline melt_ptr_t
-melt_make_raw_object(melt_ptr_t klas, int len, const char*clanam) {
+melt_make_raw_object(melt_ptr_t klas, int len, const char*clanam)
+{
   gcc_assert(clanam != NULL);
   return (melt_ptr_t)meltgc_new_raw_object((meltobject_ptr_t)klas,len);
 }
@@ -1636,15 +1649,15 @@ melt_object_length (melt_ptr_t ob)
 
 /* get safely the nth field of an object or NULL */
 static inline melt_ptr_t
-melt_object_nth_field(melt_ptr_t ob, int rk) 
+melt_object_nth_field(melt_ptr_t ob, int rk)
 {
   if (melt_magic_discr (ob) == MELTOBMAG_OBJECT)
     {
       meltobject_ptr_t pob = (meltobject_ptr_t) ob;
-      if (rk<0) 
-	rk += pob->obj_len;
-      if (rk>=0 && rk<pob->obj_len) 
-	return (melt_ptr_t)(pob->obj_vartab[rk]);
+      if (rk<0)
+        rk += pob->obj_len;
+      if (rk>=0 && rk<pob->obj_len)
+        return (melt_ptr_t)(pob->obj_vartab[rk]);
     }
   return NULL;
 }
@@ -1652,48 +1665,48 @@ melt_object_nth_field(melt_ptr_t ob, int rk)
 /* allocate a new string (or null if bad DISCR or null STR) initialized from
    _static_ (non gc-ed) memory STR with len SLEN or strlen(STR) if <0  */
 melt_ptr_t meltgc_new_string_raw_len (meltobject_ptr_t discr,
-					    const char *str, int slen);
+                                      const char *str, int slen);
 
 /* allocate a new string (or null if bad DISCR or null STR) initialized from
    _static_ (non gc-ed) memory STR  */
 melt_ptr_t meltgc_new_string (meltobject_ptr_t discr,
-				    const char *str);
+                              const char *str);
 
 /* Allocate a new string (or null if bad DISCR or null STR) initialized from
    a memory STR which is temporarily duplicated (so can be in gc-ed) */
 melt_ptr_t meltgc_new_stringdup (meltobject_ptr_t discr,
-				 const char *str);
+                                 const char *str);
 
 /* Get the naked basename of a path, ie from "/foo/bar.gyz" return
    "bar"; argument is duplicated */
 melt_ptr_t meltgc_new_string_nakedbasename (meltobject_ptr_t discr,
-						  const char *str);
+    const char *str);
 /* Get the basename of a path inside the temporary directory with an optional suffix */
 melt_ptr_t meltgc_new_string_tempname_suffixed (meltobject_ptr_t discr,
-						const char *namstr, const char*suffix);
+    const char *namstr, const char*suffix);
 
 /* Return a new string of given discriminant, with the original STR
    amputed of a given SUFFIX if appropriate, or else a copy of STR.  */
 melt_ptr_t
 meltgc_new_string_without_suffix (meltobject_ptr_t discr_p,
-				  const char* str,
-				  const char* suffix);
+                                  const char* str,
+                                  const char* suffix);
 
 /* Return a string of a given discriminant (default DISCR_STRING), for
    the real path of a filepath which is an accessible file [perhaps a
    directory, etc...], or else NULL */
 melt_ptr_t
 meltgc_new_real_accessible_path_string (meltobject_ptr_t discr_p,
-					const char *str);
+                                        const char *str);
 
 /* Compute the hexadecimal encoded md5sum string of a file, or NULL on
    failure.  */
-melt_ptr_t 
+melt_ptr_t
 meltgc_string_hex_md5sum_file (const char* path);
 
 /* Compute the hexadecimal encoded md5sum string of a tuple of file
    paths, or NULL on failure */
-melt_ptr_t 
+melt_ptr_t
 meltgc_string_hex_md5sum_file_sequence (melt_ptr_t pathtup_p);
 
 
@@ -1706,16 +1719,19 @@ meltgc_string_hex_md5sum_file_sequence (melt_ptr_t pathtup_p);
    /bar/mybase.c or mybase.melt etc...  and num is 3. If num is
    non-positive it is ignored. */
 melt_ptr_t meltgc_new_string_generated_cc_filename  (meltobject_ptr_t discr_p,
-						     const char* basepath,
-						     const char* dirpath,
-						     int num);
+    const char* basepath,
+    const char* dirpath,
+    int num);
 /* for old compatibility */
 #define meltgc_new_string_generated_c_filename meltgc_new_string_generated_cc_filename
 
 
 /* Return true if we don't want to generate several C files for a
    given MELT module */
-static inline bool melt_wants_single_c_file (void) { return false; }
+static inline bool melt_wants_single_c_file (void)
+{
+  return false;
+}
 
 /* split a [raw] string into a list of strings using a seperator. */
 melt_ptr_t meltgc_new_split_string (const char*str, int sep, melt_ptr_t discr);
@@ -1737,7 +1753,7 @@ melt_string_str (melt_ptr_t v)
 static inline int
 melt_string_length (melt_ptr_t v)
 {
-  if (melt_magic_discr (v) == MELTOBMAG_STRING) 
+  if (melt_magic_discr (v) == MELTOBMAG_STRING)
     {
       unsigned slen = ((struct meltstring_st *) v)->slen;
       gcc_assert (((struct meltstring_st *) v)->val[slen] == 0);
@@ -1749,14 +1765,14 @@ melt_string_length (melt_ptr_t v)
 static inline int
 melt_string_nth (melt_ptr_t v, int rk)
 {
-  
-  if (melt_magic_discr (v) == MELTOBMAG_STRING) 
+
+  if (melt_magic_discr (v) == MELTOBMAG_STRING)
     {
       unsigned slen = ((struct meltstring_st *) v)->slen;
-      if (rk < 0) 
-	rk += (int) slen;
-      if (rk >= 0 && rk < (int)slen) 
-	return ((struct meltstring_st *) v)->val[rk];
+      if (rk < 0)
+        rk += (int) slen;
+      if (rk >= 0 && rk < (int)slen)
+        return ((struct meltstring_st *) v)->val[rk];
     };
   return 0;
 }
@@ -1764,24 +1780,26 @@ melt_string_nth (melt_ptr_t v, int rk)
 static inline int
 melt_string_is_ending (melt_ptr_t v, const char *s)
 {
-  if (s && melt_magic_discr (v) == MELTOBMAG_STRING) {
-    const char* str = ((struct meltstring_st *) v)->val;
-    int lenstr = ((struct meltstring_st *) v)->slen;
-    int lens = strlen (s);
-    return (lens <= lenstr && !strncmp(str+lenstr-lens, s, lens));
-  }
+  if (s && melt_magic_discr (v) == MELTOBMAG_STRING)
+    {
+      const char* str = ((struct meltstring_st *) v)->val;
+      int lenstr = ((struct meltstring_st *) v)->slen;
+      int lens = strlen (s);
+      return (lens <= lenstr && !strncmp(str+lenstr-lens, s, lens));
+    }
   return 0;
 }
 
 static inline int
 melt_string_is_starting  (melt_ptr_t v, const char *s)
 {
-  if (s && melt_magic_discr (v) == MELTOBMAG_STRING) {
-    const char* str = ((struct meltstring_st *) v)->val;
-    int lenstr = strlen (str);
-    int lens = strlen (s);
-    return (lens <= lenstr && !strncmp(str, s, lens));
-  }
+  if (s && melt_magic_discr (v) == MELTOBMAG_STRING)
+    {
+      const char* str = ((struct meltstring_st *) v)->val;
+      int lenstr = strlen (str);
+      int lens = strlen (s);
+      return (lens <= lenstr && !strncmp(str, s, lens));
+    }
   return 0;
 }
 
@@ -1793,7 +1811,7 @@ melt_string_same (melt_ptr_t v1, melt_ptr_t v2)
       && melt_magic_discr (v2) == MELTOBMAG_STRING)
     {
       return 0 == strcmp (((struct meltstring_st *) v1)->val,
-			  ((struct meltstring_st *) v2)->val);
+                          ((struct meltstring_st *) v2)->val);
     }
   return 0;
 }
@@ -1805,13 +1823,14 @@ melt_string_less (melt_ptr_t v1, melt_ptr_t v2)
       && melt_magic_discr (v2) == MELTOBMAG_STRING)
     {
       return strcmp (((struct meltstring_st *) v1)->val,
-		     ((struct meltstring_st *) v2)->val) < 0;
+                     ((struct meltstring_st *) v2)->val) < 0;
     }
   return 0;
 }
 
 static inline bool
-melt_is_string_const (melt_ptr_t v, const char *s) {
+melt_is_string_const (melt_ptr_t v, const char *s)
+{
   if (s && melt_magic_discr (v) == MELTOBMAG_STRING)
     return 0 == strcmp (((struct meltstring_st *) v)->val, s);
   return 0;
@@ -1824,7 +1843,7 @@ melt_strbuf_str (melt_ptr_t v)
     {
       struct meltstrbuf_st *sb = (struct meltstrbuf_st*) v;
       if (sb->bufend >= sb->bufstart)
-	return sb->bufzn + sb->bufstart;
+        return sb->bufzn + sb->bufstart;
     }
   return 0;
 }
@@ -1836,7 +1855,7 @@ melt_strbuf_usedlength(melt_ptr_t v)
     {
       struct meltstrbuf_st *sb = (struct meltstrbuf_st *) v;
       if (sb->bufend >= sb->bufstart)
-	return sb->bufend - sb->bufstart;
+        return sb->bufend - sb->bufstart;
     }
   return 0;
 }
@@ -1849,9 +1868,9 @@ melt_strbuf_consume (melt_ptr_t v, int cnt)
     {
       struct meltstrbuf_st *sb = (struct meltstrbuf_st *) v;
       if (sb->bufstart + cnt < sb->bufend)
-	sb->bufstart = sb->bufstart + cnt;
+        sb->bufstart = sb->bufstart + cnt;
       else
-	sb->bufstart = sb->bufend;
+        sb->bufstart = sb->bufend;
     }
 }
 
@@ -1869,21 +1888,21 @@ void melt_output_strbuf_to_file_no_overwrite (melt_ptr_t sbufv, const char*filna
 
 /* allocate a pair of given head and tail */
 melt_ptr_t meltgc_new_pair (meltobject_ptr_t discr,
-				  void *head, void *tail);
+                            void *head, void *tail);
 
 /* change the head of a pair */
 void meltgc_pair_set_head(melt_ptr_t pair, void* head);
 
 /* allocate a new multiple of given DISCR & length LEN */
 melt_ptr_t meltgc_new_multiple (meltobject_ptr_t discr_p,
-				      unsigned len);
+                                unsigned len);
 
 /* make a subsequence of a given multiple OLDMUL_P from STARTIX to
    ENDIX; if either index is negative, take it from last.  return null
    if arguments are incorrect, or a fresh subsequence of same
    discriminant as source otherwise */
-melt_ptr_t meltgc_new_subseq_multiple (melt_ptr_t oldmul_p, 
-					     int startix, int endix);
+melt_ptr_t meltgc_new_subseq_multiple (melt_ptr_t oldmul_p,
+                                       int startix, int endix);
 
 
 /* allocate a new (empty) list */
@@ -1903,21 +1922,21 @@ int melt_list_length (melt_ptr_t list_p);
 
 /* allocate e new empty mapobjects */
 melt_ptr_t meltgc_new_mapobjects (meltobject_ptr_t discr_p,
-					unsigned len);
+                                  unsigned len);
 
 /* put into a mapobjects */
 void meltgc_put_mapobjects (meltmapobjects_ptr_t mapobject_p,
-			       meltobject_ptr_t attrobject_p,
-			       melt_ptr_t valu_p);
+                            meltobject_ptr_t attrobject_p,
+                            melt_ptr_t valu_p);
 
 /* get from a mapobject */
 melt_ptr_t melt_get_mapobjects (meltmapobjects_ptr_t mapobject_p,
-				      meltobject_ptr_t attrobject_p);
+                                meltobject_ptr_t attrobject_p);
 
 /* remove from a mapobject (return the removed value) */
 melt_ptr_t meltgc_remove_mapobjects (meltmapobjects_ptr_t
-					   mapobject_p,
-					   meltobject_ptr_t attrobject_p);
+                                     mapobject_p,
+                                     meltobject_ptr_t attrobject_p);
 
 static inline int
 melt_size_mapobjects (meltmapobjects_ptr_t mapobject_p)
@@ -1973,7 +1992,7 @@ melt_auxdata_mapobjects (melt_ptr_t map_p)
   return NULL;
 }
 
-static inline void 
+static inline void
 melt_auxput_mapobjects (melt_ptr_t map_p, melt_ptr_t val_p)
 {
   if (melt_magic_discr(map_p) == MELTOBMAG_MAPOBJECTS)
@@ -1988,20 +2007,20 @@ melt_auxput_mapobjects (melt_ptr_t map_p, melt_ptr_t val_p)
 
 /* allocate a new empty mapstrings */
 melt_ptr_t meltgc_new_mapstrings (meltobject_ptr_t discr_p,
-					unsigned len);
+                                  unsigned len);
 
 /* put into a mapstrings, the string is copied so can be in the gc-ed heap */
 void meltgc_put_mapstrings (struct meltmapstrings_st *mapstring_p,
-			       const char *str, melt_ptr_t valu_p);
+                            const char *str, melt_ptr_t valu_p);
 
 /* get from a mapstring */
 melt_ptr_t melt_get_mapstrings (struct meltmapstrings_st
-				      *mapstring_p, const char *attr);
+                                *mapstring_p, const char *attr);
 
 
 /* remove from a mapstring (return the removed value) */
 melt_ptr_t meltgc_remove_mapstrings (struct meltmapstrings_st
-					   *mapstring_p, const char *str);
+                                     *mapstring_p, const char *str);
 
 static inline int
 melt_size_mapstrings (struct meltmapstrings_st *mapstring_p)
@@ -2021,7 +2040,7 @@ melt_count_mapstrings (struct meltmapstrings_st *mapstring_p)
 
 static inline const char *
 melt_nthattrraw_mapstrings (struct meltmapstrings_st *mapstring_p,
-			       int ix)
+                            int ix)
 {
   const char *at = 0;
   if (!mapstring_p || mapstring_p->discr->obj_num != MELTOBMAG_MAPSTRINGS)
@@ -2058,7 +2077,7 @@ melt_auxdata_mapstrings (melt_ptr_t map_p)
   return NULL;
 }
 
-static inline void 
+static inline void
 melt_auxput_mapstrings (melt_ptr_t map_p, melt_ptr_t val_p)
 {
   if (melt_magic_discr(map_p) == MELTOBMAG_MAPSTRINGS)
@@ -2071,13 +2090,13 @@ melt_auxput_mapstrings (melt_ptr_t map_p, melt_ptr_t val_p)
 /* allocate a new routine object of given DISCR and of length LEN,
    with a DESCR-iptive string a a PROC-edure */
 meltroutine_ptr_t meltgc_new_routine (meltobject_ptr_t discr_p,
-					    unsigned len, const char *descr,
-					    meltroutfun_t * proc);
+                                      unsigned len, const char *descr,
+                                      meltroutfun_t * proc);
 
 
 void meltgc_set_routine_data(melt_ptr_t rout_p, melt_ptr_t data_p);
 
-static inline melt_ptr_t 
+static inline melt_ptr_t
 melt_routine_data(melt_ptr_t rout)
 {
   if (rout && ((meltroutine_ptr_t) rout)->discr->obj_num == MELTOBMAG_ROUTINE)
@@ -2114,8 +2133,8 @@ melt_routine_nth (melt_ptr_t rout, int ix)
 /* allocate a new closure of given DISCR with a given ROUT,  and of length LEN
  */
 meltclosure_ptr_t meltgc_new_closure (meltobject_ptr_t discr_p,
-					    meltroutine_ptr_t rout_p,
-					    unsigned len);
+                                      meltroutine_ptr_t rout_p,
+                                      unsigned len);
 
 static inline int
 melt_closure_size (melt_ptr_t clo)
@@ -2204,7 +2223,7 @@ melt_pair_listlength (melt_ptr_t pair)
 {
   long l = 0;
   while (pair
-	 && ((struct meltpair_st *) pair)->discr->obj_num == MELTOBMAG_PAIR)
+         && ((struct meltpair_st *) pair)->discr->obj_num == MELTOBMAG_PAIR)
     {
       l++;
       pair = (melt_ptr_t) (((struct meltpair_st *) pair)->tl);
@@ -2231,7 +2250,7 @@ melt_list_last (melt_ptr_t lis)
 
 /* allocate e new empty longsbucket */
 melt_ptr_t meltgc_new_longsbucket (meltobject_ptr_t discr_p,
-				   unsigned len);
+                                   unsigned len);
 
 
 /* retrieve value associated in a bucket of longs with dichotomical search or else NULL */
@@ -2244,20 +2263,20 @@ melt_longsbucket_get (melt_ptr_t bucketp, long key)
     return NULL;
   buck = (struct meltbucketlongs_st*)bucketp;
   ucnt = buck->buckl_ucount;
-  if (ucnt == 0) 
+  if (ucnt == 0)
     return NULL;
   gcc_assert (melt_primtab[buck->buckl_lenix] >= ucnt);
   lo = 0;
   hi = ucnt - 1;
-  while (lo + 2 < hi) 
+  while (lo + 2 < hi)
     {
       long curk = 0;
       md = (lo + hi) / 2;
       curk = buck->buckl_entab[md].ebl_at;
       if (curk < key)
-	lo = md;
+        lo = md;
       else if (curk > key)
-	hi = md;
+        hi = md;
       else return buck->buckl_entab[md].ebl_va;
     };
   for (md = lo; md <= hi; md++)
@@ -2267,7 +2286,7 @@ melt_longsbucket_get (melt_ptr_t bucketp, long key)
 }
 
 /* retrieve the n-th long key in a bucketlong or else 0 */
-static inline long 
+static inline long
 melt_longsbucket_nth_key (melt_ptr_t bucketp, int rk)
 {
   struct meltbucketlongs_st*buck = NULL;
@@ -2276,16 +2295,16 @@ melt_longsbucket_nth_key (melt_ptr_t bucketp, int rk)
     return 0L;
   buck = (struct meltbucketlongs_st*)bucketp;
   ucnt = buck->buckl_ucount;
-  if (ucnt == 0) 
+  if (ucnt == 0)
     return 0L;
-  if (rk<0) 
+  if (rk<0)
     rk += (int) ucnt;
   if (rk >= 0 && rk < (int) ucnt)
     return buck->buckl_entab[rk].ebl_at;
   return 0L;
 }
 
-static inline melt_ptr_t 
+static inline melt_ptr_t
 melt_longsbucket_nth_val (melt_ptr_t bucketp, int rk)
 {
   struct meltbucketlongs_st*buck = NULL;
@@ -2294,9 +2313,9 @@ melt_longsbucket_nth_val (melt_ptr_t bucketp, int rk)
     return NULL;
   buck = (struct meltbucketlongs_st*)bucketp;
   ucnt = buck->buckl_ucount;
-  if (ucnt == 0) 
+  if (ucnt == 0)
     return NULL;
-  if (rk<0) 
+  if (rk<0)
     rk += (int) ucnt;
   if (rk >= 0 && rk < (int) ucnt)
     return buck->buckl_entab[rk].ebl_va;
@@ -2326,7 +2345,7 @@ melt_longsbucket_xnum (melt_ptr_t bucketp)
 }
 
 /* Set the extra number in a longsbucket - no GC possible! */
-static inline void 
+static inline void
 melt_longsbucket_set_xnum (melt_ptr_t bucketp, int xnum)
 {
   struct meltbucketlongs_st*buck = NULL;
@@ -2382,11 +2401,11 @@ void meltgc_longsbucket_set_aux (melt_ptr_t bucketp, melt_ptr_t auxp);
 
 /* allocate a new strbuf of given DISCR with initial content STR */
 struct meltstrbuf_st *meltgc_new_strbuf (meltobject_ptr_t discr_p,
-					       const char *str);
+    const char *str);
 
 
-/**** 
-      Output routines can go into a boxed strbuf or a boxed file 
+/****
+      Output routines can go into a boxed strbuf or a boxed file
 ****/
 /* reserve some space in the buffer, for performance reasons. */
 void meltgc_strbuf_reserve (melt_ptr_t outbuf_p, unsigned len);
@@ -2394,7 +2413,7 @@ void meltgc_strbuf_reserve (melt_ptr_t outbuf_p, unsigned len);
 /* add into OUT (a boxed STRBUF or a boxed FILE) the static string STR
    (which is not in the melt heap) */
 void meltgc_add_out_raw (melt_ptr_t outbuf_p,
-			       const char *str);
+                         const char *str);
 
 #define meltgc_add_strbuf_raw(Out,Str) meltgc_add_out_raw((Out),(Str))
 
@@ -2402,32 +2421,32 @@ void meltgc_add_out_raw (melt_ptr_t outbuf_p,
    STR (which is not in the melt heap) of length SLEN or
    strlen(STR) if SLEN<0 */
 void meltgc_add_out_raw_len (melt_ptr_t outbuf_p,
-				   const char *str, int slen);
+                             const char *str, int slen);
 #define meltgc_add_strbuf_raw_len(Out,Str,Len) meltgc_add_out_raw_len((Out),(Str),(Len))
 
 /* add safely into OUTBUF the string STR (which is first copied, so
    can be in the melt heap) */
 void meltgc_add_out (melt_ptr_t outbuf_p,
-			   const char *str);
+                     const char *str);
 #define meltgc_add_strbuf(Out,Str) meltgc_add_out((Out),(Str))
 
 /* add safely into OUTBUF the string STR encoded as a C string with
    backslash escapes */
 void meltgc_add_out_cstr (melt_ptr_t outbuf_p,
-				const char *str);
+                          const char *str);
 #define meltgc_add_strbuf_cstr(Out,Str) meltgc_add_out_cstr(Out,Str)
 
 /* add safely into OUTBUF the string STR of length SLEN encoded as a C
    string with backslash escapes */
 void meltgc_add_out_cstr_len (melt_ptr_t outbuf_p,
-			      const char *str, int slen);
+                              const char *str, int slen);
 #define meltgc_add_strbuf_cstr_len(Out,Str,Slen) \
   meltgc_add_out_cstr_len(Out,Str,Slen)
 
 /* add safely into OUTBUF the substring of STR starting at offset OFF
    of length SLEN encoded as a C string with backslash escapes */
 void meltgc_add_out_csubstr_len (melt_ptr_t outbuf_p,
-				 const char *str, int off, int slen);
+                                 const char *str, int off, int slen);
 #define meltgc_add_strbuf_csubstr_len(Out,Str,Slen) \
   meltgc_add_out_csubstr_len(Out,Str,Slen)
 
@@ -2435,14 +2454,14 @@ void meltgc_add_out_csubstr_len (melt_ptr_t outbuf_p,
    C comment with slash star and star slash replaced by slash plus and
    plus slash */
 void meltgc_add_out_ccomment (melt_ptr_t outbuf_p,
-				    const char *str);
+                              const char *str);
 #define meltgc_add_strbuf_ccomment(Out,Str) meltgc_add_out_ccomment((Out),(Str))
 
 /* add safely into OUTBUF the string STR (which is copied at first)
    encoded as a C identifier; ie non-alphanum begine encoded as an
    underscore */
 void meltgc_add_out_cident (melt_ptr_t outbuf_p,
-				  const char *str);
+                            const char *str);
 #define meltgc_add_strbuf_cident(Out,Str) meltgc_add_out_cident((Out),(Str))
 
 /* add safely into OUTBUF the initial prefix of string STR (which is
@@ -2454,7 +2473,7 @@ meltgc_add_out_cidentprefix (melt_ptr_t strbuf_p, const char *str, int preflen);
 
 /* add safely into OUTBUF the hex encoded number L */
 void meltgc_add_out_hex (melt_ptr_t outbuf_p,
-			       unsigned long l);
+                         unsigned long l);
 #define meltgc_add_strbuf_hex(Out,L) meltgc_add_out_hex((Out),(L))
 
 /* add safely into OUTBUF the decimal encoded number L */
@@ -2464,13 +2483,13 @@ void meltgc_add_out_dec (melt_ptr_t outbuf_p, long l);
 /* add safely into OUTBUF a printf like stuff with FMT */
 void
 meltgc_out_printf (melt_ptr_t outbuf_p, const char *fmt,
-			 ...) ATTRIBUTE_PRINTF (2, 3);
+                   ...) ATTRIBUTE_PRINTF (2, 3);
 /* don't bother using CPP varargs */
 #define meltgc_strbuf_printf meltgc_out_printf
 
 /* add safely into OUTBUF either a space or an indented newline if the current line is bigger than the threshold */
 void meltgc_out_add_indent (melt_ptr_t strbuf_p,
-			       int indeptn, int linethresh);
+                            int indeptn, int linethresh);
 #define meltgc_strbuf_add_indent(Out,I,L) meltgc_out_add_indent ((Out),(I),(L))
 
 /* pretty print into OUTBUF a gimple */
@@ -2516,7 +2535,7 @@ melt_ptr_t meltgc_new_file(melt_ptr_t discr_p, FILE* fil);
 
 /**************************** misc *****************************/
 /* a random generator */
-static inline long melt_lrand (void) 
+static inline long melt_lrand (void)
 {
   /* we used to call lrand48_r using some randata filled at init time,
      but lrand48_r is less portable than lrand48 */
@@ -2567,7 +2586,7 @@ int meltgc_load_flavored_module (const char*modulbase, const char*flavor);
 
 /* Load a single module MODULBASE of given FLAVOR and start it with
    all new modules in environment ENV.  Return the resulting new environment. */
-melt_ptr_t 
+melt_ptr_t
 meltgc_start_flavored_module (melt_ptr_t env_p, const char*modulbase, const char*flavor);
 
 /* Run the start routine of a module already loaded. ENV_P is the
@@ -2602,7 +2621,8 @@ void melt_compile_source (const char *srcbase, const char *binbase, const char*w
    global; the NAM string can be in the GC-allocated heap since it is
    copied */
 enum
-{				/* a meningful enum for the create flag below */
+{
+  /* a meningful enum for the create flag below */
   MELT_GET = 0,
   MELT_CREATE
 };
@@ -2639,11 +2659,11 @@ void melt_handle_melt_attribute(tree decl, tree name, const char* attrstr, locat
    false */
 void
 melt_assert_failed (const char *msg, const char *filnam, int lineno,
-		       const char *fun)
-  ATTRIBUTE_NORETURN;
+                    const char *fun)
+ATTRIBUTE_NORETURN;
 void
 melt_check_failed (const char *msg, const char *filnam, int lineno,
-		      const char *fun);
+                   const char *fun);
 
 #if ENABLE_ASSERT_CHECKING
 #define melt_assertmsg(MSG,EXPR)  do { if (MELT_UNLIKELY(!(EXPR))) \
@@ -2653,7 +2673,7 @@ melt_check_failed (const char *msg, const char *filnam, int lineno,
       melt_check_failed ((MSG),__FILE__,__LINE__,__FUNCTION__);	   \
   } while(0)
 #define melt_ensuremsg(MSG,EXPR) (void) ((EXPR) ||  \
-					 (melt_assert_failed ((MSG),__FILE__,__LINE__,__FUNCTION__),0)) 
+					 (melt_assert_failed ((MSG),__FILE__,__LINE__,__FUNCTION__),0))
 #else
 /* Include EXPR, so that unused variable warnings do not occur.  */
 #define melt_assertmsg(MSG,EXPR) ((void)(0 && (MSG) && (EXPR)))
@@ -2670,11 +2690,11 @@ enum { MELT_ANYWHERE=0, MELT_NOYOUNG };
 
 /******************* method sending ************************/
 melt_ptr_t meltgc_send (melt_ptr_t recv,
-			melt_ptr_t sel,
-			const melt_argdescr_cell_t *xargdescr_,
-			union meltparam_un *xargtab_,
-			const melt_argdescr_cell_t *xresdescr_,
-			union meltparam_un *xrestab_);
+                        melt_ptr_t sel,
+                        const melt_argdescr_cell_t *xargdescr_,
+                        union meltparam_un *xargtab_,
+                        const melt_argdescr_cell_t *xresdescr_,
+                        union meltparam_un *xrestab_);
 
 /**************************** globals **************************/
 
@@ -2725,7 +2745,7 @@ melt_discr (melt_ptr_t p)
 }
 
 bool melt_is_subclass_of (meltobject_ptr_t subclass_p,
-			     meltobject_ptr_t superclass_p);
+                          meltobject_ptr_t superclass_p);
 
 static inline bool
 melt_is_instance_of (melt_ptr_t inst_p, melt_ptr_t class_p)
@@ -2738,12 +2758,13 @@ melt_is_instance_of (melt_ptr_t inst_p, melt_ptr_t class_p)
   if (class_p == MELT_PREDEF (DISCR_ANY_RECEIVER))
     return TRUE;
   gcc_assert (class_p->u_discr != NULL);
-  if (!inst_p) {
-    /* The null value is conceptually an instance of DISCR_NULL_RECEIVER, which is a subtype of DISCR_ANY_RECEIVER. */
-    if (class_p == MELT_PREDEF (DISCR_NULL_RECEIVER))
-      return TRUE;
-    return FALSE;
-  }
+  if (!inst_p)
+    {
+      /* The null value is conceptually an instance of DISCR_NULL_RECEIVER, which is a subtype of DISCR_ANY_RECEIVER. */
+      if (class_p == MELT_PREDEF (DISCR_NULL_RECEIVER))
+        return TRUE;
+      return FALSE;
+    }
   mag_class = class_p->u_discr->obj_num;
   if (mag_class != MELTOBMAG_OBJECT || ((meltobject_ptr_t) class_p)->obj_len < MELTLENGTH_CLASS_DISCRIMINANT)
     return FALSE;
@@ -2751,22 +2772,23 @@ melt_is_instance_of (melt_ptr_t inst_p, melt_ptr_t class_p)
   /* We need to loop to handle the case of non-object discriminant
      type hierarchies; for instance DISCR_FIELD_SEQUENCE is a sub-type
      of DISCR_MULTIPLE.  This while loop is often run once.  */
-  while (curdiscr_p) {
-    if (curdiscr_p == (meltobject_ptr_t) class_p)
-      return TRUE;
-    mag_inst = curdiscr_p->obj_num;
-    if (mag_class != MELTOBMAG_OBJECT || !mag_inst)
-      return FALSE;
-    if (mag_inst != ((meltobject_ptr_t) class_p)->meltobj_magic)
-      return FALSE;
-    if (mag_inst == MELTOBMAG_OBJECT)
-      return melt_is_subclass_of (((meltobject_ptr_t) curdiscr_p),
-				  ((meltobject_ptr_t) class_p));
-    /* the instance is not an object, but the current discriminant
-       might have a super discriminant. */
-    gcc_assert (curdiscr_p->obj_len >= MELTLENGTH_CLASS_DISCRIMINANT);
-    curdiscr_p = (meltobject_ptr_t) (curdiscr_p->obj_vartab[MELTFIELD_DISC_SUPER]);
-  }
+  while (curdiscr_p)
+    {
+      if (curdiscr_p == (meltobject_ptr_t) class_p)
+        return TRUE;
+      mag_inst = curdiscr_p->obj_num;
+      if (mag_class != MELTOBMAG_OBJECT || !mag_inst)
+        return FALSE;
+      if (mag_inst != ((meltobject_ptr_t) class_p)->meltobj_magic)
+        return FALSE;
+      if (mag_inst == MELTOBMAG_OBJECT)
+        return melt_is_subclass_of (((meltobject_ptr_t) curdiscr_p),
+                                    ((meltobject_ptr_t) class_p));
+      /* the instance is not an object, but the current discriminant
+         might have a super discriminant. */
+      gcc_assert (curdiscr_p->obj_len >= MELTLENGTH_CLASS_DISCRIMINANT);
+      curdiscr_p = (meltobject_ptr_t) (curdiscr_p->obj_vartab[MELTFIELD_DISC_SUPER]);
+    }
   return FALSE;
 }
 
@@ -2782,7 +2804,7 @@ melt_put_int (melt_ptr_t v, long x)
     {
     case MELTOBMAG_INT:
       if (v->u_discr == (meltobject_ptr_t)MELT_PREDEF(DISCR_CONSTANT_INTEGER))
-	return FALSE;
+        return FALSE;
       ((struct meltint_st *) (v))->val = x;
       return TRUE;
     case MELTOBMAG_MIXINT:
@@ -2793,7 +2815,7 @@ melt_put_int (melt_ptr_t v, long x)
       return TRUE;
     case MELTOBMAG_OBJECT:
       if (((meltobject_ptr_t) (v))->obj_num != 0)
-	return FALSE;
+        return FALSE;
       ((meltobject_ptr_t) (v))->obj_num = (unsigned short) x;
       return TRUE;
     default:
@@ -2807,7 +2829,7 @@ melt_put_int (melt_ptr_t v, long x)
 
 ////++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 /***
- * CALL FRAMES 
+ * CALL FRAMES
  ***/
 
 
@@ -2815,7 +2837,8 @@ class Melt_CallFrame;
 class Melt_CallProtoFrame;
 MELT_EXTERN Melt_CallProtoFrame* melt_top_call_frame;
 
-class Melt_CallProtoFrame {
+class Melt_CallProtoFrame
+{
   friend void melt_minor_copying_garbage_collector (size_t wanted);
   friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
   friend void melt_marking_callback (void *, void*);
@@ -2823,10 +2846,11 @@ class Melt_CallProtoFrame {
   virtual void melt_mark_ggc_data (void) =0;
 protected:
   // this is tricky but essential; we need to explicitly zero the rest of the frame.
-  void melt_clear_rest_of_frame (size_t sz) {
+  void melt_clear_rest_of_frame (size_t sz)
+  {
     if (sz > sizeof(Melt_CallProtoFrame))
-      memset ((char*)this+sizeof(Melt_CallProtoFrame), 0, 
-	      sz - sizeof(Melt_CallProtoFrame));
+      memset ((char*)this+sizeof(Melt_CallProtoFrame), 0,
+              sz - sizeof(Melt_CallProtoFrame));
   };
   Melt_CallProtoFrame* _meltcf_prev;
 public:
@@ -2840,209 +2864,275 @@ protected:
   static long _dbgcall_count_;
 #endif /*ENABLE_CHECKING*/
 public:
-  static Melt_CallProtoFrame* top_call_frame() { return melt_top_call_frame; };
+  static Melt_CallProtoFrame* top_call_frame()
+  {
+    return melt_top_call_frame;
+  };
   inline static int top_call_depth(void);
   inline static bool top_call_deeper_than (int d);
-  Melt_CallProtoFrame* previous_frame() const { return _meltcf_prev; };
-  int call_depth() const { 
-    int d=0; 
-    for (const Melt_CallProtoFrame* fr = this; 
-	 fr != NULL;
-	 fr = fr->previous_frame())
+  Melt_CallProtoFrame* previous_frame() const
+  {
+    return _meltcf_prev;
+  };
+  int call_depth() const
+  {
+    int d=0;
+    for (const Melt_CallProtoFrame* fr = this;
+         fr != NULL;
+         fr = fr->previous_frame())
       d++;
     return d;
   };
-  bool call_deeper_than (int d) const {
-    for (const Melt_CallProtoFrame* fr = this; 
-	 fr != NULL;
-	 fr = fr->previous_frame())
+  bool call_deeper_than (int d) const
+  {
+    for (const Melt_CallProtoFrame* fr = this;
+         fr != NULL;
+         fr = fr->previous_frame())
       if (d-- <= 0)
-	return true;
+        return true;
     return false;
   }
-  const char* srcloc() const { return mcfr_flocs; };
-  void set_srcloc(const char*s) { mcfr_flocs = s; };
+  const char* srcloc() const
+  {
+    return mcfr_flocs;
+  };
+  void set_srcloc(const char*s)
+  {
+    mcfr_flocs = s;
+  };
 #if ENABLE_CHECKING
-  const char* dbg_file() const { return _meltcf_dbgfile; };
-  long dbg_line() const { return  _meltcf_dbgline; };
-  long dbg_serial() const { return _meltcf_dbgserial; };
-  Melt_CallProtoFrame(const char*file, int lin, size_t sz) 
-    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL), 
-      _meltcf_dbgfile (melt_basename (file)), _meltcf_dbgline(lin), 
-      _meltcf_dbgserial(++_dbgcall_count_) {
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+  const char* dbg_file() const
+  {
+    return _meltcf_dbgfile;
+  };
+  long dbg_line() const
+  {
+    return  _meltcf_dbgline;
+  };
+  long dbg_serial() const
+  {
+    return _meltcf_dbgserial;
+  };
+  Melt_CallProtoFrame(const char*file, int lin, size_t sz)
+    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL),
+      _meltcf_dbgfile (melt_basename (file)), _meltcf_dbgline(lin),
+      _meltcf_dbgserial(++_dbgcall_count_)
+  {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
       {
-	fprintf (_dbgcall_file_, "+ %s:%d #%ld S%d\n", _meltcf_dbgfile, lin, _meltcf_dbgserial, (int)sz);
-	fflush (_dbgcall_file_);
+        fprintf (_dbgcall_file_, "+ %s:%d #%ld S%d\n", _meltcf_dbgfile, lin, _meltcf_dbgserial, (int)sz);
+        fflush (_dbgcall_file_);
       }
     melt_clear_rest_of_frame (sz);
     melt_top_call_frame = this;
   };
-  Melt_CallProtoFrame(size_t sz) 
-    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL), 
-      _meltcf_dbgfile(NULL), _meltcf_dbgline(0), _meltcf_dbgserial(++_dbgcall_count_) {
+  Melt_CallProtoFrame(size_t sz)
+    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL),
+      _meltcf_dbgfile(NULL), _meltcf_dbgline(0), _meltcf_dbgserial(++_dbgcall_count_)
+  {
     melt_clear_rest_of_frame (sz);
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
       {
-	fprintf (_dbgcall_file_, "+ * #%ld S%d\n", _meltcf_dbgserial, (int)sz);
-	fflush (_dbgcall_file_);
+        fprintf (_dbgcall_file_, "+ * #%ld S%d\n", _meltcf_dbgserial, (int)sz);
+        fflush (_dbgcall_file_);
       }
     melt_top_call_frame = this;
   };
-  void debug_hook (melthook_ptr_t hk) {
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+  void debug_hook (melthook_ptr_t hk)
+  {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
       {
-	if (hk) 
-	  {
-	    fprintf(_dbgcall_file_, "!Hook @%p %s\n", (void*)hk, hk->hookname);
-	    fflush (_dbgcall_file_);
-	  }
+        if (hk)
+          {
+            fprintf(_dbgcall_file_, "!Hook @%p %s\n", (void*)hk, hk->hookname);
+            fflush (_dbgcall_file_);
+          }
       }
   }
-  void debug_closure (meltclosure_ptr_t clo) {
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) 
+  void debug_closure (meltclosure_ptr_t clo)
+  {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
       {
-	if (clo && clo->rout) 
-	  {
-	    fprintf(_dbgcall_file_, "!Closure @%p %s\n", (void*) clo, clo->rout->routdescr);
-	    fflush (_dbgcall_file_);
-	  }
+        if (clo && clo->rout)
+          {
+            fprintf(_dbgcall_file_, "!Closure @%p %s\n", (void*) clo, clo->rout->routdescr);
+            fflush (_dbgcall_file_);
+          }
       }
   }
 #else /*!ENABLE_CHECKING*/
-  Melt_CallProtoFrame(const char*, int, size_t sz) 
-    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL) {
+  Melt_CallProtoFrame(const char*, int, size_t sz)
+    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL)
+  {
     melt_clear_rest_of_frame (sz);
     melt_top_call_frame = this;
   };
-  Melt_CallProtoFrame(size_t sz) 
-    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL) {
+  Melt_CallProtoFrame(size_t sz)
+    : _meltcf_prev(melt_top_call_frame), mcfr_flocs(NULL)
+  {
     melt_clear_rest_of_frame (sz);
     melt_top_call_frame = this;
   };
 #endif  /*ENABLE_CHECKING*/
-  ~Melt_CallProtoFrame() {
+  ~Melt_CallProtoFrame()
+  {
 #if ENABLE_CHECKING
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, (int)_meltcf_dbgline);
-      fflush (_dbgcall_file_);
-    }
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
+      {
+        fprintf (_dbgcall_file_, "- %s:%d\n",  _meltcf_dbgfile, (int)_meltcf_dbgline);
+        fflush (_dbgcall_file_);
+      }
 #endif /*ENABLE_CHECKING*/
-    mcfr_flocs = NULL; 
-    melt_top_call_frame = _meltcf_prev; 
+    mcfr_flocs = NULL;
+    melt_top_call_frame = _meltcf_prev;
   }
 #if ENABLE_CHECKING
 public:
-  static void set_debug_file(FILE*f) { 
-    if (MELT_UNLIKELY( _dbgcall_file_ != NULL)) {
-      fflush (_dbgcall_file_);
-      if (f == NULL) {
-	fprintf (_dbgcall_file_, "#eof #%ld\n", _dbgcall_count_);
-	fclose (_dbgcall_file_);
+  static void set_debug_file(FILE*f)
+  {
+    if (MELT_UNLIKELY( _dbgcall_file_ != NULL))
+      {
+        fflush (_dbgcall_file_);
+        if (f == NULL)
+          {
+            fprintf (_dbgcall_file_, "#eof #%ld\n", _dbgcall_count_);
+            fclose (_dbgcall_file_);
+          }
       }
-    }
     _dbgcall_file_ = f;
   };
 #endif /*ENABLE_CHECKING*/
 };				// end class Melt_CallProtoFrame
 
-int Melt_CallProtoFrame::top_call_depth()  { return melt_top_call_frame->call_depth(); }
-bool Melt_CallProtoFrame::top_call_deeper_than (int d) { return melt_top_call_frame->call_deeper_than(d); }
+int Melt_CallProtoFrame::top_call_depth()
+{
+  return melt_top_call_frame->call_depth();
+}
+bool Melt_CallProtoFrame::top_call_deeper_than (int d)
+{
+  return melt_top_call_frame->call_deeper_than(d);
+}
 
-class Melt_CallFrame : public Melt_CallProtoFrame {
+class Melt_CallFrame : public Melt_CallProtoFrame
+{
   friend void melt_minor_copying_garbage_collector (size_t wanted);
   friend void melt_garbcoll (size_t wanted, enum melt_gckind_en gckd);
   friend void melt_marking_callback (void *, void*);
 public:
-  union {
+  union
+  {
     meltclosure_ptr_t mcfr_clos;
     melthook_ptr_t mcfr_hook;
     melt_ptr_t mcfr_current;
   };
-  melt_ptr_t current() const { return mcfr_current; };
-  meltclosure_ptr_t current_closure() const { return meltcast_meltclosure_st (mcfr_current); };
-  melthook_ptr_t current_hook() const { return meltcast_melthook_st (mcfr_current); };
+  melt_ptr_t current() const
+  {
+    return mcfr_current;
+  };
+  meltclosure_ptr_t current_closure() const
+  {
+    return meltcast_meltclosure_st (mcfr_current);
+  };
+  melthook_ptr_t current_hook() const
+  {
+    return meltcast_melthook_st (mcfr_current);
+  };
 protected:
 #if ENABLE_CHECKING
-  Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL) 
-    : Melt_CallProtoFrame(file,lin,sz), mcfr_clos(clos) {
+  Melt_CallFrame(const char*file, int lin, size_t sz, meltclosure_ptr_t clos=NULL)
+    : Melt_CallProtoFrame(file,lin,sz), mcfr_clos(clos)
+  {
     debug_closure (clos);
   };
   Melt_CallFrame(const char*file, int lin, size_t sz, melthook_ptr_t hook)
-    : Melt_CallProtoFrame(file,lin,sz), mcfr_hook(hook) {
+    : Melt_CallProtoFrame(file,lin,sz), mcfr_hook(hook)
+  {
     debug_hook (hook);
   };
   Melt_CallFrame(const char*file, int lin, size_t sz)
-    : Melt_CallProtoFrame(file,lin,sz), mcfr_current(NULL) {
+    : Melt_CallProtoFrame(file,lin,sz), mcfr_current(NULL)
+  {
   };
 #else /*!ENABLE_CHECKING*/
-  Melt_CallFrame(const char*, int, size_t sz, meltclosure_ptr_t clos=NULL) 
-    : Melt_CallProtoFrame(sz), mcfr_clos(clos) {
+  Melt_CallFrame(const char*, int, size_t sz, meltclosure_ptr_t clos=NULL)
+    : Melt_CallProtoFrame(sz), mcfr_clos(clos)
+  {
     debug_closure (clos);
   };
   Melt_CallFrame(const char*, int, size_t sz, melthook_ptr_t hook)
-    : Melt_CallProtoFrame(sz), mcfr_hook(hook) {
+    : Melt_CallProtoFrame(sz), mcfr_hook(hook)
+  {
     debug_hook (hook);
   };
   Melt_CallFrame(const char*, int , size_t sz)
-    : Melt_CallProtoFrame(sz), mcfr_current(NULL) {
+    : Melt_CallProtoFrame(sz), mcfr_current(NULL)
+  {
   };
 #endif /*ENABLE_CHECKING*/
-  Melt_CallFrame(size_t sz, meltclosure_ptr_t clos) 
-    : Melt_CallProtoFrame(sz), mcfr_clos(clos) {
+  Melt_CallFrame(size_t sz, meltclosure_ptr_t clos)
+    : Melt_CallProtoFrame(sz), mcfr_clos(clos)
+  {
   };
-  Melt_CallFrame(size_t sz, melthook_ptr_t hook) 
-    : Melt_CallProtoFrame(sz), mcfr_hook(hook) {
+  Melt_CallFrame(size_t sz, melthook_ptr_t hook)
+    : Melt_CallProtoFrame(sz), mcfr_hook(hook)
+  {
   };
-  Melt_CallFrame(size_t sz) 
-    : Melt_CallProtoFrame(sz), mcfr_current(NULL) {
+  Melt_CallFrame(size_t sz)
+    : Melt_CallProtoFrame(sz), mcfr_current(NULL)
+  {
   };
-  ~Melt_CallFrame() { 
+  ~Melt_CallFrame()
+  {
   };
 };				// end class Melt_CallFrame.
 
-template<unsigned NbVal> class Melt_CallFrameWithValues 
-  : public Melt_CallFrame {
+template<unsigned NbVal> class Melt_CallFrameWithValues
+  : public Melt_CallFrame
+{
 public:
   melt_ptr_t mcfr_varptr[(NbVal>0)?NbVal:1];
-  virtual void melt_forward_values (void) 
-  { 
+  virtual void melt_forward_values (void)
+  {
 #if MELT_HAVE_DEBUG
     if (dbg_file())
-      melt_debuggc_eprintf("forwarding %d values call frame @%p from %s:%ld #%ld", 
-			   NbVal, (void*) this, dbg_file(), dbg_line(), dbg_serial());
-    else 
-      melt_debuggc_eprintf("forwarding %d values call frame @%p #%ld", 
-			   NbVal, (void*) this, dbg_serial());
+      melt_debuggc_eprintf("forwarding %d values call frame @%p from %s:%ld #%ld",
+                           NbVal, (void*) this, dbg_file(), dbg_line(), dbg_serial());
+    else
+      melt_debuggc_eprintf("forwarding %d values call frame @%p #%ld",
+                           NbVal, (void*) this, dbg_serial());
 #endif /*MELT_HAVE_DEBUG*/
     MELT_FORWARDED (mcfr_current);
     for (unsigned ix=0; ix<NbVal; ix++)
       MELT_FORWARDED (mcfr_varptr[ix]);
   };
-  void melt_mark_values (void) {
+  void melt_mark_values (void)
+  {
     if (mcfr_current)
       gt_ggc_mx_melt_un (mcfr_current);
     for (unsigned ix=0; ix<NbVal; ix++)
       if (mcfr_varptr[ix] != NULL)
-	gt_ggc_mx_melt_un (mcfr_varptr[ix]);
+        gt_ggc_mx_melt_un (mcfr_varptr[ix]);
   };
-  virtual void melt_mark_ggc_data (void) { melt_mark_values (); };
+  virtual void melt_mark_ggc_data (void)
+  {
+    melt_mark_values ();
+  };
 #if ENABLE_CHECKING
-  Melt_CallFrameWithValues(const char*fil, int lin, 
-			   size_t sz, meltclosure_ptr_t clos=NULL) 
+  Melt_CallFrameWithValues(const char*fil, int lin,
+                           size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallFrame(fil, lin, sz, clos) {};
-  Melt_CallFrameWithValues(const char*fil, int lin, size_t sz, melthook_ptr_t hook) 
+  Melt_CallFrameWithValues(const char*fil, int lin, size_t sz, melthook_ptr_t hook)
     : Melt_CallFrame(fil, lin, sz, hook) {};
 #endif /*ENABLE_CHECKING*/
-  Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL) 
+  Melt_CallFrameWithValues(size_t sz, meltclosure_ptr_t clos=NULL)
     : Melt_CallFrame(sz,clos) {};
-  Melt_CallFrameWithValues(size_t sz, melthook_ptr_t hook) 
+  Melt_CallFrameWithValues(size_t sz, melthook_ptr_t hook)
     : Melt_CallFrame(sz,hook) {};
   ~Melt_CallFrameWithValues() {};
 };				// end template class Melt_CallFrameWithValues
 
 
-#if ENABLE_CHECKING 
+#if ENABLE_CHECKING
 
 #define MELT_ENTERFRAME_AT(NbVar,Clos,Lin)			\
   /* classy enter frame */					\
@@ -3078,12 +3168,13 @@ public:
 #define MELT_ENTEREMPTYFRAME(CLOS) MELT_ENTERFRAME_AT(0,CLOS,__LINE__)
 #define MELT_EXITFRAME() do {meltfram__.mcfr_flocs = NULL;}while(0)
 
-static inline int 
-melt_curframdepth (void) {
+static inline int
+melt_curframdepth (void)
+{
   int cnt = 0;
   for (Melt_CallProtoFrame* cfr = Melt_CallFrame::top_call_frame();
        cfr != NULL;
-       cfr=cfr->previous_frame()) 
+       cfr=cfr->previous_frame())
     cnt++;
   return cnt;
 }
@@ -3164,7 +3255,8 @@ melt_puts (FILE * f, const char *str)
 
 /* output a number with a prefix & suffix message */
 static inline void
-melt_putnum(FILE* f, const char*pref, long l, const char*suff) {
+melt_putnum(FILE* f, const char*pref, long l, const char*suff)
+{
   if (f)
     fprintf(f, "%s%ld%s", pref?pref:"", l, suff?suff:"");
 }
@@ -3205,9 +3297,9 @@ melt_putstrbuf (FILE * f, melt_ptr_t sb)
     {
       gcc_assert (sbuf->bufzn);
       if (!sbuf->bufzn || sbuf->bufend <= sbuf->bufstart)
-	return;
+        return;
       fwrite (sbuf->bufzn + sbuf->bufstart, sbuf->bufend - sbuf->bufstart, 1,
-	      f);
+              f);
     }
 }
 
@@ -3231,24 +3323,24 @@ void melt_send_command_strbuf_to_probe (melt_ptr_t buf);
 
 /* output the option, declaration and implementation buffers of a
    generated file with a secondary rank*/
-void 
+void
 melt_output_cfile_decl_impl_secondary_option (melt_ptr_t cfilnam,
-					      melt_ptr_t declbuf, 
-					      melt_ptr_t implbuf, 
-					      melt_ptr_t optbuf, 
-					      int filrank);
+    melt_ptr_t declbuf,
+    melt_ptr_t implbuf,
+    melt_ptr_t optbuf,
+    int filrank);
 
-static inline void 
-melt_output_cfile_decl_impl_secondary (melt_ptr_t cfilnam, 
-				       melt_ptr_t declbuf, melt_ptr_t implbuf, int filrank)
+static inline void
+melt_output_cfile_decl_impl_secondary (melt_ptr_t cfilnam,
+                                       melt_ptr_t declbuf, melt_ptr_t implbuf, int filrank)
 {
   melt_output_cfile_decl_impl_secondary_option (cfilnam, declbuf, implbuf, (melt_ptr_t)0, filrank);
 }
 
 /* likewise, for the primary file */
-static inline void 
-melt_output_cfile_decl_impl(melt_ptr_t cfilnam, 
-			    melt_ptr_t declbuf, melt_ptr_t implbuf)
+static inline void
+melt_output_cfile_decl_impl(melt_ptr_t cfilnam,
+                            melt_ptr_t declbuf, melt_ptr_t implbuf)
 {
   melt_output_cfile_decl_impl_secondary_option (cfilnam, declbuf, implbuf, (melt_ptr_t)0, 0);
 }
@@ -3275,7 +3367,7 @@ debugvalue_at (const char *fil, int lin, const char *msg, void *val)
   if (melt_flag_debug)
     {
       fprintf (stderr, "!@%s:%d:\n@! %s @%p/%d= ",
-	       basename (fil), lin, (msg), val, melt_magic_discr ((melt_ptr_t)val));
+               basename (fil), lin, (msg), val, melt_magic_discr ((melt_ptr_t)val));
       melt_dbgeprint (val);
       fflush (stderr);
     }
@@ -3286,11 +3378,12 @@ debugvalue_at (const char *fil, int lin, const char *msg, void *val)
 void meltgc_debugmsgval(void* val, const char*msg, long count);
 
 static inline void
-debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count) {
+debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count)
+{
   if (melt_flag_debug)
     {
       fprintf (stderr, "!@%s:%d:\n",
-	       basename (fil), lin);
+               basename (fil), lin);
       meltgc_debugmsgval(val, msg, count);
     }
 }
@@ -3304,7 +3397,7 @@ debugbacktrace_at (const char *fil, int lin, const char *msg, int depth)
   if (melt_flag_debug)
     {
       fprintf (stderr, "\n!@%s:%d: %s ** BACKTRACE** ",
-	       basename (fil), lin, msg);
+               basename (fil), lin, msg);
       melt_dbgbacktrace (depth);
       fflush (stderr);
     }
@@ -3345,7 +3438,7 @@ void melt_caught_assign_at(void*ptr, const char*fil, int lin, const char*msg);
            ||  (p_##Lin == melt_checkedp_ptr2 && p_##Lin))              \
         melt_caught_assign_at(p_##Lin,Fil,Lin,Msg);  } while(0)
 
-#define melt_checked_assign_internal(Assign) melt_checked_assignmsg_at((Assign),__FILE__,__LINE__,__FUNCTION__) 
+#define melt_checked_assign_internal(Assign) melt_checked_assignmsg_at((Assign),__FILE__,__LINE__,__FUNCTION__)
 #define melt_checked_assignmsg_internal(Assign,Msg) melt_checked_assignmsg_at((Assign),__FILE__,__LINE__,Msg)
 
 #define melt_checked_assign(Assign) melt_checked_assign_internal(Assign)
@@ -3379,11 +3472,11 @@ melt_get_file(melt_ptr_t file_p)
   if (!file_p)
     return NULL;
   magic = melt_magic_discr (file_p);
-  if (magic == MELTOBMAG_SPECIAL_DATA) 
+  if (magic == MELTOBMAG_SPECIAL_DATA)
     {
       unsigned k = melt_special_kind (file_p);
       if (k == meltpydkind_file || k == meltpydkind_rawfile)
-	return ((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1;
+        return ((struct meltspecialdata_st*)file_p)->meltspec_payload.meltpayload_file1;
     }
 
   return NULL;
@@ -3395,16 +3488,16 @@ static inline melt_ptr_t
 melt_get_inisysdata(int off)
 {
   meltobject_ptr_t inisys = (meltobject_ptr_t) MELT_PREDEF(INITIAL_SYSTEM_DATA);
-  if (melt_magic_discr ((melt_ptr_t) inisys) == MELTOBMAG_OBJECT) 
+  if (melt_magic_discr ((melt_ptr_t) inisys) == MELTOBMAG_OBJECT)
     {
       int leninisys = inisys->obj_len;
       gcc_assert(melt_is_instance_of
-		 ((melt_ptr_t) inisys,
-		  (melt_ptr_t) MELT_PREDEF (CLASS_SYSTEM_DATA)));
+                 ((melt_ptr_t) inisys,
+                  (melt_ptr_t) MELT_PREDEF (CLASS_SYSTEM_DATA)));
       if (off>=0 && off<leninisys)
-	return inisys->obj_vartab[off];
+        return inisys->obj_vartab[off];
     }
-  return NULL;  
+  return NULL;
 }
 
 
@@ -3431,7 +3524,7 @@ void meltgc_restore_dump_file (FILE* oldf);
      as arguments, and return a boolean value, with a sub-tree walking
      integer flag and the replacing tree as secondary results.
  ***/
-gimple 
+gimple
 meltgc_walk_gimple_seq (melt_ptr_t data_p, gimple_seq gseq, melt_ptr_t stmtclos_p, melt_ptr_t treeclos_p, bool uniquetreevisit);
 
 #if ENABLE_CHECKING
