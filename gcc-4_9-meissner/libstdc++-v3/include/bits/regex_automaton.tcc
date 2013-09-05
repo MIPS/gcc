@@ -41,24 +41,27 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       switch (_M_opcode)
       {
-        case _S_opcode_alternative:
-          ostr << "alt next=" << _M_next << " alt=" << _M_alt;
-          break;
-        case _S_opcode_subexpr_begin:
-          ostr << "subexpr begin next=" << _M_next << " index=" << _M_subexpr;
-          break;
-        case _S_opcode_subexpr_end:
-          ostr << "subexpr end next=" << _M_next << " index=" << _M_subexpr;
-          break;
-        case _S_opcode_match:
-          ostr << "match next=" << _M_next;
-          break;
-        case _S_opcode_accept:
-          ostr << "accept next=" << _M_next;
-          break;
-        default:
-          ostr << "unknown next=" << _M_next;
-          break;
+	case _S_opcode_alternative:
+	  ostr << "alt next=" << _M_next << " alt=" << _M_alt;
+	  break;
+	case _S_opcode_subexpr_begin:
+	  ostr << "subexpr begin next=" << _M_next << " index=" << _M_subexpr;
+	  break;
+	case _S_opcode_subexpr_end:
+	  ostr << "subexpr end next=" << _M_next << " index=" << _M_subexpr;
+	  break;
+	case _S_opcode_backref:
+	  ostr << "backref next=" << _M_next << " index=" << _M_backref_index;
+	  break;
+	case _S_opcode_match:
+	  ostr << "match next=" << _M_next;
+	  break;
+	case _S_opcode_accept:
+	  ostr << "accept next=" << _M_next;
+	  break;
+	default:
+	  ostr << "unknown next=" << _M_next;
+	  break;
       }
       return ostr;
     }
@@ -70,34 +73,40 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       switch (_M_opcode)
       {
-        case _S_opcode_alternative:
-          __ostr << __id << " [label=\"" << __id << "\\nALT\"];\n"
-                 << __id << " -> " << _M_next
-                 << " [label=\"epsilon\", tailport=\"s\"];\n"
-                 << __id << " -> " << _M_alt
-                 << " [label=\"epsilon\", tailport=\"n\"];\n";
-          break;
-        case _S_opcode_subexpr_begin:
-          __ostr << __id << " [label=\"" << __id << "\\nSBEGIN "
-                 << _M_subexpr << "\"];\n"
-                 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
-          break;
-        case _S_opcode_subexpr_end:
-          __ostr << __id << " [label=\"" << __id << "\\nSEND "
-                 << _M_subexpr << "\"];\n"
-                 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
-          break;
-        case _S_opcode_match:
-          __ostr << __id << " [label=\"" << __id << "\\nMATCH\"];\n"
-                 << __id << " -> " << _M_next << " [label=\"<match>\"];\n";
-          break;
-        case _S_opcode_accept:
-          __ostr << __id << " [label=\"" << __id << "\\nACC\"];\n" ;
-          break;
-        default:
-          __ostr << __id << " [label=\"" << __id << "\\nUNK\"];\n"
-                 << __id << " -> " << _M_next << " [label=\"?\"];\n";
-          break;
+	case _S_opcode_alternative:
+	  __ostr << __id << " [label=\"" << __id << "\\nALT\"];\n"
+		 << __id << " -> " << _M_next
+		 << " [label=\"epsilon\", tailport=\"s\"];\n"
+		 << __id << " -> " << _M_alt
+		 << " [label=\"epsilon\", tailport=\"n\"];\n";
+	  break;
+	case _S_opcode_subexpr_begin:
+	  __ostr << __id << " [label=\"" << __id << "\\nSBEGIN "
+		 << _M_subexpr << "\"];\n"
+		 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
+	  break;
+	case _S_opcode_subexpr_end:
+	  __ostr << __id << " [label=\"" << __id << "\\nSEND "
+		 << _M_subexpr << "\"];\n"
+		 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
+	  break;
+	case _S_opcode_backref:
+	  __ostr << __id << " [label=\"" << __id << "\\nBACKREF "
+		 << _M_subexpr << "\"];\n"
+		 << __id << " -> " << _M_next << " [label=\"<match>\"];\n";
+	  break;
+	case _S_opcode_match:
+	  __ostr << __id << " [label=\"" << __id << "\\nMATCH\"];\n"
+		 << __id << " -> " << _M_next << " [label=\"<match>\"];\n";
+	  break;
+	case _S_opcode_accept:
+	  __ostr << __id << " [label=\"" << __id << "\\nACC\"];\n" ;
+	  break;
+	case _S_opcode_dummy:
+	  break;
+	default:
+	  _GLIBCXX_DEBUG_ASSERT(false);
+	  break;
       }
       return __ostr;
     }
@@ -116,65 +125,82 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 #endif
 
   template<typename _CharT, typename _TraitsT>
-    _StateSeq<_CharT, _TraitsT>& _StateSeq<_CharT, _TraitsT>::
-    operator=(const _StateSeq& __rhs)
+    _StateIdT _NFA<_CharT, _TraitsT>::
+    _M_insert_backref(unsigned int __index)
     {
-      _M_start = __rhs._M_start;
-      _M_end1  = __rhs._M_end1;
-      _M_end2  = __rhs._M_end2;
-      return *this;
+      // To figure out whether a backref is valid, a stack is used to store
+      // unfinished sub-expressions. For example, when parsing
+      // "(a(b)(c\\1(d)))" at '\\1', _M_subexpr_count is 3, indicating that 3
+      // sub expressions are parsed or partially parsed(in the stack), aka,
+      // "(a..", "(b)" and "(c..").
+      // _M_paren_stack is {1, 3}, for incomplete "(a.." and "(c..". At this
+      // time, "\\2" is valid, but "\\1" and "\\3" are not.
+      if (__index >= _M_subexpr_count)
+	__throw_regex_error(regex_constants::error_backref);
+      for (auto __it : _M_paren_stack)
+	if (__index == __it)
+	  __throw_regex_error(regex_constants::error_backref);
+      _M_has_backref = true;
+      this->push_back(_StateT(_S_opcode_backref, __index));
+      return this->size()-1;
     }
 
   template<typename _CharT, typename _TraitsT>
-    void _StateSeq<_CharT, _TraitsT>::
-    _M_push_back(_StateIdT __id)
+    void _NFA<_CharT, _TraitsT>::
+    _M_eliminate_dummy()
     {
-      if (_M_end1 != _S_invalid_state_id)
-        _M_nfa[_M_end1]._M_next = __id;
-      _M_end1 = __id;
+      for (auto& __it : *this)
+	{
+	  while (__it._M_next >= 0 && (*this)[__it._M_next]._M_opcode
+	         == _S_opcode_dummy)
+	    __it._M_next = (*this)[__it._M_next]._M_next;
+	  if (__it._M_opcode == _S_opcode_alternative)
+	    while (__it._M_alt >= 0 && (*this)[__it._M_alt]._M_opcode
+		   == _S_opcode_dummy)
+	      __it._M_alt = (*this)[__it._M_alt]._M_next;
+	}
     }
 
+  // Just apply DFS on the sequence and re-link their links.
   template<typename _CharT, typename _TraitsT>
-    void _StateSeq<_CharT, _TraitsT>::
-    _M_append(_StateIdT __id)
-    {
-      if (_M_end2 != _S_invalid_state_id)
-      {
-        if (_M_end2 == _M_end1)
-          _M_nfa[_M_end2]._M_alt = __id;
-        else
-          _M_nfa[_M_end2]._M_next = __id;
-        _M_end2 = _S_invalid_state_id;
-      }
-      if (_M_end1 != _S_invalid_state_id)
-        _M_nfa[_M_end1]._M_next = __id;
-      _M_end1 = __id;
-    }
-
-  template<typename _CharT, typename _TraitsT>
-    void _StateSeq<_CharT, _TraitsT>::
-    _M_append(_StateSeq& __rhs)
-    {
-      if (_M_end2 != _S_invalid_state_id)
-      {
-        if (_M_end2 == _M_end1)
-          _M_nfa[_M_end2]._M_alt = __rhs._M_start;
-        else
-          _M_nfa[_M_end2]._M_next = __rhs._M_start;
-        _M_end2 = _S_invalid_state_id;
-      }
-      if (__rhs._M_end2 != _S_invalid_state_id)
-        _M_end2 = __rhs._M_end2;
-      if (_M_end1 != _S_invalid_state_id)
-        _M_nfa[_M_end1]._M_next = __rhs._M_start;
-      _M_end1 = __rhs._M_end1;
-    }
-
-  // @todo implement this function.
-  template<typename _CharT, typename _TraitsT>
-    _StateIdT _StateSeq<_CharT, _TraitsT>::
+    _StateSeq<_CharT, _TraitsT> _StateSeq<_CharT, _TraitsT>::
     _M_clone()
-    { return 0; }
+    {
+      std::map<_StateIdT, _StateIdT> __m;
+      std::stack<_StateIdT> __stack;
+      __stack.push(_M_start);
+      while (!__stack.empty())
+	{
+	  auto __u = __stack.top();
+	  __stack.pop();
+	  auto __dup = _M_nfa[__u];
+	  auto __id = _M_nfa._M_insert_state(__dup);
+	  __m[__u] = __id;
+	  if (__u == _M_end)
+	    continue;
+	  if (__m.count(__dup._M_next) == 0)
+	    __stack.push(__dup._M_next);
+	  if (__dup._M_opcode == _S_opcode_alternative)
+	    if (__m.count(__dup._M_alt) == 0)
+	      __stack.push(__dup._M_alt);
+	}
+      for (auto __it : __m)
+	{
+	  auto& __ref = _M_nfa[__it.second];
+	  if (__ref._M_next != -1)
+	    {
+	      _GLIBCXX_DEBUG_ASSERT(__m.count(__ref._M_next));
+	      __ref._M_next = __m[__ref._M_next];
+	    }
+	  if (__ref._M_opcode == _S_opcode_alternative)
+	    if (__ref._M_alt != -1)
+	      {
+		_GLIBCXX_DEBUG_ASSERT(__m.count(__ref._M_alt));
+		__ref._M_alt = __m[__ref._M_alt];
+	      }
+	}
+      return _StateSeq(_M_nfa, __m[_M_start], __m[_M_end]);
+    }
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace __detail

@@ -483,11 +483,24 @@ negate_expr_p (tree t)
 	 and actually traps on some architectures.  But if overflow is
 	 undefined, we can negate, because - (INT_MIN / 1) is an
 	 overflow.  */
-      if (INTEGRAL_TYPE_P (TREE_TYPE (t))
-	  && !TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (t)))
-        break;
-      return negate_expr_p (TREE_OPERAND (t, 1))
-             || negate_expr_p (TREE_OPERAND (t, 0));
+      if (INTEGRAL_TYPE_P (TREE_TYPE (t)))
+	{
+	  if (!TYPE_OVERFLOW_UNDEFINED (TREE_TYPE (t)))
+	    break;
+	  /* If overflow is undefined then we have to be careful because
+	     we ask whether it's ok to associate the negate with the
+	     division which is not ok for example for
+	     -((a - b) / c) where (-(a - b)) / c may invoke undefined
+	     overflow because of negating INT_MIN.  So do not use
+	     negate_expr_p here but open-code the two important cases.  */
+	  if (TREE_CODE (TREE_OPERAND (t, 0)) == NEGATE_EXPR
+	      || (TREE_CODE (TREE_OPERAND (t, 0)) == INTEGER_CST
+		  && may_negate_without_overflow_p (TREE_OPERAND (t, 0))))
+	    return true;
+	}
+      else if (negate_expr_p (TREE_OPERAND (t, 0)))
+	return true;
+      return negate_expr_p (TREE_OPERAND (t, 1));
 
     case NOP_EXPR:
       /* Negate -((double)float) as (double)(-float).  */
@@ -682,16 +695,20 @@ fold_negate_expr (location_t loc, tree t)
 	      return fold_build2_loc (loc, TREE_CODE (t), type,
 				  TREE_OPERAND (t, 0), negate_expr (tem));
 	    }
+	  /* If overflow is undefined then we have to be careful because
+	     we ask whether it's ok to associate the negate with the
+	     division which is not ok for example for
+	     -((a - b) / c) where (-(a - b)) / c may invoke undefined
+	     overflow because of negating INT_MIN.  So do not use
+	     negate_expr_p here but open-code the two important cases.  */
           tem = TREE_OPERAND (t, 0);
-          if (negate_expr_p (tem))
-	    {
-	      if (INTEGRAL_TYPE_P (type)
-		  && (TREE_CODE (tem) != INTEGER_CST
-		      || tree_int_cst_equal (tem, TYPE_MIN_VALUE (type))))
-		fold_overflow_warning (warnmsg, WARN_STRICT_OVERFLOW_MISC);
-	      return fold_build2_loc (loc, TREE_CODE (t), type,
-				  negate_expr (tem), TREE_OPERAND (t, 1));
-	    }
+	  if ((INTEGRAL_TYPE_P (type)
+	       && (TREE_CODE (tem) == NEGATE_EXPR
+		   || (TREE_CODE (tem) == INTEGER_CST
+		       && may_negate_without_overflow_p (tem))))
+	      || !INTEGRAL_TYPE_P (type))
+	    return fold_build2_loc (loc, TREE_CODE (t), type,
+				    negate_expr (tem), TREE_OPERAND (t, 1));
         }
       break;
 
@@ -3740,8 +3757,7 @@ sign_bit_p (tree exp, const_tree val)
       hi = (unsigned HOST_WIDE_INT) 1 << (width - HOST_BITS_PER_WIDE_INT - 1);
       lo = 0;
 
-      mask_hi = ((unsigned HOST_WIDE_INT) -1
-		 >> (HOST_BITS_PER_DOUBLE_INT - width));
+      mask_hi = (HOST_WIDE_INT_M1U >> (HOST_BITS_PER_DOUBLE_INT - width));
       mask_lo = -1;
     }
   else
@@ -3750,8 +3766,7 @@ sign_bit_p (tree exp, const_tree val)
       lo = (unsigned HOST_WIDE_INT) 1 << (width - 1);
 
       mask_hi = 0;
-      mask_lo = ((unsigned HOST_WIDE_INT) -1
-		 >> (HOST_BITS_PER_WIDE_INT - width));
+      mask_lo = (HOST_WIDE_INT_M1U >> (HOST_BITS_PER_WIDE_INT - width));
     }
 
   /* We mask off those bits beyond TREE_TYPE (exp) so that we can
@@ -4325,7 +4340,7 @@ build_range_check (location_t loc, tree type, tree exp, int in_p,
       else
 	{
 	  hi = ((HOST_WIDE_INT) 1 << (prec - HOST_BITS_PER_WIDE_INT - 1)) - 1;
-	  lo = (unsigned HOST_WIDE_INT) -1;
+	  lo = HOST_WIDE_INT_M1U;
 	}
 
       if (TREE_INT_CST_HIGH (high) == hi && TREE_INT_CST_LOW (high) == lo)
@@ -6636,10 +6651,10 @@ fold_single_bit_test (location_t loc, enum tree_code code,
 	 not overflow, adjust BITNUM and INNER.  */
       if (TREE_CODE (inner) == RSHIFT_EXPR
 	  && TREE_CODE (TREE_OPERAND (inner, 1)) == INTEGER_CST
-	  && TREE_INT_CST_HIGH (TREE_OPERAND (inner, 1)) == 0
+	  && host_integerp (TREE_OPERAND (inner, 1), 1)
 	  && bitnum < TYPE_PRECISION (type)
-	  && 0 > compare_tree_int (TREE_OPERAND (inner, 1),
-				   bitnum - TYPE_PRECISION (type)))
+	  && (TREE_INT_CST_LOW (TREE_OPERAND (inner, 1))
+	      < (unsigned) (TYPE_PRECISION (type) - bitnum)))
 	{
 	  bitnum += TREE_INT_CST_LOW (TREE_OPERAND (inner, 1));
 	  inner = TREE_OPERAND (inner, 0);
@@ -8096,7 +8111,7 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
 	      unsigned HOST_WIDE_INT cst;
 
 	      cst = tree_low_cst (and1, 1);
-	      cst &= (HOST_WIDE_INT) -1
+	      cst &= HOST_WIDE_INT_M1U
 		     << (TYPE_PRECISION (TREE_TYPE (and1)) - 1);
 	      change = (cst == 0);
 #ifdef LOAD_EXTEND_OP
@@ -11277,7 +11292,7 @@ fold_binary_loc (location_t loc,
 	       w <<= 1)
 	    {
 	      unsigned HOST_WIDE_INT mask
-		= (unsigned HOST_WIDE_INT) -1 >> (HOST_BITS_PER_WIDE_INT - w);
+		= HOST_WIDE_INT_M1U >> (HOST_BITS_PER_WIDE_INT - w);
 	      if (((c1.low | c2.low) & mask) == mask
 		  && (c1.low & ~mask) == 0 && c1.high == 0)
 		{
@@ -12297,7 +12312,7 @@ fold_binary_loc (location_t loc,
       /* X / -1 is -X.  */
       if (!TYPE_UNSIGNED (type)
 	  && TREE_CODE (arg1) == INTEGER_CST
-	  && TREE_INT_CST_LOW (arg1) == (unsigned HOST_WIDE_INT) -1
+	  && TREE_INT_CST_LOW (arg1) == HOST_WIDE_INT_M1U
 	  && TREE_INT_CST_HIGH (arg1) == -1)
 	return fold_convert_loc (loc, type, negate_expr (arg0));
 
@@ -12380,7 +12395,7 @@ fold_binary_loc (location_t loc,
       /* X % -1 is zero.  */
       if (!TYPE_UNSIGNED (type)
 	  && TREE_CODE (arg1) == INTEGER_CST
-	  && TREE_INT_CST_LOW (arg1) == (unsigned HOST_WIDE_INT) -1
+	  && TREE_INT_CST_LOW (arg1) == HOST_WIDE_INT_M1U
 	  && TREE_INT_CST_HIGH (arg1) == -1)
 	return omit_one_operand_loc (loc, type, integer_zero_node, arg0);
 
@@ -13535,7 +13550,7 @@ fold_binary_loc (location_t loc,
 		else
 		  {
 		    max_lo = signed_max_lo;
-		    min_lo = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
+		    min_lo = (HOST_WIDE_INT_M1U << (width - 1));
 		    min_hi = -1;
 		  }
 	      }
@@ -13556,7 +13571,7 @@ fold_binary_loc (location_t loc,
 		else
 		  {
 		    max_hi = signed_max_hi;
-		    min_hi = ((unsigned HOST_WIDE_INT) -1 << (width - 1));
+		    min_hi = (HOST_WIDE_INT_M1U << (width - 1));
 		  }
 	      }
 
@@ -14175,24 +14190,24 @@ fold_ternary_loc (location_t loc, enum tree_code code, tree type,
 
 	      if (outer_width > HOST_BITS_PER_WIDE_INT)
 		{
-		  mask_hi = ((unsigned HOST_WIDE_INT) -1
+		  mask_hi = (HOST_WIDE_INT_M1U
 			     >> (HOST_BITS_PER_DOUBLE_INT - outer_width));
 		  mask_lo = -1;
 		}
 	      else
 		{
 		  mask_hi = 0;
-		  mask_lo = ((unsigned HOST_WIDE_INT) -1
+		  mask_lo = (HOST_WIDE_INT_M1U
 			     >> (HOST_BITS_PER_WIDE_INT - outer_width));
 		}
 	      if (inner_width > HOST_BITS_PER_WIDE_INT)
 		{
-		  mask_hi &= ~((unsigned HOST_WIDE_INT) -1
+		  mask_hi &= ~(HOST_WIDE_INT_M1U
 			       >> (HOST_BITS_PER_WIDE_INT - inner_width));
 		  mask_lo = 0;
 		}
 	      else
-		mask_lo &= ~((unsigned HOST_WIDE_INT) -1
+		mask_lo &= ~(HOST_WIDE_INT_M1U
 			     >> (HOST_BITS_PER_WIDE_INT - inner_width));
 
 	      if ((TREE_INT_CST_HIGH (arg1) & mask_hi) == mask_hi
