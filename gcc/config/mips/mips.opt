@@ -392,5 +392,9 @@ mxgot
 Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
 
+mper-function-pools
+Target Optimization Var(TARGET_PER_FUNCTION_POOLS) Init(1)
+Use per function constant pools instead of one shared pool
+
 noasmopt
 Driver

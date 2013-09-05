@@ -16274,9 +16274,10 @@ mips16_split_long_branches (void)
 	    JUMP_LABEL (jump) = old_label;
 	    LABEL_NUSES (old_label)++;
 
-	    /* Rewrite any symbolic references that are supposed to use
-	       a PC-relative constant pool.  */
-	    mips16_lay_out_constants (false);
+            if (TARGET_PER_FUNCTION_POOLS)
+	      /* Rewrite any symbolic references that are supposed to use
+	         a PC-relative constant pool.  */
+	      mips16_lay_out_constants (false);
 
 	    if (simplejump_p (insn))
 	      /* We're going to replace INSN with a longer form.  */
@@ -16313,7 +16314,8 @@ mips_reorg (void)
      to date if the CFG is available.  */
   if (mips_cfg_in_reorg ())
     compute_bb_for_insn ();
-  mips16_lay_out_constants (true);
+  if (TARGET_PER_FUNCTION_POOLS)
+    mips16_lay_out_constants (true);
   if (mips_cfg_in_reorg ())
     {
       mips_df_reorg ();
@@ -16496,7 +16498,8 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      "borrowed" from alpha.c.  */
   insn = get_insns ();
   split_all_insns_noflow ();
-  mips16_lay_out_constants (true);
+  if (TARGET_PER_FUNCTION_POOLS)
+    mips16_lay_out_constants (true);
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1);
