@@ -40,6 +40,9 @@ const int melt_is_plugin = 0;
 #endif /* MELT_IS_PLUGIN */
 
 
+#include <string.h>
+#include <string>
+#include <vector>
 
 #include "bversion.h"
 #include "config.h"
@@ -278,7 +281,6 @@ xstrndup (const char *s, size_t n)
    name in use */
 const char* melt_plugin_name;
 
-int melt_nb_modules;
 
 /* The start and end of the birth region. */
 void* melt_startalz=NULL;
@@ -315,7 +317,6 @@ static FILE* melt_trace_module_fil;
 static FILE* melt_trace_source_fil;
 
 
-#define MELT_MODULE_MAGIC  0x5cc065cf  /*1556112847*/
 
 /* The start routine of every MELT module is named
    melt_start_this_module and gets its parent environment and returns
@@ -329,51 +330,148 @@ typedef void melt_forwarding_rout_t (void);
 /* The data marking routine of MELT modules or extensions is for Ggc */
 typedef void melt_marking_rout_t (void);
 
-typedef struct melt_module_info_st {
-  unsigned mmi_magic;   /* always MELT_MODULE_MAGIC */
-  void *mmi_dlh;      /* dlopen handle */
-  char* mmi_modpath;    /* strdup-ed file path passed to
-           dlopen, ending with MELT_DYNLOADED_SUFFIX */
-  char* mmi_descrbase;    /* strdup-ed file base path of the
-           MELT descriptive file, without its
-           +meltdesc.c suffix */
-  melt_start_rout_t *mmi_startrout; /* start routine named melt_start_this_module */
-  melt_forwarding_rout_t *mmi_forwardrout; /* named melt_fowarding_module_data */
-  melt_marking_rout_t *mmi_markingrout; /* named melt_marking_here */
-} melt_module_info_t;
+#define MELT_MODULE_PLAIN_MAGIC 0x12179fe5 /*303538149*/
+#define MELT_MODULE_EXTENSION_MAGIC 0x1dbe6249 /*499016265*/
 
-/* we used to have a melt_modinfvec vector... */
-static struct melt_modulinfovec_st {
-  unsigned modi_size;
-  unsigned modi_count;
-  melt_module_info_t* modi_array;	/* sized modi_size, but filled
-					   only up to modic_count; and
-					   index 0 is never used. */
-} melt_modulinfo;
+class Melt_Plain_Module;
+class Melt_Extension_Module;
+
+class Melt_Module {
+  friend void melt_marking_callback (void*, void*);
+  friend void melt_minor_copying_garbage_collector (size_t);
+  friend void* melt_dlsym_all  (const char*);
+  static std::vector<Melt_Module*> _mm_vect_;
+  static int _mm_count_;
+protected:
+  unsigned _mm_magic;
+  int _mm_index;		// the index in _mm_vect_;
+  void * _mm_dlh;
+  std::string _mm_modpath;	// dlopened module path
+  std::string _mm_descrbase;	// base path of descriptive file without +meltdesc.c suffix
+  melt_forwarding_rout_t *_mm_forwardrout; // forwarding routine for MELT garbage collector
+  melt_marking_rout_t * _mm_markrout;	   // marking routine for Ggc
+  Melt_Module (unsigned magic, const char*modpath, const char* descrbase, void*dlh=NULL);
+  virtual ~Melt_Module ();
+  void *get_dlsym (const char*name) const { return (_mm_dlh && name)?dlsym(_mm_dlh,name):NULL; };
+  static Melt_Module *unsafe_nth_module(int rk) {
+    if (rk<0) rk +=  _mm_vect_.size();
+    return _mm_vect_[rk];
+  };
+  void run_marking(void) { if (_mm_markrout) (*_mm_markrout) (); };
+  void run_forwarding (void) { if (_mm_forwardrout) (*_mm_forwardrout) (); };
+public:
+  bool valid_magic () const 
+  { return  _mm_magic == MELT_MODULE_PLAIN_MAGIC || _mm_magic == MELT_MODULE_EXTENSION_MAGIC; };
+  const char* module_path () const { return _mm_modpath.c_str(); };
+  Melt_Plain_Module* as_plain_module() 
+  { 
+    if (_mm_magic == MELT_MODULE_PLAIN_MAGIC) return reinterpret_cast<Melt_Plain_Module*>(this);
+    return NULL;
+  };
+  Melt_Extension_Module* as_extension_module()
+  { 
+    if (_mm_magic == MELT_MODULE_EXTENSION_MAGIC) return reinterpret_cast<Melt_Extension_Module*>(this);
+    return NULL;
+  };
+  static int nb_modules () {return _mm_vect_.size()-1; };
+  static void initialize();
+  static Melt_Module* nth_module(int rk) { 
+    if (rk<0) rk +=  _mm_vect_.size();
+    if (rk > 0 && rk < _mm_vect_.size()) return _mm_vect_[rk];
+    return NULL;
+  };
+  void set_forwarding_routine (melt_forwarding_rout_t* r) { _mm_forwardrout = r; };
+  void set_marking_routine (melt_marking_rout_t *r) { _mm_markrout = r; };
+  int index () const { return _mm_index; };
+};				// end class Melt_Module
+
+// a plain module 
+class Melt_Plain_Module : public Melt_Module {
+  bool _pm_started;
+  melt_start_rout_t *_pm_startrout;
+  friend melt_ptr_t meltgc_start_module_by_index (melt_ptr_t, int);
+public:
+  Melt_Plain_Module (const char*modpath, const char*descrbase, void*dlh=NULL)
+    : Melt_Module (MELT_MODULE_PLAIN_MAGIC, modpath, descrbase, dlh), 
+      _pm_started(false), _pm_startrout(NULL) {};
+  virtual ~Melt_Plain_Module() { _pm_startrout=NULL; };
+  void set_start_routine (melt_start_rout_t* r) { _pm_startrout = r; };
+  melt_ptr_t start_it (melt_ptr_t p) {
+    if (_pm_startrout) { 
+      _pm_started = true;
+      return (*_pm_startrout) (p);
+    }
+    return NULL;
+  };
+  bool started () const { return _pm_started; };
+};				// end class Melt_Plain_Module
+
+// an extension module
+class Melt_Extension_Module : public Melt_Module {
+  friend melt_ptr_t meltgc_run_cc_extension (melt_ptr_t, melt_ptr_t, melt_ptr_t);
+
+  Melt_Extension_Module (const char*modpath, const char*descrbase, void*dlh=NULL)
+    : Melt_Module (MELT_MODULE_EXTENSION_MAGIC, modpath, descrbase, dlh) {};
+  virtual ~Melt_Extension_Module() {};
+};				// end class Melt_Extension_Module
+
+std::vector<Melt_Module*> Melt_Module::_mm_vect_;
+int  Melt_Module::_mm_count_;
+
+void Melt_Module::initialize ()
+{
+  gcc_assert (_mm_vect_.size () == 0);
+  _mm_vect_.reserve (200);
+  _mm_vect_.push_back(NULL);
+}
+
+Melt_Module::Melt_Module (unsigned magic, const char*modpath, const char* descrbase, void*dlh)
+  : _mm_magic(0), _mm_index(0), _mm_dlh(NULL), _mm_modpath(), _mm_descrbase(),
+    _mm_forwardrout(NULL), _mm_markrout(NULL)
+{
+  int ix = _mm_vect_.size();
+  gcc_assert (ix > 0);
+  gcc_assert (magic ==  MELT_MODULE_PLAIN_MAGIC || magic == MELT_MODULE_EXTENSION_MAGIC);
+  gcc_assert (modpath != NULL && modpath[0] != (char)0);
+  gcc_assert (descrbase != NULL && descrbase[0] != (char)0);
+  if (access(modpath, R_OK)) 
+    melt_fatal_error ("cannot make module of path %s - %s", modpath, xstrerror(errno));
+  _mm_modpath = std::string(modpath);
+  _mm_descrbase = std::string(descrbase);
+  if (!dlh)
+    {
+      dlh = dlopen (_mm_modpath.c_str(),  RTLD_NOW | RTLD_GLOBAL);
+      if (!dlh)
+	melt_fatal_error ("failed to dlopen module %s - %s", _mm_modpath.c_str(), dlerror());
+    }
+  _mm_dlh = dlh;
+  _mm_index = ix;
+  _mm_magic = magic;
+  gcc_assert (_mm_magic ==  MELT_MODULE_PLAIN_MAGIC || _mm_magic == MELT_MODULE_EXTENSION_MAGIC);
+  _mm_vect_.push_back(this);
+  _mm_count_++;
+}
+
+Melt_Module::~Melt_Module() {
+  gcc_assert (_mm_index > 0);
+  gcc_assert (_mm_magic ==  MELT_MODULE_PLAIN_MAGIC || _mm_magic == MELT_MODULE_EXTENSION_MAGIC);
+  gcc_assert (_mm_vect_.at(_mm_index) == this);
+  gcc_assert (!_mm_modpath.empty());
+  _mm_forwardrout = NULL;
+  _mm_markrout = NULL;
+  if (_mm_dlh)
+    {
+      if (dlclose (_mm_dlh)) 
+	melt_fatal_error ("failed to dlcose module #%d %s - %s", 
+			  _mm_index, _mm_modpath.c_str(), dlerror());
+      _mm_dlh = 0;
+    }
+  _mm_vect_[_mm_index] = NULL;
+  _mm_count_--;
+}
 
 
-/* Extensions are dlopen-ed shared objects for direct evaluation */
-#define MELT_EXTENSION_MAGIC 0x44b9cd8d /*0x44b9cd8d*/
-typedef struct melt_extension_info_st {
-  unsigned mmx_magic;   /* always MELT_EXTENSION_MAGIC */
-  unsigned mmx_rank;	/* the rank of this extension */
-  void *mmx_dlh;      /* dlopen handle */
-  char* mmx_extpath;  /* strdup-ed file path passed to dlopen, ending
-			 with MELT_DYNLOADED_SUFFIX */
-  char* mmx_descrbase;		/* strdup-ed file base path of the
-           MELT descriptive file, without its
-           +meltdesc.c suffix */
-  /* no start routine is needed, since it is immediately called */
-  melt_forwarding_rout_t *mmx_forwardrout; /* named melt_fowarding_module_data */
-  melt_marking_rout_t *mmx_markingrout; /* named melt_marking_module_data */
-} melt_extension_info_t;
 
-// we used to have a melt_extinfvec vector
-static struct meltextinfovec_st {
-  unsigned mxi_size;
-  unsigned mxi_count;
-  melt_extension_info_t* mxi_array;
-} melt_extinfo;
 
 
 Melt_CallProtoFrame* melt_top_call_frame =NULL;
@@ -1246,20 +1344,13 @@ melt_marking_callback (void *gcc_data ATTRIBUTE_UNUSED,
   melt_ptr_t *storp = NULL;
   meltmarkingcount++;
   dbgprintf ("start of melt_marking_callback %ld", meltmarkingcount);
-  /* Call the marking of every module and extension */
-  for (ix = 1; ix <= (int) melt_modulinfo.modi_count; ix++) 
+  /* Call the marking of every plain and extension modules */
+  int nbmod = Melt_Module::nb_modules();
+  for (ix = 1; ix <= nbmod; ix++) 
     {
-      melt_module_info_t* mod = melt_modulinfo.modi_array + ix;
-      gcc_assert (mod->mmi_magic == MELT_MODULE_MAGIC);
-      if (mod->mmi_markingrout)
-	(*mod->mmi_markingrout) ();
-    }
-  for (ix = 1; ix <= (int) melt_extinfo.mxi_count; ix++) 
-    {
-      melt_extension_info_t* mex = melt_extinfo.mxi_array + ix;
-      gcc_assert (mex->mmx_magic == MELT_EXTENSION_MAGIC);
-      if (mex->mmx_markingrout)
-	(*mex->mmx_markingrout) ();
+      Melt_Module* cmod = Melt_Module::unsafe_nth_module (ix);
+      gcc_assert (cmod != NULL && cmod->valid_magic());
+      cmod->run_marking ();
     }
   ///////
   for (Melt_CallFrame *mcf = (Melt_CallFrame*)melt_top_call_frame;
@@ -1365,21 +1456,14 @@ melt_minor_copying_garbage_collector (size_t wanted)
       melt_touchedglobalchunk[ix] = false;
     };
 
-  /* Call the forwarding of every module and extension */
-  for (ix = 1; ix <= (int) melt_modulinfo.modi_count; ix++) 
+  /* Call the forwarding of every plain and extension modules */
+  int nbmod = Melt_Module::nb_modules();
+  for (ix = 1; ix <= nbmod; ix++) 
     {
-      melt_module_info_t* mod = melt_modulinfo.modi_array + ix;
-      gcc_assert (mod->mmi_magic == MELT_MODULE_MAGIC);
-      if (mod->mmi_forwardrout)
-	(*mod->mmi_forwardrout) ();
-    }
-  for (ix = 1; ix <= (int) melt_extinfo.mxi_count; ix++) 
-    {
-      melt_extension_info_t* mex = melt_extinfo.mxi_array + ix;
-      gcc_assert (mex->mmx_magic == MELT_EXTENSION_MAGIC);
-      if (mex->mmx_forwardrout)
-	(*mex->mmx_forwardrout) ();
-    }
+      Melt_Module* cmod = Melt_Module::unsafe_nth_module (ix);
+      gcc_assert (cmod != NULL && cmod->valid_magic());
+      cmod->run_forwarding();
+    };
 
   /* Forward the MELT frames */
   melt_debuggc_eprintf ("melt_minor_copying_garbage_collector all classy frames top @%p", 
@@ -6087,30 +6171,14 @@ void *
 melt_dlsym_all (const char *nam)
 {
   int ix = 0;
-  gcc_assert (melt_modulinfo.modi_size > melt_modulinfo.modi_count);
-  /* Index 0 is unused in melt_modulinfo!  */
-  for (ix = 1; ix <= (int)melt_modulinfo.modi_count; ix++) {
-    void *p = NULL;
-    melt_module_info_t* mi = melt_modulinfo.modi_array + ix;
-    gcc_assert (mi->mmi_magic == MELT_MODULE_MAGIC);
-    p = (void *) dlsym ((void *) mi->mmi_dlh, nam);
+  int nbmod = Melt_Module::nb_modules();
+  for (ix = 1; ix <= nbmod; ix++) {
+    void* p = NULL;
+    Melt_Module* cmod = Melt_Module::unsafe_nth_module (ix);
+    gcc_assert (cmod != NULL && cmod->valid_magic());
+    p = cmod->get_dlsym(nam);
     if (p)
       return p;
-  };
-  /* Index 0 is unused in melt_extinfo! */
-  gcc_assert (melt_extinfo.mxi_size > melt_extinfo.mxi_count);
-  {
-    for (ix = 1; 
-	 ix <= (int)melt_extinfo.mxi_count; 
-	 ix++) 
-      {
-	void *p = NULL;
-	melt_extension_info_t* mx = melt_extinfo.mxi_array + ix;
-	gcc_assert (mx->mmx_magic == MELT_MODULE_MAGIC);
-	p = (void *) dlsym ((void *) mx->mmx_dlh, nam);
-	if (p)
-	  return p;
-      };
   };
   return (void *) dlsym (proghandle, nam);
 }
@@ -8870,22 +8938,9 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   if (!dlh)
     melt_fatal_error ("Failed to dlopen MELT module %s - %s", sopath, dlerror ());
 
-  /* grow the melt_modulinfo if needed */
-  if (MELT_UNLIKELY (melt_modulinfo.modi_count + 2 >= melt_modulinfo.modi_size))
-    {
-      unsigned oldcnt = melt_modulinfo.modi_count;
-      unsigned newsiz = (oldcnt + oldcnt / 4 + 30)|0xf;
-      melt_module_info_t* oldarr = melt_modulinfo.modi_array;
-      melt_module_info_t* newarr = ( melt_module_info_t*)xcalloc (newsiz, sizeof(melt_module_info_t));
-      memcpy (newarr, oldarr, oldcnt*sizeof(melt_module_info_t));
-      melt_modulinfo.modi_size = newsiz;
-      melt_modulinfo.modi_array = newarr;
-      free (oldarr), oldarr = NULL;
-    }
-
   if (melt_trace_module_fil)
     fprintf (melt_trace_module_fil,
-	     "dlopened %s #%d\n", sopath, melt_modulinfo.modi_count+1);
+	     "dlopened %s #%d\n", sopath, Melt_Module::nb_modules());
   validh = TRUE;
 
   /* Retrieve our dynamic symbols. */
@@ -9050,32 +9105,19 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   debugeprintf ("melt_load_module_index sopath %s validh %d dlh %p",
                 sopath, (int)validh, dlh);
   if (validh) {
-    melt_module_info_t minf = { 0, NULL, NULL, NULL, NULL };
-    ix = (int) melt_modulinfo.modi_count + 1;
-    gcc_assert (ix > 0);
-    gcc_assert (ix + 2 < (int)melt_modulinfo.modi_size);
-    if (ix > 40 && melt_flag_bootstrapping)
-      melt_fatal_error ("too big module index %d when bootstrapping", ix);
-    minf.mmi_dlh = dlh;
-    minf.mmi_descrbase = xstrdup (srcbase);
-    minf.mmi_modpath = xstrdup (sopath);
-    minf.mmi_startrout = MELTDESCR_REQUIRED (melt_start_this_module);
-    minf.mmi_forwardrout = MELTDESCR_OPTIONAL (melt_forwarding_module_data);
-    minf.mmi_markingrout = MELTDESCR_OPTIONAL (melt_marking_module_data);
-    minf.mmi_magic = MELT_MODULE_MAGIC;
-    debugeprintf ("melt_load_module_index ix=%d startrout=%p, forwardrout=%p markingrout=%p", 
-		  ix,  (void*) minf.mmi_startrout, 
-		  (void*) minf.mmi_forwardrout, (void*) minf.mmi_markingrout);
-    melt_modulinfo.modi_array[ix] = minf;
-    melt_modulinfo.modi_count = ix;
-
+    Melt_Plain_Module* pmod = new Melt_Plain_Module(sopath, srcbase, dlh);
+    gcc_assert (pmod->valid_magic());
+    pmod->set_forwarding_routine (MELTDESCR_OPTIONAL (melt_forwarding_module_data));
+    pmod->set_marking_routine (MELTDESCR_OPTIONAL (melt_marking_module_data));
+    pmod->set_start_routine (MELTDESCR_REQUIRED (melt_start_this_module));
+    ix = pmod->index ();
     debugeprintf ("melt_load_module_index successful ix %d srcbase %s sopath %s flavor %s",
                   ix, srcbase, sopath, flavor);
     if (!quiet_flag || melt_flag_debug) {
       if (MELTDESCR_OPTIONAL(melt_modulerealpath))
         inform (UNKNOWN_LOCATION,
                 "MELT loading module #%d for %s [realpath %s] with %s generated at %s built %s",
-                ix, minf.mmi_descrbase, MELTDESCR_OPTIONAL(melt_modulerealpath), sopath,
+                ix, srcbase, MELTDESCR_OPTIONAL(melt_modulerealpath), sopath,
                 MELTDESCR_REQUIRED(melt_gen_timestamp),
                 MELTDESCR_REQUIRED(melt_build_timestamp));
     }
@@ -9271,21 +9313,6 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
 		      sopath, dlerror ());
   MELT_LOCATION_HERE ("meltgc_run_cc_extension after dlopen");
 
-  /* grow the melt_extinfo array if needed */
-  if (MELT_UNLIKELY(melt_extinfo.mxi_count + 2 >= melt_extinfo.mxi_size))
-    {
-      unsigned oldcnt = melt_extinfo.mxi_count;
-      unsigned newsiz = (oldcnt + oldcnt/4 + 20)|0xf;
-      melt_extension_info_t* oldarr
-	= melt_extinfo.mxi_array;
-      melt_extension_info_t* newarr
-	= (melt_extension_info_t*) xcalloc (newsiz, 
-					    sizeof(melt_extension_info_t));
-      memcpy (oldarr, newarr, oldcnt*sizeof(melt_extension_info_t));
-      free (oldarr), oldarr = NULL;
-      melt_extinfo.mxi_size = newsiz;
-      melt_extinfo.mxi_array = newarr;
-    }
 
   /* load the required and optional symbols */
 #define MELTRUNDESCR_REQUIRED_SYMBOL(Sym,Typ) do   {	\
@@ -9308,7 +9335,6 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
     melt_fatal_error ("invalid primary md5sum in runtime extension %s - got %s expecting %s",
     sopath, dynr_melt_primaryhexmd5, descmd5hex);
   {
-    melt_extension_info_t mext = { 0, 0, NULL, NULL, NULL };
     int ix = 0;
     /* check the melt_versionstr of the extension */
     if (dyno_melt_versionstr) 
@@ -9318,19 +9344,16 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
 	  melt_fatal_error ("runtime extension %s for MELT version %s but this MELT expects %s",
 			    basenamebuf, dyno_melt_versionstr, melt_version_str());
       }
-    ix = melt_extinfo.mxi_count+1;
-    gcc_assert (ix > 0);
-    mext.mmx_dlh = dlh;
-    mext.mmx_descrbase = xstrdup (basenamebuf);
-    mext.mmx_extpath = xstrdup (sopath);
-    mext.mmx_rank = ix;
-    mext.mmx_forwardrout = MELTDESCR_OPTIONAL (melt_forwarding_module_data);
-    mext.mmx_markingrout = MELTDESCR_OPTIONAL (melt_marking_module_data);
-    mext.mmx_magic = MELT_EXTENSION_MAGIC;
-    melt_extinfo.mxi_array[ix] = mext;
-    melt_extinfo.mxi_count = ix;
-    debugeprintf ("meltgc_run_cc_extension %s has index %d forwardrout=%p markingrout=%p", 
-		  basenamebuf, ix, (void*) mext.mmx_forwardrout, (void*) mext.mmx_markingrout);
+    { 
+      Melt_Extension_Module* xmod = new Melt_Extension_Module(sopath, basenamebuf, dlh);
+      gcc_assert (xmod->valid_magic());
+      ix = xmod->index ();
+      gcc_assert (ix>0);
+      xmod->set_forwarding_routine (MELTDESCR_OPTIONAL (melt_forwarding_module_data));
+      xmod->set_marking_routine (MELTDESCR_OPTIONAL (melt_marking_module_data));
+      debugeprintf ("meltgc_run_cc_extension %s has index %d", 
+		    basenamebuf, ix);
+    }
   }
   envrefv = meltgc_new_reference ((melt_ptr_t) environv);
   debugeprintf ("meltgc_run_cc_extension envrefv@%p", (void*)envrefv);
@@ -9372,7 +9395,6 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
 melt_ptr_t
 meltgc_start_module_by_index (melt_ptr_t env_p, int modix)
 {
-  melt_module_info_t* mi = NULL;
 #if MELT_HAVE_DEBUG
   char locbuf[200];
 #endif
@@ -9380,29 +9402,32 @@ meltgc_start_module_by_index (melt_ptr_t env_p, int modix)
 #define resmodv   meltfram__.mcfr_varptr[0]
 #define env       meltfram__.mcfr_varptr[1]
   env = env_p;
-  if (modix <= 0 || modix > (int) melt_modulinfo.modi_count)  {
-    debugeprintf ("meltgc_start_module_by_index bad index modix %d", modix);
+  Melt_Module* cmod = Melt_Module::nth_module (modix);
+  if (!cmod) {
+    warning (0, "invalid MELT module index #%d to start", modix);
+    goto end;
+  };
+  gcc_assert (cmod->valid_magic ());
+  {
+  Melt_Plain_Module* plmod = cmod->as_plain_module();
+  if (!plmod)  {
+    warning (0, "MELT module %s index #%d is not plain, so cannot be started", 
+	     cmod->module_path (), modix);
     goto end;
   }
-  gcc_assert (melt_modulinfo.modi_array != NULL);
-  mi = melt_modulinfo.modi_array + modix;
-  gcc_assert (mi->mmi_magic == MELT_MODULE_MAGIC);
-  debugeprintf ("meltgc_start_module_by_index  modix %d module %s",
-                modix, mi->mmi_descrbase);
-  if (mi->mmi_startrout) {
-    MELT_LOCATION_HERE_PRINTF
-    (locbuf, "meltgc_start_module_by_index before starting #%d %s",
-     modix, mi->mmi_descrbase);
-    resmodv = mi->mmi_startrout ((melt_ptr_t) env);
-    mi->mmi_startrout = NULL;
-    MELT_LOCATION_HERE_PRINTF
+  MELT_LOCATION_HERE_PRINTF (locbuf, 
+			     "meltgc_start_module_by_index before starting #%d %s",
+			     modix, plmod->module_path());
+  resmodv = plmod->start_it(env);
+  if (!resmodv)
+    {
+      warning (0, "MELT module %s index #%d was not started",  plmod->module_path(),  modix);
+    }
+  MELT_LOCATION_HERE_PRINTF
     (locbuf,
      "meltgc_start_module_by_index after starting #%d", modix);
-    melt_nb_modules ++;
-  } else
-    warning (0,
-             "MELT module #%d %s already started", modix, mi->mmi_descrbase);
-end:
+  }
+ end:
   MELT_EXITFRAME ();
   return (melt_ptr_t) resmodv;
 #undef resmodv
@@ -9412,29 +9437,32 @@ end:
 melt_ptr_t
 meltgc_start_all_new_modules (melt_ptr_t env_p)
 {
-  int modix;
   char locbuf[200];
   MELT_ENTERFRAME(1, NULL);
 #define env       meltfram__.mcfr_varptr[0]
   env = env_p;
-  gcc_assert (melt_modulinfo.modi_array != NULL);
   debugeprintf ("meltgc_start_all_new_modules env %p", env);
-  for (modix = 1;
-       modix <= (int) melt_modulinfo.modi_count;
-       modix++) {
-    melt_module_info_t* mi = melt_modulinfo.modi_array + modix;
-    gcc_assert (mi->mmi_magic == MELT_MODULE_MAGIC);
-    if (!mi->mmi_startrout)
-      continue;
-    MELT_LOCATION_HERE_PRINTF
-    (locbuf, "meltgc_start_all_new_modules before starting #%d module %s",
-     modix, mi->mmi_modpath);
-    debugeprintf ("meltgc_start_all_new_modules env %p before starting modix %d", env, modix);
-    env = meltgc_start_module_by_index ((melt_ptr_t) env, modix);
-    if (!env)
-      melt_fatal_error ("MELT failed to start module #%d %s",
-                        modix, mi->mmi_modpath);
-  }
+  for (int modix = 1; 
+       modix <= Melt_Module::nb_modules(); 
+       modix++)
+    {
+      Melt_Module* cmod = Melt_Module::nth_module(modix);
+      if (!cmod) 
+	continue;
+      gcc_assert (cmod->valid_magic());
+      Melt_Plain_Module* plmod = cmod->as_plain_module();
+      if (!plmod) 
+	continue;
+      if (plmod->started()) continue;
+      MELT_LOCATION_HERE_PRINTF
+	(locbuf, "meltgc_start_all_new_modules before starting #%d module %s",
+	 modix, plmod->module_path());
+      debugeprintf ("meltgc_start_all_new_modules env %p before starting modix %d", env, modix);
+      env = meltgc_start_module_by_index ((melt_ptr_t) env, modix);
+      if (!env)
+	melt_fatal_error ("MELT failed to start module #%d %s",
+			  modix, plmod->module_path());
+    }
   MELT_EXITFRAME ();
   return (melt_ptr_t) env;
 #undef env
@@ -10068,14 +10096,11 @@ meltgc_load_modules_and_do_mode (void)
     (locbuf, "meltgc_load_modules_and_do_mode before loading curmod %s",
      curmod);
     if (!strcmp(curmod, "@@")) {
-      int lastixmodule = (int) melt_modulinfo.modi_count;
-      gcc_assert (lastixmodule < (int) melt_modulinfo.modi_size);
       /* the @@ notation means the initial module list; it should
          always be first. */
-      if (melt_nb_modules > 0
-          || lastixmodule > 1)
-        melt_fatal_error ("MELT default module list should be loaded at first (melt_nb_modules=%d, lastixmodule=%d)!",
-                          melt_nb_modules, lastixmodule);
+      if (Melt_Module::nb_modules() >0)
+        melt_fatal_error ("MELT default module list should be loaded at first (%d modules already loaded)!",
+                          Melt_Module::nb_modules());
       debugeprintf ("meltgc_load_modules_and_do_mode loading default module list %s",
                     melt_default_modlis);
       meltgc_load_module_list (0, melt_default_modlis);
@@ -10303,6 +10328,7 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
 	  versionstr);
 #endif 
 
+  Melt_Module::initialize ();
   melt_payload_initialize_static_descriptors ();
 
 #ifdef MELT_IS_PLUGIN
@@ -10625,22 +10651,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
     else if (melt_minorsizekilow > 32768) 
       melt_minorsizekilow = 32768;
   }
-  /* allocate melt_modulinfo */
-  {
-    unsigned sz = 32;
-    melt_modulinfo.modi_array
-      = (melt_module_info_t*) xcalloc (sz, sizeof(melt_module_info_t));
-    melt_modulinfo.modi_size = sz;
-    melt_modulinfo.modi_count = 0;
-  }
-  /* allocate melt_extinfo */
-  {
-    unsigned sz = 64;
-    melt_extinfo.mxi_array
-      = (melt_extension_info_t*) xcalloc (sz, sizeof(melt_extension_info_t));
-    melt_extinfo.mxi_size = sz;
-    melt_extinfo.mxi_count = 0;
-  }
   /* The program handle dlopen is not traced! */
   proghandle = dlopen (NULL, RTLD_NOW | RTLD_GLOBAL);
   if (!proghandle)
@@ -10723,10 +10733,10 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   if (!quiet_flag) {
 #if MELT_IS_PLUGIN
     fprintf (stderr, "MELT plugin {%s} initialized for mode %s [%d modules]\n",
-             versionstr, modstr, melt_nb_modules);
+             versionstr, modstr, Melt_Module::nb_modules());
 #else
     fprintf (stderr, "GCC-MELT {%s} initialized for mode %s [%d modules]\n",
-             versionstr, modstr, melt_nb_modules);
+             versionstr, modstr, Melt_Module::nb_modules());
 #endif /*MELT_IS_PLUGIN*/
     fflush (stderr);
   }
@@ -10846,7 +10856,7 @@ melt_do_finalize (void)
       fclose (melt_trace_source_fil);
       melt_trace_source_fil = NULL;
     }
-  dbgprintf ("melt_do_finalize ended melt_nb_modules=%d", melt_nb_modules);
+  dbgprintf ("melt_do_finalize ended with #%d modules", Melt_Module::nb_modules());
   if (!quiet_flag)
     { /* when not quiet, the GGC collector displays data, so we show
 	 our various GC reasons count */
@@ -12418,14 +12428,13 @@ melt_fatal_info (const char*filename, int lineno)
   melt_dbgshortbacktrace ("MELT fatal failure", 100);
 #endif
   /* Index 0 is unused in melt_modulinfo. */
-  gcc_assert (melt_modulinfo.modi_count < melt_modulinfo.modi_size);
-  gcc_assert (melt_modulinfo.modi_size > 0 && melt_modulinfo.modi_array != NULL);
-  for (ix = 1; ix <= (int) melt_modulinfo.modi_count; ix++) {
-      char*curmodpath = NULL;
-      melt_module_info_t* mi = melt_modulinfo.modi_array + ix;
-      if (!mi->mmi_dlh || !(curmodpath = mi->mmi_modpath)
-          || mi->mmi_magic != MELT_MODULE_MAGIC)
+  for (ix = 1; ix <= Melt_Module::nb_modules(); ix++) {
+    Melt_Module* cmod = Melt_Module::nth_module(ix);
+      const char*curmodpath = NULL;
+      if (!cmod)
         continue;
+      gcc_assert (cmod->valid_magic());
+      curmodpath = cmod->module_path();
       if (workdirlen>0 && !strncmp (workdir, curmodpath, workdirlen))
         inform (UNKNOWN_LOCATION,
 		"MELT failure with loaded work module #%d: %s",

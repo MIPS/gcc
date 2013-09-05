@@ -1,6 +1,25 @@
 
 2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{C++ifying the MELT runtime}}
+	* melt-runtime.h (melt_nb_modules): Remove.
+
+	* melt-runtime.cc: Include <string.h>, <string>, <vector> headers.
+	(MELT_MODULE_MAGIC, MELT_EXTENSION_MAGIC): Remove #define.
+	(struct melt_module_info_st, struct melt_modulinfovec_st, struct
+	melt_extension_info_st, struct meltextinfovec_st)
+	(melt_modulinfo, melt_extinfo): Remove.
+	(Melt_Module, Melt_Plain_Module, Melt_Extension_Module): New
+	classes.
+	(Melt_Module::Melt_Module, Melt_Module::initialize): New.
+	(melt_marking_callback, melt_minor_copying_garbage_collector)
+	(melt_dlsym_all, melt_load_module_index, meltgc_run_cc_extension)
+	(meltgc_start_module_by_index, meltgc_start_all_new_modules)
+	(meltgc_load_modules_and_do_mode, melt_really_initialize)
+	(melt_fatal_info): Adapt to use Melt_Module.
+
+2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
 	* melt/generated/warmelt-debug+melttime.h: Regenerate.

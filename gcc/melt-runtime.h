@@ -122,7 +122,6 @@ MELT_EXTERN int melt_count_runtime_extensions;
 /* return a read only version string */
 extern const char* melt_version_str(void);
 
-extern int melt_nb_modules;
 
 /* Built-in defaults */
 extern const char melt_source_dir[];
