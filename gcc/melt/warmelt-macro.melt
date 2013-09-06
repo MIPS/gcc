@@ -1442,13 +1442,14 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	      ( (is_closure v)
 		(v cont))
 	      (:else
-	       (error_plain vloc "unexpected value for MELT_MAKE_SEXPR")
-	       (inform_strv vloc "discriminant of bad value for MELT_MAKE_SEXPR is" (get_field :named_name (discrim v)))
+	       (error_at vloc "unexpected value for MELT_MAKE_SEXPR of discriminant $1 at index $2"_ 
+			 (get_field :named_name (discrim v)) (variadic_index))
 	       (return ())
 	       )))
       (:else
        (debug "melt_make_sexpr variadic_ctype:" (variadic_ctype 0) " at variadic_index:" (variadic_index))
-       (error_strv vloc "unexpected stuff for MELT_MAKE_SEXPR" (get_field :named_name (variadic_ctype 0)))
+       (error_at vloc "unexpected thing of ctype $1 at index $2 for MELT_MAKE_SEXPR"_ 
+		 (get_field :named_name (variadic_ctype 0)) (variadic_index))
        (return ())
        )))
     (debug "melt_make_sexpr returns sexpr=" sexpr)
@@ -1660,7 +1661,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	 (spair (pair_tail (list_first scont)))
 	 )
     (if (not (is_pair spair))
-	(error_plain sloc "missing receiver expression in message passing"_))
+	(error_at sloc "missing receiver expression in message passing"_))
     (let ( (xrecv (pair_head spair))
 	   (argtup (expand_pairlist_as_tuple (pair_tail spair) env mexpander modctx)) 
 	   (res (instance class_source_msend
@@ -1715,7 +1716,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
       (debug "expand_fieldexpr scontup" scontup)
       (if (!=i (list_length scont) 2)
 	  (progn
-	    (error_plain sloc "expecting one argument in (:field <subexpr>)")
+	    (error_at sloc "expecting one argument in (:field <subexpr>)")
 	    (return)))
       (assert_msg "check operexp" (is_a operexp class_keyword) operexp)
       (assert_msg "same operexp as field"
@@ -1767,7 +1768,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	  (setq spair (pair_tail spair))
 	  )
       (progn
-	(error_strv sloc "missing startargs expression in citeration"_
+	(error_at sloc "missing startargs expression in citeration $1"_
 		    (unsafe_get_field :named_name citer))
 	(return)
 	))
@@ -1778,7 +1779,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	  (setq varformals (lambda_arg_bindings varexp ()))
 	  )
       (progn
-	(error_strv sloc "missing varformals in citeration"_
+	(error_at sloc "missing varformals in citeration $1"_
 		    (unsafe_get_field :named_name citer))
 	(return)
 	))
@@ -1817,25 +1818,25 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	 (cmatin (get_field :amatch_in cmat))
 	 (cmatout (get_field :amatch_out cmat))
 	 (cmatexp (get_field :cmatch_expoper cmat))
+	 (cmatname (get_field :named_name cmat))
+	 (:long nbxargs (multiple_length xargtup))
+	 (:long nbouts (multiple_length cmatout))
 	 )
     (debug "expand_cmatchexpr xargtup=" xargtup "\n cmatin=" cmatin
 	   "\n cmatout=" cmatout
 	   "\n cmat=" cmat)
-    (if (!=i (multiple_length xargtup)
-	     (multiple_length cmatout))
-	(progn
+    (when (!=i nbxargs nbouts)
 	  (debug "expand_cmatchexpr bad xargtup=" xargtup
 		 "\n bad cmatin=" cmatin
 		 "\n bad cmatout=" cmatout)
-	  (error_strv sloc
-			"bad argument number for cmatcher expression"_
-			(get_field :named_name cmat))))
-    (if (null cmatexp)
-	(progn
-	  (error_strv sloc
-		      "cmatcher used without operation expansion"_
-		      (unsafe_get_field :named_name cmat))
-	  (return)))
+	  (error_at sloc
+			"bad argument number $1 for cmatcher $2 expression wanting $3 outputs"_
+			nbxargs cmatname nbouts))
+    (when (null cmatexp)
+      (error_at sloc
+		      "cmatcher $1 used without operation expansion"_
+		      cmatname)
+	  (return))
     ;; should build a class_source_cmatchexpr
     (let ( (res
 	    (instance class_source_cmatchexpr
@@ -1892,7 +1893,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	 (sloc (unsafe_get_field :loca_location sexpr))
 	 (tupcont (list_to_multiple scont discr_multiple))
 	 )
-    (error_plain sloc "expand_keywordfun not implemented"_)
+    (error_at sloc "expand_keywordfun not implemented"_)
     (assert_msg "@@@  expand_keywordfun NOT IMPLEMENTED" () soper sexpr)
     )
   )
@@ -1932,7 +1933,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		     (let ( (mexp (unsafe_get_field :mbind_expanser opbind)) 
 			    )
 		       (when (null mexp)
-			 (error_strv sloc "macro cannot be expanded since not yet defined" opname)
+			 (error_at sloc "macro $1 cannot be expanded since not yet defined"_ opname)
 			 (return () ()))
 		       (debug "macroexpand_1 mexp=" mexp)
 		       (assert_msg "check mexp" (is_closure mexp) mexp)
@@ -2033,7 +2034,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 			    (debug "macroexpand_1 result for field resf" resf)
 			    (return resf ())))
 			(:else
-			 (error_strv sloc "macroexpand_1 bad valued operation symbol"_
+			 (error_at sloc "macroexpand_1 bad valued operation symbol $1"_
 				     (unsafe_get_field :named_name soper))
 			 (inform_strv sloc "macroexpand_1 bad symbol value discr"
 				      (unsafe_get_field :named_name (discrim val)))
@@ -2161,6 +2162,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	 (mouts (unsafe_get_field :amatch_out matcher))
 	 (mexpander (unsafe_get_field :pctx_mexpander pctx))
 	 (modctx (get_field :pctx_modctx pctx))
+	 (matname (get_field :named_name matcher))
 	 (:long nbmins (multiple_length mins))
 	 (:long nbouts (multiple_length mouts))
 	 (paircont (instance class_reference :referenced_value pairs))
@@ -2173,8 +2175,8 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			  (let ( (curin (pair_head curpair)) )
 			    (put_fields paircont :referenced_value (pair_tail curpair))
 			    (mexpander curin env mexpander modctx))
-			(error_strv psloc "missing in argument for matcher"
-				    (get_field :named_name matcher))
+			(error_at psloc "missing input argument #$1 for matcher $2"
+				    inix matname)
 			)))))
 	 (outpats (multiple_map
 		   mouts 
@@ -2184,16 +2186,15 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			   (let ( (curout (pair_head curpair)) )
 			     (put_fields paircont :referenced_value (pair_tail curpair))
 			     (patternexpand_1 curout env pctx psloc))
-			 (error_strv psloc "missing out argument for matcher"
-				     (get_field :named_name matcher))
+			 (error_at psloc "missing output argument #$1 for matcher $2"
+				     outix matname)
 			 )))))
 	 )
     (let ( (curpair (get_field :referenced_value paircont)) )
-      (if (is_pair curpair)
-	  (progn
+      (when (is_pair curpair)
 	    (debug "extra stuff in patmacexpand_for_matcher" curpair)
-	    (error_strv psloc "ignored extra sub-{pattern | expression} in matcher"
-			(get_field :named_name matcher)))))
+	    (error_at psloc "ignored extra sub-{pattern | expression} in matcher"
+			matname)))
     (return inargs outpats)
     ))
 
@@ -2240,18 +2241,17 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	 (sloc (unsafe_get_field :loca_location sexpr))
 	 (curpair (list_first scont))
 	 (soper (pair_head curpair)) )
-    (if (is_not_a soper class_symbol)
-	(progn
+    (when (is_not_a soper class_symbol)
 	  (debug "patternexpand_expr bad soper" soper)
-	  (error_plain sloc "pattern expression requires symbol operator")
-	  (return)))
+	  (error_at sloc "pattern expression requires symbol operator")
+	  (return))
     (let ( (opbind (find_env env soper))
 	   (opnam (unsafe_get_field :named_name soper))
 	   )
       (debug "patternexpand_expr opbind" opbind)
       (cond 
        ( (null opbind)
-	 (error_strv sloc "unbound pattern operator" opnam)
+	 (error_at sloc "unbound pattern operator $1" opnam)
 	 )
        ( (is_a opbind class_patmacro_binding)
 	 (let ( (patexp (unsafe_get_field :patbind_expanser opbind)) )
@@ -2342,7 +2342,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		  (debug "patternexpand_expr imported cmatcher pats again" pats)
 		  (debug "patternexpand_expr aouts" aouts)
 		  (if (!=i (multiple_length pats) (multiple_length aouts))
-		      (warning_strv sloc "incompatible number of formal and actual subpatterns of cmatcher"
+		      (warning_at sloc "incompatible number of formal and actual subpatterns of cmatcher $1"
 				    (get_field :named_name opval)))
 		  (debug "patternexpand_expr cmatcher value pcomp" pcomp)
 		  (return pcomp)
@@ -2372,11 +2372,11 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		  ))
 	       ))
 	    (:else
-	     (error_strv sloc "invalid pattern operator value" opnam)
+	     (error_at sloc "invalid pattern operator $1 value" opnam)
 	     (return)))))
        (:else
-	(error_strv sloc
-		    "pattern operator badly bound - patternmacro expected"
+	(error_at sloc
+		    "pattern operator $1 badly bound - patternmacro expected"
 		    opnam)
 	)
        )
@@ -2412,7 +2412,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	 ;; question expr
 	 (let ( (parg1 (pair_head (setq curpair (pair_tail curpair)))) )
 	   (if (pair_tail curpair)
-	       (error_plain sloc "QUESTION should have one argument"))
+	       (error_at sloc "QUESTION should have one argument"))
 	   (cond
 	    ((== parg1 '_)		;  ?_ is a joker
 	     (let ( (jokp (instance class_source_pattern_joker_variable
@@ -2454,7 +2454,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	       (return patex))
 	     )
 	    (:else
-	     (error_plain sloc "unexpected pattern QUESTION - neither symbol nor pattern expr")))
+	     (error_at sloc "unexpected pattern QUESTION - neither symbol nor pattern expr")))
 	   )
 	 ))
      )
@@ -2572,14 +2572,13 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	       (cond
 		( (== curarg :rest)
 		  (setq curpair (pair_tail curpair))
-		  (if curpair
-		      (progn
-			(error_plain argloc ":REST should be last in variadic formals")
-			(return)))
+		  (when curpair
+			(error_at argloc ":REST should be last in variadic formals")
+			(return))
 		  (setq tupdis discr_variadic_formal_sequence)
 		  )
 		( (== curarg :auto)
-		  (error_plain argloc ":AUTO is not permitted in formal arguments")
+		  (error_at argloc ":AUTO is not permitted in formal arguments")
 		  (setq curpair (pair_tail curpair))
 		  )
 		( (is_a curarg class_keyword)
@@ -2588,7 +2587,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 			 )
 		    (cond 
 		     ( (is_not_a cty class_ctype)
-		       (error_strv argloc "non-ctype keyword in formal arglist"_
+		       (error_at argloc "non-ctype keyword $1 in formal arglist"_
 				   curargname))
 		     ( (== (unsafe_get_field :ctype_keyword cty) curarg)
 		       (setq argtype cty))
@@ -2599,7 +2598,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 				    (get_field :named_name (get_field :ctype_keyword cty)))
 		       (setq argtype cty))
 		     (:else
-		      (error_strv argloc "invalid keyword in formal arglist"_
+		      (error_at argloc "invalid keyword $1 in formal arglist"_
 				  (unsafe_get_field :named_name curarg))
 		      ())
 		     )
@@ -2607,7 +2606,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		    ))
 		( (is_a curarg class_symbol)
 		  (if (mapobject_get argmap curarg)
-		      (error_strv argloc "duplicate argument in formal arglist"_
+		      (error_at argloc "duplicate argument $1 in formal arglist"_
 				  (get_field :named_name curarg)))
 		  (let ( (curbind
 			  (instance class_formal_binding 
@@ -2616,8 +2615,9 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		    (if checkargs
 			(if (or (not (is_a argtype class_ctype))
 				(not (is_string (unsafe_get_field :ctype_parstring argtype))))
-			    (error_strv argloc "invalid argument type in formal arglist"_
-					(get_field :named_name curarg))))
+			    (error_at argloc "invalid argument type $1 in formal arglist $2"_
+				      (get_field :named_name argtype)
+				      (get_field :named_name curarg))))
 		    (put_int curbind argrk)
 		    (mapobject_put argmap curarg curbind)
 		    (list_append bndlist curbind)
@@ -2628,7 +2628,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		(:else 
 		 (debug "unexpected argument in formal arglist" curarg)
 		 (let ( (discrarg  (discrim curarg) ))
-		   (error_strv argloc "unexpected argument in formal arglist"_
+		   (error_at argloc "unexpected argument of discriminant $1 in formal arglist"_
 			       (unsafe_get_field :named_name discrarg))
 		   )
 		 ()
@@ -2711,7 +2711,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
   (cond    
    ( (null comp)
      ;;(shortbacktrace_dbg "flatten_for_c_code_expansion null comp" 15)
-     (error_plain loc "null component for C chunk" )
+     (error_at loc "null component for C chunk" )
      (return))
    ( (is_a comp class_symbol)
      (list_append flatlist comp)
@@ -2742,7 +2742,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
      )
    (:else
     (shortbacktrace_dbg "flatten_for_c_code_expansion strange comp" 15)
-    (error_strv loc "unexpected component for C chunk of discriminant " 
+    (error_at loc "unexpected component for C chunk of discriminant $1" 
 		(get_field :named_name (discrim comp)))
     )
    )
@@ -2779,17 +2779,17 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
    (ecomp :long ix)
    (cond 
     ( (null ecomp)
-      (error_plain loc "null component in C expansion"))
+      (error_at loc "null component in C expansion"))
     ( (is_a ecomp class_keyword)
       (debug "check_c_expansion keyword ecomp" ecomp)
-      (error_strv loc "unexpected keyword in C expansion"
+      (error_at loc "unexpected keyword $1 in C expansion"
 		  (unsafe_get_field :named_name ecomp))
       )
     ( (is_a ecomp class_symbol)
       (if (null (mapobject_get substmap ecomp))
 	  (progn
 	    (debug "check_c_expansion ecomp" ecomp)
-	    (error_strv loc "unexpected symbol in C expansion"
+	    (error_at loc "unexpected symbol $1 in C expansion"
 			(unsafe_get_field :named_name ecomp))))
       ()
       )
@@ -2850,31 +2850,30 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	 (docv ())
 	 )
     (if (is_not_a symb class_symbol)
-	(error_plain loc "missing symbol for (DEFPRIMITIVE symb args type  [:doc documentation] expansion...)"_))
+	(error_at loc "missing symbol for (DEFPRIMITIVE symb args type  [:doc documentation] expansion...)"_))
     (setq curpair (pair_tail curpair))
     ;; parse the formal arguments and check that they are not variadic
     (let ( (btup (lambda_arg_bindings (pair_head curpair) ()))
 	   )
-      (if (is_a btup discr_variadic_formal_sequence)
-	  (progn
-	    (error_strv 
+      (when (is_a btup discr_variadic_formal_sequence)
+	    (error_at 
 	     loc
-	     "(DEFPRIMITIVE <symb> ...) cannot have variadic formals, ending with :REST"
+	     "(DEFPRIMITIVE $1 ...) cannot have variadic formals, but ending with :REST"
 	     (get_field :named_name symb))
 	    (return)
-	    ))
+	    )
       (setq curpair (pair_tail curpair))
       ;; parse the type keyword
       (let ( (typkw  (pair_head curpair)) )
 	(when (is_not_a typkw class_keyword)
-	    (error_strv loc "missing type keyword for (DEFPRIMITIVE symb args type [:doc documentation] expansion...)"_ (get_field :named_name symb))
+	    (error_at loc "missing type keyword for (DEFPRIMITIVE $1 <args> <type> [:doc documentation] expansion...)"_ (get_field :named_name symb))
 	    (return))
 	(let ( (cty (unsafe_get_field :symb_data typkw)) 
 	       (typknam (unsafe_get_field :named_name typkw))
 	       )
 	  (when (is_not_a cty class_ctype)
 		(debug "mexpand_defprimitive bad cty" typkw)
-		(error_strv loc "bad type keyword for "_  typknam)
+		(error_at loc "bad type keyword $1 for "_  typknam)
 		(return ())
 		)
 	  (cond ( (== (unsafe_get_field :ctype_keyword cty) typkw)
@@ -2886,7 +2885,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		  )
 		(:else
 		 (debug "mexpand_defprimitive strange typkw" typkw)
-		 (error_strv loc "invalid type keyword for DEFPRIMITIVE"_
+		 (error_at loc "invalid type keyword $1 for DEFPRIMITIVE"_
 			     typknam)
 		 (return ())   
 		 ))
@@ -2894,7 +2893,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	  (setq curpair (pair_tail curpair))
 	  (when (== (pair_head curpair) ':doc)
 	    (setq curpair (pair_tail curpair))
-	    (if docv (error_plain loc "duplicate :doc in DEFPRIMITIVE"))
+	    (if docv (error_at loc "duplicate :doc in DEFPRIMITIVE"))
 	    (setq docv (pair_head curpair))
 	    (setq curpair (pair_tail curpair))
 	    )
@@ -2969,6 +2968,7 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont)))
 	 (symb (pair_head curpair))
+	 (symbname (get_field :named_name symb))
 	 ;; the following variables are set later by setq
 	 (bstartup ())			;the start formals tuple
 	 (statsymb ())			;the state symbol
@@ -2980,7 +2980,7 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
 	 (aftloc ())		     ;location of after chunk
 	 )
     (when (is_not_a symb class_symbol)
-      (error_plain loc 
+      (error_at loc 
 		   "missing symbol for (DEFCITERATOR symb startformals statesymb locformals expbefore expafter)"_)
       (return)
       )
@@ -2990,44 +2990,46 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
     (setq curpair (pair_tail curpair))
     (setq statsymb (pair_head curpair))
     (when (is_not_a statsymb class_symbol)
-      (error_plain loc 
-		   "missing statsymb for (DEFCITERATOR symb startformals statesymb locformals expbefore expafter)"_)
+      (error_at loc 
+		   "missing statsymb for (DEFCITERATOR $1 startformals statesymb locformals expbefore expafter)"_ symbname)
       (return))
     (when (is_a bstartup discr_variadic_formal_sequence)
-	  (error_plain loc
-		       "(DEFCITERATOR symb startformals...) cannot have variadic start formals")
+	  (error_at loc
+		       "(DEFCITERATOR $1 startformals...) cannot have variadic start formals"_ symbname)
 	  (return))
     ;; parse the formal local arguments
     (setq curpair (pair_tail curpair))
     (setq blocvtup  (lambda_arg_bindings (pair_head curpair) ()))
     (when (is_a blocvtup  discr_variadic_formal_sequence)
-      (error_plain loc
-		   "(DEFCITERATOR symb startformals state localformals...) cannot have variadic local formals")
+      (error_at loc
+		   "(DEFCITERATOR $1 startformals state localformals...) cannot have variadic local formals" symbname)
       (return))
     (setq curpair (pair_tail curpair))
     ;; parse the documentation, if any
     (when (== (pair_head curpair) ':doc)
       (setq curpair (pair_tail curpair))
-      (if docv (error_plain loc
-			    "duplicate documentation in DEFCITERATOR"))
+      (if docv (error_at loc
+			    "duplicate documentation in DEFCITERATOR $1" symbname))
       (setq docv (pair_head curpair))
       (setq curpair (pair_tail curpair)))
     ;; parse the before expansion
     (let ( (sexpbef (pair_head curpair)) )
-      (if (is_not_a sexpbef class_sexpr)
-	  (progn
-	    (error_plain loc "missing before expansion for  (DEFCITERATOR symb startformals statesymb locformals expbefore expafter)"_)
-	    (return)))
+      (when (is_not_a sexpbef class_sexpr)
+	    (error_at loc
+		      "missing before expansion for  (DEFCITERATOR $1 startformals statesymb locformals expbefore expafter)"_ 
+		      symbname)
+	    (return))
       (setq befloc (get_field :loca_location sexpbef))
       (setq expbef (parse_pairlist_c_code_expansion loc (list_first (unsafe_get_field :sexp_contents sexpbef))))
       )
     (setq curpair (pair_tail curpair))
     ;; parse the after expansion
     (let ( (sexpaft (pair_head curpair)) )
-      (if (is_not_a sexpaft class_sexpr)
-	  (progn
-	    (error_plain loc "missing after expansion for  (DEFCITERATOR symb startformals statesymb locformals expbefore expafter)"_)
-	    (return)))
+      (when (is_not_a sexpaft class_sexpr)
+	    (error_at loc 
+		      "missing after expansion for  (DEFCITERATOR $1 startformals statesymb locformals expbefore expafter)"_ 
+		      symbname)
+	    (return))
       (setq aftloc (get_field :loca_location sexpaft))
       (setq expaft  (parse_pairlist_c_code_expansion loc (list_first (unsafe_get_field :sexp_contents sexpaft))))
       )
@@ -3117,6 +3119,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont)))
 	 (symb (pair_head curpair))
+	 (symbname (get_field :named_name symb))
 	 ;; the following variables are set later by setq
 	 (sformals ())			;match & input fmals
 	 (matchformal ())		;the match formal binding
@@ -3133,73 +3136,67 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	 )
     ;; check the symb
     (debug "mexpand_defcmatcher symb" symb)
-    (if (is_not_a symb class_symbol)
-	(progn 
-	  (error_plain
-	   loc 
-	   "symbol expected for (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
-	  (return)))
+    (when (is_not_a symb class_symbol)
+      (error_at
+       loc 
+       "symbol expected for (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
+      (return))
     (setq curpair (pair_tail curpair))
     ;; parse the match & in formals 
     (let ( (matinformals (lambda_arg_bindings (pair_head curpair) ()))
 	   (:long nbmatinformals (multiple_length matinformals)) 
 	   )
-      (if (<i nbmatinformals 1)
-	  (progn 
-	    (error_plain loc "empty ins for (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
-	    (return)))
-      (if (is_a matinformals discr_variadic_formal_sequence)
-	  (progn
-	    (error_plain loc "(DEFCMATCHER <symb> <ins> ...) cannot have variadic input formals")
-	    (return)
-	    ))
+      (when (<i nbmatinformals 1)
+	(error_at loc 
+		  "empty ins for (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
+	(return))
+      (when (is_a matinformals discr_variadic_formal_sequence)
+	(error_at loc 
+		  "(DEFCMATCHER $1 <ins> ...) cannot have variadic input formals"_ symbname)
+	(return)
+	)
       (setq sformals matinformals)
       (setq matchformal (multiple_nth matinformals 0))
       (debug "mexpand_defcmatcher matchformal" matchformal)
       (assert_msg "check matchformal" (is_a matchformal class_formal_binding) matchformal)
       (setq informals (make_multiple discr_multiple (-i nbmatinformals 1)))
-      (multiple_every 
-       matinformals
-       (lambda (comp :long ix) (if (>i ix 0) (multiple_put_nth informals (-i ix 1) comp))))
+      (foreach_in_multiple 
+       (matinformals)
+       (comp :long ix) (if (>i ix 0) (multiple_put_nth informals (-i ix 1) comp)))
       (debug "mexpand_defcmatcher informals" informals)
       )
     ;; parse the out formals
     (setq curpair (pair_tail curpair))
     (setq outformals (lambda_arg_bindings (pair_head curpair) ()))
     (debug "mexpand_defcmatcher outformals" outformals)
-    (if (not (is_multiple outformals))
-	(progn
-	  (error_plain loc "bad outs for (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
-	  (return)))
-    (if (is_a outformals discr_variadic_formal_sequence)
-	(progn
-	  (error_plain loc "out formals for  (DEFCMATCHER <symb> <ins> <outs> ...) cannot be variadic")
-	  (return)))
+    (when (not (is_multiple outformals))
+      (error_at loc "bad outs for (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
+      (return))
+    (when (is_a outformals discr_variadic_formal_sequence)
+      (error_at loc "out formals for  (DEFCMATCHER $1 <ins> <outs> ...) cannot be variadic" symbname)
+      (return))
     ;; parse the state symbol
     (setq curpair (pair_tail curpair))
     (setq statesym (pair_head curpair))
-    (if (is_not_a statesym class_symbol)
-	(progn
-	  (debug "mexpand_defcmatcher bad statesym" statesym)
-	  (error_plain loc "bad statesym for (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
-	  (return)))
+    (when (is_not_a statesym class_symbol)
+      (debug "mexpand_defcmatcher bad statesym" statesym)
+      (error_at loc "bad statesym for (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
+      (return))
     (debug "mexpand_defcmatcher statesym" statesym)
     (setq curpair (pair_tail curpair))
     ;; parse the documentation if any
-    (if (== (pair_head curpair) ':doc)
-	(progn
-	  (setq curpair (pair_tail curpair))
-	  (if docv (error_plain loc "duplicate documentation in DEFCMATCHER"))
-	  (setq docv (pair_head curpair))
-	  (setq curpair (pair_tail curpair))
-	  ))
+    (when (== (pair_head curpair) ':doc)
+      (setq curpair (pair_tail curpair))
+      (if docv (error_at  loc "duplicate documentation in DEFCMATCHER $1" symbname))
+      (setq docv (pair_head curpair))
+      (setq curpair (pair_tail curpair))
+      )
     ;; parse the test expansion
     (let ( (sexptest (pair_head curpair)) )
-      (if (and sexptest (is_not_a sexptest class_sexpr))
-	  (progn
-	    (debug "mexpand_defcmatcher bad sexptest" sexptest)
-	    (error_plain loc "bad test expansion in (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
-	    (return)))
+      (when (and sexptest (is_not_a sexptest class_sexpr))
+	(debug "mexpand_defcmatcher bad sexptest" sexptest)
+	(error_at loc "bad test expansion in (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
+	(return))
       (setq loctest (or (get_field :loca_location sexptest) loc))
       (if sexptest
 	  (setq exptest 
@@ -3211,10 +3208,9 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
     ;; parse the fill expansion
     (setq curpair (pair_tail curpair))
     (let ( (sexpfill (pair_head curpair)) )
-      (if (and sexpfill (is_not_a sexpfill class_sexpr))
-	  (progn
-	    (error_plain loc "bad fill expansion in (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
-	    (return)))
+      (when (and sexpfill (is_not_a sexpfill class_sexpr))
+	(error_at loc "bad fill expansion in (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
+	(return))
       (setq locfill (or (get_field :loca_location sexpfill) loc))
       (if sexpfill
 	  (setq expfill
@@ -3225,10 +3221,9 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
     ;; parse the operate expansion
     (setq curpair (pair_tail curpair))
     (let ( (sexpoper (pair_head curpair)) )
-      (if (and sexpoper (is_not_a sexpoper class_sexpr))
-	  (progn
-	    (error_plain loc "bad oper expansion in (DEFCMATCHER <symb> <ins> <outs> <statesym> <test> <fill> <oper>)"_)
-	    (return)))
+      (when (and sexpoper (is_not_a sexpoper class_sexpr))
+	(error_at loc "bad oper expansion in (DEFCMATCHER $1 <ins> <outs> <statesym> <test> <fill> <oper>)"_ symbname)
+	(return))
       (setq locoper (or (get_field :loca_location sexpoper) loc))
       (setq expoper
 	    (if sexpoper
@@ -3293,7 +3288,8 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       (register_generator_device sdefcmatch cmatch modctx)
       (return sdefcmatch)
       )
-    ))
+    )
+  )
 (install_initial_macro 'defcmatcher mexpand_defcmatcher)
 (export_macro defcmatcher mexpand_defcmatcher
  :doc #{The $DEFCMATCHER macro defines pattern-matching operator by
@@ -3313,6 +3309,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont)))
 	 (symb (pair_head curpair))
+	 (symbname (get_field :named_name symb))
 	 ;; the following variables are set later by setq
 	 (sformals ())			;match & input fmals
 	 (matchformal ())		;the match formal binding
@@ -3325,49 +3322,44 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
 	 )
     ;; check symb
     (debug "mexpand_defunmatcher symb" symb)
-    (if (is_not_a symb class_symbol)
-	(progn 
-	  (error_plain
-	   loc 
-	   "symbol expected for (DEFUNMATCHER <symb> <ins> <outs> [:doc docum] <matchfun> <applyfun> [<data>])"_)
-	  (return)))
+    (when (is_not_a symb class_symbol)
+      (error_at
+       loc 
+       "symbol expected for (DEFUNMATCHER <symb> <ins> <outs> [:doc docum] <matchfun> <applyfun> [<data>])"_)
+      (return))
     (setq curpair (pair_tail curpair))
     ;; parse the match & in formals 
     (let ( (matinformals (lambda_arg_bindings (pair_head curpair) ()))
 	   (:long nbmatinformals (multiple_length matinformals)) 
 	   )
-      (if (<i nbmatinformals 1)
-	  (progn 
-	    (error_plain loc "empty ins for (DEFUNMATCHER <symb> <ins> <outs> [:doc docum] <matchfun> <applyfun> [<data>])"_)
-	    (return)))
-      (if (is_a matinformals discr_variadic_formal_sequence)
-	  (progn
-	    (error_strv loc "(DEFUNMATCHER <symb>  <ins> ...) inputs cannot be variadic with last :rest formal"
-			(get_field :named_name symb))
-	    (return)
-	    ))
+      (when (<i nbmatinformals 1)
+	(error_at loc "empty ins for (DEFUNMATCHER $1 <ins> <outs> [:doc docum] <matchfun> <applyfun> [<data>])"_ symbname)
+	(return))
+      (when (is_a matinformals discr_variadic_formal_sequence)
+	(error_at loc "(DEFUNMATCHER $1  <ins> ...) inputs cannot be variadic with last :rest formal"
+		  symbname)
+	(return)
+	)
       (setq sformals matinformals)
       (setq matchformal (multiple_nth matinformals 0))
       (debug "mexpand_defunmatcher matchformal" matchformal)
       (setq informals (make_multiple discr_multiple (-i nbmatinformals 1)))
-      (multiple_every 
-       matinformals
-       (lambda (comp :long ix) (if (>i ix 0) (multiple_put_nth informals (-i ix 1) comp))))
+      (foreach_in_multiple 
+       (matinformals)
+       (comp :long ix) (if (>i ix 0) (multiple_put_nth informals (-i ix 1) comp)))
       (debug "mexpand_defunmatcher informals" informals)
       )
     ;; parse the out formals
     (setq curpair (pair_tail curpair))
     (setq outformals (lambda_arg_bindings (pair_head curpair) ()))
-    (if (not (is_multiple outformals))
-	(progn
-	  (error_plain loc "bad outs for (DEFUNMATCHER <symb> <ins> <outs>[:doc docum]  <matchfun> <applyfun> [<data>])"_)
-	  (return)))
-    (if (is_a outformals discr_variadic_formal_sequence)
-	(progn
-	  (error_strv loc "(DEFUNMATCHER <symb>  <ins> <outs> ...) outputs cannot be variadic with last :rest formal"
-		      (get_field :named_name symb))
-	  (return)
-	  ))
+    (when (not (is_multiple outformals))
+      (error_at loc "bad outs for (DEFUNMATCHER $1 <ins> <outs>[:doc docum]  <matchfun> <applyfun> [<data>])"_ symbname)
+      (return))
+    (when (is_a outformals discr_variadic_formal_sequence)
+      (error_at loc "(DEFUNMATCHER $1  <ins> <outs> ...) outputs cannot be variadic with last :rest formal"
+		symbname)
+      (return)
+      )
     (setq curpair (pair_tail curpair))
     ;; parse the documentation if any
     (if (== (pair_head curpair) ':doc)
@@ -3381,7 +3373,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
     (let ( (mfa (pair_head curpair)) )
       (if mfa
 	  (setq matchfunx (mexpander mfa env mexpander modctx))
-	(error_plain loc "bad matchfun for (DEFUNMATCHER <symb> <ins> <outs> <matchfun> <applyfun> [<data>])"_))
+	(error_at loc "bad matchfun for (DEFUNMATCHER $1 <ins> <outs> <matchfun> <applyfun> [<data>])"_ symbname))
       )
     (debug "mexpand_defunmatcher matchfunx" matchfunx)
     ;; parse & macroexpand the applyfun expr if given
@@ -3404,7 +3396,7 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
     ;; check for no extra stuff
     (setq curpair (pair_tail curpair))
     (if curpair 
-	(error_plain loc "extra for (DEFUNMATCHER <symb> <ins> <outs> <matchfun> [<applyfun> [<data>]])"_))
+	(error_at loc "extra for (DEFUNMATCHER $1 <ins> <outs> <matchfun> [<applyfun> [<data>]])"_ symbname))
     (let (
 	  ;; make a class_source_defunmatcher with :loca_location :sdef_name
 	  ;; :sformal_args :sfumatdef_matchf :sfumatdef_applyf
@@ -3441,8 +3433,8 @@ $EXPORT_VALUES. See also $CLASS_CITERATOR. }#)
       (debug "mexpand_defunmatcher fmbind" fmbind)
       (debug "mexpand_defunmatcher return sdfum" sdfum)
       (return sdfum)
-      )
-    ))
+      )))
+    
 (install_initial_macro 'defunmatcher mexpand_defunmatcher)
 (export_macro defunmatcher mexpand_defunmatcher
 :doc #{The $DEFUNMATCHER syntax defines a matcher thru a MELT
@@ -3484,7 +3476,7 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 		    (lambda_arg_bindings (pair_head curpair) sexpr))
 		  (:else
 		   (debug "mexpand_defun strange arglist curpairhead" curpairhead)
-		   (error_strv loc "missing or invalid arglist for DEFUN"_ symbname)
+		   (error_at loc "missing or invalid arglist for DEFUN $1"_ symbname)
 		   ()
 		   )))
 	   )
@@ -3513,7 +3505,7 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 	     )
 	(put_fields fbind :fubind_defun sdefun)
 	(unless (multiple_length bodytup)
-	  (error_strv loc "missing or empty body for DEFUN" symbname))
+	  (error_at loc "missing or empty body for DEFUN $1" symbname))
 	(return sdefun)
 	))))
 (install_initial_macro 'defun mexpand_defun)
@@ -3565,7 +3557,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		    ))
 	 )
     (if (is_not_a symb class_symbol)
-	(error_plain loc "missing symbol for DEFMACRO"_))
+	(error_at loc "missing symbol for DEFMACRO"_))
     (warn_if_redefined symb env loc)
     (put_env env mbind)
     (setq curpair (pair_tail curpair))
@@ -3578,13 +3570,13 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		    (lambda_arg_bindings (pair_head curpair) sexpr))
 		  (:else
 		   (debug "mexpand_defmacro strange arglist curpairhead" curpairhead)
-		   (error_strv loc "missing or invalid arglist for DEFMACRO"_ symbname)
+		   (error_at loc "missing or invalid arglist for DEFMACRO $1"_ symbname)
 		   ()
 		   )))
 	   )
       (when (not (is_multiple btup))
 	(debug "mexpand_defmacro strange btup" btup)
-	(error_strv loc "missing formal arguments for DEFMACRO"_ symbname))
+	(error_at loc "missing formal arguments for DEFMACRO $1"_ symbname))
       (foreach_in_multiple (btup) (fb :long bix) (put_env newenv fb))
       (setq curpair (pair_tail curpair))
       ;; handle the optional :doc documentationvalue
@@ -3694,7 +3686,7 @@ of ctype @code{:value}.}#)
 		    ))
 	 )
     (when (is_not_a symb class_symbol)
-	(error_plain loc "missing symbol for DEFVAR"_)
+	(error_at loc "missing symbol for DEFVAR"_)
 	(return))
     (warn_if_redefined symb env loc)
     (put_env env vbind)
@@ -3708,8 +3700,8 @@ of ctype @code{:value}.}#)
 	    )
     ;; check that no body is given
     (when curpair
-      (error_strv loc "DEFVAR too long - expecting (DEFVAR <name> [:doc <doc>])"
-		  (get_field :named_name symb))
+      (error_at loc "DEFVAR too long - expecting (DEFVAR $1 [:doc <doc>])"
+		  symbname)
       (return))
     (let ( (sdefvar (instance class_source_defvar
 			      :loca_location loc 
@@ -3758,8 +3750,8 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
       (return))
     (when (>=i (string_length sycname)
 	      (expr_chunk maxlen_chk :long #{/*mexpand_defhook $MAXLEN_CHK*/MELT_HOOKNAME_LEN}#))
-      (error_strv loc
-		  "too long cname for symbol of DEFHOOK" sycname)
+      (error_at loc
+		  "too long cname '$1' for symbol of DEFHOOK $2" sycname symbname)
       (return))
     (setq curpair (pair_tail curpair))
     (warn_if_redefined symb env loc)
@@ -3773,14 +3765,14 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 		  ( (null insexp)
 		    (make_multiple discr_multiple 0))
 		  (:else
-		    (error_strv 
+		    (error_at 
 		     loc
-		     "bad input formals for  (DEFHOOK <symb> <informals> <outformals> <ctype-key> ...)"
+		     "bad input formals for  (DEFHOOK $1 <informals> <outformals> <ctype-key> ...)"
 		     symbname)
 		    (return)))))
     (debug "mexpand_defhook intup=" intup)
     (when (is_a intup  discr_variadic_formal_sequence)
-      (error_strv loc "DEFHOOK cannot have variadic input formals" symbname)
+      (error_at loc "DEFHOOK $1 cannot have variadic input formals" symbname)
       (return))
     (setq curpair (pair_tail curpair))
     ;; parse the formal output arguments
@@ -3793,49 +3785,49 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 		  ( (null outsexp)
 		    (make_multiple discr_multiple 0))
 		  (:else
-		    (error_strv 
+		    (error_at 
 		     loc
-		     "bad output formals for  (DEFHOOK <symb> <informals> <outformals> <ctype-key> ...)"
+		     "bad output formals for  (DEFHOOK $1 <informals> <outformals> <ctype-key> ...)"
 		     symbname)
 		    (return)))))
     (debug "mexpand_defhook outup=" outup)
     (when (is_a outup  discr_variadic_formal_sequence)
-      (error_strv loc "DEFHOOK cannot have variadic output formals" symbname)
+      (error_at loc "DEFHOOK $1 cannot have variadic output formals" symbname)
       (return))
     (setq curpair (pair_tail curpair))
     ;; parse the type keyword
     (setq restypkw (pair_head curpair))
     (when (is_not_a restypkw class_keyword)
-      (error_strv loc "DEFHOOK needs a ctype keyword after output formals" symbname)
+      (error_at loc "DEFHOOK $1 needs a ctype keyword after output formals" symbname)
       (return))
     (let ( (cty (unsafe_get_field :symb_data restypkw))
 	   )
       (when (is_not_a cty class_ctype)
-      (error_strv loc "DEFHOOK with bad ctype keyword after output formals" symbname)
+      (error_at loc "DEFHOOK $1 with bad ctype keyword after output formals" symbname)
       (return))
       (setq resctyp cty))
     (setq curpair (pair_tail curpair))
     ;; handle :predef
     (when (== (pair_head curpair) ':predef)
       (setq curpair (pair_tail curpair))
-      (if predefv (error_strv loc "duplicate :predef in DEFHOOK" symbname))
+      (if predefv (error_at loc "duplicate :predef in DEFHOOK $1" symbname))
       (setq predefv (pair_head curpair))
       (setq curpair (pair_tail curpair))
       )
     ;; handle :var
     (when (== (pair_head curpair) ':var)
       (setq curpair (pair_tail curpair))
-      (if modvar (error_strv loc "duplicate :VAR in DEFHOOK" symbname))
+      (if modvar (error_at loc "duplicate :VAR in DEFHOOK $1" symbname))
       (setq modvar (pair_head curpair))
       (setq curpair (pair_tail curpair))
       (when (is_not_a modvar class_symbol)
-	(error_strv loc "DEFHOOK should have a symbol :VAR" symbname)
+	(error_at loc "DEFHOOK $1 should have a symbol :VAR" symbname)
 	(return))
       )
     ;; handle :doc
     (when (== (pair_head curpair) ':doc)
       (setq curpair (pair_tail curpair))
-      (if docv (error_strv loc "duplicate :doc in DEFHOOK" symbname))
+      (if docv (error_at loc "duplicate :doc in DEFHOOK $1" symbname))
       (setq docv (pair_head curpair))
       (setq curpair (pair_tail curpair))
       )
@@ -3962,19 +3954,17 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 			      ))
 	     )
 	;; check the funame
-	(if (is_not_a funame class_symbol)
-	    (progn
-	      (error_plain loc 
-			   "Bad function name, expecting (DEFINE (name formals...) ...")
-	      (return)))
+	(when (is_not_a funame class_symbol)
+	  (error_at loc 
+		    "Bad function name, expecting (DEFINE (name formals...) ...")
+	  (return))
 	(warn_if_redefined funame env loc)
 	(put_env env fbind)
 	;; consume the doc
-	(if (== (pair_head curpair) ':doc)
-	    (progn
-	      (setq curpair (pair_tail curpair))
-	      (setq defdoc (pair_head curpair))
-	      (setq curpair (pair_tail curpair))))
+	(when (== (pair_head curpair) ':doc)
+	  (setq curpair (pair_tail curpair))
+	  (setq defdoc (pair_head curpair))
+	  (setq curpair (pair_tail curpair)))
 	;;
 	(let ( 
 	      (newenv (fresh_env env))
@@ -3993,11 +3983,11 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
 	      (if (!= (get_field :fbind_type formal0bind) ctype_value)
 		  (progn
 		    (debug "mexpand_define function bad formal0bind=" formal0bind)
-		    (error_strv floc "invalid first formal argument in DEFINE-d function, expecting a :value"
-			        (get_field :named_name funame))
+		    (error_at floc "invalid first formal argument in DEFINE-d function $1, expecting a :value"
+			      (get_field :named_name funame))
 		    (return))))
 	  ;; bind the formals and expand the body
-	  (multiple_every formaltup (lambda (fb) (put_env newenv fb)))
+	  (foreach_in_multiple (formaltup) (fb :long fbix) (put_env newenv fb))
 	  (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx)) 
 		 )
 	    (put_fields sdefun :sfun_body bodytup)
@@ -4007,7 +3997,7 @@ is ($DEFVAR @var{varame} [:doc @var{documentation}]).}#)
      ;;
      ;; bad DEFINE
      (:else
-      (error_plain loc "Expects <name> or (<name> <formals) after DEFINE")
+      (error_at loc "Expects <name> or (<name> <formals) after DEFINE")
       (return)
       ))
     ))
@@ -4035,24 +4025,25 @@ to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visi
 	 (fieldsloc ())
 	 (curpair (pair_tail (list_first cont)))
 	 (symb (pair_head curpair))
+	 (claname (get_field :named_name symb))
 	 )
     (debug "scan_defclass sexpr" sexpr)
     (if (is_not_a symb class_symbol)
-	(error_plain loc "missing symbol for DEFCLASS"_))
+	(error_at loc "missing symbol for DEFCLASS"_))
     (setq curpair (pair_tail curpair))
     (forever scanloop
 	     (if (not (is_pair curpair)) (exit scanloop))
 	     (let ( (curkw (pair_head curpair)) )
 	       (if (not (is_a curkw class_keyword)) 
-		   (error_plain loc "expecting keyword in DEFCLASS"_))
+		   (error_at loc "expecting keyword in DEFCLASS $1"_ claname))
 	       (setq curpair (pair_tail curpair))
 	       (let ( (curval (pair_head curpair)) )
 		 (setq curpair (pair_tail curpair))
 		 (cond 
 		  ( (== curkw ':super)
-		    (if supernam (error_plain loc "duplicate super in DEFCLASS"_))
+		    (if supernam (error_at loc "duplicate super in DEFCLASS $1"_ claname))
 		    (if (not (is_a curval class_symbol))
-			(error_plain loc "bad super in DEFCLASS"_))
+			(error_at loc "bad super in DEFCLASS $1"_ claname))
 		    (setq supernam curval)
 		    (debug "scan_defclass supernam" supernam)
 		    (let ( (superb (find_env env supernam)) )
@@ -4069,22 +4060,21 @@ to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visi
 				      (setq superbind superb)
 				      (setq superclass superval)
 				      )
-				  (error_strv loc "super is not a class in defclass"_ 
-					      (unsafe_get_field :named_name supernam))))
+				  (error_at loc "super $1 is not a class in DEFCLASS $2"_ 
+					      (get_field :named_name supernam) claname)))
 			      )
 			    (:else 
-			     (debug "scan_defclass superb" superb)
-			     (debug "scan_defclass env" env)
-			     (error_strv loc "invalid super in defclass"_
+			     (debug "scan_defclass superb=" superb " env" env)
+			     (error_at loc "invalid super in DEFCLASS $1"_
 					 (unsafe_get_field :named_name supernam))
 			     )
 			    )
 		      ))
 		  ( (== curkw ':fields)
-		    (if fieldnams (error_plain loc "duplicate fields in defclass"_))
+		    (if fieldnams (error_at loc "duplicate fields in DEFCLASS $1"_ claname))
 		    (if curval
 			(if (is_not_a curval class_sexpr)
-			    (error_plain loc "bad fields in defclass"_)))
+			    (error_at loc "bad fields in DEFCLASS $1"_ claname)))
 		    (let ( (namlist (if curval (unsafe_get_field :sexp_contents curval)))
 			   (namloc (if curval (unsafe_get_field :loca_location curval)))
 			   (:long nbnam  (list_length namlist))
@@ -4096,7 +4086,7 @@ to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visi
 			       (if (not (is_pair nampair)) (exit namloop))
 			       (let ( (curnam (pair_head nampair)) )
 				 (if (not (is_a curnam class_symbol))
-				     (error_plain namloc "non name field in DEFCLASS"_))
+				     (error_at namloc "non name field #$1 in DEFCLASS $2"_ (+i ix 1) claname))
 				 (multiple_put_nth namtupl ix curnam)
 				 )
 			       (setq nampair (pair_tail nampair))
@@ -4105,7 +4095,7 @@ to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visi
 		      (setq fieldnams namtupl)
 		      ))
 		  ( (== curkw ':predef)
-		    (if predef (error_plain loc "duplicate predef in DEFCLASS"_))
+		    (if predef (error_at loc "duplicate predef in DEFCLASS $1"_ claname))
 		    (setq predef (mexpander curval env mexpander modctx))
 		    (cond
 		     ( (is_integerbox predef) 
@@ -4115,28 +4105,23 @@ to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visi
 		       ()
 		       )
 		     (:else
-		      (error_plain loc "bad predef in DEFCLASS"_)
+		      (error_at loc "bad predef in DEFCLASS $1"_ claname)
 		      )
 		     )
 		    )
 		  ( (== curkw ':doc)
-		    (if docv (error_plain loc "duplicate doc in DEFCLASS"_))
+		    (if docv (error_at loc "duplicate doc in DEFCLASS $1"_ claname))
 		    ;; the documentation is NOT macro-expanded!
 		    (setq docv curval)
 		    )
 		  (:else
-		   (error_strv loc "invalid keyword in DEFCLASS"_ 
-			       (unsafe_get_field :named_name curkw))
+		   (error_at loc "invalid keyword $1 in DEFCLASS $2"_ 
+			       (unsafe_get_field :named_name curkw) claname)
 		   )
 		  ))))
-    (debug "scan_defclass returns symb" symb)
-    (debug "scan_defclass returns loc" loc)
-    (debug "scan_defclass returns supernam" supernam)
-    (debug "scan_defclass returns superbinds" superbind)
-    (debug "scan_defclass returns superclass" superclass)
-    (debug "scan_defclass returns predef" predef)
-    (debug "scan_defclass returns fieldnams" fieldnams)
-    (debug "scan_defclass returns fieldsloc" fieldsloc)
+    (debug "scan_defclass returns symb=" symb " loc=" loc)
+    (debug "scan_defclass returns supernam=" supernam " superbinds=" superbind " superclass=" superclass)
+    (debug "scan_defclass returns predef=" predef " fieldnams=" fieldnams " fieldsloc=" fieldsloc)
     (debug "scan_defclass returns docv" docv)
     (warn_if_redefined symb env loc)
     (return symb loc supernam superbind superclass predef fieldnams fieldsloc docv)
@@ -4150,134 +4135,132 @@ to define a function like $DEFUN does. Use $EXPORT_VALUES to make that name visi
   (multicall 
    (symb loc supernam superbind superclass predef fieldnams fieldsloc docv)
    (scan_defclass sexpr env mexpander modctx)
-   (debug "mexp.defclass scanned symb" symb)
-   (debug "mexp.defclass scanned loc" loc)
-   (debug "mexp.defclass scanned supernam" supernam)
-   (debug "mexp.defclass scanned superbind" superbind)
-   (debug "mexp.defclass scanned superclass" superclass)
-   (debug "mexp.defclass scanned predef" predef)
-   (debug "mexp.defclass scanned fieldnams" fieldnams)
-   (debug "mexp.defclass scanned fieldsloc" fieldsloc)
-   (debug "mexp.defclass scanned docv" docv)
+   (debug "mexp.defclass scanned symb=" symb" loc=" loc)
+   (debug "mexp.defclass scanned supernam=" supernam " superbind=" superbind " superclass=" superclass)
+   (debug "mexp.defclass scanned predef=" predef)
+   (debug "mexp.defclass scanned fieldnams=" fieldnams " fieldsloc=" fieldsloc)
+   (debug "mexp.defclass scanned docv=" docv)
    (assert_msg "check symb" (is_a symb class_symbol) symb)
-   (and (null predef)
-	(null superclass)
-	(error_strv loc 
-		    "DEFCLASS of a non-predefined class without superclass"
-		    (unsafe_get_field :named_name symb))
+   (let ( (claname (get_field :named_name symb))
+	  )
+     (and (null predef)
+	  (null superclass)
+	  (error_at loc 
+		    "DEFCLASS $1 of a non-predefined class without superclass"
+		    claname)
+	  )
+     (let ( 
+	   (ancestors (if (is_object superclass)
+			  (let ( (superancestors (unsafe_get_field :class_ancestors superclass))
+				 (:long nbsuperanc (multiple_length superancestors))
+				 (anctuple (make_multiple discr_class_sequence (+i 1 nbsuperanc)))
+				 (:long ix 0)
+				 )
+			    (assert_msg "check superclass" (is_a superclass class_class) superclass)
+			    (assert_msg "check superancestors" (is_multiple superancestors) superancestors)
+			    (forever ancloop
+				     (if (>=i ix nbsuperanc) (exit ancloop))
+				     (multiple_put_nth anctuple ix (multiple_nth superancestors ix))
+				     (setq ix (+i ix 1))
+				     )
+			    (multiple_put_nth anctuple nbsuperanc superclass)
+			    anctuple
+			    )
+			(make_multiple discr_class_sequence 0)))
+	   (superfields (if (is_object superclass)
+			    (unsafe_get_field :class_fields superclass)))
+	   (:long nbsuperfields (multiple_length superfields))
+	   (:long nbfieldnames (multiple_length fieldnams))
+	   (boxnbsuperfields (make_integerbox discr_integer nbsuperfields))
+	   (fieldstrmap (make_mapstring discr_map_strings (+i 3 (*i 2 (+i nbsuperfields nbfieldnames)))))
+	   (fieldtup (make_multiple discr_field_sequence (+i nbsuperfields nbfieldnames)))
+	   (ownfieldbindings (make_multiple discr_multiple nbfieldnames))
+	   (newclass (instance class_class
+			       :named_name (unsafe_get_field :named_name symb)
+			       :class_ancestors ancestors
+			       ;; other fields to be set later
+			       ))
+	   (clabind (instance class_class_binding
+			      :binder symb
+			      :cbind_class newclass))
+	   )
+       (put_env env clabind)
+       (debug "expdefclas superfields" superfields)
+       (foreach_in_multiple 
+	(superfields)
+	(sfld :long ix)
+	(assert_msg "check superfield" (is_a sfld class_field) sfld)
+	(multiple_put_nth fieldtup ix sfld)
+	(mapstring_putstr fieldstrmap (unsafe_get_field :named_name sfld) sfld)
 	)
-   (let ( 
-	 (ancestors (if (is_object superclass)
-			(let ( (superancestors (unsafe_get_field :class_ancestors superclass))
-			       (:long nbsuperanc (multiple_length superancestors))
-			       (anctuple (make_multiple discr_class_sequence (+i 1 nbsuperanc)))
-			       (:long ix 0)
-			       )
-			  (assert_msg "check superclass" (is_a superclass class_class) superclass)
-			  (assert_msg "check superancestors" (is_multiple superancestors) superancestors)
-			  (forever ancloop
-				   (if (>=i ix nbsuperanc) (exit ancloop))
-				   (multiple_put_nth anctuple ix (multiple_nth superancestors ix))
-				   (setq ix (+i ix 1))
-				   )
-			  (multiple_put_nth anctuple nbsuperanc superclass)
-			  anctuple
-			  )
-		      (make_multiple discr_class_sequence 0)))
-	 (superfields (if (is_object superclass)
-			  (unsafe_get_field :class_fields superclass)))
-	 (:long nbsuperfields (multiple_length superfields))
-	 (:long nbfieldnames (multiple_length fieldnams))
-	 (boxnbsuperfields (make_integerbox discr_integer nbsuperfields))
-	 (fieldstrmap (make_mapstring discr_map_strings (+i 3 (*i 2 (+i nbsuperfields nbfieldnames)))))
-	 (fieldtup (make_multiple discr_field_sequence (+i nbsuperfields nbfieldnames)))
-	 (ownfieldbindings (make_multiple discr_multiple nbfieldnames))
-	 (newclass (instance class_class
-			     :named_name (unsafe_get_field :named_name symb)
-			     :class_ancestors ancestors
-			     ;; other fields to be set later
-			     ))
-	 (clabind (instance class_class_binding
-			    :binder symb
-			    :cbind_class newclass))
-	 )
-     (put_env env clabind)
-     (debug "expdefclas superfields" superfields)
-     (foreach_in_multiple 
-      (superfields)
-      (sfld :long ix)
-      (assert_msg "check superfield" (is_a sfld class_field) sfld)
-      (multiple_put_nth fieldtup ix sfld)
-      (mapstring_putstr fieldstrmap (unsafe_get_field :named_name sfld) sfld)
-      )
-     ;;;
-     (foreach_in_multiple
-      (fieldnams)
-      (fldnam :long ix)
-      (assert_msg "check fldnam" (is_a fldnam class_symbol))
-      (let ( (fldstr (unsafe_get_field :named_name fldnam)) 
-	     (fldprevbind (find_env env fldnam))
+;;;
+       (foreach_in_multiple
+	(fieldnams)
+	(fldnam :long ix)
+	(assert_msg "check fldnam" (is_a fldnam class_symbol))
+	(let ( (fldstr (unsafe_get_field :named_name fldnam)) 
+	       (fldprevbind (find_env env fldnam))
+	       )
+	  (if (mapstring_getstr fieldstrmap fldstr)
+	      (error_at fieldsloc "duplicate field $1 in DEFCLASS $2"_ fldstr claname))
+	  (cond
+	   ( (null fldprevbind)
+	     (void)
 	     )
-	(if (mapstring_getstr fieldstrmap fldstr)
-	    (error_strv fieldsloc "duplicate field in DEFLCLASS"_ fldstr))
-	(cond
-	 ( (null fldprevbind)
-	   (void)
+	   ( (is_a fldprevbind class_field_binding)
+	     (debug "mexpand_defclass fldprevbind !field" fldprevbind)
+	     (error_at fieldsloc "field name $1 already defined in DEFCLASS $2"_ fldstr claname)
+	     )
+	   ( (is_a fldprevbind class_value_binding)
+	     (debug "mexpand_defclass fldprevbind !value" fldprevbind)
+	     (debug "mexpand_defclass symb !value" symb)
+	     (let ( (prevalue (get_field :vbind_value fldprevbind))
+		    )
+	       ;; this test avoids warnings when recompiling
+	       ;; warmelt-*.melt files
+	       (if (or (is_not_a prevalue class_field)
+		       (!=s (get_field :named_name (get_field :fld_ownclass prevalue))
+			    (get_field :named_name symb)))
+		   (warning_at fieldsloc "field name $1 already bound to a value in DEFCLASS $2"_ fldstr claname)
+		 )))
+	   (:else
+	    (debug "mexpand_defclass fldprevbind !other" fldprevbind)
+	    (warning_at  fieldsloc "field name $1 previously bound in DEFCLASS $2"_ fldstr claname))
 	   )
-	 ( (is_a fldprevbind class_field_binding)
-	   (debug "mexpand_defclass fldprevbind !field" fldprevbind)
-	   (error_strv fieldsloc "field name already defined in DEFCLASS"_ fldstr)
-	   )
-	 ( (is_a fldprevbind class_value_binding)
-	   (debug "mexpand_defclass fldprevbind !value" fldprevbind)
-	   (debug "mexpand_defclass symb !value" symb)
-	   (let ( (prevalue (get_field :vbind_value fldprevbind))
-		  )
-	     ;; this test avoids warnings when recompiling
-	     ;; warmelt-*.melt files
-	     (if (or (is_not_a prevalue class_field)
-		     (!=s (get_field :named_name (get_field :fld_ownclass prevalue))
-			  (get_field :named_name symb)))
-		 (warning_strv fieldsloc "field name already bound to a value in DEFCLASS"_ fldstr)
-	       )))
-	 (:else
-	  (debug "mexpand_defclass fldprevbind !other" fldprevbind)
-	  (warning_strv  fieldsloc "field name previously bound in DEFCLASS"_ fldstr))
-	 )
-	(let ( (:long fldoff (+i ix (get_int boxnbsuperfields))) 
-	       (newfld (instance class_field
-				 :named_name fldstr
-				 :fld_ownclass newclass
-				 )) )
-	  (put_int newfld fldoff)
+	  (let ( (:long fldoff (+i ix (get_int boxnbsuperfields))) 
+		 (newfld (instance class_field
+				   :named_name fldstr
+				   :fld_ownclass newclass
+				   )) )
+	    (put_int newfld fldoff)
 					;(messagenum_dbg "expdefclafldnam fldoff" fldoff)
-	  (multiple_put_nth fieldtup fldoff newfld)
-	  (mapstring_putstr fieldstrmap fldstr newfld)
-	  (let ( (newfldbind (instance class_field_binding
-				       :binder fldnam
-				       :flbind_clabind clabind
-				       :flbind_field newfld)) )
-	    (warn_if_redefined fldnam env loc)
-	    (put_env env newfldbind)
-	    (multiple_put_nth ownfieldbindings ix newfldbind)
-	    )
-	  )))
-     (unsafe_put_fields newclass
-			:class_fields fieldtup)
-     ;; we need to put the object magic to MELTOBMAG_OBJECT now
-     (code_chunk setobjmagic
-		 #{((meltobject_ptr_t)$newclass)->obj_num = MELTOBMAG_OBJECT ;
-		 }#)
-     (debug "mexp.defclass newclass=" newclass)
-     (instance class_source_defclass
-	       :loca_location loc
-	       :sdef_name symb
-	       :sdef_doc docv
-	       :sobj_predef predef
-	       :sclass_clabind clabind
-	       :sclass_superbind superbind
-	       :sclass_fldbinds ownfieldbindings
-	       ))))
+	    (multiple_put_nth fieldtup fldoff newfld)
+	    (mapstring_putstr fieldstrmap fldstr newfld)
+	    (let ( (newfldbind (instance class_field_binding
+					 :binder fldnam
+					 :flbind_clabind clabind
+					 :flbind_field newfld)) )
+	      (warn_if_redefined fldnam env loc)
+	      (put_env env newfldbind)
+	      (multiple_put_nth ownfieldbindings ix newfldbind)
+	      )
+	    )))
+       (unsafe_put_fields newclass
+			  :class_fields fieldtup)
+       ;; we need to put the object magic to MELTOBMAG_OBJECT now
+       (code_chunk setobjmagic
+		   #{((meltobject_ptr_t)$newclass)->obj_num = MELTOBMAG_OBJECT ;
+		   }#)
+       (debug "mexp.defclass newclass=" newclass)
+       (instance class_source_defclass
+		 :loca_location loc
+		 :sdef_name symb
+		 :sdef_doc docv
+		 :sobj_predef predef
+		 :sclass_clabind clabind
+		 :sclass_superbind superbind
+		 :sclass_fldbinds ownfieldbindings
+		 )))))
 (install_initial_macro 'defclass mexpand_defclass)
 (export_macro defclass mexpand_defclass
 	      :doc #{The $DEFCLASS macro defines a class. Syntax
@@ -4287,6 +4270,8 @@ preferably start with CLASS_. The fields' names should preferably be
 globally unique, and usually share a common prefix. See also
 $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 
+
+;;;@@@@ use error_at upto here
 ;;;;;;;;;;;;;;;; the definstance expander
 
 ;; internal to parse a field assignment in a given class (or without class, for put_field)

@@ -1,6 +1,14 @@
 
 2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt: Replaced some error_... with
+	error_at.
+
+	* melt/warmelt-normal.melt (normexp_symbol): Aborts on failure
+	while bootstrapping...
+
+2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
