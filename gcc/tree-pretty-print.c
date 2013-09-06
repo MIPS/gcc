@@ -508,7 +508,8 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
      print_clause_size:
       if (OMP_CLAUSE_SIZE (clause))
 	{
-	  if (OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_POINTER)
+	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
+	      && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_POINTER)
 	    pp_string (buffer, " [pointer assign, bias: ");
 	  else
 	    pp_string (buffer, " [len: ");

@@ -61,6 +61,7 @@ enum gimplify_omp_var_data
   GOVD_PRIVATE_OUTER_REF = 1024,
   GOVD_LINEAR = 2048,
   GOVD_ALIGNED = 4096,
+  GOVD_MAP_TO_ONLY = 8192,
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
 			   | GOVD_LOCAL)
@@ -5740,11 +5741,16 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 	{
 	  if (n->value & GOVD_SHARED)
 	    n->value = GOVD_FIRSTPRIVATE | (n->value & GOVD_SEEN);
+	  else if (n->value & GOVD_MAP)
+	    n->value |= GOVD_MAP_TO_ONLY;
 	  else
 	    return;
 	}
+      else if (ctx->region_type == ORT_TARGET)
+	omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
       else if (ctx->region_type != ORT_WORKSHARE
-	       && ctx->region_type != ORT_SIMD)
+	       && ctx->region_type != ORT_SIMD
+	       && ctx->region_type != ORT_TARGET_DATA)
 	omp_add_variable (ctx, decl, GOVD_FIRSTPRIVATE);
 
       ctx = ctx->outer_context;
@@ -5847,16 +5853,15 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
      the parameters of the type.  */
   if (DECL_SIZE (decl) && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
     {
-      /* To be handled later.  */
-      gcc_assert ((flags & GOVD_MAP) == 0);
-
       /* Add the pointer replacement variable as PRIVATE if the variable
 	 replacement is private, else FIRSTPRIVATE since we'll need the
 	 address of the original variable either for SHARED, or for the
 	 copy into or out of the context.  */
       if (!(flags & GOVD_LOCAL))
 	{
-	  nflags = flags & GOVD_PRIVATE ? GOVD_PRIVATE : GOVD_FIRSTPRIVATE;
+	  nflags = flags & GOVD_MAP
+		   ? GOVD_MAP | GOVD_MAP_TO_ONLY | GOVD_EXPLICIT
+		   : flags & GOVD_PRIVATE ? GOVD_PRIVATE : GOVD_FIRSTPRIVATE;
 	  nflags |= flags & GOVD_SEEN;
 	  t = DECL_VALUE_EXPR (decl);
 	  gcc_assert (TREE_CODE (t) == INDIRECT_REF);
@@ -5885,15 +5890,13 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	 For local variables TYPE_SIZE_UNIT might not be gimplified yet,
 	 in this case omp_notice_variable will be called later
 	 on when it is gimplified.  */
-      else if (! (flags & GOVD_LOCAL)
+      else if (! (flags & (GOVD_LOCAL | GOVD_MAP))
 	       && DECL_P (TYPE_SIZE_UNIT (TREE_TYPE (decl))))
 	omp_notice_variable (ctx, TYPE_SIZE_UNIT (TREE_TYPE (decl)), true);
     }
-  else if (lang_hooks.decls.omp_privatize_by_reference (decl))
+  else if ((flags & GOVD_MAP) == 0
+	   && lang_hooks.decls.omp_privatize_by_reference (decl))
     {
-      /* To be handled later.  */
-      gcc_assert ((flags & GOVD_MAP) == 0);
-
       gcc_assert ((flags & GOVD_LOCAL) == 0);
       omp_firstprivatize_type_sizes (ctx, TREE_TYPE (decl));
 
@@ -6562,7 +6565,35 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   else if (code == OMP_CLAUSE_PRIVATE && (flags & GOVD_PRIVATE_OUTER_REF))
     OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
   else if (code == OMP_CLAUSE_MAP)
-    OMP_CLAUSE_MAP_KIND (clause) = OMP_CLAUSE_MAP_TOFROM;
+    {
+      OMP_CLAUSE_MAP_KIND (clause) = flags & GOVD_MAP_TO_ONLY
+				     ? OMP_CLAUSE_MAP_TO
+				     : OMP_CLAUSE_MAP_TOFROM;
+      if (DECL_SIZE (decl)
+	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+	{
+	  tree decl2 = DECL_VALUE_EXPR (decl);
+	  gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
+	  decl2 = TREE_OPERAND (decl2, 0);
+	  gcc_assert (DECL_P (decl2));
+	  tree mem = build_simple_mem_ref (decl2);
+	  OMP_CLAUSE_DECL (clause) = mem;
+	  OMP_CLAUSE_SIZE (clause) = TYPE_SIZE_UNIT (TREE_TYPE (decl));
+	  if (gimplify_omp_ctxp->outer_context)
+	    {
+	      struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp->outer_context;
+	      omp_notice_variable (ctx, decl2, true);
+	      omp_notice_variable (ctx, OMP_CLAUSE_SIZE (clause), true);
+	    }
+	  tree nc = build_omp_clause (OMP_CLAUSE_LOCATION (clause),
+				      OMP_CLAUSE_MAP);
+	  OMP_CLAUSE_DECL (nc) = decl;
+	  OMP_CLAUSE_SIZE (nc) = size_zero_node;
+	  OMP_CLAUSE_MAP_KIND (nc) = OMP_CLAUSE_MAP_POINTER;
+	  OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (clause);
+	  OMP_CLAUSE_CHAIN (clause) = nc;
+	}
+    }
   *list_p = clause;
   lang_hooks.decls.omp_finish_clause (clause);
 
@@ -6687,6 +6718,56 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
 	  if (ctx->region_type == ORT_TARGET && !(n->value & GOVD_SEEN))
 	    remove = true;
+	  else if (DECL_SIZE (decl)
+		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
+		   && OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_POINTER)
+	    {
+	      tree decl2 = DECL_VALUE_EXPR (decl);
+	      gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
+	      decl2 = TREE_OPERAND (decl2, 0);
+	      gcc_assert (DECL_P (decl2));
+	      tree mem = build_simple_mem_ref (decl2);
+	      OMP_CLAUSE_DECL (c) = mem;
+	      OMP_CLAUSE_SIZE (c) = TYPE_SIZE_UNIT (TREE_TYPE (decl));
+	      if (ctx->outer_context)
+		{
+		  omp_notice_variable (ctx->outer_context, decl2, true);
+		  omp_notice_variable (ctx->outer_context,
+				       OMP_CLAUSE_SIZE (c), true);
+		}
+	      tree nc = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+					  OMP_CLAUSE_MAP);
+	      OMP_CLAUSE_DECL (nc) = decl;
+	      OMP_CLAUSE_SIZE (nc) = size_zero_node;
+	      OMP_CLAUSE_MAP_KIND (nc) = OMP_CLAUSE_MAP_POINTER;
+	      OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (c);
+	      OMP_CLAUSE_CHAIN (c) = nc;
+	      c = nc;
+	    }
+	  break;
+
+	case OMP_CLAUSE_TO:
+	case OMP_CLAUSE_FROM:
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (!DECL_P (decl))
+	    break;
+	  if (DECL_SIZE (decl)
+	      && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+	    {
+	      tree decl2 = DECL_VALUE_EXPR (decl);
+	      gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
+	      decl2 = TREE_OPERAND (decl2, 0);
+	      gcc_assert (DECL_P (decl2));
+	      tree mem = build_simple_mem_ref (decl2);
+	      OMP_CLAUSE_DECL (c) = mem;
+	      OMP_CLAUSE_SIZE (c) = TYPE_SIZE_UNIT (TREE_TYPE (decl));
+	      if (ctx->outer_context)
+		{
+		  omp_notice_variable (ctx->outer_context, decl2, true);
+		  omp_notice_variable (ctx->outer_context,
+				       OMP_CLAUSE_SIZE (c), true);
+		}
+	    }
 	  break;
 
 	case OMP_CLAUSE_REDUCTION:
@@ -6708,8 +6789,6 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
-	case OMP_CLAUSE_TO:
-	case OMP_CLAUSE_FROM:
 	case OMP_CLAUSE_DEPEND:
 	  break;
 

@@ -1574,10 +1574,24 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  if (DECL_P (decl))
 	    {
-	      install_var_field (decl, true, 3, ctx);
-	      if (gimple_omp_target_kind (ctx->stmt)
-		  == GF_OMP_TARGET_KIND_REGION)
-		install_var_local (decl, ctx);
+	      if (DECL_SIZE (decl)
+		  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+		{
+		  tree decl2 = DECL_VALUE_EXPR (decl);
+		  gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
+		  decl2 = TREE_OPERAND (decl2, 0);
+		  gcc_assert (DECL_P (decl2));
+		  install_var_field (decl2, true, 3, ctx);
+		  install_var_local (decl2, ctx);
+		  install_var_local (decl, ctx);
+		}
+	      else
+		{
+		  install_var_field (decl, true, 3, ctx);
+		  if (gimple_omp_target_kind (ctx->stmt)
+		      == GF_OMP_TARGET_KIND_REGION)
+		    install_var_local (decl, ctx);
+		}
 	    }
 	  else
 	    {
@@ -1600,6 +1614,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		  tree field
 		    = build_decl (OMP_CLAUSE_LOCATION (c),
 				  FIELD_DECL, NULL_TREE, ptr_type_node);
+		  DECL_ALIGN (field) = TYPE_ALIGN (ptr_type_node);
 		  insert_field_into_struct (ctx->record_type, field);
 		  splay_tree_insert (ctx->field_map, (splay_tree_key) decl,
 				     (splay_tree_value) field);
@@ -1683,6 +1698,16 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		  tree new_decl = lookup_decl (decl, ctx);
 		  TREE_TYPE (new_decl)
 		    = remap_type (TREE_TYPE (decl), &ctx->cb);
+		}
+	      else if (DECL_SIZE (decl)
+		       && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
+		{
+		  tree decl2 = DECL_VALUE_EXPR (decl);
+		  gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
+		  decl2 = TREE_OPERAND (decl2, 0);
+		  gcc_assert (DECL_P (decl2));
+		  fixup_remapped_decl (decl2, ctx, false);
+		  fixup_remapped_decl (decl, ctx, true);
 		}
 	      else
 		fixup_remapped_decl (decl, ctx, false);
@@ -2126,6 +2151,16 @@ scan_omp_target (gimple stmt, omp_context *outer_ctx)
     ctx->record_type = ctx->receiver_decl = NULL;
   else
     {
+      TYPE_FIELDS (ctx->record_type)
+	= nreverse (TYPE_FIELDS (ctx->record_type));
+#ifdef ENABLE_CHECKING
+      tree field;
+      unsigned int align = DECL_ALIGN (TYPE_FIELDS (ctx->record_type));
+      for (field = TYPE_FIELDS (ctx->record_type);
+	   field;
+	   field = DECL_CHAIN (field))
+	gcc_assert (DECL_ALIGN (field) == align);
+#endif
       layout_type (ctx->record_type);
       if (kind == GF_OMP_TARGET_KIND_REGION)
 	fixup_child_record_type (ctx);
@@ -9201,7 +9236,18 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      map_cnt++;
 	    continue;
 	  }
-	if (!lookup_sfield (var, ctx))
+
+	if (DECL_SIZE (var)
+	    && TREE_CODE (DECL_SIZE (var)) != INTEGER_CST)
+	  {
+	    tree var2 = DECL_VALUE_EXPR (var);
+	    gcc_assert (TREE_CODE (var2) == INDIRECT_REF);
+	    var2 = TREE_OPERAND (var2, 0);
+	    gcc_assert (DECL_P (var2));
+	    var = var2;
+	  }
+
+	if (!maybe_lookup_field (var, ctx))
 	  continue;
 
 	if (kind == GF_OMP_TARGET_KIND_REGION)
@@ -9293,8 +9339,20 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    nc = NULL_TREE;
 		  }
 	      }
-	    else if (!lookup_sfield (ovar, ctx))
-	      continue;
+	    else
+	      {
+		if (DECL_SIZE (ovar)
+		    && TREE_CODE (DECL_SIZE (ovar)) != INTEGER_CST)
+		  {
+		    tree ovar2 = DECL_VALUE_EXPR (ovar);
+		    gcc_assert (TREE_CODE (ovar2) == INDIRECT_REF);
+		    ovar2 = TREE_OPERAND (ovar2, 0);
+		    gcc_assert (DECL_P (ovar2));
+		    ovar = ovar2;
+		  }
+		if (!maybe_lookup_field (ovar, ctx))
+		  continue;
+	      }
 
 	    if (nc)
 	      {

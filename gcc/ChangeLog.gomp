@@ -1,3 +1,19 @@
+2013-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (scan_sharing_clauses): Handle VLAs in
+	OMP_CLAUSE_{MAP,TO,FROM}.  Set DECL_ALIGN (field) before
+	calling insert_field_into_struct.
+	(scan_omp_target): Reverse TYPE_FIELDS, verify that
+	all field alignments are the same.
+	(lower_omp_target): Use maybe_lookup_field instead of
+	lookup_sfield to check if field is present.  Handle VLAs.
+	* tree-pretty-print.c (dump_omp_clause): Only check
+	OMP_CLAUSE_MAP_KIND on OMP_CLAUSE_MAP clauses.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_TO_ONLY.
+	(omp_firstprivatize_variable, omp_add_variable,
+	gimplify_adjust_omp_clauses_1, gimplify_adjust_omp_clauses): Handle
+	VLAs in OMP_CLAUSE_{MAP,TO,FROM}.
+
 2013-09-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_call_expr): Don't call fold_stmt
