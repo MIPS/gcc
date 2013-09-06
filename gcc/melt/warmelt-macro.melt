@@ -3000,25 +3000,25 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
     (setq statsymb (pair_head curpair))
     (when (is_not_a statsymb class_symbol)
       (error_at loc 
-		   "missing statsymb for (DEFCITERATOR $1 startformals statesymb locformals expbefore expafter)"_ symbname)
+		"missing statsymb for (DEFCITERATOR $1 startformals statesymb locformals expbefore expafter)"_ symbname)
       (return))
     (when (is_a bstartup discr_variadic_formal_sequence)
 	  (error_at loc
-		       "(DEFCITERATOR $1 startformals...) cannot have variadic start formals"_ symbname)
+		    "(DEFCITERATOR $1 startformals...) cannot have variadic start formals"_ symbname)
 	  (return))
     ;; parse the formal local arguments
     (setq curpair (pair_tail curpair))
     (setq blocvtup  (lambda_arg_bindings (pair_head curpair) ()))
     (when (is_a blocvtup  discr_variadic_formal_sequence)
       (error_at loc
-		   "(DEFCITERATOR $1 startformals state localformals...) cannot have variadic local formals" symbname)
+		"(DEFCITERATOR $1 startformals state localformals...) cannot have variadic local formals" symbname)
       (return))
     (setq curpair (pair_tail curpair))
     ;; parse the documentation, if any
     (when (== (pair_head curpair) ':doc)
       (setq curpair (pair_tail curpair))
       (if docv (error_at loc
-			    "duplicate documentation in DEFCITERATOR $1" symbname))
+			 "duplicate documentation in DEFCITERATOR $1" symbname))
       (setq docv (pair_head curpair))
       (setq curpair (pair_tail curpair)))
     ;; parse the before expansion
@@ -3046,8 +3046,8 @@ $CLASS_PRIMITIVE_BINDING and the $CODE_CHUNK macro.}# )
     (if (== (pair_head curpair) ':doc)
 	(progn
 	  (setq curpair (pair_tail curpair))
-	  (if docv (error_plain loc
-				"duplicate documentation in DEFCITERATOR"))
+	  (if docv (error_at loc
+			     "duplicate documentation in DEFCITERATOR $1"_ symbname))
 	  (setq docv (pair_head curpair))
 	  (setq curpair (pair_tail curpair))))
     ;; make the citerator and binding
@@ -3491,7 +3491,7 @@ function. Syntax is (DEFUNMATCHER <symbol> <in-formals> <out-formals>
 	   )
       (when (not (is_multiple btup))
 	    (debug "mexpand_defun strange btup" btup)
-	    (error_strv loc "missing formal arguments for DEFUN"_ symbname))
+	    (error_at loc "missing formal arguments for DEFUN $1"_ symbname))
       (foreach_in_multiple (btup) (fb :long bix) (put_env newenv fb))
       (setq curpair (pair_tail curpair))
       ;; handle the optional :doc documentationvalue
@@ -4280,7 +4280,7 @@ globally unique, and usually share a common prefix. See also
 $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 
 
-;;;@@@@ use error_at upto here
+
 ;;;;;;;;;;;;;;;; the definstance expander
 
 ;; internal to parse a field assignment in a given class (or without class, for put_field)
@@ -4288,17 +4288,18 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
   (debug "start parse_field_assignment cla" cla)
   (debug "start parse_field_assignment loc" loc)
   (debug "start parse_field_assignment fldkw" fldkw)
-  (if (not (is_a fldkw class_keyword))
-      (progn 
-	(error_plain loc "expecting :fieldname"_)
+  (when (is_not_a fldkw class_keyword)
+	(error_plain loc "expecting :fieldname in field assignment"_)
 	(return)
-	))
+	)
   (assert_msg "check fldkw" (is_a fldkw class_keyword) fldkw)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
   ;; expr is an sexpr or a symbol or a string or ...
-  (let ( (fld ()) )
+  (let ( (fld ()) 
+	 (fldkwnam (get_field :named_name fldkw))
+	 )
     ;; if we have a class, find the field inside
     (if (is_a cla class_class)
 	(let ( (clafields (unsafe_get_field :class_fields cla)) 
@@ -4328,7 +4329,7 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
     (debug "parse_field_assignment after class scanning fld" fld)
     (if (null fld)
 	;; othewise, find the field by its bound name
-	(let ( (fldkwnam (unsafe_get_field :named_name fldkw))
+	(let ( 
 	       (fldnam (create_symbolstr fldkwnam)) 
 	       )
 	  (debug "parse_field_assignment fldnam" fldnam)
@@ -4337,7 +4338,7 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 	    (debug "parse_field_assignment fldbind" fldbind)
 	    (cond 
 	     ( (null fldbind)
-	       (error_strv loc "unknown field name in field assignment"_ 
+	       (error_at loc "unknown field name $1 in field assignment"_ 
 			   fldkwnam)
 	       (return)
 	       )
@@ -4353,15 +4354,13 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 			    (kwnam (unsafe_get_field :named_name fldkw)) 
 			    )
 		       (setq fld vfld)
-		       (if (!=s vfldnam kwnam)
-			   (progn
-			     ;; this happen when a field is used by its synonym
-			     (warning_strv loc "obsolete use of synonym field" kwnam)
-			     (inform_strv loc "better use real field name" vfldnam)))
-		       (debug "parse_field_assignment gives vfld" vfld)
+		       (when (!=s vfldnam kwnam)
+			 ;; this happen when a field is used by its synonym
+			 (warning_at loc "obsolete use of synonym field $1, better use $2 " kwnam vfldnam))
+			 (debug "parse_field_assignment gives vfld" vfld)
 		       vfld)) ))
 	     (:else
-	      (error_strv loc "bad field name in field assignment"_
+	      (error_at loc "bad field name $1 in field assignment"_
 			  fldkwnam)
 	      (return)
 	      ))
@@ -4399,9 +4398,10 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 	 (docv ())
 	 )
     (if (is_not_a symb class_symbol)
-	(error_plain loc "missing symbol for DEFINSTANCE"_))
+	(error_at loc "missing symbol for DEFINSTANCE"_))
     (setq curpair (pair_tail curpair))
     (let ( 
+	  (symbname (get_field :named_name symb))
 	  (nam (pair_head curpair)) 
 	  (ibind 
 	   (instance class_instance_binding
@@ -4412,7 +4412,7 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
       (warn_if_redefined symb env loc)
       (put_env env ibind)
       (if (is_not_a nam class_symbol)
-	  (error_plain loc "missing class name for DEFINSTANCE"_))
+	  (error_at loc "missing class name for DEFINSTANCE $1"_ symbname))
       (let ( (bnd (find_env env nam)) 
 	     (fldlist (make_list discr_list))
 	     )
@@ -4425,8 +4425,8 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 	   (setq clabind bnd)
 	   (setq cla (unsafe_get_field :vbind_value bnd)))
 	 (:else
-	  (error_strv loc "invalid class name for DEFINSTANCE"_
-		      (unsafe_get_field :named_name nam))
+	  (error_at loc "invalid class name $1 for DEFINSTANCE $2"_
+		      (unsafe_get_field :named_name nam) symbname)
 	  (return ())
 	  ))
 	(setq claname nam)
@@ -4436,25 +4436,25 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 		 (if (not (is_pair curpair)) (exit insloop))
 		 (let ( (curfkw (pair_head curpair)) )
 		   (if (is_not_a curfkw class_keyword)
-		       (error_plain loc "expecting keyword in DEFINSTANCE"_))
+		       (error_at loc "expecting keyword in DEFINSTANCE $1"_ symbname))
 		   (setq curpair (pair_tail curpair))
 		   (let ( (curexp (pair_head curpair)) )
 		     (cond  ( (== curfkw ':obj_num)
-			      (if objnum (error_plain loc "duplicate :obj_num in DEFINSTANCE"_))
+			      (if objnum (error_at loc "duplicate :obj_num in DEFINSTANCE $1"_ symbname))
 			      (setq objnum 
 				    (if (is_a curexp class_sexpr)
 					(mexpander curexp env mexpander modctx)
 				      curexp))
 			      )
 			    ( (== curfkw ':predef)
-			      (if predef (error_plain loc "duplicate :predef in DEFINSTANCE"_))
+			      (if predef (error_at loc "duplicate :predef in DEFINSTANCE $1"_ symbname))
 			      (setq predef 
 				    (if (is_a curexp class_sexpr)
 					(mexpander curexp env mexpander modctx)
 				      curexp))
 			      )
 			    ( (== curfkw ':doc)
-			      (if docv (error_plain loc "duplicate :doc in DEFINSTANCE"))
+			      (if docv (error_at loc "duplicate :doc in DEFINSTANCE $1"_ symbname))
 			      (setq docv curexp)
 			      )
 			    (:else 
@@ -4515,21 +4515,21 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 	 (clabind ())
 	 (formals ())
 	 )
-    (if (is_not_a symb class_symbol)
-	(progn
-	  (error_plain loc "missing symbol for (DEFSELECTOR <name> <class> ...)"_)
-	  (return)))
+    (when (is_not_a symb class_symbol)
+	  (error_at loc "missing symbol for (DEFSELECTOR <name> <class> ...)"_)
+	  (return))
     (setq curpair (pair_tail curpair))
-    (let ( (nam (pair_head curpair)) 
-	   (selbind (instance class_selector_binding
+    (let (
+	  (symbname (get_field :named_name symb))
+	  (nam (pair_head curpair)) 
+	  (selbind (instance class_selector_binding
 			      :binder symb
 			      :sbind_selectordef (); filled later
 			      ))
 	   )
-      (if (is_not_a nam class_symbol)
-	  (progn
-	    (error_plain loc "missing class name for (DEFSELECTOR <name> <class> ...)"_)
-	    (return)))
+      (when (is_not_a nam class_symbol)
+	(error_at loc "missing class name for (DEFSELECTOR $1 <class> ...)"_ symbname)
+	(return))
       (warn_if_redefined symb env loc)
       (put_env env selbind)
       ;;
@@ -4548,26 +4548,21 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 	   (setq cla (unsafe_get_field :vbind_value bnd)))
 	 ((notnull bnd)
 	  (debug "mexpand_defselector faulty bnd" bnd)
-	  (error_strv loc "invalid class name for (DEFSELECTOR <name> <class> ...)"_
-		      (unsafe_get_field :named_name claname))
+	  (error_at loc "invalid class name $1 for (DEFSELECTOR $2 <class> ...)"_
+		      (unsafe_get_field :named_name claname) symbname)
 	  (return))
 	 (:else
-	  (error_strv loc "unknown class name for (DEFSELECTOR <name> <class> ...)"_
-		      (unsafe_get_field :named_name claname))
+	  (error_at loc "unknown class name $1 for (DEFSELECTOR $2 <class> ...)"_
+		      (unsafe_get_field :named_name claname) symbname)
 	  (return)
 	  ))
 	;;
 	(debug "mexpand_defselector cla" cla)
-	(if (not (subclass_or_eq cla class_selector))
-	    (progn
-	      (debug "mexpand_defselector class_selector=" class_selector)
-	      ;; strangely, this error happens in makedoc mode all the
-	      ;; times. We disable it in that case..., but it is the
-	      ;; symptom of another bug...
-	      (if (null (get_field :referenced_value melt_mode_reference))
-		  (error_strv loc "invalid class in (DEFSELECTOR <name> <class>); expecting CLASS_SELECTOR or its subclass"  
-			      (unsafe_get_field :named_name claname)))
-	      (return)))
+	(when (not (subclass_or_eq cla class_selector))
+	  (debug "mexpand_defselector class_selector=" class_selector)
+	  (error_at loc "invalid class $1 in (DEFSELECTOR $2 <class>); expecting CLASS_SELECTOR or its subclass"_
+		    (unsafe_get_field :named_name claname) symbname)
+	  (return))
 	;;
 	(assert_msg "check cla" (is_a cla class_class) cla)
 	(setq curpair (pair_tail curpair))
@@ -4575,29 +4570,29 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 		 (if (not (is_pair curpair)) (exit insloop))
 		 (let ( (curfkw (pair_head curpair)) )
 		   (if (is_not_a curfkw class_keyword)
-		       (error_plain loc "expecting keyword in DEFSELECTOR"_))
+		       (error_at loc "expecting keyword in DEFSELECTOR $1"_ symbname))
 		   (setq curpair (pair_tail curpair))
 		   (let ( (curexp (pair_head curpair)) )
 		     (cond  ( (== curfkw ':obj_num)
-			      (if curexp (error_plain loc "duplicate :obj_num in DEFSELECTOR"_))
+			      (if curexp (error_at loc "duplicate :obj_num in DEFSELECTOR $1"_ symbname))
 			      (setq objnum 
 				    (if (is_a curexp class_sexpr)
 					(mexpander curexp env mexpander modctx)
 				      curexp))
 			      )
 			    ( (== curfkw ':predef)
-			      (if curexp (error_plain loc "duplicate :predef in DEFSELECTOR"_))
+			      (if curexp (error_at loc "duplicate :predef in DEFSELECTOR $1"_ symbname))
 			      (setq predef 
 				    (if (is_a curexp class_sexpr)
 					(mexpander curexp env mexpander modctx)
 				      curexp))
 			      )
 			    ( (== curfkw ':doc)
-			      (if docv (error_plain loc "duplicate :doc in DEFSELECTOR"))
+			      (if docv (error_at loc "duplicate :doc in DEFSELECTOR $1"_ symbname))
 			      (setq docv curexp)
 			      )
 			    ( (== curfkw ':formals)
-			      (if formals (error_plain loc "duplicate :formals in DEFSELECTOR"))
+			      (if formals (error_at loc "duplicate :formals in DEFSELECTOR $1"_ symbname))
 			      ;; curfkw is non-null so we ask the
 			      ;; arguments to be checked by
 			      ;; lambda_arg_bindings
@@ -4605,9 +4600,11 @@ $CLASS_ROOT $CLASS_CLASS $CLASS_FIELD etc.}#)
 			      (let ( (firstf (multiple_nth formals 0)) )
 				(cond
 				 ( (null firstf)
-				   (error_plain loc ":formals of DEFSELECTOR should have at least one value argument for the receiver"))
+				   (error_at loc 
+					     ":formals of DEFSELECTOR $1 should have at least one value argument for the receiver"_ 
+					     symbname))
 				 ( (!= (get_field :fbind_type firstf) ctype_value)
-				   (error_plain loc "first :formals of DEFSELECTOR should be a :value"))
+				   (error_at loc "first :formals of DEFSELECTOR $1 should be a :value"_ symbname))
 			      )))
 			    (:else 
 			     (let  ( (flda (parse_field_assignment cla loc curfkw curexp env mexpander modctx)) )
@@ -4650,15 +4647,16 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	 (cont (unsafe_get_field :sexp_contents sexpr))
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont)))
-	 (claname (pair_head curpair))
+	 (clasymb (pair_head curpair))
 	 (cla ())
 	 (clabind ())
 	 )
     (debug "mexpand_instance start sexpr" sexpr)
-    (if (is_not_a claname class_symbol)
+    (if (is_not_a clasymb class_symbol)
 	(error_plain loc "missing class symbol for INSTANCE"_))
-    (let ( (bnd (find_env env claname)) 
+    (let ( (bnd (find_env env clasymb)) 
 	   (fldlist (make_list discr_list))
+	   (claname (get_field :named_name clasymb))
 	   )
       (cond 
        ( (is_a bnd class_class_binding)
@@ -4671,8 +4669,8 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	 (setq cla (unsafe_get_field :vbind_value bnd))
 	 )
        (:else
-	(error_strv loc "invalid class name for INSTANCE"_
-		    (unsafe_get_field :named_name claname))
+	(error_at loc "invalid class name for INSTANCE $1"_
+		    claname)
 	(return ())
 	))
       (debug "mexpand_instance cla" cla)
@@ -4682,7 +4680,7 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	       (if (not (is_pair curpair)) (exit insloop))
 	       (let ( (curfkw (pair_head curpair)) )
 		 (if (is_not_a curfkw class_keyword)
-		     (error_plain loc "expecting keyword in INSTANCE"_))
+		     (error_at loc "expecting keyword in INSTANCE $1"_ claname))
 		 (setq curpair (pair_tail curpair))
 		 (let ( (curexp (pair_head curpair)) )
 		   (let  ( (flda 
@@ -4690,8 +4688,8 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 		     (debug "mexpand_instance flda" flda)
 		     (if flda 
 			 (list_append fldlist flda)
-		       (error_strv loc "bad field name in INSTANCE"_
-				   (unsafe_get_field :named_name curfkw))
+		       (error_at loc "bad field name $1 in INSTANCE $2"_
+				   (unsafe_get_field :named_name curfkw) claname)
 		       ))))
 	       (setq curpair (pair_tail curpair))
 	       )
@@ -4778,12 +4776,11 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
      )
     (let ( (fld (get_field :referenced_value fldcont))
 	   )
-      (if (is_not_a fld class_field)
-	  (progn
+      (when (is_not_a fld class_field)
 	    (debug "parse_field_pattern bad fld" fld)
-	    (error_strv psloc "invalid :field in pattern"
+	    (error_at psloc "invalid :field $1 in pattern"
 			(unsafe_get_field :named_name fkeyw))
-	    (return)))
+	    (return))
       (let (
 	    (patf (instance class_source_field_pattern
 			    :loca_location psloc
@@ -4806,14 +4803,15 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	(fields ())
 	(fieldnams ())
 	(curpair (pair_tail (list_first cont)))
-	(claname (pair_head curpair))
+	(clasymb (pair_head curpair))
 	(cla ())
 	(clabind ())
 	)
-    (if (is_not_a claname class_symbol)
+    (if (is_not_a clasymb class_symbol)
 	(error_plain loc "missing class symbol for INSTANCE pattern"_))
-    (let ( (bnd (find_env env claname)) 
+    (let ( (bnd (find_env env clasymb)) 
 	   (fldlist (make_list discr_list))
+	   (claname (get_field :named_name clasymb))
 	   )
       (cond 
        ( (is_a bnd class_class_binding)
@@ -4826,8 +4824,8 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	 (setq cla (unsafe_get_field :vbind_value bnd))
 	 )
        (:else
-	(error_strv loc "invalid class name for INSTANCE"_
-		    (unsafe_get_field :named_name claname))
+	(error_at loc "invalid class name for INSTANCE $1"_
+		    claname)
 	(return ())
 	))
       (assert_msg "check cla" (is_a cla class_class) cla)
@@ -4845,8 +4843,8 @@ messages. Syntax is (DEFSELECTOR <symbol> <selector-class> [:doc
 	     (debug "patexpand_instance fldp" fldp)
 	     (if fldp
 		 (list_append fldlist fldp)
-	       (error_strv loc "bad field name in INSTANCE"_
-			   (unsafe_get_field :named_name curfkw))
+	       (error_at loc "bad field name $1 in INSTANCE $2"_
+			 (unsafe_get_field :named_name curfkw) claname)
 	       ))))
        (setq curpair (pair_tail curpair))
        )
@@ -4900,14 +4898,15 @@ all the specified fields.}# )
 	(fields ())
 	(fieldnams ())
 	(curpair (pair_tail (list_first cont)))
-	(claname (pair_head curpair))
+	(clasymb (pair_head curpair))
 	(cla ())
 	(clabind ())
 	)
-    (if (is_not_a claname class_symbol)
+    (if (is_not_a clasymb class_symbol)
 	(error_plain loc "missing class symbol for  OBJECT pattern"_))
-    (let ( (bnd (find_env env claname)) 
+    (let ( (bnd (find_env env clasymb)) 
 	   (fldlist (make_list discr_list))
+	   (claname (get_field :named_name clasymb))
 	   )
       (cond 
        ( (is_a bnd class_class_binding)
@@ -4920,8 +4919,8 @@ all the specified fields.}# )
 	 (setq cla (unsafe_get_field :vbind_value bnd))
 	 )
        (:else
-	(error_strv loc "invalid class name for OBJECT pattern"_
-		    (unsafe_get_field :named_name claname))
+	(error_strv loc "invalid class name for OBJECT $1 pattern"_
+		    claname)
 	(return ())
 	))
       (assert_msg "check cla" (is_a cla class_class) cla)
@@ -4932,15 +4931,15 @@ all the specified fields.}# )
        (if (not (is_pair curpair)) (exit insloop))
        (let ( (curfkw (pair_head curpair)) )
 	 (if (is_not_a curfkw class_keyword)
-	     (error_plain loc "expecting keyword in OBJECT pattern"_))
+	     (error_at loc "expecting keyword in OBJECT $1 pattern"_ claname))
 	 (setq curpair (pair_tail curpair))
 	 (let ( (curexp (pair_head curpair)) )
 	   (let  ( (fldp (parse_field_pattern curfkw cla curexp env pctx loc)) )
 	     (debug "patexpand_object fldp" fldp)
 	     (if fldp
 		 (list_append fldlist fldp)
-	       (error_strv loc "bad field name in OBJECT pattern"_
-			   (unsafe_get_field :named_name curfkw))
+	       (error_at loc "bad field name $1 in OBJECT $2 pattern"_
+			   (unsafe_get_field :named_name curfkw) claname)
 	       ))))
        (setq curpair (pair_tail curpair))
        )
@@ -5107,19 +5106,19 @@ and $EXPR_CHUNK etc.}#)
 	   )
       (when (is_not_a cty class_ctype)
 	(debug "mexpand_expr_chunk bad kcty=" kcty)
-	(error_strv sloc "bad type keyword for EXPR_CHUNK"_  typknam)
+	(error_at sloc "bad type keyword for EXPR_CHUNK"_  typknam)
 	(return ())
 	)
       (cond ( (== (unsafe_get_field :ctype_keyword cty) kcty)
 	      ()
 	      )
 	    ( (== (unsafe_get_field :ctype_altkeyword cty) kcty)
-	      (warning_strv sloc "using obsolete ctype keyword in EXPR_CHUNK" typknam)
-	      (inform_strv sloc "prefered ctype is" (get_field :named_name (get_field :ctype_keyword cty)))
+	      (warning_at sloc "using obsolete ctype keyword $1 in EXPR_CHUNK, preferring $2" 
+			    typknam (get_field :named_name (get_field :ctype_keyword cty)))
 	      )
 	    (:else
 	     (debug "mexpand_expr_chunk strange kcty=" kcty)
-	     (error_strv sloc "invalid type keyword for EXPR_CHUNK"_
+	     (error_at sloc "invalid type keyword $1 for EXPR_CHUNK"_
 			 typknam)
 	     (return ())   
 	     ))
@@ -6693,24 +6692,23 @@ applications of @code{/i} primitives.}#
 	       )
 	  (cond
 	   ( (is_not_a cty class_quasi_ctype)
-	     (error_strv loc "letbinding with invalid type keyword"_ tynam))
+	     (error_at loc "letbinding with invalid type keyword $1"_ tynam))
 	   ( (== (get_field :ctype_keyword cty) curarg)
 	     (setq ctyp cty))
 	   ( (== (get_field :ctype_altkeyword cty) curarg)
 	     (setq ctyp cty)
-	     (warning_strv loc "obsolete alternate ctype keyword in let binding"
-			   tynam)
-	     (inform_strv loc "prefered ctype keyword" (get_field :named_name (get_field :ctype_keyword ctyp)))
+	     (warning_at loc "obsolete alternate ctype $1 keyword in let binding, wanting $2"
+			   tynam (get_field :named_name (get_field :ctype_keyword ctyp)))
 	     )
 	   (:else
-	    (error_strv loc "let-binding with invalid type keyword"_
+	    (error_at loc "let-binding with invalid type keyword $1"_
 			tynam)))
 	  (setq curpair (pair_tail curpair))
 	  (setq curarg (pair_head curpair))
 	  ))
     ;; parse the variable
     (cond ( (is_a curarg class_keyword)
-	    (error_strv loc "letbinding cannot bind keyword"_  
+	    (error_at loc "let-binding cannot bind keyword $1"_  
 			(unsafe_get_field :named_name curarg)))
 	  ( (is_a curarg class_symbol)
 	    (setq var curarg)
@@ -6718,7 +6716,7 @@ applications of @code{/i} primitives.}#
 	    (setq curarg (pair_head curpair))
 	    ))
     (if (null var) 
-	(error_plain loc "missing variable in letbinding"_))
+	(error_at loc "missing variable in letbinding"_))
     ;; special case for :macro i.e. quasi_ctype_macro
     ;; syntax of the macro binding (:macro <name> <formals> <body>)
     (if (== ctyp quasi_ctype_macro)
@@ -6730,9 +6728,9 @@ applications of @code{/i} primitives.}#
 	  (debug "mexpand_letbinding macformals=" macformals)
 	  (setq curpair (pair_tail curpair))
 	  (if (is_a macformals discr_variadic_formal_sequence)
-	      (error_strv loc ":macro let-binding cannot be variadic" varname))
+	      (error_at loc ":macro let-binding $1 cannot be variadic" varname))
 	  (if (>i (multiple_length macformals) 4)
-	      (error_strv loc ":macro let-binding should have at most 4 formals" varname))
+	      (error_at loc ":macro $1 let-binding should have at most 4 formals" varname))
 	  (foreach_in_multiple
 	   (macformals)
 	   (curmacformal :long ix)
@@ -6741,9 +6739,9 @@ applications of @code{/i} primitives.}#
 	   (let ( (curformalname (get_field :named_name (get_field :binder curmacformal))) 
 		  )
 	     (if (!= (get_field :fbind_type curmacformal) ctype_value)
-		 (error_strv loc ":macro let-binding should be :value" curformalname))
+		 (error_at loc ":macro $1 let-binding should be :value" curformalname))
 	     (if (find_env newenv (get_field :binder curmacformal))
-		 (error_strv loc ":macro formal already bound" curformalname))
+		 (error_at loc ":macro $1 formal already bound" curformalname))
 	     (put_env newenv curmacformal)
 	     ))
 	  (setq macbody (expand_pairlist_as_tuple curpair newenv mexpander modctx))
@@ -6771,18 +6769,18 @@ applications of @code{/i} primitives.}#
        ( (null prevbind) ())
        ( (is_a prevbind class_let_binding)
 	 (let ( (prevloc (get_field :letbind_loc prevbind)) )
-	   (warning_strv loc
-			 "local let binding hides upper one"
+	   (warning_at loc
+			 "local let binding $1 hides upper one"
 			 (get_field :named_name var))
 	   (if prevloc
-	       (warning_strv prevloc
-			     "here is the hidden binding" 
+	       (warning_at prevloc
+			     "here is the hidden binding of $1" 
 			     (get_field :named_name var)))
 				  
 	   ))
        ( (is_a prevbind class_fixed_binding)
-	 (warning_strv loc
-		       "local let binding hides definition"
+	 (warning_at loc
+		       "local let binding $1 hides definition"
 		       (get_field :named_name var))
 	 )
        ))
@@ -6969,7 +6967,7 @@ applications of @code{/i} primitives.}#
 		 (curvar :long varix)
 		 (debug "mexpand_letrec second loop curvar" curvar)
 		 (if (mapobject_get envmap curvar)
-		     (error_strv loc "repeated variable in LETREC binding"
+		     (error_at loc "repeated variable $1 in LETREC binding"
 				 (get_field :named_name curvar)))
 ;;; make the binding
 		 (let ( (curbind (instance class_letrec_binding
@@ -7153,7 +7151,8 @@ applications of @code{/i} primitives.}#
 	      (warn_if_redefined fbisymb newenv loc)
 	      (if (mapobject_get varbindmap
 				 fbisymb)
-		  (error_strv curcaseloc "formals should all be distinct in (VARIADIC ...) " (get_field :named_name fbisymb))
+		  (error_at curcaseloc "formals should all be distinct in (VARIADIC ...) but $1 is repeated" 
+			    (get_field :named_name fbisymb))
 		)
 	      (mapobject_put varbindmap fbisymb fbi)
 	      (put_env newenv fbi)
@@ -7750,7 +7749,7 @@ $COMMA It is often noted with a prefix comma-character
 		   } ;
 		   } /* end mexpand_use_package_from_pkg_config $CHECKPKGNAME_CHK */ }#)
        (unless goodpkgname
-	 (error_strv loc "invalid package name for (USE_PACKAGE_FROM_PKG_CONFIG ...)" curpkgname)
+	 (error_at loc "invalid package name $1 for (USE_PACKAGE_FROM_PKG_CONFIG ...)" curpkgname)
 	 (return))
        (add2out cmdbuf " " curpkgname)
        )
@@ -7771,7 +7770,7 @@ $COMMA It is often noted with a prefix comma-character
 		  }#)
       (debug "mexpand_use_package_from_pkg_config failcmd=" failcmd)
       (when failcmd
-	(error_strv loc "unexistent package names for USE_PACKAGE_FROM_PKG_CONFIG " cmdstr)
+	(error_at loc "unexistent package names for USE_PACKAGE_FROM_PKG_CONFIG $1" cmdstr)
 	(return))
       )
     ;; return the source 
@@ -7926,11 +7925,10 @@ $COMMA It is often noted with a prefix comma-character
 	  (return ())))
     (setq curpair (pair_tail curpair))
     (let ( (labind (find_env env xlabnam)) )
-      (if (is_not_a labind class_label_binding)
-	  (progn 
-	    (error_strv loc "bad label in EXIT"_
+      (when (is_not_a labind class_label_binding)
+	    (error_at loc "bad label in EXIT $1"_
 			(unsafe_get_field :named_name xlabnam))
-	    (return ())))
+	    (return ()))
       (let ( (bodytup (pairlist_to_multiple
 		       curpair
 		       discr_multiple
@@ -7960,23 +7958,20 @@ $COMMA It is often noted with a prefix comma-character
 	 (loc  (unsafe_get_field :loca_location sexpr))
 	 (curpair (pair_tail (list_first cont))) 
 	 (slabnam (pair_head curpair))
-	 (xlabnam (mexpander slabnam env mexpander modctx))
+	 (xlabsymb (mexpander slabnam env mexpander modctx))
 	 )
     (setq curpair (pair_tail curpair))
-    (if (is_not_a xlabnam class_symbol)
-	(progn
+    (when (is_not_a xlabsymb class_symbol)
 	    (error_plain loc "bad label in (AGAIN <label>)"_)
-	    (return)))
-    (if curpair
-	(progn
+	    (return))
+    (when curpair
 	  (error_plain loc "extra operands to (AGAIN <label>)")
-	  (return)))
-    (let ( (labind (find_env env xlabnam)) )
-      (if (is_not_a labind class_label_binding)
-	  (progn 
-	    (error_strv loc "bad label in AGAIN"_
-			(unsafe_get_field :named_name xlabnam))
-	    (return)))
+	  (return))
+    (let ( (labind (find_env env xlabsymb)) )
+      (when (is_not_a labind class_label_binding)
+	    (error_at loc "bad label in AGAIN $1"_
+			(unsafe_get_field :named_name xlabsymb))
+	    (return))
     (let ( (magain (instance class_source_again
 			:loca_location loc
 			:slabel_bind labind
@@ -8383,6 +8378,7 @@ $COMMA It is often noted with a prefix comma-character
 	(error_plain loc "(EXPORT_MACRO <sym> [<expander>]) expecting symbol"_))
     (setq curpair (pair_tail curpair))
     (let (
+	  (symbname (get_field :named_name symb))
 	  (sexpv (let ( (se (pair_head curpair)) 
 			)
 		   (debug "mexpand_export_macro sexpv=" se)
@@ -8393,8 +8389,8 @@ $COMMA It is often noted with a prefix comma-character
 		   cb))
 	  (expv (cond ( (null sexpv)
 			(when (is_not_a cbind class_defined_macro_binding)
-			  (error_strv loc "(EXPORT_MACRO <sym> <expander>) needs an expander for non-macro symbol"
-				      (get_field :named_name symb))
+			  (error_at loc "(EXPORT_MACRO $1 <expander>) needs an expander for non-macro symbol"
+				      symbname)
 			  (return))
 			symb
 			)
@@ -8407,7 +8403,7 @@ $COMMA It is often noted with a prefix comma-character
 	    (setq curpair (pair_tail curpair))
 	    (setq doc (pair_head curpair))))
       (if (null expv)
-	  (error_plain loc  "(EXPORT_MACRO <sym> <expander> [:doc <docum>]) expecting expander"_))
+	  (error_at loc  "(EXPORT_MACRO $1 <expander> [:doc <docum>]) expecting expander"_ symbname))
       (let ( (res (instance class_source_export_macro
 			    :loca_location loc
 			    :sexpmac_mname symb

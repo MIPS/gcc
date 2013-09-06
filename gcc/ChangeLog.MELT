@@ -1,6 +1,11 @@
 
 2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt: Replaced all error_... with
+	error_at.
+
+2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
