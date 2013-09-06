@@ -288,8 +288,11 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		#{/* diagnostic_expand_message $SLEN_CHK*/ $FMTLEN = (($SFMT)?strlen($SFMT):0);
 		}#)
     (assert_msg "check diagvec" (is_multiple diagvec) diagvec)
+    (debug "diagnostic_expand_message sfmt=" sfmt " fmtlen=" fmtlen " diagvec=" diagvec)
+    (assert_msg "check diagvec" (is_multiple diagvec) diagvec)
     (forever 
      diagloop
+     (debug "diagnostic_expand_message diagloop spos=" spos)
      (if (>=i spos fmtlen) 
 	 (exit diagloop))
      (setq ixdoll -1)
@@ -304,16 +307,22 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		         $IXDOLL = dp[1] - '0';
 		      else
 		         meltgc_add_out_cstr_len ($SBUF, dp+1, 1);
-		    } else
+		    } else {
+		      meltgc_add_out_cstr ($SBUF, $SFMT + $SPOS);
                       $DOLLARPOS = -1;
+		    }
 		    /* end diagnostic_expand_message $DOLPOS_CHK */
 		 }#)
-     (if (<i dollarpos 0)
+     (debug "diagnostic_expand_message dollarpos=" dollarpos " ixdoll=" ixdoll " dpos=" dpos)
+     (when (<i dollarpos 0)
 	 (exit diagloop))
      (if (<i ixdoll 0) 
 	 (again diagloop))
-     (if (<i ixdoll dpos)
-	 (add2out sbuf (multiple_nth diagvec ixdoll)))
+     (if (<=i ixdoll dpos)
+       (let ( (diagcomp (multiple_nth diagvec ixdoll))
+	      )
+	 (debug "ixdoll=" ixdoll " diagcomp=" diagcomp)
+	 (add2out sbuf diagcomp)))
      (setq spos (+i dollarpos 2))
      )
     (let ( (diagmsg (strbuf2string discr_string sbuf))

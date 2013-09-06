@@ -1,6 +1,10 @@
 
 2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (diagnostic_expand_message): Works better.
+
+2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt: Replaced some error_... with
 	error_at.
 
