@@ -295,7 +295,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
      (setq ixdoll -1)
      (code_chunk dolpos_chk
 		 #{ /* diagnostic_expand_message $DOLPOS_CHK start */
-		    char *dp = strchr ($SFMT + $SPOS, '$$');
+		    const char *dp = strchr ($SFMT + $SPOS, '$$');
 		    if (dp) {
                       $DOLLARPOS = dp - $SFMT;
 		      if ($DOLLARPOS > $SPOS)

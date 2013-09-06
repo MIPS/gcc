@@ -1,5 +1,12 @@
 
-2013-09-04  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (diagnostic_expand_message): Use const
+	char* pointer in chunk.
+
+	* melt/generated/warmelt-macro.cc: Hand edited for above.
+
+2013-09-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h: Reindented with astyle --style=gnu -s2 command.
 	* melt-runtime.cc: Likewise.
