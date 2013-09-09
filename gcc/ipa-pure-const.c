@@ -541,7 +541,8 @@ check_call (funct_state local, gimple call, bool ipa)
     }
 
   /* When not in IPA mode, we can still handle self recursion.  */
-  if (!ipa && callee_t == current_function_decl)
+  if (!ipa && callee_t
+      && recursive_call_p (current_function_decl, callee_t))
     {
       if (dump_file)
         fprintf (dump_file, "    Recursive call can loop.\n");
@@ -1079,8 +1080,9 @@ ignore_edge (struct cgraph_edge *e)
 }
 
 /* Return true if NODE is self recursive function.
-   ??? self recursive and indirectly recursive funcions should
-   be the same, so this function seems unnecessary.  */
+   Indirectly recursive functions appears as non-trivial strongly
+   connected components, so we need to care about self recursion
+   only.  */
 
 static bool
 self_recursive_p (struct cgraph_node *node)
@@ -1498,34 +1500,52 @@ gate_pure_const (void)
 	  && !seen_error ());
 }
 
-struct ipa_opt_pass_d pass_ipa_pure_const =
+namespace {
+
+const pass_data pass_data_ipa_pure_const =
 {
- {
-  IPA_PASS,
-  "pure-const",		                /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_pure_const,			/* gate */
-  propagate,			        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_PURE_CONST,		        /* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- },
- pure_const_generate_summary,		/* generate_summary */
- pure_const_write_summary,		/* write_summary */
- pure_const_read_summary,		/* read_summary */
- NULL,					/* write_optimization_summary */
- NULL,					/* read_optimization_summary */
- NULL,					/* stmt_fixup */
- 0,					/* TODOs */
- NULL,			                /* function_transform */
- NULL					/* variable_transform */
+  IPA_PASS, /* type */
+  "pure-const", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_PURE_CONST, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_ipa_pure_const : public ipa_opt_pass_d
+{
+public:
+  pass_ipa_pure_const(gcc::context *ctxt)
+    : ipa_opt_pass_d(pass_data_ipa_pure_const, ctxt,
+		     pure_const_generate_summary, /* generate_summary */
+		     pure_const_write_summary, /* write_summary */
+		     pure_const_read_summary, /* read_summary */
+		     NULL, /* write_optimization_summary */
+		     NULL, /* read_optimization_summary */
+		     NULL, /* stmt_fixup */
+		     0, /* function_transform_todo_flags_start */
+		     NULL, /* function_transform */
+		     NULL) /* variable_transform */
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_pure_const (); }
+  unsigned int execute () { return propagate (); }
+
+}; // class pass_ipa_pure_const
+
+} // anon namespace
+
+ipa_opt_pass_d *
+make_pass_ipa_pure_const (gcc::context *ctxt)
+{
+  return new pass_ipa_pure_const (ctxt);
+}
 
 /* Return true if function should be skipped for local pure const analysis.  */
 
@@ -1664,22 +1684,41 @@ local_pure_const (void)
     return 0;
 }
 
-struct gimple_opt_pass pass_local_pure_const =
+namespace {
+
+const pass_data pass_data_local_pure_const =
 {
- {
-  GIMPLE_PASS,
-  "local-pure-const",	                /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_pure_const,			/* gate */
-  local_pure_const,		        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_PURE_CONST,		        /* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "local-pure-const", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_PURE_CONST, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_local_pure_const : public gimple_opt_pass
+{
+public:
+  pass_local_pure_const(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_local_pure_const, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_local_pure_const (ctxt_); }
+  bool gate () { return gate_pure_const (); }
+  unsigned int execute () { return local_pure_const (); }
+
+}; // class pass_local_pure_const
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_local_pure_const (gcc::context *ctxt)
+{
+  return new pass_local_pure_const (ctxt);
+}

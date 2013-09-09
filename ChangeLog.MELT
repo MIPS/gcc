@@ -1,4 +1,10 @@
 
+2013-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	MELT branch merged with trunk rev 202389 using svnmerge.py; notice
+	that gcc/melt/xtramelt-ana-base.melt has been significantly
+	updated, but some updates are yet missing...
+
 2013-07-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	MELT branch merged with trunk rev 201298 using svnmerge.py

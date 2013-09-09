@@ -1,4 +1,9 @@
 
+2013-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{When merging trunk GCC 4.9 with C++ passes}}
+	* melt/xtramelt-ana-base.melt: Add GCC 4.9 specific code, still
+	incomplete, for classy passes.... Only Gimple passes are yet possible...
+
 2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt: Replaced all error_... with

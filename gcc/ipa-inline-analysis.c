@@ -87,8 +87,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "alloc-pool.h"
 #include "cfgloop.h"
-#include "cfgloop.h"
 #include "tree-scalar-evolution.h"
+#include "ipa-utils.h"
 
 /* Estimate runtime of function can easilly run into huge numbers with many
    nested loops.  Be sure we can compute time * INLINE_SIZE_SCALE * 2 in an
@@ -337,7 +337,7 @@ add_clause (conditions conditions, struct predicate *p, clause_t clause)
          and thus there is no point for looking for them.  */
       if (cc1->code == CHANGED || cc1->code == IS_NOT_CONSTANT)
 	continue;
-      for (c2 = c1 + 1; c2 <= NUM_CONDITIONS; c2++)
+      for (c2 = c1 + 1; c2 < NUM_CONDITIONS; c2++)
 	if (clause & (1 << c2))
 	  {
 	    condition *cc1 =
@@ -1101,12 +1101,13 @@ inline_node_duplication_hook (struct cgraph_node *src,
       known_vals.safe_grow_cleared (count);
       for (i = 0; i < count; i++)
 	{
-	  tree t = ipa_get_param (parms_info, i);
 	  struct ipa_replace_map *r;
 
 	  for (j = 0; vec_safe_iterate (dst->clone.tree_map, j, &r); j++)
 	    {
-	      if (r->old_tree == t && r->replace_p && !r->ref_p)
+	      if (((!r->old_tree && r->parm_num == i)
+		   || (r->old_tree && r->old_tree == ipa_get_param (parms_info, i)))
+		   && r->replace_p && !r->ref_p)
 		{
 		  known_vals[i] = r->new_tree;
 		  break;
@@ -2714,25 +2715,45 @@ compute_inline_parameters_for_current (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_inline_parameters = 
+namespace {
+
+const pass_data pass_data_inline_parameters =
 {
- {
-  GIMPLE_PASS,
-  "inline_param",		/* name */
-  OPTGROUP_INLINE,		/* optinfo_flags */
-  NULL,			/* gate */
-  compute_inline_parameters_for_current,	/* execute */
-  NULL,			/* sub */
-  NULL,			/* next */
-  0,				/* static_pass_number */
-  TV_INLINE_PARAMETERS,	/* tv_id */
-  0,				/* properties_required */
-  0,				/* properties_provided */
-  0,				/* properties_destroyed */
-  0,				/* todo_flags_start */
-  0				/* todo_flags_finish */
-  }
+  GIMPLE_PASS, /* type */
+  "inline_param", /* name */
+  OPTGROUP_INLINE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_INLINE_PARAMETERS, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_inline_parameters : public gimple_opt_pass
+{
+public:
+  pass_inline_parameters(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_inline_parameters, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_inline_parameters (ctxt_); }
+  unsigned int execute () {
+    return compute_inline_parameters_for_current ();
+  }
+
+}; // class pass_inline_parameters
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_inline_parameters (gcc::context *ctxt)
+{
+  return new pass_inline_parameters (ctxt);
+}
 
 
 /* Estimate benefit devirtualizing indirect edge IE, provided KNOWN_VALS and
@@ -3081,7 +3102,7 @@ inline_update_callee_summaries (struct cgraph_node *node, int depth)
     + callee_info->estimated_self_stack_size;
   if (inline_summary (node->global.inlined_to)->estimated_stack_size < peak)
       inline_summary (node->global.inlined_to)->estimated_stack_size = peak;
-  cgraph_propagate_frequency (node);
+  ipa_propagate_frequency (node);
   for (e = node->callees; e; e = e->next_callee)
     {
       if (!e->inline_failed)
@@ -3676,6 +3697,11 @@ void
 inline_generate_summary (void)
 {
   struct cgraph_node *node;
+
+  /* When not optimizing, do not bother to analyze.  Inlining is still done
+     because edge redirection needs to happen there.  */
+  if (!optimize && !flag_lto && !flag_wpa)
+    return;
 
   function_insertion_hook_holder =
     cgraph_add_function_insertion_hook (&add_new_function, NULL);

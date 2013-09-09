@@ -60,7 +60,7 @@ static code_stack *cs_base = NULL;
 /* Nonzero if we're inside a FORALL or DO CONCURRENT block.  */
 
 static int forall_flag;
-static int do_concurrent_flag;
+int gfc_do_concurrent_flag;
 
 /* True when we are resolving an expression that is an actual argument to
    a procedure.  */
@@ -723,8 +723,7 @@ resolve_entries (gfc_namespace *ns)
   el = ns->entries;
 
   /* Add an entry statement for it.  */
-  c = gfc_get_code ();
-  c->op = EXEC_ENTRY;
+  c = gfc_get_code (EXEC_ENTRY);
   c->ext.entry = el;
   c->next = ns->code;
   ns->code = c;
@@ -2987,11 +2986,11 @@ resolve_function (gfc_expr *expr)
 		     forall_flag == 2 ? "mask" : "block");
 	  t = false;
 	}
-      else if (do_concurrent_flag)
+      else if (gfc_do_concurrent_flag)
 	{
 	  gfc_error ("Reference to non-PURE function '%s' at %L inside a "
 		     "DO CONCURRENT %s", name, &expr->where,
-		     do_concurrent_flag == 2 ? "mask" : "block");
+		     gfc_do_concurrent_flag == 2 ? "mask" : "block");
 	  t = false;
 	}
       else if (gfc_pure (NULL))
@@ -3060,7 +3059,7 @@ pure_subroutine (gfc_code *c, gfc_symbol *sym)
   if (forall_flag)
     gfc_error ("Subroutine call to '%s' in FORALL block at %L is not PURE",
 	       sym->name, &c->loc);
-  else if (do_concurrent_flag)
+  else if (gfc_do_concurrent_flag)
     gfc_error ("Subroutine call to '%s' in DO CONCURRENT block at %L is not "
 	       "PURE", sym->name, &c->loc);
   else if (gfc_pure (NULL))
@@ -4908,7 +4907,10 @@ resolve_variable (gfc_expr *e)
 	    for (formal = entry->sym->formal; formal; formal = formal->next)
 	      {
 		if (formal->sym && sym->name == formal->sym->name)
-		  seen = true;
+		  {
+		    seen = true;
+		    break;
+		  }
 	      }
 
 	  /*  If it has not been seen as a dummy, this is an error.  */
@@ -6279,8 +6281,10 @@ gfc_resolve_iterator (gfc_iterator *iter, bool real_ok, bool own_scope)
 	  sgn = mpfr_sgn (iter->step->value.real);
 	  cmp = mpfr_cmp (iter->end->value.real, iter->start->value.real);
 	}
-      if ((sgn > 0 && cmp < 0) || (sgn < 0 && cmp > 0))
-	gfc_warning ("DO loop at %L will be executed zero times",
+      if (gfc_option.warn_zerotrip &&
+	  ((sgn > 0 && cmp < 0) || (sgn < 0 && cmp > 0)))
+	gfc_warning ("DO loop at %L will be executed zero times"
+		     " (use -Wno-zerotrip to suppress)",
 		     &iter->step->where);
     }
 
@@ -6877,9 +6881,8 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 
       if (ts.type == BT_DERIVED && (init_e = gfc_default_initializer (&ts)))
 	{
-	  gfc_code *init_st = gfc_get_code ();
+	  gfc_code *init_st = gfc_get_code (EXEC_INIT_ASSIGN);
 	  init_st->loc = code->loc;
-	  init_st->op = EXEC_INIT_ASSIGN;
 	  init_st->expr1 = gfc_expr_to_initialize (e);
 	  init_st->expr2 = init_e;
 	  init_st->next = code->next;
@@ -8017,8 +8020,7 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
     code->ext.block.assoc = NULL;
 
   /* Add EXEC_SELECT to switch on type.  */
-  new_st = gfc_get_code ();
-  new_st->op = code->op;
+  new_st = gfc_get_code (code->op);
   new_st->expr1 = code->expr1;
   new_st->expr2 = code->expr2;
   new_st->block = code->block;
@@ -8084,8 +8086,7 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
       if (c->ts.type != BT_CLASS && c->ts.type != BT_UNKNOWN)
 	gfc_add_data_component (st->n.sym->assoc->target);
 
-      new_st = gfc_get_code ();
-      new_st->op = EXEC_BLOCK;
+      new_st = gfc_get_code (EXEC_BLOCK);
       new_st->ext.block.ns = gfc_build_block_ns (ns);
       new_st->ext.block.ns->code = body->next;
       body->next = new_st;
@@ -8136,9 +8137,8 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	{
 	  /* Add a default case to hold the CLASS IS cases.  */
 	  for (tail = code; tail->block; tail = tail->block) ;
-	  tail->block = gfc_get_code ();
+	  tail->block = gfc_get_code (EXEC_SELECT_TYPE);
 	  tail = tail->block;
-	  tail->op = EXEC_SELECT_TYPE;
 	  tail->ext.block.case_list = gfc_get_case ();
 	  tail->ext.block.case_list->ts.type = BT_UNKNOWN;
 	  tail->next = NULL;
@@ -8181,14 +8181,12 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	}
 
       /* Generate IF chain.  */
-      if_st = gfc_get_code ();
-      if_st->op = EXEC_IF;
+      if_st = gfc_get_code (EXEC_IF);
       new_st = if_st;
       for (body = class_is; body; body = body->block)
 	{
-	  new_st->block = gfc_get_code ();
+	  new_st->block = gfc_get_code (EXEC_IF);
 	  new_st = new_st->block;
-	  new_st->op = EXEC_IF;
 	  /* Set up IF condition: Call _gfortran_is_extension_of.  */
 	  new_st->expr1 = gfc_get_expr ();
 	  new_st->expr1->expr_type = EXPR_FUNCTION;
@@ -8210,9 +8208,8 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	}
 	if (default_case->next)
 	  {
-	    new_st->block = gfc_get_code ();
+	    new_st->block = gfc_get_code (EXEC_IF);
 	    new_st = new_st->block;
-	    new_st->op = EXEC_IF;
 	    new_st->next = default_case->next;
 	  }
 
@@ -9238,8 +9235,7 @@ build_assignment (gfc_exec_op op, gfc_expr *expr1, gfc_expr *expr2,
 {
   gfc_code *this_code;
 
-  this_code = gfc_get_code ();
-  this_code->op = op;
+  this_code = gfc_get_code (op);
   this_code->next = NULL;
   this_code->expr1 = gfc_copy_expr (expr1);
   this_code->expr2 = gfc_copy_expr (expr2);
@@ -9633,7 +9629,7 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
     {
       frame.current = code;
       forall_save = forall_flag;
-      do_concurrent_save = do_concurrent_flag;
+      do_concurrent_save = gfc_do_concurrent_flag;
 
       if (code->op == EXEC_FORALL)
 	{
@@ -9667,9 +9663,9 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 		 to transform the SELECT TYPE into ASSOCIATE first.  */
 	      break;
             case EXEC_DO_CONCURRENT:
-	      do_concurrent_flag = 1;
+	      gfc_do_concurrent_flag = 1;
 	      gfc_resolve_blocks (code->block, ns);
-	      do_concurrent_flag = 2;
+	      gfc_do_concurrent_flag = 2;
 	      break;
 	    case EXEC_OMP_WORKSHARE:
 	      omp_workshare_save = omp_workshare_flag;
@@ -9688,7 +9684,7 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
       if (code->op != EXEC_COMPCALL && code->op != EXEC_CALL_PPC)
 	t = gfc_resolve_expr (code->expr1);
       forall_flag = forall_save;
-      do_concurrent_flag = do_concurrent_save;
+      gfc_do_concurrent_flag = do_concurrent_save;
 
       if (!gfc_resolve_expr (code->expr2))
 	t = false;
@@ -10278,13 +10274,12 @@ build_init_assign (gfc_symbol *sym, gfc_expr *init)
   lval = gfc_lval_expr_from_sym (sym);
 
   /* Add the code at scope entry.  */
-  init_st = gfc_get_code ();
+  init_st = gfc_get_code (EXEC_INIT_ASSIGN);
   init_st->next = ns->code;
   ns->code = init_st;
 
   /* Assign the default initializer to the l-value.  */
   init_st->loc = sym->declared_at;
-  init_st->op = EXEC_INIT_ASSIGN;
   init_st->expr1 = lval;
   init_st->expr2 = init;
 }
@@ -14409,7 +14404,7 @@ resolve_types (gfc_namespace *ns)
     }
 
   forall_flag = 0;
-  do_concurrent_flag = 0;
+  gfc_do_concurrent_flag = 0;
   gfc_check_interfaces (ns);
 
   gfc_traverse_ns (ns, resolve_values);

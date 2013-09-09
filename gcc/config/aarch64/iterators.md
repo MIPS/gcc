@@ -134,8 +134,14 @@
 ;; Vector modes except double int.
 (define_mode_iterator VDQIF [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DF])
 
+;; Vector modes for Q and H types.
+(define_mode_iterator VDQQH [V8QI V16QI V4HI V8HI])
+
 ;; Vector modes for H and S types.
 (define_mode_iterator VDQHS [V4HI V8HI V2SI V4SI])
+
+;; Vector modes for Q, H and S types.
+(define_mode_iterator VDQQHS [V8QI V16QI V4HI V8HI V2SI V4SI])
 
 ;; Vector and scalar integer modes for H and S
 (define_mode_iterator VSDQ_HSI [V4HI V8HI V2SI V4SI HI SI])
@@ -377,7 +383,7 @@
 			(V4HI "V8HI") (V8HI "V8HI")
 			(V2SI "V4SI") (V4SI "V4SI")
 			(DI   "V2DI") (V2DI "V2DI")
-			(V2SF "V2SF") (V4SF "V4SF")
+			(V2SF "V4SF") (V4SF "V4SF")
 			(V2DF "V2DF") (SI   "V4SI")
 			(HI   "V8HI") (QI   "V16QI")])
 
@@ -453,6 +459,15 @@
                         (V2SF "s") (V4SF "s")
                         (V2DF "d")])
 
+;; Corresponding core element mode for each vector mode.  This is a
+;; variation on <vw> mapping FP modes to GP regs.
+(define_mode_attr vwcore  [(V8QI "w") (V16QI "w")
+			   (V4HI "w") (V8HI "w")
+			   (V2SI "w") (V4SI "w")
+			   (DI   "x") (V2DI "x")
+			   (V2SF "w") (V4SF "w")
+			   (V2DF "x")])
+
 ;; Double vector types for ALLX.
 (define_mode_attr Vallxd [(QI "8b") (HI "4h") (SI "2s")])
 
@@ -511,6 +526,20 @@
 
 (define_mode_attr fcvt_target [(V2DF "v2di") (V4SF "v4si") (V2SF "v2si")])
 (define_mode_attr FCVT_TARGET [(V2DF "V2DI") (V4SF "V4SI") (V2SF "V2SI")])
+
+(define_mode_attr VSWAP_WIDTH [(V8QI "V16QI") (V16QI "V8QI")
+				(V4HI "V8HI") (V8HI  "V4HI")
+				(V2SI "V4SI") (V4SI  "V2SI")
+				(DI   "V2DI") (V2DI  "DI")
+				(V2SF "V4SF") (V4SF  "V2SF")
+				(DF   "V2DF") (V2DF  "DF")])
+
+(define_mode_attr vswap_width_name [(V8QI "to_128") (V16QI "to_64")
+				    (V4HI "to_128") (V8HI  "to_64")
+				    (V2SI "to_128") (V4SI  "to_64")
+				    (DI   "to_128") (V2DI  "to_64")
+				    (V2SF "to_128") (V4SF  "to_64")
+				    (DF   "to_128") (V2DF  "to_64")])
 
 ;; -------------------------------------------------------------------
 ;; Code Iterators

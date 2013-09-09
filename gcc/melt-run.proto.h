@@ -69,6 +69,11 @@ along with GCC; see the file COPYING3.   If not see
 #include "c-family/c-pretty-print.h"
 
 #include "diagnostic.h"
+
+#if MELT_GCC_VERSION >= 4009
+#include "context.h"
+#endif /* GCC 4.9 */
+
 #include "flags.h"
 #include "toplev.h"
 #include "options.h"

@@ -55,6 +55,19 @@ MELT_EXTERN bool melthk_simple_ipa_gate(void)  MELT_MODULE_VISIBILITY;
 MELT_EXTERN unsigned int melthk_simple_ipa_execute(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN bool melthk_rtl_gate(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN unsigned int melthk_rtl_execute(void) MELT_MODULE_VISIBILITY;
+
+#if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
+class melt_gimple_pass : public gimple_opt_pass {
+public:
+  melt_gimple_pass (const pass_data& passdata, gcc::context*ctxt) 
+    : gimple_opt_pass (passdata, ctxt) {};
+
+  bool gate () { return melthk_gimple_gate(); };
+  unsigned execute () { return melthk_gimple_execute(); };
+  opt_pass* clone () { return new melt_gimple_pass(*this); };
+}; // end of melt_gimple_pass
+#endif /* GCC 4.9 or newer */
+
 }#)
 
 (cimplement 
@@ -159,6 +172,7 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 gimplepass_chk
 	 #{ /* start install_melt_gcc_pass $GIMPLEPASS_CHK */
+#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC 4.7 or 4.8 */
 	 struct gimple_opt_pass* gimpass = NULL;
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
@@ -177,11 +191,40 @@ unsigned int melthk_rtl_execute(void)
 	 gimpass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
 	 rpassinfo.pass = (struct opt_pass*) gimpass;
 	 rpassinfo.reference_pass_name = 
+	   melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
+	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
+	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
+			    NULL, &rpassinfo);
+#else /* GCC 4.9 or newer has C++ passes */
+	 struct register_pass_info rpassinfo;
+	 memset (&rpassinfo, 0, sizeof(rpassinfo));
+	 struct pass_data rpassdata;
+	 memset (&rpassdata, 0, sizeof(rpassdata));
+	 rpassdata.type = GIMPLE_PASS;
+	 rpassdata.name = melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
+	 rpassdata.optinfo_flags = OPTGROUP_NONE;
+	 rpassdata.has_gate = ($GATEFUN != NULL);
+	 rpassdata.has_execute = true;
+	 rpassdata.tv_id = TV_PLUGIN_RUN;
+	 rpassdata.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
+	 rpassdata.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
+	 rpassdata.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
+	 rpassdata.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
+	 rpassdata.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
+	 rpassinfo.pass = new melt_gimple_pass (rpassdata, g); // the g is from context.h
+	 rpassinfo.reference_pass_name = 
+	   melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
+	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
+	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
+			    NULL, &rpassinfo);
+#endif /* GCC 4.9 */
 	 /* end install_melt_gcc_pass $GIMPLEPASS_CHK */
 	 }#)
 	(mapstring_putstr passdict passname pass)
@@ -192,6 +235,7 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 simipapass_chk
 	 #{ /* start install_melt_gcc_pass $SIMIPAPASS_CHK */
+#if GCCPLUGIN_VERSION <= 4008  &&  MELT_GCC_VERSION <= 4008 /* GCC 4.7 or 4.8 */
 	 struct simple_ipa_opt_pass* simipass = NULL;
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
@@ -215,6 +259,11 @@ unsigned int melthk_rtl_execute(void)
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
+#else /* GCC >= 4.9 */
+#warning install_melt_gcc_pass $SIMIPAPASS_CHK not implemented for class_gcc_simple_ipa_pass
+         melt_fatal_error ("install_melt_gcc_pass unimplemented for MELT pass %s (simple_ipa)",
+			   melt_string_str((melt_ptr_t) $PASSNAME));
+#endif /* GCC 4.9 or better */
 	 /* end install_melt_gcc_pass $SIMIPAPASS_CHK */
 	 }#)
 	(debug "install_melt_pass_in_gcc installed simple ipa pass=" pass)
@@ -225,6 +274,7 @@ unsigned int melthk_rtl_execute(void)
 	(code_chunk 
 	 rtlpass_chk
 	 #{ /* start install_melt_gcc_pass $RTLPASS_CHK */
+#if GCCPLUGIN_VERSION <= 4008 &&  MELT_GCC_VERSION <= 4008 /* GCC 4.7 or 4.8 */
 	 struct rtl_opt_pass* rtlpass = NULL;
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
@@ -248,6 +298,11 @@ unsigned int melthk_rtl_execute(void)
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
+#else /* GCC >= 4.9 */
+#warning install_melt_gcc_pass $RTLPASS_CHK not implemented for class_gcc_rtl_pass
+         melt_fatal_error ("install_melt_gcc_pass unimplemented for MELT pass %s (RTL)",
+			   melt_string_str((melt_ptr_t) $PASSNAME));
+#endif /* GCC 4.9 or better */
 	 /* end install_melt_gcc_pass $RTLPASS_CHK */
 	 }#)
 	(debug "install_melt_pass_in_gcc installed simple ipa pass=" pass)
