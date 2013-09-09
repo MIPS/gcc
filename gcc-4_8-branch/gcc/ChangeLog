@@ -1,3 +1,132 @@
+2013-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58364
+	* tree-ssa-reassoc.c (init_range_entry): For BIT_NOT_EXPR on
+	BOOLEAN_TYPE, only invert in_p and continue with arg0 if
+	the current range can't be an unconditional true or false.
+
+2013-09-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/57735
+	Backport from mainline
+	2013-04-30  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* explow.c (plus_constant): Pass "mode" to immed_double_int_const.
+	Use gen_int_mode rather than GEN_INT.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57521
+	* tree-if-conv.c (if_convertible_bb_p): Verify that at least
+	one edge is non-critical.
+	(find_phi_replacement_condition): Make sure to use a non-critical
+	edge.  Cleanup and remove old bug workarounds.
+	(bb_postdominates_preds): Remove.
+	(if_convertible_loop_p_1): Do not compute post-dominators.
+	(combine_blocks): Do not free post-dominators.
+	(main_tree_if_conversion): Likewise.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57656
+	* fold-const.c (negate_expr_p): Fix division case.
+	(negate_expr): Likewise.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57685
+	* tree-vrp.c (register_edge_assert_for_1): Recurse only for
+	single-use operands to avoid exponential complexity.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58223
+	* tree-loop-distribution.c (has_anti_dependence): Rename to ...
+	(has_anti_or_output_dependence): ... this and adjust to also
+	look for output dependences.
+	(mark_nodes_having_upstream_mem_writes): Adjust.
+	(rdg_flag_uses): Likewise.
+
+2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58246
+	* tree-ssa-dce.c (mark_aliased_reaching_defs_necessary_1): Properly
+	handle the dominance check inside a basic-block.
+
+2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58228
+	* tree-vect-data-refs.c (vect_analyze_data_ref_access): Do not
+	allow invariant loads in nested loop vectorization.
+
+2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58010
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Remove
+	assert that we have a loop-closed PHI.
+
+2013-09-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-08-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_emit_conditional_move): Update
+	"cmp" RTX before signed_comparison_operator check to account
+	for "code" changes.
+
+2013-09-01  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.md: Allow "const 0" operand 1 in "scc" insns.
+
+2013-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58277
+	* tree-ssa-strlen.c (strlen_enter_block): If do_invalidate gave up
+	after seeing too many stmts with vdef in between dombb and current
+	bb, invalidate everything.
+
+2013-08-29  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2013-08-05  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR other/12081
+	* recog.h (rtx (*insn_gen_fn) (rtx, ...)): Replace typedef with	new
+	class insn_gen_fn.
+	* expr.c (move_by_pieces_1, store_by_pieces_2): Replace argument
+	rtx (*) (rtx, ...) with insn_gen_fn.
+	* genoutput.c (output_insn_data): Cast gen_? function pointers to
+	insn_gen_fn::stored_funcptr.  Add initializer braces.
+
+	Backport from mainline
+	2013-08-07  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR other/12081
+	* config/rs6000/rs6000.c (gen_2arg_fn_t): Remove typedef.
+	(rs6000_emit_swdiv_high_precision, rs6000_emit_swdiv_low_precision,
+	rs6000_emit_swrsqrt): Don't cast result of GEN_FCN to gen_2arg_fn_t.
+
 2013-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline

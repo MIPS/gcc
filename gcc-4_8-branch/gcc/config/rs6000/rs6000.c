@@ -284,9 +284,6 @@ static struct
   { "rsqrtd",	 (RECIP_DF_RSQRT | RECIP_V2DF_RSQRT) },
 };
 
-/* 2 argument gen function typedef.  */
-typedef rtx (*gen_2arg_fn_t) (rtx, rtx, rtx);
-
 /* Pointer to function (in rs6000-c.c) that can define or undefine target
    macros that have changed.  Languages that don't support the preprocessor
    don't link in rs6000-c.c, so we can't call it directly.  */
@@ -28303,7 +28300,7 @@ rs6000_emit_swdiv_high_precision (rtx dst, rtx n, rtx d)
   enum machine_mode mode = GET_MODE (dst);
   rtx x0, e0, e1, y1, u0, v0;
   enum insn_code code = optab_handler (smul_optab, mode);
-  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+  insn_gen_fn gen_mul = GEN_FCN (code);
   rtx one = rs6000_load_constant_and_splat (mode, dconst1);
 
   gcc_assert (code != CODE_FOR_nothing);
@@ -28341,7 +28338,7 @@ rs6000_emit_swdiv_low_precision (rtx dst, rtx n, rtx d)
   enum machine_mode mode = GET_MODE (dst);
   rtx x0, e0, e1, e2, y1, y2, y3, u0, v0, one;
   enum insn_code code = optab_handler (smul_optab, mode);
-  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+  insn_gen_fn gen_mul = GEN_FCN (code);
 
   gcc_assert (code != CODE_FOR_nothing);
 
@@ -28412,7 +28409,7 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
   int i;
   rtx halfthree;
   enum insn_code code = optab_handler (smul_optab, mode);
-  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+  insn_gen_fn gen_mul = GEN_FCN (code);
 
   gcc_assert (code != CODE_FOR_nothing);
 

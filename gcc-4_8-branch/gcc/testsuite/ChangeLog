@@ -1,3 +1,79 @@
+2013-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/58325
+	* g++.dg/warn/Wunused-var-21.C: New test.
+
+	PR tree-optimization/58364
+	* gcc.c-torture/execute/pr58364.c: New test.
+
+2013-09-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/57735
+	* g++.dg/ext/pr57735.C: New test.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57521
+	* gcc.dg/torture/pr57521.c: New testcase.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57656
+	* gcc.dg/torture/pr57656.c: New testcase.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57685
+	* gcc.dg/torture/pr57685.c: New testcase.
+
+2013-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58223
+	* gcc.dg/torture/pr58223.c: New testcase.
+	* gcc.dg/tree-ssa/ldist-16.c: Flip expected behavior.
+
+2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58246
+	* gcc.dg/torture/pr58246.c: New testcase.
+
+2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58228
+	* gcc.dg/torture/pr58228.c: New testcase.
+
+2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-08-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58010
+	* gcc.dg/pr58010.c: New testcase.
+
+2013-08-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58277
+	* gcc.c-torture/execute/pr58277-1.c: New test.
+	* gcc.c-torture/execute/pr58277-2.c: New test.
+
 2013-08-29  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
