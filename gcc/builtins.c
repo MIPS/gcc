@@ -62,7 +62,7 @@ struct target_builtins *this_target_builtins = &default_target_builtins;
 #endif
 
 /* Define the names of the builtin function types and codes.  */
-const char *const built_in_class_names[4]
+const char *const built_in_class_names[BUILT_IN_LAST]
   = {"NOT_BUILT_IN", "BUILT_IN_FRONTEND", "BUILT_IN_MD", "BUILT_IN_NORMAL"};
 
 #define DEF_BUILTIN(X, N, C, T, LT, B, F, NA, AT, IM, COND) #X,
@@ -5851,6 +5851,13 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
      set of builtins.  */
   if (!optimize
       && !called_as_built_in (fndecl)
+      && fcode != BUILT_IN_FORK
+      && fcode != BUILT_IN_EXECL
+      && fcode != BUILT_IN_EXECV
+      && fcode != BUILT_IN_EXECLP
+      && fcode != BUILT_IN_EXECLE
+      && fcode != BUILT_IN_EXECVP
+      && fcode != BUILT_IN_EXECVE
       && fcode != BUILT_IN_ALLOCA
       && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
       && fcode != BUILT_IN_FREE)
