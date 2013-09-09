@@ -142,7 +142,7 @@ static int unify (tree, tree, tree, tree, int, bool);
 static void add_pending_template (tree);
 static tree reopen_tinst_level (struct tinst_level *);
 static tree tsubst_initializer_list (tree, tree);
-static tree get_class_bindings (tree, tree, tree, tree);
+static tree get_class_bindings (tree, tree, tree, tree, tree);
 static tree coerce_template_parms (tree, tree, tree, tsubst_flags_t,
 				   bool, bool);
 static tree coerce_innermost_template_parms (tree, tree, tree, tsubst_flags_t,
@@ -804,6 +804,102 @@ check_explicit_instantiation_namespace (tree spec)
 	       spec, current_namespace, ns);
 }
 
+// Returns the TEMPLATE_DECL that defines the partial template specialization
+// TYPE. If TYPE is not found in the list of partial specializations, then
+// it must be an explicit specialization.
+static tree
+get_specializing_template_decl (tree type)
+{
+  tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
+  tree decl = TYPE_MAIN_DECL (type);
+  tree specs = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
+  while (specs)
+    {
+      tree spec = TREE_VALUE (specs);
+      if (DECL_TEMPLATE_RESULT (spec) == decl)
+        return spec;
+      specs = TREE_CHAIN (specs);
+    }
+  return NULL_TREE;
+}
+
+// Return the template constraints for the template specialization TYPE.
+static inline tree
+get_specialization_constraints (tree type)
+{
+  // If TYPE is a partial specialization, return the constraints for
+  // that type. If it is an explicit specialization, return null since
+  // non-templates cannot be constrained.
+  if (tree d = get_specializing_template_decl (type))
+    return DECL_CONSTRAINTS (d);
+  else
+    return NULL_TREE;
+}
+
+// Returns the type of a template specialization only if that
+// specialization needs to defined. Otherwise (e.g., if the type has
+// already been defined), the function returns NULL_TREE.
+static tree
+maybe_new_partial_specialization (tree type)
+{
+  // An implicit instantiation of an incomplete type implies
+  // the definition of a new class template. 
+  //
+  //    template<typename T>
+  //      struct S;
+  //
+  //    template<typename T>
+  //      struct S<T*>;
+  //
+  // Here, S<T*> is an implicit instantiation of S whose type
+  // is incomplete.
+  if (CLASSTYPE_IMPLICIT_INSTANTIATION (type) && !COMPLETE_TYPE_P (type))
+    return type;
+  
+  // It can also be the case that is a completed specialization.
+  // Continuing the previous example, suppose we also declare:
+  //
+  //    template<typename T>
+  //      requires Integral<T>
+  //        struct S<T*>;
+  //
+  // Here, S<T*> refers to the specialization S<T*> defined 
+  // above. However, we need to differentiate definitions because
+  // we intend to define a new partial specialization. In this case,
+  // we rely on the fact that the constraints are different for
+  // this declaration than that above.
+  //
+  // Note that we also get here for injected class names and
+  // late-parsed template definitions. We must ensure that we
+  // do not create new type declarations for those cases.
+  if (CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
+    {
+      tree constr = get_specialization_constraints (type);
+      if (!equivalent_constraints (current_template_reqs, constr))
+        {
+          tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
+          tree args = CLASSTYPE_TI_ARGS (type);
+
+          // Create a new type node (and corresponding type decl) that 
+          // for the newly declared specialization.
+          tree t = make_class_type (TREE_CODE (type));
+          CLASSTYPE_DECLARED_CLASS (t) = CLASSTYPE_DECLARED_CLASS (type);
+          TYPE_FOR_JAVA (t) = TYPE_FOR_JAVA (type);
+          TYPE_CANONICAL (t) = t;
+          SET_CLASSTYPE_TEMPLATE_SPECIALIZATION (t);
+          SET_TYPE_TEMPLATE_INFO (t, build_template_info (tmpl, args));
+
+          // Build the corresponding type decl.
+          tree d = create_implicit_typedef (DECL_NAME (tmpl), t);
+          DECL_CONTEXT (d) = TYPE_CONTEXT (t);
+          DECL_SOURCE_LOCATION (d) = input_location;
+
+          return t;
+        }
+    }
+  return NULL;
+}
+
 /* The TYPE is being declared.  If it is a template type, that means it
    is a partial specialization.  Do appropriate error-checking.  */
 
@@ -852,17 +948,17 @@ maybe_process_partial_specialization (tree type)
 
 	 Make sure that `C<int>' and `C<T*>' are implicit instantiations.  */
 
-      if (CLASSTYPE_IMPLICIT_INSTANTIATION (type)
-	  && !COMPLETE_TYPE_P (type))
-	{
-	  check_specialization_namespace (CLASSTYPE_TI_TEMPLATE (type));
-	  SET_CLASSTYPE_TEMPLATE_SPECIALIZATION (type);
-	  DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (type)) = input_location;
+      if (tree t = maybe_new_partial_specialization (type))
+        {
+	  check_specialization_namespace (CLASSTYPE_TI_TEMPLATE (t));
+	  SET_CLASSTYPE_TEMPLATE_SPECIALIZATION (t);
+	  DECL_SOURCE_LOCATION (TYPE_MAIN_DECL (t)) = input_location;
 	  if (processing_template_decl)
 	    {
-	      if (push_template_decl (TYPE_MAIN_DECL (type))
-		  == error_mark_node)
+              tree decl = push_template_decl (TYPE_MAIN_DECL (t));
+	      if (decl == error_mark_node)
 		return error_mark_node;
+              return TREE_TYPE (decl);
 	    }
 	}
       else if (CLASSTYPE_TEMPLATE_INSTANTIATION (type))
@@ -4056,9 +4152,25 @@ process_partial_specialization (tree decl)
 
   gcc_assert (current_template_parms);
 
-  // TODO: Implement me!
+  // When defining a constrained partial specialization, DECL's type
+  // will have been assigned to the canonical type of the primary.
+  // That is:
+  //
+  //    template<typename T>
+  //      struct S; // Has canonical type S<T>
+  //
+  //    template<typename T>
+  //      requires C<T>
+  //        struct S<T>; // binds to the primary template.
+  //
+  // However, the the constraints differ, so we should be constructing
+  // a new type. We do this by making the DECL's type its own
+  // canonical type.
+  //
+  // TODO: Do we need to compare the current requirements to make 
+  // sure this isn't a redeclaration?
   if (current_template_reqs)
-    sorry("constrained partial specialization");
+    TYPE_CANONICAL (type) = type;
 
   inner_parms = INNERMOST_TEMPLATE_PARMS (current_template_parms);
   ntparms = TREE_VEC_LENGTH (inner_parms);
@@ -4128,12 +4240,17 @@ process_partial_specialization (tree decl)
   /* [temp.class.spec]
 
      The argument list of the specialization shall not be identical to
-     the implicit argument list of the primary template.  */
-  if (comp_template_args
-      (inner_args,
-       INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (TREE_TYPE
-						   (maintmpl)))))
-    error ("partial specialization %qT does not specialize any template arguments", type);
+     the implicit argument list of the primary template.  
+
+     Note that concepts allow partial specializations with the same list of
+     arguments but different constraints. */
+  tree main_type = TREE_TYPE (maintmpl);
+  tree main_args = INNERMOST_TEMPLATE_ARGS (CLASSTYPE_TI_ARGS (main_type));
+  tree main_constr = DECL_CONSTRAINTS (maintmpl);
+  if (comp_template_args (inner_args, main_args)
+      && equivalent_constraints (current_template_reqs, main_constr))
+    error ("partial specialization %qT does not specialize any "
+           "template arguments", type);
 
   /* A partial specialization that replaces multiple parameters of the
      primary template with a pack expansion is less specialized for those
@@ -4273,10 +4390,10 @@ process_partial_specialization (tree decl)
   /* We should only get here once.  */
   gcc_assert (!COMPLETE_TYPE_P (type));
 
-  // TODO: Implement constrained partial template specialization.
+  // Build the template decl.
   tree tmpl = build_template_decl (decl, 
                                    current_template_parms, 
-                                   NULL_TREE,
+                                   current_template_reqs,
                                    DECL_MEMBER_TEMPLATE_P (maintmpl));
   TREE_TYPE (tmpl) = type;
   DECL_TEMPLATE_RESULT (tmpl) = decl;
@@ -7511,7 +7628,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	  /* comp_template_args is expensive, check it last.  */
 	  && comp_template_args (TYPE_TI_ARGS (template_type),
 				 arglist))
-	return template_type;
+        return template_type;
 
       /* If we already have this specialization, return it.  */
       elt.tmpl = gen_tmpl;
@@ -7522,6 +7639,23 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 
       if (entry)
 	return entry->spec;
+
+      // If the the template's constraints are not satisfied, then we
+      // cannot form a valid type.
+      //
+      // Note that the check is deferred until after the hash-lookup. 
+      // This prevents redundant checks on specializations.
+      if (!check_template_constraints (gen_tmpl, arglist)) 
+        {
+          // Diagnose constraints here since they are not diagnosed
+          // anywhere else.
+          if (complain & tf_error)
+            {
+              error ("template argument deduction failure");
+              diagnose_constraints (input_location, gen_tmpl, arglist);
+            }
+          return error_mark_node;
+        }
 
       is_dependent_type = uses_template_parms (arglist);
 
@@ -7578,10 +7712,6 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	}
       else if (DECL_ALIAS_TEMPLATE_P (gen_tmpl))
 	{
-          // Check the alias declaration's args. 
-          if (!check_template_constraints (gen_tmpl, arglist))
-            return error_mark_node;
-
 	  /* The user referred to a specialization of an alias
 	    template represented by GEN_TMPL.
 
@@ -8811,12 +8941,6 @@ instantiate_class_template_1 (tree type)
     {
       pattern = TREE_TYPE (templ);
       args = CLASSTYPE_TI_ARGS (type);
-
-      // Check class template requirements. Note that constraints will 
-      // already have been checked when trying to find a most specialized 
-      // class among multiple specializations.
-      if (!check_template_constraints (templ, args))
-        return error_mark_node;
     }
 
   /* If the template we're instantiating is incomplete, then clearly
@@ -10317,6 +10441,15 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	DECL_TEMPLATE_PARMS (r)
 	  = tsubst_template_parms (DECL_TEMPLATE_PARMS (t), args,
 				   complain);
+
+        // If constrained, also instantiate requirements.
+        // TODO: Instantiate shorthand constraints on parameters also.
+        // See tsubst_template_parms for that. 
+        if (tree ci = DECL_CONSTRAINTS (t))
+          {
+            tree reqs = instantiate_requirements (CI_SPELLING (ci), args);
+            DECL_CONSTRAINTS (r) = finish_template_requirements (reqs);
+          }
 
 	if (PRIMARY_TEMPLATE_P (t))
 	  DECL_PRIMARY_TEMPLATE (r) = r;
@@ -18079,26 +18212,28 @@ more_specialized_class (tree main_tmpl, tree pat1, tree pat2)
   int winner = 0;
   bool any_deductions = false;
 
-  tree tmpl1 = TREE_TYPE (pat1);
-  tree tmpl2 = TREE_TYPE (pat2);
+  tree type1 = TREE_TYPE (pat1);
+  tree type2 = TREE_TYPE (pat2);
+  tree tmpl1 = get_specializing_template_decl (type1);
+  tree tmpl2 = get_specializing_template_decl (type2);
 
   /* Just like what happens for functions, if we are ordering between
      different class template specializations, we may encounter dependent
      types in the arguments, and we need our dependency check functions
      to behave correctly.  */
   ++processing_template_decl;
-  targs = get_class_bindings (main_tmpl, TREE_VALUE (pat1),
-			      CLASSTYPE_TI_ARGS (tmpl1),
-			      CLASSTYPE_TI_ARGS (tmpl2));
+  targs = get_class_bindings (main_tmpl, tmpl1, TREE_VALUE (pat1),
+			      CLASSTYPE_TI_ARGS (type1),
+			      CLASSTYPE_TI_ARGS (type2));
   if (targs)
     {
       --winner;
       any_deductions = true;
     }
 
-  targs = get_class_bindings (main_tmpl, TREE_VALUE (pat2),
-			      CLASSTYPE_TI_ARGS (tmpl2),
-			      CLASSTYPE_TI_ARGS (tmpl1));
+  targs = get_class_bindings (main_tmpl, tmpl2, TREE_VALUE (pat2),
+			      CLASSTYPE_TI_ARGS (type2),
+			      CLASSTYPE_TI_ARGS (type1));
   if (targs)
     {
       ++winner;
@@ -18130,6 +18265,11 @@ more_specialized_class (tree main_tmpl, tree pat1, tree pat2)
       else if (len1 < len2)
         return -1;
     }
+
+  if (more_constrained (tmpl1, tmpl2))
+    ++winner;
+  if (more_constrained (tmpl2, tmpl1))
+    --winner;
 
   return winner;
 }
@@ -18192,7 +18332,8 @@ get_bindings (tree fn, tree decl, tree explicit_args, bool check_rettype)
    is bound to `double'.  */
 
 static tree
-get_class_bindings (tree main_tmpl, tree tparms, tree spec_args, tree args)
+get_class_bindings (tree main_tmpl, tree spec_tmpl, tree tparms, 
+                    tree spec_args, tree args)
 {
   int i, ntparms = TREE_VEC_LENGTH (tparms);
   tree deduced_args;
@@ -18249,6 +18390,12 @@ get_class_bindings (tree main_tmpl, tree tparms, tree spec_args, tree args)
      for more information.  */
   if (!template_template_parm_bindings_ok_p (tparms, deduced_args))
     return NULL_TREE;
+
+  // Having computed and checked the binding, make sure that the
+  // deduced arguments actually satisfy the template constraints.
+  // If not, it is equivalent to having failed to compute the binding.
+  if (!check_template_constraints (spec_tmpl, deduced_args))
+    return NULL_TREE;  
 
   return deduced_args;
 }
@@ -18453,7 +18600,7 @@ most_specialized_class (tree type, tree tmpl, tsubst_flags_t complain)
 	return error_mark_node;
 
       tree parms = DECL_INNERMOST_TEMPLATE_PARMS (spec_tmpl);
-      spec_args = get_class_bindings (tmpl, parms,
+      spec_args = get_class_bindings (tmpl, spec_tmpl, parms,
 				      partial_spec_args,
 				      args);
       if (spec_args)

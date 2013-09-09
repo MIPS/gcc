@@ -2838,6 +2838,52 @@ finish_template_decl (tree parms)
     end_specialization ();
 }
 
+// Returns the template type of the class scope being entered. If we're
+// entering a constrained class scope. TYPE is the class template
+// scope being entered. If TYPE is not a class-type (e.g. a typename type),
+// then no fixup is needed.
+static tree
+fixup_template_type (tree type)
+{
+  // Don't try to fix non-class types.
+  if (!CLASS_TYPE_P (type))
+    return type;
+
+  // Find the template parameter list at the a depth appropriate to
+  // the scope we're trying to enter. 
+  tree parms = current_template_parms;
+  int depth = template_class_depth (type);
+  for (int n = processing_template_decl; n > depth && parms; --n)
+    parms = TREE_CHAIN (parms);
+  if (!parms)
+    return type;
+  tree cur_constr = TREE_TYPE (parms);
+
+  // Do the constraints match those of the most general template? 
+  // If the constraints are NULL_TREE, this will match the most general
+  // template iff it is unconstrained.
+  tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
+  if (equivalent_constraints (cur_constr, DECL_CONSTRAINTS (tmpl)))
+    return type;
+
+  // Can we find a specialization that matches?
+  tree specs = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
+  while (specs)
+    {
+      tree spec_constr = DECL_CONSTRAINTS (TREE_VALUE (specs));
+      if (equivalent_constraints (cur_constr, spec_constr))
+        return TREE_TYPE (specs);
+      specs = TREE_CHAIN (specs);
+    }
+
+  // Emit an error, but return the type to allow processing to continue.
+  // TODO: We should emit candidates since we've just scanned the 
+  // list of template constraints.
+  error ("type %qT does not match any declarations", type);
+  return type;
+}
+
+
 /* Finish processing a template-id (which names a type) of the form
    NAME < ARGS >.  Return the TYPE_DECL for the type named by the
    template-id.  If ENTERING_SCOPE is nonzero we are about to enter
@@ -2851,6 +2897,11 @@ finish_template_type (tree name, tree args, int entering_scope)
   type = lookup_template_class (name, args,
 				NULL_TREE, NULL_TREE, entering_scope,
 				tf_warning_or_error | tf_user);
+  
+  // If entering a scope, correct the lookup to account for constraints.
+  if (entering_scope)
+    type = fixup_template_type (type);
+
   if (type == error_mark_node)
     return type;
   else if (CLASS_TYPE_P (type) && !alias_type_or_template_p (type))

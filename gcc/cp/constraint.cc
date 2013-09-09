@@ -400,7 +400,7 @@ reduce_template_id (tree t)
   tree c = finish_call_expr (t, &args, true, false, 0);
   error_at (EXPR_LOC_OR_HERE (t), "invalid requirement");
   inform (EXPR_LOC_OR_HERE (t), "did you mean %qE", c);
-  return NULL_TREE;
+  return c;
 }
 
 
@@ -916,6 +916,12 @@ check_requirements (tree reqs)
 static inline bool
 check_requirements (tree reqs, tree args)
 {
+  // If any arguments are dependent, then we can't check the
+  // requirements. Just return true.
+  if (uses_template_parms (args))
+    return true;
+
+  // Instantiate and evaluate the requirements.
   reqs = instantiate_requirements (reqs, args);
   if (reqs == error_mark_node)
     return false;
@@ -927,6 +933,7 @@ check_requirements (tree reqs, tree args)
 bool
 check_constraints (tree cinfo)
 {
+  // No constraints? Satisfied.
   if (!cinfo)
     return true;
   return check_requirements (CI_REQUIREMENTS (cinfo));
@@ -940,6 +947,11 @@ check_constraints (tree cinfo, tree args)
   // No constraints? Satisfied.
   if (!cinfo)
     return true;
+
+  // Dependent arguments? Satisfied. They won't reduce to true or false.
+  if (uses_template_parms (args))
+    return true;
+
   return check_requirements (CI_REQUIREMENTS (cinfo), args);
 }
 
@@ -961,7 +973,10 @@ check_template_constraints (tree t, tree args)
 bool
 equivalent_constraints (tree a, tree b)
 {
-  return subsumes (a, b) && subsumes (b, a);
+  if (a == b)
+    return true;
+  else
+    return subsumes (a, b) && subsumes (b, a);
 }
 
 // Returns true if the template declarations A and B have equivalent

@@ -655,6 +655,15 @@ check_classfn (tree ctype, tree function, tree template_parms)
       return error_mark_node;
     }
 
+  // Use the current template requirements as the constraints
+  // for function. Unfortunately, when this is called, FUNCTION
+  // does not have a TEMPLATE_DECL yet.
+  tree constr = NULL_TREE;
+  if (current_template_reqs)
+    constr = current_template_reqs;
+  else if (template_parms)
+    constr = TREE_TYPE (template_parms);
+
   /* We must enter the scope here, because conversion operators are
      named by target type, and type equivalence relies on typenames
      resolving within the scope of CTYPE.  */
@@ -707,6 +716,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      && (!is_template
 		  || comp_template_parms (template_parms,
 					  DECL_TEMPLATE_PARMS (fndecl)))
+              && equivalent_constraints (constr, get_constraints (fndecl))
 	      && (DECL_TEMPLATE_SPECIALIZATION (function)
 		  == DECL_TEMPLATE_SPECIALIZATION (fndecl))
 	      && (!DECL_TEMPLATE_SPECIALIZATION (function)

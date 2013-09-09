@@ -13004,6 +13004,9 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
             if (tree r = cp_parser_requires_clause_opt (parser))
               reqs = conjoin_requirements (reqs, r);
             current_template_reqs = finish_template_requirements (reqs);
+
+            // Attach the constraints to the parameter list.
+            TREE_TYPE (current_template_parms) = current_template_reqs;
           }
 	
         /* Look for the `class' keyword.  */
@@ -16360,6 +16363,34 @@ cp_parser_init_declarator (cp_parser* parser,
   attributes_start_token = cp_lexer_peek_token (parser->lexer);
   attributes = cp_parser_attributes_opt (parser);
 
+  // Save off the current template constraints. These will apply
+  // to the nested scope, not the declarator. Consider, an out-of-class
+  // member definition:
+  //
+  //    template<typename T>
+  //      requires C<T>()
+  //        void S<T>::f() requires D<T>() { ... }
+  //
+  // At the point we parse the 2nd requires clause, the previous the
+  // current constraints will have been used to resolve the enclosing
+  // class S<T>. The D<T>() requirement applies only to the definition
+  // of f and do not include C<T>().
+  tree saved_template_reqs = release (current_template_reqs);
+
+  // Parse an optional requires clause. Currently, requirements can
+  // be written for out-of-class member function definitions.
+  //
+  // TODO: It may be better to always parse and diagnose the error
+  // as a semantic one later on.
+  if (flag_concepts && scope && function_declarator_p (declarator))
+    {
+      if (tree r = cp_parser_requires_clause_opt (parser))
+        current_template_reqs = finish_template_requirements (r);
+    }
+  else
+    current_template_reqs = saved_template_reqs;
+
+
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* Check to see if the token indicates the start of a
@@ -16371,8 +16402,8 @@ cp_parser_init_declarator (cp_parser* parser,
 	{
 	  /* If a function-definition should not appear here, issue an
 	     error message.  */
-	  cp_parser_error (parser,
-			   "a function-definition is not allowed here");
+	  cp_parser_error (parser, "a function-definition is not allowed here");
+          current_template_reqs = saved_template_reqs;
 	  return error_mark_node;
 	}
       else
@@ -16409,6 +16440,9 @@ cp_parser_init_declarator (cp_parser* parser,
 	      DECL_STRUCT_FUNCTION (decl)->function_start_locus
 		= func_brace_location;
 	    }
+
+          // Restore the current requirements before returing.
+          current_template_reqs = saved_template_reqs;
 
 	  return decl;
 	}
@@ -20073,8 +20107,8 @@ cp_parser_member_declaration (cp_parser* parser)
 	      else
 		initializer = NULL_TREE;
 
-              // If we're looking at a function declaration, then a requires
-              // clause may follow the declaration.
+              // If we're looking at a member function declaration, then a 
+              // requires clause may follow the declaration.
               tree saved_template_reqs = release (current_template_reqs);
               if (flag_concepts && function_declarator_p (declarator))
                 {
@@ -20126,6 +20160,9 @@ cp_parser_member_declaration (cp_parser* parser)
 				  initializer, /*init_const_expr_p=*/true,
 				  asm_specification,
 				  attributes);
+
+              // Restore the current template requirments.
+              current_template_reqs = saved_template_reqs;
 	    }
 
 	  /* Reset PREFIX_ATTRIBUTES.  */
@@ -22805,6 +22842,9 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       if (tree r = cp_parser_requires_clause_opt (parser))
         reqs = conjoin_requirements (reqs, r);
       current_template_reqs = finish_template_requirements (reqs);
+
+      // Attach the constraints to the template parameter list.
+      TREE_TYPE (current_template_parms) = current_template_reqs;
     }
 
   /* If the next token is `template', there are more template
@@ -22849,6 +22889,8 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 
   /* Finish up.  */
   finish_template_decl (parameter_list);
+
+  // Restore the current template requirements.
   current_template_reqs = saved_template_reqs;
 
   /* Check the template arguments for a literal operator template.  */
@@ -23382,11 +23424,11 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       cp_parser_pop_lexer (parser);
     }
 
-  // Restore the template constraints.
-  current_template_reqs = saved_template_reqs;
-
   /* Remove any template parameters from the symbol table.  */
   maybe_end_member_template_processing ();
+
+  // Restore the template requirements.
+  current_template_reqs = saved_template_reqs;
 
   /* Restore the queue.  */
   pop_unparsed_function_queues (parser);

@@ -1,3 +1,44 @@
+2013-09-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/pt.c (get_class_bindings): Pass the partial specialization
+	for constraint evaluation. Evaluate constraints, resulting in
+	deduction failure on error.
+	(get_specializaing_template_decl), (get_specialization_constraints),
+	(maybe_new_partial_specialization): New.
+	(maybe_process_partial_specialization): Allow the creation of
+	new types for constrained partial specializations.
+	(process_partial_specialization): Modify the canonical type
+	of constrained partial specializations.
+	(instantiate_class_template_1): Do not explicitly check constraints
+	during class template instantiation.
+	(tsubst_decl): Instantiate the constraints of template declarations.
+	(more_specialized_class): Pass specializations to get_class_bindings().
+	Compare specialization constraints if the types are equivalent.
+	(most_specialized_class): Pass specialization to get_class_bndings().
+	* gcc/cp/decl2.c (check_class_fn): Get the decl's requirements from
+	either the current template reqs or from the template parameters.
+	Allow overloading of constrained out-of-class member definitions.
+	* gcc/cp/semantics.c (fixup_template_type): New. Match the template
+	scope to a specialization with appropriate constraints.
+	(finish_template_type): Fix template type when entering scope.
+	* gcc/cp/parser.c (cp_parser_parse_type_parameter): Attach
+	requirements to the current template parameter list.
+	(cp_parser_init_declarator): Parse requires clauses for out-of-class
+	member definitions. Be sure to restore current constraints before
+	exiting the function.
+	(cp_parser_member_declarator): Restore the previous requirements in
+	an early-exit branch.
+	(cp_parser_late_parsing_for_member): Restore constraints after
+	maybe_end_member_template_processing().
+	(cp_parser_template_declaration_after_exp): Attach constraints to
+	the current template parameters.
+	* gcc/cp/constraint.cc (reduce_template_id): Don't crash when
+	omitting ()'s on constraint calls.
+	(check_requirements): Don't evaluate dependent arguments.
+	(check_constraints): Don't try to evaluate when arguments are
+	dependent.
+	(equivalent_constraints): Optimize the case when a and b are the
+	same constraints.
+
 2013-07-26  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/semantics.c (trait_expr_value): Evaluate __is_same_as.
 	(finish_trait_expr): Check __is_same_as and __is_convertible_to.
