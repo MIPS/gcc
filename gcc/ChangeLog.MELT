@@ -2,6 +2,11 @@
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-modes.melt (makedoc_docmd): Process each file one
+	by one serially...
+
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (each_component_in_list): Typo corrected.
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>

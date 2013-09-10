@@ -1765,23 +1765,27 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	 "makedoc MELT mode needs an -f[plugin-arg-]melt-output *.texi file"))
     (set_ref melt_mode_reference mdinfo)
     (assert_msg "check rlist" (is_list rlist) rlist)
-    (list_every 
-     arglist 
-     (lambda (curarg)
-       (informsg_strv "reading from file" curarg)
-       (let ( (curead (read_file curarg))
+    (let ( (xalllist (make_list discr_list))
+	   )
+      (each_component_in_list 
+       arglist 
+       curargfile
+       (informsg_strv "reading from file" curargfile)
+       (let ( (curead (read_file curargfile))
 	      )
 	 (debug "makedoc_docmd curead=" curead)
 	 (assert_msg "check curead" (is_list_or_null curead) curead)
-	 (list_append2list rlist curead))))
-    ;; macro expand it
-    (debug "makedoc_docmd have read rlist=" rlist)
-    (let ( (xlist (macroexpand_toplevel_list rlist curenv macroexpand_1 mdinfo)) 
-	   )
-      (debug "makedoc_docmd macro-expanded rlist=" rlist
-	     "\n* into xlist=" xlist)
+	 (list_append2list rlist curead)
+	 (let ( (curxlist (macroexpand_toplevel_list curead curenv macroexpand_1 mdinfo))
+		)
+	   (debug "makedoc_docmd curxlist=" curxlist)
+	   (list_append2list xalllist curxlist)
+	   ))
+       ;; macro expand it
+       (debug "makedoc_docmd have read rlist=" rlist "\n.. expanded into xalllist=" xalllist "\n")
+       )
       ;; scan the expanded input, and fill mdinfo appropriately.
-      (makedoc_scaninput mdinfo arglist xlist)
+      (makedoc_scaninput mdinfo arglist xalllist)
       (debug "makedoc_docmd after scan mdinfo=" mdinfo)
       ;; generate the output
       (makedoc_genoutput mdinfo outarg)
