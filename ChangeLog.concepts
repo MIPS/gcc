@@ -1,3 +1,8 @@
+2013-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/cxx-pretty-print.c (pp_cxx_compound_requirement),
+	(pp_cxx_type_requirement), (pp_cxx_validtype_expr): Use 
+	pp->type_id() instead of pp_cxx_type_id().
+
 2013-09-09  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/pt.c (get_class_bindings): Pass the partial specialization
 	for constraint evaluation. Evaluate constraints, resulting in

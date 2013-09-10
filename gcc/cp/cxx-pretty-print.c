@@ -2578,7 +2578,7 @@ pp_cxx_compound_requirement (cxx_pretty_printer *pp, tree t)
       pp_space (pp);
       pp_cxx_arrow (pp);
       pp_space (pp);
-      pp_cxx_type_id (pp, type);
+      pp->type_id (type);
     }
 }
 
@@ -2608,7 +2608,7 @@ void
 pp_cxx_type_requirement (cxx_pretty_printer *pp, tree t)
 {
   tree req = TREE_OPERAND (t, 0);
-  pp_cxx_type_id (pp, TREE_OPERAND (req, 0));
+  pp->type_id (TREE_OPERAND (req, 0));
   pp_cxx_semicolon (pp);
 }
 
@@ -2636,7 +2636,7 @@ pp_cxx_validtype_expr (cxx_pretty_printer *pp, tree t)
 {
   pp_cxx_ws_string (pp, "__is_valid_expr");
   pp_cxx_left_paren (pp);
-  pp_cxx_type_id (pp, TREE_OPERAND (t, 0));
+  pp->type_id(TREE_OPERAND (t, 0));
   pp_cxx_right_paren (pp);
 }
 
