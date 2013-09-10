@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h693850814; // forward declaration fromline 6544
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h693850814 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiGENOBJ_h538763243; // forward declaration fromline 6544
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h538763243 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -1014,7 +1014,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h693850814 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiGENOBJ_h538763243 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -7253,9 +7253,9 @@ meltlabexit_LOOPLIS_2:;/*^loopepilog*/
 
 #endif /*MELT_HAVE_DEBUG*/
                                 ;
-                                /*citerblock FOREACH_IN_LIST*/
+                                /*citerblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 {
-                                    /* start foreach_in_list meltcit1__EACHLIST */
+                                    /* start foreach_pair_component_in_list meltcit1__EACHLIST */
                                     for (/*_.CURPAIR__V58*/ meltfptr[32] = melt_list_first( (melt_ptr_t)/*_.HCLOBINDLIST__V55*/ meltfptr[46]);
                                                             melt_magic_discr((melt_ptr_t) /*_.CURPAIR__V58*/ meltfptr[32]) == MELTOBMAG_PAIR;
                                                             /*_.CURPAIR__V58*/ meltfptr[32] = melt_pair_tail((melt_ptr_t) /*_.CURPAIR__V58*/ meltfptr[32]))
@@ -7441,7 +7441,7 @@ meltlabexit_LOOPLIS_2:;/*^loopepilog*/
                                             /*^clear*/
                                             /*clear*/ /*_#SETQ___L35*/
                                             meltfnum[16] = 0 ;
-                                        } /* end foreach_in_list meltcit1__EACHLIST */
+                                        } /* end foreach_pair_component_in_list meltcit1__EACHLIST */
                                     /*_.CURPAIR__V58*/ meltfptr[32] = NULL;
                                     /*_.CURBIND__V59*/
                                     meltfptr[36] = NULL;
@@ -7461,7 +7461,7 @@ meltlabexit_LOOPLIS_2:;/*^loopepilog*/
                                     /*^clear*/
                                     /*clear*/ /*_#LET___L29*/
                                     meltfnum[10] = 0 ;
-                                } /*endciterblock FOREACH_IN_LIST*/
+                                } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 ;
 
 #if MELT_HAVE_DEBUG

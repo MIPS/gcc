@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f3[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiHOOKS_h410359322; // forward declaration fromline 6544
-typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h410359322 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiHOOKS_h960182844; // forward declaration fromline 6544
+typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h960182844 Melt_InitialFrame;
 /*** 3 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
@@ -1027,7 +1027,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h410359322 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h960182844 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -2604,9 +2604,9 @@ meltlabexit_SCANLOOP_1:
 
 #endif /*MELT_HAVE_DEBUG*/
             ;
-            /*citerblock FOREACH_IN_LIST*/
+            /*citerblock FOREACH_PAIR_COMPONENT_IN_LIST*/
             {
-                /* start foreach_in_list meltcit3__EACHLIST */
+                /* start foreach_pair_component_in_list meltcit3__EACHLIST */
                 for (/*_.CURPAIR__V39*/ meltfptr[19] = melt_list_first( (melt_ptr_t)/*_.REMOVELIST__V6*/ meltfptr[4]);
                                         melt_magic_discr((melt_ptr_t) /*_.CURPAIR__V39*/ meltfptr[19]) == MELTOBMAG_PAIR;
                                         /*_.CURPAIR__V39*/ meltfptr[19] = melt_pair_tail((melt_ptr_t) /*_.CURPAIR__V39*/ meltfptr[19]))
@@ -2748,7 +2748,7 @@ meltlabexit_SCANLOOP_1:
                         MELT_LOCATION("warmelt-hooks.melt:2408:/ compute");
                         /*_.BUCK__V7*/
                         meltfptr[3] = /*_.SETQ___V44*/ meltfptr[13] = /*_.BUCKETLONG_REMOVE__V43*/ meltfptr[11];;
-                    } /* end foreach_in_list meltcit3__EACHLIST */
+                    } /* end foreach_pair_component_in_list meltcit3__EACHLIST */
                 /*_.CURPAIR__V39*/ meltfptr[19] = NULL;
                 /*_.CUREMOVE__V40*/
                 meltfptr[8] = NULL;
@@ -2771,7 +2771,7 @@ meltlabexit_SCANLOOP_1:
                 /*^clear*/
                 /*clear*/ /*_.SETQ___V44*/
                 meltfptr[13] = 0 ;
-            } /*endciterblock FOREACH_IN_LIST*/
+            } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
             ;
             MELT_LOCATION("warmelt-hooks.melt:2410:/ putmodvar");
             melt_module_var_put (meltmodvarix_MELT_INPCHANBUCK_symb, (melt_ptr_t)(/*_.BUCK__V7*/ meltfptr[3]));
@@ -3280,9 +3280,9 @@ meltlab_endgetargs:
                             /*anyblock*/
                             {
 
-                                /*citerblock FOREACH_IN_LIST*/
+                                /*citerblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 {
-                                    /* start foreach_in_list meltcit3__EACHLIST */
+                                    /* start foreach_pair_component_in_list meltcit3__EACHLIST */
                                     for (/*_.CURPAIR__V6*/ meltfptr[5] = melt_list_first( (melt_ptr_t)/*_.LISCHAN__V4*/ meltfptr[3]);
                                                            melt_magic_discr((melt_ptr_t) /*_.CURPAIR__V6*/ meltfptr[5]) == MELTOBMAG_PAIR;
                                                            /*_.CURPAIR__V6*/ meltfptr[5] = melt_pair_tail((melt_ptr_t) /*_.CURPAIR__V6*/ meltfptr[5]))
@@ -3457,7 +3457,7 @@ meltlab_endgetargs:
                                                     /*_._IF___V11*/ meltfptr[7] =  /*reallynil*/ NULL ;;
                                                 }
                                             ;
-                                        } /* end foreach_in_list meltcit3__EACHLIST */
+                                        } /* end foreach_pair_component_in_list meltcit3__EACHLIST */
                                     /*_.CURPAIR__V6*/ meltfptr[5] = NULL;
                                     /*_.CURCHAN__V7*/
                                     meltfptr[6] = NULL;
@@ -3480,7 +3480,7 @@ meltlab_endgetargs:
                                     /*^clear*/
                                     /*clear*/ /*_._IF___V11*/
                                     meltfptr[7] = 0 ;
-                                } /*endciterblock FOREACH_IN_LIST*/
+                                } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 ;
                                 MELT_LOCATION("warmelt-hooks.melt:2548:/ quasiblock");
 

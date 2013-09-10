@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h3945826; // forward declaration fromline 6544
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h3945826 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h180851233; // forward declaration fromline 6544
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h180851233 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -769,7 +769,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h3945826 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h180851233 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1649,9 +1649,9 @@ meltlab_endgetargs:
 
 #endif /*MELT_HAVE_DEBUG*/
         ;
-        /*citerblock FOREACH_IN_LIST*/
+        /*citerblock FOREACH_PAIR_COMPONENT_IN_LIST*/
         {
-            /* start foreach_in_list meltcit1__EACHLIST */
+            /* start foreach_pair_component_in_list meltcit1__EACHLIST */
             for (/*_.CURPAIR__V30*/ meltfptr[28] = melt_list_first( (melt_ptr_t)/*_.MSTEPS__V19*/ meltfptr[9]);
                                     melt_magic_discr((melt_ptr_t) /*_.CURPAIR__V30*/ meltfptr[28]) == MELTOBMAG_PAIR;
                                     /*_.CURPAIR__V30*/ meltfptr[28] = melt_pair_tail((melt_ptr_t) /*_.CURPAIR__V30*/ meltfptr[28]))
@@ -1668,7 +1668,7 @@ meltlab_endgetargs:
                         /*_.SCANSTEP__V32*/ meltfptr[31] =  melt_apply ((meltclosure_ptr_t)((/*~SCANSTEP*/ meltfclos->tabval[2])), (melt_ptr_t)(/*_.CURSTEP__V31*/ meltfptr[22]), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                     }
                     ;
-                } /* end foreach_in_list meltcit1__EACHLIST */
+                } /* end foreach_pair_component_in_list meltcit1__EACHLIST */
             /*_.CURPAIR__V30*/ meltfptr[28] = NULL;
             /*_.CURSTEP__V31*/
             meltfptr[22] = NULL;
@@ -1685,7 +1685,7 @@ meltlab_endgetargs:
             /*^clear*/
             /*clear*/ /*_.SCANSTEP__V32*/
             meltfptr[31] = 0 ;
-        } /*endciterblock FOREACH_IN_LIST*/
+        } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
         ;
 
         MELT_CHECK_SIGNAL();

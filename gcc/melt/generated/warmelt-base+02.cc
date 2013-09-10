@@ -40,8 +40,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiBASE_h440290096; // forward declaration fromline 6544
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h440290096 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiBASE_h583246358; // forward declaration fromline 6544
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h583246358 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -235,7 +235,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiBASE_h440290096 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiBASE_h583246358 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -490,9 +490,9 @@ meltlab_endgetargs:
                             /*anyblock*/
                             {
 
-                                /*citerblock FOREACH_IN_LIST*/
+                                /*citerblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 {
-                                    /* start foreach_in_list meltcit2__EACHLIST */
+                                    /* start foreach_pair_component_in_list meltcit2__EACHLIST */
                                     for (/*_.CURPAIR__V6*/ meltfptr[5] = melt_list_first( (melt_ptr_t)/*_.SRC__V2*/ meltfptr[1]);
                                                            melt_magic_discr((melt_ptr_t) /*_.CURPAIR__V6*/ meltfptr[5]) == MELTOBMAG_PAIR;
                                                            /*_.CURPAIR__V6*/ meltfptr[5] = melt_pair_tail((melt_ptr_t) /*_.CURPAIR__V6*/ meltfptr[5]))
@@ -506,7 +506,7 @@ meltlab_endgetargs:
                                                 meltgc_append_list((melt_ptr_t)(/*_.NEWLIST__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.CURCOMP__V7*/ meltfptr[6]));
                                             }
                                             ;
-                                        } /* end foreach_in_list meltcit2__EACHLIST */
+                                        } /* end foreach_pair_component_in_list meltcit2__EACHLIST */
                                     /*_.CURPAIR__V6*/ meltfptr[5] = NULL;
                                     /*_.CURCOMP__V7*/
                                     meltfptr[6] = NULL;
@@ -520,7 +520,7 @@ meltlab_endgetargs:
                                     /*^clear*/
                                     /*clear*/ /*_.CURCOMP__V7*/
                                     meltfptr[6] = 0 ;
-                                } /*endciterblock FOREACH_IN_LIST*/
+                                } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 ;
                                 /*epilog*/
                             }
@@ -1088,9 +1088,9 @@ meltlab_endgetargs:
                             /*anyblock*/
                             {
 
-                                /*citerblock FOREACH_IN_LIST*/
+                                /*citerblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 {
-                                    /* start foreach_in_list meltcit2__EACHLIST */
+                                    /* start foreach_pair_component_in_list meltcit2__EACHLIST */
                                     for (/*_.CURPAIR__V6*/ meltfptr[5] = melt_list_first( (melt_ptr_t)/*_.SRC__V2*/ meltfptr[1]);
                                                            melt_magic_discr((melt_ptr_t) /*_.CURPAIR__V6*/ meltfptr[5]) == MELTOBMAG_PAIR;
                                                            /*_.CURPAIR__V6*/ meltfptr[5] = melt_pair_tail((melt_ptr_t) /*_.CURPAIR__V6*/ meltfptr[5]))
@@ -1104,7 +1104,7 @@ meltlab_endgetargs:
                                                 meltgc_append_list((melt_ptr_t)(/*_.NEWLIST__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.CURCOMP__V7*/ meltfptr[6]));
                                             }
                                             ;
-                                        } /* end foreach_in_list meltcit2__EACHLIST */
+                                        } /* end foreach_pair_component_in_list meltcit2__EACHLIST */
                                     /*_.CURPAIR__V6*/ meltfptr[5] = NULL;
                                     /*_.CURCOMP__V7*/
                                     meltfptr[6] = NULL;
@@ -1118,7 +1118,7 @@ meltlab_endgetargs:
                                     /*^clear*/
                                     /*clear*/ /*_.CURCOMP__V7*/
                                     meltfptr[6] = 0 ;
-                                } /*endciterblock FOREACH_IN_LIST*/
+                                } /*endciterblock FOREACH_PAIR_COMPONENT_IN_LIST*/
                                 ;
                                 /*epilog*/
                             }
