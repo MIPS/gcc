@@ -1,7 +1,11 @@
 
 
 
-2013-09-06  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-predef.list (HOOK_SIMPLE_IPA_GATE): Remove.
+
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
