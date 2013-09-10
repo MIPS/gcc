@@ -5,7 +5,7 @@
 
 
 /* This warmelt-genobj+melttime.h is included from warmelt-genobj+meltdesc.c only. */
-#if meltmod_WARMELTmiGENOBJ_mds__5235E946B3C6A988E4B66C9E46E09527
+#if meltmod_WARMELTmiGENOBJ_mds__F89CB2F141E6D706C59744AC1A4FF6FD
 /* MELT generation timestamp for meltbuild-sources/warmelt-genobj */
 
 #ifdef __cplusplus
@@ -18,8 +18,8 @@ extern "C" {
 
 		 
 /*MELT BOOTSTRAP*/
-const char melt_gen_timestamp[]="Fri Sep  6 17:34:33 2013 MEST";
-const long long melt_gen_timenum=1378481673;
+const char melt_gen_timestamp[]="Tue Sep 10 10:22:14 2013 CEST";
+const long long melt_gen_timenum=1378801334;
 
 		 const char melt_build_timestamp[]= __DATE__ "@" __TIME__
 		 #ifdef __cplusplus
@@ -34,7 +34,7 @@ const long long melt_gen_timenum=1378481673;
 		 }  /* end extern C timestamp */
 		 #endif /*__cplusplus */
 
-		 #else /* ! meltmod_WARMELTmiGENOBJ_mds__5235E946B3C6A988E4B66C9E46E09527 */
+		 #else /* ! meltmod_WARMELTmiGENOBJ_mds__F89CB2F141E6D706C59744AC1A4FF6FD */
 		 #error invalid timestamp file for meltbuild-sources/warmelt-genobj 
-		 #endif /* meltmod_WARMELTmiGENOBJ_mds__5235E946B3C6A988E4B66C9E46E09527 */
+		 #endif /* meltmod_WARMELTmiGENOBJ_mds__F89CB2F141E6D706C59744AC1A4FF6FD */
 		 
