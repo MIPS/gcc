@@ -357,9 +357,13 @@ melt_need_debug_limit (int depth, int lim)
 }
 
 /* unspecified flexible dimension in structure, we use 1 not 0 for standard compliance... */
+#if (__clang__ || __GNUC__ || MELT_FORCE_FLEXIBLE_DIM) && !MELT_FORCE_INFLEXIBLE_DIM
+#define MELT_FLEXIBLE_DIM /*Clang/GCC flexible*/
+#define MELT_HAVE_FLEXIBLE_DIM 1
+#else
 #define MELT_FLEXIBLE_DIM /*C++ flexible*/1
 #define MELT_HAVE_FLEXIBLE_DIM 0
-
+#endif
 
 /* array of (at least 100, increasing order but non consecutive)
    primes, zero terminated. Each prime is at least 1/8-th bigger than

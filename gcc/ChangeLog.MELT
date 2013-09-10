@@ -1,4 +1,10 @@
 
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (MELT_FLEXIBLE_DIM, MELT_HAVE_FLEXIBLE_DIM): Set
+	with GCC or Clang or when MELT_FORCE_FLEXIBLE_DIM is set and
+	MELT_FORCE_INFLEXIBLE_DIM is false.
+
 2013-09-09  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{When merging trunk GCC 4.9 with C++ passes}}
 	* melt/xtramelt-ana-base.melt: Add GCC 4.9 specific code, still
