@@ -1555,6 +1555,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 ;;expand all but the first element of a list as a tuple
 (defun expand_restlist_as_tuple (arglist env mexpander modctx)
+  :doc #{$EXPAND_RESTLIST_AS_TUPLE macro-expands all but the first element of a list as a tuple.}#
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check arglist" (is_list arglist) arglist)
@@ -1567,6 +1568,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 ;;expand all of a pairlist as a list
 (defun expand_pairlist_as_list (pair env mexpander modctx)
+  :doc #{$EXPAND_RESTLIST_AS_TUPLE macro-expands a pair-list as a list.}#
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
@@ -1606,6 +1608,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 
 (defun expand_pairlist_as_tuple (pair env mexpander modctx)
+  :doc #{$EXPAND_PAIRLIST_AS_TUPLE macroexpands a pair-list as a tuple.}#
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
@@ -1616,6 +1619,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 
 (defun expand_tuple_slice_as_tuple (tuple :long startix endix :value env mexpander modctx)
+  :doc #{$EXPAND_TUPLE_SLICE_AS_TUPLE macro-expands in given $TUPLE the slice from $STARTIX to $ENDIX}#
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
@@ -5655,8 +5659,6 @@ Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
 
 
 
-#|
-;;; each_component_in_list macro does not work because with_cloned_symb is buggy
 (defmacro each_component_in_list (sexp env mexpander modctx)
   :doc #{Macro $EACH_COMPONENT_IN_LIST to be invoked with a
   list-giving @var{expr} and a local variable @var{compvar} expands into
@@ -5707,7 +5709,6 @@ Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
 	   ))))))
 
 (export_macro each_component_in_list)
-|#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;
@@ -8955,6 +8956,9 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  expand_apply
  expand_msend  
  expand_pairlist_as_tuple
+ expand_pairlist_as_list
+ expand_restlist_as_list
+ expand_tuple_slice_as_tuple 
  expand_primitive
  hook_macro_installer
  install_initial_macro

@@ -2,6 +2,13 @@
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (each_component_in_list): New macro.
+	(expand_pairlist_as_list, expand_restlist_as_list)
+	(expand_tuple_slice_as_tuple): Export and document these functions
+	useful in defmacros etc...
+
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-base+melttime.h: Regenerate.
