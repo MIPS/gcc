@@ -2072,9 +2072,8 @@ enum reg_class
    to be rearranged based on a particular function.  On the mips16, we
    want to allocate $24 (T_REG) before other registers for
    instructions for which it is possible.  */
-#if 0
+
 #define ADJUST_REG_ALLOC_ORDER mips_order_regs_for_local_alloc ()
-#endif
 
 /* True if VALUE is an unsigned 6-bit number.  */
 
