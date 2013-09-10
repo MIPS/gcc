@@ -1,6 +1,21 @@
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{no need for simple ipa gate functions... }}
+	* melt-predef.list (HOOK_SIMPLE_IPA_GATE): Poisoned.
+
+	* melt/warmelt-hooks.melt (hook_simple_ipa_gate): Removed.
+
+	* melt/xtramelt-ana-base.melt (melthk_simple_ipa_gate): Remove
+	this C++ helper function.
+	(melt_pass_instance_counter_): New global.
+	(melt_gimple_pass): Use it.
+	(melt_simple_ipa_pass): New C++ class.
+	(install_melt_pass_in_gcc): Simple IPA passes should not have gate
+	functions.  Add GCC 4.9 handling of simple ipa passes.
+
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_FLEXIBLE_DIM, MELT_HAVE_FLEXIBLE_DIM): Set
 	with GCC or Clang or when MELT_FORCE_FLEXIBLE_DIM is set and
 	MELT_FORCE_INFLEXIBLE_DIM is false.

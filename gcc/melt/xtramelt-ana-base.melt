@@ -51,21 +51,39 @@
  #{
 MELT_EXTERN bool melthk_gimple_gate(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN unsigned int melthk_gimple_execute(void) MELT_MODULE_VISIBILITY;
-MELT_EXTERN bool melthk_simple_ipa_gate(void)  MELT_MODULE_VISIBILITY;
 MELT_EXTERN unsigned int melthk_simple_ipa_execute(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN bool melthk_rtl_gate(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN unsigned int melthk_rtl_execute(void) MELT_MODULE_VISIBILITY;
 
 #if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
+MELT_EXTERN long melt_pass_instance_counter_ MELT_MODULE_VISIBILITY;
 class melt_gimple_pass : public gimple_opt_pass {
+  long _instance_index;
 public:
   melt_gimple_pass (const pass_data& passdata, gcc::context*ctxt) 
-    : gimple_opt_pass (passdata, ctxt) {};
-
+    : gimple_opt_pass (passdata, ctxt), _instance_index(++melt_pass_instance_counter_) {};
   bool gate () { return melthk_gimple_gate(); };
   unsigned execute () { return melthk_gimple_execute(); };
-  opt_pass* clone () { return new melt_gimple_pass(*this); };
-}; // end of melt_gimple_pass
+  opt_pass* clone () { 
+    melt_gimple_pass *p = new melt_gimple_pass(*this); 
+    p->_instance_index = ++melt_pass_instance_counter_;
+    return p;
+  };
+  long index () const { return _instance_index; };
+}; // end of melt_gimple_pass class
+
+class melt_simple_ipa_pass : public simple_ipa_opt_pass {
+  long _instance_index;
+public:
+  long index () const { return _instance_index; };
+   melt_simple_ipa_pass (const pass_data& passdata, gcc::context*ctxt) 
+    : simple_ipa_opt_pass(passdata, ctxt),  _instance_index(++melt_pass_instance_counter_) {};
+   unsigned int execute () 
+    {
+      return melthk_simple_ipa_execute(); 
+    };
+}; // end of melt_simple_ipa_pass class
+
 #endif /* GCC 4.9 or newer */
 
 }#)
@@ -87,9 +105,6 @@ unsigned int melthk_gimple_execute(void)
 }
 
 
-bool melthk_simple_ipa_gate(void)
-{ return melthookproc_HOOK_SIMPLE_IPA_GATE () != 0L; }
-
 unsigned int melthk_simple_ipa_execute(void) 
 {return (unsigned) melthookproc_HOOK_SIMPLE_IPA_EXECUTE (); }
 
@@ -99,6 +114,9 @@ bool melthk_rtl_gate(void)
 unsigned int melthk_rtl_execute(void) 
 {return (unsigned) melthookproc_HOOK_RTL_EXECUTE (); }
 
+#if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
+long melt_pass_instance_counter_ = 0;
+#endif /* GCC 4.9 or newer */
 }#)
 
 
@@ -232,6 +250,8 @@ unsigned int melthk_rtl_execute(void)
 	)
        ;; installing simple_ipa passes
        ((is_a pass class_gcc_simple_ipa_pass)
+	(if gatefun 
+	    (error_at () "MELT simple ipa pass $1 should not have any gate function" passname))
 	(code_chunk 
 	 simipapass_chk
 	 #{ /* start install_melt_gcc_pass $SIMIPAPASS_CHK */
@@ -244,7 +264,7 @@ unsigned int melthk_rtl_execute(void)
 	 simipass->pass.type = SIMPLE_IPA_PASS;
 	 simipass->pass.name = 
 	   melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
-	 simipass->pass.gate = ($GATEFUN != NULL)?melthk_simple_ipa_gate:NULL;
+	 simipass->pass.gate = NULL;
 	 simipass->pass.execute = melthk_simple_ipa_execute;
 	 simipass->pass.tv_id = TV_PLUGIN_RUN;
 	 simipass->pass.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
@@ -260,9 +280,33 @@ unsigned int melthk_rtl_execute(void)
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
 #else /* GCC >= 4.9 */
-#warning install_melt_gcc_pass $SIMIPAPASS_CHK not implemented for class_gcc_simple_ipa_pass
-         melt_fatal_error ("install_melt_gcc_pass unimplemented for MELT pass %s (simple_ipa)",
-			   melt_string_str((melt_ptr_t) $PASSNAME));
+	 struct register_pass_info rpassinfo;
+	 memset (&rpassinfo, 0, sizeof(rpassinfo));
+	 struct pass_data rpassdata;
+	 memset (&rpassdata, 0, sizeof(rpassdata));
+	 rpassdata.type = GIMPLE_PASS;
+	 rpassdata.name = melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
+	 rpassdata.optinfo_flags = OPTGROUP_NONE;
+	 rpassdata.has_gate = false;
+	 rpassdata.has_execute = true;
+	 rpassdata.tv_id = TV_PLUGIN_RUN;
+	 rpassdata.properties_required = melt_val2passflag ((melt_ptr_t) $PROPREQV);
+	 rpassdata.properties_provided = melt_val2passflag ((melt_ptr_t) $PROPPROV);
+	 rpassdata.properties_destroyed = melt_val2passflag ((melt_ptr_t) $PROPDESTRV);
+	 rpassdata.todo_flags_start = melt_val2passflag ((melt_ptr_t) $TODOSTARTV);
+	 rpassdata.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
+	 rpassinfo.pass = new melt_simple_ipa_pass (rpassdata, g); // the g is from context.h
+	 rpassinfo.reference_pass_name = 
+	   melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
+	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
+	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
+	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
+			    NULL, &rpassinfo);
+	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
+	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
+			    NULL, &rpassinfo);
 #endif /* GCC 4.9 or better */
 	 /* end install_melt_gcc_pass $SIMIPAPASS_CHK */
 	 }#)
