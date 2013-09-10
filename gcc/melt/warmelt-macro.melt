@@ -90,7 +90,7 @@
 ;;;;;;;;;;;;;;;;
 ;; usage (diagnostic_args_macro <nbargs-var> <vect-var>)
 (defmacro diagnostic_args_macro (sexp env mexpander modctx)
-  :doc #{Macro $DIAGNOSTIC_ARGS_MACRO to be invoked with two variables @var{nbargs} and @{vect} to 
+  :doc #{Macro $DIAGNOSTIC_ARGS_MACRO to be invoked with two variables @var{nbargs} and @var{vect} to 
 parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INFORM.}#
   (debug "diagnostic_args_macro sexp=" sexp)
   (shortbacktrace_dbg "diagnostic_args_macro" 12)

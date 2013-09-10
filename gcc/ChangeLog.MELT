@@ -2,6 +2,13 @@
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Documentation is generated again...}}
+	* melt/warmelt-macro.melt (diagnostic_args_macro): Correct documentation.
+
+	* melt/warmelt-modes.melt (makedoc_docmd): Make a fresh environment for each file...
+
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.

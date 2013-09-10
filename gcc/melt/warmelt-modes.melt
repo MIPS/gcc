@@ -1772,11 +1772,12 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        curargfile
        (informsg_strv "reading from file" curargfile)
        (let ( (curead (read_file curargfile))
+	      (newenv (fresh_env curenv))
 	      )
 	 (debug "makedoc_docmd curead=" curead)
 	 (assert_msg "check curead" (is_list_or_null curead) curead)
 	 (list_append2list rlist curead)
-	 (let ( (curxlist (macroexpand_toplevel_list curead curenv macroexpand_1 mdinfo))
+	 (let ( (curxlist (macroexpand_toplevel_list curead newenv macroexpand_1 mdinfo))
 		)
 	   (debug "makedoc_docmd curxlist=" curxlist)
 	   (list_append2list xalllist curxlist)
