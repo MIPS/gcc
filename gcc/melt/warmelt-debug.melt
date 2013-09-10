@@ -990,7 +990,7 @@ $TORANK}#
       (add2out sbuf "~" lislen "("))
       (cond 
        ( (<i depth maxdepth) 
-	 (foreach_in_list
+	 (foreach_pair_component_in_list
 	  (self)
 	  (curpair curcomp)
 	  (when (>i ix 300)

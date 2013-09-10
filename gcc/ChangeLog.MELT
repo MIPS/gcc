@@ -3,6 +3,34 @@
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{foreach_in_list renamed}}
+	* melt/warmelt-first.melt (foreach_in_list): Obsolete, since renamed as...
+	(foreach_pair_component_in_list): New name.
+
+	* melt/warmelt-base.melt: Rename all foreach_in_list with foreach_pair_component_in_list.
+
+	* melt/warmelt-debug.melt: Ditto.
+
+	* melt/warmelt-macro.melt: Ditto.
+
+	* melt/warmelt-normal.melt: Ditto.
+
+	* melt/warmelt-normatch.melt: Ditto.
+
+	* melt/warmelt-genobj.melt: Ditto.
+
+	* melt/warmelt-outobj.melt: Ditto.
+
+	* melt/xtramelt-ana-base.melt: Ditto.
+
+	* melt/xtramelt-ana-tree.melt: Ditto.
+
+	* melt/xtramelt-c-generator.melt: Ditto.
+
+	* melt/xtramelt-probe.melt: Ditto.
+
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-predef.list (HOOK_SIMPLE_IPA_GATE): Remove.
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>

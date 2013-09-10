@@ -90,7 +90,7 @@
 ;;;;;;;;;;;;;;;;
 ;; usage (diagnostic_args_macro <nbargs-var> <vect-var>)
 (defmacro diagnostic_args_macro (sexp env mexpander modctx)
-  :doc #{Macro $DIAGNOSTIC_ARGS_MACRO to be invoked with two variable @var{nbargs} and @{vect} to 
+  :doc #{Macro $DIAGNOSTIC_ARGS_MACRO to be invoked with two variables @var{nbargs} and @{vect} to 
 parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INFORM.}#
   (debug "diagnostic_args_macro sexp=" sexp)
   (shortbacktrace_dbg "diagnostic_args_macro" 12)
@@ -121,9 +121,12 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		    (not (melt_is_bootstrapping)) sexp sexcont tcont)
 	(return)
 	)
-      (let ( (macrovarnbarg (multiple_nth tcont 1))
-	     (macrovarvect (multiple_nth tcont 2))
-	     )
+      (let ( 
+	    (sexpnbarg  (multiple_nth tcont 1))
+	    (macrovarnbarg (mexpander sexpnbarg env mexpander modctx))
+	    (sexpvarvect (multiple_nth tcont 2))
+	    (macrovarvect (mexpander sexpvarvect env mexpander modctx))
+	    )
 	(when (is_not_a macrovarnbarg class_symbol)
 	  (error_plain sloc 
 		       "(DIAGNOSTIC_ARGS_MACRO <nbargs> <vect>) not variable <nbargs>")
@@ -411,6 +414,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 (export_values error_at warning_at inform_at)
 
 ;;****************************************************************
+
 
 
 (defselector is_recursively_constructible class_selector
@@ -1418,7 +1422,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		 (comp :long ix)
 		 (list_append cont comp)))
 	      ( (is_list v)
-		(foreach_in_list
+		(foreach_pair_component_in_list
 		 (v)
 		 (curpair curcomp)
 		 (list_append cont curcomp)))
@@ -1483,7 +1487,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		     (if (>i newcum max)
 			 (return () newcum)
 		       (progn
-			 (foreach_in_list
+			 (foreach_pair_component_in_list
 			  (cont)
 			  (curpair curelem)
 			  (multicall
@@ -1517,7 +1521,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
   (let ( (expreslist (list)) 
 	 (:long count 0)
 	 )
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (arglist)
      (curpair curarg)
      (if (>i count 0)
@@ -1533,7 +1537,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	     (list_append expreslist curxtra)
 	     ))
 	   ((is_list xtraexp)
-	    (foreach_in_list
+	    (foreach_pair_component_in_list
 	     (xtraexp)
 	     (xtrapair curxtra)
 	     (list_append expreslist curxtra)
@@ -1585,7 +1589,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		   (list_append expreslist curxtra)
 		   ))
 		 ((is_list xtraexp)
-		  (foreach_in_list
+		  (foreach_pair_component_in_list
 		   (xtraexp)
 		   (xtrapair curxtra)
 		   (list_append expreslist curxtra)
@@ -1611,6 +1615,55 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	(list_to_multiple expreslist discr_multiple))))
 
 
+(defun expand_tuple_slice_as_tuple (tuple :long startix endix :value env mexpander modctx)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check mexpander" (is_closure mexpander) mexpander)
+  (assert_msg "check modctx" (is_object modctx) modctx)
+  (if (is_multiple tuple)
+      (let ( (:long tuplen (multiple_length tuple))
+	     (expreslist (make_list discr_list))
+	     )
+	(if (<i startix 0) (setq startix (+i startix tuplen)))
+	(if (<i endix 0) (setq endix (+i endix tuplen)))
+	(if (>=i startix 0)
+	    (if (<i endix tuplen)
+		(when (<=i startix endix)
+		    (foreach_long_upto
+		     (startix endix)
+		     (:long ix)
+		     (let ( (curcomp (multiple_nth tuple ix))
+			    )
+		       (multicall 
+			(curexp xtraexp)
+			(mexpander curcomp env mexpander modctx)
+			(list_append expreslist curexp)
+			(cond 
+			 ((is_multiple xtraexp)
+			  (foreach_in_multiple
+			   (xtraexp)
+			   (curxtra :long xix)
+			   (list_append expreslist curxtra)
+			   ))
+			 ((is_list xtraexp)
+			  (foreach_pair_component_in_list
+			   (xtraexp)
+			   (xtrapair curxtra)
+			   (list_append expreslist curxtra)
+			   ))
+			 (xtraexp
+			  (list_append expreslist xtraexp))
+			 )
+			)
+		       )
+		     )
+		    (return (list_to_multiple expreslist discr_multiple))
+		  )
+	      )
+	  )
+	)
+    )
+  )	       
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun register_generator_device (defin repr modctx)
   :doc #{Function to register some C generating device in the module
@@ -2506,7 +2559,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 		    #{/*$WARNSHORTSLISTCHK*/
 		    warning(0, "MELT expanding a short (%ld) list of s-expressions", $SLISTLEN)}#))
     ;;
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (slist)
      (curpair sexp)
      (debug "macroexpand_toplevel_list sexp=" sexp)
@@ -2729,7 +2782,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
      (list_append flatlist (make_string discr_verbatim_string comp))
      )
    ( (is_list comp)
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (comp)
       (curpair curcomp)
       ;;(debug "flatten_for_c_code_expansion curcomp in list" curcomp)
@@ -2741,7 +2794,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
      (let ( (subloc (get_field :loca_location comp)) 
 	    (subcontent (get_field :sexp_contents comp))
 	    )
-       (foreach_in_list 
+       (foreach_pair_component_in_list 
 	(subcontent)
 	(cursubpair cursubcomp)
 	;;(debug "flatten_for_c_code_expansion cursubcomp in sexp" cursubcomp)
@@ -5009,7 +5062,7 @@ expression context.  See also $INSTANCE and $DEFCLASS.}# )
 			 (compcont (get_field :sexp_contents comp))
 			 )
 		     (debug "expand_macrostring_pairs/mexp_macrostring compcont=" compcont)
-		     (foreach_in_list
+		     (foreach_pair_component_in_list
 		      (compcont)
 		      (compair subcomp)
 		      (mexp_macrostring subcomp cloc))
@@ -5521,7 +5574,7 @@ without any checks. Using $PUT_FIELDS is prefered.}#)
 	(processlist 
 	 (lambda (bloc blist)
 	   (assert_msg "check blist" (is_list_or_null blist) blist)
-	   (foreach_in_list
+	   (foreach_pair_component_in_list
 	    (blist)
 	    (curpair cursymb)
 	    (when (is_not_a cursymb class_symbol)
@@ -5591,6 +5644,61 @@ Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
 @code{(LET ( (@var{<symb>} (CLONE_SYMBOL (QUOTE @var{<symb>}))) @var{...})  @var{<body>...})} etc...}#)
 
 
+
+#|
+;;; each_component_in_list macro does not work because with_cloned_symb is buggy
+(defmacro each_component_in_list (sexp env mexpander modctx)
+  :doc #{Macro $EACH_COMPONENT_IN_LIST to be invoked with a
+  list-giving @var{expr} and a local variable @var{compvar} expands into
+  @code{(foreach_pair_component_in_list (@var{expr}) 
+					(@var{curpairvar} @var{compvar}) @var{body...})} 
+  where @var{curpairvar} is fresh.}#
+  (debug "each_component_in_list macro sexp=" sexp)
+  (let (
+	(sloc (get_field :loca_location sexp))
+	(sexcont (get_field :sexp_contents sexp))
+	)
+    (debug "each_component_in_list sloc=" sloc " sexcont=" sexcont)
+    (assert_msg "check sexcont" (is_list sexcont) sexcont)
+    (let ( 
+	  (tcont (list_to_multiple sexcont discr_multiple))
+	  (:long tcontlen (multiple_length tcont))
+	  )
+      (assert_msg "check tcont" (is_multiple tcont) tcont sexcont)
+      (assert_msg "check tcontlen" (>i tcontlen 0) tcontlen tcont)
+      (when (<i tcontlen 4)
+	(error_plain sloc "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> too short")
+	(return () ()))
+      (let ( 
+	    (sexplist (multiple_nth tcont 1))
+	    (svarcomp (multiple_nth tcont 2))
+	    (mlistexp (mexpander sexplist env mexpander modctx))
+	    (mvarcomp (mexpander svarcomp env mexpander modctx))
+	    (bodyexp (expand_tuple_slice_as_tuple tcont 3 -1 env mexpander modix))
+	    )
+	(when (is_not_a mvarcomp class_symbol)
+	  (error_plain sloc "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> bad second argument for component variable")
+	  (return () ()))
+	(with_cloned_symb 
+	 (curpairinlistsymb)
+	 (let ( (resexp
+		 `(foreach_pair_component_in_list 
+		   (,mlistexp)
+		   (,curpairinlistsymb ,mvarcomp)
+		   ,bodyexp))
+		)
+	   (debug "each_component_in_list resexp=" resexp)
+	   (let ( (mexp (mexpander resexp env mexpander modctx))
+		  )
+	     (debug "each_component_in_list final mexp=" mexp)
+	     (put_fields mexp :loca_location sloc)
+	     (return mexp)
+	     )
+	   ))))))
+
+(export_macro each_component_in_list)
+|#
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;
 ;;;;; the CPPIF expander
@@ -5697,7 +5805,7 @@ MELT module.  Syntax is (CPPIF <symbol> <then> [<else>]).}#)
      ((is_list curif)
       (let ( (ok ())
 	     )
-	(foreach_in_list 
+	(foreach_pair_component_in_list 
 	 (curif)
 	 (curpair curstr)
 	 (if (not (is_string curstr))
@@ -7295,7 +7403,7 @@ remain.}#)
 	 (arglist (make_list discr_list))
 	 )
     (debug "expand_quoted_sexpr dline=" dline " dfilnam=" dfilnam)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (cont)
      (curpair curcomp)
      (debug "expand_quoted_sexpr curcomp=" curcomp "\n.. arglist=" arglist)
@@ -7343,7 +7451,7 @@ remain.}#)
 	   (:else
 	    (list_append arglist curcomp))
 	   )
-     )					; end foreach_in_list
+     )					; end foreach_pair_component_in_list
     (debug "expand_quoted_sexpr arglist=" arglist)
     (list_prepend arglist locexp)
     (debug "expand_quoted_sexpr final arglist=" arglist)
@@ -7635,7 +7743,7 @@ $COMMA It is often noted with a prefix comma-character
 	     (sloc (get_field :loca_location chead))
 	     )
 	(if sloc (setq loc sloc))
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (scont)
 	 (curpair curarg)
 	 (add2out sbuf curarg)
@@ -7683,7 +7791,7 @@ $COMMA It is often noted with a prefix comma-character
 	     (sloc (get_field :loca_location chead))
 	     )
 	(if sloc (setq loc sloc))
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (scont)
 	 (curpair curarg)
 	 (add2out sbuf curarg)

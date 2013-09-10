@@ -86,7 +86,7 @@
 		(add2out out "(")
 		(let ( (:long cnt 0)
 		       )
-		  (foreach_in_list
+		  (foreach_pair_component_in_list
 		   (val)
 		   (curpair curcomp)
 		   (if cnt (add2out out " "))
@@ -614,7 +614,7 @@
 	   (:long infocnt 0)
 	   )
       (debug "info_location_probe closlist=" closlist)
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (closlist)
        (curpair curclos)
        (debug "info_location_probe curclos=" curclos)
@@ -632,7 +632,7 @@
 		     )
 		(debug "info_location_probe locnum=" locnum " tit=" tit " curcont=" curcont " before command to probe")
 		(send_command_to_probe 'ADDINFOLOC_pcd locnum tit curcont)
-		)))			;end foreach_in_list
+		)))			;end foreach_pair_component_in_list
 	 (debug "info_location_probe done iloc=" iloc)
 	 )))))
 

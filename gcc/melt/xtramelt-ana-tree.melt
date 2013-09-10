@@ -2,7 +2,7 @@
 ;; file xtramelt-ana-tree.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2012 Free Software Foundation, Inc.
+    Copyright 2008 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -1637,6 +1637,20 @@ pointer type node.}#
     (add2out_indentnl out depth)
     ))
 (install_method discr_map_trees dbg_output dbgout_maptree_method)
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; TREE DIAGNOSTIC OUTPUT 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defun diag_tree (diagstate :tree tr)
+  (debug "diag_tree start diagstate=" diagstate " tr=" tr)
+  (assert_msg "check diagstate" (is_a diagstate class_diagnostic_state))
+  (let ( (outbuf (make_strbuf discr_strbuf))
+	 )
+    (output_tree_briefly outbuf tr)
+    (strbuf2string outbuf discr_string)))
+(register_diag_tree diag_tree)
 
 ;;;;;;;;;;;;;;;;
 ;;; primitive to push the cfun asociated with a function declaration

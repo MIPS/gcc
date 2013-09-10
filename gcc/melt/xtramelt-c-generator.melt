@@ -1,7 +1,7 @@
 ;; -*- Lisp -*-
 ;; file xtramelt-c-generator.melt
 (comment "***
-    Copyright 2010, 2011, 2012 Free Software Foundation, Inc.
+    Copyright 2010 - 2013 Free Software Foundation, Inc.
     Contributed by Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 with improvements by  Basile Starynkevitch  <basile@starynkevitch.net>
 
@@ -176,7 +176,7 @@
 ;; Traverse tree
 
 (defun traverse_header_parameters_function (parameters)
-  (foreach_in_list
+  (foreach_pair_component_in_list
    (parameters)
    (pair parameter)
    (let ( (type (get_field :element_type parameter))
@@ -192,7 +192,7 @@
 
 (defun traverse_local_variables_function (local_variables)
   (debug "traverse_local_variables " local_variables)
-  (foreach_in_list
+  (foreach_pair_component_in_list
    (local_variables)
    (pair declaration)
    (let ( (type (get_field :element_type declaration))
@@ -202,13 +202,13 @@
 (defun traverse_block_instructions_function (_block_)
   (let ((id (get_field :block_id _block_))
 	(instructions (get_field :block_instructions _block_)))
-    (foreach_in_list 
+    (foreach_pair_component_in_list 
      (instructions)
      (pair instruction)
      (debug "traverse_block_instructions instruction=" instruction))))
 
 (defun traverse_blocks_function (blocks)
-  (foreach_in_list
+  (foreach_pair_component_in_list
    (blocks)
    (pair block)
    (traverse_block_instructions_function block)))
@@ -222,7 +222,7 @@
     (traverse_blocks_function blocks)))
 
 (defun traverse_main_structure (structure)
-  (foreach_in_list
+  (foreach_pair_component_in_list
    (structure)
    (pair node)
    (traverse_function_structure node)))
@@ -248,7 +248,7 @@
     (add2sbuf_strconst buffer "struct ")
     (add2sbuf_string buffer name)
     (add2sbuf_strconst buffer "{")
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (fields)
      (pair current_element)
      (let ((field_type (get_field :element_type current_element))
@@ -262,7 +262,7 @@
 (install_method class_c_generator_structure add_to_buffer add_structure_declaration_to_buffer)
 
 (defun add_structures_declarations_to_buffer (structures buffer)
-  (foreach_in_list
+  (foreach_pair_component_in_list
    (structures)
    (pair current_element)
    (debug "add_structures_declarations_to_buffer current_element=" current_element)
@@ -279,7 +279,7 @@
 
 (defun add_functions_prototypes_to_buffer (root buffer)
   (let ((functions (get_field :functions_root root)))
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (functions)
      (pair current_element)
      (add_prototype_to_buffer current_element buffer))))
@@ -290,7 +290,7 @@
 
 (defun add_functions_to_buffer (root buffer)
   (let ((functions (get_field :functions_root root)))
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (functions)
      (pair current_element)
      (add_to_buffer current_element buffer))))
@@ -298,7 +298,7 @@
 (install_method class_c_generator_functions add_to_buffer add_functions_to_buffer)
 
 (defun add_local_variables_to_buffer (local_variables buffer)
-  (foreach_in_list
+  (foreach_pair_component_in_list
    (local_variables)
    (pair current_element)
    (let ((type (get_field :element_type current_element))
@@ -309,7 +309,7 @@
      (add2sbuf_strconst buffer ";"))))
 
 (defun add_blocks_to_buffer (blocks buffer)
-  (foreach_in_list
+  (foreach_pair_component_in_list
    (blocks)
    (pair current_element)
    (add2sbuf_string buffer (add_to_buffer current_element buffer))))
@@ -328,7 +328,7 @@
 
 (defun add_parameters_to_buffer (parameters buffer)
   (let ((count (make_integerbox discr_integer 0)))
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (parameters)
      (pair current_node)
      (let ((type (get_field :element_type current_node))
@@ -362,7 +362,7 @@
     (add2sbuf_strconst buffer "melt_label_")
     (add2sbuf_longdec buffer (get_int id))
     (add2sbuf_strconst buffer ":")
-    (foreach_in_list 
+    (foreach_pair_component_in_list 
      (instructions)
      (pair current_element)
      (add2sbuf_string buffer (add_to_buffer current_element buffer))
@@ -428,7 +428,7 @@
 
 (defun add_call_parameters_to_buffer (parameters buffer)
   (let ((count (make_integerbox discr_integer 0)))
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (parameters)
      (pair current_node)
      (let ((type (get_field :element_type current_node))

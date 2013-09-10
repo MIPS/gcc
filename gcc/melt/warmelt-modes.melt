@@ -821,7 +821,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
   (add2sbuf_indentnl outb 0)
   (add2sbuf_strconst outb prefstr)
   ;; output the documentation
-  (foreach_in_list
+  (foreach_pair_component_in_list
    ( (unsafe_get_field :sexp_contents doc) )
    (curpair curelem)
    (cond 
@@ -836,7 +836,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
    )
   (add2sbuf_indentnl outb 0)
   ;; output the vindex entries
-  (foreach_in_list
+  (foreach_pair_component_in_list
    ( (unsafe_get_field :sexp_contents doc) )
    (curpair curelem)
    (cond 
@@ -4252,7 +4252,7 @@ melt_scanning (melt_ptr_t p)
 	      "flavor=" flavors)
        (generate_flavored_melt_module rawsrcnam outnam flavors))
      ( (is_list flavors)
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(flavors)
 	(curpair curflavor)
 	(debug "before generate_flavored_melt_module rawsrcnam=" rawsrcnam " outnam=" outnam

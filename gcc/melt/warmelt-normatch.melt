@@ -137,7 +137,7 @@ scanning variables.}#
 	   (:long nbocc (get_int nboccbox))
 	   )
       (put_int nboccbox (+i nbocc 1)))
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (varhdlerlist)
      (curpair curhdler)
      (if (is_closure curhdler)
@@ -677,7 +677,7 @@ scanning variables.}#
 	 (list_append updatlist partester)
 	 )
 	(:else
-	 (foreach_in_list
+	 (foreach_pair_component_in_list
 	  (updatlist)
 	  (curpair curtest)
 	  (if (== curtest partester) 
@@ -690,7 +690,7 @@ scanning variables.}#
        (debug "set_new_tester_all_elses here partester=" partester
 	      "\n thtest=" thtest)
        (cond ( (is_a thtest class_normtester_anytester)
-	 (foreach_in_list
+	 (foreach_pair_component_in_list
 	  (updatlist)
 	  (curpair curtest)
 	  (if (== curtest thtest) 
@@ -1093,7 +1093,7 @@ scanning variables.}#
 		)
 	   (debug "normpat_instancepat scanning testloccl" testloccl)
 	   ;; try to find an existing local occurrence for the field
-	   (foreach_in_list 
+	   (foreach_pair_component_in_list 
 	    (testloccl)
 	    (testpair testlocsy)
 	    (assert_msg "check testlocsy" (is_a testlocsy class_nrep_locsymocc))
@@ -1287,7 +1287,7 @@ scanning variables.}#
 		)
 	   (debug "normpat_tuplepat scanning testloccl" testloccl)
 	   ;; try to find an existing local occurrence for the field
-	   (foreach_in_list 
+	   (foreach_pair_component_in_list 
 	    (testloccl)
 	    (testpair testlocsy)
 	    (assert_msg "check testlocsy" (is_a testlocsy class_nrep_locsymocc))
@@ -2510,7 +2510,7 @@ scanning variables.}#
 			" nbody=" nbody
 			" bindsbody=" bindsbody)
 		 (assert_msg "check bindsbody" (is_list_or_null bindsbody))
-		 (foreach_in_list
+		 (foreach_pair_component_in_list
 		  (bindsbody)
 		  (bindbodypair curbindbody)
 		  (debug "normexp_match curbindbody" curbindbody)
@@ -3155,7 +3155,7 @@ the flags of the $STEP with an extra context $CTX.}#
      ((is_a thengroup class_match_step)
       (put_then_match thengroup thenstep))
      ((is_list thengroup)
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (thengroup)
        (curpair curthen)
        (put_then_match curthen thenstep)))
@@ -3299,7 +3299,7 @@ the flags of the $STEP with an extra context $CTX.}#
       (debug "putelse_matchgroup elsegroup=" elsegroup)
       (put_else_match elsegroup elsestart))
      ((is_list elsegroup)
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (elsegroup)
        (curpair curelse)
        (debug "putelse_matchgroup  from list curelse=" curelse)
@@ -3553,7 +3553,7 @@ the flags of the $STEP with an extra context $CTX.}#
 	     (steplist (get_field :mdata_steps mdata))
 	     )
 	(assert_msg "check steplist" (is_list steplist))
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (steplist)
 	 (curpair curstep)
 	 (cond 
@@ -3715,7 +3715,7 @@ the flags of the $STEP with an extra context $CTX.}#
 	     (steplist (get_field :mdata_steps mdata))
 	     )
 	(assert_msg "check steplist" (is_list steplist))
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (steplist)
 	 (curpair curstep)
 	 (cond 
@@ -3865,7 +3865,7 @@ the flags of the $STEP with an extra context $CTX.}#
        (mapobject_put varmap symb mdata)
        (debug "translpat_varpat updated varmap & return null" varmap)
        (list_append steplist flagstep)
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(mhandlers)
 	(curpair curhandler)
 	(debug "translpat_varpat before calling curhandler=" curhandler
@@ -3878,7 +3878,7 @@ the flags of the $STEP with an extra context $CTX.}#
       (assert_msg "check symbval" (is_a symbval class_matched_data))
       (let ( (laststeptest ())
 	     )
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (steplist)
 	 (curpair curteststep)
 	 (cond
@@ -3887,7 +3887,7 @@ the flags of the $STEP with an extra context $CTX.}#
 	    (progn
 	      (debug "translpat_varpat found curteststep" curteststep)
 	      (put_then_match curteststep flagstep)
-	      (foreach_in_list
+	      (foreach_pair_component_in_list
 	       (mhandlers)
 	       (curpair curhandler)
 	       (curhandler recv mdata mcase symbval curteststep mflag sloc))
@@ -3914,7 +3914,7 @@ the flags of the $STEP with an extra context $CTX.}#
 		       "\n.. steptest=" steptest)
 		(put_else_match laststeptest steptest)
 		(debug "translpat_varpat updated laststeptest" laststeptest)))
-	  (foreach_in_list
+	  (foreach_pair_component_in_list
 	   (mhandlers)
 	   (curpair curhandler)
 	   (curhandler recv mdata mcase symbval steptest mflag sloc))
@@ -4207,7 +4207,7 @@ the flags of the $STEP with an extra context $CTX.}#
      (let (
 	   (laststeptest ())
 	   )
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(mdatasteps)
 	(curpairstep curdatastep)
 	(assert_msg "check curdatastep" (is_a curdatastep class_match_step))
@@ -6079,7 +6079,7 @@ normalized expression.}#
     (debug "normtestmatch_cmatcher matbind" matbind)
     (debug "normtestmatch_cmatcher matstate" matstate)
     (debug "normtestmatch_cmatcher exptest" exptest)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (bindlist)
      (curpairbind curbind)
      (debug "normtestmatch_cmatcher curbind" curbind)
@@ -6615,7 +6615,7 @@ normalized expression.}#
 			  ( (is_a ns class_nrep_expression)
 			    (list_append bodyl ns))
 			  ( (is_list ns)
-			    (foreach_in_list
+			    (foreach_pair_component_in_list
 			     (ns)
 			     (curpair curcomp)
 			     (add_norm_step curcomp)))
@@ -6859,7 +6859,7 @@ normalized expression.}#
 	       (let ( (:long nbndata (list_length ndatalist))
 		      (ndatatup (make_multiple discr_multiple nbndata))
 		      )
-		 (foreach_in_list
+		 (foreach_pair_component_in_list
 		  (ndatalist)
 		  (curpaird curndata)
 		  (debug "normexp_matchalt curndata=" curndata)
@@ -6993,7 +6993,7 @@ normalized expression.}#
 		      )
 		 (mapobject_put mapdata data newname)
 		 (debug "mg_altdraw_graphviz/scandata newname=" newname " updated mapdata=" mapdata)
-	       (foreach_in_list
+	       (foreach_pair_component_in_list
 		(msteps)
 		(curpair curstep)
 		(scanstep curstep))
@@ -7155,7 +7155,7 @@ normalized expression.}#
 	   (add2out_strconst nodebuf "</table>> ];")
 	   (add2out_indentnl nodebuf 0)
 ;;; output edges to the steps
-	   (foreach_in_list
+	   (foreach_pair_component_in_list
 	    (datasteps)
 	    (pairstep curstep)
 	    (add2out_indentnl edgebuf 0)

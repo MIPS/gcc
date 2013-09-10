@@ -1481,7 +1481,7 @@
        (if (is_a pro class_nrep_routproc)
 	   (let ( (pthuls (unsafe_get_field :nrpro_thunklist pro)) )
 	     (debug "compile2obj_procedure pthuls=" pthuls)
-	     (foreach_in_list
+	     (foreach_pair_component_in_list
 	      (pthuls)
 	      (pthupair pthu) 
 	      (debug "compile2obj_procedure pthu=" pthu)
@@ -1604,7 +1604,7 @@
      (append_commentconst oinibody "start of oinibody")
      (debug boxloc "compile2obj_initproc boxloc=" boxloc " inidefbinds=" inidefbinds)
 ;;; reserve location for defined values
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (inidefbinds)
       (curpair curdefbind)
       (debug "compile2obj_initproc curdefbind=" curdefbind
@@ -1962,7 +1962,7 @@
      ;; reserve location for defined values
      (debug "compile2obj_initextendproc inidefbinds=" inidefbinds)
      (assert_msg "check inidefbinds=" (is_list_or_null inidefbinds) inidefbinds)
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (inidefbinds)
       (curpair curdefbind)
       (debug "compile2obj_initextendproc curdefbind=" curdefbind
@@ -2106,7 +2106,7 @@
 	   (when (>i (list_length importvalues) 0)
 	     (append_commentconst oiniprolog "before getting imported values")
 	     ;; generate the getting of imported values
-	     (foreach_in_list
+	     (foreach_pair_component_in_list
 	      (importvalues)
 	      (curpairimp curimport)
 	      (debug "compile2obj_initextendproc curimport=" curimport)
@@ -2139,14 +2139,14 @@
 	   ;; append the compiled toplevel
 	   (append_commentconst oinibody "before toplevel body")
 	   (debug "compile2obj_initextendproc objtoplis=" objtoplis)
-	   (foreach_in_list
+	   (foreach_pair_component_in_list
 	    (objtoplis)
 	    (curpair curobjt)
 	    (debug "compile2obj_initextendproc appendinf curobjt=" curobjt)
 	    (list_append oinibody curobjt))
 	   (debug "compile2obj_initextendproc updated oinibody=" oinibody)
 	   (debug "compile2obj_initextendproc nbody=" nbody)
-	   (foreach_in_list 
+	   (foreach_pair_component_in_list 
 	    (nbody)
 	    (curnpair curninst)
 	    (debug "compile2obj_initextendproc curninst=" curninst)
@@ -2622,7 +2622,7 @@
 	       (hclobindlist (get_field :nrclop_clobindlist lastcproc))
 	       )
 	  (debug "compilobj_nrep_constocc hook hclobindlist=" hclobindlist)
-	  (foreach_in_list
+	  (foreach_pair_component_in_list
 	   (hclobindlist)
 	   (curpair curbind)
 	   (assert_msg "check curbind" (is_a curbind class_any_binding) curbind)
@@ -3359,7 +3359,7 @@
      (debug "compilobj_nrep_letrec fillbnds" fillbnds)
      (assert_msg "check fillbnds" (is_list_or_null fillbnds) fillbnds)
      ;; first loop to reserve the recobva
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (fillbnds)
       (curecpair curecbnd)
       (debug "compilobj_nrep_letrec  get_free_objloc curecbnd=" curecbnd)
@@ -3387,7 +3387,7 @@
      (debug "compilobj_nrep_letrec again locmap=" locmap " ofreelocs=" ofreelocs " fillbnds=" fillbnds)
      ;;
      ;; loop to compile the fillbindings
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (fillbnds)
       (curecpair curfilbnd)
       (debug "compilobj_nrep_letrec compil curfilbnd=" curfilbnd)
@@ -3429,7 +3429,7 @@
      ;;
      (debug "compilobj_nrep_letrec oallstruct=" oallstruct " obodl=" obodl)
      ;; loop to compile the bodybindings
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (bodybnds)
       (cubdypair curbdybnd)
       (debug "compilobj_nrep_letrec compil curbdybnd=" curbdybnd)
@@ -3472,7 +3472,7 @@
 	(list_append obodl ocurb)))
      (debug "compilobj_nrep_letrec final obodl=" obodl "\n.. ofreelocs=" ofreelocs)
      ;; should clear and free our objlocs...
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (ofreelocs)
       (curlpair curlocva)
       (debug "compilobj_nrep_letrec disposing curlocva=" curlocva)
@@ -6003,7 +6003,7 @@
 		     )
 		(debug "compilobj_dataroutine pconstl=" pconstl)
 		(put_int oirout nbconst)
-		(foreach_in_list
+		(foreach_pair_component_in_list
 		 (pconstl)
 		 (constpair constx)
 		 (debug "compilobj_dataroutine constx=" constx)
@@ -6052,7 +6052,7 @@
 		   (assert_msg "compilobj_dataroutine uneppected constx" () constx)
 		   )
 		  )
-		 ) 			;end foreach_in_list pconstl
+		 ) 			;end foreach_pair_component_in_list pconstl
 		(if (>i (get_int bxoff) 0)
 		    (list_append inibody (instance class_objtouch
 						   :obi_loc nloc
@@ -6283,7 +6283,7 @@
     ;; get the igncx_procurmodenvlist from gcx
     ;; for each routine of class_procroutineobj  get its nrpro_const list and
     ;; for each CLASS_NREP_QUASIDATA_CURRENT_MODULE_ENVIRONMENT_REFERENCE there do ....
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (pcml)
      (curpair curout)
      (debug "compilobj_nrep_update_current_module_environment_reference curout=" curout)
@@ -6388,7 +6388,7 @@
 	   "\n ogetenv=" ogetenv)
     (list_append obodl ochkcont)
     (list_append obodl ogetenv)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (pcml)
      (curpair curout)
      (debug "compilobj_nrep_update_current_module_environment_reference curout=" curout)
@@ -6638,7 +6638,7 @@
 	      (lambda (stuff stutests)
 		(if (!= stuff omatched)
 		(let ( (remstuff stuff) )
-		  (foreach_in_list 
+		  (foreach_pair_component_in_list 
 		   (stutests)
 		   (testpair curtest)
 		   (if (list_find donetests curtest)
@@ -6661,7 +6661,7 @@
 		    "compilobj_nrep_match disposing curnmatched=" curnmatched " omatched=" omatched)
 	     (let ( (stutests (mapobject_get stuffmap curnmatched)) )
 	       (let ( (remstuff curnmatched) )
-		 (foreach_in_list 
+		 (foreach_pair_component_in_list 
 		  (stutests)
 		  (testpair curtest)
 		  (if (list_find donetests curtest)
@@ -6673,7 +6673,7 @@
 		 )))) 
 ;;; dispose all the stuff in the disposablist 
 	  (debug "compilobj_nrep_match disposablist=" disposablist)
-	  (foreach_in_list
+	  (foreach_pair_component_in_list
 	   (disposablist)
 	   (dispair dispstuff)
 	   (mapobject_remove stuffmap dispstuff)
@@ -7301,7 +7301,7 @@
     (debug "compiltst_normtester_matcher freelist=" freelist " prefix=" prefix)
     (assert_msg "check prefix" (is_string prefix) prefix)
     ;; clear the freelist
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (freelist)
      (locpair obloc)
      (assert_msg "check obloc" (is_a obloc class_objlocv) obloc)
@@ -7378,7 +7378,7 @@
 	   " ocond=" ocond)
     (assert_msg "check oclass" (is_object oclass) oclass)
     ;; clear the freelist
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (freelist)
      (locpair obloc)
      (debug "compiltst_normtester_instance obloc=" obloc)
@@ -7475,7 +7475,7 @@
 	   "\n otest=" otest
 	   "\n ocond=" ocond)
     ;; clear the freelist
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (freelist)
      (locpair obloc)
      (debug "compiltst_normtester_tuple obloc=" obloc)
@@ -7571,7 +7571,7 @@
 	)
     (debug "compiltst_normtester_same ocond=" ocond)
     ;; clear the freelist
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (freelist)
      (locpair obloc)
      (assert_msg "check obloc" (is_a obloc class_objlocv) obloc)

@@ -1685,7 +1685,7 @@ current function and gives its declaration in $CFUNDECL}#
     (let ( (edgevec (make_multiple discr maxix))
 	   (:long ix 0)
 	   )
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (edglis)
        (curpair edgebox)
        (multiple_put_nth edgevec ix edgebox)

@@ -131,7 +131,7 @@
 	   "\n override_gate_delayed_queue=" override_gate_delayed_queue
 	   "\n passname=" passname " passnum=" passnum)
     ;; apply the first closures in order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (qufirst)
      (curpair curclo)
      (debug "hook_override_gate first curclo=" curclo " memref=" memref)
@@ -142,13 +142,13 @@
 	   (setq gateflag clores)
 	 )))
     ;; reverse the last closures list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (qulast)
      (curlpair curlclo)
      (if (is_closure curlclo)
 	 (list_append revlastlist curlclo)))
     ;; apply the last closures in reverse order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (curlpair curlclo)
      (debug "hook_override_gate last curlclo=" curlclo " memref=" memref)
@@ -252,7 +252,7 @@ See also $UNREGISTER_OVERRIDE_GATE_LAST, $REGISTER_OVERRIDE_GATE_FIRST, etc...}#
 	 (newlis (make_list discr_list))
 	 (:long count 0)
 	 )
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (oldlis)
      (curpair curclo)
      (if (== curclo clo) 
@@ -275,7 +275,7 @@ See also $UNREGISTER_OVERRIDE_GATE_LAST, $REGISTER_OVERRIDE_GATE_FIRST, etc...}#
 	 (newlis (make_list discr_list))
 	 (:long count 0)
 	 )
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (oldlis)
      (curpair curclo)
      (if (== curclo clo) 
@@ -531,19 +531,19 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_passes_start_registered_flag
 	 (res ())
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (setq res (firstproc res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
     (if lastlist 
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (revlastlist)
 	 (revlastpair revlastproc)
 	 (setq res (revlastproc res))
@@ -655,18 +655,18 @@ bool  melthk_all_passes_end_registered_flag;
 	 (res ())
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (setq res (firstproc res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (revlastpair revlastproc)
      (setq res (revlastproc res))
@@ -776,19 +776,19 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_all_ipa_passes_start_registered_
 	 (res ())
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (setq res (firstproc res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
     (if lastlist 
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (revlastlist)
 	 (revlastpair revlastproc)
 	 (setq res (revlastproc res))
@@ -900,18 +900,18 @@ bool  melthk_all_ipa_passes_end_registered_flag;
 	 (res ())
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (setq res (firstproc res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (revlastpair revlastproc)
      (setq res (revlastproc res))
@@ -1022,19 +1022,19 @@ MELT_EXTERN bool MELT_MODULE_VISIBILITY  melthk_early_gimple_passes_start_regist
 	 (res ())
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (setq res (firstproc res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
     (if lastlist 
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (revlastlist)
 	 (revlastpair revlastproc)
 	 (setq res (revlastproc res))
@@ -1146,18 +1146,18 @@ bool  melthk_early_gimple_passes_end_registered_flag;
 	 (res ())
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (setq res (firstproc res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (revlastpair revlastproc)
      (setq res (revlastproc res))
@@ -1298,18 +1298,18 @@ bool  melthk_pre_genericize_registered_flag;
     (let ( (cfndeclv (constant_box tfndecl))
 	   )
 ;;; call the first routines in natural order
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (firstlist)
        (firstpair firstproc)
        (setq res (firstproc cfndeclv res))
        )
 ;;; reverse the last list
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (lastlist)
        (lastpair lastproc)
        (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (revlastlist)
        (revlastpair revlastproc)
        (setq res (revlastproc cfndeclv res))
@@ -1427,18 +1427,18 @@ bool  melthk_finish_type_registered_flag;
     (let ( (cfndeclv (constant_box tfndecl))
 	   )
 ;;; call the first routines in natural order
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (firstlist)
        (firstpair firstproc)
        (setq res (firstproc cfndeclv res))
        )
 ;;; reverse the last list
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (lastlist)
        (lastpair lastproc)
        (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (revlastlist)
        (revlastpair revlastproc)
        (setq res (revlastproc cfndeclv res))
@@ -1515,19 +1515,19 @@ bool  melthk_finish_type_registered_flag;
 		:delqu_first ()
 		:delqu_last ())
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (if (is_closure firstproc) 
 	 (firstproc res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (revlastpair revlastproc)
      (revlastproc res)
@@ -1623,18 +1623,18 @@ bool  melthk_finish_decl_registered_flag;
     (let ( (cfndeclv (constant_box tfndecl))
 	   )
 ;;; call the first routines in natural order
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (firstlist)
        (firstpair firstproc)
        (setq res (firstproc cfndeclv res))
        )
 ;;; reverse the last list
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (lastlist)
        (lastpair lastproc)
        (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (revlastlist)
        (revlastpair revlastproc)
        (setq res (revlastproc cfndeclv res))
@@ -1756,18 +1756,18 @@ bool  melthk_pass_execution_registered_flag;
 	(res ())
 	)
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
      (setq res (firstproc passnameval passnum res))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (lastpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (revlastpair revlastproc)
      (setq res (revlastproc passnameval passnum res))
@@ -2159,19 +2159,19 @@ bool  melthk_pass_execution_registered_flag;
 	 (rescont (instance class_reference))
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (curpair firstproc)
      (if (is_closure firstproc)
 	 (firstproc attrseq rescont decl name fileloc lineno))
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (curpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc))
      )
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (curpair lastproc)
      (lastproc attrseq rescont decl name fileloc lineno)
@@ -2214,18 +2214,18 @@ attribute definition, in last place.}#
 	 (revlastlist (make_list discr_list))
 	 )
 ;;; call the first routines in natural order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (firstlist)
      (curpair firstproc)
      (firstproc ())
      )
 ;;; reverse the last list
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lastlist)
      (curpair lastproc)
      (if (is_closure lastproc) (list_prepend revlastlist lastproc)))
 ;;; call the last routines in reverse order
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (revlastlist)
      (curpair lastproc)
      (lastproc ())
@@ -2401,7 +2401,7 @@ exit, in last place.}#
       )
      ) 					;end for ix
      (debug "melt_invoke_input_callbacks removelist=" removelist)
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (removelist)
       (curpair curemove)
       (debug "melt_invoke_input_callbacks curemove=" curemove)
@@ -2500,7 +2500,7 @@ exit, in last place.}#
 	  (debug "hook_poll_inputs nbfd#" nbfd
 		 "\n.. tupstate=" tupstate
 		 "\n.. badinchlist=" badinchlist)
-	  (foreach_in_list
+	  (foreach_pair_component_in_list
 	   (badinchlist)
 	   (curpair curinchb)
 	   (debug "hook_poll_inputs bad curinchb=" curinchb)
@@ -2546,7 +2546,7 @@ exit, in last place.}#
 	    (list_append lischan chv))
 	))
       (when (is_closure f)
-	(foreach_in_list 
+	(foreach_pair_component_in_list 
 	 (lischan)
 	 (curpair curchan)
 	 (debug "every_polling_input curchan=" curchan)

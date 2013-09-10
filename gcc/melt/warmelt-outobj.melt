@@ -1547,7 +1547,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (when others
 	(add2out dsbuf "/*classy others*/")
 	(add2sbuf_indentnl dsbuf 1)
-	(foreach_in_list
+	(foreach_pair_component_in_list
 	 (others)
 	 (curpair oloc)
 	 (assert_msg "check other oloc" (is_a oloc class_objlocv) oloc)
@@ -1569,7 +1569,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       ;;
       (add2out dsbuf "void melt_mark_stuff (void) {")
       (add2sbuf_indentnl dsbuf 2)
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (others)
        (curpair oloc)
        (let ( (octyp (unsafe_get_field :obv_type oloc))
@@ -1925,7 +1925,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (assert_msg "check obody" (is_list obody) obody)
     (add2sbuf_strconst implbuf "/*body*/")
     (add2sbuf_indentnl implbuf 0)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (obody)
      (curpair curbody)
      (if (and curbody (not (is_a curbody class_objpurevalue)))
@@ -2197,7 +2197,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 ;;;
     (add2sbuf_strconst implbuf "/**initial routine prologue**/")
     (add2sbuf_indentnl implbuf 1)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (iprolog)
      (curpair curprol)
        (if (and curprol (not (is_a curprol class_objpurevalue)))
@@ -2224,7 +2224,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	   (bodylist (make_list discr_list))
 	   (chunkbuflist (make_list discr_list))
 	   )
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (rawbody)
        (curpair curbody)
        (if (and curbody (not (is_a curbody class_objpurevalue)))
@@ -2525,7 +2525,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2sbuf_indentnl implbuf 1)
       (debug "outpucod_hookroutine obody=" obody)
       (assert_msg "check list body" (is_list obody) obody)
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (obody)
        (curbodypair curbodyo)
        (debug "outpucod_hookroutine curbodyo=" curbodyo)
@@ -2547,7 +2547,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
       (add2sbuf_indentnl implbuf 1)
       (debug "outpucod_hookroutine ohkepilog=" ohkepilog)
       (assert_msg "check epilog" (is_list ohkepilog) ohkepilog)
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (ohkepilog)
        (curepipair curepins)
        (debug "outpucod_hookroutine curepins=" curepins)
@@ -2684,7 +2684,7 @@ $ONAME (melt_ptr_t meltarg_curenvbox_p, melt_ptr_t meltarg_tuplitval_p)
     (debug "outpucod_initialextensionroutine oprolog=" oprolog)
     (add2sbuf_indentnl implbuf 1)
     (add2out implbuf  ##{ /* extension $OMODNAM prologue */}#)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (oprolog)
      (curpair curprol)
      (when (and curprol (not (is_a curprol class_objpurevalue)))
@@ -3068,7 +3068,7 @@ meltlabend_rout:
   (assert_msg "check boxeddepth" (is_integerbox boxeddepth) boxeddepth)
   (let ( (:long depth (get_int boxeddepth)) )
     (add2sbuf_indentnl implbuf depth)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lis) 
      (pair cur)
      (cond 
@@ -3464,7 +3464,7 @@ meltlabend_rout:
     (when (is_list bodyl)
       (output_location oloc implbuf depth "loopbody")
       (add2sbuf_indentnl implbuf (+i depth 1))
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (bodyl)
        (curpair curbody)
        (let ( (:long depthp1 (get_int boxdepthp1)) )
@@ -3485,7 +3485,7 @@ meltlabend_rout:
       (output_location oloc implbuf depth "loopepilog")
       (add2sbuf_strconst implbuf "/*loopepilog*/")
       (add2sbuf_indentnl implbuf (+i depth 1))
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (epil)
        (curpair curepil)
        (let ( (:long depthp1 (get_int boxdepthp1)) )
@@ -3553,7 +3553,7 @@ meltlabend_rout:
 	 )
     (output_location cloc implbuf depth "compute")
     (if (is_list cdest)
-	(foreach_in_list 
+	(foreach_pair_component_in_list 
 	 (cdest)
 	 (curpair destcur) 
 	 (output_c_code destcur declbuf implbuf (get_int boxdepthp1))
@@ -3562,7 +3562,7 @@ meltlabend_rout:
     (cond ((is_list cexp)
 	   (if (>i (list_length cexp) 2)
 	       (add2sbuf_indentnl implbuf (+i 1 depth)))
-	   (foreach_in_list
+	   (foreach_pair_component_in_list
 	    (cexp)
 	    (curpair expcur) 
 	    (output_c_code expcur declbuf implbuf (get_int boxdepthp1))
@@ -3854,7 +3854,7 @@ meltlabend_rout:
        )
       )
 ;;; output the destination(s)
-    (foreach_in_list 
+    (foreach_pair_component_in_list 
      (adest)
      (curpair curdest) 
      (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
@@ -3871,7 +3871,7 @@ meltlabend_rout:
       )
     (add2sbuf_strconst implbuf "), (")
     ;; output the argdescr string
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (paramdesclist)
      (curpair pard)
      (add2sbuf_string implbuf pard)
@@ -3953,7 +3953,7 @@ meltlabend_rout:
 	 ))
       )
 ;;; output the destination(s)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (odest)
      (curpair curdest) 
      (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
@@ -3969,7 +3969,7 @@ meltlabend_rout:
     (output_c_code osel declbuf implbuf (+i depth 1))
     (add2sbuf_strconst implbuf "), (")
     ;; output the argdescr string
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (paramdesclist)
      (curpair pard)
      (assert_msg "check pard" (is_string pard))
@@ -4102,7 +4102,7 @@ meltlabend_rout:
       )
     (output_location aloc implbuf (get_int boxdepthp1) "multiapply.appl")
 ;;; output the destination(s)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (adest)
      (curpair curdest) 
      (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
@@ -4128,7 +4128,7 @@ meltlabend_rout:
 	(add2sbuf_strconst implbuf "argtab, (")
       (add2sbuf_strconst implbuf "(union meltparam_un*)0, ("))
     ;; output the resdescr string
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (resdesclist)
      (curpair resd)
      (add2sbuf_string implbuf resd)
@@ -4255,7 +4255,7 @@ meltlabend_rout:
       )
     (output_location oloc implbuf (get_int boxdepthp1) "multimsend.send")
 ;;; output the destination(s)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (odest)
      (curpair curdest) 
      (output_c_code curdest declbuf implbuf (get_int boxdepthp1))
@@ -4268,7 +4268,7 @@ meltlabend_rout:
     (output_c_code osel declbuf implbuf (+i 1 depth))
     (add2sbuf_strconst implbuf ")), (")
     ;; output the argdescr string
-    (foreach_in_list 
+    (foreach_pair_component_in_list 
      (paramdesclist)
      (curpair pard)
      (add2sbuf_string implbuf pard)
@@ -4279,7 +4279,7 @@ meltlabend_rout:
 	(add2sbuf_strconst implbuf "argtab, (")
       (add2sbuf_strconst implbuf "(union meltparam_un*)0, ("))
     ;; output the resdescr string
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (resdesclist)
      (curpair resd)
      (add2sbuf_string implbuf resd)
@@ -4337,7 +4337,7 @@ meltlabend_rout:
     (add2sbuf_strconst implbuf "), \"")
     (add2sbuf_cencstring implbuf iclaname) 
     (add2sbuf_strconst implbuf "\");")
-    (foreach_in_list
+    (foreach_pair_component_in_list
      destlist
      (dstpair dst) 
      (add2sbuf_indentnl implbuf (+i depth 1))
@@ -4366,7 +4366,7 @@ meltlabend_rout:
 	 )
     (output_location iloc implbuf depth "newclosure")
     (add2sbuf_strconst implbuf " /*newclosure*/ ")
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (destlist)
      (curpair dst) 
      (output_c_code dst declbuf implbuf (get_int boxdepthp1))
@@ -4615,7 +4615,7 @@ meltlabend_rout:
     (add2sbuf_string implbuf (unsafe_get_field :named_name ofield))
     (add2sbuf_strconst implbuf "\");")
     (add2sbuf_indentnl implbuf (+i 1 depth))
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (destlist)
      (curpair dst)    
      (output_c_code dst declbuf implbuf (get_int boxdepthp1))
@@ -6088,7 +6088,7 @@ if (1) return;
     (assert_msg "check xlist" (is_list xlist) xlist)
     ;;
     ;; we need to normalize now, because cheaders are handled by normalization
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (xlist)
      (curpair sexp)
      (debug "give_normalized_macroexpanded_list sexp=" sexp "\n.. inienv=" inienv)
@@ -6102,7 +6102,7 @@ if (1) return;
 	;; check the nbind and its elements
 	(assert_msg "check nbind" (is_list_or_null nbind) nbind)
 	(cppif MELT_HAVE_DEBUG
-	       (foreach_in_list
+	       (foreach_pair_component_in_list
 		(nbind)
 		(curpair curbind)
 		(assert_msg "check curbind" (is_a curbind class_normal_let_binding) curbind)))
@@ -6359,7 +6359,7 @@ if (1) return;
 	    )
        (debug "translate_macroexpanded_list initoplist=" initoplist)
        (assert_msg "check empty initoplist" (==i 0 (list_length initoplist)) initoplist)
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(normlist)
 	(curpair curnorm)
 	(debug "translate_macroexpanded_list curnorm=" curnorm)
@@ -6391,7 +6391,7 @@ if (1) return;
        (shortbacktrace_dbg "translate_macroexpanded_list" 14)
        ;;
        (assert_msg "check prolist" (is_list prolist) prolist)
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(prolist)
 	(curpair pro)
 	(setq count (+i count 1))
@@ -6421,7 +6421,7 @@ if (1) return;
 	     ))
 	 ( :else
 	   (assert_msg "translate_macroexpanded_list unexpected procedure" () pro))
-	 ))				;end foreach_in_list
+	 ))				;end foreach_pair_component_in_list
        ;;
        (when (melt_error_counter)
 	 (if (is_closure errorhdlr) 
@@ -6436,7 +6436,7 @@ if (1) return;
        ;; compile the initial procedure
        (assert_msg "check objlist" (is_list objlist) objlist)
        (debug "translate_macroexpanded_list checking elements of objlist=" objlist)
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(objlist)
 	(pairel obel)
 	(assert_msg "check obel is object" (is_object obel) obel)
@@ -6473,7 +6473,7 @@ if (1) return;
 	 (debug "translate_macroexpanded_list inipro= " inipro
 		"\n before calling iniproctransl=" iniproctransl
 		"\n.. objlist=" objlist)
-	 (foreach_in_list
+	 (foreach_pair_component_in_list
 	  (objlist)
 	  (pairel obel)
 	  (assert_msg "check obel is object" (is_object obel) obel)
@@ -6721,7 +6721,7 @@ if (1) return;
 ;;;;
 	     ;;
 	     (debug "translate_macroexpanded_list objlist=" objlist)
-	     (foreach_in_list
+	     (foreach_pair_component_in_list
 	      (objlist)
 	      (pairel obel)
 	      (debug "translate_macroexpanded_list obel=" obel)
@@ -7280,7 +7280,7 @@ if (1) return;
 		))
 	      ((is_list exprs)
 	       (let ((:long ix 0))
-		 (foreach_in_list
+		 (foreach_pair_component_in_list
 		  (exprs)
 		  (curpair curexp)
 		  (setq ix (-i ix 1))
@@ -7387,7 +7387,7 @@ if (1) return;
 		 (:long nbfile (multiple_length filtup))
 		 )
 	    (debug "translate_run_melt_expressions filtup=" filtup)
-	    (foreach_in_list
+	    (foreach_pair_component_in_list
 	     (litvalist)
 	     (curpair curlitval)
 	     (debug "translate_run_melt_expressions ix=" ix 
@@ -7401,7 +7401,7 @@ if (1) return;
 		 (assert_msg "check bxrk" (==i (get_int bxrk) ix) bxrk ix)
 		 (multiple_put_nth tuplitval ix val)
 		 ))
-	     (setq ix (+i ix 1)))    ;end of foreach_in_list litvalist
+	     (setq ix (+i ix 1)))    ;end of foreach_pair_component_in_list litvalist
 	    (debug "translate_run_melt_expressions tuplitval=" tuplitval)
 	    (debug "before melt_run_extension basename=" basename
 		   "\n* env=" env
@@ -7543,7 +7543,7 @@ if (1) return;
 	       (:long nbfile (multiple_length filtup))
 	       )
 	  (debug "melt_translate_run_macroexpansions_list filtup=" filtup)
-	  (foreach_in_list
+	  (foreach_pair_component_in_list
 	   (litvalist)
 	   (curpair curlitval)
 	   (debug "melt_translate_run_macroexpansions_list ix#" ix " curlitval=" curlitval)
@@ -7555,7 +7555,7 @@ if (1) return;
 	       (assert_msg "check bxrk" (==i (get_int bxrk) ix) bxrk)
 	       (multiple_put_nth tuplitval ix val)
 	       ))
-	   (setq ix (+i ix 1)))	     ;end of foreach_in_list litvalist
+	   (setq ix (+i ix 1)))	     ;end of foreach_pair_component_in_list litvalist
 	  (debug "melt_translate_run_macroexpansions_list tuplitval=" tuplitval)
 	  (debug "melt_translate_run_macroexpansions_list before melt_run_extension basename=" basename
 		 "\n* env=" env
@@ -7585,7 +7585,7 @@ if (1) return;
     (informsg_strv "reading from MELT file source" src)
     (list_append2list rlist (read_file src)))
    ((is_list src)
-    (foreach_in_list 
+    (foreach_pair_component_in_list 
      (src)
      (curpair cursrc)
      (read_melt_expressions cursrc rlist (+i depth 1))))

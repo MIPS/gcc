@@ -1413,7 +1413,7 @@ routine procedures.}#
       (assert_msg "check norcomp not class_nrep_expression" 
 		  (is_not_a norcomp class_nrep_expression) norcomp)
       (if (is_list nbinds)
-	  (foreach_in_list 
+	  (foreach_pair_component_in_list 
 	   (nbinds)
 	   (curpair bnd)
 	   (assert_msg "check bnd" (is_a bnd class_any_binding) bnd)
@@ -1564,7 +1564,7 @@ source location.}#
       (mapobject_put sycmap symb kocc)
       (debug "normbind_anybind updated sycmap=" sycmap)
       ;; put the const occurrence if needed in the const list of each proc
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (procs)
        (curpair curproc)
        (debug "normbind_anybind const curproc=" curproc)
@@ -1572,7 +1572,7 @@ source location.}#
        (let ( (clcont (instance class_reference :referenced_value kocc))
 	      (constlist (get_field :nrclop_constlist curproc)) )
 	 (debug "normbind_anybind constlist=" constlist)
-	 (foreach_in_list
+	 (foreach_pair_component_in_list
 	  (constlist)
 	  (curpaircl curcl)
 	  (if (== curcl kocc)
@@ -1862,7 +1862,7 @@ source location.}#
 			 " updated sycmap=" sycmap "\n.. procs=" procs)
 		  ;; put the const occurrence if needed in the const
 		  ;; list of each proc
-		  (foreach_in_list
+		  (foreach_pair_component_in_list
 		   (procs)
 		   (curpairpro pr)
 		   (debug "normexp_symbol pr=" pr)
@@ -1872,7 +1872,7 @@ source location.}#
 				   (instance class_reference :referenced_value fxocc))
 				  (cnstlist (get_field :nrclop_constlist pr)) )
 			     (debug "normexp_symbol cnstlist=" cnstlist "\n.. pr=" pr "\n.. recv=" recv)
-			     (foreach_in_list
+			     (foreach_pair_component_in_list
 			      (cnstlist)
 			      (curpaircx cx) 
 			      (when (== cx fxocc)
@@ -1888,7 +1888,7 @@ source location.}#
 				  )
 			     (debug "normexp_symbol hkclobindlist=" hkclobindlist)
 			     (assert_msg "check hkclobindlist" (is_list hkclobindlist) hkclobindlist)
-			     (foreach_in_list 
+			     (foreach_pair_component_in_list 
 			      (hkclobindlist)
 			      (curpairbndhc curbnd)
 			      (assert_msg "check curbnd" (is_a curbnd class_any_binding) curbnd)
@@ -1962,7 +1962,7 @@ source location.}#
 		  (mapobject_put sycmap recv fxocc)
 		  (debug "normexp_symbol fxocc=" fxocc " updated sycmap=" sycmap)
 		  ;; put the const occurrence if needed in the const list of each proc
-		  (foreach_in_list
+		  (foreach_pair_component_in_list
 		   (procs)
 		   (curpairproc curproc)
 		   (debug "normexp_symbol curproc=" curproc)
@@ -1972,7 +1972,7 @@ source location.}#
 		      (let ( (clcont
 			      (instance class_reference :referenced_value fxocc))
 			     (cnstprocl (get_field :nrclop_constlist curproc)) )
-			(foreach_in_list
+			(foreach_pair_component_in_list
 			 (cnstprocl)
 			 (curpairprocl cx) 
 			 (when (== cx fxocc)
@@ -1990,7 +1990,7 @@ source location.}#
 			     )
 			(debug "normexp_symbol hkclobindlist=" hkclobindlist)
 			(assert_msg "check hkclobindlist" (is_list hkclobindlist) hkclobindlist)
-			(foreach_in_list 
+			(foreach_pair_component_in_list 
 			 (hkclobindlist)
 			 (curpairbndhc curbnd)
 			 (assert_msg "check curbnd" (is_a curbnd class_any_binding) curbnd)
@@ -2004,7 +2004,7 @@ source location.}#
 		     (debug "normexp_symbol bad curproc=" curproc)
 		     (assert_msg "normexp_symbol unexpected curproc" () curproc)
 		     ))
-		   )			;end foreach_in_list
+		   )			;end foreach_pair_component_in_list
 		  (return fxocc ())
 		  )
 	      ;; else bind is not a class_fixed_binding
@@ -2020,13 +2020,13 @@ source location.}#
 		(mapobject_put sycmap recv clocc)
 		(debug "normexp_symbol updated sycmap=" sycmap " clocc=" clocc)
 		;; put the closed occurrence if needed in the closed list of each proc
-		(foreach_in_list  
+		(foreach_pair_component_in_list  
 		 (procs)
 		 (curpair curproc)
 		 (assert_msg "check curproc" (is_a curproc class_nrep_anyproc) curproc)
 		 (let ( (clcont (instance class_reference :referenced_value clocc))
 			(clobindl (get_field :nrclop_clobindlist curproc)) )
-		   (foreach_in_list 
+		   (foreach_pair_component_in_list 
 		    (clobindl)
 		    (curbndpair clbnd) 
 		    (when (== clbnd bind)
@@ -2325,7 +2325,7 @@ source location.}#
        (debug "normexp_hook_call ninargs=" ninargs " ninbinds=" ninbinds)
        (if (null ninbinds)
 	   (setq ninbinds (make_list discr_list)))
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(ninbinds)
 	(curpair curinbind)
 	(put_env newenv curinbind)
@@ -3632,7 +3632,7 @@ source location.}#
 	(debug "normexp_cppif nelse" nelse)
 	(assert_msg "check nbindelse" (is_list_or_null nbindelse) nbindelse)
 	(let ( (newelseenv (fresh_env env)) )
-	  (foreach_in_list 
+	  (foreach_pair_component_in_list 
 	   (nbindelse)
 	   (curpairelse elsebind) 
 	   (put_env newelseenv elsebind))
@@ -3914,13 +3914,13 @@ source location.}#
      (normalize_tuple sbody newenv ncx sloc)
      (list_append2list bindlist  nbodbindings)
      (assert_msg "normexp_let check bindlist" (is_list_or_null bindlist) bindlist)
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (bindlist)
       (curpair cbnd) 
       (assert_msg "normexp_let check cbnd" (is_a cbnd class_normal_let_binding) cbnd))
 ;;; remove every locally bound symbol from the symbol cache map
      (let ( (sycmap (unsafe_get_field :nctx_symbcachemap ncx)) )
-       (foreach_in_list 
+       (foreach_pair_component_in_list 
 	(bindlist)
 	(curpair bnd)
 	(mapobject_remove sycmap (unsafe_get_field :binder bnd))
@@ -5232,7 +5232,7 @@ source location.}#
 	    )
        (debug "normexp_defhook nbclosbind#" nbclosbind " nbconst#" nbconst)
        ;;
-       (foreach_in_list 
+       (foreach_pair_component_in_list 
 	(closbindlist)
 	(curpair curclobnd)
 	(debug "normexp_defhook curclobnd=" curclobnd " ix#" ix)
@@ -5248,7 +5248,7 @@ source location.}#
        (debug "normexp_defhook after closbindloop ix=" ix " closvtup=" closvtup)
        ;;
        (debug "normexp_defhook closing constlist=" constlist)
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(constlist)
 	(curpair curconst)
 	(debug "normexp_defhook curconst=" curconst " ix#" ix)
@@ -5618,7 +5618,7 @@ source location.}#
 	       (list_append nbindings ctupbind)
 	       )
 	     (debug "normexp_tuple ctupbind" ctupbind)
-	     (foreach_in_list
+	     (foreach_pair_component_in_list
 	      (nbindings)
 	      (curpair curbind)
 	      (put_env newenv curbind)
@@ -5683,7 +5683,7 @@ source location.}#
      (debug "normexp_list nargs=" nargs " nbindings=" nbindings)
      (assert_msg "check nbindings" (is_list_or_null nbindings) nbindings)
      (list_append2list resbindings nbindings)
-     (foreach_in_list
+     (foreach_pair_component_in_list
       (resbindings)
       (curpairbind curbind)
       (put_env newenv curbind)
@@ -6303,7 +6303,7 @@ source location.}#
 		 )
 	       ( (is_list curconsbind)
 		 (debug "normexp_letrec curconsbind list" curconsbind)
-		 (foreach_in_list
+		 (foreach_pair_component_in_list
 		  (curconsbind)
 		  (subconspair subconsbind)
 		  (assert_msg "normexp_letrec check subconsbind" 
@@ -6339,7 +6339,7 @@ source location.}#
       ;;
       ;; second loop to make an environment where each constructive
       ;; binding is set, and to create the local symbol occurrences
-      (foreach_in_list
+      (foreach_pair_component_in_list
        (consbindlist)
        (curpair curcbind)
        (debug "normexp_letrec curcbind" curcbind)
@@ -6414,7 +6414,7 @@ source location.}#
        (assert_msg "normexp_letrec check bindlist" (is_list_or_null bindlist) bindlist)
 ;;; remove every locally bound symbol from the symbol cache map
        (let ( (sycmap (unsafe_get_field :nctx_symbcachemap ncx)) )
-	 (foreach_in_list
+	 (foreach_pair_component_in_list
 	  (bindlist)
 	  (curpair bnd)
 	  (debug "normexp_letrec removing from sycmap bnd" bnd)
@@ -8725,7 +8725,7 @@ source location.}#
      (assert_msg "check curpkgname" (is_string curpkgname) curpkgname)
      (let ( (:long found 0)
 	    )
-       (foreach_in_list
+       (foreach_pair_component_in_list
 	(mcpackagelist)
 	(curpair oldpkgname)
 	(when (==s oldpkgname curpkgname)

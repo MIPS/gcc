@@ -496,7 +496,7 @@ number $NUM opaque location number $LOC.}#
 	     )
 	(cond
 	 ( (>=i rk 0)
-	   (foreach_in_list
+	   (foreach_pair_component_in_list
 	    (lis)
 	    (curpair curcomp)
 	    (if (==i ix rk) 
@@ -509,7 +509,7 @@ number $NUM opaque location number $LOC.}#
 		 )
 	    (if (and (>=i nrk 0) 
 		     (<i nrk ln))
-		(foreach_in_list
+		(foreach_pair_component_in_list
 		 (lis)
 		 (curpair curcomp)
 		 (if (==i ix nrk) 
@@ -1716,7 +1716,7 @@ significant iff ENABLE_CHECKING.}# #{(melt_application_depth() <
       (setq i (+i i 1))
     )
     ;;add new handler from lsthandler
-    (foreach_in_list
+    (foreach_pair_component_in_list
     (lsthandler)
     (curpair curhandler)
       (assert_msg "register_pragma_handler must be a list of class_gcc_pragma."
@@ -2898,7 +2898,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	 (prevpair ())
 	 )
     (if lastpair (assert_msg "check lastpair" (is_pair lastpair)) lastpair)
-    (foreach_in_list
+    (foreach_pair_component_in_list
      (lis)
      (curpair curelem)
      (assert_msg "check curpair" (is_pair curpair) curpair)
@@ -2936,7 +2936,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	(list_append newlist comp))
        )
      ( (is_list src)
-       (foreach_in_list 
+       (foreach_pair_component_in_list 
 	(src)
 	(curpair curcomp)
 	(list_append newlist curcomp))
@@ -2976,7 +2976,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	(list_append newlist comp))
        )
      ( (is_list src)
-       (foreach_in_list 
+       (foreach_pair_component_in_list 
 	(src)
 	(curpair curcomp)
 	(list_append newlist curcomp))
