@@ -5686,7 +5686,7 @@ Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
 	    (svarcomp (multiple_nth tcont 2))
 	    (mlistexp (mexpander sexplist env mexpander modctx))
 	    (mvarcomp (mexpander svarcomp env mexpander modctx))
-	    (bodyexp (expand_tuple_slice_as_tuple tcont 3 -1 env mexpander modix))
+	    (bodyexp (expand_tuple_slice_as_tuple tcont 3 -1 env mexpander modctx))
 	    )
 	(when (is_not_a mvarcomp class_symbol)
 	  (error_plain sloc "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> bad second argument for component variable")
