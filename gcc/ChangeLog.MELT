@@ -2,6 +2,15 @@
 
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{with_cloned_symb works}}
+	* melt/warmelt-first.melt (put_env): Remove shortbacktrace since
+	improved assert...
+
+	* melt/warmelt-macro.melt (mexpand_with_cloned_symb): Works since
+	extending correctly the environment...
+
+2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

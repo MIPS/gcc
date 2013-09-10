@@ -3917,10 +3917,7 @@ See also $CLASS_ANY_BINDING and $CLASS_ENVIRONMENT.}#
   (assert_msg "check binding is obj" (is_object binding) binding)
   (assert_msg "check env is obj" (is_object env) env)
   (assert_msg "check env" (is_a env class_environment) env)
-  (if (not (is_a binding class_any_binding))
-      (progn
-	(shortbacktrace_dbg "put_env invalid binding" 15)))
-  (assert_msg "check binding" (is_a binding class_any_binding) binding)
+  (assert_msg "check binding" (is_a binding class_any_binding) binding class_any_binding (discrim binding))
   (let ( (bindmap (unsafe_get_field :env_bind env)) 
 	 (binderv (unsafe_get_field :binder binding))
 	 )

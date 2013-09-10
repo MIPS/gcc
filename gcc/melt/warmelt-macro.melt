@@ -5573,6 +5573,7 @@ without any checks. Using $PUT_FIELDS is prefered.}#)
 	(bodyl ())
 	(processlist 
 	 (lambda (bloc blist)
+	   (debug "mexpand_with_cloned_symb/processlist bloc=" bloc " blist=" blist)
 	   (assert_msg "check blist" (is_list_or_null blist) blist)
 	   (foreach_pair_component_in_list
 	    (blist)
@@ -5592,20 +5593,29 @@ without any checks. Using $PUT_FIELDS is prefered.}#)
 					   :sargop_args (tuple (instance class_source_quote
 									 :loca_location bloc
 									 :squoted cursymb))))
+		   ;; notice that class_source_let_binding is not a binding, but an AST construct...
 		   (bindsymb (instance class_source_let_binding
 				       :loca_location bloc
 				       :sletb_type ctype_value
 				       :sletb_binder cursymb
 				       :sletb_expr appclonesymb
 				       ))
+		   ;; this is the binding to extend the environment...
+		   (bind (instance class_let_binding
+				   :binder cursymb
+				   :letbind_type ctype_value
+				   :letbind_expr appclonesymb
+				   :letbind_loc bloc))
 		   )
-	      (put_env newenv bindsymb)
+	      (put_env newenv bind)
 	      (list_append bindlist bindsymb)
+	      (debug "mexpand_with_cloned_symb/processlist end bindsymb=" bindsymb)
 	      )
 	    )))
 	)
     (setq curpair (pair_tail curpair))
     ;; parse the symbol list and build bindlist
+    (debug "mexpand_with_cloned_symb symbs=" symbs)
     (cond ( (null symbs)
 	    (void)
 	    )
@@ -5634,8 +5644,8 @@ without any checks. Using $PUT_FIELDS is prefered.}#)
 			   :slet_body mbody
 			   ))
 	   )
-      (debug "mexpand_with_cloned_symb result mbody=" mbody)
-      (return mbody)
+      (debug "mexpand_with_cloned_symb mbody=" mbody "\n.. result mlet=" mlet)
+      (return mlet)
       )))
 (install_initial_macro 'with_cloned_symb mexpand_with_cloned_symb)
 (export_macro with_cloned_symb mexpand_with_cloned_symb
