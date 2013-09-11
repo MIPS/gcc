@@ -2,6 +2,10 @@
 
 2013-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-base.melt (findgimple_docmd): More...
+
+2013-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (meltgc_retrieve_location_from_value): New function.
 	(melt_error_str, melt_warning_str, melt_inform_str): Use it.
 

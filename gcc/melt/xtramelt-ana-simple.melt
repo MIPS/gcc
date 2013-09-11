@@ -520,6 +520,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; a pass to find and count gimple matching a given gimple pattern
+(defclass class_findgimple_data 
+  :super class_proped
+  :fields (fndgimp_data
+	   fndgimp_goodfuncount
+	   fndgimp_goodgimpcount
+	   fndgimp_nbfun
+	   fndgimp_nbgimp
+	   ))
+(export_class class_findgimple_data)
+
 (defun findgimple_docmd (cmd moduldata)
   (let ( (argstr (make_stringconst discr_string (melt_argument "arg")))
 	 (outputstr (make_stringconst discr_string (melt_argument "output")))
@@ -539,13 +549,92 @@
 	(return ()))
       (if treepatsrc
 	  (when  (or (is_not_a treepatsrc class_sexpr)
-		(!= (list_first_element (get_field :sexp_contents treepatsrc)) 'question))
+		     (!= (list_first_element (get_field :sexp_contents treepatsrc)) 'question))
 	    (error_at () "bad TREE pattern argument for findgimple mode")
 	    (return ())))
-      ;;
-      (debug "findgimple_docmd ended argstr=" argstr)
-      (return :true)
-      )))
+      (with_cloned_symb 
+       (gimp treefundecl bb pass)
+       (debug "findgimple_docmd cloned gimp=" gimp " treefundecl=" treefundecl " pass=" pass
+	      " bb=" bb)
+       (let (
+	     (matchdeclexp
+	      (if treepatsrc
+		  `(match ,treefundecl
+			  (,treepatsrc 
+			   (debug "findgimple/gate good treefundecl=" ,treefundecl)
+			   (put_int goodfuncount (+i 1 (get_int goodfuncount)))
+			   (inform_at (constant_box ,treefundecl) 
+				      "FINDGIMPLE good function declaration $1 #$2"
+				      ,treefundecl (get_int goodfuncount))
+			   (debug "findgimple/gate updated goodfuncount=" goodfuncount)
+			   (return :true))
+			  (?_ 
+			   (return ())))))
+	     (gatefunexp 
+	      (if treepatsrc 
+		  `(lambda (,pass)
+		     (debug "findgimple/gate start pass=" ,pass)
+		     (with_cfun_decl
+		      ()
+		      (:tree ,treefundecl)
+		      (debug "findgimple/gate treefundecl=" ,treefundecl)
+		      (let ( (passdata (get_field :gccpass_data ,pass))
+			     (nbfun (get_field :fndgimp_nbfun passdata))
+			     (goodfuncount (get_field :fndgimp_goodfuncount passdata))
+			     )
+			(assert_msg "findgimple/gate check passdata" 
+				    (is_a passdata class_findgimple_data) passdata)
+			(debug "findgimple/gate passdata=" passdata " treefundecl=" ,treefundecl
+			       " nbfun=" nbfun " goodfuncount=" goodfuncount)
+			(assert_msg "findgimple/gate check nbfun" (is_integerbox nbfun) nbfun)
+			(assert_msg "findgimple/gate check goodfuncount" (is_integerbox goodfuncount) goodfuncount)
+			(put_int nbfun (+i 1 (get_int nbfun)))
+			,matchdeclexp
+			)))))
+	     (matchgimpexp
+	      `(match ,gimp
+		      (,gimplepatsrc
+		       (debug "findgimple/exec good gimp=" ,gimp)
+		       (put_int goodgimpcount (+i 1 (get_int goodgimpcount)))
+		       (inform_at (constant_box ,gimp)
+				  "FINDGIMPLE good gimple $1 #$2" ,gimp goodgimpcount)
+		       (void))
+		      (?_ 
+		       (void))))
+	     (execfunexp
+	      `(lambda (,pass)
+		 (debug "findgimple/exec start pass=" ,pass)
+		 (let ( (passdata (get_field :gccpass_data ,pass))
+			(goodgimpcount (get_field :fndgimp_goodgimpcount passdata))
+			(nbgimp (get_field :fndgimp_nbgimp passdata))
+			)
+		   (assert_msg "findgimple/exec check passdata" 
+			       (is_a passdata class_findgimple_data) passdata)
+		   (assert_msg "findgimple/exec check nbgimp" (is_integerbox nbgimp) nbgimp)
+		   (assert_msg "findgimple/exec check goodgimpcount" 
+			       (is_integerbox goodgimpcount) goodgimpcount)
+		   (each_bb_cfun
+		    ()
+		    (:basic_block ,bb :tree ,treefundecl)
+		    (debug "findgimple/exec bb=" ,bb " treefundecl=" ,treefundecl)
+		    (eachgimple_in_basicblock 
+		     (,bb)
+		     (:gimple ,gimp)
+		     (debug "findgimple/exec gimp=" ,gimp)
+		     (put_int nbgimp (+i 1 (get_int nbgimp)))
+		     ,matchgimpexp
+		     )))))
+	    
+	     )
+	 (debug "findgimple_docmd matchgimpexp=" matchgimpexp)
+	 (debug "findgimple_docmd gatefunexp=" gatefunexp)
+	 (debug "findgimple_docmd execfunexp=" execfunexp)
+	 )
+
+       ;;
+       (debug "findgimple_docmd ended argstr=" argstr)
+       (return :true)
+       ))))
 
 (definstance findgimple_mode
   class_melt_mode
