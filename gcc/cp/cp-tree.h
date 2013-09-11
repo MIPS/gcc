@@ -831,6 +831,11 @@ check_constraint_info (tree t)
 #define DECL_CONSTRAINTS(NODE) \
   (DECL_SIZE_UNIT (TEMPLATE_DECL_CHECK (NODE)))
 
+// Access the logical constraints on the template parameters introduced 
+// at a given template parameter list level indicated by NODE.
+#define TEMPLATE_PARMS_CONSTRAINTS(NODE) \
+  TREE_TYPE(TREE_LIST_CHECK(NODE))
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,

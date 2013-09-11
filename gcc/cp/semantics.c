@@ -2857,7 +2857,7 @@ fixup_template_type (tree type)
     parms = TREE_CHAIN (parms);
   if (!parms)
     return type;
-  tree cur_constr = TREE_TYPE (parms);
+  tree cur_constr = TEMPLATE_PARMS_CONSTRAINTS (parms);
 
   // Do the constraints match those of the most general template? 
   // If the constraints are NULL_TREE, this will match the most general

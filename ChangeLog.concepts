@@ -1,3 +1,10 @@
+2013-09-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/cp-tree.h (TEMPLATE_PARMS_CONSTRAINTS): New.
+	* gcc/cp/parser.c (cp_parser_template_declaration_after_export),
+	(cp_parser_type_parameter): Use TEMPLATE_PARMS_CONSTRAINTS.
+	* gcc/cp/semantics.c (fixup_template_scope): Use 
+	TEMPLATE_PARMS_CONSTRAINTS.
+
 2013-09-11  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cxx-pretty-print.c (pp_cxx_compound_requirement),
 	(pp_cxx_type_requirement), (pp_cxx_validtype_expr): Use 

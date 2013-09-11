@@ -13006,7 +13006,8 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
             current_template_reqs = finish_template_requirements (reqs);
 
             // Attach the constraints to the parameter list.
-            TREE_TYPE (current_template_parms) = current_template_reqs;
+            TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) 
+              = current_template_reqs;
           }
 	
         /* Look for the `class' keyword.  */
@@ -22844,7 +22845,8 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       current_template_reqs = finish_template_requirements (reqs);
 
       // Attach the constraints to the template parameter list.
-      TREE_TYPE (current_template_parms) = current_template_reqs;
+      TEMPLATE_PARMS_CONSTRAINTS (current_template_parms) 
+        = current_template_reqs;
     }
 
   /* If the next token is `template', there are more template
