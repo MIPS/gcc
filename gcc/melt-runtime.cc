@@ -8122,13 +8122,85 @@ end:
 }
 
 
+/* This function gets the source location and the filename -as a
+   memoized string value- and the line number of a location bearing
+   value... */
+static location_t 
+meltgc_retrieve_location_from_value (melt_ptr_t loc_p, 
+				     melt_ptr_t* filename_pp=NULL, int* lineno_ptr=NULL)
+{
+  location_t resloc = UNKNOWN_LOCATION;
+  int magic = 0;
+  int lineno = 0;
+  MELT_ENTERFRAME (2, NULL);
+#define locv       meltfram__.mcfr_varptr[0]
+#define filenamev  meltfram__.mcfr_varptr[1]
+  locv = loc_p;
+  filenamev = NULL;
+  if (!locv) 
+    goto end;
+  magic = melt_magic_discr (locv);
+  switch (magic) 
+    {
+    case MELTOBMAG_MIXLOC:
+      resloc = melt_location_mixloc ((melt_ptr_t) locv);
+      filenamev = melt_val_mixloc ((melt_ptr_t) locv);
+      lineno = melt_num_mixloc ((melt_ptr_t) locv);
+      break;
+    case MELTOBMAG_MIXINT:
+      resloc = UNKNOWN_LOCATION;
+      filenamev = melt_val_mixint ((melt_ptr_t) locv);
+      lineno = melt_num_mixint ((melt_ptr_t) locv);
+      break;
+    case MELTOBMAG_GIMPLE:
+      {
+	gimple g = melt_gimple_content ((melt_ptr_t) locv);
+	resloc = g?gimple_location(g):UNKNOWN_LOCATION;
+	break;
+      }
+    case MELTOBMAG_GIMPLESEQ:
+      {
+	gimple_seq gs = melt_gimpleseq_content ((melt_ptr_t) locv);
+	gimple g = gs?gimple_seq_first_stmt(gs):NULL;
+	resloc = g?gimple_location(g):UNKNOWN_LOCATION;
+	break;
+      }
+    case MELTOBMAG_TREE:
+      {
+	tree tr = melt_tree_content((melt_ptr_t) locv);
+	if (tr) 
+	  resloc = 
+	    DECL_P(tr) ? DECL_SOURCE_LOCATION(tr)
+	    : EXPR_P(tr) ? EXPR_LOCATION(tr)
+	    : UNKNOWN_LOCATION;
+	break;
+      }
+    default:
+      break;
+    };
+  if (resloc) {
+    if (filename_pp && !filenamev)
+      filenamev = meltgc_cached_string_path_of_source_location (resloc);
+    lineno = LOCATION_LINE (resloc);
+  }
+ end:
+  if (filename_pp)
+    *filename_pp = filenamev;
+  if (lineno_ptr)
+    *lineno_ptr = lineno;
+  MELT_EXITFRAME ();
+  return resloc;
+#undef locv
+#undef filenamev
+#undef linenov
+}
+
 void
 melt_error_str (melt_ptr_t mixloc_p, const char *msg,
                 melt_ptr_t str_p)
 {
-  int mixmag = 0;
   int lineno = 0;
-  location_t loc = 0;
+  location_t loc = UNKNOWN_LOCATION;
   MELT_ENTERFRAME (3, NULL);
 #define mixlocv    meltfram__.mcfr_varptr[0]
 #define strv       meltfram__.mcfr_varptr[1]
@@ -8137,25 +8209,7 @@ melt_error_str (melt_ptr_t mixloc_p, const char *msg,
   melt_error_counter ++;
   mixlocv = mixloc_p;
   strv = str_p;
-  mixmag = melt_magic_discr ((melt_ptr_t) mixlocv);
-  if (mixmag == MELTOBMAG_MIXLOC)
-    {
-      loc = melt_location_mixloc ((melt_ptr_t) mixlocv);
-      finamv = melt_val_mixloc ((melt_ptr_t) mixlocv);
-      lineno = melt_num_mixloc ((melt_ptr_t) mixlocv);
-    }
-  else if (mixmag == MELTOBMAG_MIXINT)
-    {
-      loc = 0;
-      finamv = melt_val_mixint ((melt_ptr_t) mixlocv);
-      lineno = melt_num_mixint ((melt_ptr_t) mixlocv);
-    }
-  else
-    {
-      loc = 0;
-      finamv = NULL;
-      lineno = 0;
-    }
+  loc = meltgc_retrieve_location_from_value (mixlocv, &finamv, &lineno);
   if (loc)
     {
       const char *cstr = melt_string_str ((melt_ptr_t) strv);
@@ -8224,25 +8278,7 @@ melt_warning_str (int opt, melt_ptr_t mixloc_p, const char *msg,
   gcc_assert (msg && msg[0]);
   mixlocv = mixloc_p;
   strv = str_p;
-  mixmag = melt_magic_discr ((melt_ptr_t) mixlocv);
-  if (mixmag == MELTOBMAG_MIXLOC)
-    {
-      loc = melt_location_mixloc ((melt_ptr_t) mixlocv);
-      finamv = melt_val_mixloc ((melt_ptr_t) mixlocv);
-      lineno = melt_num_mixloc ((melt_ptr_t) mixlocv);
-    }
-  else if (mixmag == MELTOBMAG_MIXINT)
-    {
-      loc = 0;
-      finamv = melt_val_mixint ((melt_ptr_t) mixlocv);
-      lineno = melt_num_mixint ((melt_ptr_t) mixlocv);
-    }
-  else
-    {
-      loc = 0;
-      finamv = NULL;
-      lineno = 0;
-    }
+  loc = meltgc_retrieve_location_from_value (mixlocv, &finamv, &lineno);
   if (loc)
     {
       const char *cstr = melt_string_str ((melt_ptr_t) strv);
@@ -8299,25 +8335,7 @@ melt_inform_str (melt_ptr_t mixloc_p, const char *msg,
   gcc_assert (msg && msg[0]);
   mixlocv = mixloc_p;
   strv = str_p;
-  mixmag = melt_magic_discr ((melt_ptr_t) mixlocv);
-  if (mixmag == MELTOBMAG_MIXLOC)
-    {
-      loc = melt_location_mixloc ((melt_ptr_t) mixlocv);
-      finamv = melt_val_mixloc ((melt_ptr_t) mixlocv);
-      lineno = melt_num_mixloc ((melt_ptr_t) mixlocv);
-    }
-  else if (mixmag == MELTOBMAG_MIXINT)
-    {
-      loc = 0;
-      finamv = melt_val_mixint ((melt_ptr_t) mixlocv);
-      lineno = melt_num_mixint ((melt_ptr_t) mixlocv);
-    }
-  else
-    {
-      loc = 0;
-      finamv = NULL;
-      lineno = 0;
-    }
+  loc = meltgc_retrieve_location_from_value (mixlocv, &finamv, &lineno);
   if (loc)
     {
       const char *cstr = melt_string_str ((melt_ptr_t) strv);
@@ -8639,7 +8657,7 @@ meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
       goto end;
     }
   MELT_LOCATION_HERE_PRINTF(curlocbuf, "meltgc_read_from_val rbuf=%.70s", rbuf);
-  if (locnamv == NULL)
+  if (locnamv == NULL || melt_magic_discr(locnamv) != MELTOBMAG_STRING)
     {
       char buf[40];
       memset(buf, 0, sizeof(buf));
@@ -8647,7 +8665,6 @@ meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
       rds.rhas_file_location = false;
       locnamv = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
                                    buf);
-      rd->rpfilnam = (melt_ptr_t *) &locnamv;
     }
   rds.rpfilnam = (melt_ptr_t *) & locnamv;
   while (rdcurc ())

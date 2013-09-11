@@ -1431,12 +1431,12 @@ an integer $I if $I is greater than $N.}#
 
 (defun is_empty_string (string)
   :doc #{Test that value string is empty}#
-  (==s string '"")
+  (if (==s string '"") (return :true))
 )
 
 (defun is_non_empty_string (string)
   :doc #{Test that value string is not empty}#
-  (!=s string '"")
+  (if (!=s string '"") (return :true))
 )
 
 (defprimitive make_stringconst (dis :cstring cstr) :value

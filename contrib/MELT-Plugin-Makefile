@@ -53,12 +53,12 @@ AWK?= gawk
 MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
 $(info building MELT: GCC version $(MELTGCC_VERSION))
 
-## check that we have a gcc 4.7 or 4.8 
-ifeq ($(filter 4.7.% 4.8.% '.9.%, $(MELTGCC_VERSION)),)
+## check that we have a gcc 4.7 or 4.8 or 4.9
+ifeq ($(filter 4.7.% 4.8.% 4.9.%, $(MELTGCC_VERSION)),)
 $(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.7 or 4.8 or 4.9)
 endif
 ## You may want to set MELTGCC_NO_CHECK_RUNTIME environment variable
-## when cross-compiling (since you cannot compile melt-runtime.c with
+## when cross-compiling (since you cannot compile melt-runtime.cc with
 ## a MELT augmented GCC in that case). See file melt-build-script.tpl
 ## for more.
 
@@ -144,7 +144,7 @@ MELTGCC_DOC_HTML_DIR ?=  /usr/share/doc/html/gcc/
 MELTGCC_DOC_PDF_DIR ?=  /usr/share/doc/pdf/gcc/
 
 ## the main source of the runtime
-MELT_RUNTIME_C= melt-runtime.c
+MELT_RUNTIME_CC= melt-runtime.cc
 MELT_RUNTIME_H= melt-runtime.h
 
 ## get the MELT version string from melt-runtime.h, removing the
@@ -159,7 +159,7 @@ ifeq ($(wildcard $(MELTGCC_GTYPESTATE)),)
 $(error building MELT: missing MELT GCC gengtype state file)
 endif
 
-## our included files from melt-runtime.c
+## our included files from melt-runtime.cc
 MELTGCC_RUNTIME_INCLUDES= melt-runtime.h melt/generated/meltrunsup.h
 
 ## the optimization flags for melt.so
@@ -240,18 +240,27 @@ all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 	@echo
 
 
+## notice that gengtype wants file named *.c not *.cc, hence the use
+## of _melt-runtime.c and _meltrunsup-inc.c which are symlinks!
 gt-melt-runtime.h:  $(MELTGCC_RUNTIME_INCLUDES) $(MELTGCC_GTYPESTATE) \
-   melt-runtime.c melt/generated/meltrunsup-inc.cc
+   $(MELT_RUNTIME_CC) $(MELT_RUNTIME_H) _melt-runtime.c _meltrunsup-inc.c
 	$(MELTGCC_GENGTYPE) $(MELTGCC_GENGTYPEFLAGS) \
 	   -r  $(MELTGCC_GTYPESTATE) -P $@  $(MELTGCC_RUNTIME_INCLUDES) \
-	   melt-runtime.c melt/generated/meltrunsup-inc.cc
+	   _melt-runtime.c _meltrunsup-inc.c
 
 melt-predef.h:  make-melt-predefh.awk melt-predef.list
 	$(AWK) -f $^ > $@-tmp
 	mv $@-tmp $@
 
-.INTERMEDIATE: gfmeltgcc_version_number gfmeltgcc_revision gfmeltgcc_run_md5
+.INTERMEDIATE: gfmeltgcc_version_number gfmeltgcc_revision gfmeltgcc_run_md5 \
+    _melt-runtime.c _meltrunsup-inc.c
 
+_melt-runtime.c: $(MELT_RUNTIME_CC)
+	$(LN_S) $> $@
+
+
+_meltrunsup-inc.c: melt/generated/meltrunsup-inc.cc
+	$(LN_S) $> $@
 
 melt-run.h melt-run-md5.h:
 
@@ -336,8 +345,8 @@ melt-build-param.sh:  Makefile melt-mv-if-changed melt.so
 	echo 'GCCMELT_LINKER_FLAGS="$(filter-out -O% -g% -O -g, $(LINKER_FLAGS))"' >> $@-tmp
 	echo '## source directory containing MELT code is GCCMELT_MELTSOURCEDIR' >> $@-tmp
 	echo GCCMELT_MELTSOURCEDIR=melt/ >> $@-tmp
-	echo '## preprocessor definitions of the MELT runtime is GCCMELT_RUNTIME_CPPDEFS'  >> $@-tmp
-	printf "GCCMELT_RUNTIME_CPPDEFS='%s'\n" '$(MELT_RUNTIME_CPPDEFS)' >> $@-tmp
+	echo '## preprocessor definitions of the MELT runtime is GCCMELT_RUNTIME_CCPPDEFS'  >> $@-tmp
+	printf "GCCMELT_RUNTIME_CCPPDEFS='%s'\n" '$(MELT_RUNTIME_CCPPDEFS)' >> $@-tmp
 	echo '## GCCMELT_VERSION_STRING is the string defining the version of MELT'   >> $@-tmp
 	echo 'GCCMELT_VERSION_STRING=$(shell $(AWK) -F\" '/^.define +MELT_VERSION_STRING/{print $$2}' melt-runtime.h)'  >> $@-tmp
 	echo '## GCCMELT_MAKE is the make utility' >> $@-tmp
@@ -356,8 +365,8 @@ melt-build-param.sh:  Makefile melt-mv-if-changed melt.so
 	echo 'GCCMELT_RUNTIME_DEPENDENCY="$(realpath ./melt.so)"' >> $@-tmp
 	echo '## GCCMELT_RUNTIME_ARGS is the argument file passed with @melt-runtime.arg to compile the MELT runtime'  >> $@-tmp
 	echo 'GCCMELT_RUNTIME_ARGS=$(realpath melt-runtime.args)' >> $@-tmp
-	echo '## GCCMELT_RUNTIME_C is the C source file of the runtime' >> $@-tmp
-	echo 'GCCMELT_RUNTIME_C="$(realpath $(MELT_RUNTIME_C))"'   >> $@-tmp
+	echo '## GCCMELT_RUNTIME_CC is the C source file of the runtime' >> $@-tmp
+	echo 'GCCMELT_RUNTIME_CC="$(realpath $(MELT_RUNTIME_CC))"'   >> $@-tmp
 	echo '## GCCMELT_INCLUDES is the include flags for the MELT runtime' >> $@-tmp
 	echo 'GCCMELT_INCLUDES="-I $(realpath .) -I $(realpath melt/generated) $(INCLUDES)"'  >> $@-tmp
 	echo '## GCCMELT_MODULE_MK is the source location of the makefile melt-module.mk invoked by MELT'   >> $@-tmp

@@ -482,6 +482,11 @@ number $NUM opaque location number $LOC.}#
   $STRV. $STRV can be a boxed string or a strbuf value.}#
   #{(meltgc_read_from_val ((melt_ptr_t) ($STRV), NULL))}# )
 
+(defprimitive read_strv_loc (strv locv) :value
+  :doc #{Return the list of s-exprs contained in in parsed string
+  $STRV. $STRV can be a boxed string or a strbuf value. $LOCV is the
+  string value used as the location file name.}#
+  #{(meltgc_read_from_val ((melt_ptr_t) ($STRV), (melt_ptr_t) ($LOCV)))}#)
 
 
 
@@ -3264,6 +3269,7 @@ typedef struct melthook_st *melthook_ptr_t;
  ppstrbuf_mixbigint
  read_file
  read_strv
+ read_strv_loc
  relative_time_millisec
  register_pragma_handler
  retrieve_value_descriptor_list

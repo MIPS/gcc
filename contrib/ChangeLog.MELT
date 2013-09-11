@@ -1,4 +1,8 @@
 
+2013-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile: Improve, and add symlinks for gengtype
+	which still dislikes *.cc files..
+
 2013-07-06  Basile Starynkevitch  <basile@starynkevitch.net>
 	* make-melt-plugin-source-tar.sh: the produced tar ball is
 	compressed with bzip2 not gzip.

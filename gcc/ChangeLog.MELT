@@ -1,5 +1,19 @@
 
 
+2013-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (meltgc_retrieve_location_from_value): New function.
+	(melt_error_str, melt_warning_str, melt_inform_str): Use it.
+
+	* melt/warmelt-first.melt (is_empty_string, is_non_empty_string):
+	May return :true; previous form was buggy and always returned
+	false.
+
+	* melt/warmelt-base.melt (read_strv_loc): New primitive.
+
+	* melt/xtramelt-ana-base.melt (findgimple_docmd, findgimple_mode):
+	New but incomplete mode.
+
 2013-09-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Documentation is generated again...}}

@@ -517,5 +517,42 @@
 (install_melt_mode meltframe_mode)
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; a pass to find and count gimple matching a given gimple pattern
+(defun findgimple_docmd (cmd moduldata)
+  (let ( (argstr (make_stringconst discr_string (melt_argument "arg")))
+	 (outputstr (make_stringconst discr_string (melt_argument "output")))
+	 (rlist (read_strv_loc argstr '"*findgimple-argument*"))
+	 (rtuple (list_to_multiple rlist discr_multiple))
+	 )
+    (debug "findgimple_docmd argstr=" argstr " outputstr=" outputstr
+	   "\n.. rlist=" rlist "\n.. rtuple=" rtuple)
+    (if (>i (multiple_length rtuple) 2)
+	(warning_at () "findgimple mode needs only two arguments <gimple-pattern> [<tree-decl-pattern>]"))
+    (let ( (gimplepatsrc (multiple_nth rtuple 0))
+	   (treepatsrc (multiple_nth rtuple 1))
+	   )
+      (when (or (is_not_a gimplepatsrc class_sexpr)
+		(!= (list_first_element (get_field :sexp_contents gimplepatsrc)) 'question))
+	(error_at () "missing GIMPLE pattern argument for findgimple mode")
+	(return ()))
+      (if treepatsrc
+	  (when  (or (is_not_a treepatsrc class_sexpr)
+		(!= (list_first_element (get_field :sexp_contents treepatsrc)) 'question))
+	    (error_at () "bad TREE pattern argument for findgimple mode")
+	    (return ())))
+      ;;
+      (debug "findgimple_docmd ended argstr=" argstr)
+      (return :true)
+      )))
 
-;; eof xtramelt-ana-simple.melt
+(definstance findgimple_mode
+  class_melt_mode
+  :named_name '"findgimple"
+  :meltmode_help '"find and count all the gimples matching the given gimple pattern in all functions
+ whose declaration matches a given tree pattern; argument should be: <gimple-pattern> [<tree-decl-pattern>]"
+  :meltmode_fun findgimple_docmd)
+(install_melt_mode findgimple_mode)
+
+;;**************** eof xtramelt-ana-simple.melt
