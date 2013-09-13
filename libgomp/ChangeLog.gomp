@@ -1,3 +1,8 @@
+2013-09-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58392
+	* testsuite/libgomp.c/pr58392.c: New test.
+
 2013-09-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/target-2.c: New test.
