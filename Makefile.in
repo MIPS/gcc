@@ -46373,6 +46373,7 @@ configure-stage3-target-libsanitizer: maybe-all-stage3-gcc
 configure-stage4-target-libsanitizer: maybe-all-stage4-gcc
 configure-stageprofile-target-libsanitizer: maybe-all-stageprofile-gcc
 configure-stagefeedback-target-libsanitizer: maybe-all-stagefeedback-gcc
+configure-target-libcilkrts: stage_last
 configure-target-libssp: stage_last
 configure-target-newlib: stage_last
 configure-stage1-target-libgcc: maybe-all-stage1-gcc
@@ -46427,6 +46428,7 @@ configure-target-boehm-gc: maybe-all-gcc
 configure-target-rda: maybe-all-gcc
 configure-target-libada: maybe-all-gcc
 configure-target-libgomp: maybe-all-gcc
+configure-target-libcilkrts: maybe-all-gcc
 configure-target-libitm: maybe-all-gcc
 configure-target-libatomic: maybe-all-gcc
 @endif gcc-no-bootstrap
@@ -47184,6 +47186,8 @@ configure-stage3-target-libsanitizer: maybe-all-stage3-target-libstdc++-v3
 configure-stage4-target-libsanitizer: maybe-all-stage4-target-libstdc++-v3
 configure-stageprofile-target-libsanitizer: maybe-all-stageprofile-target-libstdc++-v3
 configure-stagefeedback-target-libsanitizer: maybe-all-stagefeedback-target-libstdc++-v3
+configure-target-libcilkrts: maybe-all-target-libstdc++-v3
+configure-target-libcilkrts: maybe-all-gcc
 all-target-libstdc++-v3: maybe-configure-target-libgomp
 
 all-stage1-target-libstdc++-v3: maybe-configure-stage1-target-libgomp
@@ -47197,6 +47201,8 @@ install-target-libgfortran: maybe-install-target-libquadmath
 install-target-libgfortran: maybe-install-target-libgcc
 install-target-libsanitizer: maybe-install-target-libstdc++-v3
 install-target-libsanitizer: maybe-install-target-libgcc
+install-target-libcilkrts: maybe-install-target-libstdc++-v3
+install-target-libcilkrts: maybe-install-target-libgcc
 install-target-libjava: maybe-install-target-libgcc
 install-target-libitm: maybe-install-target-libgcc
 install-target-libobjc: maybe-install-target-libgcc
@@ -47239,6 +47245,7 @@ configure-target-libstdc++-v3: maybe-all-target-libgcc
 configure-target-libmudflap: maybe-all-target-libgcc
 configure-target-libsanitizer: maybe-all-target-libgcc
 configure-target-libssp: maybe-all-target-libgcc
+configure-target-libcilkrts: maybe-all-target-libgcc
 configure-target-newlib: maybe-all-target-libgcc
 configure-target-libbacktrace: maybe-all-target-libgcc
 configure-target-libquadmath: maybe-all-target-libgcc
@@ -47286,6 +47293,8 @@ configure-target-winsup: maybe-all-target-newlib maybe-all-target-libgloss
 
 
 configure-target-libffi: maybe-all-target-newlib maybe-all-target-libgloss
+configure-target-libcilkrts: maybe-all-target-newlib maybe-all-target-libgloss
+configure-target-libcilkrts: maybe-all-target-libstdc++-v3
 
 configure-target-libjava: maybe-all-target-newlib maybe-all-target-libgloss
 configure-target-libjava: maybe-all-target-libstdc++-v3

@@ -1,3 +1,10 @@
+2013-09-12  Evgeny Stupachenko  <evstupac@gmail.com>
+	    Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* Makefile.in (configure-target-libcilkrts): Added libcilkrts
+	dependence on libstdc++-v3, libgloss and newlib.
+	* configure.ac (host_libs): Removed libcilkrts from list.
+
 2013-03-13  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* configure.ac (enable_libcilkrts): Made libcilkrts unconditional.
