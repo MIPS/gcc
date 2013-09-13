@@ -1701,13 +1701,6 @@ mode_allowed_in_fpr_p (enum machine_mode mode)
   return (reg_addr[mode].addr_mask & ADDR_VALID_FPR) != 0;
 }
 
-/* Helper function to return if a mode supports auto update address forms.  */
-static inline bool
-mode_allows_update_p (enum machine_mode mode)
-{
-  return (reg_addr[mode].addr_mask & ADDR_UPDATE_NOSTRICT) != 0;
-}
-
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
@@ -2415,16 +2408,6 @@ rs6000_init_address_modes (void)
     enum insn_code load[2];		/* load reload functions.  */
     enum insn_code store[2];		/* store reload functions.  */
   } reload_funcs[] = {
-#if 0
-    /* integer types.  */
-    RELOAD_LOAD_STORE_FUNCS (TImode, ti),
-    RELOAD_LOAD_STORE_FUNCS (PTImode, pti),
-
-    /* scalar floating point types.  */
-    RELOAD_LOAD_STORE_FUNCS (SFmode, sf),
-    RELOAD_LOAD_STORE_FUNCS (DFmode, df),
-#endif
-
     /* Altivec/VSX vector types.  */
     RELOAD_LOAD_STORE_FUNCS (V16QImode, v16qi),
     RELOAD_LOAD_STORE_FUNCS (V8HImode, v8hi),
@@ -2433,6 +2416,11 @@ rs6000_init_address_modes (void)
     RELOAD_LOAD_STORE_FUNCS (V2DImode, v2di),
     RELOAD_LOAD_STORE_FUNCS (V2DFmode, v2df),
   };
+
+  /* Mask to allow offset, update but not indexed addressing before reload.  */
+  const addr_mask_type ADDR_MULTIWORD_NOSTRICT = (ADDR_UPDATE_NOSTRICT
+						  | ADDR_OFFSET_NOSTRICT
+						  | ADDR_FUSION_NOSTRICT);
 
   /* Mask to allow offset, update, and indexed addressing before reload.  */
   const addr_mask_type ADDR_NORMAL_NOSTRICT = (ADDR_UPDATE_NOSTRICT
@@ -2445,7 +2433,7 @@ rs6000_init_address_modes (void)
 					  | ADDR_INDEXED_GPR | ADDR_FUSION_GPR);
 
   /* Mask for values that go in GPRs and take multiple registers.  */
-  const addr_mask_type GPR_MULTIPLE_MASK = ADDR_OFFSET_GPR;
+  const addr_mask_type GPR_MULTIPLE_MASK = (ADDR_UPDATE_GPR | ADDR_OFFSET_GPR);
 
   /* GPR mask for SPE vector modes.  */
   const addr_mask_type GPR_SPE_MASK = ADDR_INDEXED_GPR;
@@ -2457,7 +2445,8 @@ rs6000_init_address_modes (void)
 
   /* Mask for values that go in traditional floating point registers and take
      multiple registers.  */
-  const addr_mask_type FPR_MULTIPLE_MASK = (ADDR_VALID_FPR | ADDR_OFFSET_FPR);
+  const addr_mask_type FPR_MULTIPLE_MASK = (ADDR_VALID_FPR | ADDR_UPDATE_FPR
+					    | ADDR_OFFSET_FPR);
 
   /* Mask for SDmode on systems with floating point support, hardware decimal
      support.  We restrict SDmode to just reg+reg modes, and no update.  */
@@ -2493,20 +2482,20 @@ rs6000_init_address_modes (void)
 
   /* Mask for small/large integer values with update disabled.  */
   small_int_mask_no_update = small_int_mask & ~ADDR_UPDATE_MASK;
-  large_int_mask = GPR_MULTIPLE_MASK | ADDR_OFFSET_NOSTRICT;
+  large_int_mask = GPR_MULTIPLE_MASK | ADDR_MULTIWORD_NOSTRICT;
 
   /* Mask for 64-bit types.  For now, don't allow DI/DDmode into the Altivec
-     (upper VSX) registers.  We don't allow auto-update forms on 32-bit because
-     we are typically dealing with multiple words, and we don't allow it on the
-     E500 do the subreg hackery.  */
+     (upper VSX) registers.  */
   di_dd_mask = ((TARGET_POWERPC64)
 		? (GPR_SINGLE_MASK | ADDR_NORMAL_NOSTRICT)
-		: (GPR_MULTIPLE_MASK | ADDR_OFFSET_NOSTRICT));
+		: (GPR_MULTIPLE_MASK | ADDR_MULTIWORD_NOSTRICT));
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
     di_dd_mask |= FPR_SINGLE_MASK;
 
-  if (!TARGET_POWERPC64 || TARGET_E500_DOUBLE)
+  /* Restrict addressing for DI because of E500 SUBREG hackery to not allow
+     auto update forms.  */
+  if (TARGET_E500_DOUBLE)
     di_dd_mask &= ~ADDR_UPDATE_MASK;
 
   /* If we can use the upper registers, turn off update for DF/SF, since the
@@ -2518,7 +2507,7 @@ rs6000_init_address_modes (void)
 
   /* Mask for 128-bit floating point types that take two registers.  At
      present, these are not allowed in Altivec (upper VSX) registers.  */
-  tf_td_mask = GPR_MULTIPLE_MASK | ADDR_OFFSET_NOSTRICT;
+  tf_td_mask = GPR_MULTIPLE_MASK | ADDR_MULTIWORD_NOSTRICT;
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     tf_td_mask |= FPR_MULTIPLE_MASK;
@@ -7572,7 +7561,16 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
   if (legitimate_indirect_address_p (x, reg_ok_strict))
     return 1;
   if ((GET_CODE (x) == PRE_INC || GET_CODE (x) == PRE_DEC)
-      && TARGET_UPDATE && mode_allows_update_p (mode)
+      && !ALTIVEC_OR_VSX_VECTOR_MODE (mode)
+      && !SPE_VECTOR_MODE (mode)
+      && mode != TFmode
+      && mode != TDmode
+      && mode != TImode
+      && mode != PTImode
+      /* Restrict addressing for DI because of our SUBREG hackery.  */
+      && !(TARGET_E500_DOUBLE
+	   && (mode == DFmode || mode == DDmode || mode == DImode))
+      && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict))
     return 1;
   if (virtual_stack_registers_memory_p (x))
@@ -7613,7 +7611,20 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
   if (GET_CODE (x) == PRE_MODIFY
-      && TARGET_UPDATE && mode_allows_update_p (mode)
+      && mode != TImode
+      && mode != PTImode
+      && mode != TFmode
+      && mode != TDmode
+      && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
+	  || TARGET_POWERPC64
+	  || ((mode != DFmode && mode != DDmode) || TARGET_E500_DOUBLE))
+      && (TARGET_POWERPC64 || mode != DImode)
+      && !ALTIVEC_OR_VSX_VECTOR_MODE (mode)
+      && !SPE_VECTOR_MODE (mode)
+      /* Restrict addressing for DI because of our SUBREG hackery.  */
+      && !(TARGET_E500_DOUBLE
+	   && (mode == DFmode || mode == DDmode || mode == DImode))
+      && TARGET_UPDATE
       && legitimate_indirect_address_p (XEXP (x, 0), reg_ok_strict)
       && (rs6000_legitimate_offset_address_p (mode, XEXP (x, 1),
 					      reg_ok_strict, false)
