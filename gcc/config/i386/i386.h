@@ -1233,6 +1233,7 @@ enum reg_class
   SSE_FIRST_REG,
   SSE_REGS,
   EVEX_SSE_REGS,
+  BND_REGS,
   ALL_SSE_REGS,
   MMX_REGS,
   FP_TOP_SSE_REGS,
@@ -1241,7 +1242,6 @@ enum reg_class
   FLOAT_INT_REGS,
   INT_SSE_REGS,
   FLOAT_INT_SSE_REGS,
-  BND_REGS,
   ALL_REGS, LIM_REG_CLASSES
 };
 
@@ -1287,6 +1287,7 @@ enum reg_class
    "SSE_FIRST_REG",			\
    "SSE_REGS",				\
    "EVEX_SSE_REGS",			\
+   "BND_REGS",				\
    "ALL_SSE_REGS",			\
    "MMX_REGS",				\
    "FP_TOP_SSE_REGS",			\
@@ -1295,7 +1296,6 @@ enum reg_class
    "FLOAT_INT_REGS",			\
    "INT_SSE_REGS",			\
    "FLOAT_INT_SSE_REGS",		\
-   "BND_REGS",				\
    "ALL_REGS" }
 
 /* Define which registers fit in which classes.  This is an initializer
@@ -1325,6 +1325,7 @@ enum reg_class
   { 0x200000,       0x0,   0x0 },       /* SSE_FIRST_REG */             \
 { 0x1fe00000,  0x1fe000,   0x0 },       /* SSE_REGS */                  \
        { 0x0,0xffe00000,  0x1f },       /* EVEX_SSE_REGS */             \
+       { 0x0,       0x0, 0x1e0 },       /* BND_REGS */			\
 { 0x1fe00000,0xffffe000,  0x1f },       /* ALL_SSE_REGS */              \
 { 0xe0000000,      0x1f,   0x0 },       /* MMX_REGS */                  \
 { 0x1fe00100,0xffffe000,  0x1f },       /* FP_TOP_SSE_REG */            \
@@ -1333,7 +1334,6 @@ enum reg_class
 {   0x11ffff,    0x1fe0,   0x0 },       /* FLOAT_INT_REGS */            \
 { 0x1ff100ff,0xffffffe0,  0x1f },       /* INT_SSE_REGS */              \
 { 0x1ff1ffff,0xffffffe0,  0x1f },       /* FLOAT_INT_SSE_REGS */        \
-       { 0x0,       0x0, 0x1e0 },       /* BND_REGS */			\
 { 0xffffffff,0xffffffff, 0x1ff }                                        \
 }
 
@@ -1846,7 +1846,7 @@ do {							\
 #define Pmode (ix86_pmode == PMODE_DI ? DImode : SImode)
 
 /* Specify the machine mode that bounds have.  */
-#define BNDmode (TARGET_64BIT ? BND64mode : BND32mode)
+#define BNDmode (ix86_pmode == PMODE_DI ? BND64mode : BND32mode)
 
 /* A C expression whose value is zero if pointers that need to be extended
    from being `POINTER_SIZE' bits wide to `Pmode' are sign-extended and
