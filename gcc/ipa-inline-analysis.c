@@ -79,7 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "coverage.h"
 #include "ggc.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "ipa-prop.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
@@ -87,8 +87,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "alloc-pool.h"
 #include "cfgloop.h"
-#include "cfgloop.h"
 #include "tree-scalar-evolution.h"
+#include "ipa-utils.h"
 
 /* Estimate runtime of function can easilly run into huge numbers with many
    nested loops.  Be sure we can compute time * INLINE_SIZE_SCALE * 2 in an
@@ -3102,7 +3102,7 @@ inline_update_callee_summaries (struct cgraph_node *node, int depth)
     + callee_info->estimated_self_stack_size;
   if (inline_summary (node->global.inlined_to)->estimated_stack_size < peak)
       inline_summary (node->global.inlined_to)->estimated_stack_size = peak;
-  cgraph_propagate_frequency (node);
+  ipa_propagate_frequency (node);
   for (e = node->callees; e; e = e->next_callee)
     {
       if (!e->inline_failed)
@@ -3580,6 +3580,7 @@ estimate_size_after_inlining (struct cgraph_node *node,
 
 struct growth_data
 {
+  struct cgraph_node *node;
   bool self_recursive;
   int growth;
 };
@@ -3597,9 +3598,9 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
     {
       gcc_checking_assert (e->inline_failed);
 
-      if (e->caller == node
+      if (e->caller == d->node
 	  || (e->caller->global.inlined_to
-	      && e->caller->global.inlined_to == node))
+	      && e->caller->global.inlined_to == d->node))
 	d->self_recursive = true;
       d->growth += estimate_edge_growth (e);
     }
@@ -3612,7 +3613,7 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
 int
 do_estimate_growth (struct cgraph_node *node)
 {
-  struct growth_data d = { 0, false };
+  struct growth_data d = { node, 0, false };
   struct inline_summary *info = inline_summary (node);
 
   cgraph_for_node_and_aliases (node, do_estimate_growth_1, &d, true);
@@ -3697,6 +3698,11 @@ void
 inline_generate_summary (void)
 {
   struct cgraph_node *node;
+
+  /* When not optimizing, do not bother to analyze.  Inlining is still done
+     because edge redirection needs to happen there.  */
+  if (!optimize && !flag_lto && !flag_wpa)
+    return;
 
   function_insertion_hook_holder =
     cgraph_add_function_insertion_hook (&add_new_function, NULL);

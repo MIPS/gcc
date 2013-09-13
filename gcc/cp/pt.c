@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "timevar.h"
 #include "tree-iterator.h"
+#include "type-utils.h"
 
 /* The type of functions taking a tree, and some additional data, and
    returning an int.  */
@@ -5398,7 +5399,8 @@ unify_arg_conversion (bool explain_p, tree to_type,
 		      tree from_type, tree arg)
 {
   if (explain_p)
-    inform (input_location, "  cannot convert %qE (type %qT) to type %qT",
+    inform (EXPR_LOC_OR_HERE (arg),
+	    "  cannot convert %qE (type %qT) to type %qT",
 	    arg, from_type, to_type);
   return 1;
 }
@@ -9118,7 +9120,9 @@ instantiate_class_template_1 (tree type)
       tree decl = lambda_function (type);
       if (decl)
 	{
-	  instantiate_decl (decl, false, false);
+	  if (!DECL_TEMPLATE_INFO (decl)
+	      || DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (decl)) != decl)
+	    instantiate_decl (decl, false, false);
 
 	  /* We need to instantiate the capture list from the template
 	     after we've instantiated the closure members, but before we
@@ -14373,9 +14377,10 @@ tsubst_copy_and_build (tree t,
 
     case PSEUDO_DTOR_EXPR:
       RETURN (finish_pseudo_destructor_expr
-	(RECUR (TREE_OPERAND (t, 0)),
-	 RECUR (TREE_OPERAND (t, 1)),
-	 tsubst (TREE_OPERAND (t, 2), args, complain, in_decl)));
+	      (RECUR (TREE_OPERAND (t, 0)),
+	       RECUR (TREE_OPERAND (t, 1)),
+	       tsubst (TREE_OPERAND (t, 2), args, complain, in_decl),
+	       input_location));
 
     case TREE_LIST:
       {
@@ -14504,7 +14509,8 @@ tsubst_copy_and_build (tree t,
 		  {
 		    dtor = TREE_OPERAND (dtor, 0);
 		    if (TYPE_P (dtor))
-		      RETURN (finish_pseudo_destructor_expr (object, s, dtor));
+		      RETURN (finish_pseudo_destructor_expr
+			      (object, s, dtor, input_location));
 		  }
 	      }
 	  }
@@ -19025,6 +19031,8 @@ instantiate_decl (tree d, int defer_ok,
   tree gen_tmpl;
   bool pattern_defined;
   location_t saved_loc = input_location;
+  int saved_unevaluated_operand = cp_unevaluated_operand;
+  int saved_inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
   bool external_p;
   tree fn_context;
   bool nested;
@@ -19236,8 +19244,13 @@ instantiate_decl (tree d, int defer_ok,
   nested = (current_function_decl != NULL_TREE);
   if (!fn_context)
     push_to_top_level ();
-  else if (nested)
-    push_function_context ();
+  else
+    {
+      if (nested)
+	push_function_context ();
+      cp_unevaluated_operand = 0;
+      c_inhibit_evaluation_warnings = 0;
+    }
 
   /* Mark D as instantiated so that recursive calls to
      instantiate_decl do not try to instantiate it again.  */
@@ -19361,6 +19374,8 @@ instantiate_decl (tree d, int defer_ok,
 
 out:
   input_location = saved_loc;
+  cp_unevaluated_operand = saved_unevaluated_operand;
+  c_inhibit_evaluation_warnings = saved_inhibit_evaluation_warnings;
   pop_deferring_access_checks ();
   pop_tinst_level ();
 
@@ -21177,30 +21192,34 @@ is_auto (const_tree type)
     return false;
 }
 
-/* Returns true iff TYPE contains a use of 'auto'.  Since auto can only
-   appear as a type-specifier for the declaration in question, we don't
-   have to look through the whole type.  */
+/* Returns the TEMPLATE_TYPE_PARM in TYPE representing `auto' iff TYPE contains
+   a use of `auto'.  Returns NULL_TREE otherwise.  */
 
 tree
 type_uses_auto (tree type)
 {
-  enum tree_code code;
-  if (is_auto (type))
-    return type;
-
-  code = TREE_CODE (type);
-
-  if (code == POINTER_TYPE || code == REFERENCE_TYPE
-      || code == OFFSET_TYPE || code == FUNCTION_TYPE
-      || code == METHOD_TYPE || code == ARRAY_TYPE)
-    return type_uses_auto (TREE_TYPE (type));
-
-  if (TYPE_PTRMEMFUNC_P (type))
-    return type_uses_auto (TREE_TYPE (TREE_TYPE
-				   (TYPE_PTRMEMFUNC_FN_TYPE (type))));
-
-  return NULL_TREE;
+  return find_type_usage (type, is_auto);
 }
+
+/* Returns true iff TYPE is a TEMPLATE_TYPE_PARM representing 'auto',
+   'decltype(auto)' or a concept.  */
+
+bool
+is_auto_or_concept (const_tree type)
+{
+  return is_auto (type); // or concept
+}
+
+/* Returns the TEMPLATE_TYPE_PARM in TYPE representing a generic type (`auto' or
+   a concept identifier) iff TYPE contains a use of a generic type.  Returns
+   NULL_TREE otherwise.  */
+
+tree
+type_uses_auto_or_concept (tree type)
+{
+  return find_type_usage (type, is_auto_or_concept);
+}
+
 
 /* For a given template T, return the vector of typedefs referenced
    in T for which access check is needed at T instantiation time.

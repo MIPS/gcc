@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "hash-table.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "domwalk.h"
 #include "alloc-pool.h"
@@ -1952,6 +1952,28 @@ strlen_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 		  int count_vdef = 100;
 		  do_invalidate (dombb, phi, visited, &count_vdef);
 		  BITMAP_FREE (visited);
+		  if (count_vdef == 0)
+		    {
+		      /* If there were too many vdefs in between immediate
+			 dominator and current bb, invalidate everything.
+			 If stridx_to_strinfo has been unshared, we need
+			 to free it, otherwise just set it to NULL.  */
+		      if (!strinfo_shared ())
+			{
+			  unsigned int i;
+			  strinfo si;
+
+			  for (i = 1;
+			       vec_safe_iterate (stridx_to_strinfo, i, &si);
+			       ++i)
+			    {
+			      free_strinfo (si);
+			      (*stridx_to_strinfo)[i] = NULL;
+			    }
+			}
+		      else
+			stridx_to_strinfo = NULL;
+		    }
 		  break;
 		}
 	    }

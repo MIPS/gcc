@@ -353,6 +353,12 @@ typedef struct GTY(()) cp_parser {
   /* When parsing #pragma omp declare simd, this is a pointer to a
      data structure with everything needed for parsing the clauses.  */
   cp_omp_declare_simd_data * GTY((skip)) omp_declare_simd;
+
+  /* TRUE if the function being declared was made a template due to its
+     parameter list containing generic type specifiers (`auto' or concept
+     identifiers) rather than an explicit template parameter list.  */
+  bool fully_implicit_function_template_p;
+
 } cp_parser;
 
 /* In parser.c  */

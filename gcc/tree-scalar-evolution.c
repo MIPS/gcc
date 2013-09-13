@@ -258,7 +258,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "hash-table.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
@@ -2252,6 +2252,7 @@ instantiate_scev_name (basic_block instantiate_below,
   else if (res != chrec_dont_know)
     {
       if (inner_loop
+	  && def_bb->loop_father != inner_loop
 	  && !flow_loop_nested_p (def_bb->loop_father, inner_loop))
 	/* ???  We could try to compute the overall effect of the loop here.  */
 	res = chrec_dont_know;
