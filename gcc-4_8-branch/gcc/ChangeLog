@@ -1,3 +1,58 @@
+2013-09-14  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/58382
+	* config/pa/pa.c (pa_expand_prologue): Change mode in gen_rtx_POST_INC
+	calls to word_mode.
+
+2013-09-13  Christian Bruel  <christian.bruel@st.com>
+
+ 	PR target/58314
+ 	* config/sh/sh.md (mov<mode>_reg_reg): Allow memory reloads.
+
+2013-09-11  Andi Kleen  <ak@linux.intel.com>
+
+	Backport from mainline
+	* doc/extend.texi: Use __atomic_store_n instead of
+	__atomic_store in HLE example.
+
+2013-09-11  Andi Kleen  <ak@linux.intel.com>
+
+	Backport from mainline
+	* doc/extend.texi: Dont use __atomic_clear in HLE
+	example.  Fix typo.
+
+2013-09-11  Andi Kleen  <ak@linux.intel.com>
+
+	Backport from mainline
+	* doc/extend.texi: Document that __atomic_clear and
+	  __atomic_test_and_set should only be used with bool.
+
+2013-09-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58377
+	* passes.c (init_optimization_passes): Split critical edges
+	before late uninit warning pass in the -Og pipeline.
+
+2013-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58385
+	* fold-const.c (build_range_check): If both low and high are NULL,
+	use omit_one_operand_loc to preserve exp side-effects.
+
+2013-09-10  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/58361
+	* arm/vfp.md (combine_vcvt_f32_<FCVTI32typename>): Fix pattern to
+	support conditional execution.
+	(combine_vcvt_f64_<FCVTI32typename>): Likewise.
+
+2013-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58365
+	* cfgcleanup.c (merge_memattrs): Also clear MEM_READONLY_P
+	resp. MEM_NOTRAP_P if they differ, or set MEM_VOLATILE_P if
+	it differs.
+
 2013-09-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/58364

@@ -1,3 +1,23 @@
+2013-09-13  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/58314
+	* gcc.target/sh/torture/pr58314.c: New test.
+
+2013-09-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58377
+	* g++.dg/uninit-pred-4.C: New testcase.
+
+2013-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58385
+	* gcc.c-torture/execute/pr58385.c: New test.
+
+2013-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58365
+	* gcc.c-torture/execute/pr58365.c: New test.
+
 2013-09-09  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/58325
