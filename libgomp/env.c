@@ -56,6 +56,7 @@ struct gomp_task_icv gomp_global_icv = {
   .nthreads_var = 1,
   .run_sched_var = GFS_DYNAMIC,
   .run_sched_modifier = 1,
+  .default_device_var = 0,
   .dyn_var = false,
   .nest_var = false
 };
@@ -186,6 +187,24 @@ parse_unsigned_long (const char *name, unsigned long *pvalue, bool allow_zero)
  invalid:
   gomp_error ("Invalid value for environment variable %s", name);
   return false;
+}
+
+/* Parse a positive int environment variable.  Return true if one was
+   present and it was successfully parsed.  */
+
+static bool
+parse_int (const char *name, int *pvalue, bool allow_zero)
+{
+  unsigned long value;
+  if (!parse_unsigned_long (name, &value, allow_zero))
+    return false;
+  if (value > INT_MAX)
+    {
+      gomp_error ("Invalid value for environment variable %s", name);
+      return false;
+    }
+  *pvalue = (int) value;
+  return true;
 }
 
 /* Parse an unsigned long list environment variable.  Return true if one was
@@ -658,8 +677,9 @@ handle_omp_display_env (bool proc_bind, unsigned long stacksize,
 
 /* FIXME: Unimplemented OpenMP 4.0 environment variables.
   fprintf (stderr, "  OMP_PLACES = ''\n");
-  fprintf (stderr, "  OMP_CANCELLATION = ''\n");
-  fprintf (stderr, "  OMP_DEFAULT_DEVICE = ''\n"); */
+  fprintf (stderr, "  OMP_CANCELLATION = ''\n"); */
+  fprintf (stderr, "  OMP_DEFAULT_DEVICE = '%d'\n",
+	   gomp_global_icv.default_device_var);
 
   if (verbose)
     {
@@ -699,6 +719,7 @@ initialize_env (void)
   parse_boolean ("OMP_DYNAMIC", &gomp_global_icv.dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_global_icv.nest_var);
   parse_boolean ("OMP_PROC_BIND", &bind_var);
+  parse_int ("OMP_DEFAULT_DEVICE", &gomp_global_icv.default_device_var, true);
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var,
 		       true);
   parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var, false);
@@ -881,36 +902,41 @@ omp_get_proc_bind (void)
 void
 omp_set_default_device (int device_num)
 {
-  (void) device_num;
+  struct gomp_task_icv *icv = gomp_icv (true);
+  icv->default_device_var = device_num >= 0 ? device_num : 0;
 }
 
 int
 omp_get_default_device (void)
 {
-  return 0;
+  struct gomp_task_icv *icv = gomp_icv (false);
+  return icv->default_device_var;
 }
 
 int
 omp_get_num_devices (void)
 {
-  return 0;
+  return gomp_get_num_devices ();
 }
 
 int
 omp_get_num_teams (void)
 {
+  /* Hardcoded to 1 on host, MIC, HSAIL?  Maybe variable on PTX.  */
   return 1;
 }
 
 int
 omp_get_team_num (void)
 {
+  /* Hardcoded to 0 on host, MIC, HSAIL?  Maybe variable on PTX.  */
   return 0;
 }
 
 int
 omp_is_initial_device (void)
 {
+  /* Hardcoded to 1 on host, should be 0 on MIC, HSAIL, PTX.  */
   return 1;
 }
 

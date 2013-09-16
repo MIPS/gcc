@@ -1,3 +1,31 @@
+2013-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* splay-tree.h: New file.
+	* target.c: Include stdbool.h.
+	(splay_tree_node, splay_tree, splay_tree_key): New typedefs.
+	(struct target_mem_desc, struct splay_tree_key_s): New structures.
+	(splay_compare): New inline function.
+	(gomp_get_num_devices): New function.
+	(resolve_device): Use default_device_var ICV.  Add temporarily
+	magic testing device number 257.
+	(dev_splay_tree, dev_env_lock): New variables.
+	(gomp_map_vars_existing, gomp_map_vars, gomp_unmap_tgt,
+	gomp_unmap_vars, gomp_update): New functions.
+	(GOMP_target, GOMP_target_data, GOMP_target_end_data,
+	GOMP_target_update): Add support for magic testing device number 257.
+	* libgomp.h (struct target_mem_desc): Forward declare.
+	(struct gomp_task_icv): Add default_device_var and target_data.
+	(gomp_get_num_devices): New prototype.
+	* env.c (gomp_global_icv): Add default_device_var initializer.
+	(parse_int): New function.
+	(handle_omp_display_env): Print OMP_DEFAULT_DEVICE.
+	(initialize_env): Initialize default_device_var.
+	(omp_set_default_device): Set default_device_var ICV.
+	(omp_get_default_device): Query default_device_var ICV.
+	(omp_get_num_devices): Call gomp_get_num_devices.
+	(omp_get_num_teams, omp_get_team_num, omp_is_initial_device): Add
+	comments.
+
 2013-09-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/58392

@@ -214,18 +214,23 @@ struct gomp_team_state
   unsigned long static_trip;
 };
 
-/* These are the OpenMP 3.0 Internal Control Variables described in
+struct target_mem_desc;
+
+/* These are the OpenMP 4.0 Internal Control Variables described in
    section 2.3.1.  Those described as having one copy per task are
    stored within the structure; those described as having one copy
    for the whole program are (naturally) global variables.  */
-
+   
 struct gomp_task_icv
 {
   unsigned long nthreads_var;
   enum gomp_schedule_type run_sched_var;
   int run_sched_modifier;
+  int default_device_var;
   bool dyn_var;
   bool nest_var;
+  /* Internal ICV.  */
+  struct target_mem_desc *target_data;
 };
 
 extern struct gomp_task_icv gomp_global_icv;
@@ -495,6 +500,10 @@ extern struct gomp_team *gomp_new_team (unsigned);
 extern void gomp_team_start (void (*) (void *), void *, unsigned,
 			     struct gomp_team *);
 extern void gomp_team_end (void);
+
+/* target.c */
+
+extern int gomp_get_num_devices (void);
 
 /* work.c */
 
