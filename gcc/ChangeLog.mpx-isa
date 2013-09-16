@@ -89,3 +89,4 @@
 	(bnd_mem_operator): New.
 	* config/i386/i386.opt (mmpx): New.
 	* doc/invoke.texi: Add documentation for the flags -mmpx, -mno-mpx.
+	* doc/rtl.texi Add documentation for BND32mode and BND64mode.
