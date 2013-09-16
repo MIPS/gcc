@@ -353,7 +353,7 @@ struct bb_checks
 static tree chkp_find_bounds (tree ptr, gimple_stmt_iterator *iter);
 static tree chkp_find_bounds_loaded (tree ptr, tree ptr_src,
 				   gimple_stmt_iterator *iter);
-static tree chkp_find_bounds_abnormal (tree ptr, tree phi);
+static tree chkp_find_bounds_abnormal (tree ptr, tree phi, edge e);
 static void chkp_collect_value (tree ssa_name, address_t &res);
 static void chkp_build_bndstx (tree addr, tree ptr, tree bounds,
 			       gimple_stmt_iterator *gsi);
@@ -867,7 +867,7 @@ chkp_recompute_phi_bounds (const void *key, void **slot, void *res ATTRIBUTE_UNU
 	 We have to create bound copies for abnormal edges
 	 to avoid problem in SSA names coalescing.  */
       if (e->flags & EDGE_ABNORMAL)
-	bound_arg = chkp_find_bounds_abnormal (ptr_arg, bounds);
+	bound_arg = chkp_find_bounds_abnormal (ptr_arg, bounds, e);
       else
 	bound_arg = chkp_find_bounds (ptr_arg, NULL);
 
@@ -3673,7 +3673,7 @@ chkp_find_bounds_loaded (tree ptr, tree ptr_src, gimple_stmt_iterator *iter)
    Similar to regular bounds search but create bound copy to
    be used over abnormal edge.  */
 static tree
-chkp_find_bounds_abnormal (tree ptr, tree phi)
+chkp_find_bounds_abnormal (tree ptr, tree phi, edge e)
 {
   tree bounds = chkp_find_bounds_1 (ptr, NULL_TREE, NULL, false);
   tree copy = NULL;
@@ -3701,7 +3701,8 @@ chkp_find_bounds_abnormal (tree ptr, tree phi)
 	{
 	  tree ssa = (**copies)[i];
 	  gimple def = SSA_NAME_DEF_STMT (ssa);
-	  if (gimple_assign_rhs1 (def) == bounds)
+	  if (gimple_assign_rhs1 (def) == bounds
+	      && gimple_bb (def) == e->src)
 	    {
 	      copy = ssa;
 	      break;
@@ -3716,20 +3717,14 @@ chkp_find_bounds_abnormal (tree ptr, tree phi)
       copy = make_ssa_name (chkp_get_tmp_var (), gimple_build_nop ());
       assign = gimple_build_assign (copy, bounds);
 
-      if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_PHI)
-	{
-	  gsi = gsi_after_labels (gimple_bb (SSA_NAME_DEF_STMT (bounds)));
-	  gsi_insert_before (&gsi, assign, GSI_SAME_STMT);
-	}
-      else
-	{
-	  if (gimple_code (SSA_NAME_DEF_STMT (bounds)) == GIMPLE_NOP)
-	    gsi = gsi_last_bb (chkp_get_entry_block ());
-	  else
-	    gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (bounds));
+      gsi = gsi_start_bb (e->src);
+      while (!gsi_end_p (gsi) && !stmt_ends_bb_p (gsi_stmt (gsi)))
+	gsi_next (&gsi);
 
-	  gsi_insert_after (&gsi, assign, GSI_SAME_STMT);
-	}
+      if (!gsi_end_p (gsi) && stmt_ends_bb_p (gsi_stmt (gsi)))
+	gsi_insert_before (&gsi, assign, GSI_SAME_STMT);
+      else
+	gsi_insert_after (&gsi, assign, GSI_SAME_STMT);
 
       if (!copies)
 	{
