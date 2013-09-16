@@ -8810,6 +8810,14 @@ cp_parser_lambda_introducer (cp_parser* parser, tree lambda_expr)
                  /*template_arg_p=*/false,
                  &error_msg,
                  capture_token->location);
+
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
+	    {
+	      cp_lexer_consume_token (parser->lexer);
+	      capture_init_expr = make_pack_expansion (capture_init_expr);
+	    }
+	  else
+	    check_for_bare_parameter_packs (capture_init_expr);
 	}
 
       if (LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda_expr) != CPLD_NONE
@@ -16343,56 +16351,62 @@ cp_parser_init_declarator (cp_parser* parser,
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
-  /* Check to see if the token indicates the start of a
-     function-definition.  */
-  if (function_declarator_p (declarator)
-      && cp_parser_token_starts_function_definition_p (token))
+
+  if (function_declarator_p (declarator))
     {
-      if (!function_definition_allowed_p)
+      /* Check to see if the token indicates the start of a
+	 function-definition.  */
+      if (cp_parser_token_starts_function_definition_p (token))
 	{
-	  /* If a function-definition should not appear here, issue an
-	     error message.  */
-	  cp_parser_error (parser,
-			   "a function-definition is not allowed here");
-	  return error_mark_node;
-	}
-      else
-	{
-	  location_t func_brace_location
-	    = cp_lexer_peek_token (parser->lexer)->location;
-
-	  /* Neither attributes nor an asm-specification are allowed
-	     on a function-definition.  */
-	  if (asm_specification)
-	    error_at (asm_spec_start_token->location,
-		      "an asm-specification is not allowed "
-		      "on a function-definition");
-	  if (attributes)
-	    error_at (attributes_start_token->location,
-		      "attributes are not allowed on a function-definition");
-	  /* This is a function-definition.  */
-	  *function_definition_p = true;
-
-	  /* Parse the function definition.  */
-	  if (member_p)
-	    decl = cp_parser_save_member_function_body (parser,
-							decl_specifiers,
-							declarator,
-							prefix_attributes);
-	  else
-	    decl
-	      = (cp_parser_function_definition_from_specifiers_and_declarator
-		 (parser, decl_specifiers, prefix_attributes, declarator));
-
-	  if (decl != error_mark_node && DECL_STRUCT_FUNCTION (decl))
+	  if (!function_definition_allowed_p)
 	    {
-	      /* This is where the prologue starts...  */
-	      DECL_STRUCT_FUNCTION (decl)->function_start_locus
-		= func_brace_location;
+	      /* If a function-definition should not appear here, issue an
+		 error message.  */
+	      cp_parser_error (parser,
+			       "a function-definition is not allowed here");
+	      return error_mark_node;
 	    }
+	  else
+	    {
+	      location_t func_brace_location
+		= cp_lexer_peek_token (parser->lexer)->location;
 
-	  return decl;
+	      /* Neither attributes nor an asm-specification are allowed
+		 on a function-definition.  */
+	      if (asm_specification)
+		error_at (asm_spec_start_token->location,
+			  "an asm-specification is not allowed "
+			  "on a function-definition");
+	      if (attributes)
+		error_at (attributes_start_token->location,
+			  "attributes are not allowed "
+			  "on a function-definition");
+	      /* This is a function-definition.  */
+	      *function_definition_p = true;
+
+	      /* Parse the function definition.  */
+	      if (member_p)
+		decl = cp_parser_save_member_function_body (parser,
+							    decl_specifiers,
+							    declarator,
+							    prefix_attributes);
+	      else
+		decl =
+		  (cp_parser_function_definition_from_specifiers_and_declarator
+		   (parser, decl_specifiers, prefix_attributes, declarator));
+
+	      if (decl != error_mark_node && DECL_STRUCT_FUNCTION (decl))
+		{
+		  /* This is where the prologue starts...  */
+		  DECL_STRUCT_FUNCTION (decl)->function_start_locus
+		    = func_brace_location;
+		}
+
+	      return decl;
+	    }
 	}
+      else if (parser->fully_implicit_function_template_p)
+	decl = finish_fully_implicit_template (parser, decl);
     }
 
   /* [dcl.dcl]

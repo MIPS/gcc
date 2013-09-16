@@ -1,3 +1,61 @@
+2013-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Return early
+	for internal calls.
+
+2013-09-16  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* cse.c (try_const_anchors): Punt on CC modes.
+
+2013-09-15  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/vax/constraints.md (T): Add missing CONSTANT_P check.
+
+2013-09-14  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/58382
+	* config/pa/pa.c (pa_expand_prologue): Change mode in gen_rtx_POST_INC
+	calls to word_mode.
+
+2013-09-14  Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/48094
+	* config/darwin.c (darwin_objc2_section): Note if ObjC Metadata is
+	seen.  (darwin_objc1_section): Likewise.
+	(darwin_file_end): Emit Image Info section when required.
+
+2013-09-14  Jan Hubicka  <jh@suse.cz>
+
+	* tree-into-ssa.c (gate_into_ssa): New.
+	(pass_data_build_ssa): Use it.
+	* cgraph.h (expand_thunk): Update prototype.
+	* cgraphunit.c (analyze_function): Expand thunks early.
+	(expand_thunk): Fix DECL_CONTEXT of reust_decl;
+	build proper cgraph; set in_ssa_p; clear bogus TREE_ASM_WRITTEN;
+	set lowered flag; do not add new function.
+	(assemble_thunks_and_aliases): Update.
+	* tree-ssa.c (gate_init_datastructures): New gate.
+	(pass_data_init_datastructures): Use it.
+
+2013-09-14  Iain Sandoe  <iain@codesourcery.com>
+
+	PR target/58269
+	config/i386/i386.c (ix86_function_arg_regno_p): Make Darwin use the
+	xmm register set described in the psABI.
+
+2013-09-13  Evgeny Gavrin <e.gavrin@samsung.com>
+
+        * dwarf2out.c (should_emit_struct_debug): Add check
+        for type_decl variable is not NULL.
+
+2013-09-13  Jacek Caban  <jacek@codeweavers.com>
+
+	* config.gcc: Use new winnt-c.c target hooks
+	* config/t-winnt: New file
+	* config/winnt-c.c: New file
+	* doc/tm.texi.in: Document new hook
+	* doc/tm.texi: Regenerated
+
 2013-09-13  Jan Hubicka  <jh@suse.cz>
 
 	PR middle-end/58094
