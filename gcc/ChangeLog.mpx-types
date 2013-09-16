@@ -13,6 +13,4 @@
 	(type_contains_placeholder_1): Likewise.
 	* tree.h (BOUND_TYPE_P): New.
 	* varasm.c (output_constant): Support BOUND_TYPE.
-	* doc/rtl.texi (BND32mode): New.
-	(BND64mode): New.
-	(MODE_BOUND): New.
+	* doc/rtl.texi (MODE_BOUND): New.
