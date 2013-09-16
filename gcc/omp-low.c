@@ -1018,7 +1018,12 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
 	      || !splay_tree_lookup (ctx->sfield_map, (splay_tree_key) var));
 
   type = TREE_TYPE (var);
-  if (by_ref)
+  if (mask & 4)
+    {
+      gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
+      type = build_pointer_type (build_pointer_type (type));
+    }
+  else if (by_ref)
     type = build_pointer_type (type);
   else if ((mask & 3) == 1 && is_reference (var))
     type = TREE_TYPE (type);
@@ -1588,7 +1593,13 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		}
 	      else
 		{
-		  install_var_field (decl, true, 3, ctx);
+		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		      && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+		      && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
+		      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
+		    install_var_field (decl, true, 7, ctx);
+		  else
+		    install_var_field (decl, true, 3, ctx);
 		  if (gimple_omp_target_kind (ctx->stmt)
 		      == GF_OMP_TARGET_KIND_REGION)
 		    install_var_local (decl, ctx);
@@ -9255,6 +9266,11 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  {
 	    x = build_receiver_ref (var, true, ctx);
 	    tree new_var = lookup_decl (var, ctx);
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		&& OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+		&& !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
+		&& TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
+	      x = build_simple_mem_ref (x);
 	    SET_DECL_VALUE_EXPR (new_var, x);
 	    DECL_HAS_VALUE_EXPR_P (new_var) = 1;
 	  }
@@ -9359,7 +9375,20 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      {
 		tree var = lookup_decl_in_outer_ctx (ovar, ctx);
 		tree x = build_sender_ref (ovar, ctx);
-		if (is_gimple_reg (var))
+		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		    && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER
+		    && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
+		    && TREE_CODE (TREE_TYPE (ovar)) == ARRAY_TYPE)
+		  {
+		    gcc_assert (kind == GF_OMP_TARGET_KIND_REGION);
+		    tree avar
+		      = create_tmp_var (TREE_TYPE (TREE_TYPE (x)), NULL);
+		    mark_addressable (avar);
+		    gimplify_assign (avar, build_fold_addr_expr (var), &ilist);
+		    avar = build_fold_addr_expr (avar);
+		    gimplify_assign (x, avar, &ilist);
+		  }
+		else if (is_gimple_reg (var))
 		  {
 		    gcc_assert (kind == GF_OMP_TARGET_KIND_REGION);
 		    tree avar = create_tmp_var (TREE_TYPE (var), NULL);

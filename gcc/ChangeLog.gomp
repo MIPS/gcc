@@ -1,3 +1,12 @@
+2013-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (install_var_field): Use (mask & 4) to request double
+	indirection.
+	(scan_sharing_clauses): For OMP_CLAUSE_MAP_POINTER arrays pass
+	7 instead of 3 to install_var_field.
+	(lower_omp_target): For OMP_CLAUSE_MAP_POINTER arrays add extra
+	indirection.
+
 2013-09-06  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (scan_sharing_clauses): Handle VLAs in
