@@ -1,5 +1,9 @@
 
 
+2013-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/xtramelt-ana-base.melt (findgimple_docmd): More...
+
 2013-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc: Move inclusion of "gcc.h" upward.

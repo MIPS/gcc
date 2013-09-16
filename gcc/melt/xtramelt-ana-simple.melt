@@ -553,10 +553,11 @@
 	    (error_at () "bad TREE pattern argument for findgimple mode")
 	    (return ())))
       (with_cloned_symb 
-       (gimp treefundecl bb pass)
+       (gimp treefundecl bb pass newpass)
        (debug "findgimple_docmd cloned gimp=" gimp " treefundecl=" treefundecl " pass=" pass
-	      " bb=" bb)
+	      " bb=" bb " newpass=" newpass)
        (let (
+	     ;;
 	     (matchdeclexp
 	      (if treepatsrc
 		  `(match ,treefundecl
@@ -591,6 +592,7 @@
 			(put_int nbfun (+i 1 (get_int nbfun)))
 			,matchdeclexp
 			)))))
+	     ;;
 	     (matchgimpexp
 	      `(match ,gimp
 		      (,gimplepatsrc
@@ -624,7 +626,33 @@
 		     (put_int nbgimp (+i 1 (get_int nbgimp)))
 		     ,matchgimpexp
 		     )))))
-	    
+	     ;;
+	     (dorunexp
+	      `(lambda (curdata)
+		 (assert_msg "findgimple/dorun check curdata" (is_a curdata class_findgimple_data))
+		 (let ( (,newpass (instance class_gcc_gimple_pass
+					 :named_name '"melt_findgimple_pass"
+					 :gccpass_gate ,gatefunexp
+					 :gccpass_exec ,execfunexp
+					 :gccpass_data curdata
+					 :gccpass_properties_required ()
+					 ))
+			)
+		   (debug "findgimple/dorun newpass=" ,newpass)
+		   (install_melt_pass_in_gcc ,newpass :after '"ssa" 0)
+		   (at_exit_first 
+		    (lambda (x)
+		      (debug "findgimple/atexit x=" x " curdata=" curdata)
+		      (assert_msg "findgimple/atexit check curdata" (is_a curdata class_findgimple_data))
+		      (let ( (:long goodfuncount (get_int (get_field :fndgimp_nbgimp curdata)))
+			     (:long goodgimpcount (get_int (get_field :fndgimp_goodgimpcount curdata)))
+			     (:long totnbfun (get_int (get_field :fndgimp_nbfun curdata)))
+			     (:long totnbgimp (get_int (get_field :fndgimp_nbgimp curdata)))
+			     )
+			(inform () "findgimple found $1 matching gimples in $2 matching functions"
+				goodgimpcount goodfuncount)
+			(inform () "findgimple processed $1 functions and $2 gimples"
+				totnbfun totnbgimp)))))))
 	     )
 	 (debug "findgimple_docmd matchgimpexp=" matchgimpexp)
 	 (debug "findgimple_docmd gatefunexp=" gatefunexp)
