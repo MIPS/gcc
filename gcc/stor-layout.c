@@ -383,6 +383,7 @@ int_mode_for_mode (enum machine_mode mode)
     case MODE_VECTOR_ACCUM:
     case MODE_VECTOR_UFRACT:
     case MODE_VECTOR_UACCUM:
+    case MODE_BOUND:
       mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
       break;
 
@@ -2133,6 +2134,13 @@ layout_type (tree type)
       TYPE_ALIGN (type) = 1;
       TYPE_USER_ALIGN (type) = 0;
       SET_TYPE_MODE (type, VOIDmode);
+      break;
+
+    case BOUND_TYPE:
+      SET_TYPE_MODE (type,
+                     mode_for_size (TYPE_PRECISION (type), MODE_BOUND, 0));
+      TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
+      TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
     case OFFSET_TYPE:

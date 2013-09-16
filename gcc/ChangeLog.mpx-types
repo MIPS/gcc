@@ -1,0 +1,18 @@
+2013-09-16  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* mode-classes.def (MODE_BOUND): New.
+	* tree.def (BOUND_TYPE): New.
+	* genmodes.c (complete_mode): Support MODE_BOUND.
+	(BOUND_MODE): New.
+	(make_bound_mode): New.
+	* machmode.h (BOUND_MODE_P): New.
+	* stor-layout.c (int_mode_for_mode): Support MODE_BOUND.
+	(layout_type): Support BOUND_TYPE.
+	* tree-pretty-print.c (dump_generic_node): Support BOUND_TYPE.
+	* tree.c (build_int_cst_wide): Support BOUND_TYPE.
+	(type_contains_placeholder_1): Likewise.
+	* tree.h (BOUND_TYPE_P): New.
+	* varasm.c (output_constant): Support BOUND_TYPE.
+	* doc/rtl.texi (BND32mode): New.
+	(BND64mode): New.
+	(MODE_BOUND): New.
