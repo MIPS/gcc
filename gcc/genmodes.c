@@ -536,7 +536,7 @@ make_special_mode (enum mode_class cl, const char *name,
 
 #define BOUND_MODE(N, Y) make_bound_mode (#N, Y, __FILE__, __LINE__)
 
-static void
+static void ATTRIBUTE_UNUSED
 make_bound_mode (const char *name,
                unsigned int bytesize,
                const char *file, unsigned int line)
