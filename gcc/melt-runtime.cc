@@ -64,6 +64,7 @@ const int melt_is_plugin = 0;
 /* melt_start_probe needs wordexp */
 #include <wordexp.h>
 
+#include "ggc.h"
 #include "tree.h"
 #include "gimple.h"
 #include "intl.h"
@@ -77,9 +78,12 @@ const int melt_is_plugin = 0;
 #include "cfgloop.h"
 #include "timevar.h"
 
+#if MELT_GCC_VERSION >= 4009
+#include "tree-ssa.h"
+#endif
 
 
-#include "ggc.h"
+
 #include "cgraph.h"
 #include "flags.h"
 #include "toplev.h"
@@ -93,15 +97,8 @@ const int melt_is_plugin = 0;
 #include "cpplib.h"
 #include "langhooks.h"
 
-/* Headers from c-family/ should be included directly with GCC4.6, but not with GCC 4.7
-   or when compiling with a C++ compiler. */
-#if defined(GCCPLUGIN_VERSION) || MELT_GCC_VERSION>4006 || defined(__cplusplus)
 #include "c-family/c-pragma.h"
 #include "c-family/c-pretty-print.h"
-#else
-#include "c-pragma.h"
-#include "c-pretty-print.h"
-#endif
 
 /* Diagnostic related files need to be included after c-pretty-print.h!  */
 #include "diagnostic.h"
@@ -13478,10 +13475,10 @@ void meltgc_walk_use_def_chain (melt_ptr_t clos_p, melt_ptr_t val_p, tree trvar,
   /* we need closv & valv to be consecutive! */
 #define closv meltfram__.mcfr_varptr[0]
 #define valv  meltfram__.mcfr_varptr[1]
-  MELT_LOCATION_HERE ("meltgc_walk_use_def_chain");
-  MELT_CHECK_SIGNAL ();
   closv = clos_p;
   valv = val_p;
+  MELT_LOCATION_HERE ("meltgc_walk_use_def_chain");
+  MELT_CHECK_SIGNAL ();
   if (!trvar || TREE_CODE (trvar) != SSA_NAME)
     goto end;
   if (melt_magic_discr ((melt_ptr_t) closv) != MELTOBMAG_CLOSURE)
