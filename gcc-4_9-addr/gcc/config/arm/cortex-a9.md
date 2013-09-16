@@ -86,7 +86,8 @@ cortex_a9_p1_e2 + cortex_a9_p0_e1 + cortex_a9_p1_e1")
                         adr,bfm,rev,\
                         shift_imm,shift_reg,\
                         mov_imm,mov_reg,mvn_imm,mvn_reg,\
-                        mov_shift_reg,mov_shift"))
+                        mov_shift_reg,mov_shift,\
+                        mrs,multiple,no_insn"))
   "cortex_a9_p0_default|cortex_a9_p1_default")
 
 ;; An instruction using the shifter will go down E1.
@@ -206,7 +207,7 @@ cortex_a9_store3_4, cortex_a9_store1_2,  cortex_a9_load3_4")
 ;; Pipelining for VFP instructions.
 ;; Issue happens either along load store unit or the VFP / Neon unit.
 ;; Pipeline   Instruction Classification.
-;; FPS - fcpys, ffariths, ffarithd,f_mcr,f_mcrr,f_mrc,f_mrrc
+;; FPS - fmov, ffariths, ffarithd,f_mcr,f_mcrr,f_mrc,f_mrrc
 ;; FP_ADD   - fadds, faddd, fcmps (1)
 ;; FPMUL   - fmul{s,d}, fmac{s,d}, ffma{s,d}
 ;; FPDIV - fdiv{s,d}
@@ -219,7 +220,7 @@ cortex_a9_store3_4, cortex_a9_store1_2,  cortex_a9_load3_4")
 ;; fmrs, fmrrd, fmstat and fmrx - The data is available after 1 cycle.
 (define_insn_reservation "cortex_a9_fps" 2
  (and (eq_attr "tune" "cortexa9")
-      (eq_attr "type" "fcpys, fconsts, fconstd, ffariths, ffarithd,\
+      (eq_attr "type" "fmov, fconsts, fconstd, ffariths, ffarithd,\
                        f_mcr, f_mcrr, f_mrc, f_mrrc, f_flag"))
  "ca9_issue_vfp_neon + ca9fps")
 
@@ -232,7 +233,7 @@ cortex_a9_store3_4, cortex_a9_store1_2,  cortex_a9_load3_4")
 
 (define_insn_reservation "cortex_a9_fadd" 4
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "type" "fadds, faddd, f_cvt"))
+       (eq_attr "type" "fadds, faddd, f_cvt, f_cvtf2i, f_cvti2f"))
   "ca9fp_add")
 
 (define_insn_reservation "cortex_a9_fcmp" 1
@@ -270,12 +271,12 @@ cortex_a9_store3_4, cortex_a9_store1_2,  cortex_a9_load3_4")
 ;; Division pipeline description.
 (define_insn_reservation "cortex_a9_fdivs" 15
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "type" "fdivs"))
+       (eq_attr "type" "fdivs, fsqrts"))
   "ca9fp_ds1 + ca9_issue_vfp_neon, nothing*14")
 
 (define_insn_reservation "cortex_a9_fdivd" 25
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "type" "fdivd"))
+       (eq_attr "type" "fdivd, fsqrtd"))
   "ca9fp_ds1 + ca9_issue_vfp_neon, nothing*24")
 
 ;; Include Neon pipeline description

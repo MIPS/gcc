@@ -89,7 +89,8 @@
                         alu_reg,alus_reg,logic_reg,logics_reg,\
                         adc_imm,adcs_imm,adc_reg,adcs_reg,\
                         adr,bfm,clz,rbit,rev,\
-                        shift_imm,shift_reg"))
+                        shift_imm,shift_reg,\
+                        multiple,no_insn"))
   "cortex_a8_default")
 
 (define_insn_reservation "cortex_a8_alu_shift" 2
@@ -110,7 +111,8 @@
 (define_insn_reservation "cortex_a8_mov" 1
   (and (eq_attr "tune" "cortexa8")
        (eq_attr "type" "mov_imm,mov_reg,mov_shift,mov_shift_reg,\
-                        mvn_imm,mvn_reg,mvn_shift,mvn_shift_reg"))
+                        mvn_imm,mvn_reg,mvn_shift,mvn_shift_reg,\
+                        mrs"))
   "cortex_a8_default")
 
 ;; Exceptions to the default latencies for data processing instructions.

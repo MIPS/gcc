@@ -63,7 +63,8 @@
                         adc_imm,adcs_imm,adc_reg,adcs_reg,\
                         adr,bfm,rev,\
                         shift_imm,shift_reg,\
-                        mov_imm,mov_reg,mvn_imm,mvn_reg"))
+                        mov_imm,mov_reg,mvn_imm,mvn_reg,\
+                        mrs,multiple,no_insn"))
   "cortex_a5_ex1")
 
 (define_insn_reservation "cortex_a5_alu_shift" 2
@@ -167,7 +168,8 @@
 
 (define_insn_reservation "cortex_a5_fpalu" 4
   (and (eq_attr "tune" "cortexa5")
-       (eq_attr "type" "ffariths, fadds, ffarithd, faddd, fcpys, fmuls, f_cvt,\
+       (eq_attr "type" "ffariths, fadds, ffarithd, faddd, fmov, fmuls,\
+                        f_cvt,f_cvtf2i,f_cvti2f,\
 			fcmps, fcmpd"))
   "cortex_a5_ex1+cortex_a5_fpadd_pipe")
 
@@ -231,14 +233,14 @@
 
 (define_insn_reservation "cortex_a5_fdivs" 14
   (and (eq_attr "tune" "cortexa5")
-       (eq_attr "type" "fdivs"))
+       (eq_attr "type" "fdivs, fsqrts"))
   "cortex_a5_ex1, cortex_a5_fp_div_sqrt * 13")
 
 ;; ??? Similarly for fdivd.
 
 (define_insn_reservation "cortex_a5_fdivd" 29
   (and (eq_attr "tune" "cortexa5")
-       (eq_attr "type" "fdivd"))
+       (eq_attr "type" "fdivd, fsqrtd"))
   "cortex_a5_ex1, cortex_a5_fp_div_sqrt * 28")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

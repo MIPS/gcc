@@ -109,7 +109,8 @@
                         alu_shift_reg,alus_shift_reg,\
                         logic_shift_reg,logics_shift_reg,\
                         mov_shift,mov_shift_reg,\
-                        mvn_shift,mvn_shift_reg"))
+                        mvn_shift,mvn_shift_reg,\
+                        mrs,multiple,no_insn"))
   "cortex_a7_ex1")
 
 ;; Forwarding path for unshifted operands.
@@ -203,8 +204,8 @@
 
 (define_insn_reservation "cortex_a7_fpalu" 4
   (and (eq_attr "tune" "cortexa7")
-       (eq_attr "type" "ffariths, fadds, ffarithd, faddd, fcpys,\
-                        f_cvt, fcmps, fcmpd"))
+       (eq_attr "type" "ffariths, fadds, ffarithd, faddd, fmov,\
+                        f_cvt, f_cvtf2i, f_cvti2f, fcmps, fcmpd"))
   "cortex_a7_ex1+cortex_a7_fpadd_pipe")
 
 ;; For fconsts and fconstd, 8-bit immediate data is passed directly from
@@ -287,12 +288,12 @@
 
 (define_insn_reservation "cortex_a7_fdivs" 16
   (and (eq_attr "tune" "cortexa7")
-       (eq_attr "type" "fdivs"))
+       (eq_attr "type" "fdivs, fsqrts"))
   "cortex_a7_ex1+cortex_a7_fp_div_sqrt, cortex_a7_fp_div_sqrt * 13")
 
 (define_insn_reservation "cortex_a7_fdivd" 31
   (and (eq_attr "tune" "cortexa7")
-       (eq_attr "type" "fdivd"))
+       (eq_attr "type" "fdivd, fsqrtd"))
   "cortex_a7_ex1+cortex_a7_fp_div_sqrt, cortex_a7_fp_div_sqrt * 28")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

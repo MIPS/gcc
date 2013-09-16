@@ -159,12 +159,12 @@
 
 (define_insn_reservation "cortex_a8_vfp_divs" 37
   (and (eq_attr "tune" "cortexa8")
-       (eq_attr "type" "fdivs"))
+       (eq_attr "type" "fdivs, fsqrts"))
   "cortex_a8_vfp,cortex_a8_vfplite*36")
 
 (define_insn_reservation "cortex_a8_vfp_divd" 65
   (and (eq_attr "tune" "cortexa8")
-       (eq_attr "type" "fdivd"))
+       (eq_attr "type" "fdivd, fsqrtd"))
   "cortex_a8_vfp,cortex_a8_vfplite*64")
 
 ;; Comparisons can actually take 7 cycles sometimes instead of four,
@@ -172,12 +172,12 @@
 ;; take four cycles, we pick that latency.
 (define_insn_reservation "cortex_a8_vfp_farith" 4
   (and (eq_attr "tune" "cortexa8")
-       (eq_attr "type" "fcpys,ffariths,ffarithd,fconsts,fconstd,fcmps,fcmpd"))
+       (eq_attr "type" "fmov,ffariths,ffarithd,fconsts,fconstd,fcmps,fcmpd"))
   "cortex_a8_vfp,cortex_a8_vfplite*3")
 
 (define_insn_reservation "cortex_a8_vfp_cvt" 7
   (and (eq_attr "tune" "cortexa8")
-       (eq_attr "type" "f_cvt"))
+       (eq_attr "type" "f_cvt,f_cvtf2i,f_cvti2f"))
   "cortex_a8_vfp,cortex_a8_vfplite*6")
 
 ;; NEON -> core transfers.

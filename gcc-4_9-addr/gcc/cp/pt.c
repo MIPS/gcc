@@ -5398,7 +5398,8 @@ unify_arg_conversion (bool explain_p, tree to_type,
 		      tree from_type, tree arg)
 {
   if (explain_p)
-    inform (input_location, "  cannot convert %qE (type %qT) to type %qT",
+    inform (EXPR_LOC_OR_HERE (arg),
+	    "  cannot convert %qE (type %qT) to type %qT",
 	    arg, from_type, to_type);
   return 1;
 }
@@ -14292,9 +14293,10 @@ tsubst_copy_and_build (tree t,
 
     case PSEUDO_DTOR_EXPR:
       RETURN (finish_pseudo_destructor_expr
-	(RECUR (TREE_OPERAND (t, 0)),
-	 RECUR (TREE_OPERAND (t, 1)),
-	 tsubst (TREE_OPERAND (t, 2), args, complain, in_decl)));
+	      (RECUR (TREE_OPERAND (t, 0)),
+	       RECUR (TREE_OPERAND (t, 1)),
+	       tsubst (TREE_OPERAND (t, 2), args, complain, in_decl),
+	       input_location));
 
     case TREE_LIST:
       {
@@ -14423,7 +14425,8 @@ tsubst_copy_and_build (tree t,
 		  {
 		    dtor = TREE_OPERAND (dtor, 0);
 		    if (TYPE_P (dtor))
-		      RETURN (finish_pseudo_destructor_expr (object, s, dtor));
+		      RETURN (finish_pseudo_destructor_expr
+			      (object, s, dtor, input_location));
 		  }
 	      }
 	  }
@@ -18944,6 +18947,8 @@ instantiate_decl (tree d, int defer_ok,
   tree gen_tmpl;
   bool pattern_defined;
   location_t saved_loc = input_location;
+  int saved_unevaluated_operand = cp_unevaluated_operand;
+  int saved_inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
   bool external_p;
   tree fn_context;
   bool nested;
@@ -19155,8 +19160,13 @@ instantiate_decl (tree d, int defer_ok,
   nested = (current_function_decl != NULL_TREE);
   if (!fn_context)
     push_to_top_level ();
-  else if (nested)
-    push_function_context ();
+  else
+    {
+      if (nested)
+	push_function_context ();
+      cp_unevaluated_operand = 0;
+      c_inhibit_evaluation_warnings = 0;
+    }
 
   /* Mark D as instantiated so that recursive calls to
      instantiate_decl do not try to instantiate it again.  */
@@ -19280,6 +19290,8 @@ instantiate_decl (tree d, int defer_ok,
 
 out:
   input_location = saved_loc;
+  cp_unevaluated_operand = saved_unevaluated_operand;
+  c_inhibit_evaluation_warnings = saved_inhibit_evaluation_warnings;
   pop_deferring_access_checks ();
   pop_tinst_level ();
 
@@ -20444,7 +20456,7 @@ bool
 any_type_dependent_elements_p (const_tree list)
 {
   for (; list; list = TREE_CHAIN (list))
-    if (value_dependent_expression_p (TREE_VALUE (list)))
+    if (type_dependent_expression_p (TREE_VALUE (list)))
       return true;
 
   return false;

@@ -55,7 +55,9 @@
 ; clz                count leading zeros (CLZ).
 ; csel               From ARMv8-A: conditional select.
 ; extend             extend instruction (SXTB, SXTH, UXTB, UXTH).
-; f_cvt              conversion between float and integral.
+; f_cvt              conversion between float representations.
+; f_cvtf2i           conversion between float and integral types.
+; f_cvti2f           conversion between integral and float types.
 ; f_flag             transfer of co-processor flags to the CPSR.
 ; f_load[d,s]        double/single load from memory.  Used for VFP unit.
 ; f_mcr              transfer arm to vfp reg.
@@ -69,14 +71,15 @@
 ; fadd[d,s]          double/single floating-point scalar addition.
 ; fcmp[d,s]          double/single floating-point compare.
 ; fconst[d,s]        double/single load immediate.
-; fcpys              single precision floating point cpy.
 ; fcsel              From ARMv8-A: Floating-point conditional select.
 ; fdiv[d,s]          double/single precision floating point division.
 ; ffarith[d,s]       double/single floating point abs/neg/cpy.
 ; ffma[d,s]          double/single floating point fused multiply-accumulate.
 ; float              floating point arithmetic operation.
 ; fmac[d,s]          double/single floating point multiply-accumulate.
+; fmov               floating point to floating point register move.
 ; fmul[d,s]          double/single floating point multiply.
+; fsqrt[d,s]         double/single precision floating point square root.
 ; load_acq           load-acquire.
 ; load_byte          load byte(s) from memory to arm registers.
 ; load1              load 1 word from memory to arm registers.
@@ -103,12 +106,17 @@
 ;                    register.  This includes MOVW, but not MOVT.
 ; mov_shift          simple MOV instruction, shifted operand by a constant.
 ; mov_shift_reg      simple MOV instruction, shifted operand by a register.
+; mrs                system/special/co-processor register move.
 ; mul                integer multiply.
 ; muls               integer multiply, flag setting.
+; multiple           more than one instruction, candidate for future
+;                    splitting, or better modeling.
 ; mvn_imm            inverting move instruction, immediate.
 ; mvn_reg            inverting move instruction, register.
 ; mvn_shift          inverting move instruction, shifted operand by a constant.
 ; mvn_shift_reg      inverting move instruction, shifted operand by a register.
+; no_insn            an insn which does not represent an instruction in the
+;                    final output, thus having no impact on scheduling.
 ; rbit               reverse bits.
 ; rev                reverse bytes.
 ; sdiv               signed division.
@@ -150,6 +158,8 @@
 ; umlals             unsigned multiply accumulate long, flag setting.
 ; umull              unsigned multiply long.
 ; umulls             unsigned multiply long, flag setting.
+; untyped            insn without type information - default, and error,
+;                    case.
 ;
 ; The classification below is for instructions used by the Wireless MMX
 ; Technology. Each attribute value is used to classify an instruction of the
@@ -301,9 +311,12 @@
   branch,\
   call,\
   clz,\
+  no_insn,\
   csel,\
   extend,\
   f_cvt,\
+  f_cvtf2i,\
+  f_cvti2f,\
   f_flag,\
   f_loadd,\
   f_loads,\
@@ -325,7 +338,6 @@
   fcmps,\
   fconstd,\
   fconsts,\
-  fcpys,\
   fcsel,\
   fdivd,\
   fdivs,\
@@ -336,8 +348,11 @@
   float,\
   fmacd,\
   fmacs,\
+  fmov,\
   fmuld,\
   fmuls,\
+  fsqrts,\
+  fsqrtd,\
   load_acq,\
   load_byte,\
   load1,\
@@ -358,12 +373,15 @@
   mov_reg,\
   mov_shift,\
   mov_shift_reg,\
+  mrs,\
   mul,\
   muls,\
+  multiple,\
   mvn_imm,\
   mvn_reg,\
   mvn_shift,\
   mvn_shift_reg,\
+  nop,\
   rbit,\
   rev,\
   sdiv,\
@@ -403,6 +421,7 @@
   umlals,\
   umull,\
   umulls,\
+  untyped,\
   wmmx_tandc,\
   wmmx_tbcst,\
   wmmx_textrc,\
@@ -524,7 +543,7 @@
   neon_vst2_4_regs_vst3_vst4,\
   neon_vst3_vst4_lane,\
   neon_vst3_vst4"
-    (const_string "alu_imm"))
+    (const_string "untyped"))
 
 ; Is this an (integer side) multiply with a 32-bit (or smaller) result?
 (define_attr "mul32" "no,yes"

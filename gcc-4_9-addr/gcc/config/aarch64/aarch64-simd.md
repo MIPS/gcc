@@ -1052,7 +1052,7 @@
    fmov\\t%d0, %1
    dup\\t%d0, %1"
   [(set_attr "v8type" "*,fmov,*")
-   (set_attr "type" "*,mov_reg,*")
+   (set_attr "type" "*,fmov,*")
    (set_attr "simd_type" "simd_dup,*,simd_dup")
    (set_attr "simd_mode" "<MODE>")
    (set_attr "simd" "yes,*,yes")
@@ -2797,7 +2797,7 @@
 		      (match_operand:VD_HSI 2 "register_operand" "w"))
 		(sign_extend:<VWIDE>
 		  (vec_duplicate:VD_HSI
-		    (match_operand:<VEL> 3 "register_operand" "w"))))
+		    (match_operand:<VEL> 3 "register_operand" "<vwx>"))))
 	      (const_int 1))))]
   "TARGET_SIMD"
   "sqdml<SBINQOPS:as>l\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[0]"
@@ -2955,7 +2955,7 @@
                   (match_operand:VQ_HSI 4 "vect_par_cnst_hi_half" "")))
 	      (sign_extend:<VWIDE>
                 (vec_duplicate:<VHALF>
-		  (match_operand:<VEL> 3 "register_operand" "w"))))
+		  (match_operand:<VEL> 3 "register_operand" "<vwx>"))))
 	    (const_int 1))))]
   "TARGET_SIMD"
   "sqdml<SBINQOPS:as>l2\\t%<vw2>0<Vmwtype>, %<v>2<Vmtype>, %3.<Vetype>[0]"
@@ -3083,7 +3083,7 @@
 		 (match_operand:VD_HSI 1 "register_operand" "w"))
 	       (sign_extend:<VWIDE>
                  (vec_duplicate:VD_HSI
-                   (match_operand:<VEL> 2 "register_operand" "w")))
+                   (match_operand:<VEL> 2 "register_operand" "<vwx>")))
 	       )
 	     (const_int 1)))]
   "TARGET_SIMD"
@@ -3193,7 +3193,7 @@
                    (match_operand:VQ_HSI 3 "vect_par_cnst_hi_half" "")))
 	       (sign_extend:<VWIDE>
                  (vec_duplicate:<VHALF>
-                   (match_operand:<VEL> 2 "register_operand" "w")))
+                   (match_operand:<VEL> 2 "register_operand" "<vwx>")))
 	       )
 	     (const_int 1)))]
   "TARGET_SIMD"
