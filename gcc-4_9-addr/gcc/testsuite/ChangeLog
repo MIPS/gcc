@@ -1,3 +1,43 @@
+2013-09-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* gcc.target/i386/pr58418.c: New.
+
+2013-09-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/fmla-intrinsic.c: New.
+	* gcc.target/aarch64/mla-intrinsic.c: Likewise.
+	* gcc.target/aarch64/fmls-intrinsic.c: Likewise.
+	* gcc.target/aarch64/mls-intrinsic.c: Likewise.
+
+2013-09-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/mul_intrinsic_1.c: New.
+	* gcc.target/aarch64/fmul_intrinsic_1.c: Likewise.
+
+2013-09-16  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ldist-22.c: New testcase.
+
+2013-09-16  Adam Butcher  <adam@jessamine.co.uk>
+
+	* g++.dg/cpp0x/auto9.C: Downgrade two previously expected errors (now
+	interpreted as implicit templates) to be expected pedwarns instead.
+
+2013-09-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57697
+	* gfortran.dg/defined_assignment_10.f90: Comment print statement.
+
+2013-09-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57697
+	* gfortran.dg/defined_assignment_10.f90: New.
+
+2013-09-13  Evgeny Gavrin <e.gavrin@samsung.com>
+
+	* gcc.dg/debug/dwarf2/omp-fesdr.c: Add test.
+	* g++.dg/debug/dwarf2/omp-fesdr.C: Add test.
+
 2013-09-13  Jacek Caban  <jacek@codeweavers.com>
 
 	* g++.dg/abi/main.C: Added implicit C linkage tests
