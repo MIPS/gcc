@@ -215,12 +215,8 @@ void melt_set_real_timer_millisec (long millisec);
 /* the MELT debug depth for debug_msg ... can be set with -fmelt-debug-depth= */
 MELT_EXTERN int melt_debug_depth(void);
 
-#ifdef MELT_IS_PLUGIN
 extern "C" int melt_flag_debug;
 extern "C" int melt_flag_bootstrapping;
-/* in the MELT branch melt_flag_debug is #define-d as
-   global_options.x_melt_flag_debug in generated file options.h */
-#endif /*MELT_IS_PLUGIN*/
 
 
 

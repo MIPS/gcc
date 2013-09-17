@@ -1,4 +1,4 @@
-/*** file melt-runtime.c - see http://gcc-melt.org/ for more.
+/*** file melt-runtime.cc - see http://gcc-melt.org/ for more.
      Middle End Lisp Translator [MELT] runtime support.
 
      Copyright (C) 2008 - 2013 Free Software Foundation, Inc.
@@ -43,6 +43,7 @@ const int melt_is_plugin = 0;
 #include <string.h>
 #include <string>
 #include <vector>
+#include <map>
 
 #include "bversion.h"
 #include "config.h"
@@ -242,7 +243,6 @@ melt_resize_scangcvect (unsigned long size)
 /* A nice buffer size for input or output. */
 #define MELT_BUFSIZE 8192
 
-#ifdef MELT_IS_PLUGIN
 int melt_flag_debug = 0;	/* for MELT plugin */
 int melt_flag_bootstrapping = 0;
 int melt_flag_generate_work_link = 0;
@@ -268,7 +268,6 @@ xstrndup (const char *s, size_t n)
   result[len] = '\0';
   return (char *) memcpy (result, s, len);
 }
-#endif /*MELT_IS_PLUGIN */
 
 
 
@@ -916,125 +915,84 @@ melt_argument (const char* argname)
 
 #else /*!MELT_IS_PLUGIN*/
 
+static std::map<std::string,std::string> melt_branch_argument_map;
+
+extern "C" int melt_branch_argument_processing (int *, char***);
+
+int melt_branch_argument_processing (int *argcp, char***argvp)
+{
+  typedef std::map<std::string,std::string> meltargdict_t;
+  int ret=0;
+  std::vector<char*> argvec;
+  int oldargc = *argcp;
+  char** oldargv = *argvp;
+  gcc_assert (oldargc>0 && oldargv && oldargv[oldargc]==NULL);
+  argvec.reserve (oldargc);
+  argvec.push_back (oldargv[0]);
+  for (int ix=1; ix<oldargc; ix++) {
+    char* curarg = oldargv[ix];
+    if (!curarg) 
+      break;
+    if (!strcmp(curarg, "-fplugin=melt")) 
+      {
+	ret++;
+	continue;
+      }
+    char* meltargstart = NULL;
+#define MELT_ARG_START "-fmelt-"
+#define MELT_ALT_ARG_START "-fMELT-"
+#define MELT_PLUGIN_ARG_START "-fplugin-arg-melt-"
+    if (!strncmp (curarg, MELT_ARG_START, sizeof(MELT_ARG_START)-1)
+	&& curarg[sizeof(MELT_ARG_START)] != '\0')
+      meltargstart = curarg+sizeof(MELT_ARG_START)-1;
+    else if (!strncmp (curarg, MELT_ALT_ARG_START, sizeof(MELT_ALT_ARG_START)-1)
+	     && curarg[sizeof(MELT_ALT_ARG_START)] != '\0')
+      meltargstart = curarg+sizeof(MELT_ALT_ARG_START)-1;
+    else if (!strncmp (curarg, MELT_PLUGIN_ARG_START, sizeof(MELT_PLUGIN_ARG_START)-1)
+	     && curarg[sizeof(MELT_PLUGIN_ARG_START)] != '\0')
+      meltargstart = curarg+sizeof(MELT_PLUGIN_ARG_START)-1;
+    if (meltargstart && meltargstart[0]) 
+      {
+	std::string meltargname, meltargval;
+	ret++;
+	char* eq = strchr (meltargstart+1, '=');
+	if (eq) 
+	  {
+	    meltargname.assign (meltargstart, eq-meltargstart);
+	    meltargval.assign (eq+1);
+	  }
+	else
+	  meltargname.assign(meltargstart);
+	melt_branch_argument_map [meltargname] = meltargval;
+      }
+    else
+      argvec.push_back (curarg);
+  }
+  int argsize = (int) argvec.size();
+  gcc_assert (argsize <= oldargc && argsize>0);
+  for (int ix=1; ix<argsize; ix++)
+      (*argvp)[ix] = argvec[ix];
+  (*argvp)[argsize] = NULL;
+  *argcp = argsize;
+  {
+    const char* dbgarg = melt_argument("debugging");
+    if (dbgarg && !strcmp(dbgarg, "all"))
+      melt_flag_debug=1;
+  }
+  return ret;
+}
+
 /* builtin MELT, retrieve the MELT relevant program argument */
 const char*
 melt_argument (const char* argname)
 {
   if (!argname || !argname[0])
     return NULL;
-  switch (argname[0])
-    {
-    case 'a':
-      if (!strcmp (argname, "arg"))
-        return melt_argument_string;
-      else if (!strcmp (argname, "arglist"))
-        return melt_arglist_string;
-      break;
-    case 'b':
-      if (!strcmp (argname, "bootstrapping"))
-        return melt_flag_bootstrapping?"yes":NULL;
-      break;
-    case 'c':
-      if (!strcmp (argname, "coutput"))
-        return melt_coutput_string;
-      break;
-    case 'd':
-      if (!strcmp (argname, "debug"))
-        return melt_flag_debug?"yes":NULL;
-      else if (!strcmp (argname, "debugging"))
-        return melt_debugging_string;
-      else if (!strcmp (argname, "debugskip") || !strcmp (argname, "debug-skip"))
-        return melt_count_debugskip_string;
-      else if (!strcmp (argname, "debug-depth"))
-        return melt_debug_depth_string;
-      break;
-    case 'e':
-      if (!strcmp (argname, "extra"))
-        return melt_extra_string;
-      break;
-    case 'f':
-      if (!strcmp (argname, "full-period"))
-        {
-          static char fullperstr[40];
-          if (!fullperstr[0])
-            snprintf(fullperstr, sizeof (fullperstr), "%d",
-                     PARAM_VALUE(PARAM_MELT_FULL_PERIOD));
-          return fullperstr;
-        }
-      else if (!strcmp (argname, "full-threshold"))
-        {
-          static char fullthrstr[40];
-          if (!fullthrstr[0])
-            snprintf(fullthrstr, sizeof (fullthrstr), "%d",
-                     PARAM_VALUE(PARAM_MELT_FULL_THRESHOLD));
-          return fullthrstr;
-        }
-      break;
-    case 'g':
-      if (!strcmp (argname, "generated-c-file-list"))
-        return melt_generated_c_file_list_string;
-      else if (!strcmp (argname, "generate-work-link"))
-        return melt_flag_generate_work_link?"yes":NULL;
-      break;
-    case 'i':
-      if (!strcmp (argname, "inhibit-auto-build"))
-        return melt_flag_inhibit_auto_build?"yes":NULL;
-      else if (!strcmp (argname, "init"))
-        return melt_init_string;
-      break;
-    case 'k':
-      if (!strcmp (argname, "keep-temporary-files"))
-        return melt_flag_keep_temporary_files?"yes":NULL;
-      break;
-    case 'm':
-      if (!strcmp (argname, "minor-zone"))
-        {
-          static char minzonstr[40];
-          if (!minzonstr[0])
-            snprintf(minzonstr, sizeof (minzonstr), "%d",
-                     PARAM_VALUE(PARAM_MELT_MINOR_ZONE));
-          return minzonstr;
-        }
-      else if (!strcmp (argname, "mode"))
-        return melt_mode_string;
-      else if (!strcmp (argname, "module-cflags"))
-        return melt_module_cflags_string;
-      else if (!strcmp (argname, "module-makefile"))
-        return melt_module_makefile_string;
-      else if (!strcmp (argname, "module-make-command"))
-        return melt_module_make_command_string;
-      else if (!strcmp (argname, "module-path"))
-        return melt_dynmodpath_string;
-      break;
-    case 'p':
-      if (!strcmp (argname, "print-settings"))
-        return melt_print_settings_string;
-      else if (!strcmp (argname, "probe"))
-        return melt_probe_string;
-      break;
-    case 'o':
-      if (!strcmp (argname, "output"))
-        return melt_output_string;
-      else if (!strcmp (argname, "option"))
-        return melt_option_string;
-      break;
-    case 's':
-      if (!strcmp (argname, "secondarg"))
-        return melt_secondargument_string;
-      else if (!strcmp (argname, "source-path"))
-        return melt_srcpath_string;
-      break;
-    case 't':
-      if (!strcmp (argname, "tempdir"))
-        return melt_tempdir_string;
-      break;
-    case 'w':
-      if (!strcmp (argname, "workdir"))
-        return melt_workdir_string;
-      break;
-    default:
-      break;
-    }
+  {
+    std::string argstr = argname;
+    if (melt_branch_argument_map.find(argstr) != melt_branch_argument_map.end()) 
+      return melt_branch_argument_map[argstr].c_str();
+  }
   return NULL;
 }
 
@@ -11013,7 +10971,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   Melt_Module::initialize ();
   melt_payload_initialize_static_descriptors ();
 
-#ifdef MELT_IS_PLUGIN
 
   /* when MELT is a plugin, we need to process the debug
      argument. When MELT is a branch, the melt_argument function is
@@ -11076,30 +11033,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
       melt_flag_keep_temporary_files = 1;
   }
 
-#else /*!MELT_IS_PLUGIN*/
-
-  {
-    /* for the MELT branch */
-    const char* debuggingstr = melt_argument ("debugging");
-    if (debuggingstr && !strcasecmp(debuggingstr, "mode"))
-      {
-        /* We forcibly clear the melt_flag_debug, which will be set
-           in meltgc_do_initial_mode. */
-        inform (UNKNOWN_LOCATION,
-                "MELT branch will give debugging messages after mode processing");
-        melt_flag_debug = 0;
-        melt_debugging_after_mode = 1;
-      }
-    else if (debuggingstr && !strcasecmp(debuggingstr, "all"))
-      {
-        melt_flag_debug = 1;
-        inform (UNKNOWN_LOCATION,
-                "MELT branch giving all debugging messages");
-      }
-  }
-#endif  /* MELT_IS_PLUGIN */
-
-
 
   /* Ensure that melt_source_dir & melt_module_dir are non-empty paths
      and accessible directories.  Otherwise, this file has been
@@ -11157,7 +11090,6 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   modstr = melt_argument ("mode");
   inistr = melt_argument ("init");
   countdbgstr = melt_argument ("debugskip");
-
 
   printset = melt_argument ("print-settings");
   if (printset)

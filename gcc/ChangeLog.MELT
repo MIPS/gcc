@@ -1,6 +1,27 @@
 
 
-2013-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{The branch should now accept -fplugin-arg-melt-* arguments like
+	-fmelt ones and ignore -fplugin=melt; arbitrary arguments are
+	permitted, like in plugin mode...}}
+
+	* common.opt: Revert to trunk. No more MELT specific options.
+
+	* melt-runtime.h (melt_flag_debug, melt_flag_bootstrapping):
+	Declared both for branch and plugin.
+
+	* melt-runtime.cc: include <map> header.
+	(melt_flag_debug, melt_flag_bootstrapping)
+	(melt_flag_generate_work_link): Declared both for branch and
+	plugin.
+	(melt_branch_argument_map): New variable in branch.
+	(melt_branch_argument_processing): New function.
+	(melt_argument): In branch, use melt_branch_argument_map.
+	(melt_really_initialize): Less branch specific code.
+
+	* toplevel.c (toplev_main): Call melt_branch_argument_processing.
+
+2013-09-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/xtramelt-ana-base.melt (findgimple_docmd): More...
 

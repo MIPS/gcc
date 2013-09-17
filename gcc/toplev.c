@@ -1937,6 +1937,13 @@ do_compile (void)
   timevar_print (stderr);
 }
 
+  // in melt-runtime.cc
+#ifdef __cplusplus
+extern "C" int melt_branch_argument_processing(int *, char***);
+#else
+extern int melt_branch_argument_processing(int *, char***);
+#endif 
+
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
    Exit code is FATAL_EXIT_CODE if can't open files or if there were
    any errors, or SUCCESS_EXIT_CODE if compilation succeeded.
@@ -1946,6 +1953,8 @@ do_compile (void)
 int
 toplev_main (int argc, char **argv)
 {
+
+
   /* Parsing and gimplification sometimes need quite large stack.
      Increase stack size limits if possible.  */
   stack_limit_increase (64 * 1024 * 1024);
@@ -1954,6 +1963,9 @@ toplev_main (int argc, char **argv)
 
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
+
+  /* Early processing of MELT related arguments */
+  int nbmeltarg = melt_branch_argument_processing (&argc, &argv);
 
   /* One-off initialization of options that does not need to be
      repeated when options are added for particular functions.  */
@@ -1987,8 +1999,7 @@ toplev_main (int argc, char **argv)
   initialize_plugins ();
 
   /* initialize melt if needed */
-  if ((melt_mode_string && melt_mode_string[0])
-      || melt_print_settings_string)
+  if (nbmeltarg > 0)
     melt_initialize ();
 
   if (version_flag)
@@ -2002,8 +2013,7 @@ toplev_main (int argc, char **argv)
     do_compile ();
 
   /* finalize melt if needed */
-  if ((melt_mode_string && melt_mode_string[0])
-      || melt_print_settings_string)
+  if (nbmeltarg > 0)
     melt_finalize();
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
