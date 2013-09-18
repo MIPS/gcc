@@ -332,6 +332,12 @@ typedef struct GTY(()) cp_parser {
   /* TRUE if we can auto-correct a colon to a scope operator.  */
   bool colon_corrects_to_scope_p;
 
+  /* TRUE if : doesn't start a class definition.  Should be only used
+     together with type_definition_forbidden_message non-NULL, in
+     contexts where new types may not be defined, and the type list
+     is terminated by colon.  */
+  bool colon_doesnt_start_class_def_p;
+
   /* If non-NULL, then we are parsing a construct where new type
      definitions are not permitted.  The string stored here will be
      issued as an error message if a type is defined.  */

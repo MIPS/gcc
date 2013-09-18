@@ -1979,7 +1979,8 @@ struct GTY(()) lang_decl_fn {
   unsigned thunk_p : 1;
   unsigned this_thunk_p : 1;
   unsigned hidden_friend_p : 1;
-  /* 1 spare bit.  */
+  unsigned omp_declare_reduction_p : 1;
+  /* No spare bits on 32-bit hosts, 32 on 64-bit hosts.  */
 
   /* For a non-thunk function decl, this is a tree list of
      friendly classes. For a thunk function decl, it is the
@@ -3180,6 +3181,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    The function is invisible except via argument dependent lookup.  */
 #define DECL_HIDDEN_FRIEND_P(NODE) \
   (LANG_DECL_FN_CHECK (DECL_COMMON_CHECK (NODE))->hidden_friend_p)
+
+/* Nonzero if NODE is an artificial FUNCTION_DECL for
+   #pragma omp declare reduction.  */
+#define DECL_OMP_DECLARE_REDUCTION_P(NODE) \
+  (LANG_DECL_FN_CHECK (DECL_COMMON_CHECK (NODE))->omp_declare_reduction_p)
 
 /* Nonzero if DECL has been declared threadprivate by
    #pragma omp threadprivate.  */
@@ -5779,6 +5785,9 @@ extern tree finish_qualified_id_expr		(tree, tree, bool, bool,
 extern void simplify_aggr_init_expr		(tree *);
 extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
+extern tree omp_reduction_id			(enum tree_code, tree, tree);
+extern tree cp_remove_omp_priv_cleanup_stmt	(tree *, int *, void *);
+extern void cp_check_omp_declare_reduction	(tree);
 extern tree finish_omp_clauses			(tree);
 extern void finish_omp_threadprivate		(tree);
 extern tree begin_omp_structured_block		(void);
@@ -5803,7 +5812,8 @@ extern void finish_omp_cancellation_point	(tree);
 extern tree begin_transaction_stmt		(location_t, tree *, int);
 extern void finish_transaction_stmt		(tree, tree, int, tree);
 extern tree build_transaction_expr		(location_t, tree, int, tree);
-extern bool cxx_omp_create_clause_info		(tree, tree, bool, bool, bool);
+extern bool cxx_omp_create_clause_info		(tree, tree, bool, bool,
+						 bool, bool);
 extern tree baselink_for_fns                    (tree);
 extern void finish_static_assert                (tree, tree, location_t,
                                                  bool);

@@ -1,5 +1,25 @@
 2013-09-18  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree.h (OMP_CLAUSE_REDUCTION_OMP_ORIG_REF): Define.
+	* tree-core.h (OMP_CLAUSE_REDUCTION_OMP_ORIG_REF): Document.
+	* omp-low.c (lower_rec_simd_input_clauses): Don't set DECL_VALUE_EXPR
+	on new_var if it is not a DECL_P.
+	(lower_rec_input_clauses): Don't force max_vf = 1
+	if OMP_CLAUSE_REDUCTION_PLACEHOLDER.  Add barrier also if any
+	OMP_CLAUSE_REDUCTION_OMP_ORIG_REF is seen.  For OMP_CLAUSE_PRIVATE
+	in simd, fix last argument to omp_clause_default_ctor langhook.
+	Handle OMP_CLAUSE_REDUCTION_PLACEHOLDER in simd loops, if
+	OMP_CLAUSE_REDUCTION_GIMPLE_INIT is NULL, emit omp_clause_default_ctor
+	if any and emit omp_clause_dtor if any.  Handle C++ references in
+	OMP_CLAUSE_REDUCTION clauses.
+	(lower_reduction_clauses): Adjust comment for UDRs.  Handle
+	C++ references in OMP_CLAUSE_REDUCTION clauses.
+	(lower_omp_taskreg): Emit reduction merges before destructors.
+	* tree-pretty-print.c (dump_omp_clause): Don't emit any reduction
+	operator name if OMP_CLAUSE_REDUCTION_CODE is ERROR_MARK.
+	* gimplify.c (omp_add_variable): Ignore GOVD_LOCAL decls for which
+	privatize_by_reference returns true.
+
 	* tree-core.h (OMP_CLAUSE_DEPEND_KIND, OMP_CLAUSE_MAP_KIND,
 	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION, OMP_CLAUSE_PROC_BIND_KIND):
 	Move definitions...

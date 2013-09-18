@@ -1,3 +1,49 @@
+2013-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (lang_decl_fn): Add omp_declare_reduction_p bitfield.
+	(DECL_OMP_DECLARE_REDUCTION_P): Define.
+	(omp_reduction_id, cp_remove_omp_priv_cleanup_stmt,
+	cp_check_omp_declare_reduction): New prototypes.
+	(cxx_omp_create_clause_info): Add another bool argument.
+	* decl.c (decls_match): For DECL_OMP_DECLARE_REDUCTION_P decls,
+	ignore template and context mismatches.
+	(duplicate_decls): Error out for redeclaration of UDRs.
+	* parser.c (cp_parser_class_specifier_1): Handle UDRs before all
+	other function bodies.
+	(cp_parser_late_parsing_for_member): Handle UDRs.
+	(cp_parser_omp_clause_reduction): Handle UDRs.
+	(cp_parser_omp_declare_reduction_exprs,
+	cp_parser_omp_declare_reduction): New functions.
+	(cp_parser_omp_declare): Uncomment parsing of UDRs.
+	(cp_debug_parser): Print colon_doesnt_start_class_def_p.
+	(cp_parser_next_token_starts_class_definition_p): Don't allow
+	CPP_COLON if colon_doesnt_start_class_def_p flag is true.
+	* parser.h (struct cp_parser): Add colon_doesnt_start_class_def_p
+	field.
+	* pt.c (instantiate_class_template_1): Call
+	cp_check_omp_declare_reduction on UDRs.
+	(tsubst_decl): Diagnose UDRs on reference types.
+	(tsubst_omp_clauses): Subst OMP_CLAUSE_REDUCTION_PLACEHOLDER
+	if needed.
+	(tsubst_expr): Handle UDRs.
+	(tsubst_omp_udr): New function.
+	(instantiate_decl): Handle UDRs.
+	* cp-gimplify.c (cp_genericize_r): Handle invisiref parm decls
+	in OMP_CLAUSE_REDUCTION.
+	(cxx_omp_privatize_by_reference): Return true also for decls with
+	REFERENCE_TYPE.
+	(cxx_omp_finish_clause): Adjust cxx_omp_create_clause_info caller.
+	* semantics.c (cxx_omp_create_clause_info): Add need_dtor argument.
+	Use it instead of need_default_ctor || need_copy_ctor for dtor
+	info setup.
+	(omp_reduction_id, omp_reduction_lookup,
+	cp_remove_omp_priv_cleanup_stmt, cp_check_omp_declare_reduction_r,
+	cp_check_omp_declare_reduction, clone_omp_udr,
+	find_omp_placeholder_r): New functions.
+	(struct cp_check_omp_declare_reduction_data): New type.
+	(finish_omp_clauses): Adjust cxx_omp_create_clause_info caller.
+	Handle UDRs.  Handle decls with REFERENCE_TYPE type.
+
 2013-09-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (handle_omp_array_sections): Fix up handling

@@ -2884,8 +2884,11 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 		 NULL_TREE, NULL_TREE);
   lvar = build4 (ARRAY_REF, TREE_TYPE (new_var), avar, lane,
 		 NULL_TREE, NULL_TREE);
-  SET_DECL_VALUE_EXPR (new_var, lvar);
-  DECL_HAS_VALUE_EXPR_P (new_var) = 1;
+  if (DECL_P (new_var))
+    {
+      SET_DECL_VALUE_EXPR (new_var, lvar);
+      DECL_HAS_VALUE_EXPR_P (new_var) = 1;
+    }
   return true;
 }
 
@@ -2901,6 +2904,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
   tree c, dtor, copyin_seq, x, ptr;
   bool copyin_by_ref = false;
   bool lastprivate_firstprivate = false;
+  bool reduction_omp_orig_ref = false;
   int pass;
   bool is_simd = (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
 		  && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_SIMD);
@@ -2920,9 +2924,6 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_REDUCTION:
-	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
-	    max_vf = 1;
-	  /* FALLTHRU */
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -2964,8 +2965,11 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		}
 	    case OMP_CLAUSE_FIRSTPRIVATE:
 	    case OMP_CLAUSE_COPYIN:
-	    case OMP_CLAUSE_REDUCTION:
 	    case OMP_CLAUSE_LINEAR:
+	      break;
+	    case OMP_CLAUSE_REDUCTION:
+	      if (OMP_CLAUSE_REDUCTION_OMP_ORIG_REF (c))
+		reduction_omp_orig_ref = true;
 	      break;
 	    case OMP_CLAUSE__LOOPTEMP_:
 	      /* Handle _looptemp_ clauses only on parallel.  */
@@ -3067,10 +3071,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		 allocate new backing storage for the new pointer
 		 variable.  This allows us to avoid changing all the
 		 code that expects a pointer to something that expects
-		 a direct variable.  Note that this doesn't apply to
-		 C++, since reference types are disallowed in data
-		 sharing clauses there, except for NRV optimized
-		 return values.  */
+		 a direct variable.  */
 	      if (pass == 0)
 		continue;
 
@@ -3156,19 +3157,20 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      else
 		x = NULL;
 	    do_private:
-	      x = lang_hooks.decls.omp_clause_default_ctor (c, new_var, x);
+	      tree nx;
+	      nx = lang_hooks.decls.omp_clause_default_ctor (c, new_var, x);
 	      if (is_simd)
 		{
 		  tree y = lang_hooks.decls.omp_clause_dtor (c, new_var);
-		  if ((TREE_ADDRESSABLE (new_var) || x || y
+		  if ((TREE_ADDRESSABLE (new_var) || nx || y
 		       || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
 		      && lower_rec_simd_input_clauses (new_var, ctx, max_vf,
 						       idx, lane, ivar, lvar))
 		    {
-		      if (x)
+		      if (nx)
 			x = lang_hooks.decls.omp_clause_default_ctor
 						(c, unshare_expr (ivar), x);
-		      if (x)
+		      if (nx && x)
 			gimplify_and_add (x, &llist[0]);
 		      if (y)
 			{
@@ -3185,8 +3187,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		      break;
 		    }
 		}
-	      if (x)
-		gimplify_and_add (x, ilist);
+	      if (nx)
+		gimplify_and_add (nx, ilist);
 	      /* FALLTHRU */
 
 	    do_dtor:
@@ -3333,19 +3335,89 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 		{
 		  tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
+		  gimple tseq;
 		  x = build_outer_var_ref (var, ctx);
 
-		  /* FIXME: Not handled yet.  */
-		  gcc_assert (!is_simd);
-		  if (is_reference (var))
+		  if (is_reference (var)
+		      && !useless_type_conversion_p (TREE_TYPE (placeholder),
+						     TREE_TYPE (x)))
 		    x = build_fold_addr_expr_loc (clause_loc, x);
 		  SET_DECL_VALUE_EXPR (placeholder, x);
 		  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
-		  lower_omp (&OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c), ctx);
-		  gimple_seq_add_seq (ilist,
-				      OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c));
+		  tree new_vard = new_var;
+		  if (is_reference (var))
+		    {
+		      gcc_assert (TREE_CODE (new_var) == MEM_REF);
+		      new_vard = TREE_OPERAND (new_var, 0);
+		      gcc_assert (DECL_P (new_vard));
+		    }
+		  if (is_simd
+		      && lower_rec_simd_input_clauses (new_var, ctx, max_vf,
+						       idx, lane, ivar, lvar))
+		    {
+		      if (new_vard == new_var)
+			{
+			  gcc_assert (DECL_VALUE_EXPR (new_var) == lvar);
+			  SET_DECL_VALUE_EXPR (new_var, ivar);
+			}
+		      else
+			{
+			  SET_DECL_VALUE_EXPR (new_vard,
+					       build_fold_addr_expr (ivar));
+			  DECL_HAS_VALUE_EXPR_P (new_vard) = 1;
+			}
+		      x = lang_hooks.decls.omp_clause_default_ctor
+				(c, unshare_expr (ivar),
+				 build_outer_var_ref (var, ctx));
+		      if (x)
+			gimplify_and_add (x, &llist[0]);
+		      if (OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c))
+			{
+			  tseq = OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c);
+			  lower_omp (&tseq, ctx);
+			  gimple_seq_add_seq (&llist[0], tseq);
+			}
+		      OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c) = NULL;
+		      tseq = OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c);
+		      lower_omp (&tseq, ctx);
+		      gimple_seq_add_seq (&llist[1], tseq);
+		      OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c) = NULL;
+		      DECL_HAS_VALUE_EXPR_P (placeholder) = 0;
+		      if (new_vard == new_var)
+			SET_DECL_VALUE_EXPR (new_var, lvar);
+		      else
+			SET_DECL_VALUE_EXPR (new_vard,
+					     build_fold_addr_expr (lvar));
+		      x = lang_hooks.decls.omp_clause_dtor (c, ivar);
+		      if (x)
+			{
+			  tseq = NULL;
+			  dtor = x;
+			  gimplify_stmt (&dtor, &tseq);
+			  gimple_seq_add_seq (&llist[1], tseq);
+			}
+		      break;
+		    }
+		  x = lang_hooks.decls.omp_clause_default_ctor
+				(c, new_var, unshare_expr (x));
+		  if (x)
+		    gimplify_and_add (x, ilist);
+		  if (OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c))
+		    {
+		      tseq = OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c);
+		      lower_omp (&tseq, ctx);
+		      gimple_seq_add_seq (ilist, tseq);
+		    }
 		  OMP_CLAUSE_REDUCTION_GIMPLE_INIT (c) = NULL;
+		  if (is_simd)
+		    {
+		      tseq = OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c);
+		      lower_omp (&tseq, ctx);
+		      gimple_seq_add_seq (dlist, tseq);
+		      OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (c) = NULL;
+		    }
 		  DECL_HAS_VALUE_EXPR_P (placeholder) = 0;
+		  goto do_dtor;
 		}
 	      else
 		{
@@ -3445,8 +3517,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
      master thread doesn't modify it before it is copied over in all
      threads.  Similarly for variables in both firstprivate and
      lastprivate clauses we need to ensure the lastprivate copying
-     happens after firstprivate copying in all threads.  */
-  if (copyin_by_ref || lastprivate_firstprivate)
+     happens after firstprivate copying in all threads.  And similarly
+     for UDRs if initializer expression refers to omp_orig.  */
+  if (copyin_by_ref || lastprivate_firstprivate || reduction_omp_orig_ref)
     {
       /* Don't add any barrier for #pragma omp simd or
 	 #pragma omp distribute.  */
@@ -3635,7 +3708,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
       {
 	if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	  {
-	    /* Never use OMP_ATOMIC for array reductions.  */
+	    /* Never use OMP_ATOMIC for array reductions or UDRs.  */
 	    count = -1;
 	    break;
 	  }
@@ -3682,7 +3755,9 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	{
 	  tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
 
-	  if (is_reference (var))
+	  if (is_reference (var)
+	      && !useless_type_conversion_p (TREE_TYPE (placeholder),
+					     TREE_TYPE (ref)))
 	    ref = build_fold_addr_expr_loc (clause_loc, ref);
 	  SET_DECL_VALUE_EXPR (placeholder, ref);
 	  DECL_HAS_VALUE_EXPR_P (placeholder) = 1;
@@ -9112,7 +9187,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree child_fn, t;
   gimple stmt = gsi_stmt (*gsi_p);
   gimple par_bind, bind;
-  gimple_seq par_body, olist, ilist, par_olist, par_ilist, new_body;
+  gimple_seq par_body, olist, ilist, par_olist, par_rlist, par_ilist, new_body;
   struct gimplify_ctx gctx;
   location_t loc = gimple_location (stmt);
 
@@ -9140,10 +9215,11 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   par_olist = NULL;
   par_ilist = NULL;
+  par_rlist = NULL;
   lower_rec_input_clauses (clauses, &par_ilist, &par_olist, ctx, NULL);
   lower_omp (&par_body, ctx);
   if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL)
-    lower_reduction_clauses (clauses, &par_olist, ctx);
+    lower_reduction_clauses (clauses, &par_rlist, ctx);
 
   /* Declare all the variables created by mapping and the variables
      declared in the scope of the parallel body.  */
@@ -9189,6 +9265,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   gimple_seq_add_seq (&new_body, par_ilist);
   gimple_seq_add_seq (&new_body, par_body);
+  gimple_seq_add_seq (&new_body, par_rlist);
   gimple_seq_add_seq (&new_body, par_olist);
   new_body = maybe_catch_exception (new_body);
   if (ctx->cancellable)

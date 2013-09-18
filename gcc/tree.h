@@ -1301,6 +1301,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
 
+/* True if a REDUCTION clause may reference the original list item (omp_orig)
+   in its OMP_CLAUSE_REDUCTION_{,GIMPLE_}INIT.  */
+#define OMP_CLAUSE_REDUCTION_OMP_ORIG_REF(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->base.public_flag)
+
 /* True if a LINEAR clause doesn't need copy in.  True for iterator vars which
    are always initialized inside of the loop construct, false otherwise.  */
 #define OMP_CLAUSE_LINEAR_NO_COPYIN(NODE) \

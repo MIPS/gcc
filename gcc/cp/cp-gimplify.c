@@ -936,7 +936,16 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	  *walk_subtrees = 0;
 	break;
       case OMP_CLAUSE_REDUCTION:
-	gcc_assert (!is_invisiref_parm (OMP_CLAUSE_DECL (stmt)));
+	if (is_invisiref_parm (OMP_CLAUSE_DECL (stmt)))
+	  {
+	    *walk_subtrees = 0;
+	    if (OMP_CLAUSE_REDUCTION_INIT (stmt))
+	      cp_walk_tree (&OMP_CLAUSE_REDUCTION_INIT (stmt),
+			    cp_genericize_r, data, NULL);
+	    if (OMP_CLAUSE_REDUCTION_MERGE (stmt))
+	      cp_walk_tree (&OMP_CLAUSE_REDUCTION_MERGE (stmt),
+			    cp_genericize_r, data, NULL);
+	  }
 	break;
       default:
 	break;
@@ -1406,7 +1415,8 @@ cxx_omp_clause_dtor (tree clause, tree decl)
 bool
 cxx_omp_privatize_by_reference (const_tree decl)
 {
-  return is_invisiref_parm (decl);
+  return TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE
+	 || is_invisiref_parm (decl);
 }
 
 /* Return true if DECL is const qualified var having no mutable member.  */
@@ -1509,7 +1519,7 @@ cxx_omp_finish_clause (tree c)
      for making these queries.  */
   if (!make_shared
       && CLASS_TYPE_P (inner_type)
-      && cxx_omp_create_clause_info (c, inner_type, false, true, false))
+      && cxx_omp_create_clause_info (c, inner_type, false, true, false, true))
     make_shared = true;
 
   if (make_shared)

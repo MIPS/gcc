@@ -232,6 +232,9 @@ static void cp_parser_initial_pragma
 static tree cp_literal_operator_id
   (const char *);
 
+static bool cp_parser_omp_declare_reduction_exprs
+  (tree, cp_parser *);
+
 /* Manifest constants.  */
 #define CP_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (cp_token))
 #define CP_SAVED_TOKEN_STACK 5
@@ -542,6 +545,8 @@ cp_debug_parser (FILE *file, cp_parser *parser)
 			      "local class", parser->in_function_body);
   cp_debug_print_flag (file, "Auto correct a colon to a scope operator",
 			      parser->colon_corrects_to_scope_p);
+  cp_debug_print_flag (file, "Colon doesn't start a class definition",
+			      parser->colon_doesnt_start_class_def_p);
   if (parser->type_definition_forbidden_message)
     fprintf (file, "Error message for forbidden type definitions: %s\n",
 	     parser->type_definition_forbidden_message);
@@ -19135,8 +19140,19 @@ cp_parser_class_specifier_1 (cp_parser* parser)
       if (pushed_scope)
 	pop_scope (pushed_scope);
       /* Now parse the body of the functions.  */
-      FOR_EACH_VEC_SAFE_ELT (unparsed_funs_with_definitions, ix, decl)
-	cp_parser_late_parsing_for_member (parser, decl);
+      if (flag_openmp)
+	{
+	  /* OpenMP UDRs need to be parsed before all other functions.  */
+	  FOR_EACH_VEC_SAFE_ELT (unparsed_funs_with_definitions, ix, decl)
+	    if (DECL_OMP_DECLARE_REDUCTION_P (decl))
+	      cp_parser_late_parsing_for_member (parser, decl);
+	  FOR_EACH_VEC_SAFE_ELT (unparsed_funs_with_definitions, ix, decl)
+	    if (!DECL_OMP_DECLARE_REDUCTION_P (decl))
+	      cp_parser_late_parsing_for_member (parser, decl);
+	}
+      else
+	FOR_EACH_VEC_SAFE_ELT (unparsed_funs_with_definitions, ix, decl)
+	  cp_parser_late_parsing_for_member (parser, decl);
       vec_safe_truncate (unparsed_funs_with_definitions, 0);
     }
 
@@ -23058,9 +23074,18 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
       if (processing_template_decl)
 	push_deferring_access_checks (dk_no_check);
 
-      /* Now, parse the body of the function.  */
-      cp_parser_function_definition_after_declarator (parser,
-						      /*inline_p=*/true);
+      /* #pragma omp declare reduction needs special parsing.  */
+      if (DECL_OMP_DECLARE_REDUCTION_P (member_function))
+	{
+	  parser->lexer->in_pragma = true;
+	  cp_parser_omp_declare_reduction_exprs (member_function, parser);
+	  finish_function (0);
+	  cp_check_omp_declare_reduction (member_function);
+	}
+      else
+	/* Now, parse the body of the function.  */
+	cp_parser_function_definition_after_declarator (parser,
+							/*inline_p=*/true);
 
       if (processing_template_decl)
 	pop_deferring_access_checks ();
@@ -23980,7 +24005,9 @@ cp_parser_next_token_starts_class_definition_p (cp_parser *parser)
   cp_token *token;
 
   token = cp_lexer_peek_token (parser->lexer);
-  return (token->type == CPP_OPEN_BRACE || token->type == CPP_COLON);
+  return (token->type == CPP_OPEN_BRACE
+	  || (token->type == CPP_COLON
+	      && !parser->colon_doesnt_start_class_def_p));
 }
 
 /* Returns TRUE iff the next token is the "," or ">" (or `>>', in
@@ -26933,70 +26960,91 @@ cp_parser_omp_clause_ordered (cp_parser * /*parser*/,
    OpenMP 3.1:
 
    reduction-operator:
-     One of: + * - & ^ | && || min max  */
+     One of: + * - & ^ | && || min max
+
+   OpenMP 4.0:
+
+   reduction-operator:
+     One of: + * - & ^ | && ||
+     id-expression  */
 
 static tree
 cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
 {
-  enum tree_code code;
-  tree nlist, c;
+  enum tree_code code = ERROR_MARK;
+  tree nlist, c, id = NULL_TREE;
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
 
   switch (cp_lexer_peek_token (parser->lexer)->type)
     {
-    case CPP_PLUS:
-      code = PLUS_EXPR;
-      break;
-    case CPP_MULT:
-      code = MULT_EXPR;
-      break;
-    case CPP_MINUS:
-      code = MINUS_EXPR;
-      break;
-    case CPP_AND:
-      code = BIT_AND_EXPR;
-      break;
-    case CPP_XOR:
-      code = BIT_XOR_EXPR;
-      break;
-    case CPP_OR:
-      code = BIT_IOR_EXPR;
-      break;
-    case CPP_AND_AND:
-      code = TRUTH_ANDIF_EXPR;
-      break;
-    case CPP_OR_OR:
-      code = TRUTH_ORIF_EXPR;
-      break;
-    case CPP_NAME:
-      {
-	tree id = cp_lexer_peek_token (parser->lexer)->u.value;
-	const char *p = IDENTIFIER_POINTER (id);
-
-	if (strcmp (p, "min") == 0)
-	  {
-	    code = MIN_EXPR;
-	    break;
-	  }
-	if (strcmp (p, "max") == 0)
-	  {
-	    code = MAX_EXPR;
-	    break;
-	  }
-      }
-      /* FALLTHROUGH */
-    default:
-      cp_parser_error (parser, "expected %<+%>, %<*%>, %<-%>, %<&%>, %<^%>, "
-			       "%<|%>, %<&&%>, %<||%>, %<min%> or %<max%>");
-    resync_fail:
-      cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
-					     /*or_comma=*/false,
-					     /*consume_paren=*/true);
-      return list;
+    case CPP_PLUS: code = PLUS_EXPR; break;
+    case CPP_MULT: code = MULT_EXPR; break;
+    case CPP_MINUS: code = MINUS_EXPR; break;
+    case CPP_AND: code = BIT_AND_EXPR; break;
+    case CPP_XOR: code = BIT_XOR_EXPR; break;
+    case CPP_OR: code = BIT_IOR_EXPR; break;
+    case CPP_AND_AND: code = TRUTH_ANDIF_EXPR; break;
+    case CPP_OR_OR: code = TRUTH_ORIF_EXPR; break;
+    default: break;
     }
-  cp_lexer_consume_token (parser->lexer);
+
+  if (code != ERROR_MARK)
+    cp_lexer_consume_token (parser->lexer);
+  else
+    {
+      bool saved_colon_corrects_to_scope_p;
+      saved_colon_corrects_to_scope_p = parser->colon_corrects_to_scope_p;
+      parser->colon_corrects_to_scope_p = false;
+      id = cp_parser_id_expression (parser, /*template_p=*/false,
+				    /*check_dependency_p=*/true,
+				    /*template_p=*/NULL,
+				    /*declarator_p=*/false,
+				    /*optional_p=*/false);
+      parser->colon_corrects_to_scope_p = saved_colon_corrects_to_scope_p;
+      if (identifier_p (id))
+	{
+	  const char *p = IDENTIFIER_POINTER (id);
+
+	  if (strcmp (p, "min") == 0)
+	    code = MIN_EXPR;
+	  else if (strcmp (p, "max") == 0)
+	    code = MAX_EXPR;
+	  else if (id == ansi_opname (PLUS_EXPR))
+	    code = PLUS_EXPR;
+	  else if (id == ansi_opname (MULT_EXPR))
+	    code = MULT_EXPR;
+	  else if (id == ansi_opname (MINUS_EXPR))
+	    code = MINUS_EXPR;
+	  else if (id == ansi_opname (BIT_AND_EXPR))
+	    code = BIT_AND_EXPR;
+	  else if (id == ansi_opname (BIT_IOR_EXPR))
+	    code = BIT_IOR_EXPR;
+	  else if (id == ansi_opname (BIT_XOR_EXPR))
+	    code = BIT_XOR_EXPR;
+	  else if (id == ansi_opname (TRUTH_ANDIF_EXPR))
+	    code = TRUTH_ANDIF_EXPR;
+	  else if (id == ansi_opname (TRUTH_ORIF_EXPR))
+	    code = TRUTH_ORIF_EXPR;
+	  id = omp_reduction_id (code, id, NULL_TREE);
+	  tree scope = parser->scope;
+	  if (scope)
+	    id = build_qualified_name (NULL_TREE, scope, id, false);
+	  parser->scope = NULL_TREE;
+	  parser->qualifying_scope = NULL_TREE;
+	  parser->object_scope = NULL_TREE;
+	}
+      else
+	{
+	  error ("invalid reduction-identifier");
+	 resync_fail:
+	  cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
+						 /*or_comma=*/false,
+						 /*consume_paren=*/true);
+	  return list;
+	}
+    }
 
   if (!cp_parser_require (parser, CPP_COLON, RT_COLON))
     goto resync_fail;
@@ -27004,7 +27052,10 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
   nlist = cp_parser_omp_var_list_no_open (parser, OMP_CLAUSE_REDUCTION, list,
 					  NULL);
   for (c = nlist; c != list; c = OMP_CLAUSE_CHAIN (c))
-    OMP_CLAUSE_REDUCTION_CODE (c) = code;
+    {
+      OMP_CLAUSE_REDUCTION_CODE (c) = code;
+      OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = id;
+    }
 
   return nlist;
 }
@@ -29823,10 +29874,384 @@ cp_parser_omp_end_declare_target (cp_parser *parser, cp_token *pragma_tok)
     current_omp_declare_target_attribute--;
 }
 
+/* Helper function of cp_parser_omp_declare_reduction.  Parse the combiner
+   expression and optional initializer clause of
+   #pragma omp declare reduction.  */
+
+static bool
+cp_parser_omp_declare_reduction_exprs (tree fndecl, cp_parser *parser)
+{
+  tree type = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fndecl)));
+  gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
+  type = TREE_TYPE (type);
+  tree omp_out = build_lang_decl (VAR_DECL, get_identifier ("omp_out"), type);
+  DECL_ARTIFICIAL (omp_out) = 1;
+  pushdecl (omp_out);
+  add_decl_expr (omp_out);
+  tree omp_in = build_lang_decl (VAR_DECL, get_identifier ("omp_in"), type);
+  DECL_ARTIFICIAL (omp_in) = 1;
+  pushdecl (omp_in);
+  add_decl_expr (omp_in);
+  tree combiner;
+  tree omp_priv = NULL_TREE, omp_orig = NULL_TREE, initializer = NULL_TREE;
+
+  keep_next_level (true);
+  tree block = begin_omp_structured_block ();
+  combiner = cp_parser_expression (parser, false, NULL);
+  finish_expr_stmt (combiner);
+  block = finish_omp_structured_block (block);
+  add_stmt (block);
+
+  if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+    return false;
+
+  const char *p = "";
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+    {
+      tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+      p = IDENTIFIER_POINTER (id);
+    }
+
+  if (strcmp (p, "initializer") == 0)
+    {
+      cp_lexer_consume_token (parser->lexer);
+      if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+	return false;
+
+      p = "";
+      if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+	{
+	  tree id = cp_lexer_peek_token (parser->lexer)->u.value;
+	  p = IDENTIFIER_POINTER (id);
+	}
+
+      omp_priv = build_lang_decl (VAR_DECL, get_identifier ("omp_priv"), type);
+      DECL_ARTIFICIAL (omp_priv) = 1;
+      pushdecl (omp_priv);
+      add_decl_expr (omp_priv);
+      omp_orig = build_lang_decl (VAR_DECL, get_identifier ("omp_orig"), type);
+      DECL_ARTIFICIAL (omp_orig) = 1;
+      pushdecl (omp_orig);
+      add_decl_expr (omp_orig);
+
+      keep_next_level (true);
+      block = begin_omp_structured_block ();
+
+      bool ctor = false;
+      if (strcmp (p, "omp_priv") == 0)
+	{
+	  bool is_direct_init, is_non_constant_init;
+	  ctor = true;
+	  cp_lexer_consume_token (parser->lexer);
+	  /* Reject initializer (omp_priv) and initializer (omp_priv ()).  */
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_PAREN)
+	      || (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN)
+		  && cp_lexer_peek_nth_token (parser->lexer, 2)->type
+		     == CPP_CLOSE_PAREN
+		  && cp_lexer_peek_nth_token (parser->lexer, 3)->type
+		     == CPP_CLOSE_PAREN))
+	    {
+	      finish_omp_structured_block (block);
+	      error ("invalid initializer clause");
+	      return false;
+	    }
+	  initializer = cp_parser_initializer (parser, &is_direct_init,
+					       &is_non_constant_init);
+	  cp_finish_decl (omp_priv, initializer, !is_non_constant_init,
+			  NULL_TREE, LOOKUP_ONLYCONVERTING);
+	}
+      else
+	{
+	  cp_parser_parse_tentatively (parser);
+	  tree fn_name = cp_parser_id_expression (parser, /*template_p=*/false,
+						  /*check_dependency_p=*/true,
+						  /*template_p=*/NULL,
+						  /*declarator_p=*/false,
+						  /*optional_p=*/false);
+	  vec<tree, va_gc> *args;
+	  if (fn_name == error_mark_node
+	      || cp_parser_error_occurred (parser)
+	      || !cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN)
+	      || ((args = cp_parser_parenthesized_expression_list
+				(parser, non_attr, /*cast_p=*/false,
+				 /*allow_expansion_p=*/true,
+				 /*non_constant_p=*/NULL)),
+		  cp_parser_error_occurred (parser)))
+	    {
+	      finish_omp_structured_block (block);
+	      cp_parser_abort_tentative_parse (parser);
+	      cp_parser_error (parser, "expected id-expression (arguments)");
+	      return false;
+	    }
+	  unsigned int i;
+	  tree arg;
+	  FOR_EACH_VEC_SAFE_ELT (args, i, arg)
+	    if (arg == omp_priv
+		|| (TREE_CODE (arg) == ADDR_EXPR
+		    && TREE_OPERAND (arg, 0) == omp_priv))
+	      break;
+	  cp_parser_abort_tentative_parse (parser);
+	  if (arg == NULL_TREE)
+	    error ("one of the initializer call arguments should be %<omp_priv%>"
+		   " or %<&omp_priv%>");
+	  initializer = cp_parser_postfix_expression (parser, false, false, false,
+						      false, NULL);
+	  finish_expr_stmt (initializer);
+	}
+
+      block = finish_omp_structured_block (block);
+      cp_walk_tree (&block, cp_remove_omp_priv_cleanup_stmt, omp_priv, NULL);
+      finish_expr_stmt (block);
+
+      if (ctor)
+	add_decl_expr (omp_orig);
+
+      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+	return false;
+    }
+
+  if (!cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA_EOL))
+    cp_parser_required_error (parser, RT_PRAGMA_EOL, /*keyword=*/false);
+
+  return true;
+}
+
+/* OpenMP 4.0
+   #pragma omp declare reduction (reduction-id : typename-list : expression) \
+      initializer-clause[opt] new-line
+
+   initializer-clause:
+      initializer (omp_priv initializer)
+      initializer (function-name (argument-list))  */
+
+static void
+cp_parser_omp_declare_reduction (cp_parser *parser, cp_token *pragma_tok,
+				 enum pragma_context)
+{
+  vec<tree> types = vNULL;
+  enum tree_code reduc_code = ERROR_MARK;
+  tree reduc_id = NULL_TREE, orig_reduc_id = NULL_TREE, type;
+  unsigned int i;
+  cp_token *first_token;
+  cp_token_cache *cp;
+  int errs;
+
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    goto fail;
+
+  switch (cp_lexer_peek_token (parser->lexer)->type)
+    {
+    case CPP_PLUS:
+      reduc_code = PLUS_EXPR;
+      break;
+    case CPP_MULT:
+      reduc_code = MULT_EXPR;
+      break;
+    case CPP_MINUS:
+      reduc_code = MINUS_EXPR;
+      break;
+    case CPP_AND:
+      reduc_code = BIT_AND_EXPR;
+      break;
+    case CPP_XOR:
+      reduc_code = BIT_XOR_EXPR;
+      break;
+    case CPP_OR:
+      reduc_code = BIT_IOR_EXPR;
+      break;
+    case CPP_AND_AND:
+      reduc_code = TRUTH_ANDIF_EXPR;
+      break;
+    case CPP_OR_OR:
+      reduc_code = TRUTH_ORIF_EXPR;
+      break;
+    case CPP_NAME:
+      reduc_id = orig_reduc_id = cp_parser_identifier (parser);
+      break;
+    default:
+      cp_parser_error (parser, "expected %<+%>, %<*%>, %<-%>, %<&%>, %<^%>, "
+			       "%<|%>, %<&&%>, %<||%> or identifier");
+      goto fail;
+    }
+
+  if (reduc_code != ERROR_MARK)
+    cp_lexer_consume_token (parser->lexer);
+
+  reduc_id = omp_reduction_id (reduc_code, reduc_id, NULL_TREE);
+  if (reduc_id == error_mark_node)
+    goto fail;
+
+  if (!cp_parser_require (parser, CPP_COLON, RT_COLON))
+    goto fail;
+
+  /* Types may not be defined in declare reduction type list.  */
+  const char *saved_message;
+  saved_message = parser->type_definition_forbidden_message;
+  parser->type_definition_forbidden_message
+    = G_("types may not be defined in declare reduction type list");
+  bool saved_colon_corrects_to_scope_p;
+  saved_colon_corrects_to_scope_p = parser->colon_corrects_to_scope_p;
+  parser->colon_corrects_to_scope_p = false;
+  bool saved_colon_doesnt_start_class_def_p;
+  saved_colon_doesnt_start_class_def_p
+    = parser->colon_doesnt_start_class_def_p;
+  parser->colon_doesnt_start_class_def_p = true;
+
+  while (true)
+    {
+      location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+      type = cp_parser_type_id (parser);
+      if (type == error_mark_node)
+	;
+      else if (ARITHMETIC_TYPE_P (type)
+	       && (orig_reduc_id == NULL_TREE
+		   || (TREE_CODE (type) != COMPLEX_TYPE
+		       && (strcmp (IDENTIFIER_POINTER (orig_reduc_id),
+				   "min") == 0
+			   || strcmp (IDENTIFIER_POINTER (orig_reduc_id),
+				      "max") == 0))))
+	error_at (loc, "predeclared arithmetic type in "
+		       "%<#pragma omp declare reduction%>");
+      else if (TREE_CODE (type) == FUNCTION_TYPE
+	       || TREE_CODE (type) == METHOD_TYPE
+	       || TREE_CODE (type) == ARRAY_TYPE
+	       || TREE_CODE (type) == REFERENCE_TYPE)
+	error_at (loc, "function, array or reference type in "
+		       "%<#pragma omp declare reduction%>");
+      else if (TYPE_QUALS_NO_ADDR_SPACE (type))
+	error_at (loc, "const, volatile or __restrict qualified type in "
+		       "%<#pragma omp declare reduction%>");
+      else
+	types.safe_push (type);
+
+      if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	cp_lexer_consume_token (parser->lexer);
+      else
+	break;
+    }
+
+  /* Restore the saved message.  */
+  parser->type_definition_forbidden_message = saved_message;
+  parser->colon_corrects_to_scope_p = saved_colon_corrects_to_scope_p;
+  parser->colon_doesnt_start_class_def_p
+    = saved_colon_doesnt_start_class_def_p;
+
+  if (!cp_parser_require (parser, CPP_COLON, RT_COLON)
+      || types.is_empty ())
+    {
+     fail:
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      types.release ();
+      return;
+    }
+
+  first_token = cp_lexer_peek_token (parser->lexer);
+  cp = NULL;
+  errs = errorcount;
+  FOR_EACH_VEC_ELT (types, i, type)
+    {
+      tree fntype
+	= build_function_type_list (void_type_node,
+				    cp_build_reference_type (type, false),
+				    NULL_TREE);
+      tree this_reduc_id = reduc_id;
+      if (!dependent_type_p (type))
+	this_reduc_id = omp_reduction_id (ERROR_MARK, reduc_id, type);
+      tree fndecl = build_lang_decl (FUNCTION_DECL, this_reduc_id, fntype);
+      DECL_SOURCE_LOCATION (fndecl) = pragma_tok->location;
+      DECL_ARTIFICIAL (fndecl) = 1;
+      DECL_EXTERNAL (fndecl) = 1;
+      DECL_DECLARED_INLINE_P (fndecl) = 1;
+      DECL_IGNORED_P (fndecl) = 1;
+      DECL_OMP_DECLARE_REDUCTION_P (fndecl) = 1;
+      DECL_ATTRIBUTES (fndecl)
+	= tree_cons (get_identifier ("gnu_inline"), NULL_TREE,
+		     DECL_ATTRIBUTES (fndecl));
+      if (processing_template_decl)
+	fndecl = push_template_decl (fndecl);
+      bool block_scope = false;
+      tree block = NULL_TREE;
+      if (current_function_decl)
+	{
+	  block_scope = true;
+	  if (!processing_template_decl)
+	    pushdecl (fndecl);
+	}
+      else if (current_class_type)
+	{
+	  if (cp == NULL)
+	    {
+	      while (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL)
+		     && cp_lexer_next_token_is_not (parser->lexer, CPP_EOF))
+		cp_lexer_consume_token (parser->lexer);
+	      if (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL))
+		goto fail;
+	      cp = cp_token_cache_new (first_token,
+				       cp_lexer_peek_nth_token (parser->lexer,
+								2));
+	    }
+	  DECL_STATIC_FUNCTION_P (fndecl) = 1;
+	  finish_member_declaration (fndecl);
+	  DECL_PENDING_INLINE_INFO (fndecl) = cp;
+	  DECL_PENDING_INLINE_P (fndecl) = 1;
+	  vec_safe_push (unparsed_funs_with_definitions, fndecl);
+	  continue;
+	}
+      else
+	{
+	  DECL_CONTEXT (fndecl) = current_namespace;
+	  pushdecl (fndecl);
+	}
+      if (!block_scope)
+	start_preparsed_function (fndecl, NULL_TREE, SF_PRE_PARSED);
+      else
+	block = begin_omp_structured_block ();
+      if (cp)
+	{
+	  cp_parser_push_lexer_for_tokens (parser, cp);
+	  parser->lexer->in_pragma = true;
+	}
+      if (!cp_parser_omp_declare_reduction_exprs (fndecl, parser))
+	{
+	  if (!block_scope)
+	    finish_function (0);
+	  else
+	    DECL_CONTEXT (fndecl) = current_function_decl;
+	  if (cp)
+	    cp_parser_pop_lexer (parser);
+	  goto fail;
+	}
+      if (cp)
+	cp_parser_pop_lexer (parser);
+      if (!block_scope)
+	finish_function (0);
+      else
+	{
+	  DECL_CONTEXT (fndecl) = current_function_decl;
+	  block = finish_omp_structured_block (block);
+	  if (TREE_CODE (block) == BIND_EXPR)
+	    DECL_SAVED_TREE (fndecl) = BIND_EXPR_BODY (block);
+	  else if (TREE_CODE (block) == STATEMENT_LIST)
+	    DECL_SAVED_TREE (fndecl) = block;
+	  if (processing_template_decl)
+	    add_decl_expr (fndecl);
+	}
+      cp_check_omp_declare_reduction (fndecl);
+      if (cp == NULL && types.length () > 1)
+	cp = cp_token_cache_new (first_token,
+				 cp_lexer_peek_nth_token (parser->lexer, 2));
+      if (errs != errorcount)
+	break;
+    }
+
+  cp_parser_require_pragma_eol (parser, pragma_tok);
+  types.release ();
+}
+
 /* OpenMP 4.0
    #pragma omp declare simd declare-simd-clauses[optseq] new-line
    #pragma omp declare reduction (reduction-id : typename-list : expression) \
-      identity-clause[opt] new-line
+      initializer-clause[opt] new-line
    #pragma omp declare target new-line  */
 
 static void
@@ -29846,13 +30271,13 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
 	  return;
 	}
       cp_ensure_no_omp_declare_simd (parser);
-/*    if (strcmp (p, "reduction") == 0)
+      if (strcmp (p, "reduction") == 0)
 	{
 	  cp_lexer_consume_token (parser->lexer);
 	  cp_parser_omp_declare_reduction (parser, pragma_tok,
 					   context);
 	  return;
-	}  */
+	}
       if (strcmp (p, "target") == 0)
 	{
 	  cp_lexer_consume_token (parser->lexer);

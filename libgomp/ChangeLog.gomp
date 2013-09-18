@@ -1,3 +1,18 @@
+2013-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/simd-4.C: New test.
+	* testsuite/libgomp.c++/simd-5.C: New test.
+	* testsuite/libgomp.c++/simd-6.C: New test.
+	* testsuite/libgomp.c++/simd-7.C: New test.
+	* testsuite/libgomp.c++/udr-1.C: New test.
+	* testsuite/libgomp.c++/udr-2.C: New test.
+	* testsuite/libgomp.c++/udr-3.C: New test.
+	* testsuite/libgomp.c++/udr-4.C: New test.
+	* testsuite/libgomp.c++/udr-5.C: New test.
+	* testsuite/libgomp.c++/udr-6.C: New test.
+	* testsuite/libgomp.c++/udr-7.C: New test.
+	* testsuite/libgomp.c++/udr-8.C: New test.
+
 2013-09-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* splay-tree.h: New file.

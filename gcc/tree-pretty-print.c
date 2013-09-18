@@ -332,8 +332,12 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_REDUCTION:
       pp_string (buffer, "reduction(");
-      pp_string (buffer, op_symbol_code (OMP_CLAUSE_REDUCTION_CODE (clause)));
-      pp_colon (buffer);
+      if (OMP_CLAUSE_REDUCTION_CODE (clause) != ERROR_MARK)
+	{
+	  pp_string (buffer,
+		     op_symbol_code (OMP_CLAUSE_REDUCTION_CODE (clause)));
+	  pp_colon (buffer);
+	}
       dump_generic_node (buffer, OMP_CLAUSE_DECL (clause),
 			 spc, flags, false);
       pp_right_paren (buffer);

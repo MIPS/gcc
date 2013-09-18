@@ -5894,10 +5894,9 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	       && DECL_P (TYPE_SIZE_UNIT (TREE_TYPE (decl))))
 	omp_notice_variable (ctx, TYPE_SIZE_UNIT (TREE_TYPE (decl)), true);
     }
-  else if ((flags & GOVD_MAP) == 0
+  else if ((flags & (GOVD_MAP | GOVD_LOCAL)) == 0
 	   && lang_hooks.decls.omp_privatize_by_reference (decl))
     {
-      gcc_assert ((flags & GOVD_LOCAL) == 0);
       omp_firstprivatize_type_sizes (ctx, TREE_TYPE (decl));
 
       /* Similar to the direct variable sized case above, we'll need the

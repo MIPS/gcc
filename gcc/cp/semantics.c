@@ -4046,7 +4046,8 @@ finalize_nrv (tree *tp, tree var, tree result)
 
 bool
 cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
-			    bool need_copy_ctor, bool need_copy_assignment)
+			    bool need_copy_ctor, bool need_copy_assignment,
+			    bool need_dtor)
 {
   int save_errorcount = errorcount;
   tree info, t;
@@ -4070,8 +4071,7 @@ cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
 	TREE_VEC_ELT (info, 0) = t;
     }
 
-  if ((need_default_ctor || need_copy_ctor)
-      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+  if (need_dtor && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
     TREE_VEC_ELT (info, 1) = get_dtor (type, tf_warning_or_error);
 
   if (need_copy_assignment)
@@ -4538,6 +4538,343 @@ handle_omp_array_sections (tree c)
 	}
     }
   return false;
+}
+
+/* Return identifier to look up for omp declare reduction.  */
+
+tree
+omp_reduction_id (enum tree_code reduction_code, tree reduction_id, tree type)
+{
+  const char *p = NULL;
+  const char *m = NULL;
+  switch (reduction_code)
+    {
+    case PLUS_EXPR:
+    case MULT_EXPR:
+    case MINUS_EXPR:
+    case BIT_AND_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_IOR_EXPR:
+    case TRUTH_ANDIF_EXPR:
+    case TRUTH_ORIF_EXPR:
+      reduction_id = ansi_opname (reduction_code);
+      break;
+    case MIN_EXPR:
+      p = "min";
+      break;
+    case MAX_EXPR:
+      p = "max";
+      break;
+    default:
+      break;
+    }
+
+  if (p == NULL)
+    {
+      if (TREE_CODE (reduction_id) != IDENTIFIER_NODE)
+	return error_mark_node;
+      p = IDENTIFIER_POINTER (reduction_id);
+    }
+
+  if (type != NULL_TREE)
+    m = mangle_type_string (TYPE_MAIN_VARIANT (type));
+
+  const char prefix[] = "omp declare reduction ";
+  size_t lenp = sizeof (prefix);
+  if (strncmp (p, prefix, lenp - 1) == 0)
+    lenp = 1;
+  size_t len = strlen (p);
+  size_t lenm = m ? strlen (m) + 1 : 0;
+  char *name = XALLOCAVEC (char, lenp + len + lenm);
+  if (lenp > 1)
+    memcpy (name, prefix, lenp - 1);
+  memcpy (name + lenp - 1, p, len + 1);
+  if (m)
+    {
+      name[lenp + len - 1] = '~';
+      memcpy (name + lenp + len, m, lenm);
+    }
+  return get_identifier (name);
+}
+
+/* Lookup OpenMP UDR ID for TYPE, return the corresponding artificial
+   FUNCTION_DECL or NULL_TREE if not found.  */
+
+static tree
+omp_reduction_lookup (location_t loc, tree id, tree type)
+{
+  tree orig_id = id;
+  if (identifier_p (id))
+    {
+      cp_id_kind idk;
+      bool nonint_cst_expression_p;
+      const char *error_msg;
+      id = omp_reduction_id (ERROR_MARK, id, type);
+      tree decl = lookup_name (id);
+      if (decl == NULL_TREE)
+	decl = error_mark_node;
+      id = finish_id_expression (id, decl, NULL_TREE, &idk, false, true,
+				 &nonint_cst_expression_p, false, true, false,
+				 false, &error_msg, loc);
+      if (idk == CP_ID_KIND_UNQUALIFIED
+	  && identifier_p (id))
+	{
+	  vec<tree, va_gc> *args = NULL;
+	  vec_safe_push (args, build_reference_type (type));
+	  id = perform_koenig_lookup (id, args, false, tf_none);
+	}
+    }
+  else if (TREE_CODE (id) == SCOPE_REF)
+    id = lookup_qualified_name (TREE_OPERAND (id, 0),
+				omp_reduction_id (ERROR_MARK,
+						  TREE_OPERAND (id, 1),
+						  type),
+				false, false);
+  tree fns = id;
+  if (id && is_overloaded_fn (id))
+    id = get_fns (id);
+  for (; id; id = OVL_NEXT (id))
+    {
+      tree fndecl = OVL_CURRENT (id);
+      if (TREE_CODE (fndecl) == FUNCTION_DECL)
+	{
+	  tree argtype = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (fndecl)));
+	  if (same_type_p (TREE_TYPE (argtype), type))
+	    break;
+	}
+    }
+  if (id == NULL_TREE && CLASS_TYPE_P (type) && TYPE_BINFO (type))
+    {
+      tree binfo = TYPE_BINFO (type), base_binfo;
+      unsigned int ix;
+      for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
+	{
+	  id = omp_reduction_lookup (loc, orig_id, BINFO_TYPE (base_binfo));
+	  if (id != NULL_TREE)
+	    return id;
+	}
+    }
+  if (id && BASELINK_P (fns))
+    perform_or_defer_access_check (BASELINK_BINFO (fns), id, id,
+				   tf_warning_or_error);
+  return id;
+}
+
+/* Helper function for cp_parser_omp_declare_reduction_exprs
+   and tsubst_omp_udr.
+   Remove CLEANUP_STMT for data (omp_priv variable).
+   Also append INIT_EXPR for DECL_INITIAL of omp_priv after its
+   DECL_EXPR.  */
+
+tree
+cp_remove_omp_priv_cleanup_stmt (tree *tp, int *walk_subtrees, void *data)
+{
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  else if (TREE_CODE (*tp) == CLEANUP_STMT && CLEANUP_DECL (*tp) == (tree) data)
+    *tp = CLEANUP_BODY (*tp);
+  else if (TREE_CODE (*tp) == DECL_EXPR)
+    {
+      tree decl = DECL_EXPR_DECL (*tp);
+      if (!processing_template_decl
+	  && decl == (tree) data
+	  && DECL_INITIAL (decl)
+	  && DECL_INITIAL (decl) != error_mark_node)
+	{
+	  tree list = NULL_TREE;
+	  append_to_statement_list_force (*tp, &list);
+	  tree init_expr = build2 (INIT_EXPR, void_type_node,
+				   decl, DECL_INITIAL (decl));
+	  DECL_INITIAL (decl) = NULL_TREE;
+	  append_to_statement_list_force (init_expr, &list);
+	  *tp = list;
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Data passed from cp_check_omp_declare_reduction to
+   cp_check_omp_declare_reduction_r.  */
+
+struct cp_check_omp_declare_reduction_data
+{
+  location_t loc;
+  tree stmts[7];
+  bool combiner_p;
+};
+
+/* Helper function for cp_check_omp_declare_reduction, called via
+   cp_walk_tree.  */
+
+static tree
+cp_check_omp_declare_reduction_r (tree *tp, int *, void *data)
+{
+  struct cp_check_omp_declare_reduction_data *udr_data
+    = (struct cp_check_omp_declare_reduction_data *) data;
+  if (SSA_VAR_P (*tp)
+      && !DECL_ARTIFICIAL (*tp)
+      && *tp != DECL_EXPR_DECL (udr_data->stmts[udr_data->combiner_p ? 0 : 3])
+      && *tp != DECL_EXPR_DECL (udr_data->stmts[udr_data->combiner_p ? 1 : 4]))
+    {
+      location_t loc = udr_data->loc;
+      if (udr_data->combiner_p)
+	error_at (loc, "%<#pragma omp declare reduction%> combiner refers to "
+		       "variable %qD which is not %<omp_out%> nor %<omp_in%>",
+		  *tp);
+      else
+	error_at (loc, "%<#pragma omp declare reduction%> initializer refers "
+		       "to variable %qD which is not %<omp_priv%> nor "
+		       "%<omp_orig%>",
+		  *tp);
+      return *tp;
+    }
+  return NULL_TREE;
+}
+
+/* Diagnose violation of OpenMP #pragma omp declare reduction restrictions.  */
+
+void
+cp_check_omp_declare_reduction (tree udr)
+{
+  tree type = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (udr)));
+  gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
+  type = TREE_TYPE (type);
+  int i;
+  location_t loc = DECL_SOURCE_LOCATION (udr);
+
+  if (type == error_mark_node)
+    return;
+  if (ARITHMETIC_TYPE_P (type))
+    {
+      static enum tree_code predef_codes[]
+	= { PLUS_EXPR, MULT_EXPR, MINUS_EXPR, BIT_AND_EXPR, BIT_XOR_EXPR,
+	    BIT_IOR_EXPR, TRUTH_ANDIF_EXPR, TRUTH_ORIF_EXPR };
+      for (i = 0; i < 8; i++)
+	{
+	  tree id = omp_reduction_id (predef_codes[i], NULL_TREE, NULL_TREE);
+	  const char *n1 = IDENTIFIER_POINTER (DECL_NAME (udr));
+	  const char *n2 = IDENTIFIER_POINTER (id);
+	  if (strncmp (n1, n2, IDENTIFIER_LENGTH (id)) == 0
+	      && (n1[IDENTIFIER_LENGTH (id)] == '~'
+		  || n1[IDENTIFIER_LENGTH (id)] == '\0'))
+	    break;
+	}
+
+      if (i == 8
+	  && TREE_CODE (type) != COMPLEX_EXPR)
+	{
+	  const char prefix_minmax[] = "omp declare reduction m";
+	  size_t prefix_size = sizeof (prefix_minmax) - 1;
+	  const char *n = IDENTIFIER_POINTER (DECL_NAME (udr));
+	  if (strncmp (IDENTIFIER_POINTER (DECL_NAME (udr)),
+		       prefix_minmax, prefix_size) == 0
+	      && ((n[prefix_size] == 'i' && n[prefix_size + 1] == 'n')
+		  || (n[prefix_size] == 'a' && n[prefix_size + 1] == 'x'))
+	      && (n[prefix_size + 2] == '~' || n[prefix_size + 2] == '\0'))
+	    i = 0;
+	}
+      if (i < 8)
+	{
+	  error_at (loc, "predeclared arithmetic type in "
+			 "%<#pragma omp declare reduction%>");
+	  return;
+	}
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE
+	   || TREE_CODE (type) == METHOD_TYPE
+	   || TREE_CODE (type) == ARRAY_TYPE
+	   || TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      error_at (loc, "function, array or reference type in "
+		     "%<#pragma omp declare reduction%>");
+      return;
+    }
+  else if (TYPE_QUALS_NO_ADDR_SPACE (type))
+    {
+      error_at (loc, "const, volatile or __restrict qualified type in "
+		     "%<#pragma omp declare reduction%>");
+      return;
+    }
+
+  tree body = DECL_SAVED_TREE (udr);
+  if (body == NULL_TREE || TREE_CODE (body) != STATEMENT_LIST)
+    return;
+
+  tree_stmt_iterator tsi;
+  struct cp_check_omp_declare_reduction_data data;
+  memset (data.stmts, 0, sizeof data.stmts);
+  for (i = 0, tsi = tsi_start (body);
+       i < 7 && !tsi_end_p (tsi);
+       i++, tsi_next (&tsi))
+    data.stmts[i] = tsi_stmt (tsi);
+  data.loc = loc;
+  gcc_assert (tsi_end_p (tsi));
+  if (i >= 3)
+    {
+      gcc_assert (TREE_CODE (data.stmts[0]) == DECL_EXPR
+		  && TREE_CODE (data.stmts[1]) == DECL_EXPR);
+      if (TREE_NO_WARNING (DECL_EXPR_DECL (data.stmts[0])))
+	return;
+      data.combiner_p = true;
+      if (cp_walk_tree (&data.stmts[2], cp_check_omp_declare_reduction_r,
+			&data, NULL))
+	TREE_NO_WARNING (DECL_EXPR_DECL (data.stmts[0])) = 1;
+    }
+  if (i >= 6)
+    {
+      gcc_assert (TREE_CODE (data.stmts[3]) == DECL_EXPR
+		  && TREE_CODE (data.stmts[4]) == DECL_EXPR);
+      data.combiner_p = false;
+      if (cp_walk_tree (&data.stmts[5], cp_check_omp_declare_reduction_r,
+			&data, NULL)
+	  || cp_walk_tree (&DECL_INITIAL (DECL_EXPR_DECL (data.stmts[3])),
+			   cp_check_omp_declare_reduction_r, &data, NULL))
+	TREE_NO_WARNING (DECL_EXPR_DECL (data.stmts[0])) = 1;
+      if (i == 7)
+	gcc_assert (TREE_CODE (data.stmts[6]) == DECL_EXPR);
+    }
+}
+
+/* Helper function of finish_omp_clauses.  Clone STMT as if we were making
+   an inline call.  But, remap
+   the OMP_DECL1 VAR_DECL (omp_out resp. omp_orig) to PLACEHOLDER
+   and OMP_DECL2 VAR_DECL (omp_in resp. omp_priv) to DECL.  */
+
+static tree
+clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
+	       tree decl, tree placeholder)
+{
+  copy_body_data id;
+  struct pointer_map_t *decl_map = pointer_map_create ();
+
+  *pointer_map_insert (decl_map, omp_decl1) = placeholder;
+  *pointer_map_insert (decl_map, omp_decl2) = decl;
+  memset (&id, 0, sizeof (id));
+  id.src_fn = DECL_CONTEXT (omp_decl1);
+  id.dst_fn = current_function_decl;
+  id.src_cfun = DECL_STRUCT_FUNCTION (id.src_fn);
+  id.decl_map = decl_map;
+
+  id.copy_decl = copy_decl_no_change;
+  id.transform_call_graph_edges = CB_CGE_DUPLICATE;
+  id.transform_new_cfg = true;
+  id.transform_return_to_modify = false;
+  id.transform_lang_insert_block = NULL;
+  id.eh_lp_nr = 0;
+  walk_tree (&stmt, copy_tree_body_r, &id, NULL);
+  pointer_map_destroy (decl_map);
+  return stmt;
+}
+
+/* Helper function of finish_omp_clauses, called via cp_walk_tree.
+   Find OMP_CLAUSE_PLACEHOLDER (passed in DATA) in *TP.  */
+
+static tree
+find_omp_placeholder_r (tree *tp, int *, void *data)
+{
+  if (*tp == (tree) data)
+    return *tp;
+  return NULL_TREE;
 }
 
 /* For all elements of CLAUSES, validate them vs OpenMP constraints.
@@ -5065,6 +5402,7 @@ finish_omp_clauses (tree clauses)
       bool need_copy_ctor = false;
       bool need_copy_assignment = false;
       bool need_implicitly_determined = false;
+      bool need_dtor = false;
       tree type, inner_type;
 
       switch (c_kind)
@@ -5077,12 +5415,14 @@ finish_omp_clauses (tree clauses)
 	  name = "private";
 	  need_complete_non_reference = true;
 	  need_default_ctor = true;
+	  need_dtor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  name = "firstprivate";
 	  need_complete_non_reference = true;
 	  need_copy_ctor = true;
+	  need_dtor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -5130,34 +5470,228 @@ finish_omp_clauses (tree clauses)
 	{
 	case OMP_CLAUSE_LASTPRIVATE:
 	  if (!bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
-	    need_default_ctor = true;
+	    {
+	      need_default_ctor = true;
+	      need_dtor = true;
+	    }
 	  break;
 
 	case OMP_CLAUSE_REDUCTION:
-	  if (AGGREGATE_TYPE_P (TREE_TYPE (t))
-	      || POINTER_TYPE_P (TREE_TYPE (t)))
-	    {
-	      error ("%qE has invalid type for %<reduction%>", t);
-	      remove = true;
-	    }
-	  else if (FLOAT_TYPE_P (TREE_TYPE (t)))
-	    {
-	      enum tree_code r_code = OMP_CLAUSE_REDUCTION_CODE (c);
-	      switch (r_code)
+	  {
+	    bool predefined = false;
+	    tree type = TREE_TYPE (t);
+	    if (TREE_CODE (type) == REFERENCE_TYPE)
+	      type = TREE_TYPE (type);
+	    if (ARITHMETIC_TYPE_P (type))
+	      switch (OMP_CLAUSE_REDUCTION_CODE (c))
 		{
 		case PLUS_EXPR:
 		case MULT_EXPR:
 		case MINUS_EXPR:
+		  predefined = true;
+		  break;
 		case MIN_EXPR:
 		case MAX_EXPR:
+		  if (TREE_CODE (type) == COMPLEX_TYPE)
+		    break;
+		  predefined = true;
+		  break;
+		case BIT_AND_EXPR:
+		case BIT_IOR_EXPR:
+		case BIT_XOR_EXPR:
+		case TRUTH_ANDIF_EXPR:
+		case TRUTH_ORIF_EXPR:
+		  if (FLOAT_TYPE_P (type))
+		    break;
+		  predefined = true;
 		  break;
 		default:
-		  error ("%qE has invalid type for %<reduction(%s)%>",
-			 t, operator_name_info[r_code].name);
-		  remove = true;
+		  break;
 		}
-	    }
-	  break;
+	    else if (TREE_CODE (type) == ARRAY_TYPE
+		     || TYPE_READONLY (type))
+	      {
+		error ("%qE has invalid type for %<reduction%>", t);
+		remove = true;
+		break;
+	      }
+	    else if (!processing_template_decl)
+	      {
+		t = require_complete_type (t);
+		if (t == error_mark_node)
+		  {
+		    remove = true;
+		    break;
+		  }
+	      }
+	    if (predefined)
+	      {
+		OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL_TREE;
+	      }
+	    else if (!processing_template_decl)
+	      {
+		tree id = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
+
+		type = TYPE_MAIN_VARIANT (TREE_TYPE (t));
+		if (TREE_CODE (type) == REFERENCE_TYPE)
+		  type = TREE_TYPE (type);
+		OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = NULL_TREE;
+		if (id == NULL_TREE)
+		  id = omp_reduction_id (OMP_CLAUSE_REDUCTION_CODE (c),
+					 NULL_TREE, NULL_TREE);
+		id = omp_reduction_lookup (OMP_CLAUSE_LOCATION (c), id, type);
+		if (id)
+		  {
+		    id = OVL_CURRENT (id);
+		    if (DECL_TEMPLATE_INFO (id))
+		      id = instantiate_decl (id, /*defer_ok*/0, true);
+		    tree body = DECL_SAVED_TREE (id);
+		    if (TREE_CODE (body) == STATEMENT_LIST)
+		      {
+			tree_stmt_iterator tsi;
+			tree placeholder = NULL_TREE;
+			int i;
+			tree stmts[7];
+			tree atype
+			  = TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (id)));
+			atype = TREE_TYPE (atype);
+			bool need_static_cast = !same_type_p (type, atype);
+			memset (stmts, 0, sizeof stmts);
+			for (i = 0, tsi = tsi_start (body);
+			     i < 7 && !tsi_end_p (tsi);
+			     i++, tsi_next (&tsi))
+			  stmts[i] = tsi_stmt (tsi);
+			gcc_assert (tsi_end_p (tsi));
+			if (i >= 3)
+			  {
+			    gcc_assert (TREE_CODE (stmts[0]) == DECL_EXPR
+					&& TREE_CODE (stmts[1]) == DECL_EXPR);
+			    placeholder
+			      = build_lang_decl (VAR_DECL, NULL_TREE, type);
+			    DECL_ARTIFICIAL (placeholder) = 1;
+			    DECL_IGNORED_P (placeholder) = 1;
+			    OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = placeholder;
+			    if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[0])))
+			      cxx_mark_addressable (placeholder);
+			    if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[1]))
+				&& TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c)))
+				   != REFERENCE_TYPE)
+			      cxx_mark_addressable (OMP_CLAUSE_DECL (c));
+			    tree omp_out = placeholder;
+			    tree omp_in
+			      = convert_from_reference (OMP_CLAUSE_DECL (c));
+			    if (need_static_cast)
+			      {
+				tree ptype = build_pointer_type (atype);
+				omp_out = build_fold_addr_expr (omp_out);
+				omp_out
+				  = build_static_cast (ptype, omp_out,
+						       tf_warning_or_error);
+				omp_in = build_fold_addr_expr (omp_in);
+				omp_in
+				  = build_static_cast (ptype, omp_in,
+						       tf_warning_or_error);
+				if (omp_out == error_mark_node
+				    || omp_in == error_mark_node)
+				  {
+				    remove = true;
+				    break;
+				  }
+				omp_out
+				  = build1 (INDIRECT_REF, atype, omp_out);
+				omp_in
+				  = build1 (INDIRECT_REF, atype, omp_in);
+			      }
+			    OMP_CLAUSE_REDUCTION_MERGE (c)
+			      = clone_omp_udr (stmts[2],
+					       DECL_EXPR_DECL (stmts[0]),
+					       DECL_EXPR_DECL (stmts[1]),
+					       omp_in, omp_out);
+			  }
+			if (i >= 6)
+			  {
+			    gcc_assert (TREE_CODE (stmts[3]) == DECL_EXPR
+					&& TREE_CODE (stmts[4]) == DECL_EXPR);
+			    if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[3])))
+			      cxx_mark_addressable (OMP_CLAUSE_DECL (c));
+			    if (TREE_ADDRESSABLE (DECL_EXPR_DECL (stmts[4])))
+			      cxx_mark_addressable (placeholder);
+			    tree omp_priv
+			      = convert_from_reference (OMP_CLAUSE_DECL (c));
+			    tree omp_orig = placeholder;
+			    if (need_static_cast)
+			      {
+				if (i == 7)
+				  {
+				    error_at (OMP_CLAUSE_LOCATION (c),
+					      "user defined reduction with "
+					      "constructor initializer for "
+					      "base class %qT", atype);
+				    remove = true;
+				    break;
+				  }
+				tree ptype = build_pointer_type (atype);
+				omp_priv = build_fold_addr_expr (omp_priv);
+				omp_priv
+				  = build_static_cast (ptype, omp_priv,
+						       tf_warning_or_error);
+				omp_orig = build_fold_addr_expr (omp_orig);
+				omp_orig
+				  = build_static_cast (ptype, omp_orig,
+						       tf_warning_or_error);
+				if (omp_priv == error_mark_node
+				    || omp_orig == error_mark_node)
+				  {
+				    remove = true;
+				    break;
+				  }
+				omp_priv
+				  = build1 (INDIRECT_REF, atype, omp_priv);
+				omp_orig
+				  = build1 (INDIRECT_REF, atype, omp_orig);
+			      }
+			    if (i == 6)
+			      need_default_ctor = true;
+			    OMP_CLAUSE_REDUCTION_INIT (c)
+			      = clone_omp_udr (stmts[5],
+					       DECL_EXPR_DECL (stmts[4]),
+					       DECL_EXPR_DECL (stmts[3]),
+					       omp_priv, omp_orig);
+			    if (cp_walk_tree (&OMP_CLAUSE_REDUCTION_INIT (c),
+					      find_omp_placeholder_r,
+					      placeholder, NULL))
+			      OMP_CLAUSE_REDUCTION_OMP_ORIG_REF (c) = 1;
+			  }
+			else if (i >= 3)
+			  {
+			    if (CLASS_TYPE_P (type) && !pod_type_p (type))
+			      need_default_ctor = true;
+			    else
+			      {
+				tree init;
+				tree v = convert_from_reference (t);
+				if (AGGREGATE_TYPE_P (TREE_TYPE (v)))
+				  init = build_constructor (TREE_TYPE (v),
+							    NULL);
+				else
+				  init = fold_convert (TREE_TYPE (v),
+						       integer_zero_node);
+				OMP_CLAUSE_REDUCTION_INIT (c)
+				  = build2 (INIT_EXPR, TREE_TYPE (v), v, init);
+			      }
+			  }
+		      }
+		  }
+		if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+		  need_dtor = true;
+		else
+		  {
+		    error ("user defined reduction not found for %qD", t);
+		    remove = true;
+		  }
+	      }
+	    break;
+	  }
 
 	case OMP_CLAUSE_COPYIN:
 	  if (!VAR_P (t) || !DECL_THREAD_LOCAL_P (t))
@@ -5219,15 +5753,21 @@ finish_omp_clauses (tree clauses)
       while (TREE_CODE (inner_type) == ARRAY_TYPE)
 	inner_type = TREE_TYPE (inner_type);
 
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
+	  && TREE_CODE (inner_type) == REFERENCE_TYPE)
+	inner_type = TREE_TYPE (inner_type);
+
       /* Check for special function availability by building a call to one.
 	 Save the results, because later we won't be in the right context
 	 for making these queries.  */
       if (CLASS_TYPE_P (inner_type)
 	  && COMPLETE_TYPE_P (inner_type)
-	  && (need_default_ctor || need_copy_ctor || need_copy_assignment)
+	  && (need_default_ctor || need_copy_ctor
+	      || need_copy_assignment || need_dtor)
 	  && !type_dependent_expression_p (t)
 	  && cxx_omp_create_clause_info (c, inner_type, need_default_ctor,
-					 need_copy_ctor, need_copy_assignment))
+					 need_copy_ctor, need_copy_assignment,
+					 need_dtor))
 	remove = true;
 
       if (remove)

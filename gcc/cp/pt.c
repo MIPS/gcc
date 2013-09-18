@@ -8931,6 +8931,9 @@ instantiate_class_template_1 (tree type)
 	      /* Instantiate members marked with attribute used.  */
 	      if (r != error_mark_node && DECL_PRESERVE_P (r))
 		mark_used (r);
+	      if (TREE_CODE (r) == FUNCTION_DECL
+		  && DECL_OMP_DECLARE_REDUCTION_P (r))
+		cp_check_omp_declare_reduction (r);
 	    }
 	  else
 	    {
@@ -10398,6 +10401,24 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (!DECL_DELETED_FN (r))
 	  DECL_INITIAL (r) = NULL_TREE;
 	DECL_CONTEXT (r) = ctx;
+
+	/* OpenMP UDRs have the only argument a reference to the declared
+	   type.  We want to diagnose if the declared type is a reference,
+	   which is invalid, but as references to references are usually
+	   quietly merged, diagnose it here.  */
+	if (DECL_OMP_DECLARE_REDUCTION_P (t))
+	  {
+	    tree argtype
+	      = TREE_TYPE (TREE_VALUE (TYPE_ARG_TYPES (TREE_TYPE (t))));
+	    argtype = tsubst (argtype, args, complain, in_decl);
+	    if (TREE_CODE (argtype) == REFERENCE_TYPE)
+	      error_at (DECL_SOURCE_LOCATION (t),
+			"function, array or reference type in "
+			"%<#pragma omp declare reduction%>");
+	    if (strchr (IDENTIFIER_POINTER (DECL_NAME (t)), '~') == NULL)
+	      DECL_NAME (r) = omp_reduction_id (ERROR_MARK, DECL_NAME (t),
+						argtype);
+	  }
 
 	if (member && DECL_CONV_FN_P (r))
 	  /* Type-conversion operator.  Reconstruct the name, in
@@ -12856,7 +12877,6 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_SHARED:
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_IF:
@@ -12877,6 +12897,26 @@ tsubst_omp_clauses (tree clauses, bool declare_simd,
 	case OMP_CLAUSE_SIMDLEN:
 	  OMP_CLAUSE_OPERAND (nc, 0)
 	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain, 
+			   in_decl, /*integral_constant_expression_p=*/false);
+	  break;
+	case OMP_CLAUSE_REDUCTION:
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (oc))
+	    {
+	      tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (oc);
+	      if (TREE_CODE (placeholder) == SCOPE_REF)
+		{
+		  tree scope = tsubst (TREE_OPERAND (placeholder, 0), args,
+				       complain, in_decl);
+		  OMP_CLAUSE_REDUCTION_PLACEHOLDER (nc)
+		    = build_qualified_name (NULL_TREE, scope,
+					    TREE_OPERAND (placeholder, 1),
+					    false);
+		}
+	      else
+		gcc_assert (identifier_p (placeholder));
+	    }
+	  OMP_CLAUSE_OPERAND (nc, 0)
+	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 0), args, complain,
 			   in_decl, /*integral_constant_expression_p=*/false);
 	  break;
 	case OMP_CLAUSE_LINEAR:
@@ -13215,6 +13255,17 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		  }
 		else if (DECL_IMPLICIT_TYPEDEF_P (t))
 		  /* We already did a pushtag.  */;
+		else if (TREE_CODE (decl) == FUNCTION_DECL
+			 && DECL_OMP_DECLARE_REDUCTION_P (decl)
+			 && DECL_CONTEXT (pattern_decl)
+			 && TREE_CODE (DECL_CONTEXT (pattern_decl))
+			    == FUNCTION_DECL)
+		  {
+		    DECL_CONTEXT (decl) = NULL_TREE;
+		    pushdecl (decl);
+		    DECL_CONTEXT (decl) = current_function_decl;
+		    cp_check_omp_declare_reduction (decl);
+		  }
 		else
 		  {
 		    int const_init = false;
@@ -13717,6 +13768,72 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
   return r;
 #undef RECUR
 #undef RETURN
+}
+
+/* Instantiate the special body of the artificial DECL_OMP_DECLARE_REDUCTION
+   function.  */
+
+static void
+tsubst_omp_udr (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  if (t == NULL_TREE || t == error_mark_node)
+    return;
+
+  gcc_assert (TREE_CODE (t) == STATEMENT_LIST);
+
+  tree_stmt_iterator tsi;
+  int i;
+  tree stmts[7];
+  memset (stmts, 0, sizeof stmts);
+  for (i = 0, tsi = tsi_start (t);
+       i < 7 && !tsi_end_p (tsi);
+       i++, tsi_next (&tsi))
+    stmts[i] = tsi_stmt (tsi);
+  gcc_assert (tsi_end_p (tsi));
+
+  if (i >= 3)
+    {
+      gcc_assert (TREE_CODE (stmts[0]) == DECL_EXPR
+		  && TREE_CODE (stmts[1]) == DECL_EXPR);
+      tree omp_out = tsubst (DECL_EXPR_DECL (stmts[0]),
+			     args, complain, in_decl);
+      tree omp_in = tsubst (DECL_EXPR_DECL (stmts[1]),
+			    args, complain, in_decl);
+      DECL_CONTEXT (omp_out) = current_function_decl;
+      DECL_CONTEXT (omp_in) = current_function_decl;
+      keep_next_level (true);
+      tree block = begin_omp_structured_block ();
+      tsubst_expr (stmts[2], args, complain, in_decl, false);
+      block = finish_omp_structured_block (block);
+      block = maybe_cleanup_point_expr_void (block);
+      add_decl_expr (omp_out);
+      if (TREE_NO_WARNING (DECL_EXPR_DECL (stmts[0])))
+	TREE_NO_WARNING (omp_out) = 1;
+      add_decl_expr (omp_in);
+      finish_expr_stmt (block);
+    }
+  if (i >= 6)
+    {
+      gcc_assert (TREE_CODE (stmts[3]) == DECL_EXPR
+		  && TREE_CODE (stmts[4]) == DECL_EXPR);
+      tree omp_priv = tsubst (DECL_EXPR_DECL (stmts[3]),
+			      args, complain, in_decl);
+      tree omp_orig = tsubst (DECL_EXPR_DECL (stmts[4]),
+			      args, complain, in_decl);
+      DECL_CONTEXT (omp_priv) = current_function_decl;
+      DECL_CONTEXT (omp_orig) = current_function_decl;
+      keep_next_level (true);
+      tree block = begin_omp_structured_block ();
+      tsubst_expr (stmts[5], args, complain, in_decl, false);
+      block = finish_omp_structured_block (block);
+      block = maybe_cleanup_point_expr_void (block);
+      cp_walk_tree (&block, cp_remove_omp_priv_cleanup_stmt, omp_priv, NULL);
+      add_decl_expr (omp_priv);
+      add_decl_expr (omp_orig);
+      finish_expr_stmt (block);
+      if (i == 7)
+	add_decl_expr (omp_orig);
+    }
 }
 
 /* T is a postfix-expression that is not being used in a function
@@ -19420,6 +19537,7 @@ instantiate_decl (tree d, int defer_ok,
       tree subst_decl;
       tree tmpl_parm;
       tree spec_parm;
+      tree block = NULL_TREE;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
@@ -19429,7 +19547,11 @@ instantiate_decl (tree d, int defer_ok,
       local_specializations = pointer_map_create ();
 
       /* Set up context.  */
-      start_preparsed_function (d, NULL_TREE, SF_PRE_PARSED);
+      if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern)
+	  && TREE_CODE (DECL_CONTEXT (code_pattern)) == FUNCTION_DECL)
+	block = push_stmt_list ();
+      else
+	start_preparsed_function (d, NULL_TREE, SF_PRE_PARSED);
 
       /* Some typedefs referenced from within the template code need to be
 	 access checked at template instantiation time, i.e now. These
@@ -19466,21 +19588,37 @@ instantiate_decl (tree d, int defer_ok,
       gcc_assert (!spec_parm);
 
       /* Substitute into the body of the function.  */
-      tsubst_expr (DECL_SAVED_TREE (code_pattern), args,
-		   tf_warning_or_error, tmpl,
-		   /*integral_constant_expression_p=*/false);
+      if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern))
+	tsubst_omp_udr (DECL_SAVED_TREE (code_pattern), args,
+			tf_warning_or_error, tmpl);
+      else
+	{
+	  tsubst_expr (DECL_SAVED_TREE (code_pattern), args,
+		       tf_warning_or_error, tmpl,
+		       /*integral_constant_expression_p=*/false);
 
-      /* Set the current input_location to the end of the function
-         so that finish_function knows where we are.  */
-      input_location = DECL_STRUCT_FUNCTION (code_pattern)->function_end_locus;
+	  /* Set the current input_location to the end of the function
+	     so that finish_function knows where we are.  */
+	  input_location
+	    = DECL_STRUCT_FUNCTION (code_pattern)->function_end_locus;
+	}
 
       /* We don't need the local specializations any more.  */
       pointer_map_destroy (local_specializations);
       local_specializations = saved_local_specializations;
 
       /* Finish the function.  */
-      d = finish_function (0);
-      expand_or_defer_fn (d);
+      if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern)
+	  && TREE_CODE (DECL_CONTEXT (code_pattern)) == FUNCTION_DECL)
+	DECL_SAVED_TREE (d) = pop_stmt_list (block);
+      else
+	{
+	  d = finish_function (0);
+	  expand_or_defer_fn (d);
+	}
+
+      if (DECL_OMP_DECLARE_REDUCTION_P (code_pattern))
+	cp_check_omp_declare_reduction (d);
     }
 
   /* We're not deferring instantiation any more.  */
