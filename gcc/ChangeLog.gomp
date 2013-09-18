@@ -1,3 +1,12 @@
+2013-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (OMP_CLAUSE_DEPEND_KIND, OMP_CLAUSE_MAP_KIND,
+	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION, OMP_CLAUSE_PROC_BIND_KIND):
+	Move definitions...
+	* tree.h (OMP_CLAUSE_DEPEND_KIND, OMP_CLAUSE_MAP_KIND,
+	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION, OMP_CLAUSE_PROC_BIND_KIND):
+	... here.
+
 2013-09-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (install_var_field): Use (mask & 4) to request double

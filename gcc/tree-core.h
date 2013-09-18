@@ -1086,9 +1086,6 @@ enum omp_clause_depend_kind
   OMP_CLAUSE_DEPEND_INOUT
 };
 
-#define OMP_CLAUSE_DEPEND_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEPEND)->omp_clause.subcode.depend_kind)
-
 enum omp_clause_map_kind
 {
   OMP_CLAUSE_MAP_ALLOC,
@@ -1101,15 +1098,6 @@ enum omp_clause_map_kind
   OMP_CLAUSE_MAP_POINTER
 };
 
-#define OMP_CLAUSE_MAP_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
-
-/* Nonzero if this map clause is for array (rather than pointer) based array
-   section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and
-   correspoidng OMP_CLAUSE_MAP_POINTER clause are marked with this flag.  */
-#define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
-
 enum omp_clause_proc_bind_kind
 {
   /* Numbers should match omp_proc_bind_t enum in omp.h.  */
@@ -1119,9 +1107,6 @@ enum omp_clause_proc_bind_kind
   OMP_CLAUSE_PROC_BIND_CLOSE = 3,
   OMP_CLAUSE_PROC_BIND_SPREAD = 4
 };
-
-#define OMP_CLAUSE_PROC_BIND_KIND(NODE) \
-  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->omp_clause.subcode.proc_bind_kind)
 
 struct GTY(()) tree_exp {
   struct tree_typed typed;
