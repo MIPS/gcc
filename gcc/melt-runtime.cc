@@ -936,6 +936,7 @@ int melt_branch_argument_processing (int *argcp, char***argvp)
     if (!strcmp(curarg, "-fplugin=melt")) 
       {
 	ret++;
+	inform (UNKNOWN_LOCATION, "MELT branch won't load its plugin with -fplugin=melt");
 	continue;
       }
     char* meltargstart = NULL;

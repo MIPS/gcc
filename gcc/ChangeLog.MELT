@@ -1,5 +1,10 @@
 
 
+2013-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (melt_branch_argument_processing): Notify the
+	user who is loading the MELT plugin into the branch...
+
 2013-09-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{The branch should now accept -fplugin-arg-melt-* arguments like
 	-fmelt ones and ignore -fplugin=melt; arbitrary arguments are
