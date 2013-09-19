@@ -157,11 +157,39 @@ NORETURN cilk_fiber_sysdep::run()
     // We could probably replace this code with some assembly.
     if (! CILK_SETJMP(m_resume_jmpbuf))
     {
-        // Change stack pointer to fiber stack
-        JMPBUF_SP(m_resume_jmpbuf) = m_stack_base;
+        // Calculate the size of the current stack frame (i.e., this
+        // run() function.  
+        size_t frame_size = (size_t)JMPBUF_FP(m_resume_jmpbuf) - (size_t)JMPBUF_SP(m_resume_jmpbuf);
+
+        // Macs require 16-byte alignment.  Do it always because it just
+        // doesn't matter
+        if (frame_size & (16-1))
+            frame_size += 16 - (frame_size  & (16-1));
+
+        // Assert that we are getting a reasonable frame size out of
+        // it.  If this run() function is using more than 4096 bytes
+        // of space for its local variables / any state that spills to
+        // registers, something is probably *very* wrong here...
+        //
+        // 4096 bytes just happens to be a number that seems "large
+        // enough" --- for an example GCC 32-bit compilation, the
+        // frame size was 48 bytes.
+        CILK_ASSERT(frame_size < 4096);
+
+        // Change stack pointer to fiber stack.  Offset the
+        // calculation by the frame size, so that we've allocated
+        // enough extra space from the top of the stack we are
+        // switching to for any temporaries required for this run()
+        // function.
+        JMPBUF_SP(m_resume_jmpbuf) = m_stack_base - frame_size;
         CILK_LONGJMP(m_resume_jmpbuf);
     }
 
+    // Note: our resetting of the stack pointer is valid only if the
+    // compiler has not saved any temporaries onto the stack for this
+    // function before the longjmp that we still care about at this
+    // point.
+    
     // Verify that 1) 'this' is still valid and 2) '*this' has not been
     // corrupted.
     CILK_ASSERT(magic_number == m_magic);

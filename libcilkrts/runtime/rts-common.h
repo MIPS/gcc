@@ -3,7 +3,7 @@
  *************************************************************************
  *
  *  @copyright
- *  Copyright (C) 2009-2011
+ *  Copyright (C) 2009-2013
  *  Intel Corporation
  *  
  *  @copyright
@@ -116,5 +116,12 @@
 #   undef ENABLE_NOTIFY_ZC_INTRINSIC
 #endif
 
+// If ENABLE_NOTIFY_ZC_INTRINSIC is defined, use __notify_zc_intrisic
+#ifdef ENABLE_NOTIFY_ZC_INTRINSIC
+#   define NOTIFY_ZC_INTRINSIC(annotation, data) \
+    __notify_zc_intrinsic(annotation, data)
+#else
+#   define NOTIFY_ZC_INTRINSIC(annotation, data)
+#endif
 
 #endif // ! defined(INCLUDED_RTS_COMMON_DOT_H)
