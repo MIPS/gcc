@@ -98,40 +98,114 @@ public:
 };
 
 
-/** Compute the alignment of a type. (More precisely, the alignment of a data
- *  member of the type in a structure.)
+/** Get the alignment of a type.
  *
  *  For example:
  *
  *      align_of<double>::value == 8
  *
- *  Adapted from the [AlignOf](http://llvm.org/doxygen/AlignOf_8h_source.html)
- *  class used in [LLVM](http://llvm.org).
+ *  @tparam Tp  The type whose alignment is to be computed.
  *
- *  @tparam T   The type whose alignment is to be computed.
+ *  @result     The `value` member of an instantiation of this class template
+ *              will hold the integral alignment requirement of @a Tp.
  *
- *  @result     `value` will be the alignment for type @a T.
- *
- *  @see alignof()
+ *  @pre        @a Tp shall be a complete type.
  *
  *  @ingroup common
  */
-template <typename T>
-class align_of {
-    
-    struct impl {
-      char x;
-      T t;
-      impl();   // Never instantiate.
-      impl(const impl&);
+template <typename Tp>
+struct align_of
+{
+private:
+    struct imp {
+        char m_padding;
+        Tp   m_val;
+
+        // The following declarations exist to suppress compiler-generated
+        // definitions, in case @a Tp does not have a public default
+        // constructor, copy constructor, or destructor.
+        imp(const imp&); // Declared but not defined
+        ~imp();          // Declared but not defined
     };
 
 public:
-    enum {
-        /** The alignment of the type @a T.
-         */
-        value = static_cast<std::size_t>(sizeof(impl) - sizeof(T))
-    };
+    /// The integral alignment requirement of @a Tp.
+    static const std::size_t    value = (sizeof(imp) - sizeof(Tp));
+};
+
+
+/** A class containing raw bytes with a specified alignment and size.
+ *
+ *  An object of type `aligned_storage<S, A>` will have alignment `A` and
+ *  size at least `S`. Its contents will be uninitialized bytes.
+ *
+ *  @tparam Size        The required minimum size of the resulting class.
+ *  @tparam Alignment   The required alignment of the resulting class.
+ *
+ *  @pre    @a Alignment shall be a power of 2 no greater then 64.
+ *
+ *  @note   This is implemented using the `CILK_ALIGNAS` macro, which uses
+ *          the non-standard, implementation-specific features
+ *          `__declspec(align(N))` on Windows, and 
+ *          `__attribute__((__aligned__(N)))` on Unix. The `gcc` implementation
+ *          of `__attribute__((__aligned__(N)))` requires a numeric literal `N`
+ *          (_not_ an arbitrary compile-time constant expression). Therefore,
+ *          this class is implemented using specialization on the required
+ *          alignment.
+ *
+ *  @note   The template class is specialized only for the supported
+ *          alignments. An attempt to instantiate it for an unsupported
+ *          alignment will result in a compilation error.
+ */
+template <std::size_t Size, std::size_t Alignment>
+struct aligned_storage;
+
+template<std::size_t Size> class aligned_storage<Size,  1> 
+    { CILK_ALIGNAS( 1) char m_bytes[Size]; };
+template<std::size_t Size> class aligned_storage<Size,  2> 
+    { CILK_ALIGNAS( 2) char m_bytes[Size]; };
+template<std::size_t Size> class aligned_storage<Size,  4> 
+    { CILK_ALIGNAS( 4) char m_bytes[Size]; };
+template<std::size_t Size> class aligned_storage<Size,  8> 
+    { CILK_ALIGNAS( 8) char m_bytes[Size]; };
+template<std::size_t Size> class aligned_storage<Size, 16> 
+    { CILK_ALIGNAS(16) char m_bytes[Size]; };
+template<std::size_t Size> class aligned_storage<Size, 32> 
+    { CILK_ALIGNAS(32) char m_bytes[Size]; };
+template<std::size_t Size> class aligned_storage<Size, 64> 
+    { CILK_ALIGNAS(64) char m_bytes[Size]; };
+
+
+/** A buffer of uninitialized bytes with the same size and alignment as a
+ *  specified type.
+ *
+ *  The class `storage_for_object<Type>` will have the same size and alignment
+ *  properties as `Type`, but it will contain only raw (uninitialized) bytes.
+ *  This allows the definition of a data member which can contain a `Type`
+ *  object which is initialized explicitly under program control, rather
+ *  than implicitly as part of the initialization of the containing class. 
+ *  For example:
+ *
+ *      class C {
+ *          storage_for_object<MemberClass> _member;
+ *      public:
+ *          C() ... // Does NOT initialize _member
+ *          void initialize(args) 
+ *              { new (_member.pointer()) MemberClass(args); }
+ *          const MemberClass& member() const { return _member.object(); }
+ *                MemberClass& member()       { return _member.object(); }
+ *
+ *  @tparam Type    The type whose size and alignment are to be reflected
+ *                  by this class.
+ */
+template <typename Type>
+class storage_for_object : 
+    aligned_storage< sizeof(Type), align_of<Type>::value >
+{
+public:
+    /// Return a typed reference to the buffer.
+    const Type& object() const { return *reinterpret_cast<Type*>(this); }
+          Type& object()       { return *reinterpret_cast<Type*>(this); }
 };
 
 
@@ -389,8 +463,12 @@ inline void* allocate_aligned(std::size_t size, std::size_t alignment)
 #ifdef _WIN32
     return _aligned_malloc(size, alignment);
 #else
+#if defined(ANDROID) || defined(__ANDROID__)
+    return memalign(std::max(alignment, sizeof(void*)), size);
+#else
     void* ptr;
     return (posix_memalign(&ptr, std::max(alignment, sizeof(void*)), size) == 0) ? ptr : 0;
+#endif
 #endif        
 }
 

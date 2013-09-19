@@ -125,6 +125,7 @@
 #include <stddef.h>
 #endif
 
+// Allows use of a different version that the one defined in abi.h
 #define CILK_FAKE_VERSION_FLAG (__CILKRTS_ABI_VERSION << 24)
     
 /* Initialize frame. To be called when worker is known */
@@ -368,6 +369,36 @@ static int __cilk_fake_dummy = 8;
 #ifdef __cplusplus
 // The following definitions depend on C++ features.
 
+// Wrap a functor (probably a lambda), so that a call to it cannot be
+// inlined.
+template <typename F>
+class __cilk_fake_noinline_wrapper
+{
+    F&& m_fn;
+public:
+    __cilk_fake_noinline_wrapper(F&& fn) : m_fn(static_cast<F&&>(fn)) { }
+
+#ifdef _WIN32
+    __declspec(noinline) void operator()(__cilkrts_stack_frame *sf);
+#else
+    void operator()(__cilkrts_stack_frame *sf) __attribute__((noinline));
+#endif
+
+};
+
+template <typename F>
+void __cilk_fake_noinline_wrapper<F>::operator()(__cilkrts_stack_frame *sf)
+{
+    m_fn(sf);
+}
+
+template <typename F>
+inline
+__cilk_fake_noinline_wrapper<F> __cilk_fake_make_noinline_wrapper(F&& fn)
+{
+    return __cilk_fake_noinline_wrapper<F>(static_cast<F&&>(fn));
+}
+
 // Simulate "_Cilk_spawn expr", where expr must be a function call.
 //
 // Note: this macro does not correctly construct function arguments.
@@ -402,10 +433,10 @@ static int __cilk_fake_dummy = 8;
 // Create a spawn helper as a C++11 lambda function.  In addition to the
 // expression to spawn, this macro takes a any number of statements to be
 // executed before detaching.
-#define CILK_FAKE_SPAWN_HELPER(expr, ...)                             \
-    [&](__cilkrts_stack_frame *parent_sf) {                           \
-        CILK_FAKE_SPAWN_HELPER_BODY(*parent_sf, expr, __VA_ARGS__);   \
-    }
+#define CILK_FAKE_SPAWN_HELPER(expr, ...)                                     \
+    __cilk_fake_make_noinline_wrapper([&](__cilkrts_stack_frame *parent_sf) { \
+        CILK_FAKE_SPAWN_HELPER_BODY(*parent_sf, expr, __VA_ARGS__);           \
+    })
 
 // C++ version of a __cilkrts_stack_frame for a spawning function.
 // This struct is identical to __cilkrts_stack_frame except that the

@@ -46,7 +46,6 @@
 #include "cilk/hyperobject_base.h"
 #include "cilk/metaprogramming.h"
 
-
 #ifdef __cplusplus
 
 //===================== C++ interfaces ===================================
@@ -704,44 +703,20 @@ struct reducer_set_get<Value, Value>
 
 /** Base class defining the data layout that is common to all reducers.
  */
-template <typename Monoid>
+template <typename Monoid> 
 class reducer_base {
     typedef typename Monoid::view_type view_type;
-
-    // The following declarations ensure that the `base`, `monoid`, and
-    // `initialThis` fields (as well as the `leftmost` field, which is defined
-    // in the `reducer_content` subclass) are assigned at the same offsets as
-    // in the “old” reducer implementation (prior to November 2012), which
-    // declared them as
-    //
-    //         __cilkrts_hyperobject_base  m_base;
-    //         const Monoid                m_monoid;
-    //         void*                       m_initialThis;
-    //         __CILKRTS_CACHE_ALIGNED(view_type m_leftmost);
-
-    // This structure determines what the relative positions of the `base` and
-    // `monoid` fields would be, and how much space would be allocated for
-    // them.
-    //
-    struct _layout_overlay {
-        __cilkrts_hyperobject_base  base;
-        Monoid                      monoid;
-        _layout_overlay();          // Declared, not defined.
-    };
 
     // This makes the reducer a hyper-object. (Partially initialized in
     // the derived reducer_content class.)
     //
     __cilkrts_hyperobject_base      m_base;
 
-    // Reserve enough unconstructed space for the monoid. It is allocated
-    // here as raw bytes, and is constructed explicitly by a call to the
-    // monoid_type::construct() function in the constructor of the `reducer`
-    // subclass.
+    // The monoid is allocated here as raw bytes, and is constructed explicitly
+    // by a call to the monoid_type::construct() function in the constructor of
+    // the `reducer` subclass.
     //
-    char                            _monoid_reservation[
-                                        sizeof(_layout_overlay) -
-                                        sizeof(__cilkrts_hyperobject_base) ];
+    storage_for_object<Monoid>      m_monoid;
 
     // Used for sanity checking at destruction.
     //
@@ -792,7 +767,12 @@ protected:
     __CILKRTS_STRAND_STALE(~reducer_base())
     {
         // Make sure we haven't been memcopy'd or corrupted
-        __CILKRTS_ASSERT(this == m_initialThis);
+        __CILKRTS_ASSERT(
+            this == m_initialThis ||
+            // Allow for a layout bug that may put the initialThis field one 
+            // word later in 1.0 reducers than in 0.9  and 1.1 reducers.
+            this == *(&m_initialThis + 1)
+        );
         __cilkrts_hyper_destroy(&m_base);
     }
 
@@ -800,8 +780,7 @@ protected:
      *
      *  @return A pointer to the reducer’s monoid data member.
      */
-    Monoid* monoid_ptr() 
-        { return & reinterpret_cast<_layout_overlay*>(this)->monoid; }
+    Monoid* monoid_ptr() { return &m_monoid.object(); }
 
     /** Leftmost view data member.
      *
@@ -848,6 +827,18 @@ public:
     }
     
     //@}
+    
+    /** Initial view pointer field.
+     *
+     *  @internal
+     *
+     *  @return a reference to the m_initialThis field.
+     *
+     *  @note   This function is provided for “white-box” testing of the
+     *          reducer layout code. There is never any reason for user code
+     *          to call it.
+     */
+    const void* const & initial_this() const { return m_initialThis; }
 };
 
 template <typename Monoid>
@@ -1001,7 +992,7 @@ class reducer_content<Monoid, false> : public reducer_base<Monoid>
     char m_leftmost[
         // View size rounded up to multiple cache lines
         (   (sizeof(view_type) + __CILKRTS_CACHE_LINE__ - 1)
-            & (__CILKRTS_CACHE_LINE__ - 1)
+            & ~ (__CILKRTS_CACHE_LINE__ - 1)
         )
         // plus filler to allow alignment.
         + __CILKRTS_CACHE_LINE__ - 1
@@ -1013,11 +1004,11 @@ protected:
      *  area, and pass it to the base constructor as the leftmost view 
      *  address.
      */
-    reducer_content() : reducer_base<Monoid>(
-                            (char*)(
-                                    ((std::size_t)&m_leftmost + __CILKRTS_CACHE_LINE__ - 1)
-                                    / __CILKRTS_CACHE_LINE__ * __CILKRTS_CACHE_LINE__) )
-                        {}
+    reducer_content() : 
+        reducer_base<Monoid>(
+            (char*)( ((std::size_t)&m_leftmost + __CILKRTS_CACHE_LINE__ - 1)
+                     & ~ (__CILKRTS_CACHE_LINE__ - 1) ) )
+    {}
 };
 
 

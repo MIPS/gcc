@@ -120,7 +120,7 @@ void call_cilk_for_loop_body(count_t low, count_t high,
                              __cilkrts_pedigree *loop_root_pedigree)
 {
     // Cilkscreen should not report this call in a stack trace
-    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+    NOTIFY_ZC_INTRINSIC((char *)"cilkscreen_hide_call", 0);
 
     // The worker is only valid until the first spawn.  Fetch the
     // __cilkrts_stack_frame out of the worker, since it will be stable across
@@ -234,7 +234,7 @@ void cilk_for_recursive(count_t low, count_t high,
 tail_recurse:
     // Cilkscreen should not report this call in a stack trace
     // This needs to be done everytime the worker resumes
-    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+    NOTIFY_ZC_INTRINSIC((char *)"cilkscreen_hide_call", 0);
 
     count_t count = high - low;
     // Invariant: count > 0, grain >= 1
@@ -281,7 +281,7 @@ template <typename count_t, typename F>
 static void cilk_for_root(F body, void *data, count_t count, int grain)
 {
     // Cilkscreen should not report this call in a stack trace
-    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+    NOTIFY_ZC_INTRINSIC((char *)"cilkscreen_hide_call", 0);
 
     // Pedigree computation:
     //
@@ -368,7 +368,7 @@ CILK_ABI_THROWS_VOID __cilkrts_cilk_for_32(__cilk_abi_f32_t body, void *data,
                                             cilk32_t count, int grain)
 {
     // Cilkscreen should not report this call in a stack trace
-    __notify_zc_intrinsic((char *)"cilkscreen_hide_call", 0);
+    NOTIFY_ZC_INTRINSIC((char *)"cilkscreen_hide_call", 0);
 
     // Check for an empty range here as an optimization - don't need to do any
     // __cilkrts_stack_frame initialization

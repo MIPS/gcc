@@ -852,9 +852,7 @@ void fiber_proc_to_resume_user_code_for_random_steal(cilk_fiber *fiber)
         
         // Notify the Intel tools that we're stealing code
         ITT_SYNC_ACQUIRED(sf->worker);
-#ifdef ENABLE_NOTIFY_ZC_INTRINSIC
-        __notify_zc_intrinsic("cilk_continue", sf);
-#endif // defined ENABLE_NOTIFY_ZC_INTRINSIC
+        NOTIFY_ZC_INTRINSIC("cilk_continue", sf);
 
         // TBD: We'd like to move TBB-interop methods into the fiber
         // eventually.
@@ -1556,9 +1554,7 @@ user_code_resume_after_switch_into_runtime(cilk_fiber *fiber)
 
     // Notify the Intel tools that we're stealing code
     ITT_SYNC_ACQUIRED(sf->worker);
-#ifdef ENABLE_NOTIFY_ZC_INTRINSIC
-    __notify_zc_intrinsic("cilk_continue", sf);
-#endif // defined ENABLE_NOTIFY_ZC_INTRINSIC
+    NOTIFY_ZC_INTRINSIC("cilk_continue", sf);
     cilk_fiber_invoke_tbb_stack_op(fiber, CILK_TBB_STACK_ADOPT);
 
     // Actually jump to user code.
@@ -2278,7 +2274,7 @@ static void do_sync(__cilkrts_worker *w, full_frame *ff,
     // that we're abandoning the work and will go find something else to do.
     if (ABANDON_EXECUTION == steal_result)
     {
-        __notify_zc_intrinsic("cilk_sync_abandon", 0);
+        NOTIFY_ZC_INTRINSIC("cilk_sync_abandon", 0);
     }
 #endif // defined ENABLE_NOTIFY_ZC_INTRINSIC
 
@@ -2397,12 +2393,10 @@ void __cilkrts_c_THE_exception_check(__cilkrts_worker *w,
         // reductions.
         update_pedigree_on_leave_frame(w, returning_sf);
 
-#ifdef ENABLE_NOTIFY_ZC_INTRINSIC
         // Notify Inspector that the parent has been stolen and we're
         // going to abandon this work and go do something else.  This
         // will match the cilk_leave_begin in the compiled code
-        __notify_zc_intrinsic("cilk_leave_stolen", saved_sf);
-#endif // defined ENABLE_NOTIFY_ZC_INTRINSIC
+        NOTIFY_ZC_INTRINSIC("cilk_leave_stolen", saved_sf);
 
         DBGPRINTF ("%d: longjmp_into_runtime from __cilkrts_c_THE_exception_check\n", w->self);
         longjmp_into_runtime(w, do_return_from_spawn, 0);

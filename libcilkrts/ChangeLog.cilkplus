@@ -1,3 +1,16 @@
+2013-09-19  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* include/cilk/reducer.h: Updated to revision 3613.
+	* include/cilk/metaprogramming.h: Likewise.
+	* include/cilk/common.h: Likewise.
+	* include/internal/rev.mk: Likewise.
+	* include/internal/cilk_version.h: Likewise.
+	* include/internal/cilk_fake.h: Likewise.
+	* runtime/scheduler.c: Likewise.
+	* runtime/cilk-abi-cilk-for.cpp: Likewise.
+	* runtime/rts-common.h: Likewise.
+	* runtime/cilk_fiber-unix.cpp: Likewise.
+
 2013-08-15  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 	
        * Makefile.in (libcilkrts_la_LDFLAGS): Removed version info from 
