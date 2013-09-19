@@ -1,3 +1,111 @@
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58472
+	* tree-vect-stmts.c (vectorizable_store, vectorizable_load): For
+	simd_lane_access set inv_p = false.
+	* omp-low.c (lower_rec_input_clauses): Set TREE_NO_WARNING on
+	the simduid magic VAR_DECL.
+
+2013-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (generic_memcpy, generic_memset): Fix 32bit template.
+
+2013-09-17  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (record_temporary_equivalences): New function
+	split out of dom_opt_dom_walker::after_dom_children.
+	(dom_opt_dom_walker::thread_across_edge): Move common code
+	in here from dom_opt_dom_walker::after_dom_children.
+	(dom_opt_dom_walker::after_dom_children): Corresponding simplifictions.
+
+2013-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (TARGET_GENERIC32, TARGET_GENERIC64): Remove.
+	(TARGET_GENERIC): Use PROCESOR_GENERIC
+	(enum processor_type): Unify generic32 and 64.
+	* i386.md (cpu): Likewise.
+	* x86-tune.def (use_leave): Enable for generic32.
+	(avoid_vector_decode, slow_imul_imm32_mem, slow_imul_imm8): Likewise.
+	* athlon.md: Change generic64 to generic in all occurences.
+	* i386-c.c (ix86_target_macros_internal): Unify generic64 and 32.
+	(ix86_target_macros_internal): Likewise.
+	* driver-i386.c (host_detect_local_cpu): Likewise.
+	* i386.c (generic64_memcpy, generic64_memset, generic64_cost): Rename to ..
+	(generic_memcpy, generic_memset, generic_cost): This one.
+	(generic32_memcpy, generic32_memset, generic32_cost): Remove.
+	(m_GENERIC32, m_GENERIC64): Remove.
+	(m_GENERIC): Turn into one flag.
+	(processor_target): Unify generic tunnings.
+	(ix86_option_override_internal): Replace generic32/64 by generic.
+	(ix86_issue_rate): Likewise.
+	(ix86_adjust_cost): Likewise.
+
+2013-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_create_edge_1): Avoid uninitialized read
+	of speculative flag.
+
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_sections): Always pass len - 1 to
+	GOMP_sections_start, even if !exit_reachable.
+
+2013-09-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (need_for_all_save_p): Use macro
+	HARD_REGNO_CALL_PART_CLOBBERED.
+	* lra-lives.c (check_pseudos_live_through_calls): Use the macro to
+	set up pseudo conflict hard regs.
+
+2013-09-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/58452
+	* config/rs6000/paired.md (movmisalignv2sf): Fix to allow memory
+	operands.
+
+2013-09-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/58438
+	* lra.c (lra): Clear lra_optional_reload_pseudos in upper loop.
+	* lra-constraints.c (undo_optional_reloads): Keep optional reloads
+	from previous subpasses.
+
+2013-09-18  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (arm_get_frame_offsets): Validate architecture supports
+	LDRD/STRD before accepting the tuning preference.
+	(arm_expand_prologue): Likewise.
+	(arm_expand_epilogue): Likewise.
+
+2013-09-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58417
+	* tree-chrec.c (chrec_fold_plus_1): Assert that we do not
+	have chrecs with symbols defined in the loop as operands.
+	(chrec_fold_multiply): Likewise.
+	* tree-scalar-evolution.c (interpret_rhs_expr): Instantiate
+	parameters before folding binary operations.
+	(struct instantiate_cache_entry_hasher): Remove.
+	(struct instantiate_cache_type): Use a pointer-map.
+	(instantiate_cache_type::instantiate_cache_type): New function.
+	(instantiate_cache_type::get): Likewise.
+	(instantiate_cache_type::set): Likewise.
+	(instantiate_cache_type::~instantiate_cache_type): Adjust.
+	(get_instantiated_value_entry): Likewise.
+	(global_cache): New global.
+	(instantiate_scev_r, instantiate_scev_poly, instantiate_scev_binary,
+	instantiate_array_ref, instantiate_scev_convert, instantiate_scev_3,
+	instantiate_scev_2, instantiate_scev_1): Do not pass along cache.
+	(instantiate_scev_name): Adjust.
+	(instantiate_scev): Construct global instead of local cache.
+	(resolve_mixers): Likewise.
+
+2013-09-18  Daniel Morris  <danielm@ecoscentric.com>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58458
+	* doc/implement-cxx.texi: Fix references to the C++ standards.
+
 2013-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (copy_var_decl): Copy DECL_ATTRIBUTES.
