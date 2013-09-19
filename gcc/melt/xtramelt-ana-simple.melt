@@ -531,8 +531,8 @@
 (export_class class_findgimple_data)
 
 (defun findgimple_docmd (cmd moduldata)
-  (let ( (argstr (make_stringconst discr_string (melt_argument "arg")))
-	 (outputstr (make_stringconst discr_string (melt_argument "output")))
+  (let ( (argstr (constant_box (melt_argument "arg")))
+	 (outputstr (constant_box (melt_argument "output")))
 	 (rlist (read_strv_loc argstr '"*findgimple-argument*"))
 	 (rtuple (list_to_multiple rlist discr_multiple))
 	 )
@@ -649,20 +649,41 @@
 			     (:long totnbfun (get_int (get_field :fndgimp_nbfun curdata)))
 			     (:long totnbgimp (get_int (get_field :fndgimp_nbgimp curdata)))
 			     )
-			(inform () "findgimple found $1 matching gimples in $2 matching functions"
+			(inform_at () "findgimple found $1 matching gimples in $2 matching functions"
 				goodgimpcount goodfuncount)
-			(inform () "findgimple processed $1 functions and $2 gimples"
+			(inform_at () "findgimple processed $1 functions and $2 gimples"
 				totnbfun totnbgimp)))))))
 	     )
 	 (debug "findgimple_docmd matchgimpexp=" matchgimpexp)
 	 (debug "findgimple_docmd gatefunexp=" gatefunexp)
 	 (debug "findgimple_docmd execfunexp=" execfunexp)
+	 (cond
+	  ( (string_length outputstr)
+	    (error_at () "findgimple not implemented for output " outputstr)
+	    (assert_msg "findgimple_docmd unimplemented when given output" outputstr)
+	    )
+	  (:else
+	   (let ( (curenv !(current_module_environment_reference))
+		  (dorun (eval dorunexp curenv))
+		  (findata (instance class_findgimple_data
+				     :fndgimp_data ()
+				     :fndgimp_goodfuncount (box 0)
+				     :fndgimp_goodgimpcount (box 0)
+				     :fndgimp_nbfun (box 0)
+				     :fndgimp_nbgimp (box 0)
+				     ))
+		  )
+	     (debug "findgimple_docmd dorun=" dorun " curenv=" curenv " findata=" findata)
+	     (assert_msg "findgimple_docmd check dorun" (is_closure dorun) dorun)
+	     (dorun findata)
+	     (debug "findgimple_docmd did dorun on findata=" findata)
+	   ))
 	 )
 
        ;;
        (debug "findgimple_docmd ended argstr=" argstr)
        (return :true)
-       ))))
+       )))))
 
 (definstance findgimple_mode
   class_melt_mode
