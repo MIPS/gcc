@@ -7900,23 +7900,19 @@ expand_omp_target (struct omp_region *region)
     }
 
   gimple g;
+  /* FIXME: This will be address of
+     extern char __OPENMP_TARGET__[] __attribute__((visibility ("hidden")))
+     symbol, as soon as the linker plugin is able to create it for us.  */
+  tree openmp_target = build_zero_cst (ptr_type_node);
   if (kind == GF_OMP_TARGET_KIND_REGION)
     {
       tree fnaddr = build_fold_addr_expr (child_fn);
-      unsigned fnnamelen = IDENTIFIER_LENGTH (DECL_NAME (child_fn));
-      tree fnname = build_string (fnnamelen,
-				  IDENTIFIER_POINTER (DECL_NAME (child_fn)));
-      TREE_TYPE (fnname) = build_array_type_nelts (char_type_node,
-						   fnnamelen);
-      TREE_READONLY (fnname) = 1;
-      TREE_STATIC (fnname) = 1;
-      fnname = build_fold_addr_expr (fnname);
       g = gimple_build_call (builtin_decl_explicit (start_ix), 7,
-			     device, fnaddr, fnname, t1, t2, t3, t4);
+			     device, fnaddr, openmp_target, t1, t2, t3, t4);
     }
   else
-    g = gimple_build_call (builtin_decl_explicit (start_ix), 5,
-			   device, t1, t2, t3, t4);
+    g = gimple_build_call (builtin_decl_explicit (start_ix), 6,
+			   device, openmp_target, t1, t2, t3, t4);
   gimple_set_location (g, gimple_location (entry_stmt));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
   if (kind != GF_OMP_TARGET_KIND_REGION)

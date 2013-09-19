@@ -1,3 +1,8 @@
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_VOID_INT_SIZE_PTR_PTR_PTR): Remove.
+	(BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR): New.
+
 2013-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_omp_clause_default_ctor,

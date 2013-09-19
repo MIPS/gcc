@@ -406,14 +406,15 @@ gomp_update (size_t mapnum, void **hostaddrs, size_t *sizes,
 /* Called when encountering a target directive.  If DEVICE
    is -1, it means use device-var ICV.  If it is -2 (or any other value
    larger than last available hw device, use host fallback.
-   FN is address of host code, FNNAME corresponding name to lookup
-   in the target code.  HOSTADDRS, SIZES and KINDS are arrays
+   FN is address of host code, OPENMP_TARGET contains value of the
+   __OPENMP_TARGET__ symbol in the shared library or binary that invokes
+   GOMP_target.  HOSTADDRS, SIZES and KINDS are arrays
    with MAPNUM entries, with addresses of the host objects,
    sizes of the host objects (resp. for pointer kind pointer bias
    and assumed sizeof (void *) size) and kinds.  */
 
 void
-GOMP_target (int device, void (*fn) (void *), const char *fnname,
+GOMP_target (int device, void (*fn) (void *), const void *openmp_target,
 	     size_t mapnum, void **hostaddrs, size_t *sizes,
 	     unsigned char *kinds)
 {
@@ -434,8 +435,8 @@ GOMP_target (int device, void (*fn) (void *), const char *fnname,
 }
 
 void
-GOMP_target_data (int device, size_t mapnum, void **hostaddrs, size_t *sizes,
-		  unsigned char *kinds)
+GOMP_target_data (int device, const void *openmp_target, size_t mapnum,
+		  void **hostaddrs, size_t *sizes, unsigned char *kinds)
 {
   device = resolve_device (device);
   if (device == -1)
@@ -479,8 +480,8 @@ GOMP_target_end_data (void)
 }
 
 void
-GOMP_target_update (int device, size_t mapnum, void **hostaddrs, size_t *sizes,
-		    unsigned char *kinds)
+GOMP_target_update (int device, const void *openmp_target, size_t mapnum,
+		    void **hostaddrs, size_t *sizes, unsigned char *kinds)
 {
   device = resolve_device (device);
   if (device == -1)

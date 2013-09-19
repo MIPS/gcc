@@ -1,3 +1,14 @@
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET_DATA,
+	BUILT_IN_GOMP_TARGET_UPDATE): Use BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR
+	rather than BT_FN_VOID_INT_SIZE_PTR_PTR_PTR.
+	* builtin-types.def (BT_FN_VOID_INT_SIZE_PTR_PTR_PTR): Remove.
+	(BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR): New.
+	* omp-low.c (expand_omp_target): Remove fnname argument from
+	GOMP_target, add openmp_target argument to GOMP_target,
+	GOMP_target_data and GOMP_target_update calls.
+
 2013-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_CLAUSE_REDUCTION_OMP_ORIG_REF): Define.

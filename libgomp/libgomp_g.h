@@ -201,12 +201,13 @@ extern void GOMP_single_copy_end (void *);
 
 /* target.c */
 
-extern void GOMP_target (int, void (*) (void *), const char *,
+extern void GOMP_target (int, void (*) (void *), const void *,
 			 size_t, void **, size_t *, unsigned char *);
-extern void GOMP_target_data (int, size_t, void **, size_t *, unsigned char *);
+extern void GOMP_target_data (int, const void *,
+			      size_t, void **, size_t *, unsigned char *);
 extern void GOMP_target_end_data (void);
-extern void GOMP_target_update (int, size_t, void **, size_t *,
-				unsigned char *);
+extern void GOMP_target_update (int, const void *,
+				size_t, void **, size_t *, unsigned char *);
 extern void GOMP_teams (unsigned int, unsigned int);
 
 #endif /* LIBGOMP_G_H */
