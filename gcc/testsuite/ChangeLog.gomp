@@ -1,3 +1,11 @@
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/udr-1.c: New test.
+	* gcc.dg/gomp/udr-2.c: New test.
+	* gcc.dg/gomp/udr-3.c: New test.
+	* gcc.dg/gomp/udr-4.c: New test.
+	* gcc.dg/gomp/clause-1.c: Adjust error messages.
+
 2013-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/clause-3.C: Adjust error messages.

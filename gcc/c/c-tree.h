@@ -670,6 +670,10 @@ extern enum machine_mode c_default_pointer_mode;
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);
 extern void c_write_global_declarations (void);
+extern tree c_omp_reduction_id (enum tree_code, tree);
+extern tree c_omp_reduction_decl (tree);
+extern tree c_omp_reduction_lookup (tree, tree);
+extern tree c_check_omp_declare_reduction_r (tree *, int *, void *);
 
 /* In c-errors.c */
 extern void pedwarn_c90 (location_t, int opt, const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);

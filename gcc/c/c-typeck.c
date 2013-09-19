@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "bitmap.h"
 #include "gimple.h"
+#include "tree-inline.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-common.h"
 #include "c-family/c-ubsan.h"
@@ -11209,6 +11210,48 @@ handle_omp_array_sections (tree c)
   return false;
 }
 
+/* Helper function of finish_omp_clauses.  Clone STMT as if we were making
+   an inline call.  But, remap
+   the OMP_DECL1 VAR_DECL (omp_out resp. omp_orig) to PLACEHOLDER
+   and OMP_DECL2 VAR_DECL (omp_in resp. omp_priv) to DECL.  */
+
+static tree
+c_clone_omp_udr (tree stmt, tree omp_decl1, tree omp_decl2,
+		 tree decl, tree placeholder)
+{
+  copy_body_data id;
+  struct pointer_map_t *decl_map = pointer_map_create ();
+
+  *pointer_map_insert (decl_map, omp_decl1) = placeholder;
+  *pointer_map_insert (decl_map, omp_decl2) = decl;
+  memset (&id, 0, sizeof (id));
+  id.src_fn = DECL_CONTEXT (omp_decl1);
+  id.dst_fn = current_function_decl;
+  id.src_cfun = DECL_STRUCT_FUNCTION (id.src_fn);
+  id.decl_map = decl_map;
+
+  id.copy_decl = copy_decl_no_change;
+  id.transform_call_graph_edges = CB_CGE_DUPLICATE;
+  id.transform_new_cfg = true;
+  id.transform_return_to_modify = false;
+  id.transform_lang_insert_block = NULL;
+  id.eh_lp_nr = 0;
+  walk_tree (&stmt, copy_tree_body_r, &id, NULL);
+  pointer_map_destroy (decl_map);
+  return stmt;
+}
+
+/* Helper function of c_finish_omp_clauses, called via walk_tree.
+   Find OMP_CLAUSE_PLACEHOLDER (passed in DATA) in *TP.  */
+
+static tree
+c_find_omp_placeholder_r (tree *tp, int *, void *data)
+{
+  if (*tp == (tree) data)
+    return *tp;
+  return NULL_TREE;
+}
+
 /* For all elements of CLAUSES, validate them vs OpenMP constraints.
    Remove any elements from the list that are invalid.  */
 
@@ -11252,14 +11295,8 @@ c_finish_omp_clauses (tree clauses)
 	  name = "reduction";
 	  need_implicitly_determined = true;
 	  t = OMP_CLAUSE_DECL (c);
-	  if (AGGREGATE_TYPE_P (TREE_TYPE (t))
-	      || POINTER_TYPE_P (TREE_TYPE (t)))
-	    {
-	      error_at (OMP_CLAUSE_LOCATION (c),
-			"%qE has invalid type for %<reduction%>", t);
-	      remove = true;
-	    }
-	  else if (FLOAT_TYPE_P (TREE_TYPE (t)))
+	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) == NULL_TREE
+	      && FLOAT_TYPE_P (TREE_TYPE (t)))
 	    {
 	      enum tree_code r_code = OMP_CLAUSE_REDUCTION_CODE (c);
 	      const char *r_name = NULL;
@@ -11297,6 +11334,73 @@ c_finish_omp_clauses (tree clauses)
 			    t, r_name);
 		  remove = true;
 		}
+	    }
+	  else if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) == error_mark_node)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"user defined reduction not found for %qD", t);
+	      remove = true;
+	    }
+	  else if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
+	    {
+	      tree list = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
+	      tree type = TYPE_MAIN_VARIANT (TREE_TYPE (t));
+	      tree placeholder = build_decl (OMP_CLAUSE_LOCATION (c),
+					     VAR_DECL, NULL_TREE, type);
+	      OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) = placeholder;
+	      DECL_ARTIFICIAL (placeholder) = 1;
+	      DECL_IGNORED_P (placeholder) = 1;
+	      if (TREE_ADDRESSABLE (TREE_VEC_ELT (list, 0)))
+		c_mark_addressable (placeholder);
+	      if (TREE_ADDRESSABLE (TREE_VEC_ELT (list, 1)))
+		c_mark_addressable (OMP_CLAUSE_DECL (c));
+	      OMP_CLAUSE_REDUCTION_MERGE (c)
+		= c_clone_omp_udr (TREE_VEC_ELT (list, 2),
+				   TREE_VEC_ELT (list, 0),
+				   TREE_VEC_ELT (list, 1),
+				   OMP_CLAUSE_DECL (c), placeholder);
+	      OMP_CLAUSE_REDUCTION_MERGE (c)
+		= build3_loc (OMP_CLAUSE_LOCATION (c), BIND_EXPR,
+			      void_type_node, NULL_TREE,
+			       OMP_CLAUSE_REDUCTION_MERGE (c), NULL_TREE);
+	      TREE_SIDE_EFFECTS (OMP_CLAUSE_REDUCTION_MERGE (c)) = 1;
+	      if (TREE_VEC_LENGTH (list) == 6)
+		{
+		  if (TREE_ADDRESSABLE (TREE_VEC_ELT (list, 3)))
+		    c_mark_addressable (OMP_CLAUSE_DECL (c));
+		  if (TREE_ADDRESSABLE (TREE_VEC_ELT (list, 4)))
+		    c_mark_addressable (placeholder);
+		  tree init = TREE_VEC_ELT (list, 5);
+		  if (init == error_mark_node)
+		    init = DECL_INITIAL (TREE_VEC_ELT (list, 3));
+		  OMP_CLAUSE_REDUCTION_INIT (c)
+		    = c_clone_omp_udr (init, TREE_VEC_ELT (list, 4),
+				       TREE_VEC_ELT (list, 3),
+				       OMP_CLAUSE_DECL (c), placeholder);
+		  if (TREE_VEC_ELT (list, 5) == error_mark_node)
+		    OMP_CLAUSE_REDUCTION_INIT (c)
+		      = build2 (INIT_EXPR, TREE_TYPE (t), t,
+				OMP_CLAUSE_REDUCTION_INIT (c));
+		  if (walk_tree (&OMP_CLAUSE_REDUCTION_INIT (c),
+				 c_find_omp_placeholder_r,
+				 placeholder, NULL))
+		    OMP_CLAUSE_REDUCTION_OMP_ORIG_REF (c) = 1;
+		}
+	      else
+		{
+		  tree init;
+		  if (AGGREGATE_TYPE_P (TREE_TYPE (t)))
+		    init = build_constructor (TREE_TYPE (t), NULL);
+		  else
+		    init = fold_convert (TREE_TYPE (t), integer_zero_node);
+		  OMP_CLAUSE_REDUCTION_INIT (c)
+		    = build2 (INIT_EXPR, TREE_TYPE (t), t, init);
+		}
+	      OMP_CLAUSE_REDUCTION_INIT (c)
+		= build3_loc (OMP_CLAUSE_LOCATION (c), BIND_EXPR,
+			      void_type_node, NULL_TREE,
+			       OMP_CLAUSE_REDUCTION_INIT (c), NULL_TREE);
+	      TREE_SIDE_EFFECTS (OMP_CLAUSE_REDUCTION_INIT (c)) = 1;
 	    }
 	  goto check_dup_generic;
 

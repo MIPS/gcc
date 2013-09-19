@@ -9688,7 +9688,13 @@ c_parser_omp_clause_private (c_parser *parser, tree list)
    OpenMP 3.1:
    
    reduction-operator:
-     One of: + * - & ^ | && || max min  */
+     One of: + * - & ^ | && || max min
+
+   OpenMP 4.0:
+
+   reduction-operator:
+     One of: + * - & ^ | && ||
+     identifier  */
 
 static tree
 c_parser_omp_clause_reduction (c_parser *parser, tree list)
@@ -9696,7 +9702,8 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
   location_t clause_loc = c_parser_peek_token (parser)->location;
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     {
-      enum tree_code code;
+      enum tree_code code = ERROR_MARK;
+      tree reduc_id = NULL_TREE;
 
       switch (c_parser_peek_token (parser)->type)
 	{
@@ -9738,8 +9745,9 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 		code = MAX_EXPR;
 		break;
 	      }
+	    reduc_id = c_parser_peek_token (parser)->value;
+	    break;
 	  }
-	  /* FALLTHRU */
 	default:
 	  c_parser_error (parser,
 			  "expected %<+%>, %<*%>, %<-%>, %<&%>, "
@@ -9748,6 +9756,7 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 	  return list;
 	}
       c_parser_consume_token (parser);
+      reduc_id = c_omp_reduction_id (code, reduc_id);
       if (c_parser_require (parser, CPP_COLON, "expected %<:%>"))
 	{
 	  tree nl, c;
@@ -9755,7 +9764,17 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 	  nl = c_parser_omp_variable_list (parser, clause_loc,
 					   OMP_CLAUSE_REDUCTION, list);
 	  for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
-	    OMP_CLAUSE_REDUCTION_CODE (c) = code;
+	    {
+	      tree type = TREE_TYPE (OMP_CLAUSE_DECL (c));
+	      OMP_CLAUSE_REDUCTION_CODE (c) = code;
+	      if (code == ERROR_MARK
+		  || !(INTEGRAL_TYPE_P (type)
+		       || TREE_CODE (type) == REAL_TYPE
+		       || TREE_CODE (type) == COMPLEX_TYPE))
+		OMP_CLAUSE_REDUCTION_PLACEHOLDER (c)
+		  = c_omp_reduction_lookup (reduc_id,
+					    TYPE_MAIN_VARIANT (type));
+	    }
 
 	  list = nl;
 	}
@@ -12430,10 +12449,357 @@ c_parser_omp_end_declare_target (c_parser *parser)
     current_omp_declare_target_attribute--;
 }
 
+
+/* OpenMP 4.0
+   #pragma omp declare reduction (reduction-id : typename-list : expression) \
+      initializer-clause[opt] new-line
+
+   initializer-clause:
+      initializer (omp_priv = initializer)
+      initializer (function-name (argument-list))  */
+
+static void
+c_parser_omp_declare_reduction (c_parser *parser, enum pragma_context context)
+{
+  unsigned int tokens_avail = 0, i;
+  vec<tree> types = vNULL;
+  vec<c_token> clauses = vNULL;
+  enum tree_code reduc_code = ERROR_MARK;
+  tree reduc_id = NULL_TREE;
+  tree type;
+  location_t rloc = c_parser_peek_token (parser)->location;
+
+  if (context == pragma_struct || context == pragma_param)
+    {
+      error ("%<#pragma omp declare reduction%> not at file or block scope");
+      goto fail;
+    }
+
+  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+    goto fail;
+
+  switch (c_parser_peek_token (parser)->type)
+    {
+    case CPP_PLUS:
+      reduc_code = PLUS_EXPR;
+      break;
+    case CPP_MULT:
+      reduc_code = MULT_EXPR;
+      break;
+    case CPP_MINUS:
+      reduc_code = MINUS_EXPR;
+      break;
+    case CPP_AND:
+      reduc_code = BIT_AND_EXPR;
+      break;
+    case CPP_XOR:
+      reduc_code = BIT_XOR_EXPR;
+      break;
+    case CPP_OR:
+      reduc_code = BIT_IOR_EXPR;
+      break;
+    case CPP_AND_AND:
+      reduc_code = TRUTH_ANDIF_EXPR;
+      break;
+    case CPP_OR_OR:
+      reduc_code = TRUTH_ORIF_EXPR;
+      break;
+    case CPP_NAME:
+      const char *p;
+      p = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      if (strcmp (p, "min") == 0)
+	{
+	  reduc_code = MIN_EXPR;
+	  break;
+	}
+      if (strcmp (p, "max") == 0)
+	{
+	  reduc_code = MAX_EXPR;
+	  break;
+	}
+      reduc_id = c_parser_peek_token (parser)->value;
+      break;
+    default:
+      c_parser_error (parser,
+		      "expected %<+%>, %<*%>, %<-%>, %<&%>, "
+		      "%<^%>, %<|%>, %<&&%>, %<||%>, %<min%> or identifier");
+      goto fail;
+    }
+
+  tree orig_reduc_id, reduc_decl;
+  orig_reduc_id = reduc_id;
+  reduc_id = c_omp_reduction_id (reduc_code, reduc_id);
+  reduc_decl = c_omp_reduction_decl (reduc_id);
+  c_parser_consume_token (parser);
+
+  if (!c_parser_require (parser, CPP_COLON, "expected %<:%>"))
+    goto fail;
+
+  while (true)
+    {
+      location_t loc = c_parser_peek_token (parser)->location;
+      struct c_type_name *ctype = c_parser_type_name (parser);
+      if (ctype != NULL)
+	{
+	  type = groktypename (ctype, NULL, NULL);
+	  if (type == error_mark_node)
+	    ;
+	  else if ((INTEGRAL_TYPE_P (type)
+		    || TREE_CODE (type) == REAL_TYPE
+		    || TREE_CODE (type) == COMPLEX_TYPE)
+		   && orig_reduc_id == NULL_TREE)
+	    error_at (loc, "predeclared arithmetic type in "
+			   "%<#pragma omp declare reduction%>");
+	  else if (TREE_CODE (type) == FUNCTION_TYPE
+		   || TREE_CODE (type) == ARRAY_TYPE)
+	    error_at (loc, "function or array type in "
+		      "%<#pragma omp declare reduction%>");
+	  else if (TYPE_QUALS_NO_ADDR_SPACE (type))
+	    error_at (loc, "const, volatile or restrict qualified type in "
+			   "%<#pragma omp declare reduction%>");
+	  else
+	    {
+	      tree t;
+	      for (t = DECL_INITIAL (reduc_decl); t; t = TREE_CHAIN (t))
+		if (comptypes (TREE_PURPOSE (t), type))
+		  {
+		    error_at (loc, "redeclaration of %qs "
+				   "%<#pragma omp declare reduction%> for "
+				   "type %qT",
+				   IDENTIFIER_POINTER (reduc_id)
+				   + sizeof ("omp declare reduction ") - 1,
+				   type);
+		    location_t ploc
+		      = DECL_SOURCE_LOCATION (TREE_VEC_ELT (TREE_VALUE (t),
+							    0));
+		    error_at (ploc, "previous %<#pragma omp declare "
+				    "reduction%>");
+		    break;
+		  }
+	      if (t == NULL_TREE)
+		types.safe_push (type);
+	    }
+	  if (c_parser_next_token_is (parser, CPP_COMMA))
+	    c_parser_consume_token (parser);
+	  else
+	    break;
+	}
+      else
+	break;
+    }
+
+  if (!c_parser_require (parser, CPP_COLON, "expected %<:%>")
+      || types.is_empty ())
+    {
+     fail:
+      clauses.release ();
+      types.release ();
+      while (true)
+	{
+	  c_token *token = c_parser_peek_token (parser);
+	  if (token->type == CPP_EOF || token->type == CPP_PRAGMA_EOL)
+	    break;
+	  c_parser_consume_token (parser);
+	}
+      c_parser_skip_to_pragma_eol (parser);
+      return;
+    }
+
+  if (types.length () > 1)
+    {
+      while (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
+	{
+	  c_token *token = c_parser_peek_token (parser);
+	  if (token->type == CPP_EOF)
+	    goto fail;
+	  clauses.safe_push (*token);
+	  c_parser_consume_token (parser);
+	}
+      clauses.safe_push (*c_parser_peek_token (parser));
+      c_parser_skip_to_pragma_eol (parser);
+
+      /* Make sure nothing tries to read past the end of the tokens.  */
+      c_token eof_token;
+      memset (&eof_token, 0, sizeof (eof_token));
+      eof_token.type = CPP_EOF;
+      clauses.safe_push (eof_token);
+      clauses.safe_push (eof_token);
+    }
+
+  int errs = errorcount;
+  FOR_EACH_VEC_ELT (types, i, type)
+    {
+      tokens_avail = parser->tokens_avail;
+      gcc_assert (parser->tokens == &parser->tokens_buf[0]);
+      if (!clauses.is_empty ())
+	{
+	  parser->tokens = clauses.address ();
+	  parser->tokens_avail = clauses.length ();
+	  parser->in_pragma = true;
+	}
+
+      bool nested = current_function_decl != NULL_TREE;
+      if (nested)
+	c_push_function_context ();
+      tree fndecl = build_decl (BUILTINS_LOCATION, FUNCTION_DECL,
+				reduc_id, default_function_type);
+      current_function_decl = fndecl;
+      allocate_struct_function (fndecl, true);
+      push_scope ();
+      tree stmt = push_stmt_list ();
+      /* Intentionally BUILTINS_LOCATION, so that -Wshadow doesn't
+	 warn about these.  */
+      tree omp_out = build_decl (BUILTINS_LOCATION, VAR_DECL,
+				 get_identifier ("omp_out"), type);
+      DECL_ARTIFICIAL (omp_out) = 1;
+      DECL_CONTEXT (omp_out) = fndecl;
+      pushdecl (omp_out);
+      tree omp_in = build_decl (BUILTINS_LOCATION, VAR_DECL,
+				get_identifier ("omp_in"), type);
+      DECL_ARTIFICIAL (omp_in) = 1;
+      DECL_CONTEXT (omp_in) = fndecl;
+      pushdecl (omp_in);
+      struct c_expr combiner = c_parser_expression (parser);
+      struct c_expr initializer;
+      tree omp_priv = NULL_TREE, omp_orig = NULL_TREE;
+      bool bad = false;
+      initializer.value = error_mark_node;
+      if (!c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
+	bad = true;
+      else if (c_parser_next_token_is (parser, CPP_NAME)
+	       && strcmp (IDENTIFIER_POINTER
+				(c_parser_peek_token (parser)->value),
+			  "initializer") == 0)
+	{
+	  c_parser_consume_token (parser);
+	  pop_scope ();
+	  push_scope ();
+	  omp_priv = build_decl (BUILTINS_LOCATION, VAR_DECL,
+				 get_identifier ("omp_priv"), type);
+	  DECL_ARTIFICIAL (omp_priv) = 1;
+	  DECL_INITIAL (omp_priv) = error_mark_node;
+	  DECL_CONTEXT (omp_priv) = fndecl;
+	  pushdecl (omp_priv);
+	  omp_orig = build_decl (BUILTINS_LOCATION, VAR_DECL,
+				 get_identifier ("omp_orig"), type);
+	  DECL_ARTIFICIAL (omp_orig) = 1;
+	  DECL_CONTEXT (omp_orig) = fndecl;
+	  pushdecl (omp_orig);
+	  if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+	    bad = true;
+	  else if (!c_parser_next_token_is (parser, CPP_NAME))
+	    {
+	      c_parser_error (parser, "expected %<omp_priv%> or "
+				      "function-name");
+	      bad = true;
+	    }
+	  else if (strcmp (IDENTIFIER_POINTER
+				(c_parser_peek_token (parser)->value),
+			   "omp_priv") != 0)
+	    {
+	      if (c_parser_peek_2nd_token (parser)->type != CPP_OPEN_PAREN
+		  || c_parser_peek_token (parser)->id_kind != C_ID_ID)
+		{
+		  c_parser_error (parser, "expected function-name %<(%>");
+		  bad = true;
+		}
+	      else
+		initializer = c_parser_postfix_expression (parser);
+	      if (initializer.value
+		  && TREE_CODE (initializer.value) == CALL_EXPR)
+		{
+		  int j;
+		  tree c = initializer.value;
+		  for (j = 0; j < call_expr_nargs (c); j++)
+		    if (TREE_CODE (CALL_EXPR_ARG (c, j)) == ADDR_EXPR
+			&& TREE_OPERAND (CALL_EXPR_ARG (c, j), 0) == omp_priv)
+		      break;
+		  if (j == call_expr_nargs (c))
+		    error ("one of the initializer call arguments should be "
+			   "%<&omp_priv%>");
+		}
+	    }
+	  else
+	    {
+	      c_parser_consume_token (parser);
+	      if (!c_parser_require (parser, CPP_EQ, "expected %<=%>"))
+		bad = true;
+	      else
+		{
+		  tree st = push_stmt_list ();
+		  start_init (omp_priv, NULL_TREE, 0);
+		  location_t loc = c_parser_peek_token (parser)->location;
+		  struct c_expr init = c_parser_initializer (parser);
+		  finish_init ();
+		  finish_decl (omp_priv, loc, init.value,
+		      	       init.original_type, NULL_TREE);
+		  pop_stmt_list (st);
+		}
+	    }
+	  if (!bad
+	      && !c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
+	    bad = true;
+	}
+
+      if (!bad)
+	{
+	  c_parser_skip_to_pragma_eol (parser);
+
+	  tree t = tree_cons (type, make_tree_vec (omp_priv ? 6 : 3),
+			      DECL_INITIAL (reduc_decl));
+	  DECL_INITIAL (reduc_decl) = t;
+	  DECL_SOURCE_LOCATION (omp_out) = rloc;
+	  TREE_VEC_ELT (TREE_VALUE (t), 0) = omp_out;
+	  TREE_VEC_ELT (TREE_VALUE (t), 1) = omp_in;
+	  TREE_VEC_ELT (TREE_VALUE (t), 2) = combiner.value;
+	  walk_tree (&combiner.value, c_check_omp_declare_reduction_r,
+		     &TREE_VEC_ELT (TREE_VALUE (t), 0), NULL);
+	  if (omp_priv)
+	    {
+	      DECL_SOURCE_LOCATION (omp_priv) = rloc;
+	      TREE_VEC_ELT (TREE_VALUE (t), 3) = omp_priv;
+	      TREE_VEC_ELT (TREE_VALUE (t), 4) = omp_orig;
+	      TREE_VEC_ELT (TREE_VALUE (t), 5) = initializer.value;
+	      walk_tree (&initializer.value, c_check_omp_declare_reduction_r,
+			 &TREE_VEC_ELT (TREE_VALUE (t), 3), NULL);
+	      walk_tree (&DECL_INITIAL (omp_priv),
+			 c_check_omp_declare_reduction_r,
+			 &TREE_VEC_ELT (TREE_VALUE (t), 3), NULL);
+	    }
+	}
+
+      pop_stmt_list (stmt);
+      pop_scope ();
+      if (cfun->language != NULL)
+	{
+	  ggc_free (cfun->language);
+	  cfun->language = NULL;
+	}
+      set_cfun (NULL);
+      current_function_decl = NULL_TREE;
+      if (nested)
+	c_pop_function_context ();
+
+      if (!clauses.is_empty ())
+	{
+	  parser->tokens = &parser->tokens_buf[0];
+	  parser->tokens_avail = tokens_avail;
+	}
+      if (bad)
+	goto fail;
+      if (errs != errorcount)
+	break;
+    }
+
+  clauses.release ();
+  types.release ();
+}
+
+
 /* OpenMP 4.0
    #pragma omp declare simd declare-simd-clauses[optseq] new-line
    #pragma omp declare reduction (reduction-id : typename-list : expression) \
-      identity-clause[opt] new-line
+      initializer-clause[opt] new-line
    #pragma omp declare target new-line  */
 
 static void
@@ -12450,12 +12816,12 @@ c_parser_omp_declare (c_parser *parser, enum pragma_context context)
 	  c_parser_omp_declare_simd (parser, context);
 	  return;
 	}
-/*    if (strcmp (p, "reduction") == 0)
+      if (strcmp (p, "reduction") == 0)
 	{
 	  c_parser_consume_token (parser);
-	  c_parser_omp_declare_reduction (parser);
+	  c_parser_omp_declare_reduction (parser, context);
 	  return;
-	}  */
+	}
       if (strcmp (p, "target") == 0)
 	{
 	  c_parser_consume_token (parser);

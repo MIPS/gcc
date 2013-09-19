@@ -1,3 +1,20 @@
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-tree.h (c_omp_reduction_id, c_omp_reduction_decl,
+	c_omp_reduction_lookup, c_check_omp_declare_reduction_r): New
+	prototypes.
+	* c-typeck.c: Include tree-inline.h.
+	(c_clone_udr, c_find_omp_placeholder_r): New functions.
+	(c_finish_omp_clauses): Handle user defined reductions.
+	* Make-lang.in (c-typeck.o): Depend on $(TREE_INLINE_H).
+	* c-parser.c (c_parser_omp_clause_reduction): Handle user
+	defined reductions.
+	(c_parser_omp_declare_reduction): New function.
+	(c_parser_omp_declare): Call it.
+	* c-decl.c (c_omp_reduction_id, c_omp_reduction_decl,
+	c_omp_reduction_lookup, c_check_omp_declare_reduction_r): New
+	functions.
+
 2013-09-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (handle_omp_array_sections_1): Remove pointer_based_p

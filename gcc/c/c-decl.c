@@ -10228,4 +10228,106 @@ c_register_addr_space (const char *word, addr_space_t as)
   ridpointers [rid] = id;
 }
 
+/* Return identifier to look up for omp declare reduction.  */
+
+tree
+c_omp_reduction_id (enum tree_code reduction_code, tree reduction_id)
+{
+  const char *p = NULL;
+  switch (reduction_code)
+    {
+    case PLUS_EXPR: p = "+"; break;
+    case MULT_EXPR: p = "*"; break;
+    case MINUS_EXPR: p = "-"; break;
+    case BIT_AND_EXPR: p = "&"; break;
+    case BIT_XOR_EXPR: p = "^"; break;
+    case BIT_IOR_EXPR: p = "|"; break;
+    case TRUTH_ANDIF_EXPR: p = "&&"; break;
+    case TRUTH_ORIF_EXPR: p = "||"; break;
+    case MIN_EXPR: p = "min"; break;
+    case MAX_EXPR: p = "max"; break;
+    default:
+      break;
+    }
+
+  if (p == NULL)
+    {
+      if (TREE_CODE (reduction_id) != IDENTIFIER_NODE)
+	return error_mark_node;
+      p = IDENTIFIER_POINTER (reduction_id);
+    }
+
+  const char prefix[] = "omp declare reduction ";
+  size_t lenp = sizeof (prefix);
+  size_t len = strlen (p);
+  char *name = XALLOCAVEC (char, lenp + len);
+  memcpy (name, prefix, lenp - 1);
+  memcpy (name + lenp - 1, p, len + 1);
+  return get_identifier (name);
+}
+
+/* Lookup REDUCTION_ID in the current scope, or create an artificial
+   VAR_DECL, bind it into the current scope and return it.  */
+
+tree
+c_omp_reduction_decl (tree reduction_id)
+{
+  struct c_binding *b = I_SYMBOL_BINDING (reduction_id);
+  if (b != NULL && B_IN_CURRENT_SCOPE (b))
+    return b->decl;
+
+  tree decl = build_decl (BUILTINS_LOCATION, VAR_DECL,
+			  reduction_id, integer_type_node);
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_EXTERNAL (decl) = 1;
+  TREE_STATIC (decl) = 1;
+  TREE_PUBLIC (decl) = 0;
+  bind (reduction_id, decl, current_scope, true, false, BUILTINS_LOCATION);
+  return decl;
+}
+
+/* Lookup REDUCTION_ID in the first scope where it has entry for TYPE.  */
+
+tree
+c_omp_reduction_lookup (tree reduction_id, tree type)
+{
+  struct c_binding *b = I_SYMBOL_BINDING (reduction_id);
+  while (b)
+    {
+      tree t;
+      for (t = DECL_INITIAL (b->decl); t; t = TREE_CHAIN (t))
+	if (comptypes (TREE_PURPOSE (t), type))
+	  return TREE_VALUE (t);
+      b = b->shadowed;
+    }
+  return error_mark_node;
+}
+
+/* Helper function called via walk_tree, to diagnose invalid
+   #pragma omp declare reduction combiners or initializers.  */
+
+tree
+c_check_omp_declare_reduction_r (tree *tp, int *, void *data)
+{
+  tree *vars = (tree *) data;
+  if (SSA_VAR_P (*tp)
+      && !DECL_ARTIFICIAL (*tp)
+      && *tp != vars[0]
+      && *tp != vars[1])
+    {
+      location_t loc = DECL_SOURCE_LOCATION (vars[0]);
+      if (strcmp (IDENTIFIER_POINTER (DECL_NAME (vars[0])), "omp_out") == 0)
+	error_at (loc, "%<#pragma omp declare reduction%> combiner refers to "
+		       "variable %qD which is not %<omp_out%> nor %<omp_in%>",
+		  *tp);
+      else
+	error_at (loc, "%<#pragma omp declare reduction%> initializer refers "
+		       "to variable %qD which is not %<omp_priv%> nor "
+		       "%<omp_orig%>",
+		  *tp);
+      return *tp;
+    }
+  return NULL_TREE;
+}
+
 #include "gt-c-c-decl.h"
