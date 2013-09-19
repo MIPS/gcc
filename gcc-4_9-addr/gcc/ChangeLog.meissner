@@ -1,5 +1,8 @@
 2013-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 202754.
+	* REVISION: Update subversion number.
+
 	* config/rs6000/rs6000.md (mul<mode>3_fpr): Set type to dmul.
 	(sqrt<mode>2): Set fp_type to fp_sqrt_s/fp_sqrt_d.
 

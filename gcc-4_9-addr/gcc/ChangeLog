@@ -1,3 +1,62 @@
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58472
+	* tree-vect-stmts.c (vectorizable_store, vectorizable_load): For
+	simd_lane_access set inv_p = false.
+	* omp-low.c (lower_rec_input_clauses): Set TREE_NO_WARNING on
+	the simduid magic VAR_DECL.
+
+2013-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* i386.c (generic_memcpy, generic_memset): Fix 32bit template.
+
+2013-09-17  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-dom.c (record_temporary_equivalences): New function
+	split out of dom_opt_dom_walker::after_dom_children.
+	(dom_opt_dom_walker::thread_across_edge): Move common code
+	in here from dom_opt_dom_walker::after_dom_children.
+	(dom_opt_dom_walker::after_dom_children): Corresponding simplifictions.
+
+2013-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* i386.h (TARGET_GENERIC32, TARGET_GENERIC64): Remove.
+	(TARGET_GENERIC): Use PROCESOR_GENERIC
+	(enum processor_type): Unify generic32 and 64.
+	* i386.md (cpu): Likewise.
+	* x86-tune.def (use_leave): Enable for generic32.
+	(avoid_vector_decode, slow_imul_imm32_mem, slow_imul_imm8): Likewise.
+	* athlon.md: Change generic64 to generic in all occurences.
+	* i386-c.c (ix86_target_macros_internal): Unify generic64 and 32.
+	(ix86_target_macros_internal): Likewise.
+	* driver-i386.c (host_detect_local_cpu): Likewise.
+	* i386.c (generic64_memcpy, generic64_memset, generic64_cost): Rename to ..
+	(generic_memcpy, generic_memset, generic_cost): This one.
+	(generic32_memcpy, generic32_memset, generic32_cost): Remove.
+	(m_GENERIC32, m_GENERIC64): Remove.
+	(m_GENERIC): Turn into one flag.
+	(processor_target): Unify generic tunnings.
+	(ix86_option_override_internal): Replace generic32/64 by generic.
+	(ix86_issue_rate): Likewise.
+	(ix86_adjust_cost): Likewise.
+
+2013-09-19  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_create_edge_1): Avoid uninitialized read
+	of speculative flag.
+
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_sections): Always pass len - 1 to
+	GOMP_sections_start, even if !exit_reachable.
+
+2013-09-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (need_for_all_save_p): Use macro
+	HARD_REGNO_CALL_PART_CLOBBERED.
+	* lra-lives.c (check_pseudos_live_through_calls): Use the macro to
+	set up pseudo conflict hard regs.
+
 2013-09-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/58452
