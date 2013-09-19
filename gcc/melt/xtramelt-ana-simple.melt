@@ -543,20 +543,26 @@
     (let ( (gimplepatsrc (multiple_nth rtuple 0))
 	   (treepatsrc (multiple_nth rtuple 1))
 	   )
+      (debug "findgimple_docmd gimplepatsrc=" gimplepatsrc " treepatsrc=" treepatsrc)
       (when (or (is_not_a gimplepatsrc class_sexpr)
 		(!= (list_first_element (get_field :sexp_contents gimplepatsrc)) 'question))
-	(error_at () "missing GIMPLE pattern argument for findgimple mode")
+	(error_at () "missing GIMPLE pattern argument for findgimple mode, not a pattern $1" gimplepatsrc)
 	(return ()))
       (if treepatsrc
 	  (when  (or (is_not_a treepatsrc class_sexpr)
 		     (!= (list_first_element (get_field :sexp_contents treepatsrc)) 'question))
-	    (error_at () "bad TREE pattern argument for findgimple mode")
+	    (error_at () "bad TREE pattern argument for findgimple mode, not a pattern $1" treepatsrc)
 	    (return ())))
       (with_cloned_symb 
        (gimp treefundecl bb pass newpass)
        (debug "findgimple_docmd cloned gimp=" gimp " treefundecl=" treefundecl " pass=" pass
 	      " bb=" bb " newpass=" newpass)
        (let (
+	     ;; special case for joker or wild-card patterns
+	     (:long jokergimplepat 
+		    (== (list_nth_element (get_field :sexp_contents gimplepatsrc) 1) '_))
+	     (:long jokertreepat 
+		    (== (list_nth_element (get_field :sexp_contents treepatsrc) 1) '_))
 	     ;;
 	     (matchdeclexp
 	      (if treepatsrc
@@ -569,8 +575,9 @@
 				      ,treefundecl (get_int goodfuncount))
 			   (debug "findgimple/gate updated goodfuncount=" goodfuncount)
 			   (return :true))
-			  (?_ 
-			   (return ())))))
+			  ,(if jokertreepat (list)
+			     '(?_ 
+			       (return ()))))))
 	     (gatefunexp 
 	      (if treepatsrc 
 		  `(lambda (,pass)
@@ -601,8 +608,9 @@
 		       (inform_at (constant_box ,gimp)
 				  "FINDGIMPLE good gimple $1 #$2" ,gimp goodgimpcount)
 		       (void))
-		      (?_ 
-		       (void))))
+		      ,(if jokergimplepat (list)
+			 '(?_ 
+			   (void)))))
 	     (execfunexp
 	      `(lambda (,pass)
 		 (debug "findgimple/exec start pass=" ,pass)

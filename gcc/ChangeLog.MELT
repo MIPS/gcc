@@ -2,6 +2,13 @@
 
 2013-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-simple.melt (findgimple_docmd): More, and
+	special cases for wild-cards.
+
+	* testsuite/melt/tfindgimple-1.c: New test case.
+
+2013-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
