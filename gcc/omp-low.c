@@ -853,6 +853,7 @@ copy_var_decl (tree var, tree name, tree type)
   TREE_NO_WARNING (copy) = TREE_NO_WARNING (var);
   TREE_USED (copy) = 1;
   DECL_SEEN_IN_BIND_EXPR_P (copy) = 1;
+  DECL_ATTRIBUTES (copy) = DECL_ATTRIBUTES (var);
 
   return copy;
 }
@@ -2305,8 +2306,9 @@ omp_max_vf (void)
 {
   if (!optimize
       || optimize_debug
-      || (!flag_tree_vectorize
-	  && global_options_set.x_flag_tree_vectorize))
+      || (!flag_tree_loop_vectorize
+	  && (global_options_set.x_flag_tree_loop_vectorize
+              || global_options_set.x_flag_tree_vectorize)))
     return 1;
 
   int vs = targetm.vectorize.autovectorize_vector_sizes ();
@@ -2773,6 +2775,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
   if (lane)
     {
       tree uid = create_tmp_var (ptr_type_node, "simduid");
+      /* Don't want uninit warnings on simduid, it is always uninitialized,
+	 but we use it not for the value, but for the DECL_UID only.  */
+      TREE_NO_WARNING (uid) = 1;
       gimple g
 	= gimple_build_call_internal (IFN_GOMP_SIMD_LANE, 1, uid);
       gimple_call_set_lhs (g, lane);
@@ -5684,10 +5689,11 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
 	  loop->simduid = OMP_CLAUSE__SIMDUID__DECL (simduid);
 	  cfun->has_simduid_loops = true;
 	}
-      /* If not -fno-tree-vectorize, hint that we want to vectorize
+      /* If not -fno-tree-loop-vectorize, hint that we want to vectorize
 	 the loop.  */
-      if ((flag_tree_vectorize
-	   || !global_options_set.x_flag_tree_vectorize)
+      if ((flag_tree_loop_vectorize
+	   || (!global_options_set.x_flag_tree_loop_vectorize
+               && !global_options_set.x_flag_tree_vectorize))
 	  && loop->safelen > 1)
 	{
 	  loop->force_vect = true;
@@ -5866,8 +5872,7 @@ expand_omp_sections (struct omp_region *region)
     {
       /* If we are not inside a combined parallel+sections region,
 	 call GOMP_sections_start.  */
-      t = build_int_cst (unsigned_type_node,
-			 exit_reachable ? len - 1 : len);
+      t = build_int_cst (unsigned_type_node, len - 1);
       u = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_START);
       stmt = gimple_build_call (u, 1, t);
     }
