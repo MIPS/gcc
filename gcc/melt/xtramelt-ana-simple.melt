@@ -38,42 +38,6 @@
 	   juscan_curbb			;boxed current basic block
 	   ))
 
-(defun justscanpass_gate  (pass)
-  (debug "justscanpass_gate at start pass=" pass)
-  ;; retrieve the data associated to the cfun in the pass. If it
-  ;; exists (i.e. is not null) we avoid running the pass again
-  (let ( (grdata (maptree_get (get_field :gccpass_data pass) (cfun_decl))) )
-    (debug "justscanpass_gate cfundecl=" (cfun_decl) " grdata=" grdata)
-    (if grdata 
-	() ;; return null, so avoid executing the pass
-      pass)
-    ))
-
-(defun justscanpass_exec (pass)
-  (debug "justscanpass_exec at start pass=" pass)
-  (code_chunk dbgcfun #{ /* $dbgcfun :: */
-	      debugeprintf("justscanpass_exec start cfun=%p cfg=%p", 
-			   (void*)cfun, cfun?cfun->cfg:NULL) ; 
-	      }#) 
-  (assert_msg "justscanpass_exec check cfun has cfg" (cfun_has_cfg))
-  (let ( (jsdata (instance class_justscan_data 
-			   :juscan_pass pass
-			   )) )
-    ;; add our grdata associated to the cfun_decl in the pass data,
-    ;; hence the gate will avoid running the pass twice
-    (maptree_put (get_field :gccpass_data pass) (cfun_decl) jsdata)
-    (justscan_tree jsdata (cfun_decl))
-    ;; gimple ssa passes have a cfg..
-    (each_bb_cfun 
-     ()
-     (:basic_block bb :tree fundecl)
-     (put_fields jsdata :juscan_fundecl (make_tree discr_tree fundecl))
-     (if bb (justscan_bb jsdata bb))
-     )
-    (debug "justscanpass_exec final jsdata=" jsdata)
-    )
-  )
-
 (defun justscan_tree (jsdata :tree t)
   (if t
       (match 
@@ -202,6 +166,42 @@
 	(put_fields jsdata :juscan_curbb oldbb)
 	)))
 
+
+(defun justscanpass_gate  (pass)
+  (debug "justscanpass_gate at start pass=" pass)
+  ;; retrieve the data associated to the cfun in the pass. If it
+  ;; exists (i.e. is not null) we avoid running the pass again
+  (let ( (grdata (maptree_get (get_field :gccpass_data pass) (cfun_decl))) )
+    (debug "justscanpass_gate cfundecl=" (cfun_decl) " grdata=" grdata)
+    (if grdata 
+	() ;; return null, so avoid executing the pass
+      pass)
+    ))
+
+(defun justscanpass_exec (pass)
+  (debug "justscanpass_exec at start pass=" pass)
+  (code_chunk dbgcfun #{ /* $dbgcfun :: */
+	      debugeprintf("justscanpass_exec start cfun=%p cfg=%p", 
+			   (void*)cfun, cfun?cfun->cfg:NULL) ; 
+	      }#) 
+  (assert_msg "justscanpass_exec check cfun has cfg" (cfun_has_cfg))
+  (let ( (jsdata (instance class_justscan_data 
+			   :juscan_pass pass
+			   )) )
+    ;; add our grdata associated to the cfun_decl in the pass data,
+    ;; hence the gate will avoid running the pass twice
+    (maptree_put (get_field :gccpass_data pass) (cfun_decl) jsdata)
+    (justscan_tree jsdata (cfun_decl))
+    ;; gimple ssa passes have a cfg..
+    (each_bb_cfun 
+     ()
+     (:basic_block bb :tree fundecl)
+     (put_fields jsdata :juscan_fundecl (make_tree discr_tree fundecl))
+     (if bb (justscan_bb jsdata bb))
+     )
+    (debug "justscanpass_exec final jsdata=" jsdata)
+    )
+  )
 
 ;;;;;;;;;;;;;;;;
 ;;; our just scan mode -fmelt=justscan

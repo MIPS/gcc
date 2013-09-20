@@ -2,6 +2,15 @@
 
 2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{unstable, xtramelt-ana-simple.melt don't compile!}}
+	* melt/warmelt-genobj.melt (putobjdest_catchall_objcode)
+	(putobjdest_catchall_anydiscr): Slightly improved error message.
+
+	* melt/xtramelt-ana-simple.melt (justscanpass_gate)
+	(justscanpass_exec): Move functions below.
+
+2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (use_package_from_pkg_config): Improve
 	the :doc string.
 

@@ -998,7 +998,8 @@
    (let ( (discr (discrim recv)) 
 	  (discrname  (unsafe_get_field :named_name discr))
 	  )
-     (errormsg_strv "{Internal Error} PUT_OBJDEST sent to unexpected C-generated object of class" discrname)
+     (error_at () "PUT_OBJDEST sent to unexpected C-generated object $1 of class $2 for destination $3." 
+	       recv discrname desto)
      (assert_msg "@@put_objdest should be implemented in nrep-s subclasses" () recv)
      ))
  (install_method class_generated_c_code put_objdest putobjdest_catchall_objcode)
@@ -1010,7 +1011,8 @@
    (let ( (discr (discrim recv)) 
 	  (discrname  (unsafe_get_field :named_name discr))
 	  )
-     (errormsg_strv "{Internal Error} PUT_OBJDEST sent to unexpected value of " discrname)
+     (error_at () "PUT_OBJDEST sent to unexpected reciever $1 of discriminant $2 for destination $3." 
+	       recv discr desto)
    (assert_msg "@@ unexpected catchall putobjdest anydiscr" () recv)))
  (install_method discr_any_receiver put_objdest putobjdest_catchall_anydiscr)
 
