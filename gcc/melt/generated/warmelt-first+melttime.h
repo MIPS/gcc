@@ -18,8 +18,8 @@ extern "C" {
 
 		 
 /*MELT BOOTSTRAP*/
-const char melt_gen_timestamp[]="Thu Sep 19 15:18:30 2013 CEST";
-const long long melt_gen_timenum=1379596710;
+const char melt_gen_timestamp[]="Fri Sep 20 11:05:54 2013 CEST";
+const long long melt_gen_timenum=1379667954;
 
 		 const char melt_build_timestamp[]= __DATE__ "@" __TIME__
 		 #ifdef __cplusplus
