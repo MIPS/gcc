@@ -3,7 +3,7 @@
  ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tfindgimple-1.c
  ./cc1 -O @meltbuild-common.args -fmelt-init=@melt-default-modules.quicklybuilt \
     -fmelt-mode=findgimple -fmelt-arg="?_" \
-    -fmelt-debug tfindgimple-1.c \
+    -fmelt-debug -I include tfindgimple-1.c \
     -o /dev/null
 */
 #include <stdio.h>

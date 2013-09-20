@@ -1,6 +1,13 @@
 
 
 2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/xtramelt-ana-gimple.melt (diag_gimple, diag_gimpleseq): New
+	registered diagnostic functions.
+
+	* testsuite/melt/tfindgimple-1.c: pass -I include in comments.
+
+2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerated}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

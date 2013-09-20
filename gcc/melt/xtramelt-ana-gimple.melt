@@ -2544,6 +2544,15 @@ $TREECLOS, TRUE) }#)
       )))
 
 
+(defun diag_gimple (diagstate :gimple g)
+  (debug "diag_gimple start diagstate=" diagstate " g=" g)
+  (assert_msg "check diagstate" (is_a diagstate class_diagnostic_state))
+  (let ( (outbuf (make_strbuf discr_strbuf))
+	 )
+    (output_gimple outbuf g)
+    (strbuf2string outbuf discr_string)))
+(register_diag_gimple diag_gimple)
+
 
 ;;;;;;;;;;;;;;;;
 ;; debug & output functions for gimpleseq
@@ -2570,6 +2579,17 @@ $TREECLOS, TRUE) }#)
 	 )
       (add2out_strconst out "*nullgimpleseq*")
       )))
+
+
+(defun diag_gimpleseq (diagstate :gimple_seq gs)
+  (debug "diag_gimpleseq start diagstate=" diagstate " gs=" gs)
+  (assert_msg "check diagstate" (is_a diagstate class_diagnostic_state))
+  (let ( (outbuf (make_strbuf discr_strbuf))
+	 )
+    (output_gimpleseq outbuf gs)
+    (strbuf2string outbuf discr_string)))
+(register_diag_gimple_seq diag_gimpleseq)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
