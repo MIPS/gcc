@@ -2897,7 +2897,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wy - Register class to do ISA 2.07 SF operations.
 	wz - Float register if we can do 32-bit unsigned int loads.  */
 
-
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;
 
