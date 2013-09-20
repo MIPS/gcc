@@ -523,12 +523,25 @@
 (defclass class_findgimple_data 
   :super class_proped
   :fields (fndgimp_data
+	   fndgimp_maptreefun
 	   fndgimp_goodfuncount
 	   fndgimp_goodgimpcount
 	   fndgimp_nbfun
 	   fndgimp_nbgimp
 	   ))
 (export_class class_findgimple_data)
+
+
+(defvar findgimple_data_processor)
+
+(defun register_findgimple_processor (clo)
+  (cond 
+   ( (is_closure clo)
+     (setq findgimple_data_processor clo))
+   (:else
+    (error_at () "register_findgimple_processor expecting a closure but got $1" clo)
+    (assert_msg "register_findgimple_processor check clo" (is_closure clo) clo))))
+(export_values register_findgimple_processor)
 
 (defun findgimple_docmd (cmd moduldata)
   (let ( (argstr (constant_box (melt_argument "arg")))
@@ -587,16 +600,25 @@
 		      (:tree ,treefundecl)
 		      (debug "findgimple/gate treefundecl=" ,treefundecl)
 		      (let ( (passdata (get_field :gccpass_data ,pass))
+			     (maptreefun (get_field :fndgimp_maptreefun passdata))
 			     (nbfun (get_field :fndgimp_nbfun passdata))
 			     (goodfuncount (get_field :fndgimp_goodfuncount passdata))
+			     (thistreefun (maptree_get maptreefun ,treefundecl))
 			     )
 			(assert_msg "findgimple/gate check passdata" 
 				    (is_a passdata class_findgimple_data) passdata)
 			(debug "findgimple/gate passdata=" passdata " treefundecl=" ,treefundecl
-			       " nbfun=" nbfun " goodfuncount=" goodfuncount)
+			       "\n.. maptreefun=" maptreefun "\n.. nbfun=" nbfun "\n.. goodfuncount=" goodfuncount
+			       "\n.. thistreefun=" thistreefun)
+			(assert_msg "findgimple/gate check maptreefun" (is_maptree maptreefun) maptreefun)
 			(assert_msg "findgimple/gate check nbfun" (is_integerbox nbfun) nbfun)
 			(assert_msg "findgimple/gate check goodfuncount" (is_integerbox goodfuncount) goodfuncount)
+			(when thistreefun
+			  (debug "findgimple/gate thistreefun=" thistreefun)
+			  ;; already seen function
+			  (return ()))
 			(put_int nbfun (+i 1 (get_int nbfun)))
+			(maptree_put maptreefun ,treefundecl (constant_box nbfun))
 			,matchdeclexp
 			)))))
 	     ;;
@@ -652,7 +674,7 @@
 		    (lambda (x)
 		      (debug "findgimple/atexit x=" x " curdata=" curdata)
 		      (assert_msg "findgimple/atexit check curdata" (is_a curdata class_findgimple_data))
-		      (let ( (:long goodfuncount (get_int (get_field :fndgimp_nbgimp curdata)))
+		      (let ( (:long goodfuncount (get_int (get_field :fndgimp_goodfuncount curdata)))
 			     (:long goodgimpcount (get_int (get_field :fndgimp_goodgimpcount curdata)))
 			     (:long totnbfun (get_int (get_field :fndgimp_nbfun curdata)))
 			     (:long totnbgimp (get_int (get_field :fndgimp_nbgimp curdata)))
@@ -667,14 +689,20 @@
 	 (debug "findgimple_docmd execfunexp=" execfunexp)
 	 (cond
 	  ( (string_length outputstr)
-	    (error_at () "findgimple not implemented for output " outputstr)
-	    (assert_msg "findgimple_docmd unimplemented when given output" outputstr)
-	    )
+	    (debug "findgimple_docmd outputstr=" outputstr)
+	    (let ( (doregsexp `(register_findgimple_processor ,dorunexp))
+		   (curenv !(current_module_environment_reference))
+		  )
+	      (compile_list_sexpr (list doregsexp) curenv outputstr)
+	      (inform_at () "findgimple mode generated module $1" outputstr)
+	      (assert_msg "@$findgimple_docmd not fully implemented when given output" () outputstr)
+	    ))
 	  (:else
 	   (let ( (curenv !(current_module_environment_reference))
 		  (dorun (eval dorunexp curenv))
 		  (findata (instance class_findgimple_data
 				     :fndgimp_data ()
+				     :fndgimp_maptreefun (make_maptree discr_map_trees 59)
 				     :fndgimp_goodfuncount (box 0)
 				     :fndgimp_goodgimpcount (box 0)
 				     :fndgimp_nbfun (box 0)
@@ -696,8 +724,12 @@
 (definstance findgimple_mode
   class_melt_mode
   :named_name '"findgimple"
-  :meltmode_help '"find and count all the gimples matching the given gimple pattern in all functions
- whose declaration matches a given tree pattern; argument should be: <gimple-pattern> [<tree-decl-pattern>]"
+  :meltmode_help '"find and count all the gimples matching the given
+ gimple pattern in all functions whose declaration matches a given
+ tree pattern; -fplugin-arg-melt-arg should be: <gimple-pattern>
+ [<tree-decl-pattern>].  If -fplugin-arg-melt-output is given, it is
+ the name of the generated module, to be able to repeat that search
+ using againfindgimple mode."
   :meltmode_fun findgimple_docmd)
 (install_melt_mode findgimple_mode)
 

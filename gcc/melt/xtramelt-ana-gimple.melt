@@ -2550,7 +2550,8 @@ $TREECLOS, TRUE) }#)
   (let ( (outbuf (make_strbuf discr_strbuf))
 	 )
     (output_gimple outbuf g)
-    (strbuf2string outbuf discr_string)))
+    (debug "diag_gimple outbuf=" outbuf)
+    (strbuf2string discr_string outbuf)))
 (register_diag_gimple diag_gimple)
 
 
@@ -2587,7 +2588,7 @@ $TREECLOS, TRUE) }#)
   (let ( (outbuf (make_strbuf discr_strbuf))
 	 )
     (output_gimpleseq outbuf gs)
-    (strbuf2string outbuf discr_string)))
+    (strbuf2string discr_string outbuf)))
 (register_diag_gimple_seq diag_gimpleseq)
 
 

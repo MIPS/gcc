@@ -6980,11 +6980,6 @@ if (1) return;
 	   )
       (debug "compile_list_sexpr after macroexpansion modctx=" modctx)
       ;;
-      (if (<=i lenxlist 3)
-	  (code_chunk warnshortchk
-		      #{/* compile_list_sexpr $WARNSHORTCHK*/
-		      warning (0, "MELT expanded few (%d) expressions", (int) $LENXLIST) ;
-		      }#))
       (debug "compile_list_sexpr before translation modctx=" modctx)
       ;;
       (translate_macroexpanded_list xlist modnamstr modctx ncx inienv () compile2obj_initproc)

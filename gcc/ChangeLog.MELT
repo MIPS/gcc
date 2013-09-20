@@ -2,6 +2,22 @@
 
 2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (use_package_from_pkg_config): Improve
+	the :doc string.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr): Remove the
+	warning for short list of expressions.
+
+	* melt/xtramelt-ana-tree.melt (diag_tree): Correct order of
+	arguments to strbuf2string.
+
+	* melt/xtramelt-ana-gimple.melt (diag_gimple, dig_gimpleseq):
+	Likewise.
+
+	* melt/xtramelt-ana-simple.melt (findgimple_docmd): More.
+
+2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/xtramelt-ana-gimple.melt (diag_gimple, diag_gimpleseq): New
 	registered diagnostic functions.
 

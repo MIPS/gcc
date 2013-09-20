@@ -7902,8 +7902,8 @@ $COMMA It is often noted with a prefix comma-character
 
 (install_initial_macro 'use_package_from_pkg_config mexpand_use_package_from_pkg_config)
 (export_macro use_package_from_pkg_config mexpand_use_package_from_pkg_config
- :doc #{The $USE_PACKAGE_FROM_PKG_CONFIG or
- $USE-PACKAGE-FROM-PKG-CONFIG syntax enables usage of
+ :doc #{The @code{$USE_PACKAGE_FROM_PKG_CONFIG} or
+ @code{$USE-PACKAGE-FROM-PKG-CONFIG} syntax enables usage of
  @code{pkg-config}-ured packages. Arguments are strings naming
  packages. This modifies the compilation and linking of generated C
  code. Probably using some $CHEADER for some @code{#include} is useful.}#)

@@ -1649,7 +1649,7 @@ pointer type node.}#
   (let ( (outbuf (make_strbuf discr_strbuf))
 	 )
     (output_tree_briefly outbuf tr)
-    (strbuf2string outbuf discr_string)))
+    (strbuf2string discr_string outbuf)))
 (register_diag_tree diag_tree)
 
 ;;;;;;;;;;;;;;;;
