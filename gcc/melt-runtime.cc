@@ -964,6 +964,11 @@ int melt_branch_argument_processing (int *argcp, char***argvp)
 	  }
 	else
 	  meltargname.assign(meltargstart);
+	if (melt_branch_argument_map.find (meltargname)
+	    != melt_branch_argument_map.end ())
+	  fatal_error ("MELT branch argument -f[plugin-arg-]melt-%s given twice '%s' and '%s'",
+		       meltargname.c_str(), meltargval.c_str(), 
+		       melt_branch_argument_map[meltargname].c_str());
 	melt_branch_argument_map [meltargname] = meltargval;
       }
     else

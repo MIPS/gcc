@@ -2,6 +2,11 @@
 
 2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_branch_argument_processing): Detect and
+	give a fatal error when same argument is given twice...
+
+2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-upgrade.sh: Typo on messages about upgrade of descriptor
 	files.
 
