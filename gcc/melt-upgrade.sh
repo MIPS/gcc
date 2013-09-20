@@ -126,20 +126,20 @@ for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
 	fi	
     done
     ## copy verbatim without indentation the descriptor and timestamp files at last
-    cp $df "$meltsource_dir/melt/generated/$bf+meltdesc.c-$melt_tempsuffix"
-    if [ ! -s "$meltsource_dir/melt/generated/$bf+meltdesc.c-$melt_tempsuffix" ]; then
-	echo MELT-upgrade failed to upgrade descriptor file $meltsource_dir/melt/generated/$bf+meltdesc.c 1>&2
+    cp $df "$meltsource_dir/melt/generated/$bs+meltdesc.c-$melt_tempsuffix"
+    if [ ! -s "$meltsource_dir/melt/generated/$bs+meltdesc.c-$melt_tempsuffix" ]; then
+	echo MELT-upgrade failed to upgrade descriptor file $meltsource_dir/melt/generated/$bs+meltdesc.c 1>&2
 	exit 1
     else
-	echo MELT-upgrade is upgrading descriptor $meltsource_dir/melt/generated/$bf+meltdesc.c
+	echo MELT-upgrade is upgrading descriptor $meltsource_dir/melt/generated/$bs+meltdesc.c
 	    if [ -f "$meltsource_dir/melt/generated/$bs+meltdesc.c" ]; then
 		mv "$meltsource_dir/melt/generated/$bs+meltdesc.c" "$meltsource_dir/melt/generated/$bs+meltdesc.c~"
 	    fi
-	mv  "$meltsource_dir/melt/generated/$bf+meltdesc.c-$melt_tempsuffix" "$meltsource_dir/melt/generated/$bs+meltdesc.c"
+	mv  "$meltsource_dir/melt/generated/$bs+meltdesc.c-$melt_tempsuffix" "$meltsource_dir/melt/generated/$bs+meltdesc.c"
     fi
     cp $tf "$meltsource_dir/melt/generated/$bs+melttime.h-$melt_tempsuffix"
     if [ ! -s "$meltsource_dir/melt/generated/$bs+melttime.h-$melt_tempsuffix"  ]; then
-	echo MELT-upgrade failed to upgrade timestamp file "$meltsource_dir/melt/generated/$bf+melttime.h" 1>&2
+	echo MELT-upgrade failed to upgrade timestamp file "$meltsource_dir/melt/generated/$bs+melttime.h" 1>&2
 	exit 1
     else
 	echo MELT-upgrade is upgrading timestamp file "$meltsource_dir/melt/generated/$bs+melttime.h"

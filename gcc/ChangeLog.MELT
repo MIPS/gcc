@@ -1,5 +1,10 @@
 
 
+2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-upgrade.sh: Typo on messages about upgrade of descriptor
+	files.
+
 2013-09-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/xtramelt-ana-simple.melt (findgimple_docmd): More, and
