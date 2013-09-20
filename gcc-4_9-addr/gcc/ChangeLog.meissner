@@ -1,5 +1,302 @@
 2013-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Delete
+	getenv tests for -mallow-upper-{df,sf}.
+
+	(redone ChangeLog.meissner)
+	* config/rs6000/rs6000.md (f32_lv): Use %x for VSX registers.
+	(f32_sv): Likewise.
+	(Ftrad): New mode attributes for combining scalar double and
+	single precision floating insns into one expander.
+	(Fvsx): Likewise.
+	(Ff): Likewise.
+	(Fv): Likewise.
+	(Fs): Likewise.
+	(Ffre): Likewise.
+	(FFRE): Likewise.
+	(zero_extendsidi2_lfiwzx): Use wu constraint instead of wm, to
+	deal with loads/stores to the Altivec registers.
+	(extendsidi2_lfiwax): Likewise.
+	(abs<mode>2, SF/DF modes): Combine SF and DF insns.  Move VSX
+	scalar double precision insns back to rs6000.md.  Add both
+	expanders, and insns for both types.
+	(abs<mode>2_fpr, SF/DF modes):
+	(nabs<mode>2_fpr, SF/DF modes): Likewise.
+	(neg<mode>2, SF/DF modes): Likewise.
+	(smax<mode>3, SF/DF modes): Likewise.
+	(smax<mode>3_vsx, SF/DF modes): Likewise.
+	(smin<mode>3, SF/DF modes): Likewise.
+	(smin<mode>3_vsx, SF/DF modes): Likewise.
+	(add<mode>3, SF/DF modes): Likewise.
+	(add<mode>3_fpr, SF/DF modes): Likewise.
+	(sub<mode>3, SF/DF modes): Likewise.
+	(sub<mode>3_fpr, SF/DF modes): Likewise.
+	(mul<mode>3, SF/DF modes): Likewise.
+	(mul<mode>3_fpr, SF/DF modes): Likewise.
+	(div<mode>3, SF/DF modes): Likewise.
+	(div<mode>3_fpr, SF/DF modes): Likewise.
+	(fre<Fs>, SF/DF modes): Likewise.
+	(sqrt<mode>2, SF/DF modes): Likewise.
+	(rsqrt<mode>2, SF/DF modes): Likewise.
+	(cmp<mode>_fpr, SF/DF modes): Likewise.
+	(abssf2): Delete SF insns combined into a single SF/DF expander.
+	(fnabs SFmode): Likewise.
+	(addsf3): Likewise.
+	(subsf3): LIkewise.
+	(mulsf3): Likewise.
+	(divsf3): Likewise.
+	(fres): Likewise.
+	(fmasf4_fpr): Likewise.
+	(fmssf4_fpr): Likewise.
+	(nfmasf4_fpr): Likewise.
+	(nfmssf4_fpr): Likewise.
+	(extendsfdf2_fpr): Use wy constraint for SF values in Altivec
+	registers.
+	(sqrtsf2): Delete SF insns combined into a single SF/DF expander.
+	(rsqrtsf_internal1): Likewise.
+	(truncdfsf2_fpr): Use wy constraint for SF in Altivec registers.
+	(copysign<mode>3_fcpsgn): Combine SF/DF, and support either in
+	Altivec registers.
+	(smaxsf3): Delete SF insns combined into a single SF/DF expander.
+	(sminsf3): Likewise.
+	(movsfcc): Likewise.
+	(mov<mode>cc): Combine SF/DF insns.
+	(fselsfsf4): Delete SF-only insns.
+	(fseldfsf4): Likewise.
+	(fsel<mode>sf4): Merge SF/DF insns.
+	(fsel<mode>df4): Likewise.
+	(negdf2): Delete DF only insns, after combining SF/DF modes.
+	(negdf2_fpr): Likewise.
+	(absdf2): Likewise.
+	(absdf2_fpr): Likewise.
+	(nabsdf2_fpr): Likewise.
+	(adddf3): Likewise.
+	(adddf3_fpr): Likewise.
+	(subdf3): Likewise.
+	(subdf3_fpr): Likewise.
+	(muldf3): Likewise.
+	(muldf3_fpr): Likewise.
+	(divdf3): Likewise.
+	(divdf3_fpr): Likewise.
+	(fred_fpr): Likewise.
+	(rsqrtdf_internal1): Likewise.
+	(fmadf4_fpr): Likewise.
+	(fmsdf4_fpr): Likewise.
+	(nfmadf4_fpr): Likewise.
+	(nfmsdf4_fpr): Likewise.
+	(sqrtdf2): Likewise.
+	(sqrtdf2_fpr): Likewise.
+	(smaxdf3): Likewise.
+	(smindf3): Likewise.
+	(movdfcc): Likewise.
+	(fseldfdf4): Likewise.
+	(fselsfdf4): Likewise.
+	(lfiwax): Remove ! constraint from power6x transfer.  Use wu for
+	power8 direct moves.
+	(lfiwzx): Likewise.
+	(floatsi<mode>2_lfiwax_mem): Add wu constraint for power8 direct
+	moves.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(lrint<mode>di2): Use TARGET_<MODE>_FPR to simplify tests.
+	(btrunc<mode>2): Use TARGET_<MODE>_FPR to simplify tests.  Add
+	support for using Altivec registers and VSX instructions.  Combine
+	define_expand, define_insn.
+	(ceil<mode>2): Likewise.
+	(floor<mode>2): Likewise.
+	(btrunc<mode>2_fpr): Delete insn, fold expander into insn.
+	(ceil<mode>2_fpr): Likewise.
+	(floor<mode>2): Likewise.
+	(mov<mode>_hardfloat, SF/SD modes): Add support for putting SF
+	registers in Altivec registers.
+	(mov<mode>_hardfloat32, DF/DD modes): Make VSX operations use
+	constraint that only recognizes Altivec registers, use traditional
+	instructions for moves that target just the floating point
+	registers.
+	(mov<mode>_hardfloat64, DF/DD modes): Likewise.
+	(movdi_internal64): Likewise.
+	(cmpsf_internal1): Delete SF/DF only insns.
+	(cmpdf_internal1): Likewise.
+	(fma<mode>4_fpr): Combine SF/DF multiply-add insns.  Add support
+	for using ISA 2.06/2.07 instructions for registers in the Altivec
+	registers.
+	(fms<mode>4_fpr): Likewise.
+	(fnma<mode>4_fpr): Likewise.
+	(fnms<mode>4_fpr): Likewise.
+
+	* config/rs6000/vector.md (VEC_R): Add PTI mode to types getting
+	reload functions.
+
+	* config/rs6000/constraints.md (wa constraint): Rearrange w<x>
+	constraints to be in alphabetical order.  Add documentation
+	string.
+	(wd constraint): Likewise.
+	(wf constraint): Likewise.
+	(wg constraint): Likewise.
+	(wn constraint): Likewise.
+	(ws constraint): Likewise.
+	(wt constraint): Likewise.
+	(wu constraint): New constraint for SF mode in Altivec registers.
+	(wv constraint): Repurpose for DF mode in Altivec registers.
+	(ww constraint): New constraint for doing float conversion
+	operations under VSX.
+	(wv constraint): New constraint for VSX register to hold SF
+	values.
+
+	* config/rs6000/rs6000-builtin.def (xsrdpim): Change insn name
+	(xsrdpip): Likewise.
+	(xsrdpiz): Likewise.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-float): New debug switch
+	to disable use of ISA 2.07 SF instructions.
+	(-mvsx-scalar-double): Change initialization from -1 to 1.
+	(-mvsx-scalar-memory): Rename debug switch to -mupper-regs-df.
+	(-mupper-regs-df): New debug switch to control whether the altivec
+	registers can hold DF values if -mvsx.
+	(-mupper-regs-sf): New debug switch to control whether the altivec
+	registers can hold SF values if -mp8-vector.
+
+	* config/rs6000/rs6000.c (rs6000_vector_reload): Delete, fold into
+	reg_addr structure.
+	(reload_fpr_gpr): Likewise.
+	(reload_gpr_vsx): Likewise.
+	(reload_vsx_gpr): Likewise.
+	(addr_mask_type): New type for address masks.
+	(reg_addr): New static array to hold various reload information
+	based on type, combining reload helper insn functions, with
+	address masks to describe what type of addresses each type
+	supports in different register classes.
+	(ADDR_VALID_FPR): Address mask to say if a type is valid in
+	certain register classes.
+	(ADDR_VALID_AV): Likewise.
+	(ADDR_VALID_VSX): Likewise.
+	(ADDR_VALID_MASK): Likewise.
+	(ADDR_INDEXED_GPR): Address mask to say if indexed memory
+	operations are allowed for a type in a register class.
+	(ADDR_INDEXED_FPR): Likewise.
+	(ADDR_INDEXED_AV): Likewise.
+	(ADDR_INDEXED_VSX): Likewise.
+	(ADDR_INDEXED_NOSTRICT): Likewise.
+	(ADDR_INDEXED_MASK): Likewise.
+	(ADDR_OFFSET_GPR): Address mask to say if offset addressing is
+	available for a type in a register class.
+	(ADDR_OFFSET_FPR): Likewise.
+	(ADDR_OFFSET_NOSTRICT): Likewise.
+	(ADDR_OFFSET_MASK): Likewise.
+	(ADDR_MULTIPLE_GPR): Address mask to say if a type takes more than
+	one hard register in a register class.
+	(ADDR_MULTIPLE_FPR): Likewise.
+	(ADDR_MULTIPLE_AV): Likewise.
+	(ADDR_MULTIPLE_VSX): Likewise.
+	(ADDR_MULTIPLE_MASK): Likewise.
+	(ADDR_UPDATE_GPR): Address mask to say if PRE_INCREMENT,
+	PRE_DECREMENT, and PRE_MODIFY are allowed for a given type in a
+	register class.
+	(ADDR_UPDATE_FPR): Likewise.
+	(ADDR_UPDATE_NOSTRICT): Likewise.
+	(ADDR_UPDATE_MASK): Likewise.
+	(ADDR_AND_AV): Address mask for whether an altivec load/store can
+	be done.
+	(ADDR_AND_NOSTRICT): Likewise.
+	(ADDR_AND_MASK): Likewise.
+	(ADDR_FUSION_GPR): Address mask to say whether instruction fusion
+	should be done for a mode in a register class.
+	(ADDR_FUSION_NOSTRICT): Likewise.
+	(ADDR_FUSION_MASK): Likewise.
+	(ADDR_GPR_MASK): Address masks for a given register class.
+	(ADDR_FPR_MASK): Likewise.
+	(ADDR_AV_MASK): Likewise.
+	(ADDR_VSX_MASK): Likewise.
+	(ADDR_NOSTRICT_MASK): Likewise.
+	(rs6000_register_move_cost): Add forward declaration.
+	(mode_allowed_in_vsx_p): Helper functions to determine if a given
+	mode is allowed in a certain register class.
+	(mode_allowed_in_altivec_p): Likewise.
+	(mode_allowed_in_vsx_or_altivec_p): Likewise.
+	(mode_allowed_in_fpr_p): Likewise.
+	(rs6000_hard_regno_nregs_internal): Use address mask helper
+	functions instead of VECTOR_MEM_VSX_P, which does not work as well
+	with a mixture of traditional and VSX loads.
+	(rs6000_hard_regno_mode_ok): Likewise.
+	(rs6000_debug_addr_mask): New debug function to print address
+	masks in a readable fashion.
+	(rs6000_debug_reg_global): Print wu, ww, and wv constraints.  Deal
+	with reload support function insns being moved into reg_addr
+	array.  Call rs6000_debug_addr_mask to print address masks.  Print
+	what type of floating point is being used.
+	(rs6000_init_address_modes): New function to initialize address
+	masks for all types and register classes, and the secondary reload
+	support insns.
+	(rs6000_init_hard_regno_mode_ok): Use ssize_t instead of int for
+	signed iterators.  Add support for putting SF values in Altivec
+	registers if -mp8-vector.  Rework support for putting SF values in
+	Altivec registers if -mvsx.  Sort setting up constraints.
+	Initialize new wu, ww, wy constraints.  Repurpose wv constraint.
+	Call rs6000_init_address_modes to set up secondary reload helper
+	insns.
+	(rs6000_debug_legitimate_address_p): Print whether we are before,
+	in the middle or, or after reload.
+	(rs6000_secondary_reload_direct_move): Use reg_array for getting
+	secondary reload helper insns.  Only call register_operand, if the
+	value is a SUBREG.
+	(rs6000_secondary_reload): Likewise.
+	(rs6000_opt_masks): Add -mupper-regs-df, -mupper-regs-sf.
+
+	* config/rs6000/vsx.md (vsx_add<mode>3): Drop DF scalar mode
+	support, only support V4SF and V2DF vectors.
+	(vsx_sub<mode>3): Likewise.
+	(vsx_mul<mode>3): Likewise.
+	(vsx_div<mode>3): Likewise.
+	(vsx_fre<mode>2): Likewise.
+	(vsx_neg<mode>2): Likewise.
+	(vsx_abs<mode>2): Likewise.
+	(vsx_nabs<mode>2): Likewise.
+	(vsx_smax<mode>3): Likewise.
+	(vsx_smin<mode>3): Likewise.
+	(vsx_sqrt<mode>3): Likewise.
+	(vsx_rsqrte<mode>): Likewise.
+	(vsx_fma<mode>4): Likewise.
+	(vsx_fms<mode>4): Likewise.
+	(vsx_nfma<mode>4): Likewise.
+	(vsx_nfms<mode>4): Likewise.
+	(vsx_sminsf3): Delete, moved to rs6000.md.
+	(vsx_smaxsf3): Likewise.
+	(vsx_fmadf4): Likewise.
+	(vsx_fmsdf4): Likewise.
+	(vsx_nfmadf4): Likewise.
+	(vsx_nfmsdf4): Likewise.
+	(vsx_cmpdf_internal1): Likewise.
+	(vsx_copysign<mode>3): Drop DF scalar mode, only do V4SF/V2DF.
+	(vsx_btrunc<mode>2): Likewise.
+	(vsx_floor<mode>2): Likewise.
+	(vsx_ceil<mode>2): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_SF_SPE): New macro to allow
+	TARGET_<MODE>_SPE tests to see if SPE <MODE> is supported.
+	(TARGET_DF_SPE): Likewise.
+	(TARGET_SF_FPR): New macro to allow TARGET_<MODE>_FPR tests if
+	<MODE> is supported in FPR or VSX registers.
+	(TARGET_DF_FPR): Likewise.
+	(TARGET_SF_INSN): New macro to allow TARGET_<MODE>_INSN tests to
+	say whether the operation is supported in any floating point
+	system.
+	(TARGET_DF_INSN): Likewise.
+	(enum r6000_reg_class_enum): Add wu, ww, wz constraints.
+	Repurpose wv constraint.  Sort other constraints.
+
+	* doc/md.texi  (PowerPC and IBM RS6000): Improve documentation for
+	wa, wd, wf, wg, wl, wm, wr, ws, wt, wx, wz constraints.  Add
+	documentation for wu, ww, and wy constraints.  Repurpose wv
+	constraint.
+
+===============================================================================
+
+2013-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Delete
+	getenv tests for -mallow-upper-{df,sf}.
+
+2013-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 202754.
 	* REVISION: Update subversion number.
 

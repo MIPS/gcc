@@ -3498,19 +3498,6 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
     }
 
-  /* Don't enable DF/SF in the upper VSX registers by default on VSX.  */
-  if ((rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF) == 0
-      && TARGET_VSX
-      && (getenv ("UPPER_REGS_DF") != NULL
-	  || getenv ("UPPER_REGS_BOTH") != NULL))
-    rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_DF;
-
-  if ((rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF) == 0
-      && TARGET_P8_VECTOR
-      && (getenv ("UPPER_REGS_SF") != NULL
-	  || getenv ("UPPER_REGS_BOTH") != NULL))
-    rs6000_isa_flags |= OPTION_MASK_UPPER_REGS_SF;
-
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
      silently turn off quad memory mode.  */
   if (TARGET_QUAD_MEMORY && !TARGET_POWERPC64)
