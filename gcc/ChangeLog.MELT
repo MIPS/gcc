@@ -2,6 +2,17 @@
 
 2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* toplevel.c (melt_branch_argument_processing): Declaration
+	renamed as ...
+	(melt_branch_process_arguments): New declared name.
+	(toplev_main): Call it appropriately.
+
+	* melt-runtime.cc (melt_branch_argument_processing): Function
+	renamed as ...
+	(melt_branch_process_arguments): New name.
+
+2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_branch_argument_processing): Detect and
 	give a fatal error when same argument is given twice...
 

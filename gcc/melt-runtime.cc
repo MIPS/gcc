@@ -917,9 +917,12 @@ melt_argument (const char* argname)
 
 static std::map<std::string,std::string> melt_branch_argument_map;
 
-extern "C" int melt_branch_argument_processing (int *, char***);
+// Function called from toplev.c on the MELT branch to process the
+// MELT specific arguments (like -fplugin=melt and -fplugin-arg-melt-*
+// and -fmelt-* ...)
+extern "C" int melt_branch_process_arguments (int *, char***);
 
-int melt_branch_argument_processing (int *argcp, char***argvp)
+int melt_branch_process_arguments (int *argcp, char***argvp)
 {
   typedef std::map<std::string,std::string> meltargdict_t;
   int ret=0;

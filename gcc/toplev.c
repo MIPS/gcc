@@ -1937,11 +1937,12 @@ do_compile (void)
   timevar_print (stderr);
 }
 
-  // in melt-runtime.cc
 #ifdef __cplusplus
-extern "C" int melt_branch_argument_processing(int *, char***);
+// Function from melt-runtime.cc to process MELT specific arguments
+// (like -fplugin=melt and -fplugin-arg-melt-* and -fmelt-* ...)
+extern "C" int melt_branch_process_arguments (int *, char***);
 #else
-extern int melt_branch_argument_processing(int *, char***);
+extern int melt_branch_process_arguments (int *, char***);
 #endif 
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
@@ -1965,7 +1966,7 @@ toplev_main (int argc, char **argv)
   general_init (argv[0]);
 
   /* Early processing of MELT related arguments */
-  int nbmeltarg = melt_branch_argument_processing (&argc, &argv);
+  int nbmeltarg = melt_branch_process_arguments (&argc, &argv);
 
   /* One-off initialization of options that does not need to be
      repeated when options are added for particular functions.  */
