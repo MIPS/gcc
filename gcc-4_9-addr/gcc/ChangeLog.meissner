@@ -1,3 +1,8 @@
+2013-09-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 202787.
+	* REVISION: Update subversion id.
+
 2013-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (rs6000_option_override_internal): Delete
