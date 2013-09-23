@@ -1,3 +1,27 @@
+2013-09-23  Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
+
+	* configure.ac: Add checks for plugins support.
+	* config.h.in: Regenerated.
+	* configure: Regenerated.
+	* target.c (struct target_mem_desc): Add device_descr field.
+	(devices): New.
+	(num_devices): New.
+	(struct gomp_device_descr): New.
+	(gomp_get_num_devices): Call gomp_target_init.
+	(resolve_device): Return device_descr instead of int.
+	(gomp_map_vars): Add devicep argument and update the function
+	accordingly.
+	(gomp_unmap_tgt): Likewise.
+	(gomp_unmap_vars): Likewise.
+	(gomp_update): Likewise.
+	(GOMP_target): Use device_descr struct.
+	(GOMP_target_data): Likewise.
+	(GOMP_target_update): Likewise.
+	(gomp_check_plugin_file_name): New.
+	(gomp_load_plugin_for_device): New.
+	(gomp_find_available_plugins): New.
+	(gomp_target_init): New.
+
 2013-09-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp_g.h (GOMP_target): Change 3rd argument to const void *.
