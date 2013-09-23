@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"
@@ -786,9 +786,10 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 
   /* Now strip away any outer COMPONENT_REF/ARRAY_REF nodes from the LHS.
      ADDR_EXPR will not appear on the LHS.  */
-  lhs = gimple_assign_lhs (use_stmt);
-  while (handled_component_p (lhs))
-    lhs = TREE_OPERAND (lhs, 0);
+  tree *lhsp = gimple_assign_lhs_ptr (use_stmt);
+  while (handled_component_p (*lhsp))
+    lhsp = &TREE_OPERAND (*lhsp, 0);
+  lhs = *lhsp;
 
   /* Now see if the LHS node is a MEM_REF using NAME.  If so,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
@@ -822,11 +823,13 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
       /* If the LHS is a plain dereference and the value type is the same as
          that of the pointed-to type of the address we can put the
 	 dereferenced address on the LHS preserving the original alias-type.  */
-      else if (gimple_assign_lhs (use_stmt) == lhs
-	       && integer_zerop (TREE_OPERAND (lhs, 1))
-	       && useless_type_conversion_p
-	            (TREE_TYPE (TREE_OPERAND (def_rhs, 0)),
-		     TREE_TYPE (gimple_assign_rhs1 (use_stmt)))
+      else if (integer_zerop (TREE_OPERAND (lhs, 1))
+	       && ((gimple_assign_lhs (use_stmt) == lhs
+		    && useless_type_conversion_p
+		         (TREE_TYPE (TREE_OPERAND (def_rhs, 0)),
+		          TREE_TYPE (gimple_assign_rhs1 (use_stmt))))
+		   || types_compatible_p (TREE_TYPE (lhs),
+					  TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
 	       /* Don't forward anything into clobber stmts if it would result
 		  in the lhs no longer being a MEM_REF.  */
 	       && (!gimple_clobber_p (use_stmt)
@@ -854,7 +857,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	  TREE_SIDE_EFFECTS (*def_rhs_basep) = TREE_SIDE_EFFECTS (lhs);
 	  TREE_THIS_NOTRAP (*def_rhs_basep) = TREE_THIS_NOTRAP (lhs);
 	  new_lhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
-	  gimple_assign_set_lhs (use_stmt, new_lhs);
+	  *lhsp = new_lhs;
 	  TREE_THIS_VOLATILE (new_lhs) = TREE_THIS_VOLATILE (lhs);
 	  TREE_SIDE_EFFECTS (new_lhs) = TREE_SIDE_EFFECTS (lhs);
 	  *def_rhs_basep = saved;
@@ -873,11 +876,12 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 
   /* Strip away any outer COMPONENT_REF, ARRAY_REF or ADDR_EXPR
      nodes from the RHS.  */
-  rhs = gimple_assign_rhs1 (use_stmt);
-  if (TREE_CODE (rhs) == ADDR_EXPR)
-    rhs = TREE_OPERAND (rhs, 0);
-  while (handled_component_p (rhs))
-    rhs = TREE_OPERAND (rhs, 0);
+  tree *rhsp = gimple_assign_rhs1_ptr (use_stmt);
+  if (TREE_CODE (*rhsp) == ADDR_EXPR)
+    rhsp = &TREE_OPERAND (*rhsp, 0);
+  while (handled_component_p (*rhsp))
+    rhsp = &TREE_OPERAND (*rhsp, 0);
+  rhs = *rhsp;
 
   /* Now see if the RHS node is a MEM_REF using NAME.  If so,
      propagate the ADDR_EXPR into the use of NAME and fold the result.  */
@@ -909,11 +913,13 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
       /* If the RHS is a plain dereference and the value type is the same as
          that of the pointed-to type of the address we can put the
 	 dereferenced address on the RHS preserving the original alias-type.  */
-      else if (gimple_assign_rhs1 (use_stmt) == rhs
-	       && integer_zerop (TREE_OPERAND (rhs, 1))
-	       && useless_type_conversion_p
-		    (TREE_TYPE (gimple_assign_lhs (use_stmt)),
-		     TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
+      else if (integer_zerop (TREE_OPERAND (rhs, 1))
+	       && ((gimple_assign_rhs1 (use_stmt) == rhs
+		    && useless_type_conversion_p
+		         (TREE_TYPE (gimple_assign_lhs (use_stmt)),
+		          TREE_TYPE (TREE_OPERAND (def_rhs, 0))))
+		   || types_compatible_p (TREE_TYPE (rhs),
+					  TREE_TYPE (TREE_OPERAND (def_rhs, 0)))))
 	{
 	  tree *def_rhs_basep = &TREE_OPERAND (def_rhs, 0);
 	  tree new_offset, new_base, saved, new_rhs;
@@ -937,7 +943,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
 	  TREE_SIDE_EFFECTS (*def_rhs_basep) = TREE_SIDE_EFFECTS (rhs);
 	  TREE_THIS_NOTRAP (*def_rhs_basep) = TREE_THIS_NOTRAP (rhs);
 	  new_rhs = unshare_expr (TREE_OPERAND (def_rhs, 0));
-	  gimple_assign_set_rhs1 (use_stmt, new_rhs);
+	  *rhsp = new_rhs;
 	  TREE_THIS_VOLATILE (new_rhs) = TREE_THIS_VOLATILE (rhs);
 	  TREE_SIDE_EFFECTS (new_rhs) = TREE_SIDE_EFFECTS (rhs);
 	  *def_rhs_basep = saved;
@@ -1870,6 +1876,52 @@ hoist_conversion_for_bitop_p (tree to, tree from)
   return false;
 }
 
+/* GSI points to a statement of the form
+
+   result = OP0 CODE OP1
+
+   Where OP0 and OP1 are single bit SSA_NAMEs and CODE is either
+   BIT_AND_EXPR or BIT_IOR_EXPR.
+
+   If OP0 is fed by a bitwise negation of another single bit SSA_NAME,
+   then we can simplify the two statements into a single LT_EXPR or LE_EXPR
+   when code is BIT_AND_EXPR and BIT_IOR_EXPR respectively.
+
+   If a simplification is made, return TRUE, else return FALSE.  */
+static bool
+simplify_bitwise_binary_boolean (gimple_stmt_iterator *gsi,
+				 enum tree_code code,
+				 tree op0, tree op1)
+{
+  gimple op0_def_stmt = SSA_NAME_DEF_STMT (op0);
+
+  if (!is_gimple_assign (op0_def_stmt)
+      || (gimple_assign_rhs_code (op0_def_stmt) != BIT_NOT_EXPR))
+    return false;
+
+  tree x = gimple_assign_rhs1 (op0_def_stmt);
+  if (TREE_CODE (x) == SSA_NAME
+      && INTEGRAL_TYPE_P (TREE_TYPE (x))
+      && TYPE_PRECISION (TREE_TYPE (x)) == 1
+      && TYPE_UNSIGNED (TREE_TYPE (x)) == TYPE_UNSIGNED (TREE_TYPE (op1)))
+    {
+      enum tree_code newcode;
+
+      gimple stmt = gsi_stmt (*gsi);
+      gimple_assign_set_rhs1 (stmt, x);
+      gimple_assign_set_rhs2 (stmt, op1);
+      if (code == BIT_AND_EXPR)
+	newcode = TYPE_UNSIGNED (TREE_TYPE (x)) ? LT_EXPR : GT_EXPR;
+      else
+	newcode = TYPE_UNSIGNED (TREE_TYPE (x)) ? LE_EXPR : GE_EXPR;
+      gimple_assign_set_rhs_code (stmt, newcode); 
+      update_stmt (stmt);
+      return true;
+    }
+  return false;
+
+}
+
 /* Simplify bitwise binary operations.
    Return true if a transformation applied, otherwise return false.  */
 
@@ -2117,8 +2169,44 @@ simplify_bitwise_binary (gimple_stmt_iterator *gsi)
 	      return true;
 	    }
 	}
-    }
 
+      /* If arg1 and arg2 are booleans (or any single bit type)
+         then try to simplify:
+
+	   (~X & Y) -> X < Y
+	   (X & ~Y) -> Y < X
+	   (~X | Y) -> X <= Y
+	   (X | ~Y) -> Y <= X 
+
+	  But only do this if our result feeds into a comparison as
+	  this transformation is not always a win, particularly on
+	  targets with and-not instructions.  */
+      if (TREE_CODE (arg1) == SSA_NAME
+	  && TREE_CODE (arg2) == SSA_NAME
+	  && INTEGRAL_TYPE_P (TREE_TYPE (arg1))
+	  && TYPE_PRECISION (TREE_TYPE (arg1)) == 1
+	  && TYPE_PRECISION (TREE_TYPE (arg2)) == 1
+	  && (TYPE_UNSIGNED (TREE_TYPE (arg1))
+	      == TYPE_UNSIGNED (TREE_TYPE (arg2))))
+	{
+	  use_operand_p use_p;
+          gimple use_stmt;
+
+	  if (single_imm_use (gimple_assign_lhs (stmt), &use_p, &use_stmt))
+	    {
+	      if (gimple_code (use_stmt) == GIMPLE_COND
+		  && gimple_cond_lhs (use_stmt) == gimple_assign_lhs (stmt)
+		  && integer_zerop (gimple_cond_rhs (use_stmt))
+		  && gimple_cond_code (use_stmt) == NE_EXPR)
+		{
+	          if (simplify_bitwise_binary_boolean (gsi, code, arg1, arg2))
+		    return true;
+	          if (simplify_bitwise_binary_boolean (gsi, code, arg2, arg1))
+		    return true;
+		}
+	    }
+	}
+    }
   return false;
 }
 
@@ -3466,23 +3554,41 @@ gate_forwprop (void)
   return flag_tree_forwprop;
 }
 
-struct gimple_opt_pass pass_forwprop =
+namespace {
+
+const pass_data pass_data_forwprop =
 {
- {
-  GIMPLE_PASS,
-  "forwprop",			/* name */
-  OPTGROUP_NONE,                /* optinfo_flags */
-  gate_forwprop,		/* gate */
-  ssa_forward_propagate_and_combine,	/* execute */
-  NULL,				/* sub */
-  NULL,				/* next */
-  0,				/* static_pass_number */
-  TV_TREE_FORWPROP,		/* tv_id */
-  PROP_cfg | PROP_ssa,		/* properties_required */
-  0,				/* properties_provided */
-  0,				/* properties_destroyed */
-  0,				/* todo_flags_start */
-  TODO_update_ssa
-  | TODO_verify_ssa		/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "forwprop", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_FORWPROP, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_update_ssa | TODO_verify_ssa ), /* todo_flags_finish */
 };
+
+class pass_forwprop : public gimple_opt_pass
+{
+public:
+  pass_forwprop(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_forwprop, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_forwprop (ctxt_); }
+  bool gate () { return gate_forwprop (); }
+  unsigned int execute () { return ssa_forward_propagate_and_combine (); }
+
+}; // class pass_forwprop
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_forwprop (gcc::context *ctxt)
+{
+  return new pass_forwprop (ctxt);
+}

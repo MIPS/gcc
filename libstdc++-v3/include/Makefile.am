@@ -58,6 +58,7 @@ std_headers = \
 	${std_srcdir}/regex \
 	${std_srcdir}/scoped_allocator \
 	${std_srcdir}/set \
+	${std_srcdir}/shared_mutex \
 	${std_srcdir}/sstream \
 	${std_srcdir}/stack \
 	${std_srcdir}/stdexcept \
@@ -87,6 +88,7 @@ bits_headers = \
 	${bits_srcdir}/basic_string.tcc \
 	${bits_srcdir}/boost_concept_check.h \
 	${bits_srcdir}/c++0x_warning.h \
+	${bits_srcdir}/c++14_warning.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
@@ -124,14 +126,16 @@ bits_headers = \
 	${bits_srcdir}/random.tcc \
 	${bits_srcdir}/range_access.h \
 	${bits_srcdir}/regex.h \
-	${bits_srcdir}/regex_compiler.h \
 	${bits_srcdir}/regex_constants.h \
-	${bits_srcdir}/regex_cursor.h \
 	${bits_srcdir}/regex_error.h \
-	${bits_srcdir}/regex_grep_matcher.h \
-	${bits_srcdir}/regex_grep_matcher.tcc \
-	${bits_srcdir}/regex_nfa.h \
-	${bits_srcdir}/regex_nfa.tcc \
+	${bits_srcdir}/regex_scanner.h \
+	${bits_srcdir}/regex_scanner.tcc \
+	${bits_srcdir}/regex_automaton.h \
+	${bits_srcdir}/regex_automaton.tcc \
+	${bits_srcdir}/regex_compiler.h \
+	${bits_srcdir}/regex_compiler.tcc \
+	${bits_srcdir}/regex_executor.h \
+	${bits_srcdir}/regex_executor.tcc \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
 	${bits_srcdir}/shared_ptr.h \
@@ -891,7 +895,7 @@ pch_output_dirs = \
 	${pch1_output_builddir} ${pch2_output_builddir} ${pch3_output_builddir}
 pch_output_anchors = \
 	${pch1_output_anchor} ${pch2_output_anchor} ${pch3_output_anchor}
-PCHFLAGS=-x c++-header -nostdinc++ $(CXXFLAGS)
+PCHFLAGS=-x c++-header -nostdinc++ $(CXXFLAGS) $(VTV_PCH_CXXFLAGS)
 if GLIBCXX_BUILD_PCH
 pch_build = ${pch_output}
 else

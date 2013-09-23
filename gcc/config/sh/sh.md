@@ -6878,10 +6878,11 @@ label:
 ;; If movqi_reg_reg is specified as an alternative of movqi, movqi will be
 ;; selected to copy QImode regs.  If one of them happens to be allocated
 ;; on the stack, reload will stick to movqi insn and generate wrong
-;; displacement addressing because of the generic m alternatives.  
-;; With the movqi_reg_reg being specified before movqi it will be initially 
-;; picked to load/store regs.  If the regs regs are on the stack reload will
-;; try other insns and not stick to movqi_reg_reg.
+;; displacement addressing because of the generic m alternatives.
+;; With the movqi_reg_reg being specified before movqi it will be initially
+;; picked to load/store regs.  If the regs regs are on the stack reload
+;; try other insns and not stick to movqi_reg_reg, unless there were spilled
+;; pseudos in which case 'm' constraints pertain.
 ;; The same applies to the movhi variants.
 ;;
 ;; Notice, that T bit is not allowed as a mov src operand here.  This is to
@@ -6893,11 +6894,14 @@ label:
 ;; reloading MAC subregs otherwise.  For that probably special patterns
 ;; would be required.
 (define_insn "*mov<mode>_reg_reg"
-  [(set (match_operand:QIHI 0 "arith_reg_dest" "=r")
-	(match_operand:QIHI 1 "register_operand" "r"))]
+  [(set (match_operand:QIHI 0 "arith_reg_dest" "=r,m,*z")
+	(match_operand:QIHI 1 "register_operand" "r,*z,m"))]
   "TARGET_SH1 && !t_reg_operand (operands[1], VOIDmode)"
-  "mov	%1,%0"
-  [(set_attr "type" "move")])
+  "@
+    mov		%1,%0
+    mov.<bw>	%1,%0
+    mov.<bw>	%1,%0"
+  [(set_attr "type" "move,store,load")])
 
 ;; FIXME: The non-SH2A and SH2A variants should be combined by adding
 ;; "enabled" attribute as it is done in other targets.
@@ -8199,15 +8203,9 @@ label:
    (use (match_operand:PSI 2 "fpscr_operand" "c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c"))
    (clobber (match_scratch:SI 3 "=X,X,Bsc,Bsc,&z,X,X,X,X,X,X,X,X,y,X,X,X,X,X"))]
   "TARGET_SH2E
-   && (arith_reg_operand (operands[0], SFmode)
-       || arith_reg_operand (operands[1], SFmode)
-       || arith_reg_operand (operands[3], SImode)
-       || (fpul_operand (operands[0], SFmode)
-	   && memory_operand (operands[1], SFmode)
-	   && GET_CODE (XEXP (operands[1], 0)) == POST_INC)
-       || (fpul_operand (operands[1], SFmode)
-	   && memory_operand (operands[0], SFmode)
-	   && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC))"
+   && (arith_reg_operand (operands[0], SFmode) || fpul_operand (operands[0], SFmode)
+       || arith_reg_operand (operands[1], SFmode) || fpul_operand (operands[1], SFmode)
+       || arith_reg_operand (operands[3], SImode))"
   "@
 	fmov	%1,%0
 	mov	%1,%0

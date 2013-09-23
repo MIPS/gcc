@@ -40,6 +40,8 @@ extern void ix86_output_addr_diff_elt (FILE *, int, int);
 extern enum calling_abi ix86_cfun_abi (void);
 extern enum calling_abi ix86_function_type_abi (const_tree);
 
+extern void ix86_reset_previous_fndecl (void);
+
 #ifdef RTX_CODE
 extern int standard_80387_constant_p (rtx);
 extern const char *standard_80387_constant_opcode (rtx);
@@ -170,6 +172,8 @@ extern int ix86_mode_needed (int, rtx);
 extern int ix86_mode_after (int, int, rtx);
 extern int ix86_mode_entry (int);
 extern int ix86_mode_exit (int);
+
+extern bool ix86_libc_has_function (enum function_class fn_class);
 
 #ifdef HARD_CONST
 extern void ix86_emit_mode_set (int, int, HARD_REG_SET);

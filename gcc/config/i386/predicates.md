@@ -32,6 +32,11 @@
   (and (match_code "reg")
        (not (match_test "ANY_FP_REGNO_P (REGNO (op))"))))
 
+;; True if the operand is a GENERAL class register.
+(define_predicate "general_reg_operand"
+  (and (match_code "reg")
+       (match_test "GENERAL_REG_P (op)")))
+
 ;; Return true if OP is a register operand other than an i387 fp register.
 (define_predicate "register_and_not_fp_reg_operand"
   (and (match_code "reg")
@@ -46,6 +51,16 @@
 (define_predicate "sse_reg_operand"
   (and (match_code "reg")
        (match_test "SSE_REGNO_P (REGNO (op))")))
+
+;; True if the operand is an AVX-512 new register.
+(define_predicate "ext_sse_reg_operand"
+  (and (match_code "reg")
+       (match_test "EXT_REX_SSE_REGNO_P (REGNO (op))")))
+
+;; True if the operand is an AVX-512 mask register.
+(define_predicate "mask_reg_operand"
+  (and (match_code "reg")
+       (match_test "MASK_REGNO_P (REGNO (op))")))
 
 ;; True if the operand is a Q_REGS class register.
 (define_predicate "q_regs_operand"
@@ -880,19 +895,28 @@
     return false;
 
   /* VSIB addressing doesn't support (%rip).  */
-  if (parts.disp && GET_CODE (parts.disp) == CONST)
+  if (parts.disp)
     {
-      disp = XEXP (parts.disp, 0);
-      if (GET_CODE (disp) == PLUS)
-	disp = XEXP (disp, 0);
-      if (GET_CODE (disp) == UNSPEC)
-	switch (XINT (disp, 1))
-	  {
-	  case UNSPEC_GOTPCREL:
-	  case UNSPEC_PCREL:
-	  case UNSPEC_GOTNTPOFF:
-	    return false;
-	  }
+      disp = parts.disp;
+      if (GET_CODE (disp) == CONST)
+	{
+	  disp = XEXP (disp, 0);
+	  if (GET_CODE (disp) == PLUS)
+	    disp = XEXP (disp, 0);
+	  if (GET_CODE (disp) == UNSPEC)
+	    switch (XINT (disp, 1))
+	      {
+	      case UNSPEC_GOTPCREL:
+	      case UNSPEC_PCREL:
+	      case UNSPEC_GOTNTPOFF:
+		return false;
+	      }
+	}
+      if (TARGET_64BIT
+	  && flag_pic
+	  && (GET_CODE (disp) == SYMBOL_REF
+	      || GET_CODE (disp) == LABEL_REF))
+	return false;
     }
 
   return true;

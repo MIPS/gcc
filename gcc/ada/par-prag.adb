@@ -232,18 +232,16 @@ function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id is
          Id := Chars (Arg);
          Expr := Expression (Arg);
 
-         if Id = No_Name
-           and then Nkind (Expr) = N_Identifier
-         then
-            case Get_Restriction_Id (Chars (Expr)) is
-               when No_Obsolescent_Features =>
+         if Id = No_Name and then Nkind (Expr) = N_Identifier then
+            case Chars (Expr) is
+               when Name_No_Obsolescent_Features =>
                   Set_Restriction (No_Obsolescent_Features, Pragma_Node);
                   Restriction_Warnings (No_Obsolescent_Features) :=
                     Prag_Id = Pragma_Restriction_Warnings;
 
-               when SPARK =>
-                  Set_Restriction (SPARK, Pragma_Node);
-                  Restriction_Warnings (SPARK) :=
+               when Name_SPARK | Name_SPARK_05 =>
+                  Set_Restriction (SPARK_05, Pragma_Node);
+                  Restriction_Warnings (SPARK_05) :=
                     Prag_Id = Pragma_Restriction_Warnings;
 
                when others =>
@@ -309,6 +307,7 @@ begin
       when Pragma_Ada_83 =>
          Ada_Version := Ada_83;
          Ada_Version_Explicit := Ada_83;
+         Ada_Version_Pragma := Pragma_Node;
 
       ------------
       -- Ada_95 --
@@ -321,6 +320,7 @@ begin
       when Pragma_Ada_95 =>
          Ada_Version := Ada_95;
          Ada_Version_Explicit := Ada_95;
+         Ada_Version_Pragma := Pragma_Node;
 
       ---------------------
       -- Ada_05/Ada_2005 --
@@ -335,6 +335,7 @@ begin
          if Arg_Count = 0 then
             Ada_Version := Ada_2005;
             Ada_Version_Explicit := Ada_2005;
+            Ada_Version_Pragma := Pragma_Node;
          end if;
 
       ---------------------
@@ -350,6 +351,7 @@ begin
          if Arg_Count = 0 then
             Ada_Version := Ada_2012;
             Ada_Version_Explicit := Ada_2012;
+            Ada_Version_Pragma := Pragma_Node;
          end if;
 
       -----------
@@ -1262,6 +1264,7 @@ begin
            Pragma_Short_Circuit_And_Or           |
            Pragma_Short_Descriptors              |
            Pragma_Simple_Storage_Pool_Type       |
+           Pragma_SPARK_Mode                     |
            Pragma_Storage_Size                   |
            Pragma_Storage_Unit                   |
            Pragma_Static_Elaboration_Desired     |

@@ -78,9 +78,9 @@
 
 (define_insn "*mov<mode>_internal"
   [(set (match_operand:MMXMODE 0 "nonimmediate_operand"
-    "=r ,o ,r,r ,m ,?!y,!y,?!y,m  ,r   ,?!Ym,x,x,x,m,*x,*x,*x,m ,r ,Yi,!Ym,*Yi")
+    "=r ,o ,r,r ,m ,?!y,!y,?!y,m  ,r   ,?!Ym,v,v,v,m,*x,*x,*x,m ,r ,Yi,!Ym,*Yi")
 	(match_operand:MMXMODE 1 "vector_move_operand"
-    "rCo,rC,C,rm,rC,C  ,!y,m  ,?!y,?!Yn,r   ,C,x,m,x,C ,*x,m ,*x,Yj,r ,*Yj,!Yn"))]
+    "rCo,rC,C,rm,rC,C  ,!y,m  ,?!y,?!Yn,r   ,C,v,m,v,C ,*x,m ,*x,Yj,r ,*Yj,!Yn"))]
   "TARGET_MMX
    && !(MEM_P (operands[0]) && MEM_P (operands[1]))"
 {
@@ -127,6 +127,9 @@
 	  return "%vmovq\t{%1, %0|%0, %1}";
 	case MODE_TI:
 	  return "%vmovdqa\t{%1, %0|%0, %1}";
+
+	case MODE_XI:
+	  return "vmovdqa64\t{%g1, %g0|%g0, %g1}";
 
 	case MODE_V2SF:
 	  if (TARGET_AVX && REG_P (operands[0]))
@@ -182,7 +185,10 @@
      (cond [(eq_attr "alternative" "2")
 	      (const_string "SI")
 	    (eq_attr "alternative" "11,12,15,16")
-	      (cond [(match_test "<MODE>mode == V2SFmode")
+	      (cond [(ior (match_operand 0 "ext_sse_reg_operand")
+			  (match_operand 1 "ext_sse_reg_operand"))
+			(const_string "XI")
+		     (match_test "<MODE>mode == V2SFmode")
 		       (const_string "V4SF")
 		     (ior (not (match_test "TARGET_SSE2"))
 			  (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL"))
@@ -1078,7 +1084,7 @@
                      (const_int 2) (const_int 10)
                      (const_int 3) (const_int 11)])))]
   "TARGET_MMX"
-  "punpcklbw\t{%2, %0|%0, %2}"
+  "punpcklbw\t{%2, %0|%0, %k2}"
   [(set_attr "type" "mmxcvt")
    (set_attr "mode" "DI")])
 
@@ -1104,7 +1110,7 @@
           (parallel [(const_int 0) (const_int 4)
                      (const_int 1) (const_int 5)])))]
   "TARGET_MMX"
-  "punpcklwd\t{%2, %0|%0, %2}"
+  "punpcklwd\t{%2, %0|%0, %k2}"
   [(set_attr "type" "mmxcvt")
    (set_attr "mode" "DI")])
 
@@ -1130,7 +1136,7 @@
 	  (parallel [(const_int 0)
 		     (const_int 2)])))]
   "TARGET_MMX"
-  "punpckldq\t{%2, %0|%0, %2}"
+  "punpckldq\t{%2, %0|%0, %k2}"
   [(set_attr "type" "mmxcvt")
    (set_attr "mode" "DI")])
 

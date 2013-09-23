@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc-internal.h"
 #include "timevar.h"
 #include "params.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "plugin.h"
 
@@ -2291,7 +2291,7 @@ ggc_pch_prepare_write (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
 }
 
 void
-ggc_pch_write_object (struct ggc_pch_data *d ATTRIBUTE_UNUSED,
+ggc_pch_write_object (struct ggc_pch_data *d,
 		      FILE *f, void *x, void *newx ATTRIBUTE_UNUSED,
 		      size_t size, bool is_string ATTRIBUTE_UNUSED)
 {

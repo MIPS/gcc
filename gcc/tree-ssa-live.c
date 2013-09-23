@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "timevar.h"
 #include "dumpfile.h"
 #include "tree-ssa-live.h"
@@ -111,8 +111,12 @@ var_map_base_init (var_map map)
 	   as it restricts the sets we compute conflicts for.
 	   Using TREE_TYPE to generate sets is the easies as
 	   type equivalency also holds for SSA names with the same
-	   underlying decl.  */
-	m->base.from = TREE_TYPE (var);
+	   underlying decl. 
+
+	   Check gimple_can_coalesce_p when changing this code.  */
+	m->base.from = (TYPE_CANONICAL (TREE_TYPE (var))
+			? TYPE_CANONICAL (TREE_TYPE (var))
+			: TREE_TYPE (var));
       /* If base variable hasn't been seen, set it up.  */
       slot = tree_to_index.find_slot (m, INSERT);
       if (!*slot)

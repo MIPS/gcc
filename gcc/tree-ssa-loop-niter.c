@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "intl.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "ggc.h"
@@ -1513,6 +1513,13 @@ expand_simple_operations (tree expr)
     }
   if (gimple_code (stmt) != GIMPLE_ASSIGN)
     return expr;
+
+  /* Avoid expanding to expressions that contain SSA names that need
+     to take part in abnormal coalescing.  */
+  ssa_op_iter iter;
+  FOR_EACH_SSA_TREE_OPERAND (e, stmt, iter, SSA_OP_USE)
+    if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (e))
+      return expr;
 
   e = gimple_assign_rhs1 (stmt);
   code = gimple_assign_rhs_code (stmt);

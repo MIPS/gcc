@@ -31,9 +31,9 @@ with Debug;    use Debug;
 with Lib;      use Lib;
 with Osint;    use Osint;
 with Opt;      use Opt;
-with Validsw;  use Validsw;
 with Stylesw;  use Stylesw;
 with Ttypes;   use Ttypes;
+with Validsw;  use Validsw;
 with Warnsw;   use Warnsw;
 
 with Ada.Unchecked_Deallocation;
@@ -310,6 +310,15 @@ package body Switch.C is
                     ("-gnatc must be first if combined with other switches");
                end if;
 
+               --  Not allowed if previous -gnatR given
+
+               if List_Representation_Info /= 0
+                 or else List_Representation_Info_Mechanisms
+               then
+                  Osint.Fail
+                    ("-gnatc not allowed since -gnatR given previously");
+               end if;
+
                Ptr := Ptr + 1;
                Operating_Mode := Check_Semantics;
 
@@ -393,6 +402,22 @@ package body Switch.C is
 
             when 'D' =>
                Ptr := Ptr + 1;
+
+               --  Not allowed if previous -gnatR given
+
+               --  The reason for this prohibition is that the rewriting of
+               --  Sloc values causes strange malfunctions in the tests of
+               --  whether units belong to the main source. This is really a
+               --  bug, but too hard to fix for a marginal capability ???
+
+               --  The proper fix is to completely redo -gnatD processing so
+               --  that the tree is not messed with, and instead a separate
+               --  table is built on the side for debug information generation.
+
+               if List_Representation_Info /= 0 then
+                  Osint.Fail
+                    ("-gnatD not permitted since -gnatR given previously");
+               end if;
 
                --  Scan optional integer line limit value
 
@@ -756,8 +781,9 @@ package body Switch.C is
                --  implicit setting here, since for example, we want
                --  Preelaborate_05 treated as Preelaborate
 
-               Ada_Version := Ada_2012;
-               Ada_Version_Explicit := Ada_Version;
+               Ada_Version          := Ada_2012;
+               Ada_Version_Explicit := Ada_2012;
+               Ada_Version_Pragma   := Empty;
 
                --  Set default warnings and style checks for -gnatg
 
@@ -988,8 +1014,29 @@ package body Switch.C is
             --  -gnatR (list rep. info)
 
             when 'R' =>
+
+               --  Not allowed if previous -gnatD given. See more extensive
+               --  comments in the 'D' section for the inverse test.
+
+               if Debug_Generated_Code then
+                  Osint.Fail
+                    ("-gnatR not permitted since -gnatD given previously");
+               end if;
+
+               --  Not allowed if previous -gnatc was given, since we must
+               --  call the code generator to determine rep information.
+
+               if Operating_Mode = Check_Semantics then
+                  Osint.Fail
+                    ("-gnatR not permitted since -gnatc given previously");
+               end if;
+
+               --  Set to annotate rep info, and set default -gnatR mode
+
                Back_Annotate_Rep_Info := True;
                List_Representation_Info := 1;
+
+               --  Scan possible parameter
 
                Ptr := Ptr + 1;
                while Ptr <= Max loop
@@ -1168,6 +1215,7 @@ package body Switch.C is
                Extensions_Allowed   := True;
                Ada_Version          := Ada_Version_Type'Last;
                Ada_Version_Explicit := Ada_Version_Type'Last;
+               Ada_Version_Pragma   := Empty;
 
             --  -gnaty (style checks)
 
@@ -1280,8 +1328,9 @@ package body Switch.C is
                   Bad_Switch ("-gnat8" & Switch_Chars (Ptr .. Max));
                else
                   Ptr := Ptr + 1;
-                  Ada_Version := Ada_83;
-                  Ada_Version_Explicit := Ada_Version;
+                  Ada_Version          := Ada_83;
+                  Ada_Version_Explicit := Ada_83;
+                  Ada_Version_Pragma   := Empty;
                end if;
 
             --  -gnat95
@@ -1297,8 +1346,9 @@ package body Switch.C is
                   Bad_Switch ("-gnat9" & Switch_Chars (Ptr .. Max));
                else
                   Ptr := Ptr + 1;
-                  Ada_Version := Ada_95;
-                  Ada_Version_Explicit := Ada_Version;
+                  Ada_Version          := Ada_95;
+                  Ada_Version_Explicit := Ada_95;
+                  Ada_Version_Pragma   := Empty;
                end if;
 
             --  -gnat05
@@ -1314,8 +1364,9 @@ package body Switch.C is
                   Bad_Switch ("-gnat0" & Switch_Chars (Ptr .. Max));
                else
                   Ptr := Ptr + 1;
-                  Ada_Version := Ada_2005;
-                  Ada_Version_Explicit := Ada_Version;
+                  Ada_Version          := Ada_2005;
+                  Ada_Version_Explicit := Ada_2005;
+                  Ada_Version_Pragma   := Empty;
                end if;
 
             --  -gnat12
@@ -1331,8 +1382,9 @@ package body Switch.C is
                   Bad_Switch ("-gnat1" & Switch_Chars (Ptr .. Max));
                else
                   Ptr := Ptr + 1;
-                  Ada_Version := Ada_2012;
-                  Ada_Version_Explicit := Ada_Version;
+                  Ada_Version          := Ada_2012;
+                  Ada_Version_Explicit := Ada_2012;
+                  Ada_Version_Pragma   := Empty;
                end if;
 
             --  -gnat2005 and -gnat2012
@@ -1352,6 +1404,7 @@ package body Switch.C is
                end if;
 
                Ada_Version_Explicit := Ada_Version;
+               Ada_Version_Pragma   := Empty;
                Ptr := Ptr + 4;
 
             --  Switch cancellation, currently only -gnat-p is allowed.

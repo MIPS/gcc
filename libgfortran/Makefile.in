@@ -5705,18 +5705,6 @@ uninstall-toolexeclibDATA:
 	test -n "$$files" || exit 0; \
 	echo " ( cd '$(DESTDIR)$(toolexeclibdir)' && rm -f" $$files ")"; \
 	cd "$(DESTDIR)$(toolexeclibdir)" && rm -f $$files
-install-nodist_libsubincludeHEADERS: $(nodist_libsubinclude_HEADERS)
-	@$(NORMAL_INSTALL)
-	test -z "$(libsubincludedir)" || $(MKDIR_P) "$(DESTDIR)$(libsubincludedir)"
-	@list='$(nodist_libsubinclude_HEADERS)'; test -n "$(libsubincludedir)" || list=; \
-	for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  echo "$$d$$p"; \
-	done | $(am__base_list) | \
-	while read files; do \
-	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(libsubincludedir)'"; \
-	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(libsubincludedir)" || exit $$?; \
-	done
 
 uninstall-nodist_libsubincludeHEADERS:
 	@$(NORMAL_UNINSTALL)

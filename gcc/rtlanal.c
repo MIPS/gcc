@@ -1923,6 +1923,14 @@ find_regno_fusage (const_rtx insn, enum rtx_code code, unsigned int regno)
 }
 
 
+/* Return true if KIND is an integer REG_NOTE.  */
+
+static bool
+int_reg_note_p (enum reg_note kind)
+{
+  return kind == REG_BR_PROB;
+}
+
 /* Allocate a register note with kind KIND and datum DATUM.  LIST is
    stored as the pointer to the next register note.  */
 
@@ -1931,6 +1939,7 @@ alloc_reg_note (enum reg_note kind, rtx datum, rtx list)
 {
   rtx note;
 
+  gcc_checking_assert (!int_reg_note_p (kind));
   switch (kind)
     {
     case REG_CC_SETTER:
@@ -1959,6 +1968,27 @@ void
 add_reg_note (rtx insn, enum reg_note kind, rtx datum)
 {
   REG_NOTES (insn) = alloc_reg_note (kind, datum, REG_NOTES (insn));
+}
+
+/* Add an integer register note with kind KIND and datum DATUM to INSN.  */
+
+void
+add_int_reg_note (rtx insn, enum reg_note kind, int datum)
+{
+  gcc_checking_assert (int_reg_note_p (kind));
+  REG_NOTES (insn) = gen_rtx_INT_LIST ((enum machine_mode) kind,
+				       datum, REG_NOTES (insn));
+}
+
+/* Add a register note like NOTE to INSN.  */
+
+void
+add_shallow_copy_of_reg_note (rtx insn, rtx note)
+{
+  if (GET_CODE (note) == INT_LIST)
+    add_int_reg_note (insn, REG_NOTE_KIND (note), XINT (note, 0));
+  else
+    add_reg_note (insn, REG_NOTE_KIND (note), XEXP (note, 0));
 }
 
 /* Remove register note NOTE from the REG_NOTES of INSN.  */
@@ -2802,7 +2832,10 @@ computed_jump_p (const_rtx insn)
 	    if (GET_CODE (XVECEXP (pat, 0, i)) == USE
 		&& (GET_CODE (XEXP (XVECEXP (pat, 0, i), 0))
 		    == LABEL_REF))
-	      has_use_labelref = 1;
+	      {
+	        has_use_labelref = 1;
+	        break;
+	      }
 
 	  if (! has_use_labelref)
 	    for (i = len - 1; i >= 0; i--)
@@ -4031,7 +4064,7 @@ nonzero_bits1 (const_rtx x, enum machine_mode mode, const_rtx known_x,
 	  && mode_width < BITS_PER_WORD
 	  && (UINTVAL (x) & ((unsigned HOST_WIDE_INT) 1 << (mode_width - 1)))
 	     != 0)
-	return UINTVAL (x) | ((unsigned HOST_WIDE_INT) (-1) << mode_width);
+	return UINTVAL (x) | (HOST_WIDE_INT_M1U << mode_width);
 #endif
 
       return UINTVAL (x);

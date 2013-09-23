@@ -455,6 +455,59 @@ package Sinfo is
    --  code is being generated, since they involved expander actions that
    --  destroy the tree.
 
+   ---------------
+   -- ASIS Mode --
+   ---------------
+
+   --  When a file is compiled in ASIS mode (-gnatct), expansion is skipped,
+   --  and the analysis must generate a tree in a form that meets all ASIS
+   --  requirements.
+
+   --  ASIS must be able to recover the original tree that corresponds to the
+   --  source. It relies heavily on Original_Node for this purpose, which as
+   --  described in Atree, records the history when a node is rewritten. ASIS
+   --  uses Original_Node to recover the original node before the Rewrite.
+
+   --  At least in ASIS mode (not really important in non-ASIS mode), when
+   --  N1 is rewritten as N2:
+
+   --    The subtree rooted by the original node N1 should be fully decorated,
+   --    i.e. all semantic fields noted in sinfo.ads should be set properly
+   --    and any referenced entities should be complete (with exceptions for
+   --    representation information, noted below).
+
+   --    For all the direct descendants of N1 (original node) their Parent
+   --    links should point not to N1, but to N2 (rewriting node).
+
+   --    The Parent links of rewritten nodes (N1 in this example) are set in
+   --    some cases (to point to the rewritten parent), but in other cases
+   --    they are set to Empty. This needs sorting out ??? It would be much
+   --    cleaner if they could always be set in the original node ???
+
+   --  Representation Information
+
+   --    For the purposes of the data description annex, the representation
+   --    information for source declared entities must be complete in the
+   --    ASIS tree.
+
+   --    This requires that the front end call the back end (gigi/gcc) in
+   --    a special "back annotate only" mode to obtain information on layout
+   --    from the back end.
+
+   --    For the purposes of this special "back annotate only" mode, the
+   --    requirements that would normally need to be met to generate code
+   --    are relaxed as follows:
+
+   --      Anonymous types need not have full representation information (e.g.
+   --      sizes need not be set for types where the front end would normally
+   --      set the sizes), since anonymous types can be ignored in this mode.
+
+   --      In this mode, gigi will see at least fragments of a fully annotated
+   --      unexpanded tree. This means that it will encounter nodes it does
+   --      not normally handle (such as stubs, task bodies etc). It should
+   --      simply ignore these nodes, since they are not relevant to the task
+   --      of back annotating representation information.
+
    ------------------------
    -- Common Flag Fields --
    ------------------------
@@ -1269,6 +1322,15 @@ package Sinfo is
    --    Present in N_Aspect_Specification node. Set if the aspect is for a
    --    boolean aspect (i.e. Aspect_Id is in Boolean_Aspect subtype).
 
+   --  Is_Checked (Flag11-Sem)
+   --    Present in N_Aspect_Specification and N_Pragma nodes. Set for an
+   --    assertion aspect or pragma, or check pragma for an assertion, that
+   --    is to be checked at run time. If either Is_Checked or Is_Ignored
+   --    is set (they cannot both be set), then this means that the status of
+   --    the pragma has been checked at the appropriate point and should not
+   --    be further modified (in some cases these flags are copied when a
+   --    pragma is rewritten).
+
    --  Is_Component_Left_Opnd  (Flag13-Sem)
    --  Is_Component_Right_Opnd (Flag14-Sem)
    --    Present in concatenation nodes, to indicate that the corresponding
@@ -1516,14 +1578,14 @@ package Sinfo is
    --    in rtsfind to indicate implicit dependencies on predefined units. Used
    --    to prevent multiple with_clauses for the same unit in a given context.
    --    A postorder traversal of the tree whose nodes are units and whose
-   --    links are with_clauses defines the order in which Inspector must
+   --    links are with_clauses defines the order in which CodePeer must
    --    examine a compiled unit and its full context. This ordering ensures
    --    that any subprogram call is examined after the subprogram declaration
    --    has been seen.
 
    --  Next_Named_Actual (Node4-Sem)
-   --    Present in parameter association node. Set during semantic analysis to
-   --    point to the next named parameter, where parameters are ordered by
+   --    Present in parameter association nodes. Set during semantic analysis
+   --    to point to the next named parameter, where parameters are ordered by
    --    declaration order (as opposed to the actual order in the call, which
    --    may be different due to named associations). Not that this field
    --    points to the explicit actual parameter itself, not to the
@@ -1539,6 +1601,10 @@ package Sinfo is
    --      Used by processing for Pre/Postcondition pragmas to store a list of
    --      pragmas associated with the spec of a subprogram (see Sem_Prag for
    --      details).
+   --
+   --      Used by processing for pragma SPARK_Mode to store multiple pragmas
+   --      the apply to the same construct. These are visible/private mode for
+   --      a package spec and declarative/statement mode for package body.
 
    --  Next_Rep_Item (Node5-Sem)
    --    Present in pragma nodes, attribute definition nodes, enumeration rep
@@ -2112,6 +2178,7 @@ package Sinfo is
       --  Is_Delayed_Aspect (Flag14-Sem)
       --  Is_Disabled (Flag15-Sem)
       --  Is_Ignored (Flag9-Sem)
+      --  Is_Checked (Flag11-Sem)
       --  Import_Interface_Present (Flag16-Sem)
       --  Split_PPC (Flag17) set if corresponding aspect had Split_PPC set
 
@@ -4761,7 +4828,8 @@ package Sinfo is
       --  and put in its proper section when we know exactly where that is!
 
       --  EXPRESSION_FUNCTION ::=
-      --    FUNCTION SPECIFICATION IS (EXPRESSION);
+      --    FUNCTION SPECIFICATION IS (EXPRESSION)
+      --      [ASPECT_SPECIFICATIONS];
 
       --  N_Expression_Function
       --  Sloc points to FUNCTION
@@ -4996,7 +5064,8 @@ package Sinfo is
 
       --  PRIVATE_TYPE_DECLARATION ::=
       --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART]
-      --      is [[abstract] tagged] [limited] private;
+      --      is [[abstract] tagged] [limited] private
+      --        [ASPECT_SPECIFICATIONS];
 
       --  Note: TAGGED is not permitted in Ada 83 mode
 
@@ -5018,7 +5087,7 @@ package Sinfo is
       --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
       --      [abstract] [limited | synchronized]
       --        new ancestor_SUBTYPE_INDICATION [and INTERFACE_LIST]
-      --           with private;
+      --           with private [ASPECT_SPECIFICATIONS];
 
       --  Note: LIMITED, and private extension declarations are not allowed
       --        in Ada 83 mode.
@@ -5088,9 +5157,11 @@ package Sinfo is
 
       --  OBJECT_RENAMING_DECLARATION ::=
       --    DEFINING_IDENTIFIER :
-      --      [NULL_EXCLUSION] SUBTYPE_MARK renames object_NAME;
+      --      [NULL_EXCLUSION] SUBTYPE_MARK renames object_NAME
+      --        [ASPECT_SPECIFICATIONS];
       --  | DEFINING_IDENTIFIER :
-      --      ACCESS_DEFINITION renames object_NAME;
+      --      ACCESS_DEFINITION renames object_NAME
+      --        [ASPECT_SPECIFICATIONS];
 
       --  Note: Access_Definition is an optional field that gives support to
       --  Ada 2005 (AI-230). The parser generates nodes that have either the
@@ -5110,7 +5181,8 @@ package Sinfo is
       -----------------------------------------
 
       --  EXCEPTION_RENAMING_DECLARATION ::=
-      --    DEFINING_IDENTIFIER : exception renames exception_NAME;
+      --    DEFINING_IDENTIFIER : exception renames exception_NAME
+      --      [ASPECT_SPECIFICATIONS];
 
       --  N_Exception_Renaming_Declaration
       --  Sloc points to first identifier
@@ -5122,7 +5194,8 @@ package Sinfo is
       ---------------------------------------
 
       --  PACKAGE_RENAMING_DECLARATION ::=
-      --    package DEFINING_PROGRAM_UNIT_NAME renames package_NAME;
+      --    package DEFINING_PROGRAM_UNIT_NAME renames package_NAME
+      --      [ASPECT_SPECIFICATIONS];
 
       --  N_Package_Renaming_Declaration
       --  Sloc points to PACKAGE
@@ -5135,7 +5208,8 @@ package Sinfo is
       ------------------------------------------
 
       --  SUBPROGRAM_RENAMING_DECLARATION ::=
-      --    SUBPROGRAM_SPECIFICATION renames callable_entity_NAME;
+      --    SUBPROGRAM_SPECIFICATION renames callable_entity_NAME
+      --      [ASPECT_SPECIFICATIONS];
 
       --  N_Subprogram_Renaming_Declaration
       --  Sloc points to RENAMES
@@ -5153,10 +5227,13 @@ package Sinfo is
       --  GENERIC_RENAMING_DECLARATION ::=
       --    generic package DEFINING_PROGRAM_UNIT_NAME
       --      renames generic_package_NAME
+      --        [ASPECT_SPECIFICATIONS];
       --  | generic procedure DEFINING_PROGRAM_UNIT_NAME
       --      renames generic_procedure_NAME
+      --        [ASPECT_SPECIFICATIONS];
       --  | generic function DEFINING_PROGRAM_UNIT_NAME
       --      renames generic_function_NAME
+      --        [ASPECT_SPECIFICATIONS];
 
       --  N_Generic_Package_Renaming_Declaration
       --  Sloc points to GENERIC
@@ -5370,7 +5447,8 @@ package Sinfo is
       --  ENTRY_DECLARATION ::=
       --    [[not] overriding]
       --    entry DEFINING_IDENTIFIER
-      --      [(DISCRETE_SUBTYPE_DEFINITION)] PARAMETER_PROFILE;
+      --      [(DISCRETE_SUBTYPE_DEFINITION)] PARAMETER_PROFILE
+      --        [ASPECT_SPECIFICATIONS];
 
       --  N_Entry_Declaration
       --  Sloc points to ENTRY
@@ -5971,7 +6049,8 @@ package Sinfo is
       ----------------------------------
 
       --  SUBPROGRAM_BODY_STUB ::=
-      --    SUBPROGRAM_SPECIFICATION is separate;
+      --    SUBPROGRAM_SPECIFICATION is separate
+      --      [ASPECT_SPECIFICATION];
 
       --  N_Subprogram_Body_Stub
       --  Sloc points to FUNCTION or PROCEDURE
@@ -5984,7 +6063,8 @@ package Sinfo is
       -------------------------------
 
       --  PACKAGE_BODY_STUB ::=
-      --    package body DEFINING_IDENTIFIER is separate;
+      --    package body DEFINING_IDENTIFIER is separate
+      --      [ASPECT_SPECIFICATION];
 
       --  N_Package_Body_Stub
       --  Sloc points to PACKAGE
@@ -5997,7 +6077,8 @@ package Sinfo is
       ----------------------------
 
       --  TASK_BODY_STUB ::=
-      --    task body DEFINING_IDENTIFIER is separate;
+      --    task body DEFINING_IDENTIFIER is separate
+      --      [ASPECT_SPECIFICATION];
 
       --  N_Task_Body_Stub
       --  Sloc points to TASK
@@ -6010,7 +6091,8 @@ package Sinfo is
       ---------------------------------
 
       --  PROTECTED_BODY_STUB ::=
-      --    protected body DEFINING_IDENTIFIER is separate;
+      --    protected body DEFINING_IDENTIFIER is separate
+      --      [ASPECT_SPECIFICATION];
 
       --  Note: protected body stubs are not allowed in Ada 83 mode
 
@@ -6211,7 +6293,8 @@ package Sinfo is
       ------------------------------------------
 
       --  GENERIC_SUBPROGRAM_DECLARATION ::=
-      --    GENERIC_FORMAL_PART SUBPROGRAM_SPECIFICATION;
+      --    GENERIC_FORMAL_PART SUBPROGRAM_SPECIFICATION
+      --      [ASPECT_SPECIFICATIONS];
 
       --  Note: Generic_Formal_Declarations can include pragmas
 
@@ -6759,6 +6842,7 @@ package Sinfo is
       --  Next_Rep_Item (Node5-Sem)
       --  Split_PPC (Flag17) Set if split pre/post attribute
       --  Is_Boolean_Aspect (Flag16-Sem)
+      --  Is_Checked (Flag11-Sem)
       --  Is_Delayed_Aspect (Flag14-Sem)
       --  Is_Disabled (Flag15-Sem)
       --  Is_Ignored (Flag9-Sem)
@@ -7045,16 +7129,21 @@ package Sinfo is
       --  Pre_Post_Conditions contains a collection of pragmas that correspond
       --  to pre- and postconditions associated with an entry or a subprogram.
       --  The pragmas can either come from source or be the byproduct of aspect
-      --  expansion. The ordering in the list is of LIFO fashion.
+      --  expansion. The ordering in the list is in LIFO fashion.
+
+      --  Note that there might be multiple preconditions or postconditions
+      --  in this list, either because they come from separate pragmas in the
+      --  source, or because a Pre (resp. Post) aspect specification has been
+      --  broken into AND THEN sections. See Split_PPC for details.
 
       --  Contract_Test_Cases contains a collection of pragmas that correspond
       --  to aspects/pragmas Contract_Cases and Test_Case. The ordering in the
-      --  list is of LIFO fashion.
+      --  list is in LIFO fashion.
 
       --  Classifications contains pragmas that either categorize subprogram
       --  inputs and outputs or establish dependencies between them. Currently
       --  pragmas Depends and Global are stored in this list. The ordering is
-      --  of LIFO fashion.
+      --  in LIFO fashion.
 
       -------------------
       -- Expanded_Name --
@@ -7225,7 +7314,8 @@ package Sinfo is
       --  Sprint syntax: labelname : label;
 
       --  N_Implicit_Label_Declaration
-      --  Sloc points to the << of the label
+      --  Sloc points to the << token for a statement identifier, or to the
+      --    LOOP, DECLARE, or BEGIN token for a loop or block identifier
       --  Defining_Identifier (Node1)
       --  Label_Construct (Node2-Sem)
 
@@ -8715,6 +8805,9 @@ package Sinfo is
    function Is_Boolean_Aspect
      (N : Node_Id) return Boolean;    -- Flag16
 
+   function Is_Checked
+     (N : Node_Id) return Boolean;    -- Flag11
+
    function Is_Component_Left_Opnd
      (N : Node_Id) return Boolean;    -- Flag13
 
@@ -9704,6 +9797,9 @@ package Sinfo is
 
    procedure Set_Is_Boolean_Aspect
      (N : Node_Id; Val : Boolean := True);    -- Flag16
+
+   procedure Set_Is_Checked
+     (N : Node_Id; Val : Boolean := True);    -- Flag11
 
    procedure Set_Is_Component_Left_Opnd
      (N : Node_Id; Val : Boolean := True);    -- Flag13
@@ -12090,6 +12186,7 @@ package Sinfo is
    pragma Inline (Is_Accessibility_Actual);
    pragma Inline (Is_Asynchronous_Call_Block);
    pragma Inline (Is_Boolean_Aspect);
+   pragma Inline (Is_Checked);
    pragma Inline (Is_Component_Left_Opnd);
    pragma Inline (Is_Component_Right_Opnd);
    pragma Inline (Is_Controlling_Actual);
@@ -12415,6 +12512,7 @@ package Sinfo is
    pragma Inline (Set_Is_Accessibility_Actual);
    pragma Inline (Set_Is_Asynchronous_Call_Block);
    pragma Inline (Set_Is_Boolean_Aspect);
+   pragma Inline (Set_Is_Checked);
    pragma Inline (Set_Is_Component_Left_Opnd);
    pragma Inline (Set_Is_Component_Right_Opnd);
    pragma Inline (Set_Is_Controlling_Actual);

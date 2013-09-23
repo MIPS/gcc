@@ -559,12 +559,6 @@ gfc_finish_var_decl (tree decl, gfc_symbol * sym)
     {
       /* TODO: Don't set sym->module for result or dummy variables.  */
       gcc_assert (current_function_decl == NULL_TREE || sym->result == sym);
-      /* This is the declaration of a module variable.  */
-      if (sym->attr.access == ACCESS_UNKNOWN
-	  && (sym->ns->default_access == ACCESS_PRIVATE
-	      || (sym->ns->default_access == ACCESS_UNKNOWN
-		  && gfc_option.flag_module_private)))
-	sym->attr.access = ACCESS_PRIVATE;
 
       if (sym->attr.access != ACCESS_PRIVATE || sym->attr.public_used)
 	TREE_PUBLIC (decl) = 1;
@@ -981,7 +975,10 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 			&& as->lower[n]
 			&& as->upper[n]->expr_type == EXPR_CONSTANT
 			&& as->lower[n]->expr_type == EXPR_CONSTANT))
-		    packed = PACKED_PARTIAL;
+		    {
+		      packed = PACKED_PARTIAL;
+		      break;
+		    }
 		}
 	    }
 	  else
@@ -1420,7 +1417,11 @@ gfc_get_symbol_decl (gfc_symbol * sym)
       || (sym->ts.type == BT_CLASS &&
 	  (CLASS_DATA (sym)->attr.dimension
 	   || CLASS_DATA (sym)->attr.allocatable))
-      || (sym->ts.type == BT_DERIVED && sym->ts.u.derived->attr.alloc_comp)
+      || (sym->ts.type == BT_DERIVED
+	  && (sym->ts.u.derived->attr.alloc_comp
+	      || (!sym->attr.pointer && !sym->attr.artificial && !sym->attr.save
+		  && !sym->ns->proc_name->attr.is_main_program
+		  && gfc_is_finalizable (sym->ts.u.derived, NULL))))
       /* This applies a derived type default initializer.  */
       || (sym->ts.type == BT_DERIVED
 	  && sym->attr.save == SAVE_NONE
@@ -1490,15 +1491,15 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 	 SAVE is specified otherwise they need to be reinitialized
 	 every time the procedure is entered. The TREE_STATIC is
 	 in this case due to -fmax-stack-var-size=.  */
+
       DECL_INITIAL (decl) = gfc_conv_initializer (sym->value, &sym->ts,
-						  TREE_TYPE (decl),
-						  sym->attr.dimension
-						  || (sym->attr.codimension
-						      && sym->attr.allocatable),
-						  sym->attr.pointer
-						  || sym->attr.allocatable,
-						  sym->attr.proc_pointer,
-						  sym->as ? sym->as->rank : 0);
+				    TREE_TYPE (decl), sym->attr.dimension
+				    || (sym->attr.codimension
+					&& sym->attr.allocatable),
+				    sym->attr.pointer || sym->attr.allocatable
+				    || sym->ts.type == BT_CLASS,
+				    sym->attr.proc_pointer,
+				    sym->as ? sym->as->rank : 0);
     }
 
   if (!TREE_STATIC (decl)
@@ -2161,7 +2162,7 @@ create_function_arglist (gfc_symbol * sym)
 	    }
 	}
       /* For noncharacter scalar intrinsic types, VALUE passes the value,
-	 hence, the optional status cannot be transfered via a NULL pointer.
+	 hence, the optional status cannot be transferred via a NULL pointer.
 	 Thus, we will use a hidden argument in that case.  */
       else if (f->sym->attr.optional && f->sym->attr.value
 	       && !f->sym->attr.dimension && f->sym->ts.type != BT_CLASS
@@ -3670,8 +3671,10 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 
   for (sym = proc_sym->tlink; sym != proc_sym; sym = sym->tlink)
     {
-      bool sym_has_alloc_comp = (sym->ts.type == BT_DERIVED)
-				   && sym->ts.u.derived->attr.alloc_comp;
+      bool alloc_comp_or_fini = (sym->ts.type == BT_DERIVED)
+				&& (sym->ts.u.derived->attr.alloc_comp
+				    || gfc_is_finalizable (sym->ts.u.derived,
+							   NULL));
       if (sym->assoc)
 	continue;
 
@@ -3770,7 +3773,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 		  gfc_save_backend_locus (&loc);
 		  gfc_set_backend_locus (&sym->declared_at);
 
-		  if (sym_has_alloc_comp)
+		  if (alloc_comp_or_fini)
 		    {
 		      seen_trans_deferred_array = true;
 		      gfc_trans_deferred_array (sym, block);
@@ -3818,7 +3821,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	    default:
 	      gcc_unreachable ();
 	    }
-	  if (sym_has_alloc_comp && !seen_trans_deferred_array)
+	  if (alloc_comp_or_fini && !seen_trans_deferred_array)
 	    gfc_trans_deferred_array (sym, block);
 	}
       else if ((!sym->attr.dummy || sym->ts.deferred)
@@ -4030,7 +4033,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	}
       else if (sym->ts.deferred)
 	gfc_fatal_error ("Deferred type parameter not yet supported");
-      else if (sym_has_alloc_comp)
+      else if (alloc_comp_or_fini)
 	gfc_trans_deferred_array (sym, block);
       else if (sym->ts.type == BT_CHARACTER)
 	{
@@ -4237,6 +4240,18 @@ gfc_create_module_variable (gfc_symbol * sym)
   if (sym->backend_decl && !sym->attr.vtab && !sym->attr.target)
     internal_error ("backend decl for module variable %s already exists",
 		    sym->name);
+
+  if (sym->module && !sym->attr.result && !sym->attr.dummy
+      && (sym->attr.access == ACCESS_UNKNOWN
+	  && (sym->ns->default_access == ACCESS_PRIVATE
+	      || (sym->ns->default_access == ACCESS_UNKNOWN
+		  && gfc_option.flag_module_private))))
+    sym->attr.access = ACCESS_PRIVATE;
+
+  if (warn_unused_variable && !sym->attr.referenced
+      && sym->attr.access == ACCESS_PRIVATE)
+    gfc_warning ("Unused PRIVATE module variable '%s' declared at %L",
+		 sym->name, &sym->declared_at);
 
   /* We always want module variables to be created.  */
   sym->attr.referenced = 1;
@@ -4753,7 +4768,7 @@ generate_local_decl (gfc_symbol * sym)
 	gfc_get_symbol_decl (sym);
 
       /* Warnings for unused dummy arguments.  */
-      else if (sym->attr.dummy)
+      else if (sym->attr.dummy && !sym->attr.in_namelist)
 	{
 	  /* INTENT(out) dummy arguments are likely meant to be set.  */
 	  if (gfc_option.warn_unused_dummy_argument
@@ -4763,7 +4778,8 @@ generate_local_decl (gfc_symbol * sym)
 		gfc_warning ("Dummy argument '%s' at %L was declared "
 			     "INTENT(OUT) but was not set",  sym->name,
 			     &sym->declared_at);
-	      else if (!gfc_has_default_initializer (sym->ts.u.derived))
+	      else if (!gfc_has_default_initializer (sym->ts.u.derived)
+		       && !sym->ts.u.derived->attr.zero_comp)
 		gfc_warning ("Derived-type dummy argument '%s' at %L was "
 			     "declared INTENT(OUT) but was not set and "
 			     "does not have a default initializer",
@@ -5236,14 +5252,15 @@ create_main_function (tree fndecl)
     /* TODO: This is the -frange-check option, which no longer affects
        library behavior; when bumping the library ABI this slot can be
        reused for something else. As it is the last element in the
-       array, we can instead leave it out altogether.
+       array, we can instead leave it out altogether. */
+    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
+                            build_int_cst (integer_type_node, 0));
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
                             build_int_cst (integer_type_node,
-                                           gfc_option.flag_range_check));
-    */
+                                           gfc_option.fpe_summary));
 
     array_type = build_array_type (integer_type_node,
-				   build_index_type (size_int (6)));
+				   build_index_type (size_int (8)));
     array = build_constructor (array_type, v);
     TREE_CONSTANT (array) = 1;
     TREE_STATIC (array) = 1;
@@ -5258,7 +5275,7 @@ create_main_function (tree fndecl)
 
     tmp = build_call_expr_loc (input_location,
 			   gfor_fndecl_set_options, 2,
-			   build_int_cst (integer_type_node, 7), var);
+			   build_int_cst (integer_type_node, 9), var);
     gfc_add_expr_to_block (&body, tmp);
   }
 
@@ -5660,14 +5677,16 @@ gfc_generate_function_code (gfc_namespace * ns)
     }
   current_function_decl = old_context;
 
-  if (decl_function_context (fndecl) && gfc_option.coarray != GFC_FCOARRAY_LIB
-      && has_coarray_vars)
-    /* Register this function with cgraph just far enough to get it
-       added to our parent's nested function list.
-       If there are static coarrays in this function, the nested _caf_init
-       function has already called cgraph_create_node, which also created
-       the cgraph node for this function.  */
-    (void) cgraph_create_node (fndecl);
+  if (decl_function_context (fndecl))
+    {
+      /* Register this function with cgraph just far enough to get it
+	 added to our parent's nested function list.
+	 If there are static coarrays in this function, the nested _caf_init
+	 function has already called cgraph_create_node, which also created
+	 the cgraph node for this function.  */
+      if (!has_coarray_vars || gfc_option.coarray != GFC_FCOARRAY_LIB)
+	(void) cgraph_create_node (fndecl);
+    }
   else
     cgraph_finalize_function (fndecl, true);
 

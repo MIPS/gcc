@@ -47,7 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-iterator.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "params.h"
 #include "pointer-set.h"
 #include "tree-pass.h"
@@ -218,6 +218,7 @@ static void print_value_expr_statistics (void);
 static int type_hash_marked_p (const void *);
 static unsigned int type_hash_list (const_tree, hashval_t);
 static unsigned int attribute_hash_list (const_tree, hashval_t);
+static bool decls_same_for_odr (tree decl1, tree decl2);
 
 tree global_trees[TI_MAX];
 tree integer_types[itk_none];
@@ -235,6 +236,8 @@ unsigned const char omp_clause_num_ops[] =
   4, /* OMP_CLAUSE_REDUCTION  */
   1, /* OMP_CLAUSE_COPYIN  */
   1, /* OMP_CLAUSE_COPYPRIVATE  */
+  2, /* OMP_CLAUSE_LINEAR  */
+  1, /* OMP_CLAUSE_UNIFORM  */
   1, /* OMP_CLAUSE_IF  */
   1, /* OMP_CLAUSE_NUM_THREADS  */
   1, /* OMP_CLAUSE_SCHEDULE  */
@@ -244,7 +247,9 @@ unsigned const char omp_clause_num_ops[] =
   3, /* OMP_CLAUSE_COLLAPSE  */
   0, /* OMP_CLAUSE_UNTIED   */
   1, /* OMP_CLAUSE_FINAL  */
-  0  /* OMP_CLAUSE_MERGEABLE  */
+  0, /* OMP_CLAUSE_MERGEABLE  */
+  1, /* OMP_CLAUSE_SAFELEN  */
+  1, /* OMP_CLAUSE__SIMDUID_  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -257,6 +262,8 @@ const char * const omp_clause_code_name[] =
   "reduction",
   "copyin",
   "copyprivate",
+  "linear",
+  "uniform",
   "if",
   "num_threads",
   "schedule",
@@ -266,7 +273,9 @@ const char * const omp_clause_code_name[] =
   "collapse",
   "untied",
   "final",
-  "mergeable"
+  "mergeable",
+  "safelen",
+  "_simduid_"
 };
 
 
@@ -1266,6 +1275,99 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
   return t;
 }
 
+void
+cache_integer_cst (tree t)
+{
+  tree type = TREE_TYPE (t);
+  HOST_WIDE_INT hi = TREE_INT_CST_HIGH (t);
+  unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (t);
+  int ix = -1;
+  int limit = 0;
+
+  gcc_assert (!TREE_OVERFLOW (t));
+
+  switch (TREE_CODE (type))
+    {
+    case NULLPTR_TYPE:
+      gcc_assert (hi == 0 && low == 0);
+      /* Fallthru.  */
+
+    case POINTER_TYPE:
+    case REFERENCE_TYPE:
+      /* Cache NULL pointer.  */
+      if (!hi && !low)
+	{
+	  limit = 1;
+	  ix = 0;
+	}
+      break;
+
+    case BOOLEAN_TYPE:
+      /* Cache false or true.  */
+      limit = 2;
+      if (!hi && low < 2)
+	ix = low;
+      break;
+
+    case INTEGER_TYPE:
+    case OFFSET_TYPE:
+      if (TYPE_UNSIGNED (type))
+	{
+	  /* Cache 0..N */
+	  limit = INTEGER_SHARE_LIMIT;
+	  if (!hi && low < (unsigned HOST_WIDE_INT)INTEGER_SHARE_LIMIT)
+	    ix = low;
+	}
+      else
+	{
+	  /* Cache -1..N */
+	  limit = INTEGER_SHARE_LIMIT + 1;
+	  if (!hi && low < (unsigned HOST_WIDE_INT)INTEGER_SHARE_LIMIT)
+	    ix = low + 1;
+	  else if (hi == -1 && low == -(unsigned HOST_WIDE_INT)1)
+	    ix = 0;
+	}
+      break;
+
+    case ENUMERAL_TYPE:
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  if (ix >= 0)
+    {
+      /* Look for it in the type's vector of small shared ints.  */
+      if (!TYPE_CACHED_VALUES_P (type))
+	{
+	  TYPE_CACHED_VALUES_P (type) = 1;
+	  TYPE_CACHED_VALUES (type) = make_tree_vec (limit);
+	}
+
+      gcc_assert (TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix) == NULL_TREE);
+      TREE_VEC_ELT (TYPE_CACHED_VALUES (type), ix) = t;
+    }
+  else
+    {
+      /* Use the cache of larger shared ints.  */
+      void **slot;
+
+      slot = htab_find_slot (int_cst_hash_table, t, INSERT);
+      /* If there is already an entry for the number verify it's the
+         same.  */
+      if (*slot)
+	{
+	  gcc_assert (TREE_INT_CST_LOW ((tree)*slot) == low
+		      && TREE_INT_CST_HIGH ((tree)*slot) == hi);
+	  return;
+	}
+      /* Otherwise insert this one into the hash table.  */
+      *slot = t;
+    }
+}
+
+
 /* Builds an integer constant in TYPE such that lowest BITS bits are ones
    and the rest are zeros.  */
 
@@ -1957,12 +2059,12 @@ integer_pow2p (const_tree expr)
   if (prec == HOST_BITS_PER_DOUBLE_INT)
     ;
   else if (prec > HOST_BITS_PER_WIDE_INT)
-    high &= ~((HOST_WIDE_INT) (-1) << (prec - HOST_BITS_PER_WIDE_INT));
+    high &= ~(HOST_WIDE_INT_M1U << (prec - HOST_BITS_PER_WIDE_INT));
   else
     {
       high = 0;
       if (prec < HOST_BITS_PER_WIDE_INT)
-	low &= ~((HOST_WIDE_INT) (-1) << prec);
+	low &= ~(HOST_WIDE_INT_M1U << prec);
     }
 
   if (high == 0 && low == 0)
@@ -2021,12 +2123,12 @@ tree_log2 (const_tree expr)
   if (prec == HOST_BITS_PER_DOUBLE_INT)
     ;
   else if (prec > HOST_BITS_PER_WIDE_INT)
-    high &= ~((HOST_WIDE_INT) (-1) << (prec - HOST_BITS_PER_WIDE_INT));
+    high &= ~(HOST_WIDE_INT_M1U << (prec - HOST_BITS_PER_WIDE_INT));
   else
     {
       high = 0;
       if (prec < HOST_BITS_PER_WIDE_INT)
-	low &= ~((HOST_WIDE_INT) (-1) << prec);
+	low &= ~(HOST_WIDE_INT_M1U << prec);
     }
 
   return (high != 0 ? HOST_BITS_PER_WIDE_INT + exact_log2 (high)
@@ -2058,12 +2160,12 @@ tree_floor_log2 (const_tree expr)
   if (prec == HOST_BITS_PER_DOUBLE_INT || prec == 0)
     ;
   else if (prec > HOST_BITS_PER_WIDE_INT)
-    high &= ~((HOST_WIDE_INT) (-1) << (prec - HOST_BITS_PER_WIDE_INT));
+    high &= ~(HOST_WIDE_INT_M1U << (prec - HOST_BITS_PER_WIDE_INT));
   else
     {
       high = 0;
       if (prec < HOST_BITS_PER_WIDE_INT)
-	low &= ~((HOST_WIDE_INT) (-1) << prec);
+	low &= ~(HOST_WIDE_INT_M1U << prec);
     }
 
   return (high != 0 ? HOST_BITS_PER_WIDE_INT + floor_log2 (high)
@@ -4792,6 +4894,20 @@ free_lang_data_in_decl (tree decl)
 
  if (TREE_CODE (decl) == FUNCTION_DECL)
     {
+      struct cgraph_node *node;
+      if (!(node = cgraph_get_node (decl))
+	  || (!node->symbol.definition && !node->clones))
+	{
+	  if (node)
+	    cgraph_release_function_body (node);
+	  else
+	    {
+	      release_function_body (decl);
+	      DECL_ARGUMENTS (decl) = NULL;
+	      DECL_RESULT (decl) = NULL;
+	      DECL_INITIAL (decl) = error_mark_node;
+	    }
+	}
       if (gimple_has_body_p (decl))
 	{
 	  tree t;
@@ -5397,25 +5513,42 @@ free_lang_data (void)
 }
 
 
-struct simple_ipa_opt_pass pass_ipa_free_lang_data =
+namespace {
+
+const pass_data pass_data_ipa_free_lang_data =
 {
- {
-  SIMPLE_IPA_PASS,
-  "*free_lang_data",			/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  free_lang_data,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_FREE_LANG_DATA,		/* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
- }
+  SIMPLE_IPA_PASS, /* type */
+  "*free_lang_data", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_FREE_LANG_DATA, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_ipa_free_lang_data : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_free_lang_data(gcc::context *ctxt)
+    : simple_ipa_opt_pass(pass_data_ipa_free_lang_data, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return free_lang_data (); }
+
+}; // class pass_ipa_free_lang_data
+
+} // anon namespace
+
+simple_ipa_opt_pass *
+make_pass_ipa_free_lang_data (gcc::context *ctxt)
+{
+  return new pass_ipa_free_lang_data (ctxt);
+}
 
 /* The backbone of is_attribute_p().  ATTR_LEN is the string length of
    ATTR_NAME.  Also used internally by remove_attribute().  */
@@ -9544,6 +9677,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
     = build_pointer_type (build_type_variant (void_type_node, 1, 0));
   fileptr_type_node = ptr_type_node;
 
+  pointer_sized_int_node = build_nonstandard_integer_type (POINTER_SIZE, 1);
+
   float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = FLOAT_TYPE_SIZE;
   layout_type (float_type_node);
@@ -9661,7 +9796,10 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   }
 }
 
-/* Modify DECL for given flags.  */
+/* Modify DECL for given flags.
+   TM_PURE attribute is set only on types, so the function will modify
+   DECL's type when ECF_TM_PURE is used.  */
+
 void
 set_call_expr_flags (tree decl, int flags)
 {
@@ -9685,8 +9823,7 @@ set_call_expr_flags (tree decl, int flags)
     DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("leaf"),
 					NULL, DECL_ATTRIBUTES (decl));
   if ((flags & ECF_TM_PURE) && flag_tm)
-    DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("transaction_pure"),
-					NULL, DECL_ATTRIBUTES (decl));
+    apply_tm_attr (decl, get_identifier ("transaction_pure"));
   /* Looping const or pure is implied by noreturn.
      There is currently no way to declare looping const or looping pure alone.  */
   gcc_assert (!(flags & ECF_LOOPING_CONST_OR_PURE)
@@ -10939,6 +11076,9 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
+	case OMP_CLAUSE_UNIFORM:
+	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE__SIMDUID_:
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
 	  /* FALLTHRU */
 
@@ -10961,6 +11101,11 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	      WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, i));
 	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 	  }
+
+	case OMP_CLAUSE_LINEAR:
+	  WALK_SUBTREE (OMP_CLAUSE_DECL (*tp));
+	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 1));
+	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
 	case OMP_CLAUSE_REDUCTION:
 	  {
@@ -11618,6 +11763,199 @@ lhd_gcc_personality (void)
   return gcc_eh_personality_decl;
 }
 
+/* For languages with One Definition Rule, work out if
+   trees are actually the same even if the tree representation
+   differs.  This handles only decls appearing in TYPE_NAME
+   and TYPE_CONTEXT.  That is NAMESPACE_DECL, TYPE_DECL,
+   RECORD_TYPE and IDENTIFIER_NODE.  */
+
+static bool
+same_for_odr (tree t1, tree t2)
+{
+  if (t1 == t2)
+    return true;
+  if (!t1 || !t2)
+    return false;
+  /* C and C++ FEs differ by using IDENTIFIER_NODE and TYPE_DECL.  */
+  if (TREE_CODE (t1) == IDENTIFIER_NODE
+      && TREE_CODE (t2) == TYPE_DECL
+      && DECL_FILE_SCOPE_P (t1))
+    {
+      t2 = DECL_NAME (t2);
+      gcc_assert (TREE_CODE (t2) == IDENTIFIER_NODE);
+    }
+  if (TREE_CODE (t2) == IDENTIFIER_NODE
+      && TREE_CODE (t1) == TYPE_DECL
+      && DECL_FILE_SCOPE_P (t2))
+    {
+      t1 = DECL_NAME (t1);
+      gcc_assert (TREE_CODE (t1) == IDENTIFIER_NODE);
+    }
+  if (TREE_CODE (t1) != TREE_CODE (t2))
+    return false;
+  if (TYPE_P (t1))
+    return types_same_for_odr (t1, t2);
+  if (DECL_P (t1))
+    return decls_same_for_odr (t1, t2);
+  return false;
+}
+
+/* For languages with One Definition Rule, work out if
+   decls are actually the same even if the tree representation
+   differs.  This handles only decls appearing in TYPE_NAME
+   and TYPE_CONTEXT.  That is NAMESPACE_DECL, TYPE_DECL,
+   RECORD_TYPE and IDENTIFIER_NODE.  */
+
+static bool
+decls_same_for_odr (tree decl1, tree decl2)
+{
+  if (decl1 && TREE_CODE (decl1) == TYPE_DECL
+      && DECL_ORIGINAL_TYPE (decl1))
+    decl1 = DECL_ORIGINAL_TYPE (decl1);
+  if (decl2 && TREE_CODE (decl2) == TYPE_DECL
+      && DECL_ORIGINAL_TYPE (decl2))
+    decl2 = DECL_ORIGINAL_TYPE (decl2);
+  if (decl1 == decl2)
+    return true;
+  if (!decl1 || !decl2)
+    return false;
+  gcc_checking_assert (DECL_P (decl1) && DECL_P (decl2));
+  if (TREE_CODE (decl1) != TREE_CODE (decl2))
+    return false;
+  if (TREE_CODE (decl1) == TRANSLATION_UNIT_DECL)
+    return true;
+  if (TREE_CODE (decl1) != NAMESPACE_DECL
+      && TREE_CODE (decl1) != TYPE_DECL)
+    return false;
+  if (!DECL_NAME (decl1))
+    return false;
+  gcc_checking_assert (TREE_CODE (DECL_NAME (decl1)) == IDENTIFIER_NODE);
+  gcc_checking_assert (!DECL_NAME (decl2)
+		       ||  TREE_CODE (DECL_NAME (decl2)) == IDENTIFIER_NODE);
+  if (DECL_NAME (decl1) != DECL_NAME (decl2))
+    return false;
+  return same_for_odr (DECL_CONTEXT (decl1),
+		       DECL_CONTEXT (decl2));
+}
+
+/* For languages with One Definition Rule, work out if
+   types are same even if the tree representation differs. 
+   This is non-trivial for LTO where minnor differences in
+   the type representation may have prevented type merging
+   to merge two copies of otherwise equivalent type.  */
+
+bool
+types_same_for_odr (tree type1, tree type2)
+{
+  gcc_checking_assert (TYPE_P (type1) && TYPE_P (type2));
+  type1 = TYPE_MAIN_VARIANT (type1);
+  type2 = TYPE_MAIN_VARIANT (type2);
+  if (type1 == type2)
+    return true;
+
+#ifndef ENABLE_CHECKING
+  if (!in_lto_p)
+    return false;
+#endif
+
+  /* Check for anonymous namespaces. Those have !TREE_PUBLIC
+     on the corresponding TYPE_STUB_DECL.  */
+  if (type_in_anonymous_namespace_p (type1)
+      || type_in_anonymous_namespace_p (type2))
+    return false;
+  /* When assembler name of virtual table is available, it is
+     easy to compare types for equivalence.  */
+  if (TYPE_BINFO (type1) && TYPE_BINFO (type2)
+      && BINFO_VTABLE (TYPE_BINFO (type1))
+      && BINFO_VTABLE (TYPE_BINFO (type2)))
+    {
+      tree v1 = BINFO_VTABLE (TYPE_BINFO (type1));
+      tree v2 = BINFO_VTABLE (TYPE_BINFO (type2));
+
+      if (TREE_CODE (v1) == POINTER_PLUS_EXPR)
+	{
+	  if (TREE_CODE (v2) != POINTER_PLUS_EXPR
+	      || !operand_equal_p (TREE_OPERAND (v1, 1),
+			     TREE_OPERAND (v2, 1), 0))
+	    return false;
+	  v1 = TREE_OPERAND (TREE_OPERAND (v1, 0), 0);
+	  v2 = TREE_OPERAND (TREE_OPERAND (v2, 0), 0);
+	}
+      v1 = DECL_ASSEMBLER_NAME (v1);
+      v2 = DECL_ASSEMBLER_NAME (v2);
+      return (v1 == v2);
+    }
+
+  /* FIXME: the code comparing type names consider all instantiations of the
+     same template to have same name.  This is because we have no access
+     to template parameters.  For types with no virtual method tables
+     we thus can return false positives.  At the moment we do not need
+     to compare types in other scenarios than devirtualization.  */
+
+  /* If types are not structuraly same, do not bother to contnue.
+     Match in the remainder of code would mean ODR violation.  */
+  if (!types_compatible_p (type1, type2))
+    return false;
+  if (!TYPE_NAME (type1))
+    return false;
+  if (!decls_same_for_odr (TYPE_NAME (type1), TYPE_NAME (type2)))
+    return false;
+  if (!same_for_odr (TYPE_CONTEXT (type1), TYPE_CONTEXT (type2)))
+    return false;
+  /* When not in LTO the MAIN_VARIANT check should be the same.  */
+  gcc_assert (in_lto_p);
+    
+  return true;
+}
+
+/* TARGET is a call target of GIMPLE call statement
+   (obtained by gimple_call_fn).  Return true if it is
+   OBJ_TYPE_REF representing an virtual call of C++ method.
+   (As opposed to OBJ_TYPE_REF representing objc calls
+   through a cast where middle-end devirtualization machinery
+   can't apply.) */
+
+bool
+virtual_method_call_p (tree target)
+{
+  if (TREE_CODE (target) != OBJ_TYPE_REF)
+    return false;
+  target = TREE_TYPE (target);
+  gcc_checking_assert (TREE_CODE (target) == POINTER_TYPE);
+  target = TREE_TYPE (target);
+  if (TREE_CODE (target) == FUNCTION_TYPE)
+    return false;
+  gcc_checking_assert (TREE_CODE (target) == METHOD_TYPE);
+  return true;
+}
+
+/* REF is OBJ_TYPE_REF, return the class the ref corresponds to.  */
+
+tree
+obj_type_ref_class (tree ref)
+{
+  gcc_checking_assert (TREE_CODE (ref) == OBJ_TYPE_REF);
+  ref = TREE_TYPE (ref);
+  gcc_checking_assert (TREE_CODE (ref) == POINTER_TYPE);
+  ref = TREE_TYPE (ref);
+  /* We look for type THIS points to.  ObjC also builds
+     OBJ_TYPE_REF with non-method calls, Their first parameter
+     ID however also corresponds to class type. */
+  gcc_checking_assert (TREE_CODE (ref) == METHOD_TYPE
+		       || TREE_CODE (ref) == FUNCTION_TYPE);
+  ref = TREE_VALUE (TYPE_ARG_TYPES (ref));
+  gcc_checking_assert (TREE_CODE (ref) == POINTER_TYPE);
+  return TREE_TYPE (ref);
+}
+
+/* Return true if T is in anonymous namespace.  */
+
+bool
+type_in_anonymous_namespace_p (tree t)
+{
+  return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
+}
+
 /* Try to find a base info of BINFO that would have its field decl at offset
    OFFSET within the BINFO type and which is of EXPECTED_TYPE.  If it can be
    found, return, otherwise return NULL_TREE.  */
@@ -11633,7 +11971,7 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
       tree fld;
       int i;
 
-      if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (expected_type))
+      if (types_same_for_odr (type, expected_type))
 	  return binfo;
       if (offset < 0)
 	return NULL_TREE;
@@ -11663,7 +12001,7 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	{
 	  tree base_binfo, found_binfo = NULL_TREE;
 	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
-	    if (TREE_TYPE (base_binfo) == TREE_TYPE (fld))
+	    if (types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
 	      {
 		found_binfo = base_binfo;
 		break;

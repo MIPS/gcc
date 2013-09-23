@@ -881,12 +881,24 @@ package body Sem_Ch4 is
          S : Entity_Id;
 
       begin
-         --  The ghost subprogram appears inside an assertion expression
+         --  Do not perform the check while preanalyzing the enclosing context
+         --  because the call is not in its final place. Premature attempts to
+         --  verify the placement lead to bogus errors.
 
-         if In_Assertion_Expression (N) then
+         if In_Spec_Expression then
             return;
 
+         --  The ghost subprogram appears inside an assertion expression
+         --  which is one of the allowed cases.
+
+         elsif In_Assertion_Expression (N) then
+            return;
+
+         --  Otherwise see if it inside another ghost subprogram
+
          else
+            --  Loop to climb scopes
+
             S := Current_Scope;
             while Present (S) and then S /= Standard_Standard loop
 
@@ -898,11 +910,14 @@ package body Sem_Ch4 is
 
                S := Scope (S);
             end loop;
-         end if;
 
-         Error_Msg_N
-           ("call to ghost subprogram must appear in assertion expression or "
-            & "another ghost subprogram", N);
+            --  If we fall through the loop it was not within another
+            --  ghost subprogram, so we have bad placement.
+
+            Error_Msg_N
+              ("call to ghost subprogram must appear in assertion expression "
+               & "or another ghost subprogram", N);
+         end if;
       end Check_Ghost_Subprogram_Call;
 
       --------------------------------------------------
@@ -991,7 +1006,7 @@ package body Sem_Ch4 is
    --  Start of processing for Analyze_Call
 
    begin
-      if Restriction_Check_Required (SPARK) then
+      if Restriction_Check_Required (SPARK_05) then
          Check_Mixed_Parameter_And_Named_Associations;
       end if;
 
@@ -1022,6 +1037,9 @@ package body Sem_Ch4 is
          --  function that returns a pointer_to_procedure which is the entity
          --  being called. Finally, F (X) may be a call to a parameterless
          --  function that returns a pointer to a function with parameters.
+         --  Note that if F returns an access-to-subprogram whose designated
+         --  type is an array, F (X) cannot be interpreted as an indirect call
+         --  through the result of the call to F.
 
          elsif Is_Access_Type (Etype (Nam))
            and then Ekind (Designated_Type (Etype (Nam))) = E_Subprogram_Type
@@ -1032,6 +1050,8 @@ package body Sem_Ch4 is
                   (Nkind (Parent (N)) /= N_Explicit_Dereference
                      and then Is_Entity_Name (Nam)
                      and then No (First_Formal (Entity (Nam)))
+                     and then not
+                       Is_Array_Type (Etype (Designated_Type (Etype (Nam))))
                      and then Present (Actuals)))
          then
             Nam_Ent := Designated_Type (Etype (Nam));
@@ -2472,9 +2492,21 @@ package body Sem_Ch4 is
             Process_Function_Call;
 
          elsif Nkind (P) = N_Selected_Component
+           and then Present (Entity (Selector_Name (P)))
            and then Is_Overloadable (Entity (Selector_Name (P)))
          then
             Process_Function_Call;
+
+         --  In ASIS mode within a generic, a prefixed call is analyzed and
+         --  partially rewritten but the original indexed component has not
+         --  yet been rewritten as a call. Perform the replacement now.
+
+         elsif Nkind (P) = N_Selected_Component
+           and then Nkind (Parent (P)) = N_Function_Call
+           and then ASIS_Mode
+         then
+            Rewrite (N, Parent (P));
+            Analyze (N);
 
          else
             --  Indexed component, slice, or a call to a member of a family
@@ -2971,7 +3003,9 @@ package body Sem_Ch4 is
          return;
       end if;
 
-      --  An indexing requires at least one actual
+      --  An indexing requires at least one actual. The name of the call cannot
+      --  be an implicit indirect call, so it cannot be a generated explicit
+      --  dereference.
 
       if not Is_Empty_List (Actuals)
         and then
@@ -2980,7 +3014,11 @@ package body Sem_Ch4 is
               (Needs_One_Actual (Nam)
                  and then Present (Next_Actual (First (Actuals)))))
       then
-         if Is_Array_Type (Subp_Type) then
+         if Is_Array_Type (Subp_Type)
+           and then
+            (Nkind (Name (N)) /= N_Explicit_Dereference
+              or else Comes_From_Source (Name (N)))
+         then
             Is_Indexed := Try_Indexed_Call (N, Nam, Subp_Type, Must_Skip);
 
          elsif Is_Access_Type (Subp_Type)
@@ -3019,9 +3057,14 @@ package body Sem_Ch4 is
       if not Norm_OK then
 
          --  If an indirect call is a possible interpretation, indicate
-         --  success to the caller.
+         --  success to the caller. This may be an indexing of an explicit
+         --  dereference of a call that returns an access type (see above).
 
-         if Is_Indirect then
+         if Is_Indirect
+           or else (Is_Indexed
+                     and then Nkind (Name (N)) = N_Explicit_Dereference
+                     and then Comes_From_Source (Name (N)))
+         then
             Success := True;
             return;
 

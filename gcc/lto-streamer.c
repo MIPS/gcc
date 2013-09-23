@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree.h"
 #include "gimple.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "diagnostic-core.h"
 #include "bitmap.h"
 #include "vec.h"
@@ -226,6 +226,13 @@ print_lto_report (const char *s)
       fprintf (stderr, "[%s] # of output symtab nodes: "
 	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
 	       lto_stats.num_output_symtab_nodes);
+
+      fprintf (stderr, "[%s] # of output tree pickle references: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	       lto_stats.num_pickle_refs_output);
+      fprintf (stderr, "[%s] # of output tree bodies: "
+	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
+	       lto_stats.num_tree_bodies_output);
 
       fprintf (stderr, "[%s] # callgraph partitions: "
 	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,

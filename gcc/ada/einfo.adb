@@ -246,7 +246,7 @@ package body Einfo is
 
    --    Thunk_Entity                    Node31
 
-   --    (unused)                        Node32
+   --    SPARK_Mode_Pragmas              Node32
 
    --    (unused)                        Node33
 
@@ -548,8 +548,9 @@ package body Einfo is
    --    Has_Static_Predicate_Aspect     Flag259
    --    Has_Loop_Entry_Attributes       Flag260
 
-   --    (unused)                        Flag261
-   --    (unused)                        Flag262
+   --    Has_Delayed_Rep_Aspects         Flag261
+   --    May_Inherit_Delayed_Rep_Aspects Flag262
+
    --    (unused)                        Flag263
    --    (unused)                        Flag264
    --    (unused)                        Flag265
@@ -588,10 +589,6 @@ package body Einfo is
       Prop_Nam : Name_Id) return Boolean;
    --  Determine whether abstract state State has a particular property denoted
    --  by the name Prop_Nam.
-
-   function Rep_Clause (Id : E; Rep_Name : Name_Id) return N;
-   --  Returns the attribute definition clause for Id whose name is Rep_Name.
-   --  Returns Empty if no matching attribute definition clause found for Id.
 
    ---------------
    -- Float_Rep --
@@ -637,28 +634,6 @@ package body Einfo is
 
       return False;
    end Has_Property;
-
-   ----------------
-   -- Rep_Clause --
-   ----------------
-
-   function Rep_Clause (Id : E; Rep_Name : Name_Id) return N is
-      Ritem : Node_Id;
-
-   begin
-      Ritem := First_Rep_Item (Id);
-      while Present (Ritem) loop
-         if Nkind (Ritem) = N_Attribute_Definition_Clause
-           and then Chars (Ritem) = Rep_Name
-         then
-            return Ritem;
-         else
-            Next_Rep_Item (Ritem);
-         end if;
-      end loop;
-
-      return Empty;
-   end Rep_Clause;
 
    --------------------------------
    -- Attribute Access Functions --
@@ -1379,6 +1354,12 @@ package body Einfo is
       pragma Assert (Nkind (Id) in N_Entity);
       return Flag18 (Id);
    end Has_Delayed_Freeze;
+
+   function Has_Delayed_Rep_Aspects (Id : E) return B is
+   begin
+      pragma Assert (Nkind (Id) in N_Entity);
+      return Flag261 (Id);
+   end Has_Delayed_Rep_Aspects;
 
    function Has_Discriminants (Id : E) return B is
    begin
@@ -2421,6 +2402,11 @@ package body Einfo is
       return Flag168 (Id);
    end Materialize_Entity;
 
+   function May_Inherit_Delayed_Rep_Aspects (Id : E) return B is
+   begin
+      return Flag262 (Id);
+   end May_Inherit_Delayed_Rep_Aspects;
+
    function Mechanism (Id : E) return M is
    begin
       pragma Assert (Ekind (Id) = E_Function or else Is_Formal (Id));
@@ -2824,6 +2810,21 @@ package body Einfo is
       pragma Assert (Is_Fixed_Point_Type (Id));
       return Ureal21 (Id);
    end Small_Value;
+
+   function SPARK_Mode_Pragmas (Id : E) return N is
+   begin
+      pragma Assert
+        (Ekind_In (Id, E_Function,         --  subprogram variants
+                       E_Generic_Function,
+                       E_Generic_Procedure,
+                       E_Procedure,
+                       E_Subprogram_Body)
+           or else
+         Ekind_In (Id, E_Generic_Package,  --  package variants
+                       E_Package,
+                       E_Package_Body));
+      return Node32 (Id);
+   end SPARK_Mode_Pragmas;
 
    function Spec_Entity (Id : E) return E is
    begin
@@ -3963,6 +3964,12 @@ package body Einfo is
       Set_Flag18 (Id, V);
    end Set_Has_Delayed_Freeze;
 
+   procedure Set_Has_Delayed_Rep_Aspects (Id : E; V : B := True) is
+   begin
+      pragma Assert (Nkind (Id) in N_Entity);
+      Set_Flag261 (Id, V);
+   end Set_Has_Delayed_Rep_Aspects;
+
    procedure Set_Has_Discriminants (Id : E; V : B := True) is
    begin
       pragma Assert (Nkind (Id) in N_Entity);
@@ -5048,6 +5055,11 @@ package body Einfo is
       Set_Flag168 (Id, V);
    end Set_Materialize_Entity;
 
+   procedure Set_May_Inherit_Delayed_Rep_Aspects (Id : E; V : B := True) is
+   begin
+      Set_Flag262 (Id, V);
+   end Set_May_Inherit_Delayed_Rep_Aspects;
+
    procedure Set_Mechanism (Id : E; V : M) is
    begin
       pragma Assert (Ekind (Id) = E_Function or else Is_Formal (Id));
@@ -5468,6 +5480,22 @@ package body Einfo is
       pragma Assert (Is_Fixed_Point_Type (Id));
       Set_Ureal21 (Id, V);
    end Set_Small_Value;
+
+   procedure Set_SPARK_Mode_Pragmas (Id : E; V : N) is
+   begin
+      pragma Assert
+        (Ekind_In (Id, E_Function,         --  subprogram variants
+                       E_Generic_Function,
+                       E_Generic_Procedure,
+                       E_Procedure,
+                       E_Subprogram_Body)
+           or else
+         Ekind_In (Id, E_Generic_Package,  --  package variants
+                       E_Package,
+                       E_Package_Body));
+
+      Set_Node32 (Id, V);
+   end Set_SPARK_Mode_Pragmas;
 
    procedure Set_Spec_Entity (Id : E; V : E) is
    begin
@@ -5938,7 +5966,7 @@ package body Einfo is
 
    function Address_Clause (Id : E) return N is
    begin
-      return Rep_Clause (Id, Name_Address);
+      return Get_Attribute_Definition_Clause (Id, Attribute_Address);
    end Address_Clause;
 
    ---------------
@@ -5963,7 +5991,7 @@ package body Einfo is
 
    function Alignment_Clause (Id : E) return N is
    begin
-      return Rep_Clause (Id, Name_Alignment);
+      return Get_Attribute_Definition_Clause (Id, Attribute_Alignment);
    end Alignment_Clause;
 
    -------------------
@@ -6249,19 +6277,58 @@ package body Einfo is
    -- Get_Pragma --
    ----------------
 
-   function Get_Pragma (E  : Entity_Id; Id : Pragma_Id) return Node_Id
-   is
-      N : Node_Id;
+   function Get_Pragma (E : Entity_Id; Id : Pragma_Id) return Node_Id is
+      Is_CDG  : constant Boolean :=
+                  Id = Pragma_Depends or else Id = Pragma_Global;
+      Is_CTC  : constant Boolean :=
+                  Id = Pragma_Contract_Cases or else Id = Pragma_Test_Case;
+      Is_PPC  : constant Boolean :=
+                  Id = Pragma_Precondition or else Id = Pragma_Postcondition;
+      Delayed : constant Boolean := Is_CDG or Is_CTC or Is_PPC;
+      Item    : Node_Id;
+      Items   : Node_Id;
 
    begin
-      N := First_Rep_Item (E);
-      while Present (N) loop
-         if Nkind (N) = N_Pragma
-           and then Get_Pragma_Id (Pragma_Name (N)) = Id
-         then
-            return N;
+      --  Handle delayed pragmas that appear in N_Contract nodes. Those have to
+      --  be extracted from their specialized list.
+
+      if Delayed then
+         Items := Contract (E);
+
+         if No (Items) then
+            return Empty;
+
+         elsif Is_CDG then
+            Item := Classifications (Items);
+
+         elsif Is_CTC then
+            Item := Contract_Test_Cases (Items);
+
          else
-            Next_Rep_Item (N);
+            Item := Pre_Post_Conditions (Items);
+         end if;
+
+      --  Regular pragmas
+
+      else
+         Item := First_Rep_Item (E);
+      end if;
+
+      while Present (Item) loop
+         if Nkind (Item) = N_Pragma
+           and then Get_Pragma_Id (Pragma_Name (Item)) = Id
+         then
+            return Item;
+
+         --  All nodes in N_Contract are chained using Next_Pragma
+
+         elsif Delayed then
+            Item := Next_Pragma (Item);
+
+         --  Regular pragmas
+
+         else
+            Next_Rep_Item (Item);
          end if;
       end loop;
 
@@ -7557,7 +7624,7 @@ package body Einfo is
 
    function Size_Clause (Id : E) return N is
    begin
-      return Rep_Clause (Id, Name_Size);
+      return Get_Attribute_Definition_Clause (Id, Attribute_Size);
    end Size_Clause;
 
    ------------------------
@@ -7566,7 +7633,7 @@ package body Einfo is
 
    function Stream_Size_Clause (Id : E) return N is
    begin
-      return Rep_Clause (Id, Name_Stream_Size);
+      return Get_Attribute_Definition_Clause (Id, Attribute_Stream_Size);
    end Stream_Size_Clause;
 
    ------------------
@@ -7825,6 +7892,7 @@ package body Einfo is
       W ("Has_Default_Aspect",              Flag39  (Id));
       W ("Has_Delayed_Aspects",             Flag200 (Id));
       W ("Has_Delayed_Freeze",              Flag18  (Id));
+      W ("Has_Delayed_Rep_Aspects",         Flag261 (Id));
       W ("Has_Discriminants",               Flag5   (Id));
       W ("Has_Dispatch_Table",              Flag220 (Id));
       W ("Has_Dynamic_Predicate_Aspect",    Flag258 (Id));
@@ -8000,6 +8068,7 @@ package body Einfo is
       W ("Low_Bound_Tested",                Flag205 (Id));
       W ("Machine_Radix_10",                Flag84  (Id));
       W ("Materialize_Entity",              Flag168 (Id));
+      W ("May_Inherit_Delayed_Rep_Aspects", Flag262 (Id));
       W ("Must_Be_On_Byte_Boundary",        Flag183 (Id));
       W ("Must_Have_Preelab_Init",          Flag208 (Id));
       W ("Needs_Debug_Info",                Flag147 (Id));
@@ -9149,6 +9218,16 @@ package body Einfo is
    procedure Write_Field32_Name (Id : Entity_Id) is
    begin
       case Ekind (Id) is
+         when E_Function                                   |
+              E_Generic_Function                           |
+              E_Generic_Package                            |
+              E_Generic_Procedure                          |
+              E_Package                                    |
+              E_Package_Body                               |
+              E_Procedure                                  |
+              E_Subprogram_Body                            =>
+            Write_Str ("SPARK_Mode_Pragmas");
+
          when others                                       =>
             Write_Str ("Field32??");
       end case;

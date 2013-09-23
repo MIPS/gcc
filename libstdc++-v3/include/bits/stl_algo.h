@@ -385,38 +385,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_DistanceType;
 
       _DistanceType __tailSize = __last - __first;
-      const _DistanceType __pattSize = __count;
+      _DistanceType __remainder = __count;
 
-      if (__tailSize < __pattSize)
-        return __last;
-
-      const _DistanceType __skipOffset = __pattSize - 1;
-      _RandomAccessIter __lookAhead = __first + __skipOffset;
-      __tailSize -= __pattSize;
-
-      while (1) // the main loop...
+      while (__remainder <= __tailSize) // the main loop...
 	{
-	  // __lookAhead here is always pointing to the last element of next 
-	  // possible match.
-	  while (!(*__lookAhead == __val)) // the skip loop...
-	    {
-	      if (__tailSize < __pattSize)
-		return __last;  // Failure
-	      __lookAhead += __pattSize;
-	      __tailSize -= __pattSize;
-	    }
-	  _DistanceType __remainder = __skipOffset;
-	  for (_RandomAccessIter __backTrack = __lookAhead - 1; 
-	       *__backTrack == __val; --__backTrack)
+	  __first += __remainder;
+	  __tailSize -= __remainder;
+	  // __first here is always pointing to one past the last element of
+	  // next possible match.
+	  _RandomAccessIter __backTrack = __first; 
+	  while (*--__backTrack == __val)
 	    {
 	      if (--__remainder == 0)
-		return (__lookAhead - __skipOffset); // Success
+	        return (__first - __count); // Success
 	    }
-	  if (__remainder > __tailSize)
-	    return __last; // Failure
-	  __lookAhead += __remainder;
-	  __tailSize -= __remainder;
+	  __remainder = __count + 1 - (__first - __backTrack);
 	}
+      return __last; // Failure
     }
 
   // search_n
@@ -478,38 +463,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_DistanceType;
 
       _DistanceType __tailSize = __last - __first;
-      const _DistanceType __pattSize = __count;
+      _DistanceType __remainder = __count;
 
-      if (__tailSize < __pattSize)
-        return __last;
-
-      const _DistanceType __skipOffset = __pattSize - 1;
-      _RandomAccessIter __lookAhead = __first + __skipOffset;
-      __tailSize -= __pattSize;
-
-      while (1) // the main loop...
+      while (__remainder <= __tailSize) // the main loop...
 	{
-	  // __lookAhead here is always pointing to the last element of next 
-	  // possible match.
-	  while (!bool(__binary_pred(*__lookAhead, __val))) // the skip loop...
-	    {
-	      if (__tailSize < __pattSize)
-		return __last;  // Failure
-	      __lookAhead += __pattSize;
-	      __tailSize -= __pattSize;
-	    }
-	  _DistanceType __remainder = __skipOffset;
-	  for (_RandomAccessIter __backTrack = __lookAhead - 1; 
-	       __binary_pred(*__backTrack, __val); --__backTrack)
+	  __first += __remainder;
+	  __tailSize -= __remainder;
+	  // __first here is always pointing to one past the last element of
+	  // next possible match.
+	  _RandomAccessIter __backTrack = __first; 
+	  while (__binary_pred(*--__backTrack, __val))
 	    {
 	      if (--__remainder == 0)
-		return (__lookAhead - __skipOffset); // Success
+	        return (__first - __count); // Success
 	    }
-	  if (__remainder > __tailSize)
-	    return __last; // Failure
-	  __lookAhead += __remainder;
-	  __tailSize -= __remainder;
+	  __remainder = __count + 1 - (__first - __backTrack);
 	}
+      return __last; // Failure
     }
 
   // find_end for forward iterators.
@@ -4396,7 +4366,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	= typename iterator_traits<_ForwardIterator2>::iterator_category;
       using _It1_is_RA = is_same<_Cat1, random_access_iterator_tag>;
       using _It2_is_RA = is_same<_Cat2, random_access_iterator_tag>;
-      if (_It1_is_RA() && _It1_is_RA())
+      if (_It1_is_RA() && _It2_is_RA())
 	{
 	  auto __d1 = std::distance(__first1, __last1);
 	  auto __d2 = std::distance(__first2, __last2);
@@ -4456,7 +4426,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	= typename iterator_traits<_ForwardIterator2>::iterator_category;
       using _It1_is_RA = is_same<_Cat1, random_access_iterator_tag>;
       using _It2_is_RA = is_same<_Cat2, random_access_iterator_tag>;
-      constexpr bool __ra_iters = _It1_is_RA() && _It1_is_RA();
+      constexpr bool __ra_iters = _It1_is_RA() && _It2_is_RA();
       if (__ra_iters)
 	{
 	  auto __d1 = std::distance(__first1, __last1);

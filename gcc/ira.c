@@ -1111,8 +1111,8 @@ setup_class_translate_array (enum reg_class *class_translate,
 	      min_cost = INT_MAX;
 	      for (mode = 0; mode < MAX_MACHINE_MODE; mode++)
 		{
-		  cost = (ira_memory_move_cost[mode][cl][0]
-			  + ira_memory_move_cost[mode][cl][1]);
+		  cost = (ira_memory_move_cost[mode][aclass][0]
+			  + ira_memory_move_cost[mode][aclass][1]);
 		  if (min_cost > cost)
 		    min_cost = cost;
 		}
@@ -2863,6 +2863,28 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
     }
 }
 
+/* Check whether the SUBREG is a paradoxical subreg and set the result
+   in PDX_SUBREGS.  */
+
+static int
+set_paradoxical_subreg (rtx *subreg, void *pdx_subregs)
+{
+  rtx reg;
+
+  if ((*subreg) == NULL_RTX)
+    return 1;
+  if (GET_CODE (*subreg) != SUBREG)
+    return 0;
+  reg = SUBREG_REG (*subreg);
+  if (!REG_P (reg))
+    return 0;
+
+  if (paradoxical_subreg_p (*subreg))
+    ((bool *)pdx_subregs)[REGNO (reg)] = true;
+
+  return 0;
+}
+
 /* In DEBUG_INSN location adjust REGs from CLEARED_REGS bitmap to the
    equivalent replacement.  */
 
@@ -2901,15 +2923,29 @@ update_equiv_regs (void)
   basic_block bb;
   int loop_depth;
   bitmap cleared_regs;
+  bool *pdx_subregs;
 
   /* We need to keep track of whether or not we recorded a LABEL_REF so
      that we know if the jump optimizer needs to be rerun.  */
   recorded_label_ref = 0;
 
+  /* Use pdx_subregs to show whether a reg is used in a paradoxical
+     subreg.  */
+  pdx_subregs = XCNEWVEC (bool, max_regno);
+
   reg_equiv = XCNEWVEC (struct equivalence, max_regno);
   grow_reg_equivs ();
 
   init_alias_analysis ();
+
+  /* Scan insns and set pdx_subregs[regno] if the reg is used in a
+     paradoxical subreg. Don't set such reg sequivalent to a mem,
+     because lra will not substitute such equiv memory in order to
+     prevent access beyond allocated memory for paradoxical memory subreg.  */
+  FOR_EACH_BB (bb)
+    FOR_BB_INSNS (bb, insn)
+      if (NONDEBUG_INSN_P (insn))
+	for_each_rtx (&insn, set_paradoxical_subreg, (void *) pdx_subregs);
 
   /* Scan the insns and find which registers have equivalences.  Do this
      in a separate scan of the insns because (due to -fcse-follow-jumps)
@@ -3008,6 +3044,13 @@ update_equiv_regs (void)
 	    {
 	      /* This might be setting a SUBREG of a pseudo, a pseudo that is
 		 also set somewhere else to a constant.  */
+	      note_stores (set, no_equiv, NULL);
+	      continue;
+	    }
+
+	  /* Don't set reg (if pdx_subregs[regno] == true) equivalent to a mem.  */
+	  if (MEM_P (src) && pdx_subregs[regno])
+	    {
 	      note_stores (set, no_equiv, NULL);
 	      continue;
 	    }
@@ -3170,7 +3213,8 @@ update_equiv_regs (void)
 	  && reg_equiv[regno].init_insns != const0_rtx
 	  && ! find_reg_note (XEXP (reg_equiv[regno].init_insns, 0),
 			      REG_EQUIV, NULL_RTX)
-	  && ! contains_replace_regs (XEXP (dest, 0)))
+	  && ! contains_replace_regs (XEXP (dest, 0))
+	  && ! pdx_subregs[regno])
 	{
 	  rtx init_insn = XEXP (reg_equiv[regno].init_insns, 0);
 	  if (validate_equiv_mem (init_insn, src, dest)
@@ -3361,6 +3405,7 @@ update_equiv_regs (void)
 
   end_alias_analysis ();
   free (reg_equiv);
+  free (pdx_subregs);
   return recorded_label_ref;
 }
 
@@ -4727,25 +4772,42 @@ rest_of_handle_ira (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_ira =
+namespace {
+
+const pass_data pass_data_ira =
 {
- {
-  RTL_PASS,
-  "ira",                                /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  rest_of_handle_ira,		        /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_IRA,	                        /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_do_not_ggc_collect               /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "ira", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_IRA, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_do_not_ggc_collect, /* todo_flags_finish */
 };
+
+class pass_ira : public rtl_opt_pass
+{
+public:
+  pass_ira(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_ira, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_handle_ira (); }
+
+}; // class pass_ira
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_ira (gcc::context *ctxt)
+{
+  return new pass_ira (ctxt);
+}
 
 static unsigned int
 rest_of_handle_reload (void)
@@ -4754,22 +4816,39 @@ rest_of_handle_reload (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_reload =
+namespace {
+
+const pass_data pass_data_reload =
 {
- {
-  RTL_PASS,
-  "reload",                             /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  rest_of_handle_reload,	        /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_RELOAD,	                        /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0					/* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "reload", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_RELOAD, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_reload : public rtl_opt_pass
+{
+public:
+  pass_reload(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_reload, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_handle_reload (); }
+
+}; // class pass_reload
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_reload (gcc::context *ctxt)
+{
+  return new pass_reload (ctxt);
+}

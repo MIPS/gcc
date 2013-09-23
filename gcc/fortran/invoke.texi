@@ -144,14 +144,14 @@ and warnings}.
 -Wconversion -Wfunction-elimination -Wimplicit-interface @gol
 -Wimplicit-procedure -Wintrinsic-shadow -Wintrinsics-std @gol
 -Wline-truncation -Wno-align-commons -Wno-tabs -Wreal-q-constant @gol
--Wsurprising -Wunderflow -Wunused-parameter -Wrealloc-lhs Wrealloc-lhs-all @gol
+-Wsurprising -Wunderflow -Wunused-parameter -Wrealloc-lhs -Wrealloc-lhs-all @gol
 -Wtarget-lifetime -fmax-errors=@var{n} -fsyntax-only -pedantic -pedantic-errors
 }
 
 @item Debugging Options
 @xref{Debugging Options,,Options for debugging your program or GNU Fortran}.
 @gccoptlist{-fbacktrace -fdump-fortran-optimized -fdump-fortran-original @gol
--fdump-parse-tree -ffpe-trap=@var{list}
+-fdump-parse-tree -ffpe-trap=@var{list} -ffpe-summary=@var{list}
 }
 
 @item Directory Options
@@ -954,6 +954,11 @@ This option is implied by @option{-Wextra}.
 Warn if the pointer in a pointer assignment might be longer than the its
 target. This option is implied by @option{-Wall}.
 
+@item -Wzerotrip
+@opindex @code{Wzerotrip}
+Warn if a @code{DO} loop is known to execute zero times at compile
+time.  This option is implied by @option{-Wall}.
+
 @item -Werror
 @opindex @code{Werror}
 @cindex warnings, to errors
@@ -1020,6 +1025,17 @@ due to rounding, and hence the @code{ffpe-trap=inexact} is likely to
 be uninteresting in practice.
 
 By default no exception traps are enabled.
+
+@item -ffpe-summary=@var{list}
+@opindex @code{ffpe-summary=}@var{list}
+Specify a list of floating-point exceptions, whose flag status is printed
+to @code{ERROR_UNIT} when invoking @code{STOP} and @code{ERROR STOP}.
+@var{list} can be either @samp{none}, @samp{all} or a comma-separated list
+of the following exceptions: @samp{invalid}, @samp{zero}, @samp{overflow},
+@samp{underflow}, @samp{inexact} and @samp{denormal}. (See
+@option{-ffpe-trap} for a description of the exceptions.)
+
+By default, a summary for all exceptions but @samp{inexact} is shown.
 
 @item -fno-backtrace
 @opindex @code{fno-backtrace}

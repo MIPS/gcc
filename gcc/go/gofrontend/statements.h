@@ -17,6 +17,7 @@ class Function;
 class Unnamed_label;
 class Temporary_statement;
 class Variable_declaration_statement;
+class Expression_statement;
 class Return_statement;
 class Thunk_statement;
 class Label_statement;
@@ -207,6 +208,13 @@ class Statement
   static Return_statement*
   make_return_statement(Expression_list*, Location);
 
+  // Make a statement that returns the result of a call expression.
+  // If the call does not return any results, this just returns the
+  // call expression as a statement, assuming that the function will
+  // end immediately afterward.
+  static Statement*
+  make_return_from_call(Call_expression*, Location);
+
   // Make a break statement.
   static Statement*
   make_break_statement(Unnamed_label* label, Location);
@@ -320,6 +328,14 @@ class Statement
   {
     return this->convert<Variable_declaration_statement,
 			 STATEMENT_VARIABLE_DECLARATION>();
+  }
+
+  // If this is an expression statement, return it.  Otherwise return
+  // NULL.
+  Expression_statement*
+  expression_statement()
+  {
+    return this->convert<Expression_statement, STATEMENT_EXPRESSION>();
   }
 
   // If this is a return statement, return it.  Otherwise return NULL.
@@ -627,6 +643,43 @@ class Return_statement : public Statement
   bool are_hidden_fields_ok_;
   // True if this statement has been lowered.
   bool is_lowered_;
+};
+
+// An expression statement.
+
+class Expression_statement : public Statement
+{
+ public:
+  Expression_statement(Expression* expr, bool is_ignored);
+
+  Expression*
+  expr()
+  { return this->expr_; }
+
+ protected:
+  int
+  do_traverse(Traverse* traverse)
+  { return this->traverse_expression(traverse, &this->expr_); }
+
+  void
+  do_determine_types();
+
+  void
+  do_check_types(Gogo*);
+
+  bool
+  do_may_fall_through() const;
+
+  Bstatement*
+  do_get_backend(Translate_context* context);
+
+  void
+  do_dump_statement(Ast_dump_context*) const;
+
+ private:
+  Expression* expr_;
+  // Whether the value of this expression is being explicitly ignored.
+  bool is_ignored_;
 };
 
 // A send statement.

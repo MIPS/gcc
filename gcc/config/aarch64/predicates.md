@@ -26,6 +26,11 @@
 			      && GET_MODE_CLASS (GET_MODE (op)) == MODE_CC"))))
 )
 
+(define_predicate "aarch64_simd_register"
+  (and (match_code "reg")
+       (ior (match_test "REGNO_REG_CLASS (REGNO (op)) == FP_LO_REGS")
+            (match_test "REGNO_REG_CLASS (REGNO (op)) == FP_REGS"))))
+
 (define_predicate "aarch64_reg_or_zero"
   (and (match_code "reg,subreg,const_int")
        (ior (match_operand 0 "register_operand")
@@ -118,9 +123,8 @@
 (define_predicate "aarch64_valid_symref"
   (match_code "const, symbol_ref, label_ref")
 {
-  enum aarch64_symbol_type symbol_type;
-  return (aarch64_symbolic_constant_p (op, SYMBOL_CONTEXT_ADR, &symbol_type)
-	 && symbol_type != SYMBOL_FORCE_TO_MEM);
+  return (aarch64_classify_symbolic_expression (op, SYMBOL_CONTEXT_ADR)
+	  != SYMBOL_FORCE_TO_MEM);
 })
 
 (define_predicate "aarch64_tls_ie_symref"

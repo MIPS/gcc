@@ -1473,6 +1473,15 @@ package Einfo is
 --       apsect. If this flag is set, then a corresponding aspect specification
 --       node will be present on the rep item chain for the entity.
 
+--    Has_Delayed_Rep_Aspects (Flag261)
+--       Defined in all type and subtypes. This flag is set if there is at
+--       least one aspect for a representation characteristic that has to be
+--       delayed and is one of the characteristics that may be inherited by
+--       types derived from this type if not overridden. If this flag is set,
+--       then types derived from this type have May_Inherit_Delayed_Rep_Aspects
+--       set, signalling that Freeze.Inhert_Delayed_Rep_Aspects must be called
+--       at the freeze point of the derived type.
+
 --    Has_Discriminants (Flag5)
 --       Defined in all types and subtypes. For types that are allowed to have
 --       discriminants (record types and subtypes, task types and subtypes,
@@ -1796,7 +1805,7 @@ package Einfo is
 
 --    Has_Size_Clause (Flag29)
 --       Defined in entities for types and objects. Set if a size clause is
---       Defined for the entity. Used to prevent multiple Size clauses for a
+--       defined for the entity. Used to prevent multiple Size clauses for a
 --       given entity. Note that it is always initially cleared for a derived
 --       type, even though the Size for such a type is inherited from a Size
 --       clause given for the parent type.
@@ -1880,7 +1889,7 @@ package Einfo is
 --       Types can have unknown discriminants either from their declaration or
 --       through type derivation. The use of this flag exactly meets the spec
 --       in RM 3.7(26). Note that all class-wide types are considered to have
---       unknown discriminants. Note that both Has_Discriminants and
+--       unknown discriminants. Note that both flags Has_Discriminants and
 --       Has_Unknown_Discriminants may be true for a type. Class-wide types and
 --       their subtypes have unknown discriminants and can have declared ones
 --       as well. Private types declared with unknown discriminants may have a
@@ -3073,6 +3082,14 @@ package Einfo is
 --       containing the renamed address should be allocated. This is needed so
 --       that the debugger can find the entity.
 
+--    May_Inherit_Delayed_Rep_Aspects (Flag262)
+--       Defined in all entities for types and subtypes. Set if the type is
+--       derived from a type which has delayed rep aspects (marked by the flag
+--       Has_Delayed_Rep_Aspects being set). In this case, at the freeze point
+--       for the derived type we know that the parent type is frozen, and if
+--       a given attribute has not been set for the derived type, we copy the
+--       value from the parent type. See Freeze.Inherit_Delayed_Rep_Aspects.
+
 --    Mechanism (Uint8) (returned as Mechanism_Type)
 --       Defined in functions and non-generic formal parameters. Indicates
 --       the mechanism to be used for the function return or for the formal
@@ -3756,6 +3773,11 @@ package Einfo is
 --       Defined in fixed point types. Points to the universal real for the
 --       Small of the type, either as given in a representation clause, or
 --       as computed (as a power of two) by the compiler.
+
+--    SPARK_Mode_Pragmas (Node32)
+--       Present in the entities of subprogram specs and bodies as well as in
+--       package specs and bodies. Points to a list of SPARK_Mode pragmas that
+--       apply to the related construct. Add note of what this is used for ???
 
 --    Spec_Entity (Node19)
 --       Defined in package body entities. Points to corresponding package
@@ -5004,6 +5026,7 @@ package Einfo is
    --    Has_Constrained_Partial_View        (Flag187)
    --    Has_Controlled_Component            (Flag43)   (base type only)
    --    Has_Default_Aspect                  (Flag39)   (base type only)
+   --    Has_Delayed_Rep_Aspects             (Flag261)
    --    Has_Discriminants                   (Flag5)
    --    Has_Dynamic_Predicate_Aspect        (Flag258)
    --    Has_Independent_Components          (Flag34)   (base type only)
@@ -5043,6 +5066,7 @@ package Einfo is
    --    Is_Volatile                         (Flag16)
    --    Itype_Printed                       (Flag202)  (itypes only)
    --    Known_To_Have_Preelab_Init          (Flag207)
+   --    May_Inherit_Delayed_Rep_Aspects     (Flag262)
    --    Must_Be_On_Byte_Boundary            (Flag183)
    --    Must_Have_Preelab_Init              (Flag208)
    --    Optimize_Alignment_Space            (Flag241)
@@ -5394,6 +5418,7 @@ package Einfo is
    --    Subprograms_For_Type                (Node29)
    --    Corresponding_Equality              (Node30)   (implicit /= only)
    --    Thunk_Entity                        (Node31)   (thunk case only)
+   --    SPARK_Mode_Pragmas                  (Node32)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Elaboration_Entity_Required         (Flag174)
    --    Default_Expressions_Processed       (Flag108)
@@ -5591,6 +5616,7 @@ package Einfo is
    --    Abstract_States                     (Elist25)
    --    Package_Instantiation               (Node26)
    --    Current_Use_Clause                  (Node27)
+   --    SPARK_Mode_Pragmas                  (Node32)
    --    Delay_Subprogram_Descriptors        (Flag50)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Discard_Names                       (Flag88)
@@ -5621,6 +5647,7 @@ package Einfo is
    --    Last_Entity                         (Node20)
    --    Scope_Depth_Value                   (Uint22)
    --    Finalizer                           (Node24)   (non-generic case only)
+   --    SPARK_Mode_Pragmas                  (Node32)
    --    Delay_Subprogram_Descriptors        (Flag50)
    --    Has_Anonymous_Master                (Flag253)
    --    Scope_Depth                         (synth)
@@ -5667,6 +5694,7 @@ package Einfo is
    --    Extra_Formals                       (Node28)
    --    Static_Initialization               (Node30)   (init_proc only)
    --    Thunk_Entity                        (Node31)   (thunk case only)
+   --    SPARK_Mode_Pragmas                  (Node32)
    --    Body_Needed_For_SAL                 (Flag40)
    --    Delay_Cleanups                      (Flag114)
    --    Discard_Names                       (Flag88)
@@ -5837,6 +5865,7 @@ package Einfo is
    --    Last_Entity                         (Node20)
    --    Scope_Depth_Value                   (Uint22)
    --    Extra_Formals                       (Node28)
+   --    SPARK_Mode_Pragmas                  (Node32)
    --    Scope_Depth                         (synth)
 
    --  E_Subprogram_Type
@@ -6276,6 +6305,7 @@ package Einfo is
    function Has_Default_Aspect                  (Id : E) return B;
    function Has_Delayed_Aspects                 (Id : E) return B;
    function Has_Delayed_Freeze                  (Id : E) return B;
+   function Has_Delayed_Rep_Aspects             (Id : E) return B;
    function Has_Discriminants                   (Id : E) return B;
    function Has_Dispatch_Table                  (Id : E) return B;
    function Has_Dynamic_Predicate_Aspect        (Id : E) return B;
@@ -6461,6 +6491,7 @@ package Einfo is
    function Machine_Radix_10                    (Id : E) return B;
    function Master_Id                           (Id : E) return E;
    function Materialize_Entity                  (Id : E) return B;
+   function May_Inherit_Delayed_Rep_Aspects     (Id : E) return B;
    function Mechanism                           (Id : E) return M;
    function Modulus                             (Id : E) return U;
    function Must_Be_On_Byte_Boundary            (Id : E) return B;
@@ -6531,6 +6562,7 @@ package Einfo is
    function Size_Depends_On_Discriminant        (Id : E) return B;
    function Size_Known_At_Compile_Time          (Id : E) return B;
    function Small_Value                         (Id : E) return R;
+   function SPARK_Mode_Pragmas                  (Id : E) return N;
    function Spec_Entity                         (Id : E) return E;
    function Static_Elaboration_Desired          (Id : E) return B;
    function Static_Initialization               (Id : E) return N;
@@ -6885,6 +6917,7 @@ package Einfo is
    procedure Set_Has_Default_Aspect              (Id : E; V : B := True);
    procedure Set_Has_Delayed_Aspects             (Id : E; V : B := True);
    procedure Set_Has_Delayed_Freeze              (Id : E; V : B := True);
+   procedure Set_Has_Delayed_Rep_Aspects         (Id : E; V : B := True);
    procedure Set_Has_Discriminants               (Id : E; V : B := True);
    procedure Set_Has_Dispatch_Table              (Id : E; V : B := True);
    procedure Set_Has_Dynamic_Predicate_Aspect    (Id : E; V : B := True);
@@ -7075,6 +7108,7 @@ package Einfo is
    procedure Set_Machine_Radix_10                (Id : E; V : B := True);
    procedure Set_Master_Id                       (Id : E; V : E);
    procedure Set_Materialize_Entity              (Id : E; V : B := True);
+   procedure Set_May_Inherit_Delayed_Rep_Aspects (Id : E; V : B := True);
    procedure Set_Mechanism                       (Id : E; V : M);
    procedure Set_Modulus                         (Id : E; V : U);
    procedure Set_Must_Be_On_Byte_Boundary        (Id : E; V : B := True);
@@ -7145,6 +7179,7 @@ package Einfo is
    procedure Set_Size_Depends_On_Discriminant    (Id : E; V : B := True);
    procedure Set_Size_Known_At_Compile_Time      (Id : E; V : B := True);
    procedure Set_Small_Value                     (Id : E; V : R);
+   procedure Set_SPARK_Mode_Pragmas              (Id : E; V : N);
    procedure Set_Spec_Entity                     (Id : E; V : E);
    procedure Set_Static_Elaboration_Desired      (Id : E; V : B);
    procedure Set_Static_Initialization           (Id : E; V : N);
@@ -7364,7 +7399,9 @@ package Einfo is
    function Get_Pragma (E : Entity_Id; Id : Pragma_Id) return Node_Id;
    --  Searches the Rep_Item chain for a given entity E, for an instance of
    --  a pragma with the given pragma Id. If found, the value returned is the
-   --  N_Pragma node, otherwise Empty is returned.
+   --  N_Pragma node, otherwise Empty is returned. Delayed pragmas such as
+   --  Precondition, Postcondition, Contract_Cases, Depends and Global appear
+   --  in the N_Contract node of entity E and are also handled by this routine.
 
    function Get_Record_Representation_Clause (E : Entity_Id) return Node_Id;
    --  Searches the Rep_Item chain for a given entity E, for a record
@@ -7589,6 +7626,7 @@ package Einfo is
    pragma Inline (Has_Default_Aspect);
    pragma Inline (Has_Delayed_Aspects);
    pragma Inline (Has_Delayed_Freeze);
+   pragma Inline (Has_Delayed_Rep_Aspects);
    pragma Inline (Has_Discriminants);
    pragma Inline (Has_Dispatch_Table);
    pragma Inline (Has_Dynamic_Predicate_Aspect);
@@ -7818,6 +7856,7 @@ package Einfo is
    pragma Inline (Machine_Radix_10);
    pragma Inline (Master_Id);
    pragma Inline (Materialize_Entity);
+   pragma Inline (May_Inherit_Delayed_Rep_Aspects);
    pragma Inline (Mechanism);
    pragma Inline (Modulus);
    pragma Inline (Must_Be_On_Byte_Boundary);
@@ -7891,6 +7930,7 @@ package Einfo is
    pragma Inline (Size_Depends_On_Discriminant);
    pragma Inline (Size_Known_At_Compile_Time);
    pragma Inline (Small_Value);
+   pragma Inline (SPARK_Mode_Pragmas);
    pragma Inline (Spec_Entity);
    pragma Inline (Static_Elaboration_Desired);
    pragma Inline (Static_Initialization);
@@ -8046,6 +8086,7 @@ package Einfo is
    pragma Inline (Set_Has_Default_Aspect);
    pragma Inline (Set_Has_Delayed_Aspects);
    pragma Inline (Set_Has_Delayed_Freeze);
+   pragma Inline (Set_Has_Delayed_Rep_Aspects);
    pragma Inline (Set_Has_Discriminants);
    pragma Inline (Set_Has_Dispatch_Table);
    pragma Inline (Set_Has_Dynamic_Predicate_Aspect);
@@ -8235,6 +8276,7 @@ package Einfo is
    pragma Inline (Set_Machine_Radix_10);
    pragma Inline (Set_Master_Id);
    pragma Inline (Set_Materialize_Entity);
+   pragma Inline (Set_May_Inherit_Delayed_Rep_Aspects);
    pragma Inline (Set_Mechanism);
    pragma Inline (Set_Modulus);
    pragma Inline (Set_Must_Be_On_Byte_Boundary);
@@ -8305,6 +8347,7 @@ package Einfo is
    pragma Inline (Set_Size_Depends_On_Discriminant);
    pragma Inline (Set_Size_Known_At_Compile_Time);
    pragma Inline (Set_Small_Value);
+   pragma Inline (Set_SPARK_Mode_Pragmas);
    pragma Inline (Set_Spec_Entity);
    pragma Inline (Set_Static_Elaboration_Desired);
    pragma Inline (Set_Static_Initialization);

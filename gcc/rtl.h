@@ -2055,6 +2055,8 @@ extern int find_reg_fusage (const_rtx, enum rtx_code, const_rtx);
 extern int find_regno_fusage (const_rtx, enum rtx_code, unsigned int);
 extern rtx alloc_reg_note (enum reg_note, rtx, rtx);
 extern void add_reg_note (rtx, enum reg_note, rtx);
+extern void add_int_reg_note (rtx, enum reg_note, int);
+extern void add_shallow_copy_of_reg_note (rtx, rtx);
 extern void remove_note (rtx, const_rtx);
 extern void remove_reg_equal_equiv_notes (rtx);
 extern void remove_reg_equal_equiv_notes_for_regno (unsigned int);
@@ -2705,6 +2707,8 @@ extern int canon_true_dependence (const_rtx, enum machine_mode, rtx,
 				  const_rtx, rtx);
 extern int read_dependence (const_rtx, const_rtx);
 extern int anti_dependence (const_rtx, const_rtx);
+extern int canon_anti_dependence (const_rtx, bool,
+				  const_rtx, enum machine_mode, rtx);
 extern int output_dependence (const_rtx, const_rtx);
 extern int may_alias_p (const_rtx, const_rtx);
 extern void init_alias_target (void);
@@ -2747,6 +2751,7 @@ extern void simplify_using_condition (rtx, rtx *, bitmap);
 
 /* In final.c  */
 extern unsigned int compute_alignments (void);
+extern void update_alignments (vec<rtx> &);
 extern int asm_str_count (const char *templ);
 
 struct rtl_hooks

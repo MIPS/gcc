@@ -44,10 +44,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "basic-block.h"
 #include "tree-mudflap.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "value-prof.h"
 #include "diagnostic-core.h"
 #include "builtins.h"
+#include "ubsan.h"
 
 
 #ifndef PAD_VARARGS_DOWN
@@ -61,7 +62,7 @@ struct target_builtins *this_target_builtins = &default_target_builtins;
 #endif
 
 /* Define the names of the builtin function types and codes.  */
-const char *const built_in_class_names[4]
+const char *const built_in_class_names[BUILT_IN_LAST]
   = {"NOT_BUILT_IN", "BUILT_IN_FRONTEND", "BUILT_IN_MD", "BUILT_IN_NORMAL"};
 
 #define DEF_BUILTIN(X, N, C, T, LT, B, F, NA, AT, IM, COND) #X,
@@ -249,6 +250,30 @@ is_builtin_fn (tree decl)
   return TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl);
 }
 
+/* By default we assume that c99 functions are present at the runtime,
+   but sincos is not.  */
+bool
+default_libc_has_function (enum function_class fn_class)
+{
+  if (fn_class == function_c94
+      || fn_class == function_c99_misc
+      || fn_class == function_c99_math_complex)
+    return true;
+
+  return false;
+}
+
+bool
+gnu_libc_has_function (enum function_class fn_class ATTRIBUTE_UNUSED)
+{
+  return true;
+}
+
+bool
+no_c99_libc_has_function (enum function_class fn_class ATTRIBUTE_UNUSED)
+{
+  return false;
+}
 
 /* Return true if NODE should be considered for inline expansion regardless
    of the optimization level.  This means whenever a function is invoked with
@@ -886,14 +911,15 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
 }
 
 /* Construct the trailing part of a __builtin_setjmp call.  This is
-   also called directly by the SJLJ exception handling code.  */
+   also called directly by the SJLJ exception handling code.
+   If RECEIVER_LABEL is NULL, instead contruct a nonlocal goto handler.  */
 
 void
 expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 {
   rtx chain;
 
-  /* Clobber the FP when we get here, so we have to make sure it's
+  /* Mark the FP as used when we get here, so we have to make sure it's
      marked as used by this function.  */
   emit_use (hard_frame_pointer_rtx);
 
@@ -908,17 +934,28 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 #ifdef HAVE_nonlocal_goto
   if (! HAVE_nonlocal_goto)
 #endif
-    {
-      emit_move_insn (virtual_stack_vars_rtx, hard_frame_pointer_rtx);
-      /* This might change the hard frame pointer in ways that aren't
-	 apparent to early optimization passes, so force a clobber.  */
-      emit_clobber (hard_frame_pointer_rtx);
-    }
+    /* First adjust our frame pointer to its actual value.  It was
+       previously set to the start of the virtual area corresponding to
+       the stacked variables when we branched here and now needs to be
+       adjusted to the actual hardware fp value.
+
+       Assignments to virtual registers are converted by
+       instantiate_virtual_regs into the corresponding assignment
+       to the underlying register (fp in this case) that makes
+       the original assignment true.
+       So the following insn will actually be decrementing fp by
+       STARTING_FRAME_OFFSET.  */
+    emit_move_insn (virtual_stack_vars_rtx, hard_frame_pointer_rtx);
 
 #if !HARD_FRAME_POINTER_IS_ARG_POINTER
   if (fixed_regs[ARG_POINTER_REGNUM])
     {
 #ifdef ELIMINABLE_REGS
+      /* If the argument pointer can be eliminated in favor of the
+	 frame pointer, we don't need to restore it.  We assume here
+	 that if such an elimination is present, it can always be used.
+	 This is the case on all known machines; if we don't make this
+	 assumption, we do unnecessary saving on many machines.  */
       size_t i;
       static const struct elims {const int from, to;} elim_regs[] = ELIMINABLE_REGS;
 
@@ -939,7 +976,7 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 #endif
 
 #ifdef HAVE_builtin_setjmp_receiver
-  if (HAVE_builtin_setjmp_receiver)
+  if (receiver_label != NULL && HAVE_builtin_setjmp_receiver)
     emit_insn (gen_builtin_setjmp_receiver (receiver_label));
   else
 #endif
@@ -1930,7 +1967,8 @@ expand_errno_check (tree exp, rtx target)
       rtx errno_rtx
 	  = gen_rtx_MEM (word_mode, gen_rtx_SYMBOL_REF (Pmode, "errno"));
 #endif
-      emit_move_insn (errno_rtx, GEN_INT (TARGET_EDOM));
+      emit_move_insn (errno_rtx,
+		      gen_int_mode (TARGET_EDOM, GET_MODE (errno_rtx)));
       emit_label (lab);
       return;
     }
@@ -2536,7 +2574,7 @@ expand_builtin_cexpi (tree exp, rtx target)
       /* Compute into op1 and op2.  */
       expand_twoval_unop (sincos_optab, op0, op2, op1, 0);
     }
-  else if (TARGET_HAS_SINCOS)
+  else if (targetm.libc_has_function (function_sincos))
     {
       tree call, fn = NULL_TREE;
       tree top1, top2;
@@ -4825,8 +4863,8 @@ round_trampoline_addr (rtx tramp)
 
   /* Round address up to desired boundary.  */
   temp = gen_reg_rtx (Pmode);
-  addend = GEN_INT (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1);
-  mask = GEN_INT (-TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT);
+  addend = gen_int_mode (TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT - 1, Pmode);
+  mask = gen_int_mode (-TRAMPOLINE_ALIGNMENT / BITS_PER_UNIT, Pmode);
 
   temp  = expand_simple_binop (Pmode, PLUS, tramp, addend,
 			       temp, 0, OPTAB_LIB_WIDEN);
@@ -5814,6 +5852,13 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
      set of builtins.  */
   if (!optimize
       && !called_as_built_in (fndecl)
+      && fcode != BUILT_IN_FORK
+      && fcode != BUILT_IN_EXECL
+      && fcode != BUILT_IN_EXECV
+      && fcode != BUILT_IN_EXECLP
+      && fcode != BUILT_IN_EXECLE
+      && fcode != BUILT_IN_EXECVP
+      && fcode != BUILT_IN_EXECVE
       && fcode != BUILT_IN_ALLOCA
       && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
       && fcode != BUILT_IN_FREE)
@@ -5853,6 +5898,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
   switch (fcode)
     {
     CASE_FLT_FN (BUILT_IN_FABS):
+    case BUILT_IN_FABSD32:
+    case BUILT_IN_FABSD64:
+    case BUILT_IN_FABSD128:
       target = expand_builtin_fabs (exp, target, subtarget);
       if (target)
 	return target;
@@ -6095,7 +6143,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_INT_FN (BUILT_IN_FFS):
-    case BUILT_IN_FFSIMAX:
       target = expand_builtin_unop (target_mode, exp, target,
 				    subtarget, ffs_optab);
       if (target)
@@ -6103,7 +6150,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_INT_FN (BUILT_IN_CLZ):
-    case BUILT_IN_CLZIMAX:
       target = expand_builtin_unop (target_mode, exp, target,
 				    subtarget, clz_optab);
       if (target)
@@ -6111,7 +6157,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_INT_FN (BUILT_IN_CTZ):
-    case BUILT_IN_CTZIMAX:
       target = expand_builtin_unop (target_mode, exp, target,
 				    subtarget, ctz_optab);
       if (target)
@@ -6119,7 +6164,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_INT_FN (BUILT_IN_CLRSB):
-    case BUILT_IN_CLRSBIMAX:
       target = expand_builtin_unop (target_mode, exp, target,
 				    subtarget, clrsb_optab);
       if (target)
@@ -6127,7 +6171,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_INT_FN (BUILT_IN_POPCOUNT):
-    case BUILT_IN_POPCOUNTIMAX:
       target = expand_builtin_unop (target_mode, exp, target,
 				    subtarget, popcount_optab);
       if (target)
@@ -6135,7 +6178,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     CASE_INT_FN (BUILT_IN_PARITY):
-    case BUILT_IN_PARITYIMAX:
       target = expand_builtin_unop (target_mode, exp, target,
 				    subtarget, parity_optab);
       if (target)
@@ -7804,7 +7846,7 @@ fold_builtin_sincos (location_t loc,
     return res;
 
   /* Canonicalize sincos to cexpi.  */
-  if (!TARGET_C99_FUNCTIONS)
+  if (!targetm.libc_has_function (function_c99_math_complex))
     return NULL_TREE;
   fn = mathfn_built_in (type, BUILT_IN_CEXPI);
   if (!fn)
@@ -7844,7 +7886,7 @@ fold_builtin_cexp (location_t loc, tree arg0, tree type)
 
   /* In case we can figure out the real part of arg0 and it is constant zero
      fold to cexpi.  */
-  if (!TARGET_C99_FUNCTIONS)
+  if (!targetm.libc_has_function (function_c99_math_complex))
     return NULL_TREE;
   ifn = mathfn_built_in (rtype, BUILT_IN_CEXPI);
   if (!ifn)
@@ -8100,14 +8142,13 @@ fold_builtin_bitop (tree fndecl, tree arg)
 	{
 	  hi = TREE_INT_CST_HIGH (arg);
 	  if (width < HOST_BITS_PER_DOUBLE_INT)
-	    hi &= ~((unsigned HOST_WIDE_INT) (-1)
-		    << (width - HOST_BITS_PER_WIDE_INT));
+	    hi &= ~(HOST_WIDE_INT_M1U << (width - HOST_BITS_PER_WIDE_INT));
 	}
       else
 	{
 	  hi = 0;
 	  if (width < HOST_BITS_PER_WIDE_INT)
-	    lo &= ~((unsigned HOST_WIDE_INT) (-1) << width);
+	    lo &= ~(HOST_WIDE_INT_M1U << width);
 	}
 
       switch (DECL_FUNCTION_CODE (fndecl))
@@ -8140,17 +8181,19 @@ fold_builtin_bitop (tree fndecl, tree arg)
 	  break;
 
 	CASE_INT_FN (BUILT_IN_CLRSB):
+	  if (width > 2 * HOST_BITS_PER_WIDE_INT)
+	    return NULL_TREE;
 	  if (width > HOST_BITS_PER_WIDE_INT
 	      && (hi & ((unsigned HOST_WIDE_INT) 1
 			<< (width - HOST_BITS_PER_WIDE_INT - 1))) != 0)
 	    {
-	      hi = ~hi & ~((unsigned HOST_WIDE_INT) (-1)
+	      hi = ~hi & ~(HOST_WIDE_INT_M1U
 			   << (width - HOST_BITS_PER_WIDE_INT - 1));
 	      lo = ~lo;
 	    }
 	  else if (width <= HOST_BITS_PER_WIDE_INT
 		   && (lo & ((unsigned HOST_WIDE_INT) 1 << (width - 1))) != 0)
-	    lo = ~lo & ~((unsigned HOST_WIDE_INT) (-1) << (width - 1));
+	    lo = ~lo & ~(HOST_WIDE_INT_M1U << (width - 1));
 	  if (hi != 0)
 	    result = width - floor_log2 (hi) - 2 - HOST_BITS_PER_WIDE_INT;
 	  else if (lo != 0)
@@ -10269,6 +10312,14 @@ fold_builtin_0 (location_t loc, tree fndecl, bool ignore ATTRIBUTE_UNUSED)
     case BUILT_IN_CLASSIFY_TYPE:
       return fold_builtin_classify_type (NULL_TREE);
 
+    case BUILT_IN_UNREACHABLE:
+      if (flag_sanitize & SANITIZE_UNREACHABLE
+	  && (current_function_decl == NULL
+	      || !lookup_attribute ("no_sanitize_undefined",
+				    DECL_ATTRIBUTES (current_function_decl))))
+	return ubsan_instrument_unreachable (loc);
+      break;
+
     default:
       break;
     }
@@ -10306,6 +10357,9 @@ fold_builtin_1 (location_t loc, tree fndecl, tree arg0, bool ignore)
       return fold_builtin_strlen (loc, type, arg0);
 
     CASE_FLT_FN (BUILT_IN_FABS):
+    case BUILT_IN_FABSD32:
+    case BUILT_IN_FABSD64:
+    case BUILT_IN_FABSD128:
       return fold_builtin_fabs (loc, arg0, type);
 
     case BUILT_IN_ABS:

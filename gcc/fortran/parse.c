@@ -1095,7 +1095,7 @@ new_level (gfc_code *q)
 {
   gfc_code *p;
 
-  p = q->block = gfc_get_code ();
+  p = q->block = gfc_get_code (EXEC_NOP);
 
   gfc_state_stack->head = gfc_state_stack->tail = p;
 
@@ -1111,7 +1111,7 @@ add_statement (void)
 {
   gfc_code *p;
 
-  p = gfc_get_code ();
+  p = XCNEW (gfc_code);
   *p = new_st;
 
   p->loc = gfc_current_locus;
@@ -2228,11 +2228,11 @@ endType:
 	  sym->attr.coarray_comp = 1;
 	}
      
-      if (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.coarray_comp)
+      if (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.coarray_comp
+	  && !c->attr.pointer)
 	{
 	  coarray = true;
-	  if (!pointer && !allocatable)
-	    sym->attr.coarray_comp = 1;
+	  sym->attr.coarray_comp = 1;
 	}
 
       /* Looking for lock_type components.  */
