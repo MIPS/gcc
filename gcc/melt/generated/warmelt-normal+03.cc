@@ -16198,7 +16198,7 @@ meltlab_endgetargs:
                             /*^apply.arg*/
                             argtab[2].meltbp_long = 4266;
                             /*^apply.arg*/
-                            argtab[3].meltbp_cstring =  "normexp_setq expctyp";
+                            argtab[3].meltbp_cstring =  "normexp_setq expctyp=";
                             /*^apply.arg*/
                             argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.EXPCTYP__V39*/ meltfptr[36];
                             /*_.MELT_DEBUG_FUN__V41*/
@@ -16517,7 +16517,7 @@ meltlab_endgetargs:
                                     MELT_LOCATION("warmelt-normal.melt:4275:/ apply");
                                     /*apply*/
                                     {
-                                        union meltparam_un argtab[5];
+                                        union meltparam_un argtab[7];
                                         memset(&argtab, 0, sizeof(argtab));
                                         /*^apply.arg*/
                                         argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L17*/ meltfnum[16];
@@ -16529,8 +16529,12 @@ meltlab_endgetargs:
                                         argtab[3].meltbp_cstring =  "normexp_setq modulevarocc nexp=";
                                         /*^apply.arg*/
                                         argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.NEXP__V33*/ meltfptr[26];
+                                        /*^apply.arg*/
+                                        argtab[5].meltbp_cstring =  " nvar=";
+                                        /*^apply.arg*/
+                                        argtab[6].meltbp_aptr = (melt_ptr_t*) &/*_.NVAR__V25*/ meltfptr[21];
                                         /*_.MELT_DEBUG_FUN__V53*/
-                                        meltfptr[47] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                                        meltfptr[47] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                                     }
                                     ;
                                     /*_._IF___V52*/
