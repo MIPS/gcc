@@ -43,6 +43,7 @@ typedef struct
   unsigned total;
   unsigned arrived;
   unsigned generation;
+  bool cancellable;
 } gomp_barrier_t;
 
 typedef unsigned int gomp_barrier_state_t;
@@ -53,7 +54,8 @@ typedef unsigned int gomp_barrier_state_t;
 #define BAR_TASK_PENDING	1
 #define BAR_WAS_LAST		1
 #define BAR_WAITING_FOR_TASK	2
-#define BAR_INCR		4
+#define BAR_CANCELLED		4
+#define BAR_INCR		8
 
 extern void gomp_barrier_init (gomp_barrier_t *, unsigned);
 extern void gomp_barrier_reinit (gomp_barrier_t *, unsigned);
@@ -64,17 +66,41 @@ extern void gomp_barrier_wait_end (gomp_barrier_t *, gomp_barrier_state_t);
 extern void gomp_team_barrier_wait (gomp_barrier_t *);
 extern void gomp_team_barrier_wait_end (gomp_barrier_t *,
 					gomp_barrier_state_t);
+extern bool gomp_team_barrier_wait_cancel (gomp_barrier_t *);
+extern bool gomp_team_barrier_wait_cancel_end (gomp_barrier_t *,
+					       gomp_barrier_state_t);
 extern void gomp_team_barrier_wake (gomp_barrier_t *, int);
+struct gomp_team;
+extern void gomp_team_barrier_cancel (struct gomp_team *);
 
 static inline gomp_barrier_state_t
 gomp_barrier_wait_start (gomp_barrier_t *bar)
 {
   unsigned int ret;
   gomp_mutex_lock (&bar->mutex1);
-  ret = bar->generation & -BAR_INCR;
+  ret = bar->generation & (-BAR_INCR | BAR_CANCELLED);
   if (++bar->arrived == bar->total)
     ret |= BAR_WAS_LAST;
   return ret;
+}
+
+static inline gomp_barrier_state_t
+gomp_barrier_wait_cancel_start (gomp_barrier_t *bar)
+{
+  unsigned int ret;
+  gomp_mutex_lock (&bar->mutex1);
+  ret = bar->generation & (-BAR_INCR | BAR_CANCELLED);
+  if (ret & BAR_CANCELLED)
+    return ret;
+  if (++bar->arrived == bar->total)
+    ret |= BAR_WAS_LAST;
+  return ret;
+}
+
+static inline void
+gomp_team_barrier_wait_final (gomp_barrier_t *bar)
+{
+  gomp_team_barrier_wait (bar);
 }
 
 static inline bool
@@ -114,6 +140,12 @@ static inline bool
 gomp_team_barrier_waiting_for_tasks (gomp_barrier_t *bar)
 {
   return (bar->generation & BAR_WAITING_FOR_TASK) != 0;
+}
+
+static inline bool
+gomp_team_barrier_cancelled (gomp_barrier_t *bar)
+{
+  return __builtin_expect ((bar->generation & BAR_CANCELLED) != 0, 0);
 }
 
 static inline void

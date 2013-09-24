@@ -141,15 +141,58 @@ GOMP_parallel (void (*fn) (void *), void *data, unsigned num_threads, unsigned i
   ialias_call (GOMP_parallel_end) ();
 }
 
-void
-GOMP_cancel (void)
+bool
+GOMP_cancellation_point (int which)
 {
-  /* Nothing so far.  */
-}
+  if (!gomp_cancel_var)
+    return false;
 
-void
-GOMP_cancellation_point (void)
+  struct gomp_team *team = gomp_thread ()->ts.team;
+  if (which & (GOMP_CANCEL_LOOP | GOMP_CANCEL_SECTIONS))
+    {
+      if (team == NULL)
+	return false;
+      return team->work_share_cancelled != 0;
+    }
+  else if (which & GOMP_CANCEL_TASKGROUP)
+    {
+      /* FIXME: Check if current taskgroup has been cancelled,
+	 then fallthru into the GOMP_CANCEL_PARALLEL case,
+	 because if the current parallel has been cancelled,
+	 all tasks should be cancelled too.  */
+    }
+  if (team)
+    return gomp_team_barrier_cancelled (&team->barrier);
+  return false;
+}
+ialias (GOMP_cancellation_point)
+
+bool
+GOMP_cancel (int which, bool do_cancel)
 {
+  if (!gomp_cancel_var)
+    return false;
+
+  if (!do_cancel)
+    return ialias_call (GOMP_cancellation_point) (which);
+
+  struct gomp_team *team = gomp_thread ()->ts.team;
+  if (which & (GOMP_CANCEL_LOOP | GOMP_CANCEL_SECTIONS))
+    {
+      /* In orphaned worksharing region, all we want to cancel
+	 is current thread.  */
+      if (team != NULL)
+	team->work_share_cancelled = 1;
+      return true;
+    }
+  else if (which & GOMP_CANCEL_TASKGROUP)
+    {
+      /* FIXME: Handle taskgroup cancellation.  */
+      return true;
+    }
+  team->team_cancelled = 1;
+  gomp_team_barrier_cancel (team);
+  return true;
 }
 
 /* The public OpenMP API for thread and team related inquiries.  */

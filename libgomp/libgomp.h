@@ -240,6 +240,7 @@ extern unsigned long gomp_remaining_threads_count;
 extern gomp_mutex_t gomp_remaining_threads_lock;
 #endif
 extern unsigned long gomp_max_active_levels_var;
+extern bool gomp_cancel_var;
 extern unsigned long long gomp_spin_count_var, gomp_throttled_spin_count_var;
 extern unsigned long gomp_available_cpus, gomp_managed_threads;
 extern unsigned long *gomp_nthreads_var_list, gomp_nthreads_var_list_len;
@@ -298,6 +299,12 @@ struct gomp_team
      of the threads in the team.  */
   gomp_sem_t **ordered_release;
 
+  /* List of work shares on which gomp_fini_work_share hasn't been
+     called yet.  If the team hasn't been cancelled, this should be
+     equal to each thr->ts.work_share, but otherwise it can be a possibly
+     long list of workshares.  */
+  struct gomp_work_share *work_shares_to_free;
+
   /* List of gomp_work_share structs chained through next_free fields.
      This is populated and taken off only by the first thread in the
      team encountering a new work sharing construct, in a critical
@@ -331,6 +338,8 @@ struct gomp_team
   struct gomp_task *task_queue;
   int task_count;
   int task_running_count;
+  int work_share_cancelled;
+  int team_cancelled;
 
   /* This array contains structures for implicit tasks.  */
   struct gomp_task implicit_task[];
@@ -371,6 +380,16 @@ struct gomp_thread_pool
 
   /* This barrier holds and releases threads waiting in threads.  */
   gomp_barrier_t threads_dock;
+};
+
+enum gomp_cancel_kind
+{
+  GOMP_CANCEL_PARALLEL = 1,
+  GOMP_CANCEL_LOOP = 2,
+  GOMP_CANCEL_FOR = GOMP_CANCEL_LOOP,
+  GOMP_CANCEL_DO = GOMP_CANCEL_LOOP,
+  GOMP_CANCEL_SECTIONS = 4,
+  GOMP_CANCEL_TASKGROUP = 8
 };
 
 /* ... and here is that TLS data.  */
@@ -511,6 +530,7 @@ extern void gomp_init_work_share (struct gomp_work_share *, bool, unsigned);
 extern void gomp_fini_work_share (struct gomp_work_share *);
 extern bool gomp_work_share_start (bool);
 extern void gomp_work_share_end (void);
+extern bool gomp_work_share_end_cancel (void);
 extern void gomp_work_share_end_nowait (void);
 
 static inline void

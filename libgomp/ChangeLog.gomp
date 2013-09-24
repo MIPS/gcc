@@ -1,3 +1,81 @@
+2013-09-24  Richard Henderson  <rth@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.map (GOMP_4.0): Export GOMP_barrier_cancel,
+	GOMP_loop_end_cancel, GOMP_sections_end_cancel.
+	* parallel.c (GOMP_cancellation_point): Add WHICH argument, do nothing
+	if gomp_cancel_var is false, handle workshare and parallel
+	cancellation point, add ialias.
+	(GOMP_cancel): Add WHICH and DO_CANCEL arguments, do nothing if
+	gomp_cancel_var is false, call GOMP_cancellation_point if DO_CANCEL
+	is false, handle workshare and parallel cancellation.
+	* config/posix/bar.c (gomp_barrier_init): Clear cancellable field.
+	(gomp_team_barrier_wait_end): Clear BAR_CANCELLED from state.
+	Set work_share_cancelled to 0 on last thread, use __atomic_load_n.
+	(gomp_team_barrier_wait_cancel_end, gomp_team_barrier_wait_cancel,
+	gomp_team_barrier_cancel): New functions.
+	* config/posix/bar.h (gomp_barrier_t): Add cancellable field.
+	(BAR_CANCELLED): Define.
+	(BAR_INCR): Set to 8.
+	(gomp_team_barrier_wait_cancel, gomp_team_barrier_wait_cancel_end,
+	gomp_team_barrier_cancel): New prototypes.
+	(gomp_barrier_wait_start): Preserve BAR_CANCELLED bit.
+	(gomp_barrier_wait_cancel_start, gomp_team_barrier_wait_final,
+	gomp_team_barrier_cancelled): New inline functions.
+	* config/linux/bar.c (gomp_team_barrier_wait_end): Clear BAR_CANCELLED
+	from state where needed.  Set work_share_cancelled to 0 on last thread.
+	(gomp_team_barrier_wait_final, gomp_team_barrier_wait_cancel_end,
+	gomp_team_barrier_wait_cancel, gomp_team_barrier_cancel): New
+	functions.
+	* config/linux/bar.h (gomp_barrier_t): Add awaited_final field.
+	(BAR_CANCELLED): Define.
+	(BAR_INCR): Set to 8.
+	(gomp_barrier_init): Initialize awaited_final field.
+	(gomp_team_barrier_wait_final, gomp_team_barrier_wait_cancel,
+	gomp_team_barrier_wait_cancel_end, gomp_team_barrier_cancel): New
+	prototypes.
+	(gomp_barrier_wait_start): Preserve BAR_CANCELLED bit.
+	(gomp_barrier_wait_cancel_start, gomp_team_barrier_wait_final_start,
+	gomp_team_barrier_cancelled): New inline functions.
+	* work.c (gomp_work_share_end, gomp_work_share_end_nowait): Set
+	team->work_shares_to_free to thr->ts.work_share before calling
+	free_work_share.
+	(gomp_work_share_end_cancel): New function.
+	* team.c (gomp_thread_start): Use gomp_team_barrier_wait_final
+	instead of gomp_team_barrier_wait.
+	(gomp_new_team): Initialize work_shares_to_free, work_share_cancelled
+	and team_cancelled fields.
+	(gomp_team_end): Use gomp_team_barrier_wait_final instead of
+	gomp_team_barrier_wait.  If team->team_cancelled, call
+	gomp_fini_worshare on ws chain starting at team->work_shares_to_free
+	rather than thr->ts.work_share.
+	* env.c (gomp_global_icv): Initialize target_data field.
+	(gomp_cancel_var): New global variable.
+	(handle_omp_display_env): Print cancel-var ICV.
+	(initialize_env): Parse OMP_CANCELLATION env var.
+	(omp_get_cancellation): Return gomp_cancel_var.
+	* barrier.c (GOMP_barrier_cancel): New function.
+	* libgomp.h (gomp_cancel_var): New extern decl.
+	(struct gomp_team): Add work_shares_to_free, work_share_cancelled
+	and team_cancelled fields.
+	(gomp_cancel_kind): New enum.
+	(gomp_work_share_end_cancel): New prototype.
+	* libgomp_g.h (GOMP_barrier_cancel, GOMP_loop_end_cancel,
+	GOMP_sections_end_cancel): New prototypes.
+	(GOMP_cancel, GOMP_cancellation_point): Adjust prototypes.
+	* task.c (GOMP_task): If gomp_team_barrier_cancelled, don't
+	queue or start new tasks.
+	(gomp_barrier_handle_tasks): If gomp_team_barrier_cancelled,
+	don't start any new tasks, just free all tasks.
+	* sections.c (GOMP_sections_end_cancel): New function.
+	* loop.c (GOMP_loop_end_cancel): New function.
+	* testsuite/libgomp.c/cancel-parallel-1.c: New test.
+	* testsuite/libgomp.c/cancel-parallel-2.c: New test.
+	* testsuite/libgomp.c/cancel-parallel-3.c: New test.
+	* testsuite/libgomp.c/cancel-for-1.c: New test.
+	* testsuite/libgomp.c/cancel-for-2.c: New test.
+	* testsuite/libgomp.c/cancel-sections-1.c: New test.
+
 2013-09-23  Michael Zolotukhin  <michael.v.zolotukhin@intel.com>
 
 	* configure.ac: Add checks for plugins support.

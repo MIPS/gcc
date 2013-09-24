@@ -58,13 +58,15 @@ struct gomp_task_icv gomp_global_icv = {
   .run_sched_modifier = 1,
   .default_device_var = 0,
   .dyn_var = false,
-  .nest_var = false
+  .nest_var = false,
+  .target_data = NULL
 };
 
 unsigned short *gomp_cpu_affinity;
 size_t gomp_cpu_affinity_len;
 unsigned long gomp_max_active_levels_var = INT_MAX;
 unsigned long gomp_thread_limit_var = ULONG_MAX;
+bool gomp_cancel_var = false;
 unsigned long gomp_remaining_threads_count;
 #ifndef HAVE_SYNC_BUILTINS
 gomp_mutex_t gomp_remaining_threads_lock;
@@ -676,8 +678,9 @@ handle_omp_display_env (bool proc_bind, unsigned long stacksize,
 	   gomp_max_active_levels_var);
 
 /* FIXME: Unimplemented OpenMP 4.0 environment variables.
-  fprintf (stderr, "  OMP_PLACES = ''\n");
-  fprintf (stderr, "  OMP_CANCELLATION = ''\n"); */
+  fprintf (stderr, "  OMP_PLACES = ''\n"); */
+  fprintf (stderr, "  OMP_CANCELLATION = '%s'\n",
+	   gomp_cancel_var ? "TRUE" : "FALSE");
   fprintf (stderr, "  OMP_DEFAULT_DEVICE = '%d'\n",
 	   gomp_global_icv.default_device_var);
 
@@ -719,6 +722,7 @@ initialize_env (void)
   parse_boolean ("OMP_DYNAMIC", &gomp_global_icv.dyn_var);
   parse_boolean ("OMP_NESTED", &gomp_global_icv.nest_var);
   parse_boolean ("OMP_PROC_BIND", &bind_var);
+  parse_boolean ("OMP_CANCELLATION", &gomp_cancel_var);
   parse_int ("OMP_DEFAULT_DEVICE", &gomp_global_icv.default_device_var, true);
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var,
 		       true);
@@ -890,7 +894,7 @@ omp_get_max_active_levels (void)
 int
 omp_get_cancellation (void)
 {
-  return 0;
+  return gomp_cancel_var;
 }
 
 omp_proc_bind_t

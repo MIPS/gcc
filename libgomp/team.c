@@ -98,7 +98,7 @@ gomp_thread_start (void *xdata)
       gomp_barrier_wait (&team->barrier);
 
       local_fn (local_data);
-      gomp_team_barrier_wait (&team->barrier);
+      gomp_team_barrier_wait_final (&team->barrier);
       gomp_finish_task (task);
       gomp_barrier_wait_last (&team->barrier);
     }
@@ -113,7 +113,7 @@ gomp_thread_start (void *xdata)
 	  struct gomp_task *task = thr->task;
 
 	  local_fn (local_data);
-	  gomp_team_barrier_wait (&team->barrier);
+	  gomp_team_barrier_wait_final (&team->barrier);
 	  gomp_finish_task (task);
 
 	  gomp_barrier_wait (&pool->threads_dock);
@@ -149,6 +149,7 @@ gomp_new_team (unsigned nthreads)
 #else
   gomp_mutex_init (&team->work_share_list_free_lock);
 #endif
+  team->work_shares_to_free = &team->work_shares[0];
   gomp_init_work_share (&team->work_shares[0], false, nthreads);
   team->work_shares[0].next_alloc = NULL;
   team->work_share_list_free = NULL;
@@ -168,6 +169,8 @@ gomp_new_team (unsigned nthreads)
   team->task_queue = NULL;
   team->task_count = 0;
   team->task_running_count = 0;
+  team->work_share_cancelled = 0;
+  team->team_cancelled = 0;
 
   return team;
 }
@@ -477,9 +480,26 @@ gomp_team_end (void)
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
 
-  /* This barrier handles all pending explicit threads.  */
-  gomp_team_barrier_wait (&team->barrier);
-  gomp_fini_work_share (thr->ts.work_share);
+  /* This barrier handles all pending explicit threads.
+     As #pragma omp cancel parallel might get awaited count in
+     team->barrier in a inconsistent state, we need to use a different
+     counter here.  */
+  gomp_team_barrier_wait_final (&team->barrier);
+  if (__builtin_expect (team->team_cancelled, 0))
+    {
+      struct gomp_work_share *ws = team->work_shares_to_free;
+      do
+	{
+	  struct gomp_work_share *next_ws = gomp_ptrlock_get (&ws->next_ws);
+	  if (next_ws == NULL)
+	    gomp_ptrlock_set (&ws->next_ws, ws);
+	  gomp_fini_work_share (ws);
+	  ws = next_ws;
+	}
+      while (ws != NULL);
+    }
+  else
+    gomp_fini_work_share (thr->ts.work_share);
 
   gomp_end_task ();
   thr->ts = team->prev_ts;

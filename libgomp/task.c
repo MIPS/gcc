@@ -94,6 +94,10 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
     flags &= ~1;
 #endif
 
+  /* If parallel has been cancelled, don't start new tasks.  */
+  if (team && gomp_team_barrier_cancelled (&team->barrier))
+    return;
+
   if (!if_clause || team == NULL
       || (thr->task && thr->task->final_task)
       || team->task_count > 64 * team->nthreads)
@@ -158,6 +162,14 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       task->in_tied_task = true;
       task->final_task = (flags & 2) >> 1;
       gomp_mutex_lock (&team->task_lock);
+      /* If parallel has been cancelled, don't start new tasks.  */
+      if (gomp_team_barrier_cancelled (&team->barrier))
+	{
+	  gomp_mutex_unlock (&team->task_lock);
+	  gomp_finish_task (task);
+	  free (task);
+	  return;
+	}
       if (parent->children)
 	{
 	  task->next_child = parent->children;
@@ -202,6 +214,7 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
   struct gomp_task *task = thr->task;
   struct gomp_task *child_task = NULL;
   struct gomp_task *to_free = NULL;
+  bool cancelled = false;
 
   gomp_mutex_lock (&team->task_lock);
   if (gomp_barrier_last_thread (state))
@@ -233,6 +246,17 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
 	  else
 	    team->task_queue = NULL;
 	  child_task->kind = GOMP_TASK_TIED;
+	  cancelled |= gomp_team_barrier_cancelled (&team->barrier);
+	  if (__builtin_expect (cancelled, 0))
+	    {
+	      if (to_free)
+		{
+		  gomp_finish_task (to_free);
+		  free (to_free);
+		  to_free = NULL;
+		}
+	      goto finish_cancelled;
+	    }
 	  team->task_running_count++;
 	  if (team->task_count == team->task_running_count)
 	    gomp_team_barrier_clear_task_pending (&team->barrier);
@@ -253,6 +277,7 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
       else
 	return;
       gomp_mutex_lock (&team->task_lock);
+     finish_cancelled:
       if (child_task)
 	{
 	  struct gomp_task *parent = child_task->parent;
@@ -281,7 +306,8 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
 	  gomp_clear_parent (child_task->children);
 	  to_free = child_task;
 	  child_task = NULL;
-	  team->task_running_count--;
+	  if (!cancelled)
+	    team->task_running_count--;
 	  if (--team->task_count == 0
 	      && gomp_team_barrier_waiting_for_tasks (&team->barrier))
 	    {

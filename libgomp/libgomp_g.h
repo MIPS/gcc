@@ -33,6 +33,7 @@
 /* barrier.c */
 
 extern void GOMP_barrier (void);
+extern bool GOMP_barrier_cancel (void);
 
 /* critical.c */
 
@@ -91,6 +92,7 @@ extern void GOMP_parallel_loop_runtime (void (*)(void *), void *,
 
 extern void GOMP_loop_end (void);
 extern void GOMP_loop_end_nowait (void);
+extern bool GOMP_loop_end_cancel (void);
 
 /* loop_ull.c */
 
@@ -170,8 +172,8 @@ extern void GOMP_ordered_end (void);
 extern void GOMP_parallel_start (void (*) (void *), void *, unsigned);
 extern void GOMP_parallel_end (void);
 extern void GOMP_parallel (void (*) (void *), void *, unsigned, unsigned);
-extern void GOMP_cancel (void);
-extern void GOMP_cancellation_point (void);
+extern bool GOMP_cancel (int, bool);
+extern bool GOMP_cancellation_point (int);
 
 /* task.c */
 
@@ -192,6 +194,7 @@ extern void GOMP_parallel_sections (void (*) (void *), void *,
 				    unsigned, unsigned, unsigned);
 extern void GOMP_sections_end (void);
 extern void GOMP_sections_end_nowait (void);
+extern bool GOMP_sections_end_cancel (void);
 
 /* single.c */
 
