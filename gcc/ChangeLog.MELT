@@ -1,6 +1,21 @@
 
 
 2013-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{fixed MELT-SFT-2}}
+	* melt/warmelt-normal.melt (normexp_setq): More debug.
+
+	* melt/warmelt-genobj.melt (putobjdest_catch_objputmodvar): New
+	method, signalling an error, for put_objdest on
+	class_objputmodvar.
+
+	* melt/xtramelt-ana-simple.melt (register_findgimple_processor):
+	Explicitly return nil.
+
+	* melt/xtramelt-playground.melt: Remove all the useless code.
+
+	* testsuite/melt/tdefvar-3.melt: New file.
+
+2013-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-build-script.tpl: Move the creation of
 	meltbuild-common.args and warmelt*modlis files.

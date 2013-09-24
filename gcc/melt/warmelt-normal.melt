@@ -4263,7 +4263,7 @@ source location.}#
        (if (null nbind) (setq nbind (make_list discr_list)))
        (let ( (expctyp (get_ctype nexp env))
 	      )
-	 (debug "normexp_setq expctyp" expctyp)
+	 (debug "normexp_setq expctyp=" expctyp)
 	 (assert_msg "check expctyp" (is_a expctyp class_ctype) expctyp)
 	 (when (!= varctyp expctyp)
 	       (error_at sloc "incompatible type for SETQ of $1 left ctype is $2 right is $3"_
@@ -4272,7 +4272,7 @@ source location.}#
 			 (unsafe_get_field :named_name expctyp))
 	       ))
        (when (is_a nvar class_nrep_modulevarocc)
-	 (debug "normexp_setq modulevarocc nexp=" nexp)
+	 (debug "normexp_setq modulevarocc nexp=" nexp " nvar=" nvar)
 	 (let ( (csym (clone_symbol 'putstatic_))
 		(csbind (instance class_normal_let_binding
 				 :binder csym

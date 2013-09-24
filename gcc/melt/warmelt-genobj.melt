@@ -1000,10 +1000,22 @@
 	  )
      (error_at () "PUT_OBJDEST sent to unexpected C-generated object $1 of class $2 for destination $3." 
 	       recv discrname desto)
-     (assert_msg "@@put_objdest should be implemented in nrep-s subclasses" () recv)
+     (assert_msg "@@put_objdest should be implemented in generated c code subclasses" () recv discr)
      ))
  (install_method class_generated_c_code put_objdest putobjdest_catchall_objcode)
 
+
+(defun putobjdest_catch_objputmodvar (recv desto)
+  (debug "putobjdest_catch_objputmodvar recv=" recv " desto=" desto)
+  (assert_msg "check recv" (is_a recv class_objputmodvar) recv desto)
+  (let ( (loc (get_field :obi_loc recv))
+	 (obind (get_field :obputmodvar_bind recv))
+	 (bindsymb (get_field :binder obind))
+	 )
+    (error_at loc "assignment of a module variable $1 don't have any result" bindsymb)
+    (assert_msg "@@put_objdest on objputmodvar" () recv desto)
+    (return)))
+(install_method class_objputmodvar put_objdest putobjdest_catch_objputmodvar)
 
  (defun putobjdest_catchall_anydiscr (recv desto)
    (debug "putobjdest_catchall_anydiscr recv=" recv " desto=" desto)

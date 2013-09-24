@@ -1,0 +1,27 @@
+;; file tdefvar-3.melt -*- lisp -*-
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tdefvar-3.melt 
+ ./cc1 -fmelt-mode=rundebug  -fmelt-debug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tdefvar-3.melt \
+    meltbuild-empty-file.c
+|#
+
+(defvar varthree)
+
+(defun set-varthree (x)
+  (cond ( (is_a x class_named)
+	  (debug "set-varthree good x=" x)
+	  (setq varthree x))
+	(:else
+	 (assert_msg "set-varthree bad x" () x)
+	 ())))
+
+(defun fetch-varthree ()
+       varthree)
+
+(export_values set-varthree fetch-varthree)
+
+;; eof tdefvar-3.melt

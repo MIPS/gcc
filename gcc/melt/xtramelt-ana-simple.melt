@@ -537,7 +537,8 @@
 (defun register_findgimple_processor (clo)
   (cond 
    ( (is_closure clo)
-     (setq findgimple_data_processor clo))
+     (setq findgimple_data_processor clo)
+     ())
    (:else
     (error_at () "register_findgimple_processor expecting a closure but got $1" clo)
     (assert_msg "register_findgimple_processor check clo" (is_closure clo) clo))))
