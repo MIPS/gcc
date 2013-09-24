@@ -547,6 +547,40 @@ else
 fi
 
 ################################################################
+#@ [+(.(fromline))+] making the meltbuild-common.args file to make life easier
+# I would often use that meltbuild-common.args for testing, etc.
+meltcommon_args=meltbuild-common.args
+meltbuild_info [+(.(fromline))+] making $meltcommon_args
+meltcommon_argstemp=$meltcommon_args-tmp$$
+echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]"' > $meltcommon_argstemp
+meltbuild_arg workdir=meltbuild-workdir >>  $meltcommon_argstemp
+meltbuild_arg tempdir=meltbuild-tempdir >> $meltcommon_argstemp
+meltbuild_arg source-path=meltbuild-sources:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
+meltbuild_arg module-path=meltbuild-modules:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
+meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcommon_argstemp
+meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltcommon_argstemp
+
+$GCCMELT_MOVE_IF_CHANGE $meltcommon_argstemp $meltcommon_args
+meltbuild_info [+(.(fromline))+] $meltcommon_args is
+cat $meltcommon_args < /dev/null >&2
+
+
+################
+### the warmelt modules lists  [+(.(fromline))+]
+[+FOR flavor in quicklybuilt optimized debugnoline+]
+if [ ! -f meltbuild-sources/warmelt.[+flavor+].modlis \
+    -o  meltbuild-sources/warmelt.[+flavor+].modlis -ot  "$melt_final_translator_stamp" ]; then 
+  #  [+ (. (fromline))+] warmelt module list [+flavor+]
+  melt_modlis_temp="meltbuild-sources/warmelt.[+flavor+].modlis-tmp$$"
+  echo "# MELT translator modules:" >> $melt_modlis_temp
+ [+FOR melt_translator_file+] 
+  echo [+base+].[+flavor+] >> $melt_modlis_temp
+ [+ENDFOR melt_translator_file+]
+  $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/warmelt.[+flavor+].modlis"
+fi
+[+ENDFOR flavor+]
+
+################################################################
 #@ [+(.(fromline))+]
 if [ "$melt_overall_goal" = "translator" ]; then
     meltbuild_info [+(.(fromline))+] done translation overall goal with stamp  $melt_final_translator_stamp
@@ -664,13 +698,6 @@ if [ ! -f "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis" \
   echo [+base+].[+flavor+] >> $melt_modlis_temp
  [+ENDFOR melt_application_file+]
   $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"
-  #  [+ (. (fromline))+] warmelt module list [+flavor+]
-  melt_modlis_temp="meltbuild-sources/warmelt.[+flavor+].modlis-tmp$$"
-  echo "# MELT translator modules:" >> $melt_modlis_temp
- [+FOR melt_translator_file+] 
-  echo [+base+].[+flavor+] >> $melt_modlis_temp
- [+ENDFOR melt_translator_file+]
-  $GCCMELT_MOVE_IF_CHANGE $melt_modlis_temp  "meltbuild-sources/warmelt.[+flavor+].modlis"
 else
   meltbuild_info  [+(.(fromline))+] keeping module list  "meltbuild-sources/$MELTGCCBUILTIN_DEFAULT_MODLIS.[+flavor+].modlis"  
 fi
@@ -687,25 +714,6 @@ if [ "$melt_overall_goal" = "modlists" ]; then
     meltbuild_info [+(.(fromline))+] done modlists overall goal with stamp  $melt_final_application_stamp
     exit 0
 fi
-
-
-################################################################
-#@ [+(.(fromline))+] making the meltbuild-common.args file to make life easier
-# I would often use that meltbuild-common.args for testing, etc.
-meltcommon_args=meltbuild-common.args
-meltbuild_info [+(.(fromline))+] making $meltcommon_args
-meltcommon_argstemp=$meltcommon_args-tmp$$
-echo ' -DGCCMELT_FROM_ARG="[+(.(fromline))+]"' > $meltcommon_argstemp
-meltbuild_arg workdir=meltbuild-workdir >>  $meltcommon_argstemp
-meltbuild_arg tempdir=meltbuild-tempdir >> $meltcommon_argstemp
-meltbuild_arg source-path=meltbuild-sources:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
-meltbuild_arg module-path=meltbuild-modules:$GCCMELT_LASTSTAGE >> $meltcommon_argstemp
-meltbuild_arg "module-cflags=\"$GCCMELT_COMPILER_FLAGS\"" >> $meltcommon_argstemp
-meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltcommon_argstemp
-
-$GCCMELT_MOVE_IF_CHANGE $meltcommon_argstemp $meltcommon_args
-meltbuild_info [+(.(fromline))+] $meltcommon_args is
-cat $meltcommon_args < /dev/null >&2
 
 
 

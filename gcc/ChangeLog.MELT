@@ -1,8 +1,15 @@
 
 
+2013-09-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-build-script.tpl: Move the creation of
+	meltbuild-common.args and warmelt*modlis files.
+
+	* melt-build-script.sh: Regenerate.
+
 2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	{{unstable, xtramelt-ana-simple.melt don't compile!}}
+	{{unstable, xtramelt-ana-simple.melt don't compile! MELT-SFT-2}}
 	* melt/warmelt-genobj.melt (putobjdest_catchall_objcode)
 	(putobjdest_catchall_anydiscr): Slightly improved error message.
 
