@@ -1,3 +1,43 @@
+2013-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt28.ad[sb]: New test.
+	* gnat.dg/opt28_pkg.ads: New helper.
+
+2013-09-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58464
+	* g++.dg/torture/pr58464.C: New testcase.
+
+2013-09-23  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/58475
+	* gcc.target/sh/torture/pr58475.c: New test.
+
+2013-09-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58355
+	* gfortran.dg/extends_15.f90: New.
+
+2013-09-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58481
+	* g++.dg/cpp0x/lambda/lambda-this17.C: New.
+
+2013-09-20  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	PR target/56875
+	* gcc.target/vax/vax.exp: New.
+	* gcc.target/vax/pr56875.c: Ditto.
+
+2013-09-20  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58484
+	* gfortran.dg/pr58484.f: New testcase.
+
+2013-09-20  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-3.c: Add missing dg-final clause.
+
 2013-09-20  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
 	PR middle-end/57748
@@ -64,7 +104,7 @@
 
 2013-09-18  Eric Botcazou  <ebotcazou@adacore.com>
 
-	*  gnat.dg/array_bounds_test2.adb: New test.
+	* gnat.dg/array_bounds_test2.adb: New test.
 
 2013-09-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
