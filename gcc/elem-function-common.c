@@ -97,7 +97,7 @@ tree
 rename_elem_fn (tree decl, const char *prefix)
 {
   int length = 0;
-  const char *fn_name = IDENTIFIER_POINTER (DECL_NAME (decl));
+  const char *fn_name = IDENTIFIER_POINTER (decl_assembler_name (decl));
   char *new_fn_name;
   tree new_decl = NULL_TREE;
   
