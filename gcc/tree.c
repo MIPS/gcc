@@ -5958,6 +5958,7 @@ set_type_quals (tree type, int type_quals)
   TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
   TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
   TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
+  TYPE_ATOMIC (type) = (type_quals & TYPE_QUAL_ATOMIC) != 0;
   TYPE_ADDR_SPACE (type) = DECODE_QUAL_ADDR_SPACE (type_quals);
 }
 
@@ -5989,6 +5990,48 @@ check_aligned_type (const_tree cand, const_tree base, unsigned int align)
 	  && TYPE_ALIGN (cand) == align
 	  && attribute_list_equal (TYPE_ATTRIBUTES (cand),
 				   TYPE_ATTRIBUTES (base)));
+}
+
+/* This function checks to see if TYPE matches the size one of the built-in 
+   atomic types, and returns that core atomic type.  */
+
+tree
+find_atomic_core_type (tree type)
+{
+  tree base_atomic_type;
+
+  /* Only handle complete types.  */
+  if (TYPE_SIZE (type) == NULL_TREE)
+    return NULL_TREE;
+
+  HOST_WIDE_INT type_size = tree_low_cst (TYPE_SIZE (type), 1);
+  switch (type_size)
+    {
+    case 8:
+      base_atomic_type = atomicQI_type_node;
+      break;
+
+    case 16:
+      base_atomic_type = atomicHI_type_node;
+      break;
+
+    case 32:
+      base_atomic_type = atomicSI_type_node;
+      break;
+
+    case 64:
+      base_atomic_type = atomicDI_type_node;
+      break;
+
+    case 128:
+      base_atomic_type = atomicTI_type_node;
+      break;
+
+    default:
+      base_atomic_type = NULL_TREE;
+    }
+
+  return base_atomic_type;
 }
 
 /* Return a version of the TYPE, qualified as indicated by the
@@ -6029,6 +6072,19 @@ build_qualified_type (tree type, int type_quals)
     {
       t = build_variant_type_copy (type);
       set_type_quals (t, type_quals);
+
+      if (((type_quals & TYPE_QUAL_ATOMIC) == TYPE_QUAL_ATOMIC))
+	{
+	  /* See if this object can map to a basic atomic type.  */
+	  tree atomic_type = find_atomic_core_type (type);
+	  if (atomic_type)
+	    {
+	      /* Ensure the alignment of this type is compatible with
+		 the required alignment of the atomic type.  */
+	      if (TYPE_ALIGN (atomic_type) > TYPE_ALIGN (t))
+		TYPE_ALIGN (t) = TYPE_ALIGN (atomic_type);
+	    }
+	}
 
       if (TYPE_STRUCTURAL_EQUALITY_P (type))
 	/* Propagate structural equality. */
@@ -9527,6 +9583,31 @@ make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
   return make_accum_type (size, unsignedp, satp);
 }
 
+
+/* Create an atomic variant node for TYPE.  This routine is called during
+   initialization of data types to create the 5 basic atomic types. The generic
+   build_variant_type function requires these to already be set up in order to
+   function properly, so cannot be called from there.  
+   if ALIGN is non-zero, then ensure alignment is overridden to this value.  */
+
+static tree
+build_atomic_base (tree type, unsigned int align)
+{
+  tree t;
+
+  /* Make sure its not already registered.  */
+  if ((t = get_qualified_type (type, TYPE_QUAL_ATOMIC)))
+    return t;
+  
+  t = build_variant_type_copy (type);
+  set_type_quals (t, TYPE_QUAL_ATOMIC);
+
+  if (align)
+    TYPE_ALIGN (t) = align;
+
+  return t;
+}
+
 /* Create nodes for all integer types (and error_mark_node) using the sizes
    of C datatypes.  SIGNED_CHAR specifies whether char is signed,
    SHORT_DOUBLE specifies whether double should be of the same precision
@@ -9608,6 +9689,21 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   unsigned_intSI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (SImode), 1);
   unsigned_intDI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (DImode), 1);
   unsigned_intTI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (TImode), 1);
+
+  /* Dont call build_qualified type for atomics.  That routine does special
+     processing for atomics, and until they are initialized its better not
+     to make that call.  
+     
+     Check to see if there is a target override for atomic types.  */
+
+#define SET_ATOMIC_TYPE_NODE(TYPE, MODE, DEFAULT) 		\
+ (TYPE) = build_atomic_base (DEFAULT, targetm.atomic_align_for_mode (MODE));
+
+  SET_ATOMIC_TYPE_NODE (atomicQI_type_node, QImode, unsigned_intQI_type_node);
+  SET_ATOMIC_TYPE_NODE (atomicHI_type_node, HImode, unsigned_intHI_type_node);
+  SET_ATOMIC_TYPE_NODE (atomicSI_type_node, SImode, unsigned_intSI_type_node);
+  SET_ATOMIC_TYPE_NODE (atomicDI_type_node, DImode, unsigned_intDI_type_node);
+  SET_ATOMIC_TYPE_NODE (atomicTI_type_node, TImode, unsigned_intTI_type_node);
 
   access_public_node = get_identifier ("public");
   access_protected_node = get_identifier ("protected");

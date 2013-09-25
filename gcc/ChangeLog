@@ -1,5 +1,23 @@
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
+	* tree-core.h (enum cv_qualifier): Add TYPE_QUAL_ATOMIC.
+	(enum tree_index): Add TI_ATOMIC{QHSDT}I_TYPE.
+	(struct tree_base): Add atomic_flag field.
+	* tree.h (TYPE_ATOMIC): New accessor macro.
+	(TYPE_QUALS, TYPE_QUALS_NO_ADDR_SPACE): Add TYPE_QUAL_ATOMIC.
+	(TYPE_QUALS_NO_ADDR_SPACE_NO_ATOMIC): New macro.
+	(atomic{QHSDT}I_type_node): Add new type nodes.
+	* print-tree.c (print_node): Print atomic qualifier.
+	* tree-pretty-print.c (dump_generic_node): Print atomic type attribute.
+	* tree.c (set_type_quals): Set TYPE_ATOMIC.
+	(find_atomic_core_type): New.  Function to get atomic type from size.
+	(build_qualified_type): Tweak for atomic qualifier overrides.
+	(build_atomic_base): New.  Build atomic base type node.
+	(build_common_tree_nodes): Build atomic{QHSDT}I_type_node, allowing
+	for override with target hook.
+
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
 	* hooks.c (hook_uint_mode_0): Return 0 unit hook.
 	* hooks.h (hook_uint_mode_0): Prototype.
 	* target.def (atomic_align_for_mode): define hook.
