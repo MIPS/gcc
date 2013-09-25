@@ -13634,6 +13634,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OMP_SECTION:
     case OMP_CRITICAL:
     case OMP_MASTER:
+    case OMP_TASKGROUP:
     case OMP_ORDERED:
       stmt = push_stmt_list ();
       RECUR (OMP_BODY (t));

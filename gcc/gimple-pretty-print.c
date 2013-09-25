@@ -1360,8 +1360,8 @@ dump_gimple_omp_sections (pretty_printer *buffer, gimple gs, int spc,
     }
 }
 
-/* Dump a GIMPLE_OMP_{MASTER,ORDERED,SECTION} tuple on the pretty_printer
-   BUFFER.  */
+/* Dump a GIMPLE_OMP_{MASTER,TASKGROUP,ORDERED,SECTION} tuple on the
+   pretty_printer BUFFER.  */
 
 static void
 dump_gimple_omp_block (pretty_printer *buffer, gimple gs, int spc, int flags)
@@ -1375,6 +1375,9 @@ dump_gimple_omp_block (pretty_printer *buffer, gimple gs, int spc, int flags)
 	{
 	case GIMPLE_OMP_MASTER:
 	  pp_string (buffer, "#pragma omp master");
+	  break;
+	case GIMPLE_OMP_TASKGROUP:
+	  pp_string (buffer, "#pragma omp taskgroup");
 	  break;
 	case GIMPLE_OMP_ORDERED:
 	  pp_string (buffer, "#pragma omp ordered");
@@ -2131,6 +2134,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:
       dump_gimple_omp_block (buffer, gs, spc, flags);

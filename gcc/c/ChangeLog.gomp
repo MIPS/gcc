@@ -1,3 +1,11 @@
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_taskgroup): Return tree.
+	Don't call c_begin_omp_taskgroup.
+	(c_parser_omp_construct): Adjust caller.
+	* c-typeck.c (c_begin_omp_taskgroup, c_finish_omp_taskgroup): Remove.
+	* c-tree.h (c_begin_omp_taskgroup, c_finish_omp_taskgroup): Remove.
+
 2013-09-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-tree.h (c_omp_reduction_id, c_omp_reduction_decl,

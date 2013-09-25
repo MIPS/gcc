@@ -42,6 +42,17 @@ c_finish_omp_master (location_t loc, tree stmt)
   return t;
 }
 
+/* Complete a #pragma omp taskgroup construct.  STMT is the structured-block
+   that follows the pragma.  LOC is the l*/
+
+tree
+c_finish_omp_taskgroup (location_t loc, tree stmt)
+{
+  tree t = add_stmt (build1 (OMP_TASKGROUP, void_type_node, stmt));
+  SET_EXPR_LOCATION (t, loc);
+  return t;
+}
+
 /* Complete a #pragma omp critical construct.  STMT is the structured-block
    that follows the pragma, NAME is the identifier in the pragma, or null
    if it was omitted.  LOC is the location of the #pragma.  */

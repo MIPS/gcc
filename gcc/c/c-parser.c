@@ -11861,15 +11861,12 @@ c_parser_omp_taskyield (c_parser *parser)
    # pragma omp taskgroup new-line
 */
 
-static void
+static tree
 c_parser_omp_taskgroup (c_parser *parser)
 {
   location_t loc = c_parser_peek_token (parser)->location;
   c_parser_skip_to_pragma_eol (parser);
-
-  tree block = c_begin_omp_taskgroup ();
-  c_parser_statement (parser);
-  c_finish_omp_taskgroup (loc, block);
+  return c_finish_omp_taskgroup (loc, c_parser_omp_structured_block (parser));
 }
 
 /* OpenMP 4.0:
@@ -12891,8 +12888,8 @@ c_parser_omp_construct (c_parser *parser)
       stmt = c_parser_omp_task (loc, parser);
       break;
     case PRAGMA_OMP_TASKGROUP:
-      c_parser_omp_taskgroup (parser);
-      return;
+      stmt = c_parser_omp_taskgroup (parser);
+      break;
     case PRAGMA_OMP_TEAMS:
       strcpy (p_name, "#pragma omp");
       stmt = c_parser_omp_teams (loc, parser, p_name, mask, NULL);

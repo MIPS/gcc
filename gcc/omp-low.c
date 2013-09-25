@@ -2272,7 +2272,19 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 	      else if (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt))
 		       == BUILT_IN_GOMP_CANCEL
 		       && !integer_zerop (gimple_call_arg (stmt, 1)))
-		ctx->cancellable = true;
+		{
+		  ctx->cancellable = true;
+		  if (find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
+				       OMP_CLAUSE_NOWAIT))
+		    warning_at (gimple_location (stmt), 0,
+				"%<#pragma omp cancel for%> inside "
+				"%<nowait%> for construct");
+		  if (find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
+				       OMP_CLAUSE_ORDERED))
+		    warning_at (gimple_location (stmt), 0,
+				"%<#pragma omp cancel for%> inside "
+				"%<ordered%> for construct");
+		}
 	      kind = "for";
 	      break;
 	    case 4:
@@ -2284,13 +2296,27 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 		       && !integer_zerop (gimple_call_arg (stmt, 1)))
 		{
 		  if (gimple_code (ctx->stmt) == GIMPLE_OMP_SECTIONS)
-		    ctx->cancellable = true;
+		    {
+		      ctx->cancellable = true;
+		      if (find_omp_clause (gimple_omp_sections_clauses
+								(ctx->stmt),
+					   OMP_CLAUSE_NOWAIT))
+			warning_at (gimple_location (stmt), 0,
+				    "%<#pragma omp cancel sections%> inside "
+				    "%<nowait%> sections construct");
+		    }
 		  else
 		    {
 		      gcc_assert (ctx->outer
 				  && gimple_code (ctx->outer->stmt)
 				     == GIMPLE_OMP_SECTIONS);
 		      ctx->outer->cancellable = true;
+		      if (find_omp_clause (gimple_omp_sections_clauses
+							(ctx->outer->stmt),
+					   OMP_CLAUSE_NOWAIT))
+			warning_at (gimple_location (stmt), 0,
+				    "%<#pragma omp cancel sections%> inside "
+				    "%<nowait%> sections construct");
 		    }
 		}
 	      kind = "sections";
@@ -2553,6 +2579,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
       ctx = new_omp_context (stmt, ctx);
@@ -7034,6 +7061,7 @@ expand_omp_synch (struct omp_region *region)
   si = gsi_last_bb (entry_bb);
   gcc_assert (gimple_code (gsi_stmt (si)) == GIMPLE_OMP_SINGLE
 	      || gimple_code (gsi_stmt (si)) == GIMPLE_OMP_MASTER
+	      || gimple_code (gsi_stmt (si)) == GIMPLE_OMP_TASKGROUP
 	      || gimple_code (gsi_stmt (si)) == GIMPLE_OMP_ORDERED
 	      || gimple_code (gsi_stmt (si)) == GIMPLE_OMP_CRITICAL
 	      || gimple_code (gsi_stmt (si)) == GIMPLE_OMP_TEAMS);
@@ -7988,6 +8016,7 @@ expand_omp (struct omp_region *region)
 	  break;
 
 	case GIMPLE_OMP_MASTER:
+	case GIMPLE_OMP_TASKGROUP:
 	case GIMPLE_OMP_ORDERED:
 	case GIMPLE_OMP_CRITICAL:
 	case GIMPLE_OMP_TEAMS:
@@ -8309,12 +8338,12 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_seq_add_stmt (&new_body, t);
 
   gimple_seq_add_seq (&new_body, olist);
+  if (ctx->cancellable)
+    gimple_seq_add_stmt (&new_body, gimple_build_label (ctx->cancel_label));
   gimple_seq_add_seq (&new_body, dlist);
 
   new_body = maybe_catch_exception (new_body);
 
-  if (ctx->cancellable)
-    gimple_seq_add_stmt (&new_body, gimple_build_label (ctx->cancel_label));
   t = gimple_build_omp_return
         (!!find_omp_clause (gimple_omp_sections_clauses (stmt),
 			    OMP_CLAUSE_NOWAIT));
@@ -8537,6 +8566,33 @@ lower_omp_master (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_bind_add_stmt (bind, gimple_build_omp_return (true));
 
   pop_gimplify_context (bind);
+
+  gimple_bind_append_vars (bind, ctx->block_vars);
+  BLOCK_VARS (block) = ctx->block_vars;
+}
+
+
+/* Expand code for an OpenMP taskgroup directive.  */
+
+static void
+lower_omp_taskgroup (gimple_stmt_iterator *gsi_p, omp_context *ctx)
+{
+  gimple stmt = gsi_stmt (*gsi_p), bind, x;
+  tree block = make_node (BLOCK);
+
+  bind = gimple_build_bind (NULL, NULL, block);
+  gsi_replace (gsi_p, bind, true);
+  gimple_bind_add_stmt (bind, stmt);
+
+  x = gimple_build_call (builtin_decl_explicit (BUILT_IN_GOMP_TASKGROUP_START),
+			 0);
+  gimple_bind_add_stmt (bind, x);
+
+  lower_omp (gimple_omp_body_ptr (stmt), ctx);
+  gimple_bind_add_seq (bind, gimple_omp_body (stmt));
+  gimple_omp_set_body (stmt, NULL);
+
+  gimple_bind_add_stmt (bind, gimple_build_omp_return (true));
 
   gimple_bind_append_vars (bind, ctx->block_vars);
   BLOCK_VARS (block) = ctx->block_vars;
@@ -8846,13 +8902,14 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* After the loop, add exit clauses.  */
   lower_reduction_clauses (gimple_omp_for_clauses (stmt), &body, ctx);
 
+  if (ctx->cancellable)
+    gimple_seq_add_stmt (&body, gimple_build_label (ctx->cancel_label));
+
   gimple_seq_add_seq (&body, dlist);
 
   body = maybe_catch_exception (body);
 
   /* Region exit marker goes at the end of the loop body.  */
-  if (ctx->cancellable)
-    gimple_seq_add_stmt (&body, gimple_build_label (ctx->cancel_label));
   gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
   maybe_add_implicit_barrier_cancel (ctx, &body);
   pop_gimplify_context (new_stmt);
@@ -9264,10 +9321,10 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_seq_add_seq (&new_body, par_ilist);
   gimple_seq_add_seq (&new_body, par_body);
   gimple_seq_add_seq (&new_body, par_rlist);
-  gimple_seq_add_seq (&new_body, par_olist);
-  new_body = maybe_catch_exception (new_body);
   if (ctx->cancellable)
     gimple_seq_add_stmt (&new_body, gimple_build_label (ctx->cancel_label));
+  gimple_seq_add_seq (&new_body, par_olist);
+  new_body = maybe_catch_exception (new_body);
   gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
   gimple_omp_set_body (stmt, new_body);
 
@@ -9759,6 +9816,11 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       gcc_assert (ctx);
       lower_omp_master (gsi_p, ctx);
       break;
+    case GIMPLE_OMP_TASKGROUP:
+      ctx = maybe_lookup_ctx (stmt);
+      gcc_assert (ctx);
+      lower_omp_taskgroup (gsi_p, ctx);
+      break;
     case GIMPLE_OMP_ORDERED:
       ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
@@ -10025,6 +10087,9 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
+    case GIMPLE_OMP_TARGET:
+    case GIMPLE_OMP_TEAMS:
+    case GIMPLE_OMP_TASKGROUP:
       /* The minimal context here is just the current OMP construct.  */
       inner_context = stmt;
       wi->info = inner_context;
@@ -10080,6 +10145,9 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
+    case GIMPLE_OMP_TARGET:
+    case GIMPLE_OMP_TEAMS:
+    case GIMPLE_OMP_TASKGROUP:
       wi->info = stmt;
       walk_gimple_seq_mod (gimple_omp_body_ptr (stmt), diagnose_sb_2, NULL, wi);
       wi->info = context;

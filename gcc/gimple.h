@@ -815,6 +815,7 @@ gimple gimple_build_omp_critical (gimple_seq, tree);
 gimple gimple_build_omp_section (gimple_seq);
 gimple gimple_build_omp_continue (tree, tree);
 gimple gimple_build_omp_master (gimple_seq);
+gimple gimple_build_omp_taskgroup (gimple_seq);
 gimple gimple_build_omp_return (bool);
 gimple gimple_build_omp_ordered (gimple_seq);
 gimple gimple_build_omp_sections (gimple_seq, tree);
@@ -1264,6 +1265,7 @@ gimple_has_substatements (gimple g)
     case GIMPLE_TRY:
     case GIMPLE_OMP_FOR:
     case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_PARALLEL:
@@ -5180,6 +5182,7 @@ gimple_return_set_retval (gimple gs, tree retval)
     case GIMPLE_OMP_TEAMS:			\
     case GIMPLE_OMP_SECTION:			\
     case GIMPLE_OMP_MASTER:			\
+    case GIMPLE_OMP_TASKGROUP:			\
     case GIMPLE_OMP_ORDERED:			\
     case GIMPLE_OMP_CRITICAL:			\
     case GIMPLE_OMP_RETURN:			\

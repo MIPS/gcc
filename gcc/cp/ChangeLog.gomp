@@ -1,3 +1,14 @@
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_taskgroup): Return tree.  Use
+	c_finish_omp_taskgroup.
+	(cp_parser_omp_construct): Adjust caller.
+	* cp-array-notation.c (expand_array_notation_exprs): Handle
+	OMP_TASKGROUP.
+	* pt.c (tsubst_expr): Handle OMP_TASKGROUP.
+	* semantics.c (finish_omp_taskgroup): Remove.
+	* cp-tree.h (finish_omp_taskgroup): Remove.
+
 2013-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-tree.h (lang_decl_fn): Add omp_declare_reduction_p bitfield.

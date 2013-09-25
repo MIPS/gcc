@@ -1,3 +1,34 @@
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_sections, lower_omp_for, lower_omp_taskreg):
+	Emit ctx->cancel_label before destructors.
+
+	* gimple-pretty-print.c (dump_gimple_omp_block,
+	pp_gimple_stmt_1): Handle GIMPLE_OMP_TASKGROUP.
+	* tree-nested.c (convert_nonlocal_reference_stmt,
+	convert_local_reference_stmt, convert_gimple_call): Likewise.
+	* tree-cfg.c (make_edges): Likewise.
+	* gimple.h (gimple_build_omp_taskgroup): New prototype.
+	(gimple_has_substatement): Handle GIMPLE_OMP_TASKGROUP.
+	(CASE_GIMPLE_OMP): Likewise.
+	* gimplify.c (is_gimple_stmt, gimplify_expr): Handle OMP_TASKGROUP.
+	* omp-low.c (check_omp_nesting_restrictions): Warn if #pragma omp
+	cancel is used in nowait loop or sections construct.
+	(scan_omp_1_stmt, expand_omp_synch, expand_omp, lower_omp_1): Handle
+	GIMPLE_OMP_TASKGROUP.
+	(diagnose_sb_1, diagnose_sb_2): Likewise.  Handle GIMPLE_OMP_TARGET
+	and GIMPLE_OMP_TEAMS.
+	(lower_omp_taskgroup): New function.
+	* tree-inline.c (remap_gimple_stmt, estimate_num_insns): Handle
+	GIMPLE_OMP_TASKGROUP.
+	* gimple-low.c (lower_stmt): Likewise.
+	* tree.h (OMP_TASKGROUP_BODY): Define.
+	* tree.def (OMP_TASKGROUP): New tree.
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_TASKGROUP.
+	* gimple.c (gimple_build_omp_taskgroup): New function.
+	(walk_gimple_stmt, gimple_copy): Handle GIMPLE_OMP_TASKGROUP.
+	* gimple.def (GIMPLE_OMP_TASKGROUP): New GIMPLE code.
+
 2013-09-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-builtins.def (BUILT_IN_GOMP_TARGET_DATA,

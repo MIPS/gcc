@@ -1,3 +1,15 @@
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/target-1.C: New test.
+	* g++.dg/gomp/target-2.C: New test.
+	* g++.dg/gomp/teams-1.C: New test.
+	* g++.dg/gomp/taskgroup-1.C: New test.
+	* gcc.dg/gomp/teams-1.c: New test.
+	* gcc.dg/gomp/taskgroup-1.c: New test.
+	* gcc.dg/gomp/target-1.c: New test.
+	* gcc.dg/gomp/target-2.c: New test.
+	* c-c++-common/gomp/cancel-1.c: New test.
+
 2013-09-19  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/58472

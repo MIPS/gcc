@@ -1172,6 +1172,7 @@ enum c_omp_clause_split
 };
 
 extern tree c_finish_omp_master (location_t, tree);
+extern tree c_finish_omp_taskgroup (location_t, tree);
 extern tree c_finish_omp_critical (location_t, tree, tree);
 extern tree c_finish_omp_ordered (location_t, tree);
 extern void c_finish_omp_barrier (location_t);

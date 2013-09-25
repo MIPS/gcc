@@ -4729,6 +4729,7 @@ is_gimple_stmt (tree t)
     case OMP_SECTION:
     case OMP_SINGLE:
     case OMP_MASTER:
+    case OMP_TASKGROUP:
     case OMP_ORDERED:
     case OMP_CRITICAL:
     case OMP_TASK:
@@ -8236,6 +8237,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OMP_SECTION:
 	case OMP_MASTER:
+	case OMP_TASKGROUP:
 	case OMP_ORDERED:
 	case OMP_CRITICAL:
 	  {
@@ -8250,6 +8252,19 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	        break;
 	      case OMP_MASTER:
 	        g = gimple_build_omp_master (body);
+		break;
+	      case OMP_TASKGROUP:
+		{
+		  gimple_seq cleanup = NULL;
+		  tree fn
+		    = builtin_decl_explicit (BUILT_IN_GOMP_TASKGROUP_END);
+		  g = gimple_build_call (fn, 0);
+		  gimple_seq_add_stmt (&cleanup, g);
+		  g = gimple_build_try (body, cleanup, GIMPLE_TRY_FINALLY);
+		  body = NULL;
+		  gimple_seq_add_stmt (&body, g);
+		  g = gimple_build_omp_taskgroup (body);
+		}
 		break;
 	      case OMP_ORDERED:
 		g = gimple_build_omp_ordered (body);
@@ -8583,6 +8598,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != OMP_CRITICAL
 		  && code != OMP_FOR
 		  && code != OMP_MASTER
+		  && code != OMP_TASKGROUP
 		  && code != OMP_ORDERED
 		  && code != OMP_PARALLEL
 		  && code != OMP_SECTIONS

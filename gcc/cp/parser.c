@@ -29331,24 +29331,13 @@ cp_parser_omp_taskyield (cp_parser *parser, cp_token *pragma_tok)
    # pragma omp taskgroup new-line
      structured-block  */
 
-static void
+static tree
 cp_parser_omp_taskgroup (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree sb;
-  unsigned int save;
-  location_t saved_loc;
-
   cp_parser_require_pragma_eol (parser, pragma_tok);
-  sb = begin_omp_structured_block ();
-  save = cp_parser_begin_omp_structured_block (parser);
-  cp_parser_statement (parser, NULL_TREE, false, NULL);
-  cp_parser_end_omp_structured_block (parser, save);
-  saved_loc = input_location;
-  input_location = pragma_tok->location;
-  finish_omp_taskgroup (finish_omp_structured_block (sb));
-  input_location = saved_loc;
+  return c_finish_omp_taskgroup (input_location,
+				 cp_parser_omp_structured_block (parser));
 }
-
 
 
 /* OpenMP 2.5:
@@ -30340,8 +30329,8 @@ cp_parser_omp_construct (cp_parser *parser, cp_token *pragma_tok)
       stmt = cp_parser_omp_task (parser, pragma_tok);
       break;
     case PRAGMA_OMP_TASKGROUP:
-      cp_parser_omp_taskgroup (parser, pragma_tok);
-      return;
+      stmt = cp_parser_omp_taskgroup (parser, pragma_tok);
+      break;
     case PRAGMA_OMP_TEAMS:
       strcpy (p_name, "#pragma omp");
       stmt = cp_parser_omp_teams (parser, pragma_tok, p_name, mask, NULL);

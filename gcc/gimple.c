@@ -1007,6 +1007,22 @@ gimple_build_omp_master (gimple_seq body)
 }
 
 
+/* Build a GIMPLE_OMP_TASKGROUP statement.
+
+   BODY is the sequence of statements to be executed by the taskgroup
+   construct.  */
+
+gimple
+gimple_build_omp_taskgroup (gimple_seq body)
+{
+  gimple p = gimple_alloc (GIMPLE_OMP_TASKGROUP, 0);
+  if (body)
+    gimple_omp_set_body (p, body);
+
+  return p;
+}
+
+
 /* Build a GIMPLE_OMP_CONTINUE statement.
 
    CONTROL_DEF is the definition of the control variable.
@@ -1837,6 +1853,7 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       /* FALL THROUGH.  */
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_PARALLEL:
@@ -2371,6 +2388,7 @@ gimple_copy (gimple stmt)
 	case GIMPLE_OMP_TEAMS:
 	case GIMPLE_OMP_SECTION:
 	case GIMPLE_OMP_MASTER:
+	case GIMPLE_OMP_TASKGROUP:
 	case GIMPLE_OMP_ORDERED:
 	copy_omp_body:
 	  new_seq = gimple_seq_copy (gimple_omp_body (stmt));

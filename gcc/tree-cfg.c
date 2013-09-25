@@ -612,6 +612,7 @@ make_edges (void)
 	    case GIMPLE_OMP_SINGLE:
 	    case GIMPLE_OMP_TEAMS:
 	    case GIMPLE_OMP_MASTER:
+	    case GIMPLE_OMP_TASKGROUP:
 	    case GIMPLE_OMP_ORDERED:
 	    case GIMPLE_OMP_CRITICAL:
 	    case GIMPLE_OMP_SECTION:

@@ -1071,6 +1071,10 @@ DEFTREECODE (OMP_SECTION, "omp_section", tcc_statement, 1)
    Operand 0: OMP_MASTER_BODY: Master section body.  */
 DEFTREECODE (OMP_MASTER, "omp_master", tcc_statement, 1)
 
+/* OpenMP - #pragma omp taskgroup
+   Operand 0: OMP_TASKGROUP_BODY: Taskgroup body.  */
+DEFTREECODE (OMP_TASKGROUP, "omp_taskgroup", tcc_statement, 1)
+
 /* OpenMP - #pragma omp ordered
    Operand 0: OMP_ORDERED_BODY: Master section body.  */
 DEFTREECODE (OMP_ORDERED, "omp_ordered", tcc_statement, 1)

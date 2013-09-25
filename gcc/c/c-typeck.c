@@ -10693,34 +10693,6 @@ c_finish_omp_task (location_t loc, tree clauses, tree block)
   return add_stmt (stmt);
 }
 
-/* Like c_begin_compound_stmt, except force the retention of the BLOCK.  */
-
-tree
-c_begin_omp_taskgroup (void)
-{
-  tree block;
-
-  keep_next_level ();
-  block = c_begin_compound_stmt (true);
-
-  return block;
-}
-
-/* Generate code for #pragma omp taskgroup.  */
-
-void
-c_finish_omp_taskgroup (location_t loc, tree block)
-{
-  tree fn = builtin_decl_explicit (BUILT_IN_GOMP_TASKGROUP_START);
-  tree stmt = build_call_expr_loc (loc, fn, 0);
-  block = c_end_compound_stmt (loc, block, true);
-  add_stmt (stmt);
-  add_stmt (block);
-  fn = builtin_decl_explicit (BUILT_IN_GOMP_TASKGROUP_END);
-  stmt = build_call_expr_loc (loc, fn, 0);
-  add_stmt (stmt);
-}
-
 /* Generate GOMP_cancel call for #pragma omp cancel.  */
 
 void

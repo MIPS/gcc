@@ -276,6 +276,10 @@ DEFGSCODE(GIMPLE_OMP_FOR, "gimple_omp_for", GSS_OMP_FOR)
    BODY is the sequence of statements to execute in the master section.  */
 DEFGSCODE(GIMPLE_OMP_MASTER, "gimple_omp_master", GSS_OMP)
 
+/* GIMPLE_OMP_TASKGROUP <BODY> represents #pragma omp taskgroup.
+   BODY is the sequence of statements to execute in the taskgroup section.  */
+DEFGSCODE(GIMPLE_OMP_TASKGROUP, "gimple_omp_taskgroup", GSS_OMP)
+
 /* GIMPLE_OMP_ORDERED <BODY> represents #pragma omp ordered.
    BODY is the sequence of statements to execute in the ordered section.  */
 DEFGSCODE(GIMPLE_OMP_ORDERED, "gimple_omp_ordered", GSS_OMP)

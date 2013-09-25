@@ -2478,6 +2478,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "#pragma omp master");
       goto dump_omp_body;
 
+    case OMP_TASKGROUP:
+      pp_string (buffer, "#pragma omp taskgroup");
+      goto dump_omp_body;
+
     case OMP_ORDERED:
       pp_string (buffer, "#pragma omp ordered");
       goto dump_omp_body;
