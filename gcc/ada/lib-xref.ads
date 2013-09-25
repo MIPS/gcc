@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1998-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,9 +26,9 @@
 --  This package contains for collecting and outputting cross-reference
 --  information.
 
-with Einfo;    use Einfo;
-with Lib.Util; use Lib.Util;
-with Put_Alfa;
+with Einfo;           use Einfo;
+with Lib.Util;        use Lib.Util;
+with Put_SPARK_Xrefs;
 
 package Lib.Xref is
 
@@ -366,7 +366,7 @@ package Lib.Xref is
    --              of the current file.
 
    --              a reference (e.g. a call) at line 8 column 4 of the
-   --              of the current file.
+   --              current file.
 
    --              the END line of the body has an explicit reference to
    --              the name of the procedure at line 12, column 13.
@@ -531,7 +531,12 @@ package Lib.Xref is
       E_Protected_Object                           => ' ',
       E_Protected_Body                             => ' ',
       E_Task_Body                                  => ' ',
-      E_Subprogram_Body                            => ' ');
+      E_Subprogram_Body                            => ' ',
+
+      --  ??? The following letter is added for completion, proper design and
+      --  implementation of abstract state cross-referencing to follow.
+
+      E_Abstract_State                             => ' ');
 
    --  The following table is for information purposes. It shows the use of
    --  each character appearing as an entity type.
@@ -565,30 +570,43 @@ package Lib.Xref is
    --    y     abstract function               entry or entry family
    --    z     generic formal parameter        (unused)
 
-   --------------------------------------
-   -- Handling of Imported Subprograms --
-   --------------------------------------
+   ---------------------------------------------------
+   -- Handling of Imported and Exported Subprograms --
+   ---------------------------------------------------
 
    --  If a pragma Import or Interface applies to a subprogram, the pragma is
    --  the completion of the subprogram. This is noted in the ALI file by
    --  making the occurrence of the subprogram in the pragma into a body
    --  reference ('b') and by including the external name of the subprogram and
    --  its language, bracketed by '<' and '>' in that reference. For example:
-   --
-   --     3U13*elsewhere 4b<c,there>21
-   --
-   --  indicates that procedure elsewhere, declared at line 3, has a pragma
+
+   --     3U13*imported_proc 4b<c,there>21
+
+   --  indicates that procedure imported_proc, declared at line 3, has a pragma
    --  Import at line 4, that its body is in C, and that the link name as given
    --  in the pragma is "there".
 
-   ----------------------
-   -- Alfa Information --
-   ----------------------
+   --  If a pragma Export applies to a subprogram exported to a foreign
+   --  language (ie. the pragma has convention different from Ada), then the
+   --  pragma is annotated in the ALI file by making the occurrence of the
+   --  subprogram in the pragma into an implicit reference ('i') and by
+   --  including the external name of the subprogram and its language,
+   --  bracketed by '<' and '>' in that reference. For example:
 
-   --  This package defines procedures for collecting Alfa information and
-   --  printing in ALI files.
+   --     3U13*exported_proc 4i<c,here>21
 
-   package Alfa is
+   --  indicates that procedure exported_proc, declared at line 3, has a pragma
+   --  Export at line 4, that its body is exported to C, and that the link name
+   --  as given in the pragma is "here".
+
+   -----------------------------
+   -- SPARK Xrefs Information --
+   -----------------------------
+
+   --  This package defines procedures for collecting SPARK cross-reference
+   --  information and printing in ALI files.
+
+   package SPARK_Specific is
 
       function Enclosing_Subprogram_Or_Package (N : Node_Id) return Entity_Id;
       --  Return the closest enclosing subprogram of package
@@ -605,22 +623,27 @@ package Lib.Xref is
         (CU           : Node_Id;
          Process      : Node_Processing;
          Inside_Stubs : Boolean);
-      --  This procedure is undocumented ???
+      --  Call Process on all declarations in compilation unit CU. If
+      --  Inside_Stubs is True, then the body of stubs is also traversed.
+      --  Generic declarations are ignored.
 
       procedure Traverse_All_Compilation_Units (Process : Node_Processing);
-      --  Call Process on all declarations through all compilation units
+      --  Call Process on all declarations through all compilation units.
+      --  Generic declarations are ignored.
 
-      procedure Collect_Alfa (Sdep_Table : Unit_Ref_Table; Num_Sdep : Nat);
-      --  Collect Alfa information from library units (for files and scopes)
-      --  and from cross-references. Fill in the tables in library package
-      --  called Alfa.
+      procedure Collect_SPARK_Xrefs
+        (Sdep_Table : Unit_Ref_Table;
+         Num_Sdep   : Nat);
+      --  Collect SPARK cross-reference information from library units (for
+      --  files and scopes) and from shared cross-references. Fill in the
+      --  tables in library package called SPARK_Xrefs.
 
-      procedure Output_Alfa is new Put_Alfa;
-      --  Output Alfa information to the ALI files, based on the information
-      --  collected in the tables in library package called Alfa, and using
-      --  routines in Lib.Util.
+      procedure Output_SPARK_Xrefs is new Put_SPARK_Xrefs;
+      --  Output SPARK cross-reference information to the ALI files, based on
+      --  the information collected in the tables in library package called
+      --  SPARK_Xrefs, and using routines in Lib.Util.
 
-   end Alfa;
+   end SPARK_Specific;
 
    -----------------
    -- Subprograms --
@@ -695,7 +718,7 @@ package Lib.Xref is
 
    procedure Generate_Reference_To_Formals (E : Entity_Id);
    --  Add a reference to the definition of each formal on the line for
-   --  a subprogram.
+   --  a subprogram or an access_to_subprogram type.
 
    procedure Generate_Reference_To_Generic_Formals (E : Entity_Id);
    --  Add a reference to the definition of each generic formal on the line

@@ -105,6 +105,7 @@ struct Profile {
 	uint32 wtoggle;
 	bool wholding;	// holding & need to release a log half
 	bool flushing;	// flushing hash table - profile is over
+	bool eod_sent;  // special end-of-data record sent; => flushing
 };
 
 static Lock lk;
@@ -115,19 +116,23 @@ static void add(Profile*, uintptr*, int32);
 static bool evict(Profile*, Entry*);
 static bool flushlog(Profile*);
 
+static uintptr eod[3] = {0, 1, 0};
+
 // LostProfileData is a no-op function used in profiles
 // to mark the number of profiling stack traces that were
 // discarded due to slow data writers.
-static void LostProfileData(void) {
+static void
+LostProfileData(void)
+{
 }
 
-extern void runtime_SetCPUProfileRate(int32)
-     __asm__("libgo_runtime.runtime.SetCPUProfileRate");
+extern void runtime_SetCPUProfileRate(intgo)
+     __asm__ (GOSYM_PREFIX "runtime.SetCPUProfileRate");
 
 // SetCPUProfileRate sets the CPU profiling rate.
 // The user documentation is in debug.go.
 void
-runtime_SetCPUProfileRate(int32 hz)
+runtime_SetCPUProfileRate(intgo hz)
 {
 	uintptr *p;
 	uintptr n;
@@ -168,6 +173,7 @@ runtime_SetCPUProfileRate(int32 hz)
 		prof->wholding = false;
 		prof->wtoggle = 0;
 		prof->flushing = false;
+		prof->eod_sent = false;
 		runtime_noteclear(&prof->wait);
 
 		runtime_setcpuprofilerate(tick, hz);
@@ -361,7 +367,7 @@ getprofile(Profile *p)
 		return ret;
 
 	// Wait for new log.
-	runtime_entersyscall();
+	runtime_entersyscallblock();
 	runtime_notesleep(&p->wait);
 	runtime_exitsyscall();
 	runtime_noteclear(&p->wait);
@@ -414,6 +420,16 @@ breakflush:
 	}
 
 	// Made it through the table without finding anything to log.
+	if(!p->eod_sent) {
+		// We may not have space to append this to the partial log buf,
+		// so we always return a new slice for the end-of-data marker.
+		p->eod_sent = true;
+		ret.array = (byte*)eod;
+		ret.len = sizeof eod;
+		ret.cap = ret.len;
+		return ret;
+	}
+
 	// Finally done.  Clean up and return nil.
 	p->flushing = false;
 	if(!runtime_cas(&p->handoff, p->handoff, 0))
@@ -422,7 +438,7 @@ breakflush:
 }
 
 extern Slice runtime_CPUProfile(void)
-     __asm__("libgo_runtime.runtime.CPUProfile");
+     __asm__ (GOSYM_PREFIX "runtime.CPUProfile");
 
 // CPUProfile returns the next cpu profile block as a []byte.
 // The user documentation is in debug.go.

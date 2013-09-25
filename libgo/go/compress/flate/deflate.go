@@ -22,7 +22,7 @@ const (
 	logMaxOffsetSize   = 15  // Standard DEFLATE
 	minMatchLength     = 3   // The smallest match that the compressor looks for
 	maxMatchLength     = 258 // The longest match for the compressor
-	minOffsetSize      = 1   // The shortest offset that makes any sence
+	minOffsetSize      = 1   // The shortest offset that makes any sense
 
 	// The maximum number of tokens we put into a single flat block, just too
 	// stop things from getting too large.
@@ -32,6 +32,7 @@ const (
 	hashSize            = 1 << hashBits
 	hashMask            = (1 << hashBits) - 1
 	hashShift           = (hashBits + minMatchLength - 1) / minMatchLength
+	maxHashOffset       = 1 << 24
 
 	skipNever = math.MaxInt32
 )
@@ -106,6 +107,25 @@ func (d *compressor) fillDeflate(b []byte) int {
 			d.blockStart = math.MaxInt32
 		}
 		d.hashOffset += windowSize
+		if d.hashOffset > maxHashOffset {
+			delta := d.hashOffset - 1
+			d.hashOffset -= delta
+			d.chainHead -= delta
+			for i, v := range d.hashPrev {
+				if v > delta {
+					d.hashPrev[i] -= delta
+				} else {
+					d.hashPrev[i] = 0
+				}
+			}
+			for i, v := range d.hashHead {
+				if v > delta {
+					d.hashHead[i] -= delta
+				} else {
+					d.hashHead[i] = 0
+				}
+			}
+		}
 	}
 	n := copy(d.window[d.windowEnd:], b)
 	d.windowEnd += n

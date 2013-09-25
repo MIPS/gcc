@@ -16,7 +16,7 @@ import (
 	"syscall"
 )
 
-// Error records the name of a binary that failed to be be executed
+// Error records the name of a binary that failed to be executed
 // and the reason it failed.
 type Error struct {
 	Name string
@@ -37,7 +37,7 @@ type Cmd struct {
 
 	// Args holds command line arguments, including the command as Args[0].
 	// If the Args field is empty or nil, Run uses {Path}.
-	// 
+	//
 	// In typical use, both Path and Args are set by calling Command.
 	Args []string
 
@@ -59,7 +59,7 @@ type Cmd struct {
 	// If either is nil, Run connects the corresponding file descriptor
 	// to the null device (os.DevNull).
 	//
-	// If Stdout and Stderr are are the same writer, at most one
+	// If Stdout and Stderr are the same writer, at most one
 	// goroutine at a time will call Write.
 	Stdout io.Writer
 	Stderr io.Writer
@@ -143,6 +143,9 @@ func (c *Cmd) argv() []string {
 func (c *Cmd) stdin() (f *os.File, err error) {
 	if c.Stdin == nil {
 		f, err = os.Open(os.DevNull)
+		if err != nil {
+			return
+		}
 		c.closeAfterStart = append(c.closeAfterStart, f)
 		return
 	}
@@ -182,6 +185,9 @@ func (c *Cmd) stderr() (f *os.File, err error) {
 func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	if w == nil {
 		f, err = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err != nil {
+			return
+		}
 		c.closeAfterStart = append(c.closeAfterStart, f)
 		return
 	}
@@ -204,6 +210,12 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	return pw, nil
 }
 
+func (c *Cmd) closeDescriptors(closers []io.Closer) {
+	for _, fd := range closers {
+		fd.Close()
+	}
+}
+
 // Run starts the specified command and waits for it to complete.
 //
 // The returned error is nil if the command runs, has no problems
@@ -223,6 +235,8 @@ func (c *Cmd) Run() error {
 // Start starts the specified command but does not wait for it to complete.
 func (c *Cmd) Start() error {
 	if c.err != nil {
+		c.closeDescriptors(c.closeAfterStart)
+		c.closeDescriptors(c.closeAfterWait)
 		return c.err
 	}
 	if c.Process != nil {
@@ -233,6 +247,8 @@ func (c *Cmd) Start() error {
 	for _, setupFd := range []F{(*Cmd).stdin, (*Cmd).stdout, (*Cmd).stderr} {
 		fd, err := setupFd(c)
 		if err != nil {
+			c.closeDescriptors(c.closeAfterStart)
+			c.closeDescriptors(c.closeAfterWait)
 			return err
 		}
 		c.childFiles = append(c.childFiles, fd)
@@ -247,12 +263,12 @@ func (c *Cmd) Start() error {
 		Sys:   c.SysProcAttr,
 	})
 	if err != nil {
+		c.closeDescriptors(c.closeAfterStart)
+		c.closeDescriptors(c.closeAfterWait)
 		return err
 	}
 
-	for _, fd := range c.closeAfterStart {
-		fd.Close()
-	}
+	c.closeDescriptors(c.closeAfterStart)
 
 	c.errch = make(chan error, len(c.goroutine))
 	for _, fn := range c.goroutine {
@@ -301,9 +317,7 @@ func (c *Cmd) Wait() error {
 		}
 	}
 
-	for _, fd := range c.closeAfterWait {
-		fd.Close()
-	}
+	c.closeDescriptors(c.closeAfterWait)
 
 	if err != nil {
 		return err

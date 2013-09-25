@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -38,20 +38,6 @@ pragma Elaborate_All (Ada.Containers.Hash_Tables.Generic_Keys);
 with System; use type System.Address;
 
 package body Ada.Containers.Hashed_Maps is
-
-   type Iterator is new Limited_Controlled and
-     Map_Iterator_Interfaces.Forward_Iterator with
-   record
-      Container : Map_Access;
-   end record;
-
-   overriding procedure Finalize (Object : in out Iterator);
-
-   overriding function First (Object : Iterator) return Cursor;
-
-   overriding function Next
-     (Object   : Iterator;
-      Position : Cursor) return Cursor;
 
    -----------------------
    -- Local Subprograms --
@@ -231,8 +217,8 @@ package body Ada.Containers.Hashed_Maps is
          L  : Natural renames HT.Lock;
       begin
          return R : constant Constant_Reference_Type :=
-                      (Element => Position.Node.Element'Access,
-                       Control => (Controlled with Position.Container))
+           (Element => Position.Node.Element'Access,
+            Control => (Controlled with Position.Container))
          do
             B := B + 1;
             L := L + 1;
@@ -257,9 +243,8 @@ package body Ada.Containers.Hashed_Maps is
          L  : Natural renames HT.Lock;
       begin
          return R : constant Constant_Reference_Type :=
-                      (Element => Node.Element'Access,
-                       Control =>
-                         (Controlled with Container'Unrestricted_Access))
+           (Element => Node.Element'Access,
+            Control => (Controlled with Container'Unrestricted_Access))
          do
             B := B + 1;
             L := L + 1;
@@ -312,9 +297,9 @@ package body Ada.Containers.Hashed_Maps is
      (Source : Node_Access) return Node_Access
    is
       Target : constant Node_Access :=
-                 new Node_Type'(Key     => Source.Key,
-                                Element => Source.Element,
-                                Next    => null);
+        new Node_Type'(Key     => Source.Key,
+                       Element => Source.Element,
+                       Next    => null);
    begin
       return Target;
    end Copy_Node;
@@ -774,8 +759,7 @@ package body Ada.Containers.Hashed_Maps is
       B  : Natural renames Container'Unrestricted_Access.all.HT.Busy;
    begin
       return It : constant Iterator :=
-                    (Limited_Controlled with
-                       Container => Container'Unrestricted_Access)
+        (Limited_Controlled with Container => Container'Unrestricted_Access)
       do
          B := B + 1;
       end return;
@@ -981,8 +965,8 @@ package body Ada.Containers.Hashed_Maps is
          L  : Natural renames HT.Lock;
       begin
          return R : constant Reference_Type :=
-                      (Element => Position.Node.Element'Access,
-                       Control => (Controlled with Position.Container))
+           (Element => Position.Node.Element'Access,
+            Control => (Controlled with Position.Container))
          do
             B := B + 1;
             L := L + 1;
@@ -1007,9 +991,8 @@ package body Ada.Containers.Hashed_Maps is
          L  : Natural renames HT.Lock;
       begin
          return R : constant Reference_Type :=
-                      (Element => Node.Element'Access,
-                       Control =>
-                         (Controlled with Container'Unrestricted_Access))
+           (Element => Node.Element'Access,
+            Control => (Controlled with Container'Unrestricted_Access))
          do
             B := B + 1;
             L := L + 1;

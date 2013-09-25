@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -243,6 +243,13 @@ package body Ch3 is
 
       if Ident_Node /= Error then
          Change_Identifier_To_Defining_Identifier (Ident_Node);
+
+         --  Warn if standard redefinition, except that we never warn on a
+         --  record field definition (since this is always a harmless case).
+
+         if not Inside_Record_Definition then
+            Warn_If_Standard_Redefinition (Ident_Node);
+         end if;
       end if;
 
       return Ident_Node;
@@ -268,13 +275,14 @@ package body Ch3 is
 
    --  PRIVATE_TYPE_DECLARATION ::=
    --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART]
-   --      is [abstract] [tagged] [limited] private;
+   --      is [abstract] [tagged] [limited] private
+   --        [ASPECT_SPECIFICATIONS];
 
    --  PRIVATE_EXTENSION_DECLARATION ::=
    --    type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
    --      [abstract] [limited | synchronized]
    --        new ancestor_SUBTYPE_INDICATION [and INTERFACE_LIST]
-   --          with private;
+   --          with private [ASPECT_SPECIFICATIONS];
 
    --  TYPE_DEFINITION ::=
    --    ENUMERATION_TYPE_DEFINITION  | INTEGER_TYPE_DEFINITION
@@ -928,7 +936,7 @@ package body Ch3 is
 
    --  SUBTYPE_DECLARATION ::=
    --    subtype DEFINING_IDENTIFIER is [NULL_EXCLUSION] SUBTYPE_INDICATION
-   --    {ASPECT_SPECIFICATIONS];
+   --      [ASPECT_SPECIFICATIONS];
 
    --  The caller has checked that the initial token is SUBTYPE
 
@@ -1270,12 +1278,15 @@ package body Ch3 is
 
    --  OBJECT_RENAMING_DECLARATION ::=
    --    DEFINING_IDENTIFIER :
-   --      [NULL_EXCLUSION] SUBTYPE_MARK renames object_NAME;
+   --      [NULL_EXCLUSION] SUBTYPE_MARK renames object_NAME
+   --        [ASPECT_SPECIFICATIONS];
    --  | DEFINING_IDENTIFIER :
-   --      ACCESS_DEFINITION renames object_NAME;
+   --      ACCESS_DEFINITION renames object_NAME
+   --        [ASPECT_SPECIFICATIONS];
 
    --  EXCEPTION_RENAMING_DECLARATION ::=
-   --    DEFINING_IDENTIFIER : exception renames exception_NAME;
+   --    DEFINING_IDENTIFIER : exception renames exception_NAME
+   --      [ASPECT_SPECIFICATIONS];
 
    --  EXCEPTION_DECLARATION ::=
    --    DEFINING_IDENTIFIER_LIST : exception
@@ -1662,15 +1673,19 @@ package body Ch3 is
 
             --  OBJECT_DECLARATION ::=
             --    DEFINING_IDENTIFIER_LIST : [aliased] [constant]
-            --      [NULL_EXCLUSION] SUBTYPE_INDICATION [:= EXPRESSION];
+            --      [NULL_EXCLUSION] SUBTYPE_INDICATION [:= EXPRESSION]
+            --        [ASPECT_SPECIFICATIONS];
             --  | DEFINING_IDENTIFIER_LIST : [aliased] [constant]
-            --      ACCESS_DEFINITION [:= EXPRESSION];
+            --      ACCESS_DEFINITION [:= EXPRESSION]
+            --        [ASPECT_SPECIFICATIONS];
 
             --  OBJECT_RENAMING_DECLARATION ::=
             --    DEFINING_IDENTIFIER :
-            --      [NULL_EXCLUSION] SUBTYPE_MARK renames object_NAME;
+            --      [NULL_EXCLUSION] SUBTYPE_MARK renames object_NAME
+            --        [ASPECT_SPECIFICATIONS];
             --  | DEFINING_IDENTIFIER :
-            --      ACCESS_DEFINITION renames object_NAME;
+            --      ACCESS_DEFINITION renames object_NAME
+            --        [ASPECT_SPECIFICATIONS];
 
             Not_Null_Present := P_Null_Exclusion;  --  Ada 2005 (AI-231/423)
 
@@ -1886,7 +1901,7 @@ package body Ch3 is
    --     type DEFINING_IDENTIFIER [DISCRIMINANT_PART] is
    --       [abstract] [limited | synchronized]
    --          new ancestor_SUBTYPE_INDICATION [and INTERFACE_LIST]
-   --            with private;
+   --            with private [ASPECT_SPECIFICATIONS];
 
    --  RECORD_EXTENSION_PART ::= with RECORD_DEFINITION
 
@@ -3191,6 +3206,7 @@ package body Ch3 is
       Rec_Node : Node_Id;
 
    begin
+      Inside_Record_Definition := True;
       Rec_Node := New_Node (N_Record_Definition, Token_Ptr);
 
       --  Null record case
@@ -3235,6 +3251,7 @@ package body Ch3 is
          end loop;
       end if;
 
+      Inside_Record_Definition := False;
       return Rec_Node;
    end P_Record_Definition;
 

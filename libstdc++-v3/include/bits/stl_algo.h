@@ -1,8 +1,6 @@
 // Algorithm implementation -*- C++ -*-
 
-// Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-// 2010, 2011
-// Free Software Foundation, Inc.
+// Copyright (C) 2001-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -63,7 +61,7 @@
 #include <bits/stl_heap.h>
 #include <bits/stl_tempbuf.h>  // for _Temporary_buffer
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <random>     // for std::uniform_int_distribution
 #include <functional> // for std::bind
 #endif
@@ -244,7 +242,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
   /// This is an overload used by find_if_not() for the Input Iterator case.
   template<typename _InputIterator, typename _Predicate>
     inline _InputIterator
@@ -303,7 +300,29 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  return __last;
 	}
     }
-#endif
+
+  /// Provided for stable_partition to use.
+  template<typename _InputIterator, typename _Predicate>
+    inline _InputIterator
+    __find_if_not(_InputIterator __first, _InputIterator __last,
+		  _Predicate __pred)
+    {
+      return std::__find_if_not(__first, __last, __pred,
+				std::__iterator_category(__first));
+    }
+
+  /// Like find_if_not(), but uses and updates a count of the
+  /// remaining range length instead of comparing against an end
+  /// iterator.
+  template<typename _InputIterator, typename _Predicate, typename _Distance>
+    _InputIterator
+    __find_if_not_n(_InputIterator __first, _Distance& __len, _Predicate __pred)
+    {
+      for (; __len; --__len, ++__first)
+	if (!bool(__pred(*__first)))
+	  break;
+      return __first;
+    }
 
   // set_difference
   // set_intersection
@@ -366,38 +385,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_DistanceType;
 
       _DistanceType __tailSize = __last - __first;
-      const _DistanceType __pattSize = __count;
+      _DistanceType __remainder = __count;
 
-      if (__tailSize < __pattSize)
-        return __last;
-
-      const _DistanceType __skipOffset = __pattSize - 1;
-      _RandomAccessIter __lookAhead = __first + __skipOffset;
-      __tailSize -= __pattSize;
-
-      while (1) // the main loop...
+      while (__remainder <= __tailSize) // the main loop...
 	{
-	  // __lookAhead here is always pointing to the last element of next 
-	  // possible match.
-	  while (!(*__lookAhead == __val)) // the skip loop...
-	    {
-	      if (__tailSize < __pattSize)
-		return __last;  // Failure
-	      __lookAhead += __pattSize;
-	      __tailSize -= __pattSize;
-	    }
-	  _DistanceType __remainder = __skipOffset;
-	  for (_RandomAccessIter __backTrack = __lookAhead - 1; 
-	       *__backTrack == __val; --__backTrack)
+	  __first += __remainder;
+	  __tailSize -= __remainder;
+	  // __first here is always pointing to one past the last element of
+	  // next possible match.
+	  _RandomAccessIter __backTrack = __first; 
+	  while (*--__backTrack == __val)
 	    {
 	      if (--__remainder == 0)
-		return (__lookAhead - __skipOffset); // Success
+	        return (__first - __count); // Success
 	    }
-	  if (__remainder > __tailSize)
-	    return __last; // Failure
-	  __lookAhead += __remainder;
-	  __tailSize -= __remainder;
+	  __remainder = __count + 1 - (__first - __backTrack);
 	}
+      return __last; // Failure
     }
 
   // search_n
@@ -459,38 +463,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_DistanceType;
 
       _DistanceType __tailSize = __last - __first;
-      const _DistanceType __pattSize = __count;
+      _DistanceType __remainder = __count;
 
-      if (__tailSize < __pattSize)
-        return __last;
-
-      const _DistanceType __skipOffset = __pattSize - 1;
-      _RandomAccessIter __lookAhead = __first + __skipOffset;
-      __tailSize -= __pattSize;
-
-      while (1) // the main loop...
+      while (__remainder <= __tailSize) // the main loop...
 	{
-	  // __lookAhead here is always pointing to the last element of next 
-	  // possible match.
-	  while (!bool(__binary_pred(*__lookAhead, __val))) // the skip loop...
-	    {
-	      if (__tailSize < __pattSize)
-		return __last;  // Failure
-	      __lookAhead += __pattSize;
-	      __tailSize -= __pattSize;
-	    }
-	  _DistanceType __remainder = __skipOffset;
-	  for (_RandomAccessIter __backTrack = __lookAhead - 1; 
-	       __binary_pred(*__backTrack, __val); --__backTrack)
+	  __first += __remainder;
+	  __tailSize -= __remainder;
+	  // __first here is always pointing to one past the last element of
+	  // next possible match.
+	  _RandomAccessIter __backTrack = __first; 
+	  while (__binary_pred(*--__backTrack, __val))
 	    {
 	      if (--__remainder == 0)
-		return (__lookAhead - __skipOffset); // Success
+	        return (__first - __count); // Success
 	    }
-	  if (__remainder > __tailSize)
-	    return __last; // Failure
-	  __lookAhead += __remainder;
-	  __tailSize -= __remainder;
+	  __remainder = __count + 1 - (__first - __backTrack);
 	}
+      return __last; // Failure
     }
 
   // find_end for forward iterators.
@@ -716,7 +705,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			     __comp);
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief  Checks that a predicate is true for all the elements
    *          of a sequence.
@@ -789,8 +778,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_function_requires(_UnaryPredicateConcept<_Predicate,
 	      typename iterator_traits<_InputIterator>::value_type>)
       __glibcxx_requires_valid_range(__first, __last);
-      return std::__find_if_not(__first, __last, __pred,
-				std::__iterator_category(__first));
+      return std::__find_if_not(__first, __last, __pred);
     }
 
   /**
@@ -934,7 +922,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __result;
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief Copy the elements of a sequence for which a predicate is true.
    *  @ingroup mutating_algorithms
@@ -1466,7 +1454,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  range @p [__result,__result+(__last-__first)) such that the
    *  order of the elements is reversed.  For every @c i such that @p
    *  0<=i<=(__last-__first), @p reverse_copy() performs the
-   *  assignment @p *(__result+(__last-__first)-i) = *(__first+i).
+   *  assignment @p *(__result+(__last-__first)-1-i) = *(__first+i).
    *  The ranges @p [__first,__last) and @p
    *  [__result,__result+(__last-__first)) must not overlap.
   */
@@ -1784,30 +1772,39 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // partition
 
   /// This is a helper function...
+  /// Requires __len != 0 and !__pred(*__first),
+  /// same as __stable_partition_adaptive.
   template<typename _ForwardIterator, typename _Predicate, typename _Distance>
     _ForwardIterator
     __inplace_stable_partition(_ForwardIterator __first,
-			       _ForwardIterator __last,
 			       _Predicate __pred, _Distance __len)
     {
       if (__len == 1)
-	return __pred(*__first) ? __last : __first;
+	return __first;
       _ForwardIterator __middle = __first;
       std::advance(__middle, __len / 2);
-      _ForwardIterator __begin = std::__inplace_stable_partition(__first,
-								 __middle,
-								 __pred,
-								 __len / 2);
-      _ForwardIterator __end = std::__inplace_stable_partition(__middle, __last,
-							       __pred,
-							       __len
-							       - __len / 2);
-      std::rotate(__begin, __middle, __end);
-      std::advance(__begin, std::distance(__middle, __end));
-      return __begin;
+      _ForwardIterator __left_split =
+	std::__inplace_stable_partition(__first, __pred, __len / 2);
+      // Advance past true-predicate values to satisfy this
+      // function's preconditions.
+      _Distance __right_len = __len - __len / 2;
+      _ForwardIterator __right_split =
+	std::__find_if_not_n(__middle, __right_len, __pred);
+      if (__right_len)
+	__right_split = std::__inplace_stable_partition(__middle,
+							__pred,
+							__right_len);
+      std::rotate(__left_split, __middle, __right_split);
+      std::advance(__left_split, std::distance(__middle, __right_split));
+      return __left_split;
     }
 
   /// This is a helper function...
+  /// Requires __first != __last and !__pred(*__first)
+  /// and __len == distance(__first, __last).
+  ///
+  /// !__pred(*__first) allows us to guarantee that we don't
+  /// move-assign an element onto itself.
   template<typename _ForwardIterator, typename _Pointer, typename _Predicate,
 	   typename _Distance>
     _ForwardIterator
@@ -1821,6 +1818,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{
 	  _ForwardIterator __result1 = __first;
 	  _Pointer __result2 = __buffer;
+	  // The precondition guarantees that !__pred(*__first), so
+	  // move that element to the buffer before starting the loop.
+	  // This ensures that we only call __pred once per element.
+	  *__result2 = _GLIBCXX_MOVE(*__first);
+	  ++__result2;
+	  ++__first;
 	  for (; __first != __last; ++__first)
 	    if (__pred(*__first))
 	      {
@@ -1839,17 +1842,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	{
 	  _ForwardIterator __middle = __first;
 	  std::advance(__middle, __len / 2);
-	  _ForwardIterator __begin =
+	  _ForwardIterator __left_split =
 	    std::__stable_partition_adaptive(__first, __middle, __pred,
 					     __len / 2, __buffer,
 					     __buffer_size);
-	  _ForwardIterator __end =
-	    std::__stable_partition_adaptive(__middle, __last, __pred,
-					     __len - __len / 2,
-					     __buffer, __buffer_size);
-	  std::rotate(__begin, __middle, __end);
-	  std::advance(__begin, std::distance(__middle, __end));
-	  return __begin;
+	  // Advance past true-predicate values to satisfy this
+	  // function's preconditions.
+	  _Distance __right_len = __len - __len / 2;
+	  _ForwardIterator __right_split =
+	    std::__find_if_not_n(__middle, __right_len, __pred);
+	  if (__right_len)
+	    __right_split =
+	      std::__stable_partition_adaptive(__right_split, __last, __pred,
+					       __right_len,
+					       __buffer, __buffer_size);
+	  std::rotate(__left_split, __middle, __right_split);
+	  std::advance(__left_split, std::distance(__middle, __right_split));
+	  return __left_split;
 	}
     }
 
@@ -1882,6 +1891,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    typename iterator_traits<_ForwardIterator>::value_type>)
       __glibcxx_requires_valid_range(__first, __last);
 
+      __first = std::__find_if_not(__first, __last, __pred);
+
       if (__first == __last)
 	return __first;
       else
@@ -1901,7 +1912,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 					  _DistanceType(__buf.size()));
 	else
 	  return
-	    std::__inplace_stable_partition(__first, __last, __pred,
+	    std::__inplace_stable_partition(__first, __pred,
 					 _DistanceType(__buf.requested_size()));
 	}
     }
@@ -3921,7 +3932,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __result;
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief  Determines whether the elements of a sequence are sorted.
    *  @ingroup sorting_algorithms
@@ -4330,6 +4341,140 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return true;
     }
 
+#if __cplusplus > 201103L
+  /**
+   *  @brief  Checks whether a permutaion of the second sequence is equal
+   *          to the first sequence.
+   *  @ingroup non_mutating_algorithms
+   *  @param  __first1  Start of first range.
+   *  @param  __last1   End of first range.
+   *  @param  __first2  Start of second range.
+   *  @param  __last2   End of first range.
+   *  @return true if there exists a permutation of the elements in the range
+   *          [__first2, __last2), beginning with ForwardIterator2 begin,
+   *          such that equal(__first1, __last1, begin) returns true;
+   *          otherwise, returns false.
+  */
+  template<typename _ForwardIterator1, typename _ForwardIterator2>
+    bool
+    is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+		   _ForwardIterator2 __first2, _ForwardIterator2 __last2)
+    {
+      using _Cat1
+	= typename iterator_traits<_ForwardIterator1>::iterator_category;
+      using _Cat2
+	= typename iterator_traits<_ForwardIterator2>::iterator_category;
+      using _It1_is_RA = is_same<_Cat1, random_access_iterator_tag>;
+      using _It2_is_RA = is_same<_Cat2, random_access_iterator_tag>;
+      if (_It1_is_RA() && _It2_is_RA())
+	{
+	  auto __d1 = std::distance(__first1, __last1);
+	  auto __d2 = std::distance(__first2, __last2);
+	  if (__d1 != __d2)
+	    return false;
+	}
+
+      // Efficiently compare identical prefixes:  O(N) if sequences
+      // have the same elements in the same order.
+      for (; __first1 != __last1 && __first2 != __last2; ++__first1, ++__first2)
+	if (!(*__first1 == *__first2))
+	  break;
+
+      if (__first1 == __last1 && __first2 == __last2)
+	return true;
+
+      if (std::distance(__first1, __last1) != std::distance(__first2, __last2))
+	return false;
+
+      for (auto __scan = __first1; __scan != __last1; ++__scan)
+	{
+	  if (__scan != _GLIBCXX_STD_A::find(__first1, __scan, *__scan))
+	    continue; // We've seen this one before.
+
+	  auto __matches = std::count(__first2, __last2, *__scan);
+	  if (0 == __matches
+	      || std::count(__scan, __last1, *__scan) != __matches)
+	    return false;
+	}
+      return true;
+    }
+
+  /**
+   *  @brief  Checks whether a permutation of the second sequence is equal
+   *          to the first sequence.
+   *  @ingroup non_mutating_algorithms
+   *  @param  __first1  Start of first range.
+   *  @param  __last1   End of first range.
+   *  @param  __first2  Start of second range.
+   *  @param  __last2   End of first range.
+   *  @param  __pred    A binary predicate.
+   *  @return true if there exists a permutation of the elements in the range
+   *          [__first2, __last2), beginning with ForwardIterator2 begin,
+   *          such that equal(__first1, __last1, __begin, __pred) returns true;
+   *          otherwise, returns false.
+  */
+  template<typename _ForwardIterator1, typename _ForwardIterator2,
+	   typename _BinaryPredicate>
+    bool
+    is_permutation(_ForwardIterator1 __first1, _ForwardIterator1 __last1,
+		   _ForwardIterator2 __first2, _ForwardIterator2 __last2,
+		   _BinaryPredicate __pred)
+    {
+      using _Cat1
+	= typename iterator_traits<_ForwardIterator1>::iterator_category;
+      using _Cat2
+	= typename iterator_traits<_ForwardIterator2>::iterator_category;
+      using _It1_is_RA = is_same<_Cat1, random_access_iterator_tag>;
+      using _It2_is_RA = is_same<_Cat2, random_access_iterator_tag>;
+      constexpr bool __ra_iters = _It1_is_RA() && _It2_is_RA();
+      if (__ra_iters)
+	{
+	  auto __d1 = std::distance(__first1, __last1);
+	  auto __d2 = std::distance(__first2, __last2);
+	  if (__d1 != __d2)
+	    return false;
+	}
+
+      // Efficiently compare identical prefixes:  O(N) if sequences
+      // have the same elements in the same order.
+      for (; __first1 != __last1; ++__first1, ++__first2)
+	if (!bool(__pred(*__first1, *__first2)))
+	  break;
+
+      if (__ra_iters)
+	{
+	  if (__first1 == __last1)
+	    return true;
+	}
+      else
+	{
+	  auto __d1 = std::distance(__first1, __last1);
+	  auto __d2 = std::distance(__first2, __last2);
+	  if (__d1 == 0 && __d2 == 0)
+	    return true;
+	  if (__d1 != __d2)
+	    return false;
+	}
+
+      for (_ForwardIterator1 __scan = __first1; __scan != __last1; ++__scan)
+	{
+	  using std::placeholders::_1;
+
+	  if (__scan != _GLIBCXX_STD_A::find_if(__first1, __scan,
+						std::bind(__pred, _1, *__scan)))
+	    continue; // We've seen this one before.
+
+	  auto __matches = std::count_if(__first2, __last2,
+					 std::bind(__pred, _1, *__scan));
+	  if (0 == __matches
+	      || std::count_if(__scan, __last1,
+			       std::bind(__pred, _1, *__scan)) != __matches)
+	    return false;
+	}
+      return true;
+    }
+#endif
+
 #ifdef _GLIBCXX_USE_C99_STDINT_TR1
   /**
    *  @brief Shuffle the elements of a sequence using a uniform random
@@ -4370,7 +4515,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 #endif
 
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
 _GLIBCXX_END_NAMESPACE_VERSION
 
@@ -5195,7 +5340,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
   template<typename _RandomAccessIterator, typename _RandomNumberGenerator>
     void
     random_shuffle(_RandomAccessIterator __first, _RandomAccessIterator __last,
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 		   _RandomNumberGenerator&& __rand)
 #else
 		   _RandomNumberGenerator& __rand)

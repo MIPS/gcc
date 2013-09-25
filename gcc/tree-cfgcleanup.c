@@ -1,6 +1,5 @@
 /* CFG cleanup for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,19 +24,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "diagnostic-core.h"
 #include "flags.h"
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
-#include "tree-flow.h"
-#include "timevar.h"
-#include "tree-dump.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "except.h"
 #include "cfgloop.h"
-#include "cfglayout.h"
 #include "hashtab.h"
 #include "tree-ssa-propagate.h"
 #include "tree-scalar-evolution.h"
@@ -54,7 +49,7 @@ bitmap cfgcleanup_altered_bbs;
 /* Remove any fallthru edge from EV.  Return true if an edge was removed.  */
 
 static bool
-remove_fallthru_edge (VEC(edge,gc) *ev)
+remove_fallthru_edge (vec<edge, va_gc> *ev)
 {
   edge_iterator ei;
   edge e;
@@ -62,7 +57,10 @@ remove_fallthru_edge (VEC(edge,gc) *ev)
   FOR_EACH_EDGE (e, ei, ev)
     if ((e->flags & EDGE_FALLTHRU) != 0)
       {
-	remove_edge_and_dominated_blocks (e);
+	if (e->flags & EDGE_COMPLEX)
+	  e->flags &= ~EDGE_FALLTHRU;
+	else
+	  remove_edge_and_dominated_blocks (e);
 	return true;
       }
   return false;
@@ -92,40 +90,11 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_COND:
-	  {
-	    tree lhs = gimple_cond_lhs (stmt);
-	    tree rhs = gimple_cond_rhs (stmt);
-	    /* For conditions try harder and lookup single-argument
-	       PHI nodes.  Only do so from the same basic-block though
-	       as other basic-blocks may be dead already.  */
-	    if (TREE_CODE (lhs) == SSA_NAME
-		&& !name_registered_for_update_p (lhs))
-	      {
-		gimple def_stmt = SSA_NAME_DEF_STMT (lhs);
-		if (gimple_code (def_stmt) == GIMPLE_PHI
-		    && gimple_phi_num_args (def_stmt) == 1
-		    && gimple_bb (def_stmt) == gimple_bb (stmt)
-		    && (TREE_CODE (PHI_ARG_DEF (def_stmt, 0)) != SSA_NAME
-			|| !name_registered_for_update_p (PHI_ARG_DEF (def_stmt,
-								       0))))
-		  lhs = PHI_ARG_DEF (def_stmt, 0);
-	      }
-	    if (TREE_CODE (rhs) == SSA_NAME
-		&& !name_registered_for_update_p (rhs))
-	      {
-		gimple def_stmt = SSA_NAME_DEF_STMT (rhs);
-		if (gimple_code (def_stmt) == GIMPLE_PHI
-		    && gimple_phi_num_args (def_stmt) == 1
-		    && gimple_bb (def_stmt) == gimple_bb (stmt)
-		    && (TREE_CODE (PHI_ARG_DEF (def_stmt, 0)) != SSA_NAME
-			|| !name_registered_for_update_p (PHI_ARG_DEF (def_stmt,
-								       0))))
-		  rhs = PHI_ARG_DEF (def_stmt, 0);
-	      }
-	    val = fold_binary_loc (loc, gimple_cond_code (stmt),
-				   boolean_type_node, lhs, rhs);
-	    break;
-	  }
+	  val = fold_binary_loc (loc, gimple_cond_code (stmt),
+				 boolean_type_node,
+			         gimple_cond_lhs (stmt),
+				 gimple_cond_rhs (stmt));
+	  break;
 
 	case GIMPLE_SWITCH:
 	  val = gimple_switch_index (stmt);
@@ -446,7 +415,8 @@ remove_forwarder_block (basic_block bb)
 	    {
 	      gimple phi = gsi_stmt (gsi);
 	      source_location l = gimple_phi_arg_location_from_edge (phi, succ);
-	      add_phi_arg (phi, gimple_phi_arg_def (phi, succ->dest_idx), s, l);
+	      tree def = gimple_phi_arg_def (phi, succ->dest_idx);
+	      add_phi_arg (phi, unshare_expr (def), s, l);
 	    }
 	}
     }
@@ -591,9 +561,9 @@ split_bbs_on_noreturn_calls (void)
 
   /* Detect cases where a mid-block call is now known not to return.  */
   if (cfun->gimple_df)
-    while (VEC_length (gimple, MODIFIED_NORETURN_CALLS (cfun)))
+    while (vec_safe_length (MODIFIED_NORETURN_CALLS (cfun)))
       {
-	stmt = VEC_pop (gimple, MODIFIED_NORETURN_CALLS (cfun));
+	stmt = MODIFIED_NORETURN_CALLS (cfun)->pop ();
 	bb = gimple_bb (stmt);
 	/* BB might be deleted at this point, so verify first
 	   BB is present in the cfg.  */
@@ -610,48 +580,13 @@ split_bbs_on_noreturn_calls (void)
   return changed;
 }
 
-/* If GIMPLE_OMP_RETURN in basic block BB is unreachable, remove it.  */
-
-static bool
-cleanup_omp_return (basic_block bb)
-{
-  gimple stmt = last_stmt (bb);
-  basic_block control_bb;
-
-  if (stmt == NULL
-      || gimple_code (stmt) != GIMPLE_OMP_RETURN
-      || !single_pred_p (bb))
-    return false;
-
-  control_bb = single_pred (bb);
-  stmt = last_stmt (control_bb);
-
-  if (stmt == NULL || gimple_code (stmt) != GIMPLE_OMP_SECTIONS_SWITCH)
-    return false;
-
-  /* The block with the control statement normally has two entry edges -- one
-     from entry, one from continue.  If continue is removed, return is
-     unreachable, so we remove it here as well.  */
-  if (EDGE_COUNT (control_bb->preds) == 2)
-    return false;
-
-  gcc_assert (EDGE_COUNT (control_bb->preds) == 1);
-  remove_edge_and_dominated_blocks (single_pred_edge (bb));
-  return true;
-}
-
 /* Tries to cleanup cfg in basic block BB.  Returns true if anything
    changes.  */
 
 static bool
 cleanup_tree_cfg_bb (basic_block bb)
 {
-  bool retval = false;
-
-  if (cleanup_omp_return (bb))
-    return true;
-
-  retval = cleanup_control_flow_bb (bb);
+  bool retval = cleanup_control_flow_bb (bb);
 
   if (tree_forwarder_block_p (bb, false)
       && remove_forwarder_block (bb))
@@ -775,16 +710,22 @@ static void
 repair_loop_structures (void)
 {
   bitmap changed_bbs;
+  unsigned n_new_loops;
+
+  calculate_dominance_info (CDI_DOMINATORS);
 
   timevar_push (TV_REPAIR_LOOPS);
   changed_bbs = BITMAP_ALLOC (NULL);
-  fix_loop_structure (changed_bbs);
+  n_new_loops = fix_loop_structure (changed_bbs);
 
   /* This usually does nothing.  But sometimes parts of cfg that originally
      were inside a loop get out of it due to edge removal (since they
-     become unreachable by back edges from latch).  */
+     become unreachable by back edges from latch).  Also a former
+     irreducible loop can become reducible - in this case force a full
+     rewrite into loop-closed SSA form.  */
   if (loops_state_satisfies_p (LOOP_CLOSED_SSA))
-    rewrite_into_loop_closed_ssa (changed_bbs, TODO_update_ssa);
+    rewrite_into_loop_closed_ssa (n_new_loops ? NULL : changed_bbs,
+				  TODO_update_ssa);
 
   BITMAP_FREE (changed_bbs);
 
@@ -793,7 +734,6 @@ repair_loop_structures (void)
 #endif
   scev_reset ();
 
-  loops_state_clear (LOOPS_NEED_FIXUP);
   timevar_pop (TV_REPAIR_LOOPS);
 }
 
@@ -811,9 +751,10 @@ cleanup_tree_cfg (void)
   return changed;
 }
 
-/* Merge the PHI nodes at BB into those at BB's sole successor.  */
+/* Tries to merge the PHI nodes at BB into those at BB's sole successor.
+   Returns true if successful.  */
 
-static void
+static bool
 remove_forwarder_block_with_phi (basic_block bb)
 {
   edge succ = single_succ_edge (bb);
@@ -825,7 +766,7 @@ remove_forwarder_block_with_phi (basic_block bb)
      However it may happen that the infinite loop is created
      afterwards due to removal of forwarders.  */
   if (dest == bb)
-    return;
+    return false;
 
   /* If the destination block consists of a nonlocal label, do not
      merge it.  */
@@ -833,7 +774,7 @@ remove_forwarder_block_with_phi (basic_block bb)
   if (label
       && gimple_code (label) == GIMPLE_LABEL
       && DECL_NONLOCAL (gimple_label_label (label)))
-    return;
+    return false;
 
   /* Redirect each incoming edge to BB to DEST.  */
   while (EDGE_COUNT (bb->preds) > 0)
@@ -877,7 +818,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 
 	  if (TREE_CODE (def) == SSA_NAME)
 	    {
-	      edge_var_map_vector head;
+	      edge_var_map_vector *head;
 	      edge_var_map *vm;
 	      size_t i;
 
@@ -885,7 +826,7 @@ remove_forwarder_block_with_phi (basic_block bb)
 		 redirection, replace it with the PHI argument that used
 		 to be on E.  */
 	      head = redirect_edge_var_map_vector (e);
-	      FOR_EACH_VEC_ELT (edge_var_map, head, i, vm)
+	      FOR_EACH_VEC_SAFE_ELT (head, i, vm)
 		{
 		  tree old_arg = redirect_edge_var_map_result (vm);
 		  tree new_arg = redirect_edge_var_map_def (vm);
@@ -922,6 +863,8 @@ remove_forwarder_block_with_phi (basic_block bb)
   /* Remove BB since all of BB's incoming edges have been redirected
      to DEST.  */
   delete_basic_block (bb);
+
+  return true;
 }
 
 /* This pass merges PHI nodes if one feeds into another.  For example,
@@ -1023,13 +966,20 @@ merge_phi_nodes (void)
     }
 
   /* Now let's drain WORKLIST.  */
+  bool changed = false;
   while (current != worklist)
     {
       bb = *--current;
-      remove_forwarder_block_with_phi (bb);
+      changed |= remove_forwarder_block_with_phi (bb);
     }
-
   free (worklist);
+
+  /* Removing forwarder blocks can cause formerly irreducible loops
+     to become reducible if we merged two entry blocks.  */
+  if (changed
+      && current_loops)
+    loops_state_set (LOOPS_NEED_FIXUP);
+
   return 0;
 }
 
@@ -1039,22 +989,41 @@ gate_merge_phi (void)
   return 1;
 }
 
-struct gimple_opt_pass pass_merge_phi =
+namespace {
+
+const pass_data pass_data_merge_phi =
 {
- {
-  GIMPLE_PASS,
-  "mergephi",			/* name */
-  gate_merge_phi,		/* gate */
-  merge_phi_nodes,		/* execute */
-  NULL,				/* sub */
-  NULL,				/* next */
-  0,				/* static_pass_number */
-  TV_TREE_MERGE_PHI,		/* tv_id */
-  PROP_cfg | PROP_ssa,		/* properties_required */
-  0,				/* properties_provided */
-  0,				/* properties_destroyed */
-  0,				/* todo_flags_start */
-  TODO_ggc_collect      	/* todo_flags_finish */
-  | TODO_verify_ssa
- }
+  GIMPLE_PASS, /* type */
+  "mergephi", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_MERGE_PHI, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_ssa, /* todo_flags_finish */
 };
+
+class pass_merge_phi : public gimple_opt_pass
+{
+public:
+  pass_merge_phi(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_merge_phi, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_merge_phi (ctxt_); }
+  bool gate () { return gate_merge_phi (); }
+  unsigned int execute () { return merge_phi_nodes (); }
+
+}; // class pass_merge_phi
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_merge_phi (gcc::context *ctxt)
+{
+  return new pass_merge_phi (ctxt);
+}

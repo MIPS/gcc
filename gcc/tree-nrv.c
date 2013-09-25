@@ -1,6 +1,5 @@
 /* Language independent return value optimizations
-   Copyright (C) 2004, 2005, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,9 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-flow.h"
-#include "timevar.h"
-#include "tree-dump.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"	/* For "optimize" in gate_pass_return_slot.
@@ -244,6 +241,7 @@ tree_nrv (void)
 	    {
 	      unlink_stmt_vdef (stmt);
 	      gsi_remove (&gsi, true);
+	      release_defs (stmt);
 	    }
 	  else
 	    {
@@ -262,8 +260,6 @@ tree_nrv (void)
   SET_DECL_VALUE_EXPR (found, result);
   DECL_HAS_VALUE_EXPR_P (found) = 1;
 
-  /* FOUND is no longer used.  Ensure it gets removed.  */
-  clear_is_used (found);
   return 0;
 }
 
@@ -273,24 +269,43 @@ gate_pass_return_slot (void)
   return optimize > 0;
 }
 
-struct gimple_opt_pass pass_nrv =
+namespace {
+
+const pass_data pass_data_nrv =
 {
- {
-  GIMPLE_PASS,
-  "nrv",				/* name */
-  gate_pass_return_slot,		/* gate */
-  tree_nrv,				/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_NRV,				/* tv_id */
-  PROP_ssa | PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_ggc_collect			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "nrv", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_NRV, /* tv_id */
+  ( PROP_ssa | PROP_cfg ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_nrv : public gimple_opt_pass
+{
+public:
+  pass_nrv(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_nrv, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_pass_return_slot (); }
+  unsigned int execute () { return tree_nrv (); }
+
+}; // class pass_nrv
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_nrv (gcc::context *ctxt)
+{
+  return new pass_nrv (ctxt);
+}
 
 /* Determine (pessimistically) whether DEST is available for NRV
    optimization, where DEST is expected to be the LHS of a modify
@@ -358,21 +373,39 @@ execute_return_slot_opt (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_return_slot =
+namespace {
+
+const pass_data pass_data_return_slot =
 {
- {
-  GIMPLE_PASS,
-  "retslot",				/* name */
-  NULL,					/* gate */
-  execute_return_slot_opt,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  PROP_ssa,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "retslot", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  PROP_ssa, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_return_slot : public gimple_opt_pass
+{
+public:
+  pass_return_slot(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_return_slot, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return execute_return_slot_opt (); }
+
+}; // class pass_return_slot
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_return_slot (gcc::context *ctxt)
+{
+  return new pass_return_slot (ctxt);
+}

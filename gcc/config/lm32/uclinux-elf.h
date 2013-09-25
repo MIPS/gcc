@@ -1,6 +1,5 @@
 /* Definitions for LM32 running Linux-based GNU systems using ELF
-   Copyright (C) 1993, 1994, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004,
-   2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 1993-2013 Free Software Foundation, Inc.
    Contributed by Philip Blundell <philb@gnu.org>
 
    This file is part of GCC.
@@ -78,3 +77,5 @@
 #undef  CC1_SPEC
 #define CC1_SPEC "%{G*} %{!fno-PIC:-fPIC}"
 
+#undef TARGET_LIBC_HAS_FUNCTION
+#define TARGET_LIBC_HAS_FUNCTION no_c99_libc_has_function

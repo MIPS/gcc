@@ -1,7 +1,5 @@
 /* Control flow optimization code for GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -38,8 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "regs.h"
-#include "timevar.h"
-#include "output.h"
 #include "insn-config.h"
 #include "flags.h"
 #include "recog.h"
@@ -48,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tm_p.h"
 #include "target.h"
-#include "cfglayout.h"
+#include "function.h" /* For inline functions in emit-rtl.h they need crtl.  */
 #include "emit-rtl.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
@@ -62,7 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Set to true when we are running first pass of try_optimize_cfg loop.  */
 static bool first_pass;
 
-/* Set to true if crossjumps occured in the latest run of try_optimize_cfg.  */
+/* Set to true if crossjumps occurred in the latest run of try_optimize_cfg.  */
 static bool crossjumps_occured;
 
 /* Set to true if we couldn't run an optimization due to stale liveness
@@ -460,7 +456,7 @@ try_forward_edges (int mode, basic_block b)
 
       if (first != EXIT_BLOCK_PTR
 	  && find_reg_note (BB_END (first), REG_CROSSING_JUMP, NULL_RTX))
-	return false;
+	return changed;
 
       while (counter < n_basic_blocks)
 	{
@@ -483,13 +479,15 @@ try_forward_edges (int mode, basic_block b)
 		  int new_locus = single_succ_edge (target)->goto_locus;
 		  int locus = goto_locus;
 
-		  if (new_locus && locus && !locator_eq (new_locus, locus))
+		  if (new_locus != UNKNOWN_LOCATION
+		      && locus != UNKNOWN_LOCATION
+		      && new_locus != locus)
 		    new_target = NULL;
 		  else
 		    {
 		      rtx last;
 
-		      if (new_locus)
+		      if (new_locus != UNKNOWN_LOCATION)
 			locus = new_locus;
 
 		      last = BB_END (target);
@@ -497,13 +495,15 @@ try_forward_edges (int mode, basic_block b)
 			last = prev_nondebug_insn (last);
 
 		      new_locus = last && INSN_P (last)
-				  ? INSN_LOCATOR (last) : 0;
+				  ? INSN_LOCATION (last) : 0;
 
-		      if (new_locus && locus && !locator_eq (new_locus, locus))
+		      if (new_locus != UNKNOWN_LOCATION
+			  && locus != UNKNOWN_LOCATION
+			  && new_locus != locus)
 			new_target = NULL;
 		      else
 			{
-			  if (new_locus)
+			  if (new_locus != UNKNOWN_LOCATION)
 			    locus = new_locus;
 
 			  goto_locus = locus;
@@ -595,9 +595,7 @@ try_forward_edges (int mode, basic_block b)
 	  /* We successfully forwarded the edge.  Now update profile
 	     data: for each edge we traversed in the chain, remove
 	     the original edge's execution count.  */
-	  edge_frequency = ((edge_probability * b->frequency
-			     + REG_BR_PROB_BASE / 2)
-			    / REG_BR_PROB_BASE);
+	  edge_frequency = apply_probability (b->frequency, edge_probability);
 
 	  do
 	    {
@@ -779,6 +777,11 @@ merge_blocks_move (edge e, basic_block b, basic_block c, int mode)
   if (e->flags & EDGE_FALLTHRU)
     {
       int b_index = b->index, c_index = c->index;
+
+      /* Protect the loop latches.  */
+      if (current_loops && c->loop_father->latch == c)
+	return NULL;
+
       merge_blocks (b, c);
       update_forwarder_flag (b);
 
@@ -920,6 +923,24 @@ merge_memattrs (rtx x, rtx y)
 
 	  set_mem_align (x, MIN (MEM_ALIGN (x), MEM_ALIGN (y)));
 	  set_mem_align (y, MEM_ALIGN (x));
+	}
+    }
+  if (code == MEM)
+    {
+      if (MEM_READONLY_P (x) != MEM_READONLY_P (y))
+	{
+	  MEM_READONLY_P (x) = 0;
+	  MEM_READONLY_P (y) = 0;
+	}
+      if (MEM_NOTRAP_P (x) != MEM_NOTRAP_P (y))
+	{
+	  MEM_NOTRAP_P (x) = 0;
+	  MEM_NOTRAP_P (y) = 0;
+	}
+      if (MEM_VOLATILE_P (x) != MEM_VOLATILE_P (y))
+	{
+	  MEM_VOLATILE_P (x) = 1;
+	  MEM_VOLATILE_P (y) = 1;
 	}
     }
 
@@ -1131,6 +1152,28 @@ old_insns_match_p (int mode ATTRIBUTE_UNUSED, rtx i1, rtx i2)
 			CALL_INSN_FUNCTION_USAGE (i2))
 	  || SIBLING_CALL_P (i1) != SIBLING_CALL_P (i2))
 	return dir_none;
+
+      /* For address sanitizer, never crossjump __asan_report_* builtins,
+	 otherwise errors might be reported on incorrect lines.  */
+      if (flag_sanitize & SANITIZE_ADDRESS)
+	{
+	  rtx call = get_call_rtx_from (i1);
+	  if (call && GET_CODE (XEXP (XEXP (call, 0), 0)) == SYMBOL_REF)
+	    {
+	      rtx symbol = XEXP (XEXP (call, 0), 0);
+	      if (SYMBOL_REF_DECL (symbol)
+		  && TREE_CODE (SYMBOL_REF_DECL (symbol)) == FUNCTION_DECL)
+		{
+		  if ((DECL_BUILT_IN_CLASS (SYMBOL_REF_DECL (symbol))
+		       == BUILT_IN_NORMAL)
+		      && DECL_FUNCTION_CODE (SYMBOL_REF_DECL (symbol))
+			 >= BUILT_IN_ASAN_REPORT_LOAD1
+		      && DECL_FUNCTION_CODE (SYMBOL_REF_DECL (symbol))
+			 <= BUILT_IN_ASAN_REPORT_STORE16)
+		    return dir_none;
+		}
+	    }
+	}
     }
 
 #ifdef STACK_REGS
@@ -1695,9 +1738,15 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
 	}
     }
 
+  rtx last1 = BB_END (bb1);
+  rtx last2 = BB_END (bb2);
+  if (DEBUG_INSN_P (last1))
+    last1 = prev_nondebug_insn (last1);
+  if (DEBUG_INSN_P (last2))
+    last2 = prev_nondebug_insn (last2);
   /* First ensure that the instructions match.  There may be many outgoing
      edges so this test is generally cheaper.  */
-  if (old_insns_match_p (mode, BB_END (bb1), BB_END (bb2)) != dir_both)
+  if (old_insns_match_p (mode, last1, last2) != dir_both)
     return false;
 
   /* Search the outgoing edges, ensure that the counts do match, find possible
@@ -1706,9 +1755,13 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   if (EDGE_COUNT (bb1->succs) != EDGE_COUNT (bb2->succs))
     return false;
 
+  bool nonfakeedges = false;
   FOR_EACH_EDGE (e1, ei, bb1->succs)
     {
       e2 = EDGE_SUCC (bb2, ei.index);
+
+      if ((e1->flags & EDGE_FAKE) == 0)
+	nonfakeedges = true;
 
       if (e1->flags & EDGE_EH)
 	nehedges1++;
@@ -1725,6 +1778,18 @@ outgoing_edges_match (int mode, basic_block bb1, basic_block bb2)
   /* If number of edges of various types does not match, fail.  */
   if (nehedges1 != nehedges2
       || (fallthru1 != 0) != (fallthru2 != 0))
+    return false;
+
+  /* If !ACCUMULATE_OUTGOING_ARGS, bb1 (and bb2) have no successors
+     and the last real insn doesn't have REG_ARGS_SIZE note, don't
+     attempt to optimize, as the two basic blocks might have different
+     REG_ARGS_SIZE depths.  For noreturn calls and unconditional
+     traps there should be REG_ARG_SIZE notes, they could be missing
+     for __builtin_unreachable () uses though.  */
+  if (!nonfakeedges
+      && !ACCUMULATE_OUTGOING_ARGS
+      && (!INSN_P (last1)
+          || !find_reg_note (last1, REG_ARGS_SIZE, NULL)))
     return false;
 
   /* fallthru edges must be forwarded to the same destination.  */
@@ -1817,7 +1882,7 @@ try_crossjump_to_edge (int mode, edge e1, edge e2,
      partition boundaries).  See the comments at the top of
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
-  if (flag_reorder_blocks_and_partition && reload_completed)
+  if (crtl->has_bb_partition && reload_completed)
     return false;
 
   /* Search backward through forwarder blocks.  We don't need to worry
@@ -2581,21 +2646,21 @@ try_optimize_cfg (int mode)
 
 		      if (current_ir_type () == IR_RTL_CFGLAYOUT)
 			{
-			  if (b->il.rtl->footer
-			      && BARRIER_P (b->il.rtl->footer))
+			  if (BB_FOOTER (b)
+			      && BARRIER_P (BB_FOOTER (b)))
 			    FOR_EACH_EDGE (e, ei, b->preds)
 			      if ((e->flags & EDGE_FALLTHRU)
-				  && e->src->il.rtl->footer == NULL)
+				  && BB_FOOTER (e->src) == NULL)
 				{
-				  if (b->il.rtl->footer)
+				  if (BB_FOOTER (b))
 				    {
-				      e->src->il.rtl->footer = b->il.rtl->footer;
-				      b->il.rtl->footer = NULL;
+				      BB_FOOTER (e->src) = BB_FOOTER (b);
+				      BB_FOOTER (b) = NULL;
 				    }
 				  else
 				    {
 				      start_sequence ();
-				      e->src->il.rtl->footer = emit_barrier ();
+				      BB_FOOTER (e->src) = emit_barrier ();
 				      end_sequence ();
 				    }
 				}
@@ -2632,27 +2697,14 @@ try_optimize_cfg (int mode)
 		      || ! label_is_jump_target_p (BB_HEAD (b),
 						   BB_END (single_pred (b)))))
 		{
-		  rtx label = BB_HEAD (b);
-
-		  delete_insn_chain (label, label, false);
-		  /* If the case label is undeletable, move it after the
-		     BASIC_BLOCK note.  */
-		  if (NOTE_KIND (BB_HEAD (b)) == NOTE_INSN_DELETED_LABEL)
-		    {
-		      rtx bb_note = NEXT_INSN (BB_HEAD (b));
-
-		      reorder_insns_nobb (label, label, bb_note);
-		      BB_HEAD (b) = bb_note;
-		      if (BB_END (b) == bb_note)
-			BB_END (b) = label;
-		    }
+		  delete_insn (BB_HEAD (b));
 		  if (dump_file)
 		    fprintf (dump_file, "Deleted label in block %i.\n",
 			     b->index);
 		}
 
 	      /* If we fall through an empty block, we can remove it.  */
-	      if (!(mode & CLEANUP_CFGLAYOUT)
+	      if (!(mode & (CLEANUP_CFGLAYOUT | CLEANUP_NO_INSN_DEL))
 		  && single_pred_p (b)
 		  && (single_pred_edge (b)->flags & EDGE_FALLTHRU)
 		  && !LABEL_P (BB_HEAD (b))
@@ -2773,10 +2825,21 @@ try_optimize_cfg (int mode)
 	      df_analyze ();
 	    }
 
-#ifdef ENABLE_CHECKING
 	  if (changed)
-	    verify_flow_info ();
+            {
+              /* Edge forwarding in particular can cause hot blocks previously
+                 reached by both hot and cold blocks to become dominated only
+                 by cold blocks. This will cause the verification below to fail,
+                 and lead to now cold code in the hot section. This is not easy
+                 to detect and fix during edge forwarding, and in some cases
+                 is only visible after newly unreachable blocks are deleted,
+                 which will be done in fixup_partitions.  */
+              fixup_partitions ();
+
+#ifdef ENABLE_CHECKING
+              verify_flow_info ();
 #endif
+            }
 
 	  changed_overall |= changed;
 	  first_pass = false;
@@ -2806,7 +2869,7 @@ delete_unreachable_blocks (void)
      have dominators information, walking blocks backward gets us a
      better chance of retaining most debug information than
      otherwise.  */
-  if (MAY_HAVE_DEBUG_STMTS && current_ir_type () == IR_GIMPLE
+  if (MAY_HAVE_DEBUG_INSNS && current_ir_type () == IR_GIMPLE
       && dom_info_available_p (CDI_DOMINATORS))
     {
       for (b = EXIT_BLOCK_PTR->prev_bb; b != ENTRY_BLOCK_PTR; b = prev_bb)
@@ -2822,12 +2885,12 @@ delete_unreachable_blocks (void)
 		delete_basic_block (b);
 	      else
 		{
-		  VEC (basic_block, heap) *h
+		  vec<basic_block> h
 		    = get_all_dominated_blocks (CDI_DOMINATORS, b);
 
-		  while (VEC_length (basic_block, h))
+		  while (h.length ())
 		    {
-		      b = VEC_pop (basic_block, h);
+		      b = h.pop ();
 
 		      prev_bb = b->prev_bb;
 
@@ -2836,7 +2899,7 @@ delete_unreachable_blocks (void)
 		      delete_basic_block (b);
 		    }
 
-		  VEC_free (basic_block, heap, h);
+		  h.release ();
 		}
 
 	      changed = true;
@@ -2976,41 +3039,27 @@ cleanup_cfg (int mode)
   if (!(mode & CLEANUP_CFGLAYOUT))
     delete_dead_jumptables ();
 
+  /* ???  We probably do this way too often.  */
+  if (current_loops
+      && (changed
+	  || (mode & CLEANUP_CFG_CHANGED)))
+    {
+      timevar_push (TV_REPAIR_LOOPS);
+      /* The above doesn't preserve dominance info if available.  */
+      gcc_assert (!dom_info_available_p (CDI_DOMINATORS));
+      calculate_dominance_info (CDI_DOMINATORS);
+      fix_loop_structure (NULL);
+      free_dominance_info (CDI_DOMINATORS);
+      timevar_pop (TV_REPAIR_LOOPS);
+    }
+
   timevar_pop (TV_CLEANUP_CFG);
 
   return changed;
 }
 
 static unsigned int
-rest_of_handle_jump (void)
-{
-  if (crtl->tail_call_emit)
-    fixup_tail_calls ();
-  return 0;
-}
-
-struct rtl_opt_pass pass_jump =
-{
- {
-  RTL_PASS,
-  "sibling",                            /* name */
-  NULL,                                 /* gate */
-  rest_of_handle_jump,			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_JUMP,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_verify_flow,                     /* todo_flags_finish */
- }
-};
-
-
-static unsigned int
-rest_of_handle_jump2 (void)
+execute_jump (void)
 {
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   if (dump_file)
@@ -3020,22 +3069,83 @@ rest_of_handle_jump2 (void)
   return 0;
 }
 
+namespace {
 
-struct rtl_opt_pass pass_jump2 =
+const pass_data pass_data_jump =
 {
- {
-  RTL_PASS,
-  "jump",                               /* name */
-  NULL,                                 /* gate */
-  rest_of_handle_jump2,			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_JUMP,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  TODO_ggc_collect,                     /* todo_flags_start */
-  TODO_verify_rtl_sharing,              /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "jump", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_JUMP, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_rtl_sharing, /* todo_flags_finish */
 };
+
+class pass_jump : public rtl_opt_pass
+{
+public:
+  pass_jump(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_jump, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return execute_jump (); }
+
+}; // class pass_jump
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_jump (gcc::context *ctxt)
+{
+  return new pass_jump (ctxt);
+}
+
+static unsigned int
+execute_jump2 (void)
+{
+  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_jump2 =
+{
+  RTL_PASS, /* type */
+  "jump2", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_JUMP, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_rtl_sharing, /* todo_flags_finish */
+};
+
+class pass_jump2 : public rtl_opt_pass
+{
+public:
+  pass_jump2(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_jump2, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return execute_jump2 (); }
+
+}; // class pass_jump2
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_jump2 (gcc::context *ctxt)
+{
+  return new pass_jump2 (ctxt);
+}

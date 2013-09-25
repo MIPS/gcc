@@ -1,7 +1,5 @@
 /* Move registers around to reduce number of move instructions needed.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "target.h"
-#include "output.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "flags.h"
@@ -42,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "diagnostic-core.h"
 #include "reload.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
 #include "ira.h"
@@ -617,10 +613,10 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
   int src_regno;
   int dest_regno;
 
-  /* A REG_LIVE_LENGTH of -1 indicates the register is equivalent to a constant
-     or memory location and is used infrequently; a REG_LIVE_LENGTH of -2 is
-     parameter when there is no frame pointer that is not allocated a register.
-     For now, we just reject them, rather than incrementing the live length.  */
+  /* A REG_LIVE_LENGTH of -1 indicates the register must not go into
+     a hard register, e.g. because it crosses as setjmp.  See the
+     comment in regstat.c:regstat_bb_compute_ri.  Don't try to apply
+     any transformations to such regs.  */
 
   if (REG_P (src)
       && REG_LIVE_LENGTH (REGNO (src)) > 0
@@ -656,7 +652,7 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
       for (link = REG_NOTES (insn); link != NULL_RTX; link = next)
 	{
 	  next = XEXP (link, 1);
-	  if (XEXP (link, 0) == src)
+	  if (GET_CODE (link) == EXPR_LIST && XEXP (link, 0) == src)
 	    {
 	      *p_move_notes = link;
 	      p_move_notes = &XEXP (link, 1);
@@ -790,7 +786,8 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset)
 	{
 	  HOST_WIDE_INT newconst
 	    = INTVAL (offset) - INTVAL (XEXP (SET_SRC (pset), 1));
-	  rtx add = gen_add3_insn (dst, dst, GEN_INT (newconst));
+	  rtx add = gen_add3_insn (dst, dst,
+				   gen_int_mode (newconst, GET_MODE (dst)));
 
 	  if (add && validate_change (insn, &PATTERN (insn), add, 0))
 	    {
@@ -1239,7 +1236,7 @@ regmove_optimize (void)
   regstat_compute_ri ();
 
   if (flag_ira_loop_pressure)
-    ira_set_pseudo_classes (dump_file);
+    ira_set_pseudo_classes (true, dump_file);
 
   regno_src_regno = XNEWVEC (int, nregs);
   for (i = nregs; --i >= 0; )
@@ -1365,22 +1362,40 @@ gate_handle_regmove (void)
 }
 
 
-struct rtl_opt_pass pass_regmove =
+namespace {
+
+const pass_data pass_data_regmove =
 {
- {
-  RTL_PASS,
-  "regmove",                            /* name */
-  gate_handle_regmove,                  /* gate */
-  regmove_optimize,			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_REGMOVE,                           /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  TODO_ggc_collect                      /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "regmove", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_REGMOVE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_regmove : public rtl_opt_pass
+{
+public:
+  pass_regmove(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_regmove, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_regmove (); }
+  unsigned int execute () { return regmove_optimize (); }
+
+}; // class pass_regmove
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_regmove (gcc::context *ctxt)
+{
+  return new pass_regmove (ctxt);
+}

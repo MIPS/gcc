@@ -1,5 +1,5 @@
 /* Wrapper to call lto.  Used by collect2 and the linker plugin.
-   Copyright (C) 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
 
    Factored out of collect2 by Rafael Espindola <espindola@google.com>
 
@@ -393,6 +393,12 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
       struct cl_decoded_option *foption = &fdecoded_options[i];
       switch (foption->opt_index)
 	{
+	case OPT_SPECIAL_unknown:
+	case OPT_SPECIAL_ignore:
+	case OPT_SPECIAL_program_name:
+	case OPT_SPECIAL_input_file:
+	  break;
+
 	default:
 	  if (!(cl_options[foption->opt_index].flags & CL_TARGET))
 	    break;
@@ -413,6 +419,16 @@ merge_and_complain (struct cl_decoded_option **decoded_options,
 	      break;
 	  if (j == *decoded_options_count)
 	    append_option (decoded_options, decoded_options_count, foption);
+	  break;
+
+	case OPT_freg_struct_return:
+	case OPT_fpcc_struct_return:
+	  for (j = 0; j < *decoded_options_count; ++j)
+	    if ((*decoded_options)[j].opt_index == foption->opt_index)
+	      break;
+	  if (j == *decoded_options_count)
+	    fatal ("Option %s not used consistently in all LTO input files",
+		   foption->orig_option_with_args_text);
 	  break;
 	}
     }
@@ -558,6 +574,8 @@ run_gcc (unsigned argc, char *argv[])
 	case OPT_fcommon:
 	case OPT_fexceptions:
 	case OPT_fgnu_tm:
+	case OPT_freg_struct_return:
+	case OPT_fpcc_struct_return:
 	  break;
 
 	default:
@@ -617,6 +635,12 @@ run_gcc (unsigned argc, char *argv[])
 	case OPT_flto:
 	  lto_mode = LTO_MODE_WHOPR;
 	  /* We've handled these LTO options, do not pass them on.  */
+	  continue;
+
+	case OPT_freg_struct_return:
+	case OPT_fpcc_struct_return:
+	  /* Ignore these, they are determined by the input files.
+	     ???  We fail to diagnose a possible mismatch here.  */
 	  continue;
 
 	default:
@@ -709,7 +733,7 @@ run_gcc (unsigned argc, char *argv[])
       obstack_ptr_grow (&argv_obstack, "-fwpa");
     }
 
-  /* Append the input objects and possible preceeding arguments.  */
+  /* Append the input objects and possible preceding arguments.  */
   for (i = 1; i < argc; ++i)
     obstack_ptr_grow (&argv_obstack, argv[i]);
   obstack_ptr_grow (&argv_obstack, NULL);
@@ -890,6 +914,8 @@ int
 main (int argc, char *argv[])
 {
   const char *p;
+
+  gcc_obstack_init (&opts_obstack);
 
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))

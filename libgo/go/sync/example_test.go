@@ -5,6 +5,7 @@
 package sync_test
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 )
@@ -23,12 +24,31 @@ func ExampleWaitGroup() {
 		wg.Add(1)
 		// Launch a goroutine to fetch the URL.
 		go func(url string) {
+			// Decrement the counter when the goroutine completes.
+			defer wg.Done()
 			// Fetch the URL.
 			http.Get(url)
-			// Decrement the counter.
-			wg.Done()
 		}(url)
 	}
 	// Wait for all HTTP fetches to complete.
 	wg.Wait()
+}
+
+func ExampleOnce() {
+	var once sync.Once
+	onceBody := func() {
+		fmt.Println("Only once")
+	}
+	done := make(chan bool)
+	for i := 0; i < 10; i++ {
+		go func() {
+			once.Do(onceBody)
+			done <- true
+		}()
+	}
+	for i := 0; i < 10; i++ {
+		<-done
+	}
+	// Output:
+	// Only once
 }

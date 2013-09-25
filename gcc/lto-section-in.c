@@ -1,6 +1,6 @@
 /* Input functions for reading LTO sections.
 
-   Copyright 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "hashtab.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cgraph.h"
 #include "function.h"
 #include "ggc.h"
@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "vec.h"
 #include "timevar.h"
-#include "output.h"
 #include "lto-streamer.h"
 #include "lto-compress.h"
 #include "ggc.h"
@@ -50,17 +49,18 @@ const char *lto_section_name[LTO_N_SECTION_TYPES] =
   "decls",
   "function_body",
   "statics",
-  "cgraph",
-  "vars",
+  "symtab",
   "refs",
   "asm",
   "jmpfuncs",
   "pureconst",
   "reference",
-  "symtab",
+  "profile",
+  "symbol_nodes",
   "opts",
   "cgraphopt",
-  "inline"
+  "inline",
+  "ipcp_trans"
 };
 
 
@@ -412,6 +412,41 @@ lto_get_function_in_decl_state (struct lto_file_decl_data *file_data,
   temp.fn_decl = func;
   slot = htab_find_slot (file_data->function_decl_states, &temp, NO_INSERT);
   return slot? ((struct lto_in_decl_state*) *slot) : NULL;
+}
+
+/* Free decl_states.  */
+
+void
+lto_free_function_in_decl_state (struct lto_in_decl_state *state)
+{
+  int i;
+  for (i = 0; i < LTO_N_DECL_STREAMS; i++)
+    ggc_free (state->streams[i].trees);
+  ggc_free (state);
+}
+
+/* Free decl_states associated with NODE.  This makes it possible to furhter
+   release trees needed by the NODE's body.  */
+
+void
+lto_free_function_in_decl_state_for_node (symtab_node node)
+{
+  struct lto_in_decl_state temp;
+  void **slot;
+
+  if (!node->symbol.lto_file_data)
+    return;
+
+  temp.fn_decl = node->symbol.decl;
+  slot = htab_find_slot (node->symbol.lto_file_data->function_decl_states,
+			 &temp, NO_INSERT);
+  if (slot && *slot)
+    {
+      lto_free_function_in_decl_state ((struct lto_in_decl_state*) *slot);
+      htab_clear_slot (node->symbol.lto_file_data->function_decl_states,
+		       slot);
+    }
+  node->symbol.lto_file_data = NULL;
 }
 
 

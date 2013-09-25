@@ -1,6 +1,6 @@
 // Allocator traits -*- C++ -*-
 
-// Copyright (C) 2011 Free Software Foundation, Inc.
+// Copyright (C) 2011-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,8 +30,9 @@
 #ifndef _ALLOC_TRAITS_H
 #define _ALLOC_TRAITS_H 1
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 
+#include <bits/memoryfwd.h>
 #include <bits/ptr_traits.h>
 #include <ext/numeric_traits.h>
 
@@ -55,6 +56,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       static const bool __value = _S_chk<_Alloc, _Tp>(nullptr);
     };
+
+  template<typename _Alloc, typename _Tp>
+    const bool __alloctr_rebind_helper<_Alloc, _Tp>::__value;
 
   template<typename _Alloc, typename _Tp,
            bool = __alloctr_rebind_helper<_Alloc, _Tp>::__value>
@@ -251,7 +255,8 @@ _GLIBCXX_ALLOC_TR_NESTED_TYPE(propagate_on_container_swap,
 
       template<typename _Tp, typename... _Args>
 	static typename
-       	enable_if<!__construct_helper<_Tp, _Args...>::value, void>::type
+	enable_if<__and_<__not_<__construct_helper<_Tp, _Args...>>,
+			 is_constructible<_Tp, _Args...>>::value, void>::type
        	_S_construct(_Alloc&, _Tp* __p, _Args&&... __args)
 	{ ::new((void*)__p) _Tp(std::forward<_Args>(__args)...); }
 
@@ -383,7 +388,8 @@ _GLIBCXX_ALLOC_TR_NESTED_TYPE(propagate_on_container_swap,
        *  arguments @a __args...
       */
       template<typename _Tp, typename... _Args>
-	static void construct(_Alloc& __a, _Tp* __p, _Args&&... __args)
+	static auto construct(_Alloc& __a, _Tp* __p, _Args&&... __args)
+	-> decltype(_S_construct(__a, __p, std::forward<_Args>(__args)...))
 	{ _S_construct(__a, __p, std::forward<_Args>(__args)...); }
 
       /**
@@ -406,7 +412,7 @@ _GLIBCXX_ALLOC_TR_NESTED_TYPE(propagate_on_container_swap,
        *  Returns @c __a.max_size() if that expression is well-formed,
        *  otherwise returns @c numeric_limits<size_type>::max()
       */
-      static size_type max_size(const _Alloc& __a)
+      static size_type max_size(const _Alloc& __a) noexcept
       { return _S_max_size(__a); }
 
       /**
@@ -421,6 +427,27 @@ _GLIBCXX_ALLOC_TR_NESTED_TYPE(propagate_on_container_swap,
       select_on_container_copy_construction(const _Alloc& __rhs)
       { return _S_select(__rhs); }
     };
+
+  template<typename _Alloc>
+  template<typename _Alloc2>
+    const bool allocator_traits<_Alloc>::__allocate_helper<_Alloc2>::value;
+
+  template<typename _Alloc>
+  template<typename _Tp, typename... _Args>
+    const bool
+    allocator_traits<_Alloc>::__construct_helper<_Tp, _Args...>::value;
+
+  template<typename _Alloc>
+  template<typename _Tp>
+    const bool allocator_traits<_Alloc>::__destroy_helper<_Tp>::value;
+
+  template<typename _Alloc>
+  template<typename _Alloc2>
+    const bool allocator_traits<_Alloc>::__maxsize_helper<_Alloc2>::value;
+
+  template<typename _Alloc>
+  template<typename _Alloc2>
+    const bool allocator_traits<_Alloc>::__select_helper<_Alloc2>::value;
 
   template<typename _Alloc>
     inline void
@@ -481,6 +508,56 @@ _GLIBCXX_ALLOC_TR_NESTED_TYPE(propagate_on_container_swap,
       typedef typename __traits::propagate_on_container_swap __pocs;
       __do_alloc_on_swap(__one, __two, __pocs());
     }
+
+  template<typename _Alloc>
+    class __is_copy_insertable_impl
+    {
+      typedef allocator_traits<_Alloc> _Traits;
+
+      template<typename _Up, typename
+	       = decltype(_Traits::construct(std::declval<_Alloc&>(),
+					     std::declval<_Up*>(),
+					     std::declval<const _Up&>()))>
+	static true_type
+	_M_select(int);
+
+      template<typename _Up>
+	static false_type
+	_M_select(...);
+
+    public:
+      typedef decltype(_M_select<typename _Alloc::value_type>(0)) type;
+    };
+
+  // true if _Alloc::value_type is CopyInsertable into containers using _Alloc
+  template<typename _Alloc>
+    struct __is_copy_insertable
+    : __is_copy_insertable_impl<_Alloc>::type
+    { };
+
+  // std::allocator<_Tp> just requires CopyConstructible
+  template<typename _Tp>
+    struct __is_copy_insertable<allocator<_Tp>>
+    : is_copy_constructible<_Tp>
+    { };
+
+  // Used to allow copy construction of unordered containers
+  template<bool> struct __allow_copy_cons { };
+
+  // Used to delete copy constructor of unordered containers
+  template<>
+    struct __allow_copy_cons<false>
+    {
+      __allow_copy_cons() = default;
+      __allow_copy_cons(const __allow_copy_cons&) = delete;
+      __allow_copy_cons(__allow_copy_cons&&) = default;
+      __allow_copy_cons& operator=(const __allow_copy_cons&) = default;
+      __allow_copy_cons& operator=(__allow_copy_cons&&) = default;
+    };
+
+  template<typename _Alloc>
+    using __check_copy_constructible
+      = __allow_copy_cons<__is_copy_insertable<_Alloc>::value>;
 
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace std

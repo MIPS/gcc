@@ -1,6 +1,5 @@
 /* Mudflap: narrow-pointer bounds-checking by tree rewriting.
-   Copyright (C) 2001, 2002, 2003, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Frank Ch. Eigler <fche@redhat.com>
 
 This file is part of GCC.
@@ -28,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "gimple.h"
 #include "hashtab.h"
-#include "output.h"
 #include "langhooks.h"
 #include "tree-mudflap.h"
 #include "tree-pass.h"
@@ -87,43 +85,79 @@ gate_mudflap (void)
   return flag_mudflap != 0;
 }
 
-struct gimple_opt_pass pass_mudflap_1 =
+namespace {
+
+const pass_data pass_data_mudflap_1 =
 {
- {
-  GIMPLE_PASS,
-  "mudflap1",				/* name */
-  gate_mudflap,                         /* gate */
-  NULL,					/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "mudflap1", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  false, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
 
-struct gimple_opt_pass pass_mudflap_2 =
+class pass_mudflap_1 : public gimple_opt_pass
 {
- {
-  GIMPLE_PASS,
-  "mudflap2",				/* name */
-  gate_mudflap,                         /* gate */
-  NULL,					/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+public:
+  pass_mudflap_1(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_mudflap_1, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_mudflap (); }
+
+}; // class pass_mudflap_1
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_mudflap_1 (gcc::context *ctxt)
+{
+  return new pass_mudflap_1 (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_mudflap_2 =
+{
+  GIMPLE_PASS, /* type */
+  "mudflap2", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  false, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_mudflap_2 : public gimple_opt_pass
+{
+public:
+  pass_mudflap_2(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_mudflap_2, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_mudflap (); }
+
+}; // class pass_mudflap_2
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_mudflap_2 (gcc::context *ctxt)
+{
+  return new pass_mudflap_2 (ctxt);
+}
 
 /* Instead of:
 #include "gt-tree-mudflap.h"

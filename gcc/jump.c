@@ -1,7 +1,5 @@
 /* Optimize jump instructions, for GNU compiler.
-   Copyright (C) 1987, 1988, 1989, 1991, 1992, 1993, 1994, 1995, 1996, 1997
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010,
-   2011 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -54,7 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "reload.h"
 #include "predict.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "target.h"
 
@@ -121,7 +118,7 @@ rebuild_jump_labels_chain (rtx chain)
    This simple pass moves barriers and removes duplicates so that the
    old code is happy.
  */
-unsigned int
+static unsigned int
 cleanup_barriers (void)
 {
   rtx insn, next, prev;
@@ -136,30 +133,48 @@ cleanup_barriers (void)
 	  if (BARRIER_P (prev))
 	    delete_insn (insn);
 	  else if (prev != PREV_INSN (insn))
-	    reorder_insns (insn, insn, prev);
+	    reorder_insns_nobb (insn, insn, prev);
 	}
     }
   return 0;
 }
 
-struct rtl_opt_pass pass_cleanup_barriers =
+namespace {
+
+const pass_data pass_data_cleanup_barriers =
 {
- {
-  RTL_PASS,
-  "barriers",                           /* name */
-  NULL,                                 /* gate */
-  cleanup_barriers,                     /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "barriers", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_cleanup_barriers : public rtl_opt_pass
+{
+public:
+  pass_cleanup_barriers(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_cleanup_barriers, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return cleanup_barriers (); }
+
+}; // class pass_cleanup_barriers
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_cleanup_barriers (gcc::context *ctxt)
+{
+  return new pass_cleanup_barriers (ctxt);
+}
 
 
 /* Initialize LABEL_NUSES and JUMP_LABEL fields, add REG_LABEL_TARGET
@@ -275,18 +290,12 @@ mark_all_labels (rtx f)
 	  /* In cfglayout mode, there may be non-insns between the
 	     basic blocks.  If those non-insns represent tablejump data,
 	     they contain label references that we must record.  */
-	  for (insn = bb->il.rtl->header; insn; insn = NEXT_INSN (insn))
-	    if (INSN_P (insn))
-	      {
-		gcc_assert (JUMP_TABLE_DATA_P (insn));
-		mark_jump_label (PATTERN (insn), insn, 0);
-	      }
-	  for (insn = bb->il.rtl->footer; insn; insn = NEXT_INSN (insn))
-	    if (INSN_P (insn))
-	      {
-		gcc_assert (JUMP_TABLE_DATA_P (insn));
-		mark_jump_label (PATTERN (insn), insn, 0);
-	      }
+	  for (insn = BB_HEADER (bb); insn; insn = NEXT_INSN (insn))
+	    if (JUMP_TABLE_DATA_P (insn))
+	      mark_jump_label (PATTERN (insn), insn, 0);
+	  for (insn = BB_FOOTER (bb); insn; insn = NEXT_INSN (insn))
+	    if (JUMP_TABLE_DATA_P (insn))
+	      mark_jump_label (PATTERN (insn), insn, 0);
 	}
     }
   else
@@ -298,6 +307,8 @@ mark_all_labels (rtx f)
 	    ;
 	  else if (LABEL_P (insn))
 	    prev_nonjump_insn = NULL;
+	  else if (JUMP_TABLE_DATA_P (insn))
+	    mark_jump_label (PATTERN (insn), insn, 0);
 	  else if (NONDEBUG_INSN_P (insn))
 	    {
 	      mark_jump_label (PATTERN (insn), insn, 0);
@@ -1079,8 +1090,6 @@ mark_jump_label_1 (rtx x, rtx insn, bool in_mem, bool is_target)
     case PC:
     case CC0:
     case REG:
-    case CONST_INT:
-    case CONST_DOUBLE:
     case CLOBBER:
     case CALL:
       return;
@@ -1167,8 +1176,8 @@ mark_jump_label_1 (rtx x, rtx insn, bool in_mem, bool is_target)
 	return;
       }
 
-  /* Do walk the labels in a vector, but not the first operand of an
-     ADDR_DIFF_VEC.  Don't set the JUMP_LABEL of a vector.  */
+    /* Do walk the labels in a vector, but not the first operand of an
+       ADDR_DIFF_VEC.  Don't set the JUMP_LABEL of a vector.  */
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
       if (! INSN_DELETED_P (insn))
@@ -1251,6 +1260,26 @@ delete_related_insns (rtx insn)
 
   if (next != 0 && BARRIER_P (next))
     delete_insn (next);
+
+  /* If this is a call, then we have to remove the var tracking note
+     for the call arguments.  */
+
+  if (CALL_P (insn)
+      || (NONJUMP_INSN_P (insn)
+	  && GET_CODE (PATTERN (insn)) == SEQUENCE
+	  && CALL_P (XVECEXP (PATTERN (insn), 0, 0))))
+    {
+      rtx p;
+
+      for (p = next && INSN_DELETED_P (next) ? NEXT_INSN (next) : next;
+	   p && NOTE_P (p);
+	   p = NEXT_INSN (p))
+	if (NOTE_KIND (p) == NOTE_INSN_CALL_ARG_LOCATION)
+	  {
+	    remove_insn (p);
+	    break;
+	  }
+    }
 
   /* If deleting a jump, decrement the count of the label,
      and delete the label if it is now unused.  */
@@ -1734,8 +1763,7 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
     case CC0:
     case ADDR_VEC:
     case ADDR_DIFF_VEC:
-    case CONST_INT:
-    case CONST_DOUBLE:
+    CASE_CONST_UNIQUE:
       return 0;
 
     case LABEL_REF:
@@ -1764,7 +1792,7 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
   if (GET_MODE (x) != GET_MODE (y))
     return 0;
 
-  /* MEMs refering to different address space are not equivalent.  */
+  /* MEMs referring to different address space are not equivalent.  */
   if (code == MEM && MEM_ADDR_SPACE (x) != MEM_ADDR_SPACE (y))
     return 0;
 
@@ -1799,8 +1827,7 @@ rtx_renumbered_equal_p (const_rtx x, const_rtx y)
 	  if (XINT (x, i) != XINT (y, i))
 	    {
 	      if (((code == ASM_OPERANDS && i == 6)
-		   || (code == ASM_INPUT && i == 1))
-		  && locator_eq (XINT (x, i), XINT (y, i)))
+		   || (code == ASM_INPUT && i == 1)))
 		break;
 	      return 0;
 	    }
@@ -1853,7 +1880,8 @@ true_regnum (const_rtx x)
 {
   if (REG_P (x))
     {
-      if (REGNO (x) >= FIRST_PSEUDO_REGISTER && reg_renumber[REGNO (x)] >= 0)
+      if (REGNO (x) >= FIRST_PSEUDO_REGISTER
+	  && (lra_in_progress || reg_renumber[REGNO (x)] >= 0))
 	return reg_renumber[REGNO (x)];
       return REGNO (x);
     }
@@ -1865,7 +1893,8 @@ true_regnum (const_rtx x)
 	{
 	  struct subreg_info info;
 
-	  subreg_get_info (REGNO (SUBREG_REG (x)),
+	  subreg_get_info (lra_in_progress
+			   ? (unsigned) base : REGNO (SUBREG_REG (x)),
 			   GET_MODE (SUBREG_REG (x)),
 			   SUBREG_BYTE (x), GET_MODE (x), &info);
 

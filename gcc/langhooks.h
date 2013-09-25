@@ -1,6 +1,5 @@
 /* The lang_hooks data structure.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,7 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
 
-/* This file should be #include-d after tree.h.  */
+/* FIXME: This file should be #include-d after tree.h (for enum tree_code).  */
 
 struct diagnostic_info;
 
@@ -41,13 +40,6 @@ enum classify_record
 struct lang_hooks_for_tree_inlining
 {
   bool (*var_mod_type_p) (tree, tree);
-};
-
-struct lang_hooks_for_callgraph
-{
-  /* The node passed is a language-specific tree node.  If its contents
-     are relevant to use of other declarations, mark them.  */
-  tree (*analyze_expr) (tree *, int *);
 };
 
 /* The following hooks are used by tree-dump.c.  */
@@ -407,8 +399,6 @@ struct lang_hooks
 
   struct lang_hooks_for_tree_inlining tree_inlining;
 
-  struct lang_hooks_for_callgraph callgraph;
-
   struct lang_hooks_for_tree_dump tree_dump;
 
   struct lang_hooks_for_decls decls;
@@ -417,8 +407,10 @@ struct lang_hooks
 
   struct lang_hooks_for_lto lto;
 
-  /* Returns the generic parameters of an instantiation of
-     a generic type or decl, e.g. C++ template instantiation.  */
+  /* Returns a TREE_VEC of the generic parameters of an instantiation of
+     a generic type or decl, e.g. C++ template instantiation.  If
+     TREE_CHAIN of the return value is set, it is an INTEGER_CST
+     indicating how many of the elements are non-default.  */
   tree (*get_innermost_generic_parms) (const_tree);
 
   /* Returns the TREE_VEC of arguments of an instantiation
@@ -464,6 +456,10 @@ struct lang_hooks
      `std::terminate', so the C++ version of this function returns a
      FUNCTION_DECL for `std::terminate'.  */
   tree (*eh_protect_cleanup_actions) (void);
+
+  /* Return true if a stmt can fallthru.  Used by block_may_fallthru
+     to possibly handle language trees.  */
+  bool (*block_may_fallthru) (const_tree);
 
   /* True if this language uses __cxa_end_cleanup when the ARM EABI
      is enabled.  */

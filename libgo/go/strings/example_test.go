@@ -59,7 +59,7 @@ func ExampleIndex() {
 	// -1
 }
 
-func ExampleRune() {
+func ExampleIndexRune() {
 	fmt.Println(strings.IndexRune("chicken", 'k'))
 	fmt.Println(strings.IndexRune("chicken", 'd'))
 	// Output:
@@ -178,4 +178,20 @@ func ExampleToUpper() {
 func ExampleToLower() {
 	fmt.Println(strings.ToLower("Gopher"))
 	// Output: gopher
+}
+
+func ExampleTrimSuffix() {
+	var s = "Hello, goodbye, etc!"
+	s = strings.TrimSuffix(s, "goodbye, etc!")
+	s = strings.TrimSuffix(s, "planet")
+	fmt.Print(s, "world!")
+	// Output: Hello, world!
+}
+
+func ExampleTrimPrefix() {
+	var s = "Goodbye,, world!"
+	s = strings.TrimPrefix(s, "Goodbye,")
+	s = strings.TrimPrefix(s, "Howdy,")
+	fmt.Print("Hello" + s)
+	// Output: Hello, world!
 }

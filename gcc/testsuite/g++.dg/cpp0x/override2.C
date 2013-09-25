@@ -18,7 +18,7 @@ template <class T> struct B4 final {};
 
 template <class T> struct B5 final {};
 
-struct undeclared<int> final { }; // { dg-error "not a template" }
+struct undeclared<int> final { }; // { dg-error "not a class template" }
 
 struct D5 : B3<D5> {};
 
@@ -44,7 +44,7 @@ int main()
   B2 final2 = final;
   struct B2 {}; // { dg-error "redefinition" }
   struct B2 final; // { dg-error "redeclaration" }
-  struct B2 override; // { dg-error "previously declared here" }
+  struct B2 override; // { dg-message "previously declared here" }
   struct B2 final {}; // { dg-error "redefinition" }
   struct B2 override {}; // { dg-error "cannot specify 'override' for a class" }
   B2 override{}; // { dg-error "redeclaration" }

@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -31,7 +31,6 @@
 #include "flags.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "output.h"
 #include "tree-inline.h"
 
 #include "ada.h"
@@ -442,7 +441,7 @@ compare_fat_pointers (location_t loc, tree result_type, tree p1, tree p2)
 
   /* The constant folder doesn't fold fat pointer types so we do it here.  */
   if (TREE_CODE (p1) == CONSTRUCTOR)
-    p1_array = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (p1), 0)->value;
+    p1_array = (*CONSTRUCTOR_ELTS (p1))[0].value;
   else
     p1_array = build_component_ref (p1, NULL_TREE,
 				    TYPE_FIELDS (TREE_TYPE (p1)), true);
@@ -453,7 +452,7 @@ compare_fat_pointers (location_t loc, tree result_type, tree p1, tree p2)
 					 null_pointer_node));
 
   if (TREE_CODE (p2) == CONSTRUCTOR)
-    p2_array = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (p2), 0)->value;
+    p2_array = (*CONSTRUCTOR_ELTS (p2))[0].value;
   else
     p2_array = build_component_ref (p2, NULL_TREE,
 				    TYPE_FIELDS (TREE_TYPE (p2)), true);
@@ -474,14 +473,14 @@ compare_fat_pointers (location_t loc, tree result_type, tree p1, tree p2)
     = fold_build2_loc (loc, EQ_EXPR, result_type, p1_array, p2_array);
 
   if (TREE_CODE (p1) == CONSTRUCTOR)
-    p1_bounds = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (p1), 1)->value;
+    p1_bounds = (*CONSTRUCTOR_ELTS (p1))[1].value;
   else
     p1_bounds
       = build_component_ref (p1, NULL_TREE,
 			     DECL_CHAIN (TYPE_FIELDS (TREE_TYPE (p1))), true);
 
   if (TREE_CODE (p2) == CONSTRUCTOR)
-    p2_bounds = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (p2), 1)->value;
+    p2_bounds = (*CONSTRUCTOR_ELTS (p2))[1].value;
   else
     p2_bounds
       = build_component_ref (p2, NULL_TREE,
@@ -649,11 +648,11 @@ build_atomic_load (tree src)
       (build_qualified_type (void_type_node, TYPE_QUAL_VOLATILE));
   tree mem_model = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
   tree orig_src = src;
-  tree type = TREE_TYPE (src);
-  tree t, val;
+  tree t, addr, val;
   unsigned int size;
   int fncode;
 
+  /* Remove conversions to get the address of the underlying object.  */
   src = remove_conversions (src, false);
   size = resolve_atomic_size (TREE_TYPE (src));
   if (size == 0)
@@ -662,10 +661,13 @@ build_atomic_load (tree src)
   fncode = (int) BUILT_IN_ATOMIC_LOAD_N + exact_log2 (size) + 1;
   t = builtin_decl_implicit ((enum built_in_function) fncode);
 
-  src = build_unary_op (ADDR_EXPR, ptr_type, src);
-  val = build_call_expr (t, 2, src, mem_model);
+  addr = build_unary_op (ADDR_EXPR, ptr_type, src);
+  val = build_call_expr (t, 2, addr, mem_model);
 
-  return unchecked_convert (type, val, true);
+  /* First reinterpret the loaded bits in the original type of the load,
+     then convert to the expected result type.  */
+  t = fold_build1 (VIEW_CONVERT_EXPR, TREE_TYPE (src), val);
+  return convert (TREE_TYPE (orig_src), t);
 }
 
 /* Build an atomic store from SRC to the underlying atomic object in DEST.  */
@@ -678,10 +680,11 @@ build_atomic_store (tree dest, tree src)
       (build_qualified_type (void_type_node, TYPE_QUAL_VOLATILE));
   tree mem_model = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
   tree orig_dest = dest;
-  tree t, int_type;
+  tree t, int_type, addr;
   unsigned int size;
   int fncode;
 
+  /* Remove conversions to get the address of the underlying object.  */
   dest = remove_conversions (dest, false);
   size = resolve_atomic_size (TREE_TYPE (dest));
   if (size == 0)
@@ -691,10 +694,20 @@ build_atomic_store (tree dest, tree src)
   t = builtin_decl_implicit ((enum built_in_function) fncode);
   int_type = gnat_type_for_size (BITS_PER_UNIT * size, 1);
 
-  dest = build_unary_op (ADDR_EXPR, ptr_type, dest);
-  src = unchecked_convert (int_type, src, true);
+  /* First convert the bits to be stored to the original type of the store,
+     then reinterpret them in the effective type.  But if the original type
+     is a padded type with the same size, convert to the inner type instead,
+     as we don't want to artificially introduce a CONSTRUCTOR here.  */
+  if (TYPE_IS_PADDING_P (TREE_TYPE (dest))
+      && TYPE_SIZE (TREE_TYPE (dest))
+	 == TYPE_SIZE (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (dest)))))
+    src = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (dest))), src);
+  else
+    src = convert (TREE_TYPE (dest), src);
+  src = fold_build1 (VIEW_CONVERT_EXPR, int_type, src);
+  addr = build_unary_op (ADDR_EXPR, ptr_type, dest);
 
-  return build_call_expr (t, 3, dest, src, mem_model);
+  return build_call_expr (t, 3, addr, src, mem_model);
 }
 
 /* Make a binary operation of kind OP_CODE.  RESULT_TYPE is the type
@@ -789,16 +802,28 @@ build_binary_op (enum tree_code op_code, tree result_type,
       else if (TYPE_IS_PADDING_P (left_type)
 	       && TREE_CONSTANT (TYPE_SIZE (left_type))
 	       && ((TREE_CODE (right_operand) == COMPONENT_REF
-		    && TYPE_IS_PADDING_P
-		       (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-		    && gnat_types_compatible_p
-		       (left_type,
-			TREE_TYPE (TREE_OPERAND (right_operand, 0))))
+		    && TYPE_MAIN_VARIANT (left_type)
+		       == TYPE_MAIN_VARIANT
+			  (TREE_TYPE (TREE_OPERAND (right_operand, 0))))
 		   || (TREE_CODE (right_operand) == CONSTRUCTOR
 		       && !CONTAINS_PLACEHOLDER_P
 			   (DECL_SIZE (TYPE_FIELDS (left_type)))))
 	       && !integer_zerop (TYPE_SIZE (right_type)))
-	operation_type = left_type;
+	{
+	  /* We make an exception for a BLKmode type padding a non-BLKmode
+	     inner type and do the conversion of the LHS right away, since
+	     unchecked_convert wouldn't do it properly.  */
+	  if (TYPE_MODE (left_type) == BLKmode
+	      && TYPE_MODE (right_type) != BLKmode
+	      && TREE_CODE (right_operand) != CONSTRUCTOR)
+	    {
+	      operation_type = right_type;
+	      left_operand = convert (operation_type, left_operand);
+	      left_type = operation_type;
+	    }
+	  else
+	    operation_type = left_type;
+	}
 
       /* If we have a call to a function that returns an unconstrained type
 	 with default discriminant on the RHS, use the RHS type (which is
@@ -1323,9 +1348,7 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	     a pointer to our type.  */
 	  if (TYPE_IS_PADDING_P (type))
 	    {
-	      result = VEC_index (constructor_elt,
-				  CONSTRUCTOR_ELTS (operand),
-				  0)->value;
+	      result = (*CONSTRUCTOR_ELTS (operand))[0].value;
 	      result = convert (build_pointer_type (TREE_TYPE (operand)),
 				build_unary_op (ADDR_EXPR, NULL_TREE, result));
 	      break;
@@ -1396,9 +1419,8 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	    tree rec_type = TREE_TYPE (type);
 
 	    if (TREE_CODE (operand) == POINTER_PLUS_EXPR
-		&& integer_zerop
-		   (size_binop (PLUS_EXPR, TREE_OPERAND (operand, 1),
-				DECL_FIELD_OFFSET (TYPE_FIELDS (rec_type))))
+		&& TREE_OPERAND (operand, 1)
+		   == byte_position (DECL_CHAIN (TYPE_FIELDS (rec_type)))
 		&& TREE_CODE (TREE_OPERAND (operand, 0)) == NOP_EXPR)
 	      {
 		operand = TREE_OPERAND (TREE_OPERAND (operand, 0), 0);
@@ -1821,7 +1843,7 @@ compare_elmt_bitpos (const PTR rt1, const PTR rt2)
 /* Return a CONSTRUCTOR of TYPE whose elements are V.  */
 
 tree
-gnat_build_constructor (tree type, VEC(constructor_elt,gc) *v)
+gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v)
 {
   bool allconstant = (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST);
   bool side_effects = false;
@@ -1849,7 +1871,7 @@ gnat_build_constructor (tree type, VEC(constructor_elt,gc) *v)
      by increasing bit position.  This is necessary to ensure the
      constructor can be output as static data.  */
   if (allconstant && TREE_CODE (type) == RECORD_TYPE && n_elmts > 1)
-    VEC_qsort (constructor_elt, v, compare_elmt_bitpos);
+    v->qsort (compare_elmt_bitpos);
 
   result = build_constructor (type, v);
   TREE_CONSTANT (result) = TREE_STATIC (result) = allconstant;
@@ -1894,7 +1916,7 @@ build_simple_component_ref (tree record_variable, tree component,
     {
       tree new_field;
 
-      /* First loop thru normal components.  */
+      /* First loop through normal components.  */
       for (new_field = TYPE_FIELDS (record_type);
 	   new_field;
 	   new_field = DECL_CHAIN (new_field))
@@ -1902,10 +1924,12 @@ build_simple_component_ref (tree record_variable, tree component,
 	  break;
 
       /* Next, see if we're looking for an inherited component in an extension.
-	 If so, look thru the extension directly.  */
+	 If so, look through the extension directly, but not if the type contains
+	 a placeholder, as it might be needed for a later substitution.  */
       if (!new_field
 	  && TREE_CODE (record_variable) == VIEW_CONVERT_EXPR
 	  && TYPE_ALIGN_OK (record_type)
+	  && !type_contains_placeholder_p (record_type)
 	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (record_variable, 0)))
 	     == RECORD_TYPE
 	  && TYPE_ALIGN_OK (TREE_TYPE (TREE_OPERAND (record_variable, 0))))
@@ -1916,7 +1940,7 @@ build_simple_component_ref (tree record_variable, tree component,
 	    return ref;
 	}
 
-      /* Next, loop thru DECL_INTERNAL_P components if we haven't found the
+      /* Next, loop through DECL_INTERNAL_P components if we haven't found the
 	 component in the first search.  Doing this search in two steps is
 	 required to avoid hidden homonymous fields in the _Parent field.  */
       if (!new_field)
@@ -1977,7 +2001,7 @@ build_simple_component_ref (tree record_variable, tree component,
   if (TREE_CODE (record_variable) == CONSTRUCTOR
       && TYPE_CONTAINS_TEMPLATE_P (TREE_TYPE (record_variable)))
     {
-      VEC(constructor_elt,gc) *elts = CONSTRUCTOR_ELTS (record_variable);
+      vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (record_variable);
       unsigned HOST_WIDE_INT idx;
       tree index, value;
       FOR_EACH_CONSTRUCTOR_ELT (elts, idx, index, value)
@@ -2091,7 +2115,8 @@ maybe_wrap_malloc (tree data_size, tree data_type, Node_Id gnat_node)
     = ((data_align > system_allocator_alignment)
        ? make_aligning_type (data_type, data_align, data_size,
 			     system_allocator_alignment,
-			     POINTER_SIZE / BITS_PER_UNIT)
+			     POINTER_SIZE / BITS_PER_UNIT,
+			     gnat_node)
        : NULL_TREE);
 
   tree size_to_malloc
@@ -2276,8 +2301,8 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 					     init);
 
       /* If the size overflows, pass -1 so Storage_Error will be raised.  */
-      if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
-	size = ssize_int (-1);
+      if (TREE_CODE (size) == INTEGER_CST && !valid_constant_size_p (size))
+	size = size_int (-1);
 
       storage = build_call_alloc_dealloc (NULL_TREE, size, storage_type,
 					  gnat_proc, gnat_pool, gnat_node);
@@ -2290,7 +2315,8 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 	 If there is no initializing expression, just set the bounds.  */
       if (init)
 	{
-	  VEC(constructor_elt,gc) *v = VEC_alloc (constructor_elt, gc, 2);
+	  vec<constructor_elt, va_gc> *v;
+	  vec_alloc (v, 2);
 
 	  CONSTRUCTOR_APPEND_ELT (v, TYPE_FIELDS (storage_type),
 				  build_template (template_type, type, init));
@@ -2334,8 +2360,8 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
     }
 
   /* If the size overflows, pass -1 so Storage_Error will be raised.  */
-  if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
-    size = ssize_int (-1);
+  if (TREE_CODE (size) == INTEGER_CST && !valid_constant_size_p (size))
+    size = size_int (-1);
 
   storage = convert (result_type,
 		     build_call_alloc_dealloc (NULL_TREE, size, type,
@@ -2632,10 +2658,7 @@ gnat_stabilize_reference (tree ref, bool force, bool *success)
       result = build3 (BIT_FIELD_REF, type,
 		       gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
 						 success),
-		       gnat_stabilize_reference_1 (TREE_OPERAND (ref, 1),
-						   force),
-		       gnat_stabilize_reference_1 (TREE_OPERAND (ref, 2),
-						   force));
+		       TREE_OPERAND (ref, 1), TREE_OPERAND (ref, 2));
       break;
 
     case ARRAY_REF:
@@ -2664,12 +2687,10 @@ gnat_stabilize_reference (tree ref, bool force, bool *success)
       /* Constructors with 1 element are used extensively to formally
 	 convert objects to special wrapping types.  */
       if (TREE_CODE (type) == RECORD_TYPE
-	  && VEC_length (constructor_elt, CONSTRUCTOR_ELTS (ref)) == 1)
+	  && vec_safe_length (CONSTRUCTOR_ELTS (ref)) == 1)
 	{
-	  tree index
-	    = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (ref), 0)->index;
-	  tree value
-	    = VEC_index (constructor_elt, CONSTRUCTOR_ELTS (ref), 0)->value;
+	  tree index = (*CONSTRUCTOR_ELTS (ref))[0].index;
+	  tree value = (*CONSTRUCTOR_ELTS (ref))[0].value;
 	  result
 	    = build_constructor_single (type, index,
 					gnat_stabilize_reference_1 (value,

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -100,8 +100,8 @@ package body Debug is
    --  d.g  Enable conversion of raise into goto
    --  d.h
    --  d.i  Ignore Warnings pragmas
-   --  d.j
-   --  d.k
+   --  d.j  Generate listing of frontend inlined calls
+   --  d.k  Enable new support for frontend inlining
    --  d.l  Use Ada 95 semantics for limited function returns
    --  d.m  For -gnatl, print full source only for main unit
    --  d.n  Print source file names
@@ -121,29 +121,29 @@ package body Debug is
    --  d.A  Read/write Aspect_Specifications hash table to tree
    --  d.B
    --  d.C  Generate concatenation call, do not generate inline code
-   --  d.D  Strict Alfa mode
-   --  d.E  Force Alfa mode for gnat2why
-   --  d.F  Alfa mode
-   --  d.G  Precondition only mode for gnat2why
+   --  d.D  SPARK strict mode
+   --  d.E  Force SPARK mode for gnat2why
+   --  d.F  SPARK mode
+   --  d.G  Frame condition mode for gnat2why
    --  d.H  Standard package only mode for gnat2why
-   --  d.I  SCIL generation mode
+   --  d.I  Do not ignore enum representation clauses in CodePeer mode
    --  d.J  Disable parallel SCIL generation mode
-   --  d.K  Alfa detection only mode for gnat2why
-   --  d.L  Depend on back end for limited types in conditional expressions
-   --  d.M
-   --  d.N
+   --  d.K  SPARK detection only mode for gnat2why
+   --  d.L  Depend on back end for limited types in if and case expressions
+   --  d.M  Relaxed RM semantics
+   --  d.N  Add node to all entities
    --  d.O  Dump internal SCO tables
    --  d.P  Previous (non-optimized) handling of length comparisons
-   --  d.Q
-   --  d.R
+   --  d.Q  Flow Analysis mode for gnat2why
+   --  d.R  Restrictions in ali files in positional form
    --  d.S  Force Optimize_Alignment (Space)
    --  d.T  Force Optimize_Alignment (Time)
-   --  d.U
-   --  d.V
+   --  d.U  Ignore indirect calls for static elaboration
+   --  d.V  Extensions for formal verification
    --  d.W  Print out debugging information for Walk_Library_Items
-   --  d.X  Use Expression_With_Actions
-   --  d.Y  Do not use Expression_With_Actions
-   --  d.Z
+   --  d.X
+   --  d.Y
+   --  d.Z  Dump flow analysis graphs, for debugging purposes (gnat2why)
 
    --  d1   Error msgs have node numbers where possible
    --  d2   Eliminate error flags in verbose form error messages
@@ -153,7 +153,7 @@ package body Debug is
    --  d6   Default access unconstrained to thin pointers
    --  d7   Do not output version & file time stamp in -gnatv or -gnatl mode
    --  d8   Force opposite endianness in packed stuff
-   --  d9
+   --  d9   Allow lock free implementation
 
    --  Debug flags for binder (GNATBIND)
 
@@ -533,6 +533,13 @@ package body Debug is
    --       be used in particular to disable Warnings (Off) to check if any of
    --       these statements are inappropriate.
 
+   --  d.j  Generate listing of frontend inlined calls and inline calls passed
+   --       to the backend. This is useful to locate skipped calls that must be
+   --       inlined by the frontend.
+
+   --  d.k  Enable new semantics of frontend inlining.  This is useful to test
+   --       this new feature in all the platforms.
+
    --  d.l  Use Ada 95 semantics for limited function returns. This may be
    --       used to work around the incompatibility introduced by AI-318-2.
    --       It is useful only in -gnat05 mode.
@@ -587,40 +594,50 @@ package body Debug is
    --  d.C  Generate call to System.Concat_n.Str_Concat_n routines in cases
    --       where we would normally generate inline concatenation code.
 
-   --  d.D  Strict Alfa mode. Interpret compiler permissions as strictly as
-   --       possible in Alfa mode.
+   --  d.D  SPARK strict mode. Interpret compiler permissions as strictly as
+   --       possible in SPARK mode.
 
-   --  d.E  Force Alfa mode for gnat2why. In this mode, errors are issued for
-   --       all violations of Alfa in user code, and warnings are issued for
+   --  d.E  Force SPARK mode for gnat2why. In this mode, errors are issued for
+   --       all violations of SPARK in user code, and warnings are issued for
    --       constructs not yet implemented in gnat2why.
 
-   --  d.F  Alfa mode. Generate AST in a form suitable for formal verification,
-   --       as well as additional cross reference information in ALI files to
-   --       compute effects of subprograms.
+   --  d.F  SPARK mode. Generate AST in a form suitable for formal
+   --       verification, as well as additional cross reference information in
+   --       ALI files to compute effects of subprograms. Note that ALI files
+   --       are only written when option d.G is also given.
 
-   --  d.G  Precondition only mode for gnat2why. In this mode, gnat2why will
-   --       only generate Why code that checks for the well-guardedness of
-   --       preconditions.
+   --  d.G  Frame condition mode for gnat2why. In this mode, gnat2why will not
+   --       generate Why code. Instead, it generates ALI files with an extra
+   --       section which contains the effects of subprograms.
 
    --  d.H  Standard package only mode for gnat2why. In this mode, gnat2why
    --       will only generate Why code for package Standard. Any given input
    --       file will be ignored.
 
-   --  d.I  Generate SCIL mode. Generate intermediate code for the sake of
-   --       of static analysis tools, and ensure additional tree consistency
-   --       between different compilations of specs.
+   --  d.I  Do not ignore enum representation clauses in CodePeer mode.
+   --       The default of ignoring representation clauses for enumeration
+   --       types in CodePeer is good for the majority of Ada code, but in some
+   --       cases being able to change this default might be useful to remove
+   --       some false positives.
 
    --  d.J  Disable parallel SCIL generation. Normally SCIL file generation is
    --       done in parallel to speed processing. This switch disables this
    --       behavior.
 
-   --  d.K  Alfa detection only mode for gnat2why. In this mode, gnat2why
-   --       will only generate the .alfa file, but no Why code.
+   --  d.K  SPARK detection only mode for gnat2why. In this mode, gnat2why
+   --       does not generate Why code.
 
    --  d.L  Normally the front end generates special expansion for conditional
    --       expressions of a limited type. This debug flag removes this special
    --       case expansion, leaving it up to the back end to handle conditional
    --       expressions correctly.
+
+   --  d.M  Relaxed RM semantics. This flag sets Opt.Relaxed_RM_Semantics
+   --       See Opt.Relaxed_RM_Semantics for more details.
+
+   --  d.N  Enlarge entities by one node (but don't attempt to use this extra
+   --       node for storage of any flags or fields). This can be used to do
+   --       experiments on the impact of increasing entity sizes.
 
    --  d.O  Dump internal SCO tables. Before outputting the SCO information to
    --       the ALI file, the internal SCO tables (SCO_Table/SCO_Unit_Table)
@@ -631,21 +648,37 @@ package body Debug is
    --       This is there in case we find a situation where the optimization
    --       malfunctions, to provide a work around.
 
+   --  d.Q  Flow Analysis mode for gnat2why. When this flag is given,
+   --       gnat2why will do flow analysis, and no translation to Why is done.
+
+   --  d.R  As documented in lib-writ.ads, restrictions in the ali file can
+   --       have two forms, positional and named. The named notation is the
+   --       current preferred form, but the use of this debug switch will force
+   --       the use of the obsolescent positional form.
+
    --  d.S  Force Optimize_Alignment (Space) mode as the default
 
    --  d.T  Force Optimize_Alignment (Time) mode as the default
+
+   --  d.U  Ignore indirect calls for static elaboration. The static
+   --       elaboration model is conservative, especially regarding indirect
+   --       calls. If you say Proc'Access, it will assume you might call
+   --       Proc. This can cause elaboration cycles at bind time. This flag
+   --       reverts to the behavior of earlier compilers, which ignored
+   --       indirect calls.
+
+   --  d.V  Extensions for formal verification. New attributes/aspects/pragmas
+   --       defined in GNAT for formal verification with the tool GNATprove are
+   --       only accepted under this switch.
 
    --  d.W  Print out debugging information for Walk_Library_Items, including
    --       the order in which units are walked. This is primarily for use in
    --       debugging CodePeer mode.
 
-   --  d.X  By default, the compiler uses an elaborate rewriting framework for
-   --       short-circuited forms where the right hand condition generates
-   --       actions to be inserted. With the gcc backend, we now use the new
-   --       N_Expression_With_Actions node for this expansion, but we still use
-   --       the old method for other backends and in SCIL mode. This debug flag
-   --       forces use of the new N_Expression_With_Actions node in these other
-   --       cases and is intended for transitional use.
+   --  d.Z  In gnat2why, in Flow analysis mode (-gnatd.Q), dump the different
+   --       graphs (control flow, control dependence) for debugging purposes.
+   --       This debug flag will be removed when flow analysis is sufficiently
+   --       stable.
 
    --  d.Y  Prevents the use of the N_Expression_With_Actions node even in the
    --       case of the gcc back end. Provided as a back up in case the new
@@ -691,6 +724,9 @@ package body Debug is
    --  d8   This forces the packed stuff to generate code assuming the
    --       opposite endianness from the actual correct value. Useful in
    --       testing out code generation from the packed routines.
+
+   --  d9   This allows lock free implementation for protected objects
+   --       (see Exp_Ch9).
 
    ------------------------------------------
    -- Documentation for Binder Debug Flags --

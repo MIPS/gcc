@@ -54,6 +54,7 @@ func TestDetectContentType(t *testing.T) {
 }
 
 func TestServerContentType(t *testing.T) {
+	defer afterTest(t)
 	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
 		i, _ := strconv.Atoi(r.FormValue("i"))
 		tt := sniffTests[i]
@@ -84,6 +85,8 @@ func TestServerContentType(t *testing.T) {
 }
 
 func TestContentTypeWithCopy(t *testing.T) {
+	defer afterTest(t)
+
 	const (
 		input    = "\n<html>\n\t<head>\n"
 		expected = "text/html; charset=utf-8"
@@ -116,6 +119,7 @@ func TestContentTypeWithCopy(t *testing.T) {
 }
 
 func TestSniffWriteSize(t *testing.T) {
+	defer afterTest(t)
 	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
 		size, _ := strconv.Atoi(r.FormValue("size"))
 		written, err := io.WriteString(w, strings.Repeat("a", size))
@@ -129,9 +133,15 @@ func TestSniffWriteSize(t *testing.T) {
 	}))
 	defer ts.Close()
 	for _, size := range []int{0, 1, 200, 600, 999, 1000, 1023, 1024, 512 << 10, 1 << 20} {
-		_, err := Get(fmt.Sprintf("%s/?size=%d", ts.URL, size))
+		res, err := Get(fmt.Sprintf("%s/?size=%d", ts.URL, size))
 		if err != nil {
 			t.Fatalf("size %d: %v", size, err)
+		}
+		if _, err := io.Copy(ioutil.Discard, res.Body); err != nil {
+			t.Fatalf("size %d: io.Copy of body = %v", size, err)
+		}
+		if err := res.Body.Close(); err != nil {
+			t.Fatalf("size %d: body Close = %v", size, err)
 		}
 	}
 }

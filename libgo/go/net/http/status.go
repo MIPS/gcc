@@ -43,6 +43,7 @@ const (
 	StatusUnsupportedMediaType         = 415
 	StatusRequestedRangeNotSatisfiable = 416
 	StatusExpectationFailed            = 417
+	StatusTeapot                       = 418
 
 	StatusInternalServerError     = 500
 	StatusNotImplemented          = 501
@@ -50,6 +51,13 @@ const (
 	StatusServiceUnavailable      = 503
 	StatusGatewayTimeout          = 504
 	StatusHTTPVersionNotSupported = 505
+
+	// New HTTP status codes from RFC 6585. Not exported yet in Go 1.1.
+	// See discussion at https://codereview.appspot.com/7678043/
+	statusPreconditionRequired          = 428
+	statusTooManyRequests               = 429
+	statusRequestHeaderFieldsTooLarge   = 431
+	statusNetworkAuthenticationRequired = 511
 )
 
 var statusText = map[int]string{
@@ -90,6 +98,7 @@ var statusText = map[int]string{
 	StatusUnsupportedMediaType:         "Unsupported Media Type",
 	StatusRequestedRangeNotSatisfiable: "Requested Range Not Satisfiable",
 	StatusExpectationFailed:            "Expectation Failed",
+	StatusTeapot:                       "I'm a teapot",
 
 	StatusInternalServerError:     "Internal Server Error",
 	StatusNotImplemented:          "Not Implemented",
@@ -97,6 +106,11 @@ var statusText = map[int]string{
 	StatusServiceUnavailable:      "Service Unavailable",
 	StatusGatewayTimeout:          "Gateway Timeout",
 	StatusHTTPVersionNotSupported: "HTTP Version Not Supported",
+
+	statusPreconditionRequired:          "Precondition Required",
+	statusTooManyRequests:               "Too Many Requests",
+	statusRequestHeaderFieldsTooLarge:   "Request Header Fields Too Large",
+	statusNetworkAuthenticationRequired: "Network Authentication Required",
 }
 
 // StatusText returns a text for the HTTP status code. It returns the empty

@@ -43,7 +43,7 @@ runtime_lock(Lock *l)
 		runtime_throw("runtime_lock: lock count");
 
 	// Speculative grab for lock.
-	if(runtime_casp(&l->waitm, nil, (void*)LOCKED))
+	if(runtime_casp((void**)&l->key, nil, (void*)LOCKED))
 		return;
 
 	if(m->waitsema == 0)
@@ -56,10 +56,10 @@ runtime_lock(Lock *l)
 		spin = ACTIVE_SPIN;
 
 	for(i=0;; i++) {
-		v = (uintptr)runtime_atomicloadp(&l->waitm);
+		v = (uintptr)runtime_atomicloadp((void**)&l->key);
 		if((v&LOCKED) == 0) {
 unlocked:
-			if(runtime_casp(&l->waitm, (void*)v, (void*)(v|LOCKED)))
+			if(runtime_casp((void**)&l->key, (void*)v, (void*)(v|LOCKED)))
 				return;
 			i = 0;
 		}
@@ -74,9 +74,9 @@ unlocked:
 			// Queue this M.
 			for(;;) {
 				m->nextwaitm = (void*)(v&~LOCKED);
-				if(runtime_casp(&l->waitm, (void*)v, (void*)((uintptr)m|LOCKED)))
+				if(runtime_casp((void**)&l->key, (void*)v, (void*)((uintptr)m|LOCKED)))
 					break;
-				v = (uintptr)runtime_atomicloadp(&l->waitm);
+				v = (uintptr)runtime_atomicloadp((void**)&l->key);
 				if((v&LOCKED) == 0)
 					goto unlocked;
 			}
@@ -99,15 +99,15 @@ runtime_unlock(Lock *l)
 		runtime_throw("runtime_unlock: lock count");
 
 	for(;;) {
-		v = (uintptr)runtime_atomicloadp(&l->waitm);
+		v = (uintptr)runtime_atomicloadp((void**)&l->key);
 		if(v == LOCKED) {
-			if(runtime_casp(&l->waitm, (void*)LOCKED, nil))
+			if(runtime_casp((void**)&l->key, (void*)LOCKED, nil))
 				break;
 		} else {
 			// Other M's are waiting for the lock.
 			// Dequeue an M.
 			mp = (void*)(v&~LOCKED);
-			if(runtime_casp(&l->waitm, (void*)v, mp->nextwaitm)) {
+			if(runtime_casp((void**)&l->key, (void*)v, mp->nextwaitm)) {
 				// Dequeued an M.  Wake it.
 				runtime_semawakeup(mp);
 				break;
@@ -120,7 +120,7 @@ runtime_unlock(Lock *l)
 void
 runtime_noteclear(Note *n)
 {
-	n->waitm = nil;
+	n->key = 0;
 }
 
 void
@@ -129,8 +129,8 @@ runtime_notewakeup(Note *n)
 	M *mp;
 
 	do
-		mp = runtime_atomicloadp(&n->waitm);
-	while(!runtime_casp(&n->waitm, mp, (void*)LOCKED));
+		mp = runtime_atomicloadp((void**)&n->key);
+	while(!runtime_casp((void**)&n->key, mp, (void*)LOCKED));
 
 	// Successfully set waitm to LOCKED.
 	// What was it before?
@@ -153,13 +153,17 @@ runtime_notesleep(Note *n)
 	m = runtime_m();
 	if(m->waitsema == 0)
 		m->waitsema = runtime_semacreate();
-	if(!runtime_casp(&n->waitm, nil, m)) {  // must be LOCKED (got wakeup)
-		if(n->waitm != (void*)LOCKED)
+	if(!runtime_casp((void**)&n->key, nil, m)) {  // must be LOCKED (got wakeup)
+		if(n->key != LOCKED)
 			runtime_throw("notesleep - waitm out of sync");
 		return;
 	}
 	// Queued.  Sleep.
+	if(m->profilehz > 0)
+		runtime_setprof(false);
 	runtime_semasleep(-1);
+	if(m->profilehz > 0)
+		runtime_setprof(true);
 }
 
 void
@@ -179,18 +183,22 @@ runtime_notetsleep(Note *n, int64 ns)
 		m->waitsema = runtime_semacreate();
 
 	// Register for wakeup on n->waitm.
-	if(!runtime_casp(&n->waitm, nil, m)) {  // must be LOCKED (got wakeup already)
-		if(n->waitm != (void*)LOCKED)
+	if(!runtime_casp((void**)&n->key, nil, m)) {  // must be LOCKED (got wakeup already)
+		if(n->key != LOCKED)
 			runtime_throw("notetsleep - waitm out of sync");
 		return;
 	}
 
+	if(m->profilehz > 0)
+		runtime_setprof(false);
 	deadline = runtime_nanotime() + ns;
 	for(;;) {
 		// Registered.  Sleep.
 		if(runtime_semasleep(ns) >= 0) {
 			// Acquired semaphore, semawakeup unregistered us.
 			// Done.
+			if(m->profilehz > 0)
+				runtime_setprof(true);
 			return;
 		}
 
@@ -203,15 +211,18 @@ runtime_notetsleep(Note *n, int64 ns)
 		ns = deadline - now;
 	}
 
+	if(m->profilehz > 0)
+		runtime_setprof(true);
+
 	// Deadline arrived.  Still registered.  Semaphore not acquired.
 	// Want to give up and return, but have to unregister first,
 	// so that any notewakeup racing with the return does not
 	// try to grant us the semaphore when we don't expect it.
 	for(;;) {
-		mp = runtime_atomicloadp(&n->waitm);
+		mp = runtime_atomicloadp((void**)&n->key);
 		if(mp == m) {
 			// No wakeup yet; unregister if possible.
-			if(runtime_casp(&n->waitm, mp, nil))
+			if(runtime_casp((void**)&n->key, mp, nil))
 				return;
 		} else if(mp == (M*)LOCKED) {
 			// Wakeup happened so semaphore is available.

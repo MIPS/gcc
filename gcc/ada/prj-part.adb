@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Atree;    use Atree;
 with Err_Vars; use Err_Vars;
 with Opt;      use Opt;
 with Osint;    use Osint;
@@ -190,7 +191,8 @@ package body Prj.Part is
       Depth             : Natural;
       Current_Dir       : String;
       Is_Config_File    : Boolean;
-      Env               : in out Environment);
+      Env               : in out Environment;
+      Implicit_Project  : Boolean := False);
    --  Parse a project file. This is a recursive procedure: it calls itself for
    --  imported and extended projects. When From_Extended is not None, if the
    --  project has already been parsed and is an extended project A, return the
@@ -200,6 +202,10 @@ package body Prj.Part is
    --
    --  Is_Config_File should be set to True if the project represents a config
    --  file (.cgpr) since some specific checks apply.
+   --
+   --  If Implicit_Project is True, change the Directory of the project node
+   --  to be the Current_Dir. Recursive calls to Parse_Single_Project are
+   --  always done with the default False value for Implicit_Project.
 
    procedure Pre_Parse_Context_Clause
      (In_Tree        : Project_Node_Tree_Ref;
@@ -216,6 +222,7 @@ package body Prj.Part is
    procedure Post_Parse_Context_Clause
      (Context_Clause    : With_Id;
       In_Tree           : Project_Node_Tree_Ref;
+      In_Limited        : Boolean;
       Limited_Withs     : Boolean;
       Imported_Projects : in out Project_Node_Id;
       Project_Directory : Path_Name_Type;
@@ -227,10 +234,12 @@ package body Prj.Part is
       Env               : in out Environment);
    --  Parse the imported projects that have been stored in table Withs, if
    --  any. From_Extended is used for the call to Parse_Single_Project below.
+   --
    --  When In_Limited is True, the importing path includes at least one
    --  "limited with". When Limited_Withs is False, only non limited withed
    --  projects are parsed. When Limited_Withs is True, only limited withed
    --  projects are parsed.
+   --
    --  Is_Config_File should be set to True if the project represents a config
    --  file (.cgpr) since some specific checks apply.
 
@@ -526,7 +535,8 @@ package body Prj.Part is
       Current_Directory : String := "";
       Is_Config_File    : Boolean;
       Env               : in out Prj.Tree.Environment;
-      Target_Name       : String := "")
+      Target_Name       : String := "";
+      Implicit_Project  : Boolean := False)
    is
       Dummy : Boolean;
       pragma Warnings (Off, Dummy);
@@ -594,7 +604,8 @@ package body Prj.Part is
             Depth             => 0,
             Current_Dir       => Current_Directory,
             Is_Config_File    => Is_Config_File,
-            Env               => Env);
+            Env               => Env,
+            Implicit_Project  => Implicit_Project);
 
       exception
          when Types.Unrecoverable_Error =>
@@ -636,9 +647,7 @@ package body Prj.Part is
 
          --  Now, check the projects directly imported by the main project.
          --  Remove from the potentially virtual any project extended by one
-         --  of these imported projects. For non extending imported projects,
-         --  check that they do not belong to the project tree of the project
-         --  being "extended-all" by the main project.
+         --  of these imported projects.
 
          declare
             With_Clause : Project_Node_Id;
@@ -689,7 +698,7 @@ package body Prj.Part is
       --  If there were any kind of error during the parsing, serious
       --  or not, then the parsing fails.
 
-      if Err_Vars.Total_Errors_Detected > 0 then
+      if Total_Errors_Detected > 0 then
          Project := Empty_Node;
       end if;
 
@@ -829,6 +838,7 @@ package body Prj.Part is
    procedure Post_Parse_Context_Clause
      (Context_Clause    : With_Id;
       In_Tree           : Project_Node_Tree_Ref;
+      In_Limited        : Boolean;
       Limited_Withs     : Boolean;
       Imported_Projects : in out Project_Node_Id;
       Project_Directory : Path_Name_Type;
@@ -943,7 +953,9 @@ package body Prj.Part is
                   --  If we have one, get the project id of the limited
                   --  imported project file, and do not parse it.
 
-                  if Limited_Withs and then Project_Stack.Last > 1 then
+                  if (In_Limited or Limited_Withs)
+                    and then Project_Stack.Last > 1
+                  then
                      declare
                         Canonical_Path_Name : Path_Name_Type;
 
@@ -967,7 +979,7 @@ package body Prj.Part is
                      end;
                   end if;
 
-                  --  Parse the imported project, if its project id is unknown
+                  --  Parse the imported project if its project id is unknown
 
                   if No (Withed_Project) then
                      Parse_Single_Project
@@ -977,7 +989,7 @@ package body Prj.Part is
                         Path_Name_Id      => Imported_Path_Name_Id,
                         Extended          => False,
                         From_Extended     => From_Extended,
-                        In_Limited        => Limited_Withs,
+                        In_Limited        => In_Limited or Limited_Withs,
                         Packages_To_Check => Packages_To_Check,
                         Depth             => Depth,
                         Current_Dir       => Current_Dir,
@@ -1225,7 +1237,8 @@ package body Prj.Part is
       Depth             : Natural;
       Current_Dir       : String;
       Is_Config_File    : Boolean;
-      Env               : in out Environment)
+      Env               : in out Environment;
+      Implicit_Project  : Boolean := False)
    is
       Path_Name : constant String := Get_Name_String (Path_Name_Id);
 
@@ -1389,7 +1402,10 @@ package body Prj.Part is
       Tree.Reset_State;
       Scan (In_Tree);
 
-      if not Is_Config_File and then Name_From_Path = No_Name then
+      if not Is_Config_File
+        and then Name_From_Path = No_Name
+        and then not Implicit_Project
+      then
 
          --  The project file name is not correct (no or bad extension, or not
          --  following Ada identifier's syntax).
@@ -1579,6 +1595,7 @@ package body Prj.Part is
             Post_Parse_Context_Clause
               (In_Tree           => In_Tree,
                Context_Clause    => First_With,
+               In_Limited        => In_Limited,
                Limited_Withs     => False,
                Imported_Projects => Imported_Projects,
                Project_Directory => Project_Directory,
@@ -1938,6 +1955,7 @@ package body Prj.Part is
          Post_Parse_Context_Clause
            (In_Tree           => In_Tree,
             Context_Clause    => First_With,
+            In_Limited        => In_Limited,
             Limited_Withs     => True,
             Imported_Projects => Imported_Projects,
             Project_Directory => Project_Directory,
@@ -1970,6 +1988,13 @@ package body Prj.Part is
       Tree.Restore_And_Free (Project_Comment_State);
 
       Debug_Decrease_Indent;
+
+      if Project /= Empty_Node and then Implicit_Project then
+         Name_Len := 0;
+         Add_Str_To_Name_Buffer (Current_Dir);
+         Add_Char_To_Name_Buffer (Dir_Sep);
+         In_Tree.Project_Nodes.Table (Project).Directory := Name_Find;
+      end if;
    end Parse_Single_Project;
 
    -----------------------

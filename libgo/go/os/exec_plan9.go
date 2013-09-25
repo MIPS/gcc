@@ -11,10 +11,15 @@ import (
 	"time"
 )
 
-// StartProcess starts a new process with the program, arguments and attributes
-// specified by name, argv and attr.
-// If there is an error, it will be of type *PathError.
-func StartProcess(name string, argv []string, attr *ProcAttr) (p *Process, err error) {
+// The only signal values guaranteed to be present on all systems
+// are Interrupt (send the process an interrupt) and Kill (force
+// the process to exit).
+var (
+	Interrupt Signal = syscall.Note("interrupt")
+	Kill      Signal = syscall.Note("kill")
+)
+
+func startProcess(name string, argv []string, attr *ProcAttr) (p *Process, err error) {
 	sysattr := &syscall.ProcAttr{
 		Dir: attr.Dir,
 		Env: attr.Env,
@@ -33,60 +38,49 @@ func StartProcess(name string, argv []string, attr *ProcAttr) (p *Process, err e
 	return newProcess(pid, h), nil
 }
 
-// Plan9Note implements the Signal interface on Plan 9.
-type Plan9Note string
-
-func (note Plan9Note) String() string {
-	return string(note)
+func (p *Process) writeProcFile(file string, data string) error {
+	f, e := OpenFile("/proc/"+itoa(p.Pid)+"/"+file, O_WRONLY, 0)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	_, e = f.Write([]byte(data))
+	return e
 }
 
-func (p *Process) Signal(sig Signal) error {
-	if p.done {
+func (p *Process) signal(sig Signal) error {
+	if p.done() {
 		return errors.New("os: process already finished")
 	}
-
-	f, e := OpenFile("/proc/"+itoa(p.Pid)+"/note", O_WRONLY, 0)
-	if e != nil {
+	if sig == Kill {
+		// Special-case the kill signal since it doesn't use /proc/$pid/note.
+		return p.Kill()
+	}
+	if e := p.writeProcFile("note", sig.String()); e != nil {
 		return NewSyscallError("signal", e)
 	}
-	defer f.Close()
-	_, e = f.Write([]byte(sig.String()))
-	return e
+	return nil
 }
 
-// Kill causes the Process to exit immediately.
-func (p *Process) Kill() error {
-	f, e := OpenFile("/proc/"+itoa(p.Pid)+"/ctl", O_WRONLY, 0)
-	if e != nil {
+func (p *Process) kill() error {
+	if e := p.writeProcFile("ctl", "kill"); e != nil {
 		return NewSyscallError("kill", e)
 	}
-	defer f.Close()
-	_, e = f.Write([]byte("kill"))
-	return e
+	return nil
 }
 
-// Wait waits for the Process to exit or stop, and then returns a
-// ProcessState describing its status and an error, if any.
-func (p *Process) Wait() (ps *ProcessState, err error) {
+func (p *Process) wait() (ps *ProcessState, err error) {
 	var waitmsg syscall.Waitmsg
 
 	if p.Pid == -1 {
 		return nil, ErrInvalid
 	}
-
-	for true {
-		err = syscall.Await(&waitmsg)
-
-		if err != nil {
-			return nil, NewSyscallError("wait", err)
-		}
-
-		if waitmsg.Pid == p.Pid {
-			p.done = true
-			break
-		}
+	err = syscall.WaitProcess(p.Pid, &waitmsg)
+	if err != nil {
+		return nil, NewSyscallError("wait", err)
 	}
 
+	p.setDone()
 	ps = &ProcessState{
 		pid:    waitmsg.Pid,
 		status: &waitmsg,
@@ -94,8 +88,7 @@ func (p *Process) Wait() (ps *ProcessState, err error) {
 	return ps, nil
 }
 
-// Release releases any resources associated with the Process.
-func (p *Process) Release() error {
+func (p *Process) release() error {
 	// NOOP for Plan 9.
 	p.Pid = -1
 	// no need for a finalizer anymore
@@ -108,7 +101,7 @@ func findProcess(pid int) (p *Process, err error) {
 	return newProcess(pid, 0), nil
 }
 
-// ProcessState stores information about process as reported by Wait.
+// ProcessState stores information about a process, as reported by Wait.
 type ProcessState struct {
 	pid    int              // The process's id.
 	status *syscall.Waitmsg // System-dependent status info.
@@ -119,40 +112,27 @@ func (p *ProcessState) Pid() int {
 	return p.pid
 }
 
-// Exited returns whether the program has exited.
-func (p *ProcessState) Exited() bool {
+func (p *ProcessState) exited() bool {
 	return p.status.Exited()
 }
 
-// Success reports whether the program exited successfully,
-// such as with exit status 0 on Unix.
-func (p *ProcessState) Success() bool {
+func (p *ProcessState) success() bool {
 	return p.status.ExitStatus() == 0
 }
 
-// Sys returns system-dependent exit information about
-// the process.  Convert it to the appropriate underlying
-// type, such as *syscall.Waitmsg on Plan 9, to access its contents.
-func (p *ProcessState) Sys() interface{} {
+func (p *ProcessState) sys() interface{} {
 	return p.status
 }
 
-// SysUsage returns system-dependent resource usage information about
-// the exited process.  Convert it to the appropriate underlying
-// type, such as *syscall.Waitmsg on Plan 9, to access its contents.
-func (p *ProcessState) SysUsage() interface{} {
+func (p *ProcessState) sysUsage() interface{} {
 	return p.status
 }
 
-// UserTime returns the user CPU time of the exited process and its children.
-// It is always reported as 0 on Windows.
-func (p *ProcessState) UserTime() time.Duration {
+func (p *ProcessState) userTime() time.Duration {
 	return time.Duration(p.status.Time[0]) * time.Millisecond
 }
 
-// SystemTime returns the system CPU time of the exited process and its children.
-// It is always reported as 0 on Windows.
-func (p *ProcessState) SystemTime() time.Duration {
+func (p *ProcessState) systemTime() time.Duration {
 	return time.Duration(p.status.Time[1]) * time.Millisecond
 }
 

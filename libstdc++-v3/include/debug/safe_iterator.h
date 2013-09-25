@@ -1,7 +1,6 @@
 // Safe iterator implementation  -*- C++ -*-
 
-// Copyright (C) 2003, 2004, 2005, 2006, 2009, 2010, 2011
-// Free Software Foundation, Inc.
+// Copyright (C) 2003-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -35,7 +34,6 @@
 #include <debug/functions.h>
 #include <debug/safe_base.h>
 #include <bits/stl_pair.h>
-#include <bits/stl_iterator_base_types.h> // for _Iter_base
 #include <ext/type_traits.h>
 
 namespace __gnu_debug
@@ -50,8 +48,12 @@ namespace __gnu_debug
       typedef typename _It::iterator_type _BaseIt;
 
       static bool
-      _M_Is(_BaseIt __it, const _Sequence* __seq)
+      _S_Is(_BaseIt, const _Sequence*)
       { return false; }
+
+      static bool
+      _S_Is_Beginnest(_BaseIt __it, const _Sequence* __seq)
+      { return __it == __seq->_M_base().begin(); }
     };
 
   /** Iterators that derive from _Safe_iterator_base but that aren't
@@ -169,13 +171,18 @@ namespace __gnu_debug
 			      ._M_iterator(__x, "other"));
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        * @brief Move construction.
        * @post __x is singular and unattached
        */
       _Safe_iterator(_Safe_iterator&& __x) : _M_current()
       {
+	_GLIBCXX_DEBUG_VERIFY(!__x._M_singular()
+			      || __x._M_current == _Iterator(),
+			      _M_message(__msg_init_copy_singular)
+			      ._M_iterator(*this, "this")
+			      ._M_iterator(__x, "other"));
 	std::swap(_M_current, __x._M_current);
 	this->_M_attach(__x._M_sequence);
 	__x._M_detach();
@@ -221,7 +228,7 @@ namespace __gnu_debug
 	return *this;
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        * @brief Move assignment.
        * @post __x is singular and unattached
@@ -229,6 +236,14 @@ namespace __gnu_debug
       _Safe_iterator&
       operator=(_Safe_iterator&& __x)
       {
+	_GLIBCXX_DEBUG_VERIFY(this != &__x,
+			      _M_message(__msg_self_move_assign)
+			      ._M_iterator(*this, "this"));
+	_GLIBCXX_DEBUG_VERIFY(!__x._M_singular()
+			      || __x._M_current == _Iterator(),
+			      _M_message(__msg_copy_singular)
+			      ._M_iterator(*this, "this")
+			      ._M_iterator(__x, "other"));
 	_M_current = __x._M_current;
 	_M_attach(__x._M_sequence);
 	__x._M_detach();
@@ -254,7 +269,6 @@ namespace __gnu_debug
        *  @brief Iterator dereference.
        *  @pre iterator is dereferenceable
        *  @todo Make this correct w.r.t. iterators that return proxies
-       *  @todo Use addressof() instead of & operator
        */
       pointer
       operator->() const
@@ -262,7 +276,7 @@ namespace __gnu_debug
 	_GLIBCXX_DEBUG_VERIFY(this->_M_dereferenceable(),
 			      _M_message(__msg_bad_deref)
 			      ._M_iterator(*this, "this"));
-	return &*_M_current;
+	return std::__addressof(*_M_current);
       }
 
       // ------ Input iterator requirements ------
@@ -452,7 +466,15 @@ namespace __gnu_debug
       /// any?
       bool _M_is_before_begin() const
       {
-	return _BeforeBeginHelper<_Sequence>::_M_Is(base(), _M_get_sequence());
+	return _BeforeBeginHelper<_Sequence>::_S_Is(base(), _M_get_sequence());
+      }
+
+      /// Is this iterator equal to the sequence's before_begin() iterator if
+      /// any or begin() otherwise?
+      bool _M_is_beginnest() const
+      {
+	return _BeforeBeginHelper<_Sequence>::_S_Is_Beginnest(base(),
+							  _M_get_sequence());
       }
     };
 
@@ -689,37 +711,6 @@ namespace __gnu_debug
     operator+(typename _Safe_iterator<_Iterator,_Sequence>::difference_type __n,
 	      const _Safe_iterator<_Iterator, _Sequence>& __i)
     { return __i + __n; }
-
-  // Helper struct to detect random access safe iterators.
-  template<typename _Iterator>
-    struct __is_safe_random_iterator
-    {
-      enum { __value = 0 };
-      typedef std::__false_type __type;
-    };
-
-  template<typename _Iterator, typename _Sequence>
-    struct __is_safe_random_iterator<_Safe_iterator<_Iterator, _Sequence> >
-    : std::__are_same<std::random_access_iterator_tag,
-                      typename std::iterator_traits<_Iterator>::
-		      iterator_category>
-    { };
-
-  template<typename _Iterator>
-    struct _Siter_base
-    : std::_Iter_base<_Iterator, __is_safe_random_iterator<_Iterator>::__value>
-    { };
-
-  /** Helper function to extract base iterator of random access safe iterator
-      in order to reduce performance impact of debug mode.  Limited to random
-      access iterator because it is the only category for which it is possible
-      to check for correct iterators order in the __valid_range function
-      thanks to the < operator.
-  */
-  template<typename _Iterator>
-    inline typename _Siter_base<_Iterator>::iterator_type
-    __base(_Iterator __it)
-    { return _Siter_base<_Iterator>::_S_base(__it); }
 } // namespace __gnu_debug
 
 #include <debug/safe_iterator.tcc>

@@ -1,6 +1,6 @@
 /* Gimple IR support functions.
 
-   Copyright 2007, 2008, 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2007-2013 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -30,23 +30,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple.h"
 #include "diagnostic.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "value-prof.h"
 #include "flags.h"
 #include "alias.h"
 #include "demangle.h"
 #include "langhooks.h"
 
-/* Global type table.  FIXME lto, it should be possible to re-use some
-   of the type hashing routines in tree.c (type_hash_canon, type_hash_lookup,
-   etc), but those assume that types were built with the various
-   build_*_type routines which is not the case with the streamer.  */
-static GTY((if_marked ("ggc_marked_p"), param_is (union tree_node)))
-  htab_t gimple_types;
+/* Global canonical type table.  */
 static GTY((if_marked ("ggc_marked_p"), param_is (union tree_node)))
   htab_t gimple_canonical_types;
-static GTY((if_marked ("tree_int_map_marked_p"), param_is (struct tree_int_map)))
-  htab_t type_hash_cache;
 static GTY((if_marked ("tree_int_map_marked_p"), param_is (struct tree_int_map)))
   htab_t canonical_type_hash_cache;
 
@@ -79,7 +72,6 @@ EXPORTED_CONST enum gimple_statement_structure_enum gss_for_code_[] = {
 };
 #undef DEFGSCODE
 
-#ifdef GATHER_STATISTICS
 /* Gimple stats.  */
 
 int gimple_alloc_counts[(int) gimple_alloc_kind_all];
@@ -90,15 +82,8 @@ static const char * const gimple_alloc_kind_names[] = {
     "assignments",
     "phi nodes",
     "conditionals",
-    "sequences",
     "everything else"
 };
-
-#endif /* GATHER_STATISTICS */
-
-/* A cache of gimple_seq objects.  Sequences are created and destroyed
-   fairly often during gimplification.  */
-static GTY ((deletable)) struct gimple_seq_d *gimple_seq_cache;
 
 /* Private API manipulation functions shared only with some
    other files.  */
@@ -139,13 +124,12 @@ gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
   if (num_ops > 0)
     size += sizeof (tree) * (num_ops - 1);
 
-#ifdef GATHER_STATISTICS
-  {
-    enum gimple_alloc_kind kind = gimple_alloc_kind (code);
-    gimple_alloc_counts[(int) kind]++;
-    gimple_alloc_sizes[(int) kind] += size;
-  }
-#endif
+  if (GATHER_STATISTICS)
+    {
+      enum gimple_alloc_kind kind = gimple_alloc_kind (code);
+      gimple_alloc_counts[(int) kind]++;
+      gimple_alloc_sizes[(int) kind] += size;
+    }
 
   stmt = ggc_alloc_cleared_gimple_statement_d_stat (size PASS_MEM_STAT);
   gimple_set_code (stmt, code);
@@ -154,6 +138,7 @@ gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
   /* Do not call gimple_set_modified here as it has other side
      effects and this tuple is still not completely built.  */
   stmt->gsbase.modified = 1;
+  gimple_init_singleton (stmt);
 
   return stmt;
 }
@@ -200,219 +185,6 @@ gimple_build_return (tree retval)
   return s;
 }
 
-static gimple
-gimple_build_atomic_raw (enum gimple_atomic_kind k, tree target_type,
-			 unsigned nargs, ...)
-{
-  va_list ap;
-  unsigned i;
-  gimple s;
-
-  /* Calculate the size of the atomic operand vector.  */
-  switch (k) 
-    {
-    case GIMPLE_ATOMIC_FENCE:
-      i = 1;
-      break;
-
-    case GIMPLE_ATOMIC_CLEAR:
-      i = 2;
-      break;
-
-    case GIMPLE_ATOMIC_LOAD:
-    case GIMPLE_ATOMIC_STORE:
-    case GIMPLE_ATOMIC_TEST_AND_SET:
-      i = 3;
-      break;
-
-    case GIMPLE_ATOMIC_EXCHANGE:
-    case GIMPLE_ATOMIC_FETCH_OP:
-    case GIMPLE_ATOMIC_OP_FETCH:
-      i = 4;
-      break;
-
-    case GIMPLE_ATOMIC_COMPARE_EXCHANGE:
-      i = 7;
-      break;
-
-    default:
-      gcc_unreachable ();
-    }
-
-  s = gimple_build_with_ops (GIMPLE_ATOMIC, ERROR_MARK, i);
-
-  gimple_atomic_set_kind (s, k);
-  if (k != GIMPLE_ATOMIC_FENCE)
-      gimple_atomic_set_type (s, target_type);
-  gimple_set_has_volatile_ops (s, true);
-
-  /* Now winitialize any of the fields which are passed in.  */
-  va_start (ap, nargs);
-  for (i = 0; i < nargs; i++)
-    gimple_set_op (s, i, va_arg (ap, tree));
-  va_end (ap);
-
-  return s;
-}
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_LOAD kind.
-   TYPE is the underlying type of the atomic operation.
-   TARGET is the atomic memory location being operated on.
-   ORDER is the memory model to be used.
-   RETVAL is the location for the generic format return location.  NULL_TREE
-   indicates this is not in generic format.  */
-
-gimple
-gimple_build_atomic_load (tree type, tree target, tree order, tree retval)
-{
-  gimple s;
-  if (retval)
-    {
-      s = gimple_build_atomic_raw (GIMPLE_ATOMIC_LOAD, type, 3, order, target,
-				   retval);
-      gimple_atomic_set_generic (s, true);
-    }
-  else
-    s = gimple_build_atomic_raw (GIMPLE_ATOMIC_LOAD, type, 2, order, target);
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_STORE kind.
-   TYPE is the underlying type of the atomic operation.
-   TARGET is the atomic memory location being operated on.
-   EXPR is the expression to be stored.
-   ORDER is the memory model to be used.  */
-
-gimple
-gimple_build_atomic_store (tree type, tree target, tree expr, tree order)
-{
-  gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_STORE, type, 3, order, target,
-			       expr);
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_EXCHANGE kind.
-   TYPE is the underlying type of the atomic operation.
-   TARGET is the atomic memory location being operated on.
-   EXPR is the expression to be stored.
-   ORDER is the memory model to be used.
-   RETVAL is the location for the generic format return location.  NULL_TREE
-   indicates this is not in generic format.  */
-
-gimple
-gimple_build_atomic_exchange (tree type, tree target, tree expr, tree order,
-			      tree retval)
-{
-  gimple s;
-  if (retval)
-    {
-      s = gimple_build_atomic_raw (GIMPLE_ATOMIC_EXCHANGE, type, 4, order,
-				   target, expr, retval);
-      gimple_atomic_set_generic (s, true);
-    }
-  else
-    s = gimple_build_atomic_raw (GIMPLE_ATOMIC_EXCHANGE, type, 3, order, target,
-				 expr);
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_COMPARE_EXCHANGE kind.
-   TYPE is the underlying type of the atomic operation.
-   TARGET is the atomic memory location being operated on.
-   EXPECTED is the value thought to be in the atomic memory location.
-   EXPR is the expression to be stored if EXPECTED matches.
-   SUCCESS is the memory model to be used for a success operation.
-   FAIL is the memory model to be used for a failed operation.
-   WEAK is true if this is a weak compare_exchange, otherwise it is strong.  */
-
-gimple
-gimple_build_atomic_compare_exchange (tree type, tree target, tree expected,
-				      tree expr, tree success, tree fail,
-				      bool weak)
-{
-  gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_COMPARE_EXCHANGE, type, 5,
-			       success, target, expr, expected, fail);
-  gimple_atomic_set_weak (s, weak);
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_FETCH_OP kind.
-   TYPE is the underlying type of the atomic operation.
-   TARGET is the atomic memory location being operated on.
-   EXPR is the expression to be stored.
-   OP is the tree code for the operation to be performed.
-   ORDER is the memory model to be used.  */
-
-gimple
-gimple_build_atomic_fetch_op (tree type, tree target, tree expr,
-			      enum tree_code op, tree order)
-{
-  gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_FETCH_OP, type, 3, order, target,
-			       expr);
-  gimple_atomic_set_op_code (s, gimple_atomic_tree_code_to_arith_op (op));
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_OP_FETCH kind.
-   TYPE is the underlying type of the atomic operation.
-   TARGET is the atomic memory location being operated on.
-   EXPR is the expression to be stored.
-   OP is the tree code for the operation to be performed.
-   ORDER is the memory model to be used.  */
-
-gimple
-gimple_build_atomic_op_fetch (tree type, tree target, tree expr,
-			      enum tree_code op, tree order)
-{
-  gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_OP_FETCH, type, 3, order, target,
-			       expr);
-  gimple_atomic_set_op_code (s, gimple_atomic_tree_code_to_arith_op (op));
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_TEST_AND_SET kind.
-   TARGET is the atomic memory location being operated on.
-   ORDER is the memory model to be used.  */
-
-gimple
-gimple_build_atomic_test_and_set (tree target, tree order)
-{
-  gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_TEST_AND_SET, boolean_type_node, 2,
-			       order, target);
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_CLEAR kind.
-   TARGET is the atomic memory location being operated on.
-   ORDER is the memory model to be used.  */
-
-gimple
-gimple_build_atomic_clear (tree target, tree order)
-{
-  gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_CLEAR, boolean_type_node, 2, order,
-			       target);
-  return s;
-}
-
-/* Build a GIMPLE_ATOMIC statement of GIMPLE_ATOMIC_FENCE kind.
-   ORDER is the memory model to be used.
-   THREAD is true if this is a thread barrier, otherwise it is a
-   signal barrier for just the local CPU.  */
-
-gimple
-gimple_build_atomic_fence (tree order, bool thread)
-{
-  gimple s;
-  s = gimple_build_atomic_raw (GIMPLE_ATOMIC_FENCE, NULL_TREE, 1, order);
-  gimple_atomic_set_thread_fence (s, thread);
-  return s;
-}
-
 /* Reset alias information on call S.  */
 
 void
@@ -450,14 +222,14 @@ gimple_build_call_1 (tree fn, unsigned nargs)
    specified in vector ARGS.  */
 
 gimple
-gimple_build_call_vec (tree fn, VEC(tree, heap) *args)
+gimple_build_call_vec (tree fn, vec<tree> args)
 {
   unsigned i;
-  unsigned nargs = VEC_length (tree, args);
+  unsigned nargs = args.length ();
   gimple call = gimple_build_call_1 (fn, nargs);
 
   for (i = 0; i < nargs; i++)
-    gimple_call_set_arg (call, i, VEC_index (tree, args, i));
+    gimple_call_set_arg (call, i, args[i]);
 
   return call;
 }
@@ -545,15 +317,15 @@ gimple_build_call_internal (enum internal_fn fn, unsigned nargs, ...)
    specified in vector ARGS.  */
 
 gimple
-gimple_build_call_internal_vec (enum internal_fn fn, VEC(tree, heap) *args)
+gimple_build_call_internal_vec (enum internal_fn fn, vec<tree> args)
 {
   unsigned i, nargs;
   gimple call;
 
-  nargs = VEC_length (tree, args);
+  nargs = args.length ();
   call = gimple_build_call_internal_1 (fn, nargs);
   for (i = 0; i < nargs; i++)
-    gimple_call_set_arg (call, i, VEC_index (tree, args, i));
+    gimple_call_set_arg (call, i, args[i]);
 
   return call;
 }
@@ -652,8 +424,8 @@ gimple_build_assign_stat (tree lhs, tree rhs MEM_STAT_DECL)
   tree op1, op2, op3;
 
   extract_ops_from_tree_1 (rhs, &subcode, &op1, &op2, &op3);
-  return gimple_build_assign_with_ops_stat (subcode, lhs, op1, op2, op3
-  					    PASS_MEM_STAT);
+  return gimple_build_assign_with_ops (subcode, lhs, op1, op2, op3
+				       PASS_MEM_STAT);
 }
 
 
@@ -662,8 +434,8 @@ gimple_build_assign_stat (tree lhs, tree rhs MEM_STAT_DECL)
    GIMPLE_UNARY_RHS or GIMPLE_SINGLE_RHS.  */
 
 gimple
-gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
-                                   tree op2, tree op3 MEM_STAT_DECL)
+gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
+			      tree op2, tree op3 MEM_STAT_DECL)
 {
   unsigned num_ops;
   gimple p;
@@ -689,6 +461,14 @@ gimple_build_assign_with_ops_stat (enum tree_code subcode, tree lhs, tree op1,
     }
 
   return p;
+}
+
+gimple
+gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
+			      tree op2 MEM_STAT_DECL)
+{
+  return gimple_build_assign_with_ops (subcode, lhs, op1, op2, NULL_TREE
+				       PASS_MEM_STAT);
 }
 
 
@@ -862,9 +642,8 @@ gimple_build_asm_1 (const char *string, unsigned ninputs, unsigned noutputs,
   p->gimple_asm.nl = nlabels;
   p->gimple_asm.string = ggc_alloc_string (string, size);
 
-#ifdef GATHER_STATISTICS
-  gimple_alloc_sizes[(int) gimple_alloc_kind (GIMPLE_ASM)] += size;
-#endif
+  if (GATHER_STATISTICS)
+    gimple_alloc_sizes[(int) gimple_alloc_kind (GIMPLE_ASM)] += size;
 
   return p;
 }
@@ -881,30 +660,30 @@ gimple_build_asm_1 (const char *string, unsigned ninputs, unsigned noutputs,
    LABELS is a vector of destination labels.  */
 
 gimple
-gimple_build_asm_vec (const char *string, VEC(tree,gc)* inputs,
-                      VEC(tree,gc)* outputs, VEC(tree,gc)* clobbers,
-		      VEC(tree,gc)* labels)
+gimple_build_asm_vec (const char *string, vec<tree, va_gc> *inputs,
+                      vec<tree, va_gc> *outputs, vec<tree, va_gc> *clobbers,
+		      vec<tree, va_gc> *labels)
 {
   gimple p;
   unsigned i;
 
   p = gimple_build_asm_1 (string,
-                          VEC_length (tree, inputs),
-                          VEC_length (tree, outputs),
-                          VEC_length (tree, clobbers),
-			  VEC_length (tree, labels));
+                          vec_safe_length (inputs),
+                          vec_safe_length (outputs),
+                          vec_safe_length (clobbers),
+			  vec_safe_length (labels));
 
-  for (i = 0; i < VEC_length (tree, inputs); i++)
-    gimple_asm_set_input_op (p, i, VEC_index (tree, inputs, i));
+  for (i = 0; i < vec_safe_length (inputs); i++)
+    gimple_asm_set_input_op (p, i, (*inputs)[i]);
 
-  for (i = 0; i < VEC_length (tree, outputs); i++)
-    gimple_asm_set_output_op (p, i, VEC_index (tree, outputs, i));
+  for (i = 0; i < vec_safe_length (outputs); i++)
+    gimple_asm_set_output_op (p, i, (*outputs)[i]);
 
-  for (i = 0; i < VEC_length (tree, clobbers); i++)
-    gimple_asm_set_clobber_op (p, i, VEC_index (tree, clobbers, i));
+  for (i = 0; i < vec_safe_length (clobbers); i++)
+    gimple_asm_set_clobber_op (p, i, (*clobbers)[i]);
 
-  for (i = 0; i < VEC_length (tree, labels); i++)
-    gimple_asm_set_label_op (p, i, VEC_index (tree, labels, i));
+  for (i = 0; i < vec_safe_length (labels); i++)
+    gimple_asm_set_label_op (p, i, (*labels)[i]);
 
   return p;
 }
@@ -1025,38 +804,13 @@ gimple
 gimple_build_switch_nlabels (unsigned nlabels, tree index, tree default_label)
 {
   /* nlabels + 1 default label + 1 index.  */
+  gcc_checking_assert (default_label);
   gimple p = gimple_build_with_ops (GIMPLE_SWITCH, ERROR_MARK,
-				    1 + (default_label != NULL) + nlabels);
+				    1 + 1 + nlabels);
   gimple_switch_set_index (p, index);
-  if (default_label)
-    gimple_switch_set_default_label (p, default_label);
+  gimple_switch_set_default_label (p, default_label);
   return p;
 }
-
-
-/* Build a GIMPLE_SWITCH statement.
-
-   INDEX is the switch's index.
-   NLABELS is the number of labels in the switch excluding the DEFAULT_LABEL.
-   ... are the labels excluding the default.  */
-
-gimple
-gimple_build_switch (unsigned nlabels, tree index, tree default_label, ...)
-{
-  va_list al;
-  unsigned i, offset;
-  gimple p = gimple_build_switch_nlabels (nlabels, index, default_label);
-
-  /* Store the rest of the labels.  */
-  va_start (al, default_label);
-  offset = (default_label != NULL);
-  for (i = 0; i < nlabels; i++)
-    gimple_switch_set_label (p, i + offset, va_arg (al, tree));
-  va_end (al);
-
-  return p;
-}
-
 
 /* Build a GIMPLE_SWITCH statement.
 
@@ -1065,15 +819,15 @@ gimple_build_switch (unsigned nlabels, tree index, tree default_label, ...)
    ARGS is a vector of labels excluding the default.  */
 
 gimple
-gimple_build_switch_vec (tree index, tree default_label, VEC(tree, heap) *args)
+gimple_build_switch (tree index, tree default_label, vec<tree> args)
 {
-  unsigned i, offset, nlabels = VEC_length (tree, args);
+  unsigned i, nlabels = args.length ();
+
   gimple p = gimple_build_switch_nlabels (nlabels, index, default_label);
 
   /* Copy the labels from the vector to the switch statement.  */
-  offset = (default_label != NULL);
   for (i = 0; i < nlabels; i++)
-    gimple_switch_set_label (p, i + offset, VEC_index (tree, args, i));
+    gimple_switch_set_label (p, i + 1, args[i]);
 
   return p;
 }
@@ -1102,10 +856,7 @@ gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
   gimple_debug_bind_set_var (p, var);
   gimple_debug_bind_set_value (p, value);
   if (stmt)
-    {
-      gimple_set_block (p, gimple_block (stmt));
-      gimple_set_location (p, gimple_location (stmt));
-    }
+    gimple_set_location (p, gimple_location (stmt));
 
   return p;
 }
@@ -1126,10 +877,7 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
   gimple_debug_source_bind_set_var (p, var);
   gimple_debug_source_bind_set_value (p, value);
   if (stmt)
-    {
-      gimple_set_block (p, gimple_block (stmt));
-      gimple_set_location (p, gimple_location (stmt));
-    }
+    gimple_set_location (p, gimple_location (stmt));
 
   return p;
 }
@@ -1154,19 +902,21 @@ gimple_build_omp_critical (gimple_seq body, tree name)
 /* Build a GIMPLE_OMP_FOR statement.
 
    BODY is sequence of statements inside the for loop.
+   KIND is the `for' variant.
    CLAUSES, are any of the OMP loop construct's clauses: private, firstprivate,
    lastprivate, reductions, ordered, schedule, and nowait.
    COLLAPSE is the collapse count.
    PRE_BODY is the sequence of statements that are loop invariant.  */
 
 gimple
-gimple_build_omp_for (gimple_seq body, tree clauses, size_t collapse,
+gimple_build_omp_for (gimple_seq body, int kind, tree clauses, size_t collapse,
 		      gimple_seq pre_body)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_FOR, 0);
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_for_set_clauses (p, clauses);
+  gimple_omp_for_set_kind (p, kind);
   p->gimple_omp_for.collapse = collapse;
   p->gimple_omp_for.iter
       = ggc_alloc_cleared_vec_gimple_omp_for_iter (collapse);
@@ -1414,53 +1164,6 @@ gimple_check_failed (const_gimple gs, const char *file, int line,
 #endif /* ENABLE_GIMPLE_CHECKING */
 
 
-/* Allocate a new GIMPLE sequence in GC memory and return it.  If
-   there are free sequences in GIMPLE_SEQ_CACHE return one of those
-   instead.  */
-
-gimple_seq
-gimple_seq_alloc (void)
-{
-  gimple_seq seq = gimple_seq_cache;
-  if (seq)
-    {
-      gimple_seq_cache = gimple_seq_cache->next_free;
-      gcc_assert (gimple_seq_cache != seq);
-      memset (seq, 0, sizeof (*seq));
-    }
-  else
-    {
-      seq = ggc_alloc_cleared_gimple_seq_d ();
-#ifdef GATHER_STATISTICS
-      gimple_alloc_counts[(int) gimple_alloc_kind_seq]++;
-      gimple_alloc_sizes[(int) gimple_alloc_kind_seq] += sizeof (*seq);
-#endif
-    }
-
-  return seq;
-}
-
-/* Return SEQ to the free pool of GIMPLE sequences.  */
-
-void
-gimple_seq_free (gimple_seq seq)
-{
-  if (seq == NULL)
-    return;
-
-  gcc_assert (gimple_seq_first (seq) == NULL);
-  gcc_assert (gimple_seq_last (seq) == NULL);
-
-  /* If this triggers, it's a sign that the same list is being freed
-     twice.  */
-  gcc_assert (seq != gimple_seq_cache || gimple_seq_cache == NULL);
-
-  /* Add SEQ to the pool of free sequences.  */
-  seq->next_free = gimple_seq_cache;
-  gimple_seq_cache = seq;
-}
-
-
 /* Link gimple statement GS to the end of the sequence *SEQ_P.  If
    *SEQ_P is NULL, a new sequence is allocated.  */
 
@@ -1468,12 +1171,8 @@ void
 gimple_seq_add_stmt (gimple_seq *seq_p, gimple gs)
 {
   gimple_stmt_iterator si;
-
   if (gs == NULL)
     return;
-
-  if (*seq_p == NULL)
-    *seq_p = gimple_seq_alloc ();
 
   si = gsi_last (*seq_p);
   gsi_insert_after (&si, gs, GSI_NEW_STMT);
@@ -1487,12 +1186,8 @@ void
 gimple_seq_add_seq (gimple_seq *dst_p, gimple_seq src)
 {
   gimple_stmt_iterator si;
-
   if (src == NULL)
     return;
-
-  if (*dst_p == NULL)
-    *dst_p = gimple_seq_alloc ();
 
   si = gsi_last (*dst_p);
   gsi_insert_seq_after (&si, src, GSI_NEW_STMT);
@@ -1537,7 +1232,7 @@ gimple_seq
 gimple_seq_copy (gimple_seq src)
 {
   gimple_stmt_iterator gsi;
-  gimple_seq new_seq = gimple_seq_alloc ();
+  gimple_seq new_seq = NULL;
   gimple stmt;
 
   for (gsi = gsi_start (src); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -1550,7 +1245,7 @@ gimple_seq_copy (gimple_seq src)
 }
 
 
-/* Walk all the statements in the sequence SEQ calling walk_gimple_stmt
+/* Walk all the statements in the sequence *PSEQ calling walk_gimple_stmt
    on each one.  WI is as in walk_gimple_stmt.
 
    If walk_gimple_stmt returns non-NULL, the walk is stopped, and the
@@ -1562,12 +1257,12 @@ gimple_seq_copy (gimple_seq src)
    Otherwise, all the statements are walked and NULL returned.  */
 
 gimple
-walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
-		 walk_tree_fn callback_op, struct walk_stmt_info *wi)
+walk_gimple_seq_mod (gimple_seq *pseq, walk_stmt_fn callback_stmt,
+		     walk_tree_fn callback_op, struct walk_stmt_info *wi)
 {
   gimple_stmt_iterator gsi;
 
-  for (gsi = gsi_start (seq); !gsi_end_p (gsi); )
+  for (gsi = gsi_start (*pseq); !gsi_end_p (gsi); )
     {
       tree ret = walk_gimple_stmt (&gsi, callback_stmt, callback_op, wi);
       if (ret)
@@ -1588,6 +1283,20 @@ walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
     wi->callback_result = NULL_TREE;
 
   return NULL;
+}
+
+
+/* Like walk_gimple_seq_mod, but ensure that the head of SEQ isn't
+   changed by the callbacks.  */
+
+gimple
+walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
+		 walk_tree_fn callback_op, struct walk_stmt_info *wi)
+{
+  gimple_seq seq2 = seq;
+  gimple ret = walk_gimple_seq_mod (&seq2, callback_stmt, callback_op, wi);
+  gcc_assert (seq2 == seq);
+  return ret;
 }
 
 
@@ -1709,15 +1418,12 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	 may use a COMPONENT_REF on the LHS.  */
       if (wi)
 	{
-          /* If the RHS has more than 1 operand, it is not appropriate
-             for the memory.
-	     ???  A lhs always requires an lvalue, checking the val_only flag
-	     does not make any sense, so we should be able to avoid computing
-	     it here.  */
+          /* If the RHS is of a non-renamable type or is a register variable,
+	     we may use a COMPONENT_REF on the LHS.  */
 	  tree rhs1 = gimple_assign_rhs1 (stmt);
-	  wi->val_only = !(is_gimple_mem_rhs (rhs1)
-			   || TREE_CODE (rhs1) == CONSTRUCTOR)
-                         || gimple_assign_rhs_class (stmt) != GIMPLE_SINGLE_RHS;
+	  wi->val_only
+	    = (is_gimple_reg_type (TREE_TYPE (rhs1)) && !is_gimple_reg (rhs1))
+	      || gimple_assign_rhs_class (stmt) != GIMPLE_SINGLE_RHS;
 	  wi->is_lhs = true;
 	}
 
@@ -1730,35 +1436,6 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	  wi->val_only = true;
 	  wi->is_lhs = false;
 	}
-      break;
-
-    case GIMPLE_ATOMIC:
-      if (wi)
-	wi->val_only = true;
-
-      /* Walk the RHS.  */
-      for (i = 0; i < gimple_atomic_num_rhs (stmt) ; i++)
-       {
- 	 ret = walk_tree (gimple_op_ptr (stmt, i), callback_op, wi,
-			  pset);
-	 if (ret)
-	   return ret;
-       }
-
-      if (wi)
-	wi->is_lhs = true;
-
-      for (i = 0; i < gimple_atomic_num_lhs (stmt) ; i++)
-       {
- 	 ret = walk_tree (gimple_atomic_lhs_ptr (stmt, i), callback_op, wi,
-			  pset);
-	 if (ret)
-	   return ret;
-       }
-
-      if (wi)
-	wi->is_lhs = false;
-
       break;
 
     case GIMPLE_CALL:
@@ -2053,51 +1730,51 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
   switch (gimple_code (stmt))
     {
     case GIMPLE_BIND:
-      ret = walk_gimple_seq (gimple_bind_body (stmt), callback_stmt,
-	                     callback_op, wi);
+      ret = walk_gimple_seq_mod (gimple_bind_body_ptr (stmt), callback_stmt,
+				 callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
 
     case GIMPLE_CATCH:
-      ret = walk_gimple_seq (gimple_catch_handler (stmt), callback_stmt,
-	                     callback_op, wi);
+      ret = walk_gimple_seq_mod (gimple_catch_handler_ptr (stmt), callback_stmt,
+				 callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
 
     case GIMPLE_EH_FILTER:
-      ret = walk_gimple_seq (gimple_eh_filter_failure (stmt), callback_stmt,
+      ret = walk_gimple_seq_mod (gimple_eh_filter_failure_ptr (stmt), callback_stmt,
 		             callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
 
     case GIMPLE_EH_ELSE:
-      ret = walk_gimple_seq (gimple_eh_else_n_body (stmt),
+      ret = walk_gimple_seq_mod (gimple_eh_else_n_body_ptr (stmt),
 			     callback_stmt, callback_op, wi);
       if (ret)
 	return wi->callback_result;
-      ret = walk_gimple_seq (gimple_eh_else_e_body (stmt),
+      ret = walk_gimple_seq_mod (gimple_eh_else_e_body_ptr (stmt),
 			     callback_stmt, callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
 
     case GIMPLE_TRY:
-      ret = walk_gimple_seq (gimple_try_eval (stmt), callback_stmt, callback_op,
+      ret = walk_gimple_seq_mod (gimple_try_eval_ptr (stmt), callback_stmt, callback_op,
 	                     wi);
       if (ret)
 	return wi->callback_result;
 
-      ret = walk_gimple_seq (gimple_try_cleanup (stmt), callback_stmt,
+      ret = walk_gimple_seq_mod (gimple_try_cleanup_ptr (stmt), callback_stmt,
 	                     callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
 
     case GIMPLE_OMP_FOR:
-      ret = walk_gimple_seq (gimple_omp_for_pre_body (stmt), callback_stmt,
+      ret = walk_gimple_seq_mod (gimple_omp_for_pre_body_ptr (stmt), callback_stmt,
 		             callback_op, wi);
       if (ret)
 	return wi->callback_result;
@@ -2111,21 +1788,21 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
-      ret = walk_gimple_seq (gimple_omp_body (stmt), callback_stmt,
+      ret = walk_gimple_seq_mod (gimple_omp_body_ptr (stmt), callback_stmt,
 			     callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
 
     case GIMPLE_WITH_CLEANUP_EXPR:
-      ret = walk_gimple_seq (gimple_wce_cleanup (stmt), callback_stmt,
+      ret = walk_gimple_seq_mod (gimple_wce_cleanup_ptr (stmt), callback_stmt,
 			     callback_op, wi);
       if (ret)
 	return wi->callback_result;
       break;
 
     case GIMPLE_TRANSACTION:
-      ret = walk_gimple_seq (gimple_transaction_body (stmt),
+      ret = walk_gimple_seq_mod (gimple_transaction_body_ptr (stmt),
 			     callback_stmt, callback_op, wi);
       if (ret)
 	return wi->callback_result;
@@ -2363,18 +2040,17 @@ gimple_set_bb (gimple stmt, basic_block bb)
       uid = LABEL_DECL_UID (t);
       if (uid == -1)
 	{
-	  unsigned old_len = VEC_length (basic_block, label_to_block_map);
+	  unsigned old_len = vec_safe_length (label_to_block_map);
 	  LABEL_DECL_UID (t) = uid = cfun->cfg->last_label_uid++;
 	  if (old_len <= (unsigned) uid)
 	    {
 	      unsigned new_len = 3 * uid / 2 + 1;
 
-	      VEC_safe_grow_cleared (basic_block, gc, label_to_block_map,
-				     new_len);
+	      vec_safe_grow_cleared (label_to_block_map, new_len);
 	    }
 	}
 
-      VEC_replace (basic_block, label_to_block_map, uid, bb);
+      (*label_to_block_map)[uid] = bb;
     }
 }
 
@@ -2426,6 +2102,7 @@ gimple_assign_set_rhs_with_ops_1 (gimple_stmt_iterator *gsi, enum tree_code code
       tree lhs = gimple_assign_lhs (stmt);
       gimple new_stmt = gimple_alloc (gimple_code (stmt), new_rhs_ops + 1);
       memcpy (new_stmt, stmt, gimple_size (gimple_code (stmt)));
+      gimple_init_singleton (new_stmt);
       gsi_replace (gsi, new_stmt, true);
       stmt = new_stmt;
 
@@ -2515,7 +2192,8 @@ gimple_replace_lhs (gimple stmt, tree nlhs)
 
 /* Return a deep copy of statement STMT.  All the operands from STMT
    are reallocated and copied using unshare_expr.  The DEF, USE, VDEF
-   and VUSE operand arrays are set to empty in the new copy.  */
+   and VUSE operand arrays are set to empty in the new copy.  The new
+   copy isn't part of any sequence.  */
 
 gimple
 gimple_copy (gimple stmt)
@@ -2527,6 +2205,7 @@ gimple_copy (gimple stmt)
 
   /* Shallow copy all the fields from STMT.  */
   memcpy (copy, stmt, gimple_size (code));
+  gimple_init_singleton (copy);
 
   /* If STMT has sub-statements, deep-copy them as well.  */
   if (gimple_has_substatements (stmt))
@@ -2655,40 +2334,25 @@ gimple_copy (gimple stmt)
     }
 
   /* Make copy of operands.  */
-  if (num_ops > 0)
+  for (i = 0; i < num_ops; i++)
+    gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+
+  if (gimple_has_mem_ops (stmt))
     {
-      for (i = 0; i < num_ops; i++)
-	gimple_set_op (copy, i, unshare_expr (gimple_op (stmt, i)));
+      gimple_set_vdef (copy, gimple_vdef (stmt));
+      gimple_set_vuse (copy, gimple_vuse (stmt));
+    }
 
-      /* Clear out SSA operand vectors on COPY.  */
-      if (gimple_has_ops (stmt))
-	{
-	  gimple_set_def_ops (copy, NULL);
-	  gimple_set_use_ops (copy, NULL);
-	}
-
-      if (gimple_has_mem_ops (stmt))
-	{
-	  gimple_set_vdef (copy, gimple_vdef (stmt));
-	  gimple_set_vuse (copy, gimple_vuse (stmt));
-	}
+  /* Clear out SSA operand vectors on COPY.  */
+  if (gimple_has_ops (stmt))
+    {
+      gimple_set_use_ops (copy, NULL);
 
       /* SSA operands need to be updated.  */
       gimple_set_modified (copy, true);
     }
 
   return copy;
-}
-
-
-/* Set the MODIFIED flag to MODIFIEDP, iff the gimple statement G has
-   a MODIFIED field.  */
-
-void
-gimple_set_modified (gimple s, bool modifiedp)
-{
-  if (gimple_has_ops (s))
-    s->gsbase.modified = (unsigned) modifiedp;
 }
 
 
@@ -2801,8 +2465,13 @@ gimple_assign_rhs_could_trap_p (gimple s)
 void
 dump_gimple_statistics (void)
 {
-#ifdef GATHER_STATISTICS
   int i, total_tuples = 0, total_bytes = 0;
+
+  if (! GATHER_STATISTICS)
+    {
+      fprintf (stderr, "No gimple statistics\n");
+      return;
+    }
 
   fprintf (stderr, "\nGIMPLE statements\n");
   fprintf (stderr, "Kind                   Stmts      Bytes\n");
@@ -2817,9 +2486,6 @@ dump_gimple_statistics (void)
   fprintf (stderr, "---------------------------------------\n");
   fprintf (stderr, "%-20s %7d %10d\n", "Total", total_tuples, total_bytes);
   fprintf (stderr, "---------------------------------------\n");
-#else
-  fprintf (stderr, "No gimple statistics\n");
-#endif
 }
 
 
@@ -2881,29 +2547,6 @@ const unsigned char gimple_rhs_class_table[] = {
 
 /* Validation of GIMPLE expressions.  */
 
-/* Returns true iff T is a valid RHS for an assignment to a renamed
-   user -- or front-end generated artificial -- variable.  */
-
-bool
-is_gimple_reg_rhs (tree t)
-{
-  return get_gimple_rhs_class (TREE_CODE (t)) != GIMPLE_INVALID_RHS;
-}
-
-/* Returns true iff T is a valid RHS for an assignment to an un-renamed
-   LHS, or for a call argument.  */
-
-bool
-is_gimple_mem_rhs (tree t)
-{
-  /* If we're dealing with a renamable type, either source or dest must be
-     a renamed variable.  */
-  if (is_gimple_reg_type (TREE_TYPE (t)))
-    return is_gimple_val (t);
-  else
-    return is_gimple_val (t) || is_gimple_lvalue (t);
-}
-
 /*  Return true if T is a valid LHS for a GIMPLE assignment expression.  */
 
 bool
@@ -2950,13 +2593,6 @@ is_gimple_constant (const_tree t)
     case COMPLEX_CST:
     case VECTOR_CST:
       return true;
-
-    /* Vector constant constructors are gimple invariant.  */
-    case CONSTRUCTOR:
-      if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == VECTOR_TYPE)
-	return TREE_CONSTANT (t);
-      else
-	return false;
 
     default:
       return false;
@@ -3077,58 +2713,6 @@ is_gimple_ip_invariant (const_tree t)
   return is_gimple_constant (t);
 }
 
-/* Return true if T looks like a valid GIMPLE statement.  */
-
-bool
-is_gimple_stmt (tree t)
-{
-  const enum tree_code code = TREE_CODE (t);
-
-  switch (code)
-    {
-    case NOP_EXPR:
-      /* The only valid NOP_EXPR is the empty statement.  */
-      return IS_EMPTY_STMT (t);
-
-    case BIND_EXPR:
-    case COND_EXPR:
-      /* These are only valid if they're void.  */
-      return TREE_TYPE (t) == NULL || VOID_TYPE_P (TREE_TYPE (t));
-
-    case SWITCH_EXPR:
-    case GOTO_EXPR:
-    case RETURN_EXPR:
-    case LABEL_EXPR:
-    case CASE_LABEL_EXPR:
-    case TRY_CATCH_EXPR:
-    case TRY_FINALLY_EXPR:
-    case EH_FILTER_EXPR:
-    case CATCH_EXPR:
-    case ASM_EXPR:
-    case STATEMENT_LIST:
-    case OMP_PARALLEL:
-    case OMP_FOR:
-    case OMP_SECTIONS:
-    case OMP_SECTION:
-    case OMP_SINGLE:
-    case OMP_MASTER:
-    case OMP_ORDERED:
-    case OMP_CRITICAL:
-    case OMP_TASK:
-      /* These are always void.  */
-      return true;
-
-    case CALL_EXPR:
-    case MODIFY_EXPR:
-    case PREDICT_EXPR:
-      /* These are valid regardless of their type.  */
-      return true;
-
-    default:
-      return false;
-    }
-}
-
 /* Return true if T is a variable.  */
 
 bool
@@ -3158,8 +2742,11 @@ is_gimple_id (tree t)
 bool
 is_gimple_reg (tree t)
 {
+  if (virtual_operand_p (t))
+    return false;
+
   if (TREE_CODE (t) == SSA_NAME)
-    t = SSA_NAME_VAR (t);
+    return true;
 
   if (!is_gimple_variable (t))
     return false;
@@ -3276,16 +2863,12 @@ get_base_address (tree t)
       && TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR)
     t = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
 
-  if (TREE_CODE (t) == SSA_NAME
-      || DECL_P (t)
-      || TREE_CODE (t) == STRING_CST
-      || TREE_CODE (t) == CONSTRUCTOR
-      || INDIRECT_REF_P (t)
-      || TREE_CODE (t) == MEM_REF
-      || TREE_CODE (t) == TARGET_MEM_REF)
-    return t;
-  else
+  /* ???  Either the alias oracle or all callers need to properly deal
+     with WITH_SIZE_EXPRs before we can look through those.  */
+  if (TREE_CODE (t) == WITH_SIZE_EXPR)
     return NULL_TREE;
+
+  return t;
 }
 
 void
@@ -3370,7 +2953,11 @@ canonicalize_cond_expr_cond (tree t)
       t = build2 (TREE_CODE (top0), TREE_TYPE (t),
 		  TREE_OPERAND (top0, 0), TREE_OPERAND (top0, 1));
     }
-
+  /* For x ^ y use x != y.  */
+  else if (TREE_CODE (t) == BIT_XOR_EXPR)
+    t = build2 (NE_EXPR, TREE_TYPE (t),
+		TREE_OPERAND (t, 0), TREE_OPERAND (t, 1));
+  
   if (is_gimple_condexpr (t))
     return t;
 
@@ -3385,26 +2972,26 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 {
   int i;
   int nargs = gimple_call_num_args (stmt);
-  VEC(tree, heap) *vargs = VEC_alloc (tree, heap, nargs);
+  vec<tree> vargs;
+  vargs.create (nargs);
   gimple new_stmt;
 
   for (i = 0; i < nargs; i++)
     if (!bitmap_bit_p (args_to_skip, i))
-      VEC_quick_push (tree, vargs, gimple_call_arg (stmt, i));
+      vargs.quick_push (gimple_call_arg (stmt, i));
 
   if (gimple_call_internal_p (stmt))
     new_stmt = gimple_build_call_internal_vec (gimple_call_internal_fn (stmt),
 					       vargs);
   else
     new_stmt = gimple_build_call_vec (gimple_call_fn (stmt), vargs);
-  VEC_free (tree, heap, vargs);
+  vargs.release ();
   if (gimple_call_lhs (stmt))
     gimple_call_set_lhs (new_stmt, gimple_call_lhs (stmt));
 
   gimple_set_vuse (new_stmt, gimple_vuse (stmt));
   gimple_set_vdef (new_stmt, gimple_vdef (stmt));
 
-  gimple_set_block (new_stmt, gimple_block (stmt));
   if (gimple_has_location (stmt))
     gimple_set_location (new_stmt, gimple_location (stmt));
   gimple_call_copy_flags (new_stmt, stmt);
@@ -3416,159 +3003,6 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 }
 
 
-enum gtc_mode { GTC_MERGE = 0, GTC_DIAG = 1 };
-
-static hashval_t gimple_type_hash (const void *);
-
-/* Structure used to maintain a cache of some type pairs compared by
-   gimple_types_compatible_p when comparing aggregate types.  There are
-   three possible values for SAME_P:
-
-   	-2: The pair (T1, T2) has just been inserted in the table.
-	 0: T1 and T2 are different types.
-	 1: T1 and T2 are the same type.
-
-   The two elements in the SAME_P array are indexed by the comparison
-   mode gtc_mode.  */
-
-struct type_pair_d
-{
-  unsigned int uid1;
-  unsigned int uid2;
-  signed char same_p[2];
-};
-typedef struct type_pair_d *type_pair_t;
-DEF_VEC_P(type_pair_t);
-DEF_VEC_ALLOC_P(type_pair_t,heap);
-
-#define GIMPLE_TYPE_PAIR_SIZE 16381
-struct type_pair_d *type_pair_cache;
-
-
-/* Lookup the pair of types T1 and T2 in *VISITED_P.  Insert a new
-   entry if none existed.  */
-
-static inline type_pair_t
-lookup_type_pair (tree t1, tree t2)
-{
-  unsigned int index;
-  unsigned int uid1, uid2;
-
-  if (type_pair_cache == NULL)
-    type_pair_cache = XCNEWVEC (struct type_pair_d, GIMPLE_TYPE_PAIR_SIZE);
-
-  if (TYPE_UID (t1) < TYPE_UID (t2))
-    {
-      uid1 = TYPE_UID (t1);
-      uid2 = TYPE_UID (t2);
-    }
-  else
-    {
-      uid1 = TYPE_UID (t2);
-      uid2 = TYPE_UID (t1);
-    }
-  gcc_checking_assert (uid1 != uid2);
-
-  /* iterative_hash_hashval_t imply an function calls.
-     We know that UIDS are in limited range.  */
-  index = ((((unsigned HOST_WIDE_INT)uid1 << HOST_BITS_PER_WIDE_INT / 2) + uid2)
-	   % GIMPLE_TYPE_PAIR_SIZE);
-  if (type_pair_cache [index].uid1 == uid1
-      && type_pair_cache [index].uid2 == uid2)
-    return &type_pair_cache[index];
-
-  type_pair_cache [index].uid1 = uid1;
-  type_pair_cache [index].uid2 = uid2;
-  type_pair_cache [index].same_p[0] = -2;
-  type_pair_cache [index].same_p[1] = -2;
-
-  return &type_pair_cache[index];
-}
-
-/* Per pointer state for the SCC finding.  The on_sccstack flag
-   is not strictly required, it is true when there is no hash value
-   recorded for the type and false otherwise.  But querying that
-   is slower.  */
-
-struct sccs
-{
-  unsigned int dfsnum;
-  unsigned int low;
-  bool on_sccstack;
-  union {
-    hashval_t hash;
-    signed char same_p;
-  } u;
-};
-
-static unsigned int next_dfs_num;
-static unsigned int gtc_next_dfs_num;
-
-
-/* GIMPLE type merging cache.  A direct-mapped cache based on TYPE_UID.  */
-
-typedef struct GTY(()) gimple_type_leader_entry_s {
-  tree type;
-  tree leader;
-} gimple_type_leader_entry;
-
-#define GIMPLE_TYPE_LEADER_SIZE 16381
-static GTY((deletable, length("GIMPLE_TYPE_LEADER_SIZE")))
-  gimple_type_leader_entry *gimple_type_leader;
-
-/* Lookup an existing leader for T and return it or NULL_TREE, if
-   there is none in the cache.  */
-
-static inline tree
-gimple_lookup_type_leader (tree t)
-{
-  gimple_type_leader_entry *leader;
-
-  if (!gimple_type_leader)
-    return NULL_TREE;
-
-  leader = &gimple_type_leader[TYPE_UID (t) % GIMPLE_TYPE_LEADER_SIZE];
-  if (leader->type != t)
-    return NULL_TREE;
-
-  return leader->leader;
-}
-
-/* Return true if T1 and T2 have the same name.  If FOR_COMPLETION_P is
-   true then if any type has no name return false, otherwise return
-   true if both types have no names.  */
-
-static bool
-compare_type_names_p (tree t1, tree t2)
-{
-  tree name1 = TYPE_NAME (t1);
-  tree name2 = TYPE_NAME (t2);
-
-  if ((name1 != NULL_TREE) != (name2 != NULL_TREE))
-    return false;
-
-  if (name1 == NULL_TREE)
-    return true;
-
-  /* Either both should be a TYPE_DECL or both an IDENTIFIER_NODE.  */
-  if (TREE_CODE (name1) != TREE_CODE (name2))
-    return false;
-
-  if (TREE_CODE (name1) == TYPE_DECL)
-    name1 = DECL_NAME (name1);
-  gcc_checking_assert (!name1 || TREE_CODE (name1) == IDENTIFIER_NODE);
-
-  if (TREE_CODE (name2) == TYPE_DECL)
-    name2 = DECL_NAME (name2);
-  gcc_checking_assert (!name2 || TREE_CODE (name2) == IDENTIFIER_NODE);
-
-  /* Identifiers can be compared with pointer equality rather
-     than a string comparison.  */
-  if (name1 == name2)
-    return true;
-
-  return false;
-}
 
 /* Return true if the field decls F1 and F2 are at the same offset.
 
@@ -3621,902 +3055,6 @@ gimple_compare_field_offset (tree f1, tree f2)
   return false;
 }
 
-static bool
-gimple_types_compatible_p_1 (tree, tree, type_pair_t,
-			     VEC(type_pair_t, heap) **,
-			     struct pointer_map_t *, struct obstack *);
-
-/* DFS visit the edge from the callers type pair with state *STATE to
-   the pair T1, T2 while operating in FOR_MERGING_P mode.
-   Update the merging status if it is not part of the SCC containing the
-   callers pair and return it.
-   SCCSTACK, SCCSTATE and SCCSTATE_OBSTACK are state for the DFS walk done.  */
-
-static bool
-gtc_visit (tree t1, tree t2,
-	   struct sccs *state,
-	   VEC(type_pair_t, heap) **sccstack,
-	   struct pointer_map_t *sccstate,
-	   struct obstack *sccstate_obstack)
-{
-  struct sccs *cstate = NULL;
-  type_pair_t p;
-  void **slot;
-  tree leader1, leader2;
-
-  /* Check first for the obvious case of pointer identity.  */
-  if (t1 == t2)
-    return true;
-
-  /* Check that we have two types to compare.  */
-  if (t1 == NULL_TREE || t2 == NULL_TREE)
-    return false;
-
-  /* Can't be the same type if the types don't have the same code.  */
-  if (TREE_CODE (t1) != TREE_CODE (t2))
-    return false;
-
-  /* Can't be the same type if they have different CV qualifiers.  */
-  if (TYPE_QUALS (t1) != TYPE_QUALS (t2))
-    return false;
-
-  if (TREE_ADDRESSABLE (t1) != TREE_ADDRESSABLE (t2))
-    return false;
-
-  /* Void types and nullptr types are always the same.  */
-  if (TREE_CODE (t1) == VOID_TYPE
-      || TREE_CODE (t1) == NULLPTR_TYPE)
-    return true;
-
-  /* Can't be the same type if they have different alignment or mode.  */
-  if (TYPE_ALIGN (t1) != TYPE_ALIGN (t2)
-      || TYPE_MODE (t1) != TYPE_MODE (t2))
-    return false;
-
-  /* Do some simple checks before doing three hashtable queries.  */
-  if (INTEGRAL_TYPE_P (t1)
-      || SCALAR_FLOAT_TYPE_P (t1)
-      || FIXED_POINT_TYPE_P (t1)
-      || TREE_CODE (t1) == VECTOR_TYPE
-      || TREE_CODE (t1) == COMPLEX_TYPE
-      || TREE_CODE (t1) == OFFSET_TYPE
-      || POINTER_TYPE_P (t1))
-    {
-      /* Can't be the same type if they have different sign or precision.  */
-      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2)
-	  || TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2))
-	return false;
-
-      if (TREE_CODE (t1) == INTEGER_TYPE
-	  && (TYPE_IS_SIZETYPE (t1) != TYPE_IS_SIZETYPE (t2)
-	      || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2)))
-	return false;
-
-      /* That's all we need to check for float and fixed-point types.  */
-      if (SCALAR_FLOAT_TYPE_P (t1)
-	  || FIXED_POINT_TYPE_P (t1))
-	return true;
-
-      /* For other types fall thru to more complex checks.  */
-    }
-
-  /* If the types have been previously registered and found equal
-     they still are.  */
-  leader1 = gimple_lookup_type_leader (t1);
-  leader2 = gimple_lookup_type_leader (t2);
-  if (leader1 == t2
-      || t1 == leader2
-      || (leader1 && leader1 == leader2))
-    return true;
-
-  /* If the hash values of t1 and t2 are different the types can't
-     possibly be the same.  This helps keeping the type-pair hashtable
-     small, only tracking comparisons for hash collisions.  */
-  if (gimple_type_hash (t1) != gimple_type_hash (t2))
-    return false;
-
-  /* Allocate a new cache entry for this comparison.  */
-  p = lookup_type_pair (t1, t2);
-  if (p->same_p[GTC_MERGE] == 0 || p->same_p[GTC_MERGE] == 1)
-    {
-      /* We have already decided whether T1 and T2 are the
-	 same, return the cached result.  */
-      return p->same_p[GTC_MERGE] == 1;
-    }
-
-  if ((slot = pointer_map_contains (sccstate, p)) != NULL)
-    cstate = (struct sccs *)*slot;
-  /* Not yet visited.  DFS recurse.  */
-  if (!cstate)
-    {
-      gimple_types_compatible_p_1 (t1, t2, p,
-				   sccstack, sccstate, sccstate_obstack);
-      cstate = (struct sccs *)* pointer_map_contains (sccstate, p);
-      state->low = MIN (state->low, cstate->low);
-    }
-  /* If the type is still on the SCC stack adjust the parents low.  */
-  if (cstate->dfsnum < state->dfsnum
-      && cstate->on_sccstack)
-    state->low = MIN (cstate->dfsnum, state->low);
-
-  /* Return the current lattice value.  We start with an equality
-     assumption so types part of a SCC will be optimistically
-     treated equal unless proven otherwise.  */
-  return cstate->u.same_p;
-}
-
-/* Worker for gimple_types_compatible.
-   SCCSTACK, SCCSTATE and SCCSTATE_OBSTACK are state for the DFS walk done.  */
-
-static bool
-gimple_types_compatible_p_1 (tree t1, tree t2, type_pair_t p,
-			     VEC(type_pair_t, heap) **sccstack,
-			     struct pointer_map_t *sccstate,
-			     struct obstack *sccstate_obstack)
-{
-  struct sccs *state;
-
-  gcc_assert (p->same_p[GTC_MERGE] == -2);
-
-  state = XOBNEW (sccstate_obstack, struct sccs);
-  *pointer_map_insert (sccstate, p) = state;
-
-  VEC_safe_push (type_pair_t, heap, *sccstack, p);
-  state->dfsnum = gtc_next_dfs_num++;
-  state->low = state->dfsnum;
-  state->on_sccstack = true;
-  /* Start with an equality assumption.  As we DFS recurse into child
-     SCCs this assumption may get revisited.  */
-  state->u.same_p = 1;
-
-  /* The struct tags shall compare equal.  */
-  if (!compare_type_names_p (t1, t2))
-    goto different_types;
-
-  /* We may not merge typedef types to the same type in different
-     contexts.  */
-  if (TYPE_NAME (t1)
-      && TREE_CODE (TYPE_NAME (t1)) == TYPE_DECL
-      && DECL_CONTEXT (TYPE_NAME (t1))
-      && TYPE_P (DECL_CONTEXT (TYPE_NAME (t1))))
-    {
-      if (!gtc_visit (DECL_CONTEXT (TYPE_NAME (t1)),
-		      DECL_CONTEXT (TYPE_NAME (t2)),
-		      state, sccstack, sccstate, sccstate_obstack))
-	goto different_types;
-    }
-
-  /* If their attributes are not the same they can't be the same type.  */
-  if (!attribute_list_equal (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2)))
-    goto different_types;
-
-  /* Do type-specific comparisons.  */
-  switch (TREE_CODE (t1))
-    {
-    case VECTOR_TYPE:
-    case COMPLEX_TYPE:
-      if (!gtc_visit (TREE_TYPE (t1), TREE_TYPE (t2),
-		      state, sccstack, sccstate, sccstate_obstack))
-	goto different_types;
-      goto same_types;
-
-    case ARRAY_TYPE:
-      /* Array types are the same if the element types are the same and
-	 the number of elements are the same.  */
-      if (!gtc_visit (TREE_TYPE (t1), TREE_TYPE (t2),
-		      state, sccstack, sccstate, sccstate_obstack)
-	  || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2)
-	  || TYPE_NONALIASED_COMPONENT (t1) != TYPE_NONALIASED_COMPONENT (t2))
-	goto different_types;
-      else
-	{
-	  tree i1 = TYPE_DOMAIN (t1);
-	  tree i2 = TYPE_DOMAIN (t2);
-
-	  /* For an incomplete external array, the type domain can be
- 	     NULL_TREE.  Check this condition also.  */
-	  if (i1 == NULL_TREE && i2 == NULL_TREE)
-	    goto same_types;
-	  else if (i1 == NULL_TREE || i2 == NULL_TREE)
-	    goto different_types;
-	  /* If for a complete array type the possibly gimplified sizes
-	     are different the types are different.  */
-	  else if (((TYPE_SIZE (i1) != NULL) ^ (TYPE_SIZE (i2) != NULL))
-		   || (TYPE_SIZE (i1)
-		       && TYPE_SIZE (i2)
-		       && !operand_equal_p (TYPE_SIZE (i1), TYPE_SIZE (i2), 0)))
-	    goto different_types;
-	  else
-	    {
-	      tree min1 = TYPE_MIN_VALUE (i1);
-	      tree min2 = TYPE_MIN_VALUE (i2);
-	      tree max1 = TYPE_MAX_VALUE (i1);
-	      tree max2 = TYPE_MAX_VALUE (i2);
-
-	      /* The minimum/maximum values have to be the same.  */
-	      if ((min1 == min2
-		   || (min1 && min2
-		       && ((TREE_CODE (min1) == PLACEHOLDER_EXPR
-			    && TREE_CODE (min2) == PLACEHOLDER_EXPR)
-		           || operand_equal_p (min1, min2, 0))))
-		  && (max1 == max2
-		      || (max1 && max2
-			  && ((TREE_CODE (max1) == PLACEHOLDER_EXPR
-			       && TREE_CODE (max2) == PLACEHOLDER_EXPR)
-			      || operand_equal_p (max1, max2, 0)))))
-		goto same_types;
-	      else
-		goto different_types;
-	    }
-	}
-
-    case METHOD_TYPE:
-      /* Method types should belong to the same class.  */
-      if (!gtc_visit (TYPE_METHOD_BASETYPE (t1), TYPE_METHOD_BASETYPE (t2),
-		      state, sccstack, sccstate, sccstate_obstack))
-	goto different_types;
-
-      /* Fallthru  */
-
-    case FUNCTION_TYPE:
-      /* Function types are the same if the return type and arguments types
-	 are the same.  */
-      if (!gtc_visit (TREE_TYPE (t1), TREE_TYPE (t2),
-		      state, sccstack, sccstate, sccstate_obstack))
-	goto different_types;
-
-      if (!comp_type_attributes (t1, t2))
-	goto different_types;
-
-      if (TYPE_ARG_TYPES (t1) == TYPE_ARG_TYPES (t2))
-	goto same_types;
-      else
-	{
-	  tree parms1, parms2;
-
-	  for (parms1 = TYPE_ARG_TYPES (t1), parms2 = TYPE_ARG_TYPES (t2);
-	       parms1 && parms2;
-	       parms1 = TREE_CHAIN (parms1), parms2 = TREE_CHAIN (parms2))
-	    {
-	      if (!gtc_visit (TREE_VALUE (parms1), TREE_VALUE (parms2),
-			      state, sccstack, sccstate, sccstate_obstack))
-		goto different_types;
-	    }
-
-	  if (parms1 || parms2)
-	    goto different_types;
-
-	  goto same_types;
-	}
-
-    case OFFSET_TYPE:
-      {
-	if (!gtc_visit (TREE_TYPE (t1), TREE_TYPE (t2),
-			state, sccstack, sccstate, sccstate_obstack)
-	    || !gtc_visit (TYPE_OFFSET_BASETYPE (t1),
-			   TYPE_OFFSET_BASETYPE (t2),
-			   state, sccstack, sccstate, sccstate_obstack))
-	  goto different_types;
-
-	goto same_types;
-      }
-
-    case POINTER_TYPE:
-    case REFERENCE_TYPE:
-      {
-	/* If the two pointers have different ref-all attributes,
-	   they can't be the same type.  */
-	if (TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2))
-	  goto different_types;
-
-	/* Otherwise, pointer and reference types are the same if the
-	   pointed-to types are the same.  */
-	if (gtc_visit (TREE_TYPE (t1), TREE_TYPE (t2),
-		       state, sccstack, sccstate, sccstate_obstack))
-	  goto same_types;
-
-	goto different_types;
-      }
-
-    case INTEGER_TYPE:
-    case BOOLEAN_TYPE:
-      {
-	tree min1 = TYPE_MIN_VALUE (t1);
-	tree max1 = TYPE_MAX_VALUE (t1);
-	tree min2 = TYPE_MIN_VALUE (t2);
-	tree max2 = TYPE_MAX_VALUE (t2);
-	bool min_equal_p = false;
-	bool max_equal_p = false;
-
-	/* If either type has a minimum value, the other type must
-	   have the same.  */
-	if (min1 == NULL_TREE && min2 == NULL_TREE)
-	  min_equal_p = true;
-	else if (min1 && min2 && operand_equal_p (min1, min2, 0))
-	  min_equal_p = true;
-
-	/* Likewise, if either type has a maximum value, the other
-	   type must have the same.  */
-	if (max1 == NULL_TREE && max2 == NULL_TREE)
-	  max_equal_p = true;
-	else if (max1 && max2 && operand_equal_p (max1, max2, 0))
-	  max_equal_p = true;
-
-	if (!min_equal_p || !max_equal_p)
-	  goto different_types;
-
-	goto same_types;
-      }
-
-    case ENUMERAL_TYPE:
-      {
-	/* FIXME lto, we cannot check bounds on enumeral types because
-	   different front ends will produce different values.
-	   In C, enumeral types are integers, while in C++ each element
-	   will have its own symbolic value.  We should decide how enums
-	   are to be represented in GIMPLE and have each front end lower
-	   to that.  */
-	tree v1, v2;
-
-	/* For enumeral types, all the values must be the same.  */
-	if (TYPE_VALUES (t1) == TYPE_VALUES (t2))
-	  goto same_types;
-
-	for (v1 = TYPE_VALUES (t1), v2 = TYPE_VALUES (t2);
-	     v1 && v2;
-	     v1 = TREE_CHAIN (v1), v2 = TREE_CHAIN (v2))
-	  {
-	    tree c1 = TREE_VALUE (v1);
-	    tree c2 = TREE_VALUE (v2);
-
-	    if (TREE_CODE (c1) == CONST_DECL)
-	      c1 = DECL_INITIAL (c1);
-
-	    if (TREE_CODE (c2) == CONST_DECL)
-	      c2 = DECL_INITIAL (c2);
-
-	    if (tree_int_cst_equal (c1, c2) != 1)
-	      goto different_types;
-
-	    if (TREE_PURPOSE (v1) != TREE_PURPOSE (v2))
-	      goto different_types;
-	  }
-
-	/* If one enumeration has more values than the other, they
-	   are not the same.  */
-	if (v1 || v2)
-	  goto different_types;
-
-	goto same_types;
-      }
-
-    case RECORD_TYPE:
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      {
-	tree f1, f2;
-
-	/* For aggregate types, all the fields must be the same.  */
-	for (f1 = TYPE_FIELDS (t1), f2 = TYPE_FIELDS (t2);
-	     f1 && f2;
-	     f1 = TREE_CHAIN (f1), f2 = TREE_CHAIN (f2))
-	  {
-	    /* Different field kinds are not compatible.  */
-	    if (TREE_CODE (f1) != TREE_CODE (f2))
-	      goto different_types;
-	    /* Field decls must have the same name and offset.  */
-	    if (TREE_CODE (f1) == FIELD_DECL
-		&& (DECL_NONADDRESSABLE_P (f1) != DECL_NONADDRESSABLE_P (f2)
-		    || !gimple_compare_field_offset (f1, f2)))
-	      goto different_types;
-	    /* All entities should have the same name and type.  */
-	    if (DECL_NAME (f1) != DECL_NAME (f2)
-		|| !gtc_visit (TREE_TYPE (f1), TREE_TYPE (f2),
-			       state, sccstack, sccstate, sccstate_obstack))
-	      goto different_types;
-	  }
-
-	/* If one aggregate has more fields than the other, they
-	   are not the same.  */
-	if (f1 || f2)
-	  goto different_types;
-
-	goto same_types;
-      }
-
-    default:
-      gcc_unreachable ();
-    }
-
-  /* Common exit path for types that are not compatible.  */
-different_types:
-  state->u.same_p = 0;
-  goto pop;
-
-  /* Common exit path for types that are compatible.  */
-same_types:
-  gcc_assert (state->u.same_p == 1);
-
-pop:
-  if (state->low == state->dfsnum)
-    {
-      type_pair_t x;
-
-      /* Pop off the SCC and set its cache values to the final
-         comparison result.  */
-      do
-	{
-	  struct sccs *cstate;
-	  x = VEC_pop (type_pair_t, *sccstack);
-	  cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
-	  cstate->on_sccstack = false;
-	  x->same_p[GTC_MERGE] = state->u.same_p;
-	}
-      while (x != p);
-    }
-
-  return state->u.same_p;
-}
-
-/* Return true iff T1 and T2 are structurally identical.  When
-   FOR_MERGING_P is true the an incomplete type and a complete type
-   are considered different, otherwise they are considered compatible.  */
-
-static bool
-gimple_types_compatible_p (tree t1, tree t2)
-{
-  VEC(type_pair_t, heap) *sccstack = NULL;
-  struct pointer_map_t *sccstate;
-  struct obstack sccstate_obstack;
-  type_pair_t p = NULL;
-  bool res;
-  tree leader1, leader2;
-
-  /* Before starting to set up the SCC machinery handle simple cases.  */
-
-  /* Check first for the obvious case of pointer identity.  */
-  if (t1 == t2)
-    return true;
-
-  /* Check that we have two types to compare.  */
-  if (t1 == NULL_TREE || t2 == NULL_TREE)
-    return false;
-
-  /* Can't be the same type if the types don't have the same code.  */
-  if (TREE_CODE (t1) != TREE_CODE (t2))
-    return false;
-
-  /* Can't be the same type if they have different CV qualifiers.  */
-  if (TYPE_QUALS (t1) != TYPE_QUALS (t2))
-    return false;
-
-  if (TREE_ADDRESSABLE (t1) != TREE_ADDRESSABLE (t2))
-    return false;
-
-  /* Void types and nullptr types are always the same.  */
-  if (TREE_CODE (t1) == VOID_TYPE
-      || TREE_CODE (t1) == NULLPTR_TYPE)
-    return true;
-
-  /* Can't be the same type if they have different alignment or mode.  */
-  if (TYPE_ALIGN (t1) != TYPE_ALIGN (t2)
-      || TYPE_MODE (t1) != TYPE_MODE (t2))
-    return false;
-
-  /* Do some simple checks before doing three hashtable queries.  */
-  if (INTEGRAL_TYPE_P (t1)
-      || SCALAR_FLOAT_TYPE_P (t1)
-      || FIXED_POINT_TYPE_P (t1)
-      || TREE_CODE (t1) == VECTOR_TYPE
-      || TREE_CODE (t1) == COMPLEX_TYPE
-      || TREE_CODE (t1) == OFFSET_TYPE
-      || POINTER_TYPE_P (t1))
-    {
-      /* Can't be the same type if they have different sign or precision.  */
-      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2)
-	  || TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2))
-	return false;
-
-      if (TREE_CODE (t1) == INTEGER_TYPE
-	  && (TYPE_IS_SIZETYPE (t1) != TYPE_IS_SIZETYPE (t2)
-	      || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2)))
-	return false;
-
-      /* That's all we need to check for float and fixed-point types.  */
-      if (SCALAR_FLOAT_TYPE_P (t1)
-	  || FIXED_POINT_TYPE_P (t1))
-	return true;
-
-      /* For other types fall thru to more complex checks.  */
-    }
-
-  /* If the types have been previously registered and found equal
-     they still are.  */
-  leader1 = gimple_lookup_type_leader (t1);
-  leader2 = gimple_lookup_type_leader (t2);
-  if (leader1 == t2
-      || t1 == leader2
-      || (leader1 && leader1 == leader2))
-    return true;
-
-  /* If the hash values of t1 and t2 are different the types can't
-     possibly be the same.  This helps keeping the type-pair hashtable
-     small, only tracking comparisons for hash collisions.  */
-  if (gimple_type_hash (t1) != gimple_type_hash (t2))
-    return false;
-
-  /* If we've visited this type pair before (in the case of aggregates
-     with self-referential types), and we made a decision, return it.  */
-  p = lookup_type_pair (t1, t2);
-  if (p->same_p[GTC_MERGE] == 0 || p->same_p[GTC_MERGE] == 1)
-    {
-      /* We have already decided whether T1 and T2 are the
-	 same, return the cached result.  */
-      return p->same_p[GTC_MERGE] == 1;
-    }
-
-  /* Now set up the SCC machinery for the comparison.  */
-  gtc_next_dfs_num = 1;
-  sccstate = pointer_map_create ();
-  gcc_obstack_init (&sccstate_obstack);
-  res = gimple_types_compatible_p_1 (t1, t2, p,
-				     &sccstack, sccstate, &sccstate_obstack);
-  VEC_free (type_pair_t, heap, sccstack);
-  pointer_map_destroy (sccstate);
-  obstack_free (&sccstate_obstack, NULL);
-
-  return res;
-}
-
-
-static hashval_t
-iterative_hash_gimple_type (tree, hashval_t, VEC(tree, heap) **,
-			    struct pointer_map_t *, struct obstack *);
-
-/* DFS visit the edge from the callers type with state *STATE to T.
-   Update the callers type hash V with the hash for T if it is not part
-   of the SCC containing the callers type and return it.
-   SCCSTACK, SCCSTATE and SCCSTATE_OBSTACK are state for the DFS walk done.  */
-
-static hashval_t
-visit (tree t, struct sccs *state, hashval_t v,
-       VEC (tree, heap) **sccstack,
-       struct pointer_map_t *sccstate,
-       struct obstack *sccstate_obstack)
-{
-  struct sccs *cstate = NULL;
-  struct tree_int_map m;
-  void **slot;
-
-  /* If there is a hash value recorded for this type then it can't
-     possibly be part of our parent SCC.  Simply mix in its hash.  */
-  m.base.from = t;
-  if ((slot = htab_find_slot (type_hash_cache, &m, NO_INSERT))
-      && *slot)
-    return iterative_hash_hashval_t (((struct tree_int_map *) *slot)->to, v);
-
-  if ((slot = pointer_map_contains (sccstate, t)) != NULL)
-    cstate = (struct sccs *)*slot;
-  if (!cstate)
-    {
-      hashval_t tem;
-      /* Not yet visited.  DFS recurse.  */
-      tem = iterative_hash_gimple_type (t, v,
-					sccstack, sccstate, sccstate_obstack);
-      if (!cstate)
-	cstate = (struct sccs *)* pointer_map_contains (sccstate, t);
-      state->low = MIN (state->low, cstate->low);
-      /* If the type is no longer on the SCC stack and thus is not part
-         of the parents SCC mix in its hash value.  Otherwise we will
-	 ignore the type for hashing purposes and return the unaltered
-	 hash value.  */
-      if (!cstate->on_sccstack)
-	return tem;
-    }
-  if (cstate->dfsnum < state->dfsnum
-      && cstate->on_sccstack)
-    state->low = MIN (cstate->dfsnum, state->low);
-
-  /* We are part of our parents SCC, skip this type during hashing
-     and return the unaltered hash value.  */
-  return v;
-}
-
-/* Hash NAME with the previous hash value V and return it.  */
-
-static hashval_t
-iterative_hash_name (tree name, hashval_t v)
-{
-  if (!name)
-    return v;
-  v = iterative_hash_hashval_t (TREE_CODE (name), v);
-  if (TREE_CODE (name) == TYPE_DECL)
-    name = DECL_NAME (name);
-  if (!name)
-    return v;
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
-  return iterative_hash_object (IDENTIFIER_HASH_VALUE (name), v);
-}
-
-/* A type, hashvalue pair for sorting SCC members.  */
-
-struct type_hash_pair {
-  tree type;
-  hashval_t hash;
-};
-
-/* Compare two type, hashvalue pairs.  */
-
-static int
-type_hash_pair_compare (const void *p1_, const void *p2_)
-{
-  const struct type_hash_pair *p1 = (const struct type_hash_pair *) p1_;
-  const struct type_hash_pair *p2 = (const struct type_hash_pair *) p2_;
-  if (p1->hash < p2->hash)
-    return -1;
-  else if (p1->hash > p2->hash)
-    return 1;
-  return 0;
-}
-
-/* Returning a hash value for gimple type TYPE combined with VAL.
-   SCCSTACK, SCCSTATE and SCCSTATE_OBSTACK are state for the DFS walk done.
-
-   To hash a type we end up hashing in types that are reachable.
-   Through pointers we can end up with cycles which messes up the
-   required property that we need to compute the same hash value
-   for structurally equivalent types.  To avoid this we have to
-   hash all types in a cycle (the SCC) in a commutative way.  The
-   easiest way is to not mix in the hashes of the SCC members at
-   all.  To make this work we have to delay setting the hash
-   values of the SCC until it is complete.  */
-
-static hashval_t
-iterative_hash_gimple_type (tree type, hashval_t val,
-			    VEC(tree, heap) **sccstack,
-			    struct pointer_map_t *sccstate,
-			    struct obstack *sccstate_obstack)
-{
-  hashval_t v;
-  void **slot;
-  struct sccs *state;
-
-  /* Not visited during this DFS walk.  */
-  gcc_checking_assert (!pointer_map_contains (sccstate, type));
-  state = XOBNEW (sccstate_obstack, struct sccs);
-  *pointer_map_insert (sccstate, type) = state;
-
-  VEC_safe_push (tree, heap, *sccstack, type);
-  state->dfsnum = next_dfs_num++;
-  state->low = state->dfsnum;
-  state->on_sccstack = true;
-
-  /* Combine a few common features of types so that types are grouped into
-     smaller sets; when searching for existing matching types to merge,
-     only existing types having the same features as the new type will be
-     checked.  */
-  v = iterative_hash_name (TYPE_NAME (type), 0);
-  if (TYPE_NAME (type)
-      && TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-      && DECL_CONTEXT (TYPE_NAME (type))
-      && TYPE_P (DECL_CONTEXT (TYPE_NAME (type))))
-    v = visit (DECL_CONTEXT (TYPE_NAME (type)), state, v,
-	       sccstack, sccstate, sccstate_obstack);
-  v = iterative_hash_hashval_t (TREE_CODE (type), v);
-  v = iterative_hash_hashval_t (TYPE_QUALS (type), v);
-  v = iterative_hash_hashval_t (TREE_ADDRESSABLE (type), v);
-
-  /* Do not hash the types size as this will cause differences in
-     hash values for the complete vs. the incomplete type variant.  */
-
-  /* Incorporate common features of numerical types.  */
-  if (INTEGRAL_TYPE_P (type)
-      || SCALAR_FLOAT_TYPE_P (type)
-      || FIXED_POINT_TYPE_P (type))
-    {
-      v = iterative_hash_hashval_t (TYPE_PRECISION (type), v);
-      v = iterative_hash_hashval_t (TYPE_MODE (type), v);
-      v = iterative_hash_hashval_t (TYPE_UNSIGNED (type), v);
-    }
-
-  /* For pointer and reference types, fold in information about the type
-     pointed to.  */
-  if (POINTER_TYPE_P (type))
-    v = visit (TREE_TYPE (type), state, v,
-	       sccstack, sccstate, sccstate_obstack);
-
-  /* For integer types hash the types min/max values and the string flag.  */
-  if (TREE_CODE (type) == INTEGER_TYPE)
-    {
-      /* OMP lowering can introduce error_mark_node in place of
-	 random local decls in types.  */
-      if (TYPE_MIN_VALUE (type) != error_mark_node)
-	v = iterative_hash_expr (TYPE_MIN_VALUE (type), v);
-      if (TYPE_MAX_VALUE (type) != error_mark_node)
-	v = iterative_hash_expr (TYPE_MAX_VALUE (type), v);
-      v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
-    }
-
-  /* For array types hash their domain and the string flag.  */
-  if (TREE_CODE (type) == ARRAY_TYPE
-      && TYPE_DOMAIN (type))
-    {
-      v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
-      v = visit (TYPE_DOMAIN (type), state, v,
-		 sccstack, sccstate, sccstate_obstack);
-    }
-
-  /* Recurse for aggregates with a single element type.  */
-  if (TREE_CODE (type) == ARRAY_TYPE
-      || TREE_CODE (type) == COMPLEX_TYPE
-      || TREE_CODE (type) == VECTOR_TYPE)
-    v = visit (TREE_TYPE (type), state, v,
-	       sccstack, sccstate, sccstate_obstack);
-
-  /* Incorporate function return and argument types.  */
-  if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
-    {
-      unsigned na;
-      tree p;
-
-      /* For method types also incorporate their parent class.  */
-      if (TREE_CODE (type) == METHOD_TYPE)
-	v = visit (TYPE_METHOD_BASETYPE (type), state, v,
-		   sccstack, sccstate, sccstate_obstack);
-
-      /* Check result and argument types.  */
-      v = visit (TREE_TYPE (type), state, v,
-		 sccstack, sccstate, sccstate_obstack);
-      for (p = TYPE_ARG_TYPES (type), na = 0; p; p = TREE_CHAIN (p))
-	{
-	  v = visit (TREE_VALUE (p), state, v,
-		     sccstack, sccstate, sccstate_obstack);
-	  na++;
-	}
-
-      v = iterative_hash_hashval_t (na, v);
-    }
-
-  if (RECORD_OR_UNION_TYPE_P (type))
-    {
-      unsigned nf;
-      tree f;
-
-      for (f = TYPE_FIELDS (type), nf = 0; f; f = TREE_CHAIN (f))
-	{
-	  v = iterative_hash_name (DECL_NAME (f), v);
-	  v = visit (TREE_TYPE (f), state, v,
-		     sccstack, sccstate, sccstate_obstack);
-	  nf++;
-	}
-
-      v = iterative_hash_hashval_t (nf, v);
-    }
-
-  /* Record hash for us.  */
-  state->u.hash = v;
-
-  /* See if we found an SCC.  */
-  if (state->low == state->dfsnum)
-    {
-      tree x;
-      struct tree_int_map *m;
-
-      /* Pop off the SCC and set its hash values.  */
-      x = VEC_pop (tree, *sccstack);
-      /* Optimize SCC size one.  */
-      if (x == type)
-	{
-	  state->on_sccstack = false;
-	  m = ggc_alloc_cleared_tree_int_map ();
-	  m->base.from = x;
-	  m->to = v;
-	  slot = htab_find_slot (type_hash_cache, m, INSERT);
-	  gcc_assert (!*slot);
-	  *slot = (void *) m;
-	}
-      else
-	{
-	  struct sccs *cstate;
-	  unsigned first, i, size, j;
-	  struct type_hash_pair *pairs;
-	  /* Pop off the SCC and build an array of type, hash pairs.  */
-	  first = VEC_length (tree, *sccstack) - 1;
-	  while (VEC_index (tree, *sccstack, first) != type)
-	    --first;
-	  size = VEC_length (tree, *sccstack) - first + 1;
-	  pairs = XALLOCAVEC (struct type_hash_pair, size);
-	  i = 0;
-	  cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
-	  cstate->on_sccstack = false;
-	  pairs[i].type = x;
-	  pairs[i].hash = cstate->u.hash;
-	  do
-	    {
-	      x = VEC_pop (tree, *sccstack);
-	      cstate = (struct sccs *)*pointer_map_contains (sccstate, x);
-	      cstate->on_sccstack = false;
-	      ++i;
-	      pairs[i].type = x;
-	      pairs[i].hash = cstate->u.hash;
-	    }
-	  while (x != type);
-	  gcc_assert (i + 1 == size);
-	  /* Sort the arrays of type, hash pairs so that when we mix in
-	     all members of the SCC the hash value becomes independent on
-	     the order we visited the SCC.  Disregard hashes equal to
-	     the hash of the type we mix into because we cannot guarantee
-	     a stable sort for those across different TUs.  */
-	  qsort (pairs, size, sizeof (struct type_hash_pair),
-		 type_hash_pair_compare);
-	  for (i = 0; i < size; ++i)
-	    {
-	      hashval_t hash;
-	      m = ggc_alloc_cleared_tree_int_map ();
-	      m->base.from = pairs[i].type;
-	      hash = pairs[i].hash;
-	      /* Skip same hashes.  */
-	      for (j = i + 1; j < size && pairs[j].hash == pairs[i].hash; ++j)
-		;
-	      for (; j < size; ++j)
-		hash = iterative_hash_hashval_t (pairs[j].hash, hash);
-	      for (j = 0; pairs[j].hash != pairs[i].hash; ++j)
-		hash = iterative_hash_hashval_t (pairs[j].hash, hash);
-	      m->to = hash;
-	      if (pairs[i].type == type)
-		v = hash;
-	      slot = htab_find_slot (type_hash_cache, m, INSERT);
-	      gcc_assert (!*slot);
-	      *slot = (void *) m;
-	    }
-	}
-    }
-
-  return iterative_hash_hashval_t (v, val);
-}
-
-
-/* Returns a hash value for P (assumed to be a type).  The hash value
-   is computed using some distinguishing features of the type.  Note
-   that we cannot use pointer hashing here as we may be dealing with
-   two distinct instances of the same type.
-
-   This function should produce the same hash value for two compatible
-   types according to gimple_types_compatible_p.  */
-
-static hashval_t
-gimple_type_hash (const void *p)
-{
-  const_tree t = (const_tree) p;
-  VEC(tree, heap) *sccstack = NULL;
-  struct pointer_map_t *sccstate;
-  struct obstack sccstate_obstack;
-  hashval_t val;
-  void **slot;
-  struct tree_int_map m;
-
-  if (type_hash_cache == NULL)
-    type_hash_cache = htab_create_ggc (512, tree_int_map_hash,
-				       tree_int_map_eq, NULL);
-
-  m.base.from = CONST_CAST_TREE (t);
-  if ((slot = htab_find_slot (type_hash_cache, &m, NO_INSERT))
-      && *slot)
-    return iterative_hash_hashval_t (((struct tree_int_map *) *slot)->to, 0);
-
-  /* Perform a DFS walk and pre-hash all reachable types.  */
-  next_dfs_num = 1;
-  sccstate = pointer_map_create ();
-  gcc_obstack_init (&sccstate_obstack);
-  val = iterative_hash_gimple_type (CONST_CAST_TREE (t), 0,
-				    &sccstack, sccstate, &sccstate_obstack);
-  VEC_free (tree, heap, sccstack);
-  pointer_map_destroy (sccstate);
-  obstack_free (&sccstate_obstack, NULL);
-
-  return val;
-}
-
 /* Returning a hash value for gimple type TYPE combined with VAL.
 
    The hash value returned is equal for types considered compatible
@@ -4547,14 +3085,21 @@ iterative_hash_canonical_type (tree type, hashval_t val)
   if (INTEGRAL_TYPE_P (type)
       || SCALAR_FLOAT_TYPE_P (type)
       || FIXED_POINT_TYPE_P (type)
-      || TREE_CODE (type) == VECTOR_TYPE
-      || TREE_CODE (type) == COMPLEX_TYPE
       || TREE_CODE (type) == OFFSET_TYPE
       || POINTER_TYPE_P (type))
     {
       v = iterative_hash_hashval_t (TYPE_PRECISION (type), v);
       v = iterative_hash_hashval_t (TYPE_UNSIGNED (type), v);
     }
+
+  if (VECTOR_TYPE_P (type))
+    {
+      v = iterative_hash_hashval_t (TYPE_VECTOR_SUBPARTS (type), v);
+      v = iterative_hash_hashval_t (TYPE_UNSIGNED (type), v);
+    }
+
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    v = iterative_hash_hashval_t (TYPE_UNSIGNED (type), v);
 
   /* For pointer and reference types, fold in information about the type
      pointed to but do not recurse to the pointed-to type.  */
@@ -4566,19 +3111,20 @@ iterative_hash_canonical_type (tree type, hashval_t val)
       v = iterative_hash_hashval_t (TREE_CODE (TREE_TYPE (type)), v);
     }
 
-  /* For integer types hash the types min/max values and the string flag.  */
+  /* For integer types hash only the string flag.  */
   if (TREE_CODE (type) == INTEGER_TYPE)
-    {
-      v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
-      v = iterative_hash_hashval_t (TYPE_IS_SIZETYPE (type), v);
-    }
+    v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
 
-  /* For array types hash their domain and the string flag.  */
-  if (TREE_CODE (type) == ARRAY_TYPE
-      && TYPE_DOMAIN (type))
+  /* For array types hash the domain bounds and the string flag.  */
+  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
     {
       v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
-      v = iterative_hash_canonical_type (TYPE_DOMAIN (type), v);
+      /* OMP lowering can introduce error_mark_node in place of
+	 random local decls in types.  */
+      if (TYPE_MIN_VALUE (TYPE_DOMAIN (type)) != error_mark_node)
+	v = iterative_hash_expr (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), v);
+      if (TYPE_MAX_VALUE (TYPE_DOMAIN (type)) != error_mark_node)
+	v = iterative_hash_expr (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), v);
     }
 
   /* Recurse for aggregates with a single element type.  */
@@ -4643,84 +3189,7 @@ gimple_canonical_type_hash (const void *p)
 }
 
 
-/* Returns nonzero if P1 and P2 are equal.  */
 
-static int
-gimple_type_eq (const void *p1, const void *p2)
-{
-  const_tree t1 = (const_tree) p1;
-  const_tree t2 = (const_tree) p2;
-  return gimple_types_compatible_p (CONST_CAST_TREE (t1),
-				    CONST_CAST_TREE (t2));
-}
-
-
-/* Worker for gimple_register_type.
-   Register type T in the global type table gimple_types.
-   When REGISTERING_MV is false first recurse for the main variant of T.  */
-
-static tree
-gimple_register_type_1 (tree t, bool registering_mv)
-{
-  void **slot;
-  gimple_type_leader_entry *leader;
-
-  /* If we registered this type before return the cached result.  */
-  leader = &gimple_type_leader[TYPE_UID (t) % GIMPLE_TYPE_LEADER_SIZE];
-  if (leader->type == t)
-    return leader->leader;
-
-  /* Always register the main variant first.  This is important so we
-     pick up the non-typedef variants as canonical, otherwise we'll end
-     up taking typedef ids for structure tags during comparison.
-     It also makes sure that main variants will be merged to main variants.
-     As we are operating on a possibly partially fixed up type graph
-     do not bother to recurse more than once, otherwise we may end up
-     walking in circles.
-     If we are registering a main variant it will either remain its
-     own main variant or it will be merged to something else in which
-     case we do not care for the main variant leader.  */
-  if (!registering_mv
-      && TYPE_MAIN_VARIANT (t) != t)
-    gimple_register_type_1 (TYPE_MAIN_VARIANT (t), true);
-
-  /* See if we already have an equivalent type registered.  */
-  slot = htab_find_slot (gimple_types, t, INSERT);
-  if (*slot
-      && *(tree *)slot != t)
-    {
-      tree new_type = (tree) *((tree *) slot);
-      leader->type = t;
-      leader->leader = new_type;
-      return new_type;
-    }
-
-  /* If not, insert it to the cache and the hash.  */
-  leader->type = t;
-  leader->leader = t;
-  *slot = (void *) t;
-  return t;
-}
-
-/* Register type T in the global type table gimple_types.
-   If another type T', compatible with T, already existed in
-   gimple_types then return T', otherwise return T.  This is used by
-   LTO to merge identical types read from different TUs.  */
-
-tree
-gimple_register_type (tree t)
-{
-  gcc_assert (TYPE_P (t));
-
-  if (!gimple_type_leader)
-    gimple_type_leader = ggc_alloc_cleared_vec_gimple_type_leader_entry_s
-				(GIMPLE_TYPE_LEADER_SIZE);
-
-  if (gimple_types == NULL)
-    gimple_types = htab_create_ggc (16381, gimple_type_hash, gimple_type_eq, 0);
-
-  return gimple_register_type_1 (t, false);
-}
 
 /* The TYPE_CANONICAL merging machinery.  It should closely resemble
    the middle-end types_compatible_p function.  It needs to avoid
@@ -4787,8 +3256,7 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
 	return false;
 
       if (TREE_CODE (t1) == INTEGER_TYPE
-	  && (TYPE_IS_SIZETYPE (t1) != TYPE_IS_SIZETYPE (t2)
-	      || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2)))
+	  && TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2))
 	return false;
 
       /* For canonical type comparisons we do not want to build SCCs
@@ -4822,10 +3290,6 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
       return true;
     }
 
-  /* If their attributes are not the same they can't be the same type.  */
-  if (!attribute_list_equal (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2)))
-    return false;
-
   /* Do type-specific comparisons.  */
   switch (TREE_CODE (t1))
     {
@@ -4846,13 +3310,6 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
 	  if (i1 == NULL_TREE && i2 == NULL_TREE)
 	    return true;
 	  else if (i1 == NULL_TREE || i2 == NULL_TREE)
-	    return false;
-	  /* If for a complete array type the possibly gimplified sizes
-	     are different the types are different.  */
-	  else if (((TYPE_SIZE (i1) != NULL) ^ (TYPE_SIZE (i2) != NULL))
-		   || (TYPE_SIZE (i1)
-		       && TYPE_SIZE (i2)
-		       && !operand_equal_p (TYPE_SIZE (i1), TYPE_SIZE (i2), 0)))
 	    return false;
 	  else
 	    {
@@ -4879,13 +3336,6 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
 	}
 
     case METHOD_TYPE:
-      /* Method types should belong to the same class.  */
-      if (!gimple_canonical_types_compatible_p
-	     (TYPE_METHOD_BASETYPE (t1), TYPE_METHOD_BASETYPE (t2)))
-	return false;
-
-      /* Fallthru  */
-
     case FUNCTION_TYPE:
       /* Function types are the same if the return type and arguments types
 	 are the same.  */
@@ -5013,48 +3463,28 @@ gimple_register_canonical_type (tree t)
 /* Show statistics on references to the global type table gimple_types.  */
 
 void
-print_gimple_types_stats (void)
+print_gimple_types_stats (const char *pfx)
 {
-  if (gimple_types)
-    fprintf (stderr, "GIMPLE type table: size %ld, %ld elements, "
-	     "%ld searches, %ld collisions (ratio: %f)\n",
-	     (long) htab_size (gimple_types),
-	     (long) htab_elements (gimple_types),
-	     (long) gimple_types->searches,
-	     (long) gimple_types->collisions,
-	     htab_collisions (gimple_types));
-  else
-    fprintf (stderr, "GIMPLE type table is empty\n");
-  if (type_hash_cache)
-    fprintf (stderr, "GIMPLE type hash table: size %ld, %ld elements, "
-	     "%ld searches, %ld collisions (ratio: %f)\n",
-	     (long) htab_size (type_hash_cache),
-	     (long) htab_elements (type_hash_cache),
-	     (long) type_hash_cache->searches,
-	     (long) type_hash_cache->collisions,
-	     htab_collisions (type_hash_cache));
-  else
-    fprintf (stderr, "GIMPLE type hash table is empty\n");
   if (gimple_canonical_types)
-    fprintf (stderr, "GIMPLE canonical type table: size %ld, %ld elements, "
-	     "%ld searches, %ld collisions (ratio: %f)\n",
+    fprintf (stderr, "[%s] GIMPLE canonical type table: size %ld, "
+	     "%ld elements, %ld searches, %ld collisions (ratio: %f)\n", pfx,
 	     (long) htab_size (gimple_canonical_types),
 	     (long) htab_elements (gimple_canonical_types),
 	     (long) gimple_canonical_types->searches,
 	     (long) gimple_canonical_types->collisions,
 	     htab_collisions (gimple_canonical_types));
   else
-    fprintf (stderr, "GIMPLE canonical type table is empty\n");
+    fprintf (stderr, "[%s] GIMPLE canonical type table is empty\n", pfx);
   if (canonical_type_hash_cache)
-    fprintf (stderr, "GIMPLE canonical type hash table: size %ld, %ld elements, "
-	     "%ld searches, %ld collisions (ratio: %f)\n",
+    fprintf (stderr, "[%s] GIMPLE canonical type hash table: size %ld, "
+	     "%ld elements, %ld searches, %ld collisions (ratio: %f)\n", pfx,
 	     (long) htab_size (canonical_type_hash_cache),
 	     (long) htab_elements (canonical_type_hash_cache),
 	     (long) canonical_type_hash_cache->searches,
 	     (long) canonical_type_hash_cache->collisions,
 	     htab_collisions (canonical_type_hash_cache));
   else
-    fprintf (stderr, "GIMPLE canonical type hash table is empty\n");
+    fprintf (stderr, "[%s] GIMPLE canonical type hash table is empty\n", pfx);
 }
 
 /* Free the gimple type hashtables used for LTO type merging.  */
@@ -5062,36 +3492,16 @@ print_gimple_types_stats (void)
 void
 free_gimple_type_tables (void)
 {
-  /* Last chance to print stats for the tables.  */
-  if (flag_lto_report)
-    print_gimple_types_stats ();
-
-  if (gimple_types)
-    {
-      htab_delete (gimple_types);
-      gimple_types = NULL;
-    }
   if (gimple_canonical_types)
     {
       htab_delete (gimple_canonical_types);
       gimple_canonical_types = NULL;
-    }
-  if (type_hash_cache)
-    {
-      htab_delete (type_hash_cache);
-      type_hash_cache = NULL;
     }
   if (canonical_type_hash_cache)
     {
       htab_delete (canonical_type_hash_cache);
       canonical_type_hash_cache = NULL;
     }
-  if (type_pair_cache)
-    {
-      free (type_pair_cache);
-      type_pair_cache = NULL;
-    }
-  gimple_type_leader = NULL;
 }
 
 
@@ -5523,20 +3933,6 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 	    }
 	}
     }
-  else if (is_gimple_atomic (stmt) && visit_addr)
-      {
-        switch (gimple_atomic_kind (stmt))
-	  {
-	    tree t;
-	    case GIMPLE_ATOMIC_FENCE:
-	    break;
-
-	    default:
-	    t = gimple_atomic_target (stmt);
-	    if (TREE_CODE (t) == ADDR_EXPR)
-	      ret |= visit_addr (stmt, TREE_OPERAND (t, 0), data);
-	  }
-      }
   else if (is_gimple_call (stmt))
     {
       if (visit_store)
@@ -5655,6 +4051,13 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 	    ret |= visit_addr (stmt, TREE_OPERAND (op, 0), data);
 	}
     }
+  else if (visit_addr
+	   && gimple_code (stmt) == GIMPLE_GOTO)
+    {
+      tree op = gimple_goto_dest (stmt);
+      if (TREE_CODE (op) == ADDR_EXPR)
+	ret |= visit_addr (stmt, TREE_OPERAND (op, 0), data);
+    }
 
   return ret;
 }
@@ -5731,16 +4134,76 @@ gimple_decl_printable_name (tree decl, int verbosity)
   return IDENTIFIER_POINTER (DECL_NAME (decl));
 }
 
-/* Return true when STMT is builtins call to CODE.  */
+/* Return TRUE iff stmt is a call to a built-in function.  */
+
+bool
+is_gimple_builtin_call (gimple stmt)
+{
+  tree callee;
+
+  if (is_gimple_call (stmt)
+      && (callee = gimple_call_fndecl (stmt))
+      && is_builtin_fn (callee)
+      && DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL)
+    return true;
+
+  return false;
+}
+
+/* Return true when STMTs arguments match those of FNDECL.  */
+
+static bool
+validate_call (gimple stmt, tree fndecl)
+{
+  tree targs = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+  unsigned nargs = gimple_call_num_args (stmt);
+  for (unsigned i = 0; i < nargs; ++i)
+    {
+      /* Variadic args follow.  */
+      if (!targs)
+	return true;
+      tree arg = gimple_call_arg (stmt, i);
+      if (INTEGRAL_TYPE_P (TREE_TYPE (arg))
+	  && INTEGRAL_TYPE_P (TREE_VALUE (targs)))
+	;
+      else if (POINTER_TYPE_P (TREE_TYPE (arg))
+	       && POINTER_TYPE_P (TREE_VALUE (targs)))
+	;
+      else if (TREE_CODE (TREE_TYPE (arg))
+	       != TREE_CODE (TREE_VALUE (targs)))
+	return false;
+      targs = TREE_CHAIN (targs);
+    }
+  if (targs && !VOID_TYPE_P (TREE_VALUE (targs)))
+    return false;
+  return true;
+}
+
+/* Return true when STMT is builtins call to CLASS.  */
+
+bool
+gimple_call_builtin_p (gimple stmt, enum built_in_class klass)
+{
+  tree fndecl;
+  if (is_gimple_call (stmt)
+      && (fndecl = gimple_call_fndecl (stmt)) != NULL_TREE
+      && DECL_BUILT_IN_CLASS (fndecl) == klass)
+    return validate_call (stmt, fndecl);
+  return false;
+}
+
+/* Return true when STMT is builtins call to CODE of CLASS.  */
 
 bool
 gimple_call_builtin_p (gimple stmt, enum built_in_function code)
 {
   tree fndecl;
-  return (is_gimple_call (stmt)
-	  && (fndecl = gimple_call_fndecl (stmt)) != NULL
-	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-	  && DECL_FUNCTION_CODE (fndecl) == code);
+  if (is_gimple_call (stmt)
+      && (fndecl = gimple_call_fndecl (stmt)) != NULL_TREE
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL 
+      && DECL_FUNCTION_CODE (fndecl) == code)
+    return validate_call (stmt, fndecl);
+  return false;
 }
 
 /* Return true if STMT clobbers memory.  STMT is required to be a
@@ -5760,4 +4223,361 @@ gimple_asm_clobbers_memory_p (const_gimple stmt)
 
   return false;
 }
+
+
+/* Create and return an unnamed temporary.  MODE indicates whether
+   this should be an SSA or NORMAL temporary.  TYPE is the type to use
+   for the new temporary.  */
+
+tree
+create_gimple_tmp (tree type, enum ssa_mode mode)
+{
+  return (mode == M_SSA)
+         ? make_ssa_name (type, NULL)
+         : create_tmp_var (type, NULL);
+}
+
+
+/* Return the expression type to use based on the CODE and type of
+   the given operand OP.  If the expression CODE is a comparison,
+   the returned type is boolean_type_node.  Otherwise, it returns
+   the type of OP.  */
+
+static tree
+get_expr_type (enum tree_code code, tree op)
+{
+  return (TREE_CODE_CLASS (code) == tcc_comparison)
+	 ? boolean_type_node
+	 : TREE_TYPE (op);
+}
+
+
+/* Build a new gimple assignment.  The LHS of the assignment is a new
+   temporary whose type matches the given expression.  MODE indicates
+   whether the LHS should be an SSA or a normal temporary.  CODE is
+   the expression code for the RHS.  OP1 is the first operand and VAL
+   is an integer value to be used as the second operand.  */
+
+gimple
+build_assign (enum tree_code code, tree op1, int val, enum ssa_mode mode)
+{
+  tree op2 = build_int_cst (TREE_TYPE (op1), val);
+  tree lhs = create_gimple_tmp (get_expr_type (code, op1), mode);
+  return gimple_build_assign_with_ops (code, lhs, op1, op2);
+}
+
+gimple
+build_assign (enum tree_code code, gimple g, int val, enum ssa_mode mode)
+{
+  return build_assign (code, gimple_assign_lhs (g), val, mode);
+}
+
+
+/* Build and return a new GIMPLE assignment.  The new assignment will
+   have the opcode CODE and operands OP1 and OP2.  The type of the
+   expression on the RHS is inferred to be the type of OP1.
+
+   The LHS of the statement will be an SSA name or a GIMPLE temporary
+   in normal form depending on the type of builder invoking this
+   function.  */
+
+gimple
+build_assign (enum tree_code code, tree op1, tree op2, enum ssa_mode mode)
+{
+  tree lhs = create_gimple_tmp (get_expr_type (code, op1), mode);
+  return gimple_build_assign_with_ops (code, lhs, op1, op2);
+}
+
+gimple
+build_assign (enum tree_code code, gimple op1, tree op2, enum ssa_mode mode)
+{
+  return build_assign (code, gimple_assign_lhs (op1), op2, mode);
+}
+
+gimple
+build_assign (enum tree_code code, tree op1, gimple op2, enum ssa_mode mode)
+{
+  return build_assign (code, op1, gimple_assign_lhs (op2), mode);
+}
+
+gimple
+build_assign (enum tree_code code, gimple op1, gimple op2, enum ssa_mode mode)
+{
+  return build_assign (code, gimple_assign_lhs (op1), gimple_assign_lhs (op2),
+                       mode);
+}
+
+
+/* Create and return a type cast assignment. This creates a NOP_EXPR
+   that converts OP to TO_TYPE.  */
+
+gimple
+build_type_cast (tree to_type, tree op, enum ssa_mode mode)
+{
+  tree lhs = create_gimple_tmp (to_type, mode);
+  return gimple_build_assign_with_ops (NOP_EXPR, lhs, op, NULL_TREE);
+}
+
+gimple
+build_type_cast (tree to_type, gimple op, enum ssa_mode mode)
+{
+  return build_type_cast (to_type, gimple_assign_lhs (op), mode);
+}
+
+
+/* Return true if the conversion from INNER_TYPE to OUTER_TYPE is a
+   useless type conversion, otherwise return false.
+
+   This function implicitly defines the middle-end type system.  With
+   the notion of 'a < b' meaning that useless_type_conversion_p (a, b)
+   holds and 'a > b' meaning that useless_type_conversion_p (b, a) holds,
+   the following invariants shall be fulfilled:
+
+     1) useless_type_conversion_p is transitive.
+	If a < b and b < c then a < c.
+
+     2) useless_type_conversion_p is not symmetric.
+	From a < b does not follow a > b.
+
+     3) Types define the available set of operations applicable to values.
+	A type conversion is useless if the operations for the target type
+	is a subset of the operations for the source type.  For example
+	casts to void* are useless, casts from void* are not (void* can't
+	be dereferenced or offsetted, but copied, hence its set of operations
+	is a strict subset of that of all other data pointer types).  Casts
+	to const T* are useless (can't be written to), casts from const T*
+	to T* are not.  */
+
+bool
+useless_type_conversion_p (tree outer_type, tree inner_type)
+{
+  /* Do the following before stripping toplevel qualifiers.  */
+  if (POINTER_TYPE_P (inner_type)
+      && POINTER_TYPE_P (outer_type))
+    {
+      /* Do not lose casts between pointers to different address spaces.  */
+      if (TYPE_ADDR_SPACE (TREE_TYPE (outer_type))
+	  != TYPE_ADDR_SPACE (TREE_TYPE (inner_type)))
+	return false;
+    }
+
+  /* From now on qualifiers on value types do not matter.  */
+  inner_type = TYPE_MAIN_VARIANT (inner_type);
+  outer_type = TYPE_MAIN_VARIANT (outer_type);
+
+  if (inner_type == outer_type)
+    return true;
+
+  /* If we know the canonical types, compare them.  */
+  if (TYPE_CANONICAL (inner_type)
+      && TYPE_CANONICAL (inner_type) == TYPE_CANONICAL (outer_type))
+    return true;
+
+  /* Changes in machine mode are never useless conversions unless we
+     deal with aggregate types in which case we defer to later checks.  */
+  if (TYPE_MODE (inner_type) != TYPE_MODE (outer_type)
+      && !AGGREGATE_TYPE_P (inner_type))
+    return false;
+
+  /* If both the inner and outer types are integral types, then the
+     conversion is not necessary if they have the same mode and
+     signedness and precision, and both or neither are boolean.  */
+  if (INTEGRAL_TYPE_P (inner_type)
+      && INTEGRAL_TYPE_P (outer_type))
+    {
+      /* Preserve changes in signedness or precision.  */
+      if (TYPE_UNSIGNED (inner_type) != TYPE_UNSIGNED (outer_type)
+	  || TYPE_PRECISION (inner_type) != TYPE_PRECISION (outer_type))
+	return false;
+
+      /* Preserve conversions to/from BOOLEAN_TYPE if types are not
+	 of precision one.  */
+      if (((TREE_CODE (inner_type) == BOOLEAN_TYPE)
+	   != (TREE_CODE (outer_type) == BOOLEAN_TYPE))
+	  && TYPE_PRECISION (outer_type) != 1)
+	return false;
+
+      /* We don't need to preserve changes in the types minimum or
+	 maximum value in general as these do not generate code
+	 unless the types precisions are different.  */
+      return true;
+    }
+
+  /* Scalar floating point types with the same mode are compatible.  */
+  else if (SCALAR_FLOAT_TYPE_P (inner_type)
+	   && SCALAR_FLOAT_TYPE_P (outer_type))
+    return true;
+
+  /* Fixed point types with the same mode are compatible.  */
+  else if (FIXED_POINT_TYPE_P (inner_type)
+	   && FIXED_POINT_TYPE_P (outer_type))
+    return true;
+
+  /* We need to take special care recursing to pointed-to types.  */
+  else if (POINTER_TYPE_P (inner_type)
+	   && POINTER_TYPE_P (outer_type))
+    {
+      /* Do not lose casts to function pointer types.  */
+      if ((TREE_CODE (TREE_TYPE (outer_type)) == FUNCTION_TYPE
+	   || TREE_CODE (TREE_TYPE (outer_type)) == METHOD_TYPE)
+	  && !(TREE_CODE (TREE_TYPE (inner_type)) == FUNCTION_TYPE
+	       || TREE_CODE (TREE_TYPE (inner_type)) == METHOD_TYPE))
+	return false;
+
+      /* We do not care for const qualification of the pointed-to types
+	 as const qualification has no semantic value to the middle-end.  */
+
+      /* Otherwise pointers/references are equivalent.  */
+      return true;
+    }
+
+  /* Recurse for complex types.  */
+  else if (TREE_CODE (inner_type) == COMPLEX_TYPE
+	   && TREE_CODE (outer_type) == COMPLEX_TYPE)
+    return useless_type_conversion_p (TREE_TYPE (outer_type),
+				      TREE_TYPE (inner_type));
+
+  /* Recurse for vector types with the same number of subparts.  */
+  else if (TREE_CODE (inner_type) == VECTOR_TYPE
+	   && TREE_CODE (outer_type) == VECTOR_TYPE
+	   && TYPE_PRECISION (inner_type) == TYPE_PRECISION (outer_type))
+    return useless_type_conversion_p (TREE_TYPE (outer_type),
+				      TREE_TYPE (inner_type));
+
+  else if (TREE_CODE (inner_type) == ARRAY_TYPE
+	   && TREE_CODE (outer_type) == ARRAY_TYPE)
+    {
+      /* Preserve string attributes.  */
+      if (TYPE_STRING_FLAG (inner_type) != TYPE_STRING_FLAG (outer_type))
+	return false;
+
+      /* Conversions from array types with unknown extent to
+	 array types with known extent are not useless.  */
+      if (!TYPE_DOMAIN (inner_type)
+	  && TYPE_DOMAIN (outer_type))
+	return false;
+
+      /* Nor are conversions from array types with non-constant size to
+         array types with constant size or to different size.  */
+      if (TYPE_SIZE (outer_type)
+	  && TREE_CODE (TYPE_SIZE (outer_type)) == INTEGER_CST
+	  && (!TYPE_SIZE (inner_type)
+	      || TREE_CODE (TYPE_SIZE (inner_type)) != INTEGER_CST
+	      || !tree_int_cst_equal (TYPE_SIZE (outer_type),
+				      TYPE_SIZE (inner_type))))
+	return false;
+
+      /* Check conversions between arrays with partially known extents.
+	 If the array min/max values are constant they have to match.
+	 Otherwise allow conversions to unknown and variable extents.
+	 In particular this declares conversions that may change the
+	 mode to BLKmode as useless.  */
+      if (TYPE_DOMAIN (inner_type)
+	  && TYPE_DOMAIN (outer_type)
+	  && TYPE_DOMAIN (inner_type) != TYPE_DOMAIN (outer_type))
+	{
+	  tree inner_min = TYPE_MIN_VALUE (TYPE_DOMAIN (inner_type));
+	  tree outer_min = TYPE_MIN_VALUE (TYPE_DOMAIN (outer_type));
+	  tree inner_max = TYPE_MAX_VALUE (TYPE_DOMAIN (inner_type));
+	  tree outer_max = TYPE_MAX_VALUE (TYPE_DOMAIN (outer_type));
+
+	  /* After gimplification a variable min/max value carries no
+	     additional information compared to a NULL value.  All that
+	     matters has been lowered to be part of the IL.  */
+	  if (inner_min && TREE_CODE (inner_min) != INTEGER_CST)
+	    inner_min = NULL_TREE;
+	  if (outer_min && TREE_CODE (outer_min) != INTEGER_CST)
+	    outer_min = NULL_TREE;
+	  if (inner_max && TREE_CODE (inner_max) != INTEGER_CST)
+	    inner_max = NULL_TREE;
+	  if (outer_max && TREE_CODE (outer_max) != INTEGER_CST)
+	    outer_max = NULL_TREE;
+
+	  /* Conversions NULL / variable <- cst are useless, but not
+	     the other way around.  */
+	  if (outer_min
+	      && (!inner_min
+		  || !tree_int_cst_equal (inner_min, outer_min)))
+	    return false;
+	  if (outer_max
+	      && (!inner_max
+		  || !tree_int_cst_equal (inner_max, outer_max)))
+	    return false;
+	}
+
+      /* Recurse on the element check.  */
+      return useless_type_conversion_p (TREE_TYPE (outer_type),
+					TREE_TYPE (inner_type));
+    }
+
+  else if ((TREE_CODE (inner_type) == FUNCTION_TYPE
+	    || TREE_CODE (inner_type) == METHOD_TYPE)
+	   && TREE_CODE (inner_type) == TREE_CODE (outer_type))
+    {
+      tree outer_parm, inner_parm;
+
+      /* If the return types are not compatible bail out.  */
+      if (!useless_type_conversion_p (TREE_TYPE (outer_type),
+				      TREE_TYPE (inner_type)))
+	return false;
+
+      /* Method types should belong to a compatible base class.  */
+      if (TREE_CODE (inner_type) == METHOD_TYPE
+	  && !useless_type_conversion_p (TYPE_METHOD_BASETYPE (outer_type),
+					 TYPE_METHOD_BASETYPE (inner_type)))
+	return false;
+
+      /* A conversion to an unprototyped argument list is ok.  */
+      if (!prototype_p (outer_type))
+	return true;
+
+      /* If the unqualified argument types are compatible the conversion
+	 is useless.  */
+      if (TYPE_ARG_TYPES (outer_type) == TYPE_ARG_TYPES (inner_type))
+	return true;
+
+      for (outer_parm = TYPE_ARG_TYPES (outer_type),
+	   inner_parm = TYPE_ARG_TYPES (inner_type);
+	   outer_parm && inner_parm;
+	   outer_parm = TREE_CHAIN (outer_parm),
+	   inner_parm = TREE_CHAIN (inner_parm))
+	if (!useless_type_conversion_p
+	       (TYPE_MAIN_VARIANT (TREE_VALUE (outer_parm)),
+		TYPE_MAIN_VARIANT (TREE_VALUE (inner_parm))))
+	  return false;
+
+      /* If there is a mismatch in the number of arguments the functions
+	 are not compatible.  */
+      if (outer_parm || inner_parm)
+	return false;
+
+      /* Defer to the target if necessary.  */
+      if (TYPE_ATTRIBUTES (inner_type) || TYPE_ATTRIBUTES (outer_type))
+	return comp_type_attributes (outer_type, inner_type) != 0;
+
+      return true;
+    }
+
+  /* For aggregates we rely on TYPE_CANONICAL exclusively and require
+     explicit conversions for types involving to be structurally
+     compared types.  */
+  else if (AGGREGATE_TYPE_P (inner_type)
+	   && TREE_CODE (inner_type) == TREE_CODE (outer_type))
+    return false;
+
+  return false;
+}
+
+/* Return true if a conversion from either type of TYPE1 and TYPE2
+   to the other is not required.  Otherwise return false.  */
+
+bool
+types_compatible_p (tree type1, tree type2)
+{
+  return (type1 == type2
+	  || (useless_type_conversion_p (type1, type2)
+	      && useless_type_conversion_p (type2, type1)));
+}
+
+
 #include "gt-gimple.h"

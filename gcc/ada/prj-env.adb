@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2001-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2001-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,6 +32,8 @@ with Output;   use Output;
 with Prj.Com;  use Prj.Com;
 with Sdefault;
 with Tempdir;
+
+with Ada.Text_IO; use Ada.Text_IO;
 
 with GNAT.Directory_Operations; use GNAT.Directory_Operations;
 
@@ -754,7 +756,7 @@ package body Prj.Env is
          exit when Data = No_Source;
 
          if Data.Unit /= No_Unit_Index then
-            if Data.Locally_Removed then
+            if Data.Locally_Removed and then not Data.Suppressed then
                Fmap.Add_Forbidden_File_Name (Data.File);
             else
                Fmap.Add_To_File_Map
@@ -829,7 +831,8 @@ package body Prj.Env is
             Source := Prj.Element (Iter);
             exit when Source = No_Source;
 
-            if Source.Replaced_By = No_Source
+            if not Source.Suppressed
+              and then Source.Replaced_By = No_Source
               and then Source.Path.Name /= No_Path
               and then (Source.Language.Config.Kind = File_Based
                          or else Source.Unit /= No_Unit_Index)
@@ -1835,8 +1838,9 @@ package body Prj.Env is
    ---------------------
 
    procedure Add_Directories
-     (Self : in out Project_Search_Path;
-      Path : String)
+     (Self    : in out Project_Search_Path;
+      Path    : String;
+      Prepend : Boolean := False)
    is
       Tmp : String_Access;
    begin
@@ -1844,7 +1848,11 @@ package body Prj.Env is
          Self.Path := new String'(Uninitialized_Prefix & Path);
       else
          Tmp := Self.Path;
-         Self.Path := new String'(Tmp.all & Path_Separator & Path);
+         if Prepend then
+            Self.Path := new String'(Path & Path_Separator & Tmp.all);
+         else
+            Self.Path := new String'(Tmp.all & Path_Separator & Path);
+         end if;
          Free (Tmp);
       end if;
 
@@ -1889,14 +1897,17 @@ package body Prj.Env is
       New_Len         : Positive;
       New_Last        : Positive;
 
-      Ada_Project_Path : constant String := "ADA_PROJECT_PATH";
-      Gpr_Project_Path : constant String := "GPR_PROJECT_PATH";
-      --  Name of alternate env. variable that contain path name(s) of
-      --  directories where project files may reside. GPR_PROJECT_PATH has
-      --  precedence over ADA_PROJECT_PATH.
+      Ada_Project_Path      : constant String := "ADA_PROJECT_PATH";
+      Gpr_Project_Path      : constant String := "GPR_PROJECT_PATH";
+      Gpr_Project_Path_File : constant String := "GPR_PROJECT_PATH_FILE";
+      --  Names of alternate env. variable that contain path name(s) of
+      --  directories where project files may reside. They are taken into
+      --  account in this order: GPR_PROJECT_PATH_FILE, GPR_PROJECT_PATH,
+      --  ADA_PROJECT_PATH.
 
-      Gpr_Prj_Path : String_Access;
-      Ada_Prj_Path : String_Access;
+      Gpr_Prj_Path_File : String_Access;
+      Gpr_Prj_Path      : String_Access;
+      Ada_Prj_Path      : String_Access;
       --  The path name(s) of directories where project files may reside.
       --  May be empty.
 
@@ -1920,8 +1931,50 @@ package body Prj.Env is
 
       --  If environment variables are defined and not empty, add their content
 
-      Gpr_Prj_Path := Getenv (Gpr_Project_Path);
-      Ada_Prj_Path := Getenv (Ada_Project_Path);
+      Gpr_Prj_Path_File := Getenv (Gpr_Project_Path_File);
+      Gpr_Prj_Path      := Getenv (Gpr_Project_Path);
+      Ada_Prj_Path      := Getenv (Ada_Project_Path);
+
+      if Gpr_Prj_Path_File.all /= "" then
+         declare
+            File : Ada.Text_IO.File_Type;
+            Line : String (1 .. 10_000);
+            Last : Natural;
+
+            Tmp : String_Access;
+
+         begin
+            Open (File, In_File, Gpr_Prj_Path_File.all);
+
+            while not End_Of_File (File) loop
+               Get_Line (File, Line, Last);
+
+               if Last /= 0
+                 and then (Last = 1 or else Line (1 .. 2) /= "--")
+               then
+                  Tmp := Self.Path;
+                  Self.Path :=
+                    new String'
+                      (Tmp.all & Path_Separator & Line (1 .. Last));
+                  Free (Tmp);
+               end if;
+
+               if Current_Verbosity = High then
+                  Debug_Output ("Adding directory to Project_Path: """
+                                & Line (1 .. Last) & '"');
+               end if;
+            end loop;
+
+            Close (File);
+
+         exception
+            when others =>
+               Write_Str ("warning: could not read project path file """);
+               Write_Str (Gpr_Prj_Path_File.all);
+               Write_Line ("""");
+         end;
+
+      end if;
 
       if Gpr_Prj_Path.all /= "" then
          Add_Directories (Self, Gpr_Prj_Path.all);
@@ -2042,8 +2095,7 @@ package body Prj.Env is
                   --  $prefix/$target/lib/gnat
 
                   Add_Str_To_Name_Buffer
-                    (Path_Separator & Prefix.all &
-                     Target_Name);
+                    (Path_Separator & Prefix.all & Target_Name);
 
                   --  Note: Target_Name has a trailing / when it comes from
                   --  Sdefault.
@@ -2183,7 +2235,7 @@ package body Prj.Env is
 
       function Try_Path_Name is new Find_Name_In_Path
         (Check_Filename => Is_Regular_File);
-      --  Find a file in the project search path.
+      --  Find a file in the project search path
 
       --  Local Declarations
 

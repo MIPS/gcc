@@ -1,8 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-## 2011
-## Free Software Foundation, Inc.
+## Copyright (C) 2001-2013 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -60,6 +58,7 @@ std_headers = \
 	${std_srcdir}/regex \
 	${std_srcdir}/scoped_allocator \
 	${std_srcdir}/set \
+	${std_srcdir}/shared_mutex \
 	${std_srcdir}/sstream \
 	${std_srcdir}/stack \
 	${std_srcdir}/stdexcept \
@@ -89,6 +88,7 @@ bits_headers = \
 	${bits_srcdir}/basic_string.tcc \
 	${bits_srcdir}/boost_concept_check.h \
 	${bits_srcdir}/c++0x_warning.h \
+	${bits_srcdir}/c++14_warning.h \
 	${bits_srcdir}/char_traits.h \
 	${bits_srcdir}/codecvt.h \
 	${bits_srcdir}/concept_check.h \
@@ -115,23 +115,28 @@ bits_headers = \
 	${bits_srcdir}/locale_facets_nonio.tcc \
 	${bits_srcdir}/localefwd.h \
 	${bits_srcdir}/mask_array.h \
+	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
+	${bits_srcdir}/parse_numbers.h \
 	${bits_srcdir}/postypes.h \
 	${bits_srcdir}/ptr_traits.h \
 	${bits_srcdir}/random.h \
 	${bits_srcdir}/random.tcc \
 	${bits_srcdir}/range_access.h \
 	${bits_srcdir}/regex.h \
-	${bits_srcdir}/regex_compiler.h \
+	${bits_srcdir}/regex.tcc \
 	${bits_srcdir}/regex_constants.h \
-	${bits_srcdir}/regex_cursor.h \
 	${bits_srcdir}/regex_error.h \
-	${bits_srcdir}/regex_grep_matcher.h \
-	${bits_srcdir}/regex_grep_matcher.tcc \
-	${bits_srcdir}/regex_nfa.h \
-	${bits_srcdir}/regex_nfa.tcc \
+	${bits_srcdir}/regex_scanner.h \
+	${bits_srcdir}/regex_scanner.tcc \
+	${bits_srcdir}/regex_automaton.h \
+	${bits_srcdir}/regex_automaton.tcc \
+	${bits_srcdir}/regex_compiler.h \
+	${bits_srcdir}/regex_compiler.tcc \
+	${bits_srcdir}/regex_executor.h \
+	${bits_srcdir}/regex_executor.tcc \
 	${bits_srcdir}/stream_iterator.h \
 	${bits_srcdir}/streambuf_iterator.h \
 	${bits_srcdir}/shared_ptr.h \
@@ -174,6 +179,9 @@ bits_headers = \
 	${bits_srcdir}/valarray_before.h \
 	${bits_srcdir}/valarray_after.h \
 	${bits_srcdir}/vector.tcc
+
+bits_host_headers = \
+	${glibcxx_srcdir}/${CPU_OPT_BITS_RANDOM}
 
 bits_sup_srcdir = ${glibcxx_srcdir}/libsupc++
 bits_sup_headers = \
@@ -309,8 +317,7 @@ pb_headers2 = \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_fn_imps.hpp \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_no_store_hash_fn_imps.hpp \
 	${pb_srcdir}/detail/cc_hash_table_map_/resize_store_hash_fn_imps.hpp \
-	${pb_srcdir}/detail/cc_hash_table_map_/size_fn_imps.hpp \
-	${pb_srcdir}/detail/cc_hash_table_map_/standard_policies.hpp
+	${pb_srcdir}/detail/cc_hash_table_map_/size_fn_imps.hpp
 
 pb_headers3 = \
 	${pb_srcdir}/detail/cc_hash_table_map_/trace_fn_imps.hpp \
@@ -340,7 +347,6 @@ pb_headers3 = \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_fn_imps.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_no_store_hash_fn_imps.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/resize_store_hash_fn_imps.hpp \
-	${pb_srcdir}/detail/gp_hash_table_map_/standard_policies.hpp \
 	${pb_srcdir}/detail/gp_hash_table_map_/trace_fn_imps.hpp \
 	${pb_srcdir}/detail/hash_fn/direct_mask_range_hashing_imp.hpp \
 	${pb_srcdir}/detail/hash_fn/direct_mod_range_hashing_imp.hpp \
@@ -494,11 +500,13 @@ ext_srcdir = ${glibcxx_srcdir}/include/ext
 ext_builddir = ./ext
 ext_headers = \
 	${ext_srcdir}/algorithm \
+	${ext_srcdir}/aligned_buffer.h \
 	${ext_srcdir}/alloc_traits.h \
 	${ext_srcdir}/atomicity.h \
 	${ext_srcdir}/array_allocator.h \
 	${ext_srcdir}/bitmap_allocator.h \
 	${ext_srcdir}/cast.h \
+	${ext_srcdir}/cmath \
 	${ext_srcdir}/codecvt_specializations.h \
 	${ext_srcdir}/concurrence.h \
 	${ext_srcdir}/debug_allocator.h \
@@ -518,6 +526,8 @@ ext_headers = \
 	${ext_srcdir}/pointer.h \
 	${ext_srcdir}/pool_allocator.h \
 	${ext_srcdir}/rb_tree \
+	${ext_srcdir}/random \
+	${ext_srcdir}/random.tcc \
 	${ext_srcdir}/rope \
 	${ext_srcdir}/ropeimpl.h \
 	${ext_srcdir}/slist \
@@ -536,6 +546,9 @@ ext_headers = \
 ext_compat_headers = \
 	${backward_srcdir}/hash_set \
 	${backward_srcdir}/hash_map
+
+ext_host_headers = \
+	${glibcxx_srcdir}/${CPU_OPT_EXT_RANDOM}
 
 tr1_srcdir = ${glibcxx_srcdir}/include/tr1
 tr1_builddir = ./tr1
@@ -695,6 +708,7 @@ endif
 debug_srcdir = ${glibcxx_srcdir}/include/debug
 debug_builddir = ./debug
 debug_headers = \
+	${debug_srcdir}/array \
 	${debug_srcdir}/bitset \
 	${debug_srcdir}/debug.h \
 	${debug_srcdir}/deque \
@@ -727,7 +741,6 @@ debug_headers = \
 # Parallel mode headers
 parallel_srcdir = ${glibcxx_srcdir}/include/parallel
 parallel_builddir = ./parallel
-if ENABLE_PARALLEL
 parallel_headers = \
 	${parallel_srcdir}/algo.h \
 	${parallel_srcdir}/algobase.h \
@@ -772,15 +785,14 @@ parallel_headers = \
 	${parallel_srcdir}/types.h \
 	${parallel_srcdir}/unique_copy.h \
 	${parallel_srcdir}/workstealing.h
-else
-parallel_headers =
-endif
 
 # Profile mode headers
 profile_srcdir = ${glibcxx_srcdir}/include/profile
 profile_builddir = ./profile
 profile_headers = \
+	${profile_srcdir}/array \
 	${profile_srcdir}/base.h \
+	${profile_srcdir}/unordered_base.h \
 	${profile_srcdir}/unordered_map \
 	${profile_srcdir}/unordered_set \
 	${profile_srcdir}/vector \
@@ -884,7 +896,7 @@ pch_output_dirs = \
 	${pch1_output_builddir} ${pch2_output_builddir} ${pch3_output_builddir}
 pch_output_anchors = \
 	${pch1_output_anchor} ${pch2_output_anchor} ${pch3_output_anchor}
-PCHFLAGS=-x c++-header -nostdinc++ $(CXXFLAGS)
+PCHFLAGS=-x c++-header -nostdinc++ $(CXXFLAGS) $(VTV_PCH_CXXFLAGS)
 if GLIBCXX_BUILD_PCH
 pch_build = ${pch_output}
 else
@@ -1042,13 +1054,14 @@ stamp-profile-impl: ${profile_impl_headers}
 
 stamp-${host_alias}:
 	@-mkdir -p ${host_builddir}
+	@-mkdir -p ${host_builddir}/../ext
 	@$(STAMP) stamp-${host_alias}
 
 # Host includes static.
 # XXX Missing dependency info for {host_headers_extra}
-stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
+stamp-host: ${host_headers} ${bits_host_headers} ${ext_host_headers} ${host_headers_noinst} stamp-${host_alias}
 	@cd ${host_builddir} && {\
-	  $(LN_S) ${host_headers} . || true ;\
+	  $(LN_S) ${host_headers} ${bits_host_headers} . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(BASIC_FILE_H) basic_file.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(ALLOCATOR_H) c++allocator.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CSTDIO_H) c++io.h || true ;\
@@ -1057,6 +1070,9 @@ stamp-host: ${host_headers} ${host_headers_noinst} stamp-${host_alias}
 	  $(LN_S) ${glibcxx_srcdir}/$(COMPATIBILITY_H) . || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CMESSAGES_H) messages_members.h || true ;\
 	  $(LN_S) ${glibcxx_srcdir}/$(CTIME_H) time_members.h || true;\
+	} 2>/dev/null
+	@cd ${host_builddir}/../ext && {\
+	  $(LN_S) ${ext_host_headers} . || true ;\
 	} 2>/dev/null
 	$(STAMP) stamp-host
 
@@ -1099,13 +1115,13 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	visibility=`cat stamp-visibility` ;\
 	externtemplate=`cat stamp-extern-template` ;\
 	ldbl_compat='s,g,g,' ;\
-	grep "^[ 	]*#[ 	]*define[ 	][ 	]*_GLIBCXX_LONG_DOUBLE_COMPAT[ 	][ 	]*1[ 	]*$$" \
+	grep "^[	 ]*#[	 ]*define[	 ][	 ]*_GLIBCXX_LONG_DOUBLE_COMPAT[	 ][	 ]*1[	 ]*$$" \
 	${CONFIG_HEADER} > /dev/null 2>&1 \
 	&& ldbl_compat='s,^#undef _GLIBCXX_LONG_DOUBLE_COMPAT$$,#define _GLIBCXX_LONG_DOUBLE_COMPAT 1,' ;\
 	sed -e "s,define __GLIBCXX__,define __GLIBCXX__ $$date," \
 	-e "s,define _GLIBCXX_INLINE_VERSION, define _GLIBCXX_INLINE_VERSION $$ns_version," \
 	-e "s,define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY, define _GLIBCXX_HAVE_ATTRIBUTE_VISIBILITY $$visibility," \
-	-e "s,define _GLIBCXX_EXTERN_TEMPLATE, define _GLIBCXX_EXTERN_TEMPLATE $$externtemplate," \
+	-e "s,define _GLIBCXX_EXTERN_TEMPLATE$$, define _GLIBCXX_EXTERN_TEMPLATE $$externtemplate," \
 	-e "$$ldbl_compat" \
 	    < ${glibcxx_srcdir}/include/bits/c++config > $@ ;\
 	sed -e 's/HAVE_/_GLIBCXX_HAVE_/g' \
@@ -1113,7 +1129,7 @@ ${host_builddir}/c++config.h: ${CONFIG_HEADER} \
 	    -e 's/VERSION/_GLIBCXX_VERSION/g' \
 	    -e 's/WORDS_/_GLIBCXX_WORDS_/g' \
 	    -e 's/ICONV_CONST/_GLIBCXX_ICONV_CONST/g' \
-	    -e '/[ 	]_GLIBCXX_LONG_DOUBLE_COMPAT[ 	]/d' \
+	    -e '/[	 ]_GLIBCXX_LONG_DOUBLE_COMPAT[	 ]/d' \
 	    < ${CONFIG_HEADER} >> $@ ;\
 	echo "" >> $@ ;\
 	echo "#endif // _GLIBCXX_CXX_CONFIG_H" >> $@
@@ -1125,6 +1141,7 @@ ${host_builddir}/gthr.h: ${toplevel_srcdir}/libgcc/gthr.h stamp-${host_alias}
 	sed -e '/^#pragma/b' \
 	    -e '/^#/s/\(${uppercase}${uppercase}*\)/_GLIBCXX_\1/g' \
 	    -e 's/_GLIBCXX_SUPPORTS_WEAK/__GXX_WEAK__/g' \
+	    -e 's/_GLIBCXX___MINGW32_GLIBCXX___/__MINGW32__/g' \
 	    -e 's,^#include "\(.*\)",#include <bits/\1>,g' \
 	    < $< > $@
 
@@ -1142,7 +1159,7 @@ ${host_builddir}/gthr-posix.h: ${toplevel_srcdir}/libgcc/gthr-posix.h \
 	    -e 's/\(${uppercase}*USE_WEAK\)/_GLIBCXX_\1/g' \
 	    < $< > $@
 
-${host_builddir}/gthr-default.h: ${toplevel_builddir}/libgcc/gthr-default.h \
+${host_builddir}/gthr-default.h: ${toplevel_srcdir}/libgcc/${thread_header} \
 				   stamp-${host_alias}
 	sed -e 's/\(UNUSED\)/_GLIBCXX_\1/g' \
 	    -e 's/\(GCC${uppercase}*_H\)/_GLIBCXX_\1/g' \
@@ -1273,10 +1290,8 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${debug_builddir}
 	for file in ${debug_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${debug_builddir}; done
-	parallel_headers_install='${parallel_headers}';\
-	test -z "$$parallel_headers_install" || \
-	  $(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${parallel_builddir};\
-	for file in $$parallel_headers_install; do \
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${parallel_builddir}
+	for file in ${parallel_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${parallel_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${profile_builddir}
 	for file in ${profile_headers}; do \
@@ -1285,9 +1300,12 @@ install-headers:
 	for file in ${profile_impl_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${profile_impl_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${host_installdir}
-	for file in ${host_headers} ${host_headers_extra} \
+	for file in ${host_headers} ${bits_host_headers} ${host_headers_extra} \
 	 ${thread_host_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${host_installdir}; done
+	$(mkinstalldirs) $(DESTDIR)${host_installdir}/../ext
+	for file in ${ext_host_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${host_installdir}/../ext; done
 
 # By adding these files here, automake will remove them for 'make clean'
 CLEANFILES = ${pch_output} ${pch_output_anchors} stamp-host

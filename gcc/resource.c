@@ -1,6 +1,5 @@
 /* Definitions for computing resource usage of specific insns.
-   Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008,
-   2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 1999-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -176,14 +175,12 @@ next_insn_no_annul (rtx insn)
 	  && NEXT_INSN (PREV_INSN (insn)) != insn)
 	{
 	  rtx next = NEXT_INSN (insn);
-	  enum rtx_code code = GET_CODE (next);
 
-	  while ((code == INSN || code == JUMP_INSN || code == CALL_INSN)
+	  while ((NONJUMP_INSN_P (next) || JUMP_P (next) || CALL_P (next))
 		 && INSN_FROM_TARGET_P (next))
 	    {
 	      insn = next;
 	      next = NEXT_INSN (insn);
-	      code = GET_CODE (next);
 	    }
 	}
 
@@ -215,10 +212,7 @@ mark_referenced_resources (rtx x, struct resources *res,
   switch (code)
     {
     case CONST:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case PC:
     case SYMBOL_REF:
     case LABEL_REF:
@@ -246,9 +240,7 @@ mark_referenced_resources (rtx x, struct resources *res,
     case MEM:
       /* If this memory shouldn't change, it really isn't referencing
 	 memory.  */
-      if (MEM_READONLY_P (x))
-	res->unch_memory = 1;
-      else
+      if (! MEM_READONLY_P (x))
 	res->memory = 1;
       res->volatil |= MEM_VOLATILE_P (x);
 
@@ -381,6 +373,16 @@ mark_referenced_resources (rtx x, struct resources *res,
 
     case INSN:
     case JUMP_INSN:
+
+      if (GET_CODE (PATTERN (x)) == COND_EXEC)
+      /* In addition to the usual references, also consider all outputs
+	 as referenced, to compensate for mark_set_resources treating
+	 them as killed.  This is similar to ZERO_EXTRACT / STRICT_LOW_PART
+	 handling, execpt that we got a partial incidence instead of a partial
+	 width.  */
+      mark_set_resources (x, res, 0,
+			  include_delayed_effects
+			  ? MARK_SRC_DEST_CALL : MARK_SRC_DEST);
 
 #ifdef INSN_REFERENCES_ARE_DELAYED
       if (! include_delayed_effects
@@ -632,10 +634,7 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
     case BARRIER:
     case CODE_LABEL:
     case USE:
-    case CONST_INT:
-    case CONST_DOUBLE:
-    case CONST_FIXED:
-    case CONST_VECTOR:
+    CASE_CONST_ANY:
     case LABEL_REF:
     case SYMBOL_REF:
     case CONST:
@@ -749,7 +748,6 @@ mark_set_resources (rtx x, struct resources *res, int in_dest,
       if (in_dest)
 	{
 	  res->memory = 1;
-	  res->unch_memory |= MEM_READONLY_P (x);
 	  res->volatil |= MEM_VOLATILE_P (x);
 	}
 
@@ -905,7 +903,7 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
   /* We have to assume memory is needed, but the CC isn't.  */
   res->memory = 1;
-  res->volatil = res->unch_memory = 0;
+  res->volatil = 0;
   res->cc = 0;
 
   /* See if we have computed this value already.  */
@@ -999,17 +997,25 @@ mark_target_live_regs (rtx insns, rtx target, struct resources *res)
 
 	  /* If this insn is a USE made by update_block, we care about the
 	     underlying insn.  */
-	  if (code == INSN && GET_CODE (PATTERN (insn)) == USE
+	  if (code == INSN
+	      && GET_CODE (PATTERN (insn)) == USE
 	      && INSN_P (XEXP (PATTERN (insn), 0)))
-	      real_insn = XEXP (PATTERN (insn), 0);
+	    real_insn = XEXP (PATTERN (insn), 0);
 
 	  if (CALL_P (real_insn))
 	    {
-	      /* CALL clobbers all call-used regs that aren't fixed except
-		 sp, ap, and fp.  Do this before setting the result of the
-		 call live.  */
-	      AND_COMPL_HARD_REG_SET (current_live_regs,
-				      regs_invalidated_by_call);
+	      /* Values in call-clobbered registers survive a COND_EXEC CALL
+		 if that is not executed; this matters for resoure use because
+		 they may be used by a complementarily (or more strictly)
+		 predicated instruction, or if the CALL is NORETURN.  */
+	      if (GET_CODE (PATTERN (real_insn)) != COND_EXEC)
+		{
+		  /* CALL clobbers all call-used regs that aren't fixed except
+		     sp, ap, and fp.  Do this before setting the result of the
+		     call live.  */
+		  AND_COMPL_HARD_REG_SET (current_live_regs,
+					  regs_invalidated_by_call);
+		}
 
 	      /* A CALL_INSN sets any global register live, since it may
 		 have been modified by the call.  */
@@ -1153,7 +1159,6 @@ init_resource_info (rtx epilogue_insn)
 
   end_of_function_needs.cc = 0;
   end_of_function_needs.memory = 1;
-  end_of_function_needs.unch_memory = 0;
   CLEAR_HARD_REG_SET (end_of_function_needs.regs);
 
   if (frame_pointer_needed)
@@ -1166,7 +1171,7 @@ init_resource_info (rtx epilogue_insn)
   if (!(frame_pointer_needed
 	&& EXIT_IGNORE_STACK
 	&& epilogue_insn
-	&& !current_function_sp_is_unchanging))
+	&& !crtl->sp_is_unchanging))
     SET_HARD_REG_BIT (end_of_function_needs.regs, STACK_POINTER_REGNUM);
 
   if (crtl->return_rtx != 0)

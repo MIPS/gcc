@@ -1,6 +1,5 @@
 ;; GCC machine description for m68k synchronization instructions.
-;; Copyright (C) 2011, 2012
-;; Free Software Foundation, Inc.
+;; Copyright (C) 2011-2013 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -60,7 +59,7 @@
   [(match_operand:QI 0 "register_operand" "")		;; bool success output
    (match_operand:QI 1 "memory_operand" "")		;; memory
    (match_operand:SI 2 "const_int_operand" "")]		;; model
-  ""
+  "ISA_HAS_TAS"
 {
   rtx t = gen_reg_rtx (QImode);
   emit_insn (gen_atomic_test_and_set_1 (t, operands[1]));
@@ -77,5 +76,5 @@
 	  UNSPECV_TAS_1))
    (set (match_dup 1)
 	(unspec_volatile:QI [(match_dup 1)] UNSPECV_TAS_2))]
-  ""
+  "ISA_HAS_TAS"
   "tas %1\;sne %0")

@@ -61,8 +61,9 @@ typedef unsigned long long     ffi_arg;
 typedef long long              ffi_sarg;
 #endif
 #else
-#if defined __x86_64__ && !defined __LP64__
+#if defined __x86_64__ && defined __ILP32__
 #define FFI_SIZEOF_ARG 8
+#define FFI_SIZEOF_JAVA_RAW  4
 typedef unsigned long long     ffi_arg;
 typedef long long              ffi_sarg;
 #else
@@ -80,9 +81,13 @@ typedef enum ffi_abi {
   FFI_STDCALL,
   FFI_THISCALL,
   FFI_FASTCALL,
+  FFI_MS_CDECL,
   FFI_LAST_ABI,
-  /* TODO: Add fastcall support for the sake of completeness */
+#ifdef _MSC_VER
+  FFI_DEFAULT_ABI = FFI_MS_CDECL
+#else
   FFI_DEFAULT_ABI = FFI_SYSV
+#endif
 
 #elif defined(X86_WIN64)
   FFI_WIN64,
@@ -109,6 +114,7 @@ typedef enum ffi_abi {
 #define FFI_TYPE_SMALL_STRUCT_1B (FFI_TYPE_LAST + 1)
 #define FFI_TYPE_SMALL_STRUCT_2B (FFI_TYPE_LAST + 2)
 #define FFI_TYPE_SMALL_STRUCT_4B (FFI_TYPE_LAST + 3)
+#define FFI_TYPE_MS_STRUCT       (FFI_TYPE_LAST + 4)
 
 #if defined (X86_64) || (defined (__x86_64__) && defined (X86_DARWIN))
 #define FFI_TRAMPOLINE_SIZE 24

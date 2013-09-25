@@ -1,6 +1,5 @@
 /* Copy propagation and SSA_NAME replacement support routines.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,17 +25,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "function.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
-#include "timevar.h"
-#include "tree-dump.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 #include "cfgloop.h"
+#include "tree-scalar-evolution.h"
 
 /* This file implements the copy propagation pass and provides a
    handful of interfaces for performing const/copy propagation and
@@ -64,7 +60,13 @@ may_propagate_copy (tree dest, tree orig)
 
   /* If ORIG flows in from an abnormal edge, it cannot be propagated.  */
   if (TREE_CODE (orig) == SSA_NAME
-      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig))
+      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (orig)
+      /* If it is the default definition and an automatic variable then
+         we can though and it is important that we do to avoid
+	 uninitialized regular copies.  */
+      && !(SSA_NAME_IS_DEFAULT_DEF (orig)
+	   && (SSA_NAME_VAR (orig) == NULL_TREE
+	       || TREE_CODE (SSA_NAME_VAR (orig)) == VAR_DECL)))
     return false;
 
   /* If DEST is an SSA_NAME that flows from an abnormal edge, then it
@@ -77,14 +79,10 @@ may_propagate_copy (tree dest, tree orig)
   if (!useless_type_conversion_p (type_d, type_o))
     return false;
 
-  /* Propagating virtual operands is always ok.  */
-  if (TREE_CODE (dest) == SSA_NAME && !is_gimple_reg (dest))
-    {
-      /* But only between virtual operands.  */
-      gcc_assert (TREE_CODE (orig) == SSA_NAME && !is_gimple_reg (orig));
-
-      return true;
-    }
+  /* Generally propagating virtual operands is not ok as that may
+     create overlapping life-ranges.  */
+  if (TREE_CODE (dest) == SSA_NAME && virtual_operand_p (dest))
+    return false;
 
   /* Anything else is OK.  */
   return true;
@@ -141,12 +139,9 @@ may_propagate_copy_into_stmt (gimple dest, tree orig)
 /* Similarly, but we know that we're propagating into an ASM_EXPR.  */
 
 bool
-may_propagate_copy_into_asm (tree dest)
+may_propagate_copy_into_asm (tree dest ATTRIBUTE_UNUSED)
 {
-  /* Hard register operands of asms are special.  Do not bypass.  */
-  return !(TREE_CODE (dest) == SSA_NAME
-	   && TREE_CODE (SSA_NAME_VAR (dest)) == VAR_DECL
-	   && DECL_HARD_REGISTER (SSA_NAME_VAR (dest)));
+  return true;
 }
 
 
@@ -171,7 +166,7 @@ replace_exp_1 (use_operand_p op_p, tree val,
   if (TREE_CODE (val) == SSA_NAME)
     SET_USE (op_p, val);
   else
-    SET_USE (op_p, unsave_expr_now (val));
+    SET_USE (op_p, unshare_expr (val));
 }
 
 
@@ -222,7 +217,7 @@ propagate_tree_value (tree *op_p, tree val)
   if (TREE_CODE (val) == SSA_NAME)
     *op_p = val;
   else
-    *op_p = unsave_expr_now (val);
+    *op_p = unshare_expr (val);
 }
 
 
@@ -257,13 +252,11 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
   else if (is_gimple_call (stmt)
            && gimple_call_lhs (stmt) != NULL_TREE)
     {
-      gimple new_stmt;
-
       tree expr = NULL_TREE;
+      bool res;
       propagate_tree_value (&expr, val);
-      new_stmt = gimple_build_assign (gimple_call_lhs (stmt), expr);
-      move_ssa_defining_stmt_for_defs (new_stmt, stmt);
-      gsi_replace (gsi, new_stmt, false);
+      res = update_call_from_tree (gsi, expr);
+      gcc_assert (res);
     }
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
     propagate_tree_value (gimple_switch_index_ptr (stmt), val);
@@ -290,6 +283,7 @@ struct prop_value_d {
 typedef struct prop_value_d prop_value_t;
 
 static prop_value_t *copy_of;
+static unsigned n_copy_of;
 
 
 /* Return true if this statement may generate a useful copy.  */
@@ -674,12 +668,13 @@ init_copy_prop (void)
 {
   basic_block bb;
 
-  copy_of = XCNEWVEC (prop_value_t, num_ssa_names);
+  n_copy_of = num_ssa_names;
+  copy_of = XCNEWVEC (prop_value_t, n_copy_of);
 
   FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator si;
-      int depth = bb->loop_depth;
+      int depth = bb_loop_depth (bb);
 
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	{
@@ -722,7 +717,7 @@ init_copy_prop (void)
           tree def;
 
 	  def = gimple_phi_result (phi);
-	  if (!is_gimple_reg (def))
+	  if (virtual_operand_p (def))
             prop_set_simulate_again (phi, false);
 	  else
             prop_set_simulate_again (phi, true);
@@ -738,7 +733,10 @@ init_copy_prop (void)
 static tree
 get_value (tree name)
 {
-  tree val = copy_of[SSA_NAME_VERSION (name)].value;
+  tree val;
+  if (SSA_NAME_VERSION (name) >= n_copy_of)
+    return NULL_TREE;
+  val = copy_of[SSA_NAME_VERSION (name)].value;
   if (val && val != name)
     return val;
   return NULL_TREE;
@@ -769,16 +767,23 @@ fini_copy_prop (void)
 	 of the representative to the first solution we find if
 	 it doesn't have one already.  */
       if (copy_of[i].value != var
-	  && TREE_CODE (copy_of[i].value) == SSA_NAME
-	  && POINTER_TYPE_P (TREE_TYPE (var))
-	  && SSA_NAME_PTR_INFO (var)
-	  && !SSA_NAME_PTR_INFO (copy_of[i].value))
-	duplicate_ssa_name_ptr_info (copy_of[i].value, SSA_NAME_PTR_INFO (var));
+	  && TREE_CODE (copy_of[i].value) == SSA_NAME)
+	{
+	  if (POINTER_TYPE_P (TREE_TYPE (var))
+	      && SSA_NAME_PTR_INFO (var)
+	      && !SSA_NAME_PTR_INFO (copy_of[i].value))
+	    duplicate_ssa_name_ptr_info (copy_of[i].value,
+					 SSA_NAME_PTR_INFO (var));
+	  else if (!POINTER_TYPE_P (TREE_TYPE (var))
+		   && SSA_NAME_RANGE_INFO (var)
+		   && !SSA_NAME_RANGE_INFO (copy_of[i].value))
+	    duplicate_ssa_name_range_info (copy_of[i].value,
+					   SSA_NAME_RANGE_INFO (var));
+	}
     }
 
-  /* Don't do DCE if we have loops.  That's the simplest way to not
-     destroy the scev cache.  */
-  substitute_and_fold (get_value, NULL, !current_loops);
+  /* Don't do DCE if SCEV is initialized.  It would destroy the scev cache.  */
+  substitute_and_fold (get_value, NULL, !scev_initialized_p ());
 
   free (copy_of);
 }
@@ -832,24 +837,42 @@ gate_copy_prop (void)
   return flag_tree_copy_prop != 0;
 }
 
-struct gimple_opt_pass pass_copy_prop =
+namespace {
+
+const pass_data pass_data_copy_prop =
 {
- {
-  GIMPLE_PASS,
-  "copyprop",				/* name */
-  gate_copy_prop,			/* gate */
-  execute_copy_prop,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_COPY_PROP,			/* tv_id */
-  PROP_ssa | PROP_cfg,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_cleanup_cfg
-    | TODO_ggc_collect
-    | TODO_verify_ssa
-    | TODO_update_ssa			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "copyprop", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_COPY_PROP, /* tv_id */
+  ( PROP_ssa | PROP_cfg ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_cleanup_cfg | TODO_verify_ssa
+    | TODO_update_ssa ), /* todo_flags_finish */
 };
+
+class pass_copy_prop : public gimple_opt_pass
+{
+public:
+  pass_copy_prop(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_copy_prop, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_copy_prop (ctxt_); }
+  bool gate () { return gate_copy_prop (); }
+  unsigned int execute () { return execute_copy_prop (); }
+
+}; // class pass_copy_prop
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_copy_prop (gcc::context *ctxt)
+{
+  return new pass_copy_prop (ctxt);
+}

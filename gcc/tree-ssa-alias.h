@@ -1,5 +1,5 @@
 /* Tree based alias analysis and alias oracle.
-   Copyright (C) 2008, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2008-2013 Free Software Foundation, Inc.
    Contributed by Richard Guenther  <rguenther@suse.de>
 
    This file is part of GCC.
@@ -20,9 +20,6 @@
 
 #ifndef TREE_SSA_ALIAS_H
 #define TREE_SSA_ALIAS_H
-
-#include "coretypes.h"
-
 
 /* The points-to solution.
 
@@ -99,26 +96,31 @@ extern tree ao_ref_base (ao_ref *);
 extern alias_set_type ao_ref_alias_set (ao_ref *);
 extern bool ptr_deref_may_alias_global_p (tree);
 extern bool ptr_derefs_may_alias_p (tree, tree);
+extern bool ref_may_alias_global_p (tree);
 extern bool refs_may_alias_p (tree, tree);
 extern bool refs_may_alias_p_1 (ao_ref *, ao_ref *, bool);
 extern bool refs_anti_dependent_p (tree, tree);
 extern bool refs_output_dependent_p (tree, tree);
 extern bool ref_maybe_used_by_stmt_p (gimple, tree);
+extern bool stmt_may_clobber_global_p (gimple);
 extern bool stmt_may_clobber_ref_p (gimple, tree);
 extern bool stmt_may_clobber_ref_p_1 (gimple, ao_ref *);
 extern bool call_may_clobber_ref_p (gimple, tree);
 extern bool stmt_kills_ref_p (gimple, tree);
-extern tree get_continuation_for_phi (gimple, ao_ref *, bitmap *);
+extern tree get_continuation_for_phi (gimple, ao_ref *,
+				      unsigned int *, bitmap *, bool);
 extern void *walk_non_aliased_vuses (ao_ref *, tree,
-				     void *(*)(ao_ref *, tree, void *),
+				     void *(*)(ao_ref *, tree,
+					       unsigned int, void *),
 				     void *(*)(ao_ref *, tree, void *), void *);
 extern unsigned int walk_aliased_vdefs (ao_ref *, tree,
 					bool (*)(ao_ref *, tree, void *),
 					void *, bitmap *);
-extern struct ptr_info_def *get_ptr_info (tree);
 extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
 extern void dump_points_to_solution (FILE *, struct pt_solution *);
+extern void debug (pt_solution &ref);
+extern void debug (pt_solution *ptr);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern void dump_alias_stats (FILE *);

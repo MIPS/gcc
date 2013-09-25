@@ -10,14 +10,26 @@ import (
 	"syscall"
 )
 
-// StartProcess starts a new process with the program, arguments and attributes
-// specified by name, argv and attr.
-//
-// StartProcess is a low-level interface. The os/exec package provides
-// higher-level interfaces.
-//
-// If there is an error, it will be of type *PathError.
-func StartProcess(name string, argv []string, attr *ProcAttr) (p *Process, err error) {
+// The only signal values guaranteed to be present on all systems
+// are Interrupt (send the process an interrupt) and Kill (force
+// the process to exit).
+var (
+	Interrupt Signal = syscall.SIGINT
+	Kill      Signal = syscall.SIGKILL
+)
+
+func startProcess(name string, argv []string, attr *ProcAttr) (p *Process, err error) {
+	// If there is no SysProcAttr (ie. no Chroot or changed
+	// UID/GID), double-check existence of the directory we want
+	// to chdir into.  We can make the error clearer this way.
+	if attr != nil && attr.Sys == nil && attr.Dir != "" {
+		if _, err := Stat(attr.Dir); err != nil {
+			pe := err.(*PathError)
+			pe.Op = "chdir"
+			return nil, pe
+		}
+	}
+
 	sysattr := &syscall.ProcAttr{
 		Dir: attr.Dir,
 		Env: attr.Env,
@@ -37,12 +49,11 @@ func StartProcess(name string, argv []string, attr *ProcAttr) (p *Process, err e
 	return newProcess(pid, h), nil
 }
 
-// Kill causes the Process to exit immediately.
-func (p *Process) Kill() error {
+func (p *Process) kill() error {
 	return p.Signal(Kill)
 }
 
-// ProcessState stores information about process as reported by Wait.
+// ProcessState stores information about a process, as reported by Wait.
 type ProcessState struct {
 	pid    int                // The process's id.
 	status syscall.WaitStatus // System-dependent status info.
@@ -54,28 +65,19 @@ func (p *ProcessState) Pid() int {
 	return p.pid
 }
 
-// Exited returns whether the program has exited.
-func (p *ProcessState) Exited() bool {
+func (p *ProcessState) exited() bool {
 	return p.status.Exited()
 }
 
-// Success reports whether the program exited successfully,
-// such as with exit status 0 on Unix.
-func (p *ProcessState) Success() bool {
+func (p *ProcessState) success() bool {
 	return p.status.ExitStatus() == 0
 }
 
-// Sys returns system-dependent exit information about
-// the process.  Convert it to the appropriate underlying
-// type, such as syscall.WaitStatus on Unix, to access its contents.
-func (p *ProcessState) Sys() interface{} {
+func (p *ProcessState) sys() interface{} {
 	return p.status
 }
 
-// SysUsage returns system-dependent resource usage information about
-// the exited process.  Convert it to the appropriate underlying
-// type, such as *syscall.Rusage on Unix, to access its contents.
-func (p *ProcessState) SysUsage() interface{} {
+func (p *ProcessState) sysUsage() interface{} {
 	return p.rusage
 }
 
@@ -116,9 +118,9 @@ func (p *ProcessState) String() string {
 	case status.Exited():
 		res = "exit status " + itod(status.ExitStatus())
 	case status.Signaled():
-		res = "signal " + itod(int(status.Signal()))
+		res = "signal: " + status.Signal().String()
 	case status.Stopped():
-		res = "stop signal " + itod(int(status.StopSignal()))
+		res = "stop signal: " + status.StopSignal().String()
 		if status.StopSignal() == syscall.SIGTRAP && status.TrapCause() != 0 {
 			res += " (trap " + itod(status.TrapCause()) + ")"
 		}

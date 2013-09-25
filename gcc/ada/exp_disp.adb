@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -703,6 +703,10 @@ package body Exp_Disp is
         --  previously notified the violation of this restriction.
 
         or else Restriction_Active (No_Dispatching_Calls)
+
+        --  No action needed if the dispatching call has been already expanded
+
+        or else Is_Expanded_Dispatching_Call (Name (Call_Node))
       then
          return;
       end if;
@@ -803,6 +807,11 @@ package body Exp_Disp is
       Subp_Ptr_Typ := Create_Itype (E_Access_Subprogram_Type, Call_Node);
       Set_Etype          (Subp_Typ, Res_Typ);
       Set_Returns_By_Ref (Subp_Typ, Returns_By_Ref (Subp));
+      Set_Convention     (Subp_Typ, Convention (Subp));
+
+      --  Notify gigi that the designated type is a dispatching primitive
+
+      Set_Is_Dispatch_Table_Entity (Subp_Typ);
 
       --  Create a new list of parameters which is a copy of the old formal
       --  list including the creation of a new set of matching entities.
@@ -1069,57 +1078,87 @@ package body Exp_Disp is
    -- Expand_Interface_Conversion --
    ---------------------------------
 
-   procedure Expand_Interface_Conversion
-     (N         : Node_Id;
-      Is_Static : Boolean := True)
-   is
+   procedure Expand_Interface_Conversion (N : Node_Id) is
+      function Underlying_Record_Type (Typ : Entity_Id) return Entity_Id;
+      --  Return the underlying record type of Typ.
+
+      ----------------------------
+      -- Underlying_Record_Type --
+      ----------------------------
+
+      function Underlying_Record_Type (Typ : Entity_Id) return Entity_Id is
+         E : Entity_Id := Typ;
+
+      begin
+         --  Handle access to class-wide interface types
+
+         if Is_Access_Type (E) then
+            E := Etype (Directly_Designated_Type (E));
+         end if;
+
+         --  Handle class-wide types. This conversion can appear explicitly in
+         --  the source code. Example: I'Class (Obj)
+
+         if Is_Class_Wide_Type (E) then
+            E := Root_Type (E);
+         end if;
+
+         --  If the target type is a tagged synchronized type, the dispatch
+         --  table info is in the corresponding record type.
+
+         if Is_Concurrent_Type (E) then
+            E := Corresponding_Record_Type (E);
+         end if;
+
+         --  Handle private types
+
+         E := Underlying_Type (E);
+
+         --  Handle subtypes
+
+         return Base_Type (E);
+      end Underlying_Record_Type;
+
+      --  Local variables
+
       Loc         : constant Source_Ptr := Sloc (N);
       Etyp        : constant Entity_Id  := Etype (N);
       Operand     : constant Node_Id    := Expression (N);
       Operand_Typ : Entity_Id           := Etype (Operand);
       Func        : Node_Id;
-      Iface_Typ   : Entity_Id           := Etype (N);
+      Iface_Typ   : constant Entity_Id  := Underlying_Record_Type (Etype (N));
       Iface_Tag   : Entity_Id;
+      Is_Static   : Boolean;
+
+   --  Start of processing for Expand_Interface_Conversion
 
    begin
+      --  Freeze the entity associated with the target interface to have
+      --  available the attribute Access_Disp_Table.
+
+      Freeze_Before (N, Iface_Typ);
+
       --  Ada 2005 (AI-345): Handle synchronized interface type derivations
 
       if Is_Concurrent_Type (Operand_Typ) then
          Operand_Typ := Base_Type (Corresponding_Record_Type (Operand_Typ));
       end if;
 
-      --  Handle access to class-wide interface types
+      --  Evaluate if we can statically displace the pointer to the object
 
-      if Is_Access_Type (Iface_Typ) then
-         Iface_Typ := Etype (Directly_Designated_Type (Iface_Typ));
-      end if;
+      declare
+         Opnd_Typ : constant Node_Id := Underlying_Record_Type (Operand_Typ);
 
-      --  Handle class-wide interface types. This conversion can appear
-      --  explicitly in the source code. Example: I'Class (Obj)
-
-      if Is_Class_Wide_Type (Iface_Typ) then
-         Iface_Typ := Root_Type (Iface_Typ);
-      end if;
-
-      --  If the target type is a tagged synchronized type, the dispatch table
-      --  info is in the corresponding record type.
-
-      if Is_Concurrent_Type (Iface_Typ) then
-         Iface_Typ := Corresponding_Record_Type (Iface_Typ);
-      end if;
-
-      --  Handle private types
-
-      Iface_Typ := Underlying_Type (Iface_Typ);
-
-      --  Freeze the entity associated with the target interface to have
-      --  available the attribute Access_Disp_Table.
-
-      Freeze_Before (N, Iface_Typ);
-
-      pragma Assert (not Is_Static
-        or else (not Is_Class_Wide_Type (Iface_Typ)
-                  and then Is_Interface (Iface_Typ)));
+      begin
+         Is_Static :=
+            not Is_Interface (Opnd_Typ)
+              and then Interface_Present_In_Ancestor
+                         (Typ   => Opnd_Typ,
+                          Iface => Iface_Typ)
+              and then (Etype (Opnd_Typ) = Opnd_Typ
+                         or else not
+                           Is_Variable_Size_Record (Etype (Opnd_Typ)));
+      end;
 
       if not Tagged_Type_Expansion then
          if VM_Target /= No_VM then
@@ -1131,16 +1170,14 @@ package body Exp_Disp is
                Operand_Typ := Root_Type (Operand_Typ);
             end if;
 
-            if not Is_Static
-              and then Operand_Typ /= Iface_Typ
-            then
+            if not Is_Static and then Operand_Typ /= Iface_Typ then
                Insert_Action (N,
                  Make_Procedure_Call_Statement (Loc,
                    Name => New_Occurrence_Of
                             (RTE (RE_Check_Interface_Conversion), Loc),
                    Parameter_Associations => New_List (
                      Make_Attribute_Reference (Loc,
-                       Prefix => Duplicate_Subexpr (Expression (N)),
+                       Prefix         => Duplicate_Subexpr (Expression (N)),
                        Attribute_Name => Name_Tag),
                      Make_Attribute_Reference (Loc,
                        Prefix         => New_Reference_To (Iface_Typ, Loc),
@@ -1600,16 +1637,15 @@ package body Exp_Disp is
       Formals : constant List_Id    := New_List;
       Target  : constant Entity_Id  := Ultimate_Alias (Prim);
 
-      Controlling_Typ : Entity_Id;
-      Decl_1          : Node_Id;
-      Decl_2          : Node_Id;
-      Expr            : Node_Id;
-      Formal          : Node_Id;
-      Ftyp            : Entity_Id;
-      Iface_Formal    : Node_Id;
-      New_Arg         : Node_Id;
-      Offset_To_Top   : Node_Id;
-      Target_Formal   : Entity_Id;
+      Decl_1        : Node_Id;
+      Decl_2        : Node_Id;
+      Expr          : Node_Id;
+      Formal        : Node_Id;
+      Ftyp          : Entity_Id;
+      Iface_Formal  : Node_Id;
+      New_Arg       : Node_Id;
+      Offset_To_Top : Node_Id;
+      Target_Formal : Entity_Id;
 
    begin
       Thunk_Id   := Empty;
@@ -1678,8 +1714,6 @@ package body Exp_Disp is
          Next_Formal (Formal);
       end loop;
 
-      Controlling_Typ := Find_Dispatching_Type (Target);
-
       Target_Formal := First_Formal (Target);
       Formal        := First (Formals);
       while Present (Formal) loop
@@ -1706,7 +1740,7 @@ package body Exp_Disp is
 
          if Ekind (Target_Formal) = E_In_Parameter
            and then Ekind (Etype (Target_Formal)) = E_Anonymous_Access_Type
-           and then Ftyp = Controlling_Typ
+           and then Is_Controlling_Formal (Target_Formal)
          then
             --  Generate:
             --     type T is access all <<type of the target formal>>
@@ -1764,7 +1798,7 @@ package body Exp_Disp is
                 (Defining_Identifier (Decl_2),
                  New_Reference_To (Defining_Identifier (Decl_1), Loc)));
 
-         elsif Ftyp = Controlling_Typ then
+         elsif Is_Controlling_Formal (Target_Formal) then
 
             --  Generate:
             --     S1 : Storage_Offset := Storage_Offset!(Formal'Address)
@@ -1829,6 +1863,14 @@ package body Exp_Disp is
                  Make_Explicit_Dereference (Loc,
                    New_Reference_To (Defining_Identifier (Decl_2), Loc))));
 
+         --  Ensure proper matching of access types. Required to avoid
+         --  reporting spurious errors.
+
+         elsif Is_Access_Type (Etype (Target_Formal)) then
+            Append_To (Actuals,
+              Unchecked_Convert_To (Base_Type (Etype (Target_Formal)),
+                New_Reference_To (Defining_Identifier (Formal), Loc)));
+
          --  No special management required for this actual
 
          else
@@ -1841,7 +1883,10 @@ package body Exp_Disp is
       end loop;
 
       Thunk_Id := Make_Temporary (Loc, 'T');
+      Set_Ekind (Thunk_Id, Ekind (Prim));
       Set_Is_Thunk (Thunk_Id);
+      Set_Convention (Thunk_Id, Convention (Prim));
+      Set_Thunk_Entity (Thunk_Id, Target);
 
       --  Procedure case
 
@@ -1863,22 +1908,69 @@ package body Exp_Disp is
       --  Function case
 
       else pragma Assert (Ekind (Target) = E_Function);
-         Thunk_Code :=
-           Make_Subprogram_Body (Loc,
-              Specification =>
-                Make_Function_Specification (Loc,
-                  Defining_Unit_Name       => Thunk_Id,
-                  Parameter_Specifications => Formals,
-                  Result_Definition =>
-                    New_Copy (Result_Definition (Parent (Target)))),
-              Declarations => Decl,
-              Handled_Statement_Sequence =>
-                Make_Handled_Sequence_Of_Statements (Loc,
-                  Statements => New_List (
-                    Make_Simple_Return_Statement (Loc,
-                      Make_Function_Call (Loc,
-                        Name => New_Occurrence_Of (Target, Loc),
-                        Parameter_Associations => Actuals)))));
+         declare
+            Result_Def : Node_Id;
+            Call_Node  : Node_Id;
+
+         begin
+            Call_Node :=
+              Make_Function_Call (Loc,
+                Name                   => New_Occurrence_Of (Target, Loc),
+                Parameter_Associations => Actuals);
+
+            if not Is_Interface (Etype (Prim)) then
+               Result_Def := New_Copy (Result_Definition (Parent (Target)));
+
+            --  Thunk of function returning a class-wide interface object. No
+            --  extra displacement needed since the displacement is generated
+            --  in the return statement of Prim. Example:
+
+            --    type Iface is interface ...
+            --    function F (O : Iface) return Iface'Class;
+
+            --    type T is new ... and Iface with ...
+            --    function F (O : T) return Iface'Class;
+
+            elsif Is_Class_Wide_Type (Etype (Prim)) then
+               Result_Def := New_Occurrence_Of (Etype (Prim), Loc);
+
+            --  Thunk of function returning an interface object. Displacement
+            --  needed. Example:
+
+            --    type Iface is interface ...
+            --    function F (O : Iface) return Iface;
+
+            --    type T is new ... and Iface with ...
+            --    function F (O : T) return T;
+
+            else
+               Result_Def :=
+                 New_Occurrence_Of (Class_Wide_Type (Etype (Prim)), Loc);
+
+               --  Adding implicit conversion to force the displacement of
+               --  the pointer to the object to reference the corresponding
+               --  secondary dispatch table.
+
+               Call_Node :=
+                 Make_Type_Conversion (Loc,
+                   Subtype_Mark =>
+                     New_Occurrence_Of (Class_Wide_Type (Etype (Prim)), Loc),
+                   Expression   => Relocate_Node (Call_Node));
+            end if;
+
+            Thunk_Code :=
+              Make_Subprogram_Body (Loc,
+                Specification =>
+                  Make_Function_Specification (Loc,
+                    Defining_Unit_Name       => Thunk_Id,
+                    Parameter_Specifications => Formals,
+                    Result_Definition        => Result_Def),
+                Declarations => Decl,
+                Handled_Statement_Sequence =>
+                  Make_Handled_Sequence_Of_Statements (Loc,
+                    Statements => New_List (
+                      Make_Simple_Return_Statement (Loc, Call_Node))));
+         end;
       end if;
    end Expand_Interface_Thunk;
 
@@ -1934,6 +2026,17 @@ package body Exp_Disp is
       return not Is_Interface (Typ)
                and then not Restriction_Active (No_Dispatching_Calls);
    end Has_DT;
+
+   ----------------------------------
+   -- Is_Expanded_Dispatching_Call --
+   ----------------------------------
+
+   function Is_Expanded_Dispatching_Call (N : Node_Id) return Boolean is
+   begin
+      return Nkind (N) in N_Subprogram_Call
+        and then Nkind (Name (N)) = N_Explicit_Dereference
+        and then Is_Dispatch_Table_Entity (Etype (Name (N)));
+   end Is_Expanded_Dispatching_Call;
 
    -----------------------------------------
    -- Is_Predefined_Dispatching_Operation --
@@ -2003,11 +2106,10 @@ package body Exp_Disp is
            TSS_Name_Type
              (Name_Buffer (Name_Len - TSS_Name'Length + 1 .. Name_Len));
 
-         if        Chars (E) = Name_uSize
+         if Nam_In (Chars (E), Name_uSize, Name_uAssign)
            or else
              (Chars (E) = Name_Op_Eq
-                and then Etype (First_Formal (E)) = Etype (Last_Formal (E)))
-           or else Chars (E) = Name_uAssign
+               and then Etype (First_Formal (E)) = Etype (Last_Formal (E)))
            or else TSS_Name  = TSS_Deep_Adjust
            or else TSS_Name  = TSS_Deep_Finalize
            or else Is_Predefined_Interface_Primitive (E)
@@ -4077,17 +4179,10 @@ package body Exp_Disp is
          DT_Constr_List := New_List;
          DT_Aggr_List   := New_List;
 
-         --  Nb_Prim. If the tagged type has no primitives we add a dummy
-         --  slot whose address will be the tag of this type.
+         --  Nb_Prim
 
-         if Nb_Prim = 0 then
-            New_Node := Make_Integer_Literal (Loc, 1);
-         else
-            New_Node := Make_Integer_Literal (Loc, Nb_Prim);
-         end if;
-
-         Append_To (DT_Constr_List, New_Node);
-         Append_To (DT_Aggr_List, New_Copy (New_Node));
+         Append_To (DT_Constr_List, Make_Integer_Literal (Loc, Nb_Prim));
+         Append_To (DT_Aggr_List, Make_Integer_Literal (Loc, Nb_Prim));
 
          --  Signature
 
@@ -5763,7 +5858,7 @@ package body Exp_Disp is
              Prefix => New_Reference_To (TSD, Loc),
              Attribute_Name => Name_Address));
 
-         --  Stage 2: Initialize the table of primitive operations
+         --  Stage 2: Initialize the table of user-defined primitive operations
 
          Prim_Ops_Aggr_List := New_List;
 
@@ -6241,12 +6336,6 @@ package body Exp_Disp is
             Elmt : Elmt_Id;
 
          begin
-            --  Ensure that entities Prim_Ptr and Predef_Prims_Table_Ptr have
-            --  the decoration required by the backend
-
-            Set_Is_Dispatch_Table_Entity (RTE (RE_Prim_Ptr));
-            Set_Is_Dispatch_Table_Entity (RTE (RE_Predef_Prims_Table_Ptr));
-
             --  Object declarations
 
             Elmt := First_Elmt (DT_Decl);
@@ -7122,6 +7211,15 @@ package body Exp_Disp is
 
       Set_Ekind        (DT_Ptr, E_Variable);
       Set_Related_Type (DT_Ptr, Typ);
+
+      --  Ensure that entities Prim_Ptr and Predef_Prims_Table_Ptr have
+      --  the decoration required by the backend.
+
+      --  Odd comment, the back end cannot require anything not properly
+      --  documented in einfo! ???
+
+      Set_Is_Dispatch_Table_Entity (RTE (RE_Prim_Ptr));
+      Set_Is_Dispatch_Table_Entity (RTE (RE_Predef_Prims_Table_Ptr));
 
       --  For CPP types there is no need to build the dispatch tables since
       --  they are imported from the C++ side. If the CPP type has an IP then
@@ -8052,7 +8150,7 @@ package body Exp_Disp is
          procedure Handle_Inherited_Private_Subprograms (Typ : Entity_Id);
          --  Called if Typ is declared in a nested package or a public child
          --  package to handle inherited primitives that were inherited by Typ
-         --  in  the visible part, but whose declaration was deferred because
+         --  in the visible part, but whose declaration was deferred because
          --  the parent operation was private and not visible at that point.
 
          procedure Set_Fixed_Prim (Pos : Nat);
@@ -8334,10 +8432,10 @@ package body Exp_Disp is
          --  excluded from this check because interfaces must be visible in
          --  the public and private part (RM 7.3 (7.3/2))
 
-         --  We disable this check in CodePeer mode, to accommodate legacy
-         --  Ada code.
+         --  We disable this check in Relaxed_RM_Semantics mode, to
+         --  accommodate legacy Ada code.
 
-         if not CodePeer_Mode
+         if not Relaxed_RM_Semantics
            and then Is_Abstract_Type (Typ)
            and then Is_Abstract_Subprogram (Prim)
            and then Present (Alias (Prim))
@@ -8376,11 +8474,11 @@ package body Exp_Disp is
       if Is_Controlled (Typ) then
          if not Finalized then
             Error_Msg_N
-              ("controlled type has no explicit Finalize method?", Typ);
+              ("controlled type has no explicit Finalize method??", Typ);
 
          elsif not Adjusted then
             Error_Msg_N
-              ("controlled type has no explicit Adjust method?", Typ);
+              ("controlled type has no explicit Adjust method??", Typ);
          end if;
       end if;
 
@@ -8404,113 +8502,56 @@ package body Exp_Disp is
 
    procedure Set_CPP_Constructors (Typ : Entity_Id) is
 
-      procedure Set_CPP_Constructors_Old (Typ : Entity_Id);
-      --  For backward compatibility this routine handles CPP constructors
-      --  of non-tagged types.
+      function Gen_Parameters_Profile (E : Entity_Id) return List_Id;
+      --  Duplicate the parameters profile of the imported C++ constructor
+      --  adding an access to the object as an additional parameter.
 
-      procedure Set_CPP_Constructors_Old (Typ : Entity_Id) is
-         Loc   : Source_Ptr;
-         Init  : Entity_Id;
-         E     : Entity_Id;
-         Found : Boolean := False;
-         P     : Node_Id;
+      function Gen_Parameters_Profile (E : Entity_Id) return List_Id is
+         Loc   : constant Source_Ptr := Sloc (E);
          Parms : List_Id;
+         P     : Node_Id;
 
       begin
-         --  Look for the constructor entities
+         Parms :=
+           New_List (
+             Make_Parameter_Specification (Loc,
+               Defining_Identifier =>
+                 Make_Defining_Identifier (Loc, Name_uInit),
+               Parameter_Type      => New_Reference_To (Typ, Loc)));
 
-         E := Next_Entity (Typ);
-         while Present (E) loop
-            if Ekind (E) = E_Function
-              and then Is_Constructor (E)
-            then
-               --  Create the init procedure
-
-               Found := True;
-               Loc   := Sloc (E);
-               Init  := Make_Defining_Identifier (Loc,
-                          Make_Init_Proc_Name (Typ));
-               Parms :=
-                 New_List (
-                   Make_Parameter_Specification (Loc,
-                     Defining_Identifier =>
-                       Make_Defining_Identifier (Loc, Name_X),
-                     Parameter_Type =>
-                       New_Reference_To (Typ, Loc)));
-
-               if Present (Parameter_Specifications (Parent (E))) then
-                  P := First (Parameter_Specifications (Parent (E)));
-                  while Present (P) loop
-                     Append_To (Parms,
-                       Make_Parameter_Specification (Loc,
-                         Defining_Identifier =>
-                           Make_Defining_Identifier (Loc,
-                             Chars (Defining_Identifier (P))),
-                         Parameter_Type =>
-                           New_Copy_Tree (Parameter_Type (P))));
-                     Next (P);
-                  end loop;
-               end if;
-
-               Discard_Node (
-                 Make_Subprogram_Declaration (Loc,
-                   Make_Procedure_Specification (Loc,
-                     Defining_Unit_Name => Init,
-                     Parameter_Specifications => Parms)));
-
-               Set_Init_Proc (Typ, Init);
-               Set_Is_Imported    (Init);
-               Set_Interface_Name (Init, Interface_Name (E));
-               Set_Convention     (Init, Convention_C);
-               Set_Is_Public      (Init);
-               Set_Has_Completion (Init);
-            end if;
-
-            Next_Entity (E);
-         end loop;
-
-         --  If there are no constructors, mark the type as abstract since we
-         --  won't be able to declare objects of that type.
-
-         if not Found then
-            Set_Is_Abstract_Type (Typ);
+         if Present (Parameter_Specifications (Parent (E))) then
+            P := First (Parameter_Specifications (Parent (E)));
+            while Present (P) loop
+               Append_To (Parms,
+                 Make_Parameter_Specification (Loc,
+                   Defining_Identifier =>
+                     Make_Defining_Identifier (Loc,
+                       Chars => Chars (Defining_Identifier (P))),
+                   Parameter_Type      => New_Copy_Tree (Parameter_Type (P)),
+                   Expression          => New_Copy_Tree (Expression (P))));
+               Next (P);
+            end loop;
          end if;
-      end Set_CPP_Constructors_Old;
+
+         return Parms;
+      end Gen_Parameters_Profile;
 
       --  Local variables
 
-      Loc   : Source_Ptr;
-      E     : Entity_Id;
-      Found : Boolean := False;
-      P     : Node_Id;
-      Parms : List_Id;
+      Loc     : Source_Ptr;
+      E       : Entity_Id;
+      Found   : Boolean := False;
+      IP      : Entity_Id;
+      IP_Body : Node_Id;
+      P       : Node_Id;
+      Parms   : List_Id;
 
-      Constructor_Decl_Node : Node_Id;
-      Constructor_Id        : Entity_Id;
-      Wrapper_Id            : Entity_Id;
-      Wrapper_Body_Node     : Node_Id;
-      Actuals               : List_Id;
-      Body_Stmts            : List_Id;
-      Init_Tags_List        : List_Id;
+      Covers_Default_Constructor : Entity_Id := Empty;
+
+   --  Start of processing for Set_CPP_Constructor
 
    begin
       pragma Assert (Is_CPP_Class (Typ));
-
-      --  For backward compatibility the compiler accepts C++ classes
-      --  imported through non-tagged record types. In such case the
-      --  wrapper of the C++ constructor is useless because the _tag
-      --  component is not available.
-
-      --  Example:
-      --     type Root is limited record ...
-      --     pragma Import (CPP, Root);
-      --     function New_Root return Root;
-      --     pragma CPP_Constructor (New_Root, ... );
-
-      if not Is_Tagged_Type (Typ) then
-         Set_CPP_Constructors_Old (Typ);
-         return;
-      end if;
 
       --  Look for the constructor entities
 
@@ -8521,153 +8562,178 @@ package body Exp_Disp is
          then
             Found := True;
             Loc   := Sloc (E);
+            Parms := Gen_Parameters_Profile (E);
+            IP    :=
+              Make_Defining_Identifier (Loc,
+                Chars => Make_Init_Proc_Name (Typ));
 
-            --  Generate the declaration of the imported C++ constructor
+            --  Case 1: Constructor of non-tagged type
 
-            Parms :=
-              New_List (
-                Make_Parameter_Specification (Loc,
-                  Defining_Identifier =>
-                    Make_Defining_Identifier (Loc, Name_uInit),
-                  Parameter_Type =>
-                    New_Reference_To (Typ, Loc)));
+            --  If the C++ class has no virtual methods then the matching Ada
+            --  type is a non-tagged record type. In such case there is no need
+            --  to generate a wrapper of the C++ constructor because the _tag
+            --  component is not available.
 
-            if Present (Parameter_Specifications (Parent (E))) then
-               P := First (Parameter_Specifications (Parent (E)));
-               while Present (P) loop
-                  Append_To (Parms,
-                    Make_Parameter_Specification (Loc,
-                      Defining_Identifier =>
-                        Make_Defining_Identifier (Loc,
-                          Chars (Defining_Identifier (P))),
-                      Parameter_Type => New_Copy_Tree (Parameter_Type (P))));
-                  Next (P);
-               end loop;
+            if not Is_Tagged_Type (Typ) then
+               Discard_Node
+                 (Make_Subprogram_Declaration (Loc,
+                    Specification =>
+                      Make_Procedure_Specification (Loc,
+                        Defining_Unit_Name       => IP,
+                        Parameter_Specifications => Parms)));
+
+               Set_Init_Proc (Typ, IP);
+               Set_Is_Imported    (IP);
+               Set_Is_Constructor (IP);
+               Set_Interface_Name (IP, Interface_Name (E));
+               Set_Convention     (IP, Convention_CPP);
+               Set_Is_Public      (IP);
+               Set_Has_Completion (IP);
+
+            --  Case 2: Constructor of a tagged type
+
+            --  In this case we generate the IP as a wrapper of the the
+            --  C++ constructor because IP must also save copy of the _tag
+            --  generated in the C++ side. The copy of the _tag is used by
+            --  Build_CPP_Init_Procedure to elaborate derivations of C++ types.
+
+            --  Generate:
+            --     procedure IP (_init : Typ; ...) is
+            --        procedure ConstructorP (_init : Typ; ...);
+            --        pragma Import (ConstructorP);
+            --     begin
+            --        ConstructorP (_init, ...);
+            --        if Typ._tag = null then
+            --           Typ._tag := _init._tag;
+            --        end if;
+            --     end IP;
+
+            else
+               declare
+                  Body_Stmts            : constant List_Id := New_List;
+                  Constructor_Id        : Entity_Id;
+                  Constructor_Decl_Node : Node_Id;
+                  Init_Tags_List        : List_Id;
+
+               begin
+                  Constructor_Id := Make_Temporary (Loc, 'P');
+
+                  Constructor_Decl_Node :=
+                    Make_Subprogram_Declaration (Loc,
+                      Make_Procedure_Specification (Loc,
+                        Defining_Unit_Name => Constructor_Id,
+                        Parameter_Specifications => Parms));
+
+                  Set_Is_Imported    (Constructor_Id);
+                  Set_Is_Constructor (Constructor_Id);
+                  Set_Interface_Name (Constructor_Id, Interface_Name (E));
+                  Set_Convention     (Constructor_Id, Convention_CPP);
+                  Set_Is_Public      (Constructor_Id);
+                  Set_Has_Completion (Constructor_Id);
+
+                  --  Build the init procedure as a wrapper of this constructor
+
+                  Parms := Gen_Parameters_Profile (E);
+
+                  --  Invoke the C++ constructor
+
+                  declare
+                     Actuals : constant List_Id := New_List;
+
+                  begin
+                     P := First (Parms);
+                     while Present (P) loop
+                        Append_To (Actuals,
+                          New_Reference_To (Defining_Identifier (P), Loc));
+                        Next (P);
+                     end loop;
+
+                     Append_To (Body_Stmts,
+                       Make_Procedure_Call_Statement (Loc,
+                         Name => New_Reference_To (Constructor_Id, Loc),
+                         Parameter_Associations => Actuals));
+                  end;
+
+                  --  Initialize copies of C++ primary and secondary tags
+
+                  Init_Tags_List := New_List;
+
+                  declare
+                     Tag_Elmt : Elmt_Id;
+                     Tag_Comp : Node_Id;
+
+                  begin
+                     Tag_Elmt := First_Elmt (Access_Disp_Table (Typ));
+                     Tag_Comp := First_Tag_Component (Typ);
+
+                     while Present (Tag_Elmt)
+                       and then Is_Tag (Node (Tag_Elmt))
+                     loop
+                        --  Skip the following assertion with primary tags
+                        --  because Related_Type is not set on primary tag
+                        --  components
+
+                        pragma Assert
+                          (Tag_Comp = First_Tag_Component (Typ)
+                             or else Related_Type (Node (Tag_Elmt))
+                                       = Related_Type (Tag_Comp));
+
+                        Append_To (Init_Tags_List,
+                          Make_Assignment_Statement (Loc,
+                            Name =>
+                              New_Reference_To (Node (Tag_Elmt), Loc),
+                            Expression =>
+                              Make_Selected_Component (Loc,
+                                Prefix        =>
+                                  Make_Identifier (Loc, Name_uInit),
+                                Selector_Name =>
+                                  New_Reference_To (Tag_Comp, Loc))));
+
+                        Tag_Comp := Next_Tag_Component (Tag_Comp);
+                        Next_Elmt (Tag_Elmt);
+                     end loop;
+                  end;
+
+                  Append_To (Body_Stmts,
+                    Make_If_Statement (Loc,
+                      Condition =>
+                        Make_Op_Eq (Loc,
+                          Left_Opnd =>
+                            New_Reference_To
+                              (Node (First_Elmt (Access_Disp_Table (Typ))),
+                               Loc),
+                          Right_Opnd =>
+                            Unchecked_Convert_To (RTE (RE_Tag),
+                              New_Reference_To (RTE (RE_Null_Address), Loc))),
+                      Then_Statements => Init_Tags_List));
+
+                  IP_Body :=
+                    Make_Subprogram_Body (Loc,
+                      Specification =>
+                        Make_Procedure_Specification (Loc,
+                          Defining_Unit_Name => IP,
+                          Parameter_Specifications => Parms),
+                      Declarations => New_List (Constructor_Decl_Node),
+                      Handled_Statement_Sequence =>
+                        Make_Handled_Sequence_Of_Statements (Loc,
+                          Statements => Body_Stmts,
+                          Exception_Handlers => No_List));
+
+                  Discard_Node (IP_Body);
+                  Set_Init_Proc (Typ, IP);
+               end;
             end if;
 
-            Constructor_Id := Make_Temporary (Loc, 'P');
+            --  If this constructor has parameters and all its parameters
+            --  have defaults then it covers the default constructor. The
+            --  semantic analyzer ensures that only one constructor with
+            --  defaults covers the default constructor.
 
-            Constructor_Decl_Node :=
-              Make_Subprogram_Declaration (Loc,
-                Make_Procedure_Specification (Loc,
-                  Defining_Unit_Name => Constructor_Id,
-                  Parameter_Specifications => Parms));
-
-            Set_Is_Imported    (Constructor_Id);
-            Set_Interface_Name (Constructor_Id, Interface_Name (E));
-            Set_Convention     (Constructor_Id, Convention_C);
-            Set_Is_Public      (Constructor_Id);
-            Set_Has_Completion (Constructor_Id);
-
-            --  Build the wrapper of this constructor
-
-            Parms :=
-              New_List (
-                Make_Parameter_Specification (Loc,
-                  Defining_Identifier =>
-                    Make_Defining_Identifier (Loc, Name_uInit),
-                  Parameter_Type =>
-                    New_Reference_To (Typ, Loc)));
-
-            if Present (Parameter_Specifications (Parent (E))) then
-               P := First (Parameter_Specifications (Parent (E)));
-               while Present (P) loop
-                  Append_To (Parms,
-                    Make_Parameter_Specification (Loc,
-                      Defining_Identifier =>
-                        Make_Defining_Identifier (Loc,
-                          Chars (Defining_Identifier (P))),
-                      Parameter_Type => New_Copy_Tree (Parameter_Type (P))));
-                  Next (P);
-               end loop;
+            if Present (Parameter_Specifications (Parent (E)))
+              and then Needs_No_Actuals (E)
+            then
+               Covers_Default_Constructor := IP;
             end if;
-
-            Body_Stmts := New_List;
-
-            --  Invoke the C++ constructor
-
-            Actuals := New_List;
-
-            P := First (Parms);
-            while Present (P) loop
-               Append_To (Actuals,
-                 New_Reference_To (Defining_Identifier (P), Loc));
-               Next (P);
-            end loop;
-
-            Append_To (Body_Stmts,
-              Make_Procedure_Call_Statement (Loc,
-                Name => New_Reference_To (Constructor_Id, Loc),
-                Parameter_Associations => Actuals));
-
-            --  Initialize copies of C++ primary and secondary tags
-
-            Init_Tags_List := New_List;
-
-            declare
-               Tag_Elmt : Elmt_Id;
-               Tag_Comp : Node_Id;
-
-            begin
-               Tag_Elmt := First_Elmt (Access_Disp_Table (Typ));
-               Tag_Comp := First_Tag_Component (Typ);
-
-               while Present (Tag_Elmt)
-                 and then Is_Tag (Node (Tag_Elmt))
-               loop
-                  --  Skip the following assertion with primary tags because
-                  --  Related_Type is not set on primary tag components
-
-                  pragma Assert (Tag_Comp = First_Tag_Component (Typ)
-                    or else Related_Type (Node (Tag_Elmt))
-                              = Related_Type (Tag_Comp));
-
-                  Append_To (Init_Tags_List,
-                    Make_Assignment_Statement (Loc,
-                      Name =>
-                        New_Reference_To (Node (Tag_Elmt), Loc),
-                      Expression =>
-                        Make_Selected_Component (Loc,
-                          Prefix        =>
-                            Make_Identifier (Loc, Name_uInit),
-                          Selector_Name =>
-                            New_Reference_To (Tag_Comp, Loc))));
-
-                     Tag_Comp := Next_Tag_Component (Tag_Comp);
-                  Next_Elmt (Tag_Elmt);
-               end loop;
-            end;
-
-            Append_To (Body_Stmts,
-              Make_If_Statement (Loc,
-                Condition =>
-                  Make_Op_Eq (Loc,
-                    Left_Opnd =>
-                      New_Reference_To
-                        (Node (First_Elmt (Access_Disp_Table (Typ))),
-                         Loc),
-                    Right_Opnd =>
-                      Unchecked_Convert_To (RTE (RE_Tag),
-                        New_Reference_To (RTE (RE_Null_Address), Loc))),
-                Then_Statements => Init_Tags_List));
-
-            Wrapper_Id := Make_Defining_Identifier (Loc,
-                            Make_Init_Proc_Name (Typ));
-
-            Wrapper_Body_Node :=
-              Make_Subprogram_Body (Loc,
-                Specification =>
-                  Make_Procedure_Specification (Loc,
-                    Defining_Unit_Name => Wrapper_Id,
-                    Parameter_Specifications => Parms),
-                Declarations => New_List (Constructor_Decl_Node),
-                Handled_Statement_Sequence =>
-                  Make_Handled_Sequence_Of_Statements (Loc,
-                    Statements => Body_Stmts,
-                    Exception_Handlers => No_List));
-
-            Discard_Node (Wrapper_Body_Node);
-            Set_Init_Proc (Typ, Wrapper_Id);
          end if;
 
          Next_Entity (E);
@@ -8680,6 +8746,49 @@ package body Exp_Disp is
          Set_Is_Abstract_Type (Typ);
       end if;
 
+      --  Handle constructor that has all its parameters with defaults and
+      --  hence it covers the default constructor. We generate a wrapper IP
+      --  which calls the covering constructor.
+
+      if Present (Covers_Default_Constructor) then
+         declare
+            Body_Stmts : List_Id;
+
+         begin
+            Loc := Sloc (Covers_Default_Constructor);
+
+            Body_Stmts := New_List (
+              Make_Procedure_Call_Statement (Loc,
+                Name                   =>
+                  New_Reference_To (Covers_Default_Constructor, Loc),
+                Parameter_Associations => New_List (
+                  Make_Identifier (Loc, Name_uInit))));
+
+            IP := Make_Defining_Identifier (Loc, Make_Init_Proc_Name (Typ));
+
+            IP_Body :=
+              Make_Subprogram_Body (Loc,
+                Specification              =>
+                  Make_Procedure_Specification (Loc,
+                    Defining_Unit_Name       => IP,
+                    Parameter_Specifications => New_List (
+                      Make_Parameter_Specification (Loc,
+                        Defining_Identifier =>
+                          Make_Defining_Identifier (Loc, Name_uInit),
+                        Parameter_Type      => New_Reference_To (Typ, Loc)))),
+
+                Declarations               => No_List,
+
+                Handled_Statement_Sequence =>
+                  Make_Handled_Sequence_Of_Statements (Loc,
+                    Statements         => Body_Stmts,
+                    Exception_Handlers => No_List));
+
+            Discard_Node (IP_Body);
+            Set_Init_Proc (Typ, IP);
+         end;
+      end if;
+
       --  If the CPP type has constructors then it must import also the default
       --  C++ constructor. It is required for default initialization of objects
       --  of the type. It is also required to elaborate objects of Ada types
@@ -8688,7 +8797,7 @@ package body Exp_Disp is
       if Has_CPP_Constructors (Typ)
         and then No (Init_Proc (Typ))
       then
-         Error_Msg_N ("?default constructor must be imported from C++", Typ);
+         Error_Msg_N ("??default constructor must be imported from C++", Typ);
       end if;
    end Set_CPP_Constructors;
 
@@ -8841,7 +8950,8 @@ package body Exp_Disp is
             --  If the DTC_Entity attribute is already set we can also output
             --  the name of the interface covered by this primitive (if any).
 
-            if Present (DTC_Entity (Alias (Prim)))
+            if Ekind_In (Alias (Prim), E_Function, E_Procedure)
+              and then Present (DTC_Entity (Alias (Prim)))
               and then Is_Interface (Scope (DTC_Entity (Alias (Prim))))
             then
                Write_Str  (" from interface ");

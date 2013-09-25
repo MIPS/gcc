@@ -127,6 +127,9 @@ ffi_prep_args_SYSV (extended_cif *ecif, unsigned *const stack)
 
   int i;
   ffi_type **ptr;
+#ifndef __NO_FPRS__
+  double double_tmp;
+#endif
   union {
     void **v;
     char **c;
@@ -155,9 +158,9 @@ ffi_prep_args_SYSV (extended_cif *ecif, unsigned *const stack)
   next_arg.u = stack + 2;
 
   /* Check that everything starts aligned properly.  */
-  FFI_ASSERT (((unsigned) (char *) stack & 0xF) == 0);
-  FFI_ASSERT (((unsigned) copy_space.c & 0xF) == 0);
-  FFI_ASSERT (((unsigned) stacktop.c & 0xF) == 0);
+  FFI_ASSERT (((unsigned long) (char *) stack & 0xF) == 0);
+  FFI_ASSERT (((unsigned long) copy_space.c & 0xF) == 0);
+  FFI_ASSERT (((unsigned long) stacktop.c & 0xF) == 0);
   FFI_ASSERT ((bytes & 0xF) == 0);
   FFI_ASSERT (copy_space.c >= next_arg.c);
 
@@ -211,8 +214,6 @@ ffi_prep_args_SYSV (extended_cif *ecif, unsigned *const stack)
 
 	case FFI_TYPE_DOUBLE:
 	  /* With FFI_LINUX_SOFT_FLOAT doubles are handled like UINT64.  */
-	  if (ecif->cif->abi == FFI_LINUX_SOFT_FLOAT)
-	    goto soft_double_prep;
 	  double_tmp = **p_argv.d;
 
 	  if (fparg_count >= NUM_FPR_ARG_REGISTERS)
@@ -543,11 +544,12 @@ ffi_prep_args64 (extended_cif *ecif, unsigned long *const stack)
 	    {
 	      char *where = next_arg.c;
 
+#ifndef __LITTLE_ENDIAN__
 	      /* Structures with size less than eight bytes are passed
 		 left-padded.  */
 	      if ((*ptr)->size < 8)
 		where += 8 - (*ptr)->size;
-
+#endif
 	      memcpy (where, *p_argv.c, (*ptr)->size);
 	      next_arg.ul += words;
 	      if (next_arg.ul == gpr_end.ul)
@@ -665,9 +667,11 @@ ffi_prep_cif_machdep (ffi_cif *cif)
   switch (type)
     {
 #ifndef __NO_FPRS__
+#if FFI_TYPE_LONGDOUBLE != FFI_TYPE_DOUBLE
     case FFI_TYPE_LONGDOUBLE:
       flags |= FLAG_RETURNS_128BITS;
       /* Fall through.  */
+#endif
     case FFI_TYPE_DOUBLE:
       flags |= FLAG_RETURNS_64BITS;
       /* Fall through.  */
@@ -925,7 +929,7 @@ ffi_call(ffi_cif *cif, void (*fn)(void), void *rvalue, void **avalue)
    */
   unsigned int smst_buffer[2];
   extended_cif ecif;
-  unsigned int rsize;
+  unsigned int rsize = 0;
 
   ecif.cif = cif;
   ecif.avalue = avalue;
@@ -1132,7 +1136,7 @@ ffi_closure_helper_SYSV (ffi_closure *closure, void *rvalue,
 
 	  if (nf < 8)
 	    {
-	      temp = pfr->d;
+	      double temp = pfr->d;
 	      pfr->f = (float) temp;
 	      avalue[i] = pfr;
 	      nf++;
@@ -1207,6 +1211,7 @@ ffi_closure_helper_SYSV (ffi_closure *closure, void *rvalue,
 
 	case FFI_TYPE_SINT8:
 	case FFI_TYPE_UINT8:
+#ifndef __LITTLE_ENDIAN__
 	  /* there are 8 gpr registers used to pass values */
 	  if (ng < 8)
 	    {
@@ -1220,9 +1225,10 @@ ffi_closure_helper_SYSV (ffi_closure *closure, void *rvalue,
 	      pst++;
 	    }
 	  break;
-
+#endif
 	case FFI_TYPE_SINT16:
 	case FFI_TYPE_UINT16:
+#ifndef __LITTLE_ENDIAN__
 	  /* there are 8 gpr registers used to pass values */
 	  if (ng < 8)
 	    {
@@ -1236,7 +1242,7 @@ ffi_closure_helper_SYSV (ffi_closure *closure, void *rvalue,
 	      pst++;
 	    }
 	  break;
-
+#endif
 	case FFI_TYPE_SINT32:
 	case FFI_TYPE_UINT32:
 	case FFI_TYPE_POINTER:
@@ -1366,22 +1372,25 @@ ffi_closure_helper_LINUX64 (ffi_closure *closure, void *rvalue,
 	{
 	case FFI_TYPE_SINT8:
 	case FFI_TYPE_UINT8:
+#ifndef __LITTLE_ENDIAN__
 	  avalue[i] = (char *) pst + 7;
 	  pst++;
 	  break;
-
+#endif
 	case FFI_TYPE_SINT16:
 	case FFI_TYPE_UINT16:
+#ifndef __LITTLE_ENDIAN__
 	  avalue[i] = (char *) pst + 6;
 	  pst++;
 	  break;
-
+#endif
 	case FFI_TYPE_SINT32:
 	case FFI_TYPE_UINT32:
+#ifndef __LITTLE_ENDIAN__
 	  avalue[i] = (char *) pst + 4;
 	  pst++;
 	  break;
-
+#endif
 	case FFI_TYPE_SINT64:
 	case FFI_TYPE_UINT64:
 	case FFI_TYPE_POINTER:
@@ -1390,11 +1399,13 @@ ffi_closure_helper_LINUX64 (ffi_closure *closure, void *rvalue,
 	  break;
 
 	case FFI_TYPE_STRUCT:
+#ifndef __LITTLE_ENDIAN__
 	  /* Structures with size less than eight bytes are passed
 	     left-padded.  */
 	  if (arg_types[i]->size < 8)
 	    avalue[i] = (char *) pst + 8 - arg_types[i]->size;
 	  else
+#endif
 	    avalue[i] = pst;
 	  pst += (arg_types[i]->size + 7) / 8;
 	  break;

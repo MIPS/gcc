@@ -1,6 +1,5 @@
 /* IRA hard register and memory cost calculation for allocnos or pseudos.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -23,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "hash-table.h"
 #include "hard-reg-set.h"
 #include "rtl.h"
 #include "expr.h"
@@ -132,35 +132,41 @@ typedef const struct cost_classes *const_cost_classes_t;
 /* Info about cost classes for each pseudo.  */
 static cost_classes_t *regno_cost_classes;
 
-/* Returns hash value for cost classes info V.  */
-static hashval_t
-cost_classes_hash (const void *v)
-{
-  const_cost_classes_t hv = (const_cost_classes_t) v;
+/* Helper for cost_classes hashing.  */
 
+struct cost_classes_hasher
+{
+  typedef cost_classes value_type;
+  typedef cost_classes compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+  static inline void remove (value_type *);
+};
+
+/* Returns hash value for cost classes info HV.  */
+inline hashval_t
+cost_classes_hasher::hash (const value_type *hv)
+{
   return iterative_hash (&hv->classes, sizeof (enum reg_class) * hv->num, 0);
 }
 
-/* Compares cost classes info V1 and V2.  */
-static int
-cost_classes_eq (const void *v1, const void *v2)
+/* Compares cost classes info HV1 and HV2.  */
+inline bool
+cost_classes_hasher::equal (const value_type *hv1, const compare_type *hv2)
 {
-  const_cost_classes_t hv1 = (const_cost_classes_t) v1;
-  const_cost_classes_t hv2 = (const_cost_classes_t) v2;
-
   return hv1->num == hv2->num && memcmp (hv1->classes, hv2->classes,
 					 sizeof (enum reg_class) * hv1->num);
 }
 
 /* Delete cost classes info V from the hash table.  */
-static void
-cost_classes_del (void *v)
+inline void
+cost_classes_hasher::remove (value_type *v)
 {
   ira_free (v);
 }
 
 /* Hash table of unique cost classes.  */
-static htab_t cost_classes_htab;
+static hash_table <cost_classes_hasher> cost_classes_htab;
 
 /* Map allocno class -> cost classes for pseudo of given allocno
    class.  */
@@ -181,8 +187,7 @@ initiate_regno_cost_classes (void)
 	  sizeof (cost_classes_t) * N_REG_CLASSES);
   memset (cost_classes_mode_cache, 0,
 	  sizeof (cost_classes_t) * MAX_MACHINE_MODE);
-  cost_classes_htab
-    = htab_create (200, cost_classes_hash, cost_classes_eq, cost_classes_del);
+  cost_classes_htab.create (200);
 }
 
 /* Create new cost classes from cost classes FROM and set up members
@@ -230,7 +235,7 @@ setup_regno_cost_classes_by_aclass (int regno, enum reg_class aclass)
   cost_classes_t classes_ptr;
   enum reg_class cl;
   int i;
-  PTR *slot;
+  cost_classes **slot;
   HARD_REG_SET temp, temp2;
   bool exclude_p;
 
@@ -239,38 +244,24 @@ setup_regno_cost_classes_by_aclass (int regno, enum reg_class aclass)
       COPY_HARD_REG_SET (temp, reg_class_contents[aclass]);
       AND_COMPL_HARD_REG_SET (temp, ira_no_alloc_regs);
       /* We exclude classes from consideration which are subsets of
-	 ACLASS only if ACLASS is a pressure class or subset of a
-	 pressure class.  It means by the definition of pressure classes
-	 that cost of moving between susbets of ACLASS is cheaper than
-	 load or store.  */
-      for (i = 0; i < ira_pressure_classes_num; i++)
-	{
-	  cl = ira_pressure_classes[i];
-	  if (cl == aclass)
-	    break;
-	  COPY_HARD_REG_SET (temp2, reg_class_contents[cl]);
-	  AND_COMPL_HARD_REG_SET (temp2, ira_no_alloc_regs);
-	  if (hard_reg_set_subset_p (temp, temp2))
-	    break;
-	}
-      exclude_p = i < ira_pressure_classes_num;
+	 ACLASS only if ACLASS is an uniform class.  */
+      exclude_p = ira_uniform_class_p[aclass];
       classes.num = 0;
       for (i = 0; i < ira_important_classes_num; i++)
 	{
 	  cl = ira_important_classes[i];
 	  if (exclude_p)
 	    {
-	      /* Exclude no-pressure classes which are subsets of
+	      /* Exclude non-uniform classes which are subsets of
 		 ACLASS.  */
 	      COPY_HARD_REG_SET (temp2, reg_class_contents[cl]);
 	      AND_COMPL_HARD_REG_SET (temp2, ira_no_alloc_regs);
-	      if (! ira_reg_pressure_class_p[cl]
-		  && hard_reg_set_subset_p (temp2, temp) && cl != aclass)
+	      if (hard_reg_set_subset_p (temp2, temp) && cl != aclass)
 		continue;
 	    }
 	  classes.classes[classes.num++] = cl;
 	}
-      slot = htab_find_slot (cost_classes_htab, &classes, INSERT);
+      slot = cost_classes_htab.find_slot (&classes, INSERT);
       if (*slot == NULL)
 	{
 	  classes_ptr = setup_cost_classes (&classes);
@@ -294,7 +285,7 @@ setup_regno_cost_classes_by_mode (int regno, enum machine_mode mode)
   cost_classes_t classes_ptr;
   enum reg_class cl;
   int i;
-  PTR *slot;
+  cost_classes **slot;
   HARD_REG_SET temp;
 
   if ((classes_ptr = cost_classes_mode_cache[mode]) == NULL)
@@ -309,7 +300,7 @@ setup_regno_cost_classes_by_mode (int regno, enum machine_mode mode)
 	    continue;
 	  classes.classes[classes.num++] = cl;
 	}
-      slot = htab_find_slot (cost_classes_htab, &classes, INSERT);
+      slot = cost_classes_htab.find_slot (&classes, INSERT);
       if (*slot == NULL)
 	{
 	  classes_ptr = setup_cost_classes (&classes);
@@ -327,7 +318,7 @@ static void
 finish_regno_cost_classes (void)
 {
   ira_free (regno_cost_classes);
-  htab_delete (cost_classes_htab);
+  cost_classes_htab.dispose ();
 }
 
 
@@ -359,9 +350,8 @@ copy_cost (rtx x, enum machine_mode mode, reg_class_t rclass, bool to_p,
 
   if (secondary_class != NO_REGS)
     {
-      if (!move_cost[mode])
-        init_move_cost (mode);
-      return (move_cost[mode][(int) secondary_class][(int) rclass]
+      ira_init_register_move_cost_if_necessary (mode);
+      return (ira_register_move_cost[mode][(int) secondary_class][(int) rclass]
 	      + sri.extra_cost
 	      + copy_cost (x, mode, secondary_class, to_p, &sri));
     }
@@ -374,10 +364,11 @@ copy_cost (rtx x, enum machine_mode mode, reg_class_t rclass, bool to_p,
 	   + ira_memory_move_cost[mode][(int) rclass][to_p != 0];
   else if (REG_P (x))
     {
-      if (!move_cost[mode])
-        init_move_cost (mode);
+      reg_class_t x_class = REGNO_REG_CLASS (REGNO (x));
+
+      ira_init_register_move_cost_if_necessary (mode);
       return (sri.extra_cost
-	      + move_cost[mode][REGNO_REG_CLASS (REGNO (x))][(int) rclass]);
+	      + ira_register_move_cost[mode][(int) x_class][(int) rclass]);
     }
   else
     /* If this is a constant, we may eventually want to call rtx_cost
@@ -666,7 +657,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 
 		case 'E':
 		case 'F':
-		  if (GET_CODE (op) == CONST_DOUBLE
+		  if (CONST_DOUBLE_AS_FLOAT_P (op) 
 		      || (GET_CODE (op) == CONST_VECTOR
 			  && (GET_MODE_CLASS (GET_MODE (op))
 			      == MODE_VECTOR_FLOAT)))
@@ -675,15 +666,13 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 
 		case 'G':
 		case 'H':
-		  if (GET_CODE (op) == CONST_DOUBLE
+		  if (CONST_DOUBLE_AS_FLOAT_P (op) 
 		      && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, c, p))
 		    win = 1;
 		  break;
 
 		case 's':
-		  if (CONST_INT_P (op)
-		      || (GET_CODE (op) == CONST_DOUBLE
-			  && GET_MODE (op) == VOIDmode))
+		  if (CONST_SCALAR_INT_P (op)) 
 		    break;
 
 		case 'i':
@@ -693,9 +682,7 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		  break;
 
 		case 'n':
-		  if (CONST_INT_P (op)
-		      || (GET_CODE (op) == CONST_DOUBLE
-			  && GET_MODE (op) == VOIDmode))
+		  if (CONST_SCALAR_INT_P (op)) 
 		    win = 1;
 		  break;
 
@@ -1086,7 +1073,7 @@ record_address_regs (enum machine_mode mode, addr_space_t as, rtx x,
 
 	/* If the second operand is a constant integer, it doesn't
 	   change what class the first operand must be.  */
-	else if (code1 == CONST_INT || code1 == CONST_DOUBLE)
+	else if (CONST_SCALAR_INT_P (arg1))
 	  record_address_regs (mode, as, arg0, context, PLUS, code1, scale);
 	/* If the second operand is a symbolic constant, the first
 	   operand must be an index register.  */
@@ -1292,8 +1279,7 @@ scan_one_insn (rtx insn)
     return insn;
 
   pat_code = GET_CODE (PATTERN (insn));
-  if (pat_code == USE || pat_code == CLOBBER || pat_code == ASM_INPUT
-      || pat_code == ADDR_VEC || pat_code == ADDR_DIFF_VEC)
+  if (pat_code == USE || pat_code == CLOBBER || pat_code == ASM_INPUT)
     return insn;
 
   counted_mem = false;
@@ -1312,10 +1298,13 @@ scan_one_insn (rtx insn)
      a memory requiring special instructions to load it, decreasing
      mem_cost might result in it being loaded using the specialized
      instruction into a register, then stored into stack and loaded
-     again from the stack.  See PR52208.  */
+     again from the stack.  See PR52208.
+     
+     Don't do this if SET_SRC (set) has side effect.  See PR56124.  */
   if (set != 0 && REG_P (SET_DEST (set)) && MEM_P (SET_SRC (set))
       && (note = find_reg_note (insn, REG_EQUIV, NULL_RTX)) != NULL_RTX
-      && ((MEM_P (XEXP (note, 0)))
+      && ((MEM_P (XEXP (note, 0))
+	   && !side_effects_p (SET_SRC (set)))
 	  || (CONSTANT_P (XEXP (note, 0))
 	      && targetm.legitimate_constant_p (GET_MODE (SET_DEST (set)),
 						XEXP (note, 0))
@@ -1650,6 +1639,8 @@ find_costs_and_classes (FILE *dump_file)
 			COSTS (total_allocno_costs, parent_a_num)->mem_cost
 			  += add_cost;
 
+		      if (i >= first_moveable_pseudo && i < last_moveable_pseudo)
+			COSTS (total_allocno_costs, parent_a_num)->mem_cost = 0;
 		    }
 		  a_costs = COSTS (costs, a_num)->cost;
 		  for (k = cost_classes_ptr->num - 1; k >= 0; k--)
@@ -1667,7 +1658,9 @@ find_costs_and_classes (FILE *dump_file)
 		    i_mem_cost += add_cost;
 		}
 	    }
-	  if (equiv_savings < 0)
+	  if (i >= first_moveable_pseudo && i < last_moveable_pseudo)
+	    i_mem_cost = 0;
+	  else if (equiv_savings < 0)
 	    i_mem_cost = -equiv_savings;
 	  else if (equiv_savings > 0)
 	    {
@@ -2062,9 +2055,10 @@ ira_costs (void)
   ira_free (total_allocno_costs);
 }
 
-/* Entry function which defines classes for pseudos.  */
+/* Entry function which defines classes for pseudos.
+   Set pseudo_classes_defined_p only if DEFINE_PSEUDO_CLASSES is true.  */
 void
-ira_set_pseudo_classes (FILE *dump_file)
+ira_set_pseudo_classes (bool define_pseudo_classes, FILE *dump_file)
 {
   allocno_p = false;
   internal_flag_ira_verbose = flag_ira_verbose;
@@ -2073,7 +2067,9 @@ ira_set_pseudo_classes (FILE *dump_file)
   initiate_regno_cost_classes ();
   find_costs_and_classes (dump_file);
   finish_regno_cost_classes ();
-  pseudo_classes_defined_p = true;
+  if (define_pseudo_classes)
+    pseudo_classes_defined_p = true;
+
   finish_costs ();
 }
 
@@ -2103,7 +2099,8 @@ ira_tune_allocno_costs (void)
       mode = ALLOCNO_MODE (a);
       n = ira_class_hard_regs_num[aclass];
       min_cost = INT_MAX;
-      if (ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
+      if (ALLOCNO_CALLS_CROSSED_NUM (a)
+	  != ALLOCNO_CHEAP_CALLS_CROSSED_NUM (a))
 	{
 	  ira_allocate_and_set_costs
 	    (&ALLOCNO_HARD_REG_COSTS (a), aclass,

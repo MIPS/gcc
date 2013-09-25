@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -31,6 +31,7 @@ with Debug;    use Debug;
 with Elists;
 with Errout;   use Errout;
 with Exp_CG;
+with Exp_Ch6;  use Exp_Ch6;
 with Fmap;
 with Fname;    use Fname;
 with Fname.UF; use Fname.UF;
@@ -60,6 +61,7 @@ with Sem_Ch13;
 with Sem_Elim;
 with Sem_Eval;
 with Sem_Type;
+with Set_Targ;
 with Sinfo;    use Sinfo;
 with Sinput.L; use Sinput.L;
 with Snames;
@@ -103,24 +105,16 @@ procedure Gnat1drv is
    --  Called when we are not generating code, to check if -gnatR was requested
    --  and if so, explain that we will not be honoring the request.
 
-   procedure Check_Library_Items;
-   --  For debugging -- checks the behavior of Walk_Library_Items
-   pragma Warnings (Off, Check_Library_Items);
-   --  In case the call below is commented out
-
    ----------------------------
    -- Adjust_Global_Switches --
    ----------------------------
 
    procedure Adjust_Global_Switches is
    begin
-      --  Debug flag -gnatd.I is a synonym for Generate_SCIL and requires code
-      --  generation.
+      --  -gnatd.M enables Relaxed_RM_Semantics
 
-      if Debug_Flag_Dot_II
-        and then Operating_Mode = Generate_Code
-      then
-         Generate_SCIL := True;
+      if Debug_Flag_Dot_MM then
+         Relaxed_RM_Semantics := True;
       end if;
 
       --  Disable CodePeer_Mode in Check_Syntax, since we need front-end
@@ -186,8 +180,8 @@ procedure Gnat1drv is
          Restrict.Restrictions.Set   (Max_Asynchronous_Select_Nesting) := True;
          Restrict.Restrictions.Value (Max_Asynchronous_Select_Nesting) := 0;
 
-         --  Suppress overflow, division by zero and access checks since they
-         --  are handled implicitly by CodePeer.
+         --  Suppress division by zero and access checks since they are handled
+         --  implicitly by CodePeer.
 
          --  Turn off dynamic elaboration checks: generates inconsistencies in
          --  trees between specs compiled as part of a main unit or as part of
@@ -198,15 +192,30 @@ procedure Gnat1drv is
 
          --  Enable all other language checks
 
-         Suppress_Options :=
+         Suppress_Options.Suppress :=
            (Access_Check      => True,
             Alignment_Check   => True,
             Division_Check    => True,
             Elaboration_Check => True,
-            Overflow_Check    => True,
             others            => False);
-         Enable_Overflow_Checks := False;
+
          Dynamic_Elaboration_Checks := False;
+
+         --  Set STRICT mode for overflow checks if not set explicitly. This
+         --  prevents suppressing of overflow checks by default, in code down
+         --  below.
+
+         if Suppress_Options.Overflow_Mode_General = Not_Set then
+            Suppress_Options.Overflow_Mode_General    := Strict;
+            Suppress_Options.Overflow_Mode_Assertions := Strict;
+         end if;
+
+         --  CodePeer handles division and overflow checks directly, based on
+         --  the marks set by the frontend, hence no special expansion should
+         --  be performed in the frontend for division and overflow checks.
+
+         Backend_Divide_Checks_On_Target   := True;
+         Backend_Overflow_Checks_On_Target := True;
 
          --  Kill debug of generated code, since it messes up sloc values
 
@@ -231,11 +240,9 @@ procedure Gnat1drv is
 
          Generate_SCIL := True;
 
-         --  Enable assertions and debug pragmas, since they give CodePeer
-         --  valuable extra information.
+         --  Enable assertions, since they give CodePeer valuable extra info
 
-         Assertions_Enabled    := True;
-         Debug_Pragmas_Enabled := True;
+         Assertions_Enabled := True;
 
          --  Disable all simple value propagation. This is an optimization
          --  which is valuable for code optimization, and also for generation
@@ -266,9 +273,150 @@ procedure Gnat1drv is
 
          Force_ALI_Tree_File := True;
          Try_Semantics := True;
+
+         --  Make the Ada front-end more liberal so that the compiler will
+         --  allow illegal code that is allowed by other compilers. CodePeer
+         --  is in the business of finding problems, not enforcing rules!
+         --  This is useful when using CodePeer mode with other compilers.
+
+         Relaxed_RM_Semantics := True;
       end if;
 
-      --  Set Configurable_Run_Time mode if system.ads flag set
+      if Relaxed_RM_Semantics then
+         Overriding_Renamings := True;
+      end if;
+
+      --  Set switches for formal verification mode
+
+      if Debug_Flag_Dot_VV then
+         Formal_Extensions := True;
+      end if;
+
+      --  Enable SPARK_Mode when using -gnatd.F switch
+
+      if Debug_Flag_Dot_FF then
+         SPARK_Mode := True;
+      end if;
+
+      --  SPARK_Mode is also activated by default in the gnat2why executable
+
+      if SPARK_Mode then
+
+         --  Set strict standard interpretation of compiler permissions
+
+         if Debug_Flag_Dot_DD then
+            SPARK_Strict_Mode := True;
+         end if;
+
+         --  Distinguish between the two modes of gnat2why: frame condition
+         --  generation (generation of ALI files) and translation of Why (no
+         --  ALI files generated). This is done with the switch -gnatd.G,
+         --  which activates frame condition mode. The other changes in
+         --  behavior depending on this switch are done in gnat2why directly.
+
+         if Debug_Flag_Dot_GG then
+            Frame_Condition_Mode := True;
+         else
+            Opt.Disable_ALI_File := True;
+         end if;
+
+         --  Turn off inlining, which would confuse formal verification output
+         --  and gain nothing.
+
+         Front_End_Inlining := False;
+         Inline_Active      := False;
+
+         --  Disable front-end optimizations, to keep the tree as close to the
+         --  source code as possible, and also to avoid inconsistencies between
+         --  trees when using different optimization switches.
+
+         Optimization_Level := 0;
+
+         --  Enable some restrictions systematically to simplify the generated
+         --  code (and ease analysis). Note that restriction checks are also
+         --  disabled in SPARK mode, see Restrict.Check_Restriction, and user
+         --  specified Restrictions pragmas are ignored, see
+         --  Sem_Prag.Process_Restrictions_Or_Restriction_Warnings.
+
+         Restrict.Restrictions.Set (No_Initialize_Scalars) := True;
+
+         --  Note: at this point we used to suppress various checks, but that
+         --  is not what we want. We need the semantic processing for these
+         --  checks (which will set flags like Do_Overflow_Check, showing the
+         --  points at which potential checks are required semantically). We
+         --  don't want the expansion associated with these checks, but that
+         --  happens anyway because this expansion is simply not done in the
+         --  SPARK version of the expander.
+
+         --  Turn off dynamic elaboration checks: generates inconsistencies in
+         --  trees between specs compiled as part of a main unit or as part of
+         --  a with-clause.
+
+         Dynamic_Elaboration_Checks := False;
+
+         --  Set STRICT mode for overflow checks if not set explicitly. This
+         --  prevents suppressing of overflow checks by default, in code down
+         --  below.
+
+         if Suppress_Options.Overflow_Mode_General = Not_Set then
+            Suppress_Options.Overflow_Mode_General    := Strict;
+            Suppress_Options.Overflow_Mode_Assertions := Strict;
+         end if;
+
+         --  Kill debug of generated code, since it messes up sloc values
+
+         Debug_Generated_Code := False;
+
+         --  Turn cross-referencing on in case it was disabled (e.g. by -gnatD)
+         --  as it is needed for computing effects of subprograms in the formal
+         --  verification backend.
+
+         Xref_Active := True;
+
+         --  Polling mode forced off, since it generates confusing junk
+
+         Polling_Required := False;
+
+         --  Set operating mode to Generate_Code, but full front-end expansion
+         --  is not desirable in SPARK mode, so a light expansion is performed
+         --  instead.
+
+         Operating_Mode := Generate_Code;
+
+         --  Skip call to gigi
+
+         Debug_Flag_HH := True;
+
+         --  Enable assertions, since they give valuable extra information for
+         --  formal verification.
+
+         Assertions_Enabled := True;
+
+         --  Turn off style check options since we are not interested in any
+         --  front-end warnings when we are getting SPARK output.
+
+         Reset_Style_Check_Options;
+
+         --  Suppress compiler warnings, since what we are interested in here
+         --  is what formal verification can find out.
+
+         Warning_Mode := Suppress;
+
+         --  Suppress the generation of name tables for enumerations, which are
+         --  not needed for formal verification, and fall outside the SPARK
+         --  subset (use of pointers).
+
+         Global_Discard_Names := True;
+
+         --  Suppress the expansion of tagged types and dispatching calls,
+         --  which lead to the generation of non-SPARK code (use of pointers),
+         --  which is more complex to formally verify than the original source.
+
+         Tagged_Type_Expansion := False;
+      end if;
+
+      --  Set Configurable_Run_Time mode if system.ads flag set or if the
+      --  special debug flag -gnatdY is set.
 
       if Targparm.Configurable_Run_Time_On_Target or Debug_Flag_YY then
          Configurable_Run_Time_Mode := True;
@@ -286,6 +434,12 @@ procedure Gnat1drv is
 
       if Debug_Flag_Dot_A then
          Ttypes.Target_Strict_Alignment := True;
+      end if;
+
+      --  Increase size of allocated entities if debug flag -gnatd.N is set
+
+      if Debug_Flag_Dot_NN then
+         Atree.Num_Extension_Nodes := Atree.Num_Extension_Nodes + 1;
       end if;
 
       --  Disable static allocation of dispatch tables if -gnatd.t or if layout
@@ -327,44 +481,64 @@ procedure Gnat1drv is
          Exception_Mechanism := Back_End_Exceptions;
       end if;
 
-      --  Set proper status for overflow checks. We turn on overflow checks if
-      --  -gnatp was not specified, and either -gnato is set or the back-end
-      --  takes care of overflow checks. Otherwise we suppress overflow checks
-      --  by default (since front end checks are expensive).
+      --  Set proper status for overflow check mechanism
 
-      if not Opt.Suppress_Checks
-        and then (Opt.Enable_Overflow_Checks
-                    or else
-                      (Targparm.Backend_Divide_Checks_On_Target
-                        and
-                       Targparm.Backend_Overflow_Checks_On_Target))
-      then
-         Suppress_Options (Overflow_Check) := False;
-      else
-         Suppress_Options (Overflow_Check) := True;
-      end if;
+      --  If already set (by -gnato or above in SPARK or CodePeer mode) then we
+      --  have nothing to do.
 
-      --  Set switch indicating if we can use N_Expression_With_Actions
+      if Opt.Suppress_Options.Overflow_Mode_General /= Not_Set then
+         null;
 
-      --  Debug flag -gnatd.X decisively sets usage on
-
-      if Debug_Flag_Dot_XX then
-         Use_Expression_With_Actions := True;
-
-      --  Debug flag -gnatd.Y decisively sets usage off
-
-      elsif Debug_Flag_Dot_YY then
-         Use_Expression_With_Actions := False;
-
-      --  Otherwise this feature is implemented, so we allow its use
+      --  Otherwise set overflow mode defaults
 
       else
-         Use_Expression_With_Actions := True;
+         --  Otherwise set overflow checks off by default
+
+         Suppress_Options.Suppress (Overflow_Check) := True;
+
+         --  Set appropriate default overflow handling mode. Note: at present
+         --  we set STRICT in all three of the following cases. They are
+         --  separated because in the future we may make different choices.
+
+         --  By default set STRICT mode if -gnatg in effect
+
+         if GNAT_Mode then
+            Suppress_Options.Overflow_Mode_General    := Strict;
+            Suppress_Options.Overflow_Mode_Assertions := Strict;
+
+         --  If we have backend divide and overflow checks, then by default
+         --  overflow checks are STRICT. Historically this code used to also
+         --  activate overflow checks, although no target currently has these
+         --  flags set, so this was dead code anyway.
+
+         elsif Targparm.Backend_Divide_Checks_On_Target
+           and
+             Targparm.Backend_Overflow_Checks_On_Target
+         then
+            Suppress_Options.Overflow_Mode_General    := Strict;
+            Suppress_Options.Overflow_Mode_Assertions := Strict;
+
+         --  Otherwise for now, default is STRICT mode. This may change in the
+         --  future, but for now this is the compatible behavior with previous
+         --  versions of GNAT.
+
+         else
+            Suppress_Options.Overflow_Mode_General    := Strict;
+            Suppress_Options.Overflow_Mode_Assertions := Strict;
+         end if;
       end if;
+
+      --  Set default for atomic synchronization. As this synchronization
+      --  between atomic accesses can be expensive, and not typically needed
+      --  on some targets, an optional target parameter can turn the option
+      --  off. Note Atomic Synchronization is implemented as check.
+
+      Suppress_Options.Suppress (Atomic_Synchronization) :=
+        not Atomic_Sync_Default_On_Target;
 
       --  Set switch indicating if back end can handle limited types, and
       --  guarantee that no incorrect copies are made (e.g. in the context
-      --  of a conditional expression).
+      --  of an if or case expression).
 
       --  Debug flag -gnatd.L decisively sets usage on
 
@@ -386,113 +560,37 @@ procedure Gnat1drv is
          Back_End_Handles_Limited_Types := False;
       end if;
 
-      --  Set switches for formal verification mode
+      --  If the inlining level has not been set by the user, compute it from
+      --  the optimization level: 1 at -O1/-O2 (and -Os), 2 at -O3 and above.
 
-      if Debug_Flag_Dot_FF then
-
-         Alfa_Mode := True;
-
-         --  Set strict standard interpretation of compiler permissions
-
-         if Debug_Flag_Dot_DD then
-            Strict_Alfa_Mode := True;
+      if Inline_Level = 0 then
+         if Optimization_Level < 3 then
+            Inline_Level := 1;
+         else
+            Inline_Level := 2;
          end if;
-
-         --  Turn off inlining, which would confuse formal verification output
-         --  and gain nothing.
-
-         Front_End_Inlining := False;
-         Inline_Active      := False;
-
-         --  Disable front-end optimizations, to keep the tree as close to the
-         --  source code as possible, and also to avoid inconsistencies between
-         --  trees when using different optimization switches.
-
-         Optimization_Level := 0;
-
-         --  Enable some restrictions systematically to simplify the generated
-         --  code (and ease analysis). Note that restriction checks are also
-         --  disabled in Alfa mode, see Restrict.Check_Restriction, and user
-         --  specified Restrictions pragmas are ignored, see
-         --  Sem_Prag.Process_Restrictions_Or_Restriction_Warnings.
-
-         Restrict.Restrictions.Set (No_Initialize_Scalars) := True;
-
-         --  Suppress all language checks since they are handled implicitly by
-         --  the formal verification backend.
-         --  Turn off dynamic elaboration checks.
-         --  Turn off alignment checks.
-         --  Turn off validity checking.
-
-         Suppress_Options := (others => True);
-         Enable_Overflow_Checks := False;
-         Dynamic_Elaboration_Checks := False;
-         Reset_Validity_Check_Options;
-
-         --  Kill debug of generated code, since it messes up sloc values
-
-         Debug_Generated_Code := False;
-
-         --  Turn cross-referencing on in case it was disabled (e.g. by -gnatD)
-         --  as it is needed for computing effects of subprograms in the formal
-         --  verification backend.
-
-         Xref_Active := True;
-
-         --  Polling mode forced off, since it generates confusing junk
-
-         Polling_Required := False;
-
-         --  Set operating mode to Generate_Code, but full front-end expansion
-         --  is not desirable in Alfa mode, so a light expansion is performed
-         --  instead.
-
-         Operating_Mode := Generate_Code;
-
-         --  Skip call to gigi
-
-         Debug_Flag_HH := True;
-
-         --  Disable Expressions_With_Actions nodes
-
-         --  The gnat2why backend does not deal with Expressions_With_Actions
-         --  in all places (in particular assertions). It is difficult to
-         --  determine in the frontend which cases are allowed, so we disable
-         --  Expressions_With_Actions entirely. Even in the cases where
-         --  gnat2why deals with Expressions_With_Actions, it is easier to
-         --  deal with the original constructs (quantified, conditional and
-         --  case expressions) instead of the rewritten ones.
-
-         Use_Expression_With_Actions := False;
-
-         --  Enable assertions and debug pragmas, since they give valuable
-         --  extra information for formal verification.
-
-         Assertions_Enabled    := True;
-         Debug_Pragmas_Enabled := True;
-
-         --  Turn off style check options since we are not interested in any
-         --  front-end warnings when we are getting Alfa output.
-
-         Reset_Style_Check_Options;
-
-         --  Suppress compiler warnings, since what we are interested in here
-         --  is what formal verification can find out.
-
-         Warning_Mode := Suppress;
-
-         --  Suppress the generation of name tables for enumerations, which are
-         --  not needed for formal verification, and fall outside the Alfa
-         --  subset (use of pointers).
-
-         Global_Discard_Names := True;
-
-         --  Suppress the expansion of tagged types and dispatching calls,
-         --  which lead to the generation of non-Alfa code (use of pointers),
-         --  which is more complex to formally verify than the original source.
-
-         Tagged_Type_Expansion := False;
       end if;
+
+      --  Output warning if -gnateE specified and cannot be supported
+
+      if Exception_Extra_Info
+        and then Restrict.No_Exception_Handlers_Set
+      then
+         Set_Standard_Error;
+         Write_Str
+           ("warning: extra exception information (-gnateE) was specified");
+         Write_Eol;
+         Write_Str
+           ("warning: this capability is not available in this configuration");
+         Write_Eol;
+         Set_Standard_Output;
+      end if;
+
+      --  Finally capture adjusted value of Suppress_Options as the initial
+      --  value for Scope_Suppress, which will be modified as we move from
+      --  scope to scope (by Suppress/Unsuppress/Overflow_Checks pragmas).
+
+      Sem.Scope_Suppress := Opt.Suppress_Options;
    end Adjust_Global_Switches;
 
    --------------------
@@ -592,9 +690,9 @@ procedure Gnat1drv is
               and then not Compilation_Errors
             then
                Error_Msg_N
-                 ("package $$ does not require a body?", Main_Unit_Node);
+                 ("package $$ does not require a body??", Main_Unit_Node);
                Error_Msg_File_1 := Fname;
-               Error_Msg_N ("body in file{? will be ignored", Main_Unit_Node);
+               Error_Msg_N ("body in file{ will be ignored??", Main_Unit_Node);
 
                --  Ada 95 cases of a body file present when no body is
                --  permitted. This we consider to be an error.
@@ -635,35 +733,6 @@ procedure Gnat1drv is
          end if;
       end if;
    end Check_Bad_Body;
-
-   -------------------------
-   -- Check_Library_Items --
-   -------------------------
-
-   --  Walk_Library_Items has plenty of assertions, so all we need to do is
-   --  call it, just for these assertions, not actually doing anything else.
-
-   procedure Check_Library_Items is
-
-      procedure Action (Item : Node_Id);
-      --  Action passed to Walk_Library_Items to do nothing
-
-      ------------
-      -- Action --
-      ------------
-
-      procedure Action (Item : Node_Id) is
-      begin
-         null;
-      end Action;
-
-      procedure Walk is new Sem.Walk_Library_Items (Action);
-
-   --  Start of processing for Check_Library_Items
-
-   begin
-      Walk;
-   end Check_Library_Items;
 
    --------------------
    -- Check_Rep_Info --
@@ -791,6 +860,14 @@ begin
       elsif Usage_Requested then
          Usage;
       end if;
+
+      --  Generate target dependent output file if requested
+
+      if Target_Dependent_Info_Write_Name /= null then
+         Set_Targ.Write_Target_Dependent_Values;
+      end if;
+
+      --  Call the front end
 
       Original_Operating_Mode := Operating_Mode;
       Frontend;
@@ -964,10 +1041,23 @@ begin
       elsif Main_Kind in N_Generic_Renaming_Declaration then
          Back_End_Mode := Generate_Object;
 
-      --  It's not an error to generate SCIL for e.g. a spec which has a body
+      --  It is not an error to analyze in CodePeer mode a spec which requires
+      --  a body, in order to generate SCIL for this spec.
 
       elsif CodePeer_Mode then
          Back_End_Mode := Generate_Object;
+
+      --  It is not an error to analyze in SPARK mode a spec which requires a
+      --  body, when the body is not available. During frame condition
+      --  generation, the corresponding ALI file is generated. During
+      --  translation to Why, Why code is generated for the spec.
+
+      elsif SPARK_Mode then
+         if Frame_Condition_Mode then
+            Back_End_Mode := Declarations_Only;
+         else
+            Back_End_Mode := Generate_Object;
+         end if;
 
       --  In all other cases (specs which have bodies, generics, and bodies
       --  where subunits are missing), we cannot generate code and we generate
@@ -1113,14 +1203,6 @@ begin
       Namet.Lock;
       Stringt.Lock;
 
-      --  ???Check_Library_Items under control of a debug flag, because it
-      --  currently does not work if the -gnatn switch (back end inlining) is
-      --  used.
-
-      if Debug_Flag_Dot_WW then
-         Check_Library_Items;
-      end if;
-
       --  Here we call the back end to generate the output code
 
       Generating_Code := True;
@@ -1159,7 +1241,8 @@ begin
 
       Errout.Finalize (Last_Call => True);
       Errout.Output_Messages;
-      List_Rep_Info;
+      List_Rep_Info (Ttypes.Bytes_Big_Endian);
+      List_Inlining_Info;
 
       --  Only write the library if the backend did not generate any error
       --  messages. Otherwise signal errors to the driver program so that

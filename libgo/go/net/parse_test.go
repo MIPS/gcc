@@ -13,8 +13,9 @@ import (
 
 func TestReadLine(t *testing.T) {
 	// /etc/services file does not exist on windows and Plan 9.
-	if runtime.GOOS == "windows" || runtime.GOOS == "plan9" {
-		return
+	switch runtime.GOOS {
+	case "plan9", "windows":
+		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
 	filename := "/etc/services" // a nice big file
 

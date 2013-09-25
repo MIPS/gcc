@@ -1,6 +1,5 @@
 /* __builtin_object_size (ptr, object_size_type) computation
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -25,9 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "diagnostic-core.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 
@@ -41,7 +39,7 @@ struct object_size_info
   unsigned int *stack, *tos;
 };
 
-static unsigned HOST_WIDE_INT unknown[4] = { -1, -1, 0, 0 };
+static const unsigned HOST_WIDE_INT unknown[4] = { -1, -1, 0, 0 };
 
 static tree compute_object_offset (const_tree, const_tree);
 static unsigned HOST_WIDE_INT addr_object_size (struct object_size_info *,
@@ -193,12 +191,11 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	}
       if (sz != unknown[object_size_type])
 	{
-	  double_int dsz = double_int_sub (uhwi_to_double_int (sz),
-					   mem_ref_offset (pt_var));
-	  if (double_int_negative_p (dsz))
+	  double_int dsz = double_int::from_uhwi (sz) - mem_ref_offset (pt_var);
+	  if (dsz.is_negative ())
 	    sz = 0;
-	  else if (double_int_fits_in_uhwi_p (dsz))
-	    sz = double_int_to_uhwi (dsz);
+	  else if (dsz.fits_uhwi ())
+	    sz = dsz.to_uhwi ();
 	  else
 	    sz = unknown[object_size_type];
 	}
@@ -974,14 +971,12 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
       break;
 
     case GIMPLE_NOP:
-      {
-	tree decl = SSA_NAME_VAR (var);
-
-	if (TREE_CODE (decl) != PARM_DECL && DECL_INITIAL (decl))
-	  expr_object_size (osi, var, DECL_INITIAL (decl));
-	else
-	  expr_object_size (osi, var, decl);
-      }
+      if (SSA_NAME_VAR (var)
+	  && TREE_CODE (SSA_NAME_VAR (var)) == PARM_DECL)
+	expr_object_size (osi, var, SSA_NAME_VAR (var));
+      else
+	/* Uninitialized SSA names point nowhere.  */
+	object_sizes[object_size_type][varno] = unknown[object_size_type];
       break;
 
     case GIMPLE_PHI:
@@ -1267,21 +1262,40 @@ compute_object_sizes (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_object_sizes =
+namespace {
+
+const pass_data pass_data_object_sizes =
 {
- {
-  GIMPLE_PASS,
-  "objsz",				/* name */
-  NULL,					/* gate */
-  compute_object_sizes,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_ssa	                /* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "objsz", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_ssa, /* todo_flags_finish */
 };
+
+class pass_object_sizes : public gimple_opt_pass
+{
+public:
+  pass_object_sizes(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_object_sizes, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_object_sizes (ctxt_); }
+  unsigned int execute () { return compute_object_sizes (); }
+
+}; // class pass_object_sizes
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_object_sizes (gcc::context *ctxt)
+{
+  return new pass_object_sizes (ctxt);
+}

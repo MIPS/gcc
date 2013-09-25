@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -44,20 +44,6 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
    procedure Free_Element is
       new Ada.Unchecked_Deallocation (Element_Type, Element_Access);
-
-   type Iterator is new Limited_Controlled and
-     Map_Iterator_Interfaces.Forward_Iterator with
-   record
-      Container : Map_Access;
-   end record;
-
-   overriding procedure Finalize (Object : in out Iterator);
-
-   overriding function First (Object : Iterator) return Cursor;
-
-   overriding function Next
-     (Object   : Iterator;
-      Position : Cursor) return Cursor;
 
    -----------------------
    -- Local Subprograms --
@@ -239,9 +225,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          L : Natural renames HT.Lock;
       begin
          return R : constant Constant_Reference_Type :=
-                      (Element => Position.Node.Element.all'Access,
-                       Control =>
-                         (Controlled with Container'Unrestricted_Access))
+           (Element => Position.Node.Element.all'Access,
+            Control => (Controlled with Container'Unrestricted_Access))
          do
             B := B + 1;
             L := L + 1;
@@ -271,9 +256,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          L : Natural renames HT.Lock;
       begin
          return R : constant Constant_Reference_Type :=
-                      (Element => Node.Element.all'Access,
-                       Control =>
-                         (Controlled with Container'Unrestricted_Access))
+           (Element => Node.Element.all'Access,
+            Control => (Controlled with Container'Unrestricted_Access))
          do
             B := B + 1;
             L := L + 1;
@@ -694,8 +678,16 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
          Position.Node.Key := new Key_Type'(Key);
 
+         declare
+            --  The element allocator may need an accessibility check in the
+            --  case the actual type is class-wide or has access discriminants
+            --  (see RM 4.8(10.1) and AI12-0035).
+
+            pragma Unsuppress (Accessibility_Check);
+
          begin
             Position.Node.Element := new Element_Type'(New_Item);
+
          exception
             when others =>
                Free_Key (K);
@@ -731,9 +723,16 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          K  : Key_Access := new Key_Type'(Key);
          E  : Element_Access;
 
+         --  The element allocator may need an accessibility check in the case
+         --  the actual type is class-wide or has access discriminants (see
+         --  RM 4.8(10.1) and AI12-0035).
+
+         pragma Unsuppress (Accessibility_Check);
+
       begin
          E := new Element_Type'(New_Item);
          return new Node_Type'(K, E, Next);
+
       exception
          when others =>
             Free_Key (K);
@@ -836,8 +835,7 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
       B  : Natural renames Container'Unrestricted_Access.all.HT.Busy;
    begin
       return It : constant Iterator :=
-                    (Limited_Controlled with
-                       Container => Container'Unrestricted_Access)
+        (Limited_Controlled with Container => Container'Unrestricted_Access)
       do
          B := B + 1;
       end return;
@@ -1095,8 +1093,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          L : Natural renames HT.Lock;
       begin
          return R : constant Reference_Type :=
-                      (Element => Position.Node.Element.all'Access,
-                       Control => (Controlled with Position.Container))
+           (Element => Position.Node.Element.all'Access,
+            Control => (Controlled with Position.Container))
          do
             B := B + 1;
             L := L + 1;
@@ -1126,9 +1124,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          L : Natural renames HT.Lock;
       begin
          return R : constant Reference_Type :=
-                      (Element => Node.Element.all'Access,
-                       Control =>
-                         (Controlled with Container'Unrestricted_Access))
+           (Element => Node.Element.all'Access,
+            Control => (Controlled with Container'Unrestricted_Access))
          do
             B := B + 1;
             L := L + 1;
@@ -1166,8 +1163,16 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
       Node.Key := new Key_Type'(Key);
 
+      declare
+         --  The element allocator may need an accessibility check in the case
+         --  the actual type is class-wide or has access discriminants (see
+         --  RM 4.8(10.1) and AI12-0035).
+
+         pragma Unsuppress (Accessibility_Check);
+
       begin
          Node.Element := new Element_Type'(New_Item);
+
       exception
          when others =>
             Free_Key (K);
@@ -1214,6 +1219,12 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
       declare
          X : Element_Access := Position.Node.Element;
+
+         --  The element allocator may need an accessibility check in the case
+         --  the actual type is class-wide or has access discriminants (see
+         --  RM 4.8(10.1) and AI12-0035).
+
+         pragma Unsuppress (Accessibility_Check);
 
       begin
          Position.Node.Element := new Element_Type'(New_Item);

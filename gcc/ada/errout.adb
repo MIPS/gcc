@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -49,6 +49,7 @@ with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Stand;    use Stand;
 with Stylesw;  use Stylesw;
+with Targparm; use Targparm;
 with Uname;    use Uname;
 
 package body Errout is
@@ -153,8 +154,7 @@ package body Errout is
    --  be one of the special insertion characters (see documentation in spec).
    --  Flag is the location at which the error is to be posted, which is used
    --  to determine whether or not the # insertion needs a file name. The
-   --  variables Msg_Buffer, Msglen, Is_Style_Msg, Is_Warning_Msg, and
-   --  Is_Unconditional_Msg are set on return.
+   --  variables Msg_Buffer are set on return Msglen.
 
    procedure Set_Posted (N : Node_Id);
    --  Sets the Error_Posted flag on the given node, and all its parents
@@ -283,7 +283,7 @@ package body Errout is
       --  Start of processing for new message
 
       Sindex := Get_Source_File_Index (Flag_Location);
-      Test_Style_Warning_Serious_Msg (Msg);
+      Test_Style_Warning_Serious_Unconditional_Msg (Msg);
       Orig_Loc := Original_Location (Flag_Location);
 
       --  If the current location is in an instantiation, the issue arises of
@@ -476,6 +476,24 @@ package body Errout is
            (Msg, Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
       end;
    end Error_Msg;
+
+   --------------------------------
+   -- Error_Msg_Ada_2012_Feature --
+   --------------------------------
+
+   procedure Error_Msg_Ada_2012_Feature (Feature : String; Loc : Source_Ptr) is
+   begin
+      if Ada_Version < Ada_2012 then
+         Error_Msg (Feature & " is an Ada 2012 feature", Loc);
+
+         if No (Ada_Version_Pragma) then
+            Error_Msg ("\unit must be compiled with -gnat2012 switch", Loc);
+         else
+            Error_Msg_Sloc := Sloc (Ada_Version_Pragma);
+            Error_Msg ("\incompatible with Ada version set#", Loc);
+         end if;
+      end if;
+   end Error_Msg_Ada_2012_Feature;
 
    ------------------
    -- Error_Msg_AP --
@@ -726,7 +744,7 @@ package body Errout is
       if Suppress_Message
         and then not All_Errors_Mode
         and then not Is_Warning_Msg
-        and then Msg (Msg'Last) /= '!'
+        and then not Is_Unconditional_Msg
       then
          if not Continuation then
             Last_Killed := True;
@@ -787,9 +805,9 @@ package body Errout is
          elsif Debug_Flag_GG then
             null;
 
-         --  Keep warning if message text ends in !!
+         --  Keep warning if message text contains !!
 
-         elsif Msg (Msg'Last) = '!' and then Msg (Msg'Last - 1) = '!' then
+         elsif Has_Double_Exclam then
             null;
 
          --  Here is where we delete a warning from a with'ed unit
@@ -821,9 +839,7 @@ package body Errout is
       --  with a comma space separator (eliminating a possible (style) or
       --  info prefix).
 
-      if Error_Msg_Line_Length /= 0
-        and then Continuation
-      then
+      if Error_Msg_Line_Length /= 0 and then Continuation then
          Cur_Msg := Errors.Last;
 
          declare
@@ -894,12 +910,24 @@ package body Errout is
               Msg_Buffer (M .. Msglen);
             Newl := Newl + Msglen - M + 1;
             Errors.Table (Cur_Msg).Text := new String'(Newm (1 .. Newl));
+
+            --  Update warning msg flag and message doc char if needed
+
+            if Is_Warning_Msg then
+               if not Errors.Table (Cur_Msg).Warn then
+                  Errors.Table (Cur_Msg).Warn := True;
+                  Errors.Table (Cur_Msg).Warn_Chr := Warning_Msg_Char;
+
+               elsif Warning_Msg_Char /= ' ' then
+                  Errors.Table (Cur_Msg).Warn_Chr := Warning_Msg_Char;
+               end if;
+            end if;
          end;
 
          return;
       end if;
 
-      --  Otherwise build error message object for new message
+      --  Here we build a new error object
 
       Errors.Append
         ((Text     => new String'(Msg_Buffer (1 .. Msglen)),
@@ -911,6 +939,7 @@ package body Errout is
           Line     => Get_Physical_Line_Number (Sptr),
           Col      => Get_Column_Number (Sptr),
           Warn     => Is_Warning_Msg,
+          Warn_Chr => Warning_Msg_Char,
           Style    => Is_Style_Msg,
           Serious  => Is_Serious_Error,
           Uncond   => Is_Unconditional_Msg,
@@ -1112,7 +1141,7 @@ package body Errout is
          return;
       end if;
 
-      Test_Style_Warning_Serious_Msg (Msg);
+      Test_Style_Warning_Serious_Unconditional_Msg (Msg);
 
       --  Special handling for warning messages
 
@@ -1152,7 +1181,7 @@ package body Errout is
       --  Test for message to be output
 
       if All_Errors_Mode
-        or else Msg (Msg'Last) = '!'
+        or else Is_Unconditional_Msg
         or else Is_Warning_Msg
         or else OK_Node (N)
         or else (Msg (Msg'First) = '\' and then not Last_Killed)
@@ -1292,7 +1321,7 @@ package body Errout is
             CE : Error_Msg_Object renames Errors.Table (Cur);
 
          begin
-            if not CE.Deleted
+            if (CE.Warn and not CE.Deleted)
               and then
                 (Warning_Specifically_Suppressed (CE.Sptr, CE.Text)
                    or else
@@ -1446,6 +1475,15 @@ package body Errout is
 
       return S;
    end First_Sloc;
+
+   -----------------------
+   -- Get_Ignore_Errors --
+   -----------------------
+
+   function Get_Ignore_Errors return Boolean is
+   begin
+      return Errors_Must_Be_Ignored;
+   end Get_Ignore_Errors;
 
    ----------------
    -- Initialize --
@@ -2445,7 +2483,7 @@ package body Errout is
          if Sloc (Error_Msg_Node_1) > Standard_Location then
             declare
                Iloc : constant Source_Ptr :=
-                        Instantiation_Location (Sloc (Error_Msg_Node_1));
+                 Instantiation_Location (Sloc (Error_Msg_Node_1));
 
             begin
                if Iloc /= No_Location
@@ -2655,9 +2693,42 @@ package body Errout is
       C : Character;   -- Current character
       P : Natural;     -- Current index;
 
+      procedure Set_Msg_Insertion_Warning;
+      --  Deal with ? ?? ?x? ?X? insertion sequences
+
+      -------------------------------
+      -- Set_Msg_Insertion_Warning --
+      -------------------------------
+
+      procedure Set_Msg_Insertion_Warning is
+      begin
+         Warning_Msg_Char := ' ';
+
+         if P <= Text'Last and then Text (P) = '?' then
+            if Warning_Doc_Switch and not OpenVMS_On_Target then
+               Warning_Msg_Char := '?';
+            end if;
+
+            P := P + 1;
+
+         elsif P + 1 <= Text'Last
+           and then (Text (P) in 'a' .. 'z'
+                      or else
+                     Text (P) in 'A' .. 'Z')
+           and then Text (P + 1) = '?'
+         then
+            if Warning_Doc_Switch and not OpenVMS_On_Target then
+               Warning_Msg_Char := Text (P);
+            end if;
+
+            P := P + 2;
+         end if;
+      end Set_Msg_Insertion_Warning;
+
+   --  Start of processing for Set_Msg_Text
+
    begin
       Manual_Quote_Mode := False;
-      Is_Unconditional_Msg := False;
       Msglen := 0;
       Flag_Source := Get_Source_File_Index (Flag);
 
@@ -2722,13 +2793,22 @@ package body Errout is
                Set_Msg_Char ('"');
 
             when '!' =>
-               Is_Unconditional_Msg := True;
+               null; -- already dealt with
 
             when '?' =>
-               null; -- already dealt with
+               Set_Msg_Insertion_Warning;
 
             when '<' =>
-               null; -- already dealt with
+
+               --  If tagging of messages is enabled, and this is a warning,
+               --  then it is treated as being [enabled by default].
+
+               if Error_Msg_Warn
+                 and Warning_Doc_Switch
+                 and not OpenVMS_On_Target
+               then
+                  Warning_Msg_Char := '?';
+               end if;
 
             when '|' =>
                null; -- already dealt with
@@ -2860,10 +2940,10 @@ package body Errout is
 
       elsif Msg = "size for& too small, minimum allowed is ^" then
 
-         --  Suppress "size too small" errors in CodePeer mode and Alfa mode,
+         --  Suppress "size too small" errors in CodePeer mode and SPARK mode,
          --  since pragma Pack is also ignored in these configurations.
 
-         if CodePeer_Mode or Alfa_Mode then
+         if CodePeer_Mode or SPARK_Mode then
             return True;
 
          --  When a size is wrong for a frozen type there is no explicit size
@@ -2938,7 +3018,7 @@ package body Errout is
                   if Is_Itype (Ent) then
                      declare
                         Assoc : constant Node_Id :=
-                                  Associated_Node_For_Itype (Ent);
+                          Associated_Node_For_Itype (Ent);
 
                      begin
                         if Nkind (Assoc) in N_Subprogram_Specification then

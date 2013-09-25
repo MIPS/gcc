@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -44,7 +44,7 @@ package body Opt is
 
    function Full_Expander_Active return Boolean is
    begin
-      return Expander_Active and not Alfa_Mode;
+      return Expander_Active and not SPARK_Mode;
    end Full_Expander_Active;
 
    ----------------------------------
@@ -54,12 +54,12 @@ package body Opt is
    procedure Register_Opt_Config_Switches is
    begin
       Ada_Version_Config                    := Ada_Version;
+      Ada_Version_Pragma_Config             := Ada_Version_Pragma;
       Ada_Version_Explicit_Config           := Ada_Version_Explicit;
       Assertions_Enabled_Config             := Assertions_Enabled;
       Assume_No_Invalid_Values_Config       := Assume_No_Invalid_Values;
+      Check_Float_Overflow_Config           := Check_Float_Overflow;
       Check_Policy_List_Config              := Check_Policy_List;
-      Debug_Pragmas_Disabled_Config         := Debug_Pragmas_Disabled;
-      Debug_Pragmas_Enabled_Config          := Debug_Pragmas_Enabled;
       Default_Pool_Config                   := Default_Pool;
       Dynamic_Elaboration_Checks_Config     := Dynamic_Elaboration_Checks;
       Exception_Locations_Suppressed_Config := Exception_Locations_Suppressed;
@@ -88,12 +88,12 @@ package body Opt is
    procedure Restore_Opt_Config_Switches (Save : Config_Switches_Type) is
    begin
       Ada_Version                    := Save.Ada_Version;
+      Ada_Version_Pragma             := Save.Ada_Version_Pragma;
       Ada_Version_Explicit           := Save.Ada_Version_Explicit;
       Assertions_Enabled             := Save.Assertions_Enabled;
       Assume_No_Invalid_Values       := Save.Assume_No_Invalid_Values;
+      Check_Float_Overflow           := Save.Check_Float_Overflow;
       Check_Policy_List              := Save.Check_Policy_List;
-      Debug_Pragmas_Disabled         := Save.Debug_Pragmas_Disabled;
-      Debug_Pragmas_Enabled          := Save.Debug_Pragmas_Enabled;
       Default_Pool                   := Save.Default_Pool;
       Dynamic_Elaboration_Checks     := Save.Dynamic_Elaboration_Checks;
       Exception_Locations_Suppressed := Save.Exception_Locations_Suppressed;
@@ -124,12 +124,12 @@ package body Opt is
    procedure Save_Opt_Config_Switches (Save : out Config_Switches_Type) is
    begin
       Save.Ada_Version                    := Ada_Version;
+      Save.Ada_Version_Pragma             := Ada_Version_Pragma;
       Save.Ada_Version_Explicit           := Ada_Version_Explicit;
       Save.Assertions_Enabled             := Assertions_Enabled;
       Save.Assume_No_Invalid_Values       := Assume_No_Invalid_Values;
+      Save.Check_Float_Overflow           := Check_Float_Overflow;
       Save.Check_Policy_List              := Check_Policy_List;
-      Save.Debug_Pragmas_Disabled         := Debug_Pragmas_Disabled;
-      Save.Debug_Pragmas_Enabled          := Debug_Pragmas_Enabled;
       Save.Default_Pool                   := Default_Pool;
       Save.Dynamic_Elaboration_Checks     := Dynamic_Elaboration_Checks;
       Save.Exception_Locations_Suppressed := Exception_Locations_Suppressed;
@@ -164,6 +164,7 @@ package body Opt is
          --  the configuration setting even in a run time unit.
 
          Ada_Version                 := Ada_Version_Runtime;
+         Ada_Version_Pragma          := Empty;
          Dynamic_Elaboration_Checks  := False;
          Extensions_Allowed          := True;
          External_Name_Exp_Casing    := As_Is;
@@ -180,14 +181,10 @@ package body Opt is
          if Main_Unit then
             Assertions_Enabled       := Assertions_Enabled_Config;
             Assume_No_Invalid_Values := Assume_No_Invalid_Values_Config;
-            Debug_Pragmas_Disabled   := Debug_Pragmas_Disabled_Config;
-            Debug_Pragmas_Enabled    := Debug_Pragmas_Enabled_Config;
             Check_Policy_List        := Check_Policy_List_Config;
          else
             Assertions_Enabled       := False;
             Assume_No_Invalid_Values := False;
-            Debug_Pragmas_Disabled   := False;
-            Debug_Pragmas_Enabled    := False;
             Check_Policy_List        := Empty;
          end if;
 
@@ -195,12 +192,12 @@ package body Opt is
 
       else
          Ada_Version                 := Ada_Version_Config;
+         Ada_Version_Pragma          := Ada_Version_Pragma_Config;
          Ada_Version_Explicit        := Ada_Version_Explicit_Config;
          Assertions_Enabled          := Assertions_Enabled_Config;
          Assume_No_Invalid_Values    := Assume_No_Invalid_Values_Config;
+         Check_Float_Overflow        := Check_Float_Overflow_Config;
          Check_Policy_List           := Check_Policy_List_Config;
-         Debug_Pragmas_Disabled      := Debug_Pragmas_Disabled_Config;
-         Debug_Pragmas_Enabled       := Debug_Pragmas_Enabled_Config;
          Dynamic_Elaboration_Checks  := Dynamic_Elaboration_Checks_Config;
          Extensions_Allowed          := Extensions_Allowed_Config;
          External_Name_Exp_Casing    := External_Name_Exp_Casing_Config;
@@ -255,11 +252,9 @@ package body Opt is
       Tree_Read_Int  (Assertions_Enabled_Config_Val);
       Tree_Read_Bool (All_Errors_Mode);
       Tree_Read_Bool (Assertions_Enabled);
+      Tree_Read_Bool (Check_Float_Overflow);
       Tree_Read_Int  (Int (Check_Policy_List));
-      Tree_Read_Bool (Debug_Pragmas_Disabled);
-      Tree_Read_Bool (Debug_Pragmas_Enabled);
       Tree_Read_Int  (Int (Default_Pool));
-      Tree_Read_Bool (Enable_Overflow_Checks);
       Tree_Read_Bool (Full_List);
 
       Ada_Version_Config :=
@@ -322,11 +317,9 @@ package body Opt is
       Tree_Write_Int  (Boolean'Pos (Assertions_Enabled_Config));
       Tree_Write_Bool (All_Errors_Mode);
       Tree_Write_Bool (Assertions_Enabled);
+      Tree_Write_Bool (Check_Float_Overflow);
       Tree_Write_Int  (Int (Check_Policy_List));
-      Tree_Write_Bool (Debug_Pragmas_Disabled);
-      Tree_Write_Bool (Debug_Pragmas_Enabled);
       Tree_Write_Int  (Int (Default_Pool));
-      Tree_Write_Bool (Enable_Overflow_Checks);
       Tree_Write_Bool (Full_List);
       Tree_Write_Int  (Int (Version_String'Length));
       Tree_Write_Data (Version_String'Address, Version_String'Length);

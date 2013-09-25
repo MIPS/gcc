@@ -63,16 +63,16 @@ data, defined in detail below.
 		otherwise, T1 is executed.  Dot is unaffected.
 
 	{{range pipeline}} T1 {{end}}
-		The value of the pipeline must be an array, slice, or map. If
-		the value of the pipeline has length zero, nothing is output;
+		The value of the pipeline must be an array, slice, map, or channel.
+		If the value of the pipeline has length zero, nothing is output;
 		otherwise, dot is set to the successive elements of the array,
 		slice, or map and T1 is executed. If the value is a map and the
 		keys are of basic type with a defined order ("comparable"), the
 		elements will be visited in sorted key order.
 
 	{{range pipeline}} T1 {{else}} T0 {{end}}
-		The value of the pipeline must be an array, slice, or map. If
-		the value of the pipeline has length zero, dot is unaffected and
+		The value of the pipeline must be an array, slice, map, or channel.
+		If the value of the pipeline has length zero, dot is unaffected and
 		T0 is executed; otherwise, dot is set to the successive elements
 		of the array, slice, or map and T1 is executed.
 
@@ -100,6 +100,7 @@ An argument is a simple value, denoted by one of the following.
 	- A boolean, string, character, integer, floating-point, imaginary
 	  or complex constant in Go syntax. These behave like Go's untyped
 	  constants, although raw strings may not span newlines.
+	- The keyword nil, representing an untyped Go nil.
 	- The character '.' (period):
 		.
 	  The result is the value of dot.
@@ -142,19 +143,22 @@ An argument is a simple value, denoted by one of the following.
 	    .Field1.Key1.Method1.Field2.Key2.Method2
 	  Methods can also be evaluated on variables, including chaining:
 	    $x.Method1.Field
-	- The name of a niladic function-valued struct field of the data,
-	  preceded by a period, such as
-		.Function
-	  Function-valued fields behave like methods (of structs) but do not
-	  pass a receiver.
 	- The name of a niladic function, such as
 		fun
 	  The result is the value of invoking the function, fun(). The return
 	  types and values behave as in methods. Functions and function
 	  names are described below.
+	- A parenthesized instance of one the above, for grouping. The result
+	  may be accessed by a field or map key invocation.
+		print (.F1 arg1) (.F2 arg2)
+		(.StructValuedMethod "arg").Field
 
 Arguments may evaluate to any type; if they are pointers the implementation
 automatically indirects to the base type when required.
+If an evaluation yields a function value, such as a function-valued
+field of a struct, the function is not invoked automatically, but it
+can be used as a truth value for an if action and the like. To invoke
+it, use the call function, defined below.
 
 A pipeline is a possibly chained sequence of "commands". A command is a simple
 value (argument) or a function or method call, possibly with multiple arguments:
@@ -167,9 +171,6 @@ value (argument) or a function or method call, possibly with multiple arguments:
 		The result is the value of calling the method with the
 		arguments:
 			dot.Method(Argument1, etc.)
-	.Function [Argument...]
-		A function-valued field of a struct works like a method but does
-		not pass the receiver.
 	functionName [Argument...]
 		The result is the value of calling the function associated
 		with the name:
@@ -202,7 +203,7 @@ If a "range" action initializes a variable, the variable is set to the
 successive elements of the iteration.  Also, a "range" may declare two
 variables, separated by a comma:
 
-	$index, $element := pipeline
+	range $index, $element := pipeline
 
 in which case $index and $element are set to the successive values of the
 array/slice index or map key and element, respectively.  Note that if there is
@@ -231,6 +232,8 @@ All produce the quoted word "output":
 	{{"output" | printf "%q"}}
 		A function call whose final argument comes from the previous
 		command.
+	{{printf "%q" (print "out" "put")}}
+		A parenthesized argument.
 	{{"put" | printf "%s%s" "out" | printf "%q"}}
 		A more elaborate call.
 	{{"output" | printf "%s" | printf "%q"}}
@@ -248,7 +251,7 @@ Functions
 
 During execution functions are found in two function maps: first in the
 template, then in the global function map. By default, no functions are defined
-in the template but the Funcs methods can be used to add them.
+in the template but the Funcs method can be used to add them.
 
 Predefined global functions are named as follows.
 
@@ -257,6 +260,17 @@ Predefined global functions are named as follows.
 		first empty argument or the last argument, that is,
 		"and x y" behaves as "if x then y else x". All the
 		arguments are evaluated.
+	call
+		Returns the result of calling the first argument, which
+		must be a function, with the remaining arguments as parameters.
+		Thus "call .X.Y 1 2" is, in Go notation, dot.X.Y(1, 2) where
+		Y is a func-valued field, map entry, or the like.
+		The first argument must be the result of an evaluation
+		that yields a value of function type (as distinct from
+		a predefined function such as print). The function must
+		return either one or two result values, the second of which
+		is of type error. If the arguments don't match the function
+		or the returned error value is non-nil, execution stops.
 	html
 		Returns the escaped HTML equivalent of the textual
 		representation of its arguments.

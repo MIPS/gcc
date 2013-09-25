@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2011, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -34,10 +34,6 @@
    package Osint.  Many of the subprograms in OS_Lib import standard
    library calls directly. This file contains all other routines.  */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifdef __vxworks
 
 /* No need to redefine exit here.  */
@@ -62,7 +58,7 @@ extern "C" {
 
 #endif /* VxWorks */
 
-#if (defined (__mips) && defined (__sgi)) || defined (__APPLE__)
+#if defined (__APPLE__)
 #include <unistd.h>
 #endif
 
@@ -80,7 +76,6 @@ extern "C" {
 #ifdef IN_RTS
 #include "tconfig.h"
 #include "tsystem.h"
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -88,8 +83,8 @@ extern "C" {
 #include <unixio.h>
 #endif
 
-#ifdef __vxworks
-/* S_IREAD and S_IWRITE are not defined in VxWorks */
+#if defined (__vxworks) || defined (__ANDROID__)
+/* S_IREAD and S_IWRITE are not defined in VxWorks or Android */
 #ifndef S_IREAD
 #define S_IREAD  (S_IRUSR | S_IRGRP | S_IROTH)
 #endif
@@ -106,6 +101,10 @@ extern "C" {
 #include "config.h"
 #include "system.h"
 #include "version.h"
+#endif
+
+#ifdef __cplusplus
+extern "C" {
 #endif
 
 #if defined (__MINGW32__)
@@ -214,6 +213,8 @@ struct vstring
 
 #define SYI$_ACTIVECPU_CNT 0x111e
 extern int LIB$GETSYI (int *, unsigned int *);
+extern unsigned int LIB$CALLG_64
+ ( unsigned long long argument_list [], int (*user_procedure)(void));
 
 #else
 #include <utime.h>
@@ -350,7 +351,6 @@ int __gnat_vmsp = 0;
 /* Used for Ada bindings */
 int __gnat_size_of_file_attributes = sizeof (struct file_attributes);
 
-/* Reset the file attributes as if no system call had been performed */
 void __gnat_stat_to_attr (int fd, char* name, struct file_attributes* attr);
 
 /* The __gnat_max_path_len variable is used to export the maximum
@@ -401,6 +401,8 @@ to_ptr32 (char **ptr64)
 #endif
 
 static const char ATTR_UNSET = 127;
+
+/* Reset the file attributes as if no system call had been performed */
 
 void
 __gnat_reset_attributes
@@ -820,7 +822,8 @@ __gnat_rmdir (char *path)
 }
 
 FILE *
-__gnat_fopen (char *path, char *mode, int encoding ATTRIBUTE_UNUSED)
+__gnat_fopen (char *path, char *mode, int encoding ATTRIBUTE_UNUSED,
+              char *vms_form ATTRIBUTE_UNUSED)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (IS_CROSS)
   TCHAR wpath[GNAT_MAX_PATH_LEN];
@@ -837,7 +840,37 @@ __gnat_fopen (char *path, char *mode, int encoding ATTRIBUTE_UNUSED)
 
   return _tfopen (wpath, wmode);
 #elif defined (VMS)
-  return decc$fopen (path, mode);
+  if (vms_form == 0)
+    return decc$fopen (path, mode);
+  else
+    {
+       char *local_form = (char *) alloca (strlen (vms_form) + 1);
+       /* Allocate an argument list of guaranteed ample length.  */
+       unsigned long long *arg_list =
+        (unsigned long long *) alloca (strlen (vms_form) + 3);
+       char *ptrb, *ptre;
+       int i;
+
+       arg_list [1] = (unsigned long long) path;
+       arg_list [2] = (unsigned long long) mode;
+       strcpy (local_form, vms_form);
+
+       /* Given a string such as "\"rfm=udf\",\"rat=cr\""
+          Split it into an argument list as "rfm=udf","rat=cr".  */
+       ptrb = local_form;
+       for (i = 0; *ptrb; i++)
+         {
+            ptrb = strchr (ptrb, '"');
+            ptre = strchr (ptrb + 1, '"');
+            *ptre = 0;
+            arg_list [i + 3] = (unsigned long long) (ptrb + 1);
+            ptrb = ptre + 1;
+         }
+       arg_list [0] = i + 2;
+       /* CALLG_64 returns int , fortunately (FILE *) on VMS is a
+          always a 32bit pointer.   */
+       return LIB$CALLG_64 (arg_list, &decc$fopen);
+    }
 #else
   return GNAT_FOPEN (path, mode);
 #endif
@@ -847,7 +880,8 @@ FILE *
 __gnat_freopen (char *path,
 		char *mode,
 		FILE *stream,
-		int encoding ATTRIBUTE_UNUSED)
+		int encoding ATTRIBUTE_UNUSED,
+                char *vms_form ATTRIBUTE_UNUSED)
 {
 #if defined (_WIN32) && ! defined (__vxworks) && ! defined (IS_CROSS)
   TCHAR wpath[GNAT_MAX_PATH_LEN];
@@ -864,7 +898,38 @@ __gnat_freopen (char *path,
 
   return _tfreopen (wpath, wmode, stream);
 #elif defined (VMS)
-  return decc$freopen (path, mode, stream);
+  if (vms_form == 0)
+    return decc$freopen (path, mode, stream);
+  else
+    {
+       char *local_form = (char *) alloca (strlen (vms_form) + 1);
+       /* Allocate an argument list of guaranteed ample length.  */
+       unsigned long long *arg_list =
+        (unsigned long long *) alloca (strlen (vms_form) + 4);
+       char *ptrb, *ptre;
+       int i;
+
+       arg_list [1] = (unsigned long long) path;
+       arg_list [2] = (unsigned long long) mode;
+       arg_list [3] = (unsigned long long) stream;
+       strcpy (local_form, vms_form);
+
+       /* Given a string such as "\"rfm=udf\",\"rat=cr\""
+          Split it into an argument list as "rfm=udf","rat=cr".  */
+       ptrb = local_form;
+       for (i = 0; *ptrb; i++)
+         {
+            ptrb = strchr (ptrb, '"');
+            ptre = strchr (ptrb + 1, '"');
+            *ptre = 0;
+            arg_list [i + 4] = (unsigned long long) (ptrb + 1);
+            ptrb = ptre + 1;
+         }
+       arg_list [0] = i + 3;
+       /* CALLG_64 returns int , fortunately (FILE *) on VMS is a
+          always a 32bit pointer.   */
+       return LIB$CALLG_64 (arg_list, &decc$freopen);
+    }
 #else
   return freopen (path, mode, stream);
 #endif
@@ -1982,7 +2047,7 @@ __gnat_check_OWNER_ACL
      GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION,
      NULL, 0, &nLength);
 
-  if ((pSD = (PSECURITY_DESCRIPTOR) HeapAlloc
+  if ((pSD = (SECURITY_DESCRIPTOR *) HeapAlloc
        (GetProcessHeap (), HEAP_ZERO_MEMORY, nLength)) == NULL)
     return 0;
 
@@ -2059,7 +2124,7 @@ __gnat_set_OWNER_ACL
     return;
 
   BuildExplicitAccessWithName
-    (&ea, username, AccessPermissions, AccessMode, NO_INHERITANCE);
+    (&ea, username, AccessPermissions, (ACCESS_MODE) AccessMode, NO_INHERITANCE);
 
   if (AccessMode == SET_ACCESS)
     {
@@ -2199,7 +2264,7 @@ __gnat_is_executable_file_attr (char* name, struct file_attributes* attr)
 #endif
    }
 
-   return attr->executable;
+   return attr->regular && attr->executable;
 }
 
 int
@@ -2384,7 +2449,7 @@ __gnat_portable_spawn (char *args[])
   strcat (args[0], args_0);
   strcat (args[0], "\"");
 
-  status = spawnvp (P_WAIT, args_0, (const char* const*)args);
+  status = spawnvp (P_WAIT, args_0, (char* const*)args);
 
   /* restore previous value */
   free (args[0]);
@@ -2467,12 +2532,8 @@ __gnat_number_of_cpus (void)
 {
   int cores = 1;
 
-#if defined (linux) || defined (sun) || defined (AIX) \
-    || (defined (__alpha__)  && defined (_osf_)) || defined (__APPLE__)
+#if defined (linux) || defined (sun) || defined (AIX) || defined (__APPLE__)
   cores = (int) sysconf (_SC_NPROCESSORS_ONLN);
-
-#elif (defined (__mips) && defined (__sgi))
-  cores = (int) sysconf (_SC_NPROC_ONLN);
 
 #elif defined (__hpux__)
   struct pst_dynamic psd;
@@ -2544,9 +2605,9 @@ add_handle (HANDLE h, int pid)
     {
       plist_max_length += 1000;
       HANDLES_LIST =
-        xrealloc (HANDLES_LIST, sizeof (HANDLE) * plist_max_length);
+        (void **) xrealloc (HANDLES_LIST, sizeof (HANDLE) * plist_max_length);
       PID_LIST =
-        xrealloc (PID_LIST, sizeof (int) * plist_max_length);
+        (int *) xrealloc (PID_LIST, sizeof (int) * plist_max_length);
     }
 
   HANDLES_LIST[plist_length] = h;
@@ -2935,7 +2996,7 @@ __gnat_locate_exec_on_path (char *exec_name)
 
   #define EXPAND_BUFFER_SIZE 32767
 
-  wapath_val = alloca (EXPAND_BUFFER_SIZE);
+  wapath_val = (TCHAR *) alloca (EXPAND_BUFFER_SIZE);
 
   wapath_val [0] = '.';
   wapath_val [1] = ';';
@@ -2945,7 +3006,7 @@ __gnat_locate_exec_on_path (char *exec_name)
 
   if (!res) wapath_val [0] = _T('\0');
 
-  apath_val = alloca (EXPAND_BUFFER_SIZE);
+  apath_val = (char *) alloca (EXPAND_BUFFER_SIZE);
 
   WS2SC (apath_val, wapath_val, EXPAND_BUFFER_SIZE);
   return __gnat_locate_exec (exec_name, apath_val);
@@ -3090,11 +3151,12 @@ __gnat_to_canonical_file_list_free ()
 char *
 __gnat_translate_vms (char *src)
 {
-  static char retbuf [NAM$C_MAXRSS+1];
+  static char retbuf [NAM$C_MAXRSS + 1];
   char *srcendpos, *pos1, *pos2, *retpos;
   int disp, path_present = 0;
 
-  if (!src) return NULL;
+  if (!src)
+    return NULL;
 
   srcendpos = strchr (src, '\0');
   retpos = retbuf;
@@ -3103,112 +3165,132 @@ __gnat_translate_vms (char *src)
   pos1 = src;
   pos2 = strchr (pos1, ':');
 
-  if (pos2 && (pos2 < srcendpos) && (*(pos2 + 1) == ':')) {
-    /* There is a node name. "node_name::" becomes "node_name!" */
-    disp = pos2 - pos1;
-    strncpy (retbuf, pos1, disp);
-    retpos [disp] = '!';
-    retpos = retpos + disp + 1;
-    pos1 = pos2 + 2;
-    pos2 = strchr (pos1, ':');
-  }
+  if (pos2 && (pos2 < srcendpos) && (*(pos2 + 1) == ':'))
+    {
+      /* There is a node name. "node_name::" becomes "node_name!" */
+      disp = pos2 - pos1;
+      strncpy (retbuf, pos1, disp);
+      retpos [disp] = '!';
+      retpos = retpos + disp + 1;
+      pos1 = pos2 + 2;
+      pos2 = strchr (pos1, ':');
+    }
 
-  if (pos2) {
-    /* There is a device name. "dev_name:" becomes "/dev_name/" */
-    *(retpos++) = '/';
-    disp = pos2 - pos1;
-    strncpy (retpos, pos1, disp);
-    retpos = retpos + disp;
-    pos1 = pos2 + 1;
-    *(retpos++) = '/';
-  }
+  if (pos2)
+    {
+      /* There is a device name. "dev_name:" becomes "/dev_name/" */
+      *(retpos++) = '/';
+      disp = pos2 - pos1;
+      strncpy (retpos, pos1, disp);
+      retpos = retpos + disp;
+      pos1 = pos2 + 1;
+      *(retpos++) = '/';
+    }
   else
     /* No explicit device; we must look ahead and prepend /sys$disk/ if
        the path is absolute */
     if ((*pos1 == '[' || *pos1 == '<') && (pos1 < srcendpos)
-        && !strchr (".-]>", *(pos1 + 1))) {
-      strncpy (retpos, "/sys$disk/", 10);
-      retpos += 10;
-    }
+        && !strchr (".-]>", *(pos1 + 1)))
+      {
+        strncpy (retpos, "/sys$disk/", 10);
+        retpos += 10;
+      }
 
   /* Process the path part */
-  while (*pos1 == '[' || *pos1 == '<') {
-    path_present++;
-    pos1++;
-    if (*pos1 == ']' || *pos1 == '>') {
-      /* Special case, [] translates to '.' */
-      *(retpos++) = '.';
+  while (*pos1 == '[' || *pos1 == '<')
+    {
+      path_present++;
       pos1++;
-    }
-    else {
-      /* '[000000' means root dir. It can be present in the middle of
-         the path due to expansion of logical devices, in which case
-         we skip it */
-      if (!strncmp (pos1, "000000", 6) && path_present > 1 &&
-         (*(pos1 + 6) == ']' || *(pos1 + 6) == '>' || *(pos1 + 6) == '.')) {
-          pos1 += 6;
-          if (*pos1 == '.') pos1++;
+      if (*pos1 == ']' || *pos1 == '>')
+        {
+          /* Special case, [] translates to '.' */
+          *(retpos++) = '.';
+          pos1++;
         }
-      else if (*pos1 == '.') {
-        /* Relative path */
-        *(retpos++) = '.';
-      }
+      else
+        {
+          /* '[000000' means root dir. It can be present in the middle of
+             the path due to expansion of logical devices, in which case
+             we skip it */
+          if (!strncmp (pos1, "000000", 6) && path_present > 1 &&
+              (*(pos1 + 6) == ']' || *(pos1 + 6) == '>' || *(pos1 + 6) == '.'))
+            {
+              pos1 += 6;
+              if (*pos1 == '.') pos1++;
+            }
+          else if (*pos1 == '.')
+            {
+              /* Relative path */
+              *(retpos++) = '.';
+            }
 
-      /* There is a qualified path */
-      while (*pos1 && *pos1 != ']' && *pos1 != '>') {
-        switch (*pos1) {
-          case '.':
-            /* '.' is used to separate directories. Replace it with '/' but
-               only if there isn't already '/' just before */
-            if (*(retpos - 1) != '/') *(retpos++) = '/';
-            pos1++;
-            if (pos1 + 1 < srcendpos && *pos1 == '.' && *(pos1 + 1) == '.') {
-              /* ellipsis refers to entire subtree; replace with '**' */
-              *(retpos++) = '*'; *(retpos++) = '*'; *(retpos++) = '/';
-              pos1 += 2;
+          /* There is a qualified path */
+          while (*pos1 && *pos1 != ']' && *pos1 != '>')
+            {
+              switch (*pos1)
+                {
+                case '.':
+                  /* '.' is used to separate directories. Replace it with '/' but
+                     only if there isn't already '/' just before */
+                  if (*(retpos - 1) != '/')
+                    *(retpos++) = '/';
+                  pos1++;
+                  if (pos1 + 1 < srcendpos && *pos1 == '.' && *(pos1 + 1) == '.')
+                    {
+                      /* ellipsis refers to entire subtree; replace with '**' */
+                      *(retpos++) = '*';
+                      *(retpos++) = '*';
+                      *(retpos++) = '/';
+                      pos1 += 2;
+                    }
+                  break;
+                case '-' :
+                  /* When after '.' '[' '<' is equivalent to Unix ".." but there
+                     may be several in a row */
+                  if (*(pos1 - 1) == '.' || *(pos1 - 1) == '[' ||
+                      *(pos1 - 1) == '<')
+                    {
+                      while (*pos1 == '-')
+                        {
+                          pos1++;
+                          *(retpos++) = '.';
+                          *(retpos++) = '.';
+                          *(retpos++) = '/';
+                        }
+                      retpos--;
+                      break;
+                    }
+                  /* otherwise fall through to default */
+                default:
+                  *(retpos++) = *(pos1++);
+                }
             }
-            break;
-          case '-' :
-            /* When after '.' '[' '<' is equivalent to Unix ".." but there
-            may be several in a row */
-            if (*(pos1 - 1) == '.' || *(pos1 - 1) == '[' ||
-                *(pos1 - 1) == '<') {
-              while (*pos1 == '-') {
-                pos1++;
-                *(retpos++) = '.'; *(retpos++) = '.'; *(retpos++) = '/';
-              }
-              retpos--;
-              break;
-            }
-            /* otherwise fall through to default */
-          default:
-            *(retpos++) = *(pos1++);
+          pos1++;
         }
-      }
-      pos1++;
     }
-  }
 
-  if (pos1 < srcendpos) {
-    /* Now add the actual file name, until the version suffix if any */
-    if (path_present) *(retpos++) = '/';
-    pos2 = strchr (pos1, ';');
-    disp = pos2? (pos2 - pos1) : (srcendpos - pos1);
-    strncpy (retpos, pos1, disp);
-    retpos += disp;
-    if (pos2 && pos2 < srcendpos) {
-      /* There is a non-empty version suffix. ";<ver>" becomes ".<ver>" */
-      *retpos++ = '.';
-      disp = srcendpos - pos2 - 1;
-      strncpy (retpos, pos2 + 1, disp);
+  if (pos1 < srcendpos)
+    {
+      /* Now add the actual file name, until the version suffix if any */
+      if (path_present)
+        *(retpos++) = '/';
+      pos2 = strchr (pos1, ';');
+      disp = pos2? (pos2 - pos1) : (srcendpos - pos1);
+      strncpy (retpos, pos1, disp);
       retpos += disp;
+      if (pos2 && pos2 < srcendpos)
+        {
+          /* There is a non-empty version suffix. ";<ver>" becomes ".<ver>" */
+          *retpos++ = '.';
+          disp = srcendpos - pos2 - 1;
+          strncpy (retpos, pos2 + 1, disp);
+          retpos += disp;
+        }
     }
-  }
 
   *retpos = '\0';
 
   return retbuf;
-
 }
 
 /* Translate a VMS syntax directory specification in to Unix syntax.  If
@@ -3359,50 +3441,11 @@ __gnat_to_canonical_path_spec (char *pathspec)
 static char filename_buff [MAXPATH];
 
 static int
-translate_unix (char *name, int type)
+translate_unix (char *name, int type ATTRIBUTE_UNUSED)
 {
   strncpy (filename_buff, name, MAXPATH);
   filename_buff [MAXPATH - 1] = (char) 0;
   return 0;
-}
-
-/* Translate a Unix syntax path spec into a VMS style (comma separated list of
-   directories.  */
-
-static char *
-to_host_path_spec (char *pathspec)
-{
-  char *curr, *next, buff [MAXPATH];
-
-  if (pathspec == 0)
-    return pathspec;
-
-  /* Can't very well test for colons, since that's the Unix separator!  */
-  if (strchr (pathspec, ']') || strchr (pathspec, ','))
-    return pathspec;
-
-  new_host_pathspec[0] = 0;
-  curr = pathspec;
-
-  for (;;)
-    {
-      next = strchr (curr, ':');
-      if (next == 0)
-        next = strchr (curr, 0);
-
-      strncpy (buff, curr, next - curr);
-      buff[next - curr] = 0;
-
-      strncat (new_host_pathspec, __gnat_to_host_dir_spec (buff, 0), MAXPATH);
-      if (*next == 0)
-        break;
-      strncat (new_host_pathspec, ",", MAXPATH);
-      curr = next + 1;
-    }
-
-  new_host_pathspec [MAXPATH - 1] = (char) 0;
-
-  return new_host_pathspec;
 }
 
 /* Translate a Unix syntax directory specification into VMS syntax.  The
@@ -3541,10 +3584,8 @@ _flush_cache()
       && ! defined (__hpux__) \
       && ! defined (__APPLE__) \
       && ! defined (_AIX) \
-      && ! (defined (__alpha__)  && defined (__osf__)) \
       && ! defined (VMS) \
-      && ! defined (__MINGW32__) \
-      && ! (defined (__mips) && defined (__sgi)))
+      && ! defined (__MINGW32__))
 
 /* Dummy function to satisfy g-trasym.o. See the preprocessor conditional
    just above for a list of native platforms that provide a non-dummy
@@ -3598,7 +3639,8 @@ char __gnat_environment_char = '$';
    Returns 0 if operation was successful and -1 in case of error. */
 
 int
-__gnat_copy_attribs (char *from, char *to, int mode)
+__gnat_copy_attribs (char *from ATTRIBUTE_UNUSED, char *to ATTRIBUTE_UNUSED,
+                     int mode ATTRIBUTE_UNUSED)
 {
 #if defined (VMS) || (defined (__vxworks) && _WRS_VXWORKS_MAJOR < 6) || \
   defined (__nucleus__)
@@ -3706,6 +3748,11 @@ get_gcc_version (void)
 #endif
 }
 
+/*
+ * Set Close_On_Exec as indicated.
+ * Note: this is used for both GNAT.OS_Lib and GNAT.Sockets.
+ */
+
 int
 __gnat_set_close_on_exec (int fd ATTRIBUTE_UNUSED,
                           int close_on_exec_p ATTRIBUTE_UNUSED)
@@ -3786,7 +3833,16 @@ void __main (void) {}
 #endif
 #endif
 
-#if defined (linux)
+#if defined (__ANDROID__)
+
+#include <pthread.h>
+
+void *__gnat_lwp_self (void)
+{
+   return (void *) pthread_self ();
+}
+
+#elif defined (linux)
 /* There is no function in the glibc to retrieve the LWP of the current
    thread. We need to do a system call in order to retrieve this
    information. */

@@ -7,14 +7,19 @@ package gosym
 import (
 	"debug/elf"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 )
 
-var pclinetestBinary string
+var (
+	pclineTempDir    string
+	pclinetestBinary string
+)
 
 func dotest() bool {
 	// For now, only works on ELF platforms.
@@ -24,10 +29,18 @@ func dotest() bool {
 	if pclinetestBinary != "" {
 		return true
 	}
+	var err error
+	pclineTempDir, err = ioutil.TempDir("", "pclinetest")
+	if err != nil {
+		panic(err)
+	}
+	if strings.Contains(pclineTempDir, " ") {
+		panic("unexpected space in tempdir")
+	}
 	// This command builds pclinetest from pclinetest.asm;
 	// the resulting binary looks like it was built from pclinetest.s,
 	// but we have renamed it to keep it away from the go tool.
-	pclinetestBinary = os.TempDir() + "/pclinetest"
+	pclinetestBinary = filepath.Join(pclineTempDir, "pclinetest")
 	command := fmt.Sprintf("go tool 6a -o %s.6 pclinetest.asm && go tool 6l -E main -o %s %s.6",
 		pclinetestBinary, pclinetestBinary, pclinetestBinary)
 	cmd := exec.Command("sh", "-c", command)
@@ -37,6 +50,14 @@ func dotest() bool {
 		panic(err)
 	}
 	return true
+}
+
+func endtest() {
+	if pclineTempDir != "" {
+		os.RemoveAll(pclineTempDir)
+		pclineTempDir = ""
+		pclinetestBinary = ""
+	}
 }
 
 func getTable(t *testing.T) *Table {
@@ -82,6 +103,7 @@ func TestLineFromAline(t *testing.T) {
 	if !dotest() {
 		return
 	}
+	defer endtest()
 
 	tab := getTable(t)
 
@@ -116,7 +138,7 @@ func TestLineFromAline(t *testing.T) {
 		if !ok {
 			t.Errorf("file %s starts on line %d", path, line)
 		} else if line != ll+1 {
-			t.Errorf("expected next line of file %s to be %d, got %d", path, ll+1, line)
+			t.Fatalf("expected next line of file %s to be %d, got %d", path, ll+1, line)
 		}
 		lastline[path] = line
 	}
@@ -129,6 +151,7 @@ func TestLineAline(t *testing.T) {
 	if !dotest() {
 		return
 	}
+	defer endtest()
 
 	tab := getTable(t)
 
@@ -170,6 +193,7 @@ func TestPCLine(t *testing.T) {
 	if !dotest() {
 		return
 	}
+	defer endtest()
 
 	f, tab := crack(pclinetestBinary, t)
 	text := f.Section(".text")

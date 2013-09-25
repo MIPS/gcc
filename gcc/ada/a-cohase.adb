@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -40,17 +40,6 @@ with Ada.Containers.Prime_Numbers;
 with System; use type System.Address;
 
 package body Ada.Containers.Hashed_Sets is
-
-   type Iterator is limited new
-     Set_Iterator_Interfaces.Forward_Iterator with record
-        Container : Set_Access;
-     end record;
-
-   overriding function First (Object : Iterator) return Cursor;
-
-   overriding function Next
-     (Object   : Iterator;
-      Position : Cursor) return Cursor;
 
    -----------------------
    -- Local Subprograms --
@@ -238,9 +227,8 @@ package body Ada.Containers.Hashed_Sets is
          L : Natural renames HT.Lock;
       begin
          return R : constant Constant_Reference_Type :=
-                      (Element => Position.Node.Element'Access,
-                       Control =>
-                         (Controlled with Container'Unrestricted_Access))
+           (Element => Position.Node.Element'Access,
+            Control => (Controlled with Container'Unrestricted_Access))
          do
             B := B + 1;
             L := L + 1;
@@ -442,7 +430,7 @@ package body Ada.Containers.Hashed_Sets is
             if not Is_In (Right.HT, L_Node) then
                declare
                   J : constant Hash_Type :=
-                        Hash (L_Node.Element) mod Buckets'Length;
+                    Hash (L_Node.Element) mod Buckets'Length;
 
                   Bucket : Node_Access renames Buckets (J);
 
@@ -618,7 +606,7 @@ package body Ada.Containers.Hashed_Sets is
       L_Node : Node_Access) return Boolean
    is
       R_Index : constant Hash_Type :=
-                  Element_Keys.Index (R_HT, L_Node.Element);
+        Element_Keys.Index (R_HT, L_Node.Element);
 
       R_Node  : Node_Access := R_HT.Buckets (R_Index);
 
@@ -645,7 +633,7 @@ package body Ada.Containers.Hashed_Sets is
       L_Node : Node_Access) return Boolean
    is
       R_Index : constant Hash_Type :=
-                  Element_Keys.Index (R_HT, L_Node.Element);
+        Element_Keys.Index (R_HT, L_Node.Element);
 
       R_Node  : Node_Access := R_HT.Buckets (R_Index);
 
@@ -891,7 +879,7 @@ package body Ada.Containers.Hashed_Sets is
             if Is_In (Right.HT, L_Node) then
                declare
                   J : constant Hash_Type :=
-                        Hash (L_Node.Element) mod Buckets'Length;
+                    Hash (L_Node.Element) mod Buckets'Length;
 
                   Bucket : Node_Access renames Buckets (J);
 
@@ -1201,7 +1189,7 @@ package body Ada.Containers.Hashed_Sets is
       New_Item  : Element_Type)
    is
       Node : constant Node_Access :=
-               Element_Keys.Find (Container.HT, New_Item);
+        Element_Keys.Find (Container.HT, New_Item);
 
    begin
       if Node = null then
@@ -1396,7 +1384,7 @@ package body Ada.Containers.Hashed_Sets is
 
       declare
          Size : constant Hash_Type :=
-                  Prime_Numbers.To_Prime (Left.Length + Right.Length);
+           Prime_Numbers.To_Prime (Left.Length + Right.Length);
       begin
          Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
@@ -1520,7 +1508,7 @@ package body Ada.Containers.Hashed_Sets is
 
          function New_Node (Next : Node_Access) return Node_Access is
             Node : constant Node_Access :=
-                     new Node_Type'(Src_Node.Element, Next);
+              new Node_Type'(Src_Node.Element, Next);
          begin
             return Node;
          end New_Node;
@@ -1577,7 +1565,7 @@ package body Ada.Containers.Hashed_Sets is
 
       declare
          Size : constant Hash_Type :=
-                  Prime_Numbers.To_Prime (Left.Length + Right.Length);
+           Prime_Numbers.To_Prime (Left.Length + Right.Length);
       begin
          Buckets := HT_Ops.New_Buckets (Length => Size);
       end;
@@ -1594,7 +1582,7 @@ package body Ada.Containers.Hashed_Sets is
 
          procedure Process (L_Node : Node_Access) is
             J : constant Hash_Type :=
-                  Hash (L_Node.Element) mod Buckets'Length;
+              Hash (L_Node.Element) mod Buckets'Length;
 
          begin
             Buckets (J) := new Node_Type'(L_Node.Element, Buckets (J));
@@ -1624,7 +1612,7 @@ package body Ada.Containers.Hashed_Sets is
 
          procedure Process (Src_Node : Node_Access) is
             J : constant Hash_Type :=
-                  Hash (Src_Node.Element) mod Buckets'Length;
+              Hash (Src_Node.Element) mod Buckets'Length;
 
             Tgt_Node : Node_Access := Buckets (J);
 
@@ -1781,8 +1769,7 @@ package body Ada.Containers.Hashed_Sets is
         (Container : aliased Set;
          Key       : Key_Type) return Constant_Reference_Type
       is
-         Node : constant Node_Access :=
-                  Key_Keys.Find (Container.HT, Key);
+         Node : constant Node_Access := Key_Keys.Find (Container.HT, Key);
 
       begin
          if Node = null then
@@ -1795,9 +1782,8 @@ package body Ada.Containers.Hashed_Sets is
             L : Natural renames HT.Lock;
          begin
             return R : constant Constant_Reference_Type :=
-                         (Element => Node.Element'Access,
-                          Control =>
-                            (Controlled with Container'Unrestricted_Access))
+              (Element => Node.Element'Access,
+               Control => (Controlled with Container'Unrestricted_Access))
             do
                B := B + 1;
                L := L + 1;
@@ -1889,8 +1875,7 @@ package body Ada.Containers.Hashed_Sets is
         (Container : Set;
          Key       : Key_Type) return Cursor
       is
-         Node : constant Node_Access :=
-                  Key_Keys.Find (Container.HT, Key);
+         Node : constant Node_Access := Key_Keys.Find (Container.HT, Key);
 
       begin
          if Node = null then
@@ -1961,8 +1946,7 @@ package body Ada.Containers.Hashed_Sets is
         (Container : aliased in out Set;
          Key       : Key_Type) return Reference_Type
       is
-         Node : constant Node_Access :=
-                  Key_Keys.Find (Container.HT, Key);
+         Node : constant Node_Access := Key_Keys.Find (Container.HT, Key);
 
       begin
          if Node = null then
@@ -1985,8 +1969,7 @@ package body Ada.Containers.Hashed_Sets is
          Key       : Key_Type;
          New_Item  : Element_Type)
       is
-         Node : constant Node_Access :=
-                  Key_Keys.Find (Container.HT, Key);
+         Node : constant Node_Access := Key_Keys.Find (Container.HT, Key);
 
       begin
          if Node = null then

@@ -15,9 +15,9 @@ import (
 // BUG(brainman,rsc): On Windows, the operating system does not provide complete
 // time zone information.
 // The implementation assumes that this year's rules for daylight savings
-// time apply to all previous and future years as well. 
+// time apply to all previous and future years as well.
 // Also, time zone abbreviations are unavailable.  The implementation constructs
-// them using the capital letters from a longer time zone description.	
+// them using the capital letters from a longer time zone description.
 
 // abbrev returns the abbreviation to use for the given zone name.
 func abbrev(name []uint16) string {
@@ -83,6 +83,9 @@ func initLocalFromTZI(i *syscall.Timezoneinformation) {
 		l.cacheStart = -1 << 63
 		l.cacheEnd = 1<<63 - 1
 		l.cacheZone = std
+		l.tx = make([]zoneTrans, 1)
+		l.tx[0].when = l.cacheStart
+		l.tx[0].index = 0
 		return
 	}
 

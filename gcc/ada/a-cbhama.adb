@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2004-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 2004-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,25 +34,10 @@ with Ada.Containers.Hash_Tables.Generic_Bounded_Keys;
 pragma Elaborate_All (Ada.Containers.Hash_Tables.Generic_Bounded_Keys);
 
 with Ada.Containers.Prime_Numbers;  use Ada.Containers.Prime_Numbers;
-with Ada.Finalization;              use Ada.Finalization;
 
 with System;  use type System.Address;
 
 package body Ada.Containers.Bounded_Hashed_Maps is
-
-   type Iterator is new Limited_Controlled and
-     Map_Iterator_Interfaces.Forward_Iterator with
-   record
-      Container : Map_Access;
-   end record;
-
-   overriding procedure Finalize (Object : in out Iterator);
-
-   overriding function First (Object : Iterator) return Cursor;
-
-   overriding function Next
-     (Object   : Iterator;
-      Position : Cursor) return Cursor;
 
    -----------------------
    -- Local Subprograms --
@@ -220,7 +205,7 @@ package body Ada.Containers.Bounded_Hashed_Maps is
    end Constant_Reference;
 
    function Constant_Reference
-     (Container : Map;
+     (Container : aliased Map;
       Key       : Key_Type) return Constant_Reference_Type
    is
       Node : constant Count_Type := Key_Ops.Find (Container, Key);
@@ -739,8 +724,8 @@ package body Ada.Containers.Bounded_Hashed_Maps is
 
    begin
       return It : constant Iterator :=
-                    (Limited_Controlled with
-                       Container => Container'Unrestricted_Access)
+        (Limited_Controlled with
+           Container => Container'Unrestricted_Access)
       do
          B := B + 1;
       end return;

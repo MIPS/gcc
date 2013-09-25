@@ -1,5 +1,5 @@
 /* Discovery of auto-inc and auto-dec instructions.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010 Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -30,13 +30,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "regs.h"
 #include "flags.h"
-#include "output.h"
 #include "function.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
 #include "expr.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
 #include "dbgcnt.h"
@@ -495,7 +493,7 @@ attempt_change (rtx new_addr, rtx inc_reg)
       return false;
     }
 
-  /* Jump thru a lot of hoops to keep the attributes up to date.  We
+  /* Jump through a lot of hoops to keep the attributes up to date.  We
      do not want to call one of the change address variants that take
      an offset even though we know the offset in many cases.  These
      assume you are changing where the address is pointing by the
@@ -1508,21 +1506,40 @@ gate_auto_inc_dec (void)
 }
 
 
-struct rtl_opt_pass pass_inc_dec =
+namespace {
+
+const pass_data pass_data_inc_dec =
 {
- {
-  RTL_PASS,
-  "auto_inc_dec",                       /* name */
-  gate_auto_inc_dec,                    /* gate */
-  rest_of_handle_auto_inc_dec,          /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_AUTO_INC_DEC,                      /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish,                       /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "auto_inc_dec", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_AUTO_INC_DEC, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_df_finish, /* todo_flags_finish */
 };
+
+class pass_inc_dec : public rtl_opt_pass
+{
+public:
+  pass_inc_dec(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_inc_dec, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_auto_inc_dec (); }
+  unsigned int execute () { return rest_of_handle_auto_inc_dec (); }
+
+}; // class pass_inc_dec
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_inc_dec (gcc::context *ctxt)
+{
+  return new pass_inc_dec (ctxt);
+}

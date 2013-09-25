@@ -1,6 +1,5 @@
 /* IRA allocation based on graph coloring.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -30,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "sbitmap.h"
 #include "bitmap.h"
+#include "hash-table.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "expr.h"
@@ -159,7 +159,7 @@ static bitmap consideration_allocno_bitmap;
 static ira_allocno_t *sorted_allocnos;
 
 /* Vec representing the stack of allocnos used during coloring.  */
-static VEC(ira_allocno_t,heap) *allocno_stack_vec;
+static vec<ira_allocno_t> allocno_stack_vec;
 
 /* Helper for qsort comparison callbacks - return a positive integer if
    X > Y, or a negative value otherwise.  Use a conditional expression
@@ -170,39 +170,40 @@ static VEC(ira_allocno_t,heap) *allocno_stack_vec;
 
 
 /* Definition of vector of allocno hard registers.  */
-DEF_VEC_P(allocno_hard_regs_t);
-DEF_VEC_ALLOC_P(allocno_hard_regs_t, heap);
 
 /* Vector of unique allocno hard registers.  */
-static VEC(allocno_hard_regs_t, heap) *allocno_hard_regs_vec;
+static vec<allocno_hard_regs_t> allocno_hard_regs_vec;
+
+struct allocno_hard_regs_hasher : typed_noop_remove <allocno_hard_regs>
+{
+  typedef allocno_hard_regs value_type;
+  typedef allocno_hard_regs compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
 
 /* Returns hash value for allocno hard registers V.  */
-static hashval_t
-allocno_hard_regs_hash (const void *v)
+inline hashval_t
+allocno_hard_regs_hasher::hash (const value_type *hv)
 {
-  const struct allocno_hard_regs *hv = (const struct allocno_hard_regs *) v;
-
   return iterative_hash (&hv->set, sizeof (HARD_REG_SET), 0);
 }
 
 /* Compares allocno hard registers V1 and V2.  */
-static int
-allocno_hard_regs_eq (const void *v1, const void *v2)
+inline bool
+allocno_hard_regs_hasher::equal (const value_type *hv1, const compare_type *hv2)
 {
-  const struct allocno_hard_regs *hv1 = (const struct allocno_hard_regs *) v1;
-  const struct allocno_hard_regs *hv2 = (const struct allocno_hard_regs *) v2;
-
   return hard_reg_set_equal_p (hv1->set, hv2->set);
 }
 
 /* Hash table of unique allocno hard registers.  */
-static htab_t allocno_hard_regs_htab;
+static hash_table <allocno_hard_regs_hasher> allocno_hard_regs_htab;
 
 /* Return allocno hard registers in the hash table equal to HV.  */
 static allocno_hard_regs_t
 find_hard_regs (allocno_hard_regs_t hv)
 {
-  return (allocno_hard_regs_t) htab_find (allocno_hard_regs_htab, hv);
+  return allocno_hard_regs_htab.find (hv);
 }
 
 /* Insert allocno hard registers HV in the hash table (if it is not
@@ -210,20 +211,19 @@ find_hard_regs (allocno_hard_regs_t hv)
 static allocno_hard_regs_t
 insert_hard_regs (allocno_hard_regs_t hv)
 {
-  PTR *slot = htab_find_slot (allocno_hard_regs_htab, hv, INSERT);
+  allocno_hard_regs **slot = allocno_hard_regs_htab.find_slot (hv, INSERT);
 
   if (*slot == NULL)
     *slot = hv;
-  return (allocno_hard_regs_t) *slot;
+  return *slot;
 }
 
 /* Initialize data concerning allocno hard registers.  */
 static void
 init_allocno_hard_regs (void)
 {
-  allocno_hard_regs_vec = VEC_alloc (allocno_hard_regs_t, heap, 200);
-  allocno_hard_regs_htab
-    = htab_create (200, allocno_hard_regs_hash, allocno_hard_regs_eq, NULL);
+  allocno_hard_regs_vec.create (200);
+  allocno_hard_regs_htab.create (200);
 }
 
 /* Add (or update info about) allocno hard registers with SET and
@@ -244,7 +244,7 @@ add_allocno_hard_regs (HARD_REG_SET set, HOST_WIDEST_INT cost)
 	    ira_allocate (sizeof (struct allocno_hard_regs)));
       COPY_HARD_REG_SET (hv->set, set);
       hv->cost = cost;
-      VEC_safe_push (allocno_hard_regs_t, heap, allocno_hard_regs_vec, hv);
+      allocno_hard_regs_vec.safe_push (hv);
       insert_hard_regs (hv);
     }
   return hv;
@@ -258,11 +258,11 @@ finish_allocno_hard_regs (void)
   allocno_hard_regs_t hv;
 
   for (i = 0;
-       VEC_iterate (allocno_hard_regs_t, allocno_hard_regs_vec, i, hv);
+       allocno_hard_regs_vec.iterate (i, &hv);
        i++)
     ira_free (hv);
-  htab_delete (allocno_hard_regs_htab);
-  VEC_free (allocno_hard_regs_t, heap, allocno_hard_regs_vec);
+  allocno_hard_regs_htab.dispose ();
+  allocno_hard_regs_vec.release ();
 }
 
 /* Sort hard regs according to their frequency of usage. */
@@ -297,11 +297,9 @@ static int node_check_tick;
 static allocno_hard_regs_node_t hard_regs_roots;
 
 /* Definition of vector of allocno hard register nodes.  */
-DEF_VEC_P(allocno_hard_regs_node_t);
-DEF_VEC_ALLOC_P(allocno_hard_regs_node_t, heap);
 
 /* Vector used to create the forest.  */
-static VEC(allocno_hard_regs_node_t, heap) *hard_regs_node_vec;
+static vec<allocno_hard_regs_node_t> hard_regs_node_vec;
 
 /* Create and return allocno hard registers node containing allocno
    hard registers HV.  */
@@ -344,7 +342,7 @@ add_allocno_hard_regs_to_forest (allocno_hard_regs_node_t *roots,
   HARD_REG_SET temp_set;
   allocno_hard_regs_t hv2;
 
-  start = VEC_length (allocno_hard_regs_node_t, hard_regs_node_vec);
+  start = hard_regs_node_vec.length ();
   for (node = *roots; node != NULL; node = node->next)
     {
       if (hard_reg_set_equal_p (hv->set, node->hard_regs->set))
@@ -355,8 +353,7 @@ add_allocno_hard_regs_to_forest (allocno_hard_regs_node_t *roots,
 	  return;
 	}
       if (hard_reg_set_subset_p (node->hard_regs->set, hv->set))
-	VEC_safe_push (allocno_hard_regs_node_t, heap,
-		       hard_regs_node_vec, node);
+	hard_regs_node_vec.safe_push (node);
       else if (hard_reg_set_intersect_p (hv->set, node->hard_regs->set))
 	{
 	  COPY_HARD_REG_SET (temp_set, hv->set);
@@ -365,26 +362,26 @@ add_allocno_hard_regs_to_forest (allocno_hard_regs_node_t *roots,
 	  add_allocno_hard_regs_to_forest (&node->first, hv2);
 	}
     }
-  if (VEC_length (allocno_hard_regs_node_t, hard_regs_node_vec)
+  if (hard_regs_node_vec.length ()
       > start + 1)
     {
       /* Create a new node which contains nodes in hard_regs_node_vec.  */
       CLEAR_HARD_REG_SET (temp_set);
       for (i = start;
-	   i < VEC_length (allocno_hard_regs_node_t, hard_regs_node_vec);
+	   i < hard_regs_node_vec.length ();
 	   i++)
 	{
-	  node = VEC_index (allocno_hard_regs_node_t, hard_regs_node_vec, i);
+	  node = hard_regs_node_vec[i];
 	  IOR_HARD_REG_SET (temp_set, node->hard_regs->set);
 	}
       hv = add_allocno_hard_regs (temp_set, hv->cost);
       new_node = create_new_allocno_hard_regs_node (hv);
       prev = NULL;
       for (i = start;
-	   i < VEC_length (allocno_hard_regs_node_t, hard_regs_node_vec);
+	   i < hard_regs_node_vec.length ();
 	   i++)
 	{
-	  node = VEC_index (allocno_hard_regs_node_t, hard_regs_node_vec, i);
+	  node = hard_regs_node_vec[i];
 	  if (node->prev == NULL)
 	    *roots = node->next;
 	  else
@@ -401,7 +398,7 @@ add_allocno_hard_regs_to_forest (allocno_hard_regs_node_t *roots,
 	}
       add_new_allocno_hard_regs_node_to_forest (roots, new_node);
     }
-  VEC_truncate (allocno_hard_regs_node_t, hard_regs_node_vec, start);
+  hard_regs_node_vec.truncate (start);
 }
 
 /* Add allocno hard registers nodes starting with the forest level
@@ -415,8 +412,7 @@ collect_allocno_hard_regs_cover (allocno_hard_regs_node_t first,
   ira_assert (first != NULL);
   for (node = first; node != NULL; node = node->next)
     if (hard_reg_set_subset_p (node->hard_regs->set, set))
-      VEC_safe_push (allocno_hard_regs_node_t, heap, hard_regs_node_vec,
-		     node);
+      hard_regs_node_vec.safe_push (node);
     else if (hard_reg_set_intersect_p (set, node->hard_regs->set))
       collect_allocno_hard_regs_cover (node->first, set);
 }
@@ -673,7 +669,7 @@ form_allocno_hard_regs_nodes_forest (void)
   node_check_tick = 0;
   init_allocno_hard_regs ();
   hard_regs_roots = NULL;
-  hard_regs_node_vec = VEC_alloc (allocno_hard_regs_node_t, heap, 100);
+  hard_regs_node_vec.create (100);
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (! TEST_HARD_REG_BIT (ira_no_alloc_regs, i))
       {
@@ -683,7 +679,7 @@ form_allocno_hard_regs_nodes_forest (void)
 	node = create_new_allocno_hard_regs_node (hv);
 	add_new_allocno_hard_regs_node_to_forest (&hard_regs_roots, node);
       }
-  start = VEC_length (allocno_hard_regs_t, allocno_hard_regs_vec);
+  start = allocno_hard_regs_vec.length ();
   EXECUTE_IF_SET_IN_BITMAP (coloring_allocno_bitmap, 0, i, bi)
     {
       a = ira_allocnos[i];
@@ -698,16 +694,15 @@ form_allocno_hard_regs_nodes_forest (void)
   SET_HARD_REG_SET (temp);
   AND_COMPL_HARD_REG_SET (temp, ira_no_alloc_regs);
   add_allocno_hard_regs (temp, 0);
-  qsort (VEC_address (allocno_hard_regs_t, allocno_hard_regs_vec) + start,
-	 VEC_length (allocno_hard_regs_t, allocno_hard_regs_vec) - start,
+  qsort (allocno_hard_regs_vec.address () + start,
+	 allocno_hard_regs_vec.length () - start,
 	 sizeof (allocno_hard_regs_t), allocno_hard_regs_compare);
   for (i = start;
-       VEC_iterate (allocno_hard_regs_t, allocno_hard_regs_vec, i, hv);
+       allocno_hard_regs_vec.iterate (i, &hv);
        i++)
     {
       add_allocno_hard_regs_to_forest (&hard_regs_roots, hv);
-      ira_assert (VEC_length (allocno_hard_regs_node_t,
-			      hard_regs_node_vec) == 0);
+      ira_assert (hard_regs_node_vec.length () == 0);
     }
   /* We need to set up parent fields for right work of
      first_common_ancestor_node. */
@@ -718,14 +713,11 @@ form_allocno_hard_regs_nodes_forest (void)
       allocno_data = ALLOCNO_COLOR_DATA (a);
       if (hard_reg_set_empty_p (allocno_data->profitable_hard_regs))
 	continue;
-      VEC_truncate (allocno_hard_regs_node_t, hard_regs_node_vec, 0);
+      hard_regs_node_vec.truncate (0);
       collect_allocno_hard_regs_cover (hard_regs_roots,
 				       allocno_data->profitable_hard_regs);
       allocno_hard_regs_node = NULL;
-      for (j = 0;
-	   VEC_iterate (allocno_hard_regs_node_t, hard_regs_node_vec,
-			j, node);
-	   j++)
+      for (j = 0; hard_regs_node_vec.iterate (j, &node); j++)
 	allocno_hard_regs_node
 	  = (j == 0
 	     ? node
@@ -764,7 +756,7 @@ form_allocno_hard_regs_nodes_forest (void)
   allocno_hard_regs_subnodes
     = ((allocno_hard_regs_subnode_t)
        ira_allocate (sizeof (struct allocno_hard_regs_subnode) * start));
-  VEC_free (allocno_hard_regs_node_t, heap, hard_regs_node_vec);
+  hard_regs_node_vec.release ();
 }
 
 /* Free tree of allocno hard registers nodes given by its ROOT.  */
@@ -821,7 +813,6 @@ setup_left_conflict_sizes_p (ira_allocno_t a)
   node_preorder_num = node->preorder_num;
   COPY_HARD_REG_SET (node_set, node->hard_regs->set);
   node_check_tick++;
-  curr_allocno_process++;
   for (k = 0; k < nobj; k++)
     {
       ira_object_t obj = ALLOCNO_OBJECT (a, k);
@@ -838,12 +829,10 @@ setup_left_conflict_sizes_p (ira_allocno_t a)
 
 	  conflict_data = ALLOCNO_COLOR_DATA (conflict_a);
 	  if (! ALLOCNO_COLOR_DATA (conflict_a)->in_graph_p
-	      || conflict_data->last_process == curr_allocno_process
 	      || ! hard_reg_set_intersect_p (profitable_hard_regs,
 					     conflict_data
 					     ->profitable_hard_regs))
 	    continue;
-	  conflict_data->last_process = curr_allocno_process;
 	  conflict_node = conflict_data->hard_regs_node;
 	  COPY_HARD_REG_SET (conflict_node_set, conflict_node->hard_regs->set);
 	  if (hard_reg_set_subset_p (node_set, conflict_node_set))
@@ -1026,10 +1015,9 @@ setup_profitable_hard_regs (void)
 	CLEAR_HARD_REG_SET (data->profitable_hard_regs);
       else
 	{
+	  mode = ALLOCNO_MODE (a);
 	  COPY_HARD_REG_SET (data->profitable_hard_regs,
-			     reg_class_contents[aclass]);
-	  AND_COMPL_HARD_REG_SET (data->profitable_hard_regs,
-				  ira_no_alloc_regs);
+			     ira_useful_class_mode_regs[aclass][mode]);
 	  nobj = ALLOCNO_NUM_OBJECTS (a);
 	  for (k = 0; k < nobj; k++)
 	    {
@@ -1915,7 +1903,7 @@ push_allocno_to_stack (ira_allocno_t a)
     
   data = ALLOCNO_COLOR_DATA (a);
   data->in_graph_p = false;
-  VEC_safe_push (ira_allocno_t, heap, allocno_stack_vec, a);
+  allocno_stack_vec.safe_push (a);
   aclass = ALLOCNO_CLASS (a);
   if (aclass == NO_REGS)
     return;
@@ -2008,7 +1996,7 @@ ira_loop_edge_freq (ira_loop_tree_node_t loop_node, int regno, bool exit_p)
   int freq, i;
   edge_iterator ei;
   edge e;
-  VEC (edge, heap) *edges;
+  vec<edge> edges;
 
   ira_assert (current_loops != NULL && loop_node->loop != NULL
 	      && (regno < 0 || regno >= FIRST_PSEUDO_REGISTER));
@@ -2018,19 +2006,19 @@ ira_loop_edge_freq (ira_loop_tree_node_t loop_node, int regno, bool exit_p)
       FOR_EACH_EDGE (e, ei, loop_node->loop->header->preds)
 	if (e->src != loop_node->loop->latch
 	    && (regno < 0
-		|| (bitmap_bit_p (DF_LR_OUT (e->src), regno)
-		    && bitmap_bit_p (DF_LR_IN (e->dest), regno))))
+		|| (bitmap_bit_p (df_get_live_out (e->src), regno)
+		    && bitmap_bit_p (df_get_live_in (e->dest), regno))))
 	  freq += EDGE_FREQUENCY (e);
     }
   else
     {
       edges = get_loop_exit_edges (loop_node->loop);
-      FOR_EACH_VEC_ELT (edge, edges, i, e)
+      FOR_EACH_VEC_ELT (edges, i, e)
 	if (regno < 0
-	    || (bitmap_bit_p (DF_LR_OUT (e->src), regno)
-		&& bitmap_bit_p (DF_LR_IN (e->dest), regno)))
+	    || (bitmap_bit_p (df_get_live_out (e->src), regno)
+		&& bitmap_bit_p (df_get_live_in (e->dest), regno)))
 	  freq += EDGE_FREQUENCY (e);
-      VEC_free (edge, heap, edges);
+      edges.release ();
     }
 
   return REG_FREQ_FROM_EDGE_FREQ (freq);
@@ -2147,9 +2135,9 @@ pop_allocnos_from_stack (void)
   ira_allocno_t allocno;
   enum reg_class aclass;
 
-  for (;VEC_length (ira_allocno_t, allocno_stack_vec) != 0;)
+  for (;allocno_stack_vec.length () != 0;)
     {
-      allocno = VEC_pop (ira_allocno_t, allocno_stack_vec);
+      allocno = allocno_stack_vec.pop ();
       aclass = ALLOCNO_CLASS (allocno);
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	{
@@ -2530,8 +2518,7 @@ improve_allocation (void)
     }
 }
 
-/* Sort allocnos according to their priorities which are calculated
-   analogous to ones in file `global.c'.  */
+/* Sort allocnos according to their priorities.  */
 static int
 allocno_priority_compare_func (const void *v1p, const void *v2p)
 {
@@ -2769,7 +2756,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	pclass = ira_pressure_class_translate[rclass];
 	if (flag_ira_region == IRA_REGION_MIXED
 	    && (loop_tree_node->reg_pressure[pclass]
-		<= ira_available_class_regs[pclass]))
+		<= ira_class_hard_regs_num[pclass]))
 	  {
 	    mode = ALLOCNO_MODE (a);
 	    hard_regno = ALLOCNO_HARD_REGNO (a);
@@ -2822,7 +2809,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 				    ALLOCNO_NUM (subloop_allocno)));
 	  if ((flag_ira_region == IRA_REGION_MIXED)
 	      && (loop_tree_node->reg_pressure[pclass]
-		  <= ira_available_class_regs[pclass]))
+		  <= ira_class_hard_regs_num[pclass]))
 	    {
 	      if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
 		{
@@ -2838,8 +2825,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	  exit_freq = ira_loop_edge_freq (subloop_node, regno, true);
 	  enter_freq = ira_loop_edge_freq (subloop_node, regno, false);
 	  ira_assert (regno < ira_reg_equiv_len);
-	  if (ira_reg_equiv_invariant_p[regno]
-	      || ira_reg_equiv_const[regno] != NULL_RTX)
+	  if (ira_equiv_no_lvalue_p (regno))
 	    {
 	      if (! ALLOCNO_ASSIGNED_P (subloop_allocno))
 		{
@@ -2944,8 +2930,7 @@ move_spill_restore (void)
 		 copies and the reload pass can spill the allocno set
 		 by copy although the allocno will not get memory
 		 slot.  */
-	      || ira_reg_equiv_invariant_p[regno]
-	      || ira_reg_equiv_const[regno] != NULL_RTX
+	      || ira_equiv_no_lvalue_p (regno)
 	      || !bitmap_bit_p (loop_node->border_allocnos, ALLOCNO_NUM (a)))
 	    continue;
 	  mode = ALLOCNO_MODE (a);
@@ -3369,9 +3354,7 @@ coalesce_allocnos (void)
       a = ira_allocnos[j];
       regno = ALLOCNO_REGNO (a);
       if (! ALLOCNO_ASSIGNED_P (a) || ALLOCNO_HARD_REGNO (a) >= 0
-	  || (regno < ira_reg_equiv_len
-	      && (ira_reg_equiv_const[regno] != NULL_RTX
-		  || ira_reg_equiv_invariant_p[regno])))
+	  || ira_equiv_no_lvalue_p (regno))
 	continue;
       for (cp = ALLOCNO_COPIES (a); cp != NULL; cp = next_cp)
 	{
@@ -3386,9 +3369,7 @@ coalesce_allocnos (void)
 	      if ((cp->insn != NULL || cp->constraint_p)
 		  && ALLOCNO_ASSIGNED_P (cp->second)
 		  && ALLOCNO_HARD_REGNO (cp->second) < 0
-		  && (regno >= ira_reg_equiv_len
-		      || (! ira_reg_equiv_invariant_p[regno]
-			  && ira_reg_equiv_const[regno] == NULL_RTX)))
+		  && ! ira_equiv_no_lvalue_p (regno))
 		sorted_copies[cp_num++] = cp;
 	    }
 	  else if (cp->second == a)
@@ -3654,9 +3635,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
       allocno = spilled_coalesced_allocnos[i];
       if (ALLOCNO_COALESCE_DATA (allocno)->first != allocno
 	  || bitmap_bit_p (set_jump_crosses, ALLOCNO_REGNO (allocno))
-	  || (ALLOCNO_REGNO (allocno) < ira_reg_equiv_len
-	      && (ira_reg_equiv_const[ALLOCNO_REGNO (allocno)] != NULL_RTX
-		  || ira_reg_equiv_invariant_p[ALLOCNO_REGNO (allocno)])))
+	  || ira_equiv_no_lvalue_p (ALLOCNO_REGNO (allocno)))
 	continue;
       for (j = 0; j < i; j++)
 	{
@@ -3664,9 +3643,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
 	  n = ALLOCNO_COALESCE_DATA (a)->temp;
 	  if (ALLOCNO_COALESCE_DATA (a)->first == a
 	      && ! bitmap_bit_p (set_jump_crosses, ALLOCNO_REGNO (a))
-	      && (ALLOCNO_REGNO (a) >= ira_reg_equiv_len
-		  || (! ira_reg_equiv_invariant_p[ALLOCNO_REGNO (a)]
-		      && ira_reg_equiv_const[ALLOCNO_REGNO (a)] == NULL_RTX))
+	      && ! ira_equiv_no_lvalue_p (ALLOCNO_REGNO (a))
 	      && ! slot_coalesced_allocno_live_ranges_intersect_p (allocno, n))
 	    break;
 	}
@@ -3774,9 +3751,7 @@ ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
       allocno = spilled_coalesced_allocnos[i];
       if (ALLOCNO_COALESCE_DATA (allocno)->first != allocno
 	  || ALLOCNO_HARD_REGNO (allocno) >= 0
-	  || (ALLOCNO_REGNO (allocno) < ira_reg_equiv_len
-	      && (ira_reg_equiv_const[ALLOCNO_REGNO (allocno)] != NULL_RTX
-		  || ira_reg_equiv_invariant_p[ALLOCNO_REGNO (allocno)])))
+	  || ira_equiv_no_lvalue_p (ALLOCNO_REGNO (allocno)))
 	continue;
       if (internal_flag_ira_verbose > 3 && ira_dump_file != NULL)
 	fprintf (ira_dump_file, "      Slot %d (freq,size):", slot_num);
@@ -4330,12 +4305,12 @@ ira_finish_assign (void)
 static void
 color (void)
 {
-  allocno_stack_vec = VEC_alloc (ira_allocno_t, heap, ira_allocnos_num);
+  allocno_stack_vec.create (ira_allocnos_num);
   memset (allocated_hardreg_p, 0, sizeof (allocated_hardreg_p));
   ira_initiate_assign ();
   do_coloring ();
   ira_finish_assign ();
-  VEC_free (ira_allocno_t, heap, allocno_stack_vec);
+  allocno_stack_vec.release ();
   move_spill_restore ();
 }
 

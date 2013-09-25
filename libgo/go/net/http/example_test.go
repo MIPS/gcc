@@ -43,9 +43,28 @@ func ExampleGet() {
 		log.Fatal(err)
 	}
 	robots, err := ioutil.ReadAll(res.Body)
+	res.Body.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
-	res.Body.Close()
 	fmt.Printf("%s", robots)
+}
+
+func ExampleFileServer() {
+	// Simple static webserver:
+	log.Fatal(http.ListenAndServe(":8080", http.FileServer(http.Dir("/usr/share/doc"))))
+}
+
+func ExampleFileServer_stripPrefix() {
+	// To serve a directory on disk (/tmp) under an alternate URL
+	// path (/tmpfiles/), use StripPrefix to modify the request
+	// URL's path before the FileServer sees it:
+	http.Handle("/tmpfiles/", http.StripPrefix("/tmpfiles/", http.FileServer(http.Dir("/tmp"))))
+}
+
+func ExampleStripPrefix() {
+	// To serve a directory on disk (/tmp) under an alternate URL
+	// path (/tmpfiles/), use StripPrefix to modify the request
+	// URL's path before the FileServer sees it:
+	http.Handle("/tmpfiles/", http.StripPrefix("/tmpfiles/", http.FileServer(http.Dir("/tmp"))))
 }
