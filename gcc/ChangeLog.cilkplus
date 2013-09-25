@@ -1,3 +1,9 @@
+2013-09-25  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* elem-function-common.c (rename_elem_fn): Used the mangled name instead
+	of the original function name to append the elemental function mangling
+	prefix.
+	
 2013-08-15  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* cilk.c (create_metadata_label): Make this function non-static.
