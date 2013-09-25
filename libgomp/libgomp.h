@@ -253,6 +253,8 @@ enum gomp_task_kind
   GOMP_TASK_TIED
 };
 
+struct gomp_taskgroup;
+
 /* This structure describes a "task" to be run by a thread.  */
 
 struct gomp_task
@@ -263,6 +265,9 @@ struct gomp_task
   struct gomp_task *prev_child;
   struct gomp_task *next_queue;
   struct gomp_task *prev_queue;
+  struct gomp_task *next_taskgroup;
+  struct gomp_task *prev_taskgroup;
+  struct gomp_taskgroup *taskgroup;
   struct gomp_task_icv icv;
   void (*fn) (void *);
   void *fn_data;
@@ -270,7 +275,17 @@ struct gomp_task
   bool in_taskwait;
   bool in_tied_task;
   bool final_task;
+  bool copy_ctors_done;
   gomp_sem_t taskwait_sem;
+};
+
+struct gomp_taskgroup
+{
+  struct gomp_taskgroup *prev;
+  struct gomp_task *children;
+  bool in_taskgroup_wait;
+  bool cancelled;
+  gomp_sem_t taskgroup_sem;
 };
 
 /* This structure describes a "team" of threads.  These are the threads

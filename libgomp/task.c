@@ -42,7 +42,9 @@ gomp_init_task (struct gomp_task *task, struct gomp_task *parent_task,
   task->in_taskwait = false;
   task->in_tied_task = false;
   task->final_task = false;
+  task->copy_ctors_done = false;
   task->children = NULL;
+  task->taskgroup = NULL;
   gomp_sem_init (&task->taskwait_sem, 0);
 }
 
@@ -94,8 +96,10 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
     flags &= ~1;
 #endif
 
-  /* If parallel has been cancelled, don't start new tasks.  */
-  if (team && gomp_team_barrier_cancelled (&team->barrier))
+  /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
+  if (team
+      && (gomp_team_barrier_cancelled (&team->barrier)
+	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
     return;
 
   if (!if_clause || team == NULL
@@ -108,7 +112,10 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       task.kind = GOMP_TASK_IFFALSE;
       task.final_task = (thr->task && thr->task->final_task) || (flags & 2);
       if (thr->task)
-	task.in_tied_task = thr->task->in_tied_task;
+	{
+	  task.in_tied_task = thr->task->in_tied_task;
+	  task.taskgroup = thr->task->taskgroup;
+	}
       thr->task = &task;
       if (__builtin_expect (cpyfn != NULL, 0))
 	{
@@ -141,6 +148,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
     {
       struct gomp_task *task;
       struct gomp_task *parent = thr->task;
+      struct gomp_taskgroup *taskgroup = parent->taskgroup;
       char *arg;
       bool do_wake;
 
@@ -150,9 +158,13 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       gomp_init_task (task, parent, gomp_icv (false));
       task->kind = GOMP_TASK_IFFALSE;
       task->in_tied_task = parent->in_tied_task;
+      task->taskgroup = taskgroup;
       thr->task = task;
       if (cpyfn)
-	cpyfn (arg, data);
+	{
+	  cpyfn (arg, data);
+	  task->copy_ctors_done = true;
+	}
       else
 	memcpy (arg, data, arg_size);
       thr->task = parent;
@@ -162,8 +174,11 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       task->in_tied_task = true;
       task->final_task = (flags & 2) >> 1;
       gomp_mutex_lock (&team->task_lock);
-      /* If parallel has been cancelled, don't start new tasks.  */
-      if (gomp_team_barrier_cancelled (&team->barrier))
+      /* If parallel or taskgroup has been cancelled, don't start new
+	 tasks.  */
+      if (__builtin_expect ((gomp_team_barrier_cancelled (&team->barrier)
+			     || (taskgroup && taskgroup->cancelled))
+			    && !task->copy_ctors_done, 0))
 	{
 	  gomp_mutex_unlock (&team->task_lock);
 	  gomp_finish_task (task);
@@ -183,6 +198,22 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	  task->prev_child = task;
 	}
       parent->children = task;
+      if (taskgroup)
+	{
+	  if (taskgroup->children)
+	    {
+	      task->next_taskgroup = taskgroup->children;
+	      task->prev_taskgroup = taskgroup->children->prev_taskgroup;
+	      task->next_taskgroup->prev_taskgroup = task;
+	      task->prev_taskgroup->next_taskgroup = task;
+	    }
+	  else
+	    {
+	      task->next_taskgroup = task;
+	      task->prev_taskgroup = task;
+	    }
+	  taskgroup->children = task;
+	}
       if (team->task_queue)
 	{
 	  task->next_queue = team->task_queue;
@@ -206,6 +237,84 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
     }
 }
 
+static inline bool
+gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
+		   struct gomp_taskgroup *taskgroup, struct gomp_team *team)
+{
+  if (parent && parent->children == child_task)
+    parent->children = child_task->next_child;
+  if (taskgroup && taskgroup->children == child_task)
+    taskgroup->children = child_task->next_taskgroup;
+  child_task->prev_queue->next_queue = child_task->next_queue;
+  child_task->next_queue->prev_queue = child_task->prev_queue;
+  if (team->task_queue == child_task)
+    {
+      if (child_task->next_queue != child_task)
+	team->task_queue = child_task->next_queue;
+      else
+	team->task_queue = NULL;
+    }
+  child_task->kind = GOMP_TASK_TIED;
+  if ((gomp_team_barrier_cancelled (&team->barrier)
+       || (taskgroup && taskgroup->cancelled))
+      && !child_task->copy_ctors_done)
+    return true;
+  team->task_running_count++;
+  if (team->task_count == team->task_running_count)
+    gomp_team_barrier_clear_task_pending (&team->barrier);
+  return false;
+}
+
+static inline void
+gomp_task_run_post_remove_parent (struct gomp_task *child_task)
+{
+  struct gomp_task *parent = child_task->parent;
+  if (parent == NULL)
+    return;
+  child_task->prev_child->next_child = child_task->next_child;
+  child_task->next_child->prev_child = child_task->prev_child;
+  if (parent->children != child_task)
+    return;
+  if (child_task->next_child != child_task)
+    parent->children = child_task->next_child;
+  else
+    {
+      /* We access task->children in GOMP_taskwait
+	 outside of the task lock mutex region, so
+	 need a release barrier here to ensure memory
+	 written by child_task->fn above is flushed
+	 before the NULL is written.  */
+      __atomic_store_n (&parent->children, NULL, MEMMODEL_RELEASE);
+      if (parent->in_taskwait)
+	gomp_sem_post (&parent->taskwait_sem);
+    }
+}
+
+static inline void
+gomp_task_run_post_remove_taskgroup (struct gomp_task *child_task)
+{
+  struct gomp_taskgroup *taskgroup = child_task->taskgroup;
+  if (taskgroup == NULL)
+    return;
+  child_task->prev_taskgroup->next_taskgroup = child_task->next_taskgroup;
+  child_task->next_taskgroup->prev_taskgroup = child_task->prev_taskgroup;
+  if (taskgroup->children != child_task)
+    return;
+  if (child_task->next_taskgroup != child_task)
+    taskgroup->children = child_task->next_taskgroup;
+  else
+    {
+      /* We access task->children in GOMP_taskgroup_end
+	 outside of the task lock mutex region, so
+	 need a release barrier here to ensure memory
+	 written by child_task->fn above is flushed
+	 before the NULL is written.  */
+      __atomic_store_n (&taskgroup->children, NULL, MEMMODEL_RELEASE);
+      if (taskgroup->in_taskgroup_wait)
+	gomp_sem_post (&taskgroup->taskgroup_sem);
+    }
+}
+
 void
 gomp_barrier_handle_tasks (gomp_barrier_state_t state)
 {
@@ -214,7 +323,6 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
   struct gomp_task *task = thr->task;
   struct gomp_task *child_task = NULL;
   struct gomp_task *to_free = NULL;
-  bool cancelled = false;
 
   gomp_mutex_lock (&team->task_lock);
   if (gomp_barrier_last_thread (state))
@@ -231,22 +339,12 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
 
   while (1)
     {
+      bool cancelled = false;
       if (team->task_queue != NULL)
 	{
-	  struct gomp_task *parent;
-
 	  child_task = team->task_queue;
-	  parent = child_task->parent;
-	  if (parent && parent->children == child_task)
-	    parent->children = child_task->next_child;
-	  child_task->prev_queue->next_queue = child_task->next_queue;
-	  child_task->next_queue->prev_queue = child_task->prev_queue;
-	  if (child_task->next_queue != child_task)
-	    team->task_queue = child_task->next_queue;
-	  else
-	    team->task_queue = NULL;
-	  child_task->kind = GOMP_TASK_TIED;
-	  cancelled |= gomp_team_barrier_cancelled (&team->barrier);
+	  cancelled = gomp_task_run_pre (child_task, child_task->parent,
+					 child_task->taskgroup, team);
 	  if (__builtin_expect (cancelled, 0))
 	    {
 	      if (to_free)
@@ -257,9 +355,6 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
 		}
 	      goto finish_cancelled;
 	    }
-	  team->task_running_count++;
-	  if (team->task_count == team->task_running_count)
-	    gomp_team_barrier_clear_task_pending (&team->barrier);
 	}
       gomp_mutex_unlock (&team->task_lock);
       if (to_free)
@@ -277,33 +372,12 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
       else
 	return;
       gomp_mutex_lock (&team->task_lock);
-     finish_cancelled:
       if (child_task)
 	{
-	  struct gomp_task *parent = child_task->parent;
-	  if (parent)
-	    {
-	      child_task->prev_child->next_child = child_task->next_child;
-	      child_task->next_child->prev_child = child_task->prev_child;
-	      if (parent->children == child_task)
-		{
-		  if (child_task->next_child != child_task)
-		    parent->children = child_task->next_child;
-		  else
-		    {
-		      /* We access task->children in GOMP_taskwait
-			 outside of the task lock mutex region, so
-			 need a release barrier here to ensure memory
-			 written by child_task->fn above is flushed
-			 before the NULL is written.  */
-		      __atomic_store_n (&parent->children, NULL,
-					MEMMODEL_RELEASE);
-		      if (parent->in_taskwait)
-			gomp_sem_post (&parent->taskwait_sem);
-		    }
-		}
-	    }
+	 finish_cancelled:
+	  gomp_task_run_post_remove_parent (child_task);
 	  gomp_clear_parent (child_task->children);
+	  gomp_task_run_post_remove_taskgroup (child_task);
 	  to_free = child_task;
 	  child_task = NULL;
 	  if (!cancelled)
@@ -344,6 +418,7 @@ GOMP_taskwait (void)
   gomp_mutex_lock (&team->task_lock);
   while (1)
     {
+      bool cancelled = false;
       if (task->children == NULL)
 	{
 	  gomp_mutex_unlock (&team->task_lock);
@@ -357,20 +432,19 @@ GOMP_taskwait (void)
       if (task->children->kind == GOMP_TASK_WAITING)
 	{
 	  child_task = task->children;
-	  task->children = child_task->next_child;
-	  child_task->prev_queue->next_queue = child_task->next_queue;
-	  child_task->next_queue->prev_queue = child_task->prev_queue;
-	  if (team->task_queue == child_task)
+	  cancelled
+	    = gomp_task_run_pre (child_task, task, child_task->taskgroup,
+				 team);
+	  if (__builtin_expect (cancelled, 0))
 	    {
-	      if (child_task->next_queue != child_task)
-		team->task_queue = child_task->next_queue;
-	      else
-		team->task_queue = NULL;
+	      if (to_free)
+		{
+		  gomp_finish_task (to_free);
+		  free (to_free);
+		  to_free = NULL;
+		}
+	      goto finish_cancelled;
 	    }
-	  child_task->kind = GOMP_TASK_TIED;
-	  team->task_running_count++;
-	  if (team->task_count == team->task_running_count)
-	    gomp_team_barrier_clear_task_pending (&team->barrier);
 	}
       else
 	/* All tasks we are waiting for are already running
@@ -398,6 +472,7 @@ GOMP_taskwait (void)
       gomp_mutex_lock (&team->task_lock);
       if (child_task)
 	{
+	 finish_cancelled:
 	  child_task->prev_child->next_child = child_task->next_child;
 	  child_task->next_child->prev_child = child_task->prev_child;
 	  if (task->children == child_task)
@@ -408,6 +483,7 @@ GOMP_taskwait (void)
 		task->children = NULL;
 	    }
 	  gomp_clear_parent (child_task->children);
+	  gomp_task_run_post_remove_taskgroup (child_task);
 	  to_free = child_task;
 	  child_task = NULL;
 	  team->task_count--;
@@ -427,11 +503,123 @@ GOMP_taskyield (void)
 void
 GOMP_taskgroup_start (void)
 {
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+  struct gomp_task *task = thr->task;
+  struct gomp_taskgroup *taskgroup;
+
+  /* If team is NULL, all tasks are executed as
+     GOMP_TASK_IFFALSE tasks and thus all children tasks of
+     taskgroup and their descendant tasks will be finished
+     by the time GOMP_taskgroup_end is called.  */
+  if (team == NULL)
+    return;
+  taskgroup = gomp_malloc (sizeof (struct gomp_taskgroup));
+  taskgroup->prev = task->taskgroup;
+  taskgroup->children = NULL;
+  taskgroup->in_taskgroup_wait = false;
+  taskgroup->cancelled = false;
+  gomp_sem_init (&taskgroup->taskgroup_sem, 0);
+  task->taskgroup = taskgroup;
 }
 
 void
 GOMP_taskgroup_end (void)
 {
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+  struct gomp_task *task = thr->task;
+  struct gomp_taskgroup *taskgroup;
+  struct gomp_task *child_task = NULL;
+  struct gomp_task *to_free = NULL;
+
+  if (team == NULL)
+    return;
+  taskgroup = task->taskgroup;
+  if (__atomic_load_n (&taskgroup->children, MEMMODEL_ACQUIRE) == NULL)
+    goto finish;
+  gomp_mutex_lock (&team->task_lock);
+  while (1)
+    {
+      bool cancelled = false;
+      if (taskgroup->children == NULL)
+	{
+	  gomp_mutex_unlock (&team->task_lock);
+	  if (to_free)
+	    {
+	      gomp_finish_task (to_free);
+	      free (to_free);
+	    }
+	  goto finish;
+	}
+      if (taskgroup->children->kind == GOMP_TASK_WAITING)
+	{
+	  child_task = taskgroup->children;
+	  cancelled
+	    = gomp_task_run_pre (child_task, child_task->parent, taskgroup,
+				 team);
+	  if (__builtin_expect (cancelled, 0))
+	    {
+	      if (to_free)
+		{
+		  gomp_finish_task (to_free);
+		  free (to_free);
+		  to_free = NULL;
+		}
+	      goto finish_cancelled;
+	    }
+	}
+      else
+	/* All tasks we are waiting for are already running
+	   in other threads.  Wait for them.  */
+	taskgroup->in_taskgroup_wait = true;
+      gomp_mutex_unlock (&team->task_lock);
+      if (to_free)
+	{
+	  gomp_finish_task (to_free);
+	  free (to_free);
+	  to_free = NULL;
+	}
+      if (child_task)
+	{
+	  thr->task = child_task;
+	  child_task->fn (child_task->fn_data);
+	  thr->task = task;
+	}
+      else
+	{
+	  gomp_sem_wait (&taskgroup->taskgroup_sem);
+	  taskgroup->in_taskgroup_wait = false;
+	  goto finish;
+	}
+      gomp_mutex_lock (&team->task_lock);
+      if (child_task)
+	{
+	 finish_cancelled:
+	  child_task->prev_taskgroup->next_taskgroup
+	    = child_task->next_taskgroup;
+	  child_task->next_taskgroup->prev_taskgroup
+	    = child_task->prev_taskgroup;
+	  if (taskgroup->children == child_task)
+	    {
+	      if (child_task->next_taskgroup != child_task)
+		taskgroup->children = child_task->next_taskgroup;
+	      else
+		taskgroup->children = NULL;
+	    }
+	  gomp_task_run_post_remove_parent (child_task);
+	  gomp_clear_parent (child_task->children);
+	  to_free = child_task;
+	  child_task = NULL;
+	  team->task_count--;
+	  team->task_running_count--;
+	}
+    }
+
+ finish:
+  task->taskgroup = taskgroup->prev;
+  gomp_sem_destroy (&taskgroup->taskgroup_sem);
+  free (taskgroup);
 }
 
 int

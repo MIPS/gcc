@@ -147,7 +147,8 @@ GOMP_cancellation_point (int which)
   if (!gomp_cancel_var)
     return false;
 
-  struct gomp_team *team = gomp_thread ()->ts.team;
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
   if (which & (GOMP_CANCEL_LOOP | GOMP_CANCEL_SECTIONS))
     {
       if (team == NULL)
@@ -156,10 +157,11 @@ GOMP_cancellation_point (int which)
     }
   else if (which & GOMP_CANCEL_TASKGROUP)
     {
-      /* FIXME: Check if current taskgroup has been cancelled,
-	 then fallthru into the GOMP_CANCEL_PARALLEL case,
-	 because if the current parallel has been cancelled,
-	 all tasks should be cancelled too.  */
+      if (thr->task->taskgroup && thr->task->taskgroup->cancelled)
+	return true;
+      /* FALLTHRU into the GOMP_CANCEL_PARALLEL case,
+	 as #pragma omp cancel parallel also cancels all explicit
+	 tasks.  */
     }
   if (team)
     return gomp_team_barrier_cancelled (&team->barrier);
@@ -176,7 +178,8 @@ GOMP_cancel (int which, bool do_cancel)
   if (!do_cancel)
     return ialias_call (GOMP_cancellation_point) (which);
 
-  struct gomp_team *team = gomp_thread ()->ts.team;
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
   if (which & (GOMP_CANCEL_LOOP | GOMP_CANCEL_SECTIONS))
     {
       /* In orphaned worksharing region, all we want to cancel
@@ -187,7 +190,12 @@ GOMP_cancel (int which, bool do_cancel)
     }
   else if (which & GOMP_CANCEL_TASKGROUP)
     {
-      /* FIXME: Handle taskgroup cancellation.  */
+      if (thr->task->taskgroup && !thr->task->taskgroup->cancelled)
+	{
+	  gomp_mutex_lock (&team->task_lock);
+	  thr->task->taskgroup->cancelled = true;
+	  gomp_mutex_unlock (&team->task_lock);
+	}
       return true;
     }
   team->team_cancelled = 1;

@@ -1,8 +1,9 @@
-/* { dg-do run } */
-/* { dg-set-target-env-var OMP_CANCELLATION "true" } */
+// { dg-do run }
+// { dg-set-target-env-var OMP_CANCELLATION "true" }
 
 #include <omp.h>
 #include <unistd.h>
+#include "cancel-test.h"
 
 static inline void
 do_some_work (void)
@@ -10,14 +11,18 @@ do_some_work (void)
   asm volatile ("" : : : "memory");
 }
 
-int
-main ()
+void
+foo ()
 {
+  S a, b, c;
   omp_set_dynamic (0);
   omp_set_schedule (omp_sched_static, 1);
-  #pragma omp parallel num_threads (16)
+  #pragma omp parallel num_threads (16) private (b) firstprivate (c)
   {
+    S d;
     int i, j;
+    b.bump ();
+    c.bump ();
     do_some_work ();
     #pragma omp barrier
     if (omp_get_thread_num () == 1)
@@ -35,5 +40,11 @@ main ()
 	#pragma omp cancel parallel
       }
   }
-  return 0;
+}
+
+int
+main ()
+{
+  foo ();
+  S::verify ();
 }

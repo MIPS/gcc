@@ -1,3 +1,39 @@
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* parallel.c (GOMP_cancellation_point, GOMP_cancel): Handle
+	GIMPLE_CANCEL_TASKGROUP cancellation.
+	* libgomp.h (struct gomp_task): Add next_taskgroup, prev_taskgroup,
+	taskgroup and copy_ctors_done fields.
+	(struct gomp_taskgroup): New type.
+	* task.c (gomp_init_task): Initialize copy_ctors_done and taskgroup
+	fields.
+	(GOMP_task): Don't start a new thread also if it's taskgroup has
+	been cancelled.  Set copy_ctors_done field if needed.  Initialize
+	taskgroup field.  If copy_ctors_done and already cancelled, don't
+	discard the task.  If taskgroup is non-NULL, enqueue the task
+	into taskgroup queue.
+	(gomp_task_run_pre, gomp_task_run_post_remove_parent,
+	gomp_task_run_post_remove_taskgroup): New inline functions.
+	(gomp_barrier_handle_tasks, GOMP_taskwait): Use them.
+	(GOMP_taskgroup_start, GOMP_taskgroup_end): Implement taskgroup
+	support.
+	* testsuite/libgomp.c++/cancel-parallel-1.C: New test.
+	* testsuite/libgomp.c++/cancel-parallel-2.C: New test.
+	* testsuite/libgomp.c++/cancel-parallel-3.C: New test.
+	* testsuite/libgomp.c++/cancel-for-1.C: New test.
+	* testsuite/libgomp.c++/cancel-for-1.C: New test.
+	* testsuite/libgomp.c++/cancel-taskgroup-1.C: New test.
+	* testsuite/libgomp.c++/cancel-taskgroup-2.C: New test.
+	* testsuite/libgomp.c++/cancel-taskgroup-3.C: New test.
+	* testsuite/libgomp.c++/cancel-test.h: New file.
+	* testsuite/libgomp.c++/cancel-sections-1.C: New test.
+	* testsuite/libgomp.c++/taskgroup-1.C: New test.
+	* testsuite/libgomp.c/cancel-taskgroup-1.c: New test.
+	* testsuite/libgomp.c/cancel-taskgroup-2.c: New test.
+	* testsuite/libgomp.c/taskgroup-1.c: New test.
+	* testsuite/libgomp.c/cancel-parallel-3.c (do_some_work): Use
+	void return type.
+
 2013-09-24  Richard Henderson  <rth@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
