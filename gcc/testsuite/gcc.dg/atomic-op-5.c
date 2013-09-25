@@ -1,14 +1,16 @@
 /* Test __atomic routines for existence and proper execution on 16 byte 
    values with each valid memory model.  */
 /* { dg-do run } */
+/* { dg-options "--std=c11" } */
 /* { dg-require-effective-target sync_int_128_runtime } */
-/* { dg-options "-mcx16" { target { i?86-*-* x86_64-*-* } } } */
+/* { dg-options "--std=c11 -mcx16" { target { i?86-*-* x86_64-*-* } } } */
 
 /* Test the execution of the __atomic_*OP builtin routines for an int_128.  */
 
 extern void abort(void);
 
-__int128_t v, count, res;
+_Atomic __int128_t v;
+__int128_t count, res;
 const __int128_t init = ~0;
 
 /* The fetch_op routines return the original value before the operation.  */
@@ -528,6 +530,7 @@ test_or ()
     abort ();
 }
 
+int
 main ()
 {
   test_fetch_add ();

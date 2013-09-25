@@ -161,7 +161,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct atomic
     {
     private:
-      _Tp _M_i;
+      _Tp __attribute ((atomic)) _M_i;
 
     public:
       atomic() noexcept = default;

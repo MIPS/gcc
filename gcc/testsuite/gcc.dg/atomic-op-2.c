@@ -1,6 +1,7 @@
 /* Test __atomic routines for existence and proper execution on 2 byte 
    values with each valid memory model.  */
 /* { dg-do run } */
+/* { dg-options "--std=c11" } */
 /* { dg-require-effective-target sync_char_short } */
 
 
@@ -8,7 +9,8 @@
 
 extern void abort(void);
 
-short v, count, res;
+_Atomic short v;
+short count, res;
 const short init = ~0;
 
 /* The fetch_op routines return the original value before the operation.  */
@@ -528,6 +530,7 @@ test_or ()
     abort ();
 }
 
+int
 main ()
 {
   test_fetch_add ();

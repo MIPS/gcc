@@ -1,3 +1,12 @@
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* include/bits/atomic_base.h (struct __atomic_base): Add
+	__attribute__((atomic) to member data element.
+	(struct __atomic_base<_PTp*>): Add __attribute__((atomic)) to member
+	data element.
+	* include/std/atomic (struct atomic): Add __attribute__((atomic)) to
+	member data element.
+
 2013-09-24  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR libstdc++/58338

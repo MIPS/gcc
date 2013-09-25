@@ -7,7 +7,8 @@
 
 extern void abort(void);
 
-short v, count, ret;
+short __attribute__ ((atomic)) v;
+short count, ret;
 
 main ()
 {

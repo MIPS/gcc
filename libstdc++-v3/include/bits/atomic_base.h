@@ -346,16 +346,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   // atomic_char32_t char32_t
   // atomic_wchar_t  wchar_t
   //
-  // NB: Assuming _ITp is an integral scalar type that is 1, 2, 4, or
-  // 8 bytes, since that is what GCC built-in functions for atomic
+  // NB: Assuming _ITp is an integral scalar type that is 1, 2, 4, 8, or
+  // 16 bytes, since that is what GCC built-in functions for atomic
   // memory access expect.
   template<typename _ITp>
     struct __atomic_base
     {
     private:
-      typedef _ITp 	__int_type;
+      typedef _ITp 				__int_type;
+      typedef _ITp __attribute__ ((atomic))	__atomic_int_type;
 
-      __int_type 	_M_i;
+      __atomic_int_type _M_i;
 
     public:
       __atomic_base() noexcept = default;
@@ -669,9 +670,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct __atomic_base<_PTp*>
     {
     private:
-      typedef _PTp* 	__pointer_type;
+      typedef _PTp* 				__pointer_type;
+      typedef _PTp* __attribute ((atomic)) 	__atomic_pointer_type;
 
-      __pointer_type 	_M_p;
+      __atomic_pointer_type 	_M_p;
 
       // Factored out to facilitate explicit specialization.
       constexpr ptrdiff_t

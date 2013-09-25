@@ -2,14 +2,15 @@
    values with each valid memory model.  */
 /* { dg-do run } */
 /* { dg-require-effective-target sync_long_long_runtime } */
-/* { dg-options "" } */
-/* { dg-options "-march=pentium" { target { { i?86-*-* x86_64-*-* } && ia32 } } } */
+/* { dg-options "--std=c11" } */
+/* { dg-options "--std=c11 -march=pentium" { target { { i?86-*-* x86_64-*-* } && ia32 } } } */
 
 /* Test the execution of the __atomic_*OP builtin routines for long long.  */
 
 extern void abort(void);
 
-long long v, count, res;
+_Atomic long long v;
+long long count, res;
 const long long init = ~0;
 
 /* The fetch_op routines return the original value before the operation.  */
@@ -529,6 +530,7 @@ test_or ()
     abort ();
 }
 
+int
 main ()
 {
   test_fetch_add ();

@@ -1,13 +1,15 @@
 /* Test __atomic routines for existence and proper execution on 1 byte 
    values with each valid memory model.  */
 /* { dg-do run } */
+/* { dg-options "--std=c11" } */
 /* { dg-require-effective-target sync_char_short } */
 
 /* Test the execution of the __atomic_*OP builtin routines for a char.  */
 
 extern void abort(void);
 
-char v, count, res;
+_Atomic char v;
+char count, res;
 const char init = ~0;
 
 /* The fetch_op routines return the original value before the operation.  */
@@ -527,6 +529,7 @@ test_or ()
     abort ();
 }
 
+int
 main ()
 {
   test_fetch_add ();

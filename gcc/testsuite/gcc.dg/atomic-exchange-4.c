@@ -9,7 +9,8 @@
 
 extern void abort(void);
 
-long long v, count, ret;
+long long __attribute__ ((atomic)) v;
+long long count, ret;
 
 main ()
 {

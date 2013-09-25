@@ -8,7 +8,8 @@
 
 extern void abort(void);
 
-__int128_t v, count, ret;
+__int128_t __attribute__ ((atomic)) v;
+__int128_t count, ret;
 
 main ()
 {
