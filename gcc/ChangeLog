@@ -1,3 +1,11 @@
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* hooks.c (hook_uint_mode_0): Return 0 unit hook.
+	* hooks.h (hook_uint_mode_0): Prototype.
+	* target.def (atomic_align_for_mode): define hook.
+	* doc/tm.texi (TARGET_ATOMIC_ALIGN_FOR_MODE): Define.
+	* doc/tm.texi.in (TARGET_ATOMIC_ALIGN_FOR_MODE): Add.
+
 2013-09-25  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/58521

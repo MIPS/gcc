@@ -11353,3 +11353,7 @@ It returns true if the target supports GNU indirect functions.
 The support includes the assembler, linker and dynamic linker.
 The default value of this hook is based on target's libc.
 @end deftypefn
+
+@deftypefn {Target Hook} {unsigned int} TARGET_ATOMIC_ALIGN_FOR_MODE (enum machine_mode @var{mode})
+If defined, this function returns an appropriate alignment in bits for an atomic object of machine_mode @var{mode}.  If 0 is returned then the default alignment for the specified mode is used. 
+@end deftypefn

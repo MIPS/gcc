@@ -5123,7 +5123,19 @@ DEFHOOKPOD
  @code{atomic_test_and_set} is not exactly 1, i.e. the\
  @code{bool} @code{true}.",
  unsigned char, 1)
- 
+
+/* Return an unsigned int representing the alignment (in bits) of the atomic
+   type which maps to machine MODE.  This allows alignment to be overridden
+   as needed.  */
+DEFHOOK
+(atomic_align_for_mode,
+"If defined, this function returns an appropriate alignment in bits for an\
+ atomic object of machine_mode @var{mode}.  If 0 is returned then the\
+ default alignment for the specified mode is used. ",
+ unsigned int, (enum machine_mode mode),
+ hook_uint_mode_0)
+
+
 /* Leave the boolean fields at the end.  */
 
 /* True if we can create zeroed data by switching to a BSS section
