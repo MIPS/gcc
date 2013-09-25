@@ -808,6 +808,8 @@ qualifier_flags (tree type)
     flags |= 2;
   if (quals & TYPE_QUAL_RESTRICT)
     flags |= 4;
+  if (quals & TYPE_QUAL_ATOMIC)
+    flags |= 8;
   return flags;
 }
 

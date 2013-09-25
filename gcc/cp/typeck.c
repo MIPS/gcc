@@ -8751,7 +8751,7 @@ cp_type_quals (const_tree type)
   /* METHOD and REFERENCE_TYPEs should never have quals.  */
   gcc_assert ((TREE_CODE (type) != METHOD_TYPE
 	       && TREE_CODE (type) != REFERENCE_TYPE)
-	      || ((quals & (TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE))
+	    || ((quals & (TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE|TYPE_QUAL_ATOMIC))
 		  == TYPE_UNQUALIFIED));
   return quals;
 }
@@ -8811,7 +8811,7 @@ bool
 cv_qualified_p (const_tree type)
 {
   int quals = cp_type_quals (type);
-  return (quals & (TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE)) != 0;
+  return (quals & (TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE|TYPE_QUAL_ATOMIC)) != 0;
 }
 
 /* Returns nonzero if the TYPE contains a mutable member.  */

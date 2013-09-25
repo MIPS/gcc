@@ -489,6 +489,7 @@ c_token_starts_typename (c_token *token)
 	case RID_UNION:
 	case RID_TYPEOF:
 	case RID_CONST:
+	case RID_ATOMIC:
 	case RID_VOLATILE:
 	case RID_RESTRICT:
 	case RID_ATTRIBUTE:
@@ -571,6 +572,7 @@ c_token_is_qualifier (c_token *token)
 	case RID_VOLATILE:
 	case RID_RESTRICT:
 	case RID_ATTRIBUTE:
+	case RID_ATOMIC:
 	  return true;
 	default:
 	  return false;
@@ -651,6 +653,7 @@ c_token_starts_declspecs (c_token *token)
 	case RID_ACCUM:
 	case RID_SAT:
 	case RID_ALIGNAS:
+	case RID_ATOMIC:
 	  return true;
 	default:
 	  return false;
@@ -1948,8 +1951,10 @@ c_parser_static_assert_declaration_no_semi (c_parser *parser)
      restrict
      volatile
      address-space-qualifier
+     atomic
 
    (restrict is new in C99.)
+   (atomic is new in C11.)
 
    GNU extensions:
 
@@ -2171,6 +2176,17 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  t = c_parser_typeof_specifier (parser);
 	  declspecs_add_type (loc, specs, t);
 	  break;
+	case RID_ATOMIC:
+	  if (!flag_isoc11)
+	    {
+	      if (flag_isoc99)
+		pedwarn (loc, OPT_Wpedantic,
+			 "ISO C99 does not support _Atomic qualifier");
+	      else
+		pedwarn (loc, OPT_Wpedantic,
+			 "ISO C90 does not support _Atomic qualifier");
+	    }
+	  /* Fallthru.  */
 	case RID_CONST:
 	case RID_VOLATILE:
 	case RID_RESTRICT:
@@ -3487,6 +3503,7 @@ c_parser_attribute_any_word (c_parser *parser)
 	case RID_SAT:
 	case RID_TRANSACTION_ATOMIC:
 	case RID_TRANSACTION_CANCEL:
+	case RID_ATOMIC:
 	  ok = true;
 	  break;
 	default:

@@ -3709,6 +3709,7 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
                    && declspecs->typespec_kind != ctsk_tagfirstref
 		   && (declspecs->const_p
 		       || declspecs->volatile_p
+		       || declspecs->atomic_p
 		       || declspecs->restrict_p
 		       || declspecs->address_space))
 	    {
@@ -3798,6 +3799,7 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
 
   if (!warned && !in_system_header && (declspecs->const_p
 				       || declspecs->volatile_p
+				       || declspecs->atomic_p
 				       || declspecs->restrict_p
 				       || declspecs->address_space))
     {
@@ -3829,6 +3831,7 @@ quals_from_declspecs (const struct c_declspecs *specs)
   int quals = ((specs->const_p ? TYPE_QUAL_CONST : 0)
 	       | (specs->volatile_p ? TYPE_QUAL_VOLATILE : 0)
 	       | (specs->restrict_p ? TYPE_QUAL_RESTRICT : 0)
+	       | (specs->atomic_p ? TYPE_QUAL_ATOMIC : 0)
 	       | (ENCODE_QUAL_ADDR_SPACE (specs->address_space)));
   gcc_assert (!specs->type
 	      && !specs->decl_attr
@@ -4908,6 +4911,7 @@ grokdeclarator (const struct c_declarator *declarator,
   int constp;
   int restrictp;
   int volatilep;
+  int atomicp;
   int type_quals = TYPE_UNQUALIFIED;
   tree name = NULL_TREE;
   bool funcdef_flag = false;
@@ -5062,6 +5066,7 @@ grokdeclarator (const struct c_declarator *declarator,
   constp = declspecs->const_p + TYPE_READONLY (element_type);
   restrictp = declspecs->restrict_p + TYPE_RESTRICT (element_type);
   volatilep = declspecs->volatile_p + TYPE_VOLATILE (element_type);
+  atomicp = declspecs->atomic_p + TYPE_ATOMIC (element_type);
   as1 = declspecs->address_space;
   as2 = TYPE_ADDR_SPACE (element_type);
   address_space = ADDR_SPACE_GENERIC_P (as1)? as2 : as1;
@@ -5074,6 +5079,9 @@ grokdeclarator (const struct c_declarator *declarator,
 	pedwarn (loc, OPT_Wpedantic, "duplicate %<restrict%>");
       if (volatilep > 1)
 	pedwarn (loc, OPT_Wpedantic, "duplicate %<volatile%>");
+      if (atomicp > 1)
+	pedwarn (loc, OPT_Wpedantic, "duplicate %<_Atomic%>");
+
     }
 
   if (!ADDR_SPACE_GENERIC_P (as1) && !ADDR_SPACE_GENERIC_P (as2) && as1 != as2)
@@ -5087,6 +5095,7 @@ grokdeclarator (const struct c_declarator *declarator,
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 		| (restrictp ? TYPE_QUAL_RESTRICT : 0)
 		| (volatilep ? TYPE_QUAL_VOLATILE : 0)
+		| (atomicp ? TYPE_QUAL_ATOMIC : 0)
 		| ENCODE_QUAL_ADDR_SPACE (address_space));
 
   /* Warn about storage classes that are invalid for certain
@@ -5652,9 +5661,16 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 	case cdk_pointer:
 	  {
+	    if (atomicp)
+	      {
+		error_at (loc,
+			  "ISO C forbids _Atomic qualifier function types");
+		type = error_mark_node;
+		break;
+	      }
+
 	    /* Merge any constancy or volatility into the target type
 	       for the pointer.  */
-
 	    if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
 		&& type_quals)
 	      pedwarn (loc, OPT_Wpedantic,
@@ -8822,6 +8838,7 @@ build_null_declspecs (void)
   ret->thread_p = false;
   ret->const_p = false;
   ret->volatile_p = false;
+  ret->atomic_p = false;
   ret->restrict_p = false;
   ret->saturating_p = false;
   ret->alignas_p = false;
@@ -8882,6 +8899,10 @@ declspecs_add_qual (source_location loc,
       dupe = specs->restrict_p;
       specs->restrict_p = true;
       specs->locations[cdw_restrict] = loc;
+      break;
+    case RID_ATOMIC:
+      dupe = specs->atomic_p;
+      specs->atomic_p = true;
       break;
     default:
       gcc_unreachable ();

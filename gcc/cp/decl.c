@@ -7976,6 +7976,7 @@ build_ptrmemfunc_type (tree type)
       TYPE_READONLY (t) = (type_quals & TYPE_QUAL_CONST) != 0;
       TYPE_VOLATILE (t) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
       TYPE_RESTRICT (t) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
+      TYPE_ATOMIC (t) = (type_quals & TYPE_QUAL_ATOMIC) != 0;
       TYPE_MAIN_VARIANT (t) = unqualified_variant;
       TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (unqualified_variant);
       TYPE_NEXT_VARIANT (unqualified_variant) = t;
@@ -9191,6 +9192,8 @@ grokdeclarator (const cp_declarator *declarator,
     type_quals |= TYPE_QUAL_VOLATILE;
   if (decl_spec_seq_has_spec_p (declspecs, ds_restrict))
     type_quals |= TYPE_QUAL_RESTRICT;
+  if (decl_spec_seq_has_spec_p (declspecs, ds_atomic))
+    type_quals |= TYPE_QUAL_ATOMIC;
   if (sfk == sfk_conversion && type_quals != TYPE_UNQUALIFIED)
     error ("qualifiers are not allowed on declaration of %<operator %T%>",
 	   ctor_return_type);

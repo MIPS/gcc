@@ -385,6 +385,12 @@ diagnose_ref_binding (location_t loc, tree reftype, tree intype, tree decl)
       else if (CP_TYPE_VOLATILE_P (ttl))
 	msg = G_("conversion to volatile reference type %q#T "
 	         "from rvalue of type %qT");
+      else if (CP_TYPE_ATOMIC_P (ttl) && decl)
+	msg = G_("initialization of atomic reference type %q#T from "
+	         "rvalue of type %qT");
+      else if (CP_TYPE_ATOMIC_P (ttl))
+	msg = G_("conversion to atomic reference type %q#T "
+	         "from rvalue of type %qT");
       else if (decl)
 	msg = G_("initialization of non-const reference type %q#T from "
 	         "rvalue of type %qT");

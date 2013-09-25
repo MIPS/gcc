@@ -1,3 +1,7 @@
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* objc-act.c (objc_push_parm): Adda tomic qualifier.
+
 2013-09-14  Iain Sandoe  <iain@codesourcery.com>
 
 	PR target/48094

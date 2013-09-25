@@ -7775,6 +7775,9 @@ non_const_var_error (tree r)
       else if (CP_TYPE_VOLATILE_P (type))
 	inform (DECL_SOURCE_LOCATION (r),
 		"%q#D is volatile", r);
+      else if (CP_TYPE_ATOMIC_P (type))
+	inform (DECL_SOURCE_LOCATION (r),
+		"%q#D is atomic", r);
       else if (!DECL_INITIAL (r)
 	       || !TREE_CONSTANT (DECL_INITIAL (r)))
 	inform (DECL_SOURCE_LOCATION (r),

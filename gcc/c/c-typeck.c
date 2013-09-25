@@ -5588,8 +5588,9 @@ convert_for_assignment (location_t location, tree type, tree rhs,
 	  else if (TREE_CODE (ttr) != FUNCTION_TYPE
 		   && TREE_CODE (ttl) != FUNCTION_TYPE)
 	    {
-	      if (TYPE_QUALS_NO_ADDR_SPACE (ttr)
-		  & ~TYPE_QUALS_NO_ADDR_SPACE (ttl))
+	      /* Assignments between atomic and non-atomic objects are OK.  */
+	      if (TYPE_QUALS_NO_ADDR_SPACE_NO_ATOMIC (ttr)
+		  & ~TYPE_QUALS_NO_ADDR_SPACE_NO_ATOMIC (ttl))
 		{
 		  WARN_FOR_QUALIFIERS (location, 0,
 				       G_("passing argument %d of %qE discards "

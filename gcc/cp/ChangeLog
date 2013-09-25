@@ -1,3 +1,23 @@
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* cp-tree.h (CP_TYPE_ATOMIC_P): New macro.
+	(enum cp_decl_spec): Add ds_atomic.
+	* cvt.c (diagnose_ref_binding): Handle atomic.
+	* decl.c (build_ptrmemfunc_type): Set TYPE_ATOMIC.
+	(grokdeclarator): handle atomic qualifier.
+	* mangle.c (dump_substitution_candidates): Add atomic to the qualifier
+	list.
+	* pt.c (check_cv_quals_for_unify): Add TYPE_QUAL_ATOMIC to check.
+	* rtti.c (qualifier_flags): Set atomic qualifier flag.
+	* parser.c (cp_parser_type_specifier): Handle RID_ATOMIC.
+	(cp_parser_cv_qualifier_seq_opt): Handle RID_ATOMIC.
+	(set_and_check_decl_spec_loc): Add atomic to decl_spec_names[].
+	* semantics.c (non_const_var_error): Check CP_TYPE_ATOMIC_P too.
+	* tree.c (cp_build_qualified_type_real): Add TYPE_QUAL_ATOMIC.
+	(cv_unqualified): Add TYPE_QUAL_ATOMIC to mask.
+	* typeck.c (cp_type_quals, cv_qualified_p): Add TYPE_QUAL_ATOMIC to
+	mask.
+
 2013-09-25  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/58516

@@ -1,3 +1,19 @@
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-aux-info.c (gen_type): Handle atomic qualifier.
+	* c-typeck.c (convert_for_assignment): Allow atomic and no-atomic
+	assignemnts.
+	* c-tree.h (struct c_declspecs): Add atomic_p field.
+	* c-decl.c (shadow_tag_warned): Add atomic_p to declspecs check.
+	(quals_from_declspecs): Add atomic_p to declspecs check.
+	(grokdeclarator): Check atomic and warn of duplicate or errors.
+	(build_null_declspecs): Handle atomic_p.
+	(declspecs_add_qual): Handle RID_ATOMIC.
+	* c-parser.c (c_token_starts_typename): Add RID_ATOMIC.
+	(c_token_is_qualifier, c_token_starts_declspecs): Add RID_ATOMIC.
+	(c_parser_declspecs): Add RID_ATOMIC and warn for C99 and C90.
+	(c_parser_attribute_any_word): Add RID_ATOMIC.
+
 2013-09-18  Marek Polacek  <polacek@redhat.com>
 
 	PR sanitize/58443

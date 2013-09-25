@@ -179,8 +179,16 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
   if (p != NULL && (*p == '*' || *p == '&'))
     pp_c_whitespace (pp);
 
+  if (qualifiers & TYPE_QUAL_ATOMIC)
+    {
+      pp_c_ws_string (pp, func_type ? "__attribute__((atomic))" : "_Atomic");
+      previous = true;
+    }
+
   if (qualifiers & TYPE_QUAL_CONST)
     {
+      if (previous)
+        pp_c_whitespace (pp);
       pp_c_ws_string (pp, func_type ? "__attribute__((const))" : "const");
       previous = true;
     }

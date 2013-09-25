@@ -1059,14 +1059,15 @@ cp_build_qualified_type_real (tree type,
   /* A reference or method type shall not be cv-qualified.
      [dcl.ref], [dcl.fct].  This used to be an error, but as of DR 295
      (in CD1) we always ignore extra cv-quals on functions.  */
-  if (type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)
+  if (type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE | TYPE_QUAL_ATOMIC)
       && (TREE_CODE (type) == REFERENCE_TYPE
 	  || TREE_CODE (type) == FUNCTION_TYPE
 	  || TREE_CODE (type) == METHOD_TYPE))
     {
       if (TREE_CODE (type) == REFERENCE_TYPE)
-	bad_quals |= type_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
-      type_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE);
+	bad_quals |= type_quals 
+		    & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE | TYPE_QUAL_ATOMIC);
+      type_quals &= ~(TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE | TYPE_QUAL_ATOMIC);
     }
 
   /* But preserve any function-cv-quals on a FUNCTION_TYPE.  */
@@ -1142,7 +1143,7 @@ cv_unqualified (tree type)
     return type;
 
   quals = cp_type_quals (type);
-  quals &= ~(TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE);
+  quals &= ~(TYPE_QUAL_CONST|TYPE_QUAL_VOLATILE|TYPE_QUAL_ATOMIC);
   return cp_build_qualified_type (type, quals);
 }
 

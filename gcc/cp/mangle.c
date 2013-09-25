@@ -326,6 +326,7 @@ dump_substitution_candidates (void)
       if (TYPE_P (el) &&
 	  (CP_TYPE_RESTRICT_P (el)
 	   || CP_TYPE_VOLATILE_P (el)
+	   || CP_TYPE_ATOMIC_P (el)
 	   || CP_TYPE_CONST_P (el)))
 	fprintf (stderr, "CV-");
       fprintf (stderr, "%s (%s at %p)\n",

@@ -327,6 +327,7 @@ static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
+static tree handle_atomic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_transparent_union_attribute (tree *, tree, tree,
 						int, bool *);
 static tree handle_constructor_attribute (tree *, tree, tree, int, bool *);
@@ -403,6 +404,7 @@ const struct c_common_resword c_common_reswords[] =
 {
   { "_Alignas",		RID_ALIGNAS,   D_CONLY },
   { "_Alignof",		RID_ALIGNOF,   D_CONLY },
+  { "_Atomic",		RID_ATOMIC,    D_CONLY },
   { "_Bool",		RID_BOOL,      D_CONLY },
   { "_Complex",		RID_COMPLEX,	0 },
   { "_Imaginary",	RID_IMAGINARY, D_CONLY },
@@ -639,6 +641,8 @@ const struct attribute_spec c_common_attribute_table[] =
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute, false },
+  { "atomic",		      0, 0, false, true, false,
+			      handle_atomic_attribute, false},
   { "transparent_union",      0, 0, false, false, false,
 			      handle_transparent_union_attribute, false },
   { "constructor",            0, 1, true,  false, false,
@@ -6888,6 +6892,35 @@ handle_const_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
+
+/* Handle an "atomic" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_atomic_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  bool ignored = true;
+  if (TYPE_P (*node) && TREE_CODE (*node) != ARRAY_TYPE)
+    {
+      tree type = *node;
+
+      if (!TYPE_ATOMIC (type))
+	{
+	  *node = build_qualified_type (type, 
+					(TYPE_QUALS (type) | TYPE_QUAL_ATOMIC));
+	  ignored = false;
+	}
+    }
+
+  if (ignored)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+  return NULL_TREE;
+}
+
 /* Handle a "transparent_union" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -10075,6 +10108,7 @@ sync_resolve_params (location_t loc, tree orig_function, tree function,
      call to check_function_arguments what ever type the user used.  */
   function_args_iter_next (&iter);
   ptype = TREE_TYPE (TREE_TYPE ((*params)[0]));
+  ptype = TYPE_MAIN_VARIANT (ptype);
 
   /* For the rest of the values, we need to cast these to FTYPE, so that we
      don't get warnings for passing pointer types, etc.  */
@@ -11471,6 +11505,7 @@ keyword_is_type_qualifier (enum rid keyword)
     case RID_CONST:
     case RID_VOLATILE:
     case RID_RESTRICT:
+    case RID_ATOMIC:
       return true;
     default:
       return false;

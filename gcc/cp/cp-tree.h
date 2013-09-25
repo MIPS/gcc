@@ -1292,6 +1292,10 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 #define CP_TYPE_VOLATILE_P(NODE)			\
   ((cp_type_quals (NODE) & TYPE_QUAL_VOLATILE) != 0)
 
+/* Nonzero if this type is atomic-qualified.  */
+#define CP_TYPE_ATOMIC_P(NODE)				\
+  ((cp_type_quals (NODE) & TYPE_QUAL_ATOMIC) != 0)
+
 /* Nonzero if this type is restrict-qualified.  */
 #define CP_TYPE_RESTRICT_P(NODE)			\
   ((cp_type_quals (NODE) & TYPE_QUAL_RESTRICT) != 0)
@@ -4757,6 +4761,7 @@ typedef enum cp_decl_spec {
   ds_const,
   ds_volatile,
   ds_restrict,
+  ds_atomic,
   ds_inline,
   ds_virtual,
   ds_explicit,

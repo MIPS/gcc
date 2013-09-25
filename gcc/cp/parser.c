@@ -14125,6 +14125,14 @@ cp_parser_type_specifier (cp_parser* parser,
 	*is_cv_qualifier = true;
       break;
 
+    case RID_ATOMIC:
+      ds = ds_atomic;
+      if (is_cv_qualifier)
+	*is_cv_qualifier = true;
+      if (!flag_isoc11)
+        pedwarn (token->location, 0, "_Atomic qualifier provided in ISO C11");
+      break;
+
     case RID_RESTRICT:
       ds = ds_restrict;
       if (is_cv_qualifier)
@@ -17384,6 +17392,10 @@ cp_parser_cv_qualifier_seq_opt (cp_parser* parser)
 
 	case RID_RESTRICT:
 	  cv_qualifier = TYPE_QUAL_RESTRICT;
+	  break;
+
+	case RID_ATOMIC:
+	  cv_qualifier = TYPE_QUAL_ATOMIC;
 	  break;
 
 	default:
@@ -23546,6 +23558,7 @@ set_and_check_decl_spec_loc (cp_decl_specifier_seq *decl_specs,
 	    "const",
 	    "volatile",
 	    "restrict",
+	    "_Atomic"
 	    "inline",
 	    "virtual",
 	    "explicit",

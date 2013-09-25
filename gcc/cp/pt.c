@@ -16575,7 +16575,8 @@ check_cv_quals_for_unify (int strict, tree arg, tree parm)
       if ((TREE_CODE (arg) == REFERENCE_TYPE
 	   || TREE_CODE (arg) == FUNCTION_TYPE
 	   || TREE_CODE (arg) == METHOD_TYPE)
-	  && (parm_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE)))
+	  && (parm_quals & (TYPE_QUAL_CONST | TYPE_QUAL_VOLATILE 
+			    | TYPE_QUAL_ATOMIC)))
 	return 0;
 
       if ((!POINTER_TYPE_P (arg) && TREE_CODE (arg) != TEMPLATE_TYPE_PARM)

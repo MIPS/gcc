@@ -1,5 +1,9 @@
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
+	* doc/generic.texi (CP_TYPE_ATOMIC_P): Add documentation.
+
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
 	* tree-core.h (enum cv_qualifier): Add TYPE_QUAL_ATOMIC.
 	(enum tree_index): Add TI_ATOMIC{QHSDT}I_TYPE.
 	(struct tree_base): Add atomic_flag field.
