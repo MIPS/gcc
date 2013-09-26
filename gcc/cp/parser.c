@@ -14305,6 +14305,8 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       /* If it is not already a TYPE, take its type.  */
       if (!TYPE_P (type))
 	type = finish_typeof (type);
+      if (TYPE_ATOMIC (type))
+        type = TYPE_MAIN_VARIANT (type);
 
       if (decl_specs)
 	cp_parser_set_decl_spec_type (decl_specs, type,

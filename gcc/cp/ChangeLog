@@ -1,3 +1,8 @@
+2013-09-26  Andrew MacLeod  <amacleod@redhat.com>
+
+	* cp/parser.c (cp_parser_simple_type_specifier): Change TYPEOF for
+	atomic types to return the non-atomic type.
+
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* cp-tree.h (CP_TYPE_ATOMIC_P): New macro.
