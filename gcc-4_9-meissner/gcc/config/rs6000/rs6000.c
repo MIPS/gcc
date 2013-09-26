@@ -2394,13 +2394,17 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_constraints[RS6000_CONSTRAINT_wa] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wd] = VSX_REGS;
       rs6000_constraints[RS6000_CONSTRAINT_wf] = VSX_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wv] = ALTIVEC_REGS;
 
       if (TARGET_VSX_TIMODE)
 	rs6000_constraints[RS6000_CONSTRAINT_wt] = VSX_REGS;
 
-      rs6000_constraints[RS6000_CONSTRAINT_ws]
-	= (TARGET_UPPER_REGS_DF) ? VSX_REGS : FLOAT_REGS;
+      if (TARGET_UPPER_REGS_DF)
+	{
+	  rs6000_constraints[RS6000_CONSTRAINT_ws] = VSX_REGS;
+	  rs6000_constraints[RS6000_CONSTRAINT_wv] = ALTIVEC_REGS;
+	}
+      else
+	rs6000_constraints[RS6000_CONSTRAINT_ws] = FLOAT_REGS;
     }
 
   /* Add conditional constraints based on various options, to allow us to
@@ -2420,12 +2424,16 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_POWERPC64)
     rs6000_constraints[RS6000_CONSTRAINT_wr] = GENERAL_REGS;
 
-  if (TARGET_P8_VECTOR)
+  if (TARGET_P8_VECTOR && TARGET_UPPER_REGS_SF)
     {
       rs6000_constraints[RS6000_CONSTRAINT_wu] = ALTIVEC_REGS;
-      rs6000_constraints[RS6000_CONSTRAINT_wy]
-	= rs6000_constraints[RS6000_CONSTRAINT_ww]
-	= (TARGET_UPPER_REGS_SF) ? VSX_REGS : FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wy] = VSX_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_ww] = VSX_REGS;
+    }
+  else if (TARGET_P8_VECTOR)
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_wy] = FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_ww] = FLOAT_REGS;
     }
   else if (TARGET_VSX)
     rs6000_constraints[RS6000_CONSTRAINT_ww] = FLOAT_REGS;
