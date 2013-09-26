@@ -1,3 +1,17 @@
+2013-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_task_call): If there are depend clauses,
+	pass bit 8 in 7th argument and pass pointer to depend array
+	as 8th argument.
+	(lower_depend_clauses): New function.
+	(lower_omp_taskreg): Handle depend clauses.
+	* omp-builtins.def (BUILT_IN_GOMP_TASK): Use
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR
+	instead of BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT.
+	* builtin-types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): Remove.
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR): New.
+
 2013-09-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (lower_omp_sections, lower_omp_for, lower_omp_taskreg):

@@ -1,3 +1,9 @@
+2013-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): Remove.
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR): New.
+
 2013-09-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def (BT_FN_VOID_INT_SIZE_PTR_PTR_PTR): Remove.

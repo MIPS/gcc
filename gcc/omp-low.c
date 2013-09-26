@@ -4203,7 +4203,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 static void
 expand_task_call (basic_block bb, gimple entry_stmt)
 {
-  tree t, t1, t2, t3, flags, cond, c, c2, clauses;
+  tree t, t1, t2, t3, flags, cond, c, c2, clauses, depend;
   gimple_stmt_iterator gsi;
   location_t loc = gimple_location (entry_stmt);
 
@@ -4217,8 +4217,9 @@ expand_task_call (basic_block bb, gimple entry_stmt)
 
   c = find_omp_clause (clauses, OMP_CLAUSE_UNTIED);
   c2 = find_omp_clause (clauses, OMP_CLAUSE_MERGEABLE);
+  depend = find_omp_clause (clauses, OMP_CLAUSE_DEPEND);
   flags = build_int_cst (unsigned_type_node,
-			 (c ? 1 : 0) + (c2 ? 4 : 0));
+			 (c ? 1 : 0) + (c2 ? 4 : 0) + (depend ? 8 : 0));
 
   c = find_omp_clause (clauses, OMP_CLAUSE_FINAL);
   if (c)
@@ -4229,6 +4230,10 @@ expand_task_call (basic_block bb, gimple entry_stmt)
 			   build_int_cst (unsigned_type_node, 0));
       flags = fold_build2_loc (loc, PLUS_EXPR, unsigned_type_node, flags, c);
     }
+  if (depend)
+    depend = OMP_CLAUSE_DECL (depend);
+  else
+    depend = build_int_cst (ptr_type_node, 0);
 
   gsi = gsi_last_bb (bb);
   t = gimple_omp_task_data_arg (entry_stmt);
@@ -4244,9 +4249,10 @@ expand_task_call (basic_block bb, gimple entry_stmt)
     t3 = build_fold_addr_expr_loc (loc, t);
 
   t = build_call_expr (builtin_decl_explicit (BUILT_IN_GOMP_TASK),
-		       7, t1, t2, t3,
+		       8, t1, t2, t3,
 		       gimple_omp_task_arg_size (entry_stmt),
-		       gimple_omp_task_arg_align (entry_stmt), cond, flags);
+		       gimple_omp_task_arg_align (entry_stmt), cond, flags,
+		       depend);
 
   force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 			    false, GSI_CONTINUE_LINKING);
@@ -9232,6 +9238,68 @@ create_task_copyfn (gimple task_stmt, omp_context *ctx)
   pop_cfun ();
 }
 
+static void
+lower_depend_clauses (gimple stmt, gimple_seq *iseq, gimple_seq *oseq)
+{
+  tree c, clauses;
+  gimple g;
+  size_t n_in = 0, n_out = 0, idx = 2, i;
+
+  clauses = find_omp_clause (gimple_omp_task_clauses (stmt),
+			     OMP_CLAUSE_DEPEND);
+  gcc_assert (clauses);
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND)
+      switch (OMP_CLAUSE_DEPEND_KIND (c))
+	{
+	case OMP_CLAUSE_DEPEND_IN:
+	  n_in++;
+	  break;
+	case OMP_CLAUSE_DEPEND_OUT:
+	case OMP_CLAUSE_DEPEND_INOUT:
+	  n_out++;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+  tree type = build_array_type_nelts (ptr_type_node, n_in + n_out + 2);
+  tree array = create_tmp_var (type, NULL);
+  tree r = build4 (ARRAY_REF, ptr_type_node, array, size_int (0), NULL_TREE,
+		   NULL_TREE);
+  g = gimple_build_assign (r, build_int_cst (ptr_type_node, n_in + n_out));
+  gimple_seq_add_stmt (iseq, g);
+  r = build4 (ARRAY_REF, ptr_type_node, array, size_int (1), NULL_TREE,
+	      NULL_TREE);
+  g = gimple_build_assign (r, build_int_cst (ptr_type_node, n_out));
+  gimple_seq_add_stmt (iseq, g);
+  for (i = 0; i < 2; i++)
+    {
+      if ((i ? n_in : n_out) == 0)
+	continue;
+      for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+	    && ((OMP_CLAUSE_DEPEND_KIND (c) != OMP_CLAUSE_DEPEND_IN) ^ i))
+	  {
+	    tree t = OMP_CLAUSE_DECL (c);
+	    t = fold_convert (ptr_type_node, t);
+	    gimplify_expr (&t, iseq, NULL, is_gimple_val, fb_rvalue);
+	    r = build4 (ARRAY_REF, ptr_type_node, array, size_int (idx++),
+			NULL_TREE, NULL_TREE);
+	    g = gimple_build_assign (r, t);
+	    gimple_seq_add_stmt (iseq, g);
+	  }
+    }
+  tree *p = gimple_omp_task_clauses_ptr (stmt);
+  c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_DEPEND);
+  OMP_CLAUSE_DECL (c) = build_fold_addr_expr (array);
+  OMP_CLAUSE_CHAIN (c) = *p;
+  *p = c;
+  tree clobber = build_constructor (type, NULL);
+  TREE_THIS_VOLATILE (clobber) = 1;
+  g = gimple_build_assign (array, clobber);
+  gimple_seq_add_stmt (oseq, g);
+}
+
 /* Lower the OpenMP parallel or task directive in the current statement
    in GSI_P.  CTX holds context information for the directive.  */
 
@@ -9241,9 +9309,9 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree clauses;
   tree child_fn, t;
   gimple stmt = gsi_stmt (*gsi_p);
-  gimple par_bind, bind;
+  gimple par_bind, bind, dep_bind = NULL;
   gimple_seq par_body, olist, ilist, par_olist, par_rlist, par_ilist, new_body;
-  struct gimplify_ctx gctx;
+  struct gimplify_ctx gctx, dep_gctx;
   location_t loc = gimple_location (stmt);
 
   clauses = gimple_omp_taskreg_clauses (stmt);
@@ -9263,6 +9331,16 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       if (ws_num == 1)
 	gimple_omp_parallel_set_combined_p (stmt, true);
     }
+  gimple_seq dep_ilist = NULL;
+  gimple_seq dep_olist = NULL;
+  if (gimple_code (stmt) == GIMPLE_OMP_TASK
+      && find_omp_clause (clauses, OMP_CLAUSE_DEPEND))
+    {
+      push_gimplify_context (&dep_gctx);
+      dep_bind = gimple_build_bind (NULL, NULL, make_node (BLOCK));
+      lower_depend_clauses (stmt, &dep_ilist, &dep_olist);
+    }
+
   if (ctx->srecord_type)
     create_task_copyfn (stmt, ctx);
 
@@ -9329,12 +9407,20 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_omp_set_body (stmt, new_body);
 
   bind = gimple_build_bind (NULL, NULL, gimple_bind_block (par_bind));
-  gsi_replace (gsi_p, bind, true);
+  gsi_replace (gsi_p, dep_bind ? dep_bind : bind, true);
   gimple_bind_add_seq (bind, ilist);
   gimple_bind_add_stmt (bind, stmt);
   gimple_bind_add_seq (bind, olist);
 
   pop_gimplify_context (NULL);
+
+  if (dep_bind)
+    {
+      gimple_bind_add_seq (dep_bind, dep_ilist);
+      gimple_bind_add_stmt (dep_bind, bind);
+      gimple_bind_add_seq (dep_bind, dep_olist);
+      pop_gimplify_context (dep_bind);
+    }
 }
 
 /* Lower the OpenMP target directive in the current statement
