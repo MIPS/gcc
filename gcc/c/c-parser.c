@@ -5457,6 +5457,33 @@ c_parser_expr_no_commas (c_parser *parser, struct c_expr *after)
       code = BIT_IOR_EXPR;
       break;
     default:
+      /* TODO
+	 This doesnt work. Expressions like ~a where a is atomic do not function
+	 properly. since the rhs is parsed/consumed as an entire expression.  
+	 and at the time, we don't know if this expression is a RHS or LHS, so
+	 we dont know if we need a load or not.
+
+	 I think we need to introduce an ATOMIC_EXPR node, and whenever the
+	 type of an expression becomes TYPE_ATOMIC(), we immiedately hang the
+	 expression off a new ATOMIC_EXPR node as operand 0, and change the
+	 type of the ATOMIC_EXPR node to TYPE_MAIN_VARIANT(atomic_type).  This
+	 will encapsulate all the expressions which need to be handled with an
+	 ATOMIC_EXPR node, and then at this point, scan the rhs and see if there
+	 are any ATOMIC_EXPR, and replace those nodes with atomic_loads's of 
+	 the ATOMIC_EXPR operand.
+
+	 THis will also change the LHS processing in build_modify_expr... 
+	 although *in theory* the top level expression *ought* to be the
+	 only thing that should have an ATOMIC_EXPR(), so it may be as
+	 simple as checking the LHS is an ATOMIC_EXPR node rather than 
+	 the current check of ATOMIC_TYPE (lhs).
+
+	 This also means the TYPE_ATOMIC flag in expressions should ONLY 
+	 occur on the operand of an ATOMIC_EXPR() nodes... anywhere else 
+	 would be an error.  */
+      if (TREE_CODE (lhs.value) != ERROR_MARK 
+	  && TYPE_ATOMIC (TREE_TYPE (lhs.value)))
+	lhs.value = build_atomic_load (op_location, lhs.value);
       return lhs;
     }
   c_parser_consume_token (parser);

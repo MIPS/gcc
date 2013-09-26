@@ -104,6 +104,8 @@ static void readonly_warning (tree, enum lvalue_use);
 static int lvalue_or_else (location_t, const_tree, enum lvalue_use);
 static void record_maybe_used_decl (tree);
 static int comptypes_internal (const_tree, const_tree, bool *, bool *);
+static tree build_atomic_assign (location_t, tree, enum tree_code, tree);
+
 
 /* Return true if EXP is a null pointer constant, false otherwise.  */
 
@@ -4840,6 +4842,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
   bool npc;
+  bool is_atomic_op;
 
   /* Types that aren't fully specified cannot be used in assignments.  */
   lhs = require_complete_type (lhs);
@@ -4851,6 +4854,8 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   /* For ObjC properties, defer this check.  */
   if (!objc_is_property_ref (lhs) && !lvalue_or_else (location, lhs, lv_assign))
     return error_mark_node;
+
+  is_atomic_op = TYPE_ATOMIC (TREE_TYPE (lhs));
 
   if (TREE_CODE (rhs) == EXCESS_PRECISION_EXPR)
     {
@@ -4882,12 +4887,17 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
     {
       lhs = c_fully_fold (lhs, false, NULL);
       lhs = stabilize_reference (lhs);
-      newrhs = build_binary_op (location,
-				modifycode, lhs, rhs, 1);
 
-      /* The original type of the right hand side is no longer
-	 meaningful.  */
-      rhs_origtype = NULL_TREE;
+      /* Construct the RHS for any non-atomic compound assignemnt. */
+      if (!is_atomic_op)
+        {
+	  newrhs = build_binary_op (location,
+				    modifycode, lhs, rhs, 1);
+
+	  /* The original type of the right hand side is no longer
+	     meaningful.  */
+	  rhs_origtype = NULL_TREE;
+	}
     }
 
   if (c_dialect_objc ())
@@ -4954,6 +4964,15 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
 		    "enum conversion in assignment is invalid in C++");
     }
 
+  /* If the lhs is atomic, remove that qualifier.  */
+  if (is_atomic_op)
+    {
+      lhstype = build_qualified_type (lhstype, 
+				      TYPE_QUALS(lhstype) & ~TYPE_QUAL_ATOMIC);
+      olhstype = build_qualified_type (olhstype, 
+				       TYPE_QUALS(lhstype) & ~TYPE_QUAL_ATOMIC);
+    }
+
   /* Convert new value to destination type.  Fold it first, then
      restore any excess precision information, for the sake of
      conversion warnings.  */
@@ -4980,9 +4999,14 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
 
   /* Scan operands.  */
 
-  result = build2 (MODIFY_EXPR, lhstype, lhs, newrhs);
-  TREE_SIDE_EFFECTS (result) = 1;
-  protected_set_expr_location (result, location);
+  if (is_atomic_op)
+    result = build_atomic_assign (location, lhs, modifycode, newrhs);
+  else
+    {
+      result = build2 (MODIFY_EXPR, lhstype, lhs, newrhs);
+      TREE_SIDE_EFFECTS (result) = 1;
+      protected_set_expr_location (result, location);
+    }
 
   /* If we got the LHS in a different type for storing in,
      convert the result back to the nominal type of LHS
@@ -11016,4 +11040,213 @@ c_build_va_arg (location_t loc, tree expr, tree type)
     warning_at (loc, OPT_Wc___compat,
 		"C++ requires promoted type, not enum type, in %<va_arg%>");
   return build_va_arg (loc, expr, type);
+}
+
+
+/* Expand atomic compound assignments into an approriate sequence as
+   specified by the C11 standard section 6.5.16.2.   
+    given 
+       _Atomic T1 E1
+       T2 E2
+       E1 op= E2
+
+ This sequence is used for integer, floating point and complex types. 
+
+ In addition the 'fe' prefixed routines may need to be invoked for 
+ floating point and complex when annex F is in effect (regarding floating
+ point or exceptional conditions)  See 6.5.16.2 footnote 113:
+
+ TODO these are not implemented as yes, but the comments are placed at the
+ correct locations in the code for the appropriate calls to be made.  They
+ should only be issued if the expression type is !INTEGRAL_TYPE_P().
+
+  T1 newval;
+  T1 old;
+  T1 *addr
+  T2 val
+  fenv_t fenv
+
+  addr = &E1;
+  val = (E2);
+  __atomic_load (addr, &old, SEQ_CST);
+  feholdexcept (&fenv);				<<-- float & complex only
+loop:
+    newval = old op val;
+    if (__atomic_compare_exchange_strong (addr, &old, &newval, SEQ_CST,
+					  SEQ_CST))
+      goto done;
+    feclearexcept (FE_ALL_EXCEPT);		<<-- float & complex only
+    goto loop:
+done:
+  feupdateenv (&fenv);				<<-- float & complex only
+
+
+ Also note that the compiler is simply issuing the generic form of the atomic
+ operations. This requires temp(s) and has their address taken.  The atomic
+ processing is smart enough to figure out when the size of an object can
+ utilize a lock free versionm, and convert the built-in call to the appropriate
+ lockfree routine.  The optimizers will then dispose of any temps that are no
+ longer required, and lock free implementations are utilized for integer, float
+ and complex as long as there is target supoprt for the required size. 
+
+ If the operator is NOP_EXPR, then this is a simple assignment, and an
+ __atomic_store is issued to perform the assignment rather than the above loop.
+
+*/
+
+/* Build an atomic assignment at LOC, expanding into the proper sequence to
+   store LHS MODIFYCODE= RHS.  Return a value representing the result of 
+   the operation.  */
+tree
+build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
+		     tree rhs)
+{
+  tree fndecl, func_call;
+  vec<tree, va_gc> *params;
+  tree val, nonatomic_type, newval, newval_addr;
+  tree old, old_addr;
+  tree stmt, goto_stmt;
+  tree loop_label, loop_decl, done_label, done_decl;
+
+  tree lhs_type = TREE_TYPE (lhs);
+  tree lhs_addr = build_unary_op (loc, ADDR_EXPR, lhs, 0);
+  tree seq_cst = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
+
+  gcc_assert (TYPE_ATOMIC (lhs_type));
+
+  /* allocate enough vector items for a compare_exchange.  */
+  vec_alloc (params, 6);
+
+  /* Remove the qualifiers for the rest of the expressions and create
+     the VAL temp variable to hold the RHS.  */
+  nonatomic_type = build_qualified_type (lhs_type, TYPE_UNQUALIFIED);
+  val = create_tmp_var (nonatomic_type, NULL);
+  TREE_ADDRESSABLE (val) = 1;
+  rhs = build2 (MODIFY_EXPR, nonatomic_type, val, rhs);
+  SET_EXPR_LOCATION (rhs, loc);
+  add_stmt (rhs);
+
+  /* NOP_EXPR indicates its a straight store of the RHS. Simply issue
+     and atomic_store.  */
+  if (modifycode == NOP_EXPR)
+    {
+      /* Build __atomic_store (&lhs, &val, SEQ_CST)  */
+      rhs = build_unary_op (loc, ADDR_EXPR, val, 0);
+      fndecl = builtin_decl_explicit (BUILT_IN_ATOMIC_STORE);
+      params->quick_push (lhs_addr);
+      params->quick_push (rhs);
+      params->quick_push (seq_cst);
+      func_call = build_function_call_vec (loc, fndecl, params, NULL);
+      add_stmt (func_call);
+
+      /* Val is the value which was stored, return it for any further value
+	 propagation.  */
+      return val;
+    }
+
+  /* Create the variables and labels required for the op= form.  */
+  old = create_tmp_var (nonatomic_type, NULL);
+  old_addr = build_unary_op (loc, ADDR_EXPR, old, 0);
+  TREE_ADDRESSABLE (val) = 1;
+
+  newval = create_tmp_var (nonatomic_type, NULL);
+  newval_addr = build_unary_op (loc, ADDR_EXPR, newval, 0);
+  TREE_ADDRESSABLE (newval) = 1;
+
+  loop_decl = create_artificial_label (loc);
+  loop_label = build1 (LABEL_EXPR, void_type_node, loop_decl);
+
+  done_decl = create_artificial_label (loc);
+  done_label = build1 (LABEL_EXPR, void_type_node, done_decl);
+
+  /* __atomic_load (addr, &old, SEQ_CST).  */
+  fndecl = builtin_decl_explicit (BUILT_IN_ATOMIC_LOAD);
+  params->quick_push (lhs_addr);
+  params->quick_push (old_addr);
+  params->quick_push (seq_cst);
+  func_call = build_function_call_vec (loc, fndecl, params, NULL);
+  add_stmt (func_call);
+  params->truncate (0);
+
+  /* TODO if (!integral)  issue feholdexcept (&fenv); */
+
+  /* loop:  */
+  add_stmt (loop_label);
+
+  /* newval = old + val;  */
+  rhs = build_binary_op (loc, modifycode, old, val, 1);
+  rhs = build2 (MODIFY_EXPR, nonatomic_type, newval, rhs);
+  SET_EXPR_LOCATION (rhs, loc);
+  add_stmt (rhs);
+
+  /* if (__atomic_compare_exchange (addr, &old, &new, false, SEQ_CST, SEQ_CST))
+       goto done;  */
+  fndecl = builtin_decl_explicit (BUILT_IN_ATOMIC_COMPARE_EXCHANGE);
+  params->quick_push (lhs_addr);
+  params->quick_push (old_addr);
+  params->quick_push (newval_addr);
+  params->quick_push (integer_zero_node);
+  params->quick_push (seq_cst);
+  params->quick_push (seq_cst);
+  func_call = build_function_call_vec (loc, fndecl, params, NULL);
+
+  goto_stmt = build1 (GOTO_EXPR, void_type_node, done_decl);
+  SET_EXPR_LOCATION (goto_stmt, loc);
+
+  stmt = build3 (COND_EXPR, void_type_node, func_call, goto_stmt, NULL_TREE);
+  SET_EXPR_LOCATION (stmt, loc);
+  add_stmt (stmt);
+  
+  /* TODO if (!integral) issue feclearexcept (FE_ALL_EXCEPT);  */
+
+  /* goto loop;  */
+  goto_stmt  = build1 (GOTO_EXPR, void_type_node, loop_decl);
+  SET_EXPR_LOCATION (goto_stmt, loc);
+  add_stmt (goto_stmt);
+ 
+  /* done:  */
+  add_stmt (done_label);
+
+  /* TODO If (!integral) issue feupdateenv (&fenv)  */
+
+  /* Newval is the value that was successfully stored, return that.  */
+  return newval;
+}
+
+
+/* This simply performs an atomic load from EXPR and returns the temp it was
+   loaded into.  */
+
+tree
+build_atomic_load (location_t loc, tree expr)
+{
+  vec<tree, va_gc> *params;
+  tree nonatomic_type, tmp, tmp_addr, fndecl, func_call;
+  tree expr_type = TREE_TYPE (expr);
+  tree expr_addr = build_unary_op (loc, ADDR_EXPR, expr, 0);
+  tree seq_cst = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
+
+  gcc_assert (TYPE_ATOMIC (expr_type));
+
+  /* Expansion of a generic atomoic load may require an addition element, so
+     allocate enough to prevent a resize.  */
+  vec_alloc (params, 4);
+
+  /* Remove the qualifiers for the rest of the expressions and create
+     the VAL temp variable to hold the RHS.  */
+  nonatomic_type = build_qualified_type (expr_type, TYPE_UNQUALIFIED);
+  tmp = create_tmp_var (nonatomic_type, NULL);
+  tmp_addr = build_unary_op (loc, ADDR_EXPR, tmp, 0);
+  TREE_ADDRESSABLE (tmp) = 1;
+
+  /* Issue __atomic_load (&expr, &tmp, SEQ_CST);  */
+  fndecl = builtin_decl_explicit (BUILT_IN_ATOMIC_LOAD);
+  params->quick_push (expr_addr);
+  params->quick_push (tmp_addr);
+  params->quick_push (seq_cst);
+  func_call = build_function_call_vec (loc, fndecl, params, NULL);
+  add_stmt (func_call);
+
+  /* return tmp which contains the value loaded,  */
+  return tmp;
 }

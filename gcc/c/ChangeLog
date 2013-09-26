@@ -1,3 +1,11 @@
+2013-09-26  Andrew MacLeod  <amacleod@redhat.com>
+	* c/c-parser.c (c_parser_expr_no_commas): Call build_atomic_load on RHS.
+	* c/c-typeck.c (build_modify_expr): Call build_atomic_assign for atomic
+	expressions.
+	(build_atomic_assign): New.  Construct appropriate sequences for atomic
+	assignment operations.
+	(build_atomic_load):  New.  Construct an atomic load.
+
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* c-aux-info.c (gen_type): Handle atomic qualifier.
